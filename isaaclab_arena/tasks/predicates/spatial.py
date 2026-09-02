@@ -243,8 +243,8 @@ def object_on_destination(
         support_cone_half_angle_deg=support_cone_half_angle_deg,
     )
 
-    object_linear_velocity_w = arena_world.get_linear_velocity_w(object_cfg.name)
-    object_moves_slowly = object_is_moving_slowly(object_linear_velocity_w, velocity_threshold)
+    object_root_linear_velocity_w = arena_world.get_root_linear_velocity_w(object_cfg.name)
+    object_moves_slowly = object_is_moving_slowly(object_root_linear_velocity_w, velocity_threshold)
     return object_center_over_destination & destination_provides_upward_support & object_moves_slowly
 
 

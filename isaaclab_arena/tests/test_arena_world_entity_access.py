@@ -48,10 +48,10 @@ def _check_rigid_object_reads_and_entity_frame_aabb_cache(
             self.torch = tensor
 
     class RigidObjectDouble:
-        def __init__(self, T_W_E: torch.Tensor, linear_velocity_w: torch.Tensor):
+        def __init__(self, T_W_E: torch.Tensor, root_linear_velocity_w: torch.Tensor):
             self.data = SimpleNamespace(
                 root_pose_w=RuntimeBufferDouble(T_W_E),
-                root_lin_vel_w=RuntimeBufferDouble(linear_velocity_w),
+                root_lin_vel_w=RuntimeBufferDouble(root_linear_velocity_w),
             )
 
     class SceneDouble:
@@ -64,7 +64,7 @@ def _check_rigid_object_reads_and_entity_frame_aabb_cache(
                         [0.0, 0.0, 0.2, 0.0, 0.0, 0.0, 1.0],
                         [1.0, 0.0, 0.2, 0.0, 0.0, 0.0, 1.0],
                     ]),
-                    linear_velocity_w=torch.tensor([
+                    root_linear_velocity_w=torch.tensor([
                         [0.0, 0.0, 0.0],
                         [0.1, 0.2, 0.3],
                     ]),
@@ -74,7 +74,7 @@ def _check_rigid_object_reads_and_entity_frame_aabb_cache(
                         [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0],
                         [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0],
                     ]),
-                    linear_velocity_w=torch.zeros((2, 3)),
+                    root_linear_velocity_w=torch.zeros((2, 3)),
                 ),
             }
             self.extras = {}
@@ -96,17 +96,17 @@ def _check_rigid_object_reads_and_entity_frame_aabb_cache(
         )
 
     T_W_O_initial = scene.rigid_objects["object"].data.root_pose_w.torch.clone()
-    initial_linear_velocity_w = scene.rigid_objects["object"].data.root_lin_vel_w.torch.clone()
+    initial_root_linear_velocity_w = scene.rigid_objects["object"].data.root_lin_vel_w.torch.clone()
     torch.testing.assert_close(arena_world.get_pose_w("object"), T_W_O_initial)
-    torch.testing.assert_close(arena_world.get_linear_velocity_w("object"), initial_linear_velocity_w)
+    torch.testing.assert_close(arena_world.get_root_linear_velocity_w("object"), initial_root_linear_velocity_w)
 
     T_W_O_moved = T_W_O_initial.clone()
     T_W_O_moved[:, 0] += 0.25
-    changed_linear_velocity_w = initial_linear_velocity_w + 0.5
+    changed_root_linear_velocity_w = initial_root_linear_velocity_w + 0.5
     scene.rigid_objects["object"].data.root_pose_w.torch = T_W_O_moved
-    scene.rigid_objects["object"].data.root_lin_vel_w.torch = changed_linear_velocity_w
+    scene.rigid_objects["object"].data.root_lin_vel_w.torch = changed_root_linear_velocity_w
     torch.testing.assert_close(arena_world.get_pose_w("object"), T_W_O_moved)
-    torch.testing.assert_close(arena_world.get_linear_velocity_w("object"), changed_linear_velocity_w)
+    torch.testing.assert_close(arena_world.get_root_linear_velocity_w("object"), changed_root_linear_velocity_w)
 
     with patch.object(
         entity_access_module,

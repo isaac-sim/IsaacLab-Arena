@@ -19,7 +19,7 @@ class ArenaWorld:
     """Provide name-based live scene queries and cache derived geometry.
 
     Pose and geometry queries support entities registered in ``InteractiveScene.rigid_objects`` or
-    ``InteractiveScene.extras``. Linear velocity queries support rigid objects only.
+    ``InteractiveScene.extras``. Root linear velocity queries support rigid objects only.
     """
 
     def __init__(self, scene: InteractiveScene):
@@ -52,16 +52,16 @@ class ArenaWorld:
         ), f"Scene entity '{entity_name}' returned pose shape {tuple(T_W_E.shape)}; expected ({scene.num_envs}, 7)."
         return T_W_E
 
-    def get_linear_velocity_w(self, entity_name: str) -> torch.Tensor:
-        """Return a rigid object's current world-frame linear velocity."""
+    def get_root_linear_velocity_w(self, entity_name: str) -> torch.Tensor:
+        """Return a rigid object's current world-frame root linear velocity."""
         scene = self._get_scene()
         assert entity_name in scene.rigid_objects, f"Scene entity '{entity_name}' must be a rigid object."
-        linear_velocity_w = scene.rigid_objects[entity_name].data.root_lin_vel_w.torch
-        assert linear_velocity_w.shape == (scene.num_envs, 3), (
-            f"Rigid object '{entity_name}' returned linear velocity shape {tuple(linear_velocity_w.shape)}; "
+        root_linear_velocity_w = scene.rigid_objects[entity_name].data.root_lin_vel_w.torch
+        assert root_linear_velocity_w.shape == (scene.num_envs, 3), (
+            f"Rigid object '{entity_name}' returned root linear velocity shape {tuple(root_linear_velocity_w.shape)}; "
             f"expected ({scene.num_envs}, 3)."
         )
-        return linear_velocity_w
+        return root_linear_velocity_w
 
     def get_aabb_in_entity_frame(self, entity_name: str) -> AxisAlignedBoundingBox:
         """Return cached geometry bounds expressed in the named entity frame ``E``."""

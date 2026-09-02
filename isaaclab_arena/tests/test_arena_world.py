@@ -39,7 +39,7 @@ def _test_arena_world(_simulation_app) -> bool:
         # S is the sphere frame.
         T_W_S_initial = arena_world.get_pose_w(sphere_name).clone()
         assert T_W_S_initial.shape == (num_envs, 7)
-        assert arena_world.get_linear_velocity_w(sphere_name).shape == (num_envs, 3)
+        assert arena_world.get_root_linear_velocity_w(sphere_name).shape == (num_envs, 3)
 
         sphere_bounds_S = arena_world.get_aabb_in_entity_frame(sphere_name)
         assert sphere_bounds_S.min_point.shape == (num_envs, 3)

@@ -79,13 +79,13 @@ def _check_object_on_destination(
     """Check combined results and the entity state read by the predicate."""
 
     class ArenaWorldDouble:
-        def __init__(self, T_W_E_by_entity_name, aabbs_E_by_entity_name, linear_velocities_w_by_entity_name):
+        def __init__(self, T_W_E_by_entity_name, aabbs_E_by_entity_name, root_linear_velocities_w_by_entity_name):
             self.T_W_E_by_entity_name = T_W_E_by_entity_name
             self.aabbs_E_by_entity_name = aabbs_E_by_entity_name
-            self.linear_velocities_w_by_entity_name = linear_velocities_w_by_entity_name
+            self.root_linear_velocities_w_by_entity_name = root_linear_velocities_w_by_entity_name
             self.pose_queries = []
             self.aabb_in_entity_frame_queries = []
-            self.linear_velocity_queries = []
+            self.root_linear_velocity_queries = []
 
         def get_pose_w(self, entity_name):
             self.pose_queries.append(entity_name)
@@ -95,9 +95,9 @@ def _check_object_on_destination(
             self.aabb_in_entity_frame_queries.append(entity_name)
             return self.aabbs_E_by_entity_name[entity_name]
 
-        def get_linear_velocity_w(self, entity_name):
-            self.linear_velocity_queries.append(entity_name)
-            return self.linear_velocities_w_by_entity_name[entity_name]
+        def get_root_linear_velocity_w(self, entity_name):
+            self.root_linear_velocity_queries.append(entity_name)
+            return self.root_linear_velocities_w_by_entity_name[entity_name]
 
     class EnvironmentDouble:
         def __init__(self, arena_world, contact_sensor):
@@ -121,7 +121,7 @@ def _check_object_on_destination(
         [0.0, 0.0, 0.2, *identity_quaternion],
     ])
     T_W_D = torch.tensor([[0.0, 0.0, 0.0, *identity_quaternion]]).expand(4, 7)
-    object_linear_velocity_w = torch.tensor([
+    object_root_linear_velocity_w = torch.tensor([
         [0.0, 0.0, 0.0],
         [0.0, 0.0, 0.0],
         [0.0, 0.0, 0.0],
@@ -135,7 +135,7 @@ def _check_object_on_destination(
     ])
 
     coarse_contact_and_velocity_result = (torch.linalg.vector_norm(contact_force_w, dim=-1) > 0.1) & (
-        torch.linalg.vector_norm(object_linear_velocity_w, dim=-1) < 0.1
+        torch.linalg.vector_norm(object_root_linear_velocity_w, dim=-1) < 0.1
     )
     torch.testing.assert_close(coarse_contact_and_velocity_result, torch.tensor([True, True, True, False]))
 
@@ -151,7 +151,7 @@ def _check_object_on_destination(
                 max_point=torch.tensor([1.0, 0.5, 0.4]).expand(4, 3),
             ),
         },
-        linear_velocities_w_by_entity_name={"object": object_linear_velocity_w},
+        root_linear_velocities_w_by_entity_name={"object": object_root_linear_velocity_w},
     )
     env = EnvironmentDouble(arena_world, ContactSensorDouble(contact_force_w))
     wrapped_env = SimpleNamespace(unwrapped=env)
@@ -176,7 +176,7 @@ def _check_object_on_destination(
     assert not spatial.object_on_destination(env, **predicate_parameters)[0]
     assert arena_world.pose_queries == ["object", "destination", "object", "destination"]
     assert arena_world.aabb_in_entity_frame_queries == ["object", "destination", "object", "destination"]
-    assert arena_world.linear_velocity_queries == ["object", "object"]
+    assert arena_world.root_linear_velocity_queries == ["object", "object"]
 
 
 def _test_object_on_destination(_simulation_app) -> bool:
