@@ -3,13 +3,25 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from types import SimpleNamespace
+
 import pytest
 
+from isaaclab_arena.evaluation.policy_runner import disable_fabric_for_policy_runner
 from isaaclab_arena.tests.utils.constants import TestConstants
 from isaaclab_arena.tests.utils.subprocess import run_subprocess
 
 HEADLESS = True
 NUM_STEPS = 2
+
+
+def test_policy_runner_environment_uses_cpu_without_fabric():
+    builder = SimpleNamespace(cfg=SimpleNamespace(device="cuda:3", disable_fabric=False))
+
+    disable_fabric_for_policy_runner(builder)
+
+    assert builder.cfg.device == "cpu"
+    assert builder.cfg.disable_fabric
 
 
 def run_policy_runner(

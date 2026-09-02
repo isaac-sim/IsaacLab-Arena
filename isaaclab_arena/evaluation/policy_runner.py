@@ -28,6 +28,7 @@ from isaaclab_arena.visualization.report import build_report, serve_until_ctrl_c
 from isaaclab_arena_environments.cli import get_arena_builder_from_cli, get_isaaclab_arena_environments_cli_parser
 
 if TYPE_CHECKING:
+    from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.metrics.metric_data import MetricsDataCollection
     from isaaclab_arena.policy.policy_base import PolicyBase
 
@@ -61,6 +62,25 @@ def is_distributed(args_cli: argparse.Namespace) -> bool:
     return (
         "cuda" in args_cli.device and hasattr(args_cli, "distributed") and args_cli.distributed and get_world_size() > 1
     )
+
+
+def disable_fabric_for_policy_runner(arena_builder: ArenaEnvBuilder) -> None:
+    """Disable Fabric and force CPU physics for the Policy Runner environment.
+
+    Args:
+        arena_builder: Environment builder whose configuration is mutated in place.
+    """
+    # TODO(alexmillane, 2026-08-31): [lab-render-after-rebuild-bug] Remove this once the render after
+    # rebuild bug is solved in Lab. Keep Policy Runner environments on the same known-good rendering
+    # path as multi-build Experiments: CPU physics with Fabric disabled. Mutating only the builder
+    # configuration preserves the policy's configured inference device.
+    print(
+        "Disabling Fabric and forcing the CPU device for the Policy Runner environment "
+        "to avoid GPU+Fabric rendering artifacts (slower than running on GPU with Fabric).",
+        flush=True,
+    )
+    arena_builder.cfg.disable_fabric = True
+    arena_builder.cfg.device = "cpu"
 
 
 def rollout_policy(
@@ -202,6 +222,7 @@ def main():
 
         # Build scene. Use rgb_array render mode when recording so RecordVideo can grab frames.
         arena_builder = get_arena_builder_from_cli(args_cli, hydra_overrides=hydra_overrides)
+        disable_fabric_for_policy_runner(arena_builder)
 
         output_dir = timestamped_run_dir(args_cli.output_base_dir)
         video_cfg = VideoRecordingCfg(

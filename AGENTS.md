@@ -71,6 +71,15 @@ env.unwrapped.cfg                       # access Isaac Lab config
 env.unwrapped.device                    # access Isaac Lab device
 ```
 
+### Rendering Safety
+
+Until the Isaac Lab GPU+Fabric post-rebuild rendering bug is fixed, configure every Arena
+environment that produces viewport or camera renders with CPU physics and Fabric disabled. Set
+`ArenaEnvBuilderCfg(device="cpu", disable_fabric=True)` or the equivalent runner overrides. Kit/RTX
+rendering still runs on the GPU; the builder device selects the physics device. Keep a policy's
+inference device separate when applying this workaround. Direct USD thumbnail rendering does not
+build a physics environment, so Fabric does not apply to it.
+
 ### Writing Tests
 
 Simulation tests use an inner/outer function pattern to handle Isaac Sim's process lifecycle:

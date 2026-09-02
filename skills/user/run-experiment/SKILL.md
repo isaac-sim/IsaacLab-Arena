@@ -60,6 +60,10 @@ zero-action policy and requires no model or policy server.
 - Default to `--viz none` for unattended execution. Use `--viz kit` only when requested.
 - Record viewport or camera video only when requested. Camera recording enables camera support and
   can materially increase GPU memory and output size.
+- For any viewport or camera rendering, use CPU physics and disable Fabric for every rendered Run.
+  Kit/RTX rendering remains GPU-backed. Pass `--device cpu` and one
+  `runs.<name>.environment_builder.disable_fabric=true` override per rendered Run, even when the
+  Experiment performs only one build. Keep policy-server and policy-inference devices unchanged.
 - Preserve the runner's default stop-on-first-error behavior. Add `--continue_on_error` only when
   the user wants the remaining Runs attempted after a failure.
 - Use `--serve_evaluation_report` only when explicitly requested; it binds an HTTP server and keeps
@@ -105,7 +109,12 @@ Use the local override namespace:
 ```text
 shared.rollout_limit.num_episodes=4
 runs.parallel_envs.environment_builder.num_envs=8
+runs.parallel_envs.environment_builder.disable_fabric=true
 ```
+
+When recording the viewport for every Run, add the Fabric override once for each declared Run and
+pass `--device cpu` as a runner flag. Do not add `shared.environment_builder` solely for this
+workaround when the source YAML does not already declare it; shared overrides cannot create fields.
 
 Do not prefix local overrides with `experiment_cfg.`; that prefix belongs to OSMO submission.
 Quote override tokens that contain shell-sensitive characters. Do not edit the source YAML when a
