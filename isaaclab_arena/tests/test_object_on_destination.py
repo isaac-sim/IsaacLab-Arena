@@ -79,25 +79,25 @@ def _check_object_on_destination(
     """Check combined results and the entity state read by the predicate."""
 
     class ArenaWorldDouble:
-        def __init__(self, poses_w, local_aabbs, linear_velocities_w):
-            self.poses_w = poses_w
-            self.local_aabbs = local_aabbs
-            self.linear_velocities_w = linear_velocities_w
+        def __init__(self, T_W_E_by_entity_name, aabbs_E_by_entity_name, linear_velocities_w_by_entity_name):
+            self.T_W_E_by_entity_name = T_W_E_by_entity_name
+            self.aabbs_E_by_entity_name = aabbs_E_by_entity_name
+            self.linear_velocities_w_by_entity_name = linear_velocities_w_by_entity_name
             self.pose_queries = []
-            self.local_aabb_queries = []
+            self.aabb_in_entity_frame_queries = []
             self.linear_velocity_queries = []
 
         def get_pose_w(self, entity_name):
             self.pose_queries.append(entity_name)
-            return self.poses_w[entity_name]
+            return self.T_W_E_by_entity_name[entity_name]
 
-        def get_local_aabb(self, entity_name):
-            self.local_aabb_queries.append(entity_name)
-            return self.local_aabbs[entity_name]
+        def get_aabb_in_entity_frame(self, entity_name):
+            self.aabb_in_entity_frame_queries.append(entity_name)
+            return self.aabbs_E_by_entity_name[entity_name]
 
         def get_linear_velocity_w(self, entity_name):
             self.linear_velocity_queries.append(entity_name)
-            return self.linear_velocities_w[entity_name]
+            return self.linear_velocities_w_by_entity_name[entity_name]
 
     class EnvironmentDouble:
         def __init__(self, arena_world, contact_sensor):
@@ -114,13 +114,13 @@ def _check_object_on_destination(
             self.data = SimpleNamespace(force_matrix_w=RuntimeBufferDouble(contact_force_w[:, None, None, :]))
 
     identity_quaternion = (0.0, 0.0, 0.0, 1.0)
-    object_pose_w = torch.tensor([
+    T_W_O = torch.tensor([
         [0.0, 0.0, 0.2, *identity_quaternion],
         [1.1, 0.0, 0.2, *identity_quaternion],
         [0.0, 0.0, 0.2, *identity_quaternion],
         [0.0, 0.0, 0.2, *identity_quaternion],
     ])
-    destination_pose_w = torch.tensor([[0.0, 0.0, 0.0, *identity_quaternion]]).expand(4, 7)
+    T_W_D = torch.tensor([[0.0, 0.0, 0.0, *identity_quaternion]]).expand(4, 7)
     object_linear_velocity_w = torch.tensor([
         [0.0, 0.0, 0.0],
         [0.0, 0.0, 0.0],
@@ -140,8 +140,8 @@ def _check_object_on_destination(
     torch.testing.assert_close(coarse_contact_and_velocity_result, torch.tensor([True, True, True, False]))
 
     arena_world = ArenaWorldDouble(
-        poses_w={"object": object_pose_w, "destination": destination_pose_w},
-        local_aabbs={
+        T_W_E_by_entity_name={"object": T_W_O, "destination": T_W_D},
+        aabbs_E_by_entity_name={
             "object": axis_aligned_bounding_box_type(
                 min_point=torch.tensor([-0.1, -0.1, -0.1]).expand(4, 3),
                 max_point=torch.tensor([0.1, 0.1, 0.1]).expand(4, 3),
@@ -151,7 +151,7 @@ def _check_object_on_destination(
                 max_point=torch.tensor([1.0, 0.5, 0.4]).expand(4, 3),
             ),
         },
-        linear_velocities_w={"object": object_linear_velocity_w},
+        linear_velocities_w_by_entity_name={"object": object_linear_velocity_w},
     )
     env = EnvironmentDouble(arena_world, ContactSensorDouble(contact_force_w))
     wrapped_env = SimpleNamespace(unwrapped=env)
@@ -172,10 +172,10 @@ def _check_object_on_destination(
     torch.testing.assert_close(predicate_result, torch.tensor([True, False, False, False]))
 
     # Exercise the unwrapped call path with changed live state.
-    object_pose_w[0, 0] = 2.0
+    T_W_O[0, 0] = 2.0
     assert not spatial.object_on_destination(env, **predicate_parameters)[0]
     assert arena_world.pose_queries == ["object", "destination", "object", "destination"]
-    assert arena_world.local_aabb_queries == ["object", "destination", "object", "destination"]
+    assert arena_world.aabb_in_entity_frame_queries == ["object", "destination", "object", "destination"]
     assert arena_world.linear_velocity_queries == ["object", "object"]
 
 

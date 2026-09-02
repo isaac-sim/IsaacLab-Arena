@@ -36,23 +36,24 @@ def _test_arena_world(_simulation_app) -> bool:
     arena_world = env.unwrapped.arena_world
     try:
         env.reset()
-        initial_pose_w = arena_world.get_pose_w(sphere_name).clone()
-        assert initial_pose_w.shape == (num_envs, 7)
+        # S is the sphere frame.
+        T_W_S_initial = arena_world.get_pose_w(sphere_name).clone()
+        assert T_W_S_initial.shape == (num_envs, 7)
         assert arena_world.get_linear_velocity_w(sphere_name).shape == (num_envs, 3)
 
-        local_aabb = arena_world.get_local_aabb(sphere_name)
-        assert local_aabb.min_point.shape == (num_envs, 3)
-        assert local_aabb.max_point.shape == (num_envs, 3)
-        assert arena_world.get_local_aabb(sphere_name) is local_aabb
+        sphere_bounds_S = arena_world.get_aabb_in_entity_frame(sphere_name)
+        assert sphere_bounds_S.min_point.shape == (num_envs, 3)
+        assert sphere_bounds_S.max_point.shape == (num_envs, 3)
+        assert arena_world.get_aabb_in_entity_frame(sphere_name) is sphere_bounds_S
 
-        moved_pose_w = initial_pose_w.clone()
-        moved_pose_w[:, 0] += 0.25
-        env.unwrapped.scene[sphere_name].write_root_pose_to_sim(moved_pose_w)
-        torch.testing.assert_close(arena_world.get_pose_w(sphere_name), moved_pose_w)
-        assert arena_world.get_local_aabb(sphere_name) is local_aabb
+        T_W_S_moved = T_W_S_initial.clone()
+        T_W_S_moved[:, 0] += 0.25
+        env.unwrapped.scene[sphere_name].write_root_pose_to_sim(T_W_S_moved)
+        torch.testing.assert_close(arena_world.get_pose_w(sphere_name), T_W_S_moved)
+        assert arena_world.get_aabb_in_entity_frame(sphere_name) is sphere_bounds_S
 
         env.reset()
-        assert arena_world.get_local_aabb(sphere_name) is local_aabb
+        assert arena_world.get_aabb_in_entity_frame(sphere_name) is sphere_bounds_S
     finally:
         env.close()
 
