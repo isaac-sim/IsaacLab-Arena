@@ -24,8 +24,8 @@ class ArenaWorld:
 
     def __init__(self, scene: InteractiveScene):
         self._scene: InteractiveScene | None = scene
-        self._aabbs_in_entity_frame: dict[str, AxisAlignedBoundingBox] = {}
-        self._scene_extra_pose_readers: dict[str, entity_access.SceneExtraPoseReader] = {}
+        self._aabbs_in_entity_frame_cache: dict[str, AxisAlignedBoundingBox] = {}
+        self._scene_extra_pose_reader_cache: dict[str, entity_access.SceneExtraPoseReader] = {}
 
     def get_pose_w(self, entity_name: str) -> torch.Tensor:
         """Return ``T_W_E``, mapping the named entity frame ``E`` into world frame ``W``.
@@ -66,15 +66,15 @@ class ArenaWorld:
     def get_aabb_in_entity_frame(self, entity_name: str) -> AxisAlignedBoundingBox:
         """Return cached geometry bounds expressed in the named entity frame ``E``."""
         scene = self._get_scene()
-        if entity_name not in self._aabbs_in_entity_frame:
+        if entity_name not in self._aabbs_in_entity_frame_cache:
             aabb_E = entity_access.compute_spawned_geometry_bounds_in_entity_frame(scene, entity_name)
-            self._aabbs_in_entity_frame[entity_name] = aabb_E
-        return self._aabbs_in_entity_frame[entity_name]
+            self._aabbs_in_entity_frame_cache[entity_name] = aabb_E
+        return self._aabbs_in_entity_frame_cache[entity_name]
 
     def close(self) -> None:
         """Release cached geometry, pose readers, and the live scene reference."""
-        self._aabbs_in_entity_frame.clear()
-        self._scene_extra_pose_readers.clear()
+        self._aabbs_in_entity_frame_cache.clear()
+        self._scene_extra_pose_reader_cache.clear()
         self._scene = None
 
     def _get_scene_extra_pose_reader(
@@ -83,9 +83,9 @@ class ArenaWorld:
         entity_name: str,
     ) -> entity_access.SceneExtraPoseReader:
         """Return the cached live-pose reader for a scene extra."""
-        if entity_name not in self._scene_extra_pose_readers:
-            self._scene_extra_pose_readers[entity_name] = entity_access.SceneExtraPoseReader(scene, entity_name)
-        return self._scene_extra_pose_readers[entity_name]
+        if entity_name not in self._scene_extra_pose_reader_cache:
+            self._scene_extra_pose_reader_cache[entity_name] = entity_access.SceneExtraPoseReader(scene, entity_name)
+        return self._scene_extra_pose_reader_cache[entity_name]
 
     def _get_scene(self) -> InteractiveScene:
         """Return the live scene while this world is open."""
