@@ -1,4 +1,5 @@
-ARG BASE_IMAGE=nvcr.io/nvidia/isaac-sim:6.0.1
+# TODO (peterd): Change this to the public Sim 6.1 image once it's released
+ARG BASE_IMAGE=nvcr.io/0947644777160149/internal/isaac-sim:latest-release-6-1
 
 FROM ${BASE_IMAGE}
 
