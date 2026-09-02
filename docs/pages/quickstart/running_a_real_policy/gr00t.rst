@@ -46,20 +46,9 @@ Run GR00T with the Experiment Runner
 If you run Arena from its native ``uv`` environment, install the GR00T client
 package:
 
-.. tab-set::
+.. code-block:: bash
 
-   .. tab-item:: Source
-      :selected:
-
-      .. code-block:: bash
-
-         uv sync --group gr00t-client
-
-   .. tab-item:: Wheel
-
-      .. code-block:: bash
-
-         uv sync --no-default-groups --group isaaclab-from-wheel --group gr00t-client
+   uv sync --group gr00t-client
 
 Arena includes a one-Run YAML configuration for the first rollout. It selects the
 DROID environment, connects the GR00T policy to the server, and stops after three episodes.

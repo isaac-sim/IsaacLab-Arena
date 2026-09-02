@@ -1,0 +1,62 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+env_name: kitchen_bench_lightwheel_open_oven_g_shaped_large_scandinavian
+embodiment:
+  id: droid
+  registry_name: droid_abs_joint_pos
+  params:
+    stand_height_m: 0.7
+    placement_bbox_stand_only: true
+    collision_mode: mesh
+background:
+  id: kitchen
+  registry_name: lightwheel_kitchen_g_shaped_large_scandinavian
+  params:
+    collision_mode: mesh
+    repair_collision_mesh_non_watertight: false
+objects: []
+object_references:
+- id: floor
+  parent_id: kitchen
+  prim_path: floor_room/geometry
+  object_type: base
+  params: {}
+- id: oven
+  parent_id: kitchen
+  prim_path: oven_right_group
+  object_type: articulation
+  params:
+    openable_joint_name: door_joint
+relations:
+- kind: is_anchor
+  subject: floor
+  params: {}
+- kind: is_anchor
+  subject: oven
+  params: {}
+- kind: 'on'
+  subject: droid
+  reference: floor
+  params: {}
+- kind: next_to
+  subject: droid
+  reference: oven
+  params:
+    side: negative_x
+    distance_m: 0.45
+- kind: rotate_around_solution
+  subject: droid
+  params:
+    yaw_rad: 0.0
+task:
+  composition: atomic
+  description: Open the oven door below the microwave.
+  subtasks:
+  - kind: OpenDoorTask
+    params:
+      openable_object: oven
+      openness_threshold: 0.4
+      reset_openness: 0.0
