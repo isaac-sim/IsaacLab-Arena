@@ -1,0 +1,80 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Add benchmark prompts here, then select one with --case <name>.
+default_case: tabletop_banana_plate_distractors_0
+
+cases:
+  tabletop_banana_plate_distractors_0:
+    prompt: >-
+      Droid picks up the banana from the maple table and places it on the
+      plate. There are no fruit or vegetable distractors on the table.
+    object_references_expected: false
+
+  tabletop_banana_plate_distractors_6:
+    prompt: >-
+      Droid picks up the banana from the maple table and places it on the
+      plate. There are 6 fruits or vegetables on the table as distractors.
+    object_references_expected: false
+
+  tabletop_banana_plate_distractors_14:
+    prompt: >-
+      Droid picks up the banana from the maple table and places it on the
+      plate. There are 14 fruits or vegetables on the table as distractors.
+    object_references_expected: false
+
+  # This case enables missing-object inference and the SimReady service API.
+  tabletop_beverage_can_basket_simready:
+    prompt: >-
+      Droid picks up a beverage can from the maple table and places it into
+      the mini plastic basket on the table.
+    object_references_expected: false
+    enable_simready_search: true
+    simready_source: service
+    simready_max_results_per_object: 3
+
+  tabletop_heterogeneous_fruit_plate:
+    prompt: >-
+      Droid picks up a fruit from the maple table and places it on the plate.
+      Each environment contains a different fruit.
+    object_references_expected: false
+
+  kitchen_banana_plate_distractors_0:
+    prompt: >-
+      There is a center-right counter top and a floor in the
+      lightwheel_kitchen_one_wall_coastal background. DROID picks up a banana
+      on the counter top (top_geometry_right) and places it on a plate. DROID
+      is next to the counter along negative y axis, and 0.3 m away from the
+      counter top and on the floor. It rotates 1.57 radians around its placement solution.
+    object_references_expected: true
+
+  kitchen_banana_plate_distractors_6:
+    prompt: >-
+       There is a center-right counter top and a floor in the
+       lightwheel_kitchen_one_wall_coastal background. DROID picks up a banana
+       on the counter top (top_geometry_right) and places it on a plate. DROID
+       is next to the counter along negative y axis, and 0.3 m away from the
+       counter top and on the floor. It rotates 1.57 radians around its placement solution.
+       There are 6 fruits or vegetables on the counter top as distractors.
+    object_references_expected: true
+
+  kitchen_banana_plate_distractors_14:
+    prompt: >-
+       There is a center-right counter top and a floor in the
+       lightwheel_kitchen_one_wall_coastal background. DROID picks up a banana
+       on the counter top (top_geometry_right) and places it on a plate. DROID
+       is next to the counter along negative y axis, and 0.3 m away from the
+       counter top and on the floor.  It rotates 1.57 radians around its placement solution.
+       There are 14 fruits or vegetables on the counter top as distractors.
+    object_references_expected: true
+
+  kitchen_open_fridge_door:
+    prompt: >-
+      There is a floor and a fridge in the lightwheel_kitchen_one_wall_coastal
+      kitchen. DROID is on the floor and next to the fridge on its negative-y
+      side with 0.1 meter distance. Rotate DROID around its placement solution
+      by 1.57 radians so the robot faces the fridge. DROID opens the fridge
+      door to the 0.2 openness threshold.
+    object_references_expected: true

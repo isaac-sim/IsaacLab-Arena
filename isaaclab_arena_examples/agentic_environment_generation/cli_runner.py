@@ -36,7 +36,7 @@ import json
 import logging
 import sys
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from isaaclab_arena.agentic_environment_generation.inference_backend import DEFAULT_ENDPOINT_NAME, INFERENCE_ENDPOINTS
 from isaaclab_arena.agentic_environment_generation.spec_io import (
@@ -55,30 +55,20 @@ if TYPE_CHECKING:
 DEFAULT_PROMPT = "Franka picks up a cube from the maple table and places it into a bowl on the table."
 
 
-def add_agentic_env_gen_runner_cli_args(parser: argparse.ArgumentParser) -> None:
-    from isaaclab_arena.agentic_environment_generation.simready_asset_search import SimReadySourceKind
+def add_agent_inference_cli_args(group: Any, *, include_prompt: bool = True) -> None:
+    """Add the prompt, endpoint, and model sampling arguments shared by agent CLIs.
 
-    group = parser.add_argument_group("Agentic Environment Generation Runner")
-    group.add_argument(
-        "--mode",
-        type=str,
-        choices=("full", "resolve", "build", "schema", "catalog", "prim_tree"),
-        default="full",
-        help=(
-            "Which phases to run: 'schema' (print the spec JSON schema and exit), "
-            "'catalog' (print the agent catalog and exit), "
-            "'prim_tree' (print the background prim tree of --env_spec and exit), "
-            "'resolve' (prompt -> spec YAML, no Isaac Sim), "
-            "'build' (needs --env_spec), or 'full' (resolve and build in one process; default). "
-            "'schema', 'catalog', and 'prim_tree' make no agent call."
-        ),
-    )
-    group.add_argument(
-        "--prompt",
-        type=str,
-        default=DEFAULT_PROMPT,
-        help="Natural-language env description passed to the generation agent.",
-    )
+    Args:
+        group: Argparse parser or argument group to extend.
+        include_prompt: Add ``--prompt`` when the caller does not provide its own prompt selector.
+    """
+    if include_prompt:
+        group.add_argument(
+            "--prompt",
+            type=str,
+            default=DEFAULT_PROMPT,
+            help="Natural-language env description passed to the generation agent.",
+        )
     group.add_argument(
         "--model",
         type=str,
@@ -101,6 +91,27 @@ def add_agentic_env_gen_runner_cli_args(parser: argparse.ArgumentParser) -> None
         default=0.2,
         help="LLM sampling temperature (default: 0.2).",
     )
+
+
+def add_agentic_env_gen_runner_cli_args(parser: argparse.ArgumentParser) -> None:
+    from isaaclab_arena.agentic_environment_generation.simready_asset_search import SimReadySourceKind
+
+    group = parser.add_argument_group("Agentic Environment Generation Runner")
+    group.add_argument(
+        "--mode",
+        type=str,
+        choices=("full", "resolve", "build", "schema", "catalog", "prim_tree"),
+        default="full",
+        help=(
+            "Which phases to run: 'schema' (print the spec JSON schema and exit), "
+            "'catalog' (print the agent catalog and exit), "
+            "'prim_tree' (print the background prim tree of --env_spec and exit), "
+            "'resolve' (prompt -> spec YAML, no Isaac Sim), "
+            "'build' (needs --env_spec), or 'full' (resolve and build in one process; default). "
+            "'schema', 'catalog', and 'prim_tree' make no agent call."
+        ),
+    )
+    add_agent_inference_cli_args(group)
     group.add_argument(
         "--num_steps",
         type=int,
