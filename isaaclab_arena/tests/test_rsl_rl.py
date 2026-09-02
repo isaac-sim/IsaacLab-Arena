@@ -44,7 +44,6 @@ def run_rl_train(
         str(num_envs),
         "--max_iterations",
         str(max_iterations),
-        "--headless",
     ]
     if embodiment is not None:
         args += ["--embodiment", embodiment]
@@ -72,7 +71,6 @@ def run_policy_runner(checkpoint_path: str, example_environment: str, embodiment
         checkpoint_path,
         "--num_steps",
         str(NUM_STEPS),
-        "--headless",
         example_environment,
         "--embodiment",
         embodiment,

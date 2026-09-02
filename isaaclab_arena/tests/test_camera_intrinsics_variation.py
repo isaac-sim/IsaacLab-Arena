@@ -139,8 +139,9 @@ def _run_camera_intrinsics_variation_realized_at_runtime():
     from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
 
     args_cli = get_isaaclab_arena_cli_parser().parse_args([])
-    args_cli.headless = HEADLESS
     args_cli.enable_cameras = ENABLE_CAMERAS
+    if not HEADLESS:
+        args_cli.visualizer = ["kit"]
     with SimulationAppContext(args_cli) as simulation_app_context:
         assert _test_camera_intrinsics_variation_realized_at_runtime(simulation_app_context.app_launcher.app)
 

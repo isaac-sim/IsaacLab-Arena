@@ -41,8 +41,8 @@ def run_policy_runner(
         args.append(checkpoint_path)
     args.append("--num_steps")
     args.append(str(num_steps))
-    if HEADLESS:
-        args.append("--headless")
+    if not HEADLESS:
+        args.extend(["--viz", "kit"])
     if enable_cameras:
         args.append("--enable_cameras")
     # automatically detect if the env source is a graph spec yaml or an example-environment name

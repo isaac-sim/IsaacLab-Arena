@@ -36,8 +36,8 @@ def test_franka_put_and_close_door_mimic_data_generation_single_env():
         args.append(TestConstants.test_data_dir + "/test_sequential_task_mimic_data_generation.hdf5")
         args.append("--output_file")
         args.append(output_file)
-        if HEADLESS:
-            args.append("--headless")
+        if not HEADLESS:
+            args.extend(["--viz", "kit"])
         if ENABLE_CAMERAS:
             args.append("--enable_cameras")
         args.append("--external_callback")
@@ -71,8 +71,8 @@ def test_franka_put_and_close_door_mimic_data_generation_multi_env():
         args.append(TestConstants.test_data_dir + "/test_sequential_task_mimic_data_generation.hdf5")
         args.append("--output_file")
         args.append(output_file)
-        if HEADLESS:
-            args.append("--headless")
+        if not HEADLESS:
+            args.extend(["--viz", "kit"])
         if ENABLE_CAMERAS:
             args.append("--enable_cameras")
         args.append("--external_callback")
