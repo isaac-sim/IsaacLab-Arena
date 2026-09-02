@@ -96,12 +96,11 @@ def _check_geometry_bounds_in_prim_frame(arena_world_module) -> None:
     torch.testing.assert_close(bounds.max_point[0], torch.tensor([3.0, 1.5, 2.0]))
 
 
-def _check_object_on_destination_term(
+def _check_object_on_destination(
     arena_world_module,
-    object_on_destination_term_module,
+    spatial,
     axis_aligned_bounding_box_type,
     scene_entity_cfg_type,
-    termination_term_cfg_type,
 ) -> None:
     """Check combined results, live-state reads, and ArenaWorld-owned geometry caching."""
 
@@ -163,6 +162,7 @@ def _check_object_on_destination_term(
     env.scene["contact_sensor"] = DummyContactSensor(contact_force_w)
     env.scene.rigid_objects.update({"object": object_entity, "destination": destination_entity})
     env.arena_world = arena_world_module.ArenaWorld(env.scene)
+    wrapped_env = SimpleNamespace(unwrapped=env)
 
     coarse_contact_and_velocity_result = (torch.linalg.vector_norm(contact_force_w, dim=-1) > 0.1) & (
         torch.linalg.vector_norm(object_linear_velocity_w, dim=-1) < 0.1
@@ -208,30 +208,26 @@ def _check_object_on_destination_term(
             wraps=env.arena_world.get_linear_velocity_w,
         ) as get_linear_velocity_w,
     ):
-        term_cfg = termination_term_cfg_type(
-            func=object_on_destination_term_module.ObjectOnDestinationTerm,
-            params={
-                "object_cfg": object_cfg,
-                "destination_cfg": destination_cfg,
-                "contact_sensor_cfg": contact_sensor_cfg,
-                "force_threshold": 0.1,
-                "velocity_threshold": 0.1,
-                "support_cone_half_angle_deg": 45.0,
-            },
-        )
-        term = object_on_destination_term_module.ObjectOnDestinationTerm(term_cfg, env)
+        predicate_parameters = {
+            "object_cfg": object_cfg,
+            "destination_cfg": destination_cfg,
+            "contact_sensor_cfg": contact_sensor_cfg,
+            "force_threshold": 0.1,
+            "velocity_threshold": 0.1,
+            "support_cone_half_angle_deg": 45.0,
+        }
         assert geometry_build_calls == []
 
         # Each failing environment isolates one condition: geometry, force direction, or velocity.
         torch.testing.assert_close(
-            term(env, **term_cfg.params),
+            spatial.object_on_destination(wrapped_env, **predicate_parameters),
             torch.tensor([True, False, False, False]),
         )
         assert geometry_build_calls == ["object", "destination"]
 
         # Pose remains live while geometry remains cached.
         object_entity.data.root_pose_w.torch[0, 0] = 2.0
-        assert not term(env, **term_cfg.params)[0]
+        assert not spatial.object_on_destination(env, **predicate_parameters)[0]
         assert geometry_build_calls == ["object", "destination"]
         assert [call.args[0] for call in get_pose_w.call_args_list] == [
             "object",
@@ -257,7 +253,7 @@ def _check_object_on_destination_term(
         raise AssertionError("ArenaWorld accepted a query after it was closed.")
 
 
-def _check_scene_extra_pose_reader_cache(arena_world_module) -> None:
+def _check_asset_base_cfg_pose_reader_cache(arena_world_module) -> None:
     """Check that ArenaWorld reuses the reader while returning its latest pose."""
 
     class DummyScene:
@@ -280,7 +276,7 @@ def _check_scene_extra_pose_reader_cache(arena_world_module) -> None:
 
     scene = DummyScene()
     pose_reader = PoseReaderDouble()
-    with patch.object(arena_world_module, "_SceneExtraPoseReader", return_value=pose_reader) as make_pose_reader:
+    with patch.object(arena_world_module, "_AssetBaseCfgPoseReader", return_value=pose_reader) as make_pose_reader:
         arena_world = arena_world_module.ArenaWorld(scene)
         first_pose_w = arena_world.get_pose_w("reference")
         second_pose_w = arena_world.get_pose_w("reference")
@@ -291,31 +287,29 @@ def _check_scene_extra_pose_reader_cache(arena_world_module) -> None:
     torch.testing.assert_close(second_pose_w, pose_reader.pose_values[1])
 
 
-def _test_object_on_destination_term(_simulation_app) -> bool:
-    from isaaclab.managers import SceneEntityCfg, TerminationTermCfg
+def _test_object_on_destination(_simulation_app) -> bool:
+    from isaaclab.managers import SceneEntityCfg
 
     import isaaclab_arena.environments.arena_world as arena_world
-    import isaaclab_arena.tasks.predicates.object_on_destination_term as object_on_destination_term
     import isaaclab_arena.tasks.predicates.spatial as spatial
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
     _check_bounds_center_over_destination(spatial, AxisAlignedBoundingBox)
     _check_upward_support_force(spatial)
     _check_geometry_bounds_in_prim_frame(arena_world)
-    _check_scene_extra_pose_reader_cache(arena_world)
-    _check_object_on_destination_term(
+    _check_asset_base_cfg_pose_reader_cache(arena_world)
+    _check_object_on_destination(
         arena_world,
-        object_on_destination_term,
+        spatial,
         AxisAlignedBoundingBox,
         SceneEntityCfg,
-        TerminationTermCfg,
     )
     return True
 
 
-def test_object_on_destination_term():
-    assert run_function_with_persistent_simulation_app(_test_object_on_destination_term)
+def test_object_on_destination():
+    assert run_function_with_persistent_simulation_app(_test_object_on_destination)
 
 
 if __name__ == "__main__":
-    test_object_on_destination_term()
+    test_object_on_destination()

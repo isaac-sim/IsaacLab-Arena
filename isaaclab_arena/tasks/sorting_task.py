@@ -72,12 +72,16 @@ class SortMultiObjectTask(TaskBase):
 
     def make_termination_cfg(self):
         object_cfg_list = [SceneEntityCfg(pick_up_object.name) for pick_up_object in self.pick_up_object_list]
+        destination_cfg_list = [
+            SceneEntityCfg(destination_location.name) for destination_location in self.destination_location_list
+        ]
         contact_sensor_cfg_list = [SceneEntityCfg(name) for name in self.contact_sensor_name_list]
 
         success = TerminationTermCfg(
             func=objects_on_destinations,
             params={
                 "object_cfg_list": object_cfg_list,
+                "destination_cfg_list": destination_cfg_list,
                 "contact_sensor_cfg_list": contact_sensor_cfg_list,
                 "force_threshold": 1.0,
                 "velocity_threshold": 0.1,

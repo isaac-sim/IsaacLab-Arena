@@ -109,10 +109,11 @@ def _test_sorting_task_initial_state(simulation_app) -> bool:
 
     env, red_cube, green_cube, red_container, green_container = get_test_environment(num_envs=1)
 
-    def assert_not_success(env: ManagerBasedEnv, terminated: torch.Tensor):
+    def assert_not_success(env: ManagerBasedEnv, _terminated: torch.Tensor):
         # Initially the cubes are not in the containers
         # The task should NOT be successful
-        assert not terminated.item(), "Task should not be successful initially"
+        success = env.termination_manager.get_term("success")
+        assert not success.item(), "Task should not be successful initially"
 
     try:
         print("Testing initial state - cubes should not be in success state")
@@ -135,10 +136,13 @@ def _test_sorting_task_success(simulation_app) -> bool:
 
     from isaaclab.assets import RigidObject
 
+    from isaaclab_arena.tests.utils.simulation import step_zeros_and_call
+
     env, red_cube, green_cube, red_container, green_container = get_test_environment(num_envs=1)
 
     try:
         print("Testing success state - moving cubes to target containers")
+        step_zeros_and_call(env, NUM_STEPS)
 
         with torch.inference_mode():
             # Get the rigid objects from the scene
@@ -168,17 +172,19 @@ def _test_sorting_task_success(simulation_app) -> bool:
             green_cube_object.write_root_velocity_to_sim(root_velocity=torch.zeros((1, 6), device=env.device))
 
             # Step the environment to let physics simulate the fall and contact
+            success = torch.zeros(1, dtype=torch.bool, device=env.device)
             for _ in range(NUM_STEPS * 10):
                 actions = torch.zeros(env.action_space.shape, device=env.device)
-                _, _, terminated, _, info = env.step(actions)
+                env.step(actions)
+                success = env.termination_manager.get_term("success")
 
                 # Early exit if task is successful
-                if terminated.item():
+                if success.item():
                     break
 
             # Check if the task is successful
-            print(f"Terminated: {terminated}")
-            assert terminated.item(), "Task should be successful after cubes fall into correct containers"
+            print(f"Success: {success}")
+            assert success.item(), "Task should be successful after cubes fall into correct containers"
             print("Success state test passed: cubes are in correct containers")
 
     except Exception as e:
@@ -221,13 +227,16 @@ def _test_sorting_task_partial_success(simulation_app) -> bool:
 
             # Step the environment to let physics simulate
             # Green cube stays at its initial position (not in container)
+            ever_succeeded = torch.zeros(1, dtype=torch.bool, device=env.device)
             for _ in range(NUM_STEPS * 10):
                 actions = torch.zeros(env.action_space.shape, device=env.device)
-                _, _, terminated, _, info = env.step(actions)
+                env.step(actions)
+                success = env.termination_manager.get_term("success")
+                ever_succeeded = ever_succeeded | success
 
             # Task should NOT be successful because green cube is not in green container
-            print(f"Terminated: {terminated}")
-            assert not terminated.item(), "Task should not be successful with only one cube in correct container"
+            print(f"Ever succeeded: {ever_succeeded}")
+            assert not ever_succeeded.item(), "Task should not be successful with only one cube in correct container"
             print("Partial success test passed: task correctly requires all cubes")
 
     except Exception as e:
@@ -261,6 +270,7 @@ def _test_sorting_task_multiple_envs(simulation_app) -> bool:
 
             # Initially, both envs should not be successful
             step_zeros_and_call(env, 1)
+            assert not env.termination_manager.get_term("success").any()
             target_quat = torch.tensor([1.0, 0.0, 0.0, 0.0], device=env.device)
 
             # Now move second env cubes to success positions too
@@ -301,8 +311,9 @@ def _test_sorting_task_multiple_envs(simulation_app) -> bool:
             ever_succeeded = torch.zeros(2, dtype=torch.bool, device=env.device)
             for _ in range(NUM_STEPS * 10):
                 actions = torch.zeros(env.action_space.shape, device=env.device)
-                _, _, terminated, _, _ = env.step(actions)
-                ever_succeeded = ever_succeeded | terminated  # Track any success
+                env.step(actions)
+                success = env.termination_manager.get_term("success")
+                ever_succeeded = ever_succeeded | success
 
             print(f"Expected: [True, True], got: {ever_succeeded}")
             assert torch.all(ever_succeeded), "Both envs should be successful"

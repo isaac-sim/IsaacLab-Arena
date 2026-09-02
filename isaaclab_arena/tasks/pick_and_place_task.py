@@ -23,7 +23,6 @@ from isaaclab_arena.metrics.object_moved import ObjectMovedRateMetric
 from isaaclab_arena.metrics.success_rate import SuccessRateMetric
 from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
 from isaaclab_arena.tasks.common.mimic_default_params import MIMIC_DATAGEN_CONFIG_DEFAULTS
-from isaaclab_arena.tasks.predicates.object_on_destination_term import ObjectOnDestinationTerm
 from isaaclab_arena.tasks.predicates.object_settling import objects_settled
 from isaaclab_arena.tasks.predicates.spatial import object_is_above_height, object_on_destination
 from isaaclab_arena.tasks.task_base import TaskBase
@@ -114,7 +113,7 @@ class PickAndPlaceTask(TaskBase):
 
     def make_termination_cfg(self):
         success = TerminationTermCfg(
-            func=ObjectOnDestinationTerm,
+            func=object_on_destination,
             params={
                 "object_cfg": SceneEntityCfg(self.pick_up_object.name),
                 "destination_cfg": SceneEntityCfg(self.destination_location.name),
@@ -174,9 +173,11 @@ class PickAndPlaceTask(TaskBase):
                     partial(
                         object_on_destination,
                         object_cfg=SceneEntityCfg(self.pick_up_object.name),
+                        destination_cfg=SceneEntityCfg(self.destination_location.name),
                         contact_sensor_cfg=SceneEntityCfg(self.contact_sensor_name),
                         force_threshold=self.force_threshold,
                         velocity_threshold=self.velocity_threshold,
+                        support_cone_half_angle_deg=self.support_cone_half_angle_deg,
                     ),
                 ],
             ),
