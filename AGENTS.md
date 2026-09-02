@@ -73,8 +73,8 @@ env.unwrapped.device                    # access Isaac Lab device
 
 ### Rendering Safety
 
-TODO(alexmillane, 2026-08-31): [lab-render-after-rebuild-bug] Remove this guidance once the Isaac
-Lab rendering bug is fixed.
+<!-- TODO(alexmillane, 2026-08-31): [lab-render-after-rebuild-bug] Remove this guidance once the Isaac
+Lab rendering bug is fixed. -->
 
 Until the Isaac Lab GPU+Fabric post-rebuild rendering bug is fixed, configure every Arena
 environment that produces viewport or camera renders with CPU physics and Fabric disabled. Set
