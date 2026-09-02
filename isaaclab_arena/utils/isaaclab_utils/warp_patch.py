@@ -16,6 +16,10 @@ def install_empty_cpu_warp_to_torch_patch() -> None:
     """Use DLPack when the installed Warp cannot convert empty CPU arrays to Torch."""
     global _EMPTY_CPU_TO_TORCH_WORKAROUND_INSTALLED
 
+    # TODO(peterd, 2026-09-02): Remove this workaround once native conversion succeeds. NumPy fixed the
+    # underlying zero-length array-interface bug in https://github.com/numpy/numpy/issues/26037 in version 2.4.
+    # `test_native_empty_cpu_warp_array_to_torch` is a strict xfail that flags when removal is safe.
+
     if _EMPTY_CPU_TO_TORCH_WORKAROUND_INSTALLED:
         return
 
