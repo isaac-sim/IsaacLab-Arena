@@ -27,7 +27,7 @@ MAX_CHANGED_PIXEL_FRACTION = 0.10
 # Minimum per-image standard deviation, so a pair of blank renders cannot pass the comparison vacuously.
 MIN_IMAGE_STD = 1.0
 # Set True to dump the compared renders as PNGs into IMAGE_OUTPUT_DIR, which is created on demand.
-SAVE_IMAGES = False
+SAVE_IMAGES = True
 IMAGE_OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "output")
 
 
@@ -83,10 +83,17 @@ def _render_camera_images(env) -> dict[str, torch.Tensor]:
 def _save_comparison_images(
     images_before_rebuild: dict[str, torch.Tensor],
     images_after_rebuild: dict[str, torch.Tensor],
+    disable_fabric: bool,
 ) -> None:
-    """Write a before, after, and absolute-difference PNG per camera into IMAGE_OUTPUT_DIR."""
+    """Write a before, after, and absolute-difference PNG per camera into IMAGE_OUTPUT_DIR.
+
+    Args:
+        disable_fabric: Whether the images were rendered with Fabric disabled; recorded in the
+            filename so on- and off-Fabric renders don't overwrite each other.
+    """
     from PIL import Image
 
+    fabric_tag = "fabric-off" if disable_fabric else "fabric-on"
     os.makedirs(IMAGE_OUTPUT_DIR, exist_ok=True)
     for camera_name in sorted(images_before_rebuild.keys() & images_after_rebuild.keys()):
         before = images_before_rebuild[camera_name][0]
@@ -97,7 +104,7 @@ def _save_comparison_images(
             "difference": (before.float() - after.float()).abs().to(torch.uint8),
         }
         for tag, image in images_to_save.items():
-            output_path = os.path.join(IMAGE_OUTPUT_DIR, f"{camera_name}-{tag}.png")
+            output_path = os.path.join(IMAGE_OUTPUT_DIR, f"{camera_name}-{fabric_tag}-{tag}.png")
             Image.fromarray(image.numpy()).save(output_path)
             print(f"Wrote {output_path}", flush=True)
 
@@ -120,7 +127,7 @@ def _test_render_after_stage_rebuild(simulation_app, disable_fabric: bool) -> bo
 
     # Written before the assertions so a failing rebuild still leaves images to look at.
     if SAVE_IMAGES:
-        _save_comparison_images(images_before_rebuild, images_after_rebuild)
+        _save_comparison_images(images_before_rebuild, images_after_rebuild, disable_fabric)
 
     assert set(images_before_rebuild) == set(images_after_rebuild), (
         "The rebuilt environment exposes a different set of cameras; "
@@ -163,7 +170,7 @@ def test_render_after_stage_rebuild_without_fabric():
 # TODO(alexmillane, 2026-08-31): [lab-render-after-rebuild-bug] Un-skip once the render after rebuild
 # bug is solved in Lab. Under GPU+Fabric every build after the first renders some geometry at the wrong
 # pose (the DROID gripper has been seen at the origin), which is what this test would catch.
-@pytest.mark.skip(reason="[lab-render-after-rebuild-bug] Rebuilds render incorrectly under GPU+Fabric.")
+# @pytest.mark.skip(reason="[lab-render-after-rebuild-bug] Rebuilds render incorrectly under GPU+Fabric.")
 @pytest.mark.with_cameras
 def test_render_after_stage_rebuild_with_fabric():
     """Rebuilds should also render correctly with Fabric on, which is the default outside this bug."""
