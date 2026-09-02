@@ -123,8 +123,8 @@ def test_object_on_microwave_tray_termination():
 @pytest.mark.xfail(
     strict=True,
     reason=(
-        "Remove AssetBaseCfgPoseReader when this XPASSes: InteractiveScene currently creates scene.extras "
-        "FrameViews before cloning."
+        "Remove ArenaWorld's post-clone scene-extra pose reader when this XPASSes: InteractiveScene currently "
+        "creates scene.extras FrameViews before cloning."
     ),
 )
 def test_scene_extra_frame_view_covers_cloned_environments():
