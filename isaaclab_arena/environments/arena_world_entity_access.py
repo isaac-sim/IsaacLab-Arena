@@ -147,11 +147,13 @@ def compute_spawned_geometry_bounds_in_entity_frame(
     )
 
 
-class AssetBaseCfgPoseReader:
-    """Read current ``T_W_E`` poses for an AssetBaseCfg scene entry defining frame ``E``."""
+class SceneExtraPoseReader:
+    """Read current ``T_W_E`` poses for an ``InteractiveScene.extras`` entry defining frame ``E``."""
 
     def __init__(self, scene: InteractiveScene, entity_name: str):
-        assert entity_name in scene.extras, f"Scene entity '{entity_name}' must be an AssetBaseCfg scene entry."
+        assert (
+            entity_name in scene.extras
+        ), f"Scene entity '{entity_name}' must be registered in InteractiveScene.extras."
 
         self._entity_name = entity_name
         self._num_envs = scene.num_envs
@@ -164,14 +166,13 @@ class AssetBaseCfgPoseReader:
         )
         # InteractiveScene creates extras before cloning. This post-clone view must cover every environment.
         entity_prim_paths = self._frame_view.prim_paths
-        assert len(entity_prim_paths) == scene.num_envs, (
-            f"AssetBaseCfg scene entry '{entity_name}' resolved to {len(entity_prim_paths)} prims; "
-            f"expected {scene.num_envs}."
-        )
+        assert (
+            len(entity_prim_paths) == scene.num_envs
+        ), f"Scene extra '{entity_name}' resolved to {len(entity_prim_paths)} prims; expected {scene.num_envs}."
         for environment_id, prim_path in enumerate(entity_prim_paths):
             environment_prim_path = scene.env_prim_paths[environment_id]
             assert str(prim_path).startswith(f"{environment_prim_path}/"), (
-                f"AssetBaseCfg scene entry '{entity_name}' pose row {environment_id} belongs to '{prim_path}', "
+                f"Scene extra '{entity_name}' pose row {environment_id} belongs to '{prim_path}', "
                 f"not environment '{environment_prim_path}'."
             )
 
@@ -182,7 +183,7 @@ class AssetBaseCfgPoseReader:
         q_W_E = orientation_w_buffer.torch
         T_W_E = torch.cat((t_W_E, q_W_E), dim=-1)
         assert T_W_E.shape == (self._num_envs, 7), (
-            f"AssetBaseCfg scene entry '{self._entity_name}' returned pose shape {tuple(T_W_E.shape)}; "
+            f"Scene extra '{self._entity_name}' returned pose shape {tuple(T_W_E.shape)}; "
             f"expected ({self._num_envs}, 7)."
         )
         return T_W_E

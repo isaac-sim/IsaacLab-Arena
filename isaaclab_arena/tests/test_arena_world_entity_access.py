@@ -122,7 +122,7 @@ def _check_rigid_object_reads_and_entity_frame_aabb_cache(
     assert geometry_build_calls == ["object", "destination"]
 
 
-def _check_arena_world_reuses_asset_base_cfg_pose_reader(
+def _check_arena_world_reuses_scene_extra_pose_reader(
     arena_world_module,
     entity_access_module,
 ) -> None:
@@ -130,6 +130,7 @@ def _check_arena_world_reuses_asset_base_cfg_pose_reader(
 
     class SceneDouble:
         def __init__(self):
+            self.num_envs = 1
             self.rigid_objects = {}
             self.extras = {"reference": object()}
 
@@ -148,7 +149,7 @@ def _check_arena_world_reuses_asset_base_cfg_pose_reader(
 
     scene = SceneDouble()
     pose_reader = PoseReaderDouble()
-    with patch.object(entity_access_module, "AssetBaseCfgPoseReader", return_value=pose_reader) as make_pose_reader:
+    with patch.object(entity_access_module, "SceneExtraPoseReader", return_value=pose_reader) as make_pose_reader:
         arena_world = arena_world_module.ArenaWorld(scene)
         T_W_E_first = arena_world.get_pose_w("reference")
         T_W_E_second = arena_world.get_pose_w("reference")
@@ -177,7 +178,7 @@ def _check_arena_world_rejects_unsupported_pose_entity(arena_world_module) -> No
         raise AssertionError("ArenaWorld accepted an unsupported pose entity.")
 
 
-def _check_asset_base_cfg_pose_reader_uses_current_frame_view_poses(entity_access_module) -> None:
+def _check_scene_extra_pose_reader_uses_current_frame_view_poses(entity_access_module) -> None:
     """Check FrameView construction and current ``T_W_E`` reads in environment row order."""
 
     class FrameViewDouble:
@@ -213,7 +214,7 @@ def _check_asset_base_cfg_pose_reader_uses_current_frame_view_poses(entity_acces
     )
     frame_view = FrameViewDouble()
     with patch.object(entity_access_module, "FrameView", return_value=frame_view) as make_frame_view:
-        pose_reader = entity_access_module.AssetBaseCfgPoseReader(scene, "reference")
+        pose_reader = entity_access_module.SceneExtraPoseReader(scene, "reference")
         T_W_E_first = pose_reader.get_pose_w()
         T_W_E_second = pose_reader.get_pose_w()
 
@@ -245,9 +246,9 @@ def _test_arena_world_entity_access(_simulation_app) -> bool:
         entity_access,
         AxisAlignedBoundingBox,
     )
-    _check_arena_world_reuses_asset_base_cfg_pose_reader(arena_world, entity_access)
+    _check_arena_world_reuses_scene_extra_pose_reader(arena_world, entity_access)
     _check_arena_world_rejects_unsupported_pose_entity(arena_world)
-    _check_asset_base_cfg_pose_reader_uses_current_frame_view_poses(entity_access)
+    _check_scene_extra_pose_reader_uses_current_frame_view_poses(entity_access)
     return True
 
 
