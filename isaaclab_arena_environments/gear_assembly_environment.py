@@ -59,7 +59,15 @@ DROID_ARM_JOINT_NAMES = (
     "panda_joint6",
     "panda_joint7",
 )
-DROID_GEAR_WORKSPACE_JOINT_POSITIONS = (0.98, -0.47, -1.73, -1.42, -1.28, 2.71, 1.35)
+DROID_GEAR_APPROACH_JOINT_POSITIONS = (
+    1.4302369,
+    -0.3727887,
+    -1.0313725,
+    -2.5031810,
+    -0.4169911,
+    2.2608662,
+    0.4437634,
+)
 
 DROID_GRIPPER_MIMIC_SIGNS = {
     "finger_joint": 1.0,
@@ -184,6 +192,8 @@ def _build_scene(asset_registry, cfg: GearAssemblyEnvironmentCfg):
 
     gear_base = make_factory_object(
         name="gear_base",
+        # The base asset uses 75%-radius pegs, with matching visual and collision
+        # geometry, to provide about 2.5 mm of radial clearance for teleoperation.
         usd_name="factory_gear_base",
         prim_name="GearBase",
         pose=Pose(position_xyz=GEAR_BASE_POSITION),
@@ -361,7 +371,7 @@ def _configure_newton_droid(embodiment: DroidEmbodimentBase) -> None:
         restitution=0.0,
     )
     robot_cfg.init_state.joint_pos.update(
-        dict(zip(DROID_ARM_JOINT_NAMES, DROID_GEAR_WORKSPACE_JOINT_POSITIONS, strict=True))
+        dict(zip(DROID_ARM_JOINT_NAMES, DROID_GEAR_APPROACH_JOINT_POSITIONS, strict=True))
     )
     robot_cfg.actuators["gripper"] = ImplicitActuatorCfg(
         joint_names_expr=list(DROID_GRIPPER_JOINT_NAMES),
