@@ -130,6 +130,11 @@ Most environments can be described with a small set of relations:
   XY offsets.
 - The subject and target must have different XY positions.
 
+``ClutteredOn(parent)``
+   Fills a support with a settled pile. Members sharing a support and group name are released
+   above it and settled by physics rather than positioned by the solver, so they may touch and
+   rest on one another. See :doc:`./clutter`.
+
 Combining Relations
 -------------------
 
