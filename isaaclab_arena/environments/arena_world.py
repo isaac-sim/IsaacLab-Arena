@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Read current scene poses and build geometry used by spatial predicates."""
+"""Query live Arena scene state and cache derived geometry."""
 
 from __future__ import annotations
 
@@ -12,23 +12,19 @@ import torch
 
 import isaaclab.sim as sim_utils
 from isaaclab.cloner.cloner_utils import iter_clone_plan_matches
-from isaaclab.envs import ManagerBasedEnv
-from isaaclab.managers import SceneEntityCfg
+from isaaclab.scene import InteractiveScene
 from isaaclab.sim.views import FrameView
 from pxr import Usd, UsdGeom, UsdPhysics
 
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 
-# TODO(cvolk, 2026-08-24): [arena-world-migration] Move current-pose lookup, spawned-geometry extraction,
-# ObjectSet variant mapping, and geometry caching behind env.arena_world, then delete this predicate-owned module.
 def _get_spawned_entity_groups(
-    env: ManagerBasedEnv,
+    scene: InteractiveScene,
     entity_name: str,
     geometry_prim_path: str,
 ) -> list[tuple[Usd.Prim, tuple[int, ...]]]:
     """Return one representative prim and its cloned environments per asset variant."""
-    scene = env.scene
     assert scene.clone_plan is not None, f"Scene entity '{entity_name}' has no clone plan."
 
     clone_matches = tuple(iter_clone_plan_matches(scene.clone_plan, geometry_prim_path))
@@ -62,12 +58,7 @@ def _find_single_rigid_body_prim_in_subtree(root_prim: Usd.Prim, entity_name: st
 
 
 def _compute_geometry_bounds_in_prim_frame(prim: Usd.Prim) -> AxisAlignedBoundingBox:
-    """Compute descendant geometry bounds in the prim frame.
-
-    The bounds are aligned with the prim's axes and measured from its origin.
-    Initial world translation and rotation are excluded, while authored scale
-    remains in the bounds.
-    """
+    """Compute descendant geometry bounds in the prim frame."""
     assert prim.IsValid(), "Prim must be valid."
 
     time_code = Usd.TimeCode.Default()
@@ -104,38 +95,23 @@ def _compute_geometry_bounds_in_prim_frame(prim: Usd.Prim) -> AxisAlignedBoundin
     )
 
 
-def compute_spawned_geometry_bounds_in_entity_frame(
-    env: ManagerBasedEnv,
-    entity_cfg: SceneEntityCfg,
+def _compute_spawned_geometry_bounds_in_entity_frame(
+    scene: InteractiveScene,
+    entity_name: str,
 ) -> AxisAlignedBoundingBox:
-    """Build spawned geometry bounds in the entity frame.
-
-    This reads the USD stage. Callers should cache the result and combine it
-    with current poses rather than rebuilding it on each simulation step.
-
-    Args:
-        env: The runtime manager-based environment.
-        entity_cfg: Scene entity whose runtime pose defines frame ``E``.
-
-    Returns:
-        One batched AABB aligned with frame ``E`` and measured from its origin.
-        Initial world translation and rotation are excluded, while spawned
-        scale remains in the bounds.
-    """
-    scene = env.scene
-    entity_name = entity_cfg.name
+    """Build spawned geometry bounds in the entity's live pose frame."""
     assert (
         entity_name in scene.rigid_objects or entity_name in scene.extras
     ), f"Scene entity '{entity_name}' must be a rigid object or an AssetBaseCfg scene entry."
     is_rigid_object = entity_name in scene.rigid_objects
     resolved_geometry_prim_path = getattr(scene.cfg, entity_name).prim_path.format(ENV_REGEX_NS=scene.env_regex_ns)
 
-    lower_E_by_environment = torch.empty((env.num_envs, 3), dtype=torch.float32, device=env.device)
+    lower_E_by_environment = torch.empty((scene.num_envs, 3), dtype=torch.float32, device=scene.device)
     upper_E_by_environment = torch.empty_like(lower_E_by_environment)
-    coverage_count = [0] * env.num_envs
+    coverage_count = [0] * scene.num_envs
 
     for representative_prim, environment_ids in _get_spawned_entity_groups(
-        env,
+        scene,
         entity_name,
         resolved_geometry_prim_path,
     ):
@@ -144,8 +120,8 @@ def compute_spawned_geometry_bounds_in_entity_frame(
             if is_rigid_object
             else representative_prim
         )
-        geometry_bounds_E = _compute_geometry_bounds_in_prim_frame(entity_frame_prim).to(env.device)
-        environment_indices = torch.tensor(environment_ids, dtype=torch.long, device=env.device)
+        geometry_bounds_E = _compute_geometry_bounds_in_prim_frame(entity_frame_prim).to(scene.device)
+        environment_indices = torch.tensor(environment_ids, dtype=torch.long, device=scene.device)
         lower_E_by_environment[environment_indices] = geometry_bounds_E.min_point[0]
         upper_E_by_environment[environment_indices] = geometry_bounds_E.max_point[0]
         for environment_id in environment_ids:
@@ -158,37 +134,26 @@ def compute_spawned_geometry_bounds_in_entity_frame(
     return AxisAlignedBoundingBox(min_point=lower_E_by_environment, max_point=upper_E_by_environment)
 
 
-# TODO(cvolk, 2026-08-25): Remove this workaround when
-# test_scene_extra_frame_view_covers_cloned_environments starts reporting XPASS.
-class AssetBaseCfgPoseReader:
-    """Read current poses for one named AssetBaseCfg scene entry.
+class _SceneExtraPoseReader:
+    """Read current poses for one named AssetBaseCfg scene entry."""
 
-    InteractiveScene creates ``scene.extras`` before cloning. This reader is
-    created after cloning so its FrameView covers every parallel environment.
-    """
-
-    def __init__(
-        self,
-        env: ManagerBasedEnv,
-        entity_name: str,
-    ):
-        scene = env.scene
+    def __init__(self, scene: InteractiveScene, entity_name: str):
         assert entity_name in scene.extras, f"Scene entity '{entity_name}' must be an AssetBaseCfg scene entry."
 
         self._entity_name = entity_name
-        self._num_envs = env.num_envs
+        self._num_envs = scene.num_envs
         entity_prim_path = getattr(scene.cfg, entity_name).prim_path.format(ENV_REGEX_NS=scene.env_regex_ns)
         self._frame_view = FrameView(
             entity_prim_path,
-            device=env.device,
+            device=scene.device,
             stage=scene.stage,
             validate_xform_ops=False,
         )
-        # Ensure pose rows use the same environment order as other scene tensors.
+        # InteractiveScene creates extras before cloning. This post-clone view must cover every environment.
         entity_prim_paths = self._frame_view.prim_paths
-        assert len(entity_prim_paths) == env.num_envs, (
+        assert len(entity_prim_paths) == scene.num_envs, (
             f"AssetBaseCfg scene entry '{entity_name}' resolved to {len(entity_prim_paths)} prims; "
-            f"expected {env.num_envs}."
+            f"expected {scene.num_envs}."
         )
         for environment_id, prim_path in enumerate(entity_prim_paths):
             environment_prim_path = scene.env_prim_paths[environment_id]
@@ -197,15 +162,69 @@ class AssetBaseCfgPoseReader:
                 f"not environment '{environment_prim_path}'."
             )
 
-    def get_pose_in_world_frame(self) -> torch.Tensor:
-        """Return ``T_W_R``, taking points from reference frame ``R`` to world frame ``W``.
-
-        Poses are encoded as ``(x, y, z, qx, qy, qz, qw)``.
-        """
+    def get_pose_w(self) -> torch.Tensor:
+        """Return the entry's current world pose as ``(x, y, z, qx, qy, qz, qw)``."""
         position_w_buffer, orientation_w_buffer = self._frame_view.get_world_poses()
-        T_W_R = torch.cat((position_w_buffer.torch, orientation_w_buffer.torch), dim=-1)
-        assert T_W_R.shape == (self._num_envs, 7), (
-            f"AssetBaseCfg scene entry '{self._entity_name}' returned pose shape {tuple(T_W_R.shape)}; "
+        pose_w = torch.cat((position_w_buffer.torch, orientation_w_buffer.torch), dim=-1)
+        assert pose_w.shape == (self._num_envs, 7), (
+            f"AssetBaseCfg scene entry '{self._entity_name}' returned pose shape {tuple(pose_w.shape)}; "
             f"expected ({self._num_envs}, 7)."
         )
-        return T_W_R
+        return pose_w
+
+
+class ArenaWorld:
+    """Provide name-based live scene queries and cache derived geometry."""
+
+    def __init__(self, scene: InteractiveScene):
+        self._scene: InteractiveScene | None = scene
+        self._local_aabbs: dict[str, AxisAlignedBoundingBox] = {}
+        self._scene_extra_pose_readers: dict[str, _SceneExtraPoseReader] = {}
+
+    def get_pose_w(self, entity_name: str) -> torch.Tensor:
+        """Return an entity's current world pose for every environment."""
+        scene = self._get_scene()
+        if entity_name in scene.rigid_objects:
+            pose_w = scene.rigid_objects[entity_name].data.root_pose_w.torch
+            assert pose_w.shape == (scene.num_envs, 7), (
+                f"Rigid object '{entity_name}' returned pose shape {tuple(pose_w.shape)}; "
+                f"expected ({scene.num_envs}, 7)."
+            )
+            return pose_w
+
+        assert (
+            entity_name in scene.extras
+        ), f"Scene entity '{entity_name}' must be a rigid object or an AssetBaseCfg scene entry."
+        if entity_name not in self._scene_extra_pose_readers:
+            self._scene_extra_pose_readers[entity_name] = _SceneExtraPoseReader(scene, entity_name)
+        return self._scene_extra_pose_readers[entity_name].get_pose_w()
+
+    def get_linear_velocity_w(self, entity_name: str) -> torch.Tensor:
+        """Return a rigid object's current world-frame linear velocity."""
+        scene = self._get_scene()
+        assert entity_name in scene.rigid_objects, f"Scene entity '{entity_name}' must be a rigid object."
+        linear_velocity_w = scene.rigid_objects[entity_name].data.root_lin_vel_w.torch
+        assert linear_velocity_w.shape == (scene.num_envs, 3), (
+            f"Rigid object '{entity_name}' returned linear velocity shape {tuple(linear_velocity_w.shape)}; "
+            f"expected ({scene.num_envs}, 3)."
+        )
+        return linear_velocity_w
+
+    def get_local_aabb(self, entity_name: str) -> AxisAlignedBoundingBox:
+        """Return read-only cached geometry bounds in the entity's live pose frame."""
+        scene = self._get_scene()
+        if entity_name not in self._local_aabbs:
+            local_aabb = _compute_spawned_geometry_bounds_in_entity_frame(scene, entity_name)
+            self._local_aabbs[entity_name] = local_aabb
+        return self._local_aabbs[entity_name]
+
+    def close(self) -> None:
+        """Release cached geometry, pose readers, and the live scene reference."""
+        self._local_aabbs.clear()
+        self._scene_extra_pose_readers.clear()
+        self._scene = None
+
+    def _get_scene(self) -> InteractiveScene:
+        """Return the live scene while this world is open."""
+        assert self._scene is not None, "ArenaWorld is closed."
+        return self._scene

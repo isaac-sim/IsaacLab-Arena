@@ -9,6 +9,7 @@ from collections.abc import Sequence
 
 from isaaclab.envs import ManagerBasedRLEnv
 
+from isaaclab_arena.environments.arena_world import ArenaWorld
 from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import IsaacLabArenaManagerBasedRLEnvCfg
 from isaaclab_arena.metrics.metric_data import MetricsDataCollection
 from isaaclab_arena.metrics.metrics_manager import MetricsManager
@@ -29,6 +30,7 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
         variation_recorder: VariationRecorder | None = None,
         **kwargs,
     ):
+        self._arena_world: ArenaWorld | None = None
         self._object_initial_rest_pose_recorder = ObjectInitialRestPoseRecorder(
             num_envs=cfg.scene.num_envs, device=cfg.sim.device
         )
@@ -40,7 +42,19 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
         self._episode_counts: dict[int, int] = {}
         # The initial reset touches every env before any episode has run; skip it.
         self._first_reset = True
-        super().__init__(cfg=cfg, render_mode=render_mode, **kwargs)
+        try:
+            super().__init__(cfg=cfg, render_mode=render_mode, **kwargs)
+        except Exception:
+            self._close_arena_world()
+            raise
+
+    @property
+    def arena_world(self) -> ArenaWorld:
+        """The live Arena scene query facade."""
+        assert (
+            self._arena_world is not None
+        ), "ArenaWorld is unavailable before managers are loaded or after the environment is closed."
+        return self._arena_world
 
     @property
     def variation_recorder(self) -> VariationRecorder | None:
@@ -58,9 +72,27 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
         return self.episode_recorder_manager
 
     def load_managers(self) -> None:
-        super().load_managers()
-        self.metrics_manager = MetricsManager(self.cfg.metrics, self)
-        self.episode_recorder_manager = EpisodeRecorderManager(self.cfg.episode_recorders, self)
+        assert self._arena_world is None, "ArenaWorld is already initialized."
+        self._arena_world = ArenaWorld(self.scene)
+        try:
+            super().load_managers()
+            self.metrics_manager = MetricsManager(self.cfg.metrics, self)
+            self.episode_recorder_manager = EpisodeRecorderManager(self.cfg.episode_recorders, self)
+        except Exception:
+            self._close_arena_world()
+            raise
+
+    def close(self) -> None:
+        """Release Arena runtime state before closing the Isaac Lab environment."""
+        self._close_arena_world()
+        super().close()
+
+    def _close_arena_world(self) -> None:
+        """Release ArenaWorld when it was created during environment initialization."""
+        arena_world = getattr(self, "_arena_world", None)
+        if arena_world is not None:
+            arena_world.close()
+            self._arena_world = None
 
     def get_language_instruction(self) -> str | None:
         """Return the language instruction that is passed to the policy."""

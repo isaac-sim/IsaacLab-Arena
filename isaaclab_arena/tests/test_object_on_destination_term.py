@@ -72,7 +72,7 @@ def _check_upward_support_force(spatial) -> None:
     torch.testing.assert_close(result, torch.tensor([False, True, True, False, False, True, False, True]))
 
 
-def _check_geometry_bounds_in_prim_frame(live_scene_geometry) -> None:
+def _check_geometry_bounds_in_prim_frame(arena_world_module) -> None:
     """Check that runtime bounds remove pose but retain spawned scale."""
     from pxr import Gf, Usd, UsdGeom
 
@@ -91,22 +91,25 @@ def _check_geometry_bounds_in_prim_frame(live_scene_geometry) -> None:
     ignored_cube.GetSizeAttr().Set(100.0)
     ignored_cube.GetPurposeAttr().Set(UsdGeom.Tokens.render)
 
-    bounds = live_scene_geometry._compute_geometry_bounds_in_prim_frame(reference.GetPrim())
+    bounds = arena_world_module._compute_geometry_bounds_in_prim_frame(reference.GetPrim())
     torch.testing.assert_close(bounds.min_point[0], torch.tensor([1.0, -1.5, -2.0]))
     torch.testing.assert_close(bounds.max_point[0], torch.tensor([3.0, 1.5, 2.0]))
 
 
 def _check_object_on_destination_term(
+    arena_world_module,
     object_on_destination_term_module,
     axis_aligned_bounding_box_type,
     scene_entity_cfg_type,
     termination_term_cfg_type,
 ) -> None:
-    """Check combined results, live-state reads, cached bounds, and cached entity identity."""
+    """Check combined results, live-state reads, and ArenaWorld-owned geometry caching."""
 
     class DummyScene(dict):
         def __init__(self):
             super().__init__()
+            self.num_envs = 4
+            self.device = "cpu"
             self.rigid_objects = {}
             self.extras = {}
 
@@ -159,6 +162,7 @@ def _check_object_on_destination_term(
     env.scene["destination"] = destination_entity
     env.scene["contact_sensor"] = DummyContactSensor(contact_force_w)
     env.scene.rigid_objects.update({"object": object_entity, "destination": destination_entity})
+    env.arena_world = arena_world_module.ArenaWorld(env.scene)
 
     coarse_contact_and_velocity_result = (torch.linalg.vector_norm(contact_force_w, dim=-1) > 0.1) & (
         torch.linalg.vector_norm(object_linear_velocity_w, dim=-1) < 0.1
@@ -170,8 +174,7 @@ def _check_object_on_destination_term(
     contact_sensor_cfg = scene_entity_cfg_type("contact_sensor")
     geometry_build_calls = []
 
-    def compute_geometry_bounds(_geometry_env, entity_cfg):
-        entity_name = entity_cfg.name
+    def compute_geometry_bounds(_scene, entity_name):
         geometry_build_calls.append(entity_name)
         if entity_name == "object":
             return axis_aligned_bounding_box_type(
@@ -183,10 +186,27 @@ def _check_object_on_destination_term(
             max_point=torch.tensor([1.0, 0.5, 0.4]).expand(4, 3),
         )
 
-    with patch.object(
-        object_on_destination_term_module,
-        "compute_spawned_geometry_bounds_in_entity_frame",
-        side_effect=compute_geometry_bounds,
+    with (
+        patch.object(
+            arena_world_module,
+            "_compute_spawned_geometry_bounds_in_entity_frame",
+            side_effect=compute_geometry_bounds,
+        ),
+        patch.object(
+            env.arena_world,
+            "get_pose_w",
+            wraps=env.arena_world.get_pose_w,
+        ) as get_pose_w,
+        patch.object(
+            env.arena_world,
+            "get_local_aabb",
+            wraps=env.arena_world.get_local_aabb,
+        ) as get_local_aabb,
+        patch.object(
+            env.arena_world,
+            "get_linear_velocity_w",
+            wraps=env.arena_world.get_linear_velocity_w,
+        ) as get_linear_velocity_w,
     ):
         term_cfg = termination_term_cfg_type(
             func=object_on_destination_term_module.ObjectOnDestinationTerm,
@@ -200,50 +220,91 @@ def _check_object_on_destination_term(
             },
         )
         term = object_on_destination_term_module.ObjectOnDestinationTerm(term_cfg, env)
-        assert geometry_build_calls == ["object", "destination"]
+        assert geometry_build_calls == []
 
         # Each failing environment isolates one condition: geometry, force direction, or velocity.
         torch.testing.assert_close(
             term(env, **term_cfg.params),
             torch.tensor([True, False, False, False]),
         )
+        assert geometry_build_calls == ["object", "destination"]
 
         # Pose remains live while geometry remains cached.
         object_entity.data.root_pose_w.torch[0, 0] = 2.0
         assert not term(env, **term_cfg.params)[0]
         assert geometry_build_calls == ["object", "destination"]
+        assert [call.args[0] for call in get_pose_w.call_args_list] == [
+            "object",
+            "destination",
+            "object",
+            "destination",
+        ]
+        assert [call.args[0] for call in get_local_aabb.call_args_list] == [
+            "object",
+            "destination",
+            "object",
+            "destination",
+        ]
+        assert [call.args[0] for call in get_linear_velocity_w.call_args_list] == ["object", "object"]
 
-        mismatched_params = dict(term_cfg.params)
-        mismatched_params["object_cfg"] = scene_entity_cfg_type("another_object")
-        try:
-            term(env, **mismatched_params)
-        except AssertionError as error:
-            assert "cached geometry for object 'object'" in str(error)
-        else:
-            raise AssertionError("The term accepted an object that did not match its cached geometry.")
+    env.arena_world.close()
+    env.arena_world.close()
+    try:
+        env.arena_world.get_pose_w("object")
+    except AssertionError as error:
+        assert "ArenaWorld is closed" in str(error)
+    else:
+        raise AssertionError("ArenaWorld accepted a query after it was closed.")
 
-        mismatched_params = dict(term_cfg.params)
-        mismatched_params["destination_cfg"] = scene_entity_cfg_type("another_destination")
-        try:
-            term(env, **mismatched_params)
-        except AssertionError as error:
-            assert "cached geometry for destination 'destination'" in str(error)
-        else:
-            raise AssertionError("The term accepted a destination that did not match its cached geometry.")
+
+def _check_scene_extra_pose_reader_cache(arena_world_module) -> None:
+    """Check that ArenaWorld reuses the reader while returning its latest pose."""
+
+    class DummyScene:
+        def __init__(self):
+            self.rigid_objects = {}
+            self.extras = {"reference": object()}
+
+    class PoseReaderDouble:
+        def __init__(self):
+            self.read_count = 0
+            self.pose_values = [
+                torch.tensor([[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0]]),
+                torch.tensor([[1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0]]),
+            ]
+
+        def get_pose_w(self):
+            pose_w = self.pose_values[self.read_count]
+            self.read_count += 1
+            return pose_w
+
+    scene = DummyScene()
+    pose_reader = PoseReaderDouble()
+    with patch.object(arena_world_module, "_SceneExtraPoseReader", return_value=pose_reader) as make_pose_reader:
+        arena_world = arena_world_module.ArenaWorld(scene)
+        first_pose_w = arena_world.get_pose_w("reference")
+        second_pose_w = arena_world.get_pose_w("reference")
+
+    make_pose_reader.assert_called_once_with(scene, "reference")
+    assert pose_reader.read_count == 2
+    torch.testing.assert_close(first_pose_w, pose_reader.pose_values[0])
+    torch.testing.assert_close(second_pose_w, pose_reader.pose_values[1])
 
 
 def _test_object_on_destination_term(_simulation_app) -> bool:
     from isaaclab.managers import SceneEntityCfg, TerminationTermCfg
 
-    import isaaclab_arena.tasks.predicates.live_scene_geometry as live_scene_geometry
+    import isaaclab_arena.environments.arena_world as arena_world
     import isaaclab_arena.tasks.predicates.object_on_destination_term as object_on_destination_term
     import isaaclab_arena.tasks.predicates.spatial as spatial
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
     _check_bounds_center_over_destination(spatial, AxisAlignedBoundingBox)
     _check_upward_support_force(spatial)
-    _check_geometry_bounds_in_prim_frame(live_scene_geometry)
+    _check_geometry_bounds_in_prim_frame(arena_world)
+    _check_scene_extra_pose_reader_cache(arena_world)
     _check_object_on_destination_term(
+        arena_world,
         object_on_destination_term,
         AxisAlignedBoundingBox,
         SceneEntityCfg,
