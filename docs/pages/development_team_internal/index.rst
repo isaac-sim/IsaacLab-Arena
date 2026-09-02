@@ -8,4 +8,5 @@ not part of the supported user-facing documentation.
 .. toctree::
    :maxdepth: 1
 
+   osmo_workflow_prerequisites
    dreamzero
