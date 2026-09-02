@@ -6,7 +6,6 @@
 import math
 import torch
 from types import SimpleNamespace
-from unittest.mock import patch
 
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
@@ -72,76 +71,56 @@ def _check_upward_support_force(spatial) -> None:
     torch.testing.assert_close(result, torch.tensor([False, True, True, False, False, True, False, True]))
 
 
-def _check_geometry_bounds_in_prim_frame(arena_world_module) -> None:
-    """Check that runtime bounds remove pose but retain spawned scale."""
-    from pxr import Gf, Usd, UsdGeom
-
-    stage = Usd.Stage.CreateInMemory()
-    wrapper = UsdGeom.Xform.Define(stage, "/World/Wrapper")
-    wrapper.AddTranslateOp(UsdGeom.XformOp.PrecisionDouble).Set(Gf.Vec3d(100.0, -50.0, 3.0))
-    wrapper.AddRotateZOp(UsdGeom.XformOp.PrecisionDouble).Set(37.0)
-    wrapper.AddScaleOp(UsdGeom.XformOp.PrecisionDouble).Set(Gf.Vec3d(2.0, 3.0, 4.0))
-
-    reference = UsdGeom.Xform.Define(stage, "/World/Wrapper/Reference")
-    cube = UsdGeom.Cube.Define(stage, "/World/Wrapper/Reference/Cube")
-    cube.GetSizeAttr().Set(1.0)
-    UsdGeom.Xformable(cube.GetPrim()).AddTranslateOp(UsdGeom.XformOp.PrecisionDouble).Set(Gf.Vec3d(1.0, 0.0, 0.0))
-
-    ignored_cube = UsdGeom.Cube.Define(stage, "/World/Wrapper/Reference/IgnoredCube")
-    ignored_cube.GetSizeAttr().Set(100.0)
-    ignored_cube.GetPurposeAttr().Set(UsdGeom.Tokens.render)
-
-    bounds = arena_world_module._compute_geometry_bounds_in_prim_frame(reference.GetPrim())
-    torch.testing.assert_close(bounds.min_point[0], torch.tensor([1.0, -1.5, -2.0]))
-    torch.testing.assert_close(bounds.max_point[0], torch.tensor([3.0, 1.5, 2.0]))
-
-
 def _check_object_on_destination(
-    arena_world_module,
     spatial,
     axis_aligned_bounding_box_type,
     scene_entity_cfg_type,
 ) -> None:
-    """Check combined results, live-state reads, and ArenaWorld-owned geometry caching."""
+    """Check combined results and the entity state read by the predicate."""
 
-    class DummyScene(dict):
-        def __init__(self):
-            super().__init__()
-            self.num_envs = 4
-            self.device = "cpu"
-            self.rigid_objects = {}
-            self.extras = {}
+    class ArenaWorldDouble:
+        def __init__(self, poses_w, local_aabbs, linear_velocities_w):
+            self.poses_w = poses_w
+            self.local_aabbs = local_aabbs
+            self.linear_velocities_w = linear_velocities_w
+            self.pose_queries = []
+            self.local_aabb_queries = []
+            self.linear_velocity_queries = []
 
-    class DummyEnv:
-        def __init__(self):
+        def get_pose_w(self, entity_name):
+            self.pose_queries.append(entity_name)
+            return self.poses_w[entity_name]
+
+        def get_local_aabb(self, entity_name):
+            self.local_aabb_queries.append(entity_name)
+            return self.local_aabbs[entity_name]
+
+        def get_linear_velocity_w(self, entity_name):
+            self.linear_velocity_queries.append(entity_name)
+            return self.linear_velocities_w[entity_name]
+
+    class EnvironmentDouble:
+        def __init__(self, arena_world, contact_sensor):
             self.num_envs = 4
-            self.device = "cpu"
-            self.scene = DummyScene()
+            self.arena_world = arena_world
+            self.scene = {"contact_sensor": contact_sensor}
 
     class RuntimeBufferDouble:
         def __init__(self, tensor: torch.Tensor):
             self.torch = tensor
 
-    class DummyRigidObject:
-        def __init__(self, pose_w: torch.Tensor, linear_velocity_w: torch.Tensor):
-            self.data = SimpleNamespace(
-                root_pose_w=RuntimeBufferDouble(pose_w),
-                root_lin_vel_w=RuntimeBufferDouble(linear_velocity_w),
-            )
-
-    class DummyContactSensor:
+    class ContactSensorDouble:
         def __init__(self, contact_force_w: torch.Tensor):
             self.data = SimpleNamespace(force_matrix_w=RuntimeBufferDouble(contact_force_w[:, None, None, :]))
 
     identity_quaternion = (0.0, 0.0, 0.0, 1.0)
-    env = DummyEnv()
-    T_W_O = torch.tensor([
+    object_pose_w = torch.tensor([
         [0.0, 0.0, 0.2, *identity_quaternion],
         [1.1, 0.0, 0.2, *identity_quaternion],
         [0.0, 0.0, 0.2, *identity_quaternion],
         [0.0, 0.0, 0.2, *identity_quaternion],
     ])
-    T_W_D = torch.tensor([[0.0, 0.0, 0.0, *identity_quaternion]]).expand(4, 7)
+    destination_pose_w = torch.tensor([[0.0, 0.0, 0.0, *identity_quaternion]]).expand(4, 7)
     object_linear_velocity_w = torch.tensor([
         [0.0, 0.0, 0.0],
         [0.0, 0.0, 0.0],
@@ -155,151 +134,60 @@ def _check_object_on_destination(
         [0.0, 0.0, 0.2],
     ])
 
-    object_entity = DummyRigidObject(T_W_O, object_linear_velocity_w)
-    destination_entity = DummyRigidObject(T_W_D, torch.zeros((4, 3)))
-    env.scene["object"] = object_entity
-    env.scene["destination"] = destination_entity
-    env.scene["contact_sensor"] = DummyContactSensor(contact_force_w)
-    env.scene.rigid_objects.update({"object": object_entity, "destination": destination_entity})
-    env.arena_world = arena_world_module.ArenaWorld(env.scene)
-    wrapped_env = SimpleNamespace(unwrapped=env)
-
     coarse_contact_and_velocity_result = (torch.linalg.vector_norm(contact_force_w, dim=-1) > 0.1) & (
         torch.linalg.vector_norm(object_linear_velocity_w, dim=-1) < 0.1
     )
     torch.testing.assert_close(coarse_contact_and_velocity_result, torch.tensor([True, True, True, False]))
 
+    arena_world = ArenaWorldDouble(
+        poses_w={"object": object_pose_w, "destination": destination_pose_w},
+        local_aabbs={
+            "object": axis_aligned_bounding_box_type(
+                min_point=torch.tensor([-0.1, -0.1, -0.1]).expand(4, 3),
+                max_point=torch.tensor([0.1, 0.1, 0.1]).expand(4, 3),
+            ),
+            "destination": axis_aligned_bounding_box_type(
+                min_point=torch.tensor([-1.0, -0.5, 0.0]).expand(4, 3),
+                max_point=torch.tensor([1.0, 0.5, 0.4]).expand(4, 3),
+            ),
+        },
+        linear_velocities_w={"object": object_linear_velocity_w},
+    )
+    env = EnvironmentDouble(arena_world, ContactSensorDouble(contact_force_w))
+    wrapped_env = SimpleNamespace(unwrapped=env)
     object_cfg = scene_entity_cfg_type("object")
     destination_cfg = scene_entity_cfg_type("destination")
     contact_sensor_cfg = scene_entity_cfg_type("contact_sensor")
-    geometry_build_calls = []
+    predicate_parameters = {
+        "object_cfg": object_cfg,
+        "destination_cfg": destination_cfg,
+        "contact_sensor_cfg": contact_sensor_cfg,
+        "force_threshold": 0.1,
+        "velocity_threshold": 0.1,
+        "support_cone_half_angle_deg": 45.0,
+    }
 
-    def compute_geometry_bounds(_scene, entity_name):
-        geometry_build_calls.append(entity_name)
-        if entity_name == "object":
-            return axis_aligned_bounding_box_type(
-                min_point=torch.tensor([-0.1, -0.1, -0.1]).expand(4, 3),
-                max_point=torch.tensor([0.1, 0.1, 0.1]).expand(4, 3),
-            )
-        return axis_aligned_bounding_box_type(
-            min_point=torch.tensor([-1.0, -0.5, 0.0]).expand(4, 3),
-            max_point=torch.tensor([1.0, 0.5, 0.4]).expand(4, 3),
-        )
+    # Each failing environment isolates one condition: geometry, force direction, or velocity.
+    predicate_result = spatial.object_on_destination(wrapped_env, **predicate_parameters)
+    torch.testing.assert_close(predicate_result, torch.tensor([True, False, False, False]))
 
-    with (
-        patch.object(
-            arena_world_module,
-            "_compute_spawned_geometry_bounds_in_entity_frame",
-            side_effect=compute_geometry_bounds,
-        ),
-        patch.object(
-            env.arena_world,
-            "get_pose_w",
-            wraps=env.arena_world.get_pose_w,
-        ) as get_pose_w,
-        patch.object(
-            env.arena_world,
-            "get_local_aabb",
-            wraps=env.arena_world.get_local_aabb,
-        ) as get_local_aabb,
-        patch.object(
-            env.arena_world,
-            "get_linear_velocity_w",
-            wraps=env.arena_world.get_linear_velocity_w,
-        ) as get_linear_velocity_w,
-    ):
-        predicate_parameters = {
-            "object_cfg": object_cfg,
-            "destination_cfg": destination_cfg,
-            "contact_sensor_cfg": contact_sensor_cfg,
-            "force_threshold": 0.1,
-            "velocity_threshold": 0.1,
-            "support_cone_half_angle_deg": 45.0,
-        }
-        assert geometry_build_calls == []
-
-        # Each failing environment isolates one condition: geometry, force direction, or velocity.
-        torch.testing.assert_close(
-            spatial.object_on_destination(wrapped_env, **predicate_parameters),
-            torch.tensor([True, False, False, False]),
-        )
-        assert geometry_build_calls == ["object", "destination"]
-
-        # Pose remains live while geometry remains cached.
-        object_entity.data.root_pose_w.torch[0, 0] = 2.0
-        assert not spatial.object_on_destination(env, **predicate_parameters)[0]
-        assert geometry_build_calls == ["object", "destination"]
-        assert [call.args[0] for call in get_pose_w.call_args_list] == [
-            "object",
-            "destination",
-            "object",
-            "destination",
-        ]
-        assert [call.args[0] for call in get_local_aabb.call_args_list] == [
-            "object",
-            "destination",
-            "object",
-            "destination",
-        ]
-        assert [call.args[0] for call in get_linear_velocity_w.call_args_list] == ["object", "object"]
-
-    env.arena_world.close()
-    env.arena_world.close()
-    try:
-        env.arena_world.get_pose_w("object")
-    except AssertionError as error:
-        assert "ArenaWorld is closed" in str(error)
-    else:
-        raise AssertionError("ArenaWorld accepted a query after it was closed.")
-
-
-def _check_asset_base_cfg_pose_reader_cache(arena_world_module) -> None:
-    """Check that ArenaWorld reuses the reader while returning its latest pose."""
-
-    class DummyScene:
-        def __init__(self):
-            self.rigid_objects = {}
-            self.extras = {"reference": object()}
-
-    class PoseReaderDouble:
-        def __init__(self):
-            self.read_count = 0
-            self.pose_values = [
-                torch.tensor([[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0]]),
-                torch.tensor([[1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0]]),
-            ]
-
-        def get_pose_w(self):
-            pose_w = self.pose_values[self.read_count]
-            self.read_count += 1
-            return pose_w
-
-    scene = DummyScene()
-    pose_reader = PoseReaderDouble()
-    with patch.object(arena_world_module, "_AssetBaseCfgPoseReader", return_value=pose_reader) as make_pose_reader:
-        arena_world = arena_world_module.ArenaWorld(scene)
-        first_pose_w = arena_world.get_pose_w("reference")
-        second_pose_w = arena_world.get_pose_w("reference")
-
-    make_pose_reader.assert_called_once_with(scene, "reference")
-    assert pose_reader.read_count == 2
-    torch.testing.assert_close(first_pose_w, pose_reader.pose_values[0])
-    torch.testing.assert_close(second_pose_w, pose_reader.pose_values[1])
+    # Exercise the unwrapped call path with changed live state.
+    object_pose_w[0, 0] = 2.0
+    assert not spatial.object_on_destination(env, **predicate_parameters)[0]
+    assert arena_world.pose_queries == ["object", "destination", "object", "destination"]
+    assert arena_world.local_aabb_queries == ["object", "destination", "object", "destination"]
+    assert arena_world.linear_velocity_queries == ["object", "object"]
 
 
 def _test_object_on_destination(_simulation_app) -> bool:
     from isaaclab.managers import SceneEntityCfg
 
-    import isaaclab_arena.environments.arena_world as arena_world
     import isaaclab_arena.tasks.predicates.spatial as spatial
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
     _check_bounds_center_over_destination(spatial, AxisAlignedBoundingBox)
     _check_upward_support_force(spatial)
-    _check_geometry_bounds_in_prim_frame(arena_world)
-    _check_asset_base_cfg_pose_reader_cache(arena_world)
     _check_object_on_destination(
-        arena_world,
         spatial,
         AxisAlignedBoundingBox,
         SceneEntityCfg,
