@@ -16,9 +16,22 @@ Introduce three separate concepts:
 
 The recommendation must inspect both the dataset and the observation query. The same dataset can support an empirical posterior for `success=1` and require a fitted posterior for an exact continuous duration. Start with an inspection command such as `--recommend-method`; require an explicit `--method empirical` or `--method fitted` for new computation entry points until the rules and fitted engines have sufficient calibration coverage.
 
-`SensitivityAnalyzer.analyze(method=...)` is the public computation facade. It requires the library caller to choose a method, resolves the observation query consistently, and returns either an `EmpiricalSensitivityResult` or a `FittedSensitivityResult`. The empirical calculation remains a pure lower-level function, while `fit()` and `sample_posterior()` remain available for callers that need direct control of fitted inference. The existing `generate_report()` function and report CLI temporarily retain their fitted default for backward compatibility.
+`SensitivityAnalyzer.analyze(method=...)` is the public computation facade. It requires the library caller to choose a method and prepares the observation query consistently. Empirical analysis returns an `EmpiricalSensitivityResult`; fitted analysis retains its existing posterior-sample tensor. The empirical calculation remains a pure lower-level function, while `fit()` and `sample_posterior()` remain available for callers that need direct control of fitted inference. The existing `generate_report()` function and report CLI temporarily retain their fitted default for backward compatibility.
 
 An empirical report should use matching episode factors directly, compare their fixed-bin distribution with the experiment's sampled distribution, show posterior-to-sampling ratios and uncertainty, and report the number of matching episodes. A fitted report should state whether NPE or MNPE was selected and why.
+
+## Current implementation status
+
+[PR #1133](https://github.com/isaac-sim/IsaacLab-Arena/pull/1133) implements the first step of this proposal on `cvolk/feature/empirical-sensitivity-report`. As of September 2, 2026, its tip is `cc3c60a33` and it is not yet part of `main`.
+
+- Empirical analysis exactly matches the full observation, bins factors from their declared schema, and plots posterior-to-sampling ratios with paired-bootstrap intervals.
+- Factor names, bounds, and categorical choices remain dataset-driven. The report does not encode camera-specific labels or units.
+- The report shows only the posterior ratio; a separate outcome-rate panel was removed during review.
+- The bootstrap count retains a programmatic default of 1,000 without adding a CLI option.
+- Fitted analysis still returns its existing sample tensor. The proposed `FittedSensitivityResult` wrapper was removed because it added no required information.
+- `EmpiricalMarginal` and `EmpiricalSensitivityResult` retain the non-rectangular per-factor bin data and analysis-wide metadata needed by the renderer. Before treating these types as stable API, audit fields left unused after removing the outcome-rate panel.
+
+The implementation does not correct bounded NPE/MNPE inference or the fitted KDE renderer. Those remain the next independent work item.
 
 ## Evidence
 
@@ -36,7 +49,7 @@ A shuffled-label control preserved the false central peaks after removing every 
 
 RoboLab uses the same normalized NPE or MNPE plus `BoxUniform` construction, so it does not resolve the fitted-distribution problem. Its fixed-bin histogram avoids the additional KDE boundary bias and is worth adapting with declared, shared factor bounds.
 
-Source artifact checksum: `7d93734aae7179669910d003e3ed2900bb496ecf384ad3e9dd701a029c457065`. Deterministically extracted 1,000-row JSONL checksum: `8151ece3d04906694f467ba18ce2e80c628bb44b6e30e7ec298633376e139ce7`.
+The two provided files named `arena_experiment_result.json` were byte-identical. Source artifact checksum: `7d93734aae7179669910d003e3ed2900bb496ecf384ad3e9dd701a029c457065`. Deterministically extracted 1,000-row JSONL checksum: `8151ece3d04906694f467ba18ce2e80c628bb44b6e30e7ec298633376e139ce7`.
 
 ## Considered options
 
@@ -56,6 +69,6 @@ Source artifact checksum: `7d93734aae7179669910d003e3ed2900bb496ecf384ad3e9dd701
 
 ## Expected sequence
 
-1. Add dataset/query inspection and an empirical posterior report.
+1. Add dataset/query inspection and an empirical posterior report. PR #1133 implements the report; dataset/query recommendation remains deferred.
 2. Correct bounded fitted inference and add calibration tests.
 3. Publish the representative dataset at an immutable revision and update the sensitivity documentation.
