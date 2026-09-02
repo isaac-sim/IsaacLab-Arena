@@ -60,6 +60,18 @@ def test_batch_command_forwards_case_and_inference_arguments(tmp_path):
     assert command[command.index("--spec_output_dir") + 1] == str(tmp_path / "specs" / "case-name")
 
 
+def test_batch_no_save_specs_disables_generated_yaml_output(monkeypatch):
+    monkeypatch.setattr(
+        batch_benchmark.sys,
+        "argv",
+        ["run_time_to_first_spec_benchmarks.py", "--num_runs", "100", "--no_save_specs"],
+    )
+
+    args = batch_benchmark.parse_args()
+
+    assert args.spec_output_dir is None
+
+
 def test_batch_writes_only_combined_json(monkeypatch, tmp_path):
     cases_path = tmp_path / "cases.yaml"
     output_dir = tmp_path / "results"
@@ -189,7 +201,8 @@ def test_manual_case_file_contains_all_requested_workloads():
         kitchen_prompt = cases[f"kitchen_banana_plate_distractors_{count}"].prompt
         assert "center-right counter top and a floor" in kitchen_prompt
         assert "lightwheel_kitchen_one_wall_coastal" in kitchen_prompt
-        assert "DROID is next to the counter top and on the floor" in kitchen_prompt
+        assert "DROID is next to the counter along negative y axis" in kitchen_prompt
+        assert "0.3 m away from the counter top and on the floor" in kitchen_prompt
     open_fridge_case = cases["kitchen_open_fridge_door"]
     assert open_fridge_case.object_references_expected
     assert "lightwheel_kitchen_one_wall_coastal" in open_fridge_case.prompt
