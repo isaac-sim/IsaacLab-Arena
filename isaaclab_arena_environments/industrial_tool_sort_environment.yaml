@@ -1,0 +1,113 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+env_name: vabar_tool_sort__sort_all_newton
+embodiment:
+  id: industrial_fr3_robotiq_2f85
+  registry_name: industrial_fr3_robotiq_2f85
+  params:
+    initial_pose:
+      position_xyz: [-0.5, -0.1, 0.912]
+background:
+  id: industrial__fr3_workcell_table
+  registry_name: industrial__fr3_workcell_table
+  params:
+    initial_pose:
+      position_xyz: [-0.5, -0.1, 0.912]
+objects:
+  - id: hdr_shadow_receiver
+    registry_name: industrial__hdr_shadow_receiver
+  - id: bin1
+    registry_name: industrial__tool_sort_bin
+    params:
+      side: source
+      initial_pose:
+        position_xyz: [0.1, -0.25, 0.8]
+  - id: bin2
+    registry_name: industrial__tool_sort_bin
+    params:
+      side: destination
+      initial_pose:
+        position_xyz: [0.1, 0.28, 0.8]
+  - id: hammer_0
+    registry_name: vabar_tool_sort__hammer
+    params:
+      initial_pose:
+        position_xyz: [0.055071812123060226, -0.2918435335159302, 0.8555317521095276]
+        rotation_xyzw: [-0.4180590510368347, -0.4858432114124298, -0.44771748781204224, -0.6234837770462036]
+  - id: drill_0
+    registry_name: vabar_tool_sort__drill
+    params:
+      initial_pose:
+        position_xyz: [0.22463268041610718, -0.13386666774749756, 0.905187974]
+        rotation_xyzw: [-0.1799403727054596, -0.17290718853473663, 0.7333788275718689, 0.6323607563972473]
+  - id: round_nut_0
+    registry_name: vabar_tool_sort__round_nut
+    params:
+      initial_pose:
+        position_xyz: [0.1308548003435135, -0.18529225885868073, 0.8305647373199463]
+        rotation_xyzw: [0.006598883308470249, 0.009126810356974602, 0.9815715551376343, 0.1907627433538437]
+  - id: clamp_0
+    registry_name: vabar_tool_sort__clamp
+    params:
+      initial_pose:
+        position_xyz: [0.15202291309833527, -0.336628258228302, 0.8376063704490662]
+        rotation_xyzw: [-0.014119562692940235, -0.08092429488897324, 0.5865128636360168, -0.805763304233551]
+  - id: light
+    registry_name: light
+    params:
+      hdr: empty_warehouse_robolab
+object_references:
+  - id: table
+    parent_id: industrial__fr3_workcell_table
+    prim_path: "{ENV_REGEX_NS}/industrial__fr3_workcell_table/placement_surface"
+    object_type: base
+relations: []
+task:
+  composition: atomic
+  description: Sort all tools from bin1 into the compartment of bin2 labelled for their type.
+  subtasks:
+    - kind: ObjectsInRegionsTask
+      params:
+        object_list: [hammer_0, drill_0, round_nut_0, clamp_0]
+        region_list: [bin2, bin2, bin2, bin2]
+        bounds_xyzxyz:
+          - [-0.095, 0.035, 0.8, 0.1, 0.28, 0.95]
+          - [0.1, 0.035, 0.8, 0.295, 0.28, 0.95]
+          - [-0.095, 0.28, 0.8, 0.1, 0.525, 0.95]
+          - [0.1, 0.28, 0.8, 0.295, 0.525, 0.95]
+        episode_length_s: 192.0
+env_cfg_override:
+  sim:
+    dt: 0.02
+    render_interval: 1
+    gravity: [0.0, 0.0, -9.81]
+    use_newton_actuators: true
+    physics:
+      _target_: isaaclab_newton.physics.NewtonCfg
+      solver_cfg:
+        _target_: isaaclab_newton.physics.MJWarpSolverCfg
+        enable_multiccd: true
+        solver: newton
+        integrator: euler
+        nconmax: 5000
+        njmax: 5000
+        iterations: 100
+        ls_iterations: 50
+        impratio: 20.0
+        cone: elliptic
+        use_mujoco_contacts: true
+      default_shape_cfg:
+        _target_: isaaclab_newton.physics.NewtonShapeCfg
+        ke: 60000.0
+        kd: 500.0
+        gap: 0.002
+      num_substeps: 10
+      use_cuda_graph: true
+      debug_mode: false
+  decimation: 1
+  scene:
+    num_envs: 1
+    replicate_physics: false

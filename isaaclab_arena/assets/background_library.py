@@ -34,14 +34,20 @@ class LibraryBackground(Background):
     spawn_cfg_addon: dict[str, Any] = {}
     asset_cfg_addon: dict[str, Any] = {}
 
-    def __init__(self, **kwargs):
+    def __init__(
+        self,
+        initial_pose: Pose | None = None,
+        **kwargs,
+    ):
         # Check lazy USD paths are set by here
         assert self.usd_path is not None
+        if initial_pose is None:
+            initial_pose = self.initial_pose
         super().__init__(
             name=self.name,
             tags=self.tags,
             usd_path=self.usd_path,
-            initial_pose=self.initial_pose,
+            initial_pose=initial_pose,
             object_min_z=self.object_min_z,
             spawn_cfg_addon=self.spawn_cfg_addon,
             asset_cfg_addon=self.asset_cfg_addon,

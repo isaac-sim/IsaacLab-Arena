@@ -12,6 +12,7 @@ from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_wi
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 ASSET_ROOT = REPO_ROOT / "isaaclab_arena" / "assets" / "industrial_tool_sort"
+ENVIRONMENT_YAML = REPO_ROOT / "isaaclab_arena_environments" / "industrial_tool_sort_environment.yaml"
 ENVIRONMENT_NAME = "vabar_tool_sort__sort_all_newton"
 EXPECTED_ASSETS = {
     "industrial__fr3_workcell_table",
@@ -116,6 +117,95 @@ def _test_tool_sort_registration_and_factory(_simulation_app) -> bool:
 
 def test_tool_sort_registration_and_factory():
     assert run_function_with_persistent_simulation_app(_test_tool_sort_registration_and_factory)
+
+
+def _normalize(value):
+    """Convert tuples and nested values to a comparison-friendly form."""
+    if isinstance(value, dict):
+        return {key: _normalize(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_normalize(item) for item in value]
+    return value
+
+
+def _asset_snapshot(asset):
+    pose = asset.get_initial_pose()
+    relations = []
+    for relation in asset.get_relations():
+        relation_values = {
+            key: getattr(value, "name", value) if key == "parent" else value for key, value in vars(relation).items()
+        }
+        relations.append((type(relation).__name__, _normalize(relation_values)))
+    return {
+        "type": type(asset).__name__,
+        "name": asset.name,
+        "pose": (
+            None
+            if pose is None
+            else {
+                "position_xyz": list(pose.position_xyz),
+                "rotation_xyzw": list(pose.rotation_xyzw),
+            }
+        ),
+        "relations": relations,
+        "usd_path": getattr(asset, "usd_path", None),
+        "texture_file": getattr(getattr(asset, "spawner_cfg", None), "texture_file", None),
+    }
+
+
+def _arena_env_snapshot(arena_env):
+    task = arena_env.task
+    return {
+        "name": arena_env.name,
+        "embodiment": _asset_snapshot(arena_env.embodiment),
+        "assets": [_asset_snapshot(asset) for asset in arena_env.scene.assets.values()],
+        "task": {
+            "type": type(task).__name__,
+            "objects": [asset.name for asset in task.objects],
+            "regions": [asset.name for asset in task.regions],
+            "bounds": _normalize(task.bounds),
+            "episode_length_s": task.episode_length_s,
+            "task_description": task.task_description,
+        },
+    }
+
+
+def _assert_nested_equal(actual, expected, path="root"):
+    if isinstance(actual, dict) and isinstance(expected, dict):
+        assert actual.keys() == expected.keys(), f"{path}: keys differ: {actual.keys()} != {expected.keys()}"
+        for key in actual:
+            _assert_nested_equal(actual[key], expected[key], f"{path}.{key}")
+        return
+    if isinstance(actual, list) and isinstance(expected, list):
+        assert len(actual) == len(expected), f"{path}: lengths differ: {len(actual)} != {len(expected)}"
+        for index, (actual_item, expected_item) in enumerate(zip(actual, expected, strict=True)):
+            _assert_nested_equal(actual_item, expected_item, f"{path}[{index}]")
+        return
+    assert actual == expected, f"{path}: {actual!r} != {expected!r}"
+
+
+def _test_tool_sort_python_and_yaml_are_equivalent(_simulation_app) -> bool:
+    from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
+    from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
+    from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
+    from isaaclab_arena_environments.industrial_tool_sort_environment import (
+        IndustrialToolSortEnvironment,
+        IndustrialToolSortEnvironmentCfg,
+    )
+
+    python_env = IndustrialToolSortEnvironment().build(IndustrialToolSortEnvironmentCfg())
+    yaml_env = ArenaEnvGraphSpec.from_yaml(ENVIRONMENT_YAML).to_arena_env()
+    _assert_nested_equal(_arena_env_snapshot(yaml_env), _arena_env_snapshot(python_env))
+
+    builder_cfg = ArenaEnvBuilderCfg(num_envs=1, solve_relations=False)
+    python_cfg, _ = ArenaEnvBuilder(python_env, builder_cfg).compose_manager_cfg()
+    yaml_cfg, _ = ArenaEnvBuilder(yaml_env, builder_cfg).compose_manager_cfg()
+    _assert_nested_equal(_normalize(yaml_cfg.to_dict()), _normalize(python_cfg.to_dict()), path="env_cfg")
+    return True
+
+
+def test_tool_sort_python_and_yaml_are_equivalent():
+    assert run_function_with_persistent_simulation_app(_test_tool_sort_python_and_yaml_are_equivalent)
 
 
 def _test_shared_tool_sort_assets_spawn_with_physx(_simulation_app) -> bool:
