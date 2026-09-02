@@ -77,7 +77,6 @@ def get_persistent_simulation_app(headless: bool, enable_cameras: bool = False) 
     if _PERSISTENT_SIM_APP_LAUNCHER is None:
         parser = get_isaaclab_arena_cli_parser()
         simulation_app_args = parser.parse_args([])
-        simulation_app_args.headless = headless
         simulation_app_args.enable_cameras = enable_cameras
         if not headless:
             simulation_app_args.visualizer = ["kit"]

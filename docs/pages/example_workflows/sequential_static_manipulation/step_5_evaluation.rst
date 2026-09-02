@@ -182,7 +182,6 @@ Parallel evaluation of the policy in multiple parallel environments is also supp
            --num_steps 2000 \
            --num_envs 10 \
            --enable_cameras \
-           --headless \
            --distributed \
            put_item_in_fridge_and_close_door \
            --embodiment gr1_joint \
@@ -258,7 +257,6 @@ This step demonstrates evaluation of the policy in heterogeneous environments wi
            --num_envs 10 \
            --enable_cameras \
            --distributed \
-           --headless \
            put_item_in_fridge_and_close_door \
            --embodiment gr1_joint \
            --object_set ketchup_bottle_hope_robolab ranch_dressing_hope_robolab bbq_sauce_bottle_hope_robolab mayonnaise_bottle_hope_robolab

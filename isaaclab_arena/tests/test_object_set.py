@@ -167,7 +167,6 @@ def _build_and_reset_env(simulation_app, scene_assets, env_name="object_set_test
     )
     args_cli = get_isaaclab_arena_cli_parser().parse_args([])
     args_cli.num_envs = NUM_ENVS
-    args_cli.headless = HEADLESS
     env_builder = ArenaEnvBuilder(isaaclab_arena_environment, arena_env_builder_cfg_from_argparse(args_cli))
     env = env_builder.make_registered()
     env.reset()
@@ -295,7 +294,6 @@ def _test_single_object_in_one_object_set(simulation_app):
     )
     args_cli = get_isaaclab_arena_cli_parser().parse_args([])
     args_cli.num_envs = NUM_ENVS
-    args_cli.headless = HEADLESS
     env_builder = ArenaEnvBuilder(isaaclab_arena_environment, arena_env_builder_cfg_from_argparse(args_cli))
     env = env_builder.make_registered()
     env.reset()
@@ -362,7 +360,6 @@ def _test_multi_objects_in_one_object_set(simulation_app):
     )
     args_cli = get_isaaclab_arena_cli_parser().parse_args([])
     args_cli.num_envs = NUM_ENVS
-    args_cli.headless = HEADLESS
     env_builder = ArenaEnvBuilder(isaaclab_arena_environment, arena_env_builder_cfg_from_argparse(args_cli))
     env = env_builder.make_registered()
     env.reset()
@@ -430,7 +427,6 @@ def _test_multi_object_sets(simulation_app):
     )
     args_cli = get_isaaclab_arena_cli_parser().parse_args([])
     args_cli.num_envs = NUM_ENVS
-    args_cli.headless = HEADLESS
     env_builder = ArenaEnvBuilder(isaaclab_arena_environment, arena_env_builder_cfg_from_argparse(args_cli))
     env = env_builder.make_registered()
     env.reset()

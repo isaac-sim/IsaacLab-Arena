@@ -62,9 +62,7 @@ def run_policy_runner_with_external_environment(
     args.append(policy_type)
     args.append("--num_steps")
     args.append(str(num_steps))
-    if HEADLESS:
-        args.append("--headless")
-    else:
+    if not HEADLESS:
         args.append("--visualizer")
         args.append("kit")
     args.append("--external_environment_class_path")

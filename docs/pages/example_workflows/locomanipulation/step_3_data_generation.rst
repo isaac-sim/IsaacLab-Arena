@@ -83,7 +83,6 @@ Generate the dataset:
 
    # Generate 100 demonstrations
    python submodules/IsaacLab/scripts/imitation_learning/isaaclab_mimic/generate_dataset.py \
-     --headless \
      --enable_cameras \
      --mimic \
      --input_file $DATASET_DIR/arena_g1_loco_manipulation_dataset_annotated.hdf5 \
@@ -96,7 +95,7 @@ Generate the dataset:
      --embodiment g1_wbc_pink
 
 Data generation takes 1-4 hours depending on your CPU/GPU.
-You can remove ``--headless`` and add ``--viz kit`` to visualize during data generation.
+Add ``--viz kit`` to visualize during data generation.
 
 
 Step 3: Validate Generated Dataset (Optional)
