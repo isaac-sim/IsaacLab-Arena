@@ -15,7 +15,7 @@ class Pose:
     """
 
     position_xyz: tuple[float, float, float] = (0.0, 0.0, 0.0)
-    """Translation from frame B to frame A, expressed in frame A."""
+    """Position of frame B's origin, expressed in frame A."""
 
     rotation_xyzw: tuple[float, float, float, float] = (0.0, 0.0, 0.0, 1.0)
     """Quaternion mapping frame B coordinates into frame A. Order is (x, y, z, w)."""
