@@ -28,7 +28,13 @@ class IsaacLabArenaEnvironment:
         embodiment: EmbodimentBase | None = None,
         task: TaskBase | None = None,
         teleop_device: TeleopDeviceBase | None = None,
-        env_cfg_callback: Callable[IsaacLabArenaManagerBasedRLEnvCfg] | None = None,
+        env_cfg_callback: (
+            Callable[
+                [IsaacLabArenaManagerBasedRLEnvCfg],
+                IsaacLabArenaManagerBasedRLEnvCfg,
+            ]
+            | None
+        ) = None,
         rl_framework_entry_point: str | None = None,
         rl_policy_cfg: str | None = None,
         episode_recorder_terms: dict[str, EpisodeRecorderTermCfg] | None = None,
@@ -42,6 +48,7 @@ class IsaacLabArenaEnvironment:
             task: The task to use in the environment.
             teleop_device: The teleop device to use in the environment.
             env_cfg_callback: A callback function that modifies the environment configuration.
+                It must return the configuration it was given (mutated in place or replaced).
             rl_framework_entry_point: Gym kwargs key under which the RL policy config is
                 registered. This is an IsaacLab convention: each supported RL framework has a
                 fixed key that its training scripts look up via ``load_cfg_from_registry``.

@@ -414,6 +414,7 @@ class ArenaEnvBuilder:
         # This can be used to modify the simulation configuration, etc.
         if self.arena_env.env_cfg_callback is not None:
             env_cfg = self.arena_env.env_cfg_callback(env_cfg)
+            assert env_cfg is not None, "env_cfg_callback must return the environment config."
 
         # Set seed for Isaac Lab env.
         env_cfg.seed = self.cfg.seed
