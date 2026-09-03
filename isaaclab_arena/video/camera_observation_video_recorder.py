@@ -32,7 +32,15 @@ from dataclasses import dataclass
 
 from moviepy.video.io.ffmpeg_writer import FFMPEG_VideoWriter
 
+from isaaclab_arena.utils.timer import Timer
+
 CAMERA_OBS_GROUP_KEY = "camera_obs"
+
+CAMERA_FRAME_WRITE_TIMER_NAME = "video/camera_frame_write"
+"""Timer covering the per-step camera frame copy and encoder writes."""
+
+CAMERA_FINALIZE_TIMER_NAME = "video/camera_finalize"
+"""Timer covering the encoder shutdown that finalises one episode's mp4 files."""
 
 # Regular expression to parse the filename of an episode video.
 _EPISODE_VIDEO_FILENAME_PATTERN = re.compile(
@@ -142,15 +150,19 @@ class CameraObsVideoRecorder(gym.Wrapper):
             done_envs = (terminated | truncated).nonzero().flatten().tolist()
             done_set = set(done_envs)
 
-            for camera_name, frames in cam_obs.items():
-                if camera_name not in self.writers:
-                    self.writers[camera_name] = [None] * n_envs
-                for env_idx in range(n_envs):
-                    if env_idx not in done_set:
-                        self._write_frame(camera_name, env_idx, _to_uint8(frames[env_idx]))
+            # Timed separately from the env step: this covers the device-to-host copy of every
+            # camera frame and the encoder writes, which is the per-step cost of recording.
+            with Timer(CAMERA_FRAME_WRITE_TIMER_NAME):
+                for camera_name, frames in cam_obs.items():
+                    if camera_name not in self.writers:
+                        self.writers[camera_name] = [None] * n_envs
+                    for env_idx in range(n_envs):
+                        if env_idx not in done_set:
+                            self._write_frame(camera_name, env_idx, _to_uint8(frames[env_idx]))
 
             if done_envs:
-                self._finish_envs(done_envs)
+                with Timer(CAMERA_FINALIZE_TIMER_NAME):
+                    self._finish_envs(done_envs)
 
         return result
 

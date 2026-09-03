@@ -282,11 +282,9 @@ def test_fans_out_single_run_experiments_with_dedicated_pi0_servers_and_one_expe
     experiment_output_script_file = _task_file(experiment_output_task, _REMOTE_BUILD_EXPERIMENT_OUTPUT_SCRIPT_PATH)
     assert "localpath" not in experiment_output_script_file
     assert "def build_experiment_output" in experiment_output_script_file["contents"]
-    assert (
-        "from isaaclab_arena.evaluation.arena_experiment_result import ArenaExperimentResult"
-        in experiment_output_script_file["contents"]
-    )
+    assert "from isaaclab_arena.evaluation.arena_experiment_result import" in experiment_output_script_file["contents"]
     assert EXPERIMENT_RUNNER_RESULT_FILE_NAME in experiment_output_script_file["contents"]
+    assert "def aggregate_experiment_timings" in experiment_output_script_file["contents"]
     experiment_output_command = _task_file(experiment_output_task, "/tmp/entry.sh")["contents"]
     assert experiment_output_command.startswith("set -euo pipefail")
     assert _REMOTE_BUILD_EXPERIMENT_OUTPUT_SCRIPT_PATH in experiment_output_command
