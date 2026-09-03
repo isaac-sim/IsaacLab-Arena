@@ -71,19 +71,6 @@ class ObjectOnDestinationTerm(ManagerTermBase):
             )
             assert False, unsupported_destination_message
 
-    def close(self) -> None:
-        """Release the frame view owned by this term. Safe to call more than once."""
-        if self._destination_asset_base_pose_reader is not None:
-            self._destination_asset_base_pose_reader.close()
-            self._destination_asset_base_pose_reader = None
-
-    def __del__(self):
-        """Release the frame view when the termination manager drops this term."""
-        # TODO(amillane, 2026-08-31): Move this upstream post v0.3.0 -- ManagerTermBase should
-        # grow a teardown hook that each manager calls for its own terms, so resource-owning
-        # terms no longer need their own destructor.
-        self.close()
-
     def __call__(
         self,
         env: ManagerBasedEnv,

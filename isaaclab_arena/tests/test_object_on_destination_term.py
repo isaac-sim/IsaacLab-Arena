@@ -3,7 +3,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-import gc
 import math
 import torch
 from types import SimpleNamespace
@@ -233,40 +232,6 @@ def _check_object_on_destination_term(
             raise AssertionError("The term accepted a destination that did not match its cached geometry.")
 
 
-def _check_owned_resource_cleanup(live_scene_geometry, object_on_destination_term_module) -> None:
-    """Check that term-owned views close exactly once, and that dropping the term releases them."""
-
-    class DummyClosable:
-        def __init__(self):
-            self.close_calls = 0
-
-        def close(self):
-            self.close_calls += 1
-
-    frame_view = DummyClosable()
-    pose_reader = object.__new__(live_scene_geometry.AssetBaseCfgPoseReader)
-    pose_reader._frame_view = frame_view
-    pose_reader.close()
-    pose_reader.close()
-    assert frame_view.close_calls == 1
-
-    term_reader = DummyClosable()
-    term = object.__new__(object_on_destination_term_module.ObjectOnDestinationTerm)
-    term._destination_asset_base_pose_reader = term_reader
-    term.close()
-    term.close()
-    assert term_reader.close_calls == 1
-
-    # Dropping the term releases the reader, so no env-level bookkeeping is needed. This
-    # mirrors RecorderManager driving RecorderTerm.close from its own destructor.
-    dropped_reader = DummyClosable()
-    dropped_term = object.__new__(object_on_destination_term_module.ObjectOnDestinationTerm)
-    dropped_term._destination_asset_base_pose_reader = dropped_reader
-    del dropped_term
-    gc.collect()
-    assert dropped_reader.close_calls == 1
-
-
 def _test_object_on_destination_term(_simulation_app) -> bool:
     from isaaclab.managers import SceneEntityCfg, TerminationTermCfg
 
@@ -284,7 +249,6 @@ def _test_object_on_destination_term(_simulation_app) -> bool:
         SceneEntityCfg,
         TerminationTermCfg,
     )
-    _check_owned_resource_cleanup(live_scene_geometry, object_on_destination_term)
     return True
 
 
