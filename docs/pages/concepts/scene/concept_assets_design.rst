@@ -87,6 +87,32 @@ ownership away from the background.
 Instanceable subtrees that contribute dynamic physics are materialized at spawn
 time because physics views cannot control dynamic instance proxies.
 
+Rigid-body behavior
+^^^^^^^^^^^^^^^^^^^
+
+A background's ``BASE`` type does not remove physics authored in its USD. The
+``rigid_props`` value in ``spawn_cfg_addon`` is forwarded to Isaac Lab's USD spawner.
+When ``rigid_props=None`` (the default), the spawner does not add or modify rigid-body
+properties. A prim that already has ``UsdPhysics.RigidBodyAPI`` therefore keeps its
+authored behavior; for example, an authored dynamic body can move when gravity or
+contact forces act on it.
+
+For a background fixture that must not move, such as a table used only as a fixed
+work surface, make its rigid bodies kinematic:
+
+.. code-block:: python
+
+   spawn_cfg_addon = {
+       "rigid_props": sim_utils.RigidBodyPropertiesCfg(kinematic_enabled=True),
+   }
+
+A kinematic body still collides with dynamic objects, but gravity, forces, and contacts
+do not displace it. Its pose changes only when it is explicitly commanded. Do not use
+this setting when the background should respond physically. For example, a table that
+a humanoid is expected to push must remain dynamic: retain ``rigid_props=None`` when
+the USD already authors it as dynamic, or explicitly set ``kinematic_enabled=False``
+to override an authored kinematic setting.
+
 Object references
 -----------------
 
