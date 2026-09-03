@@ -90,11 +90,6 @@ resolution.
    ``generate_spec`` runtime. These results are snapshots rather than guarantees: model output is
    non-deterministic, and service load affects runtime.
 
-In this snapshot, DeepSeek produced the expected structure for all 15 runs. Nemotron produced the
-expected structure for all nine tabletop runs but failed all six kitchen runs, primarily by
-omitting background object references and spatial relations. Their mean runtimes were nearly the
-same, so DeepSeek is the public default based on spec quality rather than speed.
-
 Reviewing the Generated Spec
 ----------------------------
 
