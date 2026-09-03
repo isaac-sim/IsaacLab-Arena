@@ -10,7 +10,6 @@ import pytest
 
 @pytest.mark.with_newton
 def test_kuka_allegro_registered_in_asset_registry() -> None:
-    pytest.importorskip("isaaclab_tasks.core.lift.config.kuka_allegro.kuka_allegro_env_cfg")
     from isaaclab_arena.assets.registries import AssetRegistry
     from isaaclab_arena.embodiments.kuka_allegro.kuka_allegro import KukaAllegroEmbodiment
 
@@ -22,7 +21,6 @@ def test_kuka_allegro_registered_in_asset_registry() -> None:
 
 @pytest.mark.with_newton
 def test_scene_cfg_has_robot_and_fingertip_contact_sensors() -> None:
-    pytest.importorskip("isaaclab_tasks.core.lift.config.kuka_allegro.kuka_allegro_env_cfg")
     from isaaclab_arena.embodiments.kuka_allegro.kuka_allegro import KukaAllegroSceneCfg
 
     cfg = KukaAllegroSceneCfg()
@@ -36,7 +34,6 @@ def test_scene_cfg_has_robot_and_fingertip_contact_sensors() -> None:
 
 @pytest.mark.with_newton
 def test_embodiment_default_action_and_observation() -> None:
-    pytest.importorskip("isaaclab_tasks.core.lift.config.kuka_allegro.kuka_allegro_env_cfg")
     from isaaclab_arena.embodiments.kuka_allegro.kuka_allegro import KukaAllegroEmbodiment
 
     emb = KukaAllegroEmbodiment()
@@ -51,8 +48,6 @@ def test_embodiment_default_action_and_observation() -> None:
 
 @pytest.mark.with_newton
 def test_embodiment_has_reset_event() -> None:
-    pytest.importorskip("isaaclab_tasks.core.lift.config.kuka_allegro.kuka_allegro_env_cfg")
-
     from isaaclab_arena.embodiments.kuka_allegro.kuka_allegro import KukaAllegroEmbodiment, KukaAllegroEventCfg
 
     emb = KukaAllegroEmbodiment()
