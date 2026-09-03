@@ -57,7 +57,6 @@ def _test_arena_world(_simulation_app) -> bool:
     finally:
         env.close()
 
-    arena_world.close()
     try:
         arena_world.get_pose_w(sphere_name)
     except AssertionError as error:

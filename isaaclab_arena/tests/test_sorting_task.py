@@ -74,9 +74,8 @@ def get_test_environment(num_envs: int):
         pick_up_object_list=[red_cube, green_cube],
         destination_location_list=[red_container, green_container],
         background_scene=background,
+        force_threshold=0.1,
     )
-    # Use a low force threshold for testing
-    task.termination_cfg.success.params["force_threshold"] = 0.1
 
     embodiment = FrankaIKEmbodiment()
     embodiment.set_initial_pose(

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import math
 import torch
+from typing import TYPE_CHECKING
 
 import warp as wp
 from isaaclab.assets import RigidObject
@@ -20,6 +21,9 @@ from isaaclab.utils.math import quat_apply, quat_apply_inverse
 from isaaclab_arena.tasks.predicates.object_settling import get_object_initial_rest_state
 from isaaclab_arena.tasks.predicates.predicate_utils import get_env, get_root_lin_vel_w, get_root_pos_w, select
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+
+if TYPE_CHECKING:
+    from isaaclab_arena.environments.isaaclab_arena_manager_based_env import IsaacLabArenaManagerBasedRLEnv
 
 
 def object_bounds_center_over_destination(
@@ -69,7 +73,7 @@ def object_bounds_center_over_destination(
 def contact_force_is_upward_support(
     contact_force_w: torch.Tensor,
     force_threshold: float,
-    support_cone_half_angle_deg: float,
+    support_cone_half_angle_rad: float,
 ) -> torch.Tensor:
     """Check whether contact forces point upward strongly enough.
 
@@ -77,7 +81,7 @@ def contact_force_is_upward_support(
         contact_force_w: World-frame force vectors with shape
             ``(num_envs, 3)`` in newtons.
         force_threshold: Minimum force magnitude in newtons.
-        support_cone_half_angle_deg: Maximum angle in degrees between the force
+        support_cone_half_angle_rad: Maximum angle in radians between the force
             vector and world ``+Z``. Zero accepts only a straight-up force.
 
     Returns:
@@ -88,12 +92,12 @@ def contact_force_is_upward_support(
     ), f"contact_force_w must have shape (num_envs, 3), got {tuple(contact_force_w.shape)}."
     assert force_threshold >= 0.0, f"force_threshold must be non-negative, got {force_threshold}."
     assert (
-        0.0 <= support_cone_half_angle_deg < 90.0
-    ), f"support_cone_half_angle_deg must be in [0, 90), got {support_cone_half_angle_deg}."
+        0.0 <= support_cone_half_angle_rad < math.pi / 2
+    ), f"support_cone_half_angle_rad must be in [0, pi / 2), got {support_cone_half_angle_rad}."
 
     force_magnitude = torch.linalg.vector_norm(contact_force_w, dim=-1)
     upward_force = contact_force_w[:, 2]
-    minimum_upward_fraction = math.cos(math.radians(support_cone_half_angle_deg))
+    minimum_upward_fraction = math.cos(support_cone_half_angle_rad)
     return (
         (force_magnitude >= force_threshold)
         & (upward_force > 0.0)
@@ -189,13 +193,13 @@ def objects_in_proximity(
 
 
 def object_on_destination(
-    env: ManagerBasedRLEnv,
+    env: IsaacLabArenaManagerBasedRLEnv,
     object_cfg: SceneEntityCfg,
     destination_cfg: SceneEntityCfg,
     contact_sensor_cfg: SceneEntityCfg,
     force_threshold: float,
     velocity_threshold: float,
-    support_cone_half_angle_deg: float = 45.0,
+    support_cone_half_angle_rad: float = math.pi / 4,
 ) -> torch.Tensor:
     """Check whether an object is stably placed on its destination.
 
@@ -210,7 +214,7 @@ def object_on_destination(
         contact_sensor_cfg: The object's contact sensor filtered to the destination.
         force_threshold: Minimum upward support force in newtons.
         velocity_threshold: Maximum object linear speed in meters per second.
-        support_cone_half_angle_deg: Maximum angle from world ``+Z`` for the support force.
+        support_cone_half_angle_rad: Maximum angle in radians from world ``+Z`` for the support force.
 
     Returns:
         One Boolean result per environment.
@@ -240,59 +244,9 @@ def object_on_destination(
     destination_provides_upward_support = contact_force_is_upward_support(
         contact_force_w=support_force_on_object_w,
         force_threshold=force_threshold,
-        support_cone_half_angle_deg=support_cone_half_angle_deg,
+        support_cone_half_angle_rad=support_cone_half_angle_rad,
     )
 
     object_root_linear_velocity_w = arena_world.get_root_linear_velocity_w(object_cfg.name)
     object_moves_slowly = object_is_moving_slowly(object_root_linear_velocity_w, velocity_threshold)
     return object_center_over_destination & destination_provides_upward_support & object_moves_slowly
-
-
-def objects_on_destinations(
-    env: ManagerBasedRLEnv,
-    object_cfg_list: list[SceneEntityCfg],
-    destination_cfg_list: list[SceneEntityCfg],
-    contact_sensor_cfg_list: list[SceneEntityCfg],
-    force_threshold: float,
-    velocity_threshold: float,
-    support_cone_half_angle_deg: float = 45.0,
-) -> torch.Tensor:
-    """Check whether every object is stably placed on its destination.
-
-    Args:
-        env: The wrapped or unwrapped manager-based environment.
-        object_cfg_list: The rigid objects being placed.
-        destination_cfg_list: The destination corresponding to each object.
-        contact_sensor_cfg_list: The filtered contact sensor corresponding to each object.
-        force_threshold: Minimum upward support force in newtons.
-        velocity_threshold: Maximum object linear speed in meters per second.
-        support_cone_half_angle_deg: Maximum angle from world ``+Z`` for each support force.
-
-    Returns:
-        One Boolean result per environment.
-    """
-
-    assert len(object_cfg_list) == len(destination_cfg_list) == len(contact_sensor_cfg_list), (
-        "object_cfg_list, destination_cfg_list, and contact_sensor_cfg_list must have equal length; got "
-        f"{len(object_cfg_list)} objects, {len(destination_cfg_list)} destinations, and "
-        f"{len(contact_sensor_cfg_list)} sensors."
-    )
-
-    unwrapped_env = get_env(env)
-    condition_met = torch.ones((unwrapped_env.num_envs), device=unwrapped_env.device, dtype=torch.bool)
-    for object_cfg, destination_cfg, contact_sensor_cfg in zip(
-        object_cfg_list,
-        destination_cfg_list,
-        contact_sensor_cfg_list,
-    ):
-        single_condition = object_on_destination(
-            env=unwrapped_env,
-            object_cfg=object_cfg,
-            destination_cfg=destination_cfg,
-            contact_sensor_cfg=contact_sensor_cfg,
-            force_threshold=force_threshold,
-            velocity_threshold=velocity_threshold,
-            support_cone_half_angle_deg=support_cone_half_angle_deg,
-        )
-        condition_met = torch.logical_and(condition_met, single_condition)
-    return condition_met
