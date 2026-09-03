@@ -76,28 +76,28 @@ def _check_object_on_destination(
     axis_aligned_bounding_box_type,
     scene_entity_cfg_type,
 ) -> None:
-    """Check combined results and the entity state read by the predicate."""
+    """Check combined results and the scene state read by the predicate."""
 
     class ArenaWorldDouble:
-        def __init__(self, T_W_F_by_entity_name, aabbs_F_by_entity_name, root_linear_velocities_w_by_entity_name):
-            self.T_W_F_by_entity_name = T_W_F_by_entity_name
-            self.aabbs_F_by_entity_name = aabbs_F_by_entity_name
-            self.root_linear_velocities_w_by_entity_name = root_linear_velocities_w_by_entity_name
+        def __init__(self, T_W_F_by_scene_key, aabbs_F_by_scene_key, root_linear_velocities_w_by_scene_key):
+            self.T_W_F_by_scene_key = T_W_F_by_scene_key
+            self.aabbs_F_by_scene_key = aabbs_F_by_scene_key
+            self.root_linear_velocities_w_by_scene_key = root_linear_velocities_w_by_scene_key
             self.pose_queries = []
-            self.aabb_in_entity_frame_queries = []
+            self.local_aabb_queries = []
             self.root_linear_velocity_queries = []
 
-        def get_pose_w(self, entity_name):
-            self.pose_queries.append(entity_name)
-            return self.T_W_F_by_entity_name[entity_name]
+        def get_pose_w(self, scene_key):
+            self.pose_queries.append(scene_key)
+            return self.T_W_F_by_scene_key[scene_key]
 
-        def get_aabb_in_entity_frame(self, entity_name):
-            self.aabb_in_entity_frame_queries.append(entity_name)
-            return self.aabbs_F_by_entity_name[entity_name]
+        def get_aabb_in_local_frame(self, scene_key):
+            self.local_aabb_queries.append(scene_key)
+            return self.aabbs_F_by_scene_key[scene_key]
 
-        def get_root_linear_velocity_w(self, entity_name):
-            self.root_linear_velocity_queries.append(entity_name)
-            return self.root_linear_velocities_w_by_entity_name[entity_name]
+        def get_root_linear_velocity_w(self, rigid_object_name):
+            self.root_linear_velocity_queries.append(rigid_object_name)
+            return self.root_linear_velocities_w_by_scene_key[rigid_object_name]
 
     class EnvironmentDouble:
         def __init__(self, arena_world, contact_sensor):
@@ -140,8 +140,8 @@ def _check_object_on_destination(
     torch.testing.assert_close(coarse_contact_and_velocity_result, torch.tensor([True, True, True, False]))
 
     arena_world = ArenaWorldDouble(
-        T_W_F_by_entity_name={"object": T_W_O, "destination": T_W_D},
-        aabbs_F_by_entity_name={
+        T_W_F_by_scene_key={"object": T_W_O, "destination": T_W_D},
+        aabbs_F_by_scene_key={
             "object": axis_aligned_bounding_box_type(
                 min_point=torch.tensor([-0.1, -0.1, -0.1]).expand(4, 3),
                 max_point=torch.tensor([0.1, 0.1, 0.1]).expand(4, 3),
@@ -151,7 +151,7 @@ def _check_object_on_destination(
                 max_point=torch.tensor([1.0, 0.5, 0.4]).expand(4, 3),
             ),
         },
-        root_linear_velocities_w_by_entity_name={"object": object_root_linear_velocity_w},
+        root_linear_velocities_w_by_scene_key={"object": object_root_linear_velocity_w},
     )
     env = EnvironmentDouble(arena_world, ContactSensorDouble(contact_force_w))
     wrapped_env = SimpleNamespace(unwrapped=env)
@@ -175,7 +175,7 @@ def _check_object_on_destination(
     T_W_O[0, 0] = 2.0
     assert not spatial.object_on_destination(env, **predicate_parameters)[0]
     assert arena_world.pose_queries == ["object", "destination", "object", "destination"]
-    assert arena_world.aabb_in_entity_frame_queries == ["object", "destination", "object", "destination"]
+    assert arena_world.local_aabb_queries == ["object", "destination", "object", "destination"]
     assert arena_world.root_linear_velocity_queries == ["object", "object"]
 
 

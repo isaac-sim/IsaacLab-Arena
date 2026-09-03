@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Verify ArenaWorld entity reads and derived entity geometry."""
+"""Verify ArenaWorld scene reads and derived local geometry."""
 
 import torch
 from types import SimpleNamespace
@@ -12,7 +12,7 @@ from unittest.mock import patch
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
 
-def _check_geometry_bounds_in_prim_frame(entity_access_module) -> None:
+def _check_geometry_bounds_in_prim_frame(scene_access_module) -> None:
     """Check that runtime bounds remove pose but retain spawned scale."""
     from pxr import Gf, Usd, UsdGeom
 
@@ -31,17 +31,17 @@ def _check_geometry_bounds_in_prim_frame(entity_access_module) -> None:
     ignored_cube.GetSizeAttr().Set(100.0)
     ignored_cube.GetPurposeAttr().Set(UsdGeom.Tokens.render)
 
-    geometry_bounds_P = entity_access_module._compute_geometry_bounds_in_prim_frame(reference.GetPrim())
+    geometry_bounds_P = scene_access_module._compute_geometry_bounds_in_prim_frame(reference.GetPrim())
     torch.testing.assert_close(geometry_bounds_P.min_point[0], torch.tensor([1.0, -1.5, -2.0]))
     torch.testing.assert_close(geometry_bounds_P.max_point[0], torch.tensor([3.0, 1.5, 2.0]))
 
 
-def _check_rigid_object_reads_and_entity_frame_aabb_cache(
+def _check_rigid_object_reads_and_local_aabb_cache(
     arena_world_module,
-    entity_access_module,
+    scene_access_module,
     axis_aligned_bounding_box_type,
 ) -> None:
-    """Check live rigid-object reads and one cached AABB per entity name."""
+    """Check live rigid-object reads and one cached AABB per scene key."""
 
     class RuntimeBufferDouble:
         def __init__(self, tensor: torch.Tensor):
@@ -83,9 +83,9 @@ def _check_rigid_object_reads_and_entity_frame_aabb_cache(
     arena_world = arena_world_module.ArenaWorld(scene)
     geometry_build_calls: list[str] = []
 
-    def compute_geometry_bounds(_scene, entity_name: str):
-        geometry_build_calls.append(entity_name)
-        if entity_name == "object":
+    def compute_geometry_bounds(_scene, scene_key: str):
+        geometry_build_calls.append(scene_key)
+        if scene_key == "object":
             return axis_aligned_bounding_box_type(
                 min_point=torch.tensor([-0.1, -0.1, -0.1]).expand(2, 3),
                 max_point=torch.tensor([0.1, 0.1, 0.1]).expand(2, 3),
@@ -109,14 +109,14 @@ def _check_rigid_object_reads_and_entity_frame_aabb_cache(
     torch.testing.assert_close(arena_world.get_root_linear_velocity_w("object"), changed_root_linear_velocity_w)
 
     with patch.object(
-        entity_access_module,
-        "compute_spawned_geometry_bounds_in_entity_frame",
+        scene_access_module,
+        "compute_spawned_geometry_bounds_in_local_frame",
         side_effect=compute_geometry_bounds,
     ):
-        object_bounds_O = arena_world.get_aabb_in_entity_frame("object")
-        destination_bounds_D = arena_world.get_aabb_in_entity_frame("destination")
-        assert arena_world.get_aabb_in_entity_frame("object") is object_bounds_O
-        assert arena_world.get_aabb_in_entity_frame("destination") is destination_bounds_D
+        object_bounds_O = arena_world.get_aabb_in_local_frame("object")
+        destination_bounds_D = arena_world.get_aabb_in_local_frame("destination")
+        assert arena_world.get_aabb_in_local_frame("object") is object_bounds_O
+        assert arena_world.get_aabb_in_local_frame("destination") is destination_bounds_D
 
     assert object_bounds_O is not destination_bounds_D
     assert geometry_build_calls == ["object", "destination"]
@@ -124,7 +124,7 @@ def _check_rigid_object_reads_and_entity_frame_aabb_cache(
 
 def _check_arena_world_reuses_scene_extra_pose_reader(
     arena_world_module,
-    entity_access_module,
+    scene_access_module,
 ) -> None:
     """Check that ArenaWorld caches the reader while returning its latest T_W_F."""
 
@@ -149,7 +149,7 @@ def _check_arena_world_reuses_scene_extra_pose_reader(
 
     scene = SceneDouble()
     pose_reader = PoseReaderDouble()
-    with patch.object(entity_access_module, "SceneExtraPoseReader", return_value=pose_reader) as make_pose_reader:
+    with patch.object(scene_access_module, "SceneExtraPoseReader", return_value=pose_reader) as make_pose_reader:
         arena_world = arena_world_module.ArenaWorld(scene)
         T_W_F_first = arena_world.get_pose_w("reference")
         T_W_F_second = arena_world.get_pose_w("reference")
@@ -160,7 +160,7 @@ def _check_arena_world_reuses_scene_extra_pose_reader(
     torch.testing.assert_close(T_W_F_second, pose_reader.T_W_F_values[1])
 
 
-def _check_arena_world_rejects_unsupported_pose_entity(arena_world_module) -> None:
+def _check_arena_world_rejects_unsupported_pose_scene_key(arena_world_module) -> None:
     """Check that a pose query reports ArenaWorld's supported scene categories."""
 
     scene = SimpleNamespace(rigid_objects={}, extras={})
@@ -171,14 +171,14 @@ def _check_arena_world_rejects_unsupported_pose_entity(arena_world_module) -> No
     except AssertionError as error:
         assert (
             str(error)
-            == "ArenaWorld pose queries support only entities registered in InteractiveScene.rigid_objects or "
+            == "ArenaWorld pose queries require a scene key registered in InteractiveScene.rigid_objects or "
             "InteractiveScene.extras; 'robot' is registered in neither."
         )
     else:
-        raise AssertionError("ArenaWorld accepted an unsupported pose entity.")
+        raise AssertionError("ArenaWorld accepted an unsupported pose scene key.")
 
 
-def _check_scene_extra_pose_reader_uses_current_frame_view_poses(entity_access_module) -> None:
+def _check_scene_extra_pose_reader_uses_current_frame_view_poses(scene_access_module) -> None:
     """Check FrameView construction and current T_W_F reads in environment row order."""
 
     class FrameViewDouble:
@@ -213,8 +213,8 @@ def _check_scene_extra_pose_reader_uses_current_frame_view_poses(entity_access_m
         env_prim_paths=["/World/envs/env_0", "/World/envs/env_1"],
     )
     frame_view = FrameViewDouble()
-    with patch.object(entity_access_module, "FrameView", return_value=frame_view) as make_frame_view:
-        pose_reader = entity_access_module.SceneExtraPoseReader(scene, "reference")
+    with patch.object(scene_access_module, "FrameView", return_value=frame_view) as make_frame_view:
+        pose_reader = scene_access_module.SceneExtraPoseReader(scene, "reference")
         T_W_F_first = pose_reader.get_pose_w()
         T_W_F_second = pose_reader.get_pose_w()
 
@@ -235,26 +235,26 @@ def _check_scene_extra_pose_reader_uses_current_frame_view_poses(entity_access_m
     )
 
 
-def _test_arena_world_entity_access(_simulation_app) -> bool:
+def _test_arena_world_scene_access(_simulation_app) -> bool:
     import isaaclab_arena.environments.arena_world as arena_world
-    import isaaclab_arena.environments.arena_world_entity_access as entity_access
+    import isaaclab_arena.environments.arena_world_scene_access as scene_access
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
-    _check_geometry_bounds_in_prim_frame(entity_access)
-    _check_rigid_object_reads_and_entity_frame_aabb_cache(
+    _check_geometry_bounds_in_prim_frame(scene_access)
+    _check_rigid_object_reads_and_local_aabb_cache(
         arena_world,
-        entity_access,
+        scene_access,
         AxisAlignedBoundingBox,
     )
-    _check_arena_world_reuses_scene_extra_pose_reader(arena_world, entity_access)
-    _check_arena_world_rejects_unsupported_pose_entity(arena_world)
-    _check_scene_extra_pose_reader_uses_current_frame_view_poses(entity_access)
+    _check_arena_world_reuses_scene_extra_pose_reader(arena_world, scene_access)
+    _check_arena_world_rejects_unsupported_pose_scene_key(arena_world)
+    _check_scene_extra_pose_reader_uses_current_frame_view_poses(scene_access)
     return True
 
 
-def test_arena_world_entity_access():
-    assert run_function_with_persistent_simulation_app(_test_arena_world_entity_access)
+def test_arena_world_scene_access():
+    assert run_function_with_persistent_simulation_app(_test_arena_world_scene_access)
 
 
 if __name__ == "__main__":
-    test_arena_world_entity_access()
+    test_arena_world_scene_access()

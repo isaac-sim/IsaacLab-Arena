@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Read live poses and derive geometry for ArenaWorld scene entities."""
+"""Read live scene-extra poses and derive local geometry bounds for ArenaWorld."""
 
 from __future__ import annotations
 
@@ -19,30 +19,30 @@ from pxr import Usd, UsdGeom, UsdPhysics
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 
-def _get_spawned_entity_groups(
+def _get_representative_prim_groups(
     scene: InteractiveScene,
-    entity_name: str,
+    scene_key: str,
     geometry_prim_path: str,
 ) -> list[tuple[Usd.Prim, tuple[int, ...]]]:
     """Return one representative prim and its cloned environments per asset variant."""
-    assert scene.clone_plan is not None, f"Scene entity '{entity_name}' has no clone plan."
+    assert scene.clone_plan is not None, f"Cannot resolve geometry for scene key '{scene_key}' without a clone plan."
 
     clone_matches = tuple(iter_clone_plan_matches(scene.clone_plan, geometry_prim_path))
     assert (
         clone_matches
-    ), f"Scene entity '{entity_name}' geometry path '{geometry_prim_path}' does not match the scene clone plan."
+    ), f"Geometry path '{geometry_prim_path}' for scene key '{scene_key}' does not match the scene clone plan."
 
-    spawned_entity_groups = []
+    representative_prim_groups = []
     for _source_root, _destination_template, representative_path, environment_ids in clone_matches:
         representative_prim = scene.stage.GetPrimAtPath(representative_path)
         assert (
             representative_prim.IsValid()
-        ), f"Scene entity '{entity_name}' clone source '{representative_path}' is not a valid USD prim."
-        spawned_entity_groups.append((representative_prim, environment_ids))
-    return spawned_entity_groups
+        ), f"Clone source '{representative_path}' for scene key '{scene_key}' is not a valid USD prim."
+        representative_prim_groups.append((representative_prim, environment_ids))
+    return representative_prim_groups
 
 
-def _find_single_rigid_body_prim_in_subtree(root_prim: Usd.Prim, entity_name: str) -> Usd.Prim:
+def _find_single_rigid_body_prim_in_subtree(root_prim: Usd.Prim, rigid_object_name: str) -> Usd.Prim:
     """Return the only rigid-body prim in the root prim's subtree."""
     rigid_body_prims_in_subtree = sim_utils.get_all_matching_child_prims(
         root_prim.GetPath(),
@@ -51,7 +51,7 @@ def _find_single_rigid_body_prim_in_subtree(root_prim: Usd.Prim, entity_name: st
         traverse_instance_prims=False,
     )
     assert len(rigid_body_prims_in_subtree) == 1, (
-        f"Rigid scene entity '{entity_name}' source '{root_prim.GetPath()}' contains "
+        f"Rigid object '{rigid_object_name}' source '{root_prim.GetPath()}' contains "
         f"{len(rigid_body_prims_in_subtree)} rigid bodies; expected exactly one."
     )
     return rigid_body_prims_in_subtree[0]
@@ -95,52 +95,53 @@ def _compute_geometry_bounds_in_prim_frame(prim: Usd.Prim) -> AxisAlignedBoundin
     )
 
 
-def compute_spawned_geometry_bounds_in_entity_frame(
+def compute_spawned_geometry_bounds_in_local_frame(
     scene: InteractiveScene,
-    entity_name: str,
+    scene_key: str,
 ) -> AxisAlignedBoundingBox:
-    """Build spawned geometry bounds expressed in entity frame F.
+    """Build local-frame bounds from default-purpose geometry in the cloned prim hierarchy.
 
     Args:
-        scene: Interactive scene containing the spawned entity.
-        entity_name: Scene entity whose prim-local coordinate system defines frame F.
+        scene: Interactive scene containing the rigid object or scene extra.
+        scene_key: Key whose corresponding local coordinate system defines frame F.
 
     Returns:
         One batched AABB aligned with frame F and measured from its origin.
-        The bounds do not change when the entity's live pose changes.
+        Physics properties do not affect which geometry is included. The bounds remain
+        valid under whole-subtree motion, but not when descendants move relative
+        to frame F.
     """
-    assert entity_name in scene.rigid_objects or entity_name in scene.extras, (
-        "ArenaWorld geometry queries support only entities registered in InteractiveScene.rigid_objects or "
-        f"InteractiveScene.extras; '{entity_name}' is registered in neither."
+    assert scene_key in scene.rigid_objects or scene_key in scene.extras, (
+        "ArenaWorld geometry queries require a scene key registered in InteractiveScene.rigid_objects or "
+        f"InteractiveScene.extras; '{scene_key}' is registered in neither."
     )
-    is_rigid_object = entity_name in scene.rigid_objects
-    resolved_geometry_prim_path = getattr(scene.cfg, entity_name).prim_path.format(ENV_REGEX_NS=scene.env_regex_ns)
+    is_rigid_object = scene_key in scene.rigid_objects
+    resolved_geometry_prim_path = getattr(scene.cfg, scene_key).prim_path.format(ENV_REGEX_NS=scene.env_regex_ns)
 
     minimum_points_F_by_environment = torch.empty((scene.num_envs, 3), dtype=torch.float32, device=scene.device)
     maximum_points_F_by_environment = torch.empty_like(minimum_points_F_by_environment)
     coverage_count = [0] * scene.num_envs
 
-    for representative_prim, environment_ids in _get_spawned_entity_groups(
+    for representative_prim, environment_ids in _get_representative_prim_groups(
         scene,
-        entity_name,
+        scene_key,
         resolved_geometry_prim_path,
     ):
-        entity_frame_prim = (
-            _find_single_rigid_body_prim_in_subtree(representative_prim, entity_name)
+        local_frame_prim = (
+            _find_single_rigid_body_prim_in_subtree(representative_prim, scene_key)
             if is_rigid_object
             else representative_prim
         )
-        geometry_bounds_F = _compute_geometry_bounds_in_prim_frame(entity_frame_prim).to(scene.device)
+        geometry_bounds_F = _compute_geometry_bounds_in_prim_frame(local_frame_prim).to(scene.device)
         environment_indices = torch.tensor(environment_ids, dtype=torch.long, device=scene.device)
         minimum_points_F_by_environment[environment_indices] = geometry_bounds_F.min_point[0]
         maximum_points_F_by_environment[environment_indices] = geometry_bounds_F.max_point[0]
         for environment_id in environment_ids:
             coverage_count[environment_id] += 1
 
-    assert all(count == 1 for count in coverage_count), (
-        f"Scene entity '{entity_name}' geometry must cover every environment exactly once; got coverage"
-        f" {coverage_count}."
-    )
+    assert all(
+        count == 1 for count in coverage_count
+    ), f"Geometry for scene key '{scene_key}' must cover every environment exactly once; got coverage {coverage_count}."
     return AxisAlignedBoundingBox(
         min_point=minimum_points_F_by_environment,
         max_point=maximum_points_F_by_environment,
@@ -150,40 +151,41 @@ def compute_spawned_geometry_bounds_in_entity_frame(
 class SceneExtraPoseReader:
     """Read current T_W_F poses for an InteractiveScene.extras entry defining frame F."""
 
-    def __init__(self, scene: InteractiveScene, entity_name: str):
+    def __init__(self, scene: InteractiveScene, scene_extra_key: str):
         assert (
-            entity_name in scene.extras
-        ), f"Scene entity '{entity_name}' must be registered in InteractiveScene.extras."
+            scene_extra_key in scene.extras
+        ), f"Scene key '{scene_extra_key}' must be registered in InteractiveScene.extras."
 
-        self._entity_name = entity_name
+        self._scene_extra_key = scene_extra_key
         self._num_envs = scene.num_envs
-        entity_prim_path = getattr(scene.cfg, entity_name).prim_path.format(ENV_REGEX_NS=scene.env_regex_ns)
+        scene_extra_prim_path = getattr(scene.cfg, scene_extra_key).prim_path.format(ENV_REGEX_NS=scene.env_regex_ns)
         self._frame_view = FrameView(
-            entity_prim_path,
+            scene_extra_prim_path,
             device=scene.device,
             stage=scene.stage,
             validate_xform_ops=False,
         )
         # InteractiveScene creates extras before cloning. This post-clone view must cover every environment.
-        entity_prim_paths = self._frame_view.prim_paths
-        assert (
-            len(entity_prim_paths) == scene.num_envs
-        ), f"Scene extra '{entity_name}' resolved to {len(entity_prim_paths)} prims; expected {scene.num_envs}."
-        for environment_id, prim_path in enumerate(entity_prim_paths):
+        scene_extra_prim_paths = self._frame_view.prim_paths
+        assert len(scene_extra_prim_paths) == scene.num_envs, (
+            f"Scene extra '{scene_extra_key}' resolved to {len(scene_extra_prim_paths)} prims; expected"
+            f" {scene.num_envs}."
+        )
+        for environment_id, prim_path in enumerate(scene_extra_prim_paths):
             environment_prim_path = scene.env_prim_paths[environment_id]
             assert str(prim_path).startswith(f"{environment_prim_path}/"), (
-                f"Scene extra '{entity_name}' pose row {environment_id} belongs to '{prim_path}', "
+                f"Scene extra '{scene_extra_key}' pose row {environment_id} belongs to '{prim_path}', "
                 f"not environment '{environment_prim_path}'."
             )
 
     def get_pose_w(self) -> torch.Tensor:
-        """Return T_W_F as (x, y, z, qx, qy, qz, qw)."""
+        """Return T_W_F with shape (num_envs, 7), ordered as (x, y, z, qx, qy, qz, qw)."""
         position_w_buffer, orientation_w_buffer = self._frame_view.get_world_poses()
         t_W_F = position_w_buffer.torch
         q_W_F = orientation_w_buffer.torch
         T_W_F = torch.cat((t_W_F, q_W_F), dim=-1)
         assert T_W_F.shape == (self._num_envs, 7), (
-            f"Scene extra '{self._entity_name}' returned pose shape {tuple(T_W_F.shape)}; "
+            f"Scene extra '{self._scene_extra_key}' returned pose shape {tuple(T_W_F.shape)}; "
             f"expected ({self._num_envs}, 7)."
         )
         return T_W_F

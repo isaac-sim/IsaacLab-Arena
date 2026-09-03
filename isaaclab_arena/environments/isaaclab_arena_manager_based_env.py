@@ -42,18 +42,12 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
         self._episode_counts: dict[int, int] = {}
         # The initial reset touches every env before any episode has run; skip it.
         self._first_reset = True
-        try:
-            super().__init__(cfg=cfg, render_mode=render_mode, **kwargs)
-        except Exception:
-            self._close_arena_world_if_initialized()
-            raise
+        super().__init__(cfg=cfg, render_mode=render_mode, **kwargs)
 
     @property
     def arena_world(self) -> ArenaWorld:
         """The environment's live Arena scene queries and cached geometry."""
-        assert (
-            self._arena_world is not None
-        ), "ArenaWorld is unavailable before managers are loaded or after the environment is closed."
+        assert self._arena_world is not None, "ArenaWorld is unavailable before managers are loaded."
         return self._arena_world
 
     @property
@@ -77,17 +71,6 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
         super().load_managers()
         self.metrics_manager = MetricsManager(self.cfg.metrics, self)
         self.episode_recorder_manager = EpisodeRecorderManager(self.cfg.episode_recorders, self)
-
-    def close(self) -> None:
-        """Release Arena runtime state before closing the Isaac Lab environment."""
-        self._close_arena_world_if_initialized()
-        super().close()
-
-    def _close_arena_world_if_initialized(self) -> None:
-        """Close and discard ArenaWorld if it has been initialized."""
-        if self._arena_world is not None:
-            self._arena_world.close()
-            self._arena_world = None
 
     def get_language_instruction(self) -> str | None:
         """Return the language instruction that is passed to the policy."""
