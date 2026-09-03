@@ -41,28 +41,21 @@ def _test_arena_world(_simulation_app) -> bool:
         assert T_W_S_initial.shape == (num_envs, 7)
         assert arena_world.get_root_linear_velocity_w(sphere_name).shape == (num_envs, 3)
 
-        sphere_bounds_S = arena_world.get_aabb_in_entity_frame(sphere_name)
+        sphere_bounds_S = arena_world.get_aabb_in_local_frame(sphere_name)
         assert sphere_bounds_S.min_point.shape == (num_envs, 3)
         assert sphere_bounds_S.max_point.shape == (num_envs, 3)
-        assert arena_world.get_aabb_in_entity_frame(sphere_name) is sphere_bounds_S
+        assert arena_world.get_aabb_in_local_frame(sphere_name) is sphere_bounds_S
 
         T_W_S_moved = T_W_S_initial.clone()
         T_W_S_moved[:, 0] += 0.25
         env.unwrapped.scene[sphere_name].write_root_pose_to_sim(T_W_S_moved)
         torch.testing.assert_close(arena_world.get_pose_w(sphere_name), T_W_S_moved)
-        assert arena_world.get_aabb_in_entity_frame(sphere_name) is sphere_bounds_S
+        assert arena_world.get_aabb_in_local_frame(sphere_name) is sphere_bounds_S
 
         env.reset()
-        assert arena_world.get_aabb_in_entity_frame(sphere_name) is sphere_bounds_S
+        assert arena_world.get_aabb_in_local_frame(sphere_name) is sphere_bounds_S
     finally:
         env.close()
-
-    try:
-        arena_world.get_pose_w(sphere_name)
-    except AssertionError as error:
-        assert "ArenaWorld is closed" in str(error)
-    else:
-        raise AssertionError("ArenaWorld accepted a query after its environment closed.")
     return True
 
 

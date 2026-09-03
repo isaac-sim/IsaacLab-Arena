@@ -226,9 +226,9 @@ def object_on_destination(
     T_W_D = arena_world.get_pose_w(destination_cfg.name)
     object_center_over_destination = object_bounds_center_over_destination(
         T_W_O=T_W_O,
-        object_bounds_center_O=arena_world.get_aabb_in_entity_frame(object_cfg.name).center,
+        object_bounds_center_O=arena_world.get_aabb_in_local_frame(object_cfg.name).center,
         T_W_D=T_W_D,
-        destination_bounds_D=arena_world.get_aabb_in_entity_frame(destination_cfg.name),
+        destination_bounds_D=arena_world.get_aabb_in_local_frame(destination_cfg.name),
     )
 
     contact_sensor: ContactSensor = unwrapped_env.scene[contact_sensor_cfg.name]
