@@ -3,7 +3,14 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Query live Arena scene state and cache derived geometry."""
+"""Query live Arena scene state and cache derived geometry.
+
+Arena pose and transform names use target-source notation: T_A_B maps points
+from frame B into frame A. Here W is the simulation world, F is the frame of
+the named scene entity, and geometry helpers use P for a USD prim's local
+frame. For a rigid object, Isaac Lab's root_pose_w supplies the value
+represented here as T_W_F.
+"""
 
 from __future__ import annotations
 
@@ -30,8 +37,8 @@ class ArenaWorld:
     def get_pose_w(self, entity_name: str) -> torch.Tensor:
         """Return the named entity's pose in the world frame.
 
-        The tensor has shape ``(num_envs, 7)``, with each pose ordered as
-        ``(x, y, z, qx, qy, qz, qw)``.
+        The tensor has shape (num_envs, 7), with each pose ordered as
+        (x, y, z, qx, qy, qz, qw).
         """
         scene = self._get_scene()
         is_rigid_object = entity_name in scene.rigid_objects
@@ -44,16 +51,16 @@ class ArenaWorld:
         # Rigid objects expose live root state directly. Scene extras are plain cloned prims,
         # so their live post-clone poses require a FrameView-backed reader.
         if is_rigid_object:
-            T_W_E = scene.rigid_objects[entity_name].data.root_pose_w.torch
+            T_W_F = scene.rigid_objects[entity_name].data.root_pose_w.torch
         else:
             pose_reader = self._get_scene_extra_pose_reader(scene, entity_name)
-            T_W_E = pose_reader.get_pose_w()
+            T_W_F = pose_reader.get_pose_w()
 
-        assert T_W_E.shape == (
+        assert T_W_F.shape == (
             scene.num_envs,
             7,
-        ), f"Scene entity '{entity_name}' returned pose shape {tuple(T_W_E.shape)}; expected ({scene.num_envs}, 7)."
-        return T_W_E
+        ), f"Scene entity '{entity_name}' returned pose shape {tuple(T_W_F.shape)}; expected ({scene.num_envs}, 7)."
+        return T_W_F
 
     def get_root_linear_velocity_w(self, entity_name: str) -> torch.Tensor:
         """Return a rigid object's current world-frame root linear velocity."""
@@ -67,11 +74,11 @@ class ArenaWorld:
         return root_linear_velocity_w
 
     def get_aabb_in_entity_frame(self, entity_name: str) -> AxisAlignedBoundingBox:
-        """Return cached geometry bounds expressed in the named entity frame ``E``."""
+        """Return cached geometry bounds expressed in the named entity frame F."""
         scene = self._get_scene()
         if entity_name not in self._aabbs_in_entity_frame_cache:
-            aabb_E = entity_access.compute_spawned_geometry_bounds_in_entity_frame(scene, entity_name)
-            self._aabbs_in_entity_frame_cache[entity_name] = aabb_E
+            aabb_F = entity_access.compute_spawned_geometry_bounds_in_entity_frame(scene, entity_name)
+            self._aabbs_in_entity_frame_cache[entity_name] = aabb_F
         return self._aabbs_in_entity_frame_cache[entity_name]
 
     def close(self) -> None:
