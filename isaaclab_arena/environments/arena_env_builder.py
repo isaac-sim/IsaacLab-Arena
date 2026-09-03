@@ -65,6 +65,12 @@ class ArenaEnvBuilder:
         self.arena_env = arena_env
         self.cfg = cfg
         self.hydra_overrides = hydra_overrides
+        if cfg.camera_height is not None and cfg.camera_width is not None:
+            embodiment = self.arena_env.embodiment
+            assert embodiment is not None, "camera dimensions require an environment embodiment"
+            assert embodiment.enable_cameras, "camera dimensions require embodiment cameras to be enabled"
+            assert embodiment.camera_config is not None, "camera dimensions require an embodiment camera rig"
+            embodiment.camera_config.set_resolution(cfg.camera_height, cfg.camera_width)
         self.interactive_scene_cfg = InteractiveSceneCfg(
             num_envs=cfg.num_envs, env_spacing=cfg.env_spacing, replicate_physics=False
         )

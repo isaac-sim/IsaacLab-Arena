@@ -24,6 +24,7 @@ class PickAndPlaceMapleTableEnvironmentCfg(ArenaEnvironmentCfg):
     hdr: str | None = None
     light_intensity: float = 500.0
     pick_up_object: str = "rubiks_cube_hot3d_robolab"
+    object_set: list[str] | None = None
     destination_location: str = "bowl_ycb_robolab"
     additional_table_objects: list[str] = field(default_factory=list)
     episode_length_s: float = 70.0
@@ -45,6 +46,7 @@ class PickAndPlaceMapleTableEnvironment(ArenaEnvironmentFactory[PickAndPlaceMapl
 
         from isaaclab_arena.assets.object_base import ObjectType
         from isaaclab_arena.assets.object_reference import ObjectReference
+        from isaaclab_arena.assets.object_set import RigidObjectSet
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
         from isaaclab_arena.relations.relations import IsAnchor, On
         from isaaclab_arena.scene.scene import Scene
@@ -52,7 +54,17 @@ class PickAndPlaceMapleTableEnvironment(ArenaEnvironmentFactory[PickAndPlaceMapl
 
         # Step 1: Retrieve assets from the registry
         background = self.asset_registry.get_asset_by_name("maple_table_robolab")()
-        pick_up_object = self.asset_registry.get_asset_by_name(cfg.pick_up_object)()
+        if cfg.object_set:
+            object_set_members = [
+                self.asset_registry.get_asset_by_name(object_name)() for object_name in cfg.object_set
+            ]
+            pick_up_object = RigidObjectSet(
+                name="object_set",
+                objects=object_set_members,
+                random_choice=False,
+            )
+        else:
+            pick_up_object = self.asset_registry.get_asset_by_name(cfg.pick_up_object)()
         destination_location = self.asset_registry.get_asset_by_name(cfg.destination_location)()
 
         # Step 2: Describe spatial relationships

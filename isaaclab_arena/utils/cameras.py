@@ -48,6 +48,15 @@ class ArenaCameraCfg:
         """Return the field name of every camera in this rig."""
         return [f.name for f in fields(self) if isinstance(getattr(self, f.name), CameraCfg)]
 
+    def set_resolution(self, height: int, width: int) -> None:
+        """Set the image dimensions for every camera in this rig."""
+        assert height > 0, "camera height must be greater than zero"
+        assert width > 0, "camera width must be greater than zero"
+        for camera_name in self.camera_names():
+            camera_cfg = getattr(self, camera_name)
+            camera_cfg.height = height
+            camera_cfg.width = width
+
     def get_cfg(self) -> Any:
         """Return a copy of this rig, tiled or untiled depending on use_tiled_camera.
 

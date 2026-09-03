@@ -26,6 +26,17 @@ class ArenaEnvBuilderCfg:
     presets: str | None = None
     device: str = "cuda:0"
     language_instruction: str | None = None
+    camera_height: int | None = None
+    """Optional image height applied to every embodiment camera."""
+
+    camera_width: int | None = None
+    """Optional image width applied to every embodiment camera."""
 
     def __post_init__(self) -> None:
         assert self.num_envs > 0, "num_envs must be greater than zero"
+        camera_dimensions = (self.camera_height, self.camera_width)
+        assert all(dimension is None for dimension in camera_dimensions) or all(
+            dimension is not None for dimension in camera_dimensions
+        ), "camera_height and camera_width must be set together"
+        assert self.camera_height is None or self.camera_height > 0, "camera_height must be greater than zero"
+        assert self.camera_width is None or self.camera_width > 0, "camera_width must be greater than zero"

@@ -9,7 +9,12 @@ import subprocess
 
 import pytest
 
-from isaaclab_arena.evaluation.arena_experiment_result import ARENA_EXPERIMENT_RESULT_FILENAME
+import isaaclab_arena.evaluation.experiment_runner as experiment_runner_module
+from isaaclab_arena.evaluation.arena_experiment_metadata import ARENA_EXPERIMENT_METADATA_FILENAME
+from isaaclab_arena.evaluation.arena_experiment_result import (
+    ARENA_EXPERIMENT_RESULT_FILENAME,
+    ARENA_EXPERIMENT_TIMINGS_FILENAME,
+)
 from isaaclab_arena.evaluation.experiment_runner_cli import parse_experiment_runner_args
 from isaaclab_arena.tests.utils.constants import TestConstants
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
@@ -18,6 +23,25 @@ from isaaclab_arena.tests.utils.subprocess import run_subprocess
 HEADLESS = True
 NUM_STEPS = 2
 DEFAULT_VISUALIZER = "kit"
+
+
+def test_timing_write_failure_does_not_replace_experiment_error(tmp_path, monkeypatch):
+    """Preserve a rollout error when persisting its partial timings also fails."""
+    experiment_error = RuntimeError("rollout failed")
+
+    def raise_timing_error():
+        raise OSError("timing disk failed")
+
+    monkeypatch.setattr(experiment_runner_module, "print_timer_stats", raise_timing_error)
+
+    with pytest.raises(RuntimeError, match="rollout failed"):
+        try:
+            raise experiment_error
+        finally:
+            experiment_runner_module._write_arena_experiment_timings(
+                tmp_path,
+                original_error=experiment_error,
+            )
 
 
 def test_experiment_runner_parses_native_hydra_overrides():
@@ -189,6 +213,54 @@ runs:
     assert run_result["policy_variant"] == "zero_action"
     assert run_result["status"] == "completed"
     assert set(run_result) == {"environment", "policy_variant", "status", "rebuilds"}
+
+    timing_records = json.loads((tmp_path / "output" / ARENA_EXPERIMENT_TIMINGS_FILENAME).read_text(encoding="utf-8"))
+    timings_by_name = {record["name"]: record for record in timing_records}
+    expected_counts_by_name = {
+        "experiment/load_config": 1,
+        "experiment/execute_runs": 1,
+        "experiment/build_report": 1,
+        "run/build_environment": 1,
+        "run/build_policy": 1,
+        "run/rollout_policy": 1,
+        "run/close_resources": 1,
+        "rollout/initial_reset": 1,
+        "rollout/env_reset": 1,
+        "rollout/policy_reset": 1,
+        "rollout/set_task_description": 1,
+        "rollout/step_total": 2,
+        "rollout/policy_get_action": 2,
+        "rollout/env_step": 2,
+    }
+    assert expected_counts_by_name.keys() <= timings_by_name.keys()
+    assert all(record["type"] == "timing" for record in timing_records)
+    assert all(record["app_name"] == "experiment_runner" for record in timing_records)
+    for timing_name, expected_count in expected_counts_by_name.items():
+        assert timings_by_name[timing_name]["count"] == expected_count
+
+    experiment_metadata = json.loads(
+        (tmp_path / "output" / ARENA_EXPERIMENT_METADATA_FILENAME).read_text(encoding="utf-8")
+    )
+    assert experiment_metadata["schema_version"] == 1
+    assert experiment_metadata["status"] == "completed"
+    assert experiment_metadata["finished_at"] is not None
+    assert experiment_metadata["experiment_config"]["path"] == str(experiment_config_path.resolve())
+    assert experiment_metadata["experiment_output_directory"] == str((tmp_path / "output").resolve())
+    assert experiment_metadata["experiment_overrides"] == ["runs.yaml_baseline.rollout_limit.num_steps=2"]
+    run_metadata = experiment_metadata["runs"]["yaml_baseline"]
+    assert run_metadata["num_envs"] == 1
+    assert run_metadata["device"] == "cuda:0"
+    assert run_metadata["camera"] == {
+        "enabled": False,
+        "height": None,
+        "width": None,
+        "resolution_source": None,
+    }
+    assert run_metadata["rollout_limit"] == {
+        "num_steps": 2,
+        "num_episodes": None,
+        "source": "configured",
+    }
 
 
 @pytest.mark.with_subprocess
