@@ -127,8 +127,8 @@ def _test_background_physics_discovery_and_reset(
             "background",
             background_path,
             object_min_z=0.0,
-            reset_nested_physics=True,
         )
+        assert background.reset_nested_physics
         referenced_free_body = ObjectReference(
             name="referenced_free_body",
             prim_path="{ENV_REGEX_NS}/background/free_body",
@@ -303,7 +303,11 @@ def _test_maple_table_pose_restored_on_reset(_) -> bool:
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.scene.scene import Scene
 
-    background = AssetRegistry().get_asset_by_name("maple_table_robolab")()
+    background_cls = AssetRegistry().get_asset_by_name("maple_table_robolab")
+    background = background_cls()
+    opt_out_background = background_cls(reset_nested_physics=False)
+    assert background.reset_nested_physics
+    assert not opt_out_background.reset_nested_physics
     scene = Scene(assets=[background])
     arena_env = IsaacLabArenaEnvironment(name="maple_table_background_reset", scene=scene)
     args = get_isaaclab_arena_cli_parser().parse_args(["--num_envs", "1"])
