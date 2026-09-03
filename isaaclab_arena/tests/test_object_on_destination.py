@@ -66,7 +66,7 @@ def _check_upward_support_force(spatial) -> None:
     result = spatial.contact_force_is_upward_support(
         contact_force_w=contact_force_w,
         force_threshold=0.1,
-        support_cone_half_angle_deg=45.0,
+        support_cone_half_angle_rad=math.pi / 4,
     )
     torch.testing.assert_close(result, torch.tensor([False, True, True, False, False, True, False, True]))
 
@@ -164,7 +164,7 @@ def _check_object_on_destination(
         "contact_sensor_cfg": contact_sensor_cfg,
         "force_threshold": 0.1,
         "velocity_threshold": 0.1,
-        "support_cone_half_angle_deg": 45.0,
+        "support_cone_half_angle_rad": math.pi / 4,
     }
 
     # Each failing environment isolates one condition: geometry, force direction, or velocity.

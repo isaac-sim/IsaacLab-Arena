@@ -28,9 +28,10 @@ class ArenaWorld:
         self._scene_extra_pose_reader_cache: dict[str, entity_access.SceneExtraPoseReader] = {}
 
     def get_pose_w(self, entity_name: str) -> torch.Tensor:
-        """Return ``T_W_E``, mapping the named entity frame ``E`` into world frame ``W``.
+        """Return the named entity's pose in the world frame.
 
-        Poses have shape ``(num_envs, 7)`` and quaternion order ``(x, y, z, w)``.
+        The tensor has shape ``(num_envs, 7)``, with each pose ordered as
+        ``(x, y, z, qx, qy, qz, qw)``.
         """
         scene = self._get_scene()
         is_rigid_object = entity_name in scene.rigid_objects

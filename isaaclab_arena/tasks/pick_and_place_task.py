@@ -3,6 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import math
 import numpy as np
 from collections.abc import Callable
 from dataclasses import MISSING
@@ -50,7 +51,7 @@ class PickAndPlaceTask(TaskBase):
         force_threshold: Minimum filtered normal force exerted on the object by the destination, in newtons.
         velocity_threshold: Object linear-speed threshold in meters per second. Speed must be below it.
         mimic_env_cfg_factory: Optional factory for a custom Mimic environment configuration.
-        support_cone_half_angle_deg: Maximum angle in degrees between the filtered contact force and
+        support_cone_half_angle_rad: Maximum angle in radians between the filtered contact force and
             world +Z. Smaller values require the support force to be more vertical.
 
     """
@@ -66,7 +67,7 @@ class PickAndPlaceTask(TaskBase):
         force_threshold: float = 0.1,
         velocity_threshold: float = 0.1,
         mimic_env_cfg_factory: Callable[[ArmMode], MimicEnvCfg] | None = None,
-        support_cone_half_angle_deg: float = 45.0,
+        support_cone_half_angle_rad: float = math.pi / 4,
     ):
         super().__init__(episode_length_s=episode_length_s)
         self.pick_up_object = pick_up_object
@@ -79,9 +80,9 @@ class PickAndPlaceTask(TaskBase):
         assert velocity_threshold >= 0.0, f"velocity_threshold must be non-negative, got {velocity_threshold}"
         self.velocity_threshold = velocity_threshold
         assert (
-            0.0 <= support_cone_half_angle_deg < 90.0
-        ), f"support_cone_half_angle_deg must be in [0, 90), got {support_cone_half_angle_deg}"
-        self.support_cone_half_angle_deg = support_cone_half_angle_deg
+            0.0 <= support_cone_half_angle_rad < math.pi / 2
+        ), f"support_cone_half_angle_rad must be in [0, pi / 2), got {support_cone_half_angle_rad}"
+        self.support_cone_half_angle_rad = support_cone_half_angle_rad
         self.mimic_env_cfg_factory = mimic_env_cfg_factory
         self.events_cfg = None
         self.termination_cfg = self.make_termination_cfg()
@@ -120,7 +121,7 @@ class PickAndPlaceTask(TaskBase):
                 "contact_sensor_cfg": SceneEntityCfg(self.contact_sensor_name),
                 "force_threshold": self.force_threshold,
                 "velocity_threshold": self.velocity_threshold,
-                "support_cone_half_angle_deg": self.support_cone_half_angle_deg,
+                "support_cone_half_angle_rad": self.support_cone_half_angle_rad,
             },
         )
         object_dropped = TerminationTermCfg(
@@ -177,7 +178,7 @@ class PickAndPlaceTask(TaskBase):
                         contact_sensor_cfg=SceneEntityCfg(self.contact_sensor_name),
                         force_threshold=self.force_threshold,
                         velocity_threshold=self.velocity_threshold,
-                        support_cone_half_angle_deg=self.support_cone_half_angle_deg,
+                        support_cone_half_angle_rad=self.support_cone_half_angle_rad,
                     ),
                 ],
             ),

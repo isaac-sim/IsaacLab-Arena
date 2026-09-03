@@ -74,13 +74,9 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
     def load_managers(self) -> None:
         assert self._arena_world is None, "ArenaWorld is already initialized."
         self._arena_world = ArenaWorld(self.scene)
-        try:
-            super().load_managers()
-            self.metrics_manager = MetricsManager(self.cfg.metrics, self)
-            self.episode_recorder_manager = EpisodeRecorderManager(self.cfg.episode_recorders, self)
-        except Exception:
-            self._close_arena_world_if_initialized()
-            raise
+        super().load_managers()
+        self.metrics_manager = MetricsManager(self.cfg.metrics, self)
+        self.episode_recorder_manager = EpisodeRecorderManager(self.cfg.episode_recorders, self)
 
     def close(self) -> None:
         """Release Arena runtime state before closing the Isaac Lab environment."""
