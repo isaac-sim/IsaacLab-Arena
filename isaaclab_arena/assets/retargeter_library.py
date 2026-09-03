@@ -180,3 +180,25 @@ class GalbotKeyboardRetargeter(RetargetterBase):
 
     def get_pipeline_builder(self, embodiment: object) -> Callable | None:
         return None
+
+
+@register_retargeter
+class Rizon4sGravNewtonKeyboardRetargeter(RetargetterBase):
+    """Pass keyboard SE(3) commands directly to the Rizon differential-IK action."""
+
+    device = "keyboard"
+    embodiment = "rizon4s_grav_differential_ik_newton"
+
+    def get_pipeline_builder(self, embodiment: object) -> Callable | None:
+        return None
+
+
+@register_retargeter
+class Rizon4sGravNewtonSpaceMouseRetargeter(RetargetterBase):
+    """Pass SpaceMouse SE(3) commands directly to the Rizon differential-IK action."""
+
+    device = "spacemouse"
+    embodiment = "rizon4s_grav_differential_ik_newton"
+
+    def get_pipeline_builder(self, embodiment: object) -> Callable | None:
+        return None

@@ -19,3 +19,8 @@ GEAR_ASSEMBLY_ASSET_DIR: str = (
     "omniverse://isaac-dev.ov.nvidia.com/Projects/nvblox/isaac_arena/newton_envs/gear_assembly"
 )
 """Private gear-assembly asset root pending publication to Arena's public asset location."""
+
+DISPLAYPORT_INSERTION_ASSET_DIR: str = (
+    "omniverse://isaac-dev.ov.nvidia.com/Projects/nvblox/isaac_arena/newton_envs/displayport_insertion"
+)
+"""Private DisplayPort-insertion asset root pending publication to Arena's public asset location."""

@@ -10,6 +10,7 @@ from isaaclab.envs.mdp import *  # noqa: F401, F403
 from isaaclab_tasks.contrib.place.mdp import *  # noqa: F401, F403
 from isaaclab_tasks.contrib.stack.mdp import *  # noqa: F401, F403
 
+from .displayport_insertion import *  # noqa: F401, F403
 from .env_callbacks import *  # noqa: F401, F403
 from .gear_assembly import *  # noqa: F401, F403
 from .robot_configs import *  # noqa: F401, F403

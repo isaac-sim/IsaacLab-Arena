@@ -22,7 +22,7 @@ from isaaclab_arena.affordances.placeable import Placeable
 from isaaclab_arena.affordances.pressable import Pressable
 from isaaclab_arena.affordances.turnable import Turnable
 from isaaclab_arena.assets.lightwheel_lazy import LightwheelLazyPath
-from isaaclab_arena.assets.nucleus import ARENA_NUCLEUS_DIR, GEAR_ASSEMBLY_ASSET_DIR
+from isaaclab_arena.assets.nucleus import ARENA_NUCLEUS_DIR, DISPLAYPORT_INSERTION_ASSET_DIR, GEAR_ASSEMBLY_ASSET_DIR
 from isaaclab_arena.assets.object import Object
 from isaaclab_arena.assets.object_base import ObjectType
 from isaaclab_arena.assets.object_utils import (
@@ -2031,3 +2031,46 @@ class GearAssemblyMediumGear(LibraryObject):
     usd_path = f"{GEAR_ASSEMBLY_ASSET_DIR}/factory_gear_medium.usda"
     object_type = ObjectType.RIGID
     spawn_cfg_addon = _newton_gear_spawn_cfg(mass=0.019, kinematic=False, friction=3.0)
+
+
+def _newton_displayport_spawn_cfg(*, mass: float | None, kinematic: bool) -> dict[str, Any]:
+    """Build rigid-body overrides for the authored DisplayPort SDF assets."""
+    from isaaclab_newton.sim.schemas import NewtonCollisionPropertiesCfg
+
+    cfg: dict[str, Any] = {
+        "make_uninstanceable": True,
+        "rigid_props": sim_utils.RigidBodyPropertiesCfg(
+            disable_gravity=False,
+            kinematic_enabled=kinematic,
+            max_depenetration_velocity=1.0,
+        ),
+        "collision_props": NewtonCollisionPropertiesCfg(
+            contact_offset=1.0e-4 if kinematic else 1.0e-5,
+            rest_offset=-1.0e-4 if kinematic else -5.0e-5,
+        ),
+    }
+    if mass is not None:
+        cfg["mass_props"] = sim_utils.MassPropertiesCfg(mass=mass)
+    return cfg
+
+
+@register_asset
+class DisplayPortPlug(LibraryObject):
+    """Movable DisplayPort plug with an authored Newton SDF collider."""
+
+    name = "displayport_plug"
+    tags = ["object", "connector", "displayport", "graspable"]
+    usd_path = f"{DISPLAYPORT_INSERTION_ASSET_DIR}/displayport_plug.usda"
+    object_type = ObjectType.RIGID
+    spawn_cfg_addon = _newton_displayport_spawn_cfg(mass=0.03, kinematic=False)
+
+
+@register_asset
+class DisplayPortSocket(LibraryObject):
+    """Fixed DisplayPort socket with authored Newton SDF colliders."""
+
+    name = "displayport_socket"
+    tags = ["object", "connector", "displayport", "socket"]
+    usd_path = f"{DISPLAYPORT_INSERTION_ASSET_DIR}/displayport_socket.usda"
+    object_type = ObjectType.RIGID
+    spawn_cfg_addon = _newton_displayport_spawn_cfg(mass=None, kinematic=True)
