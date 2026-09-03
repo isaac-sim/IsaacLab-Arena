@@ -123,6 +123,10 @@ class FrankaEmbodimentBase(EmbodimentBase):
     def get_ee_frame_name(self, arm_mode: ArmMode) -> str:
         return "ee_frame"
 
+    def get_teleop_target_frame_prim_path(self) -> str:
+        """Use the robot base as the OpenXR controller-pose reference frame."""
+        return "/World/envs/env_0/Robot/panda_link0"
+
 
 @register_asset
 class FrankaIKEmbodiment(FrankaEmbodimentBase):
