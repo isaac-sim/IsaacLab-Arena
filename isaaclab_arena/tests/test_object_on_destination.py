@@ -79,9 +79,9 @@ def _check_object_on_destination(
     """Check combined results and the entity state read by the predicate."""
 
     class ArenaWorldDouble:
-        def __init__(self, T_W_E_by_entity_name, aabbs_E_by_entity_name, root_linear_velocities_w_by_entity_name):
-            self.T_W_E_by_entity_name = T_W_E_by_entity_name
-            self.aabbs_E_by_entity_name = aabbs_E_by_entity_name
+        def __init__(self, T_W_F_by_entity_name, aabbs_F_by_entity_name, root_linear_velocities_w_by_entity_name):
+            self.T_W_F_by_entity_name = T_W_F_by_entity_name
+            self.aabbs_F_by_entity_name = aabbs_F_by_entity_name
             self.root_linear_velocities_w_by_entity_name = root_linear_velocities_w_by_entity_name
             self.pose_queries = []
             self.aabb_in_entity_frame_queries = []
@@ -89,11 +89,11 @@ def _check_object_on_destination(
 
         def get_pose_w(self, entity_name):
             self.pose_queries.append(entity_name)
-            return self.T_W_E_by_entity_name[entity_name]
+            return self.T_W_F_by_entity_name[entity_name]
 
         def get_aabb_in_entity_frame(self, entity_name):
             self.aabb_in_entity_frame_queries.append(entity_name)
-            return self.aabbs_E_by_entity_name[entity_name]
+            return self.aabbs_F_by_entity_name[entity_name]
 
         def get_root_linear_velocity_w(self, entity_name):
             self.root_linear_velocity_queries.append(entity_name)
@@ -140,8 +140,8 @@ def _check_object_on_destination(
     torch.testing.assert_close(coarse_contact_and_velocity_result, torch.tensor([True, True, True, False]))
 
     arena_world = ArenaWorldDouble(
-        T_W_E_by_entity_name={"object": T_W_O, "destination": T_W_D},
-        aabbs_E_by_entity_name={
+        T_W_F_by_entity_name={"object": T_W_O, "destination": T_W_D},
+        aabbs_F_by_entity_name={
             "object": axis_aligned_bounding_box_type(
                 min_point=torch.tensor([-0.1, -0.1, -0.1]).expand(4, 3),
                 max_point=torch.tensor([0.1, 0.1, 0.1]).expand(4, 3),

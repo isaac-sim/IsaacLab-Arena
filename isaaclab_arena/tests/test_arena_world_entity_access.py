@@ -48,9 +48,9 @@ def _check_rigid_object_reads_and_entity_frame_aabb_cache(
             self.torch = tensor
 
     class RigidObjectDouble:
-        def __init__(self, T_W_E: torch.Tensor, root_linear_velocity_w: torch.Tensor):
+        def __init__(self, T_W_F: torch.Tensor, root_linear_velocity_w: torch.Tensor):
             self.data = SimpleNamespace(
-                root_pose_w=RuntimeBufferDouble(T_W_E),
+                root_pose_w=RuntimeBufferDouble(T_W_F),
                 root_lin_vel_w=RuntimeBufferDouble(root_linear_velocity_w),
             )
 
@@ -60,7 +60,7 @@ def _check_rigid_object_reads_and_entity_frame_aabb_cache(
             self.device = "cpu"
             self.rigid_objects = {
                 "object": RigidObjectDouble(
-                    T_W_E=torch.tensor([
+                    T_W_F=torch.tensor([
                         [0.0, 0.0, 0.2, 0.0, 0.0, 0.0, 1.0],
                         [1.0, 0.0, 0.2, 0.0, 0.0, 0.0, 1.0],
                     ]),
@@ -70,7 +70,7 @@ def _check_rigid_object_reads_and_entity_frame_aabb_cache(
                     ]),
                 ),
                 "destination": RigidObjectDouble(
-                    T_W_E=torch.tensor([
+                    T_W_F=torch.tensor([
                         [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0],
                         [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0],
                     ]),
@@ -126,7 +126,7 @@ def _check_arena_world_reuses_scene_extra_pose_reader(
     arena_world_module,
     entity_access_module,
 ) -> None:
-    """Check that ArenaWorld caches the reader while returning its latest ``T_W_E``."""
+    """Check that ArenaWorld caches the reader while returning its latest T_W_F."""
 
     class SceneDouble:
         def __init__(self):
@@ -137,27 +137,27 @@ def _check_arena_world_reuses_scene_extra_pose_reader(
     class PoseReaderDouble:
         def __init__(self):
             self.read_count = 0
-            self.T_W_E_values = [
+            self.T_W_F_values = [
                 torch.tensor([[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0]]),
                 torch.tensor([[1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0]]),
             ]
 
         def get_pose_w(self):
-            T_W_E = self.T_W_E_values[self.read_count]
+            T_W_F = self.T_W_F_values[self.read_count]
             self.read_count += 1
-            return T_W_E
+            return T_W_F
 
     scene = SceneDouble()
     pose_reader = PoseReaderDouble()
     with patch.object(entity_access_module, "SceneExtraPoseReader", return_value=pose_reader) as make_pose_reader:
         arena_world = arena_world_module.ArenaWorld(scene)
-        T_W_E_first = arena_world.get_pose_w("reference")
-        T_W_E_second = arena_world.get_pose_w("reference")
+        T_W_F_first = arena_world.get_pose_w("reference")
+        T_W_F_second = arena_world.get_pose_w("reference")
 
     make_pose_reader.assert_called_once_with(scene, "reference")
     assert pose_reader.read_count == 2
-    torch.testing.assert_close(T_W_E_first, pose_reader.T_W_E_values[0])
-    torch.testing.assert_close(T_W_E_second, pose_reader.T_W_E_values[1])
+    torch.testing.assert_close(T_W_F_first, pose_reader.T_W_F_values[0])
+    torch.testing.assert_close(T_W_F_second, pose_reader.T_W_F_values[1])
 
 
 def _check_arena_world_rejects_unsupported_pose_entity(arena_world_module) -> None:
@@ -179,7 +179,7 @@ def _check_arena_world_rejects_unsupported_pose_entity(arena_world_module) -> No
 
 
 def _check_scene_extra_pose_reader_uses_current_frame_view_poses(entity_access_module) -> None:
-    """Check FrameView construction and current ``T_W_E`` reads in environment row order."""
+    """Check FrameView construction and current T_W_F reads in environment row order."""
 
     class FrameViewDouble:
         def __init__(self):
@@ -188,20 +188,20 @@ def _check_scene_extra_pose_reader_uses_current_frame_view_poses(entity_access_m
                 "/World/envs/env_1/reference",
             ]
             self.read_count = 0
-            self.t_W_E_values = [
+            self.t_W_F_values = [
                 torch.tensor([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0]]),
                 torch.tensor([[0.0, 0.0, 0.5], [1.0, 0.0, 0.5]]),
             ]
-            self.q_W_E_values = [
+            self.q_W_F_values = [
                 torch.tensor([[0.0, 0.0, 0.0, 1.0], [0.0, 0.0, 0.0, 1.0]]),
                 torch.tensor([[0.0, 0.0, 1.0, 0.0], [0.0, 0.0, 1.0, 0.0]]),
             ]
 
         def get_world_poses(self):
-            t_W_E = self.t_W_E_values[self.read_count]
-            q_W_E = self.q_W_E_values[self.read_count]
+            t_W_F = self.t_W_F_values[self.read_count]
+            q_W_F = self.q_W_F_values[self.read_count]
             self.read_count += 1
-            return SimpleNamespace(torch=t_W_E), SimpleNamespace(torch=q_W_E)
+            return SimpleNamespace(torch=t_W_F), SimpleNamespace(torch=q_W_F)
 
     scene = SimpleNamespace(
         num_envs=2,
@@ -215,8 +215,8 @@ def _check_scene_extra_pose_reader_uses_current_frame_view_poses(entity_access_m
     frame_view = FrameViewDouble()
     with patch.object(entity_access_module, "FrameView", return_value=frame_view) as make_frame_view:
         pose_reader = entity_access_module.SceneExtraPoseReader(scene, "reference")
-        T_W_E_first = pose_reader.get_pose_w()
-        T_W_E_second = pose_reader.get_pose_w()
+        T_W_F_first = pose_reader.get_pose_w()
+        T_W_F_second = pose_reader.get_pose_w()
 
     make_frame_view.assert_called_once_with(
         "/World/envs/env_.*/reference",
@@ -226,12 +226,12 @@ def _check_scene_extra_pose_reader_uses_current_frame_view_poses(entity_access_m
     )
     assert frame_view.read_count == 2
     torch.testing.assert_close(
-        T_W_E_first,
-        torch.cat((frame_view.t_W_E_values[0], frame_view.q_W_E_values[0]), dim=-1),
+        T_W_F_first,
+        torch.cat((frame_view.t_W_F_values[0], frame_view.q_W_F_values[0]), dim=-1),
     )
     torch.testing.assert_close(
-        T_W_E_second,
-        torch.cat((frame_view.t_W_E_values[1], frame_view.q_W_E_values[1]), dim=-1),
+        T_W_F_second,
+        torch.cat((frame_view.t_W_F_values[1], frame_view.q_W_F_values[1]), dim=-1),
     )
 
 

@@ -58,7 +58,7 @@ def _find_single_rigid_body_prim_in_subtree(root_prim: Usd.Prim, entity_name: st
 
 
 def _compute_geometry_bounds_in_prim_frame(prim: Usd.Prim) -> AxisAlignedBoundingBox:
-    """Compute descendant geometry bounds expressed in the prim's local frame ``P``."""
+    """Compute descendant geometry bounds expressed in the prim's local frame P."""
     assert prim.IsValid(), "Prim must be valid."
 
     time_code = Usd.TimeCode.Default()
@@ -99,14 +99,14 @@ def compute_spawned_geometry_bounds_in_entity_frame(
     scene: InteractiveScene,
     entity_name: str,
 ) -> AxisAlignedBoundingBox:
-    """Build spawned geometry bounds expressed in entity frame ``E``.
+    """Build spawned geometry bounds expressed in entity frame F.
 
     Args:
         scene: Interactive scene containing the spawned entity.
-        entity_name: Scene entity whose prim-local coordinate system defines frame ``E``.
+        entity_name: Scene entity whose prim-local coordinate system defines frame F.
 
     Returns:
-        One batched AABB aligned with frame ``E`` and measured from its origin.
+        One batched AABB aligned with frame F and measured from its origin.
         The bounds do not change when the entity's live pose changes.
     """
     assert entity_name in scene.rigid_objects or entity_name in scene.extras, (
@@ -116,8 +116,8 @@ def compute_spawned_geometry_bounds_in_entity_frame(
     is_rigid_object = entity_name in scene.rigid_objects
     resolved_geometry_prim_path = getattr(scene.cfg, entity_name).prim_path.format(ENV_REGEX_NS=scene.env_regex_ns)
 
-    minimum_points_E_by_environment = torch.empty((scene.num_envs, 3), dtype=torch.float32, device=scene.device)
-    maximum_points_E_by_environment = torch.empty_like(minimum_points_E_by_environment)
+    minimum_points_F_by_environment = torch.empty((scene.num_envs, 3), dtype=torch.float32, device=scene.device)
+    maximum_points_F_by_environment = torch.empty_like(minimum_points_F_by_environment)
     coverage_count = [0] * scene.num_envs
 
     for representative_prim, environment_ids in _get_spawned_entity_groups(
@@ -130,10 +130,10 @@ def compute_spawned_geometry_bounds_in_entity_frame(
             if is_rigid_object
             else representative_prim
         )
-        geometry_bounds_E = _compute_geometry_bounds_in_prim_frame(entity_frame_prim).to(scene.device)
+        geometry_bounds_F = _compute_geometry_bounds_in_prim_frame(entity_frame_prim).to(scene.device)
         environment_indices = torch.tensor(environment_ids, dtype=torch.long, device=scene.device)
-        minimum_points_E_by_environment[environment_indices] = geometry_bounds_E.min_point[0]
-        maximum_points_E_by_environment[environment_indices] = geometry_bounds_E.max_point[0]
+        minimum_points_F_by_environment[environment_indices] = geometry_bounds_F.min_point[0]
+        maximum_points_F_by_environment[environment_indices] = geometry_bounds_F.max_point[0]
         for environment_id in environment_ids:
             coverage_count[environment_id] += 1
 
@@ -142,13 +142,13 @@ def compute_spawned_geometry_bounds_in_entity_frame(
         f" {coverage_count}."
     )
     return AxisAlignedBoundingBox(
-        min_point=minimum_points_E_by_environment,
-        max_point=maximum_points_E_by_environment,
+        min_point=minimum_points_F_by_environment,
+        max_point=maximum_points_F_by_environment,
     )
 
 
 class SceneExtraPoseReader:
-    """Read current ``T_W_E`` poses for an ``InteractiveScene.extras`` entry defining frame ``E``."""
+    """Read current T_W_F poses for an InteractiveScene.extras entry defining frame F."""
 
     def __init__(self, scene: InteractiveScene, entity_name: str):
         assert (
@@ -177,13 +177,13 @@ class SceneExtraPoseReader:
             )
 
     def get_pose_w(self) -> torch.Tensor:
-        """Return ``T_W_E`` as ``(x, y, z, qx, qy, qz, qw)``."""
+        """Return T_W_F as (x, y, z, qx, qy, qz, qw)."""
         position_w_buffer, orientation_w_buffer = self._frame_view.get_world_poses()
-        t_W_E = position_w_buffer.torch
-        q_W_E = orientation_w_buffer.torch
-        T_W_E = torch.cat((t_W_E, q_W_E), dim=-1)
-        assert T_W_E.shape == (self._num_envs, 7), (
-            f"Scene extra '{self._entity_name}' returned pose shape {tuple(T_W_E.shape)}; "
+        t_W_F = position_w_buffer.torch
+        q_W_F = orientation_w_buffer.torch
+        T_W_F = torch.cat((t_W_F, q_W_F), dim=-1)
+        assert T_W_F.shape == (self._num_envs, 7), (
+            f"Scene extra '{self._entity_name}' returned pose shape {tuple(T_W_F.shape)}; "
             f"expected ({self._num_envs}, 7)."
         )
-        return T_W_E
+        return T_W_F
