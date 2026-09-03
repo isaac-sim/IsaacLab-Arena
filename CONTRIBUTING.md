@@ -10,9 +10,11 @@ Use active target-source notation for Arena-owned poses and transforms:
 - `T_A_B` maps points from frame `B` into frame `A`.
 - For example, `T_W_O` maps points from object frame `O` into world frame `W`.
 - Transform composition follows `T_C_A = T_C_B * T_B_A`.
-- Define frame letters near their first use when their meaning is not obvious.
-- Preserve external API names such as Isaac Lab's `root_pose_w`. When using these values in Arena frame
-  composition, bind them to the corresponding explicit transform name, for example
+- Frame letters are contextual. Define each near its first use when its meaning is not obvious.
+- Preserve external API names such as Isaac Lab's `root_pose_w`. Its lowercase `_w`, `_e`, and `_b` suffixes
+  denote the simulation world, local environment, and robot base frames, respectively.
+- A lowercase API suffix names only the frame in which a quantity is expressed. When both source and target
+  frames matter in Arena calculations, bind the value to an explicit transform name, for example
   `T_W_O = object.data.root_pose_w`.
 
 
