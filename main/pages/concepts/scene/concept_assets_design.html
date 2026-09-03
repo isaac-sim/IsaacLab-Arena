@@ -640,6 +640,28 @@ are not exposed through the Isaac Lab scene entity registries.</p>
 ownership away from the background.</p>
 <p>Instanceable subtrees that contribute dynamic physics are materialized at spawn
 time because physics views cannot control dynamic instance proxies.</p>
+<section id="rigid-body-behavior">
+<h3>Rigid-body behavior<a class="headerlink" href="#rigid-body-behavior" title="Link to this heading">#</a></h3>
+<p>A background’s <code class="docutils literal notranslate"><span class="pre">BASE</span></code> type does not remove physics authored in its USD. The
+<code class="docutils literal notranslate"><span class="pre">rigid_props</span></code> value in <code class="docutils literal notranslate"><span class="pre">spawn_cfg_addon</span></code> is forwarded to Isaac Lab’s USD spawner.
+When <code class="docutils literal notranslate"><span class="pre">rigid_props=None</span></code> (the default), the spawner does not add or modify rigid-body
+properties. A prim that already has <code class="docutils literal notranslate"><span class="pre">UsdPhysics.RigidBodyAPI</span></code> therefore keeps its
+authored behavior; for example, an authored dynamic body can move when gravity or
+contact forces act on it.</p>
+<p>For a background fixture that must not move, such as a table used only as a fixed
+work surface, make its rigid bodies kinematic:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">spawn_cfg_addon</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">"rigid_props"</span><span class="p">:</span> <span class="n">sim_utils</span><span class="o">.</span><span class="n">RigidBodyPropertiesCfg</span><span class="p">(</span><span class="n">kinematic_enabled</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>A kinematic body still collides with dynamic objects, but gravity, forces, and contacts
+do not displace it. Its pose changes only when it is explicitly commanded. Do not use
+this setting when the background should respond physically. For example, a table that
+a humanoid is expected to push must remain dynamic: retain <code class="docutils literal notranslate"><span class="pre">rigid_props=None</span></code> when
+the USD already authors it as dynamic, or explicitly set <code class="docutils literal notranslate"><span class="pre">kinematic_enabled=False</span></code>
+to override an authored kinematic setting.</p>
+</section>
 </section>
 <section id="object-references">
 <h2>Object references<a class="headerlink" href="#object-references" title="Link to this heading">#</a></h2>
@@ -724,7 +746,10 @@ environments, wrap the candidates in a <code class="docutils literal notranslate
     <ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#registering-a-new-asset">Registering a new asset</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#object-types">Object types</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#backgrounds">Backgrounds</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#backgrounds">Backgrounds</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#rigid-body-behavior">Rigid-body behavior</a></li>
+</ul>
+</li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#object-references">Object references</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#rigid-object-sets">Rigid object sets</a></li>
 </ul>
