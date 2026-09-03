@@ -50,6 +50,7 @@ def _test_object_on_destination_termination(simulation_app) -> bool:
     scene = Scene(assets=[background, cracker_box, destination_location])
 
     task = PickAndPlaceTask(cracker_box, destination_location, background)
+    assert task.get_termination_cfg().success.params["velocity_threshold"] == 0.001
     isaaclab_arena_environment = IsaacLabArenaEnvironment(
         name="kitchen",
         embodiment=FrankaIKEmbodiment(),
