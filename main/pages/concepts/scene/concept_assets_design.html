@@ -616,8 +616,8 @@ Assets can have multiple tags — for example, a fruit is tagged both <code clas
 <h2>Backgrounds<a class="headerlink" href="#backgrounds" title="Link to this heading">#</a></h2>
 <p>Backgrounds are registered as <code class="docutils literal notranslate"><span class="pre">BASE</span></code> assets, but their composed USDs may contain
 dynamic rigid bodies and articulations whose states can change as they interact with
-the robot or other objects. Set <code class="docutils literal notranslate"><span class="pre">reset_nested_physics=True</span></code> on a <code class="docutils literal notranslate"><span class="pre">Background</span></code> to
-reset these nested physics roots.</p>
+the robot or other objects. Arena resets these nested physics roots by default. Set
+<code class="docutils literal notranslate"><span class="pre">reset_nested_physics=False</span></code> on a <code class="docutils literal notranslate"><span class="pre">Background</span></code> to opt out.</p>
 <p>Arena registers the roots as private Isaac Lab reset views. After simulation and RTX
 initialization, Arena creates the views and records one environment-local pose and
 joint configuration. On each episode reset, Arena applies those values to the
