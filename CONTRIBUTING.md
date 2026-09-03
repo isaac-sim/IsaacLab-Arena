@@ -3,6 +3,11 @@
 This document describes the rules for contributing to Isaac Lab-Arena
 
 
+### Coordinate-frame naming
+
+See [Coordinate-frame naming](AGENTS.md#coordinate-frame-naming) in `AGENTS.md`.
+
+
 #### Signing Your Work
 
 * We require that all contributors "sign-off" on their commits.
