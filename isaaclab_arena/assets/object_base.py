@@ -184,17 +184,18 @@ class ObjectBase(PlaceableAsset, ABC):
                 asset_cfg = scene[self.name]
                 frame_view = FrameView(asset_cfg.prim_path, device=env.unwrapped.device, stage=stage)
                 try:
-                    prim_paths = frame_view.prim_paths
-                    assert len(prim_paths) == env.unwrapped.num_envs, (
-                        f"AssetBaseCfg scene entry '{self.name}' resolved to {len(prim_paths)} prims; "
+                    assert frame_view.count == env.unwrapped.num_envs, (
+                        f"AssetBaseCfg scene entry '{self.name}' resolved to {frame_view.count} prims; "
                         f"expected {env.unwrapped.num_envs}."
                     )
-                    for environment_id, prim_path in enumerate(prim_paths):
-                        environment_prim_path = scene.env_prim_paths[environment_id]
-                        assert str(prim_path).startswith(f"{environment_prim_path}/"), (
-                            f"AssetBaseCfg scene entry '{self.name}' pose row {environment_id} belongs to"
-                            f" '{prim_path}', not environment '{environment_prim_path}'."
-                        )
+                    prim_paths = getattr(frame_view, "prim_paths", None)
+                    if prim_paths is not None:
+                        for environment_id, prim_path in enumerate(prim_paths):
+                            environment_prim_path = scene.env_prim_paths[environment_id]
+                            assert str(prim_path).startswith(f"{environment_prim_path}/"), (
+                                f"AssetBaseCfg scene entry '{self.name}' pose row {environment_id} belongs to"
+                                f" '{prim_path}', not environment '{environment_prim_path}'."
+                            )
                 except Exception:
                     frame_view.close()
                     raise

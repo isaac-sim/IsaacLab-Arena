@@ -123,6 +123,18 @@ class DroidDifferentialIKKeyboardRetargeter(RetargetterBase):
 
 
 @register_retargeter
+class DroidDifferentialIKSpaceMouseRetargeter(RetargetterBase):
+    device = "spacemouse"
+    embodiment = "droid_differential_ik"
+
+    def __init__(self):
+        pass
+
+    def get_pipeline_builder(self, embodiment: object) -> Callable | None:
+        return None
+
+
+@register_retargeter
 class AgibotKeyboardRetargeter(RetargetterBase):
     device = "keyboard"
     embodiment = "agibot"
