@@ -50,7 +50,6 @@ INTERNAL_ENDPOINT = InferenceEndpoint(
 PUBLIC_ENDPOINT = InferenceEndpoint(
     name="public",
     base_url="https://integrate.api.nvidia.com/v1",
-    # If you cannot access the model in your region, try "nvidia/nemotron-3-super-120b-a12b".
     model="deepseek-ai/deepseek-v4-pro-0813",
     api_key_env_var="NVIDIA_API_KEY",
 )
