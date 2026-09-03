@@ -33,7 +33,7 @@ class Background(Object):
         object_min_z: float,
         prim_path: str | None = None,
         initial_pose: Pose | None = None,
-        reset_nested_physics: bool = False,
+        reset_nested_physics: bool = True,
         **kwargs,
     ):
         self.reset_nested_physics = reset_nested_physics
