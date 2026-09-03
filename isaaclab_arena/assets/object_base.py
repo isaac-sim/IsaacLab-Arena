@@ -57,15 +57,11 @@ class ObjectBase(PlaceableAsset, ABC):
 
     def _close_base_frame_view(self) -> None:
         """Release the cached frame view. Safe to call more than once."""
-        frame_view = getattr(self, "_base_frame_view", None)
+        frame_view = self._base_frame_view
         if frame_view is not None:
             frame_view.close()
             self._base_frame_view = None
             self._base_frame_view_stage = None
-
-    def __del__(self):
-        """Release the cached frame view when this object is dropped."""
-        self._close_base_frame_view()
 
     def _set_initial_pose(self, pose: Pose | PoseRange | PosePerEnv) -> None:
         """Store the pose and write its construction values into the object config."""
