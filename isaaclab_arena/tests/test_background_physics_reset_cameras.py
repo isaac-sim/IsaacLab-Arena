@@ -20,7 +20,7 @@ def _test_replicator_online_visual_physics_with_rtx(_) -> bool:
 
     env_spec = "isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_peninsula_mustard_bowl.yaml"
     args = get_isaaclab_arena_environments_cli_parser().parse_args(
-        ["--env_spec", env_spec, "--headless", "--num_envs", "1", "--enable_cameras"]
+        ["--env_spec", env_spec, "--num_envs", "1", "--enable_cameras"]
     )
 
     builder = get_arena_builder_from_cli(args)

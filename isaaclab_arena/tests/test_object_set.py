@@ -167,7 +167,6 @@ def _build_and_reset_env(simulation_app, scene_assets, env_name="object_set_test
     )
     args_cli = get_isaaclab_arena_cli_parser().parse_args([])
     args_cli.num_envs = NUM_ENVS
-    args_cli.headless = HEADLESS
     env_builder = ArenaEnvBuilder(isaaclab_arena_environment, arena_env_builder_cfg_from_argparse(args_cli))
     env = env_builder.make_registered()
     env.reset()
@@ -295,7 +294,6 @@ def _test_single_object_in_one_object_set(simulation_app):
     )
     args_cli = get_isaaclab_arena_cli_parser().parse_args([])
     args_cli.num_envs = NUM_ENVS
-    args_cli.headless = HEADLESS
     env_builder = ArenaEnvBuilder(isaaclab_arena_environment, arena_env_builder_cfg_from_argparse(args_cli))
     env = env_builder.make_registered()
     env.reset()
@@ -362,7 +360,6 @@ def _test_multi_objects_in_one_object_set(simulation_app):
     )
     args_cli = get_isaaclab_arena_cli_parser().parse_args([])
     args_cli.num_envs = NUM_ENVS
-    args_cli.headless = HEADLESS
     env_builder = ArenaEnvBuilder(isaaclab_arena_environment, arena_env_builder_cfg_from_argparse(args_cli))
     env = env_builder.make_registered()
     env.reset()
@@ -430,7 +427,6 @@ def _test_multi_object_sets(simulation_app):
     )
     args_cli = get_isaaclab_arena_cli_parser().parse_args([])
     args_cli.num_envs = NUM_ENVS
-    args_cli.headless = HEADLESS
     env_builder = ArenaEnvBuilder(isaaclab_arena_environment, arena_env_builder_cfg_from_argparse(args_cli))
     env = env_builder.make_registered()
     env.reset()
@@ -489,9 +485,8 @@ def _test_object_set_with_robot_mounted_cameras(simulation_app) -> bool:
     An object set spawns one USD variant per env, which puts the scene on Isaac Lab's
     heterogeneous clone-plan path: every cfg gets its own destination template instead of a
     single env-root one. DROID's cameras live under the robot, so their templates nest
-    inside the robot's, and resolving them used to raise. See the resolve_clone_plan_source
-    patch. Needs more than one env; a single env takes the homogeneous fast path and never
-    builds the nested templates.
+    inside the robot's, and resolving them used to raise. Needs more than one env; a single
+    env takes the homogeneous fast path and never builds the nested templates.
     """
     from isaaclab_arena.assets.object_set import RigidObjectSet
     from isaaclab_arena.assets.registries import AssetRegistry

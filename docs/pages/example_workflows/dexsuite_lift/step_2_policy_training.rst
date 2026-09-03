@@ -8,8 +8,8 @@ Policy Training (Isaac Lab)
 .. important::
 
    Training is performed **in Isaac Lab** (not Arena). To use **Newton**
-   physics, add ``presets=newton`` to the training command. Without
-   ``presets=newton``, the training will use default PhysX backend.
+   physics, add ``physics=newton_mjwarp`` to the training command. Without
+   that override, training uses the default PhysX backend.
    It's important to use the same physics backend for training and evaluation,
    to avoid the sim-to-sim gap between PhysX and Newton.
 
@@ -17,22 +17,22 @@ Policy Training (Isaac Lab)
 Training Command
 ^^^^^^^^^^^^^^^^
 
-Train the ``Isaac-Dexsuite-Kuka-Allegro-Lift-v0`` task with Isaac Lab's RSL-RL
+Train the ``Isaac-Lift-KukaAllegro`` task with Isaac Lab's RSL-RL
 training script:
 
 .. code-block:: bash
 
    # Newton physics (recommended for this example):
-   python submodules/IsaacLab/scripts/reinforcement_learning/rsl_rl/train.py \
-     --task Isaac-Dexsuite-Kuka-Allegro-Lift-v0 \
+   python submodules/IsaacLab/scripts/reinforcement_learning/train.py \
+     --rl_library rsl_rl \
+     --task Isaac-Lift-KukaAllegro \
      --num_envs 512 \
-     presets=newton presets=cube
+     physics=newton_mjwarp presets=cube
 
-``presets=newton`` selects the Newton physics backend and ``presets=cube``
-switches the manipulation object to a single-geometry cube (Newton does not
-support multi-asset spawning used by the default ``shapes`` preset).
+``physics=newton_mjwarp`` selects the Newton physics backend and ``presets=cube``
+switches the manipulation object to a single-geometry cube.
 
-This uses the ``DexsuiteKukaAllegroPPORunnerCfg`` configuration defined in
+This uses the ``KukaAllegroPPORunnerCfg`` configuration defined in
 Isaac Lab, which provides:
 
 - **Actor/Critic**: MLP [512, 256, 128], ELU activation, observation normalization enabled
@@ -40,10 +40,10 @@ Isaac Lab, which provides:
   concatenated, each with 5-step history)
 - **Algorithm**: PPO with adaptive learning rate schedule, starting at ``1e-3``
 - **Training**: 15,000 iterations, 32 steps per environment, 512 parallel environments
-- **Physics**: Newton (MuJoCo-Warp solver) when ``presets=newton`` is used
+- **Physics**: Newton (MuJoCo-Warp solver) when ``physics=newton_mjwarp`` is used
 
 Checkpoints are saved every 250 iterations to
-``logs/rsl_rl/dexsuite_kuka_allegro/<timestamp>/``.
+``logs/rsl_rl/lift_kuka_allegro/<timestamp>/``.
 
 .. tip::
 
@@ -57,10 +57,11 @@ Hyperparameters can be overridden with Hydra-style CLI arguments:
 
 .. code-block:: bash
 
-   python submodules/IsaacLab/scripts/reinforcement_learning/rsl_rl/train.py \
-     --task Isaac-Dexsuite-Kuka-Allegro-Lift-v0 \
+   python submodules/IsaacLab/scripts/reinforcement_learning/train.py \
+     --rl_library rsl_rl \
+     --task Isaac-Lift-KukaAllegro \
      --num_envs 512 \
-     presets=newton presets=cube \
+     physics=newton_mjwarp presets=cube \
      agent.max_iterations=20000 agent.save_interval=500 agent.algorithm.learning_rate=0.0005
 
 
@@ -74,15 +75,16 @@ are used automatically.
 
 .. code-block:: bash
 
-   python submodules/IsaacLab/scripts/reinforcement_learning/rsl_rl/train.py \
-     --task Isaac-Dexsuite-Kuka-Allegro-Lift-v0 \
+   python submodules/IsaacLab/scripts/reinforcement_learning/train.py \
+     --rl_library rsl_rl \
+     --task Isaac-Lift-KukaAllegro \
      --num_envs 512 \
      --resume \
      --load_run <timestamp> \
      --checkpoint model_5000.pt \
-     presets=newton presets=cube
+     physics=newton_mjwarp presets=cube
 
-Replace ``<timestamp>`` with the run folder name under ``logs/rsl_rl/dexsuite_kuka_allegro/``.
+Replace ``<timestamp>`` with the run folder name under ``logs/rsl_rl/lift_kuka_allegro/``.
 If ``--load_run`` is omitted, the latest run is selected. If ``--checkpoint`` is omitted,
 the latest checkpoint in that run is loaded.
 

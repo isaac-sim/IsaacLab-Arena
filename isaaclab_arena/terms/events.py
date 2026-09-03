@@ -7,7 +7,6 @@ import torch
 from dataclasses import dataclass
 from typing import Any
 
-import carb
 import warp as wp
 from isaaclab.assets import ArticulationCfg, RigidObjectCfg
 from isaaclab.envs import ManagerBasedEnv
@@ -100,6 +99,8 @@ class ResetBackgroundPhysics(ManagerTermBase):
             # type for that case, so accept only their known error signatures.
             if not ResetBackgroundPhysics._is_unavailable_backend_error(exc):
                 raise
+            import carb
+
             carb.log_warn(f"Skipping unavailable background {asset_kind} '{prim_path}': {exc}")
             return None
         return asset

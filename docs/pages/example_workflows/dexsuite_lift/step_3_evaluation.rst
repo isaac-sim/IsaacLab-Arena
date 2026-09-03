@@ -34,7 +34,7 @@ was trained with Newton).
    If you trained locally (see :doc:`step_2_policy_training`), your checkpoints
    are at:
 
-   ``logs/rsl_rl/dexsuite_kuka_allegro/<timestamp>/model_<iter>.pt``
+   ``logs/rsl_rl/lift_kuka_allegro/<timestamp>/model_<iter>.pt``
 
    Replace the checkpoint paths in the examples below accordingly.
 

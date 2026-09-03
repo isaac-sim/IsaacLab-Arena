@@ -120,7 +120,6 @@ Generate the dataset:
      --input_file $DATASET_DIR/ranch_bottle_into_fridge_annotated.hdf5 \
      --output_file $DATASET_DIR/ranch_bottle_into_fridge_generated_100.hdf5 \
      --enable_cameras \
-     --headless \
      --mimic \
      --external_callback isaaclab_arena.environments.isaaclab_interop.environment_registration_callback \
      --task put_item_in_fridge_and_close_door \
@@ -128,8 +127,7 @@ Generate the dataset:
      --embodiment gr1_pink
 
 Data generation takes 30-60 minutes depending on hardware.
-If you want to visualize the data generation process, remove ``--headless``
-and add ``--viz kit``.
+To visualize the data generation process, add ``--viz kit``.
 
 
 Step 3: Validate Generated Data (Optional)

@@ -21,11 +21,11 @@ Usage::
     python isaaclab_arena_examples/agentic_environment_generation/cli_runner.py --mode resolve --prompt ...
 
     # Build a gym env from a graph spec YAML and run the zero-action policy:
-    python isaaclab_arena_examples/agentic_environment_generation/cli_runner.py --mode build --headless \\
+    python isaaclab_arena_examples/agentic_environment_generation/cli_runner.py --mode build \\
         --num_envs 1 --env_spec <env>_env_graph.yaml
 
     # Resolve and build in one process:
-    python isaaclab_arena_examples/agentic_environment_generation/cli_runner.py --mode full --headless \\
+    python isaaclab_arena_examples/agentic_environment_generation/cli_runner.py --mode full \\
         --num_envs 1 --prompt ...
 """
 

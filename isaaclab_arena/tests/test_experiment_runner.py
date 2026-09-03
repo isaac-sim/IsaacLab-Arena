@@ -135,9 +135,7 @@ def run_experiment_runner(
     args.append(config_option)
     args.append(experiment_config_path)
     args.extend(extra_args or [])
-    if headless:
-        args.append("--headless")
-    else:
+    if not headless:
         args.append("--viz")
         args.append(DEFAULT_VISUALIZER)
 
