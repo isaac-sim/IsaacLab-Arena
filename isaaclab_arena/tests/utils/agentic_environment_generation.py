@@ -181,7 +181,7 @@ def task_catalog(text: str) -> TaskCatalogue:
                     "force_threshold",
                     "velocity_threshold",
                     "mimic_env_cfg_factory",
-                    "support_cone_half_angle_deg",
+                    "support_cone_half_angle_rad",
                 ],
                 {},
                 "",
