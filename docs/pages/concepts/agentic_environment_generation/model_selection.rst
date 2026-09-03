@@ -43,8 +43,7 @@ Selecting the Model
 Each endpoint preset has its own default model, so switching endpoints switches models (see
 :ref:`agentic-env-gen-prerequisites`). The CLI runner overrides it per run with ``--model`` and
 ``--temperature``; the GUI runner selects the endpoint in the generation panel and uses that
-endpoint's default model. The public endpoint defaults to ``deepseek-ai/deepseek-v4-pro-0813``.
-For the public endpoint, any model in the
+endpoint's default model. For the public endpoint, any model in the
 `NVIDIA NIM LLM API reference <https://docs.api.nvidia.com/nim/reference/llm-apis>`_ works, as long
 as it supports strict structured outputs — a larger context window buys more reliable prim path
 resolution.
@@ -55,7 +54,7 @@ resolution.
 
    * - ``ARENA_INFERENCE_ENDPOINT``
      - Accessibility
-     - Model
+     - Default model
      - API key variable
      - Pass rate
      - Mean runtime
@@ -65,12 +64,6 @@ resolution.
      - ``NVIDIA_API_KEY``
      - 15/15 (100%)
      - 150.66 s
-   * - ``public`` (comparison)
-     - Public (free)
-     - ``nvidia/nemotron-3-ultra-550b-a55b``
-     - ``NVIDIA_API_KEY``
-     - 9/15 (60%)
-     - 149.86 s
    * - ``internal``
      - NVIDIA internal
      - ``openai/openai/gpt-5.6-terra``
@@ -88,7 +81,10 @@ resolution.
    The benchmark ran each of five documented prompts three times. Pass rate is the fraction of
    generated specs that matched the expected structure; runtime is the mean end-to-end
    ``generate_spec`` runtime. These results are snapshots rather than guarantees: model output is
-   non-deterministic, and service load affects runtime.
+   non-deterministic, and service load affects runtime. On the public endpoint, overriding the
+   default with ``--model nvidia/nemotron-3-ultra-550b-a55b`` passed 9/15 runs (60%) with a
+   149.86-second mean runtime; ``--model openai/gpt-oss-20b`` passed 7/15 runs (46.7%) with a
+   333.17-second mean runtime.
 
 Reviewing the Generated Spec
 ----------------------------
