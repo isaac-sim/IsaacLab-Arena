@@ -43,7 +43,8 @@ Selecting the Model
 Each endpoint preset has its own default model, so switching endpoints switches models (see
 :ref:`agentic-env-gen-prerequisites`). The CLI runner overrides it per run with ``--model`` and
 ``--temperature``; the GUI runner selects the endpoint in the generation panel and uses that
-endpoint's default model. For the public endpoint, any model in the
+endpoint's default model. The public endpoint defaults to ``deepseek-ai/deepseek-v4-pro-0813``.
+For the public endpoint, any model in the
 `NVIDIA NIM LLM API reference <https://docs.api.nvidia.com/nim/reference/llm-apis>`_ works, as long
 as it supports strict structured outputs — a larger context window buys more reliable prim path
 resolution.
@@ -86,9 +87,8 @@ resolution.
 .. note::
    The benchmark ran each of five documented prompts three times. Pass rate is the fraction of
    generated specs that matched the expected structure; runtime is the mean end-to-end
-   ``generate_spec`` runtime. The two public models were measured at commit ``97c92a1f2``.
-   These results are snapshots rather than guarantees: model output is non-deterministic, and
-   service load affects runtime.
+   ``generate_spec`` runtime. These results are snapshots rather than guarantees: model output is
+   non-deterministic, and service load affects runtime.
 
 In this snapshot, DeepSeek produced the expected structure for all 15 runs. Nemotron produced the
 expected structure for all nine tabletop runs but failed all six kitchen runs, primarily by
