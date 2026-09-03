@@ -634,7 +634,6 @@ such that the data generation step can be skipped.</p>
 </details><p>Generate the dataset:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Generate 100 demonstrations</span>
 python<span class="w"> </span>submodules/IsaacLab/scripts/imitation_learning/isaaclab_mimic/generate_dataset.py<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--headless<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--enable_cameras<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--mimic<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--input_file<span class="w"> </span><span class="nv">$DATASET_DIR</span>/arena_g1_loco_manipulation_dataset_annotated.hdf5<span class="w"> </span><span class="se">\</span>
@@ -648,7 +647,7 @@ python<span class="w"> </span>submodules/IsaacLab/scripts/imitation_learning/isa
 </pre></div>
 </div>
 <p>Data generation takes 1-4 hours depending on your CPU/GPU.
-You can remove <code class="docutils literal notranslate"><span class="pre">--headless</span></code> and add <code class="docutils literal notranslate"><span class="pre">--viz</span> <span class="pre">kit</span></code> to visualize during data generation.</p>
+Add <code class="docutils literal notranslate"><span class="pre">--viz</span> <span class="pre">kit</span></code> to visualize during data generation.</p>
 </section>
 <section id="step-3-validate-generated-dataset-optional">
 <h2>Step 3: Validate Generated Dataset (Optional)<a class="headerlink" href="#step-3-validate-generated-dataset-optional" title="Link to this heading">#</a></h2>

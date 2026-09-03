@@ -631,10 +631,10 @@ resolution.</p>
 <tbody>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">public</span></code> (default)</p></td>
 <td><p>Public (free)</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">openai/gpt-oss-120b</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">deepseek-ai/deepseek-v4-pro-0813</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">NVIDIA_API_KEY</span></code></p></td>
-<td><p>13/15 (86.7%)</p></td>
-<td><p>22.28 s</p></td>
+<td><p>15/15 (100%)</p></td>
+<td><p>150.66 s</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">internal</span></code></p></td>
 <td><p>NVIDIA internal</p></td>
@@ -658,7 +658,10 @@ resolution.</p>
 <p>The benchmark ran each of five documented prompts three times. Pass rate is the fraction of
 generated specs that matched the expected structure; runtime is the mean end-to-end
 <code class="docutils literal notranslate"><span class="pre">generate_spec</span></code> runtime. These results are snapshots rather than guarantees: model output is
-non-deterministic, and service load affects runtime.</p>
+non-deterministic, and service load affects runtime. On the public endpoint, overriding the
+default with <code class="docutils literal notranslate"><span class="pre">--model</span> <span class="pre">nvidia/nemotron-3-ultra-550b-a55b</span></code> passed 9/15 runs (60%) with a
+149.86-second mean runtime; <code class="docutils literal notranslate"><span class="pre">--model</span> <span class="pre">openai/gpt-oss-20b</span></code> passed 7/15 runs (46.7%) with a
+333.17-second mean runtime.</p>
 </div>
 </section>
 <section id="reviewing-the-generated-spec">

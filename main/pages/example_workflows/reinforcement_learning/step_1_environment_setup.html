@@ -706,7 +706,8 @@ See <a class="reference internal" href="../../concepts/environment/index.html"><
 <section id="validation-run-random-policy">
 <h2>Validation: Run Random Policy<a class="headerlink" href="#validation-run-random-policy" title="Link to this heading">#</a></h2>
 <p>To validate the environment loads correctly, run one training iteration and check for errors:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>submodules/IsaacLab/scripts/reinforcement_learning/rsl_rl/train.py<span class="w"> </span><span class="se">\</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/scripts/train.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--rl_library<span class="w"> </span>rsl_rl<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--external_callback<span class="w"> </span>isaaclab_arena.environments.isaaclab_interop.environment_registration_callback<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--task<span class="w"> </span>lift_object<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--rl_training_mode<span class="w"> </span><span class="se">\</span>

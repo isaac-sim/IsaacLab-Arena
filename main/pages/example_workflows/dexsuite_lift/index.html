@@ -580,8 +580,7 @@ modelling during dexterous manipulation.</p>
 <p class="admonition-title">Important</p>
 <p><strong>Newton Physics — Experimental</strong></p>
 <p>All Arena environments can switch to Newton physics by passing
-<code class="docutils literal notranslate"><span class="pre">--presets</span> <span class="pre">newton</span></code> on the command line (mirrors Isaac Lab’s
-<code class="docutils literal notranslate"><span class="pre">presets=newton</span></code> Hydra override).  However, <strong>Newton support is
+<code class="docutils literal notranslate"><span class="pre">--presets</span> <span class="pre">newton</span></code> on the command line. However, <strong>Newton support is
 experimental</strong> — only the <code class="docutils literal notranslate"><span class="pre">dexsuite_lift</span></code> example has been verified to
 work with Newton under the current simulation settings.  Other
 environments may require additional tuning of solver parameters and physics parameters
@@ -622,7 +621,7 @@ body states, object point cloud, and 5-step observation history.</p>
 <td><p>Procedural lift cuboid (<code class="docutils literal notranslate"><span class="pre">procedural_cube</span></code>)</p></td>
 </tr>
 <tr class="row-odd"><td><p><strong>Policy</strong></p></td>
-<td><p>RSL-RL PPO (<code class="docutils literal notranslate"><span class="pre">DexsuiteKukaAllegroPPORunnerCfg</span></code>)</p></td>
+<td><p>RSL-RL PPO (<code class="docutils literal notranslate"><span class="pre">KukaAllegroPPORunnerCfg</span></code>)</p></td>
 </tr>
 <tr class="row-even"><td><p><strong>Training Method</strong></p></td>
 <td><p>Reinforcement Learning (on-policy PPO) — trained in <strong>Isaac Lab</strong></p></td>
@@ -648,7 +647,7 @@ body states, object point cloud, and 5-step observation history.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>The physics backend defaults to <strong>PhysX</strong>. Pass <code class="docutils literal notranslate"><span class="pre">--presets</span> <span class="pre">newton</span></code> to
-<code class="docutils literal notranslate"><span class="pre">policy_runner.py</span></code> (Arena) or <code class="docutils literal notranslate"><span class="pre">presets=newton</span></code> to <code class="docutils literal notranslate"><span class="pre">train.py</span></code> (Isaac Lab)
+<code class="docutils literal notranslate"><span class="pre">policy_runner.py</span></code> (Arena) or <code class="docutils literal notranslate"><span class="pre">physics=newton_mjwarp</span></code> to <code class="docutils literal notranslate"><span class="pre">train.py</span></code> (Isaac Lab)
 to switch to <strong>Newton</strong> (MuJoCo-Warp solver), which provides more physically
 accurate contacts for dexterous manipulation at the cost of slower simulation.</p>
 </div>

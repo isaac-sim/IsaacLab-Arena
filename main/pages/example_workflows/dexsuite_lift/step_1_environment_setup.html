@@ -579,7 +579,7 @@
 <section id="environment-description">
 <h2>Environment Description<a class="headerlink" href="#environment-description" title="Link to this heading">#</a></h2>
 <p>The <code class="docutils literal notranslate"><span class="pre">dexsuite_lift</span></code> Arena environment wraps the Isaac Lab
-<code class="docutils literal notranslate"><span class="pre">Isaac-Dexsuite-Kuka-Allegro-Lift-v0</span></code> MDP for evaluation.
+<code class="docutils literal notranslate"><span class="pre">Isaac-Lift-KukaAllegro</span></code> MDP for evaluation.
 The physics backend defaults to PhysX and can be switched to Newton by passing
 <code class="docutils literal notranslate"><span class="pre">--presets</span> <span class="pre">newton</span></code> on the command line.</p>
 <p>The environment is defined in
@@ -594,7 +594,7 @@ The physics backend defaults to PhysX and can be switched to Newton by passing
     <span class="k">def</span><span class="w"> </span><span class="nf">get_env</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">args_cli</span><span class="p">:</span> <span class="n">argparse</span><span class="o">.</span><span class="n">Namespace</span><span class="p">):</span>
         <span class="kn">import</span><span class="w"> </span><span class="nn">math</span>
 
-        <span class="kn">import</span><span class="w"> </span><span class="nn">isaaclab_tasks.manager_based.manipulation.dexsuite</span>  <span class="c1"># noqa: F401</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">isaaclab_tasks.core.lift</span>  <span class="c1"># noqa: F401</span>
 
         <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.environments.isaaclab_arena_environment</span><span class="w"> </span><span class="kn">import</span> <span class="n">IsaacLabArenaEnvironment</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.scene.scene</span><span class="w"> </span><span class="kn">import</span> <span class="n">Scene</span>
@@ -623,8 +623,8 @@ The physics backend defaults to PhysX and can be switched to Newton by passing
         <span class="n">task</span> <span class="o">=</span> <span class="n">DexsuiteLiftTask</span><span class="p">(</span><span class="n">lift_object</span><span class="o">=</span><span class="n">manip_object</span><span class="p">,</span> <span class="n">background_scene</span><span class="o">=</span><span class="n">dexsuite_table</span><span class="p">)</span>
 
         <span class="n">dexsuite_rl_cfg_entry</span> <span class="o">=</span> <span class="p">(</span>
-            <span class="s2">"isaaclab_tasks.manager_based.manipulation.dexsuite.config.kuka_allegro.agents."</span>
-            <span class="s2">"rsl_rl_ppo_cfg:DexsuiteKukaAllegroPPORunnerCfg"</span>
+            <span class="s2">"isaaclab_tasks.core.lift.config.kuka_allegro.agents."</span>
+            <span class="s2">"rsl_rl_ppo_cfg:KukaAllegroPPORunnerCfg"</span>
         <span class="p">)</span>
 
         <span class="k">return</span> <span class="n">IsaacLabArenaEnvironment</span><span class="p">(</span>

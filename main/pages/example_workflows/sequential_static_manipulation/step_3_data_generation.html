@@ -668,7 +668,6 @@ rm<span class="w"> </span>-rf<span class="w"> </span><span class="s2">"</span><s
 <span class="w">  </span>--input_file<span class="w"> </span><span class="nv">$DATASET_DIR</span>/ranch_bottle_into_fridge_annotated.hdf5<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--output_file<span class="w"> </span><span class="nv">$DATASET_DIR</span>/ranch_bottle_into_fridge_generated_100.hdf5<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--enable_cameras<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--headless<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--mimic<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--external_callback<span class="w"> </span>isaaclab_arena.environments.isaaclab_interop.environment_registration_callback<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--task<span class="w"> </span>put_item_in_fridge_and_close_door<span class="w"> </span><span class="se">\</span>
@@ -677,8 +676,7 @@ rm<span class="w"> </span>-rf<span class="w"> </span><span class="s2">"</span><s
 </pre></div>
 </div>
 <p>Data generation takes 30-60 minutes depending on hardware.
-If you want to visualize the data generation process, remove <code class="docutils literal notranslate"><span class="pre">--headless</span></code>
-and add <code class="docutils literal notranslate"><span class="pre">--viz</span> <span class="pre">kit</span></code>.</p>
+To visualize the data generation process, add <code class="docutils literal notranslate"><span class="pre">--viz</span> <span class="pre">kit</span></code>.</p>
 </section>
 <section id="step-3-validate-generated-data-optional">
 <h2>Step 3: Validate Generated Data (Optional)<a class="headerlink" href="#step-3-validate-generated-data-optional" title="Link to this heading">#</a></h2>

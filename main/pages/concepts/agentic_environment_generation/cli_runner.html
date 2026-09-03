@@ -638,8 +638,7 @@ review:</p>
 <span class="c1"># Review or edit the generated YAML, then:</span>
 python<span class="w"> </span>isaaclab_arena_examples/agentic_environment_generation/cli_runner.py<span class="w"> </span><span class="se">\</span>
 <span class="w">   </span>--mode<span class="w"> </span>build<span class="w"> </span><span class="se">\</span>
-<span class="w">   </span>--env_spec<span class="w"> </span>isaaclab_arena_environments/agent_generated/&lt;env_name&gt;.yaml<span class="w"> </span><span class="se">\</span>
-<span class="w">   </span>--headless
+<span class="w">   </span>--env_spec<span class="w"> </span>isaaclab_arena_environments/agent_generated/&lt;env_name&gt;.yaml
 </pre></div>
 </div>
 </section>
@@ -734,8 +733,8 @@ relevant to <code class="docutils literal notranslate"><span class="pre">build</
 <td><p>Input graph-spec YAML. Required by <code class="docutils literal notranslate"><span class="pre">--mode</span> <span class="pre">build</span></code> and <code class="docutils literal notranslate"><span class="pre">prim_tree</span></code>.</p></td>
 <td><p>Spec</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--headless</span></code></p></td>
-<td><p>Runs Isaac Sim without a viewport.</p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--viz</span> <span class="pre">kit</span></code></p></td>
+<td><p>Opens the Kit visualizer. Omit <code class="docutils literal notranslate"><span class="pre">--viz</span></code> to run headless.</p></td>
 <td><p>Build and evaluation</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--num_envs</span> <span class="pre">N</span></code></p></td>

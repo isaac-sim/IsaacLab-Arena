@@ -578,10 +578,11 @@
 </div>
 <section id="training-command">
 <h2>Training Command<a class="headerlink" href="#training-command" title="Link to this heading">#</a></h2>
-<p>Training uses IsaacLab’s RSL-RL training script directly. The <code class="docutils literal notranslate"><span class="pre">--external_callback</span></code> argument
-points to an Arena function that runs before training starts — it reads the <code class="docutils literal notranslate"><span class="pre">--task</span></code> argument,
-builds the environment, and registers it with gym so IsaacLab’s script can find it by name.</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>submodules/IsaacLab/scripts/reinforcement_learning/rsl_rl/train.py<span class="w"> </span><span class="se">\</span>
+<p>Training uses Arena’s bridge to Isaac Lab’s unified training script. The <code class="docutils literal notranslate"><span class="pre">--external_callback</span></code>
+argument points to an Arena function that reads the <code class="docutils literal notranslate"><span class="pre">--task</span></code> argument, builds the environment,
+and registers it with gym before training starts.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/scripts/train.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--rl_library<span class="w"> </span>rsl_rl<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--external_callback<span class="w"> </span>isaaclab_arena.environments.isaaclab_interop.environment_registration_callback<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--task<span class="w"> </span>lift_object<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--rl_training_mode<span class="w"> </span><span class="se">\</span>
@@ -612,7 +613,8 @@ agent.save_interval<span class="o">=</span><span class="m">500</span>
 </pre></div>
 </div>
 <p>For example, to train with relu activation and a higher learning rate:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>submodules/IsaacLab/scripts/reinforcement_learning/rsl_rl/train.py<span class="w"> </span><span class="se">\</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/scripts/train.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--rl_library<span class="w"> </span>rsl_rl<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--external_callback<span class="w"> </span>isaaclab_arena.environments.isaaclab_interop.environment_registration_callback<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--task<span class="w"> </span>lift_object<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--rl_training_mode<span class="w"> </span><span class="se">\</span>
@@ -629,7 +631,8 @@ agent.save_interval<span class="o">=</span><span class="m">500</span>
 together with <code class="docutils literal notranslate"><span class="pre">--load_run</span></code> (run folder name) and <code class="docutils literal notranslate"><span class="pre">--checkpoint</span></code> (model filename).
 Both arguments are optional — when omitted, the most recent run and latest checkpoint
 are used automatically.</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>submodules/IsaacLab/scripts/reinforcement_learning/rsl_rl/train.py<span class="w"> </span><span class="se">\</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/scripts/train.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--rl_library<span class="w"> </span>rsl_rl<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--external_callback<span class="w"> </span>isaaclab_arena.environments.isaaclab_interop.environment_registration_callback<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--task<span class="w"> </span>lift_object<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--rl_training_mode<span class="w"> </span><span class="se">\</span>
@@ -682,7 +685,8 @@ the latest checkpoint in that run is loaded.</p>
 <section id="multi-gpu-training">
 <h2>Multi-GPU Training<a class="headerlink" href="#multi-gpu-training" title="Link to this heading">#</a></h2>
 <p>Add <code class="docutils literal notranslate"><span class="pre">--distributed</span></code> to spread environments across all available GPUs:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>submodules/IsaacLab/scripts/reinforcement_learning/rsl_rl/train.py<span class="w"> </span><span class="se">\</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/scripts/train.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--rl_library<span class="w"> </span>rsl_rl<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--external_callback<span class="w"> </span>isaaclab_arena.environments.isaaclab_interop.environment_registration_callback<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--task<span class="w"> </span>lift_object<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--rl_training_mode<span class="w"> </span><span class="se">\</span>
