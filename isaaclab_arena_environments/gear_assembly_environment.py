@@ -22,6 +22,16 @@ MAPLE_TABLE_ALIGNMENT_Z = 0.068
 
 GEAR_INITIAL_XY = (0.41, 0.17)
 GEAR_BASE_XY = (0.55, -0.08)
+DROID_GEAR_APPROACH_JOINT_POSITIONS = {
+    "panda_joint1": 1.4302369,
+    "panda_joint2": -0.3727887,
+    "panda_joint3": -1.0313725,
+    "panda_joint4": -2.5031810,
+    "panda_joint5": -0.4169911,
+    "panda_joint6": 2.2608662,
+    "panda_joint7": 0.4437634,
+}
+"""DROID arm pose above the source gear."""
 
 
 @dataclass
@@ -84,8 +94,10 @@ class GearAssemblyEnvironment(ArenaEnvironmentFactory[GearAssemblyEnvironmentCfg
         light.set_intensity(1800.0)
         directional_light = self.asset_registry.get_asset_by_name("directional_light")()
 
-        embodiment = self.asset_registry.get_asset_by_name("droid_differential_ik")(enable_cameras=cfg.enable_cameras)
-        mdp.configure_droid_for_newton_gear_assembly(embodiment)
+        embodiment = self.asset_registry.get_asset_by_name("droid_differential_ik_newton")(
+            enable_cameras=cfg.enable_cameras
+        )
+        embodiment.set_joint_initial_pos(DROID_GEAR_APPROACH_JOINT_POSITIONS)
 
         teleop_device = (
             self.device_registry.get_device_by_name(cfg.teleop_device)() if cfg.teleop_device is not None else None
