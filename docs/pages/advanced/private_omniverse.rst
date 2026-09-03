@@ -21,7 +21,7 @@ To generate those, follow the instructions on the
 .. code-block:: bash
 
     export OMNI_USER='$omni-api-token'
-    export OMNI_PASS=<your_generated_api_token>
+    export OMNI_PASS="YOUR_GENERATED_API_TOKEN"
 
 Where:
 
