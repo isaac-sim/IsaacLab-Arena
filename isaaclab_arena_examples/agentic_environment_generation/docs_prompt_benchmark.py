@@ -80,7 +80,7 @@ DOC_BENCHMARK_CASES: tuple[BenchmarkCase, ...] = (
     BenchmarkCase(
         name="kitchen_open_door",
         prompt=(
-            "There is a floor and a fridge in the lightwheel_robocasa_kitchen kitchen. "
+            "There is a floor and a fridge in the lightwheel_kitchen_one_wall_coastal kitchen. "
             "DROID is on the floor, next to the fridge with 0.1 meter distance and facing it. "
             "DROID opens the fridge door to the 0.2 openness threshold."
         ),
@@ -90,7 +90,7 @@ DOC_BENCHMARK_CASES: tuple[BenchmarkCase, ...] = (
     BenchmarkCase(
         name="kitchen_pick_and_place",
         prompt=(
-            "There is a center-right counter top and a floor in the lightwheel_robocasa_kitchen "
+            "There is a center-right counter top and a floor in the lightwheel_kitchen_one_wall_coastal "
             "background. DROID picks up a mustard bottle on the counter top and places it in a bowl. "
             "DROID is next to the counter top and on the floor."
         ),
@@ -117,8 +117,8 @@ DOC_BENCHMARK_CASES: tuple[BenchmarkCase, ...] = (
     BenchmarkCase(
         name="tabletop_pnp_composite_task",
         prompt=(
-            "Droid picks up the pepsi can and the bean can from the maple table and places them "
-            "into the mini plastic basket. There is a hammer next to the pepsi can and a tuna can "
+            "Droid picks up the beverage can and the bean can from the maple table and places them "
+            "into the mini plastic basket. There is a hammer next to the beverage can and a tuna can "
             "on the table, and the bean can sits next to the basket."
         ),
         expected_yaml=_REPO_ROOT
@@ -250,7 +250,22 @@ def _run_case(
         simready_config=SimReadySearchConfig() if case.enable_simready_search else None,
     )
     started = time.perf_counter()
-    spec, _data = agent.generate_spec(case.prompt)
+    try:
+        spec, _data = agent.generate_spec(case.prompt)
+    except Exception as exc:
+        runtime_s = time.perf_counter() - started
+        stats = dict(agent.spec_inference.last_infer_stats)
+        return RunResult(
+            case_name=case.name,
+            run_index=run_index,
+            passed=False,
+            failures=[f"{type(exc).__name__}: {exc}"],
+            generate_spec_runtime_s=runtime_s,
+            spec_inference_num_calls=int(stats.get("num_calls", 0)),
+            spec_inference_num_retries=int(stats.get("num_retries", 0)),
+            spec_inference_retry_errors=list(stats.get("retry_errors", [])),
+            generation_failed=True,
+        )
     runtime_s = time.perf_counter() - started
     stats = dict(agent.spec_inference.last_infer_stats)
 
