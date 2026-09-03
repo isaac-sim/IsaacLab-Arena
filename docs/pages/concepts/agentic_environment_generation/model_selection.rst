@@ -54,16 +54,22 @@ resolution.
 
    * - ``ARENA_INFERENCE_ENDPOINT``
      - Accessibility
-     - Default model
+     - Model
      - API key variable
      - Pass rate
      - Mean runtime
    * - ``public`` (default)
      - Public (free)
-     - ``openai/gpt-oss-120b``
+     - ``deepseek-ai/deepseek-v4-pro-0813``
      - ``NVIDIA_API_KEY``
-     - 13/15 (86.7%)
-     - 22.28 s
+     - 15/15 (100%)
+     - 150.66 s
+   * - ``public`` (comparison)
+     - Public (free)
+     - ``nvidia/nemotron-3-ultra-550b-a55b``
+     - ``NVIDIA_API_KEY``
+     - 9/15 (60%)
+     - 149.86 s
    * - ``internal``
      - NVIDIA internal
      - ``openai/openai/gpt-5.6-terra``
@@ -80,8 +86,14 @@ resolution.
 .. note::
    The benchmark ran each of five documented prompts three times. Pass rate is the fraction of
    generated specs that matched the expected structure; runtime is the mean end-to-end
-   ``generate_spec`` runtime. These results are snapshots rather than guarantees: model output is
-   non-deterministic, and service load affects runtime.
+   ``generate_spec`` runtime. The two public models were measured at commit ``97c92a1f2``.
+   These results are snapshots rather than guarantees: model output is non-deterministic, and
+   service load affects runtime.
+
+In this snapshot, DeepSeek produced the expected structure for all 15 runs. Nemotron produced the
+expected structure for all nine tabletop runs but failed all six kitchen runs, primarily by
+omitting background object references and spatial relations. Their mean runtimes were nearly the
+same, so DeepSeek is the public default based on spec quality rather than speed.
 
 Reviewing the Generated Spec
 ----------------------------
