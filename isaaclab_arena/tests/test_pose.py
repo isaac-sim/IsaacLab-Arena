@@ -47,6 +47,29 @@ def test_pose_composition():
     assert T_C_A.rotation_xyzw == (0.0, 0.0, 0.0, 1.0)
 
 
+def test_pose_composition_rotates_inner_translation():
+    """Check that the outer rotation is applied to the inner translation."""
+    square_root_of_half = math.sqrt(0.5)
+    quarter_turn_about_z_xyzw = (0.0, 0.0, square_root_of_half, square_root_of_half)
+    T_B_A = Pose(position_xyz=(1.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0))
+    T_C_B = Pose(position_xyz=(2.0, 0.0, 0.0), rotation_xyzw=quarter_turn_about_z_xyzw)
+
+    T_C_A = T_C_B.multiply(T_B_A)
+
+    torch.testing.assert_close(
+        torch.tensor(T_C_A.position_xyz),
+        torch.tensor((2.0, 1.0, 0.0)),
+        rtol=0.0,
+        atol=1e-6,
+    )
+    torch.testing.assert_close(
+        torch.tensor(T_C_A.rotation_xyzw),
+        torch.tensor(quarter_turn_about_z_xyzw),
+        rtol=0.0,
+        atol=1e-6,
+    )
+
+
 def test_rotate_points_by_yaw_batch_matches_scalar():
     """Batch rotation with per-element yaws produces the same result as scalar rotation per row."""
     points = torch.tensor([[1.0, 2.0, 0.5], [3.0, -1.0, 1.0], [0.0, 4.0, -0.3]])
