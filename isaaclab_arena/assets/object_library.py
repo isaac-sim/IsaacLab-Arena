@@ -22,7 +22,7 @@ from isaaclab_arena.affordances.placeable import Placeable
 from isaaclab_arena.affordances.pressable import Pressable
 from isaaclab_arena.affordances.turnable import Turnable
 from isaaclab_arena.assets.lightwheel_lazy import LightwheelLazyPath
-from isaaclab_arena.assets.nucleus import ARENA_NUCLEUS_DIR
+from isaaclab_arena.assets.nucleus import ARENA_NUCLEUS_DIR, GEAR_ASSEMBLY_ASSET_DIR
 from isaaclab_arena.assets.object import Object
 from isaaclab_arena.assets.object_base import ObjectType
 from isaaclab_arena.assets.object_utils import (
@@ -1983,3 +1983,51 @@ class ProceduralCube(Object):
             **self.asset_cfg_addon,
         )
         return self._add_initial_pose_to_cfg(cfg)
+
+
+def _newton_gear_spawn_cfg(*, mass: float, kinematic: bool, friction: float) -> dict[str, Any]:
+    """Build the Newton rigid-body configuration shared by the gear-assembly assets."""
+    from isaaclab_newton.sim.schemas import NewtonMaterialPropertiesCfg
+
+    return {
+        "make_uninstanceable": True,
+        "rigid_props": sim_utils.RigidBodyPropertiesCfg(
+            disable_gravity=False,
+            kinematic_enabled=kinematic,
+            linear_damping=0.05,
+            angular_damping=0.10,
+            max_depenetration_velocity=1.0,
+        ),
+        "mass_props": sim_utils.MassPropertiesCfg(mass=mass),
+        "collision_props": sim_utils.CollisionPropertiesCfg(
+            contact_offset=1.0e-4,
+            rest_offset=0.0,
+        ),
+        "physics_material": NewtonMaterialPropertiesCfg(
+            static_friction=friction,
+            dynamic_friction=friction,
+            restitution=0.0,
+        ),
+    }
+
+
+@register_asset
+class GearAssemblyBase(LibraryObject):
+    """Fixed base used by the Newton gear-assembly task."""
+
+    name = "gear_assembly_base"
+    tags = ["object", "gear", "gear_assembly"]
+    usd_path = f"{GEAR_ASSEMBLY_ASSET_DIR}/factory_gear_base.usda"
+    object_type = ObjectType.RIGID
+    spawn_cfg_addon = _newton_gear_spawn_cfg(mass=0.05, kinematic=True, friction=1.0e-4)
+
+
+@register_asset
+class GearAssemblyMediumGear(LibraryObject):
+    """Movable medium gear used by the Newton gear-assembly task."""
+
+    name = "gear_assembly_medium_gear"
+    tags = ["object", "gear", "gear_assembly"]
+    usd_path = f"{GEAR_ASSEMBLY_ASSET_DIR}/factory_gear_medium.usda"
+    object_type = ObjectType.RIGID
+    spawn_cfg_addon = _newton_gear_spawn_cfg(mass=0.019, kinematic=False, friction=3.0)

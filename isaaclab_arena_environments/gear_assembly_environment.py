@@ -17,15 +17,11 @@ if TYPE_CHECKING:
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
 
 
-TABLE_TOP_Z = 0.071
-"""World-space height of the maple tabletop."""
+MAPLE_TABLE_ALIGNMENT_Z = 0.068
+"""Maple-table root height aligned with the fixed DROID workcell."""
 
-MAPLE_TABLE_TOP_Z = 0.003000684082508087
-"""Top of the table geometry in the maple-table USD's local frame."""
-
-GEAR_HALF_HEIGHT = 0.01875
-GEAR_INITIAL_POSITION = (0.41, 0.17, TABLE_TOP_Z + GEAR_HALF_HEIGHT + 0.001)
-GEAR_BASE_POSITION = (0.55, -0.08, TABLE_TOP_Z + GEAR_HALF_HEIGHT)
+GEAR_INITIAL_XY = (0.41, 0.17)
+GEAR_BASE_XY = (0.55, -0.08)
 
 
 @dataclass
@@ -54,18 +50,14 @@ class GearAssemblyEnvironment(ArenaEnvironmentFactory[GearAssemblyEnvironmentCfg
         from isaaclab_arena.assets.object_base import ObjectType
         from isaaclab_arena.assets.object_reference import ObjectReference
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
-        from isaaclab_arena.relations.relations import IsAnchor
+        from isaaclab_arena.relations.relations import AtPosition, IsAnchor, On
         from isaaclab_arena.scene.scene import Scene
         from isaaclab_arena.tasks.gear_assembly_task import GearAssemblyTask
         from isaaclab_arena.utils.pose import Pose
         from isaaclab_arena_environments import mdp
-        from isaaclab_arena_environments.gear_assembly_asset_library import (
-            make_gear_assembly_base,
-            make_gear_assembly_medium_gear,
-        )
 
         background = self.asset_registry.get_asset_by_name("maple_table_robolab")()
-        background.set_initial_pose(Pose(position_xyz=(0.0, 0.0, TABLE_TOP_Z - MAPLE_TABLE_TOP_Z)))
+        background.set_initial_pose(Pose(position_xyz=(0.0, 0.0, MAPLE_TABLE_ALIGNMENT_Z)))
         table_reference = ObjectReference(
             name="table",
             prim_path="{ENV_REGEX_NS}/maple_table_robolab/table",
@@ -74,8 +66,13 @@ class GearAssemblyEnvironment(ArenaEnvironmentFactory[GearAssemblyEnvironmentCfg
         )
         table_reference.add_relation(IsAnchor())
 
-        gear_base = make_gear_assembly_base(Pose(position_xyz=GEAR_BASE_POSITION))
-        medium_gear = make_gear_assembly_medium_gear(Pose(position_xyz=GEAR_INITIAL_POSITION))
+        gear_base = self.asset_registry.get_asset_by_name("gear_assembly_base")(initial_pose=Pose.identity())
+        gear_base.add_relation(On(table_reference, clearance_m=0.0))
+        gear_base.add_relation(AtPosition(x=GEAR_BASE_XY[0], y=GEAR_BASE_XY[1]))
+
+        medium_gear = self.asset_registry.get_asset_by_name("gear_assembly_medium_gear")(initial_pose=Pose.identity())
+        medium_gear.add_relation(On(table_reference, clearance_m=0.001))
+        medium_gear.add_relation(AtPosition(x=GEAR_INITIAL_XY[0], y=GEAR_INITIAL_XY[1]))
         insertion_target = ObjectReference(
             name="medium_gear_target",
             prim_path=f"{gear_base.get_prim_path()}/medium_gear_target",
