@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 from isaaclab_arena.relations.relations import RotateAroundSolution, get_anchor_objects
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.velocity import Velocity
-from isaaclab_arena.utils.yaw import rotate_quat_by_yaw, yaw_from_quat_xyzw
+from isaaclab_arena.utils.yaw import rotate_quat_by_yaw
 
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedEnv
@@ -89,8 +89,9 @@ def get_pose_from_layout(asset: PlaceableAsset, layout: PlacementResult) -> Pose
     if asset in layout.rotations:
         # A full rotation is already the final world orientation, so the marker yaw does not apply.
         return Pose(position_xyz=layout.positions[asset], rotation_xyzw=layout.rotations[asset])
-    base_rotation = get_rotation_xyzw(asset)
-    marker_yaw = yaw_from_quat_xyzw(base_rotation)
+    rotate_marker = next((r for r in asset.get_relations() if isinstance(r, RotateAroundSolution)), None)
+    base_rotation = rotate_marker.get_rotation_xyzw() if rotate_marker else IDENTITY_ROTATION_XYZW
+    marker_yaw = rotate_marker.yaw_rad if rotate_marker else 0.0
     total_yaw = layout.orientations.get(asset, marker_yaw)
     rotation = rotate_quat_by_yaw(base_rotation, total_yaw - marker_yaw)
     return Pose(position_xyz=layout.positions[asset], rotation_xyzw=rotation)

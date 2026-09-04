@@ -339,6 +339,37 @@ def test_solve_and_place_objects_applies_random_yaw():
     assert yawed, "random_yaw_init should produce at least one yawed object in the written poses"
 
 
+def test_get_pose_from_layout_composes_yaw_with_tilted_marker():
+    """Pooled reset applies only the sampled yaw delta on top of a tilted marker."""
+    import math
+
+    from isaaclab_arena.relations.placement_events import get_pose_from_layout
+    from isaaclab_arena.relations.placement_result import PlacementResult
+    from isaaclab_arena.relations.relations import RotateAroundSolution
+    from isaaclab_arena.utils.yaw import rotate_quat_by_yaw
+
+    _, box, _ = _create_test_objects()
+    marker_yaw, sampled_yaw = math.pi / 2, math.pi / 5
+    marker = RotateAroundSolution(roll_rad=math.pi / 2, yaw_rad=marker_yaw)
+    box.add_relation(marker)
+    layout = PlacementResult(
+        validation_results=_checklist(True),
+        positions={box: (0.2, 0.3, 0.4)},
+        final_loss=0.0,
+        attempts=1,
+        orientations={box: marker_yaw + sampled_yaw},
+    )
+
+    pose = get_pose_from_layout(box, layout)
+    expected = rotate_quat_by_yaw(marker.get_rotation_xyzw(), sampled_yaw)
+    torch.testing.assert_close(
+        torch.tensor(pose.rotation_xyzw),
+        torch.tensor(expected),
+        atol=1e-6,
+        rtol=0,
+    )
+
+
 def test_solve_and_place_objects_skips_empty_env_ids():
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
     from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer

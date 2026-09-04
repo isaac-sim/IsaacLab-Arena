@@ -320,28 +320,25 @@ def test_random_yaw_init_composes_marker_yaw():
     assert abs(wrap_angle_to_pi(applied - result.orientations[box1])) < 1e-5
 
 
-def test_roll_pitch_marker_applied_verbatim_without_random_yaw():
-    """A roll/pitch marker is excluded from random-yaw sampling and applied verbatim.
-
-    A Z-rotated footprint can't enclose a tilted box, so the object keeps its requested rotation
-    and receives no sampled yaw even when random_yaw_init is on.
-    """
-    pitch_rad = math.pi / 2
+def test_random_yaw_init_composes_with_tilted_marker():
+    """Sampled world yaw preserves an authored roll and marker yaw."""
+    roll_rad = math.pi / 2
+    marker_yaw = math.pi / 2
     solver_params = RelationSolverParams(max_iters=5, verbose=False)
     desk, box1, box2 = _create_test_objects()
-    box1.add_relation(RotateAroundSolution(pitch_rad=pitch_rad))
+    marker = RotateAroundSolution(roll_rad=roll_rad, yaw_rad=marker_yaw)
+    box1.add_relation(marker)
     placer = ObjectPlacer(
         params=ObjectPlacerParams(placement_seed=1, solver_params=solver_params, random_yaw_init=True)
     )
-    orientations = placer._generate_initial_orientations([desk, box1, box2], {desk})
-    assert box1 not in orientations, "roll/pitch marker object must not receive a sampled yaw"
-
-    placer.place([desk, box1, box2], num_envs=1)
+    (result,) = placer.place([desk, box1, box2], num_envs=1)
+    sampled_yaw = wrap_angle_to_pi(result.orientations[box1] - marker_yaw)
+    assert abs(sampled_yaw) > 1e-3
     applied = box1.get_initial_pose().rotation_xyzw
-    expected = RotateAroundSolution(pitch_rad=pitch_rad).get_rotation_xyzw()
+    expected = rotate_quat_by_yaw(marker.get_rotation_xyzw(), sampled_yaw)
     assert all(
         abs(a - e) < 1e-5 for a, e in zip(applied, expected)
-    ), f"marker pitch must be applied verbatim; expected {expected}, got {applied}"
+    ), f"sampled yaw must preserve the marker tilt; expected {expected}, got {applied}"
 
 
 def test_marker_yaw_applied_without_random_yaw_init():

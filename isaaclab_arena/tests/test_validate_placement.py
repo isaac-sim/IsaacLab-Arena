@@ -160,6 +160,26 @@ def test_rotate_candidate_bboxes_encloses_marker_plus_sampled_yaw():
     assert not torch.allclose(rotated[box].max_point, sampled_only.max_point, atol=1e-6)
 
 
+def test_rotate_candidate_bboxes_encloses_tilted_marker_plus_sampled_yaw():
+    """Tilted marker and sampled world yaw use the same composition as the applied pose."""
+    from isaaclab_arena.utils.yaw import rotate_quat_by_yaw
+
+    box = _make_long_box("box", half_x=0.3, half_y=0.08, half_z=0.03)
+    marker_yaw, sampled_yaw = math.pi / 2, math.pi / 5
+    marker = RotateAroundSolution(roll_rad=math.pi / 2, yaw_rad=marker_yaw)
+    box.add_relation(marker)
+
+    rotated = ObjectPlacer._rotate_candidate_bboxes(
+        [box],
+        {box: box.get_bounding_box()},
+        [{box: marker_yaw + sampled_yaw}],
+    )
+    composed = rotate_quat_by_yaw(marker.get_rotation_xyzw(), sampled_yaw)
+    expected = box.get_bounding_box().rotated_by_quat(torch.tensor([composed]))
+    torch.testing.assert_close(rotated[box].min_point, expected.min_point, atol=1e-6, rtol=0)
+    torch.testing.assert_close(rotated[box].max_point, expected.max_point, atol=1e-6, rtol=0)
+
+
 def test_enclosing_after_rotation_pitch_swaps_extents():
     """A 90° pitch rotates the tall Z extent into X, so the enclosing AABB swaps X and Z half-sizes."""
     box = AxisAlignedBoundingBox(min_point=(-0.05, -0.05, -0.3), max_point=(0.05, 0.05, 0.3))

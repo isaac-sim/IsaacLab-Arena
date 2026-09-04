@@ -29,7 +29,7 @@ from isaaclab_arena.relations.relations import (
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose, PosePerEnv
 from isaaclab_arena.utils.random import get_random_rotation
-from isaaclab_arena.utils.yaw import rotate_quat_by_yaw, wrap_angle_to_pi, yaw_from_quat_xyzw, yaw_toward_positions
+from isaaclab_arena.utils.yaw import rotate_quat_by_yaw, wrap_angle_to_pi, yaw_toward_positions
 
 if TYPE_CHECKING:
     from isaaclab_arena.relations.collision_object import CollisionObject
@@ -447,9 +447,9 @@ class ObjectPlacer:
     ) -> dict[PlaceableAsset, float]:
         """Sample absolute world Z-yaws for non-anchor objects without FaceTo.
 
-        Marker yaw is included; random_yaw_init adds a sampled delta. Roll/pitch marker objects are
-        omitted so their requested rotation is applied verbatim; their footprint is enclosed by
-        _rotate_candidate_bboxes so overlap validation stays sound.
+        Marker yaw is included; random_yaw_init adds a sampled delta while preserving any authored
+        roll/pitch. The full composed rotation is enclosed by _rotate_candidate_bboxes so overlap
+        validation stays sound.
         """
         orientations: dict[PlaceableAsset, float] = {}
         for obj in objects:
@@ -462,7 +462,7 @@ class ObjectPlacer:
                     "Anchors are not repositioned by the placer, so any marker rotation must "
                     "already be baked into the anchor's initial_pose before calling place()."
                 )
-            elif get_relation(obj, FaceTo) is None and not has_roll_pitch:
+            elif get_relation(obj, FaceTo) is None:
                 sampled_yaw = get_random_rotation(generator) if self.params.random_yaw_init else 0.0
                 total_yaw = wrap_angle_to_pi(sampled_yaw + marker_yaw)
                 if total_yaw != 0.0:
@@ -514,7 +514,7 @@ class ObjectPlacer:
             marker_rotation = marker.get_rotation_xyzw() if marker is not None else (0.0, 0.0, 0.0, 1.0)
             has_roll_pitch = marker is not None and (marker.roll_rad != 0.0 or marker.pitch_rad != 0.0)
             # orientations carries absolute world yaw; subtract the marker's own yaw to get the delta to compose.
-            marker_yaw = yaw_from_quat_xyzw(marker_rotation)
+            marker_yaw = marker.yaw_rad if marker is not None else 0.0
             extra_yaws = [
                 orientations_per_candidate[c].get(obj, marker_yaw) - marker_yaw for c in range(num_candidates)
             ]
@@ -785,7 +785,7 @@ class ObjectPlacer:
 
             rotate_marker = get_relation(obj, RotateAroundSolution)
             marker_rotation = rotate_marker.get_rotation_xyzw() if rotate_marker else (0.0, 0.0, 0.0, 1.0)
-            marker_yaw = yaw_from_quat_xyzw(marker_rotation)
+            marker_yaw = rotate_marker.yaw_rad if rotate_marker else 0.0
 
             def _yaw_delta(env_idx: int) -> float:
                 """Return the yaw to compose with the RotateAroundSolution marker rotation."""
