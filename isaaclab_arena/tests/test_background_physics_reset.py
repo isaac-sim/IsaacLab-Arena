@@ -127,8 +127,8 @@ def _test_background_physics_discovery_and_reset(
             "background",
             background_path,
             object_min_z=0.0,
-            reset_nested_physics=True,
         )
+        assert background.reset_nested_physics
         referenced_free_body = ObjectReference(
             name="referenced_free_body",
             prim_path="{ENV_REGEX_NS}/background/free_body",
@@ -290,3 +290,64 @@ def test_background_physics_reset_with_newton():
         check_interactivity=False,
         include_joint_network=False,
     )
+
+
+def _test_maple_table_pose_restored_on_reset(_) -> bool:
+    """Move the nested Maple table body and verify reset restores its cached pose."""
+    import torch
+
+    from isaaclab_arena.assets.object_base import ObjectType
+    from isaaclab_arena.assets.registries import AssetRegistry
+    from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
+    from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
+    from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
+    from isaaclab_arena.scene.scene import Scene
+
+    background_cls = AssetRegistry().get_asset_by_name("maple_table_robolab")
+    background = background_cls()
+    opt_out_background = background_cls(reset_nested_physics=False)
+    assert background.reset_nested_physics
+    assert not opt_out_background.reset_nested_physics
+    scene = Scene(assets=[background])
+    arena_env = IsaacLabArenaEnvironment(name="maple_table_background_reset", scene=scene)
+    args = get_isaaclab_arena_cli_parser().parse_args(["--num_envs", "1"])
+    builder = ArenaEnvBuilder(arena_env, arena_env_builder_cfg_from_argparse(args))
+    env_cfg, _ = builder.compose_manager_cfg()
+
+    table_path = "{ENV_REGEX_NS}/maple_table_robolab/table"
+    assert scene.get_background_physics_paths()[background.name][table_path] == ObjectType.RIGID
+
+    env = builder.make_registered(env_cfg)
+    try:
+        env.reset()
+        base_env = env.unwrapped
+        reset_term = base_env.event_manager.get_term_cfg("reset_background_physics").func
+        table_reset = next(
+            reset
+            for reset in reset_term._rigid_resets
+            if reset.asset.cfg.prim_path.endswith("/maple_table_robolab/table")
+        )
+        table = table_reset.asset
+        initial_pose = table.data.root_pose_w.torch.clone()
+        env_ids = torch.tensor([0], device=base_env.device)
+
+        moved_pose = initial_pose.clone()
+        moved_pose[:, 0] += 1.0
+        table.write_root_pose_to_sim_index(root_pose=moved_pose, env_ids=env_ids)
+        table.write_root_velocity_to_sim_index(
+            root_velocity=torch.ones((1, 6), device=base_env.device),
+            env_ids=env_ids,
+        )
+        assert torch.allclose(table.data.root_pose_w.torch, moved_pose)
+
+        env.reset()
+
+        assert torch.allclose(table.data.root_pose_w.torch, initial_pose, atol=1.0e-5)
+        assert torch.count_nonzero(table.data.root_vel_w.torch) == 0
+    finally:
+        env.close()
+    return True
+
+
+def test_maple_table_pose_restored_on_reset():
+    assert run_function_with_persistent_simulation_app(_test_maple_table_pose_restored_on_reset)

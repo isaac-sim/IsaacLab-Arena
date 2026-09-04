@@ -102,10 +102,6 @@ class GearAssemblyTask(TaskBase):
             f"Pick up the {held_asset.name} and insert it onto the matching peg in the {fixed_asset.name}."
         )
 
-    def apply_reachability_constraints(self) -> None:
-        """The robot must reach both the loose gear and its fixed assembly base."""
-        self._apply_reachability_constraints([self.held_asset, self.fixed_asset])
-
     def get_scene_cfg(self):
         return None
 

@@ -111,7 +111,7 @@ class ResetBackgroundPhysics(ManagerTermBase):
         for background_name, background_path_template in self._background_prim_paths.items():
             background_path = self._runtime_path(background_path_template, env_prim_path)
             background_prim = env.scene.stage.GetPrimAtPath(background_path)
-            assert background_prim.IsValid(), f"Missing opted-in background prim at '{background_path}'"
+            assert background_prim.IsValid(), f"Missing reset-enabled background prim at '{background_path}'"
             referenced_paths = {
                 self._runtime_path(path, env_prim_path): object_type
                 for path, object_type in self._referenced_paths[background_name].items()

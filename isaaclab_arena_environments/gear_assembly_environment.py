@@ -60,6 +60,8 @@ class GearAssemblyEnvironment(ArenaEnvironmentFactory[GearAssemblyEnvironmentCfg
         from isaaclab_arena.assets.object_base import ObjectType
         from isaaclab_arena.assets.object_reference import ObjectReference
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
+        from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+        from isaaclab_arena.relations.placement_validation import PlacementCheck
         from isaaclab_arena.relations.relations import AtPosition, IsAnchor, On
         from isaaclab_arena.scene.scene import Scene
         from isaaclab_arena.tasks.gear_assembly_task import GearAssemblyTask
@@ -127,4 +129,10 @@ class GearAssemblyEnvironment(ArenaEnvironmentFactory[GearAssemblyEnvironmentCfg
             task=task,
             teleop_device=teleop_device,
             env_cfg_callback=mdp.gear_assembly_newton_env_cfg_callback,
+            placer_params=ObjectPlacerParams(
+                enabled_checks={
+                    PlacementCheck.NO_OVERLAP,
+                    PlacementCheck.ON_RELATION,
+                }
+            ),
         )
