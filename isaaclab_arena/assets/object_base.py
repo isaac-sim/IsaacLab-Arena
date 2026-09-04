@@ -30,11 +30,12 @@ from isaaclab_arena.variations.object_mass_variation import ObjectMassVariation
 __all__ = [
     "ObjectBase",
     "ObjectType",
+    "RootedObjectBase",
 ]
 
 
 class ObjectBase(PlaceableAsset, ABC):
-    """Parent class for (spawnable) Object and ObjectReference."""
+    """Parent class for Arena scene objects."""
 
     def __init__(
         self,
@@ -48,6 +49,26 @@ class ObjectBase(PlaceableAsset, ABC):
             prim_path = "{ENV_REGEX_NS}/" + self.name
         self.prim_path = prim_path
         self.object_type = object_type
+
+    def set_prim_path(self, prim_path: str) -> None:
+        self.prim_path = prim_path
+
+    def get_prim_path(self) -> str:
+        return self.prim_path
+
+    @abstractmethod
+    def get_object_cfg(self) -> tuple[str, RigidObjectCfg | ArticulationCfg | AssetBaseCfg]:
+        """Return the scene key and concrete Isaac Lab config."""
+
+    def get_event_cfg(self) -> tuple[str, EventTermCfg | None]:
+        return self.name, self._pose_event_cfg
+
+
+class RootedObjectBase(ObjectBase):
+    """Parent class for rigid, articulated, and static rooted objects."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         if self.object_type == ObjectType.RIGID:
             self.add_variation(ObjectMassVariation(self.name))
         self.initial_velocity: Velocity | None = None
@@ -134,17 +155,8 @@ class ObjectBase(PlaceableAsset, ABC):
                 },
             )
 
-    def set_prim_path(self, prim_path: str) -> None:
-        self.prim_path = prim_path
-
-    def get_prim_path(self) -> str:
-        return self.prim_path
-
     def get_object_cfg(self) -> tuple[str, RigidObjectCfg | ArticulationCfg | AssetBaseCfg]:
         return self.name, self.object_cfg
-
-    def get_event_cfg(self) -> tuple[str, EventTermCfg | None]:
-        return self.name, self._pose_event_cfg
 
     def _init_object_cfg(self) -> RigidObjectCfg | ArticulationCfg | AssetBaseCfg:
         if self.object_type == ObjectType.RIGID:
