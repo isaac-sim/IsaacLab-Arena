@@ -10,7 +10,6 @@ from typing import TYPE_CHECKING
 
 from isaaclab_arena.relations.relations import RotateAroundSolution, get_anchor_objects
 from isaaclab_arena.utils.pose import Pose
-from isaaclab_arena.utils.velocity import Velocity
 from isaaclab_arena.utils.yaw import rotate_quat_by_yaw, yaw_from_quat_xyzw
 
 if TYPE_CHECKING:
@@ -120,8 +119,6 @@ def write_layout_to_sim(
         anchor_assets: The set of anchor assets.
         base_rotations: The base rotations for all assets.
     """
-    env_id_tensor = torch.tensor([env_id], device=env.device)
-    zero_velocity = Velocity.zero().to_tensor(device=env.device).unsqueeze(0)
     missing_assets = [
         asset.name for asset in base_rotations if asset not in anchor_assets and asset not in result.positions
     ]
@@ -130,12 +127,7 @@ def write_layout_to_sim(
         if asset in anchor_assets:
             continue
         layout_pose = get_pose_from_layout(asset, result)
-        for scene_name, pose in asset.layout_pose_to_scene_writes(layout_pose):
-            scene_asset = env.scene[scene_name]
-            pose_tensor = pose.to_tensor(device=env.device).unsqueeze(0)
-            pose_tensor[0, :3] += env.scene.env_origins[env_id, :]
-            scene_asset.write_root_pose_to_sim(pose_tensor, env_ids=env_id_tensor)
-            scene_asset.write_root_velocity_to_sim(zero_velocity, env_ids=env_id_tensor)
+        asset.write_layout_pose_to_sim(env, env_id, layout_pose)
 
 
 def solve_and_place_objects(

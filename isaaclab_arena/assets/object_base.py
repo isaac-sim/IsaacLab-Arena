@@ -57,8 +57,8 @@ class ObjectBase(PlaceableAsset, ABC):
         return self.prim_path
 
     @abstractmethod
-    def get_object_cfg(self) -> tuple[str, RigidObjectCfg | ArticulationCfg | AssetBaseCfg]:
-        """Return the scene key and concrete Isaac Lab config."""
+    def get_object_cfg(self) -> tuple[str, AssetBaseCfg]:
+        """Return the scene key and concrete asset config."""
 
     def get_event_cfg(self) -> tuple[str, EventTermCfg | None]:
         return self.name, self._pose_event_cfg
@@ -83,6 +83,10 @@ class RootedObjectBase(ObjectBase):
             frame_view.close()
             self._base_frame_view = None
             self._base_frame_view_stage = None
+
+    def get_object_cfg(self) -> tuple[str, AssetBaseCfg]:
+        """Return the rooted-object config."""
+        return self.name, self.object_cfg
 
     def _set_initial_pose(self, pose: Pose | PoseRange | PosePerEnv) -> None:
         """Store the pose and write its construction values into the object config."""
@@ -154,9 +158,6 @@ class RootedObjectBase(ObjectBase):
                     "velocity": self.initial_velocity,
                 },
             )
-
-    def get_object_cfg(self) -> tuple[str, RigidObjectCfg | ArticulationCfg | AssetBaseCfg]:
-        return self.name, self.object_cfg
 
     def _init_object_cfg(self) -> RigidObjectCfg | ArticulationCfg | AssetBaseCfg:
         if self.object_type == ObjectType.RIGID:
@@ -240,6 +241,10 @@ class RootedObjectBase(ObjectBase):
 
     def get_contact_sensor_cfg(self, contact_against_object: ObjectBase | None = None) -> ContactSensorCfg:
         assert self.object_type == ObjectType.RIGID, "Contact sensor is only supported for rigid objects"
+        if contact_against_object is not None:
+            assert (
+                contact_against_object.object_type != ObjectType.DEFORMABLE
+            ), "Contact sensor filtering against deformable objects is not supported"
         filter_prim_paths = [contact_against_object.get_prim_path()] if contact_against_object else []
         return ContactSensorCfg(
             prim_path=self.prim_path,
