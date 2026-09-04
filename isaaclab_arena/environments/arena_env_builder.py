@@ -36,7 +36,11 @@ from isaaclab_arena.progress_tracking.progress_tracker import (
     make_progress_tracking_events_cfg,
     make_progress_tracking_recorder_cfg,
 )
-from isaaclab_arena.recording.common_terms import CoreEpisodeRecorderTermCfg, VariationEpisodeRecorderTermCfg
+from isaaclab_arena.recording.common_terms import (
+    CoreEpisodeRecorderTermCfg,
+    InitialPositionEpisodeRecorderTermCfg,
+    VariationEpisodeRecorderTermCfg,
+)
 from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTermCfg
 from isaaclab_arena.recording.progress_terms import ProgressEpisodeRecorderTermCfg
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
@@ -195,12 +199,18 @@ class ArenaEnvBuilder:
         """
         fields = [
             ("core", EpisodeRecorderTermCfg, CoreEpisodeRecorderTermCfg()),
+            (
+                "initial_rest_positions",
+                EpisodeRecorderTermCfg,
+                InitialPositionEpisodeRecorderTermCfg(),
+            ),
             ("variations", EpisodeRecorderTermCfg, VariationEpisodeRecorderTermCfg()),
             ("progress", EpisodeRecorderTermCfg, ProgressEpisodeRecorderTermCfg()),
         ]
         for name, term_cfg in (extra_terms or {}).items():
             assert name not in (
                 "core",
+                "initial_rest_positions",
                 "variations",
                 "progress",
             ), f"Episode recorder term name '{name}' collides with a built-in term."
