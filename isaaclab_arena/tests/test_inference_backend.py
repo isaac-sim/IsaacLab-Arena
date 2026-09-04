@@ -19,6 +19,7 @@ from isaaclab_arena.agentic_environment_generation.inference_backend import (
     PUBLIC_ENDPOINT,
     InferenceBackend,
     StructuredOutputRequest,
+    require_inference_api_key,
     resolve_inference_endpoint,
 )
 from isaaclab_arena.tests.utils.agentic_environment_generation import chat_response, inference_backend
@@ -69,6 +70,24 @@ class TestResolveInferenceEndpoint:
     def test_raises_on_an_unknown_name(self):
         with pytest.raises(AssertionError, match="Unknown inference endpoint"):
             resolve_inference_endpoint("staging")
+
+
+class TestRequireInferenceApiKey:
+    def test_returns_selected_endpoint_and_environment_key(self, monkeypatch):
+        monkeypatch.setenv(PUBLIC_ENDPOINT.api_key_env_var, "public-key")
+        assert require_inference_api_key(PUBLIC_ENDPOINT.name) == (PUBLIC_ENDPOINT, "public-key")
+
+    def test_explicit_key_overrides_environment(self, monkeypatch):
+        monkeypatch.setenv(PUBLIC_ENDPOINT.api_key_env_var, "env-key")
+        assert require_inference_api_key(PUBLIC_ENDPOINT.name, "explicit-key") == (PUBLIC_ENDPOINT, "explicit-key")
+
+    def test_error_lists_recovery_paths(self):
+        with pytest.raises(AssertionError) as exc_info:
+            require_inference_api_key(PUBLIC_ENDPOINT.name)
+        message = str(exc_info.value)
+        assert PUBLIC_ENDPOINT.api_key_env_var in message
+        assert "api_key" in message
+        assert INFERENCE_ENDPOINT_ENV_VAR in message
 
 
 class TestInit:

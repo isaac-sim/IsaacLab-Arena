@@ -87,6 +87,26 @@ def resolve_inference_endpoint(name: str | None = None) -> InferenceEndpoint:
     return INFERENCE_ENDPOINTS[resolved]
 
 
+def require_inference_api_key(endpoint: str | None = None, api_key: str | None = None) -> tuple[InferenceEndpoint, str]:
+    """Resolve an inference endpoint and require its API key.
+
+    Args:
+        endpoint: Inference endpoint name, or ``None`` to use the environment/default.
+        api_key: Explicit API key, or ``None`` to read the selected endpoint's environment variable.
+
+    Returns:
+        The selected endpoint and its resolved API key.
+    """
+    inference_endpoint = resolve_inference_endpoint(endpoint)
+    resolved_api_key = api_key or os.getenv(inference_endpoint.api_key_env_var)
+    assert resolved_api_key, (
+        f"API key required for the {inference_endpoint.name!r} inference endpoint: set "
+        f"{inference_endpoint.api_key_env_var} or pass api_key. Select another endpoint with "
+        f"{INFERENCE_ENDPOINT_ENV_VAR}."
+    )
+    return inference_endpoint, resolved_api_key
+
+
 # -----------------------------------------------------------------------------
 # Inference backend
 # -----------------------------------------------------------------------------
@@ -137,13 +157,7 @@ class InferenceBackend:
         assert (
             0 <= max_retries < MAX_RETRIES_LIMIT
         ), f"max_retries must be in [0, {MAX_RETRIES_LIMIT}), got {max_retries}"
-        inference_endpoint = resolve_inference_endpoint(endpoint)
-        resolved_api_key = api_key or os.getenv(inference_endpoint.api_key_env_var)
-        assert resolved_api_key, (
-            f"API key required for the {inference_endpoint.name!r} inference endpoint: set "
-            f"{inference_endpoint.api_key_env_var} or pass api_key. Select another endpoint with "
-            f"{INFERENCE_ENDPOINT_ENV_VAR}."
-        )
+        inference_endpoint, resolved_api_key = require_inference_api_key(endpoint, api_key)
         resolved_base_url = base_url or inference_endpoint.base_url
         resolved_model = model or inference_endpoint.model
         print(
