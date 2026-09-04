@@ -22,7 +22,12 @@ from isaaclab_arena.affordances.placeable import Placeable
 from isaaclab_arena.affordances.pressable import Pressable
 from isaaclab_arena.affordances.turnable import Turnable
 from isaaclab_arena.assets.lightwheel_lazy import LightwheelLazyPath
-from isaaclab_arena.assets.nucleus import ARENA_NUCLEUS_DIR, DISPLAYPORT_INSERTION_ASSET_DIR, GEAR_ASSEMBLY_ASSET_DIR
+from isaaclab_arena.assets.nucleus import (
+    ARENA_NUCLEUS_DIR,
+    CABLE_ROUTING_ASSET_DIR,
+    DISPLAYPORT_INSERTION_ASSET_DIR,
+    GEAR_ASSEMBLY_ASSET_DIR,
+)
 from isaaclab_arena.assets.object import Object
 from isaaclab_arena.assets.object_base import ObjectType
 from isaaclab_arena.assets.object_utils import (
@@ -2074,3 +2079,68 @@ class DisplayPortSocket(LibraryObject):
     usd_path = f"{DISPLAYPORT_INSERTION_ASSET_DIR}/displayport_socket.usda"
     object_type = ObjectType.RIGID
     spawn_cfg_addon = _newton_displayport_spawn_cfg(mass=None, kinematic=True)
+
+
+YAM_CABLE_ROUTING_FIXTURE_CONTACT_FRICTION = 0.5
+YAM_CABLE_ROUTING_CONTACT_STIFFNESS = 4.0e4
+YAM_CABLE_ROUTING_CONTACT_DAMPING = 1.0e-5
+YAM_CABLE_ROUTING_CONTACT_GAP = 0.001
+
+
+def make_yam_cable_routing_fixture_material():
+    """Create the Newton material shared by the cable-routing fixtures and simulation."""
+    from isaaclab_newton.sim.schemas import NewtonMaterialPropertiesCfg
+
+    return NewtonMaterialPropertiesCfg(
+        static_friction=YAM_CABLE_ROUTING_FIXTURE_CONTACT_FRICTION,
+        dynamic_friction=YAM_CABLE_ROUTING_FIXTURE_CONTACT_FRICTION,
+        restitution=0.0,
+        contact_stiffness=YAM_CABLE_ROUTING_CONTACT_STIFFNESS,
+        contact_damping=YAM_CABLE_ROUTING_CONTACT_DAMPING,
+    )
+
+
+def _newton_yam_cable_routing_fixture_spawn_cfg() -> dict[str, Any]:
+    """Build the rigid-body overrides shared by the cable-routing board and pegs."""
+    from isaaclab_newton.sim.schemas import NewtonCollisionPropertiesCfg
+
+    return {
+        "rigid_props": sim_utils.RigidBodyPropertiesCfg(kinematic_enabled=True),
+        "collision_props": NewtonCollisionPropertiesCfg(
+            contact_margin=0.0,
+            contact_gap=2.0 * YAM_CABLE_ROUTING_CONTACT_GAP,
+        ),
+        "physics_material": make_yam_cable_routing_fixture_material(),
+    }
+
+
+@register_asset
+class YamCableRoutingTable(LibraryObject):
+    """Static workcell table used by the YAM cable-routing task."""
+
+    name = "yam_cable_routing_table"
+    tags = ["background", "table", "yam", "cable_routing"]
+    usd_path = f"{CABLE_ROUTING_ASSET_DIR}/table/industrial__yam_workcell_table/industrial__yam_workcell_table.usda"
+    object_type = ObjectType.BASE
+
+
+@register_asset
+class YamCableRoutingBoard(LibraryObject):
+    """Kinematic ManipulationNet task board used for YAM cable routing."""
+
+    name = "yam_cable_routing_board"
+    tags = ["object", "fixture", "yam", "cable_routing"]
+    usd_path = f"{CABLE_ROUTING_ASSET_DIR}/manipulationnet/board.usdc"
+    object_type = ObjectType.RIGID
+    spawn_cfg_addon = _newton_yam_cable_routing_fixture_spawn_cfg()
+
+
+@register_asset
+class YamCableRoutingRoundPeg(LibraryObject):
+    """Kinematic ManipulationNet round peg used for YAM cable routing."""
+
+    name = "yam_cable_routing_round_peg"
+    tags = ["object", "fixture", "peg", "yam", "cable_routing"]
+    usd_path = f"{CABLE_ROUTING_ASSET_DIR}/manipulationnet/round_peg.usdc"
+    object_type = ObjectType.RIGID
+    spawn_cfg_addon = _newton_yam_cable_routing_fixture_spawn_cfg()

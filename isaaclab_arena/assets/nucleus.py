@@ -24,3 +24,8 @@ DISPLAYPORT_INSERTION_ASSET_DIR: str = (
     "omniverse://isaac-dev.ov.nvidia.com/Projects/nvblox/isaac_arena/newton_envs/displayport_insertion"
 )
 """Private DisplayPort-insertion asset root pending publication to Arena's public asset location."""
+
+CABLE_ROUTING_ASSET_DIR: str = (
+    "omniverse://isaac-dev.ov.nvidia.com/Projects/nvblox/isaac_arena/newton_envs/cable_routing"
+)
+"""Private cable-routing asset root pending publication to Arena's public asset location."""

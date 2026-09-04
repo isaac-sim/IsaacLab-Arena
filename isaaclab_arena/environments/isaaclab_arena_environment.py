@@ -33,6 +33,7 @@ class IsaacLabArenaEnvironment:
         rl_policy_cfg: str | None = None,
         episode_recorder_terms: dict[str, EpisodeRecorderTermCfg] | None = None,
         placer_params: ObjectPlacerParams | None = None,
+        supported_physics_presets: tuple[str, ...] | None = None,
     ):
         """
         Args:
@@ -54,6 +55,9 @@ class IsaacLabArenaEnvironment:
                 built-in ones, keyed by name.
             placer_params: Object placement configuration. When None, default
                 ObjectPlacerParams are used.
+            supported_physics_presets: Physics presets that may override the environment's
+                simulation configuration. None accepts every global preset; an empty tuple
+                rejects all preset overrides.
         """
         self.name = name
         self.scene = scene
@@ -67,3 +71,4 @@ class IsaacLabArenaEnvironment:
         self.rl_policy_cfg = rl_policy_cfg
         self.episode_recorder_terms = episode_recorder_terms or {}
         self.placer_params = placer_params
+        self.supported_physics_presets = supported_physics_presets

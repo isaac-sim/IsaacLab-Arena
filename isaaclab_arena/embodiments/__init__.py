@@ -11,3 +11,4 @@ from .galbot.galbot import *
 from .gr1t2.gr1t2 import *
 from .kuka_allegro.kuka_allegro import *
 from .rizon.rizon import *
+from .yam.yam import *
