@@ -90,9 +90,6 @@ def _test_backend_specific_deformable_config(simulation_app) -> bool:
     assert soft_cube.object_type is ObjectType.DEFORMABLE
     assert soft_cube.get_object_cfg()[1] is physx_cfg
     assert soft_cube.get_event_cfg()[1] is not None
-    assert not hasattr(soft_cube, "reset_pose")
-    assert not hasattr(soft_cube, "disable_reset_pose")
-    assert not hasattr(soft_cube, "enable_reset_pose")
 
     newton_cube = _make_soft_cube("newton", initial_pose=pose)
     _, newton_cfg = newton_cube.get_object_cfg()
@@ -345,6 +342,52 @@ def _test_deformable_reset_and_initial_pose(simulation_app) -> bool:
     return True
 
 
+def _test_deformable_pick_and_place_success(simulation_app) -> bool:
+    import torch
+
+    from isaaclab_arena.assets.registries import AssetRegistry
+    from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
+    from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
+    from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
+    from isaaclab_arena.scene.scene import Scene
+    from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
+    from isaaclab_arena.utils.pose import Pose
+
+    soft_cube = AssetRegistry().get_asset_by_name("deformable_cube")(instance_name="soft_cube")
+    soft_cube.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.05)))
+    table = AssetRegistry().get_asset_by_name("procedural_table")(
+        instance_name="destination",
+        initial_pose=Pose(position_xyz=(0.0, 0.0, 0.0)),
+    )
+    task = PickAndPlaceTask(
+        pick_up_object=soft_cube,
+        destination_location=table,
+        background_scene=table,
+    )
+    arena_env = IsaacLabArenaEnvironment(
+        name="deformable_pick_and_place_success",
+        scene=Scene(assets=[soft_cube, table]),
+        task=task,
+    )
+    builder = ArenaEnvBuilder(
+        arena_env,
+        ArenaEnvBuilderCfg(num_envs=1, presets="physx", solve_relations=False),
+    )
+    env_cfg, env_kwargs = builder.compose_manager_cfg()
+    env = builder.make_registered(env_cfg, env_kwargs)
+
+    try:
+        env.reset()
+        assert task.contact_sensor_name is None
+        assert len(env.unwrapped.scene.sensors) == 0
+        success_term = task.get_termination_cfg().success
+        success = success_term.func(env, **success_term.params)
+        torch.testing.assert_close(success, torch.ones(1, dtype=torch.bool, device=env.unwrapped.device))
+    finally:
+        env.close()
+    return True
+
+
 def test_backend_specific_deformable_config():
     assert run_function_with_persistent_simulation_app(_test_backend_specific_deformable_config, headless=HEADLESS)
 
@@ -361,5 +404,13 @@ def test_deformable_nodal_reset_terms():
 def test_deformable_reset_and_initial_pose():
     assert run_function_with_persistent_simulation_app(
         _test_deformable_reset_and_initial_pose,
+        headless=HEADLESS,
+    )
+
+
+@pytest.mark.skipif(not PYTETWILD_AVAILABLE, reason="requires Isaac Lab's optional tetrahedralization dependencies")
+def test_deformable_pick_and_place_success():
+    assert run_function_with_persistent_simulation_app(
+        _test_deformable_pick_and_place_success,
         headless=HEADLESS,
     )

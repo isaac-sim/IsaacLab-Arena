@@ -103,11 +103,16 @@ def _check_object_on_destination(
             self.root_linear_velocity_queries.append(rigid_object_name)
             return self.root_linear_velocities_w_by_scene_key[rigid_object_name]
 
+    class SceneDouble(dict):
+        def __init__(self, contact_sensor):
+            super().__init__(contact_sensor=contact_sensor)
+            self.deformable_objects = {}
+
     class EnvironmentDouble:
         def __init__(self, arena_world, contact_sensor):
             self.num_envs = 4
             self.arena_world = arena_world
-            self.scene = {"contact_sensor": contact_sensor}
+            self.scene = SceneDouble(contact_sensor)
 
     class RuntimeBufferDouble:
         def __init__(self, tensor: torch.Tensor):
@@ -175,18 +180,54 @@ def _check_object_on_destination(
     predicate_result = spatial.object_on_destination(wrapped_env, **predicate_parameters)
     torch.testing.assert_close(predicate_result, torch.tensor([True, False, False, False]))
 
+    # Contact support is unavailable for deformables, so success uses geometry and velocity only.
+    env.scene.deformable_objects = {"object": object()}
+    deformable_parameters = {**predicate_parameters, "contact_sensor_cfg": None}
+    deformable_result = spatial.object_on_destination(env, **deformable_parameters)
+    torch.testing.assert_close(deformable_result, torch.tensor([True, False, True, False]))
+
     # Exercise the unwrapped call path with changed live state.
+    env.scene.deformable_objects = {}
     T_W_O[0, 0] = 2.0
     assert not spatial.object_on_destination(env, **predicate_parameters)[0]
-    assert arena_world.pose_queries == ["object", "destination", "object", "destination"]
-    assert arena_world.local_aabb_queries == ["object", "destination", "object", "destination"]
-    assert arena_world.root_linear_velocity_queries == ["object", "object"]
+    assert arena_world.pose_queries == ["object", "destination"] * 3
+    assert arena_world.local_aabb_queries == ["object", "destination"] * 3
+    assert arena_world.root_linear_velocity_queries == ["object"] * 3
+
+
+def _check_pick_and_place_deformable_skips_contact_sensor(pick_and_place_task_type, object_type) -> None:
+    """Check that task configuration omits contact sensors for either deformable endpoint."""
+
+    class AssetDouble:
+        def __init__(self, name, asset_object_type):
+            self.name = name
+            self.object_type = asset_object_type
+            self.object_min_z = -1.0
+
+        def get_contact_sensor_cfg(self, contact_against_object=None):
+            raise AssertionError(f"Unexpected contact sensor request against {contact_against_object}")
+
+    rigid_object = AssetDouble("rigid", object_type.RIGID)
+    deformable_object = AssetDouble("deformable", object_type.DEFORMABLE)
+    background = AssetDouble("background", object_type.BASE)
+
+    for pick_up_object, destination in (
+        (deformable_object, rigid_object),
+        (rigid_object, deformable_object),
+    ):
+        task = pick_and_place_task_type(pick_up_object, destination, background)
+        assert task.contact_sensor_name is None
+        assert task.get_scene_cfg() is None
+        assert task.get_termination_cfg().success.params["contact_sensor_cfg"] is None
+        assert task.get_progress_objectives()[0].predicate_groups[-1].keywords["contact_sensor_cfg"] is None
 
 
 def _test_object_on_destination(_simulation_app) -> bool:
     from isaaclab.managers import SceneEntityCfg
 
     import isaaclab_arena.tasks.predicates.spatial as spatial
+    from isaaclab_arena.assets.object_type import ObjectType
+    from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
     _check_bounds_center_over_destination(spatial, AxisAlignedBoundingBox)
@@ -196,6 +237,7 @@ def _test_object_on_destination(_simulation_app) -> bool:
         AxisAlignedBoundingBox,
         SceneEntityCfg,
     )
+    _check_pick_and_place_deformable_skips_contact_sensor(PickAndPlaceTask, ObjectType)
     return True
 
 

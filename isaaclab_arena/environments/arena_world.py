@@ -23,9 +23,10 @@ from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 
 class ArenaWorld:
-    """Provide name-based runtime access to rigid objects and scene extras.
+    """Provide name-based runtime access to rigid, deformable, and extra entities.
 
-    Poses are read live for both supported scene categories, along with root linear velocities for rigid objects.
+    Poses are read live for all supported scene categories, along with root linear velocities for rigid and
+    deformable objects.
     Local-frame geometry bounds are computed lazily from the cloned prim hierarchy and cached for the environment
     lifetime. They remain valid under whole-subtree motion, but not when descendants move relative to frame F.
     A moving part must therefore have its own supported scene key.
@@ -44,16 +45,23 @@ class ArenaWorld:
         """
         scene = self._scene
         is_rigid_object = scene_key in scene.rigid_objects
+        deformable_objects = getattr(scene, "deformable_objects", {})
+        is_deformable_object = scene_key in deformable_objects
         is_scene_extra = scene_key in scene.extras
-        assert is_rigid_object or is_scene_extra, (
-            "ArenaWorld pose queries require a scene key registered in InteractiveScene.rigid_objects or "
-            f"InteractiveScene.extras; '{scene_key}' is registered in neither."
+        assert is_rigid_object or is_deformable_object or is_scene_extra, (
+            "ArenaWorld pose queries require a scene key registered in InteractiveScene.rigid_objects, "
+            f"InteractiveScene.deformable_objects, or InteractiveScene.extras; '{scene_key}' is registered in none."
         )
 
-        # Rigid objects expose live root state directly. Scene extras are plain cloned prims,
+        # Rigid and deformable objects expose live root state directly. Deformables have no aggregate
+        # orientation, so their pose uses the identity rotation. Scene extras are plain cloned prims,
         # so their live post-clone poses require a FrameView-backed reader.
         if is_rigid_object:
             T_W_F = scene.rigid_objects[scene_key].data.root_pose_w.torch
+        elif is_deformable_object:
+            root_pos_w = deformable_objects[scene_key].data.root_pos_w.torch
+            identity_quat = root_pos_w.new_tensor((0.0, 0.0, 0.0, 1.0)).expand(scene.num_envs, 4)
+            T_W_F = torch.cat((root_pos_w, identity_quat), dim=-1)
         else:
             pose_reader = self._get_scene_extra_pose_reader(scene, scene_key)
             T_W_F = pose_reader.get_pose_w()
@@ -64,17 +72,21 @@ class ArenaWorld:
         ), f"Pose for scene key '{scene_key}' has shape {tuple(T_W_F.shape)}; expected ({scene.num_envs}, 7)."
         return T_W_F
 
-    def get_root_linear_velocity_w(self, rigid_object_name: str) -> torch.Tensor:
-        """Return a rigid object's current world-frame root linear velocity.
+    def get_root_linear_velocity_w(self, scene_key: str) -> torch.Tensor:
+        """Return a rigid or deformable object's current world-frame root linear velocity.
 
         The tensor has shape (num_envs, 3).
         """
         scene = self._scene
-        assert rigid_object_name in scene.rigid_objects, f"'{rigid_object_name}' must name a rigid object."
-        root_linear_velocity_w = scene.rigid_objects[rigid_object_name].data.root_lin_vel_w.torch
+        if scene_key in scene.rigid_objects:
+            root_linear_velocity_w = scene.rigid_objects[scene_key].data.root_lin_vel_w.torch
+        else:
+            deformable_objects = getattr(scene, "deformable_objects", {})
+            assert scene_key in deformable_objects, f"'{scene_key}' must name a rigid or deformable object."
+            root_linear_velocity_w = deformable_objects[scene_key].data.root_vel_w.torch
         assert root_linear_velocity_w.shape == (scene.num_envs, 3), (
-            f"Rigid object '{rigid_object_name}' returned root linear velocity shape "
-            f"{tuple(root_linear_velocity_w.shape)}; expected ({scene.num_envs}, 3)."
+            f"Scene object '{scene_key}' returned root linear velocity shape {tuple(root_linear_velocity_w.shape)}; "
+            f"expected ({scene.num_envs}, 3)."
         )
         return root_linear_velocity_w
 

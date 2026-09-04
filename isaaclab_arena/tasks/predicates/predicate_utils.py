@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import torch
 
-import warp as wp
 from isaaclab.assets import RigidObject
 
 
@@ -26,18 +25,31 @@ def get_rigid_object(env, name: str) -> RigidObject:
 
 
 def get_root_pos_w(env, name: str) -> torch.Tensor:
-    """Get the root position of a rigid object in the world frame."""
-    return wp.to_torch(get_rigid_object(env, name).data.root_pos_w)
+    """Get the aggregate object position in the world frame."""
+    return get_env(env).arena_world.get_pose_w(name)[:, :3]
 
 
 def get_root_lin_vel_w(env, name: str) -> torch.Tensor:
-    """Get the root linear velocity of a rigid object in the world frame."""
-    return wp.to_torch(get_rigid_object(env, name).data.root_lin_vel_w)
+    """Get the aggregate object linear velocity in the world frame."""
+    return get_env(env).arena_world.get_root_linear_velocity_w(name)
 
 
-def get_root_ang_vel_w(env, name: str) -> torch.Tensor:
-    """Get the root angular velocity of a rigid object in the world frame."""
-    return wp.to_torch(get_rigid_object(env, name).data.root_ang_vel_w)
+def get_root_ang_vel_w(env, name: str, required: bool = True) -> torch.Tensor:
+    """Get root angular velocity, optionally returning zero for a deformable object."""
+    unwrapped_env = get_env(env)
+    if name in unwrapped_env.scene.deformable_objects:
+        assert not required, f"Deformable object {name!r} has no aggregate angular velocity"
+        return torch.zeros_like(unwrapped_env.arena_world.get_root_linear_velocity_w(name))
+    return get_rigid_object(unwrapped_env, name).data.root_ang_vel_w.torch
+
+
+def get_max_point_speed_w(env, name: str) -> torch.Tensor:
+    """Get maximum nodal speed for a deformable, or root speed for a rigid object."""
+    unwrapped_env = get_env(env)
+    if name in unwrapped_env.scene.deformable_objects:
+        nodal_velocity_w = unwrapped_env.scene.deformable_objects[name].data.nodal_vel_w.torch
+        return torch.linalg.vector_norm(nodal_velocity_w, dim=-1).amax(dim=1)
+    return torch.linalg.vector_norm(get_root_lin_vel_w(unwrapped_env, name), dim=-1)
 
 
 def select(result: torch.Tensor, env_id: int | None) -> torch.Tensor:
