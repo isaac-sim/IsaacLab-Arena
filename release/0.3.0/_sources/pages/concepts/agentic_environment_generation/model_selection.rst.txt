@@ -60,10 +60,10 @@ resolution.
      - Mean runtime
    * - ``public`` (default)
      - Public (free)
-     - ``openai/gpt-oss-120b``
+     - ``deepseek-ai/deepseek-v4-pro-0813``
      - ``NVIDIA_API_KEY``
-     - 13/15 (86.7%)
-     - 22.28 s
+     - 15/15 (100%)
+     - 150.66 s
    * - ``internal``
      - NVIDIA internal
      - ``openai/openai/gpt-5.6-terra``
@@ -81,7 +81,10 @@ resolution.
    The benchmark ran each of five documented prompts three times. Pass rate is the fraction of
    generated specs that matched the expected structure; runtime is the mean end-to-end
    ``generate_spec`` runtime. These results are snapshots rather than guarantees: model output is
-   non-deterministic, and service load affects runtime.
+   non-deterministic, and service load affects runtime. On the public endpoint, overriding the
+   default with ``--model nvidia/nemotron-3-ultra-550b-a55b`` passed 9/15 runs (60%) with a
+   149.86-second mean runtime; ``--model openai/gpt-oss-20b`` passed 7/15 runs (46.7%) with a
+   333.17-second mean runtime.
 
 Reviewing the Generated Spec
 ----------------------------
