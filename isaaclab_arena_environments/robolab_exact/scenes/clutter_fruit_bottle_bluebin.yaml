@@ -1,0 +1,101 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+embodiment:
+  id: droid
+  registry_name: droid_abs_joint_pos
+  params: {}
+background:
+  id: clutter_fruit_bottle_bluebin_robolab_exact
+  registry_name: clutter_fruit_bottle_bluebin_robolab_exact
+  params: {}
+objects: []
+object_references:
+- id: pumpkin_large
+  parent_id: clutter_fruit_bottle_bluebin_robolab_exact
+  prim_path: pumpkinlarge
+  object_type: rigid
+  params: {}
+- id: pumpkin_small
+  parent_id: clutter_fruit_bottle_bluebin_robolab_exact
+  prim_path: pumpkinsmall
+  object_type: rigid
+  params: {}
+- id: lemon_1
+  parent_id: clutter_fruit_bottle_bluebin_robolab_exact
+  prim_path: lemon_01
+  object_type: rigid
+  params: {}
+- id: lemon_2
+  parent_id: clutter_fruit_bottle_bluebin_robolab_exact
+  prim_path: lemon_02
+  object_type: rigid
+  params: {}
+- id: lime_1
+  parent_id: clutter_fruit_bottle_bluebin_robolab_exact
+  prim_path: lime01
+  object_type: rigid
+  params: {}
+- id: lime_2
+  parent_id: clutter_fruit_bottle_bluebin_robolab_exact
+  prim_path: lime01_01
+  object_type: rigid
+  params: {}
+- id: orange_1
+  parent_id: clutter_fruit_bottle_bluebin_robolab_exact
+  prim_path: orange_01
+  object_type: rigid
+  params: {}
+- id: orange_2
+  parent_id: clutter_fruit_bottle_bluebin_robolab_exact
+  prim_path: orange_02
+  object_type: rigid
+  params: {}
+- id: pomegranate
+  parent_id: clutter_fruit_bottle_bluebin_robolab_exact
+  prim_path: pomegranate01
+  object_type: rigid
+  params: {}
+- id: white_packer_bottle
+  parent_id: clutter_fruit_bottle_bluebin_robolab_exact
+  prim_path: whitepackerbottle_a01
+  object_type: rigid
+  params: {}
+- id: avocado
+  parent_id: clutter_fruit_bottle_bluebin_robolab_exact
+  prim_path: avocado01
+  object_type: rigid
+  params: {}
+- id: crabbypenholder
+  parent_id: clutter_fruit_bottle_bluebin_robolab_exact
+  prim_path: crabbypenholder
+  object_type: rigid
+  params: {}
+- id: serving_bowl
+  parent_id: clutter_fruit_bottle_bluebin_robolab_exact
+  prim_path: serving_bowl
+  object_type: rigid
+  params: {}
+- id: milk_jug
+  parent_id: clutter_fruit_bottle_bluebin_robolab_exact
+  prim_path: milkjug_a01
+  object_type: rigid
+  params: {}
+- id: utilityjug
+  parent_id: clutter_fruit_bottle_bluebin_robolab_exact
+  prim_path: utilityjug_a03
+  object_type: rigid
+  params: {}
+- id: red_onion
+  parent_id: clutter_fruit_bottle_bluebin_robolab_exact
+  prim_path: red_onion
+  object_type: rigid
+  params: {}
+- id: container_f24
+  parent_id: clutter_fruit_bottle_bluebin_robolab_exact
+  prim_path: right_bin
+  object_type: rigid
+  params: {}
+relations: []
