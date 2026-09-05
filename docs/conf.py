@@ -171,9 +171,22 @@ isaaclab_arena_docs_config = {
 
 
 def setup(app):
-    """Expose the version_sort filter to the version-switcher template."""
+    """Register the version filter and page-specific landing assets."""
 
     def register_filters(app):
         app.builder.templates.environment.filters["version_sort"] = version_sort
 
+    def add_landing_assets(app, pagename, templatename, context, doctree):
+        if pagename in {"index", "pages/motivation/motivation"}:
+            # landing.css contains the approved, page-scoped custom cascade. Do
+            # not also apply the legacy global landing rules in custom.css.
+            context["css_files"][:] = [
+                stylesheet
+                for stylesheet in context["css_files"]
+                if os.path.basename(os.fspath(stylesheet.filename)) != "custom.css"
+            ]
+            app.add_css_file("landing.css", priority=900)
+            app.add_js_file("landing.js", priority=900)
+
     app.connect("builder-inited", register_filters)
+    app.connect("html-page-context", add_landing_assets)
