@@ -47,6 +47,7 @@ relations:
   params:
     side: negative_y
     distance_m: 0.1
+    tolerance_m: 0.15
 - kind: rotate_around_solution
   subject: droid
   params:
