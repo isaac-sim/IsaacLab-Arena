@@ -126,11 +126,6 @@ body:has(#welcome-to-isaac-lab-arena) {
     padding: 8px 9px !important;
 }
 
-.navbar-header-items__start .version-switcher__container {
-    display: flex;
-    align-items: center;
-}
-
 body:has(#welcome-to-isaac-lab-arena) {
     --arena-accent: #76b900;
     --arena-accent-dark: #4d7f00;
@@ -2976,11 +2971,11 @@ body:has(#welcome-to-isaac-lab-arena) .secondary-toggle,
     border-radius: 2px;
 }
 
-.arena-collated-chart i.pi {
+.arena-collated-chart i.policy-a {
     background: #76b900;
 }
 
-.arena-collated-chart i.cosmos {
+.arena-collated-chart i.policy-b {
     background: #287f78;
 }
 
@@ -3183,8 +3178,6 @@ body:has(#welcome-to-isaac-lab-arena) .secondary-toggle,
     min-height: 0;
 }
 
-#welcome-to-isaac-lab-arena > section#why-isaac-lab-arena-1 > h2,
-#welcome-to-isaac-lab-arena > section#get-started > h2,
 #welcome-to-isaac-lab-arena > section#support > h2,
 #welcome-to-isaac-lab-arena > section#project-resources > h2,
 #welcome-to-isaac-lab-arena > section#acknowledgements > h2 {

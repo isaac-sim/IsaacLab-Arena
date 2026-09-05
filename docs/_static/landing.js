@@ -10,6 +10,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // local to the current document so it does not overwrite a reader's theme
   // preference elsewhere in the documentation.
   document.documentElement.dataset.mode = "light";
+  document.documentElement.dataset.theme = "light";
 
   document.querySelectorAll(".arena-agentic-giggles").forEach((panel) => {
     const tabs = Array.from(panel.querySelectorAll("[data-arena-agentic-tab]"));
@@ -41,14 +42,14 @@ document.addEventListener("DOMContentLoaded", () => {
   const videoLabels = {
     "relational-placement-solver.mp4": "Placement solver resolving spatial relationships",
     "relational-placement-resolved.mp4": "Simulation environment built from the resolved placement",
-    "hdr-web.mp4": "HDR background variation",
-    "color-web.mp4": "Light color variation",
-    "temperature-web.mp4": "Color temperature variation",
-    "shadows-web.mp4": "Light direction variation",
-    "main-big-pumpkin.mp4": "Big pumpkin in bin evaluation environment",
-    "main-mouse-keyboard.mp4": "Mouse on keyboard evaluation environment",
-    "main-small-pumpkin.mp4": "Small pumpkin in bin evaluation environment",
-    "main-mustard-left-bin.mp4": "Mustard in left bin evaluation environment",
+    "hdr_web.mp4": "HDR background variation",
+    "color_web.mp4": "Light color variation",
+    "temperature_web.mp4": "Color temperature variation",
+    "shadows_web.mp4": "Light direction variation",
+    "big_pumpkin_in_bin_web.mp4": "Big pumpkin in bin evaluation environment",
+    "mouse_on_keyboard_web.mp4": "Mouse on keyboard evaluation environment",
+    "small_pumpkin_in_bin_web.mp4": "Small pumpkin in bin evaluation environment",
+    "mustard_in_left_bin_web.mp4": "Mustard in left bin evaluation environment",
     "predicate-progress-rollouts.mp4": "Parallel rollouts with predicate status overlays",
   };
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;

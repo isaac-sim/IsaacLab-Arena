@@ -343,7 +343,7 @@ Author benchmarks
 
                .. container:: arena-motion-tile
 
-                  .. video:: images/landing/hdr-web.mp4
+                  .. video:: images/teaser_page/variations/hdr_web.mp4
                      :loop:
                      :muted:
                      :playsinline:
@@ -355,7 +355,7 @@ Author benchmarks
 
                .. container:: arena-motion-tile
 
-                  .. video:: images/landing/color-web.mp4
+                  .. video:: images/teaser_page/variations/color_web.mp4
                      :loop:
                      :muted:
                      :playsinline:
@@ -367,7 +367,7 @@ Author benchmarks
 
                .. container:: arena-motion-tile
 
-                  .. video:: images/landing/temperature-web.mp4
+                  .. video:: images/teaser_page/variations/temperature_web.mp4
                      :loop:
                      :muted:
                      :playsinline:
@@ -379,7 +379,7 @@ Author benchmarks
 
                .. container:: arena-motion-tile
 
-                  .. video:: images/landing/shadows-web.mp4
+                  .. video:: images/teaser_page/variations/shadows_web.mp4
                      :loop:
                      :muted:
                      :playsinline:
@@ -523,7 +523,7 @@ Execute large-scale parallel policy evaluations
 
                      <dl class="arena-experiment-definition-list">
                        <div><dt>Tasks</dt><dd>20 RoboLab tasks</dd></div>
-                       <div><dt>Policies</dt><dd>π0.5 · Cosmos</dd></div>
+                       <div><dt>Policies</dt><dd>Policy A · Policy B</dd></div>
                        <div><dt>Experiment</dt><dd>100 episodes / task</dd></div>
                      </dl>
 
@@ -541,49 +541,49 @@ Execute large-scale parallel policy evaluations
 
                      .. container:: arena-experiment-running-env
 
-                        .. video:: images/landing/main-big-pumpkin.mp4
+                        .. video:: images/teaser_page/parallel_evaluation/big_pumpkin_in_bin_web.mp4
                            :loop:
                            :muted:
                            :playsinline:
                            :nocontrols:
                            :preload: none
-                           :poster: _images/main-big-pumpkin.webp
+                           :poster: _images/big_pumpkin_in_bin_web.webp
 
                         **Big pumpkin in bin**
 
                      .. container:: arena-experiment-running-env
 
-                        .. video:: images/landing/main-mouse-keyboard.mp4
+                        .. video:: images/teaser_page/parallel_evaluation/mouse_on_keyboard_web.mp4
                            :loop:
                            :muted:
                            :playsinline:
                            :nocontrols:
                            :preload: none
-                           :poster: _images/main-mouse-keyboard.webp
+                           :poster: _images/mouse_on_keyboard_web.webp
 
                         **Mouse on keyboard**
 
                      .. container:: arena-experiment-running-env
 
-                        .. video:: images/landing/main-small-pumpkin.mp4
+                        .. video:: images/teaser_page/parallel_evaluation/small_pumpkin_in_bin_web.mp4
                            :loop:
                            :muted:
                            :playsinline:
                            :nocontrols:
                            :preload: none
-                           :poster: _images/main-small-pumpkin.webp
+                           :poster: _images/small_pumpkin_in_bin_web.webp
 
                         **Small pumpkin in bin**
 
                      .. container:: arena-experiment-running-env
 
-                        .. video:: images/landing/main-mustard-left-bin.mp4
+                        .. video:: images/teaser_page/parallel_evaluation/mustard_in_left_bin_web.mp4
                            :loop:
                            :muted:
                            :playsinline:
                            :nocontrols:
                            :preload: none
-                           :poster: _images/main-mustard-left-bin.webp
+                           :poster: _images/mustard_in_left_bin_web.webp
 
                         **Mustard in left bin**
 
@@ -601,28 +601,33 @@ Execute large-scale parallel policy evaluations
 
                   .. raw:: html
 
-                     <div class="arena-collated-chart" role="img" aria-label="Task success comparison for pi zero point five and Cosmos across ten representative RoboLab tasks">
+                     <div class="arena-collated-chart" role="img" aria-label="Illustrative task success comparison between two policies across ten representative tasks">
                        <header>
-                         <span>Task success · 10 of 20 tasks shown</span>
-                         <small><i class="pi"></i>π0.5 <i class="cosmos"></i>Cosmos</small>
+                         <span>Illustrative task success · 10-task subset</span>
+                         <small><i class="policy-a"></i>Policy A <i class="policy-b"></i>Policy B</small>
                        </header>
                        <div class="arena-collated-plot">
                          <div class="arena-collated-scale" aria-hidden="true"><span>100</span><span>50</span><span>0</span></div>
                          <div class="arena-collated-grid" aria-hidden="true"><i></i><i></i><i></i></div>
                          <div class="arena-collated-bars">
-                           <article title="Banana in bowl: π0.5 94%, Cosmos 98%"><div><i class="pi" style="height:94%"></i><i class="cosmos" style="height:98%"></i></div><small>banana<br>in bowl</small></article>
-                           <article title="Banana on plate: π0.5 100%, Cosmos 90%"><div><i class="pi" style="height:100%"></i><i class="cosmos" style="height:90%"></i></div><small>banana<br>on plate</small></article>
-                           <article title="Big pumpkin in bin: π0.5 58%, Cosmos 2%"><div><i class="pi" style="height:58%"></i><i class="cosmos" style="height:2%"></i></div><small>big pumpkin<br>in bin</small></article>
-                           <article title="Bowl in bin: π0.5 99%, Cosmos 79%"><div><i class="pi" style="height:99%"></i><i class="cosmos" style="height:79%"></i></div><small>bowl<br>in bin</small></article>
-                           <article title="Butter above raisin: π0.5 9%, Cosmos 5%"><div><i class="pi" style="height:9%"></i><i class="cosmos" style="height:5%"></i></div><small>butter above<br>raisin</small></article>
-                           <article title="Canned food in bin: π0.5 21%, Cosmos 7%"><div><i class="pi" style="height:21%"></i><i class="cosmos" style="height:7%"></i></div><small>canned food<br>in bin</small></article>
-                           <article title="Clamp in right bin: π0.5 19%, Cosmos 1%"><div><i class="pi" style="height:19%"></i><i class="cosmos" style="height:1%"></i></div><small>clamp in<br>right bin</small></article>
-                           <article title="Coffee pot in bin: π0.5 14%, Cosmos 22%"><div><i class="pi" style="height:14%"></i><i class="cosmos" style="height:22%"></i></div><small>coffee pot<br>in bin</small></article>
-                           <article title="Packing boxes: π0.5 13%, Cosmos 0%"><div><i class="pi" style="height:13%"></i><i class="cosmos" style="height:0%"></i></div><small>packing<br>boxes</small></article>
-                           <article title="Packing cans: π0.5 49%, Cosmos 8%"><div><i class="pi" style="height:49%"></i><i class="cosmos" style="height:8%"></i></div><small>packing<br>cans</small></article>
+                           <article title="Banana in bowl: illustrative Policy A 94%, Policy B 98%"><div><i class="policy-a" style="height:94%"></i><i class="policy-b" style="height:98%"></i></div><small>banana<br>in bowl</small></article>
+                           <article title="Banana on plate: illustrative Policy A 100%, Policy B 90%"><div><i class="policy-a" style="height:100%"></i><i class="policy-b" style="height:90%"></i></div><small>banana<br>on plate</small></article>
+                           <article title="Big pumpkin in bin: illustrative Policy A 58%, Policy B 2%"><div><i class="policy-a" style="height:58%"></i><i class="policy-b" style="height:2%"></i></div><small>big pumpkin<br>in bin</small></article>
+                           <article title="Bowl in bin: illustrative Policy A 99%, Policy B 79%"><div><i class="policy-a" style="height:99%"></i><i class="policy-b" style="height:79%"></i></div><small>bowl<br>in bin</small></article>
+                           <article title="Butter above raisin: illustrative Policy A 9%, Policy B 5%"><div><i class="policy-a" style="height:9%"></i><i class="policy-b" style="height:5%"></i></div><small>butter above<br>raisin</small></article>
+                           <article title="Canned food in bin: illustrative Policy A 21%, Policy B 7%"><div><i class="policy-a" style="height:21%"></i><i class="policy-b" style="height:7%"></i></div><small>canned food<br>in bin</small></article>
+                           <article title="Clamp in right bin: illustrative Policy A 19%, Policy B 1%"><div><i class="policy-a" style="height:19%"></i><i class="policy-b" style="height:1%"></i></div><small>clamp in<br>right bin</small></article>
+                           <article title="Coffee pot in bin: illustrative Policy A 14%, Policy B 22%"><div><i class="policy-a" style="height:14%"></i><i class="policy-b" style="height:22%"></i></div><small>coffee pot<br>in bin</small></article>
+                           <article title="Packing boxes: illustrative Policy A 13%, Policy B 0%"><div><i class="policy-a" style="height:13%"></i><i class="policy-b" style="height:0%"></i></div><small>packing<br>boxes</small></article>
+                           <article title="Packing cans: illustrative Policy A 49%, Policy B 8%"><div><i class="policy-a" style="height:49%"></i><i class="policy-b" style="height:8%"></i></div><small>packing<br>cans</small></article>
                          </div>
                        </div>
                      </div>
+
+            .. NOTE(sangeetas-nv, 2026-09-05): ``sphinxcontrib-video`` emits ``:poster:``
+               verbatim and does not register the poster file. This hidden block makes
+               Sphinx copy the posters into ``_images/``. Keep it while the videos above
+               use ``:poster:``.
 
             .. container:: arena-video-poster-sources
 
@@ -650,19 +655,19 @@ Execute large-scale parallel policy evaluations
                   :alt: Light direction variation poster
                   :loading: lazy
 
-               .. image:: images/landing/main-big-pumpkin.webp
+               .. image:: images/teaser_page/built_in_evaluation_environments/big_pumpkin_in_bin_web.webp
                   :alt: Big pumpkin in bin evaluation environment poster
                   :loading: lazy
 
-               .. image:: images/landing/main-mouse-keyboard.webp
+               .. image:: images/teaser_page/built_in_evaluation_environments/mouse_on_keyboard_web.webp
                   :alt: Mouse on keyboard evaluation environment poster
                   :loading: lazy
 
-               .. image:: images/landing/main-small-pumpkin.webp
+               .. image:: images/teaser_page/built_in_evaluation_environments/small_pumpkin_in_bin_web.webp
                   :alt: Small pumpkin in bin evaluation environment poster
                   :loading: lazy
 
-               .. image:: images/landing/main-mustard-left-bin.webp
+               .. image:: images/teaser_page/built_in_evaluation_environments/mustard_in_left_bin_web.webp
                   :alt: Mustard in left bin evaluation environment poster
                   :loading: lazy
 
