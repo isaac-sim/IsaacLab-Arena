@@ -260,10 +260,10 @@ Author benchmarks
 
             .. raw:: html
 
-               <div class="arena-agentic-switcher" role="tablist" aria-label="Select an agentic environment generation example">
+               <div class="arena-agentic-switcher">
                  <span>Select an example</span>
-                 <button type="button" class="arena-agentic-tab arena-agentic-tab-active" role="tab" aria-selected="true" data-arena-agentic-tab="domestic"><b>01</b> Domestic</button>
-                 <button type="button" class="arena-agentic-tab" role="tab" aria-selected="false" data-arena-agentic-tab="industrial"><b>02</b> Industrial</button>
+                 <button type="button" class="arena-agentic-tab arena-agentic-tab-active" aria-pressed="true" data-arena-agentic-tab="domestic"><b>01</b> Domestic</button>
+                 <button type="button" class="arena-agentic-tab" aria-pressed="false" data-arena-agentic-tab="industrial"><b>02</b> Industrial</button>
                </div>
 
             .. container:: arena-agentic-example arena-agentic-example-domestic arena-agentic-example-active

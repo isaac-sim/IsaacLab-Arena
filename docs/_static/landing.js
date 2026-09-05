@@ -22,7 +22,7 @@ document.addEventListener("DOMContentLoaded", () => {
       tabs.forEach((tab) => {
         const selected = tab.dataset.arenaAgenticTab === name;
         tab.classList.toggle("arena-agentic-tab-active", selected);
-        tab.setAttribute("aria-selected", String(selected));
+        tab.setAttribute("aria-pressed", String(selected));
       });
 
       Object.entries(examples).forEach(([key, example]) => {
@@ -63,6 +63,9 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   if (reduceMotion || !("IntersectionObserver" in window)) {
+    videos.forEach((video) => {
+      video.controls = true;
+    });
     return;
   }
 
