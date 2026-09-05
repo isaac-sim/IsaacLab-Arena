@@ -10,6 +10,9 @@ The benchmark does not start Isaac Sim or build the generated environments.
 It calls a remote inference endpoint, validates each response, resolves
 background prim paths when needed, and writes timing results as JSON.
 
+For valid-spec-to-layout-pool measurements, see the
+[time-to-resolved-layout benchmark](README_time_to_resolved_layout.md).
+
 ## Prerequisites
 
 Export the API key on the host before starting the Arena container. The Docker
