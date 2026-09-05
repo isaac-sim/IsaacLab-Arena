@@ -14,8 +14,7 @@ Generalist robot policies such as `GR00T <https://developer.nvidia.com/isaac/gr0
 embodiments, and deployment conditions. Specialist policies must also remain reliable as deployment
 conditions vary.
 
-Evaluating policy robustness requires more than a fixed benchmark suite. Coverage grows combinatorially
-across tasks, scenes, embodiments, objects, and environment variations. Lighting, clutter, object
+Evaluating policy robustness requires more than a fixed benchmark suite. Lighting, clutter, object
 substitutions, and robot morphology can all change policy behavior; limited coverage can favor
 policies tuned to benchmark-specific conditions rather than those that generalize.
 
@@ -31,9 +30,9 @@ Gap
 The evaluation space scales. Today's evaluation stack does not.
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Evaluation coverage grows combinatorially, but most tools still treat every variation as a
-standalone environment, every benchmark as a new integration, and every run as a queue. Four
-bottlenecks follow.
+While coverage grows combinatorially, most tools still treat every variation as a standalone
+environment, every benchmark as a new integration, and every run as a queue. Four bottlenecks
+follow.
 
 .. raw:: html
 
@@ -143,21 +142,24 @@ Three approaches to scalable, actionable benchmarking
 Compositional approach to environment authoring
 """""""""""""""""""""""""""""""""""""""""""""""
 
-Define scenes, embodiments, and tasks as reusable modules. ``ArenaEnvBuilder`` composes them into a
-standard Isaac Lab ``ManagerBasedRLEnvCfg`` at run time, so a new object or embodiment does not
-require duplicating the complete task configuration.
+Isaac Lab-Arena defines scenes, embodiments, and tasks as reusable modules rather than creating a
+standalone configuration for every environment variation. At run time, ``ArenaEnvBuilder`` composes
+those modules into a standard Isaac Lab ``ManagerBasedRLEnvCfg``. Teams can swap the scene, robot
+embodiment, or task independently while shared components remain unchanged—avoiding duplicate task
+code for each new combination.
 
 .. container:: arena-why-feature-links
 
    :doc:`Explore environment concepts <../quickstart/arena_env>`
 
 
-Variational approach to benchmarking
-"""""""""""""""""""""""""""""""""""""
+Variational approach to robot policy evaluation
+"""""""""""""""""""""""""""""""""""""""""""""""""
 
-Turn a base environment into a controlled sweep across objects, placements, embodiments, and
-conditions to analyze policy robustness. Arena records the sampled values with each episode and
-computes a joint posterior to reveal which factors impact policy performance.
+Move beyond frozen benchmark conditions by turning a base environment into a controlled sweep
+across objects, placements, and other environment factors. Arena records the sampled values with
+each episode and computes a joint posterior to analyze policy robustness and reveal which factors
+impact policy performance.
 
 .. container:: arena-why-feature-links
 

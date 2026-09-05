@@ -13,8 +13,8 @@ Welcome to Isaac Lab-Arena!
    <section class="arena-overview-hero" aria-labelledby="arena-overview-heading">
      <div class="arena-overview-hero__copy">
        <p class="arena-overview-hero__eyebrow">Overview</p>
-       <h2 id="arena-overview-heading">NVIDIA Isaac Lab-Arena is an open-source framework for scalable benchmark authoring and robot-policy evaluation in simulation.</h2>
-       <p><strong>Not another benchmark or library of benchmarks.</strong> Arena extends <a href="https://isaac-sim.github.io/IsaacLab/main/index.html">Isaac Lab</a> with reusable APIs to author benchmarks, execute evaluations at scale, and analyze results for actionable feedback.</p>
+       <h2 id="arena-overview-heading">NVIDIA Isaac Lab-Arena is an open-source framework for scalable benchmark authoring and robot policy evaluation in simulation.</h2>
+       <p><strong>Not another benchmark or library of benchmarks.</strong> Arena extends <a href="https://isaac-sim.github.io/IsaacLab/main/index.html">Isaac Lab</a> with reusable APIs to author robot policy evaluations, execute at scale, and analyze results for actionable feedback.</p>
      </div>
      <div class="arena-system-position" role="img" aria-label="Your benchmarks are built on Isaac Lab-Arena, which authors benchmarks, executes evaluations, and analyzes results. Isaac Lab-Arena extends NVIDIA Isaac Lab, which uses PhysX and Newton physics solvers.">
        <div class="arena-system-position__stack">
