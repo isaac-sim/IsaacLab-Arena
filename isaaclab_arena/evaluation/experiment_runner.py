@@ -102,11 +102,10 @@ def _write_arena_experiment_timings(
 ) -> Path | None:
     """Print and write timings without replacing an error already raised by the Experiment."""
     from isaaclab_arena.evaluation.arena_experiment_result import ARENA_EXPERIMENT_TIMINGS_FILENAME
-    from isaaclab_arena.utils.timer import print_timer_stats, write_timer_stats_json
 
     try:
-        print_timer_stats()
-        timings_path = write_timer_stats_json(
+        _print_timer_stats()
+        timings_path = _write_timer_stats_json(
             experiment_output_directory / ARENA_EXPERIMENT_TIMINGS_FILENAME,
             app_name="experiment_runner",
         )
@@ -118,6 +117,20 @@ def _write_arena_experiment_timings(
         with suppress(Exception):
             print(f"[WARN] Could not write Arena Experiment timings: {timing_error}")
         return None
+
+
+def _print_timer_stats() -> None:
+    """Print timer statistics without importing torch before SimulationApp starts."""
+    from isaaclab_arena.utils.timer import print_timer_stats
+
+    print_timer_stats()
+
+
+def _write_timer_stats_json(output_path: Path, app_name: str) -> Path:
+    """Write timer statistics without importing torch before SimulationApp starts."""
+    from isaaclab_arena.utils.timer import write_timer_stats_json
+
+    return write_timer_stats_json(output_path, app_name)
 
 
 def main():

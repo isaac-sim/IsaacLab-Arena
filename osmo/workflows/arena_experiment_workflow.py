@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
+from dataclasses import dataclass
 from typing import Any
 
 from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
@@ -22,11 +23,27 @@ from osmo.workflows.workflow import Workflow, WorkflowCfg
 from osmo.workflows.workflow_constants import POLICY_SERVER_PORT
 
 
+@dataclass
+class ArenaExperimentWorkflowCfg(WorkflowCfg):
+    """Configure scheduling for an Arena Experiment workflow."""
+
+    max_parallel_runs: int | None = None
+    """Maximum concurrently eligible Runs; ``None`` schedules every Run independently."""
+
+    def __post_init__(self) -> None:
+        assert self.max_parallel_runs is None or (
+            isinstance(self.max_parallel_runs, int)
+            and not isinstance(self.max_parallel_runs, bool)
+            and self.max_parallel_runs > 0
+        ), "max_parallel_runs must be a positive integer"
+
+
 class ArenaExperimentWorkflow(Workflow):
     """Run every Arena Experiment Run in its own OSMO group, co-scheduling each Run's server."""
 
     constructs_groups_directly = True
     task_cfg_type = ExperimentRunnerTaskCfg
+    workflow_cfg_type = ArenaExperimentWorkflowCfg
     experiment_output_resource_name = "experiment-output"
 
     def __init__(
@@ -37,7 +54,13 @@ class ArenaExperimentWorkflow(Workflow):
         task_cfg: ExperimentRunnerTaskCfg | None = None,
     ) -> None:
         assert isinstance(experiment_cfg, ArenaExperimentCfg)
+        max_parallel_runs = getattr(workflow_cfg, "max_parallel_runs", None)
+        assert max_parallel_runs is None or max_parallel_runs <= len(experiment_cfg.runs), (
+            "max_parallel_runs cannot exceed the number of Experiment Runs: "
+            f"got {max_parallel_runs} for {len(experiment_cfg.runs)} Runs"
+        )
         self.experiment_cfg = deepcopy(experiment_cfg)
+        self.max_parallel_runs = max_parallel_runs
         super().__init__(
             workflow_cfg=workflow_cfg,
             task_cfg=task_cfg or ExperimentRunnerTaskCfg(),
@@ -48,12 +71,17 @@ class ArenaExperimentWorkflow(Workflow):
         """Create one independently scheduled group per Run, then collect their outputs into one Experiment output."""
         run_group_dicts: list[dict[str, Any]] = []
         experiment_runner_task_names_by_run_name: dict[str, str] = {}
+        max_parallel_runs = self.max_parallel_runs or len(self.experiment_cfg.runs)
         for run_index, (run_name, run_config) in enumerate(self.experiment_cfg.runs.items()):
             ArenaExperimentResult.assert_run_name_is_safe_path_component(run_name)
+            predecessor_task_name = (
+                f"experiment-runner-{run_index - max_parallel_runs}" if run_index >= max_parallel_runs else None
+            )
             run_group_dict, experiment_runner_task_name = self._create_run_group_dict(
                 run_index,
                 run_name,
                 run_config,
+                predecessor_task_name,
             )
             run_group_dicts.append(run_group_dict)
             experiment_runner_task_names_by_run_name[run_name] = experiment_runner_task_name
@@ -68,6 +96,7 @@ class ArenaExperimentWorkflow(Workflow):
         run_index: int,
         run_name: str,
         run_config: ArenaRunCfg,
+        predecessor_task_name: str | None,
     ) -> tuple[dict[str, Any], str]:
         """Create one OSMO group that executes a single-Run Arena Experiment, plus its server if any."""
         experiment_runner_task_name = f"experiment-runner-{run_index}"
@@ -98,6 +127,7 @@ class ArenaExperimentWorkflow(Workflow):
             lead=True,
             task_name=experiment_runner_task_name,
             published_output_url=None,
+            predecessor_task_name=predecessor_task_name,
         )
         run_group_tasks = [experiment_runner_task, *policy_server_tasks]
 

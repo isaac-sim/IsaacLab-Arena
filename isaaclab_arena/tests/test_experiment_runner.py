@@ -32,7 +32,7 @@ def test_timing_write_failure_does_not_replace_experiment_error(tmp_path, monkey
     def raise_timing_error():
         raise OSError("timing disk failed")
 
-    monkeypatch.setattr(experiment_runner_module, "print_timer_stats", raise_timing_error)
+    monkeypatch.setattr(experiment_runner_module, "_print_timer_stats", raise_timing_error)
 
     with pytest.raises(RuntimeError, match="rollout failed"):
         try:
