@@ -591,8 +591,7 @@ the manager-based environment (and optionally additional configuration arguments
 <li><p><code class="docutils literal notranslate"><span class="pre">object_is_above_height</span></code> — an object is above a fixed height or its recorded resting height.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">object_moving</span></code> — an object exceeds a linear velocity threshold.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">objects_in_proximity</span></code> — two objects are within configured axis-aligned distances.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">object_on_destination</span></code> and <code class="docutils literal notranslate"><span class="pre">objects_on_destinations</span></code> — contact and velocity checks for
-placement goals.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">object_on_destination</span></code> — destination-footprint, upward-support, and velocity checks for a placement goal.</p></li>
 </ul>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
@@ -655,7 +654,11 @@ a single three-predicate chain: settle, lift, then place.</p>
                 <span class="n">partial</span><span class="p">(</span>
                     <span class="n">object_on_destination</span><span class="p">,</span>
                     <span class="n">object_cfg</span><span class="o">=</span><span class="n">SceneEntityCfg</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pick_up_object</span><span class="o">.</span><span class="n">name</span><span class="p">),</span>
+                    <span class="n">destination_cfg</span><span class="o">=</span><span class="n">SceneEntityCfg</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">destination_location</span><span class="o">.</span><span class="n">name</span><span class="p">),</span>
                     <span class="n">contact_sensor_cfg</span><span class="o">=</span><span class="n">SceneEntityCfg</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">contact_sensor_name</span><span class="p">),</span>
+                    <span class="n">force_threshold</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">force_threshold</span><span class="p">,</span>
+                    <span class="n">velocity_threshold</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">velocity_threshold</span><span class="p">,</span>
+                    <span class="n">support_cone_half_angle_rad</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">support_cone_half_angle_rad</span><span class="p">,</span>
                 <span class="p">),</span>
             <span class="p">],</span>
         <span class="p">)</span>
