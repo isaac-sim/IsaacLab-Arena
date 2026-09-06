@@ -12,6 +12,7 @@ from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_wi
 
 NUM_STEPS = 10
 HEADLESS = True
+CUBE_PLACEMENT_HEIGHT_ABOVE_CONTAINER_ORIGIN_M = 0.02
 
 
 def get_test_environment(num_envs: int):
@@ -154,23 +155,27 @@ def _test_sorting_task_success(simulation_app) -> bool:
             red_container_pos = wp.to_torch(red_container_object.data.root_pos_w)[0]
             green_container_pos = wp.to_torch(green_container_object.data.root_pos_w)[0]
 
-            target_quat = torch.tensor([[1.0, 0.0, 0.0, 0.0]], device=env.device)
+            identity_quaternion_xyzw = torch.tensor([[0.0, 0.0, 0.0, 1.0]], device=env.device)
 
-            # Set initial positions ONCE - place cubes above containers so they can fall
+            # Place the small cubes close to the container floors so they settle without tunneling through them.
             red_cube_target_pos = red_container_pos.clone().unsqueeze(0)
-            red_cube_target_pos[0, 2] += 0.1  # Above container to fall into it
+            red_cube_target_pos[0, 2] += CUBE_PLACEMENT_HEIGHT_ABOVE_CONTAINER_ORIGIN_M
 
             green_cube_target_pos = green_container_pos.clone().unsqueeze(0)
-            green_cube_target_pos[0, 2] += 0.1  # Above container to fall into it
+            green_cube_target_pos[0, 2] += CUBE_PLACEMENT_HEIGHT_ABOVE_CONTAINER_ORIGIN_M
 
             # Write initial pose only once
-            red_cube_object.write_root_pose_to_sim(root_pose=torch.cat([red_cube_target_pos, target_quat], dim=-1))
+            red_cube_object.write_root_pose_to_sim(
+                root_pose=torch.cat([red_cube_target_pos, identity_quaternion_xyzw], dim=-1)
+            )
             red_cube_object.write_root_velocity_to_sim(root_velocity=torch.zeros((1, 6), device=env.device))
 
-            green_cube_object.write_root_pose_to_sim(root_pose=torch.cat([green_cube_target_pos, target_quat], dim=-1))
+            green_cube_object.write_root_pose_to_sim(
+                root_pose=torch.cat([green_cube_target_pos, identity_quaternion_xyzw], dim=-1)
+            )
             green_cube_object.write_root_velocity_to_sim(root_velocity=torch.zeros((1, 6), device=env.device))
 
-            # Step the environment to let physics simulate the fall and contact
+            # Step the environment to let the cubes settle into supported contact.
             success = torch.zeros(1, dtype=torch.bool, device=env.device)
             for _ in range(NUM_STEPS * 10):
                 actions = torch.zeros(env.action_space.shape, device=env.device)
@@ -215,13 +220,15 @@ def _test_sorting_task_partial_success(simulation_app) -> bool:
             # Get container position
             red_container_pos = wp.to_torch(red_container_object.data.root_pos_w)[0]
 
-            target_quat = torch.tensor([[1.0, 0.0, 0.0, 0.0]], device=env.device)
+            identity_quaternion_xyzw = torch.tensor([[0.0, 0.0, 0.0, 1.0]], device=env.device)
 
-            # Set initial position ONCE - only place red cube above red container
+            # Place only the red cube close to its container floor.
             red_cube_target_pos = red_container_pos.clone().unsqueeze(0)
-            red_cube_target_pos[0, 2] += 0.1  # Above container to fall into it
+            red_cube_target_pos[0, 2] += CUBE_PLACEMENT_HEIGHT_ABOVE_CONTAINER_ORIGIN_M
 
-            red_cube_object.write_root_pose_to_sim(root_pose=torch.cat([red_cube_target_pos, target_quat], dim=-1))
+            red_cube_object.write_root_pose_to_sim(
+                root_pose=torch.cat([red_cube_target_pos, identity_quaternion_xyzw], dim=-1)
+            )
             red_cube_object.write_root_velocity_to_sim(root_velocity=torch.zeros((1, 6), device=env.device))
 
             # Step the environment to let physics simulate
@@ -268,12 +275,11 @@ def _test_sorting_task_multiple_envs(simulation_app) -> bool:
             green_container_object: RigidObject = env.scene[green_container.name]
 
             # Initially, both envs should not be successful
-            step_zeros_and_call(env, 1)
+            step_zeros_and_call(env, NUM_STEPS)
             assert not env.termination_manager.get_term("success").any()
-            target_quat = torch.tensor([1.0, 0.0, 0.0, 0.0], device=env.device)
+            identity_quaternion_xyzw = torch.tensor([0.0, 0.0, 0.0, 1.0], device=env.device)
 
-            # Now move second env cubes to success positions too
-            # Note: env 0 may have been reset after success, so we need to set both envs
+            # Build one placement state for every cube in both environments.
             red_cube_state = wp.to_torch(red_cube_object.data.root_state_w).clone()
             green_cube_state = wp.to_torch(green_cube_object.data.root_state_w).clone()
 
@@ -281,28 +287,18 @@ def _test_sorting_task_multiple_envs(simulation_app) -> bool:
             red_container_pos = wp.to_torch(red_container_object.data.root_pos_w)
             green_container_pos = wp.to_torch(green_container_object.data.root_pos_w)
 
-            # Set BOTH env cubes to positions above containers (env 0 may have been reset)
-            red_cube_state[0, :3] = red_container_pos[0].clone()
-            red_cube_state[0, 2] += 0.1  # Above container to fall into it
-            red_cube_state[0, 3:7] = target_quat
-            red_cube_state[0, 7:] = 0
+            # Place both environments' cubes close to their container floors.
+            red_cube_state[:, :3] = red_container_pos
+            red_cube_state[:, 2] += CUBE_PLACEMENT_HEIGHT_ABOVE_CONTAINER_ORIGIN_M
+            red_cube_state[:, 3:7] = identity_quaternion_xyzw
+            red_cube_state[:, 7:] = 0
 
-            green_cube_state[0, :3] = green_container_pos[0].clone()
-            green_cube_state[0, 2] += 0.1  # Above container to fall into it
-            green_cube_state[0, 3:7] = target_quat
-            green_cube_state[0, 7:] = 0
+            green_cube_state[:, :3] = green_container_pos
+            green_cube_state[:, 2] += CUBE_PLACEMENT_HEIGHT_ABOVE_CONTAINER_ORIGIN_M
+            green_cube_state[:, 3:7] = identity_quaternion_xyzw
+            green_cube_state[:, 7:] = 0
 
-            red_cube_state[1, :3] = red_container_pos[1].clone()
-            red_cube_state[1, 2] += 0.1  # Above container to fall into it
-            red_cube_state[1, 3:7] = target_quat
-            red_cube_state[1, 7:] = 0
-
-            green_cube_state[1, :3] = green_container_pos[1].clone()
-            green_cube_state[1, 2] += 0.1  # Above container to fall into it
-            green_cube_state[1, 3:7] = target_quat
-            green_cube_state[1, 7:] = 0
-
-            # Write state ONCE and let physics simulate
+            # Write each state once and let physics settle.
             red_cube_object.write_root_state_to_sim(red_cube_state)
             green_cube_object.write_root_state_to_sim(green_cube_state)
 
