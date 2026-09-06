@@ -4,7 +4,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import math
-import torch
 from types import SimpleNamespace
 
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
@@ -12,6 +11,8 @@ from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_wi
 
 def _check_bounds_center_over_destination(spatial, axis_aligned_bounding_box_type) -> None:
     """Exercise translation, rotation, open-top behavior, and offset object bounds."""
+    import torch
+
     identity_quaternion = (0.0, 0.0, 0.0, 1.0)
     yaw_90_quaternion = (0.0, 0.0, math.sqrt(0.5), math.sqrt(0.5))
 
@@ -53,6 +54,8 @@ def _check_bounds_center_over_destination(spatial, axis_aligned_bounding_box_typ
 
 def _check_upward_support_force(spatial) -> None:
     """Exercise the force threshold, sign, and support cone boundary."""
+    import torch
+
     contact_force_w = torch.tensor([
         [0.0, 0.0, 0.05],  # below magnitude threshold
         [0.0, 0.0, 0.1],  # exactly at magnitude threshold
@@ -77,6 +80,7 @@ def _check_object_on_destination(
     scene_entity_cfg_type,
 ) -> None:
     """Check combined results and the scene state read by the predicate."""
+    import torch
 
     class ArenaWorldDouble:
         def __init__(self, T_W_F_by_scene_key, aabbs_F_by_scene_key, root_linear_velocities_w_by_scene_key):

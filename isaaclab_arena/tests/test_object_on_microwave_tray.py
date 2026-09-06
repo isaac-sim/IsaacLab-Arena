@@ -5,10 +5,7 @@
 
 """Verify the microwave-tray contact fires a pick-and-place success termination."""
 
-import torch
 import traceback
-
-import pytest
 
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
@@ -61,6 +58,8 @@ def _make_microwave_tray_environment():
 
 
 def _test_object_on_microwave_tray_termination(simulation_app) -> bool:
+    import torch
+
     env, microwave, dex_cube, destination_ref = _make_microwave_tray_environment()
 
     try:
@@ -105,11 +104,11 @@ def _test_object_on_microwave_tray_termination(simulation_app) -> bool:
     return True
 
 
-def _record_scene_extra_pose_count(_simulation_app, pose_counts: list[int]) -> bool:
+def _record_arena_world_pose_count(_simulation_app, pose_counts: list[int]) -> bool:
     env, _microwave, _dex_cube, destination_ref = _make_microwave_tray_environment()
     try:
-        position_w_buffer, _orientation_w_buffer = env.unwrapped.scene.extras[destination_ref.name].get_world_poses()
-        pose_counts.append(position_w_buffer.torch.shape[0])
+        destination_pose_w = env.unwrapped.arena_world.get_pose_w(destination_ref.name)
+        pose_counts.append(destination_pose_w.shape[0])
     finally:
         env.close()
     return True
@@ -120,17 +119,10 @@ def test_object_on_microwave_tray_termination():
     assert result, "Test failed"
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "Remove ArenaWorld's post-clone scene-extra pose reader when this XPASSes: InteractiveScene currently "
-        "creates scene.extras FrameViews before cloning."
-    ),
-)
-def test_scene_extra_frame_view_covers_cloned_environments():
+def test_arena_world_scene_extra_pose_covers_cloned_environments():
     pose_counts = []
     result = run_function_with_persistent_simulation_app(
-        _record_scene_extra_pose_count,
+        _record_arena_world_pose_count,
         headless=HEADLESS,
         pose_counts=pose_counts,
     )

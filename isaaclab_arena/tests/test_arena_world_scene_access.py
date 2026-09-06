@@ -5,7 +5,6 @@
 
 """Verify ArenaWorld scene reads and derived local geometry."""
 
-import torch
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -14,6 +13,8 @@ from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_wi
 
 def _check_geometry_bounds_in_prim_frame(scene_access_module) -> None:
     """Check that runtime bounds remove pose but retain spawned scale."""
+    import torch
+
     from pxr import Gf, Usd, UsdGeom
 
     stage = Usd.Stage.CreateInMemory()
@@ -42,6 +43,7 @@ def _check_rigid_object_reads_and_local_aabb_cache(
     axis_aligned_bounding_box_type,
 ) -> None:
     """Check live rigid-object reads and one cached AABB per scene key."""
+    import torch
 
     class RuntimeBufferDouble:
         def __init__(self, tensor: torch.Tensor):
@@ -127,6 +129,7 @@ def _check_arena_world_reuses_scene_extra_pose_reader(
     scene_access_module,
 ) -> None:
     """Check that ArenaWorld caches the reader while returning its latest T_W_F."""
+    import torch
 
     class SceneDouble:
         def __init__(self):
@@ -180,6 +183,7 @@ def _check_arena_world_rejects_unsupported_pose_scene_key(arena_world_module) ->
 
 def _check_scene_extra_pose_reader_uses_current_frame_view_poses(scene_access_module) -> None:
     """Check FrameView construction and current T_W_F reads in environment row order."""
+    import torch
 
     class FrameViewDouble:
         def __init__(self):

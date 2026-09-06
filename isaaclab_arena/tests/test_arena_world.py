@@ -5,8 +5,6 @@
 
 """Verify ArenaWorld live queries and environment-owned geometry caching."""
 
-import torch
-
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
 
@@ -31,6 +29,8 @@ def _make_sphere_environment(num_envs: int):
 
 
 def _test_arena_world(_simulation_app) -> bool:
+    import torch
+
     num_envs = 2
     env, sphere_name = _make_sphere_environment(num_envs)
     arena_world = env.unwrapped.arena_world
