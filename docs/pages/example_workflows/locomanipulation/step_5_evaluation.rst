@@ -170,7 +170,6 @@ Parallel evaluation of the policy in multiple parallel environments is also supp
            --device cuda \
            --policy_device cuda  \
            --distributed \
-           --headless \
            galileo_g1_locomanip_pick_and_place \
            --object brown_box \
            --embodiment g1_wbc_joint

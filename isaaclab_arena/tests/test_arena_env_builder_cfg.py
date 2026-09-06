@@ -18,6 +18,8 @@ def test_cli_defaults_match_builder_configuration():
     """Keep the manual CLI defaults aligned with the typed builder configuration."""
     args_cli = get_isaaclab_arena_cli_parser().parse_args([])
 
+    assert not hasattr(args_cli, "headless")
+    assert args_cli.visualizer is None
     assert arena_env_builder_cfg_from_argparse(args_cli) == ArenaEnvBuilderCfg()
 
 

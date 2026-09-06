@@ -11,7 +11,7 @@ import numpy as np
 import torch
 
 import isaaclab.sim as sim_utils
-from isaaclab.cloner.cloner_utils import iter_clone_plan_matches
+from isaaclab import cloner
 from isaaclab.envs import ManagerBasedEnv
 from isaaclab.managers import SceneEntityCfg
 from isaaclab.sim.views import FrameView
@@ -31,7 +31,7 @@ def _get_spawned_entity_groups(
     scene = env.scene
     assert scene.clone_plan is not None, f"Scene entity '{entity_name}' has no clone plan."
 
-    clone_matches = tuple(iter_clone_plan_matches(scene.clone_plan, geometry_prim_path))
+    clone_matches = tuple(cloner.query.iter_sources(scene.clone_plan, geometry_prim_path))
     assert (
         clone_matches
     ), f"Scene entity '{entity_name}' geometry path '{geometry_prim_path}' does not match the scene clone plan."
@@ -182,7 +182,6 @@ class AssetBaseCfgPoseReader:
             entity_prim_path,
             device=env.device,
             stage=scene.stage,
-            validate_xform_ops=False,
         )
         # Ensure pose rows use the same environment order as other scene tensors.
         entity_prim_paths = self._frame_view.prim_paths

@@ -11,7 +11,7 @@ import re
 from collections.abc import Callable
 from contextlib import AbstractContextManager, nullcontext
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from hydra import compose, initialize
 from hydra.core.config_store import ConfigStore
@@ -20,11 +20,12 @@ from hydra.errors import HydraException
 from omegaconf import OmegaConf
 from omegaconf.errors import OmegaConfBaseException
 
-from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg
-from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
-from isaaclab_arena.evaluation.arena_run import ArenaRunCfg
-from isaaclab_arena.evaluation.legacy_graph_environment_cli import LegacyGraphEnvironmentCfg
-from isaaclab_arena.policy.policy_base import PolicyCfg
+if TYPE_CHECKING:
+    from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg
+    from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
+    from isaaclab_arena.evaluation.arena_run import ArenaRunCfg
+    from isaaclab_arena.evaluation.legacy_graph_environment_cli import LegacyGraphEnvironmentCfg
+    from isaaclab_arena.policy.policy_base import PolicyCfg
 
 
 def _get_new_hydra_context_if_none_exists() -> AbstractContextManager[None]:
@@ -62,6 +63,8 @@ def load_arena_experiment_from_yaml(
     Returns:
         The typed Experiment Definition, preserving YAML mapping declaration order.
     """
+    from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
+
     shared_default_overrides, run_overrides = split_shared_run_default_overrides(overrides or [])
     run_values_by_name = load_experiment_run_definitions_from_yaml(
         yaml_path,
@@ -228,6 +231,9 @@ def _build_arena_run_cfg_from_yaml_values(
     Returns:
         The fully composed typed Run configuration.
     """
+    from isaaclab_arena.evaluation.arena_run import ArenaRunCfg
+    from isaaclab_arena.policy.policy_base import PolicyCfg
+
     remaining_values = dict(run_values)
     environment_values = remaining_values.pop("environment", None)
     policy_values = remaining_values.pop("policy", None)
@@ -280,6 +286,8 @@ def _build_environment_cfg_from_yaml_values(
     When environment.type names a graph-spec YAML file it is built on the temporary
     argparse compatibility path; otherwise the type selects a registered typed config.
     """
+    from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg
+
     if _is_environment_graph_yaml_spec(environment_values):
         env_spec_path = _graph_spec_yaml_path(environment_values)
         per_run_overrides = {
@@ -311,6 +319,8 @@ def _graph_environment_cfg_from_yaml_values(
     environment_builder section stays typed and is applied directly (see
     build_arena_builder_from_legacy_graph).
     """
+    from isaaclab_arena.evaluation.legacy_graph_environment_cli import LegacyGraphEnvironmentCfg
+
     return LegacyGraphEnvironmentCfg(
         enable_cameras=bool(per_run_overrides.get("enable_cameras", False)),
         env_spec_path=env_spec_path,

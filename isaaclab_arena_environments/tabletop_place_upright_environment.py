@@ -40,7 +40,7 @@ class TableTopPlaceUprightEnvironment(ArenaEnvironmentFactory[TableTopPlaceUprig
         from isaaclab.managers import EventTermCfg as EventTerm
         from isaaclab.managers import SceneEntityCfg
         from isaaclab.utils.configclass import configclass
-        from isaaclab_tasks.manager_based.manipulation.stack.mdp.franka_stack_events import randomize_object_pose
+        from isaaclab_tasks.contrib.stack.mdp.franka_stack_events import randomize_object_pose
 
         from isaaclab_arena.embodiments.common.arm_mode import ArmMode
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment

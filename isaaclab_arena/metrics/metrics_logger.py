@@ -6,7 +6,6 @@
 from __future__ import annotations
 
 import json
-import numpy as np
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -15,6 +14,8 @@ if TYPE_CHECKING:
 
 def metrics_to_plain_python_types(metrics_data: MetricsDataCollection) -> dict[str, int | float | list]:
     """Convert numpy scalars/arrays in a metrics data to plain Python types."""
+    import numpy as np
+
     sanitized = {
         "num_episodes": metrics_data.num_episodes,
     }

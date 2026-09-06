@@ -7,7 +7,6 @@ import argparse
 import gc
 import os
 import sys
-import torch
 import traceback
 from contextlib import nullcontext, suppress
 
@@ -29,7 +28,9 @@ def get_app_launcher(args: argparse.Namespace) -> AppLauncher:
     import time
 
     t0 = time.monotonic()
-    app_launcher = AppLauncher(args)
+    # AppLauncher consumes recognized entries from its input mapping. Pass a copy so
+    # Arena can continue using its parsed arguments after the application launches.
+    app_launcher = AppLauncher(vars(args).copy())
     elapsed = time.monotonic() - t0
     sys.__stderr__.write(f"{STARTUP_COMPLETE_MARKER} ({elapsed:.1f}s)\n")
     sys.__stderr__.flush()
@@ -87,6 +88,8 @@ def teardown_simulation_app(suppress_exceptions: bool = False, make_new_stage: b
 
 def collect_garbage_and_clear_cuda_cache() -> None:
     """Run GC and release cached CUDA allocations after a sim env is torn down."""
+    import torch
+
     gc.collect()
     if torch.cuda.is_available():
         torch.cuda.empty_cache()

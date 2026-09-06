@@ -101,15 +101,15 @@ class Scene:
         return scene_cfg
 
     def get_background_physics_paths(self) -> dict[str, dict[str, ObjectType]]:
-        """Return opted-in backgrounds mapped to deferred-reset physics roots."""
+        """Return reset-enabled backgrounds mapped to deferred-reset physics roots."""
         return {background: dict(paths) for background, paths in self._background_physics_paths.items()}
 
     def get_background_physics_referenced_paths(self) -> dict[str, dict[str, ObjectType]]:
-        """Return opted-in backgrounds mapped to object-reference-owned runtime paths."""
+        """Return reset-enabled backgrounds mapped to object-reference-owned runtime paths."""
         return {background: dict(paths) for background, paths in self._background_physics_referenced_paths.items()}
 
     def get_background_physics_prim_paths(self) -> dict[str, str]:
-        """Return opted-in backgrounds mapped to their runtime root paths."""
+        """Return reset-enabled backgrounds mapped to their runtime root paths."""
         return dict(self._background_physics_prim_paths)
 
     def get_observation_cfg(self) -> Any:

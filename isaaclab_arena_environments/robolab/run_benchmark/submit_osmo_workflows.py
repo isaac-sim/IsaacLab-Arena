@@ -63,8 +63,7 @@ def _workflow_name(prefix: str, policy: str, env_path: Path, run_id: str) -> str
 
 def _policy_runner_args(policy: str, num_episodes: int) -> str:
     return (
-        f"--enable_cameras --num_envs {NUM_ENVS_BY_POLICY[policy]} "
-        f"--num_episodes {num_episodes} --headless --record_camera_video"
+        f"--enable_cameras --num_envs {NUM_ENVS_BY_POLICY[policy]} --num_episodes {num_episodes} --record_camera_video"
     )
 
 

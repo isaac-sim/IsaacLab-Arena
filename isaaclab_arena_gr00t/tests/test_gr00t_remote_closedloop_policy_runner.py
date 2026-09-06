@@ -68,7 +68,6 @@ def _run_policy_runner(remote_host: str, remote_port: int, timeout_sec: int, num
         str(NUM_STEPS),
         "--num_envs",
         str(num_envs),
-        "--headless",
         "--enable_cameras",
         ENVIRONMENT,
         "--object",
@@ -128,6 +127,5 @@ def test_experiment_runner_with_gr00t_remote_closedloop_policy(tmp_path):
         f"{TestConstants.evaluation_dir}/experiment_runner.py",
         "--eval_jobs_config",
         config_path,
-        "--headless",
     ]
     run_subprocess(args, timeout_sec=timeout_sec)

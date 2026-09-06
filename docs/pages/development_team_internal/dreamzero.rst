@@ -67,4 +67,4 @@ start the rollout:
      --experiment_config isaaclab_arena_environments/experiment_configs/droid_pnp_dreamzero_experiment.yaml
 
 The runner reads the other values from YAML and records the Run under the name
-``droid_pnp_dreamzero``. Run headless by replacing ``--viz kit`` with ``--headless``.
+``droid_pnp_dreamzero``. Run headless by omitting ``--viz kit``.

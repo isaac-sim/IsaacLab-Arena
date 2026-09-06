@@ -8,13 +8,15 @@ from __future__ import annotations
 from isaaclab.envs import ManagerBasedRLEnvCfg
 from isaaclab.envs.mimic_env_cfg import MimicEnvCfg
 from isaaclab.managers import RecorderManagerBaseCfg
-from isaaclab.sim import RenderCfg, SimulationCfg
+from isaaclab.sim import SimulationCfg
 from isaaclab.utils.configclass import configclass
 
 # Import from the package root so this resolves whether MJWarpSolverCfg lives in
 # newton_manager_cfg (older isaaclab_newton) or mjwarp_manager_cfg (Isaac Lab Beta 2).
 from isaaclab_newton.physics import MJWarpSolverCfg, NewtonCfg
 from isaaclab_physx.physics import PhysxCfg
+from isaaclab_physx.renderers import IsaacRtxRendererGlobalSettingsCfg
+from isaaclab_physx.renderers.isaac_rtx_renderer_utils import apply_isaac_rtx_global_settings
 from isaaclab_tasks.utils import PresetCfg
 
 
@@ -76,25 +78,28 @@ class IsaacLabArenaManagerBasedRLEnvCfg(ManagerBasedRLEnvCfg):
     # Task language description
     task_description: str | None = None
 
-    # Override the RTX renderer's built-in scene ambient (carb /rtx/sceneDb/ambientLightIntensity, default 1.0 with
-    # color [0.1, 0.1, 0.1]) so that USD light prims fully control scene illumination.
     # Control rate: sim.dt (1/120 s) x decimation (8) = 15 Hz
     sim: SimulationCfg = SimulationCfg(
         dt=1 / 120,
         render_interval=2,
-        render=RenderCfg(
-            carb_settings={
-                "/rtx/sceneDb/ambientLightIntensity": 0.0,
-                # Workaround for IsaacLab #6424: stop the physx-tensors filter matcher from
-                # recursing into leaf collision shapes so a contact filter pointing at a rigid
-                # body with multiple collision shapes resolves to a single entry (otherwise the
-                # view fails with "expected 1, found N").
-                "/physics/tensors/recursiveLeafPatternMatch": False,
-            },
-        ),
     )
     decimation: int = 8
     wait_for_textures: bool = False
+
+
+def apply_arena_global_settings() -> None:
+    """Apply Arena's process-global RTX and physics settings before environment construction."""
+    apply_isaac_rtx_global_settings(
+        IsaacRtxRendererGlobalSettingsCfg(
+            # Disable RTX's built-in scene ambient so USD light prims fully control illumination.
+            ambient_light_intensity=0.0,
+            carb_settings={
+                # Work around IsaacLab #6424: do not recurse into leaf collision shapes when
+                # resolving a contact filter that targets a multi-shape rigid body.
+                "/physics/tensors/recursiveLeafPatternMatch": False,
+            },
+        )
+    )
 
 
 def set_control_rate_50hz(env_cfg: IsaacLabArenaManagerBasedRLEnvCfg) -> IsaacLabArenaManagerBasedRLEnvCfg:
