@@ -6,10 +6,10 @@
 """Query live Arena scene state and cache derived geometry.
 
 Arena pose and transform names use target-source notation: T_A_B maps points
-from frame B into frame A. Here W is the simulation world, F is the frame of
-the rigid object or scene extra selected by a scene key, and geometry helpers
-use P for a USD prim's local frame. For a rigid object, Isaac Lab's root_pose_w
-supplies the value represented here as T_W_F.
+from frame B into frame A. Here W is the simulation world. For a rigid object
+or articulation, F is its root-link frame; for a scene extra, F is the selected
+prim's frame. Geometry helpers use P for a USD prim's local frame. Isaac Lab's
+root_pose_w supplies T_W_F for rigid objects and articulations.
 """
 
 from __future__ import annotations
@@ -23,12 +23,13 @@ from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 
 class ArenaWorld:
-    """Provide name-based runtime access to rigid objects and scene extras.
+    """Provide name-based pose, velocity, and geometry queries.
 
-    Poses are read live for both supported scene categories, along with root linear velocities for rigid objects.
-    Local-frame geometry bounds are computed lazily from the cloned prim hierarchy and cached for the environment
-    lifetime. They remain valid under whole-subtree motion, but not when descendants move relative to frame F.
-    A moving part must therefore have its own supported scene key.
+    Poses are read live for rigid objects, articulations, and scene extras. Root linear velocities are supported for
+    rigid objects only. Local-frame geometry bounds are supported for rigid objects and scene extras; they are
+    computed lazily from the cloned prim hierarchy and cached for the environment lifetime. They remain valid under
+    whole-subtree motion, but not when descendants move relative to frame F. A moving part must therefore have its
+    own supported scene key.
     """
 
     def __init__(self, scene: InteractiveScene):
@@ -37,23 +38,27 @@ class ArenaWorld:
         self._scene_extra_pose_reader_cache: dict[str, scene_access.SceneExtraPoseReader] = {}
 
     def get_pose_w(self, scene_key: str) -> torch.Tensor:
-        """Return the current world-frame pose for a rigid-object or scene-extra key.
+        """Return the world-frame pose of a rigid-object root link, articulation root link, or scene extra.
 
         The tensor has shape (num_envs, 7), with each pose ordered as
         (x, y, z, qx, qy, qz, qw).
         """
         scene = self._scene
         is_rigid_object = scene_key in scene.rigid_objects
+        is_articulation = scene_key in scene.articulations
         is_scene_extra = scene_key in scene.extras
-        assert is_rigid_object or is_scene_extra, (
-            "ArenaWorld pose queries require a scene key registered in InteractiveScene.rigid_objects or "
-            f"InteractiveScene.extras; '{scene_key}' is registered in neither."
+        assert is_rigid_object or is_articulation or is_scene_extra, (
+            "ArenaWorld pose queries require a scene key registered in InteractiveScene.rigid_objects, "
+            "InteractiveScene.articulations, or InteractiveScene.extras; "
+            f"'{scene_key}' is registered in none of them."
         )
 
-        # Rigid objects expose live root state directly. Scene extras are plain cloned prims,
-        # so their live post-clone poses require a FrameView-backed reader.
+        # Rigid objects and articulations expose their live root-link poses directly. Scene
+        # extras are plain cloned prims, so their live post-clone poses require a FrameView-backed reader.
         if is_rigid_object:
             T_W_F = scene.rigid_objects[scene_key].data.root_pose_w.torch
+        elif is_articulation:
+            T_W_F = scene.articulations[scene_key].data.root_pose_w.torch
         else:
             pose_reader = self._get_scene_extra_pose_reader(scene, scene_key)
             T_W_F = pose_reader.get_pose_w()

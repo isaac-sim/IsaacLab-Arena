@@ -7,13 +7,12 @@ from __future__ import annotations
 
 import torch
 from abc import ABC, abstractmethod
+from typing import TYPE_CHECKING
 
-import warp as wp
 from isaaclab.assets import ArticulationCfg, AssetBaseCfg, RigidObjectCfg
 from isaaclab.envs import ManagerBasedEnv
 from isaaclab.managers import EventTermCfg, SceneEntityCfg
 from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
-from isaaclab.sim.views import FrameView
 from isaaclab_tasks.contrib.stack.mdp.franka_stack_events import randomize_object_pose
 
 # Re-export ObjectType from the lightweight module so existing
@@ -26,6 +25,9 @@ from isaaclab_arena.terms.events import set_object_pose, set_object_pose_per_env
 from isaaclab_arena.utils.pose import Pose, PosePerEnv, PoseRange
 from isaaclab_arena.utils.velocity import Velocity
 from isaaclab_arena.variations.object_mass_variation import ObjectMassVariation
+
+if TYPE_CHECKING:
+    from isaaclab_arena.environments.isaaclab_arena_manager_based_env import IsaacLabArenaManagerBasedRLEnv
 
 __all__ = [
     "ObjectBase",
@@ -52,16 +54,6 @@ class ObjectBase(PlaceableAsset, ABC):
             self.add_variation(ObjectMassVariation(self.name))
         self.initial_velocity: Velocity | None = None
         self.object_cfg = None
-        self._base_frame_view: FrameView | None = None
-        self._base_frame_view_stage = None
-
-    def _close_base_frame_view(self) -> None:
-        """Release the cached frame view. Safe to call more than once."""
-        frame_view = self._base_frame_view
-        if frame_view is not None:
-            frame_view.close()
-            self._base_frame_view = None
-            self._base_frame_view_stage = None
 
     def _set_initial_pose(self, pose: Pose | PoseRange | PosePerEnv) -> None:
         """Store the pose and write its construction values into the object config."""
@@ -157,11 +149,11 @@ class ObjectBase(PlaceableAsset, ABC):
             raise ValueError(f"Invalid object type: {self.object_type}")
         return object_cfg
 
-    def get_object_pose(self, env: ManagerBasedEnv, is_relative: bool = True) -> torch.Tensor:
+    def get_object_pose(self, env: IsaacLabArenaManagerBasedRLEnv, is_relative: bool = True) -> torch.Tensor:
         """Get the pose of the object in the environment.
 
         Args:
-            env: The environment.
+            env: The wrapped or unwrapped Arena manager-based environment.
             is_relative: Whether to return the pose in the relative frame of the environment.
 
         Returns:
@@ -170,36 +162,9 @@ class ObjectBase(PlaceableAsset, ABC):
         """
         # We require that the asset has been added to the scene under its name.
         assert self.name in env.unwrapped.scene.keys(), f"Asset {self.name} not found in scene"
-        if (self.object_type == ObjectType.RIGID) or (self.object_type == ObjectType.ARTICULATION):
-            object_pose = wp.to_torch(env.unwrapped.scene[self.name].data.root_pose_w).clone()
-        elif self.object_type == ObjectType.BASE:
-            scene = env.unwrapped.scene
-            stage = scene.stage
-            if self._base_frame_view is None or self._base_frame_view_stage is not stage:
-                self._close_base_frame_view()
-                asset_cfg = scene[self.name]
-                frame_view = FrameView(asset_cfg.prim_path, device=env.unwrapped.device, stage=stage)
-                try:
-                    prim_paths = frame_view.prim_paths
-                    assert len(prim_paths) == env.unwrapped.num_envs, (
-                        f"AssetBaseCfg scene entry '{self.name}' resolved to {len(prim_paths)} prims; "
-                        f"expected {env.unwrapped.num_envs}."
-                    )
-                    for environment_id, prim_path in enumerate(prim_paths):
-                        environment_prim_path = scene.env_prim_paths[environment_id]
-                        assert str(prim_path).startswith(f"{environment_prim_path}/"), (
-                            f"AssetBaseCfg scene entry '{self.name}' pose row {environment_id} belongs to"
-                            f" '{prim_path}', not environment '{environment_prim_path}'."
-                        )
-                except Exception:
-                    frame_view.close()
-                    raise
-                self._base_frame_view = frame_view
-                self._base_frame_view_stage = stage
-            position_w, orientation_w = self._base_frame_view.get_world_poses()
-            object_pose = torch.cat((position_w.torch, orientation_w.torch), dim=-1)
-        else:
+        if self.object_type not in (ObjectType.RIGID, ObjectType.ARTICULATION, ObjectType.BASE):
             raise ValueError(f"Function not implemented for object type: {self.object_type}")
+        object_pose = env.unwrapped.arena_world.get_pose_w(self.name).clone()
         if is_relative:
             object_pose[:, :3] -= env.unwrapped.scene.env_origins
         return object_pose

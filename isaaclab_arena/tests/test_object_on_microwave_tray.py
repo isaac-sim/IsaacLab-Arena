@@ -104,11 +104,36 @@ def _test_object_on_microwave_tray_termination(simulation_app) -> bool:
     return True
 
 
-def _record_arena_world_pose_count(_simulation_app, pose_counts: list[int]) -> bool:
-    env, _microwave, _dex_cube, destination_ref = _make_microwave_tray_environment()
+def _check_object_pose_queries_use_arena_world(_simulation_app) -> bool:
+    import torch
+
+    env, microwave, dex_cube, destination_ref = _make_microwave_tray_environment()
     try:
-        destination_pose_w = env.unwrapped.arena_world.get_pose_w(destination_ref.name)
-        pose_counts.append(destination_pose_w.shape[0])
+        scene = env.unwrapped.scene
+        arena_world = env.unwrapped.arena_world
+        microwave_root_pose_w = scene.articulations[microwave.name].data.root_pose_w.torch
+        torch.testing.assert_close(arena_world.get_pose_w(microwave.name), microwave_root_pose_w)
+
+        for scene_object in (dex_cube, microwave, destination_ref):
+            world_pose_before_relative_query = arena_world.get_pose_w(scene_object.name).clone()
+
+            torch.testing.assert_close(
+                scene_object.get_object_pose(env, is_relative=False),
+                world_pose_before_relative_query,
+            )
+
+            expected_environment_relative_pose = world_pose_before_relative_query.clone()
+            expected_environment_relative_pose[:, :3] -= scene.env_origins
+            torch.testing.assert_close(
+                scene_object.get_object_pose(env, is_relative=True),
+                expected_environment_relative_pose,
+            )
+
+            # The compatibility conversion must not modify ArenaWorld's live pose buffer.
+            torch.testing.assert_close(
+                arena_world.get_pose_w(scene_object.name),
+                world_pose_before_relative_query,
+            )
     finally:
         env.close()
     return True
@@ -119,15 +144,12 @@ def test_object_on_microwave_tray_termination():
     assert result, "Test failed"
 
 
-def test_arena_world_scene_extra_pose_covers_cloned_environments():
-    pose_counts = []
+def test_object_pose_queries_use_arena_world():
     result = run_function_with_persistent_simulation_app(
-        _record_arena_world_pose_count,
+        _check_object_pose_queries_use_arena_world,
         headless=HEADLESS,
-        pose_counts=pose_counts,
     )
-    assert result, "Failed to inspect the AssetBaseCfg scene extra."
-    assert pose_counts == [NUM_ENVS]
+    assert result, "Object pose queries did not preserve ArenaWorld poses and relative-frame conversion."
 
 
 if __name__ == "__main__":

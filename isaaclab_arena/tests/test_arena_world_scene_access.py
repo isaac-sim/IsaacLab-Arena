@@ -79,6 +79,7 @@ def _check_rigid_object_reads_and_local_aabb_cache(
                     root_linear_velocity_w=torch.zeros((2, 3)),
                 ),
             }
+            self.articulations = {}
             self.extras = {}
 
     scene = SceneDouble()
@@ -124,6 +125,35 @@ def _check_rigid_object_reads_and_local_aabb_cache(
     assert geometry_build_calls == ["object", "destination"]
 
 
+def _check_articulation_pose_reads(arena_world_module) -> None:
+    """Check that articulation root poses are read live."""
+    import torch
+
+    class RuntimeBufferDouble:
+        def __init__(self, tensor: torch.Tensor):
+            self.torch = tensor
+
+    T_W_F_initial = torch.tensor([
+        [0.0, 0.0, 0.4, 0.0, 0.0, 0.0, 1.0],
+        [1.0, 0.0, 0.4, 0.0, 0.0, 0.0, 1.0],
+    ])
+    articulation = SimpleNamespace(data=SimpleNamespace(root_pose_w=RuntimeBufferDouble(T_W_F_initial)))
+    scene = SimpleNamespace(
+        num_envs=2,
+        rigid_objects={},
+        articulations={"cabinet": articulation},
+        extras={},
+    )
+    arena_world = arena_world_module.ArenaWorld(scene)
+
+    torch.testing.assert_close(arena_world.get_pose_w("cabinet"), T_W_F_initial)
+
+    T_W_F_moved = T_W_F_initial.clone()
+    T_W_F_moved[:, 2] += 0.1
+    articulation.data.root_pose_w.torch = T_W_F_moved
+    torch.testing.assert_close(arena_world.get_pose_w("cabinet"), T_W_F_moved)
+
+
 def _check_arena_world_reuses_scene_extra_pose_reader(
     arena_world_module,
     scene_access_module,
@@ -135,6 +165,7 @@ def _check_arena_world_reuses_scene_extra_pose_reader(
         def __init__(self):
             self.num_envs = 1
             self.rigid_objects = {}
+            self.articulations = {}
             self.extras = {"reference": object()}
 
     class PoseReaderDouble:
@@ -166,7 +197,7 @@ def _check_arena_world_reuses_scene_extra_pose_reader(
 def _check_arena_world_rejects_unsupported_pose_scene_key(arena_world_module) -> None:
     """Check that a pose query reports ArenaWorld's supported scene categories."""
 
-    scene = SimpleNamespace(rigid_objects={}, extras={})
+    scene = SimpleNamespace(rigid_objects={}, articulations={}, extras={})
     arena_world = arena_world_module.ArenaWorld(scene)
 
     try:
@@ -174,8 +205,8 @@ def _check_arena_world_rejects_unsupported_pose_scene_key(arena_world_module) ->
     except AssertionError as error:
         assert (
             str(error)
-            == "ArenaWorld pose queries require a scene key registered in InteractiveScene.rigid_objects or "
-            "InteractiveScene.extras; 'robot' is registered in neither."
+            == "ArenaWorld pose queries require a scene key registered in InteractiveScene.rigid_objects, "
+            "InteractiveScene.articulations, or InteractiveScene.extras; 'robot' is registered in none of them."
         )
     else:
         raise AssertionError("ArenaWorld accepted an unsupported pose scene key.")
@@ -249,6 +280,7 @@ def _test_arena_world_scene_access(_simulation_app) -> bool:
         scene_access,
         AxisAlignedBoundingBox,
     )
+    _check_articulation_pose_reads(arena_world)
     _check_arena_world_reuses_scene_extra_pose_reader(arena_world, scene_access)
     _check_arena_world_rejects_unsupported_pose_scene_key(arena_world)
     _check_scene_extra_pose_reader_uses_current_frame_view_poses(scene_access)
