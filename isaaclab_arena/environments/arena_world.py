@@ -5,11 +5,9 @@
 
 """Query live Arena scene state and cache derived geometry.
 
-Arena pose and transform names use target-source notation: T_A_B maps points
-from frame B into frame A. Here W is the simulation world. For a rigid object
-or articulation, F is its root-link frame; for a scene extra, F is the selected
-prim's frame. Geometry helpers use P for a USD prim's local frame. Isaac Lab's
-root_pose_w supplies T_W_F for rigid objects and articulations.
+Arena poses and transforms use target-source notation: T_A_B maps points from
+frame B into frame A. W is the simulation world. F is the root-link frame for
+a rigid object or articulation, and the configured prim frame for a scene extra.
 """
 
 from __future__ import annotations
@@ -23,14 +21,7 @@ from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 
 class ArenaWorld:
-    """Provide name-based pose, velocity, and geometry queries.
-
-    Poses are read live for rigid objects, articulations, and scene extras. Root linear velocities are supported for
-    rigid objects only. Local-frame geometry bounds are supported for rigid objects and scene extras; they are
-    computed lazily from the cloned prim hierarchy and cached for the environment lifetime. They remain valid under
-    whole-subtree motion, but not when descendants move relative to frame F. A moving part must therefore have its
-    own supported scene key.
-    """
+    """Provide name-based pose, velocity, and geometry queries."""
 
     def __init__(self, scene: InteractiveScene):
         self._scene = scene
@@ -84,7 +75,10 @@ class ArenaWorld:
         return root_linear_velocity_w
 
     def get_aabb_in_local_frame(self, scene_key: str) -> AxisAlignedBoundingBox:
-        """Return cached geometry bounds expressed in the selected local frame F."""
+        """Return cached rigid-object or scene-extra geometry bounds in local frame F.
+
+        The cache assumes descendants remain fixed relative to F.
+        """
         scene = self._scene
         if scene_key not in self._aabbs_in_local_frame_cache:
             aabb_F = scene_access.compute_spawned_geometry_bounds_in_local_frame(scene, scene_key)
