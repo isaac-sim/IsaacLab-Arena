@@ -3,33 +3,36 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from pathlib import Path
+from __future__ import annotations
 
-from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
+from pathlib import Path
+from typing import TYPE_CHECKING
+
 from isaaclab_arena.evaluation.arena_experiment_config_loader import (
     load_arena_experiment_from_config_file,
     validate_experiment_config_path,
 )
-from isaaclab_arena.evaluation.arena_experiment_result import ArenaExperimentResult, build_arena_run_result_metadata
-from isaaclab_arena.evaluation.arena_run import ArenaRunResult, build_runs_info_table
 from isaaclab_arena.evaluation.experiment_runner_cli import parse_experiment_runner_args
 from isaaclab_arena.evaluation.legacy_experiment_runner import (
     legacy_json_experiment_requires_cameras,
     load_legacy_json_experiment_config,
     run_legacy_json_in_chunks,
 )
-from isaaclab_arena.evaluation.run_execution import build_arena_builder_from_run_cfg, execute_experiment
 from isaaclab_arena.hydra.typed_experiment_yaml_search import typed_experiment_requires_cameras
-from isaaclab_arena.metrics.metrics_logger import MetricsLogger
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
 from isaaclab_arena.video.video_recording import timestamped_run_dir
-from isaaclab_arena.visualization.report import build_report, serve_until_ctrl_c
+
+if TYPE_CHECKING:
+    from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
+    from isaaclab_arena.evaluation.arena_run import ArenaRunResult
 
 
 # TODO(cvolk): Move experiment-level variation inspection out of this CLI entry point.
 # Run orchestration belongs in evaluation; catalogue formatting belongs in variations.
 def list_variations(experiment_cfg: ArenaExperimentCfg) -> None:
     """Print the Hydra-configurable variations for each run's environment."""
+    from isaaclab_arena.evaluation.run_execution import build_arena_builder_from_run_cfg
+
     for run_cfg in experiment_cfg.runs.values():
         arena_builder = build_arena_builder_from_run_cfg(run_cfg)
         print(f"=== Variations for run '{run_cfg.name}' ===", flush=True)
@@ -75,6 +78,8 @@ def _write_arena_experiment_result(
     experiment_output_directory: Path,
 ) -> Path:
     """Combine every Run's metadata and episode results into one Experiment JSON file."""
+    from isaaclab_arena.evaluation.arena_experiment_result import ArenaExperimentResult, build_arena_run_result_metadata
+
     run_results_by_name = {run_result.run_name: run_result for run_result in run_results}
     assert len(run_results_by_name) == len(run_results), "Experiment results must contain each Run exactly once"
     assert set(run_results_by_name) == set(
@@ -141,6 +146,12 @@ def main():
     experiment_output_directory.mkdir(parents=True, exist_ok=True)
 
     with SimulationAppContext(args_cli):
+        from isaaclab_arena.evaluation.arena_experiment_result import ArenaExperimentResult
+        from isaaclab_arena.evaluation.arena_run import build_runs_info_table
+        from isaaclab_arena.evaluation.run_execution import execute_experiment
+        from isaaclab_arena.metrics.metrics_logger import MetricsLogger
+        from isaaclab_arena.visualization.report import build_report, serve_until_ctrl_c
+
         experiment_cfg = load_arena_experiment_from_config_file(
             experiment_config_path,
             device=args_cli.device,

@@ -60,7 +60,6 @@ def test_unknown_hydra_variation_override_fails_with_message():
         "zero_action",
         "--num_steps",
         str(NUM_STEPS),
-        "--headless",
         "pick_and_place_maple_table",
         "--embodiment",
         "droid_abs_joint_pos",

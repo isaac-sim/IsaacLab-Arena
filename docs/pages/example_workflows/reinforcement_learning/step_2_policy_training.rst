@@ -8,13 +8,14 @@ Policy Training
 Training Command
 ^^^^^^^^^^^^^^^^
 
-Training uses IsaacLab's RSL-RL training script directly. The ``--external_callback`` argument
-points to an Arena function that runs before training starts — it reads the ``--task`` argument,
-builds the environment, and registers it with gym so IsaacLab's script can find it by name.
+Training uses Arena's bridge to Isaac Lab's unified training script. The ``--external_callback``
+argument points to an Arena function that reads the ``--task`` argument, builds the environment,
+and registers it with gym before training starts.
 
 .. code-block:: bash
 
-   python submodules/IsaacLab/scripts/reinforcement_learning/rsl_rl/train.py \
+   python isaaclab_arena/scripts/train.py \
+     --rl_library rsl_rl \
      --external_callback isaaclab_arena.environments.isaaclab_interop.environment_registration_callback \
      --task lift_object \
      --rl_training_mode \
@@ -51,7 +52,8 @@ For example, to train with relu activation and a higher learning rate:
 
 .. code-block:: bash
 
-   python submodules/IsaacLab/scripts/reinforcement_learning/rsl_rl/train.py \
+   python isaaclab_arena/scripts/train.py \
+     --rl_library rsl_rl \
      --external_callback isaaclab_arena.environments.isaaclab_interop.environment_registration_callback \
      --task lift_object \
      --rl_training_mode \
@@ -71,7 +73,8 @@ are used automatically.
 
 .. code-block:: bash
 
-   python submodules/IsaacLab/scripts/reinforcement_learning/rsl_rl/train.py \
+   python isaaclab_arena/scripts/train.py \
+     --rl_library rsl_rl \
      --external_callback isaaclab_arena.environments.isaaclab_interop.environment_registration_callback \
      --task lift_object \
      --rl_training_mode \
@@ -134,7 +137,8 @@ Add ``--distributed`` to spread environments across all available GPUs:
 
 .. code-block:: bash
 
-   python submodules/IsaacLab/scripts/reinforcement_learning/rsl_rl/train.py \
+   python isaaclab_arena/scripts/train.py \
+     --rl_library rsl_rl \
      --external_callback isaaclab_arena.environments.isaaclab_interop.environment_registration_callback \
      --task lift_object \
      --rl_training_mode \

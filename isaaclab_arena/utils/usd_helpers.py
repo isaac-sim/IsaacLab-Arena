@@ -217,12 +217,12 @@ def compute_local_bounding_box_from_usd(
         default_prim = stage.GetPseudoRoot()
 
     if prim_path is None:
-        bbox = compute_local_bounding_box_from_prim(stage, default_prim.GetPath().pathString)
+        bbox = compute_world_aligned_bounding_box_relative_to_prim_origin(stage, default_prim.GetPath().pathString)
     else:
         # Sub-prim bounds expressed in the default-prim (root) frame.
         sub_prim = stage.GetPrimAtPath(prim_path)
         assert sub_prim, f"No prim found at path {prim_path}"
-        bbox = compute_local_bounding_box_from_prim(stage, prim_path)
+        bbox = compute_world_aligned_bounding_box_relative_to_prim_origin(stage, prim_path)
         time_code = Usd.TimeCode.Default()
         sub_world = UsdGeom.Xformable(sub_prim).ComputeLocalToWorldTransform(time_code).ExtractTranslation()
         root_world = UsdGeom.Xformable(default_prim).ComputeLocalToWorldTransform(time_code).ExtractTranslation()
@@ -241,22 +241,21 @@ def compute_local_bounding_box_from_usd(
     return bbox
 
 
-def compute_local_bounding_box_from_prim(
+def compute_world_aligned_bounding_box_relative_to_prim_origin(
     stage: Usd.Stage,
     prim_path: str,
 ) -> AxisAlignedBoundingBox:
-    """Compute the local bounding box of a specific prim (relative to prim's transform origin).
+    """Compute a world-aligned bounding box relative to a prim's world position.
+
+    The returned coordinates use the USD world axes, but their origin is shifted
+    to the prim's world position. The prim's rotation remains in the extents.
 
     Args:
         stage: The USD stage containing the prim.
         prim_path: Path to the prim to compute the bounding box for.
 
     Returns:
-        AxisAlignedBoundingBox containing the local min and max points relative to the
-        prim's own origin.
-
-    Raises:
-        ValueError: If the prim is not found at the given path.
+        World-aligned bounds measured from the prim's world position.
     """
     prim = stage.GetPrimAtPath(prim_path)
     if not prim:
@@ -274,23 +273,30 @@ def compute_local_bounding_box_from_prim(
     # Get the target prim's world position to compute local bounding box
     prim_xformable = UsdGeom.Xformable(prim)
     prim_world_transform = prim_xformable.ComputeLocalToWorldTransform(Usd.TimeCode.Default())
-    prim_world_pos = prim_world_transform.ExtractTranslation()
+    prim_world_position = prim_world_transform.ExtractTranslation()
 
-    # Compute local bounding box by subtracting the prim's own world position
-    local_min = Gf.Vec3d(
-        world_min[0] - prim_world_pos[0],
-        world_min[1] - prim_world_pos[1],
-        world_min[2] - prim_world_pos[2],
+    min_point_from_prim_origin = Gf.Vec3d(
+        world_min[0] - prim_world_position[0],
+        world_min[1] - prim_world_position[1],
+        world_min[2] - prim_world_position[2],
     )
-    local_max = Gf.Vec3d(
-        world_max[0] - prim_world_pos[0],
-        world_max[1] - prim_world_pos[1],
-        world_max[2] - prim_world_pos[2],
+    max_point_from_prim_origin = Gf.Vec3d(
+        world_max[0] - prim_world_position[0],
+        world_max[1] - prim_world_position[1],
+        world_max[2] - prim_world_position[2],
     )
 
     return AxisAlignedBoundingBox(
-        min_point=(local_min[0], local_min[1], local_min[2]),
-        max_point=(local_max[0], local_max[1], local_max[2]),
+        min_point=(
+            min_point_from_prim_origin[0],
+            min_point_from_prim_origin[1],
+            min_point_from_prim_origin[2],
+        ),
+        max_point=(
+            max_point_from_prim_origin[0],
+            max_point_from_prim_origin[1],
+            max_point_from_prim_origin[2],
+        ),
     )
 
 

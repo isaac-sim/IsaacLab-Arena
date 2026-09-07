@@ -32,6 +32,7 @@ class GalileoPickAndPlaceEnvironment(ArenaEnvironmentFactory[GalileoPickAndPlace
 
     def build(self, cfg: GalileoPickAndPlaceEnvironmentCfg) -> IsaacLabArenaEnvironment:
         """Build the environment from its typed configuration."""
+        from isaaclab_arena.assets.object_base import ObjectType
         from isaaclab_arena.assets.object_reference import ObjectReference
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
         from isaaclab_arena.scene.scene import Scene
@@ -65,6 +66,7 @@ class GalileoPickAndPlaceEnvironment(ArenaEnvironmentFactory[GalileoPickAndPlace
             name="destination_location",
             prim_path="{ENV_REGEX_NS}/galileo/BackgroundAssets/bins/small_bin_grid_01/lid",
             parent_asset=background,
+            object_type=ObjectType.RIGID,
         )
 
         scene = Scene(assets=[background, pick_up_object, destination_location])

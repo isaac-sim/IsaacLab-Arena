@@ -60,6 +60,22 @@ Lint and format tooling (`pre-commit` and the hooks it runs — black, flake8, i
 
 ## Conventions
 
+### Coordinate-frame naming
+
+Use active target-source notation for Arena-owned poses and transforms:
+
+- `T_A_B` maps points from frame `B` into frame `A`.
+- `T_A_B = (t_A_B, q_A_B)` consists of translation `t_A_B` and rotation
+  `q_A_B`, with the rotation represented as a quaternion.
+- For example, `T_W_O` maps points from object frame `O` into world frame `W`.
+- Transform composition follows `T_C_A = T_C_B * T_B_A`.
+- Frame letters are contextual. Define each near its first use when its meaning is not obvious.
+- Preserve external API names such as Isaac Lab's `root_pose_w`. Its lowercase `_w`, `_e`, and `_b` suffixes
+  denote the simulation world, local environment, and robot base frames, respectively.
+- A lowercase API suffix names only the frame in which a quantity is expressed. When both source and target
+  frames matter in Arena calculations, bind the value to an explicit transform name, for example
+  `T_W_O = object.data.root_pose_w`.
+
 ### Wrapped Environment
 
 `ArenaEnvBuilder.make_registered()` returns the gym-wrapped env (not the base env). Use `env.unwrapped` explicitly to access Isaac Lab-specific attributes (`cfg`, `device`, `step_dt`, etc.) that are not forwarded by gymnasium's `OrderEnforcing` wrapper:

@@ -6,6 +6,8 @@
 import copy
 import torch
 
+from isaaclab.managers import TerminationTermCfg
+
 from isaaclab_arena.tasks.composite_task_base import CompositeTaskBase
 from isaaclab_arena.tasks.task_base import TaskBase
 
@@ -25,35 +27,38 @@ class SequentialTaskBase(CompositeTaskBase):
     @staticmethod
     def composite_task_success_func(
         env,
-        subtasks: list[TaskBase],
+        subtask_success_cfgs: list[TerminationTermCfg],
         desired_subtask_success_state: list[bool | None] | None,
     ) -> torch.Tensor:
         """Sequential task composite success function.
 
         Args:
             env: The environment instance.
-            subtasks: List of subtasks that compose this sequential task.
+            subtask_success_cfgs: Success configurations whose class-based functions have been
+                constructed by the manager.
             desired_subtask_success_state: (Optional) Precise success state for each subtask during the final time step.
                 Can be used to enforce a specific current state for each subtask at the end of the episode.
 
         Returns:
             A bool tensor of shape (num_envs,) indicating composite success per env.
         """
+        num_subtasks = len(subtask_success_cfgs)
+
         # Initialize each env's subtask success state to False if not already initialized
         if not hasattr(env, "_subtask_ever_succeeded"):
-            env._subtask_ever_succeeded = [[False for _ in subtasks] for _ in range(env.num_envs)]
+            env._subtask_ever_succeeded = [[False for _ in range(num_subtasks)] for _ in range(env.num_envs)]
         # Initialize each env's current subtask index (state machine) to 0 if not already initialized
         if not hasattr(env, "_current_subtask_idx"):
             env._current_subtask_idx = [0 for _ in range(env.num_envs)]
 
         # Determine which subtasks need their success function evaluated.
         if desired_subtask_success_state is not None:
-            subtasks_to_evaluate = range(len(subtasks))
+            subtasks_to_evaluate = range(num_subtasks)
         else:
             subtasks_to_evaluate = sorted(set(env._current_subtask_idx))
 
         subtask_currently_succeeding = CompositeTaskBase._evaluate_subtask_successes(
-            env, subtasks, subtasks_to_evaluate
+            env, subtask_success_cfgs, subtasks_to_evaluate
         )
 
         # Advance the state machine per env using the precomputed active-subtask result.
@@ -61,7 +66,7 @@ class SequentialTaskBase(CompositeTaskBase):
             current_subtask_idx = env._current_subtask_idx[env_idx]
             if subtask_currently_succeeding[env_idx][current_subtask_idx]:
                 env._subtask_ever_succeeded[env_idx][current_subtask_idx] = True
-                if current_subtask_idx < len(subtasks) - 1:
+                if current_subtask_idx < num_subtasks - 1:
                     env._current_subtask_idx[env_idx] += 1
 
         # Compute composite task success state for each env.

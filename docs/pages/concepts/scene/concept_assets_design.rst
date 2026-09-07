@@ -58,8 +58,8 @@ Backgrounds
 
 Backgrounds are registered as ``BASE`` assets, but their composed USDs may contain
 dynamic rigid bodies and articulations whose states can change as they interact with
-the robot or other objects. Set ``reset_nested_physics=True`` on a ``Background`` to
-reset these nested physics roots.
+the robot or other objects. Arena resets these nested physics roots by default. Set
+``reset_nested_physics=False`` on a ``Background`` to opt out.
 
 Arena registers the roots as private Isaac Lab reset views. After simulation and RTX
 initialization, Arena creates the views and records one environment-local pose and

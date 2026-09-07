@@ -129,10 +129,8 @@ class TableTopSortCubesEnvironment(ArenaEnvironmentFactory[TableTopSortCubesEnvi
             pick_up_object_list=[pick_up_object_1, pick_up_object_2],
             destination_location_list=[destination_location_1, destination_location_2],
             background_scene=background,
+            force_threshold=0.1,
         )
-
-        # add custom force threshold for success termination
-        task.termination_cfg.success.params["force_threshold"] = 0.1
 
         isaaclab_arena_environment = IsaacLabArenaEnvironment(
             name=self.name,

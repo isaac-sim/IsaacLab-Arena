@@ -1,6 +1,6 @@
 ---
 name: setup-arena
-description: Sets up and verifies a runnable Isaac Lab-Arena checkout using the supported native uv source, native uv wheel, or Docker route. Use when installing Arena, preparing a fresh checkout to run examples or evaluations, choosing between uv and Docker, starting or attaching to the Arena container, mounting datasets/models/evaluation outputs, enabling cuRobo, or checking whether an installation is ready. Do not use for contributor hooks, forced image rebuilds, pytest regression testing, or experiment configuration.
+description: Sets up and verifies a runnable Isaac Lab-Arena checkout using the supported native uv or Docker route. Use when installing Arena, preparing a fresh checkout to run examples or evaluations, choosing between uv and Docker, starting or attaching to the Arena container, mounting datasets/models/evaluation outputs, enabling cuRobo, or checking whether an installation is ready. Do not use for contributor hooks, forced image rebuilds, pytest regression testing, or experiment configuration.
 allowed-tools: Read Grep Glob Skill Bash(git rev-parse *) Bash(git submodule *) Bash(head *) Bash(id -un) Bash(test -d *) Bash(test -x *) Bash(uv --version) Bash(uv sync *) Bash(nvidia-smi *) Bash(.venv/bin/python *) Bash(./docker/run_docker.sh *) Bash(docker exec *) Bash(docker images *) Bash(docker inspect *) Bash(docker ps *) Bash(docker stop isaaclab_arena-*)
 ---
 
@@ -21,12 +21,11 @@ supported route:
 
 | Route | Use it when |
 |---|---|
-| Native uv, Isaac Lab from source | Default when `uv` is available; supports evaluation, imitation learning, reinforcement learning, and agentic environment generation. |
-| Native uv, Isaac Lab wheel | Use only when the user prefers the wheel and needs evaluation or agentic environment generation; it does not support the Isaac Lab RL/IL scripts. |
+| Native uv | Default when `uv` is available; supports evaluation, imitation learning, reinforcement learning, and agentic environment generation. |
 | Docker | Use when requested, when the existing workflow is container-based, or when cuRobo reachability validation is required. |
 
-Do not silently switch routes. The two native flavors share `.venv` and replace one another. Native
-uv does not provide the optional cuRobo package; use Docker with `-c` for `ik_reachable` validation.
+Do not silently switch routes. Native uv does not provide the optional cuRobo package; use Docker
+with `-c` for `ik_reachable` validation.
 
 ## Preflight and confirmation
 
@@ -47,21 +46,14 @@ approval.
 
 ## Native uv route
 
-For the recommended source flavor:
+Initialize the source submodules and sync the environment:
 
 ```bash
 git submodule update --init --recursive
 uv sync --extra dev
 ```
 
-For the wheel flavor:
-
-```bash
-uv sync --no-default-groups --group isaaclab-from-wheel --extra dev
-```
-
-Use `.venv/bin/python` for non-interactive commands. In the wheel flavor, do not use a bare
-`uv run`; it resyncs the environment to the default source flavor.
+Use `.venv/bin/python` for non-interactive commands.
 
 Accept the Isaac Sim EULA for launch commands:
 

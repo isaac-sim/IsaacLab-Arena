@@ -16,8 +16,7 @@ modelling during dexterous manipulation.
    **Newton Physics — Experimental**
 
    All Arena environments can switch to Newton physics by passing
-   ``--presets newton`` on the command line (mirrors Isaac Lab's
-   ``presets=newton`` Hydra override).  However, **Newton support is
+   ``--presets newton`` on the command line. However, **Newton support is
    experimental** — only the ``dexsuite_lift`` example has been verified to
    work with Newton under the current simulation settings.  Other
    environments may require additional tuning of solver parameters and physics parameters
@@ -53,7 +52,7 @@ body states, object point cloud, and 5-step observation history.
    * - **Objects**
      - Procedural lift cuboid (``procedural_cube``)
    * - **Policy**
-     - RSL-RL PPO (``DexsuiteKukaAllegroPPORunnerCfg``)
+     - RSL-RL PPO (``KukaAllegroPPORunnerCfg``)
    * - **Training Method**
      - Reinforcement Learning (on-policy PPO) — trained in **Isaac Lab**
    * - **Physics Backend**
@@ -70,7 +69,7 @@ body states, object point cloud, and 5-step observation history.
 .. note::
 
    The physics backend defaults to **PhysX**. Pass ``--presets newton`` to
-   ``policy_runner.py`` (Arena) or ``presets=newton`` to ``train.py`` (Isaac Lab)
+   ``policy_runner.py`` (Arena) or ``physics=newton_mjwarp`` to ``train.py`` (Isaac Lab)
    to switch to **Newton** (MuJoCo-Warp solver), which provides more physically
    accurate contacts for dexterous manipulation at the cost of slower simulation.
 

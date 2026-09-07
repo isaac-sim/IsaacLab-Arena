@@ -104,14 +104,12 @@ Generate the dataset:
      --input_file $DATASET_DIR/arena_gr1_manipulation_dataset_annotated.hdf5 \
      --output_file $DATASET_DIR/arena_gr1_manipulation_dataset_generated.hdf5 \
      --enable_cameras \
-     --headless \
      --mimic \
      --external_callback isaaclab_arena.environments.isaaclab_interop.environment_registration_callback \
      --task gr1_open_microwave
 
 Data generation takes 30-60 minutes depending on hardware.
-If you want to visualize the data generation process, remove ``--headless``
-and add ``--viz kit``.
+To visualize the data generation process, add ``--viz kit``.
 
 
 Step 3: Validate Generated Data (Optional)

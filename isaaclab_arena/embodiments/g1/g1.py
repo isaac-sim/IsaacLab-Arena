@@ -11,7 +11,7 @@ from dataclasses import MISSING
 import isaaclab.envs.mdp as base_mdp
 import isaaclab.sim as sim_utils  # noqa: F401
 import isaaclab.utils.math as PoseUtils
-import isaaclab_tasks.manager_based.manipulation.pick_place.mdp as mdp
+import isaaclab_tasks.contrib.pick_place.mdp as mdp
 import warp as wp
 from isaaclab.actuators import IdealPDActuatorCfg
 from isaaclab.assets.articulation.articulation_cfg import ArticulationCfg

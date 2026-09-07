@@ -558,12 +558,17 @@ def _test_gating_sequential_task_end_to_end(simulation_app) -> bool:
         sm.step(env, step_index=env.episode_length_buf)
         assert sm.get_state()[0].progress_objectives["a"].is_complete
         assert not sm.get_state()[0].progress_objectives["b"].is_complete
+        # overall_score is the weighted mean of the two objectives (a=1.0, b=0.0) -> 0.5, not the
+        # un-normalized sum (1.0).
+        assert abs(sm.get_state()[0].overall_score - 0.5) < SCORE_TOL
 
         # Advances to subtask 1 so pred_b is now active.
         env._current_subtask_idx = [1]
         _advance_step(env)
         sm.step(env, step_index=env.episode_length_buf)
         assert sm.get_state()[0].progress_objectives["b"].is_complete
+        # Both objectives complete now -> normalized overall_score reaches 1.0.
+        assert abs(sm.get_state()[0].overall_score - 1.0) < SCORE_TOL
     except Exception as e:
         print(f"Error: {e}")
         traceback.print_exc()

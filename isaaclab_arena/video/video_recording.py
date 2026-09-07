@@ -8,9 +8,6 @@ from __future__ import annotations
 import dataclasses
 import datetime
 import os
-from gymnasium.wrappers import RecordVideo
-
-from isaaclab_arena.video.camera_observation_video_recorder import CameraObsVideoRecorder
 
 
 @dataclasses.dataclass
@@ -85,6 +82,8 @@ def wrap_env_for_video(
 
     # Record the kit viewport (via env.render()).
     if video_cfg.record_viewport_video:
+        from gymnasium.wrappers import RecordVideo
+
         video_length = _resolve_video_length(env, num_steps, num_episodes)
         env = RecordVideo(
             env,
@@ -98,6 +97,8 @@ def wrap_env_for_video(
     # Record the embodiment-mounted cameras (from obs["camera_obs"]),
     # flushed at each episode reset rather than after a fixed number of steps.
     if video_cfg.record_camera_video:
+        from isaaclab_arena.video.camera_observation_video_recorder import CameraObsVideoRecorder
+
         env = CameraObsVideoRecorder(
             env,
             video_folder=video_cfg.video_base_dir,

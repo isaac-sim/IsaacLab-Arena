@@ -70,6 +70,15 @@ def add_isaaclab_arena_cli_args(parser: argparse.ArgumentParser) -> None:
         "Isaac Lab Arena Arguments", "Arguments specific to Isaac Lab Arena framework"
     )
 
+    # Arena builds its environment after AppLauncher starts, so this flag both selects
+    # optional environment cameras and enables camera rendering during app startup.
+    arena_group.add_argument(
+        "--enable_cameras",
+        action="store_true",
+        default=False,
+        help="Add the environment's camera sensors and observations.",
+    )
+
     # TODO(cvolk, 2026-07-06): [typed-config-migration] Delete these manual builder flags after runner scripts
     # receive ArenaEnvBuilderCfg directly. The adapter tests keep their defaults aligned
     # with ArenaEnvBuilderCfg during the transition.
@@ -90,11 +99,7 @@ def add_isaaclab_arena_cli_args(parser: argparse.ArgumentParser) -> None:
         "--presets",
         type=str,
         default=None,
-        help=(
-            "Physics backend preset: 'physx' or 'newton'. "
-            "Mirrors Isaac Lab's ``presets=newton`` Hydra syntax. "
-            "When not set, each environment uses its own default."
-        ),
+        help="Arena physics backend preset: 'physx' or 'newton'. When not set, each environment uses its own default.",
     )
     arena_group.add_argument(
         "--resolve_on_reset",

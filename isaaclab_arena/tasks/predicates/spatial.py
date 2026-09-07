@@ -3,18 +3,114 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+"""Stateless spatial predicates and geometric checks."""
+
 from __future__ import annotations
 
+import math
 import torch
+from typing import TYPE_CHECKING
 
 import warp as wp
 from isaaclab.assets import RigidObject
 from isaaclab.envs import ManagerBasedRLEnv
 from isaaclab.managers import SceneEntityCfg
 from isaaclab.sensors.contact_sensor.contact_sensor import ContactSensor
+from isaaclab.utils.math import quat_apply, quat_apply_inverse
 
 from isaaclab_arena.tasks.predicates.object_settling import get_object_initial_rest_state
 from isaaclab_arena.tasks.predicates.predicate_utils import get_env, get_root_lin_vel_w, get_root_pos_w, select
+from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+
+if TYPE_CHECKING:
+    from isaaclab_arena.environments.isaaclab_arena_manager_based_env import IsaacLabArenaManagerBasedRLEnv
+
+
+def object_bounds_center_over_destination(
+    T_W_O: torch.Tensor,
+    object_bounds_center_O: torch.Tensor,
+    T_W_D: torch.Tensor,
+    destination_bounds_D: AxisAlignedBoundingBox,
+) -> torch.Tensor:
+    """Check whether an object's bounds center is over a destination.
+
+    The check requires the object's bounds center to be inside the destination's
+    X/Y footprint and above its lower Z bound. The upper Z bound is intentionally
+    ignored so the same check works for open containers and supporting surfaces.
+    This is a center-point test, not full-object containment.
+
+    Args:
+        T_W_O: Object poses mapping points from object frame ``O`` into world
+            frame ``W``. Shape is ``(num_envs, 7)`` with quaternion order
+            ``(x, y, z, w)``.
+        object_bounds_center_O: Center of the object's bounds expressed in
+            frame ``O``. Shape is ``(num_envs, 3)``.
+        T_W_D: Destination poses mapping points from destination frame ``D``
+            into world frame ``W``. Shape is ``(num_envs, 7)`` with quaternion
+            order ``(x, y, z, w)``.
+        destination_bounds_D: Destination bounds aligned with frame ``D`` and
+            measured from its origin.
+
+    Returns:
+        One Boolean result per environment.
+    """
+    t_W_O, q_W_O = T_W_O[:, :3], T_W_O[:, 3:]
+    t_W_D, q_W_D = T_W_D[:, :3], T_W_D[:, 3:]
+
+    object_bounds_center_W = t_W_O + quat_apply(q_W_O, object_bounds_center_O)
+    object_bounds_center_D = quat_apply_inverse(
+        q_W_D,
+        object_bounds_center_W - t_W_D,
+    )
+    center_inside_horizontal_bounds = (
+        (object_bounds_center_D[:, :2] >= destination_bounds_D.min_point[:, :2])
+        & (object_bounds_center_D[:, :2] <= destination_bounds_D.max_point[:, :2])
+    ).all(dim=-1)
+    center_above_destination_bottom = object_bounds_center_D[:, 2] >= destination_bounds_D.min_point[:, 2]
+    return center_inside_horizontal_bounds & center_above_destination_bottom
+
+
+def contact_force_is_upward_support(
+    contact_force_w: torch.Tensor,
+    force_threshold: float,
+    support_cone_half_angle_rad: float,
+) -> torch.Tensor:
+    """Check whether contact forces point upward strongly enough.
+
+    Args:
+        contact_force_w: World-frame force vectors with shape
+            ``(num_envs, 3)`` in newtons.
+        force_threshold: Minimum force magnitude in newtons.
+        support_cone_half_angle_rad: Maximum angle in radians between the force
+            vector and world ``+Z``. Zero accepts only a straight-up force.
+
+    Returns:
+        One Boolean result per environment.
+    """
+    assert (
+        contact_force_w.ndim == 2 and contact_force_w.shape[1] == 3
+    ), f"contact_force_w must have shape (num_envs, 3), got {tuple(contact_force_w.shape)}."
+    assert force_threshold >= 0.0, f"force_threshold must be non-negative, got {force_threshold}."
+    assert (
+        0.0 <= support_cone_half_angle_rad < math.pi / 2
+    ), f"support_cone_half_angle_rad must be in [0, pi / 2), got {support_cone_half_angle_rad}."
+
+    force_magnitude = torch.linalg.vector_norm(contact_force_w, dim=-1)
+    upward_force = contact_force_w[:, 2]
+    minimum_upward_fraction = math.cos(support_cone_half_angle_rad)
+    return (
+        (force_magnitude >= force_threshold)
+        & (upward_force > 0.0)
+        & (upward_force >= force_magnitude * minimum_upward_fraction)
+    )
+
+
+def object_is_moving_slowly(
+    object_linear_velocity_w: torch.Tensor,
+    velocity_threshold: float,
+) -> torch.Tensor:
+    """Check whether object linear speed is below the threshold."""
+    return torch.linalg.vector_norm(object_linear_velocity_w, dim=-1) < velocity_threshold
 
 
 def object_is_above_height(
@@ -97,68 +193,60 @@ def objects_in_proximity(
 
 
 def object_on_destination(
-    env: ManagerBasedRLEnv,
-    object_cfg: SceneEntityCfg = SceneEntityCfg("pick_up_object"),
-    contact_sensor_cfg: SceneEntityCfg = SceneEntityCfg("pick_up_object_contact_sensor"),
-    force_threshold: float = 1.0,
-    velocity_threshold: float = 0.5,
+    env: IsaacLabArenaManagerBasedRLEnv,
+    object_cfg: SceneEntityCfg,
+    destination_cfg: SceneEntityCfg,
+    contact_sensor_cfg: SceneEntityCfg,
+    force_threshold: float,
+    velocity_threshold: float,
+    support_cone_half_angle_rad: float = math.pi / 4,
 ) -> torch.Tensor:
-    """Checks if an object is in contact with it's destination location via a contact sensor.
+    """Check whether an object is stably placed on its destination.
 
-    Returns True when the object is in contact with destination above a force threshold
-    and below a velocity threshold.
+    The object's spawned-bounds center must be over the destination footprint
+    and above its bottom. The destination must exert an upward support force,
+    and the object's linear speed must be below the configured threshold.
+
+    Args:
+        env: The wrapped or unwrapped manager-based environment.
+        object_cfg: The rigid object being placed.
+        destination_cfg: The rigid object or scene entry receiving the object.
+        contact_sensor_cfg: The object's contact sensor filtered to the destination.
+        force_threshold: Minimum upward support force in newtons.
+        velocity_threshold: Maximum object linear speed in meters per second.
+        support_cone_half_angle_rad: Maximum angle in radians from world ``+Z`` for the support force.
+
+    Returns:
+        One Boolean result per environment.
     """
 
     unwrapped_env = get_env(env)
-    object: RigidObject = unwrapped_env.scene[object_cfg.name]
-    sensor: ContactSensor = unwrapped_env.scene[contact_sensor_cfg.name]
-
-    # force_matrix_w shape is (N, B, M, 3), where N is the number of sensors, B is number of bodies in each sensor
-    # and ``M`` is the number of filtered bodies.
-    # We assume B = 1 and M = 1
-    assert sensor.data.force_matrix_w.shape[2] == 1
-    assert sensor.data.force_matrix_w.shape[1] == 1
-    # NOTE(alexmillane, 2025-08-04): We expect the binary flags to have shape (N, )
-    # where N is the number of envs.
-    force_matrix_norm = torch.norm(wp.to_torch(sensor.data.force_matrix_w), dim=-1).reshape(-1)
-    force_above_threshold = force_matrix_norm > force_threshold
-
-    velocity_w = wp.to_torch(object.data.root_lin_vel_w)
-    velocity_w_norm = torch.norm(velocity_w, dim=-1)
-    velocity_below_threshold = velocity_w_norm < velocity_threshold
-
-    condition_met = torch.logical_and(force_above_threshold, velocity_below_threshold)
-
-    return condition_met
-
-
-def objects_on_destinations(
-    env: ManagerBasedRLEnv,
-    object_cfg_list: list[SceneEntityCfg] = [SceneEntityCfg("pick_up_object")],
-    contact_sensor_cfg_list: list[SceneEntityCfg] = [SceneEntityCfg("pick_up_object_contact_sensor")],
-    force_threshold: float = 1.0,
-    velocity_threshold: float = 0.5,
-) -> torch.Tensor:
-    """Multi-object version of `object_on_destination`.
-
-    Returns True only when ALL objects in the list satisfy the destination condition.
-    See `object_on_destination` for details on the single-object logic.
-    """
-
-    assert len(object_cfg_list) == len(contact_sensor_cfg_list), (
-        "object_cfg_list and contact_sensor_cfg_list must have equal length, got "
-        f"{len(object_cfg_list)} objects and {len(contact_sensor_cfg_list)} sensors"
+    arena_world = unwrapped_env.arena_world
+    T_W_O = arena_world.get_pose_w(object_cfg.name)
+    T_W_D = arena_world.get_pose_w(destination_cfg.name)
+    object_center_over_destination = object_bounds_center_over_destination(
+        T_W_O=T_W_O,
+        object_bounds_center_O=arena_world.get_aabb_in_local_frame(object_cfg.name).center,
+        T_W_D=T_W_D,
+        destination_bounds_D=arena_world.get_aabb_in_local_frame(destination_cfg.name),
     )
 
-    unwrapped_env = get_env(env)
-    condition_met = torch.ones((unwrapped_env.num_envs), device=unwrapped_env.device, dtype=torch.bool)
-    for object_cfg, contact_sensor_cfg in zip(object_cfg_list, contact_sensor_cfg_list):
-        single_condition = object_on_destination(
-            env=env,
-            object_cfg=object_cfg,
-            contact_sensor_cfg=contact_sensor_cfg,
-            force_threshold=force_threshold,
-            velocity_threshold=velocity_threshold,
-        )
-        condition_met = torch.logical_and(condition_met, single_condition)
-    return condition_met
+    contact_sensor: ContactSensor = unwrapped_env.scene[contact_sensor_cfg.name]
+    force_matrix_w = contact_sensor.data.force_matrix_w
+    assert force_matrix_w is not None, f"Contact sensor '{contact_sensor_cfg.name}' has no filtered force matrix."
+    force_matrix_w = force_matrix_w.torch
+    assert force_matrix_w.shape == (unwrapped_env.num_envs, 1, 1, 3), (
+        f"Contact sensor '{contact_sensor_cfg.name}' must provide one sensed body and one filtered body; "
+        f"got force shape {tuple(force_matrix_w.shape)}."
+    )
+    # The two zeros select the sensor's single sensed body and single filtered destination body.
+    support_force_on_object_w = force_matrix_w[:, 0, 0, :]
+    destination_provides_upward_support = contact_force_is_upward_support(
+        contact_force_w=support_force_on_object_w,
+        force_threshold=force_threshold,
+        support_cone_half_angle_rad=support_cone_half_angle_rad,
+    )
+
+    object_root_linear_velocity_w = arena_world.get_root_linear_velocity_w(object_cfg.name)
+    object_moves_slowly = object_is_moving_slowly(object_root_linear_velocity_w, velocity_threshold)
+    return object_center_over_destination & destination_provides_upward_support & object_moves_slowly

@@ -3,21 +3,12 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Guard that Arena's explicit dependency pins stay in step with the Isaac Lab submodule.
+"""Guard Arena's source dependency wiring against Isaac Lab submodule drift.
 
-The torch stack is not checked here: isaacsim-core hard-pins it (via the beta-2
-wheel), so uv's resolver already fails ``uv lock`` on any mismatch. ``daqp`` is
-the one pin Arena chooses freely -- the isaaclab wheel only declares it for ARM,
-so the Docker build and the native uv group install it explicitly on x86_64 --
-which is why it needs an explicit drift guard against the submodule.
-
-The ``tinyobjloader`` and ``mujoco-usd-converter`` constraints have no submodule
-counterpart to drift from: they are transitive Isaac Sim dependencies that
-upstream leaves unpinned, so Arena's constraint is itself the source of truth.
-
-TODO(alexmillane, 2026.07.17): Remove after upgrade to Isaac Lab 3.0 GA which
-correctly declares its pinned dependencies, obviating the need for pinning in
-Arena.
+Arena repeats a small set of upstream uv overrides because nested uv projects
+do not contribute their tool configuration to the root lock. The remaining
+Arena-only constraints cover transitive Isaac Sim dependencies whose upstream
+requirements are intentionally broad.
 """
 
 import re
@@ -26,7 +17,6 @@ from pathlib import Path
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _ARENA_PYPROJECT = _REPO_ROOT / "pyproject.toml"
-_ISAACLAB_SETUP = _REPO_ROOT / "submodules/IsaacLab/source/isaaclab/setup.py"
 _ISAACLAB_PYPROJECT = _REPO_ROOT / "submodules/IsaacLab/pyproject.toml"
 
 
@@ -35,16 +25,6 @@ def _requirement_name(requirement: str) -> str:
     match = re.match(r"[A-Za-z0-9._-]+", requirement)
     assert match is not None, f"cannot parse requirement {requirement!r}"
     return match.group(0).lower().replace("_", "-")
-
-
-def _arena_pin(package: str) -> str:
-    """Return the version Arena pins ``package`` to in the isaaclab-from-wheel dependency group."""
-    groups = tomllib.loads(_ARENA_PYPROJECT.read_text())["dependency-groups"]["isaaclab-from-wheel"]
-    # Skip non-string entries such as PEP 735 include-group tables.
-    matches = [re.fullmatch(rf"{package}==(.+)", requirement) for requirement in groups if isinstance(requirement, str)]
-    versions = [match.group(1) for match in matches if match]
-    assert len(versions) == 1, f"expected exactly one {package} pin in the isaaclab-from-wheel group, found {versions}"
-    return versions[0]
 
 
 def _arena_constraint(package: str) -> str:
@@ -56,14 +36,35 @@ def _arena_constraint(package: str) -> str:
 
 
 def _isaaclab_pin(package: str) -> str:
-    """Return the version the Isaac Lab submodule's setup.py pins ``package`` to."""
-    match = re.search(rf"{package}==([\d.]+)", _ISAACLAB_SETUP.read_text())
-    assert match is not None, f"no {package} pin found in {_ISAACLAB_SETUP}"
+    """Return the version the Isaac Lab development project pins ``package`` to."""
+    dependencies = tomllib.loads(_ISAACLAB_PYPROJECT.read_text())["project"]["dependencies"]
+    requirements = [requirement for requirement in dependencies if _requirement_name(requirement) == package]
+    assert len(requirements) == 1, f"expected one {package} requirement in {_ISAACLAB_PYPROJECT}, found {requirements}"
+    match = re.search(r"==([\d.]+)", requirements[0])
+    assert match is not None, f"no exact {package} pin found in {_ISAACLAB_PYPROJECT}"
     return match.group(1)
 
 
-def test_daqp_pin_matches_isaaclab_submodule():
-    assert _arena_pin("daqp") == _isaaclab_pin("daqp")
+def test_isaaclab_uv_overrides_match_submodule():
+    """Arena mirrors the source checkout's backend and torch overrides exactly."""
+    packages = {
+        "mujoco",
+        "mujoco-warp",
+        "newton",
+        "newton-usd-schemas",
+        "torch",
+        "torchaudio",
+        "torchvision",
+        "typing-extensions",
+    }
+    arena_overrides = tomllib.loads(_ARENA_PYPROJECT.read_text())["tool"]["uv"]["override-dependencies"]
+    isaaclab_overrides = tomllib.loads(_ISAACLAB_PYPROJECT.read_text())["tool"]["uv"]["override-dependencies"]
+    arena_by_package = {_requirement_name(requirement): requirement for requirement in arena_overrides}
+    isaaclab_by_package = {_requirement_name(requirement): requirement for requirement in isaaclab_overrides}
+    assert {package: arena_by_package[package] for package in packages} == {
+        package: isaaclab_by_package[package] for package in packages
+    }
+    assert arena_by_package["warp-lang"] == f"warp-lang=={_isaaclab_pin('warp-lang')}"
 
 
 def test_pin_pink_constraint_matches_isaaclab_submodule():
@@ -72,57 +73,51 @@ def test_pin_pink_constraint_matches_isaaclab_submodule():
 
 def test_pyglet_constraint_matches_isaaclab_submodule():
     """The submodule declares ``pyglet>=2.1.6,<3``; Arena constrains only the upper bound."""
-    match = re.search(r"\"pyglet[^\"]*?(<[\d.]+)\"", _ISAACLAB_SETUP.read_text())
-    assert match is not None, f"no pyglet upper bound found in {_ISAACLAB_SETUP}"
+    dependencies = tomllib.loads(_ISAACLAB_PYPROJECT.read_text())["project"]["dependencies"]
+    requirements = [requirement for requirement in dependencies if _requirement_name(requirement) == "pyglet"]
+    assert len(requirements) == 1, f"expected one pyglet requirement in {_ISAACLAB_PYPROJECT}, found {requirements}"
+    match = re.search(r"(<[\d.]+)", requirements[0])
+    assert match is not None, f"no pyglet upper bound found in {_ISAACLAB_PYPROJECT}"
     assert _arena_constraint("pyglet") == f"pyglet{match.group(1)}"
 
 
-def test_isaaclab_from_source_group_covers_submodule_packages():
-    """The isaaclab-from-source group tracks the submodule's own uv dev project.
-
-    Every isaaclab package upstream's isaaclab-dev project depends on must
-    appear in Arena's isaaclab-from-source dependency group, so a submodule bump
-    that adds or renames a source package fails loudly. Arena may declare a
-    superset (e.g. isaaclab-mimic and isaaclab-teleop, which the published
-    wheel bundles but upstream's dev project omits).
-    """
+def test_isaaclab_from_source_group_covers_submodule_dev_project():
+    """The source flavor installs Isaac Lab's dev project and all of its workspace members."""
     upstream = tomllib.loads(_ISAACLAB_PYPROJECT.read_text())["project"]["dependencies"]
-    upstream_packages = {_requirement_name(req) for req in upstream if _requirement_name(req).startswith("isaaclab")}
-    group = tomllib.loads(_ARENA_PYPROJECT.read_text())["dependency-groups"]["isaaclab-from-source"]
-    # Skip non-string entries such as PEP 735 include-group tables.
-    group_packages = {
-        _requirement_name(req)
-        for req in group
-        if isinstance(req, str) and _requirement_name(req).startswith("isaaclab")
+    expected_packages = {
+        _requirement_name(requirement)
+        for requirement in upstream
+        if _requirement_name(requirement).startswith("isaaclab")
     }
-    missing = upstream_packages - group_packages
-    assert not missing, f"isaaclab-from-source group is missing submodule packages: {sorted(missing)}"
+    expected_packages.add("isaaclab-dev")
+    group = tomllib.loads(_ARENA_PYPROJECT.read_text())["dependency-groups"]["isaaclab-from-source"]
+    group_packages = {_requirement_name(requirement) for requirement in group if isinstance(requirement, str)}
+    missing_packages = expected_packages - group_packages
+    assert not missing_packages, f"isaaclab-from-source group is missing packages: {sorted(missing_packages)}"
 
 
-def test_isaaclab_from_source_group_entries_have_path_sources():
-    """Every isaaclab package in the isaaclab-from-source group maps to an editable path source.
+def test_isaaclab_from_source_packages_have_path_sources():
+    """Every package in Isaac Lab's dev project maps to an editable submodule source.
 
     The source must be gated on the isaaclab-from-source group and point at an
-    existing directory in the Isaac Lab submodule; otherwise the package
-    silently falls back to the published wheel.
+    existing directory in the Isaac Lab submodule; otherwise the resolver can
+    silently select a package-index distribution.
     """
     pyproject = tomllib.loads(_ARENA_PYPROJECT.read_text())
-    group = pyproject["dependency-groups"]["isaaclab-from-source"]
+    upstream = tomllib.loads(_ISAACLAB_PYPROJECT.read_text())["project"]["dependencies"]
+    upstream_packages = {
+        _requirement_name(requirement)
+        for requirement in upstream
+        if _requirement_name(requirement).startswith("isaaclab")
+    }
     sources = pyproject["tool"]["uv"]["sources"]
-    for package in sorted(
-        _requirement_name(req)
-        for req in group
-        if isinstance(req, str) and _requirement_name(req).startswith("isaaclab")
-    ):
+    submodule_root = (_REPO_ROOT / "submodules/IsaacLab").resolve()
+    for package in sorted(upstream_packages | {"isaaclab-dev"}):
         assert package in sources, f"no [tool.uv.sources] entry for {package}"
         entries = [entry for entry in sources[package] if entry.get("group") == "isaaclab-from-source"]
         assert len(entries) == 1, f"expected one isaaclab-from-source-gated source for {package}, found {entries}"
         (entry,) = entries
         assert entry.get("editable") is True, f"{package} source is not editable"
-        path = Path(entry["path"])
-        assert path.parts[:3] == (
-            "submodules",
-            "IsaacLab",
-            "source",
-        ), f"{package} source path {path} escapes the submodule"
-        assert (_REPO_ROOT / path / "setup.py").is_file(), f"{package} source path {path} has no setup.py"
+        path = (_REPO_ROOT / entry["path"]).resolve()
+        assert path.is_relative_to(submodule_root), f"{package} source path {path} escapes the submodule"
+        assert (path / "pyproject.toml").is_file(), f"{package} source path {path} has no pyproject.toml"

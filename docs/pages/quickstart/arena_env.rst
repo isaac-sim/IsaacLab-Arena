@@ -173,11 +173,15 @@ For more detail, see :doc:`Assets <../concepts/scene/concept_assets_design>`,
 :doc:`Tasks <../concepts/task/index>`, and
 :doc:`Environment Builder <../concepts/environment/env_builder>`.
 
-.. dropdown:: Full source: ``pick_and_place_maple_table_environment.py``
+.. dropdown:: Environment definition: ``pick_and_place_maple_table_environment.py``
    :animate: fade-in
 
    .. literalinclude:: ../../../isaaclab_arena_environments/pick_and_place_maple_table_environment.py
       :language: python
+      :start-at: @dataclass
+      :end-at: return isaaclab_arena_environment
+
+See the `complete source <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/pick_and_place_maple_table_environment.py>`_.
 
 
 Next Steps
