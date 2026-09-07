@@ -540,10 +540,83 @@ def test_default_workflow_schedules_all_runs_independently():
     assert all(run_group["tasks"][0]["inputs"] == [] for run_group in run_groups)
 
 
+def test_synchronizes_local_runs_in_barrier_backed_waves():
+    """Co-schedule each bounded wave while retaining lane and collector dependencies."""
+    workflow = ArenaExperimentWorkflow(
+        workflow_cfg=ArenaExperimentWorkflowCfg(max_parallel_runs=3, synchronize_parallel_runs=True),
+        experiment_cfg=_repeated_zero_action_experiment_cfg(num_runs=8),
+    )
+
+    groups = _workflow_groups(workflow.generate_workflow())
+    run_groups = groups[:-1]
+    assert [group["name"] for group in run_groups] == [
+        "arena-run-wave-0",
+        "arena-run-wave-1",
+        "arena-run-wave-2",
+    ]
+    assert [[task["name"] for task in group["tasks"]] for group in run_groups] == [
+        ["experiment-runner-0", "experiment-runner-1", "experiment-runner-2"],
+        ["experiment-runner-3", "experiment-runner-4", "experiment-runner-5"],
+        ["experiment-runner-6", "experiment-runner-7"],
+    ]
+    for run_group in run_groups:
+        assert run_group["barrier"] is True
+        assert run_group["ignoreNonleadStatus"] is False
+        assert [task["lead"] for task in run_group["tasks"]] == [
+            True,
+            *([False] * (len(run_group["tasks"]) - 1)),
+        ]
+
+    experiment_runner_tasks = [task for group in run_groups for task in group["tasks"]]
+    for run_index, experiment_runner_task in enumerate(experiment_runner_tasks):
+        expected_inputs = []
+        if run_index >= 3:
+            expected_inputs = [{
+                "task": f"experiment-runner-{run_index - 3}",
+                "regex": r".*experiment_runner_result\.json$",
+            }]
+        assert experiment_runner_task["inputs"] == expected_inputs
+
+    collector_task = groups[-1]["tasks"][0]
+    assert collector_task["inputs"] == [{"task": f"experiment-runner-{run_index}"} for run_index in range(8)]
+
+
+def test_synchronizes_all_local_runs_in_one_wave_without_parallel_limit():
+    workflow = ArenaExperimentWorkflow(
+        workflow_cfg=ArenaExperimentWorkflowCfg(synchronize_parallel_runs=True),
+        experiment_cfg=_repeated_zero_action_experiment_cfg(num_runs=3),
+    )
+
+    run_groups = _workflow_groups(workflow.generate_workflow())[:-1]
+    assert len(run_groups) == 1
+    assert [task["name"] for task in run_groups[0]["tasks"]] == [
+        "experiment-runner-0",
+        "experiment-runner-1",
+        "experiment-runner-2",
+    ]
+
+
+def test_rejects_synchronized_runs_that_require_policy_servers():
+    with pytest.raises(
+        AssertionError,
+        match=r"synchronize_parallel_runs supports only local-policy Runs; Run 'first'.*Pi0ServerTask",
+    ):
+        ArenaExperimentWorkflow(
+            workflow_cfg=ArenaExperimentWorkflowCfg(synchronize_parallel_runs=True),
+            experiment_cfg=_pi0_experiment_cfg(),
+        )
+
+
 @pytest.mark.parametrize("max_parallel_runs", [-1, 0, 1.5, True, "2"])
 def test_rejects_invalid_max_parallel_runs(max_parallel_runs):
     with pytest.raises(AssertionError, match="max_parallel_runs must be a positive integer"):
         ArenaExperimentWorkflowCfg(max_parallel_runs=max_parallel_runs)
+
+
+@pytest.mark.parametrize("synchronize_parallel_runs", [0, 1, None, "true"])
+def test_rejects_non_boolean_synchronize_parallel_runs(synchronize_parallel_runs):
+    with pytest.raises(AssertionError, match="synchronize_parallel_runs must be a boolean"):
+        ArenaExperimentWorkflowCfg(synchronize_parallel_runs=synchronize_parallel_runs)
 
 
 def test_rejects_more_parallel_runs_than_experiment_runs():
@@ -554,10 +627,14 @@ def test_rejects_more_parallel_runs_than_experiment_runs():
         )
 
 
-def test_submission_composes_max_parallel_runs_override():
-    submission_cfg = _compose_submission(["osmo.max_parallel_runs=4"])
+def test_submission_composes_parallel_run_scheduling_overrides():
+    submission_cfg = _compose_submission([
+        "osmo.max_parallel_runs=4",
+        "osmo.synchronize_parallel_runs=true",
+    ])
 
     assert submission_cfg.osmo.max_parallel_runs == 4
+    assert submission_cfg.osmo.synchronize_parallel_runs is True
 
 
 def test_submission_removes_temporary_workflow(monkeypatch):

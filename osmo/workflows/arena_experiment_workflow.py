@@ -30,16 +30,20 @@ class ArenaExperimentWorkflowCfg(WorkflowCfg):
     max_parallel_runs: int | None = None
     """Maximum concurrently eligible Runs; ``None`` schedules every Run independently."""
 
+    synchronize_parallel_runs: bool = False
+    """Co-schedule each wave of local-policy Runs with an OSMO group barrier."""
+
     def __post_init__(self) -> None:
         assert self.max_parallel_runs is None or (
             isinstance(self.max_parallel_runs, int)
             and not isinstance(self.max_parallel_runs, bool)
             and self.max_parallel_runs > 0
         ), "max_parallel_runs must be a positive integer"
+        assert isinstance(self.synchronize_parallel_runs, bool), "synchronize_parallel_runs must be a boolean"
 
 
 class ArenaExperimentWorkflow(Workflow):
-    """Run every Arena Experiment Run in its own OSMO group, co-scheduling each Run's server."""
+    """Run Arena Experiment Runs independently or in synchronized local-policy waves."""
 
     constructs_groups_directly = True
     task_cfg_type = ExperimentRunnerTaskCfg
@@ -61,6 +65,9 @@ class ArenaExperimentWorkflow(Workflow):
         )
         self.experiment_cfg = deepcopy(experiment_cfg)
         self.max_parallel_runs = max_parallel_runs
+        self.synchronize_parallel_runs = getattr(workflow_cfg, "synchronize_parallel_runs", False)
+        if self.synchronize_parallel_runs:
+            self._assert_synchronized_runs_do_not_require_policy_servers()
         super().__init__(
             workflow_cfg=workflow_cfg,
             task_cfg=task_cfg or ExperimentRunnerTaskCfg(),
@@ -68,28 +75,82 @@ class ArenaExperimentWorkflow(Workflow):
         )
 
     def _get_group_dicts(self) -> list[dict[str, Any]]:
-        """Create one independently scheduled group per Run, then collect their outputs into one Experiment output."""
+        """Create Run groups, then collect their outputs into one Experiment output."""
         run_group_dicts: list[dict[str, Any]] = []
         experiment_runner_task_names_by_run_name: dict[str, str] = {}
         max_parallel_runs = self.max_parallel_runs or len(self.experiment_cfg.runs)
-        for run_index, (run_name, run_config) in enumerate(self.experiment_cfg.runs.items()):
-            ArenaExperimentResult.assert_run_name_is_safe_path_component(run_name)
-            predecessor_task_name = (
-                f"experiment-runner-{run_index - max_parallel_runs}" if run_index >= max_parallel_runs else None
+
+        if self.synchronize_parallel_runs:
+            run_group_dicts, experiment_runner_task_names_by_run_name = self._create_synchronized_run_group_dicts(
+                max_parallel_runs
             )
-            run_group_dict, experiment_runner_task_name = self._create_run_group_dict(
-                run_index,
-                run_name,
-                run_config,
-                predecessor_task_name,
-            )
-            run_group_dicts.append(run_group_dict)
-            experiment_runner_task_names_by_run_name[run_name] = experiment_runner_task_name
+        else:
+            for run_index, (run_name, run_config) in enumerate(self.experiment_cfg.runs.items()):
+                ArenaExperimentResult.assert_run_name_is_safe_path_component(run_name)
+                predecessor_task_name = (
+                    f"experiment-runner-{run_index - max_parallel_runs}" if run_index >= max_parallel_runs else None
+                )
+                run_group_dict, experiment_runner_task_name = self._create_run_group_dict(
+                    run_index,
+                    run_name,
+                    run_config,
+                    predecessor_task_name,
+                )
+                run_group_dicts.append(run_group_dict)
+                experiment_runner_task_names_by_run_name[run_name] = experiment_runner_task_name
 
         experiment_output_group_dict = self._create_experiment_output_group_dict(
             experiment_runner_task_names_by_run_name
         )
         return [*run_group_dicts, experiment_output_group_dict]
+
+    def _assert_synchronized_runs_do_not_require_policy_servers(self) -> None:
+        """Reject synchronized groups when a Run needs a derived policy server."""
+        server_registry = ServerTaskRegistry()
+        for run_name, run_config in self.experiment_cfg.runs.items():
+            server_type = server_registry.get_server_type_for_policy_cfg(run_config.policy)
+            assert server_type is None, (
+                "synchronize_parallel_runs supports only local-policy Runs; "
+                f"Run '{run_name}' requires the derived policy-server task {server_type.__name__}"
+            )
+
+    def _create_synchronized_run_group_dicts(
+        self,
+        max_parallel_runs: int,
+    ) -> tuple[list[dict[str, Any]], dict[str, str]]:
+        """Create barrier-backed groups containing one wave of local-policy Runs each."""
+        run_items = list(self.experiment_cfg.runs.items())
+        run_group_dicts: list[dict[str, Any]] = []
+        experiment_runner_task_names_by_run_name: dict[str, str] = {}
+
+        for wave_index, wave_start_index in enumerate(range(0, len(run_items), max_parallel_runs)):
+            wave_task_dicts: list[dict[str, Any]] = []
+            wave_items = run_items[wave_start_index : wave_start_index + max_parallel_runs]
+            for wave_task_index, (run_name, run_config) in enumerate(wave_items):
+                run_index = wave_start_index + wave_task_index
+                ArenaExperimentResult.assert_run_name_is_safe_path_component(run_name)
+                predecessor_task_name = (
+                    f"experiment-runner-{run_index - max_parallel_runs}" if run_index >= max_parallel_runs else None
+                )
+                run_group_tasks, experiment_runner_task_name = self._create_run_group_tasks(
+                    run_index,
+                    run_name,
+                    run_config,
+                    predecessor_task_name,
+                    experiment_runner_is_lead=wave_task_index == 0,
+                )
+                assert len(run_group_tasks) == 1, "Synchronized Run groups cannot contain policy-server tasks"
+                wave_task_dicts.extend(run_group_task.create_task_dict() for run_group_task in run_group_tasks)
+                experiment_runner_task_names_by_run_name[run_name] = experiment_runner_task_name
+
+            run_group_dicts.append({
+                "name": f"arena-run-wave-{wave_index}",
+                "barrier": True,
+                "ignoreNonleadStatus": False,
+                "tasks": wave_task_dicts,
+            })
+
+        return run_group_dicts, experiment_runner_task_names_by_run_name
 
     def _create_run_group_dict(
         self,
@@ -99,6 +160,30 @@ class ArenaExperimentWorkflow(Workflow):
         predecessor_task_name: str | None,
     ) -> tuple[dict[str, Any], str]:
         """Create one OSMO group that executes a single-Run Arena Experiment, plus its server if any."""
+        run_group_tasks, experiment_runner_task_name = self._create_run_group_tasks(
+            run_index,
+            run_name,
+            run_config,
+            predecessor_task_name,
+            experiment_runner_is_lead=True,
+        )
+
+        run_group_dict = {
+            "name": f"arena-run-{run_index}",
+            "tasks": [run_group_task.create_task_dict() for run_group_task in run_group_tasks],
+        }
+        return run_group_dict, experiment_runner_task_name
+
+    def _create_run_group_tasks(
+        self,
+        run_index: int,
+        run_name: str,
+        run_config: ArenaRunCfg,
+        predecessor_task_name: str | None,
+        *,
+        experiment_runner_is_lead: bool,
+    ) -> tuple[list[BaseTask], str]:
+        """Create an Experiment Runner and its derived policy-server task, if required."""
         experiment_runner_task_name = f"experiment-runner-{run_index}"
         # Snapshot this Run alone so the Experiment Runner task embeds a single-Run Experiment.
         single_run_experiment_config = ArenaExperimentCfg(runs={run_name: deepcopy(run_config)})
@@ -124,18 +209,13 @@ class ArenaExperimentWorkflow(Workflow):
         experiment_runner_task = ExperimentRunnerTask(
             task_cfg=self.task_cfg,
             experiment_cfg=single_run_experiment_config,
-            lead=True,
+            lead=experiment_runner_is_lead,
             task_name=experiment_runner_task_name,
             published_output_url=None,
             predecessor_task_name=predecessor_task_name,
         )
         run_group_tasks = [experiment_runner_task, *policy_server_tasks]
-
-        run_group_dict = {
-            "name": f"arena-run-{run_index}",
-            "tasks": [run_group_task.create_task_dict() for run_group_task in run_group_tasks],
-        }
-        return run_group_dict, experiment_runner_task_name
+        return run_group_tasks, experiment_runner_task_name
 
     def _create_experiment_output_group_dict(
         self,
