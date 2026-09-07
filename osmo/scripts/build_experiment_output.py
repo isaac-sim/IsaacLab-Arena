@@ -20,11 +20,16 @@ import shutil
 from collections.abc import Mapping
 from pathlib import Path
 
-from isaaclab_arena.evaluation.arena_experiment_result import ArenaExperimentResult
+from isaaclab_arena.evaluation.arena_experiment_metadata import ARENA_EXPERIMENT_METADATA_FILENAME
+from isaaclab_arena.evaluation.arena_experiment_result import ARENA_EXPERIMENT_TIMINGS_FILENAME, ArenaExperimentResult
 from isaaclab_arena.evaluation.arena_run import RunStatus
 from isaaclab_arena.visualization.report import RunExecutionReport, build_report
 
 EXPERIMENT_RUNNER_RESULT_FILE_NAME = "experiment_runner_result.json"
+EXPERIMENT_RUNNER_DIAGNOSTIC_FILE_NAMES = (
+    ARENA_EXPERIMENT_TIMINGS_FILENAME,
+    ARENA_EXPERIMENT_METADATA_FILENAME,
+)
 
 
 def load_experiment_runner_result(
@@ -97,7 +102,7 @@ def collect_run_outputs_into_experiment_output(
     experiment_runner_output_directories_by_run_name: Mapping[str, Path],
     experiment_output_directory: Path,
 ) -> tuple[list[RunExecutionReport], dict[str, dict[str, object]]]:
-    """Collect completed Run outputs and preserve failed execution results.
+    """Collect Run outputs and preserve Experiment Runner results and diagnostics.
 
     Args:
         experiment_runner_output_directories_by_run_name: Run names mapped to Experiment Runner task output
@@ -129,24 +134,27 @@ def collect_run_outputs_into_experiment_output(
                 f"{run_execution_report.process_exit_code}"
             )
             destination_run_output_directory.mkdir(parents=True)
-            shutil.copy2(
-                experiment_runner_result_path,
-                destination_run_output_directory / EXPERIMENT_RUNNER_RESULT_FILE_NAME,
+        else:
+            source_run_output_directory = experiment_runner_output_directory / run_name
+            assert (
+                source_run_output_directory.is_dir()
+            ), f"Completed Run '{run_name}' is missing its expected output directory: '{source_run_output_directory}'"
+            shutil.copytree(
+                source_run_output_directory,
+                destination_run_output_directory,
             )
-            continue
 
-        source_run_output_directory = experiment_runner_output_directory / run_name
-        assert (
-            source_run_output_directory.is_dir()
-        ), f"Completed Run '{run_name}' is missing its expected output directory: '{source_run_output_directory}'"
-        shutil.copytree(
-            source_run_output_directory,
-            destination_run_output_directory,
-        )
         shutil.copy2(
             experiment_runner_result_path,
             destination_run_output_directory / EXPERIMENT_RUNNER_RESULT_FILE_NAME,
         )
+        for diagnostic_file_name in EXPERIMENT_RUNNER_DIAGNOSTIC_FILE_NAMES:
+            source_diagnostic_path = experiment_runner_output_directory / diagnostic_file_name
+            if source_diagnostic_path.is_file():
+                shutil.copy2(
+                    source_diagnostic_path,
+                    destination_run_output_directory / diagnostic_file_name,
+                )
     return (
         sorted(run_execution_reports, key=lambda run_execution_report: run_execution_report.run_name),
         run_metadata_by_name,

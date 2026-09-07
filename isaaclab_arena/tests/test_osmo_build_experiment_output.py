@@ -10,7 +10,11 @@ from pathlib import Path
 
 import pytest
 
-from isaaclab_arena.evaluation.arena_experiment_result import ARENA_EXPERIMENT_RESULT_FILENAME
+from isaaclab_arena.evaluation.arena_experiment_metadata import ARENA_EXPERIMENT_METADATA_FILENAME
+from isaaclab_arena.evaluation.arena_experiment_result import (
+    ARENA_EXPERIMENT_RESULT_FILENAME,
+    ARENA_EXPERIMENT_TIMINGS_FILENAME,
+)
 from isaaclab_arena.evaluation.arena_run import RunStatus
 from isaaclab_arena.visualization.report import RunExecutionReport
 from osmo.scripts.build_experiment_output import (
@@ -174,6 +178,49 @@ def test_collects_run_outputs_without_building_report(tmp_path):
     assert (experiment_output_directory / "first/episode_results_rebuild0.jsonl").is_file()
     assert (experiment_output_directory / "first" / EXPERIMENT_RUNNER_RESULT_FILE_NAME).is_file()
     assert not (experiment_output_directory / "index.html").exists()
+
+
+@pytest.mark.parametrize(
+    ("execution_status", "process_exit_code"),
+    [
+        (RunStatus.COMPLETED, 0),
+        (RunStatus.FAILED, 17),
+    ],
+)
+def test_preserves_experiment_runner_diagnostics(
+    tmp_path,
+    execution_status: RunStatus,
+    process_exit_code: int,
+):
+    experiment_runner_output_directory = tmp_path / "experiment-runner-output"
+    run_name = "first"
+    if execution_status is RunStatus.COMPLETED:
+        _write_run_output(experiment_runner_output_directory / run_name, run_name, True)
+    _write_experiment_runner_result(
+        experiment_runner_output_directory,
+        execution_status,
+        process_exit_code,
+        {run_name: _run_metadata("first-environment", "pi05")},
+    )
+    diagnostic_contents_by_file_name = {
+        ARENA_EXPERIMENT_TIMINGS_FILENAME: {"timers": {"runner": {"total_seconds": 12.5}}},
+        ARENA_EXPERIMENT_METADATA_FILENAME: {"schema_version": 1, "command": ["experiment_runner.py"]},
+    }
+    for diagnostic_file_name, diagnostic_contents in diagnostic_contents_by_file_name.items():
+        (experiment_runner_output_directory / diagnostic_file_name).write_text(
+            json.dumps(diagnostic_contents),
+            encoding="utf-8",
+        )
+    experiment_output_directory = tmp_path / "experiment-output"
+
+    collect_run_outputs_into_experiment_output(
+        {run_name: experiment_runner_output_directory},
+        experiment_output_directory,
+    )
+
+    for diagnostic_file_name, expected_diagnostic_contents in diagnostic_contents_by_file_name.items():
+        destination_diagnostic_path = experiment_output_directory / run_name / diagnostic_file_name
+        assert json.loads(destination_diagnostic_path.read_text(encoding="utf-8")) == expected_diagnostic_contents
 
 
 def test_builds_experiment_output_from_separate_experiment_runner_outputs(tmp_path):

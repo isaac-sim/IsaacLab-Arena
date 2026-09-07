@@ -6,6 +6,7 @@
 """Verify distributed OSMO workflows for Arena Experiments."""
 
 import json
+import subprocess
 import yaml
 from pathlib import Path
 from types import SimpleNamespace
@@ -42,7 +43,7 @@ from osmo.tasks.experiment_runner_task import (
 )
 from osmo.tasks.gr00t_server_task import Gr00tServerTask, Gr00tServerTaskCfg
 from osmo.tasks.pi0_server_task import Pi0ServerTask, Pi0ServerTaskCfg
-from osmo.workflows.arena_experiment_workflow import ArenaExperimentWorkflow
+from osmo.workflows.arena_experiment_workflow import ArenaExperimentWorkflow, ArenaExperimentWorkflowCfg
 from osmo.workflows.workflow import WorkflowCfg
 from osmo.workflows.workflow_constants import DATASET_SWIFT_URL, OSMO_TASK_OUTPUT_DIR, POLICY_SERVER_PORT
 
@@ -53,6 +54,10 @@ pytestmark = pytest.mark.with_subprocess
 REPOSITORY_ROOT = Path(__file__).parents[2]
 OPENPI_EXPERIMENT_CFG_PATH = (
     REPOSITORY_ROOT / "isaaclab_arena_environments/experiment_configs/droid_pnp_srl_openpi_experiment.yaml"
+)
+CAMERA_FREE_SCALING_VALIDATION_CFG_PATH = (
+    REPOSITORY_ROOT
+    / "isaaclab_arena_environments/experiment_configs/perflab/osmo/camera_free_scaling_validation_experiment.yaml"
 )
 OPENPI_RUN_NAME = "droid_pnp_srl_openpi_billiard_hall"
 GR00T_CONFIG_YAML_PATH = "isaaclab_arena_gr00t/policy/config/droid_manip_gr00t_closedloop_config.yaml"
@@ -119,6 +124,19 @@ def _zero_action_experiment_cfg() -> ArenaExperimentCfg:
     )
 
 
+def _repeated_zero_action_experiment_cfg(num_runs: int) -> ArenaExperimentCfg:
+    return ArenaExperimentCfg(
+        runs={
+            f"baseline-{run_index}": ArenaRunCfg(
+                name=f"baseline-{run_index}",
+                environment=PickAndPlaceMapleTableEnvironmentCfg(),
+                policy=ZeroActionPolicyCfg(),
+            )
+            for run_index in range(num_runs)
+        }
+    )
+
+
 def _task_file(task: dict, remote_path: str) -> dict:
     return next(file for file in task["files"] if file["path"] == remote_path)
 
@@ -162,11 +180,30 @@ def test_explicit_experiment_composes_typed_defaults():
     assert isinstance(submission_cfg.experiment_cfg, ArenaExperimentCfg)
     assert len(submission_cfg.experiment_cfg.runs) == 9
     assert isinstance(submission_cfg.experiment_cfg.runs[OPENPI_RUN_NAME].policy, Pi0RemotePolicyCfg)
-    assert submission_cfg.osmo == WorkflowCfg()
+    assert submission_cfg.osmo == ArenaExperimentWorkflowCfg()
     assert submission_cfg.osmo.pool == "isaac-dev-l40s-04"
     assert submission_cfg.osmo.platform == "ovx-l40s"
     assert submission_cfg.experiment_runner == ExperimentRunnerTaskCfg()
     assert submission_cfg.experiment_runner.image == "nvcr.io/nvstaging/isaac-amr/isaaclab_arena:latest"
+
+
+def test_camera_free_scaling_validation_uses_eight_fixed_runs():
+    experiment_cfg = load_arena_experiment_from_config_file(
+        CAMERA_FREE_SCALING_VALIDATION_CFG_PATH,
+        device="cuda:0",
+    )
+
+    assert list(experiment_cfg.runs) == [f"camera_free_{run_index:03d}" for run_index in range(8)]
+    for run_cfg in experiment_cfg.runs.values():
+        assert isinstance(run_cfg.environment, PickAndPlaceMapleTableEnvironmentCfg)
+        assert run_cfg.environment.enable_cameras is False
+        assert run_cfg.environment.embodiment == "droid_rel_joint_pos"
+        assert run_cfg.environment_builder.num_envs == 256
+        assert run_cfg.environment_builder.seed == 42
+        assert run_cfg.environment_builder.placement_seed == 42
+        assert isinstance(run_cfg.policy, ZeroActionPolicyCfg)
+        assert run_cfg.rollout_limit.num_steps == 300
+        assert run_cfg.num_rebuilds == 1
 
 
 @pytest.mark.parametrize("config_path", ["osmo.not_a_field", "experiment_runner.not_a_field", "servers"])
@@ -238,13 +275,20 @@ def test_fans_out_single_run_experiments_with_dedicated_pi0_servers_and_one_expe
     assert f"--experiment_config {REMOTE_EXPERIMENT_PATH}" in experiment_runner_command
     assert f"--experiment_output_directory '{OSMO_TASK_OUTPUT_DIR}'" in experiment_runner_command
     assert "--output_base_dir" not in experiment_runner_command
-    assert "--enable_cameras" in experiment_runner_command
+    assert "--enable_cameras" not in experiment_runner_command
     assert "--record_camera_video" in experiment_runner_command
     assert "--record_viewport_video" not in experiment_runner_command
     assert "--continue_on_error" not in experiment_runner_command
     assert "experiment_runner_process_exit_code=$?" in experiment_runner_command
     assert "experiment_runner_execution_status=completed" in experiment_runner_command
     assert "experiment_runner_execution_status=failed" in experiment_runner_command
+    assert "experiment_runner_started_at" in experiment_runner_command
+    assert "experiment_runner_finished_at" in experiment_runner_command
+    assert "experiment_runner_elapsed_seconds" in experiment_runner_command
+    assert "LC_ALL=C awk" in experiment_runner_command
+    assert '"process_started_at":"%s"' in experiment_runner_command
+    assert '"process_finished_at":"%s"' in experiment_runner_command
+    assert '"process_elapsed_seconds":%s' in experiment_runner_command
     assert '"runs":%s' in experiment_runner_command
     assert '"policy_variant": "pi05"' in experiment_runner_command
     assert '"name": "pick_and_place_maple_table"' in experiment_runner_command
@@ -253,6 +297,14 @@ def test_fans_out_single_run_experiments_with_dedicated_pi0_servers_and_one_expe
     assert experiment_runner_command.endswith("exit 0\n")
     assert "policy_runner.py" not in experiment_runner_command
     assert "runs." not in experiment_runner_command
+    shell_syntax_check = subprocess.run(
+        ["bash", "-n"],
+        input=experiment_runner_command,
+        capture_output=True,
+        check=False,
+        text=True,
+    )
+    assert shell_syntax_check.returncode == 0, shell_syntax_check.stderr
 
     assert first_tasks[0]["outputs"] == []
     assert second_tasks[0]["outputs"] == []
@@ -282,10 +334,8 @@ def test_fans_out_single_run_experiments_with_dedicated_pi0_servers_and_one_expe
     experiment_output_script_file = _task_file(experiment_output_task, _REMOTE_BUILD_EXPERIMENT_OUTPUT_SCRIPT_PATH)
     assert "localpath" not in experiment_output_script_file
     assert "def build_experiment_output" in experiment_output_script_file["contents"]
-    assert (
-        "from isaaclab_arena.evaluation.arena_experiment_result import ArenaExperimentResult"
-        in experiment_output_script_file["contents"]
-    )
+    assert "from isaaclab_arena.evaluation.arena_experiment_result import" in experiment_output_script_file["contents"]
+    assert "ArenaExperimentResult" in experiment_output_script_file["contents"]
     assert EXPERIMENT_RUNNER_RESULT_FILE_NAME in experiment_output_script_file["contents"]
     experiment_output_command = _task_file(experiment_output_task, "/tmp/entry.sh")["contents"]
     assert experiment_output_command.startswith("set -euo pipefail")
@@ -456,6 +506,135 @@ def test_all_local_experiment_runs_standalone_without_servers():
     groups = _workflow_groups(workflow.generate_workflow())
     assert [group["name"] for group in groups] == ["arena-run-0", "arena-experiment-output"]
     assert [task["name"] for task in groups[0]["tasks"]] == ["experiment-runner-0"]
+
+
+@pytest.mark.parametrize("max_parallel_runs", [1, 2, 4, 8])
+def test_limits_parallel_runs_with_dependency_lanes(max_parallel_runs):
+    """Each Run after the first lane row waits for the preceding Run in its lane."""
+    workflow = ArenaExperimentWorkflow(
+        workflow_cfg=ArenaExperimentWorkflowCfg(max_parallel_runs=max_parallel_runs),
+        experiment_cfg=_repeated_zero_action_experiment_cfg(num_runs=8),
+    )
+
+    run_groups = _workflow_groups(workflow.generate_workflow())[:-1]
+    assert len(run_groups) == 8
+    for run_index, run_group in enumerate(run_groups):
+        experiment_runner_task = run_group["tasks"][0]
+        expected_inputs = []
+        if run_index >= max_parallel_runs:
+            expected_inputs = [{
+                "task": f"experiment-runner-{run_index - max_parallel_runs}",
+                "regex": r".*experiment_runner_result\.json$",
+            }]
+        assert experiment_runner_task["inputs"] == expected_inputs
+
+
+def test_default_workflow_schedules_all_runs_independently():
+    """Without a concurrency limit, no Run waits for another Run."""
+    workflow = ArenaExperimentWorkflow(
+        workflow_cfg=ArenaExperimentWorkflowCfg(),
+        experiment_cfg=_repeated_zero_action_experiment_cfg(num_runs=8),
+    )
+
+    run_groups = _workflow_groups(workflow.generate_workflow())[:-1]
+    assert all(run_group["tasks"][0]["inputs"] == [] for run_group in run_groups)
+
+
+def test_synchronizes_local_runs_in_barrier_backed_waves():
+    """Co-schedule each bounded wave while retaining lane and collector dependencies."""
+    workflow = ArenaExperimentWorkflow(
+        workflow_cfg=ArenaExperimentWorkflowCfg(max_parallel_runs=3, synchronize_parallel_runs=True),
+        experiment_cfg=_repeated_zero_action_experiment_cfg(num_runs=8),
+    )
+
+    groups = _workflow_groups(workflow.generate_workflow())
+    run_groups = groups[:-1]
+    assert [group["name"] for group in run_groups] == [
+        "arena-run-wave-0",
+        "arena-run-wave-1",
+        "arena-run-wave-2",
+    ]
+    assert [[task["name"] for task in group["tasks"]] for group in run_groups] == [
+        ["experiment-runner-0", "experiment-runner-1", "experiment-runner-2"],
+        ["experiment-runner-3", "experiment-runner-4", "experiment-runner-5"],
+        ["experiment-runner-6", "experiment-runner-7"],
+    ]
+    for run_group in run_groups:
+        assert run_group["barrier"] is True
+        assert run_group["ignoreNonleadStatus"] is False
+        assert [task["lead"] for task in run_group["tasks"]] == [
+            True,
+            *([False] * (len(run_group["tasks"]) - 1)),
+        ]
+
+    experiment_runner_tasks = [task for group in run_groups for task in group["tasks"]]
+    for run_index, experiment_runner_task in enumerate(experiment_runner_tasks):
+        expected_inputs = []
+        if run_index >= 3:
+            expected_inputs = [{
+                "task": f"experiment-runner-{run_index - 3}",
+                "regex": r".*experiment_runner_result\.json$",
+            }]
+        assert experiment_runner_task["inputs"] == expected_inputs
+
+    collector_task = groups[-1]["tasks"][0]
+    assert collector_task["inputs"] == [{"task": f"experiment-runner-{run_index}"} for run_index in range(8)]
+
+
+def test_synchronizes_all_local_runs_in_one_wave_without_parallel_limit():
+    workflow = ArenaExperimentWorkflow(
+        workflow_cfg=ArenaExperimentWorkflowCfg(synchronize_parallel_runs=True),
+        experiment_cfg=_repeated_zero_action_experiment_cfg(num_runs=3),
+    )
+
+    run_groups = _workflow_groups(workflow.generate_workflow())[:-1]
+    assert len(run_groups) == 1
+    assert [task["name"] for task in run_groups[0]["tasks"]] == [
+        "experiment-runner-0",
+        "experiment-runner-1",
+        "experiment-runner-2",
+    ]
+
+
+def test_rejects_synchronized_runs_that_require_policy_servers():
+    with pytest.raises(
+        AssertionError,
+        match=r"synchronize_parallel_runs supports only local-policy Runs; Run 'first'.*Pi0ServerTask",
+    ):
+        ArenaExperimentWorkflow(
+            workflow_cfg=ArenaExperimentWorkflowCfg(synchronize_parallel_runs=True),
+            experiment_cfg=_pi0_experiment_cfg(),
+        )
+
+
+@pytest.mark.parametrize("max_parallel_runs", [-1, 0, 1.5, True, "2"])
+def test_rejects_invalid_max_parallel_runs(max_parallel_runs):
+    with pytest.raises(AssertionError, match="max_parallel_runs must be a positive integer"):
+        ArenaExperimentWorkflowCfg(max_parallel_runs=max_parallel_runs)
+
+
+@pytest.mark.parametrize("synchronize_parallel_runs", [0, 1, None, "true"])
+def test_rejects_non_boolean_synchronize_parallel_runs(synchronize_parallel_runs):
+    with pytest.raises(AssertionError, match="synchronize_parallel_runs must be a boolean"):
+        ArenaExperimentWorkflowCfg(synchronize_parallel_runs=synchronize_parallel_runs)
+
+
+def test_rejects_more_parallel_runs_than_experiment_runs():
+    with pytest.raises(AssertionError, match="cannot exceed the number of Experiment Runs"):
+        ArenaExperimentWorkflow(
+            workflow_cfg=ArenaExperimentWorkflowCfg(max_parallel_runs=9),
+            experiment_cfg=_repeated_zero_action_experiment_cfg(num_runs=8),
+        )
+
+
+def test_submission_composes_parallel_run_scheduling_overrides():
+    submission_cfg = _compose_submission([
+        "osmo.max_parallel_runs=4",
+        "osmo.synchronize_parallel_runs=true",
+    ])
+
+    assert submission_cfg.osmo.max_parallel_runs == 4
+    assert submission_cfg.osmo.synchronize_parallel_runs is True
 
 
 def test_submission_removes_temporary_workflow(monkeypatch):

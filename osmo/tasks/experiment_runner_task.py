@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import json
+import re
 import shlex
 from copy import deepcopy
 from dataclasses import dataclass
@@ -56,17 +57,27 @@ class ExperimentRunnerTask(BaseTask):
         *,
         task_name: str,
         published_output_url: str | None = DATASET_SWIFT_URL,
+        predecessor_task_name: str | None = None,
     ) -> None:
         super().__init__(task_name=task_name, task_cfg=task_cfg, lead=lead)
         assert isinstance(experiment_cfg, ArenaExperimentCfg)
+        assert predecessor_task_name is None or (
+            isinstance(predecessor_task_name, str) and predecessor_task_name
+        ), "predecessor_task_name must be a non-empty string or None"
         self.experiment_cfg = deepcopy(experiment_cfg)
         self.published_output_url = published_output_url
+        self.predecessor_task_name = predecessor_task_name
 
     def _get_image(self) -> str:
         return self.task_cfg.image
 
     def _get_inputs(self) -> list[dict[str, Any]]:
-        return []
+        if self.predecessor_task_name is None:
+            return []
+        return [{
+            "task": self.predecessor_task_name,
+            "regex": f".*{re.escape(EXPERIMENT_RUNNER_RESULT_FILE_NAME)}$",
+        }]
 
     def _get_outputs(self) -> list[dict[str, Any]]:
         """Publish this output externally, or leave it workflow-local for a downstream task."""
@@ -91,7 +102,6 @@ class ExperimentRunnerTask(BaseTask):
             OSMO_TASK_OUTPUT_DIR,
             "--viz",
             "none",
-            "--enable_cameras",
         ]
         if self.task_cfg.record_camera_video:
             experiment_runner_command_arguments.append("--record_camera_video")
@@ -106,12 +116,18 @@ class ExperimentRunnerTask(BaseTask):
             })
         )
         write_experiment_runner_result_command = (
-            'printf \'{"execution_status":"%s","process_exit_code":%d,"runs":%s}\\n\' '
+            'printf \'{"execution_status":"%s","process_exit_code":%d,'
+            '"process_started_at":"%s","process_finished_at":"%s",'
+            '"process_elapsed_seconds":%s,"runs":%s}\\n\' '
             '"$experiment_runner_execution_status" "$experiment_runner_process_exit_code" '
+            '"$experiment_runner_started_at" "$experiment_runner_finished_at" '
+            '"$experiment_runner_elapsed_seconds" '
             f"{run_metadata_json} > {experiment_runner_result_path}"
         )
         return "\n".join([
             "# Record the application result without failing the OSMO task.",
+            'experiment_runner_started_at=$(date -u +"%Y-%m-%dT%H:%M:%S.%NZ")',
+            'experiment_runner_started_epoch_seconds=$(date -u +"%s.%N")',
             f"if {experiment_runner_command}; then",
             "  experiment_runner_process_exit_code=0",
             f"  experiment_runner_execution_status={RunStatus.COMPLETED.value}",
@@ -119,6 +135,13 @@ class ExperimentRunnerTask(BaseTask):
             "  experiment_runner_process_exit_code=$?",
             f"  experiment_runner_execution_status={RunStatus.FAILED.value}",
             "fi",
+            'experiment_runner_finished_at=$(date -u +"%Y-%m-%dT%H:%M:%S.%NZ")',
+            'experiment_runner_finished_epoch_seconds=$(date -u +"%s.%N")',
+            (
+                "experiment_runner_elapsed_seconds=$(LC_ALL=C awk "
+                '-v start="$experiment_runner_started_epoch_seconds" '
+                '-v finish="$experiment_runner_finished_epoch_seconds" \'BEGIN {printf "%.6f", finish - start}\')'
+            ),
             "",
             "# Publish the result for the collector, then always report success to OSMO.",
             write_experiment_runner_result_command,

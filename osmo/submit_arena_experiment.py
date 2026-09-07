@@ -23,8 +23,7 @@ from isaaclab_arena.hydra.typed_experiment_loader import split_shared_run_defaul
 from isaaclab_arena.hydra.typed_experiment_serializer import serialize_arena_experiment_to_yaml
 from isaaclab_arena.utils.hydra_overrides import assert_hydra_overrides
 from osmo.tasks.experiment_runner_task import ExperimentRunnerTaskCfg
-from osmo.workflows.arena_experiment_workflow import ArenaExperimentWorkflow
-from osmo.workflows.workflow import WorkflowCfg
+from osmo.workflows.arena_experiment_workflow import ArenaExperimentWorkflow, ArenaExperimentWorkflowCfg
 
 SUBMISSION_CONFIG_NAME = "osmo_arena_experiment_submission"
 
@@ -36,7 +35,7 @@ class ArenaExperimentSubmissionCfg:
     experiment_cfg: ArenaExperimentCfg
     """Evaluation semantics executed by ``experiment_runner.py``."""
 
-    osmo: WorkflowCfg = field(default_factory=WorkflowCfg)
+    osmo: ArenaExperimentWorkflowCfg = field(default_factory=ArenaExperimentWorkflowCfg)
     """OSMO scheduling, resource, and timeout configuration."""
 
     experiment_runner: ExperimentRunnerTaskCfg = field(default_factory=ExperimentRunnerTaskCfg)
