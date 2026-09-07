@@ -3,7 +3,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from pathlib import Path
 from typing import Any
 
 import isaaclab.sim as sim_utils
@@ -13,11 +12,9 @@ from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR
 from isaaclab_arena.assets.background import Background
 from isaaclab_arena.assets.lightwheel_kitchen_factory import register_lightwheel_kitchens
 from isaaclab_arena.assets.lightwheel_utils import acquire_lightwheel_asset
-from isaaclab_arena.assets.nucleus import ARENA_NUCLEUS_DIR, ISAAC_STAGING_NUCLEUS_DIR
+from isaaclab_arena.assets.nucleus import ARENA_NUCLEUS_DIR, INDUSTRIAL_TOOL_SORT_ASSET_DIR, ISAAC_STAGING_NUCLEUS_DIR
 from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.utils.pose import Pose
-
-_INDUSTRIAL_TOOL_SORT_ASSET_ROOT = Path(__file__).resolve().parent / "industrial_tool_sort"
 
 
 class LibraryBackground(Background):
@@ -230,9 +227,7 @@ class IndustrialFr3WorkcellTable(LibraryBackground):
 
     name = "industrial__fr3_workcell_table"
     tags = ["background", "industrial", "tool_sort"]
-    usd_path = str(
-        _INDUSTRIAL_TOOL_SORT_ASSET_ROOT / "industrial__fr3_workcell_table" / "industrial__fr3_workcell_table.usda"
-    )
+    usd_path = f"{INDUSTRIAL_TOOL_SORT_ASSET_DIR}/industrial__fr3_workcell_table/industrial__fr3_workcell_table.usda"
     object_min_z = 0.0
 
 

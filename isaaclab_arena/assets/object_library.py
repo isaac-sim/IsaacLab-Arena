@@ -6,7 +6,6 @@
 
 import copy
 from abc import ABC
-from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import isaaclab.sim as sim_utils
@@ -23,7 +22,7 @@ from isaaclab_arena.affordances.placeable import Placeable
 from isaaclab_arena.affordances.pressable import Pressable
 from isaaclab_arena.affordances.turnable import Turnable
 from isaaclab_arena.assets.lightwheel_lazy import LightwheelLazyPath
-from isaaclab_arena.assets.nucleus import ARENA_NUCLEUS_DIR
+from isaaclab_arena.assets.nucleus import ARENA_NUCLEUS_DIR, INDUSTRIAL_TOOL_SORT_ASSET_DIR
 from isaaclab_arena.assets.object import Object
 from isaaclab_arena.assets.object_base import ObjectType
 from isaaclab_arena.assets.object_utils import (
@@ -33,8 +32,6 @@ from isaaclab_arena.assets.object_utils import (
 )
 from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.utils.pose import Pose
-
-_INDUSTRIAL_TOOL_SORT_ASSET_ROOT = Path(__file__).resolve().parent / "industrial_tool_sort"
 
 
 class LibraryObject(Object):
@@ -1928,7 +1925,7 @@ class IndustrialToolSortHammer(IndustrialToolSortObject):
     """Hammer manipuland from the industrial tool-sorting benchmark."""
 
     name = "vabar_tool_sort__hammer"
-    usd_path = str(_INDUSTRIAL_TOOL_SORT_ASSET_ROOT / name / f"{name}.usda")
+    usd_path = f"{INDUSTRIAL_TOOL_SORT_ASSET_DIR}/{name}/{name}.usda"
 
 
 @register_asset
@@ -1936,7 +1933,7 @@ class IndustrialToolSortDrill(IndustrialToolSortObject):
     """Drill manipuland from the industrial tool-sorting benchmark."""
 
     name = "vabar_tool_sort__drill"
-    usd_path = str(_INDUSTRIAL_TOOL_SORT_ASSET_ROOT / name / f"{name}.usda")
+    usd_path = f"{INDUSTRIAL_TOOL_SORT_ASSET_DIR}/{name}/{name}.usda"
 
 
 @register_asset
@@ -1944,7 +1941,7 @@ class IndustrialToolSortRoundNut(IndustrialToolSortObject):
     """Round-nut manipuland from the industrial tool-sorting benchmark."""
 
     name = "vabar_tool_sort__round_nut"
-    usd_path = str(_INDUSTRIAL_TOOL_SORT_ASSET_ROOT / name / f"{name}.usda")
+    usd_path = f"{INDUSTRIAL_TOOL_SORT_ASSET_DIR}/{name}/{name}.usda"
 
 
 @register_asset
@@ -1952,7 +1949,7 @@ class IndustrialToolSortClamp(IndustrialToolSortObject):
     """Clamp manipuland from the industrial tool-sorting benchmark."""
 
     name = "vabar_tool_sort__clamp"
-    usd_path = str(_INDUSTRIAL_TOOL_SORT_ASSET_ROOT / name / f"{name}.usda")
+    usd_path = f"{INDUSTRIAL_TOOL_SORT_ASSET_DIR}/{name}/{name}.usda"
 
 
 @register_asset
@@ -1976,7 +1973,7 @@ class IndustrialToolSortBin(Object):
         super().__init__(
             name=instance_name,
             tags=self.tags,
-            usd_path=str(_INDUSTRIAL_TOOL_SORT_ASSET_ROOT / self.name / leaf),
+            usd_path=f"{INDUSTRIAL_TOOL_SORT_ASSET_DIR}/{self.name}/{leaf}",
             object_type=ObjectType.RIGID,
             initial_pose=initial_pose,
             collision_mode="mesh",
@@ -2006,7 +2003,7 @@ class IndustrialHdrShadowReceiver(Object):
         super().__init__(
             name=instance_name,
             tags=self.tags,
-            usd_path=str(_INDUSTRIAL_TOOL_SORT_ASSET_ROOT / self.name / "industrial__hdr_shadow_receiver.usda"),
+            usd_path=f"{INDUSTRIAL_TOOL_SORT_ASSET_DIR}/{self.name}/industrial__hdr_shadow_receiver.usda",
             object_type=ObjectType.BASE,
             initial_pose=initial_pose,
             **kwargs,

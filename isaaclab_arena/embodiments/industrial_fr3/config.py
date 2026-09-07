@@ -8,7 +8,6 @@
 from __future__ import annotations
 
 import math
-from pathlib import Path
 
 import isaaclab.envs.mdp as mdp_isaac_lab
 import isaaclab.sim as sim_utils
@@ -29,13 +28,9 @@ from isaaclab_newton.sim.schemas.schemas_cfg import MujocoJointDrivePropertiesCf
 from newton.solvers import SolverMuJoCo
 from pxr import UsdPhysics
 
-ROBOT_USD_PATH = (
-    Path(__file__).resolve().parents[2]
-    / "assets"
-    / "industrial_tool_sort"
-    / "industrial__fr3_robotiq_2f85"
-    / "franka_fr3_robotiq_2f85.usda"
-)
+from isaaclab_arena.assets.nucleus import INDUSTRIAL_TOOL_SORT_ASSET_DIR
+
+ROBOT_USD_PATH = f"{INDUSTRIAL_TOOL_SORT_ASSET_DIR}/industrial__fr3_robotiq_2f85/franka_fr3_robotiq_2f85.usda"
 
 ARM_JOINT_NAMES = [f"fr3_joint{index}" for index in range(1, 8)]
 GRIPPER_JOINT_NAME = "left_driver_joint"
@@ -194,7 +189,7 @@ class IndustrialFr3RobotiqSceneCfg:
         prim_path="{ENV_REGEX_NS}/Robot",
         spawn=sim_utils.UsdFileCfg(
             func=spawn_fr3_without_mjc_actuators,
-            usd_path=str(ROBOT_USD_PATH),
+            usd_path=ROBOT_USD_PATH,
             activate_contact_sensors=True,
             # Root fixation is the only generic physics override; Newton gravity
             # routing is applied selectively by the custom spawner above.

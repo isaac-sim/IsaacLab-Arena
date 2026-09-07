@@ -5,13 +5,11 @@
 
 """Coverage for the industrial tool-sort environment."""
 
-import re
 from pathlib import Path
 
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-ASSET_ROOT = REPO_ROOT / "isaaclab_arena" / "assets" / "industrial_tool_sort"
 ENVIRONMENT_YAML = REPO_ROOT / "isaaclab_arena_environments" / "industrial_tool_sort_environment.yaml"
 ENVIRONMENT_NAME = "vabar_tool_sort__sort_all_newton"
 EXPECTED_ASSETS = {
@@ -25,44 +23,6 @@ EXPECTED_ASSETS = {
     "industrial_fr3_robotiq_2f85",
     "industrial_fr3_robotiq_2f85_differential_ik",
 }
-ASSET_ENTRYPOINTS = [
-    "industrial__fr3_workcell_table/industrial__fr3_workcell_table.usda",
-    "industrial__hdr_shadow_receiver/industrial__hdr_shadow_receiver.usda",
-    "industrial__tool_sort_bin/bin1.usda",
-    "industrial__tool_sort_bin/bin2_default.usda",
-    "vabar_tool_sort__hammer/vabar_tool_sort__hammer.usda",
-    "vabar_tool_sort__drill/vabar_tool_sort__drill.usda",
-    "vabar_tool_sort__round_nut/vabar_tool_sort__round_nut.usda",
-    "vabar_tool_sort__clamp/vabar_tool_sort__clamp.usda",
-    "industrial__fr3_robotiq_2f85/franka_fr3_robotiq_2f85.usda",
-]
-
-
-def test_vendored_usd_dependency_closure_is_complete():
-    """Every retained file is reachable from a registered USD entry point."""
-    reachable: set[Path] = set()
-    pending = [ASSET_ROOT / relative_path for relative_path in ASSET_ENTRYPOINTS]
-    while pending:
-        usd_file = pending.pop().resolve()
-        assert usd_file.is_relative_to(ASSET_ROOT.resolve())
-        assert usd_file.exists(), f"Missing USD dependency: {usd_file.relative_to(ASSET_ROOT)}"
-        if usd_file in reachable:
-            continue
-        reachable.add(usd_file)
-        if usd_file.suffix not in {".usd", ".usda"}:
-            continue
-        try:
-            contents = usd_file.read_text()
-        except UnicodeDecodeError:
-            continue
-        for reference in re.findall(r"@([^@]+)@", contents):
-            if "://" in reference:
-                continue
-            pending.append(usd_file.parent / reference)
-
-    retained_files = {path.resolve() for path in ASSET_ROOT.rglob("*") if path.is_file()}
-    assert retained_files == reachable
-    assert {path.suffix for path in retained_files} <= {".usd", ".usda", ".usdc", ".png"}
 
 
 def _test_tool_sort_registration_and_factory(_simulation_app) -> bool:
