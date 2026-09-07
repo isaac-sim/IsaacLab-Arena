@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import torch
 from abc import ABC
+from copy import deepcopy
 from typing import TYPE_CHECKING
 
 import isaaclab.envs.mdp as mdp_isaac_lab
@@ -75,6 +76,14 @@ _DROID_JOINT_NAMES = (
     "left_inner_finger_knuckle_joint",
     "left_inner_finger_joint",
 )
+_DROID_NEWTON_GRIPPER_MIMIC_SIGNS = {
+    "finger_joint": 1.0,
+    "left_inner_finger_joint": -1.0,
+    "left_inner_finger_knuckle_joint": -1.0,
+    "right_outer_knuckle_joint": 1.0,
+    "right_inner_finger_joint": 1.0,
+    "right_inner_finger_knuckle_joint": -1.0,
+}
 
 
 class DroidEmbodimentBase(EmbodimentBase, ABC):
@@ -205,6 +214,90 @@ class DroidDifferentialIKEmbodiment(DroidEmbodimentBase):
             collision_mode=collision_mode,
         )
         self.action_config = DroidDifferentialIKActionsCfg()
+
+
+@register_asset
+class DroidNewtonDifferentialIKEmbodiment(DroidDifferentialIKEmbodiment):
+    """Newton-compatible DROID embodiment with differential inverse kinematics control."""
+
+    name = "droid_differential_ik_newton"
+
+    def __init__(
+        self,
+        enable_cameras: bool = False,
+        initial_pose: Pose | None = None,
+        initial_joint_pose: list[float] | None = None,
+        concatenate_observation_terms: bool = False,
+        arm_mode: ArmMode | None = None,
+        stand_height_m: float = _DROID_STAND_PRIM.stand_default_height,
+        stand_footprint_xy_m: tuple[float, float] | list[float] = _DROID_STAND_PRIM.stand_default_footprint_xy_m,
+        placement_bbox_stand_only: bool = False,
+        collision_mode: CollisionMode | str | None = None,
+    ):
+        super().__init__(
+            enable_cameras=enable_cameras,
+            initial_pose=initial_pose,
+            initial_joint_pose=initial_joint_pose,
+            concatenate_observation_terms=concatenate_observation_terms,
+            arm_mode=arm_mode,
+            stand_height_m=stand_height_m,
+            stand_footprint_xy_m=stand_footprint_xy_m,
+            placement_bbox_stand_only=placement_bbox_stand_only,
+            collision_mode=collision_mode,
+        )
+        self._configure_newton()
+
+    def _configure_newton(self) -> None:
+        """Apply Newton-specific spawning, actuation, and controller configuration."""
+        from isaaclab_newton.sim.schemas import NewtonMaterialPropertiesCfg
+
+        robot_cfg = deepcopy(self.scene_config.robot)
+        self.scene_config.robot = robot_cfg
+        robot_cfg.spawn.func = _get_newton_droid_spawn()
+        robot_cfg.spawn.make_uninstanceable = True
+        robot_cfg.spawn.rigid_props.disable_gravity = False
+        robot_cfg.spawn.physics_material = NewtonMaterialPropertiesCfg(
+            static_friction=3.0,
+            dynamic_friction=3.0,
+            restitution=0.0,
+        )
+
+        gripper_joint_names = tuple(_DROID_NEWTON_GRIPPER_MIMIC_SIGNS)
+        robot_cfg.actuators["gripper"] = ImplicitActuatorCfg(
+            joint_names_expr=list(gripper_joint_names),
+            effort_limit=20.0,
+            velocity_limit=1.2,
+            stiffness=40.0,
+            damping=8.0,
+            armature=0.05,
+        )
+
+        self.action_config.arm_action = deepcopy(self.action_config.arm_action)
+        self.action_config.arm_action.body_name = "base_link"
+        self.action_config.arm_action.body_offset = None
+        arm_controller = self.action_config.arm_action.controller
+        arm_controller.ik_method = "adaptive_dls"
+        arm_controller.ik_params = {
+            "lambda_min": 0.05,
+            "lambda_max": 0.20,
+            "sigma_thresh": 0.02,
+        }
+        arm_controller.joint_limit_avoidance_gain = 0.10
+        arm_controller.joint_limit_avoidance_margin = 0.35
+
+        open_command = dict.fromkeys(gripper_joint_names, 0.0)
+        close_command = {name: sign * 0.461 for name, sign in _DROID_NEWTON_GRIPPER_MIMIC_SIGNS.items()}
+        self.action_config.gripper_action = BinaryJointPositionActionCfg(
+            asset_name="robot",
+            joint_names=list(gripper_joint_names),
+            open_command_expr=open_command,
+            close_command_expr=close_command,
+        )
+
+        self.scene_config.ee_frame = deepcopy(self.scene_config.ee_frame)
+        target_frame = self.scene_config.ee_frame.target_frames[0]
+        target_frame.prim_path = "{ENV_REGEX_NS}/Robot/Gripper/Robotiq_2F_85/base_link"
+        target_frame.offset = OffsetCfg()
 
 
 @register_asset
@@ -528,3 +621,83 @@ class DroidCameraCfg(ArenaCameraCfg):
             pos=(0.011, -0.031, -0.074), rot=(0.570, 0.576, -0.409, -0.420), convention="opengl"
         ),
     )
+
+
+_NEWTON_DROID_SPAWN = None
+
+
+def _get_newton_droid_spawn():
+    """Return the cached Newton spawner for the current DROID USD."""
+    global _NEWTON_DROID_SPAWN
+    if _NEWTON_DROID_SPAWN is None:
+        from isaaclab.sim import schemas
+        from isaaclab.sim.spawners.from_files import spawn_from_usd
+        from isaaclab.sim.utils import clone
+        from isaaclab_newton.sim.schemas import MujocoRigidBodyPropertiesCfg
+
+        @clone
+        def spawn_newton_droid(
+            prim_path: str,
+            spawner_cfg,
+            translation: tuple[float, float, float] | None = None,
+            orientation: tuple[float, float, float, float] | None = None,
+            **kwargs,
+        ):
+            prim = spawn_from_usd(
+                prim_path,
+                spawner_cfg,
+                translation=translation,
+                orientation=orientation,
+                **kwargs,
+            )
+            _promote_droid_collision_meshes(prim)
+            schemas.modify_rigid_body_properties(
+                prim_path,
+                MujocoRigidBodyPropertiesCfg(gravcomp=1.0),
+                prim.GetStage(),
+            )
+            return prim
+
+        _NEWTON_DROID_SPAWN = spawn_newton_droid
+    return _NEWTON_DROID_SPAWN
+
+
+def _promote_droid_collision_meshes(root_prim) -> None:
+    """Expose DROID's existing collision meshes to Newton without replacing their geometry.
+
+    The current DROID USD authors collision schemas on non-geometric grouping prims. Newton
+    requires those schemas on the child meshes, so this compatibility layer transfers the
+    existing settings when the Newton embodiment is spawned.
+    """
+    from pxr import Usd, UsdGeom, UsdPhysics
+
+    collision_groups = [
+        candidate
+        for candidate in Usd.PrimRange(root_prim)
+        if candidate.HasAPI(UsdPhysics.CollisionAPI) and not candidate.IsA(UsdGeom.Gprim)
+    ]
+    for collision_group in collision_groups:
+        collision_api = UsdPhysics.CollisionAPI(collision_group)
+        collision_enabled = collision_api.GetCollisionEnabledAttr().Get()
+        collision_enabled = True if collision_enabled is None else collision_enabled
+        source_approximation = None
+        if collision_group.HasAPI(UsdPhysics.MeshCollisionAPI):
+            source_approximation = UsdPhysics.MeshCollisionAPI(collision_group).GetApproximationAttr().Get()
+
+        meshes = [candidate for candidate in Usd.PrimRange(collision_group) if candidate.IsA(UsdGeom.Mesh)]
+        assert meshes, f"Collision group '{collision_group.GetPath()}' has no source mesh"
+        for mesh in meshes:
+            mesh_collision_api = (
+                UsdPhysics.CollisionAPI(mesh)
+                if mesh.HasAPI(UsdPhysics.CollisionAPI)
+                else UsdPhysics.CollisionAPI.Apply(mesh)
+            )
+            mesh_collision_api.CreateCollisionEnabledAttr().Set(collision_enabled)
+            mesh_approximation_api = (
+                UsdPhysics.MeshCollisionAPI(mesh)
+                if mesh.HasAPI(UsdPhysics.MeshCollisionAPI)
+                else UsdPhysics.MeshCollisionAPI.Apply(mesh)
+            )
+            mesh_approximation_api.CreateApproximationAttr().Set(source_approximation or "convexHull")
+
+        collision_api.CreateCollisionEnabledAttr().Set(False)
