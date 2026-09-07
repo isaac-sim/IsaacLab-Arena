@@ -182,10 +182,47 @@ def _check_object_on_destination(
     assert arena_world.root_linear_velocity_queries == ["object", "object"]
 
 
+def _check_pick_and_place_deformable_skips_contact_sensor(pick_and_place_task_type, object_type) -> None:
+    """Check that deformable pick-and-place omits contact sensors and uses support predicate."""
+    from isaaclab_arena.tasks.predicates.spatial import object_on_destination, object_supported_by
+
+    class AssetDouble:
+        def __init__(self, name, asset_object_type):
+            self.name = name
+            self.object_type = asset_object_type
+            self.object_min_z = -1.0
+
+        def get_contact_sensor_cfg(self, contact_against_object=None):
+            if self.object_type != object_type.RIGID:
+                raise AssertionError(f"Unexpected contact sensor request against {contact_against_object}")
+            return SimpleNamespace()
+
+    rigid_object = AssetDouble("rigid", object_type.RIGID)
+    deformable_object = AssetDouble("deformable", object_type.DEFORMABLE)
+    background = AssetDouble("background", object_type.BASE)
+
+    for pick_up_object, destination in (
+        (deformable_object, rigid_object),
+        (rigid_object, deformable_object),
+    ):
+        task = pick_and_place_task_type(pick_up_object, destination, background)
+        assert task.contact_sensor_name is None
+        assert task.get_scene_cfg() is None
+        assert task.get_termination_cfg().success.func is object_supported_by
+        assert task.get_progress_objectives()[0].predicate_groups[-1].func is object_supported_by
+
+    rigid_task = pick_and_place_task_type(rigid_object, rigid_object, background)
+    assert rigid_task.contact_sensor_name == "contact_sensor_rigid"
+    assert rigid_task.get_termination_cfg().success.func is object_on_destination
+    assert rigid_task.get_termination_cfg().success.params["contact_sensor_cfg"].name == rigid_task.contact_sensor_name
+
+
 def _test_object_on_destination(_simulation_app) -> bool:
     from isaaclab.managers import SceneEntityCfg
 
     import isaaclab_arena.tasks.predicates.spatial as spatial
+    from isaaclab_arena.assets.object_type import ObjectType
+    from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
     _check_bounds_center_over_destination(spatial, AxisAlignedBoundingBox)
@@ -195,6 +232,7 @@ def _test_object_on_destination(_simulation_app) -> bool:
         AxisAlignedBoundingBox,
         SceneEntityCfg,
     )
+    _check_pick_and_place_deformable_skips_contact_sensor(PickAndPlaceTask, ObjectType)
     return True
 
 

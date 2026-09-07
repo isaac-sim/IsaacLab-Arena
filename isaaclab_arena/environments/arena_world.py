@@ -114,6 +114,61 @@ class ArenaWorld:
         )
         return root_angular_velocity_w
 
+    def get_max_point_speed_w(self, scene_key: str) -> torch.Tensor:
+        """Return maximum nodal speed for a deformable, or root linear speed for a rigid object.
+
+        The tensor has shape (num_envs,).
+        """
+        scene = self._scene
+        if scene_key in scene.deformable_objects:
+            nodal_velocity_w = scene.deformable_objects[scene_key].data.nodal_vel_w.torch
+            max_point_speed_w = torch.linalg.vector_norm(nodal_velocity_w, dim=-1).amax(dim=1)
+        else:
+            # Using root linear velocity for rigid objects. This is an approximation as it does
+            # not account for angular velocity.
+            max_point_speed_w = torch.linalg.vector_norm(self.get_root_linear_velocity_w(scene_key), dim=-1)
+        assert max_point_speed_w.shape == (scene.num_envs,), (
+            f"Scene object '{scene_key}' returned max point speed shape {tuple(max_point_speed_w.shape)}; "
+            f"expected ({scene.num_envs},)."
+        )
+        return max_point_speed_w
+
+    def get_nodal_pos_w(self, scene_key: str) -> torch.Tensor:
+        """Return deformable nodal positions in world frame ``W``.
+
+        The tensor has shape ``(num_envs, num_nodes, 3)``.
+        """
+        scene = self._scene
+        assert scene_key in scene.deformable_objects, f"'{scene_key}' must name a deformable object."
+        nodal_pos_w = scene.deformable_objects[scene_key].data.nodal_pos_w.torch
+        return nodal_pos_w
+
+    def get_bounds_w(self, scene_key: str) -> AxisAlignedBoundingBox:
+        """Return cached local bounds transformed to the entity's current world pose."""
+        T_W_F = self.get_pose_w(scene_key)
+        t_W_F, q_W_F = T_W_F[:, :3], T_W_F[:, 3:]
+        bounds_F = self.get_aabb_in_local_frame(scene_key)
+        return bounds_F.rotated_by_quat(q_W_F).translated(t_W_F)
+
+    def get_min_height_w(self, scene_key: str) -> torch.Tensor:
+        """Return the lowest world-frame Z for a deformable or rigid scene entity.
+
+        Deformables use the minimum nodal height. Rigid objects, articulations, and scene extras
+        use the minimum Z of their world-frame axis-aligned bounds.
+
+        The tensor has shape ``(num_envs,)``.
+        """
+        scene = self._scene
+        if scene_key in scene.deformable_objects:
+            min_height_w = self.get_nodal_pos_w(scene_key)[..., 2].amin(dim=1)
+        else:
+            min_height_w = self.get_bounds_w(scene_key).min_point[:, 2]
+        assert min_height_w.shape == (scene.num_envs,), (
+            f"Scene entity '{scene_key}' returned min height shape {tuple(min_height_w.shape)}; "
+            f"expected ({scene.num_envs},)."
+        )
+        return min_height_w
+
     def get_aabb_in_local_frame(self, scene_key: str) -> AxisAlignedBoundingBox:
         """Return cached rigid-object or scene-extra geometry bounds in local frame F.
 

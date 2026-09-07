@@ -183,6 +183,33 @@ def objects_in_proximity(
     return done
 
 
+def object_supported_by(
+    env: ManagerBasedRLEnv,
+    object_cfg: SceneEntityCfg,
+    destination_cfg: SceneEntityCfg,
+    support_tolerance: float = 0.03,
+    low_point_tolerance: float = 0.01,
+    minimum_support_fraction: float = 0.5,
+) -> torch.Tensor:
+    """Check deformable support using low nodal points and destination bounds."""
+    unwrapped_env = get_env(env)
+    arena_world = unwrapped_env.arena_world
+    position_w = arena_world.get_nodal_pos_w(object_cfg.name)
+    low_z = arena_world.get_min_height_w(object_cfg.name).unsqueeze(-1)
+    low_mask = position_w[..., 2] <= low_z + low_point_tolerance
+    destination_bounds = arena_world.get_bounds_w(destination_cfg.name)
+
+    inside_xy = torch.all(
+        (position_w[..., :2] >= destination_bounds.min_point[:, None, :2])
+        & (position_w[..., :2] <= destination_bounds.max_point[:, None, :2]),
+        dim=-1,
+    )
+    near_top = torch.abs(position_w[..., 2] - destination_bounds.top_surface_z[:, None]) <= support_tolerance
+    supported_points = low_mask & inside_xy & near_top
+    support_fraction = supported_points.sum(dim=1) / low_mask.sum(dim=1).clamp_min(1)
+    return support_fraction >= minimum_support_fraction
+
+
 def object_on_destination(
     env: IsaacLabArenaManagerBasedRLEnv,
     object_cfg: SceneEntityCfg,
