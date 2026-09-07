@@ -3,17 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-r"""DROID PhysX deformable-object pick-and-place environment.
-
-Launch a short headless rollout from the development container:
-
-    /isaac-sim/python.sh -m isaaclab_arena.evaluation.policy_runner \
-        --headless --policy_type zero_action --num_steps 10 \
-        droid_deformable_pick_and_place
-
-Select another deformable object with ``--pick_object teddy_bear`` or
-``--pick_object surface``.
-"""
+r"""DROID PhysX deformable-object pick-and-place environment."""
 
 from __future__ import annotations
 
@@ -26,19 +16,13 @@ from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironme
 if TYPE_CHECKING:
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
 
-_PICK_OBJECT_ALIASES = {
-    "cube": "deformable_cube",
-    "surface": "deformable_surface",
-    "teddy_bear": "deformable_teddy_bear",
-}
-
 
 @dataclass
 class DroidDeformablePickAndPlaceEnvironmentCfg(ArenaEnvironmentCfg):
     """Configure the DROID deformable-object pick-and-place environment."""
 
-    pick_object: str = "cube"
-    """Deformable object alias or asset registry name, exposed as ``--pick_object``."""
+    pick_object: str = "deformable_cube"
+    """Deformable object asset registry name, exposed as ``--pick_object``."""
 
     embodiment: str = "droid_abs_joint_pos"
     """DROID embodiment registry name, exposed as ``--embodiment``."""
@@ -74,11 +58,8 @@ class DroidDeformablePickAndPlaceEnvironment(ArenaEnvironmentFactory[DroidDeform
         table_reference.add_relation(IsAnchor())
         destination = self.asset_registry.get_asset_by_name("plate_large_vomp_robolab")(instance_name="plate")
 
-        pick_object_registry_name = _PICK_OBJECT_ALIASES.get(cfg.pick_object, cfg.pick_object)
-        pick_object = self.asset_registry.get_asset_by_name(pick_object_registry_name)(instance_name="pick_object")
-        assert isinstance(
-            pick_object, DeformableObject
-        ), f"Pick object {cfg.pick_object!r} resolves to {pick_object_registry_name!r}, which is not deformable."
+        pick_object = self.asset_registry.get_asset_by_name(cfg.pick_object)(instance_name="pick_object")
+        assert isinstance(pick_object, DeformableObject), f"Pick object {cfg.pick_object!r} is not a deformable asset."
         destination.add_relation(On(table_reference))
         pick_object.add_relation(On(table_reference))
         pick_object.add_relation(NextTo(destination, side=Side.POSITIVE_Y))

@@ -67,13 +67,13 @@ def _test_droid_deformable_environment_registration_and_config(simulation_app) -
 
     parser = get_isaaclab_arena_environments_cli_parser()
     args_cli = parser.parse_args(
-        [ENVIRONMENT_NAME, "--pick_object", "teddy_bear", "--embodiment", "droid_differential_ik"]
+        [ENVIRONMENT_NAME, "--pick_object", "deformable_teddy_bear", "--embodiment", "droid_differential_ik"]
     )
     teddy_env = get_arena_builder_from_cli(args_cli).arena_env
     assert teddy_env.embodiment.name == "droid_differential_ik"
     assert isinstance(teddy_env.scene.assets["pick_object"].spawner_cfg, sim_utils.UsdFileCfg)
 
-    args_cli = parser.parse_args([ENVIRONMENT_NAME, "--pick_object", "surface"])
+    args_cli = parser.parse_args([ENVIRONMENT_NAME, "--pick_object", "deformable_surface"])
     surface_env = get_arena_builder_from_cli(args_cli).arena_env
     assert isinstance(surface_env.scene.assets["pick_object"].spawner_cfg, sim_utils.MeshRectangleCfg)
     assert surface_env.scene.assets["pick_object"].spawner_cfg.size == (0.2, 0.2)

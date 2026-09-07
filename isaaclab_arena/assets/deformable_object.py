@@ -10,7 +10,7 @@ from __future__ import annotations
 import torch
 from typing import Any
 
-from isaaclab.assets import AssetBaseCfg, DeformableObjectCfg
+from isaaclab.assets import DeformableObjectCfg
 from isaaclab.envs import ManagerBasedEnv
 from isaaclab.managers import EventTermCfg, SceneEntityCfg
 from isaaclab.sim.spawners.from_files.from_files_cfg import UsdFileCfg
@@ -77,13 +77,8 @@ class DeformableObject(ObjectBase):
             max_point=half_size,
         )
 
-    def get_object_cfg(self) -> tuple[str, AssetBaseCfg]:
-        """Return the available deformable config."""
-        return self.name, self.object_cfg
-
     def get_contact_sensor_cfg(self, contact_against_object: ObjectBase | None = None):
         """Reject contact sensors, which Isaac Lab does not support for deformables."""
-        del contact_against_object
         raise NotImplementedError(f"{type(self).__name__} does not support contact sensors")
 
     def _build_object_cfg(self) -> DeformableObjectCfg:
