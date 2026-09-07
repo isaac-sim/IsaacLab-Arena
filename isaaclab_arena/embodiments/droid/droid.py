@@ -29,6 +29,8 @@ from isaaclab.managers import SceneEntityCfg
 from isaaclab.markers.config import FRAME_MARKER_CFG
 from isaaclab.sensors.camera.camera_cfg import CameraCfg
 from isaaclab.sensors.frame_transformer.frame_transformer_cfg import FrameTransformerCfg, OffsetCfg
+from isaaclab.sim.spawners.from_files import spawn_from_usd
+from isaaclab.sim.utils import clone
 from isaaclab.utils.configclass import configclass
 
 from isaaclab_arena.assets.nucleus import ARENA_NUCLEUS_DIR
@@ -253,7 +255,7 @@ class DroidNewtonDifferentialIKEmbodiment(DroidDifferentialIKEmbodiment):
 
         robot_cfg = deepcopy(self.scene_config.robot)
         self.scene_config.robot = robot_cfg
-        robot_cfg.spawn.func = _get_newton_droid_spawn()
+        robot_cfg.spawn.func = spawn_newton_droid
         robot_cfg.spawn.make_uninstanceable = True
         robot_cfg.spawn.rigid_props.disable_gravity = False
         robot_cfg.spawn.physics_material = NewtonMaterialPropertiesCfg(
@@ -623,43 +625,32 @@ class DroidCameraCfg(ArenaCameraCfg):
     )
 
 
-_NEWTON_DROID_SPAWN = None
+@clone
+def spawn_newton_droid(
+    prim_path: str,
+    spawner_cfg,
+    translation: tuple[float, float, float] | None = None,
+    orientation: tuple[float, float, float, float] | None = None,
+    **kwargs,
+):
+    """Spawn DROID from USD and apply Newton-specific rigid-body and collision setup."""
+    from isaaclab.sim import schemas
+    from isaaclab_newton.sim.schemas import MujocoRigidBodyPropertiesCfg
 
-
-def _get_newton_droid_spawn():
-    """Return the cached Newton spawner for the current DROID USD."""
-    global _NEWTON_DROID_SPAWN
-    if _NEWTON_DROID_SPAWN is None:
-        from isaaclab.sim import schemas
-        from isaaclab.sim.spawners.from_files import spawn_from_usd
-        from isaaclab.sim.utils import clone
-        from isaaclab_newton.sim.schemas import MujocoRigidBodyPropertiesCfg
-
-        @clone
-        def spawn_newton_droid(
-            prim_path: str,
-            spawner_cfg,
-            translation: tuple[float, float, float] | None = None,
-            orientation: tuple[float, float, float, float] | None = None,
-            **kwargs,
-        ):
-            prim = spawn_from_usd(
-                prim_path,
-                spawner_cfg,
-                translation=translation,
-                orientation=orientation,
-                **kwargs,
-            )
-            _promote_droid_collision_meshes(prim)
-            schemas.modify_rigid_body_properties(
-                prim_path,
-                MujocoRigidBodyPropertiesCfg(gravcomp=1.0),
-                prim.GetStage(),
-            )
-            return prim
-
-        _NEWTON_DROID_SPAWN = spawn_newton_droid
-    return _NEWTON_DROID_SPAWN
+    prim = spawn_from_usd(
+        prim_path,
+        spawner_cfg,
+        translation=translation,
+        orientation=orientation,
+        **kwargs,
+    )
+    _promote_droid_collision_meshes(prim)
+    schemas.modify_rigid_body_properties(
+        prim_path,
+        MujocoRigidBodyPropertiesCfg(gravcomp=1.0),
+        prim.GetStage(),
+    )
+    return prim
 
 
 def _promote_droid_collision_meshes(root_prim) -> None:
