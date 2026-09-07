@@ -104,7 +104,7 @@ def _test_object_on_microwave_tray_termination(simulation_app) -> bool:
     return True
 
 
-def _check_object_pose_queries_use_arena_world(_simulation_app) -> bool:
+def _check_arena_world_pose_frames(_simulation_app) -> bool:
     import torch
 
     env, microwave, dex_cube, destination_ref = _make_microwave_tray_environment()
@@ -114,25 +114,17 @@ def _check_object_pose_queries_use_arena_world(_simulation_app) -> bool:
         microwave_root_pose_w = scene.articulations[microwave.name].data.root_pose_w.torch
         torch.testing.assert_close(arena_world.get_pose_w(microwave.name), microwave_root_pose_w)
 
-        for scene_object in (dex_cube, microwave, destination_ref):
-            world_pose_before_relative_query = arena_world.get_pose_w(scene_object.name).clone()
+        for scene_key in (dex_cube.name, microwave.name, destination_ref.name):
+            T_W_F = arena_world.get_pose_w(scene_key).clone()
+            expected_T_E_F = T_W_F.clone()
+            expected_T_E_F[:, :3] -= scene.env_origins
 
-            torch.testing.assert_close(
-                scene_object.get_object_pose(env, is_relative=False),
-                world_pose_before_relative_query,
-            )
+            torch.testing.assert_close(arena_world.get_pose_e(scene_key), expected_T_E_F)
 
-            expected_environment_relative_pose = world_pose_before_relative_query.clone()
-            expected_environment_relative_pose[:, :3] -= scene.env_origins
+            # Environment-frame conversion must not modify the live world-frame pose.
             torch.testing.assert_close(
-                scene_object.get_object_pose(env, is_relative=True),
-                expected_environment_relative_pose,
-            )
-
-            # The compatibility conversion must not modify ArenaWorld's live pose buffer.
-            torch.testing.assert_close(
-                arena_world.get_pose_w(scene_object.name),
-                world_pose_before_relative_query,
+                arena_world.get_pose_w(scene_key),
+                T_W_F,
             )
     finally:
         env.close()
@@ -144,12 +136,12 @@ def test_object_on_microwave_tray_termination():
     assert result, "Test failed"
 
 
-def test_object_pose_queries_use_arena_world():
+def test_arena_world_pose_frames():
     result = run_function_with_persistent_simulation_app(
-        _check_object_pose_queries_use_arena_world,
+        _check_arena_world_pose_frames,
         headless=HEADLESS,
     )
-    assert result, "Object pose queries did not preserve ArenaWorld poses and relative-frame conversion."
+    assert result, "ArenaWorld did not preserve world poses while converting them to the environment frame."
 
 
 if __name__ == "__main__":

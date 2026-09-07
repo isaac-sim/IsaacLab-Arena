@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import torch
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING
 
 from isaaclab.assets import ArticulationCfg, AssetBaseCfg, RigidObjectCfg
 from isaaclab.envs import ManagerBasedEnv
@@ -25,9 +24,6 @@ from isaaclab_arena.terms.events import set_object_pose, set_object_pose_per_env
 from isaaclab_arena.utils.pose import Pose, PosePerEnv, PoseRange
 from isaaclab_arena.utils.velocity import Velocity
 from isaaclab_arena.variations.object_mass_variation import ObjectMassVariation
-
-if TYPE_CHECKING:
-    from isaaclab_arena.environments.isaaclab_arena_manager_based_env import IsaacLabArenaManagerBasedRLEnv
 
 __all__ = [
     "ObjectBase",
@@ -148,26 +144,6 @@ class ObjectBase(PlaceableAsset, ABC):
         else:
             raise ValueError(f"Invalid object type: {self.object_type}")
         return object_cfg
-
-    def get_object_pose(self, env: IsaacLabArenaManagerBasedRLEnv, is_relative: bool = True) -> torch.Tensor:
-        """Get the pose of the object in the environment.
-
-        Args:
-            env: The wrapped or unwrapped Arena manager-based environment.
-            is_relative: Whether to return the pose in the relative frame of the environment.
-
-        Returns:
-            The pose of the object in each environment. The shape is (num_envs, 7).
-            The order is (x, y, z, qx, qy, qz, qw).
-        """
-        # We require that the asset has been added to the scene under its name.
-        assert self.name in env.unwrapped.scene.keys(), f"Asset {self.name} not found in scene"
-        if self.object_type not in (ObjectType.RIGID, ObjectType.ARTICULATION, ObjectType.BASE):
-            raise ValueError(f"Function not implemented for object type: {self.object_type}")
-        object_pose = env.unwrapped.arena_world.get_pose_w(self.name).clone()
-        if is_relative:
-            object_pose[:, :3] -= env.unwrapped.scene.env_origins
-        return object_pose
 
     def set_object_pose(self, env: ManagerBasedEnv, pose: Pose, env_ids: torch.Tensor | None = None) -> None:
         """Set the pose of the object in the environment.

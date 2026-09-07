@@ -5,9 +5,11 @@
 
 """Query live Arena scene state and cache derived geometry.
 
-Arena poses and transforms use target-source notation: T_A_B maps points from
-frame B into frame A. W is the simulation world. F is the root-link frame for
-a rigid object or articulation, and the configured prim frame for a scene extra.
+Arena transforms use target-source notation: T_A_B maps points from frame B
+into frame A. W is the simulation world, and F is the queried root-link or prim
+frame. E is each Isaac Lab local environment frame, aligned with W and located
+at the corresponding row of scene.env_origins. Pose method suffixes _w and _e
+indicate whether a pose is expressed in W or E.
 """
 
 from __future__ import annotations
@@ -59,6 +61,16 @@ class ArenaWorld:
             7,
         ), f"Pose for scene key '{scene_key}' has shape {tuple(T_W_F.shape)}; expected ({scene.num_envs}, 7)."
         return T_W_F
+
+    def get_pose_e(self, scene_key: str) -> torch.Tensor:
+        """Return poses relative to their respective environment origins.
+
+        The returned tensor is a copy with shape (num_envs, 7), with each pose
+        ordered as (x, y, z, qx, qy, qz, qw).
+        """
+        T_E_F = self.get_pose_w(scene_key).clone()
+        T_E_F[:, :3] -= self._scene.env_origins
+        return T_E_F
 
     def get_root_linear_velocity_w(self, rigid_object_name: str) -> torch.Tensor:
         """Return a rigid object's current world-frame root linear velocity.
