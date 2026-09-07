@@ -167,14 +167,9 @@ def test_render_after_stage_rebuild_without_fabric():
         partial(_test_render_after_stage_rebuild, disable_fabric=True),
         headless=HEADLESS,
         enable_cameras=True,
-        force_disable_fabric=True,
     )
 
 
-# TODO(alexmillane, 2026-08-31): [lab-render-after-rebuild-bug] Un-skip once the render after rebuild
-# bug is solved in Lab. Under GPU+Fabric every build after the first renders some geometry at the wrong
-# pose (the DROID gripper has been seen at the origin), which is what this test would catch.
-@pytest.mark.skip(reason="[lab-render-after-rebuild-bug] Rebuilds render incorrectly under GPU+Fabric.")
 @pytest.mark.with_cameras
 def test_render_after_stage_rebuild_with_fabric():
     """Rebuilds should also render correctly with Fabric on, which is the default outside this bug."""
@@ -182,6 +177,4 @@ def test_render_after_stage_rebuild_with_fabric():
         partial(_test_render_after_stage_rebuild, disable_fabric=False),
         headless=HEADLESS,
         enable_cameras=True,
-        # Opt out of the suite-wide override, which would otherwise build this variant Fabric-off too.
-        force_disable_fabric=False,
     )
