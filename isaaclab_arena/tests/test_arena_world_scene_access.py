@@ -45,15 +45,11 @@ def _check_rigid_object_reads_and_local_aabb_cache(
     """Check live rigid-object reads and one cached AABB per scene key."""
     import torch
 
-    class RuntimeBufferDouble:
-        def __init__(self, tensor: torch.Tensor):
-            self.torch = tensor
-
     class RigidObjectDouble:
         def __init__(self, T_W_F: torch.Tensor, root_linear_velocity_w: torch.Tensor):
             self.data = SimpleNamespace(
-                root_pose_w=RuntimeBufferDouble(T_W_F),
-                root_lin_vel_w=RuntimeBufferDouble(root_linear_velocity_w),
+                root_pose_w=SimpleNamespace(torch=T_W_F),
+                root_lin_vel_w=SimpleNamespace(torch=root_linear_velocity_w),
             )
 
     class SceneDouble:
@@ -141,15 +137,11 @@ def _check_articulation_pose_reads(arena_world_module) -> None:
     """Check that articulation root poses are read live."""
     import torch
 
-    class RuntimeBufferDouble:
-        def __init__(self, tensor: torch.Tensor):
-            self.torch = tensor
-
     T_W_F_initial = torch.tensor([
         [0.0, 0.0, 0.4, 0.0, 0.0, 0.0, 1.0],
         [1.0, 0.0, 0.4, 0.0, 0.0, 0.0, 1.0],
     ])
-    articulation = SimpleNamespace(data=SimpleNamespace(root_pose_w=RuntimeBufferDouble(T_W_F_initial)))
+    articulation = SimpleNamespace(data=SimpleNamespace(root_pose_w=SimpleNamespace(torch=T_W_F_initial)))
     scene = SimpleNamespace(
         num_envs=2,
         rigid_objects={},
