@@ -14,6 +14,7 @@ from isaaclab_arena.affordances.openable import Openable
 from isaaclab_arena.assets.object_base import ObjectBase
 from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.metrics.metric_term_cfg import MetricTermCfg
+from isaaclab_arena.tasks.predicates.openness import MIN_OPENNESS_CHANGE
 
 
 class RevoluteJointStateRecorder(RecorderTerm):
@@ -76,7 +77,12 @@ class RevoluteJointMovedRateMetric(MetricBase):
     name = "revolute_joint_moved_rate"
     recorder_term_name = "revolute_joint_state"
 
-    def __init__(self, object: Openable, reset_joint_percentage: float, joint_percentage_delta_threshold: float = 0.05):
+    def __init__(
+        self,
+        object: Openable,
+        reset_joint_percentage: float,
+        joint_percentage_delta_threshold: float = MIN_OPENNESS_CHANGE,
+    ):
         """Initializes the door-moved rate metric.
 
         Args:

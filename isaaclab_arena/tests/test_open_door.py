@@ -257,7 +257,7 @@ def _test_open_door_progress_objectives(simulation_app) -> bool:
         assert state.score == 0.0, f"Expected no progress with the door closed, got {state.score}"
         assert not state.is_complete, "The objective completed with the door closed"
         assert events == [], f"Expected no predicate events with the door closed, got {events}"
-        assert state.active_predicates[DEFAULT_GROUP_NAME].startswith("has_moved")
+        assert state.active_predicates[DEFAULT_GROUP_NAME].startswith("is_away_from_rest_openness")
         assert not terminated.item(), "The task terminated with the door closed"
 
         # Partially open: has_moved fires, but the door is short of the success threshold.
@@ -270,7 +270,7 @@ def _test_open_door_progress_objectives(simulation_app) -> bool:
         assert not state.is_complete, "The objective completed with the door only partly open"
         assert len(events) == 1, f"Expected exactly one predicate event, got {events}"
         assert events[0].predicate_index == 0
-        assert events[0].predicate_name.startswith("has_moved"), events[0].predicate_name
+        assert events[0].predicate_name.startswith("is_away_from_rest_openness"), events[0].predicate_name
         assert state.active_predicates[DEFAULT_GROUP_NAME].startswith("is_open")
         assert not terminated.item(), "The task terminated with the door only partly open"
 
