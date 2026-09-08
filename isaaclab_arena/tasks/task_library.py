@@ -10,6 +10,7 @@
 # ensure_assets_registered() (called after the sim app is up), mirroring object_library.
 from isaaclab_arena.tasks import (  # noqa: F401
     assembly_task,
+    cable_routing_task,
     close_door_task,
     goal_pose_task,
     lift_object_task,
