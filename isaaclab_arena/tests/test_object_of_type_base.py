@@ -72,7 +72,7 @@ def _test_object_of_type_base(simulation_app):
                 env.step(actions)
 
             # Check the the object is floating.
-            position_after_simulation = cone.get_object_pose(env)[:, :3]
+            position_after_simulation = env.unwrapped.arena_world.get_pose_e(cone.name)[:, :3]
             movement = position_after_simulation.cpu() - position_before_simulation.cpu()
             assert torch.norm(movement).item() < MOVEMENT_EPS, "Object moved. Should not have physics."
 

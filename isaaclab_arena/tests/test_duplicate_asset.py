@@ -99,8 +99,8 @@ def _test_duplicate_asset(simulation_app) -> bool:
             assert dex_cube_2.name in env.unwrapped.scene.keys(), "Cube 2 object is None"
 
             # Get positions (subtract env origin to get local positions)
-            cube_1_pos = dex_cube_1.get_object_pose(env)[0, :3]
-            cube_2_pos = dex_cube_2.get_object_pose(env)[0, :3]
+            cube_1_pos = env.unwrapped.arena_world.get_pose_e(dex_cube_1.name)[0, :3]
+            cube_2_pos = env.unwrapped.arena_world.get_pose_e(dex_cube_2.name)[0, :3]
 
             print(f"Cube 1 position: {cube_1_pos}")
             print(f"Cube 2 position: {cube_2_pos}")

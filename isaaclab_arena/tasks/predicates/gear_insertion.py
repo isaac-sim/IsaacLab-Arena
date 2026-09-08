@@ -14,13 +14,11 @@ from isaaclab.assets import RigidObject
 from isaaclab.envs import ManagerBasedEnv
 from isaaclab.managers import SceneEntityCfg
 
-from isaaclab_arena.assets.object_base import ObjectBase
-
 
 def gear_is_inserted(
     env: ManagerBasedEnv,
     gear_cfg: SceneEntityCfg,
-    insertion_target: ObjectBase,
+    insertion_target_cfg: SceneEntityCfg,
     gear_insertion_offset_xyz: tuple[float, float, float],
     xy_threshold: float,
     z_threshold: float,
@@ -40,7 +38,7 @@ def gear_is_inserted(
     gear_position = wp.to_torch(gear.data.root_link_pos_w)
     gear_orientation = wp.to_torch(gear.data.root_link_quat_w)
     gear_velocity = wp.to_torch(gear.data.root_com_vel_w)
-    target_pose = insertion_target.get_object_pose(base_env, is_relative=False)
+    target_pose = base_env.arena_world.get_pose_w(insertion_target_cfg.name)
     target_position = target_pose[:, :3]
     target_orientation = target_pose[:, 3:7]
 

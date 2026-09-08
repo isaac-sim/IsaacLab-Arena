@@ -162,7 +162,7 @@ class DisplayPortInsertionTask(TaskBase):
             func=displayport_plug_is_inserted,
             params={
                 "plug_cfg": SceneEntityCfg(self.plug.name),
-                "insertion_target": self.insertion_target,
+                "insertion_target_cfg": SceneEntityCfg(self.insertion_target.name),
                 "plug_mating_offset_xyz": criteria.plug_mating_offset_xyz,
                 "position_threshold": criteria.position_threshold,
                 "orientation_threshold_deg": criteria.orientation_threshold_deg,

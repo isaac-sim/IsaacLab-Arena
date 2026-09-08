@@ -171,8 +171,8 @@ def _test_peg_insert_assembly_single(simulation_app) -> bool:
 
     def assert_assembled(env: ManagerBasedEnv, terminated: torch.Tensor):
         # Check if objects are close together (assembled)
-        peg_pos = peg.get_object_pose(env, is_relative=True)[:, :3]
-        hole_pos = hole.get_object_pose(env, is_relative=True)[:, :3]
+        peg_pos = env.unwrapped.arena_world.get_pose_e(peg.name)[:, :3]
+        hole_pos = env.unwrapped.arena_world.get_pose_e(hole.name)[:, :3]
         distance = torch.norm(peg_pos - hole_pos, dim=-1)
 
         print(f"Distance between peg and hole: {distance.item():.4f}m")
@@ -187,7 +187,7 @@ def _test_peg_insert_assembly_single(simulation_app) -> bool:
         print("Testing peg insert assembly (single env)...")
 
         # Manually place hole on peg to simulate successful assembly - use absolute world coordinates
-        peg_pose = peg.get_object_pose(env, is_relative=False)
+        peg_pose = env.unwrapped.arena_world.get_pose_w(peg.name)
         env.scene[hole.name].write_root_pose_to_sim(peg_pose, env_ids=torch.tensor([0], device=env.device))
 
         step_zeros_and_call(env, NUM_STEPS, assert_assembled)
@@ -213,8 +213,8 @@ def _test_gear_mesh_assembly_single(simulation_app) -> bool:
 
     def assert_assembled(env: ManagerBasedEnv, terminated: torch.Tensor):
         # Check if gears are close together (meshed)
-        base_pos = gear_base.get_object_pose(env, is_relative=True)[:, :3]
-        medium_pos = medium_gear.get_object_pose(env, is_relative=True)[:, :3]
+        base_pos = env.unwrapped.arena_world.get_pose_e(gear_base.name)[:, :3]
+        medium_pos = env.unwrapped.arena_world.get_pose_e(medium_gear.name)[:, :3]
         distance = torch.norm(base_pos - medium_pos, dim=-1)
 
         print(f"Distance between gear base and medium gear: {distance.item():.4f}m")
@@ -229,7 +229,7 @@ def _test_gear_mesh_assembly_single(simulation_app) -> bool:
         print("Testing gear mesh assembly (single env)...")
 
         # Manually place medium gear on gear base to simulate successful assembly - use absolute world coordinates
-        base_pose = gear_base.get_object_pose(env, is_relative=False)
+        base_pose = env.unwrapped.arena_world.get_pose_w(gear_base.name)
         env.scene[medium_gear.name].write_root_pose_to_sim(base_pose, env_ids=torch.tensor([0], device=env.device))
 
         step_zeros_and_call(env, NUM_STEPS, assert_assembled)
@@ -256,14 +256,14 @@ def _test_peg_insert_assembly_multi(simulation_app) -> bool:
             print("Testing peg insert assembly (multi env)...")
 
             # Assemble in both environments - use absolute world coordinates
-            peg_poses = peg.get_object_pose(env, is_relative=False)
+            peg_poses = env.unwrapped.arena_world.get_pose_w(peg.name)
             env.scene[hole.name].write_root_pose_to_sim(peg_poses, env_ids=None)
 
             step_zeros_and_call(env, NUM_STEPS)
 
             # Check distances
-            peg_pos = peg.get_object_pose(env, is_relative=True)[:, :3]
-            hole_pos = hole.get_object_pose(env, is_relative=True)[:, :3]
+            peg_pos = env.unwrapped.arena_world.get_pose_e(peg.name)[:, :3]
+            hole_pos = env.unwrapped.arena_world.get_pose_e(hole.name)[:, :3]
             distances = torch.norm(peg_pos - hole_pos, dim=-1)
 
             print(f"Distances in both envs: {distances}")
@@ -292,14 +292,14 @@ def _test_gear_mesh_assembly_multi(simulation_app) -> bool:
             print("Testing gear mesh assembly (multi env)...")
 
             # Assemble in both environments - use absolute world coordinates
-            base_poses = gear_base.get_object_pose(env, is_relative=False)
+            base_poses = env.unwrapped.arena_world.get_pose_w(gear_base.name)
             env.scene[medium_gear.name].write_root_pose_to_sim(base_poses, env_ids=None)
 
             step_zeros_and_call(env, NUM_STEPS)
 
             # Check distances
-            base_pos = gear_base.get_object_pose(env, is_relative=True)[:, :3]
-            medium_pos = medium_gear.get_object_pose(env, is_relative=True)[:, :3]
+            base_pos = env.unwrapped.arena_world.get_pose_e(gear_base.name)[:, :3]
+            medium_pos = env.unwrapped.arena_world.get_pose_e(medium_gear.name)[:, :3]
             distances = torch.norm(base_pos - medium_pos, dim=-1)
 
             print(f"Distances in both envs: {distances}")

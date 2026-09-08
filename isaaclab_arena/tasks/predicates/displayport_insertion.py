@@ -14,13 +14,11 @@ from isaaclab.assets import RigidObject
 from isaaclab.envs import ManagerBasedEnv
 from isaaclab.managers import SceneEntityCfg
 
-from isaaclab_arena.assets.object_base import ObjectBase
-
 
 def displayport_plug_is_inserted(
     env: ManagerBasedEnv,
     plug_cfg: SceneEntityCfg,
-    insertion_target: ObjectBase,
+    insertion_target_cfg: SceneEntityCfg,
     plug_mating_offset_xyz: tuple[float, float, float],
     position_threshold: float,
     orientation_threshold_deg: float,
@@ -40,7 +38,7 @@ def displayport_plug_is_inserted(
     plug_position = wp.to_torch(plug.data.root_link_pos_w)
     plug_orientation = wp.to_torch(plug.data.root_link_quat_w)
     plug_velocity = wp.to_torch(plug.data.root_com_vel_w)
-    target_pose = insertion_target.get_object_pose(base_env, is_relative=False)
+    target_pose = base_env.arena_world.get_pose_w(insertion_target_cfg.name)
 
     plug_offset = torch.as_tensor(
         plug_mating_offset_xyz,

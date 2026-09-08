@@ -182,14 +182,9 @@ def test_prims_after_stage_rebuild_without_fabric():
         partial(_test_prims_after_stage_rebuild, disable_fabric=True),
         headless=HEADLESS,
         enable_cameras=True,
-        force_disable_fabric=True,
     )
 
 
-# TODO(alexmillane, 2026-09-02): [lab-render-after-rebuild-bug] Remove once the render after rebuild bug
-# is solved in Lab. Under GPU+Fabric every build after the first leaves prims at an identity Fabric world
-# matrix, which is the mechanism this test detects.
-@pytest.mark.skip(reason="[lab-render-after-rebuild-bug] Rebuilds lose Fabric world matrices under GPU+Fabric.")
 @pytest.mark.with_cameras
 def test_prims_after_stage_rebuild_with_fabric():
     """Rebuilds should keep the Fabric world matrix of every prim USD places off the origin."""
@@ -197,6 +192,4 @@ def test_prims_after_stage_rebuild_with_fabric():
         partial(_test_prims_after_stage_rebuild, disable_fabric=False),
         headless=HEADLESS,
         enable_cameras=True,
-        # Opt out of the suite-wide override, which would otherwise build this variant Fabric-off too.
-        force_disable_fabric=False,
     )

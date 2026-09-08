@@ -126,7 +126,7 @@ class GearAssemblyTask(TaskBase):
             func=gear_is_inserted,
             params={
                 "gear_cfg": SceneEntityCfg(self.held_asset.name),
-                "insertion_target": self.insertion_target,
+                "insertion_target_cfg": SceneEntityCfg(self.insertion_target.name),
                 "gear_insertion_offset_xyz": criteria.gear_insertion_offset_xyz,
                 "xy_threshold": criteria.xy_threshold,
                 "z_threshold": criteria.z_threshold,
