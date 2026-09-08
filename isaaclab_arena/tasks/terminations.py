@@ -3,9 +3,12 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from __future__ import annotations
+
 import math
 import torch
 from enum import Enum
+from typing import TYPE_CHECKING
 
 import warp as wp
 from isaaclab.assets import RigidObject
@@ -13,6 +16,9 @@ from isaaclab.envs import ManagerBasedRLEnv
 from isaaclab.envs.mdp.terminations import root_height_below_minimum
 from isaaclab.managers import SceneEntityCfg, TerminationTermCfg
 from isaaclab.utils.math import combine_frame_transforms
+
+if TYPE_CHECKING:
+    from isaaclab_arena.environments.isaaclab_arena_manager_based_env import IsaacLabArenaManagerBasedRLEnv
 
 
 class SuccessMode(str, Enum):
@@ -149,7 +155,7 @@ def lift_object_rl_success(
 
 
 def goal_pose_task_termination(
-    env: ManagerBasedRLEnv,
+    env: IsaacLabArenaManagerBasedRLEnv,
     object_cfg: SceneEntityCfg = SceneEntityCfg("object"),
     target_x_range: tuple[float, float] | None = None,
     target_y_range: tuple[float, float] | None = None,

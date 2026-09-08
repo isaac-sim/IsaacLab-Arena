@@ -86,6 +86,20 @@ class ArenaWorld:
         )
         return root_linear_velocity_w
 
+    def get_root_angular_velocity_w(self, rigid_object_name: str) -> torch.Tensor:
+        """Return a rigid object's current world-frame root angular velocity.
+
+        The tensor has shape (num_envs, 3).
+        """
+        scene = self._scene
+        assert rigid_object_name in scene.rigid_objects, f"'{rigid_object_name}' must name a rigid object."
+        root_angular_velocity_w = scene.rigid_objects[rigid_object_name].data.root_ang_vel_w.torch
+        assert root_angular_velocity_w.shape == (scene.num_envs, 3), (
+            f"Rigid object '{rigid_object_name}' returned root angular velocity shape "
+            f"{tuple(root_angular_velocity_w.shape)}; expected ({scene.num_envs}, 3)."
+        )
+        return root_angular_velocity_w
+
     def get_aabb_in_local_frame(self, scene_key: str) -> AxisAlignedBoundingBox:
         """Return cached rigid-object or scene-extra geometry bounds in local frame F.
 
