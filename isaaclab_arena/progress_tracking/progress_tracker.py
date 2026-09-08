@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import torch
 from dataclasses import MISSING, dataclass
+from functools import partial
 from typing import Any
 
 from isaaclab.managers import EventTermCfg
@@ -15,7 +16,11 @@ from isaaclab.utils.configclass import configclass
 
 from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective, ProgressObjectiveCompletionMode
 from isaaclab_arena.progress_tracking.progress_tracking_utils import _predicate_repr
-from isaaclab_arena.tasks.predicates.object_settling import reset_rest_pose_recorder
+from isaaclab_arena.tasks.predicates.object_settling import (
+    objects_settled,
+    record_object_reset_positions,
+    reset_rest_pose_recorder,
+)
 
 _PROGRESS_TRACKER_ATTR = "_progress_tracker"
 
@@ -407,6 +412,12 @@ class ProgressTrackingRecorder(RecorderTerm):
     def __init__(self, cfg: ProgressTrackingRecorderCfg, env):
         super().__init__(cfg, env)
         self._progress_objectives = cfg.progress_objectives
+        self._settling_object_names = _settling_object_names(cfg.progress_objectives)
+
+    def record_post_reset(self, env_ids):
+        """Record reset positions for objects tracked by settling predicates."""
+        record_object_reset_positions(self._env, self._settling_object_names, env_ids)
+        return None, None
 
     def record_post_step(self):
         """Ticks the progress tracker, writes events and states to env.extras["progress_tracking"]"""
@@ -451,6 +462,20 @@ class ProgressTrackingRecorderCfg(RecorderTermCfg):
 @configclass
 class ProgressTrackingRecorderManagerCfg(RecorderManagerBaseCfg):
     progress_tracking: ProgressTrackingRecorderCfg = MISSING
+
+
+def _settling_object_names(progress_objectives: list[ProgressObjective]) -> list[str]:
+    """Return unique object names configured on ``objects_settled`` predicates."""
+    names: list[str] = []
+    for objective in progress_objectives:
+        for predicate_chain in objective.canonical_predicate_groups.values():
+            for predicate, _score in predicate_chain:
+                if not isinstance(predicate, partial) or predicate.func is not objects_settled:
+                    continue
+                for name in (predicate.keywords or {}).get("object_names", []):
+                    if name not in names:
+                        names.append(name)
+    return names
 
 
 def make_progress_tracking_events_cfg(

@@ -29,6 +29,7 @@ import matplotlib.pyplot as plt  # noqa: E402
 _RESULTS_FILENAME_PATTERN = re.compile(r"^episode_results(?:_rebuild\d+)?(?:_rank\d+)?\.jsonl$")
 _RUN_DIRECTORY_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}$")
 _ARCHIVE_SUFFIXES = (".tar.gz", ".tar.bz2", ".tar.xz", ".tgz", ".tbz2", ".txz", ".tar")
+_ARENA_EXPERIMENT_RESULT_FILENAME = "arena_experiment_result.json"
 _POLICY_STYLES = (
     ("#0072B2", ""),
     ("#D55E00", "xxx"),
@@ -135,13 +136,44 @@ def _iter_archive_result_lines(archive_path: Path) -> Iterator[tuple[str, int, s
         raise ValueError(f"'{archive_path}' is not a readable tar archive: {error}") from error
 
 
+def _iter_experiment_result_lines(result_path: Path) -> Iterator[tuple[str, int, str]]:
+    """Yield raw episode objects embedded in an Arena Experiment result."""
+    try:
+        result = json.loads(result_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as error:
+        raise ValueError(f"Invalid JSON in '{result_path}': {error.msg}.") from error
+    if not isinstance(result, dict) or not isinstance(result.get("runs"), dict):
+        raise ValueError(f"Arena Experiment result '{result_path}' must contain a JSON object named 'runs'.")
+
+    record_index = 0
+    for run_name, run in result["runs"].items():
+        if not isinstance(run_name, str) or not isinstance(run, dict):
+            raise ValueError(f"Arena Experiment result '{result_path}' contains an invalid Run entry.")
+        rebuilds = run.get("rebuilds")
+        if not isinstance(rebuilds, list):
+            raise ValueError(f"Run '{run_name}' in '{result_path}' must contain a 'rebuilds' list.")
+        for rebuild in rebuilds:
+            if not isinstance(rebuild, dict) or not isinstance(rebuild.get("episodes"), list):
+                raise ValueError(f"Run '{run_name}' in '{result_path}' contains an invalid rebuild.")
+            for episode in rebuild["episodes"]:
+                record_index += 1
+                if not isinstance(episode, dict):
+                    raise ValueError(
+                        f"Run '{run_name}' in '{result_path}' contains a non-object episode at index {record_index}."
+                    )
+                yield str(result_path), record_index, json.dumps(episode)
+
+
 def _iter_result_lines(results_path: Path) -> Iterator[tuple[str, int, str]]:
-    """Yield JSONL records from a results directory, JSONL file, or tar archive."""
+    """Yield episode records from an Experiment JSON, results directory, JSONL, or tar archive."""
     if results_path.is_dir():
         yield from _iter_directory_result_lines(results_path)
         return
     if not results_path.is_file():
         raise ValueError(f"Results path '{results_path}' does not exist.")
+    if results_path.name == _ARENA_EXPERIMENT_RESULT_FILENAME:
+        yield from _iter_experiment_result_lines(results_path)
+        return
     if results_path.suffix == ".jsonl":
         with results_path.open(encoding="utf-8") as results_file:
             yield from _iter_text_lines(results_file, str(results_path))
@@ -202,7 +234,7 @@ def collect_success_rates(
     """Collect episode-weighted success rates keyed by derived task name and policy.
 
     Args:
-        results_path: Results directory, JSONL file, or tar archive to read.
+        results_path: Arena Experiment JSON, results directory, JSONL file, or tar archive to read.
         policies: Policy names expected as underscore-delimited Run-name suffixes.
 
     Returns:
@@ -336,7 +368,11 @@ def _default_output_path(results_path: Path) -> Path:
 def main(argv: Sequence[str] | None = None) -> int:
     """Parse command-line arguments, aggregate results, and write the plot."""
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("results_path", type=Path, help="Results directory, JSONL file, or tar archive")
+    parser.add_argument(
+        "results_path",
+        type=Path,
+        help="arena_experiment_result.json, results directory, JSONL file, or tar archive",
+    )
     parser.add_argument(
         "--policies",
         nargs="+",

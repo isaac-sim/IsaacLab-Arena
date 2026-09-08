@@ -46,6 +46,25 @@ def record_variation_samples(env, env_id: int) -> dict[str, Any]:
     return {"variations": samples} if samples else {}
 
 
+def record_initial_rest_positions(env, env_id: int) -> dict[str, Any]:
+    """Record the environment origin and objects' reset/settled world positions."""
+    reset_positions = {
+        name: position[env_id].tolist()
+        for name, (position, recorded) in env.object_initial_rest_pose_recorder.get_all_reset().items()
+        if bool(recorded[env_id].item())
+    }
+    settled_positions = {
+        name: position[env_id].tolist()
+        for name, (position, settled) in env.object_initial_rest_pose_recorder.get_all().items()
+        if bool(settled[env_id].item())
+    }
+    return {
+        "env_origin": env.scene.env_origins[env_id].tolist(),
+        "reset_positions": reset_positions,
+        "settled_positions": settled_positions,
+    }
+
+
 @configclass
 class CoreEpisodeRecorderTermCfg(EpisodeRecorderTermCfg):
     """Term recording the core per-episode metadata (env id, indices, success, seed, timing)."""
@@ -58,3 +77,10 @@ class VariationEpisodeRecorderTermCfg(EpisodeRecorderTermCfg):
     """Term recording each variation's per-env sampled value for the episode."""
 
     func: Callable[..., dict[str, Any]] = record_variation_samples
+
+
+@configclass
+class InitialPositionEpisodeRecorderTermCfg(EpisodeRecorderTermCfg):
+    """Term recording the environment origin and tracked objects' reset/settled world positions."""
+
+    func: Callable[..., dict[str, Any]] = record_initial_rest_positions

@@ -74,18 +74,37 @@ def _test_rest_pose_recorder_is_owned_by_env(simulation_app) -> bool:
         assert rebuilt_recorder is rebuilt_env.object_initial_rest_pose_recorder
         assert first_recorder is not rebuilt_recorder
 
+        reset_positions = torch.tensor([[0.0, 0.5, 1.0], [1.0, 1.5, 2.0]])
         positions = torch.tensor([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]])
+        first_recorder.record_reset("object", reset_positions)
         first_recorder.record("object", positions, torch.tensor([True, True]))
 
+        rebuilt_reset_positions, rebuilt_reset_recorded = rebuilt_recorder.get_reset("object")
+        assert not bool(rebuilt_reset_recorded.any())
+        assert bool(torch.isnan(rebuilt_reset_positions).all())
         rebuilt_positions, rebuilt_settled = get_object_initial_rest_state(rebuilt_env, "object")
         assert not bool(rebuilt_settled.any())
         assert bool(torch.isnan(rebuilt_positions).all())
 
         reset_rest_pose_recorder(first_env, env_ids=[0])
+        first_reset_positions, first_reset_recorded = first_recorder.get_reset("object")
+        assert first_reset_recorded.tolist() == [False, True]
+        assert bool(torch.isnan(first_reset_positions[0]).all())
+        assert torch.equal(first_reset_positions[1], reset_positions[1])
         first_positions, first_settled = get_object_initial_rest_state(first_env, "object")
         assert first_settled.tolist() == [False, True]
         assert bool(torch.isnan(first_positions[0]).all())
         assert torch.equal(first_positions[1], positions[1])
+
+        from types import SimpleNamespace
+
+        from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
+
+        pick_and_place = object.__new__(PickAndPlaceTask)
+        pick_and_place.pick_up_object = SimpleNamespace(name="pick_up")
+        pick_and_place.destination_object = None
+        pick_and_place.destination_location = SimpleNamespace(name="destination")
+        assert pick_and_place._settling_object_names() == ["pick_up", "destination"]
     except Exception as e:
         print(f"Error: {e}")
         traceback.print_exc()
