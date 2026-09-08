@@ -63,6 +63,7 @@ def test_build_and_run_splits_episode_budget_without_mutating_config(monkeypatch
     run = _run()
     rollout_limits = []
     received_run_cfgs = []
+    received_video_cfgs = []
 
     def make_environment(cfg, render_mode):
         received_run_cfgs.append(cfg)
@@ -70,7 +71,12 @@ def test_build_and_run_splits_episode_budget_without_mutating_config(monkeypatch
 
     monkeypatch.setattr(run_execution, "_build_environment_from_cfg", make_environment)
     monkeypatch.setattr(run_execution, "_build_policy_from_cfg", lambda cfg: _Policy())
-    monkeypatch.setattr(run_execution, "wrap_env_for_video", lambda env, video_cfg, steps, episodes: env)
+
+    def wrap_for_video(env, video_cfg, steps, episodes):
+        received_video_cfgs.append(video_cfg)
+        return env
+
+    monkeypatch.setattr(run_execution, "wrap_env_for_video", wrap_for_video)
     monkeypatch.setattr(run_execution, "close_run_resources", lambda policy, env: None)
 
     def record_rollout(env, policy, num_steps, num_episodes):
@@ -93,6 +99,10 @@ def test_build_and_run_splits_episode_budget_without_mutating_config(monkeypatch
     assert rollout_limits == [(None, 3), (None, 2)]
     # Runs are the same except for their seeds.
     assert received_run_cfgs == [run_seed_0, run_seed_1]
+    assert [cfg.viewport_name_prefix for cfg in received_video_cfgs] == [
+        "viewport-rebuild0-env0-viewport",
+        "viewport-rebuild1-env0-viewport",
+    ]
     # The original config is never mutated.
     assert run.rollout_limit == RolloutLimitCfg(num_episodes=5)
     assert run.environment_builder.seed == base_seed
