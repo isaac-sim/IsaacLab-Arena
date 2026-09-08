@@ -124,7 +124,7 @@ def _scene_already_has_light(graph_spec: ArenaEnvGraphSpec, assets_by_node_id: d
     for asset_spec in [graph_spec.background, *graph_spec.objects]:
         asset = assets_by_node_id[asset_spec.id]
         usd_path = getattr(asset, "usd_path", None)
-        if usd_path is not None and getattr(asset, "spawner_cfg", None) is None:
+        if usd_path and getattr(asset, "spawner_cfg", None) is None:
             with open_stage(usd_path) as stage:
                 if has_light(stage):
                     return True

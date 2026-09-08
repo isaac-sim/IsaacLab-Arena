@@ -13,7 +13,6 @@ import isaaclab.sim as sim_utils
 if TYPE_CHECKING:
     from isaaclab_arena.assets.hdr_image import HDRImage
 
-from isaaclab.assets import RigidObjectCfg
 from isaaclab.sim.spawners.from_files.from_files_cfg import GroundPlaneCfg
 from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR
 
@@ -31,6 +30,7 @@ from isaaclab_arena.assets.object_utils import (
     RIGID_BODY_PROPS_MEDIUM_PRECISION,
 )
 from isaaclab_arena.assets.register import register_asset
+from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose
 
 
@@ -1927,21 +1927,24 @@ class ProceduralTable(Object):
             name=resolved_name,
             prim_path=resolved_prim,
             object_type=ObjectType.RIGID,
-            usd_path="",
+            spawner_cfg=_PROCEDURAL_TABLE_SPAWN_CFG,
             initial_pose=initial_pose,
         )
 
-    def _generate_rigid_cfg(self) -> RigidObjectCfg:
-        cfg = RigidObjectCfg(
-            prim_path=self.prim_path,
-            spawn=_PROCEDURAL_TABLE_SPAWN_CFG,
-            **self.asset_cfg_addon,
-        )
-        return self._add_initial_pose_to_cfg(cfg)
+    def get_bounding_box(self) -> AxisAlignedBoundingBox:
+        """Return root-relative bounds for the spawned cuboid."""
+        if self.bounding_box is None:
+            half_x, half_y, half_z = (dim / 2.0 for dim in _PROCEDURAL_TABLE_SPAWN_CFG.size)
+            self.bounding_box = AxisAlignedBoundingBox(
+                min_point=(-half_x, -half_y, -half_z),
+                max_point=(half_x, half_y, half_z),
+            )
+        return self.bounding_box
 
 
+_PROCEDURAL_CUBE_SIZE = (0.05, 0.1, 0.1)
 _PROCEDURAL_CUBE_SPAWN_CFG = sim_utils.CuboidCfg(
-    size=(0.05, 0.1, 0.1),
+    size=_PROCEDURAL_CUBE_SIZE,
     physics_material=sim_utils.RigidBodyMaterialCfg(static_friction=0.5),
     rigid_props=sim_utils.RigidBodyPropertiesCfg(
         solver_position_iteration_count=16,
@@ -1972,14 +1975,16 @@ class ProceduralCube(Object):
             name=resolved_name,
             prim_path=resolved_prim,
             object_type=ObjectType.RIGID,
-            usd_path="",
+            spawner_cfg=_PROCEDURAL_CUBE_SPAWN_CFG,
             initial_pose=initial_pose,
         )
 
-    def _generate_rigid_cfg(self) -> RigidObjectCfg:
-        cfg = RigidObjectCfg(
-            prim_path=self.prim_path,
-            spawn=_PROCEDURAL_CUBE_SPAWN_CFG,
-            **self.asset_cfg_addon,
-        )
-        return self._add_initial_pose_to_cfg(cfg)
+    def get_bounding_box(self) -> AxisAlignedBoundingBox:
+        """Return root-relative bounds for the spawned cuboid."""
+        if self.bounding_box is None:
+            half_x, half_y, half_z = (dim / 2.0 for dim in _PROCEDURAL_CUBE_SIZE)
+            self.bounding_box = AxisAlignedBoundingBox(
+                min_point=(-half_x, -half_y, -half_z),
+                max_point=(half_x, half_y, half_z),
+            )
+        return self.bounding_box

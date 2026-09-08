@@ -71,10 +71,7 @@ class Object(ObjectBase):
         return self.bounding_box
 
     def get_corners(self, pos: torch.Tensor) -> torch.Tensor:
-        assert self.usd_path is not None
-        if self.bounding_box is None:
-            self.bounding_box = compute_local_bounding_box_from_usd(self.usd_path, self.scale)
-        return self.bounding_box.get_corners_at(pos)
+        return self.get_bounding_box().get_corners_at(pos)
 
     def is_initial_pose_set(self) -> bool:
         return self.initial_pose is not None
@@ -91,6 +88,9 @@ class Object(ObjectBase):
         self, contact_against_object: ObjectBase | None = None, usd_path: str | None = None
     ) -> ContactSensorCfg:
         assert self.object_type == ObjectType.RIGID, "Contact sensor is only supported for rigid objects"
+        if self.usd_path is None:
+            assert self.spawner_cfg is not None, f"{self.name} has no USD path or spawner config."
+            return super().get_contact_sensor_cfg(contact_against_object)
         # We override this function from the parent class because in some assets, the rigid body
         # is not at the root of the USD file. To be robust to this, we find the shallowest rigid body
         # and add the contact sensor to it.
@@ -116,16 +116,22 @@ class Object(ObjectBase):
             assert (
                 contact_against_object.object_type == ObjectType.RIGID
             ), "Contact sensor is only supported for rigid objects"
-            contact_against_relative_path = find_shallowest_rigid_body(
-                contact_against_object.usd_path,
-                relative_to_root=True,
-                variants=(contact_against_object.spawn_cfg_addon or {}).get("variants"),
-            )
-            assert contact_against_relative_path is not None, (
-                f"No rigid body found in {contact_against_object.name} USD file: {contact_against_object.usd_path}."
-                " Can't add contact sensor."
-            )
-            filter_prim_paths = [contact_against_object.get_prim_path() + contact_against_relative_path]
+            if contact_against_object.usd_path is None:
+                assert (
+                    contact_against_object.spawner_cfg is not None
+                ), f"{contact_against_object.name} has no USD path or spawner config."
+                filter_prim_paths = [contact_against_object.get_prim_path()]
+            else:
+                contact_against_relative_path = find_shallowest_rigid_body(
+                    contact_against_object.usd_path,
+                    relative_to_root=True,
+                    variants=(contact_against_object.spawn_cfg_addon or {}).get("variants"),
+                )
+                assert contact_against_relative_path is not None, (
+                    f"No rigid body found in {contact_against_object.name} USD file:"
+                    f" {contact_against_object.usd_path}. Can't add contact sensor."
+                )
+                filter_prim_paths = [contact_against_object.get_prim_path() + contact_against_relative_path]
         elif isinstance(contact_against_object, ObjectBase):
             filter_prim_paths = [contact_against_object.get_prim_path()]
         elif contact_against_object is None:
@@ -138,6 +144,8 @@ class Object(ObjectBase):
     def _get_spawn_cfg(self, activate_contact_sensors: bool = False):
         """Return the spawn config to use: custom spawner_cfg if set, else a UsdFileCfg."""
         if self.spawner_cfg is not None:
+            if activate_contact_sensors and not getattr(self.spawner_cfg, "activate_contact_sensors", False):
+                return self.spawner_cfg.replace(activate_contact_sensors=True)
             return self.spawner_cfg
         return UsdFileCfg(
             usd_path=self.usd_path,
