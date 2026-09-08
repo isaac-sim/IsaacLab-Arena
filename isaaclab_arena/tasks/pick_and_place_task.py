@@ -28,6 +28,7 @@ from isaaclab_arena.tasks.predicates.object_settling import objects_settled
 from isaaclab_arena.tasks.predicates.spatial import object_is_above_height, object_on_destination
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.tasks.task_transition import Relocate, TaskTransition
+from isaaclab_arena.tasks.terminations import root_height_below_minimum
 from isaaclab_arena.utils.cameras import get_viewer_cfg_look_at_object
 from isaaclab_arena.utils.configclass import make_configclass
 
@@ -125,7 +126,7 @@ class PickAndPlaceTask(TaskBase):
             },
         )
         object_dropped = TerminationTermCfg(
-            func=mdp_isaac_lab.root_height_below_minimum,
+            func=root_height_below_minimum,
             params={
                 "minimum_height": self.background_scene.object_min_z,
                 "asset_cfg": SceneEntityCfg(self.pick_up_object.name),

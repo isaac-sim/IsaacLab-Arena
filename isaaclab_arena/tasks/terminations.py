@@ -11,7 +11,6 @@ from enum import Enum
 from typing import TYPE_CHECKING
 
 from isaaclab.envs import ManagerBasedRLEnv
-from isaaclab.envs.mdp.terminations import root_height_below_minimum
 from isaaclab.managers import SceneEntityCfg, TerminationTermCfg
 from isaaclab.utils.math import combine_frame_transforms
 
@@ -215,8 +214,18 @@ def goal_pose_task_termination(
     return success
 
 
+def root_height_below_minimum(
+    env: IsaacLabArenaManagerBasedRLEnv,
+    minimum_height: float,
+    asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
+) -> torch.Tensor:
+    """Terminate when the asset's root height is below the world-frame minimum."""
+    asset_height_w = env.arena_world.get_pose_w(asset_cfg.name)[:, 2]
+    return asset_height_w < minimum_height
+
+
 def root_height_below_minimum_multi_objects(
-    env: ManagerBasedRLEnv,
+    env: IsaacLabArenaManagerBasedRLEnv,
     minimum_height: float,
     asset_cfg_list: list[SceneEntityCfg] = [SceneEntityCfg("robot")],
 ) -> torch.Tensor:
@@ -225,10 +234,8 @@ def root_height_below_minimum_multi_objects(
     Note:
         This is currently only supported for flat terrains, i.e. the minimum height is in the world frame.
     """
-    outs = [
+    asset_termination_results = [
         root_height_below_minimum(env=env, minimum_height=minimum_height, asset_cfg=asset_cfg)
         for asset_cfg in asset_cfg_list
     ]
-    outs_tensor = torch.stack(outs, dim=0)  # [X, N]
-    terminated = outs_tensor.any(dim=0)  # [N], bool
-    return terminated
+    return torch.stack(asset_termination_results, dim=0).any(dim=0)
