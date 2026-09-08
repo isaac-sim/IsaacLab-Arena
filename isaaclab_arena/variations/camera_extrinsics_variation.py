@@ -125,7 +125,7 @@ class apply_camera_extrinsics_from_sampler(ManagerTermBase):
         )
 
         self._camera = camera
-        # Writes the composed pose so both camera.data and the RTX render follow it, on PhysX and Newton.
+        # [isaac-lab-camera-pose-write-bug] Write poses through CameraPoseWriter so the Newton render follows.
         self._pose_writer = CameraPoseWriter(camera)
         # Snapshotted on first ``__call__``.
         self._t_parent_C_in_parent: torch.Tensor | None = None
@@ -165,5 +165,5 @@ class apply_camera_extrinsics_from_sampler(ManagerTermBase):
         t_C_Cnew_in_parent = quat_apply(self._q_parent_C_xyzw[env_ids], t_C_Cnew_in_C)
         t_parent_Cnew_in_parent = self._t_parent_C_in_parent[env_ids] + t_C_Cnew_in_parent
 
-        # Write the composed local pose so both the render and camera.data follow it on either backend.
+        # [isaac-lab-camera-pose-write-bug] Written via the pose writer so it reaches the Newton render.
         self._pose_writer.set_local_poses(translations=t_parent_Cnew_in_parent, orientations=None, env_ids=env_ids)

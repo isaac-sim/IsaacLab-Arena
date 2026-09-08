@@ -3,23 +3,11 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Coverage for setting camera poses across physics backends, at the pixel and pose level.
+"""A camera-pose write must move both the RTX render and ``camera.data.pos_w``, on PhysX and Newton.
 
-The camera-extrinsics variation moves a camera by writing its FrameView local pose
-(``view.set_local_poses(...)``) and then pushing that write into the camera sensor and renderer with
-``camera.reset()`` (``Camera._update_poses``). These tests apply an offset the same way. Without the
-``camera.reset`` push the FrameView pose changes but the render and ``camera.data.pos_w`` keep the old
-pose -- under Newton the ``NewtonSiteFrameView`` only updates in-memory Warp state, so nothing else
-moves the rendered image. This is the regression these tests guard.
-
-Two test sets share one env build path:
-
-- ``_moves_render_*`` compares two rendered wrist-camera frames and asserts the image follows the pose.
-- ``_moves_camera_pose_*`` reads ``camera.data.pos_w`` directly (deterministic, no denoiser noise) and
-  asserts the reported pose follows the FrameView write, with the FrameView pose itself as a positive
-  control.
-
-Set ``SAVE_IMAGES = True`` to dump the compared renders under ``IMAGE_OUTPUT_DIR/<test name>/``.
+These tests write the wrist camera to two offsets and check that the render (pixels) and
+``camera.data.pos_w`` follow. Set ``SAVE_IMAGES = True`` to dump the compared frames under
+``IMAGE_OUTPUT_DIR/<test name>/``.
 """
 
 import os
@@ -33,23 +21,12 @@ from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_wi
 HEADLESS = True
 ENABLE_CAMERAS = True
 
-CAMERA_NAME = "wrist_cam"
-# Two camera offsets (parent-frame translation [m]); large enough that the wrist view visibly shifts.
-VARIANT_OFFSETS = ([0.0, 0.0, 0.0], [0.3, 0.25, 0.0])
-# Physics steps taken once before capturing, to bring up the sensors and render non-black content.
+# The two parent-frame camera offsets [m] whose renders and reported poses are compared.
+COMPARED_OFFSETS = ([0.0, 0.0, 0.0], [0.3, 0.25, 0.0])
 WARMUP_STEPS = 2
-# Render-only iterations per variant (no physics advance) to converge the RTX image at the new pose.
 RENDER_ITERS = 3
-# Reduced wrist-camera resolution keeps the render cheap for a test.
-CAMERA_HEIGHT = 180
-CAMERA_WIDTH = 240
-# Mean absolute per-channel difference (uint8 scale) above which we consider the image "moved".
-# Observed: PhysX moves the render by ~47; Newton (bug) leaves only ~1.2 of denoiser noise.
 RENDER_DIFF_THRESHOLD = 5.0
-# World-space camera pose shift [m] above which we consider the reported pose to have "moved".
-# The offsets shift the camera by ~0.25 m; the bug leaves camera.data.pos_w at ~0.
 POSE_SHIFT_THRESHOLD_M = 0.05
-# Set True to dump the compared renders as PNGs into IMAGE_OUTPUT_DIR/<test name>/, created on demand.
 SAVE_IMAGES = False
 IMAGE_OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "output")
 
@@ -62,11 +39,9 @@ def _disable_joint_randomization(env_cfg):
 
 
 def _build_env(presets: str | None):
-    """Build one gym-wrapped Arena env with the Franka wrist camera on the given physics backend.
+    """Build a gym-wrapped Arena env with the Franka wrist camera on the given physics backend.
 
-    The same PhysX-tuned Franka embodiment is used for both backends; the camera-pose bug depends only on
-    the physics backend (Newton selects ``NewtonSiteFrameView``) and RTX rendering, not on Newton-tuned
-    dynamics. Franka (rather than the Robotiq-gripper DROID) is used so the arm builds under Newton.
+    Franka (rather than the Robotiq-gripper DROID) is used so the arm builds under Newton.
     """
     from isaaclab_arena.assets.registries import AssetRegistry
     from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
@@ -76,8 +51,8 @@ def _build_env(presets: str | None):
     from isaaclab_arena.scene.scene import Scene
 
     embodiment = FrankaIKEmbodiment(enable_cameras=ENABLE_CAMERAS)
-    embodiment.camera_config.wrist_cam.height = CAMERA_HEIGHT
-    embodiment.camera_config.wrist_cam.width = CAMERA_WIDTH
+    embodiment.camera_config.wrist_cam.height = 180
+    embodiment.camera_config.wrist_cam.width = 240
 
     # A lit table under the wrist camera: without lights and geometry the RTX render is all black.
     asset_registry = AssetRegistry()
@@ -115,7 +90,7 @@ def _render_wrist_at_offsets(simulation_app, *, presets, out) -> bool:
     env = _build_env(presets)
     env.reset()
 
-    camera = env.unwrapped.scene[CAMERA_NAME]
+    camera = env.unwrapped.scene["wrist_cam"]
     device = env.unwrapped.device
     sim = env.unwrapped.sim
     env_ids = torch.arange(env.unwrapped.num_envs, device=device)
@@ -129,7 +104,7 @@ def _render_wrist_at_offsets(simulation_app, *, presets, out) -> bool:
         for _ in range(WARMUP_STEPS):
             env.step(zero_actions)
 
-        for offset in VARIANT_OFFSETS:
+        for offset in COMPARED_OFFSETS:
             _apply_camera_offset(pose_writer, nominal_translation, offset, device, env_ids)
             # Render only (no physics advance) so scene motion cannot contaminate the comparison.
             for _ in range(RENDER_ITERS):
@@ -147,7 +122,7 @@ def _read_camera_pose_at_offsets(simulation_app, *, presets, out) -> bool:
     env = _build_env(presets)
     env.reset()
 
-    camera = env.unwrapped.scene[CAMERA_NAME]
+    camera = env.unwrapped.scene["wrist_cam"]
     view = camera._view
     assert view is not None, "Camera FrameView was not initialized."
 
@@ -161,7 +136,7 @@ def _read_camera_pose_at_offsets(simulation_app, *, presets, out) -> bool:
         for _ in range(WARMUP_STEPS):
             env.step(zero_actions)
 
-        for offset in VARIANT_OFFSETS:
+        for offset in COMPARED_OFFSETS:
             _apply_camera_offset(pose_writer, nominal_translation, offset, device, env_ids)
             # camera.data.pos_w is the world pose the renderer consumes; the writer's camera.reset pushes
             # the FrameView write here, so it should follow the pose.
@@ -183,7 +158,7 @@ def _save_offset_images(renders: list, output_subdir: str) -> None:
     images = {f"offset{index}": rgb[0].to(torch.uint8) for index, (_offset, _mean, _nonzero, rgb) in enumerate(renders)}
     images["difference"] = (renders[1][3][0] - renders[0][3][0]).abs().to(torch.uint8)
     for tag, image in images.items():
-        output_path = os.path.join(out_dir, f"{CAMERA_NAME}-{tag}.png")
+        output_path = os.path.join(out_dir, f"wrist_cam-{tag}.png")
         Image.fromarray(image.numpy()).save(output_path)
         print(f"Wrote {output_path}", flush=True)
 

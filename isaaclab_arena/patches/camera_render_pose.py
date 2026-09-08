@@ -8,13 +8,11 @@
 Writing ``camera._view.set_local_poses`` (or the public ``camera.set_world_poses``) updates the physics
 FrameView. Under PhysX that view is Fabric-backed and the RTX renderer -- which reads the USD/Fabric camera
 prim -- follows. Under Newton the FrameView (``NewtonSiteFrameView``) updates only in-memory Warp state, so
-the render does not move. This writer additionally mirrors the local pose onto the USD camera prim via
-``UsdFrameView`` (which ``IsaacRtxRenderer`` reads on both backends) and calls ``camera.reset`` so
-``camera.data.pos_w`` reflects the new pose.
+the render does not move.
 
-Tracked as ``[isaac-lab-camera-pose-write-bug]``: remove the USD mirror once IsaacLab's
-``NewtonSiteFrameView`` mirrors poses into Fabric like ``FabricFrameView`` does; then the physics-view
-write plus ``camera.reset`` suffice on both backends.
+This writer also mirrors the local pose onto the USD camera prim via ``UsdFrameView`` (which
+``IsaacRtxRenderer`` reads on both backends) and calls ``camera.reset`` so ``camera.data.pos_w`` reflects
+the new pose.
 """
 
 from __future__ import annotations
@@ -22,6 +20,9 @@ from __future__ import annotations
 import torch
 
 
+# TODO(alexmillane, 2026-09-08): [isaac-lab-camera-pose-write-bug] Remove this whole class once IsaacLab's
+# NewtonSiteFrameView mirrors poses into Fabric like FabricFrameView; then a FrameView write plus
+# camera.reset suffice on both backends.
 class CameraPoseWriter:
     """Write a camera's local pose so both ``camera.data`` and the RTX render follow it, on any backend.
 
@@ -36,6 +37,8 @@ class CameraPoseWriter:
         self._usd_device: torch.device | None = None
 
     def _ensure_initialized(self) -> None:
+        # Deferred rather than done in __init__: the variation constructs the writer while the event
+        # manager loads, before the first sim reset initializes the camera's FrameView and spawns settle.
         if self._usd_view is not None:
             return
         from isaaclab.sim.views.usd_frame_view import UsdFrameView
@@ -73,11 +76,6 @@ class CameraPoseWriter:
         self._physics_view.set_local_poses(
             translations=translations, orientations=orientations, indices=wp.from_torch(env_ids.to(torch.int32))
         )
-
-        # TODO(alexmillane, 2026-09-08): [isaac-lab-camera-pose-write-bug] Mirror the pose onto the USD camera
-        # prim so IsaacRtxRenderer follows it under Newton, where NewtonSiteFrameView writes only Warp state.
-        # Remove once NewtonSiteFrameView mirrors poses into Fabric like FabricFrameView; then the physics-view
-        # write above suffices on both backends.
         usd_env_ids = env_ids.to(self._usd_device)
         usd_orientations = None if orientations is None else orientations.to(self._usd_device)
         self._usd_view.set_local_poses(
@@ -85,5 +83,4 @@ class CameraPoseWriter:
             orientations=usd_orientations,
             indices=wp.from_torch(usd_env_ids.to(torch.int32)),
         )
-
         self._camera.reset(env_ids)
