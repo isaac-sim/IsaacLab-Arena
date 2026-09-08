@@ -24,11 +24,7 @@ import torch
 # NewtonSiteFrameView mirrors poses into Fabric like FabricFrameView; then a FrameView write plus
 # camera.reset suffice on both backends.
 class CameraPoseWriter:
-    """Write a camera's local pose so both ``camera.data`` and the RTX render follow it, on any backend.
-
-    The caller computes the pose; this class only writes it, to the physics FrameView (feeds
-    ``camera.data.pos_w``) and the USD camera prim (feeds the RTX render), then calls ``camera.reset``.
-    """
+    """Write a camera's local pose so both ``camera.data`` and the RTX render follow it, on any backend."""
 
     def __init__(self, camera) -> None:
         self._camera = camera
@@ -37,8 +33,8 @@ class CameraPoseWriter:
         self._usd_device: torch.device | None = None
 
     def _ensure_initialized(self) -> None:
-        # Deferred rather than done in __init__: the variation constructs the writer while the event
-        # manager loads, before the first sim reset initializes the camera's FrameView and spawns settle.
+        # Deferred rather than done in __init__ so the writer can be constructed before the simulation
+        # starts, i.e. before the camera's FrameView and USD prim exist.
         if self._usd_view is not None:
             return
         from isaaclab.sim.views.usd_frame_view import UsdFrameView
@@ -69,7 +65,10 @@ class CameraPoseWriter:
         ), f"Physics FrameView and USD camera-prim local orientations disagree (alignment={alignment.tolist()})."
 
     def set_local_poses(self, translations: torch.Tensor, orientations: torch.Tensor | None, env_ids: torch.Tensor):
-        """Write the given local pose to the physics FrameView and the USD camera prim, then ``camera.reset``."""
+        """Set local-space translations and/or orientations for the camera.
+
+        Local poses are poses of the camera prim with respect to its parent.
+        """
         import warp as wp
 
         self._ensure_initialized()
