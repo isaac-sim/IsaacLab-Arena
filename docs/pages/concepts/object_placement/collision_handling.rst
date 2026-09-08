@@ -214,9 +214,9 @@ stochastic, the candidate success rate can be low and some runs may not produce
 a valid layout. If you encounter a placement error, use the debugging workflow
 below to reproduce the failure and identify the limiting check.
 
-A ``Placement pool could not fill`` error means that every candidate violated
-at least one required relation or collision check; no usable layout was
-produced.
+A ``Placement pool could not fill`` error means that the solver did not produce
+enough valid layouts to reach the pool's target after all placement attempts.
+Some valid layouts may still have been produced and stored.
 
 Debugging Placement Collisions
 ------------------------------
