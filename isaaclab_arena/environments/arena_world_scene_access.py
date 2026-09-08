@@ -165,17 +165,20 @@ class SceneExtraPoseReader:
             stage=scene.stage,
         )
         # InteractiveScene creates extras before cloning. This post-clone view must cover every environment.
-        scene_extra_prim_paths = self._frame_view.prim_paths
-        assert len(scene_extra_prim_paths) == scene.num_envs, (
-            f"Scene extra '{scene_extra_key}' resolved to {len(scene_extra_prim_paths)} prims; expected"
-            f" {scene.num_envs}."
-        )
-        for environment_id, prim_path in enumerate(scene_extra_prim_paths):
-            environment_prim_path = scene.env_prim_paths[environment_id]
-            assert str(prim_path).startswith(f"{environment_prim_path}/"), (
-                f"Scene extra '{scene_extra_key}' pose row {environment_id} belongs to '{prim_path}', "
-                f"not environment '{environment_prim_path}'."
-            )
+        assert (
+            self._frame_view.count == scene.num_envs
+        ), f"Scene extra '{scene_extra_key}' resolved to {self._frame_view.count} prims; expected {scene.num_envs}."
+        # ``prim_paths`` is a USD FrameView convenience, not part of the backend-neutral
+        # BaseFrameView interface. Validate row ordering when a backend exposes it; otherwise
+        # rely on the backend's FrameView ordering after checking the required row count.
+        scene_extra_prim_paths = getattr(self._frame_view, "prim_paths", None)
+        if scene_extra_prim_paths is not None:
+            for environment_id, prim_path in enumerate(scene_extra_prim_paths):
+                environment_prim_path = scene.env_prim_paths[environment_id]
+                assert str(prim_path).startswith(f"{environment_prim_path}/"), (
+                    f"Scene extra '{scene_extra_key}' pose row {environment_id} belongs to '{prim_path}', "
+                    f"not environment '{environment_prim_path}'."
+                )
 
     def get_pose_w(self) -> torch.Tensor:
         """Return T_W_F with shape (num_envs, 7), ordered as (x, y, z, qx, qy, qz, qw)."""

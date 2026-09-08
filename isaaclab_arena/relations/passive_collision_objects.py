@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import torch
 from collections import defaultdict
 from collections.abc import Iterable
 from typing import TYPE_CHECKING
@@ -69,6 +70,15 @@ def get_passive_collision_objects(
         if not isinstance(initial_pose, Pose):
             pose_kind = "None" if initial_pose is None else type(initial_pose).__name__
             print(f"Skipping '{asset.name}' as a collision obstacle: needs a fixed pose but has {pose_kind}.")
+            continue
+        bounding_box = asset.get_bounding_box()
+        bounds_are_valid = bool(
+            torch.isfinite(bounding_box.min_point).all()
+            and torch.isfinite(bounding_box.max_point).all()
+            and torch.all(bounding_box.min_point <= bounding_box.max_point)
+        )
+        if not bounds_are_valid:
+            print(f"Skipping '{asset.name}' as a collision obstacle: no valid geometry bounds.")
             continue
         collision_objects.append(asset)
 

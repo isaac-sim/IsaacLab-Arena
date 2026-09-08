@@ -222,6 +222,7 @@ def _check_scene_extra_pose_reader_uses_current_frame_view_poses(scene_access_mo
 
     class FrameViewDouble:
         def __init__(self):
+            self.count = 2
             self.prim_paths = [
                 "/World/envs/env_0/reference",
                 "/World/envs/env_1/reference",
@@ -273,6 +274,34 @@ def _check_scene_extra_pose_reader_uses_current_frame_view_poses(scene_access_mo
     )
 
 
+def _check_scene_extra_pose_reader_accepts_backend_without_prim_paths(scene_access_module) -> None:
+    """Check the backend-neutral reader contract without USD-only path introspection."""
+    import torch
+
+    class FrameViewDouble:
+        count = 2
+
+        def get_world_poses(self):
+            return (
+                SimpleNamespace(torch=torch.zeros((2, 3))),
+                SimpleNamespace(torch=torch.tensor([[0.0, 0.0, 0.0, 1.0]]).expand(2, 4)),
+            )
+
+    scene = SimpleNamespace(
+        num_envs=2,
+        device="cuda:0",
+        stage=object(),
+        extras={"reference": object()},
+        cfg=SimpleNamespace(reference=SimpleNamespace(prim_path="{ENV_REGEX_NS}/reference")),
+        env_regex_ns="/World/envs/env_.*",
+        env_prim_paths=["/World/envs/env_0", "/World/envs/env_1"],
+    )
+    with patch.object(scene_access_module, "FrameView", return_value=FrameViewDouble()):
+        pose_reader = scene_access_module.SceneExtraPoseReader(scene, "reference")
+
+    assert pose_reader.get_pose_w().shape == (2, 7)
+
+
 def _test_arena_world_scene_access(_simulation_app) -> bool:
     import isaaclab_arena.environments.arena_world as arena_world
     import isaaclab_arena.environments.arena_world_scene_access as scene_access
@@ -288,6 +317,7 @@ def _test_arena_world_scene_access(_simulation_app) -> bool:
     _check_arena_world_reuses_scene_extra_pose_reader(arena_world, scene_access)
     _check_arena_world_rejects_unsupported_pose_scene_key(arena_world)
     _check_scene_extra_pose_reader_uses_current_frame_view_poses(scene_access)
+    _check_scene_extra_pose_reader_accepts_backend_without_prim_paths(scene_access)
     return True
 
 
