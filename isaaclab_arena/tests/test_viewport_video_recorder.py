@@ -14,8 +14,38 @@ from isaaclab.envs.utils.video_recorder import VideoRecorder
 from isaaclab_arena.video.viewport_video_recorder import (
     ArenaViewportVideoRecorder,
     ArenaViewportVideoRecorderCfg,
+    _define_camera_with_matching_intrinsics,
     resolve_viewer_camera_pose,
 )
+
+
+def test_report_camera_copies_viewport_intrinsics_without_copying_its_transform():
+    """The isolated report camera retains the viewport's field of view and optical settings."""
+    source_attributes = {
+        "focalLength": 18.14756,
+        "horizontalAperture": 20.955,
+        "verticalAperture": 11.784375,
+        "clippingRange": (0.01, 1_000_000.0),
+    }
+    source_prim = MagicMock()
+    source_prim.IsValid.return_value = True
+    source_prim.GetAttribute.side_effect = lambda name: SimpleNamespace(
+        IsValid=lambda: name in source_attributes,
+        Get=lambda: source_attributes.get(name),
+    )
+    destination_attributes = {}
+    destination_prim = MagicMock()
+    destination_prim.GetAttribute.side_effect = lambda name: SimpleNamespace(
+        Set=lambda value: destination_attributes.__setitem__(name, value)
+    )
+    stage = MagicMock()
+    stage.GetPrimAtPath.return_value = source_prim
+    stage.DefinePrim.return_value = destination_prim
+
+    _define_camera_with_matching_intrinsics(stage, "/OmniverseKit_Persp", "/World/ArenaReportCamera")
+
+    stage.DefinePrim.assert_called_once_with("/World/ArenaReportCamera", "Camera")
+    assert destination_attributes == source_attributes
 
 
 def test_env_relative_camera_uses_selected_parallel_environment_origin():

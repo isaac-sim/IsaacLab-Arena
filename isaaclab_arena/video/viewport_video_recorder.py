@@ -14,6 +14,39 @@ from isaaclab.envs.utils.video_recorder import VideoRecorder
 from isaaclab.envs.utils.video_recorder_cfg import VideoRecorderCfg
 from isaaclab.utils.configclass import configclass
 
+_CAMERA_INTRINSIC_ATTRIBUTES = (
+    "projection",
+    "horizontalAperture",
+    "verticalAperture",
+    "horizontalApertureOffset",
+    "verticalApertureOffset",
+    "focalLength",
+    "clippingRange",
+    "clippingPlanes",
+    "fStop",
+    "focusDistance",
+    "stereoRole",
+    "shutter:open",
+    "shutter:close",
+    "exposure",
+)
+
+
+def _define_camera_with_matching_intrinsics(stage, source_path: str, destination_path: str) -> None:
+    """Define a camera whose optical properties match an existing camera."""
+    source_prim = stage.GetPrimAtPath(source_path)
+    destination_prim = stage.DefinePrim(destination_path, "Camera")
+    if not source_prim.IsValid():
+        return
+
+    for attribute_name in _CAMERA_INTRINSIC_ATTRIBUTES:
+        source_attribute = source_prim.GetAttribute(attribute_name)
+        if not source_attribute.IsValid():
+            continue
+        value = source_attribute.Get()
+        if value is not None:
+            destination_prim.GetAttribute(attribute_name).Set(value)
+
 
 def _as_numpy_xyz(value) -> np.ndarray:
     """Convert an Isaac Lab array-like XYZ value to a CPU NumPy array."""
@@ -92,7 +125,11 @@ class ArenaViewportVideoRecorder(VideoRecorder):
         self._matched_visualizer = None
 
         if self._backend == "kit":
-            scene.stage.DefinePrim(cfg.camera_prim_path, "Camera")
+            _define_camera_with_matching_intrinsics(
+                scene.stage,
+                source_path=self._capture.cfg.camera_prim_path,
+                destination_path=cfg.camera_prim_path,
+            )
             self._capture.cfg.camera_prim_path = cfg.camera_prim_path
 
     def render_rgb_array(self) -> np.ndarray | None:
