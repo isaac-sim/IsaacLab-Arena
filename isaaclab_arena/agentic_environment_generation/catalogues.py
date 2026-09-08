@@ -68,6 +68,9 @@ def build_asset_catalogue(registry: AssetRegistry | None = None) -> AssetCatalog
     for name in registry.get_all_keys():
         cls = registry.get_asset_by_name(name)
         tags = getattr(cls, "tags", None) or []
+        # TODO(xinjieyao): Support agentic environment generation consuming procedural assets.
+        if "procedural" in tags:
+            continue
         if "embodiment" in tags:
             catalogue.embodiments.append({"name": name, "tags": [t for t in tags if t != "embodiment"]})
         elif "background" in tags:
