@@ -13,7 +13,7 @@ background:
   params: {}
 objects:
 - id: rubiks_cube
-  registry_name: rubiks_cube_hot3d_robolab
+  registry_name: procedural_cube
   params: {}
 - id: bowl
   registry_name: bowl_ycb_robolab
