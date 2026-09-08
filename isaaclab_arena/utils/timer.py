@@ -39,9 +39,21 @@ _reservoir_random_generator = random.Random()
 # Timing statistics accumulated over the process lifetime, keyed by qualified timer name.
 _timer_registry: dict[str, TimerStats] = {}
 
-# Names of the timers currently open on this thread, outermost first. A timer entered while this
-# is non-empty qualifies its name with the enclosing names, so nesting is visible in the registry.
-_open_timer_names = threading.local()
+
+class _OpenTimerNames(threading.local):
+    """Names of the timers currently open on one thread, outermost first.
+
+    A timer entered while this is non-empty qualifies its name with the enclosing names, so
+    nesting is visible in the registry. Subclassing threading.local runs __init__ once per
+    thread, which gives every thread its own stack without a lazy lookup at each use.
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.names: list[str] = []
+
+
+_open_timer_names = _OpenTimerNames()
 
 
 @dataclass
@@ -97,15 +109,6 @@ class TimerStats:
         return sorted_buf[idx]
 
 
-def _enclosing_timer_names() -> list[str]:
-    """Return the mutable stack of timer names open on the calling thread, outermost first."""
-    names = getattr(_open_timer_names, "names", None)
-    if names is None:
-        names = []
-        _open_timer_names.names = names
-    return names
-
-
 def _update_stats(name: str, elapsed_ms: float) -> None:
     """Create or update the registry entry for the given timer name."""
     if name in _timer_registry:
@@ -140,16 +143,16 @@ class Timer:
         """
         assert "/" not in name, f"Timer name must not contain '/', it separates nesting levels: '{name}'"
         self.name = name
-        self.qualified_name = name
+        self.qualified_name: str | None = None
+        """Registry key this block records under, resolved on entry once the enclosing timers are known."""
         self._start_time: float = 0.0
 
     def __enter__(self) -> Timer:
         """Start the timer, qualifying its name by any enclosing timers and pushing an NVTX range."""
         if torch.compiler.is_compiling():
             return self
-        open_timer_names = _enclosing_timer_names()
-        self.qualified_name = "/".join([*open_timer_names, self.name])
-        open_timer_names.append(self.name)
+        self.qualified_name = "/".join([*_open_timer_names.names, self.name])
+        _open_timer_names.names.append(self.name)
         if Timer._sync_cuda:
             torch.cuda.synchronize()
         self._start_time = time.perf_counter()
@@ -164,7 +167,8 @@ class Timer:
             torch.cuda.synchronize()
         torch.cuda.nvtx.range_pop()
         elapsed_ms = (time.perf_counter() - self._start_time) * 1e3
-        _enclosing_timer_names().pop()
+        _open_timer_names.names.pop()
+        assert self.qualified_name is not None, "Timer name is resolved on entry"
         _update_stats(self.qualified_name, elapsed_ms)
 
 

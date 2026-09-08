@@ -36,15 +36,6 @@ from isaaclab_arena.utils.timer import Timer
 
 CAMERA_OBS_GROUP_KEY = "camera_obs"
 
-CAMERA_FRAMES_TIMER_NAME = "camera_frames"
-"""Timer covering the per-step camera frame copy and encoder writes.
-
-Nested inside the wrapped env's step timer, so it reports as "<enclosing>/camera_frames".
-"""
-
-CAMERA_FINALIZE_TIMER_NAME = "camera_finalize"
-"""Timer covering the encoder shutdown that finalises one episode's mp4 files."""
-
 # Regular expression to parse the filename of an episode video.
 _EPISODE_VIDEO_FILENAME_PATTERN = re.compile(
     r"^(?P<prefix>.+?)(?:-rebuild(?P<rebuild>\d+))?-env(?P<env>\d+)-(?P<camera>.+)-episode-(?P<episode>\d+)\.mp4$"
@@ -154,8 +145,9 @@ class CameraObsVideoRecorder(gym.Wrapper):
             done_set = set(done_envs)
 
             # Timed separately from the env step: this covers the device-to-host copy of every
-            # camera frame and the encoder writes, which is the per-step cost of recording.
-            with Timer(CAMERA_FRAMES_TIMER_NAME):
+            # camera frame and the encoder writes, which is the per-step cost of recording. Both
+            # timers here nest inside the enclosing step timer, reporting as "<enclosing>/...".
+            with Timer("camera_frames"):
                 for camera_name, frames in cam_obs.items():
                     if camera_name not in self.writers:
                         self.writers[camera_name] = [None] * n_envs
@@ -164,7 +156,8 @@ class CameraObsVideoRecorder(gym.Wrapper):
                             self._write_frame(camera_name, env_idx, _to_uint8(frames[env_idx]))
 
             if done_envs:
-                with Timer(CAMERA_FINALIZE_TIMER_NAME):
+                # The encoder shutdown that finalises one episode's mp4 files.
+                with Timer("camera_finalize"):
                     self._finish_envs(done_envs)
 
         return result

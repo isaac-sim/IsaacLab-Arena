@@ -63,19 +63,6 @@ def is_distributed(args_cli: argparse.Namespace) -> bool:
     )
 
 
-STEP_TIMER_NAME = "step"
-"""Timer covering one whole iteration of the rollout loop, including episode-boundary work."""
-
-POLICY_INFERENCE_TIMER_NAME = "policy_inference"
-"""Timer covering the policy's action computation, nested under STEP_TIMER_NAME."""
-
-ENV_STEP_TIMER_NAME = "env_step"
-"""Timer covering the outermost env step, nested under STEP_TIMER_NAME.
-
-This is measured above the video recorders, so it includes their cost.
-"""
-
-
 def rollout_policy(
     env,
     policy: PolicyBase,
@@ -103,12 +90,13 @@ def rollout_policy(
         num_steps_completed = 0
 
         while True:
-            # The three timers below are the rollout's cost breakdown: STEP_TIMER_NAME is the whole
-            # loop body, and the two inside it are the parts that dominate it.
-            with torch.inference_mode(), Timer(STEP_TIMER_NAME):
-                with Timer(POLICY_INFERENCE_TIMER_NAME):
+            # The rollout's cost breakdown: "step" is the whole loop body, and the two nested
+            # inside it are the parts that dominate it. "env_step" is measured above the video
+            # recorders, so it includes their cost.
+            with torch.inference_mode(), Timer("step"):
+                with Timer("policy_inference"):
                     actions = policy.get_action(env, obs)
-                with Timer(ENV_STEP_TIMER_NAME):
+                with Timer("env_step"):
                     obs, _, terminated, truncated, _ = env.step(actions)
 
                 if terminated.any() or truncated.any():

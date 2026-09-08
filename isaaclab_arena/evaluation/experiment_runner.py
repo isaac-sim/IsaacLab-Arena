@@ -12,6 +12,7 @@ from isaaclab_arena.evaluation.arena_experiment_config_loader import (
     load_arena_experiment_from_config_file,
     validate_experiment_config_path,
 )
+from isaaclab_arena.evaluation.arena_experiment_result import ARENA_EXPERIMENT_TIMINGS_FILENAME
 from isaaclab_arena.evaluation.experiment_runner_cli import parse_experiment_runner_args
 from isaaclab_arena.evaluation.legacy_experiment_runner import (
     legacy_json_experiment_requires_cameras,
@@ -185,8 +186,6 @@ def main():
         _write_arena_experiment_result(experiment_cfg, run_results, experiment_output_directory)
 
         # Report where the rollouts spent their time.
-        from isaaclab_arena.evaluation.arena_experiment_result import ARENA_EXPERIMENT_TIMINGS_FILENAME
-
         print_timer_stats()
         timings_path = write_timer_stats_json(
             experiment_output_directory / ARENA_EXPERIMENT_TIMINGS_FILENAME,

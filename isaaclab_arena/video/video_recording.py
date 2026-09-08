@@ -9,15 +9,6 @@ import dataclasses
 import datetime
 import os
 
-SIM_STEP_TIMER_NAME = "sim_step"
-"""Timer covering the env step below every recorder, so recording cost separates from it.
-
-The rollout's ``env_step`` timer measures the outermost wrapper, so the difference between it and
-this timer is the total cost of recording. ``camera_frames`` and ``camera_finalize`` break out the
-camera recorder's share; whatever remains is the viewport recorder's ``env.render()``. This timer
-only exists while a recorder is enabled, and nests as ``env_step/sim_step``.
-"""
-
 
 @dataclasses.dataclass
 class VideoRecordingCfg:
@@ -89,10 +80,13 @@ def wrap_env_for_video(
 
     os.makedirs(video_cfg.video_base_dir, exist_ok=True)
 
-    # Sits below every recorder, so its measurement excludes them.
+    # Sits below every recorder, so its measurement excludes them. The rollout's "env_step" timer
+    # measures the outermost wrapper, so the difference between it and this one is the total cost
+    # of recording; "camera_frames" and "camera_finalize" break out the camera recorder's share and
+    # whatever remains is the viewport recorder's env.render(). Only present while recording.
     from isaaclab_arena.utils.env_step_timer import EnvStepTimerWrapper
 
-    env = EnvStepTimerWrapper(env, timer_name=SIM_STEP_TIMER_NAME)
+    env = EnvStepTimerWrapper(env, timer_name="sim_step")
 
     # Record the kit viewport (via env.render()).
     if video_cfg.record_viewport_video:
