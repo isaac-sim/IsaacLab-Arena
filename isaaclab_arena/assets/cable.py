@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from isaaclab.assets import CableObjectCfg
 from isaaclab.managers import EventTermCfg, SceneEntityCfg
-from isaaclab.sim.spawners.spawner_cfg import SpawnerCfg
+from isaaclab.sim.spawners.shapes import CableCfg
 
 from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.terms.events import reset_cable_to_default
@@ -15,13 +15,17 @@ from isaaclab_arena.utils.pose import Pose
 
 
 class Cable(Asset):
-    """A procedurally spawned Isaac Lab cable managed as an Arena scene asset."""
+    """A procedurally spawned Isaac Lab cable managed as an Arena scene asset.
+
+    Cable simulation requires the Newton physics backend. Build environments containing this asset
+    with ``presets="newton"``.
+    """
 
     def __init__(
         self,
         name: str,
         prim_path: str,
-        spawn: SpawnerCfg,
+        spawn: CableCfg,
         initial_pose: Pose | None = None,
         tags: list[str] | None = None,
     ) -> None:

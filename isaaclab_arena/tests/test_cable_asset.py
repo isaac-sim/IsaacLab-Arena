@@ -3,6 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import pathlib
 import torch
 from types import SimpleNamespace
 
@@ -76,6 +77,56 @@ def _test_cable_reset_event_runtime(_, device: str):
 @pytest.mark.parametrize("device", test_devices(DeviceScope.CPU_AND_DEFAULT_CUDA))
 def test_cable_reset_event_runtime(device: str):
     assert run_function_with_persistent_simulation_app(_test_cable_reset_event_runtime, device=device)
+
+
+def _test_cable_scene_export(_, output_path: pathlib.Path) -> bool:
+    import isaaclab.sim as sim_utils
+    from pxr import Usd, UsdGeom
+
+    from isaaclab_arena.assets.cable import Cable
+    from isaaclab_arena.scene.scene import Scene
+    from isaaclab_arena.utils.pose import Pose
+
+    positions = ((0.0, 0.0, 0.0), (0.1, 0.05, 0.0), (0.2, 0.0, 0.0))
+    initial_pose = Pose(
+        position_xyz=(0.1, 0.2, 0.3),
+        rotation_xyzw=(0.0, 0.0, 0.7071068, 0.7071068),
+    )
+    cable = Cable(
+        name="test_cable",
+        prim_path="{ENV_REGEX_NS}/Cable",
+        spawn=sim_utils.CableCfg(
+            positions=positions,
+            physics_material=sim_utils.CableMaterialCfg(thickness=0.01),
+        ),
+        initial_pose=initial_pose,
+    )
+
+    Scene(assets=[cable]).export_to_usd(output_path)
+
+    stage = Usd.Stage.Open(output_path.as_posix())
+    assert stage is not None
+    assert stage.GetDefaultPrim().GetPath() == "/World"
+    cable_prim = stage.GetPrimAtPath("/World/test_cable")
+    assert cable_prim.GetTypeName() == "Xform"
+    assert tuple(cable_prim.GetAttribute("xformOp:translate").Get()) == pytest.approx(initial_pose.position_xyz)
+    orientation = cable_prim.GetAttribute("xformOp:orient").Get()
+    orientation_xyzw = (*orientation.GetImaginary(), orientation.GetReal())
+    assert orientation_xyzw == pytest.approx(initial_pose.rotation_xyzw)
+
+    curve_prim = stage.GetPrimAtPath("/World/test_cable/geometry/mesh")
+    curves = UsdGeom.BasisCurves(curve_prim)
+    assert curves
+    for point, expected in zip(curves.GetPointsAttr().Get(), positions, strict=True):
+        assert tuple(point) == pytest.approx(expected)
+    assert list(curves.GetWidthsAttr().Get()) == pytest.approx([0.01])
+    assert "PhysicsCurvesDeformableSimAPI" in curve_prim.GetPrimTypeInfo().GetAppliedAPISchemas()
+    return True
+
+
+def test_cable_scene_export(tmp_path: pathlib.Path):
+    output_path = tmp_path / "cable.usd"
+    assert run_function_with_persistent_simulation_app(_test_cable_scene_export, output_path=output_path)
 
 
 def test_cable_asset_config():
