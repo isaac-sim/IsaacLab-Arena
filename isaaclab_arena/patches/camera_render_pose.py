@@ -22,24 +22,18 @@ from __future__ import annotations
 import torch
 
 
-class CameraLocalOffsetWriter:
-    """Offset a camera's local pose so ``camera.data`` and the RTX render both follow it, on any backend.
+class CameraPoseWriter:
+    """Write a camera's local pose so both ``camera.data`` and the RTX render follow it, on any backend.
 
-    Construct one per camera; the nominal local pose is snapshotted on first use and offsets are applied
-    relative to it, so they do not compound across resets.
+    The caller computes the pose; this class only writes it, to the physics FrameView (feeds
+    ``camera.data.pos_w``) and the USD camera prim (feeds the RTX render), then calls ``camera.reset``.
     """
-
-    # The physics and USD views resolve the same camera prim, so their nominal local poses must agree.
-    _TRANSLATION_ATOL = 1.0e-4
-    _ORIENTATION_ATOL = 1.0e-3
 
     def __init__(self, camera) -> None:
         self._camera = camera
         self._physics_view = None
         self._usd_view = None
-        # Snapshotted on first use as (translations [N, 3], orientations xyzw [N, 4]) in the parent frame.
-        self._nominal_physics_poses: tuple[torch.Tensor, torch.Tensor] | None = None
-        self._nominal_usd_poses: tuple[torch.Tensor, torch.Tensor] | None = None
+        self._usd_device: torch.device | None = None
 
     def _ensure_initialized(self) -> None:
         if self._usd_view is not None:
@@ -49,58 +43,47 @@ class CameraLocalOffsetWriter:
         self._physics_view = self._camera._view
         assert self._physics_view is not None, "Camera FrameView was not initialized."
         self._usd_view = UsdFrameView(self._camera.cfg.prim_path)
-        # NOTE: get_local_poses returns the orientation as xyzw despite its wxyz docstring
-        # (see test_isaaclab_bug_get_local_poses.py).
-        physics_t, physics_q = self._physics_view.get_local_poses()
-        usd_t, usd_q = self._usd_view.get_local_poses()
-        self._nominal_physics_poses = (physics_t.torch.detach().clone(), physics_q.torch.detach().clone())
-        self._nominal_usd_poses = (usd_t.torch.detach().clone(), usd_q.torch.detach().clone())
-        self._assert_nominal_poses_agree()
+        self._usd_device = self._usd_view.get_local_poses()[0].torch.device
+        self._assert_views_share_local_frame()
 
-    def _assert_nominal_poses_agree(self) -> None:
-        physics_t, physics_q = self._nominal_physics_poses
-        usd_t = self._nominal_usd_poses[0].to(physics_t.device)
-        usd_q = self._nominal_usd_poses[1].to(physics_q.device)
-        assert torch.allclose(physics_t, usd_t, atol=self._TRANSLATION_ATOL), (
-            "Physics FrameView and USD camera-prim nominal translations disagree "
-            f"(physics={physics_t.tolist()}, usd={usd_t.tolist()}); the views resolve the camera in "
-            "different local frames, so one offset cannot serve both."
+    def _assert_views_share_local_frame(self) -> None:
+        """Check the physics and USD views resolve the camera in the same local frame.
+
+        The same pose is written to both, so their current (nominal, pre-offset) local poses must match.
+        """
+        physics_t, physics_q = self._physics_view.get_local_poses()
+        physics_t, physics_q = physics_t.torch, physics_q.torch
+        usd_t = self._usd_view.get_local_poses()[0].torch.to(physics_t.device)
+        usd_q = self._usd_view.get_local_poses()[1].torch.to(physics_q.device)
+        assert torch.allclose(physics_t, usd_t, atol=1.0e-4), (
+            "Physics FrameView and USD camera-prim local translations disagree "
+            f"(physics={physics_t.tolist()}, usd={usd_t.tolist()}); one pose cannot serve both."
         )
         # Quaternions are equal up to sign; compare the absolute dot product.
         alignment = (physics_q * usd_q).sum(dim=-1).abs()
         assert bool(
-            torch.all(alignment > 1.0 - self._ORIENTATION_ATOL)
-        ), f"Physics FrameView and USD camera-prim nominal orientations disagree (alignment={alignment.tolist()})."
+            torch.all(alignment > 1.0 - 1.0e-3)
+        ), f"Physics FrameView and USD camera-prim local orientations disagree (alignment={alignment.tolist()})."
 
-    def apply_camera_frame_offset(self, offset_in_camera: torch.Tensor, env_ids: torch.Tensor) -> None:
-        """Offset the camera by ``offset_in_camera`` (a translation in the camera's local frame, [N, 3]).
-
-        The offset is rotated into the parent frame and added to the nominal local translation of both the
-        physics FrameView (feeds ``camera.data.pos_w``) and the USD camera prim (feeds the RTX render);
-        ``camera.reset`` then refreshes ``camera.data``.
-        """
+    def set_local_poses(self, translations: torch.Tensor, orientations: torch.Tensor | None, env_ids: torch.Tensor):
+        """Write the given local pose to the physics FrameView and the USD camera prim, then ``camera.reset``."""
         import warp as wp
-        from isaaclab.utils.math import quat_apply
 
         self._ensure_initialized()
-
-        physics_nominal_t, physics_nominal_q = self._nominal_physics_poses
-        offset_in_parent = quat_apply(physics_nominal_q[env_ids], offset_in_camera)
-
-        physics_translations = physics_nominal_t[env_ids] + offset_in_parent
         self._physics_view.set_local_poses(
-            translations=physics_translations, orientations=None, indices=wp.from_torch(env_ids.to(torch.int32))
+            translations=translations, orientations=orientations, indices=wp.from_torch(env_ids.to(torch.int32))
         )
 
-        # TODO(alexmillane, 2026-09-08): [isaac-lab-camera-pose-write-bug] Mirror the local pose onto the
-        # USD camera prim so IsaacRtxRenderer follows it under Newton, where NewtonSiteFrameView writes only
-        # Warp state. Remove once NewtonSiteFrameView mirrors poses into Fabric like FabricFrameView; then
-        # the physics-view write above suffices on both backends.
-        usd_nominal_t = self._nominal_usd_poses[0]
-        usd_env_ids = env_ids.to(usd_nominal_t.device)
-        usd_translations = usd_nominal_t[usd_env_ids] + offset_in_parent.to(usd_nominal_t.device)
+        # TODO(alexmillane, 2026-09-08): [isaac-lab-camera-pose-write-bug] Mirror the pose onto the USD camera
+        # prim so IsaacRtxRenderer follows it under Newton, where NewtonSiteFrameView writes only Warp state.
+        # Remove once NewtonSiteFrameView mirrors poses into Fabric like FabricFrameView; then the physics-view
+        # write above suffices on both backends.
+        usd_env_ids = env_ids.to(self._usd_device)
+        usd_orientations = None if orientations is None else orientations.to(self._usd_device)
         self._usd_view.set_local_poses(
-            translations=usd_translations, orientations=None, indices=wp.from_torch(usd_env_ids.to(torch.int32))
+            translations=translations.to(self._usd_device),
+            orientations=usd_orientations,
+            indices=wp.from_torch(usd_env_ids.to(torch.int32)),
         )
 
         self._camera.reset(env_ids)

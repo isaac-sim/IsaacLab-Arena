@@ -25,7 +25,7 @@ from isaaclab.sensors import Camera, TiledCamera
 from isaaclab.utils.configclass import configclass
 from isaaclab.utils.math import quat_apply
 
-from isaaclab_arena.patches import CameraLocalOffsetWriter
+from isaaclab_arena.patches import CameraPoseWriter
 from isaaclab_arena.variations.continuous_sampler import ContinuousSampler
 from isaaclab_arena.variations.uniform_sampler import UniformSamplerCfg
 from isaaclab_arena.variations.variation_base import RunTimeVariationBase, VariationBaseCfg
@@ -125,8 +125,11 @@ class apply_camera_extrinsics_from_sampler(ManagerTermBase):
         )
 
         self._camera = camera
-        # Writes the sampled pose so both camera.data and the RTX render follow it, on PhysX and Newton.
-        self._pose_writer = CameraLocalOffsetWriter(camera)
+        # Writes the composed pose so both camera.data and the RTX render follow it, on PhysX and Newton.
+        self._pose_writer = CameraPoseWriter(camera)
+        # Snapshotted on first ``__call__``.
+        self._t_parent_C_in_parent: torch.Tensor | None = None
+        self._q_parent_C_xyzw: torch.Tensor | None = None
 
     def __call__(
         self,
@@ -135,14 +138,32 @@ class apply_camera_extrinsics_from_sampler(ManagerTermBase):
         asset_cfg: SceneEntityCfg,  # noqa: ARG002
         sampler: ContinuousSampler,
     ):
+        view = self._camera._view
+        assert view is not None, "Camera view was not initialized."
+        if self._t_parent_C_in_parent is None:
+            # NOTE(alexmillane): in the version of Isaac Lab that we're using, the get_local_poses()
+            # method claims to return w,x,y,z, but it actually returns x,y,z,w.
+            # I am testing this in the test test_isaaclab_bug_get_local_poses.py.
+            t_parent_C, q_parent_C_xyzw = view.get_local_poses()
+            self._t_parent_C_in_parent = t_parent_C.torch.detach().clone()
+            self._q_parent_C_xyzw = q_parent_C_xyzw.torch.detach().clone()
+
+        assert self._t_parent_C_in_parent is not None
+        assert self._q_parent_C_xyzw is not None
+
         # Sample a decalibration vector in the camera's ROS-style optical frame. Pass env_ids so
         # sample listeners (e.g. the variation recorder) can attribute each row to its env.
         sample = sampler.sample(num_samples=len(env_ids), env_ids=env_ids)
-        t_C_Cnew_in_Cros = sample.to(device=self._camera.device, dtype=torch.float32)
+        t_C_Cnew_in_Cros = sample.to(device=self._t_parent_C_in_parent.device, dtype=self._t_parent_C_in_parent.dtype)
 
         # Isaac Lab tensors use xyzw. 180 deg about +X maps ROS optical axes to OpenGL camera axes.
         q_ros_to_opengl_xyzw = t_C_Cnew_in_Cros.new_tensor((1.0, 0.0, 0.0, 0.0)).expand(len(env_ids), 4)
         t_C_Cnew_in_C = quat_apply(q_ros_to_opengl_xyzw, t_C_Cnew_in_Cros)
 
-        # Offset the camera by the decalibration vector (camera frame) so its rendered pose follows.
-        self._pose_writer.apply_camera_frame_offset(t_C_Cnew_in_C, env_ids)
+        # Compose the decalibration vector in the camera's parent frame, by first rotating into the
+        # parent's frame, and then adding the original translation.
+        t_C_Cnew_in_parent = quat_apply(self._q_parent_C_xyzw[env_ids], t_C_Cnew_in_C)
+        t_parent_Cnew_in_parent = self._t_parent_C_in_parent[env_ids] + t_C_Cnew_in_parent
+
+        # Write the composed local pose so both the render and camera.data follow it on either backend.
+        self._pose_writer.set_local_poses(translations=t_parent_Cnew_in_parent, orientations=None, env_ids=env_ids)

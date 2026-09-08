@@ -27,7 +27,7 @@ import torch
 
 import pytest
 
-from isaaclab_arena.patches import CameraLocalOffsetWriter
+from isaaclab_arena.patches import CameraPoseWriter
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
 HEADLESS = True
@@ -103,10 +103,11 @@ def _build_env(presets: str | None):
     return ArenaEnvBuilder(arena_env, arena_env_builder_cfg_from_argparse(args_cli)).make_registered()
 
 
-def _apply_camera_offset(pose_writer, offset, device, env_ids) -> None:
-    """Offset the camera by ``offset`` (a camera-frame translation) via the shared CameraLocalOffsetWriter."""
+def _apply_camera_offset(pose_writer, nominal_translation, offset, device, env_ids) -> None:
+    """Write ``nominal + offset`` (parent-frame translation) to the camera via the CameraPoseWriter."""
     offset_tensor = torch.tensor(offset, device=device).unsqueeze(0).expand(len(env_ids), 3)
-    pose_writer.apply_camera_frame_offset(offset_tensor, env_ids)
+    target = nominal_translation[env_ids] + offset_tensor
+    pose_writer.set_local_poses(translations=target, orientations=None, env_ids=env_ids)
 
 
 def _render_wrist_at_offsets(simulation_app, *, presets, out) -> bool:
@@ -118,7 +119,8 @@ def _render_wrist_at_offsets(simulation_app, *, presets, out) -> bool:
     device = env.unwrapped.device
     sim = env.unwrapped.sim
     env_ids = torch.arange(env.unwrapped.num_envs, device=device)
-    pose_writer = CameraLocalOffsetWriter(camera)
+    pose_writer = CameraPoseWriter(camera)
+    nominal_translation = camera._view.get_local_poses()[0].torch.detach().clone()
     zero_actions = torch.zeros(env.action_space.shape, device=device)
 
     with torch.inference_mode():
@@ -128,7 +130,7 @@ def _render_wrist_at_offsets(simulation_app, *, presets, out) -> bool:
             env.step(zero_actions)
 
         for offset in VARIANT_OFFSETS:
-            _apply_camera_offset(pose_writer, offset, device, env_ids)
+            _apply_camera_offset(pose_writer, nominal_translation, offset, device, env_ids)
             # Render only (no physics advance) so scene motion cannot contaminate the comparison.
             for _ in range(RENDER_ITERS):
                 sim.render()
@@ -151,7 +153,8 @@ def _read_camera_pose_at_offsets(simulation_app, *, presets, out) -> bool:
 
     device = env.unwrapped.device
     env_ids = torch.arange(env.unwrapped.num_envs, device=device)
-    pose_writer = CameraLocalOffsetWriter(camera)
+    pose_writer = CameraPoseWriter(camera)
+    nominal_translation = view.get_local_poses()[0].torch.detach().clone()
     zero_actions = torch.zeros(env.action_space.shape, device=device)
 
     with torch.inference_mode():
@@ -159,7 +162,7 @@ def _read_camera_pose_at_offsets(simulation_app, *, presets, out) -> bool:
             env.step(zero_actions)
 
         for offset in VARIANT_OFFSETS:
-            _apply_camera_offset(pose_writer, offset, device, env_ids)
+            _apply_camera_offset(pose_writer, nominal_translation, offset, device, env_ids)
             # camera.data.pos_w is the world pose the renderer consumes; the writer's camera.reset pushes
             # the FrameView write here, so it should follow the pose.
             camera_pos_w = camera.data.pos_w.detach().float().cpu().clone()
