@@ -27,6 +27,7 @@ dependencies = [
     "sbi",
     "scipy",
     "matplotlib",
+    "plotly",
     # MoviePy 1.x relies on decorator 4.x call semantics to propagate clip FPS.
     "moviepy>=1.0.3,<2.0.0.dev0",
     "decorator>=4.0.2,<5",
