@@ -103,6 +103,16 @@ Step 3: Validate Generated Dataset (Optional)
 
 To visualize the data produced, you can replay the dataset using the following command:
 
+.. note::
+
+   Non-determinism may be observed when replaying demonstrations with PhysX because
+   physics in Isaac Lab is not deterministically reproducible across ``env.reset()``
+   calls. A demonstration may therefore fail during replay even though it succeeded
+   during generation; all generated demonstrations remain valid for training.
+
+   This dataset was generated using CPU physics, so the replay command uses
+   ``--device cpu`` to reduce device-related differences between generation and replay.
+
 .. code-block:: bash
 
    python submodules/IsaacLab/scripts/tools/replay_demos.py \
@@ -123,7 +133,3 @@ You should see the robot successfully perform the task.
    :align: center
 
    IsaacLab Arena G1 Locomanip Pick and Place Task View
-
-.. note::
-
-   The dataset was generated using CPU device physics, therefore the replay uses ``--device cpu`` to ensure reproducibility.
