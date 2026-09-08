@@ -234,6 +234,7 @@ class ArenaEnvBuilder:
 
         # Constructing the environment by combining inputs from the scene, embodiment, and task.
         embodiment = self.arena_env.embodiment or NoEmbodiment()
+        embodiment.configure_for_physics(self.cfg.presets)
         task = self.arena_env.task or NoTask()
         scene_cfg = combine_configclass_instances(
             "SceneCfg",
@@ -431,10 +432,6 @@ class ArenaEnvBuilder:
             # takes a very long time for large number of parallel environments.
             if presets == "newton":
                 env_cfg.scene.replicate_physics = True
-
-        embodiment_name = getattr(self.arena_env.embodiment, "name", None)
-        if embodiment_name == "droid_differential_ik_newton" and presets != "newton":
-            raise ValueError(f"droid_differential_ik_newton requires --presets newton; got presets={presets!r}.")
 
         env_kwargs: dict[str, Any] = {"variation_recorder": variation_recorder}
         return env_cfg, env_kwargs

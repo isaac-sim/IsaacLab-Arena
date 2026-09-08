@@ -100,24 +100,36 @@ def _test_builder_unknown_preset_raises(simulation_app) -> bool:
     raise AssertionError("Expected AttributeError or SystemExit for unknown preset")
 
 
-def _test_newton_droid_embodiment_requires_newton_preset(simulation_app) -> bool:
-    from isaaclab_arena.embodiments.droid.droid import DroidNewtonDifferentialIKEmbodiment
+def _test_droid_diff_ik_physx_preset_keeps_default_spawn(simulation_app) -> bool:
+    from isaaclab_physx.physics import PhysxCfg
 
-    try:
-        _build_env_cfg(presets="physx", embodiment=DroidNewtonDifferentialIKEmbodiment())
-    except ValueError as exc:
-        assert "droid_differential_ik_newton requires --presets newton" in str(exc)
-        return True
-    raise AssertionError("Expected ValueError when pairing Newton DROID with PhysX preset")
+    from isaaclab_arena.embodiments.droid.droid import DroidDifferentialIKEmbodiment, spawn_newton_droid
+
+    env_cfg = _build_env_cfg(presets="physx", embodiment=DroidDifferentialIKEmbodiment())
+    assert isinstance(env_cfg.sim.physics, PhysxCfg)
+    assert env_cfg.scene.robot.spawn.func is not spawn_newton_droid
+    return True
 
 
-def _test_newton_droid_embodiment_allows_newton_preset(simulation_app) -> bool:
+def _test_droid_diff_ik_newton_preset_applies_newton_spawn(simulation_app) -> bool:
     from isaaclab_newton.physics.newton_manager_cfg import NewtonCfg
 
-    from isaaclab_arena.embodiments.droid.droid import DroidNewtonDifferentialIKEmbodiment
+    from isaaclab_arena.embodiments.droid.droid import DroidDifferentialIKEmbodiment, spawn_newton_droid
 
-    env_cfg = _build_env_cfg(presets="newton", embodiment=DroidNewtonDifferentialIKEmbodiment())
+    env_cfg = _build_env_cfg(presets="newton", embodiment=DroidDifferentialIKEmbodiment())
     assert isinstance(env_cfg.sim.physics, NewtonCfg)
+    assert env_cfg.scene.robot.spawn.func is spawn_newton_droid
+    return True
+
+
+def _test_droid_abs_joint_pos_newton_preset_applies_newton_spawn(simulation_app) -> bool:
+    from isaaclab_newton.physics.newton_manager_cfg import NewtonCfg
+
+    from isaaclab_arena.embodiments.droid.droid import DroidAbsoluteJointPositionEmbodiment, spawn_newton_droid
+
+    env_cfg = _build_env_cfg(presets="newton", embodiment=DroidAbsoluteJointPositionEmbodiment())
+    assert isinstance(env_cfg.sim.physics, NewtonCfg)
+    assert env_cfg.scene.robot.spawn.func is spawn_newton_droid
     return True
 
 
@@ -144,15 +156,21 @@ def test_builder_unknown_preset_raises():
     assert run_function_with_persistent_simulation_app(_test_builder_unknown_preset_raises, headless=HEADLESS)
 
 
-def test_newton_droid_embodiment_requires_newton_preset():
+def test_droid_diff_ik_physx_preset_keeps_default_spawn():
     assert run_function_with_persistent_simulation_app(
-        _test_newton_droid_embodiment_requires_newton_preset, headless=HEADLESS
+        _test_droid_diff_ik_physx_preset_keeps_default_spawn, headless=HEADLESS
     )
 
 
-def test_newton_droid_embodiment_allows_newton_preset():
+def test_droid_diff_ik_newton_preset_applies_newton_spawn():
     assert run_function_with_persistent_simulation_app(
-        _test_newton_droid_embodiment_allows_newton_preset, headless=HEADLESS
+        _test_droid_diff_ik_newton_preset_applies_newton_spawn, headless=HEADLESS
+    )
+
+
+def test_droid_abs_joint_pos_newton_preset_applies_newton_spawn():
+    assert run_function_with_persistent_simulation_app(
+        _test_droid_abs_joint_pos_newton_preset_applies_newton_spawn, headless=HEADLESS
     )
 
 

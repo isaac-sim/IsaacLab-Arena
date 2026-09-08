@@ -165,6 +165,9 @@ class EmbodimentBase(PlaceableAsset):
             rotation_xyzw=tuple(float(v) for v in init_state.rot),
         )
 
+    def configure_for_physics(self, preset: str | None) -> None:
+        """Apply physics-backend-specific overrides before the env cfg is composed."""
+
     def get_scene_cfg(self) -> Any:
         construction_pose = self._get_initial_pose_as_pose()
         if construction_pose is not None:

@@ -29,7 +29,7 @@ def _build_newton_droid_env(env_name: str):
     """Build a minimal Newton scene with keyboard-teleoperable DROID differential IK."""
     from isaaclab_arena.assets.registries import AssetRegistry, DeviceRegistry
     from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
-    from isaaclab_arena.embodiments.droid.droid import DroidNewtonDifferentialIKEmbodiment
+    from isaaclab_arena.embodiments.droid.droid import DroidDifferentialIKEmbodiment
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.scene.scene import Scene
@@ -40,7 +40,7 @@ def _build_newton_droid_env(env_name: str):
     device_registry = DeviceRegistry()
 
     background = asset_registry.get_asset_by_name("packing_table")()
-    embodiment = DroidNewtonDifferentialIKEmbodiment()
+    embodiment = DroidDifferentialIKEmbodiment()
     embodiment.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 1.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
 
     teleop_device = device_registry.get_device_by_name("keyboard")()
@@ -158,14 +158,14 @@ def test_z_newton_droid_embodiment_config_contract():
     from isaaclab_arena.embodiments.droid.droid import (
         BinaryJointPositionZeroToOneActionCfg,
         DroidDifferentialIKEmbodiment,
-        DroidNewtonDifferentialIKEmbodiment,
     )
     from isaaclab_arena.embodiments.droid.observations import _DROID_NEWTON_GRIPPER_CLOSE_RAD
 
-    parent = DroidDifferentialIKEmbodiment()
-    assert parent.action_config.arm_action.body_name == "base_link"
+    embodiment = DroidDifferentialIKEmbodiment()
+    assert embodiment.action_config.arm_action.body_name == "base_link"
+    assert embodiment.action_config.arm_action.controller.ik_method == "dls"
 
-    embodiment = DroidNewtonDifferentialIKEmbodiment()
+    embodiment.configure_for_physics("newton")
     gripper_action = embodiment.action_config.gripper_action
     assert isinstance(gripper_action, BinaryJointPositionZeroToOneActionCfg)
     assert embodiment.action_config.arm_action.body_name == "base_link"

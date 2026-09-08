@@ -156,6 +156,30 @@ class DroidEmbodimentBase(EmbodimentBase, ABC):
         self.reward_config = None
         self.mimic_env = None
         self.add_camera_variations(self.camera_config)
+        self._newton_spawn_configured = False
+
+    def configure_for_physics(self, preset: str | None) -> None:
+        """Apply Newton spawn overrides shared by all DROID embodiments."""
+        if preset == "newton":
+            self._configure_newton_spawn()
+
+    def _configure_newton_spawn(self) -> None:
+        """Apply Newton-compatible robot spawning shared across DROID control modes."""
+        if self._newton_spawn_configured:
+            return
+        self._newton_spawn_configured = True
+
+        from isaaclab_newton.sim.schemas import NewtonMaterialPropertiesCfg
+
+        robot_cfg = self.scene_config.robot
+        robot_cfg.spawn.func = spawn_newton_droid
+        robot_cfg.spawn.make_uninstanceable = True
+        robot_cfg.spawn.rigid_props.disable_gravity = False
+        robot_cfg.spawn.physics_material = NewtonMaterialPropertiesCfg(
+            static_friction=3.0,
+            dynamic_friction=3.0,
+            restitution=0.0,
+        )
 
     def get_bounding_box(self) -> AxisAlignedBoundingBox:
         """Return root-relative placement bounds from the composed on-stand USD spawn.
@@ -193,7 +217,11 @@ class DroidEmbodimentBase(EmbodimentBase, ABC):
 
 @register_asset
 class DroidDifferentialIKEmbodiment(DroidEmbodimentBase):
-    """Embodiment for the DROID setup with differential inverse kinematics action controller."""
+    """Embodiment for the DROID setup with differential inverse kinematics action controller.
+
+    When ``--presets newton`` is selected, :meth:`configure_for_physics` applies Newton-specific
+    spawn, gripper actuation, IK, and observation overrides before the env is built.
+    """
 
     name = "droid_differential_ik"
     default_arm_mode = ArmMode.SINGLE_ARM
@@ -222,32 +250,21 @@ class DroidDifferentialIKEmbodiment(DroidEmbodimentBase):
             collision_mode=collision_mode,
         )
         self.action_config = DroidDifferentialIKActionsCfg()
+        self._newton_diff_ik_configured = False
 
+    def configure_for_physics(self, preset: str | None) -> None:
+        """Apply shared Newton spawn setup, then diff-IK-specific Newton tuning."""
+        super().configure_for_physics(preset)
+        if preset == "newton":
+            self._configure_newton_diff_ik()
 
-@register_asset
-class DroidNewtonDifferentialIKEmbodiment(DroidDifferentialIKEmbodiment):
-    """Newton-compatible DROID embodiment with differential inverse kinematics control."""
-
-    name = "droid_differential_ik_newton"
-
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self._configure_newton()
-
-    def _configure_newton(self) -> None:
-        """Apply Newton-specific spawning, actuation, and controller configuration."""
-        from isaaclab_newton.sim.schemas import NewtonMaterialPropertiesCfg
+    def _configure_newton_diff_ik(self) -> None:
+        """Apply Newton-specific gripper actuation, IK, and observation configuration."""
+        if self._newton_diff_ik_configured:
+            return
+        self._newton_diff_ik_configured = True
 
         robot_cfg = self.scene_config.robot
-        robot_cfg.spawn.func = spawn_newton_droid
-        robot_cfg.spawn.make_uninstanceable = True
-        robot_cfg.spawn.rigid_props.disable_gravity = False
-        robot_cfg.spawn.physics_material = NewtonMaterialPropertiesCfg(
-            static_friction=3.0,
-            dynamic_friction=3.0,
-            restitution=0.0,
-        )
-
         gripper_joint_names = tuple(_DROID_NEWTON_GRIPPER_MIMIC_SIGNS)
         robot_cfg.actuators["gripper"] = ImplicitActuatorCfg(
             joint_names_expr=list(gripper_joint_names),
