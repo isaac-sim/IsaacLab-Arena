@@ -9,7 +9,7 @@ The input JSON maps each Run name to its Experiment Runner task's output directo
 its ``<run-name>/...`` output is included. Completed Run directories are copied into the
 ``<experiment-output>/<run-name>`` layout, while failed results are preserved without partial Run artifacts. The
 ``arena_experiment_result.json`` and ``index.html`` report list every Run execution and include episode details only
-from completed Runs.
+from completed Runs. ``arena_experiment_timings.json`` holds each completed Run's timings and their per-timer totals.
 """
 
 from __future__ import annotations
@@ -17,11 +17,12 @@ from __future__ import annotations
 import argparse
 import json
 import shutil
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 
-from isaaclab_arena.evaluation.arena_experiment_result import ArenaExperimentResult
+from isaaclab_arena.evaluation.arena_experiment_result import ARENA_EXPERIMENT_TIMINGS_FILENAME, ArenaExperimentResult
 from isaaclab_arena.evaluation.arena_run import RunStatus
+from isaaclab_arena.utils.timer import merge_timer_stats_json
 from isaaclab_arena.visualization.report import RunExecutionReport, build_report
 
 EXPERIMENT_RUNNER_RESULT_FILE_NAME = "experiment_runner_result.json"
@@ -147,10 +148,56 @@ def collect_run_outputs_into_experiment_output(
             experiment_runner_result_path,
             destination_run_output_directory / EXPERIMENT_RUNNER_RESULT_FILE_NAME,
         )
+        # The runner writes its timings beside the Run directory, so copy them in alongside the episode results.
+        source_run_timings_path = experiment_runner_output_directory / ARENA_EXPERIMENT_TIMINGS_FILENAME
+        assert (
+            source_run_timings_path.is_file()
+        ), f"Completed Run '{run_name}' is missing its timings file: '{source_run_timings_path}'"
+        shutil.copy2(
+            source_run_timings_path,
+            destination_run_output_directory / ARENA_EXPERIMENT_TIMINGS_FILENAME,
+        )
     return (
         sorted(run_execution_reports, key=lambda run_execution_report: run_execution_report.run_name),
         run_metadata_by_name,
     )
+
+
+def aggregate_experiment_timings(
+    experiment_output_directory: Path,
+    run_execution_reports: Sequence[RunExecutionReport],
+) -> Path:
+    """Combine every completed Run's timings into one Experiment timings file.
+
+    Args:
+        experiment_output_directory: Experiment output containing one collected directory per Run.
+        run_execution_reports: Validated execution results for every declared Run.
+
+    Returns:
+        Path to the written Experiment timings file.
+    """
+    run_records: list[dict[str, object]] = []
+    for run_execution_report in run_execution_reports:
+        if run_execution_report.status is not RunStatus.COMPLETED:
+            continue
+        run_name = run_execution_report.run_name
+        run_timings_path = experiment_output_directory / run_name / ARENA_EXPERIMENT_TIMINGS_FILENAME
+        run_records.extend(
+            {"run_name": run_name, **record} for record in json.loads(run_timings_path.read_text(encoding="utf-8"))
+        )
+
+    experiment_timings_path = experiment_output_directory / ARENA_EXPERIMENT_TIMINGS_FILENAME
+    experiment_timings_path.write_text(
+        json.dumps(
+            {"totals": merge_timer_stats_json(run_records), "runs": run_records},
+            allow_nan=False,
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    print(f"Wrote Arena Experiment timings to: {experiment_timings_path}")
+    return experiment_timings_path
 
 
 def build_experiment_output(
@@ -173,6 +220,7 @@ def build_experiment_output(
         experiment_output_directory,
     )
     ArenaExperimentResult(experiment_output_directory, run_metadata_by_name).write()
+    aggregate_experiment_timings(experiment_output_directory, run_execution_reports)
     return build_report(experiment_output_directory, run_executions=run_execution_reports)
 
 

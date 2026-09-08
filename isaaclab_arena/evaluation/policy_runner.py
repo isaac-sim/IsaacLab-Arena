@@ -22,6 +22,7 @@ from isaaclab_arena.metrics.metrics_logger import metrics_to_plain_python_types
 from isaaclab_arena.utils.hydra_overrides import assert_hydra_overrides
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
 from isaaclab_arena.utils.multiprocess import get_local_rank, get_world_size
+from isaaclab_arena.utils.timer import Timer
 from isaaclab_arena.video.video_recording import VideoRecordingCfg, timestamped_run_dir, wrap_env_for_video
 from isaaclab_arena.visualization.report import build_report, serve_until_ctrl_c
 from isaaclab_arena_environments.cli import get_arena_builder_from_cli, get_isaaclab_arena_environments_cli_parser
@@ -62,6 +63,19 @@ def is_distributed(args_cli: argparse.Namespace) -> bool:
     )
 
 
+STEP_TIMER_NAME = "step"
+"""Timer covering one whole iteration of the rollout loop, including episode-boundary work."""
+
+POLICY_INFERENCE_TIMER_NAME = "policy_inference"
+"""Timer covering the policy's action computation, nested under STEP_TIMER_NAME."""
+
+ENV_STEP_TIMER_NAME = "env_step"
+"""Timer covering the outermost env step, nested under STEP_TIMER_NAME.
+
+This is measured above the video recorders, so it includes their cost.
+"""
+
+
 def rollout_policy(
     env,
     policy: PolicyBase,
@@ -89,9 +103,13 @@ def rollout_policy(
         num_steps_completed = 0
 
         while True:
-            with torch.inference_mode():
-                actions = policy.get_action(env, obs)
-                obs, _, terminated, truncated, _ = env.step(actions)
+            # The three timers below are the rollout's cost breakdown: STEP_TIMER_NAME is the whole
+            # loop body, and the two inside it are the parts that dominate it.
+            with torch.inference_mode(), Timer(STEP_TIMER_NAME):
+                with Timer(POLICY_INFERENCE_TIMER_NAME):
+                    actions = policy.get_action(env, obs)
+                with Timer(ENV_STEP_TIMER_NAME):
+                    obs, _, terminated, truncated, _ = env.step(actions)
 
                 if terminated.any() or truncated.any():
                     # Only reset policy for those envs that are terminated or truncated
