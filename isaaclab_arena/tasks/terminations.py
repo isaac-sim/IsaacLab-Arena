@@ -171,13 +171,12 @@ def goal_pose_task_termination(
     Returns:
         A boolean tensor of shape (num_envs, )
     """
-    unwrapped_env = env.unwrapped
-    T_W_O = unwrapped_env.arena_world.get_pose_w(object_cfg.name)
+    T_W_O = env.arena_world.get_pose_w(object_cfg.name)
     t_W_O = T_W_O[:, :3]
     q_W_O = T_W_O[:, 3:]
 
-    device = unwrapped_env.device
-    num_envs = unwrapped_env.num_envs
+    device = env.device
+    num_envs = env.num_envs
 
     has_any_threshold = any([
         target_x_range is not None,

@@ -152,7 +152,7 @@ def object_moving(
     Returns True when object_name's linear speed exceeds velocity_threshold (m/s).
     """
 
-    arena_world = get_env(env).arena_world
+    arena_world = env.arena_world
     object_root_linear_velocity_w = arena_world.get_root_linear_velocity_w(object_name)
     speed = torch.linalg.vector_norm(object_root_linear_velocity_w, dim=-1)
     result = speed > velocity_threshold
@@ -172,7 +172,7 @@ def objects_in_proximity(
     Returns True when the object is within a certain proximity of the target object.
     """
 
-    arena_world = get_env(env).arena_world
+    arena_world = env.arena_world
     object_position_e = arena_world.get_pose_e(object_cfg.name)[:, :3]
     target_object_position_e = arena_world.get_pose_e(target_object_cfg.name)[:, :3]
 
