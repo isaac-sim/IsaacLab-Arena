@@ -11,15 +11,13 @@ import math
 import torch
 from typing import TYPE_CHECKING
 
-import warp as wp
-from isaaclab.assets import RigidObject
 from isaaclab.envs import ManagerBasedRLEnv
 from isaaclab.managers import SceneEntityCfg
 from isaaclab.sensors.contact_sensor.contact_sensor import ContactSensor
 from isaaclab.utils.math import quat_apply, quat_apply_inverse
 
 from isaaclab_arena.tasks.predicates.object_settling import get_object_initial_rest_state
-from isaaclab_arena.tasks.predicates.predicate_utils import get_env, get_root_lin_vel_w, get_root_pos_w, select
+from isaaclab_arena.tasks.predicates.predicate_utils import get_env, get_root_pos_w, select
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 if TYPE_CHECKING:
@@ -154,7 +152,9 @@ def object_moving(
     Returns True when object_name's linear speed exceeds velocity_threshold (m/s).
     """
 
-    speed = torch.linalg.vector_norm(get_root_lin_vel_w(env, object_name), dim=-1)
+    arena_world = get_env(env).arena_world
+    object_root_linear_velocity_w = arena_world.get_root_linear_velocity_w(object_name)
+    speed = torch.linalg.vector_norm(object_root_linear_velocity_w, dim=-1)
     result = speed > velocity_threshold
     return select(result, env_id)
 
@@ -172,18 +172,14 @@ def objects_in_proximity(
     Returns True when the object is within a certain proximity of the target object.
     """
 
-    # Get object entities from the scene
-    object: RigidObject = env.scene[object_cfg.name]
-    target_object: RigidObject = env.scene[target_object_cfg.name]
-
-    # Get positions relative to environment origin
-    object_pos = wp.to_torch(object.data.root_pos_w) - env.scene.env_origins
-    target_object_pos = wp.to_torch(target_object.data.root_pos_w) - env.scene.env_origins
+    arena_world = get_env(env).arena_world
+    object_position_e = arena_world.get_pose_e(object_cfg.name)[:, :3]
+    target_object_position_e = arena_world.get_pose_e(target_object_cfg.name)[:, :3]
 
     # object to target object
-    x_separation = torch.abs(object_pos[:, 0] - target_object_pos[:, 0])
-    y_separation = torch.abs(object_pos[:, 1] - target_object_pos[:, 1])
-    z_separation = torch.abs(object_pos[:, 2] - target_object_pos[:, 2])
+    x_separation = torch.abs(object_position_e[:, 0] - target_object_position_e[:, 0])
+    y_separation = torch.abs(object_position_e[:, 1] - target_object_position_e[:, 1])
+    z_separation = torch.abs(object_position_e[:, 2] - target_object_position_e[:, 2])
 
     done = x_separation < max_x_separation
     done = torch.logical_and(done, y_separation < max_y_separation)

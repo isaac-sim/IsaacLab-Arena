@@ -171,12 +171,13 @@ def goal_pose_task_termination(
     Returns:
         A boolean tensor of shape (num_envs, )
     """
-    object_instance: RigidObject = env.scene[object_cfg.name]
-    object_root_pos_w = wp.to_torch(object_instance.data.root_pos_w)
-    object_root_quat_w = wp.to_torch(object_instance.data.root_quat_w)
+    unwrapped_env = env.unwrapped
+    T_W_O = unwrapped_env.arena_world.get_pose_w(object_cfg.name)
+    t_W_O = T_W_O[:, :3]
+    q_W_O = T_W_O[:, 3:]
 
-    device = env.device
-    num_envs = env.num_envs
+    device = unwrapped_env.device
+    num_envs = unwrapped_env.num_envs
 
     has_any_threshold = any([
         target_x_range is not None,
@@ -195,7 +196,7 @@ def goal_pose_task_termination(
     for idx, range_val in enumerate(ranges):
         if range_val is not None:
             range_min, range_max = range_val
-            in_range = (object_root_pos_w[:, idx] >= range_min) & (object_root_pos_w[:, idx] <= range_max)
+            in_range = (t_W_O[:, idx] >= range_min) & (t_W_O[:, idx] <= range_max)
             success &= in_range
 
     # Orientation check
@@ -203,7 +204,7 @@ def goal_pose_task_termination(
         target_quat = torch.tensor(target_orientation_xyzw, device=device, dtype=torch.float32).unsqueeze(0)
 
         # Formula: |<q1, q2>| > cos(tolerance / 2)
-        quat_dot = torch.sum(object_root_quat_w * target_quat, dim=-1)
+        quat_dot = torch.sum(q_W_O * target_quat, dim=-1)
         abs_dot = torch.abs(quat_dot)
         min_cos = math.cos(target_orientation_tolerance_rad / 2.0)
 
