@@ -377,6 +377,13 @@ def test_asset_catalogue_withholds_the_generic_simready_object():
     assert SIMREADY_USD_OBJECT_REGISTRY_NAME not in catalog_string
 
 
+def test_asset_catalogue_withholds_procedural_objects():
+    catalog_string = build_asset_catalogue().to_catalog_string()
+
+    assert AssetRegistry().is_registered("procedural_cube")
+    assert "procedural_cube" not in catalog_string
+
+
 # ---------------------------------------------------------------------------
 # Live endpoint (network + auth required)
 # ---------------------------------------------------------------------------
