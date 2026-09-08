@@ -710,11 +710,15 @@ Execute large-scale parallel policy evaluations
 
          .. container:: arena-policy-proof
 
+            .. NOTE(sangeetas-nv, 2026-09-07): The raw HTML video reuses the big-pumpkin media
+               registered in the execution section above, so Sphinx copies the video and poster
+               into ``_images/``.
+
             .. raw:: html
 
-               <div class="arena-policy-runtime-flow" aria-label="A separate policy runtime exchanges observations and actions with Isaac Lab-Arena through a shared client contract.">
+               <div class="arena-policy-runtime-flow" aria-label="Three policy servers exchange observations and actions with Isaac Lab-Arena through a shared client contract.">
                  <section class="arena-policy-runtime arena-policy-external">
-                   <header><strong>Your runtime</strong><small>Separate process</small></header>
+                   <header><strong>Policy servers</strong><small>Separate process</small></header>
                    <div class="arena-policy-models">
                      <article><i aria-hidden="true"></i><span><small>Policy server</small><strong>GR00T</strong></span></article>
                      <article><i aria-hidden="true"></i><span><small>Policy server</small><strong>π0.5</strong></span></article>
@@ -728,7 +732,17 @@ Execute large-scale parallel policy evaluations
                  </div>
                  <section class="arena-policy-runtime arena-policy-arena">
                    <header><strong>Isaac Lab-Arena</strong><small>Evaluation runtime</small></header>
-                   <div class="arena-policy-workers" aria-hidden="true"><i></i><i></i><i></i><span></span></div>
+                   <div class="arena-policy-task">
+                     <div class="arena-policy-task-stack">
+                       <div class="arena-policy-task-frame" aria-hidden="true"></div>
+                       <div class="arena-policy-task-frame" aria-hidden="true"></div>
+                       <div class="arena-policy-task-frame arena-policy-task-visual">
+                         <video loop muted playsinline preload="none" poster="_images/big_pumpkin_in_bin_web.webp" aria-label="A pick-and-place task running in Isaac Lab-Arena">
+                           <source src="_images/big_pumpkin_in_bin_web.mp4" type="video/mp4">
+                         </video>
+                       </div>
+                     </div>
+                   </div>
                    <div class="arena-policy-capabilities"><span>Tasks</span><span>Scenes</span><span>Metrics</span></div>
                    <footer>No policy dependencies in benchmark</footer>
                  </section>

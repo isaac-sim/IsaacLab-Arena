@@ -881,14 +881,6 @@ body:has(#welcome-to-isaac-lab-arena) .secondary-toggle,
     background: #79a942 !important;
 }
 
-.arena-policy-workers {
-    gap: 6px !important;
-}
-
-.arena-policy-workers::before {
-    position: absolute;
-}
-
 .arena-policy-capabilities span {
     padding: 4px 8px !important;
     color: #4e6842 !important;
@@ -1325,21 +1317,6 @@ body:has(#welcome-to-isaac-lab-arena) .secondary-toggle,
     animation-delay: -1.1s;
 }
 
-.arena-policy-workers {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.arena-policy-workers > i {
-    display: block;
-}
-
-.arena-policy-workers > span {
-    color: #5d920d;
-    font-size: 0.46rem;
-}
-
 .arena-policy-capabilities {
     display: flex;
     justify-content: center;
@@ -1408,6 +1385,7 @@ body:has(#welcome-to-isaac-lab-arena) .secondary-toggle,
         left: 50%;
         opacity: 1;
     }
+
 }
 
 .arena-sensitivity-evidence .arena-sensitivity-native {
@@ -4847,80 +4825,60 @@ button.arena-agentic-tab-active b {
     grid-template-rows: auto minmax(0, 1fr) auto auto !important;
 }
 
-.arena-policy-arena .arena-policy-workers {
-    position: relative !important;
-    width: 126px !important;
-    min-height: 90px !important;
-    margin: auto !important;
-    padding: 0 !important;
+.arena-policy-task {
+    display: flex;
+    align-content: center;
+    align-items: center;
+    justify-content: center;
+    min-width: 0;
+    padding: 8px 12px 2px;
 }
 
-.arena-policy-arena .arena-policy-workers::before {
-    top: 2px !important;
-    left: 50% !important;
-    width: max-content !important;
-    color: #667261 !important;
-    content: "Parallel evaluation" !important;
-    font-size: 0.45rem !important;
-    font-weight: 620 !important;
-    letter-spacing: 0.035em !important;
-    transform: translateX(-50%) !important;
+.arena-policy-task-stack {
+    position: relative;
+    width: 224px;
+    max-width: 100%;
+    height: 134px;
 }
 
-.arena-policy-arena .arena-policy-workers > i {
-    position: absolute !important;
-    top: 30px !important;
-    left: 50% !important;
-    width: 76px !important;
-    height: 48px !important;
-    border: 1px solid #cad8be !important;
-    border-radius: 7px !important;
-    background: linear-gradient(#edf5e6 0 30%, #fff 30%) !important;
-    box-shadow: 0 4px 11px rgba(49, 72, 37, 0.05) !important;
+.arena-policy-task-frame {
+    position: absolute;
+    overflow: hidden;
+    width: 206px;
+    max-width: calc(100% - 18px);
+    aspect-ratio: 16 / 9;
+    border: 1px solid #cdd9c3;
+    border-radius: 7px;
+    background: #121512;
+    box-shadow: 0 5px 13px rgba(41, 58, 34, 0.08);
 }
 
-.arena-policy-arena .arena-policy-workers > i:nth-child(1) {
-    transform: translateX(calc(-50% - 13px)) translateY(-8px) !important;
+.arena-policy-task-frame:first-child {
+    top: 0;
+    left: 0;
+    z-index: 1;
+    background: #e9f0e3;
 }
 
-.arena-policy-arena .arena-policy-workers > i:nth-child(2) {
-    transform: translateX(-50%) !important;
+.arena-policy-task-frame:nth-child(2) {
+    top: 9px;
+    left: 9px;
+    z-index: 2;
+    background: #f3f7ef;
 }
 
-.arena-policy-arena .arena-policy-workers > i:nth-child(3) {
-    transform: translateX(calc(-50% + 13px)) translateY(8px) !important;
+.arena-policy-task-visual {
+    top: 18px;
+    left: 18px;
+    z-index: 3;
 }
 
-.arena-policy-arena .arena-policy-workers > span {
-    position: absolute !important;
-    z-index: 2 !important;
-    top: 48px !important;
-    left: 50% !important;
-    width: 22px !important;
-    height: 18px !important;
-    border: 1px solid #70a62b !important;
-    border-radius: 4px !important;
-    background: #f7fbf2 !important;
-    box-shadow: 4px 4px 0 -1px #f7fbf2, 4px 4px 0 0 #70a62b !important;
-    transform: translateX(-50%) !important;
-}
-
-.arena-policy-arena .arena-policy-workers > span::before,
-.arena-policy-arena .arena-policy-workers > span::after {
-    position: absolute !important;
-    right: 4px !important;
-    left: 4px !important;
-    height: 1px !important;
-    background: #75a93a !important;
-    content: "" !important;
-}
-
-.arena-policy-arena .arena-policy-workers > span::before {
-    top: 6px !important;
-}
-
-.arena-policy-arena .arena-policy-workers > span::after {
-    top: 10px !important;
+.arena-policy-task-frame video {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transform: scale(1.3);
 }
 
 .arena-policy-arena .arena-policy-capabilities {
