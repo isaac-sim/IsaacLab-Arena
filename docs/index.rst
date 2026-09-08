@@ -274,7 +274,7 @@ Author benchmarks
 
                      .. rubric:: Input prompt
 
-                     droid pick up the banana and put it on the plate. Using maple table
+                     DROID pick up the banana and put it on the plate. Using maple table
                      background. Other objects on the table as distractors: two bagels, bowl,
                      with positions randomized
 
@@ -300,7 +300,7 @@ Author benchmarks
                      .. rubric:: Input prompt
 
                      Two bins on maple table. ``container_f24`` is on the left of ``bin_b04``.
-                     droid put the spring clamp in the right bin. Other objects on the table as
+                     DROID put the spring clamp in the right bin. Other objects on the table as
                      distractors: two hammers, cordless drill.
 
                   .. container:: arena-agentic-connector
@@ -537,9 +537,17 @@ Execute large-scale parallel policy evaluations
 
                   **Local or distributed compute**
 
+                  .. raw:: html
+
+                     <div class="arena-node-fanout" aria-hidden="true"><i></i><span></span><span></span></div>
+
                   .. container:: arena-experiment-envs arena-experiment-running-envs
 
                      .. container:: arena-experiment-running-env
+
+                        .. raw:: html
+
+                           <div class="arena-node-card-label" aria-label="Node 1 running the big pumpkin in bin evaluation"><i aria-hidden="true"></i><b>Node 1</b><span aria-label="Running"></span></div>
 
                         .. video:: images/teaser_page/parallel_evaluation/big_pumpkin_in_bin_web.mp4
                            :loop:
@@ -549,9 +557,11 @@ Execute large-scale parallel policy evaluations
                            :preload: none
                            :poster: _images/big_pumpkin_in_bin_web.webp
 
-                        **Big pumpkin in bin**
-
                      .. container:: arena-experiment-running-env
+
+                        .. raw:: html
+
+                           <div class="arena-node-card-label" aria-label="Node 2 running the mouse on keyboard evaluation"><i aria-hidden="true"></i><b>Node 2</b><span aria-label="Running"></span></div>
 
                         .. video:: images/teaser_page/parallel_evaluation/mouse_on_keyboard_web.mp4
                            :loop:
@@ -561,9 +571,11 @@ Execute large-scale parallel policy evaluations
                            :preload: none
                            :poster: _images/mouse_on_keyboard_web.webp
 
-                        **Mouse on keyboard**
-
                      .. container:: arena-experiment-running-env
+
+                        .. raw:: html
+
+                           <div class="arena-node-card-label" aria-label="Node 3 running the small pumpkin in bin evaluation"><i aria-hidden="true"></i><b>Node 3</b><span aria-label="Running"></span></div>
 
                         .. video:: images/teaser_page/parallel_evaluation/small_pumpkin_in_bin_web.mp4
                            :loop:
@@ -573,9 +585,11 @@ Execute large-scale parallel policy evaluations
                            :preload: none
                            :poster: _images/small_pumpkin_in_bin_web.webp
 
-                        **Small pumpkin in bin**
-
                      .. container:: arena-experiment-running-env
+
+                        .. raw:: html
+
+                           <div class="arena-node-card-label" aria-label="Node 4 running the mustard in left bin evaluation"><i aria-hidden="true"></i><b>Node 4</b><span aria-label="Running"></span></div>
 
                         .. video:: images/teaser_page/parallel_evaluation/mustard_in_left_bin_web.mp4
                            :loop:
@@ -584,10 +598,6 @@ Execute large-scale parallel policy evaluations
                            :nocontrols:
                            :preload: none
                            :poster: _images/mustard_in_left_bin_web.webp
-
-                        **Mustard in left bin**
-
-                  Experiment Runner · orchestrator such as OSMO
 
                .. container:: arena-experiment-arrow
 
@@ -1128,6 +1138,13 @@ Isaac Lab-Arena was built in collaboration with the authors of Robolab (`website
 
    pages/references/release_notes
    pages/references/citing_us
+
+.. toctree::
+   :maxdepth: 1
+   :hidden:
+   :caption: Gallery
+
+   Gallery <pages/gallery/index>
 
 .. toctree::
    :maxdepth: 1

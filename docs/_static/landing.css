@@ -995,9 +995,6 @@ body:has(#welcome-to-isaac-lab-arena) .secondary-toggle,
         height: 178px !important;
     }
 
-    .arena-experiment-run > p:last-child {
-        margin: 0 !important;
-    }
 }
 
 @media (max-width: 767px) {
@@ -1040,16 +1037,6 @@ body:has(#welcome-to-isaac-lab-arena) .secondary-toggle,
     .arena-experiment-stage > p:has(> strong:first-child) {
         margin-bottom: 4px !important;
         font-size: 0.72rem !important;
-    }
-
-    .arena-experiment-running-env > p:last-child {
-        min-height: 18px !important;
-    }
-
-    .arena-experiment-run > p:last-child {
-        padding-top: 4px !important;
-        font-size: 0.54rem !important;
-        line-height: 1.2 !important;
     }
 
     .arena-collated-chart {
@@ -1155,18 +1142,6 @@ body:has(#welcome-to-isaac-lab-arena) .secondary-toggle,
 .arena-feature-heading .arena-experimental-chip:focus [role="tooltip"] {
     opacity: 1;
     transform: translateY(0);
-}
-
-@media (min-width: 768px) {
-
-    .arena-experiment-running-env.docutils.container {
-        position: static !important;
-    }
-
-    .arena-experiment-running-env > p:last-child {
-        display: flex;
-        align-items: center;
-    }
 }
 
 .arena-collated-plot {
@@ -1840,13 +1815,6 @@ body:has(#welcome-to-isaac-lab-arena) .secondary-toggle,
 
 .arena-experiment-envs {
     flex: 1;
-}
-
-.arena-experiment-run > p:last-child,
-.arena-experiment-results > p:last-child {
-    margin: auto 0 0;
-    padding-top: 7px;
-    border-top: 1px solid #e2e7df;
 }
 
 #home-subtask-predicates .arena-predicate-proof.docutils.container {
@@ -2911,23 +2879,132 @@ body:has(#welcome-to-isaac-lab-arena) .secondary-toggle,
     object-fit: cover;
 }
 
-.arena-experiment-running-env > p:last-child {
+/* Keep each distributed rollout inside the compute node that runs it. */
+.arena-experiment-running-env.docutils.container {
+    display: grid !important;
+    grid-template-rows: minmax(0, 1fr) !important;
+    border-color: #ccd8c5 !important;
+    border-radius: 9px !important;
+    background: #fff !important;
+    box-shadow: 0 7px 18px rgba(43, 61, 35, 0.09);
+}
+
+.arena-node-card-label {
     position: absolute;
-    right: 5px;
-    bottom: 5px;
-    left: 5px;
-    z-index: 2;
-    margin: 0 !important;
-    padding: 4px 5px;
-    overflow: hidden;
+    z-index: 3;
+    inset: 0;
+    pointer-events: none;
+}
+
+.arena-node-card-label i {
+    display: block;
+    position: absolute;
+    top: 0;
+    left: 50%;
+    width: 18px;
+    height: 14px;
+    border: 1px solid #6a9f2d;
     border-radius: 4px;
-    background: rgba(20, 25, 19, 0.78);
-    color: #fff !important;
-    font-size: 0.46rem !important;
-    font-weight: 560 !important;
-    line-height: 1.15 !important;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    background: #fff;
+    box-shadow: 0 3px 8px rgba(48, 70, 37, 0.16);
+    transform: translate(-50%, -50%);
+}
+
+.arena-node-card-label i::before {
+    position: absolute;
+    top: 3px;
+    right: 3px;
+    left: 3px;
+    height: 1px;
+    background: #6a9f2d;
+    box-shadow: 0 4px 0 #6a9f2d;
+    content: "";
+}
+
+.arena-node-card-label b {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    padding: 3px 7px;
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    border-radius: 5px;
+    background: rgba(20, 27, 18, 0.78);
+    box-shadow: 0 2px 7px rgba(15, 20, 13, 0.12);
+    color: #fff;
+    font-size: 0.5rem;
+    font-weight: 720;
+    letter-spacing: 0.025em;
+    line-height: 1;
+}
+
+.arena-node-card-label > span {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 5px;
+    height: 5px;
+    border: 1px solid #fff;
+    border-radius: 50%;
+    background: #8bd12a;
+    box-shadow: 0 0 0 1px rgba(38, 62, 26, 0.28), 0 0 7px rgba(139, 209, 42, 0.55);
+}
+
+.arena-node-fanout {
+    position: relative;
+    display: grid;
+    height: 36px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    margin: 0 0 -1px;
+}
+
+.arena-node-fanout::before {
+    position: absolute;
+    top: 23px;
+    right: 25%;
+    left: 25%;
+    border-top: 1.5px solid #8bb65d;
+    content: "";
+}
+
+.arena-node-fanout::after {
+    position: absolute;
+    top: 17px;
+    left: 50%;
+    height: 7px;
+    border-left: 1.5px solid #8bb65d;
+    content: "";
+}
+
+.arena-node-fanout > i {
+    position: absolute;
+    z-index: 1;
+    top: 0;
+    left: calc(50% - 13px);
+    width: 26px;
+    height: 18px;
+    border: 1px solid #7fab4b;
+    border-radius: 5px;
+    background-color: #fff;
+    background-image:
+        radial-gradient(circle at 6px 9px, #69a719 0 1.5px, transparent 1.7px),
+        radial-gradient(circle at 11px 9px, #69a719 0 1.5px, transparent 1.7px),
+        radial-gradient(circle at 16px 9px, #69a719 0 1.5px, transparent 1.7px),
+        radial-gradient(circle at 21px 9px, #69a719 0 1.5px, transparent 1.7px);
+    box-shadow: 0 4px 10px rgba(53, 77, 41, 0.12);
+}
+
+.arena-node-fanout > span {
+    position: relative;
+}
+
+.arena-node-fanout > span::before {
+    position: absolute;
+    top: 23px;
+    bottom: 0;
+    left: 50%;
+    border-left: 1.5px solid #8bb65d;
+    content: "";
 }
 
 .arena-collated-chart {
@@ -3533,12 +3610,6 @@ button.arena-agentic-tab-active b {
     .arena-experiment-running-env .sphinx-contrib-video-container,
     .arena-experiment-running-env video {
         object-fit: cover !important;
-    }
-
-    .arena-experiment-running-env > p:last-child {
-        right: 4px;
-        bottom: 4px;
-        left: 4px;
     }
 
     .arena-agentic-giggles .arena-agentic-connector > p {
@@ -4600,18 +4671,6 @@ button.arena-agentic-tab-active b {
         transform-origin: center !important;
     }
 
-    .arena-experiment-running-env > p:last-child {
-        position: static !important;
-        margin: 0 !important;
-        overflow: visible !important;
-        border-radius: 0 !important;
-        background: #fff !important;
-        color: #566151 !important;
-        line-height: 1.15 !important;
-        text-overflow: clip !important;
-        white-space: nowrap !important;
-    }
-
     .arena-collated-chart {
         height: auto !important;
         min-height: 0 !important;
@@ -4989,15 +5048,79 @@ button.arena-agentic-tab-active b {
         margin: 5px 0 6px !important;
     }
 
-    .arena-experiment-running-env > p:last-child {
-        padding: 3px 5px !important;
-        font-size: 0.41rem !important;
-    }
 }
 
 @media (max-width: 767px) {
     .arena-interop-branch {
         display: none !important;
+    }
+}
+
+/* One fan-out diagram: every branch terminates at the node running that rollout. */
+.arena-experiment-running-envs.docutils.container {
+    position: relative;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    grid-template-rows: repeat(2, minmax(0, 1fr)) !important;
+    column-gap: 10px !important;
+    row-gap: 26px !important;
+    margin-top: 0 !important;
+    overflow: visible !important;
+}
+
+.arena-experiment-running-envs::before {
+    position: absolute;
+    z-index: 0;
+    top: -13px;
+    bottom: 50%;
+    left: 50%;
+    border-left: 1.5px solid #8bb65d;
+    content: "";
+}
+
+.arena-experiment-running-envs::after {
+    position: absolute;
+    z-index: 0;
+    top: 50%;
+    right: 25%;
+    left: 25%;
+    border-top: 1.5px solid #8bb65d;
+    content: "";
+}
+
+.arena-experiment-running-env.docutils.container {
+    z-index: 1;
+    grid-template-rows: minmax(0, 1fr) !important;
+    overflow: visible !important;
+}
+
+.arena-experiment-running-env .sphinx-contrib-video-container {
+    overflow: hidden !important;
+    border-radius: 8px;
+}
+
+.arena-experiment-running-env:nth-child(n + 3)::before {
+    position: absolute;
+    top: -14px;
+    left: 50%;
+    height: 14px;
+    border-left: 1.5px solid #8bb65d;
+    content: "";
+}
+
+@media (min-width: 768px) {
+    .arena-experiment-running-envs.docutils.container {
+        height: 236px !important;
+    }
+}
+
+@media (max-width: 767px) {
+    .arena-experiment-running-envs.docutils.container {
+        height: 292px !important;
+        min-height: 292px !important;
+    }
+
+    .arena-node-card-label b {
+        font-size: 0.48rem;
     }
 }
 
