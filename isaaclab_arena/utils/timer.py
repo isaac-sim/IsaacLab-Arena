@@ -7,12 +7,16 @@
 
 Adapted from nvblox_next.system.timer.
 
+Timers nest: a block entered inside another block records under the enclosing timer's name
+joined with its own, so the registry keys spell out the call tree.
+
 Usage:
     from isaaclab_arena.utils.timer import Timer, print_timer_stats
 
     for episode in episodes:
-        with Timer("rollout"):
-            rollout_policy(env, policy)
+        with Timer("rollout"):            # records under "rollout"
+            with Timer("step"):           # records under "rollout/step"
+                env.step(actions)
 
     print_timer_stats()
 """
@@ -21,6 +25,7 @@ from __future__ import annotations
 
 import json
 import random
+import threading
 import time
 import torch
 from collections.abc import Iterable, Mapping
@@ -31,8 +36,12 @@ from typing import Any
 # Keep reservoir sampling independent from application randomness.
 _reservoir_random_generator = random.Random()
 
-# Timing statistics accumulated over the process lifetime, keyed by timer name.
+# Timing statistics accumulated over the process lifetime, keyed by qualified timer name.
 _timer_registry: dict[str, TimerStats] = {}
+
+# Names of the timers currently open on this thread, outermost first. A timer entered while this
+# is non-empty qualifies its name with the enclosing names, so nesting is visible in the registry.
+_open_timer_names = threading.local()
 
 
 @dataclass
@@ -88,6 +97,15 @@ class TimerStats:
         return sorted_buf[idx]
 
 
+def _enclosing_timer_names() -> list[str]:
+    """Return the mutable stack of timer names open on the calling thread, outermost first."""
+    names = getattr(_open_timer_names, "names", None)
+    if names is None:
+        names = []
+        _open_timer_names.names = names
+    return names
+
+
 def _update_stats(name: str, elapsed_ms: float) -> None:
     """Create or update the registry entry for the given timer name."""
     if name in _timer_registry:
@@ -101,7 +119,9 @@ def _update_stats(name: str, elapsed_ms: float) -> None:
 class Timer:
     """Context manager that records wall-clock durations under a name.
 
-    Measurements accumulate in a process-wide registry until reset_timer_stats() is called.
+    A timer entered inside another records under the enclosing timer's name joined with its own,
+    so a "step" block inside an "episode" block accumulates under "episode/step". Measurements
+    accumulate in a process-wide registry until reset_timer_stats() is called.
     """
 
     _sync_cuda: bool = False
@@ -115,19 +135,25 @@ class Timer:
         """Create a new timer with the given name.
 
         Args:
-            name: Registry key that this block's measurements accumulate under.
+            name: Name of this block, qualified by any enclosing timers to form the registry key.
+                Must not contain the "/" separator, which the qualified name is built from.
         """
+        assert "/" not in name, f"Timer name must not contain '/', it separates nesting levels: '{name}'"
         self.name = name
+        self.qualified_name = name
         self._start_time: float = 0.0
 
     def __enter__(self) -> Timer:
-        """Start the timer, recording wall time and pushing an NVTX range."""
+        """Start the timer, qualifying its name by any enclosing timers and pushing an NVTX range."""
         if torch.compiler.is_compiling():
             return self
+        open_timer_names = _enclosing_timer_names()
+        self.qualified_name = "/".join([*open_timer_names, self.name])
+        open_timer_names.append(self.name)
         if Timer._sync_cuda:
             torch.cuda.synchronize()
         self._start_time = time.perf_counter()
-        torch.cuda.nvtx.range_push(self.name)
+        torch.cuda.nvtx.range_push(self.qualified_name)
         return self
 
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
@@ -138,7 +164,8 @@ class Timer:
             torch.cuda.synchronize()
         torch.cuda.nvtx.range_pop()
         elapsed_ms = (time.perf_counter() - self._start_time) * 1e3
-        _update_stats(self.name, elapsed_ms)
+        _enclosing_timer_names().pop()
+        _update_stats(self.qualified_name, elapsed_ms)
 
 
 def get_timer_stats() -> dict[str, TimerStats]:

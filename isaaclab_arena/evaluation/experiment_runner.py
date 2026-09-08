@@ -20,6 +20,7 @@ from isaaclab_arena.evaluation.legacy_experiment_runner import (
 )
 from isaaclab_arena.hydra.typed_experiment_yaml_search import typed_experiment_requires_cameras
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
+from isaaclab_arena.utils.timer import print_timer_stats, write_timer_stats_json
 from isaaclab_arena.video.video_recording import timestamped_run_dir
 
 if TYPE_CHECKING:
@@ -182,6 +183,16 @@ def main():
         metrics_logger.print_metrics()
 
         _write_arena_experiment_result(experiment_cfg, run_results, experiment_output_directory)
+
+        # Report where the rollouts spent their time.
+        from isaaclab_arena.evaluation.arena_experiment_result import ARENA_EXPERIMENT_TIMINGS_FILENAME
+
+        print_timer_stats()
+        timings_path = write_timer_stats_json(
+            experiment_output_directory / ARENA_EXPERIMENT_TIMINGS_FILENAME,
+            app_name="experiment_runner",
+        )
+        print(f"Wrote Arena Experiment timings to: {timings_path}")
 
         # Write HTML report.
         report_path = build_report(experiment_output_directory)
