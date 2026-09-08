@@ -5,18 +5,20 @@
 
 from __future__ import annotations
 
+from isaaclab.app import get_settings_manager
 from isaaclab.envs import ManagerBasedRLEnvCfg
 from isaaclab.envs.mimic_env_cfg import MimicEnvCfg
 from isaaclab.managers import RecorderManagerBaseCfg
-from isaaclab.app import get_settings_manager
 from isaaclab.sim import SimulationCfg
 from isaaclab.utils.configclass import configclass
 
 # Import from the package root so this resolves whether MJWarpSolverCfg lives in
 # newton_manager_cfg (older isaaclab_newton) or mjwarp_manager_cfg (Isaac Lab Beta 2).
-from isaaclab_newton.physics import MJWarpSolverCfg, NewtonCfg
+from isaaclab_newton.physics import NewtonCfg
 from isaaclab_physx.physics import PhysxCfg
 from isaaclab_tasks.utils import PresetCfg
+
+from isaaclab_arena.physics import ArenaMJWarpSolverCfg
 
 
 @configclass
@@ -30,7 +32,7 @@ class ArenaPhysicsCfg(PresetCfg):
 
     physx = PhysxCfg()
     newton = NewtonCfg(
-        solver_cfg=MJWarpSolverCfg(
+        solver_cfg=ArenaMJWarpSolverCfg(
             solver="newton",
             integrator="implicitfast",
             njmax=300,
