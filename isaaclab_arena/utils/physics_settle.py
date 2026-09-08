@@ -8,8 +8,6 @@ from __future__ import annotations
 import torch
 from typing import TYPE_CHECKING
 
-import warp as wp
-
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedEnv
 
@@ -40,15 +38,16 @@ def are_all_objects_settled_per_env(
     """Settled check for a batch of envs, reading each object's velocity once per env in parallel."""
     if not env_ids:
         return []
-    scene = env.unwrapped.scene
-    device = env.unwrapped.device
-    env_ids_t = torch.as_tensor(env_ids, device=device)
-    settled = torch.ones(len(env_ids), dtype=torch.bool, device=device)
+    arena_env = env.unwrapped
+    arena_world = arena_env.arena_world
+    environment_ids = torch.as_tensor(env_ids, device=arena_env.device)
+    settled = torch.ones(len(env_ids), dtype=torch.bool, device=arena_env.device)
     # Note(xinjie.yao): For per-asset loop, no single combined buffer holding each object's velocity.
     # Loop over each asset is unavoidable.
-    for name in object_names:
-        asset = scene[name]
-        lin_velocity = wp.to_torch(asset.data.root_lin_vel_w)[env_ids_t].norm(dim=-1)
-        ang_velocity = wp.to_torch(asset.data.root_ang_vel_w)[env_ids_t].norm(dim=-1)
-        settled &= (lin_velocity <= lin_vel_thresh) & (ang_velocity <= ang_vel_thresh)
+    for object_name in object_names:
+        linear_velocity_w = arena_world.get_root_linear_velocity_w(object_name)[environment_ids]
+        angular_velocity_w = arena_world.get_root_angular_velocity_w(object_name)[environment_ids]
+        settled &= (linear_velocity_w.norm(dim=-1) <= lin_vel_thresh) & (
+            angular_velocity_w.norm(dim=-1) <= ang_vel_thresh
+        )
     return settled.tolist()

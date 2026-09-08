@@ -10,8 +10,6 @@ import torch
 from enum import Enum
 from typing import TYPE_CHECKING
 
-import warp as wp
-from isaaclab.assets import RigidObject
 from isaaclab.envs import ManagerBasedRLEnv
 from isaaclab.envs.mdp.terminations import root_height_below_minimum
 from isaaclab.managers import SceneEntityCfg, TerminationTermCfg
@@ -83,7 +81,7 @@ def check_success(
 # NOTE(alexmillane, 2025.09.15): The velocity threshold is set high because some stationary
 # seem to generate a "small" velocity.
 def lift_object_il_success(
-    env: ManagerBasedRLEnv,
+    env: IsaacLabArenaManagerBasedRLEnv,
     object_cfg: SceneEntityCfg = SceneEntityCfg("object"),
     goal_position: tuple[float, float, float] | None = None,
     position_tolerance: float = 0.05,
@@ -100,18 +98,17 @@ def lift_object_il_success(
         A boolean tensor of shape (num_envs,) indicating success.
     """
 
-    object_instance: RigidObject = env.scene[object_cfg.name]
-    object_pos = wp.to_torch(object_instance.data.root_pos_w)
+    object_position_w = env.arena_world.get_pose_w(object_cfg.name)[:, :3]
 
-    goal_pos = torch.tensor([goal_position] * env.num_envs, device=env.device)
+    goal_position_w = torch.tensor([goal_position] * env.num_envs, device=env.device)
 
     # Check if object is within tolerance of goal
-    distance = torch.norm(object_pos - goal_pos, dim=1)
+    distance = torch.norm(object_position_w - goal_position_w, dim=1)
     return distance < position_tolerance
 
 
 def lift_object_rl_success(
-    env: ManagerBasedRLEnv,
+    env: IsaacLabArenaManagerBasedRLEnv,
     object_cfg: SceneEntityCfg = SceneEntityCfg("object"),
     robot_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
     rl_training: bool = False,
@@ -138,19 +135,17 @@ def lift_object_rl_success(
     if rl_training:
         return torch.zeros(env.num_envs, dtype=torch.bool, device=env.device)
 
-    robot: RigidObject = env.scene[robot_cfg.name]
-    object_instance: RigidObject = env.scene[object_cfg.name]
+    arena_world = env.arena_world
+    T_W_B = arena_world.get_pose_w(robot_cfg.name)
+    object_position_w = arena_world.get_pose_w(object_cfg.name)[:, :3]
 
     command = env.command_manager.get_command(command_name)
-    des_pos_b = command[:, :3]
+    desired_position_b = command[:, :3]
 
     # Transform goal from robot-base frame to world frame
-    root_pos_w = wp.to_torch(robot.data.root_pos_w)
-    root_quat_w = wp.to_torch(robot.data.root_quat_w)
-    des_pos_w, _ = combine_frame_transforms(root_pos_w, root_quat_w, des_pos_b)
+    desired_position_w, _ = combine_frame_transforms(T_W_B[:, :3], T_W_B[:, 3:], desired_position_b)
 
-    object_pos_w = wp.to_torch(object_instance.data.root_pos_w)
-    distance = torch.linalg.norm(des_pos_w - object_pos_w[:, :3], dim=1)
+    distance = torch.linalg.norm(desired_position_w - object_position_w, dim=1)
     return distance < position_tolerance
 
 

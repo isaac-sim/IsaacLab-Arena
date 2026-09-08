@@ -168,13 +168,13 @@ def objects_in_proximity(
     """
 
     arena_world = env.arena_world
-    object_position_e = arena_world.get_pose_e(object_cfg.name)[:, :3]
-    target_object_position_e = arena_world.get_pose_e(target_object_cfg.name)[:, :3]
+    object_position_w = arena_world.get_pose_w(object_cfg.name)[:, :3]
+    target_object_position_w = arena_world.get_pose_w(target_object_cfg.name)[:, :3]
 
     # object to target object
-    x_separation = torch.abs(object_position_e[:, 0] - target_object_position_e[:, 0])
-    y_separation = torch.abs(object_position_e[:, 1] - target_object_position_e[:, 1])
-    z_separation = torch.abs(object_position_e[:, 2] - target_object_position_e[:, 2])
+    x_separation = torch.abs(object_position_w[:, 0] - target_object_position_w[:, 0])
+    y_separation = torch.abs(object_position_w[:, 1] - target_object_position_w[:, 1])
+    z_separation = torch.abs(object_position_w[:, 2] - target_object_position_w[:, 2])
 
     done = x_separation < max_x_separation
     done = torch.logical_and(done, y_separation < max_y_separation)
