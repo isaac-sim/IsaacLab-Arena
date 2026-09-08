@@ -46,7 +46,9 @@ def _run_isolated(script: str) -> None:
         text=True,
         timeout=60,
     )
-    assert result.returncode == 0, f"isolated Newton check failed:\n{result.stdout}\n{result.stderr}"
+    assert result.returncode == 0, (
+        f"isolated Newton check failed:\n{result.stdout}\n{result.stderr}"
+    )
 
 
 def test_arena_mjwarp_cfg_selects_usd_aware_manager():
