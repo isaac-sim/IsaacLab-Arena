@@ -80,10 +80,8 @@ def wrap_env_for_video(
 
     os.makedirs(video_cfg.video_base_dir, exist_ok=True)
 
-    # Sits below every recorder, so its measurement excludes them. The rollout's "env_step" timer
-    # measures the outermost wrapper, so the difference between it and this one is the total cost
-    # of recording; "camera_frames" and "camera_finalize" break out the camera recorder's share and
-    # whatever remains is the viewport recorder's env.render(). Only present while recording.
+    # Wrap the env in a step timer before adding the camera recording to get a without-recording
+    # step measurement.
     from isaaclab_arena.utils.env_step_timer import EnvStepTimerWrapper
 
     env = EnvStepTimerWrapper(env, timer_name="sim_step")

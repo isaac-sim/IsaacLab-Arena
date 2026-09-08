@@ -243,14 +243,14 @@ def test_frame_writing_is_timed_separately_from_finalizing(tmp_path):
         recorder.step(None)
 
         stats = get_timer_stats()
-        assert stats["camera_frames"].count == 2
+        assert stats["record_camera_frames"].count == 2
         assert "camera_finalize" not in stats
 
         _configure_step(env, done_envs=[0])
         recorder.step(None)
 
         stats = get_timer_stats()
-        assert stats["camera_frames"].count == 3
+        assert stats["record_camera_frames"].count == 3
         assert stats["camera_finalize"].count == 1
 
 
@@ -280,7 +280,7 @@ def test_recording_stack_reports_its_costs_under_the_enclosing_step_timer(tmp_pa
     stats = get_timer_stats()
     assert stats["env_step"].count == 1
     assert stats["env_step/sim_step"].count == 1
-    assert stats["env_step/camera_frames"].count == 1
+    assert stats["env_step/record_camera_frames"].count == 1
     assert stats["env_step"].total_ms >= stats["env_step/sim_step"].total_ms
 
 
@@ -304,7 +304,7 @@ def test_no_timing_recorded_without_camera_observations(tmp_path):
 
         recorder.step(None)  # _StubEnv returns an empty obs until _configure_step is called
 
-        assert "camera_frames" not in get_timer_stats()
+        assert "record_camera_frames" not in get_timer_stats()
 
 
 def test_post_reset_frame_not_recorded(tmp_path):

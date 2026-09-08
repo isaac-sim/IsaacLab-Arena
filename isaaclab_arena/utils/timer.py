@@ -41,14 +41,10 @@ _timer_registry: dict[str, TimerStats] = {}
 
 
 class _OpenTimerNames(threading.local):
-    """Names of the timers currently open on one thread, outermost first.
-
-    A timer entered while this is non-empty qualifies its name with the enclosing names, so
-    nesting is visible in the registry. Subclassing threading.local runs __init__ once per
-    thread, which gives every thread its own stack without a lazy lookup at each use.
-    """
+    """Names of the timers currently open on one thread."""
 
     def __init__(self) -> None:
+        # Subclassing threading.local runs __init__ once per thread.
         super().__init__()
         self.names: list[str] = []
 
