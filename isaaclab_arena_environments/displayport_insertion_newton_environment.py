@@ -31,15 +31,15 @@ PLUG_INITIAL_POSE = (
 """Plug pose 15 mm outward from the fully inserted target."""
 
 RIZON_DISPLAYPORT_INITIAL_JOINT_POSITIONS = {
-    "joint1": math.radians(32.44),
-    "joint2": math.radians(-16.71),
-    "joint3": math.radians(-5.69),
-    "joint4": math.radians(128.38),
-    "joint5": math.radians(6.74),
-    "joint6": math.radians(55.95),
-    "joint7": math.radians(111.54),
+    "joint1": math.radians(34.804134),
+    "joint2": math.radians(-20.901142),
+    "joint3": math.radians(-6.256266),
+    "joint4": math.radians(129.348470),
+    "joint5": math.radians(4.467969),
+    "joint6": math.radians(60.060333),
+    "joint7": math.radians(115.082882),
 }
-"""Rizon seed pose near the connector pre-grasp."""
+"""Fixed Rizon reset pose above the DisplayPort plug."""
 
 
 @dataclass
@@ -72,16 +72,10 @@ class DisplayPortInsertionNewtonEnvironment(ArenaEnvironmentFactory[DisplayPortI
         """Build the environment from registered Arena components."""
         from isaaclab_arena.assets.object_base import ObjectType
         from isaaclab_arena.assets.object_reference import ObjectReference
-        from isaaclab_arena.embodiments.rizon.rizon import (
-            RIZON_ARM_JOINT_NAMES,
-            RIZON_GRIPPER_CLOSE_POSITION,
-            InitiallyClosedKeyboardCfg,
-            InitiallyClosedSpaceMouseCfg,
-            get_rizon_gripper_command,
-        )
+        from isaaclab_arena.embodiments.rizon.rizon import InitiallyClosedKeyboardCfg, InitiallyClosedSpaceMouseCfg
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
         from isaaclab_arena.scene.scene import Scene
-        from isaaclab_arena.tasks.displayport_insertion_task import DisplayPortInsertionTask, InitialObjectGraspCfg
+        from isaaclab_arena.tasks.displayport_insertion_task import DisplayPortInsertionTask
         from isaaclab_arena.utils.pose import Pose
         from isaaclab_arena_environments import mdp
 
@@ -127,13 +121,6 @@ class DisplayPortInsertionNewtonEnvironment(ArenaEnvironmentFactory[DisplayPortI
             plug=plug,
             insertion_target=insertion_target,
             background_scene=table,
-            initial_grasp=InitialObjectGraspCfg(
-                robot_name=embodiment.get_scene_key(),
-                arm_joint_names=RIZON_ARM_JOINT_NAMES,
-                end_effector_body_name=embodiment.get_command_body_name(),
-                grasp_offset_xyz=(0.0025, 0.0, -0.1875),
-                gripper_close_command=get_rizon_gripper_command(RIZON_GRIPPER_CLOSE_POSITION),
-            ),
             episode_length_s=cfg.episode_length_s,
             enable_cameras=cfg.enable_cameras,
         )

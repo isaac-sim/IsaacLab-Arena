@@ -27,7 +27,6 @@ from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.metrics.object_moved import ObjectMovedRateMetric
 from isaaclab_arena.metrics.success_rate import SuccessRateMetric
-from isaaclab_arena.tasks.events import ResetRobotToObjectGraspPose
 from isaaclab_arena.tasks.predicates.displayport_insertion import displayport_plug_is_inserted
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.tasks.task_transition import Relocate, TaskTransition
@@ -62,28 +61,6 @@ class DisplayPortInsertionCriteria:
         assert self.angular_velocity_threshold >= 0.0, "angular_velocity_threshold must be non-negative"
 
 
-@dataclass(frozen=True)
-class InitialObjectGraspCfg:
-    """Robot-specific parameters used to initialize an object grasp."""
-
-    robot_name: str
-    arm_joint_names: tuple[str, ...]
-    end_effector_body_name: str
-    grasp_offset_xyz: tuple[float, float, float]
-    gripper_close_command: dict[str, float]
-    grasp_rotation_xyzw: tuple[float, float, float, float] = (0.0, 0.0, 0.0, 1.0)
-    max_iterations: int = 150
-
-    def __post_init__(self) -> None:
-        assert self.robot_name, "robot_name must be set"
-        assert self.arm_joint_names, "arm_joint_names must not be empty"
-        assert self.end_effector_body_name, "end_effector_body_name must be set"
-        assert len(self.grasp_offset_xyz) == 3, "grasp_offset_xyz must contain three values"
-        assert len(self.grasp_rotation_xyzw) == 4, "grasp_rotation_xyzw must contain four values"
-        assert self.gripper_close_command, "gripper_close_command must not be empty"
-        assert self.max_iterations > 0, "max_iterations must be positive"
-
-
 @register_task
 class DisplayPortInsertionTask(TaskBase):
     """Insert a grasped DisplayPort plug into its fixed socket.
@@ -93,7 +70,6 @@ class DisplayPortInsertionTask(TaskBase):
         plug: DisplayPort plug manipulated by the robot.
         insertion_target: Socket-local frame representing the fully inserted plug pose.
         background_scene: Background whose minimum height defines a dropped plug.
-        initial_grasp: Robot-specific reset configuration for the starting grasp.
         episode_length_s: Maximum episode duration in seconds.
         success_criteria: Geometric and motion thresholds for insertion.
         enable_cameras: Whether to add the task's workspace camera.
@@ -106,7 +82,6 @@ class DisplayPortInsertionTask(TaskBase):
         plug: Object,
         insertion_target: ObjectBase,
         background_scene: Asset,
-        initial_grasp: InitialObjectGraspCfg,
         episode_length_s: float | None = None,
         success_criteria: DisplayPortInsertionCriteria | None = None,
         enable_cameras: bool = False,
@@ -117,13 +92,12 @@ class DisplayPortInsertionTask(TaskBase):
         self.plug = plug
         self.insertion_target = insertion_target
         self.background_scene = background_scene
-        self.initial_grasp = initial_grasp
         self.success_criteria = success_criteria or DisplayPortInsertionCriteria()
 
-        # A single full-scene reset restores the object states before the calibrated grasp is applied.
+        # A single full-scene reset restores the fixed robot and object starting states.
         self.socket.disable_reset_pose()
         self.plug.disable_reset_pose()
-        self.events_cfg = DisplayPortInsertionEventsCfg(plug=plug, initial_grasp=initial_grasp)
+        self.events_cfg = DisplayPortInsertionEventsCfg()
         self.termination_cfg = self._make_termination_cfg()
         self.observation_cfg = DisplayPortInsertionObservationsCfg(socket=socket, plug=plug)
         self.camera_cfg = DisplayPortInsertionCameraCfg() if enable_cameras else None
@@ -192,29 +166,11 @@ class DisplayPortInsertionTask(TaskBase):
 class DisplayPortInsertionEventsCfg:
     """Reset terms for DisplayPort insertion."""
 
-    reset_scene: EventTermCfg = MISSING
-    initialize_grasp: EventTermCfg = MISSING
-
-    def __init__(self, plug: Object, initial_grasp: InitialObjectGraspCfg) -> None:
-        self.reset_scene = EventTermCfg(
-            func=mdp.reset_scene_to_default,
-            mode="reset",
-            params={"reset_joint_targets": True},
-        )
-        self.initialize_grasp = EventTermCfg(
-            func=ResetRobotToObjectGraspPose,
-            mode="reset",
-            params={
-                "robot_cfg": SceneEntityCfg(initial_grasp.robot_name),
-                "object_cfg": SceneEntityCfg(plug.name),
-                "arm_joint_names": initial_grasp.arm_joint_names,
-                "end_effector_body_name": initial_grasp.end_effector_body_name,
-                "grasp_offset_xyz": initial_grasp.grasp_offset_xyz,
-                "grasp_rotation_xyzw": initial_grasp.grasp_rotation_xyzw,
-                "gripper_close_command": initial_grasp.gripper_close_command,
-                "max_iterations": initial_grasp.max_iterations,
-            },
-        )
+    reset_scene: EventTermCfg = EventTermCfg(
+        func=mdp.reset_scene_to_default,
+        mode="reset",
+        params={"reset_joint_targets": True},
+    )
 
 
 @configclass
