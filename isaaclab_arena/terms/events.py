@@ -219,6 +219,21 @@ def set_object_pose(
         asset.write_root_velocity_to_sim(torch.zeros(num_envs, 6, device=env.device), env_ids=env_ids)
 
 
+def reset_cable_to_default(
+    env: ManagerBasedEnv,
+    env_ids: torch.Tensor | None,
+    asset_cfg: SceneEntityCfg,
+) -> None:
+    """Restore selected cable instances to their configured default segment state."""
+    if env_ids is None:
+        return
+    cable = env.scene[asset_cfg.name]
+    segment_pose = cable.data.default_segment_pose_w.torch[env_ids].clone()
+    segment_velocity = cable.data.default_segment_velocity_w.torch[env_ids].clone()
+    cable.write_segment_pose_to_sim_index(segment_pose=segment_pose, env_ids=env_ids)
+    cable.write_segment_velocity_to_sim_index(segment_velocity=segment_velocity, env_ids=env_ids)
+
+
 def reset_articulation_pose_and_joints(
     env: ManagerBasedEnv,
     env_ids: torch.Tensor,
