@@ -85,17 +85,15 @@ class ArenaWorld:
         return self.get_pose_w(scene_key)[:, :3]
 
     def get_root_linear_velocity_w(self, scene_key: str) -> torch.Tensor:
-        """Return the world-frame root linear velocity of a rigid object or articulation.
+        """Return an entity's current world-frame root linear velocity.
 
         The tensor has shape (num_envs, 3).
         """
         scene = self._scene
         if scene_key in scene.rigid_objects:
-            root_asset = scene.rigid_objects[scene_key]
-            root_linear_velocity_w = root_asset.data.root_lin_vel_w.torch
+            root_linear_velocity_w = scene.rigid_objects[scene_key].data.root_lin_vel_w.torch
         elif scene_key in scene.articulations:
-            root_asset = scene.articulations[scene_key]
-            root_linear_velocity_w = root_asset.data.root_lin_vel_w.torch
+            root_linear_velocity_w = scene.articulations[scene_key].data.root_lin_vel_w.torch
         else:
             assert (
                 scene_key in scene.deformable_objects
@@ -107,21 +105,24 @@ class ArenaWorld:
         )
         return root_linear_velocity_w
 
-    def get_root_angular_velocity_w(self, scene_key: str) -> torch.Tensor:
-        """Return the world-frame root angular velocity of a rigid object or articulation.
+    def get_root_angular_velocity_w(self, scene_key: str) -> torch.Tensor | None:
+        """Return a rigid root's world-frame angular velocity, or None for deformables.
 
-        The tensor has shape (num_envs, 3).
+        Args:
+            scene_key: Scene entity name.
+
+        Returns:
+            Angular velocity with shape (num_envs, 3) for rigid objects and articulations,
+            or None when ``scene_key`` names a deformable object.
         """
         scene = self._scene
-        if scene_key in scene.rigid_objects:
-            root_asset = scene.rigid_objects[scene_key]
-        else:
-            assert scene_key in scene.articulations, (
-                "ArenaWorld root velocity queries require a scene key registered in InteractiveScene.rigid_objects "
-                f"or InteractiveScene.articulations; '{scene_key}' is registered in neither."
-            )
-            root_asset = scene.articulations[scene_key]
-        root_angular_velocity_w = root_asset.data.root_ang_vel_w.torch
+        if scene_key in scene.deformable_objects:
+            return None
+        assert (
+            scene_key in scene.rigid_objects or scene_key in scene.articulations
+        ), f"'{scene_key}' must name a rigid object, articulation, or deformable object."
+        asset = scene.rigid_objects.get(scene_key, scene.articulations.get(scene_key))
+        root_angular_velocity_w = asset.data.root_ang_vel_w.torch
         assert root_angular_velocity_w.shape == (scene.num_envs, 3), (
             f"Scene key '{scene_key}' returned root angular velocity shape "
             f"{tuple(root_angular_velocity_w.shape)}; expected ({scene.num_envs}, 3)."
