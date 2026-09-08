@@ -23,7 +23,6 @@ from isaaclab_arena.metrics.success_rate import SuccessRateMetric
 from isaaclab_arena.tasks.events import randomize_poses_and_align_auxiliary_assets
 from isaaclab_arena.tasks.predicates.spatial import objects_in_proximity
 from isaaclab_arena.tasks.task_base import TaskBase
-from isaaclab_arena.tasks.terminations import root_height_below_minimum
 from isaaclab_arena.utils.cameras import get_viewer_cfg_look_at_object
 
 
@@ -114,7 +113,7 @@ class AssemblyTask(TaskBase):
             },
         )
         object_dropped = TerminationTermCfg(
-            func=root_height_below_minimum,
+            func=mdp_isaac_lab.root_height_below_minimum,
             params={
                 "minimum_height": self.background_scene.object_min_z,
                 "asset_cfg": SceneEntityCfg(self.held_asset.name),
