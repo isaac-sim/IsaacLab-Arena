@@ -90,9 +90,7 @@ def _test_place_upright_mug_single(simulation_app) -> bool:
 
 
 def _test_place_upright_mug_multi(simulation_app) -> bool:
-
-    from isaaclab_arena.tests.utils.simulation import step_zeros_and_call
-
+    """Checks that place_upright's env_ids / upright_percentage plumbing hits the right envs."""
     env, placeable_obj = get_test_environment(dont_reset_placeable_object_pose=True, num_envs=2)
 
     try:
@@ -100,35 +98,30 @@ def _test_place_upright_mug_multi(simulation_app) -> bool:
         with torch.inference_mode():
             # place both mugs upright, upright percentage is a scalar
             placeable_obj.place_upright(env, None, upright_percentage=1.0)
-            step_zeros_and_call(env, NUM_STEPS)
             is_upright = placeable_obj.is_placed_upright(env)
             print(f"expected: [True, True]: got: {is_upright}")
             assert torch.all(is_upright == torch.tensor([True, True], device=env.device))
 
             # reset place both mugs upright, upright percentage is a tensor
             placeable_obj.place_upright(env, None, upright_percentage=torch.tensor([0.0, 0.0]))
-            step_zeros_and_call(env, NUM_STEPS)
             is_upright = placeable_obj.is_placed_upright(env)
             print(f"expected: [False, False]: got: {is_upright}")
             assert torch.all(is_upright == torch.tensor([False, False], device=env.device))
 
             # Place first mug upright, env_ids is a tensor
             placeable_obj.place_upright(env, torch.tensor([0]), upright_percentage=1.0)
-            step_zeros_and_call(env, NUM_STEPS)
             is_upright = placeable_obj.is_placed_upright(env)
             print(f"expected: [True, False]: got: {is_upright}")
             assert torch.all(is_upright == torch.tensor([True, False], device=env.device))
 
             # Place second mug upright, env_ids and upright percentage are tensors
             placeable_obj.place_upright(env, torch.tensor([1]), upright_percentage=torch.tensor([1.0]))
-            step_zeros_and_call(env, NUM_STEPS)
             is_upright = placeable_obj.is_placed_upright(env)
             print(f"expected: [True, True]: got: {is_upright}")
             assert torch.all(is_upright == torch.tensor([True, True], device=env.device))
 
             # Place second mug upright, env_ids and upright percentage are tensors
             placeable_obj.place_upright(env, None, upright_percentage=torch.tensor([0.0, 1.0]))
-            step_zeros_and_call(env, NUM_STEPS)
             is_upright = placeable_obj.is_placed_upright(env)
             print(f"expected: [False, True]: got: {is_upright}")
             assert torch.all(is_upright == torch.tensor([False, True], device=env.device))

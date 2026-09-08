@@ -173,13 +173,14 @@ define an RL-training environment in YAML:
 
 **Patching the compiled config.** ``env_cfg_callback`` runs after Arena builds the
 ``ManagerBasedRLEnvCfg``. Use it for viewport, decimation, physics, or anything
-else on that config:
+else on that config. The callback must return the config:
 
 .. code-block:: python
 
    def set_viewport(env_cfg):
        env_cfg.viewer.eye = (1.5, 1.5, 1.0)
        env_cfg.viewer.lookat = (0.0, 0.0, 0.5)
+       return env_cfg
 
    return IsaacLabArenaEnvironment(..., env_cfg_callback=set_viewport)
 
