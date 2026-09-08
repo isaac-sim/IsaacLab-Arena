@@ -184,28 +184,17 @@ def objects_in_proximity(
 
 
 def object_supported_by(
-    env: ManagerBasedRLEnv,
-    object_cfg: SceneEntityCfg,
-    destination_cfg: SceneEntityCfg,
+    object_vertices_pos_w: torch.Tensor,
+    destination_bound: AxisAlignedBoundingBox,
     support_tolerance: float = 0.03,
     low_point_tolerance: float = 0.01,
     minimum_support_fraction: float = 0.5,
 ) -> torch.Tensor:
     """Check deformable support using low nodal points and destination bounds."""
-    unwrapped_env = get_env(env)
-    arena_world = unwrapped_env.arena_world
-    position_w = arena_world.get_nodal_pos_w(object_cfg.name)
-    low_z = arena_world.get_min_height_w(object_cfg.name).unsqueeze(-1)
-    low_mask = position_w[..., 2] <= low_z + low_point_tolerance
-    destination_bounds = arena_world.get_bounds_w(destination_cfg.name)
-
-    inside_xy = torch.all(
-        (position_w[..., :2] >= destination_bounds.min_point[:, None, :2])
-        & (position_w[..., :2] <= destination_bounds.max_point[:, None, :2]),
-        dim=-1,
-    )
-    near_top = torch.abs(position_w[..., 2] - destination_bounds.top_surface_z[:, None]) <= support_tolerance
-    supported_points = low_mask & inside_xy & near_top
+    low_z = object_vertices_pos_w[..., 2].amin(dim=1, keepdim=True)
+    low_mask = object_vertices_pos_w[..., 2] <= low_z + low_point_tolerance
+    near_top = torch.abs(object_vertices_pos_w[..., 2] - destination_bound.top_surface_z[:, None]) <= support_tolerance
+    supported_points = low_mask & near_top
     support_fraction = supported_points.sum(dim=1) / low_mask.sum(dim=1).clamp_min(1)
     return support_fraction >= minimum_support_fraction
 
@@ -214,7 +203,7 @@ def object_on_destination(
     env: IsaacLabArenaManagerBasedRLEnv,
     object_cfg: SceneEntityCfg,
     destination_cfg: SceneEntityCfg,
-    contact_sensor_cfg: SceneEntityCfg,
+    contact_sensor_cfg: SceneEntityCfg | None,
     force_threshold: float,
     velocity_threshold: float,
     support_cone_half_angle_rad: float = math.pi / 4,
@@ -222,14 +211,15 @@ def object_on_destination(
     """Check whether an object is stably placed on its destination.
 
     The object's spawned-bounds center must be over the destination footprint
-    and above its bottom. The destination must exert an upward support force,
-    and the object's linear speed must be below the configured threshold.
+    and above its bottom, and the object's linear speed must be below the configured threshold.
+    Rigid object pairs must also have upward support force. Deformable pairs must have enough
+    low nodal points near the destination's top surface.
 
     Args:
         env: The live Arena manager-based environment.
-        object_cfg: The rigid object being placed.
-        destination_cfg: The rigid object or scene entry receiving the object.
-        contact_sensor_cfg: The object's contact sensor filtered to the destination.
+        object_cfg: The object being placed.
+        destination_cfg: The object or scene entry receiving the object.
+        contact_sensor_cfg: The object's contact sensor filtered to the destination, or None for deformables.
         force_threshold: Minimum upward support force in newtons.
         velocity_threshold: Maximum object linear speed in meters per second.
         support_cone_half_angle_rad: Maximum angle in radians from world ``+Z`` for the support force.
@@ -248,21 +238,33 @@ def object_on_destination(
         destination_bounds_D=arena_world.get_aabb_in_local_frame(destination_cfg.name),
     )
 
-    contact_sensor: ContactSensor = env.scene[contact_sensor_cfg.name]
-    force_matrix_w = contact_sensor.data.force_matrix_w
-    assert force_matrix_w is not None, f"Contact sensor '{contact_sensor_cfg.name}' has no filtered force matrix."
-    force_matrix_w = force_matrix_w.torch
-    assert force_matrix_w.shape == (env.num_envs, 1, 1, 3), (
-        f"Contact sensor '{contact_sensor_cfg.name}' must provide one sensed body and one filtered body; "
-        f"got force shape {tuple(force_matrix_w.shape)}."
-    )
-    # The two zeros select the sensor's single sensed body and single filtered destination body.
-    support_force_on_object_w = force_matrix_w[:, 0, 0, :]
-    destination_provides_upward_support = contact_force_is_upward_support(
-        contact_force_w=support_force_on_object_w,
-        force_threshold=force_threshold,
-        support_cone_half_angle_rad=support_cone_half_angle_rad,
-    )
+    deformable_objects = env.scene.deformable_objects
+    uses_deformable = object_cfg.name in deformable_objects or destination_cfg.name in deformable_objects
+    if uses_deformable:
+        object_vertices_pos_w = arena_world.get_vertices_pos_w(object_cfg.name)
+        # TODO(qianl, 2026-09-08): Use destination vertices once ArenaWorld supports them for rigid bodies.
+        destination_bound = arena_world.get_aabb_w(destination_cfg.name)
+        destination_provides_upward_support = object_supported_by(
+            object_vertices_pos_w=object_vertices_pos_w,
+            destination_bound=destination_bound,
+        )
+    else:
+        assert contact_sensor_cfg is not None, "Rigid object placement requires a contact sensor"
+        contact_sensor: ContactSensor = env.scene[contact_sensor_cfg.name]
+        force_matrix_w = contact_sensor.data.force_matrix_w
+        assert force_matrix_w is not None, f"Contact sensor '{contact_sensor_cfg.name}' has no filtered force matrix."
+        force_matrix_w = force_matrix_w.torch
+        assert force_matrix_w.shape == (env.num_envs, 1, 1, 3), (
+            f"Contact sensor '{contact_sensor_cfg.name}' must provide one sensed body and one filtered body; "
+            f"got force shape {tuple(force_matrix_w.shape)}."
+        )
+        # The two zeros select the sensor's single sensed body and single filtered destination body.
+        support_force_on_object_w = force_matrix_w[:, 0, 0, :]
+        destination_provides_upward_support = contact_force_is_upward_support(
+            contact_force_w=support_force_on_object_w,
+            force_threshold=force_threshold,
+            support_cone_half_angle_rad=support_cone_half_angle_rad,
+        )
 
     object_root_linear_velocity_w = arena_world.get_root_linear_velocity_w(object_cfg.name)
     object_moves_slowly = object_is_moving_slowly(object_root_linear_velocity_w, velocity_threshold)

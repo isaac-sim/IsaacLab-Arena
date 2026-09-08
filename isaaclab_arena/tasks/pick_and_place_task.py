@@ -26,7 +26,7 @@ from isaaclab_arena.metrics.success_rate import SuccessRateMetric
 from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
 from isaaclab_arena.tasks.common.mimic_default_params import MIMIC_DATAGEN_CONFIG_DEFAULTS
 from isaaclab_arena.tasks.predicates.object_settling import objects_settled
-from isaaclab_arena.tasks.predicates.spatial import object_is_above_height, object_on_destination, object_supported_by
+from isaaclab_arena.tasks.predicates.spatial import object_is_above_height, object_on_destination
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.tasks.task_transition import Relocate, TaskTransition
 from isaaclab_arena.utils.cameras import get_viewer_cfg_look_at_object
@@ -123,26 +123,19 @@ class PickAndPlaceTask(TaskBase):
         return self.termination_cfg
 
     def make_termination_cfg(self):
-        if self._uses_deformable:
-            success = TerminationTermCfg(
-                func=object_supported_by,
-                params={
-                    "object_cfg": SceneEntityCfg(self.pick_up_object.name),
-                    "destination_cfg": SceneEntityCfg(self.destination_location.name),
-                },
-            )
-        else:
-            success = TerminationTermCfg(
-                func=object_on_destination,
-                params={
-                    "object_cfg": SceneEntityCfg(self.pick_up_object.name),
-                    "destination_cfg": SceneEntityCfg(self.destination_location.name),
-                    "contact_sensor_cfg": SceneEntityCfg(self.contact_sensor_name),
-                    "force_threshold": self.force_threshold,
-                    "velocity_threshold": self.velocity_threshold,
-                    "support_cone_half_angle_rad": self.support_cone_half_angle_rad,
-                },
-            )
+        success = TerminationTermCfg(
+            func=object_on_destination,
+            params={
+                "object_cfg": SceneEntityCfg(self.pick_up_object.name),
+                "destination_cfg": SceneEntityCfg(self.destination_location.name),
+                "contact_sensor_cfg": (
+                    SceneEntityCfg(self.contact_sensor_name) if self.contact_sensor_name is not None else None
+                ),
+                "force_threshold": self.force_threshold,
+                "velocity_threshold": self.velocity_threshold,
+                "support_cone_half_angle_rad": self.support_cone_half_angle_rad,
+            },
+        )
         object_dropped = TerminationTermCfg(
             func=mdp_isaac_lab.root_height_below_minimum,
             params={
@@ -177,22 +170,17 @@ class PickAndPlaceTask(TaskBase):
         return [SuccessRateMetric(), ObjectMovedRateMetric(self.pick_up_object)]
 
     def get_progress_objectives(self) -> list[ProgressObjective]:
-        if self._uses_deformable:
-            placement_predicate = partial(
-                object_supported_by,
-                object_cfg=SceneEntityCfg(self.pick_up_object.name),
-                destination_cfg=SceneEntityCfg(self.destination_location.name),
-            )
-        else:
-            placement_predicate = partial(
-                object_on_destination,
-                object_cfg=SceneEntityCfg(self.pick_up_object.name),
-                destination_cfg=SceneEntityCfg(self.destination_location.name),
-                contact_sensor_cfg=SceneEntityCfg(self.contact_sensor_name),
-                force_threshold=self.force_threshold,
-                velocity_threshold=self.velocity_threshold,
-                support_cone_half_angle_rad=self.support_cone_half_angle_rad,
-            )
+        placement_predicate = partial(
+            object_on_destination,
+            object_cfg=SceneEntityCfg(self.pick_up_object.name),
+            destination_cfg=SceneEntityCfg(self.destination_location.name),
+            contact_sensor_cfg=(
+                SceneEntityCfg(self.contact_sensor_name) if self.contact_sensor_name is not None else None
+            ),
+            force_threshold=self.force_threshold,
+            velocity_threshold=self.velocity_threshold,
+            support_cone_half_angle_rad=self.support_cone_half_angle_rad,
+        )
         return [
             ProgressObjective(
                 name="pick_and_place",

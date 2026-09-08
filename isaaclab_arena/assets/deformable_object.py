@@ -69,7 +69,8 @@ class DeformableObject(ObjectBase):
         if isinstance(spawner_cfg, MeshCuboidCfg):
             half_size = tuple(size * 0.5 for size in spawner_cfg.size)
         elif isinstance(spawner_cfg, MeshRectangleCfg):
-            half_size = (*tuple(size * 0.5 for size in spawner_cfg.size), 0.0)
+            # For surface deformable which is a plane mesh, use 1mm height for non-collision placement.
+            half_size = (*tuple(size * 0.5 for size in spawner_cfg.size), 0.001)
         else:
             return None
         return AxisAlignedBoundingBox(

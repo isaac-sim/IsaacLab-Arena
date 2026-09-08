@@ -17,6 +17,7 @@ from __future__ import annotations
 import torch
 
 from isaaclab.scene import InteractiveScene
+from isaaclab.utils.math import quat_apply
 
 import isaaclab_arena.environments.arena_world_scene_access as scene_access
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
@@ -31,24 +32,35 @@ class ArenaWorld:
         self._scene_extra_pose_reader_cache: dict[str, scene_access.SceneExtraPoseReader] = {}
 
     def get_pose_w(self, scene_key: str) -> torch.Tensor:
-        """Return the world-frame pose of a rigid-object root link, articulation root link, or scene extra.
+        """Return the world-frame pose of a scene entity root link, prim, or deformable aggregate.
 
         The tensor has shape (num_envs, 7), with each pose ordered as
         (x, y, z, qx, qy, qz, qw).
         """
         scene = self._scene
-        # Rigid objects and articulations expose their live root-link poses directly. Scene
-        # extras are plain cloned prims, so their live post-clone poses require a FrameView-backed reader.
-        if scene_key in scene.rigid_objects:
+        is_rigid_object = scene_key in scene.rigid_objects
+        is_articulation = scene_key in scene.articulations
+        is_deformable_object = scene_key in scene.deformable_objects
+        is_scene_extra = scene_key in scene.extras
+        assert is_rigid_object or is_articulation or is_deformable_object or is_scene_extra, (
+            "ArenaWorld pose queries require a scene key registered in InteractiveScene.rigid_objects, "
+            "InteractiveScene.articulations, InteractiveScene.deformable_objects, or InteractiveScene.extras; "
+            f"'{scene_key}' is registered in none of them."
+        )
+
+        # Rigid objects and articulations expose their live root-link poses directly. Deformables
+        # expose aggregate position with identity rotation. Scene extras are plain cloned prims,
+        # so their live post-clone poses require a FrameView-backed reader.
+        if is_rigid_object:
             T_W_F = scene.rigid_objects[scene_key].data.root_pose_w.torch
-        elif scene_key in scene.articulations:
+        elif is_articulation:
             T_W_F = scene.articulations[scene_key].data.root_pose_w.torch
+        elif is_deformable_object:
+            root_pos_w = scene.deformable_objects[scene_key].data.root_pos_w.torch
+            # Deformable object root does not have a rotation, use an identity as dummy value.
+            identity_quat = root_pos_w.new_tensor((0.0, 0.0, 0.0, 1.0)).expand(scene.num_envs, 4)
+            T_W_F = torch.cat((root_pos_w, identity_quat), dim=-1)
         else:
-            assert scene_key in scene.extras, (
-                "ArenaWorld pose queries require a scene key registered in InteractiveScene.rigid_objects, "
-                "InteractiveScene.articulations, or InteractiveScene.extras; "
-                f"'{scene_key}' is registered in none of them."
-            )
             pose_reader = self._get_scene_extra_pose_reader(scene, scene_key)
             T_W_F = pose_reader.get_pose_w()
 
@@ -80,13 +92,15 @@ class ArenaWorld:
         scene = self._scene
         if scene_key in scene.rigid_objects:
             root_asset = scene.rigid_objects[scene_key]
-        else:
-            assert scene_key in scene.articulations, (
-                "ArenaWorld root velocity queries require a scene key registered in InteractiveScene.rigid_objects "
-                f"or InteractiveScene.articulations; '{scene_key}' is registered in neither."
-            )
+            root_linear_velocity_w = root_asset.data.root_lin_vel_w.torch
+        elif scene_key in scene.articulations:
             root_asset = scene.articulations[scene_key]
-        root_linear_velocity_w = root_asset.data.root_lin_vel_w.torch
+            root_linear_velocity_w = root_asset.data.root_lin_vel_w.torch
+        else:
+            assert (
+                scene_key in scene.deformable_objects
+            ), f"'{scene_key}' must name a rigid object, articulation, or deformable object."
+            root_linear_velocity_w = scene.deformable_objects[scene_key].data.root_vel_w.torch
         assert root_linear_velocity_w.shape == (scene.num_envs, 3), (
             f"Scene key '{scene_key}' returned root linear velocity shape "
             f"{tuple(root_linear_velocity_w.shape)}; expected ({scene.num_envs}, 3)."
@@ -133,36 +147,36 @@ class ArenaWorld:
         )
         return max_point_speed_w
 
-    def get_nodal_pos_w(self, scene_key: str) -> torch.Tensor:
-        """Return deformable nodal positions in world frame ``W``.
+    def get_vertices_pos_w(self, scene_key: str) -> torch.Tensor:
+        """Return deformable nodes or approximate geometry vertices in world frame ``W``.
 
-        The tensor has shape ``(num_envs, num_nodes, 3)``.
+        The tensor has shape ``(num_envs, num_vertices, 3)``.
         """
         scene = self._scene
-        assert scene_key in scene.deformable_objects, f"'{scene_key}' must name a deformable object."
-        nodal_pos_w = scene.deformable_objects[scene_key].data.nodal_pos_w.torch
-        return nodal_pos_w
-
-    def get_bounds_w(self, scene_key: str) -> AxisAlignedBoundingBox:
-        """Return cached local bounds transformed to the entity's current world pose."""
-        T_W_F = self.get_pose_w(scene_key)
-        t_W_F, q_W_F = T_W_F[:, :3], T_W_F[:, 3:]
-        bounds_F = self.get_aabb_in_local_frame(scene_key)
-        return bounds_F.rotated_by_quat(q_W_F).translated(t_W_F)
+        if scene_key in scene.deformable_objects:
+            vertices_pos_w = scene.deformable_objects[scene_key].data.nodal_pos_w.torch
+        else:
+            # TODO(qianl, 2026-09-08): Return actual vertices once the rigid mesh cache is added.
+            vertices_pos_F = self.get_aabb_in_local_frame(scene_key).get_corners_at()
+            if vertices_pos_F.shape[0] == 1 and scene.num_envs > 1:
+                vertices_pos_F = vertices_pos_F.expand(scene.num_envs, -1, -1)
+            T_W_F = self.get_pose_w(scene_key)
+            t_W_F, q_W_F = T_W_F[:, :3], T_W_F[:, 3:]
+            q_W_F = q_W_F[:, None, :].expand(-1, vertices_pos_F.shape[1], -1)
+            vertices_pos_w = quat_apply(q_W_F, vertices_pos_F) + t_W_F[:, None, :]
+        assert vertices_pos_w.shape[0] == scene.num_envs and vertices_pos_w.shape[2] == 3, (
+            f"Scene entity '{scene_key}' returned vertices shape {tuple(vertices_pos_w.shape)}; "
+            f"expected ({scene.num_envs}, num_vertices, 3)."
+        )
+        return vertices_pos_w
 
     def get_min_height_w(self, scene_key: str) -> torch.Tensor:
         """Return the lowest world-frame Z for a deformable or rigid scene entity.
 
-        Deformables use the minimum nodal height. Rigid objects, articulations, and scene extras
-        use the minimum Z of their world-frame axis-aligned bounds.
-
         The tensor has shape ``(num_envs,)``.
         """
         scene = self._scene
-        if scene_key in scene.deformable_objects:
-            min_height_w = self.get_nodal_pos_w(scene_key)[..., 2].amin(dim=1)
-        else:
-            min_height_w = self.get_bounds_w(scene_key).min_point[:, 2]
+        min_height_w = self.get_vertices_pos_w(scene_key)[..., 2].amin(dim=1)
         assert min_height_w.shape == (scene.num_envs,), (
             f"Scene entity '{scene_key}' returned min height shape {tuple(min_height_w.shape)}; "
             f"expected ({scene.num_envs},)."
@@ -179,6 +193,13 @@ class ArenaWorld:
             aabb_F = scene_access.compute_spawned_geometry_bounds_in_local_frame(scene, scene_key)
             self._aabbs_in_local_frame_cache[scene_key] = aabb_F
         return self._aabbs_in_local_frame_cache[scene_key]
+
+    def get_aabb_w(self, scene_key: str) -> AxisAlignedBoundingBox:
+        """Return cached local bounds transformed to the entity's current world pose."""
+        T_W_F = self.get_pose_w(scene_key)
+        t_W_F, q_W_F = T_W_F[:, :3], T_W_F[:, 3:]
+        bounds_F = self.get_aabb_in_local_frame(scene_key)
+        return bounds_F.rotated_by_quat(q_W_F).translated(t_W_F)
 
     def _get_scene_extra_pose_reader(
         self,

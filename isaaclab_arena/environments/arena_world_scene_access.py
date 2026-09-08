@@ -111,8 +111,7 @@ def compute_spawned_geometry_bounds_in_local_frame(
         valid under whole-subtree motion, but not when descendants move relative
         to frame F.
     """
-    deformable_objects = scene.deformable_objects
-    assert scene_key in scene.rigid_objects or scene_key in deformable_objects or scene_key in scene.extras, (
+    assert scene_key in scene.rigid_objects or scene_key in scene.deformable_objects or scene_key in scene.extras, (
         "ArenaWorld geometry queries require a scene key registered in InteractiveScene.rigid_objects, "
         f"InteractiveScene.deformable_objects, or InteractiveScene.extras; '{scene_key}' is registered in none."
     )
