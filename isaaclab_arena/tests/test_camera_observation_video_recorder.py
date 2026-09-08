@@ -20,13 +20,8 @@ import pytest
 
 from isaaclab_arena.utils.env_step_timer import EnvStepTimerWrapper
 from isaaclab_arena.utils.timer import Timer, get_timer_stats, reset_timer_stats
-from isaaclab_arena.video.camera_observation_video_recorder import (
-    CAMERA_FINALIZE_TIMER_NAME,
-    CAMERA_FRAMES_TIMER_NAME,
-    CAMERA_OBS_GROUP_KEY,
-    CameraObsVideoRecorder,
-)
-from isaaclab_arena.video.video_recording import SIM_STEP_TIMER_NAME, VideoRecordingCfg, wrap_env_for_video
+from isaaclab_arena.video.camera_observation_video_recorder import CAMERA_OBS_GROUP_KEY, CameraObsVideoRecorder
+from isaaclab_arena.video.video_recording import VideoRecordingCfg, wrap_env_for_video
 
 # ---------------------------------------------------------------------------
 # Minimal gym.Env stub — satisfies gymnasium.Wrapper's isinstance check
@@ -248,15 +243,15 @@ def test_frame_writing_is_timed_separately_from_finalizing(tmp_path):
         recorder.step(None)
 
         stats = get_timer_stats()
-        assert stats[CAMERA_FRAMES_TIMER_NAME].count == 2
-        assert CAMERA_FINALIZE_TIMER_NAME not in stats
+        assert stats["camera_frames"].count == 2
+        assert "camera_finalize" not in stats
 
         _configure_step(env, done_envs=[0])
         recorder.step(None)
 
         stats = get_timer_stats()
-        assert stats[CAMERA_FRAMES_TIMER_NAME].count == 3
-        assert stats[CAMERA_FINALIZE_TIMER_NAME].count == 1
+        assert stats["camera_frames"].count == 3
+        assert stats["camera_finalize"].count == 1
 
 
 def test_recording_stack_reports_its_costs_under_the_enclosing_step_timer(tmp_path):
@@ -284,9 +279,9 @@ def test_recording_stack_reports_its_costs_under_the_enclosing_step_timer(tmp_pa
     # from it is what isolates the recording overhead.
     stats = get_timer_stats()
     assert stats["env_step"].count == 1
-    assert stats[f"env_step/{SIM_STEP_TIMER_NAME}"].count == 1
-    assert stats[f"env_step/{CAMERA_FRAMES_TIMER_NAME}"].count == 1
-    assert stats["env_step"].total_ms >= stats[f"env_step/{SIM_STEP_TIMER_NAME}"].total_ms
+    assert stats["env_step/sim_step"].count == 1
+    assert stats["env_step/camera_frames"].count == 1
+    assert stats["env_step"].total_ms >= stats["env_step/sim_step"].total_ms
 
 
 def test_wrap_env_for_video_adds_no_timer_when_recording_is_disabled(tmp_path):
@@ -309,7 +304,7 @@ def test_no_timing_recorded_without_camera_observations(tmp_path):
 
         recorder.step(None)  # _StubEnv returns an empty obs until _configure_step is called
 
-        assert CAMERA_FRAMES_TIMER_NAME not in get_timer_stats()
+        assert "camera_frames" not in get_timer_stats()
 
 
 def test_post_reset_frame_not_recorded(tmp_path):
