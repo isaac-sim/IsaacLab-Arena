@@ -34,7 +34,7 @@ def _test_arena_physics_cfg_presets(simulation_app) -> bool:
     return True
 
 
-def _build_env_cfg(presets: str | None):
+def _build_env_cfg(presets: str | None, embodiment=None):
     """Build a real env cfg through ArenaEnvBuilder.compose_manager_cfg with the given preset."""
     from isaaclab_arena.assets.registries import AssetRegistry
     from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
@@ -53,9 +53,12 @@ def _build_env_cfg(presets: str | None):
     table = asset_registry.get_asset_by_name("packing_table")()
     scene = Scene(assets=[table])
 
+    if embodiment is None:
+        embodiment = FrankaIKEmbodiment()
+
     arena_env = IsaacLabArenaEnvironment(
         name="test_physics_preset",
-        embodiment=FrankaIKEmbodiment(),
+        embodiment=embodiment,
         scene=scene,
     )
 
@@ -97,6 +100,27 @@ def _test_builder_unknown_preset_raises(simulation_app) -> bool:
     raise AssertionError("Expected AttributeError or SystemExit for unknown preset")
 
 
+def _test_newton_droid_embodiment_requires_newton_preset(simulation_app) -> bool:
+    from isaaclab_arena.embodiments.droid.droid import DroidNewtonDifferentialIKEmbodiment
+
+    try:
+        _build_env_cfg(presets="physx", embodiment=DroidNewtonDifferentialIKEmbodiment())
+    except ValueError as exc:
+        assert "droid_differential_ik_newton requires --presets newton" in str(exc)
+        return True
+    raise AssertionError("Expected ValueError when pairing Newton DROID with PhysX preset")
+
+
+def _test_newton_droid_embodiment_allows_newton_preset(simulation_app) -> bool:
+    from isaaclab_newton.physics.newton_manager_cfg import NewtonCfg
+
+    from isaaclab_arena.embodiments.droid.droid import DroidNewtonDifferentialIKEmbodiment
+
+    env_cfg = _build_env_cfg(presets="newton", embodiment=DroidNewtonDifferentialIKEmbodiment())
+    assert isinstance(env_cfg.sim.physics, NewtonCfg)
+    return True
+
+
 # --- pytest-visible outer functions ---
 
 
@@ -118,6 +142,18 @@ def test_builder_newton_preset():
 
 def test_builder_unknown_preset_raises():
     assert run_function_with_persistent_simulation_app(_test_builder_unknown_preset_raises, headless=HEADLESS)
+
+
+def test_newton_droid_embodiment_requires_newton_preset():
+    assert run_function_with_persistent_simulation_app(
+        _test_newton_droid_embodiment_requires_newton_preset, headless=HEADLESS
+    )
+
+
+def test_newton_droid_embodiment_allows_newton_preset():
+    assert run_function_with_persistent_simulation_app(
+        _test_newton_droid_embodiment_allows_newton_preset, headless=HEADLESS
+    )
 
 
 if __name__ == "__main__":

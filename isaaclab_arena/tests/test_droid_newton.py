@@ -151,3 +151,24 @@ def test_newton_droid_ik_holds_without_teleop_command():
 def test_newton_droid_ik_lifts_on_teleop_command():
     """Pytest entry point for the keyboard lift check."""
     assert run_function_with_persistent_simulation_app(_test_newton_droid_ik_lifts_on_teleop_command)
+
+
+def test_z_newton_droid_embodiment_config_contract():
+    """Pin Newton DROID gripper action, close target, and IK body after sim tests."""
+    from isaaclab_arena.embodiments.droid.droid import (
+        BinaryJointPositionZeroToOneActionCfg,
+        DroidDifferentialIKEmbodiment,
+        DroidNewtonDifferentialIKEmbodiment,
+    )
+    from isaaclab_arena.embodiments.droid.observations import _DROID_NEWTON_GRIPPER_CLOSE_RAD
+
+    parent = DroidDifferentialIKEmbodiment()
+    assert parent.action_config.arm_action.body_name == "base_link"
+
+    embodiment = DroidNewtonDifferentialIKEmbodiment()
+    gripper_action = embodiment.action_config.gripper_action
+    assert isinstance(gripper_action, BinaryJointPositionZeroToOneActionCfg)
+    assert embodiment.action_config.arm_action.body_name == "base_link"
+    assert embodiment.action_config.arm_action.controller.ik_method == "adaptive_dls"
+    assert gripper_action.close_command_expr["finger_joint"] == _DROID_NEWTON_GRIPPER_CLOSE_RAD
+    assert embodiment.observation_config.policy.gripper_pos.func.__name__ == "newton_gripper_pos"

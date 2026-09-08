@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import torch
 from abc import ABC
-from copy import deepcopy
 from typing import TYPE_CHECKING
 
 import isaaclab.envs.mdp as mdp_isaac_lab
@@ -37,7 +36,14 @@ from isaaclab_arena.assets.nucleus import ARENA_NUCLEUS_DIR
 from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.embodiments.droid.actions import BinaryJointPositionZeroToOneAction
-from isaaclab_arena.embodiments.droid.observations import arm_joint_pos, ee_pos, ee_quat, gripper_pos
+from isaaclab_arena.embodiments.droid.observations import (
+    _DROID_NEWTON_GRIPPER_CLOSE_RAD,
+    arm_joint_pos,
+    ee_pos,
+    ee_quat,
+    gripper_pos,
+    newton_gripper_pos,
+)
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
 from isaaclab_arena.embodiments.franka.franka import franka_stack_events
 from isaaclab_arena.embodiments.robot_on_stand_utils import RobotPrimSpec, StandPrimSpec, compose_on_stand_usd
@@ -224,37 +230,15 @@ class DroidNewtonDifferentialIKEmbodiment(DroidDifferentialIKEmbodiment):
 
     name = "droid_differential_ik_newton"
 
-    def __init__(
-        self,
-        enable_cameras: bool = False,
-        initial_pose: Pose | None = None,
-        initial_joint_pose: list[float] | None = None,
-        concatenate_observation_terms: bool = False,
-        arm_mode: ArmMode | None = None,
-        stand_height_m: float = _DROID_STAND_PRIM.stand_default_height,
-        stand_footprint_xy_m: tuple[float, float] | list[float] = _DROID_STAND_PRIM.stand_default_footprint_xy_m,
-        placement_bbox_stand_only: bool = False,
-        collision_mode: CollisionMode | str | None = None,
-    ):
-        super().__init__(
-            enable_cameras=enable_cameras,
-            initial_pose=initial_pose,
-            initial_joint_pose=initial_joint_pose,
-            concatenate_observation_terms=concatenate_observation_terms,
-            arm_mode=arm_mode,
-            stand_height_m=stand_height_m,
-            stand_footprint_xy_m=stand_footprint_xy_m,
-            placement_bbox_stand_only=placement_bbox_stand_only,
-            collision_mode=collision_mode,
-        )
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
         self._configure_newton()
 
     def _configure_newton(self) -> None:
         """Apply Newton-specific spawning, actuation, and controller configuration."""
         from isaaclab_newton.sim.schemas import NewtonMaterialPropertiesCfg
 
-        robot_cfg = deepcopy(self.scene_config.robot)
-        self.scene_config.robot = robot_cfg
+        robot_cfg = self.scene_config.robot
         robot_cfg.spawn.func = spawn_newton_droid
         robot_cfg.spawn.make_uninstanceable = True
         robot_cfg.spawn.rigid_props.disable_gravity = False
@@ -274,32 +258,26 @@ class DroidNewtonDifferentialIKEmbodiment(DroidDifferentialIKEmbodiment):
             armature=0.05,
         )
 
-        self.action_config.arm_action = deepcopy(self.action_config.arm_action)
-        self.action_config.arm_action.body_name = "base_link"
-        self.action_config.arm_action.body_offset = None
-        arm_controller = self.action_config.arm_action.controller
-        arm_controller.ik_method = "adaptive_dls"
-        arm_controller.ik_params = {
-            "lambda_min": 0.05,
-            "lambda_max": 0.20,
-            "sigma_thresh": 0.02,
-        }
-        arm_controller.joint_limit_avoidance_gain = 0.10
-        arm_controller.joint_limit_avoidance_margin = 0.35
+        self.action_config.arm_action.controller = DifferentialIKControllerCfg(
+            command_type="pose",
+            use_relative_mode=True,
+            ik_method="adaptive_dls",
+            joint_limit_avoidance_gain=0.10,
+            joint_limit_avoidance_margin=0.35,
+        )
 
         open_command = dict.fromkeys(gripper_joint_names, 0.0)
-        close_command = {name: sign * 0.461 for name, sign in _DROID_NEWTON_GRIPPER_MIMIC_SIGNS.items()}
-        self.action_config.gripper_action = BinaryJointPositionActionCfg(
+        close_command = {
+            name: sign * _DROID_NEWTON_GRIPPER_CLOSE_RAD for name, sign in _DROID_NEWTON_GRIPPER_MIMIC_SIGNS.items()
+        }
+        self.action_config.gripper_action = BinaryJointPositionZeroToOneActionCfg(
             asset_name="robot",
             joint_names=list(gripper_joint_names),
             open_command_expr=open_command,
             close_command_expr=close_command,
         )
 
-        self.scene_config.ee_frame = deepcopy(self.scene_config.ee_frame)
-        target_frame = self.scene_config.ee_frame.target_frames[0]
-        target_frame.prim_path = "{ENV_REGEX_NS}/Robot/Gripper/Robotiq_2F_85/base_link"
-        target_frame.offset = OffsetCfg()
+        self.observation_config.policy.gripper_pos = ObsTerm(func=newton_gripper_pos)
 
 
 @register_asset
@@ -441,11 +419,9 @@ class DroidSceneCfg:
         debug_vis=False,
         target_frames=[
             FrameTransformerCfg.FrameCfg(
-                prim_path="{ENV_REGEX_NS}/Robot/panda_link0",
+                prim_path="{ENV_REGEX_NS}/Robot/Gripper/Robotiq_2F_85/base_link",
                 name="end_effector",
-                offset=OffsetCfg(
-                    pos=[0.0, 0.0, 0.1034],
-                ),
+                offset=OffsetCfg(),
             ),
             FrameTransformerCfg.FrameCfg(
                 prim_path="{ENV_REGEX_NS}/Robot/Gripper/Robotiq_2F_85/right_inner_finger",
@@ -489,10 +465,10 @@ class DroidDifferentialIKActionsCfg:
     arm_action: ActionTermCfg = DifferentialInverseKinematicsActionCfg(
         asset_name="robot",
         joint_names=["panda_joint.*"],
-        body_name="panda_link0",
+        body_name="base_link",
         controller=DifferentialIKControllerCfg(command_type="pose", use_relative_mode=True, ik_method="dls"),
         scale=0.5,
-        body_offset=DifferentialInverseKinematicsActionCfg.OffsetCfg(pos=[0.0, 0.0, 0.107]),
+        body_offset=None,
     )
 
     gripper_action: ActionTermCfg = BinaryJointPositionZeroToOneActionCfg(
@@ -637,6 +613,8 @@ def spawn_newton_droid(
     from isaaclab.sim import schemas
     from isaaclab_newton.sim.schemas import MujocoRigidBodyPropertiesCfg
 
+    from isaaclab_arena.utils.usd_helpers import move_collision_schemas_to_meshes
+
     prim = spawn_from_usd(
         prim_path,
         spawner_cfg,
@@ -644,51 +622,10 @@ def spawn_newton_droid(
         orientation=orientation,
         **kwargs,
     )
-    _promote_droid_collision_meshes(prim)
+    move_collision_schemas_to_meshes(prim)
     schemas.modify_rigid_body_properties(
         prim_path,
         MujocoRigidBodyPropertiesCfg(gravcomp=1.0),
         prim.GetStage(),
     )
     return prim
-
-
-def _promote_droid_collision_meshes(root_prim) -> None:
-    """Expose DROID's existing collision meshes to Newton without replacing their geometry.
-
-    The current DROID USD authors collision schemas on non-geometric grouping prims. Newton
-    requires those schemas on the child meshes, so this compatibility layer transfers the
-    existing settings when the Newton embodiment is spawned.
-    """
-    from pxr import Usd, UsdGeom, UsdPhysics
-
-    collision_groups = [
-        candidate
-        for candidate in Usd.PrimRange(root_prim)
-        if candidate.HasAPI(UsdPhysics.CollisionAPI) and not candidate.IsA(UsdGeom.Gprim)
-    ]
-    for collision_group in collision_groups:
-        collision_api = UsdPhysics.CollisionAPI(collision_group)
-        collision_enabled = collision_api.GetCollisionEnabledAttr().Get()
-        collision_enabled = True if collision_enabled is None else collision_enabled
-        source_approximation = None
-        if collision_group.HasAPI(UsdPhysics.MeshCollisionAPI):
-            source_approximation = UsdPhysics.MeshCollisionAPI(collision_group).GetApproximationAttr().Get()
-
-        meshes = [candidate for candidate in Usd.PrimRange(collision_group) if candidate.IsA(UsdGeom.Mesh)]
-        assert meshes, f"Collision group '{collision_group.GetPath()}' has no source mesh"
-        for mesh in meshes:
-            mesh_collision_api = (
-                UsdPhysics.CollisionAPI(mesh)
-                if mesh.HasAPI(UsdPhysics.CollisionAPI)
-                else UsdPhysics.CollisionAPI.Apply(mesh)
-            )
-            mesh_collision_api.CreateCollisionEnabledAttr().Set(collision_enabled)
-            mesh_approximation_api = (
-                UsdPhysics.MeshCollisionAPI(mesh)
-                if mesh.HasAPI(UsdPhysics.MeshCollisionAPI)
-                else UsdPhysics.MeshCollisionAPI.Apply(mesh)
-            )
-            mesh_approximation_api.CreateApproximationAttr().Set(source_approximation or "convexHull")
-
-        collision_api.CreateCollisionEnabledAttr().Set(False)

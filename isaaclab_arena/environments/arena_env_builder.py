@@ -432,6 +432,10 @@ class ArenaEnvBuilder:
             if presets == "newton":
                 env_cfg.scene.replicate_physics = True
 
+        embodiment_name = getattr(self.arena_env.embodiment, "name", None)
+        if embodiment_name == "droid_differential_ik_newton" and presets != "newton":
+            raise ValueError(f"droid_differential_ik_newton requires --presets newton; got presets={presets!r}.")
+
         env_kwargs: dict[str, Any] = {"variation_recorder": variation_recorder}
         return env_cfg, env_kwargs
 

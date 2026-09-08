@@ -9,6 +9,9 @@ import warp as wp
 from isaaclab.envs import ManagerBasedRLEnv
 from isaaclab.managers import SceneEntityCfg
 
+_DROID_NEWTON_GRIPPER_CLOSE_RAD = 0.461
+"""Finger_joint close target for Newton's explicit 6-DOF gripper actuation (no USD mimic)."""
+
 
 def arm_joint_pos(env: ManagerBasedRLEnv, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")) -> torch.Tensor:
     robot = env.scene[asset_cfg.name]
@@ -33,6 +36,15 @@ def gripper_pos(env: ManagerBasedRLEnv, asset_cfg: SceneEntityCfg = SceneEntityC
     joint_pos = wp.to_torch(robot.data.joint_pos)[:, joint_indices]
     # rescale to 0–1
     return joint_pos / (torch.pi / 4)
+
+
+def newton_gripper_pos(env: ManagerBasedRLEnv, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")) -> torch.Tensor:
+    """Returns Newton DROID gripper position as 0 for open and 1 for closed."""
+    robot = env.scene[asset_cfg.name]
+    joint_names = ["finger_joint"]
+    joint_indices = [i for i, name in enumerate(robot.data.joint_names) if name in joint_names]
+    joint_pos = wp.to_torch(robot.data.joint_pos)[:, joint_indices]
+    return joint_pos / _DROID_NEWTON_GRIPPER_CLOSE_RAD
 
 
 def ee_pos(env: ManagerBasedRLEnv, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")) -> torch.Tensor:

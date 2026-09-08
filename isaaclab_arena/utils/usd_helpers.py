@@ -693,3 +693,45 @@ def _compute_local_bounding_box_from_usd_at_joint_pos(
         min_point=tuple(stacked.min(axis=0)),
         max_point=tuple(stacked.max(axis=0)),
     )
+
+
+def move_collision_schemas_to_meshes(root_prim) -> None:
+    """Move collision schemas from grouping prims onto their child meshes.
+
+    Some USD assets author collision on non-geometric grouping prims. Newton requires
+    those schemas on the child meshes, so this compatibility layer transfers the existing
+    settings at spawn time.
+
+    TODO: Re-author affected robot USDs so collision lives on meshes directly and this
+    shim can be removed.
+    """
+    collision_groups = [
+        candidate
+        for candidate in Usd.PrimRange(root_prim)
+        if candidate.HasAPI(UsdPhysics.CollisionAPI) and not candidate.IsA(UsdGeom.Gprim)
+    ]
+    for collision_group in collision_groups:
+        collision_api = UsdPhysics.CollisionAPI(collision_group)
+        collision_enabled = collision_api.GetCollisionEnabledAttr().Get()
+        collision_enabled = True if collision_enabled is None else collision_enabled
+        source_approximation = None
+        if collision_group.HasAPI(UsdPhysics.MeshCollisionAPI):
+            source_approximation = UsdPhysics.MeshCollisionAPI(collision_group).GetApproximationAttr().Get()
+
+        meshes = [candidate for candidate in Usd.PrimRange(collision_group) if candidate.IsA(UsdGeom.Mesh)]
+        assert meshes, f"Collision group '{collision_group.GetPath()}' has no source mesh"
+        for mesh in meshes:
+            mesh_collision_api = (
+                UsdPhysics.CollisionAPI(mesh)
+                if mesh.HasAPI(UsdPhysics.CollisionAPI)
+                else UsdPhysics.CollisionAPI.Apply(mesh)
+            )
+            mesh_collision_api.CreateCollisionEnabledAttr().Set(collision_enabled)
+            mesh_approximation_api = (
+                UsdPhysics.MeshCollisionAPI(mesh)
+                if mesh.HasAPI(UsdPhysics.MeshCollisionAPI)
+                else UsdPhysics.MeshCollisionAPI.Apply(mesh)
+            )
+            mesh_approximation_api.CreateApproximationAttr().Set(source_approximation or "convexHull")
+
+        collision_api.CreateCollisionEnabledAttr().Set(False)
