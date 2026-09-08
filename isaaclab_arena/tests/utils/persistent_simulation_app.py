@@ -128,7 +128,7 @@ def run_function_with_persistent_simulation_app(
     function: Callable[..., bool],
     headless: bool = True,
     enable_cameras: bool = False,
-    force_disable_fabric: bool = True,
+    force_disable_fabric: bool = False,
     **kwargs,
 ) -> bool:
     """Run a function with the persistent SimulationApp in the current pytest process.
