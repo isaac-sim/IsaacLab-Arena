@@ -8,6 +8,7 @@ from __future__ import annotations
 import dataclasses
 import datetime
 import os
+from contextlib import suppress
 from gymnasium.wrappers import RecordVideo
 
 from isaaclab_arena.video.camera_observation_video_recorder import CameraObsVideoRecorder
@@ -38,6 +39,48 @@ class VideoRecordingCfg:
     def render_mode(self) -> str | None:
         """The ``render_mode`` the env must be built with to capture the viewport video."""
         return "rgb_array" if self.record_viewport_video else None
+
+
+def close_viewport_video_recorder(video_recorder) -> None:
+    """Release a viewport recorder's capture resources before simulator teardown."""
+    if video_recorder is None:
+        return
+
+    close_recorder = getattr(video_recorder, "close", None)
+    if callable(close_recorder):
+        close_recorder()
+        return
+
+    capture = getattr(video_recorder, "_capture", None)
+    video_recorder._capture = None
+    if capture is None:
+        return
+
+    close_capture = getattr(capture, "close", None)
+    if callable(close_capture):
+        close_capture()
+        return
+
+    # Isaac Lab 3.0 Beta's Kit capture has no public close method. Release its
+    # Replicator resources explicitly so stage replacement cannot wait on them.
+    annotator = getattr(capture, "_rgb_annotator", None)
+    render_product = getattr(capture, "_render_product", None)
+    if annotator is not None:
+        with suppress(Exception):
+            annotator.detach()
+        capture._rgb_annotator = None
+    if render_product is not None:
+        with suppress(Exception):
+            render_product.destroy()
+        capture._render_product = None
+
+    # Newton's capture also lacks a public close method in this release.
+    viewer = getattr(capture, "_viewer", None)
+    close_viewer = getattr(viewer, "close", None)
+    if callable(close_viewer):
+        close_viewer()
+    if hasattr(capture, "_viewer"):
+        capture._viewer = None
 
 
 def timestamped_run_dir(base_dir: str) -> str:
