@@ -29,6 +29,9 @@ class VideoRecordingCfg:
     camera_name_prefix: str = "robot-cam"
     """Filename prefix for the per-camera mp4s written by ``CameraObsVideoRecorder``."""
 
+    viewport_name_prefix: str = "viewport-env0-viewport"
+    """Filename prefix for the viewport mp4 written by Gymnasium's ``RecordVideo``."""
+
     @property
     def enabled(self) -> bool:
         """Whether any recorder is requested."""
@@ -83,14 +86,15 @@ def wrap_env_for_video(
 
     os.makedirs(video_cfg.video_base_dir, exist_ok=True)
 
-    # Record the kit viewport (via env.render()).
+    # Record the configured third-person report camera via env.render().
     if video_cfg.record_viewport_video:
         video_length = _resolve_video_length(env, num_steps, num_episodes)
         env = RecordVideo(
             env,
             video_folder=video_cfg.video_base_dir,
-            step_trigger=lambda step: step == 0,
+            episode_trigger=lambda episode: episode == 0,
             video_length=video_length,
+            name_prefix=video_cfg.viewport_name_prefix,
             disable_logger=True,
         )
         print(f"Recording {video_length}-step viewport video to: {video_cfg.video_base_dir}")

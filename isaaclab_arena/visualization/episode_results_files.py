@@ -24,6 +24,11 @@ EPISODE_VIDEO_FILENAME_PATTERN = re.compile(
     r"^(?P<prefix>.+?)(?:-rebuild(?P<rebuild>\d+))?-env(?P<env>\d+)-(?P<camera>.+)-episode-(?P<episode>\d+)\.mp4$"
 )
 
+# Matches viewport videos written by Arena before they adopted the per-episode recorder format.
+LEGACY_VIEWPORT_VIDEO_FILENAME_PATTERN = re.compile(
+    r"^(?P<prefix>rl-video)(?:-rebuild(?P<rebuild>\d+))?-(?P<trigger>step|episode)-(?P<index>\d+)\.mp4$"
+)
+
 
 @dataclass(frozen=True)
 class DataIssue:
@@ -64,15 +69,32 @@ def parse_episode_results_filename(filename: str) -> ParsedEpisodeResultsName | 
 def parse_episode_video_filename(filename: str) -> ParsedEpisodeVideoName | None:
     """Parse a recorder mp4 filename, or return ``None`` if it does not match the recorder format."""
     match = EPISODE_VIDEO_FILENAME_PATTERN.match(filename)
-    if match is None:
+    if match is not None:
+        rebuild = match.group("rebuild")
+        return ParsedEpisodeVideoName(
+            prefix=match.group("prefix"),
+            rebuild_index=0 if rebuild is None else int(rebuild),
+            env_index=int(match.group("env")),
+            camera_name=match.group("camera"),
+            episode_index=int(match.group("episode")),
+        )
+
+    legacy_viewport_match = LEGACY_VIEWPORT_VIDEO_FILENAME_PATTERN.match(filename)
+    if legacy_viewport_match is None:
         return None
-    rebuild = match.group("rebuild")
+    trigger = legacy_viewport_match.group("trigger")
+    index = int(legacy_viewport_match.group("index"))
+    # Arena's former step trigger only recorded one rollout beginning at step zero. Other
+    # step indices cannot be paired reliably with an episode result.
+    if trigger == "step" and index != 0:
+        return None
+    rebuild = legacy_viewport_match.group("rebuild")
     return ParsedEpisodeVideoName(
-        prefix=match.group("prefix"),
+        prefix=legacy_viewport_match.group("prefix"),
         rebuild_index=0 if rebuild is None else int(rebuild),
-        env_index=int(match.group("env")),
-        camera_name=match.group("camera"),
-        episode_index=int(match.group("episode")),
+        env_index=0,
+        camera_name="viewport",
+        episode_index=0 if trigger == "step" else index,
     )
 
 
