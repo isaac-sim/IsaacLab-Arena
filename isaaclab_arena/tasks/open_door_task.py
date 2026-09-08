@@ -16,7 +16,7 @@ from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
 from isaaclab_arena.tasks.common.open_close_door_mimic import RotateDoorMimicEnvCfg
 from isaaclab_arena.tasks.predicates.articulations import is_away_from_rest_openness
-from isaaclab_arena.tasks.rotate_revolute_joint_task import MIN_OPENNESS_CHANGE, RotateRevoluteJointTask
+from isaaclab_arena.tasks.rotate_revolute_joint_task import RotateRevoluteJointTask
 
 
 @agent_ready
@@ -42,8 +42,6 @@ class OpenDoorTask(RotateRevoluteJointTask):
             episode_length_s: The episode length in seconds.
             task_description: The language instruction for the task.
         """
-        # How far the openness must change from reset_openness to count as having moved the door.
-        self.min_openness_change = MIN_OPENNESS_CHANGE
         super().__init__(
             openable_object=openable_object,
             target_joint_percentage_threshold=openness_threshold,
