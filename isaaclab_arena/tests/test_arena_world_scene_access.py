@@ -149,15 +149,29 @@ def _check_rigid_object_reads_and_local_aabb_cache(
     assert geometry_build_calls == ["object", "destination"]
 
 
-def _check_articulation_pose_reads(arena_world_module) -> None:
-    """Check that articulation root poses are read live."""
+def _check_articulation_root_state_reads(arena_world_module) -> None:
+    """Check that articulation root poses and velocities are read live."""
     import torch
 
     T_W_F_initial = torch.tensor([
         [0.0, 0.0, 0.4, 0.0, 0.0, 0.0, 1.0],
         [1.0, 0.0, 0.4, 0.0, 0.0, 0.0, 1.0],
     ])
-    articulation = SimpleNamespace(data=SimpleNamespace(root_pose_w=SimpleNamespace(torch=T_W_F_initial)))
+    root_linear_velocity_w_initial = torch.tensor([
+        [0.0, 0.0, 0.0],
+        [0.1, 0.2, 0.3],
+    ])
+    root_angular_velocity_w_initial = torch.tensor([
+        [0.0, 0.0, 0.0],
+        [0.4, 0.5, 0.6],
+    ])
+    articulation = SimpleNamespace(
+        data=SimpleNamespace(
+            root_pose_w=SimpleNamespace(torch=T_W_F_initial),
+            root_lin_vel_w=SimpleNamespace(torch=root_linear_velocity_w_initial),
+            root_ang_vel_w=SimpleNamespace(torch=root_angular_velocity_w_initial),
+        )
+    )
     scene = SimpleNamespace(
         num_envs=2,
         rigid_objects={},
@@ -167,11 +181,31 @@ def _check_articulation_pose_reads(arena_world_module) -> None:
     arena_world = arena_world_module.ArenaWorld(scene)
 
     torch.testing.assert_close(arena_world.get_pose_w("cabinet"), T_W_F_initial)
+    torch.testing.assert_close(
+        arena_world.get_root_linear_velocity_w("cabinet"),
+        root_linear_velocity_w_initial,
+    )
+    torch.testing.assert_close(
+        arena_world.get_root_angular_velocity_w("cabinet"),
+        root_angular_velocity_w_initial,
+    )
 
     T_W_F_moved = T_W_F_initial.clone()
     T_W_F_moved[:, 2] += 0.1
+    root_linear_velocity_w_changed = root_linear_velocity_w_initial + 0.5
+    root_angular_velocity_w_changed = root_angular_velocity_w_initial + 0.25
     articulation.data.root_pose_w.torch = T_W_F_moved
+    articulation.data.root_lin_vel_w.torch = root_linear_velocity_w_changed
+    articulation.data.root_ang_vel_w.torch = root_angular_velocity_w_changed
     torch.testing.assert_close(arena_world.get_pose_w("cabinet"), T_W_F_moved)
+    torch.testing.assert_close(
+        arena_world.get_root_linear_velocity_w("cabinet"),
+        root_linear_velocity_w_changed,
+    )
+    torch.testing.assert_close(
+        arena_world.get_root_angular_velocity_w("cabinet"),
+        root_angular_velocity_w_changed,
+    )
 
 
 def _check_arena_world_reuses_scene_extra_pose_reader(
@@ -300,7 +334,7 @@ def _test_arena_world_scene_access(_simulation_app) -> bool:
         scene_access,
         AxisAlignedBoundingBox,
     )
-    _check_articulation_pose_reads(arena_world)
+    _check_articulation_root_state_reads(arena_world)
     _check_arena_world_reuses_scene_extra_pose_reader(arena_world, scene_access)
     _check_arena_world_rejects_unsupported_pose_scene_key(arena_world)
     _check_scene_extra_pose_reader_uses_current_frame_view_poses(scene_access)

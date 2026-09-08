@@ -91,15 +91,16 @@ def lift_object_il_success(
     Args:
         env: The RL environment instance.
         object_cfg: The configuration of the object to track.
-        goal_position: Fixed goal position [x, y, z] to use if command goal not available.
+        goal_position: Fixed world-frame goal position [x, y, z].
         position_tolerance: Distance tolerance for success (m).
 
     Returns:
         A boolean tensor of shape (num_envs,) indicating success.
     """
 
-    object_position_w = env.arena_world.get_pose_w(object_cfg.name)[:, :3]
+    assert goal_position is not None, "lift_object_il_success requires goal_position."
 
+    object_position_w = env.arena_world.get_pose_w(object_cfg.name)[:, :3]
     goal_position_w = torch.tensor([goal_position] * env.num_envs, device=env.device)
 
     # Check if object is within tolerance of goal
