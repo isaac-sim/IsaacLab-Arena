@@ -191,18 +191,6 @@ class TestTimer:
 
         assert "later" in get_timer_stats()
 
-    def test_rejects_a_name_containing_the_separator(self) -> None:
-        """Verify names cannot smuggle in a nesting level, which the separator is reserved for."""
-        with pytest.raises(AssertionError, match="must not contain"):
-            Timer("a/b")
-
-    def test_qualified_name_is_exposed_on_the_timer(self) -> None:
-        """Verify the resolved registry key is readable from the timer itself."""
-        with Timer("outer"):
-            with Timer("inner") as inner_timer:
-                assert inner_timer.name == "inner"
-                assert inner_timer.qualified_name == "outer/inner"
-
     def test_exception_propagation(self) -> None:
         """Verify exceptions propagate and stats are still recorded."""
         with pytest.raises(ValueError, match="test error"):

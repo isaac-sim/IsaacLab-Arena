@@ -144,10 +144,7 @@ class CameraObsVideoRecorder(gym.Wrapper):
             done_envs = (terminated | truncated).nonzero().flatten().tolist()
             done_set = set(done_envs)
 
-            # Timed separately from the env step: this covers the device-to-host copy of every
-            # camera frame and the encoder writes, which is the per-step cost of recording. Both
-            # timers here nest inside the enclosing step timer, reporting as "<enclosing>/...".
-            with Timer("camera_frames"):
+            with Timer("record_camera_frames"):
                 for camera_name, frames in cam_obs.items():
                     if camera_name not in self.writers:
                         self.writers[camera_name] = [None] * n_envs
