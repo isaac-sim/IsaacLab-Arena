@@ -20,6 +20,9 @@ from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.tasks.task_transition import TaskTransition
 from isaaclab_arena.utils.cameras import get_viewer_cfg_look_at_object
 
+MIN_OPENNESS_CHANGE = 0.05
+"""Openness change, as a fraction of the joint range, past which the joint counts as having moved."""
+
 
 @register_task
 class RotateRevoluteJointTask(TaskBase):
@@ -66,6 +69,7 @@ class RotateRevoluteJointTask(TaskBase):
             RevoluteJointMovedRateMetric(
                 self.openable_object,
                 reset_joint_percentage=self.reset_joint_percentage,
+                joint_percentage_delta_threshold=MIN_OPENNESS_CHANGE,
             ),
         ]
 

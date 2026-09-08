@@ -15,8 +15,8 @@ from isaaclab_arena.assets.register import agent_ready, register_task
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
 from isaaclab_arena.tasks.common.open_close_door_mimic import RotateDoorMimicEnvCfg
-from isaaclab_arena.tasks.predicates.openness import MIN_OPENNESS_CHANGE, is_away_from_rest_openness
-from isaaclab_arena.tasks.rotate_revolute_joint_task import RotateRevoluteJointTask
+from isaaclab_arena.tasks.predicates.articulations import is_away_from_rest_openness
+from isaaclab_arena.tasks.rotate_revolute_joint_task import MIN_OPENNESS_CHANGE, RotateRevoluteJointTask
 
 
 @agent_ready
@@ -58,23 +58,23 @@ class OpenDoorTask(RotateRevoluteJointTask):
         )
 
     def make_termination_cfg(self):
+        params = {}
+        if self.target_joint_percentage_threshold is not None:
+            params["threshold"] = self.target_joint_percentage_threshold
         success = TerminationTermCfg(
             func=self.openable_object.is_open,
-            params=self.make_is_open_params(),
+            params=params,
         )
         return TerminationsCfg(success=success)
-
-    def make_is_open_params(self) -> dict:
-        """Returns the ``is_open`` kwargs, omitting the threshold when the task doesn't set one."""
-        if self.target_joint_percentage_threshold is None:
-            return {}
-        return {"threshold": self.target_joint_percentage_threshold}
 
     def get_termination_cfg(self):
         return self.termination_cfg
 
     def get_progress_objectives(self) -> list[ProgressObjective]:
         """Returns a single objective whose chain is: the door moved at all, then the door is open."""
+        is_open_params = {}
+        if self.target_joint_percentage_threshold is not None:
+            is_open_params["threshold"] = self.target_joint_percentage_threshold
         reset_openness = 0.0 if self.reset_joint_percentage is None else self.reset_joint_percentage
         return [
             ProgressObjective(
@@ -88,7 +88,7 @@ class OpenDoorTask(RotateRevoluteJointTask):
                         rest_openness=reset_openness,
                         min_openness_change=self.min_openness_change,
                     ),
-                    partial(self.openable_object.is_open, **self.make_is_open_params()),
+                    partial(self.openable_object.is_open, **is_open_params),
                 ],
                 description=f"Move the {self.openable_object.name} door, then open it past the success threshold.",
             ),

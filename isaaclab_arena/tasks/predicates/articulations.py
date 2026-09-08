@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Stateless predicates over the openness of articulated objects."""
+"""Stateless predicates over the state of articulated objects."""
 
 from __future__ import annotations
 
@@ -15,15 +15,12 @@ from isaaclab.managers import SceneEntityCfg
 from isaaclab_arena.tasks.predicates.predicate_utils import select
 from isaaclab_arena.utils.joint_utils import get_normalized_joint_position
 
-MIN_OPENNESS_CHANGE = 0.05
-"""Openness change, as a fraction of the joint range, past which the joint counts as having moved."""
-
 
 def is_away_from_rest_openness(
     env: ManagerBasedRLEnv,
     asset_cfg: SceneEntityCfg,
-    rest_openness: float = 0.0,
-    min_openness_change: float = MIN_OPENNESS_CHANGE,
+    rest_openness: float,
+    min_openness_change: float,
     env_id: int | None = None,
 ) -> torch.Tensor:
     """Checks if a joint's openness is away from a rest openness.
