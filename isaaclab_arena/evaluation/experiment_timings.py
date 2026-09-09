@@ -3,13 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Write Arena Experiment timings as one file per Run plus one combined file for the Experiment.
-
-Timers accumulate in a process-wide registry, so the Experiment Runner clears it between Runs and
-writes each Run's timings into that Run's output directory. OSMO gets the same per-Run split for
-free by running each Run in its own process. Both then combine those files with the same function,
-so an Experiment produces the same timings layout whichever way it was run.
-"""
+"""Write Arena Experiment timings as one file per Run plus one combined file for the Experiment."""
 
 from __future__ import annotations
 
@@ -25,14 +19,7 @@ EXPERIMENT_RUNNER_APP_NAME = "experiment_runner"
 
 
 def write_run_timings(run_output_directory: Path) -> Path:
-    """Write the timers recorded so far into one Run's output directory.
-
-    Args:
-        run_output_directory: The Run's output directory, created if it does not already exist.
-
-    Returns:
-        The path that was written.
-    """
+    """Write the timers recorded so far into one Run's output directory, returning the path written."""
     run_output_directory.mkdir(parents=True, exist_ok=True)
     return write_timer_stats_json(
         run_output_directory / ARENA_EXPERIMENT_TIMINGS_FILENAME,
@@ -43,10 +30,12 @@ def write_run_timings(run_output_directory: Path) -> Path:
 def aggregate_experiment_timings(experiment_output_directory: Path, run_names: Iterable[str]) -> Path:
     """Combine the named Runs' timings files into one Experiment timings file.
 
+    The combined file holds "totals", one entry per timer name summed over every Run, and "runs",
+    every Run's own entries with the Run's name added to each as "run_name".
+
     Args:
         experiment_output_directory: Experiment output holding one output directory per Run.
-        run_names: Runs to include, normally the completed ones. Included in sorted order so that
-            the combined file does not depend on the order the Runs were executed or collected in.
+        run_names: Runs to include, sorted so the file does not depend on the order given.
 
     Returns:
         Path to the written Experiment timings file.

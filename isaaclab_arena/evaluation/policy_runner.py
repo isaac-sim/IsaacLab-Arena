@@ -90,9 +90,6 @@ def rollout_policy(
         num_steps_completed = 0
 
         while True:
-            # The rollout's cost breakdown: "step" is the whole loop body, and the two nested
-            # inside it are the parts that dominate it. "env_step" is measured above the video
-            # recorders, so it includes their cost.
             with torch.inference_mode(), Timer("step"):
                 with Timer("policy_inference"):
                     actions = policy.get_action(env, obs)

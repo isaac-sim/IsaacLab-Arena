@@ -60,8 +60,7 @@ def execute_experiment(
     for run_cfg in experiment_cfg.runs.values():
         print(f"Running run '{run_cfg.name}'", flush=True)
         run_output_dir = output_dir / run_cfg.name
-        # Timers accumulate process-wide, so clear them to time this Run alone. OSMO gets the same
-        # per-Run split by running each Run in its own process.
+        # Clear timers.
         reset_timer_stats()
         try:
             result = build_and_run(
