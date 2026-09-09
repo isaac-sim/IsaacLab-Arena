@@ -3,8 +3,8 @@ Welcome to Isaac Lab-Arena!
 
 .. note::
    This is the development version of Isaac Lab Arena. It contains the newest features but may not
-   be fully tested yet. For the tested version, please refer to the `release/0.2.1 branch
-   <https://isaac-sim.github.io/IsaacLab-Arena/release/0.2.1/index.html>`_.
+   be fully tested yet. For the tested version, please refer to the `release/0.3.0 branch
+   <https://isaac-sim.github.io/IsaacLab-Arena/release/0.3.0/index.html>`_.
 
 .. _overview:
 

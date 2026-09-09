@@ -52,7 +52,7 @@ container. This step is required only once per host environment.
 
       .. code-block:: bash
 
-         export NVIDIA_API_KEY=<your-ngc-api-key>
+         export NVIDIA_API_KEY="YOUR_NGC_API_KEY"
 
    .. tab-item:: NVIDIA Internal Endpoint
 
@@ -62,7 +62,7 @@ container. This step is required only once per host environment.
 
       .. code-block:: bash
 
-         export NV_API_KEY=<your-internal-api-key>
+         export NV_API_KEY="YOUR_INTERNAL_API_KEY"
 
       .. note::
 
@@ -80,7 +80,7 @@ container. This step is required only once per host environment.
 
       .. code-block:: bash
 
-         export OPENAI_API_KEY=<your-openai-api-key>
+         export OPENAI_API_KEY="YOUR_OPENAI_API_KEY"
 
       .. note::
 
