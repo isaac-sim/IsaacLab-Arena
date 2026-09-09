@@ -86,6 +86,12 @@ class IsaacLabArenaManagerBasedRLEnvCfg(ManagerBasedRLEnvCfg):
     decimation: int = 8
     wait_for_textures: bool = False
 
+    # Force extra RTX sensor refreshes after every reset. IsaacLab's own default (0)
+    # leaves camera buffers stale on the first frame of every episode after the
+    # first, so the previous episode's final rendered frame leaks in (corrupting
+    # RGB/depth/flow during datagen). See IsaacLab-Arena #339.
+    num_rerenders_on_reset: int = 5
+
 
 def apply_arena_global_settings() -> None:
     """Apply Arena's process-global RTX and physics settings before environment construction."""
