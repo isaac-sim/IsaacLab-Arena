@@ -453,7 +453,7 @@ the :doc:`reinforcement_learning/index` workflow.
    * - **Task Class**
      - ``LiftObjectTaskRL`` (minimum_height_to_lift = 0.04, episode_length_s = 5)
    * - **Training Method**
-     - Reinforcement Learning (RSL-RL PPO; ``rl_policy_cfg`` = ``base_rsl_rl_policy:RLPolicyCfg``)
+     - Trained in Isaac Lab via Reinforcement Learning (RSL-RL PPO; ``rl_policy_cfg`` = ``base_rsl_rl_policy:RLPolicyCfg``)
    * - **CLI Args**
      - ``--object``, ``--embodiment``, ``--teleop_device``, ``--rl_training_mode``
 
