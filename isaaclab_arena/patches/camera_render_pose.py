@@ -6,23 +6,26 @@
 """Make a camera's local-pose change take effect on the RTX render under Newton.
 
 Writing ``camera._view.set_local_poses`` (or the public ``camera.set_world_poses``) updates the physics
-FrameView. Under PhysX that view is Fabric-backed and the RTX renderer -- which reads the USD/Fabric camera
-prim -- follows. Under Newton the FrameView (``NewtonSiteFrameView``) updates only in-memory Warp state, so
-the render does not move.
+FrameView. Under PhysX that view is a ``FabricFrameView``, which forwards the write to a ``UsdFrameView``
+over the same prim, and the RTX renderer -- which reads the USD camera prim -- follows. Under Newton the
+FrameView (``NewtonSiteFrameView``) updates only in-memory Warp state, so the render does not move.
 
 This writer also mirrors the local pose onto the USD camera prim via ``UsdFrameView`` (which
 ``IsaacRtxRenderer`` reads on both backends) and calls ``camera.reset`` so ``camera.data.pos_w`` reflects
-the new pose.
+the new pose. On PhysX that second write is redundant -- it re-authors the same xformOps the FrameView
+already authored -- but it is harmless, and keeping it unconditional keeps both backends on one path.
 """
 
 from __future__ import annotations
 
 import torch
 
+import warp as wp
+
 
 # TODO(alexmillane, 2026-09-08): [isaac-lab-camera-pose-write-bug] Remove this whole class once IsaacLab's
-# NewtonSiteFrameView mirrors poses into Fabric like FabricFrameView; then a FrameView write plus
-# camera.reset suffice on both backends.
+# NewtonSiteFrameView mirrors poses onto the USD camera prim like FabricFrameView; then a FrameView write
+# plus camera.reset suffice on both backends.
 class CameraPoseWriter:
     """Write a camera's local pose so both ``camera.data`` and the RTX render follow it, on any backend."""
 
@@ -52,8 +55,8 @@ class CameraPoseWriter:
         """
         physics_t, physics_q = self._physics_view.get_local_poses()
         physics_t, physics_q = physics_t.torch, physics_q.torch
-        usd_t = self._usd_view.get_local_poses()[0].torch.to(physics_t.device)
-        usd_q = self._usd_view.get_local_poses()[1].torch.to(physics_q.device)
+        usd_t, usd_q = self._usd_view.get_local_poses()
+        usd_t, usd_q = usd_t.torch.to(physics_t.device), usd_q.torch.to(physics_q.device)
         assert torch.allclose(physics_t, usd_t, atol=1.0e-4), (
             "Physics FrameView and USD camera-prim local translations disagree "
             f"(physics={physics_t.tolist()}, usd={usd_t.tolist()}); one pose cannot serve both."
@@ -64,22 +67,16 @@ class CameraPoseWriter:
             torch.all(alignment > 1.0 - 1.0e-3)
         ), f"Physics FrameView and USD camera-prim local orientations disagree (alignment={alignment.tolist()})."
 
-    def set_local_poses(self, translations: torch.Tensor, orientations: torch.Tensor | None, env_ids: torch.Tensor):
-        """Set local-space translations and/or orientations for the camera.
-
-        Local poses are poses of the camera prim with respect to its parent.
-        """
-        import warp as wp
-
+    def set_local_translations(self, translations: torch.Tensor, env_ids: torch.Tensor):
+        """Set local-space translations for the camera."""
         self._ensure_initialized()
         self._physics_view.set_local_poses(
-            translations=translations, orientations=orientations, indices=wp.from_torch(env_ids.to(torch.int32))
+            translations=translations, orientations=None, indices=wp.from_torch(env_ids.to(torch.int32))
         )
         usd_env_ids = env_ids.to(self._usd_device)
-        usd_orientations = None if orientations is None else orientations.to(self._usd_device)
         self._usd_view.set_local_poses(
             translations=translations.to(self._usd_device),
-            orientations=usd_orientations,
+            orientations=None,
             indices=wp.from_torch(usd_env_ids.to(torch.int32)),
         )
         self._camera.reset(env_ids)

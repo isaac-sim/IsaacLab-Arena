@@ -4,7 +4,3 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """Small, self-contained workarounds for upstream Isaac Sim / Isaac Lab issues."""
-
-from isaaclab_arena.patches.camera_render_pose import CameraPoseWriter
-
-__all__ = ["CameraPoseWriter"]

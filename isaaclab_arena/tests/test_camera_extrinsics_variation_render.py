@@ -6,7 +6,7 @@
 """A camera-pose write must move both the RTX render and ``camera.data.pos_w``, on PhysX and Newton.
 
 These tests write the wrist camera to two offsets and check that the render (pixels) and
-``camera.data.pos_w`` follow. Set ``SAVE_IMAGES = True`` to dump the compared frames under
+``camera.data.pos_w`` follow. Set ``ISAACLAB_ARENA_SAVE_TEST_IMAGES=1`` to dump the compared frames under
 ``IMAGE_OUTPUT_DIR/<test name>/``.
 """
 
@@ -15,7 +15,7 @@ import torch
 
 import pytest
 
-from isaaclab_arena.patches import CameraPoseWriter
+from isaaclab_arena.patches.camera_render_pose import CameraPoseWriter
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
 HEADLESS = True
@@ -27,14 +27,16 @@ WARMUP_STEPS = 2
 RENDER_ITERS = 3
 RENDER_DIFF_THRESHOLD = 5.0
 POSE_SHIFT_THRESHOLD_M = 0.05
-SAVE_IMAGES = False
+SAVE_IMAGES = os.environ.get("ISAACLAB_ARENA_SAVE_TEST_IMAGES") == "1"
 IMAGE_OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "output")
+
+# Physics backend name -> the --presets value that selects it (None is the PhysX default).
+BACKEND_PRESETS = {"physx": None, "newton": "newton"}
 
 
 def _disable_joint_randomization(env_cfg):
     """Null the reset-time joint randomization so the robot pose is deterministic across steps."""
-    if getattr(env_cfg.events, "randomize_franka_joint_state", None) is not None:
-        env_cfg.events.randomize_franka_joint_state = None
+    env_cfg.events.randomize_franka_joint_state = None
     return env_cfg
 
 
@@ -82,11 +84,11 @@ def _apply_camera_offset(pose_writer, nominal_translation, offset, device, env_i
     """Write ``nominal + offset`` (parent-frame translation) to the camera via the CameraPoseWriter."""
     offset_tensor = torch.tensor(offset, device=device).unsqueeze(0).expand(len(env_ids), 3)
     target = nominal_translation[env_ids] + offset_tensor
-    pose_writer.set_local_poses(translations=target, orientations=None, env_ids=env_ids)
+    pose_writer.set_local_translations(translations=target, env_ids=env_ids)
 
 
 def _render_wrist_at_offsets(simulation_app, *, presets, out) -> bool:
-    """Render the wrist camera at each variant offset, appending (offset, mean, nonzero, rgb) to ``out``."""
+    """Render the wrist camera at each compared offset, appending (offset, mean, nonzero, rgb) to ``out``."""
     env = _build_env(presets)
     env.reset()
 
@@ -99,7 +101,7 @@ def _render_wrist_at_offsets(simulation_app, *, presets, out) -> bool:
     zero_actions = torch.zeros(env.action_space.shape, device=device)
 
     with torch.inference_mode():
-        # Bring up the sensors and render non-black content once; both variants render this same
+        # Bring up the sensors and render non-black content once; both offsets render this same
         # frozen physics state, so the only difference between them is the camera pose.
         for _ in range(WARMUP_STEPS):
             env.step(zero_actions)
@@ -118,7 +120,7 @@ def _render_wrist_at_offsets(simulation_app, *, presets, out) -> bool:
 
 
 def _read_camera_pose_at_offsets(simulation_app, *, presets, out) -> bool:
-    """Read the camera pose at each variant offset, appending (offset, camera_pos_w, view_pos_w) to ``out``."""
+    """Read the camera pose at each compared offset, appending (offset, camera_pos_w, view_pos_w) to ``out``."""
     env = _build_env(presets)
     env.reset()
 
@@ -163,13 +165,14 @@ def _save_offset_images(renders: list, output_subdir: str) -> None:
         print(f"Wrote {output_path}", flush=True)
 
 
-def _mean_render_difference(label: str, presets: str | None, output_subdir: str) -> float:
+def _mean_render_difference(label: str, presets: str | None, disable_fabric: bool, output_subdir: str) -> float:
     """Return the mean absolute pixel difference between the two camera-offset renders."""
     renders: list = []
     assert run_function_with_persistent_simulation_app(
         _render_wrist_at_offsets,
         headless=HEADLESS,
         enable_cameras=ENABLE_CAMERAS,
+        force_disable_fabric=disable_fabric,
         presets=presets,
         out=renders,
     ), "Failed to render the wrist camera."
@@ -202,55 +205,36 @@ def _camera_pose_shift(label: str, presets: str | None) -> tuple[float, float]:
 
 
 @pytest.mark.with_cameras
-def test_camera_extrinsics_variation_moves_render_physx(request):
-    """PhysX: changing the camera's FrameView pose moves the rendered wrist-camera image."""
-    difference = _mean_render_difference("physx", presets=None, output_subdir=request.node.name)
-    assert difference > RENDER_DIFF_THRESHOLD, (
-        f"Expected the PhysX render to change with the camera pose (mean diff > {RENDER_DIFF_THRESHOLD}); "
-        f"got {difference:.4f}."
-    )
+@pytest.mark.parametrize("backend", list(BACKEND_PRESETS))
+# Fabric on is the default outside tests, and it changes which view the render reads, so both are covered.
+# The suite-wide Fabric-off override is only there for [lab-render-after-rebuild-bug], which misplaces
+# geometry on rebuilt stages; that shifts both compared frames equally and so cannot fake this difference.
+@pytest.mark.parametrize("disable_fabric", [True, False], ids=["fabric_off", "fabric_on"])
+def test_camera_extrinsics_variation_moves_render(backend, disable_fabric, request):
+    """Changing the camera's local pose moves the rendered wrist-camera image.
 
-
-@pytest.mark.with_cameras
-def test_camera_extrinsics_variation_moves_render_newton(request):
-    """Newton: changing the camera pose (with the camera.reset push) moves the rendered wrist image.
-
-    Guards the Newton regression: without the push the ``NewtonSiteFrameView`` write never reaches the
+    Guards the Newton regression: without the USD write the ``NewtonSiteFrameView`` pose never reaches the
     renderer and the image stays put.
     """
-    difference = _mean_render_difference("newton", presets="newton", output_subdir=request.node.name)
+    label = f"{backend}-{'fabric_off' if disable_fabric else 'fabric_on'}"
+    difference = _mean_render_difference(
+        label, presets=BACKEND_PRESETS[backend], disable_fabric=disable_fabric, output_subdir=request.node.name
+    )
     assert difference > RENDER_DIFF_THRESHOLD, (
-        f"Expected the Newton render to change with the camera pose (mean diff > {RENDER_DIFF_THRESHOLD}); "
-        f"got {difference:.4f}. Under Newton the FrameView pose write is not pushed to the renderer."
+        f"Expected the {label} render to change with the camera pose (mean diff > {RENDER_DIFF_THRESHOLD}); "
+        f"got {difference:.4f}. The camera pose write is not reaching the renderer."
     )
 
 
 @pytest.mark.with_cameras
-def test_camera_extrinsics_variation_moves_camera_pose_physx():
-    """PhysX: the camera's reported world pose (camera.data.pos_w) follows the FrameView write.
+@pytest.mark.parametrize("backend", list(BACKEND_PRESETS))
+def test_camera_extrinsics_variation_moves_camera_pose(backend):
+    """The camera's reported world pose (camera.data.pos_w) follows the FrameView write.
 
     The FrameView pose is checked as a positive control; camera.data.pos_w only follows because the
     applied offset pushes the write with ``camera.reset``.
     """
-    camera_shift, view_shift = _camera_pose_shift("physx", presets=None)
-    assert view_shift > POSE_SHIFT_THRESHOLD_M, (
-        "Sanity check failed: the FrameView world pose should move with the offset "
-        f"(> {POSE_SHIFT_THRESHOLD_M} m); got {view_shift:.4f} m."
-    )
-    assert camera_shift > POSE_SHIFT_THRESHOLD_M, (
-        f"Expected camera.data.pos_w to follow the camera pose (> {POSE_SHIFT_THRESHOLD_M} m); "
-        f"got {camera_shift:.4f} m. The variation's FrameView write is not pushed to the camera pose."
-    )
-
-
-@pytest.mark.with_cameras
-def test_camera_extrinsics_variation_moves_camera_pose_newton():
-    """Newton: the camera's reported world pose (camera.data.pos_w) follows the FrameView write.
-
-    The FrameView pose is checked as a positive control; camera.data.pos_w only follows because the
-    applied offset pushes the write with ``camera.reset``.
-    """
-    camera_shift, view_shift = _camera_pose_shift("newton", presets="newton")
+    camera_shift, view_shift = _camera_pose_shift(backend, presets=BACKEND_PRESETS[backend])
     assert view_shift > POSE_SHIFT_THRESHOLD_M, (
         "Sanity check failed: the FrameView world pose should move with the offset "
         f"(> {POSE_SHIFT_THRESHOLD_M} m); got {view_shift:.4f} m."

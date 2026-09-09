@@ -25,7 +25,7 @@ from isaaclab.sensors import Camera, TiledCamera
 from isaaclab.utils.configclass import configclass
 from isaaclab.utils.math import quat_apply
 
-from isaaclab_arena.patches import CameraPoseWriter
+from isaaclab_arena.patches.camera_render_pose import CameraPoseWriter
 from isaaclab_arena.variations.continuous_sampler import ContinuousSampler
 from isaaclab_arena.variations.uniform_sampler import UniformSamplerCfg
 from isaaclab_arena.variations.variation_base import RunTimeVariationBase, VariationBaseCfg
@@ -166,4 +166,4 @@ class apply_camera_extrinsics_from_sampler(ManagerTermBase):
         t_parent_Cnew_in_parent = self._t_parent_C_in_parent[env_ids] + t_C_Cnew_in_parent
 
         # [isaac-lab-camera-pose-write-bug] Written via the pose writer so it reaches the Newton render.
-        self._pose_writer.set_local_poses(translations=t_parent_Cnew_in_parent, orientations=None, env_ids=env_ids)
+        self._pose_writer.set_local_translations(translations=t_parent_Cnew_in_parent, env_ids=env_ids)
