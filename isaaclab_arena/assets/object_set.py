@@ -10,7 +10,8 @@ from isaaclab.assets import RigidObjectCfg
 from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
 
 from isaaclab_arena.assets.object import Object
-from isaaclab_arena.assets.object_base import ObjectBase, ObjectType
+from isaaclab_arena.assets.object_base import ObjectBase
+from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.assets.object_utils import detect_object_type
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose

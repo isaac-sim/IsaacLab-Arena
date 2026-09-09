@@ -84,8 +84,8 @@ def _test_background_physics_discovery_and_reset(
     from pxr import UsdPhysics
 
     from isaaclab_arena.assets.background import Background
-    from isaaclab_arena.assets.object_base import ObjectType
     from isaaclab_arena.assets.object_reference import ObjectReference
+    from isaaclab_arena.assets.object_type import ObjectType
     from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
@@ -296,7 +296,7 @@ def _test_maple_table_pose_restored_on_reset(_) -> bool:
     """Move the nested Maple table body and verify reset restores its cached pose."""
     import torch
 
-    from isaaclab_arena.assets.object_base import ObjectType
+    from isaaclab_arena.assets.object_type import ObjectType
     from isaaclab_arena.assets.registries import AssetRegistry
     from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder

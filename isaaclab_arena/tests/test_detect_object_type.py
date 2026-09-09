@@ -19,7 +19,7 @@ def _test_detect_object_type(simulation_app):
 
     from pxr import Usd, UsdPhysics
 
-    from isaaclab_arena.assets.object_base import ObjectType
+    from isaaclab_arena.assets.object_type import ObjectType
     from isaaclab_arena.assets.object_utils import detect_object_type
     from isaaclab_arena.tests.utils.usd_stages import add_body, new_stage
 
@@ -100,7 +100,7 @@ def _test_detect_object_type_for_all_objects(simulation_app):
 def _test_auto_object_type(simulation_app):
 
     from isaaclab_arena.assets.object import Object
-    from isaaclab_arena.assets.object_base import ObjectType
+    from isaaclab_arena.assets.object_type import ObjectType
     from isaaclab_arena.assets.registries import AssetRegistry
     from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
