@@ -477,9 +477,9 @@ Execute large-scale parallel policy evaluations
             orchestrator such as OSMO to distribute across multi-node compute. Arena returns
             aggregate metrics for a high-level summary and per-episode results for detailed
             analysis.
-            A preliminary :ref:`OSMO scaling benchmark <performance-distributed-runs>` achieved a
-            7.95x speedup in active Arena execution for eight Runs when all eight ran concurrently
-            on eight L40 GPUs rather than sequentially on one L40 GPU.
+            A preliminary :ref:`OSMO scaling benchmark <performance-distributed-runs>` showed that
+            active execution time decreased nearly in proportion to the number of GPUs used to
+            run independent Runs concurrently.
 
       .. grid-item::
          :columns: 12 12 7 7
