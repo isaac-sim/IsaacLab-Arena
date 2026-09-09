@@ -53,7 +53,25 @@ Terminal 2 — Experiment Runner
 
 **Run pi05 closed-loop**
 
-Open a second terminal and enter the Arena container with ``./docker/run_docker.sh``.
+Open a second terminal and prepare the Arena runtime from the repository root, using either a
+native ``uv`` environment or the base Docker container (see
+:doc:`../installation` for the full setup):
+
+.. tab-set::
+
+   .. tab-item:: Native uv
+      :selected:
+
+      :uv_run_source:
+
+   .. tab-item:: Docker Container
+
+      :docker_run_default:
+
+The ``openpi-client`` WebSocket client is part of a default ``uv sync``, and the Docker image
+ships it as well, so no extra install step is needed on either route. Terminal 1 keeps serving
+the model from its own container regardless of which runtime you choose here.
+
 Arena includes a one-Run YAML configuration for this rollout:
 
 .. dropdown:: Configuration file (``droid_pnp_openpi_experiment.yaml``)
