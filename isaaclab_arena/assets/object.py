@@ -34,6 +34,7 @@ class Object(ObjectBase):
         initial_pose: Pose | None = None,
         relations: list[RelationBase] = [],
         spawner_cfg: SpawnerCfg | None = None,
+        activate_contact_sensors: bool = True,
         **kwargs,
     ):
         # Pull out addons (and remove them from kwargs before passing to super)
@@ -57,6 +58,7 @@ class Object(ObjectBase):
         self.initial_pose = initial_pose
         self.relations = list(relations)
         self.reset_pose = True
+        self.activate_contact_sensors = activate_contact_sensors
         self.spawn_cfg_addon = spawn_cfg_addon
         self.asset_cfg_addon = asset_cfg_addon
         self.bounding_box = None
@@ -150,7 +152,7 @@ class Object(ObjectBase):
         assert self.object_type == ObjectType.RIGID
         object_cfg = RigidObjectCfg(
             prim_path=self.prim_path,
-            spawn=self._get_spawn_cfg(activate_contact_sensors=True),
+            spawn=self._get_spawn_cfg(activate_contact_sensors=self.activate_contact_sensors),
             **self.asset_cfg_addon,
         )
         return self._add_initial_pose_to_cfg(object_cfg)
@@ -159,7 +161,7 @@ class Object(ObjectBase):
         assert self.object_type == ObjectType.ARTICULATION
         object_cfg = ArticulationCfg(
             prim_path=self.prim_path,
-            spawn=self._get_spawn_cfg(activate_contact_sensors=True),
+            spawn=self._get_spawn_cfg(activate_contact_sensors=self.activate_contact_sensors),
             **self.asset_cfg_addon,
             actuators={},
         )
