@@ -5,14 +5,14 @@
 ### Composable Environment Creation and Policy Evaluation for Robotics Simulation
 
 [![Alpha](https://img.shields.io/badge/status-alpha-e8912d.svg)](#%EF%B8%8F-project-status)
-[![Version](https://img.shields.io/badge/version-0.2.x-blue.svg)](https://github.com/isaac-sim/IsaacLab-Arena/tree/main)
+[![Version](https://img.shields.io/badge/version-0.3-blue.svg)](https://github.com/isaac-sim/IsaacLab-Arena/tree/main)
 [![IsaacSim](https://img.shields.io/badge/IsaacSim-6.0.0-silver.svg)](https://docs.isaacsim.omniverse.nvidia.com/latest/index.html)
 [![IsaacLab](https://img.shields.io/badge/IsaacLab-3.0.0-silver.svg)](https://github.com/isaac-sim/IsaacLab)
 [![Python](https://img.shields.io/badge/python-≥3.12-blue.svg)](https://docs.python.org/3/whatsnew/3.12.html)
 [![Linux](https://img.shields.io/badge/platform-linux--64-orange.svg)](https://releases.ubuntu.com/22.04/)
 [![License](https://img.shields.io/badge/license-Apache--2.0-yellow.svg)](LICENSE.md)
 
-[Documentation](https://isaac-sim.github.io/IsaacLab-Arena/release/0.2.0/index.html) · [NVIDIA Blog Post](https://developer.nvidia.com/blog/simplify-generalist-robot-policy-evaluation-in-simulation-with-nvidia-isaac-lab-arena/) · [Report a Bug](https://github.com/isaac-sim/IsaacLab-Arena/issues) · [Discussions](https://github.com/isaac-sim/IsaacLab-Arena/discussions)
+[Documentation](https://isaac-sim.github.io/IsaacLab-Arena/release/0.3.0/index.html) · [NVIDIA Blog Post](https://developer.nvidia.com/blog/simplify-generalist-robot-policy-evaluation-in-simulation-with-nvidia-isaac-lab-arena/) · [Report a Bug](https://github.com/isaac-sim/IsaacLab-Arena/issues) · [Discussions](https://github.com/isaac-sim/IsaacLab-Arena/discussions)
 
 </div>
 
@@ -20,10 +20,10 @@
 
 > [!WARNING]
 > **Alpha Software — Not an Early Access or General Availability Release.**
-> Isaac Lab-Arena `v0.2.x` is an early code release intended to give the community a practical starting point to experiment, provide feedback, and influence future design direction. APIs are unstable and will change. Features are incomplete. Documentation is evolving. **Do not use this in production.** See [Project Status](#%EF%B8%8F-project-status) for details.
+> Isaac Lab-Arena `v0.3` is an early code release intended to give the community a practical starting point to experiment, provide feedback, and influence future design direction. APIs are unstable and will change. Features are incomplete. Documentation is evolving. **Do not use this in production.** See [Project Status](#%EF%B8%8F-project-status) for details.
 
 > [!NOTE]
-> Changes on `main` contains an in development version based on v0.2.0, based on Isaac Lab 3.0.
+> Changes on `main` contain an in-development version based on v0.3.0 and Isaac Lab 3.0.
 ---
 
 ## Overview
@@ -203,6 +203,7 @@ IsaacLab-Arena/
 | Isaac Lab-Arena                      | Isaac Lab | Isaac Sim | Python |
 |--------------------------------------|-----------|-----------|--------|
 | `main`                               | 3.0.0     | 6.0.0     | ≥ 3.12 |
+| `release/0.3.0`                      | 3.0.0     | 6.0.0     | ≥ 3.12 |
 | `release/0.2.1`                      | 3.0.0     | 6.0.0     | ≥ 3.12 |
 | `release/0.2.0`                      | 3.0.0     | 6.0.0     | ≥ 3.12 |
 | `feature/arena_v0.2_on_lab_2.3`      | 2.3.0     | 5.1.0     | ≥ 3.10 |
@@ -211,14 +212,14 @@ IsaacLab-Arena/
 
 ## ⚠️ Project Status
 
-Isaac Lab-Arena is in **alpha** (`v0.2.x`). This is important to understand:
+Isaac Lab-Arena is in **alpha** (`v0.3`). This is important to understand:
 
 | What This Means | Details |
 |-----------------|---------|
 | **Not EA / GA** | This is not an Early Access or General Availability release. It is a very early community code drop. |
 | **APIs will break** | Public interfaces are under active development and will change without deprecation warnings. |
 | **Features are incomplete** | Core capabilities like agentic task generation, non-sequential long horizon tasks, easy-to-configure sensitivity analysis, and enhanced heterogeneity across parallel evaluations are planned but not yet implemented. |
-| **Limited testing** | The `main` branch contains the latest code but may not be fully tested. Use `release/0.2.0` for the most stable experience. |
+| **Limited testing** | The `main` branch contains the latest code but may not be fully tested. Use `release/0.3.0` for the most stable experience. |
 
 
 ## Ecosystem

@@ -11,15 +11,11 @@ import math
 import torch
 from typing import TYPE_CHECKING
 
-import warp as wp
-from isaaclab.assets import RigidObject
-from isaaclab.envs import ManagerBasedRLEnv
 from isaaclab.managers import SceneEntityCfg
 from isaaclab.sensors.contact_sensor.contact_sensor import ContactSensor
 from isaaclab.utils.math import quat_apply, quat_apply_inverse
 
 from isaaclab_arena.tasks.predicates.object_settling import get_object_initial_rest_state
-from isaaclab_arena.tasks.predicates.predicate_utils import get_env, get_root_lin_vel_w, get_root_pos_w, select
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 if TYPE_CHECKING:
@@ -114,12 +110,11 @@ def object_is_moving_slowly(
 
 
 def object_is_above_height(
-    env: ManagerBasedRLEnv,
+    env: IsaacLabArenaManagerBasedRLEnv,
     object_name: str,
     surface_height: float | None = None,
     use_settled_state: bool = False,
     distance: float = 1e-2,
-    env_id: int | None = None,
 ) -> torch.Tensor:
     """Checks if an object is above a certain height.
 
@@ -134,33 +129,33 @@ def object_is_above_height(
         surface_height is not None
     ) != use_settled_state, "object_is_above_height requires exactly one of surface_height or use_settled_state"
 
-    object_z = get_root_pos_w(env, object_name)[:, 2]
+    object_z = env.arena_world.get_pose_w(object_name)[:, 2]
     if use_settled_state:
         settled_pos, has_settled = get_object_initial_rest_state(env, object_name)
         result = has_settled & (object_z > (settled_pos[:, 2] + distance))
     else:
         result = object_z > (surface_height + distance)
-    return select(result, env_id)
+    return result
 
 
 def object_moving(
-    env: ManagerBasedRLEnv,
+    env: IsaacLabArenaManagerBasedRLEnv,
     object_name: str,
     velocity_threshold: float = 1e-2,
-    env_id: int | None = None,
 ) -> torch.Tensor:
-    """Checks if an object is moving above a certain velocity threshold.
+    """Check whether a rigid object is moving above a velocity threshold.
 
     Returns True when object_name's linear speed exceeds velocity_threshold (m/s).
     """
 
-    speed = torch.linalg.vector_norm(get_root_lin_vel_w(env, object_name), dim=-1)
-    result = speed > velocity_threshold
-    return select(result, env_id)
+    arena_world = env.arena_world
+    object_root_linear_velocity_w = arena_world.get_root_linear_velocity_w(object_name)
+    speed = torch.linalg.vector_norm(object_root_linear_velocity_w, dim=-1)
+    return speed > velocity_threshold
 
 
 def objects_in_proximity(
-    env: ManagerBasedRLEnv,
+    env: IsaacLabArenaManagerBasedRLEnv,
     object_cfg: SceneEntityCfg,
     target_object_cfg: SceneEntityCfg,
     max_y_separation: float,
@@ -172,18 +167,14 @@ def objects_in_proximity(
     Returns True when the object is within a certain proximity of the target object.
     """
 
-    # Get object entities from the scene
-    object: RigidObject = env.scene[object_cfg.name]
-    target_object: RigidObject = env.scene[target_object_cfg.name]
-
-    # Get positions relative to environment origin
-    object_pos = wp.to_torch(object.data.root_pos_w) - env.scene.env_origins
-    target_object_pos = wp.to_torch(target_object.data.root_pos_w) - env.scene.env_origins
+    arena_world = env.arena_world
+    object_position_w = arena_world.get_pose_w(object_cfg.name)[:, :3]
+    target_object_position_w = arena_world.get_pose_w(target_object_cfg.name)[:, :3]
 
     # object to target object
-    x_separation = torch.abs(object_pos[:, 0] - target_object_pos[:, 0])
-    y_separation = torch.abs(object_pos[:, 1] - target_object_pos[:, 1])
-    z_separation = torch.abs(object_pos[:, 2] - target_object_pos[:, 2])
+    x_separation = torch.abs(object_position_w[:, 0] - target_object_position_w[:, 0])
+    y_separation = torch.abs(object_position_w[:, 1] - target_object_position_w[:, 1])
+    z_separation = torch.abs(object_position_w[:, 2] - target_object_position_w[:, 2])
 
     done = x_separation < max_x_separation
     done = torch.logical_and(done, y_separation < max_y_separation)
@@ -208,7 +199,7 @@ def object_on_destination(
     and the object's linear speed must be below the configured threshold.
 
     Args:
-        env: The wrapped or unwrapped manager-based environment.
+        env: The live Arena manager-based environment.
         object_cfg: The rigid object being placed.
         destination_cfg: The rigid object or scene entry receiving the object.
         contact_sensor_cfg: The object's contact sensor filtered to the destination.
@@ -220,8 +211,7 @@ def object_on_destination(
         One Boolean result per environment.
     """
 
-    unwrapped_env = get_env(env)
-    arena_world = unwrapped_env.arena_world
+    arena_world = env.arena_world
     T_W_O = arena_world.get_pose_w(object_cfg.name)
     T_W_D = arena_world.get_pose_w(destination_cfg.name)
     object_center_over_destination = object_bounds_center_over_destination(
@@ -231,11 +221,11 @@ def object_on_destination(
         destination_bounds_D=arena_world.get_aabb_in_local_frame(destination_cfg.name),
     )
 
-    contact_sensor: ContactSensor = unwrapped_env.scene[contact_sensor_cfg.name]
+    contact_sensor: ContactSensor = env.scene[contact_sensor_cfg.name]
     force_matrix_w = contact_sensor.data.force_matrix_w
     assert force_matrix_w is not None, f"Contact sensor '{contact_sensor_cfg.name}' has no filtered force matrix."
     force_matrix_w = force_matrix_w.torch
-    assert force_matrix_w.shape == (unwrapped_env.num_envs, 1, 1, 3), (
+    assert force_matrix_w.shape == (env.num_envs, 1, 1, 3), (
         f"Contact sensor '{contact_sensor_cfg.name}' must provide one sensed body and one filtered body; "
         f"got force shape {tuple(force_matrix_w.shape)}."
     )

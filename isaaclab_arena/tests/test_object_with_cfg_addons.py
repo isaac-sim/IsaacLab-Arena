@@ -11,8 +11,8 @@ HEADLESS = True
 
 def _test_object_with_cfg_addons(simulation_app):
 
-    from isaaclab_arena.assets.object_base import ObjectType
     from isaaclab_arena.assets.object_library import LibraryObject
+    from isaaclab_arena.assets.object_type import ObjectType
     from isaaclab_arena.utils.pose import Pose
 
     class ConeWithCfgAddons(LibraryObject):

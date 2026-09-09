@@ -14,14 +14,10 @@ Resetting and clearing of positions are handled by the progress tracker on env r
 from __future__ import annotations
 
 import torch
+from typing import TYPE_CHECKING
 
-from isaaclab_arena.tasks.predicates.predicate_utils import (
-    get_env,
-    get_root_ang_vel_w,
-    get_root_lin_vel_w,
-    get_root_pos_w,
-    select,
-)
+if TYPE_CHECKING:
+    from isaaclab_arena.environments.isaaclab_arena_manager_based_env import IsaacLabArenaManagerBasedRLEnv
 
 
 class ObjectInitialRestPoseRecorder:
@@ -70,21 +66,22 @@ class ObjectInitialRestPoseRecorder:
             entry["position"][ids] = float("nan")
 
 
-def get_rest_pose_recorder(env) -> ObjectInitialRestPoseRecorder:
-    """Return the ``ObjectInitialRestPoseRecorder`` owned by the unwrapped Arena environment."""
+def get_rest_pose_recorder(env: IsaacLabArenaManagerBasedRLEnv) -> ObjectInitialRestPoseRecorder:
+    """Return the ``ObjectInitialRestPoseRecorder`` owned by the Arena environment."""
 
-    return get_env(env).object_initial_rest_pose_recorder
+    return env.object_initial_rest_pose_recorder
 
 
-def reset_rest_pose_recorder(env, env_ids=None) -> None:
+def reset_rest_pose_recorder(env: IsaacLabArenaManagerBasedRLEnv, env_ids=None) -> None:
     """Clear recorded initial rest poses for ``env_ids``. Invoked by the progress tracker on env reset."""
 
-    recorder = getattr(get_env(env), "object_initial_rest_pose_recorder", None)
-    if recorder is not None:
-        recorder.reset(env_ids)
+    env.object_initial_rest_pose_recorder.reset(env_ids)
 
 
-def get_object_initial_rest_state(env, name: str) -> tuple[torch.Tensor, torch.Tensor]:
+def get_object_initial_rest_state(
+    env: IsaacLabArenaManagerBasedRLEnv,
+    name: str,
+) -> tuple[torch.Tensor, torch.Tensor]:
     """Return ``(position, settled)`` for an object's recorded initial rest pose.
 
     ``position`` (num_envs, 3) is meaningful only for envs whose ``settled`` mask (num_envs,) is True.
@@ -94,28 +91,40 @@ def get_object_initial_rest_state(env, name: str) -> tuple[torch.Tensor, torch.T
 
 
 def objects_settled(
-    env,
+    env: IsaacLabArenaManagerBasedRLEnv,
     object_names: list[str],
     lin_vel_threshold: float = 1e-2,
     ang_vel_threshold: float = 5e-2,
-    env_id: int | None = None,
 ) -> torch.Tensor:
-    """True per env when every object in the env is at rest, records each object's rest pose on first settle.
+    """Check whether every named rigid object is at rest and record its first resting position.
 
     An object is at rest when both its linear speed (m/s) and its angular speed (rad/s) are below the
     respective thresholds. The recorded rest poses are readable via ``get_object_initial_rest_state``.
     """
 
-    lin_speeds = torch.stack(
-        [torch.linalg.vector_norm(get_root_lin_vel_w(env, name), dim=-1) for name in object_names], dim=0
+    arena_world = env.arena_world
+    linear_speeds = torch.stack(
+        [
+            torch.linalg.vector_norm(arena_world.get_root_linear_velocity_w(object_name), dim=-1)
+            for object_name in object_names
+        ],
+        dim=0,
     )
-    ang_speeds = torch.stack(
-        [torch.linalg.vector_norm(get_root_ang_vel_w(env, name), dim=-1) for name in object_names], dim=0
+    angular_speeds = torch.stack(
+        [
+            torch.linalg.vector_norm(arena_world.get_root_angular_velocity_w(object_name), dim=-1)
+            for object_name in object_names
+        ],
+        dim=0,
     )
-    settled = torch.all((lin_speeds < lin_vel_threshold) & (ang_speeds < ang_vel_threshold), dim=0)
+    settled = torch.all(
+        (linear_speeds < lin_vel_threshold) & (angular_speeds < ang_vel_threshold),
+        dim=0,
+    )
 
     recorder = get_rest_pose_recorder(env)
-    for name in object_names:
-        recorder.record(name, get_root_pos_w(env, name), settled)
+    for object_name in object_names:
+        object_position_w = arena_world.get_pose_w(object_name)[:, :3]
+        recorder.record(object_name, object_position_w, settled)
 
-    return select(settled, env_id)
+    return settled

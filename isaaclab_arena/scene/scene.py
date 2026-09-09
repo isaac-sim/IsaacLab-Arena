@@ -14,9 +14,9 @@ from pxr import Gf, Usd, UsdGeom
 from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.assets.background import Background
 from isaaclab_arena.assets.object import Object
-from isaaclab_arena.assets.object_base import ObjectType
 from isaaclab_arena.assets.object_reference import ObjectReference
 from isaaclab_arena.assets.object_set import RigidObjectSet
+from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.utils.configclass import make_configclass
 from isaaclab_arena.utils.phyx_utils import add_contact_report
 from isaaclab_arena.variations.variation_base import VariationBase

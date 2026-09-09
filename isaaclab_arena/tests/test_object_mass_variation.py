@@ -63,9 +63,9 @@ def _test_object_mass_variation_registration(simulation_app):
     from unittest.mock import patch
 
     from isaaclab_arena.assets.object import Object
-    from isaaclab_arena.assets.object_base import ObjectType
     from isaaclab_arena.assets.object_reference import ObjectReference
     from isaaclab_arena.assets.object_set import RigidObjectSet
+    from isaaclab_arena.assets.object_type import ObjectType
     from isaaclab_arena.assets.registries import AssetRegistry
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
     from isaaclab_arena.utils.pose import Pose

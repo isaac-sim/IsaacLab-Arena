@@ -1,8 +1,8 @@
 RL Tasks
 ========
 
-RL tasks extend their imitation learning counterparts with the components
-needed for reinforcement learning training: a command manager that samples
+RL tasks extend their imitation learning counterparts with the components Isaac Lab's
+reinforcement-learning training scripts require: a command manager that samples
 a new goal each episode, reward terms, and goal-conditioned observations.
 
 The pattern is straightforward — an RL task subclasses the corresponding IL task,

@@ -14,10 +14,6 @@ from isaaclab.managers import EventTermCfg, SceneEntityCfg
 from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
 from isaaclab_tasks.contrib.stack.mdp.franka_stack_events import randomize_object_pose
 
-# Re-export ObjectType from the lightweight module so existing
-# `from isaaclab_arena.assets.object_base import ObjectType` consumers keep working,
-# while pure-Python spec modules can import from `object_type` directly without
-# pulling in isaaclab/omni/pxr at module-load time.
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.relations.placement_asset import PlaceableAsset
 from isaaclab_arena.terms.events import set_object_pose, set_object_pose_per_env
@@ -25,14 +21,9 @@ from isaaclab_arena.utils.pose import Pose, PosePerEnv, PoseRange
 from isaaclab_arena.utils.velocity import Velocity
 from isaaclab_arena.variations.object_mass_variation import ObjectMassVariation
 
-__all__ = [
-    "ObjectBase",
-    "ObjectType",
-]
-
 
 class ObjectBase(PlaceableAsset, ABC):
-    """Parent class for (spawnable) Object and ObjectReference."""
+    """Parent class for Arena scene objects."""
 
     def __init__(
         self,
@@ -46,10 +37,44 @@ class ObjectBase(PlaceableAsset, ABC):
             prim_path = "{ENV_REGEX_NS}/" + self.name
         self.prim_path = prim_path
         self.object_type = object_type
+        self.object_cfg: AssetBaseCfg | None = None
+
+    def set_prim_path(self, prim_path: str) -> None:
+        self.prim_path = prim_path
+
+    def get_prim_path(self) -> str:
+        return self.prim_path
+
+    def get_object_cfg(self) -> tuple[str, AssetBaseCfg]:
+        """Return the scene key and concrete asset config."""
+        assert (
+            self.object_cfg is not None
+        ), f"Object '{self.name}' ({type(self).__name__}) did not initialize its object config."
+        return self.name, self.object_cfg
+
+    def get_event_cfg(self) -> tuple[str, EventTermCfg | None]:
+        return self.name, self._pose_event_cfg
+
+
+class RootedObjectBase(ObjectBase):
+    """Parent class for rigid, articulated, and static rooted objects."""
+
+    def __init__(
+        self,
+        name: str,
+        prim_path: str | None = None,
+        object_type: ObjectType = ObjectType.BASE,
+        **kwargs,
+    ):
+        super().__init__(name=name, prim_path=prim_path, object_type=object_type, **kwargs)
+        assert self.object_type in {
+            ObjectType.BASE,
+            ObjectType.RIGID,
+            ObjectType.ARTICULATION,
+        }, f"RootedObjectBase does not support object type '{self.object_type}'."
         if self.object_type == ObjectType.RIGID:
             self.add_variation(ObjectMassVariation(self.name))
         self.initial_velocity: Velocity | None = None
-        self.object_cfg = None
 
     def _set_initial_pose(self, pose: Pose | PoseRange | PosePerEnv) -> None:
         """Store the pose and write its construction values into the object config."""
@@ -121,18 +146,6 @@ class ObjectBase(PlaceableAsset, ABC):
                     "velocity": self.initial_velocity,
                 },
             )
-
-    def set_prim_path(self, prim_path: str) -> None:
-        self.prim_path = prim_path
-
-    def get_prim_path(self) -> str:
-        return self.prim_path
-
-    def get_object_cfg(self) -> tuple[str, RigidObjectCfg | ArticulationCfg | AssetBaseCfg]:
-        return self.name, self.object_cfg
-
-    def get_event_cfg(self) -> tuple[str, EventTermCfg | None]:
-        return self.name, self._pose_event_cfg
 
     def _init_object_cfg(self) -> RigidObjectCfg | ArticulationCfg | AssetBaseCfg:
         if self.object_type == ObjectType.RIGID:

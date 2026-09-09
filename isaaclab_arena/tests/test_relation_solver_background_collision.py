@@ -79,7 +79,7 @@ def _mesh_box(name: str, extents: tuple[float, float, float], position: tuple[fl
 def _make_usd_background():
     """Background stub for USD mesh extraction tests."""
     from isaaclab_arena.assets.background import Background
-    from isaaclab_arena.assets.object_base import ObjectType
+    from isaaclab_arena.assets.object_type import ObjectType
     from isaaclab_arena.utils.pose import Pose
 
     background = Background.__new__(Background)
@@ -156,7 +156,7 @@ def test_warp_mesh_cache_caches_unsupported_usd_geometry(monkeypatch):
     import pytest
 
     from isaaclab_arena.assets.object import Object
-    from isaaclab_arena.assets.object_base import ObjectType
+    from isaaclab_arena.assets.object_type import ObjectType
     from isaaclab_arena.relations.warp_mesh_manager import WarpMeshAndSphereCache
     from isaaclab_arena.utils.usd_helpers import UnsupportedCollisionGeometryError
 
@@ -185,7 +185,7 @@ def test_warp_mesh_cache_caches_unsupported_usd_geometry(monkeypatch):
 def test_warp_mesh_cache_keys_exclusions(monkeypatch):
     """Different anchor exclusions cannot reuse a stale whole-background mesh."""
     from isaaclab_arena.assets.object import Object
-    from isaaclab_arena.assets.object_base import ObjectType
+    from isaaclab_arena.assets.object_type import ObjectType
     from isaaclab_arena.relations.warp_mesh_manager import WarpMeshAndSphereCache
 
     obj = Object.__new__(Object)
