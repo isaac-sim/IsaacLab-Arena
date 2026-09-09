@@ -1,5 +1,5 @@
-Policy Training (Isaac Lab)
----------------------------
+Policy Training
+---------------
 
 **Docker Container**: Base (see :doc:`../../quickstart/installation` for more details)
 

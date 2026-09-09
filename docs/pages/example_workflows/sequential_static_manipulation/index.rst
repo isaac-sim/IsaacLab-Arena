@@ -5,7 +5,7 @@ This example demonstrates the complete workflow for the **GR1 sequential manipul
 picking up an object, placing it into a refrigerator, and closing the door**. The environment is
 built and validated in Isaac Lab Arena, then passed to Isaac Lab for teleoperation data collection
 and data generation with Isaac Lab Mimic; the policy is post-trained with Isaac-GR00T and
-evaluated in closed loop back in Arena.
+evaluated in closed loop back in Isaac Lab Arena.
 
 .. image:: ../../../images/gr1_sequential_static_manipulation_env.gif
    :align: center
@@ -51,9 +51,9 @@ Task Overview
 Workflow
 --------
 
-This tutorial covers the pipeline between creating an environment in Arena, generating training
-data through Isaac Lab, fine-tuning a policy (GR00T N1.6), and evaluating the policy in
-closed-loop in Arena.
+This tutorial covers the pipeline between creating an environment in Isaac Lab Arena, generating
+training data through Isaac Lab, fine-tuning a policy (GR00T N1.6), and evaluating the policy in
+closed-loop in Isaac Lab Arena.
 
 Prerequisites
 ^^^^^^^^^^^^^

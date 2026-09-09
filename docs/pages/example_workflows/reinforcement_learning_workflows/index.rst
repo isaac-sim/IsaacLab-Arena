@@ -3,7 +3,7 @@ Reinforcement Learning
 
 The following workflows build their environments in Isaac Lab Arena and plug them into Isaac
 Lab's reinforcement-learning workflows, covering environment setup, policy training in Isaac
-Lab, and closed-loop evaluation back in Arena.
+Lab, and closed-loop evaluation back in Isaac Lab Arena.
 
 Currently, the following reinforcement learning workflow examples are provided:
 

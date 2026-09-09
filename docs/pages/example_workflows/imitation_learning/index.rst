@@ -2,8 +2,8 @@ Imitation Learning
 ==================
 
 The following workflows build their environments in Isaac Lab Arena and plug them into Isaac
-Lab's imitation-learning workflows, covering teleoperation data collection, data generation
-with Isaac Lab Mimic, policy post-training, and closed-loop evaluation back in Arena.
+Lab's imitation-learning workflows, covering teleoperation data collection, data generation with
+Isaac Lab Mimic, policy post-training, and closed-loop evaluation back in Isaac Lab Arena.
 
 Currently, the following imitation learning workflow examples are provided:
 
