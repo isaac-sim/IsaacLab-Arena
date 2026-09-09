@@ -15,37 +15,10 @@ For valid-spec-to-layout-pool measurements, see the
 
 ## Prerequisites
 
-Export the API key on the host before starting the Arena container. The Docker
-launcher forwards these variables when it creates the container:
-
-| Endpoint | Access | Default model | API key variable |
-| --- | --- | --- | --- |
-| `internal` | NVIDIA internal network | `openai/openai/gpt-5.6-terra` | `NV_API_KEY` |
-| `public` | NVIDIA public API | `openai/gpt-oss-120b` | `NVIDIA_API_KEY` |
-| `openai` | OpenAI API | `gpt-5.6-terra` | `OPENAI_API_KEY` |
-
-For example, configure one endpoint and start the container as documented in
-the repository installation guide:
-
-```bash
-export NVIDIA_API_KEY=<your-ngc-api-key>
-./docker/run_docker.sh
-```
-
-Do not put API keys in this repository. If the container was already running
-when the variable was exported, recreate it so the launcher can forward the
-key.
-
-From the repository root, discover the container for the current checkout:
-
-```bash
-ARENA_CONTAINER=$(docker ps \
-  --filter "volume=$(git rev-parse --show-toplevel)" \
-  --format '{{.Names}}' | head -1)
-test -n "$ARENA_CONTAINER"
-```
-
-The examples below use that `ARENA_CONTAINER` value and run as the host user.
+Complete the
+[agentic environment generation prerequisites](../../docs/pages/example_workflows/agentic_env_gen/index.rst#prerequisites)
+before running these benchmarks. Run the commands below from the repository
+root inside the Arena container.
 
 ## Run all cases
 
@@ -56,40 +29,34 @@ from being saved as YAML.
 NVIDIA internal endpoint:
 
 ```bash
-docker exec "$ARENA_CONTAINER" su "$(id -un)" -c \
-  "cd /workspaces/isaaclab_arena && \
-   /isaac-sim/python.sh \
-   isaaclab_arena_examples/agentic_environment_generation/run_time_to_first_spec_benchmarks.py \
-   --inference_endpoint internal \
-   --num_runs 100 \
-   --no_save_specs \
-   --output_dir output/time_to_first_spec/internal"
+/isaac-sim/python.sh \
+  isaaclab_arena_examples/agentic_environment_generation/run_time_to_first_spec_benchmarks.py \
+  --inference_endpoint internal \
+  --num_runs 100 \
+  --no_save_specs \
+  --output_dir output/time_to_first_spec/internal
 ```
 
 NVIDIA public endpoint:
 
 ```bash
-docker exec "$ARENA_CONTAINER" su "$(id -un)" -c \
-  "cd /workspaces/isaaclab_arena && \
-   /isaac-sim/python.sh \
-   isaaclab_arena_examples/agentic_environment_generation/run_time_to_first_spec_benchmarks.py \
-   --inference_endpoint public \
-   --num_runs 100 \
-   --no_save_specs \
-   --output_dir output/time_to_first_spec/public"
+/isaac-sim/python.sh \
+  isaaclab_arena_examples/agentic_environment_generation/run_time_to_first_spec_benchmarks.py \
+  --inference_endpoint public \
+  --num_runs 100 \
+  --no_save_specs \
+  --output_dir output/time_to_first_spec/public
 ```
 
 OpenAI endpoint:
 
 ```bash
-docker exec "$ARENA_CONTAINER" su "$(id -un)" -c \
-  "cd /workspaces/isaaclab_arena && \
-   /isaac-sim/python.sh \
-   isaaclab_arena_examples/agentic_environment_generation/run_time_to_first_spec_benchmarks.py \
-   --inference_endpoint openai \
-   --num_runs 100 \
-   --no_save_specs \
-   --output_dir output/time_to_first_spec/openai"
+/isaac-sim/python.sh \
+  isaaclab_arena_examples/agentic_environment_generation/run_time_to_first_spec_benchmarks.py \
+  --inference_endpoint openai \
+  --num_runs 100 \
+  --no_save_specs \
+  --output_dir output/time_to_first_spec/openai
 ```
 
 To use the endpoint selected by `ARENA_INFERENCE_ENDPOINT`, omit
@@ -102,16 +69,14 @@ Pass `--model` to either runner. The model must exist on the selected endpoint
 and support OpenAI-compatible strict structured output. For example:
 
 ```bash
-docker exec "$ARENA_CONTAINER" su "$(id -un)" -c \
-  "cd /workspaces/isaaclab_arena && \
-   /isaac-sim/python.sh \
-   isaaclab_arena_examples/agentic_environment_generation/run_time_to_first_spec_benchmarks.py \
-   --inference_endpoint public \
-   --model nvidia/nemotron-3-super-120b-a12b \
-   --temperature 0.1 \
-   --num_runs 100 \
-   --no_save_specs \
-   --output_dir output/time_to_first_spec/public-nemotron"
+/isaac-sim/python.sh \
+  isaaclab_arena_examples/agentic_environment_generation/run_time_to_first_spec_benchmarks.py \
+  --inference_endpoint public \
+  --model nvidia/nemotron-3-super-120b-a12b \
+  --temperature 0.1 \
+  --num_runs 100 \
+  --no_save_specs \
+  --output_dir output/time_to_first_spec/public-nemotron
 ```
 
 The internal and OpenAI endpoint presets currently ignore `--temperature`
@@ -124,14 +89,12 @@ Use the single-case runner while developing a workload. Omitting
 `--spec_output_dir` means no YAML is saved:
 
 ```bash
-docker exec "$ARENA_CONTAINER" su "$(id -un)" -c \
-  "cd /workspaces/isaaclab_arena && \
-   /isaac-sim/python.sh \
-   isaaclab_arena_examples/agentic_environment_generation/benchmark_time_to_first_spec.py \
-   --inference_endpoint internal \
-   --case kitchen_open_fridge_door \
-   --num_runs 100 \
-   --output_path output/time_to_first_spec/kitchen_open_fridge_door.json"
+/isaac-sim/python.sh \
+  isaaclab_arena_examples/agentic_environment_generation/benchmark_time_to_first_spec.py \
+  --inference_endpoint internal \
+  --case kitchen_open_fridge_door \
+  --num_runs 100 \
+  --output_path output/time_to_first_spec/kitchen_open_fridge_door.json
 ```
 
 Case names and prompts are defined in
