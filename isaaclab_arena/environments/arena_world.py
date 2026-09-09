@@ -37,22 +37,18 @@ class ArenaWorld:
         (x, y, z, qx, qy, qz, qw).
         """
         scene = self._scene
-        is_rigid_object = scene_key in scene.rigid_objects
-        is_articulation = scene_key in scene.articulations
-        is_scene_extra = scene_key in scene.extras
-        assert is_rigid_object or is_articulation or is_scene_extra, (
-            "ArenaWorld pose queries require a scene key registered in InteractiveScene.rigid_objects, "
-            "InteractiveScene.articulations, or InteractiveScene.extras; "
-            f"'{scene_key}' is registered in none of them."
-        )
-
         # Rigid objects and articulations expose their live root-link poses directly. Scene
         # extras are plain cloned prims, so their live post-clone poses require a FrameView-backed reader.
-        if is_rigid_object:
+        if scene_key in scene.rigid_objects:
             T_W_F = scene.rigid_objects[scene_key].data.root_pose_w.torch
-        elif is_articulation:
+        elif scene_key in scene.articulations:
             T_W_F = scene.articulations[scene_key].data.root_pose_w.torch
         else:
+            assert scene_key in scene.extras, (
+                "ArenaWorld pose queries require a scene key registered in InteractiveScene.rigid_objects, "
+                "InteractiveScene.articulations, or InteractiveScene.extras; "
+                f"'{scene_key}' is registered in none of them."
+            )
             pose_reader = self._get_scene_extra_pose_reader(scene, scene_key)
             T_W_F = pose_reader.get_pose_w()
 
@@ -72,19 +68,47 @@ class ArenaWorld:
         T_E_F[:, :3] -= self._scene.env_origins
         return T_E_F
 
-    def get_root_linear_velocity_w(self, rigid_object_name: str) -> torch.Tensor:
-        """Return a rigid object's current world-frame root linear velocity.
+    def get_root_linear_velocity_w(self, scene_key: str) -> torch.Tensor:
+        """Return the world-frame root linear velocity of a rigid object or articulation.
 
         The tensor has shape (num_envs, 3).
         """
         scene = self._scene
-        assert rigid_object_name in scene.rigid_objects, f"'{rigid_object_name}' must name a rigid object."
-        root_linear_velocity_w = scene.rigid_objects[rigid_object_name].data.root_lin_vel_w.torch
+        if scene_key in scene.rigid_objects:
+            root_asset = scene.rigid_objects[scene_key]
+        else:
+            assert scene_key in scene.articulations, (
+                "ArenaWorld root velocity queries require a scene key registered in InteractiveScene.rigid_objects "
+                f"or InteractiveScene.articulations; '{scene_key}' is registered in neither."
+            )
+            root_asset = scene.articulations[scene_key]
+        root_linear_velocity_w = root_asset.data.root_lin_vel_w.torch
         assert root_linear_velocity_w.shape == (scene.num_envs, 3), (
-            f"Rigid object '{rigid_object_name}' returned root linear velocity shape "
+            f"Scene key '{scene_key}' returned root linear velocity shape "
             f"{tuple(root_linear_velocity_w.shape)}; expected ({scene.num_envs}, 3)."
         )
         return root_linear_velocity_w
+
+    def get_root_angular_velocity_w(self, scene_key: str) -> torch.Tensor:
+        """Return the world-frame root angular velocity of a rigid object or articulation.
+
+        The tensor has shape (num_envs, 3).
+        """
+        scene = self._scene
+        if scene_key in scene.rigid_objects:
+            root_asset = scene.rigid_objects[scene_key]
+        else:
+            assert scene_key in scene.articulations, (
+                "ArenaWorld root velocity queries require a scene key registered in InteractiveScene.rigid_objects "
+                f"or InteractiveScene.articulations; '{scene_key}' is registered in neither."
+            )
+            root_asset = scene.articulations[scene_key]
+        root_angular_velocity_w = root_asset.data.root_ang_vel_w.torch
+        assert root_angular_velocity_w.shape == (scene.num_envs, 3), (
+            f"Scene key '{scene_key}' returned root angular velocity shape "
+            f"{tuple(root_angular_velocity_w.shape)}; expected ({scene.num_envs}, 3)."
+        )
+        return root_angular_velocity_w
 
     def get_aabb_in_local_frame(self, scene_key: str) -> AxisAlignedBoundingBox:
         """Return cached rigid-object or scene-extra geometry bounds in local frame F.

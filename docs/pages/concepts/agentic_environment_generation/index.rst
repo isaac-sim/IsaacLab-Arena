@@ -139,7 +139,14 @@ Arena's environment generation agent explicitly does not provide the following:
    gui_runner
    cli_runner
 
-.. note::
+.. warning::
 
-   Agentic environment generation is experimental. Generated specs should be
-   reviewed and validated before they are used for policy evaluation.
+   Agentic environment generation is experimental and changing quickly. Generated
+   specs should be reviewed and validated before they are used for policy evaluation.
+   Prompt formats, generated spec structure, GUI behavior, and policy evaluation
+   integrations may change across releases.
+
+   We are actively working on:
+
+   * Support for more complex scene layouts and object placements.
+   * Support for more diverse task specifications.

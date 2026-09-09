@@ -18,8 +18,8 @@ INITIAL_POSITION_EPS = 1e-6
 
 def get_galbot_test_environment(num_envs: int = 1):
     """Returns a kitchen scene with Galbot embodiment for testing."""
-    from isaaclab_arena.assets.object_base import ObjectType
     from isaaclab_arena.assets.object_reference import ObjectReference
+    from isaaclab_arena.assets.object_type import ObjectType
     from isaaclab_arena.assets.registries import AssetRegistry
     from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
     from isaaclab_arena.embodiments.common.arm_mode import ArmMode

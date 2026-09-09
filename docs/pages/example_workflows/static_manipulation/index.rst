@@ -1,7 +1,7 @@
 GR1 Open Microwave Door Task
 =============================
 
-This example demonstrates the complete workflow for the **GR1 manipulation task of opening a microwave door** in Isaac Lab - Arena, covering environment setup and validation, teleoperation data collection, data generation with Isaac Lab Mimic, policy post-training, and closed-loop evaluation.
+This example demonstrates the complete workflow for the **GR1 manipulation task of opening a microwave door**. The environment is built and validated in Isaac Lab Arena, then passed to Isaac Lab for teleoperation data collection and data generation with Isaac Lab Mimic; the policy is post-trained with Isaac-GR00T and evaluated in closed loop back in Isaac Lab Arena.
 
 .. image:: ../../../images/kitchen_gr1_arena.gif
    :align: center
@@ -37,7 +37,7 @@ Task Overview
    * - **Policy**
      - GR00T N1.6 (vision-language foundation model)
    * - **Post-training**
-     - Imitation Learning
+     - Imitation Learning — post-trained with **Isaac-GR00T**
    * - **Dataset**
      - `Arena-GR1-Manipulation-Task <https://huggingface.co/datasets/nvidia/Arena-GR1-Manipulation-Task>`_
    * - **Checkpoint**
@@ -53,8 +53,9 @@ Task Overview
 Workflow
 --------
 
-This tutorial covers the pipeline between creating an environment, generating training data,
-fine-tuning a policy (GR00T N1.6), and evaluating the policy in closed-loop.
+This tutorial covers the pipeline between creating an environment in Isaac Lab Arena, generating
+training data through Isaac Lab, fine-tuning a policy (GR00T N1.6), and evaluating the policy in
+closed-loop in Isaac Lab Arena.
 A user can follow the whole pipeline, or can start at any intermediate step
 by downloading the pre-generated output of the preceding step(s), which we provide
 (described in the relevant step below).

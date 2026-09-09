@@ -171,9 +171,20 @@ isaaclab_arena_docs_config = {
 
 
 def setup(app):
-    """Expose the version_sort filter to the version-switcher template."""
+    """Register the version filter and page-specific landing assets."""
 
     def register_filters(app):
         app.builder.templates.environment.filters["version_sort"] = version_sort
 
+    def add_landing_assets(app, pagename, templatename, context, doctree):
+        visual_pages = {"index", "pages/motivation/motivation", "pages/gallery/index"}
+        if pagename in visual_pages:
+            app.add_js_file("visual-media.js", priority=900)
+
+        if pagename in {"index", "pages/motivation/motivation"}:
+            app.add_css_file("landing.css", priority=900)
+        elif pagename == "pages/gallery/index":
+            app.add_css_file("gallery.css", priority=900)
+
     app.connect("builder-inited", register_filters)
+    app.connect("html-page-context", add_landing_assets)

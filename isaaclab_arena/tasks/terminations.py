@@ -3,16 +3,20 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from __future__ import annotations
+
 import math
 import torch
 from enum import Enum
+from typing import TYPE_CHECKING
 
-import warp as wp
-from isaaclab.assets import RigidObject
 from isaaclab.envs import ManagerBasedRLEnv
 from isaaclab.envs.mdp.terminations import root_height_below_minimum
 from isaaclab.managers import SceneEntityCfg, TerminationTermCfg
 from isaaclab.utils.math import combine_frame_transforms
+
+if TYPE_CHECKING:
+    from isaaclab_arena.environments.isaaclab_arena_manager_based_env import IsaacLabArenaManagerBasedRLEnv
 
 
 class SuccessMode(str, Enum):
@@ -77,7 +81,7 @@ def check_success(
 # NOTE(alexmillane, 2025.09.15): The velocity threshold is set high because some stationary
 # seem to generate a "small" velocity.
 def lift_object_il_success(
-    env: ManagerBasedRLEnv,
+    env: IsaacLabArenaManagerBasedRLEnv,
     object_cfg: SceneEntityCfg = SceneEntityCfg("object"),
     goal_position: tuple[float, float, float] | None = None,
     position_tolerance: float = 0.05,
@@ -87,25 +91,25 @@ def lift_object_il_success(
     Args:
         env: The RL environment instance.
         object_cfg: The configuration of the object to track.
-        goal_position: Fixed goal position [x, y, z] to use if command goal not available.
+        goal_position: Fixed world-frame goal position [x, y, z].
         position_tolerance: Distance tolerance for success (m).
 
     Returns:
         A boolean tensor of shape (num_envs,) indicating success.
     """
 
-    object_instance: RigidObject = env.scene[object_cfg.name]
-    object_pos = wp.to_torch(object_instance.data.root_pos_w)
+    assert goal_position is not None, "lift_object_il_success requires goal_position."
 
-    goal_pos = torch.tensor([goal_position] * env.num_envs, device=env.device)
+    object_position_w = env.arena_world.get_pose_w(object_cfg.name)[:, :3]
+    goal_position_w = torch.tensor([goal_position] * env.num_envs, device=env.device)
 
     # Check if object is within tolerance of goal
-    distance = torch.norm(object_pos - goal_pos, dim=1)
+    distance = torch.norm(object_position_w - goal_position_w, dim=1)
     return distance < position_tolerance
 
 
 def lift_object_rl_success(
-    env: ManagerBasedRLEnv,
+    env: IsaacLabArenaManagerBasedRLEnv,
     object_cfg: SceneEntityCfg = SceneEntityCfg("object"),
     robot_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
     rl_training: bool = False,
@@ -132,24 +136,22 @@ def lift_object_rl_success(
     if rl_training:
         return torch.zeros(env.num_envs, dtype=torch.bool, device=env.device)
 
-    robot: RigidObject = env.scene[robot_cfg.name]
-    object_instance: RigidObject = env.scene[object_cfg.name]
+    arena_world = env.arena_world
+    T_W_B = arena_world.get_pose_w(robot_cfg.name)
+    object_position_w = arena_world.get_pose_w(object_cfg.name)[:, :3]
 
     command = env.command_manager.get_command(command_name)
-    des_pos_b = command[:, :3]
+    desired_position_b = command[:, :3]
 
     # Transform goal from robot-base frame to world frame
-    root_pos_w = wp.to_torch(robot.data.root_pos_w)
-    root_quat_w = wp.to_torch(robot.data.root_quat_w)
-    des_pos_w, _ = combine_frame_transforms(root_pos_w, root_quat_w, des_pos_b)
+    desired_position_w, _ = combine_frame_transforms(T_W_B[:, :3], T_W_B[:, 3:], desired_position_b)
 
-    object_pos_w = wp.to_torch(object_instance.data.root_pos_w)
-    distance = torch.linalg.norm(des_pos_w - object_pos_w[:, :3], dim=1)
+    distance = torch.linalg.norm(desired_position_w - object_position_w, dim=1)
     return distance < position_tolerance
 
 
 def goal_pose_task_termination(
-    env: ManagerBasedRLEnv,
+    env: IsaacLabArenaManagerBasedRLEnv,
     object_cfg: SceneEntityCfg = SceneEntityCfg("object"),
     target_x_range: tuple[float, float] | None = None,
     target_y_range: tuple[float, float] | None = None,
@@ -171,9 +173,9 @@ def goal_pose_task_termination(
     Returns:
         A boolean tensor of shape (num_envs, )
     """
-    object_instance: RigidObject = env.scene[object_cfg.name]
-    object_root_pos_w = wp.to_torch(object_instance.data.root_pos_w)
-    object_root_quat_w = wp.to_torch(object_instance.data.root_quat_w)
+    T_W_O = env.arena_world.get_pose_w(object_cfg.name)
+    t_W_O = T_W_O[:, :3]
+    q_W_O = T_W_O[:, 3:]
 
     device = env.device
     num_envs = env.num_envs
@@ -195,7 +197,7 @@ def goal_pose_task_termination(
     for idx, range_val in enumerate(ranges):
         if range_val is not None:
             range_min, range_max = range_val
-            in_range = (object_root_pos_w[:, idx] >= range_min) & (object_root_pos_w[:, idx] <= range_max)
+            in_range = (t_W_O[:, idx] >= range_min) & (t_W_O[:, idx] <= range_max)
             success &= in_range
 
     # Orientation check
@@ -203,7 +205,7 @@ def goal_pose_task_termination(
         target_quat = torch.tensor(target_orientation_xyzw, device=device, dtype=torch.float32).unsqueeze(0)
 
         # Formula: |<q1, q2>| > cos(tolerance / 2)
-        quat_dot = torch.sum(object_root_quat_w * target_quat, dim=-1)
+        quat_dot = torch.sum(q_W_O * target_quat, dim=-1)
         abs_dot = torch.abs(quat_dot)
         min_cos = math.cos(target_orientation_tolerance_rad / 2.0)
 
