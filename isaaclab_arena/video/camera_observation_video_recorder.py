@@ -154,7 +154,7 @@ class CameraObsVideoRecorder(gym.Wrapper):
 
             if done_envs:
                 # The encoder shutdown that finalises one episode's mp4 files.
-                with Timer("camera_finalize"):
+                with Timer("record_camera_finalize"):
                     self._finish_envs(done_envs)
 
         return result

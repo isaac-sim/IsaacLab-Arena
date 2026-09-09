@@ -244,14 +244,14 @@ def test_frame_writing_is_timed_separately_from_finalizing(tmp_path):
 
         stats = get_timer_stats()
         assert stats["record_camera_frames"].count == 2
-        assert "camera_finalize" not in stats
+        assert "record_camera_finalize" not in stats
 
         _configure_step(env, done_envs=[0])
         recorder.step(None)
 
         stats = get_timer_stats()
         assert stats["record_camera_frames"].count == 3
-        assert stats["camera_finalize"].count == 1
+        assert stats["record_camera_finalize"].count == 1
 
 
 def test_recording_stack_reports_its_costs_under_the_enclosing_step_timer(tmp_path):
