@@ -125,11 +125,33 @@ def _test_droid_diff_ik_newton_preset_applies_newton_spawn(simulation_app) -> bo
 def _test_droid_abs_joint_pos_newton_preset_applies_newton_spawn(simulation_app) -> bool:
     from isaaclab_newton.physics.newton_manager_cfg import NewtonCfg
 
-    from isaaclab_arena.embodiments.droid.droid import DroidAbsoluteJointPositionEmbodiment, spawn_newton_droid
+    from isaaclab_arena.embodiments.droid.droid import (
+        _DROID_NEWTON_GRIPPER_MIMIC_SIGNS,
+        DroidAbsoluteJointPositionEmbodiment,
+        spawn_newton_droid,
+    )
+    from isaaclab_arena.embodiments.droid.observations import newton_gripper_pos
 
     env_cfg = _build_env_cfg(presets="newton", embodiment=DroidAbsoluteJointPositionEmbodiment())
     assert isinstance(env_cfg.sim.physics, NewtonCfg)
     assert env_cfg.scene.robot.spawn.func is spawn_newton_droid
+    gripper_joint_names = list(_DROID_NEWTON_GRIPPER_MIMIC_SIGNS)
+    assert env_cfg.scene.robot.actuators["gripper"].joint_names_expr == gripper_joint_names
+    assert env_cfg.actions.gripper_action.joint_names == gripper_joint_names
+    assert env_cfg.observations.policy.gripper_pos.func is newton_gripper_pos
+    return True
+
+
+def _test_droid_rel_joint_pos_newton_preset_applies_newton_gripper(simulation_app) -> bool:
+    from isaaclab_arena.embodiments.droid.droid import (
+        _DROID_NEWTON_GRIPPER_MIMIC_SIGNS,
+        DroidRelativeJointPositionEmbodiment,
+    )
+
+    env_cfg = _build_env_cfg(presets="newton", embodiment=DroidRelativeJointPositionEmbodiment())
+    gripper_joint_names = list(_DROID_NEWTON_GRIPPER_MIMIC_SIGNS)
+    assert env_cfg.scene.robot.actuators["gripper"].joint_names_expr == gripper_joint_names
+    assert env_cfg.actions.gripper_action.joint_names == gripper_joint_names
     return True
 
 
@@ -171,6 +193,12 @@ def test_droid_diff_ik_newton_preset_applies_newton_spawn():
 def test_droid_abs_joint_pos_newton_preset_applies_newton_spawn():
     assert run_function_with_persistent_simulation_app(
         _test_droid_abs_joint_pos_newton_preset_applies_newton_spawn, headless=HEADLESS
+    )
+
+
+def test_droid_rel_joint_pos_newton_preset_applies_newton_gripper():
+    assert run_function_with_persistent_simulation_app(
+        _test_droid_rel_joint_pos_newton_preset_applies_newton_gripper, headless=HEADLESS
     )
 
 

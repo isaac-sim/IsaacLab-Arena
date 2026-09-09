@@ -157,11 +157,13 @@ class DroidEmbodimentBase(EmbodimentBase, ABC):
         self.mimic_env = None
         self.add_camera_variations(self.camera_config)
         self._newton_spawn_configured = False
+        self._newton_gripper_configured = False
 
     def configure_for_physics(self, preset: str | None) -> None:
-        """Apply Newton spawn overrides shared by all DROID embodiments."""
+        """Apply Newton spawn and gripper overrides shared by all DROID embodiments."""
         if preset == "newton":
             self._configure_newton_spawn()
+            self._configure_newton_gripper()
 
     def _configure_newton_spawn(self) -> None:
         """Apply Newton-compatible robot spawning shared across DROID control modes."""
@@ -180,6 +182,34 @@ class DroidEmbodimentBase(EmbodimentBase, ABC):
             dynamic_friction=3.0,
             restitution=0.0,
         )
+
+    def _configure_newton_gripper(self) -> None:
+        """Apply Newton's explicit six-joint Robotiq gripper actuation."""
+        if self._newton_gripper_configured:
+            return
+        self._newton_gripper_configured = True
+
+        gripper_joint_names = tuple(_DROID_NEWTON_GRIPPER_MIMIC_SIGNS)
+        self.scene_config.robot.actuators["gripper"] = ImplicitActuatorCfg(
+            joint_names_expr=list(gripper_joint_names),
+            effort_limit=20.0,
+            velocity_limit=1.2,
+            stiffness=40.0,
+            damping=8.0,
+            armature=0.05,
+        )
+
+        open_command = dict.fromkeys(gripper_joint_names, 0.0)
+        close_command = {
+            name: sign * _DROID_NEWTON_GRIPPER_CLOSE_RAD for name, sign in _DROID_NEWTON_GRIPPER_MIMIC_SIGNS.items()
+        }
+        self.action_config.gripper_action = BinaryJointPositionZeroToOneActionCfg(
+            asset_name="robot",
+            joint_names=list(gripper_joint_names),
+            open_command_expr=open_command,
+            close_command_expr=close_command,
+        )
+        self.observation_config.policy.gripper_pos = ObsTerm(func=newton_gripper_pos)
 
     def get_bounding_box(self) -> AxisAlignedBoundingBox:
         """Return root-relative placement bounds from the composed on-stand USD spawn.
@@ -220,7 +250,7 @@ class DroidDifferentialIKEmbodiment(DroidEmbodimentBase):
     """Embodiment for the DROID setup with differential inverse kinematics action controller.
 
     When ``--presets newton`` is selected, :meth:`configure_for_physics` applies Newton-specific
-    spawn, gripper actuation, IK, and observation overrides before the env is built.
+    spawn, gripper, and IK overrides before the env is built.
     """
 
     name = "droid_differential_ik"
@@ -259,21 +289,10 @@ class DroidDifferentialIKEmbodiment(DroidEmbodimentBase):
             self._configure_newton_diff_ik()
 
     def _configure_newton_diff_ik(self) -> None:
-        """Apply Newton-specific gripper actuation, IK, and observation configuration."""
+        """Apply Newton-specific differential-IK configuration."""
         if self._newton_diff_ik_configured:
             return
         self._newton_diff_ik_configured = True
-
-        robot_cfg = self.scene_config.robot
-        gripper_joint_names = tuple(_DROID_NEWTON_GRIPPER_MIMIC_SIGNS)
-        robot_cfg.actuators["gripper"] = ImplicitActuatorCfg(
-            joint_names_expr=list(gripper_joint_names),
-            effort_limit=20.0,
-            velocity_limit=1.2,
-            stiffness=40.0,
-            damping=8.0,
-            armature=0.05,
-        )
 
         self.action_config.arm_action.controller = DifferentialIKControllerCfg(
             command_type="pose",
@@ -282,19 +301,6 @@ class DroidDifferentialIKEmbodiment(DroidEmbodimentBase):
             joint_limit_avoidance_gain=0.10,
             joint_limit_avoidance_margin=0.35,
         )
-
-        open_command = dict.fromkeys(gripper_joint_names, 0.0)
-        close_command = {
-            name: sign * _DROID_NEWTON_GRIPPER_CLOSE_RAD for name, sign in _DROID_NEWTON_GRIPPER_MIMIC_SIGNS.items()
-        }
-        self.action_config.gripper_action = BinaryJointPositionZeroToOneActionCfg(
-            asset_name="robot",
-            joint_names=list(gripper_joint_names),
-            open_command_expr=open_command,
-            close_command_expr=close_command,
-        )
-
-        self.observation_config.policy.gripper_pos = ObsTerm(func=newton_gripper_pos)
 
 
 @register_asset
