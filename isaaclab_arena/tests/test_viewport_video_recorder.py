@@ -48,6 +48,17 @@ def test_viewer_origin_rejects_frames_it_cannot_resolve():
         resolve_viewer_origin(scene, "env", NUM_ENVS)
 
 
+def test_report_recorder_does_not_follow_an_interactive_visualizer():
+    """An active visualizer must not replace the resolved viewpoint with its own camera.
+
+    Isaac Lab's ``"visualizer"`` backend source overwrites the recorder's eye and target from the
+    visualizer config whenever one is running, which would discard the environment offset.
+    """
+    from isaaclab_arena.video.viewport_video_recorder import ArenaViewportVideoRecorderCfg
+
+    assert ArenaViewportVideoRecorderCfg().backend_source == "renderer"
+
+
 def _build_multi_env_goal_pose_env(render_mode: str):
     """Build a two-environment goal-pose environment whose viewer frame is environment-relative."""
     from isaaclab_arena.assets.registries import AssetRegistry

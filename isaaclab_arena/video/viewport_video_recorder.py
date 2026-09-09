@@ -72,6 +72,14 @@ class ArenaViewportVideoRecorderCfg(VideoRecorderCfg):
 
     class_type: type = ArenaViewportVideoRecorder
 
+    backend_source: Literal["visualizer", "renderer"] = "renderer"
+    """Record from the physics/renderer stack rather than following an interactive visualizer.
+
+    Leaving this at Isaac Lab's ``"visualizer"`` default makes the base class overwrite the resolved
+    eye and target with the visualizer's own camera whenever one is active (``--viz kit``), which
+    discards the task viewpoint and the environment offset resolved here.
+    """
+
     viewer_origin_type: Literal["world", "env", "asset_root", "asset_body"] = "world"
     """Frame the configured eye and target are expressed in, mirroring ``ViewerCfg.origin_type``."""
 
