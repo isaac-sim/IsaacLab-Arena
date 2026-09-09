@@ -124,7 +124,7 @@ def objects_settled(
 
     recorder = get_rest_pose_recorder(env)
     for object_name in object_names:
-        object_position_w = arena_world.get_pose_w(object_name)[:, :3]
+        object_position_w = arena_world.get_position_w(object_name)
         recorder.record(object_name, object_position_w, settled)
 
     return settled

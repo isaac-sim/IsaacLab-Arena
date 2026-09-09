@@ -115,6 +115,7 @@ def _check_rigid_object_reads_and_local_aabb_cache(
     initial_root_linear_velocity_w = scene.rigid_objects["object"].data.root_lin_vel_w.torch.clone()
     initial_root_angular_velocity_w = scene.rigid_objects["object"].data.root_ang_vel_w.torch.clone()
     torch.testing.assert_close(arena_world.get_pose_w("object"), T_W_O_initial)
+    torch.testing.assert_close(arena_world.get_position_w("object"), T_W_O_initial[:, :3])
     torch.testing.assert_close(arena_world.get_pose_e("object"), T_E_O_initial)
     torch.testing.assert_close(arena_world.get_pose_w("object"), T_W_O_initial)
     torch.testing.assert_close(arena_world.get_root_linear_velocity_w("object"), initial_root_linear_velocity_w)
@@ -130,6 +131,7 @@ def _check_rigid_object_reads_and_local_aabb_cache(
     T_E_O_moved = T_W_O_moved.clone()
     T_E_O_moved[:, :3] -= scene.env_origins
     torch.testing.assert_close(arena_world.get_pose_w("object"), T_W_O_moved)
+    torch.testing.assert_close(arena_world.get_position_w("object"), T_W_O_moved[:, :3])
     torch.testing.assert_close(arena_world.get_pose_e("object"), T_E_O_moved)
     torch.testing.assert_close(arena_world.get_pose_w("object"), T_W_O_moved)
     torch.testing.assert_close(arena_world.get_root_linear_velocity_w("object"), changed_root_linear_velocity_w)

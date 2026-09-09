@@ -100,7 +100,7 @@ def lift_object_il_success(
 
     assert goal_position is not None, "lift_object_il_success requires goal_position."
 
-    object_position_w = env.arena_world.get_pose_w(object_cfg.name)[:, :3]
+    object_position_w = env.arena_world.get_position_w(object_cfg.name)
     goal_position_w = torch.tensor([goal_position] * env.num_envs, device=env.device)
 
     # Check if object is within tolerance of goal
@@ -138,7 +138,7 @@ def lift_object_rl_success(
 
     arena_world = env.arena_world
     T_W_B = arena_world.get_pose_w(robot_cfg.name)
-    object_position_w = arena_world.get_pose_w(object_cfg.name)[:, :3]
+    object_position_w = arena_world.get_position_w(object_cfg.name)
 
     command = env.command_manager.get_command(command_name)
     desired_position_b = command[:, :3]

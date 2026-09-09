@@ -21,7 +21,7 @@ def object_is_lifted(
     object_cfg: SceneEntityCfg = SceneEntityCfg("object"),
 ) -> torch.Tensor:
     """Reward the agent for lifting the object above the minimal height."""
-    object_height_w = env.arena_world.get_pose_w(object_cfg.name)[:, 2]
+    object_height_w = env.arena_world.get_position_w(object_cfg.name)[:, 2]
     return torch.where(object_height_w > minimal_height, 1.0, 0.0)
 
 
@@ -36,7 +36,7 @@ def object_goal_distance(
     """Reward the agent for tracking the goal pose using tanh-kernel."""
     arena_world = env.arena_world
     T_W_B = arena_world.get_pose_w(robot_cfg.name)
-    T_W_O = arena_world.get_pose_w(object_cfg.name)
+    object_position_w = arena_world.get_position_w(object_cfg.name)
 
     command = env.command_manager.get_command(command_name)
     desired_position_b = command[:, :3]
@@ -45,6 +45,6 @@ def object_goal_distance(
         T_W_B[:, 3:],
         desired_position_b,
     )
-    distance_to_goal = torch.norm(desired_position_w - T_W_O[:, :3], dim=1)
-    object_is_above_minimal_height = T_W_O[:, 2] > minimal_height
+    distance_to_goal = torch.norm(desired_position_w - object_position_w, dim=1)
+    object_is_above_minimal_height = object_position_w[:, 2] > minimal_height
     return object_is_above_minimal_height * (1 - torch.tanh(distance_to_goal / std))

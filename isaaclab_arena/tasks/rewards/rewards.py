@@ -22,8 +22,7 @@ def object_ee_distance(
     ee_frame_cfg: SceneEntityCfg = SceneEntityCfg("ee_frame"),
 ) -> torch.Tensor:
     """Reward the agent for reaching the object using tanh-kernel."""
-    T_W_O = env.arena_world.get_pose_w(object_cfg.name)
-    object_position_w = T_W_O[:, :3]
+    object_position_w = env.arena_world.get_position_w(object_cfg.name)
 
     ee_frame: FrameTransformer = env.scene[ee_frame_cfg.name]
     end_effector_position_w = ee_frame.data.target_pos_w.torch[..., 0, :]

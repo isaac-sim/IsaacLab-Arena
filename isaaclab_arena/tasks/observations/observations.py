@@ -15,15 +15,6 @@ if TYPE_CHECKING:
     from isaaclab_arena.environments.isaaclab_arena_manager_based_env import IsaacLabArenaManagerBasedRLEnv
 
 
-def object_position_in_world_frame(
-    env: IsaacLabArenaManagerBasedRLEnv,
-    asset_cfg: SceneEntityCfg = SceneEntityCfg("object"),
-) -> torch.Tensor:
-    """Return the object's world-frame position."""
-    T_W_O = env.arena_world.get_pose_w(asset_cfg.name)
-    return T_W_O[:, :3]
-
-
 def object_position_in_frame(
     env: IsaacLabArenaManagerBasedRLEnv,
     root_frame_cfg: SceneEntityCfg,
@@ -32,6 +23,6 @@ def object_position_in_frame(
     """Return the object's position in the requested root frame."""
     arena_world = env.arena_world
     T_W_R = arena_world.get_pose_w(root_frame_cfg.name)
-    T_W_O = arena_world.get_pose_w(object_cfg.name)
-    object_position_in_root_frame, _ = subtract_frame_transforms(T_W_R[:, :3], T_W_R[:, 3:], T_W_O[:, :3])
+    object_position_w = arena_world.get_position_w(object_cfg.name)
+    object_position_in_root_frame, _ = subtract_frame_transforms(T_W_R[:, :3], T_W_R[:, 3:], object_position_w)
     return object_position_in_root_frame
