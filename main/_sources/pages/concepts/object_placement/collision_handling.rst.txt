@@ -208,6 +208,16 @@ Run the example from the repository root:
 ``--viz kit`` opens the viewer, and ``--view_steps 0`` keeps it open until you
 close the application.
 
+This example is intentionally challenging: it places five objects in a
+constrained area while enforcing collision checks. Because placement is
+stochastic, the candidate success rate can be low and some runs may not produce
+a valid layout. If you encounter a placement error, use the debugging workflow
+below to reproduce the failure and identify the limiting check.
+
+A ``Placement pool could not fill`` error means that the solver did not produce
+enough valid layouts to reach the pool's target after all placement attempts.
+Some valid layouts may still have been produced and stored.
+
 Debugging Placement Collisions
 ------------------------------
 
@@ -240,12 +250,19 @@ The settings expose complementary information:
 * ``allow_best_loss_fallbacks=False`` keeps pooled placement from hiding a
   failed validation behind a fallback layout.
 
-Start with the ``no_overlap`` verdict and any reported object pair, then inspect
-that candidate in Rerun. A ``[NoCollision]`` message means collision-mesh
-geometry was unavailable and Arena used a bounding-box-based fallback where
-possible. A ``[MeshSDF]`` warning means the mesh could not be queried reliably.
-If ``BBOX`` rejects geometry that is visibly collision-free, retry the relevant
-asset with ``MESH``.
+Start with the validation summary. For example, ``on_relation=1/10`` means that
+only one complete candidate satisfied every ``On`` relation. Verbose output
+identifies the first object that failed and whether it was outside the support's
+XY footprint or Z band. After reproducing the failure, try another placement
+seed. For repeated failures, increase ``max_iters`` or
+``max_placement_attempts``; reducing the object count or disabling random yaw
+also makes dense scenes easier to solve.
+
+For ``no_overlap`` failures, inspect the reported object pair in Rerun. A
+``[NoCollision]`` message means collision-mesh geometry was unavailable and
+Arena used a bounding-box-based fallback where possible. A ``[MeshSDF]`` warning
+means the mesh could not be queried reliably. If ``BBOX`` rejects geometry that
+is visibly collision-free, retry the relevant asset with ``MESH``.
 
 Next Steps
 ----------
