@@ -157,8 +157,6 @@ class DroidEmbodimentBase(EmbodimentBase, ABC):
         self.reward_config = None
         self.mimic_env = None
         self.add_camera_variations(self.camera_config)
-        self._newton_spawn_configured = False
-        self._newton_gripper_configured = False
 
     def _configure_physics_backend(self, backend: PhysicsBackend) -> None:
         """Apply Newton spawn and gripper overrides shared by all DROID embodiments."""
@@ -168,10 +166,6 @@ class DroidEmbodimentBase(EmbodimentBase, ABC):
 
     def _configure_newton_spawn(self) -> None:
         """Apply Newton-compatible robot spawning shared across DROID control modes."""
-        if self._newton_spawn_configured:
-            return
-        self._newton_spawn_configured = True
-
         from isaaclab_newton.sim.schemas import NewtonMaterialPropertiesCfg
 
         robot_cfg = self.scene_config.robot
@@ -186,10 +180,6 @@ class DroidEmbodimentBase(EmbodimentBase, ABC):
 
     def _configure_newton_gripper(self) -> None:
         """Apply Newton's explicit six-joint Robotiq gripper actuation."""
-        if self._newton_gripper_configured:
-            return
-        self._newton_gripper_configured = True
-
         gripper_joint_names = tuple(_DROID_NEWTON_GRIPPER_MIMIC_SIGNS)
         self.scene_config.robot.actuators["gripper"] = ImplicitActuatorCfg(
             joint_names_expr=list(gripper_joint_names),
@@ -280,7 +270,6 @@ class DroidDifferentialIKEmbodiment(DroidEmbodimentBase):
             collision_mode=collision_mode,
         )
         self.action_config = DroidDifferentialIKActionsCfg()
-        self._newton_diff_ik_configured = False
 
     def _configure_physics_backend(self, backend: PhysicsBackend) -> None:
         """Apply shared Newton spawn setup, then diff-IK-specific Newton tuning."""
@@ -290,10 +279,6 @@ class DroidDifferentialIKEmbodiment(DroidEmbodimentBase):
 
     def _configure_newton_diff_ik(self) -> None:
         """Apply Newton-specific differential-IK configuration."""
-        if self._newton_diff_ik_configured:
-            return
-        self._newton_diff_ik_configured = True
-
         self.action_config.arm_action.controller = DifferentialIKControllerCfg(
             command_type="pose",
             use_relative_mode=True,

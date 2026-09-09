@@ -17,11 +17,12 @@ from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_wi
 
 SETTLE_STEPS = 10
 HOLD_STEPS = 30
-# Sustained lift duration; step count is derived from env step_dt at runtime.
-LIFT_COMMAND_DURATION_S = 20.0 * (8.0 / 240.0)
+# Equivalent to 20 control steps at the default 30 Hz; the actual step count is derived at runtime.
+LIFT_COMMAND_DURATION_S = 20.0 / 30.0
 HOLD_TOLERANCE_M = 0.005
-TARGET_LIFT_M = 0.05
-LIFT_TOLERANCE_M = 0.025
+MIN_LIFT_M = 0.025
+# This test checks directional response, allowing transient Newton IK overshoot rather than precise pose tracking.
+MAX_LIFT_M = 0.105
 
 
 def _build_newton_droid_env(env_name: str):
@@ -125,12 +126,8 @@ def _test_newton_droid_ik_lifts_on_teleop_command(simulation_app) -> bool:
             lift_z = displacement[2].item()
             horizontal = torch.norm(displacement[:2]).item()
 
-            assert (
-                lift_z > TARGET_LIFT_M - LIFT_TOLERANCE_M
-            ), f"Expected at least {TARGET_LIFT_M - LIFT_TOLERANCE_M:.3f} m upward motion, got {lift_z:.4f} m."
-            assert (
-                lift_z < TARGET_LIFT_M + LIFT_TOLERANCE_M + 0.03
-            ), f"Expected roughly {TARGET_LIFT_M:.2f} m upward motion, got {lift_z:.4f} m."
+            assert lift_z > MIN_LIFT_M, f"Expected at least {MIN_LIFT_M:.3f} m upward motion, got {lift_z:.4f} m."
+            assert lift_z < MAX_LIFT_M, f"Expected less than {MAX_LIFT_M:.3f} m upward motion, got {lift_z:.4f} m."
             assert (
                 lift_z > horizontal
             ), f"Lift should be primarily vertical; dz={lift_z:.4f} m, horizontal={horizontal:.4f} m."

@@ -13,3 +13,6 @@ class PhysicsBackend(str, Enum):
 
     PHYSX = "physx"
     NEWTON = "newton"
+
+    def __str__(self) -> str:
+        return self.value

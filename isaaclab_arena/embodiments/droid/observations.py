@@ -28,23 +28,22 @@ def arm_joint_pos(env: ManagerBasedRLEnv, asset_cfg: SceneEntityCfg = SceneEntit
     return wp.to_torch(robot.data.joint_pos)[:, joint_indices]
 
 
+def _normalized_gripper_pos(env: ManagerBasedRLEnv, asset_cfg: SceneEntityCfg, close_position: float) -> torch.Tensor:
+    """Return the finger joint position normalized by its closed position."""
+    robot = env.scene[asset_cfg.name]
+    joint_indices = [i for i, name in enumerate(robot.data.joint_names) if name == "finger_joint"]
+    joint_pos = wp.to_torch(robot.data.joint_pos)[:, joint_indices]
+    return joint_pos / close_position
+
+
 def gripper_pos(env: ManagerBasedRLEnv, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")) -> torch.Tensor:
     """Returns gripper position as 0 for open and 1 for closed."""
-    robot = env.scene[asset_cfg.name]
-    joint_names = ["finger_joint"]
-    joint_indices = [i for i, name in enumerate(robot.data.joint_names) if name in joint_names]
-    joint_pos = wp.to_torch(robot.data.joint_pos)[:, joint_indices]
-    # rescale to 0–1
-    return joint_pos / (torch.pi / 4)
+    return _normalized_gripper_pos(env, asset_cfg, torch.pi / 4)
 
 
 def newton_gripper_pos(env: ManagerBasedRLEnv, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")) -> torch.Tensor:
     """Returns Newton DROID gripper position as 0 for open and 1 for closed."""
-    robot = env.scene[asset_cfg.name]
-    joint_names = ["finger_joint"]
-    joint_indices = [i for i, name in enumerate(robot.data.joint_names) if name in joint_names]
-    joint_pos = wp.to_torch(robot.data.joint_pos)[:, joint_indices]
-    return joint_pos / _DROID_NEWTON_GRIPPER_CLOSE_RAD
+    return _normalized_gripper_pos(env, asset_cfg, _DROID_NEWTON_GRIPPER_CLOSE_RAD)
 
 
 def ee_pos(env: ManagerBasedRLEnv, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")) -> torch.Tensor:

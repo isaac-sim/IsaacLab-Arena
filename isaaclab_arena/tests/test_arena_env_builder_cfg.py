@@ -29,6 +29,13 @@ def test_builder_cfg_reexports_shared_physics_backend():
     assert PhysicsBackend is SharedPhysicsBackend
 
 
+def test_physics_backend_choices_render_as_cli_values():
+    """Render argparse choices as their command-line values."""
+    help_text = get_isaaclab_arena_cli_parser().format_help()
+    assert "{physx,newton}" in help_text
+    assert "PhysicsBackend.PHYSX" not in help_text
+
+
 def test_argparse_adapter_maps_builder_configuration():
     """Translate only builder-owned command-line values into the typed config."""
     parser = get_isaaclab_arena_cli_parser()
