@@ -4,10 +4,6 @@ Welcome to Isaac Lab Arena!
 Isaac Lab Arena extends `Isaac Lab <https://isaac-sim.github.io/IsaacLab/main/index.html>`_
 with composable tools for creating robotics simulation environments and running them efficiently at scale.
 
-.. note::
-   This is the development version of Isaac Lab Arena. It contains the newest features but may not be fully tested yet.
-   For the tested version, please refer to the `release/0.2.1 branch <https://isaac-sim.github.io/IsaacLab-Arena/release/0.2.1/index.html>`_.
-
 | **Modular Environments**
 | Compose scenes, embodiments, and tasks as reusable building blocks instead of duplicating full environment definitions.
 
