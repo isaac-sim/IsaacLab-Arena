@@ -12,7 +12,6 @@ import torch
 from isaaclab.envs import ManagerBasedRLEnv
 from isaaclab.managers import SceneEntityCfg
 
-from isaaclab_arena.tasks.predicates.predicate_utils import select
 from isaaclab_arena.utils.joint_utils import get_normalized_joint_position
 
 
@@ -21,7 +20,6 @@ def is_away_from_rest_openness(
     asset_cfg: SceneEntityCfg,
     rest_openness: float,
     min_openness_change: float,
-    env_id: int | None = None,
 ) -> torch.Tensor:
     """Checks if a joint's openness is away from a rest openness.
 
@@ -33,10 +31,9 @@ def is_away_from_rest_openness(
         asset_cfg: The scene entity and joint to read the openness of.
         rest_openness: The openness the movement is measured against, typically the reset openness.
         min_openness_change: How far the openness must change from rest_openness to count as moved.
-        env_id: Restricts the result to a single environment when set.
 
     Returns:
         One Boolean result per environment.
     """
     openness = get_normalized_joint_position(env, asset_cfg)
-    return select((openness - rest_openness).abs() > min_openness_change, env_id)
+    return (openness - rest_openness).abs() > min_openness_change
