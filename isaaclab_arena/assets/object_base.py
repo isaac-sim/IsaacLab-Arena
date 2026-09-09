@@ -59,8 +59,19 @@ class ObjectBase(PlaceableAsset, ABC):
 class RootedObjectBase(ObjectBase):
     """Parent class for rigid, articulated, and static rooted objects."""
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(
+        self,
+        name: str,
+        prim_path: str | None = None,
+        object_type: ObjectType = ObjectType.BASE,
+        **kwargs,
+    ):
+        super().__init__(name=name, prim_path=prim_path, object_type=object_type, **kwargs)
+        assert self.object_type in {
+            ObjectType.BASE,
+            ObjectType.RIGID,
+            ObjectType.ARTICULATION,
+        }, f"RootedObjectBase does not support object type '{self.object_type}'."
         if self.object_type == ObjectType.RIGID:
             self.add_variation(ObjectMassVariation(self.name))
         self.initial_velocity: Velocity | None = None
