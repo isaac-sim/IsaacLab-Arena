@@ -151,12 +151,9 @@ class RigidObjectSet(Object):
         return AxisAlignedBoundingBox(min_point=min_pts, max_point=max_pts)
 
     def get_contact_sensor_cfg(self, contact_against_object: ObjectBase | None = None) -> ContactSensorCfg:
-        # Use the canonical member because every rewritten member has the same rigid-body path.
+        # We assume that by here, our USDs have been modified to be compatible with each other
+        # and we can use the canonical first member USD to find the shallowest rigid body.
         return super().get_contact_sensor_cfg(contact_against_object, usd_path=self.member_usd_paths[0])
-
-    def _get_rigid_body_relative_path(self, usd_path: str | None = None) -> str:
-        """Return the canonical member's rigid-body path relative to its USD root."""
-        return super()._get_rigid_body_relative_path(usd_path or self.member_usd_paths[0])
 
     def _generate_variant_indices(self, num_envs: int, variant_seed: int | None = None) -> list[int]:
         """Return one member index per env.

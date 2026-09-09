@@ -95,33 +95,8 @@ class Object(RootedObjectBase):
         # We override this function from the parent class because in some assets, the rigid body
         # is not at the root of the USD file. To be robust to this, we find the shallowest rigid body
         # and add the contact sensor to it.
-        # Object subclasses may override rigid-body path selection when they do not have one
-        # static USD path, as RigidObjectSet does. ObjectReferences still use their root prim.
-        rigid_body_relative_path = self._get_rigid_body_relative_path(usd_path)
-        contact_sensor_prim_path = self.prim_path + rigid_body_relative_path
-        # There are also cases where the contact against object does not have its rigid body at the root.
-        # In that case, we also need to find the shallowest rigid body.
-        # Object subclasses resolve their own USD structure. Other ObjectBase implementations,
-        # such as ObjectReference, are assumed to have their rigid body at their prim path.
-        if isinstance(contact_against_object, Object):
-            assert (
-                contact_against_object.object_type == ObjectType.RIGID
-            ), "Contact sensor is only supported for rigid objects"
-            contact_against_relative_path = contact_against_object._get_rigid_body_relative_path()
-            filter_prim_paths = [contact_against_object.get_prim_path() + contact_against_relative_path]
-        elif isinstance(contact_against_object, ObjectBase):
-            filter_prim_paths = [contact_against_object.get_prim_path()]
-        elif contact_against_object is None:
-            filter_prim_paths = []
-        return ContactSensorCfg(
-            prim_path=contact_sensor_prim_path,
-            filter_prim_paths_expr=filter_prim_paths,
-        )
-
-    def _get_rigid_body_relative_path(self, usd_path: str | None = None) -> str:
-        """Return the shallowest rigid-body path relative to this object's USD root."""
+        # ObjectReferences use their root prim. RigidObjectSet passes a canonical member USD.
         usd_path = usd_path or self.usd_path
-        assert usd_path, f"No USD path available for {self.name}. Can't find its rigid body."
         rigid_body_relative_path = find_shallowest_rigid_body(
             usd_path,
             relative_to_root=True,
@@ -130,7 +105,22 @@ class Object(RootedObjectBase):
         assert (
             rigid_body_relative_path is not None
         ), f"No rigid body found in {self.name} USD file: {usd_path}. Can't add contact sensor."
-        return rigid_body_relative_path
+        contact_sensor_prim_path = self.prim_path + rigid_body_relative_path
+        # There are also cases where the contact against object does not have its rigid body at the root.
+        # In that case, we also need to find the shallowest rigid body.
+        if isinstance(contact_against_object, Object):
+            assert (
+                contact_against_object.object_type == ObjectType.RIGID
+            ), "Contact sensor is only supported for rigid objects"
+            filter_prim_paths = [contact_against_object.get_contact_sensor_cfg().prim_path]
+        elif isinstance(contact_against_object, ObjectBase):
+            filter_prim_paths = [contact_against_object.get_prim_path()]
+        elif contact_against_object is None:
+            filter_prim_paths = []
+        return ContactSensorCfg(
+            prim_path=contact_sensor_prim_path,
+            filter_prim_paths_expr=filter_prim_paths,
+        )
 
     def _get_spawn_cfg(self, activate_contact_sensors: bool = False):
         """Return the spawn config to use: custom spawner_cfg if set, else a UsdFileCfg."""
