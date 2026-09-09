@@ -64,7 +64,7 @@ def test_build_and_run_splits_episode_budget_without_mutating_config(monkeypatch
     rollout_limits = []
     received_run_cfgs = []
 
-    def make_environment(cfg, render_mode):
+    def make_environment(cfg, video_cfg, num_steps, num_episodes):
         received_run_cfgs.append(cfg)
         return _environment()
 
@@ -117,7 +117,7 @@ def test_build_and_run_raises_and_closes_resources(monkeypatch, tmp_path):
     monkeypatch.setattr(
         run_execution,
         "_build_environment_from_cfg",
-        lambda cfg, render_mode: environment,
+        lambda cfg, video_cfg, num_steps, num_episodes: environment,
     )
     monkeypatch.setattr(run_execution, "_build_policy_from_cfg", lambda cfg: policy)
     monkeypatch.setattr(run_execution, "wrap_env_for_video", lambda env, video_cfg, steps, episodes: env)
@@ -149,7 +149,7 @@ def test_build_and_run_requires_a_limit_for_an_unbounded_policy(monkeypatch, tmp
     monkeypatch.setattr(
         run_execution,
         "_build_environment_from_cfg",
-        lambda cfg, render_mode: environment,
+        lambda cfg, video_cfg, num_steps, num_episodes: environment,
     )
     monkeypatch.setattr(run_execution, "_build_policy_from_cfg", lambda cfg: policy)
     monkeypatch.setattr(
@@ -164,7 +164,7 @@ def test_build_and_run_requires_a_limit_for_an_unbounded_policy(monkeypatch, tmp
             output_dir=tmp_path,
         )
 
-    assert closed_resources == [(policy, environment)]
+    assert closed_resources == [(policy, None)]
 
 
 def test_execute_experiment_runs_in_declaration_order(monkeypatch, tmp_path):
