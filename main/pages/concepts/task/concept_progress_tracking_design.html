@@ -613,11 +613,9 @@ A custom predicate must:</p>
 <p>A predicate may accept any task-specific arguments it needs after <code class="docutils literal notranslate"><span class="pre">env</span></code>. For example:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">torch</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.tasks.predicates.predicate_utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_root_pos_w</span>
-
 <span class="k">def</span><span class="w"> </span><span class="nf">object_inside_x_bounds</span><span class="p">(</span><span class="n">env</span><span class="p">,</span> <span class="n">object_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">min_x</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">max_x</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
-    <span class="n">object_x</span> <span class="o">=</span> <span class="n">get_root_pos_w</span><span class="p">(</span><span class="n">env</span><span class="p">,</span> <span class="n">object_name</span><span class="p">)[:,</span> <span class="mi">0</span><span class="p">]</span>
-    <span class="k">return</span> <span class="p">(</span><span class="n">object_x</span> <span class="o">&gt;=</span> <span class="n">min_x</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">object_x</span> <span class="o">&lt;=</span> <span class="n">max_x</span><span class="p">)</span>
+    <span class="n">object_x_e</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">arena_world</span><span class="o">.</span><span class="n">get_pose_e</span><span class="p">(</span><span class="n">object_name</span><span class="p">)[:,</span> <span class="mi">0</span><span class="p">]</span>
+    <span class="k">return</span> <span class="p">(</span><span class="n">object_x_e</span> <span class="o">&gt;=</span> <span class="n">min_x</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">object_x_e</span> <span class="o">&lt;=</span> <span class="n">max_x</span><span class="p">)</span>
 </pre></div>
 </div>
 <p>The arguments after <code class="docutils literal notranslate"><span class="pre">env</span></code> are configured when the predicate is added to a progress objective
