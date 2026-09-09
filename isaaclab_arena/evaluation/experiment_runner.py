@@ -184,12 +184,10 @@ def main():
 
         _write_arena_experiment_result(experiment_cfg, run_results, experiment_output_directory)
 
-        # Each Run wrote its own timings as it finished. Combine them the same way the OSMO
-        # collect task does, so both routes leave the same files behind.
-        timings_path = aggregate_experiment_timings(
-            experiment_output_directory,
-            [run_result.run_name for run_result in run_results if run_result.status is RunStatus.COMPLETED],
-        )
+        completed_run_names = [
+            run_result.run_name for run_result in run_results if run_result.status is RunStatus.COMPLETED
+        ]
+        timings_path = aggregate_experiment_timings(experiment_output_directory, completed_run_names)
         print(f"Wrote Arena Experiment timings to: {timings_path}")
 
         # Write HTML report.
