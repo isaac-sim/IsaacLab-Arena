@@ -570,7 +570,7 @@
                   
   <section id="franka-lift-object-task">
 <h1>Franka Lift Object Task<a class="headerlink" href="#franka-lift-object-task" title="Link to this heading">#</a></h1>
-<p>This example demonstrates the complete workflow for <strong>reinforcement learning-based object lifting</strong> using the Franka Panda robot in Isaac Lab - Arena, covering environment setup, policy training with RSL-RL, and closed-loop evaluation.</p>
+<p>This example demonstrates the complete workflow for <strong>reinforcement learning-based object lifting</strong> with the Franka Panda robot. The environment is built in Isaac Lab Arena and passed to Isaac Lab for policy training with RSL-RL, and the resulting checkpoint is evaluated in closed loop in Isaac Lab Arena.</p>
 <a class="reference internal image-reference" href="../../../_images/lift_object_rl_task.gif"><img alt="../../../_images/lift_object_rl_task.gif" class="align-center" src="../../../_images/lift_object_rl_task.gif" style="height: 400px;" />
 </a>
 <section id="task-overview">
@@ -608,7 +608,7 @@
 <td><p>RSL-RL PPO (learned from scratch)</p></td>
 </tr>
 <tr class="row-even"><td><p><strong>Training Method</strong></p></td>
-<td><p>Reinforcement Learning (on-policy PPO)</p></td>
+<td><p>Reinforcement Learning (on-policy PPO) — trained in <strong>Isaac Lab</strong></p></td>
 </tr>
 <tr class="row-odd"><td><p><strong>Physics</strong></p></td>
 <td><p>PhysX (50Hz &#64; 2 decimation)</p></td>
@@ -628,9 +628,10 @@
 </section>
 <section id="workflow">
 <h2>Workflow<a class="headerlink" href="#workflow" title="Link to this heading">#</a></h2>
-<p>This tutorial covers the pipeline for creating an RL environment, training a policy using RSL-RL,
-and evaluating the trained policy in closed-loop. A user can follow the whole pipeline, or can start
-at any intermediate step by using the provided checkpoints.</p>
+<p>This tutorial covers the pipeline for creating an RL environment in Isaac Lab Arena, passing it to
+Isaac Lab to train a policy using RSL-RL, and evaluating the trained policy in closed-loop in
+Isaac Lab Arena. A user can follow the whole pipeline, or can start at any intermediate step by
+using the provided checkpoints.</p>
 <section id="prerequisites">
 <h3>Prerequisites<a class="headerlink" href="#prerequisites" title="Link to this heading">#</a></h3>
 <p>Start the isaaclab docker container</p>

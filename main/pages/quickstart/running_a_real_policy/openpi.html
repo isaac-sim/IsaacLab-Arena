@@ -608,8 +608,28 @@ the supported-variants table below for the exact values.</p>
 <section id="terminal-2-experiment-runner">
 <h2>Terminal 2 — Experiment Runner<a class="headerlink" href="#terminal-2-experiment-runner" title="Link to this heading">#</a></h2>
 <p><strong>Run pi05 closed-loop</strong></p>
-<p>Open a second terminal and enter the Arena container with <code class="docutils literal notranslate"><span class="pre">./docker/run_docker.sh</span></code>.
-Arena includes a one-Run YAML configuration for this rollout:</p>
+<p>Open a second terminal and prepare the Arena runtime from the repository root, using either a
+native <code class="docutils literal notranslate"><span class="pre">uv</span></code> environment or the base Docker container (see
+<a class="reference internal" href="../installation.html"><span class="doc">Installation</span></a> for the full setup):</p>
+<div class="sd-tab-set docutils">
+<input checked="checked" id="sd-tab-item-0" name="sd-tab-set-0" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-0">
+Native uv</label><div class="sd-tab-content docutils">
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>sync<span class="w"> </span>--extra<span class="w"> </span>dev
+<span class="nb">source</span><span class="w"> </span>.venv/bin/activate
+<span class="nb">export</span><span class="w"> </span><span class="nv">OMNI_KIT_ACCEPT_EULA</span><span class="o">=</span>YES<span class="w"> </span><span class="nv">ACCEPT_EULA</span><span class="o">=</span>Y
+</pre></div>
+</div>
+</div>
+<input id="sd-tab-item-1" name="sd-tab-set-0" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-1">
+Docker Container</label><div class="sd-tab-content docutils">
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./docker/run_docker.sh
+</pre></div>
+</div>
+</div>
+</div>
+<p>Arena includes a one-Run YAML configuration for this rollout:</p>
 <details class="sd-sphinx-override sd-dropdown sd-card sd-mb-3 sd-fade-in">
 <summary class="sd-summary-title sd-card-header">
 <span class="sd-summary-text">Configuration file (<code class="docutils literal notranslate"><span class="pre">droid_pnp_openpi_experiment.yaml</span></code>)</span><span class="sd-summary-state-marker sd-summary-chevron-right"><svg version="1.1" width="1.5em" height="1.5em" class="sd-octicon sd-octicon-chevron-right" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.72 18.78a.75.75 0 0 1 0-1.06L14.44 12 8.72 6.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018l6.25 6.25a.75.75 0 0 1 0 1.06l-6.25 6.25a.75.75 0 0 1-1.06 0Z"></path></svg></span></summary><div class="sd-summary-content sd-card-body docutils">

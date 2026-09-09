@@ -620,10 +620,27 @@ of the scene running in parallel, which you will launch on the next page.</p>
 actions, so no policy or model weights are required. It keeps running until you close Kit or press
 <code class="docutils literal notranslate"><span class="pre">Ctrl-C</span></code>. While it runs, hold <code class="docutils literal notranslate"><span class="pre">Shift</span></code> and left-drag an object to move it and inspect its physical
 behavior.</p>
-<p>Start or enter the Base Docker container from the repository root:</p>
+<p>Prepare the runtime from the repository root, using either a native <code class="docutils literal notranslate"><span class="pre">uv</span></code> environment or the base
+Docker container (see <a class="reference internal" href="installation.html"><span class="doc">Installation</span></a> for the full setup):</p>
+<div class="sd-tab-set docutils">
+<input checked="checked" id="sd-tab-item-0" name="sd-tab-set-0" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-0">
+Native uv</label><div class="sd-tab-content docutils">
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uv<span class="w"> </span>sync<span class="w"> </span>--extra<span class="w"> </span>dev
+<span class="nb">source</span><span class="w"> </span>.venv/bin/activate
+<span class="nb">export</span><span class="w"> </span><span class="nv">OMNI_KIT_ACCEPT_EULA</span><span class="o">=</span>YES<span class="w"> </span><span class="nv">ACCEPT_EULA</span><span class="o">=</span>Y
+</pre></div>
+</div>
+</div>
+<input id="sd-tab-item-1" name="sd-tab-set-0" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-1">
+Docker Container</label><div class="sd-tab-content docutils">
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./docker/run_docker.sh
 </pre></div>
 </div>
+</div>
+</div>
+<p>Every command below is identical in both runtimes.</p>
 <section id="run-the-reference-scene">
 <h3>Run the reference scene<a class="headerlink" href="#run-the-reference-scene" title="Link to this heading">#</a></h3>
 <p>Run the environment with a Rubik’s cube, bowl, and home-office background:</p>
