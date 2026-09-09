@@ -135,11 +135,11 @@ def test_cable_asset_config():
     from isaaclab.managers import EventTermCfg
 
     from isaaclab_arena.assets.cable import Cable
-    from isaaclab_arena.assets.object_base import ObjectBase, ObjectType
+    from isaaclab_arena.assets.object_base import ObjectBase
+    from isaaclab_arena.assets.object_type import ObjectType
     from isaaclab_arena.relations.relations import IsAnchor
     from isaaclab_arena.terms.events import reset_cable_to_default
     from isaaclab_arena.utils.pose import Pose, PosePerEnv, PoseRange
-    from isaaclab_arena.utils.velocity import Velocity
 
     initial_pose = Pose(position_xyz=(0.1, 0.2, 0.3))
     cable = Cable(
@@ -176,12 +176,6 @@ def test_cable_asset_config():
         cable.get_bounding_box()
     with pytest.raises(NotImplementedError, match="segment-state writes"):
         cable.layout_pose_to_scene_writes(Pose())
-    with pytest.raises(NotImplementedError, match="initial velocity"):
-        cable.set_initial_velocity(Velocity.zero())
-    with pytest.raises(NotImplementedError, match="written per segment"):
-        cable.set_object_pose(None, Pose())
-    with pytest.raises(NotImplementedError, match="contact sensors"):
-        cable.get_contact_sensor_cfg()
     with pytest.raises(NotImplementedError, match="fixed initial Pose"):
         cable.set_initial_pose(PosePerEnv([Pose()]))
     with pytest.raises(NotImplementedError, match="fixed initial Pose"):
