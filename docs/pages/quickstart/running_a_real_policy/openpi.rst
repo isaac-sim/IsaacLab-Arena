@@ -68,10 +68,6 @@ native ``uv`` environment or the base Docker container (see
 
       :docker_run_default:
 
-The ``openpi-client`` WebSocket client is part of a default ``uv sync``, and the Docker image
-ships it as well, so no extra install step is needed on either route. Terminal 1 keeps serving
-the model from its own container regardless of which runtime you choose here.
-
 Arena includes a one-Run YAML configuration for this rollout:
 
 .. dropdown:: Configuration file (``droid_pnp_openpi_experiment.yaml``)
