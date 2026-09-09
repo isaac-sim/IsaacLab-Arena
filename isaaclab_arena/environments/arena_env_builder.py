@@ -412,15 +412,11 @@ class ArenaEnvBuilder:
                 viewer=viewer_cfg,
             )
 
-        # Apply the environment configuration callback if it is set
-        # This can be used to modify the simulation configuration, etc.
-        if self.arena_env.env_cfg_callback is not None:
-            env_cfg = self.arena_env.env_cfg_callback(env_cfg)
-
         # Set seed for Isaac Lab env.
         env_cfg.seed = self.cfg.seed
 
-        # Apply the requested physics backend after the callback so it remains the final authority.
+        # Apply the requested physics backend before the callback so env-specific overrides
+        # (for example Newton solver tuning) can patch the preset in place.
         presets = self.cfg.presets
         if presets is not None:
             from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import ArenaPhysicsCfg
@@ -432,6 +428,11 @@ class ArenaEnvBuilder:
             # takes a very long time for large number of parallel environments.
             if presets is PhysicsBackend.NEWTON:
                 env_cfg.scene.replicate_physics = True
+
+        # Apply the environment configuration callback if it is set
+        # This can be used to modify the simulation configuration, etc.
+        if self.arena_env.env_cfg_callback is not None:
+            env_cfg = self.arena_env.env_cfg_callback(env_cfg)
 
         env_kwargs: dict[str, Any] = {"variation_recorder": variation_recorder}
         return env_cfg, env_kwargs

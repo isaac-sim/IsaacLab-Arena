@@ -42,6 +42,7 @@ class IsaacLabArenaEnvironment:
             task: The task to use in the environment.
             teleop_device: The teleop device to use in the environment.
             env_cfg_callback: A callback function that modifies the environment configuration.
+                It runs after the requested physics preset is applied.
             rl_framework_entry_point: Gym kwargs key under which the RL policy config is
                 registered. This is an IsaacLab convention: each supported RL framework has a
                 fixed key that its training scripts look up via ``load_cfg_from_registry``.
