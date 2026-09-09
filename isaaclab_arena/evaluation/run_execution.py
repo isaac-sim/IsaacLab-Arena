@@ -132,6 +132,7 @@ def build_and_run(
                 video_cfg,
                 video_base_dir=output_dir,
                 camera_name_prefix=f"robot-cam-rebuild{rebuild_index}",
+                viewport_name_prefix=f"viewport-rebuild{rebuild_index}-env0-viewport",
             )
             rebuild_cfg = _seed_cfg_for_rebuild(cfg, rebuild_index)
             env = _build_environment_from_cfg(rebuild_cfg, rebuild_video_cfg.render_mode)

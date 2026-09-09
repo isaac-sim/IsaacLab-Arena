@@ -160,8 +160,9 @@ def main():
         args_cli.device = f"cuda:{local_rank}"
         print(f"[Rank {local_rank}/{world_size}] One Isaac Lab instance per process on cuda:{local_rank}")
 
-    # --record_camera_video requires cameras to be enabled at sim startup, before SimulationAppContext.
-    if "--record_camera_video" in unknown:
+    # Both recorders require cameras to be enabled at sim startup, before SimulationAppContext.
+    # Matched against the raw argv because add_policy_runner_arguments has not declared them yet.
+    if {"--record_camera_video", "--record_viewport_video"} & set(unknown):
         args_cli.enable_cameras = True
 
     with SimulationAppContext(args_cli):
@@ -197,7 +198,7 @@ def main():
                 args_cli.seed += local_rank
 
         # Re-apply enable_cameras: the full parse resets it to default False.
-        if args_cli.record_camera_video:
+        if args_cli.record_camera_video or args_cli.record_viewport_video:
             args_cli.enable_cameras = True
 
         # Build scene. Use rgb_array render mode when recording so RecordVideo can grab frames.
