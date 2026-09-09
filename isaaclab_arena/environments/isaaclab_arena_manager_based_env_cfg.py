@@ -17,6 +17,8 @@ from isaaclab_newton.physics import MJWarpSolverCfg, NewtonCfg
 from isaaclab_physx.physics import PhysxCfg
 from isaaclab_tasks.utils import PresetCfg
 
+from isaaclab_arena.video.viewport_video_recorder import ArenaViewportVideoRecorderCfg
+
 
 @configclass
 class ArenaPhysicsCfg(PresetCfg):
@@ -65,6 +67,9 @@ class IsaacLabArenaManagerBasedRLEnvCfg(ManagerBasedRLEnvCfg):
     commands = None
     rewards = None
     curriculum = None
+
+    video_recorder: ArenaViewportVideoRecorderCfg = ArenaViewportVideoRecorderCfg()
+    """Report video recorder that reads its viewpoint in the task's configured viewer frame."""
 
     metrics: object | None = None
 

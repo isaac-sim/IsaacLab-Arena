@@ -15,6 +15,7 @@ from isaaclab_arena.metrics.metrics_manager import MetricsManager
 from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderManager
 from isaaclab_arena.tasks.predicates.object_settling import ObjectInitialRestPoseRecorder
 from isaaclab_arena.variations.variation_recorder import VariationRecorder
+from isaaclab_arena.video.viewport_video_recorder import ArenaViewportVideoRecorderCfg
 
 
 class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
@@ -29,6 +30,11 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
         variation_recorder: VariationRecorder | None = None,
         **kwargs,
     ):
+        # Isaac Lab forwards only the viewer eye and target to the video recorder, so pass the
+        # frame they are measured in as well. Must happen before the recorder is built in super().
+        if isinstance(cfg.video_recorder, ArenaViewportVideoRecorderCfg):
+            cfg.video_recorder.viewer_origin_type = cfg.viewer.origin_type
+            cfg.video_recorder.viewer_env_index = cfg.viewer.env_index
         self._object_initial_rest_pose_recorder = ObjectInitialRestPoseRecorder(
             num_envs=cfg.scene.num_envs, device=cfg.sim.device
         )
