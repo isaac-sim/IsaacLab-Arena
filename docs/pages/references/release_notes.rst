@@ -71,11 +71,11 @@ Isaac Lab 3.0 interoperation and adds major improvements to object placement and
 
 **Features and improvements**
 
-- **Agentic environment generation:** Added ``EnvGenAgent`` for creating environments from
+- **Agentic environment generation:** Added ``EnvironmentGenerationAgent`` for creating environments from
   natural-language prompts, with intent-to-graph conversion, SimReady asset search, composite-task
   support, configurable inference endpoints, and an interactive review GUI with simulation
   snapshots and relation-solver previews (#718, #770, #803, #804, #805, #868, #982, #1050).
-- **Typed environment definitions:** Added Pydantic-based ``EnvGraphSpec`` YAML parsing and CLI
+- **Typed environment definitions:** Added Pydantic-based ``ArenaEnvGraphSpec`` YAML parsing and CLI
   bring-up, typed environment and policy configurations, a reusable environment factory, and a
   unified path for loading registered Python environments or graph YAML files
   (#690, #749, #757, #808, #858, #860, #862, #863).
