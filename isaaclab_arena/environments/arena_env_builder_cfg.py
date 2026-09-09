@@ -6,6 +6,14 @@
 """Typed configuration for compiling an Arena environment."""
 
 from dataclasses import dataclass
+from enum import Enum
+
+
+class PhysicsBackend(str, Enum):
+    """Physics backends supported by Arena's global preset."""
+
+    PHYSX = "physx"
+    NEWTON = "newton"
 
 
 # TODO(cvolk, 2026-07-06): [typed-config-migration] Replace this flat legacy-CLI-shaped configuration with
@@ -23,9 +31,11 @@ class ArenaEnvBuilderCfg:
     resolve_on_reset: bool | None = None
     disable_fabric: bool = False
     mimic: bool = False
-    presets: str | None = None
+    presets: PhysicsBackend | None = None
     device: str = "cuda:0"
     language_instruction: str | None = None
 
     def __post_init__(self) -> None:
         assert self.num_envs > 0, "num_envs must be greater than zero"
+        if self.presets is not None:
+            self.presets = PhysicsBackend(self.presets)

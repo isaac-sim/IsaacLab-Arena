@@ -21,7 +21,7 @@ from isaaclab_teleop import IsaacTeleopCfg
 import isaaclab_arena_curobo  # noqa: F401
 from isaaclab_arena.assets.registries import DeviceRegistry
 from isaaclab_arena.embodiments.no_embodiment import NoEmbodiment
-from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
+from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg, PhysicsBackend
 from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
 from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import (
     IsaacArenaManagerBasedMimicEnvCfg,
@@ -234,7 +234,7 @@ class ArenaEnvBuilder:
 
         # Constructing the environment by combining inputs from the scene, embodiment, and task.
         embodiment = self.arena_env.embodiment or NoEmbodiment()
-        embodiment.configure_for_physics(self.cfg.presets)
+        embodiment.configure_physics_backend(self.cfg.presets)
         task = self.arena_env.task or NoTask()
         scene_cfg = combine_configclass_instances(
             "SceneCfg",
@@ -425,12 +425,12 @@ class ArenaEnvBuilder:
         if presets is not None:
             from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import ArenaPhysicsCfg
 
-            env_cfg.sim.physics = getattr(ArenaPhysicsCfg(), presets)
+            env_cfg.sim.physics = getattr(ArenaPhysicsCfg(), presets.value)
 
             # Set replicate_physics for shared physics representations.
             # For Newton, without this flag, the simulation initialization
             # takes a very long time for large number of parallel environments.
-            if presets == "newton":
+            if presets is PhysicsBackend.NEWTON:
                 env_cfg.scene.replicate_physics = True
 
         env_kwargs: dict[str, Any] = {"variation_recorder": variation_recorder}

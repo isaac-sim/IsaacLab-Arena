@@ -47,6 +47,7 @@ from isaaclab_arena.embodiments.droid.observations import (
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
 from isaaclab_arena.embodiments.franka.franka import franka_stack_events
 from isaaclab_arena.embodiments.robot_on_stand_utils import RobotPrimSpec, StandPrimSpec, compose_on_stand_usd
+from isaaclab_arena.environments.arena_env_builder_cfg import PhysicsBackend
 from isaaclab_arena.relations.collision_mode import CollisionMode
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.cameras import ArenaCameraCfg
@@ -159,9 +160,9 @@ class DroidEmbodimentBase(EmbodimentBase, ABC):
         self._newton_spawn_configured = False
         self._newton_gripper_configured = False
 
-    def configure_for_physics(self, preset: str | None) -> None:
+    def configure_physics_backend(self, backend: PhysicsBackend | None) -> None:
         """Apply Newton spawn and gripper overrides shared by all DROID embodiments."""
-        if preset == "newton":
+        if backend is PhysicsBackend.NEWTON:
             self._configure_newton_spawn()
             self._configure_newton_gripper()
 
@@ -249,7 +250,7 @@ class DroidEmbodimentBase(EmbodimentBase, ABC):
 class DroidDifferentialIKEmbodiment(DroidEmbodimentBase):
     """Embodiment for the DROID setup with differential inverse kinematics action controller.
 
-    When ``--presets newton`` is selected, :meth:`configure_for_physics` applies Newton-specific
+    When ``--presets newton`` is selected, :meth:`configure_physics_backend` applies Newton-specific
     spawn, gripper, and IK overrides before the env is built.
     """
 
@@ -281,10 +282,10 @@ class DroidDifferentialIKEmbodiment(DroidEmbodimentBase):
         self.action_config = DroidDifferentialIKActionsCfg()
         self._newton_diff_ik_configured = False
 
-    def configure_for_physics(self, preset: str | None) -> None:
+    def configure_physics_backend(self, backend: PhysicsBackend | None) -> None:
         """Apply shared Newton spawn setup, then diff-IK-specific Newton tuning."""
-        super().configure_for_physics(preset)
-        if preset == "newton":
+        super().configure_physics_backend(backend)
+        if backend is PhysicsBackend.NEWTON:
             self._configure_newton_diff_ik()
 
     def _configure_newton_diff_ik(self) -> None:

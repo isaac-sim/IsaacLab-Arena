@@ -14,6 +14,7 @@ from isaaclab.managers import EventTermCfg
 from isaaclab.managers.recorder_manager import RecorderManagerBaseCfg
 
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
+from isaaclab_arena.environments.arena_env_builder_cfg import PhysicsBackend
 from isaaclab_arena.relations.collision_mode import CollisionMode
 from isaaclab_arena.relations.placement_asset import PlaceableAsset
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
@@ -165,7 +166,7 @@ class EmbodimentBase(PlaceableAsset):
             rotation_xyzw=tuple(float(v) for v in init_state.rot),
         )
 
-    def configure_for_physics(self, preset: str | None) -> None:
+    def configure_physics_backend(self, backend: PhysicsBackend | None) -> None:
         """Apply physics-backend-specific overrides before the env cfg is composed."""
 
     def get_scene_cfg(self) -> Any:

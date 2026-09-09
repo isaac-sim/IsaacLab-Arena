@@ -160,12 +160,13 @@ def test_z_newton_droid_embodiment_config_contract():
         DroidDifferentialIKEmbodiment,
     )
     from isaaclab_arena.embodiments.droid.observations import _DROID_NEWTON_GRIPPER_CLOSE_RAD
+    from isaaclab_arena.environments.arena_env_builder_cfg import PhysicsBackend
 
     embodiment = DroidDifferentialIKEmbodiment()
     assert embodiment.action_config.arm_action.body_name == "base_link"
     assert embodiment.action_config.arm_action.controller.ik_method == "dls"
 
-    embodiment.configure_for_physics("newton")
+    embodiment.configure_physics_backend(PhysicsBackend.NEWTON)
     gripper_action = embodiment.action_config.gripper_action
     assert isinstance(gripper_action, BinaryJointPositionZeroToOneActionCfg)
     assert embodiment.action_config.arm_action.body_name == "base_link"
