@@ -34,7 +34,7 @@ def close_environment(env: gym.Env | None) -> None:
     """Release viewport capture, replace the simulation stage, and close the environment."""
     if env is None:
         return
-    base_env = getattr(env, "unwrapped", env)
+    base_env = env.unwrapped
     close_viewport_video_recorder(getattr(base_env, "video_recorder", None))
     try:
         teardown_simulation_app(suppress_exceptions=False, make_new_stage=True)
