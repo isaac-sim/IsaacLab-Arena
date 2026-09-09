@@ -415,8 +415,9 @@ class ArenaEnvBuilder:
         # Set seed for Isaac Lab env.
         env_cfg.seed = self.cfg.seed
 
-        # Apply the requested physics backend before the callback so env-specific overrides
-        # (for example Newton solver tuning) can patch the preset in place.
+        # Apply the requested physics backend before the callback so env-specific overrides can
+        # tune the selected preset. Callbacks that require a specific backend must validate the
+        # selected physics config before replacing or modifying it.
         presets = self.cfg.presets
         if presets is not None:
             from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import ArenaPhysicsCfg

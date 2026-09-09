@@ -34,7 +34,7 @@ def _test_arena_physics_cfg_presets(simulation_app) -> bool:
     return True
 
 
-def _build_env_cfg(presets: str | None, embodiment=None):
+def _build_env_cfg(presets: str | None, embodiment=None, env_cfg_callback=None):
     """Build a real env cfg through ArenaEnvBuilder.compose_manager_cfg with the given preset."""
     from isaaclab_arena.assets.registries import AssetRegistry
     from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
@@ -60,6 +60,7 @@ def _build_env_cfg(presets: str | None, embodiment=None):
         name="test_physics_preset",
         embodiment=embodiment,
         scene=scene,
+        env_cfg_callback=env_cfg_callback,
     )
 
     builder = ArenaEnvBuilder(arena_env, arena_env_builder_cfg_from_argparse(args_cli))
@@ -98,6 +99,14 @@ def _test_builder_unknown_preset_raises(simulation_app) -> bool:
     except (AttributeError, SystemExit):
         return True
     raise AssertionError("Expected AttributeError or SystemExit for unknown preset")
+
+
+def _test_assembly_callback_rejects_newton_preset(simulation_app) -> bool:
+    from isaaclab_arena_environments.mdp.env_callbacks import assembly_env_cfg_callback
+
+    with pytest.raises(AssertionError, match="Assembly environments require PhysX"):
+        _build_env_cfg(presets="newton", env_cfg_callback=assembly_env_cfg_callback)
+    return True
 
 
 def _test_droid_diff_ik_physx_preset_keeps_default_spawn(simulation_app) -> bool:
@@ -176,6 +185,10 @@ def test_builder_newton_preset():
 
 def test_builder_unknown_preset_raises():
     assert run_function_with_persistent_simulation_app(_test_builder_unknown_preset_raises, headless=HEADLESS)
+
+
+def test_assembly_callback_rejects_newton_preset():
+    assert run_function_with_persistent_simulation_app(_test_assembly_callback_rejects_newton_preset, headless=HEADLESS)
 
 
 def test_droid_diff_ik_physx_preset_keeps_default_spawn():
