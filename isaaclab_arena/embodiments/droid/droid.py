@@ -254,7 +254,6 @@ class DroidDifferentialIKEmbodiment(DroidEmbodimentBase):
     """
 
     name = "droid_differential_ik"
-    default_arm_mode = ArmMode.SINGLE_ARM
 
     def __init__(
         self,
@@ -308,7 +307,6 @@ class DroidRelativeJointPositionEmbodiment(DroidEmbodimentBase):
     """Embodiment for the DROID setup with relative joint position action controller."""
 
     name = "droid_rel_joint_pos"
-    default_arm_mode = ArmMode.SINGLE_ARM
 
     def __init__(
         self,
@@ -342,7 +340,6 @@ class DroidAbsoluteJointPositionEmbodiment(DroidEmbodimentBase):
 
     name = "droid_abs_joint_pos"
     tags = ["embodiment", "default"]
-    default_arm_mode = ArmMode.SINGLE_ARM
 
     def __init__(
         self,
@@ -436,7 +433,6 @@ class DroidSceneCfg:
         },
     )
 
-    # The end-effector frame marker
     ee_frame: FrameTransformerCfg = FrameTransformerCfg(
         prim_path="{ENV_REGEX_NS}/Robot/panda_link0",
         debug_vis=False,
@@ -444,7 +440,6 @@ class DroidSceneCfg:
             FrameTransformerCfg.FrameCfg(
                 prim_path="{ENV_REGEX_NS}/Robot/Gripper/Robotiq_2F_85/base_link",
                 name="end_effector",
-                offset=OffsetCfg(),
             ),
             FrameTransformerCfg.FrameCfg(
                 prim_path="{ENV_REGEX_NS}/Robot/Gripper/Robotiq_2F_85/right_inner_finger",
@@ -464,7 +459,6 @@ class DroidSceneCfg:
     )
 
     def __post_init__(self):
-        # Add a marker to the end-effector frame
         marker_cfg = FRAME_MARKER_CFG.copy()
         marker_cfg.markers["frame"].scale = (0.1, 0.1, 0.1)
         marker_cfg.prim_path = "/Visuals/FrameTransformer"
@@ -481,6 +475,14 @@ class BinaryJointPositionZeroToOneActionCfg(BinaryJointPositionActionCfg):
     class_type = BinaryJointPositionZeroToOneAction
 
 
+_DROID_DEFAULT_GRIPPER_ACTION_CFG = BinaryJointPositionZeroToOneActionCfg(
+    asset_name="robot",
+    joint_names=["finger_joint"],
+    open_command_expr={"finger_joint": 0.0},
+    close_command_expr={"finger_joint": torch.pi / 4},
+)
+
+
 @configclass
 class DroidDifferentialIKActionsCfg:
     """Action specifications for the MDP."""
@@ -491,15 +493,9 @@ class DroidDifferentialIKActionsCfg:
         body_name="base_link",
         controller=DifferentialIKControllerCfg(command_type="pose", use_relative_mode=True, ik_method="dls"),
         scale=0.5,
-        body_offset=None,
     )
 
-    gripper_action: ActionTermCfg = BinaryJointPositionZeroToOneActionCfg(
-        asset_name="robot",
-        joint_names=["finger_joint"],
-        open_command_expr={"finger_joint": 0.0},
-        close_command_expr={"finger_joint": torch.pi / 4},
-    )
+    gripper_action: ActionTermCfg = _DROID_DEFAULT_GRIPPER_ACTION_CFG.copy()
 
 
 @configclass
@@ -510,14 +506,9 @@ class DroidRelativeJointPositionActionsCfg:
         asset_name="robot",
         joint_names=["panda_joint.*"],
         use_zero_offset=True,  # increment around current joint pos
-        scale=0.5,  # scale factor for the action
+        scale=0.5,
     )
-    gripper_action: ActionTermCfg = BinaryJointPositionZeroToOneActionCfg(
-        asset_name="robot",
-        joint_names=["finger_joint"],
-        open_command_expr={"finger_joint": 0.0},
-        close_command_expr={"finger_joint": torch.pi / 4},
-    )
+    gripper_action: ActionTermCfg = _DROID_DEFAULT_GRIPPER_ACTION_CFG.copy()
 
 
 @configclass
@@ -531,12 +522,7 @@ class DroidAbsoluteJointPositionActionsCfg:
         use_default_offset=False,
     )
 
-    gripper_action: ActionTermCfg = BinaryJointPositionZeroToOneActionCfg(
-        asset_name="robot",
-        joint_names=["finger_joint"],
-        open_command_expr={"finger_joint": 0.0},
-        close_command_expr={"finger_joint": torch.pi / 4},
-    )
+    gripper_action: ActionTermCfg = _DROID_DEFAULT_GRIPPER_ACTION_CFG.copy()
 
 
 @configclass
