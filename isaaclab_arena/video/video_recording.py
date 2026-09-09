@@ -30,11 +30,7 @@ class VideoRecordingCfg:
     """Filename prefix for the per-camera mp4s written by ``CameraObsVideoRecorder``."""
 
     viewport_name_prefix: str = "viewport-env0-viewport"
-    """Filename prefix for the viewport mp4 written by Gymnasium's ``RecordVideo``.
-
-    Shaped so the completed filename parses as an episode result: the report reads mp4s named
-    ``<prefix>[-rebuild<R>]-env<N>-<camera>-episode-<E>.mp4``.
-    """
+    """Filename prefix for the viewport mp4 written by Gymnasium's ``RecordVideo``."""
 
     @property
     def enabled(self) -> bool:

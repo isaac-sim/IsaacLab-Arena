@@ -160,11 +160,8 @@ def main():
         args_cli.device = f"cuda:{local_rank}"
         print(f"[Rank {local_rank}/{world_size}] One Isaac Lab instance per process on cuda:{local_rank}")
 
-    # Both recorders require cameras to be enabled at sim startup, before SimulationAppContext:
-    # --record_camera_video needs the observation sensors, and --record_viewport_video needs the
-    # rendering extensions the report camera renders through. Without them every frame is black.
-    # Matched against the raw argv because these flags are only declared further down, by
-    # add_policy_runner_arguments, so they are still unparsed here.
+    # Both recorders require cameras to be enabled at sim startup, before SimulationAppContext.
+    # Matched against the raw argv because add_policy_runner_arguments has not declared them yet.
     if {"--record_camera_video", "--record_viewport_video"} & set(unknown):
         args_cli.enable_cameras = True
 

@@ -33,8 +33,11 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
         # Isaac Lab forwards only the viewer eye and target to the video recorder, so pass the
         # frame they are measured in as well. Must happen before the recorder is built in super().
         if isinstance(cfg.video_recorder, ArenaViewportVideoRecorderCfg):
-            cfg.video_recorder.viewer_origin_type = cfg.viewer.origin_type
-            cfg.video_recorder.viewer_env_index = cfg.viewer.env_index
+            # Replaced rather than assigned so the frame is checked by the config's __post_init__.
+            cfg.video_recorder = cfg.video_recorder.replace(
+                viewer_origin_type=cfg.viewer.origin_type,
+                viewer_env_index=cfg.viewer.env_index,
+            )
         self._object_initial_rest_pose_recorder = ObjectInitialRestPoseRecorder(
             num_envs=cfg.scene.num_envs, device=cfg.sim.device
         )

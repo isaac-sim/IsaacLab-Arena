@@ -99,8 +99,6 @@ def main():
     )
 
     # AppLauncher must enable camera support before SimulationApp starts. Check if this is required.
-    # The viewport video needs it too: headless runs only load the rendering extensions the report
-    # camera renders through when cameras are enabled, and without them every frame comes out black.
     if (
         args_cli.record_camera_video
         or args_cli.record_viewport_video

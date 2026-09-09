@@ -18,32 +18,6 @@ SUPPORTED_VIEWER_ORIGIN_TYPES = ("world", "env")
 """Viewer frames the report video recorder can resolve."""
 
 
-def resolve_viewer_origin(scene, origin_type: str, env_index: int) -> np.ndarray:
-    """Return the world-frame origin that a task's viewer eye and target are measured from.
-
-    Args:
-        scene: Interactive scene supplying the per-environment origins.
-        origin_type: Viewer frame, mirroring the task's ``ViewerCfg.origin_type``.
-        env_index: Environment supplying the origin when the frame is environment-relative.
-
-    Returns:
-        The world-frame origin, as an XYZ array.
-    """
-    if origin_type == "world":
-        return np.zeros(3, dtype=float)
-    # The asset-tracking frames cannot be resolved here: Isaac Lab builds the video recorder before
-    # sim.reset(), so no asset has a physics view yet and root/body poses are unreadable.
-    assert origin_type == "env", (
-        f"Viewer origin type '{origin_type}' is not supported for report video recording; "
-        f"expected one of {SUPPORTED_VIEWER_ORIGIN_TYPES}."
-    )
-    num_envs = len(scene.env_origins)
-    assert (
-        0 <= env_index < num_envs
-    ), f"Viewer environment index {env_index} is outside the available range [0, {num_envs - 1}]."
-    return scene.env_origins[env_index].detach().cpu().numpy().astype(float)
-
-
 class ArenaViewportVideoRecorder(VideoRecorder):
     """Record the report video from the task's viewpoint, resolved into world coordinates.
 
@@ -60,10 +34,32 @@ class ArenaViewportVideoRecorder(VideoRecorder):
         # config, and that copy is what ultimately aims the camera.
         # ManagerBasedRLEnv re-derives cfg.eye/lookat from cfg.viewer on every environment
         # construction, so overwriting them here cannot accumulate across rebuilds.
-        origin = resolve_viewer_origin(scene, cfg.viewer_origin_type, cfg.viewer_env_index)
-        cfg.eye = tuple(float(x) for x in origin + np.asarray(cfg.eye, dtype=float))
-        cfg.lookat = tuple(float(x) for x in origin + np.asarray(cfg.lookat, dtype=float))
+        origin = self._resolve_viewer_origin(scene, cfg.viewer_origin_type, cfg.viewer_env_index)
+        world_eye = origin + np.asarray(cfg.eye, dtype=float)
+        world_lookat = origin + np.asarray(cfg.lookat, dtype=float)
+        cfg.eye = tuple(world_eye.tolist())
+        cfg.lookat = tuple(world_lookat.tolist())
         super().__init__(cfg, scene)
+
+    @staticmethod
+    def _resolve_viewer_origin(scene, origin_type: str, env_index: int) -> np.ndarray:
+        """Return the world-frame origin that the viewer eye and target are measured from.
+
+        Args:
+            scene: Interactive scene supplying the per-environment origins.
+            origin_type: Viewer frame, already checked against the frames Arena can resolve.
+            env_index: Environment supplying the origin when the frame is environment-relative.
+
+        Returns:
+            The world-frame origin, as an XYZ array.
+        """
+        if origin_type == "world":
+            return np.zeros(3, dtype=float)
+        num_envs = len(scene.env_origins)
+        assert (
+            0 <= env_index < num_envs
+        ), f"Viewer environment index {env_index} is outside the available range [0, {num_envs - 1}]."
+        return scene.env_origins[env_index].detach().cpu().numpy().astype(float)
 
 
 @configclass
@@ -85,3 +81,11 @@ class ArenaViewportVideoRecorderCfg(VideoRecorderCfg):
 
     viewer_env_index: int = 0
     """Environment supplying the viewer origin when the frame is environment-relative."""
+
+    def __post_init__(self):
+        # The asset-tracking frames cannot be resolved: Isaac Lab builds the video recorder before
+        # sim.reset(), so no asset has a physics view yet and root/body poses are unreadable.
+        assert self.viewer_origin_type in SUPPORTED_VIEWER_ORIGIN_TYPES, (
+            f"Viewer origin type '{self.viewer_origin_type}' is not supported for report video "
+            f"recording; expected one of {SUPPORTED_VIEWER_ORIGIN_TYPES}."
+        )
