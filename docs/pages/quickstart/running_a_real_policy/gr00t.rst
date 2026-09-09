@@ -43,13 +43,6 @@ reuse the local cache. Leave this server running.
 Run GR00T with the Experiment Runner
 ------------------------------------
 
-If you run Arena from its native ``uv`` environment, install the GR00T client
-package:
-
-.. code-block:: bash
-
-   uv sync --group gr00t-client
-
 Arena includes a one-Run YAML configuration for the first rollout. It selects the
 DROID environment, connects the GR00T policy to the server, and stops after three episodes.
 
@@ -64,7 +57,27 @@ GR00T N1.6-DROID uses absolute joint positions. The YAML therefore selects
 instruction belongs to the environment builder, while the server connection belongs to the
 policy.
 
-Open another shell, enter the Arena container, and start the rollout with the Experiment Runner:
+Open another shell and prepare the Arena runtime from the repository root, using either a native
+``uv`` environment or the base Docker container (see :doc:`../installation` for the full setup):
+
+.. tab-set::
+
+   .. tab-item:: Native uv
+      :selected:
+
+      The GR00T client is not part of a default sync, so select its dependency group:
+
+      .. code-block:: bash
+
+         uv sync --extra dev --group gr00t-client
+         source .venv/bin/activate
+         export OMNI_KIT_ACCEPT_EULA=YES ACCEPT_EULA=Y
+
+   .. tab-item:: Docker Container
+
+      :docker_run_default:
+
+Then start the rollout with the Experiment Runner:
 
 .. code-block:: bash
 
