@@ -76,6 +76,9 @@ Isaac Lab 3.0 interoperation and adds major improvements to object placement and
   bring-up, typed environment and policy configurations, a reusable environment factory, and a
   unified path for loading registered Python environments or graph YAML files
   (#690, #749, #757, #808, #858, #860, #862, #863).
+- **Isaac Lab 3.0 workflow interoperation:** Updated the Isaac Lab submodule and moved
+  demonstration recording, replay, and teleoperation to Isaac Lab's scripts through Arena's
+  external environment registration callback (#960, #994, #1022).
 - **Experiments and evaluation reports:** Replaced legacy evaluation jobs with typed YAML
   Experiments and Runs, including environment rebuilds, chunked and multi-node dispatch,
   combined JSON results, an experiment viewer, grouped success-rate plots, and generated
