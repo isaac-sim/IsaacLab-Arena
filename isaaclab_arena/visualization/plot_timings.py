@@ -36,6 +36,10 @@ _SEGMENT_COLORS = ("#D55E00", "#009E73", "#E69F00", "#CC79A7", "#0072B2", "#56B4
 # Greys for the "(other)" slices, so unattributed time at different nesting depths stays apart.
 _UNATTRIBUTED_COLORS = ("#B0B0B0", "#7A7A7A", "#D6D6D6")
 
+# Rows a panel is sized and scaled for even when fewer Runs are plotted, so that a file holding a
+# single Run draws a normal-looking bar instead of one filling the panel.
+_MIN_PLOTTED_ROWS = 3
+
 
 @dataclass(frozen=True)
 class TimerSegment:
@@ -216,6 +220,12 @@ def _segment_colors(run_timings: Sequence[RunTimings]) -> dict[str, str]:
     return colors
 
 
+def _set_run_axis(axes, run_timings: Sequence[RunTimings]) -> None:
+    """Label one row per Run, top to bottom, holding the row height steady for few Runs."""
+    axes.set_yticks(range(len(run_timings)), [run.run_name for run in run_timings])
+    axes.set_ylim(max(len(run_timings), _MIN_PLOTTED_ROWS) - 0.5, -0.5)
+
+
 def _plot_breakdown(axes, run_timings: Sequence[RunTimings], root_timer_name: str) -> None:
     """Draw one stacked bar per Run, splitting its mean root-timer call into slices."""
     colors = _segment_colors(run_timings)
@@ -244,8 +254,7 @@ def _plot_breakdown(axes, run_timings: Sequence[RunTimings], root_timer_name: st
             fontsize=9,
         )
 
-    axes.set_yticks(list(bar_positions), [run.run_name for run in run_timings])
-    axes.invert_yaxis()
+    _set_run_axis(axes, run_timings)
     axes.set_xlabel(f"mean milliseconds per '{root_timer_name}'")
     axes.set_title(f"Where one '{root_timer_name}' goes", loc="left", fontweight="bold", pad=34)
     axes.legend(loc="lower left", bbox_to_anchor=(0.0, 1.0), fontsize=8, ncols=3, frameon=False)
@@ -273,8 +282,7 @@ def _plot_spread(axes, run_timings: Sequence[RunTimings], root_timer_name: str) 
             fontsize=9,
         )
 
-    axes.set_yticks(list(bar_positions), [run.run_name for run in run_timings])
-    axes.invert_yaxis()
+    _set_run_axis(axes, run_timings)
     axes.set_xlabel(f"milliseconds per '{root_timer_name}'")
     axes.set_title(f"'{root_timer_name}' spread, median to p90", loc="left", fontweight="bold")
     axes.set_xlim(left=0.0)
@@ -304,11 +312,11 @@ def plot_run_timings(
     # when every Run still carries them.
     spread_is_plottable = all(run.p50_ms is not None and run.p90_ms is not None for run in run_timings)
     panel_count = 2 if spread_is_plottable else 1
-    row_height = 0.42
+    plotted_row_count = max(len(run_timings), _MIN_PLOTTED_ROWS)
     figure, axes_list = plt.subplots(
         panel_count,
         1,
-        figsize=(12.0, 1.6 + panel_count * (1.5 + row_height * len(run_timings))),
+        figsize=(12.0, 1.6 + panel_count * (1.1 + 0.42 * plotted_row_count)),
         squeeze=False,
     )
     figure.suptitle(title, fontsize=14, fontweight="bold", x=0.02, ha="left")
