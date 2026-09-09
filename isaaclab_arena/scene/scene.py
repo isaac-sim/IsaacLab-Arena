@@ -9,6 +9,7 @@ from typing import Any, Union
 from isaaclab.assets import AssetBaseCfg, RigidObjectCfg
 from isaaclab.assets.articulation.articulation_cfg import ArticulationCfg
 from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
+from isaaclab.sim import SimulationCfg
 from pxr import Gf, Usd, UsdGeom
 
 from isaaclab_arena.assets.asset import Asset
@@ -171,6 +172,11 @@ class Scene:
                 All assets will be added as children of this prim.
         """
         export_scene_to_usd(self, output_path, root_prim_path)
+
+    def validate_simulation_cfg(self, sim_cfg: SimulationCfg) -> None:
+        """Validate the resolved simulation configuration against every asset."""
+        for asset in self.assets.values():
+            asset.validate_simulation_cfg(sim_cfg)
 
 
 def export_scene_to_usd(scene: Scene, output_path: pathlib.Path, root_prim_path: str = "/World") -> None:

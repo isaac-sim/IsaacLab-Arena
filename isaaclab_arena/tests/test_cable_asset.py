@@ -133,11 +133,15 @@ def test_cable_asset_config():
     import isaaclab.sim as sim_utils
     from isaaclab.assets import CableObjectCfg
     from isaaclab.managers import EventTermCfg
+    from isaaclab.sim import SimulationCfg
+    from isaaclab_contrib.coupling import CouplerEntryCfg, CouplerProxyCfg
+    from isaaclab_newton.physics import MJWarpSolverCfg, NewtonCfg, VBDSolverCfg
 
     from isaaclab_arena.assets.cable import Cable
     from isaaclab_arena.assets.object_base import ObjectBase
     from isaaclab_arena.assets.object_type import ObjectType
     from isaaclab_arena.relations.relations import IsAnchor
+    from isaaclab_arena.scene.scene import Scene
     from isaaclab_arena.terms.events import reset_cable_to_default
     from isaaclab_arena.utils.pose import Pose, PosePerEnv, PoseRange
 
@@ -180,3 +184,15 @@ def test_cable_asset_config():
         cable.set_initial_pose(PosePerEnv([Pose()]))
     with pytest.raises(NotImplementedError, match="fixed initial Pose"):
         cable.set_initial_pose(PoseRange())
+
+    scene = Scene(assets=[cable])
+    with pytest.raises(AssertionError, match="requires the Newton physics backend"):
+        scene.validate_simulation_cfg(SimulationCfg())
+    with pytest.raises(AssertionError, match="requires a VBD solver"):
+        scene.validate_simulation_cfg(SimulationCfg(physics=NewtonCfg(solver_cfg=MJWarpSolverCfg())))
+
+    scene.validate_simulation_cfg(SimulationCfg(physics=NewtonCfg(solver_cfg=VBDSolverCfg())))
+    coupled_solver_cfg = CouplerProxyCfg(
+        entries=[CouplerEntryCfg(name="cable", solver_cfg=VBDSolverCfg(), bodies=["/World/Cable"])]
+    )
+    scene.validate_simulation_cfg(SimulationCfg(physics=NewtonCfg(solver_cfg=coupled_solver_cfg)))
