@@ -47,10 +47,10 @@ from isaaclab_arena.embodiments.droid.observations import (
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
 from isaaclab_arena.embodiments.franka.franka import franka_stack_events
 from isaaclab_arena.embodiments.robot_on_stand_utils import RobotPrimSpec, StandPrimSpec, compose_on_stand_usd
-from isaaclab_arena.environments.arena_env_builder_cfg import PhysicsBackend
 from isaaclab_arena.relations.collision_mode import CollisionMode
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.cameras import ArenaCameraCfg
+from isaaclab_arena.utils.physics_backend import PhysicsBackend
 from isaaclab_arena.utils.pose import Pose
 
 if TYPE_CHECKING:

@@ -13,7 +13,6 @@ import torch
 import pytest
 import warp as wp
 
-from isaaclab_arena.assets.device_library import KeyboardCfg
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
 SETTLE_STEPS = 10
@@ -23,7 +22,6 @@ LIFT_COMMAND_DURATION_S = 20.0 * (8.0 / 240.0)
 HOLD_TOLERANCE_M = 0.005
 TARGET_LIFT_M = 0.05
 LIFT_TOLERANCE_M = 0.025
-KEYBOARD_POS_SENSITIVITY = KeyboardCfg().pos_sensitivity
 
 
 def _build_newton_droid_env(env_name: str):
@@ -57,7 +55,7 @@ def _build_newton_droid_env(env_name: str):
 
     env = ArenaEnvBuilder(arena_env, arena_env_builder_cfg_from_argparse(args_cli)).make_registered()
     env.reset()
-    return env, arena_env.name
+    return env, arena_env.name, teleop_device.pos_sensitivity
 
 
 def _get_ee_pos_w(env) -> torch.Tensor:
@@ -72,14 +70,14 @@ def _idle_teleop_action(device: torch.device) -> torch.Tensor:
     return torch.tensor([[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0]], device=device)
 
 
-def _lift_teleop_action(device: torch.device, pos_sensitivity: float = KEYBOARD_POS_SENSITIVITY) -> torch.Tensor:
+def _lift_teleop_action(device: torch.device, pos_sensitivity: float) -> torch.Tensor:
     """Return the action produced by holding the keyboard lift key (Q)."""
     return torch.tensor([[0.0, 0.0, pos_sensitivity, 0.0, 0.0, 0.0, 1.0]], device=device)
 
 
 def _test_newton_droid_ik_holds_without_teleop_command(simulation_app) -> bool:
     """The arm should stay put when the keyboard emits no motion command."""
-    env, env_name = _build_newton_droid_env("newton_droid_ik_hold_test")
+    env, env_name, _ = _build_newton_droid_env("newton_droid_ik_hold_test")
 
     try:
         with torch.inference_mode():
@@ -108,7 +106,7 @@ def _test_newton_droid_ik_holds_without_teleop_command(simulation_app) -> bool:
 
 def _test_newton_droid_ik_lifts_on_teleop_command(simulation_app) -> bool:
     """A sustained keyboard lift command should raise the end effector by roughly 5 cm."""
-    env, env_name = _build_newton_droid_env("newton_droid_ik_lift_test")
+    env, env_name, pos_sensitivity = _build_newton_droid_env("newton_droid_ik_lift_test")
 
     try:
         with torch.inference_mode():
@@ -117,7 +115,7 @@ def _test_newton_droid_ik_lifts_on_teleop_command(simulation_app) -> bool:
                 env.step(_idle_teleop_action(device))
 
             initial_ee_pos = _get_ee_pos_w(env)
-            lift_action = _lift_teleop_action(device)
+            lift_action = _lift_teleop_action(device, pos_sensitivity)
             lift_steps = max(1, int(round(LIFT_COMMAND_DURATION_S / env.unwrapped.step_dt)))
             for _ in range(lift_steps):
                 env.step(lift_action)
@@ -154,8 +152,8 @@ def test_newton_droid_ik_lifts_on_teleop_command():
     assert run_function_with_persistent_simulation_app(_test_newton_droid_ik_lifts_on_teleop_command)
 
 
-def test_z_newton_droid_embodiment_config_contract():
-    """Pin Newton DROID gripper action, close target, and IK body after sim tests."""
+def _test_newton_droid_embodiment_config_contract(simulation_app) -> bool:
+    """Pin Newton DROID gripper action, close target, and IK body."""
     from isaaclab_arena.embodiments.droid.droid import (
         BinaryJointPositionZeroToOneActionCfg,
         DroidDifferentialIKEmbodiment,
@@ -186,3 +184,9 @@ def test_z_newton_droid_embodiment_config_contract():
     physx_embodiment.configure_physics_backend(PhysicsBackend.PHYSX)
     with pytest.raises(AssertionError, match="already configured for physics backend"):
         physx_embodiment.configure_physics_backend(PhysicsBackend.NEWTON)
+    return True
+
+
+def test_newton_droid_embodiment_config_contract():
+    """Pytest entry point for the DROID backend configuration contract."""
+    assert run_function_with_persistent_simulation_app(_test_newton_droid_embodiment_config_contract)

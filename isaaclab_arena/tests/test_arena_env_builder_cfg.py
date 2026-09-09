@@ -10,6 +10,7 @@ import pytest
 from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
 from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg, PhysicsBackend
 from isaaclab_arena.evaluation.policy_runner_cli import add_policy_runner_arguments
+from isaaclab_arena.utils.physics_backend import PhysicsBackend as SharedPhysicsBackend
 
 
 # TODO(cvolk, 2026-07-03): [typed-config-migration] Delete the argparse adapter tests below with
@@ -21,6 +22,11 @@ def test_cli_defaults_match_builder_configuration():
     assert not hasattr(args_cli, "headless")
     assert args_cli.visualizer is None
     assert arena_env_builder_cfg_from_argparse(args_cli) == ArenaEnvBuilderCfg()
+
+
+def test_builder_cfg_reexports_shared_physics_backend():
+    """Keep the legacy builder-config import path compatible."""
+    assert PhysicsBackend is SharedPhysicsBackend
 
 
 def test_argparse_adapter_maps_builder_configuration():

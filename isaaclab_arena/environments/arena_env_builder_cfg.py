@@ -6,14 +6,8 @@
 """Typed configuration for compiling an Arena environment."""
 
 from dataclasses import dataclass
-from enum import Enum
 
-
-class PhysicsBackend(str, Enum):
-    """Physics backends supported by Arena's global preset."""
-
-    PHYSX = "physx"
-    NEWTON = "newton"
+from isaaclab_arena.utils.physics_backend import PhysicsBackend
 
 
 # TODO(cvolk, 2026-07-06): [typed-config-migration] Replace this flat legacy-CLI-shaped configuration with
