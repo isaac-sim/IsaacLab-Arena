@@ -47,6 +47,7 @@ from isaaclab_arena.utils.configclass import combine_configclass_instances, make
 from isaaclab_arena.utils.isaaclab_utils.recorders import ArenaEnvRecorderManagerCfg
 from isaaclab_arena.utils.isaaclab_utils.resolve_clone_plan_source_patch import patch_resolve_clone_plan_source
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import reapply_viewer_cfg
+from isaaclab_arena.utils.isaaclab_utils.warp_patch import install_empty_cpu_warp_to_torch_patch
 from isaaclab_arena.utils.multiprocess import get_local_rank
 from isaaclab_arena.variations import variations_hydra, variations_printing
 from isaaclab_arena.variations.variation_base import RunTimeVariationBase, VariationBase
@@ -462,6 +463,7 @@ class ArenaEnvBuilder:
         Returns:
             A ``(name, cfg, env_kwargs)`` tuple.
         """
+        install_empty_cpu_warp_to_torch_patch()
         name = self.arena_env.name
         if env_cfg is None:
             env_cfg, env_kwargs = self.compose_manager_cfg()
