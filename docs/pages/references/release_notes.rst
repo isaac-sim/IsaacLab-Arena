@@ -49,9 +49,11 @@ input at this stage is especially valuable.
 
 **What's Next**
 
-Future releases will focus on VLM-augmented analysis to surface insights from large-scale evaluations,
-Newton support for contact-rich rigid-body and deformable environments, production-scale performance
-hardening, and installation from published Python packages.
+Future releases will focus on:
+
+- Enhanced Newton support for benchmarks involving contact-rich insertion, cables, and deformables.
+- Prompt-to-scene, robot, and task workflows.
+- Improved performance for multi-node evaluation.
 
 **Limitations**
 
@@ -62,10 +64,17 @@ hardening, and installation from published Python packages.
 v0.3.0
 ------
 
-This release introduces prompt-first environment generation, typed environment and experiment
-definitions, configurable evaluation variations and sensitivity analysis, expanded policy
-integrations, and new Kitchen Benchmark and RoboLab task libraries. It also upgrades Arena's
-Isaac Lab 3.0 interoperation and adds major improvements to object placement and validation.
+This release introduces:
+
+- Prompt-first environment generation.
+- Controlled randomization through variations.
+- Sensitivity analysis.
+- Multi-node evaluations.
+- Expanded policy integrations.
+- Task libraries, including RoboLab-style tasks and our own Kitchen Benchmark for tasks in
+  realistic kitchens.
+
+Details below:
 
 **Features and improvements**
 
