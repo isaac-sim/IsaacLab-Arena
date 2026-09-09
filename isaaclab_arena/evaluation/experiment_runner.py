@@ -12,8 +12,8 @@ from isaaclab_arena.evaluation.arena_experiment_config_loader import (
     load_arena_experiment_from_config_file,
     validate_experiment_config_path,
 )
-from isaaclab_arena.evaluation.arena_experiment_result import ARENA_EXPERIMENT_TIMINGS_FILENAME
 from isaaclab_arena.evaluation.experiment_runner_cli import parse_experiment_runner_args
+from isaaclab_arena.evaluation.experiment_timings import aggregate_experiment_timings
 from isaaclab_arena.evaluation.legacy_experiment_runner import (
     legacy_json_experiment_requires_cameras,
     load_legacy_json_experiment_config,
@@ -21,7 +21,6 @@ from isaaclab_arena.evaluation.legacy_experiment_runner import (
 )
 from isaaclab_arena.hydra.typed_experiment_yaml_search import typed_experiment_requires_cameras
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
-from isaaclab_arena.utils.timer import print_timer_stats, write_timer_stats_json
 from isaaclab_arena.video.video_recording import timestamped_run_dir
 
 if TYPE_CHECKING:
@@ -149,7 +148,7 @@ def main():
 
     with SimulationAppContext(args_cli):
         from isaaclab_arena.evaluation.arena_experiment_result import ArenaExperimentResult
-        from isaaclab_arena.evaluation.arena_run import build_runs_info_table
+        from isaaclab_arena.evaluation.arena_run import RunStatus, build_runs_info_table
         from isaaclab_arena.evaluation.run_execution import execute_experiment
         from isaaclab_arena.metrics.metrics_logger import MetricsLogger
         from isaaclab_arena.visualization.report import build_report, serve_until_ctrl_c
@@ -185,11 +184,11 @@ def main():
 
         _write_arena_experiment_result(experiment_cfg, run_results, experiment_output_directory)
 
-        # Report where the rollouts spent their time.
-        print_timer_stats()
-        timings_path = write_timer_stats_json(
-            experiment_output_directory / ARENA_EXPERIMENT_TIMINGS_FILENAME,
-            app_name="experiment_runner",
+        # Each Run wrote its own timings as it finished. Combine them the same way the OSMO
+        # collect task does, so both routes leave the same files behind.
+        timings_path = aggregate_experiment_timings(
+            experiment_output_directory,
+            [run_result.run_name for run_result in run_results if run_result.status is RunStatus.COMPLETED],
         )
         print(f"Wrote Arena Experiment timings to: {timings_path}")
 
