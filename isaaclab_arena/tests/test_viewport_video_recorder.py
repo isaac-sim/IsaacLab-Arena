@@ -33,16 +33,21 @@ def test_viewer_origin_resolves_to_the_selected_environment():
     assert np.allclose(resolve(scene, "world", 0), (0.0, 0.0, 0.0))
     assert np.allclose(resolve(scene, "env", 0), (15.0, -15.0, 0.0))
     assert np.allclose(resolve(scene, "env", 1), (-15.0, 15.0, 0.0))
-    with pytest.raises(AssertionError, match="outside the available range"):
-        resolve(scene, "env", NUM_ENVS)
 
 
-def test_config_rejects_viewer_frames_it_cannot_resolve():
+def test_viewer_origin_rejects_frames_it_cannot_resolve():
     """Unsupported viewer frames fail loudly rather than silently aiming the camera at world zero."""
-    from isaaclab_arena.video.viewport_video_recorder import ArenaViewportVideoRecorderCfg
+    import torch
+
+    from isaaclab_arena.video.viewport_video_recorder import ArenaViewportVideoRecorder
+
+    resolve = ArenaViewportVideoRecorder._resolve_viewer_origin
+    scene = SimpleNamespace(env_origins=torch.tensor([[15.0, -15.0, 0.0], [-15.0, 15.0, 0.0]]))
 
     with pytest.raises(AssertionError, match="asset_root"):
-        ArenaViewportVideoRecorderCfg(viewer_origin_type="asset_root")
+        resolve(scene, "asset_root", 0)
+    with pytest.raises(AssertionError, match="outside the available range"):
+        resolve(scene, "env", NUM_ENVS)
 
 
 def test_report_recorder_does_not_follow_an_interactive_visualizer():
