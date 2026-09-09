@@ -83,10 +83,17 @@ def _check_object_on_destination(
     import torch
 
     class ArenaWorldDouble:
-        def __init__(self, T_W_F_by_scene_key, aabbs_F_by_scene_key, root_linear_velocities_w_by_scene_key):
+        def __init__(
+            self,
+            T_W_F_by_scene_key,
+            aabbs_F_by_scene_key,
+            root_linear_velocities_w_by_scene_key,
+            vertices_positions_w_by_scene_key,
+        ):
             self.T_W_F_by_scene_key = T_W_F_by_scene_key
             self.aabbs_F_by_scene_key = aabbs_F_by_scene_key
             self.root_linear_velocities_w_by_scene_key = root_linear_velocities_w_by_scene_key
+            self.vertices_positions_w_by_scene_key = vertices_positions_w_by_scene_key
             self.pose_queries = []
             self.local_aabb_queries = []
             self.root_linear_velocity_queries = []
@@ -103,11 +110,23 @@ def _check_object_on_destination(
             self.root_linear_velocity_queries.append(rigid_object_name)
             return self.root_linear_velocities_w_by_scene_key[rigid_object_name]
 
+        def get_vertices_pos_w(self, scene_key):
+            return self.vertices_positions_w_by_scene_key[scene_key]
+
+        def get_aabb_w(self, scene_key):
+            return self.aabbs_F_by_scene_key[scene_key]
+
+    class SceneDouble(dict):
+        def __init__(self, contact_sensor):
+            super().__init__(contact_sensor=contact_sensor)
+            self.deformable_objects = {}
+
     class EnvironmentDouble:
         def __init__(self, arena_world, contact_sensor):
             self.num_envs = 4
             self.arena_world = arena_world
-            self.scene = {"contact_sensor": contact_sensor}
+            self.scene = SceneDouble(contact_sensor)
+            self.unwrapped = self
 
     class RuntimeBufferDouble:
         def __init__(self, tensor: torch.Tensor):
@@ -137,6 +156,12 @@ def _check_object_on_destination(
         [0.2, 0.0, 0.0],
         [0.0, 0.0, 0.2],
     ])
+    object_vertices_pos_w = torch.tensor([
+        [[0.0, 0.0, 0.4], [0.1, 0.0, 0.4]],
+        [[1.1, 0.0, 0.4], [1.2, 0.0, 0.4]],
+        [[0.0, 0.0, 0.6], [0.1, 0.0, 0.6]],
+        [[0.0, 0.0, 0.4], [0.1, 0.0, 0.4]],
+    ])
 
     coarse_contact_and_velocity_result = (torch.linalg.vector_norm(contact_force_w, dim=-1) > 0.1) & (
         torch.linalg.vector_norm(object_root_linear_velocity_w, dim=-1) < 0.1
@@ -156,6 +181,7 @@ def _check_object_on_destination(
             ),
         },
         root_linear_velocities_w_by_scene_key={"object": object_root_linear_velocity_w},
+        vertices_positions_w_by_scene_key={"object": object_vertices_pos_w},
     )
     env = EnvironmentDouble(arena_world, ContactSensorDouble(contact_force_w))
     object_cfg = scene_entity_cfg_type("object")
@@ -174,17 +200,23 @@ def _check_object_on_destination(
     predicate_result = spatial.object_on_destination(env, **predicate_parameters)
     torch.testing.assert_close(predicate_result, torch.tensor([True, False, False, False]))
 
-    # Exercise a second query with changed live state.
+    # Deformables use low nodal points near the destination's top surface instead of contact force.
+    env.scene.deformable_objects = {"object": object()}
+    deformable_parameters = {**predicate_parameters, "contact_sensor_cfg": None}
+    deformable_result = spatial.object_on_destination(env, **deformable_parameters)
+    torch.testing.assert_close(deformable_result, torch.tensor([True, False, False, False]))
+
+    env.scene.deformable_objects = {}
     T_W_O[0, 0] = 2.0
     assert not spatial.object_on_destination(env, **predicate_parameters)[0]
-    assert arena_world.pose_queries == ["object", "destination", "object", "destination"]
-    assert arena_world.local_aabb_queries == ["object", "destination", "object", "destination"]
-    assert arena_world.root_linear_velocity_queries == ["object", "object"]
+    assert arena_world.pose_queries == ["object", "destination"] * 3
+    assert arena_world.local_aabb_queries == ["object", "destination"] * 3
+    assert arena_world.root_linear_velocity_queries == ["object"] * 3
 
 
 def _check_pick_and_place_deformable_skips_contact_sensor(pick_and_place_task_type, object_type) -> None:
-    """Check that deformable pick-and-place omits contact sensors and uses support predicate."""
-    from isaaclab_arena.tasks.predicates.spatial import object_on_destination, object_supported_by
+    """Check that deformable pick-and-place omits contact sensors."""
+    from isaaclab_arena.tasks.predicates.spatial import object_on_destination
 
     class AssetDouble:
         def __init__(self, name, asset_object_type):
@@ -208,8 +240,9 @@ def _check_pick_and_place_deformable_skips_contact_sensor(pick_and_place_task_ty
         task = pick_and_place_task_type(pick_up_object, destination, background)
         assert task.contact_sensor_name is None
         assert task.get_scene_cfg() is None
-        assert task.get_termination_cfg().success.func is object_supported_by
-        assert task.get_progress_objectives()[0].predicate_groups[-1].func is object_supported_by
+        assert task.get_termination_cfg().success.func is object_on_destination
+        assert task.get_termination_cfg().success.params["contact_sensor_cfg"] is None
+        assert task.get_progress_objectives()[0].predicate_groups[-1].func is object_on_destination
 
     rigid_task = pick_and_place_task_type(rigid_object, rigid_object, background)
     assert rigid_task.contact_sensor_name == "contact_sensor_rigid"

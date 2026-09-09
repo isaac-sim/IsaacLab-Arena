@@ -228,6 +228,7 @@ def object_on_destination(
         One Boolean result per environment.
     """
 
+    env = env.unwrapped
     arena_world = env.arena_world
     T_W_O = arena_world.get_pose_w(object_cfg.name)
     T_W_D = arena_world.get_pose_w(destination_cfg.name)

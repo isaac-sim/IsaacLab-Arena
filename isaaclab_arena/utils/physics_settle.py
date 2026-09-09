@@ -45,9 +45,10 @@ def are_all_objects_settled_per_env(
     # Note(xinjie.yao): For per-asset loop, no single combined buffer holding each object's velocity.
     # Loop over each asset is unavoidable.
     for object_name in object_names:
-        linear_velocity_w = arena_world.get_root_linear_velocity_w(object_name)[environment_ids]
-        angular_velocity_w = arena_world.get_root_angular_velocity_w(object_name)[environment_ids]
-        settled &= (linear_velocity_w.norm(dim=-1) <= lin_vel_thresh) & (
-            angular_velocity_w.norm(dim=-1) <= ang_vel_thresh
-        )
+        point_speed_w = arena_world.get_max_point_speed_w(object_name)[environment_ids]
+        object_settled = point_speed_w <= lin_vel_thresh
+        angular_velocity_w = arena_world.get_root_angular_velocity_w(object_name)
+        if angular_velocity_w is not None:
+            object_settled &= angular_velocity_w[environment_ids].norm(dim=-1) <= ang_vel_thresh
+        settled &= object_settled
     return settled.tolist()

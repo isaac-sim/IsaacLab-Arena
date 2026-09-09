@@ -40,7 +40,8 @@ class ArenaWorld:
         scene = self._scene
         is_rigid_object = scene_key in scene.rigid_objects
         is_articulation = scene_key in scene.articulations
-        is_deformable_object = scene_key in scene.deformable_objects
+        deformable_objects = getattr(scene, "deformable_objects", {})
+        is_deformable_object = scene_key in deformable_objects
         is_scene_extra = scene_key in scene.extras
         assert is_rigid_object or is_articulation or is_deformable_object or is_scene_extra, (
             "ArenaWorld pose queries require a scene key registered in InteractiveScene.rigid_objects, "
@@ -56,7 +57,7 @@ class ArenaWorld:
         elif is_articulation:
             T_W_F = scene.articulations[scene_key].data.root_pose_w.torch
         elif is_deformable_object:
-            root_pos_w = scene.deformable_objects[scene_key].data.root_pos_w.torch
+            root_pos_w = deformable_objects[scene_key].data.root_pos_w.torch
             # Deformable object root does not have a rotation, use an identity as dummy value.
             identity_quat = root_pos_w.new_tensor((0.0, 0.0, 0.0, 1.0)).expand(scene.num_envs, 4)
             T_W_F = torch.cat((root_pos_w, identity_quat), dim=-1)
@@ -116,7 +117,8 @@ class ArenaWorld:
             or None when ``scene_key`` names a deformable object.
         """
         scene = self._scene
-        if scene_key in scene.deformable_objects:
+        deformable_objects = getattr(scene, "deformable_objects", {})
+        if scene_key in deformable_objects:
             return None
         assert (
             scene_key in scene.rigid_objects or scene_key in scene.articulations

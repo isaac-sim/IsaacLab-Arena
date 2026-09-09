@@ -210,6 +210,53 @@ def _check_articulation_root_state_reads(arena_world_module) -> None:
     )
 
 
+def _check_deformable_object_reads(arena_world_module) -> None:
+    """Check live aggregate and nodal state reads for a deformable object."""
+    import torch
+
+    class RuntimeBufferDouble:
+        def __init__(self, tensor: torch.Tensor):
+            self.torch = tensor
+
+    root_pos_w = torch.tensor([[0.1, 0.2, 0.3], [1.1, 1.2, 1.3]])
+    root_vel_w = torch.tensor([[0.0, 0.1, 0.2], [0.3, 0.4, 0.5]])
+    nodal_pos_w = torch.tensor([
+        [[0.0, 0.0, 0.2], [0.2, 0.3, 0.4]],
+        [[1.0, 1.0, 1.2], [1.2, 1.3, 1.4]],
+    ])
+    nodal_vel_w = torch.tensor([
+        [[0.0, 0.0, 0.0], [0.3, 0.4, 0.0]],
+        [[0.0, 0.0, 0.1], [0.0, 0.0, 0.2]],
+    ])
+    deformable = SimpleNamespace(
+        data=SimpleNamespace(
+            root_pos_w=RuntimeBufferDouble(root_pos_w),
+            root_vel_w=RuntimeBufferDouble(root_vel_w),
+            nodal_pos_w=RuntimeBufferDouble(nodal_pos_w),
+            nodal_vel_w=RuntimeBufferDouble(nodal_vel_w),
+        )
+    )
+    scene = SimpleNamespace(
+        num_envs=2,
+        rigid_objects={},
+        articulations={},
+        deformable_objects={"deformable": deformable},
+        extras={},
+    )
+    arena_world = arena_world_module.ArenaWorld(scene)
+
+    expected_pose_w = torch.cat(
+        (root_pos_w, torch.tensor([0.0, 0.0, 0.0, 1.0]).expand(scene.num_envs, 4)),
+        dim=-1,
+    )
+    torch.testing.assert_close(arena_world.get_pose_w("deformable"), expected_pose_w)
+    torch.testing.assert_close(arena_world.get_root_linear_velocity_w("deformable"), root_vel_w)
+    assert arena_world.get_root_angular_velocity_w("deformable") is None
+    torch.testing.assert_close(arena_world.get_max_point_speed_w("deformable"), torch.tensor([0.5, 0.2]))
+    torch.testing.assert_close(arena_world.get_vertices_pos_w("deformable"), nodal_pos_w)
+    torch.testing.assert_close(arena_world.get_min_height_w("deformable"), nodal_pos_w[..., 2].amin(dim=1))
+
+
 def _check_arena_world_reuses_scene_extra_pose_reader(
     arena_world_module,
     scene_access_module,
@@ -262,7 +309,8 @@ def _check_arena_world_rejects_unsupported_pose_scene_key(arena_world_module) ->
         assert (
             str(error)
             == "ArenaWorld pose queries require a scene key registered in InteractiveScene.rigid_objects, "
-            "InteractiveScene.articulations, or InteractiveScene.extras; 'robot' is registered in none of them."
+            "InteractiveScene.articulations, InteractiveScene.deformable_objects, or InteractiveScene.extras; "
+            "'robot' is registered in none of them."
         )
     else:
         raise AssertionError("ArenaWorld accepted an unsupported pose scene key.")
@@ -337,6 +385,7 @@ def _test_arena_world_scene_access(_simulation_app) -> bool:
         AxisAlignedBoundingBox,
     )
     _check_articulation_root_state_reads(arena_world)
+    _check_deformable_object_reads(arena_world)
     _check_arena_world_reuses_scene_extra_pose_reader(arena_world, scene_access)
     _check_arena_world_rejects_unsupported_pose_scene_key(arena_world)
     _check_scene_extra_pose_reader_uses_current_frame_view_poses(scene_access)
