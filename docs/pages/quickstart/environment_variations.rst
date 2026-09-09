@@ -45,11 +45,21 @@ still, and five environment rebuilds make the visual changes easy to inspect.
    .. literalinclude:: ../../../isaaclab_arena_environments/experiment_configs/droid_pnp_variations_experiment.yaml
       :language: yaml
 
-Start or enter the Base Docker container from the repository root:
+Prepare the runtime from the repository root, using either a native ``uv`` environment or the base
+Docker container (see :doc:`installation` for the full setup):
 
-:docker_run_default:
+.. tab-set::
 
-Then run the example inside the container:
+   .. tab-item:: Native uv
+      :selected:
+
+      :uv_run_source:
+
+   .. tab-item:: Docker Container
+
+      :docker_run_default:
+
+Then run the example:
 
 .. code-block:: bash
 
