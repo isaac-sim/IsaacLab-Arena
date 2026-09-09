@@ -95,37 +95,19 @@ class Object(RootedObjectBase):
         # We override this function from the parent class because in some assets, the rigid body
         # is not at the root of the USD file. To be robust to this, we find the shallowest rigid body
         # and add the contact sensor to it.
-        # TODO(alexmillane, 2026.01.29): This capability to search for the correct place
-        # to add the contact sensor is not yet supported for ObjectReferences and RigidObjectSet.
-        # For these objects we just (try to) add the contact sensor to the root prim.
-        usd_path = usd_path or self.usd_path
-        rigid_body_relative_path = find_shallowest_rigid_body(
-            usd_path,
-            relative_to_root=True,
-            variants=(self.spawn_cfg_addon or {}).get("variants"),
-        )
-        assert (
-            rigid_body_relative_path is not None
-        ), f"No rigid body found in {self.name} USD file: {usd_path}. Can't add contact sensor."
+        # Object subclasses may override rigid-body path selection when they do not have one
+        # static USD path, as RigidObjectSet does. ObjectReferences still use their root prim.
+        rigid_body_relative_path = self._get_rigid_body_relative_path(usd_path)
         contact_sensor_prim_path = self.prim_path + rigid_body_relative_path
         # There are also cases where the contact against object does not have its rigid body at the root.
         # In that case, we also need to find the shallowest rigid body.
-        # NOTE(alexmillane, 2026.04.10): For now we only support this for Object, but in the future we
-        # could support this for ObjectReference and RigidObjectSet. For now, those object types
-        # are assumed to have their rigid body at the their prim path.
+        # Object subclasses resolve their own USD structure. Other ObjectBase implementations,
+        # such as ObjectReference, are assumed to have their rigid body at their prim path.
         if isinstance(contact_against_object, Object):
             assert (
                 contact_against_object.object_type == ObjectType.RIGID
             ), "Contact sensor is only supported for rigid objects"
-            contact_against_relative_path = find_shallowest_rigid_body(
-                contact_against_object.usd_path,
-                relative_to_root=True,
-                variants=(contact_against_object.spawn_cfg_addon or {}).get("variants"),
-            )
-            assert contact_against_relative_path is not None, (
-                f"No rigid body found in {contact_against_object.name} USD file: {contact_against_object.usd_path}."
-                " Can't add contact sensor."
-            )
+            contact_against_relative_path = contact_against_object._get_rigid_body_relative_path()
             filter_prim_paths = [contact_against_object.get_prim_path() + contact_against_relative_path]
         elif isinstance(contact_against_object, ObjectBase):
             filter_prim_paths = [contact_against_object.get_prim_path()]
@@ -135,6 +117,20 @@ class Object(RootedObjectBase):
             prim_path=contact_sensor_prim_path,
             filter_prim_paths_expr=filter_prim_paths,
         )
+
+    def _get_rigid_body_relative_path(self, usd_path: str | None = None) -> str:
+        """Return the shallowest rigid-body path relative to this object's USD root."""
+        usd_path = usd_path or self.usd_path
+        assert usd_path, f"No USD path available for {self.name}. Can't find its rigid body."
+        rigid_body_relative_path = find_shallowest_rigid_body(
+            usd_path,
+            relative_to_root=True,
+            variants=(self.spawn_cfg_addon or {}).get("variants"),
+        )
+        assert (
+            rigid_body_relative_path is not None
+        ), f"No rigid body found in {self.name} USD file: {usd_path}. Can't add contact sensor."
+        return rigid_body_relative_path
 
     def _get_spawn_cfg(self, activate_contact_sensors: bool = False):
         """Return the spawn config to use: custom spawner_cfg if set, else a UsdFileCfg."""

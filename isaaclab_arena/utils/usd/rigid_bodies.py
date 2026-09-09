@@ -106,13 +106,16 @@ def apply_usd_variant_selections(stage: Usd.Stage, variants: dict[str, str]) -> 
                 variant_set.SetVariantSelection(selection)
 
 
-def _path_relative_to_usd_root(prim_path: str) -> str:
-    """Strip the USD root prim name, returning a path suffix suitable for contact sensors."""
+def _path_relative_to_usd_root(prim_path: str, root_prim_path: str) -> str:
+    """Return a prim-path suffix relative to the default prim used by USD references."""
     assert prim_path[0] == "/", "We expect USD paths to start with a /"
-    root_and_rest = prim_path.lstrip("/").split("/", 1)
-    if len(root_and_rest) == 1:
+    assert root_prim_path[0] == "/", "We expect USD root paths to start with a /"
+    if prim_path == root_prim_path:
         return ""
-    return "/" + root_and_rest[1]
+    assert prim_path.startswith(
+        root_prim_path + "/"
+    ), f"Rigid body {prim_path!r} is not beneath the USD default prim {root_prim_path!r}"
+    return prim_path[len(root_prim_path) :]
 
 
 def find_shallowest_rigid_body_from_stage(stage: Usd.Stage, relative_to_root: bool = False) -> str | None:
@@ -162,7 +165,9 @@ def find_shallowest_rigid_body_from_stage(stage: Usd.Stage, relative_to_root: bo
         shallowest_rigid_body = shallowest_rigid_bodies[0]
 
     if relative_to_root:
-        shallowest_rigid_body = _path_relative_to_usd_root(shallowest_rigid_body)
+        default_prim = stage.GetDefaultPrim()
+        assert default_prim, "A default prim is required to return a path relative to the USD root"
+        shallowest_rigid_body = _path_relative_to_usd_root(shallowest_rigid_body, str(default_prim.GetPath()))
     return shallowest_rigid_body
 
 

@@ -404,6 +404,7 @@ def _test_multi_object_sets(simulation_app):
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.scene.scene import Scene
+    from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
     from isaaclab_arena.utils.usd_helpers import get_asset_usd_path_from_prim_path
 
     asset_registry = AssetRegistry()
@@ -420,10 +421,16 @@ def _test_multi_object_sets(simulation_app):
         name="multi_object_sets_2", objects=[sugar_box, mustard_bottle], prim_path=OBJECT_SET_2_PRIM_PATH
     )
     scene = Scene(assets=[background, obj_set_1, obj_set_2])
+    task = PickAndPlaceTask(
+        pick_up_object=obj_set_1,
+        destination_location=obj_set_2,
+        background_scene=background,
+    )
     isaaclab_arena_environment = IsaacLabArenaEnvironment(
         name="multi_object_sets_test",
         embodiment=embodiment,
         scene=scene,
+        task=task,
     )
     args_cli = get_isaaclab_arena_cli_parser().parse_args([])
     args_cli.num_envs = NUM_ENVS
@@ -432,6 +439,7 @@ def _test_multi_object_sets(simulation_app):
     env.reset()
 
     try:
+        assert env.unwrapped.scene.sensors[task.contact_sensor_name].data.force_matrix_w is not None
         object_1_paths = []
         object_2_paths = []
         for i in range(NUM_ENVS):
