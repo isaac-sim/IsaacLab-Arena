@@ -10,6 +10,7 @@ from __future__ import annotations
 import gymnasium as gym
 import torch
 
+import pytest
 import warp as wp
 
 from isaaclab_arena.assets.device_library import KeyboardCfg
@@ -173,3 +174,15 @@ def test_z_newton_droid_embodiment_config_contract():
     assert embodiment.action_config.arm_action.controller.ik_method == "adaptive_dls"
     assert gripper_action.close_command_expr["finger_joint"] == _DROID_NEWTON_GRIPPER_CLOSE_RAD
     assert embodiment.observation_config.policy.gripper_pos.func.__name__ == "newton_gripper_pos"
+
+    embodiment.configure_physics_backend(PhysicsBackend.NEWTON)
+    with pytest.raises(AssertionError, match="already configured for physics backend"):
+        embodiment.configure_physics_backend(PhysicsBackend.PHYSX)
+    with pytest.raises(AssertionError, match="already configured for physics backend"):
+        embodiment.configure_physics_backend(None)
+
+    physx_embodiment = DroidDifferentialIKEmbodiment()
+    physx_embodiment.configure_physics_backend(PhysicsBackend.PHYSX)
+    physx_embodiment.configure_physics_backend(PhysicsBackend.PHYSX)
+    with pytest.raises(AssertionError, match="already configured for physics backend"):
+        physx_embodiment.configure_physics_backend(PhysicsBackend.NEWTON)

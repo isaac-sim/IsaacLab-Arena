@@ -160,7 +160,7 @@ class DroidEmbodimentBase(EmbodimentBase, ABC):
         self._newton_spawn_configured = False
         self._newton_gripper_configured = False
 
-    def configure_physics_backend(self, backend: PhysicsBackend | None) -> None:
+    def _configure_physics_backend(self, backend: PhysicsBackend) -> None:
         """Apply Newton spawn and gripper overrides shared by all DROID embodiments."""
         if backend is PhysicsBackend.NEWTON:
             self._configure_newton_spawn()
@@ -282,9 +282,9 @@ class DroidDifferentialIKEmbodiment(DroidEmbodimentBase):
         self.action_config = DroidDifferentialIKActionsCfg()
         self._newton_diff_ik_configured = False
 
-    def configure_physics_backend(self, backend: PhysicsBackend | None) -> None:
+    def _configure_physics_backend(self, backend: PhysicsBackend) -> None:
         """Apply shared Newton spawn setup, then diff-IK-specific Newton tuning."""
-        super().configure_physics_backend(backend)
+        super()._configure_physics_backend(backend)
         if backend is PhysicsBackend.NEWTON:
             self._configure_newton_diff_ik()
 

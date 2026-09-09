@@ -74,6 +74,7 @@ class EmbodimentBase(PlaceableAsset):
         self.mimic_env: Any | None = None
         self.xr: Any | None = None
         self.termination_cfg: Any | None = None
+        self._configured_physics_backend: PhysicsBackend | None = None
 
     def get_placement_geometry_source(self) -> ArticulationGeometrySpec:
         """Return the USD articulation state used to compute embodiment geometry."""
@@ -168,6 +169,18 @@ class EmbodimentBase(PlaceableAsset):
 
     def configure_physics_backend(self, backend: PhysicsBackend | None) -> None:
         """Apply physics-backend-specific overrides before the env cfg is composed."""
+        if self._configured_physics_backend == backend:
+            return
+        assert self._configured_physics_backend is None, (
+            f"Embodiment '{self.name}' is already configured for physics backend "
+            f"'{self._configured_physics_backend.value}' and cannot be reconfigured for '{backend}'."
+        )
+        assert backend is not None
+        self._configure_physics_backend(backend)
+        self._configured_physics_backend = backend
+
+    def _configure_physics_backend(self, backend: PhysicsBackend) -> None:
+        """Apply subclass-specific physics-backend overrides."""
 
     def get_scene_cfg(self) -> Any:
         construction_pose = self._get_initial_pose_as_pose()
