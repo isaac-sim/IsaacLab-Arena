@@ -570,7 +570,7 @@
                   
   <section id="gr1-open-microwave-door-task">
 <h1>GR1 Open Microwave Door Task<a class="headerlink" href="#gr1-open-microwave-door-task" title="Link to this heading">#</a></h1>
-<p>This example demonstrates the complete workflow for the <strong>GR1 manipulation task of opening a microwave door</strong> in Isaac Lab - Arena, covering environment setup and validation, teleoperation data collection, data generation with Isaac Lab Mimic, policy post-training, and closed-loop evaluation.</p>
+<p>This example demonstrates the complete workflow for the <strong>GR1 manipulation task of opening a microwave door</strong>. The environment is built and validated in Isaac Lab Arena, then passed to Isaac Lab for teleoperation data collection and data generation with Isaac Lab Mimic; the policy is post-trained with Isaac-GR00T and evaluated in closed loop back in Isaac Lab Arena.</p>
 <a class="reference internal image-reference" href="../../../_images/kitchen_gr1_arena.gif"><img alt="../../../_images/kitchen_gr1_arena.gif" class="align-center" src="../../../_images/kitchen_gr1_arena.gif" style="height: 400px;" />
 </a>
 <section id="task-overview">
@@ -611,7 +611,7 @@
 <td><p>GR00T N1.6 (vision-language foundation model)</p></td>
 </tr>
 <tr class="row-odd"><td><p><strong>Post-training</strong></p></td>
-<td><p>Imitation Learning</p></td>
+<td><p>Imitation Learning — post-trained with <strong>Isaac-GR00T</strong></p></td>
 </tr>
 <tr class="row-even"><td><p><strong>Dataset</strong></p></td>
 <td><p><a class="reference external" href="https://huggingface.co/datasets/nvidia/Arena-GR1-Manipulation-Task">Arena-GR1-Manipulation-Task</a></p></td>
@@ -634,8 +634,9 @@
 </section>
 <section id="workflow">
 <h2>Workflow<a class="headerlink" href="#workflow" title="Link to this heading">#</a></h2>
-<p>This tutorial covers the pipeline between creating an environment, generating training data,
-fine-tuning a policy (GR00T N1.6), and evaluating the policy in closed-loop.
+<p>This tutorial covers the pipeline between creating an environment in Isaac Lab Arena, generating
+training data through Isaac Lab, fine-tuning a policy (GR00T N1.6), and evaluating the policy in
+closed-loop in Isaac Lab Arena.
 A user can follow the whole pipeline, or can start at any intermediate step
 by downloading the pre-generated output of the preceding step(s), which we provide
 (described in the relevant step below).</p>

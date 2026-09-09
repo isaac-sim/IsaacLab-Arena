@@ -570,10 +570,11 @@
                   
   <section id="gr1-sequential-pick-place-and-close-door-task">
 <h1>GR1 Sequential Pick &amp; Place and Close Door Task<a class="headerlink" href="#gr1-sequential-pick-place-and-close-door-task" title="Link to this heading">#</a></h1>
-<p>This example demonstrates the complete workflow for the <strong>GR1 sequential manipulation task of picking up an object,
-placing it into a refrigerator, and closing the door</strong> in Isaac Lab - Arena,
-covering environment setup and validation, teleoperation data collection, data generation with
-Isaac Lab Mimic, policy post-training, and closed-loop evaluation.</p>
+<p>This example demonstrates the complete workflow for the <strong>GR1 sequential manipulation task of
+picking up an object, placing it into a refrigerator, and closing the door</strong>. The environment is
+built and validated in Isaac Lab Arena, then passed to Isaac Lab for teleoperation data collection
+and data generation with Isaac Lab Mimic; the policy is post-trained with Isaac-GR00T and
+evaluated in closed loop back in Isaac Lab Arena.</p>
 <a class="reference internal image-reference" href="../../../_images/gr1_sequential_static_manipulation_env.gif"><img alt="../../../_images/gr1_sequential_static_manipulation_env.gif" class="align-center" src="../../../_images/gr1_sequential_static_manipulation_env.gif" style="height: 400px;" />
 </a>
 <section id="task-overview">
@@ -614,7 +615,7 @@ Isaac Lab Mimic, policy post-training, and closed-loop evaluation.</p>
 <td><p>GR00T N1.6 (vision-language foundation model)</p></td>
 </tr>
 <tr class="row-odd"><td><p><strong>Post-training</strong></p></td>
-<td><p>Imitation Learning</p></td>
+<td><p>Imitation Learning — post-trained with <strong>Isaac-GR00T</strong></p></td>
 </tr>
 <tr class="row-even"><td><p><strong>Physics</strong></p></td>
 <td><p>PhysX (200Hz &#64; 4 decimation)</p></td>
@@ -628,8 +629,9 @@ Isaac Lab Mimic, policy post-training, and closed-loop evaluation.</p>
 </section>
 <section id="workflow">
 <h2>Workflow<a class="headerlink" href="#workflow" title="Link to this heading">#</a></h2>
-<p>This tutorial covers the pipeline pn creating an environment, generating training data,
-fine-tuning a policy (GR00T N1.6), and evaluating the policy in closed-loop.</p>
+<p>This tutorial covers the pipeline between creating an environment in Isaac Lab Arena, generating
+training data through Isaac Lab, fine-tuning a policy (GR00T N1.6), and evaluating the policy in
+closed-loop in Isaac Lab Arena.</p>
 <section id="prerequisites">
 <h3>Prerequisites<a class="headerlink" href="#prerequisites" title="Link to this heading">#</a></h3>
 <p>Start the isaaclab docker container</p>
