@@ -47,6 +47,9 @@ class ObjectBase(PlaceableAsset, ABC):
 
     def get_object_cfg(self) -> tuple[str, AssetBaseCfg]:
         """Return the scene key and concrete asset config."""
+        assert (
+            self.object_cfg is not None
+        ), f"Object '{self.name}' ({type(self).__name__}) did not initialize its object config."
         return self.name, self.object_cfg
 
     def get_event_cfg(self) -> tuple[str, EventTermCfg | None]:
