@@ -124,12 +124,13 @@ def smoke_test_kitchen_background_collision(simulation_app: SimulationApp) -> bo
 
 
 if __name__ == "__main__":
-    from isaaclab.app import AppLauncher
+    from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
 
     # Parse CLI and launch the app before importing Isaac Sim modules.
     _parser = get_isaaclab_arena_cli_parser()
     _parser.add_argument("--view_steps", type=int, default=0, help="Steps to run (0 = until the viewer is closed).")
     _args_cli = _parser.parse_args()
-    _simulation_app = AppLauncher(_args_cli).app
-    run_kitchen_background_collision_demo(_simulation_app, view_steps=_args_cli.view_steps, args_cli=_args_cli)
-    _simulation_app.close()
+    with SimulationAppContext(_args_cli) as _app_context:
+        run_kitchen_background_collision_demo(
+            _app_context.app_launcher.app, view_steps=_args_cli.view_steps, args_cli=_args_cli
+        )
