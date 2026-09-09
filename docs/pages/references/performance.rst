@@ -133,8 +133,6 @@ and worker nodes.
 Benchmark scope
 ---------------
 
-* Each single-GPU point and each OSMO concurrency level was measured once, so the tables do not
-  show run-to-run variation.
 * The single-GPU test ran on a local engineering workstation, not a controlled performance lab
   system.
 * The workload did not render cameras or run policy inference. Cameras, policies, scene contents,
