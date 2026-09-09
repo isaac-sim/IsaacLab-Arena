@@ -43,17 +43,14 @@ are coming soon.
 **Collaboration**
 
 Isaac Lab-Arena is being developed as an open-source, shared evaluation framework that the community can
-collectively enhance and expand. We invite you to try Isaac Lab-Arena 0.2 Alpha, share feedback, and help
+collectively enhance and expand. We invite you to try Isaac Lab-Arena 0.3 Alpha, share feedback, and help
 shape its future. In Alpha stage, development velocity is high and core features/APIs are evolving. Your
 input at this stage is especially valuable.
 
 **What's Next**
 
-Future releases will focus on agentic, prompt-first scene and task generation, non-sequential long horizon
-tasks, easy-to-configure sensitivity analysis with targeted environment variations and evaluation sweeps without
-code changes, enhanced heterogeneity across parallel evaluations, and VLM-augmented analysis to surface
-insights from large-scale evaluations. These will come with ongoing improvements to performance and usability,
-such as PIP packaging.
+Future releases will focus on VLM-augmented analysis to surface insights from large-scale evaluations,
+production-scale performance hardening, and installation from published Python packages.
 
 **Limitations**
 
