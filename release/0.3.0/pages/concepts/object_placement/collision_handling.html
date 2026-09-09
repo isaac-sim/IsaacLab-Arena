@@ -780,6 +780,14 @@ display, for example <code class="docutils literal notranslate"><span class="pre
 </div>
 <p><code class="docutils literal notranslate"><span class="pre">--viz</span> <span class="pre">kit</span></code> opens the viewer, and <code class="docutils literal notranslate"><span class="pre">--view_steps</span> <span class="pre">0</span></code> keeps it open until you
 close the application.</p>
+<p>This example is intentionally challenging: it places five objects in a
+constrained area while enforcing collision checks. Because placement is
+stochastic, the candidate success rate can be low and some runs may not produce
+a valid layout. If you encounter a placement error, use the debugging workflow
+below to reproduce the failure and identify the limiting check.</p>
+<p>A <code class="docutils literal notranslate"><span class="pre">Placement</span> <span class="pre">pool</span> <span class="pre">could</span> <span class="pre">not</span> <span class="pre">fill</span></code> error means that the solver did not produce
+enough valid layouts to reach the pool’s target after all placement attempts.
+Some valid layouts may still have been produced and stored.</p>
 </section>
 <section id="debugging-placement-collisions">
 <h2>Debugging Placement Collisions<a class="headerlink" href="#debugging-placement-collisions" title="Link to this heading">#</a></h2>
@@ -810,12 +818,18 @@ record an <code class="docutils literal notranslate"><span class="pre">.rrd</spa
 <li><p><code class="docutils literal notranslate"><span class="pre">allow_best_loss_fallbacks=False</span></code> keeps pooled placement from hiding a
 failed validation behind a fallback layout.</p></li>
 </ul>
-<p>Start with the <code class="docutils literal notranslate"><span class="pre">no_overlap</span></code> verdict and any reported object pair, then inspect
-that candidate in Rerun. A <code class="docutils literal notranslate"><span class="pre">[NoCollision]</span></code> message means collision-mesh
-geometry was unavailable and Arena used a bounding-box-based fallback where
-possible. A <code class="docutils literal notranslate"><span class="pre">[MeshSDF]</span></code> warning means the mesh could not be queried reliably.
-If <code class="docutils literal notranslate"><span class="pre">BBOX</span></code> rejects geometry that is visibly collision-free, retry the relevant
-asset with <code class="docutils literal notranslate"><span class="pre">MESH</span></code>.</p>
+<p>Start with the validation summary. For example, <code class="docutils literal notranslate"><span class="pre">on_relation=1/10</span></code> means that
+only one complete candidate satisfied every <code class="docutils literal notranslate"><span class="pre">On</span></code> relation. Verbose output
+identifies the first object that failed and whether it was outside the support’s
+XY footprint or Z band. After reproducing the failure, try another placement
+seed. For repeated failures, increase <code class="docutils literal notranslate"><span class="pre">max_iters</span></code> or
+<code class="docutils literal notranslate"><span class="pre">max_placement_attempts</span></code>; reducing the object count or disabling random yaw
+also makes dense scenes easier to solve.</p>
+<p>For <code class="docutils literal notranslate"><span class="pre">no_overlap</span></code> failures, inspect the reported object pair in Rerun. A
+<code class="docutils literal notranslate"><span class="pre">[NoCollision]</span></code> message means collision-mesh geometry was unavailable and
+Arena used a bounding-box-based fallback where possible. A <code class="docutils literal notranslate"><span class="pre">[MeshSDF]</span></code> warning
+means the mesh could not be queried reliably. If <code class="docutils literal notranslate"><span class="pre">BBOX</span></code> rejects geometry that
+is visibly collision-free, retry the relevant asset with <code class="docutils literal notranslate"><span class="pre">MESH</span></code>.</p>
 </section>
 <section id="next-steps">
 <h2>Next Steps<a class="headerlink" href="#next-steps" title="Link to this heading">#</a></h2>

@@ -138,9 +138,11 @@ and can be used directly for policy evaluation:
   Benchmark Catalog <../kitchen_bench_catalog>`.
 
 .. warning::
-   Agentic environment generation is experimental and changing quickly. The
-   current prompt formats, generated spec structure, GUI behavior, and policy
-   evaluation integrations may change across releases.
+
+   Agentic environment generation is experimental and changing quickly. Generated
+   specs should be reviewed and validated before they are used for policy evaluation.
+   Prompt formats, generated spec structure, GUI behavior, and policy evaluation
+   integrations may change across releases.
 
    We are actively working on:
 
