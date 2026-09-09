@@ -258,63 +258,30 @@ Author benchmarks
 
          .. container:: arena-agentic-proof arena-agentic-giggles
 
-            .. raw:: html
+            .. container:: arena-agentic-demo
 
-               <div class="arena-agentic-switcher">
-                 <span>Select an example</span>
-                 <button type="button" class="arena-agentic-tab arena-agentic-tab-active" aria-pressed="true" data-arena-agentic-tab="domestic"><b>01</b> Domestic</button>
-                 <button type="button" class="arena-agentic-tab" aria-pressed="false" data-arena-agentic-tab="industrial"><b>02</b> Industrial</button>
-               </div>
+               .. container:: arena-agentic-prompt
 
-            .. container:: arena-agentic-example arena-agentic-example-domestic arena-agentic-example-active
+                  .. rubric:: Input prompt
 
-               .. container:: arena-agentic-demo
+                  Using a DROID robot and maple table, pick up one fruit, one bottle, and one
+                  utensil in any order, then place all three into a bin. Generate each environment
+                  with a different fruit, bottle, utensil, and bin. Add distractor kitchen objects,
+                  such as a mug and a SPAM can, to the table; the distractors are not part of the
+                  task.
 
-                  .. container:: arena-agentic-prompt
+               .. container:: arena-agentic-connector
 
-                     .. rubric:: Input prompt
+                  →
 
-                     DROID pick up the banana and put it on the plate. Using maple table
-                     background. Other objects on the table as distractors: two bagels, bowl,
-                     with positions randomized
+               .. container:: arena-agentic-output arena-agentic-output-heterogeneous
 
-                  .. container:: arena-agentic-connector
+                  .. rubric:: Output: Ready-to-evaluate Arena environments
 
-                     →
-
-                  .. container:: arena-agentic-output
-
-                     .. rubric:: Output: Ready-to-evaluate Arena environments
-
-                     .. image:: images/landing/tabletop-agentic-env-banana-bagel-plate.webp
-                        :width: 100%
-                        :alt: Arena environments generated for a DROID banana-to-plate task with distractors
-                        :loading: lazy
-
-            .. container:: arena-agentic-example arena-agentic-example-industrial
-
-               .. container:: arena-agentic-demo
-
-                  .. container:: arena-agentic-prompt
-
-                     .. rubric:: Input prompt
-
-                     Two bins on maple table. ``container_f24`` is on the left of ``bin_b04``.
-                     DROID put the spring clamp in the right bin. Other objects on the table as
-                     distractors: two hammers, cordless drill.
-
-                  .. container:: arena-agentic-connector
-
-                     →
-
-                  .. container:: arena-agentic-output
-
-                     .. rubric:: Output: Ready-to-evaluate Arena environments
-
-                     .. image:: images/landing/agentic-industrial-spring-clamp.webp
-                        :width: 100%
-                        :alt: Arena industrial environment generated for a spring-clamp placement task
-                        :loading: lazy
+                  .. image:: images/landing/droid-heterogeneous-fruit-bottle-utensil-pnp.gif
+                     :width: 100%
+                     :alt: Four generated Arena environments in which DROID places a fruit, bottle, and utensil into different bins among distractor objects
+                     :loading: lazy
 
 .. _home-variation-system:
 

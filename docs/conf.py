@@ -183,7 +183,6 @@ def setup(app):
 
         if pagename in {"index", "pages/motivation/motivation"}:
             app.add_css_file("landing.css", priority=900)
-            app.add_js_file("landing.js", priority=900)
         elif pagename == "pages/gallery/index":
             app.add_css_file("gallery.css", priority=900)
 

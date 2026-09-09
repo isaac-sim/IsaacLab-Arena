@@ -2560,8 +2560,7 @@ body:has(#welcome-to-isaac-lab-arena) .secondary-toggle,
 
 .arena-agentic-giggles.docutils.container {
     display: grid !important;
-    grid-template-rows: 28px minmax(0, 1fr);
-    gap: 8px;
+    grid-template-rows: minmax(0, 1fr);
 }
 
 .arena-agentic-giggles .arena-agentic-demo {
@@ -2749,7 +2748,7 @@ body:has(#welcome-to-isaac-lab-arena) .secondary-toggle,
     }
 
     .arena-agentic-giggles.docutils.container {
-        grid-template-rows: auto auto;
+        grid-template-rows: auto;
     }
 
     .arena-agentic-giggles .arena-agentic-prompt,
@@ -3356,65 +3355,7 @@ body:has(#welcome-to-isaac-lab-arena) .secondary-toggle,
     letter-spacing: -0.015em;
 }
 
-.arena-agentic-switcher {
-    display: flex;
-    align-items: center;
-    gap: 7px;
-    min-height: 0;
-    padding: 0 2px;
-}
-
-.arena-agentic-switcher > span {
-    margin-right: 7px;
-    color: #737c70;
-    font-size: 0.55rem;
-    font-weight: 760;
-    letter-spacing: 0.11em;
-    text-transform: uppercase;
-}
-
-button.arena-agentic-tab {
-    min-width: 108px;
-    height: 25px;
-    padding: 0 12px;
-    border: 1px solid #d5ddd0;
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.84);
-    color: #626b61;
-    font: inherit;
-    font-size: 0.57rem;
-    font-weight: 590;
-}
-
-button.arena-agentic-tab b {
-    margin-right: 7px;
-    color: #697367;
-    font-size: 0.54rem;
-}
-
-button.arena-agentic-tab-active {
-    border-color: #99c85a;
-    background: #f5fbe9;
-    color: #24301f;
-}
-
-button.arena-agentic-tab-active b {
-    color: #548a00;
-}
-
-.arena-agentic-example.docutils.container {
-    display: none;
-    min-width: 0;
-    min-height: 0;
-    height: 100%;
-    padding: 0 !important;
-}
-
-.arena-agentic-example-active.docutils.container {
-    display: block;
-}
-
-.arena-agentic-example > .arena-agentic-demo.docutils.container {
+.arena-agentic-giggles > .arena-agentic-demo.docutils.container {
     height: 100% !important;
     gap: 10px !important;
 }
@@ -3448,11 +3389,7 @@ button.arena-agentic-tab-active b {
 }
 
 @media (max-width: 767px) {
-    .arena-agentic-switcher {
-        flex-wrap: wrap;
-    }
-
-    .arena-agentic-example > .arena-agentic-demo.docutils.container {
+    .arena-agentic-giggles > .arena-agentic-demo.docutils.container {
         grid-template-columns: 1fr !important;
         height: auto !important;
     }
@@ -3687,7 +3624,7 @@ button.arena-agentic-tab-active b {
         max-height: 320px !important;
     }
 
-    .arena-agentic-example > .arena-agentic-demo.docutils.container {
+    .arena-agentic-giggles > .arena-agentic-demo.docutils.container {
         grid-template-columns: minmax(330px, 0.92fr) 30px minmax(430px, 1.08fr) !important;
         gap: 9px !important;
     }
@@ -3955,6 +3892,14 @@ button.arena-agentic-tab-active b {
     object-fit: cover !important;
     object-position: 50% 54% !important;
     transform: scale(1.34) !important;
+}
+
+.arena-agentic-giggles .arena-agentic-output-heterogeneous img {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: contain !important;
+    object-position: center !important;
+    transform: none !important;
 }
 
 @media (min-width: 768px) {
