@@ -50,7 +50,8 @@ input at this stage is especially valuable.
 **What's Next**
 
 Future releases will focus on VLM-augmented analysis to surface insights from large-scale evaluations,
-production-scale performance hardening, and installation from published Python packages.
+Newton support for contact-rich rigid-body and deformable environments, production-scale performance
+hardening, and installation from published Python packages.
 
 **Limitations**
 
