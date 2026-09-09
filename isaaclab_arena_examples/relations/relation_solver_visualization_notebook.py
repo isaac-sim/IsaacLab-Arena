@@ -294,7 +294,7 @@ def run_visualization_demo():
 
 # %%
 # When running as a notebook, uncomment and run:
-run_visualization_demo()
+# run_visualization_demo()
 
 if __name__ == "__main__":
     run_visualization_demo()
