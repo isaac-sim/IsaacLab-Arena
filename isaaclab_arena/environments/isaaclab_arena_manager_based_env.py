@@ -15,6 +15,7 @@ from isaaclab_arena.metrics.metrics_manager import MetricsManager
 from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderManager
 from isaaclab_arena.tasks.predicates.object_settling import ObjectInitialRestPoseRecorder
 from isaaclab_arena.variations.variation_recorder import VariationRecorder
+from isaaclab_arena.video.video_recording import close_viewport_video_recorder
 
 
 class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
@@ -95,3 +96,10 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
             A MetricsDataCollection instance.
         """
         return self.metrics_manager.compute()
+
+    def close(self) -> None:
+        """Release viewport capture before closing the simulation environment."""
+        try:
+            close_viewport_video_recorder(getattr(self, "video_recorder", None))
+        finally:
+            super().close()

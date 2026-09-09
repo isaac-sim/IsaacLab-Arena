@@ -13,6 +13,7 @@ from isaaclab_arena.utils.isaaclab_utils.simulation_app import (
     collect_garbage_and_clear_cuda_cache,
     teardown_simulation_app,
 )
+from isaaclab_arena.video.video_recording import close_viewport_video_recorder
 
 if TYPE_CHECKING:
     import gymnasium as gym
@@ -30,9 +31,11 @@ def close_policy(policy: PolicyBase | None) -> None:
 
 
 def close_environment(env: gym.Env | None) -> None:
-    """Tear down and close an instantiated environment."""
+    """Release viewport capture, replace the simulation stage, and close the environment."""
     if env is None:
         return
+    base_env = env.unwrapped
+    close_viewport_video_recorder(getattr(base_env, "video_recorder", None))
     try:
         teardown_simulation_app(suppress_exceptions=False, make_new_stage=True)
     finally:
