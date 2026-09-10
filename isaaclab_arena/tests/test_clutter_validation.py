@@ -186,11 +186,15 @@ def test_passive_rotation_has_its_own_tolerance():
     "angle,lower,upper",
     [(90, (-0.4, -0.1), (0.2, 0.3)), (-90, (-0.2, -0.3), (0.4, 0.1)), (180, (-0.3, -0.4), (0.1, 0.2))],
 )
-def test_support_region_rotates_offset_bounds(angle, lower, upper):
+@pytest.mark.parametrize("device", ["cpu", "cuda:0"])
+def test_support_region_rotates_offset_bounds(angle, lower, upper, device):
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
     from isaaclab_arena_examples.relations.clutter.geometry import region_above_support
 
-    box = AxisAlignedBoundingBox(min_point=(-0.1, -0.2, -0.05), max_point=(0.3, 0.4, 0.05))
+    box = AxisAlignedBoundingBox(
+        min_point=torch.tensor([[-0.1, -0.2, -0.05]], device=device),
+        max_point=torch.tensor([[0.3, 0.4, 0.05]], device=device),
+    )
     region = region_above_support((1.0, 2.0, 0.7), box, support_rotation_xyzw=_yaw_quaternion(angle))
     assert (region.min_x, region.min_y) == pytest.approx((1 + lower[0], 2 + lower[1]))
     assert (region.max_x, region.max_y, region.floor_z) == pytest.approx((1 + upper[0], 2 + upper[1], 0.75))

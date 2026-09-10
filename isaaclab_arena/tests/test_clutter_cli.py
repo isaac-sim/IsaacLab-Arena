@@ -81,7 +81,7 @@ def test_existing_output_is_rejected(tmp_path):
 
 
 @pytest.mark.with_subprocess
-def test_cli_generates_loadable_cache(tmp_path):
+def test_cli_generates_scene_cache(tmp_path):
     import yaml
 
     output = tmp_path / "scene.yaml"

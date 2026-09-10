@@ -23,7 +23,6 @@ from isaaclab_arena_examples.relations.clutter.drop_poses import (
     MemberDropParams,
     OccupiedFootprint,
     compute_drop_poses,
-    refit_bbox_to_rotation,
 )
 from isaaclab_arena_examples.relations.clutter.geometry import (
     dynamic_rigid_object_keys,
@@ -233,7 +232,7 @@ def _release_objects(
         for key, pose in poses.items():
             if key in unplaced or key == group.support:
                 continue
-            bbox = refit_bbox_to_rotation(boxes[key], pose.rotation_xyzw).translated(pose.position_xyz)
+            bbox = boxes[key].rotated_by_quat(pose.rotation_xyzw).translated(pose.position_xyz)
             lower, upper = bbox.min_point[0], bbox.max_point[0]
             if float(upper[2]) <= region.floor_z:
                 continue
