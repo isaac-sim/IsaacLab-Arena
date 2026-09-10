@@ -2,7 +2,7 @@
 
 # Isaac Lab-Arena
 
-### Scalable Benchmark Authoring and Robot Policy Evaluation in Simulation
+### Composable Environment Creation and Policy Evaluation for Robotics Simulation
 
 [![Alpha](https://img.shields.io/badge/status-alpha-e8912d.svg)](#%EF%B8%8F-project-status)
 [![Version](https://img.shields.io/badge/version-0.3-blue.svg)](https://github.com/isaac-sim/IsaacLab-Arena/tree/main)
