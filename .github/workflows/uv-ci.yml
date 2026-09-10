@@ -51,16 +51,11 @@ jobs:
     runs-on: [self-hosted, gpu-arena]
     timeout-minutes: 120
     needs: [uv_changes]
-    # TODO(alexmillane) [public-isaac-sim-wheel-unavailable] Reactivate when public Isaac Sim 6.1
-    # wheel available. Until then the leading `false &&` below short-circuits the whole condition,
-    # so this job always skips. Delete that one line to restore the behaviour described next.
-    #
     # Runs nightly, on push to main, and on manual dispatch; on pull requests
     # only when the PR touches the uv-managed dependency files or this workflow.
     # The !cancelled() guard keeps the job alive when uv_changes is skipped on
     # non-PR events.
     if: >-
-      false &&
       !cancelled() &&
       (github.event_name != 'pull_request' ||
        needs.uv_changes.outputs.uv == 'true')

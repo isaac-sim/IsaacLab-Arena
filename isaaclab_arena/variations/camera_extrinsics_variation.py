@@ -20,12 +20,12 @@ import torch
 from dataclasses import field
 from typing import TYPE_CHECKING
 
-import warp as wp
 from isaaclab.managers import EventTermCfg, ManagerTermBase, SceneEntityCfg
 from isaaclab.sensors import Camera, TiledCamera
 from isaaclab.utils.configclass import configclass
 from isaaclab.utils.math import quat_apply
 
+from isaaclab_arena.patches.camera_render_pose import CameraPoseWriter
 from isaaclab_arena.variations.continuous_sampler import ContinuousSampler
 from isaaclab_arena.variations.uniform_sampler import UniformSamplerCfg
 from isaaclab_arena.variations.variation_base import RunTimeVariationBase, VariationBaseCfg
@@ -125,6 +125,8 @@ class apply_camera_extrinsics_from_sampler(ManagerTermBase):
         )
 
         self._camera = camera
+        # [isaac-lab-camera-pose-write-bug] Write poses through CameraPoseWriter so the Newton render follows.
+        self._pose_writer = CameraPoseWriter(camera)
         # Snapshotted on first ``__call__``.
         self._t_parent_C_in_parent: torch.Tensor | None = None
         self._q_parent_C_xyzw: torch.Tensor | None = None
@@ -163,5 +165,5 @@ class apply_camera_extrinsics_from_sampler(ManagerTermBase):
         t_C_Cnew_in_parent = quat_apply(self._q_parent_C_xyzw[env_ids], t_C_Cnew_in_C)
         t_parent_Cnew_in_parent = self._t_parent_C_in_parent[env_ids] + t_C_Cnew_in_parent
 
-        # Apply the the sim.
-        view.set_local_poses(translations=t_parent_Cnew_in_parent, orientations=None, indices=wp.from_torch(env_ids))
+        # [isaac-lab-camera-pose-write-bug] Written via the pose writer so it reaches the Newton render.
+        self._pose_writer.set_local_translations(translations=t_parent_Cnew_in_parent, env_ids=env_ids)
