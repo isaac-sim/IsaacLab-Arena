@@ -10,6 +10,7 @@ from __future__ import annotations
 import os
 import time
 import traceback
+from collections.abc import Callable
 from copy import deepcopy
 from dataclasses import fields, replace
 from pathlib import Path
@@ -56,7 +57,7 @@ def execute_experiment(
     record_viewport_video: bool = False,
     record_camera_video: bool = False,
     continue_on_error: bool = False,
-    datagen_collector_factory=None,
+    datagen_collector_factory: Callable[[ArenaRunCfg, gym.Env], DatagenCollectorBase] | None = None,
 ) -> list[ArenaRunResult]:
     """Execute an experiment's runs in order and return their results.
 
@@ -120,7 +121,7 @@ def build_and_run(
     cfg: ArenaRunCfg,
     output_dir: str | Path,
     video_cfg: VideoRecordingCfg | None = None,
-    datagen_collector_factory=None,
+    datagen_collector_factory: Callable[[ArenaRunCfg, gym.Env], DatagenCollectorBase] | None = None,
 ) -> ArenaRunResult:
     """Build and execute one typed Arena run, then return its result stamped with its start and end times.
 
@@ -223,7 +224,7 @@ def _cfg_for_rebuild(cfg: ArenaRunCfg, rebuild_index: int) -> ArenaRunCfg:
 
 def _with_datagen_recorder_term(
     recorders_cfg: RecorderManagerBaseCfg | None,
-    build_handlers,
+    build_handlers: Callable[[gym.Env], CallbackRecorderTermHandlers],
 ) -> RecorderManagerBaseCfg:
     """Merge a CallbackRecorderTerm using build_handlers into recorders_cfg.
 
@@ -244,7 +245,7 @@ def _build_environment_from_cfg(
     render_mode: str | None,
     output_dir: str | Path,
     rebuild_index: int = 0,
-    datagen_collector_factory=None,
+    datagen_collector_factory: Callable[[ArenaRunCfg, gym.Env], DatagenCollectorBase] | None = None,
 ) -> gym.Env:
     """Compile and instantiate a run's environment.
 
