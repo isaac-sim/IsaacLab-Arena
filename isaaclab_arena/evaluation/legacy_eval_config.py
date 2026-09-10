@@ -84,6 +84,7 @@ def _run_cfg_from_legacy_job(
         ),
         num_rebuilds=job_config.get("num_rebuilds", 1),
         variations=variations,
+        datagen=job_config.get("datagen"),
     )
 
 

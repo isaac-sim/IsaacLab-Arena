@@ -174,6 +174,41 @@ def test_registered_environment_rejects_arguments_missing_from_its_typed_config(
         run_cfgs_from_legacy_eval_config(legacy_config, device="cpu")
 
 
+def test_legacy_job_datagen_block_becomes_run_cfg_datagen():
+    legacy_config = {
+        "jobs": [{
+            "name": "job0",
+            "arena_env_args": {
+                "environment": "pick_and_place_maple_table",
+            },
+            "policy_type": "zero_action",
+            "num_steps": 1,
+            "datagen": {"output_dir": "/tmp/out", "width": 320},
+        }]
+    }
+
+    (run,) = run_cfgs_from_legacy_eval_config(legacy_config, device="cpu")
+
+    assert run.datagen == {"output_dir": "/tmp/out", "width": 320}
+
+
+def test_legacy_job_without_datagen_block_leaves_it_none():
+    legacy_config = {
+        "jobs": [{
+            "name": "job0",
+            "arena_env_args": {
+                "environment": "pick_and_place_maple_table",
+            },
+            "policy_type": "zero_action",
+            "num_steps": 1,
+        }]
+    }
+
+    (run,) = run_cfgs_from_legacy_eval_config(legacy_config, device="cpu")
+
+    assert run.datagen is None
+
+
 def test_legacy_runtime_status_is_not_a_run_configuration():
     legacy_config = {
         "jobs": [{

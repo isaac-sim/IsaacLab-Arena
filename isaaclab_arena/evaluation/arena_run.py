@@ -65,6 +65,12 @@ class ArenaRunCfg:
     variations: dict[str, Any] = field(default_factory=dict)
     """Variation values applied when the environment is compiled."""
 
+    datagen: dict[str, Any] | None = field(default=None)
+    """Per-run datagen collection config (output_dir, cameras, ...), or None to disable
+    collection for this run. Consumed by a datagen_collector_factory injected into
+    execute_experiment/experiment_runner.main -- Arena itself does not interpret its
+    contents beyond passing it to that factory."""
+
     def __post_init__(self) -> None:
         assert self.name, "run name must not be empty"
         assert self.num_rebuilds > 0, "num_rebuilds must be greater than zero"

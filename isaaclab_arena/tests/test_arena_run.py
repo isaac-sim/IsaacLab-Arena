@@ -66,3 +66,12 @@ def test_run_result_records_outcome_separately():
 
     assert result.run_name == "test_run"
     assert result.metrics is None
+
+
+def test_datagen_defaults_to_none():
+    assert _run().datagen is None
+
+
+def test_datagen_accepts_a_config_dict():
+    datagen_cfg = {"output_dir": "/tmp/out", "width": 320}
+    assert _run(datagen=datagen_cfg).datagen == datagen_cfg
