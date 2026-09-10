@@ -14,9 +14,12 @@ from dataclasses import fields, replace
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from isaaclab.managers.recorder_manager import RecorderManagerBaseCfg
+
 from isaaclab_arena.assets.registries import EnvironmentRegistry, PolicyRegistry
 from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
 from isaaclab_arena.evaluation.arena_run import ArenaRunCfg, ArenaRunResult, RunStatus
+from isaaclab_arena.evaluation.datagen_collector import DatagenCollectorBase, build_datagen_callback_handlers
 from isaaclab_arena.evaluation.legacy_graph_environment_cli import (
     LegacyGraphEnvironmentCfg,
     build_arena_builder_from_legacy_graph,
@@ -24,6 +27,8 @@ from isaaclab_arena.evaluation.legacy_graph_environment_cli import (
 from isaaclab_arena.evaluation.policy_runner import rollout_policy
 from isaaclab_arena.evaluation.resource_cleanup import close_run_resources
 from isaaclab_arena.metrics.aggregate_metrics import aggregate_metrics
+from isaaclab_arena.recording.callback_recorder_term import CallbackRecorderTermCfg, CallbackRecorderTermHandlers
+from isaaclab_arena.utils.configclass import combine_configclass_instances, make_configclass
 from isaaclab_arena.variations.variations_hydra import overrides_from_dict
 from isaaclab_arena.video.video_recording import VideoRecordingCfg, wrap_env_for_video
 
@@ -41,6 +46,7 @@ def execute_experiment(
     record_viewport_video: bool = False,
     record_camera_video: bool = False,
     continue_on_error: bool = False,
+    datagen_collector_factory=None,
 ) -> list[ArenaRunResult]:
     """Execute an experiment's runs in order and return their results.
 
@@ -50,6 +56,8 @@ def execute_experiment(
         record_viewport_video: Whether to record the viewport for each run.
         record_camera_video: Whether to record observation cameras for each run.
         continue_on_error: Whether to continue with later runs after one fails.
+        datagen_collector_factory: Optional Callable[[ArenaRunCfg, gym.Env], DatagenCollectorBase]
+            forwarded to build_and_run for each run.
 
     Returns:
         One result per attempted run, in execution order.
@@ -67,6 +75,7 @@ def execute_experiment(
                     record_camera_video=record_camera_video,
                     video_base_dir=str(run_output_dir),
                 ),
+                datagen_collector_factory=datagen_collector_factory,
             )
         except Exception as error:
             results.append(ArenaRunResult(run_name=run_cfg.name, status=RunStatus.FAILED))
@@ -84,8 +93,14 @@ def build_and_run(
     cfg: ArenaRunCfg,
     output_dir: str | Path,
     video_cfg: VideoRecordingCfg | None = None,
+    datagen_collector_factory=None,
 ) -> ArenaRunResult:
-    """Build and execute one typed Arena run, then return its result."""
+    """Build and execute one typed Arena run, then return its result.
+
+    Args:
+        datagen_collector_factory: Optional Callable[[ArenaRunCfg, gym.Env], DatagenCollectorBase]
+            forwarded to _build_environment_from_cfg for each rebuild.
+    """
     metrics_per_rebuild: list[MetricsDataCollection] = []
     output_dir = str(output_dir)
     video_cfg = video_cfg or VideoRecordingCfg(video_base_dir=output_dir)
@@ -105,7 +120,9 @@ def build_and_run(
                 camera_name_prefix=f"robot-cam-rebuild{rebuild_index}",
             )
             rebuild_cfg = _seed_cfg_for_rebuild(cfg, rebuild_index)
-            env = _build_environment_from_cfg(rebuild_cfg, rebuild_video_cfg.render_mode)
+            env = _build_environment_from_cfg(
+                rebuild_cfg, rebuild_video_cfg.render_mode, datagen_collector_factory=datagen_collector_factory
+            )
             results_path = os.path.join(output_dir, f"episode_results_rebuild{rebuild_index}.jsonl")
             env.unwrapped.episode_recorder.set_job_name(cfg.name)
             env.unwrapped.episode_recorder.set_output_path(results_path)
@@ -137,15 +154,53 @@ def _seed_cfg_for_rebuild(cfg: ArenaRunCfg, rebuild_index: int) -> ArenaRunCfg:
     return cfg
 
 
+def _with_datagen_recorder_term(
+    recorders_cfg: RecorderManagerBaseCfg | None,
+    build_handlers,
+) -> RecorderManagerBaseCfg:
+    """Merge a CallbackRecorderTerm using build_handlers into recorders_cfg.
+
+    recorders_cfg may be None (no other recorder terms configured for this run).
+    """
+    datagen_recorders_cfg = make_configclass(
+        "DatagenRecorderManagerCfg",
+        [("datagen_callback", CallbackRecorderTermCfg, CallbackRecorderTermCfg(build_handlers=build_handlers))],
+        bases=(RecorderManagerBaseCfg,),
+    )()
+    return combine_configclass_instances(
+        "RecorderManagerCfg", recorders_cfg, datagen_recorders_cfg, bases=(RecorderManagerBaseCfg,)
+    )
+
+
 def _build_environment_from_cfg(
     cfg: ArenaRunCfg,
     render_mode: str | None,
+    datagen_collector_factory=None,
 ) -> gym.Env:
-    """Compile and instantiate a run's environment."""
+    """Compile and instantiate a run's environment.
+
+    Args:
+        datagen_collector_factory: Optional Callable[[ArenaRunCfg, gym.Env], DatagenCollectorBase].
+            When given and cfg.datagen is not None, its collector is driven via a
+            CallbackRecorderTerm merged into the env's recorders config.
+    """
     arena_builder = build_arena_builder_from_run_cfg(cfg)
     _, env_cfg, env_kwargs = arena_builder.build_registered()
     if env_cfg.recorders is not None:
         env_cfg.recorders.dataset_filename = f"dataset_{cfg.name}"
+    if datagen_collector_factory is not None and cfg.datagen is not None:
+        # ArenaEnvBuilder only sets env_cfg.recorders when mimic is disabled, so a
+        # requested datagen collector would silently never be invoked in mimic mode.
+        assert not cfg.environment_builder.mimic, (
+            f"Run '{cfg.name}' requests datagen collection but mimic mode never sets env_cfg.recorders,"
+            " so the collector would silently never be invoked"
+        )
+
+        def build_handlers(env: gym.Env, run_cfg: ArenaRunCfg = cfg) -> CallbackRecorderTermHandlers:
+            collector: DatagenCollectorBase = datagen_collector_factory(run_cfg, env)
+            return build_datagen_callback_handlers(collector, env=env)
+
+        env_cfg.recorders = _with_datagen_recorder_term(env_cfg.recorders, build_handlers)
     return arena_builder.make_registered(env_cfg, env_kwargs, render_mode=render_mode)
 
 
