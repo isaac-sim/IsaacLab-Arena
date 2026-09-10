@@ -57,7 +57,6 @@ def _make_factory_gear(
         object_type=ObjectType.RIGID,
         usd_path=GEAR_ASSET_PATHS[usd_leaf],
         initial_pose=initial_pose,
-        activate_contact_sensors=False,
     )
     gear.disable_reset_pose()
     return gear
