@@ -2079,6 +2079,7 @@ dependencies = [
     { name = "onnxruntime", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine != 'x86_64' and extra == 'group-14-isaaclab-arena-isaaclab-from-source' and extra == 'group-14-isaaclab-arena-isaaclab-from-wheel') or (sys_platform != 'linux' and extra == 'group-14-isaaclab-arena-isaaclab-from-source' and extra == 'group-14-isaaclab-arena-isaaclab-from-wheel')" },
     { name = "openai", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine != 'x86_64' and extra == 'group-14-isaaclab-arena-isaaclab-from-source' and extra == 'group-14-isaaclab-arena-isaaclab-from-wheel') or (sys_platform != 'linux' and extra == 'group-14-isaaclab-arena-isaaclab-from-source' and extra == 'group-14-isaaclab-arena-isaaclab-from-wheel')" },
     { name = "pandas", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine != 'x86_64' and extra == 'group-14-isaaclab-arena-isaaclab-from-source' and extra == 'group-14-isaaclab-arena-isaaclab-from-wheel') or (sys_platform != 'linux' and extra == 'group-14-isaaclab-arena-isaaclab-from-source' and extra == 'group-14-isaaclab-arena-isaaclab-from-wheel')" },
+    { name = "plotly", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine != 'x86_64' and extra == 'group-14-isaaclab-arena-isaaclab-from-source' and extra == 'group-14-isaaclab-arena-isaaclab-from-wheel') or (sys_platform != 'linux' and extra == 'group-14-isaaclab-arena-isaaclab-from-source' and extra == 'group-14-isaaclab-arena-isaaclab-from-wheel')" },
     { name = "pydantic", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine != 'x86_64' and extra == 'group-14-isaaclab-arena-isaaclab-from-source' and extra == 'group-14-isaaclab-arena-isaaclab-from-wheel') or (sys_platform != 'linux' and extra == 'group-14-isaaclab-arena-isaaclab-from-source' and extra == 'group-14-isaaclab-arena-isaaclab-from-wheel')" },
     { name = "pytest", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine != 'x86_64' and extra == 'group-14-isaaclab-arena-isaaclab-from-source' and extra == 'group-14-isaaclab-arena-isaaclab-from-wheel') or (sys_platform != 'linux' and extra == 'group-14-isaaclab-arena-isaaclab-from-source' and extra == 'group-14-isaaclab-arena-isaaclab-from-wheel')" },
     { name = "sbi", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine != 'x86_64' and extra == 'group-14-isaaclab-arena-isaaclab-from-source' and extra == 'group-14-isaaclab-arena-isaaclab-from-wheel') or (sys_platform != 'linux' and extra == 'group-14-isaaclab-arena-isaaclab-from-source' and extra == 'group-14-isaaclab-arena-isaaclab-from-wheel')" },
@@ -2145,6 +2146,7 @@ requires-dist = [
     { name = "onnxruntime" },
     { name = "openai", specifier = ">=2.0" },
     { name = "pandas", specifier = "==2.2.3" },
+    { name = "plotly" },
     { name = "pydantic", specifier = ">=2.0" },
     { name = "pytest" },
     { name = "sbi" },
@@ -5179,6 +5181,19 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/d7/47/e4501f49c178ae1d9f4a75073fda4204f52647993f075a9db4d14930e0c5/platformdirs-4.10.0.tar.gz", hash = "sha256:31e761a6a0ca04faf7353ea759bdba55652be214725111e5aac52dfa29d4bef7", size = 31224, upload-time = "2026-05-28T03:32:53.587Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/81/e6/cd9575ac904136b3cbf7aa7ee819ef86eedb7274e46f230e94ea4342e729/platformdirs-4.10.0-py3-none-any.whl", hash = "sha256:fb516cdb12eb0d857d0cd85a7c57cea4d060bee4578d6cf5a14dfdf8cbf8784a", size = 22743, upload-time = "2026-05-28T03:32:52.175Z" },
+]
+
+[[package]]
+name = "plotly"
+version = "7.0.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "narwhals", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine != 'x86_64' and extra == 'group-14-isaaclab-arena-isaaclab-from-source' and extra == 'group-14-isaaclab-arena-isaaclab-from-wheel') or (sys_platform != 'linux' and extra == 'group-14-isaaclab-arena-isaaclab-from-source' and extra == 'group-14-isaaclab-arena-isaaclab-from-wheel')" },
+    { name = "packaging", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux') or (platform_machine != 'x86_64' and extra == 'group-14-isaaclab-arena-isaaclab-from-source' and extra == 'group-14-isaaclab-arena-isaaclab-from-wheel') or (sys_platform != 'linux' and extra == 'group-14-isaaclab-arena-isaaclab-from-source' and extra == 'group-14-isaaclab-arena-isaaclab-from-wheel')" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/ec/9e/8894e8eae20a5b2a44aa568b1d2d80291e8eea6ce7bc75cdc7a152aef0ac/plotly-7.0.0.tar.gz", hash = "sha256:08b21f1244a97e7a1a699833c4bb2678475aa108b3f1989886ed0b038ebfd849", size = 6218668, upload-time = "2026-08-25T17:47:29.088Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/e0/2f/6f492108d9955bac97979d9949c1b35eab30fc630b1f22bbdd2c7cacbab4/plotly-7.0.0-py3-none-any.whl", hash = "sha256:78cbf7bd06d1b05bb3b8ec1b709864695229b55151b6f7530fbf55517ead6fdd", size = 9052859, upload-time = "2026-08-25T17:47:24.689Z" },
 ]
 
 [[package]]
