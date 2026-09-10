@@ -1,0 +1,32 @@
+{
+  "success": true,
+  "backend": "CPU MuJoCo",
+  "active_gripper_motors": 1,
+  "follower_motors": 0,
+  "max_mimic_error_rad": 0.00010532140731811523,
+  "metric_sample_hz": 600,
+  "samples": [
+    {
+      "target_rad": 0.65,
+      "measured_master_rad": 0.6499996185302734,
+      "follower_angles_rad": [
+        -0.6499996185302734,
+        0.6499996781349182,
+        -0.6499996185302734,
+        -0.6499996185302734,
+        0.6499996185302734
+      ]
+    },
+    {
+      "target_rad": 0.0,
+      "measured_master_rad": 3.85567571175365e-16,
+      "follower_angles_rad": [
+        -1.4631306623625988e-14,
+        -2.1636807810373505e-14,
+        1.647638324603698e-14,
+        2.0225681413433942e-14,
+        -7.971251704320359e-17
+      ]
+    }
+  ]
+}

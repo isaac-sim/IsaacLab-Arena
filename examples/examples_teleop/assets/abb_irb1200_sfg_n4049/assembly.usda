@@ -1,0 +1,44 @@
+#usda 1.0
+(
+    defaultPrim = "abb_irb1200_sfg_n4049"
+    metersPerUnit = 1
+    upAxis = "Z"
+)
+
+def Xform "abb_irb1200_sfg_n4049" (
+    prepend references = @../../../../isaaclab_arena/assets/robots/abb/irb1200_7_70/irb1200_7_70.usda@
+)
+{
+    over "Geometry"
+    {
+        over "base_link"
+        {
+            over "link_1"
+            {
+                over "link_2"
+                {
+                    over "link_3"
+                    {
+                        over "link_4"
+                        {
+                            over "link_5"
+                            {
+                                over "link_6"
+                                {
+                                    def Xform "sfg_mount" (
+                                        prepend references = @sfg_n4049_cad.usda@
+                                    )
+                                    {
+                                        quatd xformOp:orient = (0.7071067811865476, 0, 0.7071067811865476, 0)
+                                        uniform token[] xformOpOrder = ["xformOp:orient"]
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+

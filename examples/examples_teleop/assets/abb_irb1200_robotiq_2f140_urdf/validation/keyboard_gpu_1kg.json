@@ -1,0 +1,69 @@
+{
+  "success": true,
+  "assistance": false,
+  "gripper": "ROS-Industrial Robotiq 2F-140",
+  "expected_grasp_failure": false,
+  "validation_passed": true,
+  "native_mimic_count": 5,
+  "active_gripper_motors": 1,
+  "follower_motors": 0,
+  "master_torque_limit_Nm": 5.0,
+  "friction": 0.8,
+  "constraint_settings": {
+    "eq_solref": [
+      0.0035,
+      1.0
+    ],
+    "eq_solimp": [
+      0.9999,
+      0.9999,
+      0.001,
+      0.5,
+      2.0
+    ],
+    "geom_solref": [
+      0.005,
+      1.0
+    ],
+    "geom_solimp": [
+      0.99,
+      0.999,
+      0.001,
+      0.5,
+      2.0
+    ]
+  },
+  "metric_sample_hz": 60,
+  "contact_backend": "MuJoCo native",
+  "simulated_seconds": 24.64999999999988,
+  "max_mimic_error_rad": 0.00288274884223938,
+  "max_tcp_tracking_error_m": 0.011851988983177625,
+  "frames": 1479,
+  "finished": true,
+  "cubes": [
+    {
+      "cube": 0,
+      "mass_kg": 1.0,
+      "max_lift_m": 0.19960269331932068,
+      "airborne_transport_m": 0.2726482480322086,
+      "lifted": true,
+      "transported": true,
+      "placed": true,
+      "position_error_m": [
+        0.0009094598889350936,
+        -0.00020038306713104914,
+        3.680586814880371e-06
+      ],
+      "orientation_error_degrees": 0.11190582380822714
+    }
+  ],
+  "newton_version": "1.2.1",
+  "warp_version": "1.13.0",
+  "mujoco_cpu": false,
+  "control_path": "keyboard events -> velocity integration -> IK -> finite servos",
+  "replay": true,
+  "inherited_automatic_sequence": false,
+  "hold_min_lift_m": 0.1994365155696869,
+  "rejected_ik_commands": 0,
+  "max_rotation_tracking_error_degrees": 2.2876157496761524
+}

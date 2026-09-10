@@ -1,0 +1,5 @@
+<?xml version="1.0"?>
+<robot name="robotiq_arg2f_140_model" xmlns:xacro="http://ros.org/wiki/xacro">
+  <xacro:include filename="/workspaces/isaaclab_arena/examples/examples_teleop/assets/abb_irb1200_robotiq_2f140_urdf/resolved_xacro/robotiq_arg2f_140_model_macro.xacro" />
+  <xacro:robotiq_arg2f_140 prefix=""/>
+</robot>

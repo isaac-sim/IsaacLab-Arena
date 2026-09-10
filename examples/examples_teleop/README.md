@@ -451,7 +451,7 @@ example07 训练（BC：obs → action）
 
 - `example21_teleop_spacemouse_abb_irb1200_robotiq_2f140_control.py`：SpaceMouse 控制末端，左键切换夹爪开合。
 - `example22_teleop_keyboard_abb_irb1200_robotiq_2f140_control.py`：键盘控制末端，`K` 键切换夹爪开合。
-- `example23_teleop_keyboard_abb_irb1200_robotiq_2f140_newton.py`：Newton 物理后端 + Kit 窗口键盘遥操作。
+- [example23](example23_teleop_keyboard_abb_irb1200_robotiq_2f140_newton.py)：复用 example40 的 Newton standalone + MuJoCo 物理、原生 GL 窗口键盘遥操作；真实 2F-140 单主动轴，无抓取辅助。
 - `example24_teleop_keyboard_abb_irb1200_simple_gripper_newton.py`：Newton 物理后端 + 简化二指夹爪路线验证，不加载真实 Robotiq 闭链夹爪。
 - `example25_teleop_keyboard_abb_irb1200_physical_simple_gripper_newton.py`：Newton 物理后端 + prismatic joint 简化物理夹爪测试。
 
@@ -477,10 +477,10 @@ cd /workspaces/isaaclab_arena
 isaaclab_arena/assets/robots/abb/irb1200_7_70/irb1200_7_70.usda
 ```
 
-以及带可开合 Robotiq 2F-140 的复制版 USD：
+以及带可开合 Robotiq 2F-140 的 PhysX 组合 USD：
 
 ```text
-isaaclab_arena/assets/robots/abb/irb1200_7_70_robotiq_2f140/irb1200_7_70.usda
+isaaclab_arena/assets/robots/abb/irb1200_7_70_robotiq_2f140_physx/irb1200_7_70.usda
 ```
 
 源模型在：
@@ -489,7 +489,7 @@ isaaclab_arena/assets/robots/abb/irb1200_7_70_robotiq_2f140/irb1200_7_70.usda
 ../abb/abb_irb1200_support/
 ```
 
-转换脚本会读取源 xacro，并把可直接加载的 USD 写入 `isaaclab_arena/assets/robots/abb/` 公用目录。
+转换脚本会读取源 xacro，并把可直接加载的 USD 写入机器人公用目录。`example21/22` 加载 PhysX 组合；新版 `example23` 使用 [example40 的独立组合资产](assets/abb_irb1200_robotiq_2f140_urdf/abb_irb1200_robotiq_2f140.usda)。新资产的生成方式见第十三节，不影响 PhysX 版。
 
 ### 11.2 SpaceMouse 遥操作
 
@@ -534,7 +534,7 @@ SpaceMouse 操作：
 | `K` | Robotiq 2F-140 夹爪开/合切换 |
 | `R` | 重置环境 |
 
-### 11.4 控制结构
+### 11.4 example21/22 的 Arena 控制结构（不适用于新版 example23）
 
 动作维度是 7：
 
@@ -556,42 +556,51 @@ SpaceMouse 操作：
 
 ### 11.5 Newton 键盘遥操作
 
-```bash
-/isaac-sim/python.sh examples/examples_teleop/example23_teleop_keyboard_abb_irb1200_robotiq_2f140_newton.py \
-  --pos_sensitivity 0.12 \
-  --rot_sensitivity 0.18
-```
-
-该脚本默认使用：
-
-```text
---presets newton
---visualizer kit
-```
-
-也就是物理后端走 Newton，但画面和键盘输入仍使用 Kit 窗口。不要优先用 `--visualizer newton` 做键盘遥操作：Newton visualizer 更适合观察 Newton 物理调试场景，不一定完整显示组合 USD 里的外部引用夹爪资产，也不一定接收 Isaac Lab `Se3Keyboard` 需要的 Kit 窗口键盘事件。
-
-`example23` 单独使用稳定 IK 调试设置：Newton 全局重力设为 `(0, 0, 0)`，IRB1200 六轴使用比 PhysX 版更高但不过硬的 PD 刚度、阻尼和力矩上限，并提高 Newton 子步和迭代次数，用来减轻 Newton 下机械臂软、晃、下坠的问题。默认还会锁定末端姿态，只响应 XYZ 平移，避免连续 yaw/roll/pitch 输入让 6 轴 IK 走到腕部奇异位形后关节互相缠绕。
-
-Newton 版默认还会把 2F-140 所有关节固定在打开状态。原因是 Newton 当前会把 2F-140 的 mimic/passive joints 解析成更多 articulation joints，这些关节如果没有稳定约束，可能在没有键盘输入时也激发整机旋转、乱舞。该调整只在 `example23` 生效，不影响 `example21` 和 `example22` 的夹爪开合。
-
-如果确实需要在 Newton 版里测试姿态旋转，可以显式打开：
+**2026-09-09 已修复：example23 改为复用 example40 的真实 ABB + 2F-140 资产和物理配置，不再使用旧 Kit 强写关节实现。** 在已有 Docker 容器内运行：
 
 ```bash
 /isaac-sim/python.sh examples/examples_teleop/example23_teleop_keyboard_abb_irb1200_robotiq_2f140_newton.py \
-  --no-lock_orientation \
-  --pos_sensitivity 0.08 \
-  --rot_sensitivity 0.03
+  --viewer gl --pos-speed 0.12 --rot-speed 0.5 --keep_open
 ```
 
-如果确实需要在 Newton 版里测试 2F-140 开合，可以显式关闭夹爪固定：
+- VS Code 一键入口：**Terminal → Run Task → Robotiq 2F140：Docker 键盘遥操作（example23 已修复）**。
+- `W/S`：世界 `+X/-X`；`A/D`：`+Y/-Y`；`Q/E`：`+Z/-Z`，**不再映射到单个关节**。
+- `Z/X`、`T/G`、`C/V`：绕世界 X/Y/Z 正反旋转；按住 Shift 使用 20% 精细速度。
+- `K`：按下一次切换开合，按住不重复切换；松开 K 不会自动张开。
+- `R`：恢复初始机器人和物体，重建 solver、IK、双状态缓冲；按住 R 不重复重置。
+- Space 暂停/恢复，Esc 关闭。手动模式失焦立即停止增量运动，**不自动松爪**；回到窗口后松键再按。
+- 鼠标中键环绕，Shift+中键平移，滚轮缩放。WASDQE 不再同时移动相机。
+- 末端从方块正上方开始。用 E 下降，靠近物体时按 Shift 精调；K 闭合后等待约 2 秒，再 Q 抬升。靠接触摩擦抓取，错误对位仍可能抓空或滑落。
+
+控制链路是：**键盘事件 → 60 Hz 速度积分 → 可变指腹 TCP + 目标旋转补偿 → IK → 有限关节驱动 → 600 Hz 接触物理**。保留六个夹爪转动关节和五条原生 mimic，只驱动 `finger_joint`，上限 5 N·m。没有运行时 proxy、从动轴电机、物体绑定、机械臂状态强写或清速度。方块默认 5 cm、1 kg、摩擦系数 0.8，保留重力。
+
+#### 自动验证的是同一键盘控制路径
 
 ```bash
 /isaac-sim/python.sh examples/examples_teleop/example23_teleop_keyboard_abb_irb1200_robotiq_2f140_newton.py \
-  --no-hold_gripper_open
+  --viewer null --replay --test --quiet \
+  --report examples/examples_teleop/assets/abb_irb1200_robotiq_2f140_urdf/validation/keyboard_gpu_1kg.json
 ```
 
-但这可能重新触发 Newton 下的夹爪被动关节乱动。
+- 可视回放改成 `--viewer gl`。默认回放 1479 帧 / 24.65 s 仿真时间，完成后自动退出；真实运行时间取决于机器性能。
+- 回放使用同一套 press/release 和驱动逻辑，不调用 example40 的自动轨迹；已知场景定时输入，不是视觉策略或对任意初始位置的保证。
+- 回放时忽略人工运动键和窗口失焦，避免污染输入；Space 暂停、R 重置、Esc 退出仍有效。**提前关窗会正确判定未完成，不算通过。**
+- 低力矩负对照加 `--grip-effort 0.05 --expect-grasp-failure`，应抓不起，而不是偷偷绑定物体。
+- CPU 后端加 `--mujoco-cpu`。平移/姿态有跟踪误差预算、IK 可达性检查和驱动目标限速，但**没有自动避障/自碰撞规划**；桌面附近旋转仍需谨慎。
+
+```bash
+/isaac-sim/python.sh tools/test_example23_keyboard.py --gui
+```
+
+以上 [专项回归](../../tools/test_example23_keyboard.py) 检查 K 去重复、松键保持、失焦、暂停、真实 GL 事件路由、相机隔离、旋转开合 TCP、IK 拒绝和完整重置。CPU/GPU 1 kg 抓放与 0.05 N·m 负对照均已通过，指标及边界见 [修复记录](../../../../docs/ABB-IRB1200-Robotiq2F140-原生联动纯物理抓取.md#8-example23-键盘遥操作修复2026-09-09)。
+
+#### 旧入口迁移
+
+- `--num_steps` 是 `--num-frames` 的兼容别名；`--pos_sensitivity/--rot_sensitivity` 保留，但单位明确为 m/s 和 rad/s，不是每帧跳变量。
+- `--lock_orientation`、`--no-lock_orientation`、`--hold_gripper_open` 仍可用。保持张开也只发送有限驱动目标，不夹紧状态。
+- `--control_mode ik` 保留；`joint_direct`、`joint_relative`、`--direct_gripper`、proxy 和 `*_step_scale` 补丁参数已移除，传入会报错。
+- `--visualizer kit` 只作显式迁移别名，并打印改用 GL 的提示；**不会启动 Kit**。`--presets`、`--visualizer none/newton` 不再适用。
+- 旧版“直接写六轴、驱动两个夹爪主关节、高摩擦 runtime proxy 仍夹不住”的记录属于旧资产/旧控制链，不能再作为 Newton 不支持原生 mimic 的结论。
 
 如果要验证更稳定的 Newton 简化夹爪路线，运行：
 
@@ -638,14 +647,10 @@ isaaclab_arena/assets/robots/abb/irb1200_7_70_simple_gripper_newton/irb1200_7_70
 
 当前实测现象是：纯 Newton 物理下，简化 prismatic 夹爪能接触 cube，但抬起时可能夹不住，或者合爪过程中把 cube 往外挤出。这通常不是键盘问题，而是位置驱动夹爪、接触约束、摩擦约束、动态物体质量和 solver iteration 共同作用的结果。继续做纯物理路线时，应优先考虑更 Newton 友好的 primitive/compound box collider、速度/力控夹爪、接触反馈闭环，而不是只继续堆摩擦系数。
 
-先无窗口验证 Newton 环境：
+新版 example23 的无窗口控制器冒烟（无需 Kit）：
 
 ```bash
-/isaac-sim/python.sh examples/examples_teleop/example23_teleop_keyboard_abb_irb1200_robotiq_2f140_newton.py \
-  --headless \
-  --visualizer none \
-  --no-keep_open \
-  --num_steps 20
+/isaac-sim/python.sh tools/test_example23_keyboard.py
 ```
 
 ### 11.6 为什么 IRB1200 会下坠，而 franka_ik 不会
@@ -693,3 +698,70 @@ SpaceMouse 版：
 ```
 
 这两个冒烟主要看环境能否创建、动作维度是否是 7、`finger_joint` 是否在关节列表里。夹爪挂载位置如果视觉上还需要更贴合 IRB1200 法兰，可以微调带夹爪 USD 里的 `robotiq_2f140_mount` 位姿，并同步更新转换脚本里的默认偏移。
+
+---
+
+## 十二、example39：ABB IRB1200 + PGC140，1 kg cube 纯物理抓取
+
+[example39](example39_newton_standalone_abb_irb1200_pgc140_cube_stacking.py) 使用官方 PGC-140-50 URDF 转换的组合 USD，配明确建模的 40–90 mm 外扩指尖。**不 attach、不写 cube 位姿、不锁腕；用有限夹力的接触摩擦搬运。** 已通过单块 1 kg cube、位置扰动、三块各 1 kg 堆叠测试；每侧 1 N 的负对照按预期抓不起。完整说明见 [选型与验证记录](../../../../docs/ABB-IRB1200-PGC140-纯物理抓取.md)。
+
+在已有容器内执行（不用创建 venv 或重建 Docker）：
+
+```bash
+cd /workspaces/isaaclab_arena
+/isaac-sim/python.sh examples/examples_teleop/example39_newton_standalone_abb_irb1200_pgc140_cube_stacking.py \
+  --viewer gl --cube-count 1 --cube-mass 1 --num-frames 1200 --test
+```
+
+- 无窗口：改 `--viewer null`。
+- 三块堆叠：改 `--cube-count 3 --num-frames 3600`，每块仍为 1 kg。
+- 查看真实碰撞体：添加 `--show-colliders`。
+- [组合 USD](assets/abb_irb1200_pgc140/combined/abb_irb1200_pgc140.usda) 与 [独立夹爪 USD](assets/abb_irb1200_pgc140/gripper/pgc140_offset_fingers.usda) 已生成。
+- 生成脚本：[tools/convert_pgc140_to_abb_irb1200_usd.py](../../tools/convert_pgc140_to_abb_irb1200_usd.py)。
+- 资产检查：[tools/validate_pgc140_assets.py](../../tools/validate_pgc140_assets.py)。
+
+注意：PGC140 是厂商推荐负载 3 kg 的候选，不意味着原装指尖能直接夹任意 1 kg 瓶子。本次指尖是仿真派生设计，瓶身尺寸、摩擦和瓶壁抗压还需验证。旧例的全臂外部 PD、世界坐标补偿、mimic 和 hydroelastic 参数不适用于新例。
+
+---
+
+## 十三、example40：ABB IRB1200 + Robotiq 2F-140，原生单主动轴联动抓取
+
+[example40](example40_newton_abb_irb1200_robotiq_2f140_physical_grasp.py) 使用新下载的 ROS-Industrial 2F-140 URDF，保留**六个转动关节、五条原生 mimic、原装指腹**。先转 [夹爪 USD](assets/abb_irb1200_robotiq_2f140_urdf/gripper/robotiq_2f140.usda)，再与本地 ABB-only USD [引用组合](assets/abb_irb1200_robotiq_2f140_urdf/assembly.usda)，得到 [完整机器人 USD](assets/abb_irb1200_robotiq_2f140_urdf/abb_irb1200_robotiq_2f140.usda)。不替换为 prismatic，不覆盖 example39。
+
+在已有 Docker 容器内：
+
+```bash
+cd /workspaces/isaaclab_arena
+/isaac-sim/python.sh examples/examples_teleop/example40_newton_abb_irb1200_robotiq_2f140_physical_grasp.py \
+  --viewer gl --cube-mass 1 --num-frames 1200 --test
+```
+
+- 默认1 kg cube，只驱动夹爪 `finger_joint`，上限5 N·m；从动轴无电机，无 attach/物体位姿写入。
+- 注册 Newton USD schema；分别设置原生 mimic 和接触软硬参数；用实测指腹中点补偿可变 TCP。
+- 无窗口用 `--viewer null`；负对照加 `--grip-effort 0.05 --expect-grasp-failure --test`。
+- [生成器](../../tools/convert_robotiq_2f140_urdf_to_abb_usd.py) 和 [五项资产/空载动态测试](../../tools/validate_robotiq_2f140_assets.py)。
+- [完整中文说明](../../../../docs/ABB-IRB1200-Robotiq2F140-原生联动纯物理抓取.md) 包含来源、模型质量限制、失败对照、约束参数、运行方法及报告。
+
+注意：上游是旧可视化模型，其质量、标称开口和理想 mimic 不能当成真实产品完整辨识模型；本次 cube 接触抓取验证不等于已经验证洗衣液瓶。
+
+---
+
+## 十四、example41：ABB IRB1200 + SFG N4049 三指连续体研究夹爪
+
+[example41](example41_newton_abb_irb1200_sfg_n4049_soft_grasp.py) 将用户下载的 SRT IGS 转为 [组合 USD](assets/abb_irb1200_sfg_n4049/abb_irb1200_sfg_n4049.usda)，采用 **14,094 个四面体**模拟三根真正可变形的手指。动态 ABB、有限根部弹簧与反力回传、VBD 自由刚瓶接触；无绑定瓶体、无指尖位姿动画、无刚性指腹代理。
+
+**物理网格是 CAD 凸包外包络近似，材料与主动参考曲率是假设，不是厂家气腔/压力模型。** 已通过 1 kg 圆柱瓶形物体抬升、保持、搬运、释放；不能据此断言真实 SRT 产品适合任意洗衣液瓶。
+
+在已有 Docker 容器内运行：
+
+```bash
+cd /workspaces/isaaclab_arena
+/isaac-sim/python.sh examples/examples_teleop/example41_newton_abb_irb1200_sfg_n4049_soft_grasp.py \
+  --viewer gl --test --quiet
+```
+
+- 无窗口：`--viewer null`；零驱动负对照：`--activation 0 --expect-grasp-failure --test`。
+- 默认 40 子步 × 30 VBD 迭代；更细验证使用 `--substeps 60 --iterations 40`。
+- [转换器](../../tools/convert_sfg_n4049_igs_to_abb_usd.py)；[资产/空载验证器](../../tools/validate_sfg_n4049_assets.py)；[CAD 依赖](../../tools/requirements_sfg_cad.txt)。运行已生成的例子不需要重新安装 CAD 依赖。
+- VS Code 任务：**SFG N4049：Docker 内三指软体 1kg 纯接触抓取**。
+- [完整记录](../../../../docs/ABB-IRB1200-SFG-N4049-三指连续体抓取.md) 包含宿主机一条命令、GUI/负对照报告、几何近似偏差、空载残余力及尚未标定的产品边界。

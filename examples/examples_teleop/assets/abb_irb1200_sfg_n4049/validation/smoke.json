@@ -1,0 +1,59 @@
+{
+  "success": false,
+  "expected_failure": false,
+  "negative_control_passed": null,
+  "finished": false,
+  "stable": true,
+  "lifted": false,
+  "held": false,
+  "transported": false,
+  "placed": false,
+  "mass_kg": 1.0,
+  "max_lift_m": 0.0,
+  "hold_min_lift_m": null,
+  "airborne_transport_m": 0.0,
+  "final_position_m": [
+    0.1399906575679779,
+    0.06999338418245316,
+    0.15999729931354523
+  ],
+  "placement_error_m": 0.13999338452023607,
+  "max_speed_m_s": 0.0015966091305017471,
+  "max_root_error_m": 0.001152702490799129,
+  "max_root_reaction_N": 110.6052017211914,
+  "max_tcp_error_m": 0.006463803807155252,
+  "max_tip_bend_m": 0.0011212696554139256,
+  "activation": 1.0,
+  "curvature_per_m": 20.0,
+  "friction": 0.8,
+  "shear_Pa": 300000.0,
+  "tet_count": 14094,
+  "assistance": false,
+  "model_boundary": "CAD convex-envelope FEM + active reference curvature, not SRT pressure calibration",
+  "coupling": "MuJoCo arm; VBD fingers + dynamic bottle; finite root springs, wrench feedback with one substep lag",
+  "newton_version": "1.2.1",
+  "warp_version": "1.13.0",
+  "frames": 60,
+  "substeps": 10,
+  "iterations": 12,
+  "history": [
+    {
+      "t": 1.0000000000000013,
+      "phase": "approach",
+      "bottle": [
+        0.1399906575679779,
+        0.06999338418245316,
+        0.15999729931354523
+      ],
+      "root_wrench": [
+        25.3151912689209,
+        -24.08307647705078,
+        -85.72038269042969,
+        -2.6228649616241455,
+        -2.836022138595581,
+        0.005293253343552351
+      ],
+      "tip_bend_m": -0.0004819445894099772
+    }
+  ]
+}

@@ -54,13 +54,43 @@ def Xform "abb_irb1200_7_70" (
                                             color3f[] primvars:displayColor = [(0.05, 0.05, 0.05)]
                                             token physics:approximation = "convexHull"
                                             int newton:maxHullVertices = 8
-                                            float3[] extent = [(-0.05, -0.0075, -0.01), (0.05, 0.0075, 0.01)]
+                                            float3[] extent = [(-0.05, -0.01, -0.025), (0.05, 0.01, 0.025)]
                                             int[] faceVertexCounts = [4, 4, 4, 4, 4, 4]
                                             int[] faceVertexIndices = [0, 1, 2, 3, 4, 7, 6, 5, 0, 4, 5, 1, 1, 5, 6, 2, 2, 6, 7, 3, 3, 7, 4, 0]
                                             double physics:mass = 0.08
-                                            point3f[] points = [(-0.05, -0.0075, -0.01), (0.05, -0.0075, -0.01), (0.05, 0.0075, -0.01), (-0.05, 0.0075, -0.01), (-0.05, -0.0075, 0.01), (0.05, -0.0075, 0.01), (0.05, 0.0075, 0.01), (-0.05, 0.0075, 0.01)]
+                                            point3f[] points = [(-0.05, -0.01, -0.025), (0.05, -0.01, -0.025), (0.05, 0.01, -0.025), (-0.05, 0.01, -0.025), (-0.05, -0.01, 0.025), (0.05, -0.01, 0.025), (0.05, 0.01, 0.025), (-0.05, 0.01, 0.025)]
                                             double3 xformOp:translate = (0.065, 0, 0)
                                             uniform token[] xformOpOrder = ["xformOp:translate"]
+
+                                            def Mesh "upper_lip" (
+                                                prepend apiSchemas = ["PhysicsCollisionAPI", "NewtonCollisionAPI", "PhysicsMeshCollisionAPI", "NewtonMeshCollisionAPI"]
+                                            )
+                                            {
+                                                color3f[] primvars:displayColor = [(0.02, 0.02, 0.02)]
+                                                token physics:approximation = "convexHull"
+                                                int newton:maxHullVertices = 8
+                                                float3[] extent = [(-0.045, -0.008, -0.003), (0.045, 0.008, 0.003)]
+                                                int[] faceVertexCounts = [4, 4, 4, 4, 4, 4]
+                                                int[] faceVertexIndices = [0, 1, 2, 3, 4, 7, 6, 5, 0, 4, 5, 1, 1, 5, 6, 2, 2, 6, 7, 3, 3, 7, 4, 0]
+                                                point3f[] points = [(-0.045, -0.008, -0.003), (0.045, -0.008, -0.003), (0.045, 0.008, -0.003), (-0.045, 0.008, -0.003), (-0.045, -0.008, 0.003), (0.045, -0.008, 0.003), (0.045, 0.008, 0.003), (-0.045, 0.008, 0.003)]
+                                                double3 xformOp:translate = (0, -0.011, 0.023)
+                                                uniform token[] xformOpOrder = ["xformOp:translate"]
+                                            }
+
+                                            def Mesh "lower_lip" (
+                                                prepend apiSchemas = ["PhysicsCollisionAPI", "NewtonCollisionAPI", "PhysicsMeshCollisionAPI", "NewtonMeshCollisionAPI"]
+                                            )
+                                            {
+                                                color3f[] primvars:displayColor = [(0.02, 0.02, 0.02)]
+                                                token physics:approximation = "convexHull"
+                                                int newton:maxHullVertices = 8
+                                                float3[] extent = [(-0.045, -0.008, -0.003), (0.045, 0.008, 0.003)]
+                                                int[] faceVertexCounts = [4, 4, 4, 4, 4, 4]
+                                                int[] faceVertexIndices = [0, 1, 2, 3, 4, 7, 6, 5, 0, 4, 5, 1, 1, 5, 6, 2, 2, 6, 7, 3, 3, 7, 4, 0]
+                                                point3f[] points = [(-0.045, -0.008, -0.003), (0.045, -0.008, -0.003), (0.045, 0.008, -0.003), (-0.045, 0.008, -0.003), (-0.045, -0.008, 0.003), (0.045, -0.008, 0.003), (0.045, 0.008, 0.003), (-0.045, 0.008, 0.003)]
+                                                double3 xformOp:translate = (0, -0.011, -0.023)
+                                                uniform token[] xformOpOrder = ["xformOp:translate"]
+                                            }
                                         }
 
                                         def Mesh "right_finger" (
@@ -70,13 +100,43 @@ def Xform "abb_irb1200_7_70" (
                                             color3f[] primvars:displayColor = [(0.05, 0.05, 0.05)]
                                             token physics:approximation = "convexHull"
                                             int newton:maxHullVertices = 8
-                                            float3[] extent = [(-0.05, -0.0075, -0.01), (0.05, 0.0075, 0.01)]
+                                            float3[] extent = [(-0.05, -0.01, -0.025), (0.05, 0.01, 0.025)]
                                             int[] faceVertexCounts = [4, 4, 4, 4, 4, 4]
                                             int[] faceVertexIndices = [0, 1, 2, 3, 4, 7, 6, 5, 0, 4, 5, 1, 1, 5, 6, 2, 2, 6, 7, 3, 3, 7, 4, 0]
                                             double physics:mass = 0.08
-                                            point3f[] points = [(-0.05, -0.0075, -0.01), (0.05, -0.0075, -0.01), (0.05, 0.0075, -0.01), (-0.05, 0.0075, -0.01), (-0.05, -0.0075, 0.01), (0.05, -0.0075, 0.01), (0.05, 0.0075, 0.01), (-0.05, 0.0075, 0.01)]
+                                            point3f[] points = [(-0.05, -0.01, -0.025), (0.05, -0.01, -0.025), (0.05, 0.01, -0.025), (-0.05, 0.01, -0.025), (-0.05, -0.01, 0.025), (0.05, -0.01, 0.025), (0.05, 0.01, 0.025), (-0.05, 0.01, 0.025)]
                                             double3 xformOp:translate = (0.065, 0, 0)
                                             uniform token[] xformOpOrder = ["xformOp:translate"]
+
+                                            def Mesh "upper_lip" (
+                                                prepend apiSchemas = ["PhysicsCollisionAPI", "NewtonCollisionAPI", "PhysicsMeshCollisionAPI", "NewtonMeshCollisionAPI"]
+                                            )
+                                            {
+                                                color3f[] primvars:displayColor = [(0.02, 0.02, 0.02)]
+                                                token physics:approximation = "convexHull"
+                                                int newton:maxHullVertices = 8
+                                                float3[] extent = [(-0.045, -0.008, -0.003), (0.045, 0.008, 0.003)]
+                                                int[] faceVertexCounts = [4, 4, 4, 4, 4, 4]
+                                                int[] faceVertexIndices = [0, 1, 2, 3, 4, 7, 6, 5, 0, 4, 5, 1, 1, 5, 6, 2, 2, 6, 7, 3, 3, 7, 4, 0]
+                                                point3f[] points = [(-0.045, -0.008, -0.003), (0.045, -0.008, -0.003), (0.045, 0.008, -0.003), (-0.045, 0.008, -0.003), (-0.045, -0.008, 0.003), (0.045, -0.008, 0.003), (0.045, 0.008, 0.003), (-0.045, 0.008, 0.003)]
+                                                double3 xformOp:translate = (0, 0.011, 0.023)
+                                                uniform token[] xformOpOrder = ["xformOp:translate"]
+                                            }
+
+                                            def Mesh "lower_lip" (
+                                                prepend apiSchemas = ["PhysicsCollisionAPI", "NewtonCollisionAPI", "PhysicsMeshCollisionAPI", "NewtonMeshCollisionAPI"]
+                                            )
+                                            {
+                                                color3f[] primvars:displayColor = [(0.02, 0.02, 0.02)]
+                                                token physics:approximation = "convexHull"
+                                                int newton:maxHullVertices = 8
+                                                float3[] extent = [(-0.045, -0.008, -0.003), (0.045, 0.008, 0.003)]
+                                                int[] faceVertexCounts = [4, 4, 4, 4, 4, 4]
+                                                int[] faceVertexIndices = [0, 1, 2, 3, 4, 7, 6, 5, 0, 4, 5, 1, 1, 5, 6, 2, 2, 6, 7, 3, 3, 7, 4, 0]
+                                                point3f[] points = [(-0.045, -0.008, -0.003), (0.045, -0.008, -0.003), (0.045, 0.008, -0.003), (-0.045, 0.008, -0.003), (-0.045, -0.008, 0.003), (0.045, -0.008, 0.003), (0.045, 0.008, 0.003), (-0.045, 0.008, 0.003)]
+                                                double3 xformOp:translate = (0, 0.011, -0.023)
+                                                uniform token[] xformOpOrder = ["xformOp:translate"]
+                                            }
                                         }
 
                                         def PhysicsPrismaticJoint "left_finger_joint" (
@@ -90,7 +150,7 @@ def Xform "abb_irb1200_7_70" (
                                             point3f physics:localPos1 = (0, 0, 0)
                                             quatf physics:localRot0 = (1, 0, 0, 0)
                                             quatf physics:localRot1 = (1, 0, 0, 0)
-                                            float physics:lowerLimit = 0.022
+                                            float physics:lowerLimit = 0.005
                                             float physics:upperLimit = 0.045
                                             float drive:linear:physics:damping = 260
                                             float drive:linear:physics:maxForce = 600
@@ -110,7 +170,7 @@ def Xform "abb_irb1200_7_70" (
                                             quatf physics:localRot0 = (1, 0, 0, 0)
                                             quatf physics:localRot1 = (1, 0, 0, 0)
                                             float physics:lowerLimit = -0.045
-                                            float physics:upperLimit = -0.022
+                                            float physics:upperLimit = -0.005
                                             float drive:linear:physics:damping = 260
                                             float drive:linear:physics:maxForce = 600
                                             float drive:linear:physics:stiffness = 2400

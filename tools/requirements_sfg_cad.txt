@@ -1,0 +1,4 @@
+# Isolate with --target /home/datamesh/.local/srt-cad --no-deps in existing Docker.
+# NumPy, SciPy and pxr are provided by /isaac-sim/python.sh already.
+cadquery-ocp==7.8.1.1.post1
+vtk==9.3.1

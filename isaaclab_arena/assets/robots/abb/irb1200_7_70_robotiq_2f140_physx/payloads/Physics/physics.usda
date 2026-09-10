@@ -1,0 +1,207 @@
+#usda 1.0
+(
+    customLayerData = {
+        string creator = "URDF USD Converter v0.1.3"
+    }
+    defaultPrim = "abb_irb1200_7_70"
+    doc = """Generated from Composed Stage of root layer /tmp/tmpjtz6em99/abb_irb1200_7_70.usdc
+
+
+Generated from Composed Stage of root layer /tmp/urdf_import_irb1200_7_70_pblhhflp/usdex_irb1200_7_70/abb_irb1200_7_70.usdc
+
+
+Generated from Composed Stage of root layer /tmp/urdf_import_irb1200_7_70_pblhhflp/temp_irb1200_7_70/irb1200_7_70.usd
+
+
+Generated from Composed Stage of root layer /workspaces/isaaclab_arena/examples/examples_teleop/assets/abb/abb_irb1200_support_isaac/urdf/irb1200_7_70_1/payloads/base.usd
+"""
+    kilogramsPerUnit = 1
+    metersPerUnit = 1
+    upAxis = "Z"
+)
+
+over "abb_irb1200_7_70"
+{
+    over "Geometry"
+    {
+        bool newton:selfCollisionEnabled = 0
+
+        over "base_link" (
+            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysxRigidBodyAPI"]
+        )
+        {
+            bool physxRigidBody:disableGravity = 1
+
+            over "link_1" (
+                prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysxRigidBodyAPI"]
+            )
+            {
+                bool physxRigidBody:disableGravity = 1
+
+                over "link_2" (
+                    prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysxRigidBodyAPI"]
+                )
+                {
+                    bool physxRigidBody:disableGravity = 1
+
+                    over "link_3" (
+                        prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysxRigidBodyAPI"]
+                    )
+                    {
+                        bool physxRigidBody:disableGravity = 1
+
+                        over "link_4" (
+                            prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysxRigidBodyAPI"]
+                        )
+                        {
+                            bool physxRigidBody:disableGravity = 1
+
+                            over "link_5" (
+                                prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysxRigidBodyAPI"]
+                            )
+                            {
+                                bool physxRigidBody:disableGravity = 1
+
+                                over "link_6" (
+                                    prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysxRigidBodyAPI"]
+                                )
+                                {
+                                    bool physxRigidBody:disableGravity = 1
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    over "Physics"
+    {
+        def PhysicsRevoluteJoint "joint_1" (
+            prepend apiSchemas = ["PhysicsDriveAPI:angular", "PhysicsJointStateAPI:angular"]
+        )
+        {
+            uniform token physics:axis = "Z"
+            custom rel physics:body0
+            prepend rel physics:body0 = </abb_irb1200_7_70/Geometry/base_link>
+            custom rel physics:body1
+            prepend rel physics:body1 = </abb_irb1200_7_70/Geometry/base_link/link_1>
+            point3f physics:localPos0 = (0, 0, 0.3991)
+            point3f physics:localPos1 = (0, 0, 0)
+            quatf physics:localRot0 = (1, 0, 0, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+            float physics:lowerLimit = -169.99658
+            float physics:upperLimit = 169.99658
+            custom float urdf:limit:effort = 0
+            custom float urdf:limit:velocity = 5.027
+        }
+
+        def PhysicsRevoluteJoint "joint_2" (
+            prepend apiSchemas = ["PhysicsDriveAPI:angular", "PhysicsJointStateAPI:angular"]
+        )
+        {
+            uniform token physics:axis = "Y"
+            custom rel physics:body0
+            prepend rel physics:body0 = </abb_irb1200_7_70/Geometry/base_link/link_1>
+            custom rel physics:body1
+            prepend rel physics:body1 = </abb_irb1200_7_70/Geometry/base_link/link_1/link_2>
+            point3f physics:localPos0 = (0, 0, 0)
+            point3f physics:localPos1 = (0, 0, 0)
+            quatf physics:localRot0 = (1, 0, 0, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+            float physics:lowerLimit = -99.98113
+            float physics:upperLimit = 134.98886
+            custom float urdf:limit:effort = 0
+            custom float urdf:limit:velocity = 4.189
+        }
+
+        def PhysicsRevoluteJoint "joint_3" (
+            prepend apiSchemas = ["PhysicsDriveAPI:angular", "PhysicsJointStateAPI:angular"]
+        )
+        {
+            uniform token physics:axis = "Y"
+            custom rel physics:body0
+            prepend rel physics:body0 = </abb_irb1200_7_70/Geometry/base_link/link_1/link_2>
+            custom rel physics:body1
+            prepend rel physics:body1 = </abb_irb1200_7_70/Geometry/base_link/link_1/link_2/link_3>
+            point3f physics:localPos0 = (0, 0, 0.35)
+            point3f physics:localPos1 = (0, 0, 0)
+            quatf physics:localRot0 = (1, 0, 0, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+            float physics:lowerLimit = -200.01956
+            float physics:upperLimit = 70.01544
+            custom float urdf:limit:effort = 0
+            custom float urdf:limit:velocity = 5.236
+        }
+
+        def PhysicsRevoluteJoint "joint_4" (
+            prepend apiSchemas = ["PhysicsDriveAPI:angular", "PhysicsJointStateAPI:angular"]
+        )
+        {
+            uniform token physics:axis = "X"
+            custom rel physics:body0
+            prepend rel physics:body0 = </abb_irb1200_7_70/Geometry/base_link/link_1/link_2/link_3>
+            custom rel physics:body1
+            prepend rel physics:body1 = </abb_irb1200_7_70/Geometry/base_link/link_1/link_2/link_3/link_4>
+            point3f physics:localPos0 = (0, 0, 0.042)
+            point3f physics:localPos1 = (0, 0, 0)
+            quatf physics:localRot0 = (1, 0, 0, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+            float physics:lowerLimit = -269.97772
+            float physics:upperLimit = 269.97772
+            custom float urdf:limit:effort = 0
+            custom float urdf:limit:velocity = 6.981
+        }
+
+        def PhysicsRevoluteJoint "joint_5" (
+            prepend apiSchemas = ["PhysicsDriveAPI:angular", "PhysicsJointStateAPI:angular"]
+        )
+        {
+            uniform token physics:axis = "Y"
+            custom rel physics:body0
+            prepend rel physics:body0 = </abb_irb1200_7_70/Geometry/base_link/link_1/link_2/link_3/link_4>
+            custom rel physics:body1
+            prepend rel physics:body1 = </abb_irb1200_7_70/Geometry/base_link/link_1/link_2/link_3/link_4/link_5>
+            point3f physics:localPos0 = (0.351, 0, 0)
+            point3f physics:localPos1 = (0, 0, 0)
+            quatf physics:localRot0 = (1, 0, 0, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+            float physics:lowerLimit = -130.00412
+            float physics:upperLimit = 130.00412
+            custom float urdf:limit:effort = 0
+            custom float urdf:limit:velocity = 7.069
+        }
+
+        def PhysicsRevoluteJoint "joint_6" (
+            prepend apiSchemas = ["PhysicsDriveAPI:angular", "PhysicsJointStateAPI:angular"]
+        )
+        {
+            uniform token physics:axis = "X"
+            custom rel physics:body0
+            prepend rel physics:body0 = </abb_irb1200_7_70/Geometry/base_link/link_1/link_2/link_3/link_4/link_5>
+            custom rel physics:body1
+            prepend rel physics:body1 = </abb_irb1200_7_70/Geometry/base_link/link_1/link_2/link_3/link_4/link_5/link_6>
+            point3f physics:localPos0 = (0.082, 0, 0)
+            point3f physics:localPos1 = (0, 0, 0)
+            quatf physics:localRot0 = (1, 0, 0, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+            float physics:lowerLimit = -359.98938
+            float physics:upperLimit = 359.98938
+            custom float urdf:limit:effort = 0
+            custom float urdf:limit:velocity = 10.472
+        }
+
+        def PhysicsFixedJoint "root_joint"
+        {
+            custom rel physics:body0
+            prepend rel physics:body0 = </abb_irb1200_7_70>
+            custom rel physics:body1
+            prepend rel physics:body1 = </abb_irb1200_7_70/Geometry/base_link>
+            point3f physics:localPos0 = (0, 0, 0)
+            point3f physics:localPos1 = (0, 0, 0)
+            quatf physics:localRot0 = (1, 0, 0, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+        }
+    }
+}

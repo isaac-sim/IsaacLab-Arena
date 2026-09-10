@@ -1,0 +1,218 @@
+#usda 1.0
+(
+    customLayerData = {
+        string creator = "URDF USD Converter v0.1.3"
+    }
+    defaultPrim = "abb_irb1200_7_70"
+    doc = """Generated from Composed Stage of root layer /tmp/tmpjtz6em99/abb_irb1200_7_70.usdc
+
+
+Generated from Composed Stage of root layer /tmp/urdf_import_irb1200_7_70_pblhhflp/usdex_irb1200_7_70/abb_irb1200_7_70.usdc
+
+
+Generated from Composed Stage of root layer /tmp/urdf_import_irb1200_7_70_pblhhflp/temp_irb1200_7_70/irb1200_7_70.usd
+
+
+Generated from Composed Stage of root layer /workspaces/isaaclab_arena/examples/examples_teleop/assets/abb/abb_irb1200_support_isaac/urdf/irb1200_7_70_1/payloads/base.usd
+"""
+    kilogramsPerUnit = 1
+    metersPerUnit = 1
+    subLayers = [
+        @./physics.usda@
+    ]
+    upAxis = "Z"
+)
+
+over "abb_irb1200_7_70"
+{
+    over "Physics"
+    {
+        def MjcActuator "joint_1_actuator"
+        {
+            uniform double mjc:forceRange:max = inf
+            uniform double mjc:forceRange:min = -inf
+            custom rel mjc:target
+            prepend rel mjc:target = </abb_irb1200_7_70/Physics/joint_1>
+        }
+
+        def MjcActuator "joint_2_actuator"
+        {
+            uniform double mjc:forceRange:max = inf
+            uniform double mjc:forceRange:min = -inf
+            custom rel mjc:target
+            prepend rel mjc:target = </abb_irb1200_7_70/Physics/joint_2>
+        }
+
+        def MjcActuator "joint_3_actuator"
+        {
+            uniform double mjc:forceRange:max = inf
+            uniform double mjc:forceRange:min = -inf
+            custom rel mjc:target
+            prepend rel mjc:target = </abb_irb1200_7_70/Physics/joint_3>
+        }
+
+        def MjcActuator "joint_4_actuator"
+        {
+            uniform double mjc:forceRange:max = inf
+            uniform double mjc:forceRange:min = -inf
+            custom rel mjc:target
+            prepend rel mjc:target = </abb_irb1200_7_70/Physics/joint_4>
+        }
+
+        def MjcActuator "joint_5_actuator"
+        {
+            uniform double mjc:forceRange:max = inf
+            uniform double mjc:forceRange:min = -inf
+            custom rel mjc:target
+            prepend rel mjc:target = </abb_irb1200_7_70/Physics/joint_5>
+        }
+
+        def MjcActuator "joint_6_actuator"
+        {
+            uniform double mjc:forceRange:max = inf
+            uniform double mjc:forceRange:min = -inf
+            custom rel mjc:target
+            prepend rel mjc:target = </abb_irb1200_7_70/Physics/joint_6>
+        }
+
+        over "root_joint"
+        {
+        }
+
+        over "joint_1" (
+            delete apiSchemas = ["PhysicsDriveAPI:angular", "PhysicsJointStateAPI:angular"]
+        )
+        {
+        }
+
+        over "joint_2" (
+            delete apiSchemas = ["PhysicsDriveAPI:angular", "PhysicsJointStateAPI:angular"]
+        )
+        {
+        }
+
+        over "joint_3" (
+            delete apiSchemas = ["PhysicsDriveAPI:angular", "PhysicsJointStateAPI:angular"]
+        )
+        {
+        }
+
+        over "joint_4" (
+            delete apiSchemas = ["PhysicsDriveAPI:angular", "PhysicsJointStateAPI:angular"]
+        )
+        {
+        }
+
+        over "joint_5" (
+            delete apiSchemas = ["PhysicsDriveAPI:angular", "PhysicsJointStateAPI:angular"]
+        )
+        {
+        }
+
+        over "joint_6" (
+            delete apiSchemas = ["PhysicsDriveAPI:angular", "PhysicsJointStateAPI:angular"]
+        )
+        {
+        }
+    }
+
+    over "Geometry"
+    {
+        over "base_link"
+        {
+            over "link_1"
+            {
+                over "link_2"
+                {
+                    over "link_3"
+                    {
+                        over "link_4"
+                        {
+                            over "link_5"
+                            {
+                                over "link_6"
+                                {
+                                    over "visual"
+                                    {
+                                    }
+
+                                    over "collision"
+                                    {
+                                    }
+
+                                    over "flange"
+                                    {
+                                        over "tool0"
+                                        {
+                                        }
+                                    }
+                                }
+
+                                over "visual"
+                                {
+                                }
+
+                                over "collision"
+                                {
+                                }
+                            }
+
+                            over "visual"
+                            {
+                            }
+
+                            over "collision"
+                            {
+                            }
+                        }
+
+                        over "visual"
+                        {
+                        }
+
+                        over "graphite_white"
+                        {
+                        }
+                    }
+
+                    over "visual"
+                    {
+                    }
+
+                    over "collision"
+                    {
+                    }
+                }
+
+                over "visual"
+                {
+                }
+
+                over "collision"
+                {
+                }
+            }
+
+            over "base"
+            {
+            }
+
+            over "visual"
+            {
+            }
+
+            over "collision"
+            {
+            }
+        }
+    }
+
+    over "Materials"
+    {
+    }
+
+    over "VisualMaterials"
+    {
+    }
+}
+

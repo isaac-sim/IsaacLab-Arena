@@ -1,0 +1,314 @@
+#usda 1.0
+(
+    customLayerData = {
+        string creator = "URDF USD Converter v0.1.3"
+    }
+    doc = """Generated from Composed Stage of root layer /tmp/tmpjtz6em99/abb_irb1200_7_70.usdc
+
+
+Generated from Composed Stage of root layer /tmp/urdf_import_irb1200_7_70_pblhhflp/usdex_irb1200_7_70/abb_irb1200_7_70.usdc
+
+
+Generated from Composed Stage of root layer /tmp/urdf_import_irb1200_7_70_pblhhflp/temp_irb1200_7_70/irb1200_7_70.usd
+
+
+Generated from Composed Stage of root layer /workspaces/isaaclab_arena/examples/examples_teleop/assets/abb/abb_irb1200_support_isaac/urdf/irb1200_7_70_1/payloads/base.usd
+"""
+    kilogramsPerUnit = 1
+    metersPerUnit = 1
+    upAxis = "Z"
+)
+
+def Scope "Instances"
+{
+    def Xform "visual" (
+        prepend references = @./geometries.usd@</Geometries/visual>
+    )
+    {
+        over "visual" (
+            apiSchemas = ["MaterialBindingAPI"]
+        )
+        {
+            custom rel material:binding
+            prepend rel material:binding = </Instances/visual/VisualMaterials/colour_abb_white>
+            custom string urdf:name = "visual"
+        }
+
+        def Scope "VisualMaterials"
+        {
+            def Material "colour_abb_white" (
+                instanceable = true
+                prepend references = @./materials.usda@</Materials/colour_abb_white>
+            )
+            {
+            }
+        }
+    }
+
+    def Xform "visual_1" (
+        prepend references = @./geometries.usd@</Geometries/visual_1>
+    )
+    {
+        over "visual_1" (
+            apiSchemas = ["MaterialBindingAPI"]
+        )
+        {
+            custom rel material:binding
+            prepend rel material:binding = </Instances/visual_1/VisualMaterials/colour_abb_white_1>
+            custom string urdf:name = "visual"
+        }
+
+        def Scope "VisualMaterials"
+        {
+            def Material "colour_abb_white_1" (
+                instanceable = true
+                prepend references = @./materials.usda@</Materials/colour_abb_white>
+            )
+            {
+            }
+        }
+    }
+
+    def Xform "visual_2" (
+        prepend references = @./geometries.usd@</Geometries/visual_2>
+    )
+    {
+        over "visual_2" (
+            apiSchemas = ["MaterialBindingAPI"]
+        )
+        {
+            custom rel material:binding
+            prepend rel material:binding = </Instances/visual_2/VisualMaterials/colour_abb_white>
+            custom string urdf:name = "visual"
+        }
+
+        def Scope "VisualMaterials"
+        {
+            def Material "colour_abb_white" (
+                instanceable = true
+                prepend references = @./materials.usda@</Materials/colour_abb_white>
+            )
+            {
+            }
+        }
+    }
+
+    def Xform "visual_3" (
+        prepend references = @./geometries.usd@</Geometries/visual_3>
+    )
+    {
+        over "visual_3" (
+            apiSchemas = ["MaterialBindingAPI"]
+        )
+        {
+            custom rel material:binding
+            prepend rel material:binding = </Instances/visual_3/VisualMaterials/colour_abb_white>
+            custom string urdf:name = "visual"
+        }
+
+        def Scope "VisualMaterials"
+        {
+            def Material "colour_abb_white" (
+                instanceable = true
+                prepend references = @./materials.usda@</Materials/colour_abb_white>
+            )
+            {
+            }
+        }
+    }
+
+    def Xform "visual_4" (
+        prepend references = @./geometries.usd@</Geometries/visual_4>
+    )
+    {
+        over "visual_4" (
+            apiSchemas = ["MaterialBindingAPI"]
+        )
+        {
+            custom rel material:binding
+            prepend rel material:binding = </Instances/visual_4/VisualMaterials/abb_yellow>
+            token subsetFamily:materialBind:familyType = "partition"
+            custom string urdf:name = "visual"
+
+            over "GeomSubset_001" (
+                apiSchemas = ["MaterialBindingAPI"]
+            )
+            {
+                custom rel material:binding
+                prepend rel material:binding = </Instances/visual_4/VisualMaterials/colour_abb_white_4>
+            }
+
+            over "GeomSubset_002" (
+                apiSchemas = ["MaterialBindingAPI"]
+            )
+            {
+                custom rel material:binding
+                prepend rel material:binding = </Instances/visual_4/VisualMaterials/colour_abb_red_logo>
+            }
+        }
+
+        def Scope "VisualMaterials"
+        {
+            def Material "colour_abb_white" (
+                instanceable = true
+                prepend references = @./materials.usda@</Materials/colour_abb_white>
+            )
+            {
+            }
+
+            def Material "colour_abb_white_4" (
+                instanceable = true
+                prepend references = @./materials.usda@</Materials/colour_abb_white>
+            )
+            {
+            }
+
+            def Material "colour_abb_red_logo" (
+                instanceable = true
+                prepend references = @./materials.usda@</Materials/colour_abb_red_logo>
+            )
+            {
+            }
+        }
+    }
+
+    def Xform "visual_5" (
+        prepend references = @./geometries.usd@</Geometries/visual_5>
+    )
+    {
+        over "visual_5" (
+            apiSchemas = ["MaterialBindingAPI"]
+        )
+        {
+            custom rel material:binding
+            prepend rel material:binding = </Instances/visual_5/VisualMaterials/colour_abb_white_5>
+            custom string urdf:name = "visual"
+        }
+
+        def Scope "VisualMaterials"
+        {
+            def Material "colour_abb_white_5" (
+                instanceable = true
+                prepend references = @./materials.usda@</Materials/colour_abb_white>
+            )
+            {
+            }
+        }
+    }
+
+    def Xform "visual_6" (
+        prepend references = @./geometries.usd@</Geometries/visual_6>
+    )
+    {
+        over "visual_6" (
+            apiSchemas = ["MaterialBindingAPI"]
+        )
+        {
+            custom rel material:binding
+            prepend rel material:binding = </Instances/visual_6/VisualMaterials/colour_abb_black>
+            custom string urdf:name = "visual"
+        }
+
+        def Scope "VisualMaterials"
+        {
+            def Material "colour_abb_black" (
+                instanceable = true
+                prepend references = @./materials.usda@</Materials/colour_abb_black>
+            )
+            {
+            }
+        }
+    }
+
+    def Xform "collision" (
+        prepend references = @./geometries.usd@</Geometries/collision>
+    )
+    {
+        over "collision" (
+            apiSchemas = ["PhysicsCollisionAPI", "NewtonCollisionAPI", "PhysicsMeshCollisionAPI", "NewtonMeshCollisionAPI"]
+        )
+        {
+            token physics:approximation = "convexHull"
+            token purpose = "guide"
+        }
+    }
+
+    def Xform "collision_1" (
+        prepend references = @./geometries.usd@</Geometries/collision_1>
+    )
+    {
+        over "collision_1" (
+            apiSchemas = ["PhysicsCollisionAPI", "NewtonCollisionAPI", "PhysicsMeshCollisionAPI", "NewtonMeshCollisionAPI"]
+        )
+        {
+            token physics:approximation = "convexHull"
+            token purpose = "guide"
+        }
+    }
+
+    def Xform "collision_2" (
+        prepend references = @./geometries.usd@</Geometries/collision_2>
+    )
+    {
+        over "collision_2" (
+            apiSchemas = ["PhysicsCollisionAPI", "NewtonCollisionAPI", "PhysicsMeshCollisionAPI", "NewtonMeshCollisionAPI"]
+        )
+        {
+            token physics:approximation = "convexHull"
+            token purpose = "guide"
+        }
+    }
+
+    def Xform "graphite_white" (
+        prepend references = @./geometries.usd@</Geometries/graphite_white>
+    )
+    {
+        over "graphite_white" (
+            apiSchemas = ["PhysicsCollisionAPI", "NewtonCollisionAPI", "PhysicsMeshCollisionAPI", "NewtonMeshCollisionAPI"]
+        )
+        {
+            token physics:approximation = "convexHull"
+            token purpose = "guide"
+        }
+    }
+
+    def Xform "collision_3" (
+        prepend references = @./geometries.usd@</Geometries/collision_3>
+    )
+    {
+        over "collision_3" (
+            apiSchemas = ["PhysicsCollisionAPI", "NewtonCollisionAPI", "PhysicsMeshCollisionAPI", "NewtonMeshCollisionAPI"]
+        )
+        {
+            token physics:approximation = "convexHull"
+            token purpose = "guide"
+        }
+    }
+
+    def Xform "collision_4" (
+        prepend references = @./geometries.usd@</Geometries/collision_4>
+    )
+    {
+        over "collision_4" (
+            apiSchemas = ["PhysicsCollisionAPI", "NewtonCollisionAPI", "PhysicsMeshCollisionAPI", "NewtonMeshCollisionAPI"]
+        )
+        {
+            token physics:approximation = "convexHull"
+            token purpose = "guide"
+        }
+    }
+
+    def Xform "collision_5" (
+        prepend references = @./geometries.usd@</Geometries/collision_5>
+    )
+    {
+        over "collision_5" (
+            apiSchemas = ["PhysicsCollisionAPI", "NewtonCollisionAPI", "PhysicsMeshCollisionAPI", "NewtonMeshCollisionAPI"]
+        )
+        {
+            token physics:approximation = "convexHull"
+            token purpose = "guide"
+        }
+    }
+}
+

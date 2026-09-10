@@ -1,0 +1,35 @@
+{
+  "repository": "https://github.com/DH-Robotics/dh_gripper_ros",
+  "commit": "f59f9c2f4bc8eb116448b1d798791424bf64e337",
+  "files": {
+    "package.xml": {
+      "url": "https://raw.githubusercontent.com/DH-Robotics/dh_gripper_ros/f59f9c2f4bc8eb116448b1d798791424bf64e337/dh_pgc140_urdf/package.xml",
+      "sha256": "633b9ab6560c55d5a317a6ebf1a28bed0729aba08d853027ec6d31280f1d6bd5"
+    },
+    "urdf/dh_pgc140_urdf.urdf": {
+      "url": "https://raw.githubusercontent.com/DH-Robotics/dh_gripper_ros/f59f9c2f4bc8eb116448b1d798791424bf64e337/dh_pgc140_urdf/urdf/dh_pgc140_urdf.urdf",
+      "sha256": "42cb6af05d91d60aa1fa222108cf89ecd3514b28b153b4a3cf6e1c7099c4ae71"
+    },
+    "meshes/base_link.STL": {
+      "url": "https://raw.githubusercontent.com/DH-Robotics/dh_gripper_ros/f59f9c2f4bc8eb116448b1d798791424bf64e337/dh_pgc140_urdf/meshes/base_link.STL",
+      "sha256": "1877d4f16b9948481df554be5ade3669624db5b3f9b6c3ac9f40131645152446"
+    },
+    "meshes/finger1_Link.STL": {
+      "url": "https://raw.githubusercontent.com/DH-Robotics/dh_gripper_ros/f59f9c2f4bc8eb116448b1d798791424bf64e337/dh_pgc140_urdf/meshes/finger1_Link.STL",
+      "sha256": "b95f30968c6b1a8d854abf45a97556b8353b0f3977f7a3cad86f5da957b1428f"
+    },
+    "meshes/finger2_Link.STL": {
+      "url": "https://raw.githubusercontent.com/DH-Robotics/dh_gripper_ros/f59f9c2f4bc8eb116448b1d798791424bf64e337/dh_pgc140_urdf/meshes/finger2_Link.STL",
+      "sha256": "535831ff0482a31168f29c01647dae39b90a779b0b30c237827a5839d7d23aed"
+    }
+  },
+  "specification_url": "https://www.dh-robotics.com/product/pgc",
+  "license_note": "Vendor package.xml declares BSD; retain upstream files; no standalone license text supplied.",
+  "modifications": [
+    "prefix link/joint names",
+    "two position-driven sliders, no mimic",
+    "stock fingers replaced by box carriages and 40-90 mm offset tooling, 0.08 kg added",
+    "base mass scaled to 1 kg complete gripper excluding tooling",
+    "ABB link_6 mount Ry(pi/2); pad TCP = (0.130,0,0) in link_6"
+  ]
+}

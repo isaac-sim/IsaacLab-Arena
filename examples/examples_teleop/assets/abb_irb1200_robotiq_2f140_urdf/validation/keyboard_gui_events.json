@@ -1,0 +1,9 @@
+{
+  "passed": true,
+  "input": true,
+  "finite_drives": true,
+  "rotation_tcp": true,
+  "reset": true,
+  "rejected_ik": true,
+  "gui_events": true
+}

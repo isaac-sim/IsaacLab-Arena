@@ -1,0 +1,34 @@
+{
+  "success": true,
+  "assistance": false,
+  "gripper": "ROS-Industrial Robotiq 2F-140",
+  "native_mimic_count": 5,
+  "active_gripper_motors": 1,
+  "follower_motors": 0,
+  "master_torque_limit_Nm": 5.0,
+  "friction": 0.8,
+  "max_mimic_error_rad": 0.0014531910419464111,
+  "max_tcp_tracking_error_m": 0.01786456578839472,
+  "frames": 1200,
+  "finished": true,
+  "cubes": [
+    {
+      "cube": 0,
+      "mass_kg": 1.0,
+      "max_lift_m": 0.20022433996200562,
+      "airborne_transport_m": 0.27269048721522243,
+      "lifted": true,
+      "transported": true,
+      "placed": true,
+      "position_error_m": [
+        -2.5818943977351516e-05,
+        0.0002272802591323786,
+        1.2055039405822754e-05
+      ],
+      "orientation_error_degrees": 0.08846932034957805
+    }
+  ],
+  "newton_version": "1.2.1",
+  "warp_version": "1.13.0",
+  "mujoco_cpu": false
+}

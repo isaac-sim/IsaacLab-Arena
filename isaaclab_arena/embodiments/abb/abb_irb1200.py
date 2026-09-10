@@ -79,6 +79,22 @@ def find_irb1200_robotiq_2f140_usd_path(require_exists: bool = False) -> str:
     return str(fallback_path)
 
 
+def find_irb1200_robotiq_2f140_physx_usd_path(require_exists: bool = False) -> str:
+    relative_paths = (
+        Path("isaaclab_arena/assets/robots/abb/irb1200_7_70_robotiq_2f140_physx/irb1200_7_70.usda"),
+    )
+    for parent in Path(__file__).resolve().parents:
+        for relative_path in relative_paths:
+            candidate = parent / relative_path
+            if candidate.exists():
+                return str(candidate)
+    fallback_path = Path(__file__).resolve().parents[2] / relative_paths[0]
+    if require_exists:
+        search_locations = ", ".join(str(path) for path in relative_paths)
+        raise FileNotFoundError(f"ABB IRB1200 + Robotiq 2F-140 PhysX USD not found. Searched: {search_locations}")
+    return str(fallback_path)
+
+
 @register_asset
 class ABBIRB1200IKEmbodiment(EmbodimentBase):
     """ABB IRB1200 embodiment using relative differential IK."""

@@ -1,0 +1,82 @@
+{
+  "success": true,
+  "finished": true,
+  "frames": 3600,
+  "simulated_seconds": 59.999999999997875,
+  "contact_backend": "MuJoCo native",
+  "mujoco_cpu": false,
+  "assistance": false,
+  "newton_version": "1.2.1",
+  "warp_version": "1.13.0",
+  "grip_effort_per_finger_N": 100.0,
+  "friction": 0.8,
+  "max_tcp_tracking_error_m": 0.017895875294860177,
+  "cubes": [
+    {
+      "cube": 0,
+      "mass_kg": 1.0,
+      "lifted": true,
+      "transported": true,
+      "placed": true,
+      "max_lift_m": 0.19820278882980347,
+      "required_airborne_transport_m": 0.21835750502329893,
+      "airborne_transport_m": 0.2724814520867182,
+      "final_position_m": [
+        0.12272590398788452,
+        -0.18091459572315216,
+        0.12468282878398895
+      ],
+      "position_error_m": [
+        0.002725903987884526,
+        -0.0009145957231521673,
+        -0.00031717121601104736
+      ],
+      "orientation_error_degrees": 1.0370209459696549,
+      "max_speed_m_s": 0.2587808668613434
+    },
+    {
+      "cube": 1,
+      "mass_kg": 1.0,
+      "lifted": true,
+      "transported": true,
+      "placed": true,
+      "max_lift_m": 0.24679085612297058,
+      "required_airborne_transport_m": 0.16321764610482534,
+      "airborne_transport_m": 0.2036353124204255,
+      "final_position_m": [
+        0.1236492171883583,
+        -0.180348202586174,
+        0.17432792484760284
+      ],
+      "position_error_m": [
+        0.0036492171883583113,
+        -0.0003482025861740179,
+        -0.0006720751523971447
+      ],
+      "orientation_error_degrees": 2.1438383582652834,
+      "max_speed_m_s": 0.20695534348487854
+    },
+    {
+      "cube": 2,
+      "mass_kg": 1.0,
+      "lifted": true,
+      "transported": true,
+      "placed": true,
+      "max_lift_m": 0.2962031066417694,
+      "required_airborne_transport_m": 0.09879271228182775,
+      "airborne_transport_m": 0.12823491819931943,
+      "final_position_m": [
+        0.1282869428396225,
+        -0.18139907717704773,
+        0.22413724660873413
+      ],
+      "position_error_m": [
+        0.008286942839622502,
+        -0.0013990771770477362,
+        -0.0008627533912658747
+      ],
+      "orientation_error_degrees": 0.433409633063276,
+      "max_speed_m_s": 0.25637879967689514
+    }
+  ]
+}

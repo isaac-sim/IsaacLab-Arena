@@ -1,0 +1,42 @@
+{
+  "samples": [
+    {
+      "master_rad": 0,
+      "inner_aperture_m": 0.12853467464447021,
+      "flange_local_tcp_m": [
+        0.17696313560009003,
+        2.60770320892334e-08,
+        0.0
+      ]
+    },
+    {
+      "master_rad": 0.25,
+      "inner_aperture_m": 0.08676069229841232,
+      "flange_local_tcp_m": [
+        0.19058245420455933,
+        3.725290298461914e-08,
+        0.0
+      ]
+    },
+    {
+      "master_rad": 0.5,
+      "inner_aperture_m": 0.039546430110931396,
+      "flange_local_tcp_m": [
+        0.1986108273267746,
+        3.259629011154175e-08,
+        0.0
+      ]
+    },
+    {
+      "master_rad": 0.7,
+      "inner_aperture_m": -0.00017608096823096275,
+      "flange_local_tcp_m": [
+        0.20066006481647491,
+        4.563480615615845e-08,
+        0.0
+      ]
+    }
+  ],
+  "imported_gripper_mass_kg": 0.38384854421019554,
+  "note": "Stock visualization inertias retained; not a calibrated 1kg product mass model."
+}

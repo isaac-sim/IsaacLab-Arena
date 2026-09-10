@@ -1,0 +1,321 @@
+<?xml version='1.0' encoding='utf-8'?>
+<robot name="abb_irb1200_pgc140">
+  <link name="base_link">
+    <collision name="collision">
+      <geometry>
+        <mesh filename="/workspaces/isaaclab_arena/isaaclab_arena/assets/robots/abb/abb_irb1200_support/meshes/irb1200_5_90/collision/base_link.stl" />
+      </geometry>
+    </collision>
+    <visual name="visual">
+      <geometry>
+        <mesh filename="/workspaces/isaaclab_arena/isaaclab_arena/assets/robots/abb/abb_irb1200_support/meshes/irb1200_5_90/visual/base_link.dae" />
+      </geometry>
+      <material name="abb_yellow">
+        <color rgba="1 1 0 1" />
+      </material>
+    </visual>
+  </link>
+  <link name="link_1">
+    <collision name="collision">
+      <geometry>
+        <mesh filename="/workspaces/isaaclab_arena/isaaclab_arena/assets/robots/abb/abb_irb1200_support/meshes/irb1200_5_90/collision/link_1.stl" />
+      </geometry>
+    </collision>
+    <visual name="visual">
+      <geometry>
+        <mesh filename="/workspaces/isaaclab_arena/isaaclab_arena/assets/robots/abb/abb_irb1200_support/meshes/irb1200_5_90/visual/link_1.dae" />
+      </geometry>
+      <material name="abb_yellow">
+        <color rgba="1 1 0 1" />
+      </material>
+    </visual>
+  </link>
+  <link name="link_2">
+    <collision name="collision">
+      <geometry>
+        <mesh filename="/workspaces/isaaclab_arena/isaaclab_arena/assets/robots/abb/abb_irb1200_support/meshes/irb1200_7_70/collision/link_2.stl" />
+      </geometry>
+    </collision>
+    <visual name="visual">
+      <geometry>
+        <mesh filename="/workspaces/isaaclab_arena/isaaclab_arena/assets/robots/abb/abb_irb1200_support/meshes/irb1200_7_70/visual/link_2.dae" />
+      </geometry>
+      <material name="abb_yellow">
+        <color rgba="1 1 0 1" />
+      </material>
+    </visual>
+  </link>
+  <link name="link_3">
+    <collision name="graphite_white">
+      <geometry>
+        <mesh filename="/workspaces/isaaclab_arena/isaaclab_arena/assets/robots/abb/abb_irb1200_support/meshes/irb1200_7_70/collision/link_3.stl" />
+      </geometry>
+    </collision>
+    <visual name="visual">
+      <geometry>
+        <mesh filename="/workspaces/isaaclab_arena/isaaclab_arena/assets/robots/abb/abb_irb1200_support/meshes/irb1200_7_70/visual/link_3.dae" />
+      </geometry>
+      <material name="abb_yellow">
+        <color rgba="1 1 0 1" />
+      </material>
+    </visual>
+  </link>
+  <link name="link_4">
+    <collision name="collision">
+      <origin xyz="-0.1 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="/workspaces/isaaclab_arena/isaaclab_arena/assets/robots/abb/abb_irb1200_support/meshes/irb1200_5_90/collision/link_4.stl" />
+      </geometry>
+    </collision>
+    <visual name="visual">
+      <origin xyz="-0.1 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="/workspaces/isaaclab_arena/isaaclab_arena/assets/robots/abb/abb_irb1200_support/meshes/irb1200_5_90/visual/link_4.dae" />
+      </geometry>
+      <material name="abb_yellow">
+        <color rgba="1 1 0 1" />
+      </material>
+    </visual>
+  </link>
+  <link name="link_5">
+    <collision name="collision">
+      <geometry>
+        <mesh filename="/workspaces/isaaclab_arena/isaaclab_arena/assets/robots/abb/abb_irb1200_support/meshes/irb1200_5_90/collision/link_5.stl" />
+      </geometry>
+    </collision>
+    <visual name="visual">
+      <geometry>
+        <mesh filename="/workspaces/isaaclab_arena/isaaclab_arena/assets/robots/abb/abb_irb1200_support/meshes/irb1200_5_90/visual/link_5.dae" />
+      </geometry>
+      <material name="abb_yellow">
+        <color rgba="1 1 0 1" />
+      </material>
+    </visual>
+  </link>
+  <link name="link_6">
+    <collision name="collision">
+      <geometry>
+        <mesh filename="/workspaces/isaaclab_arena/isaaclab_arena/assets/robots/abb/abb_irb1200_support/meshes/irb1200_5_90/collision/link_6.stl" />
+      </geometry>
+    </collision>
+    <visual name="visual">
+      <geometry>
+        <mesh filename="/workspaces/isaaclab_arena/isaaclab_arena/assets/robots/abb/abb_irb1200_support/meshes/irb1200_5_90/visual/link_6.dae" />
+      </geometry>
+      <material name="abb_yellow">
+        <color rgba="1 1 0 1" />
+      </material>
+    </visual>
+  </link>
+  <joint type="revolute" name="joint_1">
+    <origin xyz="0 0 0.3991" rpy="0 0 0" />
+    <axis xyz="0 0 1" />
+    <parent link="base_link" />
+    <child link="link_1" />
+    <limit effort="300" lower="-2.967" upper="2.967" velocity="5.027" />
+  </joint>
+  <joint type="revolute" name="joint_2">
+    <origin xyz="0 0 0" rpy="0 0 0" />
+    <axis xyz="0 1 0" />
+    <parent link="link_1" />
+    <child link="link_2" />
+    <limit effort="300" lower="-1.745" upper="2.356" velocity="4.189" />
+  </joint>
+  <joint type="revolute" name="joint_3">
+    <origin xyz="0 0 0.350" rpy="0 0 0" />
+    <axis xyz="0 1 0" />
+    <parent link="link_2" />
+    <child link="link_3" />
+    <limit effort="300" lower="-3.491" upper="1.222" velocity="5.236" />
+  </joint>
+  <joint type="revolute" name="joint_4">
+    <origin xyz="0 0 0.042" rpy="0 0 0" />
+    <axis xyz="1 0 0" />
+    <parent link="link_3" />
+    <child link="link_4" />
+    <limit effort="300" lower="-4.712" upper="4.712" velocity="6.981" />
+  </joint>
+  <joint type="revolute" name="joint_5">
+    <origin xyz="0.351 0 0 " rpy="0 0 0" />
+    <axis xyz="0 1 0" />
+    <parent link="link_4" />
+    <child link="link_5" />
+    <limit effort="300" lower="-2.269" upper="2.269" velocity="7.069" />
+  </joint>
+  <joint type="revolute" name="joint_6">
+    <origin xyz="0.082 0 0 " rpy="0 0 0" />
+    <axis xyz="1 0 0" />
+    <parent link="link_5" />
+    <child link="link_6" />
+    <limit effort="300" lower="-6.283" upper="6.283" velocity="10.472" />
+  </joint>
+  <link name="pgc140_base_link">
+    <inertial>
+      <origin xyz="-3.9257E-06 -0.00027208 0.037806" rpy="0 0 0" />
+      <mass value="0.971444" />
+      <inertia ixx="0.0010404189268150735" ixy="-2.0598626914593337e-07" ixz="-1.4181697247781175e-07" iyy="0.0009444476659391823" iyz="-7.480387349919977e-06" izz="0.0006302159911537902" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="/workspaces/isaaclab_arena/examples/examples_teleop/assets/abb_irb1200_pgc140/vendor/meshes/base_link.STL" />
+      </geometry>
+      <material name="pgc140_base_link_material">
+        <color rgba="1 1 1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="/workspaces/isaaclab_arena/examples/examples_teleop/assets/abb_irb1200_pgc140/vendor/meshes/base_link.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <link name="pgc140_finger1_link">
+    <inertial>
+      <origin xyz="0.0030491 -0.0066024 0.0064209" rpy="0 0 0" />
+      <mass value="0.014278" />
+      <inertia ixx="1.7567E-06" ixy="-5.7832E-08" ixz="2.6803E-08" iyy="2.3034E-06" iyz="2.2145E-07" izz="1.3354E-06" />
+    </inertial>
+    <visual name="carriage1">
+      <origin xyz="0 0 -0.002" rpy="0.0 0.0 0.0" />
+      <geometry>
+        <box size="0.02 0.025 0.016" />
+      </geometry>
+      <material name="carriage1_material">
+        <color rgba="0.6 0.6 0.65 1" />
+      </material>
+    </visual>
+    <collision name="carriage1">
+      <origin xyz="0 0 -0.002" rpy="0.0 0.0 0.0" />
+      <geometry>
+        <box size="0.02 0.025 0.016" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="pgc140_finger1_joint" type="prismatic">
+    <origin xyz="0.0132 0.0265 0.093" rpy="0 0 -1.5707963267948966" />
+    <parent link="pgc140_base_link" />
+    <child link="pgc140_finger1_link" />
+    <axis xyz="1 0 0" />
+    <limit lower="0" upper="0.025" effort="140" velocity="0.0333333333" />
+  </joint>
+  <link name="pgc140_finger2_link">
+    <inertial>
+      <origin xyz="0.0030491 -0.0066024 0.0064209" rpy="0 0 0" />
+      <mass value="0.014278" />
+      <inertia ixx="1.7567E-06" ixy="-5.7832E-08" ixz="2.6803E-08" iyy="2.3034E-06" iyz="2.2145E-07" izz="1.3354E-06" />
+    </inertial>
+    <visual name="carriage2">
+      <origin xyz="0 0 -0.002" rpy="0.0 0.0 0.0" />
+      <geometry>
+        <box size="0.02 0.025 0.016" />
+      </geometry>
+      <material name="carriage2_material">
+        <color rgba="0.6 0.6 0.65 1" />
+      </material>
+    </visual>
+    <collision name="carriage2">
+      <origin xyz="0 0 -0.002" rpy="0.0 0.0 0.0" />
+      <geometry>
+        <box size="0.02 0.025 0.016" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="pgc140_finger2_joint" type="prismatic">
+    <origin xyz="-0.0132 -0.0265 0.093" rpy="0 0 1.5707963267948966" />
+    <parent link="pgc140_base_link" />
+    <child link="pgc140_finger2_link" />
+    <axis xyz="1 0 0" />
+    <limit lower="0" upper="0.025" effort="140" velocity="0.0333333333" />
+  </joint>
+  <link name="pgc140_pad1">
+    <inertial>
+      <origin xyz="0.0 0.0 -0.01" rpy="0.0 0.0 0.0" />
+      <mass value="0.04" />
+      <inertia ixx="0.000014" ixy="0" ixz="0" iyy="0.000010" iyz="0" izz="0.000007" />
+    </inertial>
+    <visual name="pad1_rubber">
+      <origin xyz="0 0 0" rpy="0.0 0.0 0.0" />
+      <geometry>
+        <box size="0.008 0.036 0.05" />
+      </geometry>
+      <material name="pad1_rubber_material">
+        <color rgba="0.12 0.15 0.18 1" />
+      </material>
+    </visual>
+    <collision name="pad1_rubber">
+      <origin xyz="0 0 0" rpy="0.0 0.0 0.0" />
+      <geometry>
+        <box size="0.008 0.036 0.05" />
+      </geometry>
+    </collision>
+    <visual name="pad1_bracket">
+      <origin xyz="0.01125 0.0066 -0.028" rpy="0.0 0.0 0.0" />
+      <geometry>
+        <box size="0.0305 0.036 0.006" />
+      </geometry>
+      <material name="pad1_bracket_material">
+        <color rgba="0.65 0.65 0.68 1" />
+      </material>
+    </visual>
+    <collision name="pad1_bracket">
+      <origin xyz="0.01125 0.0066 -0.028" rpy="0.0 0.0 0.0" />
+      <geometry>
+        <box size="0.0305 0.036 0.006" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="pgc140_pad1_mount" type="fixed">
+    <origin xyz="-0.0225 -0.0132 0.037" rpy="0.0 0.0 0.0" />
+    <parent link="pgc140_finger1_link" />
+    <child link="pgc140_pad1" />
+  </joint>
+  <link name="pgc140_pad2">
+    <inertial>
+      <origin xyz="0.0 0.0 -0.01" rpy="0.0 0.0 0.0" />
+      <mass value="0.04" />
+      <inertia ixx="0.000014" ixy="0" ixz="0" iyy="0.000010" iyz="0" izz="0.000007" />
+    </inertial>
+    <visual name="pad2_rubber">
+      <origin xyz="0 0 0" rpy="0.0 0.0 0.0" />
+      <geometry>
+        <box size="0.008 0.036 0.05" />
+      </geometry>
+      <material name="pad2_rubber_material">
+        <color rgba="0.12 0.15 0.18 1" />
+      </material>
+    </visual>
+    <collision name="pad2_rubber">
+      <origin xyz="0 0 0" rpy="0.0 0.0 0.0" />
+      <geometry>
+        <box size="0.008 0.036 0.05" />
+      </geometry>
+    </collision>
+    <visual name="pad2_bracket">
+      <origin xyz="0.01125 0.0066 -0.028" rpy="0.0 0.0 0.0" />
+      <geometry>
+        <box size="0.0305 0.036 0.006" />
+      </geometry>
+      <material name="pad2_bracket_material">
+        <color rgba="0.65 0.65 0.68 1" />
+      </material>
+    </visual>
+    <collision name="pad2_bracket">
+      <origin xyz="0.01125 0.0066 -0.028" rpy="0.0 0.0 0.0" />
+      <geometry>
+        <box size="0.0305 0.036 0.006" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="pgc140_pad2_mount" type="fixed">
+    <origin xyz="-0.0225 -0.0132 0.037" rpy="0.0 0.0 0.0" />
+    <parent link="pgc140_finger2_link" />
+    <child link="pgc140_pad2" />
+  </joint>
+  <joint name="pgc140_flange_mount" type="fixed">
+    <origin xyz="0 0 0" rpy="0 1.5707963267948966 0" />
+    <parent link="link_6" />
+    <child link="pgc140_base_link" />
+  </joint>
+</robot>

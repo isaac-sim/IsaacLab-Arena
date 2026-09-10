@@ -1,0 +1,108 @@
+{
+  "repository": "https://github.com/ros-industrial-attic/robotiq",
+  "commit": "45196f6558fe8ba9d89bc8a105396c68c3e7e892",
+  "files": {
+    "LICENSE": {
+      "url": "https://raw.githubusercontent.com/ros-industrial-attic/robotiq/45196f6558fe8ba9d89bc8a105396c68c3e7e892/LICENSE",
+      "sha256": "bfe9a4de3ec95dac1d2bf02df4d774ecfd6d492df1fa33476c3af5576bd08435"
+    },
+    "robotiq_2f_140_gripper_visualization/package.xml": {
+      "url": "https://raw.githubusercontent.com/ros-industrial-attic/robotiq/45196f6558fe8ba9d89bc8a105396c68c3e7e892/robotiq_2f_140_gripper_visualization/package.xml",
+      "sha256": "a2d31f31c2899ceec5dd4964d96c43fccb57fbfeaef0e9e7f7b60190be41a6ae"
+    },
+    "robotiq_2f_140_gripper_visualization/README.md": {
+      "url": "https://raw.githubusercontent.com/ros-industrial-attic/robotiq/45196f6558fe8ba9d89bc8a105396c68c3e7e892/robotiq_2f_140_gripper_visualization/README.md",
+      "sha256": "aa0fbc88d7d258cc429d72c3094e6966904dfb0f6c36336de7a25e292f82b76d"
+    },
+    "robotiq_2f_140_gripper_visualization/urdf/robotiq_arg2f.xacro": {
+      "url": "https://raw.githubusercontent.com/ros-industrial-attic/robotiq/45196f6558fe8ba9d89bc8a105396c68c3e7e892/robotiq_2f_140_gripper_visualization/urdf/robotiq_arg2f.xacro",
+      "sha256": "fe3f62226813bc583088f90a920bf1294dab3859fd77a890d07c4abb5fe32c70"
+    },
+    "robotiq_2f_140_gripper_visualization/urdf/robotiq_arg2f_140_model.xacro": {
+      "url": "https://raw.githubusercontent.com/ros-industrial-attic/robotiq/45196f6558fe8ba9d89bc8a105396c68c3e7e892/robotiq_2f_140_gripper_visualization/urdf/robotiq_arg2f_140_model.xacro",
+      "sha256": "9683438c06ba013b56bacf46d563419bc1bdcae88abd0432a7bdaa8d07d589fd"
+    },
+    "robotiq_2f_140_gripper_visualization/urdf/robotiq_arg2f_140_model_macro.xacro": {
+      "url": "https://raw.githubusercontent.com/ros-industrial-attic/robotiq/45196f6558fe8ba9d89bc8a105396c68c3e7e892/robotiq_2f_140_gripper_visualization/urdf/robotiq_arg2f_140_model_macro.xacro",
+      "sha256": "d32ad27b48652b8a57b9799ef37a656d9a9a400333f2de15906340ac5f185526"
+    },
+    "robotiq_2f_140_gripper_visualization/urdf/robotiq_arg2f_transmission.xacro": {
+      "url": "https://raw.githubusercontent.com/ros-industrial-attic/robotiq/45196f6558fe8ba9d89bc8a105396c68c3e7e892/robotiq_2f_140_gripper_visualization/urdf/robotiq_arg2f_transmission.xacro",
+      "sha256": "08939f4de51dd111735652fc699be0e3a216ee1ad90e71dd1d4ebd1d14f81f17"
+    },
+    "robotiq_2f_140_gripper_visualization/meshes/visual/robotiq_arg2f_base_link.stl": {
+      "url": "https://raw.githubusercontent.com/ros-industrial-attic/robotiq/45196f6558fe8ba9d89bc8a105396c68c3e7e892/robotiq_2f_140_gripper_visualization/meshes/visual/robotiq_arg2f_base_link.stl",
+      "sha256": "74a62de75ae10cf77c60f2c49749b5d11f4c265f8624bbe7697a941fa86f6b3b"
+    },
+    "robotiq_2f_140_gripper_visualization/meshes/visual/robotiq_arg2f_140_outer_knuckle.stl": {
+      "url": "https://raw.githubusercontent.com/ros-industrial-attic/robotiq/45196f6558fe8ba9d89bc8a105396c68c3e7e892/robotiq_2f_140_gripper_visualization/meshes/visual/robotiq_arg2f_140_outer_knuckle.stl",
+      "sha256": "f042edc44ede9773e7cad00f7d7354d0b7c1c6a6353fe897b2ca2e6ac71107fc"
+    },
+    "robotiq_2f_140_gripper_visualization/meshes/visual/robotiq_arg2f_140_outer_finger.stl": {
+      "url": "https://raw.githubusercontent.com/ros-industrial-attic/robotiq/45196f6558fe8ba9d89bc8a105396c68c3e7e892/robotiq_2f_140_gripper_visualization/meshes/visual/robotiq_arg2f_140_outer_finger.stl",
+      "sha256": "666a92ee075f6f320ffb13b39995a5b374657cee90ded4c52c23ede20a812f34"
+    },
+    "robotiq_2f_140_gripper_visualization/meshes/visual/robotiq_arg2f_140_inner_knuckle.stl": {
+      "url": "https://raw.githubusercontent.com/ros-industrial-attic/robotiq/45196f6558fe8ba9d89bc8a105396c68c3e7e892/robotiq_2f_140_gripper_visualization/meshes/visual/robotiq_arg2f_140_inner_knuckle.stl",
+      "sha256": "d61e9c5304d8015333856e4a26d99e32b695b6ada993253986b1afe8e396ab11"
+    },
+    "robotiq_2f_140_gripper_visualization/meshes/visual/robotiq_arg2f_140_inner_finger.stl": {
+      "url": "https://raw.githubusercontent.com/ros-industrial-attic/robotiq/45196f6558fe8ba9d89bc8a105396c68c3e7e892/robotiq_2f_140_gripper_visualization/meshes/visual/robotiq_arg2f_140_inner_finger.stl",
+      "sha256": "be21c5e18c901d4747cbc8fa1a2af15dad7173ff701482a8517e33278432bb21"
+    },
+    "robotiq_2f_140_gripper_visualization/meshes/collision/robotiq_arg2f_base_link.stl": {
+      "url": "https://raw.githubusercontent.com/ros-industrial-attic/robotiq/45196f6558fe8ba9d89bc8a105396c68c3e7e892/robotiq_2f_140_gripper_visualization/meshes/collision/robotiq_arg2f_base_link.stl",
+      "sha256": "111e37f13a664989dd54226f80f521b32ea0b71c975282a16696b14be7cc9249"
+    },
+    "robotiq_2f_140_gripper_visualization/meshes/collision/robotiq_arg2f_140_outer_knuckle.stl": {
+      "url": "https://raw.githubusercontent.com/ros-industrial-attic/robotiq/45196f6558fe8ba9d89bc8a105396c68c3e7e892/robotiq_2f_140_gripper_visualization/meshes/collision/robotiq_arg2f_140_outer_knuckle.stl",
+      "sha256": "37c1779f71fb5504a5898048a36f9f4bfce0f5e7039ff1dce53808b95c229777"
+    },
+    "robotiq_2f_140_gripper_visualization/meshes/collision/robotiq_arg2f_140_outer_finger.stl": {
+      "url": "https://raw.githubusercontent.com/ros-industrial-attic/robotiq/45196f6558fe8ba9d89bc8a105396c68c3e7e892/robotiq_2f_140_gripper_visualization/meshes/collision/robotiq_arg2f_140_outer_finger.stl",
+      "sha256": "bd7da1b31b73f1aa1d61b26a582cea10f16f17396d54b8937890fa51547d26b0"
+    },
+    "robotiq_2f_140_gripper_visualization/meshes/collision/robotiq_arg2f_140_inner_knuckle.stl": {
+      "url": "https://raw.githubusercontent.com/ros-industrial-attic/robotiq/45196f6558fe8ba9d89bc8a105396c68c3e7e892/robotiq_2f_140_gripper_visualization/meshes/collision/robotiq_arg2f_140_inner_knuckle.stl",
+      "sha256": "d341d986aa8aca7262565c039c04fb6b4c0f2f5c93443519eb7ca9bfc67ba17c"
+    },
+    "robotiq_2f_140_gripper_visualization/meshes/collision/robotiq_arg2f_140_inner_finger.stl": {
+      "url": "https://raw.githubusercontent.com/ros-industrial-attic/robotiq/45196f6558fe8ba9d89bc8a105396c68c3e7e892/robotiq_2f_140_gripper_visualization/meshes/collision/robotiq_arg2f_140_inner_finger.stl",
+      "sha256": "043901d9c22b38d09b30d11326108ab3ef1445b4bd655ef313f94199f25f57ed"
+    }
+  },
+  "mimic": {
+    "left_inner_knuckle_joint": {
+      "leader": "finger_joint",
+      "multiplier": -1.0,
+      "offset": 0.0
+    },
+    "left_inner_finger_joint": {
+      "leader": "finger_joint",
+      "multiplier": 1.0,
+      "offset": 0.0
+    },
+    "right_outer_knuckle_joint": {
+      "leader": "finger_joint",
+      "multiplier": -1.0,
+      "offset": 0.0
+    },
+    "right_inner_knuckle_joint": {
+      "leader": "finger_joint",
+      "multiplier": -1.0,
+      "offset": 0.0
+    },
+    "right_inner_finger_joint": {
+      "leader": "finger_joint",
+      "multiplier": 1.0,
+      "offset": 0.0
+    }
+  },
+  "abb_usd": "/workspaces/isaaclab_arena/isaaclab_arena/assets/robots/abb/irb1200_7_70/irb1200_7_70.usda",
+  "modifications": [
+    "absolute mesh paths and nonempty material names",
+    "omit ROS transmission",
+    "10g box inertial per stock pad",
+    "USD fixed mount at ABB link_6, Ry(pi/2)"
+  ]
+}

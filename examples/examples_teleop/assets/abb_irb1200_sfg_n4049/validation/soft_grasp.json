@@ -1,0 +1,78 @@
+{
+  "success": false,
+  "expected_failure": false,
+  "negative_control_passed": null,
+  "finished": false,
+  "stable": true,
+  "lifted": false,
+  "held": false,
+  "transported": false,
+  "placed": false,
+  "mass_kg": 1.0,
+  "max_lift_m": 0.0,
+  "hold_min_lift_m": null,
+  "airborne_transport_m": 0.0,
+  "final_position_m": [
+    0.1399446725845337,
+    0.0699591189622879,
+    0.15999773144721985
+  ],
+  "placement_error_m": 0.13995912991644774,
+  "max_speed_m_s": 0.00045518597471527755,
+  "max_root_error_m": 3.913226100848988e-05,
+  "max_root_reaction_N": 4.562662124633789,
+  "max_tcp_error_m": 0.010689555680324881,
+  "max_tip_bend_m": 5.637866252072854e-06,
+  "min_sampled_tet_volume_ratio": 0.9995607137680054,
+  "activation": 1.0,
+  "curvature_per_m": 24.0,
+  "friction": 0.8,
+  "shear_Pa": 300000.0,
+  "tet_count": 14094,
+  "assistance": false,
+  "model_boundary": "CAD convex-envelope FEM + active reference curvature, not SRT pressure calibration",
+  "coupling": "MuJoCo arm; VBD fingers + dynamic bottle; finite root springs, wrench feedback with one substep lag",
+  "newton_version": "1.2.1",
+  "warp_version": "1.13.0",
+  "frames": 170,
+  "substeps": 40,
+  "iterations": 30,
+  "history": [
+    {
+      "t": 1.0000000000000013,
+      "phase": "approach",
+      "bottle": [
+        0.13997919857501984,
+        0.0699845552444458,
+        0.15999767184257507
+      ],
+      "root_wrench": [
+        0.6668344140052795,
+        -0.6669492721557617,
+        -3.478527069091797,
+        -0.07701805233955383,
+        -0.07561749219894409,
+        -0.00028938031755387783
+      ],
+      "tip_bend_m": -1.1805152098531835e-05
+    },
+    {
+      "t": 1.9999999999999978,
+      "phase": "descend",
+      "bottle": [
+        0.1399603635072708,
+        0.06997068226337433,
+        0.15999774634838104
+      ],
+      "root_wrench": [
+        0.822603702545166,
+        -0.6846611499786377,
+        -3.6470890045166016,
+        -0.0781821683049202,
+        -0.09228196740150452,
+        3.010067666764371e-05
+      ],
+      "tip_bend_m": -1.1778958651120774e-05
+    }
+  ]
+}

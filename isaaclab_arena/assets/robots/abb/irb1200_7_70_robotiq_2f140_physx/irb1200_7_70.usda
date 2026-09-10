@@ -1,0 +1,304 @@
+#usda 1.0
+(
+    customLayerData = {
+        string creator = "URDF USD Converter v0.1.3"
+    }
+    defaultPrim = "abb_irb1200_7_70"
+    doc = """Generated from Composed Stage of root layer /tmp/tmpjtz6em99/abb_irb1200_7_70.usdc
+
+
+Generated from Composed Stage of root layer /tmp/urdf_import_irb1200_7_70_pblhhflp/usdex_irb1200_7_70/abb_irb1200_7_70.usdc
+
+
+Generated from Composed Stage of root layer /tmp/urdf_import_irb1200_7_70_pblhhflp/temp_irb1200_7_70/irb1200_7_70.usd
+
+
+Generated from Composed Stage of root layer /workspaces/isaaclab_arena/examples/examples_teleop/assets/abb/abb_irb1200_support_isaac/urdf/irb1200_7_70_1/payloads/base.usd
+"""
+    kilogramsPerUnit = 1
+    metersPerUnit = 1
+    upAxis = "Z"
+)
+
+def Xform "abb_irb1200_7_70" (
+    prepend apiSchemas = ["PhysicsArticulationRootAPI", "NewtonArticulationRootAPI"]
+    prepend references = @./payloads/base.usda@
+    variants = {
+        string Physics = "physx"
+    }
+    append variantSets = "Physics"
+)
+{
+                over "Geometry"
+                {
+                    over "base_link"
+                    {
+                        over "link_1"
+                        {
+                            over "link_2"
+                            {
+                                over "link_3"
+                                {
+                                    over "link_4"
+                                    {
+                                        over "link_5"
+                                        {
+                                            over "link_6"
+                                            {
+                                                def Xform "robotiq_2f140_mount" (
+                                                    delete apiSchemas = ["PhysicsArticulationRootAPI", "PhysxArticulationAPI"]
+                                                    prepend references = @../../../grippers/robotiq_2f140/Robotiq_2F_140_physics_edit.usd@
+                                                )
+                                                {
+                                                    quatd xformOp:orient = (0, 0.7071067811865476, 0, 0.7071067811865475)
+                                                    double3 xformOp:scale = (1, 1, 1)
+                                                    double3 xformOp:translate = (-0.005, 0, 0)
+                                                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+
+                                                    over "robotiq_base_link" (
+                                                        prepend apiSchemas = ["PhysxRigidBodyAPI"]
+                                                    )
+                                                    {
+                                                        bool physxRigidBody:disableGravity = 1
+
+                                                        over "collision"
+                                                        {
+                                                            bool physics:collisionEnabled = 0
+                                                            token visibility = "invisible"
+                                                        }
+                                                    }
+
+                                                    over "left_outer_knuckle" (
+                                                        prepend apiSchemas = ["PhysxRigidBodyAPI"]
+                                                    )
+                                                    {
+                                                        bool physxRigidBody:disableGravity = 1
+
+                                                        over "collision"
+                                                        {
+                                                            bool physics:collisionEnabled = 0
+                                                            token visibility = "invisible"
+                                                        }
+                                                    }
+
+                                                    over "right_outer_knuckle" (
+                                                        prepend apiSchemas = ["PhysxRigidBodyAPI"]
+                                                    )
+                                                    {
+                                                        bool physxRigidBody:disableGravity = 1
+
+                                                        over "collision"
+                                                        {
+                                                            bool physics:collisionEnabled = 0
+                                                            token visibility = "invisible"
+                                                        }
+                                                    }
+
+                                                    over "left_outer_finger" (
+                                                        prepend apiSchemas = ["PhysxRigidBodyAPI"]
+                                                    )
+                                                    {
+                                                        bool physxRigidBody:disableGravity = 1
+
+                                                        over "collision"
+                                                        {
+                                                            bool physics:collisionEnabled = 0
+                                                            token visibility = "invisible"
+                                                        }
+                                                    }
+
+                                                    over "right_outer_finger" (
+                                                        prepend apiSchemas = ["PhysxRigidBodyAPI"]
+                                                    )
+                                                    {
+                                                        bool physxRigidBody:disableGravity = 1
+
+                                                        over "collision"
+                                                        {
+                                                            bool physics:collisionEnabled = 0
+                                                            token visibility = "invisible"
+                                                        }
+                                                    }
+
+                                                    over "left_inner_finger" (
+                                                        prepend apiSchemas = ["PhysxRigidBodyAPI"]
+                                                    )
+                                                    {
+                                                        bool physxRigidBody:disableGravity = 1
+
+                                                        over "collision"
+                                                        {
+                                                            bool physics:collisionEnabled = 0
+                                                            token visibility = "invisible"
+                                                        }
+
+                                                    }
+
+                                                    over "right_inner_finger" (
+                                                        prepend apiSchemas = ["PhysxRigidBodyAPI"]
+                                                    )
+                                                    {
+                                                        bool physxRigidBody:disableGravity = 1
+
+                                                        over "collision"
+                                                        {
+                                                            bool physics:collisionEnabled = 0
+                                                            token visibility = "invisible"
+                                                        }
+
+                                                    }
+
+                                                    over "left_inner_finger_pad" (
+                                                        prepend apiSchemas = ["PhysxRigidBodyAPI"]
+                                                    )
+                                                    {
+                                                        bool physxRigidBody:disableGravity = 1
+
+                                                        over "collision"
+                                                        {
+                                                            bool physics:collisionEnabled = 0
+                                                            token visibility = "invisible"
+                                                        }
+
+                                                    }
+
+                                                    over "right_inner_finger_pad" (
+                                                        prepend apiSchemas = ["PhysxRigidBodyAPI"]
+                                                    )
+                                                    {
+                                                        bool physxRigidBody:disableGravity = 1
+
+                                                        over "collision"
+                                                        {
+                                                            bool physics:collisionEnabled = 0
+                                                            token visibility = "invisible"
+                                                        }
+
+                                                    }
+
+                                                }
+
+                                                def PhysicsFixedJoint "robotiq_2f140_fixed_joint"
+                                                {
+                                                    rel physics:body0 = </abb_irb1200_7_70/Geometry/base_link/link_1/link_2/link_3/link_4/link_5/link_6>
+                                                    rel physics:body1 = </abb_irb1200_7_70/Geometry/base_link/link_1/link_2/link_3/link_4/link_5/link_6/robotiq_2f140_mount/robotiq_base_link>
+                                                    point3f physics:localPos0 = (-0.005, 0, 0)
+                                                    point3f physics:localPos1 = (0, 0, 0)
+                                                    quatf physics:localRot0 = (0, 0.70710677, 0, 0.70710677)
+                                                    quatf physics:localRot1 = (1, 0, 0, 0)
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+    variantSet "Physics" = {
+        "mujoco" (
+            prepend payload = @./payloads/Physics/mujoco.usda@
+        ) {
+
+        }
+        "none" {
+
+        }
+        "physics" (
+            prepend payload = @./payloads/Physics/physics.usda@
+        ) {
+
+        }
+        "physx" (
+            prepend payload = @./payloads/Physics/physx.usda@
+        ) {
+
+        }
+    }
+}
+
+def "Render" (
+    hide_in_stage_window = true
+    no_delete = true
+)
+{
+    def "OmniverseKit"
+    {
+        def "HydraTextures" (
+            hide_in_stage_window = true
+            no_delete = true
+        )
+        {
+            def RenderProduct "omni_kit_widget_viewport_ViewportTexture_0" (
+                prepend apiSchemas = ["OmniRtxSettingsCommonAdvancedAPI_1", "OmniRtxSettingsRtAdvancedAPI_1", "OmniRtxSettingsPtAdvancedAPI_1", "OmniRtxPostColorGradingAPI_1", "OmniRtxPostChromaticAberrationAPI_1", "OmniRtxPostBloomPhysicalAPI_1", "OmniRtxPostMatteObjectAPI_1", "OmniRtxPostCompositingAPI_1", "OmniRtxPostDofAPI_1", "OmniRtxPostMotionBlurAPI_1", "OmniRtxPostTvNoiseAPI_1", "OmniRtxPostTonemapIrayReinhardAPI_1", "OmniRtxPostDebugSettingsAPI_1", "OmniRtxDebugSettingsAPI_1"]
+                hide_in_stage_window = true
+                no_delete = true
+            )
+            {
+                rel camera = </OmniverseKit_Persp>
+                token omni:rtx:ambientOcclusion:denoiserMode = "none"
+                token omni:rtx:background:source:texture:textureMode = "repeatMirrored"
+                token omni:rtx:background:source:type = "domeLight"
+                bool omni:rtx:debug:view:pixelDebug:enableFixedTextPos = 1
+                token omni:rtx:directLighting:sampledLighting:denoisingTechnique = "None"
+                bool omni:rtx:dlss:frameGeneration = 0
+                float3 omni:rtx:domeLight:rotationAxis = (0, 0, 1)
+                bool omni:rtx:indirectDiffuse:denoiser:enabled = 0
+                bool omni:rtx:material:db:syncLoads = 1
+                token omni:rtx:post:dlss:execMode = "performance"
+                bool omni:rtx:post:registeredCompositing:invertColorCorrection = 1
+                bool omni:rtx:post:registeredCompositing:invertToneMap = 1
+                bool omni:rtx:pt:adaptiveSampling:filterError = 0
+                uint omni:rtx:pt:adaptiveSampling:fixedSppIterations = 2
+                int omni:rtx:pt:clampSpp = 64
+                uint omni:rtx:pt:limits:maxBounces = 3
+                uint omni:rtx:pt:limits:maxGlossyBounces = 3
+                uint omni:rtx:pt:maxSamplesPerLaunch = 2073600
+                uint omni:rtx:pt:mgpu:maxPixelsPerRegionExponent = 12
+                int omni:rtx:pt:samplesPerIteration = 64
+                uint omni:rtx:pt:samplesPerPixel = 64
+                bool omni:rtx:reflections:denoiser:enabled = 0
+                token omni:rtx:rendermode = "RealTimePathTracing"
+                color3f omni:rtx:rt:ambientLight:color = (0.1, 0.1, 0.1)
+                bool omni:rtx:rt:demoire = 0
+                bool omni:rtx:rt:lightcache:spatialCache:dontResolveConflicts = 1
+                int omni:rtx:rt:sss:samples = 1
+                uint omni:rtx:rtpt:maxVolumeBounces = 15
+                float omni:rtx:rtpt:modulatingRoughnessThreshold = 0.08
+                bool omni:rtx:scene:hydra:materialSyncLoads = 1
+                bool omni:rtx:scene:hydra:mdlMaterialWarmup = 1
+                rel orderedVars = </Render/Vars/LdrColor>
+                custom bool overrideClipRange = 0
+                uniform int2 resolution = (1280, 720)
+            }
+        }
+    }
+
+    def RenderSettings "OmniverseGlobalRenderSettings" (
+        prepend apiSchemas = ["OmniRtxSettingsGlobalRtAdvancedAPI_1", "OmniRtxSettingsGlobalPtAdvancedAPI_1"]
+        no_delete = true
+    )
+    {
+        rel products = </Render/OmniverseKit/HydraTextures/omni_kit_widget_viewport_ViewportTexture_0>
+    }
+
+    def "Vars"
+    {
+        def RenderVar "LdrColor" (
+            hide_in_stage_window = true
+            no_delete = true
+        )
+        {
+            uniform string sourceName = "LdrColor"
+            uniform token sourceType = "raw"
+        }
+    }
+}
+
+over "OmniverseKit_Persp"
+{
+    float exposure:fStop = 5
+    float exposure:responsivity = 1.1026709
+    float exposure:time = 0.02
+}

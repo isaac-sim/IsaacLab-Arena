@@ -1,0 +1,167 @@
+<?xml version='1.0' encoding='utf-8'?>
+<robot name="pgc140_offset_fingers">
+  <link name="pgc140_base_link">
+    <inertial>
+      <origin xyz="-3.9257E-06 -0.00027208 0.037806" rpy="0 0 0" />
+      <mass value="0.971444" />
+      <inertia ixx="0.0010404189268150735" ixy="-2.0598626914593337e-07" ixz="-1.4181697247781175e-07" iyy="0.0009444476659391823" iyz="-7.480387349919977e-06" izz="0.0006302159911537902" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="/workspaces/isaaclab_arena/examples/examples_teleop/assets/abb_irb1200_pgc140/vendor/meshes/base_link.STL" />
+      </geometry>
+      <material name="pgc140_base_link_material">
+        <color rgba="1 1 1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="/workspaces/isaaclab_arena/examples/examples_teleop/assets/abb_irb1200_pgc140/vendor/meshes/base_link.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <link name="pgc140_finger1_link">
+    <inertial>
+      <origin xyz="0.0030491 -0.0066024 0.0064209" rpy="0 0 0" />
+      <mass value="0.014278" />
+      <inertia ixx="1.7567E-06" ixy="-5.7832E-08" ixz="2.6803E-08" iyy="2.3034E-06" iyz="2.2145E-07" izz="1.3354E-06" />
+    </inertial>
+    <visual name="carriage1">
+      <origin xyz="0 0 -0.002" rpy="0.0 0.0 0.0" />
+      <geometry>
+        <box size="0.02 0.025 0.016" />
+      </geometry>
+      <material name="carriage1_material">
+        <color rgba="0.6 0.6 0.65 1" />
+      </material>
+    </visual>
+    <collision name="carriage1">
+      <origin xyz="0 0 -0.002" rpy="0.0 0.0 0.0" />
+      <geometry>
+        <box size="0.02 0.025 0.016" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="pgc140_finger1_joint" type="prismatic">
+    <origin xyz="0.0132 0.0265 0.093" rpy="0 0 -1.5707963267948966" />
+    <parent link="pgc140_base_link" />
+    <child link="pgc140_finger1_link" />
+    <axis xyz="1 0 0" />
+    <limit lower="0" upper="0.025" effort="140" velocity="0.0333333333" />
+  </joint>
+  <link name="pgc140_finger2_link">
+    <inertial>
+      <origin xyz="0.0030491 -0.0066024 0.0064209" rpy="0 0 0" />
+      <mass value="0.014278" />
+      <inertia ixx="1.7567E-06" ixy="-5.7832E-08" ixz="2.6803E-08" iyy="2.3034E-06" iyz="2.2145E-07" izz="1.3354E-06" />
+    </inertial>
+    <visual name="carriage2">
+      <origin xyz="0 0 -0.002" rpy="0.0 0.0 0.0" />
+      <geometry>
+        <box size="0.02 0.025 0.016" />
+      </geometry>
+      <material name="carriage2_material">
+        <color rgba="0.6 0.6 0.65 1" />
+      </material>
+    </visual>
+    <collision name="carriage2">
+      <origin xyz="0 0 -0.002" rpy="0.0 0.0 0.0" />
+      <geometry>
+        <box size="0.02 0.025 0.016" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="pgc140_finger2_joint" type="prismatic">
+    <origin xyz="-0.0132 -0.0265 0.093" rpy="0 0 1.5707963267948966" />
+    <parent link="pgc140_base_link" />
+    <child link="pgc140_finger2_link" />
+    <axis xyz="1 0 0" />
+    <limit lower="0" upper="0.025" effort="140" velocity="0.0333333333" />
+  </joint>
+  <link name="pgc140_pad1">
+    <inertial>
+      <origin xyz="0.0 0.0 -0.01" rpy="0.0 0.0 0.0" />
+      <mass value="0.04" />
+      <inertia ixx="0.000014" ixy="0" ixz="0" iyy="0.000010" iyz="0" izz="0.000007" />
+    </inertial>
+    <visual name="pad1_rubber">
+      <origin xyz="0 0 0" rpy="0.0 0.0 0.0" />
+      <geometry>
+        <box size="0.008 0.036 0.05" />
+      </geometry>
+      <material name="pad1_rubber_material">
+        <color rgba="0.12 0.15 0.18 1" />
+      </material>
+    </visual>
+    <collision name="pad1_rubber">
+      <origin xyz="0 0 0" rpy="0.0 0.0 0.0" />
+      <geometry>
+        <box size="0.008 0.036 0.05" />
+      </geometry>
+    </collision>
+    <visual name="pad1_bracket">
+      <origin xyz="0.01125 0.0066 -0.028" rpy="0.0 0.0 0.0" />
+      <geometry>
+        <box size="0.0305 0.036 0.006" />
+      </geometry>
+      <material name="pad1_bracket_material">
+        <color rgba="0.65 0.65 0.68 1" />
+      </material>
+    </visual>
+    <collision name="pad1_bracket">
+      <origin xyz="0.01125 0.0066 -0.028" rpy="0.0 0.0 0.0" />
+      <geometry>
+        <box size="0.0305 0.036 0.006" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="pgc140_pad1_mount" type="fixed">
+    <origin xyz="-0.0225 -0.0132 0.037" rpy="0.0 0.0 0.0" />
+    <parent link="pgc140_finger1_link" />
+    <child link="pgc140_pad1" />
+  </joint>
+  <link name="pgc140_pad2">
+    <inertial>
+      <origin xyz="0.0 0.0 -0.01" rpy="0.0 0.0 0.0" />
+      <mass value="0.04" />
+      <inertia ixx="0.000014" ixy="0" ixz="0" iyy="0.000010" iyz="0" izz="0.000007" />
+    </inertial>
+    <visual name="pad2_rubber">
+      <origin xyz="0 0 0" rpy="0.0 0.0 0.0" />
+      <geometry>
+        <box size="0.008 0.036 0.05" />
+      </geometry>
+      <material name="pad2_rubber_material">
+        <color rgba="0.12 0.15 0.18 1" />
+      </material>
+    </visual>
+    <collision name="pad2_rubber">
+      <origin xyz="0 0 0" rpy="0.0 0.0 0.0" />
+      <geometry>
+        <box size="0.008 0.036 0.05" />
+      </geometry>
+    </collision>
+    <visual name="pad2_bracket">
+      <origin xyz="0.01125 0.0066 -0.028" rpy="0.0 0.0 0.0" />
+      <geometry>
+        <box size="0.0305 0.036 0.006" />
+      </geometry>
+      <material name="pad2_bracket_material">
+        <color rgba="0.65 0.65 0.68 1" />
+      </material>
+    </visual>
+    <collision name="pad2_bracket">
+      <origin xyz="0.01125 0.0066 -0.028" rpy="0.0 0.0 0.0" />
+      <geometry>
+        <box size="0.0305 0.036 0.006" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="pgc140_pad2_mount" type="fixed">
+    <origin xyz="-0.0225 -0.0132 0.037" rpy="0.0 0.0 0.0" />
+    <parent link="pgc140_finger2_link" />
+    <child link="pgc140_pad2" />
+  </joint>
+</robot>

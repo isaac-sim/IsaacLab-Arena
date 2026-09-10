@@ -50,9 +50,9 @@ simulation_app = app_launcher.app
 
 
 def _find_irb1200_robotiq_usd_path() -> str:
-    from isaaclab_arena.embodiments.abb.abb_irb1200 import find_irb1200_robotiq_2f140_usd_path
+    from isaaclab_arena.embodiments.abb.abb_irb1200 import find_irb1200_robotiq_2f140_physx_usd_path
 
-    return find_irb1200_robotiq_2f140_usd_path(require_exists=True)
+    return find_irb1200_robotiq_2f140_physx_usd_path(require_exists=True)
 
 
 def main() -> None:

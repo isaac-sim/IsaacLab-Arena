@@ -1,0 +1,212 @@
+#usda 1.0
+(
+    defaultPrim = "abb_irb1200_2f140"
+    metersPerUnit = 1
+    upAxis = "Z"
+)
+
+def Xform "abb_irb1200_2f140" (
+    prepend references = @../../../../isaaclab_arena/assets/robots/abb/irb1200_7_70/irb1200_7_70.usda@</abb_irb1200_7_70>
+)
+{
+    over "Geometry"
+    {
+        over "base_link"
+        {
+            over "link_1"
+            {
+                over "link_2"
+                {
+                    over "link_3"
+                    {
+                        over "link_4"
+                        {
+                            over "link_5"
+                            {
+                                over "link_6"
+                                {
+                                    def Xform "robotiq_mount" (
+                                        prepend references = @gripper/robotiq_2f140.usda@
+                                    )
+                                    {
+                                        quatd xformOp:orient = (0.7071067811865476, 0, 0.7071067811865476, 0)
+                                        uniform token[] xformOpOrder = ["xformOp:orient"]
+
+                                        over "Geometry"
+                                        {
+                                            over "robotiq_arg2f_base_link" (
+                                                delete apiSchemas = ["PhysicsArticulationRootAPI", "NewtonArticulationRootAPI"]
+                                            )
+                                            {
+                                                over "left_outer_knuckle"
+                                                {
+                                                    over "left_outer_finger"
+                                                    {
+                                                        over "left_inner_finger"
+                                                        {
+                                                            over "robotiq_arg2f_140_inner_finger" (
+                                                                instanceable = false
+                                                            )
+                                                            {
+                                                            }
+
+                                                            over "robotiq_arg2f_140_inner_finger_1" (
+                                                                instanceable = false
+                                                            )
+                                                            {
+                                                            }
+                                                        }
+
+                                                        over "robotiq_arg2f_140_outer_finger" (
+                                                            instanceable = false
+                                                        )
+                                                        {
+                                                        }
+
+                                                        over "robotiq_arg2f_140_outer_finger_1" (
+                                                            instanceable = false
+                                                        )
+                                                        {
+                                                        }
+                                                    }
+
+                                                    over "robotiq_arg2f_140_outer_knuckle" (
+                                                        instanceable = false
+                                                    )
+                                                    {
+                                                    }
+
+                                                    over "robotiq_arg2f_140_outer_knuckle_1" (
+                                                        instanceable = false
+                                                    )
+                                                    {
+                                                    }
+                                                }
+
+                                                over "left_inner_knuckle"
+                                                {
+                                                    over "robotiq_arg2f_140_inner_knuckle" (
+                                                        instanceable = false
+                                                    )
+                                                    {
+                                                    }
+
+                                                    over "robotiq_arg2f_140_inner_knuckle_1" (
+                                                        instanceable = false
+                                                    )
+                                                    {
+                                                    }
+                                                }
+
+                                                over "right_outer_knuckle"
+                                                {
+                                                    over "right_outer_finger"
+                                                    {
+                                                        over "right_inner_finger"
+                                                        {
+                                                            over "robotiq_arg2f_140_inner_finger" (
+                                                                instanceable = false
+                                                            )
+                                                            {
+                                                            }
+
+                                                            over "robotiq_arg2f_140_inner_finger_1" (
+                                                                instanceable = false
+                                                            )
+                                                            {
+                                                            }
+                                                        }
+
+                                                        over "robotiq_arg2f_140_outer_finger" (
+                                                            instanceable = false
+                                                        )
+                                                        {
+                                                        }
+
+                                                        over "robotiq_arg2f_140_outer_finger_1" (
+                                                            instanceable = false
+                                                        )
+                                                        {
+                                                        }
+                                                    }
+
+                                                    over "robotiq_arg2f_140_outer_knuckle" (
+                                                        instanceable = false
+                                                    )
+                                                    {
+                                                    }
+
+                                                    over "robotiq_arg2f_140_outer_knuckle_1" (
+                                                        instanceable = false
+                                                    )
+                                                    {
+                                                    }
+                                                }
+
+                                                over "right_inner_knuckle"
+                                                {
+                                                    over "robotiq_arg2f_140_inner_knuckle" (
+                                                        instanceable = false
+                                                    )
+                                                    {
+                                                    }
+
+                                                    over "robotiq_arg2f_140_inner_knuckle_1" (
+                                                        instanceable = false
+                                                    )
+                                                    {
+                                                    }
+                                                }
+
+                                                over "robotiq_arg2f_base_link" (
+                                                    instanceable = false
+                                                )
+                                                {
+                                                }
+
+                                                over "robotiq_arg2f_base_link_1" (
+                                                    instanceable = false
+                                                )
+                                                {
+                                                }
+                                            }
+                                        }
+
+                                        over "Materials"
+                                        {
+                                            over "left_inner_finger_pad_material" (
+                                                instanceable = false
+                                            )
+                                            {
+                                            }
+
+                                            over "right_inner_finger_pad_material" (
+                                                instanceable = false
+                                            )
+                                            {
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    over "Physics"
+    {
+        def PhysicsFixedJoint "robotiq_mount_joint"
+        {
+            rel physics:body0 = </abb_irb1200_2f140/Geometry/base_link/link_1/link_2/link_3/link_4/link_5/link_6>
+            rel physics:body1 = </abb_irb1200_2f140/Geometry/base_link/link_1/link_2/link_3/link_4/link_5/link_6/robotiq_mount/Geometry/robotiq_arg2f_base_link>
+            point3f physics:localPos0 = (0, 0, 0)
+            point3f physics:localPos1 = (0, 0, 0)
+            quatf physics:localRot0 = (0.70710677, 0, 0.70710677, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+        }
+    }
+}
+

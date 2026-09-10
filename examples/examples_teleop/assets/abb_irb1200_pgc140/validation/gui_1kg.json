@@ -1,0 +1,38 @@
+{
+  "success": false,
+  "finished": false,
+  "frames": 248,
+  "simulated_seconds": 4.133333333333324,
+  "contact_backend": "MuJoCo native",
+  "mujoco_cpu": false,
+  "assistance": false,
+  "newton_version": "1.2.1",
+  "warp_version": "1.13.0",
+  "grip_effort_per_finger_N": 100.0,
+  "friction": 0.8,
+  "max_tcp_tracking_error_m": 0.013555740159967924,
+  "cubes": [
+    {
+      "cube": 0,
+      "mass_kg": 1.0,
+      "lifted": false,
+      "transported": false,
+      "placed": false,
+      "max_lift_m": 0.0,
+      "required_airborne_transport_m": 0.21835750502329893,
+      "airborne_transport_m": 0.0,
+      "final_position_m": [
+        0.1599999964237213,
+        0.09000000357627869,
+        0.12489219754934311
+      ],
+      "position_error_m": [
+        0.03999999642372132,
+        0.2700000035762787,
+        -0.00010780245065689087
+      ],
+      "orientation_error_degrees": 0.0,
+      "max_speed_m_s": 0.0030303718522191048
+    }
+  ]
+}

@@ -1,0 +1,37 @@
+{
+  "passed": true,
+  "revolute_joints": 6,
+  "rigid_finger_colliders": 0,
+  "fingers": [
+    {
+      "finger": 0,
+      "particles": 1169,
+      "tets": 4770,
+      "volume_m3": 5.08800039824564e-05,
+      "sampled_cad_to_fem_vertex_max_m": 0.007907896489313816,
+      "sampled_cad_to_fem_vertex_p95_m": 0.0037658464546451507,
+      "sampled_fem_to_cad_vertex_max_m": 0.011272788016147272,
+      "sampled_fem_to_cad_vertex_p95_m": 0.006422246430279346
+    },
+    {
+      "finger": 1,
+      "particles": 1085,
+      "tets": 4554,
+      "volume_m3": 4.857600652030669e-05,
+      "sampled_cad_to_fem_vertex_max_m": 0.008903276053965185,
+      "sampled_cad_to_fem_vertex_p95_m": 0.004402783947753477,
+      "sampled_fem_to_cad_vertex_max_m": 0.011430243056044584,
+      "sampled_fem_to_cad_vertex_p95_m": 0.006329730088294054
+    },
+    {
+      "finger": 2,
+      "particles": 1169,
+      "tets": 4770,
+      "volume_m3": 5.08800039824564e-05,
+      "sampled_cad_to_fem_vertex_max_m": 0.009020495394938825,
+      "sampled_cad_to_fem_vertex_p95_m": 0.003637186693500684,
+      "sampled_fem_to_cad_vertex_max_m": 0.011247552755774525,
+      "sampled_fem_to_cad_vertex_p95_m": 0.00649513483685209
+    }
+  ]
+}

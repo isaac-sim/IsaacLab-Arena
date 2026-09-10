@@ -1,0 +1,156 @@
+#usda 1.0
+(
+    customLayerData = {
+        string creator = "URDF USD Converter v0.1.3"
+    }
+    doc = """Generated from Composed Stage of root layer /tmp/tmpjtz6em99/abb_irb1200_7_70.usdc
+
+
+Generated from Composed Stage of root layer /tmp/urdf_import_irb1200_7_70_pblhhflp/usdex_irb1200_7_70/abb_irb1200_7_70.usdc
+
+
+Generated from Composed Stage of root layer /tmp/urdf_import_irb1200_7_70_pblhhflp/temp_irb1200_7_70/irb1200_7_70.usd
+
+
+Generated from Composed Stage of root layer /workspaces/isaaclab_arena/examples/examples_teleop/assets/abb/abb_irb1200_support_isaac/urdf/irb1200_7_70_1/payloads/base.usd
+"""
+    kilogramsPerUnit = 1
+    metersPerUnit = 1
+    upAxis = "Z"
+)
+
+def Scope "Materials"
+{
+    def Material "colour_abb_white"
+    {
+        color3f inputs:diffuseColor = (0.50769114, 0.50769114, 0.48412114)
+        float inputs:metallic = 0
+        float inputs:opacity = 1
+        float inputs:roughness = 0.5
+        token inputs:wrapMode = "repeat"
+        token outputs:displacement (
+            displayGroup = "Outputs"
+        )
+        prepend token outputs:displacement.connect = </Materials/colour_abb_white/PreviewSurface.outputs:displacement>
+        token outputs:surface (
+            displayGroup = "Outputs"
+        )
+        prepend token outputs:surface.connect = </Materials/colour_abb_white/PreviewSurface.outputs:surface>
+        token outputs:volume (
+            displayGroup = "Outputs"
+        )
+
+        def Shader "PreviewSurface" (
+            apiSchemas = ["NodeDefAPI"]
+        )
+        {
+            token info:id = "UsdPreviewSurface"
+            prepend color3f inputs:diffuseColor.connect = </Materials/colour_abb_white.inputs:diffuseColor>
+            prepend float inputs:metallic.connect = </Materials/colour_abb_white.inputs:metallic>
+            prepend float inputs:opacity.connect = </Materials/colour_abb_white.inputs:opacity>
+            prepend float inputs:roughness.connect = </Materials/colour_abb_white.inputs:roughness>
+            token outputs:displacement
+            token outputs:surface
+        }
+    }
+
+    def Material "abb_yellow"
+    {
+        color3f inputs:diffuseColor = (1, 1, 0)
+        float inputs:metallic = 0
+        float inputs:opacity = 1
+        float inputs:roughness = 0.5
+        token inputs:wrapMode = "repeat"
+        token outputs:displacement (
+            displayGroup = "Outputs"
+        )
+        prepend token outputs:displacement.connect = </Materials/abb_yellow/PreviewSurface.outputs:displacement>
+        token outputs:surface (
+            displayGroup = "Outputs"
+        )
+        prepend token outputs:surface.connect = </Materials/abb_yellow/PreviewSurface.outputs:surface>
+        token outputs:volume (
+            displayGroup = "Outputs"
+        )
+
+        def Shader "PreviewSurface" (
+            apiSchemas = ["NodeDefAPI"]
+        )
+        {
+            token info:id = "UsdPreviewSurface"
+            prepend color3f inputs:diffuseColor.connect = </Materials/abb_yellow.inputs:diffuseColor>
+            prepend float inputs:metallic.connect = </Materials/abb_yellow.inputs:metallic>
+            prepend float inputs:opacity.connect = </Materials/abb_yellow.inputs:opacity>
+            prepend float inputs:roughness.connect = </Materials/abb_yellow.inputs:roughness>
+            token outputs:displacement
+            token outputs:surface
+        }
+    }
+
+    def Material "colour_abb_red_logo"
+    {
+        color3f inputs:diffuseColor = (0.43461475, 0.0020498312, 0.0031755143)
+        float inputs:metallic = 0
+        float inputs:opacity = 1
+        float inputs:roughness = 0.5
+        token inputs:wrapMode = "repeat"
+        token outputs:displacement (
+            displayGroup = "Outputs"
+        )
+        prepend token outputs:displacement.connect = </Materials/colour_abb_red_logo/PreviewSurface.outputs:displacement>
+        token outputs:surface (
+            displayGroup = "Outputs"
+        )
+        prepend token outputs:surface.connect = </Materials/colour_abb_red_logo/PreviewSurface.outputs:surface>
+        token outputs:volume (
+            displayGroup = "Outputs"
+        )
+
+        def Shader "PreviewSurface" (
+            apiSchemas = ["NodeDefAPI"]
+        )
+        {
+            token info:id = "UsdPreviewSurface"
+            prepend color3f inputs:diffuseColor.connect = </Materials/colour_abb_red_logo.inputs:diffuseColor>
+            prepend float inputs:metallic.connect = </Materials/colour_abb_red_logo.inputs:metallic>
+            prepend float inputs:opacity.connect = </Materials/colour_abb_red_logo.inputs:opacity>
+            prepend float inputs:roughness.connect = </Materials/colour_abb_red_logo.inputs:roughness>
+            token outputs:displacement
+            token outputs:surface
+        }
+    }
+
+    def Material "colour_abb_black"
+    {
+        color3f inputs:diffuseColor = (0.009134057, 0.009721216, 0.010329826)
+        float inputs:metallic = 0
+        float inputs:opacity = 1
+        float inputs:roughness = 0.5
+        token inputs:wrapMode = "repeat"
+        token outputs:displacement (
+            displayGroup = "Outputs"
+        )
+        prepend token outputs:displacement.connect = </Materials/colour_abb_black/PreviewSurface.outputs:displacement>
+        token outputs:surface (
+            displayGroup = "Outputs"
+        )
+        prepend token outputs:surface.connect = </Materials/colour_abb_black/PreviewSurface.outputs:surface>
+        token outputs:volume (
+            displayGroup = "Outputs"
+        )
+
+        def Shader "PreviewSurface" (
+            apiSchemas = ["NodeDefAPI"]
+        )
+        {
+            token info:id = "UsdPreviewSurface"
+            prepend color3f inputs:diffuseColor.connect = </Materials/colour_abb_black.inputs:diffuseColor>
+            prepend float inputs:metallic.connect = </Materials/colour_abb_black.inputs:metallic>
+            prepend float inputs:opacity.connect = </Materials/colour_abb_black.inputs:opacity>
+            prepend float inputs:roughness.connect = </Materials/colour_abb_black.inputs:roughness>
+            token outputs:displacement
+            token outputs:surface
+        }
+    }
+}
+
