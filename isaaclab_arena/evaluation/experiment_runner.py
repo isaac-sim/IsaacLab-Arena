@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -23,8 +24,11 @@ from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppCont
 from isaaclab_arena.video.video_recording import timestamped_run_dir
 
 if TYPE_CHECKING:
+    import gymnasium as gym
+
     from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
-    from isaaclab_arena.evaluation.arena_run import ArenaRunResult
+    from isaaclab_arena.evaluation.arena_run import ArenaRunCfg, ArenaRunResult
+    from isaaclab_arena.evaluation.datagen_collector import DatagenCollectorBase
 
 
 # TODO(cvolk): Move experiment-level variation inspection out of this CLI entry point.
@@ -95,7 +99,7 @@ def _write_arena_experiment_result(
     return ArenaExperimentResult(experiment_output_directory, run_metadata_by_name).write()
 
 
-def main(datagen_collector_factory=None):
+def main(datagen_collector_factory: Callable[[ArenaRunCfg, gym.Env], DatagenCollectorBase] | None = None) -> None:
     """Run an Arena Experiment (one or more typed or legacy-JSON Runs).
 
     Args:
