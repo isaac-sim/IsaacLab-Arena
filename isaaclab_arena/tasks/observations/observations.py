@@ -3,34 +3,26 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-import torch
+from __future__ import annotations
 
-import warp as wp
-from isaaclab.assets import RigidObject
-from isaaclab.envs import ManagerBasedRLEnv
+import torch
+from typing import TYPE_CHECKING
+
 from isaaclab.managers import SceneEntityCfg
 from isaaclab.utils.math import subtract_frame_transforms
 
-
-def object_position_in_world_frame(
-    env: ManagerBasedRLEnv,
-    asset_cfg: SceneEntityCfg = SceneEntityCfg("object"),
-) -> torch.Tensor:
-    """Observation the position of the object in the world frame."""
-    object = env.scene[asset_cfg.name]
-    return wp.to_torch(object.data.root_pos_w)
+if TYPE_CHECKING:
+    from isaaclab_arena.environments.isaaclab_arena_manager_based_env import IsaacLabArenaManagerBasedRLEnv
 
 
 def object_position_in_frame(
-    env: ManagerBasedRLEnv,
+    env: IsaacLabArenaManagerBasedRLEnv,
     root_frame_cfg: SceneEntityCfg,
     object_cfg: SceneEntityCfg = SceneEntityCfg("object"),
 ) -> torch.Tensor:
-    """The position of the object in the robot's root frame."""
-    root_frame: RigidObject = env.scene[root_frame_cfg.name]
-    object: RigidObject = env.scene[object_cfg.name]
-    object_pos_w = wp.to_torch(object.data.root_pos_w)[:, :3]
-    object_pos_b, _ = subtract_frame_transforms(
-        wp.to_torch(root_frame.data.root_pos_w), wp.to_torch(root_frame.data.root_quat_w), object_pos_w
-    )
-    return object_pos_b
+    """Return the object's position in the requested root frame."""
+    arena_world = env.arena_world
+    T_W_R = arena_world.get_pose_w(root_frame_cfg.name)
+    object_position_w = arena_world.get_position_w(object_cfg.name)
+    object_position_in_root_frame, _ = subtract_frame_transforms(T_W_R[:, :3], T_W_R[:, 3:], object_position_w)
+    return object_position_in_root_frame

@@ -158,7 +158,6 @@ def _check_object_on_destination(
         root_linear_velocities_w_by_scene_key={"object": object_root_linear_velocity_w},
     )
     env = EnvironmentDouble(arena_world, ContactSensorDouble(contact_force_w))
-    wrapped_env = SimpleNamespace(unwrapped=env)
     object_cfg = scene_entity_cfg_type("object")
     destination_cfg = scene_entity_cfg_type("destination")
     contact_sensor_cfg = scene_entity_cfg_type("contact_sensor")
@@ -172,10 +171,10 @@ def _check_object_on_destination(
     }
 
     # Each failing environment isolates one condition: geometry, force direction, or velocity.
-    predicate_result = spatial.object_on_destination(wrapped_env, **predicate_parameters)
+    predicate_result = spatial.object_on_destination(env, **predicate_parameters)
     torch.testing.assert_close(predicate_result, torch.tensor([True, False, False, False]))
 
-    # Exercise the unwrapped call path with changed live state.
+    # Exercise a second query with changed live state.
     T_W_O[0, 0] = 2.0
     assert not spatial.object_on_destination(env, **predicate_parameters)[0]
     assert arena_world.pose_queries == ["object", "destination", "object", "destination"]

@@ -8,7 +8,7 @@ import isaaclab.sim as sim_utils
 from isaaclab.assets import ArticulationCfg
 from pxr import Usd
 
-from isaaclab_arena.assets.object_base import ObjectType
+from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.utils.usd.rigid_bodies import apply_usd_variant_selections
 from isaaclab_arena.utils.usd_helpers import get_prim_depth, is_articulation_root, is_rigid_body
 

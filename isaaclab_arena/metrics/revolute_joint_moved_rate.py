@@ -76,7 +76,12 @@ class RevoluteJointMovedRateMetric(MetricBase):
     name = "revolute_joint_moved_rate"
     recorder_term_name = "revolute_joint_state"
 
-    def __init__(self, object: Openable, reset_joint_percentage: float, joint_percentage_delta_threshold: float = 0.05):
+    def __init__(
+        self,
+        object: Openable,
+        reset_joint_percentage: float,
+        joint_percentage_delta_threshold: float,
+    ):
         """Initializes the door-moved rate metric.
 
         Args:

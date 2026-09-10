@@ -1,7 +1,7 @@
 G1 Loco-Manipulation Box Pick and Place Task
 ============================================
 
-This example demonstrates the complete workflow for the **G1 loco-manipulation box pick and place task** in Isaac Lab - Arena, covering environment setup and validation, teleoperation data collection (OpenXR with Meta Quest 3), data generation, policy post-training, and closed-loop evaluation.
+This example demonstrates the complete workflow for the **G1 loco-manipulation box pick and place task**. The environment is built and validated in Isaac Lab Arena, then passed to Isaac Lab for teleoperation data collection (OpenXR with Meta Quest 3) and data generation with Isaac Lab Mimic; the policy is post-trained with Isaac-GR00T and evaluated in closed loop back in Isaac Lab Arena.
 
 .. image:: ../../../images/g1_galileo_arena_box_pnp_locomanip.gif
    :align: center
@@ -39,7 +39,7 @@ including lower body locomotion, squatting, and bimanual manipulation.
    * - **Policy**
      - GR00T N1.6 (vision-language-action foundation model)
    * - **Post-training**
-     - Imitation Learning
+     - Imitation Learning — post-trained with **Isaac-GR00T**
    * - **Dataset**
      - `Arena-G1-Loco-Manipulation-Task <https://huggingface.co/datasets/nvidia/Arena-G1-Loco-Manipulation-Task>`_
    * - **Checkpoint**
@@ -56,8 +56,9 @@ including lower body locomotion, squatting, and bimanual manipulation.
 Workflow
 --------
 
-This tutorial covers the pipeline between creating an environment, collecting teleoperation demonstrations, generating training data,
-fine-tuning a policy (GR00T N1.6), and evaluating the policy in closed-loop.
+This tutorial covers the pipeline between creating an environment in Isaac Lab Arena, collecting
+teleoperation demonstrations and generating training data through Isaac Lab,
+fine-tuning a policy (GR00T N1.6), and evaluating the policy in closed-loop in Isaac Lab Arena.
 A user can follow the whole pipeline, or can start at any intermediate step
 by downloading the pre-generated output of the preceding step(s), which we provide
 (described in the relevant step below).

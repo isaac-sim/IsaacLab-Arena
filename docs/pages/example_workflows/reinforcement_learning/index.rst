@@ -1,7 +1,7 @@
 Franka Lift Object Task
 ========================
 
-This example demonstrates the complete workflow for **reinforcement learning-based object lifting** using the Franka Panda robot in Isaac Lab - Arena, covering environment setup, policy training with RSL-RL, and closed-loop evaluation.
+This example demonstrates the complete workflow for **reinforcement learning-based object lifting** with the Franka Panda robot. The environment is built in Isaac Lab Arena and passed to Isaac Lab for policy training with RSL-RL, and the resulting checkpoint is evaluated in closed loop in Isaac Lab Arena.
 
 .. image:: ../../../images/lift_object_rl_task.gif
    :align: center
@@ -35,7 +35,7 @@ Task Overview
    * - **Policy**
      - RSL-RL PPO (learned from scratch)
    * - **Training Method**
-     - Reinforcement Learning (on-policy PPO)
+     - Reinforcement Learning (on-policy PPO) — trained in **Isaac Lab**
    * - **Physics**
      - PhysX (50Hz @ 2 decimation)
    * - **Closed-loop**
@@ -49,9 +49,10 @@ Task Overview
 Workflow
 --------
 
-This tutorial covers the pipeline for creating an RL environment, training a policy using RSL-RL,
-and evaluating the trained policy in closed-loop. A user can follow the whole pipeline, or can start
-at any intermediate step by using the provided checkpoints.
+This tutorial covers the pipeline for creating an RL environment in Isaac Lab Arena, passing it to
+Isaac Lab to train a policy using RSL-RL, and evaluating the trained policy in closed-loop in
+Isaac Lab Arena. A user can follow the whole pipeline, or can start at any intermediate step by
+using the provided checkpoints.
 
 Prerequisites
 ^^^^^^^^^^^^^

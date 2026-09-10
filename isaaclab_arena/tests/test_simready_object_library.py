@@ -79,7 +79,7 @@ def test_simready_search_registry_name_derives_an_identifier_from_the_phrase():
 
 
 def test_register_searched_simready_object_makes_it_a_catalogue_entry():
-    from isaaclab_arena.assets.object_base import ObjectType
+    from isaaclab_arena.assets.object_type import ObjectType
     from isaaclab_arena.assets.simready_object_library import register_searched_simready_object
 
     ensure_assets_registered()

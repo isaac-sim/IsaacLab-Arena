@@ -12,7 +12,7 @@ from collections.abc import Sequence
 from typing import Any
 
 from isaaclab_arena.assets.object import Object
-from isaaclab_arena.assets.object_base import ObjectType
+from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.assets.registries import AssetRegistry
 from isaaclab_arena.assets.simready_constants import (
