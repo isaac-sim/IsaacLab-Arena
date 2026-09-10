@@ -1,0 +1,315 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+"""Visually exercise grasping, object motion, success, and reset in gear insertion."""
+
+from __future__ import annotations
+
+import argparse
+
+# This configuration starts the Robotiq fingers above the work surface with the
+# gripper pointing down. It keeps the deliberately rough scripted motion short.
+_DEMO_START_JOINT_POS = (
+    0.07864274298115631,
+    0.3298062995394371,
+    0.044335304471795095,
+    -2.5311067752004224,
+    -0.05172078111771767,
+    2.860254870341865,
+    0.17028217529806985,
+)
+
+_ROBOTIQ_BASE_TO_GRASP_M = 0.1545
+_GRASP_HEIGHT_OFFSET_M = 0.008
+_PREGRASP_DISTANCE_M = 0.08
+_LIFT_DISTANCE_M = 0.12
+_MAX_TRANSLATION_PER_STEP_M = 0.006
+_POSITION_TOLERANCE_M = 0.008
+
+
+def _make_environment(variant: str):
+    """Build one visual gear environment using its relative-IK embodiment."""
+    from isaaclab_visualizers.kit import KitVisualizerCfg
+
+    from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
+    from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
+    from isaaclab_arena_environments.isaac_cap.gear_insertion.embodiment import (
+        IndustrialFr3Robotiq2f85DifferentialIKEmbodiment,
+    )
+    from isaaclab_arena_environments.isaac_cap.gear_insertion.gear_medium_environment import (
+        GearInsertionEasyNewtonEnvironment,
+        GearInsertionEasyNewtonEnvironmentCfg,
+        GearInsertionNewtonEnvironment,
+        GearInsertionNewtonEnvironmentCfg,
+    )
+
+    factory, cfg_type = (
+        (GearInsertionEasyNewtonEnvironment(), GearInsertionEasyNewtonEnvironmentCfg)
+        if variant == "easy"
+        else (GearInsertionNewtonEnvironment(), GearInsertionNewtonEnvironmentCfg)
+    )
+    arena_environment = factory.build(cfg_type())
+
+    # The normal smoke environment intentionally retains Cap's absolute joint
+    # actions. This demo alone swaps to relative Cartesian commands so the
+    # approach, grasp, and lift can be expressed as a few rough waypoints.
+    initial_pose = arena_environment.embodiment.get_initial_pose()
+    arena_environment.embodiment = IndustrialFr3Robotiq2f85DifferentialIKEmbodiment(
+        initial_pose=initial_pose,
+        initial_joint_pose=list(_DEMO_START_JOINT_POS),
+    )
+
+    builder = ArenaEnvBuilder(
+        arena_environment,
+        ArenaEnvBuilderCfg(num_envs=1, solve_relations=True),
+    )
+    env_cfg, env_kwargs = builder.compose_manager_cfg()
+    env_cfg.sim.default_visualizer_cfg = KitVisualizerCfg(
+        eye=(1.05, -1.25, 1.25),
+        lookat=(0.0, -0.05, 0.82),
+        origin_type="world",
+    )
+    return builder.make_registered(env_cfg, env_kwargs)
+
+
+class GearValidationDemo:
+    """Run one repeated validation sequence against a wrapped Arena environment."""
+
+    def __init__(self, simulation_app, env, *, real_time: bool, pause_steps: int) -> None:
+        import torch
+
+        from isaaclab_arena.utils.rate_limiter import RateLimiter
+
+        self.simulation_app = simulation_app
+        self.env = env
+        self.base_env = env.unwrapped
+        self.pause_steps = pause_steps
+        self.torch = torch
+        self.rate_limiter = RateLimiter(self.base_env.step_dt) if real_time else None
+
+        action_manager = self.base_env.action_manager
+        assert action_manager.active_terms == [
+            "arm_action",
+            "gripper_action",
+        ], f"Unexpected action terms: {action_manager.active_terms}."
+        assert action_manager.total_action_dim == 7, (
+            "The validation demo requires six relative IK commands and one gripper command; "
+            f"got {action_manager.total_action_dim} actions."
+        )
+        self.arm_action = action_manager.get_term("arm_action")
+        self.robot = self.base_env.scene["robot"]
+        body_ids, _ = self.robot.find_bodies("robotiq_base")
+        assert len(body_ids) == 1, f"Expected one robotiq_base body, got {body_ids}."
+        self.ee_body_id = int(body_ids[0])
+
+        success_cfg = self.base_env.termination_manager.get_term_cfg("success")
+        self.success_term = success_cfg.func
+        self.plate_name = success_cfg.params["plate_asset_cfg"].name
+        self.gear_names = tuple(cfg.name for cfg in success_cfg.params["gear_asset_cfgs"])
+        self.target_offsets_xyz = tuple(success_cfg.params["target_offsets_xyz"])
+
+    def _is_running(self) -> bool:
+        return self.simulation_app.is_running() and not self.simulation_app.is_exiting()
+
+    def _ee_position(self):
+        return self.robot.data.body_pos_w.torch[:, self.ee_body_id].clone()
+
+    def _action(self, translation_delta_w=None, *, gripper_closed: bool):
+        """Build a relative-IK action, converting world translation into robot-base coordinates."""
+        import isaaclab.utils.math as math_utils
+
+        action = self.torch.zeros(
+            (1, self.base_env.action_manager.total_action_dim),
+            device=self.base_env.device,
+        )
+        if translation_delta_w is not None:
+            delta_b = math_utils.quat_apply_inverse(
+                self.robot.data.root_quat_w.torch,
+                translation_delta_w,
+            )
+            distance = self.torch.linalg.vector_norm(delta_b, dim=-1, keepdim=True)
+            fraction = self.torch.clamp(_MAX_TRANSLATION_PER_STEP_M / distance.clamp_min(1.0e-9), max=1.0)
+            scaled_delta_b = delta_b * fraction
+            action[:, :3] = scaled_delta_b / self.arm_action._scale[:, :3]
+        action[:, -1] = float(gripper_closed)
+        return action
+
+    def _step(self, action) -> bool:
+        """Step once and return whether the environment terminated or timed out."""
+        if not self._is_running():
+            raise KeyboardInterrupt
+        _, _, terminated, truncated, _ = self.env.step(action)
+        if self.rate_limiter is not None:
+            self.rate_limiter.sleep()
+        return bool((terminated | truncated)[0])
+
+    def _hold(self, steps: int, *, gripper_closed: bool) -> bool:
+        return any(self._step(self._action(gripper_closed=gripper_closed)) for _ in range(steps))
+
+    def _move_to(self, target_position_w, *, gripper_closed: bool, label: str) -> bool:
+        """Drive toward one Cartesian position and return whether the episode ended."""
+        for _ in range(240):
+            error_w = target_position_w - self._ee_position()
+            if float(self.torch.linalg.vector_norm(error_w)) <= _POSITION_TOLERANCE_M:
+                return self._hold(10, gripper_closed=gripper_closed)
+            if self._step(self._action(error_w, gripper_closed=gripper_closed)):
+                return True
+        error = float(self.torch.linalg.vector_norm(target_position_w - self._ee_position()))
+        raise RuntimeError(f"Timed out during {label}; end-effector position error is {error:.3f} m.")
+
+    def _teleport(self, asset_name: str, pose_w) -> None:
+        asset = self.base_env.scene[asset_name]
+        env_ids = self.torch.tensor([0], device=self.base_env.device, dtype=self.torch.int32)
+        asset.write_root_pose_to_sim_index(root_pose=pose_w, env_ids=env_ids)
+        asset.write_root_velocity_to_sim_index(
+            root_velocity=self.torch.zeros((1, 6), device=self.base_env.device),
+            env_ids=env_ids,
+        )
+
+    def _put_first_gear_under_gripper(self) -> None:
+        """Move the first gear beneath the pre-positioned downward gripper."""
+        gear = self.base_env.scene[self.gear_names[0]]
+        pose_w = gear.data.root_link_pose_w.torch.clone()
+        pose_w[:, :2] = self._ee_position()[:, :2]
+        self._teleport(self.gear_names[0], pose_w)
+
+    def _successful_pose(self, gear_index: int):
+        """Return the exact task target pose for one gear."""
+        import isaaclab.utils.math as math_utils
+
+        plate = self.base_env.scene[self.plate_name]
+        plate_pos_w = plate.data.root_link_pos_w.torch
+        plate_quat_w = plate.data.root_link_quat_w.torch
+        offset = self.torch.tensor(
+            [self.target_offsets_xyz[gear_index]],
+            device=self.base_env.device,
+            dtype=plate_pos_w.dtype,
+        )
+        target_pos_w = plate_pos_w + math_utils.quat_apply(plate_quat_w, offset)
+        return self.torch.cat((target_pos_w, plate_quat_w), dim=-1)
+
+    def run_cycle(self, cycle: int) -> None:
+        """Grasp/drop one gear, then place all gears and require a success reset."""
+        print(f"[gear-validation] cycle {cycle}: settling", flush=True)
+        if self._hold(30, gripper_closed=False):
+            raise RuntimeError("Environment ended unexpectedly while settling.")
+
+        self._put_first_gear_under_gripper()
+        if self._hold(20, gripper_closed=False):
+            raise RuntimeError("Environment ended unexpectedly while positioning the grasp gear.")
+
+        grasp_gear = self.base_env.scene[self.gear_names[0]]
+        grasp_position = grasp_gear.data.root_link_pos_w.torch.clone()
+        grasp_position[:, 2] += _ROBOTIQ_BASE_TO_GRASP_M + _GRASP_HEIGHT_OFFSET_M
+        pregrasp_position = grasp_position.clone()
+        pregrasp_position[:, 2] += _PREGRASP_DISTANCE_M
+
+        print(f"[gear-validation] cycle {cycle}: approach and grasp {self.gear_names[0]}", flush=True)
+        if self._move_to(pregrasp_position, gripper_closed=False, label="pregrasp"):
+            raise RuntimeError("Environment ended unexpectedly during pregrasp.")
+        if self._move_to(grasp_position, gripper_closed=False, label="descent"):
+            raise RuntimeError("Environment ended unexpectedly during descent.")
+
+        close_steps = max(30, round(1.5 / self.base_env.step_dt))
+        if self._hold(close_steps, gripper_closed=True):
+            raise RuntimeError("Environment ended unexpectedly while closing the gripper.")
+
+        gear_z_before_lift = float(grasp_gear.data.root_link_pos_w.torch[0, 2])
+        lift_position = grasp_position.clone()
+        lift_position[:, 2] += _LIFT_DISTANCE_M
+        print(f"[gear-validation] cycle {cycle}: lift, open, and drop", flush=True)
+        if self._move_to(lift_position, gripper_closed=True, label="lift"):
+            raise RuntimeError("Environment ended unexpectedly during lift.")
+        if self._hold(self.pause_steps, gripper_closed=True):
+            raise RuntimeError("Environment ended unexpectedly while displaying the lift.")
+
+        gear_z_after_lift = float(grasp_gear.data.root_link_pos_w.torch[0, 2])
+        print(
+            f"[gear-validation] physical lift displacement: {gear_z_after_lift - gear_z_before_lift:.3f} m",
+            flush=True,
+        )
+        if self._hold(max(30, round(0.75 / self.base_env.step_dt)), gripper_closed=False):
+            raise RuntimeError("Environment ended unexpectedly while dropping the gear.")
+        if self._move_to(pregrasp_position, gripper_closed=False, label="retreat"):
+            raise RuntimeError("Environment ended unexpectedly during retreat.")
+
+        for gear_index, gear_name in enumerate(self.gear_names):
+            print(
+                f"[gear-validation] cycle {cycle}: teleport {gear_name} to target "
+                f"({gear_index + 1}/{len(self.gear_names)})",
+                flush=True,
+            )
+            self._teleport(gear_name, self._successful_pose(gear_index))
+            if gear_index < len(self.gear_names) - 1:
+                if self._hold(self.pause_steps, gripper_closed=False):
+                    raise RuntimeError("Environment reported success before every gear was placed.")
+                continue
+
+            # The task requires ten consecutive successful frames. The normal
+            # environment reset must fire; a manual reset would hide a broken
+            # success predicate or reset path.
+            for _ in range(max(self.pause_steps, 60)):
+                if self._step(self._action(gripper_closed=False)):
+                    print(f"[gear-validation] cycle {cycle}: success reset observed", flush=True)
+                    return
+
+        diagnostics = {
+            name: values[0].tolist() if values.ndim > 1 else values[0].item()
+            for name, values in self.success_term.diagnostics_per_gear.items()
+        }
+        raise RuntimeError(f"Final placement did not trigger the environment reset: {diagnostics}")
+
+
+def run_demo(simulation_app, *, variant: str, cycles: int, real_time: bool, pause_steps: int) -> None:
+    """Run validation cycles until Kit closes or the requested count completes."""
+    assert cycles >= 0, "cycles must be non-negative; zero means repeat until Kit closes."
+    assert pause_steps >= 1, "pause_steps must be positive."
+    env = _make_environment(variant)
+    try:
+        env.reset()
+        demo = GearValidationDemo(
+            simulation_app,
+            env,
+            real_time=real_time,
+            pause_steps=pause_steps,
+        )
+        cycle = 1
+        while simulation_app.is_running() and not simulation_app.is_exiting() and (cycles == 0 or cycle <= cycles):
+            demo.run_cycle(cycle)
+            cycle += 1
+    except KeyboardInterrupt:
+        print("\n[gear-validation] exiting", flush=True)
+    finally:
+        env.close()
+
+
+def main() -> None:
+    """Launch the visual validation demo."""
+    from isaaclab.app import AppLauncher
+
+    from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
+
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("variant", nargs="?", choices=("easy", "medium"), default="medium")
+    parser.add_argument("--cycles", type=int, default=0, help="Cycles to run; zero repeats until Kit closes.")
+    parser.add_argument("--pause-steps", type=int, default=30, help="Frames shown between each teleported gear.")
+    parser.add_argument("--no-real-time", action="store_true", help="Run without wall-clock rate limiting.")
+    AppLauncher.add_app_launcher_args(parser)
+    parser.set_defaults(visualizer=["kit"])
+    args = parser.parse_args()
+    args.limit_cpu_threads = 1
+
+    with SimulationAppContext(args) as simulation_app:
+        run_demo(
+            simulation_app,
+            variant=args.variant,
+            cycles=args.cycles,
+            real_time=not args.no_real_time,
+            pause_steps=args.pause_steps,
+        )
+
+
+if __name__ == "__main__":
+    main()
