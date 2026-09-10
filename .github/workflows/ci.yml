@@ -285,8 +285,7 @@ jobs:
 
     container:
       # The cuRobo-enabled image (built with ./docker/run_docker.sh -c / push_to_ngc.sh -c).
-      # TODO(peterd, 2026-08-31): Restore :curobo after the official Lab 3.0 GA CI image is published.
-      image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:peterd-lab3-ga-curobo-ae8a9aa3db
+      image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:curobo
       credentials:
         username: $oauthtoken
         password: ${{ env.NGC_API_KEY }}
