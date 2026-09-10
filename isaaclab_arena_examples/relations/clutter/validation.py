@@ -13,7 +13,7 @@ from dataclasses import dataclass, field
 
 from isaaclab.utils.math import quat_error_magnitude
 
-from isaaclab_arena.relations.clutter_drop_poses import ClutterRegion
+from isaaclab_arena_examples.relations.clutter.drop_poses import ClutterRegion
 
 
 @dataclass
@@ -42,10 +42,10 @@ class ClutterSettleParams:
     """How far outside the region an object may rest before it counts as fallen off."""
 
     passive_move_thresh_m: float = 0.002
-    """Maximum passive-body displacement from its reset pose over the entire preparation."""
+    """Maximum passive-body displacement from its reset pose over the offline trial."""
 
     passive_turn_thresh_deg: float = 2.0
-    """Maximum passive-body rotation from its reset pose over the entire preparation."""
+    """Maximum passive-body rotation from its reset pose over the offline trial."""
 
     def __post_init__(self) -> None:
         assert math.isfinite(self.timeout_s) and self.timeout_s > 0, "timeout_s must be finite and positive"
@@ -69,19 +69,16 @@ class ClutterSettleParams:
 
 @dataclass
 class ClutterRestVerdict:
-    """Failure indices for N clutter members.
-
-    D, T and F are the numbers of diverged, fallen-through and out-of-bounds members.
-    """
+    """Indices of clutter members that failed containment checks."""
 
     diverged: list[int] = field(default_factory=list)
-    """Indices of non-finite poses, shape (D,)."""
+    """Indices of non-finite poses."""
 
     fell_through: list[int] = field(default_factory=list)
-    """Indices below the support surface, shape (T,)."""
+    """Indices below the support surface."""
 
     fell_off: list[int] = field(default_factory=list)
-    """Indices outside the support footprint, shape (F,)."""
+    """Indices outside the support footprint."""
 
     @property
     def ok(self) -> bool:
@@ -117,6 +114,8 @@ class SettleTracker:
         self._params = params or ClutterSettleParams()
         self._previous: tuple[torch.Tensor, torch.Tensor] | None = None
         self._quiet_windows = 0
+        self._diverged: list[int] = []
+        self._moving: list[int] = []
 
     @property
     def settled(self) -> bool:
@@ -128,6 +127,21 @@ class SettleTracker:
         """How many consecutive quiet polls have been seen."""
         return self._quiet_windows
 
+    @property
+    def diverged(self) -> bool:
+        """Whether the latest sample contains non-finite poses."""
+        return bool(self._diverged)
+
+    def failure_reason(self, names: list[str]) -> str | None:
+        """Describe why the current window is not settled, naming affected objects."""
+        if self._diverged:
+            return "non-finite poses: " + ", ".join(names[i] for i in self._diverged)
+        if self.settled:
+            return None
+        if self._moving:
+            return "still moving: " + ", ".join(names[i] for i in self._moving)
+        return f"insufficient quiet windows: {self._quiet_windows}/{self._params.required_quiet_windows}"
+
     def update(self, positions: torch.Tensor, rotations: torch.Tensor) -> bool:
         """Record a snapshot and return whether enough quiet windows have elapsed.
 
@@ -135,21 +149,22 @@ class SettleTracker:
             positions: Object positions, shape (N, 3).
             rotations: Object quaternions (x, y, z, w), shape (N, 4).
         """
-        if not bool(torch.isfinite(positions).all() and torch.isfinite(rotations).all()):
+        finite = torch.isfinite(positions).all(dim=-1) & torch.isfinite(rotations).all(dim=-1)
+        self._diverged = (~finite).nonzero().flatten().tolist()
+        self._moving = []
+        if self._diverged:
             self._quiet_windows = 0
             self._previous = None
             return False
-
         if self._previous is None:
             self._previous = (positions.clone(), rotations.clone())
             return False
-
         previous_positions, previous_rotations = self._previous
-        moved = float((positions - previous_positions).norm(dim=-1).max())
-        turned = float(torch.rad2deg(quat_error_magnitude(rotations, previous_rotations)).max())
-        quiet = moved <= self._params.move_thresh_m and turned <= self._params.turn_thresh_deg
-
-        self._quiet_windows = self._quiet_windows + 1 if quiet else 0
+        distance = (positions - previous_positions).norm(dim=-1)
+        angle = torch.rad2deg(quat_error_magnitude(rotations, previous_rotations))
+        moving = (distance > self._params.move_thresh_m) | (angle > self._params.turn_thresh_deg)
+        self._moving = moving.nonzero().flatten().tolist()
+        self._quiet_windows = 0 if self._moving else self._quiet_windows + 1
         self._previous = (positions.clone(), rotations.clone())
         return self.settled
 

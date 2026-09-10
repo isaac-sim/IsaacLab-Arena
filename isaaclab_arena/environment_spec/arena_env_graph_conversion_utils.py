@@ -182,21 +182,30 @@ def _instantiate_object_reference(
     return _AFFORDANCE_REFERENCE_CLASSES[joint_param_names[0]](**common_kwargs)
 
 
-def _apply_initial_pose(asset: Asset, value: Any) -> None:
+def _apply_initial_pose(asset: Asset, value: Any, *, create_reset_event: bool = True) -> None:
     """Apply a YAML ``params.initial_pose`` through the asset's pose and reset API."""
     if value is None:
         return
     assert isinstance(value, dict), "initial_pose must be a mapping"
     assert not (set(value) - {"position_xyz", "rotation_xyzw"}), "Unknown initial_pose fields"
-    position = value.get("position_xyz", (0.0, 0.0, 0.0))
-    rotation = value.get("rotation_xyzw", (0.0, 0.0, 0.0, 1.0))
+    if "position_xyz" not in value or "rotation_xyzw" not in value:
+        declared = asset.get_initial_pose()
+        assert declared is None or isinstance(declared, Pose), "Partial initial_pose requires a fixed default pose"
+        default = declared if declared is not None else Pose.identity()
+        position = value.get("position_xyz", default.position_xyz)
+        rotation = value.get("rotation_xyzw", default.rotation_xyzw)
+    else:
+        position, rotation = value["position_xyz"], value["rotation_xyzw"]
     for name, values, size in (("position_xyz", position, 3), ("rotation_xyzw", rotation, 4)):
         assert isinstance(values, (list, tuple)) and len(values) == size, f"{name} needs {size} numbers"
         assert all(
             isinstance(v, Real) and not isinstance(v, bool) and math.isfinite(v) for v in values
         ), f"{name} must contain finite numbers"
     assert math.isclose(sum(v * v for v in rotation), 1.0, abs_tol=1e-4), "rotation_xyzw must be a unit quaternion"
-    asset.set_initial_pose(Pose(tuple(float(v) for v in position), tuple(float(v) for v in rotation)))
+    asset.set_initial_pose(
+        Pose(tuple(float(v) for v in position), tuple(float(v) for v in rotation)),
+        create_reset_event=create_reset_event,
+    )
 
 
 def instantiate_assets_from_spec(
@@ -213,7 +222,7 @@ def instantiate_assets_from_spec(
         **embodiment_params
     )
 
-    _apply_initial_pose(assets_by_node_id[graph_spec.embodiment.id], embodiment_pose)
+    _apply_initial_pose(assets_by_node_id[graph_spec.embodiment.id], embodiment_pose, create_reset_event=False)
 
     background_params = dict(graph_spec.background.params)
     background_pose = background_params.pop("initial_pose", None)

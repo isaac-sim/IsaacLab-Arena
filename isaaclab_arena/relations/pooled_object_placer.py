@@ -6,12 +6,10 @@
 from __future__ import annotations
 
 import torch
-from collections.abc import Callable
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.relations.bounding_box_helpers import has_heterogeneous_objects
-from isaaclab_arena.relations.clutter_groups import is_clutter_member
 from isaaclab_arena.relations.object_placer import ObjectPlacer
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_result import PlacementResult
@@ -20,8 +18,6 @@ from isaaclab_arena.utils.random import get_rngs
 if TYPE_CHECKING:
     from isaaclab_arena.relations.collision_object import CollisionObject
     from isaaclab_arena.relations.placement_asset import PlaceableAsset
-    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
-    from isaaclab_arena.utils.pose import Pose
 
 
 @dataclass
@@ -94,16 +90,13 @@ class PooledObjectPlacer:
         self._placer = ObjectPlacer(params=replace(placer_params, apply_positions_to_objects=False))
         self._pool_size = pool_size
         self._had_fallbacks = False
-        self._allow_best_loss_fallbacks = placer_params.allow_best_loss_fallbacks and not any(
-            is_clutter_member(asset) for asset in objects
-        )
+        self._allow_best_loss_fallbacks = placer_params.allow_best_loss_fallbacks
         self._base_placement_seed = placer_params.placement_seed
         self._next_seed_offset = 0
         # Per-env sampling RNG keyed by (placement_seed, env_id): env i's draws are reproducible
         # and independent of other envs.
         self._env_rngs = get_rngs(self._num_envs, placer_params.placement_seed)
         self._env_pools: list[EnvLayoutPool] = [EnvLayoutPool([]) for _ in range(self._num_envs)]
-        self._recycle_layouts = False
 
         self._solve_and_store(pool_size)
         for cur_env, pool in enumerate(self._env_pools):
@@ -242,21 +235,7 @@ class PooledObjectPlacer:
             raise ValueError(f"count must be a multiple of num_envs ({self._num_envs}), got {count}")
 
         layouts_per_env = count // self._num_envs
-        if self._recycle_layouts:
-            # Re-read the stored layouts rather than solving new ones, for the same reason
-            # sample_for_envs does: layouts that only become usable after simulation are
-            # prepared once, and a refill here would hand back ones preparation never saw.
-            # A request larger than an env holds cannot be served without replacement, so it is
-            # refused before any cursor moves rather than part-filled and abandoned mid-round.
-            # Within that bound a draw wraps at most once, so it never repeats a layout.
-            capacity = min(len(pool.layouts) for pool in self._env_pools)
-            if layouts_per_env > capacity:
-                raise ValueError(
-                    f"count={count} needs {layouts_per_env} layouts per env, but a recycling pool "
-                    f"holds only {capacity}. Recycling replays the prepared set, so it cannot serve "
-                    "more distinct layouts than it stores."
-                )
-        elif min(self._available_per_env()) < layouts_per_env:
+        if min(self._available_per_env()) < layouts_per_env:
             self._solve_and_store(max(self._pool_size, count))
 
         results: list[PlacementResult] = []
@@ -264,15 +243,10 @@ class PooledObjectPlacer:
             for cur_env in range(self._num_envs):
                 pool = self._env_pools[cur_env]
                 if pool.available <= 0:
-                    # Wrap where the queue runs dry, not before the draw starts: rewinding a pool
-                    # that still holds unread layouts would strand whatever sits behind the cursor,
-                    # so a batch that does not divide the pool would replay one prefix forever.
-                    if not self._recycle_layouts:
-                        raise RuntimeError(
-                            f"Placement pool: env {cur_env} has no more valid layouts. "
-                            "The solver is not producing enough valid placements."
-                        )
-                    pool.cursor = 0
+                    raise RuntimeError(
+                        f"Placement pool: env {cur_env} has no more valid layouts. "
+                        "The solver is not producing enough valid placements."
+                    )
                 results.append(pool.next())
         return results
 
@@ -281,15 +255,7 @@ class PooledObjectPlacer:
         if any(env_id < 0 or env_id >= self._num_envs for env_id in env_ids):
             raise ValueError(f"env_ids must be in [0, {self._num_envs}); got {env_ids}")
 
-        exhausted = [env_id for env_id in env_ids if self._env_pools[env_id].available < 1]
-        if exhausted and self._recycle_layouts:
-            # Re-read the stored layouts instead of solving new ones. Layouts that only become
-            # usable after simulation, such as a settled clutter pile, are
-            # prepared once, outside any reset. A refill here would hand back layouts that
-            # preparation never saw, silently dropping the guarantee it established.
-            for env_id in exhausted:
-                self._env_pools[env_id].cursor = 0
-        elif exhausted:
+        if any(self._env_pools[env_id].available < 1 for env_id in env_ids):
             self._solve_and_store(max(self._pool_size, len(env_ids)))
 
         results: dict[int, PlacementResult] = {}
@@ -302,49 +268,6 @@ class PooledObjectPlacer:
                 )
             results[env_id] = pool.next()
         return results
-
-    @property
-    def recycle_layouts(self) -> bool:
-        """Whether an exhausted env queue rewinds instead of being refilled by a fresh solve."""
-        return self._recycle_layouts
-
-    @recycle_layouts.setter
-    def recycle_layouts(self, recycle: bool) -> None:
-        """Set whether exhausted queues reuse stored layouts."""
-        self._recycle_layouts = bool(recycle)
-
-    def retain_layouts(
-        self,
-        keep: Callable[[int, PlacementResult], bool],
-        minimum: int = 1,
-        *,
-        include_consumed: bool = False,
-    ) -> tuple[int, int]:
-        """Filter layouts atomically, requiring at least ``minimum`` survivors per environment.
-
-        Args:
-            keep: Predicate called with (env_id, layout).
-            minimum: Required survivors per environment.
-            include_consumed: Include layouts before each queue's cursor.
-
-        Returns:
-            Total kept and rejected layout counts. Insufficient survivors leave all queues unchanged.
-        """
-        assert minimum >= 1, "minimum must be positive"
-        assert (
-            include_consumed or not self._recycle_layouts
-        ), "Filtering a recycling pool requires include_consumed=True"
-        candidates = [pool.layouts if include_consumed else pool.layouts[pool.cursor :] for pool in self._env_pools]
-        survivors = [
-            [layout for layout in layouts if keep(env_id, layout)] for env_id, layouts in enumerate(candidates)
-        ]
-        insufficient = [env_id for env_id, layouts in enumerate(survivors) if len(layouts) < minimum]
-        assert not insufficient, f"Insufficient valid layouts in env(s) {insufficient}; need at least {minimum} per env"
-        for pool, layouts in zip(self._env_pools, survivors):
-            pool.layouts = layouts
-            pool.cursor = 0
-        kept = sum(map(len, survivors))
-        return kept, sum(map(len, candidates)) - kept
 
     @property
     def num_envs(self) -> int:
@@ -389,24 +312,6 @@ class PooledObjectPlacer:
     # ------------------------------------------------------------------
     # Pool introspection for the offline layout validator (sim-free)
     # ------------------------------------------------------------------
-
-    def validate_poses(
-        self,
-        poses: dict[PlaceableAsset, Pose],
-        bboxes: dict[PlaceableAsset, AxisAlignedBoundingBox],
-        allowed_contacts: set[frozenset] | None = None,
-    ) -> dict[str, bool]:
-        """Re-run configured validators on final poses using this pool's collision context.
-
-        Args:
-            poses: Complete object-to-environment transforms for the layout.
-            bboxes: Per-object local geometry bounds for the layout's environment.
-            allowed_contacts: Pairs whose physical contact is intentional.
-
-        Returns:
-            Fresh verdicts, replacing the corresponding pre-settle checks.
-        """
-        return self._placer.validate_poses(poses, bboxes, self._collision_objects, allowed_contacts)
 
     @property
     def objects(self) -> list[PlaceableAsset]:

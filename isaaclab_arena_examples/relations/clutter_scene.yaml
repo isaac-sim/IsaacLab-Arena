@@ -22,25 +22,7 @@ objects:
   registry_name: dex_cube
 - id: cube_3
   registry_name: dex_cube
-relations:
-- kind: is_anchor
-  subject: table
-- kind: cluttered_on
-  subject: cube_0
-  reference: table
-  params: {group: pile, spread: 0.2}
-- kind: cluttered_on
-  subject: cube_1
-  reference: table
-  params: {group: pile, spread: 0.2}
-- kind: cluttered_on
-  subject: cube_2
-  reference: table
-  params: {group: pile, spread: 0.2}
-- kind: cluttered_on
-  subject: cube_3
-  reference: table
-  params: {group: pile, spread: 0.2}
+relations: []
 task:
   composition: atomic
   description: inspect a settled clutter layout

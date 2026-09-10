@@ -246,3 +246,18 @@ def test_direction_variation_lights_injected_directional_light():
 
     result = run_function_with_persistent_simulation_app(_test_direction_variation_lights_injected_directional_light)
     assert result
+
+
+def test_object_reference_uses_runtime_parent_name():
+    from types import SimpleNamespace
+    from unittest.mock import patch
+
+    from isaaclab_arena.environment_spec.arena_env_graph_conversion_utils import _instantiate_object_reference
+    from isaaclab_arena.environment_spec.arena_env_graph_types import ObjectReferenceSpec
+
+    parent = SimpleNamespace(name="renamed_fixture")
+    reference = ObjectReferenceSpec(id="floor", parent_id="fixture_node", prim_path="inside/floor", object_type="base")
+    with patch("isaaclab_arena.environment_spec.arena_env_graph_conversion_utils.ObjectReference") as constructor:
+        _instantiate_object_reference(reference, parent)
+    assert constructor.call_args.kwargs["prim_path"] == "{ENV_REGEX_NS}/renamed_fixture/inside/floor"
+    assert constructor.call_args.kwargs["parent_asset"] is parent

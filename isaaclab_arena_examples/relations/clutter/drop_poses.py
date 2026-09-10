@@ -12,9 +12,10 @@ import torch
 from dataclasses import dataclass
 from enum import Enum
 
+from isaaclab.utils.math import quat_mul
+
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.random import get_random_rotation
-from isaaclab_arena.utils.yaw import rotate_quat_by_yaw
 
 
 class XySampling(str, Enum):
@@ -24,7 +25,7 @@ class XySampling(str, Enum):
     """Sample each object independently. Objects may co-locate and occlude one another."""
 
     GRID_CELLS = "grid_cells"
-    """Give each object its own jittered cell, so the group spreads across the region."""
+    """Jitter shuffled grid centers by each object's footprint size, clipped to the region."""
 
 
 class DropOrder(str, Enum):
@@ -230,8 +231,12 @@ def _sample_orientation_that_fits(
     """Sample a release yaw whose full-rotation bounds fit inside the region."""
     attempts = params.max_yaw_attempts if member.random_yaw else 1
     for _ in range(attempts):
-        yaw = get_random_rotation(generator) if member.random_yaw else 0.0
-        rotation = rotate_quat_by_yaw(base_rotation_xyzw, yaw)
+        rotation = base_rotation_xyzw
+        if member.random_yaw:
+            yaw = get_random_rotation(generator)
+            yaw_rotation = torch.tensor((0.0, 0.0, math.sin(yaw / 2), math.cos(yaw / 2)))
+            # Left multiplication applies the extra rotation about world Z.
+            rotation = tuple(quat_mul(yaw_rotation, torch.tensor(base_rotation_xyzw, dtype=torch.float32)).tolist())
         rotated = refit_bbox_to_rotation(bbox, rotation)
         footprint = _footprint_of(rotated)
         if _footprint_fits(footprint, region):
@@ -304,7 +309,8 @@ def compute_drop_poses(
     for i, bbox in enumerate(bounding_boxes):
         assert bbox.num_envs == 1, f"bounding_boxes[{i}] must be single-env (N=1), got N={bbox.num_envs}"
     params = params or ClutterDropParams()
-    member_params = member_params or [MemberDropParams()] * len(bounding_boxes)
+    if member_params is None:
+        member_params = [MemberDropParams()] * len(bounding_boxes)
     assert len(member_params) == len(
         bounding_boxes
     ), f"compute_drop_poses got {len(member_params)} member params for {len(bounding_boxes)} objects"

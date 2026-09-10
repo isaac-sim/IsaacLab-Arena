@@ -12,8 +12,8 @@ import torch
 
 import pytest
 
-from isaaclab_arena.relations.clutter_drop_poses import ClutterRegion
-from isaaclab_arena.relations.clutter_validation import ClutterSettleParams, SettleTracker, check_resting_poses
+from isaaclab_arena_examples.relations.clutter.drop_poses import ClutterRegion
+from isaaclab_arena_examples.relations.clutter.validation import ClutterSettleParams, SettleTracker, check_resting_poses
 
 IDENTITY = (0.0, 0.0, 0.0, 1.0)
 REGION = ClutterRegion(min_x=-0.5, min_y=-0.5, max_x=0.5, max_y=0.5, floor_z=0.75)
@@ -133,8 +133,7 @@ def test_tracker_is_unaffected_by_caller_mutating_the_snapshot():
 
     tracker.update(positions, rotations)
     positions[0, 2] = 1.0
-    positions[0, 2] = 0.0
-    assert tracker.update(positions, rotations)
+    assert tracker.update(torch.zeros(1, 3), rotations)
 
 
 @pytest.mark.parametrize(
@@ -147,18 +146,11 @@ def test_tracker_is_unaffected_by_caller_mutating_the_snapshot():
     ],
 )
 def test_containment_uses_rotated_body_extents(position, margin, fell_off, fell_through):
-    from isaaclab_arena.relations.clutter_pour import resting_extents
-    from isaaclab_arena.relations.placement_result import PlacementResult
-    from isaaclab_arena.relations.placement_validation import PlacementValidationResults
-    from isaaclab_arena.tests.dummy_object import DummyObject
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+    from isaaclab_arena_examples.relations.clutter.geometry import resting_extents
 
     bbox = AxisAlignedBoundingBox(min_point=(-0.1, -0.2, -0.05), max_point=(0.3, 0.4, 0.05))
-    obj = DummyObject("offset_box", bbox)
-    layout = PlacementResult(
-        PlacementValidationResults(), {obj: position}, 0.0, 1, rotations={obj: _yaw_quaternion(90)}
-    )
-    extents = resting_extents(obj, layout, bbox)
+    extents = resting_extents(bbox, _yaw_quaternion(90))
     assert extents == pytest.approx((-0.4, -0.1, 0.2, 0.3, -0.05))
     verdict = check_resting_poses(
         torch.tensor([position]), REGION, ClutterSettleParams(containment_margin_m=margin), [extents]
@@ -167,26 +159,71 @@ def test_containment_uses_rotated_body_extents(position, margin, fell_off, fell_
     assert verdict.fell_through == fell_through
 
 
-def test_passive_drift_is_independent_of_quiet_thresholds(capsys):
-    from isaaclab_arena.relations.clutter_preparation import _poses_unchanged
+def test_passive_drift_is_independent_of_quiet_thresholds():
+    from isaaclab_arena_examples.relations.clutter.settle import _pose_drift_reason
 
     initial = torch.tensor([[0.0, 0.0, 0.0, *IDENTITY]])
     current = initial.clone()
     current[0, 0] = 0.005
     params = ClutterSettleParams(move_thresh_m=0.0001, passive_move_thresh_m=0.01)
-    assert _poses_unchanged(initial, current, params, "env 2, robot links")
+    assert _pose_drift_reason(initial, current, params) is None
     params.passive_move_thresh_m = 0.002
-    assert not _poses_unchanged(initial, current, params, "env 2, robot links")
-    output = capsys.readouterr().out
-    assert "env 2, robot links" in output and "0.005000 m" in output
+    assert "0.005000 m" in _pose_drift_reason(initial, current, params)
 
 
 def test_passive_rotation_has_its_own_tolerance():
-    from isaaclab_arena.relations.clutter_preparation import _poses_unchanged
+    from isaaclab_arena_examples.relations.clutter.settle import _pose_drift_reason
 
     initial = torch.tensor([[0.0, 0.0, 0.0, *IDENTITY]])
     current = torch.tensor([[0.0, 0.0, 0.0, *_yaw_quaternion(3)]])
     params = ClutterSettleParams(turn_thresh_deg=0.1, passive_turn_thresh_deg=4)
-    assert _poses_unchanged(initial, current, params, "fixture")
+    assert _pose_drift_reason(initial, current, params) is None
     params.passive_turn_thresh_deg = 2
-    assert not _poses_unchanged(initial, current, params, "fixture")
+    assert "passive drift" in _pose_drift_reason(initial, current, params)
+
+
+@pytest.mark.parametrize(
+    "angle,lower,upper",
+    [(90, (-0.4, -0.1), (0.2, 0.3)), (-90, (-0.2, -0.3), (0.4, 0.1)), (180, (-0.3, -0.4), (0.1, 0.2))],
+)
+def test_support_region_rotates_offset_bounds(angle, lower, upper):
+    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+    from isaaclab_arena_examples.relations.clutter.geometry import region_above_support
+
+    box = AxisAlignedBoundingBox(min_point=(-0.1, -0.2, -0.05), max_point=(0.3, 0.4, 0.05))
+    region = region_above_support((1.0, 2.0, 0.7), box, support_rotation_xyzw=_yaw_quaternion(angle))
+    assert (region.min_x, region.min_y) == pytest.approx((1 + lower[0], 2 + lower[1]))
+    assert (region.max_x, region.max_y, region.floor_z) == pytest.approx((1 + upper[0], 2 + upper[1], 0.75))
+
+
+def test_support_region_rejects_off_axis_rotation():
+    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+    from isaaclab_arena_examples.relations.clutter.geometry import region_above_support
+
+    box = AxisAlignedBoundingBox(min_point=(-1, -1, 0), max_point=(1, 1, 0.5))
+    with pytest.raises(AssertionError, match="90° rotation multiples"):
+        region_above_support((0, 0, 0), box, support_rotation_xyzw=_yaw_quaternion(30))
+
+
+def test_step_budget_accounts_for_physics_step_rounding():
+    from isaaclab_arena_examples.relations.clutter.settle import _step_budget
+
+    params = ClutterSettleParams(timeout_s=1.23, poll_interval_s=0.41)
+    with pytest.raises(AssertionError, match="allows 2 polls.*need 3"):
+        _step_budget(1 / 60, params)
+    params.timeout_s = 1.3
+    assert _step_budget(1 / 60, params) == (25, 78)
+
+
+def test_tracker_names_moving_and_diverged_objects():
+    tracker = SettleTracker()
+    positions = torch.zeros(2, 3)
+    rotations = _rotations(2)
+    tracker.update(positions, rotations)
+    positions[1, 0] = 0.1
+    tracker.update(positions, rotations)
+    assert tracker.failure_reason(["cup", "plate"]) == "still moving: plate"
+    rotations[0, 0] = float("nan")
+    tracker.update(positions, rotations)
+    assert tracker.diverged
+    assert tracker.failure_reason(["cup", "plate"]) == "non-finite poses: cup"
