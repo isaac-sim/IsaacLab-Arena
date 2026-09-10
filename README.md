@@ -248,6 +248,7 @@ The ecosystem extends beyond pick-and-place to contact-rich, dexterous, and defo
 - **[Lightwheel RoboFinals](https://lightwheel.ai/robofinals)** — High-fidelity industrial benchmarks.
 - **[Lightwheel RoboCasa Tasks](https://github.com/LightwheelAI/LW-BenchHub)** — 138+ open-source tasks, 50 datasets per task, 7+ robots.
 - **[Lightwheel LIBERO Tasks](https://github.com/LightwheelAI/LW-BenchHub)** — Adapted LIBERO benchmarks.
+- [**RoboTwin 2.0**](https://github.com/RoboTwin-Platform/RoboTwin/tree/IsaacLab-Arena) — Extended simulation benchmarks using Arena; [Arxiv](https://arxiv.org/abs/2603.01229).
 - **[LeRobot Environment Hub](https://huggingface.co/blog/nvidia/generalist-robotpolicy-eval-isaaclab-arena-lerobot)** — Share and discover Arena environments on Hugging Face.
 - **[Isaac for Healthcare RHEO Workflows](https://github.com/isaac-for-healthcare/i4h-workflows/tree/main/workflows/rheo)** — Healthcare robotics benchmark workflows.
 
