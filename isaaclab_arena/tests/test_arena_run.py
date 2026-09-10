@@ -161,3 +161,12 @@ def test_run_result_records_outcome_separately():
     assert result.start_timestamp_ns == 1792799000000000000
     assert result.end_timestamp_ns == 1792800000000000000
     assert result.metrics is None
+
+
+def test_datagen_defaults_to_none():
+    assert _run().datagen is None
+
+
+def test_datagen_accepts_a_config_dict():
+    datagen_cfg = {"output_dir": "/tmp/out", "width": 320}
+    assert _run(datagen=datagen_cfg).datagen == datagen_cfg
