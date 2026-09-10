@@ -20,7 +20,7 @@
 
 > [!WARNING]
 > **Alpha Software — Not an Early Access or General Availability Release.**
-> Isaac Lab-Arena `v0.3` is an early code release intended to give the community a practical starting point to experiment, provide feedback, and influence future design direction. APIs are unstable and will change. Features and documentation are evolving. **Do not use this in production.** See [Project Status](#%EF%B8%8F-project-status) for details.
+> Isaac Lab-Arena `v0.3` is an early code release intended to give the community a practical starting point to experiment, provide feedback, and influence future design direction. APIs are unstable and will change. Features are incomplete. Documentation is evolving. **Do not use this in production.** See [Project Status](#%EF%B8%8F-project-status) for details.
 
 > [!NOTE]
 > Changes on `main` contain an in-development version based on v0.3.0 and Isaac Lab 3.0.
