@@ -36,16 +36,12 @@ def test_success_term_true_means_success():
 
 
 def test_time_out_term_true_means_timeout():
-    env = _FakeEnv(
-        _FakeTerminationManager({"success": torch.tensor([False]), "time_out": torch.tensor([True])})
-    )
+    env = _FakeEnv(_FakeTerminationManager({"success": torch.tensor([False]), "time_out": torch.tensor([True])}))
     assert classify_outcome(env, 0) == "timeout"
 
 
 def test_neither_term_true_means_failure():
-    env = _FakeEnv(
-        _FakeTerminationManager({"success": torch.tensor([False]), "time_out": torch.tensor([False])})
-    )
+    env = _FakeEnv(_FakeTerminationManager({"success": torch.tensor([False]), "time_out": torch.tensor([False])}))
     assert classify_outcome(env, 0) == "failure"
 
 

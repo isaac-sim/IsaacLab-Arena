@@ -17,16 +17,12 @@ from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_wi
 
 def _test_default_reruns_after_reset_to_flush_stale_camera_frames(simulation_app):
     """A positive default avoids RTX sensors reading the previous episode's last frame."""
-    from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import (
-        IsaacLabArenaManagerBasedRLEnvCfg,
-    )
+    from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import IsaacLabArenaManagerBasedRLEnvCfg
 
     assert IsaacLabArenaManagerBasedRLEnvCfg().num_rerenders_on_reset == 5
     return True
 
 
 def test_default_reruns_after_reset_to_flush_stale_camera_frames():
-    result = run_function_with_persistent_simulation_app(
-        _test_default_reruns_after_reset_to_flush_stale_camera_frames
-    )
+    result = run_function_with_persistent_simulation_app(_test_default_reruns_after_reset_to_flush_stale_camera_frames)
     assert result
