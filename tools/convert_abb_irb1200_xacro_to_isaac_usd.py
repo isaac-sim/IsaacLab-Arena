@@ -75,8 +75,8 @@ def _patch_articulation_root_for_isaac_lab(usd_path: Path, default_prim_name: st
     print("[INFO] moved articulation root API from Geometry to default prim")
 
 
-def _create_robotiq_control_copy(usd_path: Path, default_prim_name: str) -> Path:
-    control_dir = usd_path.parent.parent / f"{usd_path.parent.name}_robotiq_2f140"
+def _create_robotiq_control_copy(usd_path: Path, default_prim_name: str, suffix: str) -> Path:
+    control_dir = usd_path.parent.parent / f"{usd_path.parent.name}_robotiq_2f140_{suffix}"
     if control_dir.exists():
         shutil.rmtree(control_dir)
     shutil.copytree(usd_path.parent, control_dir)
@@ -140,7 +140,7 @@ def _create_robotiq_control_copy(usd_path: Path, default_prim_name: str) -> Path
     open_brace = body_start + 2
     text = text[: open_brace + 1] + insert + text[open_brace + 1 :]
     control_usd_path.write_text(text, encoding="utf-8")
-    print(f"[INFO] wrote controllable Robotiq 2F-140 copy: {control_usd_path}")
+    print(f"[INFO] wrote controllable Robotiq 2F-140 {suffix} copy: {control_usd_path}")
     return control_usd_path
 
 
@@ -226,7 +226,8 @@ def main() -> int:
         stage.GetRootLayer().Save()
         _patch_articulation_root_for_isaac_lab(usd_path, default_prim.GetName())
         print(f"[INFO] saved patched USD: {usd_path}")
-        _create_robotiq_control_copy(usd_path, default_prim.GetName())
+        _create_robotiq_control_copy(usd_path, default_prim.GetName(), "physx")
+        _create_robotiq_control_copy(usd_path, default_prim.GetName(), "newton")
 
         common_asset_dir = repo_root / "isaaclab_arena/assets/robots/abb/irb1200_7_70"
         mesh_src = abb_root / "abb_irb1200_support/meshes"
