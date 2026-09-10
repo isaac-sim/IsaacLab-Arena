@@ -129,7 +129,7 @@ def object_is_above_height(
         surface_height is not None
     ) != use_settled_state, "object_is_above_height requires exactly one of surface_height or use_settled_state"
 
-    object_z = env.arena_world.get_pose_w(object_name)[:, 2]
+    object_z = env.arena_world.get_position_w(object_name)[:, 2]
     if use_settled_state:
         settled_pos, has_settled = get_object_initial_rest_state(env, object_name)
         result = has_settled & (object_z > (settled_pos[:, 2] + distance))
@@ -168,8 +168,8 @@ def objects_in_proximity(
     """
 
     arena_world = env.arena_world
-    object_position_w = arena_world.get_pose_w(object_cfg.name)[:, :3]
-    target_object_position_w = arena_world.get_pose_w(target_object_cfg.name)[:, :3]
+    object_position_w = arena_world.get_position_w(object_cfg.name)
+    target_object_position_w = arena_world.get_position_w(target_object_cfg.name)
 
     # object to target object
     x_separation = torch.abs(object_position_w[:, 0] - target_object_position_w[:, 0])

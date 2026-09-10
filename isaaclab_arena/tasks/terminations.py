@@ -100,7 +100,7 @@ def lift_object_il_success(
 
     assert goal_position is not None, "lift_object_il_success requires goal_position."
 
-    object_position_w = env.arena_world.get_pose_w(object_cfg.name)[:, :3]
+    object_position_w = env.arena_world.get_position_w(object_cfg.name)
     goal_position_w = torch.tensor([goal_position] * env.num_envs, device=env.device)
 
     # Check if object is within tolerance of goal
@@ -138,7 +138,7 @@ def lift_object_rl_success(
 
     arena_world = env.arena_world
     T_W_B = arena_world.get_pose_w(robot_cfg.name)
-    object_position_w = arena_world.get_pose_w(object_cfg.name)[:, :3]
+    object_position_w = arena_world.get_position_w(object_cfg.name)
 
     command = env.command_manager.get_command(command_name)
     desired_position_b = command[:, :3]
@@ -225,10 +225,8 @@ def root_height_below_minimum_multi_objects(
     Note:
         This is currently only supported for flat terrains, i.e. the minimum height is in the world frame.
     """
-    outs = [
+    asset_termination_results = [
         root_height_below_minimum(env=env, minimum_height=minimum_height, asset_cfg=asset_cfg)
         for asset_cfg in asset_cfg_list
     ]
-    outs_tensor = torch.stack(outs, dim=0)  # [X, N]
-    terminated = outs_tensor.any(dim=0)  # [N], bool
-    return terminated
+    return torch.stack(asset_termination_results, dim=0).any(dim=0)

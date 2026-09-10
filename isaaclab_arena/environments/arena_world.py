@@ -68,6 +68,10 @@ class ArenaWorld:
         T_E_F[:, :3] -= self._scene.env_origins
         return T_E_F
 
+    def get_position_w(self, scene_key: str) -> torch.Tensor:
+        """Return the world-frame position with shape (num_envs, 3)."""
+        return self.get_pose_w(scene_key)[:, :3]
+
     def get_root_linear_velocity_w(self, scene_key: str) -> torch.Tensor:
         """Return the world-frame root linear velocity of a rigid object or articulation.
 
