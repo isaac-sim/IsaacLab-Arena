@@ -4,10 +4,6 @@ Release Notes
 v0.3.0
 ------
 
-Isaac Lab-Arena v0.3.0 makes robot-policy evaluation systematic: compose reusable benchmark
-environments, exercise policies across controlled conditions at scale, and trace outcomes to where
-and why they succeed or fail.
-
 This release introduces:
 
 - Prompt-first environment generation.
