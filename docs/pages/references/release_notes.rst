@@ -105,7 +105,6 @@ Details below:
 **Limitations**
 
 - Installation from a published Python package is not yet supported; use the native ``uv`` source workflow or Docker.
-- Performance is not yet hardened for production-scale workloads in Alpha stage.
 
 **What's Next**
 
