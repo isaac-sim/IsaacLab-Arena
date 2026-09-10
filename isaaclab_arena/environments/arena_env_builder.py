@@ -229,10 +229,6 @@ class ArenaEnvBuilder:
         Returns:
             An (env_cfg, env_kwargs) tuple.
         """
-        # Solve relations before building scene config so positions are captured correctly.
-        if self.cfg.solve_relations:
-            self._solve_relations()
-
         # Apply Hydra variation overrides. Needs to happen before build-time variations are applied.
         if self.hydra_overrides:
             variations: dict[str, list[VariationBase]] = self.get_all_variations()
@@ -245,6 +241,11 @@ class ArenaEnvBuilder:
 
         # Apply build-time variations now, before scene_cfg is materialised.
         self._apply_build_time_variations()
+
+        # Solve relations against the realized build-time asset geometry. Variations may swap
+        # meshes or change dimensions, so placement cannot safely precede their application.
+        if self.cfg.solve_relations:
+            self._solve_relations()
 
         # Constructing the environment by combining inputs from the scene, embodiment, and task.
         embodiment = self.arena_env.embodiment or NoEmbodiment()

@@ -326,6 +326,12 @@ class PooledObjectPlacer:
         """Number of environment pools managed by this placer."""
         return self._num_envs
 
+    def randomization_rng_for_env(self, env_id: int):
+        """Return the reset-randomization RNG owned by one absolute environment."""
+        if env_id < 0 or env_id >= self._num_envs:
+            raise ValueError(f"env_id must be in [0, {self._num_envs}); got {env_id}")
+        return self._env_rngs[env_id]
+
     @property
     def had_fallbacks(self) -> bool:
         """Whether any pool refill accepted best-loss layouts that failed strict validation."""

@@ -370,6 +370,34 @@ def test_get_pose_from_layout_composes_yaw_with_tilted_marker():
     )
 
 
+def test_get_pose_from_layout_samples_random_around_solution_with_supplied_rng():
+    """The coordinated pool reset must not overwrite RandomAroundSolution."""
+    import math
+    import random
+
+    from isaaclab_arena.relations.placement_events import get_pose_from_layout
+    from isaaclab_arena.relations.placement_result import PlacementResult
+    from isaaclab_arena.relations.relations import RandomAroundSolution, RotateAroundSolution
+
+    _, box, _ = _create_test_objects()
+    box.add_relation(RotateAroundSolution(yaw_rad=math.pi / 2))
+    box.add_relation(RandomAroundSolution(x_half_m=0.1, y_half_m=0.2, yaw_half_rad=0.3))
+    layout = PlacementResult(
+        validation_results=_checklist(True),
+        positions={box: (0.2, 0.3, 0.4)},
+        final_loss=0.0,
+        attempts=1,
+    )
+
+    pose = get_pose_from_layout(box, layout, rng=random.Random(7))
+
+    assert 0.1 <= pose.position_xyz[0] <= 0.3
+    assert 0.1 <= pose.position_xyz[1] <= 0.5
+    assert pose.position_xyz[2] == pytest.approx(0.4)
+    assert pose.position_xyz != pytest.approx((0.2, 0.3, 0.4))
+    assert pose.rotation_xyzw != pytest.approx((0.0, 0.0, math.sqrt(0.5), math.sqrt(0.5)))
+
+
 def test_solve_and_place_objects_skips_empty_env_ids():
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
     from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer

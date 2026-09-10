@@ -5,11 +5,12 @@
 
 from __future__ import annotations
 
+import random
 import torch
 from typing import TYPE_CHECKING
 
-from isaaclab_arena.relations.relations import RotateAroundSolution, get_anchor_objects
-from isaaclab_arena.utils.pose import Pose
+from isaaclab_arena.relations.relations import RandomAroundSolution, RotateAroundSolution, get_anchor_objects
+from isaaclab_arena.utils.pose import Pose, PoseRange
 from isaaclab_arena.utils.velocity import Velocity
 from isaaclab_arena.utils.yaw import rotate_quat_by_yaw
 
@@ -83,18 +84,46 @@ def get_base_rotation_per_asset(
     return {asset: get_rotation_xyzw(asset) for asset in assets}
 
 
-def get_pose_from_layout(asset: PlaceableAsset, layout: PlacementResult) -> Pose:
-    """Return an asset pose from a solved layout."""
+def _sample_pose_range(pose_range: PoseRange, rng: random.Random) -> Pose:
+    """Sample one pose range with the caller's reproducible per-environment RNG."""
+    from isaaclab.utils.math import quat_from_euler_xyz
+
+    position = tuple(
+        rng.uniform(lower, upper)
+        for lower, upper in zip(pose_range.position_xyz_min, pose_range.position_xyz_max, strict=True)
+    )
+    roll, pitch, yaw = (
+        rng.uniform(lower, upper) for lower, upper in zip(pose_range.rpy_min, pose_range.rpy_max, strict=True)
+    )
+    rotation = quat_from_euler_xyz(torch.tensor(roll), torch.tensor(pitch), torch.tensor(yaw))
+    return Pose(position_xyz=position, rotation_xyzw=tuple(rotation.tolist()))
+
+
+def get_pose_from_layout(
+    asset: PlaceableAsset,
+    layout: PlacementResult,
+    rng: random.Random | None = None,
+) -> Pose:
+    """Return an asset pose from a solved layout, including reset-time range sampling."""
     assert asset in layout.positions, f"Placement layout is missing non-anchor asset '{asset.name}'"
     if asset in layout.rotations:
         # A full rotation is already the final world orientation, so the marker yaw does not apply.
-        return Pose(position_xyz=layout.positions[asset], rotation_xyzw=layout.rotations[asset])
-    rotate_marker = next((r for r in asset.get_relations() if isinstance(r, RotateAroundSolution)), None)
-    base_rotation = rotate_marker.get_rotation_xyzw() if rotate_marker else IDENTITY_ROTATION_XYZW
-    marker_yaw = rotate_marker.yaw_rad if rotate_marker else 0.0
-    total_yaw = layout.orientations.get(asset, marker_yaw)
-    rotation = rotate_quat_by_yaw(base_rotation, total_yaw - marker_yaw)
-    return Pose(position_xyz=layout.positions[asset], rotation_xyzw=rotation)
+        pose = Pose(position_xyz=layout.positions[asset], rotation_xyzw=layout.rotations[asset])
+    else:
+        rotate_marker = next((r for r in asset.get_relations() if isinstance(r, RotateAroundSolution)), None)
+        base_rotation = rotate_marker.get_rotation_xyzw() if rotate_marker else IDENTITY_ROTATION_XYZW
+        marker_yaw = rotate_marker.yaw_rad if rotate_marker else 0.0
+        total_yaw = layout.orientations.get(asset, marker_yaw)
+        rotation = rotate_quat_by_yaw(base_rotation, total_yaw - marker_yaw)
+        pose = Pose(position_xyz=layout.positions[asset], rotation_xyzw=rotation)
+
+    random_marker = next((r for r in asset.get_relations() if isinstance(r, RandomAroundSolution)), None)
+    if random_marker is None or rng is None:
+        return pose
+    return _sample_pose_range(
+        random_marker.to_pose_range_centered_at(pose.position_xyz, pose.rotation_xyzw),
+        rng,
+    )
 
 
 def get_movable_asset_names(
@@ -111,6 +140,7 @@ def write_layout_to_sim(
     result: PlacementResult,
     anchor_assets: set[PlaceableAsset],
     base_rotations: dict[PlaceableAsset, tuple[float, float, float, float]],
+    rng: random.Random | None = None,
 ) -> None:
     """Write one env's solved layout into the sim.
 
@@ -133,7 +163,7 @@ def write_layout_to_sim(
     for asset in result.positions:
         if asset in anchor_assets:
             continue
-        layout_pose = get_pose_from_layout(asset, result)
+        layout_pose = get_pose_from_layout(asset, result, rng=rng)
         for scene_name, pose in asset.layout_pose_to_scene_writes(layout_pose):
             scene_asset = env.scene[scene_name]
             pose_tensor = pose.to_tensor(device=env.device).unsqueeze(0)
@@ -180,4 +210,12 @@ def solve_and_place_objects(
                 f"env {cur_env}; failed checks: {result.validation_results.get_failed_validation_check_names}."
             )
         # Only write non-anchor assets to the sim.
-        write_layout_to_sim(env, cur_env, result, anchor_assets, base_rotations)
+        rng_getter = getattr(pool, "randomization_rng_for_env", None)
+        write_layout_to_sim(
+            env,
+            cur_env,
+            result,
+            anchor_assets,
+            base_rotations,
+            rng=rng_getter(cur_env) if rng_getter is not None else None,
+        )

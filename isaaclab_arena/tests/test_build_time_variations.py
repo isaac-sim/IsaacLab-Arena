@@ -100,6 +100,34 @@ def _test_enabled_build_time_variation_applied(simulation_app):
     return True
 
 
+def _test_build_time_variation_precedes_relation_solving(simulation_app):
+    from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
+    from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
+
+    arena_env = get_test_environment(enabled=True)
+    variation = arena_env.scene.assets[TEST_ASSET_NAME].get_variation("test_build_time")
+    args_cli = get_isaaclab_arena_cli_parser().parse_args(["--num_envs", "1"])
+    builder = ArenaEnvBuilder(arena_env, arena_env_builder_cfg_from_argparse(args_cli))
+    calls = []
+    realize = variation._realize_at_build_time
+    solve = builder._solve_relations
+
+    def traced_realize():
+        calls.append("variation")
+        realize()
+
+    def traced_solve():
+        calls.append("relations")
+        solve()
+
+    variation._realize_at_build_time = traced_realize
+    builder._solve_relations = traced_solve
+    builder.compose_manager_cfg()
+
+    assert calls == ["variation", "relations"]
+    return True
+
+
 def test_disabled_build_time_variation_not_applied():
     assert run_function_with_persistent_simulation_app(
         _test_disabled_build_time_variation_not_applied,
@@ -110,5 +138,12 @@ def test_disabled_build_time_variation_not_applied():
 def test_enabled_build_time_variation_applied():
     assert run_function_with_persistent_simulation_app(
         _test_enabled_build_time_variation_applied,
+        headless=HEADLESS,
+    )
+
+
+def test_build_time_variation_precedes_relation_solving():
+    assert run_function_with_persistent_simulation_app(
+        _test_build_time_variation_precedes_relation_solving,
         headless=HEADLESS,
     )
