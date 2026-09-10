@@ -16,13 +16,10 @@ from dataclasses import fields, replace
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from isaaclab.managers.recorder_manager import RecorderManagerBaseCfg
-
 from isaaclab_arena.assets.registries import EnvironmentRegistry, PolicyRegistry
 from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
 from isaaclab_arena.evaluation.arena_experiment_result import ARENA_SINGLE_RUN_PLACEMENT_DIAGNOSTICS_FILENAME
 from isaaclab_arena.evaluation.arena_run import ArenaRunCfg, ArenaRunResult
-from isaaclab_arena.evaluation.datagen_collector import DatagenCollectorBase, build_datagen_callback_handlers
 from isaaclab_arena.evaluation.experiment_timings import write_run_timings
 from isaaclab_arena.evaluation.legacy_graph_environment_cli import (
     LegacyGraphEnvironmentCfg,
@@ -37,17 +34,19 @@ from isaaclab_arena.relations.placement_diagnostics import AggregatedPlacementDi
 from isaaclab_arena.relations.pooled_object_placer import PlacementPoolFillError
 from isaaclab_arena.relations.runtime.placement_events import get_placement_diagnostics
 from isaaclab_arena.utils.timer import print_timer_stats, reset_timer_stats
-from isaaclab_arena.recording.callback_recorder_term import CallbackRecorderTermCfg, CallbackRecorderTermHandlers
-from isaaclab_arena.utils.configclass import combine_configclass_instances, make_configclass
 from isaaclab_arena.variations.variations_hydra import overrides_from_dict
 from isaaclab_arena.video.video_recording import VideoRecordingCfg, wrap_env_for_video
 
 if TYPE_CHECKING:
     import gymnasium as gym
 
+    from isaaclab.managers.recorder_manager import RecorderManagerBaseCfg
+
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
+    from isaaclab_arena.evaluation.datagen_collector import DatagenCollectorBase
     from isaaclab_arena.metrics.metric_data import MetricsDataCollection
     from isaaclab_arena.policy.policy_base import PolicyBase, PolicyCfg
+    from isaaclab_arena.recording.callback_recorder_term import CallbackRecorderTermHandlers
     from isaaclab_arena.relations.placement_diagnostics import PlacementDiagnostics
 
 
@@ -230,13 +229,21 @@ def _with_datagen_recorder_term(
 
     recorders_cfg may be None (no other recorder terms configured for this run).
     """
+    # Isaac Lab manager modules must not load before SimulationApp, so import them when first used.
+    from isaaclab.managers.recorder_manager import RecorderManagerBaseCfg
+
+    from isaaclab_arena.recording.callback_recorder_term import CallbackRecorderTermCfg
+    from isaaclab_arena.utils.configclass import combine_configclass_instances, make_configclass
+
     datagen_recorders_cfg = make_configclass(
         "DatagenRecorderManagerCfg",
         [("datagen_callback", CallbackRecorderTermCfg, CallbackRecorderTermCfg(build_handlers=build_handlers))],
         bases=(RecorderManagerBaseCfg,),
     )()
+    # datagen_recorders_cfg is passed first so recorders_cfg's already-configured values (not
+    # datagen_recorders_cfg's inherited base-class defaults) win on any field both share.
     return combine_configclass_instances(
-        "RecorderManagerCfg", recorders_cfg, datagen_recorders_cfg, bases=(RecorderManagerBaseCfg,)
+        "RecorderManagerCfg", datagen_recorders_cfg, recorders_cfg, bases=(RecorderManagerBaseCfg,)
     )
 
 
@@ -273,6 +280,8 @@ def _build_environment_from_cfg(
         f"Run '{cfg.name}' requests datagen collection but mimic mode never sets env_cfg.recorders,"
         " so the collector would silently never be invoked"
     )
+
+    from isaaclab_arena.evaluation.datagen_collector import build_datagen_callback_handlers
 
     def build_handlers(env: gym.Env, run_cfg: ArenaRunCfg = cfg) -> CallbackRecorderTermHandlers:
         collector: DatagenCollectorBase = datagen_collector_factory(run_cfg, env)
