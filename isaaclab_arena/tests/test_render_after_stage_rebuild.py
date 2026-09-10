@@ -27,7 +27,7 @@ MAX_CHANGED_PIXEL_FRACTION = 0.10
 # Minimum per-image standard deviation, so a pair of blank renders cannot pass the comparison vacuously.
 MIN_IMAGE_STD = 1.0
 # Set True to dump the compared renders as PNGs into IMAGE_OUTPUT_DIR, which is created on demand.
-SAVE_IMAGES = True
+SAVE_IMAGES = False
 IMAGE_OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "output")
 
 

@@ -85,7 +85,11 @@ isaaclab-from-wheel = [
 # TODO(alexmillane, 2026.07.22): Remove these two flavors of installation once
 # Isaac Lab's artifact distributes their scripts.
 isaaclab-from-source = [
-    "isaaclab[isaacsim]",
+    # Isaac Sim comes from its own pin rather than isaaclab's ``isaacsim`` extra:
+    # the source checkout still pins 6.0.1.0 there, while this branch runs the
+    # Isaac Sim 6.1 stack (the Docker image uses the matching 6.1 base image).
+    "isaaclab",
+    "isaacsim[all,extscache]==6.1.0.0",
     "isaaclab-assets",
     "isaaclab-contrib",
     "isaaclab-experimental",
@@ -175,11 +179,16 @@ override-dependencies = [
 # TODO(alexmillane, 2026-07-16): Remove these pins after we upgrade to Isaac Lab
 # 3.0 GA, which will correctly pin its dependencies. See:
 # https://github.com/isaac-sim/IsaacLab/blob/develop/pyproject.toml
+# mujoco-usd-converter is left on a floor rather than an exact pin: isaacsim-core
+# pins it exactly and the pin differs per flavor (0.2.0 for the 6.0 wheel, 0.5.0
+# for the 6.1 source stack). The entry is still needed because only a
+# workspace-level requirement picks up the PyPI route in [tool.uv.sources]; the
+# NVIDIA index carries just the incompatible 0.1.0 prereleases.
 constraint-dependencies = [
     "pin-pink==3.3.0",
     "pyglet<3",
     "tinyobjloader==2.0.0rc13",
-    "mujoco-usd-converter==0.2.0",
+    "mujoco-usd-converter>=0.2.0",
 ]
 # Use a uv-managed CPython 3.12 rather than whatever happens to be on PATH.
 python-preference = "only-managed"
