@@ -5,20 +5,16 @@
 
 from __future__ import annotations
 
-import torch
-
-from isaaclab.assets import ArticulationCfg, AssetBaseCfg, CableObjectCfg, RigidObjectCfg
-from isaaclab.envs import ManagerBasedEnv
+from isaaclab.assets import CableObjectCfg
 from isaaclab.managers import EventTermCfg, SceneEntityCfg
-from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
 from isaaclab.sim.spawners.shapes import CableCfg
 
-from isaaclab_arena.assets.object_base import ObjectBase, ObjectType
+from isaaclab_arena.assets.object_base import ObjectBase
+from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.relations.relations import RelationBase
 from isaaclab_arena.terms.events import reset_cable_to_default
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose, PosePerEnv, PoseRange
-from isaaclab_arena.utils.velocity import Velocity
 
 
 class Cable(ObjectBase):
@@ -57,6 +53,8 @@ class Cable(ObjectBase):
                 "Cable only supports a fixed initial Pose; ranged and per-environment poses are not supported."
             )
         super()._set_initial_pose(pose)
+        self.object_cfg.init_state.pos = pose.position_xyz
+        self.object_cfg.init_state.rot = pose.rotation_xyzw
 
     def _build_reset_event(self) -> EventTermCfg:
         """Build the event that restores the cable's default segment state."""
@@ -77,24 +75,3 @@ class Cable(ObjectBase):
     def layout_pose_to_scene_writes(self, layout_pose: Pose) -> list[tuple[str, Pose]]:
         """Reject root-pose writes produced by relation-based placement."""
         raise NotImplementedError("Cable placement requires segment-state writes, which are not yet supported.")
-
-    def set_initial_velocity(self, velocity: Velocity) -> None:
-        """Reject rigid-root initial velocity configuration."""
-        raise NotImplementedError("Cable does not support a rigid-root initial velocity.")
-
-    def set_object_pose(self, env: ManagerBasedEnv, pose: Pose, env_ids: torch.Tensor | None = None) -> None:
-        """Reject rigid-root runtime pose writes."""
-        raise NotImplementedError("Cable runtime poses must be written per segment.")
-
-    def get_contact_sensor_cfg(self, contact_against_object: ObjectBase | None = None) -> ContactSensorCfg:
-        """Reject rigid-object contact sensor configuration."""
-        raise NotImplementedError("Cable does not support rigid-object contact sensors.")
-
-    def _generate_rigid_cfg(self) -> RigidObjectCfg:
-        raise NotImplementedError("Cable cannot generate a rigid-object configuration.")
-
-    def _generate_articulation_cfg(self) -> ArticulationCfg:
-        raise NotImplementedError("Cable cannot generate an articulation configuration.")
-
-    def _generate_base_cfg(self) -> AssetBaseCfg:
-        raise NotImplementedError("Cable uses CableObjectCfg rather than a base-asset configuration.")
