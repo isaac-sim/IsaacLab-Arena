@@ -52,27 +52,13 @@ class Cable(ObjectBase):
         return CableObjectCfg(prim_path=self.prim_path, spawn=self.spawn)
 
     def validate_simulation_cfg(self, sim_cfg: SimulationCfg) -> None:
-        """Require a Newton configuration containing a VBD solver."""
-        from isaaclab_newton.physics import NewtonCfg, VBDSolverCfg
+        """Require the Newton physics backend."""
+        from isaaclab_newton.physics import NewtonCfg
 
         physics_cfg = sim_cfg.physics
         assert isinstance(physics_cfg, NewtonCfg), (
             f"Cable asset '{self.name}' requires the Newton physics backend; "
             f"got {type(physics_cfg).__name__ if physics_cfg is not None else 'the default PhysX backend'}."
-        )
-        pending_solver_cfgs = [physics_cfg.solver_cfg]
-        has_vbd_solver = False
-        while pending_solver_cfgs:
-            solver_cfg = pending_solver_cfgs.pop()
-            if isinstance(solver_cfg, VBDSolverCfg):
-                has_vbd_solver = True
-                break
-            pending_solver_cfgs.extend(
-                getattr(entry, "solver_cfg", None) for entry in (getattr(solver_cfg, "entries", None) or ())
-            )
-        assert has_vbd_solver, (
-            f"Cable asset '{self.name}' requires a VBD solver, either directly or as an entry in a coupled "
-            f"Newton solver; got {type(physics_cfg.solver_cfg).__name__}."
         )
 
     def _set_initial_pose(self, pose: Pose | PoseRange | PosePerEnv) -> None:
