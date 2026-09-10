@@ -546,23 +546,4 @@ class ArenaEnvBuilder:
         # ViewportCameraController sets the camera before KitVisualizer.initialize() is called,
         # so the call is silently ignored. Re-apply here once the visualizers are fully initialized.
         reapply_viewer_cfg(env)
-        try:
-            if cfg.settle_clutter_on_build:
-                self.prepare_placement(env)
-        except Exception:
-            env.close()
-            raise
         return env, cfg
-
-    def prepare_placement(self, env: ManagerBasedEnv) -> None:
-        """Prepare physics-dependent placement pools before the first episode.
-
-        Args:
-            env: Constructed environment, including one made through build_registered and gym.make.
-        """
-        from isaaclab_arena.relations.clutter_preparation import prepare_clutter_layouts
-        from isaaclab_arena.relations.placement_events import get_placement_pool
-
-        pool = get_placement_pool(env)
-        if pool is not None:
-            prepare_clutter_layouts(env.unwrapped, pool, env.unwrapped.cfg.clutter_settle_params)

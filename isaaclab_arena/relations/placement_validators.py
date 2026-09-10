@@ -79,76 +79,6 @@ class PlacementValidator(ABC):
         """
         pass
 
-    def validate_poses(
-        self,
-        poses: dict[PlaceableAsset, Pose],
-        bboxes: dict[PlaceableAsset, AxisAlignedBoundingBox],
-        collision_objects: list[CollisionObject],
-        allowed_contacts: set[frozenset] | None = None,
-    ) -> bool:
-        """Validate a final layout using full poses and geometry in each object's local frame.
-
-        Args:
-            poses: Object-to-environment transforms, including anchors.
-            bboxes: Bounds expressed in each object's pose frame.
-            collision_objects: Passive obstacles at their configured poses.
-            allowed_contacts: Object pairs whose contact is intentional.
-
-        Returns:
-            Whether the final layout passes this check. Extensions must implement this method
-            before they can validate physics-prepared layouts.
-        """
-        raise NotImplementedError(f"Placement validator {self.check!r} must implement validate_poses for preparation")
-
-
-class BoundingBoxPlacementValidator(PlacementValidator):
-    """Position-and-bounds validator with support for full object rotations."""
-
-    def validate_poses(self, poses, bboxes, collision_objects, allowed_contacts=None) -> bool:
-        return self.validate_batch(
-            [{asset: pose.position_xyz for asset, pose in poses.items()}],
-            [{asset: yaw_from_quat_xyzw(pose.rotation_xyzw) for asset, pose in poses.items()}],
-            [{asset: bboxes[asset].rotated_by_quat(pose.rotation_xyzw) for asset, pose in poses.items()}],
-            collision_objects,
-        )[0]
-
-
-def validate_position_constraints(poses: dict[PlaceableAsset, Pose], tolerance_m: float) -> bool:
-    """Check final positions against unary placement constraints.
-
-    Args:
-        poses: Final object-to-environment transforms.
-        tolerance_m: Maximum coordinate or radial error allowed in metres.
-    """
-    import math
-
-    from isaaclab_arena.relations.relations import AtPosition, PositionLimitsBox, PositionLimitsCylindrical
-
-    for asset, pose in poses.items():
-        for relation in asset.get_relations():
-            if isinstance(relation, AtPosition):
-                for value, target in zip(pose.position_xyz, (relation.x, relation.y, relation.z)):
-                    if target is not None and abs(value - target) > tolerance_m:
-                        return False
-            elif isinstance(relation, PositionLimitsBox):
-                bounds = (
-                    (relation.x_min, relation.x_max),
-                    (relation.y_min, relation.y_max),
-                    (relation.z_min, relation.z_max),
-                )
-                for value, (lower, upper) in zip(pose.position_xyz, bounds):
-                    if lower is not None and value < lower - tolerance_m:
-                        return False
-                    if upper is not None and value > upper + tolerance_m:
-                        return False
-            elif isinstance(relation, PositionLimitsCylindrical):
-                radius = math.hypot(pose.position_xyz[0] - relation.center_x, pose.position_xyz[1] - relation.center_y)
-                if relation.radius_min is not None and radius < relation.radius_min - tolerance_m:
-                    return False
-                if relation.radius_max is not None and radius > relation.radius_max + tolerance_m:
-                    return False
-    return True
-
 
 def get_build_time_checks() -> tuple[str, ...]:
     """Registered build-time check names, in registration order."""
@@ -185,7 +115,7 @@ def build_validators(
 
 
 @register_validator
-class OnRelationValidator(BoundingBoxPlacementValidator):
+class OnRelationValidator(PlacementValidator):
     """Validate every On relation: child rests on its parent within X/Y footprint and Z band."""
 
     check = PlacementCheck.ON_RELATION
@@ -270,7 +200,7 @@ class OnRelationValidator(BoundingBoxPlacementValidator):
 
 
 @register_validator
-class NextToValidator(BoundingBoxPlacementValidator):
+class NextToValidator(PlacementValidator):
     """Validate every NextTo relation: child on the requested side within the relation's tolerance_m."""
 
     check = PlacementCheck.NEXT_TO
@@ -322,7 +252,7 @@ class NextToValidator(BoundingBoxPlacementValidator):
 
 
 @register_validator
-class NotNextToValidator(BoundingBoxPlacementValidator):
+class NotNextToValidator(PlacementValidator):
     """Validate every NotNextTo relation: child has cleared the keep-out zone beside the parent."""
 
     check = PlacementCheck.NOT_NEXT_TO
@@ -397,22 +327,6 @@ class FaceToValidator(PlacementValidator):
     ) -> list[bool]:
         return [self._validate(positions[i], orientations[i]) for i in range(len(positions))]
 
-    def validate_poses(self, poses, bboxes, collision_objects, allowed_contacts=None) -> bool:
-        import math
-
-        for asset, pose in poses.items():
-            relation = get_relation(asset, FaceTo)
-            if relation is None:
-                continue
-            target = poses[relation.parent].position_xyz
-            dx, dy = target[0] - pose.position_xyz[0], target[1] - pose.position_xyz[1]
-            if math.hypot(dx, dy) < 1e-6:
-                return False
-            error = yaw_from_quat_xyzw(pose.rotation_xyzw) - math.atan2(dy, dx)
-            if abs(math.atan2(math.sin(error), math.cos(error))) > math.radians(2.0):
-                return False
-        return True
-
     def _validate(
         self,
         positions: dict[PlaceableAsset, tuple[float, float, float]],
@@ -461,57 +375,6 @@ class NoOverlapValidator(PlacementValidator):
         return [
             self._validate(positions[i], bboxes[i], orientations[i], collision_objects) for i in range(len(positions))
         ]
-
-    def validate_poses(self, poses, bboxes, collision_objects, allowed_contacts=None) -> bool:
-        """Check full-pose collisions, permitting only explicitly declared contact pairs."""
-        from itertools import combinations
-
-        from isaaclab.utils.math import matrix_from_quat
-
-        allowed_contacts = allowed_contacts or set()
-        positions = {asset: pose.position_xyz for asset, pose in poses.items()}
-        on_pairs, anchors = self._collect_skip_pairs(positions)
-        pairs = [
-            (a, b)
-            for a, b in combinations(poses, 2)
-            if frozenset((a, b)) not in allowed_contacts
-            and (id(a), id(b)) not in on_pairs
-            and not (id(a) in anchors and id(b) in anchors)
-        ]
-        pairs.extend((a, b) for a in poses if id(a) not in anchors for b in collision_objects)
-        all_poses = {**{asset: asset.get_initial_pose() for asset in collision_objects}, **poses}
-        local_boxes = {**{asset: asset.get_bounding_box() for asset in collision_objects}, **bboxes}
-        mode = self._params.solver_params.collision_mode
-        margin = max(0.0, self._params.solver_params.clearance_m - 1e-6)
-        manager = self._get_cpu_mesh_manager()
-        for a, b in pairs:
-            T_E_A, T_E_B = all_poses[a], all_poses[b]
-            assert isinstance(T_E_A, Pose) and isinstance(T_E_B, Pose)
-            a_world = local_boxes[a].rotated_by_quat(T_E_A.rotation_xyzw).translated(T_E_A.position_xyz)
-            b_world = local_boxes[b].rotated_by_quat(T_E_B.rotation_xyzw).translated(T_E_B.position_xyz)
-            if not a_world.overlaps(b_world, margin=margin).item():
-                continue
-            meshes = {
-                obj: manager.get_collision_mesh(obj) if object_uses_mesh_collision(obj, mode) else None
-                for obj in (a, b)
-            }
-            if all(mesh is None for mesh in meshes.values()):
-                return False
-            for source, target in ((a, b), (b, a)):
-                if meshes[target] is None:
-                    continue
-                mesh = self._collision_mesh_or_aabb_proxy(meshes[source], local_boxes[source])
-                spheres = manager.get_query_spheres(mesh, obj=source if meshes[source] is not None else None)
-                T_E_S, T_E_T = all_poses[source], all_poses[target]
-                R_E_S = matrix_from_quat(torch.tensor(T_E_S.rotation_xyzw))
-                R_E_T = matrix_from_quat(torch.tensor(T_E_T.rotation_xyzw))
-                centers_E = spheres[:, :3] @ R_E_S.T + torch.tensor(T_E_S.position_xyz)
-                centers_T = (centers_E - torch.tensor(T_E_T.position_xyz)) @ R_E_T
-                sdf = mesh_sdf(centers_T, manager.get_warp_mesh(meshes[target], obj=target))
-                manager.warn_sdf_sentinel(sdf)
-                if has_sdf_sentinel(sdf) or (sdf < spheres[:, 3] + margin).any():
-                    return False
-        return True
 
     def _validate(
         self,

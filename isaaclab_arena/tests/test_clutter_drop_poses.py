@@ -10,7 +10,8 @@ import torch
 
 import pytest
 
-from isaaclab_arena.relations.clutter_drop_poses import (
+from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+from isaaclab_arena_examples.relations.clutter.drop_poses import (
     ClutterDropParams,
     ClutterRegion,
     DropOrder,
@@ -19,7 +20,6 @@ from isaaclab_arena.relations.clutter_drop_poses import (
     XySampling,
     compute_drop_poses,
 )
-from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 REGION = ClutterRegion(min_x=-0.18, min_y=-0.23, max_x=0.18, max_y=0.23, floor_z=0.8)
 
@@ -297,10 +297,6 @@ def test_region_scaled_keeps_center_and_floor():
 
 
 def test_flattest_first_ranks_by_height_after_the_authored_rotation():
-    import math
-
-    from isaaclab_arena.relations.clutter_drop_poses import DropOrder
-
     plate = make_bbox(0.20, 0.20, 0.01)
     block = make_bbox(0.06, 0.06, 0.05)
     upright = (0.0, math.sin(math.pi / 4.0), 0.0, math.cos(math.pi / 4.0))
@@ -311,9 +307,9 @@ def test_flattest_first_ranks_by_height_after_the_authored_rotation():
         [plate, block],
         REGION,
         params,
-        torch.Generator().manual_seed(0),
+        seeded(),
         base_rotations_xyzw=[upright, identity],
-        member_params=[MemberDropParams(random_yaw=False), MemberDropParams(random_yaw=False)],
+        member_params=axis_aligned(2),
     )
 
     assert poses[1].drop_index < poses[0].drop_index, "pitched plate was ranked by its local thickness"
@@ -353,3 +349,19 @@ def test_sampled_yaw_rotates_a_tilted_base_about_world_z(seed):
     actual = matrix_from_quat(torch.tensor(tilted_pose.rotation_xyzw))
     torch.testing.assert_close(actual, yaw_rotation @ base_rotation, atol=1e-6, rtol=0)
     assert abs(float(actual[1, 2])) > 0.01
+
+
+def test_explicit_empty_member_parameters_are_rejected():
+    with pytest.raises(AssertionError, match="0 member params for 1 objects"):
+        compute_drop_poses([make_bbox(0.05, 0.05, 0.05)], REGION, member_params=[])
+
+
+def test_disabled_yaw_preserves_authored_quaternion_exactly():
+    base = (math.sqrt(0.5), 0.0, 0.0, math.sqrt(0.5))
+    pose = compute_drop_poses(
+        [make_bbox(0.05, 0.06, 0.07)],
+        REGION,
+        base_rotations_xyzw=[base],
+        member_params=[MemberDropParams(random_yaw=False)],
+    )[0]
+    assert pose.rotation_xyzw == base

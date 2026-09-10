@@ -18,9 +18,6 @@ class ObjectPlacerParams:
     solver_params: RelationSolverParams = field(default_factory=RelationSolverParams)
     """Parameters for the underlying RelationSolver."""
 
-    final_position_tolerance_m: float = 0.005
-    """Allowed unary position-constraint error when validating physics-prepared poses."""
-
     random_yaw_init: bool = False
     """If True, give each non-anchor object a random fixed yaw about Z (uniform in [-pi, pi)) for
     scene variety. Not optimized; collisions use the conservative box enclosing the rotated object."""

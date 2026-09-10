@@ -86,9 +86,6 @@ def get_base_rotation_per_asset(
 def get_pose_from_layout(asset: PlaceableAsset, layout: PlacementResult) -> Pose:
     """Return an asset pose from a solved layout."""
     assert asset in layout.positions, f"Placement layout is missing non-anchor asset '{asset.name}'"
-    if asset in layout.rotations:
-        # A full rotation is already the final world orientation, so the marker yaw does not apply.
-        return Pose(position_xyz=layout.positions[asset], rotation_xyzw=layout.rotations[asset])
     base_rotation = get_rotation_xyzw(asset)
     marker_yaw = yaw_from_quat_xyzw(base_rotation)
     total_yaw = layout.orientations.get(asset, marker_yaw)
@@ -162,13 +159,6 @@ def solve_and_place_objects(
     if env_ids is None or len(env_ids) == 0:
         return
     assets = pool.objects
-    from isaaclab_arena.relations.clutter_groups import get_clutter_groups
-
-    has_clutter = bool(get_clutter_groups(assets))
-    assert not has_clutter or pool.recycle_layouts, (
-        "Clutter pool has not been prepared. Call builder.prepare_placement(env) or "
-        "prepare_clutter_layouts(env, pool) before resetting."
-    )
     reset_env_ids = env_ids.tolist()
     num_scene_envs = env.scene.env_origins.shape[0]
     assert (
@@ -180,8 +170,6 @@ def solve_and_place_objects(
 
     for cur_env in reset_env_ids:
         result = results_by_env[cur_env]
-        if has_clutter:
-            assert result.is_prepared, "Reset cannot replay clutter that failed final-pose validation"
         if not result.success:
             print(
                 "Warning: Writing best-loss fallback placement for "

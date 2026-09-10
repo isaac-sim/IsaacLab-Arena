@@ -424,32 +424,3 @@ def test_validator_passes_trivially_and_warns_when_no_targets(monkeypatch, capsy
     # No grasp was ever solved (the IK path is skipped entirely when there are no targets).
     assert "num_grasps" not in captured
     assert capsys.readouterr().out.count("resolved zero reachability targets") == 1
-
-
-@pytest.mark.curobo_deps
-def test_final_clutter_target_reachability_uses_captured_full_pose(monkeypatch):
-    import math
-
-    import isaaclab_arena_curobo.ik_reachability_validator as mod
-    from isaaclab_arena.relations.relations import ClutteredOn, RequiresReachability
-    from isaaclab_arena.tests.dummy_object import DummyObject
-    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
-    from isaaclab_arena.utils.pose import Pose
-
-    _patch_curobo(monkeypatch, lambda count: [False] * count)
-    validator = _make_reachability_validator(_fake_embodiment())
-    target = DummyObject("target", AxisAlignedBoundingBox(min_point=(-0.1, -0.1, -0.1), max_point=(0.1, 0.1, 0.1)))
-    support = DummyObject("support", target.bounding_box)
-    target.add_relation(ClutteredOn(support))
-    target.add_relation(RequiresReachability())
-    settled_pose = Pose((0.4, 0.2, 0.6), (math.sqrt(0.5), 0, 0, math.sqrt(0.5)))
-    observed = []
-    original = mod.top_down_grasp_pose_from_world_poses
-
-    def record(position, quaternion, *args, **kwargs):
-        observed.append((position, quaternion))
-        return original(position, quaternion, *args, **kwargs)
-
-    monkeypatch.setattr(mod, "top_down_grasp_pose_from_world_poses", record)
-    assert not validator.validate_poses({target: settled_pose}, {target: target.bounding_box}, [])
-    assert observed == [(settled_pose.position_xyz, settled_pose.rotation_xyzw)]

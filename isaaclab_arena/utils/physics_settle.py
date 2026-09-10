@@ -24,8 +24,6 @@ def step_physics(env: ManagerBasedEnv, num_steps: int, render: bool = False) -> 
     dt = env.unwrapped.sim.get_physics_dt()
     for _ in range(num_steps):
         # Does not perturb metric recorder as no env.step is called.
-        # Update actuator feedback while retaining the existing control targets.
-        env.unwrapped.scene.write_data_to_sim()
         env.unwrapped.sim.step(render=render)
         env.unwrapped.scene.update(dt)
 

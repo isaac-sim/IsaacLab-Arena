@@ -37,21 +37,6 @@ class PlacementCheck(StrEnum):
     """Build-time check: the robot can reach a top-down grasp at every movable object's
     resting pose, per the cuRobo IK solver supplied by the cuRobo extension."""
 
-    CAPTURED_OBJECTS_SETTLED = "captured_objects_settled"
-    """Captured object poses are quiet over consecutive samples."""
-
-    CLUTTER_CONTAINED = "clutter_contained"
-    """Clutter geometry remains above and inside its support footprint."""
-
-    FINAL_POSES_VALIDATED = "final_poses_validated"
-    """Final poses pass the configured placement and containment checks."""
-
-    POSITION_CONSTRAINTS = "position_constraints"
-    """Final positions satisfy unary placement constraints."""
-
-    PASSIVE_POSES_UNCHANGED = "passive_poses_unchanged"
-    """Uncaptured rigid-body and articulation-link poses remain within tolerance."""
-
 
 @dataclass
 class PlacementValidationResults:

@@ -19,8 +19,6 @@ from isaaclab_physx.renderers import IsaacRtxRendererGlobalSettingsCfg
 from isaaclab_physx.renderers.isaac_rtx_renderer_utils import apply_isaac_rtx_global_settings
 from isaaclab_tasks.utils import PresetCfg
 
-from isaaclab_arena.relations.clutter_validation import ClutterSettleParams
-
 
 @configclass
 class ArenaPhysicsCfg(PresetCfg):
@@ -86,12 +84,6 @@ class IsaacLabArenaManagerBasedRLEnvCfg(ManagerBasedRLEnvCfg):
         render_interval=2,
     )
     decimation: int = 8
-    settle_clutter_on_build: bool = True
-    """Prepare and validate resting clutter layouts before the first episode."""
-
-    clutter_settle_params: ClutterSettleParams = ClutterSettleParams()
-    """Physical-time budget, rest thresholds and support containment tolerance."""
-
     wait_for_textures: bool = False
 
 
