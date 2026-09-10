@@ -104,11 +104,28 @@ def _test_object_on_microwave_tray_termination(simulation_app) -> bool:
     return True
 
 
-def _record_arena_world_pose_count(_simulation_app, pose_counts: list[int]) -> bool:
-    env, _microwave, _dex_cube, destination_ref = _make_microwave_tray_environment()
+def _check_arena_world_pose_frames(_simulation_app) -> bool:
+    import torch
+
+    env, microwave, dex_cube, destination_ref = _make_microwave_tray_environment()
     try:
-        destination_pose_w = env.unwrapped.arena_world.get_pose_w(destination_ref.name)
-        pose_counts.append(destination_pose_w.shape[0])
+        scene = env.unwrapped.scene
+        arena_world = env.unwrapped.arena_world
+        microwave_root_pose_w = scene.articulations[microwave.name].data.root_pose_w.torch
+        torch.testing.assert_close(arena_world.get_pose_w(microwave.name), microwave_root_pose_w)
+
+        for scene_key in (dex_cube.name, microwave.name, destination_ref.name):
+            T_W_F = arena_world.get_pose_w(scene_key).clone()
+            expected_T_E_F = T_W_F.clone()
+            expected_T_E_F[:, :3] -= scene.env_origins
+
+            torch.testing.assert_close(arena_world.get_pose_e(scene_key), expected_T_E_F)
+
+            # Environment-frame conversion must not modify the live world-frame pose.
+            torch.testing.assert_close(
+                arena_world.get_pose_w(scene_key),
+                T_W_F,
+            )
     finally:
         env.close()
     return True
@@ -119,15 +136,12 @@ def test_object_on_microwave_tray_termination():
     assert result, "Test failed"
 
 
-def test_arena_world_scene_extra_pose_covers_cloned_environments():
-    pose_counts = []
+def test_arena_world_pose_frames():
     result = run_function_with_persistent_simulation_app(
-        _record_arena_world_pose_count,
+        _check_arena_world_pose_frames,
         headless=HEADLESS,
-        pose_counts=pose_counts,
     )
-    assert result, "Failed to inspect the AssetBaseCfg scene extra."
-    assert pose_counts == [NUM_ENVS]
+    assert result, "ArenaWorld did not preserve world poses while converting them to the environment frame."
 
 
 if __name__ == "__main__":

@@ -88,7 +88,7 @@ def _test_set_object_pose_per_env_event(simulation_app):
 
         # Check the pose right after reset, before the box is stepped: the reset event is the unit under
         # test, so we verify each env received its assigned pose rather than where physics carries it.
-        cracker_box_poses = cracker_box.get_object_pose(env)
+        cracker_box_poses = env.unwrapped.arena_world.get_pose_e(cracker_box.name)
         initial_poses = torch.cat(
             (
                 pose_list[0].to_tensor(device=env.unwrapped.device).unsqueeze(0),

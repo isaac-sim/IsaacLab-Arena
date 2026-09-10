@@ -65,7 +65,7 @@ class PickAndPlaceTask(TaskBase):
         episode_length_s: float | None = None,
         task_description: str | None = None,
         force_threshold: float = 0.1,
-        velocity_threshold: float = 0.1,
+        velocity_threshold: float = 0.003,
         mimic_env_cfg_factory: Callable[[ArmMode], MimicEnvCfg] | None = None,
         support_cone_half_angle_rad: float = math.pi / 4,
     ):

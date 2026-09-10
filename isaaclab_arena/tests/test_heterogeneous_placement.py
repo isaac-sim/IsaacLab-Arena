@@ -173,8 +173,8 @@ def test_dummy_object_preserves_constructor_relations():
 def test_object_preserves_constructor_relations():
     """Object should keep relations passed at construction time."""
     from isaaclab_arena.assets.object import Object
-    from isaaclab_arena.assets.object_base import ObjectType
     from isaaclab_arena.assets.object_set import RigidObjectSet
+    from isaaclab_arena.assets.object_type import ObjectType
 
     anchor_relation = IsAnchor()
     obj = Object(
@@ -906,8 +906,8 @@ def test_real_rigid_object_set_through_pooled_placer():
     from unittest.mock import patch
 
     from isaaclab_arena.assets.object import Object
-    from isaaclab_arena.assets.object_base import ObjectType
     from isaaclab_arena.assets.object_set import RigidObjectSet
+    from isaaclab_arena.assets.object_type import ObjectType
     from isaaclab_arena.relations.bounding_box_helpers import has_heterogeneous_objects
 
     desk = _make_desk()

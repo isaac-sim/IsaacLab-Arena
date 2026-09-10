@@ -45,21 +45,27 @@ def _check_rigid_object_reads_and_local_aabb_cache(
     """Check live rigid-object reads and one cached AABB per scene key."""
     import torch
 
-    class RuntimeBufferDouble:
-        def __init__(self, tensor: torch.Tensor):
-            self.torch = tensor
-
     class RigidObjectDouble:
-        def __init__(self, T_W_F: torch.Tensor, root_linear_velocity_w: torch.Tensor):
+        def __init__(
+            self,
+            T_W_F: torch.Tensor,
+            root_linear_velocity_w: torch.Tensor,
+            root_angular_velocity_w: torch.Tensor,
+        ):
             self.data = SimpleNamespace(
-                root_pose_w=RuntimeBufferDouble(T_W_F),
-                root_lin_vel_w=RuntimeBufferDouble(root_linear_velocity_w),
+                root_pose_w=SimpleNamespace(torch=T_W_F),
+                root_lin_vel_w=SimpleNamespace(torch=root_linear_velocity_w),
+                root_ang_vel_w=SimpleNamespace(torch=root_angular_velocity_w),
             )
 
     class SceneDouble:
         def __init__(self):
             self.num_envs = 2
             self.device = "cpu"
+            self.env_origins = torch.tensor([
+                [0.0, 0.0, 0.0],
+                [1.0, 0.0, 0.0],
+            ])
             self.rigid_objects = {
                 "object": RigidObjectDouble(
                     T_W_F=torch.tensor([
@@ -70,6 +76,10 @@ def _check_rigid_object_reads_and_local_aabb_cache(
                         [0.0, 0.0, 0.0],
                         [0.1, 0.2, 0.3],
                     ]),
+                    root_angular_velocity_w=torch.tensor([
+                        [0.0, 0.0, 0.0],
+                        [0.4, 0.5, 0.6],
+                    ]),
                 ),
                 "destination": RigidObjectDouble(
                     T_W_F=torch.tensor([
@@ -77,8 +87,10 @@ def _check_rigid_object_reads_and_local_aabb_cache(
                         [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0],
                     ]),
                     root_linear_velocity_w=torch.zeros((2, 3)),
+                    root_angular_velocity_w=torch.zeros((2, 3)),
                 ),
             }
+            self.articulations = {}
             self.extras = {}
 
     scene = SceneDouble()
@@ -98,17 +110,32 @@ def _check_rigid_object_reads_and_local_aabb_cache(
         )
 
     T_W_O_initial = scene.rigid_objects["object"].data.root_pose_w.torch.clone()
+    T_E_O_initial = T_W_O_initial.clone()
+    T_E_O_initial[:, :3] -= scene.env_origins
     initial_root_linear_velocity_w = scene.rigid_objects["object"].data.root_lin_vel_w.torch.clone()
+    initial_root_angular_velocity_w = scene.rigid_objects["object"].data.root_ang_vel_w.torch.clone()
+    torch.testing.assert_close(arena_world.get_pose_w("object"), T_W_O_initial)
+    torch.testing.assert_close(arena_world.get_position_w("object"), T_W_O_initial[:, :3])
+    torch.testing.assert_close(arena_world.get_pose_e("object"), T_E_O_initial)
     torch.testing.assert_close(arena_world.get_pose_w("object"), T_W_O_initial)
     torch.testing.assert_close(arena_world.get_root_linear_velocity_w("object"), initial_root_linear_velocity_w)
+    torch.testing.assert_close(arena_world.get_root_angular_velocity_w("object"), initial_root_angular_velocity_w)
 
     T_W_O_moved = T_W_O_initial.clone()
     T_W_O_moved[:, 0] += 0.25
     changed_root_linear_velocity_w = initial_root_linear_velocity_w + 0.5
+    changed_root_angular_velocity_w = initial_root_angular_velocity_w + 0.25
     scene.rigid_objects["object"].data.root_pose_w.torch = T_W_O_moved
     scene.rigid_objects["object"].data.root_lin_vel_w.torch = changed_root_linear_velocity_w
+    scene.rigid_objects["object"].data.root_ang_vel_w.torch = changed_root_angular_velocity_w
+    T_E_O_moved = T_W_O_moved.clone()
+    T_E_O_moved[:, :3] -= scene.env_origins
+    torch.testing.assert_close(arena_world.get_pose_w("object"), T_W_O_moved)
+    torch.testing.assert_close(arena_world.get_position_w("object"), T_W_O_moved[:, :3])
+    torch.testing.assert_close(arena_world.get_pose_e("object"), T_E_O_moved)
     torch.testing.assert_close(arena_world.get_pose_w("object"), T_W_O_moved)
     torch.testing.assert_close(arena_world.get_root_linear_velocity_w("object"), changed_root_linear_velocity_w)
+    torch.testing.assert_close(arena_world.get_root_angular_velocity_w("object"), changed_root_angular_velocity_w)
 
     with patch.object(
         scene_access_module,
@@ -124,6 +151,65 @@ def _check_rigid_object_reads_and_local_aabb_cache(
     assert geometry_build_calls == ["object", "destination"]
 
 
+def _check_articulation_root_state_reads(arena_world_module) -> None:
+    """Check that articulation root poses and velocities are read live."""
+    import torch
+
+    T_W_F_initial = torch.tensor([
+        [0.0, 0.0, 0.4, 0.0, 0.0, 0.0, 1.0],
+        [1.0, 0.0, 0.4, 0.0, 0.0, 0.0, 1.0],
+    ])
+    root_linear_velocity_w_initial = torch.tensor([
+        [0.0, 0.0, 0.0],
+        [0.1, 0.2, 0.3],
+    ])
+    root_angular_velocity_w_initial = torch.tensor([
+        [0.0, 0.0, 0.0],
+        [0.4, 0.5, 0.6],
+    ])
+    articulation = SimpleNamespace(
+        data=SimpleNamespace(
+            root_pose_w=SimpleNamespace(torch=T_W_F_initial),
+            root_lin_vel_w=SimpleNamespace(torch=root_linear_velocity_w_initial),
+            root_ang_vel_w=SimpleNamespace(torch=root_angular_velocity_w_initial),
+        )
+    )
+    scene = SimpleNamespace(
+        num_envs=2,
+        rigid_objects={},
+        articulations={"cabinet": articulation},
+        extras={},
+    )
+    arena_world = arena_world_module.ArenaWorld(scene)
+
+    torch.testing.assert_close(arena_world.get_pose_w("cabinet"), T_W_F_initial)
+    torch.testing.assert_close(
+        arena_world.get_root_linear_velocity_w("cabinet"),
+        root_linear_velocity_w_initial,
+    )
+    torch.testing.assert_close(
+        arena_world.get_root_angular_velocity_w("cabinet"),
+        root_angular_velocity_w_initial,
+    )
+
+    T_W_F_moved = T_W_F_initial.clone()
+    T_W_F_moved[:, 2] += 0.1
+    root_linear_velocity_w_changed = root_linear_velocity_w_initial + 0.5
+    root_angular_velocity_w_changed = root_angular_velocity_w_initial + 0.25
+    articulation.data.root_pose_w.torch = T_W_F_moved
+    articulation.data.root_lin_vel_w.torch = root_linear_velocity_w_changed
+    articulation.data.root_ang_vel_w.torch = root_angular_velocity_w_changed
+    torch.testing.assert_close(arena_world.get_pose_w("cabinet"), T_W_F_moved)
+    torch.testing.assert_close(
+        arena_world.get_root_linear_velocity_w("cabinet"),
+        root_linear_velocity_w_changed,
+    )
+    torch.testing.assert_close(
+        arena_world.get_root_angular_velocity_w("cabinet"),
+        root_angular_velocity_w_changed,
+    )
+
+
 def _check_arena_world_reuses_scene_extra_pose_reader(
     arena_world_module,
     scene_access_module,
@@ -135,6 +221,7 @@ def _check_arena_world_reuses_scene_extra_pose_reader(
         def __init__(self):
             self.num_envs = 1
             self.rigid_objects = {}
+            self.articulations = {}
             self.extras = {"reference": object()}
 
     class PoseReaderDouble:
@@ -166,7 +253,7 @@ def _check_arena_world_reuses_scene_extra_pose_reader(
 def _check_arena_world_rejects_unsupported_pose_scene_key(arena_world_module) -> None:
     """Check that a pose query reports ArenaWorld's supported scene categories."""
 
-    scene = SimpleNamespace(rigid_objects={}, extras={})
+    scene = SimpleNamespace(rigid_objects={}, articulations={}, extras={})
     arena_world = arena_world_module.ArenaWorld(scene)
 
     try:
@@ -174,8 +261,8 @@ def _check_arena_world_rejects_unsupported_pose_scene_key(arena_world_module) ->
     except AssertionError as error:
         assert (
             str(error)
-            == "ArenaWorld pose queries require a scene key registered in InteractiveScene.rigid_objects or "
-            "InteractiveScene.extras; 'robot' is registered in neither."
+            == "ArenaWorld pose queries require a scene key registered in InteractiveScene.rigid_objects, "
+            "InteractiveScene.articulations, or InteractiveScene.extras; 'robot' is registered in none of them."
         )
     else:
         raise AssertionError("ArenaWorld accepted an unsupported pose scene key.")
@@ -249,6 +336,7 @@ def _test_arena_world_scene_access(_simulation_app) -> bool:
         scene_access,
         AxisAlignedBoundingBox,
     )
+    _check_articulation_root_state_reads(arena_world)
     _check_arena_world_reuses_scene_extra_pose_reader(arena_world, scene_access)
     _check_arena_world_rejects_unsupported_pose_scene_key(arena_world)
     _check_scene_extra_pose_reader_uses_current_frame_view_poses(scene_access)

@@ -1,10 +1,11 @@
 GR1 Sequential Pick & Place and Close Door Task
 ===============================================
 
-This example demonstrates the complete workflow for the **GR1 sequential manipulation task of picking up an object,
-placing it into a refrigerator, and closing the door** in Isaac Lab - Arena,
-covering environment setup and validation, teleoperation data collection, data generation with
-Isaac Lab Mimic, policy post-training, and closed-loop evaluation.
+This example demonstrates the complete workflow for the **GR1 sequential manipulation task of
+picking up an object, placing it into a refrigerator, and closing the door**. The environment is
+built and validated in Isaac Lab Arena, then passed to Isaac Lab for teleoperation data collection
+and data generation with Isaac Lab Mimic; the policy is post-trained with Isaac-GR00T and
+evaluated in closed loop back in Isaac Lab Arena.
 
 .. image:: ../../../images/gr1_sequential_static_manipulation_env.gif
    :align: center
@@ -40,7 +41,7 @@ Task Overview
    * - **Policy**
      - GR00T N1.6 (vision-language foundation model)
    * - **Post-training**
-     - Imitation Learning
+     - Imitation Learning — post-trained with **Isaac-GR00T**
    * - **Physics**
      - PhysX (200Hz @ 4 decimation)
    * - **Closed-loop**
@@ -50,8 +51,9 @@ Task Overview
 Workflow
 --------
 
-This tutorial covers the pipeline pn creating an environment, generating training data,
-fine-tuning a policy (GR00T N1.6), and evaluating the policy in closed-loop.
+This tutorial covers the pipeline between creating an environment in Isaac Lab Arena, generating
+training data through Isaac Lab, fine-tuning a policy (GR00T N1.6), and evaluating the policy in
+closed-loop in Isaac Lab Arena.
 
 Prerequisites
 ^^^^^^^^^^^^^

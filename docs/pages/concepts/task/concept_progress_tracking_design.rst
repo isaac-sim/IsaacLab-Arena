@@ -55,11 +55,9 @@ A predicate may accept any task-specific arguments it needs after ``env``. For e
 
    import torch
 
-   from isaaclab_arena.tasks.predicates.predicate_utils import get_root_pos_w
-
    def object_inside_x_bounds(env, object_name: str, min_x: float, max_x: float) -> torch.Tensor:
-       object_x = get_root_pos_w(env, object_name)[:, 0]
-       return (object_x >= min_x) & (object_x <= max_x)
+       object_x_e = env.arena_world.get_pose_e(object_name)[:, 0]
+       return (object_x_e >= min_x) & (object_x_e <= max_x)
 
 The arguments after ``env`` are configured when the predicate is added to a progress objective
 (shown in the next section).

@@ -35,6 +35,8 @@ class RotateRevoluteJointTask(TaskBase):
         self.openable_object = openable_object
         self.target_joint_percentage_threshold = target_joint_percentage_threshold
         self.reset_joint_percentage = reset_joint_percentage
+        self.min_openness_change = 0.05
+        """Openness change, as a fraction of the joint range, past which the joint counts as having moved."""
         self.task_description = (
             f"Rotate the {self.openable_object.name} joint to the target {target_joint_percentage_threshold} joint"
             " percentage."
@@ -66,6 +68,7 @@ class RotateRevoluteJointTask(TaskBase):
             RevoluteJointMovedRateMetric(
                 self.openable_object,
                 reset_joint_percentage=self.reset_joint_percentage,
+                joint_percentage_delta_threshold=self.min_openness_change,
             ),
         ]
 

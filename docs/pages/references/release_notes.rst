@@ -43,22 +43,124 @@ are coming soon.
 **Collaboration**
 
 Isaac Lab-Arena is being developed as an open-source, shared evaluation framework that the community can
-collectively enhance and expand. We invite you to try Isaac Lab-Arena 0.2 Alpha, share feedback, and help
+collectively enhance and expand. We invite you to try Isaac Lab-Arena 0.3 Alpha, share feedback, and help
 shape its future. In Alpha stage, development velocity is high and core features/APIs are evolving. Your
 input at this stage is especially valuable.
 
 **What's Next**
 
-Future releases will focus on agentic, prompt-first scene and task generation, non-sequential long horizon
-tasks, easy-to-configure sensitivity analysis with targeted environment variations and evaluation sweeps without
-code changes, enhanced heterogeneity across parallel evaluations, and VLM-augmented analysis to surface
-insights from large-scale evaluations. These will come with ongoing improvements to performance and usability,
-such as PIP packaging.
+Future releases will focus on:
+
+- Enhanced Newton support for benchmarks involving contact-rich insertion, cables, and deformables.
+- Prompt-to-scene, robot, and task workflows.
+- Improved performance for multi-node evaluation.
 
 **Limitations**
 
 - Installation from a published Python package is not yet supported; use the native ``uv`` source workflow or Docker.
 - Performance is not yet hardened for production-scale workloads in Alpha stage.
+
+
+v0.3.0
+------
+
+This release introduces:
+
+- Prompt-first environment generation.
+- Controlled randomization through variations.
+- Sensitivity analysis.
+- Multi-node evaluations.
+- Expanded policy integrations.
+- Task libraries, including RoboLab-style tasks and our own Kitchen Benchmark for tasks in
+  realistic kitchens.
+
+Details below:
+
+**Features and improvements**
+
+- **Agentic environment generation:** Added ``EnvironmentGenerationAgent`` for creating environments from
+  natural-language prompts, with intent-to-graph conversion, SimReady asset search, composite-task
+  support, configurable inference endpoints, and an interactive review GUI with simulation
+  snapshots and relation-solver previews (#718, #770, #803, #804, #805, #868, #982, #1050).
+- **Typed environment definitions:** Added Pydantic-based ``ArenaEnvGraphSpec`` YAML parsing and CLI
+  bring-up, typed environment and policy configurations, a reusable environment factory, and a
+  unified path for loading registered Python environments or graph YAML files
+  (#690, #749, #757, #808, #858, #860, #862, #863).
+- **Isaac Lab 3.0 workflow interoperation:** Updated the Isaac Lab submodule and moved
+  demonstration recording, replay, and teleoperation to Isaac Lab's scripts through Arena's
+  external environment registration callback (#960, #994, #1022).
+- **Experiments and evaluation reports:** Replaced legacy evaluation jobs with typed YAML
+  Experiments and Runs, including environment rebuilds, chunked and multi-node dispatch,
+  combined JSON results, an experiment viewer, grouped success-rate plots, and generated
+  evaluation reports (#751, #772, #802, #867, #873, #896, #1042, #1056, #1070).
+- **Variations and sensitivity analysis:** Added Hydra-configurable variations with in-memory
+  recording for lighting, camera intrinsics, and object mass, plus an MNPE/NPE sensitivity-analysis
+  workflow, sample dataset, and plotting tools (#729, #746, #755, #775, #789, #913, #916, #1055).
+- **Object placement and validation:** Added heterogeneous and deterministic placement,
+  mesh-based non-collision constraints, ``NotNextTo`` and ``FaceTo`` relations, unified placement
+  APIs, build-time physics settling, and pluggable validation checks (#676, #679, #732, #769,
+  #771, #809, #888, #927).
+- **Robot reachability validation:** Added a build-time, simulation-free cuRobo IK gate for
+  task-relevant object layouts, including Droid and Franka embodiment placement, collision
+  checking, and optional debug visualization (#914, #947, #954, #984, #1014).
+- **Policy integrations:** Added OpenPI support for DROID and Pi0.5, GR00T remote closed-loop
+  policies with pluggable action schedulers, Cosmos and DreamZero policies, and OSMO workflows
+  for parallel and multi-policy evaluation (#595, #655, #658, #663, #688, #823, #843, #963,
+  #991, #1005).
+- **Task libraries:** Added the RoboLab catalog and more than 15 pick-and-place environments,
+  plus Lightwheel and Replicator kitchen environments for pick-and-place, opening doors and
+  microwaves, pressing buttons, and turning knobs (#845, #857, #962, #965, #966, #1048, #1149,
+  #1155).
+- **Progress tracking:** Added fine-grained subtask state, episode recording, order-independent
+  composite tasks, unified success checks, and normalized progress scoring (#677, #758, #810,
+  #822, #840, #1137).
+
+**Documentation**
+
+- **Agentic generation workflows:** Added concept, validation, tabletop, kitchen, GUI,
+  reachability, and collision-handling documentation for prompt-first environment creation
+  (#844, #1025, #1028, #1033, #1046, #1064, #1076, #1085, #1135).
+- **Evaluation workflows:** Added documentation for Experiments and Runs, generated reports,
+  multi-node execution, variations, sensitivity analysis, environment seeds, and
+  ``RigidObjectSet`` (#1030, #1045, #1051, #1053, #1063, #1068, #1072).
+- **Website and catalogs:** Added the Kitchen Benchmark and RoboLab catalogs, redesigned the
+  overview and motivation pages, and updated the release documentation for Arena 0.3
+  (#1041, #1048, #1089, #1126, #1217, #1222).
+
+**Infrastructure and CI**
+
+- **Native installation:** Added a fully source-based ``uv`` installation path with lightweight
+  OpenPI and GR00T clients, runtime package configuration, and dedicated native-``uv`` CI
+  validation (#908, #934, #938, #944, #1084, #1092, #1101).
+- **Docker workflows:** Added per-clone container naming, host-user command execution, optional
+  container suffixes, and improved Docker support for agent workflows (#643, #760, #762, #763).
+- **CI coverage:** Added all-environment smoke testing, a GR00T closed-loop end-to-end job,
+  camera test coverage, and improved Isaac Sim shader caching and subprocess isolation
+  (#617, #618, #644, #675, #950).
+
+**Assets and tests**
+
+- **Kitchen assets:** Added Replicator kitchen examples, publicly hosted USD-randomizer kitchens,
+  Lightwheel kitchen registration, mesh-placement examples, and kitchen task configurations
+  (#962, #965, #1088, #1090).
+- **RoboLab assets:** Added the RoboLab catalog, missing object assets, agent-generated
+  pick-and-place environments, and OpenPI-versus-Cosmos experiment configurations
+  (#815, #817, #820, #845, #857, #1020).
+
+**Bug fixes**
+
+- **Placement correctness:** Fixed relation-solver bounding-box scaling, rotation-around
+  placement failures, IK reachability for relation-placed robots, and geometric pick-and-place
+  success checks (#816, #921, #1081, #1132).
+- **Rendering and cameras:** Fixed corrupt kitchen rendering, Droid camera quaternion ordering,
+  review-GUI viewport setup, and viewpoint camera poses in parallel environments
+  (#673, #941, #1043, #1223).
+- **Evaluation correctness:** Fixed normalized progress scores, missing-video report handling,
+  timeout termination semantics, and external environment registration for Isaac Lab workflows
+  (#865, #994, #1017, #1137).
+- **Background physics:** Fixed kitchen placement collisions, relation anchors in background
+  collision meshes, and physics reset behavior for kitchen and other backgrounds
+  (#988, #1003, #1102, #1180).
 
 
 v0.2.0

@@ -4,21 +4,26 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from dataclasses import MISSING
+from functools import partial
 
 import isaaclab.envs.mdp as mdp_isaac_lab
-from isaaclab.managers import TerminationTermCfg
+from isaaclab.managers import SceneEntityCfg, TerminationTermCfg
 from isaaclab.utils.configclass import configclass
 
 from isaaclab_arena.affordances.openable import Openable
 from isaaclab_arena.assets.register import agent_ready, register_task
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
+from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
 from isaaclab_arena.tasks.common.open_close_door_mimic import RotateDoorMimicEnvCfg
+from isaaclab_arena.tasks.predicates.articulations import is_away_from_rest_openness
 from isaaclab_arena.tasks.rotate_revolute_joint_task import RotateRevoluteJointTask
 
 
 @agent_ready
 @register_task
 class OpenDoorTask(RotateRevoluteJointTask):
+    """Open-door task. Success fires once the door's joint travels past ``openness_threshold``."""
+
     def __init__(
         self,
         openable_object: Openable,
@@ -27,6 +32,16 @@ class OpenDoorTask(RotateRevoluteJointTask):
         episode_length_s: float | None = None,
         task_description: str | None = None,
     ):
+        """Initializes the open-door task.
+
+        Args:
+            openable_object: The door-like object to open.
+            openness_threshold: Fraction of the joint range the door must travel past to succeed.
+                None falls back to the object's own ``openable_threshold``.
+            reset_openness: The openness the door is reset to at the start of each episode.
+            episode_length_s: The episode length in seconds.
+            task_description: The language instruction for the task.
+        """
         super().__init__(
             openable_object=openable_object,
             target_joint_percentage_threshold=openness_threshold,
@@ -52,6 +67,30 @@ class OpenDoorTask(RotateRevoluteJointTask):
 
     def get_termination_cfg(self):
         return self.termination_cfg
+
+    def get_progress_objectives(self) -> list[ProgressObjective]:
+        """Returns a single objective whose chain is: the door moved at all, then the door is open."""
+        is_open_params = {}
+        if self.target_joint_percentage_threshold is not None:
+            is_open_params["threshold"] = self.target_joint_percentage_threshold
+        reset_openness = 0.0 if self.reset_joint_percentage is None else self.reset_joint_percentage
+        return [
+            ProgressObjective(
+                name="open_door",
+                predicate_groups=[
+                    partial(
+                        is_away_from_rest_openness,
+                        asset_cfg=SceneEntityCfg(
+                            self.openable_object.name, joint_names=[self.openable_object.openable_joint_name]
+                        ),
+                        rest_openness=reset_openness,
+                        min_openness_change=self.min_openness_change,
+                    ),
+                    partial(self.openable_object.is_open, **is_open_params),
+                ],
+                description=f"Move the {self.openable_object.name} door, then open it past the success threshold.",
+            ),
+        ]
 
     def get_mimic_env_cfg(self, arm_mode: ArmMode):
         return RotateDoorMimicEnvCfg(

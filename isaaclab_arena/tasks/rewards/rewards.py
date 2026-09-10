@@ -3,30 +3,29 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-import torch
+from __future__ import annotations
 
-import warp as wp
-from isaaclab.assets import RigidObject
-from isaaclab.envs import ManagerBasedRLEnv
+import torch
+from typing import TYPE_CHECKING
+
 from isaaclab.managers import SceneEntityCfg
 from isaaclab.sensors import FrameTransformer
 
+if TYPE_CHECKING:
+    from isaaclab_arena.environments.isaaclab_arena_manager_based_env import IsaacLabArenaManagerBasedRLEnv
+
 
 def object_ee_distance(
-    env: ManagerBasedRLEnv,
+    env: IsaacLabArenaManagerBasedRLEnv,
     std: float,
     object_cfg: SceneEntityCfg = SceneEntityCfg("object"),
     ee_frame_cfg: SceneEntityCfg = SceneEntityCfg("ee_frame"),
 ) -> torch.Tensor:
     """Reward the agent for reaching the object using tanh-kernel."""
-    # extract the used quantities (to enable type-hinting)
-    object: RigidObject = env.scene[object_cfg.name]
-    ee_frame: FrameTransformer = env.scene[ee_frame_cfg.name]
-    # Target object position: (num_envs, 3)
-    object_pos_w = wp.to_torch(object.data.root_pos_w)
-    # End-effector position: (num_envs, 3)
-    ee_w = wp.to_torch(ee_frame.data.target_pos_w)[..., 0, :]
-    # Distance of the end-effector to the object: (num_envs,)
-    object_ee_distance = torch.norm(object_pos_w - ee_w, dim=1)
+    object_position_w = env.arena_world.get_position_w(object_cfg.name)
 
-    return 1 - torch.tanh(object_ee_distance / std)
+    ee_frame: FrameTransformer = env.scene[ee_frame_cfg.name]
+    end_effector_position_w = ee_frame.data.target_pos_w.torch[..., 0, :]
+    distance_to_object = torch.norm(object_position_w - end_effector_position_w, dim=1)
+
+    return 1 - torch.tanh(distance_to_object / std)

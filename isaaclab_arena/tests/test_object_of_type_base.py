@@ -16,8 +16,8 @@ MOVEMENT_EPS = 0.001
 
 def _test_object_of_type_base(simulation_app):
 
-    from isaaclab_arena.assets.object_base import ObjectType
     from isaaclab_arena.assets.object_library import LibraryObject
+    from isaaclab_arena.assets.object_type import ObjectType
     from isaaclab_arena.assets.registries import AssetRegistry
     from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
@@ -72,7 +72,7 @@ def _test_object_of_type_base(simulation_app):
                 env.step(actions)
 
             # Check the the object is floating.
-            position_after_simulation = cone.get_object_pose(env)[:, :3]
+            position_after_simulation = env.unwrapped.arena_world.get_pose_e(cone.name)[:, :3]
             movement = position_after_simulation.cpu() - position_before_simulation.cpu()
             assert torch.norm(movement).item() < MOVEMENT_EPS, "Object moved. Should not have physics."
 
