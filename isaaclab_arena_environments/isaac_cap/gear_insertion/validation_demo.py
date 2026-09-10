@@ -27,10 +27,11 @@ _PREGRASP_DISTANCE_M = 0.08
 _LIFT_DISTANCE_M = 0.12
 _MAX_TRANSLATION_PER_STEP_M = 0.006
 _POSITION_TOLERANCE_M = 0.008
+_NUM_ENVS = 2
 
 
 def _make_environment(variant: str):
-    """Build one visual gear environment using its relative-IK embodiment."""
+    """Build two visual gear environments using the relative-IK embodiment."""
     from isaaclab_visualizers.kit import KitVisualizerCfg
 
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
@@ -50,7 +51,7 @@ def _make_environment(variant: str):
         if variant == "easy"
         else (GearInsertionNewtonEnvironment(), GearInsertionNewtonEnvironmentCfg)
     )
-    arena_environment = factory.build(cfg_type())
+    arena_environment = factory.build(cfg_type(replicate_physics=True))
 
     # The normal smoke environment intentionally retains Cap's absolute joint
     # actions. This demo alone swaps to relative Cartesian commands so the
@@ -63,12 +64,12 @@ def _make_environment(variant: str):
 
     builder = ArenaEnvBuilder(
         arena_environment,
-        ArenaEnvBuilderCfg(num_envs=1, solve_relations=True),
+        ArenaEnvBuilderCfg(num_envs=_NUM_ENVS, env_spacing=1.5, solve_relations=True),
     )
     env_cfg, env_kwargs = builder.compose_manager_cfg()
     env_cfg.sim.default_visualizer_cfg = KitVisualizerCfg(
-        eye=(1.05, -1.25, 1.25),
-        lookat=(0.0, -0.05, 0.82),
+        eye=(2.0, -2.5, 2.0),
+        lookat=(0.0, 0.0, 0.82),
         origin_type="world",
     )
     return builder.make_registered(env_cfg, env_kwargs)
@@ -85,6 +86,8 @@ class GearValidationDemo:
         self.simulation_app = simulation_app
         self.env = env
         self.base_env = env.unwrapped
+        self.num_envs = self.base_env.num_envs
+        assert self.num_envs == _NUM_ENVS, f"Expected {_NUM_ENVS} environments, got {self.num_envs}."
         self.pause_steps = pause_steps
         self.torch = torch
         self.rate_limiter = RateLimiter(self.base_env.step_dt) if real_time else None
@@ -121,7 +124,7 @@ class GearValidationDemo:
         import isaaclab.utils.math as math_utils
 
         action = self.torch.zeros(
-            (1, self.base_env.action_manager.total_action_dim),
+            (self.num_envs, self.base_env.action_manager.total_action_dim),
             device=self.base_env.device,
         )
         if translation_delta_w is not None:
@@ -136,35 +139,36 @@ class GearValidationDemo:
         action[:, -1] = float(gripper_closed)
         return action
 
-    def _step(self, action) -> bool:
-        """Step once and return whether the environment terminated or timed out."""
+    def _step(self, action):
+        """Step once and return the terminated-or-truncated mask."""
         if not self._is_running():
             raise KeyboardInterrupt
         _, _, terminated, truncated, _ = self.env.step(action)
         if self.rate_limiter is not None:
             self.rate_limiter.sleep()
-        return bool((terminated | truncated)[0])
+        return terminated | truncated
 
     def _hold(self, steps: int, *, gripper_closed: bool) -> bool:
-        return any(self._step(self._action(gripper_closed=gripper_closed)) for _ in range(steps))
+        return any(bool(self._step(self._action(gripper_closed=gripper_closed)).any().item()) for _ in range(steps))
 
     def _move_to(self, target_position_w, *, gripper_closed: bool, label: str) -> bool:
         """Drive toward one Cartesian position and return whether the episode ended."""
         for _ in range(240):
             error_w = target_position_w - self._ee_position()
-            if float(self.torch.linalg.vector_norm(error_w)) <= _POSITION_TOLERANCE_M:
+            errors_m = self.torch.linalg.vector_norm(error_w, dim=-1)
+            if bool((errors_m <= _POSITION_TOLERANCE_M).all().item()):
                 return self._hold(10, gripper_closed=gripper_closed)
-            if self._step(self._action(error_w, gripper_closed=gripper_closed)):
+            if bool(self._step(self._action(error_w, gripper_closed=gripper_closed)).any().item()):
                 return True
-        error = float(self.torch.linalg.vector_norm(target_position_w - self._ee_position()))
-        raise RuntimeError(f"Timed out during {label}; end-effector position error is {error:.3f} m.")
+        errors_m = self.torch.linalg.vector_norm(target_position_w - self._ee_position(), dim=-1)
+        raise RuntimeError(f"Timed out during {label}; maximum end-effector position error is {errors_m.max():.3f} m.")
 
     def _teleport(self, asset_name: str, pose_w) -> None:
         asset = self.base_env.scene[asset_name]
-        env_ids = self.torch.tensor([0], device=self.base_env.device, dtype=self.torch.int32)
+        env_ids = self.torch.arange(self.num_envs, device=self.base_env.device, dtype=self.torch.int32)
         asset.write_root_pose_to_sim_index(root_pose=pose_w, env_ids=env_ids)
         asset.write_root_velocity_to_sim_index(
-            root_velocity=self.torch.zeros((1, 6), device=self.base_env.device),
+            root_velocity=self.torch.zeros((self.num_envs, 6), device=self.base_env.device),
             env_ids=env_ids,
         )
 
@@ -186,7 +190,7 @@ class GearValidationDemo:
             [self.target_offsets_xyz[gear_index]],
             device=self.base_env.device,
             dtype=plate_pos_w.dtype,
-        )
+        ).expand(self.num_envs, -1)
         target_pos_w = plate_pos_w + math_utils.quat_apply(plate_quat_w, offset)
         return self.torch.cat((target_pos_w, plate_quat_w), dim=-1)
 
@@ -216,7 +220,7 @@ class GearValidationDemo:
         if self._hold(close_steps, gripper_closed=True):
             raise RuntimeError("Environment ended unexpectedly while closing the gripper.")
 
-        gear_z_before_lift = float(grasp_gear.data.root_link_pos_w.torch[0, 2])
+        gear_z_before_lift = grasp_gear.data.root_link_pos_w.torch[:, 2].clone()
         lift_position = grasp_position.clone()
         lift_position[:, 2] += _LIFT_DISTANCE_M
         print(f"[gear-validation] cycle {cycle}: lift, open, and drop", flush=True)
@@ -225,9 +229,13 @@ class GearValidationDemo:
         if self._hold(self.pause_steps, gripper_closed=True):
             raise RuntimeError("Environment ended unexpectedly while displaying the lift.")
 
-        gear_z_after_lift = float(grasp_gear.data.root_link_pos_w.torch[0, 2])
+        gear_z_after_lift = grasp_gear.data.root_link_pos_w.torch[:, 2]
+        lift_displacements = gear_z_after_lift - gear_z_before_lift
+        lift_summary = ", ".join(
+            f"env_{env_id}={float(displacement):.3f} m" for env_id, displacement in enumerate(lift_displacements)
+        )
         print(
-            f"[gear-validation] physical lift displacement: {gear_z_after_lift - gear_z_before_lift:.3f} m",
+            f"[gear-validation] physical lift displacement: {lift_summary}",
             flush=True,
         )
         if self._hold(max(30, round(0.75 / self.base_env.step_dt)), gripper_closed=False):
@@ -250,15 +258,17 @@ class GearValidationDemo:
             # The task requires ten consecutive successful frames. The normal
             # environment reset must fire; a manual reset would hide a broken
             # success predicate or reset path.
+            reset_observed = self.torch.zeros(self.num_envs, device=self.base_env.device, dtype=self.torch.bool)
             for _ in range(max(self.pause_steps, 60)):
-                if self._step(self._action(gripper_closed=False)):
-                    print(f"[gear-validation] cycle {cycle}: success reset observed", flush=True)
+                reset_observed |= self._step(self._action(gripper_closed=False))
+                if bool(reset_observed.all().item()):
+                    print(
+                        f"[gear-validation] cycle {cycle}: success reset observed in all {self.num_envs} environments",
+                        flush=True,
+                    )
                     return
 
-        diagnostics = {
-            name: values[0].tolist() if values.ndim > 1 else values[0].item()
-            for name, values in self.success_term.diagnostics_per_gear.items()
-        }
+        diagnostics = {name: values.tolist() for name, values in self.success_term.diagnostics_per_gear.items()}
         raise RuntimeError(f"Final placement did not trigger the environment reset: {diagnostics}")
 
 
