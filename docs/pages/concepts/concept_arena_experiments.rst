@@ -191,4 +191,4 @@ Related concepts
 * :doc:`Environment Design <environment/index>`
 * :doc:`Policy Design <policy/index>`
 * :doc:`Metrics Design <task/concept_metrics_design>`
-* :doc:`Environment Variations <variations/index>`
+* :doc:`Supported Randomizations <concept_supported_randomizations>`
