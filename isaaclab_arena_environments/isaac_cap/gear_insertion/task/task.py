@@ -1,3 +1,8 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
 """Arena task configuration for gear insertion."""
 
 from __future__ import annotations
@@ -10,6 +15,7 @@ from typing import Any
 import isaaclab.envs.mdp as mdp
 from isaaclab.managers import EventTermCfg, SceneEntityCfg, TerminationTermCfg
 from isaaclab.utils.configclass import configclass
+
 from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.metrics.success_rate import SuccessRateMetric
@@ -34,9 +40,7 @@ class EventsCfg:
 class TerminationsCfg:
     """Timeout and all-gears success terms."""
 
-    time_out: TerminationTermCfg = TerminationTermCfg(
-        func=mdp.time_out, time_out=True
-    )
+    time_out: TerminationTermCfg = TerminationTermCfg(func=mdp.time_out, time_out=True)
     success: TerminationTermCfg = MISSING
 
 
@@ -89,8 +93,7 @@ class GearInsertionTask(TaskBase):
 
         super().__init__(
             episode_length_s=episode_length_s,
-            task_description=task_description
-            or "Place all gears correctly on the assembly plate.",
+            task_description=task_description or "Place all gears correctly on the assembly plate.",
         )
         self.plate = plate
         self.gears = gears

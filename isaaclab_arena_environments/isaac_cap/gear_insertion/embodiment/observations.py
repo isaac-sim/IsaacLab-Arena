@@ -1,14 +1,19 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
 """DROID-shaped observations with fail-closed FR3 name selection."""
 
 from __future__ import annotations
 
 import torch
-import warp as wp
 
+import warp as wp
 from isaaclab.envs import ManagerBasedRLEnv
 from isaaclab.managers import SceneEntityCfg
 
-from .config import ARM_JOINT_NAMES, GRIPPER_CLOSED_ANGLE, GRIPPER_JOINT_NAME, END_EFFECTOR_BODY_NAME
+from .config import ARM_JOINT_NAMES, END_EFFECTOR_BODY_NAME, GRIPPER_CLOSED_ANGLE, GRIPPER_JOINT_NAME
 
 
 def _robot(env: ManagerBasedRLEnv, asset_cfg: SceneEntityCfg):

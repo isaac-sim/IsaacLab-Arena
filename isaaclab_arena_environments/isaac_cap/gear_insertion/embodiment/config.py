@@ -1,3 +1,8 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
 """Static scene and observation configurations for the selected FR3 asset."""
 
 from __future__ import annotations
@@ -6,16 +11,16 @@ import math
 
 import isaaclab.envs.mdp as mdp_isaac_lab
 import isaaclab.sim as sim_utils
-from ..asset_factories import (
-    ROBOT_ON_CART_USD_PATH,
-)
 from isaaclab.actuators import ImplicitActuatorCfg
 from isaaclab.assets.articulation.articulation_cfg import ArticulationCfg
-from isaaclab.managers import EventTermCfg, SceneEntityCfg
+from isaaclab.managers import EventTermCfg
 from isaaclab.managers import ObservationGroupCfg as ObsGroup
 from isaaclab.managers import ObservationTermCfg as ObsTerm
+from isaaclab.managers import SceneEntityCfg
 from isaaclab.sim.schemas.schemas_cfg import ArticulationRootBaseCfg
 from isaaclab.utils.configclass import configclass
+
+from ..asset_factories import ROBOT_ON_CART_USD_PATH
 
 ARM_JOINT_NAMES = [f"fr3_joint{index}" for index in range(1, 8)]
 GRIPPER_JOINT_NAME = "left_driver_joint"
@@ -105,9 +110,7 @@ class IndustrialFr3RobotiqObservationsCfg:
     @configclass
     class PolicyCfg(ObsGroup):
         actions = ObsTerm(func=mdp_isaac_lab.last_action)
-        robot_joint_pos = ObsTerm(
-            func=mdp_isaac_lab.joint_pos, params={"asset_cfg": SceneEntityCfg("robot")}
-        )
+        robot_joint_pos = ObsTerm(func=mdp_isaac_lab.joint_pos, params={"asset_cfg": SceneEntityCfg("robot")})
 
         def __post_init__(self):
             from .observations import arm_joint_pos, ee_pos, ee_quat, gripper_pos

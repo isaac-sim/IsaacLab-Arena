@@ -1,25 +1,21 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
 """Actions for the industrial FR3 Robotiq embodiments."""
 
 import torch
 
 from isaaclab.controllers.differential_ik_cfg import DifferentialIKControllerCfg
-from isaaclab.envs.mdp.actions.actions_cfg import (
-    DifferentialInverseKinematicsActionCfg,
-    JointPositionActionCfg,
-)
-from isaaclab.envs.mdp.actions.task_space_actions import (
-    DifferentialInverseKinematicsAction,
-)
+from isaaclab.envs.mdp.actions.actions_cfg import DifferentialInverseKinematicsActionCfg, JointPositionActionCfg
+from isaaclab.envs.mdp.actions.task_space_actions import DifferentialInverseKinematicsAction
 from isaaclab.managers import ActionTermCfg
 from isaaclab.utils.configclass import configclass
+
 from isaaclab_arena.embodiments.droid.droid import BinaryJointPositionZeroToOneActionCfg
 
-from .config import (
-    ARM_JOINT_NAMES,
-    END_EFFECTOR_BODY_NAME,
-    GRIPPER_CLOSED_ANGLE,
-    GRIPPER_JOINT_NAME,
-)
+from .config import ARM_JOINT_NAMES, END_EFFECTOR_BODY_NAME, GRIPPER_CLOSED_ANGLE, GRIPPER_JOINT_NAME
 
 
 class HoldingDifferentialInverseKinematicsAction(DifferentialInverseKinematicsAction):
@@ -27,9 +23,7 @@ class HoldingDifferentialInverseKinematicsAction(DifferentialInverseKinematicsAc
 
     def __init__(self, cfg, env):
         super().__init__(cfg, env)
-        self._hold_initialized = torch.zeros(
-            self.num_envs, dtype=torch.bool, device=self.device
-        )
+        self._hold_initialized = torch.zeros(self.num_envs, dtype=torch.bool, device=self.device)
 
     def process_actions(self, actions: torch.Tensor):
         previous_pos = self._ik_controller.ee_pos_des.clone()
@@ -47,14 +41,10 @@ class HoldingDifferentialInverseKinematicsAction(DifferentialInverseKinematicsAc
 
 
 @configclass
-class HoldingDifferentialInverseKinematicsActionCfg(
-    DifferentialInverseKinematicsActionCfg
-):
+class HoldingDifferentialInverseKinematicsActionCfg(DifferentialInverseKinematicsActionCfg):
     """Relative IK that retains its Cartesian target while input is idle."""
 
-    class_type: type[HoldingDifferentialInverseKinematicsAction] = (
-        HoldingDifferentialInverseKinematicsAction
-    )
+    class_type: type[HoldingDifferentialInverseKinematicsAction] = HoldingDifferentialInverseKinematicsAction
     hold_deadband: float = 1.0e-6
 
 

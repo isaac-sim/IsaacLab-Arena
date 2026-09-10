@@ -1,16 +1,21 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
 """Episode-level completion metrics for gear insertion."""
 
 from __future__ import annotations
 
 import logging
-
 import numpy as np
 import torch
+
 from isaaclab.managers.recorder_manager import RecorderTerm, RecorderTermCfg
 from isaaclab.utils.configclass import configclass
+
 from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.metrics.metric_term_cfg import MetricTermCfg
-
 
 logger = logging.getLogger(__name__)
 
@@ -18,20 +23,14 @@ logger = logging.getLogger(__name__)
 def _terminal_diagnostics(success_term, env_ids) -> list[dict[str, object]]:
     names = [cfg.name for cfg in success_term.gear_asset_cfgs]
     per_gear = success_term.success_per_gear[env_ids].tolist()
-    diagnostics = {
-        name: values[env_ids].tolist()
-        for name, values in success_term.diagnostics_per_gear.items()
-    }
+    diagnostics = {name: values[env_ids].tolist() for name, values in success_term.diagnostics_per_gear.items()}
     episodes = []
     for env_index, completion in enumerate(per_gear):
         episode = {}
         for gear_index, gear_name in enumerate(names):
             episode[gear_name] = {
                 "success": bool(completion[gear_index]),
-                **{
-                    name: values[env_index][gear_index]
-                    for name, values in diagnostics.items()
-                },
+                **{name: values[env_index][gear_index] for name, values in diagnostics.items()},
             }
         episodes.append(episode)
     return episodes
@@ -53,9 +52,7 @@ class GearInsertionFractionRecorder(RecorderTerm):
 
         success_term = self._env.termination_manager.get_term_cfg("success").func
         if not hasattr(success_term, "success_per_gear"):
-            raise TypeError(
-                "gear insertion success term does not expose per-gear completion"
-            )
+            raise TypeError("gear insertion success term does not expose per-gear completion")
         per_gear = success_term.success_per_gear[env_ids]
         logger.warning(
             "terminal per-gear diagnostics: %s",
