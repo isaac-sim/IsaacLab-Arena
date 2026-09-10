@@ -56,6 +56,20 @@ def test_episode_video_filename_roundtrip_no_rebuild():
     )
 
 
+def test_legacy_viewport_video_filename_is_parsed():
+    parsed = parse_episode_video_filename("rl-video-step-0.mp4")
+
+    assert parsed is not None
+    assert (parsed.prefix, parsed.rebuild_index, parsed.env_index, parsed.camera_name, parsed.episode_index) == (
+        "rl-video",
+        0,
+        0,
+        "viewport",
+        0,
+    )
+    assert parse_episode_video_filename("rl-video-step-100.mp4") is None
+
+
 def test_unique_slugs_deduplicates_names_with_the_same_safe_form():
     slugs = unique_slugs(["my run", "my+run"])
 
@@ -224,6 +238,18 @@ def test_run_page_defers_every_video_until_it_scrolls_into_view(tmp_path):
         assert f'data-video-src="../banana_in_bowl_pi0/{name}"' in run_page
     assert run_page.count("data-video-src=") == len(video_names)
     assert "not-a-recorder-file.mp4" not in run_page
+
+
+def test_run_page_includes_legacy_viewport_video(tmp_path):
+    _write_run(tmp_path, "banana_in_bowl_pi0", num_episodes=1, cameras=())
+    viewport_video = tmp_path / "banana_in_bowl_pi0" / "rl-video-step-0.mp4"
+    viewport_video.write_bytes(b"")
+
+    build_report(tmp_path)
+
+    run_page = (tmp_path / "report" / "job_banana_in_bowl_pi0.html").read_text(encoding="utf-8")
+    assert 'data-video-src="../banana_in_bowl_pi0/rl-video-step-0.mp4"' in run_page
+    assert "viewport" in run_page
 
 
 def test_run_pages_are_paginated(tmp_path):

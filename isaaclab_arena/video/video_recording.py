@@ -15,7 +15,7 @@ class VideoRecordingCfg:
     """Options describing which rollout video recorders to enable and where to write them."""
 
     record_viewport_video: bool = False
-    """Record the kit viewport (third-person scene view) via ``env.render()``."""
+    """Record the configured third-person report camera without moving the interactive viewport."""
 
     record_camera_video: bool = False
     """Record the embodiment-mounted cameras from ``obs['camera_obs']``."""
@@ -26,15 +26,17 @@ class VideoRecordingCfg:
     camera_name_prefix: str = "robot-cam"
     """Filename prefix for the per-camera mp4s written by ``CameraObsVideoRecorder``."""
 
+    viewport_name_prefix: str = "viewport-env0-viewport"
+    """Filename prefix for the report-camera mp4."""
+
     @property
     def enabled(self) -> bool:
         """Whether any recorder is requested."""
         return self.record_viewport_video or self.record_camera_video
 
     @property
-    def render_mode(self) -> str | None:
-        """The ``render_mode`` the env must be built with to capture the viewport video."""
-        return "rgb_array" if self.record_viewport_video else None
+    def render_mode(self) -> None:
+        """No Gym render mode is needed by the step-driven viewport recorder."""
 
 
 def timestamped_run_dir(base_dir: str) -> str:
@@ -80,18 +82,29 @@ def wrap_env_for_video(
 
     os.makedirs(video_cfg.video_base_dir, exist_ok=True)
 
-    # Record the kit viewport (via env.render()).
+    # Record the configured third-person report camera with Isaac Lab's step-driven recorder.
     if video_cfg.record_viewport_video:
-        from gymnasium.wrappers import RecordVideo
+        from isaaclab_arena.video.viewport_video_recorder import (
+            ArenaViewportVideoRecorder,
+            ArenaViewportVideoRecorderCfg,
+        )
 
         video_length = _resolve_video_length(env, num_steps, num_episodes)
-        env = RecordVideo(
-            env,
-            video_folder=video_cfg.video_base_dir,
-            step_trigger=lambda step: step == 0,
+        viewer = env.unwrapped.cfg.viewer
+        recorder_cfg = ArenaViewportVideoRecorderCfg(
+            output_dir=video_cfg.video_base_dir,
             video_length=video_length,
-            disable_logger=True,
+            output_filename_prefix=video_cfg.viewport_name_prefix,
+            eye=viewer.eye,
+            lookat=viewer.lookat,
+            window_width=viewer.resolution[0],
+            window_height=viewer.resolution[1],
+            viewer_origin_type=viewer.origin_type,
+            viewer_env_index=viewer.env_index,
+            viewer_asset_name=viewer.asset_name,
+            viewer_body_name=viewer.body_name,
         )
+        env.unwrapped.video_recorders.append(ArenaViewportVideoRecorder(recorder_cfg, env.unwrapped))
         print(f"Recording {video_length}-step viewport video to: {video_cfg.video_base_dir}")
 
     # Record the embodiment-mounted cameras (from obs["camera_obs"]),

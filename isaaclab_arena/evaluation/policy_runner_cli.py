@@ -96,7 +96,7 @@ def add_policy_runner_arguments(parser: argparse.ArgumentParser) -> None:
         "--record_viewport_video",
         action="store_true",
         default=False,
-        help="Record an mp4 video of the rollout viewport (uses gymnasium.wrappers.RecordVideo).",
+        help="Record an mp4 video from the configured third-person report camera.",
     )
     parser.add_argument(
         "--output_base_dir",

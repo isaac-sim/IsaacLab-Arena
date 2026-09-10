@@ -298,6 +298,44 @@ def test_typed_experiment_enables_camera_support_from_its_config(
     assert launched_with_cameras is expected_enable_cameras
 
 
+def test_viewport_recording_enables_camera_support_before_launch(monkeypatch):
+    """The report camera must select the rendering AppLauncher experience."""
+    launched_with_cameras = None
+
+    class _SimulationAppContext:
+        def __init__(self, args_cli):
+            nonlocal launched_with_cameras
+            launched_with_cameras = args_cli.enable_cameras
+
+        def __enter__(self):
+            pass
+
+        def __exit__(self, _exception_type, _exception, _traceback):
+            pass
+
+    monkeypatch.setattr(experiment_runner, "SimulationAppContext", _SimulationAppContext)
+    monkeypatch.setattr(
+        experiment_runner,
+        "load_arena_experiment_from_config_file",
+        lambda *_args, **_kwargs: _experiment_cfg(),
+    )
+    monkeypatch.setattr(experiment_runner, "list_variations", lambda _experiment: None)
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "experiment_runner.py",
+            "--experiment_config",
+            str(GETTING_STARTED_YAML_PATH),
+            "--record_viewport_video",
+            "--list_variations",
+        ],
+    )
+
+    experiment_runner.main()
+
+    assert launched_with_cameras is True
+
+
 def test_legacy_json_camera_detection_is_preserved():
     legacy_experiment_config = {"jobs": [{"arena_env_args": {}}, {"arena_env_args": {"enable_cameras": True}}]}
 
