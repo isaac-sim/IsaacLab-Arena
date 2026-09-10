@@ -502,6 +502,7 @@
 </ul>
 <p aria-level="2" class="caption" role="heading"><span class="caption-text">References</span></p>
 <ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="pages/references/performance.html">Performance and scaling</a></li>
 <li class="toctree-l1"><a class="reference internal" href="pages/references/release_notes.html">Release Notes</a></li>
 <li class="toctree-l1"><a class="reference internal" href="pages/references/citing_us.html">Citing Isaac Lab-Arena</a></li>
 </ul>
@@ -839,7 +840,9 @@ with ease to perform data collection or policy learning in Isaac Lab.</p>
 <p>Evaluate one policy concurrently across thousands of heterogeneous (object-level)
 environments instead of sequential rollouts to speed up policy evaluation.
 <a class="reference external" href="https://lightwheel.ai/media/il-arena-benchmark-study">Lightwheel case study</a>
-reports 10x faster despite using higher fidelity assets.</p>
+reports 10x faster despite using higher fidelity assets.
+A preliminary camera-free <a class="reference internal" href="pages/references/performance.html#performance-parallel-environments"><span class="std std-ref">scaling benchmark</span></a> measured 2,390 environment-steps/s of rollout
+throughput with 1,024 parallel environments on one RTX 5880 Ada Generation GPU.</p>
 </div>
 </div>
 <div class="sd-col sd-d-flex-column sd-col-12 sd-col-xs-12 sd-col-sm-12 sd-col-md-7 sd-col-lg-7 docutils">
@@ -860,7 +863,10 @@ reports 10x faster despite using higher fidelity assets.</p>
 <p>Define experiments with multiple policies and tasks. Run them locally or use an
 orchestrator such as OSMO to distribute across multi-node compute. Arena returns
 aggregate metrics for a high-level summary and per-episode results for detailed
-analysis.</p>
+analysis.
+A preliminary <a class="reference internal" href="pages/references/performance.html#performance-distributed-runs"><span class="std std-ref">OSMO scaling benchmark</span></a> showed that
+active execution time decreased nearly in proportion to the number of GPUs used to
+run independent Runs concurrently.</p>
 </div>
 </div>
 <div class="sd-col sd-d-flex-column sd-col-12 sd-col-xs-12 sd-col-sm-12 sd-col-md-7 sd-col-lg-7 docutils">

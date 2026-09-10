@@ -445,6 +445,9 @@ Execute large-scale parallel policy evaluations
             environments instead of sequential rollouts to speed up policy evaluation.
             `Lightwheel case study <https://lightwheel.ai/media/il-arena-benchmark-study>`_
             reports 10x faster despite using higher fidelity assets.
+            A preliminary camera-free :ref:`scaling benchmark
+            <performance-parallel-environments>` measured 2,390 environment-steps/s of rollout
+            throughput with 1,024 parallel environments on one RTX 5880 Ada Generation GPU.
 
       .. grid-item::
          :columns: 12 12 7 7
@@ -474,6 +477,9 @@ Execute large-scale parallel policy evaluations
             orchestrator such as OSMO to distribute across multi-node compute. Arena returns
             aggregate metrics for a high-level summary and per-episode results for detailed
             analysis.
+            A preliminary :ref:`OSMO scaling benchmark <performance-distributed-runs>` showed that
+            active execution time decreased nearly in proportion to the number of GPUs used to
+            run independent Runs concurrently.
 
       .. grid-item::
          :columns: 12 12 7 7
@@ -1117,6 +1123,7 @@ Isaac Lab-Arena was built in collaboration with the authors of Robolab (`website
    :hidden:
    :caption: References
 
+   pages/references/performance
    pages/references/release_notes
    pages/references/citing_us
 
