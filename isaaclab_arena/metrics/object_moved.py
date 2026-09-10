@@ -16,7 +16,7 @@ from isaaclab_arena.metrics.metric_term_cfg import MetricTermCfg
 
 
 class ObjectVelocityRecorder(RecorderTerm):
-    """Records the linear velocity of an object for each sim step of an episode."""
+    """Records the average speed of an object for each simulation step."""
 
     def __init__(self, cfg: RecorderTermCfg, env: ManagerBasedEnv):
         super().__init__(cfg, env)
@@ -25,9 +25,9 @@ class ObjectVelocityRecorder(RecorderTerm):
         self.object_name = cfg.object_name
 
     def record_post_step(self):
-        object_linear_velocity = self._env.arena_world.get_root_linear_velocity_w(self.object_name)
-        assert object_linear_velocity.shape == (self._env.num_envs, 3)
-        return self.name, object_linear_velocity
+        object_average_speed = self._env.arena_world.get_average_speed_w(self.object_name).unsqueeze(-1)
+        assert object_average_speed.shape == (self._env.num_envs, 1)
+        return self.name, object_average_speed
 
 
 @configclass
@@ -52,7 +52,7 @@ def compute_object_moved_rate(recorded_metric_data: list[np.ndarray], object_vel
     object_moved_per_demo = []
     for object_velocity in object_velocity_per_demo:
         assert object_velocity.ndim == 2
-        assert object_velocity.shape[1] == 3
+        assert object_velocity.shape[1] in (1, 3)
         object_linear_velocity_magnitude = np.linalg.norm(object_velocity, axis=-1)
         object_moved = np.any(object_linear_velocity_magnitude > object_velocity_threshold)
         object_moved_per_demo.append(object_moved)

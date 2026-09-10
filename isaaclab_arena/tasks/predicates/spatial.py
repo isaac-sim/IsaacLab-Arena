@@ -143,15 +143,12 @@ def object_moving(
     object_name: str,
     velocity_threshold: float = 1e-2,
 ) -> torch.Tensor:
-    """Check whether a rigid object is moving above a velocity threshold.
+    """Check whether an object is moving above a velocity threshold.
 
     Returns True when object_name's linear speed exceeds velocity_threshold (m/s).
     """
 
-    arena_world = env.arena_world
-    object_root_linear_velocity_w = arena_world.get_root_linear_velocity_w(object_name)
-    speed = torch.linalg.vector_norm(object_root_linear_velocity_w, dim=-1)
-    return speed > velocity_threshold
+    return env.arena_world.get_max_point_speed_w(object_name) > velocity_threshold
 
 
 def objects_in_proximity(
@@ -230,23 +227,49 @@ def object_on_destination(
 
     env = env.unwrapped
     arena_world = env.arena_world
-    T_W_O = arena_world.get_pose_w(object_cfg.name)
-    T_W_D = arena_world.get_pose_w(destination_cfg.name)
-    object_center_over_destination = object_bounds_center_over_destination(
-        T_W_O=T_W_O,
-        object_bounds_center_O=arena_world.get_aabb_in_local_frame(object_cfg.name).center,
-        T_W_D=T_W_D,
-        destination_bounds_D=arena_world.get_aabb_in_local_frame(destination_cfg.name),
-    )
-
     deformable_objects = env.scene.deformable_objects
-    uses_deformable = object_cfg.name in deformable_objects or destination_cfg.name in deformable_objects
+    object_is_deformable = object_cfg.name in deformable_objects
+    destination_is_deformable = destination_cfg.name in deformable_objects
+    uses_deformable = object_is_deformable or destination_is_deformable
+
+    if destination_is_deformable:
+        object_center_w = arena_world.get_position_w(object_cfg.name)
+        destination_vertices_w = arena_world.get_vertices_w(destination_cfg.name)
+        destination_bounds_w = AxisAlignedBoundingBox(
+            min_point=destination_vertices_w.amin(dim=1),
+            max_point=destination_vertices_w.amax(dim=1),
+        )
+        object_center_over_destination = (
+            (object_center_w[:, :2] >= destination_bounds_w.min_point[:, :2])
+            & (object_center_w[:, :2] <= destination_bounds_w.max_point[:, :2])
+        ).all(dim=-1) & (object_center_w[:, 2] >= destination_bounds_w.min_point[:, 2])
+    elif object_is_deformable:
+        object_center_w = arena_world.get_position_w(object_cfg.name)
+        T_W_D = arena_world.get_pose_w(destination_cfg.name)
+        t_W_D, q_W_D = T_W_D[:, :3], T_W_D[:, 3:]
+        object_center_D = quat_apply_inverse(q_W_D, object_center_w - t_W_D)
+        destination_bounds_D = arena_world.get_aabb_in_local_frame(destination_cfg.name)
+        object_center_over_destination = (
+            (object_center_D[:, :2] >= destination_bounds_D.min_point[:, :2])
+            & (object_center_D[:, :2] <= destination_bounds_D.max_point[:, :2])
+        ).all(dim=-1) & (object_center_D[:, 2] >= destination_bounds_D.min_point[:, 2])
+    else:
+        object_center_over_destination = object_bounds_center_over_destination(
+            T_W_O=arena_world.get_pose_w(object_cfg.name),
+            object_bounds_center_O=arena_world.get_aabb_in_local_frame(object_cfg.name).center,
+            T_W_D=arena_world.get_pose_w(destination_cfg.name),
+            destination_bounds_D=arena_world.get_aabb_in_local_frame(destination_cfg.name),
+        )
+
     if uses_deformable:
-        object_vertices_pos_w = arena_world.get_vertices_pos_w(object_cfg.name)
-        # TODO(qianl, 2026-09-08): Use destination vertices once ArenaWorld supports them for rigid bodies.
-        destination_bound = arena_world.get_aabb_w(destination_cfg.name)
+        object_vertices_w = arena_world.get_vertices_w(object_cfg.name)
+        destination_vertices_w = arena_world.get_vertices_w(destination_cfg.name)
+        destination_bound = AxisAlignedBoundingBox(
+            min_point=destination_vertices_w.amin(dim=1),
+            max_point=destination_vertices_w.amax(dim=1),
+        )
         destination_provides_upward_support = object_supported_by(
-            object_vertices_pos_w=object_vertices_pos_w,
+            object_vertices_pos_w=object_vertices_w,
             destination_bound=destination_bound,
         )
     else:
@@ -267,6 +290,5 @@ def object_on_destination(
             support_cone_half_angle_rad=support_cone_half_angle_rad,
         )
 
-    object_root_linear_velocity_w = arena_world.get_root_linear_velocity_w(object_cfg.name)
-    object_moves_slowly = object_is_moving_slowly(object_root_linear_velocity_w, velocity_threshold)
+    object_moves_slowly = arena_world.get_max_point_speed_w(object_cfg.name) < velocity_threshold
     return object_center_over_destination & destination_provides_upward_support & object_moves_slowly

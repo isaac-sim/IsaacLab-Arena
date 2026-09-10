@@ -91,6 +91,7 @@ def _check_rigid_object_reads_and_local_aabb_cache(
                 ),
             }
             self.articulations = {}
+            self.deformable_objects = {}
             self.extras = {}
 
     scene = SceneDouble()
@@ -120,6 +121,10 @@ def _check_rigid_object_reads_and_local_aabb_cache(
     torch.testing.assert_close(arena_world.get_pose_w("object"), T_W_O_initial)
     torch.testing.assert_close(arena_world.get_root_linear_velocity_w("object"), initial_root_linear_velocity_w)
     torch.testing.assert_close(arena_world.get_root_angular_velocity_w("object"), initial_root_angular_velocity_w)
+    torch.testing.assert_close(
+        arena_world.get_average_speed_w("object"),
+        torch.linalg.vector_norm(initial_root_linear_velocity_w, dim=-1),
+    )
 
     T_W_O_moved = T_W_O_initial.clone()
     T_W_O_moved[:, 0] += 0.25
@@ -219,7 +224,7 @@ def _check_deformable_object_reads(arena_world_module) -> None:
             self.torch = tensor
 
     root_pos_w = torch.tensor([[0.1, 0.2, 0.3], [1.1, 1.2, 1.3]])
-    root_vel_w = torch.tensor([[0.0, 0.1, 0.2], [0.3, 0.4, 0.5]])
+    root_vel_w = torch.tensor([[0.0, 0.3, 0.4], [0.0, 0.0, 0.1]])
     nodal_pos_w = torch.tensor([
         [[0.0, 0.0, 0.2], [0.2, 0.3, 0.4]],
         [[1.0, 1.0, 1.2], [1.2, 1.3, 1.4]],
@@ -245,16 +250,24 @@ def _check_deformable_object_reads(arena_world_module) -> None:
     )
     arena_world = arena_world_module.ArenaWorld(scene)
 
-    expected_pose_w = torch.cat(
-        (root_pos_w, torch.tensor([0.0, 0.0, 0.0, 1.0]).expand(scene.num_envs, 4)),
-        dim=-1,
-    )
-    torch.testing.assert_close(arena_world.get_pose_w("deformable"), expected_pose_w)
-    torch.testing.assert_close(arena_world.get_root_linear_velocity_w("deformable"), root_vel_w)
-    assert arena_world.get_root_angular_velocity_w("deformable") is None
+    torch.testing.assert_close(arena_world.get_position_w("deformable"), root_pos_w)
+    torch.testing.assert_close(arena_world.get_nodal_positions_w("deformable"), nodal_pos_w)
+    torch.testing.assert_close(arena_world.get_nodal_velocities_w("deformable"), nodal_vel_w)
+    torch.testing.assert_close(arena_world.get_average_speed_w("deformable"), torch.tensor([0.5, 0.1]))
     torch.testing.assert_close(arena_world.get_max_point_speed_w("deformable"), torch.tensor([0.5, 0.2]))
-    torch.testing.assert_close(arena_world.get_vertices_pos_w("deformable"), nodal_pos_w)
-    torch.testing.assert_close(arena_world.get_min_height_w("deformable"), nodal_pos_w[..., 2].amin(dim=1))
+    torch.testing.assert_close(arena_world.get_vertices_w("deformable"), nodal_pos_w)
+
+    for rooted_query in (
+        arena_world.get_pose_w,
+        arena_world.get_root_linear_velocity_w,
+        arena_world.get_root_angular_velocity_w,
+    ):
+        try:
+            rooted_query("deformable")
+        except AssertionError:
+            pass
+        else:
+            raise AssertionError(f"{rooted_query.__name__} accepted a deformable object.")
 
 
 def _check_arena_world_reuses_scene_extra_pose_reader(
@@ -309,8 +322,7 @@ def _check_arena_world_rejects_unsupported_pose_scene_key(arena_world_module) ->
         assert (
             str(error)
             == "ArenaWorld pose queries require a scene key registered in InteractiveScene.rigid_objects, "
-            "InteractiveScene.articulations, InteractiveScene.deformable_objects, or InteractiveScene.extras; "
-            "'robot' is registered in none of them."
+            "InteractiveScene.articulations, or InteractiveScene.extras; 'robot' is registered in none of them."
         )
     else:
         raise AssertionError("ArenaWorld accepted an unsupported pose scene key.")

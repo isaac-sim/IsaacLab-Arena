@@ -106,17 +106,17 @@ def objects_settled(
     per_object_settled = []
     for object_name in object_names:
         linear_speed = arena_world.get_max_point_speed_w(object_name)
-        root_angular_velocity_w = arena_world.get_root_angular_velocity_w(object_name)
-        if root_angular_velocity_w is None:
+        if object_name in env.scene.deformable_objects:
             per_object_settled.append(linear_speed < lin_vel_threshold)
             continue
+        root_angular_velocity_w = arena_world.get_root_angular_velocity_w(object_name)
         angular_speed = torch.linalg.vector_norm(root_angular_velocity_w, dim=-1)
         per_object_settled.append((linear_speed < lin_vel_threshold) & (angular_speed < ang_vel_threshold))
     settled = torch.stack(per_object_settled, dim=0).all(dim=0)
 
     recorder = get_rest_pose_recorder(env)
     for object_name in object_names:
-        object_position_w = arena_world.get_position_w(object_name)
-        recorder.record(object_name, object_position_w, settled)
+        center_position_w = arena_world.get_position_w(object_name)
+        recorder.record(object_name, center_position_w, settled)
 
     return settled
