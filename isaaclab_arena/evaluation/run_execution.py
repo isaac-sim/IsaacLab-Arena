@@ -168,8 +168,10 @@ def _with_datagen_recorder_term(
         [("datagen_callback", CallbackRecorderTermCfg, CallbackRecorderTermCfg(build_handlers=build_handlers))],
         bases=(RecorderManagerBaseCfg,),
     )()
+    # datagen_recorders_cfg is passed last so recorders_cfg's already-configured values (not
+    # datagen_recorders_cfg's inherited base-class defaults) win on any field both share.
     return combine_configclass_instances(
-        "RecorderManagerCfg", recorders_cfg, datagen_recorders_cfg, bases=(RecorderManagerBaseCfg,)
+        "RecorderManagerCfg", datagen_recorders_cfg, recorders_cfg, bases=(RecorderManagerBaseCfg,)
     )
 
 

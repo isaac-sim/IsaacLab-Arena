@@ -13,7 +13,7 @@ RecorderTerm subclass for each use case.
 from __future__ import annotations
 
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass
+from dataclasses import MISSING, dataclass
 from typing import TYPE_CHECKING
 
 from isaaclab.managers import RecorderTerm, RecorderTermCfg
@@ -70,7 +70,7 @@ class CallbackRecorderTermCfg(RecorderTermCfg):
 
     class_type: type[RecorderTerm] = CallbackRecorderTerm
 
-    build_handlers: Callable[[ManagerBasedEnv], CallbackRecorderTermHandlers] = None
+    build_handlers: Callable[[ManagerBasedEnv], CallbackRecorderTermHandlers] = MISSING
     """Called once, at term construction time, with the live env, to obtain the handlers.
 
     Deferred like this (rather than passing already-built handlers) because RecorderTerm
