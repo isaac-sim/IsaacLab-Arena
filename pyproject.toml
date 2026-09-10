@@ -90,6 +90,13 @@ isaaclab-from-source = [
     # Isaac Sim 6.1 stack (the Docker image uses the matching 6.1 base image).
     "isaaclab",
     "isaacsim[all,extscache]==6.1.0.0",
+    # OpenUSD for Kit-less use. Tests that shell out to a bare interpreter import
+    # ``pxr`` without starting Isaac Sim, and the Docker image serves those from
+    # its Isaac Sim prebundle. Newton pulled usd-core transitively until 1.5.0
+    # dropped the dependency, which left the native install with only the empty
+    # ``pxr`` namespace directory that the schema packages ship. The range matches
+    # the USD version Isaac Sim 6.1 builds against.
+    "usd-core>=25.11,<26.0",
     "isaaclab-assets",
     "isaaclab-contrib",
     "isaaclab-experimental",
