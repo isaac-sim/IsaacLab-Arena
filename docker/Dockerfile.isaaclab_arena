@@ -13,6 +13,10 @@ RUN if [ -e "/usr/share/vulkan" ] && [ -e "/etc/vulkan" ]; then \
       mv /usr/share/vulkan /usr/share/vulkan_hidden; \
     fi
 
+# Configure Chinese mirrors for faster downloads (pip + huggingface)
+ENV PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple \
+    HF_ENDPOINT=https://hf-mirror.com
+
 # Install apt packages
 RUN apt-get update && apt-get install -y \
   git \
@@ -32,6 +36,10 @@ RUN apt-get update && apt-get install -y \
 # Split copying into separate instructions
 # to avoid docker cache invalidation on code edits.
 COPY ./submodules/IsaacLab ${WORKDIR}/submodules/IsaacLab
+# Pre-cloned robomimic to avoid GitHub clone timeout during build
+COPY ./submodules/robomimic ${WORKDIR}/submodules/robomimic
+# Pre-cloned rl_games to avoid GitHub clone timeout during build
+COPY ./submodules/rl_games ${WORKDIR}/submodules/rl_games
 # Set the ISAACLAB_PATH environment variable
 ENV ISAACLAB_PATH=${WORKDIR}/submodules/IsaacLab
 ENV TERM=xterm
@@ -46,6 +54,14 @@ RUN chmod 777 -R /isaac-sim/kit/
 RUN chmod a+x /isaac-sim
 # Ensure isaaclab_visualizers is installed so --visualizer kit works.
 RUN /isaac-sim/python.sh -m pip install --no-deps -e ${WORKDIR}/submodules/IsaacLab/source/isaaclab_visualizers
+
+# Patch isaaclab_mimic to use local robomimic clone instead of GitHub
+# (avoids network timeout when cloning from GitHub inside Docker)
+RUN sed -i "s|robomimic @ git+https://github.com/ARISE-Initiative/robomimic.git@v0.4.0|robomimic @ file://${WORKDIR}/submodules/robomimic|g" \
+    ${WORKDIR}/submodules/IsaacLab/source/isaaclab_mimic/setup.py
+# Patch isaaclab_rl to use local rl_games clone instead of GitHub
+RUN sed -i "s|rl-games @ git+https://github.com/isaac-sim/rl_games.git@python3.11|rl-games @ file://${WORKDIR}/submodules/rl_games|g" \
+    ${WORKDIR}/submodules/IsaacLab/source/isaaclab_rl/setup.py
 
 # Install isaaclab
 RUN ${ISAACLAB_PATH}/isaaclab.sh -i
@@ -90,6 +106,8 @@ RUN (type -p wget >/dev/null || (apt update && apt install wget -y)) \
     apt install -y gh
 
 COPY ./submodules/Isaac-GR00T ${WORKDIR}/submodules/Isaac-GR00T
+# Pre-cloned openpi to avoid GitHub clone timeout during build
+COPY ./submodules/openpi ${WORKDIR}/submodules/openpi
 # Make the `gr00t` package importable so the lightweight remote
 # PolicyClient (gr00t.policy.server_client) works in the base container.
 RUN /isaac-sim/python.sh -m pip install msgpack==1.1.0 msgpack-numpy==0.4.8 pyzmq==27.0.1 && \
@@ -101,11 +119,9 @@ RUN /isaac-sim/python.sh -m pip install av
 # isaaclab_arena_openpi/docker/run_openpi_server.sh when it builds the
 # server image. Sharing the commit keeps the in-container client
 # wire-compatible with the server it talks to.
-COPY isaaclab_arena_openpi/docker/OPENPI_COMMIT /tmp/openpi_commit
-RUN OPENPI_COMMIT=$(tr -d '[:space:]' < /tmp/openpi_commit) && \
-    /isaac-sim/python.sh -m pip install --no-cache-dir \
-    "openpi-client @ git+https://github.com/Physical-Intelligence/openpi@${OPENPI_COMMIT}#subdirectory=packages/openpi-client" && \
-    rm /tmp/openpi_commit
+# openpi-client installed from local pre-cloned repo (avoids GitHub clone timeout)
+RUN /isaac-sim/python.sh -m pip install --no-cache-dir \
+    "openpi-client @ file://${WORKDIR}/submodules/openpi#subdirectory=packages/openpi-client"
 
 # Copy the rest of the files
 COPY *.* ${WORKDIR}/
