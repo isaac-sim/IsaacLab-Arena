@@ -65,13 +65,19 @@ def _test_offline_scene_round_trip(simulation_app):
         try:
             assert get_placement_pool(env) is None
             env.reset()
+            robot = env.unwrapped.scene.articulations["robot"]
+            robot_pose = robot.data.root_pose_w.torch.clone()
             for _ in range(8):
+                moved_robot = robot_pose.clone()
+                moved_robot[:, 0] += 0.25
+                robot.write_root_pose_to_sim(moved_robot)
                 for body in env.unwrapped.scene.rigid_objects.values():
                     displaced = body.data.root_pose_w.torch.clone()
                     displaced[:, 2] += 1.0
                     body.write_root_pose_to_sim(displaced)
                     body.write_root_velocity_to_sim(torch.ones_like(body.data.root_vel_w.torch))
                 env.reset()
+                torch.testing.assert_close(robot.data.root_pose_w.torch, robot_pose, atol=2e-5, rtol=0)
                 for obj in spec.objects:
                     expected = obj.params["initial_pose"]
                     T_E_O = torch.tensor(
@@ -259,9 +265,9 @@ def test_partial_initial_pose_preserves_authored_components():
     asset = Asset()
     _apply_initial_pose(asset, {"position_xyz": [4, 5, 6]})
     assert asset.pose.rotation_xyzw == (1.0, 0.0, 0.0, 0.0)
-    _apply_initial_pose(asset, {"rotation_xyzw": [0, 0, 0, 1]}, create_reset_event=False)
+    _apply_initial_pose(asset, {"rotation_xyzw": [0, 0, 0, 1]})
     assert asset.pose.position_xyz == (4.0, 5.0, 6.0)
-    assert not asset.reset
+    assert asset.reset
 
 
 def test_cache_preserves_scene_configuration():
@@ -323,10 +329,12 @@ def test_no_task_accepts_base_constructor_parameters():
     assert task.task_description == "inspect clutter"
 
 
-def _test_offline_generation_rejects_unresolved_or_unknown_nodes(simulation_app):
+def _test_offline_generation_rejects_invalid_inputs(simulation_app):
+    import errno
     import tempfile
     import yaml
     from argparse import Namespace
+    from unittest.mock import patch
 
     import pytest
 
@@ -354,11 +362,26 @@ def _test_offline_generation_rejects_unresolved_or_unknown_nodes(simulation_app)
             with pytest.raises(AssertionError, match=message):
                 generate_scene(args)
             assert not output.exists()
+
+        args = Namespace(register=[], env_spec=SOURCE, output=output, num_envs=1, support="table", objects=["cube_0"])
+        with (
+            patch(
+                "isaaclab_arena_examples.relations.clutter.cache.os.link",
+                side_effect=OSError(errno.EOPNOTSUPP, "Operation not supported"),
+            ),
+            patch(
+                "isaaclab_arena.environment_spec.arena_env_graph_conversion_utils.build_arena_env_with_assets_from_graph_spec"
+            ) as build,
+        ):
+            with pytest.raises(OSError, match="requires hard links"):
+                generate_scene(args)
+            build.assert_not_called()
+        assert not output.exists()
     return True
 
 
-def test_offline_generation_rejects_unresolved_or_unknown_nodes():
-    assert run_function_with_persistent_simulation_app(_test_offline_generation_rejects_unresolved_or_unknown_nodes)
+def test_offline_generation_rejects_invalid_inputs():
+    assert run_function_with_persistent_simulation_app(_test_offline_generation_rejects_invalid_inputs)
 
 
 def _test_offline_retry_preserves_accepted_environments(simulation_app):
@@ -406,3 +429,43 @@ def _test_offline_retry_preserves_accepted_environments(simulation_app):
 
 def test_offline_retry_preserves_accepted_environments():
     assert run_function_with_persistent_simulation_app(_test_offline_retry_preserves_accepted_environments)
+
+
+def test_cache_directory_requires_hard_links(tmp_path):
+    import errno
+    from unittest.mock import patch
+
+    import pytest
+
+    from isaaclab_arena_examples.relations.clutter.cache import validate_cache_directory
+
+    validate_cache_directory(tmp_path)
+    assert list(tmp_path.iterdir()) == []
+    with patch(
+        "isaaclab_arena_examples.relations.clutter.cache.os.link",
+        side_effect=OSError(errno.EOPNOTSUPP, "Operation not supported"),
+    ):
+        with pytest.raises(OSError, match="requires hard links") as failure:
+            validate_cache_directory(tmp_path)
+    assert failure.value.errno == errno.EOPNOTSUPP
+    assert failure.value.filename == str(tmp_path)
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_cache_link_failure_leaves_no_output(tmp_path):
+    import errno
+    from unittest.mock import patch
+
+    import pytest
+
+    from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
+    from isaaclab_arena_examples.relations.clutter.cache import write_scene_cache
+
+    spec = ArenaEnvGraphSpec.from_yaml(SOURCE)
+    with patch(
+        "isaaclab_arena_examples.relations.clutter.cache.os.link",
+        side_effect=OSError(errno.EOPNOTSUPP, "Operation not supported"),
+    ):
+        with pytest.raises(OSError):
+            write_scene_cache(spec, tmp_path / "scene.yaml")
+    assert list(tmp_path.iterdir()) == []

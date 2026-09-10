@@ -182,8 +182,8 @@ def _instantiate_object_reference(
     return _AFFORDANCE_REFERENCE_CLASSES[joint_param_names[0]](**common_kwargs)
 
 
-def _apply_initial_pose(asset: Asset, value: Any, *, create_reset_event: bool = True) -> None:
-    """Apply a YAML ``params.initial_pose`` through the asset's pose and reset API."""
+def _apply_initial_pose(asset: Asset, value: Any) -> None:
+    """Apply a fixed YAML pose at construction and on every reset."""
     if value is None:
         return
     assert isinstance(value, dict), "initial_pose must be a mapping"
@@ -202,10 +202,7 @@ def _apply_initial_pose(asset: Asset, value: Any, *, create_reset_event: bool = 
             isinstance(v, Real) and not isinstance(v, bool) and math.isfinite(v) for v in values
         ), f"{name} must contain finite numbers"
     assert math.isclose(sum(v * v for v in rotation), 1.0, abs_tol=1e-4), "rotation_xyzw must be a unit quaternion"
-    asset.set_initial_pose(
-        Pose(tuple(float(v) for v in position), tuple(float(v) for v in rotation)),
-        create_reset_event=create_reset_event,
-    )
+    asset.set_initial_pose(Pose(tuple(float(v) for v in position), tuple(float(v) for v in rotation)))
 
 
 def instantiate_assets_from_spec(
@@ -222,7 +219,7 @@ def instantiate_assets_from_spec(
         **embodiment_params
     )
 
-    _apply_initial_pose(assets_by_node_id[graph_spec.embodiment.id], embodiment_pose, create_reset_event=False)
+    _apply_initial_pose(assets_by_node_id[graph_spec.embodiment.id], embodiment_pose)
 
     background_params = dict(graph_spec.background.params)
     background_pose = background_params.pop("initial_pose", None)
