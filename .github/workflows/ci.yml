@@ -29,6 +29,8 @@ env:
   NGC_API_KEY: ${{ secrets.ARENA_NGC_API_KEY }}
   OMNI_PASS: ${{ secrets.OMNI_PASS }}
   OMNI_USER: ${{ secrets.OMNI_USER }}
+  # Disable omniclient hub mode to avoid ~10s startup time for sim startup.
+  OMNICLIENT_HUB_MODE: disabled
 
 
 jobs:

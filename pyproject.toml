@@ -116,15 +116,17 @@ index-strategy = "first-index"
 # Pin coverage and packaging to versions compatible with the Isaac Sim 6.1 wheel
 # stack. These overrides resolve stricter transitive constraints that do not
 # reflect the versions used successfully in the Docker runtime.
-# Pin websockets to the version the Docker environment validates:
-# the Docker build runs Isaac Sim 6.1 with websockets 16.1.1, and
-# isaacteleop[cloudxr] -- needed for teleop sessions -- requires websockets>=14.
+# Pin websockets to the Docker-validated 16.1.1. Isaac Sim 6.1's
+# isaacsim-kernel requires websockets>=12,<15, while isaacteleop[cloudxr]
+# requires >=14. This must be an override to replace the kernel's upper bound.
 # Pin the AWS/HTTP stack to the versions Isaac Sim requires: simready-search
 # asks for boto3==1.42.58, requests>=2.32.5 and s3transfer 0.16.x, all of which
 # are over-strict. The Docker image runs its S3 asset searches against the
 # boto3 1.40.61 / requests 2.32.3 / s3transfer 0.14.0 that isaacsim-kernel
 # pins. Without these overrides simready-search cannot resolve alongside either
 # environment at all, leaving the asset search with no installable runtime.
+# NOTE(qianl, 2026-09-10): the pinned IsaacLab submodule declares isaacsim==6.0.1.0.
+# Drop this override once the submodule itself moves to 6.1.
 override-dependencies = [
     "isaacsim[all,extscache]==6.1.0.0",
     "numpy==2.3.1",
