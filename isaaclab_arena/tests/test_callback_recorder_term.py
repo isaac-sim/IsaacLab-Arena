@@ -40,9 +40,7 @@ def _test_build_handlers_called_once_at_construction_with_env(simulation_app):
 
 
 def test_build_handlers_called_once_at_construction_with_env():
-    result = run_function_with_persistent_simulation_app(
-        _test_build_handlers_called_once_at_construction_with_env
-    )
+    result = run_function_with_persistent_simulation_app(_test_build_handlers_called_once_at_construction_with_env)
     assert result
 
 
@@ -92,9 +90,7 @@ def _test_record_pre_reset_forwards_env_and_env_ids(simulation_app):
 
 
 def test_record_pre_reset_forwards_env_and_env_ids():
-    result = run_function_with_persistent_simulation_app(
-        _test_record_pre_reset_forwards_env_and_env_ids
-    )
+    result = run_function_with_persistent_simulation_app(_test_record_pre_reset_forwards_env_and_env_ids)
     assert result
 
 
@@ -117,9 +113,7 @@ def _test_close_forwards_to_on_close(simulation_app):
 
 
 def test_close_forwards_to_on_close():
-    result = run_function_with_persistent_simulation_app(
-        _test_close_forwards_to_on_close
-    )
+    result = run_function_with_persistent_simulation_app(_test_close_forwards_to_on_close)
     assert result
 
 
@@ -141,7 +135,5 @@ def _test_none_handlers_are_no_ops(simulation_app):
 
 
 def test_none_handlers_are_no_ops():
-    result = run_function_with_persistent_simulation_app(
-        _test_none_handlers_are_no_ops
-    )
+    result = run_function_with_persistent_simulation_app(_test_none_handlers_are_no_ops)
     assert result
