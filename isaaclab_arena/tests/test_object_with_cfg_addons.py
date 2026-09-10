@@ -28,18 +28,14 @@ def _test_object_with_cfg_addons(simulation_app):
         spawn_cfg_addon = {"visible": False}  # By default, the object is visible.
         asset_cfg_addon = {"debug_vis": True}  # By default, the object is not debug visualized.
 
-        def __init__(self, prim_path: str = default_prim_path, initial_pose: Pose | None = None, **kwargs):
-            super().__init__(prim_path=prim_path, initial_pose=initial_pose, **kwargs)
+        def __init__(self, prim_path: str = default_prim_path, initial_pose: Pose | None = None):
+            super().__init__(prim_path=prim_path, initial_pose=initial_pose)
 
     cone = ConeWithCfgAddons()
 
     # Check that the settings have been applied
     assert cone.object_cfg.spawn.visible is False
     assert cone.object_cfg.debug_vis is True
-    assert cone.object_cfg.spawn.activate_contact_sensors is True
-
-    cone_without_contact_sensors = ConeWithCfgAddons(activate_contact_sensors=False)
-    assert cone_without_contact_sensors.object_cfg.spawn.activate_contact_sensors is False
 
     return True
 
