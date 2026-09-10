@@ -82,7 +82,7 @@ class ClutterRestVerdict:
 
     @property
     def ok(self) -> bool:
-        """Whether every member came to rest acceptably."""
+        """Whether every member satisfies the containment checks."""
         return not (self.diverged or self.fell_through or self.fell_off)
 
     def describe(self, names: list[str]) -> str:
@@ -96,7 +96,7 @@ class ClutterRestVerdict:
             if indices:
                 offenders = ", ".join(names[index] for index in indices)
                 parts.append(f"{label}: {offenders}")
-        return "; ".join(parts) if parts else "all members at rest"
+        return "; ".join(parts) if parts else "all members within support"
 
 
 class SettleTracker:

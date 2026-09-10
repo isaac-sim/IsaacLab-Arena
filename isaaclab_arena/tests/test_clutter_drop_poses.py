@@ -17,6 +17,7 @@ from isaaclab_arena_examples.relations.clutter.drop_poses import (
     DropOrder,
     DropPose,
     MemberDropParams,
+    OccupiedFootprint,
     XySampling,
     compute_drop_poses,
 )
@@ -365,3 +366,18 @@ def test_disabled_yaw_preserves_authored_quaternion_exactly():
         member_params=[MemberDropParams(random_yaw=False)],
     )[0]
     assert pose.rotation_xyzw == base
+
+
+@pytest.mark.parametrize("field", ["clearance_m", "gap_m"])
+@pytest.mark.parametrize("value", [-0.01, math.inf, math.nan])
+def test_rejects_invalid_release_clearance(field, value):
+    with pytest.raises(AssertionError, match=field):
+        MemberDropParams(**{field: value})
+
+
+def test_release_clears_an_occupied_footprint():
+    bbox = make_bbox(0.04, 0.04, 0.06, origin_offset_z=0.02)
+    obstacle = OccupiedFootprint(center=(0.0, 0.0), half_extents=(1.0, 1.0), top_z=1.2)
+    member = MemberDropParams(gap_m=0.03, random_yaw=False)
+    pose = compute_drop_poses([bbox], REGION, member_params=[member], occupied=[obstacle], generator=seeded())[0]
+    assert pose.position_xyz[2] + float(bbox.min_point[0, 2]) == pytest.approx(obstacle.top_z + member.gap_m)

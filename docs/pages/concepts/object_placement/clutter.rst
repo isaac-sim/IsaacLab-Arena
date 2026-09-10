@@ -78,8 +78,8 @@ a cache does not run settling, regenerate clutter, or change the objects' physic
 properties. Tasks and callbacks must preserve these pose reset events for fixed
 replay.
 
-Use from CAP or another application
------------------------------------
+Use from Python
+---------------
 
 The helper operates on an already constructed scene, independent of how the
 application placed it. Pass scene keys rather than graph IDs:

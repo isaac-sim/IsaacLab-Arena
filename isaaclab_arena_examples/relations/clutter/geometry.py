@@ -17,7 +17,7 @@ from isaaclab_arena.environments.arena_world_scene_access import (
     _get_representative_prim_groups,
 )
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, quaternion_to_90_deg_z_quarters
-from isaaclab_arena_examples.relations.clutter.drop_poses import ClutterRegion, refit_bbox_to_rotation
+from isaaclab_arena_examples.relations.clutter.drop_poses import ClutterRegion
 
 _QUARTER_TURN_TOLERANCE_RAD = 1e-3
 
@@ -39,14 +39,14 @@ def region_above_support(
         support_rotation_xyzw: Support-to-E quaternion, shape (4,); yaw must be a quarter turn.
     """
     quarters = quaternion_to_90_deg_z_quarters(support_rotation_xyzw, tol_deg=math.degrees(_QUARTER_TURN_TOLERANCE_RAD))
-    bounds = support_bbox.rotated_90_around_z(quarters).translated(support_position)
+    bounds = support_bbox.rotated_90_around_z(quarters)
     lower, upper = bounds.min_point[env_index], bounds.max_point[env_index]
     region = ClutterRegion(
-        min_x=float(lower[0]),
-        min_y=float(lower[1]),
-        max_x=float(upper[0]),
-        max_y=float(upper[1]),
-        floor_z=float(upper[2]),
+        min_x=float(lower[0]) + support_position[0],
+        min_y=float(lower[1]) + support_position[1],
+        max_x=float(upper[0]) + support_position[0],
+        max_y=float(upper[1]) + support_position[1],
+        floor_z=float(upper[2]) + support_position[2],
     )
     return region.scaled(spread) if spread != 1.0 else region
 
@@ -96,7 +96,7 @@ def resting_extents(
     bbox: AxisAlignedBoundingBox, rotation_xyzw: tuple[float, float, float, float]
 ) -> tuple[float, float, float, float, float]:
     """Return rotated (min_x, min_y, max_x, max_y, min_z) offsets from the object origin."""
-    rotated = refit_bbox_to_rotation(bbox, rotation_xyzw)
+    rotated = bbox.rotated_by_quat(rotation_xyzw)
     lower, upper = rotated.min_point[0], rotated.max_point[0]
     return float(lower[0]), float(lower[1]), float(upper[0]), float(upper[1]), float(lower[2])
 

@@ -60,40 +60,40 @@ def _test_offline_scene_round_trip(simulation_app):
         specs = [ArenaEnvGraphSpec.from_yaml(path) for path in paths]
         assert all(not spec.relations for spec in specs)
         assert specs[0].objects[0].params["initial_pose"] != specs[1].objects[0].params["initial_pose"]
-        spec = specs[0]
-        env = ArenaEnvBuilder(spec.to_arena_env(), ArenaEnvBuilderCfg(num_envs=2)).make_registered()
-        try:
-            assert get_placement_pool(env) is None
-            env.reset()
-            robot = env.unwrapped.scene.articulations["robot"]
-            robot_pose = robot.data.root_pose_w.torch.clone()
-            for _ in range(8):
-                moved_robot = robot_pose.clone()
-                moved_robot[:, 0] += 0.25
-                robot.write_root_pose_to_sim(moved_robot)
-                for body in env.unwrapped.scene.rigid_objects.values():
-                    displaced = body.data.root_pose_w.torch.clone()
-                    displaced[:, 2] += 1.0
-                    body.write_root_pose_to_sim(displaced)
-                    body.write_root_velocity_to_sim(torch.ones_like(body.data.root_vel_w.torch))
+        for spec in specs:
+            env = ArenaEnvBuilder(spec.to_arena_env(), ArenaEnvBuilderCfg(num_envs=2)).make_registered()
+            try:
+                assert get_placement_pool(env) is None
                 env.reset()
-                torch.testing.assert_close(robot.data.root_pose_w.torch, robot_pose, atol=2e-5, rtol=0)
-                for obj in spec.objects:
-                    expected = obj.params["initial_pose"]
-                    T_E_O = torch.tensor(
-                        expected["position_xyz"] + expected["rotation_xyzw"], device=env.unwrapped.device
-                    )
-                    actual = env.unwrapped.arena_world.get_pose_e(obj.id)
-                    torch.testing.assert_close(actual, T_E_O.expand_as(actual), atol=2e-5, rtol=0)
-                before = torch.stack([env.unwrapped.arena_world.get_pose_e(obj.id)[:, :3] for obj in spec.objects])
-                for _ in range(200):
-                    env.unwrapped.scene.write_data_to_sim()
-                    env.unwrapped.sim.step(render=False)
-                    env.unwrapped.scene.update(env.unwrapped.sim.get_physics_dt())
-                after = torch.stack([env.unwrapped.arena_world.get_pose_e(obj.id)[:, :3] for obj in spec.objects])
-                assert float((after - before).norm(dim=-1).max()) < 0.02
-        finally:
-            env.close()
+                robot = env.unwrapped.scene.articulations["robot"]
+                robot_pose = robot.data.root_pose_w.torch.clone()
+                for _ in range(8):
+                    moved_robot = robot_pose.clone()
+                    moved_robot[:, 0] += 0.25
+                    robot.write_root_pose_to_sim(moved_robot)
+                    for body in env.unwrapped.scene.rigid_objects.values():
+                        displaced = body.data.root_pose_w.torch.clone()
+                        displaced[:, 2] += 1.0
+                        body.write_root_pose_to_sim(displaced)
+                        body.write_root_velocity_to_sim(torch.ones_like(body.data.root_vel_w.torch))
+                    env.reset()
+                    torch.testing.assert_close(robot.data.root_pose_w.torch, robot_pose, atol=2e-5, rtol=0)
+                    for obj in spec.objects:
+                        expected = obj.params["initial_pose"]
+                        T_E_O = torch.tensor(
+                            expected["position_xyz"] + expected["rotation_xyzw"], device=env.unwrapped.device
+                        )
+                        actual = env.unwrapped.arena_world.get_pose_e(obj.id)
+                        torch.testing.assert_close(actual, T_E_O.expand_as(actual), atol=2e-5, rtol=0)
+                    before = torch.stack([env.unwrapped.arena_world.get_pose_e(obj.id)[:, :3] for obj in spec.objects])
+                    for _ in range(200):
+                        env.unwrapped.scene.write_data_to_sim()
+                        env.unwrapped.sim.step(render=False)
+                        env.unwrapped.scene.update(env.unwrapped.sim.get_physics_dt())
+                    after = torch.stack([env.unwrapped.arena_world.get_pose_e(obj.id)[:, :3] for obj in spec.objects])
+                    assert float((after - before).norm(dim=-1).max()) < 0.02
+            finally:
+                env.close()
     return True
 
 

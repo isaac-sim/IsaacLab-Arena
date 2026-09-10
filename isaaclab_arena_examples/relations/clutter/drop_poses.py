@@ -103,6 +103,10 @@ class MemberDropParams:
     random_yaw: bool = True
     """Whether to sample world-Z yaw on top of the base rotation."""
 
+    def __post_init__(self) -> None:
+        assert math.isfinite(self.clearance_m) and self.clearance_m >= 0, "clearance_m must be finite and non-negative"
+        assert math.isfinite(self.gap_m) and self.gap_m >= 0, "gap_m must be finite and non-negative"
+
 
 @dataclass(frozen=True)
 class OccupiedFootprint:
@@ -164,15 +168,6 @@ def _footprint_of(bbox: AxisAlignedBoundingBox) -> _Footprint:
     )
 
 
-def refit_bbox_to_rotation(
-    bbox: AxisAlignedBoundingBox, rotation_xyzw: tuple[float, float, float, float]
-) -> AxisAlignedBoundingBox:
-    """Return the axis-aligned bounds after rotating about the object origin."""
-    if rotation_xyzw == (0.0, 0.0, 0.0, 1.0):
-        return bbox
-    return bbox.rotated_by_quat(torch.tensor([rotation_xyzw], dtype=torch.float32))
-
-
 def _resolve_order(
     bounding_boxes: list[AxisAlignedBoundingBox],
     drop_order: DropOrder,
@@ -185,7 +180,7 @@ def _resolve_order(
         return indices
     if drop_order is DropOrder.FLATTEST_FIRST:
         heights = [
-            float(refit_bbox_to_rotation(bbox, rotation).size[0][2])
+            float(bbox.rotated_by_quat(rotation).size[0][2])
             for bbox, rotation in zip(bounding_boxes, base_rotations_xyzw)
         ]
         return sorted(indices, key=lambda i: heights[i])
@@ -237,7 +232,7 @@ def _sample_orientation_that_fits(
             yaw_rotation = torch.tensor((0.0, 0.0, math.sin(yaw / 2), math.cos(yaw / 2)))
             # Left multiplication applies the extra rotation about world Z.
             rotation = tuple(quat_mul(yaw_rotation, torch.tensor(base_rotation_xyzw, dtype=torch.float32)).tolist())
-        rotated = refit_bbox_to_rotation(bbox, rotation)
+        rotated = bbox.rotated_by_quat(rotation)
         footprint = _footprint_of(rotated)
         if _footprint_fits(footprint, region):
             return rotation, rotated, footprint
