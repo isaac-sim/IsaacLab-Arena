@@ -106,6 +106,10 @@ python isaaclab_arena/evaluation/policy_runner.py \
   --viz kit --policy_type zero_action --num_steps 200 cube_goal_pose
 ```
 
+> **Note:** See our
+> [installation docs](https://isaac-sim.github.io/IsaacLab-Arena/release/0.3.0/pages/quickstart/installation.html)
+> for more details and installation flavors.
+
 **Source install inside Docker:**
 
 ```bash
