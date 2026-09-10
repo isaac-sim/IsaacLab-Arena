@@ -20,7 +20,11 @@ def generate_scene(args: argparse.Namespace) -> list[Path]:
     from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
-    from isaaclab_arena_examples.relations.clutter.cache import scene_with_cached_poses, write_scene_cache
+    from isaaclab_arena_examples.relations.clutter.cache import (
+        scene_with_cached_poses,
+        validate_cache_directory,
+        write_scene_cache,
+    )
     from isaaclab_arena_examples.relations.clutter.drop_poses import DropOrder
     from isaaclab_arena_examples.relations.clutter.geometry import dynamic_rigid_object_keys
     from isaaclab_arena_examples.relations.clutter.settle import ClutterGroup, settle_clutter
@@ -34,6 +38,7 @@ def generate_scene(args: argparse.Namespace) -> list[Path]:
     assert not spec.relations, "Input must use concrete poses; resolve placement relations before offline settling"
     assert not spec.object_sets, "Resolve object sets to concrete assets before offline settling"
     paths = _output_paths(Path(args.output), args.num_envs)
+    validate_cache_directory(paths[0].parent)
     arena_env, assets = build_arena_env_with_assets_from_graph_spec(spec)
     assert args.support in assets, f"Unknown support node {args.support!r}"
     assert all(key in assets for key in args.objects), f"Unknown clutter nodes: {set(args.objects) - set(assets)}"

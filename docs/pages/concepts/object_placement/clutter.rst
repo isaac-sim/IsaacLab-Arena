@@ -28,7 +28,9 @@ through ``scene_env_3.yaml``. ``--attempts`` limits offline retries per environm
 ``--timeout_s`` limits each trial's simulated time. A failed trial is retried
 only offline. If any environment has no accepted layout, generation fails before
 writing output files. Each output is published as a complete YAML file; existing
-output files are never overwritten.
+output files are never overwritten. The output filesystem must support hard links;
+its write and link permissions are checked before scene construction and settling.
+If the check fails, choose an output directory that supports hard links.
 
 ``--spread`` scales the release region; final containment uses the whole support.
 Sampled world-Z yaw preserves each object's initial roll and pitch. Use

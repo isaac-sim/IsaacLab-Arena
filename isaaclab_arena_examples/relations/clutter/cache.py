@@ -54,8 +54,25 @@ def scene_with_cached_poses(
     return result
 
 
+def validate_cache_directory(directory: Path) -> None:
+    """Check write and hard-link support before generating scene caches."""
+    directory.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(dir=directory, prefix=".clutter-") as temporary:
+        source = Path(temporary) / "source"
+        source.touch()
+        try:
+            os.link(source, Path(temporary) / "link")
+        except OSError as error:
+            raise OSError(
+                error.errno,
+                f"Scene cache publication requires hard links: {error.strerror}. "
+                "Choose an output directory that permits hard links.",
+                str(directory),
+            ) from error
+
+
 def write_scene_cache(spec: ArenaEnvGraphSpec, path: Path) -> None:
-    """Publish a complete YAML file atomically, refusing to replace an existing path."""
+    """Publish a complete YAML file atomically without overwriting; requires hard-link support."""
     path.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(dir=path.parent, prefix=".clutter-") as directory:
         temporary = Path(directory) / path.name
