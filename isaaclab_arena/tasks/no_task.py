@@ -16,8 +16,8 @@ class NoTask(TaskBase):
 
     name = "no_task"
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, task_description: str | None = None):
+        super().__init__(task_description=task_description)
 
     def get_scene_cfg(self):
         pass

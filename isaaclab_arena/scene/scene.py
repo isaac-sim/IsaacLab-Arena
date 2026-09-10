@@ -19,6 +19,7 @@ from isaaclab_arena.assets.object import Object
 from isaaclab_arena.assets.object_reference import ObjectReference
 from isaaclab_arena.assets.object_set import RigidObjectSet
 from isaaclab_arena.assets.object_type import ObjectType
+from isaaclab_arena.relations.clutter_groups import is_clutter_member
 from isaaclab_arena.relations.placement_asset import PlaceableAsset
 from isaaclab_arena.utils.configclass import make_configclass
 from isaaclab_arena.utils.phyx_utils import add_contact_report
@@ -155,7 +156,7 @@ class Scene:
             if not isinstance(asset, PlaceableAsset):
                 continue
             # Those with spatial relations or an anchor, exclude those are only used in validation, e.g. RequiresReachability.
-            if asset.get_spatial_relations() or asset.is_anchor:
+            if asset.get_spatial_relations() or asset.is_anchor or is_clutter_member(asset):
                 objects_with_relations.append(asset)
         return objects_with_relations
 

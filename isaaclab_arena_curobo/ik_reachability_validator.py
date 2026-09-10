@@ -143,21 +143,37 @@ class ReachabilityValidator(PlacementValidator):
             layout_index_within_batch: Position of this layout in the batch given to ``validate_batch``.
         """
         objects = list(positions.keys())
-        anchors = set(get_anchor_objects(objects))
         base_rotations = get_base_rotation_per_asset(objects)
 
         world_poses = {
             obj: get_object_world_pose_from_layout(positions, orientations, obj, base_rotations) for obj in objects
         }
+        return self._validate_world_poses(world_poses, layout_index_within_batch)
+
+    def validate_poses(self, poses, bboxes, collision_objects, allowed_contacts=None) -> bool:
+        obstacle_poses = {obj: obj.get_initial_pose() for obj in collision_objects}
+        return self._validate_world_poses(poses, None, bboxes, obstacle_poses)
+
+    def _validate_world_poses(
+        self,
+        world_poses: dict[ObjectBase, Pose],
+        layout_index_within_batch: int | None,
+        bboxes: dict[ObjectBase, AxisAlignedBoundingBox] | None = None,
+        obstacle_poses: dict[CollisionObject, Pose] | None = None,
+    ) -> bool:
+        """Check grasp reachability at the supplied object poses."""
+        objects = list(world_poses)
+        anchors = set(get_anchor_objects(objects))
         # non-anchor objects with a RequiresReachability relation
         targets = self._select_reachability_targets(objects, anchors)
         robot_base_pose_w = world_poses.get(self._embodiment, self._configured_robot_base_pose_w)
         # The robot's own body is not an obstacle: cuRobo already carries it as collision spheres.
+        collision_poses = {**(obstacle_poses or {}), **world_poses}
         cuboid_per_object = {
             obj: get_aabb_collision_cuboid_for_object(
-                obj, world_poses[obj].position_xyz, world_poses[obj].rotation_xyzw
+                obj, pose.position_xyz, pose.rotation_xyzw, bbox=bboxes.get(obj) if bboxes else None
             )
-            for obj in objects
+            for obj, pose in collision_poses.items()
             if obj is not self._embodiment
         }
 
@@ -184,7 +200,7 @@ class ReachabilityValidator(PlacementValidator):
             for obj in targets
         ])
         ik = self._solve_grasp_per_target(targets, grasp_poses, cuboid_per_object, robot_base_pose_w)
-        if self._rerun_layer is not None:
+        if self._rerun_layer is not None and layout_index_within_batch is not None:
             layout_index_across_batch = self._visualizer.get_layout_index_across_batch(layout_index_within_batch)
             self._rerun_layer.log_layout(
                 layout_index_across_batch=layout_index_across_batch,

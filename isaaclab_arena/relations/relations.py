@@ -13,6 +13,7 @@ from isaaclab.utils.math import euler_xyz_from_quat
 
 from isaaclab_arena.assets.register import agent_ready, register_object_relation
 from isaaclab_arena.assets.registries import ObjectRelationLibraryRegistry
+from isaaclab_arena.relations.clutter_drop_poses import DropOrder
 from isaaclab_arena.utils.pose import PoseRange  # runtime: constructed in to_pose_range_centered_at()
 
 if TYPE_CHECKING:
@@ -278,6 +279,88 @@ class IsAnchor(RelationBase):
     def is_unary() -> bool:
         """Return whether the relation constrains a single object."""
         return True
+
+
+@register_object_relation
+class ClutteredOn(RelationBase):
+    """Request physics-settled group placement of an ordinary asset above a support.
+
+    Members may rest on the support or on other members. Group membership does not
+    change an asset's type, affordances or task role, and does not guarantee contact,
+    stacking, density or occlusion. The release sampler determines initial poses;
+    physics determines the eventual arrangement.
+
+    Usage:
+        table.add_relation(IsAnchor())
+        for tool in tools:
+            tool.add_relation(ClutteredOn(table, group="tools"))
+    """
+
+    name = "cluttered_on"
+
+    def __init__(
+        self,
+        parent: PlaceableAsset,
+        group: str = "clutter",
+        spread: float = 1.0,
+        gap_m: float = 0.03,
+        clearance_m: float = 0.01,
+        random_yaw: bool = True,
+        drop_order: DropOrder | str = DropOrder.AS_LISTED,
+    ):
+        """Define one member of a physics-settled pile.
+
+        Args:
+            parent: The support asset the group comes to rest on.
+            group: Pile name, scoped to the parent support.
+            spread: Fraction of the support footprint, scaled about its center in (0, 1].
+            gap_m: Vertical gap left between an object and whatever it is dropped on top of.
+            clearance_m: Height above the support surface at which the lowest layer starts.
+            random_yaw: Whether to sample a yaw per object before dropping.
+            drop_order: Release order. Earlier members start below overlapping later members.
+        """
+        assert 0.0 < spread <= 1.0, f"spread must be in (0, 1], got {spread}"
+        assert gap_m >= 0.0, f"gap_m must be non-negative, got {gap_m}"
+        assert clearance_m >= 0.0, f"clearance_m must be non-negative, got {clearance_m}"
+        assert group, "group must be a non-empty name"
+        assert drop_order in tuple(
+            DropOrder
+        ), f"drop_order must be one of {[order.value for order in DropOrder]}, got {drop_order!r}"
+        self.parent = parent
+        self.group = group
+        self.spread = spread
+        self.gap_m = gap_m
+        self.clearance_m = clearance_m
+        self.random_yaw = random_yaw
+        self.drop_order = DropOrder(drop_order)
+
+    @staticmethod
+    def is_unary() -> bool:
+        """Return whether the relation constrains a single object."""
+        return False
+
+    def validate_placement_configuration(self, subject: PlaceableAsset, objects: set[PlaceableAsset]) -> None:
+        """Check that a member has one pile, a support and no competing placement constraints."""
+        assert (
+            self.parent in objects
+        ), f"Clutter member '{subject.name}' rests on '{self.parent.name}', which is not part of the placement."
+        assert self.parent is not subject, f"Clutter member '{subject.name}' cannot rest on itself."
+        assert not self.parent.has_relation(ClutteredOn), (
+            f"Clutter member '{subject.name}' rests on '{self.parent.name}', which is itself clutter. "
+            "Piles cannot be stacked on piles; give the group a settled support instead."
+        )
+        assert (
+            not subject.is_anchor
+        ), f"Clutter member '{subject.name}' is also an anchor. An anchor holds a fixed pose, but a pour assigns one."
+        clutter_relations = [relation for relation in subject.get_relations() if isinstance(relation, ClutteredOn)]
+        assert len(clutter_relations) == 1, (
+            f"Clutter member '{subject.name}' has {len(clutter_relations)} ClutteredOn relations; it belongs to one"
+            " pile."
+        )
+        spatial = [type(relation).__name__ for relation in subject.get_spatial_relations()]
+        assert (
+            not spatial
+        ), f"Clutter member '{subject.name}' also carries {spatial}, which constrain a pose the pour discards."
 
 
 @register_object_relation

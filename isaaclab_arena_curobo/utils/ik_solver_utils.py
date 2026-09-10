@@ -24,6 +24,7 @@ from isaaclab_arena_curobo.utils.frame_utils import world_pose_to_robot_frame
 if TYPE_CHECKING:
     from curobo.wrap.reacher.ik_solver import IKSolver
 
+    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
     from isaaclab_arena_curobo.ik_solver import CuroboIKSolver
 
 
@@ -40,15 +41,18 @@ class AABBCollisionCuboid:
 
 
 def get_aabb_collision_cuboid_for_object(
-    obj: ObjectBase, pos_w: tuple[float, float, float], quat_w_xyzw: tuple[float, ...]
+    obj: ObjectBase,
+    pos_w: tuple[float, float, float],
+    quat_w_xyzw: tuple[float, ...],
+    bbox: AxisAlignedBoundingBox | None = None,
 ) -> AABBCollisionCuboid:
     """Axis-aligned bounding-box collision cuboid for an object at its layout pose (world frame).
 
     The bounding box is object-local, so its center offset is rotated by the object's world orientation
     and added to the root position -- placing e.g. a table box at its true mid-height rather than at the
-    root.
+    root. An explicit ``bbox`` uses the geometry of the current environment variant.
     """
-    bbox = obj.get_bounding_box()
+    bbox = obj.get_bounding_box() if bbox is None else bbox
     dims = tuple(float(v) for v in bbox.size[0].tolist())
     quat_t = torch.tensor(quat_w_xyzw, dtype=torch.float32)
     rotation = math_utils.matrix_from_quat(quat_t.unsqueeze(0))[0]

@@ -61,8 +61,8 @@ def rotate_quat_by_yaw(
     bx, by, bz, bw = base_xyzw
     sz = math.sin(yaw_rad / 2.0)
     cz = math.cos(yaw_rad / 2.0)
-    # Hamilton product base ⊗ (0, 0, sz, cz). Both rotations are about Z, so they commute.
-    return (bx * cz + by * sz, -bx * sz + by * cz, bz * cz + bw * sz, -bz * sz + bw * cz)
+    # Hamilton product (0, 0, sz, cz) ⊗ base applies yaw around world Z.
+    return (bx * cz - by * sz, by * cz + bx * sz, bz * cz + bw * sz, bw * cz - bz * sz)
 
 
 def rotate_points_by_yaw(points: torch.Tensor, yaw: float) -> torch.Tensor:

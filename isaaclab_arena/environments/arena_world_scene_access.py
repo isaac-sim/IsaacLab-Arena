@@ -188,3 +188,44 @@ class SceneExtraPoseReader:
             f"expected ({self._num_envs}, 7)."
         )
         return T_W_F
+
+
+def prim_geometry_is_fixed(prim: Usd.Prim) -> bool:
+    """Return whether neither geometry nor its ancestors have an enabled dynamic rigid body.
+
+    Args:
+        prim: Spawned prim whose support geometry is being queried.
+
+    Returns:
+        True for static collision geometry and kinematic bodies, including nested references.
+    """
+    assert prim.IsValid()
+    candidates = list(Usd.PrimRange(prim, Usd.TraverseInstanceProxies()))
+    ancestor = prim.GetParent()
+    while ancestor.IsValid() and not ancestor.IsPseudoRoot():
+        candidates.append(ancestor)
+        ancestor = ancestor.GetParent()
+    for candidate in candidates:
+        if candidate.HasAPI(UsdPhysics.RigidBodyAPI):
+            body = UsdPhysics.RigidBodyAPI(candidate)
+            if body.GetRigidBodyEnabledAttr().Get() and not body.GetKinematicEnabledAttr().Get():
+                return False
+    return True
+
+
+def spawned_geometry_is_fixed(scene: InteractiveScene, scene_key: str) -> bool:
+    """Check support mobility from spawned physics properties for every asset variant."""
+    path = getattr(scene.cfg, scene_key).prim_path.format(ENV_REGEX_NS=scene.env_regex_ns)
+    return all(prim_geometry_is_fixed(prim) for prim, _ in _get_representative_prim_groups(scene, scene_key, path))
+
+
+def spawned_rigid_body_has_gravity(scene: InteractiveScene, scene_key: str) -> bool:
+    """Whether all variants of a spawned rigid object participate in gravity."""
+    assert scene_key in scene.rigid_objects
+    path = getattr(scene.cfg, scene_key).prim_path.format(ENV_REGEX_NS=scene.env_regex_ns)
+    for prim, _ in _get_representative_prim_groups(scene, scene_key, path):
+        body = _find_single_rigid_body_prim_in_subtree(prim, scene_key)
+        # Isaac Lab's solver-common RigidBodyBaseCfg maps disable_gravity to this USD attribute.
+        if body.GetAttribute("physxRigidBody:disableGravity").Get() is True:
+            return False
+    return True
