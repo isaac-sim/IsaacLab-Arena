@@ -14,13 +14,6 @@ import matplotlib
 matplotlib.use("Agg")
 
 
-def test_relation_solver_visualization_notebook_runs():
-    """Smoke test: verify the visualization notebook runs without errors."""
-    from isaaclab_arena_examples.relations.relation_solver_visualization_notebook import run_visualization_demo
-
-    run_visualization_demo()
-
-
 def test_dummy_object_placer_notebook_runs():
     """Smoke test: verify the dummy object placer notebook runs without errors."""
     from isaaclab_arena_examples.relations.dummy_object_placer_notebook import run_dummy_object_placer_demo

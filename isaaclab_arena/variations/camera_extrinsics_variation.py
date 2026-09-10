@@ -20,14 +20,12 @@ import torch
 from dataclasses import field
 from typing import TYPE_CHECKING
 
-import isaaclab.sim as sim_utils
-import warp as wp
 from isaaclab.managers import EventTermCfg, ManagerTermBase, SceneEntityCfg
 from isaaclab.sensors import Camera, TiledCamera
 from isaaclab.utils.configclass import configclass
 from isaaclab.utils.math import quat_apply
-from pxr import Sdf
 
+from isaaclab_arena.patches.camera_render_pose import CameraPoseWriter
 from isaaclab_arena.variations.continuous_sampler import ContinuousSampler
 from isaaclab_arena.variations.uniform_sampler import UniformSamplerCfg
 from isaaclab_arena.variations.variation_base import RunTimeVariationBase, VariationBaseCfg
@@ -127,11 +125,8 @@ class apply_camera_extrinsics_from_sampler(ManagerTermBase):
         )
 
         self._camera = camera
-        self._render_camera_prims = sim_utils.find_matching_prims(camera.cfg.prim_path, camera.stage)
-        assert len(self._render_camera_prims) == camera.num_instances, (
-            f"Camera '{asset_cfg.name}' resolved {len(self._render_camera_prims)} rendered USD prims "
-            f"for {camera.num_instances} sensor instances."
-        )
+        # [isaac-lab-camera-pose-write-bug] Write poses through CameraPoseWriter so the Newton render follows.
+        self._pose_writer = CameraPoseWriter(camera)
         # Snapshotted on first ``__call__``.
         self._t_parent_C_in_parent: torch.Tensor | None = None
         self._q_parent_C_xyzw: torch.Tensor | None = None
@@ -170,26 +165,5 @@ class apply_camera_extrinsics_from_sampler(ManagerTermBase):
         t_C_Cnew_in_parent = quat_apply(self._q_parent_C_xyzw[env_ids], t_C_Cnew_in_C)
         t_parent_Cnew_in_parent = self._t_parent_C_in_parent[env_ids] + t_C_Cnew_in_parent
 
-        # Apply the the sim.
-        view.set_local_poses(translations=t_parent_Cnew_in_parent, orientations=None, indices=wp.from_torch(env_ids))
-
-        # Newton's frame view updates its internal site state but not the USD camera transform consumed by RTX.
-        # Use USD write to keep the rendered camera in sync. The USD write is redundant and harmless when the
-        # frame view already writes through to USD.
-        env_id_list = [int(env_id) for env_id in env_ids.detach().cpu().tolist()]
-        translations = t_parent_Cnew_in_parent.detach().cpu().tolist()
-        with Sdf.ChangeBlock():
-            for env_id, translation in zip(env_id_list, translations, strict=True):
-                prim = self._render_camera_prims[env_id]
-                translate_attr = prim.GetAttribute("xformOp:translate")
-                current_translation = translate_attr.Get()
-                assert (
-                    current_translation is not None
-                ), f"Camera prim '{prim.GetPath()}' has no authored xformOp:translate."
-                updated_translation = type(current_translation)(*(float(value) for value in translation))
-                assert translate_attr.Set(
-                    updated_translation
-                ), f"Failed to update camera prim '{prim.GetPath()}' xformOp:translate."
-
-        # Invalidate cached sensor state so the next observation uses the sampled extrinsics.
-        self._camera.reset(env_ids)
+        # [isaac-lab-camera-pose-write-bug] Written via the pose writer so it reaches the Newton render.
+        self._pose_writer.set_local_translations(translations=t_parent_Cnew_in_parent, env_ids=env_ids)

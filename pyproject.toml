@@ -107,24 +107,28 @@ prerelease = "if-necessary-or-explicit"
 # route below handles the one known NVIDIA/PyPI name collision without merging
 # candidates from multiple indexes.
 index-strategy = "first-index"
+# Arena validates the pinned Isaac Lab source checkout against the newer public
+# Isaac Sim release. Override Isaac Lab's exact 6.0 requirement without modifying
+# the submodule so fresh checkouts resolve the same environment.
 # Pin numpy to the exact version Isaac Sim requires: isaacsim-kernel needs
 # ==2.3.1 and numba needs <2.5. An override (not a plain dep) is needed to also
 # beat a transitive constraint that would otherwise pull numpy<2.
-# Pin coverage and packaging to versions compatible with the Isaac Sim wheel
+# Pin coverage and packaging to versions compatible with the Isaac Sim 6.1 wheel
 # stack. These overrides resolve stricter transitive constraints that do not
 # reflect the versions used successfully in the Docker runtime.
-# Pin websockets to the version the Docker environment validates:
-# isaacsim-kernel's ==12.0 pin is over-strict (the Docker build runs Isaac
-# Sim 6.0 with websockets 16.1.1, installed by pip alongside isaacteleop),
-# and isaacteleop[cloudxr] -- needed for teleop sessions -- requires
-# websockets>=14.
+# Pin websockets to the Docker-validated 16.1.1. Isaac Sim 6.1's
+# isaacsim-kernel requires websockets>=12,<15, while isaacteleop[cloudxr]
+# requires >=14. This must be an override to replace the kernel's upper bound.
 # Pin the AWS/HTTP stack to the versions Isaac Sim requires: simready-search
 # asks for boto3==1.42.58, requests>=2.32.5 and s3transfer 0.16.x, all of which
 # are over-strict. The Docker image runs its S3 asset searches against the
 # boto3 1.40.61 / requests 2.32.3 / s3transfer 0.14.0 that isaacsim-kernel
 # pins. Without these overrides simready-search cannot resolve alongside either
 # environment at all, leaving the asset search with no installable runtime.
+# NOTE(qianl, 2026-09-10): the pinned IsaacLab submodule declares isaacsim==6.0.1.0.
+# Drop this override once the submodule itself moves to 6.1.
 override-dependencies = [
+    "isaacsim[all,extscache]==6.1.0.0",
     "numpy==2.3.1",
     "mujoco~=3.11.0",
     "mujoco-warp~=3.11.0",
@@ -143,13 +147,13 @@ override-dependencies = [
     "requests==2.32.3",
     "s3transfer==0.14.0",
 ]
-# Keep broad transitive requirements on versions validated with Isaac Sim 6.0
+# Keep broad transitive requirements on versions validated with Isaac Sim 6.1
 # and the current Isaac Lab source checkout.
 constraint-dependencies = [
     "pin-pink==3.3.0",
     "pyglet<3",
     "tinyobjloader==2.0.0rc13",
-    "mujoco-usd-converter==0.2.0",
+    "mujoco-usd-converter==0.5.0",
 ]
 # Use a uv-managed CPython 3.12 rather than whatever happens to be on PATH.
 python-preference = "only-managed"
