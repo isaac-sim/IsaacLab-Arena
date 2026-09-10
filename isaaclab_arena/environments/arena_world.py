@@ -30,6 +30,14 @@ class ArenaWorld:
         self._aabbs_in_local_frame_cache: dict[str, AxisAlignedBoundingBox] = {}
         self._scene_extra_pose_reader_cache: dict[str, scene_access.SceneExtraPoseReader] = {}
 
+    def is_geometry_fixed(self, scene_key: str) -> bool:
+        """Whether spawned geometry is static or kinematic in every environment."""
+        return scene_access.spawned_geometry_is_fixed(self._scene, scene_key)
+
+    def rigid_body_has_gravity(self, scene_key: str) -> bool:
+        """Whether gravity is enabled for every variant of a rigid object."""
+        return scene_access.spawned_rigid_body_has_gravity(self._scene, scene_key)
+
     def get_pose_w(self, scene_key: str) -> torch.Tensor:
         """Return the world-frame pose of a rigid-object root link, articulation root link, or scene extra.
 

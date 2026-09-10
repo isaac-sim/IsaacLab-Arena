@@ -52,6 +52,8 @@ Anchor the background asset directly when its complete bounds represent the
 support. Use an ``ObjectReference`` when only an internal tabletop, counter, or
 similar prim should support placement.
 
+For piles formed by physics, see :doc:`clutter`.
+
 Common Relations
 ----------------
 

@@ -175,6 +175,7 @@ objects to see placement adapt to different dimensions and footprints.
    :maxdepth: 1
 
    object_placement/relations
+   object_placement/clutter
    object_placement/collision_handling
    object_placement/solver
    object_placement/validation
