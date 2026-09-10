@@ -3,11 +3,11 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Visually exercise grasping, object motion, success, and reset in gear insertion."""
-
 from __future__ import annotations
 
 import argparse
+
+from isaaclab_arena_environments.isaac_cap.tools import EnvBehaviourDemo
 
 # This configuration starts the Robotiq fingers above the work surface with the
 # gripper pointing down. It keeps the deliberately rough scripted motion short.
@@ -30,12 +30,10 @@ _POSITION_TOLERANCE_M = 0.008
 _NUM_ENVS = 2
 
 
-def _make_environment(variant: str):
-    """Build two visual gear environments using the relative-IK embodiment."""
-    from isaaclab_visualizers.kit import KitVisualizerCfg
+def _build_gear_demo_environment(variant: str):
+    """Compose a gear task with the relative-IK embodiment used by this demo."""
+    assert variant in ("easy", "medium"), f"Unsupported gear variant {variant!r}."
 
-    from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
-    from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
     from isaaclab_arena_environments.isaac_cap.gear_insertion.embodiment import (
         IndustrialFr3Robotiq2f85DifferentialIKEmbodiment,
     )
@@ -61,36 +59,51 @@ def _make_environment(variant: str):
         initial_pose=initial_pose,
         initial_joint_pose=list(_DEMO_START_JOINT_POS),
     )
+    return arena_environment
 
-    builder = ArenaEnvBuilder(
+
+class GearEnvBehaviourDemo(EnvBehaviourDemo):
+    """Implement the gear-specific validation setup and motion sequence."""
+
+    label = "gear-validation"
+
+    def __init__(
+        self,
+        simulation_app,
         arena_environment,
-        ArenaEnvBuilderCfg(num_envs=_NUM_ENVS, env_spacing=1.5, solve_relations=True),
-    )
-    env_cfg, env_kwargs = builder.compose_manager_cfg()
-    env_cfg.sim.default_visualizer_cfg = KitVisualizerCfg(
-        eye=(2.0, -2.5, 2.0),
-        lookat=(0.0, 0.0, 0.82),
-        origin_type="world",
-    )
-    return builder.make_registered(env_cfg, env_kwargs)
+        builder_cfg,
+        *,
+        pause_steps: int,
+        real_time: bool = True,
+        visualizer_cfg=None,
+    ) -> None:
+        """Configure the gear-specific behavior.
 
+        Args:
+            simulation_app: Active Arena simulation application context.
+            arena_environment: Composed Arena environment to instantiate.
+            builder_cfg: Configuration for building the stepable environment.
+            real_time: Whether to pace environment steps in real time.
+            pause_steps: Number of steps to display each validation state.
+            visualizer_cfg: Optional default simulator visualizer configuration.
+        """
+        assert pause_steps >= 1, "pause_steps must be positive."
+        super().__init__(
+            simulation_app,
+            arena_environment,
+            builder_cfg,
+            real_time=real_time,
+            visualizer_cfg=visualizer_cfg,
+        )
+        self.pause_steps = pause_steps
 
-class GearValidationDemo:
-    """Run one repeated validation sequence against a wrapped Arena environment."""
-
-    def __init__(self, simulation_app, env, *, real_time: bool, pause_steps: int) -> None:
+    def setup_demo(self) -> None:
+        """Resolve gear-specific action terms, bodies, and success targets."""
         import torch
 
-        from isaaclab_arena.utils.rate_limiter import RateLimiter
-
-        self.simulation_app = simulation_app
-        self.env = env
-        self.base_env = env.unwrapped
         self.num_envs = self.base_env.num_envs
         assert self.num_envs == _NUM_ENVS, f"Expected {_NUM_ENVS} environments, got {self.num_envs}."
-        self.pause_steps = pause_steps
         self.torch = torch
-        self.rate_limiter = RateLimiter(self.base_env.step_dt) if real_time else None
 
         action_manager = self.base_env.action_manager
         assert action_manager.active_terms == [
@@ -112,9 +125,6 @@ class GearValidationDemo:
         self.plate_name = success_cfg.params["plate_asset_cfg"].name
         self.gear_names = tuple(cfg.name for cfg in success_cfg.params["gear_asset_cfgs"])
         self.target_offsets_xyz = tuple(success_cfg.params["target_offsets_xyz"])
-
-    def _is_running(self) -> bool:
-        return self.simulation_app.is_running() and not self.simulation_app.is_exiting()
 
     def _ee_position(self):
         return self.robot.data.body_pos_w.torch[:, self.ee_body_id].clone()
@@ -141,11 +151,7 @@ class GearValidationDemo:
 
     def _step(self, action):
         """Step once and return the terminated-or-truncated mask."""
-        if not self._is_running():
-            raise KeyboardInterrupt
-        _, _, terminated, truncated, _ = self.env.step(action)
-        if self.rate_limiter is not None:
-            self.rate_limiter.sleep()
+        _, _, terminated, truncated, _ = self.step(action)
         return terminated | truncated
 
     def _hold(self, steps: int, *, gripper_closed: bool) -> bool:
@@ -272,27 +278,32 @@ class GearValidationDemo:
         raise RuntimeError(f"Final placement did not trigger the environment reset: {diagnostics}")
 
 
-def run_demo(simulation_app, *, variant: str, cycles: int, real_time: bool, pause_steps: int) -> None:
-    """Run validation cycles until Kit closes or the requested count completes."""
-    assert cycles >= 0, "cycles must be non-negative; zero means repeat until Kit closes."
-    assert pause_steps >= 1, "pause_steps must be positive."
-    env = _make_environment(variant)
-    try:
-        env.reset()
-        demo = GearValidationDemo(
-            simulation_app,
-            env,
-            real_time=real_time,
-            pause_steps=pause_steps,
-        )
-        cycle = 1
-        while simulation_app.is_running() and not simulation_app.is_exiting() and (cycles == 0 or cycle <= cycles):
-            demo.run_cycle(cycle)
-            cycle += 1
-    except KeyboardInterrupt:
-        print("\n[gear-validation] exiting", flush=True)
-    finally:
-        env.close()
+def run_demo(
+    simulation_app,
+    *,
+    variant: str = "medium",
+    cycles: int = 0,
+    pause_steps: int = 30,
+    real_time: bool = True,
+) -> None:
+    """Compose the gear task and run its behavior through the shared lifecycle."""
+    from isaaclab_visualizers.kit import KitVisualizerCfg
+
+    from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
+
+    demo = GearEnvBehaviourDemo(
+        simulation_app,
+        _build_gear_demo_environment(variant),
+        ArenaEnvBuilderCfg(num_envs=_NUM_ENVS, env_spacing=1.5, solve_relations=True),
+        real_time=real_time,
+        visualizer_cfg=KitVisualizerCfg(
+            eye=(2.0, -2.5, 2.0),
+            lookat=(0.0, 0.0, 0.82),
+            origin_type="world",
+        ),
+        pause_steps=pause_steps,
+    )
+    demo.run_demo(cycles)
 
 
 def main() -> None:
