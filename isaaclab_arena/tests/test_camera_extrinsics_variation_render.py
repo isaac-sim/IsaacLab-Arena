@@ -40,10 +40,14 @@ def _disable_joint_randomization(env_cfg):
     return env_cfg
 
 
-def _build_env(presets: str | None):
+def _build_env(presets: str | None, disable_fabric: bool = False):
     """Build a gym-wrapped Arena env with the Franka wrist camera on the given physics backend.
 
     Franka (rather than the Robotiq-gripper DROID) is used so the arm builds under Newton.
+
+    Args:
+        presets: The ``--presets`` value selecting the physics backend, or None for the PhysX default.
+        disable_fabric: Whether to build with Fabric off, so the render reads poses from USD.
     """
     from isaaclab_arena.assets.registries import AssetRegistry
     from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
@@ -75,6 +79,8 @@ def _build_env(presets: str | None):
     cli_args = ["--num_envs", "1", "--enable_cameras"]
     if presets is not None:
         cli_args += ["--presets", presets]
+    if disable_fabric:
+        cli_args.append("--disable_fabric")
     args_cli = get_isaaclab_arena_cli_parser().parse_args(cli_args)
 
     return ArenaEnvBuilder(arena_env, arena_env_builder_cfg_from_argparse(args_cli)).make_registered()
@@ -87,9 +93,9 @@ def _apply_camera_offset(pose_writer, nominal_translation, offset, device, env_i
     pose_writer.set_local_translations(translations=target, env_ids=env_ids)
 
 
-def _render_wrist_at_offsets(simulation_app, *, presets, out) -> bool:
+def _render_wrist_at_offsets(simulation_app, *, presets, disable_fabric, out) -> bool:
     """Render the wrist camera at each compared offset, appending (offset, mean, nonzero, rgb) to ``out``."""
-    env = _build_env(presets)
+    env = _build_env(presets, disable_fabric)
     env.reset()
 
     camera = env.unwrapped.scene["wrist_cam"]
@@ -172,8 +178,8 @@ def _mean_render_difference(label: str, presets: str | None, disable_fabric: boo
         _render_wrist_at_offsets,
         headless=HEADLESS,
         enable_cameras=ENABLE_CAMERAS,
-        force_disable_fabric=disable_fabric,
         presets=presets,
+        disable_fabric=disable_fabric,
         out=renders,
     ), "Failed to render the wrist camera."
 
@@ -206,9 +212,7 @@ def _camera_pose_shift(label: str, presets: str | None) -> tuple[float, float]:
 
 @pytest.mark.with_cameras
 @pytest.mark.parametrize("backend", list(BACKEND_PRESETS))
-# Fabric on is the default outside tests, and it changes which view the render reads, so both are covered.
-# The suite-wide Fabric-off override is only there for [lab-render-after-rebuild-bug], which misplaces
-# geometry on rebuilt stages; that shifts both compared frames equally and so cannot fake this difference.
+# Fabric changes which view the render reads, so both settings are covered.
 @pytest.mark.parametrize("disable_fabric", [True, False], ids=["fabric_off", "fabric_on"])
 def test_camera_extrinsics_variation_moves_render(backend, disable_fabric, request):
     """Changing the camera's local pose moves the rendered wrist-camera image.
