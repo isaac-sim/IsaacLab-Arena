@@ -470,6 +470,7 @@ class ArenaEnvBuilder:
             env_cfg, env_kwargs = self.compose_manager_cfg()
         elif env_kwargs is None:
             env_kwargs = {}
+        self.arena_env.scene.validate_simulation_cfg(env_cfg.sim)
         entry_point = self.get_entry_point()
         # Register the environment with the Gym registry.
         # NOTE(alexmillane, 2026-08-05): Do not spread env_kwargs into the registry kwargs. env_kwargs carries the

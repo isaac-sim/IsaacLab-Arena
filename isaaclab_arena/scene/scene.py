@@ -9,10 +9,12 @@ from typing import Any, Union
 from isaaclab.assets import AssetBaseCfg, RigidObjectCfg
 from isaaclab.assets.articulation.articulation_cfg import ArticulationCfg
 from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
+from isaaclab.sim import SimulationCfg
 from pxr import Gf, Usd, UsdGeom
 
 from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.assets.background import Background
+from isaaclab_arena.assets.cable import Cable
 from isaaclab_arena.assets.object import Object
 from isaaclab_arena.assets.object_reference import ObjectReference
 from isaaclab_arena.assets.object_set import RigidObjectSet
@@ -171,6 +173,11 @@ class Scene:
         """
         export_scene_to_usd(self, output_path, root_prim_path)
 
+    def validate_simulation_cfg(self, sim_cfg: SimulationCfg) -> None:
+        """Validate the resolved simulation configuration against every asset."""
+        for asset in self.assets.values():
+            asset.validate_simulation_cfg(sim_cfg)
+
 
 def export_scene_to_usd(scene: Scene, output_path: pathlib.Path, root_prim_path: str = "/World") -> None:
     """Exports the scene to a USD file.
@@ -200,23 +207,29 @@ def export_scene_to_usd(scene: Scene, output_path: pathlib.Path, root_prim_path:
 
 
 def _create_prim_from_asset(stage: Usd.Stage, asset: Asset) -> None:
-    """Adds a prim to the stage for the given asset.
+    """Add a prim to the stage for the given asset.
 
     This is used internally by the scene.export_to_usd method.
     For the passed asset, this method will create a prim at the given stage,
     and reference the asset USD file.
     The pose of the prim will be set to the initial pose of the asset.
+    File-backed objects are referenced into the stage, while procedural
+    assets such as cables are authored directly.
 
     Args:
         stage: The stage to add the prim to.
         asset: The asset to add to the stage.
     """
-    assert isinstance(asset, Object)
     # Get the default prim path
     default_prim_path = stage.GetDefaultPrim().GetPath()
     assert default_prim_path is not None
     # Construct the path for the asset prim
     asset_path = str(default_prim_path) + "/" + asset.name
+    if isinstance(asset, Cable):
+        _create_cable_prim(stage, asset, asset_path)
+        return
+
+    assert isinstance(asset, Object)
     # Create the prim and reference the asset USD file.
     prim = stage.DefinePrim(asset_path, "Xform")
     prim.GetReferences().AddReference(asset.usd_path)
@@ -243,6 +256,19 @@ def _create_prim_from_asset(stage: Usd.Stage, asset: Asset) -> None:
     s = Gf.Vec3d(asset.scale) if scale_double else Gf.Vec3f(asset.scale)
     s_precision = UsdGeom.XformOp.PrecisionDouble if scale_double else UsdGeom.XformOp.PrecisionFloat
     prim_xform.AddScaleOp(precision=s_precision).Set(s)
+
+
+def _create_cable_prim(stage: Usd.Stage, cable: Cable, prim_path: str) -> None:
+    """Author a procedural cable into an export stage."""
+    import isaaclab.sim as sim_utils
+
+    initial_pose = cable.get_initial_pose()
+    translation = initial_pose.position_xyz if initial_pose is not None else None
+    orientation = initial_pose.rotation_xyzw if initial_pose is not None else None
+    spawn_cfg = cable.object_cfg.spawn
+    assert spawn_cfg is not None, f"Cable '{cable.name}' has no spawn configuration."
+    with sim_utils.use_stage(stage):
+        spawn_cfg.func(prim_path, spawn_cfg, translation=translation, orientation=orientation)
 
 
 def _is_double_precision(op: UsdGeom.XformOp) -> bool | None:

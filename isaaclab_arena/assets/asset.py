@@ -8,6 +8,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from isaaclab.sim import SimulationCfg
+
     from isaaclab_arena.variations.variation_base import VariationBase
 
 
@@ -51,3 +53,6 @@ class Asset:
     def get_scene_key(self) -> str:
         """Return the Isaac Lab scene key for the asset."""
         return self.name
+
+    def validate_simulation_cfg(self, sim_cfg: SimulationCfg) -> None:
+        """Validate that a resolved simulation configuration supports this asset."""

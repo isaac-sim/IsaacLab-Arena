@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from isaaclab.assets import CableObjectCfg
 from isaaclab.managers import EventTermCfg, SceneEntityCfg
 from isaaclab.sim.spawners.shapes import CableCfg
@@ -15,6 +17,9 @@ from isaaclab_arena.relations.relations import RelationBase
 from isaaclab_arena.terms.events import reset_cable_to_default
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose, PosePerEnv, PoseRange
+
+if TYPE_CHECKING:
+    from isaaclab.sim import SimulationCfg
 
 
 class Cable(ObjectBase):
@@ -45,6 +50,16 @@ class Cable(ObjectBase):
     def _init_object_cfg(self) -> CableObjectCfg:
         """Create the Isaac Lab cable configuration."""
         return CableObjectCfg(prim_path=self.prim_path, spawn=self.spawn)
+
+    def validate_simulation_cfg(self, sim_cfg: SimulationCfg) -> None:
+        """Require the Newton physics backend."""
+        from isaaclab_newton.physics import NewtonCfg
+
+        physics_cfg = sim_cfg.physics
+        assert isinstance(physics_cfg, NewtonCfg), (
+            f"Cable asset '{self.name}' requires the Newton physics backend; "
+            f"got {type(physics_cfg).__name__ if physics_cfg is not None else 'the default PhysX backend'}."
+        )
 
     def _set_initial_pose(self, pose: Pose | PoseRange | PosePerEnv) -> None:
         """Set a fixed cable construction pose."""

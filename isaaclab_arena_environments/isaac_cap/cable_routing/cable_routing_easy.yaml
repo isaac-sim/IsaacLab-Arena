@@ -1,0 +1,36 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+env_name: cable_routing_easy
+embodiment_frame:
+  midpoint_position_xyz: [-0.335, 0.0, 0.767]
+fixtures:
+  table:
+    registry_name: industrial__yam_workcell_table
+    position_xyz: [-0.335, 0.0, 0.767]
+    rotation_xyzw: [0.0, 0.0, 0.0, 1.0]
+    tabletop_z: 0.767
+  board:
+    registry_name: industrial__cable_routing_board
+    position_xyz: [0.0125, 0.0, 0.770175]
+    rotation_xyzw: [0.0, 0.0, 0.0, 1.0]
+  peg_0:
+    registry_name: industrial__cable_routing_peg
+    position_xyz: [0.0125, -0.10, 0.7851]
+    rotation_xyzw: [0.0, 0.0, 0.0, 1.0]
+  peg_1:
+    registry_name: industrial__cable_routing_peg
+    position_xyz: [0.0125, 0.0, 0.7851]
+    rotation_xyzw: [0.0, 0.0, 0.0, 1.0]
+  peg_2:
+    registry_name: industrial__cable_routing_peg
+    position_xyz: [0.0125, 0.10, 0.7851]
+    rotation_xyzw: [0.0, 0.0, 0.0, 1.0]
+cable:
+  start_xyz: [-0.0875, -0.18, 0.77635]
+  end_xyz: [-0.0875, 0.18, 0.77635]
+route:
+  peg: peg_1
+  direction: either
