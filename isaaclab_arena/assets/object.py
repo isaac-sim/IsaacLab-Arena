@@ -93,9 +93,9 @@ class Object(RootedObjectBase):
     ) -> ContactSensorCfg:
         assert self.object_type == ObjectType.RIGID, "Contact sensor is only supported for rigid objects"
         if contact_against_object is not None:
-            assert (
-                contact_against_object.object_type == ObjectType.RIGID
-            ), "Contact sensor against deformable objects is not supported"
+            assert isinstance(
+                contact_against_object, RootedObjectBase
+            ), "Contact sensors against deformable objects and other non-rooted objects are not supported"
         # We override this function from the parent class because in some assets, the rigid body
         # is not at the root of the USD file. To be robust to this, we find the shallowest rigid body
         # and add the contact sensor to it.
