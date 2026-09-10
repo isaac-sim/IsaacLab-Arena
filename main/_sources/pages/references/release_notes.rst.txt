@@ -1,66 +1,6 @@
 Release Notes
 =============
 
-Isaac Lab Arena
----------------
-
-Isaac Lab-Arena focuses on adding essential features needed for creation and
-execution of large-scale task libraries with complex long-horizon tasks.
-
-**Key Features**
-
-- **LEGO-like Composable Environments** — Mix and match scenes,  embodiments, and tasks independently
-- **On-the-fly Assembly** — Environments are built at runtime; no duplicate config files to maintain.
-- **New Sequential Task Chaining** — Chain atomic skills (e.g. Pick + Walk + Place + …) to create complex long-horizon tasks.
-- **New Natural Language Object Placement** — Define scene layouts using semantic relationships
-  like "on" or "next to", instead of manually specified coordinates.
-- **Integrated Evaluation** — Extensible metrics and evaluation pipelines for policy benchmarking
-- **New Large-scale Parallel Evaluations with Heterogeneous Objects** — Evaluate policy on multiple parallel
-  environments, each with different objects, to maximize evaluation throughput.
-- **New RL Workflow Support and Seamless Interoperation with Isaac Lab** — Plug Isaac Lab-Arena environments
-  into Isaac Lab workflows for Reinforcement learning and Data generation for imitation learning.
-
-
-**Ecosystem**
-Isaac Lab-Arena is part of a growing ecosystem of tools and benchmarks. NVIDIA and partners are building
-industrial and academic benchmarks on the unified Isaac Lab-Arena core, so you can reuse building blocks
-(tasks, scenes, metrics, and datasets) for your custom evaluations.
-
-- `Lightwheel RoboFinals <https://lightwheel.ai/robofinals>`_ — High-fidelity industrial benchmarks.
-- `Lightwheel RoboCasa Tasks <https://github.com/LightwheelAI/LW-BenchHub>`_ — 138+ open-source tasks,
-  50 datasets per task, 7+ robots.
-- `Lightwheel LIBERO Tasks <https://github.com/LightwheelAI/LW-BenchHub>`_ — Adapted LIBERO benchmarks.
-- `RoboTwin 2.0 <https://github.com/RoboTwin-Platform/RoboTwin/tree/IsaacLab-Arena>`_ — Extended simulation
-  benchmarks using Arena; `Arxiv <https://arxiv.org/abs/2603.01229>`_.
-- `LeRobot Environment Hub <https://huggingface.co/blog/nvidia/generalist-robotpolicy-eval-isaaclab-arena-lerobot>`_ — Share
-  and discover Arena environments on Hugging Face.
-- `Isaac for Healthcare RHEO Workflows <https://github.com/isaac-for-healthcare/i4h-workflows/tree/main/workflows/rheo>`_ — Healthcare
-  robotics benchmark workflows.
-
-NIST Board 1, NVIDIA Isaac GR00T Industrial Benchmarks, NVIDIA DexBench, NVIDIA RoboLab, and more benchmarks
-are coming soon.
-
-**Collaboration**
-
-Isaac Lab-Arena is being developed as an open-source, shared evaluation framework that the community can
-collectively enhance and expand. We invite you to try Isaac Lab-Arena 0.3 Alpha, share feedback, and help
-shape its future. In Alpha stage, development velocity is high and core features/APIs are evolving. Your
-input at this stage is especially valuable.
-
-**What's Next**
-
-Future releases will focus on:
-
-- Enhanced Newton support for benchmarks involving contact-rich insertion, cables, and deformables.
-- Prompt-to-scene, robot, and task workflows.
-- Improved performance for multi-node evaluation.
-
-**Limitations**
-
-- Installation from a published Python package is not yet supported; use the native ``uv`` source workflow or Docker.
-- Performance is not yet hardened for production-scale workloads in Alpha stage.
-
-
 v0.3.0
 ------
 
@@ -161,6 +101,18 @@ Details below:
 - **Background physics:** Fixed kitchen placement collisions, relation anchors in background
   collision meshes, and physics reset behavior for kitchen and other backgrounds
   (#988, #1003, #1102, #1180).
+
+**Limitations**
+
+- Installation from a published Python package is not yet supported; use the native ``uv`` source workflow or Docker.
+
+**What's Next**
+
+Future releases will focus on:
+
+- Enhanced Newton support for benchmarks involving contact-rich insertion, cables, and deformables.
+- Prompt-to-scene, robot, and task workflows.
+- Improved performance for multi-node evaluation.
 
 
 v0.2.0
