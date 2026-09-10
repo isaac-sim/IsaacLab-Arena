@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -24,9 +25,12 @@ from isaaclab_arena.video.video_recording import timestamped_run_dir
 from isaaclab_arena_benchmarking.benchmarks.registry import export_kpis
 
 if TYPE_CHECKING:
+    import gymnasium as gym
+
     from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
     from isaaclab_arena.evaluation.arena_experiment_result import ArenaExperimentResult
-    from isaaclab_arena.evaluation.arena_run import ArenaRunResult
+    from isaaclab_arena.evaluation.arena_run import ArenaRunCfg, ArenaRunResult
+    from isaaclab_arena.evaluation.datagen_collector import DatagenCollectorBase
 
 
 # TODO(cvolk): Move experiment-level variation inspection out of this CLI entry point.
@@ -119,7 +123,7 @@ def _export_selected_kpis(experiment_output_directory: Path, experiment_cfg: Are
     export_kpis(experiment_output_directory, experiment_cfg.kpi_exporters)
 
 
-def main(datagen_collector_factory=None):
+def main(datagen_collector_factory: Callable[[ArenaRunCfg, gym.Env], DatagenCollectorBase] | None = None) -> None:
     """Run an Arena Experiment (one or more typed or legacy-JSON Runs).
 
     Args:
