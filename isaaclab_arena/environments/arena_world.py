@@ -170,6 +170,28 @@ class ArenaWorld:
         )
         return position_w
 
+    def get_centroid_w(self, scene_key: str) -> torch.Tensor:
+        """Return the world-frame geometry centroid with shape (num_envs, 3).
+
+        Deformables use their aggregate root position. Rooted entities and scene
+        extras use the center of their local geometry bounds transformed into W.
+        """
+        scene = self._scene
+        if scene_key in scene.deformable_objects:
+            centroid_W = scene.deformable_objects[scene_key].data.root_pos_w.torch
+        else:
+            centroid_F = self.get_aabb_in_local_frame(scene_key).center
+            if centroid_F.shape[0] == 1 and scene.num_envs > 1:
+                centroid_F = centroid_F.expand(scene.num_envs, -1)
+            T_W_F = self.get_pose_w(scene_key)
+            t_W_F, q_W_F = T_W_F[:, :3], T_W_F[:, 3:]
+            centroid_W = quat_apply(q_W_F, centroid_F) + t_W_F
+        assert centroid_W.shape == (
+            scene.num_envs,
+            3,
+        ), f"Scene key '{scene_key}' returned centroid shape {tuple(centroid_W.shape)}; expected ({scene.num_envs}, 3)."
+        return centroid_W
+
     def get_average_speed_w(self, scene_key: str) -> torch.Tensor:
         """Return mean nodal speed for a deformable, or root linear speed for a rooted object.
 

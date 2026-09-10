@@ -103,7 +103,7 @@ def _check_rigid_object_reads_and_local_aabb_cache(
         if scene_key == "object":
             return axis_aligned_bounding_box_type(
                 min_point=torch.tensor([-0.1, -0.1, -0.1]).expand(2, 3),
-                max_point=torch.tensor([0.1, 0.1, 0.1]).expand(2, 3),
+                max_point=torch.tensor([0.3, 0.1, 0.1]).expand(2, 3),
             )
         return axis_aligned_bounding_box_type(
             min_point=torch.tensor([-1.0, -0.5, 0.0]).expand(2, 3),
@@ -151,6 +151,10 @@ def _check_rigid_object_reads_and_local_aabb_cache(
         destination_bounds_D = arena_world.get_aabb_in_local_frame("destination")
         assert arena_world.get_aabb_in_local_frame("object") is object_bounds_O
         assert arena_world.get_aabb_in_local_frame("destination") is destination_bounds_D
+        torch.testing.assert_close(
+            arena_world.get_centroid_w("object"),
+            T_W_O_moved[:, :3] + torch.tensor([0.1, 0.0, 0.0]),
+        )
 
     assert object_bounds_O is not destination_bounds_D
     assert geometry_build_calls == ["object", "destination"]
@@ -251,6 +255,7 @@ def _check_deformable_object_reads(arena_world_module) -> None:
     arena_world = arena_world_module.ArenaWorld(scene)
 
     torch.testing.assert_close(arena_world.get_position_w("deformable"), root_pos_w)
+    torch.testing.assert_close(arena_world.get_centroid_w("deformable"), root_pos_w)
     torch.testing.assert_close(arena_world.get_nodal_positions_w("deformable"), nodal_pos_w)
     torch.testing.assert_close(arena_world.get_nodal_velocities_w("deformable"), nodal_vel_w)
     torch.testing.assert_close(arena_world.get_average_speed_w("deformable"), torch.tensor([0.5, 0.1]))

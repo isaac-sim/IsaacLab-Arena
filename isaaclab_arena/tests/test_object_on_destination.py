@@ -13,6 +13,8 @@ def _check_bounds_center_over_destination(spatial, axis_aligned_bounding_box_typ
     """Exercise translation, rotation, open-top behavior, and offset object bounds."""
     import torch
 
+    from isaaclab.utils.math import quat_apply
+
     identity_quaternion = (0.0, 0.0, 0.0, 1.0)
     yaw_90_quaternion = (0.0, 0.0, math.sqrt(0.5), math.sqrt(0.5))
 
@@ -42,10 +44,10 @@ def _check_bounds_center_over_destination(spatial, axis_aligned_bounding_box_typ
         min_point=torch.tensor([-1.0, -0.5, 0.0]).expand(num_cases, 3),
         max_point=torch.tensor([1.0, 0.5, 0.4]).expand(num_cases, 3),
     )
+    object_centroid_W = T_W_O[:, :3] + quat_apply(T_W_O[:, 3:], object_bounds_center_O)
 
     result = spatial.object_bounds_center_over_destination(
-        T_W_O=T_W_O,
-        object_bounds_center_O=object_bounds_center_O,
+        object_centroid_W=object_centroid_W,
         T_W_D=T_W_D,
         destination_bounds_D=destination_bounds_D,
     )
@@ -87,18 +89,18 @@ def _check_object_on_destination(
             self,
             T_W_F_by_scene_key,
             aabbs_F_by_scene_key,
-            center_positions_w_by_scene_key,
+            centroids_w_by_scene_key,
             max_point_speeds_w_by_scene_key,
             vertices_positions_w_by_scene_key,
         ):
             self.T_W_F_by_scene_key = T_W_F_by_scene_key
             self.aabbs_F_by_scene_key = aabbs_F_by_scene_key
-            self.center_positions_w_by_scene_key = center_positions_w_by_scene_key
+            self.centroids_w_by_scene_key = centroids_w_by_scene_key
             self.max_point_speeds_w_by_scene_key = max_point_speeds_w_by_scene_key
             self.vertices_positions_w_by_scene_key = vertices_positions_w_by_scene_key
             self.pose_queries = []
             self.local_aabb_queries = []
-            self.center_position_queries = []
+            self.centroid_queries = []
             self.max_point_speed_queries = []
 
         def get_pose_w(self, scene_key):
@@ -109,9 +111,9 @@ def _check_object_on_destination(
             self.local_aabb_queries.append(scene_key)
             return self.aabbs_F_by_scene_key[scene_key]
 
-        def get_position_w(self, scene_key):
-            self.center_position_queries.append(scene_key)
-            return self.center_positions_w_by_scene_key[scene_key]
+        def get_centroid_w(self, scene_key):
+            self.centroid_queries.append(scene_key)
+            return self.centroids_w_by_scene_key[scene_key]
 
         def get_max_point_speed_w(self, scene_key):
             self.max_point_speed_queries.append(scene_key)
@@ -184,7 +186,7 @@ def _check_object_on_destination(
                 max_point=torch.tensor([1.0, 0.5, 0.4]).expand(4, 3),
             ),
         },
-        center_positions_w_by_scene_key={"object": T_W_O[:, :3]},
+        centroids_w_by_scene_key={"object": T_W_O[:, :3]},
         max_point_speeds_w_by_scene_key={"object": torch.linalg.vector_norm(object_root_linear_velocity_w, dim=-1)},
         vertices_positions_w_by_scene_key={
             "object": object_vertices_pos_w,
@@ -217,12 +219,20 @@ def _check_object_on_destination(
     deformable_result = spatial.object_on_destination(env, **deformable_parameters)
     torch.testing.assert_close(deformable_result, torch.tensor([True, False, False, False]))
 
+    env.scene.deformable_objects = {"destination": object()}
+    try:
+        spatial.object_on_destination(env, **predicate_parameters)
+    except AssertionError as error:
+        assert str(error) == "object_on_destination does not support deformable destinations"
+    else:
+        raise AssertionError("object_on_destination accepted a deformable destination.")
+
     env.scene.deformable_objects = {}
     T_W_O[0, 0] = 2.0
     assert not spatial.object_on_destination(env, **predicate_parameters)[0]
-    assert arena_world.pose_queries == ["object", "destination", "destination", "object", "destination"]
-    assert arena_world.local_aabb_queries == ["object", "destination", "destination", "object", "destination"]
-    assert arena_world.center_position_queries == ["object"]
+    assert arena_world.pose_queries == ["destination"] * 3
+    assert arena_world.local_aabb_queries == ["destination"] * 3
+    assert arena_world.centroid_queries == ["object"] * 3
     assert arena_world.max_point_speed_queries == ["object"] * 3
 
 
@@ -245,16 +255,19 @@ def _check_pick_and_place_deformable_skips_contact_sensor(pick_and_place_task_ty
     deformable_object = AssetDouble("deformable", object_type.DEFORMABLE)
     background = AssetDouble("background", object_type.BASE)
 
-    for pick_up_object, destination in (
-        (deformable_object, rigid_object),
-        (rigid_object, deformable_object),
-    ):
-        task = pick_and_place_task_type(pick_up_object, destination, background)
-        assert task.contact_sensor_name is None
-        assert task.get_scene_cfg() is None
-        assert task.get_termination_cfg().success.func is object_on_destination
-        assert task.get_termination_cfg().success.params["contact_sensor_cfg"] is None
-        assert task.get_progress_objectives()[0].predicate_groups[-1].func is object_on_destination
+    deformable_task = pick_and_place_task_type(deformable_object, rigid_object, background)
+    assert deformable_task.contact_sensor_name is None
+    assert deformable_task.get_scene_cfg() is None
+    assert deformable_task.get_termination_cfg().success.func is object_on_destination
+    assert deformable_task.get_termination_cfg().success.params["contact_sensor_cfg"] is None
+    assert deformable_task.get_progress_objectives()[0].predicate_groups[-1].func is object_on_destination
+
+    try:
+        pick_and_place_task_type(rigid_object, deformable_object, background)
+    except AssertionError as error:
+        assert str(error) == "PickAndPlaceTask does not support deformable destinations"
+    else:
+        raise AssertionError("PickAndPlaceTask accepted a deformable destination.")
 
     rigid_task = pick_and_place_task_type(rigid_object, rigid_object, background)
     assert rigid_task.contact_sensor_name == "contact_sensor_rigid"

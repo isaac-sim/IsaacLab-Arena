@@ -39,14 +39,14 @@ class PickAndPlaceTask(TaskBase):
     """Pick an object up and place it on or in a destination.
 
     Success requires the object's bounds center over the destination footprint and low linear speed.
-    Rigid object pairs must also have upward support force. Deformable pairs use geometric support
-    from low nodal points instead of a contact sensor. Failure occurs when the object falls below
-    the background.
+    Rigid objects must also have upward support force. Deformable objects use geometric support
+    from low nodal points instead of a contact sensor. Destinations must not be deformable. Failure
+    occurs when the object falls below the background.
 
     Args:
         pick_up_object: Object or rigid object set to pick up.
-        destination_location: Destination whose live pose and spawned geometry define placement.
-            It must be included in the environment scene.
+        destination_location: Non-deformable destination whose live pose and spawned geometry
+            define placement. It must be included in the environment scene.
         background_scene: Background whose minimum object height defines the drop failure.
         destination_object: Destination asset used by the default Mimic configuration.
         episode_length_s: Maximum episode duration in seconds.
@@ -73,14 +73,14 @@ class PickAndPlaceTask(TaskBase):
         support_cone_half_angle_rad: float = math.pi / 4,
     ):
         super().__init__(episode_length_s=episode_length_s)
+        assert (
+            destination_location.object_type != ObjectType.DEFORMABLE
+        ), "PickAndPlaceTask does not support deformable destinations"
         self.pick_up_object = pick_up_object
         self.destination_object = destination_object
         self.background_scene = background_scene
         self.destination_location = destination_location
-        self._uses_deformable = (
-            pick_up_object.object_type == ObjectType.DEFORMABLE
-            or destination_location.object_type == ObjectType.DEFORMABLE
-        )
+        self._uses_deformable = pick_up_object.object_type == ObjectType.DEFORMABLE
         self.contact_sensor_name = None if self._uses_deformable else f"contact_sensor_{pick_up_object.name}"
         self.scene_config = self.make_scene_cfg()
         self.force_threshold = force_threshold
