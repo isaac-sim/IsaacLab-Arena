@@ -153,8 +153,8 @@ index-strategy = "first-index"
 # flavor already locks 7.4.4 / 26.0 (the published isaaclab wheels do not
 # carry these pins).
 # Pin websockets to the version the Docker environment validates:
-# isaacsim-kernel's ==12.0 pin is over-strict (the Docker build runs Isaac
-# Sim 6.0 with websockets 16.1.1, installed by pip alongside isaacteleop),
+# isaacsim-kernel's >=12.0,<15 range is over-strict (the Docker build runs Isaac
+# Sim 6.1 with websockets 16.1.1, installed by pip alongside isaacteleop),
 # and isaacteleop[cloudxr] -- needed for teleop sessions in the
 # isaaclab-from-source flavor -- requires websockets>=14.
 # Pin the AWS/HTTP stack to the versions Isaac Sim requires: simready-search

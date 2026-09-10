@@ -166,7 +166,7 @@ def test_explicit_experiment_composes_typed_defaults():
     assert submission_cfg.osmo.pool == "isaac-dev-l40s-04"
     assert submission_cfg.osmo.platform == "ovx-l40s"
     assert submission_cfg.experiment_runner == ExperimentRunnerTaskCfg()
-    assert submission_cfg.experiment_runner.image == "nvcr.io/nvstaging/isaac-amr/isaaclab_arena:latest"
+    assert submission_cfg.experiment_runner.image == "nvcr.io/nvstaging/isaac-amr/isaaclab_arena:v0.3.0_isaac_sim_6.1"
 
 
 @pytest.mark.parametrize("config_path", ["osmo.not_a_field", "experiment_runner.not_a_field", "servers"])
