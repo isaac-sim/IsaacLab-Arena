@@ -1,0 +1,96 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+env_name: gear_medium
+embodiment:
+  id: robot
+  registry_name: industrial_fr3_robotiq_2f85
+  params:
+    initial_pose:
+      position_xyz: [-0.5, -0.1, 0.912]
+      rotation_xyzw: [0.0, 0.0, 0.0, -1.0]
+background:
+  id: background
+  registry_name: industrial__fr3_workcell_table
+  params:
+    initial_pose:
+      position_xyz: [-0.5, -0.1, 0.912]
+      rotation_xyzw: [0.0, 0.0, 0.0, 1.0]
+objects:
+- id: hdr_shadow_receiver
+  registry_name: industrial__hdr_shadow_receiver
+  params: {}
+- id: empty_warehouse_hdr_light
+  registry_name: industrial__empty_warehouse_dome_light
+  params: {}
+- id: gear_base
+  registry_name: industrial__factory_gear_base
+  params: {}
+- id: gear_small
+  registry_name: industrial__factory_gear_small
+  params: {}
+- id: gear_medium
+  registry_name: industrial__factory_gear_medium
+  params: {}
+- id: gear_large
+  registry_name: industrial__factory_gear_large
+  params: {}
+object_references:
+- id: table
+  parent_id: background
+  prim_path: placement_surface
+  object_type: base
+  params: {}
+relations:
+- kind: is_anchor
+  subject: table
+  params: {}
+- kind: "on"
+  subject: gear_base
+  reference: table
+  params: {clearance_m: 0.001}
+- kind: at_position
+  subject: gear_base
+  params: {x: 0.12, y: 0.095}
+- kind: "on"
+  subject: gear_small
+  reference: table
+  params: {clearance_m: 0.001}
+- kind: position_limits
+  subject: gear_small
+  params: {x_min: -0.10, x_max: 0.0, y_min: -0.215, y_max: -0.115}
+- kind: "on"
+  subject: gear_medium
+  reference: table
+  params: {clearance_m: 0.001}
+- kind: position_limits
+  subject: gear_medium
+  params: {x_min: 0.03, x_max: 0.13, y_min: -0.215, y_max: -0.115}
+- kind: "on"
+  subject: gear_large
+  reference: table
+  params: {clearance_m: 0.001}
+- kind: position_limits
+  subject: gear_large
+  params: {x_min: 0.17, x_max: 0.27, y_min: -0.215, y_max: -0.115}
+task:
+  composition: atomic
+  description: Place all three gears correctly on the assembly plate.
+  subtasks:
+  - kind: GearInsertionTask
+    params:
+      plate: gear_base
+      gears: [gear_small, gear_medium, gear_large]
+      target_offsets_xyz:
+      - [0.0823685, 0.0, 0.0075]
+      - [0.0366185, 0.0, 0.0075]
+      - [-0.0391315, 0.0, 0.0075]
+      xy_threshold: 0.015
+      z_threshold: 0.01
+      upright_axis_threshold_deg: 15.0
+      linear_velocity_threshold: 0.05
+      angular_velocity_threshold: 0.5
+      support_z_threshold: 0.005
+      consecutive_success_steps: 10

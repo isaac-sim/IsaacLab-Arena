@@ -30,6 +30,7 @@ from typing import TYPE_CHECKING
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
 from isaaclab_arena.utils.hydra_overrides import assert_hydra_overrides
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
+from isaaclab_arena.utils.physics_backend import PhysicsBackend
 from isaaclab_arena.utils.rate_limiter import RateLimiter
 from isaaclab_arena_environments.cli import get_arena_builder_from_cli, get_isaaclab_arena_environments_cli_parser
 
@@ -44,7 +45,9 @@ def _assert_interactive_runner_args(args_cli: argparse.Namespace) -> None:
     ), "environment_runner requires the Kit GUI; use --viz kit"
     assert args_cli.num_envs == 1, "environment_runner supports exactly one environment"
     assert not args_cli.distributed, "environment_runner does not support distributed execution"
-    assert args_cli.presets != "newton", "environment_runner mouse interaction currently requires PhysX"
+    assert (
+        args_cli.presets is not PhysicsBackend.NEWTON
+    ), "environment_runner mouse interaction currently requires PhysX"
     assert not args_cli.list_variations, "environment_runner does not support --list_variations"
     assert args_cli.device == "cpu", "environment_runner mouse interaction requires CPU PhysX; use --device cpu"
 

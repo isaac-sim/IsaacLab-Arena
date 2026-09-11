@@ -147,7 +147,7 @@ def main():
 
     with SimulationAppContext(args_cli):
         from isaaclab_arena.evaluation.arena_experiment_result import ArenaExperimentResult
-        from isaaclab_arena.evaluation.arena_run import build_runs_info_table
+        from isaaclab_arena.evaluation.arena_run import RunStatus, build_runs_info_table
         from isaaclab_arena.evaluation.run_execution import execute_experiment
         from isaaclab_arena.metrics.metrics_logger import MetricsLogger
         from isaaclab_arena.visualization.report import build_report, serve_until_ctrl_c
@@ -182,6 +182,14 @@ def main():
         metrics_logger.print_metrics()
 
         _write_arena_experiment_result(experiment_cfg, run_results, experiment_output_directory)
+
+        from isaaclab_arena.evaluation.experiment_timings import aggregate_experiment_timings
+
+        completed_run_names = [
+            run_result.run_name for run_result in run_results if run_result.status is RunStatus.COMPLETED
+        ]
+        timings_path = aggregate_experiment_timings(experiment_output_directory, completed_run_names)
+        print(f"Wrote Arena Experiment timings to: {timings_path}")
 
         # Write HTML report.
         report_path = build_report(experiment_output_directory)

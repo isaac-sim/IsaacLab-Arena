@@ -5,7 +5,11 @@
 
 """Isaac Cap cable-routing environments."""
 
-from .environment import (
+from .. import register_components
+
+register_components()
+
+from .environment import (  # noqa: E402
     CableRoutingEasyEnvironment,
     CableRoutingEasyEnvironmentCfg,
     CableRoutingMediumEnvironment,

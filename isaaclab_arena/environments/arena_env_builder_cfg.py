@@ -7,6 +7,8 @@
 
 from dataclasses import dataclass
 
+from isaaclab_arena.utils.physics_backend import PhysicsBackend
+
 
 # TODO(cvolk, 2026-07-06): [typed-config-migration] Replace this flat legacy-CLI-shaped configuration with
 # nested scene, placement, and physics configs once the typed run configuration
@@ -23,9 +25,11 @@ class ArenaEnvBuilderCfg:
     resolve_on_reset: bool | None = None
     disable_fabric: bool = False
     mimic: bool = False
-    presets: str | None = None
+    presets: PhysicsBackend | None = None
     device: str = "cuda:0"
     language_instruction: str | None = None
 
     def __post_init__(self) -> None:
         assert self.num_envs > 0, "num_envs must be greater than zero"
+        if self.presets is not None:
+            self.presets = PhysicsBackend(self.presets)

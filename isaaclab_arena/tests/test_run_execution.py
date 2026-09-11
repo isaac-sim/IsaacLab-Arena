@@ -3,6 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import json
 from copy import deepcopy
 from dataclasses import dataclass
 from types import SimpleNamespace
@@ -12,8 +13,10 @@ import pytest
 from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg
 from isaaclab_arena.evaluation import run_execution
 from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
+from isaaclab_arena.evaluation.arena_experiment_result import ARENA_EXPERIMENT_TIMINGS_FILENAME
 from isaaclab_arena.evaluation.arena_run import ArenaRunCfg, ArenaRunResult, RolloutLimitCfg, RunStatus
 from isaaclab_arena.policy.policy_base import PolicyCfg
+from isaaclab_arena.utils.timer import Timer
 
 
 @dataclass
@@ -228,3 +231,46 @@ def test_execute_experiment_stops_on_failure_by_default(monkeypatch, tmp_path):
         )
 
     assert attempted == ["failing"]
+
+
+def test_execute_experiment_writes_one_timings_file_per_run(monkeypatch, tmp_path):
+    """Each Run's timings cover that Run alone, matching what OSMO produces per process."""
+
+    def build_and_run(run_cfg, output_dir, video_cfg):
+        with Timer(run_cfg.name):
+            pass
+        return ArenaRunResult(run_name=run_cfg.name, status=RunStatus.COMPLETED)
+
+    monkeypatch.setattr(run_execution, "build_and_run", build_and_run)
+
+    run_execution.execute_experiment(_experiment(_run(name="first"), _run(name="second")), output_dir=tmp_path)
+
+    for run_name in ("first", "second"):
+        records = json.loads(
+            (tmp_path / run_name / ARENA_EXPERIMENT_TIMINGS_FILENAME).read_text(encoding="utf-8"),
+        )
+        # The registry is cleared between Runs, so a Run's file holds only its own timer.
+        assert [record["name"] for record in records] == [run_name]
+        assert records[0]["app_name"] == "experiment_runner"
+
+
+def test_execute_experiment_writes_no_timings_for_a_failed_run(monkeypatch, tmp_path):
+    """A failed Run leaves no timings file, which is what the Experiment aggregation expects."""
+
+    def build_and_run(run_cfg, output_dir, video_cfg):
+        if run_cfg.name == "failing":
+            raise RuntimeError("rollout failed")
+        with Timer("step"):
+            pass
+        return ArenaRunResult(run_name=run_cfg.name, status=RunStatus.COMPLETED)
+
+    monkeypatch.setattr(run_execution, "build_and_run", build_and_run)
+
+    run_execution.execute_experiment(
+        _experiment(_run(name="failing"), _run(name="passing")),
+        output_dir=tmp_path,
+        continue_on_error=True,
+    )
+
+    assert not (tmp_path / "failing" / ARENA_EXPERIMENT_TIMINGS_FILENAME).exists()
+    assert (tmp_path / "passing" / ARENA_EXPERIMENT_TIMINGS_FILENAME).is_file()

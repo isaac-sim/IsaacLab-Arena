@@ -45,6 +45,10 @@ def assembly_env_cfg_callback(env_cfg: IsaacLabArenaManagerBasedRLEnvCfg) -> Isa
     from isaaclab.sim.spawners.materials import RigidBodyMaterialCfg
     from isaaclab_physx.physics.physx_manager_cfg import PhysxCfg
 
+    assert env_cfg.sim.physics is None or isinstance(
+        env_cfg.sim.physics, PhysxCfg
+    ), "Assembly environments require PhysX; use '--presets physx' or omit '--presets'."
+
     # Simulation settings optimized for assembly tasks
     env_cfg.sim = SimulationCfg(
         dt=1 / 60,  # 60Hz - balance between speed and stability

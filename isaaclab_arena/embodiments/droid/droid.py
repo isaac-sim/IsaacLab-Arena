@@ -28,19 +28,29 @@ from isaaclab.managers import SceneEntityCfg
 from isaaclab.markers.config import FRAME_MARKER_CFG
 from isaaclab.sensors.camera.camera_cfg import CameraCfg
 from isaaclab.sensors.frame_transformer.frame_transformer_cfg import FrameTransformerCfg, OffsetCfg
+from isaaclab.sim.spawners.from_files import spawn_from_usd
+from isaaclab.sim.utils import clone
 from isaaclab.utils.configclass import configclass
 
 from isaaclab_arena.assets.nucleus import ARENA_NUCLEUS_DIR
 from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.embodiments.droid.actions import BinaryJointPositionZeroToOneAction
-from isaaclab_arena.embodiments.droid.observations import arm_joint_pos, ee_pos, ee_quat, gripper_pos
+from isaaclab_arena.embodiments.droid.observations import (
+    _DROID_NEWTON_GRIPPER_CLOSE_RAD,
+    arm_joint_pos,
+    ee_pos,
+    ee_quat,
+    gripper_pos,
+    newton_gripper_pos,
+)
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
 from isaaclab_arena.embodiments.franka.franka import franka_stack_events
 from isaaclab_arena.embodiments.robot_on_stand_utils import RobotPrimSpec, StandPrimSpec, compose_on_stand_usd
 from isaaclab_arena.relations.collision_mode import CollisionMode
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.cameras import ArenaCameraCfg
+from isaaclab_arena.utils.physics_backend import PhysicsBackend
 from isaaclab_arena.utils.pose import Pose
 
 if TYPE_CHECKING:
@@ -75,6 +85,14 @@ _DROID_JOINT_NAMES = (
     "left_inner_finger_knuckle_joint",
     "left_inner_finger_joint",
 )
+_DROID_NEWTON_GRIPPER_MIMIC_SIGNS = {
+    "finger_joint": 1.0,
+    "left_inner_finger_joint": -1.0,
+    "left_inner_finger_knuckle_joint": -1.0,
+    "right_outer_knuckle_joint": 1.0,
+    "right_inner_finger_joint": 1.0,
+    "right_inner_finger_knuckle_joint": -1.0,
+}
 
 
 class DroidEmbodimentBase(EmbodimentBase, ABC):
@@ -140,6 +158,50 @@ class DroidEmbodimentBase(EmbodimentBase, ABC):
         self.mimic_env = None
         self.add_camera_variations(self.camera_config)
 
+    def _configure_physics_backend(self, backend: PhysicsBackend) -> None:
+        """Apply Newton spawn and gripper overrides shared by all DROID embodiments."""
+        if backend is PhysicsBackend.NEWTON:
+            self._configure_newton_spawn()
+            self._configure_newton_gripper()
+
+    def _configure_newton_spawn(self) -> None:
+        """Apply Newton-compatible robot spawning shared across DROID control modes."""
+        from isaaclab_newton.sim.schemas import NewtonMaterialPropertiesCfg
+
+        robot_cfg = self.scene_config.robot
+        robot_cfg.spawn.func = spawn_newton_droid
+        robot_cfg.spawn.make_uninstanceable = True
+        robot_cfg.spawn.rigid_props.disable_gravity = False
+        robot_cfg.spawn.physics_material = NewtonMaterialPropertiesCfg(
+            static_friction=3.0,
+            dynamic_friction=3.0,
+            restitution=0.0,
+        )
+
+    def _configure_newton_gripper(self) -> None:
+        """Apply Newton's explicit six-joint Robotiq gripper actuation."""
+        gripper_joint_names = tuple(_DROID_NEWTON_GRIPPER_MIMIC_SIGNS)
+        self.scene_config.robot.actuators["gripper"] = ImplicitActuatorCfg(
+            joint_names_expr=list(gripper_joint_names),
+            effort_limit=20.0,
+            velocity_limit=1.2,
+            stiffness=40.0,
+            damping=8.0,
+            armature=0.05,
+        )
+
+        open_command = dict.fromkeys(gripper_joint_names, 0.0)
+        close_command = {
+            name: sign * _DROID_NEWTON_GRIPPER_CLOSE_RAD for name, sign in _DROID_NEWTON_GRIPPER_MIMIC_SIGNS.items()
+        }
+        self.action_config.gripper_action = BinaryJointPositionZeroToOneActionCfg(
+            asset_name="robot",
+            joint_names=list(gripper_joint_names),
+            open_command_expr=open_command,
+            close_command_expr=close_command,
+        )
+        self.observation_config.policy.gripper_pos = ObsTerm(func=newton_gripper_pos)
+
     def get_bounding_box(self) -> AxisAlignedBoundingBox:
         """Return root-relative placement bounds from the composed on-stand USD spawn.
 
@@ -176,10 +238,13 @@ class DroidEmbodimentBase(EmbodimentBase, ABC):
 
 @register_asset
 class DroidDifferentialIKEmbodiment(DroidEmbodimentBase):
-    """Embodiment for the DROID setup with differential inverse kinematics action controller."""
+    """Embodiment for the DROID setup with differential inverse kinematics action controller.
+
+    When ``--presets newton`` is selected, :meth:`configure_physics_backend` applies Newton-specific
+    spawn, gripper, and IK overrides before the env is built.
+    """
 
     name = "droid_differential_ik"
-    default_arm_mode = ArmMode.SINGLE_ARM
 
     def __init__(
         self,
@@ -206,13 +271,28 @@ class DroidDifferentialIKEmbodiment(DroidEmbodimentBase):
         )
         self.action_config = DroidDifferentialIKActionsCfg()
 
+    def _configure_physics_backend(self, backend: PhysicsBackend) -> None:
+        """Apply shared Newton spawn setup, then diff-IK-specific Newton tuning."""
+        super()._configure_physics_backend(backend)
+        if backend is PhysicsBackend.NEWTON:
+            self._configure_newton_diff_ik()
+
+    def _configure_newton_diff_ik(self) -> None:
+        """Apply Newton-specific differential-IK configuration."""
+        self.action_config.arm_action.controller = DifferentialIKControllerCfg(
+            command_type="pose",
+            use_relative_mode=True,
+            ik_method="adaptive_dls",
+            joint_limit_avoidance_gain=0.10,
+            joint_limit_avoidance_margin=0.35,
+        )
+
 
 @register_asset
 class DroidRelativeJointPositionEmbodiment(DroidEmbodimentBase):
     """Embodiment for the DROID setup with relative joint position action controller."""
 
     name = "droid_rel_joint_pos"
-    default_arm_mode = ArmMode.SINGLE_ARM
 
     def __init__(
         self,
@@ -246,7 +326,6 @@ class DroidAbsoluteJointPositionEmbodiment(DroidEmbodimentBase):
 
     name = "droid_abs_joint_pos"
     tags = ["embodiment", "default"]
-    default_arm_mode = ArmMode.SINGLE_ARM
 
     def __init__(
         self,
@@ -340,17 +419,13 @@ class DroidSceneCfg:
         },
     )
 
-    # The end-effector frame marker
     ee_frame: FrameTransformerCfg = FrameTransformerCfg(
         prim_path="{ENV_REGEX_NS}/Robot/panda_link0",
         debug_vis=False,
         target_frames=[
             FrameTransformerCfg.FrameCfg(
-                prim_path="{ENV_REGEX_NS}/Robot/panda_link0",
+                prim_path="{ENV_REGEX_NS}/Robot/Gripper/Robotiq_2F_85/base_link",
                 name="end_effector",
-                offset=OffsetCfg(
-                    pos=[0.0, 0.0, 0.1034],
-                ),
             ),
             FrameTransformerCfg.FrameCfg(
                 prim_path="{ENV_REGEX_NS}/Robot/Gripper/Robotiq_2F_85/right_inner_finger",
@@ -370,7 +445,6 @@ class DroidSceneCfg:
     )
 
     def __post_init__(self):
-        # Add a marker to the end-effector frame
         marker_cfg = FRAME_MARKER_CFG.copy()
         marker_cfg.markers["frame"].scale = (0.1, 0.1, 0.1)
         marker_cfg.prim_path = "/Visuals/FrameTransformer"
@@ -387,6 +461,14 @@ class BinaryJointPositionZeroToOneActionCfg(BinaryJointPositionActionCfg):
     class_type = BinaryJointPositionZeroToOneAction
 
 
+_DROID_DEFAULT_GRIPPER_ACTION_CFG = BinaryJointPositionZeroToOneActionCfg(
+    asset_name="robot",
+    joint_names=["finger_joint"],
+    open_command_expr={"finger_joint": 0.0},
+    close_command_expr={"finger_joint": torch.pi / 4},
+)
+
+
 @configclass
 class DroidDifferentialIKActionsCfg:
     """Action specifications for the MDP."""
@@ -394,18 +476,12 @@ class DroidDifferentialIKActionsCfg:
     arm_action: ActionTermCfg = DifferentialInverseKinematicsActionCfg(
         asset_name="robot",
         joint_names=["panda_joint.*"],
-        body_name="panda_link0",
+        body_name="base_link",
         controller=DifferentialIKControllerCfg(command_type="pose", use_relative_mode=True, ik_method="dls"),
         scale=0.5,
-        body_offset=DifferentialInverseKinematicsActionCfg.OffsetCfg(pos=[0.0, 0.0, 0.107]),
     )
 
-    gripper_action: ActionTermCfg = BinaryJointPositionZeroToOneActionCfg(
-        asset_name="robot",
-        joint_names=["finger_joint"],
-        open_command_expr={"finger_joint": 0.0},
-        close_command_expr={"finger_joint": torch.pi / 4},
-    )
+    gripper_action: ActionTermCfg = _DROID_DEFAULT_GRIPPER_ACTION_CFG.copy()
 
 
 @configclass
@@ -416,14 +492,9 @@ class DroidRelativeJointPositionActionsCfg:
         asset_name="robot",
         joint_names=["panda_joint.*"],
         use_zero_offset=True,  # increment around current joint pos
-        scale=0.5,  # scale factor for the action
+        scale=0.5,
     )
-    gripper_action: ActionTermCfg = BinaryJointPositionZeroToOneActionCfg(
-        asset_name="robot",
-        joint_names=["finger_joint"],
-        open_command_expr={"finger_joint": 0.0},
-        close_command_expr={"finger_joint": torch.pi / 4},
-    )
+    gripper_action: ActionTermCfg = _DROID_DEFAULT_GRIPPER_ACTION_CFG.copy()
 
 
 @configclass
@@ -437,12 +508,7 @@ class DroidAbsoluteJointPositionActionsCfg:
         use_default_offset=False,
     )
 
-    gripper_action: ActionTermCfg = BinaryJointPositionZeroToOneActionCfg(
-        asset_name="robot",
-        joint_names=["finger_joint"],
-        open_command_expr={"finger_joint": 0.0},
-        close_command_expr={"finger_joint": torch.pi / 4},
-    )
+    gripper_action: ActionTermCfg = _DROID_DEFAULT_GRIPPER_ACTION_CFG.copy()
 
 
 @configclass
@@ -528,3 +594,33 @@ class DroidCameraCfg(ArenaCameraCfg):
             pos=(0.011, -0.031, -0.074), rot=(0.570, 0.576, -0.409, -0.420), convention="opengl"
         ),
     )
+
+
+@clone
+def spawn_newton_droid(
+    prim_path: str,
+    spawner_cfg,
+    translation: tuple[float, float, float] | None = None,
+    orientation: tuple[float, float, float, float] | None = None,
+    **kwargs,
+):
+    """Spawn DROID from USD and apply Newton-specific rigid-body and collision setup."""
+    from isaaclab.sim import schemas
+    from isaaclab_newton.sim.schemas import MujocoRigidBodyPropertiesCfg
+
+    from isaaclab_arena.utils.usd_helpers import move_collision_schemas_to_meshes
+
+    prim = spawn_from_usd(
+        prim_path,
+        spawner_cfg,
+        translation=translation,
+        orientation=orientation,
+        **kwargs,
+    )
+    move_collision_schemas_to_meshes(prim)
+    schemas.modify_rigid_body_properties(
+        prim_path,
+        MujocoRigidBodyPropertiesCfg(gravcomp=1.0),
+        prim.GetStage(),
+    )
+    return prim

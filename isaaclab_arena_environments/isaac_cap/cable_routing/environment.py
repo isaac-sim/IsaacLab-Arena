@@ -10,7 +10,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from isaaclab_arena.assets.register import register_environment
 from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg, ArenaEnvironmentFactory
 
 if TYPE_CHECKING:
@@ -40,7 +39,7 @@ def _build_environment(
 ) -> IsaacLabArenaEnvironment:
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
 
-    from .embodiment import IndustrialBimanualYamEmbodiment
+    from ..embodiments.cable_routing import IndustrialBimanualYamEmbodiment
     from .physics import configure_cable_routing_physics
     from .scene import (
         BOARD_TOP_Z,
@@ -84,7 +83,6 @@ def _build_environment(
     )
 
 
-@register_environment
 class CableRoutingMediumEnvironment(ArenaEnvironmentFactory[CableRoutingMediumEnvironmentCfg]):
     """Build Cap's medium cable-routing environment on native Arena APIs."""
 
@@ -96,7 +94,6 @@ class CableRoutingMediumEnvironment(ArenaEnvironmentFactory[CableRoutingMediumEn
         return _build_environment(self, cfg, "medium")
 
 
-@register_environment
 class CableRoutingEasyEnvironment(ArenaEnvironmentFactory[CableRoutingEasyEnvironmentCfg]):
     """Build Cap's easy cable-routing environment on native Arena APIs."""
 

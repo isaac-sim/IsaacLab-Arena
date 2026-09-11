@@ -28,37 +28,49 @@
 
 ## Overview
 
-**Isaac Lab-Arena** is an open-source extension to [NVIDIA Isaac Lab](https://github.com/isaac-sim/IsaacLab) for simplified task curation and robotic policy evaluation at scale. It provides a composable architecture where environments are assembled on-the-fly from independent, reusable building blocks — eliminating the redundant boilerplate that plagues traditional task library development.
+**Isaac Lab-Arena** is an open-source framework for scalable benchmark authoring and robot policy evaluation in simulation. It extends [NVIDIA Isaac Lab](https://github.com/isaac-sim/IsaacLab) with reusable APIs to author benchmarks, execute evaluations at scale, and analyze results for actionable feedback.
 
-Instead of hand-writing and maintaining a separate configuration for every combination of robot, object, and scenario, Arena lets you **compose** environments from three independent primitives:
+Instead of hand-writing and maintaining a separate configuration for every combination of robot,
+object, and scenario, Arena composes environments from three independent primitives: a **scene**,
+which defines the physical layout and its objects, furniture, and fixtures; an **embodiment**, which
+defines the robot, observations, actions, sensors, and controllers; and a **task**, which defines what
+the robot must accomplish. `ArenaEnvBuilder` combines them into a standard `ManagerBasedRLEnvCfg`
+that runs natively in Isaac Lab.
 
-| Primitive | Description |
-|-----------|-------------|
-| **Scene** | The physical environment layout — a collection of objects, furniture, fixtures |
-| **Embodiment** | The robot and its observations, actions, sensors, and controllers |
-| **Task** | The objective — what the robot should accomplish (pick-and-place, open door, etc.) |
+Building on that foundation, Arena provides three connected capabilities across the benchmark and policy-evaluation workflow:
 
-The `ArenaEnvBuilder` composes these primitives into a standard `ManagerBasedRLEnvCfg` that runs natively in Isaac Lab.
+| Workflow | What Arena provides |
+|----------|---------------------|
+| **Author** | Build reusable benchmark environments through modular composition, relational placement, prompt-driven generation, and controlled variations. Register Arena environments with Isaac Lab for learning and data generation. |
+| **Execute** | Evaluate one policy concurrently across thousands of heterogeneous environments on a GPU. Package multiple tasks and policies as experiments that run locally or across nodes through OSMO and a common policy client. |
+| **Analyze** | Collect aggregate and per-episode metrics, trace predicate-based subtask progress, and run sensitivity analysis over controlled conditions to see where and why policies fail. |
 
 ## Why Isaac Lab-Arena?
 
-With the rise of generalist robot policies (e.g., [GR00T N](https://developer.nvidia.com/isaac/gr00t), [pi0](https://www.physicalintelligence.company/), [SmolVLA](https://huggingface.co/docs/lerobot/smolvla)), there is an urgent need to evaluate these policies across many diverse tasks and environments. Traditional approaches suffer from:
-
-- **Code duplication** — each task variation (different object, different robot) requires a near-copy of the same configuration
-- **Maintenance burden** — N robots × M objects × K scenes = an explosion of configs to keep in sync
-- **Slow iteration** — researchers spend more time wrangling configs than running experiments
-
-Arena solves this by making environment variation a first-class concept. Swap an object, change a robot, or modify a scene — all without duplicating a single line of task logic.
+See the [documentation overview](https://isaac-sim.github.io/IsaacLab-Arena/release/0.3.0/index.html#why-isaac-lab-arena) for the motivation behind Arena and how it addresses evaluation scale, reproducibility, and failure diagnosis.
 
 ## Key Features
 
-- **LEGO-like Composable Environments** — Mix and match scenes,  embodiments, and tasks independently
-- **On-the-fly Assembly** — Environments are built at runtime; no duplicate config files to maintain.
-- **New Sequential Task Chaining** — Chain atomic skills (e.g. Pick + Walk + Place + …) to create complex long-horizon tasks.
-- **New Natural Language Object Placement** — Define scene layouts using semantic relationships like "on" or "next to", instead of manually specified coordinates.
-- **Integrated Evaluation** — Extensible metrics and evaluation pipelines for policy benchmarking
-- **New Large-scale Parallel Evaluations with Heterogeneous Objects** — Evaluate policy on multiple parallel environments, each with different objects, to maximize evaluation throughput.
-- **New RL Workflow Support and Seamless Interoperation with Isaac Lab: Plug Isaac Lab** - Arena environments into Isaac Lab workflows for Reinforcement learning and Data generation for imitation learning.
+### Author Scalable Benchmarks
+
+- **Composable environments** — Configure scenes, embodiments, and tasks independently, with reusable objects composed into each scene. `ArenaEnvBuilder` assembles them into an Isaac Lab environment without duplicating task logic.
+- **Relational object placement** — Define layouts with spatial relationships such as "on" and "next to" instead of hard-coded coordinates.
+- **Sequential task chaining** — Chain atomic skills (pick, walk, place, …) into long-horizon composite tasks.
+- **Agentic environment generation (experimental)** — Describe a task in natural language; an agent infers constraints, creates a reviewable specification, finds SimReady USD assets, and builds a family of Arena environments. Initial examples cover composite pick-and-place.
+- **Controlled environment variations** — Turn one environment into a perturbation sweep over lighting, backgrounds, camera parameters, object mass, and other configurable ranges and distributions.
+- **Isaac Lab interoperability** — Register Arena-authored environments with Isaac Lab workflows for reinforcement learning and data generation.
+
+### Execute Evaluations at Scale
+
+- **GPU-accelerated parallel evaluation** — Evaluate one policy across thousands of heterogeneous environments concurrently instead of running sequential rollouts.
+- **Large-scale multi-node evaluation** — Define experiments with multiple tasks and policies, run locally or distribute them with an orchestrator such as OSMO, and collect aggregate metrics plus per-episode results.
+- **Policy client-server architecture** — Evaluate GR00T, π0.5, or a custom policy behind a server through a common observation-and-action contract.
+- **Streamlined setup and agent skills** — Use the native `uv` installation path and reusable agent skills for key workflows.
+
+### Analyze Policy Robustness
+
+- **Subtask predicates** — Track milestones such as grasp, lift, transport, and place to pinpoint where a policy fails.
+- **Sensitivity analysis** — Perturb environment factors to reveal robustness gaps and generate actionable feedback for targeted policy learning.
 
 ## Quick Start
 
@@ -95,7 +107,7 @@ python isaaclab_arena/evaluation/policy_runner.py \
 ```
 
 > **Note:** See our
-> [installation docs](https://isaac-sim.github.io/IsaacLab-Arena/main/pages/quickstart/installation.html)
+> [installation docs](https://isaac-sim.github.io/IsaacLab-Arena/release/0.3.0/pages/quickstart/installation.html)
 > for more details and installation flavors.
 
 **Source install inside Docker:**
@@ -124,7 +136,7 @@ git submodule update --init --recursive
 
 > **Note:** The Docker script automatically mounts `$HOME/datasets`, `$HOME/models`, and `$HOME/eval` from your host into the container.
 
-For detailed setup instructions (including server-client mode for GR00T), see the [Installation Guide](https://isaac-sim.github.io/IsaacLab-Arena/main/pages/quickstart/installation.html).
+For detailed setup instructions (including server-client mode for GR00T), see the [Installation Guide](https://isaac-sim.github.io/IsaacLab-Arena/release/0.3.0/pages/quickstart/installation.html).
 
 ## Usage Example
 
@@ -162,21 +174,29 @@ Python callers set builder options directly on `ArenaEnvBuilderCfg`. Runner scri
 continue to accept the same options as CLI flags, such as `--num_envs 4 --seed 7`,
 and translate them into an `ArenaEnvBuilderCfg` before building the environment.
 
-Explore more examples in the [documentation](https://isaac-sim.github.io/IsaacLab-Arena/main/index.html), including:
+### Continue in the Documentation
 
-<p align="center">
-  <img src="docs/images/g1_galileo_arena_box_pnp_locomanip.gif" alt="G1 loco-manipulation box pick and place" width="80%">
-</p>
+#### Getting Started
 
-| Example | Description |
-|---------|-------------|
-| **Imitation Learning** | |
-| [G1 Loco-Manipulation Pick & Place](https://isaac-sim.github.io/IsaacLab-Arena/main/pages/example_workflows/locomanipulation/index.html) | G1 humanoid navigates, picks up a box, and places it in a bin |
-| [GR1 Open Microwave Door](https://isaac-sim.github.io/IsaacLab-Arena/main/pages/example_workflows/static_manipulation/index.html) | GR1 upper-body manipulation of an articulated microwave door |
-| [GR1 Sequential Pick & Place and Close Door](https://isaac-sim.github.io/IsaacLab-Arena/main/pages/example_workflows/sequential_static_manipulation/index.html) | GR1 picks an object, places it in a fridge, and closes the door |
-| **Reinforcement Learning** | |
-| [Franka Lift Object](https://isaac-sim.github.io/IsaacLab-Arena/main/pages/example_workflows/reinforcement_learning/index.html) | Franka Panda grasps and lifts objects to target positions (PhysX) |
-| [Dexsuite Kuka Allegro Lift (Newton)](https://isaac-sim.github.io/IsaacLab-Arena/main/pages/example_workflows/dexsuite_lift/index.html) | Dexterous object lifting with Kuka Allegro hand (Newton physics, experimental) |
+Choose a guide based on what you want to do:
+
+- [First Arena Environment](https://isaac-sim.github.io/IsaacLab-Arena/release/0.3.0/pages/quickstart/arena_env.html) — Compose a scene, embodiment, and task into a reusable environment.
+- [First Arena Experiment](https://isaac-sim.github.io/IsaacLab-Arena/release/0.3.0/pages/quickstart/arena_experiment.html) — Define and run multiple evaluation configurations as one experiment.
+- [Exploring Environment Variations](https://isaac-sim.github.io/IsaacLab-Arena/release/0.3.0/pages/quickstart/environment_variations.html) — Sample controlled changes to lighting, cameras, and backgrounds.
+- [Running a Real Policy](https://isaac-sim.github.io/IsaacLab-Arena/release/0.3.0/pages/quickstart/running_a_real_policy/index.html) — Evaluate a pretrained policy from a saved configuration.
+
+#### Ready-to-Use Environments
+
+- [Example Environments](https://isaac-sim.github.io/IsaacLab-Arena/release/0.3.0/pages/example_workflows/example_environments.html) — Browse Python-registered environments, RoboLab-inspired tasks, and Kitchen Benchmark specifications.
+
+#### Example Workflows
+
+Explore complete workflows for:
+
+- [Evaluation](https://isaac-sim.github.io/IsaacLab-Arena/release/0.3.0/pages/example_workflows/analysis/index.html) — Run controlled sweeps and analyze the conditions associated with policy success or failure.
+- [Agentic Environment Generation](https://isaac-sim.github.io/IsaacLab-Arena/release/0.3.0/pages/example_workflows/agentic_env_gen/index.html) — Generate Arena environment specifications from natural-language prompts.
+- [Imitation Learning](https://isaac-sim.github.io/IsaacLab-Arena/release/0.3.0/pages/example_workflows/imitation_learning/index.html) — Collect data, post-train a policy, and run closed-loop evaluation.
+- [Reinforcement Learning](https://isaac-sim.github.io/IsaacLab-Arena/release/0.3.0/pages/example_workflows/reinforcement_learning_workflows/index.html) — Set up an environment, train a policy, and run closed-loop evaluation.
 
 ## Project Structure
 
@@ -218,37 +238,43 @@ Isaac Lab-Arena is in **alpha** (`v0.3`). This is important to understand:
 |-----------------|---------|
 | **Not EA / GA** | This is not an Early Access or General Availability release. It is a very early community code drop. |
 | **APIs will break** | Public interfaces are under active development and will change without deprecation warnings. |
-| **Features are incomplete** | Core capabilities like agentic task generation, non-sequential long horizon tasks, easy-to-configure sensitivity analysis, and enhanced heterogeneity across parallel evaluations are planned but not yet implemented. |
+| **Features are evolving** | Agentic environment generation is experimental, performance is not yet hardened for production-scale workloads, and benchmark and analysis coverage continues to expand. |
 | **Limited testing** | The `main` branch contains the latest code but may not be fully tested. Use `release/0.3.0` for the most stable experience. |
 
 
 ## Ecosystem
 
-Isaac Lab-Arena is part of a growing ecosystem of tools and benchmarks. NVIDIA and partners are building industrial and academic benchmarks on the unified Isaac Lab-Arena core, so you can reuse building blocks (tasks, scenes, metrics, and datasets) for your custom evaluations.
+Isaac Lab-Arena is part of a growing ecosystem of tools and benchmarks. NVIDIA is working with benchmark authors and model developers to build, run, and open-source benchmarks on Arena.
+
+The ecosystem extends beyond pick-and-place to contact-rich, dexterous, and deformable benchmarks for industry and academia. Arena's modular foundation lets you reuse them as low-cost readiness gates or adapt their building blocks—tasks, scenes, robots, and evaluation methods—for custom evaluations.
 
 ### Published Benchmarks
 
 - **[Lightwheel RoboFinals](https://lightwheel.ai/robofinals)** — High-fidelity industrial benchmarks.
 - **[Lightwheel RoboCasa Tasks](https://github.com/LightwheelAI/LW-BenchHub)** — 138+ open-source tasks, 50 datasets per task, 7+ robots.
 - **[Lightwheel LIBERO Tasks](https://github.com/LightwheelAI/LW-BenchHub)** — Adapted LIBERO benchmarks.
-- **[RoboTwin 2.0](https://github.com/RoboTwin-Platform/RoboTwin/tree/IsaacLab-Arena)** — Extended simulation benchmarks using Arena; [Arxiv](https://arxiv.org/abs/2603.01229).
+- [**RoboTwin 2.0**](https://github.com/RoboTwin-Platform/RoboTwin/tree/IsaacLab-Arena) — Extended simulation benchmarks using Arena; [Arxiv](https://arxiv.org/abs/2603.01229).
 - **[LeRobot Environment Hub](https://huggingface.co/blog/nvidia/generalist-robotpolicy-eval-isaaclab-arena-lerobot)** — Share and discover Arena environments on Hugging Face.
 - **[Isaac for Healthcare RHEO Workflows](https://github.com/isaac-for-healthcare/i4h-workflows/tree/main/workflows/rheo)** — Healthcare robotics benchmark workflows.
 
-NIST Board 1, NVIDIA Isaac GR00T Industrial Benchmarks, NVIDIA DexBench, NVIDIA RoboLab, and more benchmarks are coming soon.
+### Coming Soon
+
+Coming soon: support for the full RoboTwin and RoboDojo task suites, plus benchmark integrations
+from ecosystem partners including RLWRLD (DexBench), UC Berkeley, X Square, Sharpa, and NVIDIA
+GEAR (G1 Factory), with more partner benchmarks to follow.
 
 ### Publishing Your Own Benchmark
 
 We encourage the community to build and publish benchmarks on Isaac Lab-Arena. The recommended workflow:
 
-1. **Maintain your benchmark in your own repository.** Create a branch or package that integrates with Isaac Lab-Arena (e.g. an `IsaacLab-Arena` branch). See [RoboTwin](https://github.com/RoboTwin-Platform/RoboTwin/tree/IsaacLab-Arena) for a reference example. For detailed setup instructions — including repository layout, Dockerfile setup, and how to register custom environments/robots/tasks — see the [Arena in Your Repository](https://isaac-sim.github.io/IsaacLab-Arena/main/pages/arena_in_your_repo/index.html) guide.
+1. **Maintain your benchmark in your own repository.** Create a branch or package that integrates with Isaac Lab-Arena (e.g. an `IsaacLab-Arena` branch). For detailed setup instructions—including repository layout, Dockerfile setup, and how to register custom environments, robots, and tasks—see the [Arena in Your Repository](https://isaac-sim.github.io/IsaacLab-Arena/release/0.3.0/pages/arena_in_your_repo/index.html) guide.
 2. **Reference your benchmark and Isaac Lab-Arena in publications.** When publishing on ArXiv or elsewhere, cite both your benchmark (by name, with a link to your repository) and Isaac Lab-Arena as the underlying evaluation framework.
 3. **List it here.** Open a PR to add your benchmark to the [Published Benchmarks](#published-benchmarks) list above. This README serves as the single source of truth for the Arena benchmark ecosystem so that community can discover and reuse.
 
 
 ## Contributing
 
-We welcome contributions — bug reports, feature suggestions, and code. This is a pre-alpha project, so community input directly shapes the framework's direction.
+We welcome contributions — bug reports, feature suggestions, and code. This is an alpha project, so community input directly shapes the framework's direction.
 
 1. Read the [Contribution Guidelines](CONTRIBUTING.md)
 2. Sign off your commits (DCO required — see `CONTRIBUTING.md`)
@@ -298,7 +324,7 @@ Isaac Lab-Arena was built in collaboration with the authors of Robolab ([website
 
 <div align="center">
 
-**Isaac Lab-Arena** · Alpha · [Documentation](https://isaac-sim.github.io/IsaacLab-Arena/main/index.html) · [GitHub](https://github.com/isaac-sim/IsaacLab-Arena)
+**Isaac Lab-Arena** · Alpha · [Documentation](https://isaac-sim.github.io/IsaacLab-Arena/release/0.3.0/index.html) · [GitHub](https://github.com/isaac-sim/IsaacLab-Arena)
 
 Made with ❤️ by the NVIDIA Robotics Team
 

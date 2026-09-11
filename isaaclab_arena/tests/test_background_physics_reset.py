@@ -5,6 +5,8 @@
 
 """Test discovery and reset of dynamic entities nested in background USDs."""
 
+import pytest
+
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
 
@@ -283,6 +285,7 @@ def test_background_physics_reset_without_fabric():
     )
 
 
+@pytest.mark.with_newton
 def test_background_physics_reset_with_newton():
     assert run_function_with_persistent_simulation_app(
         _test_background_physics_discovery_and_reset,
