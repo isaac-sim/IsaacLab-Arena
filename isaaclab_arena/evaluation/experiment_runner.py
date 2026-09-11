@@ -13,7 +13,6 @@ from isaaclab_arena.evaluation.arena_experiment_config_loader import (
     validate_experiment_config_path,
 )
 from isaaclab_arena.evaluation.experiment_runner_cli import parse_experiment_runner_args
-from isaaclab_arena.evaluation.experiment_timings import aggregate_experiment_timings
 from isaaclab_arena.evaluation.legacy_experiment_runner import (
     legacy_json_experiment_requires_cameras,
     load_legacy_json_experiment_config,
@@ -183,6 +182,8 @@ def main():
         metrics_logger.print_metrics()
 
         _write_arena_experiment_result(experiment_cfg, run_results, experiment_output_directory)
+
+        from isaaclab_arena.evaluation.experiment_timings import aggregate_experiment_timings
 
         completed_run_names = [
             run_result.run_name for run_result in run_results if run_result.status is RunStatus.COMPLETED
