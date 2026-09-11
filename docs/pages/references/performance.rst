@@ -136,6 +136,21 @@ independent Runs lets OSMO execute more of the Experiment at the same time acros
 and worker nodes.
 
 
+Rollout benchmark scope
+-----------------------
+
+* The single-GPU test ran on a local engineering workstation, not a controlled performance lab
+  system.
+* The workload did not render cameras or run policy inference. Cameras, policies, scene contents,
+  and physics settings can change both throughput and capacity.
+* The single-GPU and OSMO benchmarks used different GPU models and software builds. Their absolute
+  step times should not be compared directly.
+* Arena's component timers use CPU wall-clock time without explicit CUDA synchronization. They are
+  rollout diagnostics, not GPU kernel measurements.
+* Full OSMO submission time is not used for the distributed speedup because container-image cache
+  state differed between submissions.
+
+
 .. _performance-agentic-environment-generation:
 
 Agentic environment generation
@@ -146,10 +161,6 @@ generation pipeline. It answers two questions:
 
 #. How long after a natural-language request does the agent return its first structured environment spec?
 #. How long does Arena take to turn a valid environment spec into a resolved pool of Isaac Lab layouts?
-
-.. warning::
-
-   These agentic-generation results are dated August 28, 2026, and the benchmark design is under review.
 
 
 Benchmark definition
@@ -286,21 +297,6 @@ environments.
       "kitchen_open_fridge_door", "Kitchen", "0", "No", "16", "80", "3.376", "3.627", "3.779"
       "kitchen_open_fridge_door", "Kitchen", "0", "No", "64", "320", "4.186", "4.623", "5.235"
       "kitchen_open_fridge_door", "Kitchen", "0", "No", "256", "1280", "7.696", "8.075", "9.833"
-
-
-Rollout benchmark scope
------------------------
-
-* The single-GPU test ran on a local engineering workstation, not a controlled performance lab
-  system.
-* The workload did not render cameras or run policy inference. Cameras, policies, scene contents,
-  and physics settings can change both throughput and capacity.
-* The single-GPU and OSMO benchmarks used different GPU models and software builds. Their absolute
-  step times should not be compared directly.
-* Arena's component timers use CPU wall-clock time without explicit CUDA synchronization. They are
-  rollout diagnostics, not GPU kernel measurements.
-* Full OSMO submission time is not used for the distributed speedup because container-image cache
-  state differed between submissions.
 
 
 Tested revisions
