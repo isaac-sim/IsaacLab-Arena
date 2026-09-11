@@ -89,7 +89,7 @@ class GalileoG1LocomanipPickAndPlaceEnvironment(ArenaEnvironmentFactory[GalileoG
         from isaaclab_arena.tasks.pick_and_place_task import G1PickAndPlaceMimicEnvCfg, PickAndPlaceTask
         from isaaclab_arena.utils.pose import Pose, PoseRange
 
-        background = self.asset_registry.get_asset_by_name("galileo_locomanip")(reset_nested_physics=False)
+        background = self.asset_registry.get_asset_by_name("galileo_locomanip")()
         pick_up_object = self.asset_registry.get_asset_by_name(cfg.object)()
         destination = self.asset_registry.get_asset_by_name(cfg.destination)()
         embodiment = self.asset_registry.get_asset_by_name(cfg.embodiment)(enable_cameras=cfg.enable_cameras)
