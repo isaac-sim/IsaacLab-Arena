@@ -2143,11 +2143,14 @@ resolution-markers = [
     "platform_machine == 'x86_64' and sys_platform == 'linux'",
 ]
 dependencies = [
+    { name = "alphashape", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
     { name = "botocore", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
+    { name = "coacd", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
     { name = "coverage", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
     { name = "daqp", marker = "platform_machine == 'x86_64' and platform_machine in 'x86_64,AMD64,aarch64,arm64' and sys_platform == 'linux'" },
     { name = "debugpy", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
     { name = "einops", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
+    { name = "fast-simplification", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
     { name = "filelock", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
     { name = "flaky", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
     { name = "flatdict", version = "4.1.0", source = { registry = "https://pypi.org/simple" }, marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
@@ -2157,20 +2160,27 @@ dependencies = [
     { name = "junitparser", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
     { name = "lazy-loader", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
     { name = "matplotlib", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
+    { name = "meshio", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
+    { name = "newton-usd-schemas", version = "0.4.1", source = { registry = "https://pypi.org/simple" }, marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
     { name = "numpy", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
     { name = "omniverseclient", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
     { name = "onnx", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
+    { name = "open3d", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
     { name = "packaging", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
     { name = "pillow", version = "12.2.0", source = { registry = "https://pypi.org/simple" }, marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
     { name = "pin", version = "3.9.0", source = { registry = "https://pypi.org/simple" }, marker = "platform_machine == 'x86_64' and platform_machine in 'x86_64,AMD64,aarch64,arm64' and sys_platform == 'linux'" },
     { name = "pin-pink", marker = "platform_machine == 'x86_64' and platform_machine in 'x86_64,AMD64,aarch64,arm64' and sys_platform == 'linux'" },
     { name = "prettytable", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
     { name = "psutil", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
+    { name = "pycollada", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
     { name = "pydantic", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
     { name = "pyglet", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
     { name = "pytest", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
     { name = "pytest-mock", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
     { name = "pytetwild", marker = "platform_machine == 'x86_64' and platform_machine in 'x86_64,AMD64' and sys_platform == 'linux'" },
+    { name = "requests", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
+    { name = "resolve-robotics-uri-py", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
+    { name = "scipy", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
     { name = "starlette", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
     { name = "toml", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
     { name = "torch", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
@@ -2183,11 +2193,14 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
+    { name = "alphashape", specifier = ">=1.3.1" },
     { name = "botocore" },
+    { name = "coacd", specifier = ">=1.0.7" },
     { name = "coverage", specifier = "==7.6.1" },
     { name = "daqp", marker = "platform_machine in 'x86_64,AMD64,aarch64,arm64' and sys_platform == 'linux'", specifier = "==0.8.5" },
     { name = "debugpy", specifier = ">=1.8.20" },
     { name = "einops" },
+    { name = "fast-simplification", specifier = ">=0.1.11" },
     { name = "filelock" },
     { name = "flaky" },
     { name = "flatdict", specifier = ">=4.1.0" },
@@ -2213,20 +2226,27 @@ requires-dist = [
     { name = "junitparser" },
     { name = "lazy-loader", specifier = ">=0.4" },
     { name = "matplotlib", specifier = ">=3.10.3" },
+    { name = "meshio", specifier = ">=5.3.5" },
+    { name = "newton-usd-schemas", specifier = ">=0.4.1" },
     { name = "numpy", specifier = ">=2" },
     { name = "omniverseclient", specifier = "==2.71.1.7015" },
     { name = "onnx", specifier = ">=1.18.0" },
+    { name = "open3d", marker = "(python_full_version < '3.13' and platform_machine != 'aarch64') or (python_full_version < '3.13' and sys_platform != 'linux')", specifier = ">=0.19.0" },
     { name = "packaging" },
     { name = "pillow", specifier = ">=12.1.1" },
     { name = "pin", marker = "platform_machine in 'x86_64,AMD64,aarch64,arm64' and sys_platform == 'linux'" },
     { name = "pin-pink", marker = "platform_machine in 'x86_64,AMD64,aarch64,arm64' and sys_platform == 'linux'", specifier = "==3.3.0" },
     { name = "prettytable", specifier = "==3.3.0" },
     { name = "psutil" },
+    { name = "pycollada", specifier = ">=0.9" },
     { name = "pydantic", specifier = ">=2.7,<2.12" },
     { name = "pyglet", specifier = ">=2.1.6,<3" },
     { name = "pytest" },
     { name = "pytest-mock" },
     { name = "pytetwild", marker = "platform_machine in 'x86_64,AMD64'", specifier = "==0.2.3" },
+    { name = "requests", specifier = ">=2.25.0" },
+    { name = "resolve-robotics-uri-py", specifier = ">=0.4.0" },
+    { name = "scipy", specifier = ">=1.11.0" },
     { name = "starlette", specifier = ">=0.46.0,<0.50" },
     { name = "toml" },
     { name = "torch", specifier = ">=2.10" },
@@ -2432,7 +2452,7 @@ source = { editable = "submodules/IsaacLab/source/isaaclab_newton" }
 
 [package.optional-dependencies]
 all = [
-    { name = "newton", version = "1.5.0", source = { registry = "https://pypi.org/simple" }, extra = ["importers", "sim"], marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'group-14-isaaclab-arena-isaaclab-from-source') or (platform_machine != 'x86_64' and extra == 'group-14-isaaclab-arena-isaaclab-from-source' and extra == 'group-14-isaaclab-arena-isaaclab-from-wheel') or (sys_platform != 'linux' and extra == 'group-14-isaaclab-arena-isaaclab-from-source' and extra == 'group-14-isaaclab-arena-isaaclab-from-wheel')" },
+    { name = "newton", version = "1.5.0", source = { registry = "https://pypi.org/simple" }, extra = ["sim"], marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'group-14-isaaclab-arena-isaaclab-from-source') or (platform_machine != 'x86_64' and extra == 'group-14-isaaclab-arena-isaaclab-from-source' and extra == 'group-14-isaaclab-arena-isaaclab-from-wheel') or (sys_platform != 'linux' and extra == 'group-14-isaaclab-arena-isaaclab-from-source' and extra == 'group-14-isaaclab-arena-isaaclab-from-wheel')" },
     { name = "prettytable", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
     { name = "pyglet", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
     { name = "pyopengl-accelerate", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
@@ -2440,7 +2460,7 @@ all = [
 
 [package.metadata]
 requires-dist = [
-    { name = "newton", extras = ["importers", "sim"], marker = "extra == 'all'", specifier = ">=1.2.1,<2" },
+    { name = "newton", extras = ["sim"], marker = "extra == 'all'", specifier = "==1.5.0" },
     { name = "prettytable", marker = "extra == 'all'", specifier = "==3.3.0" },
     { name = "pyglet", marker = "extra == 'all'", specifier = ">=2.1.6,<3" },
     { name = "pyopengl-accelerate", marker = "extra == 'all'", specifier = "==3.1.10" },
@@ -2475,11 +2495,11 @@ source = { editable = "submodules/IsaacLab/source/isaaclab_physx" }
 
 [package.optional-dependencies]
 newton = [
-    { name = "newton", version = "1.5.0", source = { registry = "https://pypi.org/simple" }, extra = ["importers", "sim"], marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'group-14-isaaclab-arena-isaaclab-from-source') or (platform_machine != 'x86_64' and extra == 'group-14-isaaclab-arena-isaaclab-from-source' and extra == 'group-14-isaaclab-arena-isaaclab-from-wheel') or (sys_platform != 'linux' and extra == 'group-14-isaaclab-arena-isaaclab-from-source' and extra == 'group-14-isaaclab-arena-isaaclab-from-wheel')" },
+    { name = "newton", version = "1.5.0", source = { registry = "https://pypi.org/simple" }, extra = ["sim"], marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'group-14-isaaclab-arena-isaaclab-from-source') or (platform_machine != 'x86_64' and extra == 'group-14-isaaclab-arena-isaaclab-from-source' and extra == 'group-14-isaaclab-arena-isaaclab-from-wheel') or (sys_platform != 'linux' and extra == 'group-14-isaaclab-arena-isaaclab-from-source' and extra == 'group-14-isaaclab-arena-isaaclab-from-wheel')" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "newton", extras = ["importers", "sim"], marker = "extra == 'newton'", specifier = ">=1.2.1,<2" }]
+requires-dist = [{ name = "newton", extras = ["sim"], marker = "extra == 'newton'", specifier = "==1.5.0" }]
 provides-extras = ["newton"]
 
 [[package]]
@@ -2606,7 +2626,7 @@ dependencies = [
 [package.optional-dependencies]
 newton = [
     { name = "imgui-bundle", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
-    { name = "newton", version = "1.5.0", source = { registry = "https://pypi.org/simple" }, extra = ["importers", "sim"], marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'group-14-isaaclab-arena-isaaclab-from-source') or (platform_machine != 'x86_64' and extra == 'group-14-isaaclab-arena-isaaclab-from-source' and extra == 'group-14-isaaclab-arena-isaaclab-from-wheel') or (sys_platform != 'linux' and extra == 'group-14-isaaclab-arena-isaaclab-from-source' and extra == 'group-14-isaaclab-arena-isaaclab-from-wheel')" },
+    { name = "newton", version = "1.5.0", source = { registry = "https://pypi.org/simple" }, extra = ["sim"], marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'group-14-isaaclab-arena-isaaclab-from-source') or (platform_machine != 'x86_64' and extra == 'group-14-isaaclab-arena-isaaclab-from-source' and extra == 'group-14-isaaclab-arena-isaaclab-from-wheel') or (sys_platform != 'linux' and extra == 'group-14-isaaclab-arena-isaaclab-from-source' and extra == 'group-14-isaaclab-arena-isaaclab-from-wheel')" },
     { name = "pydantic", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
     { name = "pyglet", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
     { name = "pyopengl-accelerate", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
@@ -2614,7 +2634,7 @@ newton = [
     { name = "warp-lang", version = "1.16.0", source = { registry = "https://pypi.nvidia.com/" }, marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
 ]
 rerun = [
-    { name = "newton", version = "1.5.0", source = { registry = "https://pypi.org/simple" }, extra = ["importers", "sim"], marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'group-14-isaaclab-arena-isaaclab-from-source') or (platform_machine != 'x86_64' and extra == 'group-14-isaaclab-arena-isaaclab-from-source' and extra == 'group-14-isaaclab-arena-isaaclab-from-wheel') or (sys_platform != 'linux' and extra == 'group-14-isaaclab-arena-isaaclab-from-source' and extra == 'group-14-isaaclab-arena-isaaclab-from-wheel')" },
+    { name = "newton", version = "1.5.0", source = { registry = "https://pypi.org/simple" }, extra = ["sim"], marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'group-14-isaaclab-arena-isaaclab-from-source') or (platform_machine != 'x86_64' and extra == 'group-14-isaaclab-arena-isaaclab-from-source' and extra == 'group-14-isaaclab-arena-isaaclab-from-wheel') or (sys_platform != 'linux' and extra == 'group-14-isaaclab-arena-isaaclab-from-source' and extra == 'group-14-isaaclab-arena-isaaclab-from-wheel')" },
     { name = "pyarrow", version = "23.0.1", source = { registry = "https://pypi.org/simple" }, marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
     { name = "rerun-sdk", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
 ]
@@ -2624,10 +2644,10 @@ requires-dist = [
     { name = "imgui-bundle", marker = "extra == 'all'", specifier = ">=1.92.601" },
     { name = "imgui-bundle", marker = "extra == 'newton'", specifier = ">=1.92.601" },
     { name = "isaaclab" },
-    { name = "newton", extras = ["importers", "sim"], marker = "extra == 'all'", specifier = ">=1.2.1,<2" },
-    { name = "newton", extras = ["importers", "sim"], marker = "extra == 'newton'", specifier = ">=1.2.1,<2" },
-    { name = "newton", extras = ["importers", "sim"], marker = "extra == 'rerun'", specifier = ">=1.2.1,<2" },
-    { name = "newton", extras = ["importers", "sim"], marker = "extra == 'viser'", specifier = ">=1.2.1,<2" },
+    { name = "newton", extras = ["sim"], marker = "extra == 'all'", specifier = "==1.5.0" },
+    { name = "newton", extras = ["sim"], marker = "extra == 'newton'", specifier = "==1.5.0" },
+    { name = "newton", extras = ["sim"], marker = "extra == 'rerun'", specifier = "==1.5.0" },
+    { name = "newton", extras = ["sim"], marker = "extra == 'viser'", specifier = "==1.5.0" },
     { name = "numpy" },
     { name = "pyarrow", marker = "extra == 'all'", specifier = "==23.0.1" },
     { name = "pyarrow", marker = "extra == 'rerun'", specifier = "==23.0.1" },
@@ -4831,20 +4851,6 @@ wheels = [
 ]
 
 [package.optional-dependencies]
-importers = [
-    { name = "alphashape", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
-    { name = "coacd", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
-    { name = "fast-simplification", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
-    { name = "meshio", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
-    { name = "newton-usd-schemas", version = "0.4.1", source = { registry = "https://pypi.org/simple" }, marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
-    { name = "open3d", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
-    { name = "pycollada", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
-    { name = "requests", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
-    { name = "resolve-robotics-uri-py", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
-    { name = "scipy", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
-    { name = "trimesh", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
-    { name = "usd-core", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
-]
 sim = [
     { name = "mujoco", version = "3.11.0", source = { registry = "https://pypi.org/simple" }, marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
     { name = "mujoco-warp", version = "3.11.0", source = { registry = "https://pypi.org/simple" }, marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
