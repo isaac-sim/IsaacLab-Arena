@@ -111,10 +111,10 @@ class Object(RootedObjectBase):
         # at the root of the USD file. To be robust to this, we find the shallowest rigid body and add the
         # contact sensor to it.
         contact_sensor_prim_path = self.get_contact_sensor_prim_path()
-        # There are also cases where the contact against object does not have its rigid body at the root.
-        # In that case, we also need to find the shallowest rigid body.
         if isinstance(contact_against_object, Object):
             # Handles Object and its subclasses, including RigidObjectSet.
+            # RigidObjectSet normalizes the USD paths for all members before spawning, so they have the same
+            # relative structure and rigid-body name. We add the contact sensor to the normalized rigid body beneath the its scene prim.
             filter_prim_paths = [contact_against_object.get_contact_sensor_prim_path()]
         elif isinstance(contact_against_object, ObjectBase):
             # Handles ObjectReference.
