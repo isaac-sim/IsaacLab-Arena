@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING
 
 from isaaclab.managers import SceneEntityCfg
 from isaaclab.sensors.contact_sensor.contact_sensor import ContactSensor
-from isaaclab.utils.math import quat_apply, quat_apply_inverse
+from isaaclab.utils.math import quat_apply_inverse
 
 from isaaclab_arena.tasks.predicates.object_settling import get_object_initial_rest_state
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
@@ -23,8 +23,7 @@ if TYPE_CHECKING:
 
 
 def object_bounds_center_over_destination(
-    T_W_O: torch.Tensor,
-    object_bounds_center_O: torch.Tensor,
+    object_centroid_W: torch.Tensor,
     T_W_D: torch.Tensor,
     destination_bounds_D: AxisAlignedBoundingBox,
 ) -> torch.Tensor:
@@ -36,11 +35,8 @@ def object_bounds_center_over_destination(
     This is a center-point test, not full-object containment.
 
     Args:
-        T_W_O: Object poses mapping points from object frame ``O`` into world
-            frame ``W``. Shape is ``(num_envs, 7)`` with quaternion order
-            ``(x, y, z, w)``.
-        object_bounds_center_O: Center of the object's bounds expressed in
-            frame ``O``. Shape is ``(num_envs, 3)``.
+        object_centroid_W: Object geometry centroid expressed in world frame
+            ``W``. Shape is ``(num_envs, 3)``.
         T_W_D: Destination poses mapping points from destination frame ``D``
             into world frame ``W``. Shape is ``(num_envs, 7)`` with quaternion
             order ``(x, y, z, w)``.
@@ -50,19 +46,17 @@ def object_bounds_center_over_destination(
     Returns:
         One Boolean result per environment.
     """
-    t_W_O, q_W_O = T_W_O[:, :3], T_W_O[:, 3:]
     t_W_D, q_W_D = T_W_D[:, :3], T_W_D[:, 3:]
 
-    object_bounds_center_W = t_W_O + quat_apply(q_W_O, object_bounds_center_O)
-    object_bounds_center_D = quat_apply_inverse(
+    object_centroid_D = quat_apply_inverse(
         q_W_D,
-        object_bounds_center_W - t_W_D,
+        object_centroid_W - t_W_D,
     )
     center_inside_horizontal_bounds = (
-        (object_bounds_center_D[:, :2] >= destination_bounds_D.min_point[:, :2])
-        & (object_bounds_center_D[:, :2] <= destination_bounds_D.max_point[:, :2])
+        (object_centroid_D[:, :2] >= destination_bounds_D.min_point[:, :2])
+        & (object_centroid_D[:, :2] <= destination_bounds_D.max_point[:, :2])
     ).all(dim=-1)
-    center_above_destination_bottom = object_bounds_center_D[:, 2] >= destination_bounds_D.min_point[:, 2]
+    center_above_destination_bottom = object_centroid_D[:, 2] >= destination_bounds_D.min_point[:, 2]
     return center_inside_horizontal_bounds & center_above_destination_bottom
 
 
@@ -143,15 +137,12 @@ def object_moving(
     object_name: str,
     velocity_threshold: float = 1e-2,
 ) -> torch.Tensor:
-    """Check whether a rigid object is moving above a velocity threshold.
+    """Check whether an object is moving above a velocity threshold.
 
     Returns True when object_name's linear speed exceeds velocity_threshold (m/s).
     """
 
-    arena_world = env.arena_world
-    object_root_linear_velocity_w = arena_world.get_root_linear_velocity_w(object_name)
-    speed = torch.linalg.vector_norm(object_root_linear_velocity_w, dim=-1)
-    return speed > velocity_threshold
+    return env.arena_world.get_max_point_speed_w(object_name) > velocity_threshold
 
 
 def objects_in_proximity(
@@ -183,11 +174,31 @@ def objects_in_proximity(
     return done
 
 
+def object_supported_by(
+    object_vertices_pos_w: torch.Tensor,
+    destination_bound: AxisAlignedBoundingBox,
+    support_tolerance: float = 0.03,
+    low_point_tolerance: float = 0.01,
+    minimum_support_fraction: float = 0.5,
+) -> torch.Tensor:
+    """Check whether enough low deformable nodes lie on the destination's top surface."""
+    low_z = object_vertices_pos_w[..., 2].amin(dim=1, keepdim=True)
+    low_mask = object_vertices_pos_w[..., 2] <= low_z + low_point_tolerance
+    near_top = torch.abs(object_vertices_pos_w[..., 2] - destination_bound.top_surface_z[:, None]) <= support_tolerance
+    inside_footprint = (
+        (object_vertices_pos_w[..., :2] >= destination_bound.min_point[:, None, :2])
+        & (object_vertices_pos_w[..., :2] <= destination_bound.max_point[:, None, :2])
+    ).all(dim=-1)
+    supported_points = low_mask & near_top & inside_footprint
+    support_fraction = supported_points.sum(dim=1) / low_mask.sum(dim=1).clamp_min(1)
+    return support_fraction >= minimum_support_fraction
+
+
 def object_on_destination(
     env: IsaacLabArenaManagerBasedRLEnv,
     object_cfg: SceneEntityCfg,
     destination_cfg: SceneEntityCfg,
-    contact_sensor_cfg: SceneEntityCfg,
+    contact_sensor_cfg: SceneEntityCfg | None,
     force_threshold: float,
     velocity_threshold: float,
     support_cone_half_angle_rad: float = math.pi / 4,
@@ -195,14 +206,15 @@ def object_on_destination(
     """Check whether an object is stably placed on its destination.
 
     The object's spawned-bounds center must be over the destination footprint
-    and above its bottom. The destination must exert an upward support force,
-    and the object's linear speed must be below the configured threshold.
+    and above its bottom, and the object's linear speed must be below the configured threshold.
+    Rigid objects must also have upward support force. Deformable objects must have enough
+    low nodal points near the destination's top surface. Destinations must be rooted objects.
 
     Args:
         env: The live Arena manager-based environment.
-        object_cfg: The rigid object being placed.
-        destination_cfg: The rigid object or scene entry receiving the object.
-        contact_sensor_cfg: The object's contact sensor filtered to the destination.
+        object_cfg: The object being placed.
+        destination_cfg: The rooted object or scene entry receiving the object.
+        contact_sensor_cfg: The object's contact sensor filtered to the destination. None for a deformable object.
         force_threshold: Minimum upward support force in newtons.
         velocity_threshold: Maximum object linear speed in meters per second.
         support_cone_half_angle_rad: Maximum angle in radians from world ``+Z`` for the support force.
@@ -212,31 +224,45 @@ def object_on_destination(
     """
 
     arena_world = env.arena_world
-    T_W_O = arena_world.get_pose_w(object_cfg.name)
-    T_W_D = arena_world.get_pose_w(destination_cfg.name)
+    assert (
+        destination_cfg.name not in env.scene.deformable_objects
+    ), "object_on_destination does not support deformable destinations"
+
     object_center_over_destination = object_bounds_center_over_destination(
-        T_W_O=T_W_O,
-        object_bounds_center_O=arena_world.get_aabb_in_local_frame(object_cfg.name).center,
-        T_W_D=T_W_D,
+        object_centroid_W=arena_world.get_centroid_w(object_cfg.name),
+        T_W_D=arena_world.get_pose_w(destination_cfg.name),
         destination_bounds_D=arena_world.get_aabb_in_local_frame(destination_cfg.name),
     )
 
-    contact_sensor: ContactSensor = env.scene[contact_sensor_cfg.name]
-    force_matrix_w = contact_sensor.data.force_matrix_w
-    assert force_matrix_w is not None, f"Contact sensor '{contact_sensor_cfg.name}' has no filtered force matrix."
-    force_matrix_w = force_matrix_w.torch
-    assert force_matrix_w.shape == (env.num_envs, 1, 1, 3), (
-        f"Contact sensor '{contact_sensor_cfg.name}' must provide one sensed body and one filtered body; "
-        f"got force shape {tuple(force_matrix_w.shape)}."
-    )
-    # The two zeros select the sensor's single sensed body and single filtered destination body.
-    support_force_on_object_w = force_matrix_w[:, 0, 0, :]
-    destination_provides_upward_support = contact_force_is_upward_support(
-        contact_force_w=support_force_on_object_w,
-        force_threshold=force_threshold,
-        support_cone_half_angle_rad=support_cone_half_angle_rad,
-    )
+    if contact_sensor_cfg:
+        # Use contact sensor for rigid objects.
+        contact_sensor: ContactSensor = env.scene[contact_sensor_cfg.name]
+        force_matrix_w = contact_sensor.data.force_matrix_w
+        assert force_matrix_w is not None, f"Contact sensor '{contact_sensor_cfg.name}' has no filtered force matrix."
+        force_matrix_w = force_matrix_w.torch
+        assert force_matrix_w.shape == (env.num_envs, 1, 1, 3), (
+            f"Contact sensor '{contact_sensor_cfg.name}' must provide one sensed body and one filtered body; "
+            f"got force shape {tuple(force_matrix_w.shape)}."
+        )
+        # The two zeros select the sensor's single sensed body and single filtered destination body.
+        support_force_on_object_w = force_matrix_w[:, 0, 0, :]
+        destination_provides_upward_support = contact_force_is_upward_support(
+            contact_force_w=support_force_on_object_w,
+            force_threshold=force_threshold,
+            support_cone_half_angle_rad=support_cone_half_angle_rad,
+        )
+    else:
+        # Use geometric support for deformable objects.
+        object_vertices_w = arena_world.get_vertices_w(object_cfg.name)
+        destination_vertices_w = arena_world.get_vertices_w(destination_cfg.name)
+        destination_bound = AxisAlignedBoundingBox(
+            min_point=destination_vertices_w.amin(dim=1),
+            max_point=destination_vertices_w.amax(dim=1),
+        )
+        destination_provides_upward_support = object_supported_by(
+            object_vertices_pos_w=object_vertices_w,
+            destination_bound=destination_bound,
+        )
 
-    object_root_linear_velocity_w = arena_world.get_root_linear_velocity_w(object_cfg.name)
-    object_moves_slowly = object_is_moving_slowly(object_root_linear_velocity_w, velocity_threshold)
+    object_moves_slowly = arena_world.get_max_point_speed_w(object_cfg.name) < velocity_threshold
     return object_center_over_destination & destination_provides_upward_support & object_moves_slowly

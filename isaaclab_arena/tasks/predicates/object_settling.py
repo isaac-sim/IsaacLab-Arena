@@ -96,35 +96,27 @@ def objects_settled(
     lin_vel_threshold: float = 1e-2,
     ang_vel_threshold: float = 5e-2,
 ) -> torch.Tensor:
-    """Check whether every named rigid object is at rest and record its first resting position.
+    """Check whether every named object is at rest and record its first resting position.
 
-    An object is at rest when both its linear speed (m/s) and its angular speed (rad/s) are below the
-    respective thresholds. The recorded rest poses are readable via ``get_object_initial_rest_state``.
+    Rigid objects use root linear and angular speed. Deformable objects use maximum nodal speed and
+    have no angular-speed condition. Recorded rest poses are readable via ``get_object_initial_rest_state``.
     """
 
     arena_world = env.arena_world
-    linear_speeds = torch.stack(
-        [
-            torch.linalg.vector_norm(arena_world.get_root_linear_velocity_w(object_name), dim=-1)
-            for object_name in object_names
-        ],
-        dim=0,
-    )
-    angular_speeds = torch.stack(
-        [
-            torch.linalg.vector_norm(arena_world.get_root_angular_velocity_w(object_name), dim=-1)
-            for object_name in object_names
-        ],
-        dim=0,
-    )
-    settled = torch.all(
-        (linear_speeds < lin_vel_threshold) & (angular_speeds < ang_vel_threshold),
-        dim=0,
-    )
+    per_object_settled = []
+    for object_name in object_names:
+        linear_speed = arena_world.get_max_point_speed_w(object_name)
+        if object_name in env.scene.deformable_objects:
+            per_object_settled.append(linear_speed < lin_vel_threshold)
+            continue
+        root_angular_velocity_w = arena_world.get_root_angular_velocity_w(object_name)
+        angular_speed = torch.linalg.vector_norm(root_angular_velocity_w, dim=-1)
+        per_object_settled.append((linear_speed < lin_vel_threshold) & (angular_speed < ang_vel_threshold))
+    settled = torch.stack(per_object_settled, dim=0).all(dim=0)
 
     recorder = get_rest_pose_recorder(env)
     for object_name in object_names:
-        object_position_w = arena_world.get_position_w(object_name)
-        recorder.record(object_name, object_position_w, settled)
+        center_position_w = arena_world.get_position_w(object_name)
+        recorder.record(object_name, center_position_w, settled)
 
     return settled
