@@ -17,7 +17,7 @@ from isaaclab_arena.environments.arena_world_scene_access import (
     _get_representative_prim_groups,
 )
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, quaternion_to_90_deg_z_quarters
-from isaaclab_arena_examples.relations.clutter.drop_poses import ClutterRegion
+from isaaclab_arena_environments.isaac_cap.clutter.drop_poses import ClutterRegion
 
 _QUARTER_TURN_TOLERANCE_RAD = 1e-3
 

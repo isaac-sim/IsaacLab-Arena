@@ -17,21 +17,25 @@ from isaaclab.utils.math import quat_error_magnitude
 
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose
-from isaaclab_arena_examples.relations.clutter.drop_poses import (
+from isaaclab_arena_environments.isaac_cap.clutter.drop_poses import (
     ClutterDropParams,
     DropOrder,
     MemberDropParams,
     OccupiedFootprint,
     compute_drop_poses,
 )
-from isaaclab_arena_examples.relations.clutter.geometry import (
+from isaaclab_arena_environments.isaac_cap.clutter.geometry import (
     dynamic_rigid_object_keys,
     region_above_support,
     resting_extents,
     spawned_geometry_is_fixed,
     spawned_rigid_body_has_gravity,
 )
-from isaaclab_arena_examples.relations.clutter.validation import ClutterSettleParams, SettleTracker, check_resting_poses
+from isaaclab_arena_environments.isaac_cap.clutter.validation import (
+    ClutterSettleParams,
+    SettleTracker,
+    check_resting_poses,
+)
 
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedEnv

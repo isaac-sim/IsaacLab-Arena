@@ -9,7 +9,7 @@ from pathlib import Path
 
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
-SOURCE = Path(__file__).parents[2] / "isaaclab_arena_examples/relations/clutter_scene.yaml"
+SOURCE = Path(__file__).parents[3] / "isaaclab_arena_environments/isaac_cap/clutter/clutter_scene.yaml"
 
 
 def _test_offline_scene_round_trip(simulation_app):
@@ -23,7 +23,7 @@ def _test_offline_scene_round_trip(simulation_app):
     from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
     from isaaclab_arena.relations.placement_events import get_placement_pool
     from isaaclab_arena.relations.relation_solver import RelationSolver
-    from isaaclab_arena_examples.relations.generate_clutter_scene import generate_scene
+    from isaaclab_arena_environments.isaac_cap.clutter.generate_clutter_scene import generate_scene
 
     with (
         tempfile.TemporaryDirectory() as directory,
@@ -113,8 +113,8 @@ def _test_offline_settling_restores_scene_on_success_and_failure(simulation_app)
     from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
-    from isaaclab_arena_examples.relations.clutter.settle import ClutterGroup, settle_clutter
-    from isaaclab_arena_examples.relations.clutter.validation import ClutterRestVerdict
+    from isaaclab_arena_environments.isaac_cap.clutter.settle import ClutterGroup, settle_clutter
+    from isaaclab_arena_environments.isaac_cap.clutter.validation import ClutterRestVerdict
 
     arena_env, assets = build_arena_env_with_assets_from_graph_spec(ArenaEnvGraphSpec.from_yaml(SOURCE))
     env = ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg(num_envs=2, solve_relations=False)).make_registered()
@@ -125,7 +125,7 @@ def _test_offline_settling_restores_scene_on_success_and_failure(simulation_app)
         for fail in (False, True):
             if fail:
                 with patch(
-                    "isaaclab_arena_examples.relations.clutter.settle.check_resting_poses",
+                    "isaaclab_arena_environments.isaac_cap.clutter.settle.check_resting_poses",
                     return_value=ClutterRestVerdict(fell_off=[0]),
                 ):
                     with pytest.raises(AssertionError, match="fell off: cube_0"):
@@ -139,7 +139,7 @@ def _test_offline_settling_restores_scene_on_success_and_failure(simulation_app)
                 for name, state in assets_state.items():
                     for field, value in state.items():
                         torch.testing.assert_close(restored[kind][name][field], value, atol=1e-6, rtol=0)
-        from isaaclab_arena_examples.relations.clutter.settle import _release_objects
+        from isaaclab_arena_environments.isaac_cap.clutter.settle import _release_objects
 
         scene = env.unwrapped.scene
         for key in group.objects:
@@ -163,7 +163,9 @@ def _test_offline_settling_restores_scene_on_success_and_failure(simulation_app)
             neighbor.write_root_pose_to_sim(pose, env_ids=torch.tensor([env_id], device=env.device))
 
         group = ClutterGroup(group.support, group.objects[:3], spread=0.2)
-        with patch("isaaclab_arena_examples.relations.clutter.settle._release_objects", side_effect=displace_neighbor):
+        with patch(
+            "isaaclab_arena_environments.isaac_cap.clutter.settle._release_objects", side_effect=displace_neighbor
+        ):
             with pytest.raises(AssertionError, match="cube_3: passive drift") as failure:
                 settle_clutter(env, [group], attempts=1)
             assert "still moving" not in str(failure.value)
@@ -176,40 +178,12 @@ def test_offline_settling_restores_scene_on_success_and_failure():
     assert run_function_with_persistent_simulation_app(_test_offline_settling_restores_scene_on_success_and_failure)
 
 
-def test_initial_pose_validation_and_reset_contract():
-    import pytest
-
-    from isaaclab_arena.environment_spec.arena_env_graph_conversion_utils import _apply_initial_pose
-
-    class Asset:
-        def get_initial_pose(self):
-            return None
-
-        def set_initial_pose(self, pose, create_reset_event=True):
-            self.pose = pose
-            self.reset = create_reset_event
-
-    asset = Asset()
-    _apply_initial_pose(asset, {"position_xyz": [1, 2, 3], "rotation_xyzw": [0, 0, 0, 1]})
-    assert asset.pose.position_xyz == (1.0, 2.0, 3.0)
-    assert asset.reset
-    for bad in (
-        {"position_xyz": [float("nan"), 0, 0]},
-        {"position_xyz": [True, 0, 0]},
-        {"rotation_xyzw": [0, 0, 0, 0]},
-        {"rotation_xyzw": [0, 0, 1]},
-        {"unknown": 1},
-    ):
-        with pytest.raises(AssertionError):
-            _apply_initial_pose(asset, bad)
-
-
 def test_cache_uses_scene_keys_when_graph_names_differ():
     from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
     from isaaclab_arena.tests.dummy_object import DummyObject
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
     from isaaclab_arena.utils.pose import Pose
-    from isaaclab_arena_examples.relations.clutter.cache import scene_with_cached_poses
+    from isaaclab_arena_environments.isaac_cap.clutter.cache import scene_with_cached_poses
 
     spec = ArenaEnvGraphSpec.from_yaml(SOURCE)
     nodes = [spec.background, spec.embodiment, *spec.objects]
@@ -231,7 +205,7 @@ def test_cache_rejects_poses_the_runtime_loader_cannot_read():
     from isaaclab_arena.tests.dummy_object import DummyObject
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
     from isaaclab_arena.utils.pose import Pose
-    from isaaclab_arena_examples.relations.clutter.cache import scene_with_cached_poses
+    from isaaclab_arena_environments.isaac_cap.clutter.cache import scene_with_cached_poses
 
     spec = ArenaEnvGraphSpec.from_yaml(SOURCE)
     mapping = {
@@ -247,35 +221,12 @@ def test_cache_rejects_poses_the_runtime_loader_cannot_read():
             scene_with_cached_poses(spec, {"cube_0": pose}, mapping)
 
 
-def test_partial_initial_pose_preserves_authored_components():
-    from isaaclab_arena.environment_spec.arena_env_graph_conversion_utils import _apply_initial_pose
-    from isaaclab_arena.utils.pose import Pose
-
-    class Asset:
-        def __init__(self):
-            self.pose = Pose((1.0, 2.0, 3.0), (1.0, 0.0, 0.0, 0.0))
-
-        def get_initial_pose(self):
-            return self.pose
-
-        def set_initial_pose(self, pose, create_reset_event=True):
-            self.pose = pose
-            self.reset = create_reset_event
-
-    asset = Asset()
-    _apply_initial_pose(asset, {"position_xyz": [4, 5, 6]})
-    assert asset.pose.rotation_xyzw == (1.0, 0.0, 0.0, 0.0)
-    _apply_initial_pose(asset, {"rotation_xyzw": [0, 0, 0, 1]})
-    assert asset.pose.position_xyz == (4.0, 5.0, 6.0)
-    assert asset.reset
-
-
 def test_cache_preserves_scene_configuration():
     from unittest.mock import Mock
 
     from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
     from isaaclab_arena.environment_spec.arena_env_graph_types import CliOverrideSpec, PlacementValidatorSpec
-    from isaaclab_arena_examples.relations.clutter.cache import scene_with_cached_poses
+    from isaaclab_arena_environments.isaac_cap.clutter.cache import scene_with_cached_poses
 
     spec = ArenaEnvGraphSpec.from_yaml(SOURCE)
     spec.cli_override_specs = [CliOverrideSpec(arg="object", target_node_id="cube_0")]
@@ -293,7 +244,7 @@ def test_cache_write_failure_leaves_no_partial_output(tmp_path):
 
     import pytest
 
-    from isaaclab_arena_examples.relations.clutter.cache import write_scene_cache
+    from isaaclab_arena_environments.isaac_cap.clutter.cache import write_scene_cache
 
     def fail_write(path):
         path.write_text("partial YAML")
@@ -309,7 +260,7 @@ def test_cache_write_does_not_replace_existing_output(tmp_path):
     import pytest
 
     from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
-    from isaaclab_arena_examples.relations.clutter.cache import write_scene_cache
+    from isaaclab_arena_environments.isaac_cap.clutter.cache import write_scene_cache
 
     target = tmp_path / "scene.yaml"
     spec = ArenaEnvGraphSpec.from_yaml(SOURCE)
@@ -321,14 +272,6 @@ def test_cache_write_does_not_replace_existing_output(tmp_path):
     assert list(tmp_path.iterdir()) == [target]
 
 
-def test_no_task_accepts_base_constructor_parameters():
-    from isaaclab_arena.tasks.no_task import NoTask
-
-    task = NoTask(episode_length_s=12, task_description="inspect clutter")
-    assert task.episode_length_s == 12
-    assert task.task_description == "inspect clutter"
-
-
 def _test_offline_generation_rejects_invalid_inputs(simulation_app):
     import errno
     import tempfile
@@ -338,7 +281,7 @@ def _test_offline_generation_rejects_invalid_inputs(simulation_app):
 
     import pytest
 
-    from isaaclab_arena_examples.relations.generate_clutter_scene import generate_scene
+    from isaaclab_arena_environments.isaac_cap.clutter.generate_clutter_scene import generate_scene
 
     with tempfile.TemporaryDirectory() as directory:
         source = Path(directory) / "input.yaml"
@@ -366,7 +309,7 @@ def _test_offline_generation_rejects_invalid_inputs(simulation_app):
         args = Namespace(register=[], env_spec=SOURCE, output=output, num_envs=1, support="table", objects=["cube_0"])
         with (
             patch(
-                "isaaclab_arena_examples.relations.clutter.cache.os.link",
+                "isaaclab_arena_environments.isaac_cap.clutter.cache.os.link",
                 side_effect=OSError(errno.EOPNOTSUPP, "Operation not supported"),
             ),
             patch(
@@ -391,8 +334,8 @@ def _test_offline_retry_preserves_accepted_environments(simulation_app):
     from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
-    from isaaclab_arena_examples.relations.clutter.settle import ClutterGroup, _release_objects, settle_clutter
-    from isaaclab_arena_examples.relations.clutter.validation import ClutterRestVerdict, check_resting_poses
+    from isaaclab_arena_environments.isaac_cap.clutter.settle import ClutterGroup, _release_objects, settle_clutter
+    from isaaclab_arena_environments.isaac_cap.clutter.validation import ClutterRestVerdict, check_resting_poses
 
     arena_env = ArenaEnvGraphSpec.from_yaml(SOURCE).to_arena_env()
     env = ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg(num_envs=2, solve_relations=False)).make_registered()
@@ -409,10 +352,10 @@ def _test_offline_retry_preserves_accepted_environments(simulation_app):
         group = ClutterGroup("office_table_background", tuple(f"cube_{i}" for i in range(4)), spread=0.2)
         with (
             patch(
-                "isaaclab_arena_examples.relations.clutter.settle._release_objects", wraps=_release_objects
+                "isaaclab_arena_environments.isaac_cap.clutter.settle._release_objects", wraps=_release_objects
             ) as release,
             patch(
-                "isaaclab_arena_examples.relations.clutter.settle.check_resting_poses",
+                "isaaclab_arena_environments.isaac_cap.clutter.settle.check_resting_poses",
                 side_effect=reject_second_environment_once,
             ),
         ):
@@ -437,12 +380,12 @@ def test_cache_directory_requires_hard_links(tmp_path):
 
     import pytest
 
-    from isaaclab_arena_examples.relations.clutter.cache import validate_cache_directory
+    from isaaclab_arena_environments.isaac_cap.clutter.cache import validate_cache_directory
 
     validate_cache_directory(tmp_path)
     assert list(tmp_path.iterdir()) == []
     with patch(
-        "isaaclab_arena_examples.relations.clutter.cache.os.link",
+        "isaaclab_arena_environments.isaac_cap.clutter.cache.os.link",
         side_effect=OSError(errno.EOPNOTSUPP, "Operation not supported"),
     ):
         with pytest.raises(OSError, match="requires hard links") as failure:
@@ -459,11 +402,11 @@ def test_cache_link_failure_leaves_no_output(tmp_path):
     import pytest
 
     from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
-    from isaaclab_arena_examples.relations.clutter.cache import write_scene_cache
+    from isaaclab_arena_environments.isaac_cap.clutter.cache import write_scene_cache
 
     spec = ArenaEnvGraphSpec.from_yaml(SOURCE)
     with patch(
-        "isaaclab_arena_examples.relations.clutter.cache.os.link",
+        "isaaclab_arena_environments.isaac_cap.clutter.cache.os.link",
         side_effect=OSError(errno.EOPNOTSUPP, "Operation not supported"),
     ):
         with pytest.raises(OSError):

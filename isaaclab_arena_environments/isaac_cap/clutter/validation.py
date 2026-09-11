@@ -13,7 +13,7 @@ from dataclasses import dataclass, field
 
 from isaaclab.utils.math import quat_error_magnitude
 
-from isaaclab_arena_examples.relations.clutter.drop_poses import ClutterRegion
+from isaaclab_arena_environments.isaac_cap.clutter.drop_poses import ClutterRegion
 
 
 @dataclass
