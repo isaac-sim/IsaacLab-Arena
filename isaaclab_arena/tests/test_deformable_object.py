@@ -10,12 +10,13 @@ import importlib.util
 import pytest
 
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
+from isaaclab_arena.utils.physics_backend import PhysicsBackend
 
 HEADLESS = True
 PYTETWILD_AVAILABLE = importlib.util.find_spec("pytetwild") is not None
 
 
-def _make_soft_cube(physics_preset, initial_pose=None):
+def _make_soft_cube(physics_backend: PhysicsBackend, initial_pose=None):
     import isaaclab.sim as sim_utils
     from isaaclab_newton.sim.schemas import NewtonDeformableBodyPropertiesCfg
     from isaaclab_newton.sim.spawners.materials import NewtonDeformableBodyMaterialCfg
@@ -24,7 +25,7 @@ def _make_soft_cube(physics_preset, initial_pose=None):
 
     from isaaclab_arena.assets.deformable_object import DeformableObject
 
-    if physics_preset == "physx":
+    if physics_backend is PhysicsBackend.PHYSX:
         deformable_props = PhysxDeformableBodyPropertiesCfg()
         collision_props = [PhysxCollisionCfg(rest_offset=0.0025, contact_offset=0.01)]
         physics_material = PhysxDeformableBodyMaterialCfg(
@@ -75,7 +76,7 @@ def _test_backend_specific_deformable_config(simulation_app) -> bool:
     from isaaclab_arena.utils.pose import Pose, PoseRange
 
     pose = Pose(position_xyz=(0.1, -0.2, 0.3), rotation_xyzw=(0.0, 0.0, 0.0, 1.0))
-    soft_cube = _make_soft_cube("physx", initial_pose=pose)
+    soft_cube = _make_soft_cube(PhysicsBackend.PHYSX, initial_pose=pose)
     cfg_name, physx_cfg = soft_cube.get_object_cfg()
 
     assert cfg_name == soft_cube.name
@@ -91,7 +92,7 @@ def _test_backend_specific_deformable_config(simulation_app) -> bool:
     assert soft_cube.get_object_cfg()[1] is physx_cfg
     assert soft_cube.get_event_cfg()[1] is not None
 
-    newton_cube = _make_soft_cube("newton", initial_pose=pose)
+    newton_cube = _make_soft_cube(PhysicsBackend.NEWTON, initial_pose=pose)
     _, newton_cfg = newton_cube.get_object_cfg()
     assert isinstance(newton_cfg.spawn.deformable_props, NewtonDeformableBodyPropertiesCfg)
     assert isinstance(newton_cfg.spawn.physics_material, NewtonDeformableBodyMaterialCfg)
@@ -115,7 +116,7 @@ def _test_backend_specific_deformable_config(simulation_app) -> bool:
     ):
         library_object = asset_type()
         assert AssetRegistry().get_asset_by_name(asset_name) is asset_type
-        assert library_object.physics_preset == "physx"
+        assert library_object.physics_preset is PhysicsBackend.PHYSX
         assert isinstance(library_object.spawner_cfg.deformable_props, PhysxDeformableBodyPropertiesCfg)
         assert isinstance(library_object.spawner_cfg.physics_material, material_type)
 
@@ -167,40 +168,26 @@ def _test_backend_specific_deformable_config(simulation_app) -> bool:
     return True
 
 
-def _test_builder_validates_deformable_preset(simulation_app) -> bool:
-    from isaaclab_newton.sim.schemas import NewtonDeformableBodyPropertiesCfg
-    from isaaclab_physx.sim.schemas import PhysxDeformableBodyPropertiesCfg
+def _test_deformable_validates_simulation_cfg(simulation_app) -> bool:
+    from isaaclab.sim import SimulationCfg
+    from isaaclab_newton.physics import MJWarpSolverCfg, NewtonCfg
+    from isaaclab_physx.physics import PhysxCfg
 
-    from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
-    from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
-    from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.scene.scene import Scene
 
-    for preset, properties_type in (
-        ("physx", PhysxDeformableBodyPropertiesCfg),
-        ("newton", NewtonDeformableBodyPropertiesCfg),
-    ):
-        soft_cube = _make_soft_cube(preset)
-        arena_env = IsaacLabArenaEnvironment(
-            name=f"{preset}_deformable_config",
-            scene=Scene(assets=[soft_cube]),
-        )
-        builder = ArenaEnvBuilder(
-            arena_env,
-            ArenaEnvBuilderCfg(num_envs=1, presets=preset, solve_relations=False),
-        )
-        env_cfg, _ = builder.compose_manager_cfg()
-        assert isinstance(env_cfg.scene.soft_cube.spawn.deformable_props, properties_type)
-
-    mismatched_builder = ArenaEnvBuilder(
-        IsaacLabArenaEnvironment(
-            name="mismatched_deformable_config",
-            scene=Scene(assets=[_make_soft_cube("physx")]),
-        ),
-        ArenaEnvBuilderCfg(num_envs=1, presets="newton", solve_relations=False),
-    )
-    with pytest.raises(ValueError, match="configured for 'physx'.*selected preset 'newton'"):
-        mismatched_builder.compose_manager_cfg()
+    sim_cfgs = {
+        PhysicsBackend.PHYSX: SimulationCfg(physics=PhysxCfg()),
+        PhysicsBackend.NEWTON: SimulationCfg(physics=NewtonCfg(solver_cfg=MJWarpSolverCfg())),
+    }
+    for asset_backend in PhysicsBackend:
+        scene = Scene(assets=[_make_soft_cube(asset_backend)])
+        for selected_backend, sim_cfg in sim_cfgs.items():
+            if asset_backend is selected_backend:
+                scene.validate_simulation_cfg(sim_cfg)
+            else:
+                match = rf"configured for '{asset_backend}'.*selected backend '{selected_backend}'"
+                with pytest.raises(AssertionError, match=match):
+                    scene.validate_simulation_cfg(sim_cfg)
     return True
 
 
@@ -300,16 +287,16 @@ def _test_deformable_reset_and_initial_pose(simulation_app) -> bool:
             Pose(position_xyz=(0.2, 0.0, 0.6), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)),
         ]
     )
-    physics_preset = "physx"
+    physics_backend = PhysicsBackend.PHYSX
     soft_cube = AssetRegistry().get_asset_by_name("deformable_cube")(instance_name="soft_cube")
     soft_cube.set_initial_pose(poses)
     arena_env = IsaacLabArenaEnvironment(
-        name=f"{physics_preset}_deformable_reset_and_initial_pose",
+        name=f"{physics_backend}_deformable_reset_and_initial_pose",
         scene=Scene(assets=[soft_cube]),
     )
     builder = ArenaEnvBuilder(
         arena_env,
-        ArenaEnvBuilderCfg(num_envs=2, presets=physics_preset, solve_relations=False),
+        ArenaEnvBuilderCfg(num_envs=2, presets=physics_backend, solve_relations=False),
     )
     env_cfg, env_kwargs = builder.compose_manager_cfg()
     assert isinstance(env_cfg.scene.soft_cube, DeformableObjectCfg)
@@ -381,7 +368,7 @@ def _test_deformable_pick_and_place_success(simulation_app) -> bool:
         assert task.contact_sensor_name is None
         assert len(env.unwrapped.scene.sensors) == 0
         success_term = task.get_termination_cfg().success
-        success = success_term.func(env, **success_term.params)
+        success = success_term.func(env.unwrapped, **success_term.params)
         torch.testing.assert_close(success, torch.ones(1, dtype=torch.bool, device=env.unwrapped.device))
     finally:
         env.close()
@@ -392,8 +379,8 @@ def test_backend_specific_deformable_config():
     assert run_function_with_persistent_simulation_app(_test_backend_specific_deformable_config, headless=HEADLESS)
 
 
-def test_builder_validates_deformable_preset():
-    assert run_function_with_persistent_simulation_app(_test_builder_validates_deformable_preset, headless=HEADLESS)
+def test_deformable_validates_simulation_cfg():
+    assert run_function_with_persistent_simulation_app(_test_deformable_validates_simulation_cfg, headless=HEADLESS)
 
 
 def test_deformable_nodal_reset_terms():

@@ -19,7 +19,6 @@ from isaaclab_tasks.utils import parse_env_cfg
 from isaaclab_teleop import IsaacTeleopCfg
 
 import isaaclab_arena_curobo  # noqa: F401
-from isaaclab_arena.assets.deformable_object import DeformableObject
 from isaaclab_arena.assets.registries import DeviceRegistry
 from isaaclab_arena.embodiments.no_embodiment import NoEmbodiment
 from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
@@ -174,18 +173,6 @@ class ArenaEnvBuilder:
                     continue
                 variation.configure_at_build_time()
 
-    def _validate_deformable_physics_presets(self) -> None:
-        """Check that every deformable object supports the selected physics preset."""
-        selected_preset = self.cfg.presets or "physx"
-        if selected_preset == "default":
-            selected_preset = "physx"
-        for asset in self.arena_env.scene.assets.values():
-            if isinstance(asset, DeformableObject) and asset.physics_preset != selected_preset:
-                raise ValueError(
-                    f"DeformableObject '{asset.name}' is configured for {asset.physics_preset!r}, "
-                    f"not the selected preset {selected_preset!r}"
-                )
-
     def _modify_recorder_cfg_dataset_filename(self, recorder_cfg: RecorderManagerBaseCfg) -> RecorderManagerBaseCfg:
         """Modify the recorder dataset filename to include the timestamp and rank."""
         base = getattr(recorder_cfg, "dataset_filename", "dataset")
@@ -245,7 +232,6 @@ class ArenaEnvBuilder:
 
         # Apply build-time variations now, before scene_cfg is materialised.
         self._apply_build_time_variations()
-        self._validate_deformable_physics_presets()
 
         # Constructing the environment by combining inputs from the scene, embodiment, and task.
         embodiment = self.arena_env.embodiment or NoEmbodiment()

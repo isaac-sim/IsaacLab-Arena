@@ -8,7 +8,7 @@
 from __future__ import annotations
 
 import torch
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from isaaclab.assets import DeformableObjectCfg
 from isaaclab.envs import ManagerBasedEnv
@@ -23,9 +23,13 @@ from isaaclab_arena.assets.object_base import ObjectBase
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.terms.events import set_deformable_object_pose, set_deformable_object_pose_per_env
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+from isaaclab_arena.utils.physics_backend import PhysicsBackend
 from isaaclab_arena.utils.pose import Pose, PosePerEnv, PoseRange
 from isaaclab_arena.utils.usd_helpers import compute_local_bounding_box_from_usd
 from isaaclab_arena.utils.velocity import Velocity
+
+if TYPE_CHECKING:
+    from isaaclab.sim import SimulationCfg
 
 
 class DeformableObject(ObjectBase):
@@ -50,15 +54,32 @@ class DeformableObject(ObjectBase):
         self.object_cfg = self._build_object_cfg()
         self._pose_event_cfg = self._build_reset_event()
 
+    def validate_simulation_cfg(self, sim_cfg: SimulationCfg) -> None:
+        """Require the physics backend used by this deformable's properties."""
+        from isaaclab_newton.physics import NewtonCfg
+        from isaaclab_physx.physics import PhysxCfg
+
+        physics_cfg = sim_cfg.physics
+        if physics_cfg is None or isinstance(physics_cfg, PhysxCfg):
+            selected_backend = PhysicsBackend.PHYSX
+        else:
+            assert isinstance(physics_cfg, NewtonCfg), f"Unsupported physics config: {type(physics_cfg).__name__}"
+            selected_backend = PhysicsBackend.NEWTON
+
+        assert self.physics_preset is selected_backend, (
+            f"DeformableObject '{self.name}' is configured for {str(self.physics_preset)!r}, "
+            f"not the selected backend {str(selected_backend)!r}"
+        )
+
     @staticmethod
-    def _infer_physics_preset(spawner_cfg: DeformableObjectSpawnerCfg) -> str:
+    def _infer_physics_preset(spawner_cfg: DeformableObjectSpawnerCfg) -> PhysicsBackend:
         """Infer the backend from the deformable properties."""
         deformable_props = spawner_cfg.deformable_props
         assert deformable_props is not None, "Deformable spawners require backend-specific deformable_props"
         if isinstance(deformable_props, PhysxDeformableBodyPropertiesCfg):
-            return "physx"
+            return PhysicsBackend.PHYSX
         if isinstance(deformable_props, NewtonDeformableBodyPropertiesCfg):
-            return "newton"
+            return PhysicsBackend.NEWTON
         raise TypeError(f"Unsupported deformable properties type: {type(deformable_props).__name__}")
 
     @staticmethod
