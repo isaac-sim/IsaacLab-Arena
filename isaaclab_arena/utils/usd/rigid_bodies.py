@@ -147,6 +147,8 @@ def find_shallowest_rigid_body_from_stage(stage: Usd.Stage, relative_to_root: bo
         default_prim = stage.GetDefaultPrim()
         assert default_prim, "A default prim is required to return a path relative to the USD default prim"
         default_prim_path = str(default_prim.GetPath())
+        # A USD reference composes only the default-prim subtree. Ignore rigid bodies outside it so
+        # an unrelated, shallower body cannot be selected instead of the referenced asset's body.
         rigid_body_prim_paths = [
             path
             for path in rigid_body_prim_paths
