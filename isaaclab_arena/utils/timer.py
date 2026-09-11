@@ -27,7 +27,6 @@ import json
 import random
 import threading
 import time
-import torch
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -145,6 +144,10 @@ class Timer:
 
     def __enter__(self) -> Timer:
         """Start the timer, qualifying its name by any enclosing timers and pushing an NVTX range."""
+        # Imported here, not at module scope: Isaac Sim must start before torch initializes, and
+        # this module is imported by entry points that run before the SimulationApp launches.
+        import torch
+
         if torch.compiler.is_compiling():
             return self
         self.qualified_name = "/".join([*_open_timer_names.names, self.name])
@@ -157,6 +160,8 @@ class Timer:
 
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         """Stop the timer, popping the NVTX range and recording the elapsed wall time."""
+        import torch
+
         if torch.compiler.is_compiling():
             return
         if Timer._sync_cuda:
