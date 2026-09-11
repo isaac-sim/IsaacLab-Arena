@@ -49,6 +49,7 @@
     <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
     <script src="../../_static/copybutton.js?v=f281be69"></script>
     <script src="../../_static/design-tabs.js?v=f930bc37"></script>
+    <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <script>DOCUMENTATION_OPTIONS.pagename = 'pages/references/performance';</script>
     <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
     <link rel="icon" href="../../_static/favicon.png"/>
@@ -568,21 +569,28 @@
                   
   <section id="performance-and-scaling">
 <span id="id1"></span><h1>Performance and scaling<a class="headerlink" href="#performance-and-scaling" title="Link to this heading">#</a></h1>
-<p>Arena can shorten an evaluation in two complementary ways. Within one Run, it can advance many
-environments together on one GPU to increase rollout throughput. Across an Experiment, OSMO can
-execute independent Runs at the same time on multiple GPUs to reduce the time needed to finish the
-complete set of Runs.</p>
+<p>Arena performance spans environment creation and evaluation execution. This page reports reference
+measurements for three parts of that workflow:</p>
+<ul class="simple">
+<li><p><strong>Parallel environments within one Run:</strong> advancing many environments together on one GPU to
+increase rollout throughput.</p></li>
+<li><p><strong>Independent Runs across GPUs:</strong> using OSMO to execute Runs concurrently and reduce the time
+needed to finish an Experiment.</p></li>
+<li><p><strong>Agentic environment generation:</strong> producing the first structured environment spec from a prompt,
+then resolving a valid spec into a pool of layouts.</p></li>
+</ul>
 <p>An environment-step is one simulation step completed by one environment. A vectorized step
 advances every parallel environment in a Run once. For example, one vectorized step with 256
 parallel environments completes 256 environment-steps.</p>
-<p>Both benchmarks below used the same camera-free workload: the DROID Rubik’s-cube-into-bowl task at
-the Maple table, the <code class="docutils literal notranslate"><span class="pre">zero_action</span></code> policy that sends zero-valued actions, and 300 vectorized
-steps per Run.</p>
+<p>The two evaluation-execution benchmarks used the same camera-free workload: the DROID
+Rubik’s-cube-into-bowl task at the Maple table, the <code class="docutils literal notranslate"><span class="pre">zero_action</span></code> policy that sends zero-valued
+actions, and 300 vectorized steps per Run. The agentic-generation benchmark uses the separate
+workload described in its section.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>These are preliminary reference measurements collected for this release. They show how this
-specific workload scaled on the named hardware; they are not performance guarantees for other
-tasks or systems.</p>
+<p>These are preliminary reference measurements collected for this release. They show how the
+specified workloads performed on the named hardware and model; they are not performance
+guarantees for other tasks or systems.</p>
 </div>
 <section id="parallel-environments-within-one-run">
 <span id="performance-parallel-environments"></span><h2>Parallel environments within one Run<a class="headerlink" href="#parallel-environments-within-one-run" title="Link to this heading">#</a></h2>
@@ -705,8 +713,8 @@ environments increase the amount of simulation work completed by each Run on its
 independent Runs lets OSMO execute more of the Experiment at the same time across available GPUs
 and worker nodes.</p>
 </section>
-<section id="benchmark-scope">
-<h2>Benchmark scope<a class="headerlink" href="#benchmark-scope" title="Link to this heading">#</a></h2>
+<section id="rollout-benchmark-scope">
+<h2>Rollout benchmark scope<a class="headerlink" href="#rollout-benchmark-scope" title="Link to this heading">#</a></h2>
 <ul class="simple">
 <li><p>The single-GPU test ran on a local engineering workstation, not a controlled performance lab
 system.</p></li>
@@ -720,9 +728,570 @@ rollout diagnostics, not GPU kernel measurements.</p></li>
 state differed between submissions.</p></li>
 </ul>
 </section>
+<section id="agentic-environment-generation">
+<span id="performance-agentic-environment-generation"></span><h2>Agentic environment generation<a class="headerlink" href="#agentic-environment-generation" title="Link to this heading">#</a></h2>
+<p>This benchmark measures the responsiveness and execution latency of Arena’s agentic environment
+generation pipeline. It answers two questions:</p>
+<ol class="arabic simple">
+<li><p>How long after a natural-language request does the agent return its first structured environment spec?</p></li>
+<li><p>How long does Arena take to turn a valid environment spec into a resolved pool of Isaac Lab layouts?</p></li>
+</ol>
+<section id="benchmark-definition">
+<h3>Benchmark definition<a class="headerlink" href="#benchmark-definition" title="Link to this heading">#</a></h3>
+<p>The benchmark reports wall-clock p50, p95, and p99 latency. Each environment and configuration was
+measured 100 times.</p>
+<p><strong>Time to first environment spec</strong> is measured from the request being sent until the first parseable,
+structured environment spec is available:</p>
+<div class="math notranslate nohighlight">
+\[t_{\text{first spec}} = t_{\text{spec available}} - t_{\text{request sent}}\]</div>
+<p><strong>Time from valid spec to resolved layouts</strong> is measured from invoking the environment run command until
+the layout pool and its object and robot placements are resolved and validated:</p>
+<div class="math notranslate nohighlight">
+\[t_{\text{resolved layouts}} = t_{\text{layout pool ready}} - t_{\text{environment run command}}\]</div>
+<p>A valid spec passes the fixed automated schema and semantic checks. SimulationApp startup is excluded from
+layout-resolution latency.</p>
+<p>The benchmark does <strong>not</strong> measure:</p>
+<ul class="simple">
+<li><p>Time to the first valid, repaired, or user-approved spec. The first-spec metric stops at the first parseable spec.</p></li>
+<li><p>Correctness, task fidelity, asset selection, semantic quality, or other model-dependent quality measures.</p></li>
+<li><p>Time spent reviewing or manually editing a generated spec, layout, task, asset choice, or placement.</p></li>
+<li><p>Human-assisted completion rate, review throughput, or time to a human-approved environment.</p></li>
+</ul>
+</section>
+<section id="benchmark-coverage">
+<h3>Benchmark coverage<a class="headerlink" href="#benchmark-coverage" title="Link to this heading">#</a></h3>
+<p>The environments vary scene complexity, object count, object source, and whether the objects are homogeneous
+or heterogeneous. Layout resolution also varies the number of parallel environments. Each parallel environment
+uses five cached layouts.</p>
+<div class="pst-scrollable-table-container"><table class="table" id="id4">
+<caption><span class="caption-text">Agentic environment generation base environments</span><a class="headerlink" href="#id4" title="Link to this table">#</a></caption>
+<colgroup>
+<col style="width: 24.0%" />
+<col style="width: 43.0%" />
+<col style="width: 33.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Environment family</p></th>
+<th class="head"><p>Base request</p></th>
+<th class="head"><p>Variants</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Tabletop homogeneous pick and place</p></td>
+<td><p>DROID picks a banana to a plate on a maple tabletop.</p></td>
+<td><p>0, 6, or 14 fruit/vegetable distractors; SimReady beverage can and basket variant</p></td>
+</tr>
+<tr class="row-odd"><td><p>Tabletop heterogeneous pick and place</p></td>
+<td><p>DROID picks fruit to a plate on a tabletop.</p></td>
+<td><p>Heterogeneous fruit object set</p></td>
+</tr>
+<tr class="row-even"><td><p>Kitchen homogeneous pick and place</p></td>
+<td><p>DROID picks a banana to a plate on a kitchen countertop. DROID is next to the countertop, on the floor.</p></td>
+<td><p>0, 6, or 14 fruit/vegetable distractors</p></td>
+</tr>
+<tr class="row-odd"><td><p>Kitchen open door</p></td>
+<td><p>DROID opens the fridge door in the kitchen. DROID is next to the fridge, on the floor.</p></td>
+<td><p>Referenced articulated fridge</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>Factors expected to affect prompt-to-spec latency include the number of objects and relations, scene complexity,
+SimReady Search API use, inference endpoint, and agentic model. Factors expected to affect layout resolution
+include GPU, layout-pool size, the number of objects and relations, homogeneous versus heterogeneous geometry,
+and scene complexity. See <a class="reference internal" href="../concepts/agentic_environment_generation/model_selection.html#agentic-env-gen-model-performance-effects"><span class="std std-ref">How Model and Endpoint Affect Generation Metrics</span></a> for how model and endpoint
+selection affect generation latency and reliability.</p>
+</section>
+<section id="prompt-to-first-environment-spec">
+<h3>Prompt to first environment spec<a class="headerlink" href="#prompt-to-first-environment-spec" title="Link to this heading">#</a></h3>
+<p>The agentic model was <code class="docutils literal notranslate"><span class="pre">openai/openai/gpt-5.6-terra</span></code> on an internal endpoint. Requests used NVIDIA campus
+Ethernet. Every environment returned a parseable first spec in all 100 trials.</p>
+<figure class="align-center" id="id5">
+<a class="reference internal image-reference" href="../../_images/agentic_env_gen_first_spec_p50.png"><img alt="Median prompt-to-first-environment-spec latency for the benchmark environments." src="../../_images/agentic_env_gen_first_spec_p50.png" style="width: 100%;" />
+</a>
+<figcaption>
+<p><span class="caption-text">Median prompt-to-first-environment-spec latency. Hatching identifies the heterogeneous-object case.</span><a class="headerlink" href="#id5" title="Link to this image">#</a></p>
+</figcaption>
+</figure>
+<div class="pst-scrollable-table-container"><table class="table" id="id6">
+<caption><span class="caption-text">Prompt-to-first-spec results</span><a class="headerlink" href="#id6" title="Link to this table">#</a></caption>
+<colgroup>
+<col style="width: 32.7%" />
+<col style="width: 10.2%" />
+<col style="width: 8.2%" />
+<col style="width: 12.2%" />
+<col style="width: 9.2%" />
+<col style="width: 9.2%" />
+<col style="width: 9.2%" />
+<col style="width: 9.2%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Environment</p></th>
+<th class="head"><p>Scene</p></th>
+<th class="head"><p>Objects</p></th>
+<th class="head"><p>Heterogeneous</p></th>
+<th class="head"><p>Success</p></th>
+<th class="head"><p>p50 (s)</p></th>
+<th class="head"><p>p95 (s)</p></th>
+<th class="head"><p>p99 (s)</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>tabletop_banana_plate_distractors_0</p></td>
+<td><p>Tabletop</p></td>
+<td><p>2</p></td>
+<td><p>No</p></td>
+<td><p>100/100</p></td>
+<td><p>4.896</p></td>
+<td><p>10.020</p></td>
+<td><p>25.582</p></td>
+</tr>
+<tr class="row-odd"><td><p>tabletop_banana_plate_distractors_6</p></td>
+<td><p>Tabletop</p></td>
+<td><p>8</p></td>
+<td><p>No</p></td>
+<td><p>100/100</p></td>
+<td><p>7.010</p></td>
+<td><p>10.586</p></td>
+<td><p>15.180</p></td>
+</tr>
+<tr class="row-even"><td><p>tabletop_banana_plate_distractors_14</p></td>
+<td><p>Tabletop</p></td>
+<td><p>16</p></td>
+<td><p>No</p></td>
+<td><p>100/100</p></td>
+<td><p>10.218</p></td>
+<td><p>14.985</p></td>
+<td><p>56.083</p></td>
+</tr>
+<tr class="row-odd"><td><p>tabletop_beverage_can_basket_simready</p></td>
+<td><p>Tabletop</p></td>
+<td><p>2</p></td>
+<td><p>No</p></td>
+<td><p>100/100</p></td>
+<td><p>9.927</p></td>
+<td><p>14.578</p></td>
+<td><p>26.546</p></td>
+</tr>
+<tr class="row-even"><td><p>tabletop_heterogeneous_fruit_plate</p></td>
+<td><p>Tabletop</p></td>
+<td><p>2</p></td>
+<td><p>Yes</p></td>
+<td><p>100/100</p></td>
+<td><p>6.341</p></td>
+<td><p>10.693</p></td>
+<td><p>37.385</p></td>
+</tr>
+<tr class="row-odd"><td><p>kitchen_banana_plate_distractors_0</p></td>
+<td><p>Kitchen</p></td>
+<td><p>2</p></td>
+<td><p>No</p></td>
+<td><p>100/100</p></td>
+<td><p>12.704</p></td>
+<td><p>16.624</p></td>
+<td><p>27.293</p></td>
+</tr>
+<tr class="row-even"><td><p>kitchen_banana_plate_distractors_6</p></td>
+<td><p>Kitchen</p></td>
+<td><p>8</p></td>
+<td><p>No</p></td>
+<td><p>100/100</p></td>
+<td><p>14.683</p></td>
+<td><p>20.607</p></td>
+<td><p>47.596</p></td>
+</tr>
+<tr class="row-odd"><td><p>kitchen_banana_plate_distractors_14</p></td>
+<td><p>Kitchen</p></td>
+<td><p>16</p></td>
+<td><p>No</p></td>
+<td><p>100/100</p></td>
+<td><p>18.105</p></td>
+<td><p>26.405</p></td>
+<td><p>74.618</p></td>
+</tr>
+<tr class="row-even"><td><p>kitchen_open_fridge_door</p></td>
+<td><p>Kitchen</p></td>
+<td><p>0</p></td>
+<td><p>No</p></td>
+<td><p>100/100</p></td>
+<td><p>8.954</p></td>
+<td><p>18.527</p></td>
+<td><p>29.514</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="valid-spec-to-resolved-layouts">
+<h3>Valid spec to resolved layouts<a class="headerlink" href="#valid-spec-to-resolved-layouts" title="Link to this heading">#</a></h3>
+<p>Layout resolution ran on an NVIDIA RTX 6000 Ada. The layout count is five times the number of parallel
+environments.</p>
+<figure class="align-center" id="id7">
+<a class="reference internal image-reference" href="../../_images/agentic_env_gen_layout_resolution_p50.png"><img alt="Median valid-spec-to-resolved-layout-pool latency by scene and number of parallel environments." src="../../_images/agentic_env_gen_layout_resolution_p50.png" style="width: 100%;" />
+</a>
+<figcaption>
+<p><span class="caption-text">Median valid-spec-to-resolved-layout-pool latency as parallel environment count increases.</span><a class="headerlink" href="#id7" title="Link to this image">#</a></p>
+</figcaption>
+</figure>
+<details class="sd-sphinx-override sd-dropdown sd-card sd-mb-3">
+<summary class="sd-summary-title sd-card-header">
+<span class="sd-summary-icon"><svg version="1.1" width="1.0em" height="1.0em" class="sd-octicon sd-octicon-table" viewBox="0 0 16 16" aria-hidden="true"><path d="M0 1.75C0 .784.784 0 1.75 0h12.5C15.216 0 16 .784 16 1.75v12.5A1.75 1.75 0 0 1 14.25 16H1.75A1.75 1.75 0 0 1 0 14.25ZM6.5 6.5v8h7.75a.25.25 0 0 0 .25-.25V6.5Zm8-1.5V1.75a.25.25 0 0 0-.25-.25H6.5V5Zm-13 1.5v7.75c0 .138.112.25.25.25H5v-8ZM5 5V1.5H1.75a.25.25 0 0 0-.25.25V5Z"></path></svg></span><span class="sd-summary-text">Detailed results</span><span class="sd-summary-state-marker sd-summary-chevron-right"><svg version="1.1" width="1.5em" height="1.5em" class="sd-octicon sd-octicon-chevron-right" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.72 18.78a.75.75 0 0 1 0-1.06L14.44 12 8.72 6.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018l6.25 6.25a.75.75 0 0 1 0 1.06l-6.25 6.25a.75.75 0 0 1-1.06 0Z"></path></svg></span></summary><div class="sd-summary-content sd-card-body docutils">
+<div class="pst-scrollable-table-container"><table class="table" id="id8">
+<caption><span class="caption-text">Valid-spec-to-resolved-layout results</span><a class="headerlink" href="#id8" title="Link to this table">#</a></caption>
+<colgroup>
+<col style="width: 32.6%" />
+<col style="width: 9.5%" />
+<col style="width: 7.4%" />
+<col style="width: 11.6%" />
+<col style="width: 6.3%" />
+<col style="width: 7.4%" />
+<col style="width: 8.4%" />
+<col style="width: 8.4%" />
+<col style="width: 8.4%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p class="sd-card-text">Environment</p></th>
+<th class="head"><p class="sd-card-text">Scene</p></th>
+<th class="head"><p class="sd-card-text">Objects</p></th>
+<th class="head"><p class="sd-card-text">Heterogeneous</p></th>
+<th class="head"><p class="sd-card-text">Envs</p></th>
+<th class="head"><p class="sd-card-text">Layouts</p></th>
+<th class="head"><p class="sd-card-text">p50 (s)</p></th>
+<th class="head"><p class="sd-card-text">p95 (s)</p></th>
+<th class="head"><p class="sd-card-text">p99 (s)</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p class="sd-card-text">tabletop_banana_plate_distractors_0</p></td>
+<td><p class="sd-card-text">Tabletop</p></td>
+<td><p class="sd-card-text">2</p></td>
+<td><p class="sd-card-text">No</p></td>
+<td><p class="sd-card-text">1</p></td>
+<td><p class="sd-card-text">5</p></td>
+<td><p class="sd-card-text">2.390</p></td>
+<td><p class="sd-card-text">3.192</p></td>
+<td><p class="sd-card-text">3.527</p></td>
+</tr>
+<tr class="row-odd"><td><p class="sd-card-text">tabletop_banana_plate_distractors_0</p></td>
+<td><p class="sd-card-text">Tabletop</p></td>
+<td><p class="sd-card-text">2</p></td>
+<td><p class="sd-card-text">No</p></td>
+<td><p class="sd-card-text">16</p></td>
+<td><p class="sd-card-text">80</p></td>
+<td><p class="sd-card-text">2.598</p></td>
+<td><p class="sd-card-text">2.957</p></td>
+<td><p class="sd-card-text">3.315</p></td>
+</tr>
+<tr class="row-even"><td><p class="sd-card-text">tabletop_banana_plate_distractors_0</p></td>
+<td><p class="sd-card-text">Tabletop</p></td>
+<td><p class="sd-card-text">2</p></td>
+<td><p class="sd-card-text">No</p></td>
+<td><p class="sd-card-text">64</p></td>
+<td><p class="sd-card-text">320</p></td>
+<td><p class="sd-card-text">3.441</p></td>
+<td><p class="sd-card-text">4.025</p></td>
+<td><p class="sd-card-text">4.377</p></td>
+</tr>
+<tr class="row-odd"><td><p class="sd-card-text">tabletop_banana_plate_distractors_0</p></td>
+<td><p class="sd-card-text">Tabletop</p></td>
+<td><p class="sd-card-text">2</p></td>
+<td><p class="sd-card-text">No</p></td>
+<td><p class="sd-card-text">256</p></td>
+<td><p class="sd-card-text">1280</p></td>
+<td><p class="sd-card-text">7.065</p></td>
+<td><p class="sd-card-text">8.606</p></td>
+<td><p class="sd-card-text">8.918</p></td>
+</tr>
+<tr class="row-even"><td><p class="sd-card-text">tabletop_banana_plate_distractors_6</p></td>
+<td><p class="sd-card-text">Tabletop</p></td>
+<td><p class="sd-card-text">8</p></td>
+<td><p class="sd-card-text">No</p></td>
+<td><p class="sd-card-text">1</p></td>
+<td><p class="sd-card-text">5</p></td>
+<td><p class="sd-card-text">5.882</p></td>
+<td><p class="sd-card-text">6.175</p></td>
+<td><p class="sd-card-text">6.270</p></td>
+</tr>
+<tr class="row-odd"><td><p class="sd-card-text">tabletop_banana_plate_distractors_6</p></td>
+<td><p class="sd-card-text">Tabletop</p></td>
+<td><p class="sd-card-text">8</p></td>
+<td><p class="sd-card-text">No</p></td>
+<td><p class="sd-card-text">16</p></td>
+<td><p class="sd-card-text">80</p></td>
+<td><p class="sd-card-text">6.609</p></td>
+<td><p class="sd-card-text">7.113</p></td>
+<td><p class="sd-card-text">7.558</p></td>
+</tr>
+<tr class="row-even"><td><p class="sd-card-text">tabletop_banana_plate_distractors_6</p></td>
+<td><p class="sd-card-text">Tabletop</p></td>
+<td><p class="sd-card-text">8</p></td>
+<td><p class="sd-card-text">No</p></td>
+<td><p class="sd-card-text">64</p></td>
+<td><p class="sd-card-text">320</p></td>
+<td><p class="sd-card-text">11.217</p></td>
+<td><p class="sd-card-text">11.759</p></td>
+<td><p class="sd-card-text">13.844</p></td>
+</tr>
+<tr class="row-odd"><td><p class="sd-card-text">tabletop_banana_plate_distractors_6</p></td>
+<td><p class="sd-card-text">Tabletop</p></td>
+<td><p class="sd-card-text">8</p></td>
+<td><p class="sd-card-text">No</p></td>
+<td><p class="sd-card-text">256</p></td>
+<td><p class="sd-card-text">1280</p></td>
+<td><p class="sd-card-text">29.394</p></td>
+<td><p class="sd-card-text">31.400</p></td>
+<td><p class="sd-card-text">31.907</p></td>
+</tr>
+<tr class="row-even"><td><p class="sd-card-text">tabletop_banana_plate_distractors_14</p></td>
+<td><p class="sd-card-text">Tabletop</p></td>
+<td><p class="sd-card-text">16</p></td>
+<td><p class="sd-card-text">No</p></td>
+<td><p class="sd-card-text">1</p></td>
+<td><p class="sd-card-text">5</p></td>
+<td><p class="sd-card-text">8.757</p></td>
+<td><p class="sd-card-text">10.257</p></td>
+<td><p class="sd-card-text">12.556</p></td>
+</tr>
+<tr class="row-odd"><td><p class="sd-card-text">tabletop_banana_plate_distractors_14</p></td>
+<td><p class="sd-card-text">Tabletop</p></td>
+<td><p class="sd-card-text">16</p></td>
+<td><p class="sd-card-text">No</p></td>
+<td><p class="sd-card-text">16</p></td>
+<td><p class="sd-card-text">80</p></td>
+<td><p class="sd-card-text">11.775</p></td>
+<td><p class="sd-card-text">13.197</p></td>
+<td><p class="sd-card-text">15.087</p></td>
+</tr>
+<tr class="row-even"><td><p class="sd-card-text">tabletop_banana_plate_distractors_14</p></td>
+<td><p class="sd-card-text">Tabletop</p></td>
+<td><p class="sd-card-text">16</p></td>
+<td><p class="sd-card-text">No</p></td>
+<td><p class="sd-card-text">64</p></td>
+<td><p class="sd-card-text">320</p></td>
+<td><p class="sd-card-text">21.933</p></td>
+<td><p class="sd-card-text">23.591</p></td>
+<td><p class="sd-card-text">24.842</p></td>
+</tr>
+<tr class="row-odd"><td><p class="sd-card-text">tabletop_banana_plate_distractors_14</p></td>
+<td><p class="sd-card-text">Tabletop</p></td>
+<td><p class="sd-card-text">16</p></td>
+<td><p class="sd-card-text">No</p></td>
+<td><p class="sd-card-text">256</p></td>
+<td><p class="sd-card-text">1280</p></td>
+<td><p class="sd-card-text">62.691</p></td>
+<td><p class="sd-card-text">64.580</p></td>
+<td><p class="sd-card-text">65.778</p></td>
+</tr>
+<tr class="row-even"><td><p class="sd-card-text">tabletop_heterogeneous_fruit_plate</p></td>
+<td><p class="sd-card-text">Tabletop</p></td>
+<td><p class="sd-card-text">2</p></td>
+<td><p class="sd-card-text">Yes</p></td>
+<td><p class="sd-card-text">1</p></td>
+<td><p class="sd-card-text">5</p></td>
+<td><p class="sd-card-text">3.234</p></td>
+<td><p class="sd-card-text">3.834</p></td>
+<td><p class="sd-card-text">4.157</p></td>
+</tr>
+<tr class="row-odd"><td><p class="sd-card-text">tabletop_heterogeneous_fruit_plate</p></td>
+<td><p class="sd-card-text">Tabletop</p></td>
+<td><p class="sd-card-text">2</p></td>
+<td><p class="sd-card-text">Yes</p></td>
+<td><p class="sd-card-text">16</p></td>
+<td><p class="sd-card-text">80</p></td>
+<td><p class="sd-card-text">3.376</p></td>
+<td><p class="sd-card-text">3.627</p></td>
+<td><p class="sd-card-text">3.779</p></td>
+</tr>
+<tr class="row-even"><td><p class="sd-card-text">tabletop_heterogeneous_fruit_plate</p></td>
+<td><p class="sd-card-text">Tabletop</p></td>
+<td><p class="sd-card-text">2</p></td>
+<td><p class="sd-card-text">Yes</p></td>
+<td><p class="sd-card-text">64</p></td>
+<td><p class="sd-card-text">320</p></td>
+<td><p class="sd-card-text">4.186</p></td>
+<td><p class="sd-card-text">4.623</p></td>
+<td><p class="sd-card-text">5.235</p></td>
+</tr>
+<tr class="row-odd"><td><p class="sd-card-text">tabletop_heterogeneous_fruit_plate</p></td>
+<td><p class="sd-card-text">Tabletop</p></td>
+<td><p class="sd-card-text">2</p></td>
+<td><p class="sd-card-text">Yes</p></td>
+<td><p class="sd-card-text">256</p></td>
+<td><p class="sd-card-text">1280</p></td>
+<td><p class="sd-card-text">7.696</p></td>
+<td><p class="sd-card-text">8.076</p></td>
+<td><p class="sd-card-text">9.833</p></td>
+</tr>
+<tr class="row-even"><td><p class="sd-card-text">kitchen_banana_plate_distractors_0</p></td>
+<td><p class="sd-card-text">Kitchen</p></td>
+<td><p class="sd-card-text">2</p></td>
+<td><p class="sd-card-text">No</p></td>
+<td><p class="sd-card-text">1</p></td>
+<td><p class="sd-card-text">5</p></td>
+<td><p class="sd-card-text">6.990</p></td>
+<td><p class="sd-card-text">7.639</p></td>
+<td><p class="sd-card-text">7.957</p></td>
+</tr>
+<tr class="row-odd"><td><p class="sd-card-text">kitchen_banana_plate_distractors_0</p></td>
+<td><p class="sd-card-text">Kitchen</p></td>
+<td><p class="sd-card-text">2</p></td>
+<td><p class="sd-card-text">No</p></td>
+<td><p class="sd-card-text">16</p></td>
+<td><p class="sd-card-text">80</p></td>
+<td><p class="sd-card-text">13.820</p></td>
+<td><p class="sd-card-text">14.357</p></td>
+<td><p class="sd-card-text">14.510</p></td>
+</tr>
+<tr class="row-even"><td><p class="sd-card-text">kitchen_banana_plate_distractors_0</p></td>
+<td><p class="sd-card-text">Kitchen</p></td>
+<td><p class="sd-card-text">2</p></td>
+<td><p class="sd-card-text">No</p></td>
+<td><p class="sd-card-text">64</p></td>
+<td><p class="sd-card-text">320</p></td>
+<td><p class="sd-card-text">36.388</p></td>
+<td><p class="sd-card-text">37.213</p></td>
+<td><p class="sd-card-text">37.648</p></td>
+</tr>
+<tr class="row-odd"><td><p class="sd-card-text">kitchen_banana_plate_distractors_0</p></td>
+<td><p class="sd-card-text">Kitchen</p></td>
+<td><p class="sd-card-text">2</p></td>
+<td><p class="sd-card-text">No</p></td>
+<td><p class="sd-card-text">256</p></td>
+<td><p class="sd-card-text">1280</p></td>
+<td><p class="sd-card-text">136.645</p></td>
+<td><p class="sd-card-text">139.830</p></td>
+<td><p class="sd-card-text">142.016</p></td>
+</tr>
+<tr class="row-even"><td><p class="sd-card-text">kitchen_banana_plate_distractors_6</p></td>
+<td><p class="sd-card-text">Kitchen</p></td>
+<td><p class="sd-card-text">8</p></td>
+<td><p class="sd-card-text">No</p></td>
+<td><p class="sd-card-text">1</p></td>
+<td><p class="sd-card-text">5</p></td>
+<td><p class="sd-card-text">12.148</p></td>
+<td><p class="sd-card-text">13.674</p></td>
+<td><p class="sd-card-text">17.569</p></td>
+</tr>
+<tr class="row-odd"><td><p class="sd-card-text">kitchen_banana_plate_distractors_6</p></td>
+<td><p class="sd-card-text">Kitchen</p></td>
+<td><p class="sd-card-text">8</p></td>
+<td><p class="sd-card-text">No</p></td>
+<td><p class="sd-card-text">16</p></td>
+<td><p class="sd-card-text">80</p></td>
+<td><p class="sd-card-text">23.967</p></td>
+<td><p class="sd-card-text">24.519</p></td>
+<td><p class="sd-card-text">24.774</p></td>
+</tr>
+<tr class="row-even"><td><p class="sd-card-text">kitchen_banana_plate_distractors_6</p></td>
+<td><p class="sd-card-text">Kitchen</p></td>
+<td><p class="sd-card-text">8</p></td>
+<td><p class="sd-card-text">No</p></td>
+<td><p class="sd-card-text">64</p></td>
+<td><p class="sd-card-text">320</p></td>
+<td><p class="sd-card-text">68.159</p></td>
+<td><p class="sd-card-text">69.435</p></td>
+<td><p class="sd-card-text">70.180</p></td>
+</tr>
+<tr class="row-odd"><td><p class="sd-card-text">kitchen_banana_plate_distractors_6</p></td>
+<td><p class="sd-card-text">Kitchen</p></td>
+<td><p class="sd-card-text">8</p></td>
+<td><p class="sd-card-text">No</p></td>
+<td><p class="sd-card-text">256</p></td>
+<td><p class="sd-card-text">1280</p></td>
+<td><p class="sd-card-text">244.293</p></td>
+<td><p class="sd-card-text">248.615</p></td>
+<td><p class="sd-card-text">250.726</p></td>
+</tr>
+<tr class="row-even"><td><p class="sd-card-text">kitchen_banana_plate_distractors_14</p></td>
+<td><p class="sd-card-text">Kitchen</p></td>
+<td><p class="sd-card-text">16</p></td>
+<td><p class="sd-card-text">No</p></td>
+<td><p class="sd-card-text">1</p></td>
+<td><p class="sd-card-text">5</p></td>
+<td><p class="sd-card-text">21.098</p></td>
+<td><p class="sd-card-text">22.358</p></td>
+<td><p class="sd-card-text">24.218</p></td>
+</tr>
+<tr class="row-odd"><td><p class="sd-card-text">kitchen_banana_plate_distractors_14</p></td>
+<td><p class="sd-card-text">Kitchen</p></td>
+<td><p class="sd-card-text">16</p></td>
+<td><p class="sd-card-text">No</p></td>
+<td><p class="sd-card-text">16</p></td>
+<td><p class="sd-card-text">80</p></td>
+<td><p class="sd-card-text">36.449</p></td>
+<td><p class="sd-card-text">37.629</p></td>
+<td><p class="sd-card-text">39.016</p></td>
+</tr>
+<tr class="row-even"><td><p class="sd-card-text">kitchen_banana_plate_distractors_14</p></td>
+<td><p class="sd-card-text">Kitchen</p></td>
+<td><p class="sd-card-text">16</p></td>
+<td><p class="sd-card-text">No</p></td>
+<td><p class="sd-card-text">64</p></td>
+<td><p class="sd-card-text">320</p></td>
+<td><p class="sd-card-text">139.507</p></td>
+<td><p class="sd-card-text">142.345</p></td>
+<td><p class="sd-card-text">146.770</p></td>
+</tr>
+<tr class="row-odd"><td><p class="sd-card-text">kitchen_banana_plate_distractors_14</p></td>
+<td><p class="sd-card-text">Kitchen</p></td>
+<td><p class="sd-card-text">16</p></td>
+<td><p class="sd-card-text">No</p></td>
+<td><p class="sd-card-text">256</p></td>
+<td><p class="sd-card-text">1280</p></td>
+<td><p class="sd-card-text">649.275</p></td>
+<td><p class="sd-card-text">661.445</p></td>
+<td><p class="sd-card-text">679.157</p></td>
+</tr>
+<tr class="row-even"><td><p class="sd-card-text">kitchen_open_fridge_door</p></td>
+<td><p class="sd-card-text">Kitchen</p></td>
+<td><p class="sd-card-text">0</p></td>
+<td><p class="sd-card-text">No</p></td>
+<td><p class="sd-card-text">1</p></td>
+<td><p class="sd-card-text">5</p></td>
+<td><p class="sd-card-text">3.234</p></td>
+<td><p class="sd-card-text">3.834</p></td>
+<td><p class="sd-card-text">4.157</p></td>
+</tr>
+<tr class="row-odd"><td><p class="sd-card-text">kitchen_open_fridge_door</p></td>
+<td><p class="sd-card-text">Kitchen</p></td>
+<td><p class="sd-card-text">0</p></td>
+<td><p class="sd-card-text">No</p></td>
+<td><p class="sd-card-text">16</p></td>
+<td><p class="sd-card-text">80</p></td>
+<td><p class="sd-card-text">3.376</p></td>
+<td><p class="sd-card-text">3.627</p></td>
+<td><p class="sd-card-text">3.779</p></td>
+</tr>
+<tr class="row-even"><td><p class="sd-card-text">kitchen_open_fridge_door</p></td>
+<td><p class="sd-card-text">Kitchen</p></td>
+<td><p class="sd-card-text">0</p></td>
+<td><p class="sd-card-text">No</p></td>
+<td><p class="sd-card-text">64</p></td>
+<td><p class="sd-card-text">320</p></td>
+<td><p class="sd-card-text">4.186</p></td>
+<td><p class="sd-card-text">4.623</p></td>
+<td><p class="sd-card-text">5.235</p></td>
+</tr>
+<tr class="row-odd"><td><p class="sd-card-text">kitchen_open_fridge_door</p></td>
+<td><p class="sd-card-text">Kitchen</p></td>
+<td><p class="sd-card-text">0</p></td>
+<td><p class="sd-card-text">No</p></td>
+<td><p class="sd-card-text">256</p></td>
+<td><p class="sd-card-text">1280</p></td>
+<td><p class="sd-card-text">7.696</p></td>
+<td><p class="sd-card-text">8.075</p></td>
+<td><p class="sd-card-text">9.833</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</details></section>
+</section>
 <section id="tested-revisions">
 <h2>Tested revisions<a class="headerlink" href="#tested-revisions" title="Link to this heading">#</a></h2>
 <ul class="simple">
+<li><p><strong>Agentic environment generation benchmark, September 4, 2026:</strong> Arena <a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/commit/f641fe9dff9492623ebd8a799d07924801a78ec2">f641fe9df</a>.</p></li>
 <li><p><strong>Single-GPU benchmark at 1, 64, and 256 environments, August 27, 2026:</strong> Arena <a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/commit/b0cd0b38e660637ee5bc7f8c962994cb1cac4852">b0cd0b38e</a>,
 Isaac Lab <a class="reference external" href="https://github.com/isaac-sim/IsaacLab/commit/af1bab4dc173ba69b08fab779c14ead61d13fd33">af1bab4dc</a>, and
 the <a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/b0cd0b38e660637ee5bc7f8c962994cb1cac4852/isaaclab_arena_environments/experiment_configs/perflab/camera_free_benchmark_experiment.yaml">camera-free benchmark configuration</a>.</p></li>
@@ -787,7 +1356,14 @@ the <a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Ar
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#parallel-environments-within-one-run">Parallel environments within one Run</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#independent-runs-across-gpus-with-osmo">Independent Runs across GPUs with OSMO</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#using-both-scaling-axes">Using both scaling axes</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#benchmark-scope">Benchmark scope</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#rollout-benchmark-scope">Rollout benchmark scope</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#agentic-environment-generation">Agentic environment generation</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#benchmark-definition">Benchmark definition</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#benchmark-coverage">Benchmark coverage</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#prompt-to-first-environment-spec">Prompt to first environment spec</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#valid-spec-to-resolved-layouts">Valid spec to resolved layouts</a></li>
+</ul>
+</li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#tested-revisions">Tested revisions</a></li>
 </ul>
   </nav></div>

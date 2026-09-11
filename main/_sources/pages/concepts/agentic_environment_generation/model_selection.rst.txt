@@ -81,10 +81,77 @@ resolution.
    The benchmark ran each of five documented prompts three times. Pass rate is the fraction of
    generated specs that matched the expected structure; runtime is the mean end-to-end
    ``generate_spec`` runtime. These results are snapshots rather than guarantees: model output is
-   non-deterministic, and service load affects runtime. On the public endpoint, overriding the
-   default with ``--model nvidia/nemotron-3-ultra-550b-a55b`` passed 9/15 runs (60%) with a
-   149.86-second mean runtime; ``--model openai/gpt-oss-20b`` passed 7/15 runs (46.7%) with a
-   333.17-second mean runtime.
+   non-deterministic, and service load affects runtime.
+
+.. _agentic-env-gen-model-performance-effects:
+
+How Model and Endpoint Affect Generation Metrics
+------------------------------------------------
+
+The model and endpoint both affect generation speed and reliability:
+
+* **Model:** affects whether a spec passes validation and how often Arena must retry. Each retry adds another
+  model call and increases runtime.
+* **Endpoint:** affects response time through network and server performance. The same model can be faster or
+  slower on different endpoints.
+
+For example, Kimi K3 passed all 15 attempts without retries on both endpoints. Its mean runtime was 25.61 seconds
+on the internal endpoint and 112.15 seconds on the public endpoint. Pass rates and retry counts also varied across
+models.
+
+.. list-table:: Model and endpoint comparison
+   :header-rows: 1
+   :widths: 13 42 13 16 16
+
+   * - Endpoint
+     - Model
+     - Pass rate
+     - Mean runtime
+     - Validation retries
+   * - Internal
+     - ``azure/anthropic/claude-opus-5``
+     - 15/15
+     - 11.71 s
+     - 0
+   * - Internal
+     - ``nvidia/zai-org/glm-5.2``
+     - 15/15
+     - 18.37 s
+     - 5
+   * - Internal
+     - ``nvidia/moonshotai/kimi-k3``
+     - 15/15
+     - 25.61 s
+     - 0
+   * - Internal
+     - ``nvidia/nvidia/nemotron-3-ultra``
+     - 9/15
+     - 24.92 s
+     - 9
+   * - Public
+     - ``moonshotai/kimi-k3``
+     - 15/15
+     - 112.15 s
+     - 0
+   * - Public
+     - ``deepseek-ai/deepseek-v4-pro-0813``
+     - 15/15
+     - 150.66 s
+     - 1
+   * - Public
+     - ``nvidia/nemotron-3-ultra-550b-a55b``
+     - 9/15
+     - 149.86 s
+     - 8
+   * - Public
+     - ``openai/gpt-oss-20b``
+     - 7/15
+     - 333.17 s
+     - 4
+
+Each row summarizes 15 attempts: five prompts run three times. The retry count is the total across those attempts.
+Mean runtime covers the full ``generate_spec`` call, so it is different from the p50 time-to-first-spec metric on
+the :ref:`performance-and-scaling` page. Results can change with model output and endpoint load.
 
 Reviewing the Generated Spec
 ----------------------------

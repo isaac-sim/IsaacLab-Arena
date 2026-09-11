@@ -660,11 +660,93 @@ resolution.</p>
 <p>The benchmark ran each of five documented prompts three times. Pass rate is the fraction of
 generated specs that matched the expected structure; runtime is the mean end-to-end
 <code class="docutils literal notranslate"><span class="pre">generate_spec</span></code> runtime. These results are snapshots rather than guarantees: model output is
-non-deterministic, and service load affects runtime. On the public endpoint, overriding the
-default with <code class="docutils literal notranslate"><span class="pre">--model</span> <span class="pre">nvidia/nemotron-3-ultra-550b-a55b</span></code> passed 9/15 runs (60%) with a
-149.86-second mean runtime; <code class="docutils literal notranslate"><span class="pre">--model</span> <span class="pre">openai/gpt-oss-20b</span></code> passed 7/15 runs (46.7%) with a
-333.17-second mean runtime.</p>
+non-deterministic, and service load affects runtime.</p>
 </div>
+</section>
+<section id="how-model-and-endpoint-affect-generation-metrics">
+<span id="agentic-env-gen-model-performance-effects"></span><h2>How Model and Endpoint Affect Generation Metrics<a class="headerlink" href="#how-model-and-endpoint-affect-generation-metrics" title="Link to this heading">#</a></h2>
+<p>The model and endpoint both affect generation speed and reliability:</p>
+<ul class="simple">
+<li><p><strong>Model:</strong> affects whether a spec passes validation and how often Arena must retry. Each retry adds another
+model call and increases runtime.</p></li>
+<li><p><strong>Endpoint:</strong> affects response time through network and server performance. The same model can be faster or
+slower on different endpoints.</p></li>
+</ul>
+<p>For example, Kimi K3 passed all 15 attempts without retries on both endpoints. Its mean runtime was 25.61 seconds
+on the internal endpoint and 112.15 seconds on the public endpoint. Pass rates and retry counts also varied across
+models.</p>
+<div class="pst-scrollable-table-container"><table class="table" id="id1">
+<caption><span class="caption-text">Model and endpoint comparison</span><a class="headerlink" href="#id1" title="Link to this table">#</a></caption>
+<colgroup>
+<col style="width: 13.0%" />
+<col style="width: 42.0%" />
+<col style="width: 13.0%" />
+<col style="width: 16.0%" />
+<col style="width: 16.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Endpoint</p></th>
+<th class="head"><p>Model</p></th>
+<th class="head"><p>Pass rate</p></th>
+<th class="head"><p>Mean runtime</p></th>
+<th class="head"><p>Validation retries</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Internal</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">azure/anthropic/claude-opus-5</span></code></p></td>
+<td><p>15/15</p></td>
+<td><p>11.71 s</p></td>
+<td><p>0</p></td>
+</tr>
+<tr class="row-odd"><td><p>Internal</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">nvidia/zai-org/glm-5.2</span></code></p></td>
+<td><p>15/15</p></td>
+<td><p>18.37 s</p></td>
+<td><p>5</p></td>
+</tr>
+<tr class="row-even"><td><p>Internal</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">nvidia/moonshotai/kimi-k3</span></code></p></td>
+<td><p>15/15</p></td>
+<td><p>25.61 s</p></td>
+<td><p>0</p></td>
+</tr>
+<tr class="row-odd"><td><p>Internal</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">nvidia/nvidia/nemotron-3-ultra</span></code></p></td>
+<td><p>9/15</p></td>
+<td><p>24.92 s</p></td>
+<td><p>9</p></td>
+</tr>
+<tr class="row-even"><td><p>Public</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">moonshotai/kimi-k3</span></code></p></td>
+<td><p>15/15</p></td>
+<td><p>112.15 s</p></td>
+<td><p>0</p></td>
+</tr>
+<tr class="row-odd"><td><p>Public</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">deepseek-ai/deepseek-v4-pro-0813</span></code></p></td>
+<td><p>15/15</p></td>
+<td><p>150.66 s</p></td>
+<td><p>1</p></td>
+</tr>
+<tr class="row-even"><td><p>Public</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">nvidia/nemotron-3-ultra-550b-a55b</span></code></p></td>
+<td><p>9/15</p></td>
+<td><p>149.86 s</p></td>
+<td><p>8</p></td>
+</tr>
+<tr class="row-odd"><td><p>Public</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">openai/gpt-oss-20b</span></code></p></td>
+<td><p>7/15</p></td>
+<td><p>333.17 s</p></td>
+<td><p>4</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>Each row summarizes 15 attempts: five prompts run three times. The retry count is the total across those attempts.
+Mean runtime covers the full <code class="docutils literal notranslate"><span class="pre">generate_spec</span></code> call, so it is different from the p50 time-to-first-spec metric on
+the <a class="reference internal" href="../../references/performance.html#performance-and-scaling"><span class="std std-ref">Performance and scaling</span></a> page. Results can change with model output and endpoint load.</p>
 </section>
 <section id="reviewing-the-generated-spec">
 <h2>Reviewing the Generated Spec<a class="headerlink" href="#reviewing-the-generated-spec" title="Link to this heading">#</a></h2>
@@ -742,6 +824,7 @@ objects, show up here and nowhere in validation.</p></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#why-spec-quality-varies">Why Spec Quality Varies</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#prompt-size-at-scale">Prompt Size at Scale</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#selecting-the-model">Selecting the Model</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#how-model-and-endpoint-affect-generation-metrics">How Model and Endpoint Affect Generation Metrics</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#reviewing-the-generated-spec">Reviewing the Generated Spec</a></li>
 </ul>
   </nav></div>
