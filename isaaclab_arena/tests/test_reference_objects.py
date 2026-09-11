@@ -108,6 +108,49 @@ def test_object_reference_caches_parent_usd_prim_path(monkeypatch):
     assert calls["open_count"] == 1
 
 
+def test_rigid_object_reference_enables_parent_contact_reporting():
+    from isaaclab.sim import UsdFileCfg
+
+    from isaaclab_arena.assets.object_reference import ObjectReference
+
+    spawn_cfg = UsdFileCfg(usd_path="/tmp/scene.usd")
+    obj_ref = ObjectReference.__new__(ObjectReference)
+    obj_ref.name = "referenced_object"
+    obj_ref.parent_asset = SimpleNamespace(object_cfg=SimpleNamespace(spawn=spawn_cfg))
+
+    obj_ref._enable_parent_contact_reporting()
+
+    assert spawn_cfg.activate_contact_sensors
+
+
+def test_object_reference_contact_sensor_finds_nested_rigid_body(tmp_path):
+    from isaaclab_arena.assets.object_reference import ObjectReference
+
+    usd_path = tmp_path / "nested_rigid.usda"
+    usd_path.write_text("""#usda 1.0
+(
+    defaultPrim = "World"
+)
+def Xform "World"
+{
+    def Xform "reference"
+    {
+        def Xform "body" (
+            prepend apiSchemas = ["PhysicsRigidBodyAPI"]
+        )
+        {
+        }
+    }
+}
+""")
+    obj_ref = ObjectReference.__new__(ObjectReference)
+    obj_ref.parent_asset = SimpleNamespace(usd_path=str(usd_path))
+    obj_ref._prim_path_in_parent_usd = "/World/reference"
+    obj_ref.prim_path = "{ENV_REGEX_NS}/scene/reference"
+
+    assert obj_ref._get_contact_sensor_prim_path() == "{ENV_REGEX_NS}/scene/reference/body"
+
+
 def test_object_reference_get_collision_mesh_extracts_referenced_prim(monkeypatch):
     """ObjectReference collision meshes are extracted from the referenced sub-prim."""
     import trimesh

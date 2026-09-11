@@ -1,0 +1,36 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+embodiment:
+  id: droid
+  registry_name: droid_abs_joint_pos
+  params: {}
+background:
+  id: foodpacking_1bin_1box_1can_robolab_exact
+  registry_name: foodpacking_1bin_1box_1can_robolab_exact
+  params: {}
+objects: []
+object_references:
+- id: cheez_it_box
+  parent_id: foodpacking_1bin_1box_1can_robolab_exact
+  prim_path: cheez_it
+  object_type: rigid
+  params: {}
+- id: bin_a06
+  parent_id: foodpacking_1bin_1box_1can_robolab_exact
+  prim_path: bin_a06
+  object_type: rigid
+  params: {}
+- id: mustard
+  parent_id: foodpacking_1bin_1box_1can_robolab_exact
+  prim_path: mustard
+  object_type: rigid
+  params: {}
+- id: tomato_soup_can
+  parent_id: foodpacking_1bin_1box_1can_robolab_exact
+  prim_path: tomato_soup_can
+  object_type: rigid
+  params: {}
+relations: []

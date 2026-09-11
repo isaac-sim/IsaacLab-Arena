@@ -1,0 +1,81 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+embodiment:
+  id: droid
+  registry_name: droid_abs_joint_pos
+  params: {}
+background:
+  id: workdesk_robolab_exact
+  registry_name: workdesk_robolab_exact
+  params: {}
+objects: []
+object_references:
+- id: computer_mouse
+  parent_id: workdesk_robolab_exact
+  prim_path: computer_mouse
+  object_type: rigid
+  params: {}
+- id: keyboard
+  parent_id: workdesk_robolab_exact
+  prim_path: keyboard
+  object_type: rigid
+  params: {}
+- id: ceramic_mug
+  parent_id: workdesk_robolab_exact
+  prim_path: ceramic_mug
+  object_type: rigid
+  params: {}
+- id: glasses
+  parent_id: workdesk_robolab_exact
+  prim_path: glasses
+  object_type: rigid
+  params: {}
+- id: lizard_figurine
+  parent_id: workdesk_robolab_exact
+  prim_path: lizard_figurine
+  object_type: rigid
+  params: {}
+- id: marker
+  parent_id: workdesk_robolab_exact
+  prim_path: marker
+  object_type: rigid
+  params: {}
+- id: remote_control
+  parent_id: workdesk_robolab_exact
+  prim_path: remote_control
+  object_type: rigid
+  params: {}
+- id: rubiks_cube
+  parent_id: workdesk_robolab_exact
+  prim_path: rubiks_cube
+  object_type: rigid
+  params: {}
+- id: smartphone
+  parent_id: workdesk_robolab_exact
+  prim_path: smartphone
+  object_type: rigid
+  params: {}
+- id: wooden_bowl
+  parent_id: workdesk_robolab_exact
+  prim_path: wooden_bowl
+  object_type: rigid
+  params: {}
+- id: yogurt_cup
+  parent_id: workdesk_robolab_exact
+  prim_path: yogurt_cup
+  object_type: rigid
+  params: {}
+- id: oatmeal_raisin_cookies
+  parent_id: workdesk_robolab_exact
+  prim_path: oatmeal_raisin_cookies
+  object_type: rigid
+  params: {}
+- id: granola_bar
+  parent_id: workdesk_robolab_exact
+  prim_path: granola_bars
+  object_type: rigid
+  params: {}
+relations: []
