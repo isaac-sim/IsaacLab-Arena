@@ -246,3 +246,75 @@ def test_direction_variation_lights_injected_directional_light():
 
     result = run_function_with_persistent_simulation_app(_test_direction_variation_lights_injected_directional_light)
     assert result
+
+
+def test_object_reference_uses_runtime_parent_name():
+    from types import SimpleNamespace
+    from unittest.mock import patch
+
+    from isaaclab_arena.environment_spec.arena_env_graph_conversion_utils import _instantiate_object_reference
+    from isaaclab_arena.environment_spec.arena_env_graph_types import ObjectReferenceSpec
+
+    parent = SimpleNamespace(name="renamed_fixture")
+    reference = ObjectReferenceSpec(id="floor", parent_id="fixture_node", prim_path="inside/floor", object_type="base")
+    with patch("isaaclab_arena.environment_spec.arena_env_graph_conversion_utils.ObjectReference") as constructor:
+        _instantiate_object_reference(reference, parent)
+    assert constructor.call_args.kwargs["prim_path"] == "{ENV_REGEX_NS}/renamed_fixture/inside/floor"
+    assert constructor.call_args.kwargs["parent_asset"] is parent
+
+
+def test_initial_pose_validation_and_reset_contract():
+    from isaaclab_arena.environment_spec.arena_env_graph_conversion_utils import _apply_initial_pose
+
+    class Asset:
+        def get_initial_pose(self):
+            return None
+
+        def set_initial_pose(self, pose, create_reset_event=True):
+            self.pose = pose
+            self.reset = create_reset_event
+
+    asset = Asset()
+    _apply_initial_pose(asset, {"position_xyz": [1, 2, 3], "rotation_xyzw": [0, 0, 0, 1]})
+    assert asset.pose.position_xyz == (1.0, 2.0, 3.0)
+    assert asset.reset
+    for bad in (
+        {"position_xyz": [float("nan"), 0, 0]},
+        {"position_xyz": [True, 0, 0]},
+        {"rotation_xyzw": [0, 0, 0, 0]},
+        {"rotation_xyzw": [0, 0, 1]},
+        {"unknown": 1},
+    ):
+        with pytest.raises(AssertionError):
+            _apply_initial_pose(asset, bad)
+
+
+def test_partial_initial_pose_preserves_authored_components():
+    from isaaclab_arena.environment_spec.arena_env_graph_conversion_utils import _apply_initial_pose
+    from isaaclab_arena.utils.pose import Pose
+
+    class Asset:
+        def __init__(self):
+            self.pose = Pose((1.0, 2.0, 3.0), (1.0, 0.0, 0.0, 0.0))
+
+        def get_initial_pose(self):
+            return self.pose
+
+        def set_initial_pose(self, pose, create_reset_event=True):
+            self.pose = pose
+            self.reset = create_reset_event
+
+    asset = Asset()
+    _apply_initial_pose(asset, {"position_xyz": [4, 5, 6]})
+    assert asset.pose.rotation_xyzw == (1.0, 0.0, 0.0, 0.0)
+    _apply_initial_pose(asset, {"rotation_xyzw": [0, 0, 0, 1]})
+    assert asset.pose.position_xyz == (4.0, 5.0, 6.0)
+    assert asset.reset
+
+
+def test_no_task_accepts_base_constructor_parameters():
+    from isaaclab_arena.tasks.no_task import NoTask
+
+    task = NoTask(episode_length_s=12, task_description="inspect scene")
+    assert task.episode_length_s == 12
+    assert task.task_description == "inspect scene"

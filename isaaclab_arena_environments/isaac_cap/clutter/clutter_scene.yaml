@@ -1,0 +1,31 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+env_name: clutter_scene
+embodiment:
+  id: robot
+  registry_name: franka_ik
+  params:
+    initial_pose:
+      position_xyz: [-1.0, 0.0, 0.0]
+background:
+  id: table
+  registry_name: office_table_background
+objects:
+- id: cube_0
+  registry_name: dex_cube
+- id: cube_1
+  registry_name: dex_cube
+- id: cube_2
+  registry_name: dex_cube
+- id: cube_3
+  registry_name: dex_cube
+relations: []
+task:
+  composition: atomic
+  description: inspect a settled clutter layout
+  subtasks:
+  - kind: NoTask
+    params: {}
