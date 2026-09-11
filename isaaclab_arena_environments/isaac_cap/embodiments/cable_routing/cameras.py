@@ -53,9 +53,7 @@ class BimanualYamCameraCfg(ArenaCameraCfg):
     """One centered top camera and one D405 below each YAM end effector."""
 
     left_wrist_camera: CameraCfg = _d405_camera(f"{{ENV_REGEX_NS}}/LeftRobot{_LINK_SIX_SUFFIX}/left_wrist_camera")
-    right_wrist_camera: CameraCfg = _d405_camera(
-        f"{{ENV_REGEX_NS}}/RightRobot{_LINK_SIX_SUFFIX}/right_wrist_camera"
-    )
+    right_wrist_camera: CameraCfg = _d405_camera(f"{{ENV_REGEX_NS}}/RightRobot{_LINK_SIX_SUFFIX}/right_wrist_camera")
     top_camera: CameraCfg = _d405_camera(
         "{ENV_REGEX_NS}/top_camera",
         position=_TOP_CAMERA_OFFSET_FROM_ROBOT_MIDPOINT,

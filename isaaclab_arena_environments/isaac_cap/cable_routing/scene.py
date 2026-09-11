@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import isaaclab.sim as sim_utils
-from isaaclab_newton.sim.schemas import NewtonCollisionPropertiesCfg
+from isaaclab_newton.sim.schemas import MujocoCollisionCfg, NewtonCollisionCfg
 
 from isaaclab_arena.assets.cable import Cable
 from isaaclab_arena.assets.object import Object
@@ -214,7 +214,10 @@ def _fixture_spawn_cfg() -> dict:
         "copy_from_source": False,
         "physics_material": make_fixture_material(),
         "rigid_props": sim_utils.RigidBodyBaseCfg(kinematic_enabled=True),
-        "collision_props": NewtonCollisionPropertiesCfg(contact_margin=0.0, contact_gap=2.0 * CONTACT_GAP),
+        "collision_props": [
+            NewtonCollisionCfg(contact_margin=0.0, contact_gap=2.0 * CONTACT_GAP),
+            MujocoCollisionCfg(solref=(0.004, 1.0)),
+        ],
     }
 
 

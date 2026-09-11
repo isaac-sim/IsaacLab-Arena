@@ -27,10 +27,10 @@ _RIGHT_APPROACH = (0.409067, 2.066704, 0.474773, 1.433090, 0.400142, 0.105784)
 _LEFT_CABLE_SEGMENT = 82
 _RIGHT_CABLE_SEGMENT = 9
 _HIGH_HOVER_CLEARANCE = 0.075
-_LOW_HOVER_CLEARANCE = 0.025
+_LOW_HOVER_CLEARANCE = 0.045
 # The lower-finger body midpoint sits above the surfaces that contact the cable.
-_GRASP_HEIGHT_OFFSET = 0.016
-_DRAG_HEIGHT_OFFSET = 0.029
+_GRASP_HEIGHT_OFFSET = 0.035
+_DRAG_HEIGHT_OFFSET = 0.035
 # The original demo continued around the peg at a 55 mm radius. Stop at a 75 mm
 # radius instead so the moving gripper never enters the peg-crossing part of that path.
 _DRAG_RADIUS = 0.075
@@ -153,14 +153,12 @@ def _build_success_cable_poses(
 
     board_half_size = torch.tensor(_SUCCESS_ROUTE_BOARD_HALF_SIZE, device=device, dtype=dtype)
     corner_offset = board_half_size - _SUCCESS_ROUTE_BOARD_MARGIN
-    corners = board_center_xy_w + torch.stack(
-        (
-            torch.stack((-corner_offset[0], -corner_offset[1])),
-            torch.stack((corner_offset[0], -corner_offset[1])),
-            torch.stack((corner_offset[0], corner_offset[1])),
-            torch.stack((-corner_offset[0], corner_offset[1])),
-        )
-    )
+    corners = board_center_xy_w + torch.stack((
+        torch.stack((-corner_offset[0], -corner_offset[1])),
+        torch.stack((corner_offset[0], -corner_offset[1])),
+        torch.stack((corner_offset[0], corner_offset[1])),
+        torch.stack((-corner_offset[0], corner_offset[1])),
+    ))
     exit_point = controls[-1]
     corner_index = (1 if float(exit_radial[0]) >= 0.0 else 0) + (2 if float(exit_radial[1]) >= 0.0 else 0)
     corner_index = (0, 1, 3, 2)[corner_index]
@@ -294,15 +292,11 @@ class CableEnvBehaviourDemo(EnvBehaviourDemo):
         assert self.env.action_space.shape == (1, 14), f"Unexpected action shape {self.env.action_space.shape}."
         self.torch = torch
 
-        left_finger_ids, _ = self.base_env.scene["left_robot"].find_bodies(
-            ["lf_down", "rf_down"], preserve_order=True
-        )
+        left_finger_ids, _ = self.base_env.scene["left_robot"].find_bodies(["lf_down", "rf_down"], preserve_order=True)
         right_finger_ids, _ = self.base_env.scene["right_robot"].find_bodies(
             ["lf_down", "rf_down"], preserve_order=True
         )
-        assert len(left_finger_ids) == 2 and len(right_finger_ids) == 2, (
-            "Each YAM must have two lower fingers."
-        )
+        assert len(left_finger_ids) == 2 and len(right_finger_ids) == 2, "Each YAM must have two lower fingers."
         self._finger_body_ids = (
             (left_finger_ids[0], left_finger_ids[1]),
             (right_finger_ids[0], right_finger_ids[1]),
@@ -325,9 +319,9 @@ class CableEnvBehaviourDemo(EnvBehaviourDemo):
                 strict=True,
             )
         )
-        assert configured_route == _SUCCESS_ROUTE, (
-            f"The success-pose generator supports {_SUCCESS_ROUTE}, got {configured_route}."
-        )
+        assert (
+            configured_route == _SUCCESS_ROUTE
+        ), f"The success-pose generator supports {_SUCCESS_ROUTE}, got {configured_route}."
 
         default_positions = self.cable.data.default_segment_pose_w.torch[0, :, :3]
         segment_lengths = torch.linalg.vector_norm(default_positions[1:] - default_positions[:-1], dim=-1)
@@ -411,15 +405,11 @@ class CableEnvBehaviourDemo(EnvBehaviourDemo):
             target_quaternion,
         )
         orientation_weight = 0.30
-        orientation_jacobian = asset.data.body_link_jacobian_w.torch[
-            :, orientation_body_id - 1, 3:6, :6
-        ]
+        orientation_jacobian = asset.data.body_link_jacobian_w.torch[:, orientation_body_id - 1, 3:6, :6]
         task_error = self.torch.cat((position_error, orientation_weight * orientation_error), dim=-1)
         jacobian = self.torch.cat((position_jacobian, orientation_weight * orientation_jacobian), dim=1)
         jacobian_t = jacobian.transpose(-1, -2)
-        task_identity = self.torch.eye(
-            jacobian.shape[1], device=position.device, dtype=position.dtype
-        ).unsqueeze(0)
+        task_identity = self.torch.eye(jacobian.shape[1], device=position.device, dtype=position.dtype).unsqueeze(0)
         pseudo_inverse = jacobian_t @ self.torch.linalg.solve(
             jacobian @ jacobian_t + 0.025**2 * task_identity,
             task_identity,
@@ -454,9 +444,7 @@ class CableEnvBehaviourDemo(EnvBehaviourDemo):
         right_gripper_start_command: float | None = None,
     ) -> None:
         """Move both lower-finger midpoints toward world-space targets."""
-        assert self._wrist_quaternions is not None, (
-            "Capture the tool-down wrist orientations before Cartesian motion."
-        )
+        assert self._wrist_quaternions is not None, "Capture the tool-down wrist orientations before Cartesian motion."
         print(f"[cable-behaviour-demo] {label}", flush=True)
         left = self.base_env.scene["left_robot"]
         right = self.base_env.scene["right_robot"]
@@ -508,12 +496,8 @@ class CableEnvBehaviourDemo(EnvBehaviourDemo):
 
     def _finger_midpoints(self):
         """Return the live lower-finger midpoint of each YAM."""
-        left = self.base_env.scene["left_robot"].data.body_link_pos_w.torch[
-            :, self._finger_body_ids[0]
-        ].mean(dim=1)
-        right = self.base_env.scene["right_robot"].data.body_link_pos_w.torch[
-            :, self._finger_body_ids[1]
-        ].mean(dim=1)
+        left = self.base_env.scene["left_robot"].data.body_link_pos_w.torch[:, self._finger_body_ids[0]].mean(dim=1)
+        right = self.base_env.scene["right_robot"].data.body_link_pos_w.torch[:, self._finger_body_ids[1]].mean(dim=1)
         return left.clone(), right.clone()
 
     def _cable_targets(self, clearance: float):
@@ -550,9 +534,9 @@ class CableEnvBehaviourDemo(EnvBehaviourDemo):
         fraction = fraction.clamp(0.0, 1.0)
         nearest_point = segment_start[:, :, None] + fraction[..., None] * segment_delta[:, :, None]
         peg_clearance = self.torch.linalg.vector_norm(peg_xy[:, None] - nearest_point, dim=-1)
-        assert bool((peg_clearance >= _GRIPPER_PEG_CLEARANCE).all().item()), (
-            f"Right-gripper path comes within {float(peg_clearance.min()):.3f} m of a peg."
-        )
+        assert bool(
+            (peg_clearance >= _GRIPPER_PEG_CLEARANCE).all().item()
+        ), f"Right-gripper path comes within {float(peg_clearance.min()):.3f} m of a peg."
         return waypoints
 
     def _hold_action(self):
@@ -579,9 +563,7 @@ class CableEnvBehaviourDemo(EnvBehaviourDemo):
             self.cable_rest_length,
         ).unsqueeze(0)
 
-        from isaaclab_arena_environments.isaac_cap.cable_routing.geometry import (
-            cable_route_success_from_geometry,
-        )
+        from isaaclab_arena_environments.isaac_cap.cable_routing.geometry import cable_route_success_from_geometry
 
         success = cable_route_success_from_geometry(
             pose[:, :, :3],
@@ -718,8 +700,7 @@ class CableEnvBehaviourDemo(EnvBehaviourDemo):
 
         release_targets = self._finger_midpoints()
         retreat_targets = tuple(
-            target + target.new_tensor((0.0, 0.0, _RETREAT_CLEARANCE))
-            for target in release_targets
+            target + target.new_tensor((0.0, 0.0, _RETREAT_CLEARANCE)) for target in release_targets
         )
         self._run_cartesian_phase(
             "retreat vertically from the cable",
@@ -736,8 +717,7 @@ class CableEnvBehaviourDemo(EnvBehaviourDemo):
         final_cable_position = self.base_env.scene["cable"].data.segment_pose_w.torch[..., :3]
         displacement = self.torch.linalg.vector_norm(final_cable_position - initial_cable_position, dim=-1).max()
         print(
-            f"[cable-behaviour-demo] cycle {cycle} physically moved the cable by up to "
-            f"{float(displacement):.3f} m",
+            f"[cable-behaviour-demo] cycle {cycle} physically moved the cable by up to {float(displacement):.3f} m",
             flush=True,
         )
 

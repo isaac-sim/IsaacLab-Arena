@@ -16,7 +16,7 @@ from isaaclab_arena.utils.pose import Pose
 
 from .actions import BimanualYamActionsCfg
 from .cameras import BimanualYamCameraCfg
-from .config import BimanualYamSceneCfg, END_EFFECTOR_BODY_NAME, make_yam_articulation_cfg
+from .config import END_EFFECTOR_BODY_NAME, BimanualYamSceneCfg, make_yam_articulation_cfg
 from .observations import BimanualYamObservationsCfg
 
 
