@@ -34,7 +34,7 @@ def _build_gear_demo_environment(variant: str):
     """Compose a gear task with the relative-IK embodiment used by this demo."""
     assert variant in ("easy", "medium"), f"Unsupported gear variant {variant!r}."
 
-    from isaaclab_arena_environments.isaac_cap.gear_insertion.embodiment import (
+    from isaaclab_arena_environments.isaac_cap.embodiments.insertion_task import (
         IndustrialFr3Robotiq2f85DifferentialIKEmbodiment,
     )
     from isaaclab_arena_environments.isaac_cap.gear_insertion.gear_medium_environment import (

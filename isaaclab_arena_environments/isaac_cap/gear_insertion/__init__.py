@@ -5,7 +5,7 @@
 
 """Isaac Cap contact-rich Factory gear-insertion environments."""
 
-from .registration import register_components
+from .. import register_components
 
 register_components()
 

@@ -23,7 +23,6 @@ _ASSET_ROOT = (
     "omniverse://isaac-dev.ov.nvidia.com/Projects/nvblox/isaac_arena/newton_envs/cap_envs/gear_assembly/assets"
 )
 
-ROBOT_ON_CART_USD_PATH = f"{_ASSET_ROOT}/industrial__fr3_robotiq_2f85_on_cart/industrial__fr3_robotiq_2f85_on_cart.usda"
 FR3_WORKCELL_TABLE_USD_PATH = f"{_ASSET_ROOT}/industrial__fr3_workcell_table/industrial__fr3_workcell_table.usda"
 HDR_SHADOW_RECEIVER_USD_PATH = f"{_ASSET_ROOT}/industrial__hdr_shadow_receiver/industrial__hdr_shadow_receiver.usda"
 GEAR_ASSET_PATHS = {
