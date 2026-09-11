@@ -76,6 +76,27 @@ def _check_upward_support_force(spatial) -> None:
     torch.testing.assert_close(result, torch.tensor([False, True, True, False, False, True, False, True]))
 
 
+def _check_deformable_support(spatial, axis_aligned_bounding_box_type) -> None:
+    """Require low nodes to be near the top and inside the destination footprint."""
+    import torch
+
+    destination_bound = axis_aligned_bounding_box_type(
+        min_point=torch.tensor([[-1.0, -0.5, 0.0]]).expand(3, 3),
+        max_point=torch.tensor([[1.0, 0.5, 0.4]]).expand(3, 3),
+    )
+    object_vertices_pos_w = torch.tensor([
+        [[-0.1, 0.0, 0.4], [0.1, 0.0, 0.4]],
+        [[1.1, 0.0, 0.4], [1.2, 0.0, 0.4]],
+        [[-0.1, 0.0, 0.4], [1.2, 0.0, 0.4]],
+    ])
+    result = spatial.object_supported_by(
+        object_vertices_pos_w,
+        destination_bound,
+        minimum_support_fraction=0.5,
+    )
+    torch.testing.assert_close(result, torch.tensor([True, False, True]))
+
+
 def _check_object_on_destination(
     spatial,
     axis_aligned_bounding_box_type,
@@ -257,10 +278,13 @@ def _check_pick_and_place_deformable_skips_contact_sensor(pick_and_place_task_ty
 
     deformable_task = pick_and_place_task_type(deformable_object, rigid_object, background)
     assert deformable_task.contact_sensor_name is None
+    assert deformable_task.contact_sensor_cfg is None
     assert deformable_task.get_scene_cfg() is None
     assert deformable_task.get_termination_cfg().success.func is object_on_destination
-    assert deformable_task.get_termination_cfg().success.params["contact_sensor_cfg"] is None
-    assert deformable_task.get_progress_objectives()[0].predicate_groups[-1].func is object_on_destination
+    success_params = deformable_task.get_termination_cfg().success.params
+    assert success_params["contact_sensor_cfg"] is None
+    progress_predicate = deformable_task.get_progress_objectives()[0].predicate_groups[-1]
+    assert progress_predicate.func is object_on_destination
 
     try:
         pick_and_place_task_type(rigid_object, deformable_object, background)
@@ -271,6 +295,7 @@ def _check_pick_and_place_deformable_skips_contact_sensor(pick_and_place_task_ty
 
     rigid_task = pick_and_place_task_type(rigid_object, rigid_object, background)
     assert rigid_task.contact_sensor_name == "contact_sensor_rigid"
+    assert rigid_task.contact_sensor_cfg.name == rigid_task.contact_sensor_name
     assert rigid_task.get_termination_cfg().success.func is object_on_destination
     assert rigid_task.get_termination_cfg().success.params["contact_sensor_cfg"].name == rigid_task.contact_sensor_name
 
@@ -285,6 +310,7 @@ def _test_object_on_destination(_simulation_app) -> bool:
 
     _check_bounds_center_over_destination(spatial, AxisAlignedBoundingBox)
     _check_upward_support_force(spatial)
+    _check_deformable_support(spatial, AxisAlignedBoundingBox)
     _check_object_on_destination(
         spatial,
         AxisAlignedBoundingBox,

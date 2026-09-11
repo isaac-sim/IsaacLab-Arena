@@ -80,8 +80,10 @@ class PickAndPlaceTask(TaskBase):
         self.destination_object = destination_object
         self.background_scene = background_scene
         self.destination_location = destination_location
-        self._uses_deformable = pick_up_object.object_type == ObjectType.DEFORMABLE
-        self.contact_sensor_name = None if self._uses_deformable else f"contact_sensor_{pick_up_object.name}"
+        self.contact_sensor_name = (
+            None if pick_up_object.object_type == ObjectType.DEFORMABLE else f"contact_sensor_{pick_up_object.name}"
+        )
+        self.contact_sensor_cfg = SceneEntityCfg(self.contact_sensor_name) if self.contact_sensor_name else None
         self.scene_config = self.make_scene_cfg()
         self.force_threshold = force_threshold
         assert velocity_threshold >= 0.0, f"velocity_threshold must be non-negative, got {velocity_threshold}"
@@ -104,15 +106,14 @@ class PickAndPlaceTask(TaskBase):
         self._apply_reachability_constraints([self.pick_up_object, self.destination_location])
 
     def make_scene_cfg(self):
-        if self._uses_deformable:
+        if self.contact_sensor_cfg is None:
             return None
-        assert self.contact_sensor_name is not None
-        contact_sensor_cfg = self.pick_up_object.get_contact_sensor_cfg(
+        sensor_cfg = self.pick_up_object.get_contact_sensor_cfg(
             contact_against_object=self.destination_location,
         )
         scene_cfg_type = make_configclass(
             "SceneCfg",
-            [(self.contact_sensor_name, type(contact_sensor_cfg), contact_sensor_cfg)],
+            [(self.contact_sensor_cfg.name, type(sensor_cfg), sensor_cfg)],
         )
         return scene_cfg_type()
 
@@ -128,9 +129,7 @@ class PickAndPlaceTask(TaskBase):
             params={
                 "object_cfg": SceneEntityCfg(self.pick_up_object.name),
                 "destination_cfg": SceneEntityCfg(self.destination_location.name),
-                "contact_sensor_cfg": (
-                    SceneEntityCfg(self.contact_sensor_name) if self.contact_sensor_name is not None else None
-                ),
+                "contact_sensor_cfg": self.contact_sensor_cfg,
                 "force_threshold": self.force_threshold,
                 "velocity_threshold": self.velocity_threshold,
                 "support_cone_half_angle_rad": self.support_cone_half_angle_rad,
@@ -174,9 +173,7 @@ class PickAndPlaceTask(TaskBase):
             object_on_destination,
             object_cfg=SceneEntityCfg(self.pick_up_object.name),
             destination_cfg=SceneEntityCfg(self.destination_location.name),
-            contact_sensor_cfg=(
-                SceneEntityCfg(self.contact_sensor_name) if self.contact_sensor_name is not None else None
-            ),
+            contact_sensor_cfg=self.contact_sensor_cfg,
             force_threshold=self.force_threshold,
             velocity_threshold=self.velocity_threshold,
             support_cone_half_angle_rad=self.support_cone_half_angle_rad,

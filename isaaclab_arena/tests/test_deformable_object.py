@@ -5,15 +5,12 @@
 
 """Configuration and backend smoke tests for deformables."""
 
-import importlib.util
-
 import pytest
 
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 from isaaclab_arena.utils.physics_backend import PhysicsBackend
 
 HEADLESS = True
-PYTETWILD_AVAILABLE = importlib.util.find_spec("pytetwild") is not None
 
 
 def _make_soft_cube(physics_backend: PhysicsBackend, initial_pose=None):
@@ -387,7 +384,6 @@ def test_deformable_nodal_reset_terms():
     assert run_function_with_persistent_simulation_app(_test_deformable_nodal_reset_terms, headless=HEADLESS)
 
 
-@pytest.mark.skipif(not PYTETWILD_AVAILABLE, reason="requires Isaac Lab's optional tetrahedralization dependencies")
 def test_deformable_reset_and_initial_pose():
     assert run_function_with_persistent_simulation_app(
         _test_deformable_reset_and_initial_pose,
@@ -395,7 +391,6 @@ def test_deformable_reset_and_initial_pose():
     )
 
 
-@pytest.mark.skipif(not PYTETWILD_AVAILABLE, reason="requires Isaac Lab's optional tetrahedralization dependencies")
 def test_deformable_pick_and_place_success():
     assert run_function_with_persistent_simulation_app(
         _test_deformable_pick_and_place_success,

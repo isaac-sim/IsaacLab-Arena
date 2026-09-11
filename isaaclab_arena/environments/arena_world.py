@@ -121,7 +121,7 @@ class ArenaWorld:
 
     def get_nodal_positions_w(self, scene_key: str) -> torch.Tensor:
         """Return deformable nodal positions in world frame with shape (num_envs, num_nodes, 3)."""
-        deformable_objects = getattr(self._scene, "deformable_objects", {})
+        deformable_objects = self._scene.deformable_objects
         assert scene_key in deformable_objects, f"'{scene_key}' must name a deformable object."
         nodal_positions_w = deformable_objects[scene_key].data.nodal_pos_w.torch
         assert (
@@ -136,7 +136,7 @@ class ArenaWorld:
 
     def get_nodal_velocities_w(self, scene_key: str) -> torch.Tensor:
         """Return deformable nodal velocities in world frame with shape (num_envs, num_nodes, 3)."""
-        deformable_objects = getattr(self._scene, "deformable_objects", {})
+        deformable_objects = self._scene.deformable_objects
         assert scene_key in deformable_objects, f"'{scene_key}' must name a deformable object."
         nodal_velocities_w = deformable_objects[scene_key].data.nodal_vel_w.torch
         assert (
@@ -193,12 +193,12 @@ class ArenaWorld:
         return centroid_W
 
     def get_average_speed_w(self, scene_key: str) -> torch.Tensor:
-        """Return mean nodal speed for a deformable, or root linear speed for a rooted object.
+        """Return norm of mean nodal velocity for a deformable, or root linear speed for a rooted object.
 
         The tensor has shape (num_envs,).
         """
         scene = self._scene
-        deformable_objects = getattr(scene, "deformable_objects", {})
+        deformable_objects = scene.deformable_objects
         if scene_key in deformable_objects:
             average_velocity_w = deformable_objects[scene_key].data.root_vel_w.torch
         else:

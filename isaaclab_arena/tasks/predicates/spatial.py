@@ -181,11 +181,15 @@ def object_supported_by(
     low_point_tolerance: float = 0.01,
     minimum_support_fraction: float = 0.5,
 ) -> torch.Tensor:
-    """Check deformable support using low nodal points and destination bounds."""
+    """Check whether enough low deformable nodes lie on the destination's top surface."""
     low_z = object_vertices_pos_w[..., 2].amin(dim=1, keepdim=True)
     low_mask = object_vertices_pos_w[..., 2] <= low_z + low_point_tolerance
     near_top = torch.abs(object_vertices_pos_w[..., 2] - destination_bound.top_surface_z[:, None]) <= support_tolerance
-    supported_points = low_mask & near_top
+    inside_footprint = (
+        (object_vertices_pos_w[..., :2] >= destination_bound.min_point[:, None, :2])
+        & (object_vertices_pos_w[..., :2] <= destination_bound.max_point[:, None, :2])
+    ).all(dim=-1)
+    supported_points = low_mask & near_top & inside_footprint
     support_fraction = supported_points.sum(dim=1) / low_mask.sum(dim=1).clamp_min(1)
     return support_fraction >= minimum_support_fraction
 
