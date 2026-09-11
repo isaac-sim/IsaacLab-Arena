@@ -107,6 +107,9 @@ class Object(RootedObjectBase):
         return self.prim_path + rigid_body_relative_path
 
     def get_contact_sensor_cfg(self, contact_against_object: ObjectBase | None = None) -> ContactSensorCfg:
+        # We override this function from the parent class because some assets do not have their rigid body
+        # at the root of the USD file. To be robust to this, we find the shallowest rigid body and add the
+        # contact sensor to it.
         contact_sensor_prim_path = self.get_contact_sensor_prim_path()
         # There are also cases where the contact against object does not have its rigid body at the root.
         # In that case, we also need to find the shallowest rigid body.
