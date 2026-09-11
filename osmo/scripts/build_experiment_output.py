@@ -9,7 +9,7 @@ The input JSON maps each Run name to its Experiment Runner task's output directo
 its ``<run-name>/...`` output is included. Completed Run directories are copied into the
 ``<experiment-output>/<run-name>`` layout, while failed results are preserved without partial Run artifacts. The
 ``arena_experiment_result.json`` and ``index.html`` report list every Run execution and include episode details only
-from completed Runs.
+from completed Runs. ``arena_experiment_timings.json`` holds each completed Run's timings and their per-timer totals.
 """
 
 from __future__ import annotations
@@ -20,8 +20,9 @@ import shutil
 from collections.abc import Mapping
 from pathlib import Path
 
-from isaaclab_arena.evaluation.arena_experiment_result import ArenaExperimentResult
+from isaaclab_arena.evaluation.arena_experiment_result import ARENA_EXPERIMENT_TIMINGS_FILENAME, ArenaExperimentResult
 from isaaclab_arena.evaluation.arena_run import RunStatus
+from isaaclab_arena.evaluation.experiment_timings import aggregate_experiment_timings
 from isaaclab_arena.visualization.report import RunExecutionReport, build_report
 
 EXPERIMENT_RUNNER_RESULT_FILE_NAME = "experiment_runner_result.json"
@@ -147,6 +148,15 @@ def collect_run_outputs_into_experiment_output(
             experiment_runner_result_path,
             destination_run_output_directory / EXPERIMENT_RUNNER_RESULT_FILE_NAME,
         )
+        # The runner writes its timings beside the Run directory, so copy them in alongside the episode results.
+        source_run_timings_path = experiment_runner_output_directory / ARENA_EXPERIMENT_TIMINGS_FILENAME
+        assert (
+            source_run_timings_path.is_file()
+        ), f"Completed Run '{run_name}' is missing its timings file: '{source_run_timings_path}'"
+        shutil.copy2(
+            source_run_timings_path,
+            destination_run_output_directory / ARENA_EXPERIMENT_TIMINGS_FILENAME,
+        )
     return (
         sorted(run_execution_reports, key=lambda run_execution_report: run_execution_report.run_name),
         run_metadata_by_name,
@@ -173,6 +183,11 @@ def build_experiment_output(
         experiment_output_directory,
     )
     ArenaExperimentResult(experiment_output_directory, run_metadata_by_name).write()
+    experiment_timings_path = aggregate_experiment_timings(
+        experiment_output_directory,
+        [report.run_name for report in run_execution_reports if report.status is RunStatus.COMPLETED],
+    )
+    print(f"Wrote Arena Experiment timings to: {experiment_timings_path}")
     return build_report(experiment_output_directory, run_executions=run_execution_reports)
 
 

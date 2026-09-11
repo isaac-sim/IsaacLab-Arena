@@ -23,6 +23,7 @@ if TYPE_CHECKING:
     from isaaclab_arena.evaluation.arena_run import ArenaRunCfg
 
 ARENA_EXPERIMENT_RESULT_FILENAME = "arena_experiment_result.json"
+ARENA_EXPERIMENT_TIMINGS_FILENAME = "arena_experiment_timings.json"
 
 
 class ArenaEpisodeResultData(TypedDict):

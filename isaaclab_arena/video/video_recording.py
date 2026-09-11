@@ -80,6 +80,12 @@ def wrap_env_for_video(
 
     os.makedirs(video_cfg.video_base_dir, exist_ok=True)
 
+    # Wrap the env in a step timer before adding the camera recording to get a without-recording
+    # step measurement.
+    from isaaclab_arena.utils.env_step_timer import EnvStepTimerWrapper
+
+    env = EnvStepTimerWrapper(env, timer_name="sim_step")
+
     # Record the kit viewport (via env.render()).
     if video_cfg.record_viewport_video:
         from gymnasium.wrappers import RecordVideo

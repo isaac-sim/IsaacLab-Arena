@@ -136,7 +136,60 @@ class TestTimer:
                 pass
 
         stats = get_timer_stats()
-        assert stats["outer"].total_ms >= stats["inner"].total_ms
+        assert stats["outer"].total_ms >= stats["outer/inner"].total_ms
+
+    def test_nested_name_is_qualified_by_its_enclosing_timers(self) -> None:
+        """Verify each nesting level appends its name to the enclosing name."""
+        with Timer("a"):
+            with Timer("b"):
+                with Timer("c"):
+                    pass
+
+        assert set(get_timer_stats()) == {"a", "a/b", "a/b/c"}
+
+    def test_same_name_records_separately_per_nesting_position(self) -> None:
+        """Verify a name used at two depths does not collapse into one entry."""
+        with Timer("step"):
+            pass
+        with Timer("outer"):
+            with Timer("step"):
+                pass
+
+        stats = get_timer_stats()
+        assert stats["step"].count == 1
+        assert stats["outer/step"].count == 1
+
+    def test_siblings_share_the_enclosing_name(self) -> None:
+        """Verify timers nested side by side each hang off the same enclosing name."""
+        with Timer("step"):
+            with Timer("policy"):
+                pass
+            with Timer("env"):
+                pass
+
+        assert set(get_timer_stats()) == {"step", "step/policy", "step/env"}
+
+    def test_nesting_unwinds_when_an_inner_timer_raises(self) -> None:
+        """Verify a timer that exits on an exception still leaves the enclosing name correct."""
+        with Timer("outer"):
+            with pytest.raises(ValueError, match="inner error"):
+                with Timer("failing"):
+                    raise ValueError("inner error")
+            with Timer("after"):
+                pass
+
+        assert set(get_timer_stats()) == {"outer", "outer/failing", "outer/after"}
+
+    def test_name_returns_to_top_level_after_the_enclosing_timer_exits(self) -> None:
+        """Verify the enclosing name is not leaked into timers entered after it closes."""
+        with Timer("outer"):
+            with Timer("inner"):
+                pass
+
+        with Timer("later"):
+            pass
+
+        assert "later" in get_timer_stats()
 
     def test_exception_propagation(self) -> None:
         """Verify exceptions propagate and stats are still recorded."""
