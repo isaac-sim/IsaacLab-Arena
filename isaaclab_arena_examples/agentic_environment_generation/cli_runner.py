@@ -38,7 +38,11 @@ import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from isaaclab_arena.agentic_environment_generation.inference_backend import DEFAULT_ENDPOINT_NAME, INFERENCE_ENDPOINTS
+from isaaclab_arena.agentic_environment_generation.inference_backend import (
+    DEFAULT_ENDPOINT_NAME,
+    INFERENCE_ENDPOINTS,
+    require_inference_api_key,
+)
 from isaaclab_arena.agentic_environment_generation.spec_io import (
     DEFAULT_AGENTIC_OUTPUT_DIR,
     write_env_graph_spec,
@@ -376,6 +380,8 @@ def main() -> int:
             build_env_and_run_policy(_resolved_graph_spec_yaml(args_cli), args_cli)
         return 0
 
+    # Validate inference endpoint credentials before full mode starts Isaac Sim.
+    require_inference_api_key(args_cli.inference_endpoint)
     with SimulationAppContext(args_cli):
         env_graph_spec_path = resolve_env_spec(args_cli)
         if env_graph_spec_path is None:
