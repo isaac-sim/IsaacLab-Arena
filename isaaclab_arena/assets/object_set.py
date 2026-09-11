@@ -7,10 +7,8 @@ import torch
 
 import isaaclab.sim as sim_utils
 from isaaclab.assets import RigidObjectCfg
-from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
 
 from isaaclab_arena.assets.object import Object
-from isaaclab_arena.assets.object_base import ObjectBase
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.assets.object_utils import detect_object_type
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
@@ -150,10 +148,9 @@ class RigidObjectSet(Object):
         max_pts = torch.stack([bounding_boxes[idx].max_point[0] for idx in self.variant_indices_by_env], dim=0)
         return AxisAlignedBoundingBox(min_point=min_pts, max_point=max_pts)
 
-    def get_contact_sensor_cfg(self, contact_against_object: ObjectBase | None = None) -> ContactSensorCfg:
-        # We assume that by here, our USDs have been modified to be compatible with each other
-        # and we can use the canonical first member USD to find the shallowest rigid body.
-        return super().get_contact_sensor_cfg(contact_against_object, usd_path=self.member_usd_paths[0])
+    def get_contact_sensor_prim_path(self) -> str:
+        """Return the contact-sensor path shared by all normalized member USDs."""
+        return self._get_contact_sensor_prim_path_from_usd(self.member_usd_paths[0])
 
     def _generate_variant_indices(self, num_envs: int, variant_seed: int | None = None) -> list[int]:
         """Return one member index per env.

@@ -75,3 +75,20 @@ def test_find_shallowest_rigid_body_from_stage_raises_on_a_tie(tmp_path: Path):
     stage.GetDefaultPrim().GetVariantSets().GetVariantSet("Physics").SetVariantSelection("physics")
     with pytest.raises(ValueError, match="Expected only one"):
         find_shallowest_rigid_body_from_stage(stage)
+
+
+def test_find_shallowest_rigid_body_is_relative_to_nested_default_prim(tmp_path: Path):
+    """The suffix should ignore bodies that do not compose through the default prim."""
+    from pxr import Usd, UsdGeom, UsdPhysics
+
+    usd_path = tmp_path / "nested_default_prim.usda"
+    stage = Usd.Stage.CreateNew(str(usd_path))
+    default_prim = UsdGeom.Xform.Define(stage, "/Outer/Asset")
+    stage.SetDefaultPrim(default_prim.GetPrim())
+    rigid_body = UsdGeom.Xform.Define(stage, "/Outer/Asset/rigid_body")
+    UsdPhysics.RigidBodyAPI.Apply(rigid_body.GetPrim())
+    auxiliary_body = UsdGeom.Xform.Define(stage, "/Auxiliary")
+    UsdPhysics.RigidBodyAPI.Apply(auxiliary_body.GetPrim())
+    stage.GetRootLayer().Save()
+
+    assert find_shallowest_rigid_body(str(usd_path), relative_to_root=True) == "/rigid_body"

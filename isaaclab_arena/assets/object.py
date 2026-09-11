@@ -88,17 +88,14 @@ class Object(RootedObjectBase):
         self.reset_pose = True
         self._pose_event_cfg = self._build_reset_event()
 
-    def get_contact_sensor_cfg(
-        self, contact_against_object: ObjectBase | None = None, usd_path: str | None = None
-    ) -> ContactSensorCfg:
+    def get_contact_sensor_prim_path(self) -> str:
+        """Return the scene prim path where this object's contact sensor is attached."""
+        assert self.usd_path is not None, f"No USD path available for {self.name}. Can't add contact sensor."
+        return self._get_contact_sensor_prim_path_from_usd(self.usd_path)
+
+    def _get_contact_sensor_prim_path_from_usd(self, usd_path: str) -> str:
+        """Return the contact-sensor prim path for the rigid body in a USD."""
         assert self.object_type == ObjectType.RIGID, "Contact sensor is only supported for rigid objects"
-        # We override this function from the parent class because in some assets, the rigid body
-        # is not at the root of the USD file. To be robust to this, we find the shallowest rigid body
-        # and add the contact sensor to it.
-        # TODO(alexmillane, 2026.01.29): This capability to search for the correct place
-        # to add the contact sensor is not yet supported for ObjectReferences and RigidObjectSet.
-        # For these objects we just (try to) add the contact sensor to the root prim.
-        usd_path = usd_path or self.usd_path
         rigid_body_relative_path = find_shallowest_rigid_body(
             usd_path,
             relative_to_root=True,
@@ -107,27 +104,21 @@ class Object(RootedObjectBase):
         assert (
             rigid_body_relative_path is not None
         ), f"No rigid body found in {self.name} USD file: {usd_path}. Can't add contact sensor."
-        contact_sensor_prim_path = self.prim_path + rigid_body_relative_path
-        # There are also cases where the contact against object does not have its rigid body at the root.
-        # In that case, we also need to find the shallowest rigid body.
-        # NOTE(alexmillane, 2026.04.10): For now we only support this for Object, but in the future we
-        # could support this for ObjectReference and RigidObjectSet. For now, those object types
-        # are assumed to have their rigid body at the their prim path.
+        return self.prim_path + rigid_body_relative_path
+
+    def get_contact_sensor_cfg(self, contact_against_object: ObjectBase | None = None) -> ContactSensorCfg:
+        # We override this function from the parent class because some assets do not have their rigid body
+        # at the root of the USD file. To be robust to this, we find the shallowest rigid body and add the
+        # contact sensor to it.
+        contact_sensor_prim_path = self.get_contact_sensor_prim_path()
         if isinstance(contact_against_object, Object):
-            assert (
-                contact_against_object.object_type == ObjectType.RIGID
-            ), "Contact sensor is only supported for rigid objects"
-            contact_against_relative_path = find_shallowest_rigid_body(
-                contact_against_object.usd_path,
-                relative_to_root=True,
-                variants=(contact_against_object.spawn_cfg_addon or {}).get("variants"),
-            )
-            assert contact_against_relative_path is not None, (
-                f"No rigid body found in {contact_against_object.name} USD file: {contact_against_object.usd_path}."
-                " Can't add contact sensor."
-            )
-            filter_prim_paths = [contact_against_object.get_prim_path() + contact_against_relative_path]
+            # Handles Object and its subclasses, including RigidObjectSet.
+            # RigidObjectSet normalizes the USD paths for all members before spawning, so they have the same
+            # relative structure and rigid-body name. We add the contact sensor to the normalized rigid body beneath the its scene prim.
+            filter_prim_paths = [contact_against_object.get_contact_sensor_prim_path()]
         elif isinstance(contact_against_object, ObjectBase):
+            # Handles ObjectReference.
+            # NOTE(alexmillane, 2026.04.10): ObjectReference is assumed to have its rigid body at its scene prim path.
             filter_prim_paths = [contact_against_object.get_prim_path()]
         elif contact_against_object is None:
             filter_prim_paths = []

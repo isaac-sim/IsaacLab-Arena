@@ -55,6 +55,7 @@ def _test_object_set_samples_and_stores_variant_indices(simulation_app):
         patch("isaaclab_arena.assets.object_set.torch.randint", return_value=torch.tensor(assigned_variant_indices)),
     ):
         obj_set = RigidObjectSet(name="cans", objects=[can_a, can_b], random_choice=True)
+        destination_set = RigidObjectSet(name="bins", objects=[can_b, can_a], random_choice=True)
         assert obj_set.variant_indices_by_env is None
         obj_set.assign_variants(num_envs=4)
         assert obj_set.variant_indices_by_env == assigned_variant_indices
@@ -68,6 +69,11 @@ def _test_object_set_samples_and_stores_variant_indices(simulation_app):
         contact_sensor_cfg = obj_set.get_contact_sensor_cfg()
     find_rigid_body.assert_called_once_with(can_a.usd_path, relative_to_root=True, variants=None)
     assert contact_sensor_cfg.prim_path == f"{obj_set.prim_path}/rigid"
+
+    with patch("isaaclab_arena.assets.object.find_shallowest_rigid_body", return_value="/rigid") as find_rigid_body:
+        contact_sensor_cfg = obj_set.get_contact_sensor_cfg(contact_against_object=destination_set)
+    assert [call.args[0] for call in find_rigid_body.call_args_list] == [can_a.usd_path, can_b.usd_path]
+    assert contact_sensor_cfg.filter_prim_paths_expr == [f"{destination_set.prim_path}/rigid"]
 
     per_env_bbox = obj_set.get_bounding_box_per_env(num_envs=4)
     assert torch.allclose(per_env_bbox.max_point[0], bbox_b.max_point[0])
