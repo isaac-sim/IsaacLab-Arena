@@ -11,10 +11,10 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from isaaclab_arena.environments.arena_env_builder_cfg import PhysicsBackend
 from isaaclab_arena.tests.utils.constants import TestConstants
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 from isaaclab_arena.tests.utils.subprocess import run_subprocess
+from isaaclab_arena.utils.physics_backend import PhysicsBackend
 
 if TYPE_CHECKING:
     import torch
