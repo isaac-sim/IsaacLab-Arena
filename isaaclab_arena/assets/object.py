@@ -94,8 +94,13 @@ class Object(RootedObjectBase):
         assert self.object_type == ObjectType.RIGID, "Contact sensor is only supported for rigid objects"
         # We override this function from the parent class because in some assets, the rigid body
         # is not at the root of the USD file. To be robust to this, we find the shallowest rigid body
-        # and add the contact sensor to it.
-        # ObjectReferences use their root prim. RigidObjectSet passes a canonical member USD.
+        # and add the contact sensor to it. This supports adding contact sensor to Object.
+        # For RigidObjectSet, we normalize the USD paths for all members before spawning, so they have the same
+        # relative structure and rigid-body name. We add the contact sensor to the normalized rigid body beneath the its scene prim.
+
+        # TODO(alexmillane, 2026.01.29): This capabaility to search for the correct place to add the contact sensor
+        # is not supported by ObjectReferences. For ObjectReferences, we add the contect sensor to their root prim.
+        # The referenced prim must already have the required physics contact-reporting APIs.
         usd_path = usd_path or self.usd_path
         rigid_body_relative_path = find_shallowest_rigid_body(
             usd_path,

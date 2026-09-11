@@ -106,36 +106,52 @@ def apply_usd_variant_selections(stage: Usd.Stage, variants: dict[str, str]) -> 
                 variant_set.SetVariantSelection(selection)
 
 
-def _path_relative_to_usd_root(prim_path: str, root_prim_path: str) -> str:
-    """Return a prim-path suffix relative to the default prim used by USD references."""
+def _path_relative_to_default_prim(prim_path: str, default_prim_path: str) -> str:
+    """Return a prim-path suffix relative to the USD default prim.
+
+    For example, ``/Outer/Asset/rigid_body`` relative to the default prim
+    ``/Outer/Asset`` becomes ``/rigid_body``.
+    """
     assert prim_path[0] == "/", "We expect USD paths to start with a /"
-    assert root_prim_path[0] == "/", "We expect USD root paths to start with a /"
-    if prim_path == root_prim_path:
+    assert default_prim_path[0] == "/", "We expect USD default prim paths to start with a /"
+    if prim_path == default_prim_path:
         return ""
     assert prim_path.startswith(
-        root_prim_path + "/"
-    ), f"Rigid body {prim_path!r} is not beneath the USD default prim {root_prim_path!r}"
-    return prim_path[len(root_prim_path) :]
+        default_prim_path + "/"
+    ), f"Rigid body {prim_path!r} is not beneath the USD default prim {default_prim_path!r}"
+    return prim_path[len(default_prim_path) :]
 
 
 def find_shallowest_rigid_body_from_stage(stage: Usd.Stage, relative_to_root: bool = False) -> str | None:
     """
     Find the shallowest (closest to root) prim that is a rigid body.
     Also verifies that there is only one rigid body at that depth level.
+    When returning a relative path, only rigid bodies beneath the default prim
+    are considered because other prims do not compose through a USD reference.
 
     Args:
         stage: The stage to analyze
-        relative_to_root: Whether to return the path relative to the root of the USD file
+        relative_to_root: Whether to return the path relative to the USD default prim
 
     Returns:
         Prim path for the shallowest rigid body. None if no rigid bodies are found.
-        Empty string if the shallowest rigid body is the root prim, and
+        Empty string if the shallowest rigid body is the default prim, and
         relative_to_root is True.
 
     Raises:
         ValueError: If multiple rigid bodies exist at the shallowest level
     """
     rigid_body_prim_paths = get_all_rigid_body_prim_paths_from_stage(stage)
+    default_prim_path = None
+    if relative_to_root:
+        default_prim = stage.GetDefaultPrim()
+        assert default_prim, "A default prim is required to return a path relative to the USD default prim"
+        default_prim_path = str(default_prim.GetPath())
+        rigid_body_prim_paths = [
+            path
+            for path in rigid_body_prim_paths
+            if path == default_prim_path or path.startswith(default_prim_path + "/")
+        ]
 
     if len(rigid_body_prim_paths) == 0:
         return None
@@ -165,9 +181,8 @@ def find_shallowest_rigid_body_from_stage(stage: Usd.Stage, relative_to_root: bo
         shallowest_rigid_body = shallowest_rigid_bodies[0]
 
     if relative_to_root:
-        default_prim = stage.GetDefaultPrim()
-        assert default_prim, "A default prim is required to return a path relative to the USD root"
-        shallowest_rigid_body = _path_relative_to_usd_root(shallowest_rigid_body, str(default_prim.GetPath()))
+        assert default_prim_path is not None
+        shallowest_rigid_body = _path_relative_to_default_prim(shallowest_rigid_body, default_prim_path)
     return shallowest_rigid_body
 
 
@@ -182,13 +197,13 @@ def find_shallowest_rigid_body(
 
     Args:
         usd_path: Path to the USD file to analyze
-        relative_to_root: Whether to return the path relative to the root of the USD file
+        relative_to_root: Whether to return the path relative to the USD default prim
         variants: USD variants to select before searching. SimReady props need
             ``{"Physics": "physics"}``, or they have no physics at all.
 
     Returns:
         Prim path for the shallowest rigid body. None if no rigid bodies are found.
-        Empty string if the shallowest rigid body is the root prim, and
+        Empty string if the shallowest rigid body is the default prim, and
         relative_to_root is True.
 
     Raises:
