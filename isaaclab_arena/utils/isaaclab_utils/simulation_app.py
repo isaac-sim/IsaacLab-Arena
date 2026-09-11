@@ -23,10 +23,19 @@ def get_isaac_sim_version() -> str:
 STARTUP_COMPLETE_MARKER = "[isaaclab-arena] AppLauncher initialization complete"
 
 
+def _ensure_livestream_visualizer(args: argparse.Namespace) -> None:
+    """Enable Kit visualization when livestreaming without an explicit visualizer."""
+    livestream = getattr(args, "livestream", -1)
+    livestream_enabled = livestream in {1, 2} or (livestream == -1 and os.environ.get("LIVESTREAM") in {"1", "2"})
+    if livestream_enabled and getattr(args, "visualizer", None) is None:
+        args.visualizer = ["kit"]
+
+
 def get_app_launcher(args: argparse.Namespace) -> AppLauncher:
     """Get an app launcher."""
     import time
 
+    _ensure_livestream_visualizer(args)
     t0 = time.monotonic()
     # AppLauncher consumes recognized entries from its input mapping. Pass a copy so
     # Arena can continue using its parsed arguments after the application launches.
