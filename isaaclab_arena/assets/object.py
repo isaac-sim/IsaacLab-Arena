@@ -88,20 +88,14 @@ class Object(RootedObjectBase):
         self.reset_pose = True
         self._pose_event_cfg = self._build_reset_event()
 
-    def get_contact_sensor_cfg(
-        self, contact_against_object: ObjectBase | None = None, usd_path: str | None = None
-    ) -> ContactSensorCfg:
-        assert self.object_type == ObjectType.RIGID, "Contact sensor is only supported for rigid objects"
-        # We override this function from the parent class because in some assets, the rigid body
-        # is not at the root of the USD file. To be robust to this, we find the shallowest rigid body
-        # and add the contact sensor to it. This supports adding contact sensor to Object.
-        # For RigidObjectSet, we normalize the USD paths for all members before spawning, so they have the same
-        # relative structure and rigid-body name. We add the contact sensor to the normalized rigid body beneath the its scene prim.
+    def get_contact_sensor_prim_path(self) -> str:
+        """Return the scene prim path where this object's contact sensor is attached."""
+        assert self.usd_path is not None, f"No USD path available for {self.name}. Can't add contact sensor."
+        return self._get_contact_sensor_prim_path_from_usd(self.usd_path)
 
-        # TODO(alexmillane, 2026.01.29): This capabaility to search for the correct place to add the contact sensor
-        # is not supported by ObjectReferences. For ObjectReferences, we add the contect sensor to their root prim.
-        # The referenced prim must already have the required physics contact-reporting APIs.
-        usd_path = usd_path or self.usd_path
+    def _get_contact_sensor_prim_path_from_usd(self, usd_path: str) -> str:
+        """Return the contact-sensor prim path for the rigid body in a USD."""
+        assert self.object_type == ObjectType.RIGID, "Contact sensor is only supported for rigid objects"
         rigid_body_relative_path = find_shallowest_rigid_body(
             usd_path,
             relative_to_root=True,
@@ -110,15 +104,18 @@ class Object(RootedObjectBase):
         assert (
             rigid_body_relative_path is not None
         ), f"No rigid body found in {self.name} USD file: {usd_path}. Can't add contact sensor."
-        contact_sensor_prim_path = self.prim_path + rigid_body_relative_path
+        return self.prim_path + rigid_body_relative_path
+
+    def get_contact_sensor_cfg(self, contact_against_object: ObjectBase | None = None) -> ContactSensorCfg:
+        contact_sensor_prim_path = self.get_contact_sensor_prim_path()
         # There are also cases where the contact against object does not have its rigid body at the root.
         # In that case, we also need to find the shallowest rigid body.
         if isinstance(contact_against_object, Object):
-            assert (
-                contact_against_object.object_type == ObjectType.RIGID
-            ), "Contact sensor is only supported for rigid objects"
-            filter_prim_paths = [contact_against_object.get_contact_sensor_cfg().prim_path]
+            # Handles Object and its subclasses, including RigidObjectSet.
+            filter_prim_paths = [contact_against_object.get_contact_sensor_prim_path()]
         elif isinstance(contact_against_object, ObjectBase):
+            # Handles ObjectReference.
+            # NOTE(alexmillane, 2026.04.10): ObjectReference is assumed to have its rigid body at its scene prim path.
             filter_prim_paths = [contact_against_object.get_prim_path()]
         elif contact_against_object is None:
             filter_prim_paths = []
