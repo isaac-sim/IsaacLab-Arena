@@ -11,7 +11,7 @@ import torch
 import pytest
 
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
-from isaaclab_arena_examples.relations.clutter.drop_poses import (
+from isaaclab_arena_environments.isaac_cap.clutter.drop_poses import (
     ClutterDropParams,
     ClutterRegion,
     DropOrder,

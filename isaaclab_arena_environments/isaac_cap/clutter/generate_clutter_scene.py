@@ -20,15 +20,15 @@ def generate_scene(args: argparse.Namespace) -> list[Path]:
     from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
-    from isaaclab_arena_examples.relations.clutter.cache import (
+    from isaaclab_arena_environments.isaac_cap.clutter.cache import (
         scene_with_cached_poses,
         validate_cache_directory,
         write_scene_cache,
     )
-    from isaaclab_arena_examples.relations.clutter.drop_poses import DropOrder
-    from isaaclab_arena_examples.relations.clutter.geometry import dynamic_rigid_object_keys
-    from isaaclab_arena_examples.relations.clutter.settle import ClutterGroup, settle_clutter
-    from isaaclab_arena_examples.relations.clutter.validation import ClutterSettleParams
+    from isaaclab_arena_environments.isaac_cap.clutter.drop_poses import DropOrder
+    from isaaclab_arena_environments.isaac_cap.clutter.geometry import dynamic_rigid_object_keys
+    from isaaclab_arena_environments.isaac_cap.clutter.settle import ClutterGroup, settle_clutter
+    from isaaclab_arena_environments.isaac_cap.clutter.validation import ClutterSettleParams
 
     for entry_point in args.register:
         module_name, separator, function_name = entry_point.partition(":")

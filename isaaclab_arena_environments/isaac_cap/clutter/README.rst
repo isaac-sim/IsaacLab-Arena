@@ -1,5 +1,9 @@
-Offline Clutter Placement
-=========================
+CAP Offline Clutter Placement
+=============================
+
+For v0.3.1, these utilities live in the temporary CAP environment directory,
+alongside the CAP validation environments. They are CAP-owned offline tooling;
+they do not extend Arena's relation solver or define a core clutter API.
 
 Clutter objects are ordinary Arena assets. The offline example samples release
 poses, steps physics until the objects rest, and saves their exact poses in a
@@ -13,8 +17,8 @@ Run inside the Arena development container, from ``/workspaces/isaaclab_arena``:
 
 .. code-block:: bash
 
-   /isaac-sim/python.sh isaaclab_arena_examples/relations/generate_clutter_scene.py \
-       --env_spec isaaclab_arena_examples/relations/clutter_scene.yaml \
+   /isaac-sim/python.sh isaaclab_arena_environments/isaac_cap/clutter/generate_clutter_scene.py \
+       --env_spec isaaclab_arena_environments/isaac_cap/clutter/clutter_scene.yaml \
        --support table --objects cube_0 cube_1 cube_2 cube_3 --spread 0.2 \
        --output outputs/clutter/scene.yaml --seed 42 --viz none
 
@@ -86,8 +90,8 @@ application placed it. Pass scene keys rather than graph IDs:
 
 .. code-block:: python
 
-   from isaaclab_arena_examples.relations.clutter.settle import ClutterGroup, settle_clutter
-   from isaaclab_arena_examples.relations.clutter.validation import ClutterSettleParams
+   from isaaclab_arena_environments.isaac_cap.clutter.settle import ClutterGroup, settle_clutter
+   from isaaclab_arena_environments.isaac_cap.clutter.validation import ClutterSettleParams
 
    env.reset()
    layouts = settle_clutter(
@@ -127,3 +131,18 @@ Checks and limits
   Task feasibility and collision fidelity depend on the authored scene and physics.
 - Exact initial poses do not promise identical subsequent trajectories across
   different assets, backends, or simulator versions.
+
+Run the tests
+-------------
+
+The CAP tests remain in Arena's central test suite for automatic discovery.
+Run the live tests before the geometry tests so SimulationApp starts first:
+
+.. code-block:: bash
+
+   /isaac-sim/python.sh -m pytest -q \
+       isaaclab_arena/tests/isaac_cap/test_settled_scene.py \
+       isaaclab_arena/tests/isaac_cap/test_clutter_drop_poses.py \
+       isaaclab_arena/tests/isaac_cap/test_clutter_validation.py
+
+   /isaac-sim/python.sh -m pytest -q isaaclab_arena/tests/isaac_cap/test_clutter_cli.py

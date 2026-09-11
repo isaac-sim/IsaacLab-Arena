@@ -12,14 +12,14 @@ import pytest
 
 from isaaclab_arena.tests.utils.constants import TestConstants
 
-EXAMPLES = Path(__file__).parents[2] / "isaaclab_arena_examples/relations"
-SCRIPT = EXAMPLES / "generate_clutter_scene.py"
+CLUTTER_DIR = Path(__file__).parents[3] / "isaaclab_arena_environments/isaac_cap/clutter"
+SCRIPT = CLUTTER_DIR / "generate_clutter_scene.py"
 
 
 def _arguments(output):
     return [
         "--env_spec",
-        str(EXAMPLES / "clutter_scene.yaml"),
+        str(CLUTTER_DIR / "clutter_scene.yaml"),
         "--output",
         str(output),
         "--support",
