@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 class DroidDeformablePickAndPlaceEnvironmentCfg(ArenaEnvironmentCfg):
     """Configure the DROID deformable-object pick-and-place environment."""
 
-    pick_object: str = "deformable_cube"
+    pick_object: str = "deformable_cube_physx"
     """Deformable object asset registry name, exposed as ``--pick_object``."""
 
     embodiment: str = "droid_abs_joint_pos"

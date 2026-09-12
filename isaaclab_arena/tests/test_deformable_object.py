@@ -56,7 +56,10 @@ def _test_backend_specific_deformable_config(simulation_app) -> bool:
     from isaaclab.assets import DeformableObjectCfg
     from isaaclab.sim.spawners.from_files.from_files_cfg import UsdFileCfg
     from isaaclab_newton.sim.schemas import NewtonDeformableBodyPropertiesCfg
-    from isaaclab_newton.sim.spawners.materials import NewtonDeformableBodyMaterialCfg
+    from isaaclab_newton.sim.spawners.materials import (
+        NewtonDeformableBodyMaterialCfg,
+        NewtonSurfaceDeformableBodyMaterialCfg,
+    )
     from isaaclab_physx.sim.schemas import PhysxDeformableBodyPropertiesCfg
     from isaaclab_physx.sim.spawners.materials import (
         PhysxDeformableBodyMaterialCfg,
@@ -64,7 +67,14 @@ def _test_backend_specific_deformable_config(simulation_app) -> bool:
     )
 
     from isaaclab_arena.assets.deformable_object import DeformableObject
-    from isaaclab_arena.assets.deformable_object_library import DeformableCube, DeformableSurface, DeformableTeddyBear
+    from isaaclab_arena.assets.deformable_object_library import (
+        DeformableCubeNewton,
+        DeformableCubePhysx,
+        DeformableSurfaceNewton,
+        DeformableSurfacePhysx,
+        DeformableTeddyBearNewton,
+        DeformableTeddyBearPhysx,
+    )
     from isaaclab_arena.assets.object import Object
     from isaaclab_arena.assets.object_type import ObjectType
     from isaaclab_arena.assets.registries import AssetRegistry
@@ -106,18 +116,58 @@ def _test_backend_specific_deformable_config(simulation_app) -> bool:
             spawner_cfg=UsdFileCfg(usd_path="/tmp/authored_soft_body.usd"),
         )
 
-    for asset_type, asset_name, material_type in (
-        (DeformableCube, "deformable_cube", PhysxDeformableBodyMaterialCfg),
-        (DeformableSurface, "deformable_surface", PhysxSurfaceDeformableBodyMaterialCfg),
-        (DeformableTeddyBear, "deformable_teddy_bear", PhysxDeformableBodyMaterialCfg),
+    for asset_type, asset_name, backend, material_type, deformable_props_type in (
+        (
+            DeformableCubePhysx,
+            "deformable_cube_physx",
+            PhysicsBackend.PHYSX,
+            PhysxDeformableBodyMaterialCfg,
+            PhysxDeformableBodyPropertiesCfg,
+        ),
+        (
+            DeformableCubeNewton,
+            "deformable_cube_newton",
+            PhysicsBackend.NEWTON,
+            NewtonDeformableBodyMaterialCfg,
+            NewtonDeformableBodyPropertiesCfg,
+        ),
+        (
+            DeformableSurfacePhysx,
+            "deformable_surface_physx",
+            PhysicsBackend.PHYSX,
+            PhysxSurfaceDeformableBodyMaterialCfg,
+            PhysxDeformableBodyPropertiesCfg,
+        ),
+        (
+            DeformableSurfaceNewton,
+            "deformable_surface_newton",
+            PhysicsBackend.NEWTON,
+            NewtonSurfaceDeformableBodyMaterialCfg,
+            NewtonDeformableBodyPropertiesCfg,
+        ),
+        (
+            DeformableTeddyBearPhysx,
+            "deformable_teddy_bear_physx",
+            PhysicsBackend.PHYSX,
+            PhysxDeformableBodyMaterialCfg,
+            PhysxDeformableBodyPropertiesCfg,
+        ),
+        (
+            DeformableTeddyBearNewton,
+            "deformable_teddy_bear_newton",
+            PhysicsBackend.NEWTON,
+            NewtonDeformableBodyMaterialCfg,
+            NewtonDeformableBodyPropertiesCfg,
+        ),
     ):
         library_object = asset_type()
         assert AssetRegistry().get_asset_by_name(asset_name) is asset_type
-        assert library_object.physics_preset is PhysicsBackend.PHYSX
-        assert isinstance(library_object.spawner_cfg.deformable_props, PhysxDeformableBodyPropertiesCfg)
+        assert library_object.physics_preset is backend
+        assert str(backend) in library_object.tags
+        assert isinstance(library_object.spawner_cfg.deformable_props, deformable_props_type)
         assert isinstance(library_object.spawner_cfg.physics_material, material_type)
 
-    library_cube = DeformableCube()
+    library_cube = DeformableCubePhysx()
     assert library_cube.spawner_cfg.size == (0.15, 0.04, 0.04)
     assert library_cube.spawner_cfg.collision_props[0].rest_offset == 0.0
     assert library_cube.spawner_cfg.collision_props[0].contact_offset == pytest.approx(0.0025)
@@ -128,14 +178,14 @@ def _test_backend_specific_deformable_config(simulation_app) -> bool:
     assert library_cube.spawner_cfg.visual_material.diffuse_color == (0.95, 0.85, 0.1)
     assert library_cube.get_bounding_box().size[0].tolist() == pytest.approx([0.15, 0.04, 0.04])
 
-    library_surface = DeformableSurface()
+    library_surface = DeformableSurfacePhysx()
     assert library_surface.spawner_cfg.size == (0.2, 0.2)
     assert library_surface.spawner_cfg.edge_refinement == 30
     assert library_surface.spawner_cfg.visual_material.diffuse_color == (0.95, 0.85, 0.1)
     assert library_surface.get_bounding_box().min_point[0].tolist() == pytest.approx([-0.1, -0.1, -0.001])
     assert library_surface.get_bounding_box().max_point[0].tolist() == pytest.approx([0.1, 0.1, 0.001])
 
-    library_teddy_bear = DeformableTeddyBear()
+    library_teddy_bear = DeformableTeddyBearPhysx()
     assert library_teddy_bear._bounding_box is None
     teddy_bear_bbox = library_teddy_bear.get_bounding_box()
     assert library_teddy_bear._bounding_box is teddy_bear_bbox
@@ -291,7 +341,7 @@ def _test_deformable_reset_and_initial_pose(simulation_app) -> bool:
         ]
     )
     physics_backend = PhysicsBackend.PHYSX
-    soft_cube = AssetRegistry().get_asset_by_name("deformable_cube")(name="soft_cube")
+    soft_cube = AssetRegistry().get_asset_by_name("deformable_cube_physx")(name="soft_cube")
     soft_cube.set_initial_pose(poses)
     arena_env = IsaacLabArenaEnvironment(
         name=f"{physics_backend}_deformable_reset_and_initial_pose",
@@ -355,7 +405,7 @@ def _test_deformable_placement_is_not_immediate_task_success(simulation_app) -> 
     from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
     from isaaclab_arena.utils.pose import Pose
 
-    soft_cube = AssetRegistry().get_asset_by_name("deformable_cube")(name="soft_cube")
+    soft_cube = AssetRegistry().get_asset_by_name("deformable_cube_physx")(name="soft_cube")
     soft_cube.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.05)))
     table = AssetRegistry().get_asset_by_name("procedural_table")(
         name="destination",
