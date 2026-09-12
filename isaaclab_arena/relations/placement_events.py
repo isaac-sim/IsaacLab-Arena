@@ -120,6 +120,14 @@ def get_pose_from_layout(
     random_marker = next((r for r in asset.get_relations() if isinstance(r, RandomAroundSolution)), None)
     if random_marker is None or rng is None:
         return pose
+    if random_marker.roll_half_rad == 0.0 and random_marker.pitch_half_rad == 0.0:
+        # World-yaw jitter must preserve the solved tilt, including at gimbal lock.
+        delta_range = random_marker.to_pose_range_centered_at(pose.position_xyz)
+        sample = _sample_pose_range(delta_range, rng)
+        from isaaclab.utils.math import quat_mul
+
+        rotation = quat_mul(torch.tensor(sample.rotation_xyzw), torch.tensor(pose.rotation_xyzw))
+        return Pose(position_xyz=sample.position_xyz, rotation_xyzw=tuple(rotation.tolist()))
     return _sample_pose_range(
         random_marker.to_pose_range_centered_at(pose.position_xyz, pose.rotation_xyzw),
         rng,

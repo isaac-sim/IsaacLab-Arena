@@ -22,6 +22,46 @@ def _checklist(passed: bool):
     return PlacementValidationResults(validation_results={"valid": passed}, required_checks={"valid"})
 
 
+@pytest.mark.parametrize("pitch", [-torch.pi / 2, torch.pi / 2, 0.3])
+@pytest.mark.parametrize("full_rotation", [False, True])
+def test_random_yaw_preserves_tilt_at_gimbal_lock(pitch, full_rotation):
+    import math
+    import random
+    from scipy.spatial.transform import Rotation
+    from types import SimpleNamespace
+
+    from isaaclab_arena.relations.placement_events import get_pose_from_layout
+    from isaaclab_arena.relations.relations import RandomAroundSolution, RotateAroundSolution
+
+    marker = RotateAroundSolution(roll_rad=-math.pi / 2, pitch_rad=pitch)
+    jitter = RandomAroundSolution(x_half_m=0.012, y_half_m=0.012, yaw_half_rad=math.radians(8))
+    asset = MagicMock()
+    asset.get_relations.return_value = [marker, jitter]
+    base = marker.get_rotation_xyzw()
+    position = (0.44, -0.07, 0.811)
+    layout = SimpleNamespace(
+        positions={asset: position}, orientations={}, rotations={asset: base} if full_rotation else {}
+    )
+    # The legacy build-time PoseRange must retain the same midpoint too.
+    midpoint = jitter.to_pose_range_centered_at(position, base).get_midpoint()
+    assert Rotation.from_quat(midpoint.rotation_xyzw).as_matrix() == pytest.approx(
+        Rotation.from_quat(base).as_matrix(), abs=1e-6
+    )
+    for seed in range(100):
+        expected_rng = random.Random(seed)
+        expected_position = tuple(
+            p + expected_rng.uniform(-half, half) for p, half in zip(position, (0.012, 0.012, 0.0))
+        )
+        expected_rng.uniform(0, 0)
+        expected_rng.uniform(0, 0)
+        yaw = expected_rng.uniform(-jitter.yaw_half_rad, jitter.yaw_half_rad)
+        expected = Rotation.from_rotvec([0, 0, yaw]) * Rotation.from_quat(base)
+        pose = get_pose_from_layout(asset, layout, random.Random(seed))
+        assert pose.position_xyz == pytest.approx(expected_position)
+        assert Rotation.from_quat(pose.rotation_xyzw).as_matrix() == pytest.approx(expected.as_matrix(), abs=1e-6)
+        assert pose == get_pose_from_layout(asset, layout, random.Random(seed))
+
+
 def _create_test_objects():
     """Create a desk (anchor) with two boxes (On + NextTo)."""
 

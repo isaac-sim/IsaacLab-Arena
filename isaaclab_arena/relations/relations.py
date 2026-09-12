@@ -5,11 +5,10 @@
 
 from __future__ import annotations
 
-import torch
+import warnings
 from enum import Enum
+from scipy.spatial.transform import Rotation
 from typing import TYPE_CHECKING, TypeVar
-
-from isaaclab.utils.math import euler_xyz_from_quat
 
 from isaaclab_arena.assets.register import agent_ready, register_object_relation
 from isaaclab_arena.assets.registries import ObjectRelationLibraryRegistry
@@ -447,12 +446,11 @@ class RandomAroundSolution(RelationBase):
         Returns:
             PoseRange spanning ± half-extents around the position and rotation.
         """
-        # Convert quaternion to euler angles (roll, pitch, yaw)
-        quat_tensor = torch.tensor([rotation_xyzw])
-        roll, pitch, yaw = euler_xyz_from_quat(quat_tensor)
-        center_roll = float(roll[0])
-        center_pitch = float(pitch[0])
-        center_yaw = float(yaw[0])
+        # PoseRange needs Euler bounds. SciPy retains the rotation at gimbal lock
+        # by fixing one redundant angle; the float32 atan2 roundtrip can lose roll.
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", message="Gimbal lock detected", category=UserWarning)
+            center_roll, center_pitch, center_yaw = Rotation.from_quat(rotation_xyzw).as_euler("xyz")
 
         return PoseRange(
             position_xyz_min=(
