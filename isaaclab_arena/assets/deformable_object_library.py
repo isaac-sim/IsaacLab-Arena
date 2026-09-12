@@ -78,7 +78,7 @@ class DeformableCubeNewton(LibraryDeformableObject):
     spawner_cfg = sim_utils.MeshCuboidCfg(
         size=(0.15, 0.04, 0.04),
         deformable_props=NewtonDeformableBodyPropertiesCfg(),
-        visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(0.95, 0.85, 0.1)),
+        visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(1.0, 0.0, 0.0)),
         physics_material=NewtonDeformableBodyMaterialCfg(
             # Equivalent Lame parameters for the PhysX cube's E=8.0e4 Pa and nu=0.25.
             k_mu=3.2e4,
@@ -100,8 +100,19 @@ class DeformableSurfacePhysx(LibraryDeformableObject):
         size=(0.2, 0.2),
         resolution=(30, 30),
         deformable_props=PhysxDeformableBodyPropertiesCfg(),
+        collision_props=[PhysxCollisionCfg(rest_offset=0.002, contact_offset=0.01)],
         visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(0.95, 0.85, 0.1)),
-        physics_material=PhysxSurfaceDeformableBodyMaterialCfg(),
+        physics_material=PhysxSurfaceDeformableBodyMaterialCfg(
+            density=1000.0,
+            surface_thickness=0.001,
+            poissons_ratio=0.25,
+            youngs_modulus=1e6,
+            surface_bend_stiffness=1e6,
+            elasticity_damping=1e-1,
+            bend_damping=1e-1,
+            static_friction=10.0,
+            dynamic_friction=10.0,
+        ),
     )
 
 

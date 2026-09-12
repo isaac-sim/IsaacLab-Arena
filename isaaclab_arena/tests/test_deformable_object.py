@@ -377,6 +377,44 @@ def _test_deformable_pick_and_place_success(simulation_app) -> bool:
     return True
 
 
+def _test_newton_droid_deformable_environment(simulation_app) -> bool:
+    """Build and step the Newton deformable example with its coupled solver."""
+    import torch
+
+    from isaaclab_contrib.coupling import CouplerProxyCfg
+    from isaaclab_newton.physics import NewtonCfg
+
+    from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
+    from isaaclab_arena_environments.cli import get_arena_builder_from_cli, get_isaaclab_arena_environments_cli_parser
+
+    parser = get_isaaclab_arena_environments_cli_parser(get_isaaclab_arena_cli_parser())
+    args = parser.parse_args([
+        "droid_deformable_pick_and_place",
+        "--pick_object",
+        "deformable_cube",
+        "--embodiment",
+        "droid_differential_ik",
+    ])
+    builder = get_arena_builder_from_cli(args)
+    env_cfg, env_kwargs = builder.compose_manager_cfg()
+    assert isinstance(env_cfg.sim.physics, NewtonCfg)
+    assert isinstance(env_cfg.sim.physics.solver_cfg, CouplerProxyCfg)
+    soft_solver_cfg = env_cfg.sim.physics.solver_cfg.entries[1].solver_cfg
+    assert soft_solver_cfg.rigid_body_contact_buffer_size == 256
+    assert soft_solver_cfg.rigid_body_particle_contact_buffer_size == 512
+
+    env = builder.make_registered(env_cfg, env_kwargs)
+    try:
+        env.reset()
+        actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
+        for step in range(10):
+            _, _, terminated, truncated, _ = env.step(actions)
+            assert not terminated.any() and not truncated.any(), f"Environment reset after step {step + 1}."
+    finally:
+        env.close()
+    return True
+
+
 def test_backend_specific_deformable_config():
     assert run_function_with_persistent_simulation_app(_test_backend_specific_deformable_config, headless=HEADLESS)
 
@@ -399,5 +437,13 @@ def test_deformable_reset_and_initial_pose():
 def test_deformable_pick_and_place_success():
     assert run_function_with_persistent_simulation_app(
         _test_deformable_pick_and_place_success,
+        headless=HEADLESS,
+    )
+
+
+@pytest.mark.with_newton
+def test_newton_droid_deformable_environment():
+    assert run_function_with_persistent_simulation_app(
+        _test_newton_droid_deformable_environment,
         headless=HEADLESS,
     )
