@@ -296,7 +296,7 @@ Author benchmarks
 
          .. container:: arena-feature-copy
 
-            .. rubric:: :doc:`Variation system <pages/concepts/variations/index>`
+            .. rubric:: :doc:`Variation system <pages/concepts/concept_supported_randomizations>`
 
             Turn one environment into a controlled sweep of conditions. Define ranges and
             distributions once; sample them at build time or reset.
@@ -1106,7 +1106,7 @@ Isaac Lab-Arena was built in collaboration with the authors of Robolab (`website
    pages/concepts/concept_object_and_robot_placement
    pages/concepts/policy/index
    pages/concepts/concept_arena_experiments
-   pages/concepts/variations/index
+   pages/concepts/concept_supported_randomizations
    pages/concepts/concept_sensitivity_analysis
 
 .. toctree::

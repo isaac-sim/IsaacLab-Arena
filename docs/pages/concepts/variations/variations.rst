@@ -171,10 +171,7 @@ variations are sampled once and applied to asset configs before the environment 
    * - ``CameraExtrinsicsVariation``
      - run-time
      - Adds a small sampled offset to a camera's nominal local position on every reset.
-   * - ``CameraIntrinsicsBuildTimeVariation``
-     - build-time
-     - Perturbs a pinhole camera's focal lengths and principal point when the environment is built.
-   * - ``CameraIntrinsicsRunTimeVariation``
+   * - ``CameraIntrinsicsVariation``
      - run-time
      - Perturbs a pinhole camera's focal lengths and principal point on every reset.
    * - ``HDRImageVariation``
@@ -192,3 +189,6 @@ variations are sampled once and applied to asset configs before the environment 
    * - ``LightIntensityVariation``
      - build-time
      - Samples a single intensity and applies it to a light.
+   * - ``ObjectMassVariation``
+     - run-time
+     - Samples an absolute rigid-object mass and optionally scales inertia on every reset.
