@@ -58,10 +58,10 @@ dev = [
 [dependency-groups]
 # Isaac Lab's root isaaclab-dev project is installed editable from the submodule
 # checkout. Its extras provide Isaac Sim, OV backends, Mimic, Teleop, RSL-RL,
-# and the Rerun visualizer. This group is selected by a bare `uv sync` through
-# default-groups below.
+# the Rerun visualizer, and deformable tetrahedral mesh generation (pytetwild).
+# This group is selected by a bare `uv sync` through default-groups below.
 isaaclab-from-source = [
-    "isaaclab-dev[isaacsim,ov,mimic,teleop,rsl-rl,rerun]",
+    "isaaclab-dev[isaacsim,ov,mimic,teleop,rsl-rl,rerun,tetrahedralization]",
     # Keep the workspace members explicit as well. uv requires a package to be
     # named directly in this group before a group-gated path source can satisfy
     # the dependency declared by isaaclab-dev.
