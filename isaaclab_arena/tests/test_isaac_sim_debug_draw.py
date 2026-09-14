@@ -5,7 +5,11 @@
 
 """Smoke tests for IsaacSimDebugDraw."""
 
+import pytest
+
+from isaaclab_arena.tests.utils.constants import TestConstants
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
+from isaaclab_arena.tests.utils.subprocess import run_subprocess
 
 
 def smoke_test_debug_draw(simulation_app) -> bool:
@@ -27,7 +31,14 @@ def smoke_test_debug_draw(simulation_app) -> bool:
     return True
 
 
+@pytest.mark.with_subprocess
 def test_isaac_sim_debug_draw_smoke():
     """Smoke test: IsaacSimDebugDraw initializes and runs without errors."""
+    # The debug-draw extension keeps state on the shared app that outlives its stage, which
+    # perturbs the physics results of later tests. Run it in a disposable Kit process.
+    run_subprocess([TestConstants.python_path, __file__])
+
+
+if __name__ == "__main__":
     result = run_function_with_persistent_simulation_app(smoke_test_debug_draw)
-    assert result, "IsaacSimDebugDraw smoke test failed"
+    raise SystemExit(0 if result else 1)

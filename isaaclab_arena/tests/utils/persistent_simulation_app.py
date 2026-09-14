@@ -108,10 +108,6 @@ def _fabric_disabled_for_env_builds(force_disable_fabric: bool) -> Iterator[None
         yield
         return
 
-    # TODO(alexmillane, 2026-08-31): [lab-render-after-rebuild-bug] Remove once the render-after-rebuild
-    # bug is fixed in Lab. The persistent app rebuilds the stage once per test, and under GPU+Fabric
-    # every build after the first renders some geometry at the wrong pose (the DROID gripper has been
-    # seen at the origin), which would surface as unrelated tests failing on their rendered output.
     # Imported here because Lab modules are only importable once the SimulationApp is running.
     from isaaclab_arena.environments import arena_env_builder
 
@@ -128,7 +124,7 @@ def run_function_with_persistent_simulation_app(
     function: Callable[..., bool],
     headless: bool = True,
     enable_cameras: bool = False,
-    force_disable_fabric: bool = True,
+    force_disable_fabric: bool = False,
     **kwargs,
 ) -> bool:
     """Run a function with the persistent SimulationApp in the current pytest process.

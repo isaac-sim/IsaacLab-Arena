@@ -12,7 +12,9 @@ from types import SimpleNamespace
 import pytest
 
 from isaaclab_arena.scripts import environment_runner
+from isaaclab_arena.tests.utils.constants import TestConstants
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
+from isaaclab_arena.tests.utils.subprocess import run_subprocess
 
 
 def _interactive_runner_args(**overrides) -> argparse.Namespace:
@@ -145,11 +147,11 @@ def _test_mouse_interaction_uses_d6_grab_for_current_stage(simulation_app) -> bo
     return True
 
 
+@pytest.mark.with_subprocess
 def test_mouse_interaction_uses_d6_grab_for_current_stage():
-    result = run_function_with_persistent_simulation_app(
-        _test_mouse_interaction_uses_d6_grab_for_current_stage, headless=True
-    )
-    assert result
+    # Enabling mouse interaction installs a D6 grab on the current stage and leaves physics
+    # settings behind that the shared app does not undo. Keep that state out of later tests.
+    run_subprocess([TestConstants.python_path, __file__])
 
 
 def test_main_closes_the_environment_when_the_run_loop_fails(monkeypatch):
@@ -243,3 +245,10 @@ def test_main_closes_the_environment_when_the_run_loop_fails(monkeypatch):
     assert args_cli.example_environment == "gr1_open_microwave"
     assert lifecycle_events == ["make_environment", "enable_mouse_interaction", "run_environment"]
     assert env.close_count == 1
+
+
+if __name__ == "__main__":
+    result = run_function_with_persistent_simulation_app(
+        _test_mouse_interaction_uses_d6_grab_for_current_stage, headless=True
+    )
+    raise SystemExit(0 if result else 1)
