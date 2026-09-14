@@ -8,24 +8,45 @@
 from __future__ import annotations
 
 import math
+from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
-from isaaclab.scene import InteractiveScene
-from pxr import Usd, UsdPhysics
-
-from isaaclab_arena.environments.arena_world_scene_access import (
-    _find_single_rigid_body_prim_in_subtree,
-    _get_representative_prim_groups,
-)
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, quaternion_to_90_deg_z_quarters
-from isaaclab_arena_environments.isaac_cap.clutter.drop_poses import ClutterRegion
+
+if TYPE_CHECKING:
+    from isaaclab.scene import InteractiveScene
+    from pxr import Usd
 
 _QUARTER_TURN_TOLERANCE_RAD = 1e-3
+
+
+@dataclass(frozen=True)
+class ClutterRegion:
+    """Axis-aligned support footprint and surface height, in the environment frame E."""
+
+    min_x: float
+    """Minimum X in E, in metres."""
+
+    min_y: float
+    """Minimum Y in E, in metres."""
+
+    max_x: float
+    """Maximum X in E, in metres."""
+
+    max_y: float
+    """Maximum Y in E, in metres."""
+
+    floor_z: float
+    """Z of the surface objects are dropped onto."""
+
+    def __post_init__(self) -> None:
+        assert self.max_x > self.min_x, f"region needs max_x > min_x, got {self.min_x}, {self.max_x}"
+        assert self.max_y > self.min_y, f"region needs max_y > min_y, got {self.min_y}, {self.max_y}"
 
 
 def region_above_support(
     support_position: tuple[float, float, float],
     support_bbox: AxisAlignedBoundingBox,
-    spread: float = 1.0,
     env_index: int = 0,
     support_rotation_xyzw: tuple[float, float, float, float] = (0.0, 0.0, 0.0, 1.0),
 ) -> ClutterRegion:
@@ -34,21 +55,19 @@ def region_above_support(
     Args:
         support_position: Support position in environment frame E, shape (3,).
         support_bbox: Object-local bounds, min/max shape (N, 3); N is the environment count.
-        spread: Usable fraction of the support footprint, in (0, 1].
         env_index: Environment row in support_bbox.
         support_rotation_xyzw: Support-to-E quaternion, shape (4,); yaw must be a quarter turn.
     """
     quarters = quaternion_to_90_deg_z_quarters(support_rotation_xyzw, tol_deg=math.degrees(_QUARTER_TURN_TOLERANCE_RAD))
     bounds = support_bbox.rotated_90_around_z(quarters)
     lower, upper = bounds.min_point[env_index], bounds.max_point[env_index]
-    region = ClutterRegion(
+    return ClutterRegion(
         min_x=float(lower[0]) + support_position[0],
         min_y=float(lower[1]) + support_position[1],
         max_x=float(upper[0]) + support_position[0],
         max_y=float(upper[1]) + support_position[1],
         floor_z=float(upper[2]) + support_position[2],
     )
-    return region.scaled(spread) if spread != 1.0 else region
 
 
 def prim_geometry_is_fixed(prim: Usd.Prim) -> bool:
@@ -60,6 +79,8 @@ def prim_geometry_is_fixed(prim: Usd.Prim) -> bool:
     Returns:
         True for static collision geometry and kinematic bodies, including nested references.
     """
+    from pxr import Usd, UsdPhysics
+
     assert prim.IsValid(), "Cannot inspect an invalid support prim"
     candidates = list(Usd.PrimRange(prim, Usd.TraverseInstanceProxies()))
     ancestor = prim.GetParent()
@@ -76,12 +97,19 @@ def prim_geometry_is_fixed(prim: Usd.Prim) -> bool:
 
 def spawned_geometry_is_fixed(scene: InteractiveScene, scene_key: str) -> bool:
     """Check support mobility from spawned physics properties for every asset variant."""
+    from isaaclab_arena.environments.arena_world_scene_access import _get_representative_prim_groups
+
     path = getattr(scene.cfg, scene_key).prim_path.format(ENV_REGEX_NS=scene.env_regex_ns)
     return all(prim_geometry_is_fixed(prim) for prim, _ in _get_representative_prim_groups(scene, scene_key, path))
 
 
 def spawned_rigid_body_has_gravity(scene: InteractiveScene, scene_key: str) -> bool:
     """Whether all variants of a spawned rigid object participate in gravity."""
+    from isaaclab_arena.environments.arena_world_scene_access import (
+        _find_single_rigid_body_prim_in_subtree,
+        _get_representative_prim_groups,
+    )
+
     assert scene_key in scene.rigid_objects, f"Scene key {scene_key!r} is not a rigid object"
     path = getattr(scene.cfg, scene_key).prim_path.format(ENV_REGEX_NS=scene.env_regex_ns)
     for prim, _ in _get_representative_prim_groups(scene, scene_key, path):

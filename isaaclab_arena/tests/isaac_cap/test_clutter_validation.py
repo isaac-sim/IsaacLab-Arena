@@ -12,7 +12,7 @@ import torch
 
 import pytest
 
-from isaaclab_arena_environments.isaac_cap.clutter.drop_poses import ClutterRegion
+from isaaclab_arena_environments.isaac_cap.clutter.geometry import ClutterRegion
 from isaaclab_arena_environments.isaac_cap.clutter.validation import (
     ClutterSettleParams,
     SettleTracker,

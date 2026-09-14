@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import math
 import torch
 from enum import Enum
 from typing import TYPE_CHECKING, TypeVar
@@ -17,6 +18,7 @@ from isaaclab_arena.utils.pose import PoseRange  # runtime: constructed in to_po
 
 if TYPE_CHECKING:
     from isaaclab_arena.relations.placement_asset import PlaceableAsset
+    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 RelationT = TypeVar("RelationT", bound="RelationBase")
 
@@ -214,6 +216,64 @@ class On(Relation):
         assert edge_margin_m >= 0.0, f"edge_margin_m must be non-negative, got {edge_margin_m}"
         self.clearance_m = clearance_m
         self.edge_margin_m = edge_margin_m
+
+
+@agent_ready
+@register_object_relation
+class ClutterOn(On):
+    """An object above a fixed support, with its footprint inside the release region.
+
+    Initialization lowers objects into free space in asset order. Physics settling is separate.
+    """
+
+    name = "clutter_on"
+
+    def __init__(
+        self,
+        parent: PlaceableAsset,
+        spread: float = 0.2,
+        clearance_m: float = 0.01,
+        gap_m: float = 0.03,
+        random_yaw: bool = True,
+        edge_margin_m: float = 0.0,
+        relation_loss_weight: float = 1.0,
+    ):
+        """Declare a clutter release.
+
+        Args:
+            parent: Fixed support carrying IsAnchor.
+            spread: Fraction of the support's width and depth available for release, in (0, 1].
+            clearance_m: Release clearance above the support in metres.
+            gap_m: Initial clearance from neighboring release bounds in metres.
+            random_yaw: Sample world-Z yaw in addition to RotateAroundSolution.
+            edge_margin_m: Inward margin within the release region in metres.
+            relation_loss_weight: Weight for the relation loss.
+        """
+        super().__init__(parent, relation_loss_weight, clearance_m=clearance_m, edge_margin_m=edge_margin_m)
+        assert 0 < spread <= 1, "spread must be in (0, 1]"
+        for name, value in (("gap_m", gap_m), ("clearance_m", clearance_m), ("edge_margin_m", edge_margin_m)):
+            assert math.isfinite(value) and value >= 0, f"{name} must be finite and non-negative"
+        self.spread = spread
+        self.gap_m = gap_m
+        self.random_yaw = random_yaw
+
+    def support_bbox(self, bbox: AxisAlignedBoundingBox) -> AxisAlignedBoundingBox:
+        """Return the support bounds with its XY footprint scaled by spread."""
+        from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+
+        lower, upper = bbox.min_point.clone(), bbox.max_point.clone()
+        center = (lower[:, :2] + upper[:, :2]) * 0.5
+        half = (upper[:, :2] - lower[:, :2]) * (0.5 * self.spread)
+        lower[:, :2], upper[:, :2] = center - half, center + half
+        return AxisAlignedBoundingBox(lower, upper)
+
+    def validate_placement_configuration(self, subject: PlaceableAsset, objects: set[PlaceableAsset]) -> None:
+        """Require a fixed support and preserve validated release poses."""
+        assert self.parent in objects and self.parent.is_anchor, "ClutterOn requires an IsAnchor support"
+        assert not subject.is_anchor, "ClutterOn cannot be an anchor"
+        assert not any(
+            isinstance(r, RandomAroundSolution) for r in subject.get_relations()
+        ), "ClutterOn cannot randomize a release after collision validation"
 
 
 @agent_ready

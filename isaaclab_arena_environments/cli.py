@@ -215,6 +215,8 @@ def get_arena_builder_from_cli(
         f" (got example_environment={example_environment!r}, env_spec={env_spec!r})"
     )
 
+    assert env_spec is not None or args_cli.placement_layouts is None, "--placement_layouts requires --env_spec"
+
     # Either env graph spec yaml OR example env name
     arena_env = (
         arena_env_from_graph_spec(env_spec, args_cli)
@@ -230,7 +232,7 @@ def arena_env_from_graph_spec(env_spec: str, args_cli: argparse.Namespace) -> Is
     spec = ArenaEnvGraphSpec.from_yaml(env_spec)
     spec.apply_cli_override_args(args_cli)
     # cameras are enabled in embodiment, need to pass along to the env
-    return spec.to_arena_env(enable_cameras=args_cli.enable_cameras)
+    return spec.to_arena_env(enable_cameras=args_cli.enable_cameras, placement_layouts=args_cli.placement_layouts)
 
 
 def _arena_env_from_example_name(example_environment: str, args_cli: argparse.Namespace) -> IsaacLabArenaEnvironment:

@@ -22,13 +22,6 @@ def _arguments(output):
         str(CLUTTER_DIR / "clutter_scene.yaml"),
         "--output",
         str(output),
-        "--support",
-        "table",
-        "--objects",
-        "cube_0",
-        "cube_1",
-        "cube_2",
-        "cube_3",
     ]
 
 
@@ -54,7 +47,7 @@ def test_help_lists_settling_controls():
         (["--num_envs", "0"], "must be positive"),
         (["--attempts", "0"], "must be positive"),
         (["--register", "missing_colon"], "expected module:function"),
-        (["--drop_order", "invalid"], "invalid choice"),
+        (["--num_layouts", "0"], "must be positive"),
     ],
 )
 def test_invalid_options_fail_without_writing(tmp_path, arguments, message):
@@ -85,11 +78,12 @@ def test_cli_generates_scene_cache(tmp_path):
     import yaml
 
     output = tmp_path / "scene.yaml"
-    result = _run([*_arguments(output), "--spread", "0.2", "--viz", "none"])
+    result = _run([*_arguments(output), "--num_envs", "2", "--num_layouts", "3", "--viz", "none"])
     assert result.returncode == 0, result.stdout + result.stderr
     spec = yaml.safe_load(output.read_text())
-    assert not spec["relations"]
-    assert len(spec["objects"]) == 4
-    for obj in spec["objects"]:
-        assert len(obj["params"]["initial_pose"]["position_xyz"]) == 3
-        assert len(obj["params"]["initial_pose"]["rotation_xyzw"]) == 4
+    assert set(spec) == {f"cube_{i}" for i in range(4)}
+    for poses in spec.values():
+        assert len(poses) == 3
+        for pose in poses:
+            assert len(pose["position_xyz"]) == 3
+            assert len(pose["rotation_xyzw"]) == 4

@@ -5,8 +5,7 @@
 
 from __future__ import annotations
 
-import math
-from numbers import Real
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from isaaclab_arena.assets.asset import Asset
@@ -22,8 +21,9 @@ from isaaclab_arena.assets.registries import AssetRegistry, ObjectRelationLibrar
 from isaaclab_arena.environment_spec.arena_env_graph_task_conversion_utils import build_task_from_spec
 from isaaclab_arena.environment_spec.arena_env_graph_types import ObjectReferenceSpec, SpatialRelationSpec
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+from isaaclab_arena.relations.placement_asset import PlaceableAsset
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
-from isaaclab_arena.utils.pose import Pose
+from isaaclab_arena.utils.pose import Pose, PosePerEnv, PoseRange
 from isaaclab_arena.utils.usd_helpers import has_light, open_stage
 
 _DEFAULT_DOME_LIGHT_ASSET_NAME = "light"
@@ -38,26 +38,31 @@ _AFFORDANCE_REFERENCE_CLASSES: dict[str, type[ObjectReference]] = {
 
 if TYPE_CHECKING:
     from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
+    from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
 
 
-def build_arena_env_from_graph_spec(graph_spec: ArenaEnvGraphSpec, enable_cameras: bool = False) -> Any:
+def build_arena_env_from_graph_spec(
+    graph_spec: ArenaEnvGraphSpec, enable_cameras: bool = False, placement_layouts: str | Path | None = None
+) -> IsaacLabArenaEnvironment:
     """Build an IsaacLabArenaEnvironment from a validated ArenaEnvGraphSpec.
 
     Args:
         graph_spec: A validated graph spec (asset refs exist, ids unique, etc.).
         enable_cameras: Forwarded to the embodiment so its cameras are added.
+        placement_layouts: Companion pose file overriding the graph reference, relative to the working directory.
     """
-    return build_arena_env_with_assets_from_graph_spec(graph_spec, enable_cameras)[0]
+    return build_arena_env_with_assets_from_graph_spec(graph_spec, enable_cameras, placement_layouts)[0]
 
 
 def build_arena_env_with_assets_from_graph_spec(
-    graph_spec: ArenaEnvGraphSpec, enable_cameras: bool = False
-) -> tuple[Any, dict[str, Asset]]:
+    graph_spec: ArenaEnvGraphSpec, enable_cameras: bool = False, placement_layouts: str | Path | None = None
+) -> tuple[IsaacLabArenaEnvironment, dict[str, PlaceableAsset]]:
     """Build an environment and retain the exact graph-node-to-asset mapping for serialization.
 
     Args:
         graph_spec: Validated graph specification.
         enable_cameras: Whether to configure embodiment cameras.
+        placement_layouts: Companion pose file overriding the graph reference, relative to the working directory.
 
     Returns:
         Environment description and assets keyed by their source graph node IDs.
@@ -77,6 +82,20 @@ def build_arena_env_with_assets_from_graph_spec(
         task=build_task_from_spec(graph_spec.task, assets_by_node_id),
         placer_params=build_checks_for_placer_params(graph_spec),
     )
+    cache_path = placement_layouts
+    if cache_path is None and graph_spec.placement_layouts is not None:
+        cache_path = graph_spec.placement_layouts_path
+    if cache_path is not None:
+        from isaaclab_arena.relations.placement_layouts import PlacementLayouts
+
+        assert not graph_spec.object_sets, "Cached layouts require concrete assets, not object sets"
+        layouts = PlacementLayouts.from_yaml(cache_path)
+        unknown = set(layouts.poses) - set(assets_by_node_id)
+        assert not unknown, f"Unknown cached graph objects: {unknown}"
+        runtime_poses = {assets_by_node_id[key].get_scene_key(): poses for key, poses in layouts.poses.items()}
+        assert len(runtime_poses) == len(layouts.poses), "Cached graph nodes must have distinct scene keys"
+        arena_env.placement_layouts = PlacementLayouts(runtime_poses)
+        arena_env.placement_layouts.validate_assets(list(assets_by_node_id.values()))
     return arena_env, assets_by_node_id
 
 
@@ -182,34 +201,36 @@ def _instantiate_object_reference(
     return _AFFORDANCE_REFERENCE_CLASSES[joint_param_names[0]](**common_kwargs)
 
 
-def _apply_initial_pose(asset: Asset, value: Any) -> None:
-    """Apply a fixed YAML pose at construction and on every reset."""
-    if value is None:
-        return
-    assert isinstance(value, dict), "initial_pose must be a mapping"
-    assert not (set(value) - {"position_xyz", "rotation_xyzw"}), "Unknown initial_pose fields"
-    if "position_xyz" not in value or "rotation_xyzw" not in value:
-        declared = asset.get_initial_pose()
-        assert declared is None or isinstance(declared, Pose), "Partial initial_pose requires a fixed default pose"
-        default = declared if declared is not None else Pose.identity()
-        position = value.get("position_xyz", default.position_xyz)
-        rotation = value.get("rotation_xyzw", default.rotation_xyzw)
-    else:
-        position, rotation = value["position_xyz"], value["rotation_xyzw"]
-    for name, values, size in (("position_xyz", position, 3), ("rotation_xyzw", rotation, 4)):
-        assert isinstance(values, (list, tuple)) and len(values) == size, f"{name} needs {size} numbers"
-        assert all(
-            isinstance(v, Real) and not isinstance(v, bool) and math.isfinite(v) for v in values
-        ), f"{name} must contain finite numbers"
-    assert math.isclose(sum(v * v for v in rotation), 1.0, abs_tol=1e-4), "rotation_xyzw must be a unit quaternion"
-    asset.set_initial_pose(Pose(tuple(float(v) for v in position), tuple(float(v) for v in rotation)))
+def _get_pose_from_dict(
+    pose_dict: dict | None, default_pose: Pose | PosePerEnv | PoseRange | None = None
+) -> Pose | None:
+    """Parse a YAML pose, retaining omitted components from a fixed default pose."""
+    if pose_dict is None:
+        return None
+    assert isinstance(pose_dict, dict), "initial_pose must be a mapping"
+    if "position_xyz" not in pose_dict or "rotation_xyzw" not in pose_dict:
+        assert default_pose is None or isinstance(
+            default_pose, Pose
+        ), "Partial initial_pose requires a fixed default pose"
+        default = default_pose if default_pose is not None else Pose.identity()
+        pose_dict = default.to_dict() | pose_dict
+    return Pose.from_dict(pose_dict)
+
+
+def _apply_initial_pose(asset: PlaceableAsset, pose: Pose | None) -> None:
+    """Set an asset's fixed pose at construction and on reset."""
+    if pose is not None:
+        asset.set_initial_pose(pose)
 
 
 def instantiate_assets_from_spec(
     graph_spec: ArenaEnvGraphSpec, asset_registry: Any, enable_cameras: bool = False
-) -> dict[str, type[Asset]]:
+) -> dict[str, PlaceableAsset]:
     """Return ``{asset.id: live_asset}`` after materializing the typed graph spec."""
-    assets_by_node_id: dict[str, type[Asset]] = {}
+    assets_by_node_id: dict[str, PlaceableAsset] = {}
+    for node in [graph_spec.embodiment, graph_spec.background, *graph_spec.objects]:
+        if "initial_pose" in node.params:
+            assert isinstance(node.params["initial_pose"], dict), f"Asset '{node.id}': initial_pose must be a mapping"
 
     embodiment_params = dict(graph_spec.embodiment.params)
     embodiment_pose = embodiment_params.pop("initial_pose", None)
@@ -219,21 +240,29 @@ def instantiate_assets_from_spec(
         **embodiment_params
     )
 
-    _apply_initial_pose(assets_by_node_id[graph_spec.embodiment.id], embodiment_pose)
+    _apply_initial_pose(
+        assets_by_node_id[graph_spec.embodiment.id],
+        _get_pose_from_dict(embodiment_pose, assets_by_node_id[graph_spec.embodiment.id].get_initial_pose()),
+    )
 
     background_params = dict(graph_spec.background.params)
     background_pose = background_params.pop("initial_pose", None)
     assets_by_node_id[graph_spec.background.id] = asset_registry.get_asset_by_name(graph_spec.background.registry_name)(
         **background_params
     )
-    _apply_initial_pose(assets_by_node_id[graph_spec.background.id], background_pose)
+    _apply_initial_pose(
+        assets_by_node_id[graph_spec.background.id],
+        _get_pose_from_dict(background_pose, assets_by_node_id[graph_spec.background.id].get_initial_pose()),
+    )
 
     for obj in graph_spec.objects:
         params = dict(obj.params)
         initial_pose = params.pop("initial_pose", None)
         params.setdefault("instance_name", obj.id)
         assets_by_node_id[obj.id] = asset_registry.get_asset_by_name(obj.registry_name)(**params)
-        _apply_initial_pose(assets_by_node_id[obj.id], initial_pose)
+        _apply_initial_pose(
+            assets_by_node_id[obj.id], _get_pose_from_dict(initial_pose, assets_by_node_id[obj.id].get_initial_pose())
+        )
 
     for object_set in graph_spec.object_sets or []:
         assets_by_node_id[object_set.id] = RigidObjectSet(
@@ -253,7 +282,7 @@ def instantiate_assets_from_spec(
 
 
 def _attach_spatial_relations_to_assets(
-    relations: list[SpatialRelationSpec], assets_by_node_id: dict[str, type[Asset]]
+    relations: list[SpatialRelationSpec], assets_by_node_id: dict[str, PlaceableAsset]
 ) -> None:
     """Attach one Relation per spatial relation to the asset(s) it targets, in place."""
     for relation in relations:

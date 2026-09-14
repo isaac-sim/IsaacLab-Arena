@@ -13,7 +13,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, quaternion_to_90_deg_z_quarters
+from isaaclab_arena.utils.pose import Pose
 
 if TYPE_CHECKING:
     from isaaclab_arena.relations.placement_asset import PlaceableAsset
@@ -124,8 +125,17 @@ class PerEnvBoundingBoxes:
 def build_per_env_bounding_boxes(objects: list[PlaceableAsset], num_envs: int) -> PerEnvBoundingBoxes:
     """Build per-env base bboxes for each placement object.
 
-    Object orientation (marker roll/pitch/yaw plus sampled and FaceTo yaw) is applied later per
-    candidate in ObjectPlacer._rotate_candidate_bboxes, so these boxes carry object geometry only.
+    Anchor bounds include their fixed rotation. Movable-object orientation is applied later
+    per candidate in ObjectPlacer._rotate_candidate_bboxes.
     """
     object_bboxes = {obj: get_bounding_box_per_env(obj, num_envs) for obj in objects}
+    for obj, bbox in object_bboxes.items():
+        if obj.is_anchor:
+            pose = obj.get_initial_pose()
+            assert isinstance(pose, Pose), f"Anchor '{obj.name}' must have a fixed Pose"
+            try:
+                quarters = quaternion_to_90_deg_z_quarters(pose.rotation_xyzw)
+            except AssertionError as error:
+                raise AssertionError(f"Anchor '{obj.name}': {error}") from error
+            object_bboxes[obj] = bbox.rotated_90_around_z(quarters)
     return PerEnvBoundingBoxes(object_bboxes=object_bboxes, num_envs=num_envs)

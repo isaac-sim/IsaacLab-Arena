@@ -1,17 +1,47 @@
 CAP Offline Clutter Placement
 =============================
 
-For v0.3.1, these utilities live in the temporary CAP environment directory,
-alongside the CAP validation environments. They are CAP-owned offline tooling;
-they do not extend Arena's relation solver or define a core clutter API.
+The CAP offline tool creates physics-settled layouts for ordinary Arena rigid
+objects. It uses Arena's ``ClutterOn`` relation and ``ObjectPlacer`` for release
+poses, then steps physics and validates rest and support containment. Settling
+runs in the CAP extension; relation placement and cached replay are shared
+Arena capabilities.
 
-Clutter objects are ordinary Arena assets. The offline example samples release
-poses, steps physics until the objects rest, and saves their exact poses in a
-normal scene YAML. Runtime environments load that file and restore those poses
-through existing asset reset events.
+Declare clutter in the environment
+----------------------------------
 
-Generate a scene cache
-----------------------
+Add relations to the environment YAML:
+
+.. code-block:: yaml
+
+   relations:
+   - kind: is_anchor
+     subject: table
+   - kind: clutter_on
+     subject: cube_0
+     reference: table
+     params:
+       spread: 0.2
+       clearance_m: 0.01
+       gap_m: 0.03
+       random_yaw: true
+
+``spread`` scales the release footprint about the support center. Release
+solving and validation use that smaller region. After physics settling,
+containment uses the whole support. ``clearance_m`` is the initial surface gap;
+``gap_m`` separates overlapping bounds during initialization. Objects start in
+free space in asset order, then the solver applies their relations and the
+shared collision clearance. ``ClutterOn`` can combine with ``AtPosition`` or
+other spatial constraints. Use Arena's ``RotateAroundSolution`` relation to
+author a base rotation; sampled world-Z yaw preserves its roll and pitch. Set
+``random_yaw: false`` to retain that rotation.
+
+Without a cache, the same environment uses ``ObjectPlacer`` to initialize the
+release column. The objects fall when simulation starts. No online settling or
+settled-layout validation runs during environment construction or reset.
+
+Generate a companion cache
+--------------------------
 
 Run inside the Arena development container, from ``/workspaces/isaaclab_arena``:
 
@@ -19,130 +49,109 @@ Run inside the Arena development container, from ``/workspaces/isaaclab_arena``:
 
    /isaac-sim/python.sh isaaclab_arena_environments/isaac_cap/clutter/generate_clutter_scene.py \
        --env_spec isaaclab_arena_environments/isaac_cap/clutter/clutter_scene.yaml \
-       --support table --objects cube_0 cube_1 cube_2 cube_3 --spread 0.2 \
-       --output outputs/clutter/scene.yaml --seed 42 --viz none
+       --output outputs/clutter/placements.yaml --num_envs 4 --num_layouts 100 \
+       --seed 42 --viz none
 
-``--support`` and ``--objects`` identify graph nodes. The input scene must use
-concrete asset poses and have no unresolved placement relations or object sets.
-Place the surrounding scene before running offline generation. Assets without
-``params.initial_pose`` retain their registered defaults.
+One environment file and one companion pose file describe all layouts.
+``--num_envs`` controls parallel generation; ``--num_layouts`` controls the total
+(default: one per environment). ``--attempts`` limits retries per environment;
+``--timeout_s`` limits simulated time per trial. Only rejected environments are
+retried. Generation fails if any requested layout cannot be validated, and
+writes output only after all layouts pass. Only release candidates that pass
+placement validation are simulated. Existing output files
+are not overwritten.
 
-``--num_envs 4`` generates independent layouts and writes ``scene_env_0.yaml``
-through ``scene_env_3.yaml``. ``--attempts`` limits offline retries per environment;
-``--timeout_s`` limits each trial's simulated time. A failed trial is retried
-only offline. If any environment has no accepted layout, generation fails before
-writing output files. Each output is published as a complete YAML file; existing
-output files are never overwritten. The output filesystem must support hard links;
-its write and link permissions are checked before scene construction and settling.
-If the check fails, choose an output directory that supports hard links.
-
-``--spread`` scales the release region; final containment uses the whole support.
-Sampled world-Z yaw preserves each object's initial roll and pitch. Use
-``--keep_rotation`` to retain the entire initial rotation, or ``--drop_order`` to
-choose ``as_listed``, ``flattest_first``, or ``shuffle``. ``--gap_m`` controls the
-vertical gap above overlapping footprints; ``--clearance_m`` sets the initial
-clearance above the support.
-
-``--poll_interval_s``, ``--required_quiet_windows``, ``--move_thresh_m`` and
-``--turn_thresh_deg`` control rest detection. ``--fall_through_tolerance_m`` and
-``--containment_margin_m`` control support containment. ``--passive_move_thresh_m``
-and ``--passive_turn_thresh_deg`` bound total neighbor, support and robot-link
-movement during a trial, independently of the rest-detection thresholds.
-
-Downstream packages can register their assets and tasks with
-``--register package.module:register_components``. Registration runs after Isaac
-Sim starts and before graph loading. ``--presets`` selects the physics backend.
-Reuse the asset versions and physics configuration when replaying cached scenes.
+Other placement must already be resolved to fixed anchors. Object sets are not
+supported by this cache format. Downstream packages can register assets and
+tasks with ``--register package.module:register_components``. ``--presets``
+selects the physics backend.
 
 Load at runtime
 ---------------
 
+Pass the companion file explicitly:
+
 .. code-block:: bash
 
    /isaac-sim/python.sh isaaclab_arena/scripts/environment_runner.py \
-       --env_spec outputs/clutter/scene.yaml
+       --env_spec isaaclab_arena_environments/isaac_cap/clutter/clutter_scene.yaml \
+       --placement_layouts outputs/clutter/placements.yaml
 
-The cache stores environment-local positions in metres and full quaternions in
-``[x, y, z, w]`` order:
+Alternatively, add ``placement_layouts: placements.yaml`` to the environment
+YAML. That path is relative to the environment file; a command-line override is
+relative to the working directory and takes precedence.
+
+The companion file maps graph object IDs to lists of environment-local poses,
+with positions in metres and quaternions in ``[x, y, z, w]`` order:
 
 .. code-block:: yaml
 
-   objects:
-   - id: cube_0
-     registry_name: dex_cube
-     params:
-       initial_pose:
-         position_xyz: [0.1, 0.2, 0.8]
-         rotation_xyzw: [0.0, 0.0, 0.0, 1.0]
-   relations: []
+   cube_0:
+   - position_xyz: [0.1, 0.2, 0.8]
+     rotation_xyzw: [0.0, 0.0, 0.0, 1.0]
+   - position_xyz: [-0.1, 0.2, 0.8]
+     rotation_xyzw: [0.0, 0.0, 0.0, 1.0]
 
-Each generated file represents one fixed layout, reusable across any number of
-runtime environments. Choose a different cached file for another layout. Loading
-a cache does not run settling, regenerate clutter, or change the objects' physics
-properties. Tasks and callbacks must preserve these pose reset events for fixed
-replay.
+Every object has the same number of poses. An index selects a complete layout
+across all objects. Environment ``i`` starts at index ``i % num_layouts``; each
+reset advances that environment's index and wraps at the end. Partial resets
+leave other environments unchanged. Replay restores exact root poses and zero
+velocities, bypassing relation solving and settling. Pose-changing variations
+or custom reset callbacks can alter the layout and should be disabled for exact
+replay. Cached assets must not have their own explicit pose-reset events;
+the complete-layout event owns their pose resets.
 
 Use from Python
 ---------------
 
-The helper operates on an already constructed scene, independent of how the
-application placed it. Pass scene keys rather than graph IDs:
-
 .. code-block:: python
 
-   from isaaclab_arena_environments.isaac_cap.clutter.settle import ClutterGroup, settle_clutter
+   from isaaclab_arena_environments.isaac_cap.clutter.settle import settle_clutter
    from isaaclab_arena_environments.isaac_cap.clutter.validation import ClutterSettleParams
 
    env.reset()
    layouts = settle_clutter(
        env,
-       [ClutterGroup(support="table", objects=("tool_0", "tool_1"), spread=0.7)],
+       list(arena_env.scene.assets.values()),
        seed=42,
        params=ClutterSettleParams(timeout_s=15.0),
    )
 
-``layouts[env_id]`` maps each dynamic rigid object's scene key to an Arena
-``Pose``. Multiple groups may use different supports. The helper restores the
-caller's scene state and actuator targets on success and failure. Applications
-can save these poses through their own cache format or use the example's
-``scene_with_cached_poses`` function with an exact graph-node-to-asset mapping.
+Assets must carry their ``ClutterOn`` and ``IsAnchor`` relations. Their fixed
+poses must match the constructed scene. ``layouts[env_id]`` maps dynamic rigid
+object scene keys to ``Pose`` values. The helper restores scene state and
+actuator targets on success and failure.
 
 Checks and limits
 -----------------
 
-- Supports must be horizontal, axis aligned or turned by a multiple of 90 degrees,
-  with static or kinematic spawned geometry. A fixed floor reference may identify
-  the usable surface inside a fixture.
-- Members must be dynamic rigid objects with gravity enabled. All dynamic rigid
-  objects are monitored and cached. Undeclared neighbors and supports must stay
-  within the passive drift limits of their original poses; put objects that may
-  move into an explicit clutter group. The YAML exporter rejects rigid bodies
-  without a corresponding graph asset before settling.
-- Rest requires consecutive quiet pose windows. Full rotated object bounds must
-  remain above and inside the support footprint. Failed trials name moving or
-  non-finite objects, displaced neighbors, and members outside their support.
-- Articulation configurations cannot be represented by rigid-object poses.
-  Changes beyond ``passive_move_thresh_m`` or ``passive_turn_thresh_deg`` reject
-  the trial; these limits are separate from consecutive-sample rest thresholds.
-- Release bounds are conservative. Concave fixtures need an explicit usable floor
-  reference; outer bounds alone do not describe a container interior.
-- Physics resolves contact during offline settling. The script checks rest and
-  containment; it does not invoke Arena's relation or reachability validators.
-  Task feasibility and collision fidelity depend on the authored scene and physics.
-- Exact initial poses do not promise identical subsequent trajectories across
-  different assets, backends, or simulator versions.
+- Supports must be horizontal, axis aligned or turned by a multiple of 90
+  degrees, with static or kinematic spawned geometry.
+- Clutter members must be dynamic rigid objects with gravity enabled. Passive
+  rigid neighbors need fixed poses and collision geometry. All dynamic rigid
+  objects are monitored and cached; the YAML exporter rejects unmapped bodies.
+- Rest requires consecutive quiet pose windows. Full rotated bounds must stay
+  above and inside the support. Moving, non-finite, or escaped objects reject
+  the trial. Rest thresholds use ``--move_thresh_m`` and ``--turn_thresh_deg``.
+- Neighbors, supports and robot links must remain within
+  ``--passive_move_thresh_m`` and ``--passive_turn_thresh_deg`` of their initial
+  poses. Articulation configurations are not stored in the pose cache.
+- Conservative bounding boxes do not describe concave interiors. Use a fixed
+  reference identifying the usable support surface inside a fixture.
+- Release placement uses Arena's geometry validators. Settled layouts are
+  checked for rest and containment; task reachability is not certified.
+- Replay assumes the same assets and physics configuration. Exact starting
+  poses do not guarantee identical trajectories across simulator versions.
 
 Run the tests
 -------------
 
-The CAP tests remain in Arena's central test suite for automatic discovery.
-Run the live tests before the geometry tests so SimulationApp starts first:
-
 .. code-block:: bash
 
-   /isaac-sim/python.sh -m pytest -q \
+   /isaac-sim/python.sh -m pytest -sv \
        isaaclab_arena/tests/isaac_cap/test_settled_scene.py \
-       isaaclab_arena/tests/isaac_cap/test_clutter_drop_poses.py \
-       isaaclab_arena/tests/isaac_cap/test_clutter_validation.py
+       isaaclab_arena/tests/isaac_cap/test_clutter_validation.py \
+       isaaclab_arena/tests/test_clutter_on.py \
+       isaaclab_arena/tests/test_placement_layouts.py
 
-   /isaac-sim/python.sh -m pytest -q isaaclab_arena/tests/isaac_cap/test_clutter_cli.py
+   /isaac-sim/python.sh -m pytest -sv isaaclab_arena/tests/isaac_cap/test_clutter_cli.py

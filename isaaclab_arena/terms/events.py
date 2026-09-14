@@ -418,3 +418,52 @@ def reset_all_articulation_joints(env: ManagerBasedEnv, env_ids: torch.Tensor):
         default_joint_vel = wp.to_torch(articulation_asset.data.default_joint_vel)[env_ids].clone()
         # set into the physics simulation
         articulation_asset.write_joint_state_to_sim(default_joint_pos, default_joint_vel, env_ids=env_ids)
+
+
+class ResetPlacementLayouts(ManagerTermBase):
+    """Complete cached layouts cycling independently across N environments.
+
+    L is the layout count; each pose contains xyz position and xyzw rotation.
+    """
+
+    def __init__(self, cfg: EventTermCfg, env: ManagerBasedEnv):
+        super().__init__(cfg, env)
+        self._poses = {name: torch.tensor(poses, device=env.device) for name, poses in cfg.params["poses"].items()}
+        """Object-to-pose tensors, each shaped (L, 7); L is the number of layouts."""
+        assert self._poses, "Cached reset requires at least one object"
+        shapes = {tuple(poses.shape) for poses in self._poses.values()}
+        assert len(shapes) == 1, "Cached reset objects must have equal layout counts"
+        shape = next(iter(shapes))
+        assert len(shape) == 2 and shape[0] > 0 and shape[1] == 7, "Cached reset poses must have shape (L, 7), L > 0"
+        self._num_layouts = shape[0]
+        self._all_env_ids = torch.arange(env.num_envs, device=env.device)
+        """Absolute environment indices, shape (N,)."""
+        self._next_layout = self._all_env_ids % self._num_layouts
+        """Next complete layout index for each environment, shape (N,)."""
+        for name in self._poses:
+            assert (
+                name in env.scene.rigid_objects or name in env.scene.articulations
+            ), f"Cached object '{name}' must have a writable physics root"
+
+    def __call__(self, env: ManagerBasedEnv, env_ids: torch.Tensor | None, poses: dict[str, list[list[float]]]) -> None:
+        """Apply the next complete layout to each resetting environment.
+
+        Args:
+            env: Environment whose root poses are reset.
+            env_ids: Environments to reset, or None for all environments.
+            poses: Layout configuration required by the event-manager calling contract.
+                Pose tensors are built once in __init__; this argument is unused here.
+        """
+        env_ids = self._all_env_ids if env_ids is None else env_ids
+        if len(env_ids) == 0:
+            return
+        layout_ids = self._next_layout[env_ids]
+        for name, values in self._poses.items():
+            T_E_O = values[layout_ids]
+            T_W_O = T_E_O.clone()
+            T_W_O[:, :3] += env.scene.env_origins[env_ids]
+            env.scene[name].write_root_pose_to_sim(T_W_O, env_ids=env_ids)
+            env.scene[name].write_root_velocity_to_sim(
+                torch.zeros((len(env_ids), 6), device=env.device), env_ids=env_ids
+            )
+        self._next_layout[env_ids] = (layout_ids + 1) % self._num_layouts
