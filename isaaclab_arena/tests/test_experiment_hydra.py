@@ -179,13 +179,16 @@ runs:
         config_path,
         overrides=[
             "runs.first.environment.light_intensity=750.0",
+            "runs.first.environment_builder.record_trajectories=true",
             "runs.second.environment.enable_cameras=true",
         ],
     )
 
     assert list(experiment_cfg.runs) == ["first", "second"]
     assert experiment_cfg.runs["first"].environment.light_intensity == 750.0
+    assert experiment_cfg.runs["first"].environment_builder.record_trajectories is True
     assert experiment_cfg.runs["second"].environment.enable_cameras is True
+    assert experiment_cfg.runs["second"].environment_builder.record_trajectories is False
 
 
 def test_shared_run_defaults_merge_before_run_overrides_without_resolving_local_interpolations(tmp_path):
