@@ -8,6 +8,7 @@ import torch
 import traceback
 
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
+from isaaclab_arena.tests.utils.task_completion import step_to_task_success
 
 NUM_STEPS = 10
 HEADLESS = True
@@ -82,18 +83,6 @@ def _test_close_door_microwave(simulation_app) -> bool:
         if not terminated.item():
             print("Close door task is not completed")
 
-    def assert_closed(env: ManagerBasedEnv, terminated: torch.Tensor):
-        is_closed = microwave.is_closed(env)
-        assert is_closed.shape == torch.Size([1]), "Is closed shape is not correct"
-        assert is_closed.item(), "The door is not closed when it should be"
-        if is_closed.item():
-            print("Microwave is closed")
-        # Check terminated.
-        assert terminated.shape == torch.Size([1]), "Terminated shape is not correct"
-        assert terminated.item(), "The task didn't terminate when it should have"
-        if terminated.item():
-            print("Close door task is completed")
-
     try:
 
         print("Opening microwave")
@@ -101,7 +90,10 @@ def _test_close_door_microwave(simulation_app) -> bool:
         step_zeros_and_call(env, NUM_STEPS, assert_open)
         print("Closing microwave")
         microwave.close(env, env_ids=None)
-        step_zeros_and_call(env, NUM_STEPS, assert_closed)
+        progress = step_to_task_success(env, expected_steps=1)
+        assert microwave.is_closed(env).shape == torch.Size([1])
+        assert microwave.is_closed(env).item(), "The door is not closed when its pose reset is disabled."
+        assert len(progress["events"][0]) == 1
 
     except Exception as e:
         print(f"Error: {e}")
@@ -187,31 +179,8 @@ def _test_close_door_with_reset(simulation_app) -> bool:
             print("Closing the door to trigger termination...")
             microwave.close(env, env_ids=None, percentage=0.0)
 
-            # Step and wait for termination
-            terminated = False
-            for step in range(NUM_STEPS * 2):  # Give it more time to detect termination
-                actions = torch.zeros(env.action_space.shape, device=env.device)
-                _, _, term, _, _ = env.step(actions)
-
-                is_closed = microwave.is_closed(env)
-                openness = microwave.get_openness(env)
-                print(
-                    f"Step {step}: openness={openness.item():.3f}, is_closed={is_closed.item()},"
-                    f" terminated={term.item()}"
-                )
-
-                if term.item():
-                    terminated = True
-                    print(f"✓ Environment terminated at step {step}")
-                    break
-
-            assert terminated, "Environment should have terminated when door closed"
-
-            # After termination, env auto-resets. The reset event should open the door again
-            # Take a few more steps to let the reset settle
-            for _ in range(5):
-                actions = torch.zeros(env.action_space.shape, device=env.device)
-                env.step(actions)
+            progress = step_to_task_success(env, expected_steps=1)
+            assert len(progress["events"][0]) == 1
 
             # Check that door is open again after reset
             openness_after_reset = microwave.get_openness(env)
@@ -236,15 +205,15 @@ def _test_close_door_with_reset(simulation_app) -> bool:
 
 # Test functions that will be called by pytest
 def test_close_door_microwave():
-    run_function_with_persistent_simulation_app(_test_close_door_microwave, headless=HEADLESS)
+    assert run_function_with_persistent_simulation_app(_test_close_door_microwave, headless=HEADLESS)
 
 
 def test_close_door_microwave_multiple_envs():
-    run_function_with_persistent_simulation_app(_test_close_door_microwave_multiple_envs, headless=HEADLESS)
+    assert run_function_with_persistent_simulation_app(_test_close_door_microwave_multiple_envs, headless=HEADLESS)
 
 
 def test_close_door_with_reset():
-    run_function_with_persistent_simulation_app(_test_close_door_with_reset, headless=HEADLESS)
+    assert run_function_with_persistent_simulation_app(_test_close_door_with_reset, headless=HEADLESS)
 
 
 if __name__ == "__main__":

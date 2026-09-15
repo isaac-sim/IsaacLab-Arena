@@ -44,9 +44,14 @@ and scenes without any changes.
 Available tasks include (but are not limited to) ``PickAndPlaceTask``, ``LiftObjectTask``,
 ``OpenDoorTask``, ``CloseDoorTask``, and ``PressButtonTask``.
 
-Individual tasks can be combined into order-independent or sequential composite tasks. Tasks can also
-define predicate-based progress objectives to report partial completion without changing their
-success termination.
+Individual tasks can be combined into order-independent or sequential composite tasks. Each task
+returns a ``TaskTerminationCfg`` from ``get_termination_cfg()``. This definition collects the required
+``success`` objectives, named ``failures``, and ``timeout_s`` in one place. Success objectives define
+ordered predicates with ``predicate_sequences`` and also report partial completion. The environment builder
+translates this definition into Isaac Lab termination terms.
+
+``TaskTerminationCfg`` is the only source of termination criteria. Scene- or robot-related failure
+conditions belong in its ``failures`` dictionary, not in separate scene or embodiment configurations.
 
 More details
 ------------

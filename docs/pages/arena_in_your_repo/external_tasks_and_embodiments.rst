@@ -10,13 +10,21 @@ Defining a Custom Task
 ----------------------
 
 A custom task is defined by subclassing ``TaskBase`` and implementing the required methods.
-The code below shows how to define a simple task that succeeds after a fixed number of steps.
+The example below defines a task that succeeds after a fixed number of steps.
+``get_termination_cfg()`` declares success, failure,
+and timeout together; the builder creates the corresponding Isaac Lab termination terms.
 This task can be passed to the ``ArenaEnvBuilder`` to create an environment
 (see :ref:`putting_it_all_together` below for an example).
 
 .. code-block:: python
 
    # my_package/isaaclab_arena_environments/my_environment_with_task.py
+
+   from isaaclab_arena.metrics.metric_base import MetricBase
+   from isaaclab_arena.metrics.success_rate import SuccessRateMetric
+   from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
+   from isaaclab_arena.tasks.task_base import TaskBase
+   from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
 
    class SuccessAfterNStepsTask(TaskBase):
        """Minimal task: the episode succeeds after a fixed number of steps."""
@@ -28,19 +36,29 @@ This task can be passed to the ``ArenaEnvBuilder`` to create an environment
            )
            self.num_steps_for_success = num_steps_for_success
 
-       def get_termination_cfg(self):
-           n = self.num_steps_for_success
-           success = TerminationTermCfg(func=lambda env, n=n: env.episode_length_buf >= n)
-           return SuccessAfterNStepsTerminationsCfg(success=success)
+       def get_termination_cfg(self) -> TaskTerminationCfg:
+           return TaskTerminationCfg(
+               success=[
+                   ProgressObjective(name="wait", predicate_sequences=[self.has_reached_step_count]),
+               ],
+               failures={},
+               timeout_s=self.episode_length_s,
+           )
+
+       def has_reached_step_count(self, env):
+           return env.episode_length_buf >= self.num_steps_for_success
 
        def get_metrics(self) -> list[MetricBase]:
            return [SuccessRateMetric()]
 
+       def get_scene_cfg(self):
+           return None
 
-   @configclass
-   class SuccessAfterNStepsTerminationsCfg:
-       time_out: TerminationTermCfg = TerminationTermCfg(func=mdp_isaac_lab.time_out, time_out=True)
-       success: TerminationTermCfg = MISSING
+       def get_events_cfg(self):
+           return None
+
+       def get_mimic_env_cfg(self, arm_mode):
+           return None
 
 
 Defining a Custom Embodiment

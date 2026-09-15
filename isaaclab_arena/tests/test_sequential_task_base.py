@@ -3,332 +3,82 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-import traceback
-
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
-HEADLESS = True
 
-
-class _MockSuccessFunc:
-    """Callable that can set and return a per-env boolean success state."""
-
-    def __init__(self, num_envs: int):
-        import torch
-
-        self.num_envs = num_envs
-        self.return_value = torch.tensor([False] * num_envs)
-
-    def set(self, values: list[bool]):
-        import torch
-
-        assert len(values) == self.num_envs
-        self.return_value = torch.tensor(values)
-
-    def __call__(self, env, **kwargs):
-        return self.return_value
-
-
-class _MockSubtask:
-    """Minimal stand-in for a TaskBase with a controllable success function."""
-
-    def __init__(self, num_envs: int):
-        from isaaclab.managers import TerminationTermCfg
-
-        self.func = _MockSuccessFunc(num_envs)
-
-        class _TerminationCfg:
-            pass
-
-        self._termination_cfg = _TerminationCfg()
-        self._termination_cfg.success = TerminationTermCfg(func=self.func, params={})
-
-    def get_termination_cfg(self):
-        return self._termination_cfg
-
-    def set_success(self, values: list[bool]):
-        self.func.set(values)
-
-
-def _get_success_cfgs(subtasks: list[_MockSubtask]):
-    """Return the already-callable success configs used by the direct unit tests."""
-    return [subtask.get_termination_cfg().success for subtask in subtasks]
-
-
-class _MockEnv:
-    """Minimal stand-in for the env used by composite_task_success_func."""
-
-    def __init__(self, num_envs: int = 1, device: str = "cpu"):
-        self.num_envs = num_envs
-        self.device = device
-        self.extras = {}
-
-
-def _test_sequential_success_advances_in_order(simulation_app) -> bool:
-    """Subtask N+1 success must not count until subtask N has succeeded."""
-
+def _test_sequential_progress_requires_order(simulation_app):
     from isaaclab_arena.tasks.sequential_task_base import SequentialTaskBase
+    from isaaclab_arena.tests.test_composite_task_base import _ControlledPredicate, _ControlledTask, _make_tracker
 
-    try:
-        env = _MockEnv(num_envs=1)
-        subtasks = [_MockSubtask(num_envs=1) for _ in range(3)]
-        subtask_success_cfgs = _get_success_cfgs(subtasks)
-
-        # Subtask 0 fails, subtasks 1 and 2 "succeed" out of order. Sequential gating
-        # must ignore subtasks 1/2 because the state machine is still at index 0.
-        subtasks[0].set_success([False])
-        subtasks[1].set_success([True])
-        subtasks[2].set_success([True])
-
-        result = SequentialTaskBase.composite_task_success_func(env, subtask_success_cfgs, None)
-
-        assert result.tolist() == [False]
-        assert env._current_subtask_idx == [0]
-        assert env._subtask_ever_succeeded == [[False, False, False]]
-
-        # Subtask 0 succeeds, index advances to 1, state[0] becomes True.
-        subtasks[0].set_success([True])
-        subtasks[1].set_success([False])
-        result = SequentialTaskBase.composite_task_success_func(env, subtask_success_cfgs, None)
-
-        assert result.tolist() == [False]
-        assert env._current_subtask_idx == [1]
-        assert env._subtask_ever_succeeded == [[True, False, False]]
-
-        # Subtask 1 succeeds, index advances to 2, state[1] becomes True.
-        subtasks[1].set_success([True])
-        result = SequentialTaskBase.composite_task_success_func(env, subtask_success_cfgs, None)
-
-        assert result.tolist() == [False]
-        assert env._current_subtask_idx == [2]
-        assert env._subtask_ever_succeeded == [[True, True, False]]
-
-        # Subtask 2 succeeds, state[2] becomes True, overall success is True. Index does
-        # not advance past the last subtask (it caps at len-1).
-        subtasks[2].set_success([True])
-        result = SequentialTaskBase.composite_task_success_func(env, subtask_success_cfgs, None)
-
-        assert result.tolist() == [True]
-        assert env._current_subtask_idx == [2]
-        assert env._subtask_ever_succeeded == [[True, True, True]]
-
-    except Exception as e:
-        print(f"Error: {e}")
-        traceback.print_exc()
-        return False
-
+    task = SequentialTaskBase([_ControlledTask(_ControlledPredicate(index)) for index in range(3)])
+    env, tracker = _make_tracker(task, [[False, True, True], [True, True, True]])
+    tracker.step(env)
+    assert tracker.get_child_completion("task").tolist() == [[False, False, False], [True, False, False]]
+    env.conditions[0, 0] = True
+    tracker.step(env)
+    assert tracker.get_child_completion("task").tolist() == [[True, False, False], [True, True, False]]
+    env.conditions[:, 0] = False
+    tracker.step(env)
+    assert tracker.get_child_completion("task").tolist() == [[True, True, False], [True, True, True]]
+    assert tracker.is_complete().tolist() == [False, True]
+    tracker.step(env)
+    assert tracker.is_complete().tolist() == [True, True]
+    assert [len(events) for events in tracker.get_events()] == [3, 3]
     return True
 
 
-def _test_sequential_success_latches(simulation_app) -> bool:
-    """Once a subtask succeeds, ``_subtask_ever_succeeded`` must not un-set when the
-    underlying success function later returns False."""
-
+def _test_sequential_final_states_use_current_conditions(simulation_app):
     from isaaclab_arena.tasks.sequential_task_base import SequentialTaskBase
+    from isaaclab_arena.tests.test_composite_task_base import _ControlledPredicate, _ControlledTask, _make_tracker
 
-    try:
-        env = _MockEnv(num_envs=1)
-        subtasks = [_MockSubtask(num_envs=1) for _ in range(2)]
-        subtask_success_cfgs = _get_success_cfgs(subtasks)
-
-        # Drive both subtasks to success in order.
-        subtasks[0].set_success([True])
-        SequentialTaskBase.composite_task_success_func(env, subtask_success_cfgs, None)
-        subtasks[1].set_success([True])
-        result = SequentialTaskBase.composite_task_success_func(env, subtask_success_cfgs, None)
-        assert result.tolist() == [True]
-        assert env._subtask_ever_succeeded == [[True, True]]
-
-        # Even when the underlying success goes False, latched state stays True and
-        # overall success stays True.
-        subtasks[0].set_success([False])
-        subtasks[1].set_success([False])
-        result = SequentialTaskBase.composite_task_success_func(env, subtask_success_cfgs, None)
-        assert env._subtask_ever_succeeded == [[True, True]]
-        assert result.tolist() == [True]
-
-    except Exception as e:
-        print(f"Error: {e}")
-        traceback.print_exc()
-        return False
-
+    task = SequentialTaskBase(
+        [_ControlledTask(_ControlledPredicate(index)) for index in range(2)],
+        desired_subtask_success_state=[False, True],
+    )
+    env, tracker = _make_tracker(task, [[True, True]])
+    tracker.step(env)
+    tracker.step(env)
+    assert tracker.get_child_completion("task").tolist() == [[True, True]]
+    assert tracker.is_complete().tolist() == [False]
+    env.conditions[0, 0] = False
+    tracker.step(env)
+    assert tracker.is_complete().tolist() == [True]
+    assert len(tracker.get_events()[0]) == 2
     return True
 
 
-def _test_sequential_desired_subtask_success_state(simulation_app) -> bool:
-    """When ``desired_subtask_success_state`` is provided, overall success requires
-    both (a) all subtasks latched True and (b) the current success state equals the desired pattern.
-    """
+def _test_sequential_reset_preserves_other_environments(simulation_app):
+    import torch
 
     from isaaclab_arena.tasks.sequential_task_base import SequentialTaskBase
+    from isaaclab_arena.tests.test_composite_task_base import _ControlledPredicate, _ControlledTask, _make_tracker
 
-    try:
-        env = _MockEnv(num_envs=1)
-        subtasks = [_MockSubtask(num_envs=1) for _ in range(2)]
-        subtask_success_cfgs = _get_success_cfgs(subtasks)
-
-        # Set both subtasks to True.
-        subtasks[0].set_success([True])
-        SequentialTaskBase.composite_task_success_func(env, subtask_success_cfgs, [True, True])
-        subtasks[1].set_success([True])
-
-        # Current pattern matches desired -> success.
-        result = SequentialTaskBase.composite_task_success_func(env, subtask_success_cfgs, [True, True])
-        assert result.tolist() == [True]
-
-        # Success state still True, but the current pattern no longer matches the desired
-        # pattern -> overall success is False even though success state is True.
-        subtasks[0].set_success([False])
-        subtasks[1].set_success([True])
-        result = SequentialTaskBase.composite_task_success_func(env, subtask_success_cfgs, [True, True])
-        assert env._subtask_ever_succeeded == [[True, True]]
-        assert result.tolist() == [False]
-
-    except Exception as e:
-        print(f"Error: {e}")
-        traceback.print_exc()
-        return False
-
+    task = SequentialTaskBase([_ControlledTask(_ControlledPredicate(index)) for index in range(2)])
+    env, tracker = _make_tracker(task, [[True, True], [True, True]])
+    tracker.step(env)
+    tracker.step(env)
+    previous_completion = tracker.is_complete()
+    tracker.reset(torch.tensor([0]))
+    assert previous_completion.tolist() == [True, True]
+    assert tracker.get_child_completion("task").tolist() == [[False, False], [True, True]]
+    assert [len(events) for events in tracker.get_events()] == [0, 2]
+    tracker.step(env)
+    assert tracker.get_child_completion("task").tolist() == [[True, False], [True, True]]
+    tracker.reset(slice(None))
+    assert tracker.get_child_completion("task").tolist() == [[False, False], [False, False]]
+    tracker.step(env)
+    tracker.reset()
+    assert tracker.get_child_completion("task").tolist() == [[False, False], [False, False]]
     return True
 
 
-def _test_sequential_desired_subtask_success_state_with_none(simulation_app) -> bool:
-    """When ``desired_subtask_success_state`` contains None entries, those positions are
-    ignored and only positions with True/False are checked."""
-
-    from isaaclab_arena.tasks.sequential_task_base import SequentialTaskBase
-
-    try:
-        env = _MockEnv(num_envs=1)
-        subtasks = [_MockSubtask(num_envs=1) for _ in range(3)]
-        subtask_success_cfgs = _get_success_cfgs(subtasks)
-
-        # Latch subtasks 0, 1, 2 to True in order so all three are "ever succeeded".
-        subtasks[0].set_success([True])
-        SequentialTaskBase.composite_task_success_func(env, subtask_success_cfgs, [None, True, True])
-        subtasks[1].set_success([True])
-        SequentialTaskBase.composite_task_success_func(env, subtask_success_cfgs, [None, True, True])
-        subtasks[2].set_success([True])
-        result = SequentialTaskBase.composite_task_success_func(env, subtask_success_cfgs, [None, True, True])
-        assert env._subtask_ever_succeeded == [[True, True, True]]
-        assert result.tolist() == [True]
-
-        # Subtask 0 currently False (don't-care), 1 and 2 currently True -> success.
-        subtasks[0].set_success([False])
-        result = SequentialTaskBase.composite_task_success_func(env, subtask_success_cfgs, [None, True, True])
-        assert result.tolist() == [True]
-
-        # Subtask 1 currently False breaks the [None, True, True] pattern -> failure.
-        subtasks[1].set_success([False])
-        result = SequentialTaskBase.composite_task_success_func(env, subtask_success_cfgs, [None, True, True])
-        assert result.tolist() == [False]
-
-        # [None, False, None]: subtask 1 must be currently False AND latched True at some
-        # point. Subtask 1 is latched True and currently False -> success regardless of
-        # subtasks 0 and 2.
-        result = SequentialTaskBase.composite_task_success_func(env, subtask_success_cfgs, [None, False, None])
-        assert result.tolist() == [True]
-
-        # All-None desired state matches trivially.
-        result = SequentialTaskBase.composite_task_success_func(env, subtask_success_cfgs, [None, None, None])
-        assert result.tolist() == [True]
-
-    except Exception as e:
-        print(f"Error: {e}")
-        traceback.print_exc()
-        return False
-
-    return True
+def test_sequential_progress_requires_order():
+    assert run_function_with_persistent_simulation_app(_test_sequential_progress_requires_order)
 
 
-def _test_sequential_reset_clears_state_and_index(simulation_app) -> bool:
-    """``reset_subtask_success_state`` must clear both the success state vector
-    and the state-machine index for the given env_ids while leaving other envs alone."""
-
-    from isaaclab_arena.tasks.sequential_task_base import SequentialTaskBase
-
-    try:
-        env = _MockEnv(num_envs=2)
-        subtasks = [_MockSubtask(num_envs=2) for _ in range(2)]
-        subtask_success_cfgs = _get_success_cfgs(subtasks)
-
-        # Set env 0 to "subtask 0 True + index at 1", env 1 fully complete.
-        subtasks[0].set_success([True, True])
-        SequentialTaskBase.composite_task_success_func(env, subtask_success_cfgs, None)
-        subtasks[0].set_success([False, True])
-        subtasks[1].set_success([False, True])
-        SequentialTaskBase.composite_task_success_func(env, subtask_success_cfgs, None)
-
-        assert env._subtask_ever_succeeded == [[True, False], [True, True]]
-        assert env._current_subtask_idx == [1, 1]
-
-        # Reset only env 0.
-        SequentialTaskBase.reset_subtask_success_state(env, env_ids=[0], subtasks=subtasks)
-        assert env._subtask_ever_succeeded == [[False, False], [True, True]]
-        assert env._current_subtask_idx == [0, 1]
-
-        # Reset env 1 too.
-        SequentialTaskBase.reset_subtask_success_state(env, env_ids=[1], subtasks=subtasks)
-        assert env._subtask_ever_succeeded == [[False, False], [False, False]]
-        assert env._current_subtask_idx == [0, 0]
-
-        del env._subtask_ever_succeeded
-        del env._current_subtask_idx
-        SequentialTaskBase.reset_subtask_success_state(env, env_ids=[], subtasks=subtasks)
-        assert env._subtask_ever_succeeded == [[False, False], [False, False]]
-        assert env._current_subtask_idx == [0, 0]
-
-    except Exception as e:
-        print(f"Error: {e}")
-        traceback.print_exc()
-        return False
-
-    return True
+def test_sequential_final_states_use_current_conditions():
+    assert run_function_with_persistent_simulation_app(_test_sequential_final_states_use_current_conditions)
 
 
-def test_sequential_success_advances_in_order():
-    result = run_function_with_persistent_simulation_app(
-        _test_sequential_success_advances_in_order,
-        headless=HEADLESS,
-    )
-    assert result, f"Test {_test_sequential_success_advances_in_order.__name__} failed"
-
-
-def test_sequential_success_latches():
-    result = run_function_with_persistent_simulation_app(
-        _test_sequential_success_latches,
-        headless=HEADLESS,
-    )
-    assert result, f"Test {_test_sequential_success_latches.__name__} failed"
-
-
-def test_sequential_desired_subtask_success_state():
-    result = run_function_with_persistent_simulation_app(
-        _test_sequential_desired_subtask_success_state,
-        headless=HEADLESS,
-    )
-    assert result, f"Test {_test_sequential_desired_subtask_success_state.__name__} failed"
-
-
-def test_sequential_desired_subtask_success_state_with_none():
-    result = run_function_with_persistent_simulation_app(
-        _test_sequential_desired_subtask_success_state_with_none,
-        headless=HEADLESS,
-    )
-    assert result, f"Test {_test_sequential_desired_subtask_success_state_with_none.__name__} failed"
-
-
-def test_sequential_reset_clears_state_and_index():
-    result = run_function_with_persistent_simulation_app(
-        _test_sequential_reset_clears_state_and_index,
-        headless=HEADLESS,
-    )
-    assert result, f"Test {_test_sequential_reset_clears_state_and_index.__name__} failed"
-
-
-if __name__ == "__main__":
-    test_sequential_success_advances_in_order()
-    test_sequential_success_latches()
-    test_sequential_desired_subtask_success_state()
-    test_sequential_desired_subtask_success_state_with_none()
-    test_sequential_reset_clears_state_and_index()
+def test_sequential_reset_preserves_other_environments():
+    assert run_function_with_persistent_simulation_app(_test_sequential_reset_preserves_other_environments)

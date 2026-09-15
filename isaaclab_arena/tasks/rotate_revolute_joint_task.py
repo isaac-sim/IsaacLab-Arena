@@ -17,6 +17,7 @@ from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.metrics.revolute_joint_moved_rate import RevoluteJointMovedRateMetric
 from isaaclab_arena.metrics.success_rate import SuccessRateMetric
 from isaaclab_arena.tasks.task_base import TaskBase
+from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
 from isaaclab_arena.tasks.task_transition import TaskTransition
 from isaaclab_arena.utils.cameras import get_viewer_cfg_look_at_object
 
@@ -47,7 +48,6 @@ class RotateRevoluteJointTask(TaskBase):
             self.openable_object, reset_openable_object_revolute_joint_percentage=self.reset_joint_percentage
         )
         self.scene_config = None
-        self.termination_cfg = None
         self.mimic_env_cfg = None
 
     def get_scene_cfg(self):
@@ -59,7 +59,7 @@ class RotateRevoluteJointTask(TaskBase):
     def get_mimic_env_cfg(self, arm_mode: ArmMode):
         raise NotImplementedError("Function {self.get_mimic_env_cfg.__name__} not implemented yet.")
 
-    def get_termination_cfg(self):
+    def get_termination_cfg(self) -> TaskTerminationCfg:
         raise NotImplementedError("Function {self.get_termination_cfg.__name__} not implemented yet.")
 
     def get_metrics(self) -> list[MetricBase]:

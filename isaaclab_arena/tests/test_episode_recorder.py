@@ -101,8 +101,8 @@ def create_recorder_env(
     """
     from isaaclab_arena.assets.object_reference import ObjectReference
     from isaaclab_arena.assets.registries import AssetRegistry
-    from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
+    from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.scene.scene import Scene
     from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
@@ -134,12 +134,12 @@ def create_recorder_env(
         episode_recorder_terms=episode_recorder_terms or {},
     )
 
-    args_cli = get_isaaclab_arena_cli_parser().parse_args([])
-    args_cli.num_envs = NUM_ENVS
     # The builder applies the language-instruction override onto the env cfg's task_description, which the
     # core recorder then records.
-    args_cli.language_instruction = LANGUAGE_INSTRUCTION
-    env_builder = ArenaEnvBuilder(isaaclab_arena_environment, arena_env_builder_cfg_from_argparse(args_cli))
+    env_builder = ArenaEnvBuilder(
+        isaaclab_arena_environment,
+        ArenaEnvBuilderCfg(num_envs=NUM_ENVS, language_instruction=LANGUAGE_INSTRUCTION),
+    )
     env_cfg, env_kwargs = env_builder.compose_manager_cfg()
 
     # Env 0 starts in the drawer and is lifted during rollout; env 1 lands outside.

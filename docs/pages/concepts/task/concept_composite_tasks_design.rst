@@ -8,9 +8,11 @@ Arena can combine multiple tasks (subtasks) into one longer-horizon task in two 
 * ``SequentialTaskBase`` creates an **ordered** task. It is a ``CompositeTaskBase`` subclass that
   requires subtasks to succeed in the listed order.
 
-Both classes collect the subtasks scene configuration, reset events, failure terminations,
-metrics, Mimic configuration, and progress objectives. They replace the individual success
-terminations with one success condition for the complete task.
+Both classes collect their subtasks' scene configuration, reset events, failure terminations,
+metrics, and Mimic configuration. Their ``get_termination_cfg()`` combines each child's
+``TaskTerminationCfg.success`` objectives under one root objective, namespaces the child failures,
+and supplies the overall ``timeout_s`` budget. The environment builder uses this definition to
+create the complete task's termination terms; individual subtasks do not register separate success terms.
 
 .. note::
 
@@ -31,12 +33,12 @@ Choosing the composition type
      - Completion Criteria
    * - ``CompositeTaskBase``
      - No required order
-     - Every subtask must report success at least once. A subtask may return to an unsuccessful
-       state after it has been completed.
+     - Every subtask must complete its required progress. Its final physical condition may
+       subsequently become false.
    * - ``SequentialTaskBase``
      - List order
-     - Each subtask must report success after the preceding subtask has completed. A completed
-       subtask may subsequently return to an unsuccessful state.
+     - Each subtask becomes active after the preceding subtask completes. A completed
+       subtask's final physical condition may subsequently become false.
 
 
 Composing tasks
@@ -82,8 +84,8 @@ workflow that places an object in a refrigerator and then closes the door.
 Specifying a final subtask state
 --------------------------------
 
-By default, both composite and sequential tasks only require every subtask to have succeeded at some point. Use
-``desired_subtask_success_state`` if you want the final simulator state to be a specific one:
+By default, both composite and sequential tasks require every subtask to complete its progress.
+Use ``desired_subtask_success_state`` to add requirements on the final simulator state:
 
 .. code-block:: python
 
@@ -94,6 +96,10 @@ By default, both composite and sequential tasks only require every subtask to ha
 
 Each entry corresponds to one subtask with ordering corresponding to the order of the subtask list in the definition:
 
-* ``True`` requires the subtask to have succeeded previously and to be succeeding now.
-* ``False`` requires the subtask to have succeeded previously but to be unsuccessful now.
-* ``None`` ignores that subtask when checking the final state.
+* ``True`` requires the subtask to have completed and its final condition to hold now.
+* ``False`` requires the subtask to have completed and its final condition to be false now.
+* ``None`` adds no final-state requirement. The subtask must still complete its progress.
+
+For an atomic task with an ordered predicate chain, the final condition is the last predicate.
+Earlier milestones stay recorded: a placed object does not need to remain above its initial lift
+height, for example. Conditions that must hold together belong in the same final predicate.

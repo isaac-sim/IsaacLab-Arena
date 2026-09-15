@@ -8,6 +8,7 @@ import torch
 import traceback
 
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
+from isaaclab_arena.tests.utils.task_completion import step_to_task_success
 
 NUM_STEPS = 10
 HEADLESS = True
@@ -66,10 +67,9 @@ def get_test_environment(remove_reset_door_state_event: bool, num_envs: int):
     env_builder = ArenaEnvBuilder(isaaclab_arena_environment, arena_env_builder_cfg_from_argparse(args_cli))
     name, cfg, env_kwargs = env_builder.build_registered()
     if remove_reset_door_state_event:
-        # Remove the reset door and subtask state events to allow us to inspect the scene without having it reset.
-        cfg.events.reset_door_state_subtask_0 = None
-        cfg.events.reset_door_state_subtask_1 = None
-        cfg.events.reset_subtask_success_state = None
+        # Preserve door poses for geometry assertions while task progress resets normally.
+        cfg.events.reset_openable_object_revolute_joint_percentage_subtask_0 = None
+        cfg.events.reset_openable_object_revolute_joint_percentage_subtask_1 = None
     env = gym.make(name, cfg=cfg, **env_kwargs).unwrapped
     env.reset()
 
@@ -90,12 +90,6 @@ def _test_composite_open_door_microwave(simulation_app) -> bool:
         if not terminated.item():
             print("Composite task is not completed")
 
-    def assert_composite_task_complete(env: ManagerBasedEnv, terminated: torch.Tensor):
-        assert terminated.shape == torch.Size([1])
-        assert terminated.item()
-        if terminated.item():
-            print("Composite task is completed")
-
     try:
         print("Closing both microwaves")
         microwave_0.close(env, env_ids=None)
@@ -108,7 +102,8 @@ def _test_composite_open_door_microwave(simulation_app) -> bool:
 
         print("Opening microwave 1 (completing subtask 1, composite task should be complete)")
         microwave_1.open(env, env_ids=None)
-        step_zeros_and_call(env, NUM_STEPS, assert_composite_task_complete)
+        progress = step_to_task_success(env, expected_steps=2, before_step=lambda: microwave_1.open(env, env_ids=None))
+        assert all(len(events) == 4 for events in progress["events"])
 
     except Exception as e:
         print(f"Error: {e}")
@@ -137,12 +132,6 @@ def _test_reverse_order_composite_open_door_microwave(simulation_app) -> bool:
         if not terminated.item():
             print("Composite task is not completed")
 
-    def assert_composite_task_complete(env: ManagerBasedEnv, terminated: torch.Tensor):
-        assert terminated.shape == torch.Size([1])
-        assert terminated.item()
-        if terminated.item():
-            print("Composite task is completed")
-
     try:
         print("Closing both microwaves")
         microwave_0.close(env, env_ids=None)
@@ -159,7 +148,8 @@ def _test_reverse_order_composite_open_door_microwave(simulation_app) -> bool:
 
         print("Opening microwave 0 (completing subtask 0, composite task should be complete)")
         microwave_0.open(env, env_ids=None)
-        step_zeros_and_call(env, NUM_STEPS, assert_composite_task_complete)
+        progress = step_to_task_success(env, expected_steps=2, before_step=lambda: microwave_0.open(env, env_ids=None))
+        assert all(len(events) == 4 for events in progress["events"])
 
     except Exception as e:
         print(f"Error: {e}")
@@ -186,12 +176,6 @@ def _test_composite_open_door_microwave_multiple_envs(simulation_app) -> bool:
         if not torch.any(terminated):
             print("Composite task is not completed")
 
-    def assert_composite_task_complete(env: ManagerBasedEnv, terminated: torch.Tensor):
-        assert terminated.shape == torch.Size([2])
-        assert torch.all(terminated)
-        if torch.all(terminated):
-            print("Composite task is completed")
-
     try:
         print("Closing both microwaves")
         microwave_0.close(env, env_ids=None)
@@ -204,7 +188,8 @@ def _test_composite_open_door_microwave_multiple_envs(simulation_app) -> bool:
 
         print("Opening microwave 1 (completing subtask 1, composite task should be complete)")
         microwave_1.open(env, env_ids=None)
-        step_zeros_and_call(env, NUM_STEPS, assert_composite_task_complete)
+        progress = step_to_task_success(env, expected_steps=2, before_step=lambda: microwave_1.open(env, env_ids=None))
+        assert all(len(events) == 4 for events in progress["events"])
 
     except Exception as e:
         print(f"Error: {e}")
@@ -232,12 +217,6 @@ def _test_reverse_order_composite_open_door_microwave_multiple_envs(simulation_a
         if not torch.any(terminated):
             print("Composite task is not completed")
 
-    def assert_composite_task_complete(env: ManagerBasedEnv, terminated: torch.Tensor):
-        assert terminated.shape == torch.Size([2])
-        assert torch.all(terminated)
-        if torch.all(terminated):
-            print("Composite task is completed")
-
     try:
         print("Closing both microwaves")
         microwave_0.close(env, env_ids=None)
@@ -254,7 +233,8 @@ def _test_reverse_order_composite_open_door_microwave_multiple_envs(simulation_a
 
         print("Opening microwave 0 (completing subtask 0, composite task should be complete)")
         microwave_0.open(env, env_ids=None)
-        step_zeros_and_call(env, NUM_STEPS, assert_composite_task_complete)
+        progress = step_to_task_success(env, expected_steps=2, before_step=lambda: microwave_0.open(env, env_ids=None))
+        assert all(len(events) == 4 for events in progress["events"])
 
     except Exception as e:
         print(f"Error: {e}")
@@ -296,7 +276,7 @@ def _test_composite_open_door_microwave_reset_condition(simulation_app) -> bool:
         # Check that envs automatically reset to closed.
         print("Opening microwave 1 (completing subtask 1, composite task completes and env resets)")
         microwave_1.open(env, None)
-        step_zeros_and_call(env, NUM_STEPS)
+        step_to_task_success(env, expected_steps=2, before_step=lambda: microwave_1.open(env, None))
         is_open_0 = microwave_0.is_open(env)
         is_open_1 = microwave_1.is_open(env)
         print(f"expected: [False, False], [False, False]: got: {is_open_0}, {is_open_1}")
