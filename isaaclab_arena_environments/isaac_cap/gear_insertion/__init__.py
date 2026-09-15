@@ -8,17 +8,3 @@
 from .. import register_components
 
 register_components()
-
-from .gear_medium_environment import (  # noqa: E402
-    GearInsertionEasyNewtonEnvironment,
-    GearInsertionEasyNewtonEnvironmentCfg,
-    GearInsertionNewtonEnvironment,
-    GearInsertionNewtonEnvironmentCfg,
-)
-
-__all__ = [
-    "GearInsertionEasyNewtonEnvironment",
-    "GearInsertionEasyNewtonEnvironmentCfg",
-    "GearInsertionNewtonEnvironment",
-    "GearInsertionNewtonEnvironmentCfg",
-]

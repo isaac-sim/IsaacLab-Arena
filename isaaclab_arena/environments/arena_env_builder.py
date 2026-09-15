@@ -421,25 +421,33 @@ class ArenaEnvBuilder:
         # Set seed for Isaac Lab env.
         env_cfg.seed = self.cfg.seed
 
-        # Apply the requested physics backend before the callback so env-specific overrides can
-        # tune the selected preset. Callbacks that require a specific backend must validate the
-        # selected physics config before replacing or modifying it.
+        # Apply the requested physics backend before env_cfg_callback hooks so env-specific
+        # callbacks can tune or replace the selected preset. Callbacks that require a specific
+        # backend must validate the selected physics config before replacing or modifying it.
         presets = self.cfg.presets
-        if presets is not None:
-            from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import ArenaPhysicsCfg
+        cli_physics_type: type | None = None
+        from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import ArenaPhysicsCfg
 
+        if presets is not None:
             env_cfg.sim.physics = getattr(ArenaPhysicsCfg(), presets.value)
+            cli_physics_type = type(env_cfg.sim.physics)
 
             # Set replicate_physics for shared physics representations.
             # For Newton, without this flag, the simulation initialization
             # takes a very long time for large number of parallel environments.
             if presets is PhysicsBackend.NEWTON:
                 env_cfg.scene.replicate_physics = True
+        elif env_cfg.sim.physics is None:
+            env_cfg.sim.physics = ArenaPhysicsCfg().default
 
-        # Apply the environment configuration callback if it is set
-        # This can be used to modify the simulation configuration, etc.
         if self.arena_env.env_cfg_callback is not None:
             env_cfg = self.arena_env.env_cfg_callback(env_cfg)
+
+        if cli_physics_type is not None:
+            assert isinstance(env_cfg.sim.physics, cli_physics_type), (
+                f"env_cfg_override selects {type(env_cfg.sim.physics).__name__}, which conflicts with "
+                f"the explicit CLI preset {presets!r}"
+            )
 
         env_kwargs: dict[str, Any] = {"variation_recorder": variation_recorder}
         return env_cfg, env_kwargs

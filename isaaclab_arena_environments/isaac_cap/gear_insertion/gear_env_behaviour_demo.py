@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import argparse
+from pathlib import Path
 
 from isaaclab_arena_environments.isaac_cap.tools import EnvBehaviourDemo
 
@@ -34,22 +35,15 @@ def _build_gear_demo_environment(variant: str):
     """Compose a gear task with the relative-IK embodiment used by this demo."""
     assert variant in ("easy", "medium"), f"Unsupported gear variant {variant!r}."
 
+    from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
+    from isaaclab_arena_environments.isaac_cap import register_components
     from isaaclab_arena_environments.isaac_cap.embodiments.insertion_task import (
         IndustrialFr3Robotiq2f85DifferentialIKEmbodiment,
     )
-    from isaaclab_arena_environments.isaac_cap.gear_insertion.gear_medium_environment import (
-        GearInsertionEasyNewtonEnvironment,
-        GearInsertionEasyNewtonEnvironmentCfg,
-        GearInsertionNewtonEnvironment,
-        GearInsertionNewtonEnvironmentCfg,
-    )
 
-    factory, cfg_type = (
-        (GearInsertionEasyNewtonEnvironment(), GearInsertionEasyNewtonEnvironmentCfg)
-        if variant == "easy"
-        else (GearInsertionNewtonEnvironment(), GearInsertionNewtonEnvironmentCfg)
-    )
-    arena_environment = factory.build(cfg_type(replicate_physics=True))
+    register_components()
+    spec_path = Path(__file__).with_name(f"gear_{variant}.yaml")
+    arena_environment = ArenaEnvGraphSpec.from_yaml(spec_path).to_arena_env(enable_cameras=False)
 
     # The normal smoke environment intentionally retains Cap's absolute joint
     # actions. This demo alone swaps to relative Cartesian commands so the

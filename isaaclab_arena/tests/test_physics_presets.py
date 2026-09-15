@@ -29,7 +29,7 @@ def _test_arena_physics_cfg_presets(simulation_app) -> bool:
     return True
 
 
-def _build_env_cfg(presets: str | None, embodiment=None, env_cfg_callback=None):
+def _build_env_cfg(presets: str | None, embodiment=None, env_cfg_callback=None, env_cfg_override=None):
     """Build a real env cfg through ArenaEnvBuilder.compose_manager_cfg with the given preset."""
     from isaaclab_arena.assets.registries import AssetRegistry
     from isaaclab_arena.embodiments.franka.franka import FrankaIKEmbodiment
@@ -39,17 +39,33 @@ def _build_env_cfg(presets: str | None, embodiment=None, env_cfg_callback=None):
     from isaaclab_arena.scene.scene import Scene
 
     asset_registry = AssetRegistry()
-    table = asset_registry.get_asset_by_name("packing_table")()
-    scene = Scene(assets=[table])
+    ground = asset_registry.get_asset_by_name("ground_plane")()
+    scene = Scene(assets=[ground])
 
     if embodiment is None:
         embodiment = FrankaIKEmbodiment()
+
+    from functools import partial
+
+    from isaaclab_arena.environment_spec.env_cfg_override import apply_env_cfg_override
+
+    combined_callback = env_cfg_callback
+    if env_cfg_override is not None:
+        apply_override = partial(apply_env_cfg_override, override=env_cfg_override)
+        if combined_callback is None:
+            combined_callback = apply_override
+        else:
+            user_callback = combined_callback
+
+            def combined_callback(env_cfg):
+                env_cfg = apply_override(env_cfg)
+                return user_callback(env_cfg)
 
     arena_env = IsaacLabArenaEnvironment(
         name="test_physics_preset",
         embodiment=embodiment,
         scene=scene,
-        env_cfg_callback=env_cfg_callback,
+        env_cfg_callback=combined_callback,
     )
 
     builder = ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg(num_envs=1, presets=presets))
@@ -134,6 +150,65 @@ def _test_droid_rel_joint_pos_newton_preset_applies_newton_gripper(simulation_ap
     return True
 
 
+def _test_builder_applies_nested_env_cfg_override(simulation_app) -> bool:
+    from isaaclab_newton.physics import MJWarpSolverCfg, NewtonCfg
+
+    env_cfg = _build_env_cfg(
+        presets=None,
+        env_cfg_override={
+            "sim": {
+                "dt": 0.02,
+                "physics": {
+                    "_target_": "isaaclab_newton.physics.NewtonCfg",
+                    "num_substeps": 7,
+                    "solver_cfg": {
+                        "_target_": "isaaclab_newton.physics.MJWarpSolverCfg",
+                        "iterations": 23,
+                        "enable_multiccd": True,
+                    },
+                },
+            },
+            "decimation": 3,
+        },
+    )
+
+    assert env_cfg.sim.dt == 0.02
+    assert env_cfg.decimation == 3
+    assert isinstance(env_cfg.sim.physics, NewtonCfg)
+    assert env_cfg.sim.physics.num_substeps == 7
+    assert isinstance(env_cfg.sim.physics.solver_cfg, MJWarpSolverCfg)
+    assert env_cfg.sim.physics.solver_cfg.iterations == 23
+    assert env_cfg.sim.physics.solver_cfg.enable_multiccd
+    return True
+
+
+def _test_builder_rejects_unsafe_or_incompatible_targets(simulation_app) -> bool:
+    unsafe = {"sim": {"physics": {"_target_": "builtins.dict"}}}
+    with pytest.raises(AssertionError, match="outside the approved"):
+        _build_env_cfg(presets=None, env_cfg_override=unsafe)
+
+    incompatible = {"sim": {"physics": {"_target_": "isaaclab_newton.physics.MJWarpSolverCfg"}}}
+    with pytest.raises(AssertionError, match="incompatible"):
+        _build_env_cfg(presets=None, env_cfg_override=incompatible)
+
+    with pytest.raises(AssertionError, match="cannot be overridden"):
+        _build_env_cfg(presets=None, env_cfg_override={"sim": {"physics": {"class_type": "malicious"}}})
+
+    with pytest.raises(AssertionError, match="interpolation is not allowed"):
+        _build_env_cfg(presets=None, env_cfg_override={"sim": {"dt": "${oc.env:SIM_DT}"}})
+
+    with pytest.raises(ValueError, match="Invalid env_cfg_override"):
+        _build_env_cfg(presets=None, env_cfg_override={"sim": {"unknown_field": 1}})
+    return True
+
+
+def _test_cli_preset_rejects_conflicting_yaml_backend(simulation_app) -> bool:
+    override = {"sim": {"physics": {"_target_": "isaaclab_newton.physics.NewtonCfg"}}}
+    with pytest.raises(AssertionError, match="conflicts with the explicit CLI preset"):
+        _build_env_cfg(presets="physx", env_cfg_override=override)
+    return True
+
+
 def test_arena_physics_cfg_presets():
     assert run_function_with_persistent_simulation_app(_test_arena_physics_cfg_presets, headless=HEADLESS)
 
@@ -181,6 +256,22 @@ def test_droid_abs_joint_pos_newton_preset_applies_newton_spawn():
 def test_droid_rel_joint_pos_newton_preset_applies_newton_gripper():
     assert run_function_with_persistent_simulation_app(
         _test_droid_rel_joint_pos_newton_preset_applies_newton_gripper, headless=HEADLESS
+    )
+
+
+def test_builder_applies_nested_env_cfg_override():
+    assert run_function_with_persistent_simulation_app(_test_builder_applies_nested_env_cfg_override, headless=HEADLESS)
+
+
+def test_builder_rejects_unsafe_or_incompatible_targets():
+    assert run_function_with_persistent_simulation_app(
+        _test_builder_rejects_unsafe_or_incompatible_targets, headless=HEADLESS
+    )
+
+
+def test_cli_preset_rejects_conflicting_yaml_backend():
+    assert run_function_with_persistent_simulation_app(
+        _test_cli_preset_rejects_conflicting_yaml_backend, headless=HEADLESS
     )
 
 
