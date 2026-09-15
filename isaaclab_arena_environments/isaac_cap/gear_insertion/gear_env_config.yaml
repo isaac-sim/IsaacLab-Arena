@@ -1,0 +1,40 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Matches gear_insertion_physics_cfg() in gear_medium_environment.py on main:
+# deepcopy(ArenaPhysicsCfg().newton) with gear-specific Newton and collision tuning.
+env_cfg_override:
+  scene:
+    replicate_physics: false
+  sim:
+    physics:
+      _target_: isaaclab_newton.physics.NewtonCfg
+      num_substeps: 4
+      collision_decimation: 1
+      debug_mode: false
+      use_cuda_graph: true
+      default_shape_cfg:
+        _target_: isaaclab_newton.physics.NewtonShapeCfg
+        ke: 60000.0
+        kd: 500.0
+      solver_cfg:
+        _target_: isaaclab_newton.physics.MJWarpSolverCfg
+        solver: newton
+        integrator: implicitfast
+        njmax: 8192
+        nconmax: 4096
+        impratio: 10.0
+        cone: elliptic
+        update_data_interval: 1
+        iterations: 100
+        ls_iterations: 15
+        ls_parallel: false
+        use_mujoco_contacts: false
+        ccd_iterations: 15000
+      collision_cfg:
+        _target_: isaaclab_newton.physics.NewtonCollisionPipelineCfg
+        reduce_contacts: true
+        rigid_contact_max: 4096
+        max_triangle_pairs: 1000000

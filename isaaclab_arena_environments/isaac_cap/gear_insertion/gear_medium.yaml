@@ -3,6 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+external_yaml: gear_env_config.yaml
 env_name: gear_medium
 embodiment:
   id: robot
