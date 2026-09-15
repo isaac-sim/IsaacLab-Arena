@@ -142,7 +142,10 @@ def object_moving(
     Returns True when object_name's linear speed exceeds velocity_threshold (m/s).
     """
 
-    return env.arena_world.get_max_point_speed_w(object_name) > velocity_threshold
+    arena_world = env.arena_world
+    object_mean_linear_velocity_w = arena_world.get_mean_linear_velocity_w(object_name)
+    speed = torch.linalg.vector_norm(object_mean_linear_velocity_w, dim=-1)
+    return speed > velocity_threshold
 
 
 def objects_in_proximity(
@@ -181,9 +184,29 @@ def object_supported_by(
     low_point_tolerance: float = 0.01,
     minimum_support_fraction: float = 0.5,
 ) -> torch.Tensor:
-    """Check whether enough low deformable nodes lie on the destination's top surface."""
+    """Check whether a large fraction of object's lowest vertices are close to the destination's top surface.
+
+    This is a geometric-only implementation to replace contact-sensor based contact_force_is_upward_support.
+    Use this for deformable objects which don't have contact sensor support yet, see
+    https://github.com/isaac-sim/IsaacLab/issues/4410
+
+    Args:
+        object_vertices_pos_w: Object vertices in world frame ``W``.
+            Shape is ``(num_envs, num_vertices, 3)``.
+        destination_bound: Axis-aligned bounds of the destination object in ``W``.
+        support_tolerance: Maximum vertical distance in meters between a object vertex
+            and the destination top surface to count as supported.
+        low_point_tolerance: Band above the lowest node height used to select
+            bottom nodes for the support-fraction denominator.
+        minimum_support_fraction: Minimum fraction of low nodes that must lie
+            on the destination footprint near the top surface.
+
+    Returns:
+        One Boolean result per environment.
+    """
     low_z = object_vertices_pos_w[..., 2].amin(dim=1, keepdim=True)
     low_mask = object_vertices_pos_w[..., 2] <= low_z + low_point_tolerance
+    # TODO(qianl, 2026-09-15): use destination's vertices instead of AABB top surface/footprint for closeness check.
     near_top = torch.abs(object_vertices_pos_w[..., 2] - destination_bound.top_surface_z[:, None]) <= support_tolerance
     inside_footprint = (
         (object_vertices_pos_w[..., :2] >= destination_bound.min_point[:, None, :2])
@@ -234,8 +257,21 @@ def object_on_destination(
         destination_bounds_D=arena_world.get_aabb_in_local_frame(destination_cfg.name),
     )
 
-    if contact_sensor_cfg:
+    if object_cfg.name in env.scene.deformable_objects:
+        # Use geometric support for deformable objects.
+        object_vertices_w = arena_world.get_vertices_w(object_cfg.name)
+        destination_vertices_w = arena_world.get_vertices_w(destination_cfg.name)
+        destination_bound = AxisAlignedBoundingBox(
+            min_point=destination_vertices_w.amin(dim=1),
+            max_point=destination_vertices_w.amax(dim=1),
+        )
+        destination_provides_upward_support = object_supported_by(
+            object_vertices_pos_w=object_vertices_w,
+            destination_bound=destination_bound,
+        )
+    else:
         # Use contact sensor for rigid objects.
+        assert contact_sensor_cfg is not None, "object_on_destination requires a contact sensor for rigid objects"
         contact_sensor: ContactSensor = env.scene[contact_sensor_cfg.name]
         force_matrix_w = contact_sensor.data.force_matrix_w
         assert force_matrix_w is not None, f"Contact sensor '{contact_sensor_cfg.name}' has no filtered force matrix."
@@ -251,18 +287,7 @@ def object_on_destination(
             force_threshold=force_threshold,
             support_cone_half_angle_rad=support_cone_half_angle_rad,
         )
-    else:
-        # Use geometric support for deformable objects.
-        object_vertices_w = arena_world.get_vertices_w(object_cfg.name)
-        destination_vertices_w = arena_world.get_vertices_w(destination_cfg.name)
-        destination_bound = AxisAlignedBoundingBox(
-            min_point=destination_vertices_w.amin(dim=1),
-            max_point=destination_vertices_w.amax(dim=1),
-        )
-        destination_provides_upward_support = object_supported_by(
-            object_vertices_pos_w=object_vertices_w,
-            destination_bound=destination_bound,
-        )
 
-    object_moves_slowly = arena_world.get_max_point_speed_w(object_cfg.name) < velocity_threshold
+    object_mean_linear_velocity_w = arena_world.get_mean_linear_velocity_w(object_cfg.name)
+    object_moves_slowly = object_is_moving_slowly(object_mean_linear_velocity_w, velocity_threshold)
     return object_center_over_destination & destination_provides_upward_support & object_moves_slowly

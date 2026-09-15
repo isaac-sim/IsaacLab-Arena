@@ -111,18 +111,20 @@ def _check_object_on_destination(
             T_W_F_by_scene_key,
             aabbs_F_by_scene_key,
             centroids_w_by_scene_key,
-            max_point_speeds_w_by_scene_key,
+            root_linear_velocities_w_by_scene_key,
+            nodal_velocities_w_by_scene_key,
             vertices_positions_w_by_scene_key,
         ):
             self.T_W_F_by_scene_key = T_W_F_by_scene_key
             self.aabbs_F_by_scene_key = aabbs_F_by_scene_key
             self.centroids_w_by_scene_key = centroids_w_by_scene_key
-            self.max_point_speeds_w_by_scene_key = max_point_speeds_w_by_scene_key
+            self.root_linear_velocities_w_by_scene_key = root_linear_velocities_w_by_scene_key
+            self.nodal_velocities_w_by_scene_key = nodal_velocities_w_by_scene_key
             self.vertices_positions_w_by_scene_key = vertices_positions_w_by_scene_key
             self.pose_queries = []
             self.local_aabb_queries = []
             self.centroid_queries = []
-            self.max_point_speed_queries = []
+            self.mean_linear_velocity_queries = []
 
         def get_pose_w(self, scene_key):
             self.pose_queries.append(scene_key)
@@ -136,9 +138,9 @@ def _check_object_on_destination(
             self.centroid_queries.append(scene_key)
             return self.centroids_w_by_scene_key[scene_key]
 
-        def get_max_point_speed_w(self, scene_key):
-            self.max_point_speed_queries.append(scene_key)
-            return self.max_point_speeds_w_by_scene_key[scene_key]
+        def get_mean_linear_velocity_w(self, scene_key):
+            self.mean_linear_velocity_queries.append(scene_key)
+            return self.root_linear_velocities_w_by_scene_key[scene_key]
 
         def get_vertices_w(self, scene_key):
             return self.vertices_positions_w_by_scene_key[scene_key]
@@ -208,7 +210,10 @@ def _check_object_on_destination(
             ),
         },
         centroids_w_by_scene_key={"object": T_W_O[:, :3]},
-        max_point_speeds_w_by_scene_key={"object": torch.linalg.vector_norm(object_root_linear_velocity_w, dim=-1)},
+        root_linear_velocities_w_by_scene_key={"object": object_root_linear_velocity_w},
+        nodal_velocities_w_by_scene_key={
+            "object": object_root_linear_velocity_w[:, None, :].expand(-1, 2, -1),
+        },
         vertices_positions_w_by_scene_key={
             "object": object_vertices_pos_w,
             "destination": axis_aligned_bounding_box_type(
@@ -254,7 +259,7 @@ def _check_object_on_destination(
     assert arena_world.pose_queries == ["destination"] * 3
     assert arena_world.local_aabb_queries == ["destination"] * 3
     assert arena_world.centroid_queries == ["object"] * 3
-    assert arena_world.max_point_speed_queries == ["object"] * 3
+    assert arena_world.mean_linear_velocity_queries == ["object", "object", "object"]
 
 
 def _check_pick_and_place_deformable_skips_contact_sensor(pick_and_place_task_type, object_type) -> None:

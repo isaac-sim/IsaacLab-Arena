@@ -192,42 +192,22 @@ class ArenaWorld:
         ), f"Scene key '{scene_key}' returned centroid shape {tuple(centroid_W.shape)}; expected ({scene.num_envs}, 3)."
         return centroid_W
 
-    def get_average_speed_w(self, scene_key: str) -> torch.Tensor:
-        """Return norm of mean nodal velocity for a deformable, or root linear speed for a rooted object.
+    def get_mean_linear_velocity_w(self, scene_key: str) -> torch.Tensor:
+        """Return mean linear velocity of all vertices of an object in world frame with shape (num_envs, 3).
 
-        The tensor has shape (num_envs,).
-        """
-        scene = self._scene
-        deformable_objects = scene.deformable_objects
-        if scene_key in deformable_objects:
-            average_velocity_w = deformable_objects[scene_key].data.root_vel_w.torch
-        else:
-            average_velocity_w = self.get_root_linear_velocity_w(scene_key)
-        average_speed_w = torch.linalg.vector_norm(average_velocity_w, dim=-1)
-        assert average_speed_w.shape == (scene.num_envs,), (
-            f"Scene object '{scene_key}' returned average speed shape {tuple(average_speed_w.shape)}; "
-            f"expected ({scene.num_envs},)."
-        )
-        return average_speed_w
-
-    def get_max_point_speed_w(self, scene_key: str) -> torch.Tensor:
-        """Return maximum nodal speed for a deformable, or root linear speed for a rigid object.
-
-        The tensor has shape (num_envs,).
+        For deformables this is the mean nodal velocity (``root_vel_w``). For rooted
+        objects this is the root linear velocity.
         """
         scene = self._scene
         if scene_key in scene.deformable_objects:
-            nodal_velocity_w = self.get_nodal_velocities_w(scene_key)
-            max_point_speed_w = torch.linalg.vector_norm(nodal_velocity_w, dim=-1).amax(dim=1)
+            mean_linear_velocity_w = scene.deformable_objects[scene_key].data.root_vel_w.torch
         else:
-            # Using root linear velocity for rigid objects. This is an approximation as it does
-            # not account for angular velocity.
-            max_point_speed_w = torch.linalg.vector_norm(self.get_root_linear_velocity_w(scene_key), dim=-1)
-        assert max_point_speed_w.shape == (scene.num_envs,), (
-            f"Scene object '{scene_key}' returned max point speed shape {tuple(max_point_speed_w.shape)}; "
-            f"expected ({scene.num_envs},)."
+            mean_linear_velocity_w = self.get_root_linear_velocity_w(scene_key)
+        assert mean_linear_velocity_w.shape == (scene.num_envs, 3), (
+            f"Scene object '{scene_key}' returned mean linear velocity shape {tuple(mean_linear_velocity_w.shape)}; "
+            f"expected ({scene.num_envs}, 3)."
         )
-        return max_point_speed_w
+        return mean_linear_velocity_w
 
     def get_vertices_w(self, scene_key: str) -> torch.Tensor:
         """Return deformable nodes or approximate geometry vertices in world frame ``W``.

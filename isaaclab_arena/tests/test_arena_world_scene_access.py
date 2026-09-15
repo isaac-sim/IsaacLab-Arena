@@ -122,8 +122,8 @@ def _check_rigid_object_reads_and_local_aabb_cache(
     torch.testing.assert_close(arena_world.get_root_linear_velocity_w("object"), initial_root_linear_velocity_w)
     torch.testing.assert_close(arena_world.get_root_angular_velocity_w("object"), initial_root_angular_velocity_w)
     torch.testing.assert_close(
-        arena_world.get_average_speed_w("object"),
-        torch.linalg.vector_norm(initial_root_linear_velocity_w, dim=-1),
+        arena_world.get_mean_linear_velocity_w("object"),
+        initial_root_linear_velocity_w,
     )
 
     T_W_O_moved = T_W_O_initial.clone()
@@ -258,8 +258,7 @@ def _check_deformable_object_reads(arena_world_module) -> None:
     torch.testing.assert_close(arena_world.get_centroid_w("deformable"), root_pos_w)
     torch.testing.assert_close(arena_world.get_nodal_positions_w("deformable"), nodal_pos_w)
     torch.testing.assert_close(arena_world.get_nodal_velocities_w("deformable"), nodal_vel_w)
-    torch.testing.assert_close(arena_world.get_average_speed_w("deformable"), torch.tensor([0.5, 0.1]))
-    torch.testing.assert_close(arena_world.get_max_point_speed_w("deformable"), torch.tensor([0.5, 0.2]))
+    torch.testing.assert_close(arena_world.get_mean_linear_velocity_w("deformable"), root_vel_w)
     torch.testing.assert_close(arena_world.get_vertices_w("deformable"), nodal_pos_w)
 
     for rooted_query in (

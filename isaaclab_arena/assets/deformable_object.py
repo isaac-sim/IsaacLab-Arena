@@ -55,11 +55,12 @@ class DeformableObject(ObjectBase):
         self._pose_event_cfg = self._build_reset_event()
 
     def validate_simulation_cfg(self, sim_cfg: SimulationCfg) -> None:
-        """Require the physics backend used by this deformable's properties."""
+        """Validate the simulation physics backend matches the deformable's physics preset."""
         from isaaclab_newton.physics import NewtonCfg
         from isaaclab_physx.physics import PhysxCfg
 
         physics_cfg = sim_cfg.physics
+        # Isaac Lab treats physics_cfg=None as defaulting to PhysX
         if physics_cfg is None or isinstance(physics_cfg, PhysxCfg):
             selected_backend = PhysicsBackend.PHYSX
         else:
