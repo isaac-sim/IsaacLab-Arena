@@ -44,7 +44,7 @@ def apply_env_cfg_override(env_cfg: Any, override: dict[str, Any] | None) -> Any
     assert isinstance(override, dict), f"env_cfg_override must be a mapping, got {type(override).__name__}"
 
     values = copy.deepcopy(override)
-    _validate_data_only(values, path="env", allow_target=True)
+    _validate_data_only(values, path="env")
     _materialize_targets(env_cfg, values, path="env")
 
     try:
@@ -59,7 +59,7 @@ def _materialize_targets(target_obj: Any, values: dict[str, Any], *, path: str) 
     if not dataclasses.is_dataclass(target_obj):
         return
 
-    field_names = {field.name for field in dataclasses.fields(target_obj)}
+    field_names = _dataclass_field_names(type(target_obj))
     for key, value in values.items():
         if key not in field_names or not isinstance(value, dict):
             continue
@@ -92,7 +92,7 @@ def _materialize_targets(target_obj: Any, values: dict[str, Any], *, path: str) 
 
 def _validate_nested_targets(target_cls: type, values: dict[str, Any], *, path: str) -> None:
     """Validate nested Hydra targets before recursively instantiating a config tree."""
-    field_names = {field.name for field in dataclasses.fields(target_cls)}
+    field_names = _dataclass_field_names(target_cls)
     for key, value in values.items():
         child_path = f"{path}.{key}"
         assert key in field_names, f"Unknown config field '{child_path}'"
@@ -110,11 +110,7 @@ def _validate_nested_targets(target_cls: type, values: dict[str, Any], *, path: 
             annotation,
             path=child_path,
         )
-        _validate_nested_targets(
-            nested_cls,
-            {nested_key: nested_value for nested_key, nested_value in value.items() if nested_key != _HYDRA_TARGET_KEY},
-            path=child_path,
-        )
+        _validate_nested_targets(nested_cls, _override_payload(value), path=child_path)
 
 
 def _validated_target_class(target_path: Any, expected_type: Any, *, path: str) -> type:
@@ -157,35 +153,50 @@ def _field_annotation(owner: type, field_name: str) -> Any:
     raise TypeError(f"Could not resolve the annotated type of '{owner.__name__}.{field_name}'")
 
 
-def _annotation_accepts_type(annotation: Any, target_cls: type) -> bool:
-    """Return whether ``target_cls`` is compatible with a field annotation."""
+def _union_members(annotation: Any) -> tuple[Any, ...] | None:
+    """Return union member annotations, or ``None`` when ``annotation`` is not a union."""
     origin = get_origin(annotation)
     if origin in (types.UnionType, Union):
-        return any(_annotation_accepts_type(member, target_cls) for member in get_args(annotation))
+        return get_args(annotation)
+    return None
 
+
+def _annotation_accepts_type(annotation: Any, target_cls: type) -> bool:
+    """Return whether ``target_cls`` is compatible with a field annotation."""
+    members = _union_members(annotation)
+    if members is not None:
+        return any(_annotation_accepts_type(member, target_cls) for member in members)
     return isinstance(annotation, type) and issubclass(target_cls, annotation)
 
 
 def _annotation_contains_dataclass(annotation: Any) -> bool:
     """Return whether an annotation contains a dataclass type."""
-    origin = get_origin(annotation)
-    if origin in (types.UnionType, Union):
-        return any(_annotation_contains_dataclass(member) for member in get_args(annotation))
+    members = _union_members(annotation)
+    if members is not None:
+        return any(_annotation_contains_dataclass(member) for member in members)
     return isinstance(annotation, type) and dataclasses.is_dataclass(annotation)
 
 
-def _validate_data_only(value: Any, *, path: str, allow_target: bool = False) -> None:
+def _dataclass_field_names(owner: type) -> set[str]:
+    """Return dataclass field names for ``owner``."""
+    return {field.name for field in dataclasses.fields(owner)}
+
+
+def _override_payload(values: dict[str, Any]) -> dict[str, Any]:
+    """Return override entries excluding the Hydra class selector key."""
+    return {key: value for key, value in values.items() if key != _HYDRA_TARGET_KEY}
+
+
+def _validate_data_only(value: Any, *, path: str) -> None:
     """Reject executable or Hydra-control values left after target construction."""
     if isinstance(value, dict):
         for key, item in value.items():
             child_path = f"{path}.{key}"
             assert key != "class_type", f"'{child_path}' is derived by Isaac Lab and cannot be overridden"
-            assert not key.startswith("_") or (
-                allow_target and key == _HYDRA_TARGET_KEY
-            ), f"Unsupported Hydra control key '{child_path}'"
-            _validate_data_only(item, path=child_path, allow_target=allow_target)
+            assert not key.startswith("_") or key == _HYDRA_TARGET_KEY, f"Unsupported Hydra control key '{child_path}'"
+            _validate_data_only(item, path=child_path)
     elif isinstance(value, list):
         for index, item in enumerate(value):
-            _validate_data_only(item, path=f"{path}[{index}]", allow_target=allow_target)
+            _validate_data_only(item, path=f"{path}[{index}]")
     elif isinstance(value, str):
         assert "${" not in value, f"OmegaConf interpolation is not allowed at '{path}'"
