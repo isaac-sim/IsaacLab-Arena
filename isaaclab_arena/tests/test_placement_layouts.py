@@ -70,3 +70,13 @@ def test_mutated_layouts_are_revalidated_before_writing(tmp_path, invalid):
     with pytest.raises(AssertionError):
         cache.write_yaml(path)
     assert not path.exists()
+
+
+def test_get_layout_selects_the_same_index_for_every_object():
+    cache = PlacementLayouts({"cup": [Pose((1, 0, 0)), Pose((2, 0, 0))], "plate": [Pose((3, 0, 0)), Pose((4, 0, 0))]})
+    expected = {"cup": Pose((2, 0, 0)), "plate": Pose((4, 0, 0))}
+    assert cache.get_layout(1) == expected
+    assert cache.get_layout(1) == expected
+    for index in (-1, 2):
+        with pytest.raises(AssertionError, match="out of range"):
+            cache.get_layout(index)

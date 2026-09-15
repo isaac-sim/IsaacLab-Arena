@@ -78,6 +78,7 @@ def generate_scene(args: argparse.Namespace) -> Path:
                 seed=args.seed + start * args.attempts,
                 attempts=args.attempts,
                 params=params,
+                placer_params=arena_env.placer_params,
             )
             layouts.extend(batch[: num_layouts - start])
         cache = PlacementLayouts({node_by_key[key]: [layout[key] for layout in layouts] for key in keys})

@@ -234,6 +234,18 @@ The CAP offline generator in
 creates such files from ``ClutterOn`` relations. Its adjacent ``README.rst``
 describes generation controls and validation limits.
 
+Cached placement validation
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Companion pose files validate finite values, unit quaternions, object coverage
+and layout counts. Loading does not rerun geometric, relation or reachability
+checks. ``placement_validators`` configure generated placements and are not
+rerun on cached replay. Keep those settings in the source environment YAML;
+loading its companion file does not require removing them. Cached poses must
+match the scene used to generate them; successful loading does not certify
+physical validity or reachability.
+
+
 Next Steps
 ----------
 

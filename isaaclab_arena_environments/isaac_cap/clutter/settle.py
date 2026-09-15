@@ -17,6 +17,7 @@ from isaaclab.utils.math import quat_error_magnitude
 from isaaclab_arena.relations.object_placer import ObjectPlacer
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_events import get_base_rotation_per_asset, write_layout_to_sim
+from isaaclab_arena.relations.placement_validation import PlacementCheck
 from isaaclab_arena.relations.relations import ClutterOn, get_relation
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose
@@ -69,6 +70,7 @@ def settle_clutter(
     seed: int = 42,
     attempts: int = 5,
     params: ClutterSettleParams | None = None,
+    placer_params: ObjectPlacerParams | None = None,
 ) -> list[dict[str, Pose]]:
     """Generate one resting layout per environment and restore the caller's scene state.
 
@@ -78,6 +80,7 @@ def settle_clutter(
         seed: Seed for independent release samples in each environment and attempt.
         attempts: Maximum trials for each environment before failing.
         params: Physics time budget, quiet thresholds and containment tolerances.
+        placer_params: Solver and validation settings for release poses, before settling.
 
     Returns:
         Environment-local poses for every dynamic rigid object, indexed by environment.
@@ -87,6 +90,11 @@ def settle_clutter(
 
     env = env.unwrapped
     params = replace(params) if params is not None else ClutterSettleParams()
+    placer_params = _release_placer_params(placer_params)
+    requested_checks = (placer_params.enabled_checks or set()) | (placer_params.required_checks or set())
+    requested_checks |= {PlacementCheck.NO_OVERLAP, PlacementCheck.ON_RELATION}
+    reachability_targets = [asset.get_scene_key() for asset in assets if asset.requires_reachability]
+    assert not reachability_targets, f"Offline settling cannot validate final-pose reachability: {reachability_targets}"
     groups = groups_from_assets(assets)
     placement_assets = [asset for asset in assets if asset.get_relations()]
     assert all(
@@ -155,22 +163,18 @@ def settle_clutter(
         for attempt in range(attempts):
             restore_scene()
             pending = [i for i in range(env.num_envs) if i not in accepted]
-            placer = ObjectPlacer(
-                ObjectPlacerParams(
-                    placement_seed=seed + attempt * env.num_envs,
-                    max_placement_attempts=1,
-                    apply_positions_to_objects=False,
-                    allow_best_loss_fallbacks=False,
-                )
-            )
+            placer = ObjectPlacer(replace(placer_params, placement_seed=seed + attempt * env.num_envs))
             releases = placer.place_ranked_per_env(
                 placement_assets, num_envs=env.num_envs, results_per_env=1, collision_objects=collision_objects
             )
             released = []
             for env_id in pending:
                 layout = releases[env_id][0]
+                validation = layout.validation_results
+                missing_checks = requested_checks - validation.validation_results.keys()
+                assert not missing_checks, f"Offline release validators did not run: {sorted(missing_checks)}"
                 if not layout.success:
-                    checks = layout.validation_results.get_failed_validation_check_names
+                    checks = validation.get_failed_validation_check_names
                     failures[env_id].append(f"attempt {attempt + 1}: release placement failed: {checks}")
                     print(f"[clutter] env {env_id}, {failures[env_id][-1]}")
                     continue
@@ -233,6 +237,27 @@ def settle_clutter(
         raise AssertionError(f"No settled layout after {attempts} attempt(s): {rejected}")
     finally:
         restore_scene()
+
+
+def _release_placer_params(params: ObjectPlacerParams | None) -> ObjectPlacerParams:
+    """Release settings with mandatory geometry checks and no invalid-layout fallback."""
+    params = params if params is not None else ObjectPlacerParams()
+    requested_checks = (params.enabled_checks or set()) | (params.required_checks or set())
+    unsupported_checks = requested_checks & {PlacementCheck.IK_REACHABLE, PlacementCheck.PHYSICS_SETTLED}
+    assert (
+        not unsupported_checks
+    ), f"Offline release validation cannot certify settled-pose checks: {sorted(unsupported_checks)}"
+    if params.enabled_checks is not None and params.required_checks is not None:
+        assert params.required_checks <= params.enabled_checks, "Required release checks must be enabled"
+    geometry_checks = {PlacementCheck.NO_OVERLAP, PlacementCheck.ON_RELATION}
+    return replace(
+        params,
+        enabled_checks=None if params.enabled_checks is None else params.enabled_checks | geometry_checks,
+        required_checks=None if params.required_checks is None else params.required_checks | geometry_checks,
+        max_placement_attempts=1,
+        apply_positions_to_objects=False,
+        allow_best_loss_fallbacks=False,
+    )
 
 
 def _release_objects(env: ManagerBasedEnv, env_id: int, layout: PlacementResult, anchors: set[PlaceableAsset]) -> None:

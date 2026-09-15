@@ -69,6 +69,11 @@ class PlacementLayouts:
         """Number of complete layouts."""
         return len(next(iter(self.poses.values())))
 
+    def get_layout(self, index: int) -> dict[str, Pose]:
+        """Return the named object poses at a layout index."""
+        assert 0 <= index < self.num_layouts, "Layout index is out of range"
+        return {name: poses[index] for name, poses in self.poses.items()}
+
     @classmethod
     def from_yaml(cls, path: str | Path) -> PlacementLayouts:
         """Read an object-name-to-pose-list YAML mapping."""

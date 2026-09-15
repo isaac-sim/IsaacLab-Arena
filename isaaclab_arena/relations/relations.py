@@ -223,7 +223,7 @@ class On(Relation):
 class ClutterOn(On):
     """An object above a fixed support, with its footprint inside the release region.
 
-    Initialization lowers objects into free space in asset order. Physics settling is separate.
+    The object's bottom must clear the support surface; contact is not required.
     """
 
     name = "clutter_on"
@@ -267,8 +267,8 @@ class ClutterOn(On):
 
         lower, upper = bbox.min_point.clone(), bbox.max_point.clone()
         center = (lower[:, :2] + upper[:, :2]) * 0.5
-        half = (upper[:, :2] - lower[:, :2]) * (0.5 * self.spread)
-        lower[:, :2], upper[:, :2] = center - half, center + half
+        half_size = (upper[:, :2] - lower[:, :2]) * (0.5 * self.spread)
+        lower[:, :2], upper[:, :2] = center - half_size, center + half_size
         return AxisAlignedBoundingBox(lower, upper)
 
     def validate_placement_configuration(self, subject: PlaceableAsset, objects: set[PlaceableAsset]) -> None:

@@ -235,3 +235,34 @@ def test_tracker_names_moving_and_diverged_objects():
     tracker.update(positions, rotations)
     assert tracker.diverged
     assert tracker.failure_reason(["cup", "plate"]) == "non-finite poses: cup"
+
+
+def test_release_settings_preserve_custom_checks_without_mutating_the_caller():
+    from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+    from isaaclab_arena_environments.isaac_cap.clutter.settle import _release_placer_params
+
+    params = ObjectPlacerParams(enabled_checks={"custom"}, required_checks=set())
+    release = _release_placer_params(params)
+    assert release.enabled_checks == {"custom", "no_overlap", "on_relation"}
+    assert release.required_checks == {"no_overlap", "on_relation"}
+    assert not release.allow_best_loss_fallbacks
+    assert params.enabled_checks == {"custom"}
+    assert params.required_checks == set()
+    assert params.allow_best_loss_fallbacks
+
+
+@pytest.mark.parametrize("check", ["ik_reachable", "physics_settled"])
+def test_release_checks_cannot_certify_settled_poses(check):
+    from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+    from isaaclab_arena_environments.isaac_cap.clutter.settle import _release_placer_params
+
+    with pytest.raises(AssertionError, match="settled-pose checks"):
+        _release_placer_params(ObjectPlacerParams(required_checks={check}))
+
+
+def test_required_release_checks_must_be_enabled():
+    from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+    from isaaclab_arena_environments.isaac_cap.clutter.settle import _release_placer_params
+
+    with pytest.raises(AssertionError, match="must be enabled"):
+        _release_placer_params(ObjectPlacerParams(enabled_checks=set(), required_checks={"custom"}))

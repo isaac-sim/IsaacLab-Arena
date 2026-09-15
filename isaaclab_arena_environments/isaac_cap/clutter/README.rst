@@ -61,6 +61,24 @@ writes output only after all layouts pass. Only release candidates that pass
 placement validation are simulated. Existing output files
 are not overwritten.
 
+The source YAML's ``placement_validators`` settings apply to release poses.
+``no_overlap`` and ``on_relation`` are always enabled and required for a safe
+release. ``on_relation`` is the shared validator for ``On`` and ``ClutterOn``.
+For ``ClutterOn``, it checks that the object's XY bounds fit inside the release
+region and its bottom is at least ``clearance_m`` above the support, within
+tolerance. There is no upper height limit or contact requirement, so objects
+in a release column can pass. Ordinary ``On`` still requires the object's
+bottom to lie in a narrow band near the support surface.
+
+Additional enabled checks run with the configured required/optional status.
+Unknown or unavailable requested checks fail generation. The Python API
+accepts the same configuration through ``placer_params``.
+
+Release validation cannot certify a pose after physics moves it. Requests for
+``ik_reachable``, ``physics_settled``, or ``RequiresReachability`` are rejected
+by this offline workflow. Settling uses its own rest, containment and passive
+motion checks; it does not certify task reachability.
+
 Other placement must already be resolved to fixed anchors. Object sets are not
 supported by this cache format. Downstream packages can register assets and
 tasks with ``--register package.module:register_components``. ``--presets``
@@ -100,6 +118,20 @@ velocities, bypassing relation solving and settling. Pose-changing variations
 or custom reset callbacks can alter the layout and should be disabled for exact
 replay. Cached assets must not have their own explicit pose-reset events;
 the complete-layout event owns their pose resets.
+
+Loading validates pose data and object coverage, not physical placement.
+``placement_validators`` configure generated placements; they are not rerun
+when replaying a cache. The same environment YAML can therefore generate and
+replay layouts without removing its validator settings. A manually edited
+cache, or one generated for different geometry, is not certified by a
+successful load. Use the same scene geometry, fixed poses and physics settings
+as generation. Replay does not certify reachability.
+
+``PlacementLayouts.get_layout(index)`` retrieves one complete layout without
+advancing reset cursors. ``write_scene_poses_to_sim`` applies supplied pose
+tensors without drawing another layout or invoking the solver. This is also
+the root-pose writer used by ordinary placement; compound assets expand their
+poses through ``layout_pose_to_scene_writes`` before application.
 
 Use from Python
 ---------------

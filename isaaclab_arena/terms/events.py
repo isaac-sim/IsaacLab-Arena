@@ -15,6 +15,7 @@ from isaaclab.sim.spawners.from_files.from_files_cfg import UsdFileCfg
 from isaaclab.utils import math as math_utils
 
 from isaaclab_arena.assets.object_type import ObjectType
+from isaaclab_arena.relations.placement_events import write_scene_poses_to_sim
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.usd_prim_tree import exclude_referenced_physics_roots, find_nested_physics_roots
 from isaaclab_arena.utils.velocity import Velocity
@@ -457,13 +458,19 @@ class ResetPlacementLayouts(ManagerTermBase):
         env_ids = self._all_env_ids if env_ids is None else env_ids
         if len(env_ids) == 0:
             return
+        selected_poses = self.sample(env_ids)
+        write_scene_poses_to_sim(env, env_ids, selected_poses)
+
+    def sample(self, env_ids: torch.Tensor) -> dict[str, torch.Tensor]:
+        """Draw one complete layout per environment and advance only those cache cursors.
+
+        Args:
+            env_ids: Absolute indices of the M resetting environments, shape (M,).
+
+        Returns:
+            Scene entity poses in the environment frame, each shaped (M, 7).
+        """
         layout_ids = self._next_layout[env_ids]
-        for name, values in self._poses.items():
-            T_E_O = values[layout_ids]
-            T_W_O = T_E_O.clone()
-            T_W_O[:, :3] += env.scene.env_origins[env_ids]
-            env.scene[name].write_root_pose_to_sim(T_W_O, env_ids=env_ids)
-            env.scene[name].write_root_velocity_to_sim(
-                torch.zeros((len(env_ids), 6), device=env.device), env_ids=env_ids
-            )
+        poses = {name: values[layout_ids] for name, values in self._poses.items()}
         self._next_layout[env_ids] = (layout_ids + 1) % self._num_layouts
+        return poses

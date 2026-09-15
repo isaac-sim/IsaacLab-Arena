@@ -423,6 +423,7 @@ class ObjectPlacer:
         orientations: dict[PlaceableAsset, float] = {}
         for obj in objects:
             marker = get_relation(obj, RotateAroundSolution)
+            clutter = get_relation(obj, ClutterOn)
             has_roll_pitch = marker is not None and (marker.roll_rad != 0.0 or marker.pitch_rad != 0.0)
             marker_yaw = yaw_from_quat_xyzw(marker.get_rotation_xyzw()) if marker is not None else 0.0
             if obj in anchor_objects:
@@ -431,8 +432,7 @@ class ObjectPlacer:
                     "Anchors are not repositioned by the placer, so any marker rotation must "
                     "already be baked into the anchor's initial_pose before calling place()."
                 )
-            elif get_relation(obj, FaceTo) is None and (not has_roll_pitch or get_relation(obj, ClutterOn) is not None):
-                clutter = get_relation(obj, ClutterOn)
+            elif get_relation(obj, FaceTo) is None and (not has_roll_pitch or clutter is not None):
                 random_yaw = clutter.random_yaw if clutter is not None else self.params.random_yaw_init
                 sampled_yaw = get_random_rotation(generator) if random_yaw else 0.0
                 total_yaw = wrap_angle_to_pi(sampled_yaw + marker_yaw)
