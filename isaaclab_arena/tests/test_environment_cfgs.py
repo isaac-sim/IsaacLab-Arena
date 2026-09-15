@@ -17,12 +17,16 @@ import pytest
 
 from isaaclab_arena.assets.registries import EnvironmentRegistry
 from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg, ArenaEnvironmentFactory
+from isaaclab_arena.utils.physics_backend import PhysicsBackend
 from isaaclab_arena_environments.cli import (
     _environment_cfg_from_cli,
     _get_legacy_argparse_cfg_type,
     add_environment_cli_args,
     build_environment_from_cli,
     ensure_environments_registered,
+)
+from isaaclab_arena_environments.droid_deformable_pick_and_place_environment import (
+    DroidDeformablePickAndPlaceEnvironment,
 )
 from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
 from isaaclab_arena_environments.gr1_put_and_close_door_environment import GR1PutAndCloseDoorEnvironment
@@ -83,6 +87,20 @@ def test_every_registered_cli_adapter_uses_its_typed_cfg_defaults():
         assert (
             environment_cfg == environment_cfg_type()
         ), f"{environment_name} CLI defaults diverged from its typed config defaults"
+
+
+def test_deformable_environment_resolves_default_preset_without_overriding_cli() -> None:
+    default_arguments = _parse_legacy_arguments(DroidDeformablePickAndPlaceEnvironment)
+    default_arguments.presets = None
+    default_cfg = _environment_cfg_from_cli(DroidDeformablePickAndPlaceEnvironment, default_arguments)
+    assert default_cfg.presets is PhysicsBackend.NEWTON
+    assert default_arguments.presets is PhysicsBackend.NEWTON
+
+    physx_arguments = _parse_legacy_arguments(DroidDeformablePickAndPlaceEnvironment)
+    physx_arguments.presets = PhysicsBackend.PHYSX
+    physx_cfg = _environment_cfg_from_cli(DroidDeformablePickAndPlaceEnvironment, physx_arguments)
+    assert physx_cfg.presets is PhysicsBackend.PHYSX
+    assert physx_arguments.presets is PhysicsBackend.PHYSX
 
 
 def test_generated_cli_arguments_and_cfg_validation():
