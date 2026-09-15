@@ -101,6 +101,11 @@ class ObjectReference(RootedObjectBase):
                 self._bounding_box = raw_bbox.scaled(self._parent_scale)
         return self._bounding_box
 
+    def get_bounding_box_rotation_xyzw(self) -> tuple[float, float, float, float]:
+        """World orientation of the parent USD axes used by the reference bounds."""
+        parent_pose = self.parent_asset.initial_pose
+        return parent_pose.rotation_xyzw if parent_pose is not None else (0.0, 0.0, 0.0, 1.0)
+
     def get_world_bounding_box(self) -> AxisAlignedBoundingBox:
         """Bounding box in world coordinates.
 
@@ -109,10 +114,7 @@ class ObjectReference(RootedObjectBase):
         """
         box = self.get_bounding_box()
         world_position = self.get_initial_pose().position_xyz
-        parent_pose = self.parent_asset.initial_pose
-        if parent_pose is None:
-            return box.translated(world_position)
-        quarters = quaternion_to_90_deg_z_quarters(parent_pose.rotation_xyzw)
+        quarters = quaternion_to_90_deg_z_quarters(self.get_bounding_box_rotation_xyzw())
         return box.rotated_90_around_z(quarters).translated(world_position)
 
     def get_collision_mesh(self) -> trimesh.Trimesh | None:

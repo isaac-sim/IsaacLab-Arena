@@ -231,3 +231,19 @@ def test_on_init_reproducible_with_placement_seed():
     pos1 = next(pos for obj, pos in result1.positions.items() if obj.name == "box")
     pos2 = next(pos for obj, pos in result2.positions.items() if obj.name == "box")
     assert pos1 == pos2, f"Expected identical positions with same seed, got {pos1} vs {pos2}"
+
+
+def test_converged_solver_does_not_take_an_extra_optimizer_step():
+    from isaaclab_arena.relations.relation_solver import RelationSolver
+    from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
+    from isaaclab_arena.relations.relations import AtPosition
+
+    anchor = DummyObject("anchor", AxisAlignedBoundingBox((-1, -1, -1), (1, 1, 0)), Pose(), [IsAnchor()])
+    obj = DummyObject(
+        "obj", AxisAlignedBoundingBox((-0.01, -0.01, 0), (0.01, 0.01, 0.02)), relations=[AtPosition(x=0.05)]
+    )
+    initial = {anchor: (0.0, 0.0, 0.0), obj: (0.0, 0.0, 1.0)}
+    solver = RelationSolver(RelationSolverParams(max_iters=2, convergence_threshold=10.0))
+    result = solver.solve([anchor, obj], [initial])[0]
+    assert result == initial
+    assert 0.0 < solver.last_loss_per_env[0] < 10.0

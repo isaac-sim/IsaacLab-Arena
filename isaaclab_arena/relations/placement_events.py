@@ -100,6 +100,31 @@ def get_movable_asset_names(
     return [asset.get_scene_key() for asset in assets if asset not in anchor_assets]
 
 
+def write_scene_poses_to_sim(env: ManagerBasedEnv, env_ids: torch.Tensor, poses: dict[str, torch.Tensor]) -> None:
+    """Apply environment-local root poses and zero velocities for the selected environments.
+
+    Args:
+        env: Constructed simulation environment.
+        env_ids: Absolute indices of the N resetting environments, shape (N,).
+        poses: Scene entity names mapped to xyz/xyzw tensors, each shaped (N, 7).
+            Compound asset poses must first be expanded with layout_pose_to_scene_writes().
+    """
+    for name, pose in poses.items():
+        assert pose.shape == (len(env_ids), 7), f"Root poses for '{name}' must have shape (N, 7)"
+        assert torch.isfinite(pose).all(), f"Root poses for '{name}' must be finite"
+        assert torch.allclose(
+            pose[:, 3:].square().sum(dim=-1), torch.ones_like(pose[:, 0]), atol=1e-4, rtol=0
+        ), f"Root poses for '{name}' require unit quaternions"
+    env_origins = env.scene.env_origins[env_ids]
+    zero_velocity = torch.zeros((len(env_ids), 6), device=env.device)
+    for name, object_pose_in_environment in poses.items():
+        object_pose_in_world = object_pose_in_environment.clone()
+        object_pose_in_world[:, :3] += env_origins
+        scene_asset = env.scene[name]
+        scene_asset.write_root_pose_to_sim(object_pose_in_world, env_ids=env_ids)
+        scene_asset.write_root_velocity_to_sim(zero_velocity, env_ids=env_ids)
+
+
 def write_layout_to_sim(
     env: ManagerBasedEnv,
     env_id: int,

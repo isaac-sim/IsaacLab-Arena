@@ -13,10 +13,10 @@ from typing import TYPE_CHECKING
 
 from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.relations.collision_mode import CollisionMode
+from isaaclab_arena.relations.placement_events import write_scene_poses_to_sim
 from isaaclab_arena.relations.relations import IsAnchor, Relation, RelationBase, RequiresReachability, UnaryRelation
 from isaaclab_arena.utils.bounding_box import quaternion_to_90_deg_z_quarters
 from isaaclab_arena.utils.pose import Pose, PosePerEnv, PoseRange
-from isaaclab_arena.utils.velocity import Velocity
 
 if TYPE_CHECKING:
     import trimesh
@@ -136,13 +136,11 @@ class PlaceableAsset(Asset, ABC):
     def write_layout_pose_to_sim(self, env: ManagerBasedEnv, env_id: int, layout_pose: Pose) -> None:
         """Write a solved environment-local pose to this asset's runtime scene entries."""
         env_ids = torch.tensor([env_id], device=env.device)
-        zero_velocity = Velocity.zero().to_tensor(device=env.device).unsqueeze(0)
-        for scene_name, pose in self.layout_pose_to_scene_writes(layout_pose):
-            scene_asset = env.scene[scene_name]
-            pose_tensor = pose.to_tensor(device=env.device).unsqueeze(0)
-            pose_tensor[0, :3] += env.scene.env_origins[env_id]
-            scene_asset.write_root_pose_to_sim(pose_tensor, env_ids=env_ids)
-            scene_asset.write_root_velocity_to_sim(zero_velocity, env_ids=env_ids)
+        scene_poses = {
+            name: pose.to_tensor(device=env.device).unsqueeze(0)
+            for name, pose in self.layout_pose_to_scene_writes(layout_pose)
+        }
+        write_scene_poses_to_sim(env, env_ids, scene_poses)
 
     def has_pose_reset_event(self) -> bool:
         """Return whether the asset owns a root-pose reset event."""
@@ -151,6 +149,11 @@ class PlaceableAsset(Asset, ABC):
     @abstractmethod
     def get_bounding_box(self) -> AxisAlignedBoundingBox:
         """Return root-relative axis-aligned bounds."""
+
+    def get_bounding_box_rotation_xyzw(self) -> tuple[float, float, float, float]:
+        """World orientation of the axes used by get_bounding_box()."""
+        pose = self.get_initial_pose()
+        return pose.rotation_xyzw if isinstance(pose, Pose) else (0.0, 0.0, 0.0, 1.0)
 
     def get_world_bounding_box(self) -> AxisAlignedBoundingBox:
         """Return bounds transformed by a fixed root pose with a quarter-turn Z rotation.
@@ -161,7 +164,7 @@ class PlaceableAsset(Asset, ABC):
         initial_pose = self.get_initial_pose()
         if not isinstance(initial_pose, Pose):
             return bounding_box
-        quarters = quaternion_to_90_deg_z_quarters(initial_pose.rotation_xyzw)
+        quarters = quaternion_to_90_deg_z_quarters(self.get_bounding_box_rotation_xyzw())
         return bounding_box.rotated_90_around_z(quarters).translated(initial_pose.position_xyz)
 
     def get_collision_mesh(self) -> trimesh.Trimesh | None:

@@ -19,6 +19,44 @@ Both produce the same object: an ``IsaacLabArenaEnvironment``.
   ``IsaacLabArenaEnvironment``.
 
 
+Fixed poses in YAML
+-------------------
+
+Embodiment, background and object nodes accept ``params.initial_pose``:
+
+.. code-block:: yaml
+
+   params:
+     initial_pose:
+       position_xyz: [-1.0, 0.0, 0.0]
+       rotation_xyzw: [0.0, 0.0, 0.0, 1.0]
+
+Positions are environment-local, in metres; quaternions use xyzw order.
+An omitted component retains the asset's fixed default, or identity when no
+pose is configured. A partial override requires a fixed default pose.
+An explicit pose is applied at construction and restored on reset. Do not
+combine it with relation placement or cached replay for the same movable asset.
+
+Companion placement files
+-------------------------
+
+Set ``placement_layouts: placements.yaml`` to replay complete layouts from a
+companion YAML mapping object IDs to equally sized pose lists. The path is
+relative to the environment YAML. ``--placement_layouts`` overrides that path
+relative to the working directory and requires ``--env_spec``.
+
+Cached replay bypasses relation solving. Each resetting environment advances
+through complete cached layouts independently. Python environments can instead
+set ``IsaacLabArenaEnvironment.placement_layouts`` to a ``PlacementLayouts``
+instance keyed by runtime scene keys. Every non-anchor asset with spatial
+relations must be covered; object sets and conflicting pose-reset events are
+rejected.
+
+A graph reconstructed from a dictionary has no source directory. For relative
+companion paths, load it with ``from_yaml()``; otherwise use an absolute path or
+supply a runtime override.
+
+
 The same environment, side by side
 ----------------------------------
 

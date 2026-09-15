@@ -126,6 +126,12 @@ def add_env_graph_spec_cli_args(parser: argparse.ArgumentParser) -> None:
         "Environment Graph Spec Arguments", "Arguments specific to environment graph spec"
     )
     env_graph_spec_group.add_argument(
+        "--placement_layouts",
+        type=str,
+        default=None,
+        help="Companion pose YAML overriding the environment's placement_layouts file (requires --env_spec)",
+    )
+    env_graph_spec_group.add_argument(
         "--env_spec",
         type=str,
         default=None,

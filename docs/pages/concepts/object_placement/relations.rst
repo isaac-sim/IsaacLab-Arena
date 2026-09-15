@@ -73,6 +73,25 @@ Most environments can be described with a small set of relations:
    starting pose; final solving and validation use each relation's actual
    parent.
 
+``ClutterOn(parent)``
+   Defines a clutter release above a fixed ``IsAnchor`` support. ``ObjectPlacer``
+   samples within a centered fraction of its footprint (``spread``, default
+   0.2) and lowers objects into free vertical space in asset order, leaving
+   ``clearance_m`` above the surface and at least ``gap_m`` between overlapping bounds.
+   Initialization also honors the solver collision clearance when it is larger.
+   The registered loss and normal placement validators enforce that scaled
+   release footprint and minimum surface clearance. Offline settled-pile
+   validation uses the whole support footprint. ``gap_m`` controls initialization; subsequent
+   solving uses the shared collision clearance.
+
+   This is a release arrangement, not a settled pile. Physics makes the objects
+   fall when simulation starts. ``ClutterOn`` can combine with other spatial
+   relations, such as ``AtPosition``, but cannot use ``RandomAroundSolution``.
+   ``RotateAroundSolution`` sets its base rotation; ``random_yaw`` (default True) adds world-Z yaw while
+   preserving that rotation's tilt. Failure handling uses the same
+   ``ObjectPlacerParams.allow_best_loss_fallbacks`` option as other relations;
+   set it to False when only validated layouts are acceptable.
+
 .. _next-to-relation:
 
 ``NextTo(parent)``
@@ -184,6 +203,49 @@ a Boolean value.
 
 Collision handling is integrated into placement and is not expressed as a
 relation.
+
+Cached Layouts
+--------------
+
+An environment can load a companion pose YAML through ``placement_layouts``
+in its graph specification or the ``--placement_layouts`` runtime flag. The
+YAML field is relative to the environment file; the CLI override is relative
+to the working directory and takes precedence.
+
+The companion file maps graph object IDs to equal-length lists of poses:
+
+.. code-block:: yaml
+
+   mug:
+   - position_xyz: [0.1, 0.2, 0.8]
+     rotation_xyzw: [0.0, 0.0, 0.0, 1.0]
+   - position_xyz: [-0.1, 0.2, 0.8]
+     rotation_xyzw: [0.0, 0.0, 0.0, 1.0]
+
+Positions are in the local environment frame, in metres. One index selects a
+complete layout across all objects. Environment ``i`` starts at index
+``i % num_layouts`` and cycles on its own resets. Reusing a cache bypasses
+relation solving; it does not run physics settling. All non-anchor objects
+with spatial relations must be included, and object sets are unsupported.
+Assets must expose writable physics roots. Disable pose-changing variations
+and callbacks when exact replay is required.
+
+The CAP offline generator in
+``isaaclab_arena_environments/isaac_cap/clutter/generate_clutter_scene.py``
+creates such files from ``ClutterOn`` relations. Its adjacent ``README.rst``
+describes generation controls and validation limits.
+
+Cached placement validation
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Companion pose files validate finite values, unit quaternions, object coverage
+and layout counts. Loading does not rerun geometric, relation or reachability
+checks. ``placement_validators`` configure generated placements and are not
+rerun on cached replay. Keep those settings in the source environment YAML;
+loading its companion file does not require removing them. Cached poses must
+match the scene used to generate them; successful loading does not certify
+physical validity or reachability.
+
 
 Next Steps
 ----------

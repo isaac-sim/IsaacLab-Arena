@@ -15,6 +15,7 @@ from isaaclab.sim.spawners.from_files.from_files_cfg import UsdFileCfg
 from isaaclab.utils import math as math_utils
 
 from isaaclab_arena.assets.object_type import ObjectType
+from isaaclab_arena.relations.placement_events import write_scene_poses_to_sim
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.usd_prim_tree import exclude_referenced_physics_roots, find_nested_physics_roots
 from isaaclab_arena.utils.velocity import Velocity
@@ -418,3 +419,58 @@ def reset_all_articulation_joints(env: ManagerBasedEnv, env_ids: torch.Tensor):
         default_joint_vel = wp.to_torch(articulation_asset.data.default_joint_vel)[env_ids].clone()
         # set into the physics simulation
         articulation_asset.write_joint_state_to_sim(default_joint_pos, default_joint_vel, env_ids=env_ids)
+
+
+class ResetPlacementLayouts(ManagerTermBase):
+    """Complete cached layouts cycling independently across N environments.
+
+    L is the layout count; each pose contains xyz position and xyzw rotation.
+    """
+
+    def __init__(self, cfg: EventTermCfg, env: ManagerBasedEnv):
+        super().__init__(cfg, env)
+        self._poses = {name: torch.tensor(poses, device=env.device) for name, poses in cfg.params["poses"].items()}
+        """Object-to-pose tensors, each shaped (L, 7); L is the number of layouts."""
+        assert self._poses, "Cached reset requires at least one object"
+        shapes = {tuple(poses.shape) for poses in self._poses.values()}
+        assert len(shapes) == 1, "Cached reset objects must have equal layout counts"
+        shape = next(iter(shapes))
+        assert len(shape) == 2 and shape[0] > 0 and shape[1] == 7, "Cached reset poses must have shape (L, 7), L > 0"
+        self._num_layouts = shape[0]
+        self._all_env_ids = torch.arange(env.num_envs, device=env.device)
+        """Absolute environment indices, shape (N,)."""
+        self._next_layout = self._all_env_ids % self._num_layouts
+        """Next complete layout index for each environment, shape (N,)."""
+        for name in self._poses:
+            assert (
+                name in env.scene.rigid_objects or name in env.scene.articulations
+            ), f"Cached object '{name}' must have a writable physics root"
+
+    def __call__(self, env: ManagerBasedEnv, env_ids: torch.Tensor | None, poses: dict[str, list[list[float]]]) -> None:
+        """Apply the next complete layout to each resetting environment.
+
+        Args:
+            env: Environment whose root poses are reset.
+            env_ids: Environments to reset, or None for all environments.
+            poses: Layout configuration required by the event-manager calling contract.
+                Pose tensors are built once in __init__; this argument is unused here.
+        """
+        env_ids = self._all_env_ids if env_ids is None else env_ids
+        if len(env_ids) == 0:
+            return
+        selected_poses = self.sample(env_ids)
+        write_scene_poses_to_sim(env, env_ids, selected_poses)
+
+    def sample(self, env_ids: torch.Tensor) -> dict[str, torch.Tensor]:
+        """Draw one complete layout per environment and advance only those cache cursors.
+
+        Args:
+            env_ids: Absolute indices of the M resetting environments, shape (M,).
+
+        Returns:
+            Scene entity poses in the environment frame, each shaped (M, 7).
+        """
+        layout_ids = self._next_layout[env_ids]
+        poses = {name: values[layout_ids] for name, values in self._poses.items()}
+        self._next_layout[env_ids] = (layout_ids + 1) % self._num_layouts
+        return poses

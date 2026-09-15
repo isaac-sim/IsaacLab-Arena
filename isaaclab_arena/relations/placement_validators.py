@@ -20,7 +20,7 @@ from isaaclab_arena.relations.relation_loss_strategies import (
     next_to_violations,
     not_next_to_violations,
 )
-from isaaclab_arena.relations.relations import FaceTo, NextTo, NotNextTo, On, get_relation
+from isaaclab_arena.relations.relations import ClutterOn, FaceTo, NextTo, NotNextTo, On, get_relation
 from isaaclab_arena.relations.warp_sdf_kernels import has_sdf_sentinel, mesh_sdf
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.yaw import centers_in_target_frame, yaw_from_quat_xyzw, yaw_toward_positions
@@ -116,7 +116,7 @@ def build_validators(
 
 @register_validator
 class OnRelationValidator(PlacementValidator):
-    """Validate every On relation: child rests on its parent within X/Y footprint and Z band."""
+    """Support footprint and height checks for On and ClutterOn relations."""
 
     check = PlacementCheck.ON_RELATION
 
@@ -136,9 +136,10 @@ class OnRelationValidator(PlacementValidator):
     ) -> bool:
         """Validate each On relation; keep in sync with OnLossStrategy in relation_loss_strategies.py.
 
-        1. X: child's footprint within parent's X extent, inset by the relation's edge_margin_m.
-        2. Y: child's footprint within parent's Y extent, inset by the relation's edge_margin_m.
-        3. Z: child_bottom in (parent_top, parent_top+clearance_m], within on_relation_z_tolerance_m.
+        1. X/Y: child's footprint inside the support region, inset by edge_margin_m.
+        2. ClutterOn scales that region by spread; On uses the full parent footprint.
+        3. Z: On uses a surface band; ClutterOn requires at least the release clearance.
+           Both allow on_relation_z_tolerance_m.
 
         Args:
             positions: Solved positions for each object.
@@ -155,6 +156,8 @@ class OnRelationValidator(PlacementValidator):
                 parent_bbox = env_bboxes[parent]
                 child_world = child_bbox.translated(positions[obj])
                 parent_world = parent_bbox.translated(positions[parent])
+                if isinstance(rel, ClutterOn):
+                    parent_world = rel.support_bbox(parent_world)
                 parent_size = parent_world.max_point - parent_world.min_point
                 child_size = child_world.max_point - child_world.min_point
 
@@ -192,6 +195,12 @@ class OnRelationValidator(PlacementValidator):
                 clearance_m = rel.clearance_m
                 child_bottom_z = child_local_bottom_z + positions[obj][2]
                 eps_z = self._params.on_relation_z_tolerance_m
+                if isinstance(rel, ClutterOn):
+                    if child_bottom_z < parent_top_z + clearance_m - eps_z:
+                        if self._params.verbose:
+                            print(f"ClutterOn relation: '{obj.name}' below release clearance")
+                        return False
+                    continue
                 if child_bottom_z <= parent_top_z - eps_z or child_bottom_z > parent_top_z + clearance_m + eps_z:
                     if self._params.verbose:
                         print(f"  On relation: '{obj.name}' Z outside band (retrying)")

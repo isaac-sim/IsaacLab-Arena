@@ -116,6 +116,10 @@ def _test_get_arena_builder_from_cli_builds_env_from_graph_yaml(simulation_app):
         with pytest.raises(AssertionError):
             get_arena_builder_from_cli(bad)
 
+    with pytest.raises(AssertionError, match="--placement_layouts requires --env_spec"):
+        get_arena_builder_from_cli(
+            argparse.Namespace(env_spec=None, example_environment="lift_object", placement_layouts="poses.yaml")
+        )
     return True
 
 
@@ -246,3 +250,125 @@ def test_direction_variation_lights_injected_directional_light():
 
     result = run_function_with_persistent_simulation_app(_test_direction_variation_lights_injected_directional_light)
     assert result
+
+
+def test_object_reference_uses_runtime_parent_name():
+    from types import SimpleNamespace
+    from unittest.mock import patch
+
+    from isaaclab_arena.environment_spec.arena_env_graph_conversion_utils import _instantiate_object_reference
+    from isaaclab_arena.environment_spec.arena_env_graph_types import ObjectReferenceSpec
+
+    parent = SimpleNamespace(name="renamed_fixture")
+    reference = ObjectReferenceSpec(id="floor", parent_id="fixture_node", prim_path="inside/floor", object_type="base")
+    with patch("isaaclab_arena.environment_spec.arena_env_graph_conversion_utils.ObjectReference") as constructor:
+        _instantiate_object_reference(reference, parent)
+    assert constructor.call_args.kwargs["prim_path"] == "{ENV_REGEX_NS}/renamed_fixture/inside/floor"
+    assert constructor.call_args.kwargs["parent_asset"] is parent
+
+
+def test_initial_pose_validation_and_reset_contract():
+    from isaaclab_arena.environment_spec.arena_env_graph_conversion_utils import (
+        _apply_initial_pose,
+        _get_pose_from_dict,
+    )
+
+    class Asset:
+        def get_initial_pose(self):
+            return None
+
+        def set_initial_pose(self, pose, create_reset_event=True):
+            self.pose = pose
+            self.reset = create_reset_event
+
+    asset = Asset()
+    _apply_initial_pose(asset, _get_pose_from_dict({"position_xyz": [1, 2, 3], "rotation_xyzw": [0, 0, 0, 1]}))
+    assert asset.pose.position_xyz == (1.0, 2.0, 3.0)
+    assert asset.reset
+    for bad in (
+        {"position_xyz": [float("nan"), 0, 0]},
+        {"position_xyz": [True, 0, 0]},
+        {"rotation_xyzw": [0, 0, 0, 0]},
+        {"rotation_xyzw": [0, 0, 1]},
+        {"unknown": 1},
+    ):
+        with pytest.raises(AssertionError):
+            _get_pose_from_dict(bad)
+
+
+def test_partial_initial_pose_preserves_authored_components():
+    from isaaclab_arena.environment_spec.arena_env_graph_conversion_utils import (
+        _apply_initial_pose,
+        _get_pose_from_dict,
+    )
+    from isaaclab_arena.utils.pose import Pose
+
+    class Asset:
+        def __init__(self):
+            self.pose = Pose((1.0, 2.0, 3.0), (1.0, 0.0, 0.0, 0.0))
+
+        def get_initial_pose(self):
+            return self.pose
+
+        def set_initial_pose(self, pose, create_reset_event=True):
+            self.pose = pose
+            self.reset = create_reset_event
+
+    asset = Asset()
+    _apply_initial_pose(asset, _get_pose_from_dict({"position_xyz": [4, 5, 6]}, asset.get_initial_pose()))
+    assert asset.pose.rotation_xyzw == (1.0, 0.0, 0.0, 0.0)
+    _apply_initial_pose(asset, _get_pose_from_dict({"rotation_xyzw": [0, 0, 0, 1]}, asset.get_initial_pose()))
+    assert asset.pose.position_xyz == (4.0, 5.0, 6.0)
+    assert asset.reset
+
+
+def test_no_task_accepts_base_constructor_parameters():
+    from isaaclab_arena.tasks.no_task import NoTask
+
+    task = NoTask(episode_length_s=12, task_description="inspect scene")
+    assert task.episode_length_s == 12
+    assert task.task_description == "inspect scene"
+
+
+def _test_companion_layout_paths_and_graph_ids(simulation_app):
+    import tempfile
+    import yaml
+
+    from isaaclab_arena.relations.placement_layouts import PlacementLayouts
+    from isaaclab_arena.utils.pose import Pose
+
+    source = Path(__file__).parents[2] / "isaaclab_arena_environments/isaac_cap/clutter/clutter_scene.yaml"
+    with tempfile.TemporaryDirectory() as directory:
+        directory = Path(directory)
+        data = yaml.safe_load(source.read_text())
+        data["embodiment"]["id"] = "arm"
+        data["placement_layouts"] = "poses.yaml"
+        path = directory / "env.yaml"
+        path.write_text(yaml.safe_dump(data))
+        poses = {f"cube_{i}": [Pose((i, 0, 1))] for i in range(4)}
+        poses["arm"] = [Pose((0, 0, 0))]
+        PlacementLayouts(poses).write_yaml(directory / "poses.yaml")
+        spec = ArenaEnvGraphSpec.from_yaml(path)
+        restored = ArenaEnvGraphSpec.from_dict(spec.to_dict())
+        with pytest.raises(AssertionError, match="Relative placement_layouts requires a source YAML"):
+            restored.to_arena_env()
+        assert restored.to_arena_env(placement_layouts=directory / "poses.yaml").placement_layouts is not None
+        loaded = spec.to_arena_env().placement_layouts
+        assert loaded.poses["robot"] == poses["arm"]
+        assert "arm" not in loaded.poses
+        override = directory / "override.yaml"
+        poses["cube_0"] = [Pose((2, 3, 4))]
+        PlacementLayouts(poses).write_yaml(override)
+        assert spec.to_arena_env(placement_layouts=override).placement_layouts.poses["cube_0"] == poses["cube_0"]
+        for invalid, message in (({"unknown": [Pose()]}, "Unknown cached"), ({"cube_0": [Pose()]}, "missing placed")):
+            invalid_path = directory / f"{message.split()[0]}.yaml"
+            PlacementLayouts(invalid).write_yaml(invalid_path)
+            with pytest.raises(AssertionError, match=message):
+                spec.to_arena_env(placement_layouts=invalid_path)
+    return True
+
+
+def test_companion_layout_paths_and_graph_ids():
+    from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
+
+    assert run_function_with_persistent_simulation_app(_test_companion_layout_paths_and_graph_ids)
