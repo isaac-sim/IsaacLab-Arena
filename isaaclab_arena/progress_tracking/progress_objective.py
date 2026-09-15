@@ -5,11 +5,11 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
 
 from isaaclab_arena.progress_tracking.progress_tracking_utils import (
+    Predicate,
     PredicateGroups,
     _format_predicate_groups,
     _normalize_scores,
@@ -59,7 +59,7 @@ class ProgressObjective:
     K: int | None = None
     description: str | None = None
 
-    canonical_predicate_groups: dict[str, list[tuple[Callable, float]]] = field(init=False, repr=False)
+    canonical_predicate_groups: dict[str, list[tuple[Predicate, float]]] = field(init=False, repr=False)
 
     # Index of the parent TaskBase this progress objective belongs to. Set automatically by
     # CompositeTaskBase.get_progress_objectives() when used with composite tasks.
@@ -88,6 +88,6 @@ class ProgressObjective:
         """Returns the names of the groups in the ProgressObjective."""
         return list(self.canonical_predicate_groups.keys())
 
-    def get_chain(self, group_name: str) -> list[tuple[Callable, float]]:
+    def get_chain(self, group_name: str) -> list[tuple[Predicate, float]]:
         """Returns the chain of predicates for a given group."""
         return self.canonical_predicate_groups[group_name]

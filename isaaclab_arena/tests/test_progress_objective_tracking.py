@@ -608,6 +608,8 @@ def _test_recorder_publishes_to_extras_and_records_nothing(simulation_app) -> bo
     episode data) while still ticking the tracker and publishing the per-step state to
     ``env.extras["progress_tracking"]``.
     """
+    import torch
+
     from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
     from isaaclab_arena.progress_tracking.progress_tracker import (
         ProgressTrackingRecorderCfg,
@@ -642,9 +644,16 @@ def _test_recorder_publishes_to_extras_and_records_nothing(simulation_app) -> bo
         assert len(events[0]) == 1
         assert len(events[1]) == 0
 
-        # Reset env 0, env 1 untouched.
+        # Reset env 0, including legacy stateless-predicate recordings; env 1 remains untouched.
+        env.object_initial_rest_pose_recorder.record(
+            "object",
+            torch.zeros((2, 3)),
+            torch.tensor([True, True]),
+        )
         pred.set([False, False])
         progress_tracking_reset_func(env, env_ids=[0], progress_objectives=[objective])
+        _, object_settled = env.object_initial_rest_pose_recorder.get("object")
+        assert object_settled.tolist() == [False, True]
         assert recorder.record_post_step() == (None, None)
         states = env.extras["progress_tracking"]["states"]
         assert not states[0].progress_objectives["t"].is_complete
