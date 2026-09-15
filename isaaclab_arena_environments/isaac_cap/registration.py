@@ -7,7 +7,7 @@
 
 from __future__ import annotations
 
-from isaaclab_arena.assets.registries import AssetRegistry, EnvironmentRegistry, TaskRegistry
+from isaaclab_arena.assets.registries import AssetRegistry, TaskRegistry
 
 _registered = False
 # Task-package imports call back into this shared entry point.
@@ -61,12 +61,6 @@ def _register_gear_insertion_components(asset_registry: AssetRegistry) -> None:
         IndustrialFr3WorkcellTable,
         IndustrialHdrShadowReceiver,
     )
-    from .gear_insertion.gear_medium_environment import (
-        GearInsertionEasyNewtonEnvironment,
-        GearInsertionEasyNewtonEnvironmentCfg,
-        GearInsertionNewtonEnvironment,
-        GearInsertionNewtonEnvironmentCfg,
-    )
     from .gear_insertion.task import GearInsertionTask
 
     for name, factory in GEAR_ASSET_ENTRY_POINTS.items():
@@ -79,14 +73,3 @@ def _register_gear_insertion_components(asset_registry: AssetRegistry) -> None:
         _register(asset_registry, asset_class, asset_class.name)
 
     _register(TaskRegistry(), GearInsertionTask, GearInsertionTask.__name__)
-
-    environment_registry = EnvironmentRegistry()
-    for factory, cfg_type in (
-        (GearInsertionNewtonEnvironment, GearInsertionNewtonEnvironmentCfg),
-        (GearInsertionEasyNewtonEnvironment, GearInsertionEasyNewtonEnvironmentCfg),
-    ):
-        if environment_registry.is_registered(factory.name, ensure_loaded=False):
-            existing = environment_registry.get_component_by_name(factory.name)
-            assert existing is factory, f"Conflicting Isaac Cap environment {factory.name!r}."
-            continue
-        environment_registry.register_environment(factory, cfg_type)
