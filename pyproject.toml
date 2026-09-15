@@ -28,6 +28,7 @@ dependencies = [
     "scipy",
     "matplotlib",
     "plotly",
+    "pytetwild>=0.3.0,<0.4",
     # MoviePy 1.x relies on decorator 4.x call semantics to propagate clip FPS.
     "moviepy>=1.0.3,<2.0.0.dev0",
     "decorator>=4.0.2,<5",
@@ -58,10 +59,10 @@ dev = [
 [dependency-groups]
 # Isaac Lab's root isaaclab-dev project is installed editable from the submodule
 # checkout. Its extras provide Isaac Sim, OV backends, Mimic, Teleop, RSL-RL,
-# the Rerun visualizer, and deformable tetrahedral mesh generation (pytetwild).
-# This group is selected by a bare `uv sync` through default-groups below.
+# and the Rerun visualizer. This group is selected by a bare `uv sync` through
+# default-groups below.
 isaaclab-from-source = [
-    "isaaclab-dev[isaacsim,ov,mimic,teleop,rsl-rl,rerun,tetrahedralization]",
+    "isaaclab-dev[isaacsim,ov,mimic,teleop,rsl-rl,rerun]",
     # Keep the workspace members explicit as well. uv requires a package to be
     # named directly in this group before a group-gated path source can satisfy
     # the dependency declared by isaaclab-dev.

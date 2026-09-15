@@ -44,8 +44,7 @@ RUN chmod 777 -R /isaac-sim/kit/
 RUN chmod a+x /isaac-sim
 # Install Isaac Lab packages and their centralized dependencies. The installer
 # also installs the supported Newton stack and the default visualizers.
-# tetrahedralization pulls in pytetwild for PhysX deformable tet mesh generation.
-RUN ${ISAACLAB_PATH}/isaaclab.sh -i all,tetrahedralization
+RUN ${ISAACLAB_PATH}/isaaclab.sh -i
 
 # Lightwheel server
 ENV LW_API_ENDPOINT="https://api-dev.lightwheel.net"
