@@ -11,11 +11,85 @@ import warp as wp
 from isaaclab.assets import ArticulationCfg, RigidObjectCfg
 from isaaclab.envs import ManagerBasedEnv
 from isaaclab.managers import EventTermCfg, ManagerTermBase, SceneEntityCfg
+from isaaclab.sim.spawners.from_files.from_files_cfg import UsdFileCfg
+from isaaclab.utils import math as math_utils
 
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.usd_prim_tree import exclude_referenced_physics_roots, find_nested_physics_roots
 from isaaclab_arena.utils.velocity import Velocity
+
+
+def _deformable_nodal_state_for_pose(
+    env: ManagerBasedEnv,
+    env_ids: torch.Tensor,
+    asset_cfg: SceneEntityCfg,
+    pose: Pose,
+    velocity: Velocity | None = None,
+) -> torch.Tensor:
+    """Transform an asset's default nodal state to an environment-local pose."""
+    asset = env.scene[asset_cfg.name]
+    nodal_state = asset.data.default_nodal_state_w.torch[env_ids].clone()
+    default_pos_w = nodal_state[..., :3]
+    default_centroid_w = default_pos_w.mean(dim=1)
+
+    target_root_pos_w = torch.tensor(pose.position_xyz, device=env.device).repeat(len(env_ids), 1)
+    target_root_pos_w += env.scene.env_origins[env_ids]
+    target_quat = torch.tensor(pose.rotation_xyzw, device=env.device).repeat(len(env_ids), 1)
+    default_quat = torch.tensor(asset.cfg.init_state.rot, device=env.device).repeat(len(env_ids), 1)
+    delta_quat = math_utils.quat_mul(target_quat, math_utils.quat_inv(default_quat))
+    if isinstance(asset.cfg.spawn, UsdFileCfg):
+        default_root_pos_w = torch.tensor(asset.cfg.init_state.pos, device=env.device).repeat(len(env_ids), 1)
+        default_root_pos_w += env.scene.env_origins[env_ids]
+        root_to_centroid_w = default_centroid_w - default_root_pos_w
+        target_centroid_w = target_root_pos_w + math_utils.quat_apply(delta_quat, root_to_centroid_w)
+    else:
+        target_centroid_w = target_root_pos_w
+    nodal_state[..., :3] = asset.transform_nodal_pos(
+        default_pos_w,
+        target_centroid_w - default_centroid_w,
+        delta_quat,
+    )
+    if velocity is None:
+        nodal_state[..., 3:] = 0.0
+    else:
+        nodal_state[..., 3:] = torch.tensor(velocity.linear_xyz, device=env.device)
+    return nodal_state
+
+
+def set_deformable_object_pose(
+    env: ManagerBasedEnv,
+    env_ids: torch.Tensor,
+    asset_cfg: SceneEntityCfg,
+    pose: Pose,
+    velocity: Velocity | None = None,
+) -> None:
+    """Restore a deformable by transforming its default nodal state."""
+    if env_ids is None:
+        return
+    asset = env.scene[asset_cfg.name]
+    nodal_state = _deformable_nodal_state_for_pose(env, env_ids, asset_cfg, pose, velocity)
+    asset.write_nodal_state_to_sim_index(nodal_state, env_ids=env_ids)
+    asset.reset(env_ids=env_ids)
+
+
+def set_deformable_object_pose_per_env(
+    env: ManagerBasedEnv,
+    env_ids: torch.Tensor,
+    asset_cfg: SceneEntityCfg,
+    pose_list: list[Pose],
+) -> None:
+    """Restore selected deformable instances from absolute environment-indexed poses."""
+    if env_ids is None:
+        return
+    assert env_ids.ndim == 1, "env_ids must be one-dimensional"
+    assert len(pose_list) == env.scene.env_origins.shape[0], "pose_list must contain one pose per environment"
+    asset = env.scene[asset_cfg.name]
+    for current_env in env_ids.tolist():
+        current_env_ids = torch.tensor([current_env], device=env.device)
+        nodal_state = _deformable_nodal_state_for_pose(env, current_env_ids, asset_cfg, pose_list[current_env])
+        asset.write_nodal_state_to_sim_index(nodal_state, env_ids=current_env_ids)
+    asset.reset(env_ids=env_ids)
 
 
 @dataclass(frozen=True)
@@ -155,7 +229,7 @@ class ResetBackgroundPhysics(ManagerTermBase):
                             joint_position=asset.data.joint_pos.torch[0].clone(),
                         )
                     )
-                else:
+                elif object_type == ObjectType.RIGID:
                     asset_cfg = RigidObjectCfg(prim_path=prim_path)
                     asset = self._initialize_asset(asset_cfg, prim_path, "rigid body")
                     if asset is None:
@@ -166,6 +240,8 @@ class ResetBackgroundPhysics(ManagerTermBase):
                             root_pose_local=self._env_local_root_pose(asset, env),
                         )
                     )
+                else:
+                    raise ValueError(f"Unsupported nested background physics type: {object_type}")
         self._is_initialized = True
 
     @staticmethod

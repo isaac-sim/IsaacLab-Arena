@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import torch
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 
@@ -15,10 +16,12 @@ from isaaclab_arena.relations.collision_mode import CollisionMode
 from isaaclab_arena.relations.relations import IsAnchor, Relation, RelationBase, RequiresReachability, UnaryRelation
 from isaaclab_arena.utils.bounding_box import quaternion_to_90_deg_z_quarters
 from isaaclab_arena.utils.pose import Pose, PosePerEnv, PoseRange
+from isaaclab_arena.utils.velocity import Velocity
 
 if TYPE_CHECKING:
     import trimesh
 
+    from isaaclab.envs import ManagerBasedEnv
     from isaaclab.managers import EventTermCfg
 
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
@@ -129,6 +132,17 @@ class PlaceableAsset(Asset, ABC):
         outside that root override this to emit additional writes.
         """
         return [(self.get_scene_key(), layout_pose)]
+
+    def write_layout_pose_to_sim(self, env: ManagerBasedEnv, env_id: int, layout_pose: Pose) -> None:
+        """Write a solved environment-local pose to this asset's runtime scene entries."""
+        env_ids = torch.tensor([env_id], device=env.device)
+        zero_velocity = Velocity.zero().to_tensor(device=env.device).unsqueeze(0)
+        for scene_name, pose in self.layout_pose_to_scene_writes(layout_pose):
+            scene_asset = env.scene[scene_name]
+            pose_tensor = pose.to_tensor(device=env.device).unsqueeze(0)
+            pose_tensor[0, :3] += env.scene.env_origins[env_id]
+            scene_asset.write_root_pose_to_sim(pose_tensor, env_ids=env_ids)
+            scene_asset.write_root_velocity_to_sim(zero_velocity, env_ids=env_ids)
 
     def has_pose_reset_event(self) -> bool:
         """Return whether the asset owns a root-pose reset event."""
