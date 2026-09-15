@@ -14,14 +14,13 @@ import isaaclab.sim as sim_utils
 
 from isaaclab_arena.assets.background import Background
 from isaaclab_arena.assets.hdr_image_library import EmptyWarehouseHDRRobolab
+from isaaclab_arena.assets.nucleus import ARENA_NUCLEUS_DIR
 from isaaclab_arena.assets.object import Object
 from isaaclab_arena.assets.object_library import DomeLight
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.utils.pose import Pose
 
-_ASSET_ROOT = (
-    "omniverse://isaac-dev.ov.nvidia.com/Projects/nvblox/isaac_arena/newton_envs/cap_envs/gear_assembly/assets"
-)
+_ASSET_ROOT = f"{ARENA_NUCLEUS_DIR}/Arena/assets/temp_newton_envs/cap_envs/gear_assembly/assets"
 
 FR3_WORKCELL_TABLE_USD_PATH = f"{_ASSET_ROOT}/industrial__fr3_workcell_table/industrial__fr3_workcell_table.usda"
 HDR_SHADOW_RECEIVER_USD_PATH = f"{_ASSET_ROOT}/industrial__hdr_shadow_receiver/industrial__hdr_shadow_receiver.usda"
