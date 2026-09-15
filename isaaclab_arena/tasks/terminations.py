@@ -67,12 +67,22 @@ def check_success(
 
     if not predicates:
         raise ValueError("check_success requires at least one predicate.")
+    results = torch.stack([predicate.func(env, **predicate.params) for predicate in predicates], dim=0)
+
+    return combine_success_results(results, mode=mode, k=k)
+
+
+def combine_success_results(
+    results: torch.Tensor,
+    mode: SuccessMode | str = SuccessMode.ALL,
+    k: int | None = None,
+) -> torch.Tensor:
+    """Combine an already evaluated predicate tensor along its first dimension."""
+    assert results.ndim >= 1 and results.shape[0] > 0, "results must contain at least one predicate."
     valid_modes = [m.value for m in SuccessMode]
     if not (isinstance(mode, str) and mode.upper() in valid_modes):
         raise ValueError(f"Unknown mode '{mode}'. Expected one of {valid_modes}.")
     mode = SuccessMode(mode.upper())
-
-    results = torch.stack([predicate.func(env, **predicate.params) for predicate in predicates], dim=0)
 
     if mode is SuccessMode.ALL:
         return results.all(dim=0)
@@ -81,8 +91,9 @@ def check_success(
 
     if k is None:
         raise ValueError("mode SuccessMode.CHOOSE requires 'k' to be provided.")
-    if not (1 <= k <= len(predicates)):
-        raise ValueError(f"'k' must be in [1, {len(predicates)}] for {len(predicates)} predicates, got {k}.")
+    num_predicates = results.shape[0]
+    if not (1 <= k <= num_predicates):
+        raise ValueError(f"'k' must be in [1, {num_predicates}] for {num_predicates} predicates, got {k}.")
     return results.sum(dim=0) >= k
 
 

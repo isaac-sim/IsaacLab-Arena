@@ -17,10 +17,23 @@ from isaaclab.utils.configclass import configclass
 
 from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective, ProgressObjectiveCompletionMode
 from isaaclab_arena.progress_tracking.progress_tracking_utils import _predicate_repr
+from isaaclab_arena.tasks.predicates.composite import reset_managed_predicates
 from isaaclab_arena.tasks.predicates.consecutive import ConsecutivePredicate
 from isaaclab_arena.tasks.predicates.object_settling import reset_rest_pose_recorder
 
 _PROGRESS_TRACKER_ATTR = "_progress_tracker"
+
+
+def _contains_nested_termination_term_cfg(value) -> bool:
+    """Return whether a nested parameter contains a managed term config."""
+
+    if isinstance(value, TerminationTermCfg):
+        return True
+    if isinstance(value, dict):
+        return any(_contains_nested_termination_term_cfg(item) for item in value.values())
+    if isinstance(value, (list, tuple, set)):
+        return any(_contains_nested_termination_term_cfg(item) for item in value)
+    return False
 
 
 def _resolve_progress_predicate(predicate, env):
@@ -32,6 +45,10 @@ def _resolve_progress_predicate(predicate, env):
     if not isinstance(predicate, TerminationTermCfg):
         return predicate
 
+    assert not _contains_nested_termination_term_cfg(predicate.params), (
+        "Nested TerminationTermCfg parameters, including CompositePredicate children, are unsupported for progress "
+        "predicates until #1255."
+    )
     assert env is not None, "An environment is required to resolve a managed progress predicate."
     predicate_cfg = copy.deepcopy(predicate)
     predicate_func = predicate_cfg.func
@@ -272,15 +289,10 @@ class ProgressObjectiveRunner:
             self.group_score[group_name][env_ids] = 0.0
             self.group_complete[group_name][env_ids] = False
 
-        reset_predicates: list[ManagerTermBase] = []
-        for predicate_chain in self.predicate_chains.values():
-            for predicate, _score in predicate_chain:
-                predicate_func = predicate.func if isinstance(predicate, functools.partial) else predicate
-                if isinstance(predicate_func, ManagerTermBase) and not any(
-                    predicate_func is existing for existing in reset_predicates
-                ):
-                    predicate_func.reset(env_ids)
-                    reset_predicates.append(predicate_func)
+        reset_managed_predicates(
+            (predicate for predicate_chain in self.predicate_chains.values() for predicate, _score in predicate_chain),
+            env_ids,
+        )
 
     def _num_required_groups(self) -> int:
         """Number of groups that must complete for the objective to be complete."""

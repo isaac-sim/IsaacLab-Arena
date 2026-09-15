@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING
 
 from isaaclab.managers import SceneEntityCfg
 from isaaclab.sensors.contact_sensor.contact_sensor import ContactSensor
-from isaaclab.utils.math import quat_apply_inverse
+from isaaclab.utils.math import quat_apply, quat_apply_inverse
 
 from isaaclab_arena.tasks.predicates.object_settling import get_object_initial_rest_state
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
@@ -101,6 +101,88 @@ def object_is_moving_slowly(
 ) -> torch.Tensor:
     """Check whether object linear speed is below the threshold."""
     return torch.linalg.vector_norm(object_linear_velocity_w, dim=-1) < velocity_threshold
+
+
+def _position_relative_to_target(
+    env: IsaacLabArenaManagerBasedRLEnv,
+    subject_name: str,
+    receiver_name: str,
+    target_offset_xyz: tuple[float, float, float],
+) -> torch.Tensor:
+    """Return the subject origin relative to a receiver-local target position."""
+    arena_world = env.arena_world
+    T_W_S = arena_world.get_pose_w(subject_name)
+    T_W_R = arena_world.get_pose_w(receiver_name)
+    position_R = quat_apply_inverse(T_W_R[:, 3:], T_W_S[:, :3] - T_W_R[:, :3])
+    target_position_R = torch.as_tensor(target_offset_xyz, dtype=position_R.dtype, device=position_R.device)
+    return position_R - target_position_R
+
+
+def xy_in_proximity(
+    env: IsaacLabArenaManagerBasedRLEnv,
+    subject_name: str,
+    receiver_name: str,
+    target_offset_xyz: tuple[float, float, float],
+    tolerance_xy: float,
+) -> torch.Tensor:
+    """Check subject proximity to a receiver-local target in the target XY plane."""
+    p_rel = _position_relative_to_target(env, subject_name, receiver_name, target_offset_xyz)
+    return torch.linalg.vector_norm(p_rel[:, :2], dim=-1) <= tolerance_xy
+
+
+def depth_in_range(
+    env: IsaacLabArenaManagerBasedRLEnv,
+    subject_name: str,
+    receiver_name: str,
+    target_offset_xyz: tuple[float, float, float],
+    depth_min: float,
+    depth_max: float,
+) -> torch.Tensor:
+    """Check subject depth relative to a receiver-local target position."""
+    assert depth_min <= depth_max, f"depth_min ({depth_min}) must not exceed depth_max ({depth_max})."
+    p_rel = _position_relative_to_target(env, subject_name, receiver_name, target_offset_xyz)
+    return (p_rel[:, 2] >= depth_min) & (p_rel[:, 2] <= depth_max)
+
+
+def tilt_axis_aligned(
+    env: IsaacLabArenaManagerBasedRLEnv,
+    subject_name: str,
+    receiver_name: str,
+    max_tilt_rad: float,
+    subject_axis: tuple[float, float, float] = (0.0, 0.0, 1.0),
+    receiver_axis: tuple[float, float, float] = (0.0, 0.0, 1.0),
+) -> torch.Tensor:
+    """Check the angle between configured subject and receiver axes."""
+    assert 0.0 <= max_tilt_rad <= math.pi, f"max_tilt_rad must be in [0, pi], got {max_tilt_rad}."
+    arena_world = env.arena_world
+    T_W_S = arena_world.get_pose_w(subject_name)
+    T_W_R = arena_world.get_pose_w(receiver_name)
+    subject_axis_F = torch.as_tensor(subject_axis, dtype=T_W_S.dtype, device=T_W_S.device)
+    receiver_axis_F = torch.as_tensor(receiver_axis, dtype=T_W_R.dtype, device=T_W_R.device)
+    assert subject_axis_F.shape == (3,) and torch.linalg.vector_norm(subject_axis_F) > 0
+    assert receiver_axis_F.shape == (3,) and torch.linalg.vector_norm(receiver_axis_F) > 0
+    subject_axis_F = subject_axis_F / torch.linalg.vector_norm(subject_axis_F)
+    receiver_axis_F = receiver_axis_F / torch.linalg.vector_norm(receiver_axis_F)
+    subject_axis_w = quat_apply(T_W_S[:, 3:], subject_axis_F.expand(env.num_envs, -1))
+    receiver_axis_w = quat_apply(T_W_R[:, 3:], receiver_axis_F.expand(env.num_envs, -1))
+    axis_dot = torch.sum(subject_axis_w * receiver_axis_w, dim=-1)
+    return axis_dot >= math.cos(max_tilt_rad)
+
+
+def velocity_below_threshold(
+    env: IsaacLabArenaManagerBasedRLEnv,
+    subject_name: str,
+    linear_velocity_threshold: float,
+    angular_velocity_threshold: float | None = None,
+) -> torch.Tensor:
+    """Check subject root linear speed and, optionally, angular speed."""
+    arena_world = env.arena_world
+    linear_velocity_w = arena_world.get_root_linear_velocity_w(subject_name)
+    result = torch.linalg.vector_norm(linear_velocity_w, dim=-1) <= linear_velocity_threshold
+    if angular_velocity_threshold is not None:
+        angular_velocity_w = arena_world.get_root_angular_velocity_w(subject_name)
+        result &= torch.linalg.vector_norm(angular_velocity_w, dim=-1) <= angular_velocity_threshold
+    return result
 
 
 def object_is_above_height(
