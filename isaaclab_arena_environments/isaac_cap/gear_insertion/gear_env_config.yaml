@@ -7,7 +7,7 @@
 # deepcopy(ArenaPhysicsCfg().newton) with gear-specific Newton and collision tuning.
 env_cfg_override:
   scene:
-    replicate_physics: false
+    replicate_physics: true
   sim:
     physics:
       _target_: isaaclab_newton.physics.NewtonCfg

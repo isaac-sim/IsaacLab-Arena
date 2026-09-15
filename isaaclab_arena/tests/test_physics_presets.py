@@ -45,12 +45,27 @@ def _build_env_cfg(presets: str | None, embodiment=None, env_cfg_callback=None, 
     if embodiment is None:
         embodiment = FrankaIKEmbodiment()
 
+    from functools import partial
+
+    from isaaclab_arena.environment_spec.env_cfg_override import apply_env_cfg_override
+
+    combined_callback = env_cfg_callback
+    if env_cfg_override is not None:
+        apply_override = partial(apply_env_cfg_override, override=env_cfg_override)
+        if combined_callback is None:
+            combined_callback = apply_override
+        else:
+            user_callback = combined_callback
+
+            def combined_callback(env_cfg):
+                env_cfg = apply_override(env_cfg)
+                return user_callback(env_cfg)
+
     arena_env = IsaacLabArenaEnvironment(
         name="test_physics_preset",
         embodiment=embodiment,
         scene=scene,
-        env_cfg_callback=env_cfg_callback,
-        env_cfg_override=env_cfg_override,
+        env_cfg_callback=combined_callback,
     )
 
     builder = ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg(num_envs=1, presets=presets))

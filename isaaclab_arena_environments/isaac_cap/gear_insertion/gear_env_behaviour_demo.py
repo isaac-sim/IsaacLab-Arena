@@ -6,7 +6,6 @@
 from __future__ import annotations
 
 import argparse
-import copy
 from pathlib import Path
 
 from isaaclab_arena_environments.isaac_cap.tools import EnvBehaviourDemo
@@ -45,10 +44,6 @@ def _build_gear_demo_environment(variant: str):
     register_components()
     spec_path = Path(__file__).with_name(f"gear_{variant}.yaml")
     arena_environment = ArenaEnvGraphSpec.from_yaml(spec_path).to_arena_env(enable_cameras=False)
-    env_cfg_override = copy.deepcopy(arena_environment.env_cfg_override) or {}
-    scene_override = env_cfg_override.setdefault("scene", {})
-    scene_override["replicate_physics"] = True
-    arena_environment.env_cfg_override = env_cfg_override
 
     # The normal smoke environment intentionally retains Cap's absolute joint
     # actions. This demo alone swaps to relative Cartesian commands so the

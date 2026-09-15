@@ -22,7 +22,6 @@ import isaaclab_arena_curobo  # noqa: F401
 from isaaclab_arena.assets.registries import DeviceRegistry
 from isaaclab_arena.embodiments.no_embodiment import NoEmbodiment
 from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
-from isaaclab_arena.environments.env_cfg_override import apply_env_cfg_override
 from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
 from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import (
     IsaacArenaManagerBasedMimicEnvCfg,
@@ -422,9 +421,9 @@ class ArenaEnvBuilder:
         # Set seed for Isaac Lab env.
         env_cfg.seed = self.cfg.seed
 
-        # Apply the requested physics backend before YAML overrides and callbacks so env-specific
-        # hooks can tune or replace the selected preset. Callbacks that require a specific backend
-        # must validate the selected physics config before replacing or modifying it.
+        # Apply the requested physics backend before env_cfg_callback hooks so env-specific
+        # callbacks can tune or replace the selected preset. Callbacks that require a specific
+        # backend must validate the selected physics config before replacing or modifying it.
         presets = self.cfg.presets
         cli_physics_type: type | None = None
         from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import ArenaPhysicsCfg
@@ -441,17 +440,14 @@ class ArenaEnvBuilder:
         elif env_cfg.sim.physics is None:
             env_cfg.sim.physics = ArenaPhysicsCfg().default
 
-        apply_env_cfg_override(env_cfg, self.arena_env.env_cfg_override)
+        if self.arena_env.env_cfg_callback is not None:
+            env_cfg = self.arena_env.env_cfg_callback(env_cfg)
+
         if cli_physics_type is not None:
             assert isinstance(env_cfg.sim.physics, cli_physics_type), (
                 f"env_cfg_override selects {type(env_cfg.sim.physics).__name__}, which conflicts with "
                 f"the explicit CLI preset {presets!r}"
             )
-
-        # Apply the environment configuration callback if it is set
-        # This can be used to modify the simulation configuration, etc.
-        if self.arena_env.env_cfg_callback is not None:
-            env_cfg = self.arena_env.env_cfg_callback(env_cfg)
 
         env_kwargs: dict[str, Any] = {"variation_recorder": variation_recorder}
         return env_cfg, env_kwargs

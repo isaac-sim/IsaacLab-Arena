@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from isaaclab_arena.assets.teleop_device_base import TeleopDeviceBase
@@ -28,12 +28,13 @@ class IsaacLabArenaEnvironment:
         embodiment: EmbodimentBase | None = None,
         task: TaskBase | None = None,
         teleop_device: TeleopDeviceBase | None = None,
-        env_cfg_callback: Callable[IsaacLabArenaManagerBasedRLEnvCfg] | None = None,
+        env_cfg_callback: (
+            Callable[[IsaacLabArenaManagerBasedRLEnvCfg], IsaacLabArenaManagerBasedRLEnvCfg] | None
+        ) = None,
         rl_framework_entry_point: str | None = None,
         rl_policy_cfg: str | None = None,
         episode_recorder_terms: dict[str, EpisodeRecorderTermCfg] | None = None,
         placer_params: ObjectPlacerParams | None = None,
-        env_cfg_override: dict[str, Any] | None = None,
     ):
         """
         Args:
@@ -42,8 +43,8 @@ class IsaacLabArenaEnvironment:
             embodiment: The embodiment to use in the environment.
             task: The task to use in the environment.
             teleop_device: The teleop device to use in the environment.
-            env_cfg_callback: A callback function that modifies the environment configuration.
-                It runs after the requested physics preset is applied.
+            env_cfg_callback: A callback that modifies the environment configuration after
+                the requested physics preset is applied.
             rl_framework_entry_point: Gym kwargs key under which the RL policy config is
                 registered. This is an IsaacLab convention: each supported RL framework has a
                 fixed key that its training scripts look up via ``load_cfg_from_registry``.
@@ -56,7 +57,6 @@ class IsaacLabArenaEnvironment:
                 built-in ones, keyed by name.
             placer_params: Object placement configuration. When None, default
                 ObjectPlacerParams are used.
-            env_cfg_override: Optional nested Hydra override for the generated Isaac Lab environment config.
         """
         self.name = name
         self.scene = scene
@@ -70,4 +70,3 @@ class IsaacLabArenaEnvironment:
         self.rl_policy_cfg = rl_policy_cfg
         self.episode_recorder_terms = episode_recorder_terms or {}
         self.placer_params = placer_params
-        self.env_cfg_override = env_cfg_override
