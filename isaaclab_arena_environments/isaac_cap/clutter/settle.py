@@ -16,7 +16,6 @@ from isaaclab.utils.math import quat_error_magnitude
 
 from isaaclab_arena.relations.object_placer import ObjectPlacer
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-from isaaclab_arena.relations.passive_collision_objects import get_passive_collision_objects
 from isaaclab_arena.relations.placement_events import get_base_rotation_per_asset, write_layout_to_sim
 from isaaclab_arena.relations.relations import ClutterOn, get_relation
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
@@ -84,6 +83,8 @@ def settle_clutter(
         Environment-local poses for every dynamic rigid object, indexed by environment.
         Articulation configurations must remain within the passive drift tolerances.
     """
+    from isaaclab_arena.relations.passive_collision_objects import get_passive_collision_objects
+
     env = env.unwrapped
     params = replace(params) if params is not None else ClutterSettleParams()
     groups = groups_from_assets(assets)

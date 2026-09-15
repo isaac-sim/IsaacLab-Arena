@@ -41,6 +41,23 @@ def test_help_lists_settling_controls():
     assert "--required_quiet_windows" in result.stdout
 
 
+def test_settle_import_does_not_load_usd():
+    result = subprocess.run(
+        [
+            TestConstants.python_path,
+            "-c",
+            (
+                "import sys; import isaaclab_arena_environments.isaac_cap.clutter.settle; "
+                "assert 'pxr' not in sys.modules, 'USD imported before SimulationApp startup'"
+            ),
+        ],
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
 @pytest.mark.parametrize(
     "arguments, message",
     [

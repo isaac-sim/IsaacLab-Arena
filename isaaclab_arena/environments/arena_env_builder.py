@@ -124,10 +124,11 @@ class ArenaEnvBuilder:
         """Seed cached root poses and register synchronized complete-layout resets."""
         layouts = self.arena_env.placement_layouts
         assert layouts is not None
-        assets = {asset.get_scene_key(): asset for asset in self.arena_env.scene.assets.values()}
+        placement_assets = list(self.arena_env.scene.assets.values())
         if self.arena_env.embodiment is not None:
-            assets[self.arena_env.embodiment.get_scene_key()] = self.arena_env.embodiment
-        layouts.validate_assets(list(assets.values()))
+            placement_assets.append(self.arena_env.embodiment)
+        layouts.validate_assets(placement_assets)
+        assets = {asset.get_scene_key(): asset for asset in placement_assets}
         for name in layouts.poses:
             asset = assets[name]
             assert (

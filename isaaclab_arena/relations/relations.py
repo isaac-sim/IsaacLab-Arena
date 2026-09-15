@@ -251,6 +251,10 @@ class ClutterOn(On):
         """
         super().__init__(parent, relation_loss_weight, clearance_m=clearance_m, edge_margin_m=edge_margin_m)
         assert 0 < spread <= 1, "spread must be in (0, 1]"
+        assert isinstance(random_yaw, bool), "random_yaw must be a boolean"
+        assert (
+            math.isfinite(relation_loss_weight) and relation_loss_weight >= 0
+        ), "relation_loss_weight must be finite and non-negative"
         for name, value in (("gap_m", gap_m), ("clearance_m", clearance_m), ("edge_margin_m", edge_margin_m)):
             assert math.isfinite(value) and value >= 0, f"{name} must be finite and non-negative"
         self.spread = spread

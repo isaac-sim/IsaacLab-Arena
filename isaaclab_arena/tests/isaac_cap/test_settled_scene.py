@@ -308,7 +308,15 @@ def _test_python_cache_rejects_incomplete_layouts_and_conflicting_resets(simulat
     from isaaclab_arena.relations.relations import RandomAroundSolution
     from isaaclab_arena.utils.pose import Pose
 
-    for failure in ("missing placed", "Unknown cached", "cannot randomize", "explicit pose-reset"):
+    for failure in (
+        "missing placed",
+        "Unknown cached",
+        "cannot randomize",
+        "explicit pose-reset",
+        "finite numbers",
+        "same nonzero",
+        "distinct scene keys",
+    ):
         arena_env = ArenaEnvGraphSpec.from_yaml(SOURCE).to_arena_env()
         poses = {f"cube_{i}": [Pose((0, 0, 1))] for i in range(4)}
         cube = arena_env.scene.assets["cube_0"]
@@ -318,9 +326,15 @@ def _test_python_cache_rejects_incomplete_layouts_and_conflicting_resets(simulat
             poses["unknown"] = [Pose()]
         elif failure == "cannot randomize":
             cube.add_relation(RandomAroundSolution())
-        else:
+        elif failure == "explicit pose-reset":
             cube.set_initial_pose(Pose())
         arena_env.placement_layouts = PlacementLayouts(poses)
+        if failure == "finite numbers":
+            arena_env.placement_layouts.poses["cube_0"][0].position_xyz = (float("nan"), 0, 0)
+        elif failure == "same nonzero":
+            arena_env.placement_layouts.poses["cube_0"].append(Pose())
+        elif failure == "distinct scene keys":
+            arena_env.scene.assets["cube_1"].name = "cube_0"
         builder = ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg())
         with pytest.raises(AssertionError, match=failure):
             builder.compose_manager_cfg()

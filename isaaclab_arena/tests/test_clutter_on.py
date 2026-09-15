@@ -298,3 +298,41 @@ def test_unsupported_anchor_rotation_names_the_asset():
     support.set_initial_pose(Pose(rotation_xyzw=RotateAroundSolution(yaw_rad=math.pi / 4).get_rotation_xyzw()))
     with pytest.raises(AssertionError, match="Anchor 'table'"):
         ObjectPlacer().place([support, *objects])
+
+
+@pytest.mark.parametrize("weight", [float("nan"), float("inf"), -1.0])
+def test_clutter_rejects_invalid_loss_weights(weight):
+    support, _ = _scene()
+    with pytest.raises(AssertionError, match="relation_loss_weight"):
+        ClutterOn(support, relation_loss_weight=weight)
+
+
+@pytest.mark.parametrize("random_yaw", ["false", 0, None])
+def test_clutter_requires_a_boolean_yaw_setting(random_yaw):
+    support, _ = _scene()
+    with pytest.raises(AssertionError, match="random_yaw must be a boolean"):
+        ClutterOn(support, random_yaw=random_yaw)
+
+
+@pytest.mark.parametrize("relation_type", [On, ClutterOn])
+@pytest.mark.parametrize("allow_fallback", [False, True])
+@pytest.mark.parametrize("invalid", ["position", "loss"])
+def test_nonfinite_solver_output_is_never_applied(monkeypatch, relation_type, allow_fallback, invalid):
+    support, objects = _scene()
+    obj = objects[0]
+    placer = ObjectPlacer(ObjectPlacerParams(max_placement_attempts=1, allow_best_loss_fallbacks=allow_fallback))
+    obj.relations = [relation_type(support)]
+    solve = placer._solver.solve
+
+    def nonfinite_solve(*args, **kwargs):
+        results = solve(*args, **kwargs)
+        if invalid == "position":
+            results[0][obj] = (float("nan"), 0, 1)
+        else:
+            placer._solver.last_loss_per_env[0] = float("inf")
+        return results
+
+    monkeypatch.setattr(placer._solver, "solve", nonfinite_solve)
+    with pytest.raises(AssertionError, match="Non-finite solver output for environment 0, candidate 0"):
+        placer.place([support, obj])
+    assert obj.get_initial_pose() is None

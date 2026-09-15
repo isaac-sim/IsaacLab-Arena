@@ -30,6 +30,10 @@ class PlacementLayouts:
     """N object names mapped to L poses each; positions have shape (3,), quaternions (4,)."""
 
     def __post_init__(self) -> None:
+        self.validate()
+
+    def validate(self) -> None:
+        """Require complete layouts containing finite poses and unit quaternions."""
         assert self.poses, "A placement cache must contain objects"
         assert all(isinstance(name, str) and name for name in self.poses), "Object names must be nonempty strings"
         counts = {len(poses) for poses in self.poses.values()}
@@ -44,10 +48,12 @@ class PlacementLayouts:
         from isaaclab_arena.assets.object_set import RigidObjectSet
         from isaaclab_arena.relations.relations import RandomAroundSolution, get_relation
 
+        self.validate()
         assert not any(
             isinstance(asset, RigidObjectSet) for asset in assets
         ), "Cached layouts require concrete assets, not object sets"
         by_key = {asset.get_scene_key(): asset for asset in assets}
+        assert len(by_key) == len(assets), "Cached placement assets must have distinct scene keys"
         unknown = set(self.poses) - set(by_key)
         assert not unknown, f"Unknown cached scene objects: {unknown}"
         required = {key for key, asset in by_key.items() if asset.get_spatial_relations() and not asset.is_anchor}
@@ -67,7 +73,7 @@ class PlacementLayouts:
     def from_yaml(cls, path: str | Path) -> PlacementLayouts:
         """Read an object-name-to-pose-list YAML mapping."""
         with Path(path).open(encoding="utf-8") as stream:
-            data = yaml.safe_load(stream)
+            data = yaml.load(stream, Loader=_PlacementLayoutsLoader)
         assert isinstance(data, dict), "Placement cache must be a mapping"
         assert all(isinstance(values, list) for values in data.values()), "Each object must have a list of poses"
         poses = {}
@@ -82,8 +88,19 @@ class PlacementLayouts:
 
     def write_yaml(self, path: str | Path) -> None:
         """Write the layouts as ordinary YAML, refusing to overwrite an existing file."""
+        self.validate()
         data = {name: [pose.to_dict() for pose in poses] for name, poses in self.poses.items()}
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
         with path.open("x", encoding="utf-8") as stream:
             yaml.safe_dump(data, stream, sort_keys=False)
+
+
+class _PlacementLayoutsLoader(yaml.SafeLoader):
+    """Safe YAML loader that rejects duplicate object names and pose fields."""
+
+    def construct_mapping(self, node: yaml.MappingNode, deep: bool = False) -> dict:
+        mapping = super().construct_mapping(node, deep=deep)
+        if len(mapping) != len(node.value):
+            raise yaml.constructor.ConstructorError(None, None, "Duplicate key in placement layouts", node.start_mark)
+        return mapping
