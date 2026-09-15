@@ -74,13 +74,13 @@ def test_verdict_describes_offenders_by_name():
     positions = torch.tensor([[0.9, 0.0, 0.78], [0.0, 0.0, 0.2]])
     verdict = check_resting_poses(positions, REGION)
     description = verdict.describe(["mug", "can"])
-    assert "fell off" in description and "mug" in description
-    assert "fell through" in description and "can" in description
+    assert description == "fell through: can; fell off: mug"
 
 
 def test_first_poll_is_never_settled():
-    tracker = SettleTracker()
+    tracker = SettleTracker(ClutterSettleParams(required_quiet_windows=1))
     assert not tracker.update(torch.zeros(3, 3), _rotations(3))
+    assert tracker.update(torch.zeros(3, 3), _rotations(3))
 
 
 def test_settling_requires_consecutive_quiet_windows():
@@ -172,7 +172,8 @@ def test_passive_drift_is_independent_of_quiet_thresholds():
     params = ClutterSettleParams(move_thresh_m=0.0001, passive_move_thresh_m=0.01)
     assert _pose_drift_reason(initial, current, params) is None
     params.passive_move_thresh_m = 0.002
-    assert "0.005000 m" in _pose_drift_reason(initial, current, params)
+    reason = _pose_drift_reason(initial, current, params)
+    assert reason is not None and "0.005000 m" in reason
 
 
 def test_passive_rotation_has_its_own_tolerance():
@@ -183,7 +184,8 @@ def test_passive_rotation_has_its_own_tolerance():
     params = ClutterSettleParams(turn_thresh_deg=0.1, passive_turn_thresh_deg=4)
     assert _pose_drift_reason(initial, current, params) is None
     params.passive_turn_thresh_deg = 2
-    assert "passive drift" in _pose_drift_reason(initial, current, params)
+    reason = _pose_drift_reason(initial, current, params)
+    assert reason is not None and "passive drift" in reason
 
 
 @pytest.mark.parametrize(
@@ -195,6 +197,8 @@ def test_support_region_rotates_offset_bounds(angle, lower, upper, device):
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
     from isaaclab_arena_environments.isaac_cap.clutter.geometry import region_above_support
 
+    if device == "cuda:0" and not torch.cuda.is_available():
+        pytest.skip("CUDA is unavailable")
     box = AxisAlignedBoundingBox(
         min_point=torch.tensor([[-0.1, -0.2, -0.05]], device=device),
         max_point=torch.tensor([[0.3, 0.4, 0.05]], device=device),
@@ -241,11 +245,11 @@ def test_release_settings_preserve_custom_checks_without_mutating_the_caller():
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
     from isaaclab_arena_environments.isaac_cap.clutter.settle import _release_placer_params
 
-    params = ObjectPlacerParams(enabled_checks={"custom"}, required_checks=set())
+    params = ObjectPlacerParams(enabled_checks={"custom"}, required_checks=set(), max_placement_attempts=7)
     release = _release_placer_params(params)
     assert release.enabled_checks == {"custom", "no_overlap", "on_relation"}
     assert release.required_checks == {"no_overlap", "on_relation"}
-    assert not release.allow_best_loss_fallbacks
+    assert release.max_placement_attempts == params.max_placement_attempts == 7
     assert params.enabled_checks == {"custom"}
     assert params.required_checks == set()
     assert params.allow_best_loss_fallbacks
@@ -266,3 +270,15 @@ def test_required_release_checks_must_be_enabled():
 
     with pytest.raises(AssertionError, match="must be enabled"):
         _release_placer_params(ObjectPlacerParams(enabled_checks=set(), required_checks={"custom"}))
+
+
+@pytest.mark.parametrize("shape", [(3,), (2, 4), (1, 1, 3)])
+def test_containment_rejects_invalid_position_shapes(shape):
+    with pytest.raises(AssertionError, match="positions must have shape"):
+        check_resting_poses(torch.zeros(shape), REGION)
+
+
+@pytest.mark.parametrize("extents", [[], [(0, 0, 0, 0)], [(0, 0, 0, 0, 0)] * 2])
+def test_containment_rejects_mismatched_extents(extents):
+    with pytest.raises(AssertionError, match="extent"):
+        check_resting_poses(torch.zeros(1, 3), REGION, extents=extents)

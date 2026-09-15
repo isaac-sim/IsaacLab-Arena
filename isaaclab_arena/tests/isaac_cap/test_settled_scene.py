@@ -61,6 +61,7 @@ def _test_companion_cache_round_trip(simulation_app, tmp_path):
     from isaaclab_arena.relations.placement_layouts import PlacementLayouts
     from isaaclab_arena.relations.relation_solver import RelationSolver
     from isaaclab_arena_environments.isaac_cap.clutter.generate_clutter_scene import generate_scene
+    from isaaclab_arena_environments.isaac_cap.clutter.settle import settle_clutter
 
     data = yaml.safe_load(SOURCE.read_text())
     data["placement_validators"] = {
@@ -73,10 +74,14 @@ def _test_companion_cache_round_trip(simulation_app, tmp_path):
     path = tmp_path / "poses.yaml"
     args = _arguments(path)
     args.env_spec = source
-    assert generate_scene(args) == path
+    args.num_layouts = 4
+    with patch("isaaclab_arena_environments.isaac_cap.clutter.settle.settle_clutter", wraps=settle_clutter) as settle:
+        assert generate_scene(args) == path
+    # Each batch reserves seeds for 2 environments, 10 candidates and 3 trials.
+    assert [call.kwargs["seed"] for call in settle.call_args_list] == [42, 102]
     assert source.read_bytes() == original
     cache = PlacementLayouts.from_yaml(path)
-    assert cache.num_layouts == 2
+    assert cache.num_layouts == 4
     assert cache.poses["cube_0"][0] != cache.poses["cube_0"][1]
     spec = ArenaEnvGraphSpec.from_yaml(source)
     with (
@@ -87,15 +92,17 @@ def _test_companion_cache_round_trip(simulation_app, tmp_path):
     ):
         arena_env = spec.to_arena_env(placement_layouts=path)
         env = ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg(num_envs=3)).make_registered()
-        scene = env.unwrapped.scene
-        world = env.unwrapped.arena_world
-        device = env.unwrapped.device
         try:
-            assert all(
-                not asset.has_pose_reset_event()
+            scene = env.unwrapped.scene
+            world = env.unwrapped.arena_world
+            device = env.unwrapped.device
+            cached_assets = {
+                asset.get_scene_key(): asset
                 for asset in arena_env.scene.assets.values()
                 if asset.get_scene_key() in cache.poses
-            )
+            }
+            assert cached_assets.keys() == cache.poses.keys()
+            assert all(not asset.has_pose_reset_event() for asset in cached_assets.values())
             robot = scene.articulations["robot"]
             robot_pose = robot.data.root_pose_w.torch.clone()
             for iteration in range(4):
@@ -110,7 +117,9 @@ def _test_companion_cache_round_trip(simulation_app, tmp_path):
                 env.reset()
                 torch.testing.assert_close(robot.data.root_pose_w.torch, robot_pose, atol=2e-5, rtol=0)
                 for name, poses in cache.poses.items():
-                    expected = torch.stack([poses[(iteration + i) % 2].to_tensor(device) for i in range(3)])
+                    expected = torch.stack(
+                        [poses[(iteration + i) % cache.num_layouts].to_tensor(device) for i in range(3)]
+                    )
                     torch.testing.assert_close(world.get_pose_e(name), expected, atol=2e-5, rtol=0)
             before = {name: world.get_pose_e(name) for name in cache.poses}
             env_ids = torch.tensor([1], device=device)
@@ -268,11 +277,13 @@ def _test_release_failures_retry_without_releasing_invalid_layouts(simulation_ap
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
     from isaaclab_arena.relations.object_placer import ObjectPlacer
+    from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
     from isaaclab_arena.relations.placement_validation import PlacementCheck
     from isaaclab_arena_environments.isaac_cap.clutter.settle import _release_objects, settle_clutter
 
     arena_env, assets = build_arena_env_with_assets_from_graph_spec(ArenaEnvGraphSpec.from_yaml(SOURCE))
     env = ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg(num_envs=2, solve_relations=False)).make_registered()
+    params = ObjectPlacerParams(max_placement_attempts=2)
     validate = ObjectPlacer._validate_candidates
     try:
         env.reset()
@@ -285,7 +296,9 @@ def _test_release_failures_retry_without_releasing_invalid_layouts(simulation_ap
                 seeds.append(placer.params.placement_seed)
                 results = validate(placer, *args)
                 for env_id in next(rejected_envs):
-                    results[env_id].validation_results[PlacementCheck.ON_RELATION] = False
+                    first = env_id * params.max_placement_attempts
+                    for result in results[first : first + params.max_placement_attempts]:
+                        result.validation_results[PlacementCheck.ON_RELATION] = False
                 return results
 
             with (
@@ -296,18 +309,18 @@ def _test_release_failures_retry_without_releasing_invalid_layouts(simulation_ap
             ):
                 if exhaust:
                     with pytest.raises(AssertionError, match="No settled layout after 3.*release placement failed"):
-                        settle_clutter(env, list(assets.values()), attempts=3)
+                        settle_clutter(env, list(assets.values()), attempts=3, placer_params=params)
                     release.assert_not_called()
                 else:
-                    layouts = settle_clutter(env, list(assets.values()), attempts=3)
+                    layouts = settle_clutter(env, list(assets.values()), attempts=3, placer_params=params)
                     assert len(layouts) == 2
                     assert [call.args[1] for call in release.call_args_list] == [0, 1]
                     assert all(call.args[2].success for call in release.call_args_list)
-            assert seeds == [42, 44, 46]
+            assert seeds == [42, 46, 50]
             _assert_scene_state_equal(env.unwrapped.scene.get_state(), initial)
         with patch.object(ObjectPlacer, "_validate_candidates", side_effect=AssertionError("invalid configuration")):
             with pytest.raises(AssertionError, match="invalid configuration"):
-                settle_clutter(env, list(assets.values()), attempts=3)
+                settle_clutter(env, list(assets.values()), attempts=3, placer_params=params)
     finally:
         env.close()
     return True

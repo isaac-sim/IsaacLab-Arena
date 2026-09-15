@@ -75,7 +75,7 @@ def generate_scene(args: argparse.Namespace) -> Path:
             batch = settle_clutter(
                 env,
                 list(assets.values()),
-                seed=args.seed + start * args.attempts,
+                seed=args.seed + start * args.attempts * arena_env.placer_params.max_placement_attempts,
                 attempts=args.attempts,
                 params=params,
                 placer_params=arena_env.placer_params,

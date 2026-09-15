@@ -184,6 +184,10 @@ def check_resting_poses(
         extents: N (min_x, min_y, max_x, max_y, min_z) offsets, each shape (5,).
             Omit to check origins only.
     """
+    assert positions.ndim == 2 and positions.shape[1] == 3, "positions must have shape (N, 3)"
+    if extents is not None:
+        assert len(extents) == len(positions), "Each position needs one extent"
+        assert all(len(extent) == 5 for extent in extents), "Each extent must contain five offsets"
     params = params or ClutterSettleParams()
     verdict = ClutterRestVerdict()
     margin = params.containment_margin_m

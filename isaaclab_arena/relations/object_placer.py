@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.relations.bounding_box_helpers import assign_variants_for_envs, build_per_env_bounding_boxes
+from isaaclab_arena.relations.collision_mode import object_uses_mesh_collision
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_result import PlacementResult
 from isaaclab_arena.relations.placement_validation import PlacementValidationResults
@@ -256,9 +257,23 @@ class ObjectPlacer:
             objects, unrotated_candidate_bboxes, orientations_per_candidate
         )
 
+        collision_bboxes = []
+        if collision_objects and any(get_relation(obj, ClutterOn) is not None for obj in objects):
+            from isaaclab_arena.relations.warp_mesh_manager import WarpMeshAndSphereCache
+
+            mesh_cache = WarpMeshAndSphereCache(device="cpu")
+            for obstacle in collision_objects:
+                # Room mesh bounds include empty space; leave mesh obstacles to the solver.
+                if (
+                    object_uses_mesh_collision(obstacle, self.params.solver_params.collision_mode)
+                    and mesh_cache.get_collision_mesh(obstacle) is not None
+                ):
+                    continue
+                collision_bboxes.append(obstacle.get_world_bounding_box())
+
         for i, positions in enumerate(initial_positions):
             self._initialize_clutter_positions(
-                positions, self._get_bounding_boxes_for_candidate_index(candidate_bboxes, i), collision_objects
+                positions, self._get_bounding_boxes_for_candidate_index(candidate_bboxes, i), collision_bboxes
             )
 
         all_positions = self._solver.solve(
@@ -576,10 +591,12 @@ class ObjectPlacer:
         self,
         positions: dict[PlaceableAsset, tuple[float, float, float]],
         bboxes: dict[PlaceableAsset, AxisAlignedBoundingBox],
-        collision_objects: list[CollisionObject],
+        collision_bboxes: list[AxisAlignedBoundingBox],
     ) -> None:
         """Lower clutter releases into the first free vertical interval, in asset order."""
-        pending = {obj for obj in positions if get_relation(obj, ClutterOn) is not None}
+        unplaced_clutter = {obj for obj in positions if get_relation(obj, ClutterOn) is not None}
+        if not unplaced_clutter:
+            return
         for obj in positions:
             relation = get_relation(obj, ClutterOn)
             if relation is None:
@@ -593,9 +610,9 @@ class ObjectPlacer:
             obstacles = [
                 bboxes[other].translated(position)
                 for other, position in positions.items()
-                if other not in pending and other is not relation.parent
+                if other not in unplaced_clutter and other is not relation.parent
             ]
-            obstacles.extend(obstacle.get_world_bounding_box() for obstacle in collision_objects)
+            obstacles.extend(collision_bboxes)
             bottom = float(support.max_point[0, 2]) + relation.clearance_m
             height = float(box.size[0, 2])
             gap = max(relation.gap_m, self.params.solver_params.clearance_m)
@@ -612,7 +629,7 @@ class ObjectPlacer:
                 ):
                     bottom = float(obstacle.max_point[0, 2]) + gap
             positions[obj] = (xy[0], xy[1], bottom - float(box.min_point[0, 2]))
-            pending.remove(obj)
+            unplaced_clutter.remove(obj)
 
     def _sample_axis_position(
         self,

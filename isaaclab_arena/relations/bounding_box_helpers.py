@@ -125,7 +125,7 @@ class PerEnvBoundingBoxes:
 def build_per_env_bounding_boxes(objects: list[PlaceableAsset], num_envs: int) -> PerEnvBoundingBoxes:
     """Build per-env base bboxes for each placement object.
 
-    Anchor bounds include their fixed rotation. Movable-object orientation is applied later
+    Anchor bounds include their fixed quarter-turn rotation. Movable-object orientation is applied later
     per candidate in ObjectPlacer._rotate_candidate_bboxes.
     """
     object_bboxes = {obj: get_bounding_box_per_env(obj, num_envs) for obj in objects}
@@ -134,7 +134,7 @@ def build_per_env_bounding_boxes(objects: list[PlaceableAsset], num_envs: int) -
             pose = obj.get_initial_pose()
             assert isinstance(pose, Pose), f"Anchor '{obj.name}' must have a fixed Pose"
             try:
-                quarters = quaternion_to_90_deg_z_quarters(pose.rotation_xyzw)
+                quarters = quaternion_to_90_deg_z_quarters(obj.get_bounding_box_rotation_xyzw())
             except AssertionError as error:
                 raise AssertionError(f"Anchor '{obj.name}': {error}") from error
             object_bboxes[obj] = bbox.rotated_90_around_z(quarters)

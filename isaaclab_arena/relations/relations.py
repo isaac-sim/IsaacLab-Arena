@@ -244,7 +244,7 @@ class ClutterOn(On):
             parent: Fixed support carrying IsAnchor.
             spread: Fraction of the support's width and depth available for release, in (0, 1].
             clearance_m: Release clearance above the support in metres.
-            gap_m: Initial clearance from neighboring release bounds in metres.
+            gap_m: Initial clearance from neighboring release bounds in metres, at least the solver clearance.
             random_yaw: Sample world-Z yaw in addition to RotateAroundSolution.
             edge_margin_m: Inward margin within the release region in metres.
             relation_loss_weight: Weight for the relation loss.

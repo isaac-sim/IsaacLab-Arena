@@ -50,12 +50,15 @@ def test_clutter_on_produces_a_valid_column_through_object_placer():
             assert abs(layout.positions[obj][1]) <= 0.01 + 1e-6
 
 
-def test_clutter_release_uses_free_space_below_an_overhead_obstacle():
+@pytest.mark.parametrize("ceiling_bottom,expected_z", [(1.0, 0.13), (0.12, 0.27)])
+def test_clutter_release_uses_the_first_free_vertical_interval(ceiling_bottom, expected_z):
     support, objects = _scene()
-    ceiling = DummyObject("ceiling", AxisAlignedBoundingBox((-1, -1, 0), (1, 1, 0.1)), Pose((0, 0, 1)), [IsAnchor()])
+    ceiling = DummyObject(
+        "ceiling", AxisAlignedBoundingBox((-1, -1, 0), (1, 1, 0.1)), Pose((0, 0, ceiling_bottom)), [IsAnchor()]
+    )
     layout = ObjectPlacer(ObjectPlacerParams(max_placement_attempts=1)).place([support, ceiling, objects[0]])[0]
     assert layout.success
-    assert layout.positions[objects[0]][2] == pytest.approx(0.13, abs=1e-5)
+    assert layout.positions[objects[0]][2] == pytest.approx(expected_z, abs=1e-5)
 
 
 @pytest.mark.parametrize("random_yaw", [True, False])
@@ -206,26 +209,35 @@ def test_fixed_yaw_uses_the_rotated_footprint(relation_type, support_width):
         assert bool((bounds.max_point[0, :2] <= support.bounding_box.max_point[0, :2]).all())
 
 
-def test_unfit_random_yaw_does_not_discard_valid_candidates():
+@pytest.mark.parametrize("attempts", [1, 10])
+def test_unfit_random_yaw_does_not_discard_valid_candidates(attempts):
     support, objects = _scene()
     support.bounding_box = AxisAlignedBoundingBox((-0.08, -0.04, 0), (0.08, 0.04, 0.1))
     obj = objects[0]
     obj.bounding_box = AxisAlignedBoundingBox((-0.07, -0.02, -0.02), (0.07, 0.02, 0.02))
     obj.relations = [ClutterOn(support, spread=1)]
-    for attempts in (1, 10):
-        placer = ObjectPlacer(
-            ObjectPlacerParams(
-                placement_seed=6,
-                max_placement_attempts=attempts,
-                apply_positions_to_objects=False,
-                allow_best_loss_fallbacks=False,
-            )
+    placer = ObjectPlacer(
+        ObjectPlacerParams(
+            placement_seed=6,
+            max_placement_attempts=attempts,
+            apply_positions_to_objects=False,
+            allow_best_loss_fallbacks=False,
         )
-        assert placer.place([support, obj])[0].success
-    placer.params.max_placement_attempts = 1
+    )
+    assert placer.place([support, obj])[0].success
+
+
+def test_ranked_clutter_keeps_failed_candidates_after_valid_candidates():
+    support, objects = _scene()
+    support.bounding_box = AxisAlignedBoundingBox((-0.08, -0.04, 0), (0.08, 0.04, 0.1))
+    obj = objects[0]
+    obj.bounding_box = AxisAlignedBoundingBox((-0.07, -0.02, -0.02), (0.07, 0.02, 0.02))
+    obj.relations = [ClutterOn(support, spread=1)]
+    placer = ObjectPlacer(ObjectPlacerParams(max_placement_attempts=1, placement_seed=6))
     ranked = placer.place_ranked_per_env([support, obj], num_envs=1, results_per_env=10)[0]
-    assert ranked[0].success
-    assert any(not layout.success for layout in ranked)
+    valid = [layout.success for layout in ranked]
+    assert any(valid) and not all(valid)
+    assert valid == sorted(valid, reverse=True)
 
 
 @pytest.mark.parametrize("name", ["gap_m", "clearance_m", "edge_margin_m", "spread"])
@@ -336,3 +348,52 @@ def test_nonfinite_solver_output_is_never_applied(monkeypatch, relation_type, al
     with pytest.raises(AssertionError, match="Non-finite solver output for environment 0, candidate 0"):
         placer.place([support, obj])
     assert obj.get_initial_pose() is None
+
+
+def test_clutter_release_stays_inside_a_room_mesh():
+    import trimesh
+
+    from isaaclab_arena.relations.background_collision_object import FixedCollisionObject
+
+    support, objects = _scene()
+    floor = trimesh.creation.box(extents=(2, 2, 0.1))
+    floor.apply_translation((0, 0, -0.05))
+    ceiling = trimesh.creation.box(extents=(2, 2, 0.1))
+    ceiling.apply_translation((0, 0, 1.05))
+    room = FixedCollisionObject(trimesh.util.concatenate([floor, ceiling]))
+    placer = ObjectPlacer(
+        ObjectPlacerParams(max_placement_attempts=1, allow_best_loss_fallbacks=False, apply_positions_to_objects=False)
+    )
+    layout = placer.place([support, *objects], collision_objects=[room])[0]
+    assert layout.success
+    assert [layout.positions[obj][2] for obj in objects] == pytest.approx([0.13, 0.20, 0.27], abs=1e-5)
+
+
+def test_release_rejects_an_incomplete_layout_before_writing():
+    from unittest.mock import MagicMock
+
+    from isaaclab_arena_environments.isaac_cap.clutter.settle import _release_objects
+
+    support, objects = _scene()
+    assets = [support, *objects]
+    layout = ObjectPlacer(ObjectPlacerParams(max_placement_attempts=1, apply_positions_to_objects=False)).place(assets)[
+        0
+    ]
+    del layout.positions[objects[1]]
+    env = MagicMock()
+    with pytest.raises(AssertionError, match="missing non-anchor assets.*box_1"):
+        _release_objects(env, 0, layout, {support}, assets)
+    assert not env.mock_calls
+
+
+@pytest.mark.parametrize("collision_mode", ["bbox", "mesh"])
+def test_clutter_release_keeps_meshless_collision_bounds(collision_mode):
+    from isaaclab_arena.relations.collision_mode import CollisionMode
+
+    support, objects = _scene()
+    obstacle = DummyObject("obstacle", AxisAlignedBoundingBox((-1, -1, 0), (1, 1, 0.1)), Pose((0, 0, 0.12)))
+    obstacle.collision_mode = CollisionMode(collision_mode)
+    placer = ObjectPlacer(ObjectPlacerParams(max_placement_attempts=1, allow_best_loss_fallbacks=False))
+    layout = placer.place([support, objects[0]], collision_objects=[obstacle])[0]
+    assert layout.success
+    assert layout.positions[objects[0]][2] == pytest.approx(0.27, abs=1e-5)

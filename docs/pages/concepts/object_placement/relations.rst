@@ -77,7 +77,8 @@ Most environments can be described with a small set of relations:
    Defines a clutter release above a fixed ``IsAnchor`` support. ``ObjectPlacer``
    samples within a centered fraction of its footprint (``spread``, default
    0.2) and lowers objects into free vertical space in asset order, leaving
-   ``clearance_m`` above the surface and ``gap_m`` between overlapping bounds.
+   ``clearance_m`` above the surface and at least ``gap_m`` between overlapping bounds.
+   Initialization also honors the solver collision clearance when it is larger.
    The registered loss and normal placement validators enforce that scaled
    release footprint and minimum surface clearance. Offline settled-pile
    validation uses the whole support footprint. ``gap_m`` controls initialization; subsequent

@@ -49,7 +49,7 @@ class ClutterGroup:
     """Scene key of the static or kinematic support."""
 
     objects: tuple[str, ...]
-    """Scene keys of the objects to drop, in release order."""
+    """Scene keys of the objects to drop together."""
 
 
 def groups_from_assets(assets: list[PlaceableAsset]) -> list[ClutterGroup]:
@@ -80,7 +80,7 @@ def settle_clutter(
         seed: Seed for independent release samples in each environment and attempt.
         attempts: Maximum trials for each environment before failing.
         params: Physics time budget, quiet thresholds and containment tolerances.
-        placer_params: Solver and validation settings for release poses, before settling.
+        placer_params: Solver, candidate-count and validation settings for release poses, before settling.
 
     Returns:
         Environment-local poses for every dynamic rigid object, indexed by environment.
@@ -157,28 +157,29 @@ def settle_clutter(
         env.scene.write_data_to_sim()
         env.sim.forward()
 
+    candidate_count = env.num_envs * placer_params.max_placement_attempts
     accepted: dict[int, dict[str, Pose]] = {}
     failures: dict[int, list[str]] = {i: [] for i in range(env.num_envs)}
     try:
         for attempt in range(attempts):
             restore_scene()
             pending = [i for i in range(env.num_envs) if i not in accepted]
-            placer = ObjectPlacer(replace(placer_params, placement_seed=seed + attempt * env.num_envs))
+            placer = ObjectPlacer(replace(placer_params, placement_seed=seed + attempt * candidate_count))
             releases = placer.place_ranked_per_env(
                 placement_assets, num_envs=env.num_envs, results_per_env=1, collision_objects=collision_objects
             )
             released = []
             for env_id in pending:
-                layout = releases[env_id][0]
-                validation = layout.validation_results
+                release = releases[env_id][0]
+                validation = release.validation_results
                 missing_checks = requested_checks - validation.validation_results.keys()
                 assert not missing_checks, f"Offline release validators did not run: {sorted(missing_checks)}"
-                if not layout.success:
+                if not release.success:
                     checks = validation.get_failed_validation_check_names
                     failures[env_id].append(f"attempt {attempt + 1}: release placement failed: {checks}")
                     print(f"[clutter] env {env_id}, {failures[env_id][-1]}")
                     continue
-                _release_objects(env, env_id, layout, anchors)
+                _release_objects(env, env_id, release, anchors, placement_assets)
                 released.append(env_id)
             if not released:
                 continue
@@ -240,7 +241,7 @@ def settle_clutter(
 
 
 def _release_placer_params(params: ObjectPlacerParams | None) -> ObjectPlacerParams:
-    """Release settings with mandatory geometry checks and no invalid-layout fallback."""
+    """Release settings with mandatory geometry checks."""
     params = params if params is not None else ObjectPlacerParams()
     requested_checks = (params.enabled_checks or set()) | (params.required_checks or set())
     unsupported_checks = requested_checks & {PlacementCheck.IK_REACHABLE, PlacementCheck.PHYSICS_SETTLED}
@@ -254,23 +255,25 @@ def _release_placer_params(params: ObjectPlacerParams | None) -> ObjectPlacerPar
         params,
         enabled_checks=None if params.enabled_checks is None else params.enabled_checks | geometry_checks,
         required_checks=None if params.required_checks is None else params.required_checks | geometry_checks,
-        max_placement_attempts=1,
-        apply_positions_to_objects=False,
-        allow_best_loss_fallbacks=False,
     )
 
 
-def _release_objects(env: ManagerBasedEnv, env_id: int, layout: PlacementResult, anchors: set[PlaceableAsset]) -> None:
-    """Write an ObjectPlacer release layout with zero root velocities."""
-    write_layout_to_sim(env, env_id, layout, anchors, get_base_rotation_per_asset(list(layout.positions)))
+def _release_objects(
+    env: ManagerBasedEnv,
+    env_id: int,
+    layout: PlacementResult,
+    anchors: set[PlaceableAsset],
+    assets: list[PlaceableAsset],
+) -> None:
+    """Write a complete ObjectPlacer release layout with zero root velocities."""
+    write_layout_to_sim(env, env_id, layout, anchors, get_base_rotation_per_asset(assets))
     env.scene.write_data_to_sim()
     env.sim.forward()
 
 
 def _box_for_env(box: AxisAlignedBoundingBox, env_id: int) -> AxisAlignedBoundingBox:
     """Return one environment's local geometry bounds on the CPU."""
-    row = env_id if box.num_envs > 1 else 0
-    return AxisAlignedBoundingBox(box.min_point[row : row + 1].cpu(), box.max_point[row : row + 1].cpu())
+    return AxisAlignedBoundingBox(box.min_point[env_id : env_id + 1].cpu(), box.max_point[env_id : env_id + 1].cpu())
 
 
 def _pose(value: torch.Tensor) -> Pose:

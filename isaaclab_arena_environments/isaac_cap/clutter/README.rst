@@ -29,7 +29,8 @@ Add relations to the environment YAML:
 ``spread`` scales the release footprint about the support center. Release
 solving and validation use that smaller region. After physics settling,
 containment uses the whole support. ``clearance_m`` is the initial surface gap;
-``gap_m`` separates overlapping bounds during initialization. Objects start in
+``gap_m`` separates overlapping bounds during initialization; the solver's
+collision clearance is used when larger. Objects start in
 free space in asset order, then the solver applies their relations and the
 shared collision clearance. ``ClutterOn`` can combine with ``AtPosition`` or
 other spatial constraints. Use Arena's ``RotateAroundSolution`` relation to
@@ -72,7 +73,9 @@ bottom to lie in a narrow band near the support surface.
 
 Additional enabled checks run with the configured required/optional status.
 Unknown or unavailable requested checks fail generation. The Python API
-accepts the same configuration through ``placer_params``.
+accepts the same configuration through ``placer_params``, including
+``max_placement_attempts`` candidates per environment in each physics trial.
+The generator's ``--attempts`` controls the number of physics trials.
 
 Release validation cannot certify a pose after physics moves it. Requests for
 ``ik_reachable``, ``physics_settled``, or ``RequiresReachability`` are rejected

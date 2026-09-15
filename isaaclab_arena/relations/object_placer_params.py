@@ -20,7 +20,8 @@ class ObjectPlacerParams:
 
     random_yaw_init: bool = False
     """If True, give each non-anchor object a random fixed yaw about Z (uniform in [-pi, pi)) for
-    scene variety. Not optimized; collisions use the conservative box enclosing the rotated object."""
+    scene variety. ClutterOn uses its own random_yaw setting. Not optimized; collisions use the
+    conservative box enclosing the rotated object."""
 
     max_placement_attempts: int = 10
     """Number of candidate layouts solved and ranked per result. Higher values raise the chance a valid
