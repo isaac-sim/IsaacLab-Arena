@@ -6,18 +6,13 @@
 from __future__ import annotations
 
 import torch
-from dataclasses import MISSING, dataclass
-from typing import Any
+from dataclasses import dataclass
 
-from isaaclab.managers import EventTermCfg
 from isaaclab.managers.recorder_manager import RecorderManagerBaseCfg, RecorderTerm, RecorderTermCfg
 from isaaclab.utils.configclass import configclass
 
 from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective, ProgressObjectiveCompletionMode
 from isaaclab_arena.progress_tracking.progress_tracking_utils import _predicate_repr
-from isaaclab_arena.tasks.predicates.object_settling import reset_rest_pose_recorder
-
-_PROGRESS_TRACKER_ATTR = "_progress_tracker"
 
 
 @dataclass
@@ -309,6 +304,13 @@ class ProgressTracker:
             for event in runner.step(env, step_index):
                 self._events[event.env_idx].append(event)
 
+    def is_complete(self) -> torch.Tensor:
+        """Return whether every objective has completed in each environment."""
+        completed = torch.ones(self.num_envs, dtype=torch.bool, device=self.device)
+        for runner in self.runners:
+            completed &= runner.is_complete()
+        return completed
+
     def reset(self, env_ids) -> None:
         """Reset the runners for the provided envs."""
 
@@ -360,23 +362,11 @@ class ProgressTracker:
         return [list(e) for e in self._events]
 
 
-def _ensure_progress_tracker(env, progress_objectives: list[ProgressObjective]) -> ProgressTracker:
-    """Return the env's ProgressTracker, lazily creating and caching it on first call."""
-
-    progress_tracker: ProgressTracker | None = getattr(env, _PROGRESS_TRACKER_ATTR, None)
-    if progress_tracker is None:
-        progress_tracker = ProgressTracker(
-            progress_objectives=progress_objectives, num_envs=env.num_envs, device=env.device
-        )
-        setattr(env, _PROGRESS_TRACKER_ATTR, progress_tracker)
-    return progress_tracker
-
-
 class ProgressTrackingRecorder(RecorderTerm):
-    """Per-step hook that ticks the ProgressTracker. Records nothing.
+    """Publish the tracker state and events after termination computation. Records nothing.
 
     Registered as a recorder term so it runs once per env.step via
-    record_post_step. It advances the progress tracker and publishes the per-step state/events to
+    record_post_step. It publishes the per-step state/events to
     env.extras["progress_tracking"], then returns
     (None, None) so nothing is written to the recorded episode data.
 
@@ -404,16 +394,11 @@ class ProgressTrackingRecorder(RecorderTerm):
         }
     """
 
-    def __init__(self, cfg: ProgressTrackingRecorderCfg, env):
-        super().__init__(cfg, env)
-        self._progress_objectives = cfg.progress_objectives
-
     def record_post_step(self):
-        """Ticks the progress tracker, writes events and states to env.extras["progress_tracking"]"""
+        """Publish the current progress snapshot without advancing the tracker."""
 
-        progress_tracker = _ensure_progress_tracker(self._env, self._progress_objectives)
-        step_index = getattr(self._env, "episode_length_buf", None)
-        progress_tracker.step(self._env, step_index=step_index)
+        progress_tracker = self._env._progress_tracker
+        assert progress_tracker is not None, "Task success must initialize the progress tracker before recording."
         self._env.extras["progress_tracking"] = {
             "states": progress_tracker.get_state(),
             "events": progress_tracker.get_events(),
@@ -422,54 +407,15 @@ class ProgressTrackingRecorder(RecorderTerm):
         return None, None
 
 
-def progress_tracking_reset_func(env, env_ids, progress_objectives: list[ProgressObjective]) -> None:
-    """Reset-event entry point.
-
-    Resets the progress tracker whenever the Lab env is reset.
-    """
-
-    progress_tracker = _ensure_progress_tracker(env, progress_objectives)
-    if env_ids is None:
-        env_ids = list(range(env.num_envs))
-    elif torch.is_tensor(env_ids):
-        env_ids = env_ids.tolist()
-    progress_tracker.reset(env_ids)
-    reset_rest_pose_recorder(env, env_ids)
-
-
-@configclass
-class ProgressTrackingEventsCfg:
-    reset_progress_objectives: EventTermCfg = MISSING
-
-
 @configclass
 class ProgressTrackingRecorderCfg(RecorderTermCfg):
     class_type: type[RecorderTerm] = ProgressTrackingRecorder
-    progress_objectives: list[ProgressObjective] = MISSING
 
 
 @configclass
 class ProgressTrackingRecorderManagerCfg(RecorderManagerBaseCfg):
-    progress_tracking: ProgressTrackingRecorderCfg = MISSING
+    progress_tracking: ProgressTrackingRecorderCfg = ProgressTrackingRecorderCfg()
 
 
-def make_progress_tracking_events_cfg(
-    progress_objectives: list[ProgressObjective],
-) -> Any:
-    return ProgressTrackingEventsCfg(
-        reset_progress_objectives=EventTermCfg(
-            func=progress_tracking_reset_func,
-            mode="reset",
-            params={"progress_objectives": progress_objectives},
-        )
-    )
-
-
-def make_progress_tracking_recorder_cfg(
-    progress_objectives: list[ProgressObjective],
-) -> Any:
-    return ProgressTrackingRecorderManagerCfg(
-        progress_tracking=ProgressTrackingRecorderCfg(
-            progress_objectives=progress_objectives,
-        )
-    )
+def make_progress_tracking_recorder_cfg() -> ProgressTrackingRecorderManagerCfg:
+    return ProgressTrackingRecorderManagerCfg()

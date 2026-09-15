@@ -13,8 +13,8 @@ from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.assets.object import Object
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.metrics.metric_base import MetricBase
-from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
 from isaaclab_arena.relations.relations import RequiresReachability
+from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
 from isaaclab_arena.tasks.task_transition import TaskTransition
 
 
@@ -31,7 +31,8 @@ class TaskBase(ABC):
         raise NotImplementedError("Function not implemented yet.")
 
     @abstractmethod
-    def get_termination_cfg(self) -> Any:
+    def get_termination_cfg(self) -> TaskTerminationCfg:
+        """Declare the task's success objectives, failure conditions, and episode time budget."""
         raise NotImplementedError("Function not implemented yet.")
 
     @abstractmethod
@@ -69,9 +70,6 @@ class TaskBase(ABC):
 
     def get_task_description(self) -> str | None:
         return self.task_description
-
-    def get_progress_objectives(self) -> list[ProgressObjective]:
-        return []
 
     def apply_reachability_constraints(self) -> None:
         """Stamp RequiresReachability on the objects the robot must be able to reach for this task."""

@@ -60,6 +60,8 @@ def _make_microwave_tray_environment():
 def _test_object_on_microwave_tray_termination(simulation_app) -> bool:
     import torch
 
+    from isaaclab_arena.tests.utils.pick_and_place import lift_settled_objects_once
+
     env, microwave, dex_cube, destination_ref = _make_microwave_tray_environment()
 
     try:
@@ -81,9 +83,11 @@ def _test_object_on_microwave_tray_termination(simulation_app) -> bool:
 
         success_vec = []
         terminated_vec = []
+        lifted_envs = torch.zeros(NUM_ENVS, dtype=torch.bool, device=env.unwrapped.device)
         actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
         for _ in range(NUM_STEPS):
             with torch.inference_mode():
+                lift_settled_objects_once(env.unwrapped, dex_cube.name, lifted_envs)
                 _, _, terminated, _, _ = env.step(actions)
                 success_vec.append(env.unwrapped.termination_manager.get_term("success").clone())
                 terminated_vec.append(terminated.clone())

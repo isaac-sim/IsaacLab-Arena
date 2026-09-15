@@ -10,7 +10,9 @@ from dataclasses import dataclass, field
 from enum import Enum
 
 from isaaclab_arena.progress_tracking.progress_tracking_utils import (
+    DEFAULT_GROUP_NAME,
     PredicateGroups,
+    PredicateSequence,
     _format_predicate_groups,
     _normalize_scores,
 )
@@ -31,19 +33,16 @@ class ProgressObjectiveCompletionMode(str, Enum):
 
 @dataclass
 class ProgressObjective:
-    """Configuration object that defines a scored predicate sequence to track progress within a task.
+    """Define task progress using one predicate sequence or named independent sequences.
 
-    A ProgressObjective specifies what the progress tracker (ProgressTracker) should track.
-    Each ProgressObjective holds one or more sequential predicate chains (groups).
-    Within a group, predicates run in order. Across groups, predicates run in parallel.
-
-    A group is complete once every predicate in its chain has been satisfied. The ProgressObjective
-    is complete when enough of its groups, as set by logical, are complete. ALL requires every
-    group, ANY requires at least one, and CHOOSE requires at least K.
+    Supply exactly one of sequence or predicate_groups. Predicates within each sequence
+    must hold in order. Named groups advance independently; logical determines how many
+    groups must complete.
 
     Args:
         name: Identifies the ProgressObjective within the TaskBase.
-        predicate_groups: The sequential predicate chains that define the ProgressObjective.
+        sequence: One ordered list of predicates, optionally paired with score weights.
+        predicate_groups: Named independent predicate sequences, each expressed as a list.
         score: Weight of the ProgressObjective in the TaskBase-level overall_score.
         logical: How completed groups combine to determine if the ProgressObjective is complete.
             A ProgressObjectiveCompletionMode (ALL, ANY, or CHOOSE); a matching string value is also accepted.
@@ -53,7 +52,8 @@ class ProgressObjective:
     """
 
     name: str
-    predicate_groups: PredicateGroups
+    sequence: PredicateSequence | None = None
+    predicate_groups: PredicateGroups | None = None
     score: float = 1.0
     logical: ProgressObjectiveCompletionMode = ProgressObjectiveCompletionMode.ALL
     K: int | None = None
@@ -70,8 +70,18 @@ class ProgressObjective:
         # Accept either a ProgressObjectiveCompletionMode or its string value; normalize to the enum (raises on invalid).
         self.logical = ProgressObjectiveCompletionMode(self.logical)
 
-        # Format the predicate groups into the canonical form and normalize the scores.
-        formatted = _format_predicate_groups(self.predicate_groups)
+        assert (self.sequence is None) != (
+            self.predicate_groups is None
+        ), "Provide exactly one of sequence or predicate_groups for a progress objective."
+        if self.sequence is not None:
+            assert self.logical == ProgressObjectiveCompletionMode.ALL, "logical only applies to predicate_groups."
+            assert self.K is None, "K only applies to predicate_groups."
+            predicate_groups = {DEFAULT_GROUP_NAME: self.sequence}
+        else:
+            predicate_groups = self.predicate_groups
+
+        # The runner uses the same named-chain representation for both forms.
+        formatted = _format_predicate_groups(predicate_groups)
         normalized = _normalize_scores(formatted)
         self.canonical_predicate_groups = normalized
 

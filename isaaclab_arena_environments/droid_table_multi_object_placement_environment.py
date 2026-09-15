@@ -131,7 +131,7 @@ class DroidTableMultiObjectPlacementEnvironment(ArenaEnvironmentFactory[DroidTab
                 from isaaclab.managers import TerminationTermCfg
 
                 env_cfg.episode_length_s = episode_length_s
-                env_cfg.terminations.time_out = TerminationTermCfg(
+                env_cfg.terminations["time_out"] = TerminationTermCfg(
                     func=mdp_isaac_lab.time_out,
                     time_out=True,
                 )

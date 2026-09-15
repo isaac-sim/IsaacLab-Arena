@@ -14,7 +14,7 @@ from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_wi
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose
 
-NUM_STEPS = 50
+NUM_STEPS = 100
 HEADLESS = True
 OPEN_STEP = NUM_STEPS // 2
 
@@ -337,6 +337,7 @@ def _test_reference_objects_with_background_pose(background_pose: Pose, tmp_path
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.scene.scene import Scene
     from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
+    from isaaclab_arena.tests.utils.pick_and_place import lift_settled_objects_once
 
     args_parser = get_isaaclab_arena_cli_parser()
     args_cli = args_parser.parse_args([])
@@ -404,10 +405,12 @@ def _test_reference_objects_with_background_pose(background_pose: Pose, tmp_path
         terminated_list: list[bool] = []
         success_list: list[bool] = []
         open_list: list[bool] = []
+        lifted_envs = torch.zeros(env.unwrapped.num_envs, dtype=torch.bool, device=env.unwrapped.device)
         for _ in tqdm.tqdm(range(NUM_STEPS)):
             with torch.inference_mode():
                 if _ == OPEN_STEP:
                     open_microwave()
+                lift_settled_objects_once(env.unwrapped, cracker_box.name, lifted_envs)
                 actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
                 _, _, terminated, _, _ = env.step(actions)
                 success = env.unwrapped.termination_manager.get_term("success")

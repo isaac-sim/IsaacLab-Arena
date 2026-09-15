@@ -8,7 +8,7 @@ import traceback
 
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
-NUM_STEPS = 50
+NUM_STEPS = 150
 HEADLESS = True
 
 
@@ -20,6 +20,7 @@ def _test_g1_locomanip_object_on_destination_termination(simulation_app) -> bool
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.scene.scene import Scene
     from isaaclab_arena.tasks.pick_and_place_task import G1PickAndPlaceMimicEnvCfg, PickAndPlaceTask
+    from isaaclab_arena.tests.utils.pick_and_place import lift_settled_objects_once
     from isaaclab_arena.utils.pose import Pose
 
     args_parser = get_isaaclab_arena_cli_parser()
@@ -74,8 +75,10 @@ def _test_g1_locomanip_object_on_destination_termination(simulation_app) -> bool
     try:
         success_vec = []
         terminated_vec = []
+        lifted_envs = torch.zeros(env.unwrapped.num_envs, dtype=torch.bool, device=env.unwrapped.device)
         for _ in range(NUM_STEPS):
             with torch.inference_mode():
+                lift_settled_objects_once(env.unwrapped, brown_box.name, lifted_envs)
                 actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
                 _, _, terminated, _, _ = env.step(actions)
 

@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 import datetime
 import gymnasium as gym
 from typing import Any
@@ -12,7 +13,8 @@ from typing import Any
 from isaaclab.devices.device_base import DeviceCfg, DevicesCfg
 from isaaclab.envs import ManagerBasedRLMimicEnv
 from isaaclab.envs.manager_based_env import ManagerBasedEnv
-from isaaclab.managers import EventTermCfg
+from isaaclab.envs.mdp import time_out
+from isaaclab.managers import EventTermCfg, TerminationTermCfg
 from isaaclab.managers.recorder_manager import RecorderManagerBaseCfg
 from isaaclab.scene import InteractiveSceneCfg
 from isaaclab_tasks.utils import parse_env_cfg
@@ -32,10 +34,8 @@ from isaaclab_arena.environments.relation_solver_interface import solve_and_appl
 from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.metrics.metric_term_cfg import MetricTermCfg
 from isaaclab_arena.metrics.recorder_manager_utils import metrics_to_recorder_manager_cfg
-from isaaclab_arena.progress_tracking.progress_tracker import (
-    make_progress_tracking_events_cfg,
-    make_progress_tracking_recorder_cfg,
-)
+from isaaclab_arena.progress_tracking.progress_tracker import make_progress_tracking_recorder_cfg
+from isaaclab_arena.progress_tracking.task_success import TaskSuccessTerm
 from isaaclab_arena.recording.common_terms import CoreEpisodeRecorderTermCfg, VariationEpisodeRecorderTermCfg
 from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTermCfg
 from isaaclab_arena.recording.progress_terms import ProgressEpisodeRecorderTermCfg
@@ -43,6 +43,7 @@ from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_events import PLACEMENT_RESET_EVENT_NAME
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.tasks.no_task import NoTask
+from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
 from isaaclab_arena.terms.events import ResetBackgroundPhysics
 from isaaclab_arena.terms.recorders import ArenaEnvRecorderManagerCfg
 from isaaclab_arena.utils.configclass import combine_configclass_instances, make_configclass
@@ -188,6 +189,47 @@ class ArenaEnvBuilder:
         fields = [(m.name, MetricTermCfg, m.get_metric_term_cfg()) for m in metrics]
         return make_configclass("MetricsCfg", fields)()
 
+    def _build_termination_manager_cfg(
+        self,
+        task_termination_cfg: TaskTerminationCfg,
+        scene_termination_cfg: object | None,
+        embodiment_termination_cfg: object | None,
+    ) -> dict[str, TerminationTermCfg | None]:
+        """Translate task criteria and combine them with scene and embodiment terminations.
+
+        Args:
+            task_termination_cfg: Task-owned success objectives, failures, and timeout.
+            scene_termination_cfg: Additional scene termination terms, excluding success.
+            embodiment_termination_cfg: Additional embodiment termination terms, excluding success.
+
+        Returns:
+            Named Isaac Lab termination terms; None disables a term. Task terms override
+            embodiment terms, which override scene terms with the same name.
+        """
+        termination_terms: dict[str, TerminationTermCfg | None] = {}
+        component_termination_configs = [scene_termination_cfg, embodiment_termination_cfg]
+        for component_termination_cfg in component_termination_configs:
+            if component_termination_cfg is None:
+                continue
+            assert (
+                getattr(component_termination_cfg, "success", None) is None
+            ), "Define success objectives in the task's TaskTerminationCfg; the builder owns the success term."
+            for termination_field in dataclasses.fields(component_termination_cfg):
+                termination_terms[termination_field.name] = getattr(component_termination_cfg, termination_field.name)
+
+        termination_terms.update(task_termination_cfg.failures)
+        termination_terms["time_out"] = TerminationTermCfg(func=time_out, time_out=True)
+        success_objectives = task_termination_cfg.success
+
+        # Install the shared success term when the task defines success objectives.
+        if success_objectives:
+            success_term = TerminationTermCfg(
+                func=TaskSuccessTerm,
+                params={"success_objectives": success_objectives},
+            )
+            termination_terms["success"] = success_term
+        return termination_terms
+
     def _compose_episode_recorders_cfg(self, extra_terms: dict[str, EpisodeRecorderTermCfg] | None = None) -> object:
         """Build a configclass container with one EpisodeRecorderTermCfg field per episode recorder term.
 
@@ -258,10 +300,10 @@ class ArenaEnvBuilder:
             )
             placement_event_cfg = PlacementEventCfg()
         variations_event_cfg = self._compose_variations_event_cfg()
-        progress_objectives = task.get_progress_objectives()
-        progress_tracking_events_cfg: Any = (
-            make_progress_tracking_events_cfg(progress_objectives) if progress_objectives else None
-        )
+        task_termination_cfg = task.get_termination_cfg()
+        assert isinstance(
+            task_termination_cfg, TaskTerminationCfg
+        ), "Tasks must return TaskTerminationCfg with success objectives, failures, and timeout_s."
         background_physics_events_cfg = None
         background_physics_paths = self.arena_env.scene.get_background_physics_paths()
         if background_physics_paths:
@@ -289,11 +331,9 @@ class ArenaEnvBuilder:
             task.get_events_cfg(),
             placement_event_cfg,
             variations_event_cfg,
-            progress_tracking_events_cfg,
         )
-        termination_cfg = combine_configclass_instances(
-            "TerminationCfg",
-            task.get_termination_cfg(),
+        termination_cfg = self._build_termination_manager_cfg(
+            task_termination_cfg,
             self.arena_env.scene.get_termination_cfg(),
             embodiment.get_termination_cfg(),
         )
@@ -312,7 +352,7 @@ class ArenaEnvBuilder:
         metrics_cfg = self._compose_metrics_cfg(metrics)
         metrics_recorder_manager_cfg = metrics_to_recorder_manager_cfg(metrics)
         progress_tracking_recorder_cfg: Any = (
-            make_progress_tracking_recorder_cfg(progress_objectives) if progress_objectives else None
+            make_progress_tracking_recorder_cfg() if task_termination_cfg.success else None
         )
 
         # Base has to be specified explicitly to avoid type errors and not lose inheritance.
@@ -356,7 +396,7 @@ class ArenaEnvBuilder:
 
         viewer_cfg = task.get_viewer_cfg()
 
-        episode_length_s = task.get_episode_length_s()
+        episode_length_s = task_termination_cfg.timeout_s
 
         task_description = self.cfg.language_instruction or task.get_task_description()
 

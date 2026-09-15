@@ -12,18 +12,9 @@ from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_wi
 NUM_STEPS = 100
 HEADLESS = True
 
-# Test description.
-# We start 2 envs. In these two envs:
-# - 1 : The object falls in the drawer resulting in a success.
-# - 2 : The object falls out of the drawer resulting in a failure.
-# We expect the success rate to be 0.5 and the object moved rate to be 1.0.
-# We allow for
-# - Success rate error: 10% because the two environments reset at different rates
-#   due to the different height that the object falls from.
-# - Object moved rate error: 5% to allow for the case where in the last run
-#   the object doesn't move much (in practice I haven't seen this happen).
-EXPECTED_SUCCESS_RATE = 0.5
-ALLOWABLE_SUCCESS_RATE_ERROR = 0.1
+# Env 0 lifts and replaces its settled object in the drawer; env 1 drops its object outside.
+# Check success against completed-episode counts because the two trajectories have different durations.
+# Expect every object to move, allowing 5% for an unfinished episode with little movement.
 EXPECTED_OBJECT_MOVED_RATE = 1.0
 ALLOWABLE_OBJECT_MOVED_RATE_ERROR = 0.05
 
@@ -42,6 +33,7 @@ def _test_success_rate_metric(simulation_app):
     from isaaclab_arena.scene.scene import Scene
     from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
     from isaaclab_arena.terms.events import set_object_pose_per_env
+    from isaaclab_arena.tests.utils.pick_and_place import lift_settled_objects_once
     from isaaclab_arena.utils.pose import Pose
 
     asset_registry = AssetRegistry()
@@ -94,11 +86,31 @@ def _test_success_rate_metric(simulation_app):
 
     try:
 
-        # Run some zero actions.
+        base_env = env.unwrapped
+        # Lift env 0 once per episode; env 1 keeps its drop-failure trajectory.
+        lifted_envs = torch.ones(base_env.num_envs, dtype=torch.bool, device=base_env.device)
+        completed_episodes = torch.zeros(base_env.num_envs, dtype=torch.long, device=base_env.device)
+        expected_success_by_env = torch.arange(base_env.num_envs, device=base_env.device) == 0
+        previous_episode = None
         for _ in tqdm.tqdm(range(NUM_STEPS)):
             with torch.inference_mode():
-                actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
-                env.step(actions)
+                current_episode = base_env.get_episode_index(0)
+                if current_episode != previous_episode:
+                    lifted_envs[0] = False
+                    previous_episode = current_episode
+                lift_settled_objects_once(base_env, cracker_box.name, lifted_envs)
+                actions = torch.zeros(env.action_space.shape, device=base_env.device)
+                _, _, terminated, truncated, _ = env.step(actions)
+                ended_episodes = terminated | truncated
+                observed_success = base_env.termination_manager.get_term("success")
+                torch.testing.assert_close(
+                    observed_success[ended_episodes],
+                    expected_success_by_env[ended_episodes],
+                )
+                completed_episodes += ended_episodes.long()
+
+        assert bool((completed_episodes > 0).all()), "Both environments must complete at least one episode."
+        expected_success_rate = completed_episodes[0].item() / completed_episodes.sum().item()
 
         metrics: MetricsDataCollection = env.unwrapped.compute_metrics()
         print(f"Metrics: {metrics}")
@@ -108,7 +120,7 @@ def _test_success_rate_metric(simulation_app):
         object_moved_rate = metrics.metric_data_entries["object_moved_rate"].metric_value
         print(f"Success rate: {success_rate}")
         print(f"Object moved rate: {object_moved_rate}")
-        assert abs(success_rate - EXPECTED_SUCCESS_RATE) < ALLOWABLE_SUCCESS_RATE_ERROR
+        assert abs(success_rate - expected_success_rate) < 1e-6
         assert abs(object_moved_rate - EXPECTED_OBJECT_MOVED_RATE) < ALLOWABLE_OBJECT_MOVED_RATE_ERROR
 
     except Exception as e:

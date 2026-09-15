@@ -189,7 +189,7 @@ class GR1TableMultiObjectNoCollisionEnvironment(ArenaEnvironmentFactory[GR1Table
                 from isaaclab.managers import TerminationTermCfg
 
                 cfg.episode_length_s = episode_length_s
-                cfg.terminations.time_out = TerminationTermCfg(func=mdp_isaac_lab.time_out, time_out=True)
+                cfg.terminations["time_out"] = TerminationTermCfg(func=mdp_isaac_lab.time_out, time_out=True)
                 return cfg
 
             env_cfg_callback = _enable_periodic_reset

@@ -89,7 +89,7 @@ def create_recorder_env(
 ):
     """Build a registered two-env pick-and-place env wired for per-episode recording.
 
-    env 0's box lands in the drawer (success) while env 1's box lands outside it (failure).
+    The rollout lifts and replaces env 0's box in the drawer. Env 1's box falls outside it.
 
     Args:
         output_dir: Directory the JSONL records are written into.
@@ -142,7 +142,7 @@ def create_recorder_env(
     env_builder = ArenaEnvBuilder(isaaclab_arena_environment, arena_env_builder_cfg_from_argparse(args_cli))
     env_cfg, env_kwargs = env_builder.compose_manager_cfg()
 
-    # Per-env reset poses: env 0 lands in the drawer (success), env 1 lands outside (failure).
+    # Env 0 starts in the drawer and is lifted during rollout; env 1 lands outside.
     pose_list = [
         Pose(position_xyz=(0.0, -0.5, 0.2), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)),
         Pose(position_xyz=(-0.5, -0.5, 0.2), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)),
@@ -166,10 +166,22 @@ def create_recorder_env(
 
 
 def _roll_out_and_read_episode_record(env, output_path) -> list[dict]:
-    """Step the env for ``NUM_STEPS`` (records stream to disk as episodes finish), then parse them."""
+    """Lift env 0's settled box each episode, let it land, and read the episode records."""
+    from isaaclab_arena.tests.utils.pick_and_place import lift_settled_objects_once
+
+    base_env = env.unwrapped
+    object_name = base_env.cfg.events.reset_pick_up_object_pose.params["asset_cfg"].name
+    # Env 1 never receives a lift; its episodes should fail.
+    lifted_envs = torch.ones(base_env.num_envs, dtype=torch.bool, device=base_env.device)
+    previous_episode = None
     for _ in tqdm.tqdm(range(NUM_STEPS)):
         with torch.inference_mode():
-            actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
+            current_episode = base_env.get_episode_index(0)
+            if current_episode != previous_episode:
+                lifted_envs[0] = False
+                previous_episode = current_episode
+            lift_settled_objects_once(base_env, object_name, lifted_envs)
+            actions = torch.zeros(env.action_space.shape, device=base_env.device)
             env.step(actions)
 
     assert output_path.exists(), f"Expected JSONL at {output_path}"
@@ -204,6 +216,9 @@ def _test_core_terms(simulation_app, output_dir):  # noqa: ARG001
             assert (
                 record["success"] is expected_success
             ), f"env {env_id} episode {record['episode_in_env']}: expected success={expected_success}"
+            assert record["progress"]["all_complete"] is expected_success
+            if expected_success:
+                assert [event["predicate_index"] for event in record["progress"]["events"]] == [0, 1, 2]
 
         # Both envs must have completed at least one episode.
         assert set(per_env_counter.keys()) == {0, 1}
