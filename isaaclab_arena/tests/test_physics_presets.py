@@ -62,11 +62,8 @@ def _test_builder_preset(simulation_app, presets: str | None, expected_backend: 
     from isaaclab_physx.physics import PhysxCfg
 
     env_cfg = _build_env_cfg(presets=presets)
-    expected_type = {"physx": PhysxCfg, "newton": NewtonCfg}.get(expected_backend)
-    if expected_type is None:
-        assert env_cfg.sim.physics is None
-    else:
-        assert isinstance(env_cfg.sim.physics, expected_type)
+    expected_type = {"physx": PhysxCfg, "newton": NewtonCfg}.get(expected_backend, PhysxCfg)
+    assert isinstance(env_cfg.sim.physics, expected_type)
     assert env_cfg.scene.replicate_physics is replicate_physics
     return True
 
@@ -141,7 +138,7 @@ def test_arena_physics_cfg_presets():
 @pytest.mark.parametrize(
     ("presets", "expected_backend", "replicate_physics"),
     [
-        (None, None, False),
+        (None, "physx", False),
         ("physx", "physx", False),
         ("newton", "newton", True),
     ],

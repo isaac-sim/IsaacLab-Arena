@@ -31,6 +31,7 @@ In code, this looks like:
        scene=scene,
        task=task,
        teleop_device=teleop_device,  # optional
+       physics_backend=PhysicsBackend.PHYSX,  # default; use NEWTON when required
    )
 
    env = ArenaEnvBuilder(environment, ArenaEnvBuilderCfg()).make_registered()
@@ -60,3 +61,4 @@ The individual components are covered in :doc:`../scene/index`,
 
    environment_definition
    env_builder
+   ../environments/physics_backend_selection

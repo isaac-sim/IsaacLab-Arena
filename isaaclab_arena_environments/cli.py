@@ -221,6 +221,8 @@ def get_arena_builder_from_cli(
         if env_spec is not None
         else _arena_env_from_example_name(example_environment, args_cli)
     )
+    if getattr(args_cli, "presets", None) is None:
+        args_cli.presets = arena_env.physics_backend
     builder_cfg = arena_env_builder_cfg_from_argparse(args_cli)
     return ArenaEnvBuilder(arena_env, builder_cfg, hydra_overrides=hydra_overrides)
 

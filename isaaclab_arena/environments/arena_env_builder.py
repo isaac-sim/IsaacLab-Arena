@@ -28,6 +28,11 @@ from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import (
     IsaacLabArenaManagerBasedRLEnvCfg,
     apply_arena_global_settings,
 )
+from isaaclab_arena.environments.physics_backend_resolution import (
+    assert_same_physics_backend,
+    backend_type_from_sim_cfg,
+    resolve_physics_backend,
+)
 from isaaclab_arena.environments.relation_solver_interface import solve_and_apply_relation_placement
 from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.metrics.metric_term_cfg import MetricTermCfg
@@ -233,9 +238,14 @@ class ArenaEnvBuilder:
         # Apply build-time variations now, before scene_cfg is materialised.
         self._apply_build_time_variations()
 
+        resolved_physics_backend = resolve_physics_backend(
+            cli_presets=self.cfg.presets,
+            env_physics_backend=self.arena_env.physics_backend,
+        )
+
         # Constructing the environment by combining inputs from the scene, embodiment, and task.
         embodiment = self.arena_env.embodiment or NoEmbodiment()
-        embodiment.configure_physics_backend(self.cfg.presets)
+        embodiment.configure_physics_backend(resolved_physics_backend)
         task = self.arena_env.task or NoTask()
         scene_cfg = combine_configclass_instances(
             "SceneCfg",
@@ -421,25 +431,20 @@ class ArenaEnvBuilder:
         # Set seed for Isaac Lab env.
         env_cfg.seed = self.cfg.seed
 
-        # Apply the requested physics backend before the callback so env-specific overrides can
-        # tune the selected preset. Callbacks that require a specific backend must validate the
-        # selected physics config before replacing or modifying it.
-        presets = self.cfg.presets
-        if presets is not None:
-            from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import ArenaPhysicsCfg
+        from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import ArenaPhysicsCfg
 
-            env_cfg.sim.physics = getattr(ArenaPhysicsCfg(), presets.value)
+        env_cfg.sim.physics = getattr(ArenaPhysicsCfg(), resolved_physics_backend.value)
+        if resolved_physics_backend is PhysicsBackend.NEWTON:
+            env_cfg.scene.replicate_physics = True
 
-            # Set replicate_physics for shared physics representations.
-            # For Newton, without this flag, the simulation initialization
-            # takes a very long time for large number of parallel environments.
-            if presets is PhysicsBackend.NEWTON:
-                env_cfg.scene.replicate_physics = True
-
-        # Apply the environment configuration callback if it is set
-        # This can be used to modify the simulation configuration, etc.
+        backend_before_callback = backend_type_from_sim_cfg(env_cfg.sim)
         if self.arena_env.env_cfg_callback is not None:
             env_cfg = self.arena_env.env_cfg_callback(env_cfg)
+            assert_same_physics_backend(
+                backend_before_callback,
+                backend_type_from_sim_cfg(env_cfg.sim),
+                context="env_cfg_callback",
+            )
 
         env_kwargs: dict[str, Any] = {"variation_recorder": variation_recorder}
         return env_cfg, env_kwargs
