@@ -11,9 +11,12 @@ import copy
 import dataclasses
 import sys
 import types
-from typing import Any, Union, get_args, get_origin, get_type_hints
+from typing import TYPE_CHECKING, Any, Union, get_args, get_origin, get_type_hints
 
 from hydra.utils import get_class, instantiate
+
+if TYPE_CHECKING:
+    from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import IsaacLabArenaManagerBasedRLEnvCfg
 
 _ALLOWED_TARGET_MODULE_PREFIXES = (
     "isaaclab.",
@@ -25,22 +28,24 @@ _ALLOWED_TARGET_MODULE_PREFIXES = (
 _HYDRA_TARGET_KEY = "_target_"
 
 
-def apply_env_cfg_override(env_cfg: Any, override: dict[str, Any] | None) -> Any:
+def apply_env_cfg_override(
+    env_cfg: IsaacLabArenaManagerBasedRLEnvCfg,
+    override: dict[str, Any],
+) -> IsaacLabArenaManagerBasedRLEnvCfg:
     """Apply a validated environment-config override in place.
 
     Hydra ``_target_`` nodes first replace polymorphic config fields with concrete
     Isaac Lab configclass instances. Remaining values are then merged against the
-    concrete schema and applied through ``from_dict``.
+    env_cfg schema and applied through ``from_dict``.
 
     Args:
-        env_cfg: Concrete Isaac Lab environment configuration to update.
-        override: Nested override mapping, or ``None`` for no changes.
+        env_cfg: Arena manager-based RL environment configuration to update.
+        override: Nested override mapping from graph ``env_cfg_override``.
 
     Returns:
         The updated ``env_cfg`` instance.
     """
-    if override is None:
-        return env_cfg
+    assert override is not None, "env_cfg_override must be provided"
     assert isinstance(override, dict), f"env_cfg_override must be a mapping, got {type(override).__name__}"
 
     values = copy.deepcopy(override)
@@ -54,12 +59,32 @@ def apply_env_cfg_override(env_cfg: Any, override: dict[str, Any] | None) -> Any
     return env_cfg
 
 
+def _validate_data_only(value: Any, *, path: str) -> None:
+    """Reject unsafe override content before ``_materialize_targets`` runs.
+
+    Disallows ``class_type`` overrides, Hydra control keys other than ``_target_``,
+    and OmegaConf ``${...}`` interpolation in strings.
+    """
+    if isinstance(value, dict):
+        for key, item in value.items():
+            child_path = f"{path}.{key}"
+            assert key != "class_type", f"'{child_path}' is derived by Isaac Lab and cannot be overridden"
+            assert not key.startswith("_") or key == _HYDRA_TARGET_KEY, f"Unsupported Hydra control key '{child_path}'"
+            _validate_data_only(item, path=child_path)
+    elif isinstance(value, list):
+        for index, item in enumerate(value):
+            _validate_data_only(item, path=f"{path}[{index}]")
+    elif isinstance(value, str):
+        assert "${" not in value, f"OmegaConf interpolation is not allowed at '{path}'"
+
+
 def _materialize_targets(target_obj: Any, values: dict[str, Any], *, path: str) -> None:
     """Replace ``_target_`` mappings with validated configclass instances."""
     if not dataclasses.is_dataclass(target_obj):
         return
 
-    field_names = _dataclass_field_names(type(target_obj))
+    # Depth-first walk: ``values`` is the override subtree; ``target_obj`` is the matching live config node.
+    field_names = {field.name for field in dataclasses.fields(type(target_obj))}
     for key, value in values.items():
         if key not in field_names or not isinstance(value, dict):
             continue
@@ -68,6 +93,7 @@ def _materialize_targets(target_obj: Any, values: dict[str, Any], *, path: str) 
         child_obj = getattr(target_obj, key)
         target_path = value.pop(_HYDRA_TARGET_KEY, None)
         if target_path is not None:
+            # Swap the field's concrete type via Hydra; nested ``_target_`` in ``value`` is resolved by instantiate.
             expected_type = _field_annotation(type(target_obj), key)
             target_cls = _validated_target_class(target_path, expected_type, path=child_path)
             _validate_nested_targets(target_cls, value, path=child_path)
@@ -80,6 +106,7 @@ def _materialize_targets(target_obj: Any, values: dict[str, Any], *, path: str) 
                 raise ValueError(f"Could not instantiate {target_path!r} at '{child_path}': {exc}") from exc
             assert isinstance(child_obj, target_cls)
             setattr(target_obj, key, child_obj)
+            # Payload was merged into the instance; set to empty to avoid ``from_dict`` see the unconsumed YAML payload again.
             value.clear()
             continue
 
@@ -87,12 +114,13 @@ def _materialize_targets(target_obj: Any, values: dict[str, Any], *, path: str) 
             assert (
                 child_obj is not None
             ), f"Override '{child_path}' targets None; add {_HYDRA_TARGET_KEY!r} to select a concrete config class"
+            # Same concrete type: recurse into the existing nested config without ``_target_``.
             _materialize_targets(child_obj, value, path=child_path)
 
 
 def _validate_nested_targets(target_cls: type, values: dict[str, Any], *, path: str) -> None:
     """Validate nested Hydra targets before recursively instantiating a config tree."""
-    field_names = _dataclass_field_names(target_cls)
+    field_names = {field.name for field in dataclasses.fields(target_cls)}
     for key, value in values.items():
         child_path = f"{path}.{key}"
         assert key in field_names, f"Unknown config field '{child_path}'"
@@ -110,7 +138,11 @@ def _validate_nested_targets(target_cls: type, values: dict[str, Any], *, path: 
             annotation,
             path=child_path,
         )
-        _validate_nested_targets(nested_cls, _override_payload(value), path=child_path)
+        _validate_nested_targets(
+            nested_cls,
+            {key: item for key, item in value.items() if key != _HYDRA_TARGET_KEY},
+            path=child_path,
+        )
 
 
 def _validated_target_class(target_path: Any, expected_type: Any, *, path: str) -> type:
@@ -175,28 +207,3 @@ def _annotation_contains_dataclass(annotation: Any) -> bool:
     if members is not None:
         return any(_annotation_contains_dataclass(member) for member in members)
     return isinstance(annotation, type) and dataclasses.is_dataclass(annotation)
-
-
-def _dataclass_field_names(owner: type) -> set[str]:
-    """Return dataclass field names for ``owner``."""
-    return {field.name for field in dataclasses.fields(owner)}
-
-
-def _override_payload(values: dict[str, Any]) -> dict[str, Any]:
-    """Return override entries excluding the Hydra class selector key."""
-    return {key: value for key, value in values.items() if key != _HYDRA_TARGET_KEY}
-
-
-def _validate_data_only(value: Any, *, path: str) -> None:
-    """Reject executable or Hydra-control values left after target construction."""
-    if isinstance(value, dict):
-        for key, item in value.items():
-            child_path = f"{path}.{key}"
-            assert key != "class_type", f"'{child_path}' is derived by Isaac Lab and cannot be overridden"
-            assert not key.startswith("_") or key == _HYDRA_TARGET_KEY, f"Unsupported Hydra control key '{child_path}'"
-            _validate_data_only(item, path=child_path)
-    elif isinstance(value, list):
-        for index, item in enumerate(value):
-            _validate_data_only(item, path=f"{path}[{index}]")
-    elif isinstance(value, str):
-        assert "${" not in value, f"OmegaConf interpolation is not allowed at '{path}'"

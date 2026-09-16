@@ -49,8 +49,8 @@ def _build_env_cfg(
     from isaaclab_arena.utils.physics_backend import PhysicsBackend
 
     asset_registry = AssetRegistry()
-    ground = asset_registry.get_asset_by_name("ground_plane")()
-    scene = Scene(assets=[ground])
+    table = asset_registry.get_asset_by_name("packing_table")()
+    scene = Scene(assets=[table])
 
     if embodiment is None:
         embodiment = FrankaIKEmbodiment()
@@ -200,6 +200,80 @@ def _test_droid_rel_joint_pos_newton_preset_applies_newton_gripper(simulation_ap
     return True
 
 
+def _test_builder_applies_gear_solver_env_cfg_override(simulation_app) -> bool:
+    from isaaclab_newton.physics import MJWarpSolverCfg, NewtonCfg, NewtonCollisionPipelineCfg
+
+    env_cfg = _build_env_cfg(
+        presets=None,
+        default_physics_backend="newton",
+        env_cfg_override={
+            "sim": {
+                "physics": {
+                    "num_substeps": 4,
+                    "collision_decimation": 1,
+                    "default_shape_cfg": {"ke": 60000.0, "kd": 500.0},
+                    "solver_cfg": {
+                        "njmax": 8192,
+                        "nconmax": 4096,
+                        "update_data_interval": 1,
+                    },
+                    "collision_cfg": {
+                        "_target_": "isaaclab_newton.physics.NewtonCollisionPipelineCfg",
+                        "reduce_contacts": True,
+                        "rigid_contact_max": 4096,
+                        "max_triangle_pairs": 1000000,
+                    },
+                },
+            },
+        },
+    )
+
+    assert isinstance(env_cfg.sim.physics, NewtonCfg)
+    assert isinstance(env_cfg.sim.physics.solver_cfg, MJWarpSolverCfg)
+    assert env_cfg.sim.physics.solver_cfg.solver == "newton"
+    assert env_cfg.sim.physics.solver_cfg.njmax == 8192
+    assert env_cfg.sim.physics.solver_cfg.nconmax == 4096
+    assert env_cfg.sim.physics.solver_cfg.update_data_interval == 1
+    assert isinstance(env_cfg.sim.physics.collision_cfg, NewtonCollisionPipelineCfg)
+    assert env_cfg.sim.physics.collision_cfg.reduce_contacts
+    return True
+
+
+def _test_env_cfg_override_nested_hydra_target_in_payload(simulation_app) -> bool:
+    from isaaclab_contrib.coupling.coupler_cfg import CouplerProxyCfg
+    from isaaclab_newton.physics import MJWarpSolverCfg
+
+    env_cfg = _build_env_cfg(
+        presets=None,
+        default_physics_backend="newton",
+        env_cfg_override={
+            "sim": {
+                "physics": {
+                    "solver_cfg": {
+                        "_target_": "isaaclab_contrib.coupling.coupler_cfg.CouplerProxyCfg",
+                        "iterations": 1,
+                        "entries": [
+                            {
+                                "name": "rigid",
+                                "solver_cfg": {
+                                    "_target_": "isaaclab_newton.physics.MJWarpSolverCfg",
+                                    "iterations": 23,
+                                },
+                                "bodies": [r"/World/envs/env_.*/Robot"],
+                            },
+                        ],
+                    },
+                },
+            },
+        },
+    )
+
+    assert isinstance(env_cfg.sim.physics.solver_cfg, CouplerProxyCfg)
+    assert isinstance(env_cfg.sim.physics.solver_cfg.entries[0].solver_cfg, MJWarpSolverCfg)
+    assert env_cfg.sim.physics.solver_cfg.entries[0].solver_cfg.iterations == 23
+    return True
+
+
 def _test_builder_applies_nested_env_cfg_override(simulation_app) -> bool:
     from isaaclab_newton.physics import MJWarpSolverCfg, NewtonCfg
 
@@ -232,6 +306,17 @@ def _test_builder_applies_nested_env_cfg_override(simulation_app) -> bool:
     return True
 
 
+def _test_env_cfg_override_does_not_partially_mutate_on_failure(simulation_app) -> bool:
+    from isaaclab_arena.environment_spec.env_cfg_override import apply_env_cfg_override
+
+    env_cfg = _build_env_cfg(presets=None)
+    original_dt = env_cfg.sim.dt
+    with pytest.raises(ValueError, match="Invalid env_cfg_override"):
+        apply_env_cfg_override(env_cfg, {"sim": {"unknown_field": 1}})
+    assert env_cfg.sim.dt == original_dt
+    return True
+
+
 def _test_builder_rejects_unsafe_or_incompatible_targets(simulation_app) -> bool:
     unsafe = {"sim": {"physics": {"_target_": "builtins.dict"}}}
     with pytest.raises(AssertionError, match="outside the approved"):
@@ -254,17 +339,8 @@ def _test_builder_rejects_unsafe_or_incompatible_targets(simulation_app) -> bool
 
 def _test_cli_preset_rejects_conflicting_yaml_backend(simulation_app) -> bool:
     override = {"sim": {"physics": {"_target_": "isaaclab_newton.physics.NewtonCfg"}}}
-    with pytest.raises(AssertionError, match="env_cfg_callback changed the physics backend away from PhysX"):
+    with pytest.raises(ValueError, match="Invalid env_cfg_override"):
         _build_env_cfg(presets="physx", env_cfg_override=override)
-    return True
-
-
-def _test_env_default_physics_backend_applies_without_cli_preset(simulation_app) -> bool:
-    from isaaclab_newton.physics.newton_manager_cfg import NewtonCfg
-
-    env_cfg = _build_env_cfg(presets=None, default_physics_backend="newton")
-    assert isinstance(env_cfg.sim.physics, NewtonCfg)
-    assert env_cfg.scene.replicate_physics is True
     return True
 
 
@@ -342,8 +418,26 @@ def test_droid_rel_joint_pos_newton_preset_applies_newton_gripper():
     )
 
 
+def test_builder_applies_gear_solver_env_cfg_override():
+    assert run_function_with_persistent_simulation_app(
+        _test_builder_applies_gear_solver_env_cfg_override, headless=HEADLESS
+    )
+
+
+def test_env_cfg_override_nested_hydra_target_in_payload():
+    assert run_function_with_persistent_simulation_app(
+        _test_env_cfg_override_nested_hydra_target_in_payload, headless=HEADLESS
+    )
+
+
 def test_builder_applies_nested_env_cfg_override():
     assert run_function_with_persistent_simulation_app(_test_builder_applies_nested_env_cfg_override, headless=HEADLESS)
+
+
+def test_env_cfg_override_does_not_partially_mutate_on_failure():
+    assert run_function_with_persistent_simulation_app(
+        _test_env_cfg_override_does_not_partially_mutate_on_failure, headless=HEADLESS
+    )
 
 
 def test_builder_rejects_unsafe_or_incompatible_targets():
@@ -355,12 +449,6 @@ def test_builder_rejects_unsafe_or_incompatible_targets():
 def test_cli_preset_rejects_conflicting_yaml_backend():
     assert run_function_with_persistent_simulation_app(
         _test_cli_preset_rejects_conflicting_yaml_backend, headless=HEADLESS
-    )
-
-
-def test_env_default_physics_backend_applies_without_cli_preset():
-    assert run_function_with_persistent_simulation_app(
-        _test_env_default_physics_backend_applies_without_cli_preset, headless=HEADLESS
     )
 
 

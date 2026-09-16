@@ -77,13 +77,6 @@ class ArenaEnvGraphSpec(BaseModel):
             return None
         return value
 
-    @field_validator("default_physics_backend", mode="before")
-    @classmethod
-    def _normalize_default_physics_backend(cls, value: Any) -> PhysicsBackend | None:
-        if value is None:
-            return None
-        return PhysicsBackend(value)
-
     @model_validator(mode="after")
     def validate(self) -> Self:
         """Check unique asset ids, cross-references, task params, and CLI overrides."""

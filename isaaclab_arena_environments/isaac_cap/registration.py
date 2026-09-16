@@ -7,7 +7,7 @@
 
 from __future__ import annotations
 
-from isaaclab_arena.assets.registries import AssetRegistry, TaskRegistry
+from isaaclab_arena.assets.registries import AssetRegistry, EnvironmentRegistry, TaskRegistry
 
 _registered = False
 # Task-package imports call back into this shared entry point.

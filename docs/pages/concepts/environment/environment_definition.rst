@@ -267,6 +267,9 @@ with no code change. Below, ``--object`` replaces that node's ``registry_name``:
 validated ``ArenaEnvGraphSpec`` out. Pydantic checks registry names, node ids,
 relation arity, and task params before the simulator sees anything.
 
+Graph specs may also declare ``default_physics_backend`` and ``env_cfg_override``;
+see :doc:`env_cfg_override` and :doc:`physics_backend_selection`.
+
 Same key, different behavior
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

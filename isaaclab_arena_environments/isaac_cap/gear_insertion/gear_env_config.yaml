@@ -10,25 +10,13 @@ env_cfg_override:
     physics:
       num_substeps: 4
       collision_decimation: 1
-      debug_mode: false
-      use_cuda_graph: true
       default_shape_cfg:
         ke: 60000.0
         kd: 500.0
       solver_cfg:
-        _target_: isaaclab_newton.physics.MJWarpSolverCfg
-        solver: newton
-        integrator: implicitfast
         njmax: 8192
         nconmax: 4096
-        impratio: 10.0
-        cone: elliptic
         update_data_interval: 1
-        iterations: 100
-        ls_iterations: 15
-        ls_parallel: false
-        use_mujoco_contacts: false
-        ccd_iterations: 15000
       collision_cfg:
         _target_: isaaclab_newton.physics.NewtonCollisionPipelineCfg
         reduce_contacts: true

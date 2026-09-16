@@ -54,6 +54,7 @@ The pages below cover how you define an environment, how it is built, and physic
   Isaac Lab ``ManagerBasedRLEnv``.
 - :doc:`physics_backend_selection` — PhysX vs Newton, ``--presets``,
   and ``default_physics_backend``.
+- :doc:`env_cfg_override` — graph YAML ``env_cfg_override`` and Hydra ``_target_`` rules.
 
 The individual components are covered in :doc:`../scene/index`,
 :doc:`../embodiment/index`, and :doc:`../task/index`.
@@ -64,3 +65,4 @@ The individual components are covered in :doc:`../scene/index`,
    environment_definition
    env_builder
    physics_backend_selection
+   env_cfg_override
