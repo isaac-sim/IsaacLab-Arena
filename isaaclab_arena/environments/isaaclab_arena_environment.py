@@ -35,7 +35,7 @@ class IsaacLabArenaEnvironment:
         rl_policy_cfg: str | None = None,
         episode_recorder_terms: dict[str, EpisodeRecorderTermCfg] | None = None,
         placer_params: ObjectPlacerParams | None = None,
-        physics_backend: PhysicsBackend = PhysicsBackend.PHYSX,
+        default_physics_backend: PhysicsBackend = PhysicsBackend.PHYSX,
     ):
         """
         Args:
@@ -58,7 +58,7 @@ class IsaacLabArenaEnvironment:
                 built-in ones, keyed by name.
             placer_params: Object placement configuration. When None, default
                 ObjectPlacerParams are used.
-            physics_backend: Default physics backend when ``--presets`` is omitted.
+            default_physics_backend: Default physics backend when ``--presets`` is omitted.
         """
         self.name = name
         self.scene = scene
@@ -72,4 +72,4 @@ class IsaacLabArenaEnvironment:
         self.rl_policy_cfg = rl_policy_cfg
         self.episode_recorder_terms = episode_recorder_terms or {}
         self.placer_params = placer_params
-        self.physics_backend = physics_backend
+        self.default_physics_backend = default_physics_backend

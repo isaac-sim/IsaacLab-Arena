@@ -77,7 +77,7 @@ class DexsuiteLiftEnvironment(ArenaEnvironmentFactory[DexsuiteLiftEnvironmentCfg
             teleop_device=None,
             rl_framework_entry_point="rsl_rl_cfg_entry_point",
             rl_policy_cfg=dexsuite_rl_cfg_entry,
-            physics_backend=PhysicsBackend.NEWTON,
+            default_physics_backend=PhysicsBackend.NEWTON,
             # 50 Hz control, the rate the RL policies for this task were trained at.
             env_cfg_callback=set_control_rate_50hz,
         )

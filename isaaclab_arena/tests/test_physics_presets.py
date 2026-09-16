@@ -76,6 +76,18 @@ def _test_assembly_callback_rejects_newton_preset(simulation_app) -> bool:
     return True
 
 
+def _test_env_cfg_callback_cannot_swap_physx_for_newton(simulation_app) -> bool:
+    from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import ArenaPhysicsCfg
+
+    def _swap_to_newton(env_cfg):
+        env_cfg.sim.physics = ArenaPhysicsCfg().newton
+        return env_cfg
+
+    with pytest.raises(AssertionError, match="env_cfg_callback changed the physics backend away from PhysX"):
+        _build_env_cfg(presets="physx", env_cfg_callback=_swap_to_newton)
+    return True
+
+
 def _test_droid_diff_ik_physx_preset_keeps_default_spawn(simulation_app) -> bool:
     from isaaclab_physx.physics import PhysxCfg
 
@@ -155,6 +167,12 @@ def test_builder_preset(presets, expected_backend, replicate_physics):
 
 def test_assembly_callback_rejects_newton_preset():
     assert run_function_with_persistent_simulation_app(_test_assembly_callback_rejects_newton_preset, headless=HEADLESS)
+
+
+def test_env_cfg_callback_cannot_swap_physx_for_newton():
+    assert run_function_with_persistent_simulation_app(
+        _test_env_cfg_callback_cannot_swap_physx_for_newton, headless=HEADLESS
+    )
 
 
 def test_droid_diff_ik_physx_preset_keeps_default_spawn():

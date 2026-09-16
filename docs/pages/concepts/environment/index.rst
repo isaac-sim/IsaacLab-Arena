@@ -31,7 +31,7 @@ In code, this looks like:
        scene=scene,
        task=task,
        teleop_device=teleop_device,  # optional
-       physics_backend=PhysicsBackend.PHYSX,  # default; use NEWTON when required
+       default_physics_backend=PhysicsBackend.PHYSX,  # default; use NEWTON when required
    )
 
    env = ArenaEnvBuilder(environment, ArenaEnvBuilderCfg()).make_registered()
@@ -52,6 +52,8 @@ The two pages below cover how you define an environment, and how it is built:
   or YAML.
 - :doc:`env_builder` — how ``ArenaEnvBuilder`` compiles a specification into an
   Isaac Lab ``ManagerBasedRLEnv``.
+- :doc:`../environments/physics_backend_selection` — PhysX vs Newton, ``--presets``,
+  and ``default_physics_backend``.
 
 The individual components are covered in :doc:`../scene/index`,
 :doc:`../embodiment/index`, and :doc:`../task/index`.

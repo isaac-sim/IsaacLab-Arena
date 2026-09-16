@@ -94,7 +94,7 @@ class GearInsertionNewtonEnvironment(ArenaEnvironmentFactory[GearInsertionNewton
             if cfg.episode_length_s <= 0:
                 raise ValueError("episode_length_s must be positive")
             arena_env.task.episode_length_s = cfg.episode_length_s
-        arena_env.physics_backend = PhysicsBackend.NEWTON
+        arena_env.default_physics_backend = PhysicsBackend.NEWTON
         arena_env.env_cfg_callback = partial(
             _configure_gear_insertion_physics,
             replicate_physics=cfg.replicate_physics,

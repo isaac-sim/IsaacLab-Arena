@@ -15,6 +15,8 @@ from isaaclab.envs.manager_based_env import ManagerBasedEnv
 from isaaclab.managers import EventTermCfg
 from isaaclab.managers.recorder_manager import RecorderManagerBaseCfg
 from isaaclab.scene import InteractiveSceneCfg
+from isaaclab_newton.physics import NewtonCfg
+from isaaclab_physx.physics import PhysxCfg
 from isaaclab_tasks.utils import parse_env_cfg
 from isaaclab_teleop import IsaacTeleopCfg
 
@@ -24,14 +26,10 @@ from isaaclab_arena.embodiments.no_embodiment import NoEmbodiment
 from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
 from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
 from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import (
+    ArenaPhysicsCfg,
     IsaacArenaManagerBasedMimicEnvCfg,
     IsaacLabArenaManagerBasedRLEnvCfg,
     apply_arena_global_settings,
-)
-from isaaclab_arena.environments.physics_backend_resolution import (
-    assert_same_physics_backend,
-    backend_type_from_sim_cfg,
-    resolve_physics_backend,
 )
 from isaaclab_arena.environments.relation_solver_interface import solve_and_apply_relation_placement
 from isaaclab_arena.metrics.metric_base import MetricBase
@@ -238,9 +236,8 @@ class ArenaEnvBuilder:
         # Apply build-time variations now, before scene_cfg is materialised.
         self._apply_build_time_variations()
 
-        resolved_physics_backend = resolve_physics_backend(
-            cli_presets=self.cfg.presets,
-            env_physics_backend=self.arena_env.physics_backend,
+        resolved_physics_backend = (
+            self.cfg.presets if self.cfg.presets is not None else self.arena_env.default_physics_backend
         )
 
         # Constructing the environment by combining inputs from the scene, embodiment, and task.
@@ -431,20 +428,23 @@ class ArenaEnvBuilder:
         # Set seed for Isaac Lab env.
         env_cfg.seed = self.cfg.seed
 
-        from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import ArenaPhysicsCfg
-
-        env_cfg.sim.physics = getattr(ArenaPhysicsCfg(), resolved_physics_backend.value)
-        if resolved_physics_backend is PhysicsBackend.NEWTON:
+        arena_physics = ArenaPhysicsCfg()
+        if resolved_physics_backend is PhysicsBackend.PHYSX:
+            env_cfg.sim.physics = arena_physics.physx
+        elif resolved_physics_backend is PhysicsBackend.NEWTON:
+            env_cfg.sim.physics = arena_physics.newton
             env_cfg.scene.replicate_physics = True
 
-        backend_before_callback = backend_type_from_sim_cfg(env_cfg.sim)
         if self.arena_env.env_cfg_callback is not None:
             env_cfg = self.arena_env.env_cfg_callback(env_cfg)
-            assert_same_physics_backend(
-                backend_before_callback,
-                backend_type_from_sim_cfg(env_cfg.sim),
-                context="env_cfg_callback",
-            )
+            if resolved_physics_backend is PhysicsBackend.PHYSX:
+                assert isinstance(
+                    env_cfg.sim.physics, PhysxCfg
+                ), "env_cfg_callback changed the physics backend away from PhysX."
+            elif resolved_physics_backend is PhysicsBackend.NEWTON:
+                assert isinstance(
+                    env_cfg.sim.physics, NewtonCfg
+                ), "env_cfg_callback changed the physics backend away from Newton."
 
         env_kwargs: dict[str, Any] = {"variation_recorder": variation_recorder}
         return env_cfg, env_kwargs

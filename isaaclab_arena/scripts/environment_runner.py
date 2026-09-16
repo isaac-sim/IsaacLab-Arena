@@ -100,6 +100,14 @@ def _create_interactive_environment(
 ) -> gym.Env:
     """Create an Arena environment configured for interactive manipulation."""
     arena_builder = get_arena_builder_from_cli(args_cli, hydra_overrides=hydra_overrides)
+    resolved_physics_backend = (
+        arena_builder.cfg.presets
+        if arena_builder.cfg.presets is not None
+        else arena_builder.arena_env.default_physics_backend
+    )
+    assert (
+        resolved_physics_backend is not PhysicsBackend.NEWTON
+    ), "environment_runner mouse interaction currently requires PhysX"
     env_cfg, env_kwargs = arena_builder.compose_manager_cfg()
     # Enable mouse picking without recording the interactive session.
     env_cfg.sim.enable_scene_query_support = True
