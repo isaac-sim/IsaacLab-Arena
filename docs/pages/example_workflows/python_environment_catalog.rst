@@ -492,7 +492,7 @@ position. Featured in the
    * - **Training Method**
      - Pre-trained in Isaac Lab via ``KukaAllegroPPORunnerCfg`` (RSL-RL PPO)
    * - **Physics Backend**
-     - PhysX (default) or Newton (``--presets newton``)
+     - Newton (default) or PhysX (``--presets physx``)
    * - **CLI Args**
      - *(none environment-specific; uses common ``ArenaEnvBuilder`` flags)*
 

@@ -13,8 +13,8 @@ Once inside the container, set the models directory:
    mkdir -p $MODELS_DIR
 
 This step evaluates a checkpoint using Arena's ``dexsuite_lift`` environment.
-Pass ``--presets newton`` to use Newton physics (recommended when the checkpoint
-was trained with Newton).
+It uses Newton physics by default, matching the backend used to train the
+provided checkpoint.
 
 .. dropdown:: Download Pre-trained Model (skip training)
    :animate: fade-in
@@ -46,7 +46,6 @@ Single Environment Evaluation
 
    python isaaclab_arena/evaluation/policy_runner.py \
      --viz newton \
-     --presets newton \
      --policy_type rsl_rl \
      --num_steps 800 \
      --checkpoint_path $MODELS_DIR/model_14999.pt \
@@ -72,6 +71,7 @@ At the end of the run, metrics are printed to the console:
 
       python isaaclab_arena/evaluation/policy_runner.py \
         --viz kit \
+        --presets physx \
         --policy_type rsl_rl \
         --num_steps 800 \
         --checkpoint_path $MODELS_DIR/model_14999.pt \
@@ -91,7 +91,6 @@ For statistically significant results, run across many environments in parallel:
 .. code-block:: bash
 
    python isaaclab_arena/evaluation/policy_runner.py \
-     --presets newton \
      --policy_type rsl_rl \
      --num_steps 5000 \
      --num_envs 64 \
@@ -151,7 +150,7 @@ Create a file ``eval_config.json``:
 
 .. code-block:: bash
 
-   python isaaclab_arena/evaluation/experiment_runner.py --presets newton --eval_jobs_config eval_config.json
+   python isaaclab_arena/evaluation/experiment_runner.py --eval_jobs_config eval_config.json
 
 
 Understanding the Metrics

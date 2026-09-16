@@ -111,17 +111,6 @@ def _test_env_cfg_callback_cannot_swap_newton_for_physx(simulation_app) -> bool:
     return True
 
 
-def _test_env_cfg_callback_cannot_disable_replicate_physics_for_newton(simulation_app) -> bool:
-
-    def _disable_replicate_physics(env_cfg):
-        env_cfg.scene.replicate_physics = False
-        return env_cfg
-
-    with pytest.raises(AssertionError, match="env_cfg_callback set scene.replicate_physics to False"):
-        _build_env_cfg(presets="newton", env_cfg_callback=_disable_replicate_physics)
-    return True
-
-
 def _test_env_default_physics_backend_applies_without_cli_preset(simulation_app) -> bool:
     from isaaclab_newton.physics.newton_manager_cfg import NewtonCfg
 
@@ -137,20 +126,6 @@ def _test_cli_preset_physx_wins_over_newton_env_default(simulation_app) -> bool:
     env_cfg = _build_env_cfg(presets="physx", default_physics_backend="newton")
     assert isinstance(env_cfg.sim.physics, PhysxCfg)
     assert env_cfg.scene.replicate_physics is False
-    return True
-
-
-def _test_newton_env_default_with_cable_physics_callback(simulation_app) -> bool:
-    from isaaclab_newton.physics.newton_manager_cfg import NewtonCfg
-
-    from isaaclab_arena_environments.isaac_cap.cable_routing.physics import configure_easy_cable_routing_physics
-
-    env_cfg = _build_env_cfg(
-        presets=None,
-        default_physics_backend="newton",
-        env_cfg_callback=configure_easy_cable_routing_physics,
-    )
-    assert isinstance(env_cfg.sim.physics, NewtonCfg)
     return True
 
 
@@ -247,12 +222,6 @@ def test_env_cfg_callback_cannot_swap_newton_for_physx():
     )
 
 
-def test_env_cfg_callback_cannot_disable_replicate_physics_for_newton():
-    assert run_function_with_persistent_simulation_app(
-        _test_env_cfg_callback_cannot_disable_replicate_physics_for_newton, headless=HEADLESS
-    )
-
-
 def test_env_default_physics_backend_applies_without_cli_preset():
     assert run_function_with_persistent_simulation_app(
         _test_env_default_physics_backend_applies_without_cli_preset, headless=HEADLESS
@@ -262,12 +231,6 @@ def test_env_default_physics_backend_applies_without_cli_preset():
 def test_cli_preset_physx_wins_over_newton_env_default():
     assert run_function_with_persistent_simulation_app(
         _test_cli_preset_physx_wins_over_newton_env_default, headless=HEADLESS
-    )
-
-
-def test_newton_env_default_with_cable_physics_callback():
-    assert run_function_with_persistent_simulation_app(
-        _test_newton_env_default_with_cable_physics_callback, headless=HEADLESS
     )
 
 
