@@ -29,7 +29,12 @@ def _test_arena_physics_cfg_presets(simulation_app) -> bool:
     return True
 
 
-def _build_env_cfg(presets: str | None, embodiment=None, env_cfg_callback=None):
+def _build_env_cfg(
+    presets: str | None,
+    embodiment=None,
+    env_cfg_callback=None,
+    default_physics_backend=None,
+):
     """Build a real env cfg through ArenaEnvBuilder.compose_manager_cfg with the given preset."""
     from isaaclab_arena.assets.registries import AssetRegistry
     from isaaclab_arena.embodiments.franka.franka import FrankaIKEmbodiment
@@ -37,6 +42,7 @@ def _build_env_cfg(presets: str | None, embodiment=None, env_cfg_callback=None):
     from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.scene.scene import Scene
+    from isaaclab_arena.utils.physics_backend import PhysicsBackend
 
     asset_registry = AssetRegistry()
     table = asset_registry.get_asset_by_name("packing_table")()
@@ -45,11 +51,16 @@ def _build_env_cfg(presets: str | None, embodiment=None, env_cfg_callback=None):
     if embodiment is None:
         embodiment = FrankaIKEmbodiment()
 
+    env_init_kwargs = {}
+    if default_physics_backend is not None:
+        env_init_kwargs["default_physics_backend"] = PhysicsBackend(default_physics_backend)
+
     arena_env = IsaacLabArenaEnvironment(
         name="test_physics_preset",
         embodiment=embodiment,
         scene=scene,
         env_cfg_callback=env_cfg_callback,
+        **env_init_kwargs,
     )
 
     builder = ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg(num_envs=1, presets=presets))
@@ -57,16 +68,13 @@ def _build_env_cfg(presets: str | None, embodiment=None, env_cfg_callback=None):
     return env_cfg
 
 
-def _test_builder_preset(simulation_app, presets: str | None, expected_backend: str | None, replicate_physics: bool):
+def _test_builder_preset(simulation_app, presets: str | None, expected_backend: str, replicate_physics: bool):
     from isaaclab_newton.physics.newton_manager_cfg import NewtonCfg
     from isaaclab_physx.physics import PhysxCfg
 
     env_cfg = _build_env_cfg(presets=presets)
-    expected_type = {"physx": PhysxCfg, "newton": NewtonCfg}.get(expected_backend)
-    if expected_type is None:
-        assert env_cfg.sim.physics is None
-    else:
-        assert isinstance(env_cfg.sim.physics, expected_type)
+    expected_type = {"physx": PhysxCfg, "newton": NewtonCfg}[expected_backend]
+    assert isinstance(env_cfg.sim.physics, expected_type)
     assert env_cfg.scene.replicate_physics is replicate_physics
     return True
 
@@ -76,6 +84,48 @@ def _test_assembly_callback_rejects_newton_preset(simulation_app) -> bool:
 
     with pytest.raises(AssertionError, match="Assembly environments require PhysX"):
         _build_env_cfg(presets="newton", env_cfg_callback=assembly_env_cfg_callback)
+    return True
+
+
+def _test_env_cfg_callback_cannot_swap_physx_for_newton(simulation_app) -> bool:
+    from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import ArenaPhysicsCfg
+
+    def _swap_to_newton(env_cfg):
+        env_cfg.sim.physics = ArenaPhysicsCfg().newton
+        return env_cfg
+
+    with pytest.raises(AssertionError, match="env_cfg_callback changed the physics backend away from PhysX"):
+        _build_env_cfg(presets="physx", env_cfg_callback=_swap_to_newton)
+    return True
+
+
+def _test_env_cfg_callback_cannot_swap_newton_for_physx(simulation_app) -> bool:
+    from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import ArenaPhysicsCfg
+
+    def _swap_to_physx(env_cfg):
+        env_cfg.sim.physics = ArenaPhysicsCfg().physx
+        return env_cfg
+
+    with pytest.raises(AssertionError, match="env_cfg_callback changed the physics backend away from Newton"):
+        _build_env_cfg(presets="newton", env_cfg_callback=_swap_to_physx)
+    return True
+
+
+def _test_env_default_physics_backend_applies_without_cli_preset(simulation_app) -> bool:
+    from isaaclab_newton.physics.newton_manager_cfg import NewtonCfg
+
+    env_cfg = _build_env_cfg(presets=None, default_physics_backend="newton")
+    assert isinstance(env_cfg.sim.physics, NewtonCfg)
+    assert env_cfg.scene.replicate_physics is True
+    return True
+
+
+def _test_cli_preset_physx_wins_over_newton_env_default(simulation_app) -> bool:
+    from isaaclab_physx.physics import PhysxCfg
+
+    env_cfg = _build_env_cfg(presets="physx", default_physics_backend="newton")
+    assert isinstance(env_cfg.sim.physics, PhysxCfg)
+    assert env_cfg.scene.replicate_physics is False
     return True
 
 
@@ -141,7 +191,7 @@ def test_arena_physics_cfg_presets():
 @pytest.mark.parametrize(
     ("presets", "expected_backend", "replicate_physics"),
     [
-        (None, None, False),
+        (None, "physx", False),
         ("physx", "physx", False),
         ("newton", "newton", True),
     ],
@@ -158,6 +208,30 @@ def test_builder_preset(presets, expected_backend, replicate_physics):
 
 def test_assembly_callback_rejects_newton_preset():
     assert run_function_with_persistent_simulation_app(_test_assembly_callback_rejects_newton_preset, headless=HEADLESS)
+
+
+def test_env_cfg_callback_cannot_swap_physx_for_newton():
+    assert run_function_with_persistent_simulation_app(
+        _test_env_cfg_callback_cannot_swap_physx_for_newton, headless=HEADLESS
+    )
+
+
+def test_env_cfg_callback_cannot_swap_newton_for_physx():
+    assert run_function_with_persistent_simulation_app(
+        _test_env_cfg_callback_cannot_swap_newton_for_physx, headless=HEADLESS
+    )
+
+
+def test_env_default_physics_backend_applies_without_cli_preset():
+    assert run_function_with_persistent_simulation_app(
+        _test_env_default_physics_backend_applies_without_cli_preset, headless=HEADLESS
+    )
+
+
+def test_cli_preset_physx_wins_over_newton_env_default():
+    assert run_function_with_persistent_simulation_app(
+        _test_cli_preset_physx_wins_over_newton_env_default, headless=HEADLESS
+    )
 
 
 def test_droid_diff_ik_physx_preset_keeps_default_spawn():

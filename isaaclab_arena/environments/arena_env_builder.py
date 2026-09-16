@@ -15,6 +15,8 @@ from isaaclab.envs.manager_based_env import ManagerBasedEnv
 from isaaclab.managers import EventTermCfg
 from isaaclab.managers.recorder_manager import RecorderManagerBaseCfg
 from isaaclab.scene import InteractiveSceneCfg
+from isaaclab_newton.physics import NewtonCfg
+from isaaclab_physx.physics import PhysxCfg
 from isaaclab_tasks.utils import parse_env_cfg
 from isaaclab_teleop import IsaacTeleopCfg
 
@@ -24,6 +26,7 @@ from isaaclab_arena.embodiments.no_embodiment import NoEmbodiment
 from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
 from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
 from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import (
+    ArenaPhysicsCfg,
     IsaacArenaManagerBasedMimicEnvCfg,
     IsaacLabArenaManagerBasedRLEnvCfg,
     apply_arena_global_settings,
@@ -71,6 +74,11 @@ class ArenaEnvBuilder:
             num_envs=cfg.num_envs, env_spacing=cfg.env_spacing, replicate_physics=False
         )
         self._placement_event_cfg: EventTermCfg | None = None
+
+    @property
+    def resolved_physics_backend(self) -> PhysicsBackend:
+        """Return the physics backend selected for this build (CLI preset or environment default)."""
+        return self.cfg.presets if self.cfg.presets is not None else self.arena_env.default_physics_backend
 
     def _solve_relations(self) -> None:
         """Solve spatial relations for scene objects and the embodiment.
@@ -233,9 +241,11 @@ class ArenaEnvBuilder:
         # Apply build-time variations now, before scene_cfg is materialised.
         self._apply_build_time_variations()
 
+        resolved_physics_backend = self.resolved_physics_backend
+
         # Constructing the environment by combining inputs from the scene, embodiment, and task.
         embodiment = self.arena_env.embodiment or NoEmbodiment()
-        embodiment.configure_physics_backend(self.cfg.presets)
+        embodiment.configure_physics_backend(resolved_physics_backend)
         task = self.arena_env.task or NoTask()
         scene_cfg = combine_configclass_instances(
             "SceneCfg",
@@ -421,25 +431,25 @@ class ArenaEnvBuilder:
         # Set seed for Isaac Lab env.
         env_cfg.seed = self.cfg.seed
 
-        # Apply the requested physics backend before the callback so env-specific overrides can
-        # tune the selected preset. Callbacks that require a specific backend must validate the
-        # selected physics config before replacing or modifying it.
-        presets = self.cfg.presets
-        if presets is not None:
-            from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import ArenaPhysicsCfg
+        arena_physics = ArenaPhysicsCfg()
+        if resolved_physics_backend is PhysicsBackend.PHYSX:
+            env_cfg.sim.physics = arena_physics.physx
+        elif resolved_physics_backend is PhysicsBackend.NEWTON:
+            env_cfg.sim.physics = arena_physics.newton
+            # replicate_physics=False is not supported for Newton, so force it to True here.
+            # submodules/IsaacLab/source/isaaclab/isaaclab/scene/interactive_scene_cfg.py:120
+            env_cfg.scene.replicate_physics = True
 
-            env_cfg.sim.physics = getattr(ArenaPhysicsCfg(), presets.value)
-
-            # Set replicate_physics for shared physics representations.
-            # For Newton, without this flag, the simulation initialization
-            # takes a very long time for large number of parallel environments.
-            if presets is PhysicsBackend.NEWTON:
-                env_cfg.scene.replicate_physics = True
-
-        # Apply the environment configuration callback if it is set
-        # This can be used to modify the simulation configuration, etc.
         if self.arena_env.env_cfg_callback is not None:
             env_cfg = self.arena_env.env_cfg_callback(env_cfg)
+            if resolved_physics_backend is PhysicsBackend.PHYSX:
+                assert isinstance(
+                    env_cfg.sim.physics, PhysxCfg
+                ), "env_cfg_callback changed the physics backend away from PhysX."
+            elif resolved_physics_backend is PhysicsBackend.NEWTON:
+                assert isinstance(
+                    env_cfg.sim.physics, NewtonCfg
+                ), "env_cfg_callback changed the physics backend away from Newton."
 
         env_kwargs: dict[str, Any] = {"variation_recorder": variation_recorder}
         return env_cfg, env_kwargs

@@ -53,6 +53,9 @@ Every asset has an object type that determines how it is simulated:
 - **ARTICULATION** — a multi-body object with joints (robots, doors, drawers, appliances).
 - **BASE** — no physics; used for static backgrounds and markers.
 
+Deformable and backend-specific spawn configs must match the environment's resolved physics
+backend (PhysX or Newton). See :doc:`../environment/physics_backend_selection`.
+
 Backgrounds
 -----------
 

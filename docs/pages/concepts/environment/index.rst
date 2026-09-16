@@ -31,6 +31,7 @@ In code, this looks like:
        scene=scene,
        task=task,
        teleop_device=teleop_device,  # optional
+       default_physics_backend=PhysicsBackend.PHYSX,  # default; use NEWTON when required
    )
 
    env = ArenaEnvBuilder(environment, ArenaEnvBuilderCfg()).make_registered()
@@ -45,12 +46,14 @@ for a G1, or the kitchen for a warehouse, with no changes to the task.
 This moves us from a library of monolithic environment descriptions to a library
 of environment *parts*.
 
-The two pages below cover how you define an environment, and how it is built:
+The pages below cover how you define an environment, how it is built, and physics backend selection:
 
 - :doc:`environment_definition` — the two ways to define an environment, Python
   or YAML.
 - :doc:`env_builder` — how ``ArenaEnvBuilder`` compiles a specification into an
   Isaac Lab ``ManagerBasedRLEnv``.
+- :doc:`physics_backend_selection` — PhysX vs Newton, ``--presets``,
+  and ``default_physics_backend``.
 
 The individual components are covered in :doc:`../scene/index`,
 :doc:`../embodiment/index`, and :doc:`../task/index`.
@@ -60,3 +63,4 @@ The individual components are covered in :doc:`../scene/index`,
 
    environment_definition
    env_builder
+   physics_backend_selection

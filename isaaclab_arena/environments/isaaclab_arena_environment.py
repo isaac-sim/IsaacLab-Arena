@@ -8,6 +8,8 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
+from isaaclab_arena.utils.physics_backend import PhysicsBackend
+
 if TYPE_CHECKING:
     from isaaclab_arena.assets.teleop_device_base import TeleopDeviceBase
     from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
@@ -33,6 +35,7 @@ class IsaacLabArenaEnvironment:
         rl_policy_cfg: str | None = None,
         episode_recorder_terms: dict[str, EpisodeRecorderTermCfg] | None = None,
         placer_params: ObjectPlacerParams | None = None,
+        default_physics_backend: PhysicsBackend = PhysicsBackend.PHYSX,
     ):
         """
         Args:
@@ -41,8 +44,8 @@ class IsaacLabArenaEnvironment:
             embodiment: The embodiment to use in the environment.
             task: The task to use in the environment.
             teleop_device: The teleop device to use in the environment.
-            env_cfg_callback: A callback function that modifies the environment configuration.
-                It runs after the requested physics preset is applied.
+            env_cfg_callback: A callback that tunes the environment configuration after the
+                resolved physics backend is materialized. It must not change the backend type.
             rl_framework_entry_point: Gym kwargs key under which the RL policy config is
                 registered. This is an IsaacLab convention: each supported RL framework has a
                 fixed key that its training scripts look up via ``load_cfg_from_registry``.
@@ -55,6 +58,7 @@ class IsaacLabArenaEnvironment:
                 built-in ones, keyed by name.
             placer_params: Object placement configuration. When None, default
                 ObjectPlacerParams are used.
+            default_physics_backend: Default physics backend when ``--presets`` is omitted.
         """
         self.name = name
         self.scene = scene
@@ -68,3 +72,4 @@ class IsaacLabArenaEnvironment:
         self.rl_policy_cfg = rl_policy_cfg
         self.episode_recorder_terms = episode_recorder_terms or {}
         self.placer_params = placer_params
+        self.default_physics_backend = PhysicsBackend(default_physics_backend)

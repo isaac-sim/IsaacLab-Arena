@@ -166,7 +166,7 @@ class EmbodimentBase(PlaceableAsset):
             rotation_xyzw=tuple(float(v) for v in init_state.rot),
         )
 
-    def configure_physics_backend(self, backend: PhysicsBackend | None) -> None:
+    def configure_physics_backend(self, backend: PhysicsBackend) -> None:
         """Apply physics-backend-specific overrides before the env cfg is composed."""
         if self._configured_physics_backend == backend:
             return
@@ -174,7 +174,6 @@ class EmbodimentBase(PlaceableAsset):
             f"Embodiment '{self.name}' is already configured for physics backend "
             f"'{self._configured_physics_backend.value}' and cannot be reconfigured for '{backend}'."
         )
-        assert backend is not None
         self._configure_physics_backend(backend)
         self._configured_physics_backend = backend
 
