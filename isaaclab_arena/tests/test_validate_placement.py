@@ -8,6 +8,8 @@
 import math
 import torch
 
+import pytest
+
 from isaaclab_arena.relations.object_placer import ObjectPlacer
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_validation import PlacementCheck
@@ -158,6 +160,56 @@ def test_rotate_candidate_bboxes_encloses_marker_plus_sampled_yaw():
     # Passing only sampled_yaw (without marker) would enclose an undersized, misaligned footprint.
     sampled_only = box.get_bounding_box().rotated_around_z(sampled_yaw)
     assert not torch.allclose(rotated[box].max_point, sampled_only.max_point, atol=1e-6)
+
+
+@pytest.mark.parametrize("marker_yaw", [0.0, math.pi / 2, -2 * math.pi / 3, 0.17])
+@pytest.mark.parametrize("include_orientation", [False, True])
+def test_marker_yaw_expands_bounds_without_extra_rotation(marker_yaw, include_orientation):
+    """Marker-only rotation must enclose the offset_box even when its extra yaw is exactly zero."""
+    from isaaclab_arena.utils.yaw import yaw_from_quat_xyzw
+
+    # An elongated box makes errors in the rotated XY extents visible.
+    half_x, half_y, half_z = 0.011783, 0.075, 0.006801
+    offset_box = DummyObject(
+        "offset_box",
+        AxisAlignedBoundingBox((-half_x, -half_y, -half_z), (half_x, half_y, half_z)),
+    )
+    marker = RotateAroundSolution(yaw_rad=marker_yaw)
+    offset_box.add_relation(marker)
+    yaw = yaw_from_quat_xyzw(marker.get_rotation_xyzw())
+    orientations = {offset_box: yaw} if include_orientation else {}
+
+    rotated = ObjectPlacer._rotate_candidate_bboxes(
+        [offset_box], {offset_box: offset_box.get_bounding_box()}, [orientations]
+    )[offset_box]
+
+    expected_half = torch.tensor([[
+        abs(math.cos(marker_yaw)) * half_x + abs(math.sin(marker_yaw)) * half_y,
+        abs(math.sin(marker_yaw)) * half_x + abs(math.cos(marker_yaw)) * half_y,
+        half_z,
+    ]])
+    torch.testing.assert_close(rotated.min_point, -expected_half, atol=1e-6, rtol=0)
+    torch.testing.assert_close(rotated.max_point, expected_half, atol=1e-6, rtol=0)
+
+
+def test_marker_only_yaw_rejects_overlap_after_applying_pose():
+    """A fixed 90-degree marker must reject collisions even with no extra sampled yaw."""
+    placer = ObjectPlacer(params=ObjectPlacerParams(random_yaw_init=False))
+    a = _make_long_box("a")
+    a.add_relation(RotateAroundSolution(yaw_rad=math.pi / 2))
+    b = _make_box("b", size=0.1)
+    objects = [a, b]
+    positions = {a: (0.0, 0.0, 0.0), b: (0.0, 0.2, 0.0)}
+    orientations = placer._generate_initial_orientations(objects, set())
+    candidate_bboxes = placer._rotate_candidate_bboxes(objects, _env_bboxes(positions), [orientations])
+    placer._apply_poses([positions], set(), [orientations])
+
+    applied_bboxes = {
+        obj: obj.get_bounding_box().rotated_by_quat(obj.get_initial_pose().rotation_xyzw) for obj in objects
+    }
+    # The applied long box extends along Y and intersects b at y=0.2.
+    assert not _validate_one(placer, positions, applied_bboxes).do_all_required_validation_checks_pass()
+    assert not _validate_one(placer, positions, candidate_bboxes).do_all_required_validation_checks_pass()
 
 
 def test_enclosing_after_rotation_pitch_swaps_extents():
