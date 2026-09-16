@@ -104,10 +104,16 @@ class VariationBase(ABC):
         A build-time variation realises its whole effect here; a run-time variation leaves it a no-op.
         """
 
-    def configure_at_build_time(self) -> None:
+    def configure_at_build_time(self, fixed_sample: Any | None = None) -> None:
         """Run this variation's build-time preparation and realization, once per env build."""
         self._prepare_at_build_time()
-        self._realize_at_build_time()
+        if fixed_sample is not None:
+            assert isinstance(
+                self, BuildTimeVariationBase
+            ), f"Variation '{self.name}' received a fixed build-time sample but is not build-time."
+            self.apply_build_time_sample(fixed_sample)
+        else:
+            self._realize_at_build_time()
 
     def apply_cfg(self, cfg: VariationBaseCfg) -> None:
         """Apply new ``cfg``.
@@ -147,13 +153,18 @@ class BuildTimeVariationBase(VariationBase):
 
     Use for properties that can't change in-flight: HDR maps, USD swaps,
     spawner params baked into a config. Subclasses hold references to the
-    asset(s) they mutate and realise the effect in ``_realize_at_build_time``.
+    asset(s) they mutate and realise the effect in ``apply_build_time_sample``.
     """
 
-    @abstractmethod
     def _realize_at_build_time(self) -> None:
-        """Sample and apply this variation to its target configuration.
+        """Sample from the configured sampler and apply once per env build."""
+        self.apply_build_time_sample(self.draw_build_time_sample())
 
-        Called once per env build, while the variation is enabled.
-        """
+    @abstractmethod
+    def draw_build_time_sample(self) -> Any:
+        """Draw one build-time sample from the variation sampler."""
+
+    @abstractmethod
+    def apply_build_time_sample(self, sample: Any) -> None:
+        """Apply a build-time sample to the bound asset configuration."""
         ...

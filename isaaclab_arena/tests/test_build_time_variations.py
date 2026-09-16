@@ -39,9 +39,12 @@ class TestBuildTimeVariation(BuildTimeVariationBase):
         super().__init__(cfg=cfg if cfg is not None else TestBuildTimeVariationCfg(), name=name)
         self._asset = asset
 
-    def _realize_at_build_time(self) -> None:
+    def draw_build_time_sample(self) -> float:
         assert self.sampler is not None
-        self._asset.object_cfg.spawn.radius = float(self.sampler.sample(num_samples=1)[0, 0])
+        return float(self.sampler.sample(num_samples=1)[0, 0])
+
+    def apply_build_time_sample(self, sample: float) -> None:
+        self._asset.object_cfg.spawn.radius = float(sample)
 
 
 def get_test_environment(*, enabled: bool):

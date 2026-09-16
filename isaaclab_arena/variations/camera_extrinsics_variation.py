@@ -26,6 +26,7 @@ from isaaclab.utils.configclass import configclass
 from isaaclab.utils.math import quat_apply
 
 from isaaclab_arena.patches.camera_render_pose import CameraPoseWriter
+from isaaclab_arena.variations.condition_replay import draw_runtime_variation_sample
 from isaaclab_arena.variations.continuous_sampler import ContinuousSampler
 from isaaclab_arena.variations.uniform_sampler import UniformSamplerCfg
 from isaaclab_arena.variations.variation_base import RunTimeVariationBase, VariationBaseCfg
@@ -88,12 +89,15 @@ class CameraExtrinsicsVariation(RunTimeVariationBase):
             "call apply_cfg with a cfg that sets sampler_cfg before building the env."
         )
         event_name = f"{self.camera_name}_extrinsics_variation"
+        record_key = getattr(self, "_record_key", self.name)
         event_cfg = EventTermCfg(
             func=apply_camera_extrinsics_from_sampler,
             mode="reset",
             params={
                 "asset_cfg": SceneEntityCfg(self.camera_name),
                 "sampler": self._sampler,
+                "variation": self,
+                "variation_key": record_key,
             },
         )
         return event_name, event_cfg
@@ -153,7 +157,16 @@ class apply_camera_extrinsics_from_sampler(ManagerTermBase):
 
         # Sample a decalibration vector in the camera's ROS-style optical frame. Pass env_ids so
         # sample listeners (e.g. the variation recorder) can attribute each row to its env.
-        sample = sampler.sample(num_samples=len(env_ids), env_ids=env_ids)
+        variation = self.cfg.params["variation"]
+        variation_key = self.cfg.params["variation_key"]
+        sample = draw_runtime_variation_sample(
+            env,
+            variation_key=variation_key,
+            variation=variation,
+            env_ids=env_ids,
+            sampler=sampler,
+            num_samples=len(env_ids),
+        )
         t_C_Cnew_in_Cros = sample.to(device=self._t_parent_C_in_parent.device, dtype=self._t_parent_C_in_parent.dtype)
 
         # Isaac Lab tensors use xyzw. 180 deg about +X maps ROS optical axes to OpenGL camera axes.

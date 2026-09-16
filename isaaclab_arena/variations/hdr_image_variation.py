@@ -57,8 +57,7 @@ class HDRImageVariation(BuildTimeVariationBase):
         super().__init__(cfg=cfg if cfg is not None else HDRImageVariationCfg(), name=name)
         self._light = light
 
-    def _realize_at_build_time(self) -> None:
-        from isaaclab_arena.assets.hdr_image import HDRImage  # noqa: PLC0415
+    def draw_build_time_sample(self) -> str:
         from isaaclab_arena.assets.registries import HDRImageRegistry  # noqa: PLC0415
 
         registry = HDRImageRegistry()
@@ -74,7 +73,14 @@ class HDRImageVariation(BuildTimeVariationBase):
             assert hdr_names, "HDRImageVariation: no HDRs are registered; cannot sample."
 
         assert self.sampler is not None, "HDRImageVariation: sampler not set."
-        # Pass HDR names as the choice sampler's choices.
-        hdr_name = self.sampler.sample(num_samples=1, choices=hdr_names)[0]
-        hdr_cls: type[HDRImage] = registry.get_hdr_by_name(hdr_name)
+        return self.sampler.sample(num_samples=1, choices=hdr_names)[0]
+
+    def apply_build_time_sample(self, sample: str) -> None:
+        from isaaclab_arena.assets.hdr_image import HDRImage  # noqa: PLC0415
+        from isaaclab_arena.assets.registries import HDRImageRegistry  # noqa: PLC0415
+
+        assert isinstance(sample, str), f"HDRImageVariation expects an HDR name string; got {type(sample).__name__}"
+        registry = HDRImageRegistry()
+        assert registry.is_registered(sample), f"HDRImageVariation: HDR name '{sample}' is not registered."
+        hdr_cls: type[HDRImage] = registry.get_hdr_by_name(sample)
         self._light.add_hdr(hdr_cls())

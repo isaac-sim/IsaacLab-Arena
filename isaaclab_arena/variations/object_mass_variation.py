@@ -19,6 +19,7 @@ import warp as wp
 from isaaclab.managers import EventTermCfg, ManagerTermBase, SceneEntityCfg
 from isaaclab.utils.configclass import configclass
 
+from isaaclab_arena.variations.condition_replay import draw_runtime_variation_sample
 from isaaclab_arena.variations.continuous_sampler import ContinuousSampler
 from isaaclab_arena.variations.uniform_sampler import UniformSamplerCfg
 from isaaclab_arena.variations.variation_base import RunTimeVariationBase, VariationBaseCfg
@@ -73,6 +74,7 @@ class ObjectMassVariation(RunTimeVariationBase):
             "call apply_cfg with a cfg that sets sampler_cfg before building the env."
         )
         event_name = f"{self.asset_name}_mass_variation"
+        record_key = getattr(self, "_record_key", f"{self.asset_name}.{self.name}")
         event_cfg = EventTermCfg(
             func=ApplyObjectMassFromSampler,
             mode="reset",
@@ -80,6 +82,8 @@ class ObjectMassVariation(RunTimeVariationBase):
                 "asset_cfg": SceneEntityCfg(self.asset_name),
                 "sampler": self._sampler,
                 "recompute_inertia": self.cfg.recompute_inertia,
+                "variation": self,
+                "variation_key": record_key,
             },
         )
         return event_name, event_cfg
@@ -160,7 +164,16 @@ class ApplyObjectMassFromSampler(ManagerTermBase):
         # TODO(tstuyck, 2026-07-17): The sampler draws on CPU, so this moves the samples to the sim
         # device every reset. Make ContinuousSampler device-aware (draw directly on device) to drop
         # this transfer here and in the other variations that copy sampler output onto the device.
-        sample = sampler.sample(num_samples=len(env_ids), env_ids=env_ids)
+        variation = self.cfg.params["variation"]
+        variation_key = self.cfg.params["variation_key"]
+        sample = draw_runtime_variation_sample(
+            env,
+            variation_key=variation_key,
+            variation=variation,
+            env_ids=env_ids,
+            sampler=sampler,
+            num_samples=len(env_ids),
+        )
         masses_to_apply = sample.to(device=self._default_mass.device, dtype=self._default_mass.dtype)
         if masses_to_apply.numel() > 0:
             assert torch.all(masses_to_apply >= _MIN_PHYSICAL_MASS_KG), (

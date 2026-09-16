@@ -59,7 +59,19 @@ from isaaclab_arena.utils.isaaclab_utils.warp_patch import install_empty_cpu_war
 from isaaclab_arena.utils.multiprocess import get_local_rank
 from isaaclab_arena.utils.physics_backend import PhysicsBackend
 from isaaclab_arena.variations import variations_hydra, variations_printing
-from isaaclab_arena.variations.variation_base import RunTimeVariationBase, VariationBase
+from isaaclab_arena.variations.condition_replay import (
+    ConditionReplayState,
+    bind_variation_record_keys,
+    enabled_variation_record_keys,
+    notify_variation_sample,
+)
+from isaaclab_arena.variations.condition_scheduler import ConditionScheduler
+from isaaclab_arena.variations.episode_conditions import (
+    EpisodeConditionsOverlay,
+    load_episode_conditions_overlay,
+    validate_overlay_variation_keys,
+)
+from isaaclab_arena.variations.variation_base import BuildTimeVariationBase, RunTimeVariationBase, VariationBase
 from isaaclab_arena.variations.variation_recorder import VariationRecorder
 
 
@@ -106,6 +118,11 @@ class ArenaEnvBuilder:
     def resolved_physics_backend(self) -> PhysicsBackend:
         """Return the physics backend selected for this build (CLI preset or environment default)."""
         return self.cfg.presets if self.cfg.presets is not None else self.arena_env.default_physics_backend
+
+    def _load_condition_overlay(self) -> EpisodeConditionsOverlay | None:
+        if self.cfg.episode_conditions_path is None:
+            return None
+        return load_episode_conditions_overlay(self.cfg.episode_conditions_path)
 
     def _solve_relations(self) -> None:
         """Solve spatial relations for scene objects and the embodiment.
@@ -218,17 +235,26 @@ class ArenaEnvBuilder:
         VariationsEventCfg = make_configclass("VariationsEventCfg", fields)
         return VariationsEventCfg()
 
-    def _apply_build_time_variations(self) -> None:
+    def _apply_build_time_variations(self, build_time_overrides: dict[str, Any] | None = None) -> None:
         """Configure every enabled variation at build time before ``scene_cfg`` is materialised.
 
         These mutate asset configs in place (e.g. a dome light's spawner
         texture), so this must run before ``scene_cfg`` is materialised.
         """
-        for asset_variations in self.get_all_variations().values():
+        overrides = build_time_overrides or {}
+        for asset_name, asset_variations in self.get_all_variations().items():
             for variation in asset_variations:
                 if not variation.enabled:
                     continue
-                variation.configure_at_build_time()
+                record_key = f"{asset_name}.{variation.name}"
+                fixed_sample = overrides.get(record_key)
+                variation.configure_at_build_time(fixed_sample=fixed_sample)
+                if fixed_sample is not None and isinstance(variation, BuildTimeVariationBase):
+                    notify_variation_sample(
+                        variation,
+                        fixed_sample if isinstance(fixed_sample, list) else [fixed_sample],
+                        None,
+                    )
 
     def _modify_recorder_cfg_dataset_filename(self, recorder_cfg: RecorderManagerBaseCfg) -> RecorderManagerBaseCfg:
         """Modify the recorder dataset filename to include the timestamp and rank."""
@@ -316,13 +342,20 @@ class ArenaEnvBuilder:
             variations: dict[str, list[VariationBase]] = self.get_all_variations()
             variations_hydra.apply_overrides(variations, self.hydra_overrides)
 
+        all_variations = self.get_all_variations()
+        bind_variation_record_keys(all_variations)
+        condition_overlay = self._load_condition_overlay()
+        if condition_overlay is not None:
+            validate_overlay_variation_keys(condition_overlay, enabled_variation_record_keys(all_variations))
+
         # Attach the variation recorder before any sampling, so it observes both build-time samples
         # (drawn just below) and run-time samples (drawn during simulation).
         variation_recorder = VariationRecorder()
-        variation_recorder.attach(self.get_all_variations())
+        variation_recorder.attach(all_variations)
 
         # Apply build-time variations now, before scene_cfg is materialised.
-        self._apply_build_time_variations()
+        build_time_overrides = condition_overlay.build_time_variations if condition_overlay is not None else None
+        self._apply_build_time_variations(build_time_overrides)
 
         resolved_physics_backend = self.resolved_physics_backend
 
@@ -536,6 +569,12 @@ class ArenaEnvBuilder:
                 ), "env_cfg_callback changed the physics backend away from Newton."
 
         env_kwargs: dict[str, Any] = {"variation_recorder": variation_recorder}
+        if condition_overlay is not None:
+            env_kwargs["condition_replay"] = ConditionReplayState(
+                overlay=condition_overlay,
+                scheduler=ConditionScheduler(condition_overlay),
+                episode_results_source=str(condition_overlay.source.get("episode_results", "")) or None,
+            )
         return env_cfg, env_kwargs
 
     def get_entry_point(self) -> str | type[ManagerBasedRLMimicEnv]:

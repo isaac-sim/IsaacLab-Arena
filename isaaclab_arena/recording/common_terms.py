@@ -20,7 +20,7 @@ def record_core_episode_results(env, env_id: int) -> dict[str, Any]:
     success = None
     if "success" in env.termination_manager.active_terms:
         success = bool(env.termination_manager.get_term("success")[env_id].item())
-    return {
+    payload = {
         "env_id": env_id,
         "episode_in_env": env.get_episode_index(env_id),
         "seed": env.cfg.seed,
@@ -29,6 +29,14 @@ def record_core_episode_results(env, env_id: int) -> dict[str, Any]:
         "language_instruction": env.get_language_instruction(),
         "timestamp": datetime.datetime.now().isoformat(),
     }
+    replay = getattr(env, "condition_replay", None)
+    if replay is not None:
+        condition_id = replay.scheduler.condition_id_for_env(env_id)
+        if condition_id is not None:
+            payload["replay_condition_id"] = condition_id
+            if replay.episode_results_source:
+                payload["replay_source_episode_results"] = replay.episode_results_source
+    return payload
 
 
 def record_variation_samples(env, env_id: int) -> dict[str, Any]:

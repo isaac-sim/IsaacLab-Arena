@@ -47,7 +47,10 @@ class LightColorTemperatureVariation(BuildTimeVariationBase):
         super().__init__(cfg=cfg if cfg is not None else LightColorTemperatureVariationCfg(), name=name)
         self._light = light
 
-    def _realize_at_build_time(self) -> None:
+    def draw_build_time_sample(self) -> float:
         assert self.sampler is not None, "LightColorTemperatureVariation: sampler not set."
-        color_temperature = float(self.sampler.sample(num_samples=1)[0, 0])
+        return float(self.sampler.sample(num_samples=1)[0, 0])
+
+    def apply_build_time_sample(self, sample: float | int | list[float]) -> None:
+        color_temperature = float(sample[0] if isinstance(sample, list) else sample)
         self._light.set_color_temperature(color_temperature)

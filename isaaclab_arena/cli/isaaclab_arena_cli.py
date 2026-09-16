@@ -125,6 +125,12 @@ def add_isaaclab_arena_cli_args(parser: argparse.ArgumentParser) -> None:
         default=False,
         help="Print Hydra-configurable variations for the selected environment and exit.",
     )
+    arena_group.add_argument(
+        "--episode_conditions_path",
+        type=str,
+        default=None,
+        help="Replay recorded variation conditions from a YAML overlay (one condition per episode).",
+    )
 
 
 def add_env_graph_spec_cli_args(parser: argparse.ArgumentParser) -> None:

@@ -12,7 +12,11 @@ from importlib import import_module
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.assets.registries import PolicyRegistry
-from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
+from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
+from isaaclab_arena.evaluation.episode_conditions_rollout import (
+    assert_replay_compatible_policy_runner_limits,
+    replay_episode_count,
+)
 from isaaclab_arena.evaluation.policy_runner_cli import (
     add_policy_cli_args,
     add_policy_runner_arguments,
@@ -223,8 +227,23 @@ def main():
         # Create the policy through the typed config compatibility adapter.
         policy = build_policy_from_cli(policy_cls, args_cli)
 
+        builder_cfg = arena_env_builder_cfg_from_argparse(args_cli)
+        assert_replay_compatible_policy_runner_limits(
+            episode_conditions_path=builder_cfg.episode_conditions_path,
+            num_steps=args_cli.num_steps,
+            num_episodes=args_cli.num_episodes,
+        )
+        replay_episodes = replay_episode_count(builder_cfg)
+
         # Simulation length.
-        if policy.has_length():
+        if replay_episodes is not None:
+            num_steps = None
+            num_episodes = replay_episodes
+            print(
+                f"[Rank {local_rank}/{world_size}] Replaying {num_episodes} recorded conditions from"
+                f" {builder_cfg.episode_conditions_path}"
+            )
+        elif policy.has_length():
             num_steps = policy.length()
             num_episodes = None
         else:

@@ -18,6 +18,7 @@ from isaaclab.managers import EventTermCfg, ManagerTermBase, SceneEntityCfg
 from isaaclab.sensors import Camera, TiledCamera
 from isaaclab.utils.configclass import configclass
 
+from isaaclab_arena.variations.condition_replay import draw_runtime_variation_sample
 from isaaclab_arena.variations.continuous_sampler import ContinuousSampler
 from isaaclab_arena.variations.uniform_sampler import UniformSamplerCfg
 from isaaclab_arena.variations.variation_base import RunTimeVariationBase, VariationBaseCfg
@@ -89,12 +90,15 @@ class CameraIntrinsicsVariation(RunTimeVariationBase):
             "call apply_cfg with a cfg that sets sampler_cfg before building the env."
         )
         event_name = f"{self.camera_name}_intrinsics_variation"
+        record_key = getattr(self, "_record_key", self.name)
         event_cfg = EventTermCfg(
             func=apply_camera_intrinsics_from_sampler,
             mode="reset",
             params={
                 "asset_cfg": SceneEntityCfg(self.camera_name),
                 "sampler": self._sampler,
+                "variation": self,
+                "variation_key": record_key,
             },
         )
         return event_name, event_cfg
@@ -144,7 +148,16 @@ class apply_camera_intrinsics_from_sampler(ManagerTermBase):
         assert self._nominal_horizontal_aperture is not None
         assert self._nominal_vertical_aperture is not None
 
-        sample = sampler.sample(num_samples=len(env_ids), env_ids=env_ids)
+        variation = self.cfg.params["variation"]
+        variation_key = self.cfg.params["variation_key"]
+        sample = draw_runtime_variation_sample(
+            env,
+            variation_key=variation_key,
+            variation=variation,
+            env_ids=env_ids,
+            sampler=sampler,
+            num_samples=len(env_ids),
+        )
         # Apertures scale by 1 / (1 + d); deltas <= -1 would divide by zero or flip sign.
         assert bool((sample > -1.0).all()), (
             "apply_camera_intrinsics_from_sampler expects focal-length deltas > -1.0 so apertures stay "
