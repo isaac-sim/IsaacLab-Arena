@@ -70,7 +70,9 @@ That default favors per-environment physics when scenes differ across clones.
 
 When the **resolved** backend is Newton, ``compose_manager_cfg`` sets ``replicate_physics = True``
 before ``env_cfg_callback`` runs. ``replicate_physics = False`` is not supported for Newton by
-Isaac Lab.
+Isaac Lab and could lead to errors when running with ``num_envs > 1``.
+
+``env_cfg_callback`` can modify ``replicate_physics`` to False to disable replication for a specific environment.
 
 Embodiment backend hooks
 ------------------------

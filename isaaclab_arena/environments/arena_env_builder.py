@@ -450,9 +450,6 @@ class ArenaEnvBuilder:
                 assert isinstance(
                     env_cfg.sim.physics, NewtonCfg
                 ), "env_cfg_callback changed the physics backend away from Newton."
-                assert (
-                    env_cfg.scene.replicate_physics
-                ), "env_cfg_callback set scene.replicate_physics to False; Newton requires replicate_physics=True."
 
         env_kwargs: dict[str, Any] = {"variation_recorder": variation_recorder}
         return env_cfg, env_kwargs
