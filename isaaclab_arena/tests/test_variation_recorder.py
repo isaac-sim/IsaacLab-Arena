@@ -46,9 +46,12 @@ class _RecorderTestVariation(BuildTimeVariationBase):
     def __init__(self, cfg: _RecorderTestVariationCfg | None = None, name: str = "recorder_test"):
         super().__init__(cfg=cfg if cfg is not None else _RecorderTestVariationCfg(), name=name)
 
-    def _realize_at_build_time(self) -> None:
+    def draw_build_time_sample(self) -> float:
         assert self.sampler is not None
-        self.sampler.sample(num_samples=1)
+        return float(self.sampler.sample(num_samples=1)[0, 0])
+
+    def apply_build_time_sample(self, sample: float) -> None:
+        del sample
 
 
 def test_uniform_sampler_notifies_listeners():

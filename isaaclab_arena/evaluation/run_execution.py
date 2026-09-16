@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING
 from isaaclab_arena.assets.registries import EnvironmentRegistry, PolicyRegistry
 from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
 from isaaclab_arena.evaluation.arena_run import ArenaRunCfg, ArenaRunResult, RunStatus
+from isaaclab_arena.evaluation.episode_conditions_rollout import assert_replay_compatible_run_cfg, replay_episode_count
 from isaaclab_arena.evaluation.experiment_timings import write_run_timings
 from isaaclab_arena.evaluation.legacy_graph_environment_cli import (
     LegacyGraphEnvironmentCfg,
@@ -92,14 +93,19 @@ def build_and_run(
     video_cfg: VideoRecordingCfg | None = None,
 ) -> ArenaRunResult:
     """Build and execute one typed Arena run, then return its result."""
+    assert_replay_compatible_run_cfg(cfg)
     metrics_per_rebuild: list[MetricsDataCollection] = []
     output_dir = str(output_dir)
     video_cfg = video_cfg or VideoRecordingCfg(video_base_dir=output_dir)
-    episodes_per_rebuild = _split_episodes_across_rebuilds(
-        cfg.rollout_limit.num_episodes,
-        cfg.num_rebuilds,
-        cfg.name,
-    )
+    replay_episodes = replay_episode_count(cfg.environment_builder)
+    if replay_episodes is not None:
+        episodes_per_rebuild = [replay_episodes]
+    else:
+        episodes_per_rebuild = _split_episodes_across_rebuilds(
+            cfg.rollout_limit.num_episodes,
+            cfg.num_rebuilds,
+            cfg.name,
+        )
 
     for rebuild_index, num_episodes in enumerate(episodes_per_rebuild):
         env = None

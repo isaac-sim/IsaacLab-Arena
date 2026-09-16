@@ -17,6 +17,7 @@ from isaaclab_arena.metrics.metrics_manager import MetricsManager
 from isaaclab_arena.recording.arena_recorder_manager import ArenaRecorderManager
 from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderManager
 from isaaclab_arena.tasks.predicates.object_settling import ObjectInitialRestPoseRecorder
+from isaaclab_arena.variations.condition_replay import ConditionReplayState
 from isaaclab_arena.variations.variation_recorder import VariationRecorder
 
 if TYPE_CHECKING:
@@ -39,6 +40,7 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
         cfg: IsaacLabArenaManagerBasedRLEnvCfg,
         render_mode: str | None = None,
         variation_recorder: VariationRecorder | None = None,
+        condition_replay: ConditionReplayState | None = None,
         **kwargs,
     ):
         from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import apply_arena_global_settings
@@ -50,6 +52,7 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
             num_envs=cfg.scene.num_envs, device=cfg.sim.device
         )
         self._variation_recorder = variation_recorder
+        self._condition_replay = condition_replay
         if variation_recorder is not None:
             # Bind so run-time variation draws can be attributed to the current episode index.
             variation_recorder.bind_env(self)
@@ -76,6 +79,11 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
     def variation_recorder(self) -> VariationRecorder | None:
         """The recorder of variation samples, or ``None`` if the env was not built with one."""
         return self._variation_recorder
+
+    @property
+    def condition_replay(self) -> ConditionReplayState | None:
+        """Replay overlay state when ``episode_conditions_path`` was set on the builder."""
+        return self._condition_replay
 
     @property
     def object_initial_rest_pose_recorder(self) -> ObjectInitialRestPoseRecorder:
@@ -169,6 +177,10 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
                 episode_start_env_ids = finishing_env_ids
             remaining_episode_starts = self._episode_limit - self._started_episode_count
             episode_start_env_ids = episode_start_env_ids[:remaining_episode_starts]
+        if self._condition_replay is not None:
+            is_initial_reset = self._started_episode_count == 0
+            replay_env_ids = episode_start_env_ids if is_initial_reset else finishing_env_ids
+            self._condition_replay.scheduler.on_pre_reset(replay_env_ids, is_initial_reset=is_initial_reset)
         if len(episode_start_env_ids) == 0:
             return
 

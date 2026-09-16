@@ -111,7 +111,11 @@ class LightDirectionVariation(BuildTimeVariationBase):
             )
             self._dome_light.set_intensity(self.cfg.dome_intensity_when_active)
 
-    def _realize_at_build_time(self) -> None:
+    def draw_build_time_sample(self) -> tuple[float, float]:
         assert self.sampler is not None, "LightDirectionVariation: sampler not set."
         azimuth, elevation = self.sampler.sample(num_samples=1)[0].tolist()
+        return float(azimuth), float(elevation)
+
+    def apply_build_time_sample(self, sample: tuple[float, float] | list[float]) -> None:
+        azimuth, elevation = (float(sample[0]), float(sample[1])) if isinstance(sample, list) else sample
         self._light.set_orientation(quat_xyzw_from_azimuth_elevation(azimuth, elevation))
