@@ -38,6 +38,7 @@ def _build_environment(
     variant_name: str,
 ) -> IsaacLabArenaEnvironment:
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
+    from isaaclab_arena.utils.physics_backend import PhysicsBackend
 
     from ..embodiments.cable_routing import IndustrialBimanualYamEmbodiment
     from .physics import configure_cable_routing_physics, configure_easy_cable_routing_physics
@@ -83,6 +84,7 @@ def _build_environment(
         scene=built_scene.scene,
         task=task,
         env_cfg_callback=physics_callback,
+        default_physics_backend=PhysicsBackend.NEWTON,
     )
 
 

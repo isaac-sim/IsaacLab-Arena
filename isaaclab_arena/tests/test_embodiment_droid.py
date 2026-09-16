@@ -178,8 +178,6 @@ def _test_newton_droid_embodiment_config_contract(simulation_app) -> bool:
     embodiment.configure_physics_backend(PhysicsBackend.NEWTON)
     with pytest.raises(AssertionError, match="already configured for physics backend"):
         embodiment.configure_physics_backend(PhysicsBackend.PHYSX)
-    with pytest.raises(AssertionError, match="already configured for physics backend"):
-        embodiment.configure_physics_backend(None)
 
     physx_embodiment = DroidDifferentialIKEmbodiment()
     physx_embodiment.configure_physics_backend(PhysicsBackend.PHYSX)

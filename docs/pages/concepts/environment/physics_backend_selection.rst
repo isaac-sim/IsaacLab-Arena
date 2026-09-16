@@ -134,4 +134,4 @@ Pipeline
 6. ``scene.validate_simulation_cfg`` when the Gym environment is registered.
 7. ``parse_env_cfg`` for device, parallel env count, and fabric (does not change physics).
 
-See also :doc:`../environment/index` for how scene, embodiment, and task compose into an environment.
+See also :doc:`index` for how scene, embodiment, and task compose into an environment.

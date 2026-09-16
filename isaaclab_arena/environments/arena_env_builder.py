@@ -75,6 +75,11 @@ class ArenaEnvBuilder:
         )
         self._placement_event_cfg: EventTermCfg | None = None
 
+    @property
+    def resolved_physics_backend(self) -> PhysicsBackend:
+        """Return the physics backend selected for this build (CLI preset or environment default)."""
+        return self.cfg.presets if self.cfg.presets is not None else self.arena_env.default_physics_backend
+
     def _solve_relations(self) -> None:
         """Solve spatial relations for scene objects and the embodiment.
 
@@ -236,9 +241,7 @@ class ArenaEnvBuilder:
         # Apply build-time variations now, before scene_cfg is materialised.
         self._apply_build_time_variations()
 
-        resolved_physics_backend = (
-            self.cfg.presets if self.cfg.presets is not None else self.arena_env.default_physics_backend
-        )
+        resolved_physics_backend = self.resolved_physics_backend
 
         # Constructing the environment by combining inputs from the scene, embodiment, and task.
         embodiment = self.arena_env.embodiment or NoEmbodiment()

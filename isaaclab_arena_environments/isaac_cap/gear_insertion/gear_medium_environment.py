@@ -58,6 +58,7 @@ def _configure_gear_insertion_physics(
 ) -> IsaacLabArenaManagerBasedRLEnvCfg:
     """Apply task-owned Newton tuning on top of the resolved Newton backend."""
     env_cfg.sim.physics = gear_insertion_physics_cfg()
+    # Gear keeps per-env USD layouts; do not enable the builder's Newton replicate_physics default.
     env_cfg.scene.replicate_physics = replicate_physics
     return env_cfg
 
