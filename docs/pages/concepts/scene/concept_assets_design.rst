@@ -54,7 +54,7 @@ Every asset has an object type that determines how it is simulated:
 - **BASE** — no physics; used for static backgrounds and markers.
 
 Deformable and backend-specific spawn configs must match the environment's resolved physics
-backend (PhysX or Newton). See :doc:`../environments/physics_backend_selection`.
+backend (PhysX or Newton). See :doc:`../environment/physics_backend_selection`.
 
 Backgrounds
 -----------
