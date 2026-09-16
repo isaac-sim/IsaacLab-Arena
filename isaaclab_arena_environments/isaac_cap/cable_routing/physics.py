@@ -194,5 +194,4 @@ def _configure_cable_routing_physics(
         debug_mode=False,
     )
     env_cfg.decimation = 4
-    env_cfg.scene.replicate_physics = True
     return env_cfg

@@ -12,7 +12,6 @@ from __future__ import annotations
 
 from copy import deepcopy
 from dataclasses import dataclass
-from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -53,13 +52,9 @@ def gear_insertion_physics_cfg():
 
 def _configure_gear_insertion_physics(
     env_cfg: IsaacLabArenaManagerBasedRLEnvCfg,
-    *,
-    replicate_physics: bool = False,
 ) -> IsaacLabArenaManagerBasedRLEnvCfg:
     """Apply task-owned Newton tuning on top of the resolved Newton backend."""
     env_cfg.sim.physics = gear_insertion_physics_cfg()
-    # Gear keeps per-env USD layouts; do not enable the builder's Newton replicate_physics default.
-    env_cfg.scene.replicate_physics = replicate_physics
     return env_cfg
 
 
@@ -69,7 +64,6 @@ class GearInsertionNewtonEnvironmentCfg(ArenaEnvironmentCfg):
 
     enable_cameras: bool = False
     use_tiled_cameras: bool = False
-    replicate_physics: bool = False
     episode_length_s: float | None = None
 
 
@@ -96,10 +90,7 @@ class GearInsertionNewtonEnvironment(ArenaEnvironmentFactory[GearInsertionNewton
                 raise ValueError("episode_length_s must be positive")
             arena_env.task.episode_length_s = cfg.episode_length_s
         arena_env.default_physics_backend = PhysicsBackend.NEWTON
-        arena_env.env_cfg_callback = partial(
-            _configure_gear_insertion_physics,
-            replicate_physics=cfg.replicate_physics,
-        )
+        arena_env.env_cfg_callback = _configure_gear_insertion_physics
         return arena_env
 
 

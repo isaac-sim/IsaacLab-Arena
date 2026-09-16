@@ -49,7 +49,7 @@ def _build_gear_demo_environment(variant: str):
         if variant == "easy"
         else (GearInsertionNewtonEnvironment(), GearInsertionNewtonEnvironmentCfg)
     )
-    arena_environment = factory.build(cfg_type(replicate_physics=True))
+    arena_environment = factory.build(cfg_type())
 
     # The normal smoke environment intentionally retains Cap's absolute joint
     # actions. This demo alone swaps to relative Cartesian commands so the

@@ -436,6 +436,8 @@ class ArenaEnvBuilder:
             env_cfg.sim.physics = arena_physics.physx
         elif resolved_physics_backend is PhysicsBackend.NEWTON:
             env_cfg.sim.physics = arena_physics.newton
+            # replicate_physics=False is not supported for Newton, so force it to True here.
+            # submodules/IsaacLab/source/isaaclab/isaaclab/scene/interactive_scene_cfg.py:120
             env_cfg.scene.replicate_physics = True
 
         if self.arena_env.env_cfg_callback is not None:
@@ -448,6 +450,9 @@ class ArenaEnvBuilder:
                 assert isinstance(
                     env_cfg.sim.physics, NewtonCfg
                 ), "env_cfg_callback changed the physics backend away from Newton."
+                assert (
+                    env_cfg.scene.replicate_physics
+                ), "env_cfg_callback set scene.replicate_physics to False; Newton requires replicate_physics=True."
 
         env_kwargs: dict[str, Any] = {"variation_recorder": variation_recorder}
         return env_cfg, env_kwargs

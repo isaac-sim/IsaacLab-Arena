@@ -111,6 +111,17 @@ def _test_env_cfg_callback_cannot_swap_newton_for_physx(simulation_app) -> bool:
     return True
 
 
+def _test_env_cfg_callback_cannot_disable_replicate_physics_for_newton(simulation_app) -> bool:
+
+    def _disable_replicate_physics(env_cfg):
+        env_cfg.scene.replicate_physics = False
+        return env_cfg
+
+    with pytest.raises(AssertionError, match="env_cfg_callback set scene.replicate_physics to False"):
+        _build_env_cfg(presets="newton", env_cfg_callback=_disable_replicate_physics)
+    return True
+
+
 def _test_env_default_physics_backend_applies_without_cli_preset(simulation_app) -> bool:
     from isaaclab_newton.physics.newton_manager_cfg import NewtonCfg
 
@@ -233,6 +244,12 @@ def test_env_cfg_callback_cannot_swap_physx_for_newton():
 def test_env_cfg_callback_cannot_swap_newton_for_physx():
     assert run_function_with_persistent_simulation_app(
         _test_env_cfg_callback_cannot_swap_newton_for_physx, headless=HEADLESS
+    )
+
+
+def test_env_cfg_callback_cannot_disable_replicate_physics_for_newton():
+    assert run_function_with_persistent_simulation_app(
+        _test_env_cfg_callback_cannot_disable_replicate_physics_for_newton, headless=HEADLESS
     )
 
 

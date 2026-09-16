@@ -62,6 +62,16 @@ After the callback returns, the builder asserts the solver type is still consist
        elif resolved_physics_backend is PhysicsBackend.NEWTON:
            assert isinstance(env_cfg.sim.physics, NewtonCfg)
 
+Scene replication (``replicate_physics``)
+-----------------------------------------
+
+``ArenaEnvBuilder`` seeds its internal ``InteractiveSceneCfg`` with ``replicate_physics=False``.
+That default favors per-environment physics when scenes differ across clones.
+
+When the **resolved** backend is Newton, ``compose_manager_cfg`` sets ``replicate_physics = True``
+before ``env_cfg_callback`` runs. ``replicate_physics = False`` is not supported for Newton by
+Isaac Lab.
+
 Embodiment backend hooks
 ------------------------
 
