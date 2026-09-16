@@ -62,6 +62,16 @@ Most environments can be described with a small set of relations:
    support bounds. Use ``clearance_m`` to leave a vertical gap and
    ``edge_margin_m`` to keep the object away from the support edges.
 
+   Set ``overlap=True`` to allow the object to extend beyond the support:
+
+   .. code-block:: python
+
+      box.add_relation(On(table, overlap=True))
+
+   This requires overlap in both X and Y (edge contact counts), ignores
+   ``edge_margin_m``, and keeps the same height constraint. It does not guarantee
+   stable support: the object may tip or fall. The default is ``overlap=False``.
+
    ``On`` uses the top and horizontal footprint of the parent's axis-aligned
    bounding box. For L-shaped, hollow, or concave supports, anchor an
    ``ObjectReference`` that identifies the valid support surface.

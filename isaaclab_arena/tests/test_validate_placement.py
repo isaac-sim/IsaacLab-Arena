@@ -344,6 +344,55 @@ def test_on_relation_edge_margin_too_large_for_surface_rejected():
     assert _validate_box_on_desk(edge_margin_m=0.5, box_x=0.0) is False
 
 
+def test_on_relation_overlap_accepts_oversized_child_but_rejects_separation():
+    """Overlap constraints accept an oversized child only while footprints intersect."""
+    placer = ObjectPlacer(params=ObjectPlacerParams())
+    desk = _make_desk()
+    box = _make_box("large", size=1.2)
+    box.add_relation(
+        On(
+            desk,
+            clearance_m=0.0,
+            edge_margin_m=0.0,
+            overlap=True,
+        )
+    )
+    positions = {desk: (0.0, 0.0, 0.0), box: (0.0, 0.0, 0.65)}
+
+    assert OnRelationValidator(placer.params)._validate(positions, _env_bboxes(positions)) is True
+    positions[box] = (1.2, 0.0, 0.65)
+    assert OnRelationValidator(placer.params)._validate(positions, _env_bboxes(positions)) is False
+
+
+@pytest.mark.parametrize("edge_margin_m", [0.0, 0.05, 0.6])
+def test_on_relation_overlap_ignores_margin(edge_margin_m):
+    """Overlap accepts even shallow intersection on both axes, independent of the edge margin."""
+    placer = ObjectPlacer(params=ObjectPlacerParams())
+    desk = _make_desk()
+    box = _make_box("box", size=0.2)
+    box.add_relation(On(desk, clearance_m=0.0, edge_margin_m=edge_margin_m, overlap=True))
+    positions = {desk: (0.0, 0.0, 0.0), box: (0.0, 0.0, 0.15)}
+    validator = OnRelationValidator(placer.params)
+
+    for valid_pose in ((0.59, 0.0, 0.15), (0.0, -0.59, 0.15), (0.59, -0.59, 0.15)):
+        positions[box] = valid_pose
+        assert validator._validate(positions, _env_bboxes(positions)) is True
+    for invalid_pose in ((0.61, 0.0, 0.15), (0.0, -0.61, 0.15), (0.0, 0.0, 0.3), (0.0, 0.0, 0.0)):
+        positions[box] = invalid_pose
+        assert validator._validate(positions, _env_bboxes(positions)) is False
+
+
+def test_on_relation_overlap_accepts_exact_edge_contact():
+    """Touching the original support boundary counts as overlap even with a nonzero margin."""
+    placer = ObjectPlacer(params=ObjectPlacerParams())
+    desk = _make_desk()
+    box = _make_box("box", size=0.5)
+    box.add_relation(On(desk, clearance_m=0.0, overlap=True))
+    positions = {desk: (0.0, 0.0, 0.0), box: (0.75, -0.75, 0.3)}
+
+    assert OnRelationValidator(placer.params)._validate(positions, _env_bboxes(positions)) is True
+
+
 # --- NextTo validation (parent box XY in [-0.2, 0.2], child box half-extent 0.1) ---
 # Side + offset only (cross position is a soft preference, not gated).
 # Zero-loss +X placement: child x = parent_max(0.2) + distance(0.05) - child_min(-0.1) = 0.35.

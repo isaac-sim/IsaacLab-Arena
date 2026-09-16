@@ -519,7 +519,8 @@ class ObjectPlacer:
         """Compute an initial position for an object with an On relation.
 
         Places the object within the parent's X/Y footprint at the correct Z height,
-        so the solver starts from a valid region.
+        so the solver starts from a valid region. Overlap constraints extend
+        that region beyond the parent's footprint.
 
         Args:
             env_bboxes: Per-object bboxes for the current env, each with shape (1, 3).
@@ -530,18 +531,22 @@ class ObjectPlacer:
         parent_bbox = self._get_on_parent_world_bbox(on_relation.parent, anchor_objects, anchor_bbox, env_bboxes)
         child_bbox = env_bboxes[obj]
 
+        child_min, child_max = child_bbox.min_point[0], child_bbox.max_point[0]
+        if on_relation.overlap:
+            # Intersection compares the child's far edge with the parent's near edge.
+            child_min, child_max = child_max, child_min
         x = self._sample_axis_position(
             parent_bbox.min_point[0, 0],
             parent_bbox.max_point[0, 0],
-            child_bbox.min_point[0, 0],
-            child_bbox.max_point[0, 0],
+            child_min[0],
+            child_max[0],
             generator,
         )
         y = self._sample_axis_position(
             parent_bbox.min_point[0, 1],
             parent_bbox.max_point[0, 1],
-            child_bbox.min_point[0, 1],
-            child_bbox.max_point[0, 1],
+            child_min[1],
+            child_max[1],
             generator,
         )
 
@@ -558,11 +563,11 @@ class ObjectPlacer:
         child_max: float,
         generator: torch.Generator | None = None,
     ) -> float:
-        """Sample a child origin along one axis so the child's extent stays within the parent's extent.
+        """Sample a child origin from the range defined by parent and child extents.
 
         The valid range for the child origin is [parent_min - child_min, parent_max - child_max].
-        When low >= high, the child is wider than the parent on this axis, so
-        return the parent center as a stable seed.
+        Callers pass normal child extents for containment and swapped extents for overlap.
+        When low >= high, no interval is available, so return the parent center as a stable seed.
 
         Args:
             parent_min: Parent world-space min extent on this axis.

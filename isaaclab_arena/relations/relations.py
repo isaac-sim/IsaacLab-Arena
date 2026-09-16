@@ -184,7 +184,10 @@ class On(Relation):
     This relation specifies that a child object should be placed on top of
     the parent object, with X/Y bounded within the parent's extent (optionally
     inset by ``edge_margin_m`` so the child stays off the rim) and Z positioned
-    on the parent's top surface.
+    on the parent's top surface. With ``overlap=True``, only intersection with
+    the parent's original footprint is required on both horizontal axes; the margin is ignored.
+
+    Note: Footprint overlap does not guarantee stable support; the child may tip or fall.
 
     Note: Loss computation is handled by OnLossStrategy in relation_loss_strategies.py.
     """
@@ -197,6 +200,7 @@ class On(Relation):
         relation_loss_weight: float = 1.0,
         clearance_m: float = 0.01,
         edge_margin_m: float = DEFAULT_ON_EDGE_MARGIN_M,
+        overlap: bool = False,
     ):
         """
         Args:
@@ -204,16 +208,16 @@ class On(Relation):
             relation_loss_weight: Weight for the relationship loss function.
             clearance_m: Safety clearance above parent's surface in meters (default: 1cm).
             edge_margin_m: Inward inset from each X/Y edge of the parent's surface in
-                meters (default: 5cm). The child's whole footprint is kept at least this
-                far from the rim. The solver rejects a margin too large for the surface
-                to honor (``2 * edge_margin_m`` wider than ``parent_extent - child_extent``
-                on either axis).
+                meters (default: 5cm), applied only for containment. Ignored for overlap.
+            overlap: Allow footprint overlap instead of full containment on both X and Y
+                axes (default: False). Ignores edge_margin_m when True.
         """
         super().__init__(parent, relation_loss_weight)
         assert clearance_m >= 0.0, f"Clearance must be non-negative, got {clearance_m}"
         assert edge_margin_m >= 0.0, f"edge_margin_m must be non-negative, got {edge_margin_m}"
         self.clearance_m = clearance_m
         self.edge_margin_m = edge_margin_m
+        self.overlap = overlap
 
 
 @agent_ready

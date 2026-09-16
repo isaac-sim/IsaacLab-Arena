@@ -341,18 +341,21 @@ class OnLossStrategy(RelationLossStrategy):
         parent_y_max = parent_world_bbox.max_point[:, 1]
         parent_z_max = parent_world_bbox.max_point[:, 2]  # Top surface
 
-        # Compute valid position ranges such that child's entire footprint is within parent,
-        # with the parent's extent inset by edge_margin_m so the footprint stays off the rim.
-        m = relation.edge_margin_m
-        valid_x_min = parent_x_min + m - child_bbox.min_point[:, 0]  # child's left at parent's left + margin
-        valid_x_max = parent_x_max - m - child_bbox.max_point[:, 0]  # child's right at parent's right - margin
-        valid_y_min = parent_y_min + m - child_bbox.min_point[:, 1]
-        valid_y_max = parent_y_max - m - child_bbox.max_point[:, 1]
+        # Containment uses the parent's inset extent; overlap uses its original footprint.
+        # CONTAINED: c_min >= p_min + m and c_max <= p_max - m.
+        # OVERLAP: c_max >= p_min and c_min <= p_max.
+        m = 0.0 if relation.overlap else relation.edge_margin_m  # Ignore edge_margin_m when overlap=True.
+        child_min, child_max = child_bbox.min_point, child_bbox.max_point
+        if relation.overlap:
+            child_min, child_max = child_max, child_min
+        valid_x_min = parent_x_min + m - child_min[:, 0]
+        valid_x_max = parent_x_max - m - child_max[:, 0]
+        valid_y_min = parent_y_min + m - child_min[:, 1]
+        valid_y_max = parent_y_max - m - child_max[:, 1]
 
-        # The bounds invert (lower > upper) when the margin is too large for the surface or the
-        # child is oversized. The loss becomes a non-zero constant with gradient zero.
+        # For containment, infeasible bounds produce a non-zero constant loss.
 
-        # 1. X band loss: child's footprint entirely within parent's X extent
+        # 1. X band loss: child is contained by or overlaps the parent's X extent.
         x_band_loss = linear_band_loss(
             child_pos[:, 0],
             lower_bound=valid_x_min,
@@ -360,7 +363,7 @@ class OnLossStrategy(RelationLossStrategy):
             slope=self.slope,
         )
 
-        # 2. Y band loss: child's footprint entirely within parent's Y extent
+        # 2. Y band loss: child is contained by or overlaps the parent's Y extent.
         y_band_loss = linear_band_loss(
             child_pos[:, 1],
             lower_bound=valid_y_min,
