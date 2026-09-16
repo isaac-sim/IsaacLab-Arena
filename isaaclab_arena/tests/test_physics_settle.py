@@ -12,7 +12,10 @@ Each scenario runs end to end against a live SimulationApp:
 - validate_pool_layouts() sweeps every pooled candidate and stamps each layout's PHYSICS_SETTLED verdict.
 """
 
+import torch
 import traceback
+
+import pytest
 
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
@@ -282,6 +285,30 @@ def _test_validate_pool_layouts_grades_each_layout(simulation_app):
         movable = [obj for obj in pool.objects if obj not in anchor_objects_set]
         assert len(movable) == 1, f"Expected exactly one movable object, got {[o.name for o in movable]}."
         cracker_obj = movable[0]
+
+        from isaaclab.utils.math import quat_from_euler_xyz
+
+        from isaaclab_arena.relations.placement_events import write_layout_to_sim
+
+        rotation = tuple(quat_from_euler_xyz(torch.tensor(0.3), torch.tensor(-0.5), torch.tensor(0.7)).tolist())
+        tilted_layout = PlacementResult(
+            validation_results=PlacementValidationResults(),
+            positions={cracker_obj: (0.0, 0.0, 3.0)},
+            rotations={cracker_obj: rotation},
+            final_loss=0.0,
+            attempts=1,
+        )
+        body = env.unwrapped.scene[cracker_obj.get_scene_key()]
+        unchanged_pose = body.data.root_pose_w[0].clone()
+        write_layout_to_sim(env.unwrapped, 1, tilted_layout, anchor_objects_set, pool.objects)
+        torch.testing.assert_close(body.data.root_pose_w[0], unchanged_pose)
+        expected_position = body.data.root_pose_w.new_tensor([0.0, 0.0, 3.0]) + env.unwrapped.scene.env_origins[1]
+        torch.testing.assert_close(body.data.root_pose_w[1, :3], expected_position)
+        env.unwrapped.sim.step(render=False)
+        env.unwrapped.scene.update(env.unwrapped.sim.get_physics_dt())
+        actual_rotation = body.data.root_pose_w[1, 3:]
+        expected_rotation = actual_rotation.new_tensor(rotation)
+        assert torch.abs(torch.dot(actual_rotation, expected_rotation)).item() == pytest.approx(1.0, abs=1e-5)
 
         # Every stored solver layout rests the cracker box on the table (the On relation), so use one of
         # them (env-local, valid in any env) as the resting candidate, and lift a copy by drop_height for

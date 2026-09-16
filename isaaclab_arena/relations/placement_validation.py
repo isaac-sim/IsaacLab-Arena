@@ -67,12 +67,14 @@ class PlacementValidationResults:
         """
         if required_checks is None:
             required_checks = self._required()
-        return all(self.validation_results.get(check, True) for check in required_checks)
+        return all(self.validation_results.get(check, False) for check in required_checks)
 
     @property
     def get_failed_validation_check_names(self) -> list[str]:
         """Get the failed validation check names."""
-        return [str(check) for check, passed in self.validation_results.items() if not passed]
+        failed = {check for check, passed in self.validation_results.items() if not passed}
+        missing = self._required() - self.validation_results.keys()
+        return sorted(str(check) for check in failed | missing)
 
     def report(self) -> str:
         """One-line report check items and their results."""
@@ -85,7 +87,7 @@ class PlacementValidationResults:
         """Get the number of required and optional validation checks that failed."""
         required = self._required()
         failed = [check for check, passed in self.validation_results.items() if not passed]
-        required_failed = sum(1 for check in failed if check in required)
+        required_failed = sum(not self.validation_results.get(check, False) for check in required)
         optional_failed = sum(1 for check in failed if check not in required)
         return (required_failed, optional_failed)
 
@@ -101,5 +103,5 @@ class PlacementValidationResults:
         self.validation_results[check] = value
         if required:
             if self.required_checks is None:
-                self.required_checks = set()
+                self.required_checks = set(self.validation_results)
             self.required_checks.add(check)

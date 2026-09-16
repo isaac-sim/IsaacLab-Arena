@@ -28,7 +28,7 @@ def _test_embodiment_provides_robot_collision_mesh(simulation_app) -> bool:
 
         # Link boxes conservatively cover the same posed Gprims as the placement bbox.
         bbox = emb.get_bounding_box()
-        bbox_size = (bbox.max_point - bbox.min_point)[0].tolist()
+        bbox_size = (2.0 * bbox.half_extents[0]).tolist()
         for mesh_extent, box_extent in zip(extents, bbox_size):
             assert (
                 mesh_extent + 1e-3 >= box_extent
@@ -44,9 +44,9 @@ def _test_embodiment_provides_robot_collision_mesh(simulation_app) -> bool:
 
         another_bbox = emb.get_bounding_box()
         assert another_bbox is not bbox
-        original_min = another_bbox.min_point.clone()
-        bbox.min_point.add_(100.0)
-        assert emb.get_bounding_box().min_point.equal(original_min)
+        original_center = another_bbox.center.clone()
+        bbox.center.add_(100.0)
+        assert emb.get_bounding_box().center.equal(original_center)
 
         # Isaac Lab reaches placeable assets through EventTermCfg params and validates whatever they
         # hold without tracking visited objects, so an embodiment holding its mesh would send

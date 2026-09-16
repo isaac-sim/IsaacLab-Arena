@@ -35,7 +35,7 @@ Arena supports two collision modes:
      - Recommended use
    * - ``CollisionMode.BBOX``
      - Faster
-     - Axis-aligned bounding boxes
+     - Oriented bounding boxes
      - Default choice when boxes reasonably approximate the objects
    * - ``CollisionMode.MESH``
      - Slower
@@ -48,7 +48,7 @@ Arena supports two collision modes:
    :align: center
 
    For the same requested placement, ``BBOX`` rejects the layout because the
-   axis-aligned boxes overlap, while ``MESH`` accepts it using
+   bounding boxes overlap, while ``MESH`` accepts it using
    sphere-versus-mesh collision checks.
 
 Start with ``BBOX``. Use ``MESH`` only when bounding boxes exclude space that
@@ -122,8 +122,11 @@ How Overlap Checking Works
 Overlap checking has two stages:
 
 1. During optimization, the solver adds a differentiable no-overlap loss.
-   ``BBOX`` expands the obstacle boxes by ``clearance_m`` and penalizes their
-   intersection volume. For mesh-covered pairs, ``MESH`` represents movable
+   ``BBOX`` first culls pairs whose enclosing axis-aligned bounds are separated.
+   Axis-aligned pairs use a three-axis fast path; rotated pairs use the 15-axis
+   Separating Axis Test (SAT). The loss is ``collision_loss_slope`` times the
+   minimum penetration distance, measured in metres. For mesh-covered pairs,
+   ``MESH`` represents movable
    geometry with up to ``num_spheres`` bounding spheres and queries their
    distance from the target collision mesh. Increasing ``num_spheres`` may
    improve sphere coverage, at the cost of slower solving and validation.
@@ -136,6 +139,19 @@ Overlap checking has two stages:
 ``MESH`` enables sphere-to-mesh checks where Arena can obtain the target
 collision mesh. Pairs not covered by a mesh check use bounding-box-based
 checks.
+
+``clearance_m`` adds a separation margin to each SAT projection. It is a
+conservative clearance test, not an exact Euclidean distance between box
+surfaces. Touching boxes have zero penetration when clearance is zero.
+Contained boxes use the translation needed to separate them, rather than the
+length of their intersecting intervals. The default ``collision_loss_slope``
+is 1000 for both box and mesh penetration; previous volume-based tuning values
+are not directly interchangeable with this distance-based loss.
+
+Both collision modes use full xyzw quaternions for movable objects, anchors,
+and passive obstacles. Mesh sphere centers are transformed from the source
+asset frame through the placement frame into the target mesh frame. Rotation
+is applied once; meshes and bounds remain asset-local in their caches.
 
 The solver and validator check the following pairs:
 

@@ -3,11 +3,13 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import torch
 import trimesh
 
 from isaaclab.assets import ArticulationCfg, AssetBaseCfg, RigidObjectCfg
 from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
-from pxr import Usd
+from isaaclab.utils.math import matrix_from_quat
+from pxr import Usd, UsdGeom
 
 from isaaclab_arena.affordances.openable import Openable
 from isaaclab_arena.affordances.pressable import Pressable
@@ -17,11 +19,11 @@ from isaaclab_arena.assets.object_base import ObjectBase, RootedObjectBase
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.relations.relations import IsAnchor, RelationBase
 from isaaclab_arena.terms.events import reset_articulation_pose_and_joints
-from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, quaternion_to_90_deg_z_quarters
+from isaaclab_arena.utils.bounding_box import OrientedBoundingBox
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.usd_helpers import (
     NoCollisionMeshError,
-    compute_world_aligned_bounding_box_relative_to_prim_origin,
+    compute_local_bounding_box_from_prim,
     extract_trimesh_from_prim,
     open_stage,
 )
@@ -32,9 +34,13 @@ class ObjectReference(RootedObjectBase):
     """An object which *refers* to an existing element in the scene"""
 
     def __init__(self, parent_asset: Object, **kwargs):
+        parent_scale = parent_asset.scale
+        assert all(
+            component > 0 for component in parent_scale
+        ), f"ObjectReference parent scale must be positive, got {parent_scale}."
         super().__init__(**kwargs)
         self.parent_asset = parent_asset
-        self._parent_scale = parent_asset.scale
+        self._parent_scale = parent_scale
         # Resolve the path and pose together to avoid opening the parent USD stage multiple times.
         (
             self._prim_path_in_parent_usd,
@@ -42,7 +48,7 @@ class ObjectReference(RootedObjectBase):
         ) = self._get_referenced_prim_path_and_pose_relative_to_parent(parent_asset)
         self.object_cfg = self._init_object_cfg()
         self._pose_event_cfg = self._build_reset_event()
-        self._bounding_box: AxisAlignedBoundingBox | None = None
+        self._bounding_box: OrientedBoundingBox | None = None
         self._collision_mesh: trimesh.Trimesh | None = None
         # None is a valid cached result for meshless prims; this flag distinguishes that from not-yet-loaded.
         self._collision_mesh_loaded = False
@@ -83,11 +89,11 @@ class ObjectReference(RootedObjectBase):
         )
         self.relations.append(relation)
 
-    def get_bounding_box(self) -> AxisAlignedBoundingBox:
-        """Get world-axis-aligned bounds measured from the referenced prim's origin.
+    def get_bounding_box(self) -> OrientedBoundingBox:
+        """Get local bounding box of the referenced prim (relative to prim transform).
 
-        The coordinates use the parent asset's USD axes, with the origin shifted to
-        the referenced prim's world position.
+        Coordinates are expressed in the referenced prim's local frame, with
+        the parent asset's spawn scale included.
 
         The bounding box is computed lazily and cached for subsequent calls.
         """
@@ -96,24 +102,21 @@ class ObjectReference(RootedObjectBase):
                 prim_path_in_usd = self.isaaclab_prim_path_to_original_prim_path(
                     self.prim_path, self.parent_asset, parent_stage
                 )
-                raw_bbox = compute_world_aligned_bounding_box_relative_to_prim_origin(parent_stage, prim_path_in_usd)
-                # Apply parent's scale (no centering - solver is origin-agnostic)
-                self._bounding_box = raw_bbox.scaled(self._parent_scale)
+                raw_bbox = compute_local_bounding_box_from_prim(parent_stage, prim_path_in_usd)
+                scaled_corners = self._transform_raw_local_points(
+                    raw_bbox.get_corners(), parent_stage, prim_path_in_usd
+                )
+                self._bounding_box = OrientedBoundingBox.from_min_max(
+                    min_point=scaled_corners.amin(dim=1),
+                    max_point=scaled_corners.amax(dim=1),
+                )
         return self._bounding_box
 
-    def get_world_bounding_box(self) -> AxisAlignedBoundingBox:
-        """Bounding box in world coordinates.
-
-        get_bounding_box() is already axis-aligned in the parent's frame, so only the parent's
-        placement rotation (identity or a 90° Z multiple) and the prim's world position are applied.
-        """
+    def get_world_bounding_box(self) -> OrientedBoundingBox:
+        """Return the referenced prim's bounding box in world coordinates."""
         box = self.get_bounding_box()
-        world_position = self.get_initial_pose().position_xyz
-        parent_pose = self.parent_asset.initial_pose
-        if parent_pose is None:
-            return box.translated(world_position)
-        quarters = quaternion_to_90_deg_z_quarters(parent_pose.rotation_xyzw)
-        return box.rotated_90_around_z(quarters).translated(world_position)
+        world_pose = self.get_initial_pose()
+        return box.transformed(world_pose.position_xyz, world_pose.rotation_xyzw)
 
     def get_collision_mesh(self) -> trimesh.Trimesh | None:
         """Return the referenced prim's collision mesh in its local frame, or None if unavailable."""
@@ -138,7 +141,26 @@ class ObjectReference(RootedObjectBase):
             )
             if not parent_stage.GetPrimAtPath(prim_path_in_usd):
                 raise ValueError(f"No prim found with path {prim_path_in_usd} in {self.parent_asset.usd_path}")
-            return extract_trimesh_from_prim(parent_stage, prim_path_in_usd, self._parent_scale)
+            mesh = extract_trimesh_from_prim(parent_stage, prim_path_in_usd, (1.0, 1.0, 1.0))
+            vertices = torch.as_tensor(mesh.vertices, dtype=torch.float64)
+            mesh.vertices = self._transform_raw_local_points(vertices, parent_stage, prim_path_in_usd).numpy()
+            return mesh
+
+    def _transform_raw_local_points(self, points: torch.Tensor, stage: Usd.Stage, prim_path: str) -> torch.Tensor:
+        """Include authored and spawn scale in the reference's rigid local frame."""
+        # P is the parent default-prim frame, O the referenced prim frame. The
+        # full affine transform includes scale/shear omitted from the rigid pose.
+        cache = UsdGeom.XformCache(Usd.TimeCode.Default())
+        T_P_O = (
+            cache.GetLocalToWorldTransform(stage.GetPrimAtPath(prim_path))
+            * cache.GetLocalToWorldTransform(stage.GetDefaultPrim()).GetInverse()
+        )
+        linear_P_O = points.new_tensor([list(T_P_O[row])[:3] for row in range(3)])
+        rotation = matrix_from_quat(points.new_tensor(self.initial_pose_relative_to_parent.rotation_xyzw).unsqueeze(0))[
+            0
+        ]
+        scale = points.new_tensor(self._parent_scale)
+        return ((points @ linear_P_O) * scale) @ rotation
 
     def get_contact_sensor_cfg(self, contact_against_object: ObjectBase | None = None) -> ContactSensorCfg:
         # NOTE(alexmillane): Right now this requires that the object

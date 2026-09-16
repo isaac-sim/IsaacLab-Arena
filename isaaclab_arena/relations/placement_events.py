@@ -10,7 +10,6 @@ from typing import TYPE_CHECKING
 
 from isaaclab_arena.relations.relations import RotateAroundSolution, get_anchor_objects
 from isaaclab_arena.utils.pose import Pose
-from isaaclab_arena.utils.yaw import rotate_quat_by_yaw, yaw_from_quat_xyzw
 
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedEnv
@@ -75,20 +74,10 @@ def get_rotation_xyzw(asset: PlaceableAsset) -> tuple[float, float, float, float
     return rotate_marker.get_rotation_xyzw() if rotate_marker else IDENTITY_ROTATION_XYZW
 
 
-def get_base_rotation_per_asset(
-    assets: list[PlaceableAsset],
-) -> dict[PlaceableAsset, tuple[float, float, float, float]]:
-    """Return the base rotation for each asset."""
-    return {asset: get_rotation_xyzw(asset) for asset in assets}
-
-
 def get_pose_from_layout(asset: PlaceableAsset, layout: PlacementResult) -> Pose:
     """Return an asset pose from a solved layout."""
     assert asset in layout.positions, f"Placement layout is missing non-anchor asset '{asset.name}'"
-    base_rotation = get_rotation_xyzw(asset)
-    marker_yaw = yaw_from_quat_xyzw(base_rotation)
-    total_yaw = layout.orientations.get(asset, marker_yaw)
-    rotation = rotate_quat_by_yaw(base_rotation, total_yaw - marker_yaw)
+    rotation = layout.rotations.get(asset, IDENTITY_ROTATION_XYZW)
     return Pose(position_xyz=layout.positions[asset], rotation_xyzw=rotation)
 
 
@@ -105,7 +94,7 @@ def write_layout_to_sim(
     env_id: int,
     result: PlacementResult,
     anchor_assets: set[PlaceableAsset],
-    base_rotations: dict[PlaceableAsset, tuple[float, float, float, float]],
+    assets: list[PlaceableAsset],
 ) -> None:
     """Write one env's solved layout into the sim.
 
@@ -117,11 +106,9 @@ def write_layout_to_sim(
         env_id: The environment index.
         result: The placement result to write to the sim.
         anchor_assets: The set of anchor assets.
-        base_rotations: The base rotations for all assets.
+        assets: All assets expected in the layout, including fixed anchors.
     """
-    missing_assets = [
-        asset.name for asset in base_rotations if asset not in anchor_assets and asset not in result.positions
-    ]
+    missing_assets = [asset.name for asset in assets if asset not in anchor_assets and asset not in result.positions]
     assert not missing_assets, f"Placement layout is missing non-anchor assets: {missing_assets}"
     for asset in result.positions:
         if asset in anchor_assets:
@@ -158,7 +145,6 @@ def solve_and_place_objects(
     ), f"Placement pool has {pool.num_envs} envs, but scene has {num_scene_envs} env origins."
     results_by_env = pool.sample_for_envs(reset_env_ids)
     anchor_assets = set(get_anchor_objects(assets))
-    base_rotations = get_base_rotation_per_asset(assets)
 
     for cur_env in reset_env_ids:
         result = results_by_env[cur_env]
@@ -168,4 +154,4 @@ def solve_and_place_objects(
                 f"env {cur_env}; failed checks: {result.validation_results.get_failed_validation_check_names}."
             )
         # Only write non-anchor assets to the sim.
-        write_layout_to_sim(env, cur_env, result, anchor_assets, base_rotations)
+        write_layout_to_sim(env, cur_env, result, anchor_assets, assets)

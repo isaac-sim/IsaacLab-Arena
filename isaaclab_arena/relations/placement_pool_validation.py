@@ -8,12 +8,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.relations.physics_settle_params import PhysicsSettleParams
-from isaaclab_arena.relations.placement_events import (
-    get_base_rotation_per_asset,
-    get_movable_asset_names,
-    get_placement_pool,
-    write_layout_to_sim,
-)
+from isaaclab_arena.relations.placement_events import get_movable_asset_names, get_placement_pool, write_layout_to_sim
 from isaaclab_arena.relations.placement_validation import PlacementCheck
 from isaaclab_arena.relations.relations import get_anchor_objects
 from isaaclab_arena.utils import physics_settle
@@ -33,7 +28,7 @@ def _write_layout_to_envs_for_episode_index(
     num_envs: int,
     episode_index: int,
     anchor_assets: set,
-    base_rotations: dict[PlaceableAsset, tuple[float, float, float, float]],
+    assets: list[PlaceableAsset],
 ) -> list[tuple[int, PlacementResult]]:
     """Write one layout per env for this episode; return the ``(env_id, layout)`` layouts written.
 
@@ -50,7 +45,7 @@ def _write_layout_to_envs_for_episode_index(
                 env_id,
                 layout,
                 anchor_assets,
-                base_rotations,
+                assets,
             )
             layouts_written.append((env_id, layout))
     return layouts_written
@@ -112,15 +107,14 @@ def validate_pool_layouts(
 
     assets = placement_pool.objects
     anchor_assets = set(get_anchor_objects(assets))
-    base_rotations = get_base_rotation_per_asset(assets)
     movable_object_names = get_movable_asset_names(assets, anchor_assets)
 
     # The length of each env queue is controlled by min_unique_layouts_per_env in ObjectPlacerParams.
     layouts_per_env = placement_pool.layouts_per_env()
-    # The number of parallel envs SimApp is supposed to run specified by the user
-    num_expected_envs = env.unwrapped.num_envs
-    # The number of parallel envs that can be run in practice
-    num_envs = min(len(layouts_per_env), num_expected_envs)
+    num_envs = env.unwrapped.num_envs
+    assert (
+        len(layouts_per_env) == num_envs
+    ), f"Placement pool has {len(layouts_per_env)} envs, but scene has {num_envs}."
 
     # The number of episodes to validate is the length of the longest env queue
     max_episodes = max((len(layouts_per_env[env_id]) for env_id in range(num_envs)), default=0)
@@ -137,7 +131,7 @@ def validate_pool_layouts(
             num_envs,
             episode_index,
             anchor_assets,
-            base_rotations,
+            assets,
         )
         if layouts:
             physics_settle.step_physics(env, num_physics_steps, render=render)

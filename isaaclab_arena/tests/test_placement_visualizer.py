@@ -22,7 +22,7 @@ from isaaclab_arena.relations.placement_visualizer import PlacementRerunVisualiz
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.relations.relations import IsAnchor, On
 from isaaclab_arena.tests.dummy_object import DummyObject
-from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+from isaaclab_arena.utils.bounding_box import OrientedBoundingBox
 from isaaclab_arena.utils.pose import Pose
 
 MAX_PLACEMENT_ATTEMPTS = 3
@@ -39,20 +39,20 @@ def _desk_and_box() -> list[DummyObject]:
     """A desk anchor with a box placed on it -- the smallest layout with something to solve."""
     desk = DummyObject(
         name="desk",
-        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(1.0, 1.0, 0.1)),
+        bounding_box=OrientedBoundingBox.from_min_max(min_point=(0.0, 0.0, 0.0), max_point=(1.0, 1.0, 0.1)),
     )
     desk.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
     desk.add_relation(IsAnchor())
     box = DummyObject(
         name="box",
-        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.2, 0.2, 0.2)),
+        bounding_box=OrientedBoundingBox.from_min_max(min_point=(0.0, 0.0, 0.0), max_point=(0.2, 0.2, 0.2)),
     )
     box.add_relation(On(desk, clearance_m=0.01))
     return [desk, box]
 
 
 def _layout_batch(num_layouts: int):
-    """``(positions, orientations, bboxes)`` for a batch of identical desk+box layouts."""
+    """``(positions, rotations, bboxes)`` for a batch of identical desk+box layouts."""
     desk, box = _desk_and_box()
     positions = {desk: (0.0, 0.0, 0.0), box: (0.0, 0.0, 0.2)}
     bboxes = {obj: obj.get_bounding_box() for obj in positions}

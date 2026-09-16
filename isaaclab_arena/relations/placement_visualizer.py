@@ -16,7 +16,6 @@ graph YAML (worked example: ``isaaclab_arena/tests/test_data/placement_debug_vie
 
 from __future__ import annotations
 
-import math
 import socket
 import subprocess
 import time
@@ -28,7 +27,7 @@ from isaaclab_arena.relations.relations import get_anchor_objects
 if TYPE_CHECKING:
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
     from isaaclab_arena.relations.placement_asset import PlaceableAsset
-    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+    from isaaclab_arena.utils.bounding_box import OrientedBoundingBox
 
 LAYOUT_TIMELINE = "layout"
 """Rerun timeline whose sequence index is the layout number."""
@@ -264,8 +263,8 @@ class PlacementRerunVisualizer:
         self,
         layout_index_across_batch: int,
         positions: dict[PlaceableAsset, tuple[float, float, float]],
-        orientations: dict[PlaceableAsset, float],
-        bboxes: dict[PlaceableAsset, AxisAlignedBoundingBox],
+        rotations: dict[PlaceableAsset, tuple[float, float, float, float]],
+        bboxes: dict[PlaceableAsset, OrientedBoundingBox],
         anchors: set[PlaceableAsset],
     ) -> None:
         """Draw one solved layout as boxes in the world frame.
@@ -273,7 +272,7 @@ class PlacementRerunVisualizer:
         Args:
             layout_index_across_batch: Timeline index to log against.
             positions: Solved (x, y, z) per object.
-            orientations: Absolute world Z-yaw per object; objects without one are drawn unrotated.
+            rotations: Absolute world xyzw rotation per movable object.
             bboxes: Per-object local bounding box.
             anchors: The layout's anchor objects, drawn in the anchor color.
         """
@@ -286,19 +285,19 @@ class PlacementRerunVisualizer:
         objects = list(positions)
         centers, half_sizes, quaternions = [], [], []
         for obj in objects:
-            yaw = orientations.get(obj, 0.0)
             bbox = bboxes[obj]
-            local_center = [float(v) for v in bbox.center[0].tolist()]
-            cos_yaw, sin_yaw = math.cos(yaw), math.sin(yaw)
-            rotated_center = (
-                cos_yaw * local_center[0] - sin_yaw * local_center[1],
-                sin_yaw * local_center[0] + cos_yaw * local_center[1],
-                local_center[2],
-            )
-            position = positions[obj]
-            centers.append([position[i] + rotated_center[i] for i in range(3)])
-            half_sizes.append([0.5 * float(v) for v in bbox.size[0].tolist()])
-            quaternions.append(rr.Quaternion(xyzw=[0.0, 0.0, math.sin(0.5 * yaw), math.cos(0.5 * yaw)]))
+            if obj in rotations:
+                rotation = rotations[obj]
+            elif obj in anchors:
+                initial_pose = obj.get_initial_pose()
+                assert initial_pose is not None, f"Anchor '{obj.name}' must have a fixed pose."
+                rotation = initial_pose.rotation_xyzw
+            else:
+                rotation = (0.0, 0.0, 0.0, 1.0)
+            world_bbox = bbox.transformed(positions[obj], rotation)
+            centers.append(world_bbox.center[0].tolist())
+            half_sizes.append(world_bbox.half_extents[0].tolist())
+            quaternions.append(rr.Quaternion(xyzw=world_bbox.rotation_xyzw[0].tolist()))
 
         rr.log(
             LAYOUT_ENTITY,
@@ -315,8 +314,8 @@ class PlacementRerunVisualizer:
     def start_new_batch(
         self,
         positions: list[dict[PlaceableAsset, tuple[float, float, float]]],
-        orientations: list[dict[PlaceableAsset, float]],
-        bboxes: list[dict[PlaceableAsset, AxisAlignedBoundingBox]],
+        rotations: list[dict[PlaceableAsset, tuple[float, float, float, float]]],
+        bboxes: list[dict[PlaceableAsset, OrientedBoundingBox]],
     ) -> None:
         """Give every solved layout of a new batch its own frame, and make that batch the current one.
 
@@ -324,7 +323,7 @@ class PlacementRerunVisualizer:
 
         Args:
             positions: Solved (x, y, z) per object, one dict per layout.
-            orientations: Absolute world Z-yaw per object, one dict per layout.
+            rotations: Absolute world xyzw rotations per movable object, one dict per layout.
             bboxes: Per-object local bounding box, one dict per layout.
         """
         self._layout_indices_across_batch = self._reserve_layout_indices(len(positions))
@@ -332,7 +331,7 @@ class PlacementRerunVisualizer:
             self.log_layout(
                 layout_index_across_batch,
                 positions[layout_index_within_batch],
-                orientations[layout_index_within_batch],
+                rotations[layout_index_within_batch],
                 bboxes[layout_index_within_batch],
                 anchors=set(get_anchor_objects(list(positions[layout_index_within_batch]))),
             )

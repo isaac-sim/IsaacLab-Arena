@@ -33,14 +33,14 @@ def _check_geometry_bounds_in_prim_frame(scene_access_module) -> None:
     ignored_cube.GetPurposeAttr().Set(UsdGeom.Tokens.render)
 
     geometry_bounds_P = scene_access_module._compute_geometry_bounds_in_prim_frame(reference.GetPrim())
-    torch.testing.assert_close(geometry_bounds_P.min_point[0], torch.tensor([1.0, -1.5, -2.0]))
-    torch.testing.assert_close(geometry_bounds_P.max_point[0], torch.tensor([3.0, 1.5, 2.0]))
+    torch.testing.assert_close(geometry_bounds_P.get_axis_aligned_bounds()[0][0], torch.tensor([1.0, -1.5, -2.0]))
+    torch.testing.assert_close(geometry_bounds_P.get_axis_aligned_bounds()[1][0], torch.tensor([3.0, 1.5, 2.0]))
 
 
 def _check_rigid_object_reads_and_local_aabb_cache(
     arena_world_module,
     scene_access_module,
-    axis_aligned_bounding_box_type,
+    oriented_bounding_box_type,
 ) -> None:
     """Check live rigid-object reads and one cached AABB per scene key."""
     import torch
@@ -101,11 +101,11 @@ def _check_rigid_object_reads_and_local_aabb_cache(
     def compute_geometry_bounds(_scene, scene_key: str):
         geometry_build_calls.append(scene_key)
         if scene_key == "object":
-            return axis_aligned_bounding_box_type(
+            return oriented_bounding_box_type.from_min_max(
                 min_point=torch.tensor([-0.1, -0.1, -0.1]).expand(2, 3),
                 max_point=torch.tensor([0.3, 0.1, 0.1]).expand(2, 3),
             )
-        return axis_aligned_bounding_box_type(
+        return oriented_bounding_box_type.from_min_max(
             min_point=torch.tensor([-1.0, -0.5, 0.0]).expand(2, 3),
             max_point=torch.tensor([1.0, 0.5, 0.4]).expand(2, 3),
         )
@@ -392,13 +392,13 @@ def _check_scene_extra_pose_reader_uses_current_frame_view_poses(scene_access_mo
 def _test_arena_world_scene_access(_simulation_app) -> bool:
     import isaaclab_arena.environments.arena_world as arena_world
     import isaaclab_arena.environments.arena_world_scene_access as scene_access
-    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+    from isaaclab_arena.utils.bounding_box import OrientedBoundingBox
 
     _check_geometry_bounds_in_prim_frame(scene_access)
     _check_rigid_object_reads_and_local_aabb_cache(
         arena_world,
         scene_access,
-        AxisAlignedBoundingBox,
+        OrientedBoundingBox,
     )
     _check_articulation_root_state_reads(arena_world)
     _check_deformable_object_reads(arena_world)

@@ -11,10 +11,10 @@ import trimesh
 from collections.abc import Mapping, Sequence
 from contextlib import contextmanager
 
-from pxr import Gf, Usd, UsdGeom, UsdLux, UsdPhysics
+from pxr import Usd, UsdGeom, UsdLux, UsdPhysics
 
 from isaaclab_arena.assets.object_type import ObjectType
-from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+from isaaclab_arena.utils.bounding_box import OrientedBoundingBox
 from isaaclab_arena.utils.usd_articulation import (
     articulation_joint_prims,
     compute_posed_prim_world_deltas,
@@ -172,41 +172,26 @@ def get_asset_usd_path_from_prim_path(prim_path: str, stage: Usd.Stage) -> str |
     return None
 
 
-def _read_default_prim_scale(prim: Usd.Prim) -> tuple[float, float, float]:
-    """Return the default prim's root ``xformOp:scale``, or identity if absent."""
-    if not prim.IsA(UsdGeom.Xformable):
-        return (1.0, 1.0, 1.0)
-    for op in UsdGeom.Xformable(prim).GetOrderedXformOps():
-        if op.GetOpType() == UsdGeom.XformOp.TypeScale:
-            value = op.Get()
-            if value is not None:
-                return (float(value[0]), float(value[1]), float(value[2]))
-    return (1.0, 1.0, 1.0)
-
-
 def compute_local_bounding_box_from_usd(
     usd_path: str,
     scale: tuple[float, float, float] = (1.0, 1.0, 1.0),
     prim_path: str | None = None,
-) -> AxisAlignedBoundingBox:
-    """Compute the local bounding box matching Isaac Lab ``UsdFileCfg`` spawn size.
+) -> OrientedBoundingBox:
+    """Compute default-prim-local bounds matching an Isaac Lab USD spawn.
 
-    Opening a USD directly includes the default prim's root ``xformOp:scale``
-    in ``ComputeWorldBound``, but Isaac Lab's spawner ignores it and only
-    Object.scale on the spawn wrapper applies.
-    This helper unbakes the default prim's root scale from the USD, then
-    applies ``Object.scale`` once so relation-solver bboxes match what is
-    actually spawned.
+    The default prim's own transform is excluded because Isaac Lab's spawner
+    ignores it. ``scale`` is applied once to match the spawn wrapper.
 
     Args:
         usd_path: Path to the USD file.
         scale: Spawn-time scale passed to ``UsdFileCfg`` / ``Object.scale``.
-        prim_path: Optional sub-prim to bound. When set, returns that prim's AABB
+        prim_path: Optional sub-prim to bound. When set, returns that prim's OBB
             expressed in the default prim's frame (root-relative). When None,
-            bounds the default prim itself.
+            bounds the default prim itself. Nonuniform scale or shear is
+            conservatively enclosed in the sub-prim's rigid orientation.
 
     Returns:
-        AxisAlignedBoundingBox containing local min and max points.
+        OrientedBoundingBox containing local bounds.
     """
     stage = Usd.Stage.Open(usd_path)
     if not stage:
@@ -216,88 +201,78 @@ def compute_local_bounding_box_from_usd(
     if not default_prim:
         default_prim = stage.GetPseudoRoot()
 
+    scale_array = np.asarray(scale, dtype=np.float64)
+    assert (
+        scale_array.shape == (3,) and np.isfinite(scale_array).all() and (scale_array > 0).all()
+    ), f"Spawn scale must contain three finite positive values, got {scale}."
     if prim_path is None:
-        bbox = compute_world_aligned_bounding_box_relative_to_prim_origin(stage, default_prim.GetPath().pathString)
-    else:
-        # Sub-prim bounds expressed in the default-prim (root) frame.
-        sub_prim = stage.GetPrimAtPath(prim_path)
-        assert sub_prim, f"No prim found at path {prim_path}"
-        bbox = compute_world_aligned_bounding_box_relative_to_prim_origin(stage, prim_path)
-        time_code = Usd.TimeCode.Default()
-        sub_world = UsdGeom.Xformable(sub_prim).ComputeLocalToWorldTransform(time_code).ExtractTranslation()
-        root_world = UsdGeom.Xformable(default_prim).ComputeLocalToWorldTransform(time_code).ExtractTranslation()
-        bbox = bbox.translated((
-            float(sub_world[0] - root_world[0]),
-            float(sub_world[1] - root_world[1]),
-            float(sub_world[2] - root_world[2]),
-        ))
+        bbox = compute_local_bounding_box_from_prim(stage, default_prim.GetPath().pathString)
+        return OrientedBoundingBox(
+            center=bbox.center * bbox.center.new_tensor(scale_array),
+            half_extents=bbox.half_extents * bbox.half_extents.new_tensor(scale_array),
+            rotation_xyzw=bbox.rotation_xyzw,
+        )
 
-    usd_scale = _read_default_prim_scale(default_prim)
-    assert not any(
-        s == 0.0 for s in usd_scale
-    ), f"Default prim {default_prim.GetPath().pathString} has scale {usd_scale}"
-    composed_scale = (scale[0] / usd_scale[0], scale[1] / usd_scale[1], scale[2] / usd_scale[2])
-    bbox = bbox.scaled(composed_scale)
-    return bbox
+    sub_prim = stage.GetPrimAtPath(prim_path)
+    assert sub_prim and sub_prim.GetPath().HasPrefix(
+        default_prim.GetPath()
+    ), f"Prim '{prim_path}' must belong to the default prim '{default_prim.GetPath()}'."
+    bbox = compute_local_bounding_box_from_prim(stage, prim_path)
+    # P is the default-prim frame, B the sub-prim frame. USD matrices act on row
+    # vectors, so the multiplication order is reversed from column-vector notation.
+    cache = UsdGeom.XformCache(Usd.TimeCode.Default())
+    T_P_B = cache.GetLocalToWorldTransform(sub_prim) * cache.GetLocalToWorldTransform(default_prim).GetInverse()
+    matrix = np.asarray(T_P_B)
+    rotation = T_P_B.RemoveScaleShear()
+    rotation_matrix = np.asarray(rotation)[:3, :3]
+    q_P_B = rotation.ExtractRotationQuat()
+    points_P = (bbox.get_corners()[0].numpy() @ matrix[:3, :3] + matrix[3, :3]) * scale_array
+    # Nonuniform scale after rotation can shear a box. Enclose the transformed
+    # corners in the retained rigid orientation, including all descendant scale.
+    points_B = points_P @ rotation_matrix.T
+    minimum, maximum = points_B.min(axis=0), points_B.max(axis=0)
+    center_P = ((minimum + maximum) * 0.5) @ rotation_matrix
+    return OrientedBoundingBox(
+        center=tuple(center_P),
+        half_extents=tuple((maximum - minimum) * 0.5),
+        rotation_xyzw=(*q_P_B.GetImaginary(), q_P_B.GetReal()),
+    )
 
 
-def compute_world_aligned_bounding_box_relative_to_prim_origin(
+def compute_local_bounding_box_from_prim(
     stage: Usd.Stage,
     prim_path: str,
-) -> AxisAlignedBoundingBox:
-    """Compute a world-aligned bounding box relative to a prim's world position.
-
-    The returned coordinates use the USD world axes, but their origin is shifted
-    to the prim's world position. The prim's rotation remains in the extents.
+) -> OrientedBoundingBox:
+    """Compute axis-aligned geometry in the prim's local frame.
 
     Args:
         stage: The USD stage containing the prim.
         prim_path: Path to the prim to compute the bounding box for.
 
     Returns:
-        World-aligned bounds measured from the prim's world position.
+        Axis-aligned bounds in the prim's local frame.
     """
     prim = stage.GetPrimAtPath(prim_path)
     if not prim:
         raise ValueError(f"No prim found at path {prim_path}")
 
-    # Compute the world-space bounding box of the prim
     bbox_cache = UsdGeom.BBoxCache(Usd.TimeCode.Default(), includedPurposes=[UsdGeom.Tokens.default_])
-    bbox = bbox_cache.ComputeWorldBound(prim)
-    bbox_range = bbox.ComputeAlignedBox()
-
-    # Get world-space min/max
-    world_min = bbox_range.GetMin()
-    world_max = bbox_range.GetMax()
-
-    # Get the target prim's world position to compute local bounding box
-    prim_xformable = UsdGeom.Xformable(prim)
-    prim_world_transform = prim_xformable.ComputeLocalToWorldTransform(Usd.TimeCode.Default())
-    prim_world_position = prim_world_transform.ExtractTranslation()
-
-    min_point_from_prim_origin = Gf.Vec3d(
-        world_min[0] - prim_world_position[0],
-        world_min[1] - prim_world_position[1],
-        world_min[2] - prim_world_position[2],
-    )
-    max_point_from_prim_origin = Gf.Vec3d(
-        world_max[0] - prim_world_position[0],
-        world_max[1] - prim_world_position[1],
-        world_max[2] - prim_world_position[2],
-    )
-
-    return AxisAlignedBoundingBox(
-        min_point=(
-            min_point_from_prim_origin[0],
-            min_point_from_prim_origin[1],
-            min_point_from_prim_origin[2],
-        ),
-        max_point=(
-            max_point_from_prim_origin[0],
-            max_point_from_prim_origin[1],
-            max_point_from_prim_origin[2],
-        ),
-    )
+    minimum = np.full(3, np.inf)
+    maximum = np.full(3, -np.inf)
+    # Aggregate each geometry bound in the requested frame. USD may aggregate an
+    # Xform in world axes first, which inflates local bounds under parent rotation.
+    for geometry_prim in Usd.PrimRange(prim, Usd.TraverseInstanceProxies()):
+        if not geometry_prim.IsA(UsdGeom.Boundable):
+            continue
+        if UsdGeom.Imageable(geometry_prim).ComputePurpose() != UsdGeom.Tokens.default_:
+            continue
+        bounds = bbox_cache.ComputeRelativeBound(geometry_prim, prim).ComputeAlignedBox()
+        if bounds.IsEmpty():
+            continue
+        minimum = np.minimum(minimum, np.asarray(bounds.GetMin()))
+        maximum = np.maximum(maximum, np.asarray(bounds.GetMax()))
+    assert np.isfinite(minimum).all(), f"Prim '{prim_path}' has no default-purpose geometry bounds."
+    return OrientedBoundingBox.from_min_max(tuple(minimum), tuple(maximum))
 
 
 def extract_trimesh_from_usd(
@@ -305,19 +280,20 @@ def extract_trimesh_from_usd(
     scale: tuple[float, float, float] = (1.0, 1.0, 1.0),
     excluded_prim_paths: Sequence[str] = (),
 ) -> trimesh.Trimesh | None:
-    """Extract all UsdGeom.Mesh prims from a USD into a single trimesh.
+    """Extract mesh geometry under a USD's default prim into a single trimesh.
 
-    Scale is applied per-vertex in local frame before the prim-to-world transform.
+    It returns default-prim-local geometry and applies scale after child transforms
+    so mesh and bounding-box frames agree.
     All scale components must be positive (negative flips winding/SDF sign).
-    Other Gprim geometry is rejected, not silently dropped.
+    Other Gprim geometry under the default prim is rejected, not silently dropped.
 
     Args:
         usd_path: Path to the .usd/.usda/.usdc file.
-        scale: (sx, sy, sz) per-axis scale factors applied in local frame.
+        scale: (sx, sy, sz) per-axis scale factors applied in the default-prim frame.
         excluded_prim_paths: Absolute USD prim paths whose complete subtrees are omitted.
 
     Returns:
-        Combined trimesh with per-prim world transforms baked in, or ``None`` when exclusions
+        Combined trimesh in the scaled default-prim frame, or ``None`` when exclusions
         remove every mesh.
     """
     assert all(
@@ -329,66 +305,14 @@ def extract_trimesh_from_usd(
     ), f"excluded_prim_paths must be absolute USD paths, got {excluded_paths}"
 
     stage = Usd.Stage.Open(usd_path)
-    if stage is None:
-        raise ValueError(f"Failed to open USD: {usd_path}")
-
-    all_verts: list[np.ndarray] = []
-    all_faces: list[list[int]] = []
-    skipped_gprims: list[str] = []
-    excluded_mesh_count = 0
-    included_mesh_count = 0
-    offset = 0
-
-    for prim in stage.Traverse():
-        prim_path = str(prim.GetPath())
-        if any(prim_path == path or prim_path.startswith(f"{path}/") for path in excluded_paths):
-            excluded_mesh_count += int(prim.IsA(UsdGeom.Mesh))
-            continue
-        if not prim.IsA(UsdGeom.Mesh):
-            if prim.IsA(UsdGeom.Gprim):
-                skipped_gprims.append(str(prim.GetPath()))
-            continue
-        included_mesh_count += 1
-        mesh_prim = UsdGeom.Mesh(prim)
-        points = mesh_prim.GetPointsAttr().Get()
-        face_vertex_counts = mesh_prim.GetFaceVertexCountsAttr().Get()
-        face_vertex_indices = mesh_prim.GetFaceVertexIndicesAttr().Get()
-        if points is None or face_vertex_counts is None or face_vertex_indices is None:
-            continue
-
-        xform = UsdGeom.Xformable(prim)
-        world_tf = np.array(xform.ComputeLocalToWorldTransform(Usd.TimeCode.Default()))
-
-        verts = np.asarray(points, dtype=np.float64)
-        verts_scaled = verts * np.array(scale, dtype=np.float64)
-        verts_h = np.hstack([verts_scaled, np.ones((len(verts_scaled), 1))])
-        verts_world = (verts_h @ world_tf)[:, :3]
-
-        # Fan-triangulate faces
-        idx = 0
-        for count in face_vertex_counts:
-            for k in range(1, count - 1):
-                all_faces.append([
-                    face_vertex_indices[idx] + offset,
-                    face_vertex_indices[idx + k] + offset,
-                    face_vertex_indices[idx + k + 1] + offset,
-                ])
-            idx += count
-
-        all_verts.append(verts_world)
-        offset += len(verts_world)
-
-    if all_verts:
-        if skipped_gprims:
-            print(f"Unsupported non-mesh geometry in {usd_path}: {', '.join(skipped_gprims)}")
-        return trimesh.Trimesh(vertices=np.vstack(all_verts), faces=np.array(all_faces, dtype=np.int32))
-    if skipped_gprims:
-        raise UnsupportedCollisionGeometryError(
-            f"Unsupported non-mesh geometry in {usd_path}: {', '.join(skipped_gprims)}"
-        )
-    if excluded_mesh_count and not included_mesh_count:
-        return None
-    raise NoCollisionMeshError(f"No mesh geometry found in {usd_path}")
+    assert stage is not None, f"could not open USD: {usd_path}"
+    default_prim = stage.GetDefaultPrim() or stage.GetPseudoRoot()
+    return extract_trimesh_from_prim(
+        stage,
+        default_prim.GetPath().pathString,
+        scale,
+        excluded_prim_paths=excluded_paths,
+    )
 
 
 def extract_trimesh_from_prim(
@@ -396,7 +320,8 @@ def extract_trimesh_from_prim(
     prim_path: str,
     scale: tuple[float, float, float] = (1.0, 1.0, 1.0),
     prim_world_deltas: Mapping[str, np.ndarray] | None = None,
-) -> trimesh.Trimesh:
+    excluded_prim_paths: Sequence[str] = (),
+) -> trimesh.Trimesh | None:
     """Extract UsdGeom.Mesh geometry under a prim into the prim's local frame.
 
     Other Gprim geometry is rejected, not silently dropped.
@@ -408,6 +333,7 @@ def extract_trimesh_from_prim(
         prim_world_deltas: Optional world-space transform per prim path, applied before the root
             frame conversion so callers can relocate geometry (e.g. posing an articulation). A mesh
             inherits the delta of its nearest ancestor present in the mapping.
+        excluded_prim_paths: Absolute prim paths whose complete subtrees are omitted.
     """
     assert all(
         s > 0 for s in scale
@@ -426,14 +352,21 @@ def extract_trimesh_from_prim(
     all_verts: list[np.ndarray] = []
     all_faces: list[list[int]] = []
     skipped_gprims: list[str] = []
+    excluded_mesh_count = 0
+    included_mesh_count = 0
     offset = 0
 
     # Instance proxies must be traversed explicitly, or an instanceable stand contributes no vertices.
     for prim in Usd.PrimRange(root_prim, Usd.TraverseInstanceProxies()):
+        current_path = str(prim.GetPath())
+        if any(current_path == path or current_path.startswith(f"{path}/") for path in excluded_prim_paths):
+            excluded_mesh_count += int(prim.IsA(UsdGeom.Mesh))
+            continue
         if not prim.IsA(UsdGeom.Mesh):
             if prim.IsA(UsdGeom.Gprim):
                 skipped_gprims.append(str(prim.GetPath()))
             continue
+        included_mesh_count += 1
         mesh_prim = UsdGeom.Mesh(prim)
         points = mesh_prim.GetPointsAttr().Get()
         face_vertex_counts = mesh_prim.GetFaceVertexCountsAttr().Get()
@@ -464,14 +397,14 @@ def extract_trimesh_from_prim(
         all_verts.append(verts_root)
         offset += len(verts_root)
 
-    if all_verts:
-        if skipped_gprims:
-            print(f"Unsupported non-mesh geometry under {prim_path}: {', '.join(skipped_gprims)}")
-        return trimesh.Trimesh(vertices=np.vstack(all_verts), faces=np.array(all_faces, dtype=np.int32))
     if skipped_gprims:
         raise UnsupportedCollisionGeometryError(
             f"Unsupported non-mesh geometry under {prim_path}: {', '.join(skipped_gprims)}"
         )
+    if all_verts:
+        return trimesh.Trimesh(vertices=np.vstack(all_verts), faces=np.array(all_faces, dtype=np.int32))
+    if excluded_mesh_count and not included_mesh_count:
+        return None
     raise NoCollisionMeshError(f"No mesh geometry found under {prim_path}")
 
 
@@ -487,7 +420,9 @@ def extract_trimesh_from_usd_path(
     stage = Usd.Stage.Open(usd_path)
     assert stage is not None, f"could not open USD: {usd_path}"
     default_prim = stage.GetDefaultPrim() or stage.GetPseudoRoot()
-    return extract_trimesh_from_prim(stage, default_prim.GetPath().pathString, scale)
+    mesh = extract_trimesh_from_prim(stage, default_prim.GetPath().pathString, scale)
+    assert mesh is not None
+    return mesh
 
 
 # -----------------------------------------------------------------------------
@@ -615,7 +550,7 @@ def compute_local_bounding_box_from_usd_at_joint_pos(
     joint_pos: Mapping[str, float],
     scale: tuple[float, float, float] = (1.0, 1.0, 1.0),
     prim_path: str | None = None,
-) -> AxisAlignedBoundingBox:
+) -> OrientedBoundingBox:
     """Compute posed bounds under a prim in the articulation's default-prim-local frame.
 
     Every ``UsdGeom.Gprim`` contributes, matching the geometry the unposed
@@ -633,12 +568,12 @@ def compute_local_bounding_box_from_usd_at_joint_pos(
         prim_path: Optional sub-prim to bound. When None, bounds the full default prim.
 
     Returns:
-        AxisAlignedBoundingBox containing the posed local bounds.
+        OrientedBoundingBox containing the posed local bounds.
     """
     bbox = _compute_local_bounding_box_from_usd_at_joint_pos(
         usd_path, tuple(sorted(joint_pos.items())), tuple(scale), prim_path
     )
-    return AxisAlignedBoundingBox(bbox.min_point.clone(), bbox.max_point.clone())
+    return OrientedBoundingBox(bbox.center, bbox.half_extents, bbox.rotation_xyzw)
 
 
 @functools.lru_cache(maxsize=_POSED_GEOMETRY_CACHE_SIZE)
@@ -647,7 +582,7 @@ def _compute_local_bounding_box_from_usd_at_joint_pos(
     joint_pos_items: tuple[tuple[str, float], ...],
     scale: tuple[float, float, float],
     prim_path: str | None,
-) -> AxisAlignedBoundingBox:
+) -> OrientedBoundingBox:
     """Cacheable body of ``compute_local_bounding_box_from_usd_at_joint_pos``, keyed by hashable args."""
     joint_pos = dict(joint_pos_items)
     stage = Usd.Stage.Open(usd_path)
@@ -689,7 +624,7 @@ def _compute_local_bounding_box_from_usd_at_joint_pos(
 
     assert corners, f"no bounded geometry found under {root_path} in {usd_path}"
     stacked = np.vstack(corners)
-    return AxisAlignedBoundingBox(
+    return OrientedBoundingBox.from_min_max(
         min_point=tuple(stacked.min(axis=0)),
         max_point=tuple(stacked.max(axis=0)),
     )

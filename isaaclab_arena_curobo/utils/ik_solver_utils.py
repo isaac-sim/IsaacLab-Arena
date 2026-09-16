@@ -14,7 +14,6 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 import isaaclab.utils.math as math_utils
-from curobo.geom.types import Cuboid, WorldConfig
 
 from isaaclab_arena.assets.object_base import ObjectBase
 from isaaclab_arena.utils.device import resolve_cuda_device
@@ -24,47 +23,51 @@ from isaaclab_arena_curobo.utils.frame_utils import world_pose_to_robot_frame
 if TYPE_CHECKING:
     from curobo.wrap.reacher.ik_solver import IKSolver
 
+    from isaaclab_arena.utils.bounding_box import OrientedBoundingBox
     from isaaclab_arena_curobo.ik_solver import CuroboIKSolver
 
 
 @dataclass
-class AABBCollisionCuboid:
-    """A collision obstacle described by an axis-aligned bounding box in the world frame.
+class OrientedCollisionCuboid:
+    """A collision obstacle described by an oriented box in the world frame.
 
     ``dims_xyz`` are full extents (edge lengths), matching cuRobo's ``Cuboid.dims``.
     """
 
     name: str
+    """Obstacle name."""
+
     dims_xyz: tuple[float, float, float]
+    """Full box-axis lengths in metres, shape (3,)."""
+
     pose_W_O: Pose = field(default_factory=Pose.identity)
+    """Box-to-world pose: position (3,) and xyzw quaternion (4,)."""
 
 
-def get_aabb_collision_cuboid_for_object(
-    obj: ObjectBase, pos_w: tuple[float, float, float], quat_w_xyzw: tuple[float, ...]
-) -> AABBCollisionCuboid:
-    """Axis-aligned bounding-box collision cuboid for an object at its layout pose (world frame).
+def get_obb_collision_cuboid_for_object(
+    obj: ObjectBase,
+    bbox: OrientedBoundingBox,
+    pos_w: tuple[float, float, float],
+    quat_w_xyzw: tuple[float, ...],
+) -> OrientedCollisionCuboid:
+    """Oriented collision cuboid for an object at its layout pose.
 
-    The bounding box is object-local, so its center offset is rotated by the object's world orientation
-    and added to the root position -- placing e.g. a table box at its true mid-height rather than at the
-    root.
+    The box center and orientation are transformed from object-local to world coordinates.
     """
-    bbox = obj.get_bounding_box()
-    dims = tuple(float(v) for v in bbox.size[0].tolist())
-    quat_t = torch.tensor(quat_w_xyzw, dtype=torch.float32)
-    rotation = math_utils.matrix_from_quat(quat_t.unsqueeze(0))[0]
-    center_world = torch.tensor(pos_w, dtype=torch.float32) + rotation @ bbox.center[0].to(torch.float32)
-    return AABBCollisionCuboid(
+    assert bbox.num_envs == 1, f"Expected one layout box for '{obj.name}', got {bbox.num_envs}."
+    box_W = bbox.transformed(pos_w, quat_w_xyzw)
+    return OrientedCollisionCuboid(
         name=obj.name,
-        dims_xyz=dims,
+        dims_xyz=tuple(float(v) for v in (2.0 * box_W.half_extents[0]).tolist()),
         pose_W_O=Pose(
-            position_xyz=tuple(float(v) for v in center_world.tolist()),
-            rotation_xyzw=tuple(float(v) for v in quat_w_xyzw),
+            position_xyz=tuple(float(v) for v in box_W.center[0].tolist()),
+            rotation_xyzw=tuple(float(v) for v in box_W.rotation_xyzw[0].tolist()),
         ),
     )
 
 
 def world_config_from_cuboids(
-    cuboids: list[AABBCollisionCuboid],
+    cuboids: list[OrientedCollisionCuboid],
     robot_base_pos_w: tuple[float, float, float],
     robot_base_quat_w_xyzw: tuple[float, float, float, float],
     device: str | torch.device | None = None,
@@ -73,6 +76,8 @@ def world_config_from_cuboids(
 
     Each obstacle's world pose is transformed into the robot base frame. Include anchor objects (e.g. a table) here as static cuboids.
     """
+
+    from curobo.geom.types import Cuboid, WorldConfig
 
     dev = resolve_cuda_device(device)
     robot_pos = torch.tensor(robot_base_pos_w, dtype=torch.float32, device=dev)

@@ -155,6 +155,11 @@ Both are set on ``ObjectPlacerParams`` in Python or the
 ``placement_validators`` block in YAML; see :doc:`../environment/environment_definition`
 for the field-level split.
 
+Explicitly enabled or required checks must be registered and available. Invalid
+check names, disabled required checks, and unavailable requested checks fail
+when the placer is constructed. An absent required verdict is a failure.
+Automatic discovery skips unavailable optional checks.
+
 Next Steps
 ----------
 

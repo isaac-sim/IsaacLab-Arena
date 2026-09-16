@@ -10,7 +10,7 @@ from __future__ import annotations
 import numpy as np
 import trimesh
 
-from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+from isaaclab_arena.utils.bounding_box import OrientedBoundingBox
 from isaaclab_arena.utils.pose import Pose
 
 
@@ -24,10 +24,10 @@ def mesh_in_world_frame(mesh: trimesh.Trimesh, pose: Pose) -> trimesh.Trimesh:
     return transformed
 
 
-def bounding_box_from_mesh(mesh: trimesh.Trimesh) -> AxisAlignedBoundingBox:
+def bounding_box_from_mesh(mesh: trimesh.Trimesh) -> OrientedBoundingBox:
     """Return the axis-aligned bounds of mesh."""
     bounds = mesh.bounds
-    return AxisAlignedBoundingBox(
+    return OrientedBoundingBox.from_min_max(
         min_point=tuple(float(v) for v in bounds[0]),
         max_point=tuple(float(v) for v in bounds[1]),
     )

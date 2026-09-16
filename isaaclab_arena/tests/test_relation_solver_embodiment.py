@@ -12,14 +12,14 @@ from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.relations import IsAnchor, On
 from isaaclab_arena.tests.dummy_embodiment import DummyEmbodiment
 from isaaclab_arena.tests.dummy_object import DummyObject
-from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+from isaaclab_arena.utils.bounding_box import OrientedBoundingBox
 from isaaclab_arena.utils.pose import Pose, PosePerEnv
 
 
 def _make_floor_and_robot():
     floor = DummyObject(
         name="floor",
-        bounding_box=AxisAlignedBoundingBox(
+        bounding_box=OrientedBoundingBox.from_min_max(
             min_point=(-2.0, -2.0, -0.05),
             max_point=(2.0, 2.0, 0.0),
         ),
@@ -28,7 +28,7 @@ def _make_floor_and_robot():
     floor.add_relation(IsAnchor())
     robot = DummyEmbodiment(
         name="robot",
-        bounding_box=AxisAlignedBoundingBox(
+        bounding_box=OrientedBoundingBox.from_min_max(
             min_point=(-0.2, -0.2, 0.0),
             max_point=(0.2, 0.2, 1.2),
         ),
@@ -61,7 +61,7 @@ def test_batched_embodiment_placement_stores_per_env_poses():
 def test_world_bounding_box_applies_positive_quarter_turn():
     asset = DummyObject(
         name="box",
-        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(2.0, 1.0, 1.0)),
+        bounding_box=OrientedBoundingBox.from_min_max(min_point=(0.0, 0.0, 0.0), max_point=(2.0, 1.0, 1.0)),
         initial_pose=Pose(
             position_xyz=(3.0, 4.0, 0.0),
             rotation_xyzw=(0.0, 0.0, 2**-0.5, 2**-0.5),
@@ -69,6 +69,7 @@ def test_world_bounding_box_applies_positive_quarter_turn():
     )
 
     world_bbox = asset.get_world_bounding_box()
+    min_point, max_point = world_bbox.get_axis_aligned_bounds()
 
-    assert torch.allclose(world_bbox.min_point, torch.tensor([[2.0, 4.0, 0.0]]))
-    assert torch.allclose(world_bbox.max_point, torch.tensor([[3.0, 6.0, 1.0]]))
+    assert torch.allclose(min_point, torch.tensor([[2.0, 4.0, 0.0]]))
+    assert torch.allclose(max_point, torch.tensor([[3.0, 6.0, 1.0]]))

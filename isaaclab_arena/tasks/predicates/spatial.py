@@ -16,7 +16,7 @@ from isaaclab.sensors.contact_sensor.contact_sensor import ContactSensor
 from isaaclab.utils.math import quat_apply, quat_apply_inverse
 
 from isaaclab_arena.tasks.predicates.object_settling import get_object_initial_rest_state
-from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+from isaaclab_arena.utils.bounding_box import OrientedBoundingBox
 
 if TYPE_CHECKING:
     from isaaclab_arena.environments.isaaclab_arena_manager_based_env import IsaacLabArenaManagerBasedRLEnv
@@ -25,7 +25,7 @@ if TYPE_CHECKING:
 def object_bounds_center_over_destination(
     object_centroid_W: torch.Tensor,
     T_W_D: torch.Tensor,
-    destination_bounds_D: AxisAlignedBoundingBox,
+    destination_bounds_D: OrientedBoundingBox,
 ) -> torch.Tensor:
     """Check whether an object's bounds center is over a destination.
 
@@ -52,11 +52,11 @@ def object_bounds_center_over_destination(
         q_W_D,
         object_centroid_W - t_W_D,
     )
+    minimum_D, maximum_D = destination_bounds_D.get_axis_aligned_bounds()
     center_inside_horizontal_bounds = (
-        (object_centroid_D[:, :2] >= destination_bounds_D.min_point[:, :2])
-        & (object_centroid_D[:, :2] <= destination_bounds_D.max_point[:, :2])
+        (object_centroid_D[:, :2] >= minimum_D[:, :2]) & (object_centroid_D[:, :2] <= maximum_D[:, :2])
     ).all(dim=-1)
-    center_above_destination_bottom = object_centroid_D[:, 2] >= destination_bounds_D.min_point[:, 2]
+    center_above_destination_bottom = object_centroid_D[:, 2] >= minimum_D[:, 2]
     return center_inside_horizontal_bounds & center_above_destination_bottom
 
 
@@ -261,7 +261,7 @@ def objects_in_proximity(
 
 def object_supported_by(
     object_vertices_pos_w: torch.Tensor,
-    destination_bound: AxisAlignedBoundingBox,
+    destination_bound: OrientedBoundingBox,
     support_tolerance: float = 0.03,
     low_point_tolerance: float = 0.01,
     minimum_support_fraction: float = 0.5,
@@ -286,13 +286,14 @@ def object_supported_by(
     Returns:
         One Boolean result per environment.
     """
+    minimum_W, maximum_W = destination_bound.get_axis_aligned_bounds()
     low_z = object_vertices_pos_w[..., 2].amin(dim=1, keepdim=True)
     low_mask = object_vertices_pos_w[..., 2] <= low_z + low_point_tolerance
     # TODO(qianl, 2026-09-15): use destination's vertices instead of AABB top surface/footprint for closeness check.
-    near_top = torch.abs(object_vertices_pos_w[..., 2] - destination_bound.top_surface_z[:, None]) <= support_tolerance
+    near_top = torch.abs(object_vertices_pos_w[..., 2] - maximum_W[:, None, 2]) <= support_tolerance
     inside_footprint = (
-        (object_vertices_pos_w[..., :2] >= destination_bound.min_point[:, None, :2])
-        & (object_vertices_pos_w[..., :2] <= destination_bound.max_point[:, None, :2])
+        (object_vertices_pos_w[..., :2] >= minimum_W[:, None, :2])
+        & (object_vertices_pos_w[..., :2] <= maximum_W[:, None, :2])
     ).all(dim=-1)
     supported_points = low_mask & near_top & inside_footprint
     support_fraction = supported_points.sum(dim=1) / low_mask.sum(dim=1).clamp_min(1)
@@ -343,7 +344,7 @@ def object_on_destination(
         # Use geometric support for deformable objects.
         object_vertices_w = arena_world.get_vertices_w(object_cfg.name)
         destination_vertices_w = arena_world.get_vertices_w(destination_cfg.name)
-        destination_bound = AxisAlignedBoundingBox(
+        destination_bound = OrientedBoundingBox.from_min_max(
             min_point=destination_vertices_w.amin(dim=1),
             max_point=destination_vertices_w.amax(dim=1),
         )

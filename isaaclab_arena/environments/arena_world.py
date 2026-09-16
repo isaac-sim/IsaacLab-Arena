@@ -20,7 +20,7 @@ from isaaclab.scene import InteractiveScene
 from isaaclab.utils.math import quat_apply
 
 import isaaclab_arena.environments.arena_world_scene_access as scene_access
-from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+from isaaclab_arena.utils.bounding_box import OrientedBoundingBox
 
 
 class ArenaWorld:
@@ -28,7 +28,7 @@ class ArenaWorld:
 
     def __init__(self, scene: InteractiveScene):
         self._scene = scene
-        self._aabbs_in_local_frame_cache: dict[str, AxisAlignedBoundingBox] = {}
+        self._aabbs_in_local_frame_cache: dict[str, OrientedBoundingBox] = {}
         self._scene_extra_pose_reader_cache: dict[str, scene_access.SceneExtraPoseReader] = {}
 
     # -------------------------------------------------------------------------
@@ -219,7 +219,7 @@ class ArenaWorld:
             vertices_w = self.get_nodal_positions_w(scene_key)
         else:
             # TODO(qianl, 2026-09-08): Return actual vertices once the rigid mesh cache is added.
-            vertices_pos_F = self.get_aabb_in_local_frame(scene_key).get_corners_at()
+            vertices_pos_F = self.get_aabb_in_local_frame(scene_key).get_corners()
             if vertices_pos_F.shape[0] == 1 and scene.num_envs > 1:
                 vertices_pos_F = vertices_pos_F.expand(scene.num_envs, -1, -1)
             T_W_F = self.get_pose_w(scene_key)
@@ -232,7 +232,7 @@ class ArenaWorld:
         )
         return vertices_w
 
-    def get_aabb_in_local_frame(self, scene_key: str) -> AxisAlignedBoundingBox:
+    def get_aabb_in_local_frame(self, scene_key: str) -> OrientedBoundingBox:
         """Return cached rigid-object or scene-extra geometry bounds in local frame F.
 
         The cache assumes descendants remain fixed relative to F.

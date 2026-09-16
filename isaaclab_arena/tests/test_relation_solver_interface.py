@@ -11,12 +11,12 @@ import pytest
 def _make_desk():
     from isaaclab_arena.relations.relations import IsAnchor
     from isaaclab_arena.tests.dummy_object import DummyObject
-    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+    from isaaclab_arena.utils.bounding_box import OrientedBoundingBox
     from isaaclab_arena.utils.pose import Pose
 
     desk = DummyObject(
         name="desk",
-        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(1.0, 1.0, 0.1)),
+        bounding_box=OrientedBoundingBox.from_min_max(min_point=(0.0, 0.0, 0.0), max_point=(1.0, 1.0, 0.1)),
     )
     desk.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
     desk.add_relation(IsAnchor())
@@ -25,11 +25,11 @@ def _make_desk():
 
 def _make_box(name: str = "box"):
     from isaaclab_arena.tests.dummy_object import DummyObject
-    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+    from isaaclab_arena.utils.bounding_box import OrientedBoundingBox
 
     return DummyObject(
         name=name,
-        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.2, 0.2, 0.2)),
+        bounding_box=OrientedBoundingBox.from_min_max(min_point=(0.0, 0.0, 0.0), max_point=(0.2, 0.2, 0.2)),
     )
 
 
@@ -77,12 +77,12 @@ def test_solve_and_apply_relation_placement_requires_unique_asset_names():
 def test_solve_and_apply_relation_placement_rejects_scene_name_collision():
     from isaaclab_arena.environments.relation_solver_interface import solve_and_apply_relation_placement
     from isaaclab_arena.tests.dummy_embodiment import DummyEmbodiment
-    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+    from isaaclab_arena.utils.bounding_box import OrientedBoundingBox
 
     embodiment = DummyEmbodiment(
         name="droid",
         scene_name="robot",
-        bounding_box=AxisAlignedBoundingBox(min_point=(-0.2, -0.2, 0.0), max_point=(0.2, 0.2, 1.0)),
+        bounding_box=OrientedBoundingBox.from_min_max(min_point=(-0.2, -0.2, 0.0), max_point=(0.2, 0.2, 1.0)),
     )
 
     with pytest.raises(AssertionError, match="duplicate scene keys"):
@@ -206,13 +206,13 @@ def test_static_embodiment_placement_stores_per_env_poses():
     from isaaclab_arena.environments.relation_solver_interface import _apply_relation_placement_result
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
     from isaaclab_arena.tests.dummy_embodiment import DummyEmbodiment
-    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+    from isaaclab_arena.utils.bounding_box import OrientedBoundingBox
     from isaaclab_arena.utils.pose import PosePerEnv
 
     desk = _make_desk()
     robot = DummyEmbodiment(
         name="robot",
-        bounding_box=AxisAlignedBoundingBox(
+        bounding_box=OrientedBoundingBox.from_min_max(
             min_point=(-0.2, -0.2, 0.0),
             max_point=(0.2, 0.2, 1.0),
         ),

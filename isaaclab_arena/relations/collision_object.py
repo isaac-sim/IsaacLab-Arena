@@ -11,7 +11,7 @@ import trimesh
 from typing import Protocol
 
 from isaaclab_arena.relations.collision_mode import CollisionMode
-from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+from isaaclab_arena.utils.bounding_box import OrientedBoundingBox
 from isaaclab_arena.utils.pose import Pose, PosePerEnv, PoseRange
 
 
@@ -29,10 +29,10 @@ class CollisionObject(Protocol):
     def get_initial_pose(self) -> Pose | PoseRange | PosePerEnv | None:
         raise NotImplementedError
 
-    def get_bounding_box(self) -> AxisAlignedBoundingBox:
+    def get_bounding_box(self) -> OrientedBoundingBox:
         raise NotImplementedError
 
-    def get_world_bounding_box(self) -> AxisAlignedBoundingBox:
+    def get_world_bounding_box(self) -> OrientedBoundingBox:
         raise NotImplementedError
 
     def get_collision_mesh(self) -> trimesh.Trimesh | None:

@@ -11,7 +11,7 @@ import trimesh
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.relations.placement_asset import PlaceableAsset
-from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+from isaaclab_arena.utils.bounding_box import OrientedBoundingBox
 from isaaclab_arena.utils.pose import Pose, PosePerEnv
 
 if TYPE_CHECKING:
@@ -28,7 +28,7 @@ class DummyEmbodiment(PlaceableAsset):
     def __init__(
         self,
         name: str,
-        bounding_box: AxisAlignedBoundingBox,
+        bounding_box: OrientedBoundingBox,
         initial_pose: Pose | None = None,
         collision_mesh: trimesh.Trimesh | None = None,
         scene_name: str | None = None,
@@ -58,7 +58,7 @@ class DummyEmbodiment(PlaceableAsset):
             params={"scene_writes": self.layout_pose_to_scene_writes(self.initial_pose)},
         )
 
-    def get_bounding_box(self) -> AxisAlignedBoundingBox:
+    def get_bounding_box(self) -> OrientedBoundingBox:
         """Return root-relative bounds."""
         return self.bounding_box
 

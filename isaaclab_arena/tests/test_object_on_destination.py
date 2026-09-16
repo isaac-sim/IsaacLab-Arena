@@ -9,7 +9,7 @@ from types import SimpleNamespace
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
 
-def _check_bounds_center_over_destination(spatial, axis_aligned_bounding_box_type) -> None:
+def _check_bounds_center_over_destination(spatial, oriented_bounding_box_type) -> None:
     """Exercise translation, rotation, open-top behavior, and offset object bounds."""
     import torch
 
@@ -40,7 +40,7 @@ def _check_bounds_center_over_destination(spatial, axis_aligned_bounding_box_typ
     ])
     num_cases = T_W_O.shape[0]
     object_bounds_center_O = torch.tensor([0.2, 0.0, 0.0]).expand(num_cases, 3)
-    destination_bounds_D = axis_aligned_bounding_box_type(
+    destination_bounds_D = oriented_bounding_box_type.from_min_max(
         min_point=torch.tensor([-1.0, -0.5, 0.0]).expand(num_cases, 3),
         max_point=torch.tensor([1.0, 0.5, 0.4]).expand(num_cases, 3),
     )
@@ -76,11 +76,11 @@ def _check_upward_support_force(spatial) -> None:
     torch.testing.assert_close(result, torch.tensor([False, True, True, False, False, True, False, True]))
 
 
-def _check_deformable_support(spatial, axis_aligned_bounding_box_type) -> None:
+def _check_deformable_support(spatial, oriented_bounding_box_type) -> None:
     """Require low nodes to be near the top and inside the destination footprint."""
     import torch
 
-    destination_bound = axis_aligned_bounding_box_type(
+    destination_bound = oriented_bounding_box_type.from_min_max(
         min_point=torch.tensor([[-1.0, -0.5, 0.0]]).expand(3, 3),
         max_point=torch.tensor([[1.0, 0.5, 0.4]]).expand(3, 3),
     )
@@ -99,7 +99,7 @@ def _check_deformable_support(spatial, axis_aligned_bounding_box_type) -> None:
 
 def _check_object_on_destination(
     spatial,
-    axis_aligned_bounding_box_type,
+    oriented_bounding_box_type,
     scene_entity_cfg_type,
 ) -> None:
     """Check combined results and the scene state read by the predicate."""
@@ -200,11 +200,11 @@ def _check_object_on_destination(
     arena_world = ArenaWorldDouble(
         T_W_F_by_scene_key={"object": T_W_O, "destination": T_W_D},
         aabbs_F_by_scene_key={
-            "object": axis_aligned_bounding_box_type(
+            "object": oriented_bounding_box_type.from_min_max(
                 min_point=torch.tensor([-0.1, -0.1, -0.1]).expand(4, 3),
                 max_point=torch.tensor([0.1, 0.1, 0.1]).expand(4, 3),
             ),
-            "destination": axis_aligned_bounding_box_type(
+            "destination": oriented_bounding_box_type.from_min_max(
                 min_point=torch.tensor([-1.0, -0.5, 0.0]).expand(4, 3),
                 max_point=torch.tensor([1.0, 0.5, 0.4]).expand(4, 3),
             ),
@@ -216,10 +216,10 @@ def _check_object_on_destination(
         },
         vertices_positions_w_by_scene_key={
             "object": object_vertices_pos_w,
-            "destination": axis_aligned_bounding_box_type(
+            "destination": oriented_bounding_box_type.from_min_max(
                 min_point=torch.tensor([-1.0, -0.5, 0.0]).expand(4, 3),
                 max_point=torch.tensor([1.0, 0.5, 0.4]).expand(4, 3),
-            ).get_corners_at(),
+            ).get_corners(),
         },
     )
     env = EnvironmentDouble(arena_world, ContactSensorDouble(contact_force_w))
@@ -311,14 +311,14 @@ def _test_object_on_destination(_simulation_app) -> bool:
     import isaaclab_arena.tasks.predicates.spatial as spatial
     from isaaclab_arena.assets.object_type import ObjectType
     from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
-    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+    from isaaclab_arena.utils.bounding_box import OrientedBoundingBox
 
-    _check_bounds_center_over_destination(spatial, AxisAlignedBoundingBox)
+    _check_bounds_center_over_destination(spatial, OrientedBoundingBox)
     _check_upward_support_force(spatial)
-    _check_deformable_support(spatial, AxisAlignedBoundingBox)
+    _check_deformable_support(spatial, OrientedBoundingBox)
     _check_object_on_destination(
         spatial,
-        AxisAlignedBoundingBox,
+        OrientedBoundingBox,
         SceneEntityCfg,
     )
     _check_pick_and_place_deformable_skips_contact_sensor(PickAndPlaceTask, ObjectType)

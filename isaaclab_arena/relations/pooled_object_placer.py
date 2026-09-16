@@ -252,6 +252,7 @@ class PooledObjectPlacer:
 
     def sample_for_envs(self, env_ids: list[int]) -> dict[int, PlacementResult]:
         """Consume one layout for each requested absolute env id."""
+        assert len(set(env_ids)) == len(env_ids), f"env_ids must be unique, got {env_ids}."
         if any(env_id < 0 or env_id >= self._num_envs for env_id in env_ids):
             raise ValueError(f"env_ids must be in [0, {self._num_envs}); got {env_ids}")
 

@@ -126,21 +126,25 @@ def _test_backend_specific_deformable_config(simulation_app) -> bool:
     assert library_cube.spawner_cfg.physics_material.poissons_ratio == pytest.approx(0.25)
     assert library_cube.spawner_cfg.physics_material.density == pytest.approx(300.0)
     assert library_cube.spawner_cfg.visual_material.diffuse_color == (0.95, 0.85, 0.1)
-    assert library_cube.get_bounding_box().size[0].tolist() == pytest.approx([0.15, 0.04, 0.04])
+    assert (2 * library_cube.get_bounding_box().half_extents[0]).tolist() == pytest.approx([0.15, 0.04, 0.04])
 
     library_surface = DeformableSurface()
     assert library_surface.spawner_cfg.size == (0.2, 0.2)
     assert library_surface.spawner_cfg.resolution == (30, 30)
     assert library_surface.spawner_cfg.visual_material.diffuse_color == (0.95, 0.85, 0.1)
-    assert library_surface.get_bounding_box().min_point[0].tolist() == pytest.approx([-0.1, -0.1, -0.001])
-    assert library_surface.get_bounding_box().max_point[0].tolist() == pytest.approx([0.1, 0.1, 0.001])
+    assert library_surface.get_bounding_box().get_axis_aligned_bounds()[0][0].tolist() == pytest.approx(
+        [-0.1, -0.1, -0.001]
+    )
+    assert library_surface.get_bounding_box().get_axis_aligned_bounds()[1][0].tolist() == pytest.approx(
+        [0.1, 0.1, 0.001]
+    )
 
     library_teddy_bear = DeformableTeddyBear()
     assert library_teddy_bear._bounding_box is None
     teddy_bear_bbox = library_teddy_bear.get_bounding_box()
     assert library_teddy_bear._bounding_box is teddy_bear_bbox
-    assert (teddy_bear_bbox.size[0] > 0.0).all()
-    assert (teddy_bear_bbox.size[0] < 1.0).all()
+    assert ((2 * teddy_bear_bbox.half_extents[0]) > 0.0).all()
+    assert ((2 * teddy_bear_bbox.half_extents[0]) < 1.0).all()
 
     updated_pose = Pose(position_xyz=(0.4, 0.0, 0.5))
     soft_cube.set_initial_pose(updated_pose)

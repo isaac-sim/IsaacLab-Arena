@@ -16,7 +16,7 @@ from isaaclab.scene import InteractiveScene
 from isaaclab.sim.views import FrameView
 from pxr import Usd, UsdGeom, UsdPhysics
 
-from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+from isaaclab_arena.utils.bounding_box import OrientedBoundingBox
 
 
 def _get_representative_prim_groups(
@@ -57,7 +57,7 @@ def _find_single_rigid_body_prim_in_subtree(root_prim: Usd.Prim, rigid_object_na
     return rigid_body_prims_in_subtree[0]
 
 
-def _compute_geometry_bounds_in_prim_frame(prim: Usd.Prim) -> AxisAlignedBoundingBox:
+def _compute_geometry_bounds_in_prim_frame(prim: Usd.Prim) -> OrientedBoundingBox:
     """Compute descendant geometry bounds expressed in the prim's local frame P."""
     assert prim.IsValid(), "Prim must be valid."
 
@@ -89,7 +89,7 @@ def _compute_geometry_bounds_in_prim_frame(prim: Usd.Prim) -> AxisAlignedBoundin
 
     prim_path = prim.GetPath()
     assert found_geometry, f"Prim '{prim_path}' has no default-purpose geometry."
-    return AxisAlignedBoundingBox(
+    return OrientedBoundingBox.from_min_max(
         min_point=tuple(float(value) for value in lower_P),
         max_point=tuple(float(value) for value in upper_P),
     )
@@ -98,7 +98,7 @@ def _compute_geometry_bounds_in_prim_frame(prim: Usd.Prim) -> AxisAlignedBoundin
 def compute_spawned_geometry_bounds_in_local_frame(
     scene: InteractiveScene,
     scene_key: str,
-) -> AxisAlignedBoundingBox:
+) -> OrientedBoundingBox:
     """Build local-frame bounds from default-purpose geometry in the cloned prim hierarchy.
 
     Args:
@@ -134,15 +134,16 @@ def compute_spawned_geometry_bounds_in_local_frame(
         )
         geometry_bounds_F = _compute_geometry_bounds_in_prim_frame(local_frame_prim).to(scene.device)
         environment_indices = torch.tensor(environment_ids, dtype=torch.long, device=scene.device)
-        minimum_points_F_by_environment[environment_indices] = geometry_bounds_F.min_point[0]
-        maximum_points_F_by_environment[environment_indices] = geometry_bounds_F.max_point[0]
+        minimum_F, maximum_F = geometry_bounds_F.get_axis_aligned_bounds()
+        minimum_points_F_by_environment[environment_indices] = minimum_F[0]
+        maximum_points_F_by_environment[environment_indices] = maximum_F[0]
         for environment_id in environment_ids:
             coverage_count[environment_id] += 1
 
     assert all(
         count == 1 for count in coverage_count
     ), f"Geometry for scene key '{scene_key}' must cover every environment exactly once; got coverage {coverage_count}."
-    return AxisAlignedBoundingBox(
+    return OrientedBoundingBox.from_min_max(
         min_point=minimum_points_F_by_environment,
         max_point=maximum_points_F_by_environment,
     )

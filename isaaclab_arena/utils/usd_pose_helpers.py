@@ -11,6 +11,8 @@ from isaaclab_arena.utils.pose import Pose
 def get_prim_pose_in_default_prim_frame(prim: Usd.Prim, stage: Usd.Stage) -> Pose:
     """Get the pose of a prim in the default prim's local frame.
 
+    Scale is intentionally omitted because ``Pose`` represents only a rigid transform.
+
     Args:
         prim: The prim to get the pose of.
         stage: The stage to get the default prim from.
@@ -23,21 +25,22 @@ def get_prim_pose_in_default_prim_frame(prim: Usd.Prim, stage: Usd.Stage) -> Pos
     if not default_prim:
         raise RuntimeError("Stage does not have a default prim set.")
 
-    # Compute prim's transform in default prim's local frame
+    # O is the prim frame, P the default-prim frame, and W the USD world frame.
     xformable_prim = UsdGeom.Xformable(prim)
     xformable_default = UsdGeom.Xformable(default_prim)
 
-    prim_T_world = xformable_prim.ComputeLocalToWorldTransform(Usd.TimeCode.Default())
-    default_T_world = xformable_default.ComputeLocalToWorldTransform(Usd.TimeCode.Default())
+    T_W_O = xformable_prim.ComputeLocalToWorldTransform(Usd.TimeCode.Default())
+    T_W_P = xformable_default.ComputeLocalToWorldTransform(Usd.TimeCode.Default())
 
-    # matrix_default_to_world may be singular if default prim is the pseudo-root. Warn user.
-    if default_T_world.GetDeterminant() == 0:
+    # A singular transform cannot define a reference frame.
+    if T_W_P.GetDeterminant() == 0:
         raise RuntimeError("Default prim's world transform is singular.")
 
-    default_T_world = default_T_world.GetInverse()
-    prim_T_default = prim_T_world * default_T_world
+    T_P_W = T_W_P.GetInverse()
+    # USD uses row vectors, reversing the multiplication order of our frame notation.
+    T_P_O = T_W_O * T_P_W
 
-    pos, rot, _ = UsdSkel.DecomposeTransform(prim_T_default)
+    pos, rot, _ = UsdSkel.DecomposeTransform(T_P_O)
     rot_tuple = (rot.GetImaginary()[0], rot.GetImaginary()[1], rot.GetImaginary()[2], rot.GetReal())
     pos_tuple = (pos[0], pos[1], pos[2])
     return Pose(position_xyz=pos_tuple, rotation_xyzw=rot_tuple)

@@ -22,7 +22,7 @@ from isaaclab_physx.sim.schemas import PhysxDeformableBodyPropertiesCfg
 from isaaclab_arena.assets.object_base import ObjectBase
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.terms.events import set_deformable_object_pose, set_deformable_object_pose_per_env
-from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+from isaaclab_arena.utils.bounding_box import OrientedBoundingBox
 from isaaclab_arena.utils.physics_backend import PhysicsBackend
 from isaaclab_arena.utils.pose import Pose, PosePerEnv, PoseRange
 from isaaclab_arena.utils.usd_helpers import compute_local_bounding_box_from_usd
@@ -86,7 +86,7 @@ class DeformableObject(ObjectBase):
     @staticmethod
     def _bounding_box_from_spawner(
         spawner_cfg: DeformableObjectSpawnerCfg | None,
-    ) -> AxisAlignedBoundingBox | None:
+    ) -> OrientedBoundingBox | None:
         """Infer undeformed local bounds for supported primitive-mesh sources."""
         if isinstance(spawner_cfg, MeshCuboidCfg):
             half_size = tuple(size * 0.5 for size in spawner_cfg.size)
@@ -95,7 +95,7 @@ class DeformableObject(ObjectBase):
             half_size = (*tuple(size * 0.5 for size in spawner_cfg.size), 0.001)
         else:
             return None
-        return AxisAlignedBoundingBox(
+        return OrientedBoundingBox.from_min_max(
             min_point=tuple(-value for value in half_size),
             max_point=half_size,
         )
@@ -150,7 +150,7 @@ class DeformableObject(ObjectBase):
             },
         )
 
-    def get_bounding_box(self) -> AxisAlignedBoundingBox:
+    def get_bounding_box(self) -> OrientedBoundingBox:
         """Return undeformed local bounds used for initial placement."""
         if self._bounding_box is None and isinstance(self.spawner_cfg, UsdFileCfg):
             self._bounding_box = compute_local_bounding_box_from_usd(

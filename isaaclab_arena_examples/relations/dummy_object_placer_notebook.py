@@ -15,7 +15,7 @@ from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.relation_solver import RelationSolver
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.relations.relations import IsAnchor, NextTo, On, Side, get_anchor_objects
-from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+from isaaclab_arena.utils.bounding_box import OrientedBoundingBox
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena_examples.relations.example_object import ExampleObject
 from isaaclab_arena_examples.relations.relation_solver_visualizer import RelationSolverVisualizer
@@ -26,31 +26,37 @@ def run_dummy_object_placer_demo():
     """Run the ObjectPlacer demo with dummy objects and a single anchor."""
     # Create objects with bounding boxes
     desk = ExampleObject(
-        name="desk", bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(1.0, 1.0, 0.1))
+        name="desk", bounding_box=OrientedBoundingBox.from_min_max(min_point=(0.0, 0.0, 0.0), max_point=(1.0, 1.0, 0.1))
     )
 
     # Central object on the desk
     center_box = ExampleObject(
-        name="center_box", bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.2, 0.2, 0.15))
+        name="center_box",
+        bounding_box=OrientedBoundingBox.from_min_max(min_point=(0.0, 0.0, 0.0), max_point=(0.2, 0.2, 0.15)),
     )
 
     # Objects placed on each side of center_box
     right_box = ExampleObject(
-        name="right_box", bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.15, 0.15, 0.1))
+        name="right_box",
+        bounding_box=OrientedBoundingBox.from_min_max(min_point=(0.0, 0.0, 0.0), max_point=(0.15, 0.15, 0.1)),
     )
     left_box = ExampleObject(
-        name="left_box", bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.15, 0.15, 0.1))
+        name="left_box",
+        bounding_box=OrientedBoundingBox.from_min_max(min_point=(0.0, 0.0, 0.0), max_point=(0.15, 0.15, 0.1)),
     )
     front_box = ExampleObject(
-        name="front_box", bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.12, 0.12, 0.08))
+        name="front_box",
+        bounding_box=OrientedBoundingBox.from_min_max(min_point=(0.0, 0.0, 0.0), max_point=(0.12, 0.12, 0.08)),
     )
     back_box = ExampleObject(
-        name="back_box", bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.12, 0.12, 0.08))
+        name="back_box",
+        bounding_box=OrientedBoundingBox.from_min_max(min_point=(0.0, 0.0, 0.0), max_point=(0.12, 0.12, 0.08)),
     )
 
     # Box on top of center_box
     top_box = ExampleObject(
-        name="top_box", bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.08, 0.08, 0.08))
+        name="top_box",
+        bounding_box=OrientedBoundingBox.from_min_max(min_point=(0.0, 0.0, 0.0), max_point=(0.08, 0.08, 0.08)),
     )
 
     # Mark desk as the anchor for relation solving (not subject to optimization)
@@ -107,23 +113,23 @@ def run_dummy_multi_anchor_demo():
     # Create anchor objects (fixed positions)
     table = ExampleObject(
         name="table",
-        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(1.0, 0.6, 0.75)),
+        bounding_box=OrientedBoundingBox.from_min_max(min_point=(0.0, 0.0, 0.0), max_point=(1.0, 0.6, 0.75)),
     )
     chair = ExampleObject(
         name="chair",
-        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.5, 0.5, 0.45)),
+        bounding_box=OrientedBoundingBox.from_min_max(min_point=(0.0, 0.0, 0.0), max_point=(0.5, 0.5, 0.45)),
     )
     mug = ExampleObject(
         name="mug",
-        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.08, 0.08, 0.1)),
+        bounding_box=OrientedBoundingBox.from_min_max(min_point=(0.0, 0.0, 0.0), max_point=(0.08, 0.08, 0.1)),
     )
     book = ExampleObject(
         name="book",
-        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.2, 0.15, 0.03)),
+        bounding_box=OrientedBoundingBox.from_min_max(min_point=(0.0, 0.0, 0.0), max_point=(0.2, 0.15, 0.03)),
     )
     bin_obj = ExampleObject(
         name="bin",
-        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.3, 0.3, 0.4)),
+        bounding_box=OrientedBoundingBox.from_min_max(min_point=(0.0, 0.0, 0.0), max_point=(0.3, 0.3, 0.4)),
     )
 
     # Anchor objects (fixed positions)
@@ -169,22 +175,22 @@ def run_dummy_no_collision_demo():
     # Create table (anchor) and three boxes
     table = ExampleObject(
         name="table",
-        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.8, 0.6, 0.4)),
+        bounding_box=OrientedBoundingBox.from_min_max(min_point=(0.0, 0.0, 0.0), max_point=(0.8, 0.6, 0.4)),
     )
     table.add_relation(IsAnchor())
     table.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
 
     box_a = ExampleObject(
         name="box_a",
-        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.15, 0.15, 0.1)),
+        bounding_box=OrientedBoundingBox.from_min_max(min_point=(0.0, 0.0, 0.0), max_point=(0.15, 0.15, 0.1)),
     )
     box_b = ExampleObject(
         name="box_b",
-        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.12, 0.12, 0.08)),
+        bounding_box=OrientedBoundingBox.from_min_max(min_point=(0.0, 0.0, 0.0), max_point=(0.12, 0.12, 0.08)),
     )
     box_c = ExampleObject(
         name="box_c",
-        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.18, 0.1, 0.06)),
+        bounding_box=OrientedBoundingBox.from_min_max(min_point=(0.0, 0.0, 0.0), max_point=(0.18, 0.1, 0.06)),
     )
 
     # Boxes on table; no-overlap is handled automatically by the solver

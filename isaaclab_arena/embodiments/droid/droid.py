@@ -48,7 +48,7 @@ from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
 from isaaclab_arena.embodiments.franka.franka import franka_stack_events
 from isaaclab_arena.embodiments.robot_on_stand_utils import RobotPrimSpec, StandPrimSpec, compose_on_stand_usd
 from isaaclab_arena.relations.collision_mode import CollisionMode
-from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+from isaaclab_arena.utils.bounding_box import OrientedBoundingBox
 from isaaclab_arena.utils.cameras import ArenaCameraCfg
 from isaaclab_arena.utils.physics_backend import PhysicsBackend
 from isaaclab_arena.utils.pose import Pose
@@ -202,7 +202,7 @@ class DroidEmbodimentBase(EmbodimentBase, ABC):
         )
         self.observation_config.policy.gripper_pos = ObsTerm(func=newton_gripper_pos)
 
-    def get_bounding_box(self) -> AxisAlignedBoundingBox:
+    def get_bounding_box(self) -> OrientedBoundingBox:
         """Return root-relative placement bounds from the composed on-stand USD spawn.
 
         When ``placement_bbox_stand_only`` is True, bounds exclude the robot arm and cover

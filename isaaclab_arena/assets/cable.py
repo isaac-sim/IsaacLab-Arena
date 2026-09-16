@@ -15,7 +15,7 @@ from isaaclab_arena.assets.object_base import ObjectBase
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.relations.relations import RelationBase
 from isaaclab_arena.terms.events import reset_cable_to_default
-from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+from isaaclab_arena.utils.bounding_box import OrientedBoundingBox
 from isaaclab_arena.utils.pose import Pose, PosePerEnv, PoseRange
 
 if TYPE_CHECKING:
@@ -83,7 +83,7 @@ class Cable(ObjectBase):
         """Reject relation-based placement until cable segment placement is supported."""
         raise NotImplementedError("Cable does not yet support relation-based placement.")
 
-    def get_bounding_box(self) -> AxisAlignedBoundingBox:
+    def get_bounding_box(self) -> OrientedBoundingBox:
         """Reject bounding-box queries used by relation-based placement."""
         raise NotImplementedError("Cable bounding boxes are not yet supported by the object placer.")
 

@@ -20,7 +20,7 @@ class ObjectPlacerParams:
 
     random_yaw_init: bool = False
     """If True, give each non-anchor object a random fixed yaw about Z (uniform in [-pi, pi)) for
-    scene variety. Not optimized; collisions use the conservative box enclosing the rotated object."""
+    scene variety. Composed with its marker rotation; collision geometry retains the full quaternion."""
 
     max_placement_attempts: int = 10
     """Number of candidate layouts solved and ranked per result. Higher values raise the chance a valid
@@ -49,7 +49,7 @@ class ObjectPlacerParams:
     environment has many distinct configurations to draw from."""
 
     allow_best_loss_fallbacks: bool = True
-    """Whether pooled placement may use best-loss layouts when no valid layout is found."""
+    """Whether placement may use best-loss layouts when no valid layout is found."""
 
     enabled_checks: set[str] | None = None
     """Check names to evaluate during placement. None runs every registered build-time check.

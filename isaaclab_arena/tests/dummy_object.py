@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING
 
 from isaaclab_arena.relations.placement_asset import PlaceableAsset
 from isaaclab_arena.relations.relations import RelationBase
-from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+from isaaclab_arena.utils.bounding_box import OrientedBoundingBox
 from isaaclab_arena.utils.pose import Pose, PosePerEnv
 
 if TYPE_CHECKING:
@@ -27,7 +27,7 @@ class DummyObject(PlaceableAsset):
     def __init__(
         self,
         name: str,
-        bounding_box: AxisAlignedBoundingBox,
+        bounding_box: OrientedBoundingBox,
         initial_pose: Pose | None = None,
         relations: list[RelationBase] | None = None,
         collision_mesh: trimesh.Trimesh | None = None,
@@ -59,12 +59,12 @@ class DummyObject(PlaceableAsset):
             params={"scene_writes": self.layout_pose_to_scene_writes(self.initial_pose)},
         )
 
-    def get_bounding_box(self) -> AxisAlignedBoundingBox:
+    def get_bounding_box(self) -> OrientedBoundingBox:
         """Get local bounding box (relative to object origin)."""
         return self.bounding_box
 
     def get_corners_aabb(self, pos: torch.Tensor) -> torch.Tensor:
-        return self.bounding_box.get_corners_at(pos)
+        return self.bounding_box.translated(pos).get_corners()
 
     def is_initial_pose_set(self) -> bool:
         return self.initial_pose is not None
