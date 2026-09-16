@@ -57,6 +57,9 @@ def build_arena_env_from_graph_spec(graph_spec: ArenaEnvGraphSpec, enable_camera
     scene_assets = [asset for node_id, asset in assets_by_node_id.items() if node_id != graph_spec.embodiment.id]
     override = graph_spec.env_cfg_override
     env_cfg_callback = partial(apply_env_cfg_override, override=override) if override is not None else None
+    env_kwargs: dict[str, Any] = {}
+    if graph_spec.default_physics_backend is not None:
+        env_kwargs["default_physics_backend"] = graph_spec.default_physics_backend
     return IsaacLabArenaEnvironment(
         name=graph_spec.env_name,
         scene=Scene(assets=scene_assets),
@@ -64,6 +67,7 @@ def build_arena_env_from_graph_spec(graph_spec: ArenaEnvGraphSpec, enable_camera
         task=build_task_from_spec(graph_spec.task, assets_by_node_id),
         placer_params=build_checks_for_placer_params(graph_spec),
         env_cfg_callback=env_cfg_callback,
+        **env_kwargs,
     )
 
 

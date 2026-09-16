@@ -259,6 +259,15 @@ def _test_cli_preset_rejects_conflicting_yaml_backend(simulation_app) -> bool:
     return True
 
 
+def _test_env_default_physics_backend_applies_without_cli_preset(simulation_app) -> bool:
+    from isaaclab_newton.physics.newton_manager_cfg import NewtonCfg
+
+    env_cfg = _build_env_cfg(presets=None, default_physics_backend="newton")
+    assert isinstance(env_cfg.sim.physics, NewtonCfg)
+    assert env_cfg.scene.replicate_physics is True
+    return True
+
+
 def test_arena_physics_cfg_presets():
     assert run_function_with_persistent_simulation_app(_test_arena_physics_cfg_presets, headless=HEADLESS)
 
@@ -346,6 +355,12 @@ def test_builder_rejects_unsafe_or_incompatible_targets():
 def test_cli_preset_rejects_conflicting_yaml_backend():
     assert run_function_with_persistent_simulation_app(
         _test_cli_preset_rejects_conflicting_yaml_backend, headless=HEADLESS
+    )
+
+
+def test_env_default_physics_backend_applies_without_cli_preset():
+    assert run_function_with_persistent_simulation_app(
+        _test_env_default_physics_backend_applies_without_cli_preset, headless=HEADLESS
     )
 
 

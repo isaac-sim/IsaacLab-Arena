@@ -83,6 +83,16 @@ def test_graph_spec_loads_pick_and_place_yaml():
     assert ObjectRelationLibraryRegistry().get_object_relation_by_name(spec.relations[1].kind) is On
 
 
+def test_graph_spec_parses_default_physics_backend():
+    from isaaclab_arena.utils.physics_backend import PhysicsBackend
+
+    data = _minimal_env_graph_data()
+    data["default_physics_backend"] = "newton"
+
+    spec = ArenaEnvGraphSpec.from_dict(data)
+    assert spec.default_physics_backend is PhysicsBackend.NEWTON
+
+
 def test_graph_spec_round_trips_pose_params_and_env_cfg_override():
     data = _minimal_env_graph_data()
     data["embodiment"].setdefault("params", {})["initial_pose"] = {

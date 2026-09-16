@@ -3,20 +3,16 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-# Matches gear_insertion_physics_cfg() in gear_medium_environment.py on main:
-# deepcopy(ArenaPhysicsCfg().newton) with gear-specific Newton and collision tuning.
+# Gear insertion uses Newton with task-specific solver and collision tuning.
+default_physics_backend: newton
 env_cfg_override:
-  scene:
-    replicate_physics: true
   sim:
     physics:
-      _target_: isaaclab_newton.physics.NewtonCfg
       num_substeps: 4
       collision_decimation: 1
       debug_mode: false
       use_cuda_graph: true
       default_shape_cfg:
-        _target_: isaaclab_newton.physics.NewtonShapeCfg
         ke: 60000.0
         kd: 500.0
       solver_cfg:
