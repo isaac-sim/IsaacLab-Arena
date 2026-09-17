@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from functools import partial
 
 from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg, ArenaEnvironmentFactory
+from isaaclab_arena.utils.physics_backend import PhysicsBackend
 
 from .physics import configure_cable_routing_physics
 from .scene import build_cable_routing_scene, easy_variant, medium_variant
@@ -73,6 +74,7 @@ class CableRoutingMediumEnvironment(ArenaEnvironmentFactory[CableRoutingMediumEn
                 physics=variant.physics,
                 pin_start=variant.pin_start,
             ),
+            default_physics_backend=PhysicsBackend.NEWTON,
         )
 
 

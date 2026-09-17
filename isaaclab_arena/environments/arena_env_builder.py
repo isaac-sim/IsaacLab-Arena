@@ -10,12 +10,13 @@ import gymnasium as gym
 from typing import Any
 
 from isaaclab.devices.device_base import DeviceCfg, DevicesCfg
-from isaaclab.envs import ManagerBasedRLMimicEnv
+from isaaclab.envs import ManagerBasedRLMimicEnv, ViewerCfg
 from isaaclab.envs.manager_based_env import ManagerBasedEnv
 from isaaclab.envs.mdp import time_out
 from isaaclab.managers import EventTermCfg, TerminationTermCfg
 from isaaclab.managers.recorder_manager import RecorderManagerBaseCfg
 from isaaclab.scene import InteractiveSceneCfg
+from isaaclab.visualizers import VisualizerCfg
 from isaaclab_newton.physics import NewtonCfg
 from isaaclab_physx.physics import PhysxCfg
 from isaaclab_tasks.utils import parse_env_cfg
@@ -49,13 +50,28 @@ from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
 from isaaclab_arena.terms.events import ResetBackgroundPhysics
 from isaaclab_arena.terms.recorders import ArenaEnvRecorderManagerCfg
 from isaaclab_arena.utils.configclass import combine_configclass_instances, make_configclass
-from isaaclab_arena.utils.isaaclab_utils.simulation_app import reapply_viewer_cfg
 from isaaclab_arena.utils.isaaclab_utils.warp_patch import install_empty_cpu_warp_to_torch_patch
 from isaaclab_arena.utils.multiprocess import get_local_rank
 from isaaclab_arena.utils.physics_backend import PhysicsBackend
 from isaaclab_arena.variations import variations_hydra, variations_printing
 from isaaclab_arena.variations.variation_base import RunTimeVariationBase, VariationBase
 from isaaclab_arena.variations.variation_recorder import VariationRecorder
+
+
+def _configure_arena_visualizer_defaults(env_cfg: IsaacLabArenaManagerBasedRLEnvCfg) -> None:
+    """Preserve Arena's native scene background and migrate its legacy task camera configuration."""
+    from isaaclab.envs.common import _apply_deprecated_viewer_cfg
+
+    if env_cfg.sim.default_visualizer_cfg is None:
+        _apply_deprecated_viewer_cfg(env_cfg)
+    visualizer_cfg = env_cfg.sim.default_visualizer_cfg
+    if visualizer_cfg is None:
+        visualizer_cfg = VisualizerCfg(background_color=None)
+    elif visualizer_cfg.background_color == VisualizerCfg().background_color:
+        visualizer_cfg.background_color = None
+    env_cfg.sim.default_visualizer_cfg = visualizer_cfg
+    # Avoid a second deprecated conversion when ManagerBasedRLEnv initializes.
+    env_cfg.viewer = ViewerCfg()
 
 
 class ArenaEnvBuilder:
@@ -518,6 +534,7 @@ class ArenaEnvBuilder:
             env_cfg, env_kwargs = self.compose_manager_cfg()
         elif env_kwargs is None:
             env_kwargs = {}
+        _configure_arena_visualizer_defaults(env_cfg)
         self.arena_env.scene.validate_simulation_cfg(env_cfg.sim)
         entry_point = self.get_entry_point()
         # Register the environment with the Gym registry.
@@ -591,7 +608,4 @@ class ArenaEnvBuilder:
         """
         name, cfg, env_kwargs = self.build_registered(env_cfg, env_kwargs)
         env = gym.make(name, cfg=cfg, render_mode=render_mode, **env_kwargs)
-        # ViewportCameraController sets the camera before KitVisualizer.initialize() is called,
-        # so the call is silently ignored. Re-apply here once the visualizers are fully initialized.
-        reapply_viewer_cfg(env)
         return env, cfg
