@@ -39,6 +39,28 @@ while ``franka_joint_pos`` uses direct joint position control.
 Passing ``enable_cameras=True`` adds the robot's onboard cameras to the observation space.
 This is required for any policy that takes image observations, such as GR00T.
 
+Robot and end-effector physics
+-----------------------------
+
+The embodiment owns robot physics, including end-effector contact materials, gripper
+colliders, self-collision exclusions, joint coupling, and actuator configuration.
+Implement backend-specific settings in ``_configure_physics_backend(self, backend)``.
+The environment builder calls the public ``configure_physics_backend()`` wrapper before
+collecting the embodiment's scene configuration.
+
+For per-collider or per-joint settings, use ``PhysicsUsdFileCfg`` on the embodiment's robot
+``ArticulationCfg.spawn`` and populate its ``prim_physics`` mapping in that hook. Preserve
+the robot's USD path, scale, variants, and other spawn options. Use the actuator configuration
+for controlled joint gains. Task-dependent end-effector values should be exposed as embodiment
+configuration and consumed by the same hook.
+
+The hook prepares configuration; the spawner applies it after loading the robot USD and before
+cloning and physics model import. An embodiment with a custom spawn function should integrate
+``apply_prim_physics`` into that function before cloning.
+
+Scene objects such as plugs, ports, and fixtures use ``Object.spawn_cfg_addon`` for their own
+contact properties. See :doc:`../scene/concept_assets_design` for the supported per-prim fields.
+
 More details
 ------------
 

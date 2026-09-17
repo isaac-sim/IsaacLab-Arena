@@ -47,8 +47,8 @@ Assets can have multiple tags — for example, a fruit is tagged both ``"graspab
 Physics spawn addons
 --------------------
 
-Use ``spawn_cfg_addon`` to supply ordinary USD spawn options such as ``collision_props``
-and ``physics_material``. To configure selected colliders or joints within an asset, add
+Use ``spawn_cfg_addon`` on scene objects to supply ordinary USD spawn options such as
+``collision_props`` and ``physics_material``. To configure selected colliders or joints within an object, add
 a ``prim_physics`` mapping. Arena then selects ``PhysicsUsdFileCfg`` automatically, retaining
 the object's USD path, scale, contact-sensor activation, and other spawn options.
 
@@ -60,19 +60,19 @@ the object's USD path, scale, contact-sensor activation, and other spawn options
    from isaaclab_arena.assets.object_type import ObjectType
    from isaaclab_arena.assets.physics_config import PrimPhysicsCfg
 
-   robot = Object(
-       name="robot",
-       usd_path="/path/to/robot.usda",
-       object_type=ObjectType.ARTICULATION,
+   connector = Object(
+       name="connector",
+       usd_path="/path/to/connector.usda",
+       object_type=ObjectType.RIGID,
        spawn_cfg_addon={
            "copy_from_source": False,
            "prim_physics": {
-               "finger/collision": PrimPhysicsCfg(
+               "housing/collision": PrimPhysicsCfg(
                    collision_props=[
-                       MujocoCollisionCfg(condim=4, solref=(0.004, 1.0)),
+                       MujocoCollisionCfg(condim=3, solref=(0.004, 1.0)),
                    ],
                    physics_material=NewtonMaterialPropertiesCfg(
-                       static_friction=8.0, dynamic_friction=8.0,
+                       static_friction=0.35, dynamic_friction=0.35,
                    ),
                ),
            },
@@ -103,7 +103,10 @@ materials. Choose fragments compatible with the environment's physics backend.
 A ``LibraryObject`` subclass can define the same dictionary as its ``spawn_cfg_addon`` class
 attribute for shared defaults. Keep task-specific tuning in the environment's object/config
 construction; composed spawn configs have independent copies of the physics settings.
-Embodiments constructing ``ArticulationCfg`` directly can set ``spawn=PhysicsUsdFileCfg(...)``.
+
+Robot and end-effector physics belong to the embodiment. Configure finger contact materials,
+gripper colliders, collision exclusions, and coupling parameters in the embodiment's
+``_configure_physics_backend()`` hook. See :doc:`../embodiment/index` for that configuration path.
 
 With an explicit ``spawner_cfg``, put physics settings on that config instead of in
 ``spawn_cfg_addon``. Custom spawn functions must call
@@ -117,7 +120,7 @@ Object types
 Every asset has an object type that determines how it is simulated:
 
 - **RIGID** — a single rigid body (boxes, bottles, tools, furniture).
-- **ARTICULATION** — a multi-body object with joints (robots, doors, drawers, appliances).
+- **ARTICULATION** — a multi-body scene object with joints (doors, drawers, appliances).
 - **BASE** — no physics; used for static backgrounds and markers.
 
 Deformable and backend-specific spawn configs must match the environment's resolved physics
