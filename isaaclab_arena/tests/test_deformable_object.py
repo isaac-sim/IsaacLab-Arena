@@ -130,7 +130,7 @@ def _test_backend_specific_deformable_config(simulation_app) -> bool:
 
     library_surface = DeformableSurface()
     assert library_surface.spawner_cfg.size == (0.2, 0.2)
-    assert library_surface.spawner_cfg.resolution == (30, 30)
+    assert library_surface.spawner_cfg.edge_refinement == 30
     assert library_surface.spawner_cfg.visual_material.diffuse_color == (0.95, 0.85, 0.1)
     assert library_surface.get_bounding_box().min_point[0].tolist() == pytest.approx([-0.1, -0.1, -0.001])
     assert library_surface.get_bounding_box().max_point[0].tolist() == pytest.approx([0.1, 0.1, 0.001])
