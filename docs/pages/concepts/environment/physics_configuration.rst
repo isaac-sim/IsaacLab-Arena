@@ -41,6 +41,17 @@ The configuration and spawning stages run in this order:
    ``prim_physics`` overrides, then clones the configured asset and imports its physics.
    Every clone inherits the same spawn-time physics edits.
 
+See :doc:`physics_backend_selection` for backend selection details and
+:doc:`env_cfg_override` for YAML override syntax.
+
+Per-prim physics at spawn time
+-----------------------------
+
+This hook runs during step 4 above. Steps 1 and 2 prepare the object and embodiment spawn
+configs, and step 3 can override those configs. Once step 4 loads the USD, the spawner
+resolves and validates the targets in ``prim_physics``, then calls each config's ``apply()``
+method before cloning and physics import.
+
 Concrete ``UsdPrimSpawnPhysicsCfg`` implementations can configure collision, material, mass,
 joint, or backend-specific properties. Use schema APIs compatible with the selected backend.
 Use actuator configuration for controlled joint gains because articulation initialization can
@@ -48,9 +59,6 @@ overwrite authored USD drives.
 
 See :doc:`../scene/concept_assets_design` for a primitive object example and
 :doc:`../embodiment/index` for the robot configuration hook.
-
-See :doc:`physics_backend_selection` for backend selection details and
-:doc:`env_cfg_override` for YAML override syntax.
 
 Differences from the variation system
 ------------------------------------
