@@ -48,10 +48,32 @@ Implement backend-specific settings in ``_configure_physics_backend(self, backen
 The environment builder calls the public ``configure_physics_backend()`` wrapper before
 collecting the embodiment's scene configuration.
 
-Embodiments expose ``spawn_cfg_addon`` like scene objects, with an outer mapping keyed by
-scene asset name. Use ``robot`` for a single robot, or entries such as ``left_robot`` and
-``right_robot`` for a bimanual embodiment. The base class copies the mapping per instance
-and applies it automatically after ``_configure_physics_backend()`` finishes.
+.. list-table:: Robot physics configuration
+   :header-rows: 1
+   :widths: 28 36 36
+
+   * - Change
+     - Configure it in
+     - How it is applied
+   * - Backend-specific robot defaults
+     - ``_configure_physics_backend(backend)``
+     - The builder calls ``configure_physics_backend()`` before scene composition.
+   * - USD loading options and robot-wide collision/material settings
+     - ``spawn_cfg_addon["robot"]`` (or ``left_robot`` / ``right_robot``)
+     - The base class updates the robot's spawn config after the backend hook;
+       the USD spawner uses it when loading the robot.
+   * - Selected finger contacts, colliders, joint coupling, or collision exclusions
+     - ``spawn_cfg_addon["robot"]["prim_physics"]`` with a concrete ``UsdPrimSpawnPhysicsCfg``
+     - The spawn hook edits selected prims after USD loading, before cloning and import.
+   * - Controlled joint stiffness, damping, and effort limits
+     - The robot's ``ArticulationCfg.actuators`` in the backend hook
+     - Articulation initialization creates the actuators and applies their settings.
+   * - Environment-wide solver and timestep settings
+     - Environment ``env_cfg_override`` / ``env_cfg_callback``
+     - The builder applies these after composing the scene and selecting solver defaults.
+
+The outer ``spawn_cfg_addon`` keys name entries in the embodiment's scene config. The base
+class copies this mapping per instance and applies it after ``_configure_physics_backend()``.
 
 For example, using the environment-owned ``ColliderFrictionCfg`` implementation shown in
 :doc:`../scene/concept_assets_design`, an embodiment using the standard USD spawner can set
@@ -77,16 +99,10 @@ class attribute. The robot's USD path, scale, variants, and unspecified spawn op
 preserved. Use actuator configuration for controlled joint gains. Task-dependent end-effector
 values should be exposed as embodiment configuration and consumed by the same hook.
 
-The application order is backend defaults, embodiment spawn addons, then the environment's
-``env_cfg_override``. Addons are applied once per backend configuration. Every named scene
-asset must exist and have a spawn config; all replacements validate before they are published.
-
-The hook prepares configuration; the spawner applies it after loading the robot USD and before
-cloning and physics model import. An embodiment with a custom spawn function should integrate
-``apply_prim_physics`` into that function before cloning.
-
-Scene objects such as cubes, boxes, and fixtures use ``Object.spawn_cfg_addon`` for their own
-contact properties. See :doc:`../scene/concept_assets_design` for the per-prim extension interface.
+Addons are applied once per backend configuration. Every named embodiment entry must exist
+and have a spawn config; all replacements validate before they are published. The hook prepares
+configuration, and the spawner applies it after loading the robot USD. See
+:doc:`../environment/env_cfg_override` for the complete application order.
 
 More details
 ------------

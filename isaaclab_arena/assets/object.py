@@ -142,7 +142,7 @@ class Object(RootedObjectBase):
         )
 
     def _get_spawn_cfg(self, activate_contact_sensors: bool = False):
-        """Return the custom spawner or a USD config supporting any per-prim physics addons."""
+        """Return the custom spawner if set, else a USD config supporting any per-prim physics addons."""
         if self.spawner_cfg is not None:
             assert "prim_physics" not in self.spawn_cfg_addon, (
                 "prim_physics in spawn_cfg_addon cannot be combined with spawner_cfg. "

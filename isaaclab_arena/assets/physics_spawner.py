@@ -90,8 +90,8 @@ def make_usd_spawn_cfg_with_prim_physics(
     return UsdFileCfgPrimPhysicsWrapper(**values)
 
 
-def _relative_target(root: Usd.Prim, relative_path: str) -> Usd.Prim:
-    """Resolve an exact path inside one asset and require an editable prim."""
+def _parse_relative_prim_path(relative_path: str) -> Sdf.Path:
+    """Parse an exact prim path that cannot escape its asset root."""
     assert isinstance(relative_path, str) and relative_path, "Physics target must be a nonempty relative prim path."
     path = Sdf.Path(relative_path)
     assert (
@@ -100,6 +100,13 @@ def _relative_target(root: Usd.Prim, relative_path: str) -> Usd.Prim:
         and ".." not in relative_path.split("/")
         and "{" not in relative_path
     ), f"Physics target must be an asset-relative prim path: {relative_path!r}"
+    return path
+
+
+def _get_prim_relative_to_root(root: Usd.Prim, relative_path: str) -> Usd.Prim:
+    """Return an editable prim selected by an exact path relative to the asset root."""
+    # Validate the path before resolving it on the spawned asset's stage.
+    path = _parse_relative_prim_path(relative_path)
     prim = root.GetStage().GetPrimAtPath(path.MakeAbsolutePath(root.GetPath()))
     assert prim.IsValid(), f"Physics target does not exist: {root.GetPath()}/{relative_path}"
     assert (
@@ -125,8 +132,8 @@ def _resolve_and_validate_overrides(
     targets = []
     for path, cfg in overrides.items():
         # 2. Resolve the relative prim path under the spawned asset root.
-        # 3. _relative_target also rejects missing targets, escaping paths, and instance proxies.
-        targets.append((_relative_target(root, path), cfg))
+        # 3. _get_prim_relative_to_root also rejects missing targets, escaping paths, and instance proxies.
+        targets.append((_get_prim_relative_to_root(root, path), cfg))
 
     # 4. Validate every config's target and settings without mutating the stage.
     for prim, cfg in targets:
@@ -146,7 +153,7 @@ def apply_prim_physics(root: Usd.Prim, overrides: dict[str, UsdPrimSpawnPhysicsC
         cfg.apply(prim, root)
 
 
-# Keep @clone on this outer wrapper to preserve this order:
+# NOTE: Keep @clone on this outer wrapper to preserve this order:
 # 1. Load the USD in the first matching environment.
 # 2. Apply the per-prim physics edits to that asset.
 # 3. Copy the configured asset into the remaining matching environments.

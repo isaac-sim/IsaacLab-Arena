@@ -44,8 +44,17 @@ Assets can also be tagged to make them discoverable by category:
 Useful tags include ``"graspable"``, ``"openable"``, ``"pressable"``, and ``"background"``.
 Assets can have multiple tags — for example, a fruit is tagged both ``"graspable"`` and ``"food"``.
 
-Physics spawn addons
+Object configuration
 --------------------
+
+An object's constructor sets its USD source, scale, initial pose, and object type.
+``asset_cfg_addon`` configures the Isaac Lab asset (for example, ``debug_vis`` or articulation
+actuators). ``spawn_cfg_addon`` configures how the USD is loaded and which physics properties
+are authored during spawning: mass/density, collision settings, and contact materials.
+Use ``prim_physics`` within the spawn addons for selected bodies, colliders, or joints.
+
+Physics spawn addons
+~~~~~~~~~~~~~~~~~~~~
 
 Use ``spawn_cfg_addon`` on scene objects to supply ordinary USD spawn options such as
 ``collision_props`` and ``physics_material``. To configure selected colliders or joints within an object, add
@@ -63,15 +72,48 @@ needs it. Core defines only the interface; the subclass chooses its fields, vali
 and physics schema edits. For example, define a collider friction override in your
 environment's physics configuration module and use it with the library's red cube:
 
-.. literalinclude:: ../../../../isaaclab_arena/tests/test_prim_physics_example.py
-   :language: python
-   :start-after: # [start-red-cube-physics-example]
-   :end-before: # [end-red-cube-physics-example]
-   :dedent: 4
+.. code-block:: python
 
-This code is included directly from ``test_red_cube_physics_example``. The test spawns the
-library USD, verifies friction and local material bindings on two clones, and checks that
-another object's configuration remains independent.
+   import math
+
+   from isaaclab.utils.configclass import configclass
+   from pxr import UsdPhysics, UsdShade
+
+   from isaaclab_arena.assets.object_library import RedCube
+   from isaaclab_arena.assets.physics_config import UsdPrimSpawnPhysicsCfg
+
+   @configclass
+   class ColliderFrictionCfg(UsdPrimSpawnPhysicsCfg):
+       """Bind an instance-local contact material to a selected collider."""
+
+       friction: float = 0.8
+       """Static and dynamic friction coefficient."""
+
+       def validate_target(self, prim, root):
+           """Require a collider and a finite nonnegative friction coefficient."""
+           assert prim.HasAPI(UsdPhysics.CollisionAPI)
+           assert math.isfinite(self.friction) and self.friction >= 0
+           assert not prim.GetStage().GetPrimAtPath(prim.GetPath().AppendChild("ContactMaterial"))
+
+       def apply(self, prim, root):
+           """Author and bind a material within the spawned asset."""
+           # A local material preserves shared source materials and remaps during cloning.
+           material = UsdShade.Material.Define(prim.GetStage(), prim.GetPath().AppendChild("ContactMaterial"))
+           physics = UsdPhysics.MaterialAPI.Apply(material.GetPrim())
+           physics.CreateStaticFrictionAttr(self.friction)
+           physics.CreateDynamicFrictionAttr(self.friction)
+           UsdShade.MaterialBindingAPI.Apply(prim).Bind(
+               material,
+               bindingStrength=UsdShade.Tokens.strongerThanDescendants,
+               materialPurpose="physics",
+           )
+
+   class HighFrictionRedCube(RedCube):
+       spawn_cfg_addon = {
+           "prim_physics": {"Cube": ColliderFrictionCfg(friction=0.8)},
+       }
+
+   red_cube = HighFrictionRedCube()
 
 The subclass inherits the library object's USD path and scale. ``Cube`` is the collider mesh
 relative to the red cube's asset root. For other assets, use their exact relative prim paths, or
@@ -91,10 +133,8 @@ not transactional. Concrete implementations must author within the spawned asset
 stage edit target, preserve source layers and shared materials, and validate any additional
 relationship targets they use. Keep USD handles out of config fields so copying remains safe.
 
-Ordinary USD spawn properties are applied first, then ``prim_physics``, then cloning and physics
-model import. Concrete configs can implement collision, material, mass, joint, or backend-specific
-settings as needed. Choose APIs compatible with the environment's physics backend. For controlled
-joint gains, prefer actuator configuration because articulation initialization can overwrite USD drives.
+See :doc:`../environment/env_cfg_override` for physics configuration scopes, backend
+selection, and the order in which config overrides and spawn-time physics are applied.
 
 A ``LibraryObject`` subclass can define the same dictionary as its ``spawn_cfg_addon`` class
 attribute for shared defaults. Keep task-specific tuning in the environment's object/config

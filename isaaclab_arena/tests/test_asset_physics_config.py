@@ -326,7 +326,7 @@ def _test_embodiment_spawn_addons(_simulation_app, asset_path: Path) -> bool:
     invalid = _make_addon_embodiment(
         asset_path, spawn_cfg_addon={"left_robot": {"visible": False}, "missing_robot": {"visible": False}}
     )
-    with pytest.raises(AssertionError, match="unknown scene asset"):
+    with pytest.raises(AssertionError, match="unknown scene entry"):
         invalid.configure_physics_backend(PhysicsBackend.NEWTON)
     assert invalid.scene_config.left_robot.spawn.visible is True
     assert invalid._configured_physics_backend is None

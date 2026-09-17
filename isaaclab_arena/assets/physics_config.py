@@ -18,6 +18,8 @@ class UsdPrimSpawnPhysicsCfg:
 
     Define concrete configclass subclasses alongside the environment or embodiment that
     needs them. Core does not prescribe physics fields or backend-specific schema APIs.
+    Runtime variations such as object mass act per reset; build-time variations can
+    configure this hook to apply sampled physics once USD prims exist.
     """
 
     def validate_target(self, prim: Usd.Prim, root: Usd.Prim) -> None:
@@ -29,11 +31,7 @@ class UsdPrimSpawnPhysicsCfg:
         """
 
     def apply(self, prim: Usd.Prim, root: Usd.Prim) -> None:
-        """Author physics on the spawned instance after all targets pass validation.
-
-        Keep edits within this asset on its current stage edit target; do not edit source
-        layers or shared materials. Do not retain USD handles in configuration fields.
-        All overrides run in mapping order, after USD loading and before cloning/import.
+        """Author physics after target validation, before cloning and physics import.
 
         Args:
             prim: Resolved, editable target prim.
