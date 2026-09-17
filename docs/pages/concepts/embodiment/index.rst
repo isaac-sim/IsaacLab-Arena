@@ -53,14 +53,13 @@ scene asset name. Use ``robot`` for a single robot, or entries such as ``left_ro
 ``right_robot`` for a bimanual embodiment. The base class copies the mapping per instance
 and applies it automatically after ``_configure_physics_backend()`` finishes.
 
-For example, an embodiment using the standard USD spawner can set Newton finger contacts
-in its backend hook:
+For example, using the environment-owned ``ColliderFrictionCfg`` implementation shown in
+:doc:`../scene/concept_assets_design`, an embodiment using the standard USD spawner can set
+finger contacts in its backend hook. Define or import that concrete config in the embodiment's
+module:
 
 .. code-block:: python
 
-   from isaaclab_newton.sim.schemas import NewtonMaterialPropertiesCfg
-
-   from isaaclab_arena.assets.physics_config import PrimPhysicsCfg
    from isaaclab_arena.utils.physics_backend import PhysicsBackend
 
    def _configure_physics_backend(self, backend):
@@ -68,11 +67,7 @@ in its backend hook:
        if backend is PhysicsBackend.NEWTON:
            self.spawn_cfg_addon["robot"] = {
                "prim_physics": {
-                   "finger/collision": PrimPhysicsCfg(
-                       physics_material=NewtonMaterialPropertiesCfg(
-                           static_friction=0.8, dynamic_friction=0.6,
-                       ),
-                   ),
+                   "finger/collision": ColliderFrictionCfg(friction=0.8),
                },
            }
 
@@ -91,7 +86,7 @@ cloning and physics model import. An embodiment with a custom spawn function sho
 ``apply_prim_physics`` into that function before cloning.
 
 Scene objects such as cubes, boxes, and fixtures use ``Object.spawn_cfg_addon`` for their own
-contact properties. See :doc:`../scene/concept_assets_design` for the supported per-prim fields.
+contact properties. See :doc:`../scene/concept_assets_design` for the per-prim extension interface.
 
 More details
 ------------

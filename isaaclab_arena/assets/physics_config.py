@@ -8,40 +8,38 @@
 from __future__ import annotations
 
 from isaaclab.sim import UsdFileCfg
-from isaaclab.sim.schemas import CollisionFragment, JointDriveFragment
-from isaaclab.sim.spawners.materials import RigidBodyMaterialBaseCfg
 from isaaclab.utils.configclass import configclass
-
-
-@configclass
-class MujocoEqualityPropertiesCfg:
-    """Tune an existing MuJoCo equality constraint without changing its joint relationship."""
-
-    solref: tuple[float, float] | None = None
-    """Constraint reference parameters: time constant and damping ratio, or negative direct format."""
-
-    solimp: tuple[float, float, float, float, float] | None = None
-    """Constraint impedance parameters: minimum, maximum, width, midpoint, and power."""
+from pxr import Usd
 
 
 @configclass
 class PrimPhysicsCfg:
-    """Override physics on an explicitly selected asset-relative prim."""
+    """Base interface for use-case-owned physics edits on a spawned USD prim.
 
-    collision_props: list[CollisionFragment] | None = None
-    """Collision fragments applied to this geometry prim; creates CollisionAPI when necessary."""
+    Define concrete configclass subclasses alongside the environment or embodiment that
+    needs them. Core does not prescribe physics fields or backend-specific schema APIs.
+    """
 
-    physics_material: RigidBodyMaterialBaseCfg | None = None
-    """Material created and bound only to this collider, leaving shared USD materials unchanged."""
+    def validate_target(self, prim: Usd.Prim, root: Usd.Prim) -> None:
+        """Check settings and targets without editing the stage; override when needed.
 
-    joint_drive_props: list[JointDriveFragment] | None = None
-    """Joint-drive fragments applied to this revolute or prismatic joint."""
+        Args:
+            prim: Resolved, editable target prim.
+            root: Spawned asset root for resolving any asset-relative relationships.
+        """
 
-    mujoco_equality: MujocoEqualityPropertiesCfg | None = None
-    """Response parameters for this prim's existing MjcEqualityJoint/Connect/WeldAPI."""
+    def apply(self, prim: Usd.Prim, root: Usd.Prim) -> None:
+        """Author physics on the spawned instance after all targets pass validation.
 
-    filtered_pairs: list[str] = []
-    """Asset-relative rigid-body or collider paths to add to this prim's collision exclusions."""
+        Keep edits within this asset on its current stage edit target; do not edit source
+        layers or shared materials. Do not retain USD handles in configuration fields.
+        All overrides run in mapping order, after USD loading and before cloning/import.
+
+        Args:
+            prim: Resolved, editable target prim.
+            root: Spawned asset root for resolving any asset-relative relationships.
+        """
+        raise NotImplementedError("Concrete PrimPhysicsCfg subclasses must implement apply().")
 
 
 @configclass

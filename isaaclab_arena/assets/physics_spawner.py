@@ -7,20 +7,17 @@
 
 from __future__ import annotations
 
-import math
 from dataclasses import fields
 from typing import TYPE_CHECKING, Any
 
-from isaaclab.sim import UsdFileCfg, schemas
+from isaaclab.sim import UsdFileCfg
 from isaaclab.sim.spawners.from_files import spawn_from_usd
-from isaaclab.sim.utils import clone, use_stage
+from isaaclab.sim.utils import clone
 from isaaclab.utils.string import string_to_callable
-from pxr import Sdf, Usd, UsdGeom, UsdPhysics, UsdShade, Vt
+from pxr import Sdf, Usd
 
 if TYPE_CHECKING:
-    from isaaclab.sim.spawners.materials import RigidBodyMaterialBaseCfg
-
-    from .physics_config import MujocoEqualityPropertiesCfg, PrimPhysicsCfg
+    from .physics_config import PrimPhysicsCfg
 
 
 def with_spawn_cfg_addon(cfg: UsdFileCfg, addons: dict[str, Any]) -> UsdFileCfg:
@@ -89,127 +86,19 @@ def _relative_target(root: Usd.Prim, relative_path: str) -> Usd.Prim:
     return prim
 
 
-def _validate_override(
-    root: Usd.Prim, prim: Usd.Prim, cfg: PrimPhysicsCfg, new_colliders: set[Sdf.Path]
-) -> list[Sdf.Path]:
-    """Validate one target and resolve its collision exclusions before authoring overrides."""
-    if cfg.collision_props is not None:
-        assert prim.IsA(UsdGeom.Gprim), f"Collision target must be a geometry prim: {prim.GetPath()}"
-        assert all(isinstance(fragment, schemas.CollisionFragment) for fragment in cfg.collision_props)
-    if cfg.physics_material is not None:
-        assert (
-            prim.HasAPI(UsdPhysics.CollisionAPI) or cfg.collision_props is not None
-        ), f"Physics material target must be a collider: {prim.GetPath()}"
-        material_path = prim.GetPath().AppendChild("ArenaPhysicsMaterial")
-        assert not root.GetStage().GetPrimAtPath(
-            material_path
-        ), f"Physics material path already exists: {material_path}"
-    if cfg.joint_drive_props is not None:
-        assert prim.IsA(UsdPhysics.RevoluteJoint) or prim.IsA(
-            UsdPhysics.PrismaticJoint
-        ), f"Joint-drive target must be a revolute or prismatic joint: {prim.GetPath()}"
-        assert all(isinstance(fragment, schemas.JointDriveFragment) for fragment in cfg.joint_drive_props)
-    if cfg.mujoco_equality is not None:
-        _validate_equality(prim, cfg.mujoco_equality)
-    return _resolve_filtered_pairs(root, prim, cfg.filtered_pairs, new_colliders)
-
-
-def _validate_equality(prim: Usd.Prim, cfg: MujocoEqualityPropertiesCfg) -> None:
-    """Require an existing equality schema and finite solver parameters of the expected lengths."""
-    assert any(
-        schema in prim.GetAppliedSchemas()
-        for schema in ("MjcEqualityJointAPI", "MjcEqualityConnectAPI", "MjcEqualityWeldAPI")
-    ), f"Equality target has no authored MuJoCo equality schema: {prim.GetPath()}"
-    for name, length in (("solref", 2), ("solimp", 5)):
-        value = getattr(cfg, name)
-        assert value is None or (
-            len(value) == length and all(math.isfinite(x) for x in value)
-        ), f"Equality {name} must contain {length} finite values: {prim.GetPath()}"
-
-
-def _resolve_filtered_pairs(
-    root: Usd.Prim, prim: Usd.Prim, paths: list[str], new_colliders: set[Sdf.Path]
-) -> list[Sdf.Path]:
-    """Resolve collision exclusions, including colliders enabled by another override."""
-    if not paths:
-        return []
-    excluded = [_relative_target(root, path) for path in paths]
-    assert prim not in excluded, f"Cannot exclude a collider from itself: {prim.GetPath()}"
-    for target in [prim, *excluded]:
-        assert (
-            target.HasAPI(UsdPhysics.RigidBodyAPI)
-            or target.HasAPI(UsdPhysics.CollisionAPI)
-            or target.GetPath() in new_colliders
-        ), f"Collision exclusion target must be a rigid body or collider: {target.GetPath()}"
-    return [target.GetPath() for target in excluded]
-
-
-def _resolve_overrides(
-    root: Usd.Prim, overrides: dict[str, PrimPhysicsCfg]
-) -> list[tuple[Usd.Prim, PrimPhysicsCfg, list[Sdf.Path]]]:
+def _resolve_overrides(root: Usd.Prim, overrides: dict[str, PrimPhysicsCfg]) -> list[tuple[Usd.Prim, PrimPhysicsCfg]]:
     """Resolve and validate all targets before writing any per-prim properties."""
     from .physics_config import PrimPhysicsCfg
 
     targets = []
-    new_colliders = set()
     for path, cfg in overrides.items():
         assert isinstance(cfg, PrimPhysicsCfg), f"Physics override for {path} must be PrimPhysicsCfg."
-        prim = _relative_target(root, path)
-        targets.append((prim, cfg))
-        if cfg.collision_props is not None:
-            new_colliders.add(prim.GetPath())
+        targets.append((_relative_target(root, path), cfg))
 
-    # Collect prospective colliders first so exclusion validity does not depend on mapping order.
-    resolved = []
+    # Subclasses own schema and value checks; validation must not mutate the stage.
     for prim, cfg in targets:
-        excluded = _validate_override(root, prim, cfg, new_colliders)
-        resolved.append((prim, cfg, excluded))
-    return resolved
-
-
-def _bind_material(prim: Usd.Prim, material_cfg: RigidBodyMaterialBaseCfg) -> None:
-    """Create a local physics material and bind it to one collider."""
-    stage = prim.GetStage()
-    # Child material paths remap during cloning and avoid modifying a shared source material.
-    material_path = f"{prim.GetPath()}/ArenaPhysicsMaterial"
-    with use_stage(stage):
-        material_cfg.func(material_path, material_cfg)
-    binding = UsdShade.MaterialBindingAPI.Apply(prim)
-    binding.Bind(
-        UsdShade.Material(stage.GetPrimAtPath(material_path)),
-        bindingStrength=UsdShade.Tokens.strongerThanDescendants,
-        materialPurpose="physics",
-    )
-
-
-def _apply_equality(prim: Usd.Prim, cfg: MujocoEqualityPropertiesCfg) -> None:
-    """Author response parameters without changing the existing coupling relationship."""
-    for name in ("solref", "solimp"):
-        value = getattr(cfg, name)
-        if value is not None:
-            prim.CreateAttribute(f"mjc:{name}", Sdf.ValueTypeNames.DoubleArray).Set(Vt.DoubleArray(value))
-
-
-def _apply_override(prim: Usd.Prim, cfg: PrimPhysicsCfg, excluded: list[Sdf.Path]) -> None:
-    """Apply one previously validated collider or joint override."""
-    stage = prim.GetStage()
-    path = str(prim.GetPath())
-    if cfg.collision_props is not None:
-        UsdPhysics.CollisionAPI.Apply(prim)
-        applied = schemas.apply_collision_properties(path, cfg.collision_props, stage)
-        assert applied, f"Failed to apply collision properties to {path}"
-    if cfg.physics_material is not None:
-        _bind_material(prim, cfg.physics_material)
-    if cfg.joint_drive_props is not None:
-        applied = schemas.apply_joint_drive_properties(path, cfg.joint_drive_props, stage)
-        assert applied, f"Failed to apply joint-drive properties to {path}"
-    if cfg.mujoco_equality is not None:
-        _apply_equality(prim, cfg.mujoco_equality)
-    if excluded:
-        relation = UsdPhysics.FilteredPairsAPI.Apply(prim).CreateFilteredPairsRel()
-        # Add relationships rather than replacing exclusions already authored in the asset.
-        for target in excluded:
-            relation.AddTarget(target)
+        cfg.validate_target(prim, root)
+    return targets
 
 
 def apply_prim_physics(root: Usd.Prim, overrides: dict[str, PrimPhysicsCfg]) -> None:
@@ -220,8 +109,8 @@ def apply_prim_physics(root: Usd.Prim, overrides: dict[str, PrimPhysicsCfg]) -> 
         overrides: Exact asset-relative paths and their physics configuration.
     """
     # Validate the full mapping first so a bad later target does not leave earlier overrides applied.
-    for prim, cfg, excluded in _resolve_overrides(root, overrides):
-        _apply_override(prim, cfg, excluded)
+    for prim, cfg in _resolve_overrides(root, overrides):
+        cfg.apply(prim, root)
 
 
 @clone

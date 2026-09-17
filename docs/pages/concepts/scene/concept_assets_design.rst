@@ -53,24 +53,48 @@ a ``prim_physics`` mapping. Arena applies these typed settings through ``with_sp
 the same helper used by embodiment addons. Ordinary fields replace the corresponding spawn
 options; per-prim entries replace the settings for their named prims and retain other entries.
 The object's USD path, scale, contact-sensor activation, and other spawn options are retained.
-For example, give the library's red cube a higher-friction surface:
+Define a concrete ``PrimPhysicsCfg`` subclass in the environment or use-case module that
+needs it. Core defines only the interface; the subclass chooses its fields, validation,
+and physics schema edits. For example, define a collider friction override in your
+environment's physics configuration module and use it with the library's red cube:
 
 .. code-block:: python
 
-   from isaaclab.sim.spawners.materials import RigidBodyMaterialBaseCfg
+   import math
+
+   from isaaclab.utils.configclass import configclass
+   from pxr import UsdPhysics, UsdShade
 
    from isaaclab_arena.assets.object_library import RedCube
    from isaaclab_arena.assets.physics_config import PrimPhysicsCfg
 
+   @configclass
+   class ColliderFrictionCfg(PrimPhysicsCfg):
+       friction: float = 0.8
+       """Static and dynamic friction coefficient."""
+
+       def validate_target(self, prim, root):
+           assert prim.HasAPI(UsdPhysics.CollisionAPI)
+           assert math.isfinite(self.friction) and self.friction >= 0
+           assert not prim.GetStage().GetPrimAtPath(prim.GetPath().AppendChild("ContactMaterial"))
+
+       def apply(self, prim, root):
+           # Create an instance-local material so shared USD materials stay unchanged.
+           material = UsdShade.Material.Define(
+               prim.GetStage(), prim.GetPath().AppendChild("ContactMaterial")
+           )
+           physics = UsdPhysics.MaterialAPI.Apply(material.GetPrim())
+           physics.CreateStaticFrictionAttr(self.friction)
+           physics.CreateDynamicFrictionAttr(self.friction)
+           UsdShade.MaterialBindingAPI.Apply(prim).Bind(
+               material,
+               bindingStrength=UsdShade.Tokens.strongerThanDescendants,
+               materialPurpose="physics",
+           )
+
    class HighFrictionRedCube(RedCube):
        spawn_cfg_addon = {
-           "prim_physics": {
-               "Cube": PrimPhysicsCfg(
-                   physics_material=RigidBodyMaterialBaseCfg(
-                       static_friction=0.8, dynamic_friction=0.6,
-                   ),
-               ),
-           },
+           "prim_physics": {"Cube": ColliderFrictionCfg(friction=0.8)},
        }
 
    red_cube = HighFrictionRedCube()
@@ -81,21 +105,22 @@ relative to the red cube's asset root. For other assets, use their exact relativ
 Selected prims must already exist. Instance proxies require ``make_uninstanceable=True``
 in the spawn addons, at the cost of additional stage memory.
 
-``PrimPhysicsCfg`` supports:
+Use concrete subclasses of ``PrimPhysicsCfg``; its base ``apply`` raises ``NotImplementedError``.
+Implement ``apply(prim, root)`` and optionally ``validate_target(prim, root)``. Both receive the resolved target and spawned asset
+root, allowing an implementation to resolve relationships within that asset. The optional
+validation hook must be read-only and checks the stage before any per-prim overrides. It is
+separate from Isaac Lab's configclass ``validate()`` method.
 
-- ``collision_props``: Isaac Lab collision fragments, including collider enablement and
-  backend-specific contact parameters.
-- ``physics_material``: a material created and bound locally to the selected collider.
-- ``joint_drive_props``: drive fragments on revolute or prismatic joints. Use actuator configs
-  for controlled joint gains, since articulation initialization may overwrite authored drives.
-- ``mujoco_equality``: ``MujocoEqualityPropertiesCfg(solref=..., solimp=...)`` to tune an existing
-  MuJoCo equality constraint. It does not create a coupling or change its leader or coefficients.
-- ``filtered_pairs``: additional asset-relative rigid-body or collider paths to exclude from
-  collision. Existing exclusions are preserved.
+Arena resolves every target and calls every validation hook before calling ``apply`` in mapping
+order. Validation failures therefore leave per-prim overrides unapplied; application itself is
+not transactional. Concrete implementations must author within the spawned asset on the current
+stage edit target, preserve source layers and shared materials, and validate any additional
+relationship targets they use. Keep USD handles out of config fields so copying remains safe.
 
 Ordinary USD spawn properties are applied first, then ``prim_physics``, then cloning and physics
-model import. Overrides affect the spawned instance without editing the source USD or shared
-materials. Choose fragments compatible with the environment's physics backend.
+model import. Concrete configs can implement collision, material, mass, joint, or backend-specific
+settings as needed. Choose APIs compatible with the environment's physics backend. For controlled
+joint gains, prefer actuator configuration because articulation initialization can overwrite USD drives.
 
 A ``LibraryObject`` subclass can define the same dictionary as its ``spawn_cfg_addon`` class
 attribute for shared defaults. Keep task-specific tuning in the environment's object/config
