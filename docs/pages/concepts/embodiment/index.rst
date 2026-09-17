@@ -44,11 +44,16 @@ Robot and end-effector physics
 
 The embodiment owns robot physics, including end-effector contact materials, gripper
 colliders, self-collision exclusions, joint coupling, and actuator configuration.
-Implement backend-specific settings in ``_configure_physics_backend(self, backend)``.
-The environment builder calls the public ``configure_physics_backend()`` wrapper before
-collecting the embodiment's scene configuration.
 
-.. list-table:: Robot physics configuration
+Configure the physics backend
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Implement backend-specific robot defaults in ``_configure_physics_backend(self, backend)``.
+Use this hook to select compatible robot configuration and actuator settings for the resolved
+backend. Task-dependent end-effector values can be exposed as embodiment configuration and
+used by this hook.
+
+.. list-table:: Backend configuration
    :header-rows: 1
    :widths: 28 36 36
 
@@ -57,49 +62,67 @@ collecting the embodiment's scene configuration.
      - How it is applied
    * - Backend-specific robot defaults
      - ``_configure_physics_backend(backend)``
-     - The builder calls ``configure_physics_backend()`` before scene composition.
-   * - USD loading options and robot-wide collision/material settings
-     - ``spawn_cfg_addon["robot"]`` (or ``left_robot`` / ``right_robot``)
-     - The base class updates the robot's spawn config after the backend hook;
-       the USD spawner uses it when loading the robot.
-   * - Selected finger contacts, colliders, joint coupling, or collision exclusions
-     - ``spawn_cfg_addon["robot"]["prim_physics"]`` with a concrete ``UsdPrimSpawnPhysicsCfg``
-     - The spawn hook edits selected prims after USD loading, before cloning and import.
+     - Updates the embodiment's configuration before scene composition.
    * - Controlled joint stiffness, damping, and effort limits
      - The robot's ``ArticulationCfg.actuators`` in the backend hook
      - Articulation initialization creates the actuators and applies their settings.
 
-The outer ``spawn_cfg_addon`` keys name entries in the embodiment's scene config. The base
-class copies this mapping per instance and applies it after ``_configure_physics_backend()``.
+Apply spawn config addons
+~~~~~~~~~~~~~~~~~~~~~~~~~
 
-For example, using the environment-owned ``ColliderFrictionCfg`` implementation shown in
-:doc:`../scene/concept_assets_design`, an embodiment using the standard USD spawner can set
-finger contacts in its backend hook. Define or import that concrete config in the embodiment's
-module:
+``spawn_cfg_addon`` defines how the embodiment's USD is loaded and which physics properties
+are authored during spawning. Its outer keys name entries in the embodiment's scene config:
+``robot`` for a single robot, or ``left_robot`` / ``right_robot`` for a bimanual embodiment.
+The base class copies this mapping per instance.
+
+``_apply_spawn_cfg_addons()`` applies the mapping to those entries' spawn configs after the
+backend hook finishes. It preserves unspecified USD paths, scales, variants, and other spawn
+options. Every named entry must exist and have a spawn config; all replacements validate before
+they are published.
+
+.. list-table:: Spawn addons
+   :header-rows: 1
+   :widths: 28 36 36
+
+   * - Change
+     - Configure it in
+     - How it is applied
+   * - USD loading options and robot-wide collision/material settings
+     - ``spawn_cfg_addon["robot"]``
+     - The USD spawner uses these options when loading the robot.
+   * - Selected finger contacts, colliders, joint coupling, or collision exclusions
+     - ``spawn_cfg_addon["robot"]["prim_physics"]`` with a concrete ``UsdPrimSpawnPhysicsCfg``
+     - The spawn hook edits selected prims after USD loading, before cloning and import.
+
+For example, define or import the ``ColliderFrictionCfg`` implementation shown in
+:doc:`../scene/concept_assets_design` and declare these defaults on your embodiment class:
 
 .. code-block:: python
 
-   from isaaclab_arena.utils.physics_backend import PhysicsBackend
-
-   def _configure_physics_backend(self, backend):
-       super()._configure_physics_backend(backend)
-       if backend is PhysicsBackend.NEWTON:
-           self.spawn_cfg_addon["robot"] = {
-               "prim_physics": {
-                   "finger/collision": ColliderFrictionCfg(friction=0.8),
-               },
-           }
+   spawn_cfg_addon = {
+       "robot": {
+           "prim_physics": {
+               "finger/collision": ColliderFrictionCfg(friction=0.8),
+           },
+       },
+   }
 
 Use the exact collider path in the robot USD; ``finger/collision`` is illustrative.
-Backend-independent addons can also be declared as the embodiment's ``spawn_cfg_addon``
-class attribute. The robot's USD path, scale, variants, and unspecified spawn options are
-preserved. Use actuator configuration for controlled joint gains. Task-dependent end-effector
-values should be exposed as embodiment configuration and consumed by the same hook.
+When addon values depend on the backend, set them in ``_configure_physics_backend()``;
+``_apply_spawn_cfg_addons()`` then applies the resulting mapping automatically.
 
-Addons are applied once per backend configuration. Every named embodiment entry must exist
-and have a spawn config; all replacements validate before they are published. The hook prepares
-configuration, and the spawner applies it after loading the robot USD. See
-:doc:`../environment/env_cfg_override` for the complete application order.
+Call order
+~~~~~~~~~~
+
+Before collecting the embodiment's scene configuration, the environment builder calls
+``configure_physics_backend(backend)``. This public wrapper:
+
+1. Calls ``_configure_physics_backend(backend)`` to configure robot defaults.
+2. Calls ``_apply_spawn_cfg_addons()`` to update the robot's spawn configs.
+3. Records the configured backend so repeating the same call does not apply settings again.
+
+Both steps prepare configuration. USD loading and per-prim physics edits happen later during
+spawning. See :doc:`../environment/env_cfg_override` for the complete application order.
 
 More details
 ------------
