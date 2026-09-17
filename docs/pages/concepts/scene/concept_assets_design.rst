@@ -54,11 +54,11 @@ the same helper used by embodiment addons. Ordinary fields replace the correspon
 options; per-prim entries replace the settings for their named prims and retain other entries.
 The object's USD path, scale, contact-sensor activation, and other spawn options are retained.
 The helper requires a USD spawn config and a dictionary of addons. When provided,
-``prim_physics`` must be a dictionary of nonempty string paths to ``PrimPhysicsCfg`` instances;
+``prim_physics`` must be a dictionary of nonempty string paths to ``UsdPrimSpawnPhysicsCfg`` instances;
 malformed mappings are rejected during configuration. Ordinary field names follow Isaac Lab's
 USD config constructor, while target existence and schema checks run after USD loading.
 
-Define a concrete ``PrimPhysicsCfg`` subclass in the environment or use-case module that
+Define a concrete ``UsdPrimSpawnPhysicsCfg`` subclass in the environment or use-case module that
 needs it. Core defines only the interface; the subclass chooses its fields, validation,
 and physics schema edits. For example, define a collider friction override in your
 environment's physics configuration module and use it with the library's red cube:
@@ -79,7 +79,7 @@ relative to the red cube's asset root. For other assets, use their exact relativ
 Selected prims must already exist. Instance proxies require ``make_uninstanceable=True``
 in the spawn addons, at the cost of additional stage memory.
 
-Use concrete subclasses of ``PrimPhysicsCfg``; its base ``apply`` raises ``NotImplementedError``.
+Use concrete subclasses of ``UsdPrimSpawnPhysicsCfg``; its base ``apply`` raises ``NotImplementedError``.
 Implement ``apply(prim, root)`` and optionally ``validate_target(prim, root)``. Both receive the resolved target and spawned asset
 root, allowing an implementation to resolve relationships within that asset. The optional
 validation hook must be read-only and checks the stage before any per-prim overrides. It is

@@ -13,8 +13,8 @@ from pxr import Usd
 
 
 @configclass
-class PrimPhysicsCfg:
-    """Base interface for use-case-owned physics edits on a spawned USD prim.
+class UsdPrimSpawnPhysicsCfg:
+    """Base interface for USD-prim physics edits during spawning, before cloning/import.
 
     Define concrete configclass subclasses alongside the environment or embodiment that
     needs them. Core does not prescribe physics fields or backend-specific schema APIs.
@@ -39,12 +39,12 @@ class PrimPhysicsCfg:
             prim: Resolved, editable target prim.
             root: Spawned asset root for resolving any asset-relative relationships.
         """
-        raise NotImplementedError("Concrete PrimPhysicsCfg subclasses must implement apply().")
+        raise NotImplementedError("Concrete UsdPrimSpawnPhysicsCfg subclasses must implement apply().")
 
 
 @configclass
 class _PhysicsUsdFileCfg(UsdFileCfg):
     """Internal storage that preserves per-prim settings when Isaac Lab copies a spawn config."""
 
-    prim_physics: dict[str, PrimPhysicsCfg] = {}
+    prim_physics: dict[str, UsdPrimSpawnPhysicsCfg] = {}
     """Exact asset-relative prim paths and overrides applied after USD loading, before cloning."""

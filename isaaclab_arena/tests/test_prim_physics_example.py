@@ -23,10 +23,10 @@ def _test_red_cube_physics_example(_simulation_app):
     from pxr import UsdPhysics, UsdShade
 
     from isaaclab_arena.assets.object_library import RedCube
-    from isaaclab_arena.assets.physics_config import PrimPhysicsCfg
+    from isaaclab_arena.assets.physics_config import UsdPrimSpawnPhysicsCfg
 
     @configclass
-    class ColliderFrictionCfg(PrimPhysicsCfg):
+    class ColliderFrictionCfg(UsdPrimSpawnPhysicsCfg):
         """Bind an instance-local contact material to a selected collider."""
 
         friction: float = 0.8

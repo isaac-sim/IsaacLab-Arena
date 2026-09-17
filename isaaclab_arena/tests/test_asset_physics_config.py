@@ -125,7 +125,7 @@ def _test_asset_physics_invalid_targets(_simulation_app, asset_path: Path) -> bo
     from isaaclab.sim import UsdFileCfg
     from pxr import UsdPhysics
 
-    from isaaclab_arena.assets.physics_config import PrimPhysicsCfg
+    from isaaclab_arena.assets.physics_config import UsdPrimSpawnPhysicsCfg
     from isaaclab_arena.assets.physics_spawner import apply_prim_physics
     from isaaclab_arena.tests.utils.prim_physics_configs import MassCfg
 
@@ -134,7 +134,7 @@ def _test_asset_physics_invalid_targets(_simulation_app, asset_path: Path) -> bo
     root = cfg.func("/World/Robot", cfg)
     finger = root.GetStage().GetPrimAtPath("/World/Robot/finger")
     with pytest.raises(NotImplementedError, match="implement apply"):
-        apply_prim_physics(root, {"finger": PrimPhysicsCfg()})
+        apply_prim_physics(root, {"finger": UsdPrimSpawnPhysicsCfg()})
     for invalid in ("missing", "../Other", "/World/Robot/finger", "finger/collision.size", "finger/.*"):
         with pytest.raises(AssertionError):
             apply_prim_physics(root, {"finger": MassCfg(), invalid: MassCfg()})

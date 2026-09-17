@@ -10,11 +10,11 @@ import math
 from isaaclab.utils.configclass import configclass
 from pxr import UsdPhysics, UsdShade
 
-from isaaclab_arena.assets.physics_config import PrimPhysicsCfg
+from isaaclab_arena.assets.physics_config import UsdPrimSpawnPhysicsCfg
 
 
 @configclass
-class MassCfg(PrimPhysicsCfg):
+class MassCfg(UsdPrimSpawnPhysicsCfg):
     """Set mass on a rigid body to exercise a use-case-defined physics field."""
 
     mass: float = 0.25
@@ -31,7 +31,7 @@ class MassCfg(PrimPhysicsCfg):
 
 
 @configclass
-class FrictionCfg(PrimPhysicsCfg):
+class FrictionCfg(UsdPrimSpawnPhysicsCfg):
     """Bind a collider-local material without modifying shared source materials."""
 
     friction: float = 8.0

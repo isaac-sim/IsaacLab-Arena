@@ -17,7 +17,7 @@ from isaaclab.utils.string import string_to_callable
 from pxr import Sdf, Usd
 
 if TYPE_CHECKING:
-    from .physics_config import PrimPhysicsCfg, _PhysicsUsdFileCfg
+    from .physics_config import UsdPrimSpawnPhysicsCfg, _PhysicsUsdFileCfg
 
 
 def make_usd_spawn_cfg_with_addons(cfg: UsdFileCfg, addons: dict[str, Any]) -> UsdFileCfg:
@@ -25,7 +25,7 @@ def make_usd_spawn_cfg_with_addons(cfg: UsdFileCfg, addons: dict[str, Any]) -> U
 
     Args:
         cfg: Existing USD spawn configuration.
-        addons: USD spawn fields and an optional string-to-PrimPhysicsCfg prim_physics mapping.
+        addons: USD spawn fields and an optional string-to-UsdPrimSpawnPhysicsCfg prim_physics mapping.
 
     Returns:
         An independent USD config retaining unspecified spawn options. With prim_physics
@@ -47,17 +47,21 @@ def make_usd_spawn_cfg_with_addons(cfg: UsdFileCfg, addons: dict[str, Any]) -> U
     return make_usd_spawn_cfg_with_prim_physics(cfg, overrides)
 
 
-def _validate_prim_physics_types(overrides: dict[str, PrimPhysicsCfg]) -> None:
+def _validate_prim_physics_types(overrides: dict[str, UsdPrimSpawnPhysicsCfg]) -> None:
     """Reject malformed override mappings before configuration or USD authoring."""
-    from .physics_config import PrimPhysicsCfg
+    from .physics_config import UsdPrimSpawnPhysicsCfg
 
-    assert isinstance(overrides, dict), "prim_physics must be a dictionary of paths to PrimPhysicsCfg instances."
+    assert isinstance(
+        overrides, dict
+    ), "prim_physics must be a dictionary of paths to UsdPrimSpawnPhysicsCfg instances."
     for path, cfg in overrides.items():
         assert isinstance(path, str) and path, "Physics target must be a nonempty relative prim path."
-        assert isinstance(cfg, PrimPhysicsCfg), f"Physics override for {path} must be PrimPhysicsCfg."
+        assert isinstance(cfg, UsdPrimSpawnPhysicsCfg), f"Physics override for {path} must be UsdPrimSpawnPhysicsCfg."
 
 
-def make_usd_spawn_cfg_with_prim_physics(cfg: UsdFileCfg, overrides: dict[str, PrimPhysicsCfg]) -> _PhysicsUsdFileCfg:
+def make_usd_spawn_cfg_with_prim_physics(
+    cfg: UsdFileCfg, overrides: dict[str, UsdPrimSpawnPhysicsCfg]
+) -> _PhysicsUsdFileCfg:
     """Return an independent USD spawn config that applies the given per-prim overrides.
 
     Args:
@@ -101,7 +105,9 @@ def _relative_target(root: Usd.Prim, relative_path: str) -> Usd.Prim:
     return prim
 
 
-def _resolve_overrides(root: Usd.Prim, overrides: dict[str, PrimPhysicsCfg]) -> list[tuple[Usd.Prim, PrimPhysicsCfg]]:
+def _resolve_overrides(
+    root: Usd.Prim, overrides: dict[str, UsdPrimSpawnPhysicsCfg]
+) -> list[tuple[Usd.Prim, UsdPrimSpawnPhysicsCfg]]:
     """Resolve and validate all targets before writing any per-prim properties."""
     _validate_prim_physics_types(overrides)
     targets = []
@@ -114,7 +120,7 @@ def _resolve_overrides(root: Usd.Prim, overrides: dict[str, PrimPhysicsCfg]) -> 
     return targets
 
 
-def apply_prim_physics(root: Usd.Prim, overrides: dict[str, PrimPhysicsCfg]) -> None:
+def apply_prim_physics(root: Usd.Prim, overrides: dict[str, UsdPrimSpawnPhysicsCfg]) -> None:
     """Author physics on selected prims without changing the source asset or backend builder.
 
     Args:
