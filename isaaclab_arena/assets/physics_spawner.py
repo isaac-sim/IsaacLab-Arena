@@ -14,7 +14,9 @@ from isaaclab.sim import UsdFileCfg
 from isaaclab.sim.spawners.from_files import spawn_from_usd
 from isaaclab.sim.utils import clone
 from isaaclab.utils.string import string_to_callable
-from pxr import Sdf, Usd
+from pxr import Usd
+
+from isaaclab_arena.utils.usd.prim_paths import get_prim_relative_to_root
 
 if TYPE_CHECKING:
     from .physics_config import UsdFileCfgPrimPhysicsWrapper, UsdPrimSpawnPhysicsCfg
@@ -98,31 +100,6 @@ def make_usd_spawn_cfg_with_prim_physics(
     return UsdFileCfgPrimPhysicsWrapper(**values)
 
 
-def _parse_relative_prim_path(relative_path: str) -> Sdf.Path:
-    """Parse an exact prim path that cannot escape its asset root."""
-    assert isinstance(relative_path, str) and relative_path, "Physics target must be a nonempty relative prim path."
-    path = Sdf.Path(relative_path)
-    assert (
-        not path.IsAbsolutePath()
-        and (path.IsPrimPath() or path == Sdf.Path.reflexiveRelativePath)
-        and ".." not in relative_path.split("/")
-        and "{" not in relative_path
-    ), f"Physics target must be an asset-relative prim path: {relative_path!r}"
-    return path
-
-
-def _get_prim_relative_to_root(root: Usd.Prim, relative_path: str) -> Usd.Prim:
-    """Return an editable prim selected by an exact path relative to the asset root."""
-    # Validate the path before resolving it on the spawned asset's stage.
-    path = _parse_relative_prim_path(relative_path)
-    prim = root.GetStage().GetPrimAtPath(path.MakeAbsolutePath(root.GetPath()))
-    assert prim.IsValid(), f"Physics target does not exist: {root.GetPath()}/{relative_path}"
-    assert (
-        not prim.IsInstanceProxy()
-    ), f"Physics target {prim.GetPath()} is an instance proxy; set make_uninstanceable=True to edit it."
-    return prim
-
-
 def _resolve_and_validate_overrides(
     root: Usd.Prim, overrides: dict[str, UsdPrimSpawnPhysicsCfg]
 ) -> list[tuple[Usd.Prim, UsdPrimSpawnPhysicsCfg]]:
@@ -139,9 +116,13 @@ def _resolve_and_validate_overrides(
     _validate_prim_physics_types(overrides)
     targets = []
     for path, cfg in overrides.items():
-        # 2. Resolve the relative prim path under the spawned asset root.
-        # 3. _get_prim_relative_to_root also rejects missing targets, escaping paths, and instance proxies.
-        targets.append((_get_prim_relative_to_root(root, path), cfg))
+        # 2. Resolve the relative path, rejecting escaping paths and missing targets.
+        prim = get_prim_relative_to_root(root, path)
+        # 3. Physics edits require an editable prim, not an instance proxy.
+        assert (
+            not prim.IsInstanceProxy()
+        ), f"Physics target {prim.GetPath()} is an instance proxy; set make_uninstanceable=True to edit it."
+        targets.append((prim, cfg))
 
     # 4. Validate every config's target and settings without mutating the stage.
     for prim, cfg in targets:
@@ -186,8 +167,9 @@ def spawn_usd_with_physics(
     Returns:
         The first spawned asset root.
     """
-    # The outer clone decorator resolves the pattern to one concrete prototype path first.
-    # Loading that one path cannot clone siblings; they are copied only after our overrides.
+    # 1. Load the USD at the single path selected by @clone.
     prim = spawn_from_usd(prim_path, cfg, translation, orientation, **kwargs)
+    # 2. Apply physics edits to this asset before any copies are made.
     apply_prim_physics(prim, cfg.prim_physics)
+    # 3. Return the configured asset so @clone can copy it to the remaining environments.
     return prim

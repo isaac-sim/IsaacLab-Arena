@@ -134,6 +134,7 @@ def _test_asset_physics_instance_proxies(_simulation_app, asset_path: Path) -> b
 
     from isaaclab_arena.assets.physics_spawner import make_usd_spawn_cfg_with_prim_physics
     from isaaclab_arena.tests.utils.prim_physics_configs import MassCfg
+    from isaaclab_arena.utils.usd.prim_paths import get_prim_relative_to_root
 
     _write_asset(asset_path)
     wrapper_path = asset_path.with_name("instance.usda")
@@ -157,7 +158,9 @@ def _test_asset_physics_instance_proxies(_simulation_app, asset_path: Path) -> b
     edited = stage.GetPrimAtPath("/World/Editable/Hand/finger")
     assert not edited.IsInstanceProxy()
     assert UsdPhysics.MassAPI(edited).GetMassAttr().Get() == 0.25
-    assert stage.GetPrimAtPath("/World/Instanced/Hand/finger").IsInstanceProxy()
+    # Shared lookup permits reading a proxy; only the physics spawner requires editability.
+    instanced = stage.GetPrimAtPath("/World/Instanced")
+    assert get_prim_relative_to_root(instanced, "Hand/finger").IsInstanceProxy()
     return True
 
 
