@@ -46,13 +46,20 @@ joint, or backend-specific properties. Use schema APIs compatible with the selec
 Use actuator configuration for controlled joint gains because articulation initialization can
 overwrite authored USD drives.
 
-Runtime variations such as object mass update simulation state per reset. Build-time variations
-can configure the spawn hook to apply a sampled physics value once USD prims exist. For an
-already constructed object, update ``object_cfg.spawn``; changing only ``spawn_cfg_addon``
-after construction does not rebuild that config.
-
 See :doc:`../scene/concept_assets_design` for a primitive object example and
 :doc:`../embodiment/index` for the robot configuration hook.
 
 See :doc:`physics_backend_selection` for backend selection details and
 :doc:`env_cfg_override` for YAML override syntax.
+
+Differences from the variation system
+------------------------------------
+
+Spawn-time physics configuration applies settings before cloning and physics import.
+The :doc:`variation system <../variations/variations>` controls sampling and when sampled
+values are applied. Runtime variations such as object mass update simulation state per reset.
+Build-time variations can configure the spawn hook to apply a sampled physics value once
+USD prims exist.
+
+For an already constructed object, update ``object_cfg.spawn``; changing only
+``spawn_cfg_addon`` after construction does not rebuild that config.
