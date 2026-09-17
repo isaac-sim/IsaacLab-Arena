@@ -3,8 +3,11 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import math
 import torch
+from collections.abc import Sequence
 from dataclasses import dataclass
+from numbers import Real
 
 
 @dataclass
@@ -25,6 +28,31 @@ class Pose:
         assert isinstance(self.rotation_xyzw, tuple)
         assert len(self.position_xyz) == 3
         assert len(self.rotation_xyzw) == 4
+
+    @classmethod
+    def from_dict(cls, value: dict[str, Sequence[float]] | None) -> "Pose | None":
+        """Parse a finite pose, defaulting an omitted rotation to identity.
+
+        None returns None. Extra fields are ignored. Quaternions must be unit length.
+        """
+        if value is None:
+            return None
+        assert isinstance(value, dict), "Pose must be a mapping"
+        assert "position_xyz" in value, "Pose requires position_xyz"
+        value = {"position_xyz": value["position_xyz"], "rotation_xyzw": value.get("rotation_xyzw", (0, 0, 0, 1))}
+        for name, size in (("position_xyz", 3), ("rotation_xyzw", 4)):
+            values = value[name]
+            assert isinstance(values, Sequence) and len(values) == size, f"{name} needs {size} numbers"
+            assert all(
+                isinstance(v, Real) and not isinstance(v, bool) and math.isfinite(v) for v in values
+            ), f"{name} must contain finite numbers"
+        rotation = value["rotation_xyzw"]
+        assert math.isclose(sum(v * v for v in rotation), 1.0, abs_tol=1e-4), "rotation_xyzw must be a unit quaternion"
+        return cls(tuple(float(v) for v in value["position_xyz"]), tuple(float(v) for v in rotation))
+
+    def to_dict(self) -> dict[str, list[float]]:
+        """Return the position_xyz/rotation_xyzw mapping."""
+        return {"position_xyz": list(self.position_xyz), "rotation_xyzw": list(self.rotation_xyzw)}
 
     @staticmethod
     def identity() -> "Pose":

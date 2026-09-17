@@ -46,13 +46,14 @@ from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_events import PLACEMENT_RESET_EVENT_NAME
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.tasks.no_task import NoTask
-from isaaclab_arena.terms.events import ResetBackgroundPhysics
+from isaaclab_arena.terms.events import ResetBackgroundPhysics, ResetPlacementLayouts
 from isaaclab_arena.terms.recorders import ArenaEnvRecorderManagerCfg
 from isaaclab_arena.utils.configclass import combine_configclass_instances, make_configclass
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import reapply_viewer_cfg
 from isaaclab_arena.utils.isaaclab_utils.warp_patch import install_empty_cpu_warp_to_torch_patch
 from isaaclab_arena.utils.multiprocess import get_local_rank
 from isaaclab_arena.utils.physics_backend import PhysicsBackend
+from isaaclab_arena.utils.pose import PosePerEnv
 from isaaclab_arena.variations import variations_hydra, variations_printing
 from isaaclab_arena.variations.variation_base import RunTimeVariationBase, VariationBase
 from isaaclab_arena.variations.variation_recorder import VariationRecorder
@@ -125,6 +126,38 @@ class ArenaEnvBuilder:
             num_envs=self.cfg.num_envs,
             placer_params=placer_params,
             scene_assets=self.arena_env.scene.assets.values(),
+        )
+
+    def _apply_cached_layouts(self) -> None:
+        """Seed cached root poses and register synchronized complete-layout resets."""
+        layouts = self.arena_env.placement_layouts
+        assert layouts is not None
+        placement_assets = list(self.arena_env.scene.assets.values())
+        if self.arena_env.embodiment is not None:
+            placement_assets.append(self.arena_env.embodiment)
+        layouts.validate_assets(placement_assets)
+        assets = {asset.get_scene_key(): asset for asset in placement_assets}
+        for name in layouts.poses:
+            asset = assets[name]
+            assert (
+                not asset.has_pose_reset_event()
+            ), f"Cached asset '{name}' has an explicit pose-reset event; cached layouts must own its pose reset"
+        scene_poses: dict[str, list[list[float]]] = {}
+        for name, poses in layouts.poses.items():
+            asset = assets[name]
+            asset.set_initial_pose(
+                PosePerEnv([poses[i % layouts.num_layouts] for i in range(self.cfg.num_envs)]), create_reset_event=False
+            )
+            for pose in poses:
+                for scene_name, scene_pose in asset.layout_pose_to_scene_writes(pose):
+                    scene_poses.setdefault(scene_name, []).append(
+                        list(scene_pose.position_xyz + scene_pose.rotation_xyzw)
+                    )
+        assert scene_poses and all(
+            len(poses) == layouts.num_layouts for poses in scene_poses.values()
+        ), "Cached assets must write distinct scene entities in every layout"
+        self._placement_event_cfg = EventTermCfg(
+            func=ResetPlacementLayouts, mode="reset", params={"poses": scene_poses}
         )
 
     def get_all_variations(self) -> dict[str, list[VariationBase]]:
@@ -225,7 +258,9 @@ class ArenaEnvBuilder:
             An (env_cfg, env_kwargs) tuple.
         """
         # Solve relations before building scene config so positions are captured correctly.
-        if self.cfg.solve_relations:
+        if self.arena_env.placement_layouts is not None:
+            self._apply_cached_layouts()
+        elif self.cfg.solve_relations:
             self._solve_relations()
 
         # Apply Hydra variation overrides. Needs to happen before build-time variations are applied.
@@ -262,9 +297,12 @@ class ArenaEnvBuilder:
         )
         placement_event_cfg = None
         if self._placement_event_cfg is not None:
+            # The pooled event name is reserved for terms carrying a placement_pool handle.
+            event_name = (
+                "cached_placement_reset" if self.arena_env.placement_layouts is not None else PLACEMENT_RESET_EVENT_NAME
+            )
             PlacementEventCfg = make_configclass(
-                "PlacementEventCfg",
-                [(PLACEMENT_RESET_EVENT_NAME, EventTermCfg, self._placement_event_cfg)],
+                "PlacementEventCfg", [(event_name, EventTermCfg, self._placement_event_cfg)]
             )
             placement_event_cfg = PlacementEventCfg()
         variations_event_cfg = self._compose_variations_event_cfg()

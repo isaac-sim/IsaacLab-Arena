@@ -987,3 +987,38 @@ def test_solve_and_apply_relation_placement_drops_embodiment_from_event_params()
     pool = pool_handle.pool
     assert pool._placer.params.reachability_config.embodiment is None
     assert all(v._params.reachability_config.embodiment is None for v in pool._placer._validators)
+
+
+def test_write_scene_poses_preserves_tilt_and_partial_reset_mapping():
+    from isaaclab_arena.relations.placement_events import write_scene_poses_to_sim
+
+    env = _make_mock_env(num_envs=3)
+    env.scene.env_origins = torch.tensor([[0.0, 0.0, 0.0], [10.0, 20.0, 0.0], [30.0, 40.0, 0.0]])
+    env_ids = torch.tensor([2, 0])
+    poses = {"box": torch.tensor([[1.0, 2.0, 3.0, 0.5, 0.5, 0.5, 0.5], [4.0, 5.0, 6.0, 0.0, 0.0, 0.0, 1.0]])}
+    original = poses["box"].clone()
+    write_scene_poses_to_sim(env, env_ids, poses)
+    actual = env._assets["box"].write_root_pose_to_sim.call_args
+    torch.testing.assert_close(actual.args[0][:, :3], torch.tensor([[31.0, 42.0, 3.0], [4.0, 5.0, 6.0]]))
+    torch.testing.assert_close(actual.args[0][:, 3:], original[:, 3:])
+    torch.testing.assert_close(actual.kwargs["env_ids"], env_ids)
+    torch.testing.assert_close(poses["box"], original)
+    torch.testing.assert_close(env._assets["box"].write_root_velocity_to_sim.call_args.args[0], torch.zeros(2, 6))
+
+
+@pytest.mark.parametrize("invalid", ["shape", "position", "rotation"])
+def test_invalid_scene_pose_is_rejected_before_any_write(invalid):
+    from isaaclab_arena.relations.placement_events import write_scene_poses_to_sim
+
+    env = _make_mock_env(num_envs=1)
+    pose = torch.tensor([[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0]])
+    bad_pose = pose.clone()
+    if invalid == "shape":
+        bad_pose = bad_pose[:, :6]
+    elif invalid == "position":
+        bad_pose[0, 0] = float("nan")
+    else:
+        bad_pose[0, 6] = 0
+    with pytest.raises(AssertionError):
+        write_scene_poses_to_sim(env, torch.tensor([0]), {"first": pose, "second": bad_pose})
+    assert not env._assets

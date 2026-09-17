@@ -165,14 +165,15 @@ class SceneExtraPoseReader:
             stage=scene.stage,
         )
         # InteractiveScene creates extras before cloning. This post-clone view must cover every environment.
-        scene_extra_prim_paths = self._frame_view.prim_paths
-        assert len(scene_extra_prim_paths) == scene.num_envs, (
-            f"Scene extra '{scene_extra_key}' resolved to {len(scene_extra_prim_paths)} prims; expected"
-            f" {scene.num_envs}."
-        )
-        for environment_id, prim_path in enumerate(scene_extra_prim_paths):
+        assert (
+            self._frame_view.count == scene.num_envs
+        ), f"Scene extra '{scene_extra_key}' resolved to {self._frame_view.count} frames; expected {scene.num_envs}."
+
+        # Newton retains no USD prim handles; USD-backed views expose their row order here.
+        for environment_id, prim in enumerate(self._frame_view.prims):
+            prim_path = str(prim.GetPath())
             environment_prim_path = scene.env_prim_paths[environment_id]
-            assert str(prim_path).startswith(f"{environment_prim_path}/"), (
+            assert prim_path.startswith(f"{environment_prim_path}/"), (
                 f"Scene extra '{scene_extra_key}' pose row {environment_id} belongs to '{prim_path}', "
                 f"not environment '{environment_prim_path}'."
             )

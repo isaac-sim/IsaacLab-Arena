@@ -10,6 +10,8 @@ import tqdm
 import traceback
 from types import SimpleNamespace
 
+import pytest
+
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose
@@ -51,6 +53,18 @@ def _object_reference_with_cached_bbox(parent_pose: Pose | None, relative_pose: 
     return obj_ref
 
 
+@pytest.mark.parametrize("parent_pose", [None, Pose((1.0, 2.0, 3.0), (0.0, 0.0, 1.0, 0.0))])
+def test_object_reference_parent_pose_and_identity_fallback(parent_pose):
+    reference = _object_reference_with_cached_bbox(
+        parent_pose, Pose((1.0, 0.0, 0.0)), AxisAlignedBoundingBox((0, 0, 0), (1, 1, 1))
+    )
+    if parent_pose is None:
+        assert reference.get_initial_pose() is reference.initial_pose_relative_to_parent
+    assert reference.get_parent_pose() is parent_pose
+    assert reference.get_parent_pose_or_identity() == (parent_pose if parent_pose is not None else Pose.identity())
+    assert reference.get_initial_pose().position_xyz == ((1, 0, 0) if parent_pose is None else (0, 2, 3))
+
+
 def test_object_reference_world_bbox_applies_parent_yaw():
     """Parent yaw, not the prim's relative yaw, rotates the already-local referenced bbox."""
     yaw_90 = (0.0, 0.0, 2**-0.5, 2**-0.5)
@@ -64,6 +78,36 @@ def test_object_reference_world_bbox_applies_parent_yaw():
 
     assert torch.allclose(world_bbox.min_point, torch.tensor([[7.9, 1.0, 0.0]]), atol=1e-6)
     assert torch.allclose(world_bbox.max_point, torch.tensor([[8.0, 1.2, 0.05]]), atol=1e-6)
+
+
+@pytest.mark.parametrize(
+    "parent_pose,expected_lower,expected_upper",
+    [
+        (None, (1.0, 2.0, 0.0), (2.6, 2.8, 0.1)),
+        (Pose((10.0, 0.0, 0.0), (0.0, 0.0, 2**-0.5, 2**-0.5)), (7.2, 1.0, 0.0), (8.0, 2.6, 0.1)),
+    ],
+)
+@pytest.mark.parametrize(
+    "relative_rotation",
+    [(0, 0, 2**-0.5, 2**-0.5), (0, 0, 0.3826834324, 0.9238795325), (0.5, 0.5, 0.5, 0.5)],
+)
+def test_reference_anchor_bounds_do_not_reapply_prim_rotation(
+    parent_pose, expected_lower, expected_upper, relative_rotation
+):
+    from isaaclab_arena.relations.bounding_box_helpers import build_per_env_bounding_boxes
+    from isaaclab_arena.relations.relations import IsAnchor
+
+    reference = _object_reference_with_cached_bbox(
+        parent_pose,
+        Pose((1.0, 2.0, 0.0), relative_rotation),
+        AxisAlignedBoundingBox((0, 0, 0), (1.6, 0.8, 0.1)),
+    )
+    reference.name = "counter"
+    reference.relations = [IsAnchor()]
+    bounds = build_per_env_bounding_boxes([reference], num_envs=2).object_bboxes[reference]
+    world_bounds = bounds.translated(reference.get_initial_pose().position_xyz)
+    torch.testing.assert_close(world_bounds.min_point, torch.tensor([expected_lower] * 2))
+    torch.testing.assert_close(world_bounds.max_point, torch.tensor([expected_upper] * 2))
 
 
 def test_object_reference_caches_parent_usd_prim_path(monkeypatch):

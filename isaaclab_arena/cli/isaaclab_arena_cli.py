@@ -113,6 +113,12 @@ def add_isaaclab_arena_cli_args(parser: argparse.ArgumentParser) -> None:
         ),
     )
     arena_group.add_argument(
+        "--placement_layouts",
+        type=str,
+        default=None,
+        help="Companion pose YAML; graph node IDs for --env_spec, scene names for Python environments",
+    )
+    arena_group.add_argument(
         "--list_variations",
         action="store_true",
         default=False,

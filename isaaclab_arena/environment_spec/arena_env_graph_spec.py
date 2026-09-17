@@ -9,7 +9,7 @@ import yaml
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Self
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, PrivateAttr, field_validator, model_validator
 
 from isaaclab_arena.environment_spec.arena_env_graph_types import (
     AssetSpec,
@@ -50,6 +50,11 @@ class ArenaEnvGraphSpec(BaseModel):
     relations: list[SpatialRelationSpec] = Field(
         default_factory=list, description="Spatial layout relations across all assets."
     )
+    placement_layouts: str | None = Field(
+        default=None, description="Optional companion pose YAML, relative to this environment file."
+    )
+    _source_dir: Path | None = PrivateAttr(default=None)
+
     task: CompositeTaskSpec = Field(description="Root task the robot performs to manipulate the objects.")
     placement_validators: PlacementValidatorSpec | None = Field(
         default=None,
@@ -181,9 +186,25 @@ class ArenaEnvGraphSpec(BaseModel):
     def _load_yaml_dict(path: str | Path) -> dict[str, Any]:
         return load_env_graph_spec_dict(path)
 
+    @property
+    def placement_layouts_path(self) -> Path | None:
+        """Companion file path resolved against the source environment YAML."""
+        if self.placement_layouts is None:
+            return None
+        path = Path(self.placement_layouts)
+        if path.is_absolute():
+            return path
+        assert self._source_dir is not None, (
+            "Relative placement_layouts requires a source YAML; load with from_yaml(), "
+            "use an absolute path, or pass a runtime override"
+        )
+        return self._source_dir / path
+
     @classmethod
     def from_yaml(cls, path: str | Path) -> Self:
-        return cls.from_dict(cls._load_yaml_dict(path))
+        spec = cls.from_dict(cls._load_yaml_dict(path))
+        spec._source_dir = Path(path).resolve().parent
+        return spec
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> Self:
@@ -215,12 +236,15 @@ class ArenaEnvGraphSpec(BaseModel):
             if new_name is not None:
                 self._asset_by_id(override.target_node_id).registry_name = new_name
 
-    def to_arena_env(self, enable_cameras: bool = False) -> IsaacLabArenaEnvironment:
-        """Convert this graph spec into an :class:`IsaacLabArenaEnvironment`.
+    def to_arena_env(
+        self, enable_cameras: bool = False, placement_layouts: str | Path | None = None
+    ) -> IsaacLabArenaEnvironment:
+        """Convert this graph spec into an IsaacLabArenaEnvironment.
 
         Args:
             enable_cameras: Forwarded to the embodiment so its cameras are spawned.
+            placement_layouts: Companion pose file overriding the graph reference, relative to the working directory.
         """
         from isaaclab_arena.environment_spec.arena_env_graph_conversion_utils import build_arena_env_from_graph_spec
 
-        return build_arena_env_from_graph_spec(self, enable_cameras=enable_cameras)
+        return build_arena_env_from_graph_spec(self, enable_cameras=enable_cameras, placement_layouts=placement_layouts)

@@ -16,6 +16,7 @@ if TYPE_CHECKING:
     from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import IsaacLabArenaManagerBasedRLEnvCfg
     from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTermCfg
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+    from isaaclab_arena.relations.placement_layouts import PlacementLayouts
     from isaaclab_arena.scene.scene import Scene
     from isaaclab_arena.tasks.task_base import TaskBase
 
@@ -38,6 +39,7 @@ class IsaacLabArenaEnvironment:
         episode_recorder_terms: dict[str, EpisodeRecorderTermCfg] | None = None,
         placer_params: ObjectPlacerParams | None = None,
         default_physics_backend: PhysicsBackend = PhysicsBackend.PHYSX,
+        placement_layouts: PlacementLayouts | None = None,
     ):
         """
         Args:
@@ -61,6 +63,7 @@ class IsaacLabArenaEnvironment:
             placer_params: Object placement configuration. When None, default
                 ObjectPlacerParams are used.
             default_physics_backend: Default physics backend when ``--presets`` is omitted.
+            placement_layouts: Optional complete cached root layouts keyed by runtime scene names.
         """
         self.name = name
         self.scene = scene
@@ -75,3 +78,4 @@ class IsaacLabArenaEnvironment:
         self.episode_recorder_terms = episode_recorder_terms or {}
         self.placer_params = placer_params
         self.default_physics_backend = PhysicsBackend(default_physics_backend)
+        self.placement_layouts = placement_layouts
