@@ -288,7 +288,7 @@ def _test_builder_applies_nested_env_cfg_override(simulation_app) -> bool:
                     "solver_cfg": {
                         "_target_": "isaaclab_newton.physics.MJWarpSolverCfg",
                         "iterations": 23,
-                        "enable_multiccd": True,
+                        "disable_sensors": True,
                     },
                 },
             },
@@ -302,7 +302,7 @@ def _test_builder_applies_nested_env_cfg_override(simulation_app) -> bool:
     assert env_cfg.sim.physics.num_substeps == 7
     assert isinstance(env_cfg.sim.physics.solver_cfg, MJWarpSolverCfg)
     assert env_cfg.sim.physics.solver_cfg.iterations == 23
-    assert env_cfg.sim.physics.solver_cfg.enable_multiccd
+    assert env_cfg.sim.physics.solver_cfg.disable_sensors
     return True
 
 

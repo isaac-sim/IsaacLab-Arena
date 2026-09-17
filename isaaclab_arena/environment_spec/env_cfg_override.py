@@ -23,6 +23,11 @@ _ALLOWED_TARGET_MODULE_PREFIXES = (
     "isaaclab_physx.",
 )
 _HYDRA_TARGET_KEY = "_target_"
+_ALLOWED_ARENA_TARGETS = {
+    "isaaclab_arena.assets.physics_config.PhysicsUsdFileCfg",
+    "isaaclab_arena.assets.physics_config.PrimPhysicsCfg",
+    "isaaclab_arena.assets.physics_config.MujocoEqualityPropertiesCfg",
+}
 
 
 def apply_env_cfg_override(env_cfg: Any, override: dict[str, Any] | None) -> Any:
@@ -74,7 +79,7 @@ def _materialize_targets(target_obj: Any, values: dict[str, Any], *, path: str) 
         child_obj = getattr(target_obj, key)
         target_path = value.pop(_HYDRA_TARGET_KEY, None)
         if target_path is not None:
-            expected_type = _field_annotation(type(target_obj), key)
+            expected_type = _field_annotation(type(target_obj), key, current_type=type(child_obj))
             target_cls = _validated_target_class(target_path, expected_type, path=child_path)
             _validate_nested_targets(target_cls, value, path=child_path)
             _materialize_nested_values(target_cls, value, path=child_path)
@@ -186,9 +191,9 @@ def _validated_target_class(target_path: Any, expected_type: Any, *, path: str) 
     """Resolve and validate one Hydra target against its annotated field type."""
     assert isinstance(target_path, str) and target_path, f"'{path}.{_HYDRA_TARGET_KEY}' must be a class path string"
     module_name, separator, _ = target_path.rpartition(".")
-    assert separator and module_name.startswith(
-        _ALLOWED_TARGET_MODULE_PREFIXES
-    ), f"Hydra target {target_path!r} at '{path}' is outside the approved Isaac Lab packages"
+    assert separator and (
+        module_name.startswith(_ALLOWED_TARGET_MODULE_PREFIXES) or target_path in _ALLOWED_ARENA_TARGETS
+    ), f"Hydra target {target_path!r} at '{path}' is outside the approved Isaac Lab packages and Arena config classes"
 
     try:
         target_cls = get_class(target_path)
@@ -196,9 +201,10 @@ def _validated_target_class(target_path: Any, expected_type: Any, *, path: str) 
         raise ValueError(f"Could not resolve Hydra target {target_path!r} at '{path}': {exc}") from exc
 
     assert isinstance(target_cls, type), f"Hydra target {target_path!r} at '{path}' must resolve to a class"
-    assert target_cls.__module__.startswith(
-        _ALLOWED_TARGET_MODULE_PREFIXES
-    ), f"Hydra target {target_path!r} at '{path}' resolves outside the approved Isaac Lab packages"
+    assert (
+        target_cls.__module__.startswith(_ALLOWED_TARGET_MODULE_PREFIXES)
+        or f"{target_cls.__module__}.{target_cls.__name__}" in _ALLOWED_ARENA_TARGETS
+    ), f"Hydra target {target_path!r} at '{path}' resolves outside the approved config classes"
     assert dataclasses.is_dataclass(
         target_cls
     ), f"Hydra target {target_path!r} at '{path}' must resolve to an Isaac Lab configclass"
@@ -208,7 +214,7 @@ def _validated_target_class(target_path: Any, expected_type: Any, *, path: str) 
     return target_cls
 
 
-def _field_annotation(owner: type, field_name: str) -> Any:
+def _field_annotation(owner: type, field_name: str, current_type: type | None = None) -> Any:
     """Resolve one inherited dataclass field annotation without resolving unrelated fields."""
     for cls in owner.__mro__:
         annotation = cls.__dict__.get("__annotations__", {}).get(field_name)
@@ -217,7 +223,12 @@ def _field_annotation(owner: type, field_name: str) -> Any:
         if isinstance(annotation, str):
             module_globals = vars(sys.modules[cls.__module__])
             holder = type("_FieldAnnotation", (), {"__annotations__": {"value": annotation}})
-            return get_type_hints(holder, globalns=module_globals, localns=vars(cls))["value"]
+            # Some Isaac Lab fields import their base config type only under TYPE_CHECKING
+            # (for example AssetBaseCfg.spawn: SpawnerCfg). An existing value supplies that
+            # public type through its MRO without weakening the annotation to Any.
+            localns = {base.__name__: base for base in current_type.__mro__} if current_type is not None else {}
+            localns.update(vars(cls))
+            return get_type_hints(holder, globalns=module_globals, localns=localns)["value"]
         return annotation
     raise TypeError(f"Could not resolve the annotated type of '{owner.__name__}.{field_name}'")
 
