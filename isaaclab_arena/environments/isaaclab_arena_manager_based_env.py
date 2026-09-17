@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from typing import TYPE_CHECKING
 
 from isaaclab.envs import ManagerBasedRLEnv
 
@@ -19,6 +20,9 @@ from isaaclab_arena.metrics.metrics_manager import MetricsManager
 from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderManager
 from isaaclab_arena.tasks.predicates.object_settling import ObjectInitialRestPoseRecorder
 from isaaclab_arena.variations.variation_recorder import VariationRecorder
+
+if TYPE_CHECKING:
+    import torch
 
 
 class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
@@ -42,10 +46,12 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
         if variation_recorder is not None:
             # Bind so run-time variation draws can be attributed to the current episode index.
             variation_recorder.bind_env(self)
-        # Per-env count of completed episodes; advanced in ``_reset_idx``.
         self._episode_counts: dict[int, int] = {}
-        # The initial reset touches every env before any episode has run; skip it.
-        self._first_reset = True
+        """Per-environment episode indices; failed reset attempts may leave gaps."""
+        self._started_env_ids: set[int] = set()
+        """Environments whose starting state was captured successfully and may be recorded."""
+        self._defer_episode_recorder_reset: bool = False
+        """Defer capture until reset_to has restored its supplied scene state."""
         super().__init__(cfg=cfg, render_mode=render_mode, **kwargs)
 
     @property
@@ -84,23 +90,54 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
         """Return the index of the current episode in ``env_id``."""
         return self._episode_counts.get(env_id, 0)
 
-    def _advance_episode_indices(self, env_ids: Sequence[int]) -> None:
-        """Advance the per-env episode counter for each episode in ``env_ids``."""
-        for env_id in env_ids:
-            env_id = int(env_id)
-            self._episode_counts[env_id] = self._episode_counts.get(env_id, 0) + 1
+    def _start_episode_recording(self, env_ids: Sequence[int] | torch.Tensor | None) -> None:
+        """Mark episodes recordable only after all terms capture their starting state."""
+        self.episode_recorder_manager.reset(env_ids)
+        ids = range(self.num_envs) if env_ids is None else env_ids
+        self._started_env_ids.update(int(env_id) for env_id in ids)
 
-    def _reset_idx(self, env_ids: Sequence[int]) -> None:
-        # The initial reset touches every env before any episode has run; nothing to record or count.
-        if self._first_reset:
-            self._first_reset = False
-            super()._reset_idx(env_ids)
-            return
-        # Runs recorder before super() so the just-finished episode is still intact.
-        self.episode_recorder_manager.record_pre_reset(env_ids)
-        # Advance before super() so reset-mode variation draws are tagged with the episode they begin.
-        self._advance_episode_indices(env_ids)
+    def _reset_idx(self, env_ids: Sequence[int] | torch.Tensor) -> None:
+        ids = [int(env_id) for env_id in env_ids]
+        finished_env_ids = [env_id for env_id in ids if env_id in self._started_env_ids]
+        # Clear before recording or reset events can raise, so retries cannot write stale or duplicate JSONL rows.
+        self._started_env_ids.difference_update(ids)
+        if finished_env_ids:
+            # Record the finishing episode before reset changes its state and index.
+            self.episode_recorder_manager.record_pre_reset(finished_env_ids)
+        # Reserve an index before reset events, including retries, so variation draws never reuse one.
+        for env_id in ids:
+            self._episode_counts[env_id] = self._episode_counts.get(env_id, -1) + 1
         super()._reset_idx(env_ids)
+        if not self._defer_episode_recorder_reset:
+            self._start_episode_recording(env_ids)
+
+    def reset_to(
+        self,
+        state: dict[str, dict[str, dict[str, torch.Tensor]]],
+        env_ids: Sequence[int] | torch.Tensor | None,
+        seed: int | None = None,
+        is_relative: bool = False,
+    ):
+        """Restore supplied scene state before resetting episode recorder terms.
+
+        Args:
+            state: Scene state in the format returned by scene.get_state().
+            env_ids: Environments to reset, or None for all environments.
+            seed: Optional seed for the reset.
+            is_relative: Whether supplied poses are relative to environment origins.
+
+        Returns:
+            Observations and extras from the reset.
+        """
+        # The base implementation calls _reset_idx before applying the supplied state.
+        self._defer_episode_recorder_reset = True
+        try:
+            result = super().reset_to(state, env_ids, seed=seed, is_relative=is_relative)
+        finally:
+            self._defer_episode_recorder_reset = False
+        # Failed restores remain unrecordable; a later successful reset starts a fresh episode.
+        self._start_episode_recording(env_ids)
+        return result
 
     def compute_metrics(self) -> MetricsDataCollection:
         """Compute all registered metrics.

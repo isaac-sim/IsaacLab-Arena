@@ -7,13 +7,13 @@ from __future__ import annotations
 
 import json
 import torch
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from dataclasses import MISSING
 from pathlib import Path
 from prettytable import PrettyTable
 from typing import Any
 
-from isaaclab.managers import ManagerBase, ManagerTermBaseCfg
+from isaaclab.managers import ManagerBase, ManagerTermBase, ManagerTermBaseCfg
 from isaaclab.utils.configclass import configclass
 
 
@@ -22,12 +22,82 @@ class EpisodeRecorderTermCfg(ManagerTermBaseCfg):
     """Configuration for an episode recorder term."""
 
     func: Callable[..., dict[str, Any]] = MISSING
-    """The callable that records this term's fields for one finishing episode.
+    """Called as ``func(env, env_id, **params)`` to return JSON-serializable episode fields.
 
-    Invoked as ``func(env, env_id, **params)`` for the env whose episode just finished, and must
-    return a flat, JSON-serializable dict that is merged into the episode's record. It may be a plain
-    function or a callable class inheriting from ManagerTermBase (built once by the manager).
+    Top-level keys must not collide; values may nest. Use a function or ManagerTermBase subclass.
+
+    Stateful terms override ``reset(env_ids)`` to capture starting state after reset events.
+    On normal resets, capture precedes simulation forward and rendering: read directly written
+    state, since derived poses and sensors may still be stale. For ``env.reset_to()``, capture
+    follows state restoration, forward and rendering. ``env_ids`` is a tensor or sequence of
+    environment IDs, or ``None`` for all environments.
     """
+
+
+def _record_episode_fields(
+    terms: Iterable[tuple[str, EpisodeRecorderTermCfg]], env, env_id: int, record: dict[str, Any]
+) -> dict[str, Any]:
+    """Merge term fields into record and return it; identify invalid fields by term path."""
+    for term_name, term_cfg in terms:
+        fields = term_cfg.func(env, env_id, **term_cfg.params)
+        collisions = record.keys() & fields.keys()
+        assert not collisions, (
+            f"Episode recorder term '{term_name}' redefines fields {collisions} already set"
+            " by the manager or an earlier term."
+        )
+        try:
+            json.dumps(fields)
+        except TypeError as exc:
+            raise TypeError(
+                f"Episode recorder term '{term_name}' returned non-JSON-serializable fields ({fields!r}): {exc}"
+            ) from exc
+        record.update(fields)
+    return record
+
+
+def _reset_episode_terms(
+    terms: Iterable[tuple[str, EpisodeRecorderTermCfg]], env_ids: Sequence[int] | torch.Tensor | None
+) -> None:
+    """Reset stateful terms, preserving the failing leaf's path through namespace wrappers."""
+    for term_name, term_cfg in terms:
+        if isinstance(term_cfg.func, NamespacedEpisodeRecorder):
+            # Child failures already include their full path; preserve the original cause.
+            term_cfg.func.reset(env_ids=env_ids)
+        elif isinstance(term_cfg.func, ManagerTermBase):
+            try:
+                term_cfg.func.reset(env_ids=env_ids)
+            except Exception as exc:
+                raise RuntimeError(f"Episode recorder term '{term_name}' failed during reset") from exc
+
+
+class NamespacedEpisodeRecorder(ManagerTermBase):
+    """Group child episode fields under a namespace and forward their reset lifecycle."""
+
+    def __init__(self, cfg: EpisodeRecorderTermCfg, env):
+        super().__init__(cfg, env)
+        self._term_path: str = cfg.params["namespace"]
+        """Registered term path used in diagnostics, such as subtask_0/subtask_1."""
+        for name, child_cfg in cfg.params["terms"].items():
+            if not isinstance(child_cfg, EpisodeRecorderTermCfg):
+                raise TypeError(f"Child episode recorder term '{name}' requires EpisodeRecorderTermCfg")
+
+    def set_term_path(self, term_path: str) -> None:
+        """Set this recorder's diagnostic path and propagate it to namespaced children."""
+        self._term_path = term_path
+        for name, child_cfg in self.cfg.params["terms"].items():
+            if isinstance(child_cfg.func, NamespacedEpisodeRecorder):
+                child_cfg.func.set_term_path(f"{term_path}/{name}")
+
+    def reset(self, env_ids: Sequence[int] | torch.Tensor | None = None) -> None:
+        """Reset the selected environments in all stateful child terms."""
+        child_terms = ((f"{self._term_path}/{name}", cfg) for name, cfg in self.cfg.params["terms"].items())
+        _reset_episode_terms(child_terms, env_ids)
+
+    def __call__(self, env, env_id: int, namespace: str, terms: dict[str, EpisodeRecorderTermCfg]) -> dict[str, Any]:
+        """Return one episode's child fields nested under namespace."""
+        child_terms = ((f"{self._term_path}/{name}", cfg) for name, cfg in terms.items())
+        fields = _record_episode_fields(child_terms, env, env_id, {})
+        return {namespace: fields}
 
 
 class EpisodeRecorderManager(ManagerBase):
@@ -90,17 +160,20 @@ class EpisodeRecorderManager(ManagerBase):
             record: dict[str, Any] = {
                 "job_name": self._job_name,
             }
-            # Fire each recording term's function.
-            for term_name, term_cfg in zip(self._term_names, self._term_cfgs):
-                fields = term_cfg.func(self._env, env_id, **term_cfg.params)
-                collisions = record.keys() & fields.keys()
-                assert not collisions, (
-                    f"Episode recorder term '{term_name}' redefines fields {collisions} already set"
-                    " by the manager or an earlier term."
-                )
-                self._assert_json_serializable(term_name, fields)
-                record.update(fields)
+            _record_episode_fields(zip(self._term_names, self._term_cfgs), self._env, env_id, record)
             self._append_record(record)
+
+    def reset(self, env_ids: Sequence[int] | torch.Tensor | None = None) -> dict:
+        """Reset stateful terms after scene reset; term failures abort the reset with their name.
+
+        Args:
+            env_ids: Environments starting new episodes, or None for all. Passed through to terms.
+
+        Returns:
+            An empty logging dictionary, following the manager reset contract.
+        """
+        _reset_episode_terms(zip(self._term_names, self._term_cfgs), env_ids)
+        return {}
 
     def _append_record(self, record: dict[str, Any]) -> None:
         """Append one record to the output JSONL (one object per line); no-op if no path was set."""
@@ -123,20 +196,34 @@ class EpisodeRecorderManager(ManagerBase):
             if term_cfg is None:
                 continue
             # Validate the term's func/params.
-            self._resolve_common_term_cfg(term_name, term_cfg, min_argc=2)
+            self._resolve_term_cfg_tree(term_name, term_cfg)
             self._term_names.append(term_name)
             self._term_cfgs.append(term_cfg)
 
-    @staticmethod
-    def _assert_json_serializable(term_name: str, fields: dict[str, Any]) -> None:
-        """Check ``term_name``'s recorded ``fields`` are JSON-serializable, failing fast if not.
-
-        This points at the offending term rather than surfacing a cryptic error later at write() time when
-        the whole record is serialized.
-        """
+    def _resolve_term_cfg_tree(self, term_name: str, term_cfg: EpisodeRecorderTermCfg) -> None:
+        """Validate and resolve a term and any episode terms in its parameters."""
+        # Parent resolution instantiates child callables; validate their class signatures first.
+        if isinstance(term_cfg, EpisodeRecorderTermCfg):
+            for key, value in term_cfg.params.items():
+                self._resolve_nested_episode_terms(f"{term_name}/{key}", value)
         try:
-            json.dumps(fields)
-        except TypeError as e:
-            raise TypeError(
-                f"Episode recorder term '{term_name}' returned non-JSON-serializable fields ({fields!r}): {e}"
-            ) from e
+            self._resolve_common_term_cfg(term_name, term_cfg, min_argc=2)
+        except TypeError as exc:
+            raise TypeError(f"Episode recorder term '{term_name}': {exc}") from exc
+
+    def _resolve_nested_episode_terms(self, path: str, value: Any) -> None:
+        """Find episode terms inside the parameter containers supported by Isaac Lab."""
+        if isinstance(value, EpisodeRecorderTermCfg):
+            self._resolve_term_cfg_tree(path, value)
+        elif isinstance(value, dict):
+            for key, item in value.items():
+                self._resolve_nested_episode_terms(f"{path}/{key}", item)
+        elif isinstance(value, (list, tuple)):
+            for index, item in enumerate(value):
+                self._resolve_nested_episode_terms(f"{path}/{index}", item)
+
+    def _process_term_cfg_at_play(self, term_name: str, term_cfg: EpisodeRecorderTermCfg) -> None:
+        """Resolve runtime terms and bind namespaced diagnostics to the registered term name."""
+        super()._process_term_cfg_at_play(term_name, term_cfg)
+        if isinstance(term_cfg.func, NamespacedEpisodeRecorder):
+            term_cfg.func.set_term_path(term_name)

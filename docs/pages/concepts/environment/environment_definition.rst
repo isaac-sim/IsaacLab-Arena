@@ -192,6 +192,77 @@ else on that config:
        episode_recorder_terms={"cube_pose": EpisodeRecorderTermCfg(func=record_cube_pose)},
    )
 
+Tasks can override ``get_episode_recorder_terms(arena_env)`` to contribute terms. For example,
+a pick-and-place task can record its object's starting world pose (position followed by a
+``wxyz`` quaternion):
+
+.. code-block:: python
+
+   from isaaclab.managers import ManagerTermBase
+
+   from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTermCfg
+   from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
+
+   class StartingPoseRecorder(ManagerTermBase):
+       def __init__(self, cfg, env):
+           super().__init__(cfg, env)
+           self.starting_poses = {}
+
+       def reset(self, env_ids=None):
+           ids = range(self.num_envs) if env_ids is None else env_ids
+           asset = self._env.scene[self.cfg.params["asset_name"]]
+           for env_id in ids:
+               env_id = int(env_id)
+               self.starting_poses[env_id] = asset.data.root_pose_w.torch[env_id].tolist()
+
+       def __call__(self, env, env_id, asset_name):
+           return {"starting_pose": self.starting_poses[env_id]}
+
+   class RecordedPickAndPlaceTask(PickAndPlaceTask):
+       def get_episode_recorder_terms(self, arena_env):
+           return {
+               "starting_pose": EpisodeRecorderTermCfg(
+                   func=StartingPoseRecorder,
+                   params={"asset_name": self.pick_up_object.name},
+               )
+           }
+
+Use ``RecordedPickAndPlaceTask`` wherever the environment constructs its ``PickAndPlaceTask``.
+The recorder stores a copy at reset, so later object motion does not change the recorded start.
+Environment and task term names must be distinct and cannot use the built-in names
+``core``, ``variations``, or ``progress``.
+
+Composite and sequential tasks group each child's recorded fields under ``subtask_<index>``;
+nested composites preserve that hierarchy. Repeated tasks may reuse term and field names
+across subtasks. Fields from terms within one subtask must still be distinct.
+
+Stateful ``ManagerTermBase`` terms can override ``reset(env_ids)`` to capture starting
+state after placement and other reset events, before simulation forward/render.
+Terms receive a tensor or sequence of environment IDs, or ``None`` meaning all environments,
+and should update only those environments. Read state written directly by reset events;
+derived body poses, contact forces, and camera images are not yet refreshed on normal resets.
+For ``env.reset_to()``, capture runs after state restoration and forward/render, so those
+values may have different freshness than on normal resets.
+
+Every reset, including ``reset_to()``, records and ends any started episode, even if it was
+interrupted. Each environment's first reset only captures its starting state. A JSONL row
+is emitted only for an episode whose starting-state capture succeeded. Retrying a failed reset
+does not emit a JSONL row for the failed attempt. Attempts that reach reset events consume
+an episode index even if they later fail, so variation draws remain distinct.
+
+JSONL writes are per environment, not atomic across a reset batch. If recording raises,
+rows already written remain; retrying starts fresh episodes without re-emitting the failed
+batch. Unwritten episodes from that batch are lost.
+
+This filtering applies only to the episode JSONL. Isaac Lab's dataset recorder runs before
+Arena's reset bookkeeping and can still export retry attempts; demo-based metrics may count
+those attempts as well. Use JSONL as the authoritative list of recorded episodes and match
+demos by ``(env_id, episode_in_env)``, excluding demos with no matching row.
+
+Begin with a full reset when using Isaac Lab's dataset or metric recorders. ``SuccessRateMetric``
+requires it, and ``EpisodeIdentityRecorder`` uses a global first-reset flag, so demo IDs are not
+reliable after a partial first reset. Per-environment first-reset handling applies to Arena JSONL.
+
 **Most placement tuning.** YAML ``placement_validators`` can set only four
 ``ObjectPlacerParams`` fields: ``enabled_checks``, ``required_checks``,
 ``debug_visualize``, and ``debug_visualize_output_path``. Seeds, random yaw, pool

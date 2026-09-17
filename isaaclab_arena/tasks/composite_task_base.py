@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from __future__ import annotations
+
 import copy
 import dataclasses
 import inspect
@@ -11,7 +13,7 @@ import torch
 import warnings
 from dataclasses import MISSING
 from functools import partial
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from isaaclab.envs.common import ViewerCfg
 from isaaclab.envs.mimic_env_cfg import MimicEnvCfg, SubTaskConfig
@@ -23,6 +25,7 @@ from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.metrics.metric_term_cfg import MetricTermCfg
 from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
+from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTermCfg, NamespacedEpisodeRecorder
 from isaaclab_arena.tasks.common.mimic_default_params import MIMIC_DATAGEN_CONFIG_DEFAULTS
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.utils.configclass import (
@@ -30,6 +33,9 @@ from isaaclab_arena.utils.configclass import (
     combine_configclass_instances,
     transform_configclass_instance,
 )
+
+if TYPE_CHECKING:
+    from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
 
 
 @configclass
@@ -393,6 +399,18 @@ class CompositeTaskBase(TaskBase):
         subtask_metrics.append(SubtaskSuccessRateMetric())
 
         return subtask_metrics
+
+    def get_episode_recorder_terms(self, arena_env: IsaacLabArenaEnvironment) -> dict[str, EpisodeRecorderTermCfg]:
+        """Group child fields under subtask_<index>, using each child's original index."""
+        terms: dict[str, EpisodeRecorderTermCfg] = {}
+        for i, subtask in enumerate(self.subtasks):
+            subtask_terms = subtask.get_episode_recorder_terms(arena_env)
+            if subtask_terms:
+                namespace = f"subtask_{i}"
+                terms[namespace] = EpisodeRecorderTermCfg(
+                    func=NamespacedEpisodeRecorder, params={"namespace": namespace, "terms": subtask_terms}
+                )
+        return terms
 
     def get_progress_objectives(self) -> list[ProgressObjective]:
         """Concatenate child subtasks's ProgressObjectives with namespace prefixes.

@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import datetime
 import gymnasium as gym
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from isaaclab.devices.device_base import DeviceCfg, DevicesCfg
 from isaaclab.envs import ManagerBasedRLMimicEnv
@@ -56,6 +56,9 @@ from isaaclab_arena.utils.physics_backend import PhysicsBackend
 from isaaclab_arena.variations import variations_hydra, variations_printing
 from isaaclab_arena.variations.variation_base import RunTimeVariationBase, VariationBase
 from isaaclab_arena.variations.variation_recorder import VariationRecorder
+
+if TYPE_CHECKING:
+    from isaaclab_arena.tasks.task_base import TaskBase
 
 
 class ArenaEnvBuilder:
@@ -195,6 +198,14 @@ class ArenaEnvBuilder:
             return None
         fields = [(m.name, MetricTermCfg, m.get_metric_term_cfg()) for m in metrics]
         return make_configclass("MetricsCfg", fields)()
+
+    def _collect_episode_recorder_terms(self, task: TaskBase) -> dict[str, EpisodeRecorderTermCfg]:
+        """Merge environment and task episode recorder terms, rejecting duplicate names."""
+        terms = dict(self.arena_env.episode_recorder_terms)
+        for name, term_cfg in task.get_episode_recorder_terms(self.arena_env).items():
+            assert name not in terms, f"Episode recorder term '{name}' is contributed by both the environment and task."
+            terms[name] = term_cfg
+        return terms
 
     def _compose_episode_recorders_cfg(self, extra_terms: dict[str, EpisodeRecorderTermCfg] | None = None) -> object:
         """Build a configclass container with one EpisodeRecorderTermCfg field per episode recorder term.
@@ -362,7 +373,7 @@ class ArenaEnvBuilder:
             task.get_commands_cfg(),
         )
 
-        episode_recorders_cfg = self._compose_episode_recorders_cfg(self.arena_env.episode_recorder_terms)
+        episode_recorders_cfg = self._compose_episode_recorders_cfg(self._collect_episode_recorder_terms(task))
 
         viewer_cfg = task.get_viewer_cfg()
 

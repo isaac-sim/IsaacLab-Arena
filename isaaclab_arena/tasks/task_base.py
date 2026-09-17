@@ -3,8 +3,10 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from isaaclab.envs.common import ViewerCfg
 from isaaclab.managers.recorder_manager import RecorderManagerBaseCfg
@@ -16,6 +18,10 @@ from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
 from isaaclab_arena.relations.relations import RequiresReachability
 from isaaclab_arena.tasks.task_transition import TaskTransition
+
+if TYPE_CHECKING:
+    from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
+    from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTermCfg
 
 
 class TaskBase(ABC):
@@ -63,6 +69,19 @@ class TaskBase(ABC):
 
     def get_viewer_cfg(self) -> ViewerCfg:
         return ViewerCfg()
+
+    def get_episode_recorder_terms(self, arena_env: IsaacLabArenaEnvironment) -> dict[str, EpisodeRecorderTermCfg]:
+        """Return task-provided terms to merge with the environment's episode recorders.
+
+        Args:
+            arena_env: The environment definition being built. Use its scene and embodiment
+                to select assets or attach provenance to recorder terms.
+
+        Returns:
+            Named terms, with names distinct from environment terms and built-in terms.
+            Defaults to no additional terms.
+        """
+        return {}
 
     def get_episode_length_s(self) -> float:
         return self.episode_length_s
