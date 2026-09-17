@@ -49,10 +49,15 @@ Physics spawn addons
 
 Use ``spawn_cfg_addon`` on scene objects to supply ordinary USD spawn options such as
 ``collision_props`` and ``physics_material``. To configure selected colliders or joints within an object, add
-a ``prim_physics`` mapping. Arena applies these typed settings through ``with_spawn_cfg_addon()``,
+a ``prim_physics`` mapping. Arena applies these typed settings through ``make_usd_spawn_cfg_with_addons()``,
 the same helper used by embodiment addons. Ordinary fields replace the corresponding spawn
 options; per-prim entries replace the settings for their named prims and retain other entries.
 The object's USD path, scale, contact-sensor activation, and other spawn options are retained.
+The helper requires a USD spawn config and a dictionary of addons. When provided,
+``prim_physics`` must be a dictionary of nonempty string paths to ``PrimPhysicsCfg`` instances;
+malformed mappings are rejected during configuration. Ordinary field names follow Isaac Lab's
+USD config constructor, while target existence and schema checks run after USD loading.
+
 Define a concrete ``PrimPhysicsCfg`` subclass in the environment or use-case module that
 needs it. Core defines only the interface; the subclass chooses its fields, validation,
 and physics schema edits. For example, define a collider friction override in your

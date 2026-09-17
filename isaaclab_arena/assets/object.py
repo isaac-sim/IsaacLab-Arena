@@ -15,7 +15,7 @@ from isaaclab.sim.spawners.spawner_cfg import SpawnerCfg
 from isaaclab_arena.assets.object_base import ObjectBase, RootedObjectBase
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.assets.object_utils import detect_object_type
-from isaaclab_arena.assets.physics_spawner import with_spawn_cfg_addon
+from isaaclab_arena.assets.physics_spawner import make_usd_spawn_cfg_with_addons
 from isaaclab_arena.relations.relations import RelationBase
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose
@@ -154,7 +154,7 @@ class Object(RootedObjectBase):
             scale=self.scale,
             activate_contact_sensors=activate_contact_sensors,
         )
-        return with_spawn_cfg_addon(spawn_cfg, self.spawn_cfg_addon)
+        return make_usd_spawn_cfg_with_addons(spawn_cfg, self.spawn_cfg_addon)
 
     def _generate_rigid_cfg(self) -> RigidObjectCfg:
         assert self.object_type == ObjectType.RIGID

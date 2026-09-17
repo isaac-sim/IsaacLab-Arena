@@ -192,14 +192,14 @@ class EmbodimentBase(PlaceableAsset):
 
     def _apply_spawn_cfg_addons(self) -> None:
         """Apply this embodiment's named spawn addons after backend-specific defaults."""
-        from isaaclab_arena.assets.physics_spawner import with_spawn_cfg_addon
+        from isaaclab_arena.assets.physics_spawner import make_usd_spawn_cfg_with_addons
 
         replacements = {}
         for name, addons in self.spawn_cfg_addon.items():
             asset_cfg = getattr(self.scene_config, name, None)
             assert asset_cfg is not None, f"Embodiment spawn addon references unknown scene asset {name!r}"
             assert getattr(asset_cfg, "spawn", None) is not None, f"Scene asset {name!r} has no spawn config"
-            replacements[name] = with_spawn_cfg_addon(asset_cfg.spawn, addons)
+            replacements[name] = make_usd_spawn_cfg_with_addons(asset_cfg.spawn, addons)
         # Publish only after every named asset validates, avoiding half-applied bimanual settings.
         for name, spawn_cfg in replacements.items():
             getattr(self.scene_config, name).spawn = spawn_cfg

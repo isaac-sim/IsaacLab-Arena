@@ -52,10 +52,10 @@ def _write_asset(path: Path) -> None:
 def _contact_config(path: Path):
     from isaaclab.sim import UsdFileCfg
 
-    from isaaclab_arena.assets.physics_spawner import with_prim_physics
+    from isaaclab_arena.assets.physics_spawner import make_usd_spawn_cfg_with_prim_physics
     from isaaclab_arena.tests.utils.prim_physics_configs import FrictionCfg, MassCfg
 
-    return with_prim_physics(
+    return make_usd_spawn_cfg_with_prim_physics(
         UsdFileCfg(usd_path=str(path)),
         {"finger/collision": FrictionCfg(), "finger": MassCfg()},
     )
@@ -162,7 +162,7 @@ def _test_asset_physics_instance_proxies(_simulation_app, asset_path: Path) -> b
     from isaaclab.sim.utils import get_current_stage
     from pxr import Usd, UsdGeom, UsdPhysics
 
-    from isaaclab_arena.assets.physics_spawner import with_prim_physics
+    from isaaclab_arena.assets.physics_spawner import make_usd_spawn_cfg_with_prim_physics
     from isaaclab_arena.tests.utils.prim_physics_configs import MassCfg
 
     _write_asset(asset_path)
@@ -175,7 +175,7 @@ def _test_asset_physics_instance_proxies(_simulation_app, asset_path: Path) -> b
     hand.SetInstanceable(True)
     source.GetRootLayer().Save()
     cfg = UsdFileCfg(usd_path=str(wrapper_path))
-    cfg = with_prim_physics(
+    cfg = make_usd_spawn_cfg_with_prim_physics(
         cfg,
         {"Hand/finger": MassCfg()},
     )
@@ -326,12 +326,54 @@ def test_custom_spawner_physics_addons(tmp_path):
     )
 
 
+def _test_spawn_addon_argument_types(_simulation_app) -> bool:
+    from isaaclab.sim import CuboidCfg, UsdFileCfg
+
+    from isaaclab_arena.assets.physics_spawner import (
+        make_usd_spawn_cfg_with_addons,
+        make_usd_spawn_cfg_with_prim_physics,
+    )
+    from isaaclab_arena.tests.utils.prim_physics_configs import MassCfg
+
+    original = UsdFileCfg(usd_path="unused.usd")
+    for invalid_cfg in (None, object(), CuboidCfg(size=(1.0, 1.0, 1.0))):
+        with pytest.raises(AssertionError, match="USD spawn config"):
+            make_usd_spawn_cfg_with_addons(invalid_cfg, {"visible": False})
+    for invalid_addons in (None, [], [("visible", False)]):
+        with pytest.raises(AssertionError, match="dictionary"):
+            make_usd_spawn_cfg_with_addons(original, invalid_addons)
+    for invalid_overrides in (None, [], {1: MassCfg()}, {"": MassCfg()}, {"body": {"mass": 0.5}}):
+        # Both public config helpers reject invalid values before USD loading is needed.
+        with pytest.raises(AssertionError):
+            make_usd_spawn_cfg_with_addons(original, {"visible": False, "prim_physics": invalid_overrides})
+        with pytest.raises(AssertionError):
+            make_usd_spawn_cfg_with_prim_physics(original, invalid_overrides)
+        assert original.visible is True
+        assert not hasattr(original, "prim_physics")
+    with pytest.raises(TypeError, match="unknown_option"):
+        make_usd_spawn_cfg_with_addons(original, {"unknown_option": True})
+
+    # Ordinary options and concrete physics subclasses remain accepted together.
+    configured = make_usd_spawn_cfg_with_addons(
+        original, {"visible": False, "scale": (0.5, 0.5, 0.5), "prim_physics": {"body": MassCfg()}}
+    )
+    assert configured.visible is False
+    assert configured.scale == (0.5, 0.5, 0.5)
+    assert isinstance(configured.prim_physics["body"], MassCfg)
+    assert original.visible is True
+    return True
+
+
+def test_spawn_addon_argument_types():
+    assert run_function_with_persistent_simulation_app(_test_spawn_addon_argument_types)
+
+
 def _test_physics_config_copy_and_serialization(_simulation_app, asset_path: Path) -> bool:
     import yaml
 
     from isaaclab.sim import UsdFileCfg
 
-    from isaaclab_arena.assets.physics_spawner import with_spawn_cfg_addon
+    from isaaclab_arena.assets.physics_spawner import make_usd_spawn_cfg_with_addons
     from isaaclab_arena.tests.utils.prim_physics_configs import MassCfg
 
     _write_asset(asset_path)
@@ -351,7 +393,7 @@ def _test_physics_config_copy_and_serialization(_simulation_app, asset_path: Pat
     assert prim.GetStage().GetPrimAtPath("/World/Restored/finger").GetAttribute("physics:mass").Get() == 0.75
     # Replacing one target preserves other entries without nesting wrappers or changing the input.
     overrides = {"finger": MassCfg(mass=0.5)}
-    reconfigured = with_spawn_cfg_addon(copied, {"prim_physics": overrides})
+    reconfigured = make_usd_spawn_cfg_with_addons(copied, {"prim_physics": overrides})
     assert "finger/collision" in reconfigured.prim_physics
     assert copied.prim_physics["finger"].mass == 0.75
     overrides["finger"].mass = 1.0
