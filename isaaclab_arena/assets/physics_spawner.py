@@ -108,16 +108,27 @@ def _relative_target(root: Usd.Prim, relative_path: str) -> Usd.Prim:
     return prim
 
 
-def _resolve_overrides(
+def _resolve_and_validate_overrides(
     root: Usd.Prim, overrides: dict[str, UsdPrimSpawnPhysicsCfg]
 ) -> list[tuple[Usd.Prim, UsdPrimSpawnPhysicsCfg]]:
-    """Resolve and validate all targets before writing any per-prim properties."""
+    """Resolve and validate all targets without applying physics edits.
+
+    Args:
+        root: Spawned asset root used to resolve relative target paths.
+        overrides: Asset-relative prim paths mapped to physics configurations.
+
+    Returns:
+        Validated (prim, config) pairs in mapping order, ready for application.
+    """
+    # 1. Check the override mapping's key and value types.
     _validate_prim_physics_types(overrides)
     targets = []
     for path, cfg in overrides.items():
+        # 2. Resolve the relative prim path under the spawned asset root.
+        # 3. _relative_target also rejects missing targets, escaping paths, and instance proxies.
         targets.append((_relative_target(root, path), cfg))
 
-    # Subclasses own schema and value checks; validation must not mutate the stage.
+    # 4. Validate every config's target and settings without mutating the stage.
     for prim, cfg in targets:
         cfg.validate_target(prim, root)
     return targets
@@ -131,7 +142,7 @@ def apply_prim_physics(root: Usd.Prim, overrides: dict[str, UsdPrimSpawnPhysicsC
         overrides: Exact asset-relative paths and their physics configuration.
     """
     # Validate the full mapping first so a bad later target does not leave earlier overrides applied.
-    for prim, cfg in _resolve_overrides(root, overrides):
+    for prim, cfg in _resolve_and_validate_overrides(root, overrides):
         cfg.apply(prim, root)
 
 
