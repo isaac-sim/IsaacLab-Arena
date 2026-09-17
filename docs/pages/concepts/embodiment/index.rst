@@ -48,9 +48,20 @@ Implement backend-specific settings in ``_configure_physics_backend(self, backen
 The environment builder calls the public ``configure_physics_backend()`` wrapper before
 collecting the embodiment's scene configuration.
 
-For per-collider or per-joint settings, use ``PhysicsUsdFileCfg`` on the embodiment's robot
-``ArticulationCfg.spawn`` and populate its ``prim_physics`` mapping in that hook. Preserve
-the robot's USD path, scale, variants, and other spawn options. Use the actuator configuration
+For per-collider or per-joint settings, use ``with_prim_physics()`` from that hook:
+
+.. code-block:: python
+
+   from isaaclab_arena.assets.physics_spawner import with_prim_physics
+
+   robot_cfg = self.scene_config.robot
+   robot_cfg.spawn = with_prim_physics(robot_cfg.spawn, overrides)
+
+The ``overrides`` mapping contains asset-relative prim paths and ``PrimPhysicsCfg`` values.
+The helper returns an independent spawn config with the mapping and physics spawn wrapper;
+the robot's USD path, scale, variants, and other spawn options are preserved.
+An internal config subclass retains the settings when Isaac Lab copies the config.
+Use the actuator configuration
 for controlled joint gains. Task-dependent end-effector values should be exposed as embodiment
 configuration and consumed by the same hook.
 

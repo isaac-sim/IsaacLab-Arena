@@ -7,8 +7,6 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
-
 from isaaclab.sim import UsdFileCfg
 from isaaclab.sim.schemas import CollisionFragment, JointDriveFragment
 from isaaclab.sim.spawners.materials import RigidBodyMaterialBaseCfg
@@ -47,14 +45,8 @@ class PrimPhysicsCfg:
 
 
 @configclass
-class PhysicsUsdFileCfg(UsdFileCfg):
-    """Spawn USD with environment-specific physics on named prims before cloning and model import."""
-
-    func: Callable | str = "isaaclab_arena.assets.physics_spawner:spawn_usd_with_physics"
+class _PhysicsUsdFileCfg(UsdFileCfg):
+    """Internal storage that preserves per-prim settings when Isaac Lab copies a spawn config."""
 
     prim_physics: dict[str, PrimPhysicsCfg] = {}
-    """Exact asset-relative prim paths mapped to overrides; use '.' for the asset root.
-
-    These overrides run after ordinary UsdFileCfg properties and before cloning. Instance proxies
-    require the inherited make_uninstanceable option. No source USD or global builder is modified.
-    """
+    """Exact asset-relative prim paths and overrides applied after USD loading, before cloning."""

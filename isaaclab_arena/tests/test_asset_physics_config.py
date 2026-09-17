@@ -50,14 +50,17 @@ def _write_asset(path: Path) -> None:
 
 
 def _contact_config(path: Path):
+    from isaaclab.sim import UsdFileCfg
     from isaaclab.sim.schemas import UsdPhysicsCollisionCfg, UsdPhysicsDriveCfg
     from isaaclab_newton.sim.schemas import MujocoCollisionCfg, NewtonCollisionCfg, NewtonMaterialPropertiesCfg
 
-    from isaaclab_arena.assets.physics_config import MujocoEqualityPropertiesCfg, PhysicsUsdFileCfg, PrimPhysicsCfg
+    from isaaclab_arena.assets.physics_config import MujocoEqualityPropertiesCfg, PrimPhysicsCfg
+    from isaaclab_arena.assets.physics_spawner import with_prim_physics
 
-    return PhysicsUsdFileCfg(
-        usd_path=str(path),
-        prim_physics={
+    cfg = UsdFileCfg(usd_path=str(path))
+    cfg = with_prim_physics(
+        cfg,
+        {
             "finger/collision": PrimPhysicsCfg(
                 collision_props=[
                     NewtonCollisionCfg(contact_gap=0.0002),
@@ -73,6 +76,7 @@ def _contact_config(path: Path):
             "passive/joint": PrimPhysicsCfg(mujoco_equality=MujocoEqualityPropertiesCfg(solref=(0.004, 1.0))),
         },
     )
+    return cfg
 
 
 def _test_asset_physics_isolation(_simulation_app, asset_path: Path) -> bool:
@@ -181,11 +185,13 @@ def test_asset_physics_invalid_targets(tmp_path):
 
 
 def _test_asset_physics_instance_proxies(_simulation_app, asset_path: Path) -> bool:
+    from isaaclab.sim import UsdFileCfg
     from isaaclab.sim.utils import get_current_stage
     from isaaclab_newton.sim.schemas import MujocoCollisionCfg
     from pxr import Usd, UsdGeom
 
-    from isaaclab_arena.assets.physics_config import PhysicsUsdFileCfg, PrimPhysicsCfg
+    from isaaclab_arena.assets.physics_config import PrimPhysicsCfg
+    from isaaclab_arena.assets.physics_spawner import with_prim_physics
 
     _write_asset(asset_path)
     wrapper_path = asset_path.with_name("instance.usda")
@@ -196,9 +202,10 @@ def _test_asset_physics_instance_proxies(_simulation_app, asset_path: Path) -> b
     hand.GetReferences().AddReference(str(asset_path))
     hand.SetInstanceable(True)
     source.GetRootLayer().Save()
-    cfg = PhysicsUsdFileCfg(
-        usd_path=str(wrapper_path),
-        prim_physics={"Hand/finger/collision": PrimPhysicsCfg(collision_props=[MujocoCollisionCfg(condim=4)])},
+    cfg = UsdFileCfg(usd_path=str(wrapper_path))
+    cfg = with_prim_physics(
+        cfg,
+        {"Hand/finger/collision": PrimPhysicsCfg(collision_props=[MujocoCollisionCfg(condim=4)])},
     )
     with pytest.raises(AssertionError, match="instance proxy"):
         cfg.func("/World/Instanced", cfg)
@@ -255,13 +262,12 @@ def _test_object_physics_addons(_simulation_app, asset_path: Path) -> bool:
     from isaaclab_arena.assets.object import Object
     from isaaclab_arena.assets.object_library import LibraryObject
     from isaaclab_arena.assets.object_type import ObjectType
-    from isaaclab_arena.assets.physics_config import PhysicsUsdFileCfg
 
     _write_asset(asset_path)
 
-    class ContactRobot(LibraryObject):
-        name = "contact_robot"
-        tags = ["robot"]
+    class ContactAssembly(LibraryObject):
+        name = "contact_assembly"
+        tags = ["object"]
         usd_path = str(asset_path)
         object_type = ObjectType.ARTICULATION
         scale = (0.5, 0.5, 0.5)
@@ -272,10 +278,10 @@ def _test_object_physics_addons(_simulation_app, asset_path: Path) -> bool:
             "prim_physics": _contact_config(asset_path).prim_physics,
         }
 
-    robot = ContactRobot()
-    another_robot = ContactRobot()
-    cfg = robot.object_cfg.spawn
-    assert isinstance(cfg, PhysicsUsdFileCfg)
+    assembly = ContactAssembly()
+    another_assembly = ContactAssembly()
+    cfg = assembly.object_cfg.spawn
+    assert isinstance(cfg, UsdFileCfg)
     assert cfg.usd_path == str(asset_path)
     assert cfg.scale == (0.5, 0.5, 0.5)
     assert cfg.activate_contact_sensors
@@ -283,13 +289,13 @@ def _test_object_physics_addons(_simulation_app, asset_path: Path) -> bool:
     assert cfg.visible is False
     # A task may tune one composed config without changing other instances or library defaults.
     cfg.prim_physics["finger/collision"].physics_material.dynamic_friction = 6.0
-    assert another_robot.object_cfg.spawn.prim_physics["finger/collision"].physics_material.dynamic_friction == 8.0
-    assert ContactRobot.spawn_cfg_addon["prim_physics"]["finger/collision"].physics_material.dynamic_friction == 8.0
-    cfg.func("/World/Robot", cfg)
+    assert another_assembly.object_cfg.spawn.prim_physics["finger/collision"].physics_material.dynamic_friction == 8.0
+    assert ContactAssembly.spawn_cfg_addon["prim_physics"]["finger/collision"].physics_material.dynamic_friction == 8.0
+    cfg.func("/World/Assembly", cfg)
     stage = get_current_stage()
     # Per-prim settings run after ordinary asset-wide settings.
-    assert stage.GetPrimAtPath("/World/Robot/finger/collision").GetAttribute("mjc:condim").Get() == 4
-    assert stage.GetPrimAtPath("/World/Robot/passive/collision").GetAttribute("mjc:condim").Get() == 3
+    assert stage.GetPrimAtPath("/World/Assembly/finger/collision").GetAttribute("mjc:condim").Get() == 4
+    assert stage.GetPrimAtPath("/World/Assembly/passive/collision").GetAttribute("mjc:condim").Get() == 3
     for object_type in (ObjectType.BASE, ObjectType.RIGID, ObjectType.ARTICULATION):
         obj = Object(
             name="configured",
@@ -297,7 +303,8 @@ def _test_object_physics_addons(_simulation_app, asset_path: Path) -> bool:
             object_type=object_type,
             spawn_cfg_addon={"prim_physics": _contact_config(asset_path).prim_physics},
         )
-        assert isinstance(obj.object_cfg.spawn, PhysicsUsdFileCfg)
+        assert isinstance(obj.object_cfg.spawn, UsdFileCfg)
+        assert "finger/collision" in obj.object_cfg.spawn.prim_physics
     plain = Object(
         name="plain",
         usd_path=str(asset_path),
@@ -350,4 +357,43 @@ def _test_custom_spawner_physics_addons(_simulation_app, asset_path: Path) -> bo
 def test_custom_spawner_physics_addons(tmp_path):
     assert run_function_with_persistent_simulation_app(
         _test_custom_spawner_physics_addons, asset_path=tmp_path / "robot.usda"
+    )
+
+
+def _test_physics_config_copy_and_serialization(_simulation_app, asset_path: Path) -> bool:
+    import yaml
+
+    from isaaclab.sim import UsdFileCfg
+    from isaaclab_newton.sim.schemas import MujocoCollisionCfg
+
+    from isaaclab_arena.assets.physics_config import PrimPhysicsCfg
+    from isaaclab_arena.assets.physics_spawner import with_prim_physics
+
+    _write_asset(asset_path)
+    original = _contact_config(asset_path)
+    copied = original.copy()
+    assert isinstance(copied, UsdFileCfg)
+    copied.prim_physics["finger/collision"].collision_props[1].condim = 6
+    assert original.prim_physics["finger/collision"].collision_props[1].condim == 4
+    # Config recording must retain the override data and a resolvable top-level spawn function.
+    recorded = yaml.safe_load(yaml.safe_dump(copied.to_dict()))
+    assert recorded["prim_physics"]["finger/collision"]["collision_props"][1]["condim"] == 6
+    assert recorded["func"] == "isaaclab_arena.assets.physics_spawner:spawn_usd_with_physics"
+    restored = original.copy()
+    restored.from_dict(recorded)
+    prim = restored.func("/World/Restored", restored)
+    assert prim.GetStage().GetPrimAtPath("/World/Restored/finger/collision").GetAttribute("mjc:condim").Get() == 6
+    # An embodiment can replace its spawn config without nesting wrappers or changing the input.
+    overrides = {"finger/collision": PrimPhysicsCfg(collision_props=[MujocoCollisionCfg(condim=3)])}
+    reconfigured = with_prim_physics(copied, overrides)
+    assert copied.prim_physics["finger/collision"].collision_props[1].condim == 6
+    overrides["finger/collision"].collision_props[0].condim = 4
+    prim = reconfigured.func("/World/Reconfigured", reconfigured)
+    assert prim.GetStage().GetPrimAtPath("/World/Reconfigured/finger/collision").GetAttribute("mjc:condim").Get() == 3
+    return True
+
+
+def test_physics_config_copy_and_serialization(tmp_path):
+    assert run_function_with_persistent_simulation_app(
+        _test_physics_config_copy_and_serialization, asset_path=tmp_path / "robot.usda"
     )

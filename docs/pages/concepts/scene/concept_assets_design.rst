@@ -49,8 +49,9 @@ Physics spawn addons
 
 Use ``spawn_cfg_addon`` on scene objects to supply ordinary USD spawn options such as
 ``collision_props`` and ``physics_material``. To configure selected colliders or joints within an object, add
-a ``prim_physics`` mapping. Arena then selects ``PhysicsUsdFileCfg`` automatically, retaining
-the object's USD path, scale, contact-sensor activation, and other spawn options.
+a ``prim_physics`` mapping. Arena extracts that addon and passes the ordinary USD spawn
+options through ``with_prim_physics()`` to configure per-prim application during spawning.
+The object's USD path, scale, contact-sensor activation, and other spawn options are retained.
 For example, give the library's red cube a higher-friction surface:
 
 .. code-block:: python
@@ -98,6 +99,8 @@ materials. Choose fragments compatible with the environment's physics backend.
 A ``LibraryObject`` subclass can define the same dictionary as its ``spawn_cfg_addon`` class
 attribute for shared defaults. Keep task-specific tuning in the environment's object/config
 construction; composed spawn configs have independent copies of the physics settings.
+An internal USD config subclass declares the extra field so Isaac Lab's ``copy()`` and
+``replace()`` retain it. Object definitions only need the ``spawn_cfg_addon`` dictionary.
 
 Robot and end-effector physics belong to the embodiment. Configure finger contact materials,
 gripper colliders, collision exclusions, and coupling parameters in the embodiment's
@@ -106,7 +109,7 @@ gripper colliders, collision exclusions, and coupling parameters in the embodime
 With an explicit ``spawner_cfg``, put physics settings on that config instead of in
 ``spawn_cfg_addon``. Custom spawn functions must call
 ``isaaclab_arena.assets.physics_spawner.apply_prim_physics`` after creating the asset and before
-cloning. Combining addon ``prim_physics`` with either ``spawner_cfg`` or an addon ``func`` is
+cloning. Combining addon ``prim_physics`` with ``spawner_cfg`` or a custom addon ``func`` is
 rejected so that a custom spawner cannot silently bypass the overrides.
 
 Object types

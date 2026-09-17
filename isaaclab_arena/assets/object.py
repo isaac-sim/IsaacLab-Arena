@@ -15,7 +15,7 @@ from isaaclab.sim.spawners.spawner_cfg import SpawnerCfg
 from isaaclab_arena.assets.object_base import ObjectBase, RootedObjectBase
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.assets.object_utils import detect_object_type
-from isaaclab_arena.assets.physics_config import PhysicsUsdFileCfg
+from isaaclab_arena.assets.physics_spawner import with_prim_physics
 from isaaclab_arena.relations.relations import RelationBase
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose
@@ -149,18 +149,18 @@ class Object(RootedObjectBase):
                 "Configure physics on the custom spawner instead."
             )
             return self.spawner_cfg
-        spawn_cfg_type = UsdFileCfg
-        if "prim_physics" in self.spawn_cfg_addon:
-            assert (
-                "func" not in self.spawn_cfg_addon
-            ), "prim_physics requires the physics USD spawner. Custom spawn functions must call apply_prim_physics."
-            spawn_cfg_type = PhysicsUsdFileCfg
-        return spawn_cfg_type(
+        # Arena's per-prim addon is applied by the wrapper, not the UsdFileCfg constructor.
+        addons = dict(self.spawn_cfg_addon)
+        prim_physics = addons.pop("prim_physics", None)
+        spawn_cfg = UsdFileCfg(
             usd_path=self.usd_path,
             scale=self.scale,
             activate_contact_sensors=activate_contact_sensors,
-            **self.spawn_cfg_addon,
+            **addons,
         )
+        if prim_physics is not None:
+            spawn_cfg = with_prim_physics(spawn_cfg, prim_physics)
+        return spawn_cfg
 
     def _generate_rigid_cfg(self) -> RigidObjectCfg:
         assert self.object_type == ObjectType.RIGID
