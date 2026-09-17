@@ -146,6 +146,8 @@ def apply_prim_physics(root: Usd.Prim, overrides: dict[str, UsdPrimSpawnPhysicsC
         cfg.apply(prim, root)
 
 
+# Keep @clone on this outer wrapper so physics edits finish before the asset is copied
+# to other matching environments. The inner spawn_from_usd receives one concrete path.
 @clone
 def spawn_usd_with_physics(
     prim_path: str,
