@@ -28,6 +28,7 @@ LANGUAGE_INSTRUCTION = "put the box in the drawer"
 CORE_KEYS = {
     "job_name",
     "episode_in_env",
+    "embodiments",
     "env_id",
     "seed",
     "success",

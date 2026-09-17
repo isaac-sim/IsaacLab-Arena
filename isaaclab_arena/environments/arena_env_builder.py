@@ -5,14 +5,18 @@
 
 from __future__ import annotations
 
+import copy
 import datetime
 import gymnasium as gym
+import logging
+from dataclasses import fields
 from typing import Any
 
+from isaaclab.app.settings_manager import get_settings_manager
 from isaaclab.devices.device_base import DeviceCfg, DevicesCfg
 from isaaclab.envs import ManagerBasedRLMimicEnv
 from isaaclab.envs.manager_based_env import ManagerBasedEnv
-from isaaclab.managers import EventTermCfg
+from isaaclab.managers import ActionTermCfg, EventTermCfg, SceneEntityCfg
 from isaaclab.managers.recorder_manager import RecorderManagerBaseCfg
 from isaaclab.scene import InteractiveSceneCfg
 from isaaclab_newton.physics import NewtonCfg
@@ -46,9 +50,19 @@ from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_events import PLACEMENT_RESET_EVENT_NAME
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.tasks.no_task import NoTask
-from isaaclab_arena.terms.events import ResetBackgroundPhysics
-from isaaclab_arena.terms.recorders import ArenaEnvRecorderManagerCfg
-from isaaclab_arena.utils.configclass import combine_configclass_instances, make_configclass
+from isaaclab_arena.terms.events import ResetBackgroundPhysics, reset_all_articulation_joints
+from isaaclab_arena.terms.recorders import (
+    ArenaEnvRecorderManagerCfg,
+    combine_embodiment_recorder_cfgs,
+    validate_recorded_frame_names,
+)
+from isaaclab_arena.utils.cameras import combine_observation_cfgs
+from isaaclab_arena.utils.configclass import (
+    check_configclass_field_duplicates,
+    combine_configclass_instances,
+    make_configclass,
+)
+from isaaclab_arena.utils.instance_rename import scope_last_action
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import reapply_viewer_cfg
 from isaaclab_arena.utils.isaaclab_utils.warp_patch import install_empty_cpu_warp_to_torch_patch
 from isaaclab_arena.utils.multiprocess import get_local_rank
@@ -56,6 +70,18 @@ from isaaclab_arena.utils.physics_backend import PhysicsBackend
 from isaaclab_arena.variations import variations_hydra, variations_printing
 from isaaclab_arena.variations.variation_base import RunTimeVariationBase, VariationBase
 from isaaclab_arena.variations.variation_recorder import VariationRecorder
+
+logger = logging.getLogger(__name__)
+
+
+def _combine_robot_cfgs(name: str, configs: list[Any]) -> Any:
+    """Combine robot contributions without silently overwriting duplicate fields."""
+    configs = [cfg for cfg in configs if cfg is not None]
+    if len(configs) == 1:
+        return configs[0]
+    duplicates = check_configclass_field_duplicates(*configs)
+    assert not duplicates, f"Robot configurations have duplicate fields in {name}: {duplicates}"
+    return combine_configclass_instances(name, *configs) if configs else None
 
 
 class ArenaEnvBuilder:
@@ -100,12 +126,12 @@ class ArenaEnvBuilder:
           per-environment pose and owns its own reset event.
         """
         # Reachability constraints are defined in the task, so apply them before placement.
-        if self.arena_env.task is not None:
+        if self.arena_env.task is not None and len(self.arena_env.embodiments) <= 1:
             self.arena_env.task.apply_reachability_constraints()
         placement_assets = self.arena_env.scene.get_objects_with_relations()
-        embodiment = self.arena_env.embodiment
-        if embodiment is not None and embodiment.get_relations():
-            placement_assets.append(embodiment)
+        for embodiment in self.arena_env.embodiments:
+            if embodiment.get_relations():
+                placement_assets.append(embodiment)
 
         placer_params = self.arena_env.placer_params
         if placer_params is None:
@@ -119,7 +145,11 @@ class ArenaEnvBuilder:
 
         # Delists itself unless the embodiment has a registered cuRobo config and the solver deps are importable.
         # TODO(xinjieyao, 2026-07-22): updated once robot-object co-placement is merged.
-        placer_params.reachability_config.embodiment = self.arena_env.embodiment
+        if len(self.arena_env.embodiments) > 1:
+            logger.info("Skipping reachability validation for an environment with several embodiments")
+            placer_params.reachability_config.embodiment = None
+        else:
+            placer_params.reachability_config.embodiment = self.arena_env.embodiment
         self._placement_event_cfg = solve_and_apply_relation_placement(
             placement_assets,
             num_envs=self.cfg.num_envs,
@@ -133,9 +163,11 @@ class ArenaEnvBuilder:
         Merges scene variations with the embodiment own variations.
         """
         scene_and_embodiment_variations = self.arena_env.scene.get_asset_variations()
-        if self.arena_env.embodiment is not None:
-            embodiment_variations = self.arena_env.embodiment.get_variations()
-            scene_and_embodiment_variations[self.arena_env.embodiment.name] = embodiment_variations
+        for embodiment in self.arena_env.embodiments:
+            assert (
+                embodiment.name not in scene_and_embodiment_variations
+            ), f"Embodiment name '{embodiment.name}' collides with a scene variation host"
+            scene_and_embodiment_variations[embodiment.name] = embodiment.get_variations()
         return scene_and_embodiment_variations
 
     def get_variations_catalogue_as_string(self) -> str:
@@ -203,7 +235,18 @@ class ArenaEnvBuilder:
         progress term records nothing for tasks that define no progress objectives.
         """
         fields = [
-            ("core", EpisodeRecorderTermCfg, CoreEpisodeRecorderTermCfg()),
+            (
+                "core",
+                EpisodeRecorderTermCfg,
+                CoreEpisodeRecorderTermCfg(
+                    params={
+                        "embodiments": {
+                            embodiment.get_scene_key(): embodiment.embodiment_type
+                            for embodiment in self.arena_env.embodiments
+                        }
+                    }
+                ),
+            ),
             ("variations", EpisodeRecorderTermCfg, VariationEpisodeRecorderTermCfg()),
             ("progress", EpisodeRecorderTermCfg, ProgressEpisodeRecorderTermCfg()),
         ]
@@ -224,6 +267,13 @@ class ArenaEnvBuilder:
         Returns:
             An (env_cfg, env_kwargs) tuple.
         """
+        self.arena_env.validate_embodiments()
+        robot_count = len(self.arena_env.embodiments)
+        if self.cfg.mimic or self.arena_env.teleop_device is not None:
+            assert robot_count == 1, "Mimic and teleoperation require exactly one embodiment"
+        if get_settings_manager().get("/isaaclab/xr/enabled", False):
+            assert robot_count == 1, "XR requires exactly one embodiment"
+
         # Solve relations before building scene config so positions are captured correctly.
         if self.cfg.solve_relations:
             self._solve_relations()
@@ -244,20 +294,50 @@ class ArenaEnvBuilder:
         resolved_physics_backend = self.resolved_physics_backend
 
         # Constructing the environment by combining inputs from the scene, embodiment, and task.
-        embodiment = self.arena_env.embodiment or NoEmbodiment()
-        embodiment.configure_physics_backend(resolved_physics_backend)
+        embodiments = self.arena_env.embodiments or [NoEmbodiment()]
+        for embodiment in embodiments:
+            embodiment.configure_physics_backend(resolved_physics_backend)
+
+        def robot_cfg(getter: str) -> Any:
+            configs = []
+            for robot in embodiments:
+                config = getattr(robot, getter)()
+                if robot_count > 1 and getter == "get_events_cfg" and config is not None:
+                    config = copy.deepcopy(config)
+                    for field in fields(config):
+                        term = getattr(config, field.name)
+                        if isinstance(term, EventTermCfg) and term.func is reset_all_articulation_joints:
+                            term.params["asset_cfg"] = SceneEntityCfg(robot.get_scene_key())
+                configs.append(config)
+            return _combine_robot_cfgs(getter, configs)
+
         task = self.arena_env.task or NoTask()
         scene_cfg = combine_configclass_instances(
             "SceneCfg",
             self.interactive_scene_cfg,
             self.arena_env.scene.get_scene_cfg(),
-            embodiment.get_scene_cfg(),
+            robot_cfg("get_scene_cfg"),
             task.get_scene_cfg(),
         )
-        observation_cfg = combine_configclass_instances(
-            "ObservationCfg",
+        robot_observations = []
+        for embodiment in embodiments:
+            observations = embodiment.get_observation_cfg()
+            if robot_count > 1 and embodiment.instance_key is None:
+                action_cfg = embodiment.get_action_cfg()
+                action_names = (
+                    tuple(
+                        field.name
+                        for field in fields(action_cfg)
+                        if isinstance(getattr(action_cfg, field.name), ActionTermCfg)
+                    )
+                    if action_cfg is not None
+                    else ()
+                )
+                observations = scope_last_action(observations, action_names)
+            robot_observations.append(observations)
+        observation_cfg = combine_observation_cfgs(
             self.arena_env.scene.get_observation_cfg(),
-            embodiment.get_observation_cfg(),
+            *robot_observations,
             task.get_observation_cfg(),
         )
         placement_event_cfg = None
@@ -294,7 +374,7 @@ class ArenaEnvBuilder:
         events_cfg = combine_configclass_instances(
             "EventsCfg",
             background_physics_events_cfg,
-            embodiment.get_events_cfg(),
+            robot_cfg("get_events_cfg"),
             self.arena_env.scene.get_events_cfg(),
             task.get_events_cfg(),
             placement_event_cfg,
@@ -305,10 +385,10 @@ class ArenaEnvBuilder:
             "TerminationCfg",
             task.get_termination_cfg(),
             self.arena_env.scene.get_termination_cfg(),
-            embodiment.get_termination_cfg(),
+            robot_cfg("get_termination_cfg"),
         )
-        actions_cfg = embodiment.get_action_cfg()
-        xr_cfg = embodiment.get_xr_cfg()
+        actions_cfg = robot_cfg("get_action_cfg")
+        xr_cfg = embodiments[0].get_xr_cfg() if robot_count <= 1 else None
         isaac_teleop_cfg = None
         teleop_devices_cfg = None
         if self.arena_env.teleop_device is not None:
@@ -330,10 +410,15 @@ class ArenaEnvBuilder:
             "RecorderManagerCfg",
             metrics_recorder_manager_cfg,
             task.get_recorder_term_cfg(),
-            embodiment.get_recorder_term_cfg(record_trajectories=self.cfg.record_trajectories),
+            combine_embodiment_recorder_cfgs([
+                (robot.instance_key, robot.get_recorder_term_cfg(record_trajectories=self.cfg.record_trajectories))
+                for robot in embodiments
+            ]),
             progress_tracking_recorder_cfg,
             bases=(RecorderManagerBaseCfg,),
         )
+        if robot_count > 1:
+            validate_recorded_frame_names(scene_cfg, recorder_manager_cfg)
         recorder_manager_cfg = self._modify_recorder_cfg_dataset_filename(recorder_manager_cfg)
         # Eval runs overwrite the timestamped default so rebuilds do not clobber each other.
         if self.cfg.recorder_dataset_filename is not None:
@@ -344,21 +429,21 @@ class ArenaEnvBuilder:
         rewards_cfg = combine_configclass_instances(
             "RewardsCfg",
             self.arena_env.scene.get_rewards_cfg(),
-            embodiment.get_rewards_cfg(),
+            robot_cfg("get_rewards_cfg"),
             task.get_rewards_cfg(),
         )
 
         curriculum_cfg = combine_configclass_instances(
             "CurriculumCfg",
             self.arena_env.scene.get_curriculum_cfg(),
-            embodiment.get_curriculum_cfg(),
+            robot_cfg("get_curriculum_cfg"),
             task.get_curriculum_cfg(),
         )
 
         commands_cfg = combine_configclass_instances(
             "CommandsCfg",
             self.arena_env.scene.get_commands_cfg(),
-            embodiment.get_commands_cfg(),
+            robot_cfg("get_commands_cfg"),
             task.get_commands_cfg(),
         )
 
@@ -370,7 +455,9 @@ class ArenaEnvBuilder:
 
         task_description = self.cfg.language_instruction or task.get_task_description()
 
-        demo_recorder_config = ArenaEnvRecorderManagerCfg() if embodiment.enable_cameras else None
+        demo_recorder_config = (
+            ArenaEnvRecorderManagerCfg() if any(robot.enable_cameras for robot in embodiments) else None
+        )
 
         # Build the environment configuration
         if not self.cfg.mimic:
@@ -396,7 +483,7 @@ class ArenaEnvBuilder:
             # Tasks always resolve to a concrete episode length.
             env_cfg.episode_length_s = episode_length_s
         else:
-            assert not isinstance(embodiment, NoEmbodiment), "Mimic mode requires an embodiment to be specified"
+            assert not isinstance(embodiments[0], NoEmbodiment), "Mimic mode requires an embodiment to be specified"
             assert not isinstance(task, NoTask), "Mimic mode requires a task to be specified"
             task_mimic_env_cfg = task.get_mimic_env_cfg(arm_mode=self.arena_env.embodiment.arm_mode)
             mimic_recorder_config = task_mimic_env_cfg.mimic_recorder_config
@@ -451,12 +538,18 @@ class ArenaEnvBuilder:
                     env_cfg.sim.physics, NewtonCfg
                 ), "env_cfg_callback changed the physics backend away from Newton."
 
+        if robot_count > 1:
+            assert env_cfg.xr is None, "XR requires exactly one embodiment"
+            assert (
+                env_cfg.isaac_teleop is None and env_cfg.teleop_devices is None
+            ), "Teleoperation requires exactly one embodiment"
         env_kwargs: dict[str, Any] = {"variation_recorder": variation_recorder}
         return env_cfg, env_kwargs
 
     def get_entry_point(self) -> str | type[ManagerBasedRLMimicEnv]:
         """Return the entry point of the environment."""
         if self.cfg.mimic:
+            assert len(self.arena_env.embodiments) == 1, "Mimic requires exactly one embodiment"
             embodiment = self.arena_env.embodiment
             assert embodiment is not None and not isinstance(
                 embodiment, NoEmbodiment

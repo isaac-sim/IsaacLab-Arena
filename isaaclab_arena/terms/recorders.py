@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import torch
 from collections.abc import Sequence
+from dataclasses import fields
 from typing import TYPE_CHECKING, Any
 
 import warp as wp
@@ -18,6 +19,7 @@ from isaaclab.envs.mdp.recorders.recorders_cfg import (
     PreStepActionsRecorderCfg,
 )
 from isaaclab.managers import RecorderTerm, RecorderTermCfg
+from isaaclab.sensors import FrameTransformerCfg
 from isaaclab.utils.configclass import configclass
 
 from isaaclab_arena.utils.configclass import combine_configclass_instances, make_configclass
@@ -328,3 +330,52 @@ def make_trajectory_recorder_terms_cfg(
     return combine_configclass_instances(
         "TrajectoryRecorderTermsCfg", TrajectoryRecorderTermsBaseCfg(), ee_pose_recorders_cfg
     )
+
+
+def combine_embodiment_recorder_cfgs(configs: Sequence[tuple[str | None, Any]]) -> Any:
+    """Keep scene-wide trajectory terms once and retain every robot's pose terms.
+
+    Args:
+        configs: Pairs of instance key and recorder configuration.
+
+    Returns:
+        The combined recorder configuration, or None when no robot has recorder terms.
+    """
+    if len(configs) == 1:
+        return configs[0][1]
+    shared_names = {field.name for field in fields(TrajectoryRecorderTermsBaseCfg)}
+    shared_terms = {}
+    robot_terms = []
+    for key, cfg in configs:
+        if cfg is None:
+            continue
+        for field in fields(cfg):
+            name = field.name.removeprefix(f"{key}_") if key is not None else field.name
+            value = getattr(cfg, field.name)
+            if name in shared_names:
+                if name in shared_terms:
+                    previous = shared_terms[name][2]
+                    assert (previous is None and value is None) or (
+                        previous is not None and value is not None and previous.to_dict() == value.to_dict()
+                    ), f"Robots disagree on scene-wide recorder '{name}'"
+                shared_terms[name] = (name, field.type, value)
+            else:
+                robot_terms.append((field.name, field.type, value))
+    if not shared_terms and not robot_terms:
+        return None
+    return make_configclass("EmbodimentRecordersCfg", [*shared_terms.values(), *robot_terms])()
+
+
+def validate_recorded_frame_names(scene_cfg: Any, recorder_cfg: Any) -> None:
+    """Reject collisions between frame names written to the trajectory dataset."""
+    names = []
+    for field in fields(recorder_cfg):
+        term = getattr(recorder_cfg, field.name)
+        if not isinstance(term, EndEffectorPosesRecorderCfg):
+            continue
+        sensor = getattr(scene_cfg, term.frame_transformer_name, None)
+        if isinstance(sensor, FrameTransformerCfg):
+            names.extend(frame.name for frame in sensor.target_frames)
+    assert all(names) and len(names) == len(
+        set(names)
+    ), "Recorded frame targets must have explicit, unique names in the scene"

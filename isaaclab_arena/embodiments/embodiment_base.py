@@ -6,11 +6,11 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 from typing import TYPE_CHECKING, Any
 
 from isaaclab.envs import ManagerBasedRLMimicEnv
-from isaaclab.managers import EventTermCfg
+from isaaclab.managers import ActionTermCfg, EventTermCfg
 
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.relations.collision_mode import CollisionMode
@@ -18,6 +18,7 @@ from isaaclab_arena.relations.placement_asset import PlaceableAsset
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.cameras import ArenaCameraCfg, make_camera_observation_cfg
 from isaaclab_arena.utils.configclass import combine_configclass_instances
+from isaaclab_arena.utils.instance_rename import rename_instance_cfg
 from isaaclab_arena.utils.physics_backend import PhysicsBackend
 from isaaclab_arena.utils.pose import Pose, PosePerEnv, PoseRange
 
@@ -44,6 +45,10 @@ class EmbodimentBase(PlaceableAsset):
     name: str | None = None
     tags: list[str] = ["embodiment"]
     default_arm_mode: ArmMode | None = None
+    instance_key: str | None
+    """Identifier used to namespace this robot's scene entities and manager terms."""
+    embodiment_type: str
+    """Registered robot type, preserved when the instance has its own asset name."""
 
     def __init__(
         self,
@@ -52,9 +57,12 @@ class EmbodimentBase(PlaceableAsset):
         concatenate_observation_terms: bool = False,
         arm_mode: ArmMode | None = None,
         collision_mode: CollisionMode | str | None = None,
+        instance_key: str | None = None,
     ):
         assert self.name is not None, "Embodiment name is required"
-        super().__init__(name=self.name, tags=self.tags, collision_mode=collision_mode)
+        self.embodiment_type = self.name
+        self.instance_key = instance_key
+        super().__init__(name=instance_key or self.name, tags=self.tags, collision_mode=collision_mode)
         if "embodiment" not in self.tags:
             self.tags.append("embodiment")
         self.enable_cameras = enable_cameras
@@ -184,41 +192,32 @@ class EmbodimentBase(PlaceableAsset):
         construction_pose = self._get_initial_pose_as_pose()
         if construction_pose is not None:
             self.scene_config = self._update_scene_cfg_with_robot_initial_pose(self.scene_config, construction_pose)
-        if self.enable_cameras:
-            if self.camera_config is not None:
-                return combine_configclass_instances(
-                    "SceneCfg",
-                    self.scene_config,
-                    self.get_camera_cfg(),
-                )
-        return self.scene_config
+        cfg = self.scene_config
+        if self.enable_cameras and self.camera_config is not None:
+            cfg = combine_configclass_instances("SceneCfg", cfg, self.get_camera_cfg())
+        return self._rename_cfg(cfg, "scene")
 
     def get_action_cfg(self) -> Any:
-        return self.action_config
+        return self._rename_cfg(self.action_config, "actions")
 
     def get_observation_cfg(self) -> Any:
-        if self.enable_cameras:
-            if self.camera_config is not None:
-                camera_observation_config = make_camera_observation_cfg(self.camera_config)
-                return combine_configclass_instances(
-                    "ObservationCfg",
-                    self.observation_config,
-                    camera_observation_config,
-                )
-        return self.observation_config
+        cfg = self.observation_config
+        if self.enable_cameras and self.camera_config is not None:
+            cfg = combine_configclass_instances("ObservationCfg", cfg, make_camera_observation_cfg(self.camera_config))
+        return self._rename_cfg(cfg, "observations")
 
     def get_rewards_cfg(self) -> Any:
-        return self.reward_config
+        return self._rename_cfg(self.reward_config, "rewards")
 
     def get_curriculum_cfg(self) -> Any:
-        return self.curriculum_config
+        return self._rename_cfg(self.curriculum_config, "curriculum")
 
     def get_commands_cfg(self) -> Any:
-        return self.command_config
+        return self._rename_cfg(self.command_config, "commands")
 
     def get_events_cfg(self) -> Any:
         if self._pose_event_cfg is None:
-            return self.event_config
+            return self._rename_cfg(self.event_config, "events")
         from isaaclab_arena.utils.configclass import make_configclass
 
         pose_reset_cfg = make_configclass(
@@ -226,7 +225,7 @@ class EmbodimentBase(PlaceableAsset):
             [("robot_reset_pose", EventTermCfg, self._pose_event_cfg)],
         )()
         # Merge the pose reset last so it runs after joint/root resets in ``event_config``.
-        return combine_configclass_instances("EventsCfg", self.event_config, pose_reset_cfg)
+        return self._rename_cfg(combine_configclass_instances("EventsCfg", self.event_config, pose_reset_cfg), "events")
 
     def get_mimic_env(self) -> ManagerBasedRLMimicEnv:
         return self.mimic_env
@@ -252,8 +251,15 @@ class EmbodimentBase(PlaceableAsset):
         from isaaclab_arena.variations.camera_intrinsics_variation import CameraIntrinsicsVariation
 
         for camera_name in camera_rig.camera_names():
-            self.add_variation(CameraExtrinsicsVariation(camera_name=camera_name))
-            self.add_variation(CameraIntrinsicsVariation(camera_name=camera_name, camera_rig=camera_rig))
+            scene_name = self._instance_scene_name(camera_name)
+            self.add_variation(
+                CameraExtrinsicsVariation(camera_name=scene_name, name=f"camera_extrinsics_{camera_name}")
+            )
+            self.add_variation(
+                CameraIntrinsicsVariation(
+                    camera_name=scene_name, camera_rig=camera_rig, name=f"camera_intrinsics_{camera_name}"
+                )
+            )
 
     def _update_scene_cfg_with_robot_initial_pose(self, scene_config: Any, pose: Pose) -> Any:
         assert scene_config is not None, "scene_config must be populated before setting the root pose"
@@ -274,16 +280,19 @@ class EmbodimentBase(PlaceableAsset):
             return None
         from isaaclab_arena.terms.recorders import make_trajectory_recorder_terms_cfg
 
-        return make_trajectory_recorder_terms_cfg(
-            frame_transformer_names=self.get_ee_frame_transformer_names(), asset_name=self.get_scene_key()
+        return self._rename_cfg(
+            make_trajectory_recorder_terms_cfg(
+                frame_transformer_names=self.get_ee_frame_transformer_names(), asset_name=self.get_scene_key()
+            ),
+            "recorders",
         )
 
     def get_termination_cfg(self) -> Any:
-        return self.termination_cfg
+        return self._rename_cfg(self.termination_cfg, "terminations")
 
     def get_scene_key(self) -> str:
         """Return the embodiment's Isaac Lab scene key."""
-        return "robot"
+        return self.instance_key or "robot"
 
     def get_ee_frame_transformer_names(self) -> list[str]:
         """Names of the scene's end-effector frame transformer sensors.
@@ -291,7 +300,7 @@ class EmbodimentBase(PlaceableAsset):
         Override for embodiments with more than one tracked end-effector (e.g. bi-manual robots),
         or whose single frame transformer is not named "ee_frame".
         """
-        return ["ee_frame"]
+        return [self._instance_scene_name("ee_frame")]
 
     def get_ee_frame_name(self, arm_mode: ArmMode) -> str:
         # In case of multiple ee frames one can use self.mimic_arm_mode to get the correct ee frame name
@@ -302,3 +311,29 @@ class EmbodimentBase(PlaceableAsset):
 
     def get_arm_mode(self) -> ArmMode:
         return self.arm_mode
+
+    def _instance_scene_name(self, name: str) -> str:
+        if self.instance_key is None:
+            return name
+        return self.instance_key if name == "robot" else f"{self.instance_key}_{name}"
+
+    def _rename_cfg(self, cfg: Any, kind: str) -> Any:
+        """Namespace a copied getter result only when this embodiment has a key."""
+        if self.instance_key is None:
+            return cfg
+        scene_names = tuple(
+            field.name
+            for source in (self.scene_config, self.camera_config)
+            if source is not None
+            for field in fields(source)
+        )
+        action_names = (
+            tuple(
+                field.name
+                for field in fields(self.action_config)
+                if isinstance(getattr(self.action_config, field.name), ActionTermCfg)
+            )
+            if self.action_config is not None
+            else ()
+        )
+        return rename_instance_cfg(cfg, self.instance_key, scene_names, action_names, kind)
