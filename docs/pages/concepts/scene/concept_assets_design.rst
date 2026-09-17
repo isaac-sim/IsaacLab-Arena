@@ -56,21 +56,29 @@ Use ``prim_physics`` within the spawn addons for selected bodies, colliders, or 
 Physics spawn addons
 ~~~~~~~~~~~~~~~~~~~~
 
-Use ``spawn_cfg_addon`` on scene objects to supply ordinary USD spawn options such as
-``collision_props`` and ``physics_material``. To configure selected colliders or joints within an object, add
-a ``prim_physics`` mapping. Arena applies these typed settings through ``make_usd_spawn_cfg_with_addons()``,
-the same helper used by embodiment addons. Ordinary fields replace the corresponding spawn
-options; per-prim entries replace the settings for their named prims and retain other entries.
-The object's USD path, scale, contact-sensor activation, and other spawn options are retained.
-The helper requires a USD spawn config and a dictionary of addons. When provided,
-``prim_physics`` must be a dictionary of nonempty string paths to ``UsdPrimSpawnPhysicsCfg`` instances;
-malformed mappings are rejected during configuration. Ordinary field names follow Isaac Lab's
-USD config constructor, while target existence and schema checks run after USD loading.
+Use ``spawn_cfg_addon`` to override physics parameters:
 
-Define a concrete ``UsdPrimSpawnPhysicsCfg`` subclass in the environment or use-case module that
-needs it. Core defines only the interface; the subclass chooses its fields, validation,
-and physics schema edits. For example, define a collider friction override in your
-environment's physics configuration module and use it with the library's red cube:
+.. list-table::
+   :header-rows: 1
+   :widths: 30 70
+
+   * - Addon
+     - Example parameters
+   * - ``mass_props``
+     - Mass and density.
+   * - ``rigid_props``
+     - Gravity, damping, and velocity limits.
+   * - ``collision_props``
+     - Collision enablement, contact offset, and rest offset.
+   * - ``physics_material``
+     - Static/dynamic friction and restitution.
+   * - ``articulation_props``
+     - Self-collision and articulation solver settings.
+   * - ``prim_physics``
+     - Selected-prim collision, material, mass, joint, or backend-specific settings,
+       defined by an environment-owned ``UsdPrimSpawnPhysicsCfg`` subclass.
+
+For example, override friction on the library red cube's ``Cube`` collider:
 
 .. code-block:: python
 
@@ -115,44 +123,11 @@ environment's physics configuration module and use it with the library's red cub
 
    red_cube = HighFrictionRedCube()
 
-The subclass inherits the library object's USD path and scale. ``Cube`` is the collider mesh
-relative to the red cube's asset root. For other assets, use their exact relative prim paths, or
-``"."`` for the root itself. Paths cannot be absolute, escape the asset, or contain wildcards.
-Selected prims must already exist. Instance proxies require ``make_uninstanceable=True``
-in the spawn addons, at the cost of additional stage memory.
+``prim_physics`` keys are exact paths relative to the asset root; use ``"."`` for the root.
+Settings apply after USD loading and before cloning and physics import.
 
-Use concrete subclasses of ``UsdPrimSpawnPhysicsCfg``; its base ``apply`` raises ``NotImplementedError``.
-Implement ``apply(prim, root)`` and optionally ``validate_target(prim, root)``. Both receive the resolved target and spawned asset
-root, allowing an implementation to resolve relationships within that asset. The optional
-validation hook must be read-only and checks the stage before any per-prim overrides. It is
-separate from Isaac Lab's configclass ``validate()`` method.
-
-Arena resolves every target and calls every validation hook before calling ``apply`` in mapping
-order. Validation failures therefore leave per-prim overrides unapplied; application itself is
-not transactional. Concrete implementations must author within the spawned asset on the current
-stage edit target, preserve source layers and shared materials, and validate any additional
-relationship targets they use. Keep USD handles out of config fields so copying remains safe.
-
-See :doc:`../environment/physics_configuration` for physics configuration scopes, backend
-selection, and the order in which config overrides and spawn-time physics are applied.
-
-A ``LibraryObject`` subclass can define the same dictionary as its ``spawn_cfg_addon`` class
-attribute for shared defaults. Keep task-specific tuning in the environment's object/config
-construction; composed spawn configs have independent copies of the physics settings.
-The internal ``UsdFileCfgPrimPhysicsWrapper`` extends ``UsdFileCfg`` with the
-``prim_physics`` dictionary so Isaac Lab's ``copy()`` and ``replace()`` retain it.
-This thin wrapper stores the added settings; ``spawn_usd_with_physics()`` applies them.
-Object definitions only need the ``spawn_cfg_addon`` dictionary.
-
-Robot and end-effector physics belong to the embodiment. Configure finger contact materials,
-gripper colliders, collision exclusions, and coupling parameters in the embodiment's
-``_configure_physics_backend()`` hook. See :doc:`../embodiment/index` for that configuration path.
-
-With an explicit ``spawner_cfg``, put physics settings on that config instead of in
-``spawn_cfg_addon``. Custom spawn functions must call
-``isaaclab_arena.assets.physics_spawner.apply_prim_physics`` after creating the asset and before
-cloning. Combining addon ``prim_physics`` with ``spawner_cfg`` or a custom addon ``func`` is
-rejected so that a custom spawner cannot silently bypass the overrides.
+See :doc:`../environment/physics_configuration` for configuration order and
+:doc:`../embodiment/index` for robot and end-effector physics.
 
 Object types
 ------------
