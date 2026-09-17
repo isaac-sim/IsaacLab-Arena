@@ -68,9 +68,6 @@ collecting the embodiment's scene configuration.
    * - Controlled joint stiffness, damping, and effort limits
      - The robot's ``ArticulationCfg.actuators`` in the backend hook
      - Articulation initialization creates the actuators and applies their settings.
-   * - Environment-wide solver and timestep settings
-     - Environment ``env_cfg_override`` / ``env_cfg_callback``
-     - The builder applies these after composing the scene and selecting solver defaults.
 
 The outer ``spawn_cfg_addon`` keys name entries in the embodiment's scene config. The base
 class copies this mapping per instance and applies it after ``_configure_physics_backend()``.
