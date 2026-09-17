@@ -58,7 +58,7 @@ The hook prepares configuration; the spawner applies it after loading the robot 
 cloning and physics model import. An embodiment with a custom spawn function should integrate
 ``apply_prim_physics`` into that function before cloning.
 
-Scene objects such as plugs, ports, and fixtures use ``Object.spawn_cfg_addon`` for their own
+Scene objects such as cubes, boxes, and fixtures use ``Object.spawn_cfg_addon`` for their own
 contact properties. See :doc:`../scene/concept_assets_design` for the supported per-prim fields.
 
 More details

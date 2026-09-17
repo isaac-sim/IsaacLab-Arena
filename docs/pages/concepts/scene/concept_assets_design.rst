@@ -51,35 +51,30 @@ Use ``spawn_cfg_addon`` on scene objects to supply ordinary USD spawn options su
 ``collision_props`` and ``physics_material``. To configure selected colliders or joints within an object, add
 a ``prim_physics`` mapping. Arena then selects ``PhysicsUsdFileCfg`` automatically, retaining
 the object's USD path, scale, contact-sensor activation, and other spawn options.
+For example, give the library's red cube a higher-friction surface:
 
 .. code-block:: python
 
-   from isaaclab_newton.sim.schemas import MujocoCollisionCfg, NewtonMaterialPropertiesCfg
+   from isaaclab.sim.spawners.materials import RigidBodyMaterialBaseCfg
 
-   from isaaclab_arena.assets.object import Object
-   from isaaclab_arena.assets.object_type import ObjectType
+   from isaaclab_arena.assets.object_library import RedCube
    from isaaclab_arena.assets.physics_config import PrimPhysicsCfg
 
-   connector = Object(
-       name="connector",
-       usd_path="/path/to/connector.usda",
-       object_type=ObjectType.RIGID,
-       spawn_cfg_addon={
-           "copy_from_source": False,
+   class HighFrictionRedCube(RedCube):
+       spawn_cfg_addon = {
            "prim_physics": {
-               "housing/collision": PrimPhysicsCfg(
-                   collision_props=[
-                       MujocoCollisionCfg(condim=3, solref=(0.004, 1.0)),
-                   ],
-                   physics_material=NewtonMaterialPropertiesCfg(
-                       static_friction=0.35, dynamic_friction=0.35,
+               "Cube": PrimPhysicsCfg(
+                   physics_material=RigidBodyMaterialBaseCfg(
+                       static_friction=0.8, dynamic_friction=0.6,
                    ),
                ),
            },
-       },
-   )
+       }
 
-The example path is illustrative: use exact prim paths relative to the asset root, or
+   red_cube = HighFrictionRedCube()
+
+The subclass inherits the library object's USD path and scale. ``Cube`` is the collider mesh
+relative to the red cube's asset root. For other assets, use their exact relative prim paths, or
 ``"."`` for the root itself. Paths cannot be absolute, escape the asset, or contain wildcards.
 Selected prims must already exist. Instance proxies require ``make_uninstanceable=True``
 in the spawn addons, at the cost of additional stage memory.
