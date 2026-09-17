@@ -23,6 +23,7 @@ from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 if TYPE_CHECKING:
     from isaaclab_arena.relations.relations import (
         AtPosition,
+        ClutterOn,
         NextTo,
         NotNextTo,
         On,
@@ -392,6 +393,28 @@ class OnLossStrategy(RelationLossStrategy):
         total_loss = x_band_loss + y_band_loss + z_loss
         result = relation.relation_loss_weight * total_loss
         return result.squeeze(0) if single_input else result
+
+
+class ClutterOnLossStrategy(OnLossStrategy):
+    """Full footprint containment and a lower height bound above a clutter support."""
+
+    def compute_loss(
+        self,
+        relation: ClutterOn,
+        child_pos: torch.Tensor,
+        child_bbox: AxisAlignedBoundingBox,
+        parent_world_bbox: AxisAlignedBoundingBox,
+    ) -> torch.Tensor:
+        """Return footprint and below-surface penalties, shape (N,) or scalar for one position."""
+        support = relation.support_bbox(parent_world_bbox)
+        position = child_pos.reshape(-1, 3)
+        min_z = support.max_point[:, 2] + relation.clearance_m - child_bbox.min_point[:, 2]
+        min_xy = support.min_point[:, :2] + relation.edge_margin_m - child_bbox.min_point[:, :2]
+        max_xy = support.max_point[:, :2] - relation.edge_margin_m - child_bbox.max_point[:, :2]
+        xy_loss = linear_band_loss(position[:, :2], min_xy, max_xy, slope=self.slope).sum(dim=-1)
+        z_loss = self.slope * torch.relu(min_z - position[:, 2])
+        loss = relation.relation_loss_weight * (xy_loss + z_loss)
+        return loss.squeeze(0) if child_pos.dim() == 1 else loss
 
 
 class NotNextToLossStrategy(RelationLossStrategy):

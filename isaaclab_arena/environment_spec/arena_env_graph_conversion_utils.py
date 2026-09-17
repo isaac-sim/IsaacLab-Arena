@@ -131,17 +131,16 @@ def _scene_already_has_light(graph_spec: ArenaEnvGraphSpec, assets_by_node_id: d
     return False
 
 
-def _prim_path_for_relative(registry_name: str, prim_path: str) -> str:
+def _prim_path_for_relative(parent_name: str, prim_path: str) -> str:
     """Expand a relative prim suffix to the Isaac Lab runtime prim path."""
     if prim_path.startswith("{ENV_REGEX_NS}/"):
         return prim_path
-    return f"{{ENV_REGEX_NS}}/{registry_name}/{prim_path.lstrip('/')}"
+    return f"{{ENV_REGEX_NS}}/{parent_name}/{prim_path.lstrip('/')}"
 
 
 def _instantiate_object_reference(
     ref: ObjectReferenceSpec,
     parent_asset: Asset,
-    background_registry_name: str,
 ) -> ObjectReference:
     """Instantiate a plain or affordance-specific object reference."""
     assert ref.prim_path is not None, "Object reference must have a prim path"
@@ -150,7 +149,7 @@ def _instantiate_object_reference(
 
     common_kwargs = {
         "name": ref.id,
-        "prim_path": _prim_path_for_relative(background_registry_name, ref.prim_path),
+        "prim_path": _prim_path_for_relative(parent_asset.name, ref.prim_path),
         "parent_asset": parent_asset,
         **parse_asset_params(ref.params),
     }
@@ -167,9 +166,9 @@ def _instantiate_object_reference(
 
 def instantiate_assets_from_spec(
     graph_spec: ArenaEnvGraphSpec, asset_registry: Any, enable_cameras: bool = False
-) -> dict[str, type[Asset]]:
+) -> dict[str, PlaceableAsset]:
     """Return ``{asset.id: live_asset}`` after materializing the typed graph spec."""
-    assets_by_node_id: dict[str, type[Asset]] = {}
+    assets_by_node_id: dict[str, PlaceableAsset] = {}
 
     embodiment_params = parse_asset_params(graph_spec.embodiment.params)
     if enable_cameras:
@@ -206,7 +205,7 @@ def instantiate_assets_from_spec(
 
 
 def _attach_spatial_relations_to_assets(
-    relations: list[SpatialRelationSpec], assets_by_node_id: dict[str, type[Asset]]
+    relations: list[SpatialRelationSpec], assets_by_node_id: dict[str, PlaceableAsset]
 ) -> None:
     """Attach one Relation per spatial relation to the asset(s) it targets, in place."""
     for relation in relations:

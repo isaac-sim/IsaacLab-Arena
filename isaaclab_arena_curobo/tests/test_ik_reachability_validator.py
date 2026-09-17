@@ -424,3 +424,24 @@ def test_validator_passes_trivially_and_warns_when_no_targets(monkeypatch, capsy
     # No grasp was ever solved (the IK path is skipped entirely when there are no targets).
     assert "num_grasps" not in captured
     assert capsys.readouterr().out.count("resolved zero reachability targets") == 1
+
+
+@pytest.mark.curobo_deps
+@pytest.mark.parametrize("sampled", [False, True])
+def test_tilted_layout_pose_matches_placement_pose(sampled):
+    from isaaclab_arena.relations.placement_events import get_pose_from_layout
+    from isaaclab_arena.relations.placement_result import PlacementResult
+    from isaaclab_arena.relations.placement_validation import PlacementValidationResults
+    from isaaclab_arena.relations.relations import RotateAroundSolution
+    from isaaclab_arena.tests.dummy_object import DummyObject
+    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+    from isaaclab_arena_curobo.ik_reachability_validator import get_object_world_pose_from_layout
+
+    marker = RotateAroundSolution(roll_rad=0.4, pitch_rad=0.3, yaw_rad=0.7)
+    obj = DummyObject("tilted", AxisAlignedBoundingBox((-0.1, -0.1, -0.1), (0.1, 0.1, 0.1)), relations=[marker])
+    positions = {obj: (1.0, 2.0, 3.0)}
+    orientations = {obj: -0.2} if sampled else {}
+    layout = PlacementResult(PlacementValidationResults(), positions, 0.0, 1, orientations)
+    actual = get_object_world_pose_from_layout(positions, orientations, obj, {obj: marker.get_rotation_xyzw()})
+    expected = get_pose_from_layout(obj, layout)
+    torch.testing.assert_close(actual.to_tensor("cpu"), expected.to_tensor("cpu"))

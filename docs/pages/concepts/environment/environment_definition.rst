@@ -36,6 +36,24 @@ Replay bypasses relation solving and draws layouts from a shared queue on reset.
 See :doc:`../object_placement/relations` for the record format, queue behavior,
 asset coverage and reset requirements.
 
+Fixed poses in YAML
+-------------------
+
+Embodiment, background and object nodes accept ``params.initial_pose``:
+
+.. code-block:: yaml
+
+   params:
+     initial_pose:
+       position_xyz: [-1.0, 0.0, 0.0]
+       rotation_xyzw: [0.0, 0.0, 0.0, 1.0]
+
+Positions are environment-local, in metres; quaternions use xyzw order.
+An omitted component retains the asset's fixed default, or identity when no
+pose is configured. A partial override requires a fixed default pose.
+An explicit pose is applied at construction and restored on reset. Do not
+combine it with relation placement for the same movable asset.
+
 The same environment, side by side
 ----------------------------------
 

@@ -83,6 +83,27 @@ Most environments can be described with a small set of relations:
    starting pose; final solving and validation use each relation's actual
    parent.
 
+``ClutterOn(parent)``
+   Defines a clutter release above a fixed ``IsAnchor`` support. The support pose
+   must be known before release initialization; movable supports are unsupported.
+   ``ObjectPlacer``
+   samples within a centered fraction of its footprint (``spread``, default
+   0.2) and lowers objects into free vertical space in asset order, leaving
+   ``clearance_m`` above the surface and at least ``gap_m`` between overlapping bounds.
+   Initialization also honors the solver collision clearance when it is larger.
+   The registered loss and normal placement validators enforce that scaled
+   release footprint and minimum surface clearance. Offline settled-pile
+   validation uses the whole support footprint. ``gap_m`` controls initialization; subsequent
+   solving uses the shared collision clearance.
+
+   This is a release arrangement, not a settled pile. Physics makes the objects
+   fall when simulation starts. ``ClutterOn`` can combine with other spatial
+   relations, such as ``AtPosition``, but cannot use ``RandomAroundSolution``.
+   ``RotateAroundSolution`` sets its base rotation; ``random_yaw`` (default True) adds world-Z yaw while
+   preserving that rotation's tilt. Failure handling uses the same
+   ``ObjectPlacerParams.allow_best_loss_fallbacks`` option as other relations;
+   set it to False when only validated layouts are acceptable.
+
 .. _next-to-relation:
 
 ``NextTo(parent)``
@@ -270,8 +291,9 @@ Loading bypasses solving and does not rerun geometry, reachability or settling
 checks. Recordings must match the scene and robot configuration being replayed;
 disable pose-changing variations and callbacks when exact replay is required.
 
-Next Steps
-----------
 
-Continue to :doc:`./collision_handling` to learn how Arena checks placed assets
-against one another and against fixed geometry.
+Offline settling
+----------------
+
+Use ``isaaclab_arena/scripts/generate_clutter_scene.py`` to settle ``ClutterOn``
+releases and write a companion pose file. See :doc:`clutter_placement`.
