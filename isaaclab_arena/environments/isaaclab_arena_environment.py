@@ -38,6 +38,7 @@ class IsaacLabArenaEnvironment:
         episode_recorder_terms: dict[str, EpisodeRecorderTermCfg] | None = None,
         placer_params: ObjectPlacerParams | None = None,
         default_physics_backend: PhysicsBackend = PhysicsBackend.PHYSX,
+        embodiments: list[EmbodimentBase] | None = None,
     ):
         """
         Args:
@@ -61,10 +62,13 @@ class IsaacLabArenaEnvironment:
             placer_params: Object placement configuration. When None, default
                 ObjectPlacerParams are used.
             default_physics_backend: Default physics backend when ``--presets`` is omitted.
+            embodiments: Robots in action-tensor order. Mutually exclusive with ``embodiment``.
         """
         self.name = name
         self.scene = scene
-        self.embodiment = embodiment
+        assert embodiment is None or embodiments is None, "Specify embodiment or embodiments, not both"
+        self.embodiments = list(embodiments) if embodiments is not None else ([embodiment] if embodiment else [])
+        self.validate_embodiments()
         self.task = task
         self.teleop_device = teleop_device
         self.env_cfg_callback = env_cfg_callback
@@ -75,3 +79,22 @@ class IsaacLabArenaEnvironment:
         self.episode_recorder_terms = episode_recorder_terms or {}
         self.placer_params = placer_params
         self.default_physics_backend = PhysicsBackend(default_physics_backend)
+
+    def validate_embodiments(self) -> None:
+        """Require distinct scene keys, including at most one unkeyed robot."""
+        assert (
+            sum(robot.instance_key is None for robot in self.embodiments) <= 1
+        ), "At most one embodiment may be unkeyed"
+        keys = [embodiment.get_scene_key() for embodiment in self.embodiments]
+        assert len(keys) == len(set(keys)), "Embodiment scene keys must be unique; at most one robot may be unkeyed"
+
+    @property
+    def embodiment(self) -> EmbodimentBase | None:
+        """Return the sole robot, or None when the environment has no robots."""
+        assert len(self.embodiments) <= 1, "Use embodiments for an environment with several robots"
+        return self.embodiments[0] if self.embodiments else None
+
+    @embodiment.setter
+    def embodiment(self, embodiment: EmbodimentBase | None) -> None:
+        """Replace the robot list through the single-robot convenience interface."""
+        self.embodiments = [embodiment] if embodiment is not None else []

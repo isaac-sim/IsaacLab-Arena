@@ -54,8 +54,11 @@ class G1EmbodimentBase(EmbodimentBase):
         initial_pose: Pose | None = None,
         concatenate_observation_terms: bool = False,
         arm_mode: ArmMode | None = None,
+        instance_key: str | None = None,
     ):
-        super().__init__(enable_cameras, initial_pose, concatenate_observation_terms, arm_mode)
+        super().__init__(
+            enable_cameras, initial_pose, concatenate_observation_terms, arm_mode, instance_key=instance_key
+        )
         # Configuration structs
         self.scene_config = G1SceneCfg()
         self.camera_config = G1CameraCfg()
@@ -121,8 +124,9 @@ class G1WBCJointEmbodiment(G1EmbodimentBase):
         enable_cameras: bool = False,
         initial_pose: Pose | None = None,
         lock_waist: bool = False,
+        instance_key: str | None = None,
     ):
-        super().__init__(enable_cameras, initial_pose)
+        super().__init__(enable_cameras, initial_pose, instance_key=instance_key)
         self.action_config = G1WBCJointActionCfg()
         self.observation_config = G1WBCJointObservationsCfg()
         self.observation_config.policy.concatenate_terms = self.concatenate_observation_terms

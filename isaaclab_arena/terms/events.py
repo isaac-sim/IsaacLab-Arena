@@ -404,9 +404,10 @@ def reset_placement_asset_pose_per_env(
             _write_scene_pose(env, scene_name, pose, single_env)
 
 
-def reset_all_articulation_joints(env: ManagerBasedEnv, env_ids: torch.Tensor):
-    """Reset the articulation joints to the initial state."""
-    for articulation_asset in env.scene.articulations.values():
+def reset_all_articulation_joints(env: ManagerBasedEnv, env_ids: torch.Tensor, asset_cfg: SceneEntityCfg | None = None):
+    """Reset one articulation when selected, otherwise reset all articulation states."""
+    assets = (env.scene[asset_cfg.name],) if asset_cfg is not None else env.scene.articulations.values()
+    for articulation_asset in assets:
         # obtain default and deal with the offset for env origins
         default_root_state = wp.to_torch(articulation_asset.data.default_root_state)[env_ids].clone()
         default_root_state[:, 0:3] += env.scene.env_origins[env_ids]

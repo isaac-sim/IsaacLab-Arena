@@ -31,6 +31,11 @@ Arena ships with four policies:
    its accompanying ``params/agent.yaml`` automatically.
 
 
+**MultiRobotPolicy** (``"multi_robot"``)
+   Assigns robots to named policy instances and batches robots that share one.
+   See :doc:`multi_robot_policy` for configuration and the per-robot interface.
+
+
 Writing a custom policy
 -----------------------
 
@@ -85,3 +90,8 @@ runner flags, so their defaults must match the runner defaults.
    ``policy_runner.py`` remains an argparse frontend, but policies do not
    implement argparse methods. The runner generates their flags from the
    registered config and reconstructs it before creating the policy.
+
+.. toctree::
+   :hidden:
+
+   multi_robot_policy

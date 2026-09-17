@@ -17,7 +17,7 @@ from isaaclab.managers import SceneEntityCfg
 from isaaclab.sensors import CameraCfg, TiledCameraCfg  # noqa: F401
 
 from isaaclab_arena.assets.asset import Asset
-from isaaclab_arena.utils.configclass import make_configclass
+from isaaclab_arena.utils.configclass import combine_configclass_instances, make_configclass
 from isaaclab_arena.utils.pose import Pose, PosePerEnv, PoseRange
 
 
@@ -186,3 +186,37 @@ def get_viewer_cfg_look_at_object(lookat_object: Asset, offset: np.ndarray) -> V
     camera_vec = np.array(lookat, dtype=float) + np.array(offset, dtype=float)
     camera_position = tuple(float(x) for x in camera_vec.tolist())
     return ViewerCfg(eye=camera_position, lookat=lookat, origin_type="env")
+
+
+def combine_observation_cfgs(*configs: Any) -> Any:
+    """Combine observations, merging camera terms into one shared camera group.
+
+    Args:
+        configs: Observation configurations, including optional None entries.
+
+    Returns:
+        One configuration with distinct observation groups and camera terms.
+    """
+    configs = [cfg for cfg in configs if cfg is not None]
+    camera_groups = [cfg.camera_obs for cfg in configs if getattr(cfg, "camera_obs", None) is not None]
+    if len(camera_groups) <= 1:
+        return combine_configclass_instances("ObservationCfg", *configs)
+    groups = []
+    camera_terms = []
+    settings = {field.name: getattr(camera_groups[0], field.name) for field in fields(ObsGroup)}
+    for cfg in configs:
+        for field in fields(cfg):
+            value = getattr(cfg, field.name)
+            if field.name != "camera_obs":
+                groups.append((field.name, field.type, value))
+                continue
+            if value is None:
+                continue
+            for setting, expected in settings.items():
+                assert getattr(value, setting) == expected, f"Camera groups disagree on '{setting}'"
+            camera_terms.extend(
+                (term.name, term.type, getattr(value, term.name)) for term in fields(value) if term.name not in settings
+            )
+    camera_cfg = make_configclass("CombinedCameraObsCfg", camera_terms, bases=(ObsGroup,))(**settings)
+    groups.append(("camera_obs", type(camera_cfg), camera_cfg))
+    return make_configclass("ObservationCfg", groups)()

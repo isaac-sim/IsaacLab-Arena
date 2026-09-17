@@ -91,8 +91,11 @@ class FrankaEmbodimentBase(EmbodimentBase):
         initial_pose: Pose | None = None,
         concatenate_observation_terms: bool = False,
         arm_mode: ArmMode | None = None,
+        instance_key: str | None = None,
     ):
-        super().__init__(enable_cameras, initial_pose, concatenate_observation_terms, arm_mode)
+        super().__init__(
+            enable_cameras, initial_pose, concatenate_observation_terms, arm_mode, instance_key=instance_key
+        )
         self.event_config = FrankaEventCfg()
         self.reward_config = FrankaRewardsCfg()
         self.mimic_env = FrankaMimicEnv
@@ -100,6 +103,13 @@ class FrankaEmbodimentBase(EmbodimentBase):
         self.scene_config = FrankaSceneCfg()
         self.observation_config = FrankaObservationsCfg()
         self.observation_config.policy.concatenate_terms = self.concatenate_observation_terms
+        if instance_key is not None:
+            policy = self.observation_config.policy
+            policy.joint_pos.params = {"asset_cfg": SceneEntityCfg("robot")}
+            policy.joint_vel.params = {"asset_cfg": SceneEntityCfg("robot")}
+            policy.eef_pos.params = {"ee_frame_cfg": SceneEntityCfg("ee_frame")}
+            policy.eef_quat.params = {"ee_frame_cfg": SceneEntityCfg("ee_frame")}
+            policy.gripper_pos.params = {"robot_cfg": SceneEntityCfg("robot")}
         self.add_camera_variations(self.camera_config)
 
     def get_collision_mesh(self) -> trimesh.Trimesh:
@@ -121,7 +131,7 @@ class FrankaEmbodimentBase(EmbodimentBase):
         robot.init_state = robot.init_state.replace(joint_pos=dict(zip(_FRANKA_JOINT_NAMES, initial_joint_pose)))
 
     def get_ee_frame_name(self, arm_mode: ArmMode) -> str:
-        return "ee_frame"
+        return self._instance_scene_name("ee_frame")
 
 
 @register_asset
@@ -138,12 +148,14 @@ class FrankaIKEmbodiment(FrankaEmbodimentBase):
         initial_joint_pose: list[float] | None = None,
         concatenate_observation_terms: bool = False,
         arm_mode: ArmMode | None = None,
+        instance_key: str | None = None,
     ):
         super().__init__(
             enable_cameras=enable_cameras,
             initial_pose=initial_pose,
             concatenate_observation_terms=concatenate_observation_terms,
             arm_mode=arm_mode,
+            instance_key=instance_key,
         )
         self.scene_config.robot = _franka_robot_cfg_on_stand(FRANKA_PANDA_HIGH_PD_CFG.copy())
         if initial_joint_pose is not None:
@@ -192,12 +204,14 @@ class FrankaJointPosEmbodiment(FrankaEmbodimentBase):
         initial_joint_pose: list[float] | None = None,
         concatenate_observation_terms: bool = False,
         arm_mode: ArmMode | None = None,
+        instance_key: str | None = None,
     ):
         super().__init__(
             enable_cameras=enable_cameras,
             initial_pose=initial_pose,
             concatenate_observation_terms=concatenate_observation_terms,
             arm_mode=arm_mode,
+            instance_key=instance_key,
         )
         self.action_config = FrankaJointPosActionsCfg()
         self.scene_config.robot = _franka_robot_cfg_on_stand(FRANKA_PANDA_CFG.copy())

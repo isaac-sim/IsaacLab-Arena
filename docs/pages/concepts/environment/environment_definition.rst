@@ -147,7 +147,7 @@ Three buckets:
 Only in Python
 ~~~~~~~~~~~~~~
 
-``IsaacLabArenaEnvironment`` takes ten constructor arguments.
+``IsaacLabArenaEnvironment`` accepts additional Python configuration.
 ``build_arena_env_from_graph_spec()`` fills five: ``name``, ``scene``,
 ``embodiment``, ``task``, and a partial ``placer_params``. Everything else has no
 YAML key.
@@ -366,3 +366,34 @@ Next Steps
 
 :doc:`env_builder` shows how either definition becomes a runnable Isaac Lab
 environment.
+
+
+Several robots in one environment
+---------------------------------
+
+Python environment definitions can hold several robot instances. Give each keyed
+robot a distinct instance key and pass the robots in action-tensor order:
+
+.. code-block:: python
+
+   left = FrankaJointPosEmbodiment(instance_key="left", enable_cameras=True)
+   right = FrankaJointPosEmbodiment(instance_key="right", enable_cameras=True)
+   environment = IsaacLabArenaEnvironment(
+       name="two_arms", scene=scene, embodiments=[left, right], task=task,
+   )
+
+The builder combines each robot's scene, manager terms, variations, and placement
+relations. Camera terms share one observation group with prefixed names.
+Trajectory recording emits scene-wide state and action terms once. Each robot's
+end-effector terms write distinct, prefixed frame names.
+The episode record maps scene keys to registered robot types under ``embodiments``.
+
+The single-robot argument remains available as ``embodiment``. Reading it requires
+at most one robot; assigning it replaces the list. At most one member of a robot
+list may be unkeyed. An unkeyed member keeps the scene key ``robot``.
+Every keyed member must satisfy the embodiment naming rule.
+
+Demonstration generation, teleoperation, and extended reality require exactly one
+robot. Reachability validation is skipped, with a logged message, for several
+robots. Spatial placement relations still apply to each robot.
+Graph-based environment definitions remain single-robot.
