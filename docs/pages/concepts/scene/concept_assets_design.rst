@@ -58,46 +58,15 @@ needs it. Core defines only the interface; the subclass chooses its fields, vali
 and physics schema edits. For example, define a collider friction override in your
 environment's physics configuration module and use it with the library's red cube:
 
-.. code-block:: python
+.. literalinclude:: ../../../../isaaclab_arena/tests/test_prim_physics_example.py
+   :language: python
+   :start-after: # [start-red-cube-physics-example]
+   :end-before: # [end-red-cube-physics-example]
+   :dedent: 4
 
-   import math
-
-   from isaaclab.utils.configclass import configclass
-   from pxr import UsdPhysics, UsdShade
-
-   from isaaclab_arena.assets.object_library import RedCube
-   from isaaclab_arena.assets.physics_config import PrimPhysicsCfg
-
-   @configclass
-   class ColliderFrictionCfg(PrimPhysicsCfg):
-       friction: float = 0.8
-       """Static and dynamic friction coefficient."""
-
-       def validate_target(self, prim, root):
-           assert prim.HasAPI(UsdPhysics.CollisionAPI)
-           assert math.isfinite(self.friction) and self.friction >= 0
-           assert not prim.GetStage().GetPrimAtPath(prim.GetPath().AppendChild("ContactMaterial"))
-
-       def apply(self, prim, root):
-           # Create an instance-local material so shared USD materials stay unchanged.
-           material = UsdShade.Material.Define(
-               prim.GetStage(), prim.GetPath().AppendChild("ContactMaterial")
-           )
-           physics = UsdPhysics.MaterialAPI.Apply(material.GetPrim())
-           physics.CreateStaticFrictionAttr(self.friction)
-           physics.CreateDynamicFrictionAttr(self.friction)
-           UsdShade.MaterialBindingAPI.Apply(prim).Bind(
-               material,
-               bindingStrength=UsdShade.Tokens.strongerThanDescendants,
-               materialPurpose="physics",
-           )
-
-   class HighFrictionRedCube(RedCube):
-       spawn_cfg_addon = {
-           "prim_physics": {"Cube": ColliderFrictionCfg(friction=0.8)},
-       }
-
-   red_cube = HighFrictionRedCube()
+This code is included directly from ``test_red_cube_physics_example``. The test spawns the
+library USD, verifies friction and local material bindings on two clones, and checks that
+another object's configuration remains independent.
 
 The subclass inherits the library object's USD path and scale. ``Cube`` is the collider mesh
 relative to the red cube's asset root. For other assets, use their exact relative prim paths, or
