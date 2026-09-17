@@ -274,6 +274,10 @@ class RelationSolver:
         # Setup optimizer (only for optimizable positions)
         optimizer = torch.optim.Adam([state.optimizable_positions], lr=self.params.lr)
 
+        # Compute initial loss so _last_loss_per_env is always populated, even when max_iters=0.
+        with torch.no_grad():
+            self._compute_total_loss(state)
+
         # Optimization loop
         loss_history = []
         position_history = []  # Track positions for visualization
@@ -287,22 +291,23 @@ class RelationSolver:
             loss = self._compute_total_loss(state)
             loss_history.append(loss.item())
 
+            # Constant-zero loss has no grad_fn — skip backward when overlap filter culls all pairs.
+            if loss.grad_fn is not None:
+                loss.backward()
+                optimizer.step()
+
             if self.params.verbose and iter % 100 == 0:
                 print(f"Iter {iter}: loss = {loss.item():.6f}")
 
+            # Check convergence
             if loss.item() < self.params.convergence_threshold:
                 if self.params.verbose:
                     print(f"Converged at iteration {iter}")
                 break
 
-            # Constant-zero loss has no grad_fn when overlap filtering culls every pair.
-            if loss.grad_fn is not None:
-                loss.backward()
-                optimizer.step()
-
-        # Ranking must describe the returned positions, including the final optimizer step.
+        # Rank the positions returned after the final optimizer step.
         with torch.no_grad():
-            final_loss = self._compute_total_loss(state).item()
+            self._compute_total_loss(state)
 
         if self.params.profile and torch.cuda.is_available():
             torch.cuda.synchronize()
@@ -312,7 +317,7 @@ class RelationSolver:
             position_history.append(state.get_all_positions_snapshot())
 
         if self.params.verbose and loss_history:
-            print(f"\nFinal loss: {final_loss:.6f}")
+            print(f"\nFinal loss: {loss_history[-1]:.6f}")
             print(f"Total iterations: {len(loss_history)}")
 
         if self.params.profile and loss_history:
@@ -325,7 +330,7 @@ class RelationSolver:
                 f" | iters={iters_run} ({solve_elapsed_ms / iters_run:.2f} ms/iter)"
             )
 
-        self._last_loss_history = [*loss_history, final_loss]
+        self._last_loss_history = loss_history
         self._last_position_history = position_history
 
         return state.get_final_positions()
@@ -339,7 +344,7 @@ class RelationSolver:
 
     @property
     def last_loss_history(self) -> list[float]:
-        """Objective values at each iteration, followed by the returned layout's loss."""
+        """Loss values from the most recent solve() call."""
         return self._last_loss_history
 
     @property

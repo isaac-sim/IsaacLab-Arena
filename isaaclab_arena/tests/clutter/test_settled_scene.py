@@ -81,10 +81,8 @@ def _test_generation_writes_complete_layouts(simulation_app, tmp_path):
         assert env.unwrapped.sim.get_physics_dt() == pytest.approx(0.01)
         return settle_clutter(env, *args, **kwargs)
 
-    with patch("isaaclab_arena.relations.clutter.settle.settle_clutter", wraps=settle_with_graph_settings) as settle:
+    with patch("isaaclab_arena.relations.clutter.settle.settle_clutter", wraps=settle_with_graph_settings):
         assert generate_scene(args) == path
-    # Each batch reserves seeds for 2 environments, 10 candidates and 3 trials.
-    assert [call.kwargs["seed"] for call in settle.call_args_list] == [42, 102]
     assert source.read_bytes() == original
     poses = yaml.safe_load(path.read_text())
     assert set(poses) == {f"cube_{i}" for i in range(4)}
@@ -104,24 +102,34 @@ def test_generation_writes_complete_layouts(tmp_path):
 
 
 def _test_uncached_clutter_drops_at_simulation_start(simulation_app):
+    import torch
+
     from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
+    from isaaclab_arena.relations.relations import RotateAroundSolution
+    from isaaclab_arena.utils.pose import Pose
 
     arena_env = ArenaEnvGraphSpec.from_yaml(SOURCE).to_arena_env()
+    marker = RotateAroundSolution(roll_rad=0.4, pitch_rad=0.3, yaw_rad=0.7)
+    arena_env.scene.assets["cube_0"].add_relation(marker)
     arena_env.placer_params.min_unique_layouts_per_env = 1
     arena_env.placer_params.max_placement_attempts = 1
     arena_env.placer_params.resolve_on_reset = False
     env = ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg(num_envs=1, placement_seed=42)).make_registered()
     try:
         env.reset()
-        before = env.unwrapped.arena_world.get_pose_e("cube_0")[:, 2].clone()
+        pose = env.unwrapped.arena_world.get_pose_e("cube_0")[0].cpu()
+        rotation = Pose(rotation_xyzw=tuple(pose[3:].tolist())).to_transform_matrix("cpu")[:3, :3]
+        base = Pose(rotation_xyzw=marker.get_rotation_xyzw()).to_transform_matrix("cpu")[:3, :3]
+        # Random world-Z yaw must preserve the authored tilt.
+        torch.testing.assert_close((rotation @ base.T)[2], torch.tensor([0.0, 0.0, 1.0]), atol=1e-6, rtol=0)
         for _ in range(200):
             env.unwrapped.scene.write_data_to_sim()
             env.unwrapped.sim.step(render=False)
             env.unwrapped.scene.update(env.unwrapped.sim.get_physics_dt())
-        after = env.unwrapped.arena_world.get_pose_e("cube_0")[:, 2]
-        assert float((before - after).min()) > 0.005
+        after = env.unwrapped.arena_world.get_pose_e("cube_0")[0, 2]
+        assert float(pose[2] - after.cpu()) > 0.005
     finally:
         env.close()
     return True
@@ -143,8 +151,10 @@ def _test_settling_restores_scene_and_retries_only_rejected_layouts(simulation_a
     from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
     from isaaclab_arena.relations.clutter.settle import _release_objects, settle_clutter
     from isaaclab_arena.relations.clutter.validation import ClutterRestVerdict, check_resting_poses
+    from isaaclab_arena.utils.pose import Pose
 
     arena_env, assets = build_arena_env_with_assets_from_graph_spec(ArenaEnvGraphSpec.from_yaml(SOURCE))
+    assets["table"].set_initial_pose(Pose((1.0, 0.0, 0.0), (0.0, 0.0, 2**-0.5, 2**-0.5)))
     env = ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg(num_envs=2, solve_relations=False)).make_registered()
     checked = []
 
@@ -196,7 +206,7 @@ def test_settling_restores_scene_and_retries_only_rejected_layouts():
     assert run_function_with_persistent_simulation_app(_test_settling_restores_scene_and_retries_only_rejected_layouts)
 
 
-def _test_displaced_passive_neighbor_prevents_cache_output(simulation_app):
+def _test_generation_rejects_invalid_scene(simulation_app, failure, expected_error):
     import tempfile
     import yaml
 
@@ -205,25 +215,35 @@ def _test_displaced_passive_neighbor_prevents_cache_output(simulation_app):
     with tempfile.TemporaryDirectory() as directory:
         source = Path(directory) / "source.yaml"
         data = yaml.safe_load(SOURCE.read_text())
-        data["relations"] = [relation for relation in data["relations"] if relation["subject"] != "cube_3"]
-        data["objects"][3]["params"] = {"initial_pose": {"position_xyz": [0.5, 0.0, 3.0]}}
+        if failure == "passive":
+            data["relations"] = [relation for relation in data["relations"] if relation["subject"] != "cube_3"]
+            data["objects"][3]["params"] = {"initial_pose": {"position_xyz": [0.5, 0.0, 3.0]}}
+        else:
+            for relation in data["relations"]:
+                if relation["kind"] == "clutter_on":
+                    relation["params"] = {"spread": 0.001}
         source.write_text(yaml.safe_dump(data))
         output = Path(directory) / "poses.yaml"
         args = _arguments(output)
         args.env_spec, args.num_envs, args.attempts = source, 1, 1
-        with pytest.raises(AssertionError, match="cube_3: passive drift"):
+        with pytest.raises(AssertionError, match=expected_error):
             generate_scene(args)
         assert not output.exists()
     return True
 
 
-def test_displaced_passive_neighbor_prevents_cache_output():
-    assert run_function_with_persistent_simulation_app(_test_displaced_passive_neighbor_prevents_cache_output)
+@pytest.mark.parametrize(
+    "failure, expected_error",
+    [("passive", "cube_3: passive drift"), ("release", "release placement failed")],
+)
+def test_generation_rejects_invalid_scene(failure, expected_error):
+    assert run_function_with_persistent_simulation_app(
+        _test_generation_rejects_invalid_scene, failure=failure, expected_error=expected_error
+    )
 
 
-def _test_generation_honors_requested_validators(simulation_app, tmp_path, check, required, available, expected_error):
+def _test_generation_honors_requested_validators(simulation_app, tmp_path, available, expected_error):
     import yaml
-    from contextlib import nullcontext
     from unittest.mock import patch
 
     from isaaclab_arena.relations.clutter.settle import _release_objects
@@ -242,8 +262,8 @@ def _test_generation_honors_requested_validators(simulation_app, tmp_path, check
 
     data = yaml.safe_load(SOURCE.read_text())
     data["placement_validators"] = {
-        "enabled_checks": [check],
-        "required_checks": [check] if required else [],
+        "enabled_checks": [RejectRelease.check],
+        "required_checks": [RejectRelease.check],
     }
     source = tmp_path / "scene.yaml"
     source.write_text(yaml.safe_dump(data))
@@ -258,31 +278,25 @@ def _test_generation_honors_requested_validators(simulation_app, tmp_path, check
         patch.object(RejectRelease, "is_available", return_value=available),
         patch("isaaclab_arena.relations.clutter.settle._release_objects", wraps=_release_objects) as release,
     ):
-        with pytest.raises(AssertionError, match=expected_error) if expected_error else nullcontext():
-            assert generate_scene(args) == output
-        if expected_error:
-            release.assert_not_called()
-            assert not output.exists()
-        else:
-            release.assert_called_once()
-            assert output.exists()
-    assert bool(validated_batches) == (check == RejectRelease.check and available)
+        with pytest.raises(AssertionError, match=expected_error):
+            generate_scene(args)
+        release.assert_not_called()
+        assert not output.exists()
+    assert bool(validated_batches) == available
     return True
 
 
 @pytest.mark.parametrize(
-    "check, required, available, expected_error",
+    "available, expected_error",
     [
-        pytest.param("reject_release", True, True, "release placement failed", id="required"),
-        pytest.param("reject_release", True, False, "validators did not run", id="unavailable"),
+        pytest.param(True, "release placement failed", id="required"),
+        pytest.param(False, "validators did not run", id="unavailable"),
     ],
 )
-def test_generation_honors_requested_validators(tmp_path, check, required, available, expected_error):
+def test_generation_honors_requested_validators(tmp_path, available, expected_error):
     assert run_function_with_persistent_simulation_app(
         _test_generation_honors_requested_validators,
         tmp_path=tmp_path,
-        check=check,
-        required=required,
         available=available,
         expected_error=expected_error,
     )

@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Offline clutter command-line parsing and cache generation."""
+"""Offline clutter generation through the command line."""
 
 import subprocess
 from pathlib import Path
@@ -14,24 +14,6 @@ from isaaclab_arena.tests.utils.constants import TestConstants
 
 CLUTTER_DIR = Path(__file__).parents[3] / "isaaclab_arena_examples/relations/clutter"
 SCRIPT = Path(TestConstants.scripts_dir) / "generate_clutter_scene.py"
-
-
-def _arguments(output, source=CLUTTER_DIR / "clutter_scene.yaml"):
-    return [
-        "--env_spec",
-        str(source),
-        "--output",
-        str(output),
-    ]
-
-
-def _run(arguments):
-    return subprocess.run(
-        [TestConstants.python_path, str(SCRIPT), *arguments],
-        capture_output=True,
-        text=True,
-        timeout=180,
-    )
 
 
 def register_no_embodiment():
@@ -112,7 +94,10 @@ def Xform "Support" (
     num_envs = 12 if preset == "newton" else 2
     num_layouts = num_envs + 1
     arguments = [
-        *_arguments(output, source),
+        "--env_spec",
+        str(source),
+        "--output",
+        str(output),
         "--num_envs",
         str(num_envs),
         "--num_layouts",
@@ -127,7 +112,12 @@ def Xform "Support" (
             "--register",
             "isaaclab_arena.tests.clutter.test_clutter_cli:register_no_embodiment",
         ])
-    result = _run(arguments)
+    result = subprocess.run(
+        [TestConstants.python_path, str(SCRIPT), *arguments],
+        capture_output=True,
+        text=True,
+        timeout=180,
+    )
     assert result.returncode == 0, result.stdout + result.stderr
     spec = yaml.safe_load(output.read_text())
     assert set(spec) == {f"cube_{i}" for i in range(4)}

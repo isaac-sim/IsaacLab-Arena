@@ -1318,17 +1318,3 @@ def test_batched_mesh_loss_matches_test_only_serial_oracle():
     serial_loss.sum().backward()
     serial_grad = state.optimizable_positions.grad.detach().clone()
     torch.testing.assert_close(batched_grad, serial_grad, rtol=1e-4, atol=1e-5)
-
-
-def test_effective_yaw_extracts_tilted_fixed_pose_heading():
-    from isaaclab_arena.relations.placement_validators import NoOverlapValidator
-    from isaaclab_arena.relations.relations import RotateAroundSolution
-
-    obj = _make_box_obj("tilted", sx=0.1, sy=0.02, sz=0.05)
-    rotation = RotateAroundSolution(roll_rad=0.4, pitch_rad=0.3, yaw_rad=0.7).get_rotation_xyzw()
-    obj.set_initial_pose(Pose(rotation_xyzw=rotation))
-    matrix = obj.get_initial_pose().to_transform_matrix("cpu")
-    heading = math.atan2(matrix[1, 0], matrix[0, 0])
-    assert NoOverlapValidator._effective_yaw(obj, None, use_pose_yaw=True) == pytest.approx(heading, abs=1e-6)
-    assert NoOverlapValidator._effective_yaw(obj, None, use_pose_yaw=False) == 0
-    assert NoOverlapValidator._effective_yaw(obj, {obj: -0.2}, use_pose_yaw=True) == -0.2

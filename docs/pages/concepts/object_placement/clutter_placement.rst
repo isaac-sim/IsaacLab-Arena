@@ -160,7 +160,6 @@ Run the tests
 .. code-block:: bash
 
    /isaac-sim/python.sh -m pytest -sv \
-       isaaclab_arena/tests/clutter/test_settled_scene.py \
-       isaaclab_arena/tests/test_clutter_on.py
+       isaaclab_arena/tests/clutter/test_settled_scene.py
 
    /isaac-sim/python.sh -m pytest -sv isaaclab_arena/tests/clutter/test_clutter_cli.py
