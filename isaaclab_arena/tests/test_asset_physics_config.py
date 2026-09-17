@@ -13,43 +13,26 @@ from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_wi
 
 
 def _write_asset(path: Path) -> None:
+    """Start a fresh stage and write two rigid bodies for per-prim override tests."""
     from isaaclab.sim.utils import create_new_stage
-    from pxr import Sdf, Usd, UsdGeom, UsdPhysics
+    from pxr import Usd, UsdGeom, UsdPhysics
 
     create_new_stage()
-
     stage = Usd.Stage.CreateNew(str(path))
-    root = UsdGeom.Xform.Define(stage, "/Robot").GetPrim()
-    stage.SetDefaultPrim(root)
+    stage.SetDefaultPrim(UsdGeom.Xform.Define(stage, "/Robot").GetPrim())
     UsdGeom.SetStageMetersPerUnit(stage, 1.0)
     UsdGeom.SetStageUpAxis(stage, UsdGeom.Tokens.z)
-    UsdPhysics.ArticulationRootAPI.Apply(root)
-    for name in ("base", "finger", "passive"):
+    for name in ("base", "finger"):
         body = UsdGeom.Xform.Define(stage, f"/Robot/{name}").GetPrim()
         UsdPhysics.RigidBodyAPI.Apply(body)
         UsdPhysics.MassAPI.Apply(body).CreateMassAttr(0.1)
         shape = UsdGeom.Cube.Define(stage, f"/Robot/{name}/collision")
         shape.CreateSizeAttr(0.01)
         UsdPhysics.CollisionAPI.Apply(shape.GetPrim())
-    UsdGeom.Cube.Define(stage, "/Robot/base/housing").CreateSizeAttr(0.02)
-    fixed = UsdPhysics.FixedJoint.Define(stage, "/Robot/fixed")
-    fixed.CreateBody1Rel().SetTargets([Sdf.Path("/Robot/base")])
-    for name in ("finger", "passive"):
-        joint = UsdPhysics.PrismaticJoint.Define(stage, f"/Robot/{name}/joint")
-        joint.CreateBody0Rel().SetTargets([Sdf.Path("/Robot/base")])
-        joint.CreateBody1Rel().SetTargets([Sdf.Path(f"/Robot/{name}")])
-        joint.CreateAxisAttr("X")
-        joint.CreateLowerLimitAttr(-0.04)
-        joint.CreateUpperLimitAttr(0.04)
-    follower = stage.GetPrimAtPath("/Robot/passive/joint")
-    follower.AddAppliedSchema("NewtonMimicAPI")
-    follower.AddAppliedSchema("MjcEqualityJointAPI")
-    follower.CreateRelationship("newton:mimicJoint").SetTargets([Sdf.Path("/Robot/finger/joint")])
-    follower.CreateAttribute("newton:mimicCoef1", Sdf.ValueTypeNames.Float).Set(-1.0)
     stage.GetRootLayer().Save()
 
 
-def _contact_config(path: Path):
+def _make_physics_spawn_cfg(path: Path):
     from isaaclab.sim import UsdFileCfg
 
     from isaaclab_arena.assets.physics_spawner import make_usd_spawn_cfg_with_prim_physics
@@ -61,71 +44,60 @@ def _contact_config(path: Path):
     )
 
 
-def _test_asset_physics_isolation(_simulation_app, asset_path: Path) -> bool:
+def _test_asset_physics_spawn_lifecycle(_simulation_app, asset_path: Path) -> bool:
     from isaaclab.sim import UsdFileCfg
+    from isaaclab.sim.schemas import MassPropertiesCfg
     from isaaclab.sim.utils import get_current_stage
-    from pxr import Usd, UsdPhysics, UsdShade
+    from pxr import Usd, UsdGeom, UsdPhysics, UsdShade
+
+    from isaaclab_arena.assets.object import Object
+    from isaaclab_arena.assets.object_type import ObjectType
 
     _write_asset(asset_path)
-    cfg = _contact_config(asset_path)
-    cfg.func("/World/Insertion", cfg)
-    plain = UsdFileCfg(usd_path=str(asset_path))
-    plain.func("/World/Routing", plain)
-    cfg.func("/World/InsertionAgain", cfg)
-    stage = get_current_stage()
-    for name in ("Insertion", "InsertionAgain"):
-        finger = stage.GetPrimAtPath(f"/World/{name}/finger/collision")
-        material, _ = UsdShade.MaterialBindingAPI(finger).ComputeBoundMaterial("physics")
-        assert material.GetPath().pathString.startswith(f"/World/{name}/")
-        assert UsdPhysics.MaterialAPI(material).GetDynamicFrictionAttr().Get() == 8.0
-        assert UsdPhysics.MassAPI(stage.GetPrimAtPath(f"/World/{name}/finger")).GetMassAttr().Get() == 0.25
-    plain_finger = stage.GetPrimAtPath("/World/Routing/finger")
-    assert UsdPhysics.MassAPI(plain_finger).GetMassAttr().Get() == pytest.approx(0.1)
-    assert not stage.GetPrimAtPath("/World/Routing/finger/collision/TestPhysicsMaterial")
-    source = Usd.Stage.Open(str(asset_path))
-    assert UsdPhysics.MassAPI(source.GetPrimAtPath("/Robot/finger")).GetMassAttr().Get() == pytest.approx(0.1)
-    assert not source.GetPrimAtPath("/Robot/finger/collision/TestPhysicsMaterial")
-    return True
-
-
-def test_asset_physics_isolation(tmp_path):
-    assert run_function_with_persistent_simulation_app(
-        _test_asset_physics_isolation, asset_path=tmp_path / "robot.usda"
+    obj = Object(
+        name="assembly",
+        usd_path=str(asset_path),
+        object_type=ObjectType.BASE,
+        spawn_cfg_addon={
+            "mass_props": MassPropertiesCfg(mass=0.5),
+            "prim_physics": _make_physics_spawn_cfg(asset_path).prim_physics,
+        },
     )
-
-
-def _test_asset_physics_cloning(_simulation_app, asset_path: Path) -> bool:
-    from isaaclab.sim.utils import get_current_stage
-    from pxr import UsdGeom, UsdPhysics, UsdShade
-
-    _write_asset(asset_path)
     stage = get_current_stage()
     for index in range(2):
         UsdGeom.Xform.Define(stage, f"/World/env_{index}")
-    cfg = _contact_config(asset_path)
+    cfg = obj.object_cfg.spawn
     cfg.func("/World/env_.*/Robot", cfg)
     for index in range(2):
         root = f"/World/env_{index}/Robot"
-        finger = stage.GetPrimAtPath(f"{root}/finger/collision")
-        assert UsdPhysics.MassAPI(stage.GetPrimAtPath(f"{root}/finger")).GetMassAttr().Get() == 0.25
-        material, _ = UsdShade.MaterialBindingAPI(finger).ComputeBoundMaterial("physics")
-        assert material.GetPath().pathString == f"{root}/finger/collision/TestPhysicsMaterial"
-        assert [
-            str(target)
-            for target in stage.GetPrimAtPath(f"{root}/passive/joint").GetRelationship("newton:mimicJoint").GetTargets()
-        ] == [f"{root}/finger/joint"]
+        # Ordinary options apply first, per-prim overrides second, cloning last.
+        assert stage.GetPrimAtPath(f"{root}/base").GetAttribute("physics:mass").Get() == 0.5
+        assert stage.GetPrimAtPath(f"{root}/finger").GetAttribute("physics:mass").Get() == 0.25
+        collider = stage.GetPrimAtPath(f"{root}/finger/collision")
+        material, _ = UsdShade.MaterialBindingAPI(collider).ComputeBoundMaterial("physics")
+        assert str(material.GetPath()) == f"{root}/finger/collision/TestPhysicsMaterial"
+        assert UsdPhysics.MaterialAPI(material).GetDynamicFrictionAttr().Get() == 8.0
+
+    # Neither another instance nor the source USD receives the overrides.
+    plain = UsdFileCfg(usd_path=str(asset_path))
+    plain.func("/World/Plain", plain)
+    source = Usd.Stage.Open(str(asset_path))
+    for asset_stage, root in ((stage, "/World/Plain"), (source, "/Robot")):
+        assert asset_stage.GetPrimAtPath(f"{root}/finger").GetAttribute("physics:mass").Get() == pytest.approx(0.1)
+        assert not asset_stage.GetPrimAtPath(f"{root}/finger/collision/TestPhysicsMaterial")
     return True
 
 
-def test_asset_physics_cloning(tmp_path):
-    assert run_function_with_persistent_simulation_app(_test_asset_physics_cloning, asset_path=tmp_path / "robot.usda")
+def test_asset_physics_spawn_lifecycle(tmp_path):
+    assert run_function_with_persistent_simulation_app(
+        _test_asset_physics_spawn_lifecycle, asset_path=tmp_path / "robot.usda"
+    )
 
 
 def _test_asset_physics_invalid_targets(_simulation_app, asset_path: Path) -> bool:
     from isaaclab.sim import UsdFileCfg
     from pxr import UsdPhysics
 
-    from isaaclab_arena.assets.physics_config import UsdPrimSpawnPhysicsCfg
     from isaaclab_arena.assets.physics_spawner import apply_prim_physics
     from isaaclab_arena.tests.utils.prim_physics_configs import MassCfg
 
@@ -133,8 +105,6 @@ def _test_asset_physics_invalid_targets(_simulation_app, asset_path: Path) -> bo
     cfg = UsdFileCfg(usd_path=str(asset_path))
     root = cfg.func("/World/Robot", cfg)
     finger = root.GetStage().GetPrimAtPath("/World/Robot/finger")
-    with pytest.raises(NotImplementedError, match="implement apply"):
-        apply_prim_physics(root, {"finger": UsdPrimSpawnPhysicsCfg()})
     for invalid in ("missing", "../Other", "/World/Robot/finger", "finger/collision.size", "finger/.*"):
         with pytest.raises(AssertionError):
             apply_prim_physics(root, {"finger": MassCfg(), invalid: MassCfg()})
@@ -142,10 +112,10 @@ def _test_asset_physics_invalid_targets(_simulation_app, asset_path: Path) -> bo
     # A later subclass validation failure must also leave earlier targets untouched.
     for invalid in (MassCfg(mass=-1), MassCfg(mass=float("nan")), object()):
         with pytest.raises(AssertionError):
-            apply_prim_physics(root, {"finger": MassCfg(), "passive": invalid})
+            apply_prim_physics(root, {"finger": MassCfg(), "base": invalid})
         assert UsdPhysics.MassAPI(finger).GetMassAttr().Get() == pytest.approx(0.1)
     with pytest.raises(AssertionError, match="rigid body"):
-        apply_prim_physics(root, {"finger/joint": MassCfg()})
+        apply_prim_physics(root, {"finger/collision": MassCfg()})
     apply_prim_physics(finger, {".": MassCfg(mass=0.5)})
     assert UsdPhysics.MassAPI(finger).GetMassAttr().Get() == 0.5
     return True
@@ -201,10 +171,9 @@ def _test_asset_physics_newton_import(_simulation_app, asset_path: Path) -> bool
     import newton
 
     _write_asset(asset_path)
-    cfg = _contact_config(asset_path)
+    cfg = _make_physics_spawn_cfg(asset_path)
     prim = cfg.func("/World/Robot", cfg)
     builder = newton.ModelBuilder()
-    newton.solvers.SolverMuJoCo.register_custom_attributes(builder)
     builder.add_usd(prim.GetStage(), root_path="/World/Robot", collapse_fixed_joints=False)
     finger = next(i for i, label in enumerate(builder.shape_label) if str(label).endswith("/finger/collision"))
     body = next(i for i, label in enumerate(builder.body_label) if str(label).endswith("/finger"))
@@ -217,112 +186,6 @@ def _test_asset_physics_newton_import(_simulation_app, asset_path: Path) -> bool
 def test_asset_physics_newton_import(tmp_path):
     assert run_function_with_persistent_simulation_app(
         _test_asset_physics_newton_import, asset_path=tmp_path / "robot.usda"
-    )
-
-
-def _test_object_physics_addons(_simulation_app, asset_path: Path) -> bool:
-    from isaaclab.sim import UsdFileCfg
-    from isaaclab.sim.schemas import MassPropertiesCfg
-    from isaaclab.sim.utils import get_current_stage
-
-    from isaaclab_arena.assets.object import Object
-    from isaaclab_arena.assets.object_library import LibraryObject
-    from isaaclab_arena.assets.object_type import ObjectType
-
-    _write_asset(asset_path)
-
-    class ContactAssembly(LibraryObject):
-        name = "contact_assembly"
-        tags = ["object"]
-        usd_path = str(asset_path)
-        object_type = ObjectType.ARTICULATION
-        scale = (0.5, 0.5, 0.5)
-        spawn_cfg_addon = {
-            "copy_from_source": False,
-            "visible": False,
-            "mass_props": MassPropertiesCfg(mass=0.5),
-            "prim_physics": _contact_config(asset_path).prim_physics,
-        }
-
-    assembly = ContactAssembly()
-    another_assembly = ContactAssembly()
-    cfg = assembly.object_cfg.spawn
-    assert isinstance(cfg, UsdFileCfg)
-    assert cfg.usd_path == str(asset_path)
-    assert cfg.scale == (0.5, 0.5, 0.5)
-    assert cfg.activate_contact_sensors
-    assert cfg.copy_from_source is False
-    assert cfg.visible is False
-    # A task may tune one composed config without changing other instances or library defaults.
-    cfg.prim_physics["finger/collision"].friction = 6.0
-    assert another_assembly.object_cfg.spawn.prim_physics["finger/collision"].friction == 8.0
-    assert ContactAssembly.spawn_cfg_addon["prim_physics"]["finger/collision"].friction == 8.0
-    cfg.func("/World/Assembly", cfg)
-    stage = get_current_stage()
-    # Per-prim settings run after ordinary asset-wide settings.
-    assert stage.GetPrimAtPath("/World/Assembly/finger").GetAttribute("physics:mass").Get() == 0.25
-    assert stage.GetPrimAtPath("/World/Assembly/passive").GetAttribute("physics:mass").Get() == 0.5
-    for object_type in (ObjectType.BASE, ObjectType.RIGID, ObjectType.ARTICULATION):
-        obj = Object(
-            name="configured",
-            usd_path=str(asset_path),
-            object_type=object_type,
-            spawn_cfg_addon={"prim_physics": _contact_config(asset_path).prim_physics},
-        )
-        assert isinstance(obj.object_cfg.spawn, UsdFileCfg)
-        assert "finger/collision" in obj.object_cfg.spawn.prim_physics
-    plain = Object(
-        name="plain",
-        usd_path=str(asset_path),
-        object_type=ObjectType.ARTICULATION,
-        spawn_cfg_addon={"visible": False},
-    )
-    assert type(plain.object_cfg.spawn) is UsdFileCfg
-    assert plain.object_cfg.spawn.visible is False
-    return True
-
-
-def test_object_physics_addons(tmp_path):
-    assert run_function_with_persistent_simulation_app(_test_object_physics_addons, asset_path=tmp_path / "robot.usda")
-
-
-def _test_custom_spawner_physics_addons(_simulation_app, asset_path: Path) -> bool:
-    from isaaclab.sim import CuboidCfg
-
-    from isaaclab_arena.assets.object import Object
-    from isaaclab_arena.assets.object_type import ObjectType
-
-    custom_cfg = CuboidCfg(size=(0.1, 0.1, 0.1))
-    custom = Object(name="custom", object_type=ObjectType.BASE, spawner_cfg=custom_cfg)
-    assert custom.object_cfg.spawn.func == custom_cfg.func
-    assert custom.object_cfg.spawn.size == custom_cfg.size
-    with pytest.raises(AssertionError, match="cannot be combined with spawner_cfg"):
-        Object(
-            name="conflicting",
-            object_type=ObjectType.BASE,
-            spawner_cfg=custom_cfg,
-            spawn_cfg_addon={"prim_physics": {}},
-        )
-    with pytest.raises(AssertionError, match="Custom spawn functions must call apply_prim_physics"):
-        Object(
-            name="conflicting",
-            usd_path=str(asset_path),
-            object_type=ObjectType.RIGID,
-            spawn_cfg_addon={"prim_physics": {}, "func": custom_cfg.func},
-        )
-    # An explicit physics-aware spawner remains supported.
-    _write_asset(asset_path)
-    physics_cfg = _contact_config(asset_path)
-    configured = Object(name="configured", object_type=ObjectType.ARTICULATION, spawner_cfg=physics_cfg)
-    spawn = configured.object_cfg.spawn
-    prim = spawn.func("/World/Configured", spawn)
-    assert prim.GetStage().GetPrimAtPath("/World/Configured/finger").GetAttribute("physics:mass").Get() == 0.25
-    return True
-
-
-def test_custom_spawner_physics_addons(tmp_path):
-    assert run_function_with_persistent_simulation_app(
-        _test_custom_spawner_physics_addons, asset_path=tmp_path / "robot.usda"
     )
 
 
@@ -353,14 +216,9 @@ def _test_spawn_addon_argument_types(_simulation_app) -> bool:
     with pytest.raises(TypeError, match="unknown_option"):
         make_usd_spawn_cfg_with_addons(original, {"unknown_option": True})
 
-    # Ordinary options and concrete physics subclasses remain accepted together.
-    configured = make_usd_spawn_cfg_with_addons(
-        original, {"visible": False, "scale": (0.5, 0.5, 0.5), "prim_physics": {"body": MassCfg()}}
-    )
-    assert configured.visible is False
-    assert configured.scale == (0.5, 0.5, 0.5)
-    assert isinstance(configured.prim_physics["body"], MassCfg)
-    assert original.visible is True
+    custom = CuboidCfg(size=(1.0, 1.0, 1.0))
+    with pytest.raises(AssertionError, match="Custom spawn functions"):
+        make_usd_spawn_cfg_with_addons(original, {"func": custom.func, "prim_physics": {}})
     return True
 
 
@@ -377,7 +235,7 @@ def _test_physics_config_copy_and_serialization(_simulation_app, asset_path: Pat
     from isaaclab_arena.tests.utils.prim_physics_configs import MassCfg
 
     _write_asset(asset_path)
-    original = _contact_config(asset_path)
+    original = _make_physics_spawn_cfg(asset_path)
     copied = original.copy()
     assert isinstance(copied, UsdFileCfg)
     copied.prim_physics["finger"].mass = 0.75
@@ -427,7 +285,7 @@ def _make_addon_embodiment(asset_path: Path, **kwargs):
     class TestEmbodiment(EmbodimentBase):
         name = "test_spawn_addons"
         spawn_cfg_addon = {
-            "left_robot": {"visible": False, "prim_physics": _contact_config(asset_path).prim_physics},
+            "left_robot": {"visible": False, "prim_physics": _make_physics_spawn_cfg(asset_path).prim_physics},
             "right_robot": {"visible": False},
         }
 

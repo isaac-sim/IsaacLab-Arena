@@ -99,8 +99,10 @@ joint gains, prefer actuator configuration because articulation initialization c
 A ``LibraryObject`` subclass can define the same dictionary as its ``spawn_cfg_addon`` class
 attribute for shared defaults. Keep task-specific tuning in the environment's object/config
 construction; composed spawn configs have independent copies of the physics settings.
-An internal USD config subclass declares the extra field so Isaac Lab's ``copy()`` and
-``replace()`` retain it. Object definitions only need the ``spawn_cfg_addon`` dictionary.
+The internal ``UsdFileCfgPrimPhysicsWrapper`` extends ``UsdFileCfg`` with the
+``prim_physics`` dictionary so Isaac Lab's ``copy()`` and ``replace()`` retain it.
+This thin wrapper stores the added settings; ``spawn_usd_with_physics()`` applies them.
+Object definitions only need the ``spawn_cfg_addon`` dictionary.
 
 Robot and end-effector physics belong to the embodiment. Configure finger contact materials,
 gripper colliders, collision exclusions, and coupling parameters in the embodiment's

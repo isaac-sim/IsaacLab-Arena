@@ -43,8 +43,8 @@ class UsdPrimSpawnPhysicsCfg:
 
 
 @configclass
-class _PhysicsUsdFileCfg(UsdFileCfg):
-    """Internal storage that preserves per-prim settings when Isaac Lab copies a spawn config."""
+class UsdFileCfgPrimPhysicsWrapper(UsdFileCfg):
+    """Internal UsdFileCfg wrapper adding prim_physics storage that survives config copying."""
 
     prim_physics: dict[str, UsdPrimSpawnPhysicsCfg] = {}
     """Exact asset-relative prim paths and overrides applied after USD loading, before cloning."""

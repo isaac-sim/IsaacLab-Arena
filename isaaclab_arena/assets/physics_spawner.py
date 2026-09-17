@@ -17,7 +17,7 @@ from isaaclab.utils.string import string_to_callable
 from pxr import Sdf, Usd
 
 if TYPE_CHECKING:
-    from .physics_config import UsdPrimSpawnPhysicsCfg, _PhysicsUsdFileCfg
+    from .physics_config import UsdFileCfgPrimPhysicsWrapper, UsdPrimSpawnPhysicsCfg
 
 
 def make_usd_spawn_cfg_with_addons(cfg: UsdFileCfg, addons: dict[str, Any]) -> UsdFileCfg:
@@ -61,7 +61,7 @@ def _validate_prim_physics_types(overrides: dict[str, UsdPrimSpawnPhysicsCfg]) -
 
 def make_usd_spawn_cfg_with_prim_physics(
     cfg: UsdFileCfg, overrides: dict[str, UsdPrimSpawnPhysicsCfg]
-) -> _PhysicsUsdFileCfg:
+) -> UsdFileCfgPrimPhysicsWrapper:
     """Return an independent USD spawn config that applies the given per-prim overrides.
 
     Args:
@@ -69,11 +69,14 @@ def make_usd_spawn_cfg_with_prim_physics(
         overrides: Exact asset-relative paths and physics settings; replaces any previous mapping.
 
     Returns:
-        A _PhysicsUsdFileCfg using spawn_usd_with_physics; assign it to the asset's spawn field.
+        A UsdFileCfgPrimPhysicsWrapper using spawn_usd_with_physics; assign it to the asset's spawn field.
     """
-    from .physics_config import _PhysicsUsdFileCfg
+    from .physics_config import UsdFileCfgPrimPhysicsWrapper
 
-    assert type(cfg) in (UsdFileCfg, _PhysicsUsdFileCfg), "Per-prim physics requires a standard USD spawn config."
+    assert type(cfg) in (
+        UsdFileCfg,
+        UsdFileCfgPrimPhysicsWrapper,
+    ), "Per-prim physics requires a standard USD spawn config."
     _validate_prim_physics_types(overrides)
     spawn_func = string_to_callable(str(cfg.func)) if isinstance(cfg.func, str) else cfg.func
     assert spawn_func in (
@@ -84,7 +87,7 @@ def make_usd_spawn_cfg_with_prim_physics(
     values = {field.name: getattr(cfg, field.name) for field in fields(cfg) if field.init}
     values.update(prim_physics=overrides, func=spawn_usd_with_physics)
     # Declared fields survive configclass.copy()/replace(); construction deep-copies mutable values.
-    return _PhysicsUsdFileCfg(**values)
+    return UsdFileCfgPrimPhysicsWrapper(**values)
 
 
 def _relative_target(root: Usd.Prim, relative_path: str) -> Usd.Prim:
