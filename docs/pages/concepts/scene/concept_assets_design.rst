@@ -44,6 +44,73 @@ Assets can also be tagged to make them discoverable by category:
 Useful tags include ``"graspable"``, ``"openable"``, ``"pressable"``, and ``"background"``.
 Assets can have multiple tags — for example, a fruit is tagged both ``"graspable"`` and ``"food"``.
 
+Physics spawn addons
+--------------------
+
+Use ``spawn_cfg_addon`` to supply ordinary USD spawn options such as ``collision_props``
+and ``physics_material``. To configure selected colliders or joints within an asset, add
+a ``prim_physics`` mapping. Arena then selects ``PhysicsUsdFileCfg`` automatically, retaining
+the object's USD path, scale, contact-sensor activation, and other spawn options.
+
+.. code-block:: python
+
+   from isaaclab_newton.sim.schemas import MujocoCollisionCfg, NewtonMaterialPropertiesCfg
+
+   from isaaclab_arena.assets.object import Object
+   from isaaclab_arena.assets.object_type import ObjectType
+   from isaaclab_arena.assets.physics_config import PrimPhysicsCfg
+
+   robot = Object(
+       name="robot",
+       usd_path="/path/to/robot.usda",
+       object_type=ObjectType.ARTICULATION,
+       spawn_cfg_addon={
+           "copy_from_source": False,
+           "prim_physics": {
+               "finger/collision": PrimPhysicsCfg(
+                   collision_props=[
+                       MujocoCollisionCfg(condim=4, solref=(0.004, 1.0)),
+                   ],
+                   physics_material=NewtonMaterialPropertiesCfg(
+                       static_friction=8.0, dynamic_friction=8.0,
+                   ),
+               ),
+           },
+       },
+   )
+
+The example path is illustrative: use exact prim paths relative to the asset root, or
+``"."`` for the root itself. Paths cannot be absolute, escape the asset, or contain wildcards.
+Selected prims must already exist. Instance proxies require ``make_uninstanceable=True``
+in the spawn addons, at the cost of additional stage memory.
+
+``PrimPhysicsCfg`` supports:
+
+- ``collision_props``: Isaac Lab collision fragments, including collider enablement and
+  backend-specific contact parameters.
+- ``physics_material``: a material created and bound locally to the selected collider.
+- ``joint_drive_props``: drive fragments on revolute or prismatic joints. Use actuator configs
+  for controlled joint gains, since articulation initialization may overwrite authored drives.
+- ``mujoco_equality``: ``MujocoEqualityPropertiesCfg(solref=..., solimp=...)`` to tune an existing
+  MuJoCo equality constraint. It does not create a coupling or change its leader or coefficients.
+- ``filtered_pairs``: additional asset-relative rigid-body or collider paths to exclude from
+  collision. Existing exclusions are preserved.
+
+Ordinary USD spawn properties are applied first, then ``prim_physics``, then cloning and physics
+model import. Overrides affect the spawned instance without editing the source USD or shared
+materials. Choose fragments compatible with the environment's physics backend.
+
+A ``LibraryObject`` subclass can define the same dictionary as its ``spawn_cfg_addon`` class
+attribute for shared defaults. Keep task-specific tuning in the environment's object/config
+construction; composed spawn configs have independent copies of the physics settings.
+Embodiments constructing ``ArticulationCfg`` directly can set ``spawn=PhysicsUsdFileCfg(...)``.
+
+With an explicit ``spawner_cfg``, put physics settings on that config instead of in
+``spawn_cfg_addon``. Custom spawn functions must call
+``isaaclab_arena.assets.physics_spawner.apply_prim_physics`` after creating the asset and before
+cloning. Combining addon ``prim_physics`` with either ``spawner_cfg`` or an addon ``func`` is
+rejected so that a custom spawner cannot silently bypass the overrides.
+
 Object types
 ------------
 

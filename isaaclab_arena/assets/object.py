@@ -15,6 +15,7 @@ from isaaclab.sim.spawners.spawner_cfg import SpawnerCfg
 from isaaclab_arena.assets.object_base import ObjectBase, RootedObjectBase
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.assets.object_utils import detect_object_type
+from isaaclab_arena.assets.physics_config import PhysicsUsdFileCfg
 from isaaclab_arena.relations.relations import RelationBase
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose
@@ -141,10 +142,20 @@ class Object(RootedObjectBase):
         )
 
     def _get_spawn_cfg(self, activate_contact_sensors: bool = False):
-        """Return the spawn config to use: custom spawner_cfg if set, else a UsdFileCfg."""
+        """Return the custom spawner or a USD config supporting any per-prim physics addons."""
         if self.spawner_cfg is not None:
+            assert "prim_physics" not in self.spawn_cfg_addon, (
+                "prim_physics in spawn_cfg_addon cannot be combined with spawner_cfg. "
+                "Configure physics on the custom spawner instead."
+            )
             return self.spawner_cfg
-        return UsdFileCfg(
+        spawn_cfg_type = UsdFileCfg
+        if "prim_physics" in self.spawn_cfg_addon:
+            assert (
+                "func" not in self.spawn_cfg_addon
+            ), "prim_physics requires the physics USD spawner. Custom spawn functions must call apply_prim_physics."
+            spawn_cfg_type = PhysicsUsdFileCfg
+        return spawn_cfg_type(
             usd_path=self.usd_path,
             scale=self.scale,
             activate_contact_sensors=activate_contact_sensors,
