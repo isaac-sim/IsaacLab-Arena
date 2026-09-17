@@ -16,8 +16,10 @@ import isaaclab.sim as sim_utils
 from isaaclab_newton.sim.schemas import NewtonCollisionPropertiesCfg, NewtonMaterialPropertiesCfg
 
 from isaaclab_arena.assets.cable import Cable
+from isaaclab_arena.assets.hdr_image_library import EmptyWarehouseHDRRobolab
 from isaaclab_arena.assets.nucleus import ARENA_NUCLEUS_DIR
 from isaaclab_arena.assets.object import Object
+from isaaclab_arena.assets.object_library import DomeLight
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.scene.scene import Scene
 from isaaclab_arena.utils.pose import Pose
@@ -379,6 +381,17 @@ def build_cable_routing_scene(variant: CableRoutingVariant) -> BuiltCableRouting
         asset_cfg_addon={"collision_group": -1},
         tags=["background", "visual"],
     )
+    sky_light = DomeLight(
+        instance_name="sky_light",
+        prim_path="/World/skyLight",
+        spawner_cfg=sim_utils.DomeLightCfg(
+            color=(0.75, 0.75, 0.75),
+            intensity=1500.0,
+            texture_file=EmptyWarehouseHDRRobolab.texture_file,
+            texture_format=EmptyWarehouseHDRRobolab.texture_format,
+            visible_in_primary_ray=True,
+        ),
+    )
     scene = Scene(
         assets=[
             table,
@@ -390,6 +403,7 @@ def build_cable_routing_scene(variant: CableRoutingVariant) -> BuiltCableRouting
             native_appearance,
             ground,
             ground_visual,
+            sky_light,
         ]
     )
     return BuiltCableRoutingScene(scene=scene, cable=cable, pegs=pegs, port=port)

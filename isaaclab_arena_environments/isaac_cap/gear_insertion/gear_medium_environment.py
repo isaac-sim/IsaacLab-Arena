@@ -29,11 +29,23 @@ _EASY_SCENE_SPEC = Path(__file__).with_name("gear_easy.yaml")
 
 def gear_insertion_physics_cfg():
     """Build the tuned Newton configuration for the Factory gear geometry."""
-    from isaaclab_newton.physics import NewtonCollisionPipelineCfg
+    from isaaclab_newton.physics import NewtonCollisionPipelineCfg, NewtonMJWarpManager
 
     from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import ArenaPhysicsCfg
 
+    class NewtonGearInsertionMJWarpManager(NewtonMJWarpManager):
+        """Skip tendon command setup when the gear robot's tendon is passive."""
+
+        @classmethod
+        def create_fixed_tendon_control(cls, articulation):
+            model = cls.get_model()
+            if not hasattr(model.mujoco, "actuator_world"):
+                return None
+            return super().create_fixed_tendon_control(articulation)
+
     physics = deepcopy(ArenaPhysicsCfg().newton)
+    physics.solver_cfg.class_type = NewtonGearInsertionMJWarpManager
+    physics.class_type = NewtonGearInsertionMJWarpManager
     physics.num_substeps = 4
     physics.collision_decimation = 1
     physics.solver_cfg.njmax = 8192
