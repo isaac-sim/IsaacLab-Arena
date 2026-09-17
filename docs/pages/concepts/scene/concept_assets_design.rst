@@ -49,8 +49,9 @@ Physics spawn addons
 
 Use ``spawn_cfg_addon`` on scene objects to supply ordinary USD spawn options such as
 ``collision_props`` and ``physics_material``. To configure selected colliders or joints within an object, add
-a ``prim_physics`` mapping. Arena applies the dictionary through ``with_spawn_cfg_addon()``,
-which uses the same typed-config merger as embodiment addons and ``env_cfg_override``.
+a ``prim_physics`` mapping. Arena applies these typed settings through ``with_spawn_cfg_addon()``,
+the same helper used by embodiment addons. Ordinary fields replace the corresponding spawn
+options; per-prim entries replace the settings for their named prims and retain other entries.
 The object's USD path, scale, contact-sensor activation, and other spawn options are retained.
 For example, give the library's red cube a higher-friction surface:
 

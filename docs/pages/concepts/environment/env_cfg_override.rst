@@ -63,37 +63,6 @@ Use ``_target_`` when replacing a nested **configclass** field with a concrete I
 Nested ``_target_`` mappings anywhere in the tree are validated before any change is applied to
 the live environment configuration.
 
-Per-prim spawn overrides
-------------------------
-
-Environment YAML can tune individual colliders through the same ``prim_physics`` mapping
-used by object and embodiment spawn addons. For a scene containing the library's red cube:
-
-.. code-block:: yaml
-
-   env_cfg_override:
-     scene:
-       red_cube:
-         spawn:
-           prim_physics:
-             Cube:
-               physics_material:
-                 _target_: isaaclab.sim.spawners.materials.RigidBodyMaterialBaseCfg
-                 static_friction: 0.8
-                 dynamic_friction: 0.6
-
-Use the scene asset's configured name and exact asset-relative collider path. The spawn
-helper preserves the USD path, scale, variants, and other unspecified options. Per-prim
-containers are inferred from their annotations, so no Arena ``_target_`` is required.
-Polymorphic backend-specific collision and material configs still use approved Isaac Lab
-``_target_`` classes.
-
-Environment overrides run after embodiment backend defaults and spawn addons. Existing
-per-prim entries are merged, and new entries are constructed as typed configurations.
-The complete override is applied to a copy and published only after validation succeeds.
-See :doc:`../scene/concept_assets_design` for supported fields and
-:doc:`../embodiment/index` for end-effector configuration.
-
 Disallowed patterns
 -------------------
 

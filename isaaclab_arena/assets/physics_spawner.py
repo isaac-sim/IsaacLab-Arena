@@ -28,18 +28,22 @@ def with_spawn_cfg_addon(cfg: UsdFileCfg, addons: dict[str, Any]) -> UsdFileCfg:
 
     Args:
         cfg: Existing USD spawn configuration.
-        addons: Typed Python values or nested YAML overrides, including optional prim_physics.
+        addons: Typed spawn options, including an optional prim_physics mapping.
 
     Returns:
         An independent config retaining unspecified spawn options.
     """
-    from isaaclab_arena.utils.config_override import apply_config_override
-
-    if "prim_physics" in addons:
+    # Ordinary addons follow the UsdFileCfg constructor's field-replacement semantics.
+    options = dict(addons)
+    overrides = options.pop("prim_physics", None)
+    if overrides is not None:
         assert "func" not in addons, "Custom spawn functions must call apply_prim_physics before cloning."
-        # Declare the extra field before the shared merger resolves its typed dictionary entries.
-        cfg = with_prim_physics(cfg, getattr(cfg, "prim_physics", {}))
-    return apply_config_override(cfg, addons, path="spawn_cfg_addon")
+    cfg = cfg.replace(**options)
+    if overrides is not None:
+        # Retain other prim entries, but replace each explicitly supplied entry as a typed config.
+        overrides = {**getattr(cfg, "prim_physics", {}), **overrides}
+        cfg = with_prim_physics(cfg, overrides)
+    return cfg
 
 
 def with_prim_physics(cfg: UsdFileCfg, overrides: dict[str, PrimPhysicsCfg]) -> UsdFileCfg:
