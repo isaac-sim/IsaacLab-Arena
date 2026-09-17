@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import fields
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from isaaclab.sim import UsdFileCfg, schemas
 from isaaclab.sim.spawners.from_files import spawn_from_usd
@@ -21,6 +21,25 @@ if TYPE_CHECKING:
     from isaaclab.sim.spawners.materials import RigidBodyMaterialBaseCfg
 
     from .physics_config import MujocoEqualityPropertiesCfg, PrimPhysicsCfg
+
+
+def with_spawn_cfg_addon(cfg: UsdFileCfg, addons: dict[str, Any]) -> UsdFileCfg:
+    """Return a spawn config with ordinary and per-prim addons applied together.
+
+    Args:
+        cfg: Existing USD spawn configuration.
+        addons: Typed Python values or nested YAML overrides, including optional prim_physics.
+
+    Returns:
+        An independent config retaining unspecified spawn options.
+    """
+    from isaaclab_arena.utils.config_override import apply_config_override
+
+    if "prim_physics" in addons:
+        assert "func" not in addons, "Custom spawn functions must call apply_prim_physics before cloning."
+        # Declare the extra field before the shared merger resolves its typed dictionary entries.
+        cfg = with_prim_physics(cfg, getattr(cfg, "prim_physics", {}))
+    return apply_config_override(cfg, addons, path="spawn_cfg_addon")
 
 
 def with_prim_physics(cfg: UsdFileCfg, overrides: dict[str, PrimPhysicsCfg]) -> UsdFileCfg:

@@ -397,3 +397,159 @@ def test_physics_config_copy_and_serialization(tmp_path):
     assert run_function_with_persistent_simulation_app(
         _test_physics_config_copy_and_serialization, asset_path=tmp_path / "robot.usda"
     )
+
+
+def _make_addon_embodiment(asset_path: Path, **kwargs):
+    from isaaclab.assets import ArticulationCfg
+    from isaaclab.sim import UsdFileCfg
+    from isaaclab.utils.configclass import configclass
+
+    from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
+
+    @configclass
+    class SceneCfg:
+        left_robot: ArticulationCfg = ArticulationCfg(
+            prim_path="/World/Left", spawn=UsdFileCfg(usd_path=str(asset_path), scale=(0.5, 0.5, 0.5)), actuators={}
+        )
+        right_robot: ArticulationCfg = ArticulationCfg(
+            prim_path="/World/Right", spawn=UsdFileCfg(usd_path=str(asset_path)), actuators={}
+        )
+
+    class TestEmbodiment(EmbodimentBase):
+        name = "test_spawn_addons"
+        spawn_cfg_addon = {
+            "left_robot": {"visible": False, "prim_physics": _contact_config(asset_path).prim_physics},
+            "right_robot": {"visible": False},
+        }
+
+        def __init__(self, **kwargs):
+            super().__init__(**kwargs)
+            self.scene_config = SceneCfg()
+
+        def _configure_physics_backend(self, backend):
+            self.scene_config.left_robot.spawn.visible = True
+
+    return TestEmbodiment(**kwargs)
+
+
+def _test_embodiment_spawn_addons(_simulation_app, asset_path: Path) -> bool:
+    from isaaclab.sim import UsdFileCfg
+
+    from isaaclab_arena.utils.physics_backend import PhysicsBackend
+
+    _write_asset(asset_path)
+    embodiment = _make_addon_embodiment(asset_path)
+    sibling = type(embodiment)()
+    embodiment.spawn_cfg_addon["left_robot"]["prim_physics"]["finger/collision"].physics_material.dynamic_friction = 6.0
+    assert (
+        sibling.spawn_cfg_addon["left_robot"]["prim_physics"]["finger/collision"].physics_material.dynamic_friction
+        == 8.0
+    )
+    embodiment.configure_physics_backend(PhysicsBackend.NEWTON)
+    scene = embodiment.get_scene_cfg()
+    assert scene.left_robot.spawn.visible is False
+    assert scene.right_robot.spawn.visible is False
+    assert scene.left_robot.spawn.scale == (0.5, 0.5, 0.5)
+    assert scene.left_robot.spawn.usd_path == str(asset_path)
+    assert type(scene.right_robot.spawn) is UsdFileCfg
+    spawn = scene.left_robot.spawn
+    prim = spawn.func("/World/Left", spawn)
+    assert prim.GetStage().GetPrimAtPath("/World/Left/finger/collision").GetAttribute("mjc:condim").Get() == 4
+    embodiment.configure_physics_backend(PhysicsBackend.NEWTON)
+    assert scene.left_robot.spawn is spawn
+    with pytest.raises(AssertionError, match="cannot be reconfigured"):
+        embodiment.configure_physics_backend(PhysicsBackend.PHYSX)
+    invalid = _make_addon_embodiment(
+        asset_path, spawn_cfg_addon={"left_robot": {"visible": False}, "missing_robot": {"visible": False}}
+    )
+    with pytest.raises(AssertionError, match="unknown scene asset"):
+        invalid.configure_physics_backend(PhysicsBackend.NEWTON)
+    assert invalid.scene_config.left_robot.spawn.visible is True
+    assert invalid._configured_physics_backend is None
+    return True
+
+
+def test_embodiment_spawn_addons(tmp_path):
+    assert run_function_with_persistent_simulation_app(
+        _test_embodiment_spawn_addons, asset_path=tmp_path / "robot.usda"
+    )
+
+
+def _test_environment_spawn_addon_overrides(_simulation_app, asset_path: Path) -> bool:
+    import yaml
+
+    from isaaclab.sim import UsdFileCfg
+    from isaaclab.utils.configclass import configclass
+
+    from isaaclab_arena.environment_spec.env_cfg_override import apply_env_cfg_override
+    from isaaclab_arena.utils.physics_backend import PhysicsBackend
+
+    _write_asset(asset_path)
+    embodiment = _make_addon_embodiment(asset_path)
+    embodiment.configure_physics_backend(PhysicsBackend.NEWTON)
+
+    @configclass
+    class EnvCfg:
+        scene = embodiment.get_scene_cfg()
+        decimation: int = 1
+
+    env_cfg = EnvCfg()
+    override = yaml.safe_load("""
+scene:
+  left_robot:
+    spawn:
+      prim_physics:
+        finger/collision:
+          physics_material:
+            dynamic_friction: 2.0
+        base/collision:
+          collision_props:
+          - _target_: isaaclab_newton.sim.schemas.MujocoCollisionCfg
+            condim: 6
+  right_robot:
+    spawn:
+      prim_physics:
+        passive/joint:
+          mujoco_equality:
+            solref: [0.008, 1.0]
+""")
+    apply_env_cfg_override(env_cfg, override)
+    spawn = env_cfg.scene.left_robot.spawn
+    assert spawn.prim_physics["finger/collision"].physics_material.dynamic_friction == 2.0
+    assert spawn.prim_physics["finger/collision"].physics_material.torsional_friction == 0.002
+    assert spawn.scale == (0.5, 0.5, 0.5)
+    assert (
+        embodiment.scene_config.left_robot.spawn.prim_physics["finger/collision"].physics_material.dynamic_friction
+        == 8.0
+    )
+    assert type(embodiment.scene_config.right_robot.spawn) is UsdFileCfg
+    prim = spawn.func("/World/Tuned", spawn)
+    assert prim.GetStage().GetPrimAtPath("/World/Tuned/base/collision").GetAttribute("mjc:condim").Get() == 6
+    right_spawn = env_cfg.scene.right_robot.spawn
+    prim = right_spawn.func("/World/RightTuned", right_spawn)
+    assert list(
+        prim.GetStage().GetPrimAtPath("/World/RightTuned/passive/joint").GetAttribute("mjc:solref").Get()
+    ) == pytest.approx([0.008, 1.0])
+    # Both ordinary and typed replacements remain unpublished if a later field is invalid.
+    original_spawn = env_cfg.scene.left_robot.spawn
+    with pytest.raises(ValueError, match="Invalid env_cfg_override"):
+        apply_env_cfg_override(env_cfg, {"decimation": 9, "unknown_field": 1})
+    assert env_cfg.decimation == 1
+    assert env_cfg.scene.left_robot.spawn is original_spawn
+    unsafe = {
+        "scene": {
+            "right_robot": {
+                "spawn": {"prim_physics": {"finger/collision": {"physics_material": {"_target_": "builtins.dict"}}}}
+            }
+        }
+    }
+    with pytest.raises(AssertionError, match="outside the approved"):
+        apply_env_cfg_override(env_cfg, unsafe)
+    assert env_cfg.scene.left_robot.spawn is original_spawn
+    return True
+
+
+def test_environment_spawn_addon_overrides(tmp_path):
+    assert run_function_with_persistent_simulation_app(
+        _test_environment_spawn_addon_overrides, asset_path=tmp_path / "robot.usda"
+    )

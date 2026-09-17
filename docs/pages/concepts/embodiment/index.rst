@@ -48,22 +48,43 @@ Implement backend-specific settings in ``_configure_physics_backend(self, backen
 The environment builder calls the public ``configure_physics_backend()`` wrapper before
 collecting the embodiment's scene configuration.
 
-For per-collider or per-joint settings, use ``with_prim_physics()`` from that hook:
+Embodiments expose ``spawn_cfg_addon`` like scene objects, with an outer mapping keyed by
+scene asset name. Use ``robot`` for a single robot, or entries such as ``left_robot`` and
+``right_robot`` for a bimanual embodiment. The base class copies the mapping per instance
+and applies it automatically after ``_configure_physics_backend()`` finishes.
+
+For example, an embodiment using the standard USD spawner can set Newton finger contacts
+in its backend hook:
 
 .. code-block:: python
 
-   from isaaclab_arena.assets.physics_spawner import with_prim_physics
+   from isaaclab_newton.sim.schemas import NewtonMaterialPropertiesCfg
 
-   robot_cfg = self.scene_config.robot
-   robot_cfg.spawn = with_prim_physics(robot_cfg.spawn, overrides)
+   from isaaclab_arena.assets.physics_config import PrimPhysicsCfg
+   from isaaclab_arena.utils.physics_backend import PhysicsBackend
 
-The ``overrides`` mapping contains asset-relative prim paths and ``PrimPhysicsCfg`` values.
-The helper returns an independent spawn config with the mapping and physics spawn wrapper;
-the robot's USD path, scale, variants, and other spawn options are preserved.
-An internal config subclass retains the settings when Isaac Lab copies the config.
-Use the actuator configuration
-for controlled joint gains. Task-dependent end-effector values should be exposed as embodiment
-configuration and consumed by the same hook.
+   def _configure_physics_backend(self, backend):
+       super()._configure_physics_backend(backend)
+       if backend is PhysicsBackend.NEWTON:
+           self.spawn_cfg_addon["robot"] = {
+               "prim_physics": {
+                   "finger/collision": PrimPhysicsCfg(
+                       physics_material=NewtonMaterialPropertiesCfg(
+                           static_friction=0.8, dynamic_friction=0.6,
+                       ),
+                   ),
+               },
+           }
+
+Use the exact collider path in the robot USD; ``finger/collision`` is illustrative.
+Backend-independent addons can also be declared as the embodiment's ``spawn_cfg_addon``
+class attribute. The robot's USD path, scale, variants, and unspecified spawn options are
+preserved. Use actuator configuration for controlled joint gains. Task-dependent end-effector
+values should be exposed as embodiment configuration and consumed by the same hook.
+
+The application order is backend defaults, embodiment spawn addons, then the environment's
+``env_cfg_override``. Addons are applied once per backend configuration. Every named scene
+asset must exist and have a spawn config; all replacements validate before they are published.
 
 The hook prepares configuration; the spawner applies it after loading the robot USD and before
 cloning and physics model import. An embodiment with a custom spawn function should integrate
