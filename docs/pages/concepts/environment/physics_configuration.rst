@@ -13,15 +13,21 @@ Choose configuration based on what owns the setting:
    * - Physics backend
      - ``default_physics_backend`` or CLI ``--presets``
      - Select PhysX or Newton.
-   * - Environment
+   * - Composed environment configuration
      - ``env_cfg_override`` / ``env_cfg_callback``
-     - Timestep, solver iterations, substeps, collision pipeline.
+     - Simulation settings (timestep, solver iterations, substeps, collision pipeline),
+       scene settings, and manager configuration.
    * - Scene object
      - ``Object.spawn_cfg_addon``
      - Object-wide mass, collision properties, material, or selected-prim physics.
    * - Robot / end effector
      - Embodiment ``_configure_physics_backend()`` and ``spawn_cfg_addon``
      - Actuators, finger contacts, gripper colliders, and joint coupling.
+
+``ArenaEnvBuilder`` supplies backend defaults, then calls ``env_cfg_callback`` with the
+composed environment config. Graph YAML ``env_cfg_override`` is applied through that callback.
+These mechanisms can update simulation, scene, and manager fields in ``env_cfg``; they are
+not limited to settings on ``ArenaEnvBuilderCfg``.
 
 The configuration and spawning stages run in this order:
 
