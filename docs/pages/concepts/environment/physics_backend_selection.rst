@@ -35,6 +35,20 @@ Authoring and CLI inputs:
        ArenaEnvBuilderCfg(presets=PhysicsBackend.PHYSX),  # wins over env default
    )
 
+Environment graph YAML (``ArenaEnvGraphSpec``) can set the same default:
+
+.. code-block:: yaml
+
+   default_physics_backend: newton
+   env_cfg_override:
+     sim:
+       physics:
+         num_substeps: 4
+
+``build_arena_env_from_graph_spec`` maps ``default_physics_backend`` onto
+``IsaacLabArenaEnvironment``. Use ``env_cfg_override`` only to tune fields under the
+selected backend; it must not swap PhysX for Newton (or the reverse).
+
 Overriding backend default solver settings
 ------------------------------------------
 

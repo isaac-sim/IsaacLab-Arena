@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+from functools import partial
 from typing import TYPE_CHECKING, Any
 
 from isaaclab_arena.assets.asset import Asset
@@ -21,6 +22,7 @@ from isaaclab_arena.environment_spec.arena_env_graph_task_conversion_utils impor
 from isaaclab_arena.environment_spec.arena_env_graph_types import ObjectReferenceSpec, SpatialRelationSpec
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
+from isaaclab_arena.utils.physics_backend import PhysicsBackend
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.usd_helpers import has_light, open_stage
 
@@ -46,6 +48,7 @@ def build_arena_env_from_graph_spec(graph_spec: ArenaEnvGraphSpec, enable_camera
         enable_cameras: Forwarded to the embodiment so its cameras are added.
     """
     # Lazy import to avoid pxr early import causing unit test failures.
+    from isaaclab_arena.environment_spec.env_cfg_override import apply_env_cfg_override
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.scene.scene import Scene
 
@@ -53,12 +56,19 @@ def build_arena_env_from_graph_spec(graph_spec: ArenaEnvGraphSpec, enable_camera
     _ensure_scene_lighting(graph_spec, assets_by_node_id)
     _attach_spatial_relations_to_assets(graph_spec.relations, assets_by_node_id)
     scene_assets = [asset for node_id, asset in assets_by_node_id.items() if node_id != graph_spec.embodiment.id]
+    override = graph_spec.env_cfg_override
+    env_cfg_callback = partial(apply_env_cfg_override, override=override) if override is not None else None
+    default_physics_backend = (
+        graph_spec.default_physics_backend if graph_spec.default_physics_backend is not None else PhysicsBackend.PHYSX
+    )
     return IsaacLabArenaEnvironment(
         name=graph_spec.env_name,
         scene=Scene(assets=scene_assets),
         embodiment=assets_by_node_id[graph_spec.embodiment.id],
         task=build_task_from_spec(graph_spec.task, assets_by_node_id),
         placer_params=build_checks_for_placer_params(graph_spec),
+        env_cfg_callback=env_cfg_callback,
+        default_physics_backend=default_physics_backend,
     )
 
 

@@ -22,6 +22,7 @@ from isaaclab_arena.environment_spec.arena_env_graph_types import (
     TaskSpec,
 )
 from isaaclab_arena.environment_spec.arena_env_graph_yaml_loader import load_env_graph_spec_dict
+from isaaclab_arena.utils.physics_backend import PhysicsBackend
 
 if TYPE_CHECKING:
     import argparse
@@ -53,6 +54,17 @@ class ArenaEnvGraphSpec(BaseModel):
     placement_validators: PlacementValidatorSpec | None = Field(
         default=None,
         description="Per-env placement validators; none runs all build-time checks.",
+    )
+    env_cfg_override: dict[str, Any] | None = Field(
+        default=None,
+        description="Optional validated Hydra override for the generated Isaac Lab environment configuration.",
+    )
+    default_physics_backend: PhysicsBackend | None = Field(
+        default=None,
+        description=(
+            "Default PhysX or Newton backend when the runner omits ``--presets``. "
+            "Maps to ``IsaacLabArenaEnvironment.default_physics_backend`` (PhysX when omitted)."
+        ),
     )
     cli_override_specs: list[CliOverrideSpec] | None = Field(
         default=None, description="Optional authoring-time CLI flags that swap an asset's registry_name; usually empty."
