@@ -345,7 +345,7 @@ def _test_builder_rejects_unsafe_or_incompatible_targets(simulation_app) -> bool
 
 def _test_cli_preset_rejects_conflicting_yaml_backend(simulation_app) -> bool:
     override = {"sim": {"physics": {"_target_": "isaaclab_newton.physics.NewtonCfg"}}}
-    with pytest.raises(ValueError, match="Invalid env_cfg_override"):
+    with pytest.raises(AssertionError, match="env_cfg_callback changed the physics backend away from PhysX"):
         _build_env_cfg(presets="physx", env_cfg_override=override)
     return True
 
