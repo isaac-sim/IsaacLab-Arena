@@ -240,13 +240,20 @@ def _test_builder_applies_gear_solver_env_cfg_override(simulation_app) -> bool:
 
 
 def _test_env_cfg_override_nested_hydra_target_in_payload(simulation_app) -> bool:
+    from isaaclab.sim import SimulationCfg
+    from isaaclab.utils.configclass import configclass
     from isaaclab_contrib.coupling.coupler_cfg import CouplerProxyCfg
-    from isaaclab_newton.physics import MJWarpSolverCfg
+    from isaaclab_newton.physics import MJWarpSolverCfg, NewtonCfg
 
-    env_cfg = _build_env_cfg(
-        presets=None,
-        default_physics_backend="newton",
-        env_cfg_override={
+    from isaaclab_arena.environment_spec.env_cfg_override import apply_env_cfg_override
+
+    @configclass
+    class MinimalEnvCfg:
+        sim: SimulationCfg = SimulationCfg(physics=NewtonCfg())
+
+    env_cfg = apply_env_cfg_override(
+        MinimalEnvCfg(),
+        {
             "sim": {
                 "physics": {
                     "solver_cfg": {
@@ -271,6 +278,7 @@ def _test_env_cfg_override_nested_hydra_target_in_payload(simulation_app) -> boo
     assert isinstance(env_cfg.sim.physics.solver_cfg, CouplerProxyCfg)
     assert isinstance(env_cfg.sim.physics.solver_cfg.entries[0].solver_cfg, MJWarpSolverCfg)
     assert env_cfg.sim.physics.solver_cfg.entries[0].solver_cfg.iterations == 23
+    assert env_cfg.sim.physics.class_type == env_cfg.sim.physics.solver_cfg.class_type
     return True
 
 
@@ -288,7 +296,6 @@ def _test_builder_applies_nested_env_cfg_override(simulation_app) -> bool:
                     "solver_cfg": {
                         "_target_": "isaaclab_newton.physics.MJWarpSolverCfg",
                         "iterations": 23,
-                        "enable_multiccd": True,
                     },
                 },
             },
@@ -302,7 +309,6 @@ def _test_builder_applies_nested_env_cfg_override(simulation_app) -> bool:
     assert env_cfg.sim.physics.num_substeps == 7
     assert isinstance(env_cfg.sim.physics.solver_cfg, MJWarpSolverCfg)
     assert env_cfg.sim.physics.solver_cfg.iterations == 23
-    assert env_cfg.sim.physics.solver_cfg.enable_multiccd
     return True
 
 

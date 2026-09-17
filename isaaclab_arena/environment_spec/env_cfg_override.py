@@ -14,6 +14,7 @@ import types
 from typing import TYPE_CHECKING, Any, Union, get_args, get_origin, get_type_hints
 
 from hydra.utils import get_class
+from isaaclab_newton.physics import NewtonCfg
 
 if TYPE_CHECKING:
     from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import IsaacLabArenaManagerBasedRLEnvCfg
@@ -48,27 +49,33 @@ def apply_env_cfg_override(
     assert isinstance(override, dict), f"env_cfg_override must be a mapping, got {type(override).__name__}"
 
     values = copy.deepcopy(override)
-    _validate_data_only(values, path="env")
+    _validate_override_syntax(values, path="env")
     # Build targets post-order in the copy, including concrete containers for typed list entries.
     _materialize_targets(env_cfg, values, path="env")
     pending_assignments: list[tuple[Any, str | int, Any]] = []
-    # Keep constructed instances out of the residual ``from_dict`` merge.
+    # Keep constructed instances out to prevent ``from_dict`` from reprocessing typed config instances as
+    # raw mappings again before they are safely assigned to polymorphic fields.
     _extract_materialized_values(env_cfg, values, pending_assignments)
 
     try:
         env_cfg.from_dict(values)
     except (KeyError, TypeError, ValueError) as exc:
         raise ValueError(f"Invalid env_cfg_override: {exc}") from exc
+
     # Commit polymorphic replacements only after the residual merge succeeds.
     for target_obj, key, value in pending_assignments:
         if isinstance(target_obj, list):
             target_obj[key] = value
         else:
             setattr(target_obj, key, value)
+        if key == "solver_cfg" and isinstance(target_obj, NewtonCfg):
+            # NewtonCfg.__post_init__ derives the manager from the initial
+            # solver, so synchronize it after replacing solver_cfg.
+            target_obj.class_type = target_obj.solver_cfg.class_type
     return env_cfg
 
 
-def _validate_data_only(value: Any, *, path: str) -> None:
+def _validate_override_syntax(value: Any, *, path: str) -> None:
     """Reject unsafe override content before ``_materialize_targets`` runs.
 
     Disallows ``class_type`` overrides, Hydra control keys other than ``_target_``,
@@ -79,10 +86,10 @@ def _validate_data_only(value: Any, *, path: str) -> None:
             child_path = f"{path}.{key}"
             assert key != "class_type", f"'{child_path}' is derived by Isaac Lab and cannot be overridden"
             assert not key.startswith("_") or key == _HYDRA_TARGET_KEY, f"Unsupported Hydra control key '{child_path}'"
-            _validate_data_only(item, path=child_path)
+            _validate_override_syntax(item, path=child_path)
     elif isinstance(value, list):
         for index, item in enumerate(value):
-            _validate_data_only(item, path=f"{path}[{index}]")
+            _validate_override_syntax(item, path=f"{path}[{index}]")
     elif isinstance(value, str):
         assert "${" not in value, f"OmegaConf interpolation is not allowed at '{path}'"
 
@@ -126,52 +133,101 @@ def _materialize_value(
     strict: bool,
     current_value: Any,
 ) -> Any:
-    """Return one override value with nested target mappings materialized."""
+    """Dispatch materialization based on the override value's structure."""
+    # Handle list
     list_element_type = _list_element_type(annotation)
     if list_element_type is not None:
-        assert isinstance(value, list), f"Expected a list at '{path}'"
-        return [
-            _materialize_value(
-                list_element_type,
-                item,
-                path=f"{path}[{index}]",
-                construct_structured=construct_structured,
-                strict=strict,
-                current_value=(
-                    current_value[index] if isinstance(current_value, list) and index < len(current_value) else None
-                ),
-            )
-            for index, item in enumerate(value)
-        ]
+        return _materialize_list(
+            list_element_type,
+            value,
+            path=path,
+            construct_structured=construct_structured,
+            strict=strict,
+            current_value=current_value,
+        )
 
+    # Handle non-dict values
     if not isinstance(value, dict):
         return value
 
+    # Handle typed configclasses
     if _HYDRA_TARGET_KEY in value:
-        target_path = value[_HYDRA_TARGET_KEY]
-        target_cls = _validated_target_class(target_path, annotation, path=path)
-        payload = {key: item for key, item in value.items() if key != _HYDRA_TARGET_KEY}
-        _materialize_targets(target_cls, payload, path=path, construct_structured=True, strict=True)
-        return _construct_configclass(target_cls, payload, path=path)
+        return _materialize_target_mapping(annotation, value, path=path)
 
+    # Handle ordinary mappings
+    return _materialize_dataclass_mapping(
+        annotation,
+        value,
+        path=path,
+        construct_structured=construct_structured,
+        strict=strict,
+        current_value=current_value,
+    )
+
+
+def _materialize_list(
+    element_type: Any,
+    value: Any,
+    *,
+    path: str,
+    construct_structured: bool,
+    strict: bool,
+    current_value: Any,
+) -> list[Any]:
+    """Materialize every element of a typed override list."""
+    assert isinstance(value, list), f"Expected a list at '{path}'"
+
+    def current_item(index: int) -> Any:
+        if isinstance(current_value, list) and index < len(current_value):
+            return current_value[index]
+        return None
+
+    return [
+        _materialize_value(
+            element_type,
+            item,
+            path=f"{path}[{index}]",
+            construct_structured=construct_structured,
+            strict=strict,
+            current_value=current_item(index),
+        )
+        for index, item in enumerate(value)
+    ]
+
+
+def _materialize_target_mapping(annotation: Any, value: dict[str, Any], *, path: str) -> Any:
+    """Materialize an explicitly typed configclass mapping."""
+    target_cls = _validated_target_class(value[_HYDRA_TARGET_KEY], annotation, path=path)
+    payload = {key: item for key, item in value.items() if key != _HYDRA_TARGET_KEY}
+    _materialize_targets(target_cls, payload, path=path, construct_structured=True, strict=True)
+    return _construct_configclass(target_cls, payload, path=path)
+
+
+def _materialize_dataclass_mapping(
+    annotation: Any,
+    value: dict[str, Any],
+    *,
+    path: str,
+    construct_structured: bool,
+    strict: bool,
+    current_value: Any,
+) -> Any:
+    """Traverse an ordinary mapping using its concrete dataclass type."""
     concrete_type = _concrete_dataclass_type(annotation)
     if concrete_type is None and dataclasses.is_dataclass(current_value):
         concrete_type = type(current_value)
-    if concrete_type is not None:
-        payload = dict(value)
-        nested_target = concrete_type if construct_structured else current_value
-        _materialize_targets(
-            nested_target, payload, path=path, construct_structured=construct_structured, strict=strict
-        )
-        if construct_structured:
-            return _construct_configclass(concrete_type, payload, path=path)
-        return payload
+    if concrete_type is None:
+        assert not _annotation_contains_dataclass(
+            annotation
+        ), f"Nested config '{path}' requires {_HYDRA_TARGET_KEY!r} when its parent is constructed by Hydra"
+        return value
 
-    assert not _annotation_contains_dataclass(
-        annotation
-    ), f"Nested config '{path}' requires {_HYDRA_TARGET_KEY!r} when its parent is constructed by Hydra"
-
-    return value
+    payload = dict(value)
+    nested_target = concrete_type if construct_structured else current_value
+    _materialize_targets(nested_target, payload, path=path, construct_structured=construct_structured, strict=strict)
+    if construct_structured:
+        return _construct_configclass(concrete_type, payload, path=path)
+    return payload
 
 
 def _extract_materialized_values(
