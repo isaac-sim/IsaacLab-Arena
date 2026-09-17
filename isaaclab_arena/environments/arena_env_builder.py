@@ -58,8 +58,13 @@ from isaaclab_arena.variations.variation_base import RunTimeVariationBase, Varia
 from isaaclab_arena.variations.variation_recorder import VariationRecorder
 
 
+# TODO: peterd, 2026-09-16: Remove this once Arena migrates off ViewCfg and into KitVisualizerCfg.
 def _configure_arena_visualizer_defaults(env_cfg: IsaacLabArenaManagerBasedRLEnvCfg) -> None:
-    """Preserve Arena's native scene background and migrate its legacy task camera configuration."""
+    """Preserve Arena's native scene background and migrate its legacy task camera configuration.
+
+    Compatibility layer to enable Arena's legacy ViewerCfg to work with Lab's default_visualizer_cfg.
+    This can be removed once Arena migrates off ViewCfg and into KitVisualizerCfg.
+    """
     from isaaclab.envs.common import _apply_deprecated_viewer_cfg
 
     if env_cfg.sim.default_visualizer_cfg is None:
