@@ -122,7 +122,7 @@ Before collecting the embodiment's scene configuration, the environment builder 
 3. Records the configured backend so repeating the same call does not apply settings again.
 
 Both steps prepare configuration. USD loading and per-prim physics edits happen later during
-spawning. See :doc:`../environment/env_cfg_override` for the complete application order.
+spawning. See :doc:`../environment/physics_configuration` for the complete application order.
 
 More details
 ------------

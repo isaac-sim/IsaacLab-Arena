@@ -133,7 +133,7 @@ not transactional. Concrete implementations must author within the spawned asset
 stage edit target, preserve source layers and shared materials, and validate any additional
 relationship targets they use. Keep USD handles out of config fields so copying remains safe.
 
-See :doc:`../environment/env_cfg_override` for physics configuration scopes, backend
+See :doc:`../environment/physics_configuration` for physics configuration scopes, backend
 selection, and the order in which config overrides and spawn-time physics are applied.
 
 A ``LibraryObject`` subclass can define the same dictionary as its ``spawn_cfg_addon`` class
