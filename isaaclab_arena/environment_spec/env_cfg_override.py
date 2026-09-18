@@ -134,7 +134,7 @@ def _materialize_value(
     current_value: Any,
 ) -> Any:
     """Dispatch materialization based on the override value's structure."""
-    # 1. Recurse through list elements using their annotated element type.
+    # Handle list
     list_element_type = _list_element_type(annotation)
     if list_element_type is not None:
         return _materialize_list(
@@ -146,15 +146,15 @@ def _materialize_value(
             current_value=current_value,
         )
 
-    # 2. Leave scalar values for the normal from_dict merge.
+    # Handle non-dict values
     if not isinstance(value, dict):
         return value
 
-    # 3. Resolve explicit Hydra types and construct their children before the parent.
+    # Handle typed configclasses
     if _HYDRA_TARGET_KEY in value:
         return _materialize_target_mapping(annotation, value, path=path)
 
-    # 4. Recurse into an existing or annotated config for ordinary mappings.
+    # Handle ordinary mappings
     return _materialize_dataclass_mapping(
         annotation,
         value,
@@ -199,7 +199,6 @@ def _materialize_target_mapping(annotation: Any, value: dict[str, Any], *, path:
     """Materialize an explicitly typed configclass mapping."""
     target_cls = _validated_target_class(value[_HYDRA_TARGET_KEY], annotation, path=path)
     payload = {key: item for key, item in value.items() if key != _HYDRA_TARGET_KEY}
-    # Construct nested targets first so the parent's constructor receives typed children.
     _materialize_targets(target_cls, payload, path=path, construct_structured=True, strict=True)
     return _construct_configclass(target_cls, payload, path=path)
 
@@ -237,45 +236,23 @@ def _extract_materialized_values(
     pending_assignments: list[tuple[Any, str | int, Any]],
 ) -> None:
     """Remove materialized values from the merge payload and record their assignments."""
-    # Dispatch recursion by payload shape; each helper preserves the residual merge structure.
     if isinstance(values, list):
-        _extract_materialized_list_values(target_obj, values, pending_assignments)
-    else:
-        _extract_materialized_mapping_values(target_obj, values, pending_assignments)
-
-
-def _extract_materialized_list_values(
-    target_obj: Any,
-    values: list[Any],
-    pending_assignments: list[tuple[Any, str | int, Any]],
-) -> None:
-    """Defer constructed list entries while retaining their positions in the merge payload."""
-    if not isinstance(target_obj, list):
+        if not isinstance(target_obj, list):
+            return
+        for index, value in enumerate(values):
+            if dataclasses.is_dataclass(value):
+                pending_assignments.append((target_obj, index, value))
+                values[index] = {}
+            elif index < len(target_obj) and isinstance(value, (dict, list)):
+                _extract_materialized_values(target_obj[index], value, pending_assignments)
         return
-    for index, value in enumerate(values):
-        if dataclasses.is_dataclass(value):
-            # An empty mapping leaves the current entry intact until deferred assignment.
-            pending_assignments.append((target_obj, index, value))
-            values[index] = {}
-        elif index < len(target_obj) and isinstance(value, (dict, list)):
-            # Descend only where the existing list supplies a corresponding merge target.
-            _extract_materialized_values(target_obj[index], value, pending_assignments)
 
-
-def _extract_materialized_mapping_values(
-    target_obj: Any,
-    values: dict[str, Any],
-    pending_assignments: list[tuple[Any, str | int, Any]],
-) -> None:
-    """Defer constructed fields and recurse into the remaining nested overrides."""
     for key in list(values):
         if not hasattr(target_obj, key) and not isinstance(target_obj, dict):
-            # Leave unknown fields in the payload for from_dict to reject.
             continue
         value = values[key]
         child_obj = target_obj[key] if isinstance(target_obj, dict) else getattr(target_obj, key)
         if dataclasses.is_dataclass(value):
-            # Remove typed replacements so from_dict only processes ordinary values.
             pending_assignments.append((target_obj, key, value))
             values.pop(key)
         elif isinstance(value, (dict, list)):
@@ -321,6 +298,11 @@ def _validated_target_class(target_path: Any, expected_type: Any, *, path: str) 
 def _field_annotation(owner: type, field_name: str) -> Any:
     """Resolve one inherited dataclass field annotation without resolving unrelated fields."""
     for cls in owner.__mro__:
+        # Isaac Lab copies inherited annotations into each configclass. Use its
+        # original field declarations to find the module that owns the imports.
+        own_fields = cls.__dict__.get("__configclass_own_fields__")
+        if own_fields is not None and field_name not in own_fields:
+            continue
         annotation = cls.__dict__.get("__annotations__", {}).get(field_name)
         if annotation is None:
             continue
