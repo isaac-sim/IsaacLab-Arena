@@ -21,10 +21,11 @@ from isaaclab.utils.math import quat_apply
 
 import isaaclab_arena.environments.arena_world_scene_access as scene_access
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+from isaaclab_arena.utils.joint_utils import get_joint_position_from_articulation
 
 
 class ArenaWorld:
-    """Provide name-based pose, velocity, and geometry queries."""
+    """Provide name-based pose, velocity, articulation, and geometry queries."""
 
     def __init__(self, scene: InteractiveScene):
         self._scene = scene
@@ -114,6 +115,74 @@ class ArenaWorld:
             f"{tuple(root_angular_velocity_w.shape)}; expected ({scene.num_envs}, 3)."
         )
         return root_angular_velocity_w
+
+    # -------------------------------------------------------------------------
+    # Articulation APIs
+    # -------------------------------------------------------------------------
+
+    def get_joint_position(self, scene_key: str, joint_name: str) -> torch.Tensor:
+        """Return a named articulation joint's position for each environment.
+
+        Args:
+            scene_key: Articulation scene entity name.
+            joint_name: Exact joint name within the articulation.
+
+        Returns:
+            Tensor of shape (num_envs,), in radians for revolute joints or meters
+            for prismatic joints.
+        """
+        assert scene_key in self._scene.articulations, f"'{scene_key}' must name an articulation."
+        joint_position = get_joint_position_from_articulation(self._scene.articulations[scene_key], joint_name)
+        assert joint_position.shape == (
+            self._scene.num_envs,
+        ), f"Joint '{joint_name}' returned shape {tuple(joint_position.shape)}; expected ({self._scene.num_envs},)."
+        return joint_position
+
+    def get_body_pose_w(self, scene_key: str, body_name: str) -> torch.Tensor:
+        """Return the world-frame link pose of a named articulation body.
+
+        Args:
+            scene_key: Articulation scene entity name.
+            body_name: Exact body name within the articulation.
+
+        Returns:
+            Tensor of shape (num_envs, 7), ordered as (x, y, z, qx, qy, qz, qw).
+        """
+        assert scene_key in self._scene.articulations, f"'{scene_key}' must name an articulation."
+        data = self._scene.articulations[scene_key].data
+        assert body_name in data.body_names, f"Articulation '{scene_key}' has no body '{body_name}'."
+        T_W_B = data.body_link_pose_w.torch[:, data.body_names.index(body_name)]
+        assert T_W_B.shape == (
+            self._scene.num_envs,
+            7,
+        ), f"Body '{body_name}' returned pose shape {tuple(T_W_B.shape)}; expected ({self._scene.num_envs}, 7)."
+        return T_W_B
+
+    def get_frame_position_w(self, scene_key: str, target_frame_name: str | None = None) -> torch.Tensor:
+        """Return a frame transformer's target position in world coordinates.
+
+        Args:
+            scene_key: Frame-transformer sensor name in the scene.
+            target_frame_name: Named target within the sensor, or None for its
+                first target, matching the end-effector reward convention.
+
+        Returns:
+            Tensor of shape (num_envs, 3), including the sensor's configured offset.
+        """
+        assert scene_key in self._scene.sensors, f"'{scene_key}' must name a frame-transformer sensor."
+        data = self._scene.sensors[scene_key].data
+        target_index = 0
+        if target_frame_name is not None:
+            assert (
+                target_frame_name in data.target_frame_names
+            ), f"Sensor '{scene_key}' has no target frame '{target_frame_name}'."
+            target_index = data.target_frame_names.index(target_frame_name)
+        position_w = data.target_pos_w.torch[:, target_index]
+        assert position_w.shape == (self._scene.num_envs, 3), (
+            f"Frame sensor '{scene_key}' returned position shape {tuple(position_w.shape)}; "
+            f"expected ({self._scene.num_envs}, 3)."
+        )
+        return position_w
 
     # -------------------------------------------------------------------------
     # Deformable object APIs

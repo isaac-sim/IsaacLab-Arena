@@ -22,6 +22,33 @@ if TYPE_CHECKING:
     from isaaclab_arena.environments.isaaclab_arena_manager_based_env import IsaacLabArenaManagerBasedRLEnv
 
 
+def end_effector_distance_from_object_exceeds_threshold(
+    env: IsaacLabArenaManagerBasedRLEnv,
+    subject_name: str,
+    ee_frame_name: str,
+    distance_threshold_m: float,
+    target_frame_name: str | None = None,
+) -> torch.Tensor:
+    """Check that an end-effector frame is farther than a threshold from an object.
+
+    Args:
+        env: Environment supplying object and frame positions through ArenaWorld.
+        subject_name: Object asset whose origin defines the distance.
+        ee_frame_name: Embodiment-owned frame-transformer sensor name.
+        distance_threshold_m: Strict minimum distance, in meters.
+        target_frame_name: Target name within the sensor, or None for its first target.
+
+    Returns:
+        Boolean tensor with one result per environment.
+    """
+    assert (
+        math.isfinite(distance_threshold_m) and distance_threshold_m >= 0.0
+    ), "Distance threshold must be non-negative and finite."
+    end_effector_position_W = env.arena_world.get_frame_position_w(ee_frame_name, target_frame_name)
+    subject_position_W = env.arena_world.get_pose_w(subject_name)[:, :3]
+    return torch.linalg.vector_norm(subject_position_W - end_effector_position_W, dim=-1) > distance_threshold_m
+
+
 def object_bounds_center_over_destination(
     object_centroid_W: torch.Tensor,
     T_W_D: torch.Tensor,
