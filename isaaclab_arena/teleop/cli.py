@@ -10,7 +10,8 @@ import argparse
 
 def enable_openxr_teleop_from_cli(args_cli: argparse.Namespace) -> None:
     """Select OpenXR teleoperation when ``--xr`` is the only XR option provided."""
-    teleop_device = getattr(args_cli, "teleop_device", None)
+    teleop_device = args_cli.teleop_device
+    if args_cli.xr and teleop_device is None:
     if getattr(args_cli, "xr", False) and teleop_device is None:
         args_cli.teleop_device = "openxr"
         teleop_device = args_cli.teleop_device
