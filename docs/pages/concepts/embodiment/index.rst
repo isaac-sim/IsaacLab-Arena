@@ -40,7 +40,7 @@ Passing ``enable_cameras=True`` adds the robot's onboard cameras to the observat
 This is required for any policy that takes image observations, such as GR00T.
 
 Robot and end-effector physics
------------------------------
+------------------------------
 
 The embodiment owns robot physics, including end-effector contact materials, gripper
 colliders, self-collision exclusions, joint coupling, and actuator configuration.
@@ -121,7 +121,7 @@ This example sets robot-wide contact friction. Registration is optional for dire
 construction; it is required for lookup by name in environment graph YAML.
 
 Use the robot in your environment
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Save the definition above in ``my_project/robots.py``. Both examples set contact friction to
 ``1.2`` for this environment:
@@ -162,7 +162,7 @@ The YAML loader forwards ``params`` to the constructor, which creates the typed 
 ``params`` does not instantiate nested ``_target_`` mappings.
 
 Target individual colliders
-~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 To target individual colliders instead, define or import ``ColliderFrictionCfg`` from the
 example in :doc:`../scene/concept_assets_design` and use this mapping on your embodiment class:

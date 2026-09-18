@@ -81,7 +81,7 @@ The settings in the :ref:`scope table <physics-configuration-scopes>` are applie
 .. _per-prim-spawn-physics:
 
 Per-prim physics at spawn time
------------------------------
+------------------------------
 
 This is the selected-prim part of asset physics in the :ref:`scope table <physics-configuration-scopes>`.
 It runs in step 4 of the :ref:`application order <physics-application-order>`. Steps 1 and 2
@@ -98,7 +98,7 @@ See :doc:`../scene/concept_assets_design` for a primitive object example and
 :doc:`../embodiment/index` for the robot configuration hook.
 
 Differences from the variation system
-------------------------------------
+-------------------------------------
 
 Spawn-time physics configuration applies settings before cloning and physics import.
 The :doc:`variation system <../variations/variations>` controls sampling and when sampled
