@@ -52,6 +52,7 @@ def _test_asset_physics_spawn_lifecycle(_simulation_app, asset_path: Path) -> bo
 
     from isaaclab_arena.assets.object import Object
     from isaaclab_arena.assets.object_type import ObjectType
+    from isaaclab_arena.tests.utils.prim_physics_configs import FrictionCfg, MassCfg
 
     _write_asset(asset_path)
     obj = Object(
@@ -60,7 +61,7 @@ def _test_asset_physics_spawn_lifecycle(_simulation_app, asset_path: Path) -> bo
         object_type=ObjectType.BASE,
         spawn_cfg_addon={
             "mass_props": MassPropertiesCfg(mass=0.5),
-            "prim_physics": _make_physics_spawn_cfg(asset_path).prim_physics,
+            "prim_physics": {"finger/collision": FrictionCfg(), "finger": MassCfg()},
         },
     )
     stage = get_current_stage()
@@ -88,12 +89,6 @@ def _test_asset_physics_spawn_lifecycle(_simulation_app, asset_path: Path) -> bo
     return True
 
 
-def test_asset_physics_spawn_lifecycle(tmp_path):
-    assert run_function_with_persistent_simulation_app(
-        _test_asset_physics_spawn_lifecycle, asset_path=tmp_path / "robot.usda"
-    )
-
-
 def _test_asset_physics_invalid_targets(_simulation_app, asset_path: Path) -> bool:
     from isaaclab.sim import UsdFileCfg
     from pxr import UsdPhysics
@@ -104,27 +99,27 @@ def _test_asset_physics_invalid_targets(_simulation_app, asset_path: Path) -> bo
     _write_asset(asset_path)
     cfg = UsdFileCfg(usd_path=str(asset_path))
     root = cfg.func("/World/Robot", cfg)
-    finger = root.GetStage().GetPrimAtPath("/World/Robot/finger")
-    for invalid in ("missing", "../Other", "/World/Robot/finger", "finger/collision.size", "finger/.*"):
+    finger = root.GetChild("finger")
+    invalid_targets = [
+        ("missing", MassCfg()),
+        ("../Other", MassCfg()),
+        ("/World/Robot/finger", MassCfg()),
+        ("finger/collision.size", MassCfg()),
+        ("finger/.*", MassCfg()),
+        ("base", MassCfg(mass=-1)),
+        ("base", MassCfg(mass=float("nan"))),
+        ("base", object()),
+    ]
+    for path, override in invalid_targets:
+        # Validate every target before applying even the first valid override.
         with pytest.raises(AssertionError):
-            apply_prim_physics(root, {"finger": MassCfg(), invalid: MassCfg()})
-        assert UsdPhysics.MassAPI(finger).GetMassAttr().Get() == pytest.approx(0.1)
-    # A later subclass validation failure must also leave earlier targets untouched.
-    for invalid in (MassCfg(mass=-1), MassCfg(mass=float("nan")), object()):
-        with pytest.raises(AssertionError):
-            apply_prim_physics(root, {"finger": MassCfg(), "base": invalid})
+            apply_prim_physics(root, {"finger": MassCfg(), path: override})
         assert UsdPhysics.MassAPI(finger).GetMassAttr().Get() == pytest.approx(0.1)
     with pytest.raises(AssertionError, match="rigid body"):
         apply_prim_physics(root, {"finger/collision": MassCfg()})
     apply_prim_physics(finger, {".": MassCfg(mass=0.5)})
     assert UsdPhysics.MassAPI(finger).GetMassAttr().Get() == 0.5
     return True
-
-
-def test_asset_physics_invalid_targets(tmp_path):
-    assert run_function_with_persistent_simulation_app(
-        _test_asset_physics_invalid_targets, asset_path=tmp_path / "robot.usda"
-    )
 
 
 def _test_asset_physics_instance_proxies(_simulation_app, asset_path: Path) -> bool:
@@ -145,11 +140,7 @@ def _test_asset_physics_instance_proxies(_simulation_app, asset_path: Path) -> b
     hand.GetReferences().AddReference(str(asset_path))
     hand.SetInstanceable(True)
     source.GetRootLayer().Save()
-    cfg = UsdFileCfg(usd_path=str(wrapper_path))
-    cfg = make_usd_spawn_cfg_with_prim_physics(
-        cfg,
-        {"Hand/finger": MassCfg()},
-    )
+    cfg = make_usd_spawn_cfg_with_prim_physics(UsdFileCfg(usd_path=str(wrapper_path)), {"Hand/finger": MassCfg()})
     with pytest.raises(AssertionError, match="instance proxy"):
         cfg.func("/World/Instanced", cfg)
     cfg.make_uninstanceable = True
@@ -162,12 +153,6 @@ def _test_asset_physics_instance_proxies(_simulation_app, asset_path: Path) -> b
     instanced = stage.GetPrimAtPath("/World/Instanced")
     assert get_prim_relative_to_root(instanced, "Hand/finger").IsInstanceProxy()
     return True
-
-
-def test_asset_physics_instance_proxies(tmp_path):
-    assert run_function_with_persistent_simulation_app(
-        _test_asset_physics_instance_proxies, asset_path=tmp_path / "robot.usda"
-    )
 
 
 def _test_asset_physics_newton_import(_simulation_app, asset_path: Path) -> bool:
@@ -183,13 +168,6 @@ def _test_asset_physics_newton_import(_simulation_app, asset_path: Path) -> bool
     assert builder.shape_material_mu[finger] == pytest.approx(8.0)
     assert builder.body_mass[body] == pytest.approx(0.25)
     return True
-
-
-@pytest.mark.with_newton
-def test_asset_physics_newton_import(tmp_path):
-    assert run_function_with_persistent_simulation_app(
-        _test_asset_physics_newton_import, asset_path=tmp_path / "robot.usda"
-    )
 
 
 def _test_spawn_addon_argument_types(_simulation_app) -> bool:
@@ -251,7 +229,7 @@ def _test_physics_config_copy_and_serialization(_simulation_app, asset_path: Pat
     restored.from_dict(recorded)
     assert isinstance(restored.prim_physics["finger"], MassCfg)
     prim = restored.func("/World/Restored", restored)
-    assert prim.GetStage().GetPrimAtPath("/World/Restored/finger").GetAttribute("physics:mass").Get() == 0.75
+    assert prim.GetChild("finger").GetAttribute("physics:mass").Get() == 0.75
     # Replacing one target preserves other entries without nesting wrappers or changing the input.
     overrides = {"finger": MassCfg(mass=0.5)}
     reconfigured = make_usd_spawn_cfg_with_addons(copied, {"prim_physics": overrides})
@@ -259,22 +237,20 @@ def _test_physics_config_copy_and_serialization(_simulation_app, asset_path: Pat
     assert copied.prim_physics["finger"].mass == 0.75
     overrides["finger"].mass = 1.0
     prim = reconfigured.func("/World/Reconfigured", reconfigured)
-    assert prim.GetStage().GetPrimAtPath("/World/Reconfigured/finger").GetAttribute("physics:mass").Get() == 0.5
+    assert prim.GetChild("finger").GetAttribute("physics:mass").Get() == 0.5
     return True
 
 
-def test_physics_config_copy_and_serialization(tmp_path):
-    assert run_function_with_persistent_simulation_app(
-        _test_physics_config_copy_and_serialization, asset_path=tmp_path / "robot.usda"
-    )
-
-
-def _make_addon_embodiment(asset_path: Path, **kwargs):
+def _test_embodiment_spawn_addons(_simulation_app, asset_path: Path) -> bool:
     from isaaclab.assets import ArticulationCfg
     from isaaclab.sim import UsdFileCfg
     from isaaclab.utils.configclass import configclass
 
     from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
+    from isaaclab_arena.tests.utils.prim_physics_configs import FrictionCfg, MassCfg
+    from isaaclab_arena.utils.physics_backend import PhysicsBackend
+
+    _write_asset(asset_path)
 
     @configclass
     class SceneCfg:
@@ -288,7 +264,10 @@ def _make_addon_embodiment(asset_path: Path, **kwargs):
     class TestEmbodiment(EmbodimentBase):
         name = "test_spawn_addons"
         spawn_cfg_addon = {
-            "left_robot": {"visible": False, "prim_physics": _make_physics_spawn_cfg(asset_path).prim_physics},
+            "left_robot": {
+                "visible": False,
+                "prim_physics": {"finger/collision": FrictionCfg(), "finger": MassCfg()},
+            },
             "right_robot": {"visible": False},
         }
 
@@ -299,17 +278,8 @@ def _make_addon_embodiment(asset_path: Path, **kwargs):
         def _configure_physics_backend(self, backend):
             self.scene_config.left_robot.spawn.visible = True
 
-    return TestEmbodiment(**kwargs)
-
-
-def _test_embodiment_spawn_addons(_simulation_app, asset_path: Path) -> bool:
-    from isaaclab.sim import UsdFileCfg
-
-    from isaaclab_arena.utils.physics_backend import PhysicsBackend
-
-    _write_asset(asset_path)
-    embodiment = _make_addon_embodiment(asset_path)
-    sibling = type(embodiment)()
+    embodiment = TestEmbodiment()
+    sibling = TestEmbodiment()
     embodiment.spawn_cfg_addon["left_robot"]["prim_physics"]["finger/collision"].friction = 6.0
     assert sibling.spawn_cfg_addon["left_robot"]["prim_physics"]["finger/collision"].friction == 8.0
     embodiment.configure_physics_backend(PhysicsBackend.NEWTON)
@@ -321,14 +291,12 @@ def _test_embodiment_spawn_addons(_simulation_app, asset_path: Path) -> bool:
     assert type(scene.right_robot.spawn) is UsdFileCfg
     spawn = scene.left_robot.spawn
     prim = spawn.func("/World/Left", spawn)
-    assert prim.GetStage().GetPrimAtPath("/World/Left/finger").GetAttribute("physics:mass").Get() == 0.25
+    assert prim.GetChild("finger").GetAttribute("physics:mass").Get() == 0.25
     embodiment.configure_physics_backend(PhysicsBackend.NEWTON)
     assert scene.left_robot.spawn is spawn
     with pytest.raises(AssertionError, match="cannot be reconfigured"):
         embodiment.configure_physics_backend(PhysicsBackend.PHYSX)
-    invalid = _make_addon_embodiment(
-        asset_path, spawn_cfg_addon={"left_robot": {"visible": False}, "missing_robot": {"visible": False}}
-    )
+    invalid = TestEmbodiment(spawn_cfg_addon={"left_robot": {"visible": False}, "missing_robot": {"visible": False}})
     with pytest.raises(AssertionError, match="unknown scene entry"):
         invalid.configure_physics_backend(PhysicsBackend.NEWTON)
     assert invalid.scene_config.left_robot.spawn.visible is True
@@ -336,7 +304,17 @@ def _test_embodiment_spawn_addons(_simulation_app, asset_path: Path) -> bool:
     return True
 
 
-def test_embodiment_spawn_addons(tmp_path):
-    assert run_function_with_persistent_simulation_app(
-        _test_embodiment_spawn_addons, asset_path=tmp_path / "robot.usda"
-    )
+@pytest.mark.parametrize(
+    "test_case",
+    [
+        pytest.param(_test_asset_physics_spawn_lifecycle, id="spawn_lifecycle"),
+        pytest.param(_test_asset_physics_invalid_targets, id="invalid_targets"),
+        pytest.param(_test_asset_physics_instance_proxies, id="instance_proxies"),
+        pytest.param(_test_asset_physics_newton_import, id="newton_import", marks=pytest.mark.with_newton),
+        pytest.param(_test_physics_config_copy_and_serialization, id="copy_and_serialization"),
+        pytest.param(_test_embodiment_spawn_addons, id="embodiment_addons"),
+    ],
+)
+def test_asset_physics_config(test_case, tmp_path):
+    # Each case keeps deferred imports and stage cleanup inside the SimulationApp lifecycle.
+    assert run_function_with_persistent_simulation_app(test_case, asset_path=tmp_path / "robot.usda")
