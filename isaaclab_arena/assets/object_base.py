@@ -19,6 +19,7 @@ from isaaclab_arena.relations.placement_asset import PlaceableAsset
 from isaaclab_arena.terms.events import set_object_pose, set_object_pose_per_env
 from isaaclab_arena.utils.pose import Pose, PosePerEnv, PoseRange
 from isaaclab_arena.utils.velocity import Velocity
+from isaaclab_arena.variations.object_disappear_variation import ObjectDisappearVariation
 from isaaclab_arena.variations.object_mass_variation import ObjectMassVariation
 
 
@@ -74,6 +75,7 @@ class RootedObjectBase(ObjectBase):
         }, f"RootedObjectBase does not support object type '{self.object_type}'."
         if self.object_type == ObjectType.RIGID:
             self.add_variation(ObjectMassVariation(self.name))
+            self.add_variation(ObjectDisappearVariation(self.name))
         self.initial_velocity: Velocity | None = None
 
     def _set_initial_pose(self, pose: Pose | PoseRange | PosePerEnv) -> None:
