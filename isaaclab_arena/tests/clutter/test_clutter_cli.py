@@ -1,0 +1,128 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+"""Offline clutter generation through the command line."""
+
+import json
+import subprocess
+from pathlib import Path
+
+import pytest
+
+from isaaclab_arena.tests.utils.constants import TestConstants
+from isaaclab_arena.tests.utils.subprocess import run_subprocess
+
+CLUTTER_DIR = Path(__file__).parents[3] / "isaaclab_arena_environments/clutter"
+SCRIPT = Path(TestConstants.scripts_dir) / "generate_clutter_scene.py"
+
+
+def register_no_embodiment():
+    from isaaclab_arena.assets.registries import AssetRegistry
+    from isaaclab_arena.embodiments.no_embodiment import NoEmbodiment
+
+    AssetRegistry().register(NoEmbodiment, key="clutter_test_no_embodiment")
+
+
+def test_clutter_imports_respect_simulation_startup():
+    result = subprocess.run(
+        [
+            TestConstants.python_path,
+            "-c",
+            (
+                "import runpy, sys; runpy.run_path(sys.argv[1]); "
+                "assert 'numpy' not in sys.modules, 'Numerical libraries imported before SimulationApp startup'; "
+                "import isaaclab_arena.relations.clutter.settle; "
+                "assert 'pxr' not in sys.modules, 'USD imported before SimulationApp startup'"
+            ),
+            str(SCRIPT),
+        ],
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+@pytest.mark.with_subprocess
+@pytest.mark.parametrize("preset", [None, "newton"])
+def test_cli_generates_scene_cache(tmp_path, preset):
+    import yaml
+
+    output = tmp_path / "episodes.jsonl"
+    source = CLUTTER_DIR / "clutter_scene.yaml"
+    if preset is not None:
+        # The office table has authored inertia that MuJoCo rejects.
+        support = tmp_path / "support.usda"
+        support.write_text("""#usda 1.0
+(
+    defaultPrim = "Support"
+    metersPerUnit = 1
+    upAxis = "Z"
+)
+def Xform "Support" (
+    prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+) {
+    bool physics:kinematicEnabled = true
+    float physics:mass = 1
+    def Xform "surface" {
+        double3 xformOp:translate = (0, 0, 0.7)
+        uniform token[] xformOpOrder = ["xformOp:translate"]
+        def Cube "collision" (
+            prepend apiSchemas = ["PhysicsCollisionAPI"]
+        ) {
+            double size = 1
+            double3 xformOp:scale = (1, 1, 0.1)
+            uniform token[] xformOpOrder = ["xformOp:scale"]
+        }
+    }
+}
+""")
+        data = yaml.safe_load((CLUTTER_DIR / "clutter_scene.yaml").read_text())
+        data["background"] = {
+            "id": "table",
+            "registry_name": "simready_usd_object",
+            "params": {"usd_path": str(support), "instance_name": "table"},
+        }
+        data["embodiment"] = {"id": "robot", "registry_name": "clutter_test_no_embodiment"}
+        data["object_references"] = [
+            {"id": "surface", "parent_id": "table", "prim_path": "surface", "object_type": "base"}
+        ]
+        data["relations"].append({"kind": "is_anchor", "subject": "surface"})
+        for relation in data["relations"]:
+            if relation["kind"] == "clutter_on":
+                relation["reference"] = "surface"
+        source = tmp_path / "source.yaml"
+        source.write_text(yaml.safe_dump(data))
+    # Double-digit environment IDs catch lexicographic pose-row ordering.
+    num_envs = 12 if preset == "newton" else 2
+    num_layouts = num_envs + 1
+    arguments = [
+        f"env_spec={source}",
+        f"output={output}",
+        f"num_envs={num_envs}",
+        f"num_layouts={num_layouts}",
+        "settle.timeout_s=12.0",
+        "--viz",
+        "none",
+    ]
+    if preset is not None:
+        arguments.extend([
+            f"presets={preset}",
+            "register=[isaaclab_arena.tests.clutter.test_clutter_cli:register_no_embodiment]",
+        ])
+    run_subprocess(
+        [TestConstants.python_path, str(SCRIPT), *arguments],
+        timeout_sec=180,
+    )
+    records = [json.loads(line)["variations"]["scene.relation_placement"] for line in output.read_text().splitlines()]
+    assert len(records) == num_layouts
+    assert len({record["layout_id"] for record in records}) == num_layouts
+    for record in records:
+        assert record["source"] == "settled"
+        assert set(record["poses"]) == {f"cube_{i}" for i in range(4)}
+        for pose in record["poses"].values():
+            x, y, z = pose["position_xyz"]
+            assert -0.5 < x < 0.5 and -0.5 < y < 0.5
+            assert 0.0 < z < 1.5

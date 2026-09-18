@@ -24,8 +24,9 @@ def step_physics(env: ManagerBasedEnv, num_steps: int, render: bool = False) -> 
             False (physics-only).
     """
     dt = env.unwrapped.sim.get_physics_dt()
+    # Apply actuator targets on every substep without advancing episode recorders via env.step.
     for _ in range(num_steps):
-        # Does not perturb metric recorder as no env.step is called.
+        env.unwrapped.scene.write_data_to_sim()
         env.unwrapped.sim.step(render=render)
         env.unwrapped.scene.update(dt)
 

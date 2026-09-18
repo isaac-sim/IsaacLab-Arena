@@ -55,13 +55,24 @@ class ObjectReference(RootedObjectBase):
         return event_cfg
 
     def get_initial_pose(self) -> Pose:
-        if self.parent_asset.initial_pose is None:
-            T_W_O = self.initial_pose_relative_to_parent
-        else:
-            T_P_O = self.initial_pose_relative_to_parent
-            T_W_P = self.parent_asset.initial_pose
-            T_W_O = T_W_P.multiply(T_P_O)
-        return T_W_O
+        """Return T_E_O for reference O, parent P and local environment frame E."""
+        T_P_O = self.initial_pose_relative_to_parent
+        T_E_P = self.get_parent_pose()
+        if T_E_P is None:
+            return T_P_O
+        T_E_O = T_E_P.multiply(T_P_O)
+        return T_E_O
+
+    def get_parent_pose(self) -> Pose | None:
+        """Return the parent's fixed pose, or None when it has no configured pose."""
+        pose = self.parent_asset.initial_pose
+        assert pose is None or isinstance(pose, Pose), "ObjectReference requires a fixed parent pose"
+        return pose
+
+    def get_parent_pose_or_identity(self) -> Pose:
+        """Return the parent's fixed pose, using identity when no pose is configured."""
+        pose = self.get_parent_pose()
+        return pose if pose is not None else Pose.identity()
 
     @property
     def prim_path_in_parent_usd(self) -> str:
@@ -109,10 +120,7 @@ class ObjectReference(RootedObjectBase):
         """
         box = self.get_bounding_box()
         world_position = self.get_initial_pose().position_xyz
-        parent_pose = self.parent_asset.initial_pose
-        if parent_pose is None:
-            return box.translated(world_position)
-        quarters = quaternion_to_90_deg_z_quarters(parent_pose.rotation_xyzw)
+        quarters = quaternion_to_90_deg_z_quarters(self.get_parent_pose_or_identity().rotation_xyzw)
         return box.rotated_90_around_z(quarters).translated(world_position)
 
     def get_collision_mesh(self) -> trimesh.Trimesh | None:

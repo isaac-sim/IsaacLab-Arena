@@ -21,6 +21,7 @@ from isaaclab_arena.assets.registries import AssetRegistry, ObjectRelationLibrar
 from isaaclab_arena.environment_spec.arena_env_graph_task_conversion_utils import build_task_from_spec
 from isaaclab_arena.environment_spec.arena_env_graph_types import ObjectReferenceSpec, SpatialRelationSpec
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+from isaaclab_arena.relations.placement_asset import PlaceableAsset
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.utils.physics_backend import PhysicsBackend
 from isaaclab_arena.utils.pose import Pose
@@ -38,6 +39,7 @@ _AFFORDANCE_REFERENCE_CLASSES: dict[str, type[ObjectReference]] = {
 
 if TYPE_CHECKING:
     from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
+    from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
 
 
 def parse_asset_params(params: dict[str, Any]) -> dict[str, Any]:
@@ -48,12 +50,30 @@ def parse_asset_params(params: dict[str, Any]) -> dict[str, Any]:
     return parsed
 
 
-def build_arena_env_from_graph_spec(graph_spec: ArenaEnvGraphSpec, enable_cameras: bool = False) -> Any:
-    """Build an IsaacLabArenaEnvironment from a validated ArenaEnvGraphSpec.
+def build_arena_env_from_graph_spec(
+    graph_spec: ArenaEnvGraphSpec, enable_cameras: bool = False
+) -> IsaacLabArenaEnvironment:
+    """Build an environment description from a graph specification.
 
     Args:
-        graph_spec: A validated graph spec (asset refs exist, ids unique, etc.).
-        enable_cameras: Forwarded to the embodiment so its cameras are added.
+        graph_spec: Validated graph specification.
+        enable_cameras: Whether to configure embodiment cameras.
+    """
+    arena_env, _ = build_arena_env_with_assets_from_graph_spec(graph_spec, enable_cameras=enable_cameras)
+    return arena_env
+
+
+def build_arena_env_with_assets_from_graph_spec(
+    graph_spec: ArenaEnvGraphSpec, enable_cameras: bool = False
+) -> tuple[IsaacLabArenaEnvironment, dict[str, PlaceableAsset]]:
+    """Build an environment and retain the exact graph-node-to-asset mapping for serialization.
+
+    Args:
+        graph_spec: Validated graph specification.
+        enable_cameras: Whether to configure embodiment cameras.
+
+    Returns:
+        Environment description and assets keyed by their source graph node IDs.
     """
     # Lazy import to avoid pxr early import causing unit test failures.
     from isaaclab_arena.environment_spec.env_cfg_override import apply_env_cfg_override
@@ -69,7 +89,7 @@ def build_arena_env_from_graph_spec(graph_spec: ArenaEnvGraphSpec, enable_camera
     default_physics_backend = (
         graph_spec.default_physics_backend if graph_spec.default_physics_backend is not None else PhysicsBackend.PHYSX
     )
-    return IsaacLabArenaEnvironment(
+    arena_env = IsaacLabArenaEnvironment(
         name=graph_spec.env_name,
         scene=Scene(assets=scene_assets),
         embodiment=assets_by_node_id[graph_spec.embodiment.id],
@@ -78,6 +98,7 @@ def build_arena_env_from_graph_spec(graph_spec: ArenaEnvGraphSpec, enable_camera
         env_cfg_callback=env_cfg_callback,
         default_physics_backend=default_physics_backend,
     )
+    return arena_env, assets_by_node_id
 
 
 def build_checks_for_placer_params(graph_spec: ArenaEnvGraphSpec) -> ObjectPlacerParams:
@@ -149,17 +170,16 @@ def _scene_already_has_light(graph_spec: ArenaEnvGraphSpec, assets_by_node_id: d
     return False
 
 
-def _prim_path_for_relative(registry_name: str, prim_path: str) -> str:
+def _prim_path_for_relative(parent_name: str, prim_path: str) -> str:
     """Expand a relative prim suffix to the Isaac Lab runtime prim path."""
     if prim_path.startswith("{ENV_REGEX_NS}/"):
         return prim_path
-    return f"{{ENV_REGEX_NS}}/{registry_name}/{prim_path.lstrip('/')}"
+    return f"{{ENV_REGEX_NS}}/{parent_name}/{prim_path.lstrip('/')}"
 
 
 def _instantiate_object_reference(
     ref: ObjectReferenceSpec,
     parent_asset: Asset,
-    background_registry_name: str,
 ) -> ObjectReference:
     """Instantiate a plain or affordance-specific object reference."""
     assert ref.prim_path is not None, "Object reference must have a prim path"
@@ -168,7 +188,7 @@ def _instantiate_object_reference(
 
     common_kwargs = {
         "name": ref.id,
-        "prim_path": _prim_path_for_relative(background_registry_name, ref.prim_path),
+        "prim_path": _prim_path_for_relative(parent_asset.name, ref.prim_path),
         "parent_asset": parent_asset,
         **parse_asset_params(ref.params),
     }
@@ -185,9 +205,9 @@ def _instantiate_object_reference(
 
 def instantiate_assets_from_spec(
     graph_spec: ArenaEnvGraphSpec, asset_registry: Any, enable_cameras: bool = False
-) -> dict[str, type[Asset]]:
+) -> dict[str, PlaceableAsset]:
     """Return ``{asset.id: live_asset}`` after materializing the typed graph spec."""
-    assets_by_node_id: dict[str, type[Asset]] = {}
+    assets_by_node_id: dict[str, PlaceableAsset] = {}
 
     embodiment_params = parse_asset_params(graph_spec.embodiment.params)
     if enable_cameras:
@@ -217,14 +237,13 @@ def instantiate_assets_from_spec(
         assets_by_node_id[ref.id] = _instantiate_object_reference(
             ref,
             parent_asset=assets_by_node_id[ref.parent_id],
-            background_registry_name=graph_spec.background.registry_name,
         )
 
     return assets_by_node_id
 
 
 def _attach_spatial_relations_to_assets(
-    relations: list[SpatialRelationSpec], assets_by_node_id: dict[str, type[Asset]]
+    relations: list[SpatialRelationSpec], assets_by_node_id: dict[str, PlaceableAsset]
 ) -> None:
     """Attach one Relation per spatial relation to the asset(s) it targets, in place."""
     for relation in relations:

@@ -5,11 +5,13 @@
 
 from __future__ import annotations
 
+import math
 import torch
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.relations.bounding_box_helpers import assign_variants_for_envs, build_per_env_bounding_boxes
+from isaaclab_arena.relations.collision_mode import object_uses_mesh_collision
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_result import PlacementResult
 from isaaclab_arena.relations.placement_validation import PlacementValidationResults
@@ -17,6 +19,7 @@ from isaaclab_arena.relations.placement_validators import build_validators
 from isaaclab_arena.relations.placement_visualizer import get_or_create_placement_visualizer
 from isaaclab_arena.relations.relation_solver import RelationSolver
 from isaaclab_arena.relations.relations import (
+    ClutterOn,
     FaceTo,
     On,
     RandomAroundSolution,
@@ -247,6 +250,21 @@ class ObjectPlacer:
             objects, unrotated_candidate_bboxes, orientations_per_candidate
         )
 
+        # Clutter needs a free vertical release interval before optimization.
+        # Include fixed neighbors here so the initial drop column does not intersect them.
+        collision_bboxes = []
+        if collision_objects and any(get_relation(obj, ClutterOn) is not None for obj in objects):
+            for obstacle in collision_objects:
+                # Room mesh bounds include empty space; leave mesh obstacles to the solver.
+                if object_uses_mesh_collision(obstacle, self.params.solver_params.collision_mode):
+                    continue
+                collision_bboxes.append(obstacle.get_world_bounding_box())
+
+        for i, positions in enumerate(initial_positions):
+            self._initialize_clutter_positions(
+                positions, self._get_bounding_boxes_for_candidate_index(candidate_bboxes, i), collision_bboxes
+            )
+
         all_positions = self._solver.solve(
             objects,
             initial_positions,
@@ -262,6 +280,7 @@ class ObjectPlacer:
         )
         assert self._solver.last_loss_per_env is not None
         all_losses: list[float] = self._solver.last_loss_per_env.cpu().tolist()
+        self._assert_finite_candidates(all_positions, orientations_per_candidate, all_losses, candidates_per_env)
         bboxes_per_candidate = [
             self._get_bounding_boxes_for_candidate_index(candidate_bboxes, candidate_idx)
             for candidate_idx in range(num_candidates)
@@ -300,6 +319,23 @@ class ObjectPlacer:
             self._print_ranked_summary(ranked_candidate_slices, num_candidates, num_envs)
 
         return ranked_results
+
+    @staticmethod
+    def _assert_finite_candidates(
+        positions_per_candidate: list[dict[PlaceableAsset, tuple[float, float, float]]],
+        orientations_per_candidate: list[dict[PlaceableAsset, float]],
+        losses: list[float],
+        candidates_per_env: int,
+    ) -> None:
+        """Reject non-finite solver output before comparisons can mark it valid or rank it."""
+        for index, (positions, orientations, loss) in enumerate(
+            zip(positions_per_candidate, orientations_per_candidate, losses, strict=True)
+        ):
+            values = [loss, *orientations.values(), *(value for position in positions.values() for value in position)]
+            assert all(math.isfinite(value) for value in values), (
+                f"Non-finite solver output for environment {index // candidates_per_env}, "
+                f"candidate {index % candidates_per_env}"
+            )
 
     @staticmethod
     def _rank_candidates(
@@ -394,25 +430,27 @@ class ObjectPlacer:
     ) -> dict[PlaceableAsset, float]:
         """Sample absolute world Z-yaws for non-anchor objects without FaceTo.
 
-        Marker yaw is included; random_yaw_init adds a sampled delta. Roll/pitch marker objects are
-        omitted so their requested rotation is applied verbatim; their footprint is enclosed by
-        _rotate_candidate_bboxes so overlap validation stays sound.
+        Marker yaw is included; random_yaw_init adds a sampled delta for ordinary relations.
+        ClutterOn uses its random_yaw setting and preserves marker tilt. Other tilted markers
+        retain their authored rotation. Collision bounds enclose the resulting rotation.
         """
         orientations: dict[PlaceableAsset, float] = {}
         for obj in objects:
             marker = get_relation(obj, RotateAroundSolution)
+            clutter = get_relation(obj, ClutterOn)
             has_roll_pitch = marker is not None and (marker.roll_rad != 0.0 or marker.pitch_rad != 0.0)
-            marker_yaw = marker.yaw_rad if marker is not None else 0.0
+            marker_yaw = yaw_from_quat_xyzw(marker.get_rotation_xyzw()) if marker is not None else 0.0
             if obj in anchor_objects:
                 assert marker is None or (marker_yaw == 0.0 and not has_roll_pitch), (
                     f"Anchor '{obj.name}' has a RotateAroundSolution. "
                     "Anchors are not repositioned by the placer, so any marker rotation must "
                     "already be baked into the anchor's initial_pose before calling place()."
                 )
-            elif get_relation(obj, FaceTo) is None and not has_roll_pitch:
-                sampled_yaw = get_random_rotation(generator) if self.params.random_yaw_init else 0.0
+            elif get_relation(obj, FaceTo) is None and (not has_roll_pitch or clutter is not None):
+                random_yaw = clutter.random_yaw if clutter is not None else self.params.random_yaw_init
+                sampled_yaw = get_random_rotation(generator) if random_yaw else 0.0
                 total_yaw = wrap_angle_to_pi(sampled_yaw + marker_yaw)
-                if total_yaw != 0.0:
+                if total_yaw != 0.0 or marker_yaw != 0.0:
                     orientations[obj] = total_yaw
         return orientations
 
@@ -530,6 +568,7 @@ class ObjectPlacer:
         on_relation = next(r for r in obj.get_relations() if isinstance(r, On))
         parent_bbox = self._get_on_parent_world_bbox(on_relation.parent, anchor_objects, anchor_bbox, env_bboxes)
         child_bbox = env_bboxes[obj]
+        parent_bbox = on_relation.support_bbox(parent_bbox)
 
         child_min, child_max = child_bbox.min_point[0], child_bbox.max_point[0]
         if on_relation.overlap:
@@ -554,6 +593,60 @@ class ObjectPlacer:
         z = float(parent_bbox.max_point[0, 2] + on_relation.clearance_m - child_bbox.min_point[0, 2])
 
         return (x, y, z)
+
+    def _initialize_clutter_positions(
+        self,
+        positions: dict[PlaceableAsset, tuple[float, float, float]],
+        bboxes: dict[PlaceableAsset, AxisAlignedBoundingBox],
+        collision_bboxes: list[AxisAlignedBoundingBox],
+    ) -> None:
+        """Lower clutter releases into the first free vertical interval, in asset order."""
+        clutter_objects = {obj for obj in positions if get_relation(obj, ClutterOn) is not None}
+        for obj in positions:
+            relation = get_relation(obj, ClutterOn)
+            if relation is None:
+                continue
+            support = relation.support_bbox(bboxes[relation.parent].translated(positions[relation.parent]))
+            obstacles = [
+                bboxes[other].translated(position)
+                for other, position in positions.items()
+                if other not in clutter_objects and other is not relation.parent
+            ]
+            obstacles.extend(collision_bboxes)
+            # A non-overlapping seed selects the release column above the support;
+            # the optimizer can otherwise resolve initial collisions by moving objects downward.
+            positions[obj] = self._clutter_release_position(relation, positions[obj], bboxes[obj], support, obstacles)
+            clutter_objects.remove(obj)
+
+    def _clutter_release_position(
+        self,
+        relation: ClutterOn,
+        position: tuple[float, float, float],
+        box: AxisAlignedBoundingBox,
+        support: AxisAlignedBoundingBox,
+        obstacles: list[AxisAlignedBoundingBox],
+    ) -> tuple[float, float, float]:
+        """Clamp XY to the release region and find the lowest unoccupied vertical interval."""
+        lower = support.min_point[0, :2] + relation.edge_margin_m - box.min_point[0, :2]
+        upper = support.max_point[0, :2] - relation.edge_margin_m - box.max_point[0, :2]
+        # An oversized sampled footprint fails containment validation for this candidate.
+        xy = [min(max(position[axis], float(lower[axis])), float(upper[axis])) for axis in range(2)]
+        bottom = float(support.max_point[0, 2]) + relation.clearance_m
+        height = float(box.size[0, 2])
+        gap = max(relation.gap_m, self.params.solver_params.clearance_m)
+        for obstacle in sorted(obstacles, key=lambda bounds: float(bounds.min_point[0, 2])):
+            overlaps_xy = all(
+                xy[axis] + float(box.max_point[0, axis]) > float(obstacle.min_point[0, axis]) - gap
+                and xy[axis] + float(box.min_point[0, axis]) < float(obstacle.max_point[0, axis]) + gap
+                for axis in range(2)
+            )
+            if (
+                overlaps_xy
+                and bottom + height > float(obstacle.min_point[0, 2]) - gap
+                and bottom < float(obstacle.max_point[0, 2]) + gap
+            ):
+                bottom = float(obstacle.max_point[0, 2]) + gap
+        return (xy[0], xy[1], bottom - float(box.min_point[0, 2]))
 
     def _sample_axis_position(
         self,

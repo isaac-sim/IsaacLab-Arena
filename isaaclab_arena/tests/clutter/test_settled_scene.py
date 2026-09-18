@@ -1,0 +1,296 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+
+"""Offline ClutterOn settling and pose-file generation."""
+
+import json
+from pathlib import Path
+
+import pytest
+
+from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
+
+SOURCE = Path(__file__).parents[3] / "isaaclab_arena_environments/clutter/clutter_scene.yaml"
+
+
+def _arguments(output):
+    from isaaclab_arena.scripts.generate_clutter_scene import ClutterGenerationCfg
+
+    return ClutterGenerationCfg(env_spec=str(SOURCE), output=str(output), num_envs=2, attempts=3)
+
+
+def _assert_scene_state_equal(actual, expected):
+    import torch
+
+    for kind, states in expected.items():
+        for name, state in states.items():
+            for field, value in state.items():
+                torch.testing.assert_close(actual[kind][name][field], value, atol=1e-6, rtol=0)
+
+
+def _test_generation_writes_complete_layouts(simulation_app, tmp_path):
+    import yaml
+    from unittest.mock import patch
+
+    from isaaclab_arena.relations.clutter.settle import settle_clutter
+    from isaaclab_arena.scripts.generate_clutter_scene import generate_scene
+    from isaaclab_arena.utils.pose import Pose
+
+    data = yaml.safe_load(SOURCE.read_text())
+    data["placement_validators"] = {
+        "enabled_checks": ["no_overlap", "on_relation"],
+        "required_checks": ["no_overlap", "on_relation"],
+    }
+    data["external_yaml"] = "physics.yaml"
+    physics = tmp_path / "physics.yaml"
+    physics.write_text(
+        yaml.safe_dump({
+            "default_physics_backend": "physx",
+            "env_cfg_override": {"sim": {"dt": 0.01}},
+        })
+    )
+    source = tmp_path / "scene.yaml"
+    source.write_text(yaml.safe_dump(data))
+    original = source.read_bytes()
+    path = tmp_path / "episodes.jsonl"
+    args = _arguments(path)
+    args.env_spec = str(source)
+    args.num_layouts = 4
+
+    def settle_with_graph_settings(env, *args, **kwargs):
+        assert env.unwrapped.sim.get_physics_dt() == pytest.approx(0.01)
+        return settle_clutter(env, *args, **kwargs)
+
+    with patch("isaaclab_arena.relations.clutter.settle.settle_clutter", wraps=settle_with_graph_settings):
+        assert generate_scene(args) == path
+    assert source.read_bytes() == original
+    records = [json.loads(line)["variations"]["scene.relation_placement"] for line in path.read_text().splitlines()]
+    assert [record["layout_id"] for record in records] == [f"layout_{i:06d}" for i in range(4)]
+    assert records[0]["poses"]["cube_0"] != records[1]["poses"]["cube_0"]
+    for record in records:
+        assert record["source"] == "settled"
+        assert set(record["poses"]) == {f"cube_{i}" for i in range(4)}
+        for value in record["poses"].values():
+            Pose.from_dict(value)
+    saved = path.read_bytes()
+    with pytest.raises(AssertionError, match="Output already exists"):
+        generate_scene(args)
+    assert path.read_bytes() == saved
+    return True
+
+
+def test_generation_writes_complete_layouts(tmp_path):
+    assert run_function_with_persistent_simulation_app(_test_generation_writes_complete_layouts, tmp_path=tmp_path)
+
+
+def _test_uncached_clutter_drops_at_simulation_start(simulation_app):
+    import torch
+
+    from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
+    from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
+    from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
+    from isaaclab_arena.relations.relations import RotateAroundSolution
+    from isaaclab_arena.utils.pose import Pose
+
+    arena_env = ArenaEnvGraphSpec.from_yaml(SOURCE).to_arena_env()
+    marker = RotateAroundSolution(roll_rad=0.4, pitch_rad=0.3, yaw_rad=0.7)
+    arena_env.scene.assets["cube_0"].add_relation(marker)
+    arena_env.placer_params.min_unique_layouts_per_env = 1
+    arena_env.placer_params.max_placement_attempts = 1
+    arena_env.placer_params.resolve_on_reset = False
+    env = ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg(num_envs=1, placement_seed=42)).make_registered()
+    try:
+        env.reset()
+        pose = env.unwrapped.arena_world.get_pose_e("cube_0")[0].cpu()
+        rotation = Pose(rotation_xyzw=tuple(pose[3:].tolist())).to_transform_matrix("cpu")[:3, :3]
+        base = Pose(rotation_xyzw=marker.get_rotation_xyzw()).to_transform_matrix("cpu")[:3, :3]
+        # Random world-Z yaw must preserve the authored tilt.
+        torch.testing.assert_close((rotation @ base.T)[2], torch.tensor([0.0, 0.0, 1.0]), atol=1e-6, rtol=0)
+        for _ in range(200):
+            env.unwrapped.scene.write_data_to_sim()
+            env.unwrapped.sim.step(render=False)
+            env.unwrapped.scene.update(env.unwrapped.sim.get_physics_dt())
+        after = env.unwrapped.arena_world.get_pose_e("cube_0")[0, 2]
+        assert float(pose[2] - after.cpu()) > 0.005
+    finally:
+        env.close()
+    return True
+
+
+def test_uncached_clutter_drops_at_simulation_start():
+    assert run_function_with_persistent_simulation_app(_test_uncached_clutter_drops_at_simulation_start)
+
+
+def _test_settling_restores_scene_and_retries_only_rejected_layouts(simulation_app):
+    import torch
+    from unittest.mock import patch
+
+    from isaaclab_arena.environment_spec.arena_env_graph_conversion_utils import (
+        build_arena_env_with_assets_from_graph_spec,
+    )
+    from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
+    from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
+    from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
+    from isaaclab_arena.relations.clutter.settle import _containment_failures, _release_objects, settle_clutter
+    from isaaclab_arena.utils.pose import Pose
+
+    arena_env, assets = build_arena_env_with_assets_from_graph_spec(ArenaEnvGraphSpec.from_yaml(SOURCE))
+    assets["table"].set_initial_pose(Pose((1.0, 0.0, 0.0), (0.0, 0.0, 2**-0.5, 2**-0.5)))
+    env = ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg(num_envs=2, solve_relations=False)).make_registered()
+    checked = []
+
+    def reject_second_once(layout, *args):
+        checked.append(layout)
+        return ["fell off: cube_0"] if len(checked) == 2 else _containment_failures(layout, *args)
+
+    try:
+        env.reset()
+        initial = env.unwrapped.scene.get_state()
+        with (
+            patch("isaaclab_arena.relations.clutter.settle._release_objects", wraps=_release_objects) as release,
+            patch(
+                "isaaclab_arena.relations.clutter.settle._containment_failures",
+                side_effect=reject_second_once,
+            ),
+        ):
+            layouts = settle_clutter(env, list(assets.values()), attempts=3)
+        # Only the rejected environment receives a second release.
+        assert [call.args[1] for call in release.call_args_list] == [0, 1, 1]
+        assert layouts == [checked[0], checked[2]]
+        _assert_scene_state_equal(env.unwrapped.scene.get_state(), initial)
+        with patch(
+            "isaaclab_arena.relations.clutter.settle._containment_failures",
+            return_value=["fell off: cube_0"],
+        ):
+            with pytest.raises(AssertionError, match="fell off: cube_0"):
+                settle_clutter(env, list(assets.values()), attempts=1)
+        _assert_scene_state_equal(env.unwrapped.scene.get_state(), initial)
+        world = env.unwrapped.arena_world
+        by_scene_key = {asset.get_scene_key(): asset for asset in assets.values()}
+        for env_id, layout in enumerate(layouts):
+            for name, pose in layout.items():
+                by_scene_key[name].write_layout_pose_to_sim(env.unwrapped, env_id, pose)
+        before = {name: world.get_pose_e(name).clone() for name in layouts[0]}
+        for _ in range(200):
+            env.unwrapped.scene.write_data_to_sim()
+            env.unwrapped.sim.step(render=False)
+            env.unwrapped.scene.update(env.unwrapped.sim.get_physics_dt())
+        for name, pose in before.items():
+            torch.testing.assert_close(world.get_pose_e(name), pose, atol=0.005, rtol=0)
+    finally:
+        env.close()
+    return True
+
+
+def test_settling_restores_scene_and_retries_only_rejected_layouts():
+    assert run_function_with_persistent_simulation_app(_test_settling_restores_scene_and_retries_only_rejected_layouts)
+
+
+def _test_generation_rejects_invalid_scene(simulation_app, failure, expected_error):
+    import tempfile
+    import yaml
+
+    from isaaclab_arena.scripts.generate_clutter_scene import generate_scene
+
+    with tempfile.TemporaryDirectory() as directory:
+        source = Path(directory) / "source.yaml"
+        data = yaml.safe_load(SOURCE.read_text())
+        if failure == "passive":
+            data["relations"] = [relation for relation in data["relations"] if relation["subject"] != "cube_3"]
+            data["objects"][3]["params"] = {"initial_pose": {"position_xyz": [0.5, 0.0, 3.0]}}
+        else:
+            for relation in data["relations"]:
+                if relation["kind"] == "clutter_on":
+                    relation["params"] = {"spread": 0.001}
+        source.write_text(yaml.safe_dump(data))
+        output = Path(directory) / "episodes.jsonl"
+        args = _arguments(output)
+        args.env_spec, args.num_envs, args.attempts = str(source), 1, 1
+        with pytest.raises(AssertionError, match=expected_error):
+            generate_scene(args)
+        assert not output.exists()
+    return True
+
+
+@pytest.mark.parametrize(
+    "failure, expected_error",
+    [
+        ("passive", "cube_3: passive drift"),
+        ("release", "release placement failed"),
+    ],
+)
+def test_generation_rejects_invalid_scene(failure, expected_error):
+    assert run_function_with_persistent_simulation_app(
+        _test_generation_rejects_invalid_scene, failure=failure, expected_error=expected_error
+    )
+
+
+def _test_generation_honors_requested_validators(simulation_app, tmp_path, available, expected_error):
+    import yaml
+    from unittest.mock import patch
+
+    from isaaclab_arena.relations.clutter.settle import _release_objects
+    from isaaclab_arena.relations.placement_validation import PlacementCheck
+    from isaaclab_arena.relations.placement_validator_registry import PlacementValidatorRegistry
+    from isaaclab_arena.relations.placement_validators import PlacementValidator
+    from isaaclab_arena.scripts.generate_clutter_scene import generate_scene
+
+    validated_batches = []
+
+    class RejectRelease(PlacementValidator):
+        check = "reject_release"
+
+        def validate_batch(self, positions, orientations, bboxes, collision_objects):
+            validated_batches.append(len(positions))
+            return [False] * len(positions)
+
+    class SettledPoseCheck(PlacementValidator):
+        check = PlacementCheck.IK_REACHABLE
+
+        def validate_batch(self, positions, orientations, bboxes, collision_objects):
+            pytest.fail("Release validation must not run settled-pose checks")
+
+    data = yaml.safe_load(SOURCE.read_text())
+    if not available:
+        data["placement_validators"] = {
+            "enabled_checks": [RejectRelease.check],
+            "required_checks": [RejectRelease.check],
+        }
+    source = tmp_path / "scene.yaml"
+    source.write_text(yaml.safe_dump(data))
+    output = tmp_path / "episodes.jsonl"
+    args = _arguments(output)
+    args.env_spec = str(source)
+    args.num_envs = 1
+    args.attempts = 1
+    registry = PlacementValidatorRegistry()
+    with (
+        patch.dict(registry._components, reject_release=RejectRelease, ik_reachable=SettledPoseCheck),
+        patch.object(RejectRelease, "is_available", return_value=available),
+        patch("isaaclab_arena.relations.clutter.settle._release_objects", wraps=_release_objects) as release,
+    ):
+        with pytest.raises(AssertionError, match=expected_error):
+            generate_scene(args)
+        release.assert_not_called()
+        assert not output.exists()
+    assert bool(validated_batches) == available
+    return True
+
+
+@pytest.mark.parametrize(
+    "available, expected_error",
+    [
+        pytest.param(True, "release placement failed", id="default_checks"),
+        pytest.param(False, "validators did not run", id="unavailable"),
+    ],
+)
+def test_generation_honors_requested_validators(tmp_path, available, expected_error):
+    assert run_function_with_persistent_simulation_app(
+        _test_generation_honors_requested_validators,
+        tmp_path=tmp_path,
+        available=available,
+        expected_error=expected_error,
+    )

@@ -454,7 +454,6 @@ def test_anchor_with_rotate_around_solution_rejected():
         placer.place([table, child])
 
 
-@requires_warp
 def test_centers_in_target_frame_applies_both_yaws():
     """Net yaw = source - target; equal yaws cancel out."""
 
@@ -488,6 +487,22 @@ def test_centers_in_target_frame_applies_both_yaws():
         centers, src, tgt, src_pos, tgt_pos, {src: math.pi / 2, tgt: math.pi / 2}
     )
     assert torch.allclose(result, centers, atol=1e-5)
+
+    # A tilted target retains its heading in this yaw-only frame transform.
+    half_roll, half_yaw = math.pi / 12, math.pi / 4
+    tgt.set_initial_pose(
+        Pose(
+            position_xyz=(0.0, 0.0, 0.0),
+            rotation_xyzw=(
+                math.sin(half_roll) * math.cos(half_yaw),
+                math.sin(half_roll) * math.sin(half_yaw),
+                math.cos(half_roll) * math.sin(half_yaw),
+                math.cos(half_roll) * math.cos(half_yaw),
+            ),
+        )
+    )
+    result = NoOverlapValidator._centers_in_target_frame(centers, src, tgt, src_pos, tgt_pos, None)
+    assert torch.allclose(result, torch.tensor([[0.0, -0.1, 0.0]]), atol=1e-6)
 
 
 @requires_warp
