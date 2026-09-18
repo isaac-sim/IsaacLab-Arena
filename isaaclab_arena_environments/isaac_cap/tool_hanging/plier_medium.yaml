@@ -150,14 +150,10 @@ task:
       tools: [plier_1, plier_2]
       fixtures: [plier_support_left, plier_support_right]
       goals:
-      - tool: plier_1
-        fixture: plier_support_left
-        containment:
+      - containment:
           minimum_xyz: [0.072, -0.203, -0.02]
           maximum_xyz: [0.143, -0.123, 0.1]
-      - tool: plier_2
-        fixture: plier_support_right
-        containment:
+      - containment:
           minimum_xyz: [0.072, -0.203, -0.02]
           maximum_xyz: [0.143, -0.123, 0.1]
       contact_force_n: 0.2

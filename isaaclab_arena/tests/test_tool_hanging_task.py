@@ -10,6 +10,7 @@ settle under gravity. It verifies that the task reports success and resets the e
 """
 
 import torch
+from pathlib import Path
 
 import pytest
 
@@ -46,9 +47,6 @@ def test_point_in_box_ignores_fixture_rotation():
 
 
 def _test_wrench_hangs_on_hook(_simulation_app):
-    import torch
-    from pathlib import Path
-
     from isaaclab.utils.math import quat_apply, quat_from_matrix
 
     from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
@@ -61,15 +59,16 @@ def _test_wrench_hangs_on_hook(_simulation_app):
     experiment = load_arena_experiment_from_config_file(
         config_dir / "experiment_configs/tool_hanging_zero_action_experiment.yaml", device="cuda:0"
     )
-    goal = ArenaEnvGraphSpec.from_yaml(config_dir / "wrench_easy.yaml").task.subtasks[0].params["goals"][0]
+    task_params = ArenaEnvGraphSpec.from_yaml(config_dir / "wrench_easy.yaml").task.subtasks[0].params
+    goal = task_params["goals"][0]
     env = build_arena_builder_from_run_cfg(experiment.runs["tool_hanging"]).make_registered()
     try:
         obs, _ = env.reset()
         base = env.unwrapped
-        wrench = base.scene[goal["tool"]]
+        wrench = base.scene[task_params["tools"][0]]
         # W is world, H is the hook, and T is the wrench root frame. Take the goal's rod midpoint
         # in H and its ring center in T from the scene YAML.
-        T_W_H = base.arena_world.get_pose_w(goal["fixture"])
+        T_W_H = base.arena_world.get_pose_w(task_params["fixtures"][0])
         rod = goal["rod"]
         shank_center_H = 0.5 * (T_W_H.new_tensor([rod["start_xyz"]]) + T_W_H.new_tensor([rod["end_xyz"]]))
         shank_center_W = T_W_H[:, :3] + quat_apply(T_W_H[:, 3:], shank_center_H)

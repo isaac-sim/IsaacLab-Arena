@@ -74,9 +74,7 @@ task:
       tools: [screwdriver_1]
       fixtures: [rack]
       goals:
-      - tool: screwdriver_1
-        fixture: rack
-        containment:
+      - containment:
           minimum_xyz: [-0.067, -0.1252, -0.01]
           maximum_xyz: [0.016, -0.0212, 0.141]
           point_xyz: [0.175, 0, 0]

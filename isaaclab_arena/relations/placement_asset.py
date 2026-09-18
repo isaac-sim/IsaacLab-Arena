@@ -14,7 +14,6 @@ from typing import TYPE_CHECKING
 from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.relations.collision_mode import CollisionMode
 from isaaclab_arena.relations.relations import IsAnchor, Relation, RelationBase, RequiresReachability, UnaryRelation
-from isaaclab_arena.utils.bounding_box import quaternion_to_90_deg_z_quarters
 from isaaclab_arena.utils.pose import Pose, PosePerEnv, PoseRange
 from isaaclab_arena.utils.velocity import Velocity
 
@@ -153,16 +152,16 @@ class PlaceableAsset(Asset, ABC):
         """Return root-relative axis-aligned bounds."""
 
     def get_world_bounding_box(self) -> AxisAlignedBoundingBox:
-        """Return bounds transformed by a fixed root pose with a quarter-turn Z rotation.
+        """Return the bounds enclosing the root-relative box under a fixed root pose.
 
-        Unset, ranged, and per-environment poses leave the root-relative bounds unchanged.
+        Exact for quarter-turn Z rotations and conservative for any other rotation. Unset, ranged,
+        and per-environment poses leave the root-relative bounds unchanged.
         """
         bounding_box = self.get_bounding_box()
         initial_pose = self.get_initial_pose()
         if not isinstance(initial_pose, Pose):
             return bounding_box
-        quarters = quaternion_to_90_deg_z_quarters(initial_pose.rotation_xyzw)
-        return bounding_box.rotated_90_around_z(quarters).translated(initial_pose.position_xyz)
+        return bounding_box.enclosing_after_rotation(initial_pose.rotation_xyzw).translated(initial_pose.position_xyz)
 
     def get_collision_mesh(self) -> trimesh.Trimesh | None:
         """Return this asset's collision mesh, or ``None`` to fall back to the axis-aligned bounds.

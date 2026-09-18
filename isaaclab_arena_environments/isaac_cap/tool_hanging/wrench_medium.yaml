@@ -156,17 +156,13 @@ task:
       tools: [wrench_1, wrench_2]
       fixtures: [wrench_hook_1, wrench_hook_2]
       goals:
-      - tool: wrench_1
-        fixture: wrench_hook_1
-        loop:
+      - loop:
           center_xyz: [0.024331, 0.2214774, 0.00425]
           radius_m: 0.0182
         rod:
           start_xyz: [0.0611, -0.00249, 0.0042]
           end_xyz: [0, -0.00249, 0.0042]
-      - tool: wrench_2
-        fixture: wrench_hook_2
-        loop:
+      - loop:
           center_xyz: [0.024331, 0.2214774, 0.00425]
           radius_m: 0.0182
         rod:

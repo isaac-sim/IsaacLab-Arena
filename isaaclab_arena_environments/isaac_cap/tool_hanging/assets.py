@@ -10,7 +10,6 @@ from typing import ClassVar
 from isaaclab_arena.assets.background import Background
 from isaaclab_arena.assets.nucleus import ARENA_NUCLEUS_DIR
 from isaaclab_arena.assets.object_library import LibraryObject
-from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose
 
 ASSET_ROOT = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/temp_newton_envs/cap_envs/tool_hanging/assets"
@@ -55,17 +54,6 @@ class Fixture(LibraryObject):
 
     def __init__(self, initial_pose: Pose | None = None, collision_mode: str = "mesh", **kwargs):
         super().__init__(initial_pose=initial_pose, collision_mode=collision_mode, **kwargs)
-
-    def get_world_bounding_box(self) -> AxisAlignedBoundingBox:
-        """Enclose the fixture under its full mount rotation; hooks are pitched as well as yawed."""
-        initial_pose = self.get_initial_pose()
-        if not isinstance(initial_pose, Pose):
-            return super().get_world_bounding_box()
-        return (
-            self.get_bounding_box()
-            .enclosing_after_rotation(initial_pose.rotation_xyzw)
-            .translated(initial_pose.position_xyz)
-        )
 
 
 class PegboardRack(Fixture):

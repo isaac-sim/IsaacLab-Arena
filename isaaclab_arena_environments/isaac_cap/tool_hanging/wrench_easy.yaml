@@ -74,9 +74,7 @@ task:
       tools: [ring_spanner_19]
       fixtures: [wrench_hook_2]
       goals:
-      - tool: ring_spanner_19
-        fixture: wrench_hook_2
-        loop:
+      - loop:
           center_xyz: [0.024331, 0.2214774, 0.00425]
           radius_m: 0.0182
         rod:

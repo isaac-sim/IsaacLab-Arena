@@ -77,7 +77,11 @@ class LoopOnRod:
 
 @dataclass
 class PointInBox:
-    """Success when a tool point lies in a world-aligned box translated to the fixture origin."""
+    """Success when a tool point lies in a world-aligned box translated to the fixture origin.
+
+    The box follows the fixture's position but not its rotation, matching how the upstream
+    benchmark scores its containment regions for these fixed fixtures.
+    """
 
     minimum_xyz: Vec3
     maximum_xyz: Vec3

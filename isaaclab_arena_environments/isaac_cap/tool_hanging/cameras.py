@@ -53,7 +53,9 @@ def _d405_camera(
     )
 
 
-def _fixed_camera(name: str, position, rotation_xyzw) -> CameraCfg:
+def _fixed_camera(
+    name: str, position: tuple[float, float, float], rotation_xyzw: tuple[float, float, float, float]
+) -> CameraCfg:
     return _d405_camera(f"{{ENV_REGEX_NS}}/{name}", position, rotation_xyzw, 640, 480, 55.0, (0.01, 4.0))
 
 
@@ -79,5 +81,5 @@ class ToolHangingYamCameraCfg(BimanualYamCameraCfg):
     left_wrist_camera: CameraCfg = _wrist_camera("LeftRobot", "left_wrist_camera")
     right_wrist_camera: CameraCfg = _wrist_camera("RightRobot", "right_wrist_camera")
 
-    def set_robot_mount_positions(self, left, right) -> None:
+    def set_robot_mount_positions(self, left: tuple[float, float, float], right: tuple[float, float, float]) -> None:
         """Keep the fixed cameras where AUTOLab authored them in world coordinates."""

@@ -75,9 +75,7 @@ task:
       tools: [scissors_1]
       fixtures: [scissor_hook_2]
       goals:
-      - tool: scissors_1
-        fixture: scissor_hook_2
-        loop:
+      - loop:
           center_xyz: [0.0217, 0, -0.0385]
           radius_m: 0.029
         rod:
