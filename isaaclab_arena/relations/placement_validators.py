@@ -156,8 +156,7 @@ class OnRelationValidator(PlacementValidator):
                 parent_bbox = env_bboxes[parent]
                 child_world = child_bbox.translated(positions[obj])
                 parent_world = parent_bbox.translated(positions[parent])
-                if isinstance(rel, ClutterOn):
-                    parent_world = rel.support_bbox(parent_world)
+                parent_world = rel.support_bbox(parent_world)
                 parent_size = parent_world.max_point - parent_world.min_point
                 child_size = child_world.max_point - child_world.min_point
 

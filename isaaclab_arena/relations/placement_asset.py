@@ -96,13 +96,6 @@ class PlaceableAsset(Asset, ABC):
         if create_reset_event:
             self._pose_event_cfg = self._build_reset_event()
 
-    def maybe_set_initial_pose(
-        self, pose: Pose | PoseRange | PosePerEnv | None, create_reset_event: bool = True
-    ) -> None:
-        """Set the initial pose and reset event when pose is provided; otherwise leave both unchanged."""
-        if pose is not None:
-            self.set_initial_pose(pose, create_reset_event=create_reset_event)
-
     def _set_initial_pose(self, pose: Pose | PoseRange | PosePerEnv) -> None:
         """Store the configured pose; subclasses also update any derived construction config."""
         self.initial_pose = pose

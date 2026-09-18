@@ -14,11 +14,11 @@ from isaaclab.utils.math import euler_xyz_from_quat
 
 from isaaclab_arena.assets.register import agent_ready, register_object_relation
 from isaaclab_arena.assets.registries import ObjectRelationLibraryRegistry
+from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import PoseRange  # runtime: constructed in to_pose_range_centered_at()
 
 if TYPE_CHECKING:
     from isaaclab_arena.relations.placement_asset import PlaceableAsset
-    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 RelationT = TypeVar("RelationT", bound="RelationBase")
 
@@ -221,6 +221,10 @@ class On(Relation):
         self.edge_margin_m = edge_margin_m
         self.overlap = overlap
 
+    def support_bbox(self, bbox: AxisAlignedBoundingBox) -> AxisAlignedBoundingBox:
+        """Return the support bounds available for placement."""
+        return bbox
+
 
 @agent_ready
 @register_object_relation
@@ -267,8 +271,6 @@ class ClutterOn(On):
 
     def support_bbox(self, bbox: AxisAlignedBoundingBox) -> AxisAlignedBoundingBox:
         """Return the support bounds with its XY footprint scaled by spread."""
-        from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
-
         lower, upper = bbox.min_point.clone(), bbox.max_point.clone()
         center = (lower[:, :2] + upper[:, :2]) * 0.5
         half_size = (upper[:, :2] - lower[:, :2]) * (0.5 * self.spread)

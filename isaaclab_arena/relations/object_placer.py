@@ -569,8 +569,7 @@ class ObjectPlacer:
         on_relation = next(r for r in obj.get_relations() if isinstance(r, On))
         parent_bbox = self._get_on_parent_world_bbox(on_relation.parent, anchor_objects, anchor_bbox, env_bboxes)
         child_bbox = env_bboxes[obj]
-        if isinstance(on_relation, ClutterOn):
-            parent_bbox = on_relation.support_bbox(parent_bbox)
+        parent_bbox = on_relation.support_bbox(parent_bbox)
 
         child_min, child_max = child_bbox.min_point[0], child_bbox.max_point[0]
         if on_relation.overlap:

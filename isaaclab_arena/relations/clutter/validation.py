@@ -124,11 +124,6 @@ class SettleTracker:
         return self._quiet_windows >= self._params.required_quiet_windows
 
     @property
-    def quiet_windows(self) -> int:
-        """How many consecutive quiet polls have been seen."""
-        return self._quiet_windows
-
-    @property
     def diverged(self) -> bool:
         """Whether the latest sample contains non-finite poses."""
         return bool(self._diverged)

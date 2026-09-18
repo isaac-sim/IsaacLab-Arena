@@ -31,6 +31,10 @@ initial pose; in YAML, an omitted pose defaults to identity. An
 ``ObjectReference`` instead derives its pose from the referenced prim within
 its parent asset. A tabletop or counter reference is a common anchor.
 
+Anchor rotations must be multiples of 90 degrees about world Z, with no tilt.
+The solver rotates their local bounds into world-aligned bounds; other anchor
+rotations are rejected.
+
 When the support surface is part of a larger background, use an
 ``ObjectReference`` to identify that surface:
 

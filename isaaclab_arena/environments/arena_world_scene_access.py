@@ -19,12 +19,17 @@ from pxr import Usd, UsdGeom, UsdPhysics
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 
-def _get_representative_prim_groups(
+def get_representative_geometry_prim_groups(
     scene: InteractiveScene,
     scene_key: str,
-    geometry_prim_path: str,
 ) -> list[tuple[Usd.Prim, tuple[int, ...]]]:
-    """Return one representative prim and its cloned environments per asset variant."""
+    """Return one geometry root and its environment IDs per spawned asset variant.
+
+    Args:
+        scene: Scene containing the cloned assets.
+        scene_key: Asset key in the scene configuration.
+    """
+    geometry_prim_path = getattr(scene.cfg, scene_key).prim_path.format(ENV_REGEX_NS=scene.env_regex_ns)
     assert scene.clone_plan is not None, f"Cannot resolve geometry for scene key '{scene_key}' without a clone plan."
 
     clone_matches = tuple(cloner.query.iter_sources(scene.clone_plan, geometry_prim_path))
@@ -55,6 +60,20 @@ def _find_single_rigid_body_prim_in_subtree(root_prim: Usd.Prim, rigid_object_na
         f"{len(rigid_body_prims_in_subtree)} rigid bodies; expected exactly one."
     )
     return rigid_body_prims_in_subtree[0]
+
+
+def get_representative_rigid_body_prims(scene: InteractiveScene, scene_key: str) -> list[Usd.Prim]:
+    """Return the single rigid body of each spawned variant of a rigid object.
+
+    Args:
+        scene: Scene containing the cloned rigid objects.
+        scene_key: Key in scene.rigid_objects.
+    """
+    assert scene_key in scene.rigid_objects, f"Scene key {scene_key!r} is not a rigid object"
+    return [
+        _find_single_rigid_body_prim_in_subtree(prim, scene_key)
+        for prim, _ in get_representative_geometry_prim_groups(scene, scene_key)
+    ]
 
 
 def _compute_geometry_bounds_in_prim_frame(prim: Usd.Prim) -> AxisAlignedBoundingBox:
@@ -116,17 +135,12 @@ def compute_spawned_geometry_bounds_in_local_frame(
         f"InteractiveScene.deformable_objects, or InteractiveScene.extras; '{scene_key}' is registered in none."
     )
     is_rigid_object = scene_key in scene.rigid_objects
-    resolved_geometry_prim_path = getattr(scene.cfg, scene_key).prim_path.format(ENV_REGEX_NS=scene.env_regex_ns)
 
     minimum_points_F_by_environment = torch.empty((scene.num_envs, 3), dtype=torch.float32, device=scene.device)
     maximum_points_F_by_environment = torch.empty_like(minimum_points_F_by_environment)
     coverage_count = [0] * scene.num_envs
 
-    for representative_prim, environment_ids in _get_representative_prim_groups(
-        scene,
-        scene_key,
-        resolved_geometry_prim_path,
-    ):
+    for representative_prim, environment_ids in get_representative_geometry_prim_groups(scene, scene_key):
         local_frame_prim = (
             _find_single_rigid_body_prim_in_subtree(representative_prim, scene_key)
             if is_rigid_object
@@ -169,7 +183,8 @@ class SceneExtraPoseReader:
             self._frame_view.count == scene.num_envs
         ), f"Scene extra '{scene_extra_key}' resolved to {self._frame_view.count} frames; expected {scene.num_envs}."
 
-        # Newton retains no USD prim handles; USD-backed views expose their row order here.
+        # Newton exposes no USD prim handles, so this check only verifies USD-backed
+        # views. Newton row ordering is supplied by FrameView.
         for environment_id, prim in enumerate(self._frame_view.prims):
             prim_path = str(prim.GetPath())
             environment_prim_path = scene.env_prim_paths[environment_id]

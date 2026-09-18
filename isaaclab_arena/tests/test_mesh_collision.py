@@ -489,6 +489,22 @@ def test_centers_in_target_frame_applies_both_yaws():
     )
     assert torch.allclose(result, centers, atol=1e-5)
 
+    # Fixed obstacles retain their heading even with base tilt; this transform is yaw-only.
+    half_roll, half_yaw = math.pi / 12, math.pi / 4
+    tgt.set_initial_pose(
+        Pose(
+            position_xyz=(0.0, 0.0, 0.0),
+            rotation_xyzw=(
+                math.sin(half_roll) * math.cos(half_yaw),
+                math.sin(half_roll) * math.sin(half_yaw),
+                math.cos(half_roll) * math.sin(half_yaw),
+                math.cos(half_roll) * math.cos(half_yaw),
+            ),
+        )
+    )
+    result = NoOverlapValidator._centers_in_target_frame(centers, src, tgt, src_pos, tgt_pos, None)
+    assert torch.allclose(result, torch.tensor([[0.0, -0.1, 0.0]]), atol=1e-6)
+
 
 @requires_warp
 def test_object_placer_mesh_mode_end_to_end():

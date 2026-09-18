@@ -83,6 +83,7 @@ def settle_clutter(
         Articulation configurations must remain within the passive drift tolerances.
     """
     from isaaclab_arena.relations.passive_collision_objects import get_passive_collision_objects
+    from isaaclab_arena.utils.physics_settle import step_physics
 
     env = env.unwrapped
     params = replace(params) if params is not None else ClutterSettleParams()
@@ -182,10 +183,7 @@ def settle_clutter(
             trackers = {i: SettleTracker(params) for i in released}
             for _ in range(max_steps // poll_steps):
                 # Refresh actuator feedback while retaining the caller's control targets.
-                for _ in range(poll_steps):
-                    env.scene.write_data_to_sim()
-                    env.sim.step(render=False)
-                    env.scene.update(dt)
+                step_physics(env, poll_steps, write_data_to_sim=True)
                 states = torch.stack([world.get_pose_e(key) for key in capture_keys], dim=1)
                 for i in released:
                     if not trackers[i].diverged:
