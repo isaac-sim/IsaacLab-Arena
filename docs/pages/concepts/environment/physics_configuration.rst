@@ -1,6 +1,15 @@
 Physics configuration scopes and order
 ======================================
 
+The same robot or object may need different physics parameters in different environments.
+A gripper may need higher finger friction for lifting and lower friction for sliding an object
+into place. An insertion task may need different collider offsets or solver settings from a
+pick-and-place task. Switching physics backends may also require different actuator defaults.
+
+Keep reusable defaults with the asset or embodiment, and expose task-dependent values through
+configuration. Each environment can then tune its instances while reusing the same USD and
+library assets, without changing the source USD or another environment's settings.
+
 Choose configuration based on what owns the setting:
 
 .. list-table::

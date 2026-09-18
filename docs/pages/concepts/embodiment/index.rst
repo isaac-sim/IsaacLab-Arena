@@ -94,8 +94,78 @@ they are published.
      - ``spawn_cfg_addon["robot"]["prim_physics"]`` with a concrete ``UsdPrimSpawnPhysicsCfg``
      - The spawn hook edits selected prims after USD loading, before cloning and import.
 
-For example, define or import the ``ColliderFrictionCfg`` implementation shown in
-:doc:`../scene/concept_assets_design` and declare these defaults on your embodiment class:
+For example, reuse the existing Franka and expose contact friction as a constructor parameter:
+
+.. code-block:: python
+
+   from isaaclab.sim import RigidBodyMaterialCfg
+
+   from isaaclab_arena.assets.register import register_asset
+   from isaaclab_arena.embodiments.franka.franka import FrankaIKEmbodiment
+
+
+   @register_asset
+   class ContactFranka(FrankaIKEmbodiment):
+       name = "contact_franka"
+
+       def __init__(self, contact_friction: float = 0.8, **kwargs):
+           super().__init__(**kwargs)
+           self.spawn_cfg_addon["robot"] = {
+               "physics_material": RigidBodyMaterialCfg(
+                   static_friction=contact_friction,
+                   dynamic_friction=contact_friction,
+               ),
+           }
+
+This example sets robot-wide contact friction. Registration is optional for direct Python
+construction; it is required for lookup by name in environment graph YAML.
+
+Use the robot in your environment
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Save the definition above in ``my_project/robots.py``. Both examples set contact friction to
+``1.2`` for this environment:
+
+.. tab-set::
+
+   .. tab-item:: env.yaml
+
+      Import ``my_project.robots`` in your runner before loading the environment graph so its
+      registration runs. Add this embodiment block to your environment YAML:
+
+      .. code-block:: yaml
+
+         embodiment:
+           id: robot
+           registry_name: contact_franka
+           params:
+             contact_friction: 1.2
+
+   .. tab-item:: env.py
+
+      Pass the robot instance alongside your scene and task:
+
+      .. code-block:: python
+
+         from my_project.robots import ContactFranka
+
+         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
+
+         environment = IsaacLabArenaEnvironment(
+             name="franka_contact_task",
+             embodiment=ContactFranka(contact_friction=1.2),
+             scene=scene,
+             task=task,
+         )
+
+The YAML loader forwards ``params`` to the constructor, which creates the typed spawn config.
+``params`` does not instantiate nested ``_target_`` mappings.
+
+Target individual colliders
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+To target individual colliders instead, define or import ``ColliderFrictionCfg`` from the
+example in :doc:`../scene/concept_assets_design` and use this mapping on your embodiment class:
 
 .. code-block:: python
 
@@ -110,6 +180,9 @@ For example, define or import the ``ColliderFrictionCfg`` implementation shown i
 Use the exact collider path in the robot USD; ``finger/collision`` is illustrative.
 When addon values depend on the backend, set them in ``_configure_physics_backend()``;
 ``_apply_spawn_cfg_addons()`` then applies the resulting mapping automatically.
+
+For per-prim settings in YAML, use the same constructor-parameter pattern to construct
+``ColliderFrictionCfg`` from the supplied friction value.
 
 Call order
 ~~~~~~~~~~
