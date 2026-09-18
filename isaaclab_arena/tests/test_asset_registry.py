@@ -228,7 +228,7 @@ def _test_multi_light_in_scene(simulation_app):
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.scene.scene import Scene
-    from isaaclab_arena.utils.usd_helpers import get_all_prims
+    from isaaclab_arena.utils.usd.helpers import get_all_prims
 
     asset_registry = AssetRegistry()
     light = asset_registry.get_asset_by_name("light")()

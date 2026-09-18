@@ -14,7 +14,7 @@ import sys
 import streamlit as st
 
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
-from isaaclab_arena.utils.usd_prim_tree import UsdPrimRecord
+from isaaclab_arena.utils.usd.prim_tree import UsdPrimRecord
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.client import (
     SimAppError,
     simapp_socket_from_env,
@@ -32,7 +32,7 @@ from isaaclab_arena_examples.agentic_environment_generation.review_gui.spec_visu
 
 def resolve_background_prim_tree(spec: ArenaEnvGraphSpec) -> list[UsdPrimRecord]:
     """Return the background USD prim tree records, empty when unavailable."""
-    from isaaclab_arena.utils.usd_prim_tree import load_usd_prim_tree
+    from isaaclab_arena.utils.usd.prim_tree import load_usd_prim_tree
 
     try:
         usd_path = spec.background.resolve_usd_path()

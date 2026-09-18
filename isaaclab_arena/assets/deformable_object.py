@@ -25,7 +25,7 @@ from isaaclab_arena.terms.events import set_deformable_object_pose, set_deformab
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.physics_backend import PhysicsBackend
 from isaaclab_arena.utils.pose import Pose, PosePerEnv, PoseRange
-from isaaclab_arena.utils.usd_helpers import compute_local_bounding_box_from_usd
+from isaaclab_arena.utils.usd.helpers import compute_local_bounding_box_from_usd
 from isaaclab_arena.utils.velocity import Velocity
 
 if TYPE_CHECKING:

@@ -161,7 +161,7 @@ def test_object_reference_get_collision_mesh_extracts_referenced_prim(monkeypatc
 def test_object_reference_get_collision_mesh_returns_none_on_extraction_failure(monkeypatch):
     """Meshless references fall back to AABB collision instead of aborting aggregation."""
     from isaaclab_arena.assets.object_reference import ObjectReference
-    from isaaclab_arena.utils.usd_helpers import NoCollisionMeshError
+    from isaaclab_arena.utils.usd.helpers import NoCollisionMeshError
 
     calls = {"extract_count": 0}
     obj_ref = ObjectReference.__new__(ObjectReference)
@@ -207,7 +207,7 @@ def test_object_reference_get_collision_mesh_returns_none_on_extraction_failure(
 def test_object_reference_get_collision_mesh_returns_none_on_unsupported_geometry(monkeypatch):
     """Unsupported reference geometry falls back to AABB collision."""
     from isaaclab_arena.assets.object_reference import ObjectReference
-    from isaaclab_arena.utils.usd_helpers import UnsupportedCollisionGeometryError
+    from isaaclab_arena.utils.usd.helpers import UnsupportedCollisionGeometryError
 
     obj_ref = ObjectReference.__new__(ObjectReference)
     obj_ref.name = "counter"

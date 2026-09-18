@@ -38,7 +38,7 @@ def find_nested_physics_roots(root_prim) -> dict[str, ObjectType]:
     """
     from pxr import Usd
 
-    from isaaclab_arena.utils.usd_helpers import is_articulation_root, is_rigid_body
+    from isaaclab_arena.utils.usd.helpers import is_articulation_root, is_rigid_body
 
     root_path = root_prim.GetPath()
     articulation_paths = set()
@@ -124,7 +124,7 @@ def load_usd_physics_roots(
     """
     from isaaclab.utils.assets import retrieve_file_path
 
-    from isaaclab_arena.utils.usd_helpers import open_stage, relative_path_from_default_prim
+    from isaaclab_arena.utils.usd.helpers import open_stage, relative_path_from_default_prim
 
     local_usd_path = retrieve_file_path(usd_path)
     roots: dict[str, ObjectType] = {}
@@ -167,7 +167,7 @@ def load_usd_prim_tree(usd_path: str) -> list[UsdPrimRecord]:
     """
     from isaaclab.utils.assets import retrieve_file_path
 
-    from isaaclab_arena.utils.usd_helpers import (
+    from isaaclab_arena.utils.usd.helpers import (
         articulation_joint_names,
         has_physics_or_collision,
         object_type_for_prim,

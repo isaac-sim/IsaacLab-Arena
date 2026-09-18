@@ -24,7 +24,7 @@ from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.utils.physics_backend import PhysicsBackend
 from isaaclab_arena.utils.pose import Pose
-from isaaclab_arena.utils.usd_helpers import has_light, open_stage
+from isaaclab_arena.utils.usd.helpers import has_light, open_stage
 
 _DEFAULT_DOME_LIGHT_ASSET_NAME = "light"
 _DEFAULT_DOME_LIGHT_NODE_ID = "auto_dome_light"

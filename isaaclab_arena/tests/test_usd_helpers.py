@@ -52,7 +52,7 @@ def _write_root_with_translated_child_cube(
 
 
 def _bbox_size(path: pathlib.Path, scale: tuple[float, float, float]) -> tuple[float, float, float]:
-    from isaaclab_arena.utils.usd_helpers import compute_local_bounding_box_from_usd
+    from isaaclab_arena.utils.usd.helpers import compute_local_bounding_box_from_usd
 
     bbox = compute_local_bounding_box_from_usd(path.as_posix(), scale=scale)
     size = bbox.size[0]
@@ -87,7 +87,7 @@ def _test_compute_local_bounding_box_from_usd(simulation_app, asset_dir: pathlib
 
 def _test_compute_local_bounding_box_from_usd_prim_path(simulation_app, asset_dir: pathlib.Path) -> bool:
     """Optional prim_path returns that sub-prim's AABB in the default-prim frame, with scale unbaking."""
-    from isaaclab_arena.utils.usd_helpers import compute_local_bounding_box_from_usd
+    from isaaclab_arena.utils.usd.helpers import compute_local_bounding_box_from_usd
 
     child_usd = asset_dir / "root_with_child_cube.usd"
     translate = (0.5, -0.25, -1.0)
@@ -120,7 +120,7 @@ def _test_mesh_exclusion_errors(simulation_app, asset_dir: pathlib.Path) -> bool
     import pytest
     from pxr import Gf, Usd, UsdGeom
 
-    from isaaclab_arena.utils.usd_helpers import NoCollisionMeshError, extract_trimesh_from_usd
+    from isaaclab_arena.utils.usd.helpers import NoCollisionMeshError, extract_trimesh_from_usd
 
     usd_path = asset_dir / "mesh_exclusions.usda"
     stage = Usd.Stage.CreateNew(usd_path.as_posix())

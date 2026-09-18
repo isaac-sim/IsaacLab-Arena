@@ -104,7 +104,7 @@ class FrankaEmbodimentBase(EmbodimentBase):
 
     def get_collision_mesh(self) -> trimesh.Trimesh:
         """Return one posed box mesh for the robot and stand."""
-        from isaaclab_arena.utils.usd_helpers import extract_trimesh_from_usd_at_joint_pos
+        from isaaclab_arena.utils.usd.helpers import extract_trimesh_from_usd_at_joint_pos
 
         source = self.get_placement_geometry_source()
         return extract_trimesh_from_usd_at_joint_pos(source.usd_path, source.joint_pos, source.scale)

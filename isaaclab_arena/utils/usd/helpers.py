@@ -15,7 +15,7 @@ from pxr import Gf, Usd, UsdGeom, UsdLux, UsdPhysics
 
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
-from isaaclab_arena.utils.usd_articulation import (
+from isaaclab_arena.utils.usd.articulation import (
     articulation_joint_prims,
     compute_posed_prim_world_deltas,
     resolve_joint_pos_patterns,

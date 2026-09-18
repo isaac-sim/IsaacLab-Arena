@@ -251,7 +251,7 @@ def print_background_prim_tree(env_graph_spec_path: Path) -> None:
         env_graph_spec_path: Path to the environment graph spec YAML whose background is inspected.
     """
     from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
-    from isaaclab_arena.utils.usd_prim_tree import load_usd_prim_tree
+    from isaaclab_arena.utils.usd.prim_tree import load_usd_prim_tree
 
     spec = ArenaEnvGraphSpec.from_yaml(env_graph_spec_path)
     usd_path = spec.background.resolve_usd_path()

@@ -28,7 +28,7 @@ from isaaclab_arena.tests.utils.agentic_environment_generation import (
     kitchen_prim_tree,
     kitchen_resolve_response,
 )
-from isaaclab_arena.utils.usd_prim_tree import UsdPrimRecord
+from isaaclab_arena.utils.usd.prim_tree import UsdPrimRecord
 
 
 def test_prim_tree_catalog_nested_format():
@@ -106,7 +106,7 @@ def test_enforce_object_reference_types_uses_task_roles(capsys):
     assert "'floor' type 'rigid' -> 'base'" in output
 
 
-@patch("isaaclab_arena.utils.usd_prim_tree.load_usd_prim_tree")
+@patch("isaaclab_arena.utils.usd.prim_tree.load_usd_prim_tree")
 @patch("isaaclab_arena.environment_spec.arena_env_graph_types.AssetSpec.resolve_usd_path")
 def test_prim_path_inference_infer_merges_llm_output(mock_resolve_usd, mock_load_tree, stub_openai):
     mock_resolve_usd.return_value = "/tmp/scene.usd"
@@ -125,7 +125,7 @@ def test_prim_path_inference_infer_merges_llm_output(mock_resolve_usd, mock_load
     assert fridge.params["openable_joint_name"] == "fridge_door_joint"
 
 
-@patch("isaaclab_arena.utils.usd_prim_tree.load_usd_prim_tree")
+@patch("isaaclab_arena.utils.usd.prim_tree.load_usd_prim_tree")
 @patch("isaaclab_arena.environment_spec.arena_env_graph_types.AssetSpec.resolve_usd_path")
 def test_prim_path_inference_strips_leading_slash(mock_resolve_usd, mock_load_tree, stub_openai):
     mock_resolve_usd.return_value = "/tmp/scene.usd"
@@ -183,7 +183,7 @@ def test_prim_path_inference_strips_leading_slash(mock_resolve_usd, mock_load_tr
         ),
     ],
 )
-@patch("isaaclab_arena.utils.usd_prim_tree.load_usd_prim_tree")
+@patch("isaaclab_arena.utils.usd.prim_tree.load_usd_prim_tree")
 @patch("isaaclab_arena.environment_spec.arena_env_graph_types.AssetSpec.resolve_usd_path")
 def test_prim_path_inference_infer_records_invalid_llm_output(
     mock_resolve_usd,

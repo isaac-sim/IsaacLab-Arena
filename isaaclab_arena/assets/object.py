@@ -18,8 +18,8 @@ from isaaclab_arena.assets.object_utils import detect_object_type
 from isaaclab_arena.relations.relations import RelationBase
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose
+from isaaclab_arena.utils.usd.helpers import compute_local_bounding_box_from_usd, has_light, open_stage
 from isaaclab_arena.utils.usd.rigid_bodies import find_shallowest_rigid_body
-from isaaclab_arena.utils.usd_helpers import compute_local_bounding_box_from_usd, has_light, open_stage
 
 
 class Object(RootedObjectBase):
