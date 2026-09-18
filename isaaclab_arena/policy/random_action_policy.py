@@ -113,7 +113,12 @@ class RandomActionPolicy(PolicyBase[RandomActionPolicyCfg]):
         policy_observation = observation.get("policy", observation)
         actions = self._gr1_pink_action(policy_observation)
 
-        if actions is None or tuple(actions.shape) != tuple(env.action_space.shape):
+        if actions is not None:
+            assert tuple(actions.shape) == tuple(env.action_space.shape), (
+                f"pose-preserving action shape {tuple(actions.shape)} does not match"
+                f" action space {tuple(env.action_space.shape)}"
+            )
+        else:
             actions = torch.empty(env.action_space.shape, device=device).uniform_(
                 -self.config.action_scale,
                 self.config.action_scale,
