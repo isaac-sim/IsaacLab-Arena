@@ -49,11 +49,7 @@ class EmbodimentBase(PlaceableAsset):
     gripper: Gripper | None
     """Gripper attached to the robot body, when the embodiment defines one."""
     spawn_cfg_addon: dict[str, dict[str, Any]] = {}
-    """Define how embodiment USD/geometry is spawned and which schemas/properties are set.
-
-    Keys name embodiment scene entries (e.g. robot or left_robot); values override their
-    spawn configs after backend defaults.
-    """
+    """Define how embodiment USD/geometry is spawned and which schemas/properties are set."""
 
     def __init__(
         self,

@@ -14,13 +14,7 @@ from pxr import Usd
 
 @configclass
 class UsdPrimSpawnPhysicsCfg:
-    """Base interface for USD-prim physics edits during spawning, before cloning/import.
-
-    Define concrete configclass subclasses alongside the environment or embodiment that
-    needs them. Core does not prescribe physics fields or backend-specific schema APIs.
-    Runtime variations such as object mass act per reset; build-time variations can
-    configure this hook to apply sampled physics once USD prims exist.
-    """
+    """Base interface for prim physics edits after USD loading, before cloning and physics import."""
 
     def validate_target(self, prim: Usd.Prim, root: Usd.Prim) -> None:
         """Check settings and targets without editing the stage; override when needed.
@@ -31,7 +25,7 @@ class UsdPrimSpawnPhysicsCfg:
         """
 
     def apply(self, prim: Usd.Prim, root: Usd.Prim) -> None:
-        """Author physics after target validation, before cloning and physics import.
+        """Apply physics settings after target validation, before cloning and physics import.
 
         Args:
             prim: Resolved, editable target prim.
@@ -42,7 +36,10 @@ class UsdPrimSpawnPhysicsCfg:
 
 @configclass
 class UsdFileCfgPrimPhysicsWrapper(UsdFileCfg):
-    """Internal UsdFileCfg wrapper adding prim_physics storage that survives config copying."""
+    """Internal UsdFileCfg wrapper that keeps the prim_physics field when configs are copied.
+
+    Isaac Lab's config copy keeps declared fields but drops attributes added only at runtime.
+    """
 
     prim_physics: dict[str, UsdPrimSpawnPhysicsCfg] = {}
     """Exact asset-relative prim paths and overrides applied after USD loading, before cloning."""

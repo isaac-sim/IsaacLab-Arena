@@ -131,13 +131,13 @@ def _resolve_and_validate_overrides(
 
 
 def apply_prim_physics(root: Usd.Prim, overrides: dict[str, UsdPrimSpawnPhysicsCfg]) -> None:
-    """Author physics on selected prims without changing the source asset or backend builder.
+    """Apply physics settings to selected prims on the spawned asset.
 
     Args:
-        root: Spawned asset root, whose stage receives the authored opinions.
+        root: Spawned asset root on the stage to edit.
         overrides: Exact asset-relative paths and their physics configuration.
     """
-    # Validate the full mapping first so a bad later target does not leave earlier overrides applied.
+    # Check every target before applying any edits. If validation fails, no physics settings change.
     for prim, cfg in _resolve_and_validate_overrides(root, overrides):
         cfg.apply(prim, root)
 
