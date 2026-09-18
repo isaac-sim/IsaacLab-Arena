@@ -1,6 +1,6 @@
 [submodule "submodules/IsaacLab"]
 	path = submodules/IsaacLab
-	url = https://gh-proxy.com/https://github.com/isaac-sim/IsaacLab.git
+	url = git@github.com:isaac-sim/IsaacLab.git
 
 [submodule "submodules/Isaac-GR00T"]
 	path = submodules/Isaac-GR00T
