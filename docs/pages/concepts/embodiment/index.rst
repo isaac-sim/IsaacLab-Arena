@@ -75,9 +75,9 @@ are authored during spawning. Its outer keys name entries in the embodiment's sc
 ``robot`` for a single robot, or ``left_robot`` / ``right_robot`` for a bimanual embodiment.
 The base class copies this mapping per instance.
 
-``_apply_spawn_cfg_addons()`` applies the mapping to those entries' spawn configs after the
-backend hook finishes. It preserves unspecified USD paths, scales, variants, and other spawn
-options. Every named entry must exist and have a spawn config; all replacements validate before
+``get_scene_cfg()`` applies the mapping to those entries' spawn configs whenever the scene
+is collected. The builder configures backend defaults first. Unspecified USD paths, scales,
+variants, and other spawn options are preserved. Every named entry must exist and have a spawn config; all replacements validate before
 they are published.
 
 .. list-table:: Spawn addons
@@ -117,8 +117,8 @@ For example, reuse the existing Franka and expose contact friction as a construc
                ),
            }
 
-This example sets robot-wide contact friction. Registration is optional for direct Python
-construction; it is required for lookup by name in environment graph YAML.
+This example sets robot-wide contact friction. See
+:doc:`../scene/concept_assets_design` for asset registration.
 
 Use the robot in your environment
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -158,8 +158,7 @@ Save the definition above in ``my_project/robots.py``. Both examples set contact
              task=task,
          )
 
-The YAML loader forwards ``params`` to the constructor, which creates the typed spawn config.
-``params`` does not instantiate nested ``_target_`` mappings.
+See :doc:`../environment/physics_configuration` for configuration scopes and application order.
 
 Target individual colliders
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -179,7 +178,7 @@ example in :doc:`../scene/concept_assets_design` and use this mapping on your em
 
 Use the exact collider path in the robot USD; ``finger/collision`` is illustrative.
 When addon values depend on the backend, set them in ``_configure_physics_backend()``;
-``_apply_spawn_cfg_addons()`` then applies the resulting mapping automatically.
+``get_scene_cfg()`` then applies the resulting mapping automatically.
 
 For per-prim settings in YAML, use the same constructor-parameter pattern to construct
 ``ColliderFrictionCfg`` from the supplied friction value.
@@ -187,15 +186,18 @@ For per-prim settings in YAML, use the same constructor-parameter pattern to con
 Call order
 ~~~~~~~~~~
 
-Before collecting the embodiment's scene configuration, the environment builder calls
-``configure_physics_backend(backend)``. This public wrapper:
+The environment builder prepares robot physics in two steps:
 
-1. Calls ``_configure_physics_backend(backend)`` to configure robot defaults.
-2. Calls ``_apply_spawn_cfg_addons()`` to update the robot's spawn configs.
-3. Records the configured backend so repeating the same call does not apply settings again.
+1. ``configure_physics_backend(backend)`` calls the backend hook once to set robot defaults.
+2. ``get_scene_cfg()`` applies spawn addons and returns the scene configuration. Direct callers
+   also get the addons, and later calls pick up changes to the mapping.
 
-Both steps prepare configuration. USD loading and per-prim physics edits happen later during
-spawning. See :doc:`../environment/physics_configuration` for the complete application order.
+USD loading and per-prim edits happen later during spawning. Custom USD spawners, including
+DROID's Newton spawner, keep their setup: their single-prim body runs first, then the per-prim
+edits, then cloning. These spawners must use Isaac Lab's ``@clone`` decorator, with no other
+decorators or cloning inside the function body.
+
+See :doc:`../environment/physics_configuration` for the complete application order.
 
 More details
 ------------

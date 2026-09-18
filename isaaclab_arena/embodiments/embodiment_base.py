@@ -184,7 +184,6 @@ class EmbodimentBase(PlaceableAsset):
             f"'{self._configured_physics_backend.value}' and cannot be reconfigured for '{backend}'."
         )
         self._configure_physics_backend(backend)
-        self._apply_spawn_cfg_addons()
         self._configured_physics_backend = backend
 
     def _configure_physics_backend(self, backend: PhysicsBackend) -> None:
@@ -205,6 +204,8 @@ class EmbodimentBase(PlaceableAsset):
             getattr(self.scene_config, name).spawn = spawn_cfg
 
     def get_scene_cfg(self) -> Any:
+        # Apply task settings whenever the scene is collected, even without a backend hook.
+        self._apply_spawn_cfg_addons()
         construction_pose = self._get_initial_pose_as_pose()
         if construction_pose is not None:
             self.scene_config = self._update_scene_cfg_with_robot_initial_pose(self.scene_config, construction_pose)

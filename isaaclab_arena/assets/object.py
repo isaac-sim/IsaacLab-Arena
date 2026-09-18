@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import torch
+from copy import deepcopy
 from typing import Any
 
 from isaaclab.assets import ArticulationCfg, AssetBaseCfg, RigidObjectCfg
@@ -59,7 +60,7 @@ class Object(RootedObjectBase):
         self.initial_pose = initial_pose
         self.relations = list(relations)
         self.reset_pose = True
-        self.spawn_cfg_addon = spawn_cfg_addon
+        self.spawn_cfg_addon = deepcopy(spawn_cfg_addon)
         self.asset_cfg_addon = asset_cfg_addon
         self.bounding_box = None
         self.object_cfg = self._init_object_cfg()
@@ -144,9 +145,9 @@ class Object(RootedObjectBase):
     def _get_spawn_cfg(self, activate_contact_sensors: bool = False) -> SpawnerCfg:
         """Return the custom spawn config if set, otherwise a USD spawn config with addons."""
         if self.spawner_cfg is not None:
-            assert "prim_physics" not in self.spawn_cfg_addon, (
-                "prim_physics in spawn_cfg_addon cannot be combined with spawner_cfg. "
-                "Configure physics on the custom spawner instead."
+            assert not self.spawn_cfg_addon, (
+                "spawn_cfg_addon cannot be combined with spawner_cfg. "
+                "Configure spawn options and physics on the custom spawner instead."
             )
             return self.spawner_cfg
         spawn_cfg = UsdFileCfg(

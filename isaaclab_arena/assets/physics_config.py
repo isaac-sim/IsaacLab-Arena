@@ -7,7 +7,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
+
 from isaaclab.sim import UsdFileCfg
+from isaaclab.sim.spawners.from_files import spawn_from_usd
 from isaaclab.utils.configclass import configclass
 from pxr import Usd
 
@@ -36,10 +39,13 @@ class UsdPrimSpawnPhysicsCfg:
 
 @configclass
 class UsdFileCfgPrimPhysicsWrapper(UsdFileCfg):
-    """Internal UsdFileCfg wrapper that keeps the prim_physics field when configs are copied.
+    """Internal UsdFileCfg wrapper retaining per-prim settings and the original USD spawner.
 
     Isaac Lab's config copy keeps declared fields but drops attributes added only at runtime.
     """
 
     prim_physics: dict[str, UsdPrimSpawnPhysicsCfg] = {}
     """Exact asset-relative prim paths and overrides applied after USD loading, before cloning."""
+
+    usd_spawn_func: Callable | str = spawn_from_usd
+    """Original @clone-decorated USD spawner; its single-prim body runs before physics edits."""

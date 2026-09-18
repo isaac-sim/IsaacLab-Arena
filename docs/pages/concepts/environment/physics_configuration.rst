@@ -70,8 +70,9 @@ The settings in the :ref:`scope table <physics-configuration-scopes>` are applie
 
 1. Object construction prepares spawn configs, including any ``prim_physics`` overrides.
    Enabled build-time variations sample values and update configuration before scene composition.
-2. The builder runs embodiment backend defaults and applies its spawn addons, including
-   ``prim_physics``. It composes the scene and manager configs and assigns the default solver.
+2. The builder runs embodiment backend defaults. ``get_scene_cfg()`` then applies its spawn
+   addons, including ``prim_physics``. The builder composes the scene and manager configs and
+   assigns the default solver.
 3. ``env_cfg_callback`` applies the environment's ``env_cfg_override`` to the composed config.
    These settings take precedence over earlier defaults; the selected backend stays the same.
 4. Environment creation loads each USD using its ordinary spawn properties, then applies
@@ -86,6 +87,9 @@ Per-prim physics at spawn time
 This is the selected-prim part of asset physics in the :ref:`scope table <physics-configuration-scopes>`.
 It runs in step 4 of the :ref:`application order <physics-application-order>`. Steps 1 and 2
 prepare the object and embodiment spawn configs, and step 3 can override those configs.
+``prim_physics`` stays inside ``spawn_cfg_addon`` so ordinary and per-prim settings use the
+same object, embodiment, and build-time variation API. Each per-prim value is a typed config.
+
 Once the USD is loaded, the spawner checks the targets in ``prim_physics`` and calls each
 config's ``apply()`` method before cloning and physics import.
 

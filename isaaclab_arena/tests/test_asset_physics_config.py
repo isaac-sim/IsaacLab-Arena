@@ -173,6 +173,8 @@ def _test_asset_physics_newton_import(_simulation_app, asset_path: Path) -> bool
 def _test_spawn_addon_argument_types(_simulation_app) -> bool:
     from isaaclab.sim import CuboidCfg, UsdFileCfg
 
+    from isaaclab_arena.assets.object import Object
+    from isaaclab_arena.assets.object_type import ObjectType
     from isaaclab_arena.assets.physics_spawner import (
         make_usd_spawn_cfg_with_addons,
         make_usd_spawn_cfg_with_prim_physics,
@@ -198,8 +200,11 @@ def _test_spawn_addon_argument_types(_simulation_app) -> bool:
         make_usd_spawn_cfg_with_addons(original, {"unknown_option": True})
 
     custom = CuboidCfg(size=(1.0, 1.0, 1.0))
-    with pytest.raises(AssertionError, match="Custom spawn functions"):
-        make_usd_spawn_cfg_with_addons(original, {"func": custom.func, "prim_physics": {}})
+    with pytest.raises(AssertionError, match="must use @clone"):
+        make_usd_spawn_cfg_with_addons(original, {"func": lambda *args: None, "prim_physics": {}})
+    for addons in ({"visible": False}, {"prim_physics": {}}):
+        with pytest.raises(AssertionError, match="cannot be combined with spawner_cfg"):
+            Object(name="custom", object_type=ObjectType.BASE, spawner_cfg=custom, spawn_cfg_addon=addons)
     return True
 
 
@@ -245,6 +250,7 @@ def _test_embodiment_spawn_addons(_simulation_app, asset_path: Path) -> bool:
     from isaaclab.assets import ArticulationCfg
     from isaaclab.sim import UsdFileCfg
     from isaaclab.utils.configclass import configclass
+    from pxr import UsdPhysics, UsdShade
 
     from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
     from isaaclab_arena.tests.utils.prim_physics_configs import FrictionCfg, MassCfg
@@ -282,6 +288,8 @@ def _test_embodiment_spawn_addons(_simulation_app, asset_path: Path) -> bool:
     sibling = TestEmbodiment()
     embodiment.spawn_cfg_addon["left_robot"]["prim_physics"]["finger/collision"].friction = 6.0
     assert sibling.spawn_cfg_addon["left_robot"]["prim_physics"]["finger/collision"].friction == 8.0
+    # Direct scene access applies addons without requiring a backend-selection call.
+    assert sibling.get_scene_cfg().left_robot.spawn.visible is False
     embodiment.configure_physics_backend(PhysicsBackend.NEWTON)
     scene = embodiment.get_scene_cfg()
     assert scene.left_robot.spawn.visible is False
@@ -292,13 +300,19 @@ def _test_embodiment_spawn_addons(_simulation_app, asset_path: Path) -> bool:
     spawn = scene.left_robot.spawn
     prim = spawn.func("/World/Left", spawn)
     assert prim.GetChild("finger").GetAttribute("physics:mass").Get() == 0.25
+    material, _ = UsdShade.MaterialBindingAPI(prim.GetChild("finger").GetChild("collision")).ComputeBoundMaterial(
+        "physics"
+    )
+    assert UsdPhysics.MaterialAPI(material).GetDynamicFrictionAttr().Get() == 6.0
     embodiment.configure_physics_backend(PhysicsBackend.NEWTON)
     assert scene.left_robot.spawn is spawn
+    embodiment.spawn_cfg_addon["left_robot"]["visible"] = True
+    assert embodiment.get_scene_cfg().left_robot.spawn.visible is True
     with pytest.raises(AssertionError, match="cannot be reconfigured"):
         embodiment.configure_physics_backend(PhysicsBackend.PHYSX)
     invalid = TestEmbodiment(spawn_cfg_addon={"left_robot": {"visible": False}, "missing_robot": {"visible": False}})
     with pytest.raises(AssertionError, match="unknown scene entry"):
-        invalid.configure_physics_backend(PhysicsBackend.NEWTON)
+        invalid.get_scene_cfg()
     assert invalid.scene_config.left_robot.spawn.visible is True
     assert invalid._configured_physics_backend is None
     return True

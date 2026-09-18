@@ -82,6 +82,9 @@ def _test_red_cube_physics_example(_simulation_app):
 
     # Instance tuning cannot leak into the example's class defaults or another object.
     spawn.prim_physics["Cube"].friction = 0.4
+    red_cube.spawn_cfg_addon["prim_physics"]["Cube"].friction = 0.2
+    assert HighFrictionRedCube.spawn_cfg_addon["prim_physics"]["Cube"].friction == 0.8
+    assert HighFrictionRedCube().spawn_cfg_addon["prim_physics"]["Cube"].friction == 0.8
     assert HighFrictionRedCube().object_cfg.spawn.prim_physics["Cube"].friction == 0.8
     return True
 

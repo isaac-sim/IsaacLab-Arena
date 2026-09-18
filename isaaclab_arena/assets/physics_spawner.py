@@ -7,19 +7,17 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import fields
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from isaaclab.sim import UsdFileCfg
-from isaaclab.sim.spawners.from_files import spawn_from_usd
 from isaaclab.sim.utils import clone
 from isaaclab.utils.string import string_to_callable
 from pxr import Usd
 
+from isaaclab_arena.assets.physics_config import UsdFileCfgPrimPhysicsWrapper, UsdPrimSpawnPhysicsCfg
 from isaaclab_arena.utils.usd.prim_paths import get_prim_relative_to_root
-
-if TYPE_CHECKING:
-    from .physics_config import UsdFileCfgPrimPhysicsWrapper, UsdPrimSpawnPhysicsCfg
 
 
 def make_usd_spawn_cfg_with_addons(cfg: UsdFileCfg, addons: dict[str, Any]) -> UsdFileCfg:
@@ -41,8 +39,9 @@ def make_usd_spawn_cfg_with_addons(cfg: UsdFileCfg, addons: dict[str, Any]) -> U
         return cfg.replace(**options)
 
     overrides = options.pop("prim_physics")
-    _validate_prim_physics_types(overrides)
-    assert "func" not in options, "Custom spawn functions must call apply_prim_physics before cloning."
+    assert isinstance(
+        overrides, dict
+    ), "prim_physics must be a dictionary of paths to UsdPrimSpawnPhysicsCfg instances."
     cfg = cfg.replace(**options)
     # Retain other prim entries, but replace each explicitly supplied entry as a typed config.
     overrides = {**getattr(cfg, "prim_physics", {}), **overrides}
@@ -51,8 +50,6 @@ def make_usd_spawn_cfg_with_addons(cfg: UsdFileCfg, addons: dict[str, Any]) -> U
 
 def _validate_prim_physics_types(overrides: dict[str, UsdPrimSpawnPhysicsCfg]) -> None:
     """Reject malformed override mappings before configuration or USD authoring."""
-    from .physics_config import UsdPrimSpawnPhysicsCfg
-
     assert isinstance(
         overrides, dict
     ), "prim_physics must be a dictionary of paths to UsdPrimSpawnPhysicsCfg instances."
@@ -67,14 +64,13 @@ def make_usd_spawn_cfg_with_prim_physics(
     """Return an independent USD spawn config that applies the given per-prim overrides.
 
     Args:
-        cfg: Standard USD config whose ordinary spawn options are retained.
+        cfg: USD config with a standard or custom @clone-decorated USD spawner.
+            Its body must load one prim and return it without cloning.
         overrides: Exact asset-relative paths and physics settings; replaces any previous mapping.
 
     Returns:
         A UsdFileCfgPrimPhysicsWrapper using spawn_usd_with_physics; assign it to the asset's spawn field.
     """
-    from .physics_config import UsdFileCfgPrimPhysicsWrapper
-
     # 1. Validate the supported USD config type and per-prim override mapping.
     assert type(cfg) in (
         UsdFileCfg,
@@ -82,22 +78,29 @@ def make_usd_spawn_cfg_with_prim_physics(
     ), "Per-prim physics requires a standard USD spawn config."
     _validate_prim_physics_types(overrides)
 
-    # 2. Resolve the spawn callable and reject custom spawners that would be replaced.
+    # 2. Keep the original USD spawner, including backend-specific setup such as DROID.
     spawn_func = string_to_callable(str(cfg.func)) if isinstance(cfg.func, str) else cfg.func
-    assert spawn_func in (
-        spawn_from_usd,
-        spawn_usd_with_physics,
-    ), "Custom spawn functions must call apply_prim_physics before cloning."
+    if spawn_func is spawn_usd_with_physics:
+        spawn_func = cfg.usd_spawn_func
+    spawn_func = _resolve_usd_spawn_func(spawn_func)
 
     # 3. Collect existing constructor fields, preserving nested typed configs.
     values = {field.name: getattr(cfg, field.name) for field in fields(cfg) if field.init}
 
     # 4. Add the per-prim overrides and select the physics-aware spawn function.
-    values.update(prim_physics=overrides, func=spawn_usd_with_physics)
+    values.update(prim_physics=overrides, func=spawn_usd_with_physics, usd_spawn_func=spawn_func)
 
     # 5. Return an independent wrapper; construction deep-copies mutable values.
     # Declared fields ensure the overrides survive later configclass.copy()/replace() calls.
     return UsdFileCfgPrimPhysicsWrapper(**values)
+
+
+def _resolve_usd_spawn_func(spawn_func: Callable | str) -> Callable:
+    """Resolve a saved USD spawner and require its @clone-wrapped single-prim body."""
+    if isinstance(spawn_func, str):
+        spawn_func = string_to_callable(str(spawn_func))
+    assert callable(getattr(spawn_func, "__wrapped__", None)), "USD spawn functions must use @clone."
+    return spawn_func
 
 
 def _resolve_and_validate_overrides(
@@ -112,7 +115,7 @@ def _resolve_and_validate_overrides(
     Returns:
         Validated (prim, config) pairs in mapping order, ready for application.
     """
-    # 1. Check the override mapping's key and value types.
+    # 1. Recheck types: this public API also accepts configs edited after construction.
     _validate_prim_physics_types(overrides)
     targets = []
     for path, cfg in overrides.items():
@@ -150,7 +153,7 @@ def apply_prim_physics(root: Usd.Prim, overrides: dict[str, UsdPrimSpawnPhysicsC
 @clone
 def spawn_usd_with_physics(
     prim_path: str,
-    cfg: UsdFileCfg,
+    cfg: UsdFileCfgPrimPhysicsWrapper,
     translation: tuple[float, float, float] | None = None,
     orientation: tuple[float, float, float, float] | None = None,
     **kwargs,
@@ -167,8 +170,10 @@ def spawn_usd_with_physics(
     Returns:
         The first spawned asset root.
     """
-    # 1. Load the USD at the single path selected by @clone.
-    prim = spawn_from_usd(prim_path, cfg, translation, orientation, **kwargs)
+    # 1. Run the original spawner at one path, without its @clone post-processing.
+    # Our outer decorator applies visibility, labels, and contact sensors once, then clones.
+    spawn_func = _resolve_usd_spawn_func(cfg.usd_spawn_func)
+    prim = spawn_func.__wrapped__(prim_path, cfg, translation=translation, orientation=orientation, **kwargs)
     # 2. Apply physics edits to this asset before any copies are made.
     apply_prim_physics(prim, cfg.prim_physics)
     # 3. Return the configured asset so @clone can copy it to the remaining environments.
