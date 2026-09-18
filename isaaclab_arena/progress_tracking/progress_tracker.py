@@ -17,7 +17,7 @@ from isaaclab.utils.configclass import configclass
 
 from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective, ProgressObjectiveCompletionMode
 from isaaclab_arena.progress_tracking.progress_tracking_utils import DEFAULT_GROUP_NAME, _predicate_repr
-from isaaclab_arena.tasks.predicates.composite import reset_managed_predicates
+from isaaclab_arena.tasks.predicates.composite import managed_predicate_ids, reset_managed_predicates
 from isaaclab_arena.tasks.predicates.consecutive import ConsecutivePredicate
 
 
@@ -396,7 +396,13 @@ class ProgressObjectiveRunner:
 
 
 class ProgressTracker:
-    """Track predicate completion and coordinate a flat list of subtasks."""
+    """Track success objectives and optional events that do not affect completion.
+
+    The positional objectives determine success and subtask order. Tracked objectives
+    advance independently on every step. Both lists contribute to recorded scores.
+    An empty success list never completes the task. Use managed predicate configurations
+    for independent counters; sharing a managed instance across both lists is rejected.
+    """
 
     def __init__(
         self,
@@ -407,8 +413,11 @@ class ProgressTracker:
         *,
         subtasks_are_sequential: bool = False,
         desired_subtask_success_state: list[bool | None] | None = None,
+        tracked_objectives: list[ProgressObjective] | None = None,
     ):
-        assert progress_objectives, "Task success requires at least one progress objective."
+        success_objectives = progress_objectives
+        progress_objectives = success_objectives + (tracked_objectives or [])
+        assert progress_objectives, "Task progress requires at least one success or tracked objective."
         objective_names = [objective.name for objective in progress_objectives]
         assert len(set(objective_names)) == len(objective_names), "Progress objective names must be unique."
         self.progress_objectives = progress_objectives
@@ -417,7 +426,12 @@ class ProgressTracker:
         self.runners = [
             ProgressObjectiveRunner(objective, num_envs, device, env=env) for objective in progress_objectives
         ]
-        self._subtask_runners = self._group_runners_by_subtask(self.runners)
+        self._success_runners = self.runners[: len(success_objectives)]
+        self._tracked_runners = self.runners[len(success_objectives) :]
+        assert not (
+            self._managed_predicate_ids(self._success_runners) & self._managed_predicate_ids(self._tracked_runners)
+        ), "Success and tracked objectives must not share managed predicate instances; use predicate configs instead."
+        self._subtask_runners = self._group_runners_by_subtask(self._success_runners)
         assert not subtasks_are_sequential or self._subtask_runners, "Sequential tracking requires subtask indices."
         if desired_subtask_success_state is not None:
             assert self._subtask_runners, "Final subtask conditions require subtask indices."
@@ -434,6 +448,15 @@ class ProgressTracker:
         self.desired_subtask_success_state = desired_subtask_success_state
         self._task_success = torch.zeros(num_envs, dtype=torch.bool, device=device)
         self._events: list[list[PredicateEvent]] = [[] for _ in range(num_envs)]
+
+    @staticmethod
+    def _managed_predicate_ids(runners: list[ProgressObjectiveRunner]) -> set[int]:
+        """Identify managed callables whose counters cannot be shared across objective roles."""
+        predicates = []
+        for runner in runners:
+            for chain in runner.predicate_chains.values():
+                predicates.extend(predicate for predicate, _ in chain)
+        return managed_predicate_ids(predicates)
 
     @staticmethod
     def _group_runners_by_subtask(runners: list[ProgressObjectiveRunner]) -> list[list[ProgressObjectiveRunner]]:
@@ -462,7 +485,9 @@ class ProgressTracker:
         # Evaluating a stateful predicate twice could advance its counter twice
         # without another simulation step.
         predicate_results_this_step: dict[int, tuple[torch.Tensor, torch.Tensor]] = {}
-        for subtask_index, subtask_runners in enumerate(self._subtask_runners or [self.runners]):
+        for subtask_index, subtask_runners in enumerate(
+            self._subtask_runners or ([self._success_runners] if self._success_runners else [])
+        ):
             # Use completion before advancing so the next subtask starts on the following step.
             subtask_was_complete = self._all_objectives_complete(subtask_runners)
             check_final_conditions = (
@@ -476,14 +501,21 @@ class ProgressTracker:
                     self._events[event.env_idx].append(event)
             if self.subtasks_are_sequential:
                 active_envs = active_envs & subtask_was_complete
+        # Tracked events are observed even before their parent subtask becomes eligible.
+        active_envs = torch.ones(self.num_envs, dtype=torch.bool, device=self.device)
+        for runner in self._tracked_runners:
+            for event in runner.step(env, step_index, active_envs, predicate_results_this_step):
+                self._events[event.env_idx].append(event)
         self._task_success = self._compute_task_success(env, predicate_results_this_step)
 
     def _compute_task_success(
         self, env, predicate_results_this_step: dict[int, tuple[torch.Tensor, torch.Tensor]]
     ) -> torch.Tensor:
         """Combine recorded completion with any required current subtask conditions."""
+        if not self._success_runners:
+            return torch.zeros(self.num_envs, dtype=torch.bool, device=self.device)
         if self.desired_subtask_success_state is None:
-            return self._all_objectives_complete(self.runners)
+            return self._all_objectives_complete(self._success_runners)
 
         # Preserve the existing 'don't care' behavior: None skips both history and final state.
         required_subtasks = [

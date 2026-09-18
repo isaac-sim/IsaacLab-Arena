@@ -213,12 +213,13 @@ class ArenaEnvBuilder:
             termination_terms["time_out"] = TerminationTermCfg(func=time_out, time_out=True)
         success_objectives = task_termination_cfg.success
 
-        # Install the shared success term when the task defines success objectives.
-        if success_objectives:
+        # The shared term also owns progress for tasks with only tracked objectives.
+        if success_objectives or task_termination_cfg.tracked:
             success_term = TerminationTermCfg(
                 func=TaskSuccessTerm,
                 params={
                     "success_objectives": success_objectives,
+                    "tracked_objectives": task_termination_cfg.tracked,
                     "subtasks_are_sequential": task_termination_cfg.subtasks_are_sequential,
                     "desired_subtask_success_state": task_termination_cfg.desired_subtask_success_state,
                 },
@@ -347,7 +348,9 @@ class ArenaEnvBuilder:
         metrics_cfg = self._compose_metrics_cfg(metrics)
         metrics_recorder_manager_cfg = metrics_to_recorder_manager_cfg(metrics)
         progress_tracking_recorder_cfg: Any = (
-            ProgressTrackingRecorderManagerCfg() if task_termination_cfg.success else None
+            ProgressTrackingRecorderManagerCfg()
+            if task_termination_cfg.success or task_termination_cfg.tracked
+            else None
         )
 
         # Base has to be specified explicitly to avoid type errors and not lose inheritance.

@@ -26,6 +26,7 @@ def _make_environment_and_manager(
     predicate_names,
     *,
     success_objectives=None,
+    tracked_objectives=None,
     subtasks_are_sequential=False,
     desired_subtask_success_state=None,
 ):
@@ -67,6 +68,7 @@ def _make_environment_and_manager(
                 func=TaskSuccessTerm,
                 params={
                     "success_objectives": success_objectives,
+                    "tracked_objectives": tracked_objectives or [],
                     "subtasks_are_sequential": subtasks_are_sequential,
                     "desired_subtask_success_state": desired_subtask_success_state,
                 },
@@ -349,11 +351,12 @@ def _test_success_requires_objectives_and_one_owner(simulation_app):
     from isaaclab_arena.progress_tracking.task_success import TaskSuccessTerm
 
     env, manager, _ = _make_environment_and_manager(["place"])
-    empty_cfg = TerminationTermCfg(func=TaskSuccessTerm, params={"success_objectives": []})
-    with pytest.raises(AssertionError, match="at least one success objective"):
-        TaskSuccessTerm(empty_cfg, env)
     with pytest.raises(AssertionError, match="Only one root term"):
         TaskSuccessTerm(manager.get_term_cfg("success"), env)
+    env._progress_tracker = None
+    empty_cfg = TerminationTermCfg(func=TaskSuccessTerm, params={"success_objectives": []})
+    with pytest.raises(AssertionError, match="at least one success or tracked objective"):
+        TaskSuccessTerm(empty_cfg, env)
     return True
 
 
@@ -481,6 +484,8 @@ def _test_task_termination_config_validation(simulation_app):
     first_config.failures["object_dropped"] = TerminationTermCfg(func=_controlled_predicate)
     assert second_config.failures == {}
     assert first_config.success == second_config.success == []
+    assert first_config.tracked == second_config.tracked == []
+    assert first_config.tracked is not second_config.tracked
     assert TaskTerminationCfg(timeout_s=None).timeout_s is None
 
     for invalid_timeout in [0.0, -1.0, float("inf"), float("nan")]:
@@ -495,6 +500,8 @@ def _test_task_termination_config_validation(simulation_app):
         )
     with pytest.raises(AssertionError, match="ProgressObjective"):
         TaskTerminationCfg(timeout_s=10.0, success=[TerminationTermCfg(func=_controlled_predicate)])
+    with pytest.raises(AssertionError, match="tracked"):
+        TaskTerminationCfg(timeout_s=10.0, tracked=[TerminationTermCfg(func=_controlled_predicate)])
     return True
 
 

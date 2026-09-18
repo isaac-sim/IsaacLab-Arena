@@ -17,6 +17,21 @@ from isaaclab_arena.tasks.predicates.consecutive import ConsecutivePredicate
 from isaaclab_arena.tasks.terminations import SuccessMode, combine_success_results
 
 
+def managed_predicate_ids(predicates: Iterable) -> set[int]:
+    """Identify managed state, including children retained by composite predicates."""
+    managed_ids = set()
+    pending = list(predicates)
+    while pending:
+        predicate = pending.pop()
+        while isinstance(predicate, (TerminationTermCfg, functools.partial)):
+            predicate = predicate.func
+        if isinstance(predicate, ManagerTermBase) and id(predicate) not in managed_ids:
+            managed_ids.add(id(predicate))
+            if isinstance(predicate, CompositePredicate):
+                pending.extend(predicate.predicates)
+    return managed_ids
+
+
 def reset_managed_predicates(
     predicates: Iterable,
     env_ids: Sequence[int] | torch.Tensor | None = None,
