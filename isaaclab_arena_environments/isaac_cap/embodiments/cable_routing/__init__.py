@@ -26,6 +26,8 @@ class IndustrialBimanualYamEmbodiment(EmbodimentBase):
     name = "industrial_bimanual_yam"
     tags: ClassVar[list[str]] = ["embodiment", "yam", "bimanual"]
     default_arm_mode = ArmMode.DUAL_ARM
+    camera_config_type: type[BimanualYamCameraCfg] = BimanualYamCameraCfg
+    """Camera rig spawned when cameras are enabled; subclasses swap in task-specific rigs."""
 
     def __init__(
         self,
@@ -57,7 +59,7 @@ class IndustrialBimanualYamEmbodiment(EmbodimentBase):
         )
         self.action_config = BimanualYamActionsCfg()
         self.observation_config = BimanualYamObservationsCfg()
-        self.camera_config = BimanualYamCameraCfg() if enable_cameras else None
+        self.camera_config = self.camera_config_type() if enable_cameras else None
         if self.camera_config is not None:
             self.camera_config.set_use_tiled_camera(use_tiled_cameras)
             self.camera_config.set_robot_mount_positions(left_position, right_position)
