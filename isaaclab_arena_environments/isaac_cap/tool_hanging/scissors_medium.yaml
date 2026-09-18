@@ -1,0 +1,186 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# AUTOLab Level 2: two matching tools, two distractors, and fixed fixtures.
+external_yaml: tool_hanging_env_config.yaml
+env_name: tool_hanging_scissors_medium
+embodiment:
+  id: yam
+  registry_name: tool_hanging_bimanual_yam
+  params:
+    left_mount_position: [0.3025, 0.17, 0.81]
+    right_mount_position: [0.3025, -0.17, 0.81]
+    wide_gripper: true
+background:
+  id: background
+  registry_name: yam_workcell_table
+  params:
+    initial_pose:
+      position_xyz: [0.2525, 0.0, 0.75]
+      rotation_xyzw: [0.0, 0.0, 0.0, 1.0]
+objects:
+- id: hdr_shadow_receiver
+  registry_name: hdr_shadow_receiver
+- id: pegboard_rack
+  registry_name: pegboard_rack
+  params:
+    initial_pose:
+      position_xyz: [0.88, -0.16, 1.12800769]
+      rotation_xyzw: [0.0, 0.0, 0.0, 1.0]
+- id: empty_warehouse_hdr_light
+  registry_name: empty_warehouse_dome_light
+- id: scissor_hook_1
+  registry_name: pegboard_hook
+  params:
+    # Placement clearance only; the physical collision pieces are unchanged.
+    collision_mode: bbox
+    initial_pose:
+      position_xyz: [0.88, 0.09750847500000001, 1.128515762]
+      # Pitch the hook 15 degrees upward, matching its CAD perception profile.
+      rotation_xyzw: [0.13052619222005157, 0.0, 0.9914448613738104, 0.0]
+- id: scissor_hook_2
+  registry_name: pegboard_hook
+  params:
+    collision_mode: bbox
+    initial_pose:
+      position_xyz: [0.88, -0.102491525, 1.128515762]
+      rotation_xyzw: [0.13052619222005157, 0.0, 0.9914448613738104, 0.0]
+- id: scissors_1
+  registry_name: tool_hanging_scissors
+- id: scissors_2
+  registry_name: tool_hanging_scissors
+- id: distractor_wrench_1
+  registry_name: tool_hanging_wrench
+- id: distractor_pliers_2
+  registry_name: tool_hanging_pliers
+object_references:
+- id: table
+  parent_id: background
+  prim_path: placement_surface
+  object_type: base
+relations:
+- kind: is_anchor
+  subject: table
+- kind: is_anchor
+  subject: pegboard_rack
+- kind: is_anchor
+  subject: scissor_hook_1
+- kind: is_anchor
+  subject: scissor_hook_2
+- kind: 'on'
+  subject: scissors_1
+  reference: table
+  params:
+    clearance_m: 0.004
+- kind: at_position
+  subject: scissors_1
+  params:
+    x: 0.6
+    y: 0.14
+- kind: rotate_around_solution
+  subject: scissors_1
+  params:
+    roll_rad: -1.5707963267948966
+    yaw_rad: 1.5707963267948966
+- kind: random_around_solution
+  subject: scissors_1
+  params:
+    x_half_m: 0.05
+    y_half_m: 0.05
+    yaw_half_rad: 0.08726646259971647
+- kind: 'on'
+  subject: scissors_2
+  reference: table
+  params:
+    clearance_m: 0.004
+- kind: at_position
+  subject: scissors_2
+  params:
+    x: 0.6
+    y: -0.14
+- kind: rotate_around_solution
+  subject: scissors_2
+  params:
+    roll_rad: -1.5707963267948966
+    yaw_rad: 1.5707963267948966
+- kind: random_around_solution
+  subject: scissors_2
+  params:
+    x_half_m: 0.05
+    y_half_m: 0.05
+    yaw_half_rad: 0.08726646259971647
+- kind: 'on'
+  subject: distractor_wrench_1
+  reference: table
+  params:
+    clearance_m: 0.0
+- kind: position_limits_box
+  subject: distractor_wrench_1
+  params:
+    x_min: 0.4279999316
+    x_max: 1.0279999316
+    y_min: -0.1785213292
+    y_max: 0.6214786708
+- kind: rotate_around_solution
+  subject: distractor_wrench_1
+  params:
+    yaw_rad: 3.141592653589793
+- kind: random_around_solution
+  subject: distractor_wrench_1
+  params:
+    yaw_half_rad: 3.141592653589793
+- kind: 'on'
+  subject: distractor_pliers_2
+  reference: table
+  params:
+    clearance_m: 0.004
+- kind: position_limits_box
+  subject: distractor_pliers_2
+  params:
+    x_min: 0.3
+    x_max: 0.9
+    y_min: -0.4
+    y_max: 0.4
+- kind: rotate_around_solution
+  subject: distractor_pliers_2
+- kind: random_around_solution
+  subject: distractor_pliers_2
+  params:
+    yaw_half_rad: 3.141592653589793
+task:
+  composition: atomic
+  description: hang both scissors on the two hooks
+  subtasks:
+  - kind: ToolHangingTask
+    params:
+      tools: [scissors_1, scissors_2]
+      fixtures: [scissor_hook_1, scissor_hook_2]
+      goals:
+      - tool: scissors_1
+        fixture: scissor_hook_1
+        loop:
+          center_xyz: [0.0217, 0, -0.0385]
+          radius_m: 0.029
+        rod:
+          start_xyz: [0.0611, -0.00249, 0.0042]
+          end_xyz: [0, -0.00249, 0.0042]
+        alternative_loops:
+        - center_xyz: [-0.02183, 0, -0.03853]
+          radius_m: 0.029
+      - tool: scissors_2
+        fixture: scissor_hook_2
+        loop:
+          center_xyz: [0.0217, 0, -0.0385]
+          radius_m: 0.029
+        rod:
+          start_xyz: [0.0611, -0.00249, 0.0042]
+          end_xyz: [0, -0.00249, 0.0042]
+        alternative_loops:
+        - center_xyz: [-0.02183, 0, -0.03853]
+          radius_m: 0.029
+      contact_force_n: 0.2
+      speed_m_s: 0.15
+      consecutive_success_steps: 60
+      episode_length_s: 366.6666666666667

@@ -230,6 +230,8 @@ def get_arena_builder_from_cli(
 
 def arena_env_from_graph_spec(env_spec: str, args_cli: argparse.Namespace) -> IsaacLabArenaEnvironment:
     """Build the arena env from a graph spec YAML, applying any CLI node overrides."""
+    # Graph specs may reference components registered by extension packages, so register first.
+    ensure_environments_registered()
     spec = ArenaEnvGraphSpec.from_yaml(env_spec)
     spec.apply_cli_override_args(args_cli)
     # cameras are enabled in embodiment, need to pass along to the env
