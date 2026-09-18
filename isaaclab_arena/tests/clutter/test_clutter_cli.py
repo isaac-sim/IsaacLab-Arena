@@ -12,6 +12,7 @@ from pathlib import Path
 import pytest
 
 from isaaclab_arena.tests.utils.constants import TestConstants
+from isaaclab_arena.tests.utils.subprocess import run_subprocess
 
 CLUTTER_DIR = Path(__file__).parents[3] / "isaaclab_arena_environments/clutter"
 SCRIPT = Path(TestConstants.scripts_dir) / "generate_clutter_scene.py"
@@ -24,15 +25,18 @@ def register_no_embodiment():
     AssetRegistry().register(NoEmbodiment, key="clutter_test_no_embodiment")
 
 
-def test_settle_import_does_not_load_usd():
+def test_clutter_imports_respect_simulation_startup():
     result = subprocess.run(
         [
             TestConstants.python_path,
             "-c",
             (
-                "import sys; import isaaclab_arena.relations.clutter.settle; "
+                "import runpy, sys; runpy.run_path(sys.argv[1]); "
+                "assert 'numpy' not in sys.modules, 'Numerical libraries imported before SimulationApp startup'; "
+                "import isaaclab_arena.relations.clutter.settle; "
                 "assert 'pxr' not in sys.modules, 'USD imported before SimulationApp startup'"
             ),
+            str(SCRIPT),
         ],
         capture_output=True,
         text=True,
@@ -108,13 +112,10 @@ def Xform "Support" (
             f"presets={preset}",
             "register=[isaaclab_arena.tests.clutter.test_clutter_cli:register_no_embodiment]",
         ])
-    result = subprocess.run(
+    run_subprocess(
         [TestConstants.python_path, str(SCRIPT), *arguments],
-        capture_output=True,
-        text=True,
-        timeout=180,
+        timeout_sec=180,
     )
-    assert result.returncode == 0, result.stdout + result.stderr
     records = [json.loads(line)["variations"]["scene.relation_placement"] for line in output.read_text().splitlines()]
     assert len(records) == num_layouts
     assert len({record["layout_id"] for record in records}) == num_layouts

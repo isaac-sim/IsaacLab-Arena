@@ -14,7 +14,7 @@ from pathlib import Path
 
 from omegaconf import MISSING
 
-from isaaclab_arena.relations.clutter.validation import ClutterSettleParams
+from isaaclab_arena.relations.clutter.settle_params import ClutterSettleParams
 
 
 @dataclass

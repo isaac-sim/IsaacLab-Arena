@@ -146,20 +146,20 @@ class OnRelationValidator(PlacementValidator):
                     continue
                 child_world = env_bboxes[obj].translated(positions[obj])
                 parent_world = relation.support_bbox(env_bboxes[relation.parent].translated(positions[relation.parent]))
-                if not self._validate_relation(relation, child_world, parent_world):
+                # Preserve scalar height arithmetic at the strict On contact boundary.
+                bottom = positions[obj][2] + float(env_bboxes[obj].min_point[0, 2])
+                top = positions[relation.parent][2] + float(env_bboxes[relation.parent].max_point[0, 2])
+                height_fits = relation.accepts_child_bottom(bottom, top, self._params.on_relation_z_tolerance_m)
+                if not height_fits or not self._validate_footprint(relation, child_world, parent_world):
                     if self._params.verbose:
                         print(f"{type(relation).__name__}: '{obj.name}' outside support footprint or height range")
                     return False
         return True
 
-    def _validate_relation(self, relation: On, child: AxisAlignedBoundingBox, parent: AxisAlignedBoundingBox) -> bool:
-        """Check feasible margins, footprint and height above the support."""
+    def _validate_footprint(self, relation: On, child: AxisAlignedBoundingBox, parent: AxisAlignedBoundingBox) -> bool:
+        """Check feasible margins and containment or overlap within the support footprint."""
         margin = 0.0 if relation.overlap else relation.edge_margin_m
-        return (
-            self._margin_fits(child, parent, margin)
-            and self._footprint_fits(relation, child, parent, margin)
-            and self._height_fits(relation, child, parent)
-        )
+        return self._margin_fits(child, parent, margin) and self._footprint_fits(relation, child, parent, margin)
 
     def _margin_fits(self, child: AxisAlignedBoundingBox, parent: AxisAlignedBoundingBox, margin: float) -> bool:
         """Whether the child fits inside the inset support footprint."""
@@ -185,11 +185,6 @@ class OnRelationValidator(PlacementValidator):
             torch.all(child_min >= parent.min_point[0, :2] + margin)
             and torch.all(child_max <= parent.max_point[0, :2] - margin)
         )
-
-    def _height_fits(self, relation: On, child: AxisAlignedBoundingBox, parent: AxisAlignedBoundingBox) -> bool:
-        """Whether the child bottom satisfies the relation's height constraint."""
-        bottom, top = float(child.min_point[0, 2]), float(parent.max_point[0, 2])
-        return relation.accepts_child_bottom(bottom, top, self._params.on_relation_z_tolerance_m)
 
 
 @register_validator

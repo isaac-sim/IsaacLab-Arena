@@ -50,7 +50,8 @@ def test_clutter_cannot_combine_spatial_relations():
 
 def test_resting_containment_uses_rotated_bounds():
     from isaaclab_arena.relations.clutter.geometry import region_above_support
-    from isaaclab_arena.relations.clutter.validation import ClutterSettleParams, check_resting_poses
+    from isaaclab_arena.relations.clutter.settle_params import ClutterSettleParams
+    from isaaclab_arena.relations.clutter.validation import check_resting_poses
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, quaternion_to_90_deg_z_quarters
 
     support = AxisAlignedBoundingBox((-0.5, -0.2, -0.1), (0.5, 0.2, 0))
@@ -71,7 +72,8 @@ def test_resting_containment_uses_rotated_bounds():
 
 
 def test_motion_restarts_the_required_quiet_window():
-    from isaaclab_arena.relations.clutter.validation import ClutterSettleParams, SettleTracker
+    from isaaclab_arena.relations.clutter.settle_params import ClutterSettleParams
+    from isaaclab_arena.relations.clutter.validation import SettleTracker
 
     tracker = SettleTracker(ClutterSettleParams(required_quiet_windows=2))
     rotations = torch.tensor([[0.0, 0.0, 0.0, 1.0]])

@@ -20,7 +20,8 @@ from isaaclab_arena.relations.clutter.geometry import (
     spawned_geometry_is_fixed,
     spawned_rigid_body_has_gravity,
 )
-from isaaclab_arena.relations.clutter.validation import ClutterSettleParams, SettleTracker, check_resting_poses
+from isaaclab_arena.relations.clutter.settle_params import ClutterSettleParams
+from isaaclab_arena.relations.clutter.validation import SettleTracker, check_resting_poses
 from isaaclab_arena.relations.object_placer import ObjectPlacer
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_events import get_base_rotation_per_asset, write_layout_to_sim
