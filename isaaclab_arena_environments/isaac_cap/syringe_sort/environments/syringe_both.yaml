@@ -109,31 +109,19 @@ relations:
     clearance_m: 0.0
     edge_margin_m: 0.01
 task:
-  composition: atomic
+  composition: parallel
   description: pick up both syringes from the instrument tray and drop each through
     the hole in the yellow sharps disposal box
   subtasks:
-  # TODO(alexmillane): [object-in-missing-feature]: Move to a more general ObjectIn task once we have it.
-  - kind: SyringeSortTask
+  - kind: ObjectInTask
     params:
-      object_list:
-      - syringe_0
-      - syringe_1
-      region_list:
-      - sharps_container
-      - sharps_container
-      bounds_xyzxyz:
-      - - 0.053
-        - -0.2055
-        - -0.016
-        - 0.142
-        - -0.0395
-        - 0.134
-      - - 0.053
-        - -0.2055
-        - -0.016
-        - 0.142
-        - -0.0395
-        - 0.134
+      object: syringe_0
+      target: sharps_container
       consecutive_success_steps: 50
-      episode_length_s: 456.0
+      episode_length_s: 228.0
+  - kind: ObjectInTask
+    params:
+      object: syringe_1
+      target: sharps_container
+      consecutive_success_steps: 50
+      episode_length_s: 228.0

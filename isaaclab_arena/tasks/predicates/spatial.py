@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Stateless spatial predicates and geometric checks."""
+"""Spatial predicates and geometric checks."""
 
 from __future__ import annotations
 
@@ -15,6 +15,7 @@ from isaaclab.managers import SceneEntityCfg
 from isaaclab.sensors.contact_sensor.contact_sensor import ContactSensor
 from isaaclab.utils.math import quat_apply, quat_apply_inverse
 
+from isaaclab_arena.tasks.predicates.consecutive import ConsecutivePredicate
 from isaaclab_arena.tasks.predicates.object_settling import get_object_initial_rest_state
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
@@ -400,3 +401,77 @@ def object_on_destination(
     object_mean_linear_velocity_w = arena_world.get_mean_linear_velocity_w(object_cfg.name)
     object_moves_slowly = object_is_moving_slowly(object_mean_linear_velocity_w, velocity_threshold)
     return object_center_over_destination & destination_provides_upward_support & object_moves_slowly
+
+
+def object_in_target_aabb(
+    env: IsaacLabArenaManagerBasedRLEnv,
+    object_name: str,
+    target_name: str,
+    minimum_contained_fraction: float = 1.0,
+) -> torch.Tensor:
+    """Check the fraction of object AABB volume within the target world-frame AABB.
+
+    Args:
+        env: Environment supplying live geometry through ArenaWorld.
+        object_name: Deposited object's scene key.
+        target_name: Container object's scene key.
+        minimum_contained_fraction: Required volume fraction in (0, 1]; 1 requires full containment.
+
+    Returns:
+        One Boolean result per environment. This measures bounding-box volume,
+        not mesh volume.
+    """
+    assert math.isfinite(minimum_contained_fraction) and 0 < minimum_contained_fraction <= 1
+    object_aabb_W = env.arena_world.get_aabb_w(object_name)
+    target_aabb_W = env.arena_world.get_aabb_w(target_name)
+    return object_aabb_W.volume_fraction_within(target_aabb_W) >= minimum_contained_fraction
+
+
+def object_in_contact_with_target(
+    env: IsaacLabArenaManagerBasedRLEnv,
+    contact_sensor_cfg: SceneEntityCfg,
+    force_threshold: float,
+) -> torch.Tensor:
+    """Check contact with a destination using an object sensor filtered to that destination.
+
+    Args:
+        env: Environment providing the contact sensor.
+        contact_sensor_cfg: Sensor observing only contacts with the destination.
+        force_threshold: Minimum contact force magnitude in newtons.
+
+    Returns:
+        One Boolean result per environment; contact in any direction qualifies.
+    """
+    assert (
+        math.isfinite(force_threshold) and force_threshold > 0
+    ), "Contact force threshold must be positive and finite."
+    force_matrix = env.scene[contact_sensor_cfg.name].data.force_matrix_w
+    assert force_matrix is not None, "Destination contact requires a filtered contact sensor."
+    forces_W = force_matrix.torch
+    return (torch.linalg.vector_norm(forces_W, dim=-1) >= force_threshold).flatten(start_dim=1).any(dim=-1)
+
+
+# TODO(alexmillane, 2028.09.18) [stateful-predicates-missing-feature]: Move this to a stateful predicate
+# when those become available.
+class ObjectSettledInTarget(ConsecutivePredicate):
+    """Require containment, target contact, and low velocity throughout a settling window."""
+
+    def __call__(
+        self,
+        env,
+        object_name: str,
+        target_name: str,
+        contact_sensor_cfg: SceneEntityCfg,
+        minimum_contained_fraction: float,
+        contact_force_threshold: float,
+        linear_velocity_threshold: float,
+        angular_velocity_threshold: float,
+        consecutive_steps: int,
+        active_mask: torch.Tensor | None = None,
+    ) -> torch.Tensor:
+        # Construction consumes this manager parameter.
+        del consecutive_steps
+        contained = object_in_target_aabb(env, object_name, target_name, minimum_contained_fraction)
+        touching = object_in_contact_with_target(env, contact_sensor_cfg, contact_force_threshold)
+        settled = velocity_below_threshold(env, object_name, linear_velocity_threshold, angular_velocity_threshold)
+        return self._update_consecutive_and_get_completion_mask(contained & touching & settled, active_mask)

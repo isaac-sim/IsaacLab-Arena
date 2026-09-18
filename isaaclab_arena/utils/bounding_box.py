@@ -166,6 +166,45 @@ class AxisAlignedBoundingBox:
         center = (self._min_point + self._max_point) * 0.5
         return AxisAlignedBoundingBox(min_point=self._min_point - center, max_point=self._max_point - center)
 
+    def points_within(self, points: torch.Tensor) -> torch.Tensor:
+        """Check point containment, including points on the boundary.
+
+        Args:
+            points: Points in the same frame as the AABB.
+                Shape (P, 3) shares points across boxes; (B, P, 3) supplies batched points.
+                B must match the number of boxes, or either batch size must be one.
+
+        Returns:
+            Boolean tensor of shape (N, P), with N the broadcast batch size.
+            Each entry indicates whether that point lies inside its box.
+        """
+        assert points.ndim in (2, 3) and points.shape[-1] == 3, "Expected points shaped (P, 3) or (B, P, 3)."
+        if points.ndim == 2:
+            points = points.unsqueeze(0)
+        assert (
+            points.shape[0] == self.num_envs or points.shape[0] == 1 or self.num_envs == 1
+        ), "Point and box batch sizes must match, or one must be one."
+        return ((points >= self._min_point[:, None, :]) & (points <= self._max_point[:, None, :])).all(dim=-1)
+
+    def volume_fraction_within(self, other: "AxisAlignedBoundingBox") -> torch.Tensor:
+        """Return the fraction of this box's volume inside another box.
+
+        Args:
+            other: Destination bounds in the same frame and on the same device.
+                Batch sizes must match, or one must be one.
+
+        Returns:
+            Fractions in [0, 1], one per broadcast box pair. Zero-volume boxes
+            return zero because they have no contained volume.
+        """
+        assert self.num_envs == other.num_envs or self.num_envs == 1 or other.num_envs == 1
+        intersection_min = torch.maximum(self.min_point, other.min_point)
+        intersection_max = torch.minimum(self.max_point, other.max_point)
+        intersection_volume = (intersection_max - intersection_min).clamp_min(0).prod(dim=-1)
+        volume = self.size.clamp_min(0).prod(dim=-1)
+        safe_volume = torch.where(volume > 0, volume, torch.ones_like(volume))
+        return (intersection_volume / safe_volume).clamp(0, 1)
+
     def overlaps(self, other: "AxisAlignedBoundingBox", margin: float = 0.0) -> torch.Tensor:
         """Check if two AABBs overlap in 3D.
 

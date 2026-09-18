@@ -12,12 +12,26 @@ from pathlib import Path
 from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg, ArenaEnvironmentFactory
 
 
+def cap_episode_finished(env):
+    """End a disconnected CAP episode after settling without counting success."""
+    import torch
+
+    return torch.full((env.num_envs,), getattr(env, "cap_episode_finished", False), device=env.device, dtype=torch.bool)
+
+
 def _apply_syringe_graph_config(env_cfg, graph_callback):
     """Apply the remaining Python physics settings and the graph's configuration."""
     # TODO(alexmillane) [isaaclab-multiccd-config-missing-feature]: Move this to YAML
     # once Isaac Lab exposes enable_multiccd in MJWarpSolverCfg.
     env_cfg.sim.physics.solver_cfg.enable_multiccd = True
-    return graph_callback(env_cfg)
+    from isaaclab.managers import TerminationTermCfg
+
+    env_cfg = graph_callback(env_cfg)
+    # Add the CAP policy termination request.
+    # TODO(alexmillane, 2026.09.18) [policy-requested-termination-missing-feature]: Remove this CAP-specific
+    # termination term when we have a framework-wide method of policy-requested termination.
+    env_cfg.terminations.cap_finished = TerminationTermCfg(func=cap_episode_finished)
+    return env_cfg
 
 
 @dataclass

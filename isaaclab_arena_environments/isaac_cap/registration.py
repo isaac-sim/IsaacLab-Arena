@@ -121,11 +121,9 @@ def _register_syringe_sort_components(asset_registry: AssetRegistry) -> None:
         SyringeSingleEnvironment,
         SyringeSortEnvironmentCfg,
     )
-    from .syringe_sort.tasks.task import SyringeSortTask
 
     for asset_class in (SyringeRedCap, SyringeWhiteCap, InstrumentTray, SharpsContainer):
         _register(asset_registry, asset_class, asset_class.name)
-    _register(TaskRegistry(), SyringeSortTask, SyringeSortTask.__name__)
     environment_registry = EnvironmentRegistry()
     for factory, cfg in (
         (SyringeSingleEnvironment, SyringeSortEnvironmentCfg),

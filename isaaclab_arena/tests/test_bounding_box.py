@@ -203,3 +203,38 @@ def test_bounding_box_multi_env_get_corners_at():
     assert corners.shape == (2, 8, 3)
     corners_with_pos = aabb.get_corners_at(pos=torch.tensor([[10.0, 0.0, 0.0], [20.0, 0.0, 0.0]]))
     torch.testing.assert_close(corners_with_pos[1, 0], corners[1, 0] + torch.tensor([20.0, 0.0, 0.0]))
+
+
+def test_points_within():
+    """Check inclusive boundaries, outside points, batching, and empty point sets."""
+    boxes = AxisAlignedBoundingBox(
+        min_point=torch.tensor([[0.0, 0.0, 0.0], [2.0, 2.0, 2.0]]),
+        max_point=torch.tensor([[1.0, 1.0, 1.0], [3.0, 3.0, 3.0]]),
+    )
+    points = torch.tensor([[0.0, 0.0, 0.0], [1.0, 1.0, 1.0], [0.5, 0.5, 0.5], [0.5, -0.1, 0.5], [2.5, 2.5, 2.5]])
+    expected = torch.tensor([[True, True, True, False, False], [False, False, False, False, True]])
+    torch.testing.assert_close(boxes.points_within(points), expected)
+    batched = torch.stack([points, points + 2])
+    torch.testing.assert_close(boxes.points_within(batched), expected[:1].expand(2, -1))
+    torch.testing.assert_close(
+        boxes[0].points_within(batched), torch.stack([expected[0], torch.zeros(5, dtype=torch.bool)])
+    )
+    assert boxes.points_within(torch.empty(0, 3)).shape == (2, 0)
+    with pytest.raises(AssertionError, match="batch sizes"):
+        boxes.points_within(torch.zeros(3, 5, 3))
+    with pytest.raises(AssertionError, match="Expected points"):
+        boxes.points_within(torch.zeros(5, 2))
+
+
+def test_volume_fraction_within():
+    """Containment measures object volume, including partial overlap and degenerate boxes."""
+    target = AxisAlignedBoundingBox((0.0, 0.0, 0.0), (1.0, 1.0, 1.0))
+    objects = AxisAlignedBoundingBox(
+        min_point=torch.tensor([[0.0, 0.0, 0.0], [0.5, 0.0, 0.0], [0.5, 0.5, 0.5], [1.0, 0.0, 0.0], [0.0, 0.0, 0.0]]),
+        max_point=torch.tensor([[1.0, 1.0, 1.0], [1.5, 1.0, 1.0], [1.5, 1.5, 1.5], [2.0, 1.0, 1.0], [0.0, 1.0, 1.0]]),
+    )
+    torch.testing.assert_close(objects.volume_fraction_within(target), torch.tensor([1.0, 0.5, 0.125, 0.0, 0.0]))
+    torch.testing.assert_close(target.volume_fraction_within(objects), torch.tensor([1.0, 0.5, 0.125, 0.0, 0.0]))
+    large = AxisAlignedBoundingBox((0.0, 0.0, 0.0), (2.0, 2.0, 2.0))
+    torch.testing.assert_close(large.volume_fraction_within(target), torch.tensor([0.125]))
+    torch.testing.assert_close(target.volume_fraction_within(large), torch.tensor([1.0]))
