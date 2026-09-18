@@ -65,6 +65,9 @@ def generate_scene(cfg: ClutterGenerationCfg, device: str = "cuda:0") -> Path:
         assert separator and module_name and function_name, "register entries must be module:function"
         getattr(importlib.import_module(module_name), function_name)()
     spec = ArenaEnvGraphSpec.from_yaml(cfg.env_spec)
+    assert (
+        spec.placement_layouts_path is None
+    ), "Remove placement_layouts_path from the source environment before regenerating"
     assert not spec.object_sets, "Resolve object sets to concrete assets before offline settling"
     arena_env, assets = build_arena_env_with_assets_from_graph_spec(spec)
     groups_from_assets(list(assets.values()))

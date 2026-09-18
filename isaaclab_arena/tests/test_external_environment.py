@@ -21,12 +21,21 @@ EXTERNAL_ENV_ADVANCED_IMPORT_PATH = (
 )
 
 
-def _test_external_environment_registration_callback(_) -> bool:
-    """Verify the Isaac Lab callback registers an externally defined Arena environment."""
+def _test_external_environment_registration_callback(_, tmp_path) -> bool:
+    """Register an external environment with cached poses through the Isaac Lab callback."""
     import gymnasium as gym
 
+    from isaaclab_arena.assets.registries import EnvironmentRegistry
     from isaaclab_arena.environments.isaaclab_interop import environment_registration_callback
+    from isaaclab_arena.relations.placement_layouts import PlacementLayouts
+    from isaaclab_arena.relations.relation_solver import RelationSolver
+    from isaaclab_arena.utils.pose import Pose
+    from isaaclab_arena_environments.cli import ensure_environments_registered
 
+    ensure_environments_registered()
+    pose = Pose((0.4, 0.1, 1.0))
+    path = tmp_path / "layouts.jsonl"
+    PlacementLayouts({"cracker_box": [pose]}).write_episode_jsonl(path)
     callback_args = [
         "external_environment_interop_test",
         "--task",
@@ -35,18 +44,30 @@ def _test_external_environment_registration_callback(_) -> bool:
         EXTERNAL_ENV_BASIC_IMPORT_PATH,
         "--object",
         "cracker_box",
+        "--placement_layouts",
+        str(path),
     ]
-    with patch.object(sys, "argv", callback_args):
+    with (
+        patch.dict(EnvironmentRegistry()._components),
+        patch.dict(gym.registry),
+        patch.object(sys, "argv", callback_args),
+        patch.object(RelationSolver, "solve", side_effect=AssertionError("Cached replay must not solve")),
+    ):
         remaining_args = environment_registration_callback()
-
-    assert remaining_args == []
-    assert gym.spec("franka_table").id == "franka_table"
+        assert remaining_args == []
+        cfg = gym.spec("franka_table").kwargs["env_cfg_entry_point"]
+        assert cfg.scene.cracker_box.init_state.pos == pose.position_xyz
+        assert cfg.events.cached_placement_reset.params["poses"]["cracker_box"] == [
+            list(pose.position_xyz + pose.rotation_xyzw)
+        ]
     return True
 
 
-def test_external_environment_registration_callback():
+def test_external_environment_registration_callback(tmp_path):
     """Isaac Lab scripts can register external Arena environments through the callback."""
-    result = run_function_with_persistent_simulation_app(_test_external_environment_registration_callback)
+    result = run_function_with_persistent_simulation_app(
+        _test_external_environment_registration_callback, tmp_path=tmp_path
+    )
     assert result
 
 

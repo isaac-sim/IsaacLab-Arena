@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 from functools import partial
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from isaaclab_arena.assets.asset import Asset
@@ -22,6 +23,7 @@ from isaaclab_arena.environment_spec.arena_env_graph_task_conversion_utils impor
 from isaaclab_arena.environment_spec.arena_env_graph_types import ObjectReferenceSpec, SpatialRelationSpec
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_asset import PlaceableAsset
+from isaaclab_arena.relations.placement_layouts import PlacementLayouts
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.utils.physics_backend import PhysicsBackend
 from isaaclab_arena.utils.pose import Pose
@@ -51,26 +53,30 @@ def parse_asset_params(params: dict[str, Any]) -> dict[str, Any]:
 
 
 def build_arena_env_from_graph_spec(
-    graph_spec: ArenaEnvGraphSpec, enable_cameras: bool = False
+    graph_spec: ArenaEnvGraphSpec, enable_cameras: bool = False, placement_layouts_path: str | Path | None = None
 ) -> IsaacLabArenaEnvironment:
     """Build an environment description from a graph specification.
 
     Args:
         graph_spec: Validated graph specification.
         enable_cameras: Whether to configure embodiment cameras.
+        placement_layouts_path: Companion pose file overriding the graph reference, relative to the working directory.
     """
-    arena_env, _ = build_arena_env_with_assets_from_graph_spec(graph_spec, enable_cameras=enable_cameras)
+    arena_env, _ = build_arena_env_with_assets_from_graph_spec(
+        graph_spec, enable_cameras=enable_cameras, placement_layouts_path=placement_layouts_path
+    )
     return arena_env
 
 
 def build_arena_env_with_assets_from_graph_spec(
-    graph_spec: ArenaEnvGraphSpec, enable_cameras: bool = False
+    graph_spec: ArenaEnvGraphSpec, enable_cameras: bool = False, placement_layouts_path: str | Path | None = None
 ) -> tuple[IsaacLabArenaEnvironment, dict[str, PlaceableAsset]]:
     """Build an environment and retain the exact graph-node-to-asset mapping for serialization.
 
     Args:
         graph_spec: Validated graph specification.
         enable_cameras: Whether to configure embodiment cameras.
+        placement_layouts_path: Companion pose file overriding the graph reference, relative to the working directory.
 
     Returns:
         Environment description and assets keyed by their source graph node IDs.
@@ -89,6 +95,7 @@ def build_arena_env_with_assets_from_graph_spec(
     default_physics_backend = (
         graph_spec.default_physics_backend if graph_spec.default_physics_backend is not None else PhysicsBackend.PHYSX
     )
+    layouts = _load_placement_layouts(graph_spec, assets_by_node_id, placement_layouts_path)
     arena_env = IsaacLabArenaEnvironment(
         name=graph_spec.env_name,
         scene=Scene(assets=scene_assets),
@@ -97,8 +104,28 @@ def build_arena_env_with_assets_from_graph_spec(
         placer_params=build_checks_for_placer_params(graph_spec),
         env_cfg_callback=env_cfg_callback,
         default_physics_backend=default_physics_backend,
+        placement_layouts=layouts,
     )
     return arena_env, assets_by_node_id
+
+
+def _load_placement_layouts(
+    graph_spec: ArenaEnvGraphSpec,
+    assets_by_node_id: dict[str, PlaceableAsset],
+    path: str | Path | None,
+) -> PlacementLayouts | None:
+    """Load companion poses and translate graph node IDs to runtime scene names."""
+
+    path = path if path is not None else graph_spec.placement_layouts_path
+    if path is None:
+        return None
+    assert not graph_spec.object_sets, "Cached layouts require concrete assets, not object sets"
+    layouts = PlacementLayouts.from_episode_jsonl(path)
+    unknown = set(layouts.poses) - set(assets_by_node_id)
+    assert not unknown, f"Unknown cached graph objects: {unknown}"
+    runtime_poses = {assets_by_node_id[key].get_scene_key(): poses for key, poses in layouts.poses.items()}
+    assert len(runtime_poses) == len(layouts.poses), "Cached graph nodes must have distinct scene keys"
+    return PlacementLayouts(runtime_poses)
 
 
 def build_checks_for_placer_params(graph_spec: ArenaEnvGraphSpec) -> ObjectPlacerParams:

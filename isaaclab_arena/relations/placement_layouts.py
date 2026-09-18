@@ -13,8 +13,12 @@ import math
 from dataclasses import dataclass
 from numbers import Real
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from isaaclab_arena.utils.pose import Pose
+
+if TYPE_CHECKING:
+    from isaaclab_arena.relations.placement_asset import PlaceableAsset
 
 
 @dataclass
@@ -46,10 +50,74 @@ class PlacementLayouts:
                     sum(value * value for value in pose.rotation_xyzw), 1.0, abs_tol=1e-4
                 ), "Placement poses must have unit quaternions"
 
+    def validate_assets(self, assets: list[PlaceableAsset]) -> None:
+        """Require concrete scene keys and complete coverage of relation-placed assets."""
+        from isaaclab_arena.assets.object_set import RigidObjectSet
+        from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
+        from isaaclab_arena.relations.relations import RandomAroundSolution, get_relation
+
+        self.validate()
+        assert not any(
+            isinstance(asset, RigidObjectSet) for asset in assets
+        ), "Cached layouts require concrete assets, not object sets"
+        by_key = {asset.get_scene_key(): asset for asset in assets}
+        assert len(by_key) == len(assets), "Cached placement assets must have distinct scene keys"
+        unknown = set(self.poses) - set(by_key)
+        assert not unknown, f"Unknown cached scene objects: {unknown}"
+        required = {
+            key
+            for key, asset in by_key.items()
+            if not asset.is_anchor
+            and (asset.get_spatial_relations() or (isinstance(asset, EmbodimentBase) and asset.get_relations()))
+        }
+        missing = required - set(self.poses)
+        assert not missing, f"Cache is missing placed objects: {missing}"
+        for name in self.poses:
+            assert (
+                get_relation(by_key[name], RandomAroundSolution) is None
+            ), f"Cached object '{name}' cannot randomize on reset"
+
     @property
     def num_layouts(self) -> int:
         """Number of complete layouts."""
         return len(next(iter(self.poses.values())))
+
+    @classmethod
+    def from_episode_jsonl(cls, path: str | Path) -> PlacementLayouts:
+        """Read complete layouts in line order, ignoring other episode metadata."""
+        poses: dict[str, list[Pose]] = {}
+        with Path(path).open(encoding="utf-8") as stream:
+            for line_number, line in enumerate(stream, start=1):
+                if not line.strip():
+                    continue
+                try:
+                    record = json.loads(line, object_pairs_hook=_unique_json_mapping)
+                    values = record["variations"]["scene.relation_placement"]["poses"]
+                    assert isinstance(values, dict) and values, "Placement poses must be a nonempty mapping"
+                    if not poses:
+                        poses = {name: [] for name in values}
+                    assert values.keys() == poses.keys(), "Every record must contain the same objects"
+                    for name, value in values.items():
+                        assert isinstance(value, dict) and set(value) == {
+                            "position_xyz",
+                            "rotation_xyzw",
+                        }, f"Object '{name}' requires position_xyz and rotation_xyzw only"
+                        for field, size in (("position_xyz", 3), ("rotation_xyzw", 4)):
+                            assert (
+                                isinstance(value[field], list) and len(value[field]) == size
+                            ), f"Object '{name}' {field} must contain {size} numbers"
+                        assert all(
+                            isinstance(component, Real) and not isinstance(component, bool)
+                            for field in value.values()
+                            for component in field
+                        ), f"Object '{name}' pose components must be numbers"
+                        poses[name].append(Pose.from_dict(value))
+                except (AssertionError, KeyError, TypeError, ValueError) as error:
+                    raise AssertionError(f"{path}, line {line_number}: {error}") from error
+        try:
+            return cls(poses)
+        except AssertionError as error:
+            raise AssertionError(f"{path}: {error}") from error
 
     def write_episode_jsonl(self, path: str | Path) -> None:
         """Write settled layouts in the episode variations envelope without overwriting."""
@@ -65,3 +133,10 @@ class PlacementLayouts:
                 }
                 record = {"variations": {"scene.relation_placement": placement}}
                 stream.write(json.dumps(record, allow_nan=False) + "\n")
+
+
+def _unique_json_mapping(items: list[tuple[str, object]]) -> dict[str, object]:
+    """Reject duplicate JSON keys instead of silently replacing object poses."""
+    result = dict(items)
+    assert len(result) == len(items), "Duplicate key in placement record"
+    return result
