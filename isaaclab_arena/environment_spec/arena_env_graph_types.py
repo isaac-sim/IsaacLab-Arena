@@ -24,10 +24,13 @@ def _extract_asset_usd_path(asset_cls: type, **params: Any) -> str | None:
     if isinstance(class_usd, str) and class_usd:
         return class_usd
 
+    # Defer conversion imports until runtime; conversion utilities also import these schema types.
+    from isaaclab_arena.environment_spec.arena_env_graph_conversion_utils import parse_asset_params
+
     # Instantiate when usd_path is set lazily (e.g. Lightwheel backgrounds).
     # TODO(qianl): add support for embodiments, whose robot USD lives in scene_config.robot.spawn.
     try:
-        instance = asset_cls(**params)
+        instance = asset_cls(**parse_asset_params(params))
     except Exception:
         return None
 

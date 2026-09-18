@@ -3,7 +3,10 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from __future__ import annotations
+
 import torch
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 
@@ -27,8 +30,18 @@ class Pose:
         assert len(self.rotation_xyzw) == 4
 
     @staticmethod
-    def identity() -> "Pose":
+    def identity() -> Pose:
         return Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0))
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Sequence[float]] | None) -> Pose | None:
+        """Build a pose from a dict containing position and orientation fields. Other fields are ignored."""
+        if data is None:
+            return None
+        return cls(
+            position_xyz=tuple(float(value) for value in data["position_xyz"]),
+            rotation_xyzw=tuple(float(value) for value in data.get("rotation_xyzw", (0.0, 0.0, 0.0, 1.0))),
+        )
 
     def to_tensor(self, device: torch.device) -> torch.Tensor:
         """Convert the pose to a tensor.
@@ -45,10 +58,10 @@ class Pose:
         rotation_tensor = torch.tensor(self.rotation_xyzw, device=device)
         return torch.cat([position_tensor, rotation_tensor])
 
-    def multiply(self, other: "Pose") -> "Pose":
+    def multiply(self, other: Pose) -> Pose:
         return compose_poses(self, other)
 
-    def translate(self, xyz_offset: tuple[float, float, float]) -> "Pose":
+    def translate(self, xyz_offset: tuple[float, float, float]) -> Pose:
         """Return this pose shifted by ``xyz_offset`` (rotation unchanged)."""
         return Pose(
             position_xyz=translate_by_xyz_offset(self.position_xyz, xyz_offset),

@@ -44,6 +44,8 @@ Lint and format tooling (`pre-commit` and the hooks it runs — black, flake8, i
 
 ## Coding style
 
+- Keep `__init__.py` files free of eager imports or re-exports
+
 - Prefer `assert condition, "message"` over `if not condition: raise ValueError("message")` for internal invariant checks. (Formatting, imports, and typing are enforced by `pre-commit` — see `.pre-commit-config.yaml`.)
 - PR bodies follow `.github/pull_request_template.md` — a one-line Summary plus 2–5 detail bullets. Resist the agent default of long, multi-section descriptions.
 - Attribute docstrings should be included below the attribute, rather than in the class-level docstring.

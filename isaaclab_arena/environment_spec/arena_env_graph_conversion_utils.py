@@ -40,6 +40,14 @@ if TYPE_CHECKING:
     from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 
 
+def parse_asset_params(params: dict[str, Any]) -> dict[str, Any]:
+    """Convert an asset's serialized initial pose without modifying its graph parameters."""
+    parsed = dict(params)
+    if isinstance(parsed.get("initial_pose"), dict):
+        parsed["initial_pose"] = Pose.from_dict(parsed["initial_pose"])
+    return parsed
+
+
 def build_arena_env_from_graph_spec(graph_spec: ArenaEnvGraphSpec, enable_cameras: bool = False) -> Any:
     """Build an IsaacLabArenaEnvironment from a validated ArenaEnvGraphSpec.
 
@@ -162,7 +170,7 @@ def _instantiate_object_reference(
         "name": ref.id,
         "prim_path": _prim_path_for_relative(background_registry_name, ref.prim_path),
         "parent_asset": parent_asset,
-        **ref.params,
+        **parse_asset_params(ref.params),
     }
     if not joint_param_names:
         return ObjectReference(object_type=ref.object_type, **common_kwargs)
@@ -181,7 +189,7 @@ def instantiate_assets_from_spec(
     """Return ``{asset.id: live_asset}`` after materializing the typed graph spec."""
     assets_by_node_id: dict[str, type[Asset]] = {}
 
-    embodiment_params = dict(graph_spec.embodiment.params)
+    embodiment_params = parse_asset_params(graph_spec.embodiment.params)
     if enable_cameras:
         embodiment_params.setdefault("enable_cameras", True)
     assets_by_node_id[graph_spec.embodiment.id] = asset_registry.get_asset_by_name(graph_spec.embodiment.registry_name)(
@@ -189,11 +197,11 @@ def instantiate_assets_from_spec(
     )
 
     assets_by_node_id[graph_spec.background.id] = asset_registry.get_asset_by_name(graph_spec.background.registry_name)(
-        **graph_spec.background.params
+        **parse_asset_params(graph_spec.background.params)
     )
 
     for obj in graph_spec.objects:
-        params = dict(obj.params)
+        params = parse_asset_params(obj.params)
         params.setdefault("instance_name", obj.id)
         assets_by_node_id[obj.id] = asset_registry.get_asset_by_name(obj.registry_name)(**params)
 
@@ -202,7 +210,7 @@ def instantiate_assets_from_spec(
             name=object_set.id,
             objects=[asset_registry.get_asset_by_name(registry_name)() for registry_name in object_set.members],
             random_choice=object_set.random_choice,
-            **object_set.params,
+            **parse_asset_params(object_set.params),
         )
 
     for ref in graph_spec.object_references or []:

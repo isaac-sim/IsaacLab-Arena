@@ -63,7 +63,9 @@ def test_experiment_runner_all_environments(tmp_path):
 
     config_path = str(tmp_path / "test_experiment_runner_all_environments.json")
     write_jobs_config_to_file(jobs, config_path)
-    run_experiment_runner(config_path, headless=HEADLESS)
+    # Loading every environment and compiling both physics backends can exceed
+    # the default 15-minute timeout on CI with a cold asset/kernel cache.
+    run_experiment_runner(config_path, headless=HEADLESS, timeout_sec=30 * 60)
 
 
 def test_all_environments_have_default_args():

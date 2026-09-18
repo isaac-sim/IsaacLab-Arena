@@ -52,8 +52,10 @@ def _test_all_assets_in_registry(simulation_app):
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.scene.scene import Scene
+    from isaaclab_arena_environments.cli import ensure_environments_registered
 
     # Base Environment
+    ensure_environments_registered()
     asset_registry = AssetRegistry()
     background = asset_registry.get_asset_by_name("packing_table")()
     asset = asset_registry.get_asset_by_name("cracker_box")()
@@ -77,7 +79,8 @@ def _test_all_assets_in_registry(simulation_app):
         objects_in_registry_names.append(asset.name)
     # Add lights
     for asset_cls in asset_registry.get_assets_by_tag("light"):
-        asset = asset_cls()
+        # Different dome-light assets share /World/Light by default.
+        asset = asset_cls(prim_path=f"/World/{asset_cls.name}")
         objects_in_registry.append(asset)
         objects_in_registry_names.append(asset.name)
     # Add ground plane
