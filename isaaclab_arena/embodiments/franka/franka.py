@@ -39,6 +39,7 @@ from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.embodiments.common.mimic_utils import get_rigid_and_articulated_object_poses
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
 from isaaclab_arena.embodiments.franka.observations import gripper_pos
+from isaaclab_arena.embodiments.gripper import PandaGripper
 from isaaclab_arena.embodiments.robot_on_stand_utils import RobotPrimSpec, StandPrimSpec, compose_on_stand_usd
 from isaaclab_arena.utils.cameras import ArenaCameraCfg
 from isaaclab_arena.utils.pose import Pose
@@ -93,6 +94,7 @@ class FrankaEmbodimentBase(EmbodimentBase):
         arm_mode: ArmMode | None = None,
     ):
         super().__init__(enable_cameras, initial_pose, concatenate_observation_terms, arm_mode)
+        self.gripper = PandaGripper()
         self.event_config = FrankaEventCfg()
         self.reward_config = FrankaRewardsCfg()
         self.mimic_env = FrankaMimicEnv

@@ -13,6 +13,7 @@ from isaaclab.envs import ManagerBasedRLMimicEnv
 from isaaclab.managers import EventTermCfg
 
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
+from isaaclab_arena.embodiments.gripper import Gripper
 from isaaclab_arena.relations.collision_mode import CollisionMode
 from isaaclab_arena.relations.placement_asset import PlaceableAsset
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
@@ -44,6 +45,8 @@ class EmbodimentBase(PlaceableAsset):
     name: str | None = None
     tags: list[str] = ["embodiment"]
     default_arm_mode: ArmMode | None = None
+    gripper: Gripper | None
+    """Gripper attached to the robot body, when the embodiment defines one."""
 
     def __init__(
         self,
@@ -61,6 +64,7 @@ class EmbodimentBase(PlaceableAsset):
         self.initial_pose = initial_pose
         self.concatenate_observation_terms = concatenate_observation_terms
         self.arm_mode = arm_mode or self.default_arm_mode
+        self.gripper = None
         # These should be filled by the subclass
         self.scene_config: Any | None = None
         self.camera_config: Any | None = None
@@ -295,6 +299,11 @@ class EmbodimentBase(PlaceableAsset):
 
     def get_command_body_name(self) -> str:
         return ""
+
+    def get_gripper(self) -> Gripper:
+        """Return this embodiment's supported width-reporting gripper."""
+        assert self.gripper is not None, f"Embodiment '{self.name}' has no supported gripper."
+        return self.gripper
 
     def get_arm_mode(self) -> ArmMode:
         return self.arm_mode

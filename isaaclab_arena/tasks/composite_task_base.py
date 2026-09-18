@@ -3,12 +3,14 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from __future__ import annotations
+
 import copy
 import dataclasses
 import numpy as np
 import warnings
 from functools import partial
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from isaaclab.envs.common import ViewerCfg
 from isaaclab.envs.mimic_env_cfg import MimicEnvCfg, SubTaskConfig
@@ -26,6 +28,9 @@ from isaaclab_arena.utils.configclass import (
     combine_configclass_instances,
     transform_configclass_instance,
 )
+
+if TYPE_CHECKING:
+    from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
 
 
 class SubtaskSuccessStateRecorder(RecorderTerm):
@@ -156,6 +161,11 @@ class CompositeTaskBase(TaskBase):
         """Apply RequiresReachability relations to each subtask's reachability targets."""
         for subtask in self.subtasks:
             subtask.apply_reachability_constraints()
+
+    def configure_for_embodiment(self, embodiment: EmbodimentBase) -> None:
+        """Configure every child task for the same embodiment."""
+        for subtask in self.subtasks:
+            subtask.configure_for_embodiment(embodiment)
 
     @staticmethod
     def _add_suffix_configclass_transform(fields: list[tuple], suffix: str) -> list[tuple]:

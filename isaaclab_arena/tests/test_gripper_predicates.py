@@ -3,19 +3,18 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Check physical parallel-jaw release independently of commanded motion."""
+"""Check physical gripper release independently of commanded motion."""
 
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
 
-def _test_parallel_jaw_gripper_released(_simulation_app) -> bool:
+def _test_gripper_released(_simulation_app) -> bool:
     import torch
     from types import SimpleNamespace
 
     import pytest
 
-    from isaaclab_arena.environments.arena_world import ArenaWorld
-    from isaaclab_arena.tasks.predicates.gripper import parallel_jaw_gripper_released
+    from isaaclab_arena.tasks.predicates.gripper import gripper_released
 
     for device in ("cpu", "cuda:0"):
         for dtype in (torch.float32, torch.float64):
@@ -25,40 +24,33 @@ def _test_parallel_jaw_gripper_released(_simulation_app) -> bool:
                 device=device,
                 dtype=dtype,
             )
-            data = SimpleNamespace(joint_names=["finger"], joint_pos=SimpleNamespace(torch=joint_positions))
-            world = ArenaWorld(SimpleNamespace(num_envs=7, articulations={"robot": SimpleNamespace(data=data)}))
+            jaw_gaps = 2.0 * joint_positions[:, 0]
+            gripper = SimpleNamespace(get_opening_width_m=lambda _world: jaw_gaps)
             action = SimpleNamespace(processed_actions=torch.zeros_like(joint_positions))
             env = SimpleNamespace(
-                arena_world=world,
+                arena_world=SimpleNamespace(),
                 action_manager=SimpleNamespace(get_term={"gripper": action}.__getitem__),
             )
             params = dict(
-                robot_name="robot",
-                gripper_joint_name="finger",
-                jaw_gap_at_zero_joint_m=0.0,
+                gripper=gripper,
                 grasp_width_m=0.03125,
                 release_clearance_m=0.00390625,
             )
             expected = [False, False, False, False, False, True, True]
-            result = parallel_jaw_gripper_released(env, **params)
+            result = gripper_released(env, **params)
             assert result.tolist() == expected
             assert result.device == joint_positions.device and result.dtype == torch.bool
 
             # An opening command cannot release an object before the jaws actually move.
             action.processed_actions[:] = 0.0625
-            assert parallel_jaw_gripper_released(env, **params).tolist() == expected
-            data.joint_pos.torch = joint_positions.clone()
-            data.joint_pos.torch[2, 0] = 0.0625
-            assert parallel_jaw_gripper_released(env, **params)[2]
+            assert gripper_released(env, **params).tolist() == expected
+            jaw_gaps[2] = 0.125
+            assert gripper_released(env, **params)[2]
 
-            # A nonzero calibration offset with the same physical gaps gives the same results.
-            params["jaw_gap_at_zero_joint_m"] = 0.0078125
-            data.joint_pos.torch = joint_positions - 0.00390625
-            assert parallel_jaw_gripper_released(env, **params).tolist() == expected
             with pytest.raises(AssertionError, match="clearance"):
-                parallel_jaw_gripper_released(env, **{**params, "release_clearance_m": -0.001})
+                gripper_released(env, **{**params, "release_clearance_m": -0.001})
     return True
 
 
-def test_parallel_jaw_gripper_released() -> None:
-    assert run_function_with_persistent_simulation_app(_test_parallel_jaw_gripper_released)
+def test_gripper_released() -> None:
+    assert run_function_with_persistent_simulation_app(_test_gripper_released)

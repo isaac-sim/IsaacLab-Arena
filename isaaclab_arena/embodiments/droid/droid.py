@@ -46,6 +46,7 @@ from isaaclab_arena.embodiments.droid.observations import (
 )
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
 from isaaclab_arena.embodiments.franka.franka import franka_stack_events
+from isaaclab_arena.embodiments.gripper import RobotiqGripper
 from isaaclab_arena.embodiments.robot_on_stand_utils import RobotPrimSpec, StandPrimSpec, compose_on_stand_usd
 from isaaclab_arena.relations.collision_mode import CollisionMode
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
@@ -133,6 +134,7 @@ class DroidEmbodimentBase(EmbodimentBase, ABC):
             arm_mode=arm_mode,
             collision_mode=collision_mode,
         )
+        self.gripper = RobotiqGripper()
         self.stand_height_m = stand_height_m
         assert len(stand_footprint_xy_m) == 2, f"stand_footprint_xy_m must have 2 values, got {stand_footprint_xy_m!r}"
         assert all(

@@ -278,6 +278,7 @@ class ArenaEnvBuilder:
         embodiment = self.arena_env.embodiment or NoEmbodiment()
         embodiment.configure_physics_backend(resolved_physics_backend)
         task = self.arena_env.task or NoTask()
+        task.configure_for_embodiment(embodiment)
         scene_cfg = combine_configclass_instances(
             "SceneCfg",
             self.interactive_scene_cfg,

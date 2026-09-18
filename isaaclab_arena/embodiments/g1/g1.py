@@ -56,6 +56,7 @@ class G1EmbodimentBase(EmbodimentBase):
         arm_mode: ArmMode | None = None,
     ):
         super().__init__(enable_cameras, initial_pose, concatenate_observation_terms, arm_mode)
+        # TODO(xinjieyao, 2026.09.17): Add a gripper implementation for the G1 embodiment.
         # Configuration structs
         self.scene_config = G1SceneCfg()
         self.camera_config = G1CameraCfg()
