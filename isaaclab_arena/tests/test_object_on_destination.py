@@ -285,11 +285,9 @@ def _check_pick_and_place_deformable_skips_contact_sensor(pick_and_place_task_ty
     assert deformable_task.contact_sensor_name is None
     assert deformable_task.contact_sensor_cfg is None
     assert deformable_task.get_scene_cfg() is None
-    assert deformable_task.get_termination_cfg().success.func is object_on_destination
-    success_params = deformable_task.get_termination_cfg().success.params
-    assert success_params["contact_sensor_cfg"] is None
-    progress_predicate = deformable_task.get_progress_objectives()[0].predicate_groups[-1]
-    assert progress_predicate.func is object_on_destination
+    deformable_placement_predicate = deformable_task.get_termination_cfg().success[0].predicate_sequence[-1]
+    assert deformable_placement_predicate.func is object_on_destination
+    assert deformable_placement_predicate.keywords["contact_sensor_cfg"] is None
 
     try:
         pick_and_place_task_type(rigid_object, deformable_object, background)
@@ -301,8 +299,9 @@ def _check_pick_and_place_deformable_skips_contact_sensor(pick_and_place_task_ty
     rigid_task = pick_and_place_task_type(rigid_object, rigid_object, background)
     assert rigid_task.contact_sensor_name == "contact_sensor_rigid"
     assert rigid_task.contact_sensor_cfg.name == rigid_task.contact_sensor_name
-    assert rigid_task.get_termination_cfg().success.func is object_on_destination
-    assert rigid_task.get_termination_cfg().success.params["contact_sensor_cfg"].name == rigid_task.contact_sensor_name
+    rigid_placement_predicate = rigid_task.get_termination_cfg().success[0].predicate_sequence[-1]
+    assert rigid_placement_predicate.func is object_on_destination
+    assert rigid_placement_predicate.keywords["contact_sensor_cfg"].name == rigid_task.contact_sensor_name
 
 
 def _test_object_on_destination(_simulation_app) -> bool:

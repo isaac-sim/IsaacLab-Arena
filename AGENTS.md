@@ -44,8 +44,8 @@ Lint and format tooling (`pre-commit` and the hooks it runs — black, flake8, i
 
 ## Coding style
 
+- Keep comprehensions simple. When they contain nested loops, filtering, or multiple transformations that make them hard to read, use explicit loops and named intermediate variables instead.
 - Keep `__init__.py` files free of eager imports or re-exports
-
 - Prefer `assert condition, "message"` over `if not condition: raise ValueError("message")` for internal invariant checks. (Formatting, imports, and typing are enforced by `pre-commit` — see `.pre-commit-config.yaml`.)
 - Read `.github/pull_request_template.md` before writing a PR description and follow its guidance.
 - Attribute docstrings should be included below the attribute, rather than in the class-level docstring.

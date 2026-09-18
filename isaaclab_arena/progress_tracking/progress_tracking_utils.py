@@ -2,25 +2,18 @@
 # All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
-"""Predicate-group helpers for progress tracking: canonicalize input shapes and render predicates."""
+"""Normalize predicate sequences and render predicates for progress tracking."""
 
 from __future__ import annotations
 
 import functools
 from collections.abc import Callable
-from typing import Union
 
 from isaaclab.managers import TerminationTermCfg
 
 Predicate = Callable | TerminationTermCfg
-PredicateGroups = Union[
-    Predicate,
-    list[Predicate],
-    list[tuple[Predicate, float]],
-    dict[str, Predicate],
-    dict[str, list[Predicate]],
-    dict[str, list[tuple[Predicate, float]]],
-]
+PredicateSequence = list[Predicate] | list[tuple[Predicate, float]]
+PredicateSequences = dict[str, PredicateSequence]
 
 
 DEFAULT_GROUP_NAME = "default_group"
@@ -42,120 +35,86 @@ def _predicate_repr(pred: Predicate) -> str:
     return f"{name}({', '.join(parts)})" if parts else name
 
 
-def _format_predicate_groups(predicate_groups: PredicateGroups) -> dict[str, list[tuple[Predicate, float]]]:
-    """Normalize any accepted predicate_groups shape into the canonical form.
-
-    The canonical form is a dict keyed by group name, whose values are the group's ordered
-    chain of (predicate, score) pairs. A group is a sequence of predicates that are evaluated in order.
-
-    Accepted input shapes:
-      1. predicate                             one group with one predicate
-      2. [predicate, predicate, ...]            one group, sequential chain
-      3. [(predicate, score), ...]              one group, sequential chain, weighted
-      4. {group: predicate}                    multiple groups, one predicate each
-      5. {group: [predicate, ...]}             multiple groups, sequential chains
-      6. {group: [(predicate, score), ...]}    multiple groups, sequential chains, weighted
-
-    A predicate may be a callable or a ``TerminationTermCfg`` for a managed predicate.
-
-    Note: #6 is the canonical form.
+def _format_predicate_sequences(
+    predicate_sequences: PredicateSequences,
+) -> dict[str, list[tuple[Predicate, float]]]:
+    """Convert named predicate sequences to weighted sequences.
 
     Args:
-        predicate_groups: The predicates to track, in any of the accepted input shapes above.
+        predicate_sequences: A nonempty dictionary of named predicate lists.
+            Each list contains predicates or (predicate, score) pairs.
 
     Returns:
-        A dict mapping each group name to an ordered list of (predicate, score) pairs.
+        Named lists of (predicate, score) pairs.
     """
 
-    if _is_predicate(predicate_groups):
-        return {DEFAULT_GROUP_NAME: [(predicate_groups, 1.0)]}
-
-    if isinstance(predicate_groups, list):
-        assert len(predicate_groups) > 0, "ProgressObjective.predicate_groups list cannot be empty"
-        return {DEFAULT_GROUP_NAME: _format_group_chain(predicate_groups, group_name=DEFAULT_GROUP_NAME)}
-
-    if isinstance(predicate_groups, dict):
-        assert len(predicate_groups) > 0, "ProgressObjective.predicate_groups dict cannot be empty"
-        return {
-            group_name: _format_group_chain(value, group_name=group_name)
-            for group_name, value in predicate_groups.items()
-        }
-
-    raise TypeError(
-        "ProgressObjective.predicate_groups must be a callable, managed term config, list, or dict; got"
-        f" {type(predicate_groups).__name__}"
-    )
+    assert isinstance(predicate_sequences, dict), "predicate_sequences must map names to predicate sequences."
+    assert predicate_sequences, "ProgressObjective.predicate_sequences cannot be empty."
+    assert all(
+        isinstance(sequence_name, str) for sequence_name in predicate_sequences
+    ), "Predicate sequence names must be strings."
+    return {
+        sequence_name: _format_predicate_sequence(sequence, sequence_name=sequence_name)
+        for sequence_name, sequence in predicate_sequences.items()
+    }
 
 
 def _is_predicate(value) -> bool:
-    """Return whether ``value`` is a supported predicate specification."""
-
+    """Return whether a value is a callable or a managed predicate config."""
     return callable(value) or isinstance(value, TerminationTermCfg)
 
 
-def _format_group_chain(value, group_name: str) -> list[tuple[Predicate, float]]:
-    """Format one group's value into an ordered list of (predicate, score) pairs.
-
-    Accepts a single predicate, a list of predicates, or a list of (predicate, score) tuples. A
-    single predicate or an unweighted list gets an equal score of 1.0 / number-of-predicates per
-    entry.
+def _format_predicate_sequence(sequence: PredicateSequence, sequence_name: str) -> list[tuple[Predicate, float]]:
+    """Format one sequence into an ordered list of (predicate, score) pairs.
 
     Args:
-        value: One group's predicates, as a predicate, list of predicates, or list of
-            (predicate, score) tuples. A predicate is a callable or managed term config.
-        group_name: Name of the group.
+        sequence: A nonempty list of predicates or (predicate, score) tuples.
+        sequence_name: Name of the sequence.
 
     Returns:
-        The group's ordered list of (predicate, score) pairs.
+        The sequence's ordered list of (predicate, score) pairs.
     """
 
-    if _is_predicate(value):
-        return [(value, 1.0)]
     assert isinstance(
-        value, list
-    ), f"Predicate chain for group '{group_name}' must be a predicate or a list; got {type(value).__name__}"
-    assert len(value) > 0, f"Predicate chain for group '{group_name}' cannot be empty"
+        sequence, list
+    ), f"Predicate sequence '{sequence_name}' must be a list; got {type(sequence).__name__}"
+    assert sequence, f"Predicate sequence '{sequence_name}' cannot be empty"
 
-    first = value[0]
-    if isinstance(first, tuple):
+    if isinstance(sequence[0], tuple):
         chain = []
-        for i, item in enumerate(value):
+        for predicate_index, item in enumerate(sequence):
             assert (
                 isinstance(item, tuple) and len(item) == 2
-            ), f"Group '{group_name}' index {i}: expected (callable, score) tuple, got {item!r}"
-            fn, score = item
+            ), f"Sequence '{sequence_name}' index {predicate_index}: expected (callable, score) tuple, got {item!r}"
+            predicate, score = item
             assert _is_predicate(
-                fn
-            ), f"Group '{group_name}' index {i}: first tuple element must be callable or a managed term config"
-            assert isinstance(score, (int, float)), f"Group '{group_name}' index {i}: score must be a number"
-            chain.append((fn, float(score)))
+                predicate
+            ), f"Sequence '{sequence_name}' index {predicate_index}: expected a callable or TerminationTermCfg"
+            assert isinstance(
+                score, (int, float)
+            ), f"Sequence '{sequence_name}' index {predicate_index}: score must be a number"
+            chain.append((predicate, float(score)))
         return chain
 
-    if _is_predicate(first):
-        equal = 1.0 / len(value)
-        chain = []
-        for i, fn in enumerate(value):
-            assert _is_predicate(
-                fn
-            ), f"Group '{group_name}' index {i}: expected callable or managed term config, got {type(fn).__name__}"
-            chain.append((fn, equal))
-        return chain
-
-    raise TypeError(
-        f"Group '{group_name}' elements must be predicates or (predicate, score) tuples; got {type(first).__name__}"
-    )
+    chain = []
+    for predicate_index, predicate in enumerate(sequence):
+        assert _is_predicate(
+            predicate
+        ), f"Sequence '{sequence_name}' index {predicate_index}: expected a callable or TerminationTermCfg"
+        chain.append((predicate, 1.0))
+    return chain
 
 
 def _normalize_scores(
-    predicate_groups: dict[str, list[tuple[Predicate, float]]],
+    predicate_sequences: dict[str, list[tuple[Predicate, float]]],
 ) -> dict[str, list[tuple[Predicate, float]]]:
-    """Scale each group's scores to sum to 1.0. Zero and negative-sum groups are left untouched."""
+    """Scale each sequence's scores to sum to 1.0. Leave zero and negative-sum sequences untouched."""
 
-    out: dict[str, list[tuple[Predicate, float]]] = {}
-    for group, chain in predicate_groups.items():
-        total = sum(score for _, score in chain)
+    normalized_sequences: dict[str, list[tuple[Predicate, float]]] = {}
+    for sequence_name, sequence in predicate_sequences.items():
+        total = sum(score for _, score in sequence)
         if total <= 0:
-            out[group] = list(chain)
+            normalized_sequences[sequence_name] = list(sequence)
             continue
-        out[group] = [(fn, score / total) for fn, score in chain]
-    return out
+        normalized_sequences[sequence_name] = [(predicate, score / total) for predicate, score in sequence]
+    return normalized_sequences

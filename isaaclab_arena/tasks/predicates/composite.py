@@ -32,9 +32,8 @@ def reset_managed_predicates(
             reset_predicate_ids.add(id(predicate))
 
 
-# TODO(xinjieyao, 2026-09-14): To be removed once progress tracking handles the lifecycle of predicates.
-# NOTE(xinjieyao, 2026-09-14): Progress tracking does not support CompositePredicate because it does not
-# propagate per-environment active masks to nested stateful predicates.
+# TODO(cvolk): Revisit CompositePredicate's lifecycle forwarding during the stateful predicate redesign.
+# Retain child active masks and selected-environment resets in any replacement.
 class CompositePredicate(ConsecutivePredicate):
     """Combine child results, optionally requiring consecutive successful evaluations."""
 
@@ -60,10 +59,16 @@ class CompositePredicate(ConsecutivePredicate):
     ) -> torch.Tensor:
         # These arguments mirror TerminationTermCfg.params for manager signature validation.
         del predicates, consecutive_steps
-        self.results = torch.stack(
-            [predicate.func(env, **predicate.params) for predicate in self.predicates],
-            dim=0,
-        )
+        results = []
+        for predicate in self.predicates:
+            predicate_func = predicate.func
+            while isinstance(predicate_func, functools.partial):
+                predicate_func = predicate_func.func
+            parameters = dict(predicate.params)
+            if isinstance(predicate_func, ConsecutivePredicate):
+                parameters["active_mask"] = active_mask
+            results.append(predicate.func(env, **parameters))
+        self.results = torch.stack(results, dim=0)
         passed = combine_success_results(self.results, mode=mode, k=k)
         return self._update_consecutive_and_get_completion_mask(passed, active_mask=active_mask)
 

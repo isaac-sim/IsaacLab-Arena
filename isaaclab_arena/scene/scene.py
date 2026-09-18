@@ -34,7 +34,6 @@ class Scene:
         # We add these here so a user can override them if they want.
         self.observation_cfg = None
         self.events_cfg = None
-        self.termination_cfg = None
         self.rewards_cfg = None
         self.curriculum_cfg = None
         self.commands_cfg = None
@@ -128,9 +127,6 @@ class Scene:
         EventCfg = make_configclass("EventCfg", fields)
         event_cfg = EventCfg()
         return event_cfg
-
-    def get_termination_cfg(self) -> Any:
-        return self.termination_cfg
 
     def get_rewards_cfg(self) -> Any:
         return self.rewards_cfg

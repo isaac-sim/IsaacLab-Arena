@@ -44,9 +44,9 @@ and scenes without any changes.
 Available tasks include (but are not limited to) ``PickAndPlaceTask``, ``LiftObjectTask``,
 ``OpenDoorTask``, ``CloseDoorTask``, and ``PressButtonTask``.
 
-Individual tasks can be combined into order-independent or sequential composite tasks. Tasks can also
-define predicate-based progress objectives to report partial completion without changing their
-success termination.
+Individual tasks can be combined into order-independent or sequential composite tasks. Each task
+returns a ``TaskTerminationCfg`` from ``get_termination_cfg()``, declaring its ``success`` objectives,
+named ``failures``, and ``timeout_s`` time limit.
 
 More details
 ------------

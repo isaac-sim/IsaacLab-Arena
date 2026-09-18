@@ -16,19 +16,17 @@ variant (with modified controller gains) in the same file::
 """
 
 import argparse
-from dataclasses import MISSING
 
-import isaaclab.envs.mdp as mdp_isaac_lab
 from isaaclab.envs.common import ViewerCfg
-from isaaclab.managers import TerminationTermCfg
-from isaaclab.utils.configclass import configclass
 
 from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.embodiments.franka.franka import FrankaIKEmbodiment
 from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.metrics.success_rate import SuccessRateMetric
+from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
 from isaaclab_arena.tasks.task_base import TaskBase
+from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
 from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
 
 # ---------------------------------------------------------------------------
@@ -49,10 +47,20 @@ class SuccessAfterNStepsTask(TaskBase):
     def get_scene_cfg(self):
         return None
 
-    def get_termination_cfg(self):
-        n = self.num_steps_for_success
-        success = TerminationTermCfg(func=lambda env, n=n: env.episode_length_buf >= n)
-        return SuccessAfterNStepsTerminationsCfg(success=success)
+    def get_termination_cfg(self) -> TaskTerminationCfg:
+        return TaskTerminationCfg(
+            timeout_s=self.episode_length_s,
+            success=[
+                ProgressObjective(
+                    name="reach_step_count",
+                    predicate_sequence=[self.has_reached_step_count],
+                )
+            ],
+        )
+
+    def has_reached_step_count(self, env):
+        """Check whether each episode has reached the requested number of steps."""
+        return env.episode_length_buf >= self.num_steps_for_success
 
     def get_events_cfg(self):
         return None
@@ -65,12 +73,6 @@ class SuccessAfterNStepsTask(TaskBase):
 
     def get_viewer_cfg(self) -> ViewerCfg:
         return ViewerCfg(eye=(-1.5, -1.5, 1.5), lookat=(0.0, 0.0, 0.5))
-
-
-@configclass
-class SuccessAfterNStepsTerminationsCfg:
-    time_out: TerminationTermCfg = TerminationTermCfg(func=mdp_isaac_lab.time_out, time_out=True)
-    success: TerminationTermCfg = MISSING
 
 
 # ---------------------------------------------------------------------------

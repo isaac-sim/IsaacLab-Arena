@@ -10,6 +10,7 @@ from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_wi
 
 def _test_episode_length_defaults(simulation_app) -> bool:
     from isaaclab_arena.tasks.task_base import TaskBase
+    from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
 
     class _StubTask(TaskBase):
         """Mirrors the real subclasses: declares ``episode_length_s: float | None = None`` and forwards it."""
@@ -21,7 +22,7 @@ def _test_episode_length_defaults(simulation_app) -> bool:
             return None
 
         def get_termination_cfg(self):
-            return None
+            return TaskTerminationCfg(timeout_s=self.episode_length_s)
 
         def get_events_cfg(self):
             return None
@@ -37,6 +38,7 @@ def _test_episode_length_defaults(simulation_app) -> bool:
     assert _StubTask().get_episode_length_s() == TaskBase.DEFAULT_EPISODE_LENGTH_S
     assert _StubTask(episode_length_s=None).get_episode_length_s() == TaskBase.DEFAULT_EPISODE_LENGTH_S
     assert _StubTask(episode_length_s=5.0).get_episode_length_s() == 5.0
+    assert _StubTask(episode_length_s=5.0).get_termination_cfg().timeout_s == 5.0
 
     # A composite defaults to the sum of its subtasks; an explicit value still wins.
     from isaaclab_arena.tasks.composite_task_base import CompositeTaskBase

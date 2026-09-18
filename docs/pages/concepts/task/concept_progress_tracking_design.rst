@@ -1,17 +1,14 @@
 Predicates and Subtask Progress Tracking
 ========================================
 
-A task's success termination tells you if the task was completed. However, this doesn't give
-any insight into intermediate goals or stages of the task.
-Subtask progress tracking allows for finer-grained tracking of a task's progress.
+Arena defines task success through ``ProgressObjective`` objects. These objectives organize
+Boolean predicates into required milestones, such as settling, lifting, and placing an object.
+Their scores also describe partial progress when an episode ends before the task is complete.
 
-Arena subtask tracking represents intermediate milestones as **predicates** and organizes them into scored
-``ProgressObjective`` objects. The environment builder discovers these objectives from the task,
-evaluates them during every environment step, resets them per environment, and exposes their state
-and transition history for evaluation and visualization.
-
-Progress tracking does not replace task success and does not terminate an episode. A policy can
-receive partial progress even when the task ultimately fails.
+Every task returns a ``TaskTerminationCfg`` from ``get_termination_cfg()``. This configuration
+declares its ``success`` objectives, named ``failures``, and ``timeout_s`` in one place. The
+environment builder creates one success termination that advances the objectives and reports
+success when all required objectives are complete.
 
 
 Predicates
@@ -66,62 +63,69 @@ The arguments after ``env`` are configured when the predicate is added to a prog
 Defining a progress objective
 -----------------------------
 
-Subtask tracking can be added to tasks via opt in by overriding ``TaskBase.get_progress_objectives()``.
-A ``ProgressObjective`` is a named collection of predicates that the task wishes to track.
-A ``predicate_groups`` contains ordered predicate chains. For each chain, the tracker evaluates only the currently active
-predicate, ignores later predicates until their turn, and advances by at most one predicate per
-group and environment step.
+Add ``ProgressObjective`` entries to ``TaskTerminationCfg.success``. Provide exactly one of
+``predicate_sequence`` for a list of predicates or ``predicate_sequences`` for a dictionary of named lists.
 
-For example, the built-in pick-and-place task tracks a single progress objective with
-a single three-predicate chain: settle, lift, then place.
+``PickAndPlaceTask`` requires the object to settle, be lifted, and be placed, in that order:
 
 .. code-block:: python
 
    from functools import partial
 
-   from isaaclab.managers import SceneEntityCfg
+   from isaaclab.envs import mdp
+   from isaaclab.managers import SceneEntityCfg, TerminationTermCfg
 
    from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
    from isaaclab_arena.tasks.predicates.object_settling import objects_settled
    from isaaclab_arena.tasks.predicates.spatial import object_is_above_height, object_on_destination
+   from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
 
-   def get_progress_objectives(self) -> list[ProgressObjective]:
-       return [
-           ProgressObjective(
-               name="pick_and_place",
-               predicate_groups=[
-                   partial(objects_settled, object_names=[self.pick_up_object.name]),
-                   partial(
-                       object_is_above_height,
-                       object_name=self.pick_up_object.name,
-                       use_settled_state=True,
-                   ),
-                   partial(
-                       object_on_destination,
-                       object_cfg=SceneEntityCfg(self.pick_up_object.name),
-                       destination_cfg=SceneEntityCfg(self.destination_location.name),
-                       contact_sensor_cfg=SceneEntityCfg(self.contact_sensor_name),
-                       force_threshold=self.force_threshold,
-                       velocity_threshold=self.velocity_threshold,
-                       support_cone_half_angle_rad=self.support_cone_half_angle_rad,
-                   ),
-               ],
-           )
-       ]
+   def get_termination_cfg(self) -> TaskTerminationCfg:
+       return TaskTerminationCfg(
+           success=[
+               ProgressObjective(
+                   name="pick_and_place",
+                   predicate_sequence=[
+                       partial(objects_settled, object_names=[self.pick_up_object.name]),
+                       partial(
+                           object_is_above_height,
+                           object_name=self.pick_up_object.name,
+                           use_settled_state=True,
+                       ),
+                       partial(
+                           object_on_destination,
+                           object_cfg=SceneEntityCfg(self.pick_up_object.name),
+                           destination_cfg=SceneEntityCfg(self.destination_location.name),
+                           contact_sensor_cfg=SceneEntityCfg(self.contact_sensor_name),
+                           force_threshold=self.force_threshold,
+                           velocity_threshold=self.velocity_threshold,
+                           support_cone_half_angle_rad=self.support_cone_half_angle_rad,
+                       ),
+                   ],
+               ),
+           ],
+           failures={
+               "object_dropped": TerminationTermCfg(
+                   func=mdp.root_height_below_minimum,
+                   params={
+                       "minimum_height": self.background_scene.object_min_z,
+                       "asset_cfg": SceneEntityCfg(self.pick_up_object.name),
+                   },
+               ),
+           },
+           timeout_s=self.episode_length_s,
+       )
 
-.. note::
+Use ``functools.partial`` to pass task-specific arguments to a predicate.
 
-    The progress tracker calls each predicate with only ``env``. When a predicate accepts additional
-    arguments, use ``functools.partial`` in the progress objective to bind their task-specific values.
-
-Use a dictionary to specify ``predicate_groups`` when a progress objective has multiple independent predicate chains. Predicates
-within each group remain sequential while groups advance independently:
+Use a dictionary to track several sequences independently. This example requires any two
+objects to be lifted and placed:
 
 .. code-block:: python
 
    objective = ProgressObjective(
        name="pack_objects",
-       predicate_groups={
+       predicate_sequences={
            "can": [can_lifted, can_placed],
            "bottle": [bottle_lifted, bottle_placed],
            "box": [box_lifted, box_placed],
@@ -130,29 +134,40 @@ within each group remain sequential while groups advance independently:
        K=2,
    )
 
-``logical`` controls how completed groups make the objective complete:
+``logical`` and ``K`` control how completed predicate sequences make the objective complete:
 
-* ``all`` — every group must complete. This is the default.
-* ``any`` — one group must complete.
-* ``choose`` — at least ``K`` groups must complete.
+* ``all`` — every sequence must complete. This is the default.
+* ``any`` — one sequence must complete.
+* ``choose`` — at least ``K`` sequences must complete.
+
+Completed stages are remembered until the environment resets. Separate chains therefore describe
+milestones that may complete at different times. If several conditions must hold simultaneously,
+combine them into one predicate. For example, checking that all gears are seated together requires
+one combined condition; remembering each gear's earlier placement would allow a gear to be removed
+before the task completes.
 
 
 Subtask progress tracking in composite and sequential tasks
 -----------------------------------------------------------
 
-``CompositeTaskBase`` collects the progress objectives from every child and namespaces their names
-as ``subtask_<index>/<objective_name>``. It also records the child index on each objective.
-Standalone tasks retain their original objective names, such as ``pick_and_place``. The
-``subtask_<index>/`` prefix is added only when the task is part of a composite task.
+``CompositeTaskBase`` collects subtask objectives in a flat ``TaskTerminationCfg.success`` list.
+It prefixes their names with ``subtask_<index>/`` and sets ``parent_subtask_idx`` to identify
+which subtask each objective belongs to. Standalone tasks retain their original objective names,
+such as ``pick_and_place``. Nested composite or sequential tasks are not supported.
 
-For an order-independent composite task, every child's progress objectives are active. For a
-``SequentialTaskBase``, Arena gates each objective per environment using that environment's current
-subtask index. A later child's predicates cannot advance before that child becomes active, even if
-their physical conditions already happen to be true.
+For an order-independent composite task, every subtask's progress objectives are active.
+With ``CompositeTaskBase(..., subtasks_are_sequential=True)``, ``ProgressTracker``
+activates each subtask only after all objectives of the preceding subtask complete in that
+environment. The next subtask starts on the following environment step. A later subtask's predicates
+cannot advance before that subtask becomes active, even if their physical conditions already happen
+to be true.
 
-This progress gating follows composite-task ordering, but remains separate from the composite
-task's success state. See :doc:`concept_composite_tasks_design` for composition and success
-semantics.
+``ProgressTracker`` determines task success and reports the same objective completion history.
+Completed milestones remain recorded. ``TaskTerminationCfg.desired_subtask_success_state``
+preserves the composition's optional final-condition checks. Reports contain the flat objectives
+and their weighted overall progress; subtask metrics read ``ProgressTracker.get_subtask_completion()``.
+There are no additional parent-objective reports. See
+:doc:`concept_composite_tasks_design` for composition and success semantics.
 
 .. figure:: ../../../images/composite_vs_sequential_progress_tracking.png
    :width: 100%
@@ -166,9 +181,8 @@ semantics.
 Reading subtask progress tracking at runtime
 --------------------------------------------
 
-When a task provides progress objectives, Arena will track and record the progress of the task according to the
-supplied progress objectives. The current per-environment state and the episode's accumulated predicate
-transitions are available through ``env.extras``:
+``ProgressTrackingRecorder`` puts progress results in the environment's ``extras`` dictionary.
+Read each environment's state and completed-predicate events as follows:
 
 .. code-block:: python
 
@@ -177,22 +191,19 @@ transitions are available through ``env.extras``:
    state = progress["states"][env_id]
    print(state.overall_score, state.all_complete)
 
-   objective = state.progress_objectives["subtask_0/pick_and_place"]
+   objective = state.progress_objectives["pick_and_place"]
    print(objective.score, objective.is_complete)
    print(objective.active_predicates)
 
    for event in progress["events"][env_id]:
        print(event.step, event.progress_objective, event.group, event.predicate_name)
 
-Each ``ProgressObjectiveState`` reports its score, completion state, completed and total group
-counts, and the currently active predicate in each group. Each ``PredicateEvent`` records when a
-predicate advanced, which objective and group it belongs to, and how much score it contributed.
-State and event history are isolated per parallel environment and cleared only for environments
-that reset.
+After an automatic reset, ``env.extras["progress_tracking"]`` still shows the finished episode
+until the next step.
 
 Arena's episode recorder also serializes the final progress state and predicate events into the
 episode's JSONL record when an output path is configured. Tasks without progress objectives have
-no progress-tracking configuration and produce no progress fields.
+no success termination or progress-tracking configuration and produce no progress fields.
 
 For example, one entry of the JSONL record may look like:
 
@@ -203,7 +214,7 @@ For example, one entry of the JSONL record may look like:
        "overall_score": 0.67,
        "all_complete": false,
        "objectives": {
-         "subtask_0/pick_and_place": {
+         "pick_and_place": {
            "score": 0.67,
            "is_complete": false,
            "completed_groups": 0,
@@ -216,7 +227,7 @@ For example, one entry of the JSONL record may look like:
        "events": [
          {
            "step": 4,
-           "objective": "subtask_0/pick_and_place",
+           "objective": "pick_and_place",
            "group": "default_group",
            "predicate_index": 0,
            "predicate_name": "objects_settled",
@@ -224,7 +235,7 @@ For example, one entry of the JSONL record may look like:
          },
          {
            "step": 18,
-           "objective": "subtask_0/pick_and_place",
+           "objective": "pick_and_place",
            "group": "default_group",
            "predicate_index": 1,
            "predicate_name": "object_is_above_height(object_name='can', use_settled_state=True)",
@@ -234,8 +245,5 @@ For example, one entry of the JSONL record may look like:
      }
    }
 
-In this example, the object has settled and then been lifted, completing two of the three predicates
-and producing a progress score of ``0.67``. The objective is not complete however because the final predicate
-(``object_on_destination``) has not been satisfied. The events record when each completed predicate advanced
-the task and how much it contributed to the score. Here, there have been two events recorded so far, one for when
-the ``objects_settled`` predicate was satisfied and one for when the ``object_is_above_height`` predicate was satisfied.
+The object has settled and been lifted: two of three predicates are complete, giving a score of ``0.67``.
+Placement is still required. The two events record when settling and lifting completed.

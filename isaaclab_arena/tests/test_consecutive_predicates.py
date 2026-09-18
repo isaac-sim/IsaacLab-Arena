@@ -10,23 +10,27 @@ from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_wi
 
 def _test_consecutive_predicates(_simulation_app) -> bool:
     import torch
-    from functools import partial
     from types import SimpleNamespace
 
     from isaaclab.managers import TerminationManager, TerminationTermCfg
 
     from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
-    from isaaclab_arena.progress_tracking.progress_tracker import ProgressTracker
+    from isaaclab_arena.progress_tracking.progress_tracker import ProgressTracker, ProgressTrackingRecorderCfg
+    from isaaclab_arena.progress_tracking.task_success import TaskSuccessTerm
     from isaaclab_arena.tasks.predicates.consecutive import ConsecutivePredicate
     from isaaclab_arena.tasks.predicates.object_settling import (
         ObjectInitialRestPoseRecorder,
         ObjectsSettledForConsecutiveSteps,
     )
-    from isaaclab_arena.tasks.terminations import termination_term_result
 
     class _PlayingSimulation:
         def is_playing(self) -> bool:
             return True
+
+    class _ProgressEnvironment(SimpleNamespace):
+        @property
+        def progress_tracker(self):
+            return self._progress_tracker
 
     class _ArenaWorld:
         def __init__(self):
@@ -44,12 +48,15 @@ def _test_consecutive_predicates(_simulation_app) -> bool:
             return self.position
 
     arena_world = _ArenaWorld()
-    env = SimpleNamespace(
+    env = _ProgressEnvironment(
         num_envs=2,
         device="cpu",
         scene=SimpleNamespace(deformable_objects={}),
         sim=_PlayingSimulation(),
         arena_world=arena_world,
+        extras={},
+        _progress_tracker=None,
+        episode_length_buf=torch.zeros(2, dtype=torch.long),
         object_initial_rest_pose_recorder=ObjectInitialRestPoseRecorder(2, "cpu"),
     )
     settled_cfg = TerminationTermCfg(
@@ -120,29 +127,45 @@ def _test_consecutive_predicates(_simulation_app) -> bool:
     _, unrelated_recorded = env.object_initial_rest_pose_recorder.get("unrelated_object")
     assert unrelated_recorded.tolist() == [True, True]
 
-    # Progress consumes the cached task termination result without evaluating its predicate again.
-    env.termination_manager = manager
-    cached_result_tracker = ProgressTracker(
-        progress_objectives=[
-            ProgressObjective(
-                name="cached_termination",
-                predicate_groups=partial(termination_term_result, term_name="success"),
+    # TaskSuccessTerm evaluates the tracked predicate and reports success on the same step.
+    tracked_manager = TerminationManager(
+        {
+            "success": TerminationTermCfg(
+                func=TaskSuccessTerm,
+                params={
+                    "success_objectives": [ProgressObjective(name="objects_settled", predicate_sequence=[settled_cfg])]
+                },
             )
-        ],
-        num_envs=env.num_envs,
-        device=env.device,
-        env=env,
+        },
+        env,
     )
-    manager.compute()
-    assert resolved_settled.consecutive_true_steps.tolist() == [1, 1]
-    cached_result_tracker.step(env, step_index=torch.tensor([1, 1]))
-    assert resolved_settled.consecutive_true_steps.tolist() == [1, 1]
-    assert [state.all_complete for state in cached_result_tracker.get_state()] == [False, False]
-    manager.compute()
-    assert resolved_settled.consecutive_true_steps.tolist() == [2, 2]
-    cached_result_tracker.step(env, step_index=torch.tensor([2, 2]))
-    assert resolved_settled.consecutive_true_steps.tolist() == [2, 2]
-    assert [state.all_complete for state in cached_result_tracker.get_state()] == [True, True]
+    tracked_settled = env.progress_tracker.get_predicate("objects_settled")
+    assert isinstance(tracked_manager.get_term_cfg("success").func, TaskSuccessTerm)
+    assert isinstance(tracked_settled, ObjectsSettledForConsecutiveSteps)
+    env.episode_length_buf += 1
+    assert tracked_manager.compute().tolist() == [False, False]
+    assert tracked_settled.consecutive_true_steps.tolist() == [1, 1]
+    recorder_cfg = ProgressTrackingRecorderCfg()
+    progress_recorder = recorder_cfg.class_type(recorder_cfg, env)
+    for _ in range(2):
+        assert progress_recorder.record_post_step() == (None, None)
+        assert tracked_settled.consecutive_true_steps.tolist() == [1, 1]
+        assert [state.all_complete for state in env.extras["progress_tracking"]["states"]] == [False, False]
+    env.episode_length_buf += 1
+    assert tracked_manager.compute().tolist() == [True, True]
+    assert [state.all_complete for state in env.progress_tracker.get_state()] == [True, True]
+
+    # The manager reset now clears both progress and the same predicate instance's counter.
+    tracked_manager.reset(env_ids=[1])
+    assert tracked_settled.consecutive_true_steps.tolist() == [2, 0]
+    assert [state.all_complete for state in env.progress_tracker.get_state()] == [True, False]
+    env.episode_length_buf += 1
+    assert tracked_manager.compute().tolist() == [True, False]
+    env.episode_length_buf += 1
+    assert tracked_manager.compute().tolist() == [True, True]
+    tracked_manager.reset()
+    assert tracked_settled.consecutive_true_steps.tolist() == [0, 0]
+    assert [state.all_complete for state in env.progress_tracker.get_state()] == [False, False]
 
     # Progress tracking resolves and owns managed predicate configs, including their reset lifecycle.
     progress_cfg = TerminationTermCfg(
@@ -150,13 +173,12 @@ def _test_consecutive_predicates(_simulation_app) -> bool:
         params={"object_names": ["sphere"], "consecutive_steps": 1},
     )
     progress_tracker = ProgressTracker(
-        progress_objectives=[ProgressObjective(name="settled", predicate_groups=progress_cfg)],
+        progress_objectives=[ProgressObjective(name="settled", predicate_sequence=[progress_cfg])],
         num_envs=env.num_envs,
         device=env.device,
         env=env,
     )
-    progress_predicate = progress_tracker.runners[0].predicate_chains["default_group"][0][0]
-    resolved_progress_settled = progress_predicate.func
+    resolved_progress_settled = progress_tracker.get_predicate("settled")
     assert isinstance(resolved_progress_settled, ObjectsSettledForConsecutiveSteps)
 
     progress_tracker.step(env, step_index=torch.tensor([1, 1]))
@@ -177,13 +199,13 @@ def _test_consecutive_predicates(_simulation_app) -> bool:
     )
     delayed_tracker = ProgressTracker(
         progress_objectives=[
-            ProgressObjective(name="delayed_settling", predicate_groups=[_is_ready, delayed_progress_cfg])
+            ProgressObjective(name="delayed_settling", predicate_sequence=[_is_ready, delayed_progress_cfg])
         ],
         num_envs=env.num_envs,
         device=env.device,
         env=env,
     )
-    delayed_predicate = delayed_tracker.runners[0].predicate_chains["default_group"][1][0].func
+    delayed_predicate = delayed_tracker.get_predicate("delayed_settling", predicate_index=1)
 
     delayed_tracker.step(env, step_index=torch.tensor([1, 1]))
     delayed_tracker.step(env, step_index=torch.tensor([2, 2]))
@@ -210,10 +232,13 @@ def test_consecutive_predicates():
 def _test_off_table_sphere_does_not_settle_before_falling(_simulation_app) -> bool:
     import torch
 
+    import pytest
+
     from isaaclab_arena.assets.object_library import DomeLight, GroundPlane, ProceduralTable, Sphere
     from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
+    from isaaclab_arena.progress_tracking.task_success import TaskSuccessTerm
     from isaaclab_arena.scene.scene import Scene
     from isaaclab_arena.tasks.predicates.object_settling import ObjectsSettledForConsecutiveSteps
     from isaaclab_arena.tests.objects_settled_task import ObjectsSettledTask
@@ -248,7 +273,13 @@ def _test_off_table_sphere_does_not_settle_before_falling(_simulation_app) -> bo
 
     try:
         arena_env = env.unwrapped
-        settled = arena_env.termination_manager.get_term_cfg("success").func
+        assert isinstance(arena_env.termination_manager.get_term_cfg("success").func, TaskSuccessTerm)
+        progress_tracker = arena_env.progress_tracker
+        assert progress_tracker is not None
+        with pytest.raises(AttributeError, match="progress_tracker"):
+            arena_env.progress_tracker = None
+        assert arena_env.progress_tracker is progress_tracker
+        settled = progress_tracker.get_predicate("objects_settled")
         assert isinstance(settled, ObjectsSettledForConsecutiveSteps)
 
         falling_speed = arena_env.arena_world.get_root_linear_velocity_w("falling_sphere").norm(dim=-1)
@@ -277,7 +308,7 @@ def _test_off_table_sphere_does_not_settle_before_falling(_simulation_app) -> bo
                 assert progress_state.overall_score == 1.0
                 settled_events = progress["events"][0]
                 assert len(settled_events) == 1
-                assert settled_events[0].predicate_name == "termination_term_result(term_name='success')"
+                assert settled_events[0].predicate_name == "ObjectsSettledForConsecutiveSteps(consecutive_steps=5)"
                 assert settled_events[0].step >= 5
                 break
             assert not progress_state.progress_objectives["objects_settled"].is_complete

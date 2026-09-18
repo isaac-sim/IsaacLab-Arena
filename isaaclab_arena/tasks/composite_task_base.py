@@ -5,41 +5,27 @@
 
 import copy
 import dataclasses
-import inspect
 import numpy as np
-import torch
 import warnings
-from dataclasses import MISSING
 from functools import partial
 from typing import Any
 
 from isaaclab.envs.common import ViewerCfg
 from isaaclab.envs.mimic_env_cfg import MimicEnvCfg, SubTaskConfig
-from isaaclab.managers import EventTermCfg, ManagerTermBase, TerminationTermCfg
 from isaaclab.managers.recorder_manager import RecorderTerm, RecorderTermCfg
 from isaaclab.utils.configclass import configclass
 
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.metrics.metric_term_cfg import MetricTermCfg
-from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
 from isaaclab_arena.tasks.common.mimic_default_params import MIMIC_DATAGEN_CONFIG_DEFAULTS
 from isaaclab_arena.tasks.task_base import TaskBase
+from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
 from isaaclab_arena.utils.configclass import (
     check_configclass_field_duplicates,
     combine_configclass_instances,
     transform_configclass_instance,
 )
-
-
-@configclass
-class CompositeTaskEventsCfg:
-    reset_subtask_success_state: EventTermCfg = MISSING
-
-
-@configclass
-class TerminationsCfg:
-    success: TerminationTermCfg = MISSING
 
 
 class SubtaskSuccessStateRecorder(RecorderTerm):
@@ -50,9 +36,9 @@ class SubtaskSuccessStateRecorder(RecorderTerm):
         self.name = cfg.name
 
     def record_post_step(self):
-        # Return subtask success state as a torch tensor
-        subtask_ever_succeeded = torch.tensor(self._env._subtask_ever_succeeded, device=self._env.device)
-        return self.name, subtask_ever_succeeded.clone()
+        progress_tracker = self._env.progress_tracker
+        assert progress_tracker is not None, "Task success must initialize the progress tracker before recording."
+        return self.name, progress_tracker.get_subtask_completion()
 
 
 @configclass
@@ -94,9 +80,6 @@ class SubtaskSuccessRateMetric(MetricBase):
     name = "subtask_success_rate"
     recorder_term_name = "subtask_success_rate"
 
-    def __init__(self):
-        super().__init__()
-
     def get_recorder_term_cfg(self) -> RecorderTermCfg:
         """Return the recorder term configuration for the subtask success state metric."""
         return SubtaskSuccessStateRecorderCfg(name=self.recorder_term_name)
@@ -111,18 +94,18 @@ class SubtaskSuccessRateMetric(MetricBase):
 
 
 class CompositeTaskBase(TaskBase):
-    """
-    A base class for composite tasks composed of multiple subtasks.
-    Completion ordering of subtasks does not matter.
-
+    """Combine a flat list of tasks, optionally requiring completion in order.
 
     Args:
         subtasks: List of TaskBase instances representing the subtasks that compose this composite task.
         episode_length_s: Maximum duration of a single episode in seconds. Defaults to the sum of the
-            subtasks' episode lengths, i.e. the budget for completing all of them end to end.
+            subtasks' configured timeouts, giving one overall budget for completing the task.
         task_description: (Optional) Natural-language summary of the overall composite task.
         desired_subtask_success_state: (Optional) Precise success state for each subtask during the final time step.
-            Can be used to enforce a specific current state for each subtask at the end of the episode.
+            True or False requires recorded completion and a matching current final condition.
+            None entries exclude that subtask from the success check.
+        subtasks_are_sequential: Whether each subtask waits for the preceding subtask to complete.
+            Defaults to False, allowing subtasks to complete in any order.
     """
 
     def __init__(
@@ -131,13 +114,18 @@ class CompositeTaskBase(TaskBase):
         episode_length_s: float | None = None,
         task_description: str | None = None,
         desired_subtask_success_state: list[bool | None] | None = None,
+        subtasks_are_sequential: bool = False,
     ):
         assert len(subtasks) > 0, "Composite task requires at least one subtask"
+        assert not any(
+            isinstance(subtask, CompositeTaskBase) for subtask in subtasks
+        ), "Nested composite tasks are not supported; provide a flat list of tasks."
         # Default task length is the summation of the lengths of the subtasks.
         if episode_length_s is None:
             episode_length_s = self._sum_subtask_episode_lengths_s(subtasks)
         super().__init__(episode_length_s, task_description)
         self.subtasks = subtasks
+        self.subtasks_are_sequential = subtasks_are_sequential
 
         if desired_subtask_success_state is not None:
             assert len(desired_subtask_success_state) == len(
@@ -150,8 +138,15 @@ class CompositeTaskBase(TaskBase):
 
     @staticmethod
     def _sum_subtask_episode_lengths_s(subtasks: list[TaskBase]) -> float:
-        """Return the total episode length of the subtasks, in seconds."""
-        return sum(subtask.get_episode_length_s() for subtask in subtasks)
+        """Return the sum of the subtasks' configured timeouts, in seconds."""
+        total_timeout_s = 0.0
+        for subtask in subtasks:
+            subtask_timeout_s = subtask.get_termination_cfg().timeout_s
+            assert (
+                subtask_timeout_s is not None
+            ), "Set episode_length_s explicitly for a composite task when a subtask has no timeout."
+            total_timeout_s += subtask_timeout_s
+        return total_timeout_s
 
     def get_viewer_cfg(self) -> ViewerCfg:
         """Use the first subtask's viewport framing (e.g. pick-and-place look-at-object)."""
@@ -167,117 +162,6 @@ class CompositeTaskBase(TaskBase):
         "Config transformation to add a suffix to all field names."
         return [(f"{name}{suffix}", ftype, value) for name, ftype, value in fields]
 
-    @staticmethod
-    def _remove_configclass_transform(fields: list[tuple], exclude_fields: set[str]) -> list[tuple]:
-        "Config transformation to remove all fields in an exclude set."
-        return [(name, ftype, value) for name, ftype, value in fields if name not in exclude_fields]
-
-    @staticmethod
-    def _evaluate_subtask_successes(
-        env,
-        subtask_success_cfgs: list[TerminationTermCfg],
-        subtask_indices,
-    ) -> list[list[bool]]:
-        """Evaluate the success function of selected subtasks across all envs.
-
-        Args:
-            env: The environment instance.
-            subtask_success_cfgs: Success configurations to evaluate.
-            subtask_indices: Iterable of subtask indices to evaluate. Indices not in this
-                iterable are left as False in the returned matrix.
-
-        Returns:
-            A (num_envs x len(subtask_success_cfgs)) list of bools, where entry
-            [env_idx][subtask_idx] is True if that subtask's success function returned True this step.
-        """
-        subtask_currently_succeeding = [[False for _ in subtask_success_cfgs] for _ in range(env.num_envs)]
-        for subtask_idx in subtask_indices:
-            subtask_success_cfg = subtask_success_cfgs[subtask_idx]
-            if inspect.isclass(subtask_success_cfg.func):
-                assert issubclass(subtask_success_cfg.func, ManagerTermBase), (
-                    "Class-backed subtask success functions must inherit from ManagerTermBase; "
-                    f"received {subtask_success_cfg.func}."
-                )
-                subtask_success_cfg.func = subtask_success_cfg.func(cfg=subtask_success_cfg, env=env)
-            results = subtask_success_cfg.func(env, **subtask_success_cfg.params)
-            for env_idx in range(env.num_envs):
-                if results[env_idx]:
-                    subtask_currently_succeeding[env_idx][subtask_idx] = True
-        return subtask_currently_succeeding
-
-    @staticmethod
-    def composite_task_success_func(
-        env,
-        subtask_success_cfgs: list[TerminationTermCfg],
-        desired_subtask_success_state: list[bool | None] | None,
-    ) -> torch.Tensor:
-        """Composite task composite success function.
-
-        Args:
-            env: The environment instance.
-            subtask_success_cfgs: Success configurations to evaluate.
-            desired_subtask_success_state: (Optional) Precise success state for each subtask during the final time step.
-                Can be used to enforce a specific current state for each subtask at the end of the episode.
-
-        Returns:
-            A bool tensor of shape (num_envs,) indicating composite success per env.
-        """
-        num_subtasks = len(subtask_success_cfgs)
-
-        # Initialize each env's subtask success state to False if not already initialized
-        if not hasattr(env, "_subtask_ever_succeeded"):
-            env._subtask_ever_succeeded = [[False for _ in range(num_subtasks)] for _ in range(env.num_envs)]
-
-        # Evaluate every subtask's success function (composite tasks have no ordering constraint).
-        subtask_currently_succeeding = CompositeTaskBase._evaluate_subtask_successes(
-            env, subtask_success_cfgs, range(num_subtasks)
-        )
-        for env_idx in range(env.num_envs):
-            for subtask_idx in range(num_subtasks):
-                if subtask_currently_succeeding[env_idx][subtask_idx]:
-                    env._subtask_ever_succeeded[env_idx][subtask_idx] = True
-
-        # Compute composite task success state for each env.
-        # Entries in `desired_subtask_success_state` set to None are "don't cares" and
-        # may be any state. For each subtask it must (a) have been evaluated as True
-        # at some point and (b) currently match the desired value.
-        if desired_subtask_success_state is not None:
-            per_env_success = []
-            for env_idx in range(env.num_envs):
-                env_success = True
-                for i, desired in enumerate(desired_subtask_success_state):
-                    if desired is None:
-                        continue
-                    # Check that both the subtask has ever succeeded and currently matches the desired success state.
-                    ever_succeeded = env._subtask_ever_succeeded[env_idx][i]
-                    currently_matches = subtask_currently_succeeding[env_idx][i] == desired
-                    if not (ever_succeeded and currently_matches):
-                        env_success = False
-                        break
-                per_env_success.append(env_success)
-        else:
-            per_env_success = [all(env_successes) for env_successes in env._subtask_ever_succeeded]
-
-        success_tensor = torch.tensor(per_env_success, dtype=torch.bool, device=env.device)
-
-        env.extras["subtask_success_state"] = copy.copy(env._subtask_ever_succeeded)
-
-        return success_tensor
-
-    @staticmethod
-    def reset_subtask_success_state(
-        env,
-        env_ids,
-        subtasks: list[TaskBase],
-    ) -> None:
-        "Reset subtask success vector for each environment."
-        # Initialize each env's subtask success state to False
-        if not hasattr(env, "_subtask_ever_succeeded"):
-            env._subtask_ever_succeeded = [[False for _ in subtasks] for _ in range(env.num_envs)]
-        else:
-            for env_id in env_ids:
-                env._subtask_ever_succeeded[env_id] = [False for _ in subtasks]
-
     def get_scene_cfg(self) -> Any:
         "Make combined scene cfg from all subtasks."
         # Check for duplicate fields across subtask scene configs and warn if found
@@ -291,20 +175,6 @@ class CompositeTaskBase(TaskBase):
 
         scene_cfg = combine_configclass_instances("SceneCfg", *(subtask.get_scene_cfg() for subtask in self.subtasks))
         return scene_cfg
-
-    def _make_composite_task_events_cfg(self) -> Any:
-        "Make event to reset subtask success state."
-        reset_subtask_success_state = EventTermCfg(
-            func=self.reset_subtask_success_state,
-            mode="reset",
-            params={
-                "subtasks": self.subtasks,
-            },
-        )
-
-        return CompositeTaskEventsCfg(
-            reset_subtask_success_state=reset_subtask_success_state,
-        )
 
     def get_events_cfg(self) -> Any:
         "Make combined events cfg from all subtasks."
@@ -320,49 +190,41 @@ class CompositeTaskBase(TaskBase):
             assert renamed_cfg is not None, f"Renaming dropped subtask {i}'s events cfg"
             renamed_events_cfgs.append(renamed_cfg)
 
-        # Add reset subtask success state event to the combined events cfgs
-        events_cfg = combine_configclass_instances(
-            "EventsCfg", *renamed_events_cfgs, self._make_composite_task_events_cfg()
-        )
+        events_cfg = combine_configclass_instances("EventsCfg", *renamed_events_cfgs)
 
         return events_cfg
 
-    def _make_composite_task_termination_cfg(self) -> Any:
-        "Make composite success check termination term."
-        subtask_success_cfgs = [subtask.get_termination_cfg().success for subtask in self.subtasks]
-        success = TerminationTermCfg(
-            func=self.composite_task_success_func,
-            params={
-                # Child success configs must be direct term parameters so Isaac Lab can construct
-                # class-backed child terms; ManagerBase does not traverse TaskBase objects.
-                "subtask_success_cfgs": subtask_success_cfgs,
-                "desired_subtask_success_state": self.desired_subtask_success_state,
-            },
-        )
-
-        return TerminationsCfg(
-            success=success,
-        )
-
-    def get_termination_cfg(self) -> Any:
-        "Make combined termination cfg from all subtasks."
-        # Collect termination cfgs from subtasks with 'success' field removed
-        subtask_termination_cfgs = []
-        for subtask in self.subtasks:
-            termination_cfg = subtask.get_termination_cfg()
-            cleaned_cfg = transform_configclass_instance(
-                termination_cfg, partial(self._remove_configclass_transform, exclude_fields={"success"})
+    def get_termination_cfg(self) -> TaskTerminationCfg:
+        """Collect flat subtask objectives, ordering, final conditions, failures, and one timeout."""
+        success_objectives = []
+        failures = {}
+        for subtask_index, subtask in enumerate(self.subtasks):
+            subtask_termination = subtask.get_termination_cfg()
+            assert isinstance(subtask_termination, TaskTerminationCfg), "Subtasks must return TaskTerminationCfg."
+            assert subtask_termination.success, f"Subtask {subtask_index} must define success objectives."
+            assert (
+                not subtask_termination.subtasks_are_sequential
+                and subtask_termination.desired_subtask_success_state is None
+                and all(objective.parent_subtask_idx is None for objective in subtask_termination.success)
+            ), "Nested subtask composition is not supported."
+            success_objectives.extend(
+                dataclasses.replace(
+                    objective,
+                    name=f"subtask_{subtask_index}/{objective.name}",
+                    parent_subtask_idx=subtask_index,
+                )
+                for objective in subtask_termination.success
             )
-            # cleaned_cfg is None when the subtask's only termination field was 'success'
-            if cleaned_cfg is not None:
-                subtask_termination_cfgs.append(cleaned_cfg)
+            for failure_name, failure_term in subtask_termination.failures.items():
+                failures[f"{failure_name}_subtask_{subtask_index}"] = failure_term
 
-        # Combine subtask terminations with the composite sequential task success
-        combined_termination_cfg = combine_configclass_instances(
-            "TerminationsCfg", *subtask_termination_cfgs, self._make_composite_task_termination_cfg()
+        return TaskTerminationCfg(
+            timeout_s=self.episode_length_s,
+            success=success_objectives,
+            failures=failures,
+            subtasks_are_sequential=self.subtasks_are_sequential,
+            desired_subtask_success_state=self.desired_subtask_success_state,
         )
-
-        return combined_termination_cfg
 
     def _combine_subtask_metrics(self, subtask_idxs: list[int]) -> list[MetricBase]:
         """Combine metrics from subtasks with the given ids.
@@ -376,13 +238,14 @@ class CompositeTaskBase(TaskBase):
         for subtask_idx in subtask_idxs:
             subtask_metrics = self.subtasks[subtask_idx].get_metrics()
             for metric in subtask_metrics:
+                metric = copy.copy(metric)
                 if metric.name != "success_rate":
                     metric.name = f"{metric.name}_subtask_{subtask_idx}"
                     metric.recorder_term_name = f"{metric.recorder_term_name}_subtask_{subtask_idx}"
-                    combined_metrics.append(copy.copy(metric))
+                    combined_metrics.append(metric)
                 else:
                     if not any(m.name == "success_rate" for m in combined_metrics):
-                        combined_metrics.append(copy.copy(metric))
+                        combined_metrics.append(metric)
 
         return combined_metrics
 
@@ -393,23 +256,6 @@ class CompositeTaskBase(TaskBase):
         subtask_metrics.append(SubtaskSuccessRateMetric())
 
         return subtask_metrics
-
-    def get_progress_objectives(self) -> list[ProgressObjective]:
-        """Concatenate child subtasks's ProgressObjectives with namespace prefixes.
-
-        Each child's progress objectives gets a new name (subtask_{i}/{original_name}) and a parent_subtask_idx = i tag.
-        """
-        progress_objectives_list: list[ProgressObjective] = []
-        for i, child in enumerate(self.subtasks):
-            for progress_objective in child.get_progress_objectives():
-                progress_objectives_list.append(
-                    dataclasses.replace(
-                        progress_objective,
-                        name=f"subtask_{i}/{progress_objective.name}",
-                        parent_subtask_idx=i,
-                    )
-                )
-        return progress_objectives_list
 
     def _validate_consistent_mimic_eef_names(self, arm_mode: ArmMode) -> set[str]:
         "Check that all subtasks have the same Mimic eef_names."

@@ -8,6 +8,7 @@ from isaaclab.envs.common import ViewerCfg
 from isaaclab_arena.assets.register import register_task
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.tasks.task_base import TaskBase
+from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
 
 
 @register_task
@@ -22,8 +23,8 @@ class NoTask(TaskBase):
     def get_scene_cfg(self):
         pass
 
-    def get_termination_cfg(self):
-        pass
+    def get_termination_cfg(self) -> TaskTerminationCfg:
+        return TaskTerminationCfg(timeout_s=None)
 
     def get_events_cfg(self):
         pass

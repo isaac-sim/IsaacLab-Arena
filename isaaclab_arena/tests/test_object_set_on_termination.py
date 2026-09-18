@@ -10,7 +10,7 @@ import traceback
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
 # Turned this up to 200 to ensure all objects fall below the velocity threshold.
-NUM_STEPS = 100
+NUM_STEPS = 200
 # This should stay >2 to test both objects in the object set.
 # Note(alexmillane, 2026-05-28): I realized that with 2 plus random
 # sampling sometime you don't get both objects. This caused us to not
@@ -30,6 +30,7 @@ def _test_object_set_on_destination_termination(simulation_app) -> bool:
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.scene.scene import Scene
     from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
+    from isaaclab_arena.tests.utils.pick_and_place import lift_settled_objects_once
     from isaaclab_arena.utils.pose import Pose
 
     args_parser = get_isaaclab_arena_cli_parser()
@@ -74,8 +75,10 @@ def _test_object_set_on_destination_termination(simulation_app) -> bool:
     try:
         success_vec = []
         terminated_vec = []
+        lifted_envs = torch.zeros(NUM_ENVS, dtype=torch.bool, device=env.unwrapped.device)
         for _ in tqdm.tqdm(range(NUM_STEPS)):
             with torch.inference_mode():
+                lift_settled_objects_once(env.unwrapped, object_set.name, lifted_envs)
                 actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
                 _, _, terminated, _, _ = env.step(actions)
 

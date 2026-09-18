@@ -8,12 +8,12 @@ import numpy as np
 from isaaclab.envs.common import ViewerCfg
 
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
-from isaaclab_arena.tasks.sequential_task_base import SequentialTaskBase
+from isaaclab_arena.tasks.composite_task_base import CompositeTaskBase
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.utils.cameras import get_viewer_cfg_look_at_object
 
 
-class FrankaPutAndCloseDoorTask(SequentialTaskBase):
+class FrankaPutAndCloseDoorTask(CompositeTaskBase):
 
     def __init__(
         self,
@@ -26,6 +26,7 @@ class FrankaPutAndCloseDoorTask(SequentialTaskBase):
             subtasks=subtasks,
             episode_length_s=episode_length_s,
             desired_subtask_success_state=desired_subtask_success_state,
+            subtasks_are_sequential=True,
         )
         self.openable_object = openable_object
 

@@ -326,7 +326,7 @@ def _test_deformable_reset_and_initial_pose(simulation_app) -> bool:
     return True
 
 
-def _test_deformable_pick_and_place_success(simulation_app) -> bool:
+def _test_deformable_placement_is_not_immediate_task_success(simulation_app) -> bool:
     import torch
 
     from isaaclab_arena.assets.registries import AssetRegistry
@@ -364,9 +364,15 @@ def _test_deformable_pick_and_place_success(simulation_app) -> bool:
         env.reset()
         assert task.contact_sensor_name is None
         assert len(env.unwrapped.scene.sensors) == 0
-        success_term = task.get_termination_cfg().success
-        success = success_term.func(env.unwrapped, **success_term.params)
-        torch.testing.assert_close(success, torch.ones(1, dtype=torch.bool, device=env.unwrapped.device))
+        success_objective = task.get_termination_cfg().success[0]
+        placement_predicate = success_objective.predicate_sequence[-1]
+        placed = placement_predicate(env.unwrapped)
+        torch.testing.assert_close(placed, torch.ones(1, dtype=torch.bool, device=env.unwrapped.device))
+
+        # Starting on the destination must not skip the required lift.
+        env.unwrapped.termination_manager.compute()
+        success = env.unwrapped.termination_manager.get_term("success")
+        torch.testing.assert_close(success, torch.zeros(1, dtype=torch.bool, device=env.unwrapped.device))
     finally:
         env.close()
     return True
@@ -391,8 +397,8 @@ def test_deformable_reset_and_initial_pose():
     )
 
 
-def test_deformable_pick_and_place_success():
+def test_deformable_placement_is_not_immediate_task_success():
     assert run_function_with_persistent_simulation_app(
-        _test_deformable_pick_and_place_success,
+        _test_deformable_placement_is_not_immediate_task_success,
         headless=HEADLESS,
     )

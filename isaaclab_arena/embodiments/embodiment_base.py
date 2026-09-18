@@ -72,7 +72,6 @@ class EmbodimentBase(PlaceableAsset):
         self.command_config: Any | None = None
         self.mimic_env: Any | None = None
         self.xr: Any | None = None
-        self.termination_cfg: Any | None = None
         self._configured_physics_backend: PhysicsBackend | None = None
 
     def get_placement_geometry_source(self) -> ArticulationGeometrySpec:
@@ -277,9 +276,6 @@ class EmbodimentBase(PlaceableAsset):
         return make_trajectory_recorder_terms_cfg(
             frame_transformer_names=self.get_ee_frame_transformer_names(), asset_name=self.get_scene_key()
         )
-
-    def get_termination_cfg(self) -> Any:
-        return self.termination_cfg
 
     def get_scene_key(self) -> str:
         """Return the embodiment's Isaac Lab scene key."""

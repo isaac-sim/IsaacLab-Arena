@@ -12,7 +12,8 @@ from typing import Any
 from isaaclab.devices.device_base import DeviceCfg, DevicesCfg
 from isaaclab.envs import ManagerBasedRLMimicEnv
 from isaaclab.envs.manager_based_env import ManagerBasedEnv
-from isaaclab.managers import EventTermCfg
+from isaaclab.envs.mdp import time_out
+from isaaclab.managers import EventTermCfg, TerminationTermCfg
 from isaaclab.managers.recorder_manager import RecorderManagerBaseCfg
 from isaaclab.scene import InteractiveSceneCfg
 from isaaclab_newton.physics import NewtonCfg
@@ -35,10 +36,8 @@ from isaaclab_arena.environments.relation_solver_interface import solve_and_appl
 from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.metrics.metric_term_cfg import MetricTermCfg
 from isaaclab_arena.metrics.recorder_manager_utils import metrics_to_recorder_manager_cfg
-from isaaclab_arena.progress_tracking.progress_tracker import (
-    make_progress_tracking_events_cfg,
-    make_progress_tracking_recorder_cfg,
-)
+from isaaclab_arena.progress_tracking.progress_tracker import ProgressTrackingRecorderManagerCfg
+from isaaclab_arena.progress_tracking.task_success import TaskSuccessTerm
 from isaaclab_arena.recording.common_terms import CoreEpisodeRecorderTermCfg, VariationEpisodeRecorderTermCfg
 from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTermCfg
 from isaaclab_arena.recording.progress_terms import ProgressEpisodeRecorderTermCfg
@@ -46,6 +45,7 @@ from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_events import PLACEMENT_RESET_EVENT_NAME
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.tasks.no_task import NoTask
+from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
 from isaaclab_arena.terms.events import ResetBackgroundPhysics
 from isaaclab_arena.terms.recorders import ArenaEnvRecorderManagerCfg
 from isaaclab_arena.utils.configclass import combine_configclass_instances, make_configclass
@@ -196,6 +196,37 @@ class ArenaEnvBuilder:
         fields = [(m.name, MetricTermCfg, m.get_metric_term_cfg()) for m in metrics]
         return make_configclass("MetricsCfg", fields)()
 
+    def _build_termination_manager_cfg(
+        self,
+        task_termination_cfg: TaskTerminationCfg,
+    ) -> object:
+        """Translate TaskTerminationCfg into an Isaac Lab termination configclass.
+
+        Args:
+            task_termination_cfg: Task-owned success objectives, failures, and timeout.
+
+        Returns:
+            A configclass containing the requested failure, timeout, and success terms.
+        """
+        termination_terms = dict(task_termination_cfg.failures)
+        if task_termination_cfg.timeout_s is not None:
+            termination_terms["time_out"] = TerminationTermCfg(func=time_out, time_out=True)
+        success_objectives = task_termination_cfg.success
+
+        # Install the shared success term when the task defines success objectives.
+        if success_objectives:
+            success_term = TerminationTermCfg(
+                func=TaskSuccessTerm,
+                params={
+                    "success_objectives": success_objectives,
+                    "subtasks_are_sequential": task_termination_cfg.subtasks_are_sequential,
+                    "desired_subtask_success_state": task_termination_cfg.desired_subtask_success_state,
+                },
+            )
+            termination_terms["success"] = success_term
+        termination_fields = [(name, TerminationTermCfg, term) for name, term in termination_terms.items()]
+        return make_configclass("TerminationsCfg", termination_fields)()
+
     def _compose_episode_recorders_cfg(self, extra_terms: dict[str, EpisodeRecorderTermCfg] | None = None) -> object:
         """Build a configclass container with one EpisodeRecorderTermCfg field per episode recorder term.
 
@@ -268,10 +299,10 @@ class ArenaEnvBuilder:
             )
             placement_event_cfg = PlacementEventCfg()
         variations_event_cfg = self._compose_variations_event_cfg()
-        progress_objectives = task.get_progress_objectives()
-        progress_tracking_events_cfg: Any = (
-            make_progress_tracking_events_cfg(progress_objectives) if progress_objectives else None
-        )
+        task_termination_cfg = task.get_termination_cfg()
+        assert isinstance(
+            task_termination_cfg, TaskTerminationCfg
+        ), "Tasks must return TaskTerminationCfg with success objectives, failures, and timeout_s."
         background_physics_events_cfg = None
         background_physics_paths = self.arena_env.scene.get_background_physics_paths()
         if background_physics_paths:
@@ -299,14 +330,8 @@ class ArenaEnvBuilder:
             task.get_events_cfg(),
             placement_event_cfg,
             variations_event_cfg,
-            progress_tracking_events_cfg,
         )
-        termination_cfg = combine_configclass_instances(
-            "TerminationCfg",
-            task.get_termination_cfg(),
-            self.arena_env.scene.get_termination_cfg(),
-            embodiment.get_termination_cfg(),
-        )
+        termination_cfg = self._build_termination_manager_cfg(task_termination_cfg)
         actions_cfg = embodiment.get_action_cfg()
         xr_cfg = embodiment.get_xr_cfg()
         isaac_teleop_cfg = None
@@ -322,7 +347,7 @@ class ArenaEnvBuilder:
         metrics_cfg = self._compose_metrics_cfg(metrics)
         metrics_recorder_manager_cfg = metrics_to_recorder_manager_cfg(metrics)
         progress_tracking_recorder_cfg: Any = (
-            make_progress_tracking_recorder_cfg(progress_objectives) if progress_objectives else None
+            ProgressTrackingRecorderManagerCfg() if task_termination_cfg.success else None
         )
 
         # Base has to be specified explicitly to avoid type errors and not lose inheritance.
@@ -366,7 +391,10 @@ class ArenaEnvBuilder:
 
         viewer_cfg = task.get_viewer_cfg()
 
-        episode_length_s = task.get_episode_length_s()
+        episode_length_s = task_termination_cfg.timeout_s
+        if episode_length_s is None:
+            # Isaac Lab still needs a numeric episode length without timeout termination.
+            episode_length_s = task.get_episode_length_s()
 
         task_description = self.cfg.language_instruction or task.get_task_description()
 

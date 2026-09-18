@@ -41,8 +41,8 @@ Environment Description
             )
             from isaaclab_arena.scene.scene import Scene
             from isaaclab_arena.tasks.close_door_task import CloseDoorTask
+            from isaaclab_arena.tasks.composite_task_base import CompositeTaskBase
             from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
-            from isaaclab_arena.tasks.sequential_task_base import SequentialTaskBase
             from isaaclab_arena.tasks.task_base import TaskBase
             from isaaclab_arena.utils.pose import Pose, PoseRange
 
@@ -63,14 +63,17 @@ Environment Description
                 )
 
             # Custom task class for this environment
-            class PutAndCloseDoorTask(SequentialTaskBase):
+            class PutAndCloseDoorTask(CompositeTaskBase):
                 def __init__(
                     self,
                     subtasks: list[TaskBase],
                     episode_length_s: float | None = None,
                 ):
                     super().__init__(
-                        subtasks=subtasks, episode_length_s=episode_length_s, desired_subtask_success_state=[True, True]
+                        subtasks=subtasks,
+                        episode_length_s=episode_length_s,
+                        desired_subtask_success_state=[True, True],
+                        subtasks_are_sequential=True,
                     )
 
                 def get_viewer_cfg(self):

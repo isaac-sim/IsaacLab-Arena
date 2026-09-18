@@ -5,10 +5,10 @@
 
 import numpy as np
 from dataclasses import MISSING
+from functools import partial
 
-import isaaclab.envs.mdp as mdp_isaac_lab
 from isaaclab.envs.common import ViewerCfg
-from isaaclab.managers import EventTermCfg, TerminationTermCfg
+from isaaclab.managers import EventTermCfg
 from isaaclab.utils.configclass import configclass
 
 from isaaclab_arena.affordances.pressable import Pressable
@@ -16,7 +16,9 @@ from isaaclab_arena.assets.register import register_task
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.metrics.success_rate import SuccessRateMetric
+from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
 from isaaclab_arena.tasks.task_base import TaskBase
+from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
 from isaaclab_arena.utils.cameras import get_viewer_cfg_look_at_object
 
 
@@ -42,15 +44,19 @@ class PressButtonTask(TaskBase):
     def get_scene_cfg(self):
         pass
 
-    def get_termination_cfg(self):
+    def get_termination_cfg(self) -> TaskTerminationCfg:
         params = {}
         if self.pressedness_threshold is not None:
-            params["threshold"] = self.pressedness_threshold
-        success = TerminationTermCfg(
-            func=self.pressable_object.is_pressed,
-            params=params,
+            params["pressedness_threshold"] = self.pressedness_threshold
+        return TaskTerminationCfg(
+            timeout_s=self.episode_length_s,
+            success=[
+                ProgressObjective(
+                    name="press_button",
+                    predicate_sequence=[partial(self.pressable_object.is_pressed, **params)],
+                )
+            ],
         )
-        return TerminationsCfg(success=success)
 
     def get_events_cfg(self):
         return PressEventCfg(self.pressable_object, reset_pressedness=self.reset_pressedness)
@@ -68,17 +74,6 @@ class PressButtonTask(TaskBase):
             lookat_object=self.pressable_object,
             offset=np.array([-1.5, -1.5, 1.5]),
         )
-
-
-@configclass
-class TerminationsCfg:
-    """Termination terms for the MDP."""
-
-    time_out: TerminationTermCfg = TerminationTermCfg(func=mdp_isaac_lab.time_out, time_out=True)
-
-    # Dependent on the openable object, so this is passed in from the task at
-    # construction time.
-    success: TerminationTermCfg = MISSING
 
 
 @configclass
