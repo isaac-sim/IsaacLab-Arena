@@ -44,9 +44,11 @@ repos:
       - id: pyupgrade
         args: ["--py310-plus"]
   - repo: https://github.com/codespell-project/codespell
-    rev: v2.2.6
+    rev: v2.3.0
     hooks:
       - id: codespell
+        # isort uses this exact section name; it is not a spelling error.
+        args: ['--ignore-regex=\bTHIRDPARTY\b']
         additional_dependencies:
         - tomli
   - repo: https://github.com/pre-commit/pygrep-hooks

@@ -29,6 +29,7 @@ env:
   NGC_API_KEY: ${{ secrets.ARENA_NGC_API_KEY }}
   OMNI_PASS: ${{ secrets.OMNI_PASS }}
   OMNI_USER: ${{ secrets.OMNI_USER }}
+  ARENA_IMAGE: nvcr.io/nvstaging/isaac-amr/isaaclab_arena
   # Disable omniclient hub mode to avoid ~10s startup time for sim startup.
   OMNICLIENT_HUB_MODE: disabled
 
@@ -100,18 +101,151 @@ jobs:
           # fresh directory owned by the current process instead.
           PRE_COMMIT_HOME: /tmp/pre-commit-cache
 
+      - name: Test cache diagnostics
+        run: python3 -m unittest discover -s docker -p 'test_report_build_cache.py' -v
+
+
+  build_and_push_image:
+    name: Build and push Arena image
+    runs-on: [self-hosted, gpu-arena]
+    timeout-minutes: 120
+    needs: [pre_commit]
+    container:
+      image: ubuntu:24.04
+    env:
+      ARENA_TARGET: dev
+    outputs:
+      image: ${{ steps.image.outputs.ref }}
+
+    steps: &build_and_push_image_steps
+      - *install_git_step
+      - *cleanup_step
+      - *mark_repo_safe_step
+      - *checkout_step
+      - *git_lfs_step
+      - &install_docker_step
+        name: Install docker
+        run: |
+          # Install tools needed to download and verify Docker packages.
+          apt-get update
+          apt-get install -y ca-certificates curl gnupg && \
+          # Store Docker's signing key where apt can read it.
+          install -m 0755 -d /etc/apt/keyrings && \
+          curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg && \
+          chmod a+r /etc/apt/keyrings/docker.gpg && \
+          # Add the Docker apt repository for this architecture and Ubuntu release.
+          echo "deb [arch="$(dpkg --print-architecture)" signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
+          "$(. /etc/os-release && echo "$VERSION_CODENAME")" stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null &&
+          # Install the Docker CLI, Buildx, and Python for cache reports; use the runner's Docker daemon.
+          apt-get update && apt-get install -y docker-ce-cli docker-buildx-plugin python3
+          docker --version
+
+      - &docker_login_ngc_step
+        name: Docker login to NGC
+        # $oauthtoken is the literal NGC username; pipe the NGC API key via stdin
+        run: echo "${NGC_API_KEY}" | docker login nvcr.io -u '$oauthtoken' --password-stdin
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+        with:
+          driver: docker-container
+
+      - name: Describe cache inputs
+        run: |
+          echo "Cache: ${ARENA_IMAGE}:buildcache-main-${ARENA_TARGET}"
+          docker buildx version
+          git rev-parse HEAD
+          git submodule status
+
+      - name: Build and push candidate image
+        id: build
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: .
+          file: docker/Dockerfile.isaaclab_arena
+          target: ${{ env.ARENA_TARGET }}
+          platforms: linux/amd64
+          build-args: WORKDIR=/workspaces/isaaclab_arena
+          pull: true
+          push: true
+          # Keep candidate images as single-platform manifests for NGC.
+          provenance: false
+          tags: ${{ env.ARENA_IMAGE }}:ci-${{ github.run_id }}-${{ github.run_attempt }}-${{ env.ARENA_TARGET }}
+          cache-from: type=registry,ref=${{ env.ARENA_IMAGE }}:buildcache-main-${{ env.ARENA_TARGET }}
+          # PRs read the shared cache; only a push to main may replace it.
+          cache-to: >-
+            ${{ github.event_name == 'push' && github.ref == 'refs/heads/main'
+                && format('type=registry,ref={0}:buildcache-main-{1},mode=max,oci-mediatypes=true,image-manifest=true',
+                          env.ARENA_IMAGE, env.ARENA_TARGET) || '' }}
+
+      # Show cache hits and step timings in the job log and GitHub Actions run summary
+      # to help explain unexpected rebuilds or slow cache downloads.
+      - name: Report Docker cache usage
+        shell: bash
+        if: ${{ !cancelled() && (steps.build.outcome == 'success' || steps.build.outcome == 'failure') }}
+        # Diagnostics must not hide the original build result.
+        continue-on-error: true
+        env:
+          BUILD_REF: ${{ fromJSON(steps.build.outputs.metadata || '{}')['buildx.build.ref'] }}
+        run: |
+          # History logs expects the record ID, not the full builder/node/record reference.
+          BUILD_REF=${BUILD_REF##*/}
+          # On failure, metadata may be absent; this dedicated builder has only one build.
+          # Buildx writes raw JSON events to stderr; retain text errors in the same artifact.
+          if ! docker buildx history logs --progress=rawjson ${BUILD_REF:+"$BUILD_REF"} > build-cache.jsonl 2>&1; then
+            echo "::warning::BuildKit history lookup failed; cache diagnostics may be incomplete."
+          fi
+          python3 docker/report_build_cache.py < build-cache.jsonl | tee build-cache-summary.md
+          cat build-cache-summary.md >> "$GITHUB_STEP_SUMMARY"
+
+      # Save the summary and raw BuildKit events under the run's Artifacts section.
+      # Each build-cache-<target>-<attempt> download supports detailed investigation.
+      - name: Upload cache diagnostics
+        continue-on-error: true
+        if: ${{ !cancelled() && (steps.build.outcome == 'success' || steps.build.outcome == 'failure') }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: build-cache-${{ env.ARENA_TARGET }}-${{ github.run_attempt }}
+          path: |
+            build-cache.jsonl
+            build-cache-summary.md
+          if-no-files-found: warn
+
+      - name: Record candidate image digest
+        id: image
+        env:
+          IMAGE_DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          test -n "$IMAGE_DIGEST"
+          echo "ref=${ARENA_IMAGE}@${IMAGE_DIGEST}" >> "$GITHUB_OUTPUT"
+          echo "Built ${ARENA_TARGET}: ${ARENA_IMAGE}@${IMAGE_DIGEST}" >> "$GITHUB_STEP_SUMMARY"
+
+
+  build_curobo_image:
+    name: Build Arena cuRobo image
+    runs-on: [self-hosted, gpu-arena]
+    timeout-minutes: 120
+    needs: [pre_commit]
+    container:
+      image: ubuntu:24.04
+    env:
+      ARENA_TARGET: dev-curobo
+    outputs:
+      image: ${{ steps.image.outputs.ref }}
+    steps: *build_and_push_image_steps
+
 
   test:
     name: Run tests
     runs-on: [self-hosted, gpu-arena]
     timeout-minutes: 80
-    needs: [pre_commit]
+    needs: [build_and_push_image]
     env:
       ARENA_INFERENCE_ENDPOINT: public
       NVIDIA_API_KEY: ${{ secrets.ARENA_NVIDIA_API_KEY }}
 
     container:
-      image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:latest
+      image: ${{ needs.build_and_push_image.outputs.image }}
       credentials:
         username: $oauthtoken
         password: ${{ env.NGC_API_KEY }}
@@ -136,7 +270,8 @@ jobs:
       - &install_project_step
         name: Install project and link isaac-sim
         run: |
-          /isaac-sim/python.sh -m pip install --no-cache-dir -e .
+          # Test the checkout against the dependencies baked into this run's image.
+          /isaac-sim/python.sh -m pip install --no-deps --no-build-isolation -e .
           [ -e ./submodules/IsaacLab/_isaac_sim ] || ln -s /isaac-sim ./submodules/IsaacLab/_isaac_sim
 
       - &setup_isaac_sim_kit_cache_step
@@ -183,10 +318,10 @@ jobs:
     name: Run tests with subprocess
     runs-on: [self-hosted, gpu-arena]
     timeout-minutes: 120
-    needs: [pre_commit]
+    needs: [build_and_push_image]
 
     container:
-      image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:latest
+      image: ${{ needs.build_and_push_image.outputs.image }}
       credentials:
         username: $oauthtoken
         password: ${{ env.NGC_API_KEY }}
@@ -218,14 +353,14 @@ jobs:
     name: GR00T closed-loop E2E
     runs-on: [self-hosted, gpu-arena]
     timeout-minutes: 60
-    needs: [pre_commit]
+    needs: [build_and_push_image]
     env:
       GR00T_REMOTE_HOST: gr00t
       GR00T_REMOTE_PORT: "5555"
       GR00T_REMOTE_E2E_TIMEOUT: "900"
 
     container:
-      image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:latest
+      image: ${{ needs.build_and_push_image.outputs.image }}
       credentials:
         username: $oauthtoken
         password: ${{ env.NGC_API_KEY }}
@@ -283,11 +418,10 @@ jobs:
     name: cuRobo deps check
     runs-on: [self-hosted, gpu-arena]
     timeout-minutes: 30
-    needs: [pre_commit]
+    needs: [build_curobo_image]
 
     container:
-      # The cuRobo-enabled image (built with ./docker/run_docker.sh -c / push_to_ngc.sh -c).
-      image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:curobo
+      image: ${{ needs.build_curobo_image.outputs.image }}
       credentials:
         username: $oauthtoken
         password: ${{ env.NGC_API_KEY }}
@@ -334,75 +468,41 @@ jobs:
           make SPHINXOPTS=-W html
 
   build_and_push_image_post_merge:
-    name: Build & push NGC image (post-merge)
+    name: Publish tested NGC image (post-merge)
     runs-on: [self-hosted, gpu-arena]
-    timeout-minutes: 60
-    needs: [test]       # only push if tests passed
+    timeout-minutes: 15
+    needs: [build_and_push_image, test]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-
     container:
-      image: ubuntu:latest
-
+      image: ubuntu:24.04
     env:
-      # already defined at top, but keep here for clarity/local override if needed
-      NGC_API_KEY: ${{ secrets.ARENA_NGC_API_KEY }}
+      CANDIDATE_IMAGE: ${{ needs.build_and_push_image.outputs.image }}
 
     steps:
-      # Setup.
-      - *install_git_step
-      - *mark_repo_safe_step
-      - *cleanup_step
-      - *checkout_step
-
-      - &install_docker_step
-        name: Install docker
+      - *install_docker_step
+      - *docker_login_ngc_step
+      - name: Publish the tested image without rebuilding
         run: |
-          apt-get update
-          apt-get install -y ca-certificates curl gnupg && \
-          install -m 0755 -d /etc/apt/keyrings && \
-          curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg && \
-          chmod a+r /etc/apt/keyrings/docker.gpg && \
-          echo "deb [arch="$(dpkg --print-architecture)" signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
-          "$(. /etc/os-release && echo "$VERSION_CODENAME")" stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null &&
-          apt-get update && apt-get install -y docker.io docker-buildx-plugin
-          docker --version
-
-      - &docker_login_ngc_step
-        name: Docker login to NGC
-        # $oauthtoken is the literal NGC username; pipe the NGC API key via stdin
-        run: echo "${NGC_API_KEY}" | docker login nvcr.io -u '$oauthtoken' --password-stdin
-
-      - name: Build & push image to NGC
-        run: |
-          chmod +x ./docker/push_to_ngc* || true
-          ./docker/push_to_ngc.sh -p
+          docker buildx imagetools create --prefer-index=false \
+            --tag "${ARENA_IMAGE}:latest" "$CANDIDATE_IMAGE"
 
 
   build_and_push_curobo_image_post_merge:
-    name: Build & push cuRobo NGC image (post-merge)
+    name: Publish tested cuRobo NGC image (post-merge)
     runs-on: [self-hosted, gpu-arena]
-    timeout-minutes: 60
-    # Separate from the base image so a cuRobo test/build failure never blocks the base :latest push.
-    needs: [test, test_curobo_deps]
+    timeout-minutes: 15
+    # A cuRobo failure must not block the base image's publication.
+    needs: [build_curobo_image, test, test_curobo_deps]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-
     container:
-      image: ubuntu:latest
-
+      image: ubuntu:24.04
     env:
-      NGC_API_KEY: ${{ secrets.ARENA_NGC_API_KEY }}
+      CANDIDATE_IMAGE: ${{ needs.build_curobo_image.outputs.image }}
 
     steps:
-      # Setup.
-      - *install_git_step
-      - *mark_repo_safe_step
-      - *cleanup_step
-      - *checkout_step
       - *install_docker_step
       - *docker_login_ngc_step
-
-      # cuRobo-enabled image (:curobo tag). Compiles CUDA extensions, so it adds build time.
-      - name: Build & push cuRobo image to NGC
+      - name: Publish the tested cuRobo image without rebuilding
         run: |
-          chmod +x ./docker/push_to_ngc* || true
-          ./docker/push_to_ngc.sh -c -p
+          docker buildx imagetools create --prefer-index=false \
+            --tag "${ARENA_IMAGE}:curobo" "$CANDIDATE_IMAGE"
