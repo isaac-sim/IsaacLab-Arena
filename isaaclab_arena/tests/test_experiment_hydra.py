@@ -5,7 +5,11 @@
 
 """Test Hydra composition of typed YAML Experiments."""
 
+import os
+import subprocess
+import sys
 import yaml
+from dataclasses import dataclass
 from pathlib import Path
 from yaml.constructor import ConstructorError
 
@@ -22,6 +26,7 @@ from isaaclab_arena.hydra.typed_experiment_loader import (
     split_shared_run_default_overrides,
 )
 from isaaclab_arena.hydra.typed_experiment_serializer import serialize_arena_experiment_to_yaml
+from isaaclab_arena.policy.policy_base import PolicyCfg
 from isaaclab_arena.policy.zero_action_policy import ZeroActionPolicyCfg
 from isaaclab_arena.tests.utils.constants import TestConstants
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
@@ -31,6 +36,12 @@ GETTING_STARTED_EXPERIMENT_PATH = (
     Path(TestConstants.arena_environments_dir) / "experiment_configs" / "getting_started_experiment.yaml"
 )
 ROBOLAB_EXPERIMENT_CONFIG_DIRECTORY = Path(TestConstants.arena_environments_dir) / "robolab" / "experiment_configs"
+
+
+@dataclass
+class _ChunkPolicyCfg(PolicyCfg):
+    action_chunk_length: int = 15
+    response_timeout_s: float = 600.0
 
 
 def _policy_cfg_type_for_name_or_class_path(policy_name_or_class_path: str) -> type[ZeroActionPolicyCfg]:
@@ -244,6 +255,132 @@ runs:
         _load_experiment(config_path, overrides=["shared.missing=true"])
 
 
+def test_policy_file_replaces_shared_and_per_run_policies_before_typed_resolution(tmp_path):
+    config_path = _write_experiment(
+        tmp_path,
+        """
+shared:
+  environment:
+    type: pick_and_place_maple_table
+    enable_cameras: true
+  environment_builder:
+    num_envs: 1
+    seed: 42
+    language_instruction: Put the cube in the bowl.
+    record_trajectories: true
+  policy:
+    type: original_shared_policy
+    remote_port: 8003
+  rollout_limit:
+    num_episodes: 10
+runs:
+  inherited: {}
+  explicit:
+    policy:
+      type: original_run_policy
+      old_policy_option: true
+    environment:
+      light_intensity: 750.0
+    rollout_limit:
+      num_episodes: 2
+""",
+    )
+    policy_path = tmp_path / "replacement_policy.yaml"
+    policy_path.write_text("type: chunk_policy\naction_chunk_length: 15\n", encoding="utf-8")
+    original_runs = load_experiment_run_definitions_from_yaml(config_path)
+    replaced_runs = load_experiment_run_definitions_from_yaml(config_path, policy_config_path=policy_path)
+
+    assert list(replaced_runs) == list(original_runs) == ["inherited", "explicit"]
+    for run_name, run_values in replaced_runs.items():
+        assert run_values["policy"] == {"type": "chunk_policy", "action_chunk_length": 15}
+        assert {key: value for key, value in run_values.items() if key != "policy"} == {
+            key: value for key, value in original_runs[run_name].items() if key != "policy"
+        }
+
+    experiment_cfg = load_arena_experiment_from_yaml(
+        config_path,
+        environment_cfg_types={"pick_and_place_maple_table": PickAndPlaceMapleTableEnvironmentCfg},
+        policy_cfg_type_resolver=lambda policy_type: {"chunk_policy": _ChunkPolicyCfg}[policy_type],
+        policy_config_path=policy_path,
+        overrides=[
+            "shared.policy.action_chunk_length=5",
+            "runs.explicit.policy.action_chunk_length=7",
+            "runs.explicit.policy.response_timeout_s=120.0",
+        ],
+    )
+
+    assert experiment_cfg.runs["inherited"].policy == _ChunkPolicyCfg(action_chunk_length=5)
+    assert experiment_cfg.runs["explicit"].policy == _ChunkPolicyCfg(action_chunk_length=7, response_timeout_s=120.0)
+    assert experiment_cfg.runs["inherited"].rollout_limit.num_episodes == 10
+    assert experiment_cfg.runs["explicit"].rollout_limit.num_episodes == 2
+    assert experiment_cfg.runs["explicit"].environment.light_intensity == 750.0
+    assert all(run.environment_builder.seed == 42 for run in experiment_cfg.runs.values())
+    assert load_experiment_run_definitions_from_yaml(config_path) == original_runs
+
+    with pytest.raises(ValueError, match="response_timeout_s"):
+        load_experiment_run_definitions_from_yaml(
+            config_path,
+            policy_config_path=policy_path,
+            shared_default_overrides=["shared.policy.response_timeout_s=120.0"],
+        )
+
+
+def test_policy_file_replaces_per_run_policy_without_shared_defaults(tmp_path):
+    config_path = _write_experiment(
+        tmp_path,
+        """
+runs:
+  baseline:
+    environment:
+      type: pick_and_place_maple_table
+    policy:
+      type: unavailable_policy
+      remote_port: 8003
+""",
+    )
+    policy_path = tmp_path / "policy.yaml"
+    policy_path.write_text("type: zero_action\n", encoding="utf-8")
+
+    experiment_cfg = load_arena_experiment_from_yaml(
+        config_path,
+        environment_cfg_types={"pick_and_place_maple_table": PickAndPlaceMapleTableEnvironmentCfg},
+        policy_cfg_type_resolver=_policy_cfg_type_for_name_or_class_path,
+        policy_config_path=policy_path,
+    )
+
+    assert experiment_cfg.runs["baseline"].policy == ZeroActionPolicyCfg()
+
+
+@pytest.mark.parametrize(
+    ("policy_contents", "expected_error"),
+    [
+        ("- zero_action\n", "must be a mapping"),
+        ("{}\n", "must declare a non-empty 'type'"),
+        ("type: ''\n", "must declare a non-empty 'type'"),
+        ("type: 15\n", "must declare a non-empty 'type'"),
+    ],
+)
+def test_policy_file_rejects_invalid_mapping(tmp_path, policy_contents, expected_error):
+    policy_path = tmp_path / "policy.yaml"
+    policy_path.write_text(policy_contents, encoding="utf-8")
+
+    with pytest.raises(AssertionError, match=expected_error):
+        load_experiment_run_definitions_from_yaml(GETTING_STARTED_EXPERIMENT_PATH, policy_config_path=policy_path)
+
+
+def test_policy_file_rejects_unknown_typed_fields(tmp_path):
+    policy_path = tmp_path / "policy.yaml"
+    policy_path.write_text("type: zero_action\nremote_port: 8003\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="remote_port"):
+        load_arena_experiment_from_yaml(
+            GETTING_STARTED_EXPERIMENT_PATH,
+            environment_cfg_types={"pick_and_place_maple_table": PickAndPlaceMapleTableEnvironmentCfg},
+            policy_cfg_type_resolver=_policy_cfg_type_for_name_or_class_path,
+            policy_config_path=policy_path,
+        )
+
+
 @pytest.mark.parametrize(("operator", "assignment"), [("+", "=75"), ("++", "=75"), ("~", "")])
 @pytest.mark.parametrize("experiment_config_prefix", ["", "experiment_cfg"])
 def test_shared_run_default_overrides_reject_hydra_operators(operator, assignment, experiment_config_prefix):
@@ -302,6 +439,46 @@ def test_effective_experiment_serializes_to_reloadable_yaml(tmp_path):
 
     serialized_path = _write_experiment(tmp_path, serialized_experiment)
     assert _load_experiment(serialized_path) == experiment_cfg
+
+
+def test_session_policy_serializes_to_reloadable_yaml_in_fresh_process(tmp_path):
+    from isaaclab_arena.evaluation.arena_run import ArenaRunCfg
+    from isaaclab_arena.policy.droid_session_policy import DroidSessionPolicyCfg
+
+    run_cfg = ArenaRunCfg(
+        name="session_control",
+        environment=LegacyGraphEnvironmentCfg(env_spec_path="robolab/tasks/rubiks_cube.yaml"),
+        policy=DroidSessionPolicyCfg(controller_prompt_path="controller.md", action_chunk_length=3),
+    )
+    experiment_cfg = ArenaExperimentCfg(runs={run_cfg.name: run_cfg})
+    serialized_path = _write_experiment(tmp_path, serialize_arena_experiment_to_yaml(experiment_cfg))
+    # Preserve the active runtime's source paths, including any isolated Isaac Lab checkout.
+    child_environment = {**os.environ, "PYTHONPATH": os.pathsep.join(sys.path)}
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            """
+import sys
+
+from isaaclab_arena.evaluation.arena_experiment_config_loader import load_arena_experiment_from_config_file
+
+experiment = load_arena_experiment_from_config_file(sys.argv[1], device="cpu")
+policy = experiment.runs["session_control"].policy
+assert type(policy).__name__ == "DroidSessionPolicyCfg"
+assert policy.controller_prompt_path == "controller.md"
+assert policy.action_chunk_length == 3
+""",
+            str(serialized_path),
+        ],
+        env=child_environment,
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=60,
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
 
 
 GRAPH_SPEC_EXPERIMENT_CONTENTS = """

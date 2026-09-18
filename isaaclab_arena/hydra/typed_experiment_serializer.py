@@ -12,6 +12,7 @@ from typing import Any
 
 from omegaconf import OmegaConf
 
+import isaaclab_arena.policy as core_policies
 from isaaclab_arena.assets.registries import EnvironmentRegistry, PolicyRegistry
 from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
 from isaaclab_arena.evaluation.arena_run import ArenaRunCfg
@@ -47,7 +48,8 @@ def serialize_arena_experiment_to_yaml(experiment_cfg: ArenaExperimentCfg) -> st
         run_values["environment"] = _environment_yaml_values(environment_registry, run_cfg, run_values["environment"])
         policy_type = policy_registry.get_policy_type_for_cfg(run_cfg.policy)
         policy_selector = policy_type.name
-        if not policy_type.__module__.startswith("isaaclab_arena.policy."):
+        # Only policies exported by the core package register their short names on a fresh load.
+        if getattr(core_policies, policy_type.__name__, None) is not policy_type:
             policy_selector = f"{policy_type.__module__}.{policy_type.__qualname__}"
         run_values["policy"] = {"type": policy_selector, **run_values["policy"]}
         run_values_by_name[run_name] = _to_yaml_values(run_values)

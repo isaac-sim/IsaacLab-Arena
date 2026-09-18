@@ -1,0 +1,9 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+type: isaaclab_arena.policy.droid_session_policy.DroidSessionPolicy
+controller_prompt_path: isaaclab_arena_examples/robot_tool_control/prompts/astra_droid_joint_chunks.md
+action_chunk_length: 15
+response_timeout_s: 600.0

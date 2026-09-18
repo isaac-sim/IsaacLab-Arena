@@ -34,6 +34,9 @@ class _Policy:
     def has_length(self):
         return False
 
+    def set_output_directory(self, output_directory):
+        self.output_directory = output_directory
+
 
 class _EpisodeRecorder:
     def set_job_name(self, name):
@@ -90,6 +93,7 @@ def _experiment(*run_cfgs: ArenaRunCfg) -> ArenaExperimentCfg:
 def test_build_and_run_splits_episode_budget_without_mutating_config(monkeypatch, tmp_path):
     run = _run()
     rollout_limits = []
+    policy_output_directories = []
     received_run_cfgs = []
 
     def make_environment(cfg, render_mode, **kwargs):
@@ -103,6 +107,7 @@ def test_build_and_run_splits_episode_budget_without_mutating_config(monkeypatch
 
     def record_rollout(env, policy, num_steps, num_episodes):
         rollout_limits.append((num_steps, num_episodes))
+        policy_output_directories.append(policy.output_directory)
 
     monkeypatch.setattr(run_execution, "rollout_policy", record_rollout)
 
@@ -119,6 +124,7 @@ def test_build_and_run_splits_episode_budget_without_mutating_config(monkeypatch
     assert result.run_name == "test_run"
     assert result.status is RunStatus.COMPLETED
     assert rollout_limits == [(None, 3), (None, 2)]
+    assert policy_output_directories == [tmp_path / "policy" / "rebuild0", tmp_path / "policy" / "rebuild1"]
     # Runs are the same except for their seeds.
     assert received_run_cfgs == [run_seed_0, run_seed_1]
     # The original config is never mutated.

@@ -1,0 +1,27 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+shared:
+  environment:
+    enable_cameras: true
+  environment_builder:
+    num_envs: 1
+    record_trajectories: true
+  policy:
+    type: isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy
+    policy_variant: pi05
+    policy_device: cuda:0
+    remote_host: 127.0.0.1
+    remote_port: 8003
+    openpi_embodiment_adapter: droid
+  rollout_limit:
+    num_episodes: 1
+
+runs:
+  rubiks_cube:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/rubiks_cube.yaml
+    environment_builder:
+      language_instruction: "Put the Rubik's cube in the bowl."

@@ -143,6 +143,48 @@ For OSMO setup and submission options, see :doc:`Multi-node Evaluation
 <../example_workflows/multi_node_evaluation/multi_node_evaluation>`.
 
 
+Replace the policy for a local Experiment
+-----------------------------------------
+
+Use ``--policy_config`` to run an existing typed YAML Experiment with another policy:
+
+.. code-block:: bash
+
+   python isaaclab_arena/evaluation/experiment_runner.py \
+     --experiment_config path/to/experiment.yaml \
+     --policy_config path/to/policy.yaml
+
+The policy file contains a standalone policy mapping, for example:
+
+.. code-block:: yaml
+
+   type: zero_action
+
+``type`` accepts the same registered policy name or dotted Python class path as the Experiment's
+``policy.type``. Include any other fields required by that policy's configuration.
+
+The option replaces the **complete policy for every Run**, including policies declared inside
+individual Runs. Fields from the previous policy are removed before typed validation. Run names,
+order, environments, task instructions, seeds, rollout limits, and recording settings keep their
+existing declarations. The selected policy must support the configured robot and action interface.
+Non-policy settings interpolated from policy fields may resolve differently after replacement.
+
+Apply shared policy overrides to fields explicitly declared in the replacement file. Per-Run
+overrides then take priority, including overrides of the selected policy's typed default fields:
+
+.. code-block:: bash
+
+   python isaaclab_arena/evaluation/experiment_runner.py \
+     --experiment_config path/to/experiment.yaml \
+     --policy_config path/to/policy.yaml \
+     shared.policy.action_chunk_length=15 \
+     runs.baseline.policy.action_chunk_length=5
+
+This example requires a policy file declaring ``action_chunk_length``. Paths are relative to the
+runtime working directory unless absolute. ``--policy_config`` is supported by the local Experiment
+Runner for typed YAML Experiments; legacy JSON and OSMO do not support this option.
+
+
 Reuse values with ``shared``
 ----------------------------
 
