@@ -17,6 +17,8 @@ import pytest
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 from isaaclab_arena_environments.isaac_cap.tool_hanging.geometry import goal_geometry_from_dict
 
+pytestmark = pytest.mark.isaac_cap
+
 # Tool at the origin; fixture translated by one meter along X with a quarter turn about Z.
 T_W_T = torch.tensor([[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0]])
 T_W_X = torch.tensor([[1.0, 0.0, 0.0, 0.0, 0.0, 2**-0.5, 2**-0.5]])

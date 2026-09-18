@@ -82,4 +82,4 @@ class ToolHangingYamCameraCfg(BimanualYamCameraCfg):
     right_wrist_camera: CameraCfg = _wrist_camera("RightRobot", "right_wrist_camera")
 
     def set_robot_mount_positions(self, left: tuple[float, float, float], right: tuple[float, float, float]) -> None:
-        """Keep the fixed cameras where AUTOLab authored them in world coordinates."""
+        """Ignore the arm mounts: the shared rig hangs its top camera off them, AUTOLab's is fixed in world."""
