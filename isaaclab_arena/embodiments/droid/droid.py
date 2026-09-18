@@ -624,7 +624,6 @@ def spawn_newton_droid(
 
     from isaaclab_arena.utils.usd.helpers import move_collision_schemas_to_meshes
 
-    # The outer @clone applies visibility, labels, and contact sensors after robot setup.
     prim = spawn_from_usd.__wrapped__(
         prim_path,
         spawner_cfg,
