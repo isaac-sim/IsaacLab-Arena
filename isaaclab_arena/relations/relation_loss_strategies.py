@@ -396,7 +396,7 @@ class OnLossStrategy(RelationLossStrategy):
 
 
 class ClutterOnLossStrategy(OnLossStrategy):
-    """Full footprint containment and a lower height bound above a clutter support."""
+    """Release-region containment and a lower height bound above a clutter support."""
 
     def compute_loss(
         self,

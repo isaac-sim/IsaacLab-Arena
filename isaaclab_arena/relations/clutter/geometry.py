@@ -7,7 +7,6 @@
 
 from __future__ import annotations
 
-import math
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -16,8 +15,6 @@ from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, quaternion
 if TYPE_CHECKING:
     from isaaclab.scene import InteractiveScene
     from pxr import Usd
-
-_QUARTER_TURN_TOLERANCE_RAD = 1e-3
 
 
 @dataclass(frozen=True)
@@ -47,20 +44,18 @@ class ClutterRegion:
 def region_above_support(
     support_position: tuple[float, float, float],
     support_bbox: AxisAlignedBoundingBox,
-    env_index: int = 0,
-    support_rotation_xyzw: tuple[float, float, float, float] = (0.0, 0.0, 0.0, 1.0),
+    support_rotation_xyzw: tuple[float, float, float, float],
 ) -> ClutterRegion:
     """Return the top-face region of a horizontal, axis-aligned support.
 
     Args:
         support_position: Support position in environment frame E, shape (3,).
-        support_bbox: Object-local bounds, min/max shape (N, 3); N is the environment count.
-        env_index: Environment row in support_bbox.
+        support_bbox: Object-local bounds for one environment, min/max shape (1, 3).
         support_rotation_xyzw: Support-to-E quaternion, shape (4,); yaw must be a quarter turn.
     """
-    quarters = quaternion_to_90_deg_z_quarters(support_rotation_xyzw, tol_deg=math.degrees(_QUARTER_TURN_TOLERANCE_RAD))
+    quarters = quaternion_to_90_deg_z_quarters(support_rotation_xyzw)
     bounds = support_bbox.rotated_90_around_z(quarters)
-    lower, upper = bounds.min_point[env_index], bounds.max_point[env_index]
+    lower, upper = bounds.min_point[0], bounds.max_point[0]
     return ClutterRegion(
         min_x=float(lower[0]) + support_position[0],
         min_y=float(lower[1]) + support_position[1],
@@ -71,7 +66,7 @@ def region_above_support(
 
 
 def prim_geometry_is_fixed(prim: Usd.Prim) -> bool:
-    """Return whether neither geometry nor its ancestors have an enabled dynamic rigid body.
+    """Return whether geometry, descendants and ancestors have no enabled dynamic rigid body.
 
     Args:
         prim: Spawned prim whose support geometry is being queried.
@@ -111,15 +106,6 @@ def spawned_rigid_body_has_gravity(scene: InteractiveScene, scene_key: str) -> b
         body.GetAttribute("physxRigidBody:disableGravity").Get() is not True
         for body in get_representative_rigid_body_prims(scene, scene_key)
     )
-
-
-def resting_extents(
-    bbox: AxisAlignedBoundingBox, rotation_xyzw: tuple[float, float, float, float]
-) -> tuple[float, float, float, float, float]:
-    """Return rotated (min_x, min_y, max_x, max_y, min_z) offsets from the object origin."""
-    rotated = bbox.rotated_by_quat(rotation_xyzw)
-    lower, upper = rotated.min_point[0], rotated.max_point[0]
-    return float(lower[0]), float(lower[1]), float(upper[0]), float(upper[1]), float(lower[2])
 
 
 def dynamic_rigid_object_keys(scene: InteractiveScene) -> list[str]:

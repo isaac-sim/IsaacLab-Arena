@@ -55,10 +55,13 @@ class ObjectReference(RootedObjectBase):
         return event_cfg
 
     def get_initial_pose(self) -> Pose:
-        parent_pose = self.get_parent_pose()
-        if parent_pose is None:
-            return self.initial_pose_relative_to_parent
-        return parent_pose.multiply(self.initial_pose_relative_to_parent)
+        """Return T_E_O for reference O, parent P and local environment frame E."""
+        T_P_O = self.initial_pose_relative_to_parent
+        T_E_P = self.get_parent_pose()
+        if T_E_P is None:
+            return T_P_O
+        T_E_O = T_E_P.multiply(T_P_O)
+        return T_E_O
 
     def get_parent_pose(self) -> Pose | None:
         """Return the parent's fixed pose, or None when it has no configured pose."""

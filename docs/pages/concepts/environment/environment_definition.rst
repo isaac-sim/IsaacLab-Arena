@@ -39,7 +39,8 @@ asset coverage and reset requirements.
 Fixed poses in YAML
 -------------------
 
-Embodiment, background and object nodes accept ``params.initial_pose``:
+For assets whose constructors accept ``initial_pose``, set it through
+``params.initial_pose`` on embodiment, background or object nodes:
 
 .. code-block:: yaml
 
@@ -49,8 +50,8 @@ Embodiment, background and object nodes accept ``params.initial_pose``:
        rotation_xyzw: [0.0, 0.0, 0.0, 1.0]
 
 Positions are environment-local, in metres; quaternions use xyzw order.
-An omitted component retains the asset's fixed default, or identity when no
-pose is configured. A partial override requires a fixed default pose.
+``position_xyz`` is required; omitted ``rotation_xyzw`` defaults to identity,
+as in ``Pose.from_dict``.
 An explicit pose is applied at construction and restored on reset. Do not
 combine it with relation placement for the same movable asset.
 

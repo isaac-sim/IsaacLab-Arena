@@ -198,7 +198,6 @@ def instantiate_assets_from_spec(
         assets_by_node_id[ref.id] = _instantiate_object_reference(
             ref,
             parent_asset=assets_by_node_id[ref.parent_id],
-            background_registry_name=graph_spec.background.registry_name,
         )
 
     return assets_by_node_id

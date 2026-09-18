@@ -6,37 +6,20 @@
 
 """Offline ClutterOn settling and pose-file generation."""
 
-from argparse import Namespace
+import json
 from pathlib import Path
 
 import pytest
 
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
-SOURCE = Path(__file__).parents[3] / "isaaclab_arena_examples/relations/clutter/clutter_scene.yaml"
+SOURCE = Path(__file__).parents[3] / "isaaclab_arena_environments/clutter/clutter_scene.yaml"
 
 
 def _arguments(output):
-    return Namespace(
-        env_spec=SOURCE,
-        output=output,
-        num_envs=2,
-        num_layouts=None,
-        seed=42,
-        device="cuda:0",
-        presets=None,
-        register=[],
-        attempts=3,
-        timeout_s=10.0,
-        poll_interval_s=0.4,
-        move_thresh_m=0.002,
-        turn_thresh_deg=2.0,
-        required_quiet_windows=2,
-        fall_through_tolerance_m=0.01,
-        containment_margin_m=0.0,
-        passive_move_thresh_m=0.002,
-        passive_turn_thresh_deg=2.0,
-    )
+    from isaaclab_arena.scripts.generate_clutter_scene import ClutterGenerationCfg
+
+    return ClutterGenerationCfg(env_spec=str(SOURCE), output=str(output), num_envs=2, attempts=3)
 
 
 def _assert_scene_state_equal(actual, expected):
@@ -72,9 +55,9 @@ def _test_generation_writes_complete_layouts(simulation_app, tmp_path):
     source = tmp_path / "scene.yaml"
     source.write_text(yaml.safe_dump(data))
     original = source.read_bytes()
-    path = tmp_path / "poses.yaml"
+    path = tmp_path / "episodes.jsonl"
     args = _arguments(path)
-    args.env_spec = source
+    args.env_spec = str(source)
     args.num_layouts = 4
 
     def settle_with_graph_settings(env, *args, **kwargs):
@@ -84,16 +67,18 @@ def _test_generation_writes_complete_layouts(simulation_app, tmp_path):
     with patch("isaaclab_arena.relations.clutter.settle.settle_clutter", wraps=settle_with_graph_settings):
         assert generate_scene(args) == path
     assert source.read_bytes() == original
-    poses = yaml.safe_load(path.read_text())
-    assert set(poses) == {f"cube_{i}" for i in range(4)}
-    assert all(len(values) == 4 for values in poses.values())
-    assert poses["cube_0"][0] != poses["cube_0"][1]
-    for values in poses.values():
-        for value in values:
+    records = [json.loads(line)["variations"]["scene.relation_placement"] for line in path.read_text().splitlines()]
+    assert [record["layout_id"] for record in records] == [f"layout_{i:06d}" for i in range(4)]
+    assert records[0]["poses"]["cube_0"] != records[1]["poses"]["cube_0"]
+    for record in records:
+        assert record["source"] == "settled"
+        assert set(record["poses"]) == {f"cube_{i}" for i in range(4)}
+        for value in record["poses"].values():
             Pose.from_dict(value)
+    saved = path.read_bytes()
     with pytest.raises(AssertionError, match="Output already exists"):
         generate_scene(args)
-    assert yaml.safe_load(path.read_text()) == poses
+    assert path.read_bytes() == saved
     return True
 
 
@@ -149,8 +134,7 @@ def _test_settling_restores_scene_and_retries_only_rejected_layouts(simulation_a
     from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
-    from isaaclab_arena.relations.clutter.settle import _release_objects, settle_clutter
-    from isaaclab_arena.relations.clutter.validation import ClutterRestVerdict, check_resting_poses
+    from isaaclab_arena.relations.clutter.settle import _containment_failures, _release_objects, settle_clutter
     from isaaclab_arena.utils.pose import Pose
 
     arena_env, assets = build_arena_env_with_assets_from_graph_spec(ArenaEnvGraphSpec.from_yaml(SOURCE))
@@ -158,9 +142,9 @@ def _test_settling_restores_scene_and_retries_only_rejected_layouts(simulation_a
     env = ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg(num_envs=2, solve_relations=False)).make_registered()
     checked = []
 
-    def reject_second_once(positions, *args):
-        checked.append(positions.clone())
-        return ClutterRestVerdict(fell_off=[0]) if len(checked) == 2 else check_resting_poses(positions, *args)
+    def reject_second_once(layout, *args):
+        checked.append(layout)
+        return ["fell off: cube_0"] if len(checked) == 2 else _containment_failures(layout, *args)
 
     try:
         env.reset()
@@ -168,19 +152,18 @@ def _test_settling_restores_scene_and_retries_only_rejected_layouts(simulation_a
         with (
             patch("isaaclab_arena.relations.clutter.settle._release_objects", wraps=_release_objects) as release,
             patch(
-                "isaaclab_arena.relations.clutter.settle.check_resting_poses",
+                "isaaclab_arena.relations.clutter.settle._containment_failures",
                 side_effect=reject_second_once,
             ),
         ):
             layouts = settle_clutter(env, list(assets.values()), attempts=3)
+        # Only the rejected environment receives a second release.
         assert [call.args[1] for call in release.call_args_list] == [0, 1, 1]
-        for i, check_index in ((0, 0), (1, 2)):
-            actual = torch.tensor([layouts[i][f"cube_{j}"].position_xyz for j in range(4)])
-            torch.testing.assert_close(actual, checked[check_index], atol=0, rtol=0)
+        assert layouts == [checked[0], checked[2]]
         _assert_scene_state_equal(env.unwrapped.scene.get_state(), initial)
         with patch(
-            "isaaclab_arena.relations.clutter.settle.check_resting_poses",
-            return_value=ClutterRestVerdict(fell_off=[0]),
+            "isaaclab_arena.relations.clutter.settle._containment_failures",
+            return_value=["fell off: cube_0"],
         ):
             with pytest.raises(AssertionError, match="fell off: cube_0"):
                 settle_clutter(env, list(assets.values()), attempts=1)
@@ -223,9 +206,9 @@ def _test_generation_rejects_invalid_scene(simulation_app, failure, expected_err
                 if relation["kind"] == "clutter_on":
                     relation["params"] = {"spread": 0.001}
         source.write_text(yaml.safe_dump(data))
-        output = Path(directory) / "poses.yaml"
+        output = Path(directory) / "episodes.jsonl"
         args = _arguments(output)
-        args.env_spec, args.num_envs, args.attempts = source, 1, 1
+        args.env_spec, args.num_envs, args.attempts = str(source), 1, 1
         with pytest.raises(AssertionError, match=expected_error):
             generate_scene(args)
         assert not output.exists()
@@ -234,7 +217,10 @@ def _test_generation_rejects_invalid_scene(simulation_app, failure, expected_err
 
 @pytest.mark.parametrize(
     "failure, expected_error",
-    [("passive", "cube_3: passive drift"), ("release", "release placement failed")],
+    [
+        ("passive", "cube_3: passive drift"),
+        ("release", "release placement failed"),
+    ],
 )
 def test_generation_rejects_invalid_scene(failure, expected_error):
     assert run_function_with_persistent_simulation_app(
@@ -247,6 +233,7 @@ def _test_generation_honors_requested_validators(simulation_app, tmp_path, avail
     from unittest.mock import patch
 
     from isaaclab_arena.relations.clutter.settle import _release_objects
+    from isaaclab_arena.relations.placement_validation import PlacementCheck
     from isaaclab_arena.relations.placement_validator_registry import PlacementValidatorRegistry
     from isaaclab_arena.relations.placement_validators import PlacementValidator
     from isaaclab_arena.scripts.generate_clutter_scene import generate_scene
@@ -260,21 +247,28 @@ def _test_generation_honors_requested_validators(simulation_app, tmp_path, avail
             validated_batches.append(len(positions))
             return [False] * len(positions)
 
+    class SettledPoseCheck(PlacementValidator):
+        check = PlacementCheck.IK_REACHABLE
+
+        def validate_batch(self, positions, orientations, bboxes, collision_objects):
+            pytest.fail("Release validation must not run settled-pose checks")
+
     data = yaml.safe_load(SOURCE.read_text())
-    data["placement_validators"] = {
-        "enabled_checks": [RejectRelease.check],
-        "required_checks": [RejectRelease.check],
-    }
+    if not available:
+        data["placement_validators"] = {
+            "enabled_checks": [RejectRelease.check],
+            "required_checks": [RejectRelease.check],
+        }
     source = tmp_path / "scene.yaml"
     source.write_text(yaml.safe_dump(data))
-    output = tmp_path / "poses.yaml"
+    output = tmp_path / "episodes.jsonl"
     args = _arguments(output)
-    args.env_spec = source
+    args.env_spec = str(source)
     args.num_envs = 1
     args.attempts = 1
     registry = PlacementValidatorRegistry()
     with (
-        patch.dict(registry._components, reject_release=RejectRelease),
+        patch.dict(registry._components, reject_release=RejectRelease, ik_reachable=SettledPoseCheck),
         patch.object(RejectRelease, "is_available", return_value=available),
         patch("isaaclab_arena.relations.clutter.settle._release_objects", wraps=_release_objects) as release,
     ):
@@ -289,7 +283,7 @@ def _test_generation_honors_requested_validators(simulation_app, tmp_path, avail
 @pytest.mark.parametrize(
     "available, expected_error",
     [
-        pytest.param(True, "release placement failed", id="required"),
+        pytest.param(True, "release placement failed", id="default_checks"),
         pytest.param(False, "validators did not run", id="unavailable"),
     ],
 )

@@ -14,6 +14,7 @@ from dataclasses import dataclass, field
 from isaaclab.utils.math import quat_error_magnitude
 
 from isaaclab_arena.relations.clutter.geometry import ClutterRegion
+from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 
 @dataclass
@@ -105,13 +106,8 @@ class SettleTracker:
     A pile can pause before toppling, so one quiet sample is insufficient.
     """
 
-    def __init__(self, params: ClutterSettleParams | None = None):
-        """Track rest using the supplied thresholds.
-
-        Args:
-            params: Thresholds for quiet windows. Defaults to ``ClutterSettleParams()``.
-        """
-        self._params = params or ClutterSettleParams()
+    def __init__(self, params: ClutterSettleParams):
+        self._params = params
         self._previous: tuple[torch.Tensor, torch.Tensor] | None = None
         """Previous positions (N, 3) and xyzw quaternions (N, 4), or None before the first finite sample."""
         self._quiet_windows = 0
@@ -166,42 +162,31 @@ class SettleTracker:
 
 
 def check_resting_poses(
-    positions: torch.Tensor,
+    bounds: AxisAlignedBoundingBox,
     region: ClutterRegion,
-    params: ClutterSettleParams | None = None,
-    extents: list[tuple[float, float, float, float, float]] | None = None,
+    params: ClutterSettleParams,
 ) -> ClutterRestVerdict:
     """Return containment failures for N members.
 
     Args:
-        positions: Member positions in the region frame, shape (N, 3).
+        bounds: Rotated object bounds in the environment frame, min/max shape (N, 3).
         region: Full support footprint and surface height, without the release spread scaling.
         params: Containment and fall-through tolerances.
-        extents: N (min_x, min_y, max_x, max_y, min_z) offsets, each shape (5,).
-            Omit to check origins only.
     """
-    assert positions.ndim == 2 and positions.shape[1] == 3, "positions must have shape (N, 3)"
-    if extents is not None:
-        assert len(extents) == len(positions), "Each position needs one extent"
-        assert all(len(extent) == 5 for extent in extents), "Each extent must contain five offsets"
-    params = params or ClutterSettleParams()
     verdict = ClutterRestVerdict()
     margin = params.containment_margin_m
     floor = region.floor_z - params.fall_through_tolerance_m
-
-    for index in range(positions.shape[0]):
-        position = positions[index]
-        if not bool(torch.isfinite(position).all()):
+    for index, (lower, upper) in enumerate(zip(bounds.min_point, bounds.max_point, strict=True)):
+        if not bool(torch.isfinite(lower).all() and torch.isfinite(upper).all()):
             verdict.diverged.append(index)
             continue
-        x, y, z = (float(value) for value in position)
-        offset_min_x, offset_min_y, offset_max_x, offset_max_y, offset_min_z = (
-            extents[index] if extents is not None else (0.0, 0.0, 0.0, 0.0, 0.0)
-        )
-        if z + offset_min_z < floor:
+        if lower[2] < floor:
             verdict.fell_through.append(index)
-        if not (region.min_x - margin <= x + offset_min_x and x + offset_max_x <= region.max_x + margin) or not (
-            region.min_y - margin <= y + offset_min_y and y + offset_max_y <= region.max_y + margin
+        if not (
+            lower[0] >= region.min_x - margin
+            and upper[0] <= region.max_x + margin
+            and lower[1] >= region.min_y - margin
+            and upper[1] <= region.max_y + margin
         ):
             verdict.fell_off.append(index)
     return verdict

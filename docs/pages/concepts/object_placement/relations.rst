@@ -31,9 +31,10 @@ initial pose; in YAML, an omitted pose defaults to identity. An
 ``ObjectReference`` instead derives its pose from the referenced prim within
 its parent asset. A tabletop or counter reference is a common anchor.
 
-Anchor rotations must be multiples of 90 degrees about world Z, with no tilt.
-The solver rotates their local bounds into world-aligned bounds; other anchor
-rotations are rejected.
+An anchor's fixed root rotation must be a multiple of 90 degrees about world Z,
+with no tilt. For an ``ObjectReference``, this restriction applies to its parent
+asset's pose; the referenced prim's authored rotation is already included in its
+bounds. The solver rotates these bounds into world-aligned bounds.
 
 When the support surface is part of a larger background, use an
 ``ObjectReference`` to identify that surface:
@@ -88,25 +89,23 @@ Most environments can be described with a small set of relations:
    parent.
 
 ``ClutterOn(parent)``
-   Defines a clutter release above a fixed ``IsAnchor`` support. The support pose
-   must be known before release initialization; movable supports are unsupported.
-   ``ObjectPlacer``
-   samples within a centered fraction of its footprint (``spread``, default
-   0.2) and lowers objects into free vertical space in asset order, leaving
-   ``clearance_m`` above the surface and at least ``gap_m`` between overlapping bounds.
-   Initialization also honors the solver collision clearance when it is larger.
-   The registered loss and normal placement validators enforce that scaled
-   release footprint and minimum surface clearance. Offline settled-pile
-   validation uses the whole support footprint. ``gap_m`` controls initialization; subsequent
-   solving uses the shared collision clearance.
+   Defines release poses above a fixed ``IsAnchor`` support. ``ObjectPlacer``
+   samples within the central fraction of the support's width and depth
+   (``spread``, default 0.2), then stacks overlapping footprints above the surface.
+   ``clearance_m`` sets the minimum surface clearance; ``gap_m`` sets the initial
+   inter-object gap, increased to the solver's collision clearance when larger.
+   Subsequent solving uses the shared collision clearance.
 
-   This is a release arrangement, not a settled pile. Physics makes the objects
-   fall when simulation starts. ``ClutterOn`` can combine with other spatial
-   relations, such as ``AtPosition``, but cannot use ``RandomAroundSolution``.
-   ``RotateAroundSolution`` sets its base rotation; ``random_yaw`` (default True) adds world-Z yaw while
-   preserving that rotation's tilt. Failure handling uses the same
-   ``ObjectPlacerParams.allow_best_loss_fallbacks`` option as other relations;
-   set it to False when only validated layouts are acceptable.
+   Loss and validation enforce the release footprint and minimum height; contact
+   is not required. Physics makes objects fall when simulation starts. Offline
+   settling checks the resulting pile against the full support footprint.
+
+   ``ClutterOn`` must be the object's only spatial relation and cannot use
+   ``RandomAroundSolution``. ``RotateAroundSolution`` sets the base rotation;
+   ``random_yaw`` (default True) adds world-Z yaw while preserving its tilt.
+   For pooled placement, disable ``ObjectPlacerParams.allow_best_loss_fallbacks``
+   to reject invalid layouts. Direct ``ObjectPlacer.place()`` callers must check
+   each result's ``success`` before using it.
 
 .. _next-to-relation:
 
@@ -300,4 +299,9 @@ Offline settling
 ----------------
 
 Use ``isaaclab_arena/scripts/generate_clutter_scene.py`` to settle ``ClutterOn``
-releases and write a companion pose file. See :doc:`clutter_placement`.
+releases and write placement JSONL records. See :doc:`offline_clutter_placement`.
+
+Next Steps
+----------
+
+See :doc:`collision_handling` for collision constraints and validation.

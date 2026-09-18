@@ -5,6 +5,7 @@
 
 """Offline clutter generation through the command line."""
 
+import json
 import subprocess
 from pathlib import Path
 
@@ -12,7 +13,7 @@ import pytest
 
 from isaaclab_arena.tests.utils.constants import TestConstants
 
-CLUTTER_DIR = Path(__file__).parents[3] / "isaaclab_arena_examples/relations/clutter"
+CLUTTER_DIR = Path(__file__).parents[3] / "isaaclab_arena_environments/clutter"
 SCRIPT = Path(TestConstants.scripts_dir) / "generate_clutter_scene.py"
 
 
@@ -45,7 +46,7 @@ def test_settle_import_does_not_load_usd():
 def test_cli_generates_scene_cache(tmp_path, preset):
     import yaml
 
-    output = tmp_path / "scene.yaml"
+    output = tmp_path / "episodes.jsonl"
     source = CLUTTER_DIR / "clutter_scene.yaml"
     if preset is not None:
         # The office table has authored inertia that MuJoCo rejects.
@@ -94,23 +95,18 @@ def Xform "Support" (
     num_envs = 12 if preset == "newton" else 2
     num_layouts = num_envs + 1
     arguments = [
-        "--env_spec",
-        str(source),
-        "--output",
-        str(output),
-        "--num_envs",
-        str(num_envs),
-        "--num_layouts",
-        str(num_layouts),
+        f"env_spec={source}",
+        f"output={output}",
+        f"num_envs={num_envs}",
+        f"num_layouts={num_layouts}",
+        "settle.timeout_s=12.0",
         "--viz",
         "none",
     ]
     if preset is not None:
         arguments.extend([
-            "--presets",
-            preset,
-            "--register",
-            "isaaclab_arena.tests.clutter.test_clutter_cli:register_no_embodiment",
+            f"presets={preset}",
+            "register=[isaaclab_arena.tests.clutter.test_clutter_cli:register_no_embodiment]",
         ])
     result = subprocess.run(
         [TestConstants.python_path, str(SCRIPT), *arguments],
@@ -119,10 +115,13 @@ def Xform "Support" (
         timeout=180,
     )
     assert result.returncode == 0, result.stdout + result.stderr
-    spec = yaml.safe_load(output.read_text())
-    assert set(spec) == {f"cube_{i}" for i in range(4)}
-    for poses in spec.values():
-        assert len(poses) == num_layouts
-        for pose in poses:
-            assert len(pose["position_xyz"]) == 3
-            assert len(pose["rotation_xyzw"]) == 4
+    records = [json.loads(line)["variations"]["scene.relation_placement"] for line in output.read_text().splitlines()]
+    assert len(records) == num_layouts
+    assert len({record["layout_id"] for record in records}) == num_layouts
+    for record in records:
+        assert record["source"] == "settled"
+        assert set(record["poses"]) == {f"cube_{i}" for i in range(4)}
+        for pose in record["poses"].values():
+            x, y, z = pose["position_xyz"]
+            assert -0.5 < x < 0.5 and -0.5 < y < 0.5
+            assert 0.0 < z < 1.5

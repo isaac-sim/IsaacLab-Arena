@@ -20,7 +20,7 @@ from isaaclab_arena.relations.relation_loss_strategies import (
     next_to_violations,
     not_next_to_violations,
 )
-from isaaclab_arena.relations.relations import ClutterOn, FaceTo, NextTo, NotNextTo, On, get_relation
+from isaaclab_arena.relations.relations import FaceTo, NextTo, NotNextTo, On, get_relation
 from isaaclab_arena.relations.warp_sdf_kernels import has_sdf_sentinel, mesh_sdf
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.yaw import centers_in_target_frame, yaw_from_quat_xyzw, yaw_toward_positions
@@ -134,78 +134,62 @@ class OnRelationValidator(PlacementValidator):
         positions: dict[PlaceableAsset, tuple[float, float, float]],
         env_bboxes: dict[PlaceableAsset, AxisAlignedBoundingBox],
     ) -> bool:
-        """Validate each On relation; keep in sync with OnLossStrategy in relation_loss_strategies.py.
-
-        1. X/Y: On requires containment or overlap with the support footprint.
-        2. ClutterOn requires containment within the support region scaled by spread.
-        3. Z: On uses a surface band; ClutterOn requires at least the release clearance.
-           Both allow on_relation_z_tolerance_m.
+        """Check support relations against the same bounds as their loss strategies.
 
         Args:
             positions: Solved positions for each object.
-            env_bboxes: Per-object bboxes for the current env, each with shape (1, 3).
+            env_bboxes: Per-object bounds for one environment, each with min/max shape (1, 3).
         """
         for obj in positions:
-            for rel in obj.get_relations():
-                if not isinstance(rel, On):
+            for relation in obj.get_relations():
+                if not isinstance(relation, On) or relation.parent not in positions:
                     continue
-                parent = rel.parent
-                if parent not in positions:
-                    continue
-                child_bbox = env_bboxes[obj]
-                parent_bbox = env_bboxes[parent]
-                child_world = child_bbox.translated(positions[obj])
-                parent_world = parent_bbox.translated(positions[parent])
-                parent_world = rel.support_bbox(parent_world)
-                parent_size = parent_world.max_point - parent_world.min_point
-                child_size = child_world.max_point - child_world.min_point
-
-                m = 0.0 if rel.overlap else rel.edge_margin_m  # Ignore edge_margin_m when overlap=True.
-                # 1) Check that the child fits inside the inset support for containment only.
-                if m > 0.0:
-                    freespace = (parent_size - child_size)[0, :2]
-                    if torch.any(freespace < 2 * m):
-                        max_feasible_margin = max(0.0, float(torch.min(freespace).item()) / 2.0)
-                        if self._params.verbose and max_feasible_margin > 0.0:
-                            print(
-                                f"On relation: edge_margin_m={m} m is too large for parent '{parent.name}'. Max"
-                                f" feasible margin here is {max_feasible_margin:.3f} m. Use a smaller"
-                                " edge_margin_m."
-                            )
-                        return False
-                # 2) Checking that the child lies within or overlaps the parent's xy footprint.
-                # CONTAINED: c_min >= p_min + m and c_max <= p_max - m.
-                # OVERLAP: c_max >= p_min and c_min <= p_max.
-                child_min, child_max = child_world.min_point[0], child_world.max_point[0]
-                if rel.overlap:
-                    child_min, child_max = child_max, child_min
-                if (
-                    child_min[0] < parent_world.min_point[0, 0] + m
-                    or child_max[0] > parent_world.max_point[0, 0] - m
-                    or child_min[1] < parent_world.min_point[0, 1] + m
-                    or child_max[1] > parent_world.max_point[0, 1] - m
-                ):
+                child_world = env_bboxes[obj].translated(positions[obj])
+                parent_world = relation.support_bbox(env_bboxes[relation.parent].translated(positions[relation.parent]))
+                if not self._validate_relation(relation, child_world, parent_world):
                     if self._params.verbose:
-                        print(f"On relation: '{obj.name}' XY outside parent (retrying)")
-                    return False
-                # 3) Checking that the child lies within an acceptable z-range.
-                parent_local_top_z: float = parent_bbox.max_point[0, 2].item()
-                child_local_bottom_z: float = child_bbox.min_point[0, 2].item()
-                parent_top_z = parent_local_top_z + positions[parent][2]
-                clearance_m = rel.clearance_m
-                child_bottom_z = child_local_bottom_z + positions[obj][2]
-                eps_z = self._params.on_relation_z_tolerance_m
-                if isinstance(rel, ClutterOn):
-                    if child_bottom_z < parent_top_z + clearance_m - eps_z:
-                        if self._params.verbose:
-                            print(f"ClutterOn relation: '{obj.name}' below release clearance")
-                        return False
-                    continue
-                if child_bottom_z <= parent_top_z - eps_z or child_bottom_z > parent_top_z + clearance_m + eps_z:
-                    if self._params.verbose:
-                        print(f"  On relation: '{obj.name}' Z outside band (retrying)")
+                        print(f"{type(relation).__name__}: '{obj.name}' outside support footprint or height range")
                     return False
         return True
+
+    def _validate_relation(self, relation: On, child: AxisAlignedBoundingBox, parent: AxisAlignedBoundingBox) -> bool:
+        """Check feasible margins, footprint and height above the support."""
+        margin = 0.0 if relation.overlap else relation.edge_margin_m
+        return (
+            self._margin_fits(child, parent, margin)
+            and self._footprint_fits(relation, child, parent, margin)
+            and self._height_fits(relation, child, parent)
+        )
+
+    def _margin_fits(self, child: AxisAlignedBoundingBox, parent: AxisAlignedBoundingBox, margin: float) -> bool:
+        """Whether the child fits inside the inset support footprint."""
+        if margin == 0:
+            return True
+        free_space = (parent.size - child.size)[0, :2]
+        if torch.any(free_space < 2 * margin):
+            if self._params.verbose:
+                feasible_margin = max(0.0, float(free_space.min()) / 2.0)
+                print(f"Support relation: edge_margin_m={margin} exceeds feasible margin {feasible_margin:.3f} m")
+            return False
+        return True
+
+    @staticmethod
+    def _footprint_fits(
+        relation: On, child: AxisAlignedBoundingBox, parent: AxisAlignedBoundingBox, margin: float
+    ) -> bool:
+        """Whether the child is contained by, or overlaps, the support in XY."""
+        child_min, child_max = child.min_point[0, :2], child.max_point[0, :2]
+        if relation.overlap:
+            child_min, child_max = child_max, child_min
+        return bool(
+            torch.all(child_min >= parent.min_point[0, :2] + margin)
+            and torch.all(child_max <= parent.max_point[0, :2] - margin)
+        )
+
+    def _height_fits(self, relation: On, child: AxisAlignedBoundingBox, parent: AxisAlignedBoundingBox) -> bool:
+        """Whether the child bottom satisfies the relation's height constraint."""
+        bottom, top = float(child.min_point[0, 2]), float(parent.max_point[0, 2])
+        return relation.accepts_child_bottom(bottom, top, self._params.on_relation_z_tolerance_m)
 
 
 @register_validator

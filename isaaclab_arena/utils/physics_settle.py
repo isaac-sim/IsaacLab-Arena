@@ -14,9 +14,7 @@ if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedEnv
 
 
-def step_physics(
-    env: ManagerBasedEnv, num_steps: int, render: bool = False, *, write_data_to_sim: bool = False
-) -> None:
+def step_physics(env: ManagerBasedEnv, num_steps: int, render: bool = False) -> None:
     """Advance physics, optionally rendering each step.
 
     Args:
@@ -24,13 +22,11 @@ def step_physics(
         num_steps: Number of physics steps to advance.
         render: When True, render each step so the settle is visible in the GUI. Defaults to
             False (physics-only).
-        write_data_to_sim: Refresh scene commands and actuator feedback before each step.
     """
     dt = env.unwrapped.sim.get_physics_dt()
+    # Apply actuator targets on every substep without advancing episode recorders via env.step.
     for _ in range(num_steps):
-        if write_data_to_sim:
-            env.unwrapped.scene.write_data_to_sim()
-        # Does not perturb metric recorder as no env.step is called.
+        env.unwrapped.scene.write_data_to_sim()
         env.unwrapped.sim.step(render=render)
         env.unwrapped.scene.update(dt)
 

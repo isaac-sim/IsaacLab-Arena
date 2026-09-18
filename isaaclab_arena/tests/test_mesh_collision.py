@@ -454,7 +454,6 @@ def test_anchor_with_rotate_around_solution_rejected():
         placer.place([table, child])
 
 
-@requires_warp
 def test_centers_in_target_frame_applies_both_yaws():
     """Net yaw = source - target; equal yaws cancel out."""
 
@@ -489,7 +488,7 @@ def test_centers_in_target_frame_applies_both_yaws():
     )
     assert torch.allclose(result, centers, atol=1e-5)
 
-    # Fixed obstacles retain their heading even with base tilt; this transform is yaw-only.
+    # A tilted target retains its heading in this yaw-only frame transform.
     half_roll, half_yaw = math.pi / 12, math.pi / 4
     tgt.set_initial_pose(
         Pose(

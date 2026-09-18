@@ -305,7 +305,7 @@ class RelationSolver:
                     print(f"Converged at iteration {iter}")
                 break
 
-        # Rank the positions returned after the final optimizer step.
+        # Recompute ranking losses for the positions returned after the final optimizer step.
         with torch.no_grad():
             self._compute_total_loss(state)
 

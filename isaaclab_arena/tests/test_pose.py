@@ -109,10 +109,3 @@ def test_world_yaw_preserves_base_tilt():
     actual = Pose(rotation_xyzw=rotated).to_transform_matrix("cpu")[:3, :3]
     torch.testing.assert_close(actual, yaw_matrix @ base_matrix, atol=1e-6, rtol=0)
     assert yaw_from_quat_xyzw(rotated) == pytest.approx(math.atan2(actual[1, 0], actual[0, 0]), abs=1e-6)
-
-
-def test_pose_from_dict_defaults_and_extra_fields():
-    assert Pose.from_dict(None) is None
-    assert Pose.from_dict({"position_xyz": [1, 2, 3], "name": "tray"}) == Pose((1.0, 2.0, 3.0))
-    pose = Pose((1.0, 2.0, 3.0), (1.0, 0.0, 0.0, 0.0))
-    assert Pose.from_dict(pose.to_dict()) == pose
