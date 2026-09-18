@@ -6,8 +6,6 @@
 # Shared simulation configuration for all syringe variants.
 default_physics_backend: newton
 env_cfg_override:
-  scene:
-    replicate_physics: false
   decimation: 1
   sim:
     dt: 0.02
