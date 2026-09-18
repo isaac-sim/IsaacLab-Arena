@@ -78,7 +78,7 @@ def make_usd_spawn_cfg_with_prim_physics(
     ), "Per-prim physics requires a standard USD spawn config."
     _validate_prim_physics_types(overrides)
 
-    # 2. Keep the original USD spawner, including backend-specific setup such as DROID.
+    # 2. Keep the original USD spawner, including backend-specific setup.
     spawn_func = string_to_callable(str(cfg.func)) if isinstance(cfg.func, str) else cfg.func
     if spawn_func is spawn_usd_with_physics:
         spawn_func = cfg.usd_spawn_func
