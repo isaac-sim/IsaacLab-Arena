@@ -298,6 +298,11 @@ def _validated_target_class(target_path: Any, expected_type: Any, *, path: str) 
 def _field_annotation(owner: type, field_name: str) -> Any:
     """Resolve one inherited dataclass field annotation without resolving unrelated fields."""
     for cls in owner.__mro__:
+        # Isaac Lab copies inherited annotations into each configclass. Use its
+        # original field declarations to find the module that owns the imports.
+        own_fields = cls.__dict__.get("__configclass_own_fields__")
+        if own_fields is not None and field_name not in own_fields:
+            continue
         annotation = cls.__dict__.get("__annotations__", {}).get(field_name)
         if annotation is None:
             continue

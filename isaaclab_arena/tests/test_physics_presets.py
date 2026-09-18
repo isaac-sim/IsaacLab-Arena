@@ -300,11 +300,13 @@ def _test_builder_applies_nested_env_cfg_override(simulation_app) -> bool:
                 },
             },
             "decimation": 3,
+            "scene": {"replicate_physics": False},
         },
     )
 
     assert env_cfg.sim.dt == 0.02
     assert env_cfg.decimation == 3
+    assert env_cfg.scene.replicate_physics is False
     assert isinstance(env_cfg.sim.physics, NewtonCfg)
     assert env_cfg.sim.physics.num_substeps == 7
     assert isinstance(env_cfg.sim.physics.solver_cfg, MJWarpSolverCfg)
