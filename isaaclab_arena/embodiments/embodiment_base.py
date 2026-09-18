@@ -69,7 +69,7 @@ class EmbodimentBase(PlaceableAsset):
         self.concatenate_observation_terms = concatenate_observation_terms
         self.arm_mode = arm_mode or self.default_arm_mode
         self.gripper = None
-        # Backend hooks may tune this instance's addons without changing shared class defaults.
+        # Give each robot its own copy so changes don't affect other robots.
         self.spawn_cfg_addon = deepcopy(self.spawn_cfg_addon if spawn_cfg_addon is None else spawn_cfg_addon)
         # These should be filled by the subclass
         self.scene_config: Any | None = None
