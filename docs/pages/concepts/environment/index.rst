@@ -46,12 +46,13 @@ for a G1, or the kitchen for a warehouse, with no changes to the task.
 This moves us from a library of monolithic environment descriptions to a library
 of environment *parts*.
 
-The pages below cover how you define an environment, how it is built, and physics backend selection:
+The pages below cover how you define an environment, how it is built, and how physics is configured:
 
 - :doc:`environment_definition` — the two ways to define an environment, Python
   or YAML.
 - :doc:`env_builder` — how ``ArenaEnvBuilder`` compiles a specification into an
   Isaac Lab ``ManagerBasedRLEnv``.
+- :doc:`physics_configuration` — where physics settings belong and when they are applied.
 - :doc:`physics_backend_selection` — PhysX vs Newton, ``--presets``,
   and ``default_physics_backend``.
 - :doc:`env_cfg_override` — graph YAML ``env_cfg_override`` and Hydra ``_target_`` rules.
@@ -64,5 +65,6 @@ The individual components are covered in :doc:`../scene/index`,
 
    environment_definition
    env_builder
+   physics_configuration
    physics_backend_selection
    env_cfg_override
