@@ -12,6 +12,8 @@ import tqdm
 from importlib import import_module
 from typing import TYPE_CHECKING
 
+import isaaclab.utils.math as math_utils
+
 from isaaclab_arena.assets.registries import PolicyRegistry
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
 from isaaclab_arena.evaluation.policy_runner_cli import (
@@ -63,11 +65,27 @@ def is_distributed(args_cli: argparse.Namespace) -> bool:
     )
 
 
+def _format_robot_action_state(env) -> str:
+    """Format the controlled Franka tool pose and joint positions for rollout diagnostics."""
+    robot = env.unwrapped.scene["robot"]
+    body_ids, body_names = robot.find_bodies("panda_hand")
+    assert len(body_ids) == 1, f"Expected one panda_hand body, got: {body_names}"
+    body_index = body_ids[0]
+    tool_pos_w, _ = math_utils.combine_frame_transforms(
+        robot.data.body_pos_w.torch[:, body_index],
+        robot.data.body_quat_w.torch[:, body_index],
+        torch.tensor((0.0, 0.0, 0.107), device=robot.device).repeat(robot.num_instances, 1),
+        torch.tensor((0.0, 0.0, 0.0, 1.0), device=robot.device).repeat(robot.num_instances, 1),
+    )
+    return f"ee_pos_w={tool_pos_w.detach().cpu().tolist()} joint_pos={robot.data.joint_pos.torch.detach().cpu().tolist()}"
+
+
 def rollout_policy(
     env,
     policy: PolicyBase,
     num_steps: int | None,
     num_episodes: int | None,
+    print_actions: bool = False,
 ) -> MetricsDataCollection | None:
     assert num_steps is not None or num_episodes is not None, "Either num_steps or num_episodes must be provided"
     assert num_steps is None or num_episodes is None, "Only one of num_steps or num_episodes must be provided"
@@ -90,7 +108,11 @@ def rollout_policy(
         while True:
             with torch.inference_mode():
                 actions = policy.get_action(env, obs)
+                if print_actions:
+                    print(f"[ACTION] step={num_steps_completed:04d} action={actions.detach().cpu().tolist()}")
                 obs, _, terminated, truncated, _ = env.step(actions)
+                if print_actions:
+                    print(f"[STATE]  step={num_steps_completed:04d} {_format_robot_action_state(env)}")
 
                 if terminated.any() or truncated.any():
                     # Only reset policy for those envs that are terminated or truncated
@@ -240,7 +262,7 @@ def main():
 
         steps_str = f"{num_steps} steps" if num_steps is not None else f"{num_episodes} episodes"
         print(f"[Rank {local_rank}/{world_size}] Starting rollout ({steps_str})")
-        metrics = rollout_policy(env, policy, num_steps, num_episodes)
+        metrics = rollout_policy(env, policy, num_steps, num_episodes, print_actions=args_cli.print_actions)
 
         if metrics is not None:
             print(f"[Rank {local_rank}/{world_size}] Metrics: {metrics_to_plain_python_types(metrics)}")

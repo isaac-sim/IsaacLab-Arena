@@ -132,7 +132,7 @@ conflicts = [
 # Isaac Lab is explicitly pinned to a beta, while Isaac Sim requires a
 # transitive tinyobjloader release candidate. The exact constraint below makes
 # that RC explicit without allowing unrelated packages to float to prereleases.
-prerelease = "if-necessary-or-explicit"
+prerelease = "if-necessary"
 # Prefer the first index containing a compatible package. The explicit PyPI
 # route below handles the one known NVIDIA/PyPI name collision without merging
 # candidates from multiple indexes.
@@ -173,7 +173,7 @@ override-dependencies = [
 # 3.0 GA, which will correctly pin its dependencies. See:
 # https://github.com/isaac-sim/IsaacLab/blob/develop/pyproject.toml
 constraint-dependencies = [
-    "pin-pink==3.3.0",
+    "pin-pink==3.1.0",
     "pyglet<3",
     "tinyobjloader==2.0.0rc13",
     "mujoco-usd-converter==0.2.0",
@@ -187,7 +187,7 @@ explicit = false
 
 [[tool.uv.index]]
 name = "pypi"
-url = "https://pypi.org/simple"
+url = "https://pypi.tuna.tsinghua.edu.cn/simple"
 default = true
 
 [[tool.uv.index]]

@@ -346,6 +346,7 @@ TABLE OF CONTENTS
 
    pages/advanced/private_omniverse
    pages/advanced/assets_management
+   pages/advanced/separate_visual_collision_sdf
    pages/quickstart/jupyter_notebooks
 
 .. toctree::

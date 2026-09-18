@@ -1,0 +1,179 @@
+{
+    "version": "1.0",
+    "file_records": [
+        {
+            "source_url": "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/DigitalTwin/Assets/Warehouse/Storage/Containers/Container_B/Container_B04_40x30x12cm_PR_V_NVD_01.usd",
+            "source_hash": "016e9b18fae921627a06c2015e2576342ad4899b",
+            "target_url": "./Container_B04_40x30x12cm_PR_V_NVD_01.usd",
+            "target_hash": "57276f53a21e0704c330aad5dea265ead36af3d6"
+        },
+        {
+            "source_url": "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/DigitalTwin/Materials/Base/Plastics/Textures/T_Plastic_Black_A_Albedo.png",
+            "source_hash": "1dff85ff4cff0e77da5aea71098cccd3f2c1cc29",
+            "target_url": "./Materials/Base/Plastics/Textures/T_Plastic_Black_A_Albedo.png",
+            "target_hash": "b5dcceb6425abe56290487c7812312b698632b87"
+        },
+        {
+            "source_url": "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/DigitalTwin/Materials/Base/Plastics/Textures/T_Plastic_Black_A_ORM.png",
+            "source_hash": "0f85a3daf8dbf3ca207b12a7c0c28166a063aaf7",
+            "target_url": "./Materials/Base/Plastics/Textures/T_Plastic_Black_A_ORM.png",
+            "target_hash": "acb9cbc4c66bb41b12adbdf69c8253d4e0dff57f"
+        },
+        {
+            "source_url": "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/DigitalTwin/Materials/Base/Plastics/Textures/T_Plastic_Blue_A_Albedo.png",
+            "source_hash": "00bed80f76ce1225ba3547fb14ebf3e362159fa5",
+            "target_url": "./Materials/Base/Plastics/Textures/T_Plastic_Blue_A_Albedo.png",
+            "target_hash": "a8e45ea364e67b475c711a14a90726b83b5f7d3a"
+        },
+        {
+            "source_url": "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/DigitalTwin/Materials/Base/Plastics/Textures/T_Plastic_Blue_A_ORM.png",
+            "source_hash": "7959ed2112a8df4dc3bdf2f847b54ece290d9985",
+            "target_url": "./Materials/Base/Plastics/Textures/T_Plastic_Blue_A_ORM.png",
+            "target_hash": "7e98de0b43d674a37049aab51411784525cc4275"
+        },
+        {
+            "source_url": "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/DigitalTwin/Materials/Base/Plastics/Textures/T_Plastic_Brown_A_Albedo.png",
+            "source_hash": "f825e31ebbc9bc7f19aa16733923a1e15f9f0c86",
+            "target_url": "./Materials/Base/Plastics/Textures/T_Plastic_Brown_A_Albedo.png",
+            "target_hash": "81a81cbc1f33488a6324408df08dceedaa81acf0"
+        },
+        {
+            "source_url": "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/DigitalTwin/Materials/Base/Plastics/Textures/T_Plastic_Brown_A_ORM.png",
+            "source_hash": "98bf8391edcfa7d50eaec177ec5a5a15d3607606",
+            "target_url": "./Materials/Base/Plastics/Textures/T_Plastic_Brown_A_ORM.png",
+            "target_hash": "f60321a98a3b5b17fd9ed71964b4233b7de0bed5"
+        },
+        {
+            "source_url": "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/DigitalTwin/Materials/Base/Plastics/Textures/T_Plastic_Glossy_Black_A_Albedo.png",
+            "source_hash": "137d40cc0d7aa9675c6597ff30529214b1465d56",
+            "target_url": "./Materials/Base/Plastics/Textures/T_Plastic_Glossy_Black_A_Albedo.png",
+            "target_hash": "1312031d11913db3f31ee3752f8417f5a8cd8998"
+        },
+        {
+            "source_url": "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/DigitalTwin/Materials/Base/Plastics/Textures/T_Plastic_Glossy_Black_A_ORM.png",
+            "source_hash": "f690ffcc41976063a462808fea08c050212d058a",
+            "target_url": "./Materials/Base/Plastics/Textures/T_Plastic_Glossy_Black_A_ORM.png",
+            "target_hash": "fd8e00ac4ba492bf9e4646d1d93c50d257141e0a"
+        },
+        {
+            "source_url": "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/DigitalTwin/Materials/Base/Plastics/Textures/T_Plastic_Gray_A_Albedo.png",
+            "source_hash": "02605a77b759f13ecd756bef916414940fb363a8",
+            "target_url": "./Materials/Base/Plastics/Textures/T_Plastic_Gray_A_Albedo.png",
+            "target_hash": "e97a90829dd1b8314b2028bd2b8177736463b827"
+        },
+        {
+            "source_url": "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/DigitalTwin/Materials/Base/Plastics/Textures/T_Plastic_Gray_A_ORM.png",
+            "source_hash": "c74c81eea4d1947064f5ac6c62582c3453071d6d",
+            "target_url": "./Materials/Base/Plastics/Textures/T_Plastic_Gray_A_ORM.png",
+            "target_hash": "9302b3ac61153b673cc5315864e1d66d29d1795a"
+        },
+        {
+            "source_url": "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/DigitalTwin/Materials/Base/Plastics/Textures/T_Plastic_Green_A_Albedo.png",
+            "source_hash": "e9ab9726a0772d163656e3749f21ace31c44fb0d",
+            "target_url": "./Materials/Base/Plastics/Textures/T_Plastic_Green_A_Albedo.png",
+            "target_hash": "be9516a9de94227bcd75b1a66eacc6f1485a23f8"
+        },
+        {
+            "source_url": "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/DigitalTwin/Materials/Base/Plastics/Textures/T_Plastic_Green_A_ORM.png",
+            "source_hash": "6ead69d717b42112abc4cb464bf39ec67ce91deb",
+            "target_url": "./Materials/Base/Plastics/Textures/T_Plastic_Green_A_ORM.png",
+            "target_hash": "815d4fbc251cf62761137f1e041b65b2d197af1f"
+        },
+        {
+            "source_url": "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/DigitalTwin/Materials/Base/Plastics/Textures/T_Plastic_Normal_1k.png",
+            "source_hash": "d93a1630181851c56669fa7c48f3a54a6116377d",
+            "target_url": "./Materials/Base/Plastics/Textures/T_Plastic_Normal_1k.png",
+            "target_hash": "e4fee50744d295b718705122e008fa8655ddeb58"
+        },
+        {
+            "source_url": "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/DigitalTwin/Materials/Base/Plastics/Textures/T_Plastic_ORM_1k.png",
+            "source_hash": "8efb0d01a4ee3fa507c4b5afe3eeda27ad760231",
+            "target_url": "./Materials/Base/Plastics/Textures/T_Plastic_ORM_1k.png",
+            "target_hash": "fcc56515c0b1e817cdf1dc61fe3024ea230d06f4"
+        },
+        {
+            "source_url": "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/DigitalTwin/Materials/Base/Plastics/Textures/T_Plastic_Orange_A_Albedo.png",
+            "source_hash": "38762b7329668d1fb1845d548f208340cea7fb1d",
+            "target_url": "./Materials/Base/Plastics/Textures/T_Plastic_Orange_A_Albedo.png",
+            "target_hash": "d04267fa44957cabe95850b06bbe24f79058fc5a"
+        },
+        {
+            "source_url": "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/DigitalTwin/Materials/Base/Plastics/Textures/T_Plastic_Orange_A_ORM.png",
+            "source_hash": "76ff5ee53b1f82ac57ff60412ac639a773ac2512",
+            "target_url": "./Materials/Base/Plastics/Textures/T_Plastic_Orange_A_ORM.png",
+            "target_hash": "071b1f1c346abf023f34e0ce6d6adfdd7a4fd45f"
+        },
+        {
+            "source_url": "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/DigitalTwin/Materials/Base/Plastics/Textures/T_Plastic_Red_A_Albedo.png",
+            "source_hash": "0e64a76a7fd22b1c3a362ff4d2b7a182b367089c",
+            "target_url": "./Materials/Base/Plastics/Textures/T_Plastic_Red_A_Albedo.png",
+            "target_hash": "98ca7c7495f7fd78e70de36609d3066b145fa15c"
+        },
+        {
+            "source_url": "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/DigitalTwin/Materials/Base/Plastics/Textures/T_Plastic_Red_A_ORM.png",
+            "source_hash": "6d47a5e0b3a86fc957e28ba3f4a13c1a8906e045",
+            "target_url": "./Materials/Base/Plastics/Textures/T_Plastic_Red_A_ORM.png",
+            "target_hash": "2309cefce9159db1a53285c21ea00d6913b3b583"
+        },
+        {
+            "source_url": "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/DigitalTwin/Materials/Base/Plastics/Textures/T_Plastic_Rough_Black_A_Albedo.png",
+            "source_hash": "1a1fe9bd0c82ada27fb2130ae157c6fd025c8b2f",
+            "target_url": "./Materials/Base/Plastics/Textures/T_Plastic_Rough_Black_A_Albedo.png",
+            "target_hash": "fabcad55d2d09fc9bcb5a06612f501e65ec0f9f9"
+        },
+        {
+            "source_url": "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/DigitalTwin/Materials/Base/Plastics/Textures/T_Plastic_Rough_Black_A_Normal.png",
+            "source_hash": "9ee78f2e1d8f4936bdedca1eddaee41e91a5f30e",
+            "target_url": "./Materials/Base/Plastics/Textures/T_Plastic_Rough_Black_A_Normal.png",
+            "target_hash": "a163a0c2df2e4d091a3d2e828e1cd8181e671090"
+        },
+        {
+            "source_url": "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/DigitalTwin/Materials/Base/Plastics/Textures/T_Plastic_Rough_Black_A_ORM.png",
+            "source_hash": "359990ca84a77c4ca2c3e7fd1d652366895e2f85",
+            "target_url": "./Materials/Base/Plastics/Textures/T_Plastic_Rough_Black_A_ORM.png",
+            "target_hash": "9761f9b0359ae8bffe1874eacce200596db49fb6"
+        },
+        {
+            "source_url": "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/DigitalTwin/Materials/Base/Plastics/Textures/T_Plastic_Violet_A_Albedo.png",
+            "source_hash": "b8649d8e9109db0d519b9cefab187286c39fc9c2",
+            "target_url": "./Materials/Base/Plastics/Textures/T_Plastic_Violet_A_Albedo.png",
+            "target_hash": "d6ab74a81df745e4f8a1590f4556b1b6214934c1"
+        },
+        {
+            "source_url": "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/DigitalTwin/Materials/Base/Plastics/Textures/T_Plastic_Violet_A_ORM.png",
+            "source_hash": "ef4f2bc3ebb0cd28bfd34a52104e38104b7d373d",
+            "target_url": "./Materials/Base/Plastics/Textures/T_Plastic_Violet_A_ORM.png",
+            "target_hash": "4fba0db66c4d51ccd1c0a42fe5b9b48451b8542f"
+        },
+        {
+            "source_url": "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/DigitalTwin/Materials/Base/Plastics/Textures/T_Plastic_White_A_Albedo.png",
+            "source_hash": "665991e1b9525c46398450882ea51d3d27a9fbc6",
+            "target_url": "./Materials/Base/Plastics/Textures/T_Plastic_White_A_Albedo.png",
+            "target_hash": "e068156d3d9b28e5949ab1e6db7566d3f713ecc2"
+        },
+        {
+            "source_url": "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/DigitalTwin/Materials/Base/Plastics/Textures/T_Plastic_White_A_ORM.png",
+            "source_hash": "c443c76f681371a2a6d18bc8e782885d29a4ae32",
+            "target_url": "./Materials/Base/Plastics/Textures/T_Plastic_White_A_ORM.png",
+            "target_hash": "faa404fe2230f63c58edd086f485d2dc654dccc3"
+        },
+        {
+            "source_url": "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/DigitalTwin/Materials/Base/Plastics/Textures/T_Plastic_Yellow_A_Albedo.png",
+            "source_hash": "90e88cb2bc5202678985d52d3f27a0805f4013e9",
+            "target_url": "./Materials/Base/Plastics/Textures/T_Plastic_Yellow_A_Albedo.png",
+            "target_hash": "602d1e020814a30c75e9c71c60f9d1ede53388e1"
+        },
+        {
+            "source_url": "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/DigitalTwin/Materials/Base/Plastics/Textures/T_Plastic_Yellow_A_ORM.png",
+            "source_hash": "d009467dacdc169aa617c2c030968816881be8c6",
+            "target_url": "./Materials/Base/Plastics/Textures/T_Plastic_Yellow_A_ORM.png",
+            "target_hash": "3ef710e0330d6fdc22f558fa231e186e774fcc52"
+        },
+        {
+            "source_url": "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/DigitalTwin/Materials/Base/Plastics/Plastic_B.mdl",
+            "source_hash": "0a56005d90eb2460500f4c91f36afa0a8316ba22",
+            "target_url": "./Materials/Base/Plastics/Plastic_B.mdl",
+            "target_hash": "07ee795c2b22bc9e9d45d3e3fc550d0fd4587e7c"
+        }
+    ]
+}

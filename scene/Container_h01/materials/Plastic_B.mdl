@@ -1,0 +1,52 @@
+mdl 1.7;
+
+using ::OmniPBR import OmniPBR;
+import ::tex::gamma_mode;
+import ::state::normal;
+import ::base::mono_mode;
+
+export material Plastic_B(*)
+ = OmniPBR(
+	diffuse_color_constant: color(),
+	diffuse_texture: texture_2d(),
+	albedo_desaturation: 0.0,
+	albedo_add: 0.0,
+	albedo_brightness: 1.0,
+	diffuse_tint: color(1, 1, 1),
+	reflection_roughness_constant: 0.5,
+	reflection_roughness_texture_influence: 1.0,
+	reflectionroughness_texture: texture_2d(),
+	metallic_constant: 0.0,
+	metallic_texture_influence: 1.0,
+	metallic_texture: texture_2d(),
+	specular_level: 0.5,
+	enable_ORM_texture: true,
+	ORM_texture: texture_2d("../textures/T_Plastic_ORM_1k.png", ::tex::gamma_linear),
+	ao_to_diffuse: 0.0,
+	ao_texture: texture_2d(),
+	enable_emission: false,
+	emissive_color: color(1, 0.1, 0.1),
+	emissive_color_texture: texture_2d(),
+	emissive_mask_texture: texture_2d(),
+	emissive_intensity: 40.0,
+	enable_opacity: false,
+	enable_opacity_texture: false,
+	opacity_constant: 1.0,
+	opacity_texture: texture_2d(),
+	opacity_mode: ::base::mono_average,
+	opacity_threshold: 0.0,
+	bump_factor: 1.0,
+	normalmap_texture: texture_2d("../textures/T_Plastic_Normal_1k.png", ::tex::gamma_linear),
+	detail_bump_factor: 0.30000001192092896,
+	detail_normalmap_texture: texture_2d(),
+	flip_tangent_u: false,
+	flip_tangent_v: true,
+	project_uvw: false,
+	world_or_object: false,
+	uv_space_index: 0,
+	texture_translate: float2(0, 0),
+	texture_rotate: 0.0,
+	texture_scale: float2(3, 3),
+	detail_texture_translate: float2(0, 0),
+	detail_texture_rotate: 0.0,
+	detail_texture_scale: float2(1, 1));

@@ -100,3 +100,7 @@ core.*
 
 # uv venv (Arena native install)
 .venv*/
+ABB创新项目/
+.usd_cache
+scene/tmp/
+output/

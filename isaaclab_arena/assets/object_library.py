@@ -1903,7 +1903,7 @@ _PROCEDURAL_TABLE_SPAWN_CFG = sim_utils.CuboidCfg(
     size=(0.8, 1.5, 0.04),
     rigid_props=sim_utils.RigidBodyPropertiesCfg(kinematic_enabled=True),
     collision_props=sim_utils.CollisionPropertiesCfg(contact_offset=0.005),
-    visible=False,
+    visible=True,
 )
 
 

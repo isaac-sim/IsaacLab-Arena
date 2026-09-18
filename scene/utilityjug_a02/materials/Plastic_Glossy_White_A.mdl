@@ -1,0 +1,36 @@
+mdl 1.4;
+
+using ::OmniPBR import OmniPBR;
+import ::tex::gamma_mode;
+import ::state::normal;
+import ::base::mono_mode;
+
+export material Plastic_Glossy_White_A(*)
+ = OmniPBR(
+	diffuse_color_constant: color(0.2, 0.2, 0.2),
+	diffuse_texture: texture_2d("../textures/T_Plastic_Glossy_White_A_Albedo.png", ::tex::gamma_srgb),
+	albedo_desaturation: 0.0,
+	albedo_add: 0.0,
+	albedo_brightness: 1.0,
+	diffuse_tint: color(1, 1, 1),
+	reflection_roughness_texture_influence: 1.0,
+	specular_level: 0.5,
+	enable_ORM_texture: true,
+	ORM_texture: texture_2d("../textures/T_Plastic_Glossy_White_A_ORM.png", ::tex::gamma_linear),
+	ao_to_diffuse: 0.0,
+	ao_texture: texture_2d(),
+	enable_emission: false,
+	enable_opacity: false,
+	bump_factor: 1.0,
+	normalmap_texture: texture_2d("../textures/T_Plastic_Glossy_White_A_Normal.png", ::tex::gamma_linear),
+	flip_tangent_u: false,
+	flip_tangent_v: true,
+	project_uvw: false,
+	world_or_object: false,
+	uv_space_index: 0,
+	texture_translate: float2(0, 0),
+	texture_rotate: 0.0,
+	texture_scale: float2(1, 1),
+	detail_texture_translate: float2(0, 0),
+	detail_texture_rotate: 0.0,
+	detail_texture_scale: float2(1, 1));

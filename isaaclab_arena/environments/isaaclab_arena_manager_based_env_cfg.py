@@ -11,6 +11,30 @@ from isaaclab.managers import RecorderManagerBaseCfg
 from isaaclab.sim import RenderCfg, SimulationCfg
 from isaaclab.utils.configclass import configclass
 
+# IsaacLab Newton 0.13.6 imports the pre-1.5 name. Newton 1.5 moved the
+# same bit-mask enum to ``newton.ModelFlags``. This must run after Kit starts
+# so Newton does not preload a conflicting pxr binding.
+import newton
+import newton.solvers
+
+if not hasattr(newton.solvers, "SolverNotifyFlags"):
+    newton.solvers.SolverNotifyFlags = newton.ModelFlags
+if hasattr(newton, "ModelFlags"):
+    _NEWTON_ATTRIBUTE_ALIASES = {
+        "joint_target_pos": "joint_target_q",
+        "joint_target_vel": "joint_target_qd",
+    }
+    for _legacy_name, _current_name in _NEWTON_ATTRIBUTE_ALIASES.items():
+        setattr(newton.Control, _legacy_name, property(lambda control, name=_current_name: getattr(control, name)))
+
+    _get_attribute_frequency = newton.Model.get_attribute_frequency
+
+    def _get_attribute_frequency_compat(model, name):
+        name = _NEWTON_ATTRIBUTE_ALIASES.get(name, name)
+        return _get_attribute_frequency(model, name)
+
+    newton.Model.get_attribute_frequency = _get_attribute_frequency_compat
+
 # Import from the package root so this resolves whether MJWarpSolverCfg lives in
 # newton_manager_cfg (older isaaclab_newton) or mjwarp_manager_cfg (Isaac Lab Beta 2).
 from isaaclab_newton.physics import MJWarpSolverCfg, NewtonCfg

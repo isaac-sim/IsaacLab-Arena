@@ -93,6 +93,12 @@ def add_policy_runner_arguments(parser: argparse.ArgumentParser) -> None:
         help="Language instruction for the policy. Takes precedence over the task's own description.",
     )
     parser.add_argument(
+        "--print_actions",
+        action="store_true",
+        default=False,
+        help="Print the submitted action plus the Franka tool pose and joint positions at every environment step.",
+    )
+    parser.add_argument(
         "--record_viewport_video",
         action="store_true",
         default=False,

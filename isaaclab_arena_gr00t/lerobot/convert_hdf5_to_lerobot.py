@@ -3,21 +3,21 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-import h5py
 import json
 import multiprocessing as mp
-import numpy as np
 import shutil
 import subprocess
 import time
-import torchvision
 import traceback
 from dataclasses import fields
 from pathlib import Path
-from tqdm import tqdm
 from typing import Any
 
+import h5py
+import imageio.v2 as imageio
+import numpy as np
 import pandas as pd
+from tqdm import tqdm
 
 from isaaclab_arena_gr00t.lerobot.config.dataset_config import Gr00tDatasetConfig
 from isaaclab_arena_gr00t.utils.image_conversion import resize_frames_with_padding
@@ -290,8 +290,27 @@ def write_video_job(queue: mp.Queue, error_queue: mp.Queue, config: Gr00tDataset
                     frames = resize_frames_with_padding(
                         frames, target_image_size=config.target_image_size, bgr_conversion=False, pad_img=True
                     )
-                # h264 codec encoding
-                torchvision.io.write_video(video_path, frames, fps, video_codec="h264")
+                # h264 codec encoding via ffmpeg subprocess (software libx264)
+                h, w = frames.shape[1:3]
+                cmd = [
+                    "ffmpeg",
+                    "-y",  # overwrite output
+                    "-f", "rawvideo",
+                    "-vcodec", "rawvideo",
+                    "-s", f"{w}x{h}",
+                    "-pix_fmt", "rgb24",
+                    "-r", str(fps),
+                    "-i", "-",  # stdin
+                    "-c:v", "libx264",
+                    "-pix_fmt", "yuv420p",
+                    "-preset", "fast",
+                    "-crf", "23",
+                    str(video_path),
+                ]
+                proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stderr=subprocess.DEVNULL)
+                proc.communicate(input=frames.tobytes())
+                if proc.returncode != 0:
+                    raise RuntimeError(f"ffmpeg exited with code {proc.returncode}")
 
         except Exception as e:
             # Get the traceback and put in error queue
@@ -506,7 +525,10 @@ def convert_hdf5_to_lerobot(config: Gr00tDatasetConfig):
                 trajectory=trajectory, episode_index=episode_index, index_start=total_length, config=config
             )
         except Exception as e:
-            print(f"Error loading trajectory {trajectory_id}: {e}")
+            if "obs" not in trajectory:
+                print(f"Skipping empty trajectory {trajectory_id} (no recorded data)")
+            else:
+                print(f"Error loading trajectory {trajectory_id}: {e}")
             continue
 
         # 2.1. Save the episode data
