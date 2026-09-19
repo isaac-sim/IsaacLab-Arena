@@ -22,9 +22,9 @@ from isaaclab_arena.progress_tracking.progress_objective import ProgressObjectiv
 from isaaclab_arena.tasks.predicates.composite import CompositePredicate
 from isaaclab_arena.tasks.predicates.spatial import (
     depth_in_range,
+    lateral_in_proximity,
     tilt_axis_aligned,
     velocity_below_threshold,
-    xy_in_proximity,
 )
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
@@ -65,8 +65,8 @@ def _make_gear_success_composite_predicate_cfg(
     }
     predicates = [
         TerminationTermCfg(
-            func=xy_in_proximity,
-            params={**relative_position_params, "tolerance_xy": xy_threshold},
+            func=lateral_in_proximity,
+            params={**relative_position_params, "tolerance_lateral": xy_threshold},
         ),
         TerminationTermCfg(
             func=depth_in_range,

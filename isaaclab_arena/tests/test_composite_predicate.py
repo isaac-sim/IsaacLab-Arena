@@ -23,7 +23,7 @@ def _test_composite_predicate_lifecycle(_simulation_app) -> bool:
         ObjectInitialRestPoseRecorder,
         ObjectsSettledForConsecutiveSteps,
     )
-    from isaaclab_arena.tasks.predicates.spatial import depth_in_range, tilt_axis_aligned, xy_in_proximity
+    from isaaclab_arena.tasks.predicates.spatial import depth_in_range, lateral_in_proximity, tilt_axis_aligned
     from isaaclab_arena.tasks.terminations import SuccessMode
 
     class _PlayingSimulation:
@@ -94,12 +94,12 @@ def _test_composite_predicate_lifecycle(_simulation_app) -> bool:
         params={
             "predicates": [
                 TerminationTermCfg(
-                    func=xy_in_proximity,
+                    func=lateral_in_proximity,
                     params={
                         "subject_name": "subject",
                         "receiver_name": "receiver",
                         "target_offset_xyz": (0.0, 0.0, 0.0),
-                        "tolerance_xy": 0.01,
+                        "tolerance_lateral": 0.01,
                     },
                 ),
                 TerminationTermCfg(

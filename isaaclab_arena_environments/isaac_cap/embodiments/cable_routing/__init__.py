@@ -12,11 +12,12 @@ from typing import ClassVar
 
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
+from isaaclab_arena.utils.cameras import ArenaCameraCfg
 from isaaclab_arena.utils.pose import Pose
 
 from .actions import BimanualYamActionsCfg
 from .cameras import BimanualYamCameraCfg
-from .config import END_EFFECTOR_BODY_NAME, BimanualYamSceneCfg, make_yam_articulation_cfg
+from .config import END_EFFECTOR_BODY_NAME, BimanualYamSceneCfg, make_yam_articulation_cfg, make_yam_ee_frame_cfg
 from .observations import BimanualYamObservationsCfg
 
 
@@ -35,10 +36,18 @@ class IndustrialBimanualYamEmbodiment(EmbodimentBase):
         left_mount_position: Sequence[float],
         right_mount_position: Sequence[float],
         enable_cameras: bool = False,
+        enable_ee_frames: bool = False,
         use_tiled_cameras: bool = False,
         use_instanceable_meshes: bool = False,
+        camera_config: ArenaCameraCfg | None = None,
     ) -> None:
-        """Configure the fixed cable-routing YAM pair."""
+        """Configure the fixed YAM pair with an optional task-specific camera rig.
+
+        When cameras are enabled, copy ``camera_config`` if supplied; otherwise,
+        place the default cable-routing rig relative to the robot midpoint.
+        """
+        from .gripper import YamGripper
+
         left_position = tuple(float(value) for value in left_mount_position)
         right_position = tuple(float(value) for value in right_mount_position)
         assert len(left_position) == len(right_position) == 3, "YAM mount positions must contain three values."
@@ -51,16 +60,25 @@ class IndustrialBimanualYamEmbodiment(EmbodimentBase):
             concatenate_observation_terms=True,
             arm_mode=ArmMode.DUAL_ARM,
         )
+        self.gripper = YamGripper()
         self.scene_config = BimanualYamSceneCfg(
             left_robot=make_yam_articulation_cfg("{ENV_REGEX_NS}/LeftRobot", left_position, active_usd_path),
             right_robot=make_yam_articulation_cfg("{ENV_REGEX_NS}/RightRobot", right_position, active_usd_path),
         )
+        if enable_ee_frames:
+            self.scene_config.left_ee_frame = make_yam_ee_frame_cfg("{ENV_REGEX_NS}/LeftRobot", "tcp")
+            self.scene_config.right_ee_frame = make_yam_ee_frame_cfg("{ENV_REGEX_NS}/RightRobot", "tcp")
         self.action_config = BimanualYamActionsCfg()
         self.observation_config = BimanualYamObservationsCfg()
-        self.camera_config = BimanualYamCameraCfg() if enable_cameras else None
+        self.camera_config = None
+        if enable_cameras:
+            if camera_config is None:
+                self.camera_config = BimanualYamCameraCfg()
+                self.camera_config.set_robot_mount_positions(left_position, right_position)
+            else:
+                self.camera_config = camera_config.copy()
         if self.camera_config is not None:
             self.camera_config.set_use_tiled_camera(use_tiled_cameras)
-            self.camera_config.set_robot_mount_positions(left_position, right_position)
             self.add_camera_variations(self.camera_config)
 
     def get_scene_key(self) -> str:
@@ -82,8 +100,15 @@ class IndustrialBimanualYamEmbodiment(EmbodimentBase):
     def get_command_body_name(self) -> str:
         return END_EFFECTOR_BODY_NAME
 
+    def get_ee_frame_transformer_names(self) -> list[str]:
+        """Return the enabled YAM TCP sensor names."""
+        return [name for name in ("left_ee_frame", "right_ee_frame") if getattr(self.scene_config, name) is not None]
+
     def get_ee_frame_name(self, arm_mode: ArmMode) -> str:
-        return END_EFFECTOR_BODY_NAME
+        if arm_mode is ArmMode.DUAL_ARM:
+            return END_EFFECTOR_BODY_NAME
+        assert arm_mode in (ArmMode.LEFT, ArmMode.RIGHT), "A dual-arm YAM end-effector frame requires one arm side."
+        return f"{arm_mode.value}_ee_frame"
 
 
 __all__ = ["IndustrialBimanualYamEmbodiment"]

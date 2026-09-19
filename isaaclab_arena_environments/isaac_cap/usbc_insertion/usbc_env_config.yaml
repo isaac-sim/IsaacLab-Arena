@@ -1,0 +1,36 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Both USB-C variants use the same Newton contact and solver configuration.
+default_physics_backend: newton
+env_cfg_override:
+  decimation: 1
+  sim:
+    dt: 0.016666666666666666
+    render_interval: 1
+    gravity: [0.0, 0.0, -9.81]
+    use_newton_actuators: true
+    physics:
+      num_substeps: 16
+      collision_decimation: 1
+      use_cuda_graph: false
+      default_shape_cfg:
+        gap: 0.0002
+      solver_cfg:
+        _target_: isaaclab_newton.physics.MJWarpSolverCfg
+        solver: newton
+        integrator: implicitfast
+        use_mujoco_contacts: false
+        disable_sensors: true
+        update_data_interval: 1
+        njmax: 4096
+        nconmax: 2048
+        iterations: 100
+        ls_iterations: 50
+        cone: elliptic
+        impratio: 10.0
+      collision_cfg:
+        _target_: isaaclab_newton.physics.NewtonCollisionPipelineCfg
+        rigid_contact_max: 8192

@@ -23,6 +23,16 @@ def _register(registry, component, name: str) -> None:
     registry.register(component, name)
 
 
+def _register_environment(factory, cfg_type) -> None:
+    """Register one environment unless this exact factory is already present."""
+    registry = EnvironmentRegistry()
+    if registry.is_registered(factory.name, ensure_loaded=False):
+        existing = registry.get_component_by_name(factory.name)
+        assert existing is factory, f"Conflicting Isaac Cap environment {factory.name!r}."
+        return
+    registry.register_environment(factory, cfg_type)
+
+
 def register_components() -> None:
     """Register every Isaac Cap component through one shared entry point."""
     global _registered, _registering
@@ -37,6 +47,7 @@ def register_components() -> None:
         _register_gear_insertion_components(asset_registry)
         _register_cable_routing_components()
         _register_syringe_sort_components(asset_registry)
+        _register_usbc_insertion_components(asset_registry)
         _registered = True
     finally:
         _registering = False
@@ -75,16 +86,34 @@ def _register_cable_routing_components() -> None:
 
     _register(TaskRegistry(), CableRoutingTask, CableRoutingTask.__name__)
 
-    environment_registry = EnvironmentRegistry()
     for factory, cfg_type in (
         (CableRoutingMediumEnvironment, CableRoutingMediumEnvironmentCfg),
         (CableRoutingEasyEnvironment, CableRoutingEasyEnvironmentCfg),
     ):
-        if environment_registry.is_registered(factory.name, ensure_loaded=False):
-            existing = environment_registry.get_component_by_name(factory.name)
-            assert existing is factory, f"Conflicting Isaac Cap environment {factory.name!r}."
-            continue
-        environment_registry.register_environment(factory, cfg_type)
+        _register_environment(factory, cfg_type)
+
+
+def _register_usbc_insertion_components(asset_registry: AssetRegistry) -> None:
+    """Register the USB-C assets, shared task, and both environments."""
+    from .usbc_insertion.assets import USBC_ASSET_CLASSES
+    from .usbc_insertion.environment import (
+        UsbcInsertionEasyEnvironment,
+        UsbcInsertionEasyEnvironmentCfg,
+        UsbcInsertionMediumEnvironment,
+        UsbcInsertionMediumEnvironmentCfg,
+    )
+    from .usbc_insertion.task import UsbcInsertionTask
+
+    for asset_class in USBC_ASSET_CLASSES:
+        _register(asset_registry, asset_class, asset_class.name)
+
+    _register(TaskRegistry(), UsbcInsertionTask, UsbcInsertionTask.__name__)
+
+    for factory, cfg_type in (
+        (UsbcInsertionEasyEnvironment, UsbcInsertionEasyEnvironmentCfg),
+        (UsbcInsertionMediumEnvironment, UsbcInsertionMediumEnvironmentCfg),
+    ):
+        _register_environment(factory, cfg_type)
 
 
 def _register_gear_insertion_components(asset_registry: AssetRegistry) -> None:
@@ -126,13 +155,9 @@ def _register_syringe_sort_components(asset_registry: AssetRegistry) -> None:
     for asset_class in (SyringeRedCap, SyringeWhiteCap, InstrumentTray, SharpsContainer):
         _register(asset_registry, asset_class, asset_class.name)
     _register(TaskRegistry(), SyringeSortTask, SyringeSortTask.__name__)
-    environment_registry = EnvironmentRegistry()
     for factory, cfg in (
         (SyringeSingleEnvironment, SyringeSortEnvironmentCfg),
         (SyringeBothEnvironment, SyringeBothEnvironmentCfg),
         (SyringeClutteredEnvironment, SyringeClutteredEnvironmentCfg),
     ):
-        if environment_registry.is_registered(factory.name, ensure_loaded=False):
-            assert environment_registry.get_component_by_name(factory.name) is factory
-        else:
-            environment_registry.register_environment(factory, cfg)
+        _register_environment(factory, cfg)
