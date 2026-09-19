@@ -151,7 +151,6 @@ else
                     "--ulimit" "stack=-1"
                     "--ipc=host"
                     "--net=host"
-                    "--runtime=nvidia"
                     "--gpus=all"
                     "-v" ".:${WORKDIR}"
                     $(add_volume_if_it_exists $DATASETS_HOST_MOUNT_DIRECTORY /datasets)
