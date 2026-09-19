@@ -32,4 +32,5 @@ env_cfg_override:
         cone: elliptic
         use_mujoco_contacts: true
         ccd_iterations: 35
+        enable_multiccd: true
         update_data_interval: 1

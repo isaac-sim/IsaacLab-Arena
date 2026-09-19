@@ -6,18 +6,9 @@
 """Syringe factories with camera, placement, and physics adaptations."""
 
 from dataclasses import dataclass
-from functools import partial
 from pathlib import Path
 
 from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg, ArenaEnvironmentFactory
-
-
-def _apply_syringe_graph_config(env_cfg, graph_callback):
-    """Apply the remaining Python physics settings and the graph's configuration."""
-    # TODO(alexmillane) [isaaclab-multiccd-config-missing-feature]: Move this to YAML
-    # once Isaac Lab exposes enable_multiccd in MJWarpSolverCfg.
-    env_cfg.sim.physics.solver_cfg.enable_multiccd = True
-    return graph_callback(env_cfg)
 
 
 @dataclass
@@ -69,7 +60,6 @@ class SyringeBase(ArenaEnvironmentFactory[SyringeSortEnvironmentCfg]):
         if cfg.episode_length_s is not None:
             assert cfg.episode_length_s > 0
             arena_env.task.episode_length_s = cfg.episode_length_s
-        arena_env.env_cfg_callback = partial(_apply_syringe_graph_config, graph_callback=arena_env.env_cfg_callback)
         return arena_env
 
 
