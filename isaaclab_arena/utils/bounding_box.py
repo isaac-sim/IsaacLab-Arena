@@ -166,6 +166,18 @@ class AxisAlignedBoundingBox:
         center = (self._min_point + self._max_point) * 0.5
         return AxisAlignedBoundingBox(min_point=self._min_point - center, max_point=self._max_point - center)
 
+    def intersected(self, other: "AxisAlignedBoundingBox") -> "AxisAlignedBoundingBox":
+        """Return the box common to this one and other.
+
+        The result is empty on any axis where the two do not overlap, which shows up as
+        ``min_point > max_point`` there. Callers that care must check; no clamping is done, so an
+        empty result still reports how far apart the two boxes are.
+        """
+        return AxisAlignedBoundingBox(
+            min_point=torch.maximum(self._min_point, other._min_point),
+            max_point=torch.minimum(self._max_point, other._max_point),
+        )
+
     def overlaps(self, other: "AxisAlignedBoundingBox", margin: float = 0.0) -> torch.Tensor:
         """Check if two AABBs overlap in 3D.
 

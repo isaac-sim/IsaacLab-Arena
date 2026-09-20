@@ -24,6 +24,9 @@ class InitializerType(Enum):
     ANCHOR = "anchor"
     """Seed against the footprint of the first anchor at or above each object's On parent."""
 
+    ON_TREE = "on_tree"
+    """Walk the tree formed by On relations, initializing objects in the AABB of their parents."""
+
 
 class PlacementInitializerBase(ABC):
     """Produces an initialization for the relation solver.
@@ -57,9 +60,11 @@ def create_initializer(initializer_type: InitializerType) -> PlacementInitialize
     """Return a new initializer of the requested type."""
     # Imported here because the concrete initializers import this module for their base class.
     from isaaclab_arena.relations.initializers.anchor_initializer import AnchorInitializer
+    from isaaclab_arena.relations.initializers.on_tree_initializer import OnTreeInitializer
 
     initializers_by_type: dict[InitializerType, type[PlacementInitializerBase]] = {
         InitializerType.ANCHOR: AnchorInitializer,
+        InitializerType.ON_TREE: OnTreeInitializer,
     }
     assert initializer_type in initializers_by_type, f"No initializer registered for {initializer_type}."
     return initializers_by_type[initializer_type]()
@@ -108,17 +113,25 @@ def sample_on_parent(
     parent_world_bbox: AxisAlignedBoundingBox,
     asset_to_bbox: dict[PlaceableAsset, AxisAlignedBoundingBox],
     generator: torch.Generator | None = None,
+    narrowing_bounds: AxisAlignedBoundingBox | None = None,
 ) -> tuple[float, float, float]:
     """Sample a position for obj on top of parent_world_bbox.
 
-    X and Y are drawn from the parent's footprint inset by the child's extents, and Z is set so
-    the child's bottom face rests on the parent's top surface plus the relation's clearance.
+    X and Y are drawn from the parent's full footprint inset by the child's extents and then
+    narrowed by narrowing_bounds, and Z is set so the child's bottom face rests on the parent's
+    top surface plus the relation's clearance.
+
+    The footprint is deliberately not inset by the relation's ``edge_margin_m``. Seeding into the
+    margin ring costs nothing, because the On loss pulls the object inward from there, while the
+    extra area measurably separates crowded surfaces.
 
     Args:
         obj: The object being seeded; must carry an ``On`` relation.
         parent_world_bbox: World-space bbox of the parent, shape (1, 3).
         asset_to_bbox: Local bounding box per object for the env this candidate belongs to.
         generator: Optional RNG generator for reproducible sampling.
+        narrowing_bounds: Box of allowed positions to intersect the footprint with, from
+            ``get_initialization_bounds``. None leaves the footprint untouched.
     """
     on_relation = get_relation(obj, On)
     child_bbox = asset_to_bbox[obj]
@@ -128,15 +141,29 @@ def sample_on_parent(
         # Intersection compares the child's far edge with the parent's near edge.
         child_min, child_max = child_max, child_min
 
+    # Positions keeping the child on the parent, as a box. Z is ignored; it is set analytically.
+    footprint = AxisAlignedBoundingBox(
+        min_point=parent_world_bbox.min_point[0] - child_min,
+        max_point=parent_world_bbox.max_point[0] - child_max,
+    )
+    allowed = footprint if narrowing_bounds is None else footprint.intersected(narrowing_bounds)
+
     position_xy: list[float] = []
     for axis in (0, 1):
-        parent_min = parent_world_bbox.min_point[0, axis]
-        parent_max = parent_world_bbox.max_point[0, axis]
-        low = parent_min - child_min[axis]
-        high = parent_max - child_max[axis]
-        if low >= high:
+        footprint_low = footprint.min_point[0, axis]
+        footprint_high = footprint.max_point[0, axis]
+        if footprint_low >= footprint_high:
             # Child does not fit on the parent along this axis; seed at the parent's center.
+            parent_min = parent_world_bbox.min_point[0, axis]
+            parent_max = parent_world_bbox.max_point[0, axis]
             position_xy.append(float((parent_min + parent_max) / 2.0))
+            continue
+        low = allowed.min_point[0, axis]
+        high = allowed.max_point[0, axis]
+        if low >= high:
+            # Footprint and bounds are disjoint, so no position satisfies both. Seed at the point
+            # of the footprint nearest the bounds, which is the shortest reconciliation available.
+            position_xy.append(float(torch.clamp((low + high) / 2.0, min=footprint_low, max=footprint_high)))
             continue
         position_xy.append(sample_uniform_or_midpoint(low, high, generator))
 
