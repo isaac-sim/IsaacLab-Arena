@@ -128,7 +128,7 @@ relations:
   subject: syringe_3
   reference: instrument_tray
   params:
-    clearance_m: 0.03
+    clearance_m: 0.0
     edge_margin_m: 0.01
 task:
   composition: atomic

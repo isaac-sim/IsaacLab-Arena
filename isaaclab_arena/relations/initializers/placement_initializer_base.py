@@ -22,6 +22,9 @@ class InitializerType(Enum):
     ANCHOR = "anchor"
     """Seed against the footprint of the first anchor at or above each object's On parent."""
 
+    ON_TREE = "on_tree"
+    """Walk the tree formed by On relations, initializing objects in the AABB of their parents."""
+
 
 class PlacementInitializerBase(ABC):
     """Produces an initialization for the relation solver.
@@ -55,9 +58,11 @@ def create_initializer(initializer_type: InitializerType) -> PlacementInitialize
     """Return a new initializer of the requested type."""
     # Imported here because the concrete initializers import this module for their base class.
     from isaaclab_arena.relations.initializers.anchor_initializer import AnchorInitializer
+    from isaaclab_arena.relations.initializers.on_tree_initializer import OnTreeInitializer
 
     initializers_by_type: dict[InitializerType, type[PlacementInitializerBase]] = {
         InitializerType.ANCHOR: AnchorInitializer,
+        InitializerType.ON_TREE: OnTreeInitializer,
     }
     assert initializer_type in initializers_by_type, f"No initializer registered for {initializer_type}."
     return initializers_by_type[initializer_type]()
