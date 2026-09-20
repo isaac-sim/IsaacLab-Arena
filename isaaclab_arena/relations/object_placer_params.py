@@ -8,6 +8,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass, field
 
+from isaaclab_arena.relations.placement_initializers import AnchorInitializer, InitializerBase
 from isaaclab_arena.relations.reachability_config import ReachabilityConfig
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 
@@ -18,6 +19,9 @@ class ObjectPlacerParams:
 
     solver_params: RelationSolverParams = field(default_factory=RelationSolverParams)
     """Parameters for the underlying RelationSolver."""
+
+    initializer: InitializerBase = field(default_factory=AnchorInitializer)
+    """Strategy that seeds each candidate's starting positions before the solve."""
 
     random_yaw_init: bool = False
     """If True, give each non-anchor object a random fixed yaw about Z (uniform in [-pi, pi)) for

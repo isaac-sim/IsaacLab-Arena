@@ -18,7 +18,6 @@ from isaaclab_arena.relations.placement_visualizer import get_or_create_placemen
 from isaaclab_arena.relations.relation_solver import RelationSolver
 from isaaclab_arena.relations.relations import (
     FaceTo,
-    On,
     RandomAroundSolution,
     RotateAroundSolution,
     get_anchor_objects,
@@ -61,7 +60,7 @@ class ObjectPlacer:
     """High-level API for placing objects according to their spatial relations.
 
     Encapsulates the workflow of:
-    1. Random initialization of candidate positions per environment
+    1. Seeding candidate positions per environment via ``params.initializer``
     2. Running the RelationSolver on all candidates in one batch
     3. Validating each candidate
     4. Ranking candidates per environment (valid first, then by loss)
@@ -70,10 +69,9 @@ class ObjectPlacer:
     Supports single-env (num_envs=1) and batched (num_envs>1) placement.
 
     Note:
-        On-relation initialization samples positions within the anchor's axis-aligned bounding
-        box footprint. This works correctly for rectangular/box-shaped anchor objects. For
-        non-rectangular surfaces (e.g. L-shaped counters, curved or hollow objects), the sampled
-        position may fall outside the actual surface.
+        Initializers sample within axis-aligned bounding box footprints. This works correctly for
+        rectangular/box-shaped support surfaces. For non-rectangular surfaces (e.g. L-shaped
+        counters, curved or hollow objects), the sampled position may fall outside the actual surface.
     """
 
     def __init__(self, params: ObjectPlacerParams | None = None):
@@ -236,7 +234,9 @@ class ObjectPlacer:
                 assert self.params.placement_seed is not None
                 generator.manual_seed(self.params.placement_seed + candidate_idx)
             initial_positions.append(
-                self._generate_initial_positions(objects, anchor_objects_set, per_env_bboxes[cur_env], generator)
+                self.params.initializer.generate_initial_positions(
+                    objects, anchor_objects_set, per_env_bboxes[cur_env], generator
+                )
             )
             orientations_per_candidate.append(
                 self._generate_initial_orientations(objects, anchor_objects_set, generator)
@@ -331,60 +331,6 @@ class ObjectPlacer:
     ) -> None:
         n_valid = sum(1 for candidate_slice in ranked_candidate_slices if candidate_slice[0].is_valid)
         print(f"Solved {num_candidates} candidates in one batch: {n_valid}/{num_envs} env(s) valid")
-
-    def _generate_initial_positions(
-        self,
-        objects: list[PlaceableAsset],
-        anchor_objects: set[PlaceableAsset],
-        env_bboxes: dict[PlaceableAsset, AxisAlignedBoundingBox],
-        generator: torch.Generator | None = None,
-    ) -> dict[PlaceableAsset, tuple[float, float, float]]:
-        """Generate initial positions for all objects.
-
-        Anchors keep their initial_pose. Objects with an On relation are initialized within
-        the parent's footprint at the correct Z height. All other objects start at the first
-        anchor's center; the solver handles their placement from there.
-
-        Args:
-            env_bboxes: Per-object bboxes for the current env, each with shape (1, 3).
-            generator: Optional RNG generator for reproducible sampling. When None,
-                uses PyTorch's global RNG.
-
-        Returns:
-            Dictionary mapping all objects to their starting positions.
-        """
-        first_anchor = next(obj for obj in objects if obj in anchor_objects)
-        anchor_bbox = self._get_world_bbox_for_init(first_anchor, env_bboxes)
-
-        cx, cy, cz = float(anchor_bbox.center[0, 0]), float(anchor_bbox.center[0, 1]), float(anchor_bbox.center[0, 2])
-
-        positions: dict[PlaceableAsset, tuple[float, float, float]] = {}
-        for obj in objects:
-            if obj in anchor_objects:
-                initial_pose = obj.get_initial_pose()
-                assert isinstance(initial_pose, Pose), (
-                    f"Anchor object '{obj.name}' must have a fixed Pose before placement, got"
-                    f" {type(initial_pose).__name__}."
-                )
-                positions[obj] = initial_pose.position_xyz
-            elif any(isinstance(r, On) for r in obj.get_relations()):
-                positions[obj] = self._compute_on_guided_position(
-                    obj, anchor_objects, anchor_bbox, env_bboxes, generator
-                )
-            else:
-                positions[obj] = (cx, cy, cz)
-        return positions
-
-    @staticmethod
-    def _get_world_bbox_for_init(
-        obj: PlaceableAsset,
-        env_bboxes: dict[PlaceableAsset, AxisAlignedBoundingBox],
-    ) -> AxisAlignedBoundingBox:
-        initial_pose = obj.get_initial_pose()
-        assert isinstance(
-            initial_pose, Pose
-        ), f"Object '{obj.name}' must have a fixed Pose to use its env bbox, got {type(initial_pose).__name__}."
-        return env_bboxes[obj].translated(initial_pose.position_xyz)
 
     def _generate_initial_orientations(
         self,
@@ -484,106 +430,6 @@ class ObjectPlacer:
     ) -> dict[PlaceableAsset, AxisAlignedBoundingBox]:
         """Slice one candidate's bboxes (each (1, 3)) out of the stacked (num_candidates, 3) boxes."""
         return {obj: bbox[candidate_idx] for obj, bbox in bboxes.items()}
-
-    def _get_on_parent_world_bbox(
-        self,
-        parent: PlaceableAsset,
-        anchor_objects: set[PlaceableAsset],
-        anchor_bbox: AxisAlignedBoundingBox,
-        env_bboxes: dict[PlaceableAsset, AxisAlignedBoundingBox],
-    ) -> AxisAlignedBoundingBox:
-        """Resolve the world bbox of an On relation's parent for initialization purposes.
-
-        If the parent is an anchor, return its world bbox directly.
-        If the parent is a non-anchor with its own On(anchor) relation, use the anchor's
-        world bbox as a proxy. Only one level of indirection is resolved; deeper chains
-        fall back to anchor_bbox.
-
-        TODO(cvolk): Support full On-relation chains (e.g. spoon -> On(bowl) -> On(plate) -> On(table)).
-        """
-        if parent in anchor_objects:
-            return self._get_world_bbox_for_init(parent, env_bboxes)
-        for rel in parent.get_relations():
-            if isinstance(rel, On) and rel.parent in anchor_objects:
-                return self._get_world_bbox_for_init(rel.parent, env_bboxes)
-        return anchor_bbox
-
-    def _compute_on_guided_position(
-        self,
-        obj: PlaceableAsset,
-        anchor_objects: set[PlaceableAsset],
-        anchor_bbox: AxisAlignedBoundingBox,
-        env_bboxes: dict[PlaceableAsset, AxisAlignedBoundingBox],
-        generator: torch.Generator | None = None,
-    ) -> tuple[float, float, float]:
-        """Compute an initial position for an object with an On relation.
-
-        Places the object within the parent's X/Y footprint at the correct Z height,
-        so the solver starts from a valid region. Overlap constraints extend
-        that region beyond the parent's footprint.
-
-        Args:
-            env_bboxes: Per-object bboxes for the current env, each with shape (1, 3).
-            generator: Optional RNG generator for reproducible sampling. When None,
-                uses PyTorch's global RNG.
-        """
-        on_relation = next(r for r in obj.get_relations() if isinstance(r, On))
-        parent_bbox = self._get_on_parent_world_bbox(on_relation.parent, anchor_objects, anchor_bbox, env_bboxes)
-        child_bbox = env_bboxes[obj]
-
-        child_min, child_max = child_bbox.min_point[0], child_bbox.max_point[0]
-        if on_relation.overlap:
-            # Intersection compares the child's far edge with the parent's near edge.
-            child_min, child_max = child_max, child_min
-        x = self._sample_axis_position(
-            parent_bbox.min_point[0, 0],
-            parent_bbox.max_point[0, 0],
-            child_min[0],
-            child_max[0],
-            generator,
-        )
-        y = self._sample_axis_position(
-            parent_bbox.min_point[0, 1],
-            parent_bbox.max_point[0, 1],
-            child_min[1],
-            child_max[1],
-            generator,
-        )
-
-        # Convert from child-origin Z to child-bottom Z so the bottom face lands on the parent top.
-        z = float(parent_bbox.max_point[0, 2] + on_relation.clearance_m - child_bbox.min_point[0, 2])
-
-        return (x, y, z)
-
-    def _sample_axis_position(
-        self,
-        parent_min: float,
-        parent_max: float,
-        child_min: float,
-        child_max: float,
-        generator: torch.Generator | None = None,
-    ) -> float:
-        """Sample a child origin from the range defined by parent and child extents.
-
-        The valid range for the child origin is [parent_min - child_min, parent_max - child_max].
-        Callers pass normal child extents for containment and swapped extents for overlap.
-        When low >= high, no interval is available, so return the parent center as a stable seed.
-
-        Args:
-            parent_min: Parent world-space min extent on this axis.
-            parent_max: Parent world-space max extent on this axis.
-            child_min: Child local bbox min extent on this axis.
-            child_max: Child local bbox max extent on this axis.
-            generator: Optional RNG generator for reproducible sampling.
-
-        Returns:
-            Sampled child origin position on this axis.
-        """
-        low = parent_min - child_min
-        high = parent_max - child_max
-        if low >= high:
-            return float((parent_min + parent_max) / 2.0)
-        return float(low + (high - low) * torch.rand(1, generator=generator).item())
 
     def _validate_candidates(
         self,
