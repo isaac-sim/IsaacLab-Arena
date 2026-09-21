@@ -185,14 +185,11 @@ def test_placer_params_null_fields_are_treated_as_omitted():
     ],
 )
 def test_graph_spec_rejects_invalid_placer_params(placer_params, error_match):
-    from isaaclab_arena.environment_spec.arena_env_graph_conversion_utils import build_checks_for_placer_params
-
     data = _minimal_env_graph_data()
     data["placer_params"] = placer_params
-    spec = ArenaEnvGraphSpec.from_dict(data)
 
-    with pytest.raises((AssertionError, ValueError), match=error_match):
-        build_checks_for_placer_params(spec)
+    with pytest.raises(ValidationError, match=error_match):
+        ArenaEnvGraphSpec.from_dict(data)
 
 
 def test_graph_spec_parses_radial_position_limits():

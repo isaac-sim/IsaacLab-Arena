@@ -76,6 +76,21 @@ class ArenaEnvGraphSpec(BaseModel):
             return None
         return value
 
+    @field_validator("placer_params")
+    @classmethod
+    def _validate_placer_params(cls, value: dict[str, Any] | None) -> dict[str, Any] | None:
+        if value is None:
+            return None
+        from isaaclab_arena.environment_spec.env_cfg_override import apply_placer_params_override
+        from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+        from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
+
+        defaults = ObjectPlacerParams(
+            solver_params=RelationSolverParams(verbose=False, save_position_history=False),
+        )
+        apply_placer_params_override(defaults, value)
+        return value
+
     @model_validator(mode="before")
     @classmethod
     def _reject_legacy_placement_validators(cls, value: Any) -> Any:

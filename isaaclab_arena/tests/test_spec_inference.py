@@ -88,6 +88,17 @@ def test_placer_params_schema_is_projected_from_dataclasses(spec_inference):
     assert "embodiment" not in reachability_schema["properties"]
 
 
+def test_placer_params_schema_returns_independent_cached_copies():
+    from isaaclab_arena.agentic_environment_generation.placer_params_schema import build_placer_params_override_schema
+
+    first = build_placer_params_override_schema()
+    second = build_placer_params_override_schema()
+    first["anyOf"].clear()
+
+    assert first is not second
+    assert second["anyOf"]
+
+
 def test_infer_user_message_contains_catalog_and_prompt(spec_inference):
     inference, client = spec_inference
     client.chat.completions.create.return_value = chat_response(content=json.dumps(minimal_spec_dict()))

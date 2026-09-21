@@ -10,7 +10,9 @@ from __future__ import annotations
 import dataclasses
 import sys
 import types
+from copy import deepcopy
 from enum import Enum
+from functools import lru_cache
 from typing import Any, Union, get_args, get_origin, get_type_hints
 
 _EXCLUDED_PATHS = {
@@ -21,6 +23,12 @@ _EXCLUDED_PATHS = {
 
 def build_placer_params_override_schema() -> dict[str, Any]:
     """Return the strict schema projected from ObjectPlacerParams."""
+    return deepcopy(_cached_placer_params_override_schema())
+
+
+@lru_cache(maxsize=1)
+def _cached_placer_params_override_schema() -> dict[str, Any]:
+    """Build the canonical placer schema once."""
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 
     return _nullable_schema(_dataclass_override_schema(ObjectPlacerParams))
@@ -43,6 +51,7 @@ def _dataclass_override_schema(dataclass_type: type, path: tuple[str, ...] = ())
     }
 
 
+@lru_cache
 def _dataclass_field_annotation(dataclass_type: type, field_name: str) -> Any:
     """Resolve one dataclass annotation without touching excluded fields."""
     annotation = dataclass_type.__annotations__[field_name]
@@ -74,10 +83,11 @@ def _annotation_schema(annotation: Any, path: tuple[str, ...]) -> dict[str, Any]
         values = [member.value for member in annotation]
         value_type = type(values[0]) if values else str
         return {**_annotation_schema(value_type, path), "enum": values}
-    if origin in (list, set, tuple):
+    if origin in (list, set):
         args = get_args(annotation)
-        item_type = args[0] if args else Any
-        return {"type": "array", "items": _annotation_schema(item_type, path)}
+        if len(args) != 1:
+            raise TypeError(f"Collection annotation at {'.'.join(path)} must declare one item type")
+        return {"type": "array", "items": _annotation_schema(args[0], path)}
     primitive_types = {bool: "boolean", int: "integer", float: "number", str: "string", type(None): "null"}
     if annotation in primitive_types:
         return {"type": primitive_types[annotation]}
