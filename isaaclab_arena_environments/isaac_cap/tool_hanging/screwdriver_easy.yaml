@@ -1,0 +1,84 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+external_yaml: tool_hanging_env_config.yaml
+env_name: tool_hanging_screwdriver_easy
+embodiment:
+  id: yam
+  registry_name: tool_hanging_bimanual_yam
+  params:
+    left_mount_position: [0.3025, 0.17, 0.81]
+    right_mount_position: [0.3025, -0.17, 0.81]
+background:
+  id: background
+  registry_name: yam_workcell_table
+  params:
+    initial_pose:
+      position_xyz: [0.2525, 0.0, 0.728]
+      rotation_xyzw: [0.0, 0.0, 0.0, 1.0]
+objects:
+- id: hdr_shadow_receiver
+  registry_name: hdr_shadow_receiver
+- id: pegboard_rack
+  registry_name: pegboard_rack
+  params:
+    initial_pose:
+      position_xyz: [0.88, -0.16, 1.12800769]
+      rotation_xyzw: [0.0, 0.0, 0.0, 1.0]
+- id: rack
+  registry_name: screwdriver_box
+  params:
+    initial_pose:
+      position_xyz: [0.88, 0.0732, 0.85]
+      rotation_xyzw: [0.0, 0.0, 1.0, 0.0]
+- id: empty_warehouse_hdr_light
+  registry_name: empty_warehouse_dome_light
+- id: screwdriver_1
+  registry_name: tool_hanging_screwdriver
+object_references:
+- id: table
+  parent_id: background
+  prim_path: placement_surface
+  object_type: base
+relations:
+- kind: is_anchor
+  subject: table
+- kind: is_anchor
+  subject: pegboard_rack
+- kind: is_anchor
+  subject: rack
+- kind: 'on'
+  subject: screwdriver_1
+  reference: table
+  params:
+    clearance_m: 0.00111538
+- kind: position_limits_box
+  subject: screwdriver_1
+  params:
+    x_min: 0.58
+    x_max: 0.62
+    y_min: -0.02
+    y_max: 0.02
+- kind: rotate_around_solution
+  subject: screwdriver_1
+  params:
+    yaw_rad: 3.141592653589793
+task:
+  composition: atomic
+  description: put the screwdriver upright into the small box on the pegboard
+  subtasks:
+  - kind: ToolHangingTask
+    params:
+      tools: [screwdriver_1]
+      fixtures: [rack]
+      goals:
+      - containment:
+          minimum_xyz: [-0.067, -0.1252, -0.01]
+          maximum_xyz: [0.016, -0.0212, 0.141]
+          point_xyz: [0.175, 0, 0]
+      contact_force_n: 0.2
+      speed_m_s: 0.15
+      consecutive_success_steps: 60
+      episode_length_s: 108.33333333333333
