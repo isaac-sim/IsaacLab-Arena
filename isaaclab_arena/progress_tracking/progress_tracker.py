@@ -138,7 +138,9 @@ class CompletionCriteriaRunner:
         self.predicate_chains = {}
         self._consecutive_step_requirements: list[_TrueForConsecutiveSteps] = []
         self._lift_predicates: list[ObjectLifted] = []
-        self.prerequisites = [self._prepare_predicate(predicate, env) for predicate in completion_criteria.prerequisites]
+        self.prerequisites = [
+            self._prepare_predicate(predicate, env) for predicate in completion_criteria.prerequisites
+        ]
         self.prerequisites_met = torch.full((num_envs,), not self.prerequisites, dtype=torch.bool, device=device)
         for sequence_name, chain in completion_criteria.canonical_predicate_sequences.items():
             resolved_chain = []

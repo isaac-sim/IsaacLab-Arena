@@ -15,10 +15,7 @@ def _test_temporal_rest_check_does_not_record_poses(_simulation_app) -> bool:
 
     from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
     from isaaclab_arena.progress_tracking.progress_tracker import ProgressTracker
-    from isaaclab_arena.tasks.predicates.object_settling import (
-        objects_below_velocity_thresholds,
-        objects_settled,
-    )
+    from isaaclab_arena.tasks.predicates.object_settling import objects_below_velocity_thresholds, objects_settled
     from isaaclab_arena.tasks.predicates.temporal import TrueForConsecutiveStepsCfg
 
     class _World:

@@ -94,9 +94,7 @@ def _test_temporal_prerequisites_follow_subtask_activation_and_reset(simulation_
             name="later",
             parent_subtask_idx=1,
             prerequisites=[
-                TrueForConsecutiveStepsCfg(
-                    partial(_controlled_predicate, predicate_name="ready"), required_steps=2
-                )
+                TrueForConsecutiveStepsCfg(partial(_controlled_predicate, predicate_name="ready"), required_steps=2)
             ],
             predicate_sequence=[partial(_controlled_predicate, predicate_name="later")],
         ),
