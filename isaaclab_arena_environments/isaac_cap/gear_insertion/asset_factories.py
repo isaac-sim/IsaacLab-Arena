@@ -17,8 +17,9 @@ from isaaclab_arena.assets.nucleus import ARENA_NUCLEUS_DIR
 from isaaclab_arena.assets.object import Object
 from isaaclab_arena.assets.object_library import DomeLight
 from isaaclab_arena.assets.object_type import ObjectType
-from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.utils.pose import Pose
+
+from ..registration import register_asset
 
 _ASSET_ROOT = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/temp_newton_envs/cap_envs/gear_assembly/assets"
 

@@ -11,8 +11,9 @@ from dataclasses import dataclass
 from functools import partial
 from typing import TYPE_CHECKING
 
-from isaaclab_arena.assets.register import register_environment
 from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg, ArenaEnvironmentFactory
+
+from ..registration import register_environment
 
 if TYPE_CHECKING:
     from .scene import CableRoutingVariant

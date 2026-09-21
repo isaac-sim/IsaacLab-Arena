@@ -9,8 +9,9 @@ from dataclasses import dataclass
 from functools import partial
 from pathlib import Path
 
-from isaaclab_arena.assets.register import register_environment
 from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg, ArenaEnvironmentFactory
+
+from ...registration import register_environment
 
 
 def _apply_syringe_graph_config(env_cfg, graph_callback):
