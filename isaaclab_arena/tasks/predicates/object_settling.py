@@ -171,7 +171,10 @@ def objects_below_velocity_thresholds(
     lin_vel_threshold: float = DEFAULT_LINEAR_VELOCITY_THRESHOLD,
     ang_vel_threshold: float = DEFAULT_ANGULAR_VELOCITY_THRESHOLD,
 ) -> torch.Tensor:
-    """Check current rest without recording poses or counting steps."""
+    """Return whether all named objects meet their speed limits in each environment.
+
+    This check does not record resting positions or count consecutive steps.
+    """
 
     return compute_objects_settled_mask(
         env.arena_world,

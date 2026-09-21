@@ -20,6 +20,8 @@ class TrueForConsecutiveStepsCfg:
     ProgressObjectiveRunner creates and owns a _TrueForConsecutiveSteps runtime instance
     for each configured occurrence.
     The predicate returns one Boolean per environment without maintaining a streak itself.
+    ProgressObjectiveRunner resets the consecutive-step counter, not the wrapped predicate.
+    The wrapped predicate must not depend on this reset path to clear its own episode state.
 
     Require the cube to remain below the velocity thresholds for ten consecutive control steps::
 
@@ -57,10 +59,10 @@ class _TrueForConsecutiveSteps:
     and resets this requirement. This class does not evaluate predicates or track step indices.
     """
 
-    def __init__(self, cfg: TrueForConsecutiveStepsCfg, *, predicate: Callable, num_envs: int, device):
+    def __init__(self, *, predicate: Callable, required_steps: int, num_envs: int, device):
         self.predicate = predicate
         """Instantaneous callable prepared by ProgressObjectiveRunner."""
-        self.required_steps = cfg.required_steps
+        self.required_steps = required_steps
         self._consecutive_true_steps = torch.zeros(num_envs, dtype=torch.long, device=device)
 
     def update(self, predicate_results: torch.Tensor, active_envs: torch.Tensor) -> torch.Tensor:

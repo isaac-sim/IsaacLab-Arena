@@ -30,11 +30,10 @@ def _step(tracker, env, step_indices: list[int]):
 def _test_runtime_requirement_updates_only_active_environments(simulation_app):
     import torch
 
-    from isaaclab_arena.tasks.predicates.temporal import TrueForConsecutiveStepsCfg, _TrueForConsecutiveSteps
+    from isaaclab_arena.tasks.predicates.temporal import _TrueForConsecutiveSteps
 
     predicate = _ControlledPredicate([True, True, True])
-    cfg = TrueForConsecutiveStepsCfg(predicate=predicate, required_steps=2)
-    requirement = _TrueForConsecutiveSteps(cfg, predicate=predicate, num_envs=3, device="cpu")
+    requirement = _TrueForConsecutiveSteps(predicate=predicate, required_steps=2, num_envs=3, device="cpu")
     samples = [
         ([True, True, True], [True, False, True], [False, False, False]),
         # Inactive false results must not clear an existing count.

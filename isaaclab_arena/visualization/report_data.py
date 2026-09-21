@@ -34,6 +34,7 @@ DEFAULT_POLICY_SUFFIXES = ()
 # Record fields rendered explicitly elsewhere, so excluded from per-episode metadata.
 _METADATA_EXCLUDED_FIELDS = frozenset({"env_id", "episode_in_env", "success", "job_name", "progress"})
 _PREDICATE_ARGUMENTS_PATTERN = re.compile(r"\(.*\)$")
+_CONSECUTIVE_STEPS_PATTERN = re.compile(r"TrueForConsecutiveStepsCfg\((?P<predicate>.*), required_steps=\d+\)")
 _SUBTASK_OBJECTIVE_PATTERN = re.compile(r"^subtask_\d+/(?P<family>.+)$")
 UNGROUPED_TASK = "(ungrouped)"
 
@@ -361,7 +362,12 @@ def is_completed_execution(execution: RunExecutionReport) -> bool:
 
 
 def _base_predicate_name(predicate_name: object) -> str:
-    return _PREDICATE_ARGUMENTS_PATTERN.sub("", str(predicate_name))
+    """Extract the underlying predicate name from a recorded progress description."""
+    predicate_description = str(predicate_name)
+    temporal_requirement = _CONSECUTIVE_STEPS_PATTERN.fullmatch(predicate_description)
+    if temporal_requirement is not None:
+        predicate_description = temporal_requirement.group("predicate")
+    return _PREDICATE_ARGUMENTS_PATTERN.sub("", predicate_description)
 
 
 def _candidate_family_name(objective_name: str) -> str:
