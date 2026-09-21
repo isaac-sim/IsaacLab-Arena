@@ -1,0 +1,162 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# AUTOLab Level 2: two matching tools, two distractors, and fixed fixtures.
+external_yaml: tool_hanging_env_config.yaml
+env_name: tool_hanging_plier_medium
+embodiment:
+  id: yam
+  registry_name: tool_hanging_bimanual_yam
+  params:
+    left_mount_position: [0.3025, 0.17, 0.81]
+    right_mount_position: [0.3025, -0.17, 0.81]
+background:
+  id: background
+  registry_name: yam_workcell_table
+  params:
+    initial_pose:
+      position_xyz: [0.2525, 0.0, 0.75]
+      rotation_xyzw: [0.0, 0.0, 0.0, 1.0]
+objects:
+- id: hdr_shadow_receiver
+  registry_name: hdr_shadow_receiver
+- id: pegboard_rack
+  registry_name: pegboard_rack
+  params:
+    initial_pose:
+      position_xyz: [0.88, -0.16, 1.12800769]
+      rotation_xyzw: [0.0, 0.0, 0.0, 1.0]
+- id: empty_warehouse_hdr_light
+  registry_name: empty_warehouse_dome_light
+- id: plier_support_left
+  registry_name: plier_support
+  params:
+    initial_pose:
+      position_xyz: [0.7498078192, 0.2633992876, 0.9034166456]
+      rotation_xyzw: [0.0, 0.0, -0.7071067811865476, 0.7071067811865476]
+- id: plier_support_right
+  registry_name: plier_support
+  params:
+    initial_pose:
+      position_xyz: [0.7498078192, 0.06339928759999999, 0.9034166456]
+      rotation_xyzw: [0.0, 0.0, -0.7071067811865476, 0.7071067811865476]
+- id: plier_1
+  registry_name: tool_hanging_pliers
+- id: plier_2
+  registry_name: tool_hanging_pliers
+- id: distractor_scissors_1
+  registry_name: tool_hanging_scissors
+- id: distractor_wrench_2
+  registry_name: tool_hanging_wrench
+object_references:
+- id: table
+  parent_id: background
+  prim_path: placement_surface
+  object_type: base
+relations:
+- kind: is_anchor
+  subject: table
+- kind: is_anchor
+  subject: pegboard_rack
+- kind: is_anchor
+  subject: plier_support_left
+- kind: is_anchor
+  subject: plier_support_right
+- kind: 'on'
+  subject: plier_1
+  reference: table
+  params:
+    clearance_m: 0.004
+- kind: at_position
+  subject: plier_1
+  params:
+    x: 0.6
+    y: 0.14
+- kind: rotate_around_solution
+  subject: plier_1
+- kind: random_around_solution
+  subject: plier_1
+  params:
+    x_half_m: 0.05
+    y_half_m: 0.05
+    yaw_half_rad: 0.08726646259971647
+- kind: 'on'
+  subject: plier_2
+  reference: table
+  params:
+    clearance_m: 0.004
+- kind: at_position
+  subject: plier_2
+  params:
+    x: 0.6
+    y: -0.14
+- kind: rotate_around_solution
+  subject: plier_2
+- kind: random_around_solution
+  subject: plier_2
+  params:
+    x_half_m: 0.05
+    y_half_m: 0.05
+    yaw_half_rad: 0.08726646259971647
+- kind: 'on'
+  subject: distractor_scissors_1
+  reference: table
+  params:
+    clearance_m: 0.004
+- kind: position_limits_box
+  subject: distractor_scissors_1
+  params:
+    x_min: 0.3
+    x_max: 0.9
+    y_min: -0.4
+    y_max: 0.4
+- kind: rotate_around_solution
+  subject: distractor_scissors_1
+  params:
+    roll_rad: -1.5707963267948966
+    yaw_rad: 1.5707963267948966
+- kind: random_around_solution
+  subject: distractor_scissors_1
+  params:
+    yaw_half_rad: 3.141592653589793
+- kind: 'on'
+  subject: distractor_wrench_2
+  reference: table
+  params:
+    clearance_m: 0.0
+- kind: position_limits_box
+  subject: distractor_wrench_2
+  params:
+    x_min: 0.4279999316
+    x_max: 1.0279999316
+    y_min: -0.1785213292
+    y_max: 0.6214786708
+- kind: rotate_around_solution
+  subject: distractor_wrench_2
+  params:
+    yaw_rad: 3.141592653589793
+- kind: random_around_solution
+  subject: distractor_wrench_2
+  params:
+    yaw_half_rad: 3.141592653589793
+task:
+  composition: atomic
+  description: hang both pliers on the two supports
+  subtasks:
+  - kind: ToolHangingTask
+    params:
+      tools: [plier_1, plier_2]
+      fixtures: [plier_support_left, plier_support_right]
+      goals:
+      - containment:
+          minimum_xyz: [0.072, -0.203, -0.02]
+          maximum_xyz: [0.143, -0.123, 0.1]
+      - containment:
+          minimum_xyz: [0.072, -0.203, -0.02]
+          maximum_xyz: [0.143, -0.123, 0.1]
+      contact_force_n: 0.2
+      speed_m_s: 0.15
+      consecutive_success_steps: 60
+      episode_length_s: 366.6666666666667

@@ -1,0 +1,79 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+external_yaml: tool_hanging_env_config.yaml
+env_name: tool_hanging_plier_easy
+embodiment:
+  id: yam
+  registry_name: tool_hanging_bimanual_yam
+  params:
+    left_mount_position: [0.3025, 0.17, 0.81]
+    right_mount_position: [0.3025, -0.17, 0.81]
+background:
+  id: background
+  registry_name: yam_workcell_table
+  params:
+    initial_pose:
+      position_xyz: [0.2525, 0.0, 0.728]
+      rotation_xyzw: [0.0, 0.0, 0.0, 1.0]
+objects:
+- id: hdr_shadow_receiver
+  registry_name: hdr_shadow_receiver
+- id: pegboard_rack
+  registry_name: pegboard_rack
+  params:
+    initial_pose:
+      position_xyz: [0.88, -0.16, 1.12800769]
+      rotation_xyzw: [0.0, 0.0, 0.0, 1.0]
+- id: plier_support_left
+  registry_name: plier_support
+  params:
+    initial_pose:
+      position_xyz: [0.7498078192, 0.1633992876, 0.9034166456]
+      rotation_xyzw: [0.0, 0.0, -0.7071067811865476, 0.7071067811865476]
+- id: empty_warehouse_hdr_light
+  registry_name: empty_warehouse_dome_light
+- id: plier_1
+  registry_name: tool_hanging_pliers
+object_references:
+- id: table
+  parent_id: background
+  prim_path: placement_surface
+  object_type: base
+relations:
+- kind: is_anchor
+  subject: table
+- kind: is_anchor
+  subject: pegboard_rack
+- kind: is_anchor
+  subject: plier_support_left
+- kind: 'on'
+  subject: plier_1
+  reference: table
+  params:
+    clearance_m: 0.004
+- kind: position_limits_box
+  subject: plier_1
+  params:
+    x_min: 0.58
+    x_max: 0.62
+    y_min: -0.02
+    y_max: 0.02
+task:
+  composition: atomic
+  description: hang the pliers on the triangular support
+  subtasks:
+  - kind: ToolHangingTask
+    params:
+      tools: [plier_1]
+      fixtures: [plier_support_left]
+      goals:
+      - containment:
+          minimum_xyz: [0.072, -0.203, -0.02]
+          maximum_xyz: [0.143, -0.123, 0.1]
+      contact_force_n: 0.2
+      speed_m_s: 0.15
+      consecutive_success_steps: 60
+      episode_length_s: 108.33333333333333
