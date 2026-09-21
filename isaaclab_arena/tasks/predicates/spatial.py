@@ -134,26 +134,70 @@ def _position_relative_to_target(
     subject_name: str,
     receiver_name: str,
     target_offset_xyz: tuple[float, float, float],
+    subject_offset_xyz: tuple[float, float, float] = (0.0, 0.0, 0.0),
 ) -> torch.Tensor:
-    """Return the subject origin relative to a receiver-local target position."""
+    """Return a subject-local point relative to a target, expressed in the receiver frame."""
     arena_world = env.arena_world
     T_W_S = arena_world.get_pose_w(subject_name)
     T_W_R = arena_world.get_pose_w(receiver_name)
-    position_R = quat_apply_inverse(T_W_R[:, 3:], T_W_S[:, :3] - T_W_R[:, :3])
+    subject_offset_S = torch.as_tensor(subject_offset_xyz, dtype=T_W_S.dtype, device=T_W_S.device)
+    subject_point_W = T_W_S[:, :3] + quat_apply(T_W_S[:, 3:], subject_offset_S.expand(env.num_envs, -1))
+    position_R = quat_apply_inverse(T_W_R[:, 3:], subject_point_W - T_W_R[:, :3])
     target_position_R = torch.as_tensor(target_offset_xyz, dtype=position_R.dtype, device=position_R.device)
     return position_R - target_position_R
 
 
-def xy_in_proximity(
+def _normalized_axis(axis: tuple[float, float, float], reference: torch.Tensor) -> torch.Tensor:
+    """Return a unit axis matching the reference tensor's dtype and device."""
+    vector = torch.as_tensor(axis, dtype=reference.dtype, device=reference.device)
+    assert vector.shape == (3,) and torch.linalg.vector_norm(vector) > 0
+    return vector / torch.linalg.vector_norm(vector)
+
+
+def _relative_axial_distances(
     env: IsaacLabArenaManagerBasedRLEnv,
     subject_name: str,
     receiver_name: str,
     target_offset_xyz: tuple[float, float, float],
-    tolerance_xy: float,
+    subject_offset_xyz: tuple[float, float, float] = (0.0, 0.0, 0.0),
+    receiver_axis: tuple[float, float, float] = (0.0, 0.0, 1.0),
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Return signed axial depth and perpendicular distance from a receiver-local target."""
+    position_R = _position_relative_to_target(env, subject_name, receiver_name, target_offset_xyz, subject_offset_xyz)
+    axis_R = _normalized_axis(receiver_axis, position_R)
+    depth = torch.sum(position_R * axis_R, dim=-1)
+    lateral = torch.linalg.vector_norm(position_R - depth[:, None] * axis_R, dim=-1)
+    return depth, lateral
+
+
+def lateral_in_proximity(
+    env: IsaacLabArenaManagerBasedRLEnv,
+    subject_name: str,
+    receiver_name: str,
+    target_offset_xyz: tuple[float, float, float],
+    tolerance_lateral: float,
+    *,
+    subject_offset_xyz: tuple[float, float, float] = (0.0, 0.0, 0.0),
+    receiver_axis: tuple[float, float, float] = (0.0, 0.0, 1.0),
 ) -> torch.Tensor:
-    """Check subject proximity to a receiver-local target in the target XY plane."""
-    p_rel = _position_relative_to_target(env, subject_name, receiver_name, target_offset_xyz)
-    return torch.linalg.vector_norm(p_rel[:, :2], dim=-1) <= tolerance_xy
+    """Check point proximity perpendicular to a receiver-local axis.
+
+    Args:
+        env: Environment providing asset poses.
+        subject_name: Subject asset name.
+        receiver_name: Receiver asset name.
+        target_offset_xyz: Target point in the receiver frame.
+        tolerance_lateral: Maximum perpendicular distance from the target axis.
+        subject_offset_xyz: Point in the subject frame; defaults to its origin.
+        receiver_axis: Plane normal in the receiver frame; defaults to +Z.
+
+    Returns:
+        One Boolean result per environment.
+    """
+    _, lateral = _relative_axial_distances(
+        env, subject_name, receiver_name, target_offset_xyz, subject_offset_xyz, receiver_axis
+    )
+    return lateral <= tolerance_lateral
 
 
 def depth_in_range(
@@ -162,12 +206,36 @@ def depth_in_range(
     receiver_name: str,
     target_offset_xyz: tuple[float, float, float],
     depth_min: float,
-    depth_max: float,
+    depth_max: float | None,
+    *,
+    subject_offset_xyz: tuple[float, float, float] = (0.0, 0.0, 0.0),
+    receiver_axis: tuple[float, float, float] = (0.0, 0.0, 1.0),
 ) -> torch.Tensor:
-    """Check subject depth relative to a receiver-local target position."""
-    assert depth_min <= depth_max, f"depth_min ({depth_min}) must not exceed depth_max ({depth_max})."
-    p_rel = _position_relative_to_target(env, subject_name, receiver_name, target_offset_xyz)
-    return (p_rel[:, 2] >= depth_min) & (p_rel[:, 2] <= depth_max)
+    """Check point depth relative to a receiver-local target along its configured axis.
+
+    Args:
+        env: Environment providing asset poses.
+        subject_name: Subject asset name.
+        receiver_name: Receiver asset name.
+        target_offset_xyz: Target point in the receiver frame.
+        depth_min: Inclusive minimum signed depth.
+        depth_max: Inclusive maximum signed depth, or None for no upper limit.
+        subject_offset_xyz: Point in the subject frame; defaults to its origin.
+        receiver_axis: Depth axis in the receiver frame; defaults to +Z.
+
+    Returns:
+        One Boolean result per environment.
+    """
+    assert (
+        depth_max is None or depth_min <= depth_max
+    ), f"depth_min ({depth_min}) must not exceed depth_max ({depth_max})."
+    depth, _ = _relative_axial_distances(
+        env, subject_name, receiver_name, target_offset_xyz, subject_offset_xyz, receiver_axis
+    )
+    result = depth >= depth_min
+    if depth_max is not None:
+        result &= depth <= depth_max
+    return result
 
 
 def tilt_axis_aligned(
@@ -177,21 +245,21 @@ def tilt_axis_aligned(
     max_tilt_rad: float,
     subject_axis: tuple[float, float, float] = (0.0, 0.0, 1.0),
     receiver_axis: tuple[float, float, float] = (0.0, 0.0, 1.0),
+    *,
+    allow_antiparallel: bool = False,
 ) -> torch.Tensor:
-    """Check the angle between configured subject and receiver axes."""
+    """Check the angle between configured axes, optionally accepting opposite directions."""
     assert 0.0 <= max_tilt_rad <= math.pi, f"max_tilt_rad must be in [0, pi], got {max_tilt_rad}."
     arena_world = env.arena_world
     T_W_S = arena_world.get_pose_w(subject_name)
     T_W_R = arena_world.get_pose_w(receiver_name)
-    subject_axis_F = torch.as_tensor(subject_axis, dtype=T_W_S.dtype, device=T_W_S.device)
-    receiver_axis_F = torch.as_tensor(receiver_axis, dtype=T_W_R.dtype, device=T_W_R.device)
-    assert subject_axis_F.shape == (3,) and torch.linalg.vector_norm(subject_axis_F) > 0
-    assert receiver_axis_F.shape == (3,) and torch.linalg.vector_norm(receiver_axis_F) > 0
-    subject_axis_F = subject_axis_F / torch.linalg.vector_norm(subject_axis_F)
-    receiver_axis_F = receiver_axis_F / torch.linalg.vector_norm(receiver_axis_F)
+    subject_axis_F = _normalized_axis(subject_axis, T_W_S)
+    receiver_axis_F = _normalized_axis(receiver_axis, T_W_R)
     subject_axis_w = quat_apply(T_W_S[:, 3:], subject_axis_F.expand(env.num_envs, -1))
     receiver_axis_w = quat_apply(T_W_R[:, 3:], receiver_axis_F.expand(env.num_envs, -1))
     axis_dot = torch.sum(subject_axis_w * receiver_axis_w, dim=-1)
+    if allow_antiparallel:
+        axis_dot = torch.abs(axis_dot)
     return axis_dot >= math.cos(max_tilt_rad)
 
 
