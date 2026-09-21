@@ -150,6 +150,39 @@ def test_objectives_list_predicates_the_episode_never_reached():
     assert objective.signals[0].step == 7
 
 
+def test_temporal_predicates_keep_distinct_report_labels_and_recorded_details():
+    resting_requirement = "TrueForConsecutiveStepsCfg(objects_below_velocity_thresholds, required_steps=10)"
+    placement_requirement = "TrueForConsecutiveStepsCfg(object_on_destination(force_threshold=0.1), required_steps=5)"
+    completed_progress = _progress(
+        {"pick_and_place": 1},
+        [
+            ("pick_and_place", 0, resting_requirement),
+            ("pick_and_place", 1, placement_requirement),
+        ],
+        score=1.0,
+    )
+    stalled_progress = _progress({"pick_and_place": 1}, [], score=0.0)
+    stalled_progress["objectives"]["pick_and_place"]["active_predicates"] = {
+        "default_group": resting_requirement,
+    }
+    complete = _episode({"success": True, "progress": completed_progress})
+    stalled = _episode({"success": False, "progress": stalled_progress}, episode=1)
+    job = JobSummary(name="run", task="t", policy="p", cameras=[], episodes=[complete, stalled])
+
+    assert [(stage.name, stage.num_reached) for stage in job.funnels[0].stages] == [
+        ("objects_below_velocity_thresholds", 1),
+        ("object_on_destination", 1),
+    ]
+    assert [(signal.name, signal.blocked) for signal in job.objectives_for(stalled)[0].signals] == [
+        ("objects_below_velocity_thresholds", True),
+        ("object_on_destination", False),
+    ]
+    assert [signal.detail for signal in job.objectives_for(complete)[0].signals] == [
+        resting_requirement,
+        placement_requirement,
+    ]
+
+
 def test_compatible_subtask_objectives_are_coalesced_into_one_family():
     episode = _episode({
         "progress": {

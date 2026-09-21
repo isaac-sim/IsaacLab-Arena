@@ -153,8 +153,8 @@ class ProgressObjectiveRunner:
                     # Prepare the instantaneous check and create independent counters
                     # for this occurrence, even when the same configuration is reused.
                     predicate = _TrueForConsecutiveSteps(
-                        cfg=predicate,
                         predicate=_create_predicate_from_config(predicate.predicate, env),
+                        required_steps=predicate.required_steps,
                         num_envs=num_envs,
                         device=device,
                     )
