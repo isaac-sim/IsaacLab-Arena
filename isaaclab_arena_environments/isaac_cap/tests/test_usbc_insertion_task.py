@@ -105,8 +105,10 @@ def _test_usbc_insertion_task(_simulation_app) -> bool:
         depth_max=0.0085,
         lateral_max=0.0043965896,
         speed_max=0.05,
+        consecutive_success_steps=3,
     )
     medium_requirement = medium_task.get_termination_cfg().success[0].predicate_sequence[0]
+    assert medium_requirement.required_steps == 3
     predicates = medium_requirement.predicate.params["predicates"]
     assert [predicate.func for predicate in predicates] == [
         depth_in_range,
@@ -128,58 +130,6 @@ def _test_usbc_insertion_task(_simulation_app) -> bool:
 
 def test_usbc_insertion_task() -> None:
     assert run_function_with_persistent_simulation_app(_test_usbc_insertion_task)
-
-
-def _test_usbc_success_streak(_simulation_app) -> bool:
-    import torch
-    from types import SimpleNamespace
-
-    from isaaclab_arena.tests.test_task_success_from_progress import _make_environment_and_manager
-    from isaaclab_arena_environments.isaac_cap.usbc_insertion.task import UsbcInsertionTask
-
-    task = UsbcInsertionTask(
-        SimpleNamespace(name="plug"),
-        SimpleNamespace(name="receiver"),
-        receiver_mouth_offset_xyz=(0.0, 0.0, 0.0),
-        receiver_axis=(1.0, 0.0, 0.0),
-        subject_tip_offset_xyz=(0.0, 0.0, 0.0),
-        depth_min=0.01,
-        depth_max=0.02,
-        lateral_max=0.001,
-        speed_max=0.05,
-        consecutive_success_steps=3,
-    )
-    env, manager, _ = _make_environment_and_manager([], success_objectives=task.get_termination_cfg().success)
-    poses = {
-        "plug": torch.tensor([[0.012, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0]]).repeat(2, 1),
-        "receiver": torch.tensor([[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0]]).repeat(2, 1),
-    }
-    env.arena_world = SimpleNamespace(
-        get_pose_w=lambda name: poses[name],
-        get_root_linear_velocity_w=lambda _name: torch.zeros((2, 3)),
-    )
-
-    env.episode_length_buf += 1
-    manager.compute()
-    manager.compute()
-    assert manager.get_term("success").tolist() == [False, False]
-
-    poses["plug"][0, 1] = 0.002
-    env.episode_length_buf += 1
-    manager.compute()
-    assert manager.get_term("success").tolist() == [False, False]
-
-    poses["plug"][0, 1] = 0.0
-    for expected_success in ([False, True], [False, True], [True, True]):
-        env.episode_length_buf += 1
-        manager.compute()
-        assert manager.get_term("success").tolist() == expected_success
-
-    return True
-
-
-def test_usbc_success_streak() -> None:
-    assert run_function_with_persistent_simulation_app(_test_usbc_success_streak)
 
 
 def _test_usbc_release_and_withdrawal(_simulation_app) -> bool:

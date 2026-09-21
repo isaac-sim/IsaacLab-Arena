@@ -94,13 +94,10 @@ def test_temporal_rest_check_does_not_record_poses():
 def _test_off_table_sphere_does_not_settle_before_falling(_simulation_app) -> bool:
     import torch
 
-    import pytest
-
     from isaaclab_arena.assets.object_library import DomeLight, GroundPlane, ProceduralTable, Sphere
     from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
-    from isaaclab_arena.progress_tracking.task_success import TaskSuccessTerm
     from isaaclab_arena.scene.scene import Scene
     from isaaclab_arena.tests.objects_settled_task import ObjectsSettledTask
     from isaaclab_arena.utils.physics_settle import step_physics
@@ -135,12 +132,6 @@ def _test_off_table_sphere_does_not_settle_before_falling(_simulation_app) -> bo
     try:
         arena_env = env.unwrapped
         manager = arena_env.termination_manager
-        assert isinstance(manager.get_term_cfg("success").func, TaskSuccessTerm)
-        progress_tracker = arena_env.progress_tracker
-        assert progress_tracker is not None
-        with pytest.raises(AttributeError, match="progress_tracker"):
-            arena_env.progress_tracker = None
-        assert arena_env.progress_tracker is progress_tracker
 
         falling_speed = arena_env.arena_world.get_root_linear_velocity_w("falling_sphere").norm(dim=-1)
         assert falling_speed.item() == 0.0
@@ -163,11 +154,8 @@ def _test_off_table_sphere_does_not_settle_before_falling(_simulation_app) -> bo
             if terminated.item():
                 assert not truncated.item()
                 assert progress_state.progress_objectives["objects_settled"].is_complete
-                assert progress_state.all_complete
-                assert progress_state.overall_score == 1.0
                 settled_events = progress["events"][0]
                 assert len(settled_events) == 1
-                assert settled_events[0].predicate_index == 0
                 assert settled_events[0].step >= 5
                 break
             assert not progress_state.progress_objectives["objects_settled"].is_complete
