@@ -37,7 +37,6 @@ class UsbcInsertionMediumEnvironmentCfg(UsbcInsertionEasyEnvironmentCfg):
 
 def _build_environment(scene_spec: Path, cfg: UsbcInsertionEasyEnvironmentCfg):
     from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
-    from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
     from isaaclab_arena_environments.isaac_cap import register_components
 
     from .cameras import UsbcInsertionCameraCfg
@@ -52,11 +51,6 @@ def _build_environment(scene_spec: Path, cfg: UsbcInsertionEasyEnvironmentCfg):
     if cfg.enable_cameras:
         spec.embodiment.params["camera_config"] = UsbcInsertionCameraCfg()
     arena_environment = spec.to_arena_env(enable_cameras=cfg.enable_cameras)
-    arena_environment.placer_params = ObjectPlacerParams(
-        allow_best_loss_fallbacks=False, required_checks={"on_relation"}
-    )
-    arena_environment.placer_params.solver_params.clearance_m = 0.0
-    arena_environment.placer_params.solver_params.lr = 0.001
     assert arena_environment.env_cfg_callback is not None, "USB-C graphs must define env_cfg_override."
     from .physics import configure_usbc_runtime
 

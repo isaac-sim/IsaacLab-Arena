@@ -46,26 +46,41 @@ def test_gear_mesh_placer_params(yaml_name: str, layout_family: bool):
     assert params.required_checks == (set() if layout_family else None)
 
 
-@pytest.mark.parametrize(
-    ("yaml_name", "expected"),
-    (
-        ("syringe_both.yaml", {"allow_best_loss_fallbacks": False}),
-        (
-            "syringe_cluttered.yaml",
-            {
-                "allow_best_loss_fallbacks": False,
-                "max_placement_attempts": 30,
-                "solver_params": {"clearance_m": 0.015},
-            },
-        ),
-    ),
-)
-def test_syringe_placer_params(yaml_name: str, expected: dict):
+@pytest.mark.parametrize("yaml_name", ("syringe_single.yaml", "syringe_both.yaml", "syringe_cluttered.yaml"))
+def test_syringe_placer_params(yaml_name: str):
     data = load_env_graph_spec_dict(_CAP_ROOT / "syringe_sort" / "environments" / yaml_name)
 
-    assert data["placer_params"] == expected
+    assert data["placer_params"] == {
+        "random_yaw_init": False,
+        "allow_best_loss_fallbacks": False,
+        "max_placement_attempts": 30,
+        "solver_params": {"clearance_m": 0.015},
+    }
+    params = _build_placer_params(data)
+    assert not params.random_yaw_init
+    assert not params.allow_best_loss_fallbacks
+    assert params.max_placement_attempts == 30
+    assert params.solver_params.clearance_m == pytest.approx(0.015)
+
+
+@pytest.mark.parametrize("yaml_name", ("usbc_easy.yaml", "usbc_medium.yaml"))
+def test_usbc_placer_params(yaml_name: str):
+    data = load_env_graph_spec_dict(_CAP_ROOT / "usbc_insertion" / yaml_name)
+
+    assert data["placer_params"] == {
+        "allow_best_loss_fallbacks": False,
+        "required_checks": ["on_relation"],
+        "solver_params": {
+            "clearance_m": 0.0,
+            "lr": 0.001,
+            "verbose": True,
+            "save_position_history": True,
+        },
+    }
     params = _build_placer_params(data)
     assert not params.allow_best_loss_fallbacks
-    if yaml_name == "syringe_cluttered.yaml":
-        assert params.max_placement_attempts == 30
-        assert params.solver_params.clearance_m == pytest.approx(0.015)
+    assert params.required_checks == {"on_relation"}
+    assert params.solver_params.clearance_m == 0.0
+    assert params.solver_params.lr == pytest.approx(0.001)
+    assert params.solver_params.verbose
+    assert params.solver_params.save_position_history

@@ -42,16 +42,8 @@ class SyringeBase(ArenaEnvironmentFactory[SyringeSortEnvironmentCfg]):
 
         spec = ArenaEnvGraphSpec.from_yaml(str(Path(__file__).with_name(self.yaml_file)))
         arena_env = spec.to_arena_env(enable_cameras=cfg.enable_cameras)
-        # NOTE(alexmillane, 2028.09.17): The placement of 4 syringes on the tray is tight.
-        # Below ensures that they are correctly placed.
-        # NOTE(alexmillane, 2028.09.17) [arena-parameters-overrides-missing-feature]:
-        # Currently solver params only adjustable from python. Move these overrides to yaml when this is possible.
         # NOTE(alexmillane, 2028.09.17) [clutter-placement-missing-feature]:
         # Move to clutter-based placement when that feature is enabled.
-        arena_env.placer_params.random_yaw_init = False
-        arena_env.placer_params.allow_best_loss_fallbacks = False
-        arena_env.placer_params.solver_params.clearance_m = 0.015
-        arena_env.placer_params.max_placement_attempts = 30
 
         # TODO(alexmillane) [berkley-cap-align-embodiments]: Remove these per-task custom
         # embodiment configurations once the upstream repo has done it.
