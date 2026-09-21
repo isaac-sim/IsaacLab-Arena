@@ -139,9 +139,20 @@ def _materialize_value(
     current_value: Any,
 ) -> Any:
     """Dispatch materialization based on the override value's structure."""
+    dict_value_type = _dict_value_type(annotation)
+    if dict_value_type is not None and isinstance(value, dict):
+        return _materialize_dict(
+            dict_value_type,
+            value,
+            path=path,
+            construct_structured=construct_structured,
+            strict=strict,
+            current_value=current_value,
+        )
+
     # Handle list
     list_element_type = _list_element_type(annotation)
-    if list_element_type is not None:
+    if list_element_type is not None and isinstance(value, list):
         return _materialize_list(
             list_element_type,
             value,
@@ -168,6 +179,31 @@ def _materialize_value(
         strict=strict,
         current_value=current_value,
     )
+
+
+def _materialize_dict(
+    value_type: Any,
+    value: Any,
+    *,
+    path: str,
+    construct_structured: bool,
+    strict: bool,
+    current_value: Any,
+) -> dict[str, Any]:
+    """Materialize every value of a typed override dictionary."""
+    assert isinstance(value, dict), f"Expected a mapping at '{path}'"
+    materialized = {}
+    for key, item in value.items():
+        current_item = current_value.get(key) if isinstance(current_value, dict) else None
+        materialized[key] = _materialize_value(
+            value_type,
+            item,
+            path=f"{path}.{key}",
+            construct_structured=construct_structured,
+            strict=strict,
+            current_value=current_item,
+        )
+    return materialized
 
 
 def _materialize_list(
@@ -327,9 +363,31 @@ def _field_annotation(owner: type, field_name: str, current_type: type | None = 
 
 def _list_element_type(annotation: Any) -> Any | None:
     """Return the element annotation for ``list[T]``, or ``None`` when ``annotation`` is not a list."""
+    members = _union_members(annotation)
+    if members is not None:
+        for member in members:
+            element_type = _list_element_type(member)
+            if element_type is not None:
+                return element_type
+        return None
     if get_origin(annotation) is list:
         args = get_args(annotation)
         return args[0] if args else None
+    return None
+
+
+def _dict_value_type(annotation: Any) -> Any | None:
+    """Return the value annotation for ``dict[K, V]``, or ``None`` for other annotations."""
+    members = _union_members(annotation)
+    if members is not None:
+        for member in members:
+            value_type = _dict_value_type(member)
+            if value_type is not None:
+                return value_type
+        return None
+    if get_origin(annotation) is dict:
+        args = get_args(annotation)
+        return args[1] if len(args) == 2 else Any
     return None
 
 

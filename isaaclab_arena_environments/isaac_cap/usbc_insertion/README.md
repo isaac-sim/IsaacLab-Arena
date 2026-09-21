@@ -34,10 +34,12 @@ Success is not just geometric alignment while a hand still holds the plug.
 The shared graph `env_cfg_override` selects Newton and configures 60 Hz control
 with sixteen solver substeps per control step,
 `implicitfast`, an elliptic friction cone, `impratio=10`, exact authored connector
-meshes, and the collision pipeline. A small runtime hook installs CAP's custom
-full-hand contact manager and robot actuator tuning, which cannot be represented
-by the data-only override. Both arms use stiffness 1600 / damping 70; driven
-grippers use stiffness 40000 / damping 40 with a 160 N limit.
+meshes, and the collision pipeline. A small runtime hook selects the cable-cleanup
+manager and applies robot actuator tuning. Environment-scoped USD spawn overrides apply
+the full-hand, passive-jaw, connector, and bench contact properties before Newton
+imports the assets; the shared YAM source USD and cable-routing environments stay
+unchanged. Both arms use stiffness 1600 / damping 70; driven grippers use stiffness
+40000 / damping 40 with a 160 N limit.
 
 Cables are registered assets with their own builder hooks and reset events.
 Reset restores zero bend coordinates and velocities in both Newton state buffers

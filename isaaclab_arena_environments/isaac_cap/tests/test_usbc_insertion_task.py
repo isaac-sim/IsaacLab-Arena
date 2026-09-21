@@ -232,70 +232,32 @@ def test_usbc_release_and_withdrawal() -> None:
 
 
 def _test_usbc_contact_rig(_simulation_app) -> bool:
-    import numpy as np
-    from types import SimpleNamespace
-    from unittest.mock import patch
+    from isaaclab_newton.sim.schemas import MujocoCollisionCfg, NewtonMaterialPropertiesCfg
 
-    import newton
-    from isaaclab_newton.physics import NewtonManager
-
-    from isaaclab_arena_environments.isaac_cap.usbc_insertion.physics import _configure_contacts
-
-    labels = [
-        "/World/envs/env_0/LeftRobot/left_finger",
-        "/World/envs/env_0/RightRobot/left_finger",
-        "/World/envs/env_0/LeftRobot/link_6",
-        "/World/envs/env_0/RightRobot/link_6",
-        "/World/envs/env_0/RightRobot/wrist_support/geometry",
-        "/World/envs/env_0/Plug/geometry",
-        "/World/envs/env_0/Port/geometry",
-        "/World/envs/env_0/Bulkhead/geometry",
-        "/World/envs/env_0/Bench/geometry",
-        "/World/envs/env_0/background/table/geometry",
-        "/World/envs/env_0/UsbcConnectorCablePlug/segment0",
-    ]
-    count = len(labels)
-    collide = int(newton.ShapeFlags.COLLIDE_SHAPES)
-    builder = SimpleNamespace(
-        body_label=labels,
-        joint_label=["LeftRobot/left_finger", "RightRobot/left_finger"],
-        shape_label=labels,
-        shape_body=list(range(count)),
-        shape_source=[object()] * count,
-        shape_flags=[collide, collide, 0, 0, collide, collide, collide, collide, collide, collide],
-        shape_collision_group=[1] * count,
-        _shape_collision_filter_pairs=set(),
-        custom_attributes={
-            name: SimpleNamespace(values=None)
-            for name in (
-                "mujoco:eq_solref",
-                "mujoco:solref",
-                "mujoco:solref_mode",
-                "mujoco:geom_solimp",
-                "mujoco:condim",
-            )
-        },
+    from isaaclab_arena_environments.isaac_cap.usbc_insertion.physics import (
+        _LINK_6,
+        _connector_prim_physics,
+        _robot_prim_physics,
     )
-    builder.custom_attributes["mujoco:equality_constraint_joint1"] = SimpleNamespace(values=[0, 1])
-    builder.add_shape_collision_filter_pair = lambda first, second: builder._shape_collision_filter_pairs.add(
-        (first, second)
-    )
-    for name in ("mu", "mu_torsional", "mu_rolling", "ke", "kd"):
-        setattr(builder, f"shape_material_{name}", [0.0] * count)
-    builder.shape_gap = [0.0] * count
-    with patch.object(NewtonManager, "_builder", builder):
-        _configure_contacts()
-    np.testing.assert_allclose(builder.shape_material_mu, [8, 8, 0, 0, 0, 0.35, 0.35, 2.5, 0.4, 0.35, 0])
-    np.testing.assert_allclose(builder.shape_material_mu_torsional[:2], [0.002, 0.002])
-    np.testing.assert_allclose(builder.shape_gap[:2], [0.0002, 0.0002])
-    np.testing.assert_allclose(builder.shape_material_ke[5:8], [62500] * 3)
-    np.testing.assert_allclose(builder.shape_material_kd[5:8], [500] * 3)
-    assert all(builder.shape_flags[index] & collide for index in (2, 3))
-    assert builder.custom_attributes["mujoco:condim"].values == {0: 4, 1: 4, 2: 3, 3: 3}
-    for value in builder.custom_attributes["mujoco:eq_solref"].values.values():
-        np.testing.assert_allclose(tuple(value), [0.004, 1.0])
-    assert 4 not in builder.custom_attributes["mujoco:solref"].values
-    assert 10 not in builder.custom_attributes["mujoco:solref"].values
+
+    robot_physics = _robot_prim_physics()
+    assert len(robot_physics) == 26
+    fingertip = robot_physics[f"{_LINK_6}/link_left_finger/lf_rot/lf_down/Sphere"]
+    contact = next(fragment for fragment in fingertip.collision_props if isinstance(fragment, MujocoCollisionCfg))
+    assert contact.condim == 4
+    assert contact.solref == (0.004, 1.0)
+    assert contact.solimp == (0.95, 0.999, 0.0005, 0.5, 2.0)
+    assert isinstance(fingertip.physics_material, NewtonMaterialPropertiesCfg)
+    assert fingertip.physics_material.static_friction == 8.0
+    assert fingertip.physics_material.torsional_friction == 0.002
+    equality = robot_physics[f"{_LINK_6}/link_left_finger/left_finger"].mujoco_equality
+    assert equality.solref == (0.004, 1.0)
+
+    connector = _connector_prim_physics("Geometry", friction=2.5)["Geometry"]
+    assert connector.physics_material.static_friction == 2.5
+    assert connector.physics_material.contact_stiffness == 62500.0
+    assert connector.physics_material.contact_damping == 500.0
+    assert connector.collision_props[0].solref == (0.004, 1.0)
     return True
 
 
@@ -358,6 +320,7 @@ def test_usbc_asset_registration() -> None:
 def _test_usbc_environment_yaml(_simulation_app) -> bool:
     import math
 
+    from isaaclab_arena.assets.physics_config import PhysicsUsdFileCfg
     from isaaclab_arena.embodiments.common.arm_mode import ArmMode
     from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
@@ -498,12 +461,24 @@ def _test_usbc_environment_yaml(_simulation_app) -> bool:
         assert not env_cfg.sim.physics.solver_cfg.use_mujoco_contacts
         assert not env_cfg.sim.physics.use_cuda_graph
         for robot in (env_cfg.scene.left_robot, env_cfg.scene.right_robot):
+            assert isinstance(robot.spawn, PhysicsUsdFileCfg)
+            assert robot.spawn.make_uninstanceable
+            assert len(robot.spawn.prim_physics) == 26
             assert robot.actuators["arm_joints_1_3"].stiffness == 1600.0
             assert robot.actuators["gripper"].stiffness == 40000.0
             assert robot.actuators["gripper"].damping == 40.0
             assert robot.actuators["gripper"].effort_limit_sim == 160.0
             assert robot.init_state.joint_pos["joint2"] == 1.047
             assert robot.spawn.usd_path.startswith(f"{ASSET_ROOT}/")
+        assert isinstance(env_cfg.scene.plug.spawn, PhysicsUsdFileCfg)
+        assert "ArtistFrame/SourceCollisionMesh" in env_cfg.scene.plug.spawn.prim_physics
+        assert isinstance(env_cfg.scene.bench.spawn, PhysicsUsdFileCfg)
+        if variant == "easy":
+            assert isinstance(env_cfg.scene.port.spawn, PhysicsUsdFileCfg)
+            assert "Geometry" in env_cfg.scene.port.spawn.prim_physics
+        else:
+            assert isinstance(env_cfg.scene.bulkhead.spawn, PhysicsUsdFileCfg)
+            assert "Geometry/bulkhead_01_obj_00/SourceCollisionMesh" in env_cfg.scene.bulkhead.spawn.prim_physics
     return True
 
 
@@ -652,6 +627,9 @@ def _check_usbc_cable_reset(base_env, arena_environment) -> None:
 def _test_usbc_insertion_environment(_simulation_app, variant: str, num_envs: int = 1) -> bool:
     import torch
 
+    from isaaclab.sim import get_current_stage
+    from pxr import UsdPhysics, UsdShade
+
     from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena_environments.isaac_cap.usbc_insertion.environment import (
@@ -679,6 +657,31 @@ def _test_usbc_insertion_environment(_simulation_app, variant: str, num_envs: in
         assert torch.isfinite(plug_pose).all()
         assert torch.isfinite(receiver_pose).all()
         from isaaclab_newton.physics import NewtonManager
+
+        stage = get_current_stage()
+        hand_root = "/World/envs/env_0/LeftRobot/Geometry/arm/link_1/link_2/link_3/link_4/link_5/link_6"
+        fingertip = stage.GetPrimAtPath(f"{hand_root}/link_left_finger/lf_rot/lf_down/Sphere")
+        assert fingertip.GetAttribute("mjc:condim").Get() == 4
+        assert list(fingertip.GetAttribute("mjc:solref").Get()) == pytest.approx([0.004, 1.0])
+        material, _ = UsdShade.MaterialBindingAPI(fingertip).ComputeBoundMaterial("physics")
+        assert UsdPhysics.MaterialAPI(material).GetStaticFrictionAttr().Get() == pytest.approx(8.0)
+        housing = stage.GetPrimAtPath(f"{hand_root}/Capsule")
+        assert UsdPhysics.CollisionAPI(housing).GetCollisionEnabledAttr().Get()
+        equality = stage.GetPrimAtPath(f"{hand_root}/link_left_finger/left_finger")
+        assert list(equality.GetAttribute("mjc:solref").Get()) == pytest.approx([0.004, 1.0])
+
+        connector_path = (
+            "/World/envs/env_0/Port/Geometry"
+            if variant == "easy"
+            else "/World/envs/env_0/Bulkhead/Geometry/bulkhead_01_obj_00/SourceCollisionMesh"
+        )
+        connector = stage.GetPrimAtPath(connector_path)
+        assert list(connector.GetAttribute("mjc:solref").Get()) == pytest.approx([0.004, 1.0])
+        connector_material, _ = UsdShade.MaterialBindingAPI(connector).ComputeBoundMaterial("physics")
+        expected_friction = 0.35 if variant == "easy" else 2.5
+        assert UsdPhysics.MaterialAPI(connector_material).GetStaticFrictionAttr().Get() == pytest.approx(
+            expected_friction
+        )
 
         half_range = 0.012 if variant == "easy" else 0.018
         plug_positions = plug_pose[:, :3] - base_env.scene.env_origins
