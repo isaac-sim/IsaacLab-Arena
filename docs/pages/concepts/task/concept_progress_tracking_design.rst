@@ -216,11 +216,10 @@ and active environments to that instance. ``_TrueForConsecutiveSteps`` stores th
 counts: true adds one; false clears the streak.
 The runner resets it through the existing ``TaskSuccessTerm`` / ``ProgressTracker`` episode-reset path.
 
-``TaskSuccessTerm`` supplies the environment's control-step indices automatically, so repeated
-success checks do not count twice. When using ``ProgressTracker.step()`` directly with consecutive-step
-requirements, pass one integer index per environment, for example
-``tracker.step(env, step_index=env.episode_length_buf)``. Skipping an index clears the streak;
-unobserved steps cannot prove the condition held continuously.
+``TaskSuccessTerm`` advances ``ProgressTracker`` once per control step. Reporting and other consumers
+read ``is_complete()``, ``get_state()``, or ``get_events()`` without advancing progress.
+Direct callers of ``ProgressTracker.step()`` must also call it exactly once per control step;
+the optional ``step_index`` only records when predicates completed.
 
 The examples below show three different requirements. ``object_still(env)`` and ``gripper_slow(env)``
 are configured instantaneous checks that each return one Boolean per environment.
