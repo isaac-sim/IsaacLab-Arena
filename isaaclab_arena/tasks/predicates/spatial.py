@@ -15,7 +15,6 @@ from isaaclab.managers import SceneEntityCfg
 from isaaclab.sensors.contact_sensor.contact_sensor import ContactSensor
 from isaaclab.utils.math import quat_apply, quat_apply_inverse
 
-from isaaclab_arena.tasks.predicates.object_settling import get_object_initial_rest_state
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 if TYPE_CHECKING:
@@ -282,30 +281,12 @@ def velocity_below_threshold(
 def object_is_above_height(
     env: IsaacLabArenaManagerBasedRLEnv,
     object_name: str,
-    surface_height: float | None = None,
-    use_settled_state: bool = False,
+    surface_height: float,
     distance: float = 1e-2,
 ) -> torch.Tensor:
-    """Checks if an object is above a certain height.
-
-    The reference height is either a fixed ``surface_height`` or, when ``use_settled_state`` is set, the
-    object's recorded resting height (see ``objects_settled``). For envs where no settled state
-    has been recorded, the result is always False.
-
-    Returns True when ``object_name`` is at least ``distance`` m above a height reference.
-    """
-
-    assert (
-        surface_height is not None
-    ) != use_settled_state, "object_is_above_height requires exactly one of surface_height or use_settled_state"
-
+    """Return whether an object is more than ``distance`` meters above a fixed reference height."""
     object_z = env.arena_world.get_position_w(object_name)[:, 2]
-    if use_settled_state:
-        settled_pos, has_settled = get_object_initial_rest_state(env, object_name)
-        result = has_settled & (object_z > (settled_pos[:, 2] + distance))
-    else:
-        result = object_z > (surface_height + distance)
-    return result
+    return object_z > (surface_height + distance)
 
 
 def object_moving(

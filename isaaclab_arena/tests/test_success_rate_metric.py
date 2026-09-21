@@ -89,6 +89,7 @@ def _test_success_rate_metric(simulation_app):
         base_env = env.unwrapped
         # Lift env 0 once per episode; env 1 keeps its drop-failure trajectory.
         lifted_envs = torch.ones(base_env.num_envs, dtype=torch.bool, device=base_env.device)
+        settled_steps = torch.zeros_like(lifted_envs, dtype=torch.long)
         completed_episodes = torch.zeros(base_env.num_envs, dtype=torch.long, device=base_env.device)
         expected_success_by_env = torch.arange(base_env.num_envs, device=base_env.device) == 0
         previous_episode = None
@@ -97,8 +98,9 @@ def _test_success_rate_metric(simulation_app):
                 current_episode = base_env.get_episode_index(0)
                 if current_episode != previous_episode:
                     lifted_envs[0] = False
+                    settled_steps[0] = 0
                     previous_episode = current_episode
-                lift_settled_objects_once(base_env, cracker_box.name, lifted_envs)
+                lift_settled_objects_once(base_env, cracker_box.name, lifted_envs, settled_steps)
                 actions = torch.zeros(env.action_space.shape, device=base_env.device)
                 _, _, terminated, truncated, _ = env.step(actions)
                 ended_episodes = terminated | truncated

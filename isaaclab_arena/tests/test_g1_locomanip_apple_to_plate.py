@@ -154,7 +154,6 @@ def _test_apple_on_plate_succeeds(simulation_app) -> bool:
 
     from isaaclab.assets import RigidObject
 
-    from isaaclab_arena.tasks.predicates.object_settling import get_object_initial_rest_state
     from isaaclab_arena.tests.utils.pick_and_place import lift_settled_objects_once
 
     env, apple, plate = get_test_environment(num_envs=1)
@@ -163,15 +162,15 @@ def _test_apple_on_plate_succeeds(simulation_app) -> bool:
         _step_with_standing_actions(env, WARMUP_STEPS)
 
         base_env = env.unwrapped
-        for _ in range(APPLE_SETTLE_STEPS):
-            if get_object_initial_rest_state(base_env, apple.name)[1][0]:
-                break
-            _step_with_standing_actions(env, 1)
-        assert get_object_initial_rest_state(base_env, apple.name)[1][0], "Apple did not settle before lifting."
-
         lifted_envs = torch.zeros(base_env.num_envs, dtype=torch.bool, device=base_env.device)
-        with torch.inference_mode():
-            lift_settled_objects_once(base_env, apple.name, lifted_envs)
+        settled_steps = torch.zeros_like(lifted_envs, dtype=torch.long)
+        for _ in range(APPLE_SETTLE_STEPS):
+            _step_with_standing_actions(env, 1)
+            with torch.inference_mode():
+                lift_settled_objects_once(base_env, apple.name, lifted_envs, settled_steps)
+            if bool(lifted_envs[0]):
+                break
+        assert bool(lifted_envs[0]), "Apple did not settle before lifting."
         assert not _step_with_standing_actions(env, 1)[0], "Task terminated before placement."
 
         plate_object: RigidObject = env.unwrapped.scene[plate.name]

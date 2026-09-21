@@ -76,9 +76,10 @@ def _test_object_set_on_destination_termination(simulation_app) -> bool:
         success_vec = []
         terminated_vec = []
         lifted_envs = torch.zeros(NUM_ENVS, dtype=torch.bool, device=env.unwrapped.device)
+        settled_steps = torch.zeros_like(lifted_envs, dtype=torch.long)
         for _ in tqdm.tqdm(range(NUM_STEPS)):
             with torch.inference_mode():
-                lift_settled_objects_once(env.unwrapped, object_set.name, lifted_envs)
+                lift_settled_objects_once(env.unwrapped, object_set.name, lifted_envs, settled_steps)
                 actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
                 _, _, terminated, _, _ = env.step(actions)
 

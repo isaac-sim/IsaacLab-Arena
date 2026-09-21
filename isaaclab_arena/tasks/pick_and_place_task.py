@@ -25,8 +25,9 @@ from isaaclab_arena.metrics.object_moved import ObjectMovedRateMetric
 from isaaclab_arena.metrics.success_rate import SuccessRateMetric
 from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
 from isaaclab_arena.tasks.common.mimic_default_params import MIMIC_DATAGEN_CONFIG_DEFAULTS
-from isaaclab_arena.tasks.predicates.object_settling import objects_settled
-from isaaclab_arena.tasks.predicates.spatial import object_is_above_height, object_on_destination
+from isaaclab_arena.tasks.predicates.object_lifted import DEFAULT_INITIAL_SETTLING_STEPS, ObjectLifted
+from isaaclab_arena.tasks.predicates.object_settling import objects_below_velocity_thresholds
+from isaaclab_arena.tasks.predicates.spatial import object_on_destination
 from isaaclab_arena.tasks.predicates.temporal import TrueForConsecutiveStepsCfg
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
@@ -40,7 +41,7 @@ from isaaclab_arena.utils.configclass import make_configclass
 class PickAndPlaceTask(TaskBase):
     """Pick an object up and place it on or in a destination.
 
-    Success requires the object to settle, rise above its resting height, then reach its destination
+    Success requires the object to rise above its initial resting height, then reach its destination
     with support and low linear speed for the required consecutive steps. Rigid objects use contact
     force to check support; deformable objects use their geometry. Failure occurs when the object
     falls below the background.
@@ -59,6 +60,7 @@ class PickAndPlaceTask(TaskBase):
         support_cone_half_angle_rad: Maximum angle in radians between the filtered contact force and
             world +Z. Smaller values require the support force to be more vertical.
         placement_consecutive_steps: Number of consecutive control steps for which placement must hold.
+        settling_steps: Consecutive low-velocity control steps before the lift predicate captures its reference height.
 
     """
 
@@ -75,6 +77,7 @@ class PickAndPlaceTask(TaskBase):
         mimic_env_cfg_factory: Callable[[ArmMode], MimicEnvCfg] | None = None,
         support_cone_half_angle_rad: float = math.pi / 4,
         placement_consecutive_steps: int = 1,
+        settling_steps: int = DEFAULT_INITIAL_SETTLING_STEPS,
     ):
         super().__init__(episode_length_s=episode_length_s)
         assert (
@@ -102,6 +105,8 @@ class PickAndPlaceTask(TaskBase):
             and placement_consecutive_steps > 0
         ), f"placement_consecutive_steps must be a positive integer, got {placement_consecutive_steps}"
         self.placement_consecutive_steps = placement_consecutive_steps
+        assert isinstance(settling_steps, int) and not isinstance(settling_steps, bool) and settling_steps > 0
+        self.settling_steps = settling_steps
         self.mimic_env_cfg_factory = mimic_env_cfg_factory
         self.events_cfg = None
         self.task_description = (
@@ -158,23 +163,19 @@ class PickAndPlaceTask(TaskBase):
                 "asset_cfg": SceneEntityCfg(self.pick_up_object.name),
             },
         )
+        settled = TrueForConsecutiveStepsCfg(
+            predicate=partial(objects_below_velocity_thresholds, object_names=[self.pick_up_object.name]),
+            required_steps=self.settling_steps,
+        )
+        lifted = TerminationTermCfg(func=ObjectLifted, params={"object_name": self.pick_up_object.name})
         return TaskTerminationCfg(
             timeout_s=self.episode_length_s,
             success=[
                 CompletionCriteria(
                     name="pick_and_place",
+                    prerequisites=[settled],
                     predicate_sequence=[
-                        # TODO(cvolk): Record initial rest poses independently of task success before
-                        # removing objects_settled; object_is_above_height still needs that reference.
-                        partial(
-                            objects_settled,
-                            object_names=[self.pick_up_object.name],
-                        ),
-                        partial(
-                            object_is_above_height,
-                            object_name=self.pick_up_object.name,
-                            use_settled_state=True,
-                        ),
+                        lifted,
                         TrueForConsecutiveStepsCfg(
                             predicate=partial(
                                 object_on_destination,

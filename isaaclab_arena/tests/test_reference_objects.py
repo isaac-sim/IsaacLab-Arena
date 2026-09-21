@@ -435,11 +435,12 @@ def _test_reference_objects_with_background_pose(background_pose: Pose, tmp_path
         success_list: list[bool] = []
         open_list: list[bool] = []
         lifted_envs = torch.zeros(env.unwrapped.num_envs, dtype=torch.bool, device=env.unwrapped.device)
+        settled_steps = torch.zeros_like(lifted_envs, dtype=torch.long)
         for _ in tqdm.tqdm(range(NUM_STEPS)):
             with torch.inference_mode():
                 if _ == OPEN_STEP:
                     open_microwave()
-                lift_settled_objects_once(env.unwrapped, cracker_box.name, lifted_envs)
+                lift_settled_objects_once(env.unwrapped, cracker_box.name, lifted_envs, settled_steps)
                 actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
                 _, _, terminated, _, _ = env.step(actions)
                 success = env.unwrapped.termination_manager.get_term("success")

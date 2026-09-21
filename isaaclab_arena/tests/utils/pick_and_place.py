@@ -8,12 +8,16 @@
 import torch
 
 
-def lift_settled_objects_once(env, object_name: str, lifted_envs: torch.Tensor) -> None:
+def lift_settled_objects_once(env, object_name: str, lifted_envs: torch.Tensor, settled_steps: torch.Tensor) -> None:
     """Lift newly settled objects once in each selected environment, then let physics place them."""
-    from isaaclab_arena.tasks.predicates.object_settling import get_object_initial_rest_state
+    from isaaclab_arena.tasks.predicates.object_lifted import DEFAULT_INITIAL_SETTLING_STEPS
+    from isaaclab_arena.tasks.predicates.object_settling import objects_settled
 
-    _, has_settled = get_object_initial_rest_state(env, object_name)
-    ready_env_ids = (has_settled & ~lifted_envs).nonzero(as_tuple=False).flatten()
+    # Called once before each control step. Wait for physical stability without inspecting predicate state.
+    at_episode_start = env.episode_length_buf == 0
+    is_settled = objects_settled(env, [object_name]) & ~at_episode_start
+    settled_steps[:] = torch.where(is_settled, settled_steps + 1, 0)
+    ready_env_ids = ((settled_steps >= DEFAULT_INITIAL_SETTLING_STEPS) & ~lifted_envs).nonzero(as_tuple=False).flatten()
     if ready_env_ids.numel() == 0:
         return
 

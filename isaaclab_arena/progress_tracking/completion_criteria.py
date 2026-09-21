@@ -14,6 +14,7 @@ from isaaclab_arena.progress_tracking.progress_tracking_utils import (
     PredicateSequence,
     PredicateSequences,
     _format_predicate_sequences,
+    _is_predicate,
     _normalize_scores,
 )
 
@@ -49,6 +50,7 @@ class CompletionCriteria:
         K: Required when logical == "choose". Specifies the number of sequences that must be completed
             to consider the CompletionCriteria complete.
         description: An optional description of the CompletionCriteria.
+        prerequisites: Conditions that must hold together before sequences start; these earn no progress.
     """
 
     name: str
@@ -68,7 +70,13 @@ class CompletionCriteria:
     parent_subtask_idx: int | None = None
     """Subtask index assigned by CompositeTaskBase; None for standalone task criteria."""
 
+    prerequisites: list[Predicate] = field(default_factory=list)
+    """Unscored conditions required together once while these criteria are active, before their sequences start."""
+
     def __post_init__(self):
+        assert isinstance(self.prerequisites, list) and all(
+            _is_predicate(predicate) for predicate in self.prerequisites
+        ), "prerequisites must be a list of predicates without scores."
         assert 0.0 <= self.score <= 1.0, f"CompletionCriteria '{self.name}': score must be in [0, 1], got {self.score}"
         # Accept either a CriteriaCompletionMode or its string value; normalize to the enum (raises on invalid).
         self.logical = CriteriaCompletionMode(self.logical)

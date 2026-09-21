@@ -173,14 +173,16 @@ def _roll_out_and_read_episode_record(env, output_path) -> list[dict]:
     object_name = base_env.cfg.events.reset_pick_up_object_pose.params["asset_cfg"].name
     # Env 1 never receives a lift; its episodes should fail.
     lifted_envs = torch.ones(base_env.num_envs, dtype=torch.bool, device=base_env.device)
+    settled_steps = torch.zeros_like(lifted_envs, dtype=torch.long)
     previous_episode = None
     for _ in tqdm.tqdm(range(NUM_STEPS)):
         with torch.inference_mode():
             current_episode = base_env.get_episode_index(0)
             if current_episode != previous_episode:
                 lifted_envs[0] = False
+                settled_steps[0] = 0
                 previous_episode = current_episode
-            lift_settled_objects_once(base_env, object_name, lifted_envs)
+            lift_settled_objects_once(base_env, object_name, lifted_envs, settled_steps)
             actions = torch.zeros(env.action_space.shape, device=base_env.device)
             env.step(actions)
 
