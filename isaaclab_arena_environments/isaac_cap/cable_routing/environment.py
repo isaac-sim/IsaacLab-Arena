@@ -13,6 +13,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from isaaclab_arena.assets.register import register_environment
 from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg, ArenaEnvironmentFactory
 
 if TYPE_CHECKING:
@@ -91,6 +92,7 @@ def _build_environment(
     )
 
 
+@register_environment
 class CableRoutingMediumEnvironment(ArenaEnvironmentFactory[CableRoutingMediumEnvironmentCfg]):
     """Build Cap's medium cable-routing environment on native Arena APIs."""
 
@@ -102,6 +104,7 @@ class CableRoutingMediumEnvironment(ArenaEnvironmentFactory[CableRoutingMediumEn
         return _build_environment(self, cfg, "medium")
 
 
+@register_environment
 class CableRoutingEasyEnvironment(ArenaEnvironmentFactory[CableRoutingEasyEnvironmentCfg]):
     """Build Cap's easy cable-routing environment on native Arena APIs."""
 

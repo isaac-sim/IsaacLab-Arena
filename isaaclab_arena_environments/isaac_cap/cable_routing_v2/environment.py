@@ -9,13 +9,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from functools import partial
+from typing import TYPE_CHECKING
 
+from isaaclab_arena.assets.register import register_environment
 from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg, ArenaEnvironmentFactory
 
-from .physics import configure_cable_routing_physics
-from .scene import build_cable_routing_scene, easy_variant, medium_variant
-from .task import CableRoutingTask
-from .yam_i2rt import CableRoutingYamI2rtEmbodiment
+if TYPE_CHECKING:
+    from .scene import CableRoutingVariant
 
 
 @dataclass
@@ -35,18 +35,26 @@ class CableRoutingEasyEnvironmentCfg(CableRoutingMediumEnvironmentCfg):
     layout_seed: int = 10009
 
 
+@register_environment(cfg_type=CableRoutingMediumEnvironmentCfg)
 class CableRoutingMediumEnvironment(ArenaEnvironmentFactory[CableRoutingMediumEnvironmentCfg]):
     """Build a current four-guide Medium layout with an Arena Cable."""
 
     name = "vabar_cable_routing_v2__medium"
     _legacy_argparse_cfg_type = CableRoutingMediumEnvironmentCfg
 
-    def _variant_for_cfg(self, cfg: CableRoutingMediumEnvironmentCfg):
+    def _variant_for_cfg(self, cfg: CableRoutingMediumEnvironmentCfg) -> CableRoutingVariant:
+        from .scene import medium_variant
+
         return medium_variant(cfg.layout_seed)
 
     def build(self, cfg: CableRoutingMediumEnvironmentCfg):
         """Compose the current CAP layout from staging-bucket assets."""
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
+
+        from .physics import configure_cable_routing_physics
+        from .scene import build_cable_routing_scene
+        from .task import CableRoutingTask
+        from .yam_i2rt import CableRoutingYamI2rtEmbodiment
 
         variant = self._variant_for_cfg(cfg)
         built_scene = build_cable_routing_scene(variant)
@@ -76,13 +84,16 @@ class CableRoutingMediumEnvironment(ArenaEnvironmentFactory[CableRoutingMediumEn
         )
 
 
+@register_environment(cfg_type=CableRoutingEasyEnvironmentCfg)
 class CableRoutingEasyEnvironment(CableRoutingMediumEnvironment):
     """Build a current two-guide Easy layout with an Arena Cable."""
 
     name = "vabar_cable_routing_v2__easy"
     _legacy_argparse_cfg_type = CableRoutingEasyEnvironmentCfg
 
-    def _variant_for_cfg(self, cfg: CableRoutingMediumEnvironmentCfg):
+    def _variant_for_cfg(self, cfg: CableRoutingMediumEnvironmentCfg) -> CableRoutingVariant:
+        from .scene import easy_variant
+
         assert isinstance(cfg, CableRoutingEasyEnvironmentCfg)
         return easy_variant(cfg.layout_seed)
 

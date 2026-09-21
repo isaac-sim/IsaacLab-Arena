@@ -23,12 +23,18 @@ if TYPE_CHECKING:
 
 
 # Decorator to register an asset with the AssetRegistry.
-def register_asset(cls):
-    if AssetRegistry().is_registered(cls.name, ensure_loaded=False):
-        print(f"WARNING: Asset {cls.name} is already registered. Doing nothing.")
-    else:
-        AssetRegistry().register(cls, cls.name)
-    return cls
+def register_asset(cls=None, *, name: str | None = None):
+    """Register an asset, optionally under a compatibility name."""
+
+    def decorator(component):
+        registry_name = name or component.name
+        if AssetRegistry().is_registered(registry_name, ensure_loaded=False):
+            print(f"WARNING: Asset {registry_name} is already registered. Doing nothing.")
+        else:
+            AssetRegistry().register(component, registry_name)
+        return component
+
+    return decorator if cls is None else decorator(cls)
 
 
 # Decorator to register an device with the DeviceRegistry.
@@ -71,13 +77,24 @@ def register_hdr(cls):
 
 
 # Decorator to register an environment with the EnvironmentRegistry.
-def register_environment(cls):
-    registry = EnvironmentRegistry()
-    if registry.is_registered(cls.name, ensure_loaded=False):
-        print(f"WARNING: Environment {cls.name} is already registered. Doing nothing.")
-    else:
-        registry.register_environment(cls, _environment_cfg_type_from_factory(cls))
-    return cls
+def register_environment(cls=None, *, cfg_type: type["ArenaEnvironmentCfg"] | None = None):
+    """Register an environment and its typed configuration.
+
+    ``cfg_type`` is only needed when the concrete factory inherits its build
+    implementation from another factory instead of directly declaring
+    ``ArenaEnvironmentFactory[Cfg]``.
+    """
+
+    def decorator(factory_type):
+        registry = EnvironmentRegistry()
+        if registry.is_registered(factory_type.name, ensure_loaded=False):
+            print(f"WARNING: Environment {factory_type.name} is already registered. Doing nothing.")
+        else:
+            resolved_cfg_type = cfg_type or _environment_cfg_type_from_factory(factory_type)
+            registry.register_environment(factory_type, resolved_cfg_type)
+        return factory_type
+
+    return decorator if cls is None else decorator(cls)
 
 
 # Decorator to register a RelationBase subclass with the ObjectRelationLibraryRegistry.
@@ -91,15 +108,21 @@ def register_object_relation(cls):
 
 
 # Decorator to register a TaskBase subclass with the TaskRegistry.
-# Keyed by `cls.__name__` so the YAML `type: PascalCase` lookups match without
-# requiring a separate `name` attribute on every task class.
-def register_task(cls):
-    registry = TaskRegistry()
-    if registry.is_registered(cls.__name__, ensure_loaded=False):
-        print(f"WARNING: Task {cls.__name__} is already registered. Doing nothing.")
-    else:
-        registry.register(cls, cls.__name__)
-    return cls
+# Keyed by `cls.__name__` by default so YAML task lookups match without requiring
+# a separate `name` attribute. Compatibility implementations may supply a name.
+def register_task(cls=None, *, name: str | None = None):
+    """Register a task, optionally under an explicit graph-spec name."""
+
+    def decorator(task_type):
+        registry_name = name or task_type.__name__
+        registry = TaskRegistry()
+        if registry.is_registered(registry_name, ensure_loaded=False):
+            print(f"WARNING: Task {registry_name} is already registered. Doing nothing.")
+        else:
+            registry.register(task_type, registry_name)
+        return task_type
+
+    return decorator if cls is None else decorator(cls)
 
 
 def agent_ready(cls):

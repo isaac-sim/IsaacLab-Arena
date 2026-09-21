@@ -5,16 +5,13 @@
 
 """Current Isaac CAP cable-routing environments, isolated from the legacy port."""
 
-from .registration import register_components
-
-register_components()
-
-from .environment import (  # noqa: E402
+from .environment import (
     CableRoutingEasyEnvironment,
     CableRoutingEasyEnvironmentCfg,
     CableRoutingMediumEnvironment,
     CableRoutingMediumEnvironmentCfg,
 )
+from .registration import register_components
 
 __all__ = [
     "CableRoutingEasyEnvironment",

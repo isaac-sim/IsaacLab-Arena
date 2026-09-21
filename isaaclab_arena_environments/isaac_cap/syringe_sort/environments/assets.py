@@ -7,6 +7,7 @@
 
 from isaaclab_arena.assets.nucleus import ARENA_NUCLEUS_DIR
 from isaaclab_arena.assets.object_library import LibraryObject
+from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.utils.pose import Pose
 
 # TODO(alexmillane) [cap-assets-permanent-location]: Replace temp_newton_envs with the permanent asset layout.
@@ -15,6 +16,7 @@ SYRINGE_ASSET_ROOT = (
 )
 
 
+@register_asset
 class SyringeRedCap(LibraryObject):
     """Red-cap syringe."""
 
@@ -23,6 +25,7 @@ class SyringeRedCap(LibraryObject):
     usd_path = f"{SYRINGE_ASSET_ROOT}/vabar_tool_sort__syringe/vabar_tool_sort__syringe.usda"
 
 
+@register_asset
 class SyringeWhiteCap(LibraryObject):
     """White-cap syringe."""
 
@@ -31,6 +34,7 @@ class SyringeWhiteCap(LibraryObject):
     usd_path = f"{SYRINGE_ASSET_ROOT}/vabar_tool_sort__syringe_blank/vabar_tool_sort__syringe_blank.usda"
 
 
+@register_asset
 class InstrumentTray(LibraryObject):
     """Instrument tray with the authored cavity colliders."""
 
@@ -42,6 +46,7 @@ class InstrumentTray(LibraryObject):
         super().__init__(initial_pose=initial_pose, collision_mode="mesh", **kwargs)
 
 
+@register_asset
 class SharpsContainer(InstrumentTray):
     """Sharps container with the authored aperture and interior."""
 

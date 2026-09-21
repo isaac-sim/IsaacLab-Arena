@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from functools import partial
 from pathlib import Path
 
+from isaaclab_arena.assets.register import register_environment
 from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg, ArenaEnvironmentFactory
 
 
@@ -37,9 +38,11 @@ class SyringeBase(ArenaEnvironmentFactory[SyringeSortEnvironmentCfg]):
         from isaaclab.envs.mdp.actions.actions_cfg import JointPositionActionCfg
 
         from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
+        from isaaclab_arena_environments.isaac_cap import register_components
 
         from .cameras import configure_syringe_cameras
 
+        register_components()
         spec = ArenaEnvGraphSpec.from_yaml(str(Path(__file__).with_name(self.yaml_file)))
         arena_env = spec.to_arena_env(enable_cameras=cfg.enable_cameras)
         # NOTE(alexmillane, 2028.09.17) [clutter-placement-missing-feature]:
@@ -65,6 +68,7 @@ class SyringeBase(ArenaEnvironmentFactory[SyringeSortEnvironmentCfg]):
         return arena_env
 
 
+@register_environment(cfg_type=SyringeSortEnvironmentCfg)
 class SyringeSingleEnvironment(SyringeBase):
     """Dispose of one syringe from a fixed layout."""
 
@@ -78,6 +82,7 @@ class SyringeBothEnvironmentCfg(SyringeSortEnvironmentCfg):
     """Configure the randomized two-syringe benchmark."""
 
 
+@register_environment(cfg_type=SyringeBothEnvironmentCfg)
 class SyringeBothEnvironment(SyringeBase):
     """Dispose of both the red-cap and white-cap syringes."""
 
@@ -91,6 +96,7 @@ class SyringeClutteredEnvironmentCfg(SyringeBothEnvironmentCfg):
     """Configure the randomized four-syringe benchmark."""
 
 
+@register_environment(cfg_type=SyringeClutteredEnvironmentCfg)
 class SyringeClutteredEnvironment(SyringeBothEnvironment):
     """Dispose of all four syringes from the cluttered tray."""
 

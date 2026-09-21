@@ -16,6 +16,7 @@ from isaaclab.managers import EventTermCfg, SceneEntityCfg, TerminationTermCfg
 from isaaclab.utils.configclass import configclass
 
 from isaaclab_arena.assets.asset import Asset
+from isaaclab_arena.assets.register import register_task
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
 from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.metrics.success_rate import SuccessRateMetric
@@ -46,6 +47,7 @@ class EventsCfg:
     )
 
 
+@register_task(name="GearMeshTaskV2")
 class GearMeshTask(TaskBase):
     """Seat every sampled gear, press the button, and prove the train works."""
 

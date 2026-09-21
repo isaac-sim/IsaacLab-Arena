@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from typing import ClassVar
 
+from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena_environments.isaac_cap.embodiments.insertion_task import (
@@ -36,6 +37,7 @@ def _apply_tool_sort_camera_and_gripper(
     }
 
 
+@register_asset
 class ToolSortingFr3Robotiq2f85Embodiment(IndustrialFr3Robotiq2f85Embodiment):
     """Insertion-task FR3 stack with easy tool-sort camera and Robotiq tuning."""
 

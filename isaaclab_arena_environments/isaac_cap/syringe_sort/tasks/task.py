@@ -16,6 +16,7 @@ from isaaclab.managers import TerminationTermCfg
 from isaaclab.utils.math import quat_apply_inverse
 
 from isaaclab_arena.assets.asset import Asset
+from isaaclab_arena.assets.register import register_task
 from isaaclab_arena.metrics.success_rate import SuccessRateMetric
 from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
 from isaaclab_arena.tasks.predicates.spatial import velocity_below_threshold
@@ -43,6 +44,7 @@ def cap_episode_finished(env) -> torch.Tensor:
     return torch.full((env.num_envs,), getattr(env, "cap_episode_finished", False), device=env.device, dtype=torch.bool)
 
 
+@register_task
 class SyringeSortTask(TaskBase):
     """Require syringes to remain settled inside their disposal regions."""
 

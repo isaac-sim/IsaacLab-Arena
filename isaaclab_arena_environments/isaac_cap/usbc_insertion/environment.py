@@ -12,6 +12,7 @@ from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from isaaclab_arena.assets.register import register_environment
 from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg, ArenaEnvironmentFactory
 
 if TYPE_CHECKING:
@@ -61,6 +62,7 @@ def _build_environment(scene_spec: Path, cfg: UsbcInsertionEasyEnvironmentCfg):
     return arena_environment
 
 
+@register_environment
 class UsbcInsertionEasyEnvironment(ArenaEnvironmentFactory[UsbcInsertionEasyEnvironmentCfg]):
     """Build the bimanual YAM variant from its environment graph."""
 
@@ -72,6 +74,7 @@ class UsbcInsertionEasyEnvironment(ArenaEnvironmentFactory[UsbcInsertionEasyEnvi
         return _build_environment(self.scene_spec, cfg)
 
 
+@register_environment
 class UsbcInsertionMediumEnvironment(ArenaEnvironmentFactory[UsbcInsertionMediumEnvironmentCfg]):
     """Build the bimanual movable-bulkhead variant from its environment graph."""
 

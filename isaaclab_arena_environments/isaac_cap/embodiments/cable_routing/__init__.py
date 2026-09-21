@@ -10,6 +10,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from typing import ClassVar
 
+from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
 from isaaclab_arena.utils.cameras import ArenaCameraCfg
@@ -21,6 +22,7 @@ from .config import END_EFFECTOR_BODY_NAME, BimanualYamSceneCfg, make_yam_articu
 from .observations import BimanualYamObservationsCfg
 
 
+@register_asset
 class IndustrialBimanualYamEmbodiment(EmbodimentBase):
     """Two fixed-base YAM manipulators controlled by absolute joint targets."""
 

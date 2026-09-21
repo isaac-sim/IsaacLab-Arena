@@ -20,6 +20,7 @@ from isaaclab_arena.assets.nucleus import ARENA_NUCLEUS_DIR
 from isaaclab_arena.assets.object import Object
 from isaaclab_arena.assets.object_library import DomeLight
 from isaaclab_arena.assets.object_type import ObjectType
+from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.utils.pose import Pose
 
 _SHARED_ASSET_ROOT = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/temp_newton_envs/cap_envs/gear_assembly/assets"
@@ -124,30 +125,37 @@ def _make_gear_mesh_board(
     return board
 
 
+@register_asset(name="industrial__gear_mesh_16t")
 def make_gear_mesh_16t(instance_name: str = "gear_a", initial_pose=None, **_ignored: Any) -> Object:
     return _make_gear_mesh_gear(16, instance_name, initial_pose)
 
 
+@register_asset(name="industrial__gear_mesh_20t")
 def make_gear_mesh_20t(instance_name: str = "gear_a", initial_pose=None, **_ignored: Any) -> Object:
     return _make_gear_mesh_gear(20, instance_name, initial_pose)
 
 
+@register_asset(name="industrial__gear_mesh_24t")
 def make_gear_mesh_24t(instance_name: str = "gear_a", initial_pose=None, **_ignored: Any) -> Object:
     return _make_gear_mesh_gear(24, instance_name, initial_pose)
 
 
+@register_asset(name="industrial__gear_mesh_board_16")
 def make_gear_mesh_board_16(instance_name: str = "board", initial_pose=None, **_ignored: Any) -> Object:
     return _make_gear_mesh_board(16, instance_name, initial_pose)
 
 
+@register_asset(name="industrial__gear_mesh_board_20")
 def make_gear_mesh_board_20(instance_name: str = "board", initial_pose=None, **_ignored: Any) -> Object:
     return _make_gear_mesh_board(20, instance_name, initial_pose)
 
 
+@register_asset(name="industrial__gear_mesh_board_24")
 def make_gear_mesh_board_24(instance_name: str = "board", initial_pose=None, **_ignored: Any) -> Object:
     return _make_gear_mesh_board(24, instance_name, initial_pose)
 
 
+@register_asset(name="industrial__gear_mesh_mat")
 def make_gear_mesh_mat(
     instance_name: str = "gear_mat",
     initial_pose: Pose | Mapping[str, Sequence[float]] | None = None,
@@ -164,6 +172,7 @@ def make_gear_mesh_mat(
     return mat
 
 
+@register_asset
 class IndustrialFr3WorkcellTable(Background):
     """Cap's FR3 workcell table background."""
 
@@ -187,6 +196,7 @@ class IndustrialFr3WorkcellTable(Background):
         )
 
 
+@register_asset
 class IndustrialHdrShadowReceiver(Object):
     """Invisible collision-free floor anchor for the HDR scene."""
 
@@ -215,6 +225,7 @@ class IndustrialHdrShadowReceiver(Object):
         )
 
 
+@register_asset
 class IndustrialEmptyWarehouseDomeLight(DomeLight):
     """Cap's shared empty-warehouse HDR dome light."""
 
