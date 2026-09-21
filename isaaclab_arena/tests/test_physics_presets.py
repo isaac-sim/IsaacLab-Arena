@@ -330,6 +330,10 @@ def _test_builder_rejects_unsafe_or_incompatible_targets(simulation_app) -> bool
     with pytest.raises(AssertionError, match="outside the approved"):
         _build_env_cfg(presets=None, env_cfg_override=unsafe)
 
+    asset_physics = {"sim": {"physics": {"_target_": "isaaclab_arena.assets.physics_config.PhysicsUsdFileCfg"}}}
+    with pytest.raises(AssertionError, match="outside the approved"):
+        _build_env_cfg(presets=None, env_cfg_override=asset_physics)
+
     incompatible = {"sim": {"physics": {"_target_": "isaaclab_newton.physics.MJWarpSolverCfg"}}}
     with pytest.raises(AssertionError, match="incompatible"):
         _build_env_cfg(presets=None, env_cfg_override=incompatible)

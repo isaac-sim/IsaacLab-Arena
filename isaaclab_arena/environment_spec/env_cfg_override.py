@@ -27,11 +27,6 @@ _ALLOWED_TARGET_MODULE_PREFIXES = (
     "isaaclab_physx.",
 )
 _HYDRA_TARGET_KEY = "_target_"
-_ALLOWED_ARENA_TARGETS = {
-    "isaaclab_arena.assets.physics_config.PhysicsUsdFileCfg",
-    "isaaclab_arena.assets.physics_config.PrimPhysicsCfg",
-    "isaaclab_arena.assets.physics_config.MujocoEqualityPropertiesCfg",
-}
 
 
 def apply_env_cfg_override(
@@ -139,20 +134,9 @@ def _materialize_value(
     current_value: Any,
 ) -> Any:
     """Dispatch materialization based on the override value's structure."""
-    dict_value_type = _dict_value_type(annotation)
-    if dict_value_type is not None and isinstance(value, dict):
-        return _materialize_dict(
-            dict_value_type,
-            value,
-            path=path,
-            construct_structured=construct_structured,
-            strict=strict,
-            current_value=current_value,
-        )
-
     # Handle list
     list_element_type = _list_element_type(annotation)
-    if list_element_type is not None and isinstance(value, list):
+    if list_element_type is not None:
         return _materialize_list(
             list_element_type,
             value,
@@ -179,31 +163,6 @@ def _materialize_value(
         strict=strict,
         current_value=current_value,
     )
-
-
-def _materialize_dict(
-    value_type: Any,
-    value: Any,
-    *,
-    path: str,
-    construct_structured: bool,
-    strict: bool,
-    current_value: Any,
-) -> dict[str, Any]:
-    """Materialize every value of a typed override dictionary."""
-    assert isinstance(value, dict), f"Expected a mapping at '{path}'"
-    materialized = {}
-    for key, item in value.items():
-        current_item = current_value.get(key) if isinstance(current_value, dict) else None
-        materialized[key] = _materialize_value(
-            value_type,
-            item,
-            path=f"{path}.{key}",
-            construct_structured=construct_structured,
-            strict=strict,
-            current_value=current_item,
-        )
-    return materialized
 
 
 def _materialize_list(
@@ -314,9 +273,9 @@ def _validated_target_class(target_path: Any, expected_type: Any, *, path: str) 
     """Resolve and validate one Hydra target against its annotated field type."""
     assert isinstance(target_path, str) and target_path, f"'{path}.{_HYDRA_TARGET_KEY}' must be a class path string"
     module_name, separator, _ = target_path.rpartition(".")
-    assert separator and (
-        module_name.startswith(_ALLOWED_TARGET_MODULE_PREFIXES) or target_path in _ALLOWED_ARENA_TARGETS
-    ), f"Hydra target {target_path!r} at '{path}' is outside the approved Isaac Lab packages and Arena config classes"
+    assert separator and module_name.startswith(
+        _ALLOWED_TARGET_MODULE_PREFIXES
+    ), f"Hydra target {target_path!r} at '{path}' is outside the approved Isaac Lab packages"
 
     try:
         target_cls = get_class(target_path)
@@ -324,10 +283,9 @@ def _validated_target_class(target_path: Any, expected_type: Any, *, path: str) 
         raise ValueError(f"Could not resolve Hydra target {target_path!r} at '{path}': {exc}") from exc
 
     assert isinstance(target_cls, type), f"Hydra target {target_path!r} at '{path}' must resolve to a class"
-    assert (
-        target_cls.__module__.startswith(_ALLOWED_TARGET_MODULE_PREFIXES)
-        or f"{target_cls.__module__}.{target_cls.__name__}" in _ALLOWED_ARENA_TARGETS
-    ), f"Hydra target {target_path!r} at '{path}' resolves outside the approved config classes"
+    assert target_cls.__module__.startswith(
+        _ALLOWED_TARGET_MODULE_PREFIXES
+    ), f"Hydra target {target_path!r} at '{path}' resolves outside the approved Isaac Lab packages"
     assert dataclasses.is_dataclass(
         target_cls
     ), f"Hydra target {target_path!r} at '{path}' must resolve to an Isaac Lab configclass"
@@ -337,7 +295,7 @@ def _validated_target_class(target_path: Any, expected_type: Any, *, path: str) 
     return target_cls
 
 
-def _field_annotation(owner: type, field_name: str, current_type: type | None = None) -> Any:
+def _field_annotation(owner: type, field_name: str) -> Any:
     """Resolve one inherited dataclass field annotation without resolving unrelated fields."""
     for cls in owner.__mro__:
         # Isaac Lab copies inherited annotations into each configclass. Use its
@@ -351,43 +309,16 @@ def _field_annotation(owner: type, field_name: str, current_type: type | None = 
         if isinstance(annotation, str):
             module_globals = vars(sys.modules[cls.__module__])
             holder = type("_FieldAnnotation", (), {"__annotations__": {"value": annotation}})
-            # Some Isaac Lab fields import their base config type only under TYPE_CHECKING
-            # (for example AssetBaseCfg.spawn: SpawnerCfg). An existing value supplies that
-            # public type through its MRO without weakening the annotation to Any.
-            localns = {base.__name__: base for base in current_type.__mro__} if current_type is not None else {}
-            localns.update(vars(cls))
-            return get_type_hints(holder, globalns=module_globals, localns=localns)["value"]
+            return get_type_hints(holder, globalns=module_globals, localns=vars(cls))["value"]
         return annotation
     raise TypeError(f"Could not resolve the annotated type of '{owner.__name__}.{field_name}'")
 
 
 def _list_element_type(annotation: Any) -> Any | None:
     """Return the element annotation for ``list[T]``, or ``None`` when ``annotation`` is not a list."""
-    members = _union_members(annotation)
-    if members is not None:
-        for member in members:
-            element_type = _list_element_type(member)
-            if element_type is not None:
-                return element_type
-        return None
     if get_origin(annotation) is list:
         args = get_args(annotation)
         return args[0] if args else None
-    return None
-
-
-def _dict_value_type(annotation: Any) -> Any | None:
-    """Return the value annotation for ``dict[K, V]``, or ``None`` for other annotations."""
-    members = _union_members(annotation)
-    if members is not None:
-        for member in members:
-            value_type = _dict_value_type(member)
-            if value_type is not None:
-                return value_type
-        return None
-    if get_origin(annotation) is dict:
-        args = get_args(annotation)
-        return args[1] if len(args) == 2 else Any
     return None
 
 

@@ -63,84 +63,8 @@ Use ``_target_`` when replacing a nested **configclass** field with a concrete I
 Nested ``_target_`` mappings anywhere in the tree are validated before any change is applied to
 the live environment configuration.
 
-Physics on selected asset parts
--------------------------------
-
-Use ``PhysicsUsdFileCfg`` when an environment needs different physics for individual
-colliders or joints inside the same USD asset. Its ``prim_physics`` mapping selects exact
-paths relative to the spawned asset root. The ordinary USD spawn properties are applied
-first, followed by these overrides, before the asset is cloned or imported by the physics
-backend. Shared source USD files and other instances retain their defaults.
-
-For example, an insertion environment can tune a finger's contacts and an existing
-passive-jaw equality independently of an environment that uses the same robot for routing:
-
-.. code-block:: yaml
-
-   default_physics_backend: newton
-   env_cfg_override:
-     scene:
-       right_robot:
-         actuators:
-           gripper:
-             stiffness: 40000.0
-             damping: 40.0
-             effort_limit_sim: 160.0
-         spawn:
-           _target_: isaaclab_arena.assets.physics_config.PhysicsUsdFileCfg
-           usd_path: /path/to/robot.usda
-           prim_physics:
-             finger/collision:
-               _target_: isaaclab_arena.assets.physics_config.PrimPhysicsCfg
-               collision_props:
-                 - _target_: isaaclab_newton.sim.schemas.NewtonCollisionCfg
-                   contact_gap: 0.0002
-                 - _target_: isaaclab_newton.sim.schemas.MujocoCollisionCfg
-                   condim: 4
-                   solref: [0.004, 1.0]
-                   solimp: [0.95, 0.999, 0.0005, 0.5, 2.0]
-               physics_material:
-                 _target_: isaaclab_newton.sim.schemas.NewtonMaterialPropertiesCfg
-                 static_friction: 8.0
-                 dynamic_friction: 8.0
-                 torsional_friction: 0.002
-               filtered_pairs: [housing/collision]
-             passive/joint:
-               _target_: isaaclab_arena.assets.physics_config.PrimPhysicsCfg
-               mujoco_equality:
-                 _target_: isaaclab_arena.assets.physics_config.MujocoEqualityPropertiesCfg
-                 solref: [0.004, 1.0]
-
-The paths above are illustrative; use the exact collider and joint paths in your asset.
-Selecting a spawn ``_target_`` replaces the spawn config: provide its ``usd_path`` and retain
-any needed scale, variants, or other spawn options explicitly. This spawner uses the ordinary
-USD loading path; assets with custom spawn functions should integrate ``apply_prim_physics``
-into their own spawner before cloning instead of replacing their spawn function.
-
-``PrimPhysicsCfg`` supports:
-
-- ``collision_props``: Isaac Lab collision fragments on a geometry prim. This can enable a
-  collider on an authored visual mesh without adding procedural geometry.
-- ``physics_material``: a new material bound to the selected collider, without editing a
-  material shared with other parts or asset instances.
-- ``joint_drive_props``: Isaac Lab joint-drive fragments on a revolute or prismatic joint.
-  Prefer the embodiment's actuator configuration for controlled joint gains; it may overwrite
-  authored drive values during articulation initialization.
-- ``mujoco_equality``: ``solref`` and ``solimp`` on an existing ``MjcEqualityJointAPI``,
-  ``MjcEqualityConnectAPI``, or ``MjcEqualityWeldAPI`` constraint. This does not create or convert
-  mimic constraints, or change their leader joint or coupling coefficients. It is specific to
-  Newton's MuJoCo solver.
-- ``filtered_pairs``: additional asset-relative rigid-body or collider exclusions. Existing
-  exclusions are preserved, and internal relationships are remapped when cloning.
-
-All target paths are checked before per-prim overrides are authored. Missing paths, absolute
-paths, paths outside the asset, incompatible prim types, and instance proxies are rejected.
-Use ``make_uninstanceable: true`` on the spawn config when the selected prims are inside an
-instanceable USD subtree and the additional stage memory is acceptable. Use ``.`` to select
-the asset root. Paths do not support regular expressions or wildcard matching.
-
-Only ``PhysicsUsdFileCfg``, ``PrimPhysicsCfg``, and ``MujocoEqualityPropertiesCfg`` are added
-to the approved Arena target classes; arbitrary Arena classes remain disallowed.
+Per-asset physics does not belong in ``env_cfg_override``. Attach it to the embodiment or
+object that owns the spawn configuration; see :doc:`asset_physics_overrides`.
 
 Disallowed patterns
 -------------------
@@ -152,3 +76,5 @@ The following are rejected at validation time:
 - Overriding ``class_type`` (derived by Isaac Lab).
 - OmegaConf interpolation (``${...}``) in override values.
 - Hydra targets outside approved Isaac Lab packages (for example ``builtins.*``).
+- Arena asset-physics targets. Configure them in Python on the owning embodiment or object
+  instead.
