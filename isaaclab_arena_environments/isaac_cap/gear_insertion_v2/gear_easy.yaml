@@ -4,6 +4,10 @@
 # SPDX-License-Identifier: Apache-2.0
 
 env_name: gear_easy
+placer_params:
+  allow_best_loss_fallbacks: false
+  solver_params:
+    clearance_m: 0.0
 embodiment:
   id: robot
   registry_name: industrial_fr3_robotiq_2f85_v2

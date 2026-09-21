@@ -6,6 +6,8 @@
 external_yaml: syringe_env_config.yaml
 
 env_name: syringe_both_newton
+placer_params:
+  allow_best_loss_fallbacks: false
 embodiment:
   id: fr3
   registry_name: industrial_fr3_robotiq_2f85

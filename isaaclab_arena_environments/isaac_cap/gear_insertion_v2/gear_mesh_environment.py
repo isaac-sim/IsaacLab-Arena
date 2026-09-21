@@ -71,19 +71,6 @@ def _configure_gear_mesh_physics(
     return env_cfg
 
 
-def _configure_gear_mesh_placement(arena_env):
-    """Configure strict source-bounded layout sampling."""
-    # On owns support Z/containment, box limits bound X/Y, and reset pose ranges
-    # draw the board's narrow yaw band and the gear's full clock angle.
-    arena_env.placer_params.min_unique_layouts_per_env = 5
-    arena_env.placer_params.allow_best_loss_fallbacks = False
-    # The loose gear is supported through the thin mat.  A global 1 cm
-    # inter-object clearance would incorrectly reject it against the table
-    # underneath that support chain.
-    arena_env.placer_params.solver_params.clearance_m = 0.0
-    return arena_env
-
-
 @dataclass
 class GearMeshNewtonEnvironmentCfg(ArenaEnvironmentCfg):
     """Configure the registered gear-insertion environment."""
@@ -154,7 +141,7 @@ class GearInsertionEasyNewtonEnvironment(GearMeshNewtonEnvironment):
         board = arena_env.scene.assets["board"]
         gear = arena_env.scene.assets["gear_a"]
         board.add_variation(GearFamilyVariation(board, gear, arena_env.task))
-        return _configure_gear_mesh_placement(arena_env)
+        return arena_env
 
 
 class _GearMeshLayoutNewtonEnvironment(GearMeshNewtonEnvironment):
@@ -180,16 +167,6 @@ class _GearMeshLayoutNewtonEnvironment(GearMeshNewtonEnvironment):
                     GearLayoutVariationCfg(family=self.family),
                 )
             )
-        _configure_gear_mesh_placement(arena_env)
-        # Each upstream row has a fixed start. Scalar rebuilds select a new row;
-        # explicit parallel assignments keep one row per slot across resets.
-        arena_env.placer_params.min_unique_layouts_per_env = 1
-        # The source generator already enforces circular tip clearances. Arena's
-        # generic box validators conservatively reject some valid three-gear
-        # rows, so relations solve support Z while the exact recorded X/Y/yaw
-        # remain authoritative.
-        arena_env.placer_params.required_checks = set()
-
         physics_callback = self.env_cfg_callback
 
         def configure(env_cfg):

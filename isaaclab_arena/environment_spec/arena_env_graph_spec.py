@@ -55,6 +55,10 @@ class ArenaEnvGraphSpec(BaseModel):
         default=None,
         description="Per-env placement validators; none runs all build-time checks.",
     )
+    placer_params: dict[str, Any] | None = Field(
+        default=None,
+        description="Validated nested overrides for ObjectPlacerParams and its data-only child configs.",
+    )
     env_cfg_override: dict[str, Any] | None = Field(
         default=None,
         description="Optional validated Hydra override for the generated Isaac Lab environment configuration.",

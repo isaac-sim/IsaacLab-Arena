@@ -144,6 +144,9 @@ Convert a natural-language prompt into an ArenaEnvGraphSpec.
 GUIDANCE:
 - Follow the per-field ``description`` strings in the schema.
 - REQUIRED: leave ``placement_validators`` and ``cli_override_specs`` null.
+- Leave ``placer_params`` null unless the prompt explicitly requests placement tuning. When used, provide only
+  data fields from ``ObjectPlacerParams`` and nested data-only configs; never set ``reachability_config.embodiment``,
+  ``solver_params.strategies``, ``class_type``, or Hydra ``_target_`` values.
 - Use only exact names from the catalog for ``registry_name``:
   EMBODIMENTS for ``embodiment``, BACKGROUNDS for ``background``, and OBJECTS for ``objects``.
 - Do NOT hallucinate asset names — every ``registry_name`` must appear verbatim in the catalog.

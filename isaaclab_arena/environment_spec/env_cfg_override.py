@@ -14,10 +14,12 @@ import types
 from typing import TYPE_CHECKING, Any, Union, get_args, get_origin, get_type_hints
 
 from hydra.utils import get_class
+from isaaclab.utils.dict import update_class_from_dict
 from isaaclab_newton.physics import NewtonCfg
 
 if TYPE_CHECKING:
     from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import IsaacLabArenaManagerBasedRLEnvCfg
+    from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 
 _ALLOWED_TARGET_MODULE_PREFIXES = (
     "isaaclab.",
@@ -27,6 +29,14 @@ _ALLOWED_TARGET_MODULE_PREFIXES = (
     "isaaclab_physx.",
 )
 _HYDRA_TARGET_KEY = "_target_"
+_PLACER_FORBIDDEN_PATHS = (
+    ("enabled_checks",),
+    ("required_checks",),
+    ("debug_visualize",),
+    ("debug_visualize_output_path",),
+    ("reachability_config", "embodiment"),
+    ("solver_params", "strategies"),
+)
 
 
 def apply_env_cfg_override(
@@ -36,7 +46,7 @@ def apply_env_cfg_override(
     """Apply a validated environment-config override in place.
 
     Materializes nested Hydra targets in a copied override, merges the residual
-    values through ``from_dict``, then commits deferred type replacements.
+    values recursively, then commits deferred type replacements.
 
     Args:
         env_cfg: Arena manager-based RL environment configuration to update.
@@ -45,22 +55,34 @@ def apply_env_cfg_override(
     Returns:
         The updated ``env_cfg`` instance.
     """
-    assert override is not None, "env_cfg_override must be provided"
-    assert isinstance(override, dict), f"env_cfg_override must be a mapping, got {type(override).__name__}"
+    return apply_config_override(env_cfg, override, override_name="env_cfg_override", path="env")
+
+
+def apply_config_override(
+    config: Any,
+    override: dict[str, Any],
+    *,
+    override_name: str,
+    path: str,
+    allow_hydra_targets: bool = True,
+) -> Any:
+    """Apply a validated nested override to a configclass or dataclass."""
+    assert override is not None, f"{override_name} must be provided"
+    assert isinstance(override, dict), f"{override_name} must be a mapping, got {type(override).__name__}"
 
     values = copy.deepcopy(override)
-    _validate_override_syntax(values, path="env")
+    _validate_override_syntax(values, path=path, allow_hydra_targets=allow_hydra_targets)
     # Build targets post-order in the copy, including concrete containers for typed list entries.
-    _materialize_targets(env_cfg, values, path="env")
+    _materialize_targets(config, values, path=path)
     pending_assignments: list[tuple[Any, str | int, Any]] = []
     # Keep constructed instances out to prevent ``from_dict`` from reprocessing typed config instances as
     # raw mappings again before they are safely assigned to polymorphic fields.
-    _extract_materialized_values(env_cfg, values, pending_assignments)
+    _extract_materialized_values(config, values, pending_assignments)
 
     try:
-        env_cfg.from_dict(values)
+        update_class_from_dict(config, values)
     except (KeyError, TypeError, ValueError) as exc:
-        raise ValueError(f"Invalid env_cfg_override: {exc}") from exc
+        raise ValueError(f"Invalid {override_name}: {exc}") from exc
 
     # Commit polymorphic replacements only after the residual merge succeeds.
     for target_obj, key, value in pending_assignments:
@@ -72,10 +94,38 @@ def apply_env_cfg_override(
             # NewtonCfg.__post_init__ derives the manager from the initial
             # solver, so synchronize it after replacing solver_cfg.
             target_obj.class_type = target_obj.solver_cfg.class_type
-    return env_cfg
+    return config
 
 
-def _validate_override_syntax(value: Any, *, path: str) -> None:
+def apply_placer_params_override(
+    placer_params: ObjectPlacerParams,
+    override: dict[str, Any],
+) -> ObjectPlacerParams:
+    """Return placer params with a data-only YAML override applied."""
+    for field_path in _PLACER_FORBIDDEN_PATHS:
+        value: Any = override
+        for key in field_path:
+            if not isinstance(value, dict) or key not in value:
+                break
+            value = value[key]
+        else:
+            dotted_path = ".".join(("placer_params", *field_path))
+            raise AssertionError(f"'{dotted_path}' is runtime-owned; configure it through placement_validators/code")
+
+    candidate = copy.deepcopy(placer_params)
+    apply_config_override(
+        candidate,
+        override,
+        override_name="placer_params",
+        path="placer_params",
+        allow_hydra_targets=False,
+    )
+    candidate.__post_init__()
+    candidate.solver_params.__post_init__()
+    return candidate
+
+
+def _validate_override_syntax(value: Any, *, path: str, allow_hydra_targets: bool = True) -> None:
     """Reject unsafe override content before ``_materialize_targets`` runs.
 
     Disallows ``class_type`` overrides, Hydra control keys other than ``_target_``,
@@ -85,11 +135,13 @@ def _validate_override_syntax(value: Any, *, path: str) -> None:
         for key, item in value.items():
             child_path = f"{path}.{key}"
             assert key != "class_type", f"'{child_path}' is derived by Isaac Lab and cannot be overridden"
-            assert not key.startswith("_") or key == _HYDRA_TARGET_KEY, f"Unsupported Hydra control key '{child_path}'"
-            _validate_override_syntax(item, path=child_path)
+            assert not key.startswith("_") or (
+                allow_hydra_targets and key == _HYDRA_TARGET_KEY
+            ), f"Unsupported Hydra control key '{child_path}'"
+            _validate_override_syntax(item, path=child_path, allow_hydra_targets=allow_hydra_targets)
     elif isinstance(value, list):
         for index, item in enumerate(value):
-            _validate_override_syntax(item, path=f"{path}[{index}]")
+            _validate_override_syntax(item, path=f"{path}[{index}]", allow_hydra_targets=allow_hydra_targets)
     elif isinstance(value, str):
         assert "${" not in value, f"OmegaConf interpolation is not allowed at '{path}'"
 
@@ -252,7 +304,16 @@ def _extract_materialized_values(
             continue
         value = values[key]
         child_obj = target_obj[key] if isinstance(target_obj, dict) else getattr(target_obj, key)
-        if dataclasses.is_dataclass(value):
+        if child_obj is None and value is not None and not isinstance(target_obj, dict):
+            annotation = _field_annotation(type(target_obj), key)
+            if not _annotation_accepts_value(annotation, value):
+                raise ValueError(
+                    f"Invalid value for optional field '{type(target_obj).__name__}.{key}': "
+                    f"expected {annotation}, got {type(value).__name__}"
+                )
+            pending_assignments.append((target_obj, key, value))
+            values.pop(key)
+        elif dataclasses.is_dataclass(value):
             pending_assignments.append((target_obj, key, value))
             values.pop(key)
         elif isinstance(value, (dict, list)):
@@ -345,6 +406,17 @@ def _annotation_accepts_type(annotation: Any, target_cls: type) -> bool:
     if members is not None:
         return any(_annotation_accepts_type(member, target_cls) for member in members)
     return isinstance(annotation, type) and issubclass(target_cls, annotation)
+
+
+def _annotation_accepts_value(annotation: Any, value: Any) -> bool:
+    """Return whether a plain value is compatible with an annotation."""
+    members = _union_members(annotation)
+    if members is not None:
+        return any(_annotation_accepts_value(member, value) for member in members)
+    origin = get_origin(annotation)
+    if origin is not None:
+        return isinstance(value, origin)
+    return annotation is Any or (isinstance(annotation, type) and isinstance(value, annotation))
 
 
 def _annotation_contains_dataclass(annotation: Any) -> bool:

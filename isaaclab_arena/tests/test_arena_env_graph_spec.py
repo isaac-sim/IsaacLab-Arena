@@ -116,6 +116,58 @@ def test_graph_spec_round_trips_pose_params_and_env_cfg_override():
     assert restored.env_cfg_override == data["env_cfg_override"]
 
 
+def test_graph_spec_round_trips_and_builds_placer_params():
+    from isaaclab_arena.environment_spec.arena_env_graph_conversion_utils import build_checks_for_placer_params
+
+    data = _minimal_env_graph_data()
+    data["placer_params"] = {
+        "placement_seed": 42,
+        "resolve_on_reset": False,
+        "random_yaw_init": True,
+        "allow_best_loss_fallbacks": False,
+        "max_placement_attempts": 30,
+        "solver_params": {"clearance_m": 0.015},
+    }
+    data["placement_validators"] = {"required_checks": []}
+
+    spec = ArenaEnvGraphSpec.from_dict(data)
+    restored = ArenaEnvGraphSpec.from_dict(spec.to_dict())
+    params = build_checks_for_placer_params(restored)
+
+    assert restored.placer_params == data["placer_params"]
+    assert params.placement_seed == 42
+    assert not params.resolve_on_reset
+    assert params.random_yaw_init
+    assert not params.allow_best_loss_fallbacks
+    assert params.max_placement_attempts == 30
+    assert params.solver_params.clearance_m == pytest.approx(0.015)
+    assert not params.solver_params.verbose
+    assert not params.solver_params.save_position_history
+    assert params.required_checks == set()
+
+
+@pytest.mark.parametrize(
+    ("placer_params", "error_match"),
+    [
+        ({"unknown_field": True}, "Invalid placer_params"),
+        ({"max_placement_attempts": 0}, "max_placement_attempts must be positive"),
+        ({"solver_params": {"clearance_m": -0.1}}, "clearance_m must be >= 0"),
+        ({"solver_params": {"strategies": {}}}, "runtime-owned"),
+        ({"reachability_config": {"embodiment": "robot"}}, "runtime-owned"),
+        ({"_target_": "builtins.dict"}, "Unsupported Hydra control key"),
+    ],
+)
+def test_graph_spec_rejects_invalid_placer_params(placer_params, error_match):
+    from isaaclab_arena.environment_spec.arena_env_graph_conversion_utils import build_checks_for_placer_params
+
+    data = _minimal_env_graph_data()
+    data["placer_params"] = placer_params
+    spec = ArenaEnvGraphSpec.from_dict(data)
+
+    with pytest.raises((AssertionError, ValueError), match=error_match):
+        build_checks_for_placer_params(spec)
+
+
 def test_graph_spec_parses_radial_position_limits():
     """Graph specs preserve cylindrical position-limit parameters for relation construction."""
 
