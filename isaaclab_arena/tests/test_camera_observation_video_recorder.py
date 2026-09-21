@@ -42,7 +42,11 @@ class _StubEnv(gym.Env):
         # Per-env completed-episode counts, mirroring the Arena env's centralized episode index.
         self._episode_counts: dict[int, int] = {}
 
-    def reset(self, **kwargs):
+    def reset(self, *, env_ids=None, **kwargs):
+        reset_env_ids = range(len(self._step_return[2])) if env_ids is None else env_ids
+        for env_id in reset_env_ids:
+            env_id = int(env_id)
+            self._episode_counts[env_id] = self._episode_counts.get(env_id, 0) + 1
         return {}, {}
 
     def step(self, action):
@@ -65,15 +69,30 @@ def _make_env() -> _StubEnv:
     return _StubEnv()
 
 
-def _configure_step(env: _StubEnv, done_envs: list[int] | None = None, n_envs: int = 2):
+def _configure_step(
+    env: _StubEnv,
+    done_envs: list[int] | None = None,
+    n_envs: int = 2,
+    final_camera_values: dict[str, list[int]] | None = None,
+    truncated_envs: list[int] | None = None,
+):
     """Set the next step return value with given terminations."""
     terminated = torch.zeros(n_envs, dtype=torch.bool)
     for idx in done_envs or []:
         terminated[idx] = True
     truncated = torch.zeros(n_envs, dtype=torch.bool)
+    for idx in truncated_envs or []:
+        truncated[idx] = True
     cam_obs = {cam: torch.zeros(n_envs, H, W, C, dtype=torch.uint8) for cam in CAMERAS}
     obs = {CAMERA_OBS_GROUP_KEY: cam_obs}
-    env._step_return = (obs, None, terminated, truncated, None)
+    info = None
+    if final_camera_values is not None:
+        final_camera_obs = {
+            camera: torch.stack([torch.full((H, W, C), value, dtype=torch.uint8) for value in values])
+            for camera, values in final_camera_values.items()
+        }
+        info = {"final_obs": {CAMERA_OBS_GROUP_KEY: final_camera_obs}}
+    env._step_return = (obs, None, terminated, truncated, info)
 
 
 class _FakeVideoWriter:
@@ -88,12 +107,14 @@ class _FakeVideoWriter:
         self.size = size
         self.fps = fps
         self.frames_written = 0
+        self.first_pixel_values = []
         self.closed = False
         with open(filename, "wb"):
             pass
 
     def write_frame(self, frame):
         self.frames_written += 1
+        self.first_pixel_values.append(int(frame[0, 0, 0]))
 
     def close(self):
         self.closed = True
@@ -214,6 +235,77 @@ def test_partial_episode_dropped_on_close(tmp_path):
         assert list(tmp_path.iterdir()) == []
 
 
+def test_manual_reset_discards_partial_episode_and_starts_new_video(tmp_path):
+    """An explicit reset closes interrupted encoders before starting a fresh episode."""
+    env = _make_env()
+    with _patched_writers() as writers:
+        recorder = CameraObsVideoRecorder(env, video_folder=str(tmp_path))
+        _configure_step(env, n_envs=1)
+        recorder.step(None)
+        recorder.step(None)
+        interrupted_writers = list(writers)
+
+        recorder.reset()
+
+        assert all(writer.closed for writer in interrupted_writers)
+        assert list(tmp_path.iterdir()) == []
+        recorder.step(None)
+        fresh_writers = writers[len(interrupted_writers) :]
+        assert len(fresh_writers) == len(CAMERAS)
+        assert all(writer.frames_written == 1 for writer in fresh_writers)
+        assert all(writer.filename.endswith("episode-1.mp4") for writer in fresh_writers)
+        assert all(writer.frames_written == 2 for writer in interrupted_writers)
+        recorder.close()
+
+
+@pytest.mark.parametrize("env_ids", [[1], (1,), torch.tensor([1]), []], ids=["list", "tuple", "tensor", "empty"])
+def test_subset_reset_preserves_unaffected_video_streams(tmp_path, env_ids):
+    """Reset only the requested streams and forward the environment selection unchanged."""
+    env = _make_env()
+    with _patched_writers() as writers:
+        recorder = CameraObsVideoRecorder(env, video_folder=str(tmp_path))
+        _configure_step(env)
+        recorder.step(None)
+        original_writers = list(writers)
+
+        with patch.object(env, "reset", wraps=env.reset) as reset:
+            recorder.reset(env_ids=env_ids)
+            assert reset.call_args.kwargs["env_ids"] is env_ids
+
+        for writer in original_writers:
+            reset_requested = len(env_ids) > 0 and "-env1-" in writer.filename
+            assert writer.closed == reset_requested
+            assert os.path.exists(writer.filename) != reset_requested
+        recorder.step(None)
+        for writer in original_writers:
+            assert writer.frames_written == (1 if writer.closed else 2)
+        fresh_writers = writers[len(original_writers) :]
+        assert len(fresh_writers) == len(CAMERAS) * len(env_ids)
+        assert all(writer.frames_written == 1 for writer in fresh_writers)
+        recorder.close()
+
+
+def test_completed_videos_survive_manual_reset_and_close(tmp_path):
+    """Discard interrupted streams without removing previously completed episode files."""
+    env = _make_env()
+    with _patched_writers() as writers:
+        recorder = CameraObsVideoRecorder(env, video_folder=str(tmp_path))
+        _configure_step(env)
+        recorder.step(None)
+        _configure_step(env, done_envs=[0])
+        recorder.step(None)
+        completed_writers = [writer for writer in writers if writer.closed]
+        assert len(completed_writers) == len(CAMERAS)
+
+        recorder.reset()
+        assert all(os.path.isfile(writer.filename) for writer in completed_writers)
+        _configure_step(env)
+        recorder.step(None)
+        recorder.close()
+
+        assert sorted(os.listdir(tmp_path)) == sorted(os.path.basename(writer.filename) for writer in completed_writers)
+
+
 def test_no_video_written_for_empty_episode(tmp_path):
     """An env terminating with no recorded frames writes no video; its episode index still advances."""
     env = _make_env()
@@ -332,6 +424,76 @@ def test_post_reset_frame_not_recorded(tmp_path):
             env1_episode0 = writer_by_filename[os.path.join(str(tmp_path), f"robot-cam-env1-{cam}-episode-0.mp4")]
             assert env1_episode0.frames_written == 2
             assert not env1_episode0.closed
+
+
+def test_final_observation_records_terminal_frame_and_preserves_live_streams(tmp_path):
+    """Use pre-reset images only for done environments, retaining normal images for live ones."""
+    env = _make_env()
+    final_camera_values = {"front": [11, 12], "wrist": [21, 22]}
+    with _patched_writers() as writers:
+        recorder = CameraObsVideoRecorder(env, video_folder=str(tmp_path))
+        _configure_step(env)
+        recorder.step(None)
+        _configure_step(env, done_envs=[0], final_camera_values=final_camera_values)
+        recorder.step(None)
+
+        writer_by_filename = {os.path.basename(writer.filename): writer for writer in writers}
+        for camera in CAMERAS:
+            completed_writer = writer_by_filename[f"robot-cam-env0-{camera}-episode-0.mp4"]
+            live_writer = writer_by_filename[f"robot-cam-env1-{camera}-episode-0.mp4"]
+            assert completed_writer.first_pixel_values == [0, final_camera_values[camera][0]]
+            assert completed_writer.closed
+            assert live_writer.first_pixel_values == [0, 0]
+            assert not live_writer.closed
+
+        _configure_step(env)
+        recorder.step(None)
+        fresh_writers = [writer for writer in writers if writer.filename.endswith("episode-1.mp4")]
+        assert len(fresh_writers) == len(CAMERAS)
+        assert all(writer.first_pixel_values == [0] for writer in fresh_writers)
+        recorder.close()
+
+
+@pytest.mark.parametrize("truncated", [False, True], ids=["termination", "truncation"])
+def test_first_step_final_observation_uses_completed_episode_number(tmp_path, truncated):
+    """A first-step terminal image belongs to the episode that just completed."""
+    env = _make_env()
+    final_camera_values = {"front": [31], "wrist": [41]}
+    with _patched_writers() as writers:
+        recorder = CameraObsVideoRecorder(env, video_folder=str(tmp_path))
+        for episode_index in range(2):
+            _configure_step(
+                env,
+                done_envs=[] if truncated else [0],
+                truncated_envs=[0] if truncated else [],
+                n_envs=1,
+                final_camera_values=final_camera_values,
+            )
+            recorder.step(None)
+            for camera in CAMERAS:
+                filename = os.path.join(str(tmp_path), f"robot-cam-env0-{camera}-episode-{episode_index}.mp4")
+                writer = next(writer for writer in writers if writer.filename == filename)
+                assert writer.first_pixel_values == final_camera_values[camera]
+                assert writer.closed and os.path.isfile(filename)
+        recorder.close()
+        assert len(list(tmp_path.glob("*.mp4"))) == 2 * len(CAMERAS)
+
+
+@pytest.mark.parametrize("final_camera_values", [{}, {"front": [17]}], ids=["empty", "missing_camera"])
+def test_missing_final_camera_keeps_skipping_post_reset_frame(tmp_path, final_camera_values):
+    """Missing final camera images must not be replaced by the new episode's images."""
+    env = _make_env()
+    with _patched_writers() as writers:
+        recorder = CameraObsVideoRecorder(env, video_folder=str(tmp_path))
+        _configure_step(env, n_envs=1)
+        recorder.step(None)
+        _configure_step(env, done_envs=[0], n_envs=1, final_camera_values=final_camera_values)
+        recorder.step(None)
+        for camera in CAMERAS:
+            writer = next(writer for writer in writers if f"-{camera}-" in writer.filename)
+            assert writer.first_pixel_values == [0] + final_camera_values.get(camera, [])
+            assert writer.closed
+        recorder.close()
 
 
 @pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="ffmpeg not available")

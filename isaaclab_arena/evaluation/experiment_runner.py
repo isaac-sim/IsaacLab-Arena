@@ -98,6 +98,9 @@ def _write_arena_experiment_result(
 def main():
     args_cli, experiment_overrides = parse_experiment_runner_args()
     experiment_config_path = validate_experiment_config_path(args_cli.experiment_config)
+    assert (
+        args_cli.policy_config is None or experiment_config_path.suffix.lower() != ".json"
+    ), "--policy_config is supported only for typed YAML Experiments"
     legacy_experiment_config = load_legacy_json_experiment_config(
         experiment_config_path,
         experiment_overrides,
@@ -116,6 +119,7 @@ def main():
                 experiment_config_path,
                 device=args_cli.device,
                 overrides=experiment_overrides,
+                policy_config_path=args_cli.policy_config,
             )
             _assert_camera_support_enabled(experiment_cfg, args_cli.enable_cameras)
             list_variations(experiment_cfg)
@@ -156,12 +160,15 @@ def main():
             experiment_config_path,
             device=args_cli.device,
             overrides=experiment_overrides,
+            policy_config_path=args_cli.policy_config,
         )
         for run_name in experiment_cfg.runs:
             ArenaExperimentResult.assert_run_name_is_safe_path_component(run_name)
         _assert_camera_support_enabled(experiment_cfg, args_cli.enable_cameras)
         metrics_logger = MetricsLogger()
 
+        if args_cli.policy_config is not None:
+            print(f"[INFO] Replaced the policy for every Run from: {args_cli.policy_config}")
         print(build_runs_info_table(experiment_cfg.runs.values(), []))
 
         if args_cli.record_viewport_video:

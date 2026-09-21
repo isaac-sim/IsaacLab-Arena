@@ -45,6 +45,7 @@ def load_arena_experiment_from_yaml(
     environment_cfg_types: dict[str, type[ArenaEnvironmentCfg]],
     policy_cfg_type_resolver: Callable[[str], type[PolicyCfg]],
     overrides: list[str] | None = None,
+    policy_config_path: str | Path | None = None,
 ) -> ArenaExperimentCfg:
     """Load a YAML Arena Experiment Definition as a typed named-Run mapping.
 
@@ -59,6 +60,7 @@ def load_arena_experiment_from_yaml(
         environment_cfg_types: Environment selector names mapped to typed configuration classes.
         policy_cfg_type_resolver: Function returning the PolicyCfg subclass for a policy.type value.
         overrides: Hydra field overrides for shared Run defaults or Runs already declared in YAML.
+        policy_config_path: YAML policy mapping that replaces every Run's policy before overrides.
 
     Returns:
         The typed Experiment Definition, preserving YAML mapping declaration order.
@@ -69,6 +71,7 @@ def load_arena_experiment_from_yaml(
     run_values_by_name = load_experiment_run_definitions_from_yaml(
         yaml_path,
         shared_default_overrides=shared_default_overrides,
+        policy_config_path=policy_config_path,
     )
     config_store = ConfigStore.instance()
     # Reuse these internal names so repeated loads replace their process-global ConfigStore entries.
@@ -151,6 +154,8 @@ def split_shared_run_default_overrides(
 def load_experiment_run_definitions_from_yaml(
     yaml_path: str | Path,
     shared_default_overrides: list[str] | None = None,
+    *,
+    policy_config_path: str | Path | None = None,
 ) -> dict[str, dict[str, Any]]:
     """Read an Arena Experiment YAML file and return its Run values by name.
 
@@ -162,6 +167,7 @@ def load_experiment_run_definitions_from_yaml(
     Args:
         yaml_path: Path to the Arena Experiment YAML file.
         shared_default_overrides: Hydra overrides already separated for the optional shared Run defaults.
+        policy_config_path: YAML policy mapping replacing shared and per-Run policies before overrides.
 
     Returns:
         Run names mapped to their YAML values, in mapping declaration order.
@@ -186,8 +192,12 @@ def load_experiment_run_definitions_from_yaml(
     ), "Experiment 'runs' must be a mapping from Run names to Run configurations"
     assert raw_experiment_config.runs, "Experiment must define at least one Run"
 
+    replacement_policy = _load_policy_values_from_yaml(policy_config_path) if policy_config_path is not None else None
+
     try:
         shared_defaults_config = OmegaConf.create({"shared": raw_experiment_config.get("shared", {})})
+        if replacement_policy is not None:
+            shared_defaults_config.shared.policy = replacement_policy
         OmegaConf.set_struct(shared_defaults_config, True)
         shared_defaults_config.merge_with_dotlist(shared_default_overrides or [])
         shared_run_defaults = OmegaConf.to_container(shared_defaults_config.shared, resolve=False)
@@ -198,6 +208,9 @@ def load_experiment_run_definitions_from_yaml(
             assert isinstance(run_name, str) and run_name, "Experiment Run names must be non-empty strings"
             _assert_run_name_is_hydra_compatible(run_name)
             assert OmegaConf.is_dict(raw_run_config), f"Run '{run_name}' must be a mapping"
+            if replacement_policy is not None:
+                # Replace the entire policy so fields belonging to the original type cannot leak through.
+                raw_run_config.pop("policy", None)
             merged_run_config = OmegaConf.merge(shared_run_defaults, raw_run_config)
             run_values = OmegaConf.to_container(merged_run_config, resolve=False)
             assert isinstance(run_values, dict)
@@ -206,6 +219,23 @@ def load_experiment_run_definitions_from_yaml(
     except (OmegaConfBaseException, TypeError, ValueError) as exc:
         raise ValueError(f"Could not apply shared Run defaults in Arena Experiment '{yaml_path}': {exc}") from exc
     return runs
+
+
+def _load_policy_values_from_yaml(policy_config_path: str | Path) -> dict[str, Any]:
+    """Read a standalone policy mapping without resolving its interpolations."""
+    path = Path(policy_config_path)
+    assert path.suffix.lower() in {".yaml", ".yml"}, f"Policy config must be YAML, got '{path}'"
+    assert path.is_file(), f"Policy config does not exist: '{path}'"
+    try:
+        policy_config = OmegaConf.load(path)
+        assert OmegaConf.is_dict(policy_config), "Policy config must be a mapping"
+        policy_values = OmegaConf.to_container(policy_config, resolve=False)
+    except OmegaConfBaseException as exc:
+        raise ValueError(f"Could not load policy YAML '{path}': {exc}") from exc
+    assert isinstance(policy_values, dict)
+    policy_type = policy_values.get("type")
+    assert isinstance(policy_type, str) and policy_type, "Policy config must declare a non-empty 'type'"
+    return policy_values
 
 
 def _build_arena_run_cfg_from_yaml_values(

@@ -120,6 +120,39 @@ runs:
     assert run.rollout_limit.num_episodes == 4
 
 
+def test_public_loader_replaces_policy_and_applies_process_device(tmp_path, monkeypatch):
+    monkeypatch.setattr(arena_experiment_config_loader, "_registered_environment_cfg_types", lambda: {})
+    monkeypatch.setattr(
+        arena_experiment_config_loader,
+        "_resolve_policy_cfg_type_from_name_or_class_path",
+        lambda policy_type: {"zero_action": ZeroActionPolicyCfg}[policy_type],
+    )
+    config_path = tmp_path / "experiment.yaml"
+    config_path.write_text(
+        """
+runs:
+  baseline:
+    environment:
+      type: robolab/tasks/banana_in_bowl.yaml
+    policy:
+      type: unavailable_policy
+      remote_port: 8003
+""",
+        encoding="utf-8",
+    )
+    policy_path = tmp_path / "policy.yaml"
+    policy_path.write_text("type: zero_action\n", encoding="utf-8")
+
+    experiment_cfg = load_arena_experiment_from_config_file(
+        config_path,
+        device="cuda:1",
+        policy_config_path=policy_path,
+    )
+
+    assert experiment_cfg.runs["baseline"].policy == ZeroActionPolicyCfg()
+    assert experiment_cfg.runs["baseline"].environment_builder.device == "cuda:1"
+
+
 def test_graph_spec_environment_serializes_to_reloadable_yaml(tmp_path, monkeypatch):
     monkeypatch.setattr(arena_experiment_config_loader, "_registered_environment_cfg_types", lambda: {})
     monkeypatch.setattr(
@@ -210,8 +243,9 @@ def test_empty_legacy_json_experiment_is_rejected(tmp_path):
         load_arena_experiment_from_config_file(config_path, device="cuda:0")
 
 
-def test_experiment_runner_loads_typed_experiment_after_simulation_starts(monkeypatch):
+def test_experiment_runner_loads_typed_experiment_after_simulation_starts(monkeypatch, tmp_path):
     simulation_is_running = False
+    policy_path = tmp_path / "policy.yaml"
 
     class _SimulationAppContext:
         def __init__(self, _args_cli):
@@ -225,8 +259,9 @@ def test_experiment_runner_loads_typed_experiment_after_simulation_starts(monkey
             nonlocal simulation_is_running
             simulation_is_running = False
 
-    def load_experiment_after_startup(*_args, **_kwargs):
+    def load_experiment_after_startup(*_args, **kwargs):
         assert simulation_is_running
+        assert kwargs["policy_config_path"] == policy_path
         return _experiment_cfg()
 
     monkeypatch.setattr(experiment_runner, "SimulationAppContext", _SimulationAppContext)
@@ -238,6 +273,8 @@ def test_experiment_runner_loads_typed_experiment_after_simulation_starts(monkey
             "experiment_runner.py",
             "--experiment_config",
             str(GETTING_STARTED_YAML_PATH),
+            "--policy_config",
+            str(policy_path),
             "--list_variations",
         ],
     )
@@ -364,6 +401,35 @@ def test_legacy_json_experiment_rejects_hydra_overrides():
             device="cuda:0",
             overrides=["runs.baseline.rollout_limit.num_steps=2"],
         )
+
+
+def test_legacy_json_experiment_rejects_policy_replacement():
+    with pytest.raises(AssertionError, match="--policy_config is supported only for typed YAML"):
+        load_arena_experiment_from_config_file(
+            GETTING_STARTED_JSON_PATH,
+            device="cuda:0",
+            policy_config_path="policy.yaml",
+        )
+
+
+def test_experiment_runner_rejects_legacy_policy_replacement_before_starting_simulation(monkeypatch):
+    def unexpected_simulation_start(_args_cli):
+        pytest.fail("Legacy policy replacement must be rejected before starting SimulationApp")
+
+    monkeypatch.setattr(experiment_runner, "SimulationAppContext", unexpected_simulation_start)
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "experiment_runner.py",
+            "--experiment_config",
+            str(GETTING_STARTED_JSON_PATH),
+            "--policy_config",
+            "policy.yaml",
+        ],
+    )
+
+    with pytest.raises(AssertionError, match="--policy_config is supported only for typed YAML"):
+        experiment_runner.main()
 
 
 def test_experiment_runner_rejects_native_hydra_overrides_for_legacy_json(monkeypatch):

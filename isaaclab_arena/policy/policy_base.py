@@ -10,6 +10,7 @@ import torch
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from gymnasium.spaces.dict import Dict as GymSpacesDict
+from pathlib import Path
 from typing import Generic, TypeVar
 
 
@@ -49,6 +50,10 @@ class PolicyBase(ABC, Generic[PolicyCfgT]):
 
     def close(self) -> None:
         """Release resources held by the policy."""
+        pass
+
+    def set_output_directory(self, output_directory: Path) -> None:
+        """Set the directory for artifacts produced by this policy."""
         pass
 
     def set_task_description(self, task_description: str | None) -> str:

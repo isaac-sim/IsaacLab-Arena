@@ -3,6 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import argparse
 import json
 import os
 import subprocess
@@ -10,7 +11,10 @@ import subprocess
 import pytest
 
 from isaaclab_arena.evaluation.arena_experiment_result import ARENA_EXPERIMENT_RESULT_FILENAME
-from isaaclab_arena.evaluation.experiment_runner_cli import parse_experiment_runner_args
+from isaaclab_arena.evaluation.experiment_runner_cli import (
+    add_experiment_runner_arguments,
+    parse_experiment_runner_args,
+)
 from isaaclab_arena.tests.utils.constants import TestConstants
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 from isaaclab_arena.tests.utils.subprocess import run_subprocess
@@ -30,10 +34,31 @@ def test_experiment_runner_parses_native_hydra_overrides():
     ])
 
     assert args_cli.experiment_config == "experiment.yaml"
+    assert args_cli.policy_config is None
     assert experiment_overrides == [
         "runs.baseline.rollout_limit.num_steps=2",
         "runs.baseline.environment.enable_cameras=true",
         "runs.baseline.environment_builder.record_trajectories=true",
+    ]
+
+
+def test_experiment_runner_parses_policy_file_and_its_overrides(tmp_path):
+    policy_path = tmp_path / "policy.yaml"
+    parser = argparse.ArgumentParser()
+    add_experiment_runner_arguments(parser)
+    args_cli, experiment_overrides = parser.parse_known_args([
+        "--experiment_config",
+        "experiment.yaml",
+        "--policy_config",
+        str(policy_path),
+        "shared.policy.action_chunk_length=5",
+        "runs.baseline.policy.action_chunk_length=7",
+    ])
+
+    assert args_cli.policy_config == policy_path
+    assert experiment_overrides == [
+        "shared.policy.action_chunk_length=5",
+        "runs.baseline.policy.action_chunk_length=7",
     ]
 
 

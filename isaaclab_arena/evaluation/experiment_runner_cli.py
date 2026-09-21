@@ -31,6 +31,15 @@ def add_experiment_runner_arguments(parser: argparse.ArgumentParser) -> None:
         ),
     )
     parser.add_argument(
+        "--policy_config",
+        type=Path,
+        default=None,
+        help=(
+            "Path to a standalone YAML policy mapping. Replace the complete policy for every Run, including "
+            "per-Run policies, before shared and per-Run overrides. Supported only for typed YAML Experiments."
+        ),
+    )
+    parser.add_argument(
         "--record_viewport_video",
         action="store_true",
         default=False,

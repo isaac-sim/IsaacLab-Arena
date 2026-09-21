@@ -485,7 +485,7 @@ _DROID_DEFAULT_GRIPPER_ACTION_CFG = BinaryJointPositionZeroToOneActionCfg(
 
 @configclass
 class DroidDifferentialIKActionsCfg:
-    """Action specifications for the MDP."""
+    """Relative pose control of the Robotiq base frame with binary gripper actions."""
 
     arm_action: ActionTermCfg = DifferentialInverseKinematicsActionCfg(
         asset_name="robot",

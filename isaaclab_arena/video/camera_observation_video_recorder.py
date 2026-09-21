@@ -7,8 +7,8 @@
 
 Each frame is streamed straight to a per-(env, camera) ffmpeg encoder as it arrives, and
 the file is finalised when that environment resets (terminated or truncated), so each
-output file corresponds to exactly one complete episode. Partial episodes cut off by
-``num_steps`` are deleted on ``close()``.
+output file corresponds to exactly one complete episode. Partial episodes are deleted
+on explicit ``reset()`` or ``close()``.
 
 Output filename: ``<name_prefix>-env<N>-<camera_name>-episode-<E>.mp4``
 
@@ -109,6 +109,9 @@ class CameraObsVideoRecorder(gym.Wrapper):
     independently; its encoder is finalised when that env resets (terminated
     or truncated), producing one file per completed episode:
     ``<name_prefix>-env<N>-<camera_name>-episode-<E>.mp4``.
+
+    Explicit resets discard unfinished recordings only for the reset environments.
+    Closing the wrapper discards all unfinished recordings.
     """
 
     def __init__(
@@ -128,19 +131,27 @@ class CameraObsVideoRecorder(gym.Wrapper):
         # episode, or None while no episode is in progress.
         self.writers: dict[str, list[EpisodeVideoWriter | None]] = {}
 
+    def reset(self, **kwargs):
+        """Discard interrupted recordings for ``env_ids`` before forwarding the reset."""
+        env_ids = kwargs.get("env_ids")
+        if env_ids is not None:
+            env_ids = [int(env_id) for env_id in env_ids]
+        self._discard_partial_episodes(env_ids)
+        return self.env.reset(**kwargs)
+
     def step(self, action):
         result = self.env.step(action)
-        obs, _, terminated, truncated, _ = result
+        obs, _, terminated, truncated, info = result
         cam_obs = obs.get(CAMERA_OBS_GROUP_KEY, {}) if isinstance(obs, dict) else {}
+        final_obs = info.get("final_obs", {}) if isinstance(info, dict) else {}
+        final_cam_obs = final_obs.get(CAMERA_OBS_GROUP_KEY, {}) if isinstance(final_obs, dict) else {}
 
         if cam_obs:
             n_envs = next(iter(cam_obs.values())).shape[0]
 
-            # Determine done envs before appending frames. Isaac Lab auto-resets on
-            # termination, so the obs returned for a done env is the post-reset first
-            # frame of the new episode — discard it so it doesn't contaminate the
-            # current episode. This means each recorded episode is missing its first
-            # frame, which is acceptable given episodes are typically hundreds of steps.
+            # Isaac Lab returns post-reset observations for done environments. Use
+            # their pre-reset final_obs when available; otherwise omit the terminal
+            # frame so the next episode cannot contaminate the completed video.
             done_envs = (terminated | truncated).nonzero().flatten().tolist()
             done_set = set(done_envs)
 
@@ -149,8 +160,17 @@ class CameraObsVideoRecorder(gym.Wrapper):
                     if camera_name not in self.writers:
                         self.writers[camera_name] = [None] * n_envs
                     for env_idx in range(n_envs):
-                        if env_idx not in done_set:
-                            self._write_frame(camera_name, env_idx, _to_uint8(frames[env_idx]))
+                        episode_index = self.unwrapped.get_episode_index(env_idx)
+                        if env_idx in done_set:
+                            final_frames = final_cam_obs.get(camera_name)
+                            if final_frames is None:
+                                continue
+                            frame = final_frames[env_idx]
+                            # The counter has already advanced, including on a first-step termination.
+                            episode_index -= 1
+                        else:
+                            frame = frames[env_idx]
+                        self._write_frame(camera_name, env_idx, _to_uint8(frame), episode_index)
 
             if done_envs:
                 # The encoder shutdown that finalises one episode's mp4 files.
@@ -159,7 +179,7 @@ class CameraObsVideoRecorder(gym.Wrapper):
 
         return result
 
-    def _write_frame(self, camera_name: str, env_idx: int, frame: np.ndarray) -> None:
+    def _write_frame(self, camera_name: str, env_idx: int, frame: np.ndarray, episode_index: int) -> None:
         """Append one frame to this (env, camera)'s episode video, opening the encoder if needed."""
         assert frame.ndim == 3 and frame.shape[2] == 3, (
             f"Camera '{camera_name}' produced a frame of shape {frame.shape}; expected (H, W, 3) RGB."
@@ -167,12 +187,9 @@ class CameraObsVideoRecorder(gym.Wrapper):
         )
         episode_writer = self.writers[camera_name][env_idx]
         if episode_writer is None:
-            # The env's counter still names the episode now in progress; it is advanced on reset,
-            # inside env.step.
-            episode_num = self.unwrapped.get_episode_index(env_idx)
             path = os.path.join(
                 self.video_folder,
-                format_episode_video_filename(self.name_prefix, env_idx, camera_name, episode_num),
+                format_episode_video_filename(self.name_prefix, env_idx, camera_name, episode_index),
             )
             height, width, _ = frame.shape
             # We use one thread because frames arrive slower than a single thread is able to encode.
@@ -193,15 +210,19 @@ class CameraObsVideoRecorder(gym.Wrapper):
                 episode_writer.writer.close()
                 env_writers[env_idx] = None
 
-    def close(self) -> None:
-        # Partial episodes (cut off by num_steps rather than a real reset) are discarded: the
-        # encoder is shut down and the incomplete file it was writing is removed.
+    def _discard_partial_episodes(self, env_ids: list[int] | None = None) -> None:
+        """Close and remove unfinished recordings for the selected environments."""
         for env_writers in self.writers.values():
-            for env_idx, episode_writer in enumerate(env_writers):
+            reset_env_ids = range(len(env_writers)) if env_ids is None else env_ids
+            for env_idx in reset_env_ids:
+                episode_writer = env_writers[env_idx]
                 if episode_writer is None:
                     continue
                 episode_writer.writer.close()
                 if os.path.exists(episode_writer.path):
                     os.remove(episode_writer.path)
                 env_writers[env_idx] = None
+
+    def close(self) -> None:
+        self._discard_partial_episodes()
         self.env.close()

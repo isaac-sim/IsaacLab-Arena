@@ -44,6 +44,7 @@ def load_arena_experiment_from_config_file(
     *,
     device: str,
     overrides: list[str] | None = None,
+    policy_config_path: str | Path | None = None,
 ) -> ArenaExperimentCfg:
     """Load a JSON or YAML Arena Experiment and apply its process device.
 
@@ -51,14 +52,18 @@ def load_arena_experiment_from_config_file(
         experiment_config_path: Path to a legacy JSON or typed YAML Experiment.
         device: Process-wide simulation device applied to every Run.
         overrides: Hydra overrides applied to typed YAML Experiments.
+        policy_config_path: YAML policy mapping that replaces every typed Run's policy before overrides.
 
     Returns:
         The loaded, typed Experiment configuration with the process device applied.
     """
+    path = validate_experiment_config_path(experiment_config_path)
+    assert (
+        policy_config_path is None or path.suffix.lower() != ".json"
+    ), "--policy_config is supported only for typed YAML Experiments"
+
     from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
     from isaaclab_arena.hydra.typed_experiment_loader import load_arena_experiment_from_yaml
-
-    path = validate_experiment_config_path(experiment_config_path)
 
     if path.suffix.lower() == ".json":
         assert not overrides, "Experiment overrides are supported only for typed YAML Experiments"
@@ -72,6 +77,7 @@ def load_arena_experiment_from_config_file(
         environment_cfg_types=_registered_environment_cfg_types(),
         policy_cfg_type_resolver=_resolve_policy_cfg_type_from_name_or_class_path,
         overrides=overrides,
+        policy_config_path=policy_config_path,
     )
 
     # TODO(cvolk, 2026-07-09): [typed-config-migration] Make device a process-level

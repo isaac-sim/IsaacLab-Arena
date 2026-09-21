@@ -122,6 +122,7 @@ def build_and_run(
             env.unwrapped.episode_recorder.set_output_path(results_path)
 
             policy = _build_policy_from_cfg(rebuild_cfg)
+            policy.set_output_directory(Path(output_dir) / "policy" / f"rebuild{rebuild_index}")
             num_steps, num_episodes = _resolve_rollout_limit(
                 cfg,
                 policy,
