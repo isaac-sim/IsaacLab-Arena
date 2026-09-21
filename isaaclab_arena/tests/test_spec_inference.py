@@ -62,6 +62,32 @@ def test_infer_sets_response_format_to_json_schema(spec_inference):
     assert kwargs["response_format"]["json_schema"]["schema"] is inference._schema
 
 
+def test_placer_params_schema_is_projected_from_dataclasses(spec_inference):
+    inference, _ = spec_inference
+    placer_schema = next(
+        option for option in inference._schema["properties"]["placer_params"]["anyOf"] if option.get("type") == "object"
+    )
+
+    assert placer_schema["additionalProperties"] is False
+    assert set(placer_schema["required"]) == set(placer_schema["properties"])
+    assert "random_yaw_init" in placer_schema["properties"]
+    assert "enabled_checks" in placer_schema["properties"]
+
+    solver_schema = next(
+        option for option in placer_schema["properties"]["solver_params"]["anyOf"] if option.get("type") == "object"
+    )
+    assert "clearance_m" in solver_schema["properties"]
+    assert "strategies" not in solver_schema["properties"]
+
+    reachability_schema = next(
+        option
+        for option in placer_schema["properties"]["reachability_config"]["anyOf"]
+        if option.get("type") == "object"
+    )
+    assert "grasp_z_offset_m" in reachability_schema["properties"]
+    assert "embodiment" not in reachability_schema["properties"]
+
+
 def test_infer_user_message_contains_catalog_and_prompt(spec_inference):
     inference, client = spec_inference
     client.chat.completions.create.return_value = chat_response(content=json.dumps(minimal_spec_dict()))

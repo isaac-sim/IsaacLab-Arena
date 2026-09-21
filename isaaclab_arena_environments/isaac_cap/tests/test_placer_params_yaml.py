@@ -11,7 +11,6 @@ import pytest
 
 from isaaclab_arena.environment_spec.arena_env_graph_conversion_utils import build_checks_for_placer_params
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
-from isaaclab_arena.environment_spec.arena_env_graph_types import PlacementValidatorSpec
 from isaaclab_arena.environment_spec.arena_env_graph_yaml_loader import load_env_graph_spec_dict
 
 _CAP_ROOT = Path(__file__).parents[1]
@@ -20,11 +19,7 @@ pytestmark = pytest.mark.isaac_cap
 
 
 def _build_placer_params(data: dict):
-    validators = data.get("placement_validators")
-    spec = ArenaEnvGraphSpec.model_construct(
-        placer_params=data.get("placer_params"),
-        placement_validators=PlacementValidatorSpec.model_validate(validators) if validators is not None else None,
-    )
+    spec = ArenaEnvGraphSpec.model_construct(placer_params=data.get("placer_params"))
     return build_checks_for_placer_params(spec)
 
 
@@ -37,13 +32,13 @@ def test_gear_mesh_placer_params(yaml_name: str, layout_family: bool):
 
     assert data["placer_params"] == {
         "allow_best_loss_fallbacks": False,
-        **({"min_unique_layouts_per_env": 1} if layout_family else {}),
+        **({"min_unique_layouts_per_env": 1, "required_checks": []} if layout_family else {}),
         "solver_params": {"clearance_m": 0.0},
     }
     if layout_family:
-        assert data["placement_validators"]["required_checks"] == []
+        assert data["placer_params"]["required_checks"] == []
     else:
-        assert "placement_validators" not in data
+        assert "required_checks" not in data["placer_params"]
     params = _build_placer_params(data)
     assert not params.allow_best_loss_fallbacks
     assert params.solver_params.clearance_m == 0.0

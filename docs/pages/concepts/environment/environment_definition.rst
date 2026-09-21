@@ -275,9 +275,10 @@ second schema:
      solver_params:
        clearance_m: 0.0
 
-``placement_validators`` separately selects required checks and debug output.
-Runtime/code-bearing values such as ``reachability_config.embodiment`` and
-``solver_params.strategies`` are rejected. Explicit builder/CLI
+The same block selects ``enabled_checks``, ``required_checks``, and placement
+debug output. Runtime/code-bearing values such as
+``reachability_config.embodiment`` and ``solver_params.strategies`` are
+rejected. Explicit builder/CLI
 ``placement_seed`` and ``resolve_on_reset`` values take precedence over YAML.
 
 **Duplicate instances need unique names.** YAML sets ``instance_name`` to the node

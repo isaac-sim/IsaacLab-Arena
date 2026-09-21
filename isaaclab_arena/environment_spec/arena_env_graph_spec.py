@@ -17,7 +17,6 @@ from isaaclab_arena.environment_spec.arena_env_graph_types import (
     CompositeTaskSpec,
     ObjectReferenceSpec,
     ObjectSetSpec,
-    PlacementValidatorSpec,
     SpatialRelationSpec,
     TaskSpec,
 )
@@ -51,10 +50,6 @@ class ArenaEnvGraphSpec(BaseModel):
         default_factory=list, description="Spatial layout relations across all assets."
     )
     task: CompositeTaskSpec = Field(description="Root task the robot performs to manipulate the objects.")
-    placement_validators: PlacementValidatorSpec | None = Field(
-        default=None,
-        description="Per-env placement validators; none runs all build-time checks.",
-    )
     placer_params: dict[str, Any] | None = Field(
         default=None,
         description="Validated nested overrides for ObjectPlacerParams and its data-only child configs.",
@@ -79,6 +74,13 @@ class ArenaEnvGraphSpec(BaseModel):
     def _none_if_empty_list(cls, value: Any) -> Any:
         if value == []:
             return None
+        return value
+
+    @model_validator(mode="before")
+    @classmethod
+    def _reject_legacy_placement_validators(cls, value: Any) -> Any:
+        if isinstance(value, dict) and "placement_validators" in value:
+            raise ValueError("placement_validators was removed; put validator fields under placer_params")
         return value
 
     @model_validator(mode="after")

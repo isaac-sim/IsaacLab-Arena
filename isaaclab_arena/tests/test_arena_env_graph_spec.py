@@ -126,9 +126,9 @@ def test_graph_spec_round_trips_and_builds_placer_params():
         "random_yaw_init": True,
         "allow_best_loss_fallbacks": False,
         "max_placement_attempts": 30,
+        "required_checks": [],
         "solver_params": {"clearance_m": 0.015},
     }
-    data["placement_validators"] = {"required_checks": []}
 
     spec = ArenaEnvGraphSpec.from_dict(data)
     restored = ArenaEnvGraphSpec.from_dict(spec.to_dict())
@@ -146,6 +146,29 @@ def test_graph_spec_round_trips_and_builds_placer_params():
     assert params.required_checks == set()
 
 
+def test_graph_spec_rejects_removed_placement_validators_field():
+    data = _minimal_env_graph_data()
+    data["placement_validators"] = {"required_checks": []}
+
+    with pytest.raises(ValidationError, match="put validator fields under placer_params"):
+        ArenaEnvGraphSpec.from_dict(data)
+
+
+def test_placer_params_null_fields_are_treated_as_omitted():
+    from isaaclab_arena.environment_spec.arena_env_graph_conversion_utils import build_checks_for_placer_params
+
+    data = _minimal_env_graph_data()
+    data["placer_params"] = {
+        "random_yaw_init": None,
+        "solver_params": {"clearance_m": None},
+    }
+
+    params = build_checks_for_placer_params(ArenaEnvGraphSpec.from_dict(data))
+
+    assert not params.random_yaw_init
+    assert params.solver_params.clearance_m == pytest.approx(0.01)
+
+
 @pytest.mark.parametrize(
     ("placer_params", "error_match"),
     [
@@ -154,6 +177,10 @@ def test_graph_spec_round_trips_and_builds_placer_params():
         ({"solver_params": {"clearance_m": -0.1}}, "clearance_m must be >= 0"),
         ({"solver_params": {"strategies": {}}}, "runtime-owned"),
         ({"reachability_config": {"embodiment": "robot"}}, "runtime-owned"),
+        (
+            {"enabled_checks": ["no_overlap"], "required_checks": ["on_relation"]},
+            "required_checks must be a subset",
+        ),
         ({"_target_": "builtins.dict"}, "Unsupported Hydra control key"),
     ],
 )

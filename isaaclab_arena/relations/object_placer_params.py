@@ -80,3 +80,6 @@ class ObjectPlacerParams:
         assert (
             math.isfinite(self.on_relation_z_tolerance_m) and self.on_relation_z_tolerance_m >= 0
         ), "on_relation_z_tolerance_m must be finite and non-negative"
+        if self.enabled_checks is not None and self.required_checks is not None:
+            extra = self.required_checks - self.enabled_checks
+            assert not extra, f"required_checks must be a subset of enabled_checks; unexpected: {sorted(extra)}"

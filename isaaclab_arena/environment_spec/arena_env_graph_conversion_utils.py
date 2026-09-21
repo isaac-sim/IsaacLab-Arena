@@ -81,25 +81,14 @@ def build_arena_env_from_graph_spec(graph_spec: ArenaEnvGraphSpec, enable_camera
 
 
 def build_checks_for_placer_params(graph_spec: ArenaEnvGraphSpec) -> ObjectPlacerParams:
-    """Build placer params from graph overrides and placement validators."""
+    """Build placer params from graph overrides."""
     from isaaclab_arena.environment_spec.env_cfg_override import apply_placer_params_override
-
-    placement_validators = graph_spec.placement_validators
-    enabled_checks = placement_validators.enabled_checks if placement_validators is not None else None
-    required_checks = placement_validators.required_checks if placement_validators is not None else None
 
     placer_params = ObjectPlacerParams(
         solver_params=RelationSolverParams(verbose=False, save_position_history=False),
     )
     if graph_spec.placer_params is not None:
         placer_params = apply_placer_params_override(placer_params, graph_spec.placer_params)
-
-    placer_params.enabled_checks = set(enabled_checks) if enabled_checks is not None else None
-    placer_params.required_checks = set(required_checks) if required_checks is not None else None
-    placer_params.debug_visualize = placement_validators is not None and placement_validators.debug_visualize
-    placer_params.debug_visualize_output_path = (
-        placement_validators.debug_visualize_output_path if placement_validators is not None else None
-    )
     return placer_params
 
 

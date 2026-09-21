@@ -7,10 +7,9 @@ env_name: gear_easy_pair
 placer_params:
   allow_best_loss_fallbacks: false
   min_unique_layouts_per_env: 1
+  required_checks: []
   solver_params:
     clearance_m: 0.0
-placement_validators:
-  required_checks: []
 embodiment:
   id: robot
   registry_name: industrial_fr3_robotiq_2f85_v2

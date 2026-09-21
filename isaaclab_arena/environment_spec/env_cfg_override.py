@@ -30,10 +30,6 @@ _ALLOWED_TARGET_MODULE_PREFIXES = (
 )
 _HYDRA_TARGET_KEY = "_target_"
 _PLACER_FORBIDDEN_PATHS = (
-    ("enabled_checks",),
-    ("required_checks",),
-    ("debug_visualize",),
-    ("debug_visualize_output_path",),
     ("reachability_config", "embodiment"),
     ("solver_params", "strategies"),
 )
@@ -102,6 +98,7 @@ def apply_placer_params_override(
     override: dict[str, Any],
 ) -> ObjectPlacerParams:
     """Return placer params with a data-only YAML override applied."""
+    override = _drop_none_override_values(override)
     for field_path in _PLACER_FORBIDDEN_PATHS:
         value: Any = override
         for key in field_path:
@@ -110,7 +107,7 @@ def apply_placer_params_override(
             value = value[key]
         else:
             dotted_path = ".".join(("placer_params", *field_path))
-            raise AssertionError(f"'{dotted_path}' is runtime-owned; configure it through placement_validators/code")
+            raise AssertionError(f"'{dotted_path}' is runtime-owned and cannot be configured through YAML")
 
     candidate = copy.deepcopy(placer_params)
     apply_config_override(
@@ -123,6 +120,13 @@ def apply_placer_params_override(
     candidate.__post_init__()
     candidate.solver_params.__post_init__()
     return candidate
+
+
+def _drop_none_override_values(value: Any) -> Any:
+    """Drop null mapping entries used as omitted fields in strict generated schemas."""
+    if not isinstance(value, dict):
+        return value
+    return {key: _drop_none_override_values(item) for key, item in value.items() if item is not None}
 
 
 def _validate_override_syntax(value: Any, *, path: str, allow_hydra_targets: bool = True) -> None:
@@ -304,7 +308,12 @@ def _extract_materialized_values(
             continue
         value = values[key]
         child_obj = target_obj[key] if isinstance(target_obj, dict) else getattr(target_obj, key)
-        if child_obj is None and value is not None and not isinstance(target_obj, dict):
+        annotation = None if isinstance(target_obj, dict) else _field_annotation(type(target_obj), key)
+        coerced_value = _coerce_collection_value(annotation, value) if annotation is not None else value
+        if coerced_value is not value:
+            pending_assignments.append((target_obj, key, coerced_value))
+            values.pop(key)
+        elif child_obj is None and value is not None and not isinstance(target_obj, dict):
             annotation = _field_annotation(type(target_obj), key)
             if not _annotation_accepts_value(annotation, value):
                 raise ValueError(
@@ -417,6 +426,20 @@ def _annotation_accepts_value(annotation: Any, value: Any) -> bool:
     if origin is not None:
         return isinstance(value, origin)
     return annotation is Any or (isinstance(annotation, type) and isinstance(value, annotation))
+
+
+def _coerce_collection_value(annotation: Any, value: Any) -> Any:
+    """Coerce YAML collection values to their annotated dataclass collection type."""
+    members = _union_members(annotation)
+    if members is not None:
+        for member in members:
+            coerced = _coerce_collection_value(member, value)
+            if coerced is not value:
+                return coerced
+        return value
+    if get_origin(annotation) is set and isinstance(value, (list, tuple, set)):
+        return set(value)
+    return value
 
 
 def _annotation_contains_dataclass(annotation: Any) -> bool:
