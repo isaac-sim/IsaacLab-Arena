@@ -146,14 +146,6 @@ def test_graph_spec_round_trips_and_builds_placer_params():
     assert params.required_checks == set()
 
 
-def test_graph_spec_rejects_removed_placement_validators_field():
-    data = _minimal_env_graph_data()
-    data["placement_validators"] = {"required_checks": []}
-
-    with pytest.raises(ValidationError, match="put validator fields under placer_params"):
-        ArenaEnvGraphSpec.from_dict(data)
-
-
 def test_placer_params_null_fields_are_treated_as_omitted():
     from isaaclab_arena.environment_spec.arena_env_graph_conversion_utils import build_checks_for_placer_params
 

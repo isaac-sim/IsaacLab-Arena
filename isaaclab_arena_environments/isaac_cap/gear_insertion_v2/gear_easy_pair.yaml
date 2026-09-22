@@ -7,8 +7,10 @@ env_name: gear_easy_pair
 placer_params:
   allow_best_loss_fallbacks: false
   min_unique_layouts_per_env: 1
+  # Source generator enforces tip clearance; box validators reject valid three-gear rows.
   required_checks: []
   solver_params:
+    # Gear rests on a thin mat; keep zero clearance so the solver does not lift the mesh.
     clearance_m: 0.0
 embodiment:
   id: robot

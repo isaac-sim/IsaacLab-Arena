@@ -11,8 +11,6 @@ placer_params:
   solver_params:
     clearance_m: 0.0
     lr: 0.001
-    verbose: true
-    save_position_history: true
 env_cfg_override:
   decimation: 1
   sim:
