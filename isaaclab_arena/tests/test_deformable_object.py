@@ -365,7 +365,8 @@ def _test_deformable_placement_is_not_immediate_task_success(simulation_app) -> 
         assert task.contact_sensor_name is None
         assert len(env.unwrapped.scene.sensors) == 0
         success_objective = task.get_termination_cfg().success[0]
-        placement_predicate = success_objective.predicate_sequence[-1]
+        placement_requirement = success_objective.predicate_sequence[-1]
+        placement_predicate = placement_requirement.predicate
         placed = placement_predicate(env.unwrapped)
         torch.testing.assert_close(placed, torch.ones(1, dtype=torch.bool, device=env.unwrapped.device))
 

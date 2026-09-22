@@ -11,7 +11,9 @@ from collections.abc import Callable
 
 from isaaclab.managers import TerminationTermCfg
 
-Predicate = Callable | TerminationTermCfg
+from isaaclab_arena.tasks.predicates.temporal import TrueForConsecutiveStepsCfg, _TrueForConsecutiveSteps
+
+Predicate = Callable | TerminationTermCfg | TrueForConsecutiveStepsCfg
 PredicateSequence = list[Predicate] | list[tuple[Predicate, float]]
 PredicateSequences = dict[str, PredicateSequence]
 
@@ -19,9 +21,11 @@ PredicateSequences = dict[str, PredicateSequence]
 DEFAULT_GROUP_NAME = "default_group"
 
 
-def _predicate_repr(pred: Predicate) -> str:
+def _predicate_repr(pred: Predicate | _TrueForConsecutiveSteps) -> str:
     """Generate human-readable string representation for a predicate."""
 
+    if isinstance(pred, (TrueForConsecutiveStepsCfg, _TrueForConsecutiveSteps)):
+        return f"TrueForConsecutiveStepsCfg({_predicate_repr(pred.predicate)}, required_steps={pred.required_steps})"
     if isinstance(pred, TerminationTermCfg):
         pred = functools.partial(pred.func, **pred.params)
     if isinstance(pred, functools.partial):
@@ -60,8 +64,8 @@ def _format_predicate_sequences(
 
 
 def _is_predicate(value) -> bool:
-    """Return whether a value is a callable or a managed predicate config."""
-    return callable(value) or isinstance(value, TerminationTermCfg)
+    """Return whether a value is a supported predicate or consecutive-step requirement."""
+    return callable(value) or isinstance(value, (TerminationTermCfg, TrueForConsecutiveStepsCfg))
 
 
 def _format_predicate_sequence(sequence: PredicateSequence, sequence_name: str) -> list[tuple[Predicate, float]]:
@@ -87,9 +91,10 @@ def _format_predicate_sequence(sequence: PredicateSequence, sequence_name: str) 
                 isinstance(item, tuple) and len(item) == 2
             ), f"Sequence '{sequence_name}' index {predicate_index}: expected (callable, score) tuple, got {item!r}"
             predicate, score = item
-            assert _is_predicate(
-                predicate
-            ), f"Sequence '{sequence_name}' index {predicate_index}: expected a callable or TerminationTermCfg"
+            assert _is_predicate(predicate), (
+                f"Sequence '{sequence_name}' index {predicate_index}: expected a callable, TerminationTermCfg, or"
+                " TrueForConsecutiveStepsCfg"
+            )
             assert isinstance(
                 score, (int, float)
             ), f"Sequence '{sequence_name}' index {predicate_index}: score must be a number"
@@ -98,9 +103,10 @@ def _format_predicate_sequence(sequence: PredicateSequence, sequence_name: str) 
 
     chain = []
     for predicate_index, predicate in enumerate(sequence):
-        assert _is_predicate(
-            predicate
-        ), f"Sequence '{sequence_name}' index {predicate_index}: expected a callable or TerminationTermCfg"
+        assert _is_predicate(predicate), (
+            f"Sequence '{sequence_name}' index {predicate_index}: expected a callable, TerminationTermCfg, or"
+            " TrueForConsecutiveStepsCfg"
+        )
         chain.append((predicate, 1.0))
     return chain
 

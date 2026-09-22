@@ -160,7 +160,7 @@ def objects_settled(
     ``get_object_initial_rest_state``.
     """
 
-    settled = _objects_below_velocity_thresholds(
+    settled = objects_below_velocity_thresholds(
         env,
         object_names=object_names,
         lin_vel_threshold=lin_vel_threshold,
@@ -175,13 +175,16 @@ def objects_settled(
     return settled
 
 
-def _objects_below_velocity_thresholds(
+def objects_below_velocity_thresholds(
     env: IsaacLabArenaManagerBasedRLEnv,
     object_names: list[str],
-    lin_vel_threshold: float,
-    ang_vel_threshold: float,
+    lin_vel_threshold: float = DEFAULT_LINEAR_VELOCITY_THRESHOLD,
+    ang_vel_threshold: float = DEFAULT_ANGULAR_VELOCITY_THRESHOLD,
 ) -> torch.Tensor:
-    """Return where every object is below both velocity thresholds."""
+    """Return whether all named objects meet their speed limits in each environment.
+
+    This check does not record resting positions or count consecutive steps.
+    """
 
     return compute_objects_settled_mask(
         env.arena_world,
@@ -226,7 +229,7 @@ class ObjectsSettledForConsecutiveSteps(ConsecutivePredicate):
         # NOTE: Isaac Lab requires every cfg.params key in this signature; construction consumes this value.
         del consecutive_steps
 
-        below_thresholds = _objects_below_velocity_thresholds(
+        below_thresholds = objects_below_velocity_thresholds(
             env,
             object_names=object_names,
             lin_vel_threshold=lin_vel_threshold,

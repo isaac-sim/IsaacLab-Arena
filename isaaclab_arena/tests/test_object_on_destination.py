@@ -285,7 +285,9 @@ def _check_pick_and_place_deformable_skips_contact_sensor(pick_and_place_task_ty
     assert deformable_task.contact_sensor_name is None
     assert deformable_task.contact_sensor_cfg is None
     assert deformable_task.get_scene_cfg() is None
-    deformable_placement_predicate = deformable_task.get_termination_cfg().success[0].predicate_sequence[-1]
+    deformable_placement_requirement = deformable_task.get_termination_cfg().success[0].predicate_sequence[-1]
+    assert deformable_placement_requirement.required_steps == 1
+    deformable_placement_predicate = deformable_placement_requirement.predicate
     assert deformable_placement_predicate.func is object_on_destination
     assert deformable_placement_predicate.keywords["contact_sensor_cfg"] is None
 
@@ -299,7 +301,9 @@ def _check_pick_and_place_deformable_skips_contact_sensor(pick_and_place_task_ty
     rigid_task = pick_and_place_task_type(rigid_object, rigid_object, background)
     assert rigid_task.contact_sensor_name == "contact_sensor_rigid"
     assert rigid_task.contact_sensor_cfg.name == rigid_task.contact_sensor_name
-    rigid_placement_predicate = rigid_task.get_termination_cfg().success[0].predicate_sequence[-1]
+    rigid_placement_requirement = rigid_task.get_termination_cfg().success[0].predicate_sequence[-1]
+    assert rigid_placement_requirement.required_steps == 1
+    rigid_placement_predicate = rigid_placement_requirement.predicate
     assert rigid_placement_predicate.func is object_on_destination
     assert rigid_placement_predicate.keywords["contact_sensor_cfg"].name == rigid_task.contact_sensor_name
 
