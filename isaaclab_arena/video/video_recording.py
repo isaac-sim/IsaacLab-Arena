@@ -18,7 +18,7 @@ class VideoRecordingCfg:
     """Record the kit viewport (third-person scene view) via ``env.render()``."""
 
     record_camera_video: bool = False
-    """Record the embodiment-mounted cameras from ``obs['camera_obs']``."""
+    """Record RGB embodiment-mounted cameras from ``obs['camera_obs']``."""
 
     video_base_dir: str = "videos"
     """Base directory the mp4s are written to (a reverse-dated run subdirectory is added per run)."""

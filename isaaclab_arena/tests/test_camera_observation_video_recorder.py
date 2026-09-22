@@ -11,6 +11,7 @@ nothing and only counts the frames it is handed, so tests run fast and on CPU-on
 
 import contextlib
 import gymnasium as gym
+import numpy as np
 import os
 import shutil
 import torch
@@ -20,7 +21,11 @@ import pytest
 
 from isaaclab_arena.utils.env_step_timer import EnvStepTimerWrapper
 from isaaclab_arena.utils.timer import Timer, get_timer_stats, reset_timer_stats
-from isaaclab_arena.video.camera_observation_video_recorder import CAMERA_OBS_GROUP_KEY, CameraObsVideoRecorder
+from isaaclab_arena.video.camera_observation_video_recorder import (
+    CAMERA_OBS_GROUP_KEY,
+    CameraObservationVideoAdapter,
+    CameraObsVideoRecorder,
+)
 from isaaclab_arena.video.video_recording import VideoRecordingCfg, wrap_env_for_video
 
 # ---------------------------------------------------------------------------
@@ -28,7 +33,7 @@ from isaaclab_arena.video.video_recording import VideoRecordingCfg, wrap_env_for
 # ---------------------------------------------------------------------------
 
 H, W, C = 4, 4, 3
-CAMERAS = ["front", "wrist"]
+CAMERAS = ["front_rgb", "wrist_rgb"]
 
 
 class _StubEnv(gym.Env):
@@ -154,8 +159,8 @@ def test_frames_are_streamed_not_buffered(tmp_path):
         assert all(writer.frames_written == 3 for writer in writers)
 
 
-def test_non_rgb_camera_observations_are_not_recorded(tmp_path):
-    """Depth and other non-RGB policy observations do not become video streams."""
+def test_non_rgb_camera_observations_are_skipped_with_one_warning_each(tmp_path):
+    """Non-RGB policy observations are skipped semantically and warn only once."""
     env = _make_env()
     terminated = torch.zeros(1, dtype=torch.bool)
     truncated = torch.zeros(1, dtype=torch.bool)
@@ -164,6 +169,7 @@ def test_non_rgb_camera_observations_are_not_recorded(tmp_path):
             CAMERA_OBS_GROUP_KEY: {
                 "exterior_rgb": torch.zeros(1, H, W, 3, dtype=torch.uint8),
                 "exterior_distance_to_image_plane": torch.zeros(1, H, W, 1),
+                "exterior_normals": torch.zeros(1, H, W, 3),
             }
         },
         None,
@@ -174,10 +180,70 @@ def test_non_rgb_camera_observations_are_not_recorded(tmp_path):
 
     with _patched_writers() as writers:
         recorder = CameraObsVideoRecorder(env, video_folder=str(tmp_path))
-        recorder.step(None)
+        with pytest.warns(UserWarning) as warning_records:
+            recorder.step(None)
+            recorder.step(None)
 
     assert len(writers) == 1
     assert writers[0].filename.endswith("-exterior_rgb-episode-0.mp4")
+    assert len(warning_records) == 2
+    warning_messages = [str(warning.message) for warning in warning_records]
+    assert any("exterior_distance_to_image_plane" in message for message in warning_messages)
+    assert any("exterior_normals" in message for message in warning_messages)
+
+
+class _DepthVideoAdapter(CameraObservationVideoAdapter):
+    """Simple test adapter that expands one depth channel into three video channels."""
+
+    def convert(self, frame: torch.Tensor | np.ndarray) -> np.ndarray:
+        """Convert a depth test frame to RGB-shaped uint8."""
+        assert isinstance(frame, torch.Tensor)
+        return frame.expand(H, W, 3).to(torch.uint8).numpy()
+
+
+def test_custom_modality_video_adapter_is_used(tmp_path):
+    """A registered adapter can visualize and record a non-RGB modality."""
+    env = _make_env()
+    terminated = torch.zeros(1, dtype=torch.bool)
+    truncated = torch.zeros(1, dtype=torch.bool)
+    env._step_return = (
+        {
+            CAMERA_OBS_GROUP_KEY: {
+                "exterior_distance_to_image_plane": torch.zeros(1, H, W, 1),
+            }
+        },
+        None,
+        terminated,
+        truncated,
+        None,
+    )
+
+    with _patched_writers() as writers:
+        recorder = CameraObsVideoRecorder(
+            env,
+            video_folder=str(tmp_path),
+            video_adapters={"distance_to_image_plane": _DepthVideoAdapter()},
+        )
+        recorder.step(None)
+
+    assert len(writers) == 1
+    assert writers[0].filename.endswith("-exterior_distance_to_image_plane-episode-0.mp4")
+
+
+def test_malformed_rgb_observation_is_rejected(tmp_path):
+    """An observation named as RGB must still contain three-channel frames."""
+    env = _make_env()
+    env._step_return = (
+        {CAMERA_OBS_GROUP_KEY: {"exterior_rgb": torch.zeros(1, H, W, 1)}},
+        None,
+        torch.zeros(1, dtype=torch.bool),
+        torch.zeros(1, dtype=torch.bool),
+        None,
+    )
+    recorder = CameraObsVideoRecorder(env, video_folder=str(tmp_path))
+
+    with pytest.raises(AssertionError, match="expected.*RGB"):
+        recorder.step(None)
 
 
 def test_episode_counter_increments_per_env(tmp_path):
@@ -253,7 +319,7 @@ def test_no_video_written_for_empty_episode(tmp_path):
         # No encoder was ever opened for the empty episode, but the env's centralized index still
         # advanced past it (so a later episode's video number stays in lockstep with the
         # per-episode results record).
-        assert not any(writer.filename.endswith("env0-front-episode-0.mp4") for writer in writers)
+        assert not any(writer.filename.endswith("env0-front_rgb-episode-0.mp4") for writer in writers)
         assert env.get_episode_index(0) == 1
 
 
