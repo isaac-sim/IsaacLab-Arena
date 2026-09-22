@@ -227,7 +227,7 @@ On the following step, it starts counting the gripper's ten steps. The earliest 
 step 20. The object may move again after its requirement completes; that completion is remembered.
 
 Independent conditions, both completed
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Use separate named ``predicate_sequences`` to start both counters together:
 
