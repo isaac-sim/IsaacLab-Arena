@@ -183,11 +183,6 @@ and active environments to that instance. ``_TrueForConsecutiveSteps`` stores th
 counts: true adds one; false clears the streak.
 The runner resets it through the existing ``TaskSuccessTerm`` / ``ProgressTracker`` episode-reset path.
 
-This replaces ``ConsecutivePredicate`` and the manager-based ``CompositePredicate``. Combine
-instantaneous conditions first, then wrap their shared result in one consecutive-step requirement.
-``objects_below_velocity_thresholds`` checks rest without recording a pose; the existing
-``objects_settled`` function still records the first resting pose for tasks that need that reference.
-
 To require overlapping conditions, combine them before counting. Here A must rest while B is
 touching for the same ten steps, after lifting and placement:
 

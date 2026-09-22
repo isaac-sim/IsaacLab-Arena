@@ -39,8 +39,6 @@ class ProgressObjective:
     each sequence must hold in order. The logical setting determines how many sequences
     must complete.
 
-    ProgressObjectiveRunner resets temporal requirements, not the predicates they check.
-
     Args:
         name: Identifies the ProgressObjective within the TaskBase.
         predicate_sequence: One ordered list of predicates, optionally paired with scores.

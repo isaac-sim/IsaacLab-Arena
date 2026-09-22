@@ -341,7 +341,10 @@ class ProgressObjectiveRunner:
         return events
 
     def reset(self, env_ids) -> None:
-        """Reset the runner for the provided envs."""
+        """Clear sequence progress and consecutive-step counters for the selected environments.
+
+        The underlying predicates are not reset.
+        """
 
         env_ids = torch.as_tensor(env_ids, dtype=torch.long, device=self.device)
         for group_name in self.progress_objective.group_names:

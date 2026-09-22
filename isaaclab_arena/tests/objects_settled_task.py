@@ -5,9 +5,8 @@
 
 """Test task that succeeds after objects remain settled for consecutive steps."""
 
-from functools import partial
-
 from isaaclab.envs.common import ViewerCfg
+from isaaclab.managers import TerminationTermCfg
 
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.metrics.metric_base import MetricBase
@@ -31,7 +30,10 @@ class ObjectsSettledTask(TaskBase):
 
     def get_termination_cfg(self) -> TaskTerminationCfg:
         success = TrueForConsecutiveStepsCfg(
-            predicate=partial(objects_below_velocity_thresholds, object_names=self.object_names),
+            predicate=TerminationTermCfg(
+                func=objects_below_velocity_thresholds,
+                params={"object_names": self.object_names},
+            ),
             required_steps=self.consecutive_steps,
         )
         return TaskTerminationCfg(
