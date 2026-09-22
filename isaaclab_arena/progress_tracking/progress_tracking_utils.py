@@ -13,6 +13,8 @@ from isaaclab.managers import TerminationTermCfg
 
 from isaaclab_arena.tasks.predicates.temporal import TrueForConsecutiveStepsCfg, _TrueForConsecutiveSteps
 
+# TODO(cvolk): Revisit predicate configuration with an Arena-owned PredicateCfg
+# instead of TerminationTermCfg, and decide whether plain callables remain supported.
 Predicate = Callable | TerminationTermCfg | TrueForConsecutiveStepsCfg
 PredicateSequence = list[Predicate] | list[tuple[Predicate, float]]
 PredicateSequences = dict[str, PredicateSequence]
