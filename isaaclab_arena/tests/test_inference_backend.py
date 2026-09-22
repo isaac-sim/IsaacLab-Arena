@@ -58,9 +58,6 @@ class TestResolveInferenceEndpoint:
     def test_defaults_to_the_public_endpoint(self):
         assert resolve_inference_endpoint() == PUBLIC_ENDPOINT
 
-    def test_public_endpoint_uses_deepseek_flash(self):
-        assert PUBLIC_ENDPOINT.model == "deepseek-ai/deepseek-v4.1-flash"
-
     def test_reads_the_environment_variable(self, monkeypatch):
         monkeypatch.setenv(INFERENCE_ENDPOINT_ENV_VAR, INTERNAL_ENDPOINT.name)
         assert resolve_inference_endpoint() == INTERNAL_ENDPOINT

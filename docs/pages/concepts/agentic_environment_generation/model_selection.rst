@@ -62,8 +62,8 @@ resolution.
      - Public (free)
      - ``deepseek-ai/deepseek-v4.1-flash``
      - ``NVIDIA_API_KEY``
-     - 5/5 (100%)
-     - 26.61 s
+     - 15/15 (100%)
+     - 36.98 s
    * - ``internal``
      - NVIDIA internal
      - ``openai/openai/gpt-5.6-terra``
@@ -78,10 +78,10 @@ resolution.
      - 10.15 s
 
 .. note::
-   The public DeepSeek Flash snapshot ran each of five documented prompts once; the other snapshots
-   ran each prompt three times. Pass rate is the fraction of generated specs that matched the expected
-   structure; runtime is the mean end-to-end ``generate_spec`` runtime. These results are snapshots
-   rather than guarantees: model output is non-deterministic, and service load affects runtime.
+   The benchmark ran each of five documented prompts three times. Pass rate is the fraction of
+   generated specs that matched the expected structure; runtime is the mean end-to-end
+   ``generate_spec`` runtime. These results are snapshots rather than guarantees: model output is
+   non-deterministic, and service load affects runtime.
 
 .. _agentic-env-gen-model-performance-effects:
 
@@ -135,9 +135,9 @@ models.
      - 0
    * - Public
      - ``deepseek-ai/deepseek-v4.1-flash``
-     - 5/5
-     - 26.61 s
-     - 0
+     - 15/15
+     - 36.98 s
+     - 1
    * - Public
      - ``nvidia/nemotron-3-ultra-550b-a55b``
      - 9/15
@@ -149,10 +149,9 @@ models.
      - 333.17 s
      - 4
 
-The public DeepSeek Flash row summarizes five attempts: five prompts run once. Every other row summarizes 15
-attempts: five prompts run three times. The retry count is the total across those attempts. Mean runtime covers
-the full ``generate_spec`` call, so it is different from the p50 time-to-first-spec metric on the
-:ref:`performance-and-scaling` page. Results can change with model output and endpoint load.
+Each row summarizes 15 attempts: five prompts run three times. The retry count is the total across those attempts.
+Mean runtime covers the full ``generate_spec`` call, so it is different from the p50 time-to-first-spec metric on
+the :ref:`performance-and-scaling` page. Results can change with model output and endpoint load.
 
 Reviewing the Generated Spec
 ----------------------------
