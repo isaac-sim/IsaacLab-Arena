@@ -208,7 +208,7 @@ are configured instantaneous checks that each return one Boolean per environment
 Step numbers start when the objective becomes active.
 
 One condition after another
-~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Put both requirements in one ``predicate_sequence`` to count them in order:
 
