@@ -25,7 +25,7 @@ _NO_ASSET_VARIATIONS = "  (no variations)"
 def get_variations_catalogue_as_string(
     variations: dict[str, list[VariationBase]],
     *,
-    hydra_overrides: list[str] | None = None,
+    hydra_overrides: dict[str, Any] | list[str] | None = None,
 ) -> str:
     """Return a human-readable catalog of every variation in ``variations``.
 
@@ -44,8 +44,8 @@ def get_variations_catalogue_as_string(
           color (ColorVariation, run-time)
             Enable: cracker_box.color.enabled=true  (default: False)
             Fields:
-              cracker_box.color.sampler.low = [0.0,0.0,0.0]
-              cracker_box.color.sampler.high = [1.0,1.0,1.0]
+              cracker_box.color.sampler_cfg.low = [0.0,0.0,0.0]
+              cracker_box.color.sampler_cfg.high = [1.0,1.0,1.0]
 
     Args:
         variations: ``{asset_name: [variation, ...]}`` the variations.
@@ -58,9 +58,7 @@ def get_variations_catalogue_as_string(
         return _EMPTY_MESSAGE
     # Resolve the overrides into a single cfg up front, then read each field's
     # effective (post-override) default from it while formatting below.
-    resolved_variations_cfg: Any | None = variations_hydra.compose_variations_cfg_and_apply_overrides(
-        variations, hydra_overrides or []
-    )
+    resolved_variations_cfg = variations_hydra.resolve_overrides(variations, hydra_overrides or {})
     lines = ["Variations (Hydra-configurable)", "=" * 32, ""]
     # Sort so the catalog is deterministic regardless of dict insertion order.
     for asset_name in sorted(variations.keys()):
@@ -77,7 +75,7 @@ def get_variations_catalogue_as_string(
 def _asset_variations_as_string(
     asset_name: str,
     asset_variations: list[VariationBase],
-    resolved_variations_cfg: Any | None,
+    resolved_variations_cfg: dict[str, dict[str, Any]],
 ) -> list[str]:
     """Return the catalog block (a list of text lines) for a single asset.
 
@@ -127,10 +125,7 @@ def _get_field_default(
     """
     if resolved_variations_cfg is None:
         return None
-    asset_cfg = getattr(resolved_variations_cfg, asset_name, None)
-    if asset_cfg is None:
-        return None
-    variation_cfg = getattr(asset_cfg, variation_name, None)
+    variation_cfg = resolved_variations_cfg.get(asset_name, {}).get(variation_name)
     if variation_cfg is None:
         return None
     return getattr(variation_cfg, field_name, None)
@@ -139,7 +134,7 @@ def _get_field_default(
 def _format_variation_fields(
     prefix: str,
     variation: VariationBase,
-    resolved_variations_cfg: Any | None,
+    resolved_variations_cfg: dict[str, dict[str, Any]],
     asset_name: str,
 ) -> list[str]:
     """Return the tunable cfg override paths for ``variation`` (excluding ``enabled``).
@@ -150,8 +145,7 @@ def _format_variation_fields(
     """
     # Preferred source: the variation's slice of the resolved (post-override) cfg.
     if resolved_variations_cfg is not None:
-        asset_cfg = getattr(resolved_variations_cfg, asset_name, None)
-        variation_cfg = getattr(asset_cfg, variation.name, None) if asset_cfg is not None else None
+        variation_cfg = resolved_variations_cfg.get(asset_name, {}).get(variation.name)
         if variation_cfg is not None:
             data = _cfg_to_plain(variation_cfg)
             return _flatten_paths(prefix, data, skip_keys={"enabled"})

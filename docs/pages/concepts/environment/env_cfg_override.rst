@@ -3,7 +3,7 @@ Graph YAML ``env_cfg_override``
 
 Environment graph YAML (``ArenaEnvGraphSpec``) may include an ``env_cfg_override`` mapping.
 ``build_arena_env_from_graph_spec`` turns that mapping into an ``env_cfg_callback`` that calls
-``apply_env_cfg_override`` after ``ArenaEnvBuilder`` assigns the default solver for the resolved
+``apply_config_override`` after ``ArenaEnvBuilder`` assigns the default solver for the resolved
 physics backend.
 
 See :doc:`physics_backend_selection` for backend resolution, embodiment hooks, and

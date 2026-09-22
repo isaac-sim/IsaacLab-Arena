@@ -41,10 +41,10 @@ def _build_env_cfg(
 
     from isaaclab_arena.assets.registries import AssetRegistry
     from isaaclab_arena.embodiments.franka.franka import FrankaIKEmbodiment
-    from isaaclab_arena.environment_spec.env_cfg_override import apply_env_cfg_override
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
+    from isaaclab_arena.hydra.config_override import apply_config_override
     from isaaclab_arena.scene.scene import Scene
     from isaaclab_arena.utils.physics_backend import PhysicsBackend
 
@@ -57,7 +57,7 @@ def _build_env_cfg(
 
     combined_callback = env_cfg_callback
     if env_cfg_override is not None:
-        apply_override = partial(apply_env_cfg_override, override=env_cfg_override)
+        apply_override = partial(apply_config_override, override=env_cfg_override)
         if combined_callback is None:
             combined_callback = apply_override
         else:
@@ -245,13 +245,13 @@ def _test_env_cfg_override_nested_hydra_target_in_payload(simulation_app) -> boo
     from isaaclab_contrib.coupling.coupler_cfg import CouplerProxyCfg
     from isaaclab_newton.physics import MJWarpSolverCfg, NewtonCfg
 
-    from isaaclab_arena.environment_spec.env_cfg_override import apply_env_cfg_override
+    from isaaclab_arena.hydra.config_override import apply_config_override
 
     @configclass
     class MinimalEnvCfg:
         sim: SimulationCfg = SimulationCfg(physics=NewtonCfg())
 
-    env_cfg = apply_env_cfg_override(
+    env_cfg = apply_config_override(
         MinimalEnvCfg(),
         {
             "sim": {
@@ -315,12 +315,12 @@ def _test_builder_applies_nested_env_cfg_override(simulation_app) -> bool:
 
 
 def _test_env_cfg_override_does_not_partially_mutate_on_failure(simulation_app) -> bool:
-    from isaaclab_arena.environment_spec.env_cfg_override import apply_env_cfg_override
+    from isaaclab_arena.hydra.config_override import apply_config_override
 
     env_cfg = _build_env_cfg(presets=None)
     original_dt = env_cfg.sim.dt
-    with pytest.raises(ValueError, match="Invalid env_cfg_override"):
-        apply_env_cfg_override(env_cfg, {"sim": {"unknown_field": 1}})
+    with pytest.raises(ValueError, match="Invalid config override"):
+        apply_config_override(env_cfg, {"sim": {"unknown_field": 1}})
     assert env_cfg.sim.dt == original_dt
     return True
 
@@ -340,7 +340,7 @@ def _test_builder_rejects_unsafe_or_incompatible_targets(simulation_app) -> bool
     with pytest.raises(AssertionError, match="interpolation is not allowed"):
         _build_env_cfg(presets=None, env_cfg_override={"sim": {"dt": "${oc.env:SIM_DT}"}})
 
-    with pytest.raises(ValueError, match="Invalid env_cfg_override"):
+    with pytest.raises(ValueError, match="Invalid config override"):
         _build_env_cfg(presets=None, env_cfg_override={"sim": {"unknown_field": 1}})
     return True
 

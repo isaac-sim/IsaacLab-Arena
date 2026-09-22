@@ -65,7 +65,7 @@ class ArenaEnvBuilder:
         self,
         arena_env: IsaacLabArenaEnvironment,
         cfg: ArenaEnvBuilderCfg,
-        hydra_overrides: list[str] | None = None,
+        hydra_overrides: dict[str, Any] | list[str] | None = None,
     ):
         self.arena_env = arena_env
         self.cfg = cfg

@@ -16,7 +16,6 @@ from isaaclab_arena.evaluation.legacy_eval_config import run_cfgs_from_legacy_ev
 from isaaclab_arena.evaluation.legacy_graph_environment_cli import LegacyGraphEnvironmentCfg
 from isaaclab_arena.policy.zero_action_policy import ZeroActionPolicyCfg
 from isaaclab_arena.tests.utils.constants import TestConstants
-from isaaclab_arena.variations.variations_hydra import overrides_from_dict
 from isaaclab_arena_environments.pick_and_place_maple_table_environment import PickAndPlaceMapleTableEnvironmentCfg
 
 
@@ -140,7 +139,7 @@ def test_legacy_graph_builder_keeps_namespace_inside_graph_compatibility(monkeyp
     builder = legacy_graph_environment_cli.build_arena_builder_from_legacy_graph(
         run.environment,
         environment_builder=run.environment_builder,
-        hydra_overrides=overrides_from_dict(run.variations),
+        hydra_overrides=run.variations,
     )
 
     assert builder is expected_builder
@@ -154,7 +153,7 @@ def test_legacy_graph_builder_keeps_namespace_inside_graph_compatibility(monkeyp
     assert captured["builder_cfg"] is run.environment_builder
     assert captured["builder_cfg"].device == "cuda:1"
     assert captured["arena_env"] is expected_arena_env
-    assert captured["hydra_overrides"] == ["light.intensity.enabled=true"]
+    assert captured["hydra_overrides"] == {"light": {"intensity": {"enabled": True}}}
 
 
 def test_registered_environment_rejects_arguments_missing_from_its_typed_config():

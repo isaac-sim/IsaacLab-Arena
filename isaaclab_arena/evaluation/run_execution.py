@@ -12,7 +12,7 @@ import traceback
 from copy import deepcopy
 from dataclasses import fields, replace
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from isaaclab_arena.assets.registries import EnvironmentRegistry, PolicyRegistry
 from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
@@ -26,7 +26,6 @@ from isaaclab_arena.evaluation.policy_runner import rollout_policy
 from isaaclab_arena.evaluation.resource_cleanup import close_run_resources
 from isaaclab_arena.metrics.aggregate_metrics import aggregate_metrics
 from isaaclab_arena.utils.timer import print_timer_stats, reset_timer_stats
-from isaaclab_arena.variations.variations_hydra import overrides_from_dict
 from isaaclab_arena.video.video_recording import VideoRecordingCfg, wrap_env_for_video
 
 if TYPE_CHECKING:
@@ -176,21 +175,23 @@ def _build_environment_from_cfg(
 
 def build_arena_builder_from_run_cfg(cfg: ArenaRunCfg) -> ArenaEnvBuilder:
     """Build an Arena environment builder from one typed run config."""
-    hydra_overrides = overrides_from_dict(cfg.variations)
     # TODO(cvolk, 2026-07-07): [typed-config-migration] Remove the legacy branch when graph environments
     # have typed configs and no longer require the argparse construction path.
     return (
         build_arena_builder_from_legacy_graph(
             cfg.environment,
             environment_builder=cfg.environment_builder,
-            hydra_overrides=hydra_overrides,
+            hydra_overrides=cfg.variations,
         )
         if isinstance(cfg.environment, LegacyGraphEnvironmentCfg)
-        else _build_arena_builder_from_cfg(cfg, hydra_overrides)
+        else _build_arena_builder_from_cfg(cfg, cfg.variations)
     )
 
 
-def _build_arena_builder_from_cfg(cfg: ArenaRunCfg, hydra_overrides: list[str]) -> ArenaEnvBuilder:
+def _build_arena_builder_from_cfg(
+    cfg: ArenaRunCfg,
+    hydra_overrides: dict[str, Any] | list[str],
+) -> ArenaEnvBuilder:
     """Build an Arena environment builder from a registered typed config."""
     # ArenaEnvBuilder imports pxr modules that must not load before SimulationApp.
     # Keep this runtime import deferred even though the type-only import is at the top.

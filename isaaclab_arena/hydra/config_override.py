@@ -3,21 +3,21 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Apply validated Hydra overrides to an Isaac Lab environment configuration."""
+"""Apply nested or Hydra dotlist overrides to structured configurations."""
 
 from __future__ import annotations
 
 import copy
 import dataclasses
+import json
 import sys
 import types
-from typing import TYPE_CHECKING, Any, Union, get_args, get_origin, get_type_hints
+from typing import Any, Union, get_args, get_origin, get_type_hints
 
 from hydra.utils import get_class
 from isaaclab_newton.physics import NewtonCfg
-
-if TYPE_CHECKING:
-    from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import IsaacLabArenaManagerBasedRLEnvCfg
+from omegaconf import OmegaConf
+from omegaconf.errors import OmegaConfBaseException
 
 _ALLOWED_TARGET_MODULE_PREFIXES = (
     "isaaclab.",
@@ -29,58 +29,109 @@ _ALLOWED_TARGET_MODULE_PREFIXES = (
 _HYDRA_TARGET_KEY = "_target_"
 
 
-def apply_env_cfg_override(
-    env_cfg: IsaacLabArenaManagerBasedRLEnvCfg,
-    override: dict[str, Any],
-) -> IsaacLabArenaManagerBasedRLEnvCfg:
-    """Apply a validated environment-config override in place.
+def dotlist_to_override(overrides: list[str]) -> dict[str, Any]:
+    """Parse assignment-only Hydra dotlist values into a nested override mapping."""
+    for override in overrides:
+        if not override or override[0] in "+~":
+            raise ValueError(f"Hydra override operators are not supported by config overrides: '{override}'")
+    try:
+        values = OmegaConf.to_container(OmegaConf.from_dotlist(overrides), resolve=False)
+    except OmegaConfBaseException as exc:
+        raise ValueError(f"Could not parse Hydra overrides: {exc}") from exc
+    assert isinstance(values, dict)
+    return values
 
-    Materializes nested Hydra targets in a copied override, merges the residual
-    values through ``from_dict``, then commits deferred type replacements.
+
+def nested_override(values: dict[str, Any]) -> dict[str, Any]:
+    """Expand dotted mapping keys and return one nested override mapping."""
+    assert isinstance(values, dict), f"Config override must be a mapping, got {type(values).__name__}"
+    dotlist: list[str] = []
+    _append_dotlist_values(values, "", dotlist)
+    return dotlist_to_override(dotlist)
+
+
+def apply_config_override(config: Any, override: dict[str, Any]) -> Any:
+    """Apply a validated nested override to a configclass or mapping in place.
 
     Args:
-        env_cfg: Arena manager-based RL environment configuration to update.
-        override: Nested override mapping from graph ``env_cfg_override``.
+        config: Structured configuration or mapping to update.
+        override: Nested mapping containing values to update.
 
     Returns:
-        The updated ``env_cfg`` instance.
+        The updated ``config`` object.
     """
-    assert override is not None, "env_cfg_override must be provided"
-    assert isinstance(override, dict), f"env_cfg_override must be a mapping, got {type(override).__name__}"
-
+    assert isinstance(override, dict), f"Config override must be a mapping, got {type(override).__name__}"
     values = copy.deepcopy(override)
-    _validate_override_syntax(values, path="env")
-    # Build targets post-order in the copy, including concrete containers for typed list entries.
-    _materialize_targets(env_cfg, values, path="env")
+    _validate_override_syntax(values, path="config")
+
+    # Validate the complete override without exposing partial mutations, then replay it onto the
+    # original config so untouched nested configclass instances retain their identity.
+    candidate = copy.deepcopy(config)
+    _apply_override(candidate, copy.deepcopy(values))
+    _apply_override(config, values)
+    return config
+
+
+def _apply_override(config: Any, values: dict[str, Any]) -> None:
+    """Apply previously validated values without providing atomicity."""
+    if isinstance(config, dict):
+        _apply_mapping_override(config, values, path="config")
+    elif callable(getattr(config, "from_dict", None)):
+        _apply_configclass_override(config, values)
+    else:
+        raise TypeError(f"Config override target must be a configclass or mapping, got {type(config).__name__}")
+
+
+def _append_dotlist_values(value: Any, prefix: str, dotlist: list[str]) -> None:
+    """Append mapping leaves as OmegaConf-compatible dotlist assignments."""
+    if isinstance(value, dict):
+        for key, child_value in value.items():
+            assert key, "Hydra override keys must be non-empty"
+            child_prefix = f"{prefix}.{key}" if prefix else str(key)
+            _append_dotlist_values(child_value, child_prefix, dotlist)
+        return
+    assert prefix, "Hydra override paths must be non-empty"
+    dotlist.append(f"{prefix}={json.dumps(value, separators=(',', ':'))}")
+
+
+def _apply_mapping_override(target: dict[str, Any], values: dict[str, Any], *, path: str) -> None:
+    """Apply values recursively to an existing-key mapping."""
+    for key, value in values.items():
+        child_path = f"{path}.{key}"
+        if key not in target:
+            raise ValueError(f"Invalid config override: Unknown config field '{child_path}'")
+        current_value = target[key]
+        if not isinstance(value, dict):
+            target[key] = value
+        elif isinstance(current_value, dict):
+            _apply_mapping_override(current_value, value, path=child_path)
+        elif callable(getattr(current_value, "from_dict", None)):
+            apply_config_override(current_value, value)
+        else:
+            raise ValueError(f"Invalid config override: expected a structured value at '{child_path}'")
+
+
+def _apply_configclass_override(config: Any, values: dict[str, Any]) -> None:
+    """Apply an override using the Isaac Lab configclass ``from_dict`` contract."""
+    _materialize_targets(config, values, path="config")
     pending_assignments: list[tuple[Any, str | int, Any]] = []
-    # Keep constructed instances out to prevent ``from_dict`` from reprocessing typed config instances as
-    # raw mappings again before they are safely assigned to polymorphic fields.
-    _extract_materialized_values(env_cfg, values, pending_assignments)
-
+    _extract_materialized_values(config, values, pending_assignments)
     try:
-        env_cfg.from_dict(values)
+        config.from_dict(values)
     except (KeyError, TypeError, ValueError) as exc:
-        raise ValueError(f"Invalid env_cfg_override: {exc}") from exc
+        raise ValueError(f"Invalid config override: {exc}") from exc
 
-    # Commit polymorphic replacements only after the residual merge succeeds.
     for target_obj, key, value in pending_assignments:
         if isinstance(target_obj, list):
             target_obj[key] = value
         else:
             setattr(target_obj, key, value)
         if key == "solver_cfg" and isinstance(target_obj, NewtonCfg):
-            # NewtonCfg.__post_init__ derives the manager from the initial
-            # solver, so synchronize it after replacing solver_cfg.
             target_obj.class_type = target_obj.solver_cfg.class_type
-    return env_cfg
 
 
 def _validate_override_syntax(value: Any, *, path: str) -> None:
-    """Reject unsafe override content before ``_materialize_targets`` runs.
-
-    Disallows ``class_type`` overrides, Hydra control keys other than ``_target_``,
-    and OmegaConf ``${...}`` interpolation in strings.
-    """
+    """Reject unsafe Hydra control keys, derived fields, and interpolation."""
     if isinstance(value, dict):
         for key, item in value.items():
             child_path = f"{path}.{key}"
@@ -102,10 +153,7 @@ def _materialize_targets(
     construct_structured: bool = False,
     strict: bool = False,
 ) -> None:
-    """Materialize targets post-order across annotated dicts and lists.
-
-    Concrete dataclass containers are constructed around materialized children.
-    """
+    """Materialize targets post-order across annotated dicts and lists."""
     target_cls = target if isinstance(target, type) else type(target)
     field_names = {field.name for field in dataclasses.fields(target_cls)}
     for key, value in values.items():
@@ -134,7 +182,6 @@ def _materialize_value(
     current_value: Any,
 ) -> Any:
     """Dispatch materialization based on the override value's structure."""
-    # Handle list
     list_element_type = _list_element_type(annotation)
     if list_element_type is not None:
         return _materialize_list(
@@ -145,16 +192,10 @@ def _materialize_value(
             strict=strict,
             current_value=current_value,
         )
-
-    # Handle non-dict values
     if not isinstance(value, dict):
         return value
-
-    # Handle typed configclasses
     if _HYDRA_TARGET_KEY in value:
         return _materialize_target_mapping(annotation, value, path=path)
-
-    # Handle ordinary mappings
     return _materialize_dataclass_mapping(
         annotation,
         value,
@@ -276,12 +317,10 @@ def _validated_target_class(target_path: Any, expected_type: Any, *, path: str) 
     assert separator and module_name.startswith(
         _ALLOWED_TARGET_MODULE_PREFIXES
     ), f"Hydra target {target_path!r} at '{path}' is outside the approved Isaac Lab packages"
-
     try:
         target_cls = get_class(target_path)
     except Exception as exc:
         raise ValueError(f"Could not resolve Hydra target {target_path!r} at '{path}': {exc}") from exc
-
     assert isinstance(target_cls, type), f"Hydra target {target_path!r} at '{path}' must resolve to a class"
     assert target_cls.__module__.startswith(
         _ALLOWED_TARGET_MODULE_PREFIXES
@@ -298,8 +337,6 @@ def _validated_target_class(target_path: Any, expected_type: Any, *, path: str) 
 def _field_annotation(owner: type, field_name: str) -> Any:
     """Resolve one inherited dataclass field annotation without resolving unrelated fields."""
     for cls in owner.__mro__:
-        # Isaac Lab copies inherited annotations into each configclass. Use its
-        # original field declarations to find the module that owns the imports.
         own_fields = cls.__dict__.get("__configclass_own_fields__")
         if own_fields is not None and field_name not in own_fields:
             continue
@@ -315,7 +352,7 @@ def _field_annotation(owner: type, field_name: str) -> Any:
 
 
 def _list_element_type(annotation: Any) -> Any | None:
-    """Return the element annotation for ``list[T]``, or ``None`` when ``annotation`` is not a list."""
+    """Return the element annotation for ``list[T]``, or ``None``."""
     if get_origin(annotation) is list:
         args = get_args(annotation)
         return args[0] if args else None
@@ -323,7 +360,7 @@ def _list_element_type(annotation: Any) -> Any | None:
 
 
 def _concrete_dataclass_type(annotation: Any) -> type | None:
-    """Return a single dataclass type annotation, or ``None`` for unions and non-dataclass fields."""
+    """Return a single dataclass type annotation."""
     if _union_members(annotation) is not None:
         return None
     if isinstance(annotation, type) and dataclasses.is_dataclass(annotation):
@@ -332,7 +369,7 @@ def _concrete_dataclass_type(annotation: Any) -> type | None:
 
 
 def _union_members(annotation: Any) -> tuple[Any, ...] | None:
-    """Return union member annotations, or ``None`` when ``annotation`` is not a union."""
+    """Return union member annotations, or ``None``."""
     origin = get_origin(annotation)
     if origin in (types.UnionType, Union):
         return get_args(annotation)

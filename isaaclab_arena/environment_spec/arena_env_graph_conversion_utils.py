@@ -56,8 +56,8 @@ def build_arena_env_from_graph_spec(graph_spec: ArenaEnvGraphSpec, enable_camera
         enable_cameras: Forwarded to the embodiment so its cameras are added.
     """
     # Lazy import to avoid pxr early import causing unit test failures.
-    from isaaclab_arena.environment_spec.env_cfg_override import apply_env_cfg_override
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
+    from isaaclab_arena.hydra.config_override import apply_config_override
     from isaaclab_arena.scene.scene import Scene
 
     assets_by_node_id = instantiate_assets_from_spec(graph_spec, AssetRegistry(), enable_cameras=enable_cameras)
@@ -65,7 +65,7 @@ def build_arena_env_from_graph_spec(graph_spec: ArenaEnvGraphSpec, enable_camera
     _attach_spatial_relations_to_assets(graph_spec.relations, assets_by_node_id)
     scene_assets = [asset for node_id, asset in assets_by_node_id.items() if node_id != graph_spec.embodiment.id]
     override = graph_spec.env_cfg_override
-    env_cfg_callback = partial(apply_env_cfg_override, override=override) if override is not None else None
+    env_cfg_callback = partial(apply_config_override, override=override) if override is not None else None
     default_physics_backend = (
         graph_spec.default_physics_backend if graph_spec.default_physics_backend is not None else PhysicsBackend.PHYSX
     )

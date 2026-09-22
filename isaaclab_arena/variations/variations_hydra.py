@@ -5,146 +5,68 @@
 
 from __future__ import annotations
 
-import json
 from copy import deepcopy
-from dataclasses import field, make_dataclass
 from typing import TYPE_CHECKING, Any
 
-from hydra import compose, initialize
-from hydra.core.config_store import ConfigStore
-from hydra.core.global_hydra import GlobalHydra
-from hydra.errors import ConfigCompositionException
-from omegaconf import OmegaConf
+from isaaclab_arena.hydra.config_override import apply_config_override, dotlist_to_override, nested_override
 
 if TYPE_CHECKING:
     from isaaclab_arena.variations.variation_base import VariationBase
 
 
-# TODO(cvolk, 2026-07-08): Move variation composition under isaaclab_arena.hydra without changing behavior.
-
-
-def overrides_from_dict(values: dict[str, Any]) -> list[str]:
-    """Serialize nested variation values as dotted Hydra override strings."""
-    overrides: list[str] = []
-    stack: list[tuple[str, object]] = [("", values)]
-    while stack:
-        prefix, value = stack.pop()
-        if isinstance(value, dict):
-            for key, child_value in value.items():
-                assert key, "Hydra override keys must be non-empty"
-                child_prefix = f"{prefix}.{key}" if prefix else str(key)
-                stack.append((child_prefix, child_value))
-            continue
-        assert prefix, "Hydra override paths must be non-empty"
-        overrides.append(f"{prefix}={json.dumps(value, separators=(',', ':'))}")
-    return overrides
-
-
 def apply_overrides(
     variations: dict[str, list[VariationBase]],
-    hydra_overrides: list[str],
+    overrides: dict[str, Any] | list[str],
 ) -> None:
-    """Apply Hydra-style overrides to ``variations`` in-place.
-
-    Composes ``hydra_overrides`` into a typed ``VariationsCfg`` and pushes
-    each per-variation cfg through ``VariationBase.apply_cfg``.
+    """Apply nested or Hydra dotlist overrides to ``variations`` in place.
 
     Args:
         variations: ``{asset_name: [variation, ...]}`` mapping whose cfgs
             will be replaced by the composed values.
-        hydra_overrides: Hydra override strings, dotted-path syntax
-            mirroring the schema attribute paths. Example::
+        overrides: A nested mapping or Hydra dotlist strings mirroring the
+            variation paths. Example::
 
                 apply_overrides(scene.get_asset_variations(), [
                     "cracker_box.color.enabled=true",
-                    "cracker_box.color.sampler.low=[0.2,0.2,0.0]",
-                    "cracker_box.color.sampler.high=[1.0,1.0,0.0]",
+                    "cracker_box.color.sampler_cfg.low=[0.2,0.2,0.0]",
+                    "cracker_box.color.sampler_cfg.high=[1.0,1.0,0.0]",
                 ])
     """
-    # Compose all the config classes from all the variations, and apply the overrides.
-    all_variations_cfg = compose_variations_cfg_and_apply_overrides(variations, hydra_overrides)
-    if all_variations_cfg is None:
-        return
-    # Loop over the variations' cfgs and apply the overrides.
+    resolved_cfgs = resolve_overrides(variations, overrides)
     for asset_name, asset_variations in variations.items():
-        asset_cfg = getattr(all_variations_cfg, asset_name)
         for variation in asset_variations:
-            variation_cfg = getattr(asset_cfg, variation.name)
-            variation.apply_cfg(variation_cfg)
+            variation.apply_cfg(resolved_cfgs[asset_name][variation.name])
 
 
-def compose_variations_cfg_and_apply_overrides(
+def resolve_overrides(
     variations: dict[str, list[VariationBase]],
-    hydra_overrides: list[str],
-) -> Any | None:
-    """Compose the variation Hydra override strings into a typed ``VariationsCfg`` instance.
-
-    Builds the schema and applies the passed overrides to it, returning the modified dataclass.
+    overrides: dict[str, Any] | list[str],
+) -> dict[str, dict[str, Any]]:
+    """Return copied variation configurations with overrides applied.
 
     Args:
         variations: ``{asset_name: [variation, ...]}`` the variations.
-        hydra_overrides: Hydra override strings.
+        overrides: Nested override mapping or Hydra dotlist strings.
 
     Returns:
-        The composed ``VariationsCfg`` instance, including overridden values, or ``None`` when
-        ``variations`` is empty.
+        Configurations keyed by host and variation name.
     """
-    variations_cfg_cls = _compose_variation_cfgs(variations)
-    if variations_cfg_cls is None:
-        return None
-    ConfigStore.instance().store(name="arena_variations_schema", node=variations_cfg_cls)
-    if GlobalHydra.instance().is_initialized():
-        GlobalHydra.instance().clear()
-    try:
-        with initialize(version_base=None, config_path=None):
-            variations_cfg_dict = compose(config_name="arena_variations_schema", overrides=hydra_overrides)
-    except ConfigCompositionException as exc:
-        _raise_unknown_override_error(variations, hydra_overrides, exc)
-    variations_cfg = OmegaConf.to_object(variations_cfg_dict)
-    return variations_cfg
-
-
-def _compose_variation_cfgs(variations: dict[str, list[VariationBase]]) -> type | None:
-    """Return the dataclass describing variations configs, or ``None`` if the mapping is empty.
-
-    The class has one field per asset; each asset field's type is a
-    dataclass whose fields are the attached variations' cfgs. Each
-    per-variation field is typed as the variation's own Cfg class, i.e. a
-    child class of ``*VariationBaseCfg``.
-
-    Args:
-        variations: ``{asset_name: [variation, ...]}`` dict.
-
-    Returns:
-        The dynamically-built ``VariationsCfg`` dataclass type, or ``None``
-        when ``variations`` is empty.
-    """
-    if not variations:
-        return None
-
-    # Loop over all the assets and their variations.
-    asset_fields: list[tuple[str, type, Any]] = []
-    for asset_name, asset_variations in variations.items():
-        # TODO(alexmillane, 2026-06-11): Support asset names that are not valid Python identifiers.
+    for asset_name in variations:
         assert asset_name.isidentifier(), (
-            f"Asset name '{asset_name}' must be a valid Python identifier to build its variations "
-            "config schema; non-identifier asset names are not yet supported."
+            f"Asset name '{asset_name}' must be a valid Python identifier to build its variations config schema; "
+            "non-identifier asset names are not yet supported."
         )
-        # The list of variation fields for this asset.
-        variation_fields: list[tuple[str, type, Any]] = []
-        # Make a field for each variation.
-        for variation in asset_variations:
-            cfg_cls = type(variation.cfg)
-            default_cfg = deepcopy(variation.cfg)
-            variation_fields.append((variation.name, cfg_cls, field(default_factory=lambda d=default_cfg: deepcopy(d))))
-        # Make a dataclass for the asset.
-        asset_cls_name = "".join(part.capitalize() for part in asset_name.split("_")) + "VariationsCfg"
-        asset_cls = make_dataclass(asset_cls_name, variation_fields)
-        # Add the asset dataclass to the list of fields for the combined dataclass
-        asset_fields.append((asset_name, asset_cls, field(default_factory=asset_cls)))
-    # Make a dataclass for all the variations.
-    variations_cls = make_dataclass("VariationsCfg", asset_fields)
-    return variations_cls
+
+    override_values = dotlist_to_override(overrides) if isinstance(overrides, list) else nested_override(overrides)
+    resolved_cfgs = {
+        asset_name: {variation.name: deepcopy(variation.cfg) for variation in asset_variations}
+        for asset_name, asset_variations in variations.items()
+    }
+    try:
+        apply_config_override(resolved_cfgs, override_values)
+    except (AssertionError, TypeError, ValueError) as exc:
+        _raise_unknown_override_error(variations, overrides, exc)
+    return resolved_cfgs
 
 
 def _format_available_variation_paths(variations: dict[str, list[VariationBase]]) -> str:
@@ -157,10 +79,10 @@ def _format_available_variation_paths(variations: dict[str, list[VariationBase]]
 
 def _raise_unknown_override_error(
     variations: dict[str, list[VariationBase]],
-    hydra_overrides: list[str],
-    cause: ConfigCompositionException,
+    overrides: dict[str, Any] | list[str],
+    cause: Exception,
 ) -> None:
-    override_hint = ", ".join(hydra_overrides)
+    override_hint = ", ".join(overrides) if isinstance(overrides, list) else repr(overrides)
     raise ValueError(
         f"Unknown Hydra variation override ({override_hint}). "
         "No matching host or variation name in this environment.\n"
