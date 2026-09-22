@@ -251,7 +251,7 @@ object is moving again then.
 ``logical`` combines completed sequences; it does not create separate counters inside one predicate.
 
 Both conditions during the same steps
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Combine the instantaneous checks before wrapping them to require ten shared steps:
 
