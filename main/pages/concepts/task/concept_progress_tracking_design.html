@@ -589,7 +589,8 @@ the manager-based environment (and optionally additional configuration arguments
 <h3>Included predicates<a class="headerlink" href="#included-predicates" title="Link to this heading">#</a></h3>
 <p>Arena comes with an existing collection of predicates under <code class="docutils literal notranslate"><span class="pre">isaaclab_arena.tasks.predicates</span></code>, including:</p>
 <ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">objects_settled</span></code> — all selected objects are below linear and angular velocity thresholds.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">objects_below_velocity_thresholds</span></code> — all selected objects are below linear and angular velocity thresholds.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">objects_settled</span></code> — the same rest check, also recording each object’s first resting pose.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">object_is_above_height</span></code> — an object is above a fixed height or its recorded resting height.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">object_moving</span></code> — an object exceeds a linear velocity threshold.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">objects_in_proximity</span></code> — two objects are within configured axis-aligned distances.</p></li>
@@ -636,6 +637,7 @@ A custom predicate must:</p>
 <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.progress_tracking.progress_objective</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProgressObjective</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.tasks.predicates.object_settling</span><span class="w"> </span><span class="kn">import</span> <span class="n">objects_settled</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.tasks.predicates.spatial</span><span class="w"> </span><span class="kn">import</span> <span class="n">object_is_above_height</span><span class="p">,</span> <span class="n">object_on_destination</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.tasks.predicates.temporal</span><span class="w"> </span><span class="kn">import</span> <span class="n">TrueForConsecutiveStepsCfg</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.tasks.task_termination_cfg</span><span class="w"> </span><span class="kn">import</span> <span class="n">TaskTerminationCfg</span>
 
 <span class="k">def</span><span class="w"> </span><span class="nf">get_termination_cfg</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TaskTerminationCfg</span><span class="p">:</span>
@@ -644,20 +646,26 @@ A custom predicate must:</p>
             <span class="n">ProgressObjective</span><span class="p">(</span>
                 <span class="n">name</span><span class="o">=</span><span class="s2">"pick_and_place"</span><span class="p">,</span>
                 <span class="n">predicate_sequence</span><span class="o">=</span><span class="p">[</span>
-                    <span class="n">partial</span><span class="p">(</span><span class="n">objects_settled</span><span class="p">,</span> <span class="n">object_names</span><span class="o">=</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">pick_up_object</span><span class="o">.</span><span class="n">name</span><span class="p">]),</span>
+                    <span class="n">partial</span><span class="p">(</span>
+                        <span class="n">objects_settled</span><span class="p">,</span>
+                        <span class="n">object_names</span><span class="o">=</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">pick_up_object</span><span class="o">.</span><span class="n">name</span><span class="p">],</span>
+                    <span class="p">),</span>
                     <span class="n">partial</span><span class="p">(</span>
                         <span class="n">object_is_above_height</span><span class="p">,</span>
                         <span class="n">object_name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">pick_up_object</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
                         <span class="n">use_settled_state</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
                     <span class="p">),</span>
-                    <span class="n">partial</span><span class="p">(</span>
-                        <span class="n">object_on_destination</span><span class="p">,</span>
-                        <span class="n">object_cfg</span><span class="o">=</span><span class="n">SceneEntityCfg</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pick_up_object</span><span class="o">.</span><span class="n">name</span><span class="p">),</span>
-                        <span class="n">destination_cfg</span><span class="o">=</span><span class="n">SceneEntityCfg</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">destination_location</span><span class="o">.</span><span class="n">name</span><span class="p">),</span>
-                        <span class="n">contact_sensor_cfg</span><span class="o">=</span><span class="n">SceneEntityCfg</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">contact_sensor_name</span><span class="p">),</span>
-                        <span class="n">force_threshold</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">force_threshold</span><span class="p">,</span>
-                        <span class="n">velocity_threshold</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">velocity_threshold</span><span class="p">,</span>
-                        <span class="n">support_cone_half_angle_rad</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">support_cone_half_angle_rad</span><span class="p">,</span>
+                    <span class="n">TrueForConsecutiveStepsCfg</span><span class="p">(</span>
+                        <span class="n">predicate</span><span class="o">=</span><span class="n">partial</span><span class="p">(</span>
+                            <span class="n">object_on_destination</span><span class="p">,</span>
+                            <span class="n">object_cfg</span><span class="o">=</span><span class="n">SceneEntityCfg</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pick_up_object</span><span class="o">.</span><span class="n">name</span><span class="p">),</span>
+                            <span class="n">destination_cfg</span><span class="o">=</span><span class="n">SceneEntityCfg</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">destination_location</span><span class="o">.</span><span class="n">name</span><span class="p">),</span>
+                            <span class="n">contact_sensor_cfg</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">contact_sensor_cfg</span><span class="p">,</span>
+                            <span class="n">force_threshold</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">force_threshold</span><span class="p">,</span>
+                            <span class="n">velocity_threshold</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">velocity_threshold</span><span class="p">,</span>
+                            <span class="n">support_cone_half_angle_rad</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">support_cone_half_angle_rad</span><span class="p">,</span>
+                        <span class="p">),</span>
+                        <span class="n">required_steps</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">placement_consecutive_steps</span><span class="p">,</span>
                     <span class="p">),</span>
                 <span class="p">],</span>
             <span class="p">),</span>
@@ -675,9 +683,17 @@ A custom predicate must:</p>
     <span class="p">)</span>
 </pre></div>
 </div>
-<p>Use <code class="docutils literal notranslate"><span class="pre">functools.partial</span></code> to pass task-specific arguments to a predicate.</p>
+<p><code class="docutils literal notranslate"><span class="pre">functools.partial</span></code> supplies the arguments for a single-step check.
+<code class="docutils literal notranslate"><span class="pre">TrueForConsecutiveStepsCfg</span></code> wraps that configured callable when it must remain true for several steps.
+An instantaneous check that needs environment-dependent initialization can also be supplied
+as a <code class="docutils literal notranslate"><span class="pre">TerminationTermCfg</span></code> inside the requirement. For a callable class, <code class="docutils literal notranslate"><span class="pre">ProgressObjectiveRunner</span></code>
+constructs it with <code class="docutils literal notranslate"><span class="pre">(cfg,</span> <span class="pre">env)</span></code>; it does not need to inherit from <code class="docutils literal notranslate"><span class="pre">ManagerTermBase</span></code>.
+This initialization is separate from counting steps.</p>
+<p><code class="docutils literal notranslate"><span class="pre">PickAndPlaceTask</span></code> defaults to <code class="docutils literal notranslate"><span class="pre">placement_consecutive_steps=1</span></code>. Set it to a larger positive
+integer, such as <code class="docutils literal notranslate"><span class="pre">10</span></code>, to require placement, support, and low speed to hold together for that
+many consecutive control steps.</p>
 <p>Use a dictionary to track several sequences independently. This example requires any two
-objects to be lifted and placed:</p>
+objects to be lifted and placed. Each entry, such as <code class="docutils literal notranslate"><span class="pre">can_lifted</span></code>, is a configured callable:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">objective</span> <span class="o">=</span> <span class="n">ProgressObjective</span><span class="p">(</span>
     <span class="n">name</span><span class="o">=</span><span class="s2">"pack_objects"</span><span class="p">,</span>
     <span class="n">predicate_sequences</span><span class="o">=</span><span class="p">{</span>
@@ -702,6 +718,47 @@ combine them into one predicate. For example, checking that all gears are seated
 one combined condition; remembering each gear’s earlier placement would allow a gear to be removed
 before the task completes.</p>
 </section>
+<section id="conditions-that-must-remain-true">
+<h2>Conditions that must remain true<a class="headerlink" href="#conditions-that-must-remain-true" title="Link to this heading">#</a></h2>
+<p>Use <code class="docutils literal notranslate"><span class="pre">TrueForConsecutiveStepsCfg</span></code> around a configured callable:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">placement_held</span> <span class="o">=</span> <span class="n">TrueForConsecutiveStepsCfg</span><span class="p">(</span>
+    <span class="n">predicate</span><span class="o">=</span><span class="n">placed_and_stable</span><span class="p">,</span>
+    <span class="n">required_steps</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">placed_and_stable</span></code> returns one Boolean per environment; it does not maintain a counter.
+<code class="docutils literal notranslate"><span class="pre">ProgressObjectiveRunner</span></code> creates an internal <code class="docutils literal notranslate"><span class="pre">_TrueForConsecutiveSteps</span></code> instance from each
+<code class="docutils literal notranslate"><span class="pre">TrueForConsecutiveStepsCfg</span></code> occurrence. The runner evaluates the predicate and passes its results
+and active environments to that instance. <code class="docutils literal notranslate"><span class="pre">_TrueForConsecutiveSteps</span></code> stores the per-environment
+counts: true adds one; false clears the streak.
+The runner resets it through the existing <code class="docutils literal notranslate"><span class="pre">TaskSuccessTerm</span></code> / <code class="docutils literal notranslate"><span class="pre">ProgressTracker</span></code> episode-reset path.</p>
+<p>To require overlapping conditions, combine them before counting. Here A must rest while B is
+touching for the same ten steps, after lifting and placement:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">both_conditions_hold</span><span class="p">(</span><span class="n">env</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">object_a_is_resting</span><span class="p">(</span><span class="n">env</span><span class="p">)</span> <span class="o">&amp;</span> <span class="n">object_b_is_touching</span><span class="p">(</span><span class="n">env</span><span class="p">)</span>
+
+<span class="n">objective</span> <span class="o">=</span> <span class="n">ProgressObjective</span><span class="p">(</span>
+    <span class="n">name</span><span class="o">=</span><span class="s2">"place_and_hold"</span><span class="p">,</span>
+    <span class="n">predicate_sequence</span><span class="o">=</span><span class="p">[</span>
+        <span class="n">lifted</span><span class="p">,</span>
+        <span class="n">placed</span><span class="p">,</span>
+        <span class="n">TrueForConsecutiveStepsCfg</span><span class="p">(</span>
+            <span class="n">predicate</span><span class="o">=</span><span class="n">both_conditions_hold</span><span class="p">,</span>
+            <span class="n">required_steps</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
+        <span class="p">),</span>
+    <span class="p">],</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>Two separate sequence entries would allow the resting and touching periods to happen at different
+times. The combined predicate restarts its streak whenever either condition becomes false.</p>
+<p><code class="docutils literal notranslate"><span class="pre">TaskSuccessTerm</span></code> supplies the environment’s control-step indices automatically, so repeated
+success checks do not count twice. When using <code class="docutils literal notranslate"><span class="pre">ProgressTracker.step()</span></code> directly with consecutive-step
+requirements, pass one integer index per environment, for example
+<code class="docutils literal notranslate"><span class="pre">tracker.step(env,</span> <span class="pre">step_index=env.episode_length_buf)</span></code>. Skipping an index clears the streak;
+unobserved steps cannot prove the condition held continuously.</p>
+</section>
 <section id="subtask-progress-tracking-in-composite-and-sequential-tasks">
 <h2>Subtask progress tracking in composite and sequential tasks<a class="headerlink" href="#subtask-progress-tracking-in-composite-and-sequential-tasks" title="Link to this heading">#</a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">CompositeTaskBase</span></code> collects subtask objectives in a flat <code class="docutils literal notranslate"><span class="pre">TaskTerminationCfg.success</span></code> list.
@@ -718,6 +775,8 @@ to be true.</p>
 Completed milestones remain recorded. <code class="docutils literal notranslate"><span class="pre">TaskTerminationCfg.desired_subtask_success_state</span></code>
 preserves the composition’s optional final-condition checks. Reports contain the flat objectives
 and their weighted overall progress; subtask metrics read <code class="docutils literal notranslate"><span class="pre">ProgressTracker.get_subtask_completion()</span></code>.
+For a consecutive-step final condition, these checks continue updating its counter. If the condition
+becomes false, a new streak is required, but the recorded subtask completion is kept.
 There are no additional parent-objective reports. See
 <a class="reference internal" href="concept_composite_tasks_design.html"><span class="doc">Composite and Sequential Tasks</span></a> for composition and success semantics.</p>
 <figure class="align-center" id="id1">
@@ -751,7 +810,7 @@ until the next step.</p>
 <p>Arena’s episode recorder also serializes the final progress state and predicate events into the
 episode’s JSONL record when an output path is configured. Tasks without progress objectives have
 no success termination or progress-tracking configuration and produce no progress fields.</p>
-<p>For example, one entry of the JSONL record may look like:</p>
+<p>For example, one entry of the JSONL record may look like this (placement predicate name shortened):</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">  </span><span class="nt">"progress"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="nt">"overall_score"</span><span class="p">:</span><span class="w"> </span><span class="mf">0.67</span><span class="p">,</span>
@@ -849,6 +908,7 @@ Placement is still required. The two events record when settling and lifting com
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#defining-a-progress-objective">Defining a progress objective</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#conditions-that-must-remain-true">Conditions that must remain true</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#subtask-progress-tracking-in-composite-and-sequential-tasks">Subtask progress tracking in composite and sequential tasks</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#reading-subtask-progress-tracking-at-runtime">Reading subtask progress tracking at runtime</a></li>
 </ul>

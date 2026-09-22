@@ -23,7 +23,8 @@ Included predicates
 
 Arena comes with an existing collection of predicates under ``isaaclab_arena.tasks.predicates``, including:
 
-* ``objects_settled`` — all selected objects are below linear and angular velocity thresholds.
+* ``objects_below_velocity_thresholds`` — all selected objects are below linear and angular velocity thresholds.
+* ``objects_settled`` — the same rest check, also recording each object's first resting pose.
 * ``object_is_above_height`` — an object is above a fixed height or its recorded resting height.
 * ``object_moving`` — an object exceeds a linear velocity threshold.
 * ``objects_in_proximity`` — two objects are within configured axis-aligned distances.
@@ -78,6 +79,7 @@ Add ``ProgressObjective`` entries to ``TaskTerminationCfg.success``. Provide exa
    from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
    from isaaclab_arena.tasks.predicates.object_settling import objects_settled
    from isaaclab_arena.tasks.predicates.spatial import object_is_above_height, object_on_destination
+   from isaaclab_arena.tasks.predicates.temporal import TrueForConsecutiveStepsCfg
    from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
 
    def get_termination_cfg(self) -> TaskTerminationCfg:
@@ -86,20 +88,26 @@ Add ``ProgressObjective`` entries to ``TaskTerminationCfg.success``. Provide exa
                ProgressObjective(
                    name="pick_and_place",
                    predicate_sequence=[
-                       partial(objects_settled, object_names=[self.pick_up_object.name]),
+                       partial(
+                           objects_settled,
+                           object_names=[self.pick_up_object.name],
+                       ),
                        partial(
                            object_is_above_height,
                            object_name=self.pick_up_object.name,
                            use_settled_state=True,
                        ),
-                       partial(
-                           object_on_destination,
-                           object_cfg=SceneEntityCfg(self.pick_up_object.name),
-                           destination_cfg=SceneEntityCfg(self.destination_location.name),
-                           contact_sensor_cfg=SceneEntityCfg(self.contact_sensor_name),
-                           force_threshold=self.force_threshold,
-                           velocity_threshold=self.velocity_threshold,
-                           support_cone_half_angle_rad=self.support_cone_half_angle_rad,
+                       TrueForConsecutiveStepsCfg(
+                           predicate=partial(
+                               object_on_destination,
+                               object_cfg=SceneEntityCfg(self.pick_up_object.name),
+                               destination_cfg=SceneEntityCfg(self.destination_location.name),
+                               contact_sensor_cfg=self.contact_sensor_cfg,
+                               force_threshold=self.force_threshold,
+                               velocity_threshold=self.velocity_threshold,
+                               support_cone_half_angle_rad=self.support_cone_half_angle_rad,
+                           ),
+                           required_steps=self.placement_consecutive_steps,
                        ),
                    ],
                ),
@@ -116,10 +124,19 @@ Add ``ProgressObjective`` entries to ``TaskTerminationCfg.success``. Provide exa
            timeout_s=self.episode_length_s,
        )
 
-Use ``functools.partial`` to pass task-specific arguments to a predicate.
+``functools.partial`` supplies the arguments for a single-step check.
+``TrueForConsecutiveStepsCfg`` wraps that configured callable when it must remain true for several steps.
+An instantaneous check that needs environment-dependent initialization can also be supplied
+as a ``TerminationTermCfg`` inside the requirement. For a callable class, ``ProgressObjectiveRunner``
+constructs it with ``(cfg, env)``; it does not need to inherit from ``ManagerTermBase``.
+This initialization is separate from counting steps.
+
+``PickAndPlaceTask`` defaults to ``placement_consecutive_steps=1``. Set it to a larger positive
+integer, such as ``10``, to require placement, support, and low speed to hold together for that
+many consecutive control steps.
 
 Use a dictionary to track several sequences independently. This example requires any two
-objects to be lifted and placed:
+objects to be lifted and placed. Each entry, such as ``can_lifted``, is a configured callable:
 
 .. code-block:: python
 
@@ -147,6 +164,55 @@ one combined condition; remembering each gear's earlier placement would allow a 
 before the task completes.
 
 
+Conditions that must remain true
+--------------------------------
+
+Use ``TrueForConsecutiveStepsCfg`` around a configured callable:
+
+.. code-block:: python
+
+   placement_held = TrueForConsecutiveStepsCfg(
+       predicate=placed_and_stable,
+       required_steps=10,
+   )
+
+``placed_and_stable`` returns one Boolean per environment; it does not maintain a counter.
+``ProgressObjectiveRunner`` creates an internal ``_TrueForConsecutiveSteps`` instance from each
+``TrueForConsecutiveStepsCfg`` occurrence. The runner evaluates the predicate and passes its results
+and active environments to that instance. ``_TrueForConsecutiveSteps`` stores the per-environment
+counts: true adds one; false clears the streak.
+The runner resets it through the existing ``TaskSuccessTerm`` / ``ProgressTracker`` episode-reset path.
+
+To require overlapping conditions, combine them before counting. Here A must rest while B is
+touching for the same ten steps, after lifting and placement:
+
+.. code-block:: python
+
+   def both_conditions_hold(env):
+       return object_a_is_resting(env) & object_b_is_touching(env)
+
+   objective = ProgressObjective(
+       name="place_and_hold",
+       predicate_sequence=[
+           lifted,
+           placed,
+           TrueForConsecutiveStepsCfg(
+               predicate=both_conditions_hold,
+               required_steps=10,
+           ),
+       ],
+   )
+
+Two separate sequence entries would allow the resting and touching periods to happen at different
+times. The combined predicate restarts its streak whenever either condition becomes false.
+
+``TaskSuccessTerm`` supplies the environment's control-step indices automatically, so repeated
+success checks do not count twice. When using ``ProgressTracker.step()`` directly with consecutive-step
+requirements, pass one integer index per environment, for example
+``tracker.step(env, step_index=env.episode_length_buf)``. Skipping an index clears the streak;
+unobserved steps cannot prove the condition held continuously.
+
+
 Subtask progress tracking in composite and sequential tasks
 -----------------------------------------------------------
 
@@ -166,6 +232,8 @@ to be true.
 Completed milestones remain recorded. ``TaskTerminationCfg.desired_subtask_success_state``
 preserves the composition's optional final-condition checks. Reports contain the flat objectives
 and their weighted overall progress; subtask metrics read ``ProgressTracker.get_subtask_completion()``.
+For a consecutive-step final condition, these checks continue updating its counter. If the condition
+becomes false, a new streak is required, but the recorded subtask completion is kept.
 There are no additional parent-objective reports. See
 :doc:`concept_composite_tasks_design` for composition and success semantics.
 
@@ -205,7 +273,7 @@ Arena's episode recorder also serializes the final progress state and predicate 
 episode's JSONL record when an output path is configured. Tasks without progress objectives have
 no success termination or progress-tracking configuration and produce no progress fields.
 
-For example, one entry of the JSONL record may look like:
+For example, one entry of the JSONL record may look like this (placement predicate name shortened):
 
 .. code-block:: json
 
