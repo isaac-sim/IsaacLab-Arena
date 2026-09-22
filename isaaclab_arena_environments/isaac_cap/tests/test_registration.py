@@ -35,6 +35,9 @@ def _test_isaac_cap_components_registered(_simulation_app) -> bool:
     from isaaclab_arena_environments.isaac_cap.syringe_sort.environments import assets as syringe_assets
     from isaaclab_arena_environments.isaac_cap.syringe_sort.environments import environment as syringe_environment
     from isaaclab_arena_environments.isaac_cap.syringe_sort.tasks import task as syringe_task
+    from isaaclab_arena_environments.isaac_cap.tool_sorting import assets as tool_sorting_assets
+    from isaaclab_arena_environments.isaac_cap.tool_sorting import embodiment as tool_sorting_embodiment
+    from isaaclab_arena_environments.isaac_cap.tool_sorting import task as tool_sorting_task
     from isaaclab_arena_environments.isaac_cap.usbc_insertion import assets as usbc_assets
     from isaaclab_arena_environments.isaac_cap.usbc_insertion import environment as usbc_environment
     from isaaclab_arena_environments.isaac_cap.usbc_insertion import task as usbc_task
@@ -81,6 +84,20 @@ def _test_isaac_cap_components_registered(_simulation_app) -> bool:
         "industrial_fr3_robotiq_2f85_differential_ik_v2": (
             gear_v2_embodiment.IndustrialFr3Robotiq2f85DifferentialIKEmbodiment
         ),
+        "tool_sorting_fr3_robotiq_2f85": tool_sorting_embodiment.ToolSortingFr3Robotiq2f85Embodiment,
+        "vabar_tool_sort__adjustable_wrench": tool_sorting_assets.IndustrialToolSortAdjustableWrench,
+        "vabar_tool_sort__battery": tool_sorting_assets.IndustrialToolSortBattery,
+        "vabar_tool_sort__breadboard": tool_sorting_assets.IndustrialToolSortBreadboard,
+        "vabar_tool_sort__combination_pliers": tool_sorting_assets.IndustrialToolSortCombinationPliers,
+        "vabar_tool_sort__cutting_pliers": tool_sorting_assets.IndustrialToolSortCuttingPliers,
+        "vabar_tool_sort__flashlight": tool_sorting_assets.IndustrialToolSortFlashlight,
+        "vabar_tool_sort__insulating_tape": tool_sorting_assets.IndustrialToolSortInsulatingTape,
+        "vabar_tool_sort__multimeter": tool_sorting_assets.IndustrialToolSortMultimeter,
+        "vabar_tool_sort__safety_glasses": tool_sorting_assets.IndustrialToolSortSafetyGlasses,
+        "vabar_tool_sort__slotted_screwdriver": tool_sorting_assets.IndustrialToolSortSlottedScrewdriver,
+        "vabar_tool_sort__tape_measure": tool_sorting_assets.IndustrialToolSortTapeMeasure,
+        "vabar_tool_sort__wire_spool": tool_sorting_assets.IndustrialToolSortWireSpool,
+        "industrial__tool_sort_bin": tool_sorting_assets.IndustrialToolSortBin,
     }
     asset_registry = AssetRegistry()
     for name, component in expected_assets.items():
@@ -93,6 +110,7 @@ def _test_isaac_cap_components_registered(_simulation_app) -> bool:
         "UsbcInsertionTask": usbc_task.UsbcInsertionTask,
         "GearMeshTaskV2": gear_v2_task.GearMeshTask,
         "CableRoutingTaskV2": cable_v2_task.CableRoutingTask,
+        "ObjectsInRegionsTask": tool_sorting_task.ObjectsInRegionsTask,
     }
     task_registry = TaskRegistry()
     for name, component in expected_tasks.items():

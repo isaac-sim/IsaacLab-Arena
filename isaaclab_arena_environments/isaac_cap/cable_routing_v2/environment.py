@@ -51,6 +51,7 @@ class CableRoutingMediumEnvironment(ArenaEnvironmentFactory[CableRoutingMediumEn
     def build(self, cfg: CableRoutingMediumEnvironmentCfg):
         """Compose the current CAP layout from staging-bucket assets."""
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
+        from isaaclab_arena.utils.physics_backend import PhysicsBackend
 
         from .physics import configure_cable_routing_physics
         from .scene import build_cable_routing_scene
@@ -82,6 +83,7 @@ class CableRoutingMediumEnvironment(ArenaEnvironmentFactory[CableRoutingMediumEn
                 physics=variant.physics,
                 pin_start=variant.pin_start,
             ),
+            default_physics_backend=PhysicsBackend.NEWTON,
         )
 
 

@@ -18,12 +18,13 @@ from isaaclab.utils.configclass import configclass
 from isaaclab.utils.math import quat_apply_inverse
 
 from isaaclab_arena.assets.asset import Asset
-from isaaclab_arena.assets.register import register_task
 from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.metrics.success_rate import SuccessRateMetric
 from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
+
+from ..registration import register_task
 
 Bounds = tuple[float, float, float, float, float, float]
 
