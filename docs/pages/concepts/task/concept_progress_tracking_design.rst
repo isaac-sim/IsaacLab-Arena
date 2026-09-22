@@ -124,23 +124,42 @@ Add ``ProgressObjective`` entries to ``TaskTerminationCfg.success``. Provide exa
            timeout_s=self.episode_length_s,
        )
 
-Each sequence entry can use one of three forms:
+Configuring a predicate's arguments and requiring it to stay true are separate choices.
+Here, ``partial`` supplies the object names; ``ProgressObjectiveRunner`` supplies the environment
+when it calls the predicate:
 
 .. code-block:: python
 
+   from functools import partial
+
+   from isaaclab_arena.tasks.predicates.object_settling import objects_below_velocity_thresholds
+   from isaaclab_arena.tasks.predicates.temporal import TrueForConsecutiveStepsCfg
+
+   objects_are_resting = partial(objects_below_velocity_thresholds, object_names=["cube"])
+
+   # Complete this entry when the condition is true for one step.
+   predicate_sequence = [objects_are_resting]
+
+   # Or require the same condition to hold for ten consecutive steps.
    predicate_sequence = [
-       # Callable: check the condition now.
-       partial(objects_settled, object_names=["cube"]),
-       # TerminationTermCfg: supply the function and its arguments.
-       TerminationTermCfg(
-           func=object_is_above_height,
-           params={"object_name": "cube", "use_settled_state": True},
+       TrueForConsecutiveStepsCfg(
+           predicate=objects_are_resting,
+           required_steps=10,
        ),
-       # TrueForConsecutiveStepsCfg: require the check to hold for ten steps.
-       TrueForConsecutiveStepsCfg(placed_and_stable, required_steps=10),
    ]
 
-Here, ``placed_and_stable`` is a configured placement check returning one Boolean per environment.
+``TerminationTermCfg`` is another way to supply the function and its arguments instead of ``partial``:
+
+.. code-block:: python
+
+   from isaaclab.managers import TerminationTermCfg
+
+   objects_are_resting = TerminationTermCfg(
+       func=objects_below_velocity_thresholds,
+       params={"object_names": ["cube"]},
+   )
+
+This configuration can also go directly in ``predicate_sequence`` or inside ``TrueForConsecutiveStepsCfg``.
 ``ProgressObjectiveRunner`` prepares and evaluates these entries; ``TerminationTermCfg`` does not
 create a separate termination-manager term here. For a callable class, the runner initializes it
 with ``(cfg, env)``; ``ManagerTermBase`` inheritance is not required.
