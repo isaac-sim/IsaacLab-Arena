@@ -29,9 +29,9 @@ import os
 import re
 import torch
 import warnings
-from abc import ABC, abstractmethod
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
+from typing import TypeAlias
 
 from moviepy.video.io.ffmpeg_writer import FFMPEG_VideoWriter
 
@@ -94,20 +94,8 @@ def _sanitize_cam_key(camera_name: str) -> str:
     return camera_name.replace("/", "_").replace(os.sep, "_")
 
 
-class CameraObservationVideoAdapter(ABC):
-    """Convert one camera-observation modality frame to RGB uint8 for video encoding."""
-
-    @abstractmethod
-    def convert(self, frame: torch.Tensor | np.ndarray) -> np.ndarray:
-        """Convert one ``[H, W, ...]`` observation frame to ``[H, W, 3]`` RGB uint8."""
-
-
-class _RgbCameraObservationVideoAdapter(CameraObservationVideoAdapter):
-    """Convert an RGB observation frame to uint8 without changing its visualization."""
-
-    def convert(self, frame: torch.Tensor | np.ndarray) -> np.ndarray:
-        """Convert one RGB observation frame to uint8."""
-        return _to_uint8(frame)
+CameraObservationVideoAdapter: TypeAlias = Callable[[torch.Tensor | np.ndarray], np.ndarray]
+"""Convert one modality frame to an ``[H, W, 3]`` RGB uint8 video frame."""
 
 
 @dataclass
@@ -129,8 +117,10 @@ class CameraObsVideoRecorder(gym.Wrapper):
     or truncated), producing one file per completed episode:
     ``<name_prefix>-env<N>-<camera_name>-episode-<E>.mp4``.
 
-    RGB observations are supported by default. Additional modality adapters
-    can convert depth, normals, or segmentation frames into RGB visualizations.
+    RGB observations are supported by default. ``modality_adapters`` maps an
+    observation modality suffix to a callable that produces ``[H, W, 3]`` RGB
+    uint8 frames. This extension point can visualize depth, normals, or
+    segmentation while keeping the recording backend focused on mp4 video.
     """
 
     def __init__(
@@ -139,18 +129,18 @@ class CameraObsVideoRecorder(gym.Wrapper):
         video_folder: str,
         name_prefix: str = "robot-cam",
         fps: int | None = None,
-        video_adapters: Mapping[str, CameraObservationVideoAdapter] | None = None,
+        modality_adapters: Mapping[str, CameraObservationVideoAdapter] | None = None,
     ):
         super().__init__(env)
         os.makedirs(video_folder, exist_ok=True)
         self.video_folder = video_folder
         self.name_prefix = name_prefix
         self.fps = fps if fps is not None else int(env.metadata.get("render_fps", 30))
-        self.video_adapters = {"rgb": _RgbCameraObservationVideoAdapter()}
-        if video_adapters is not None:
-            self.video_adapters.update(video_adapters)
-        assert all(self.video_adapters), "Video adapter modality names must not be empty."
-        self._video_adapter_modalities = sorted(self.video_adapters, key=len, reverse=True)
+        self.modality_adapters: dict[str, CameraObservationVideoAdapter] = {"rgb": _to_uint8}
+        if modality_adapters is not None:
+            self.modality_adapters.update(modality_adapters)
+        assert all(self.modality_adapters), "Video adapter modality names must not be empty."
+        self._video_adapter_modalities = sorted(self.modality_adapters, key=len, reverse=True)
         self._warned_unadapted_observations: set[str] = set()
 
         # camera_name -> one entry per env, holding that env's open encoder for its current
@@ -183,7 +173,7 @@ class CameraObsVideoRecorder(gym.Wrapper):
                         self.writers[camera_name] = [None] * n_envs
                     for env_idx in range(n_envs):
                         if env_idx not in done_set:
-                            self._write_frame(camera_name, env_idx, adapter.convert(frames[env_idx]))
+                            self._write_frame(camera_name, env_idx, adapter(frames[env_idx]))
 
             if done_envs:
                 # The encoder shutdown that finalises one episode's mp4 files.
@@ -196,14 +186,14 @@ class CameraObsVideoRecorder(gym.Wrapper):
         """Return the adapter registered for an observation's modality suffix."""
         for modality in self._video_adapter_modalities:
             if observation_name.endswith(f"_{modality}"):
-                return self.video_adapters[modality]
+                return self.modality_adapters[modality]
         return None
 
     def _warn_unadapted_observation(self, observation_name: str) -> None:
         """Warn once when an observation modality has no video visualization adapter."""
         if observation_name in self._warned_unadapted_observations:
             return
-        available_modalities = ", ".join(sorted(self.video_adapters))
+        available_modalities = ", ".join(sorted(self.modality_adapters))
         warnings.warn(
             f"Skipping camera observation '{observation_name}': no video adapter is registered for its modality."
             f" Available modalities: {available_modalities}.",

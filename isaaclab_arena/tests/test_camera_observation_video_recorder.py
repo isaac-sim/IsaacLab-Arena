@@ -21,11 +21,7 @@ import pytest
 
 from isaaclab_arena.utils.env_step_timer import EnvStepTimerWrapper
 from isaaclab_arena.utils.timer import Timer, get_timer_stats, reset_timer_stats
-from isaaclab_arena.video.camera_observation_video_recorder import (
-    CAMERA_OBS_GROUP_KEY,
-    CameraObservationVideoAdapter,
-    CameraObsVideoRecorder,
-)
+from isaaclab_arena.video.camera_observation_video_recorder import CAMERA_OBS_GROUP_KEY, CameraObsVideoRecorder
 from isaaclab_arena.video.video_recording import VideoRecordingCfg, wrap_env_for_video
 
 # ---------------------------------------------------------------------------
@@ -192,13 +188,10 @@ def test_non_rgb_camera_observations_are_skipped_with_one_warning_each(tmp_path)
     assert any("exterior_normals" in message for message in warning_messages)
 
 
-class _DepthVideoAdapter(CameraObservationVideoAdapter):
-    """Simple test adapter that expands one depth channel into three video channels."""
-
-    def convert(self, frame: torch.Tensor | np.ndarray) -> np.ndarray:
-        """Convert a depth test frame to RGB-shaped uint8."""
-        assert isinstance(frame, torch.Tensor)
-        return frame.expand(H, W, 3).to(torch.uint8).numpy()
+def _depth_to_rgb(frame: torch.Tensor | np.ndarray) -> np.ndarray:
+    """Expand one depth channel into three video channels for adapter testing."""
+    assert isinstance(frame, torch.Tensor)
+    return frame.expand(H, W, 3).to(torch.uint8).numpy()
 
 
 def test_custom_modality_video_adapter_is_used(tmp_path):
@@ -222,7 +215,7 @@ def test_custom_modality_video_adapter_is_used(tmp_path):
         recorder = CameraObsVideoRecorder(
             env,
             video_folder=str(tmp_path),
-            video_adapters={"distance_to_image_plane": _DepthVideoAdapter()},
+            modality_adapters={"distance_to_image_plane": _depth_to_rgb},
         )
         recorder.step(None)
 
