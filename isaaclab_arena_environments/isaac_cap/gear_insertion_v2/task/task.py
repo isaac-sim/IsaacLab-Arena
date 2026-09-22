@@ -16,6 +16,7 @@ from isaaclab.managers import EventTermCfg, SceneEntityCfg, TerminationTermCfg
 from isaaclab.utils.configclass import configclass
 
 from isaaclab_arena.assets.asset import Asset
+from isaaclab_arena.assets.register import register_task
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
 from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.metrics.success_rate import SuccessRateMetric
@@ -23,10 +24,9 @@ from isaaclab_arena.progress_tracking.progress_objective import ProgressObjectiv
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
 
-from ...registration import register_task
 from .terminations import gear_mesh_success, reset_gear_mesh_state
 
-__all__ = ["EventsCfg", "GearMeshTask"]
+__all__ = ["EventsCfg", "GearMeshTaskV2"]
 
 
 def _gear_outer_diameter_m(gear_teeth: int) -> float:
@@ -47,8 +47,8 @@ class EventsCfg:
     )
 
 
-@register_task(name="GearMeshTaskV2")
-class GearMeshTask(TaskBase):
+@register_task
+class GearMeshTaskV2(TaskBase):
     """Seat every sampled gear, press the button, and prove the train works."""
 
     def __init__(

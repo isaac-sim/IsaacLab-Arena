@@ -108,8 +108,8 @@ def _test_isaac_cap_components_registered(_simulation_app) -> bool:
         "CableRoutingTask": cable_task.CableRoutingTask,
         "SyringeSortTask": syringe_task.SyringeSortTask,
         "UsbcInsertionTask": usbc_task.UsbcInsertionTask,
-        "GearMeshTaskV2": gear_v2_task.GearMeshTask,
-        "CableRoutingTaskV2": cable_v2_task.CableRoutingTask,
+        "GearMeshTaskV2": gear_v2_task.GearMeshTaskV2,
+        "CableRoutingTaskV2": cable_v2_task.CableRoutingTaskV2,
         "ObjectsInRegionsTask": tool_sorting_task.ObjectsInRegionsTask,
     }
     task_registry = TaskRegistry()
@@ -174,22 +174,6 @@ def _test_isaac_cap_components_registered(_simulation_app) -> bool:
     policy_registry = PolicyRegistry()
     assert policy_registry.get_component_by_name("cap_remote") is cap_policy.CapPolicy
     assert policy_registry.get_policy_cfg_type(cap_policy.CapPolicy) is cap_policy.CapPolicyCfg
-
-    cap_registration.register_asset(name="factory_gear_base")(gear_assets.make_factory_gear_base)
-
-    class ConflictingAsset:
-        pass
-
-    with pytest.raises(AssertionError, match="Conflicting Isaac CAP asset registration"):
-        cap_registration.register_asset(name="factory_gear_base")(ConflictingAsset)
-
-    cap_registration.register_task(name="GearMeshTaskV2")(gear_v2_task.GearMeshTask)
-
-    class ConflictingTask:
-        pass
-
-    with pytest.raises(AssertionError, match="Conflicting Isaac CAP task registration"):
-        cap_registration.register_task(name="GearMeshTaskV2")(ConflictingTask)
 
     class ConflictingEnvironment:
         name = "vabar_cable_routing_v2__easy"

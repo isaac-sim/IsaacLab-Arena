@@ -11,34 +11,10 @@ import importlib
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.assets.register import register_environment as _register_environment
-from isaaclab_arena.assets.registries import AssetRegistry, EnvironmentRegistry, TaskRegistry
+from isaaclab_arena.assets.registries import EnvironmentRegistry
 
 if TYPE_CHECKING:
     from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg
-
-
-def register_asset(component=None, *, name: str | None = None):
-    """Register an Isaac CAP asset under its name or an explicit graph name."""
-
-    def decorator(asset):
-        asset_name = name if name is not None else asset.name
-        registry = AssetRegistry()
-        _register_component(registry, asset, asset_name, "asset")
-        return asset
-
-    return decorator if component is None else decorator(component)
-
-
-def register_task(task_type=None, *, name: str | None = None):
-    """Register an Isaac CAP task under its class or graph-spec name."""
-
-    def decorator(task):
-        task_name = name if name is not None else task.__name__
-        registry = TaskRegistry()
-        _register_component(registry, task, task_name, "task")
-        return task
-
-    return decorator if task_type is None else decorator(task_type)
 
 
 def register_environment(factory_type=None, *, cfg_type: type[ArenaEnvironmentCfg] | None = None):
@@ -55,14 +31,6 @@ def register_environment(factory_type=None, *, cfg_type: type[ArenaEnvironmentCf
         return factory
 
     return decorator if factory_type is None else decorator(factory_type)
-
-
-def _register_component(registry, component, name: str, kind: str) -> None:
-    """Register one component while allowing repeat registration of the same object."""
-    if registry.is_registered(name, ensure_loaded=False):
-        _assert_same_component(registry, component, name, kind)
-        return
-    registry.register(component, name)
 
 
 def _assert_same_component(registry, component, name: str, kind: str) -> None:

@@ -21,13 +21,13 @@ from isaaclab.utils.configclass import configclass
 
 from isaaclab_arena.assets.cable import Cable
 from isaaclab_arena.assets.object_base import ObjectBase
+from isaaclab_arena.assets.register import register_task
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.metrics.success_rate import SuccessRateMetric
 from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
 
-from ..registration import register_task
 from .geometry import capsule_centerline
 
 if TYPE_CHECKING:
@@ -129,8 +129,8 @@ class CableRoutingEventsCfg:
     )
 
 
-@register_task(name="CableRoutingTaskV2")
-class CableRoutingTask(TaskBase):
+@register_task
+class CableRoutingTaskV2(TaskBase):
     """Weave every guide and place the released free end in the port."""
 
     def __init__(
@@ -207,4 +207,4 @@ class CableRoutingTask(TaskBase):
         return ViewerCfg(eye=(1.25, -1.10, 1.55), lookat=(0.0125, 0.0, BOARD_TOP_Z))
 
 
-__all__ = ["CableRoutingTask", "terminated_cable_route_success"]
+__all__ = ["CableRoutingTaskV2", "terminated_cable_route_success"]

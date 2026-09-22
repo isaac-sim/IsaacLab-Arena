@@ -17,10 +17,10 @@ from isaaclab_arena.assets.background import Background
 from isaaclab_arena.assets.nucleus import ARENA_NUCLEUS_DIR
 from isaaclab_arena.assets.object_library import DomeLight, LibraryObject
 from isaaclab_arena.assets.object_type import ObjectType
+from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.assets.registries import HDRImageRegistry
 from isaaclab_arena.utils.pose import Pose, PoseRange
 
-from ..registration import register_asset
 from .cables import UsbcConnectorCable
 
 ASSET_ROOT = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/temp_newton_envs/usbc_insertion/assets"

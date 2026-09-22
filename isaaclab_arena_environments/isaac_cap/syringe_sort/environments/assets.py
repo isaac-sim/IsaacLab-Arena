@@ -7,9 +7,8 @@
 
 from isaaclab_arena.assets.nucleus import ARENA_NUCLEUS_DIR
 from isaaclab_arena.assets.object_library import LibraryObject
+from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.utils.pose import Pose
-
-from ...registration import register_asset
 
 # TODO(alexmillane) [cap-assets-permanent-location]: Replace temp_newton_envs with the permanent asset layout.
 SYRINGE_ASSET_ROOT = (

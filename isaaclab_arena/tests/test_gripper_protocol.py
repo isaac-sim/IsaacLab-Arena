@@ -387,10 +387,10 @@ def _test_gear_task_configures_release_checks_for_the_embodiment_gripper(_simula
 
     from isaaclab_arena.tasks.predicates.gripper import gripper_released
     from isaaclab_arena_environments.isaac_cap.gear_insertion_v2.embodiment import IndustrialFr3Robotiq2f85Embodiment
-    from isaaclab_arena_environments.isaac_cap.gear_insertion_v2.task.task import GearMeshTask
+    from isaaclab_arena_environments.isaac_cap.gear_insertion_v2.task.task import GearMeshTaskV2
     from isaaclab_arena_environments.isaac_cap.gear_insertion_v2.task.terminations import reset_gear_mesh_state
 
-    task = GearMeshTask(
+    task = GearMeshTaskV2(
         board=SimpleNamespace(name="board"),
         gear=SimpleNamespace(name="gear"),
         grasp_width_m=0.035,
@@ -432,16 +432,16 @@ def _test_gear_task_derives_default_grasp_width_from_teeth(_simulation_app) -> b
 
     import pytest
 
-    from isaaclab_arena_environments.isaac_cap.gear_insertion_v2.task.task import GearMeshTask
+    from isaaclab_arena_environments.isaac_cap.gear_insertion_v2.task.task import GearMeshTaskV2
 
-    task = GearMeshTask(board=SimpleNamespace(name="board"), gear=SimpleNamespace(name="gear"), gear_teeth=20)
+    task = GearMeshTaskV2(board=SimpleNamespace(name="board"), gear=SimpleNamespace(name="gear"), gear_teeth=20)
     params = task.get_termination_cfg().success[0].predicate_sequence[0].params
     assert params["grasp_width_m"] == pytest.approx(0.055)
 
     task.set_gear_teeth(24)
     assert params["grasp_width_m"] == pytest.approx(0.065)
 
-    override_task = GearMeshTask(
+    override_task = GearMeshTaskV2(
         board=SimpleNamespace(name="board"),
         gear=SimpleNamespace(name="gear"),
         gear_teeth=20,

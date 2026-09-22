@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from typing import ClassVar
 
+from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena_environments.isaac_cap.embodiments.insertion_task import (
@@ -16,8 +17,6 @@ from isaaclab_arena_environments.isaac_cap.embodiments.insertion_task import (
     IndustrialFr3Robotiq2f85Embodiment,
 )
 from isaaclab_arena_environments.isaac_cap.embodiments.insertion_task.config import GRIPPER_JOINT_NAME
-
-from ..registration import register_asset
 
 # AUTOLab easy tool-sort close command (radians), not the authored USD driver limit.
 _TOOL_SORT_GRIPPER_CLOSED_RAD = 0.8

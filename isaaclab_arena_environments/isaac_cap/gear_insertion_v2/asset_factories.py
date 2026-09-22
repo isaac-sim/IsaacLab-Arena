@@ -20,9 +20,8 @@ from isaaclab_arena.assets.nucleus import ARENA_NUCLEUS_DIR
 from isaaclab_arena.assets.object import Object
 from isaaclab_arena.assets.object_library import DomeLight
 from isaaclab_arena.assets.object_type import ObjectType
+from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.utils.pose import Pose
-
-from ..registration import register_asset
 
 _SHARED_ASSET_ROOT = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/temp_newton_envs/cap_envs/gear_assembly/assets"
 _GEAR_MESH_ASSET_ROOT = (
@@ -126,37 +125,30 @@ def _make_gear_mesh_board(
     return board
 
 
-@register_asset(name="industrial__gear_mesh_16t")
 def make_gear_mesh_16t(instance_name: str = "gear_a", initial_pose=None, **_ignored: Any) -> Object:
     return _make_gear_mesh_gear(16, instance_name, initial_pose)
 
 
-@register_asset(name="industrial__gear_mesh_20t")
 def make_gear_mesh_20t(instance_name: str = "gear_a", initial_pose=None, **_ignored: Any) -> Object:
     return _make_gear_mesh_gear(20, instance_name, initial_pose)
 
 
-@register_asset(name="industrial__gear_mesh_24t")
 def make_gear_mesh_24t(instance_name: str = "gear_a", initial_pose=None, **_ignored: Any) -> Object:
     return _make_gear_mesh_gear(24, instance_name, initial_pose)
 
 
-@register_asset(name="industrial__gear_mesh_board_16")
 def make_gear_mesh_board_16(instance_name: str = "board", initial_pose=None, **_ignored: Any) -> Object:
     return _make_gear_mesh_board(16, instance_name, initial_pose)
 
 
-@register_asset(name="industrial__gear_mesh_board_20")
 def make_gear_mesh_board_20(instance_name: str = "board", initial_pose=None, **_ignored: Any) -> Object:
     return _make_gear_mesh_board(20, instance_name, initial_pose)
 
 
-@register_asset(name="industrial__gear_mesh_board_24")
 def make_gear_mesh_board_24(instance_name: str = "board", initial_pose=None, **_ignored: Any) -> Object:
     return _make_gear_mesh_board(24, instance_name, initial_pose)
 
 
-@register_asset(name="industrial__gear_mesh_mat")
 def make_gear_mesh_mat(
     instance_name: str = "gear_mat",
     initial_pose: Pose | Mapping[str, Sequence[float]] | None = None,
@@ -259,4 +251,5 @@ for _name, _factory in GEAR_ASSET_ENTRY_POINTS.items():
     _factory.name = _name
     _factory.tags = ("object",)
     _factory.object_type = ObjectType.ARTICULATION if "board" in _name else ObjectType.RIGID
+    register_asset(_factory)
 del _name, _factory

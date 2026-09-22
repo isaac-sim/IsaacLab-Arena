@@ -55,7 +55,7 @@ class CableRoutingMediumEnvironment(ArenaEnvironmentFactory[CableRoutingMediumEn
 
         from .physics import configure_cable_routing_physics
         from .scene import build_cable_routing_scene
-        from .task import CableRoutingTask
+        from .task import CableRoutingTaskV2
         from .yam_i2rt import CableRoutingYamI2rtEmbodiment
 
         variant = self._variant_for_cfg(cfg)
@@ -67,7 +67,7 @@ class CableRoutingMediumEnvironment(ArenaEnvironmentFactory[CableRoutingMediumEn
             cable_camera_width=cfg.cable_camera_width,
             medium=self.name == CableRoutingMediumEnvironment.name,
         )
-        task = CableRoutingTask(
+        task = CableRoutingTaskV2(
             cable=built_scene.cable,
             pegs=built_scene.pegs,
             port=built_scene.port,
