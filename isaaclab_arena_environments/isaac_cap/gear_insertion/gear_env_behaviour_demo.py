@@ -8,7 +8,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from isaaclab_arena_environments.isaac_cap.tools import EnvBehaviourDemo
+from isaaclab_arena_environments.isaac_cap.tools.env_behaviour_demo import DifferentialIKEnvBehaviourDemo
 
 # This configuration starts the Robotiq fingers above the work surface with the
 # gripper pointing down. It keeps the deliberately rough scripted motion short.
@@ -56,10 +56,13 @@ def _build_gear_demo_environment(variant: str):
     return arena_environment
 
 
-class GearEnvBehaviourDemo(EnvBehaviourDemo):
+class GearEnvBehaviourDemo(DifferentialIKEnvBehaviourDemo):
     """Implement the gear-specific validation setup and motion sequence."""
 
     label = "gear-validation"
+    max_translation_per_step_m = _MAX_TRANSLATION_PER_STEP_M
+    move_to_max_steps = 240
+    position_tolerance_m = _POSITION_TOLERANCE_M
 
     def __init__(
         self,
@@ -93,26 +96,7 @@ class GearEnvBehaviourDemo(EnvBehaviourDemo):
 
     def setup_demo(self) -> None:
         """Resolve gear-specific action terms, bodies, and success targets."""
-        import torch
-
-        self.num_envs = self.base_env.num_envs
-        assert self.num_envs == _NUM_ENVS, f"Expected {_NUM_ENVS} environments, got {self.num_envs}."
-        self.torch = torch
-
-        action_manager = self.base_env.action_manager
-        assert action_manager.active_terms == [
-            "arm_action",
-            "gripper_action",
-        ], f"Unexpected action terms: {action_manager.active_terms}."
-        assert action_manager.total_action_dim == 7, (
-            "The validation demo requires six relative IK commands and one gripper command; "
-            f"got {action_manager.total_action_dim} actions."
-        )
-        self.arm_action = action_manager.get_term("arm_action")
-        self.robot = self.base_env.scene["robot"]
-        body_ids, _ = self.robot.find_bodies("robotiq_base")
-        assert len(body_ids) == 1, f"Expected one robotiq_base body, got {body_ids}."
-        self.ee_body_id = int(body_ids[0])
+        self.setup_differential_ik(_NUM_ENVS)
 
         progress_tracker = self.base_env.progress_tracker
         assert progress_tracker is not None, "Gear insertion diagnostics require task success tracking."
@@ -121,49 +105,6 @@ class GearEnvBehaviourDemo(EnvBehaviourDemo):
         self.plate_name = task.plate.name
         self.gear_names = tuple(gear.name for gear in task.gears)
         self.target_offsets_xyz = task.target_offsets_xyz
-
-    def _ee_position(self):
-        return self.robot.data.body_pos_w.torch[:, self.ee_body_id].clone()
-
-    def _action(self, translation_delta_w=None, *, gripper_closed: bool):
-        """Build a relative-IK action, converting world translation into robot-base coordinates."""
-        import isaaclab.utils.math as math_utils
-
-        action = self.torch.zeros(
-            (self.num_envs, self.base_env.action_manager.total_action_dim),
-            device=self.base_env.device,
-        )
-        if translation_delta_w is not None:
-            delta_b = math_utils.quat_apply_inverse(
-                self.robot.data.root_quat_w.torch,
-                translation_delta_w,
-            )
-            distance = self.torch.linalg.vector_norm(delta_b, dim=-1, keepdim=True)
-            fraction = self.torch.clamp(_MAX_TRANSLATION_PER_STEP_M / distance.clamp_min(1.0e-9), max=1.0)
-            scaled_delta_b = delta_b * fraction
-            action[:, :3] = scaled_delta_b / self.arm_action._scale[:, :3]
-        action[:, -1] = float(gripper_closed)
-        return action
-
-    def _step(self, action):
-        """Step once and return the terminated-or-truncated mask."""
-        _, _, terminated, truncated, _ = self.step(action)
-        return terminated | truncated
-
-    def _hold(self, steps: int, *, gripper_closed: bool) -> bool:
-        return any(bool(self._step(self._action(gripper_closed=gripper_closed)).any().item()) for _ in range(steps))
-
-    def _move_to(self, target_position_w, *, gripper_closed: bool, label: str) -> bool:
-        """Drive toward one Cartesian position and return whether the episode ended."""
-        for _ in range(240):
-            error_w = target_position_w - self._ee_position()
-            errors_m = self.torch.linalg.vector_norm(error_w, dim=-1)
-            if bool((errors_m <= _POSITION_TOLERANCE_M).all().item()):
-                return self._hold(10, gripper_closed=gripper_closed)
-            if bool(self._step(self._action(error_w, gripper_closed=gripper_closed)).any().item()):
-                return True
-        errors_m = self.torch.linalg.vector_norm(target_position_w - self._ee_position(), dim=-1)
-        raise RuntimeError(f"Timed out during {label}; maximum end-effector position error is {errors_m.max():.3f} m.")
 
     def _teleport(self, asset_name: str, pose_w) -> None:
         asset = self.base_env.scene[asset_name]
@@ -199,11 +140,11 @@ class GearEnvBehaviourDemo(EnvBehaviourDemo):
     def run_cycle(self, cycle: int) -> None:
         """Grasp/drop one gear, then place all gears and require a success reset."""
         print(f"[gear-validation] cycle {cycle}: settling", flush=True)
-        if self._hold(30, gripper_closed=False):
+        if self._hold_ik(30, gripper_closed=False):
             raise RuntimeError("Environment ended unexpectedly while settling.")
 
         self._put_first_gear_under_gripper()
-        if self._hold(20, gripper_closed=False):
+        if self._hold_ik(20, gripper_closed=False):
             raise RuntimeError("Environment ended unexpectedly while positioning the grasp gear.")
 
         grasp_gear = self.base_env.scene[self.gear_names[0]]
@@ -219,7 +160,7 @@ class GearEnvBehaviourDemo(EnvBehaviourDemo):
             raise RuntimeError("Environment ended unexpectedly during descent.")
 
         close_steps = max(30, round(1.5 / self.base_env.step_dt))
-        if self._hold(close_steps, gripper_closed=True):
+        if self._hold_ik(close_steps, gripper_closed=True):
             raise RuntimeError("Environment ended unexpectedly while closing the gripper.")
 
         gear_z_before_lift = grasp_gear.data.root_link_pos_w.torch[:, 2].clone()
@@ -228,7 +169,7 @@ class GearEnvBehaviourDemo(EnvBehaviourDemo):
         print(f"[gear-validation] cycle {cycle}: lift, open, and drop", flush=True)
         if self._move_to(lift_position, gripper_closed=True, label="lift"):
             raise RuntimeError("Environment ended unexpectedly during lift.")
-        if self._hold(self.pause_steps, gripper_closed=True):
+        if self._hold_ik(self.pause_steps, gripper_closed=True):
             raise RuntimeError("Environment ended unexpectedly while displaying the lift.")
 
         gear_z_after_lift = grasp_gear.data.root_link_pos_w.torch[:, 2]
@@ -240,7 +181,7 @@ class GearEnvBehaviourDemo(EnvBehaviourDemo):
             f"[gear-validation] physical lift displacement: {lift_summary}",
             flush=True,
         )
-        if self._hold(max(30, round(0.75 / self.base_env.step_dt)), gripper_closed=False):
+        if self._hold_ik(max(30, round(0.75 / self.base_env.step_dt)), gripper_closed=False):
             raise RuntimeError("Environment ended unexpectedly while dropping the gear.")
         if self._move_to(pregrasp_position, gripper_closed=False, label="retreat"):
             raise RuntimeError("Environment ended unexpectedly during retreat.")
@@ -253,7 +194,7 @@ class GearEnvBehaviourDemo(EnvBehaviourDemo):
             )
             self._teleport(gear_name, self._successful_pose(gear_index))
             if gear_index < len(self.gear_names) - 1:
-                if self._hold(self.pause_steps, gripper_closed=False):
+                if self._hold_ik(self.pause_steps, gripper_closed=False):
                     raise RuntimeError("Environment reported success before every gear was placed.")
                 continue
 
@@ -262,7 +203,7 @@ class GearEnvBehaviourDemo(EnvBehaviourDemo):
             # success predicate or reset path.
             reset_observed = self.torch.zeros(self.num_envs, device=self.base_env.device, dtype=self.torch.bool)
             for _ in range(max(self.pause_steps, 60)):
-                reset_observed |= self._step(self._action(gripper_closed=False))
+                reset_observed |= self._step(self._ik_action(gripper_closed=False))
                 if bool(reset_observed.all().item()):
                     print(
                         f"[gear-validation] cycle {cycle}: success reset observed in all {self.num_envs} environments",

@@ -120,3 +120,89 @@ class EnvBehaviourDemo(ABC):
             print(f"\n[{self.label}] exiting", flush=True)
         finally:
             self.env.close()
+
+
+class DifferentialIKEnvBehaviourDemo(EnvBehaviourDemo):
+    """Share two-environment FR3 differential-IK motion helpers."""
+
+    max_translation_per_step_m: float
+    move_to_max_steps: int
+    position_tolerance_m: float
+
+    def setup_differential_ik(self, expected_num_envs: int = 2) -> None:
+        """Resolve the differential-IK action term and robot end-effector."""
+        import torch
+
+        self.torch = torch
+        self.num_envs = self.base_env.num_envs
+        assert self.num_envs == expected_num_envs, f"Expected {expected_num_envs} environments, got {self.num_envs}."
+        action_manager = self.base_env.action_manager
+        assert action_manager.active_terms == [
+            "arm_action",
+            "gripper_action",
+        ], f"Unexpected action terms: {action_manager.active_terms}."
+        assert action_manager.total_action_dim == 7, (
+            "The validation demo requires six relative IK commands and one gripper command; "
+            f"got {action_manager.total_action_dim} actions."
+        )
+        self.arm_action = action_manager.get_term("arm_action")
+        self.robot = self.base_env.scene["robot"]
+        body_ids, _ = self.robot.find_bodies("robotiq_base")
+        assert len(body_ids) == 1, f"Expected one robotiq_base body, got {body_ids}."
+        self.ee_body_id = int(body_ids[0])
+
+    def _ee_position(self):
+        return self.robot.data.body_pos_w.torch[:, self.ee_body_id].clone()
+
+    def _ik_action(self, translation_delta_w=None, *, gripper_closed: bool):
+        """Build a relative-IK action, converting world translation into robot-base coordinates."""
+        import isaaclab.utils.math as math_utils
+
+        action = self.torch.zeros(
+            (self.num_envs, self.base_env.action_manager.total_action_dim),
+            device=self.base_env.device,
+        )
+        if translation_delta_w is not None:
+            delta_b = math_utils.quat_apply_inverse(
+                self.robot.data.root_quat_w.torch,
+                translation_delta_w,
+            )
+            distance = self.torch.linalg.vector_norm(delta_b, dim=-1, keepdim=True)
+            fraction = self.torch.clamp(
+                self.max_translation_per_step_m / distance.clamp_min(1.0e-9),
+                max=1.0,
+            )
+            action[:, :3] = delta_b * fraction / self.arm_action._scale[:, :3]
+        action[:, -1] = float(gripper_closed)
+        return action
+
+    def _step(self, action):
+        """Step once and return the terminated-or-truncated mask."""
+        _, _, terminated, truncated, _ = self.step(action)
+        return terminated | truncated
+
+    def _hold_ik(self, steps: int, *, gripper_closed: bool) -> bool:
+        """Hold the current IK pose and report whether any environment ended."""
+        return any(bool(self._step(self._ik_action(gripper_closed=gripper_closed)).any().item()) for _ in range(steps))
+
+    def _move_to(
+        self,
+        target_position_w,
+        *,
+        gripper_closed: bool,
+        label: str,
+        position_tolerance_m: float | None = None,
+    ) -> bool:
+        """Drive toward one Cartesian position and report whether any environment ended."""
+        tolerance = self.position_tolerance_m if position_tolerance_m is None else position_tolerance_m
+        for _ in range(self.move_to_max_steps):
+            error_w = target_position_w - self._ee_position()
+            errors_m = self.torch.linalg.vector_norm(error_w, dim=-1)
+            if bool((errors_m <= tolerance).all().item()):
+                return self._hold_ik(10, gripper_closed=gripper_closed)
+            if bool(self._step(self._ik_action(error_w, gripper_closed=gripper_closed)).any().item()):
+                return True
+        errors_m = self.torch.linalg.vector_norm(target_position_w - self._ee_position(), dim=-1)
+        if bool((errors_m <= tolerance).all().item()):
+            return self._hold_ik(10, gripper_closed=gripper_closed)
+        raise RuntimeError(f"Timed out during {label}; maximum end-effector position error is {errors_m.max():.3f} m.")

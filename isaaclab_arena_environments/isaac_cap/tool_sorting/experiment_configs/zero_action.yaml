@@ -1,0 +1,25 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+shared:
+  environment:
+    type: isaaclab_arena_environments/isaac_cap/tool_sorting/tool_sorting_easy_1.yaml
+    enable_cameras: false
+  environment_builder:
+    num_envs: 1
+    env_spacing: 3.0
+  policy:
+    type: zero_action
+  rollout_limit:
+    num_steps: 1
+
+runs:
+  easy_1: {}
+  easy_2:
+    environment:
+      type: isaaclab_arena_environments/isaac_cap/tool_sorting/tool_sorting_easy_2.yaml
+  easy_3:
+    environment:
+      type: isaaclab_arena_environments/isaac_cap/tool_sorting/tool_sorting_easy_3.yaml

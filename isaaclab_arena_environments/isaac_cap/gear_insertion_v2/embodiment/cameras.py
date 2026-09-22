@@ -139,23 +139,27 @@ class IndustrialFr3RobotiqCameraCfg(ArenaCameraCfg):
                 horizontal_aperture=5.376,
                 vertical_aperture=3.024,
             )
-        elif profile in {"gear", "tool_sorting"}:
+        elif profile == "gear":
             width, height = 1280, 960
-            if profile == "gear":
-                fov_y = 50.0
-                position = (0.0490017409436448, 0.01556502252117765, 1.33)
-                rotation = (1.0, 0.0, 0.0, 0.0)
-                clipping = (0.01, 4.0)
-            else:
-                fov_y = 52.0
-                position = (0.1, 0.02, 2.05)
-                rotation = (math.sqrt(0.5), math.sqrt(0.5), 0.0, 0.0)
-                clipping = (0.01, 3.0)
+            fov_y = 50.0
+            position = (0.0490017409436448, 0.01556502252117765, 1.33)
+            rotation = (1.0, 0.0, 0.0, 0.0)
             spawn = sim_utils.PinholeCameraCfg(
                 focal_length=3.024 / (2 * math.tan(math.radians(fov_y / 2))),
                 horizontal_aperture=3.024 * width / height,
                 vertical_aperture=3.024,
-                clipping_range=clipping,
+                clipping_range=(0.01, 4.0),
+            )
+        elif profile == "tool_sorting":
+            width, height = 1280, 960
+            position = (0.3, 0.0, 2.5)
+            rotation = (math.sqrt(0.5), math.sqrt(0.5), 0.0, 0.0)
+            spawn = sim_utils.PinholeCameraCfg(
+                focal_length=2.1,
+                focus_distance=28.0,
+                horizontal_aperture=5.376,
+                vertical_aperture=3.024,
+                clipping_range=(0.01, 5.0),
             )
         else:
             raise ValueError(f"Unknown FR3 overhead profile: {profile!r}")

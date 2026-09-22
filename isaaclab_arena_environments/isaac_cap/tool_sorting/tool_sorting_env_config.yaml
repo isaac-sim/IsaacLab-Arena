@@ -1,0 +1,77 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Shared Newton contact profile for the three easy tool-sorting levels.
+embodiment:
+  id: fr3
+  registry_name: tool_sorting_fr3_robotiq_2f85
+  params:
+    initial_pose:
+      position_xyz:
+      - -0.5
+      - -0.1
+      - 0.912
+      rotation_xyzw:
+      - 0.0
+      - 0.0
+      - 0.0
+      - -1.0
+    initial_joint_pose:
+    - 0
+    - 0.19634954084936207
+    - 0
+    - -2.617993877991494
+    - 0
+    - 2.941592653589793
+    - 0.7853981633974483
+background:
+  id: background
+  registry_name: fr3_workcell_table
+  params:
+    initial_pose:
+      position_xyz:
+      - -0.5
+      - -0.1
+      - 0.912
+      rotation_xyzw:
+      - 0.0
+      - 0.0
+      - 0.0
+      - 1.0
+object_references:
+- id: table
+  parent_id: background
+  prim_path: placement_surface
+  object_type: base
+  params: {}
+default_physics_backend: newton
+env_cfg_override:
+  sim:
+    dt: 0.02
+    render_interval: 1
+    gravity:
+    - 0.0
+    - 0.0
+    - -9.81
+    use_newton_actuators: true
+    physics:
+      num_substeps: 10
+      use_cuda_graph: true
+      debug_mode: false
+      default_shape_cfg:
+        gap: 0.002
+        ke: 60000.0
+        kd: 500.0
+      solver_cfg:
+        solver: newton
+        integrator: implicitfast
+        nconmax: 1024
+        njmax: 1024
+        iterations: 20
+        ls_iterations: 20
+        impratio: 10.0
+        cone: elliptic
+        use_mujoco_contacts: true
+  decimation: 1
