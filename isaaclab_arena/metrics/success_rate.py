@@ -4,7 +4,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import numpy as np
-import torch
 
 from isaaclab.managers.recorder_manager import RecorderTerm, RecorderTermCfg
 from isaaclab.utils.configclass import configclass
@@ -24,6 +23,14 @@ class SuccessRecorder(RecorderTerm):
         self.first_reset = True
 
     def record_pre_reset(self, env_ids):
+        tracker = getattr(self._env, "progress_tracker", None)
+        if tracker is not None:
+            assert tracker.has_success_criteria, "The success-rate metric requires task success objectives."
+        else:
+            assert hasattr(self._env, "termination_manager")
+            assert (
+                "success" in self._env.termination_manager.active_terms
+            ), "The success-rate metric requires task success objectives."
         # The first time that the environment is reset, we don't want to record the success,
         # because nothing has happened yet.
         if self.first_reset:
@@ -32,12 +39,8 @@ class SuccessRecorder(RecorderTerm):
             self.first_reset = False
             # Record nothing.
             return None, None
-        assert hasattr(self._env, "termination_manager")
-        assert "success" in self._env.termination_manager.active_terms
-        success_results = torch.zeros(len(env_ids), dtype=bool, device=self._env.device)
-        success_results |= self._env.termination_manager.get_term("success")[env_ids]
-
-        return self.name, success_results
+        success = tracker.is_complete() if tracker is not None else self._env.termination_manager.get_term("success")
+        return self.name, success[env_ids].clone()
 
 
 @configclass

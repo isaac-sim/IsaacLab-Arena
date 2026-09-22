@@ -18,7 +18,11 @@ from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTer
 def record_core_episode_results(env, env_id: int) -> dict[str, Any]:
     """Record the core per-episode fields for ``env_id``."""
     success = None
-    if "success" in env.termination_manager.active_terms:
+    tracker = getattr(env, "progress_tracker", None)
+    if tracker is not None:
+        if tracker.has_success_criteria:
+            success = bool(tracker.is_complete()[env_id].item())
+    elif "success" in env.termination_manager.active_terms:
         success = bool(env.termination_manager.get_term("success")[env_id].item())
     return {
         "env_id": env_id,

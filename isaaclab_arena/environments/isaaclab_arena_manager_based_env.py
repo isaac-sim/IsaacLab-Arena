@@ -61,7 +61,7 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
 
     @property
     def progress_tracker(self) -> ProgressTracker | None:
-        """The ProgressTracker owned by TaskSuccessTerm, or None if not initialized."""
+        """The shared task progress tracker, or None if no progress owner was configured."""
         return self._progress_tracker
 
     @property

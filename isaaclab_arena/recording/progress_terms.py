@@ -27,8 +27,10 @@ def record_progress_results(env, env_id: int) -> dict[str, Any]:
         "progress": {
             "overall_score": state.overall_score,
             "all_complete": state.all_complete,
+            "has_success_criteria": state.has_success_criteria,
             "objectives": {
                 name: {
+                    "role": obj.role,
                     "score": obj.score,
                     "is_complete": obj.is_complete,
                     "completed_groups": obj.completed_groups,

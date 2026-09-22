@@ -238,7 +238,7 @@ def _test_off_table_sphere_does_not_settle_before_falling(_simulation_app) -> bo
     from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
-    from isaaclab_arena.progress_tracking.task_success import TaskSuccessTerm
+    from isaaclab_arena.progress_tracking.task_success import TaskProgressTerm
     from isaaclab_arena.scene.scene import Scene
     from isaaclab_arena.tasks.predicates.object_settling import ObjectsSettledForConsecutiveSteps
     from isaaclab_arena.tests.objects_settled_task import ObjectsSettledTask
@@ -273,7 +273,7 @@ def _test_off_table_sphere_does_not_settle_before_falling(_simulation_app) -> bo
 
     try:
         arena_env = env.unwrapped
-        assert isinstance(arena_env.termination_manager.get_term_cfg("success").func, TaskSuccessTerm)
+        assert isinstance(arena_env.termination_manager.get_term_cfg("progress_tracking").func, TaskProgressTerm)
         progress_tracker = arena_env.progress_tracker
         assert progress_tracker is not None
         with pytest.raises(AttributeError, match="progress_tracker"):

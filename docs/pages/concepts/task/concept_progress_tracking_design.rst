@@ -5,10 +5,14 @@ Arena defines task success through ``ProgressObjective`` objects. These objectiv
 Boolean predicates into required milestones, such as settling, lifting, and placing an object.
 Their scores also describe partial progress when an episode ends before the task is complete.
 
-Every task returns a ``TaskTerminationCfg`` from ``get_termination_cfg()``. This configuration
-declares its ``success`` objectives, named ``failures``, and ``timeout_s`` in one place. The
-environment builder creates one success termination that advances the objectives and reports
-success when all required objectives are complete.
+Every task returns a termination configuration through ``get_termination_cfg()``.
+The configuration type is ``TaskTerminationCfg``. It declares success objectives, recorded
+objectives, named failures, and an optional timeout.
+
+The builder creates one progress owner whenever either objective list is nonempty.
+The owner advances and resets the shared tracker without terminating episodes.
+When success objectives exist, a separate termination reads the tracker's success result.
+Removing that termination leaves progress tracking active.
 
 
 Predicates
@@ -155,6 +159,9 @@ It prefixes their names with ``subtask_<index>/`` and sets ``parent_subtask_idx`
 which subtask each objective belongs to. Standalone tasks retain their original objective names,
 such as ``pick_and_place``. Nested composite or sequential tasks are not supported.
 
+Each child must define at least one success objective. A task containing only recorded
+objectives is supported as a standalone task.
+
 For an order-independent composite task, every subtask's progress objectives are active.
 With ``CompositeTaskBase(..., subtasks_are_sequential=True)``, ``ProgressTracker``
 activates each subtask only after all objectives of the preceding subtask complete in that
@@ -174,8 +181,42 @@ There are no additional parent-objective reports. See
    :alt: Comparison of predicate tracking activation in composite and sequential tasks
    :align: center
 
-   Composite tasks activate tracking on all subtasks' predicates together, while sequential tasks activate
-   tracking on each subtask's predicates only after the preceding subtask succeeds.
+   Composite tasks activate all success objectives together. Sequential tasks activate each
+   subtask's success objectives after the preceding subtask succeeds. Recorded objectives
+   remain independent of this ordering.
+
+
+Recording events independently of success
+-----------------------------------------
+
+Add objectives to ``TaskTerminationCfg.tracked`` to record events without making them
+success requirements. These objectives can record observations such as finding an object
+or a robot falling. They advance independently of subtask ordering.
+
+A recorded objective stops evaluating once complete and resumes after reset.
+It records milestone completion, rather than counting every recurrence of an event.
+An empty success list defines no task success criterion. Such a task continues until
+a failure, timeout, or external reset ends its episode.
+
+Both objective roles contribute to ``overall_score``. This weighted score measures
+event coverage, so recording a fall can increase it. Task success remains separate
+and depends only on success objectives.
+
+Use predicate configurations when objectives need independent mutable counters.
+Direct counter sharing requires the identical callable at the first position of every
+sequence using it. Those objectives must all be active from the first episode update.
+The tracker then reuses the callable's result within each step.
+
+Shared counters behind earlier predicates or delayed subtasks are rejected.
+These counters could otherwise accumulate observations before a success objective starts.
+Distinct callable wrappers cannot share a counter, including one nested inside a composite.
+A composite also rejects repeated counters across its child predicates or their descendants.
+Repeated stateless predicates remain supported.
+
+Recorded predicates must not change environment state used by success checks.
+Arena rejects the shipped settling predicates in recorded objectives because they write
+the shared initial resting positions. This restriction also covers composite children.
+Custom recorded predicates must remain read-only with respect to shared environment state.
 
 
 Reading subtask progress tracking at runtime
@@ -192,7 +233,7 @@ Read each environment's state and completed-predicate events as follows:
    print(state.overall_score, state.all_complete)
 
    objective = state.progress_objectives["pick_and_place"]
-   print(objective.score, objective.is_complete)
+   print(objective.role, objective.score, objective.is_complete)
    print(objective.active_predicates)
 
    for event in progress["events"][env_id]:
@@ -202,8 +243,14 @@ After an automatic reset, ``env.extras["progress_tracking"]`` still shows the fi
 until the next step.
 
 Arena's episode recorder also serializes the final progress state and predicate events into the
-episode's JSONL record when an output path is configured. Tasks without progress objectives have
-no success termination or progress-tracking configuration and produce no progress fields.
+episode's JSONL record when an output path is configured. Each objective includes its role.
+The record also includes ``has_success_criteria`` to distinguish absent criteria from
+unsatisfied criteria. Recorded-only tasks publish a null episode success result.
+The success-rate metric rejects tasks without success criteria.
+
+Tasks without either success or recorded objectives have no progress owner and produce
+no progress fields. Disabling automatic success termination preserves recording and
+reports the tracker's success result when success criteria exist.
 
 For example, one entry of the JSONL record may look like:
 
@@ -213,8 +260,10 @@ For example, one entry of the JSONL record may look like:
      "progress": {
        "overall_score": 0.67,
        "all_complete": false,
+       "has_success_criteria": true,
        "objectives": {
          "pick_and_place": {
+           "role": "success",
            "score": 0.67,
            "is_complete": false,
            "completed_groups": 0,

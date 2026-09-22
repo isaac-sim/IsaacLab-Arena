@@ -17,26 +17,25 @@ from isaaclab_arena.tasks.predicates.object_settling import reset_rest_pose_reco
 
 
 class TaskSuccessTerm(ManagerTermBase):
-    """Determine task success using ProgressTracker.
+    """Own task progress and report success for directly configured termination terms.
 
-    ArenaEnvBuilder registers this term with Isaac Lab's TerminationManager.
-    TaskSuccessTerm creates and owns ProgressTracker. TerminationManager
-    calls this term to update progress and check the task's success
-    requirements. On episode resets, TerminationManager calls
-    this term's reset() to clear progress for the restarting environments.
+    The builder uses the nonterminating subclass to preserve progress when automatic
+    success termination is disabled. Both owners reset progress and initial resting
+    positions through the termination manager.
     """
 
     def __init__(self, cfg: TerminationTermCfg, env):
         super().__init__(cfg, env)
         # Isaac Lab validates required __call__ parameters before constructing this term.
         success_objectives: list[ProgressObjective] = cfg.params["success_objectives"]
-        assert success_objectives, "Task success requires at least one success objective."
+        tracked_objectives = cfg.params.get("tracked_objectives", [])
         assert env.progress_tracker is None, "Only one root term may own task progress."
         self._progress_tracker = ProgressTracker(
             success_objectives,
             num_envs=env.num_envs,
             device=env.device,
             env=env,
+            tracked_objectives=tracked_objectives,
             subtasks_are_sequential=cfg.params.get("subtasks_are_sequential", False),
             desired_subtask_success_state=cfg.params.get("desired_subtask_success_state"),
         )
@@ -49,6 +48,7 @@ class TaskSuccessTerm(ManagerTermBase):
         success_objectives: list[ProgressObjective],
         subtasks_are_sequential: bool = False,
         desired_subtask_success_state: list[bool | None] | None = None,
+        tracked_objectives: list[ProgressObjective] | None = None,
     ) -> torch.Tensor:
         """Update ProgressTracker and return whether the task's success requirements are met in each environment."""
         self._progress_tracker.step(env, step_index=env.episode_length_buf)
@@ -61,3 +61,32 @@ class TaskSuccessTerm(ManagerTermBase):
         # TODO(cvolk): Consider a shared Arena reset hook in IsaacLabArenaManagerBasedRLEnv.
         # Revisit this if ObjectInitialRestPoseRecorder is used independently of task success.
         reset_rest_pose_recorder(self._env, selected_env_ids)
+
+
+class TaskProgressTerm(TaskSuccessTerm):
+    """Advance and reset task progress without terminating an episode."""
+
+    def __call__(
+        self,
+        env,
+        success_objectives: list[ProgressObjective],
+        subtasks_are_sequential: bool = False,
+        desired_subtask_success_state: list[bool | None] | None = None,
+        tracked_objectives: list[ProgressObjective] | None = None,
+    ) -> torch.Tensor:
+        success = super().__call__(
+            env,
+            success_objectives,
+            subtasks_are_sequential,
+            desired_subtask_success_state,
+            tracked_objectives,
+        )
+        return torch.zeros_like(success)
+
+
+def task_success(env) -> torch.Tensor:
+    """Return the success result already computed by the progress owner."""
+    tracker = env.progress_tracker
+    assert tracker is not None, "The progress owner must initialize the tracker before checking success."
+    assert tracker.has_success_criteria, "Task success requires at least one success objective."
+    return tracker.is_complete()

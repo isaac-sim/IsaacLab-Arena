@@ -9,12 +9,33 @@ from __future__ import annotations
 
 import functools
 import torch
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Iterator, Sequence
 
 from isaaclab.managers import ManagerTermBase, TerminationTermCfg
 
 from isaaclab_arena.tasks.predicates.consecutive import ConsecutivePredicate
 from isaaclab_arena.tasks.terminations import SuccessMode, combine_success_results
+
+
+def iter_predicates(predicates: Iterable) -> Iterator:
+    """Yield unique callable instances, including children retained by composite predicates."""
+    visited = set()
+    pending = list(predicates)
+    while pending:
+        predicate = pending.pop()
+        while isinstance(predicate, (TerminationTermCfg, functools.partial)):
+            predicate = predicate.func
+        if id(predicate) in visited:
+            continue
+        visited.add(id(predicate))
+        yield predicate
+        if isinstance(predicate, CompositePredicate):
+            pending.extend(predicate.predicates)
+
+
+def managed_predicate_ids(predicates: Iterable) -> set[int]:
+    """Return identities of live consecutive counters, including composite descendants."""
+    return {id(predicate) for predicate in iter_predicates(predicates) if isinstance(predicate, ConsecutivePredicate)}
 
 
 def reset_managed_predicates(
@@ -42,6 +63,14 @@ class CompositePredicate(ConsecutivePredicate):
         super().__init__(cfg, env)
         self.predicates = cfg.params["predicates"]
         assert self.predicates, "CompositePredicate requires at least one predicate."
+        counter_ids: set[int] = set()
+        for predicate in self.predicates:
+            child_counter_ids = managed_predicate_ids([predicate])
+            assert not counter_ids.intersection(child_counter_ids), (
+                "CompositePredicate children must not share mutable counters. "
+                "Use separate predicate configurations for each child."
+            )
+            counter_ids.update(child_counter_ids)
         self.results = torch.zeros(
             (len(self.predicates), env.num_envs),
             dtype=torch.bool,

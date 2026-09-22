@@ -37,7 +37,7 @@ from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.metrics.metric_term_cfg import MetricTermCfg
 from isaaclab_arena.metrics.recorder_manager_utils import metrics_to_recorder_manager_cfg
 from isaaclab_arena.progress_tracking.progress_tracker import ProgressTrackingRecorderManagerCfg
-from isaaclab_arena.progress_tracking.task_success import TaskSuccessTerm
+from isaaclab_arena.progress_tracking.task_success import TaskProgressTerm, task_success
 from isaaclab_arena.recording.common_terms import CoreEpisodeRecorderTermCfg, VariationEpisodeRecorderTermCfg
 from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTermCfg
 from isaaclab_arena.recording.progress_terms import ProgressEpisodeRecorderTermCfg
@@ -213,17 +213,20 @@ class ArenaEnvBuilder:
             termination_terms["time_out"] = TerminationTermCfg(func=time_out, time_out=True)
         success_objectives = task_termination_cfg.success
 
-        # Install the shared success term when the task defines success objectives.
-        if success_objectives:
-            success_term = TerminationTermCfg(
-                func=TaskSuccessTerm,
+        # Keep progress ownership independent of removable success termination.
+        if success_objectives or task_termination_cfg.tracked:
+            termination_terms["progress_tracking"] = TerminationTermCfg(
+                func=TaskProgressTerm,
                 params={
                     "success_objectives": success_objectives,
+                    "tracked_objectives": task_termination_cfg.tracked,
                     "subtasks_are_sequential": task_termination_cfg.subtasks_are_sequential,
                     "desired_subtask_success_state": task_termination_cfg.desired_subtask_success_state,
                 },
             )
-            termination_terms["success"] = success_term
+        # Insertion order makes progress available before the read-only success check.
+        if success_objectives:
+            termination_terms["success"] = TerminationTermCfg(func=task_success)
         termination_fields = [(name, TerminationTermCfg, term) for name, term in termination_terms.items()]
         return make_configclass("TerminationsCfg", termination_fields)()
 
@@ -347,7 +350,9 @@ class ArenaEnvBuilder:
         metrics_cfg = self._compose_metrics_cfg(metrics)
         metrics_recorder_manager_cfg = metrics_to_recorder_manager_cfg(metrics)
         progress_tracking_recorder_cfg: Any = (
-            ProgressTrackingRecorderManagerCfg() if task_termination_cfg.success else None
+            ProgressTrackingRecorderManagerCfg()
+            if task_termination_cfg.success or task_termination_cfg.tracked
+            else None
         )
 
         # Base has to be specified explicitly to avoid type errors and not lose inheritance.
