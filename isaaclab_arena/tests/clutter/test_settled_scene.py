@@ -37,6 +37,7 @@ def _test_generation_writes_complete_layouts(simulation_app, tmp_path):
 
     from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
     from isaaclab_arena.relations.clutter.settle import settle_clutter
+    from isaaclab_arena.relations.placement_layouts import PlacementLayouts
     from isaaclab_arena.scripts.generate_clutter_scene import generate_scene
     from isaaclab_arena.utils.pose import Pose
 
@@ -77,6 +78,15 @@ def _test_generation_writes_complete_layouts(simulation_app, tmp_path):
         assert set(record["poses"]) == {"first_cube", "cube_1", "cube_2", "cube_3"}
         for value in record["poses"].values():
             Pose.from_dict(value)
+    layouts = PlacementLayouts.from_episode_jsonl(path)
+    assert layouts.num_layouts == 4
+    replay_env = ArenaEnvGraphSpec.from_yaml(args.env_spec).to_arena_env(placement_layouts_path=path)
+    layouts.validate_assets(replay_env.get_placement_assets())
+    args.output = str(tmp_path / "regenerated.jsonl")
+    with pytest.raises(AssertionError, match="Remove cached placement layouts"):
+        generate_scene(replay_env, args)
+    assert not Path(args.output).exists()
+    args.output = str(path)
     saved = path.read_bytes()
     with pytest.raises(AssertionError, match="Output already exists"):
         generate_scene(ArenaEnvGraphSpec.from_yaml(args.env_spec).to_arena_env(), args)

@@ -61,6 +61,7 @@ def generate_scene(arena_env: IsaacLabArenaEnvironment, cfg: ClutterGenerationCf
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
     from isaaclab_arena.relations.placement_layouts import PlacementLayouts
 
+    assert arena_env.placement_layouts is None, "Remove cached placement layouts before generating clutter"
     output = Path(cfg.output)
     assert not output.exists(), f"Output already exists: {output}"
     assets = arena_env.get_placement_assets()
@@ -97,7 +98,7 @@ def generate_scene(arena_env: IsaacLabArenaEnvironment, cfg: ClutterGenerationCf
             )
             layouts.extend(batch[: num_layouts - start])
         cache = PlacementLayouts({key: [layout[key] for layout in layouts] for key in keys})
-        cache.write_episode_jsonl(output)
+        cache.write_episode_jsonl(output, source="settled")
         print(f"Saved {cache.num_layouts} settled layouts: {output}")
         return output
     finally:

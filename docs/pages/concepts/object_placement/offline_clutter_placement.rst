@@ -92,6 +92,10 @@ Each JSONL line stores placement data using the episode variations envelope. The
 ``source: "settled"`` and ``poses`` keyed by runtime scene key (the asset instance name).
 Positions are in metres in the local environment frame; quaternions use xyzw.
 These are placement records, without episode outcomes or other run metadata.
+Load them with ``--placement_layouts outputs/clutter/episodes.jsonl`` or set
+``placement_layouts_path`` in the environment YAML. See :doc:`relations` for
+replay selection and reset behavior. Remove any companion layout setting before
+generating new clutter; generation requires the source relations.
 
 Controls
 --------
