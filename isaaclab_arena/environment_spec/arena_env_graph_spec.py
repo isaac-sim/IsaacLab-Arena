@@ -50,6 +50,11 @@ class ArenaEnvGraphSpec(BaseModel):
     relations: list[SpatialRelationSpec] = Field(
         default_factory=list, description="Spatial layout relations across all assets."
     )
+    placement_layouts_path: str | None = Field(
+        default=None,
+        description="Optional placement JSONL path; from_yaml resolves it relative to the environment file.",
+    )
+
     task: CompositeTaskSpec = Field(description="Root task the robot performs to manipulate the objects.")
     placement_validators: PlacementValidatorSpec | None = Field(
         default=None,
@@ -183,7 +188,10 @@ class ArenaEnvGraphSpec(BaseModel):
 
     @classmethod
     def from_yaml(cls, path: str | Path) -> Self:
-        return cls.from_dict(cls._load_yaml_dict(path))
+        spec = cls.from_dict(cls._load_yaml_dict(path))
+        if spec.placement_layouts_path is not None:
+            spec.placement_layouts_path = str((Path(path).resolve().parent / spec.placement_layouts_path).resolve())
+        return spec
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> Self:
@@ -215,12 +223,17 @@ class ArenaEnvGraphSpec(BaseModel):
             if new_name is not None:
                 self._asset_by_id(override.target_node_id).registry_name = new_name
 
-    def to_arena_env(self, enable_cameras: bool = False) -> IsaacLabArenaEnvironment:
-        """Convert this graph spec into an :class:`IsaacLabArenaEnvironment`.
+    def to_arena_env(
+        self, enable_cameras: bool = False, placement_layouts_path: str | Path | None = None
+    ) -> IsaacLabArenaEnvironment:
+        """Convert this graph spec into an IsaacLabArenaEnvironment.
 
         Args:
             enable_cameras: Forwarded to the embodiment so its cameras are spawned.
+            placement_layouts_path: Companion pose file overriding the graph reference, relative to the working directory.
         """
         from isaaclab_arena.environment_spec.arena_env_graph_conversion_utils import build_arena_env_from_graph_spec
 
-        return build_arena_env_from_graph_spec(self, enable_cameras=enable_cameras)
+        return build_arena_env_from_graph_spec(
+            self, enable_cameras=enable_cameras, placement_layouts_path=placement_layouts_path
+        )

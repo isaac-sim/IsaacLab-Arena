@@ -43,6 +43,10 @@ class Pose:
             rotation_xyzw=tuple(float(value) for value in data.get("rotation_xyzw", (0.0, 0.0, 0.0, 1.0))),
         )
 
+    def to_dict(self) -> dict[str, list[float]]:
+        """Return the position_xyz/rotation_xyzw mapping."""
+        return {"position_xyz": list(self.position_xyz), "rotation_xyzw": list(self.rotation_xyzw)}
+
     def to_tensor(self, device: torch.device) -> torch.Tensor:
         """Convert the pose to a tensor.
 

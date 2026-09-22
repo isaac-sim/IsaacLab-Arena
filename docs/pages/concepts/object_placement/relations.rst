@@ -195,6 +195,59 @@ a Boolean value.
 Collision handling is integrated into placement and is not expressed as a
 relation.
 
+Cached Layouts
+--------------
+
+Set ``placement_layouts_path: layouts.jsonl`` in the environment YAML, or pass
+``--placement_layouts layouts.jsonl`` at runtime. YAML paths are relative to the
+environment file; the CLI override is relative to the working directory and takes
+precedence. Loading from YAML resolves the path so a serialized spec remains usable.
+
+Each JSONL line contains one complete layout under
+``variations["scene.relation_placement"]["poses"]``. Poses use runtime scene keys
+for both YAML and Python environments. A scene key is the asset instance name;
+it can differ from its YAML graph node ID.
+Positions are environment-local, in metres; rotations are xyzw quaternions.
+Other episode fields are ignored. Python callers can pass ``PlacementLayouts``
+directly to ``IsaacLabArenaEnvironment``.
+
+.. code-block:: python
+
+   from isaaclab_arena.relations.placement_layouts import PlacementLayouts
+
+   arena_env.placement_layouts = PlacementLayouts.from_episode_jsonl("layouts.jsonl")
+
+``PlacementLayouts.write_episode_jsonl(path, source=...)`` writes the same format.
+The caller supplies the source label, such as ``"solver"`` or ``"settled"``;
+the writer does not solve or simulate the poses.
+
+Resetting environments draw consecutive layouts from one shared queue, in reset
+request order. The queue wraps after its last layout. For four layouts and three
+environments, successive full resets select ``[0, 1, 2]``, then ``[3, 0, 1]``.
+A partial reset consumes only the layouts needed by those environments; other
+poses remain unchanged. Layouts can repeat across active environments after the
+queue wraps. If the environment count is a multiple of the layout count,
+repeated full resets assign the same layout to each environment. The queue covers
+all layouts across the batch; it does not guarantee that each environment visits
+every layout. Partial-reset order determines later assignments, so different
+policies may receive different per-environment sequences.
+
+Replay validates finite poses, unit quaternions, consistent object coverage and
+reset ownership. Cached objects share one reset writer, which zeros their root
+velocities. All non-anchor objects with spatial relations must be included,
+as must a non-anchor embodiment carrying any placement relation or marker.
+Object sets, disabled pose resets, non-fixed pose-reset policies and nonzero
+initial velocities are unsupported.
+
+Cached replay requires ``resolve_on_reset=True``; an explicit
+``--no-resolve_on_reset`` or a false environment default is rejected. An explicit
+``--placement_seed`` is also rejected because layouts are read in file order.
+``--no_solve_relations`` is compatible: cached replay never invokes the solver.
+
+Loading bypasses solving and does not rerun geometry, reachability or settling
+checks. Recordings must match the scene and robot configuration being replayed;
+disable pose-changing variations and callbacks when exact replay is required.
+
 Next Steps
 ----------
 

@@ -94,7 +94,7 @@ def add_isaaclab_arena_cli_args(parser: argparse.ArgumentParser) -> None:
         "--placement_seed",
         type=int,
         default=None,
-        help="Seed for object placement. If set, objects are placed at the same positions across runs.",
+        help="Seed for solved object placement. Not supported with cached placement layouts.",
     )
     arena_group.add_argument(
         "--presets",
@@ -111,6 +111,12 @@ def add_isaaclab_arena_cli_args(parser: argparse.ArgumentParser) -> None:
             "Re-place objects from the pool on each reset (default: True). Use --no-resolve_on_reset to keep the same"
             " layout."
         ),
+    )
+    arena_group.add_argument(
+        "--placement_layouts",
+        type=str,
+        default=None,
+        help="Companion placement JSONL keyed by runtime scene names",
     )
     arena_group.add_argument(
         "--list_variations",

@@ -19,6 +19,31 @@ Both produce the same object: an ``IsaacLabArenaEnvironment``.
   ``IsaacLabArenaEnvironment``.
 
 
+Companion placement files
+-------------------------
+
+Set ``placement_layouts_path: layouts.jsonl`` to replay complete layouts from a
+companion JSONL file with one complete layout per record. The path is
+relative to the environment YAML. ``--placement_layouts`` overrides that path
+relative to the working directory. For registered Python environments, pass
+``--placement_layouts`` before the environment subcommand and use runtime scene
+names as the companion file keys.
+
+Cached replay bypasses relation solving. Resetting environments draw layouts in
+order from a shared queue, which wraps when the file is exhausted. Python
+environments can instead set ``IsaacLabArenaEnvironment.placement_layouts`` to a ``PlacementLayouts``
+instance keyed by runtime scene keys. Every non-anchor asset with spatial
+relations must be covered, including a non-anchor embodiment with any placement
+relation or marker. The builder checks asset coverage, pose data and reset
+ownership before scene construction. Loading does not rerun geometry,
+reachability or settling checks. The recording must match the scene being loaded.
+See :doc:`../object_placement/relations` for queue behavior and conflicting settings.
+
+``from_yaml()`` resolves the companion path against the environment file before
+storing it in the graph specification. A subsequent dictionary round trip retains
+that resolved path. For graphs constructed directly from dictionaries, use an
+absolute path or a path relative to the working directory.
+
 The same environment, side by side
 ----------------------------------
 
