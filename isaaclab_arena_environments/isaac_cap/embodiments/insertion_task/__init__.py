@@ -9,12 +9,12 @@ from __future__ import annotations
 
 from typing import ClassVar
 
-from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.variations.camera_extrinsics_variation import CameraExtrinsicsVariation
 
+from ...registration import register_asset
 from .actions import IndustrialFr3RobotiqActionsCfg, IndustrialFr3RobotiqDifferentialIKActionsCfg
 from .cameras import IndustrialFr3RobotiqCameraCfg
 from .config import IndustrialFr3RobotiqEventCfg, IndustrialFr3RobotiqObservationsCfg, IndustrialFr3RobotiqSceneCfg

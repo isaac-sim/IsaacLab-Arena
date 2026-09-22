@@ -191,11 +191,3 @@ class IndustrialEmptyWarehouseDomeLight(DomeLight):
             ),
             **kwargs,
         )
-
-
-GEAR_ASSET_ENTRY_POINTS = {
-    make_factory_gear_base.name: make_factory_gear_base,
-    make_factory_gear_small.name: make_factory_gear_small,
-    make_factory_gear_medium.name: make_factory_gear_medium,
-    make_factory_gear_large.name: make_factory_gear_large,
-}

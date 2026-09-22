@@ -10,12 +10,12 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from typing import ClassVar
 
-from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
 from isaaclab_arena.utils.cameras import ArenaCameraCfg
 from isaaclab_arena.utils.pose import Pose
 
+from ...registration import register_asset
 from .actions import BimanualYamActionsCfg
 from .cameras import BimanualYamCameraCfg
 from .config import END_EFFECTOR_BODY_NAME, BimanualYamSceneCfg, make_yam_articulation_cfg, make_yam_ee_frame_cfg

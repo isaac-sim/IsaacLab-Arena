@@ -13,7 +13,6 @@ from .gear_mesh_environment import (
     GearMeshTrainNewtonEnvironment,
     GearMeshTrainNewtonEnvironmentCfg,
 )
-from .registration import register_components
 
 __all__ = [
     "GearInsertionEasyNewtonEnvironment",
@@ -22,5 +21,4 @@ __all__ = [
     "GearMeshPairNewtonEnvironmentCfg",
     "GearMeshTrainNewtonEnvironment",
     "GearMeshTrainNewtonEnvironmentCfg",
-    "register_components",
 ]

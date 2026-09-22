@@ -24,7 +24,8 @@ from isaaclab.utils.configclass import configclass
 from isaaclab_newton.physics import NewtonMJWarpManager
 
 from isaaclab_arena.assets.asset import Asset
-from isaaclab_arena.assets.register import register_asset
+
+from ..registration import register_asset
 
 _PLUG_LINKS = 16
 _PLUG_LENGTH = 0.12 * 2.0

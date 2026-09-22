@@ -11,12 +11,10 @@ from .environment import (
     CableRoutingMediumEnvironment,
     CableRoutingMediumEnvironmentCfg,
 )
-from .registration import register_components
 
 __all__ = [
     "CableRoutingEasyEnvironment",
     "CableRoutingEasyEnvironmentCfg",
     "CableRoutingMediumEnvironment",
     "CableRoutingMediumEnvironmentCfg",
-    "register_components",
 ]

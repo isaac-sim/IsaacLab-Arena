@@ -10,9 +10,7 @@ from __future__ import annotations
 import importlib
 from typing import TYPE_CHECKING
 
-from isaaclab_arena.assets.register import register_asset as _register_asset
 from isaaclab_arena.assets.register import register_environment as _register_environment
-from isaaclab_arena.assets.register import register_task as _register_task
 from isaaclab_arena.assets.registries import AssetRegistry, EnvironmentRegistry, TaskRegistry
 
 if TYPE_CHECKING:
@@ -21,15 +19,11 @@ if TYPE_CHECKING:
 
 def register_asset(component=None, *, name: str | None = None):
     """Register an Isaac CAP asset under its name or an explicit graph name."""
-    if name is None:
-        return _register_asset if component is None else _register_asset(component)
 
     def decorator(asset):
+        asset_name = name if name is not None else asset.name
         registry = AssetRegistry()
-        if registry.is_registered(name, ensure_loaded=False):
-            print(f"WARNING: Asset {name} is already registered. Doing nothing.")
-        else:
-            registry.register(asset, name)
+        _register_component(registry, asset, asset_name, "asset")
         return asset
 
     return decorator if component is None else decorator(component)
@@ -37,15 +31,11 @@ def register_asset(component=None, *, name: str | None = None):
 
 def register_task(task_type=None, *, name: str | None = None):
     """Register an Isaac CAP task under its class or graph-spec name."""
-    if name is None:
-        return _register_task if task_type is None else _register_task(task_type)
 
     def decorator(task):
+        task_name = name if name is not None else task.__name__
         registry = TaskRegistry()
-        if registry.is_registered(name, ensure_loaded=False):
-            print(f"WARNING: Task {name} is already registered. Doing nothing.")
-        else:
-            registry.register(task, name)
+        _register_component(registry, task, task_name, "task")
         return task
 
     return decorator if task_type is None else decorator(task_type)
@@ -53,18 +43,32 @@ def register_task(task_type=None, *, name: str | None = None):
 
 def register_environment(factory_type=None, *, cfg_type: type[ArenaEnvironmentCfg] | None = None):
     """Register an Isaac CAP environment with an optional inherited config type."""
-    if cfg_type is None:
-        return _register_environment if factory_type is None else _register_environment(factory_type)
 
     def decorator(factory):
         registry = EnvironmentRegistry()
         if registry.is_registered(factory.name, ensure_loaded=False):
-            print(f"WARNING: Environment {factory.name} is already registered. Doing nothing.")
+            _assert_same_component(registry, factory, factory.name, "environment")
+        elif cfg_type is None:
+            _register_environment(factory)
         else:
             registry.register_environment(factory, cfg_type)
         return factory
 
     return decorator if factory_type is None else decorator(factory_type)
+
+
+def _register_component(registry, component, name: str, kind: str) -> None:
+    """Register one component while allowing repeat registration of the same object."""
+    if registry.is_registered(name, ensure_loaded=False):
+        _assert_same_component(registry, component, name, kind)
+        return
+    registry.register(component, name)
+
+
+def _assert_same_component(registry, component, name: str, kind: str) -> None:
+    """Reject a registry key already owned by a different component."""
+    existing = registry.get_component_by_name(name)
+    assert existing is component, f"Conflicting Isaac CAP {kind} registration for {name!r}."
 
 
 _registered = False
