@@ -30,13 +30,18 @@ if TYPE_CHECKING:
 
 def reset_gear_insertion_diagnostics(env: ManagerBasedEnv, env_ids=None) -> None:
     """Clear GearInsertionConditions diagnostics for standalone or composite tasks."""
-    # TODO(cvolk): Move cached diagnostics out of predicates before removing this task-local reset.
+    # TODO(cvolk): Temporary CAP workaround while this predicate caches diagnostics.
+    # Move those caches out of the predicate, then remove this reset callback.
     progress_tracker = env.progress_tracker
+    found_matching_objective = False
     for objective in progress_tracker.progress_objectives:
         # CompositeTaskBase prefixes objective names with the subtask index.
         if objective.name.rsplit("/", 1)[-1] == "gear_insertion":
             gear_insertion_conditions = progress_tracker.get_predicate(objective.name)
             gear_insertion_conditions.reset(env_ids)
+            found_matching_objective = True
+    # A renamed objective must not leave diagnostics from the previous episode.
+    assert found_matching_objective, "reset_gear_insertion_diagnostics found no gear_insertion objective to reset."
 
 
 class GearInsertionConditions:
@@ -95,12 +100,7 @@ class GearInsertionConditions:
                     receiver_name=plate_name,
                     max_tilt_rad=math.radians(upright_axis_threshold_deg),
                 ),
-                "support": support_check(
-                    env,
-                    plate_asset_cfg=support_check.plate_asset_cfg,
-                    gear_asset_cfg=support_check.gear_asset_cfg,
-                    support_z_threshold=support_z_threshold,
-                ),
+                "support": support_check(env, support_z_threshold=support_z_threshold),
                 "velocity": velocity_below_threshold(
                     env,
                     subject_name=gear_name,
@@ -141,14 +141,10 @@ class GearIsSupported:
     def __call__(
         self,
         env: ManagerBasedEnv,
-        plate_asset_cfg: SceneEntityCfg,
-        gear_asset_cfg: SceneEntityCfg,
         support_z_threshold: float,
     ) -> torch.Tensor:
-        assert plate_asset_cfg.name == self.plate_asset_cfg.name
-        assert gear_asset_cfg.name == self.gear_asset_cfg.name
-        T_W_P = env.arena_world.get_pose_w(plate_asset_cfg.name)
-        T_W_G = env.arena_world.get_pose_w(gear_asset_cfg.name)
+        T_W_P = env.arena_world.get_pose_w(self.plate_asset_cfg.name)
+        T_W_G = env.arena_world.get_pose_w(self.gear_asset_cfg.name)
         _, plate_top_z = self._world_collision_z_bounds(
             self.plate_collision_corners,
             T_W_P[:, :3],

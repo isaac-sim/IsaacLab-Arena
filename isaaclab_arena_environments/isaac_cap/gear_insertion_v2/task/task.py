@@ -22,11 +22,10 @@ from isaaclab_arena.metrics.success_rate import SuccessRateMetric
 from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
-from isaaclab_arena_environments.isaac_cap.gear_insertion.task.task import GearInsertionTask
 
 from .terminations import gear_mesh_success, reset_gear_mesh_state
 
-__all__ = ["EventsCfg", "GearInsertionTask", "GearMeshTask"]
+__all__ = ["EventsCfg", "GearMeshTask"]
 
 
 def _gear_outer_diameter_m(gear_teeth: int) -> float:

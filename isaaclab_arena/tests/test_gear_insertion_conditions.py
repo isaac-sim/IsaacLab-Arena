@@ -17,6 +17,7 @@ def _test_gear_insertion_overlap_reporting_and_partial_reset(_simulation_app):
 
     from isaaclab_arena.assets.asset import Asset
     from isaaclab_arena.progress_tracking.progress_tracker import ProgressTracker
+    from isaaclab_arena.tasks.composite_task_base import CompositeTaskBase
     from isaaclab_arena_environments.isaac_cap.gear_insertion.task.metrics import (
         GearInsertionFractionRecorder,
         GearInsertionFractionRecorderCfg,
@@ -24,11 +25,7 @@ def _test_gear_insertion_overlap_reporting_and_partial_reset(_simulation_app):
     )
     from isaaclab_arena_environments.isaac_cap.gear_insertion.task.predicates import GearIsSupported
     from isaaclab_arena_environments.isaac_cap.gear_insertion.task.task import GearInsertionTask
-    from isaaclab_arena_environments.isaac_cap.gear_insertion_v2.task.task import (
-        GearInsertionTask as LegacyGearInsertionTask,
-    )
 
-    assert LegacyGearInsertionTask is GearInsertionTask
     with pytest.raises(ValueError, match=r"must be in \(0, 180\]"):
         GearInsertionTask(
             plate=Asset("plate"),
@@ -121,6 +118,34 @@ def _test_gear_insertion_overlap_reporting_and_partial_reset(_simulation_app):
         assert not any(diagnostics[0][gear_name].values())
     assert diagnostics[1] == unchanged_diagnostics
     assert tracker.is_complete().tolist() == [False, True]
+
+    # The same gears can have different goals in different subtasks.
+    other_placement = GearInsertionTask(
+        plate=task.plate,
+        gears=list(task.gears),
+        target_offsets_xyz=[(0.2, 0.0, 0.03), (-0.1, 0.0, 0.03)],
+    )
+    composite_task = CompositeTaskBase(subtasks=[task, other_placement])
+    with patch.object(GearIsSupported, "_collision_corners", side_effect=_collision_corners):
+        composite_tracker = ProgressTracker(
+            composite_task.get_termination_cfg().success, num_envs=2, device="cpu", env=env
+        )
+    env.progress_tracker = composite_tracker
+    composite_tracker.step(env, step_index=torch.tensor([1, 1]))
+
+    recorded_fractions = {}
+    for metric in composite_task.get_metrics():
+        recorder_cfg = metric.get_recorder_term_cfg()
+        if not isinstance(recorder_cfg, GearInsertionFractionRecorderCfg):
+            continue
+        subtask_recorder = recorder_cfg.class_type(recorder_cfg, env)
+        assert subtask_recorder.record_pre_reset([0, 1]) == (None, None)
+        name, fractions = subtask_recorder.record_pre_reset([0, 1])
+        recorded_fractions[name] = fractions.tolist()
+    assert recorded_fractions == {
+        "gear_insertion_fraction_subtask_0": [1.0, 1.0],
+        "gear_insertion_fraction_subtask_1": [0.5, 0.5],
+    }
     return True
 
 
