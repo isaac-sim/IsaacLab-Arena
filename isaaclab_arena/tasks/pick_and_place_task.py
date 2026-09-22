@@ -100,7 +100,7 @@ class PickAndPlaceTask(TaskBase):
             isinstance(placement_consecutive_steps, int)
             and not isinstance(placement_consecutive_steps, bool)
             and placement_consecutive_steps > 0
-        ), "placement_consecutive_steps must be a positive integer."
+        ), f"placement_consecutive_steps must be a positive integer, got {placement_consecutive_steps}"
         self.placement_consecutive_steps = placement_consecutive_steps
         self.mimic_env_cfg_factory = mimic_env_cfg_factory
         self.events_cfg = None
