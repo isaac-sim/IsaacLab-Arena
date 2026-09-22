@@ -533,6 +533,7 @@ def _test_builder_rejects_task_without_unified_termination_config(simulation_app
 def _test_pick_and_place_uses_typed_success_failure_and_timeout(simulation_app):
     from unittest.mock import Mock, patch
 
+    import pytest
     from isaaclab.envs.common import ViewerCfg
     from isaaclab.envs.mdp import root_height_below_minimum, time_out
     from isaaclab.sensors import ContactSensorCfg
@@ -617,6 +618,15 @@ def _test_pick_and_place_uses_typed_success_failure_and_timeout(simulation_app):
     assert placement_parameters["force_threshold"] == held_placement_task.force_threshold
     assert placement_parameters["velocity_threshold"] == held_placement_task.velocity_threshold
     assert placement_parameters["support_cone_half_angle_rad"] == held_placement_task.support_cone_half_angle_rad
+
+    for invalid_steps in (0, -1, True, 1.5):
+        with pytest.raises(AssertionError, match="placement_consecutive_steps"):
+            PickAndPlaceTask(
+                task.pick_up_object,
+                task.destination_location,
+                task.background_scene,
+                placement_consecutive_steps=invalid_steps,
+            )
     return True
 
 
