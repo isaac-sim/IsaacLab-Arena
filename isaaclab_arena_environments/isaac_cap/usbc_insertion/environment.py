@@ -41,6 +41,7 @@ def _build_environment(scene_spec: Path, cfg: UsbcInsertionEasyEnvironmentCfg):
     from isaaclab_arena_environments.isaac_cap import register_components
 
     from .cameras import UsbcInsertionCameraCfg
+    from .physics import configure_usbc_runtime, make_robot_spawn_cfg_addon
 
     register_components()
     spec = ArenaEnvGraphSpec.from_yaml(scene_spec)
@@ -48,6 +49,7 @@ def _build_environment(scene_spec: Path, cfg: UsbcInsertionEasyEnvironmentCfg):
         enable_ee_frames=True,
         use_tiled_cameras=cfg.use_tiled_cameras,
         use_instanceable_meshes=cfg.use_instanceable_meshes,
+        spawn_cfg_addon=make_robot_spawn_cfg_addon(),
     )
     if cfg.enable_cameras:
         spec.embodiment.params["camera_config"] = UsbcInsertionCameraCfg()
@@ -58,8 +60,6 @@ def _build_environment(scene_spec: Path, cfg: UsbcInsertionEasyEnvironmentCfg):
     arena_environment.placer_params.solver_params.clearance_m = 0.0
     arena_environment.placer_params.solver_params.lr = 0.001
     assert arena_environment.env_cfg_callback is not None, "USB-C graphs must define env_cfg_override."
-    from .physics import configure_usbc_runtime
-
     arena_environment.env_cfg_callback = partial(
         configure_usbc_runtime,
         apply_graph_override=arena_environment.env_cfg_callback,

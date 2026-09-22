@@ -67,8 +67,8 @@ used by this hook.
      - The robot's ``ArticulationCfg.actuators`` in the backend hook
      - Articulation initialization creates the actuators and applies their settings.
 
-Apply spawn config addons
-~~~~~~~~~~~~~~~~~~~~~~~~~
+Applying changes
+~~~~~~~~~~~~~~~~
 
 ``spawn_cfg_addon`` defines how the embodiment's USD is loaded and which physics properties
 are authored during spawning. Its outer keys name entries in the embodiment's scene config:
@@ -117,14 +117,28 @@ For example, reuse the existing Franka and expose contact friction as a construc
                ),
            }
 
-This example sets robot-wide contact friction. See
-:doc:`../scene/concept_assets_design` for asset registration.
+To target individual colliders instead, define or import ``ColliderFrictionCfg`` from the
+example in :doc:`../scene/concept_assets_design` and use ``prim_physics``:
 
-Use the robot in your environment
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.. code-block:: python
 
-Save the definition above in ``my_project/robots.py``. Both examples set contact friction to
-``1.2`` for this environment:
+   spawn_cfg_addon = {
+       "robot": {
+           "prim_physics": {
+               "finger/collision": ColliderFrictionCfg(friction=0.8),
+           },
+       },
+   }
+
+Use the exact collider path in the robot USD; ``finger/collision`` is illustrative.
+When addon values depend on the backend, set them in ``_configure_physics_backend()``;
+``get_scene_cfg()`` then applies the resulting mapping automatically.
+
+For per-prim settings in YAML, use the same constructor-parameter pattern to construct
+``ColliderFrictionCfg`` from the supplied friction value.
+
+Save the ``ContactFranka`` definition in ``my_project/robots.py``. Both examples set contact
+friction to ``1.2`` for this environment:
 
 .. tab-set::
 
@@ -159,29 +173,6 @@ Save the definition above in ``my_project/robots.py``. Both examples set contact
          )
 
 See :doc:`../environment/physics_configuration` for configuration scopes and application order.
-
-Target individual colliders
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-To target individual colliders instead, define or import ``ColliderFrictionCfg`` from the
-example in :doc:`../scene/concept_assets_design` and use this mapping on your embodiment class:
-
-.. code-block:: python
-
-   spawn_cfg_addon = {
-       "robot": {
-           "prim_physics": {
-               "finger/collision": ColliderFrictionCfg(friction=0.8),
-           },
-       },
-   }
-
-Use the exact collider path in the robot USD; ``finger/collision`` is illustrative.
-When addon values depend on the backend, set them in ``_configure_physics_backend()``;
-``get_scene_cfg()`` then applies the resulting mapping automatically.
-
-For per-prim settings in YAML, use the same constructor-parameter pattern to construct
-``ColliderFrictionCfg`` from the supplied friction value.
 
 Call order
 ~~~~~~~~~~

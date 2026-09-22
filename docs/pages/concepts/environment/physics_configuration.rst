@@ -38,20 +38,12 @@ Choose where to configure a setting based on what it affects:
      - :doc:`env_cfg_override` / ``env_cfg_callback``
      - Timestep, solver iterations, substeps, collision pipeline, scene, and managers.
    * - Asset physics
-     - Scene objects
-     - ``Object.spawn_cfg_addon``;
-       see :doc:`../scene/concept_assets_design`.
-     - Mass, collision properties, and contact materials.
-   * - Asset physics
-     - Robots and end effectors
-     - Embodiment ``_configure_physics_backend()`` and ``spawn_cfg_addon``;
-       see :doc:`../embodiment/index`.
-     - Actuator settings, finger contacts, gripper colliders, and joint coupling.
-   * - Asset physics
-     - Selected prims within an object or robot
-     - ``spawn_cfg_addon["prim_physics"]`` on objects;
-       ``spawn_cfg_addon["robot"]["prim_physics"]`` on embodiments.
-     - Override a specific collider, rigid body, or joint; see :ref:`per-prim-spawn-physics`.
+     - Objects, robots, and selected prims within them
+     - Object or embodiment ``spawn_cfg_addon``; use nested ``prim_physics`` for a specific
+       collider, rigid body, or joint. Embodiments may also use ``_configure_physics_backend()``
+       for backend-dependent settings. See :doc:`../scene/concept_assets_design` and
+       :doc:`../embodiment/index`.
+     - Mass, materials, contacts, colliders, joints, and actuator settings.
 
 Asset physics includes both whole-asset settings and per-prim overrides. Actuator settings
 are applied when the robot initializes; spawn addons apply when its USD is loaded.

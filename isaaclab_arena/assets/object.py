@@ -60,6 +60,7 @@ class Object(RootedObjectBase):
         self.initial_pose = initial_pose
         self.relations = list(relations)
         self.reset_pose = True
+        # Keep nested addon settings independent when multiple objects reuse the same input mapping.
         self.spawn_cfg_addon = deepcopy(spawn_cfg_addon)
         self.asset_cfg_addon = asset_cfg_addon
         self.bounding_box = None

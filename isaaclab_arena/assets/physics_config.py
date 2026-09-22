@@ -48,4 +48,4 @@ class UsdFileCfgPrimPhysicsWrapper(UsdFileCfg):
     """Exact asset-relative prim paths and overrides applied after USD loading, before cloning."""
 
     usd_spawn_func: Callable | str = spawn_from_usd
-    """Original @clone-decorated USD spawner; its single-prim body runs before physics edits."""
+    """Original Lab's USD spawner; its single-prim body runs before physics edits."""
