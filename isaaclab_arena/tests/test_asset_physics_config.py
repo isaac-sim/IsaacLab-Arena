@@ -170,7 +170,7 @@ def _test_asset_physics_newton_import(_simulation_app, asset_path: Path) -> bool
     return True
 
 
-def _test_spawn_addon_argument_types(_simulation_app) -> bool:
+def _test_spawn_addon_argument_types(_simulation_app, _asset_path: Path) -> bool:
     from isaaclab.sim import CuboidCfg, UsdFileCfg
 
     from isaaclab_arena.assets.object import Object
@@ -206,10 +206,6 @@ def _test_spawn_addon_argument_types(_simulation_app) -> bool:
         with pytest.raises(AssertionError, match="cannot be combined with spawner_cfg"):
             Object(name="custom", object_type=ObjectType.BASE, spawner_cfg=custom, spawn_cfg_addon=addons)
     return True
-
-
-def test_spawn_addon_argument_types():
-    assert run_function_with_persistent_simulation_app(_test_spawn_addon_argument_types)
 
 
 def _test_physics_config_copy_and_serialization(_simulation_app, asset_path: Path) -> bool:
@@ -318,17 +314,24 @@ def _test_embodiment_spawn_addons(_simulation_app, asset_path: Path) -> bool:
     return True
 
 
-@pytest.mark.parametrize(
-    "test_case",
-    [
-        pytest.param(_test_asset_physics_spawn_lifecycle, id="spawn_lifecycle"),
-        pytest.param(_test_asset_physics_invalid_targets, id="invalid_targets"),
-        pytest.param(_test_asset_physics_instance_proxies, id="instance_proxies"),
-        pytest.param(_test_asset_physics_newton_import, id="newton_import", marks=pytest.mark.with_newton),
-        pytest.param(_test_physics_config_copy_and_serialization, id="copy_and_serialization"),
-        pytest.param(_test_embodiment_spawn_addons, id="embodiment_addons"),
-    ],
-)
-def test_asset_physics_config(test_case, tmp_path):
-    # Each case keeps deferred imports and stage cleanup inside the SimulationApp lifecycle.
-    assert run_function_with_persistent_simulation_app(test_case, asset_path=tmp_path / "robot.usda")
+def _test_asset_physics_config(simulation_app, tmp_path: Path) -> bool:
+    cases = (
+        _test_asset_physics_spawn_lifecycle,
+        _test_asset_physics_invalid_targets,
+        _test_asset_physics_instance_proxies,
+        _test_spawn_addon_argument_types,
+        _test_physics_config_copy_and_serialization,
+        _test_embodiment_spawn_addons,
+    )
+    return all(case(simulation_app, tmp_path / f"{case.__name__}.usda") for case in cases)
+
+
+def test_asset_physics_config(tmp_path):
+    assert run_function_with_persistent_simulation_app(_test_asset_physics_config, tmp_path=tmp_path)
+
+
+@pytest.mark.with_newton
+def test_asset_physics_newton_import(tmp_path):
+    assert run_function_with_persistent_simulation_app(
+        _test_asset_physics_newton_import, asset_path=tmp_path / "newton.usda"
+    )

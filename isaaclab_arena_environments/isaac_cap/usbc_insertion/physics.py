@@ -9,16 +9,16 @@ from __future__ import annotations
 
 import math
 from collections.abc import Callable
-from copy import deepcopy
 from typing import TYPE_CHECKING
 
+from isaaclab.sim import bind_physics_material
 from isaaclab.sim.schemas import CollisionFragment, UsdPhysicsCollisionCfg, apply_collision_properties
 from isaaclab.sim.spawners.materials import RigidBodyMaterialBaseCfg, spawn_physics_material
 from isaaclab.sim.utils import use_stage
 from isaaclab.utils.configclass import configclass
 from isaaclab_newton.physics import NewtonMJWarpManager
 from isaaclab_newton.sim.schemas import MujocoCollisionCfg, NewtonCollisionCfg, NewtonMaterialPropertiesCfg
-from pxr import Sdf, UsdGeom, UsdPhysics, UsdShade, Vt
+from pxr import Sdf, UsdGeom, UsdPhysics, Vt
 
 from isaaclab_arena.assets.physics_config import UsdPrimSpawnPhysicsCfg
 
@@ -87,22 +87,17 @@ class UsbcContactCfg(UsdPrimSpawnPhysicsCfg):
         if self.physics_material is not None:
             material_path = f"{prim_path}/UsbcPhysicsMaterial"
             with use_stage(stage):
-                material_prim = spawn_physics_material(material_path, self.physics_material)
-            UsdShade.MaterialBindingAPI.Apply(prim).Bind(
-                UsdShade.Material(material_prim),
-                bindingStrength=UsdShade.Tokens.strongerThanDescendants,
-                materialPurpose="physics",
-            )
+                spawn_physics_material(material_path, self.physics_material)
+            bind_physics_material(prim_path, material_path, stage=stage)
         if self.equality_solref is not None:
             prim.CreateAttribute("mjc:solref", Sdf.ValueTypeNames.DoubleArray).Set(Vt.DoubleArray(self.equality_solref))
 
 
 def make_robot_spawn_cfg_addon() -> dict[str, dict]:
     """Build per-instance full-hand contacts for both YAM robots."""
-    prim_physics = _robot_prim_physics()
     return {
-        "left_robot": {"make_uninstanceable": True, "prim_physics": deepcopy(prim_physics)},
-        "right_robot": {"make_uninstanceable": True, "prim_physics": deepcopy(prim_physics)},
+        "left_robot": {"make_uninstanceable": True, "prim_physics": _robot_prim_physics()},
+        "right_robot": {"make_uninstanceable": True, "prim_physics": _robot_prim_physics()},
     }
 
 
