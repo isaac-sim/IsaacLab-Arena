@@ -13,6 +13,52 @@ put ``PhysicsUsdFileCfg`` or ``PrimPhysicsCfg`` under graph YAML ``env_cfg_overr
 - Put object physics on the object's ``spawner_cfg``. A registered object can construct that
   spawner in its class so every instance receives the same physics.
 
+Configuration API
+-----------------
+
+``PhysicsUsdFileCfg`` extends Isaac Lab's ``UsdFileCfg`` with one mapping from
+asset-relative prim paths to ``PrimPhysicsCfg`` values. The relevant API is:
+
+.. code-block:: text
+
+   PhysicsUsdFileCfg(
+       usd_path: str,
+       prim_physics: dict[str, PrimPhysicsCfg],
+       ...  # inherited UsdFileCfg fields
+   )
+
+   PrimPhysicsCfg(
+       collision_props: list[CollisionFragment] | None = None,
+       physics_material: RigidBodyMaterialBaseCfg | None = None,
+       joint_drive_props: list[JointDriveFragment] | None = None,
+       mujoco_equality: MujocoEqualityPropertiesCfg | None = None,
+       filtered_pairs: list[str] = [],
+   )
+
+   MujocoEqualityPropertiesCfg(
+       solref: tuple[float, float] | None = None,
+       solimp: tuple[float, float, float, float, float] | None = None,
+   )
+
+The ``prim_physics`` values support:
+
+- ``collision_props``: Isaac Lab collision fragments on a geometry prim. This can enable a
+  collider on an authored visual mesh without adding procedural geometry.
+- ``physics_material``: a material created and bound to the selected collider without editing
+  a material shared with other asset parts or instances.
+- ``joint_drive_props``: Isaac Lab joint-drive fragments on a revolute or prismatic joint.
+- ``mujoco_equality``: ``solref`` and ``solimp`` on an existing ``MjcEqualityJointAPI``,
+  ``MjcEqualityConnectAPI``, or ``MjcEqualityWeldAPI`` constraint. This is specific to Newton's
+  MuJoCo solver and does not create or convert mimic constraints.
+- ``filtered_pairs``: additional asset-relative rigid-body or collider exclusions. Existing
+  exclusions are preserved and internal relationships are remapped during cloning.
+
+All paths are exact and relative to the spawned asset root. They are validated before any
+override is authored; missing or absolute paths, paths outside the asset, incompatible prim
+types, and instance proxies are rejected. Use ``make_uninstanceable=True`` when selected prims
+are inside an instanceable USD subtree and the additional stage memory is acceptable. Use ``.``
+to select the asset root. Regular expressions and wildcards are not supported.
+
 Embodiment-owned overrides
 --------------------------
 
@@ -103,26 +149,3 @@ object rather than to the whole environment:
 Use the same pattern inside a registered ``Object`` subclass when all instances of that asset
 need the override. If an object already uses a custom spawn function, integrate
 ``apply_prim_physics`` into that spawner before cloning instead of replacing the function.
-
-Supported per-prim properties
------------------------------
-
-``prim_physics`` maps exact paths relative to the spawned asset root to ``PrimPhysicsCfg``.
-It supports:
-
-- ``collision_props``: Isaac Lab collision fragments on a geometry prim. This can enable a
-  collider on an authored visual mesh without adding procedural geometry.
-- ``physics_material``: a material created and bound to the selected collider without editing
-  a material shared with other asset parts or instances.
-- ``joint_drive_props``: Isaac Lab joint-drive fragments on a revolute or prismatic joint.
-- ``mujoco_equality``: ``solref`` and ``solimp`` on an existing ``MjcEqualityJointAPI``,
-  ``MjcEqualityConnectAPI``, or ``MjcEqualityWeldAPI`` constraint. This is specific to Newton's
-  MuJoCo solver and does not create or convert mimic constraints.
-- ``filtered_pairs``: additional asset-relative rigid-body or collider exclusions. Existing
-  exclusions are preserved and internal relationships are remapped during cloning.
-
-All paths are validated before any override is authored. Missing or absolute paths, paths
-outside the asset, incompatible prim types, and instance proxies are rejected. Use
-``make_uninstanceable=True`` when selected prims are inside an instanceable USD subtree and the
-additional stage memory is acceptable. Use ``.`` to select the asset root. Regular expressions
-and wildcards are not supported.
