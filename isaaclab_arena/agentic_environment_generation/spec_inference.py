@@ -17,7 +17,6 @@ from isaaclab_arena.agentic_environment_generation.inference_backend import (
     StructuredOutputRequest,
     build_strict_schema,
 )
-from isaaclab_arena.agentic_environment_generation.placer_params_schema import build_placer_params_override_schema
 from isaaclab_arena.agentic_environment_generation.spec_validation import (
     collect_agent_ready_validation_trace,
     format_validation_error,
@@ -34,7 +33,6 @@ class SpecInference:
     def __init__(self, inference_backend: InferenceBackend):
         self._inference_backend = inference_backend
         self._schema = build_strict_schema(ArenaEnvGraphSpec)
-        self._schema["properties"]["placer_params"]["anyOf"] = build_placer_params_override_schema()["anyOf"]
 
     def infer(
         self,
@@ -145,10 +143,7 @@ Convert a natural-language prompt into an ArenaEnvGraphSpec.
 
 GUIDANCE:
 - Follow the per-field ``description`` strings in the schema.
-- REQUIRED: leave ``cli_override_specs`` null.
-- Leave ``placer_params`` null unless the prompt explicitly requests placement tuning. When used, provide only
-  data fields from ``ObjectPlacerParams`` and nested data-only configs; never set ``reachability_config.embodiment``,
-  ``solver_params.strategies``, ``class_type``, or Hydra ``_target_`` values.
+- REQUIRED: leave ``placer_params`` and ``cli_override_specs`` null.
 - Use only exact names from the catalog for ``registry_name``:
   EMBODIMENTS for ``embodiment``, BACKGROUNDS for ``background``, and OBJECTS for ``objects``.
 - Do NOT hallucinate asset names — every ``registry_name`` must appear verbatim in the catalog.
