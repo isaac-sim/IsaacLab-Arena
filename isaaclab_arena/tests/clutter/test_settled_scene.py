@@ -13,7 +13,7 @@ import pytest
 
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
-SOURCE = Path(__file__).parents[3] / "isaaclab_arena_environments/clutter/clutter_scene.yaml"
+SOURCE = Path(__file__).parent / "data/clutter_cubes.yaml"
 
 
 def _arguments(output):
@@ -35,11 +35,13 @@ def _test_generation_writes_complete_layouts(simulation_app, tmp_path):
     import yaml
     from unittest.mock import patch
 
+    from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
     from isaaclab_arena.relations.clutter.settle import settle_clutter
     from isaaclab_arena.scripts.generate_clutter_scene import generate_scene
     from isaaclab_arena.utils.pose import Pose
 
     data = yaml.safe_load(SOURCE.read_text())
+    data["objects"][0]["params"] = {"instance_name": "first_cube"}
     data["placement_validators"] = {
         "enabled_checks": ["no_overlap", "on_relation"],
         "required_checks": ["no_overlap", "on_relation"],
@@ -65,19 +67,19 @@ def _test_generation_writes_complete_layouts(simulation_app, tmp_path):
         return settle_clutter(env, *args, **kwargs)
 
     with patch("isaaclab_arena.relations.clutter.settle.settle_clutter", wraps=settle_with_graph_settings):
-        assert generate_scene(args) == path
+        assert generate_scene(ArenaEnvGraphSpec.from_yaml(args.env_spec).to_arena_env(), args) == path
     assert source.read_bytes() == original
     records = [json.loads(line)["variations"]["scene.relation_placement"] for line in path.read_text().splitlines()]
     assert [record["layout_id"] for record in records] == [f"layout_{i:06d}" for i in range(4)]
-    assert records[0]["poses"]["cube_0"] != records[1]["poses"]["cube_0"]
+    assert records[0]["poses"]["first_cube"] != records[1]["poses"]["first_cube"]
     for record in records:
         assert record["source"] == "settled"
-        assert set(record["poses"]) == {f"cube_{i}" for i in range(4)}
+        assert set(record["poses"]) == {"first_cube", "cube_1", "cube_2", "cube_3"}
         for value in record["poses"].values():
             Pose.from_dict(value)
     saved = path.read_bytes()
     with pytest.raises(AssertionError, match="Output already exists"):
-        generate_scene(args)
+        generate_scene(ArenaEnvGraphSpec.from_yaml(args.env_spec).to_arena_env(), args)
     assert path.read_bytes() == saved
     return True
 
@@ -128,17 +130,17 @@ def _test_settling_restores_scene_and_retries_only_rejected_layouts(simulation_a
     import torch
     from unittest.mock import patch
 
-    from isaaclab_arena.environment_spec.arena_env_graph_conversion_utils import (
-        build_arena_env_with_assets_from_graph_spec,
-    )
     from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
     from isaaclab_arena.relations.clutter.settle import _containment_failures, _release_objects, settle_clutter
     from isaaclab_arena.utils.pose import Pose
 
-    arena_env, assets = build_arena_env_with_assets_from_graph_spec(ArenaEnvGraphSpec.from_yaml(SOURCE))
-    assets["table"].set_initial_pose(Pose((1.0, 0.0, 0.0), (0.0, 0.0, 2**-0.5, 2**-0.5)))
+    arena_env = ArenaEnvGraphSpec.from_yaml(SOURCE).to_arena_env()
+    assets = arena_env.get_placement_assets()
+    arena_env.scene.assets["office_table_background"].set_initial_pose(
+        Pose((1.0, 0.0, 0.0), (0.0, 0.0, 2**-0.5, 2**-0.5))
+    )
     env = ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg(num_envs=2, solve_relations=False)).make_registered()
     checked = []
 
@@ -156,7 +158,7 @@ def _test_settling_restores_scene_and_retries_only_rejected_layouts(simulation_a
                 side_effect=reject_second_once,
             ),
         ):
-            layouts = settle_clutter(env, list(assets.values()), attempts=3)
+            layouts = settle_clutter(env, assets, attempts=3)
         # Only the rejected environment receives a second release.
         assert [call.args[1] for call in release.call_args_list] == [0, 1, 1]
         assert layouts == [checked[0], checked[2]]
@@ -166,10 +168,10 @@ def _test_settling_restores_scene_and_retries_only_rejected_layouts(simulation_a
             return_value=["fell off: cube_0"],
         ):
             with pytest.raises(AssertionError, match="fell off: cube_0"):
-                settle_clutter(env, list(assets.values()), attempts=1)
+                settle_clutter(env, assets, attempts=1)
         _assert_scene_state_equal(env.unwrapped.scene.get_state(), initial)
         world = env.unwrapped.arena_world
-        by_scene_key = {asset.get_scene_key(): asset for asset in assets.values()}
+        by_scene_key = {asset.get_scene_key(): asset for asset in assets}
         for env_id, layout in enumerate(layouts):
             for name, pose in layout.items():
                 by_scene_key[name].write_layout_pose_to_sim(env.unwrapped, env_id, pose)
@@ -193,6 +195,7 @@ def _test_generation_rejects_invalid_scene(simulation_app, failure, expected_err
     import tempfile
     import yaml
 
+    from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
     from isaaclab_arena.scripts.generate_clutter_scene import generate_scene
 
     with tempfile.TemporaryDirectory() as directory:
@@ -210,7 +213,7 @@ def _test_generation_rejects_invalid_scene(simulation_app, failure, expected_err
         args = _arguments(output)
         args.env_spec, args.num_envs, args.attempts = str(source), 1, 1
         with pytest.raises(AssertionError, match=expected_error):
-            generate_scene(args)
+            generate_scene(ArenaEnvGraphSpec.from_yaml(args.env_spec).to_arena_env(), args)
         assert not output.exists()
     return True
 
@@ -232,6 +235,7 @@ def _test_generation_honors_requested_validators(simulation_app, tmp_path, avail
     import yaml
     from unittest.mock import patch
 
+    from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
     from isaaclab_arena.relations.clutter.settle import _release_objects
     from isaaclab_arena.relations.placement_validation import PlacementCheck
     from isaaclab_arena.relations.placement_validator_registry import PlacementValidatorRegistry
@@ -273,7 +277,7 @@ def _test_generation_honors_requested_validators(simulation_app, tmp_path, avail
         patch("isaaclab_arena.relations.clutter.settle._release_objects", wraps=_release_objects) as release,
     ):
         with pytest.raises(AssertionError, match=expected_error):
-            generate_scene(args)
+            generate_scene(ArenaEnvGraphSpec.from_yaml(args.env_spec).to_arena_env(), args)
         release.assert_not_called()
         assert not output.exists()
     assert bool(validated_batches) == available
@@ -294,3 +298,30 @@ def test_generation_honors_requested_validators(tmp_path, available, expected_er
         available=available,
         expected_error=expected_error,
     )
+
+
+def _test_generation_from_python_environment(simulation_app, tmp_path):
+    from isaaclab_arena.assets.background_library import OfficeTableBackground
+    from isaaclab_arena.assets.object_library import DexCube, DomeLight
+    from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
+    from isaaclab_arena.relations.relations import ClutterOn, IsAnchor
+    from isaaclab_arena.scene.scene import Scene
+    from isaaclab_arena.scripts.generate_clutter_scene import ClutterGenerationCfg, generate_scene
+    from isaaclab_arena.utils.pose import Pose
+
+    table = OfficeTableBackground()
+    table.set_initial_pose(Pose.identity())
+    table.add_relation(IsAnchor())
+    cube = DexCube(instance_name="python_cube")
+    cube.add_relation(ClutterOn(table))
+    arena_env = IsaacLabArenaEnvironment(name="python_clutter", scene=Scene(assets=[table, cube, DomeLight()]))
+    output = tmp_path / "python.jsonl"
+    generate_scene(arena_env, ClutterGenerationCfg(output=str(output)))
+    record = json.loads(output.read_text())["variations"]["scene.relation_placement"]
+    assert set(record["poses"]) == {"python_cube"}
+    assert record["poses"]["python_cube"]["position_xyz"][2] > 0
+    return True
+
+
+def test_generation_from_python_environment(tmp_path):
+    assert run_function_with_persistent_simulation_app(_test_generation_from_python_environment, tmp_path=tmp_path)

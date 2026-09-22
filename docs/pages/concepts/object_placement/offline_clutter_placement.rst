@@ -36,6 +36,19 @@ Use ``presets=newton`` to select Newton; otherwise the environment selects the
 physics backend. Custom assets can register through
 ``'register=[my_package:register_components]'``.
 
+Python-defined environments use the same generator. After starting
+``SimulationApp``, pass an ``IsaacLabArenaEnvironment`` containing ``ClutterOn``
+relations:
+
+.. code-block:: python
+
+   from isaaclab_arena.scripts.generate_clutter_scene import ClutterGenerationCfg, generate_scene
+
+   generate_scene(arena_env, ClutterGenerationCfg(output="outputs/clutter/episodes.jsonl"))
+
+The command-line entry point loads the YAML into this same environment type.
+Recording uses runtime scene keys, so Python environments need no graph node IDs.
+
 How it works
 ------------
 
@@ -53,9 +66,30 @@ layouts and restores the original scene and robot targets on success or failure.
 Output is written only after every requested layout passes; existing files are
 never overwritten.
 
+By default, the generator samples poses every 0.4 simulated seconds. A layout
+is at rest when every recorded object moves at most 2 mm and rotates at most 2°
+per sample interval for two consecutive intervals. Movement resets the quiet
+count. A trial that does not settle within 10 simulated seconds is rejected.
+Rest alone is insufficient: containment and passive-body checks must also pass.
+
+The tool example uses three Robolab hammers and a clamp. These images show one
+accepted layout before and after physics settling:
+
+.. figure:: ../../../images/clutter/release.png
+   :width: 640px
+   :alt: Three hammers and a clamp suspended above a table before settling.
+
+   Solver-generated release poses, before physics advances.
+
+.. figure:: ../../../images/clutter/settled.png
+   :width: 640px
+   :alt: The same hammers and clamp resting on the table after settling.
+
+   Settled poses accepted by the rest and containment checks.
+
 Each JSONL line stores placement data using the episode variations envelope. The placement lives under
 ``variations["scene.relation_placement"]`` with a unique ``layout_id``,
-``source: "settled"`` and ``poses`` keyed by environment graph node ID.
+``source: "settled"`` and ``poses`` keyed by runtime scene key (the asset instance name).
 Positions are in metres in the local environment frame; quaternions use xyzw.
 These are placement records, without episode outcomes or other run metadata.
 

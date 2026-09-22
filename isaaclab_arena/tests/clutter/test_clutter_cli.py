@@ -14,7 +14,7 @@ import pytest
 from isaaclab_arena.tests.utils.constants import TestConstants
 from isaaclab_arena.tests.utils.subprocess import run_subprocess
 
-CLUTTER_DIR = Path(__file__).parents[3] / "isaaclab_arena_environments/clutter"
+CLUTTER_DIR = Path(__file__).parent / "data"
 SCRIPT = Path(TestConstants.scripts_dir) / "generate_clutter_scene.py"
 
 
@@ -51,7 +51,7 @@ def test_cli_generates_scene_cache(tmp_path, preset):
     import yaml
 
     output = tmp_path / "episodes.jsonl"
-    source = CLUTTER_DIR / "clutter_scene.yaml"
+    source = CLUTTER_DIR / "clutter_cubes.yaml"
     if preset is not None:
         # The office table has authored inertia that MuJoCo rejects.
         support = tmp_path / "support.usda"
@@ -79,7 +79,7 @@ def Xform "Support" (
     }
 }
 """)
-        data = yaml.safe_load((CLUTTER_DIR / "clutter_scene.yaml").read_text())
+        data = yaml.safe_load((CLUTTER_DIR / "clutter_cubes.yaml").read_text())
         data["background"] = {
             "id": "table",
             "registry_name": "simready_usd_object",

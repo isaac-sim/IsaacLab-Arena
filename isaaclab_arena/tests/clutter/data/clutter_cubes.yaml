@@ -14,40 +14,32 @@ background:
   id: table
   registry_name: office_table_background
 objects:
-- id: wood_hammer
-  registry_name: wood_hammer_robolab
-- id: red_hammer
-  registry_name: red_hammer_robolab
-- id: blue_hammer
-  registry_name: blue_hammer_robolab
-- id: clamp
-  registry_name: clamp_ycb_robolab
+- id: cube_0
+  registry_name: dex_cube
+- id: cube_1
+  registry_name: dex_cube
+- id: cube_2
+  registry_name: dex_cube
+- id: cube_3
+  registry_name: dex_cube
 relations:
 - kind: is_anchor
   subject: table
 - kind: clutter_on
-  subject: wood_hammer
+  subject: cube_0
   reference: table
-  params:
-    spread: 0.7
 - kind: clutter_on
-  subject: red_hammer
+  subject: cube_1
   reference: table
-  params:
-    spread: 0.7
 - kind: clutter_on
-  subject: blue_hammer
+  subject: cube_2
   reference: table
-  params:
-    spread: 0.7
 - kind: clutter_on
-  subject: clamp
+  subject: cube_3
   reference: table
-  params:
-    spread: 0.7
 task:
   composition: atomic
-  description: inspect a settled tool pile
+  description: inspect a settled clutter layout
   subtasks:
   - kind: NoTask
     params: {}
