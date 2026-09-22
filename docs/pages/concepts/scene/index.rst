@@ -26,6 +26,9 @@ background, a rigid object, or a set of objects
 (e.g. ``Openable``, ``Placeable``) that describe how they can be interacted
 with, which is what allows tasks to work with any compatible object.
 
+See :doc:`asset_physics_overrides` to apply per-prim physics to an embodiment or object
+without changing its source USD.
+
 More details
 ------------
 
@@ -33,5 +36,6 @@ More details
    :maxdepth: 1
 
    concept_assets_design
+   asset_physics_overrides
    concept_rigid_object_set
    concept_affordances_design

@@ -64,7 +64,7 @@ Nested ``_target_`` mappings anywhere in the tree are validated before any chang
 the live environment configuration.
 
 Per-asset physics does not belong in ``env_cfg_override``. Attach it to the embodiment or
-object that owns the spawn configuration; see :doc:`asset_physics_overrides`.
+object that owns the spawn configuration; see :doc:`../scene/asset_physics_overrides`.
 
 Disallowed patterns
 -------------------
