@@ -50,6 +50,7 @@ class ArenaEnvGraphSpec(BaseModel):
         default_factory=list, description="Spatial layout relations across all assets."
     )
     task: CompositeTaskSpec = Field(description="Root task the robot performs to manipulate the objects.")
+    # TODO(qianl, 2026-09-22): [env-spec-refactor] Add tags for fields excluded from agentic inference.
     placer_params: dict[str, Any] | None = Field(
         default=None,
         description="Validated nested overrides for ObjectPlacerParams and its data-only child configs.",
@@ -79,21 +80,19 @@ class ArenaEnvGraphSpec(BaseModel):
     @field_validator("placer_params")
     @classmethod
     def _validate_placer_params(cls, value: dict[str, Any] | None) -> dict[str, Any] | None:
+        """Dry-run placer-parameter construction to reject invalid serialized overrides."""
         if value is None:
             return None
-        from isaaclab_arena.environment_spec.env_cfg_override import apply_placer_params_override
-        from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-        from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
+        from isaaclab_arena.environment_spec.placer_params_cfg_override import build_placer_params_from_override
 
-        defaults = ObjectPlacerParams(
-            solver_params=RelationSolverParams(verbose=False, save_position_history=False),
-        )
-        apply_placer_params_override(defaults, value)
+        build_placer_params_from_override(value)
         return value
 
+    # TODO(qianl, 2026-09-22): [env-spec-refactor] Set extra="forbid" on ArenaEnvGraphSpec model and remove this.
     @model_validator(mode="before")
     @classmethod
     def _reject_legacy_placement_validators(cls, value: Any) -> Any:
+        """Detects the removed yaml key before parsing graph spec."""
         if isinstance(value, dict) and "placement_validators" in value:
             raise ValueError("placement_validators was removed; put validator fields under placer_params")
         return value

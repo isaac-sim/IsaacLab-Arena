@@ -70,6 +70,9 @@ class ObjectPlacerParams:
     """Path to record the debug visualization to as a Rerun ``.rrd`` file, for headless runs."""
 
     def __post_init__(self) -> None:
+        self.validate()
+
+    def validate(self) -> None:
         """Validate scalar placement controls."""
         assert isinstance(self.max_placement_attempts, int) and not isinstance(self.max_placement_attempts, bool)
         assert self.max_placement_attempts > 0, "max_placement_attempts must be positive"
@@ -83,3 +86,7 @@ class ObjectPlacerParams:
         if self.enabled_checks is not None and self.required_checks is not None:
             extra = self.required_checks - self.enabled_checks
             assert not extra, f"required_checks must be a subset of enabled_checks; unexpected: {sorted(extra)}"
+        for nested_params in (self.solver_params, self.reachability_config):
+            validate = getattr(nested_params, "validate", None)
+            if validate is not None:
+                validate()

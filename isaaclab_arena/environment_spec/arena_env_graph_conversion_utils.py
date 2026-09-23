@@ -20,8 +20,6 @@ from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.assets.registries import AssetRegistry, ObjectRelationLibraryRegistry
 from isaaclab_arena.environment_spec.arena_env_graph_task_conversion_utils import build_task_from_spec
 from isaaclab_arena.environment_spec.arena_env_graph_types import ObjectReferenceSpec, SpatialRelationSpec
-from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.utils.physics_backend import PhysicsBackend
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.usd.helpers import has_light, open_stage
@@ -57,6 +55,7 @@ def build_arena_env_from_graph_spec(graph_spec: ArenaEnvGraphSpec, enable_camera
     """
     # Lazy import to avoid pxr early import causing unit test failures.
     from isaaclab_arena.environment_spec.env_cfg_override import apply_env_cfg_override
+    from isaaclab_arena.environment_spec.placer_params_cfg_override import build_placer_params_from_override
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.scene.scene import Scene
 
@@ -74,22 +73,10 @@ def build_arena_env_from_graph_spec(graph_spec: ArenaEnvGraphSpec, enable_camera
         scene=Scene(assets=scene_assets),
         embodiment=assets_by_node_id[graph_spec.embodiment.id],
         task=build_task_from_spec(graph_spec.task, assets_by_node_id),
-        placer_params=build_placer_params_from_graph_spec(graph_spec),
+        placer_params=build_placer_params_from_override(graph_spec.placer_params),
         env_cfg_callback=env_cfg_callback,
         default_physics_backend=default_physics_backend,
     )
-
-
-def build_placer_params_from_graph_spec(graph_spec: ArenaEnvGraphSpec) -> ObjectPlacerParams:
-    """Build object-placer parameters from a default and apply overrides from graph spec."""
-    from isaaclab_arena.environment_spec.env_cfg_override import apply_placer_params_override
-
-    placer_params = ObjectPlacerParams(
-        solver_params=RelationSolverParams(verbose=False, save_position_history=False),
-    )
-    if graph_spec.placer_params is not None:
-        placer_params = apply_placer_params_override(placer_params, graph_spec.placer_params)
-    return placer_params
 
 
 def _ensure_scene_lighting(graph_spec: ArenaEnvGraphSpec, assets_by_node_id: dict[str, Any]) -> None:

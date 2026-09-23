@@ -74,9 +74,14 @@ class RelationSolverParams:
 
     # default_factory ensures each instance gets its own dict (mutable defaults are shared across instances)
     strategies: dict[type[RelationBase], RelationLossStrategy | UnaryRelationLossStrategy] = field(
-        default_factory=_default_strategies
+        default_factory=_default_strategies,
+        metadata={"allow_config_override": False},
     )
     """Loss strategies for each relation type. Override to customize loss computation."""
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
+        self.validate()
+
+    def validate(self) -> None:
+        """Validate relation-solver parameters."""
         assert self.clearance_m >= 0, f"clearance_m must be >= 0, got {self.clearance_m}"

@@ -117,7 +117,7 @@ def test_graph_spec_round_trips_pose_params_and_env_cfg_override():
 
 
 def test_graph_spec_round_trips_and_builds_placer_params():
-    from isaaclab_arena.environment_spec.arena_env_graph_conversion_utils import build_placer_params_from_graph_spec
+    from isaaclab_arena.environment_spec.placer_params_cfg_override import build_placer_params_from_override
 
     data = _minimal_env_graph_data()
     data["placer_params"] = {
@@ -132,7 +132,7 @@ def test_graph_spec_round_trips_and_builds_placer_params():
 
     spec = ArenaEnvGraphSpec.from_dict(data)
     restored = ArenaEnvGraphSpec.from_dict(spec.to_dict())
-    params = build_placer_params_from_graph_spec(restored)
+    params = build_placer_params_from_override(restored.placer_params)
 
     assert restored.placer_params == data["placer_params"]
     assert params.placement_seed == 42
@@ -147,7 +147,7 @@ def test_graph_spec_round_trips_and_builds_placer_params():
 
 
 def test_placer_params_null_fields_are_treated_as_omitted():
-    from isaaclab_arena.environment_spec.arena_env_graph_conversion_utils import build_placer_params_from_graph_spec
+    from isaaclab_arena.environment_spec.placer_params_cfg_override import build_placer_params_from_override
 
     data = _minimal_env_graph_data()
     data["placer_params"] = {
@@ -155,7 +155,7 @@ def test_placer_params_null_fields_are_treated_as_omitted():
         "solver_params": {"clearance_m": None},
     }
 
-    params = build_placer_params_from_graph_spec(ArenaEnvGraphSpec.from_dict(data))
+    params = build_placer_params_from_override(ArenaEnvGraphSpec.from_dict(data).placer_params)
 
     assert not params.random_yaw_init
     assert params.solver_params.clearance_m == pytest.approx(0.01)
@@ -167,8 +167,8 @@ def test_placer_params_null_fields_are_treated_as_omitted():
         ({"unknown_field": True}, "Invalid placer_params"),
         ({"max_placement_attempts": 0}, "max_placement_attempts must be positive"),
         ({"solver_params": {"clearance_m": -0.1}}, "clearance_m must be >= 0"),
-        ({"solver_params": {"strategies": {}}}, "runtime-owned"),
-        ({"reachability_config": {"embodiment": "robot"}}, "runtime-owned"),
+        ({"solver_params": {"strategies": {}}}, "cannot be overridden"),
+        ({"reachability_config": {"embodiment": "robot"}}, "cannot be overridden"),
         (
             {"enabled_checks": ["no_overlap"], "required_checks": ["on_relation"]},
             "required_checks must be a subset",
