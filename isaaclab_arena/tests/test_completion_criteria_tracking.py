@@ -279,7 +279,7 @@ def _test_list_and_named_sequence_track_identically(simulation_app) -> bool:
         weighted_sequence = [(first_predicate, 1.0), (final_predicate, 3.0)]
         trackers = [
             ProgressTracker(
-                criteria_sets=[
+                completion_criteria=[
                     CompletionCriteria(
                         name="task",
                         **sequence_arguments,
@@ -331,7 +331,7 @@ def _test_named_predicate_sequences_advance_independently(simulation_app) -> boo
         },
         logical="all",
     )
-    tracker = ProgressTracker(criteria_sets=[criteria], num_envs=1, device="cpu")
+    tracker = ProgressTracker(completion_criteria=[criteria], num_envs=1, device="cpu")
 
     # Right finishes while left's placement cannot bypass its unsatisfied lift predicate.
     left_placed.set([True])
@@ -343,7 +343,7 @@ def _test_named_predicate_sequences_advance_independently(simulation_app) -> boo
     state = tracker.get_state()[0].criteria_by_name["place_both"]
     assert state.completed_sequences == 1
     assert not state.is_complete
-    assert [(event.sequence, event.predicate_index) for event in tracker.get_events()[0]] == [
+    assert [(event.sequence_name, event.predicate_index) for event in tracker.get_events()[0]] == [
         ("right", 0),
         ("right", 1),
     ]
@@ -353,7 +353,7 @@ def _test_named_predicate_sequences_advance_independently(simulation_app) -> boo
         _advance_step(env)
         tracker.step(env, step_index=env.episode_length_buf)
     assert tracker.get_state()[0].all_complete
-    assert [(event.sequence, event.predicate_index) for event in tracker.get_events()[0]] == [
+    assert [(event.sequence_name, event.predicate_index) for event in tracker.get_events()[0]] == [
         ("right", 0),
         ("right", 1),
         ("left", 0),
@@ -371,7 +371,7 @@ def _test_state_machine_advances_sequentially(simulation_app) -> bool:
         env = _MockEnv(num_envs=1)
         preds = [_MockPredicate(num_envs=1, name=f"p{i}") for i in range(3)]
         criteria = CompletionCriteria(name="lift", predicate_sequence=preds)
-        sm = ProgressTracker(criteria_sets=[criteria], num_envs=1, device="cpu")
+        sm = ProgressTracker(completion_criteria=[criteria], num_envs=1, device="cpu")
         sm.reset([0])
 
         # Step 1: p0 True while p1, p2 still False. Advance to index 1.
@@ -418,7 +418,7 @@ def _test_state_machine_ignores_out_of_order_success(simulation_app) -> bool:
         env = _MockEnv(num_envs=1)
         preds = [_MockPredicate(num_envs=1, name=f"p{i}") for i in range(3)]
         criteria = CompletionCriteria(name="lift", predicate_sequence=preds)
-        sm = ProgressTracker(criteria_sets=[criteria], num_envs=1, device="cpu")
+        sm = ProgressTracker(completion_criteria=[criteria], num_envs=1, device="cpu")
         sm.reset([0])
 
         # p0 stays False and p1, p2 True. No progress should be made.
@@ -465,7 +465,7 @@ def _test_state_machine_logical_any(simulation_app) -> bool:
             predicate_sequences={"a": [p_a], "b": [p_b]},
             logical="any",
         )
-        sm = ProgressTracker(criteria_sets=[criteria], num_envs=1, device="cpu")
+        sm = ProgressTracker(completion_criteria=[criteria], num_envs=1, device="cpu")
         sm.reset([0])
 
         # Neither sequence complete -> not done, zero score.
@@ -503,7 +503,7 @@ def _test_state_machine_logical_all(simulation_app) -> bool:
             predicate_sequences={"a": [p_a], "b": [p_b]},
             logical="all",
         )
-        sm = ProgressTracker(criteria_sets=[criteria], num_envs=1, device="cpu")
+        sm = ProgressTracker(completion_criteria=[criteria], num_envs=1, device="cpu")
         sm.reset([0])
 
         # Only p_a completes -> still not done; 1 of 2 sequences done -> score 0.5.
@@ -544,7 +544,7 @@ def _test_state_machine_logical_choose(simulation_app) -> bool:
             logical="choose",
             K=2,
         )
-        sm = ProgressTracker(criteria_sets=[criteria], num_envs=1, device="cpu")
+        sm = ProgressTracker(completion_criteria=[criteria], num_envs=1, device="cpu")
         sm.reset([0])
 
         # Only p_a sequence complete -> not done; 1 of the required 2 sequences -> top-2 mean = 0.5.
@@ -578,7 +578,7 @@ def _test_state_machine_reset_clears_state(simulation_app) -> bool:
         env = _MockEnv(num_envs=2)
         preds = [_MockPredicate(num_envs=2, name=f"p{i}") for i in range(2)]
         criteria = CompletionCriteria(name="t", predicate_sequence=preds)
-        sm = ProgressTracker(criteria_sets=[criteria], num_envs=2, device="cpu")
+        sm = ProgressTracker(completion_criteria=[criteria], num_envs=2, device="cpu")
         sm.reset([0, 1])
 
         # Set env 0 to fully complete.

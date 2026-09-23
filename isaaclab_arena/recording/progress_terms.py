@@ -42,7 +42,7 @@ def record_progress_results(env, env_id: int) -> dict[str, Any]:
                 {
                     "step": event.step,
                     "criteria_name": event.criteria_name,
-                    "sequence": event.sequence,
+                    "sequence_name": event.sequence_name,
                     "predicate_index": event.predicate_index,
                     "predicate_name": event.predicate_name,
                     "score_delta": event.score_delta,

@@ -28,7 +28,7 @@ def reset_gear_mesh_state(env, env_ids=None) -> None:
     # to TrueForConsecutiveStepsCfg, then remove this reset callback.
     progress_tracker = env.progress_tracker
     found_matching_criteria = False
-    for criteria in progress_tracker.criteria_sets:
+    for criteria in progress_tracker.completion_criteria:
         # CompositeTaskBase prefixes criteria names with the subtask index.
         if criteria.name.rsplit("/", 1)[-1] == "gear_mesh":
             gear_mesh_predicate = progress_tracker.get_predicate(criteria.name)
