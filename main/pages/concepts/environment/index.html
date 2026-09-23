@@ -446,6 +446,7 @@
 <li class="toctree-l1 current active has-children"><a class="current reference internal" href="#">Environment</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="environment_definition.html">Environment Definition</a></li>
 <li class="toctree-l2"><a class="reference internal" href="env_builder.html">Environment Builder</a></li>
+<li class="toctree-l2"><a class="reference internal" href="physics_configuration.html">Physics configuration</a></li>
 <li class="toctree-l2"><a class="reference internal" href="physics_backend_selection.html">Physics backend selection</a></li>
 <li class="toctree-l2"><a class="reference internal" href="env_cfg_override.html">Graph YAML <code class="docutils literal notranslate"><span class="pre">env_cfg_override</span></code></a></li>
 </ul>
@@ -607,12 +608,13 @@ The same pick-and-place task works with any robot on any scene: swap the Franka
 for a G1, or the kitchen for a warehouse, with no changes to the task.
 This moves us from a library of monolithic environment descriptions to a library
 of environment <em>parts</em>.</p>
-<p>The pages below cover how you define an environment, how it is built, and physics backend selection:</p>
+<p>The pages below cover how you define an environment, how it is built, and how physics is configured:</p>
 <ul class="simple">
 <li><p><a class="reference internal" href="environment_definition.html"><span class="doc">Environment Definition</span></a> — the two ways to define an environment, Python
 or YAML.</p></li>
 <li><p><a class="reference internal" href="env_builder.html"><span class="doc">Environment Builder</span></a> — how <code class="docutils literal notranslate"><span class="pre">ArenaEnvBuilder</span></code> compiles a specification into an
 Isaac Lab <code class="docutils literal notranslate"><span class="pre">ManagerBasedRLEnv</span></code>.</p></li>
+<li><p><a class="reference internal" href="physics_configuration.html"><span class="doc">Physics configuration</span></a> — where physics settings belong and when they are applied.</p></li>
 <li><p><a class="reference internal" href="physics_backend_selection.html"><span class="doc">Physics backend selection</span></a> — PhysX vs Newton, <code class="docutils literal notranslate"><span class="pre">--presets</span></code>,
 and <code class="docutils literal notranslate"><span class="pre">default_physics_backend</span></code>.</p></li>
 <li><p><a class="reference internal" href="env_cfg_override.html"><span class="doc">Graph YAML env_cfg_override</span></a> — graph YAML <code class="docutils literal notranslate"><span class="pre">env_cfg_override</span></code> and Hydra <code class="docutils literal notranslate"><span class="pre">_target_</span></code> rules.</p></li>
@@ -623,6 +625,7 @@ and <code class="docutils literal notranslate"><span class="pre">default_physics
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="environment_definition.html">Environment Definition</a></li>
 <li class="toctree-l1"><a class="reference internal" href="env_builder.html">Environment Builder</a></li>
+<li class="toctree-l1"><a class="reference internal" href="physics_configuration.html">Physics configuration</a></li>
 <li class="toctree-l1"><a class="reference internal" href="physics_backend_selection.html">Physics backend selection</a></li>
 <li class="toctree-l1"><a class="reference internal" href="env_cfg_override.html">Graph YAML <code class="docutils literal notranslate"><span class="pre">env_cfg_override</span></code></a></li>
 </ul>

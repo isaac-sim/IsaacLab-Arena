@@ -450,6 +450,7 @@
 <li class="toctree-l1 has-children"><a class="reference internal" href="../environment/index.html">Environment</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="../environment/environment_definition.html">Environment Definition</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../environment/env_builder.html">Environment Builder</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../environment/physics_configuration.html">Physics configuration</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../environment/physics_backend_selection.html">Physics backend selection</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../environment/env_cfg_override.html">Graph YAML <code class="docutils literal notranslate"><span class="pre">env_cfg_override</span></code></a></li>
 </ul>
@@ -607,12 +608,104 @@ and decorate it with <code class="docutils literal notranslate"><span class="pre
 <p>Useful tags include <code class="docutils literal notranslate"><span class="pre">&quot;graspable&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;openable&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;pressable&quot;</span></code>, and <code class="docutils literal notranslate"><span class="pre">&quot;background&quot;</span></code>.
 Assets can have multiple tags — for example, a fruit is tagged both <code class="docutils literal notranslate"><span class="pre">&quot;graspable&quot;</span></code> and <code class="docutils literal notranslate"><span class="pre">&quot;food&quot;</span></code>.</p>
 </section>
+<section id="object-configuration">
+<h2>Object configuration<a class="headerlink" href="#object-configuration" title="Link to this heading">#</a></h2>
+<p>An object’s constructor sets its USD source, scale, initial pose, and object type.
+<code class="docutils literal notranslate"><span class="pre">asset_cfg_addon</span></code> configures the Isaac Lab asset (for example, <code class="docutils literal notranslate"><span class="pre">debug_vis</span></code> or articulation
+actuators). <code class="docutils literal notranslate"><span class="pre">spawn_cfg_addon</span></code> configures how the USD is loaded and which physics properties
+are authored during spawning: mass/density, collision settings, and contact materials.
+Use <code class="docutils literal notranslate"><span class="pre">prim_physics</span></code> within the spawn addons for selected bodies, colliders, or joints.</p>
+<section id="physics-spawn-addons">
+<h3>Physics spawn addons<a class="headerlink" href="#physics-spawn-addons" title="Link to this heading">#</a></h3>
+<p>Use <code class="docutils literal notranslate"><span class="pre">spawn_cfg_addon</span></code> to override physics parameters:</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<colgroup>
+<col style="width: 30.0%" />
+<col style="width: 70.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Addon</p></th>
+<th class="head"><p>Example parameters</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">mass_props</span></code></p></td>
+<td><p>Mass and density.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">rigid_props</span></code></p></td>
+<td><p>Gravity, damping, and velocity limits.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">collision_props</span></code></p></td>
+<td><p>Collision enablement, contact offset, and rest offset.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">physics_material</span></code></p></td>
+<td><p>Static/dynamic friction and restitution.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">articulation_props</span></code></p></td>
+<td><p>Self-collision and articulation solver settings.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">prim_physics</span></code></p></td>
+<td><p>Selected-prim collision, material, mass, joint, or backend-specific settings,
+defined by an environment-owned <code class="docutils literal notranslate"><span class="pre">UsdPrimSpawnPhysicsCfg</span></code> subclass.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>For example, override friction on the library red cube’s <code class="docutils literal notranslate"><span class="pre">Cube</span></code> collider:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">math</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab.utils.configclass</span><span class="w"> </span><span class="kn">import</span> <span class="n">configclass</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pxr</span><span class="w"> </span><span class="kn">import</span> <span class="n">UsdPhysics</span><span class="p">,</span> <span class="n">UsdShade</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.assets.object_library</span><span class="w"> </span><span class="kn">import</span> <span class="n">RedCube</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.assets.physics_config</span><span class="w"> </span><span class="kn">import</span> <span class="n">UsdPrimSpawnPhysicsCfg</span>
+
+<span class="nd">@configclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">ColliderFrictionCfg</span><span class="p">(</span><span class="n">UsdPrimSpawnPhysicsCfg</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Bind an instance-local contact material to a selected collider."""</span>
+
+    <span class="n">friction</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.8</span>
+<span class="w">    </span><span class="sd">"""Static and dynamic friction coefficient."""</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">validate_target</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">prim</span><span class="p">,</span> <span class="n">root</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Require a collider and a finite nonnegative friction coefficient."""</span>
+        <span class="k">assert</span> <span class="n">prim</span><span class="o">.</span><span class="n">HasAPI</span><span class="p">(</span><span class="n">UsdPhysics</span><span class="o">.</span><span class="n">CollisionAPI</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="n">math</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">friction</span><span class="p">)</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">friction</span> <span class="o">&gt;=</span> <span class="mi">0</span>
+        <span class="k">assert</span> <span class="ow">not</span> <span class="n">prim</span><span class="o">.</span><span class="n">GetStage</span><span class="p">()</span><span class="o">.</span><span class="n">GetPrimAtPath</span><span class="p">(</span><span class="n">prim</span><span class="o">.</span><span class="n">GetPath</span><span class="p">()</span><span class="o">.</span><span class="n">AppendChild</span><span class="p">(</span><span class="s2">"ContactMaterial"</span><span class="p">))</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">apply</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">prim</span><span class="p">,</span> <span class="n">root</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Author and bind a material within the spawned asset."""</span>
+        <span class="c1"># A local material preserves shared source materials and remaps during cloning.</span>
+        <span class="n">material</span> <span class="o">=</span> <span class="n">UsdShade</span><span class="o">.</span><span class="n">Material</span><span class="o">.</span><span class="n">Define</span><span class="p">(</span><span class="n">prim</span><span class="o">.</span><span class="n">GetStage</span><span class="p">(),</span> <span class="n">prim</span><span class="o">.</span><span class="n">GetPath</span><span class="p">()</span><span class="o">.</span><span class="n">AppendChild</span><span class="p">(</span><span class="s2">"ContactMaterial"</span><span class="p">))</span>
+        <span class="n">physics</span> <span class="o">=</span> <span class="n">UsdPhysics</span><span class="o">.</span><span class="n">MaterialAPI</span><span class="o">.</span><span class="n">Apply</span><span class="p">(</span><span class="n">material</span><span class="o">.</span><span class="n">GetPrim</span><span class="p">())</span>
+        <span class="n">physics</span><span class="o">.</span><span class="n">CreateStaticFrictionAttr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">friction</span><span class="p">)</span>
+        <span class="n">physics</span><span class="o">.</span><span class="n">CreateDynamicFrictionAttr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">friction</span><span class="p">)</span>
+        <span class="n">UsdShade</span><span class="o">.</span><span class="n">MaterialBindingAPI</span><span class="o">.</span><span class="n">Apply</span><span class="p">(</span><span class="n">prim</span><span class="p">)</span><span class="o">.</span><span class="n">Bind</span><span class="p">(</span>
+            <span class="n">material</span><span class="p">,</span>
+            <span class="n">bindingStrength</span><span class="o">=</span><span class="n">UsdShade</span><span class="o">.</span><span class="n">Tokens</span><span class="o">.</span><span class="n">strongerThanDescendants</span><span class="p">,</span>
+            <span class="n">materialPurpose</span><span class="o">=</span><span class="s2">"physics"</span><span class="p">,</span>
+        <span class="p">)</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">HighFrictionRedCube</span><span class="p">(</span><span class="n">RedCube</span><span class="p">):</span>
+    <span class="n">spawn_cfg_addon</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">"prim_physics"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"Cube"</span><span class="p">:</span> <span class="n">ColliderFrictionCfg</span><span class="p">(</span><span class="n">friction</span><span class="o">=</span><span class="mf">0.8</span><span class="p">)},</span>
+    <span class="p">}</span>
+
+<span class="n">red_cube</span> <span class="o">=</span> <span class="n">HighFrictionRedCube</span><span class="p">()</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">prim_physics</span></code> keys are exact paths relative to the asset root; use <code class="docutils literal notranslate"><span class="pre">&quot;.&quot;</span></code> for the root.
+Settings apply after USD loading and before cloning and physics import.</p>
+<p>See <a class="reference internal" href="../environment/physics_configuration.html"><span class="doc">Physics configuration</span></a> for configuration order and
+<a class="reference internal" href="../embodiment/index.html"><span class="doc">Embodiment</span></a> for robot and end-effector physics.</p>
+</section>
+</section>
 <section id="object-types">
 <h2>Object types<a class="headerlink" href="#object-types" title="Link to this heading">#</a></h2>
 <p>Every asset has an object type that determines how it is simulated:</p>
 <ul class="simple">
 <li><p><strong>RIGID</strong> — a single rigid body (boxes, bottles, tools, furniture).</p></li>
-<li><p><strong>ARTICULATION</strong> — a multi-body object with joints (robots, doors, drawers, appliances).</p></li>
+<li><p><strong>ARTICULATION</strong> — a multi-body scene object with joints (doors, drawers, appliances).</p></li>
 <li><p><strong>BASE</strong> — no physics; used for static backgrounds and markers.</p></li>
 </ul>
 <p>Deformable and backend-specific spawn configs must match the environment’s resolved physics
@@ -729,6 +822,10 @@ environments, wrap the candidates in a <code class="docutils literal notranslate
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#registering-a-new-asset">Registering a new asset</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#object-configuration">Object configuration</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#physics-spawn-addons">Physics spawn addons</a></li>
+</ul>
+</li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#object-types">Object types</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#backgrounds">Backgrounds</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#object-references">Object references</a></li>

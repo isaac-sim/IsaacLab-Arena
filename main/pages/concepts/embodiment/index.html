@@ -450,6 +450,7 @@
 <li class="toctree-l1 has-children"><a class="reference internal" href="../environment/index.html">Environment</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="../environment/environment_definition.html">Environment Definition</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../environment/env_builder.html">Environment Builder</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../environment/physics_configuration.html">Physics configuration</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../environment/physics_backend_selection.html">Physics backend selection</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../environment/env_cfg_override.html">Graph YAML <code class="docutils literal notranslate"><span class="pre">env_cfg_override</span></code></a></li>
 </ul>
@@ -600,6 +601,165 @@ while <code class="docutils literal notranslate"><span class="pre">franka_joint_
 <p>Passing <code class="docutils literal notranslate"><span class="pre">enable_cameras=True</span></code> adds the robot’s onboard cameras to the observation space.
 This is required for any policy that takes image observations, such as GR00T.</p>
 </section>
+<section id="robot-and-end-effector-physics">
+<h2>Robot and end-effector physics<a class="headerlink" href="#robot-and-end-effector-physics" title="Link to this heading">#</a></h2>
+<p>The embodiment owns robot physics, including end-effector contact materials, gripper
+colliders, self-collision exclusions, joint coupling, and actuator configuration.</p>
+<section id="configure-the-physics-backend">
+<h3>Configure the physics backend<a class="headerlink" href="#configure-the-physics-backend" title="Link to this heading">#</a></h3>
+<p>Implement backend-specific robot defaults in <code class="docutils literal notranslate"><span class="pre">_configure_physics_backend(self,</span> <span class="pre">backend)</span></code>.
+Use this hook to select compatible robot configuration and actuator settings for the resolved
+backend. Task-dependent end-effector values can be exposed as embodiment configuration and
+used by this hook.</p>
+<div class="pst-scrollable-table-container"><table class="table" id="id1">
+<caption><span class="caption-text">Backend configuration</span><a class="headerlink" href="#id1" title="Link to this table">#</a></caption>
+<colgroup>
+<col style="width: 28.0%" />
+<col style="width: 36.0%" />
+<col style="width: 36.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Change</p></th>
+<th class="head"><p>Configure it in</p></th>
+<th class="head"><p>How it is applied</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Backend-specific robot defaults</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">_configure_physics_backend(backend)</span></code></p></td>
+<td><p>Updates the embodiment’s configuration before scene composition.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Controlled joint stiffness, damping, and effort limits</p></td>
+<td><p>The robot’s <code class="docutils literal notranslate"><span class="pre">ArticulationCfg.actuators</span></code> in the backend hook</p></td>
+<td><p>Articulation initialization creates the actuators and applies their settings.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="applying-changes">
+<h3>Applying changes<a class="headerlink" href="#applying-changes" title="Link to this heading">#</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">spawn_cfg_addon</span></code> defines how the embodiment’s USD is loaded and which physics properties
+are authored during spawning. Its outer keys name entries in the embodiment’s scene config:
+<code class="docutils literal notranslate"><span class="pre">robot</span></code> for a single robot, or <code class="docutils literal notranslate"><span class="pre">left_robot</span></code> / <code class="docutils literal notranslate"><span class="pre">right_robot</span></code> for a bimanual embodiment.
+The base class copies this mapping per instance.</p>
+<p><code class="docutils literal notranslate"><span class="pre">get_scene_cfg()</span></code> applies the mapping to those entries’ spawn configs whenever the scene
+is collected. The builder configures backend defaults first. Unspecified USD paths, scales,
+variants, and other spawn options are preserved. Every named entry must exist and have a spawn config; all replacements validate before
+they are published.</p>
+<div class="pst-scrollable-table-container"><table class="table" id="id2">
+<caption><span class="caption-text">Spawn addons</span><a class="headerlink" href="#id2" title="Link to this table">#</a></caption>
+<colgroup>
+<col style="width: 28.0%" />
+<col style="width: 36.0%" />
+<col style="width: 36.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Change</p></th>
+<th class="head"><p>Configure it in</p></th>
+<th class="head"><p>How it is applied</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>USD loading options and robot-wide collision/material settings</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">spawn_cfg_addon[&quot;robot&quot;]</span></code></p></td>
+<td><p>The USD spawner uses these options when loading the robot.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Selected finger contacts, colliders, joint coupling, or collision exclusions</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">spawn_cfg_addon[&quot;robot&quot;][&quot;prim_physics&quot;]</span></code> with a concrete <code class="docutils literal notranslate"><span class="pre">UsdPrimSpawnPhysicsCfg</span></code></p></td>
+<td><p>The spawn hook edits selected prims after USD loading, before cloning and import.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>For example, reuse the existing Franka and expose contact friction as a constructor parameter:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab.sim</span><span class="w"> </span><span class="kn">import</span> <span class="n">RigidBodyMaterialCfg</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.assets.register</span><span class="w"> </span><span class="kn">import</span> <span class="n">register_asset</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.embodiments.franka.franka</span><span class="w"> </span><span class="kn">import</span> <span class="n">FrankaIKEmbodiment</span>
+
+
+<span class="nd">@register_asset</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">ContactFranka</span><span class="p">(</span><span class="n">FrankaIKEmbodiment</span><span class="p">):</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="s2">"contact_franka"</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">contact_friction</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.8</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">spawn_cfg_addon</span><span class="p">[</span><span class="s2">"robot"</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">"physics_material"</span><span class="p">:</span> <span class="n">RigidBodyMaterialCfg</span><span class="p">(</span>
+                <span class="n">static_friction</span><span class="o">=</span><span class="n">contact_friction</span><span class="p">,</span>
+                <span class="n">dynamic_friction</span><span class="o">=</span><span class="n">contact_friction</span><span class="p">,</span>
+            <span class="p">),</span>
+        <span class="p">}</span>
+</pre></div>
+</div>
+<p>To target individual colliders instead, define or import <code class="docutils literal notranslate"><span class="pre">ColliderFrictionCfg</span></code> from the
+example in <a class="reference internal" href="../scene/concept_assets_design.html"><span class="doc">Assets</span></a> and use <code class="docutils literal notranslate"><span class="pre">prim_physics</span></code>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">spawn_cfg_addon</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">"robot"</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">"prim_physics"</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s2">"finger/collision"</span><span class="p">:</span> <span class="n">ColliderFrictionCfg</span><span class="p">(</span><span class="n">friction</span><span class="o">=</span><span class="mf">0.8</span><span class="p">),</span>
+        <span class="p">},</span>
+    <span class="p">},</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Use the exact collider path in the robot USD; <code class="docutils literal notranslate"><span class="pre">finger/collision</span></code> is illustrative.
+When addon values depend on the backend, set them in <code class="docutils literal notranslate"><span class="pre">_configure_physics_backend()</span></code>;
+<code class="docutils literal notranslate"><span class="pre">get_scene_cfg()</span></code> then applies the resulting mapping automatically.</p>
+<p>For per-prim settings in YAML, use the same constructor-parameter pattern to construct
+<code class="docutils literal notranslate"><span class="pre">ColliderFrictionCfg</span></code> from the supplied friction value.</p>
+<p>Save the <code class="docutils literal notranslate"><span class="pre">ContactFranka</span></code> definition in <code class="docutils literal notranslate"><span class="pre">my_project/robots.py</span></code>. Both examples set contact
+friction to <code class="docutils literal notranslate"><span class="pre">1.2</span></code> for this environment:</p>
+<div class="sd-tab-set docutils">
+<input checked="checked" id="sd-tab-item-0" name="sd-tab-set-0" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-0">
+env.yaml</label><div class="sd-tab-content docutils">
+<p>Import <code class="docutils literal notranslate"><span class="pre">my_project.robots</span></code> in your runner before loading the environment graph so its
+registration runs. Add this embodiment block to your environment YAML:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">embodiment</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">robot</span>
+<span class="w">  </span><span class="nt">registry_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">contact_franka</span>
+<span class="w">  </span><span class="nt">params</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">contact_friction</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1.2</span>
+</pre></div>
+</div>
+</div>
+<input id="sd-tab-item-1" name="sd-tab-set-0" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-1">
+env.py</label><div class="sd-tab-content docutils">
+<p>Pass the robot instance alongside your scene and task:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">my_project.robots</span><span class="w"> </span><span class="kn">import</span> <span class="n">ContactFranka</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.environments.isaaclab_arena_environment</span><span class="w"> </span><span class="kn">import</span> <span class="n">IsaacLabArenaEnvironment</span>
+
+<span class="n">environment</span> <span class="o">=</span> <span class="n">IsaacLabArenaEnvironment</span><span class="p">(</span>
+    <span class="n">name</span><span class="o">=</span><span class="s2">"franka_contact_task"</span><span class="p">,</span>
+    <span class="n">embodiment</span><span class="o">=</span><span class="n">ContactFranka</span><span class="p">(</span><span class="n">contact_friction</span><span class="o">=</span><span class="mf">1.2</span><span class="p">),</span>
+    <span class="n">scene</span><span class="o">=</span><span class="n">scene</span><span class="p">,</span>
+    <span class="n">task</span><span class="o">=</span><span class="n">task</span><span class="p">,</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<p>See <a class="reference internal" href="../environment/physics_configuration.html"><span class="doc">Physics configuration</span></a> for configuration scopes and application order.</p>
+</section>
+<section id="call-order">
+<h3>Call order<a class="headerlink" href="#call-order" title="Link to this heading">#</a></h3>
+<p>The environment builder prepares robot physics in two steps:</p>
+<ol class="arabic simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">configure_physics_backend(backend)</span></code> calls the backend hook once to set robot defaults.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">get_scene_cfg()</span></code> applies spawn addons and returns the scene configuration. Direct callers
+also get the addons, and later calls pick up changes to the mapping.</p></li>
+</ol>
+<p>USD loading and per-prim edits happen later during spawning. Custom USD spawners, including
+DROID’s Newton spawner, keep their setup: their single-prim body runs first, then the per-prim
+edits, then cloning. These spawners must use Isaac Lab’s <code class="docutils literal notranslate"><span class="pre">&#64;clone</span></code> decorator, with no other
+decorators or cloning inside the function body.</p>
+<p>See <a class="reference internal" href="../environment/physics_configuration.html"><span class="doc">Physics configuration</span></a> for the complete application order.</p>
+</section>
+</section>
 <section id="more-details">
 <h2>More details<a class="headerlink" href="#more-details" title="Link to this heading">#</a></h2>
 <p>The rest of this section covers further details of the embodiment component.</p>
@@ -661,6 +821,12 @@ This is required for any policy that takes image observations, such as GR00T.</p
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#walkthrough">Walkthrough</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#robot-and-end-effector-physics">Robot and end-effector physics</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#configure-the-physics-backend">Configure the physics backend</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#applying-changes">Applying changes</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#call-order">Call order</a></li>
+</ul>
+</li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#more-details">More details</a></li>
 </ul>
   </nav></div>

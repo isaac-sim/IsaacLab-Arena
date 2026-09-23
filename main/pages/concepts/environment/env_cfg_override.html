@@ -450,6 +450,7 @@
 <li class="toctree-l1 current active has-children"><a class="reference internal" href="index.html">Environment</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
 <li class="toctree-l2"><a class="reference internal" href="environment_definition.html">Environment Definition</a></li>
 <li class="toctree-l2"><a class="reference internal" href="env_builder.html">Environment Builder</a></li>
+<li class="toctree-l2"><a class="reference internal" href="physics_configuration.html">Physics configuration</a></li>
 <li class="toctree-l2"><a class="reference internal" href="physics_backend_selection.html">Physics backend selection</a></li>
 <li class="toctree-l2 current active"><a class="current reference internal" href="#">Graph YAML <code class="docutils literal notranslate"><span class="pre">env_cfg_override</span></code></a></li>
 </ul>
@@ -577,8 +578,8 @@
 <code class="docutils literal notranslate"><span class="pre">build_arena_env_from_graph_spec</span></code> turns that mapping into an <code class="docutils literal notranslate"><span class="pre">env_cfg_callback</span></code> that calls
 <code class="docutils literal notranslate"><span class="pre">apply_env_cfg_override</span></code> after <code class="docutils literal notranslate"><span class="pre">ArenaEnvBuilder</span></code> assigns the default solver for the resolved
 physics backend.</p>
-<p>See <a class="reference internal" href="physics_backend_selection.html"><span class="doc">Physics backend selection</span></a> for backend resolution, embodiment hooks, and
-<code class="docutils literal notranslate"><span class="pre">replicate_physics</span></code> behavior.</p>
+<p>See <a class="reference internal" href="physics_configuration.html"><span class="doc">Physics configuration</span></a> for configuration scopes and application order, and
+<a class="reference internal" href="physics_backend_selection.html"><span class="doc">Physics backend selection</span></a> for backend resolution and <code class="docutils literal notranslate"><span class="pre">replicate_physics</span></code> behavior.</p>
 <section id="minimal-graph-fragment">
 <h2>Minimal graph fragment<a class="headerlink" href="#minimal-graph-fragment" title="Link to this heading">#</a></h2>
 <p>Set the backend with <code class="docutils literal notranslate"><span class="pre">default_physics_backend</span></code>. Tune solver fields under <code class="docutils literal notranslate"><span class="pre">env_cfg_override</span></code>;
