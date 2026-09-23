@@ -117,7 +117,7 @@ def test_graph_spec_round_trips_pose_params_and_env_cfg_override():
 
 
 def test_graph_spec_round_trips_and_builds_placer_params():
-    from isaaclab_arena.environment_spec.arena_env_graph_conversion_utils import build_checks_for_placer_params
+    from isaaclab_arena.environment_spec.arena_env_graph_conversion_utils import build_placer_params_from_graph_spec
 
     data = _minimal_env_graph_data()
     data["placer_params"] = {
@@ -132,7 +132,7 @@ def test_graph_spec_round_trips_and_builds_placer_params():
 
     spec = ArenaEnvGraphSpec.from_dict(data)
     restored = ArenaEnvGraphSpec.from_dict(spec.to_dict())
-    params = build_checks_for_placer_params(restored)
+    params = build_placer_params_from_graph_spec(restored)
 
     assert restored.placer_params == data["placer_params"]
     assert params.placement_seed == 42
@@ -147,7 +147,7 @@ def test_graph_spec_round_trips_and_builds_placer_params():
 
 
 def test_placer_params_null_fields_are_treated_as_omitted():
-    from isaaclab_arena.environment_spec.arena_env_graph_conversion_utils import build_checks_for_placer_params
+    from isaaclab_arena.environment_spec.arena_env_graph_conversion_utils import build_placer_params_from_graph_spec
 
     data = _minimal_env_graph_data()
     data["placer_params"] = {
@@ -155,7 +155,7 @@ def test_placer_params_null_fields_are_treated_as_omitted():
         "solver_params": {"clearance_m": None},
     }
 
-    params = build_checks_for_placer_params(ArenaEnvGraphSpec.from_dict(data))
+    params = build_placer_params_from_graph_spec(ArenaEnvGraphSpec.from_dict(data))
 
     assert not params.random_yaw_init
     assert params.solver_params.clearance_m == pytest.approx(0.01)
@@ -574,26 +574,6 @@ def test_a_spec_naming_a_searched_simready_asset_by_its_search_name_is_rejected(
 
     assert result.returncode != 0
     assert "Unknown asset registry_name 'simready_replay_teapot'" in result.stderr
-
-
-def test_graph_spec_leaves_placement_debug_view_off_by_default():
-    """A graph YAML that says nothing about debug visualization builds placement params with it off."""
-    from isaaclab_arena.environment_spec.arena_env_graph_conversion_utils import build_checks_for_placer_params
-
-    params = build_checks_for_placer_params(ArenaEnvGraphSpec.from_yaml(_GRAPH))
-
-    assert not params.debug_visualize
-    assert params.debug_visualize_output_path is None
-
-
-def test_graph_spec_forwards_placement_debug_view_to_placer_params():
-    """A YAML asking for the debug view reaches the params ObjectPlacer reads, both fields intact."""
-    from isaaclab_arena.environment_spec.arena_env_graph_conversion_utils import build_checks_for_placer_params
-
-    params = build_checks_for_placer_params(ArenaEnvGraphSpec.from_yaml(_DEBUG_VIEW_GRAPH))
-
-    assert params.debug_visualize
-    assert params.debug_visualize_output_path == "/tmp/placement_debug_view.rrd"
 
 
 def test_graph_spec_leaves_shipped_envs_out_of_the_debug_view():

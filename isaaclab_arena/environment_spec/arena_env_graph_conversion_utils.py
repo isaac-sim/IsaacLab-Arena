@@ -74,14 +74,14 @@ def build_arena_env_from_graph_spec(graph_spec: ArenaEnvGraphSpec, enable_camera
         scene=Scene(assets=scene_assets),
         embodiment=assets_by_node_id[graph_spec.embodiment.id],
         task=build_task_from_spec(graph_spec.task, assets_by_node_id),
-        placer_params=build_checks_for_placer_params(graph_spec),
+        placer_params=build_placer_params_from_graph_spec(graph_spec),
         env_cfg_callback=env_cfg_callback,
         default_physics_backend=default_physics_backend,
     )
 
 
-def build_checks_for_placer_params(graph_spec: ArenaEnvGraphSpec) -> ObjectPlacerParams:
-    """Build placer params from graph overrides."""
+def build_placer_params_from_graph_spec(graph_spec: ArenaEnvGraphSpec) -> ObjectPlacerParams:
+    """Build object-placer parameters from a default and apply overrides from graph spec."""
     from isaaclab_arena.environment_spec.env_cfg_override import apply_placer_params_override
 
     placer_params = ObjectPlacerParams(
