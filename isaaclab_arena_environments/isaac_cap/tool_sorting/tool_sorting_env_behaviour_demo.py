@@ -53,12 +53,10 @@ def _build_tool_sort_demo_environment(level: str):
     from isaaclab_arena_environments.isaac_cap.tool_sorting.embodiment import (
         ToolSortingFr3Robotiq2f85DifferentialIKEmbodiment,
     )
-    from isaaclab_arena_environments.isaac_cap.tool_sorting.environment import configure_tool_sort_placement
 
     register_components()
     spec_path = Path(__file__).with_name(f"tool_sorting_easy_{level}.yaml")
     arena_environment = ArenaEnvGraphSpec.from_yaml(str(spec_path)).to_arena_env(enable_cameras=False)
-    configure_tool_sort_placement(arena_environment)
 
     source_embodiment = arena_environment.embodiment
     arena_environment.embodiment = ToolSortingFr3Robotiq2f85DifferentialIKEmbodiment(
