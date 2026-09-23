@@ -1,64 +1,80 @@
-# Rename ProgressObjective to CompletionCriteria
+# Completion criteria naming
 
-Follow-up to #1307. This note records the intended rename; it does not change the API yet.
+The rename in #1316 uses `CompletionCriteria` for the named requirements shared by task
+success and progress tracking. The step-update simplification in #1307 is separate.
 
-## Why
+## Responsibility
 
-Task success and progress now use the same requirements. `ProgressObjective` defines which
-predicates must be satisfied, in what order, and which independent sequences must complete.
-`CompletionCriteria` describes that responsibility more directly, for both tasks and subtasks.
+`CompletionCriteria` defines which predicates must be satisfied, in what order, and which
+independent sequences must complete. Each instance defines a whole named set of requirements,
+not one predicate. A list of these instances is a list of criteria sets.
 
-The definition does not own sequence positions or temporal counters. Its runtime runner does.
+`CompletionCriteriaRunner` evaluates those requirements and owns their runtime sequence
+positions and temporal counters. `ProgressTracker` advances the runners, combines their
+results, and reports progress. `TaskSuccessTerm` uses that tracker to determine task success.
 
-## Scope
+## Python API
 
-- Rename `ProgressObjective` to `CompletionCriteria` and its module to `completion_criteria.py`.
-- Rename `ProgressObjectiveRunner` to `CompletionCriteriaRunner`.
-- Align the completion-mode enum, state class, parameters, attributes, imports, tests, and examples.
-- Keep `ProgressTracker`, `TaskSuccessTerm`, and `TaskTerminationCfg.success`.
-- Update report fields and their readers together if they still use the old terminology.
-  State any recorded-data format changes explicitly in the follow-up PR.
-- Use `sequence` instead of the remaining `group` terminology for predicate sequences.
-  Grouping runners by subtask is a different concept and does not need this rename.
+| Previous name | Current name |
+| --- | --- |
+| `progress_tracking.progress_objective` | `progress_tracking.completion_criteria` |
+| `ProgressObjective` | `CompletionCriteria` |
+| `ProgressObjectiveRunner` | `CompletionCriteriaRunner` |
+| `ProgressObjectiveCompletionMode` | `SequenceCompletionMode` |
+| `ProgressObjectiveState` | `CompletionCriteriaState` |
+| `TaskSuccessTerm.success_objectives` parameter | `TaskSuccessTerm.success_criteria` parameter |
+| Runner `progress_objective` | Runner `completion_criteria` |
+| `ProgressTracker.progress_objectives` | `ProgressTracker.criteria_sets` |
+| `ProgressState.progress_objectives` | `ProgressState.criteria_by_name` |
+| `get_predicate(objective_name=...)` | `get_predicate(criteria_name=...)` |
+| `group_names` | `sequence_names` |
+| `DEFAULT_GROUP_NAME` | `DEFAULT_SEQUENCE_NAME` |
+| `get_chain()` | `get_sequence()` |
+| Event `progress_objective` | Event `criteria_name` |
+| Event `group` | Event `sequence` |
+| State `completed_groups` / `total_groups` | State `completed_sequences` / `total_sequences` |
 
-Each `CompletionCriteria` instance defines a whole named set of requirements, not one predicate.
-A list of these instances is a list of criteria sets; avoid calling each instance a `criterion`.
-Choose the related parameter and report-field names consistently before implementation.
+`ArenaEnvBuilder` passes `success_criteria` to `TaskSuccessTerm`; Isaac Lab requires the
+configured parameter name to match the term's callable interface. `TaskTerminationCfg.success`
+still holds the list of required criteria sets. `ProgressTracker` and `TaskSuccessTerm` keep
+their names.
 
-Update the `success_objectives` parameter in `TaskSuccessTerm` and `ArenaEnvBuilder` together;
-Isaac Lab checks that configured parameters match the term's callable interface.
+The unnamed predicate sequence is now called `default_sequence`. Named criteria and sequences
+retain their identifiers, including names such as `pick_and_place` and the composite-task
+prefix `subtask_<index>/`. Grouping runners by subtask is a separate concept and is unchanged.
 
-Existing recordings use keys such as `progress.objectives` and event `objective`.
-Decide whether to keep those serialized keys or teach report readers to accept old recordings
-when renaming them. Changing only the writer would leave existing report readers out of sync.
+## Recording schema
+
+Episode JSONL records and their report readers use the renamed fields together:
+
+| Previous field or value | Current field or value |
+| --- | --- |
+| `progress.objectives` | `progress.criteria_by_name` |
+| `progress.events[].objective` | `progress.events[].criteria_name` |
+| `progress.events[].group` | `progress.events[].sequence` |
+| `completed_groups` / `total_groups` | `completed_sequences` / `total_sequences` |
+| Unnamed sequence `default_group` | Unnamed sequence `default_sequence` |
+
+There are no aliases or readers for the previous schema. Older recordings require conversion
+or regeneration before use with the current report tools. Conversion must rename the fields
+above, including the unnamed sequence in `active_predicates` and event entries.
 
 ## Example
 
-Here `settled`, `lifted`, and `placed` are already configured predicates.
-
-Before:
+Here `settled`, `lifted`, and `placed` are already configured predicates:
 
 ```python
-ProgressObjective(
+from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
+
+criteria = CompletionCriteria(
     name="pick_and_place",
     predicate_sequence=[settled, lifted, placed],
 )
 ```
 
-After:
+## Scope
 
-```python
-CompletionCriteria(
-    name="pick_and_place",
-    predicate_sequence=[settled, lifted, placed],
-)
-```
-
-## Boundaries and verification
-
-This is a naming change, not a redesign of predicate evaluation, counters, resets, or scoring.
-It does not introduce `PredicateCfg`. Do not add compatibility aliases solely to retain old names.
-
-Check all task declarations, builder wiring, CAP diagnostics readers, recording, and evaluation
-reports for old imports and field names. Run the progress-tracking, temporal-predicate, task-success,
-composite-task, and reporting tests. Keep #1307's local sequence-name cleanup in #1307.
+The rename preserves predicate evaluation, counters, resets, scoring, and task-success
+behavior. It does not introduce `PredicateCfg`, compatibility aliases, or the separate
+step-update simplification from #1307. Task declarations, builder wiring, CAP diagnostics,
+recording, report readers, tests, and examples use the new names together.

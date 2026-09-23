@@ -417,9 +417,9 @@ def _test_usbc_environment_yaml(_simulation_app) -> bool:
         assert environment.task.receiver.usd_path.startswith(f"{ASSET_ROOT}/")
         assert environment.task.plug.scale == (1.0, 1.0, 1.0)
         assert environment.task.get_events_cfg() is None
-        success_objective = environment.task.get_termination_cfg().success[0]
-        assert success_objective.name == "usbc_insertion"
-        predicates = success_objective.predicate_sequence[0].predicate.params["predicates"]
+        success_criteria = environment.task.get_termination_cfg().success[0]
+        assert success_criteria.name == "usbc_insertion"
+        predicates = success_criteria.predicate_sequence[0].predicate.params["predicates"]
         assert [term.func for term in predicates] == [
             depth_in_range,
             lateral_in_proximity,

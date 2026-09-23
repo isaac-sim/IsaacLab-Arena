@@ -20,7 +20,7 @@ from isaaclab_arena.assets.cable import Cable
 from isaaclab_arena.assets.object_base import ObjectBase
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.metrics.success_rate import SuccessRateMetric
-from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
+from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
 
@@ -92,7 +92,7 @@ class CableRoutingTask(TaskBase):
         self._events_cfg = CableRoutingEventsCfg()
         self._terminations_cfg = TaskTerminationCfg(
             success=[
-                ProgressObjective(
+                CompletionCriteria(
                     name="cable_routing",
                     predicate_sequence=[
                         partial(

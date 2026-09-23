@@ -16,7 +16,7 @@ from isaaclab_arena.assets.register import register_task
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.metrics.success_rate import SuccessRateMetric
-from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
+from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
 from isaaclab_arena.utils.cameras import get_viewer_cfg_look_at_object
@@ -53,7 +53,7 @@ class TurnKnobTask(TaskBase):
         return TaskTerminationCfg(
             timeout_s=self.episode_length_s,
             success=[
-                ProgressObjective(
+                CompletionCriteria(
                     name="turn_knob",
                     predicate_sequence=[partial(self.turnable_object.is_at_level, **params)],
                 )

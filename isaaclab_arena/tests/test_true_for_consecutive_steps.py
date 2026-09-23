@@ -51,14 +51,14 @@ def _test_runtime_requirement_updates_only_active_environments(simulation_app):
 
 
 def _test_interrupted_streaks_complete_independently(simulation_app):
-    from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
+    from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
     from isaaclab_arena.progress_tracking.progress_tracker import ProgressTracker
     from isaaclab_arena.tasks.predicates.temporal import TrueForConsecutiveStepsCfg
 
     predicate = _ControlledPredicate([False, False])
     requirement = TrueForConsecutiveStepsCfg(predicate=predicate, required_steps=3)
-    objective = ProgressObjective(name="hold", predicate_sequence=[requirement])
-    tracker = ProgressTracker([objective], num_envs=2, device="cpu")
+    criteria = CompletionCriteria(name="hold", predicate_sequence=[requirement])
+    tracker = ProgressTracker([criteria], num_envs=2, device="cpu")
     env = SimpleNamespace(num_envs=2, device="cpu")
     samples = [
         ([True, False], [False, False]),
@@ -84,14 +84,14 @@ def _test_interrupted_streaks_complete_independently(simulation_app):
 
 
 def _test_middle_requirement_starts_when_reached(simulation_app):
-    from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
+    from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
     from isaaclab_arena.progress_tracking.progress_tracker import ProgressTracker
     from isaaclab_arena.tasks.predicates.temporal import TrueForConsecutiveStepsCfg
 
     lifted = _ControlledPredicate([False], name="lifted")
     resting = _ControlledPredicate([True], name="resting")
     placed = _ControlledPredicate([True], name="placed")
-    objective = ProgressObjective(
+    criteria = CompletionCriteria(
         name="pick_and_place",
         predicate_sequence=[
             lifted,
@@ -99,7 +99,7 @@ def _test_middle_requirement_starts_when_reached(simulation_app):
             placed,
         ],
     )
-    tracker = ProgressTracker([objective], num_envs=1, device="cpu")
+    tracker = ProgressTracker([criteria], num_envs=1, device="cpu")
     env = SimpleNamespace(num_envs=1, device="cpu")
     _step(tracker, env, [1])
     _step(tracker, env, [2])
@@ -122,7 +122,7 @@ def _test_middle_requirement_starts_when_reached(simulation_app):
 
 
 def _test_joint_conditions_require_overlapping_steps(simulation_app):
-    from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
+    from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
     from isaaclab_arena.progress_tracking.progress_tracker import ProgressTracker
     from isaaclab_arena.tasks.predicates.temporal import TrueForConsecutiveStepsCfg
 
@@ -133,8 +133,8 @@ def _test_joint_conditions_require_overlapping_steps(simulation_app):
         return object_a_resting(env) & object_b_touching(env)
 
     requirement = TrueForConsecutiveStepsCfg(both_conditions_hold, required_steps=2)
-    objective = ProgressObjective(name="rest_and_touch", predicate_sequence=[requirement])
-    tracker = ProgressTracker([objective], num_envs=1, device="cpu")
+    criteria = CompletionCriteria(name="rest_and_touch", predicate_sequence=[requirement])
+    tracker = ProgressTracker([criteria], num_envs=1, device="cpu")
     env = SimpleNamespace(num_envs=1, device="cpu")
     samples = [
         (True, False),
@@ -153,18 +153,18 @@ def _test_joint_conditions_require_overlapping_steps(simulation_app):
 
 
 def _test_reused_requirement_has_independent_counters(simulation_app):
-    from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
+    from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
     from isaaclab_arena.progress_tracking.progress_tracker import ProgressTracker
     from isaaclab_arena.tasks.predicates.temporal import TrueForConsecutiveStepsCfg
 
     held = _ControlledPredicate([True])
     enabled = _ControlledPredicate([False])
     requirement = TrueForConsecutiveStepsCfg(held, required_steps=2)
-    objectives = [
-        ProgressObjective(name="twice", predicate_sequence=[requirement, requirement]),
-        ProgressObjective(name="delayed", predicate_sequence=[enabled, requirement]),
+    criteria_sets = [
+        CompletionCriteria(name="twice", predicate_sequence=[requirement, requirement]),
+        CompletionCriteria(name="delayed", predicate_sequence=[enabled, requirement]),
     ]
-    tracker = ProgressTracker(objectives, num_envs=1, device="cpu")
+    tracker = ProgressTracker(criteria_sets, num_envs=1, device="cpu")
     assert requirement.predicate is held
     assert requirement.required_steps == 2
     assert tracker.get_predicate("twice") is held
@@ -180,7 +180,7 @@ def _test_reused_requirement_has_independent_counters(simulation_app):
     assert len(tracker.get_events()[0]) == 2
     _step(tracker, env, [4])
     assert tracker.is_complete().item()
-    assert [(event.progress_objective, event.predicate_index, event.step) for event in tracker.get_events()[0]] == [
+    assert [(event.criteria_name, event.predicate_index, event.step) for event in tracker.get_events()[0]] == [
         ("twice", 0, 2),
         ("delayed", 0, 2),
         ("twice", 1, 4),
@@ -188,8 +188,8 @@ def _test_reused_requirement_has_independent_counters(simulation_app):
     ]
     assert held.calls == 4
 
-    other_objective = ProgressObjective(name="other_tracker", predicate_sequence=[requirement])
-    other_tracker = ProgressTracker([other_objective], num_envs=1, device="cpu")
+    other_criteria = CompletionCriteria(name="other_tracker", predicate_sequence=[requirement])
+    other_tracker = ProgressTracker([other_criteria], num_envs=1, device="cpu")
     _step(other_tracker, env, [4])
     assert not other_tracker.is_complete().item()
     _step(other_tracker, env, [5])
@@ -198,39 +198,39 @@ def _test_reused_requirement_has_independent_counters(simulation_app):
 
 
 def _test_named_sequences_keep_independent_counters(simulation_app):
-    from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
+    from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
     from isaaclab_arena.progress_tracking.progress_tracker import ProgressTracker
     from isaaclab_arena.tasks.predicates.temporal import TrueForConsecutiveStepsCfg
 
     held = _ControlledPredicate([True])
     enabled = _ControlledPredicate([True])
     requirement = TrueForConsecutiveStepsCfg(held, required_steps=2)
-    objective = ProgressObjective(
+    criteria = CompletionCriteria(
         name="parallel",
         predicate_sequences={
             "immediate": [requirement],
             "delayed": [enabled, requirement],
         },
     )
-    tracker = ProgressTracker([objective], num_envs=1, device="cpu")
+    tracker = ProgressTracker([criteria], num_envs=1, device="cpu")
     env = SimpleNamespace(num_envs=1, device="cpu")
     _step(tracker, env, [1])
     _step(tracker, env, [2])
     assert not tracker.is_complete().item()
-    assert tracker.get_state()[0].progress_objectives["parallel"].completed_groups == 1
+    assert tracker.get_state()[0].criteria_by_name["parallel"].completed_sequences == 1
     _step(tracker, env, [3])
     assert tracker.is_complete().item()
     return True
 
 
 def _test_partial_reset_and_duplicate_steps(simulation_app):
-    from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
+    from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
     from isaaclab_arena.progress_tracking.progress_tracker import ProgressTracker
     from isaaclab_arena.tasks.predicates.temporal import TrueForConsecutiveStepsCfg
 
     predicate = _ControlledPredicate([True, True])
-    objective = ProgressObjective(name="hold", predicate_sequence=[TrueForConsecutiveStepsCfg(predicate, 2)])
-    tracker = ProgressTracker([objective], num_envs=2, device="cpu")
+    criteria = CompletionCriteria(name="hold", predicate_sequence=[TrueForConsecutiveStepsCfg(predicate, 2)])
+    tracker = ProgressTracker([criteria], num_envs=2, device="cpu")
     env = SimpleNamespace(num_envs=2, device="cpu")
     _step(tracker, env, [1, 1])
     _step(tracker, env, [1, 1])
@@ -264,17 +264,17 @@ def _test_partial_reset_and_duplicate_steps(simulation_app):
 
 
 def _test_duplicate_steps_do_not_advance_the_sequence(simulation_app):
-    from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
+    from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
     from isaaclab_arena.progress_tracking.progress_tracker import ProgressTracker
     from isaaclab_arena.tasks.predicates.temporal import TrueForConsecutiveStepsCfg
 
     instant = _ControlledPredicate([True])
     held = _ControlledPredicate([True])
-    objective = ProgressObjective(
+    criteria = CompletionCriteria(
         name="sequence",
         predicate_sequence=[instant, instant, TrueForConsecutiveStepsCfg(held, 2)],
     )
-    tracker = ProgressTracker([objective], num_envs=1, device="cpu")
+    tracker = ProgressTracker([criteria], num_envs=1, device="cpu")
     env = SimpleNamespace(num_envs=1, device="cpu")
     for step_index in (1, 2):
         _step(tracker, env, [step_index])
@@ -291,22 +291,22 @@ def _test_duplicate_steps_do_not_advance_the_sequence(simulation_app):
 
 
 def _test_final_requirement_loses_and_reacquires_its_streak(simulation_app):
-    from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
+    from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
     from isaaclab_arena.progress_tracking.progress_tracker import ProgressTracker
     from isaaclab_arena.tasks.predicates.temporal import TrueForConsecutiveStepsCfg
 
     resting = _ControlledPredicate([True])
     placed = _ControlledPredicate([True])
-    objectives = [
-        ProgressObjective(
+    criteria_sets = [
+        CompletionCriteria(
             name="rest",
             predicate_sequence=[TrueForConsecutiveStepsCfg(resting, 2)],
             parent_subtask_idx=0,
         ),
-        ProgressObjective(name="place", predicate_sequence=[placed], parent_subtask_idx=1),
+        CompletionCriteria(name="place", predicate_sequence=[placed], parent_subtask_idx=1),
     ]
     tracker = ProgressTracker(
-        objectives,
+        criteria_sets,
         num_envs=1,
         device="cpu",
         subtasks_are_sequential=True,
@@ -344,17 +344,17 @@ def _test_final_requirement_loses_and_reacquires_its_streak(simulation_app):
 
 
 def _test_final_rechecks_respect_per_environment_steps(simulation_app):
-    from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
+    from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
     from isaaclab_arena.progress_tracking.progress_tracker import ProgressTracker
     from isaaclab_arena.tasks.predicates.temporal import TrueForConsecutiveStepsCfg
 
     predicate = _ControlledPredicate([True, True])
-    objective = ProgressObjective(
+    criteria = CompletionCriteria(
         name="hold",
         predicate_sequence=[TrueForConsecutiveStepsCfg(predicate, 2)],
         parent_subtask_idx=0,
     )
-    tracker = ProgressTracker([objective], 2, "cpu", desired_subtask_success_state=[True])
+    tracker = ProgressTracker([criteria], 2, "cpu", desired_subtask_success_state=[True])
     env = SimpleNamespace(num_envs=2, device="cpu")
     _step(tracker, env, [1, 1])
     _step(tracker, env, [2, 2])
@@ -374,18 +374,18 @@ def _test_final_rechecks_respect_per_environment_steps(simulation_app):
 
 
 def _test_one_step_requirement_and_weighted_reporting(simulation_app):
-    from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
+    from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
     from isaaclab_arena.progress_tracking.progress_tracker import ProgressTracker
-    from isaaclab_arena.progress_tracking.progress_tracking_utils import DEFAULT_GROUP_NAME
+    from isaaclab_arena.progress_tracking.progress_tracking_utils import DEFAULT_SEQUENCE_NAME
     from isaaclab_arena.tasks.predicates.temporal import TrueForConsecutiveStepsCfg
 
     resting = _ControlledPredicate([False], name="object_is_resting")
     placed = _ControlledPredicate([True], name="placed")
     requirement = TrueForConsecutiveStepsCfg(resting, required_steps=1)
-    objective = ProgressObjective(name="placement", predicate_sequence=[(requirement, 3.0), (placed, 1.0)])
-    tracker = ProgressTracker([objective], num_envs=1, device="cpu")
+    criteria = CompletionCriteria(name="placement", predicate_sequence=[(requirement, 3.0), (placed, 1.0)])
+    tracker = ProgressTracker([criteria], num_envs=1, device="cpu")
     env = SimpleNamespace(num_envs=1, device="cpu")
-    predicate_name = tracker.get_state()[0].progress_objectives["placement"].active_predicates[DEFAULT_GROUP_NAME]
+    predicate_name = tracker.get_state()[0].criteria_by_name["placement"].active_predicates[DEFAULT_SEQUENCE_NAME]
     assert "object_is_resting" in predicate_name
     assert "TrueForConsecutiveStepsCfg" in predicate_name
     assert "1" in predicate_name
@@ -406,7 +406,7 @@ def _test_requirement_validation(simulation_app):
 
     import pytest
 
-    from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
+    from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
     from isaaclab_arena.progress_tracking.progress_tracker import ProgressTracker
     from isaaclab_arena.tasks.predicates.temporal import TrueForConsecutiveStepsCfg
 
@@ -420,8 +420,8 @@ def _test_requirement_validation(simulation_app):
             TrueForConsecutiveStepsCfg(invalid_predicate, required_steps=2)
     assert not callable(requirement)
 
-    objective = ProgressObjective(name="hold", predicate_sequence=[requirement])
-    tracker = ProgressTracker([objective], num_envs=1, device="cpu")
+    criteria = CompletionCriteria(name="hold", predicate_sequence=[requirement])
+    tracker = ProgressTracker([criteria], num_envs=1, device="cpu")
     env = SimpleNamespace(num_envs=1, device="cpu", episode_length_buf=torch.tensor([1]))
     with pytest.raises(AssertionError, match="step_index"):
         tracker.step(env)
@@ -430,13 +430,13 @@ def _test_requirement_validation(simulation_app):
 
 
 def _test_skipped_control_steps_interrupt_the_streak(simulation_app):
-    from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
+    from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
     from isaaclab_arena.progress_tracking.progress_tracker import ProgressTracker
     from isaaclab_arena.tasks.predicates.temporal import TrueForConsecutiveStepsCfg
 
     predicate = _ControlledPredicate([True])
-    objective = ProgressObjective(name="hold", predicate_sequence=[TrueForConsecutiveStepsCfg(predicate, 2)])
-    tracker = ProgressTracker([objective], num_envs=1, device="cpu")
+    criteria = CompletionCriteria(name="hold", predicate_sequence=[TrueForConsecutiveStepsCfg(predicate, 2)])
+    tracker = ProgressTracker([criteria], num_envs=1, device="cpu")
     env = SimpleNamespace(num_envs=1, device="cpu")
     _step(tracker, env, [1])
     assert not tracker.is_complete().item()
@@ -451,7 +451,7 @@ def _test_skipped_control_steps_interrupt_the_streak(simulation_app):
 def _test_manager_updates_and_resets_requirement_counters(simulation_app):
     from functools import partial
 
-    from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
+    from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
     from isaaclab_arena.tasks.predicates.temporal import TrueForConsecutiveStepsCfg
     from isaaclab_arena.tests.test_task_success_from_progress import (
         _controlled_predicate,
@@ -459,8 +459,8 @@ def _test_manager_updates_and_resets_requirement_counters(simulation_app):
     )
 
     requirement = TrueForConsecutiveStepsCfg(partial(_controlled_predicate, predicate_name="resting"), required_steps=3)
-    objective = ProgressObjective(name="rest", predicate_sequence=[requirement])
-    env, manager, recorder = _make_environment_and_manager(["resting"], success_objectives=[objective])
+    criteria = CompletionCriteria(name="rest", predicate_sequence=[requirement])
+    env, manager, recorder = _make_environment_and_manager(["resting"], success_criteria=[criteria])
     for step_index in (1, 2):
         env.episode_length_buf += 1
         manager.compute()
@@ -493,15 +493,15 @@ def _test_manager_updates_and_resets_requirement_counters(simulation_app):
 
 
 def _test_false_final_requirement_still_requires_recorded_completion(simulation_app):
-    from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
+    from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
     from isaaclab_arena.progress_tracking.progress_tracker import ProgressTracker
     from isaaclab_arena.tasks.predicates.temporal import TrueForConsecutiveStepsCfg
 
     predicate = _ControlledPredicate([False])
-    objective = ProgressObjective(
+    criteria = CompletionCriteria(
         name="hold", predicate_sequence=[TrueForConsecutiveStepsCfg(predicate, 2)], parent_subtask_idx=0
     )
-    tracker = ProgressTracker([objective], 1, "cpu", desired_subtask_success_state=[False])
+    tracker = ProgressTracker([criteria], 1, "cpu", desired_subtask_success_state=[False])
     env = SimpleNamespace(num_envs=1, device="cpu")
     samples = [(False, False), (True, False), (True, False), (False, True), (True, True), (True, False)]
     for step_index, (condition_holds, expected_success) in enumerate(samples, start=1):

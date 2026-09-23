@@ -203,7 +203,7 @@ class ArenaEnvBuilder:
         """Translate TaskTerminationCfg into an Isaac Lab termination configclass.
 
         Args:
-            task_termination_cfg: Task-owned success objectives, failures, and timeout.
+            task_termination_cfg: Task-owned success criteria, failures, and timeout.
 
         Returns:
             A configclass containing the requested failure, timeout, and success terms.
@@ -211,14 +211,14 @@ class ArenaEnvBuilder:
         termination_terms = dict(task_termination_cfg.failures)
         if task_termination_cfg.timeout_s is not None:
             termination_terms["time_out"] = TerminationTermCfg(func=time_out, time_out=True)
-        success_objectives = task_termination_cfg.success
+        success_criteria = task_termination_cfg.success
 
-        # Install the shared success term when the task defines success objectives.
-        if success_objectives:
+        # Install the shared success term when the task defines success criteria.
+        if success_criteria:
             success_term = TerminationTermCfg(
                 func=TaskSuccessTerm,
                 params={
-                    "success_objectives": success_objectives,
+                    "success_criteria": success_criteria,
                     "subtasks_are_sequential": task_termination_cfg.subtasks_are_sequential,
                     "desired_subtask_success_state": task_termination_cfg.desired_subtask_success_state,
                 },
@@ -231,7 +231,7 @@ class ArenaEnvBuilder:
         """Build a configclass container with one EpisodeRecorderTermCfg field per episode recorder term.
 
         Note that this function automatically adds the core, variations, and progress terms. The
-        progress term records nothing for tasks that define no progress objectives.
+        progress term records nothing for tasks that define no completion criteria.
         """
         fields = [
             ("core", EpisodeRecorderTermCfg, CoreEpisodeRecorderTermCfg()),
@@ -303,7 +303,7 @@ class ArenaEnvBuilder:
         task_termination_cfg = task.get_termination_cfg()
         assert isinstance(
             task_termination_cfg, TaskTerminationCfg
-        ), "Tasks must return TaskTerminationCfg with success objectives, failures, and timeout_s."
+        ), "Tasks must return TaskTerminationCfg with success criteria, failures, and timeout_s."
         background_physics_events_cfg = None
         background_physics_paths = self.arena_env.scene.get_background_physics_paths()
         if background_physics_paths:

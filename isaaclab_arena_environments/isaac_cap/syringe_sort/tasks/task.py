@@ -17,7 +17,7 @@ from isaaclab.utils.math import quat_apply_inverse
 
 from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.metrics.success_rate import SuccessRateMetric
-from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
+from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
 from isaaclab_arena.tasks.predicates.spatial import velocity_below_threshold
 from isaaclab_arena.tasks.predicates.temporal import TrueForConsecutiveStepsCfg
 from isaaclab_arena.tasks.task_base import TaskBase
@@ -103,7 +103,7 @@ class SyringeSortTask(TaskBase):
         )
         return TaskTerminationCfg(
             timeout_s=self.episode_length_s,
-            success=[ProgressObjective(name="syringe_sort", predicate_sequence=[settled_in_regions])],
+            success=[CompletionCriteria(name="syringe_sort", predicate_sequence=[settled_in_regions])],
             failures={"cap_finished": TerminationTermCfg(func=cap_episode_finished)},
         )
 

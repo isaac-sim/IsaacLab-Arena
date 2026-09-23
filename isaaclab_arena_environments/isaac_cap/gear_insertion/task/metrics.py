@@ -55,13 +55,13 @@ class GearInsertionFractionRecorder(RecorderTerm):
         self.name = cfg.name
         self.gear_names = tuple(cfg.gear_names)
         self.first_reset = True
-        self._success_objective_name = "gear_insertion"
-        # CompositeTaskBase suffixes recorder names but prefixes objective names.
+        self._success_criteria_name = "gear_insertion"
+        # CompositeTaskBase suffixes recorder names but prefixes criteria names.
         # TODO(cvolk): Replace this CAP naming workaround with an explicit diagnostics reference.
         _, subtask_marker, subtask_index = self.name.rpartition("_subtask_")
         if subtask_marker:
             assert subtask_index.isdecimal(), f"Invalid composite recorder name: {self.name!r}."
-            self._success_objective_name = f"subtask_{subtask_index}/gear_insertion"
+            self._success_criteria_name = f"subtask_{subtask_index}/gear_insertion"
 
     def record_pre_reset(self, env_ids):
         if self.first_reset:
@@ -71,7 +71,7 @@ class GearInsertionFractionRecorder(RecorderTerm):
 
         progress_tracker = self._env.progress_tracker
         assert progress_tracker is not None, "Gear insertion diagnostics require task success tracking."
-        success_predicate = progress_tracker.get_predicate(self._success_objective_name)
+        success_predicate = progress_tracker.get_predicate(self._success_criteria_name)
         per_gear_results = [success_predicate.per_gear_results[gear_name][env_ids] for gear_name in self.gear_names]
         per_gear = torch.stack(per_gear_results, dim=-1)
         assert per_gear.ndim == 2 and per_gear.shape[1] == len(self.gear_names), (

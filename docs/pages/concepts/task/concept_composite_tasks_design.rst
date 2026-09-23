@@ -8,7 +8,7 @@ Composite and Sequential Tasks
 
 The class combines the subtasks' scene settings, reset events, and metrics.
 Its ``get_termination_cfg()`` returns one ``TaskTerminationCfg`` with the subtasks' success
-objectives, failure conditions, and a time limit for the whole task.
+criteria, failure conditions, and a time limit for the whole task.
 
 
 By default, a finished subtask stays marked complete. For example, placing the can still counts
@@ -80,5 +80,5 @@ The entries follow the order of ``subtasks``:
 For a task with one ordered predicate sequence, the final condition is the last predicate.
 Earlier milestones stay recorded: a placed object does not need to remain above its initial lift
 height, for example. Conditions that must hold together belong in the same final predicate.
-For named sequences, the objective's ``ALL``, ``ANY``, or ``CHOOSE`` setting combines their final predicates.
-If a subtask defines multiple objectives, all their final conditions must hold for its current result to be true.
+For named sequences, the criteria set's ``ALL``, ``ANY``, or ``CHOOSE`` setting combines their final predicates.
+If a subtask defines multiple criteria sets, all their final conditions must hold for its current result to be true.
