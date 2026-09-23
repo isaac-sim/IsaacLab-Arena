@@ -285,10 +285,12 @@ def test_graph_parses_asset_poses():
 def _test_companion_layout_paths_and_scene_keys(simulation_app):
     import tempfile
     import yaml
+    from unittest.mock import patch
 
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
     from isaaclab_arena.relations.placement_layouts import PlacementLayouts
+    from isaaclab_arena.relations.relation_solver import RelationSolver
     from isaaclab_arena.utils.pose import Pose
 
     source = TEST_DATA_DIR / "placement_replay.yaml"
@@ -304,21 +306,14 @@ def _test_companion_layout_paths_and_scene_keys(simulation_app):
         PlacementLayouts(poses).write_episode_jsonl(directory / "poses.jsonl", source="solver")
         spec = ArenaEnvGraphSpec.from_yaml(path)
         restored = ArenaEnvGraphSpec.from_dict(spec.to_dict())
-        assert restored.placement_layouts_path == str(directory / "poses.jsonl")
-        assert restored.to_arena_env().placement_layouts is not None
-        loaded = spec.to_arena_env().placement_layouts
-        assert loaded.poses["robot"] == poses["robot"]
-        assert "arm" not in loaded.poses
-        override = directory / "override.jsonl"
-        poses["cube_0"] = [Pose((2, 3, 4))]
-        PlacementLayouts(poses).write_episode_jsonl(override, source="solver")
-        assert spec.to_arena_env(placement_layouts_path=override).placement_layouts.poses["cube_0"] == poses["cube_0"]
-        unknown_path = directory / "unknown.jsonl"
-        PlacementLayouts({"unknown": [Pose()]}).write_episode_jsonl(unknown_path, source="solver")
-        with pytest.raises(AssertionError, match="Unknown cached scene objects"):
-            ArenaEnvBuilder(
-                spec.to_arena_env(placement_layouts_path=unknown_path), ArenaEnvBuilderCfg()
-            ).compose_manager_cfg()
+        arena_env = restored.to_arena_env()
+        assert arena_env.placer_params.placement_layouts_path == str(directory / "poses.jsonl")
+        with patch.object(RelationSolver, "solve", side_effect=AssertionError("Cached replay must not solve")):
+            cfg, _ = ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg(resolve_on_reset=True)).compose_manager_cfg()
+        recorded = cfg.events.cached_placement_reset.params["poses"]
+        assert recorded["robot"] == [list(poses["robot"][0].position_xyz + poses["robot"][0].rotation_xyzw)]
+        assert "arm" not in recorded
+        assert cfg.scene.cube_1.init_state.pos == poses["cube_1"][0].position_xyz
     return True
 
 
@@ -329,43 +324,35 @@ def test_companion_layout_paths_and_scene_keys():
 
 
 def _test_python_environment_loads_companion_layouts(simulation_app):
-    import sys
     import tempfile
-    from unittest.mock import patch
 
+    from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
+    from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
     from isaaclab_arena.relations.placement_layouts import PlacementLayouts
+    from isaaclab_arena.tests.test_placement_layout_replay import _make_cached_env
     from isaaclab_arena.utils.pose import Pose
-    from isaaclab_arena_environments.cli import get_arena_builder_from_cli, get_isaaclab_arena_environments_cli_parser
 
     with tempfile.TemporaryDirectory() as directory:
         path = Path(directory) / "poses.jsonl"
-        with patch.object(sys, "argv", ["environment_runner.py", "droid_table_multi_object_placement"]):
-            args = get_isaaclab_arena_environments_cli_parser().parse_args()
-        original = get_arena_builder_from_cli(args).arena_env
-        poses = {
-            asset.get_scene_key(): [Pose((0.1 * i, 0, 1)), Pose((0.1 * i, 0.2, 1))]
-            for i, asset in enumerate(original.scene.assets.values())
-            if asset.get_spatial_relations() and not asset.is_anchor
-        }
-        assert poses
+        arena_env = _make_cached_env()
+        poses = arena_env.placement_layouts.poses
         PlacementLayouts(poses).write_episode_jsonl(path, source="solver")
-        with patch.object(
-            sys,
-            "argv",
-            ["environment_runner.py", "--placement_layouts", str(path), "droid_table_multi_object_placement"],
-        ):
-            args = get_isaaclab_arena_environments_cli_parser().parse_args()
-        loaded = get_arena_builder_from_cli(args).arena_env
-        assert loaded.placement_layouts.poses == poses
+        arena_env.placement_layouts = None
+        builder = ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg())
+        arena_env.placer_params.placement_layouts_path = str(path)
+        cfg, _ = builder.compose_manager_cfg()
+        assert set(cfg.events.cached_placement_reset.params["poses"]) == set(poses)
         for invalid, message in (
             ({"unknown": [Pose()]}, "Unknown cached"),
             ({next(iter(poses)): [Pose()]}, "missing placed"),
         ):
             invalid_path = Path(directory) / f"{message.split()[0]}.jsonl"
             PlacementLayouts(invalid).write_episode_jsonl(invalid_path, source="solver")
-            args.placement_layouts = str(invalid_path)
+            arena_env = _make_cached_env()
+            arena_env.placement_layouts = None
+            arena_env.placer_params.placement_layouts_path = str(invalid_path)
             with pytest.raises(AssertionError, match=message):
-                get_arena_builder_from_cli(args).compose_manager_cfg()
+                ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg()).compose_manager_cfg()
     return True
 
 

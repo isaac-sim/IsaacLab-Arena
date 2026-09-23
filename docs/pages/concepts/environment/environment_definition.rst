@@ -22,27 +22,28 @@ Both produce the same object: an ``IsaacLabArenaEnvironment``.
 Companion placement files
 -------------------------
 
-Set ``placement_layouts_path: layouts.jsonl`` to replay complete layouts from a
-companion JSONL file with one complete layout per record. The path is
-relative to the environment YAML. ``--placement_layouts`` overrides that path
-relative to the working directory. For registered Python environments, pass
-``--placement_layouts`` before the environment subcommand and use runtime scene
-names as the companion file keys.
+Set the companion file in the environment YAML:
 
-Cached replay bypasses relation solving. Resetting environments draw layouts in
-order from a shared queue, which wraps when the file is exhausted. Python
-environments can instead set ``IsaacLabArenaEnvironment.placement_layouts`` to a ``PlacementLayouts``
-instance keyed by runtime scene keys. Every non-anchor asset with spatial
-relations must be covered, including a non-anchor embodiment with any placement
-relation or marker. The builder checks asset coverage, pose data and reset
-ownership before scene construction. Loading does not rerun geometry,
-reachability or settling checks. The recording must match the scene being loaded.
-See :doc:`../object_placement/relations` for queue behavior and conflicting settings.
+.. code-block:: yaml
 
-``from_yaml()`` resolves the companion path against the environment file before
-storing it in the graph specification. A subsequent dictionary round trip retains
-that resolved path. For graphs constructed directly from dictionaries, use an
-absolute path or a path relative to the working directory.
+   placement_layouts_path: layouts.jsonl
+
+Each JSONL record holds a complete layout keyed by runtime scene names. The path
+is relative to the environment YAML. Python environments can set
+``ObjectPlacerParams(placement_layouts_path="layouts.jsonl")``; Python paths are
+relative to the working directory.
+
+Python environments can instead supply a ``PlacementLayouts`` instance through
+``IsaacLabArenaEnvironment.placement_layouts``. Supply a file path or in-memory
+layouts, not both.
+
+``from_yaml()`` resolves the companion path before storing it in the graph
+specification, so a dictionary round trip retains the resolved path. Graphs built
+from dictionaries use paths relative to the working directory.
+
+Replay bypasses relation solving and draws layouts from a shared queue on reset.
+See :doc:`../object_placement/relations` for the record format, queue behavior,
+asset coverage and reset requirements.
 
 The same environment, side by side
 ----------------------------------

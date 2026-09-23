@@ -6,7 +6,6 @@
 from __future__ import annotations
 
 from functools import partial
-from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from isaaclab_arena.assets.asset import Asset
@@ -22,7 +21,6 @@ from isaaclab_arena.assets.registries import AssetRegistry, ObjectRelationLibrar
 from isaaclab_arena.environment_spec.arena_env_graph_task_conversion_utils import build_task_from_spec
 from isaaclab_arena.environment_spec.arena_env_graph_types import ObjectReferenceSpec, SpatialRelationSpec
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-from isaaclab_arena.relations.placement_layouts import PlacementLayouts
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.utils.physics_backend import PhysicsBackend
 from isaaclab_arena.utils.pose import Pose
@@ -52,14 +50,13 @@ def parse_asset_params(params: dict[str, Any]) -> dict[str, Any]:
 
 
 def build_arena_env_from_graph_spec(
-    graph_spec: ArenaEnvGraphSpec, enable_cameras: bool = False, placement_layouts_path: str | Path | None = None
+    graph_spec: ArenaEnvGraphSpec, enable_cameras: bool = False
 ) -> IsaacLabArenaEnvironment:
     """Build an IsaacLabArenaEnvironment from a validated ArenaEnvGraphSpec.
 
     Args:
         graph_spec: A validated graph spec (asset refs exist, ids unique, etc.).
         enable_cameras: Forwarded to the embodiment so its cameras are added.
-        placement_layouts_path: Companion pose file overriding the graph reference, relative to the working directory.
     """
     # Lazy import to avoid pxr early import causing unit test failures.
     from isaaclab_arena.environment_spec.env_cfg_override import apply_env_cfg_override
@@ -75,8 +72,6 @@ def build_arena_env_from_graph_spec(
     default_physics_backend = (
         graph_spec.default_physics_backend if graph_spec.default_physics_backend is not None else PhysicsBackend.PHYSX
     )
-    path = placement_layouts_path if placement_layouts_path is not None else graph_spec.placement_layouts_path
-    layouts = PlacementLayouts.from_episode_jsonl(path) if path is not None else None
     return IsaacLabArenaEnvironment(
         name=graph_spec.env_name,
         scene=Scene(assets=scene_assets),
@@ -85,7 +80,6 @@ def build_arena_env_from_graph_spec(
         placer_params=build_checks_for_placer_params(graph_spec),
         env_cfg_callback=env_cfg_callback,
         default_physics_backend=default_physics_backend,
-        placement_layouts=layouts,
     )
 
 
@@ -96,6 +90,7 @@ def build_checks_for_placer_params(graph_spec: ArenaEnvGraphSpec) -> ObjectPlace
     required_checks = placement_validators.required_checks if placement_validators is not None else None
 
     return ObjectPlacerParams(
+        placement_layouts_path=graph_spec.placement_layouts_path,
         enabled_checks=set(enabled_checks) if enabled_checks is not None else None,
         required_checks=set(required_checks) if required_checks is not None else None,
         solver_params=RelationSolverParams(verbose=False, save_position_history=False),

@@ -117,6 +117,8 @@ def validate_scene_poses(poses: dict[str, torch.Tensor]) -> None:
 def write_scene_poses_to_sim(env: ManagerBasedEnv, env_ids: torch.Tensor, poses: dict[str, torch.Tensor]) -> None:
     """Apply environment-local root poses and zero velocities for the selected environments.
 
+    Frames E, W, and O denote the environment, simulation world, and object.
+
     Args:
         env: Constructed simulation environment.
         env_ids: Absolute indices of the N resetting environments, shape (N,).
@@ -128,11 +130,11 @@ def write_scene_poses_to_sim(env: ManagerBasedEnv, env_ids: torch.Tensor, poses:
         assert pose.shape == (len(env_ids), 7), f"Root poses for '{name}' must have shape (N, 7)"
     env_origins = env.scene.env_origins[env_ids]
     zero_velocity = torch.zeros((len(env_ids), 6), device=env.device)
-    for name, object_pose_in_environment in poses.items():
-        object_pose_in_world = object_pose_in_environment.clone()
-        object_pose_in_world[:, :3] += env_origins
+    for name, T_E_O in poses.items():
+        T_W_O = T_E_O.clone()
+        T_W_O[:, :3] += env_origins
         scene_asset = env.scene[name]
-        scene_asset.write_root_pose_to_sim(object_pose_in_world, env_ids=env_ids)
+        scene_asset.write_root_pose_to_sim(T_W_O, env_ids=env_ids)
         scene_asset.write_root_velocity_to_sim(zero_velocity, env_ids=env_ids)
 
 

@@ -198,24 +198,40 @@ relation.
 Cached Layouts
 --------------
 
-Set ``placement_layouts_path: layouts.jsonl`` in the environment YAML, or pass
-``--placement_layouts layouts.jsonl`` at runtime. YAML paths are relative to the
-environment file; the CLI override is relative to the working directory and takes
-precedence. Loading from YAML resolves the path so a serialized spec remains usable.
+Set the companion file in the environment YAML:
+
+.. code-block:: yaml
+
+   placement_layouts_path: layouts.jsonl
+
+Run the environment with its usual ``--env_spec`` argument. The companion path
+is relative to the environment file. Loading from YAML resolves the path so a
+serialized spec remains usable. Python environments can set
+``ObjectPlacerParams(placement_layouts_path="layouts.jsonl")``, with the path
+relative to the working directory.
 
 Each JSONL line contains one complete layout under
 ``variations["scene.relation_placement"]["poses"]``. Poses use runtime scene keys
-for both YAML and Python environments. A scene key is the asset instance name;
-it can differ from its YAML graph node ID.
+for both YAML and Python environments. Use ``asset.get_scene_key()``: ordinary
+objects use their instance names, while the embodiment uses ``"robot"`` regardless
+of its YAML node ID.
 Positions are environment-local, in metres; rotations are xyzw quaternions.
-Other episode fields are ignored. Python callers can pass ``PlacementLayouts``
-directly to ``IsaacLabArenaEnvironment``.
+Every nonblank line must contain the placement block with the same object set.
+Additional episode fields are ignored; episodes without placement records cannot
+be loaded. Python callers can pass ``PlacementLayouts`` directly to
+``IsaacLabArenaEnvironment`` instead of configuring a file path.
+Supplying both is rejected.
 
 .. code-block:: python
 
    from isaaclab_arena.relations.placement_layouts import PlacementLayouts
 
    arena_env.placement_layouts = PlacementLayouts.from_episode_jsonl("layouts.jsonl")
+
+Set replay inputs before ``compose_manager_cfg()`` or ``make_registered()``.
+For registered Python environments, a Python runner can set
+``builder.arena_env.placement_layouts`` after obtaining the builder. Replay inputs
+are read when the environment configuration is composed.
 
 ``PlacementLayouts.write_episode_jsonl(path, source=...)`` writes the same format.
 The caller supplies the source label, such as ``"solver"`` or ``"settled"``;
@@ -241,8 +257,11 @@ initial velocities are unsupported.
 
 Cached replay requires ``resolve_on_reset=True``; an explicit
 ``--no-resolve_on_reset`` or a false environment default is rejected. An explicit
-``--placement_seed`` is also rejected because layouts are read in file order.
+``placement_seed`` in the placement configuration or on the CLI is also rejected
+because layouts are read in file order.
 ``--no_solve_relations`` is compatible: cached replay never invokes the solver.
+Placement validator settings apply only when solving; they do not revalidate a
+cache or open the solver's debug viewer.
 
 Loading bypasses solving and does not rerun geometry, reachability or settling
 checks. Recordings must match the scene and robot configuration being replayed;

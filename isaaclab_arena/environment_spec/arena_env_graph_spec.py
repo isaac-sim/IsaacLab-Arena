@@ -223,17 +223,12 @@ class ArenaEnvGraphSpec(BaseModel):
             if new_name is not None:
                 self._asset_by_id(override.target_node_id).registry_name = new_name
 
-    def to_arena_env(
-        self, enable_cameras: bool = False, placement_layouts_path: str | Path | None = None
-    ) -> IsaacLabArenaEnvironment:
+    def to_arena_env(self, enable_cameras: bool = False) -> IsaacLabArenaEnvironment:
         """Convert this graph spec into an IsaacLabArenaEnvironment.
 
         Args:
             enable_cameras: Forwarded to the embodiment so its cameras are spawned.
-            placement_layouts_path: Companion pose file overriding the graph reference, relative to the working directory.
         """
         from isaaclab_arena.environment_spec.arena_env_graph_conversion_utils import build_arena_env_from_graph_spec
 
-        return build_arena_env_from_graph_spec(
-            self, enable_cameras=enable_cameras, placement_layouts_path=placement_layouts_path
-        )
+        return build_arena_env_from_graph_spec(self, enable_cameras=enable_cameras)

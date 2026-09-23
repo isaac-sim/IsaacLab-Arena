@@ -41,10 +41,7 @@ def _test_companion_cache_round_trip(simulation_app, tmp_path):
     data["objects"][3]["params"] = {"initial_pose": {"position_xyz": passive_position}}
     data["relations"] = [relation for relation in data["relations"] if relation["subject"] != "cube_3"]
     data["relations"].append({"kind": "is_anchor", "subject": "cube_3"})
-    data["placement_validators"] = {
-        "enabled_checks": ["no_overlap", "on_relation"],
-        "required_checks": ["no_overlap", "on_relation"],
-    }
+    data["placement_layouts_path"] = "poses.jsonl"
     source = tmp_path / "scene.yaml"
     source.write_text(yaml.safe_dump(data))
     path = tmp_path / "poses.jsonl"
@@ -65,7 +62,7 @@ def _test_companion_cache_round_trip(simulation_app, tmp_path):
             ObjectPlacer, "_validate_candidates", side_effect=AssertionError("Cached replay must not revalidate")
         ),
     ):
-        arena_env = spec.to_arena_env(placement_layouts_path=path)
+        arena_env = spec.to_arena_env()
         assert arena_env.scene.assets["cube_3"].has_pose_reset_event()
         arena_env.embodiment.set_initial_pose(arena_env.embodiment.get_initial_pose())
         env = ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg(num_envs=3)).make_registered()
@@ -116,6 +113,9 @@ def _test_companion_cache_round_trip(simulation_app, tmp_path):
                     atol=0,
                     rtol=0,
                 )
+            env.unwrapped._reset_idx(torch.tensor([2], device=device))
+            for name, poses in cache.poses.items():
+                torch.testing.assert_close(world.get_pose_e(name)[2], poses[1].to_tensor(device), atol=2e-5, rtol=0)
             before = {name: world.get_pose_e(name) for name in cache.poses}
             for _ in range(200):
                 scene.write_data_to_sim()
@@ -180,12 +180,17 @@ def _test_cache_rejects_conflicting_configuration(simulation_app, conflict, expe
         arena_env.embodiment.add_relation(RotateAroundSolution(yaw_rad=0.5))
     elif conflict == "placement-seed":
         cfg.placement_seed = 42
+    elif conflict == "placement-seed-default":
+        arena_env.placer_params.placement_seed = 42
     elif conflict == "fixed-layout":
         cfg.resolve_on_reset = False
+    elif conflict == "two-layout-sources":
+        arena_env.placer_params.placement_layouts_path = "unused.jsonl"
     elif conflict == "fixed-layout-default":
         arena_env.placer_params.resolve_on_reset = False
+    builder = ArenaEnvBuilder(arena_env, cfg)
     with pytest.raises(AssertionError, match=expected_error):
-        ArenaEnvBuilder(arena_env, cfg).compose_manager_cfg()
+        builder.compose_manager_cfg()
     return True
 
 
@@ -198,8 +203,10 @@ def _test_cache_rejects_conflicting_configuration(simulation_app, conflict, expe
         ("initial-velocity", "nonzero initial velocity"),
         ("missing-robot", "missing placed objects.*robot"),
         ("placement-seed", "placement_seed applies to solving"),
+        ("placement-seed-default", "placement_seed applies to solving"),
         ("fixed-layout", "requires resolve_on_reset=True"),
         ("fixed-layout-default", "requires resolve_on_reset=True"),
+        ("two-layout-sources", "not both"),
     ],
 )
 def test_cache_rejects_conflicting_configuration(conflict, expected_error):
@@ -219,11 +226,13 @@ def _test_python_integer_layouts_reset_objects_and_robot(simulation_app):
     arena_env = _make_cached_env()
     poses = {f"cube_{i}": [Pose((i, 0, 2), (0, 0, 0, 1)), Pose((i, 1, 2), (0, 0, 0, 1))] for i in range(4)}
     poses["robot"] = [Pose((-1, 0, 0), (0, 0, 0, 1)), Pose((-1, 1, 0), (0, 0, 0, 1))]
+    arena_env.placement_layouts = None
+    builder = ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg(num_envs=2, resolve_on_reset=True))
     arena_env.placement_layouts = PlacementLayouts(poses)
     arena_env.embodiment.set_initial_pose(arena_env.embodiment.get_initial_pose())
     assert arena_env.embodiment.has_pose_reset_event()
     arena_env.placer_params.resolve_on_reset = False
-    env = ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg(num_envs=2, resolve_on_reset=True)).make_registered()
+    env = builder.make_registered()
     try:
         assert not arena_env.embodiment.has_pose_reset_event()
         # Equal counts consume and wrap the whole queue on every full reset.

@@ -113,12 +113,6 @@ def add_isaaclab_arena_cli_args(parser: argparse.ArgumentParser) -> None:
         ),
     )
     arena_group.add_argument(
-        "--placement_layouts",
-        type=str,
-        default=None,
-        help="Companion placement JSONL keyed by runtime scene names",
-    )
-    arena_group.add_argument(
         "--list_variations",
         action="store_true",
         default=False,

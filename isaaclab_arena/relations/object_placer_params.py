@@ -67,3 +67,6 @@ class ObjectPlacerParams:
 
     debug_visualize_output_path: str | None = None
     """Path to record the debug visualization to as a Rerun ``.rrd`` file, for headless runs."""
+
+    placement_layouts_path: str | None = None
+    """Companion JSONL to replay instead of solving; relative to the working directory in Python."""
