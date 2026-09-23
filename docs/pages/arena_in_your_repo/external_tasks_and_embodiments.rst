@@ -11,7 +11,7 @@ Defining a Custom Task
 
 A custom task is defined by subclassing ``TaskBase`` and implementing the required methods.
 The excerpt below shows a task that succeeds after a fixed number of steps.
-``get_termination_cfg()`` declares its success objectives, failure conditions, and time limit.
+``get_termination_cfg()`` declares its success criteria, failure conditions, and time limit.
 This task can be passed to the ``ArenaEnvBuilder`` to create an environment
 (see :ref:`putting_it_all_together` below for an example).
 
@@ -32,7 +32,7 @@ This task can be passed to the ``ArenaEnvBuilder`` to create an environment
        def get_termination_cfg(self) -> TaskTerminationCfg:
            return TaskTerminationCfg(
                success=[
-                   ProgressObjective(name="wait", predicate_sequence=[self.has_reached_step_count]),
+                   CompletionCriteria(name="wait", predicate_sequence=[self.has_reached_step_count]),
                ],
                timeout_s=self.episode_length_s,
            )

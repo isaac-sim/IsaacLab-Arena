@@ -15,8 +15,8 @@ from isaaclab.managers import SceneEntityCfg, TerminationTermCfg
 from isaaclab.managers.recorder_manager import RecorderManagerBaseCfg, RecorderTerm, RecorderTermCfg
 from isaaclab.utils.configclass import configclass
 
-from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective, ProgressObjectiveCompletionMode
-from isaaclab_arena.progress_tracking.progress_tracking_utils import DEFAULT_GROUP_NAME, _predicate_repr
+from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria, CriteriaCompletionMode
+from isaaclab_arena.progress_tracking.progress_tracking_utils import DEFAULT_SEQUENCE_NAME, _predicate_repr
 from isaaclab_arena.tasks.predicates.temporal import TrueForConsecutiveStepsCfg, _TrueForConsecutiveSteps
 
 
@@ -38,13 +38,13 @@ def _initialize_predicate_parameters(value, env) -> None:
 
 
 def _create_predicate_from_config(predicate, env):
-    """Create the callable that ProgressObjectiveRunner evaluates.
+    """Create the callable that CompletionCriteriaRunner evaluates.
 
     Resolve scene references, construct configured predicate classes, and supply
     their configured arguments. Return existing callables unchanged.
     """
 
-    # Isaac Lab does not resolve configs inside ProgressObjective dataclasses.
+    # Isaac Lab does not resolve configs inside CompletionCriteria dataclasses.
     # NOTE(cvolk): TaskSuccessTerm creates the tracker while TerminationManager is
     # still being constructed, before env.termination_manager is assigned.
     # We therefore cannot delegate nested predicate initialization to that manager.
@@ -67,73 +67,73 @@ class PredicateEvent:
     step: int
     """Episode step at which the advance happened (-1 if no step index was available)."""
 
-    progress_objective: str
-    """Name of the ProgressObjective whose group advanced."""
+    criteria_name: str
+    """Name of the CompletionCriteria whose sequence advanced."""
 
-    group: str
-    """Name of the group whose predicate chain advanced."""
+    sequence_name: str
+    """Name of the sequence whose predicate chain advanced."""
 
     predicate_index: int
-    """Index within the group's chain of the predicate that was satisfied."""
+    """Index within the sequence's chain of the predicate that was satisfied."""
 
     predicate_name: str
     """Human-readable string of that predicate."""
 
     score_delta: float
-    """Normalized score this advance added to the group."""
+    """Normalized score this advance added to the sequence."""
 
 
 @dataclass
-class ProgressObjectiveState:
-    """Per-env snapshot of a single ProgressObjective's progress."""
+class CompletionCriteriaState:
+    """Per-env snapshot of a single CompletionCriteria's progress."""
 
-    completed_groups: int
-    """Number of the objective's groups that are complete for this env."""
+    completed_sequences: int
+    """Number of the criteria's sequences that are complete for this env."""
 
-    total_groups: int
-    """Total number of groups in the objective."""
+    total_sequences: int
+    """Total number of sequences in the criteria."""
 
     score: float
-    """Progress score in [0, 1], normalized within the objective."""
+    """Progress score in [0, 1], normalized within the criteria."""
 
     is_complete: bool
-    """Whether the objective is complete for this env."""
+    """Whether the completion criteria are met for this env."""
 
     active_predicates: dict[str, str | None]
-    """Next predicate per group, or None when the group is complete."""
+    """Next predicate per sequence, or None when the sequence is complete."""
 
 
 @dataclass
 class ProgressState:
-    """Per-env snapshot of progress across all ProgressObjectives."""
+    """Per-env snapshot of progress across all CompletionCriteria definitions."""
 
-    progress_objectives: dict[str, ProgressObjectiveState]
-    """Per-objective state, keyed by ProgressObjective name."""
+    criteria_by_name: dict[str, CompletionCriteriaState]
+    """Per-criteria state, keyed by CompletionCriteria name."""
 
     overall_score: float
-    """Weighted progress of the objectives, normalized to [0, 1]."""
+    """Weighted progress of the criteria sets, normalized to [0, 1]."""
 
     all_complete: bool
     """Whether the task's success requirements are met for this env."""
 
 
-class ProgressObjectiveRunner:
-    """Track a ProgressObjective's predicate sequences across parallel environments."""
+class CompletionCriteriaRunner:
+    """Track a CompletionCriteria's predicate sequences across parallel environments."""
 
-    def __init__(self, progress_objective: ProgressObjective, num_envs: int, device, env=None):
-        self.progress_objective = progress_objective
+    def __init__(self, completion_criteria: CompletionCriteria, num_envs: int, device, env=None):
+        self.completion_criteria = completion_criteria
         self.num_envs = num_envs
         self.device = device
 
-        #   current_predicate_index: How far each env has advanced through the group's predicate chain.
-        #   group_score: Each env's accumulated score for the group, normalized to [0, 1].
-        #   group_complete: Whether each env has finished the group's entire predicate chain.
+        #   current_predicate_index: How far each env has advanced through the sequence's predicate chain.
+        #   sequence_score: Each env's accumulated score for the sequence, normalized to [0, 1].
+        #   sequence_complete: Whether each env has finished the sequence's entire predicate chain.
         self.current_predicate_index: dict[str, torch.Tensor] = {}
-        self.group_score: dict[str, torch.Tensor] = {}
-        self.group_complete: dict[str, torch.Tensor] = {}
+        self.sequence_score: dict[str, torch.Tensor] = {}
+        self.sequence_complete: dict[str, torch.Tensor] = {}
         self.predicate_chains = {}
         self._consecutive_step_requirements: list[_TrueForConsecutiveSteps] = []
-        for group_name, chain in progress_objective.canonical_predicate_sequences.items():
+        for sequence_name, chain in completion_criteria.canonical_predicate_sequences.items():
             resolved_chain = []
             for predicate, score in chain:
                 if isinstance(predicate, TrueForConsecutiveStepsCfg):
@@ -150,12 +150,12 @@ class ProgressObjectiveRunner:
                     # Prepare an instantaneous check without adding counter state.
                     predicate = _create_predicate_from_config(predicate, env)
                 resolved_chain.append((predicate, score))
-            self.predicate_chains[group_name] = resolved_chain
+            self.predicate_chains[sequence_name] = resolved_chain
 
-        for group_name in progress_objective.group_names:
-            self.current_predicate_index[group_name] = torch.zeros(num_envs, dtype=torch.long, device=device)
-            self.group_score[group_name] = torch.zeros(num_envs, dtype=torch.float32, device=device)
-            self.group_complete[group_name] = torch.zeros(num_envs, dtype=torch.bool, device=device)
+        for sequence_name in completion_criteria.sequence_names:
+            self.current_predicate_index[sequence_name] = torch.zeros(num_envs, dtype=torch.long, device=device)
+            self.sequence_score[sequence_name] = torch.zeros(num_envs, dtype=torch.float32, device=device)
+            self.sequence_complete[sequence_name] = torch.zeros(num_envs, dtype=torch.bool, device=device)
 
     def step(
         self,
@@ -168,31 +168,33 @@ class ProgressObjectiveRunner:
     ) -> list[PredicateEvent]:
         """Step the runner for a single env.step.
 
-        Advance each group's predicate chain by at most one position per env and return one
-        PredicateEvent for every env/group that advanced this step.
+        Advance each sequence's predicate chain by at most one position per env and return one
+        PredicateEvent for every env/sequence that advanced this step.
         """
 
-        objective_complete = self.is_complete()
-        final_check_envs = (
-            objective_complete & updated_envs if check_final_conditions else torch.zeros_like(objective_complete)
+        criteria_complete = self.is_complete()
+        final_condition_check_mask = (
+            criteria_complete & updated_envs if check_final_conditions else torch.zeros_like(criteria_complete)
         )
-        active_envs = active_envs & ~objective_complete
-        if not bool((active_envs | final_check_envs).any().item()):
+        active_envs = active_envs & ~criteria_complete
+        if not bool((active_envs | final_condition_check_mask).any().item()):
             return []
 
         events: list[PredicateEvent] = []
-        for group_name, predicate_chain in self.predicate_chains.items():
-            group_final_check_envs = final_check_envs
+        for sequence_name, predicate_chain in self.predicate_chains.items():
+            sequence_final_condition_check_mask = final_condition_check_mask
             if check_final_conditions:
-                group_final_check_envs = group_final_check_envs | (self.group_complete[group_name] & updated_envs)
-            events += self._step_group(
+                sequence_final_condition_check_mask = sequence_final_condition_check_mask | (
+                    self.sequence_complete[sequence_name] & updated_envs
+                )
+            events += self._step_sequence(
                 env,
-                group_name,
+                sequence_name,
                 predicate_chain,
                 active_envs,
                 step_index,
                 predicate_results_this_step,
-                group_final_check_envs,
+                sequence_final_condition_check_mask,
             )
         return events
 
@@ -244,16 +246,16 @@ class ProgressObjectiveRunner:
     def final_conditions_met(
         self, env, predicate_results_this_step: dict[int, tuple[torch.Tensor, torch.Tensor]]
     ) -> torch.Tensor:
-        """Evaluate the final predicates using this objective's ALL, ANY, or CHOOSE requirement."""
+        """Evaluate final predicates using the CompletionCriteria's ALL, ANY, or CHOOSE requirement."""
         completed_envs = self.is_complete()
         if not bool(completed_envs.any().item()):
             return completed_envs
         # Stateful final predicates were updated during step(); do not start newly reached predicates here.
         no_state_updates = torch.zeros_like(completed_envs)
         final_results = []
-        for group_name, predicate_chain in self.predicate_chains.items():
+        for sequence_name, predicate_chain in self.predicate_chains.items():
             # A true final predicate cannot bypass earlier predicates in its sequence.
-            reached_final_predicate = self.current_predicate_index[group_name] >= len(predicate_chain) - 1
+            reached_final_predicate = self.current_predicate_index[sequence_name] >= len(predicate_chain) - 1
             final_result = self._evaluate_predicate_with_cache(
                 predicate_chain[-1][0],
                 env,
@@ -261,29 +263,29 @@ class ProgressObjectiveRunner:
                 no_state_updates,
             )
             final_results.append(reached_final_predicate & final_result)
-        return torch.stack(final_results, dim=0).sum(dim=0) >= self._num_required_groups()
+        return torch.stack(final_results, dim=0).sum(dim=0) >= self._num_required_sequences()
 
-    def _step_group(
+    def _step_sequence(
         self,
         env,
-        group_name: str,
+        sequence_name: str,
         predicate_chain: list[tuple],
         active_envs: torch.Tensor,
         step_index: torch.Tensor | None,
         predicate_results_this_step: dict[int, tuple[torch.Tensor, torch.Tensor]],
-        final_check_envs: torch.Tensor,
+        sequence_final_condition_check_mask: torch.Tensor,
     ) -> list[PredicateEvent]:
-        """Advance a single group's predicate chain by at most one position per env.
+        """Advance a single sequence's predicate chain by at most one position per env.
 
         Evaluates the current predicate for the envs sitting at each chain position, advances
-        those whose predicate is satisfied, updates the group's score and completion mask, and
+        those whose predicate is satisfied, updates the sequence's score and completion mask, and
         returns one transition event per env that advanced.
         """
 
         # List of state transition events (events are emitted for an env when a predicate flips True)
         events: list[PredicateEvent] = []
         chain_length = len(predicate_chain)
-        # Mask for which envs have advanced this step (at most one advance per env per group).
+        # Mask for which envs have advanced this step (at most one advance per env per sequence).
         advanced = torch.zeros(self.num_envs, dtype=torch.bool, device=self.device)
 
         for chain_idx, (predicate, score_weight) in enumerate(predicate_chain):
@@ -291,13 +293,13 @@ class ProgressObjectiveRunner:
             # Envs should only be evaluated if:
             #   1) They are at the current predicate position
             #   2) They have not yet advanced this step
-            #   3) This ProgressObjective is active in that environment.
-            at_position = (self.current_predicate_index[group_name] == chain_idx) & ~advanced & active_envs
+            #   3) This CompletionCriteria is active in that environment.
+            at_position = (self.current_predicate_index[sequence_name] == chain_idx) & ~advanced & active_envs
             state_update_mask = at_position
             if chain_idx == chain_length - 1:
                 # Include completed rows now so final checks reuse this evaluation and its diagnostics.
                 state_update_mask = state_update_mask | (
-                    final_check_envs & (self.current_predicate_index[group_name] >= chain_idx)
+                    sequence_final_condition_check_mask & (self.current_predicate_index[sequence_name] >= chain_idx)
                 )
             if not bool(state_update_mask.any().item()):
                 continue
@@ -311,13 +313,15 @@ class ProgressObjectiveRunner:
                 continue
 
             # Advance the runner to the next predicates.
-            self.current_predicate_index[group_name] = torch.where(
+            self.current_predicate_index[sequence_name] = torch.where(
                 advance_mask,
-                self.current_predicate_index[group_name] + 1,
-                self.current_predicate_index[group_name],
+                self.current_predicate_index[sequence_name] + 1,
+                self.current_predicate_index[sequence_name],
             )
-            # Update the group score for the envs that were advanced.
-            self.group_score[group_name] = self.group_score[group_name] + advance_mask.float() * float(score_weight)
+            # Update the sequence score for the envs that were advanced.
+            self.sequence_score[sequence_name] = self.sequence_score[sequence_name] + advance_mask.float() * float(
+                score_weight
+            )
             # Update the advanced mask for the envs that were advanced.
             advanced = advanced | advance_mask
 
@@ -328,16 +332,16 @@ class ProgressObjectiveRunner:
                     PredicateEvent(
                         env_idx=int(env_idx),
                         step=int(step_index[env_idx].item()) if step_index is not None else -1,
-                        progress_objective=self.progress_objective.name,
-                        group=group_name,
+                        criteria_name=self.completion_criteria.name,
+                        sequence_name=sequence_name,
                         predicate_index=chain_idx,
                         predicate_name=pred_name,
                         score_delta=float(score_weight),
                     )
                 )
 
-        # Update the group complete mask for the envs that have completed the group.
-        self.group_complete[group_name] = self.current_predicate_index[group_name] >= chain_length
+        # Update the sequence complete mask for the envs that have completed the sequence.
+        self.sequence_complete[sequence_name] = self.current_predicate_index[sequence_name] >= chain_length
         return events
 
     def reset(self, env_ids) -> None:
@@ -347,10 +351,10 @@ class ProgressObjectiveRunner:
         """
 
         env_ids = torch.as_tensor(env_ids, dtype=torch.long, device=self.device)
-        for group_name in self.progress_objective.group_names:
-            self.current_predicate_index[group_name][env_ids] = 0
-            self.group_score[group_name][env_ids] = 0.0
-            self.group_complete[group_name][env_ids] = False
+        for sequence_name in self.completion_criteria.sequence_names:
+            self.current_predicate_index[sequence_name][env_ids] = 0
+            self.sequence_score[sequence_name][env_ids] = 0.0
+            self.sequence_complete[sequence_name][env_ids] = False
 
         self._reset_consecutive_step_requirements(env_ids)
 
@@ -359,55 +363,55 @@ class ProgressObjectiveRunner:
         for requirement in self._consecutive_step_requirements:
             requirement.reset(env_ids)
 
-    def _num_required_groups(self) -> int:
-        """Number of groups that must complete for the objective to be complete."""
+    def _num_required_sequences(self) -> int:
+        """Number of sequences that must complete for the criteria to be complete."""
 
-        objective = self.progress_objective
-        if objective.logical == ProgressObjectiveCompletionMode.ALL:
-            return len(objective.group_names)
-        if objective.logical == ProgressObjectiveCompletionMode.ANY:
+        criteria = self.completion_criteria
+        if criteria.logical == CriteriaCompletionMode.ALL:
+            return len(criteria.sequence_names)
+        if criteria.logical == CriteriaCompletionMode.ANY:
             return 1
-        assert objective.K is not None, "K is required (and validated) when logical='choose'"
-        return int(objective.K)
+        assert criteria.K is not None, "K is required (and validated) when logical='choose'"
+        return int(criteria.K)
 
     def is_complete(self) -> torch.Tensor:
-        """Return which environments have completed this objective."""
+        """Return which environments have met the completion criteria."""
 
-        groups = self.progress_objective.group_names
-        stacked = torch.stack([self.group_complete[g] for g in groups], dim=1)
-        return stacked.sum(dim=1) >= self._num_required_groups()
+        sequence_names = self.completion_criteria.sequence_names
+        stacked = torch.stack([self.sequence_complete[name] for name in sequence_names], dim=1)
+        return stacked.sum(dim=1) >= self._num_required_sequences()
 
     def overall_score_per_env(self) -> torch.Tensor:
-        """Return progress across the required number of predicate groups."""
-        groups = self.progress_objective.group_names
-        stacked = torch.stack([self.group_score[g] for g in groups], dim=1)
-        return torch.topk(stacked, self._num_required_groups(), dim=1).values.mean(dim=1)
+        """Return progress across the required number of predicate sequences."""
+        sequence_names = self.completion_criteria.sequence_names
+        stacked = torch.stack([self.sequence_score[name] for name in sequence_names], dim=1)
+        return torch.topk(stacked, self._num_required_sequences(), dim=1).values.mean(dim=1)
 
-    def get_state_for_env(self, env_idx: int, is_complete, score) -> ProgressObjectiveState:
-        """Per-env view of this objective's progress.
+    def get_state_for_env(self, env_idx: int, is_complete, score) -> CompletionCriteriaState:
+        """Per-env view of progress toward the completion criteria.
 
         is_complete and score are passed in (rather than recomputed here) so the full
         (num_envs,) tensor reductions run once per runner in
         ProgressTracker, instead of once per env.
         """
 
-        objective = self.progress_objective
-        completed_groups = 0
+        criteria = self.completion_criteria
+        completed_sequences = 0
         active_predicates: dict[str, str | None] = {}
-        # The active predicate for a group is the one at its current chain position. Any group
+        # The active predicate for a sequence is the one at its current chain position. Any sequence
         # whose pointer has run off the end of the chain is complete (no active predicate).
-        for group_name in objective.group_names:
-            predicate_chain = self.predicate_chains[group_name]
-            cur_predicate_index = int(self.current_predicate_index[group_name][env_idx].item())
+        for sequence_name in criteria.sequence_names:
+            predicate_chain = self.predicate_chains[sequence_name]
+            cur_predicate_index = int(self.current_predicate_index[sequence_name][env_idx].item())
             if cur_predicate_index >= len(predicate_chain):
-                active_predicates[group_name] = None
-                completed_groups += 1
+                active_predicates[sequence_name] = None
+                completed_sequences += 1
             else:
-                active_predicates[group_name] = _predicate_repr(predicate_chain[cur_predicate_index][0])
+                active_predicates[sequence_name] = _predicate_repr(predicate_chain[cur_predicate_index][0])
 
-        return ProgressObjectiveState(
-            completed_groups=completed_groups,
-            total_groups=len(objective.group_names),
+        return CompletionCriteriaState(
+            completed_sequences=completed_sequences,
+            total_sequences=len(criteria.sequence_names),
             score=float(score),
             is_complete=bool(is_complete),
             active_predicates=active_predicates,
@@ -419,7 +423,7 @@ class ProgressTracker:
 
     def __init__(
         self,
-        progress_objectives: list[ProgressObjective],
+        completion_criteria: list[CompletionCriteria],
         num_envs: int,
         device,
         env=None,
@@ -427,14 +431,14 @@ class ProgressTracker:
         subtasks_are_sequential: bool = False,
         desired_subtask_success_state: list[bool | None] | None = None,
     ):
-        assert progress_objectives, "Task success requires at least one progress objective."
-        objective_names = [objective.name for objective in progress_objectives]
-        assert len(set(objective_names)) == len(objective_names), "Progress objective names must be unique."
-        self.progress_objectives = progress_objectives
+        assert completion_criteria, "Task success requires at least one set of completion criteria."
+        criteria_names = [criteria.name for criteria in completion_criteria]
+        assert len(set(criteria_names)) == len(criteria_names), "Completion criteria names must be unique."
+        self.completion_criteria = completion_criteria
         self.num_envs = num_envs
         self.device = device
         self.runners = [
-            ProgressObjectiveRunner(objective, num_envs, device, env=env) for objective in progress_objectives
+            CompletionCriteriaRunner(criteria, num_envs, device, env=env) for criteria in completion_criteria
         ]
         self._subtask_runners = self._group_runners_by_subtask(self.runners)
         assert not subtasks_are_sequential or self._subtask_runners, "Sequential tracking requires subtask indices."
@@ -457,22 +461,22 @@ class ProgressTracker:
         self._requires_step_index = any(runner._consecutive_step_requirements for runner in self.runners)
 
     @staticmethod
-    def _group_runners_by_subtask(runners: list[ProgressObjectiveRunner]) -> list[list[ProgressObjectiveRunner]]:
-        """Group runners by the subtask indices assigned to their objectives by CompositeTaskBase."""
-        subtask_indices = [runner.progress_objective.parent_subtask_idx for runner in runners]
+    def _group_runners_by_subtask(runners: list[CompletionCriteriaRunner]) -> list[list[CompletionCriteriaRunner]]:
+        """Group runners by the subtask indices assigned to their criteria sets by CompositeTaskBase."""
+        subtask_indices = [runner.completion_criteria.parent_subtask_idx for runner in runners]
         if all(index is None for index in subtask_indices):
             return []
-        assert all(index is not None for index in subtask_indices), "Every objective must have a subtask index."
+        assert all(index is not None for index in subtask_indices), "Every set of criteria must have a subtask index."
         num_subtasks = len(set(subtask_indices))
         assert set(subtask_indices) == set(range(num_subtasks)), "Subtask indices must be consecutive from zero."
-        runners_by_subtask: list[list[ProgressObjectiveRunner]] = [[] for _ in range(num_subtasks)]
+        runners_by_subtask: list[list[CompletionCriteriaRunner]] = [[] for _ in range(num_subtasks)]
         for runner in runners:
-            subtask_index = runner.progress_objective.parent_subtask_idx
+            subtask_index = runner.completion_criteria.parent_subtask_idx
             runners_by_subtask[subtask_index].append(runner)
         return runners_by_subtask
 
     @staticmethod
-    def _all_objectives_complete(runners: list[ProgressObjectiveRunner]) -> torch.Tensor:
+    def _all_criteria_complete(runners: list[CompletionCriteriaRunner]) -> torch.Tensor:
         return torch.stack([runner.is_complete() for runner in runners], dim=1).all(dim=1)
 
     def step(self, env, step_index: torch.Tensor | None = None) -> None:
@@ -508,7 +512,7 @@ class ProgressTracker:
         predicate_results_this_step: dict[int, tuple[torch.Tensor, torch.Tensor]] = {}
         for subtask_index, subtask_runners in enumerate(self._subtask_runners or [self.runners]):
             # Use completion before advancing so the next subtask starts on the following step.
-            subtask_was_complete = self._all_objectives_complete(subtask_runners)
+            subtask_was_complete = self._all_criteria_complete(subtask_runners)
             check_final_conditions = (
                 self.desired_subtask_success_state is not None
                 and self.desired_subtask_success_state[subtask_index] is not None
@@ -530,7 +534,7 @@ class ProgressTracker:
     ) -> torch.Tensor:
         """Combine recorded completion with any required current subtask conditions."""
         if self.desired_subtask_success_state is None:
-            return self._all_objectives_complete(self.runners)
+            return self._all_criteria_complete(self.runners)
 
         # Preserve the existing 'don't care' behavior: None skips both history and final state.
         required_subtasks = [
@@ -540,7 +544,7 @@ class ProgressTracker:
         ]
         success = torch.ones(self.num_envs, dtype=torch.bool, device=self.device)
         for runners, _ in required_subtasks:
-            success &= self._all_objectives_complete(runners)
+            success &= self._all_criteria_complete(runners)
         for runners, desired_state in required_subtasks:
             final_conditions_met = torch.stack(
                 [runner.final_conditions_met(env, predicate_results_this_step) for runner in runners], dim=1
@@ -554,31 +558,31 @@ class ProgressTracker:
 
     def get_subtask_completion(self) -> torch.Tensor:
         """Return recorded completion for each environment and subtask, in subtask order."""
-        assert self._subtask_runners, "Subtask completion requires objectives with subtask indices."
-        return torch.stack([self._all_objectives_complete(runners) for runners in self._subtask_runners], dim=1)
+        assert self._subtask_runners, "Subtask completion requires criteria sets with subtask indices."
+        return torch.stack([self._all_criteria_complete(runners) for runners in self._subtask_runners], dim=1)
 
     def get_predicate(
         self,
-        objective_name: str,
-        sequence_name: str = DEFAULT_GROUP_NAME,
+        criteria_name: str,
+        sequence_name: str = DEFAULT_SEQUENCE_NAME,
         predicate_index: int = 0,
     ) -> Callable:
         """Return the resolved predicate for reading diagnostics without evaluating it.
 
         Args:
-            objective_name: Name of the ProgressObjective containing the predicate.
+            criteria_name: Name of the CompletionCriteria containing the predicate.
             sequence_name: Named sequence, or the default sequence for a list definition.
             predicate_index: Position of the predicate within that sequence.
         """
         for runner in self.runners:
-            if runner.progress_objective.name == objective_name:
+            if runner.completion_criteria.name == criteria_name:
                 predicate = runner.predicate_chains[sequence_name][predicate_index][0]
                 if isinstance(predicate, _TrueForConsecutiveSteps):
                     predicate = predicate.predicate
                 while isinstance(predicate, functools.partial):
                     predicate = predicate.func
                 return predicate
-        raise KeyError(f"Unknown progress objective: {objective_name!r}")
+        raise KeyError(f"Unknown completion criteria: {criteria_name!r}")
 
     def reset(self, env_ids: list[int] | torch.Tensor) -> None:
         """Clear progress and events for the specified environment IDs."""
@@ -593,34 +597,34 @@ class ProgressTracker:
             self._events[env_idx] = []
 
     def get_state(self) -> list[ProgressState]:
-        """Get the progress state of all ProgressObjectives for each env."""
+        """Get the progress state of all CompletionCriteria definitions for each env."""
 
         # Compute the per-runner (num_envs,) tensors once
         completeness = [runner.is_complete() for runner in self.runners]
         scores = [runner.overall_score_per_env() for runner in self.runners]
         task_complete = self.is_complete()
 
-        # Total objective weight for normalization.
-        total_objective_weight = sum(runner.progress_objective.score for runner in self.runners)
+        # Total criteria weight for normalization.
+        total_criteria_weight = sum(runner.completion_criteria.score for runner in self.runners)
 
         output: list[ProgressState] = []
         for env_idx in range(self.num_envs):
             # Build a per-env state from each runner's state.
-            progress_objective_states: dict[str, ProgressObjectiveState] = {}
+            criteria_states: dict[str, CompletionCriteriaState] = {}
             for i, runner in enumerate(self.runners):
-                objective = runner.progress_objective
+                criteria = runner.completion_criteria
                 state = runner.get_state_for_env(env_idx, completeness[i][env_idx], scores[i][env_idx])
-                progress_objective_states[objective.name] = state
+                criteria_states[criteria.name] = state
             weighted_score = sum(
-                runner.progress_objective.score * float(score[env_idx]) for runner, score in zip(self.runners, scores)
+                runner.completion_criteria.score * float(score[env_idx]) for runner, score in zip(self.runners, scores)
             )
 
             overall_score = (
-                max(0.0, min(1.0, weighted_score / total_objective_weight)) if total_objective_weight > 0 else 0.0
+                max(0.0, min(1.0, weighted_score / total_criteria_weight)) if total_criteria_weight > 0 else 0.0
             )
             output.append(
                 ProgressState(
-                    progress_objectives=progress_objective_states,
+                    criteria_by_name=criteria_states,
                     overall_score=overall_score,
                     all_complete=bool(task_complete[env_idx]),
                 )
@@ -646,19 +650,19 @@ class ProgressTrackingRecorder(RecorderTerm):
         {
             "states": [                                    # one ProgressState per env
                 ProgressState(
-                    progress_objectives={
-                        "<name>": ProgressObjectiveState(
-                            completed_groups, total_groups, score, is_complete, active_predicates
+                    criteria_by_name={
+                        "<name>": CompletionCriteriaState(
+                            completed_sequences, total_sequences, score, is_complete, active_predicates
                         ),
                         ...
                     },
-                    overall_score=float,                   # weighted mean of objective scores, in [0, 1]
+                    overall_score=float,                   # weighted mean of criteria scores, in [0, 1]
                     all_complete=bool,
                 ),
                 ...
             ],
             "events": [                                    # one list of PredicateEvent per env
-                [PredicateEvent(env_idx, step, progress_objective, group,
+                [PredicateEvent(env_idx, step, criteria_name, sequence_name,
                                 predicate_index, predicate_name, score_delta), ...],
                 ...
             ],

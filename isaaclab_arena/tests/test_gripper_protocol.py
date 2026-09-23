@@ -314,14 +314,14 @@ def _test_gear_mesh_reset_event_clears_legacy_state(_simulation_app) -> bool:
 
     from isaaclab.managers import SceneEntityCfg, TerminationTermCfg
 
-    from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
+    from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
     from isaaclab_arena.progress_tracking.progress_tracker import ProgressTracker
     from isaaclab_arena_environments.isaac_cap.gear_insertion_v2.task.terminations import (
         gear_mesh_success,
         reset_gear_mesh_state,
     )
 
-    for objective_name in ("gear_mesh", "subtask_0/gear_mesh"):
+    for criteria_name in ("gear_mesh", "subtask_0/gear_mesh"):
         env = SimpleNamespace(
             num_envs=2,
             device="cpu",
@@ -341,10 +341,10 @@ def _test_gear_mesh_reset_event_clears_legacy_state(_simulation_app) -> bool:
                 "spin_window_s": 0.5,
             },
         )
-        objective = ProgressObjective(name=objective_name, predicate_sequence=[success_cfg])
-        tracker = ProgressTracker([objective], num_envs=env.num_envs, device=env.device, env=env)
+        criteria = CompletionCriteria(name=criteria_name, predicate_sequence=[success_cfg])
+        tracker = ProgressTracker([criteria], num_envs=env.num_envs, device=env.device, env=env)
         env.progress_tracker = tracker
-        success = tracker.get_predicate(objective_name)
+        success = tracker.get_predicate(criteria_name)
         success.latched[:] = True
         success.seated_seen[:] = True
         success.started_after_seating[:] = True

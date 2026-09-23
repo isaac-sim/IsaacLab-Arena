@@ -27,15 +27,15 @@ def reset_gear_mesh_state(env, env_ids=None) -> None:
     # Separate motor control/history from success and migrate its hold counter
     # to TrueForConsecutiveStepsCfg, then remove this reset callback.
     progress_tracker = env.progress_tracker
-    found_matching_objective = False
-    for objective in progress_tracker.progress_objectives:
-        # CompositeTaskBase prefixes objective names with the subtask index.
-        if objective.name.rsplit("/", 1)[-1] == "gear_mesh":
-            gear_mesh_predicate = progress_tracker.get_predicate(objective.name)
+    found_matching_criteria = False
+    for criteria in progress_tracker.completion_criteria:
+        # CompositeTaskBase prefixes criteria names with the subtask index.
+        if criteria.name.rsplit("/", 1)[-1] == "gear_mesh":
+            gear_mesh_predicate = progress_tracker.get_predicate(criteria.name)
             gear_mesh_predicate.reset(env_ids)
-            found_matching_objective = True
-    # A renamed objective must not silently carry state into the next episode.
-    assert found_matching_objective, "reset_gear_mesh_state found no gear_mesh objective to reset."
+            found_matching_criteria = True
+    # Renamed criteria must not silently carry state into the next episode.
+    assert found_matching_criteria, "reset_gear_mesh_state found no gear_mesh criteria to reset."
 
 
 def _torch(value):

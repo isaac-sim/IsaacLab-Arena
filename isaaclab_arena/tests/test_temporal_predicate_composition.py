@@ -44,23 +44,23 @@ def _step(tracker, env):
 
 
 def _test_sequential_subtasks_count_only_active_environments(_simulation_app):
-    from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
+    from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
     from isaaclab_arena.progress_tracking.progress_tracker import ProgressTracker
 
     env = _make_environment({"ready": [True, False], "stable": [True, True]})
-    objectives = [
-        ProgressObjective(
+    criteria_sets = [
+        CompletionCriteria(
             name="ready",
             predicate_sequence=[partial(_predicate_value, predicate_name="ready")],
             parent_subtask_idx=0,
         ),
-        ProgressObjective(
+        CompletionCriteria(
             name="stable",
             predicate_sequence=[_consecutive_requirement("stable", 2)],
             parent_subtask_idx=1,
         ),
     ]
-    tracker = ProgressTracker(objectives, env.num_envs, env.device, env=env, subtasks_are_sequential=True)
+    tracker = ProgressTracker(criteria_sets, env.num_envs, env.device, env=env, subtasks_are_sequential=True)
 
     _step(tracker, env)
     assert tracker.get_subtask_completion().tolist() == [[True, False], [False, False]]
@@ -81,24 +81,24 @@ def _test_sequential_subtasks_count_only_active_environments(_simulation_app):
 
 
 def _test_active_and_completed_environments_share_final_evaluation(_simulation_app):
-    from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
+    from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
     from isaaclab_arena.progress_tracking.progress_tracker import ProgressTracker
 
     env = _make_environment({"stable": [True, False], "finished": [False, False]})
-    objectives = [
-        ProgressObjective(
+    criteria_sets = [
+        CompletionCriteria(
             name="stable",
             predicate_sequence=[_consecutive_requirement("stable", 2)],
             parent_subtask_idx=0,
         ),
-        ProgressObjective(
+        CompletionCriteria(
             name="finished",
             predicate_sequence=[partial(_predicate_value, predicate_name="finished")],
             parent_subtask_idx=1,
         ),
     ]
     tracker = ProgressTracker(
-        objectives,
+        criteria_sets,
         env.num_envs,
         env.device,
         env=env,
@@ -127,7 +127,7 @@ def _test_active_and_completed_environments_share_final_evaluation(_simulation_a
 
 
 def _test_any_and_choose_do_not_count_unvisited_final_predicates(_simulation_app):
-    from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
+    from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
     from isaaclab_arena.progress_tracking.progress_tracker import ProgressTracker
 
     for logical, required_sequences in (("any", 1), ("choose", 2)):
@@ -139,14 +139,14 @@ def _test_any_and_choose_do_not_count_unvisited_final_predicates(_simulation_app
             partial(_predicate_value, predicate_name="blocked"),
             _consecutive_requirement("stable", 2),
         ]
-        objective = ProgressObjective(
+        criteria = CompletionCriteria(
             name="alternatives",
             predicate_sequences=predicate_sequences,
             logical=logical,
             K=required_sequences if logical == "choose" else None,
             parent_subtask_idx=0,
         )
-        tracker = ProgressTracker([objective], env.num_envs, env.device, env=env, desired_subtask_success_state=[True])
+        tracker = ProgressTracker([criteria], env.num_envs, env.device, env=env, desired_subtask_success_state=[True])
         _step(tracker, env)
         assert tracker.is_complete().item()
 
@@ -160,7 +160,7 @@ def _test_any_and_choose_do_not_count_unvisited_final_predicates(_simulation_app
 
 
 def _test_plain_final_conditions_require_reached_sequences_per_environment(_simulation_app):
-    from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
+    from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
     from isaaclab_arena.progress_tracking.progress_tracker import ProgressTracker
 
     for logical, required_sequences in (("any", 1), ("choose", 2)):
@@ -179,22 +179,22 @@ def _test_plain_final_conditions_require_reached_sequences_per_environment(_simu
             partial(_predicate_value, predicate_name="alternative_finished"),
         ]
         env = _make_environment(predicate_values)
-        objectives = [
-            ProgressObjective(
+        criteria_sets = [
+            CompletionCriteria(
                 name="alternatives",
                 predicate_sequences=predicate_sequences,
                 logical=logical,
                 K=required_sequences if logical == "choose" else None,
                 parent_subtask_idx=0,
             ),
-            ProgressObjective(
+            CompletionCriteria(
                 name="close_door",
                 predicate_sequence=[partial(_predicate_value, predicate_name="door_closed")],
                 parent_subtask_idx=1,
             ),
         ]
         tracker = ProgressTracker(
-            objectives,
+            criteria_sets,
             env.num_envs,
             env.device,
             env=env,
@@ -217,7 +217,7 @@ def _test_plain_final_conditions_require_reached_sequences_per_environment(_simu
 
 
 def _test_newly_reached_alternative_requirement_waits_until_next_step(_simulation_app):
-    from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
+    from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
     from isaaclab_arena.progress_tracking.progress_tracker import ProgressTracker
 
     for logical, required_sequences in (("any", 1), ("choose", 2)):
@@ -232,14 +232,14 @@ def _test_newly_reached_alternative_requirement_waits_until_next_step(_simulatio
             partial(_predicate_value, predicate_name="ready"),
             _consecutive_requirement("stable", 2),
         ]
-        objective = ProgressObjective(
+        criteria = CompletionCriteria(
             name="alternatives",
             predicate_sequences=predicate_sequences,
             logical=logical,
             K=required_sequences if logical == "choose" else None,
             parent_subtask_idx=0,
         )
-        tracker = ProgressTracker([objective], env.num_envs, env.device, env=env, desired_subtask_success_state=[True])
+        tracker = ProgressTracker([criteria], env.num_envs, env.device, env=env, desired_subtask_success_state=[True])
         _step(tracker, env)
         assert tracker.is_complete().item()
         assert env.predicate_calls["stable"] == 0
@@ -254,11 +254,11 @@ def _test_newly_reached_alternative_requirement_waits_until_next_step(_simulatio
 
 
 def _test_all_sequences_complete_without_delayed_success(_simulation_app):
-    from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
+    from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
     from isaaclab_arena.progress_tracking.progress_tracker import ProgressTracker
 
     env = _make_environment({"stable": [True], "finished": [False]})
-    objective = ProgressObjective(
+    criteria = CompletionCriteria(
         name="required_sequences",
         predicate_sequences={
             "stable": [_consecutive_requirement("stable", 2)],
@@ -267,7 +267,7 @@ def _test_all_sequences_complete_without_delayed_success(_simulation_app):
         logical="all",
         parent_subtask_idx=0,
     )
-    tracker = ProgressTracker([objective], env.num_envs, env.device, env=env, desired_subtask_success_state=[True])
+    tracker = ProgressTracker([criteria], env.num_envs, env.device, env=env, desired_subtask_success_state=[True])
     for _ in range(3):
         _step(tracker, env)
         assert not tracker.is_complete().item()
@@ -279,11 +279,11 @@ def _test_all_sequences_complete_without_delayed_success(_simulation_app):
 
 
 def _test_completed_all_sequence_keeps_monitoring_streak(_simulation_app):
-    from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
+    from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
     from isaaclab_arena.progress_tracking.progress_tracker import ProgressTracker
 
     env = _make_environment({"stable": [True], "finished": [False]})
-    objective = ProgressObjective(
+    criteria = CompletionCriteria(
         name="required_sequences",
         predicate_sequences={
             "stable": [_consecutive_requirement("stable", 2)],
@@ -292,10 +292,10 @@ def _test_completed_all_sequence_keeps_monitoring_streak(_simulation_app):
         logical="all",
         parent_subtask_idx=0,
     )
-    tracker = ProgressTracker([objective], env.num_envs, env.device, env=env, desired_subtask_success_state=[True])
+    tracker = ProgressTracker([criteria], env.num_envs, env.device, env=env, desired_subtask_success_state=[True])
     _step(tracker, env)
     _step(tracker, env)
-    assert tracker.get_state()[0].progress_objectives["required_sequences"].completed_groups == 1
+    assert tracker.get_state()[0].criteria_by_name["required_sequences"].completed_sequences == 1
     assert not tracker.is_complete().item()
 
     env.predicate_values["stable"][:] = False
@@ -313,7 +313,7 @@ def _test_completed_all_sequence_keeps_monitoring_streak(_simulation_app):
 def _test_tracker_resets_temporal_requirements_not_predicate_objects(_simulation_app):
     import torch
 
-    from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
+    from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
     from isaaclab_arena.progress_tracking.progress_tracker import ProgressTracker
     from isaaclab_arena.tasks.predicates.temporal import TrueForConsecutiveStepsCfg
 
@@ -327,14 +327,14 @@ def _test_tracker_resets_temporal_requirements_not_predicate_objects(_simulation
     env = _make_environment({"stable": [True, True]})
     predicate = _InstantaneousPredicate()
     configured_predicate = partial(predicate)
-    objective = ProgressObjective(
+    criteria = CompletionCriteria(
         name="shared",
         predicate_sequences={
             "first": [TrueForConsecutiveStepsCfg(predicate, required_steps=2)],
             "second": [TrueForConsecutiveStepsCfg(configured_predicate, required_steps=3)],
         },
     )
-    tracker = ProgressTracker([objective], env.num_envs, env.device, env=env)
+    tracker = ProgressTracker([criteria], env.num_envs, env.device, env=env)
     for _ in range(3):
         _step(tracker, env)
     assert tracker.is_complete().tolist() == [True, True]
@@ -357,7 +357,7 @@ def _test_nested_predicate_classes_initialize_without_manager_lifecycle(_simulat
 
     from isaaclab.managers import TerminationTermCfg
 
-    from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
+    from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
     from isaaclab_arena.progress_tracking.progress_tracker import ProgressTracker
     from isaaclab_arena.tasks.predicates.temporal import TrueForConsecutiveStepsCfg
 
@@ -387,11 +387,11 @@ def _test_nested_predicate_classes_initialize_without_manager_lifecycle(_simulat
     released_cfg = TerminationTermCfg(func=_ConfiguredPredicate, params={"predicate_name": "released"})
     parent_cfg = TerminationTermCfg(func=_AllPredicates, params={"predicates": [stable_cfg, released_cfg]})
     requirement = TrueForConsecutiveStepsCfg(parent_cfg, required_steps=2)
-    objective = ProgressObjective(
+    criteria = CompletionCriteria(
         name="stable",
         predicate_sequence=[requirement],
     )
-    tracker = ProgressTracker([objective], env.num_envs, env.device, env=env)
+    tracker = ProgressTracker([criteria], env.num_envs, env.device, env=env)
     assert requirement.predicate is parent_cfg
     assert requirement.required_steps == 2
     assert parent_cfg.func is _AllPredicates

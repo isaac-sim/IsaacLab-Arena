@@ -205,32 +205,32 @@ class CompositeTaskBase(TaskBase):
         return events_cfg
 
     def get_termination_cfg(self) -> TaskTerminationCfg:
-        """Collect flat subtask objectives, ordering, final conditions, failures, and one timeout."""
-        success_objectives = []
+        """Collect flat subtask criteria sets, ordering, final conditions, failures, and one timeout."""
+        success_criteria = []
         failures = {}
         for subtask_index, subtask in enumerate(self.subtasks):
             subtask_termination = subtask.get_termination_cfg()
             assert isinstance(subtask_termination, TaskTerminationCfg), "Subtasks must return TaskTerminationCfg."
-            assert subtask_termination.success, f"Subtask {subtask_index} must define success objectives."
+            assert subtask_termination.success, f"Subtask {subtask_index} must define success criteria."
             assert (
                 not subtask_termination.subtasks_are_sequential
                 and subtask_termination.desired_subtask_success_state is None
-                and all(objective.parent_subtask_idx is None for objective in subtask_termination.success)
+                and all(criteria.parent_subtask_idx is None for criteria in subtask_termination.success)
             ), "Nested subtask composition is not supported."
-            success_objectives.extend(
+            success_criteria.extend(
                 dataclasses.replace(
-                    objective,
-                    name=f"subtask_{subtask_index}/{objective.name}",
+                    criteria,
+                    name=f"subtask_{subtask_index}/{criteria.name}",
                     parent_subtask_idx=subtask_index,
                 )
-                for objective in subtask_termination.success
+                for criteria in subtask_termination.success
             )
             for failure_name, failure_term in subtask_termination.failures.items():
                 failures[f"{failure_name}_subtask_{subtask_index}"] = failure_term
 
         return TaskTerminationCfg(
             timeout_s=self.episode_length_s,
-            success=success_objectives,
+            success=success_criteria,
             failures=failures,
             subtasks_are_sequential=self.subtasks_are_sequential,
             desired_subtask_success_state=self.desired_subtask_success_state,

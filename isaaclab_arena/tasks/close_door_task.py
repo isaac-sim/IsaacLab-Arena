@@ -8,7 +8,7 @@ from functools import partial
 from isaaclab_arena.affordances.openable import Openable
 from isaaclab_arena.assets.register import agent_ready, register_task
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
-from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
+from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
 from isaaclab_arena.tasks.common.open_close_door_mimic import RotateDoorMimicEnvCfg
 from isaaclab_arena.tasks.rotate_revolute_joint_task import RotateRevoluteJointTask
 from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
@@ -44,7 +44,7 @@ class CloseDoorTask(RotateRevoluteJointTask):
         return TaskTerminationCfg(
             timeout_s=self.episode_length_s,
             success=[
-                ProgressObjective(
+                CompletionCriteria(
                     name="close_door",
                     predicate_sequence=[partial(self.openable_object.is_closed, **params)],
                 )

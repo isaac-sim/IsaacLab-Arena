@@ -25,7 +25,7 @@ def _controlled_predicate(env, predicate_name):
 def _make_environment_and_manager(
     predicate_names,
     *,
-    success_objectives=None,
+    success_criteria=None,
     subtasks_are_sequential=False,
     desired_subtask_success_state=None,
 ):
@@ -33,7 +33,7 @@ def _make_environment_and_manager(
 
     from isaaclab.managers import TerminationManager, TerminationTermCfg
 
-    from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
+    from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
     from isaaclab_arena.progress_tracking.progress_tracker import ProgressTrackingRecorderCfg
     from isaaclab_arena.progress_tracking.task_success import TaskSuccessTerm
     from isaaclab_arena.tasks.predicates.object_settling import ObjectInitialRestPoseRecorder
@@ -50,9 +50,9 @@ def _make_environment_and_manager(
         predicate_calls={name: 0 for name in predicate_names},
         object_initial_rest_pose_recorder=ObjectInitialRestPoseRecorder(num_envs=2, device="cpu"),
     )
-    if success_objectives is None:
-        success_objectives = [
-            ProgressObjective(
+    if success_criteria is None:
+        success_criteria = [
+            CompletionCriteria(
                 name="pick_and_place",
                 predicate_sequence=[partial(_controlled_predicate, predicate_name=name) for name in predicate_names],
             )
@@ -66,7 +66,7 @@ def _make_environment_and_manager(
             "success": TerminationTermCfg(
                 func=TaskSuccessTerm,
                 params={
-                    "success_objectives": success_objectives,
+                    "success_criteria": success_criteria,
                     "subtasks_are_sequential": subtasks_are_sequential,
                     "desired_subtask_success_state": desired_subtask_success_state,
                 },
@@ -79,11 +79,11 @@ def _make_environment_and_manager(
 
 
 def _test_flat_subtasks_share_manager_ordering_final_checks_and_reset(simulation_app):
-    from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
+    from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
 
     predicate_names = ["lifted", "placed", "closed"]
-    success_objectives = [
-        ProgressObjective(
+    success_criteria = [
+        CompletionCriteria(
             name=predicate_name,
             predicate_sequence=[partial(_controlled_predicate, predicate_name=predicate_name)],
             parent_subtask_idx=subtask_index,
@@ -92,7 +92,7 @@ def _test_flat_subtasks_share_manager_ordering_final_checks_and_reset(simulation
     ]
     env, manager, recorder = _make_environment_and_manager(
         predicate_names,
-        success_objectives=success_objectives,
+        success_criteria=success_criteria,
         subtasks_are_sequential=True,
         desired_subtask_success_state=[True, True],
     )
@@ -121,7 +121,7 @@ def _test_flat_subtasks_share_manager_ordering_final_checks_and_reset(simulation
     previous_calls = dict(env.predicate_calls)
     recorder.record_post_step()
     assert env.predicate_calls == previous_calls
-    assert set(env.extras["progress_tracking"]["states"][0].progress_objectives) == set(predicate_names)
+    assert set(env.extras["progress_tracking"]["states"][0].criteria_by_name) == set(predicate_names)
 
     manager.reset(env_ids=[0])
     assert env.progress_tracker.get_subtask_completion().tolist() == [[False, False], [True, True]]
@@ -135,11 +135,11 @@ def _test_flat_subtasks_share_manager_ordering_final_checks_and_reset(simulation
 
 
 def _test_flat_subtask_none_state_skips_history_and_current_condition(simulation_app):
-    from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
+    from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
 
     predicate_names = ["required", "ignored"]
-    success_objectives = [
-        ProgressObjective(
+    success_criteria = [
+        CompletionCriteria(
             name=predicate_name,
             predicate_sequence=[partial(_controlled_predicate, predicate_name=predicate_name)],
             parent_subtask_idx=subtask_index,
@@ -148,7 +148,7 @@ def _test_flat_subtask_none_state_skips_history_and_current_condition(simulation
     ]
     env, manager, _ = _make_environment_and_manager(
         predicate_names,
-        success_objectives=success_objectives,
+        success_criteria=success_criteria,
         desired_subtask_success_state=[False, None],
     )
     env.predicate_results["required"][:] = False
@@ -186,9 +186,20 @@ def _test_success_advances_once_and_reporting_is_passive(simulation_app):
 
     # The episode recorder sees the final predicate on the same step as success.
     recorded_progress = record_progress_results(env, env_id=0)["progress"]
+    assert set(recorded_progress) == {"overall_score", "all_complete", "criteria_by_name", "events"}
     assert recorded_progress["all_complete"]
     assert recorded_progress["overall_score"] == 1.0
+    assert recorded_progress["criteria_by_name"]["pick_and_place"] == {
+        "score": 1.0,
+        "is_complete": True,
+        "completed_sequences": 1,
+        "total_sequences": 1,
+        "active_predicates": {"default_sequence": None},
+    }
     assert [event["step"] for event in recorded_progress["events"]] == [1, 2, 3]
+    assert [(event["criteria_name"], event["sequence_name"]) for event in recorded_progress["events"]] == [
+        ("pick_and_place", "default_sequence")
+    ] * 3
     return True
 
 
@@ -305,7 +316,7 @@ def _test_temporal_requirement_resolves_scene_references_and_resets(simulation_a
 
     from isaaclab.managers import SceneEntityCfg, TerminationTermCfg
 
-    from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
+    from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
     from isaaclab_arena.progress_tracking.progress_tracker import ProgressTracker
     from isaaclab_arena.tasks.predicates.temporal import TrueForConsecutiveStepsCfg
 
@@ -326,8 +337,8 @@ def _test_temporal_requirement_resolves_scene_references_and_resets(simulation_a
     gear_cfg = SceneEntityCfg("gear", body_names=["tip"])
     body_predicate_cfg = TerminationTermCfg(func=_BodyPredicate, params={"asset_cfg": gear_cfg})
     requirement = TrueForConsecutiveStepsCfg(predicate=body_predicate_cfg, required_steps=2)
-    objective = ProgressObjective(name="gear_insertion", predicate_sequence=[requirement])
-    tracker = ProgressTracker([objective], num_envs=env.num_envs, device=env.device, env=env)
+    criteria = CompletionCriteria(name="gear_insertion", predicate_sequence=[requirement])
+    tracker = ProgressTracker([criteria], num_envs=env.num_envs, device=env.device, env=env)
     predicate = tracker.get_predicate("gear_insertion")
     assert isinstance(predicate, _BodyPredicate)
     tracker.step(env, step_index=torch.tensor([1, 1]))
@@ -336,7 +347,7 @@ def _test_temporal_requirement_resolves_scene_references_and_resets(simulation_a
     assert tracker.is_complete().tolist() == [True, False]
 
     # Reusing the declaration constructs a new predicate without changing the original scene reference.
-    rebuilt_tracker = ProgressTracker([objective], num_envs=env.num_envs, device=env.device, env=env)
+    rebuilt_tracker = ProgressTracker([criteria], num_envs=env.num_envs, device=env.device, env=env)
     rebuilt_predicate = rebuilt_tracker.get_predicate("gear_insertion")
     assert isinstance(rebuilt_predicate, _BodyPredicate)
     assert rebuilt_predicate is not predicate
@@ -354,35 +365,35 @@ def _test_temporal_requirement_resolves_scene_references_and_resets(simulation_a
     return True
 
 
-def _test_success_requires_objectives_and_one_owner(simulation_app):
+def _test_success_requires_criteria_and_one_owner(simulation_app):
     import pytest
     from isaaclab.managers import TerminationTermCfg
 
     from isaaclab_arena.progress_tracking.task_success import TaskSuccessTerm
 
     env, manager, _ = _make_environment_and_manager(["place"])
-    empty_cfg = TerminationTermCfg(func=TaskSuccessTerm, params={"success_objectives": []})
-    with pytest.raises(AssertionError, match="at least one success objective"):
+    empty_cfg = TerminationTermCfg(func=TaskSuccessTerm, params={"success_criteria": []})
+    with pytest.raises(AssertionError, match="at least one set of completion criteria"):
         TaskSuccessTerm(empty_cfg, env)
     with pytest.raises(AssertionError, match="Only one root term"):
         TaskSuccessTerm(manager.get_term_cfg("success"), env)
     return True
 
 
-def _test_manager_rejects_missing_success_objectives(simulation_app):
+def _test_manager_rejects_missing_success_criteria(simulation_app):
     import pytest
     from isaaclab.managers import TerminationManager, TerminationTermCfg
 
     from isaaclab_arena.progress_tracking.task_success import TaskSuccessTerm
 
     env, _, _ = _make_environment_and_manager(["place"])
-    missing_objectives_cfg = TerminationTermCfg(func=TaskSuccessTerm, params={})
-    with pytest.raises(ValueError, match="success_objectives"):
-        TerminationManager({"success": missing_objectives_cfg}, env)
+    missing_criteria_cfg = TerminationTermCfg(func=TaskSuccessTerm, params={})
+    with pytest.raises(ValueError, match="success_criteria"):
+        TerminationManager({"success": missing_criteria_cfg}, env)
     return True
 
 
-def _test_builder_installs_success_only_for_success_objectives(simulation_app):
+def _test_builder_installs_success_only_for_success_criteria(simulation_app):
     import torch
     from dataclasses import replace
 
@@ -393,7 +404,7 @@ def _test_builder_installs_success_only_for_success_objectives(simulation_app):
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
-    from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
+    from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
     from isaaclab_arena.progress_tracking.task_success import TaskSuccessTerm
     from isaaclab_arena.scene.scene import Scene
     from isaaclab_arena.tasks.no_task import NoTask
@@ -401,7 +412,7 @@ def _test_builder_installs_success_only_for_success_objectives(simulation_app):
 
     progress_task_termination_cfg = TaskTerminationCfg(
         success=[
-            ProgressObjective(name="done", predicate_sequence=[partial(_controlled_predicate, predicate_name="done")])
+            CompletionCriteria(name="done", predicate_sequence=[partial(_controlled_predicate, predicate_name="done")])
         ],
         failures={
             "object_dropped": TerminationTermCfg(
@@ -439,8 +450,8 @@ def _test_builder_installs_success_only_for_success_objectives(simulation_app):
             assert set(env_cfg.terminations.to_dict()) == expected_terms
             assert isinstance(success_term, TerminationTermCfg)
             assert success_term.func is TaskSuccessTerm
-            assert len(success_term.params["success_objectives"]) == 1
-            assert success_term.params["success_objectives"][0].name == "done"
+            assert len(success_term.params["success_criteria"]) == 1
+            assert success_term.params["success_criteria"][0].name == "done"
             assert success_term.params["subtasks_are_sequential"] is False
             assert success_term.params["desired_subtask_success_state"] is None
             assert env_cfg.terminations.object_dropped.func is _controlled_predicate
@@ -505,7 +516,7 @@ def _test_task_termination_config_validation(simulation_app):
         TaskTerminationCfg(
             timeout_s=10.0, failures={"truncated": TerminationTermCfg(func=_controlled_predicate, time_out=True)}
         )
-    with pytest.raises(AssertionError, match="ProgressObjective"):
+    with pytest.raises(AssertionError, match="CompletionCriteria"):
         TaskTerminationCfg(timeout_s=10.0, success=[TerminationTermCfg(func=_controlled_predicate)])
     return True
 
@@ -585,9 +596,9 @@ def _test_pick_and_place_uses_typed_success_failure_and_timeout(simulation_app):
     ):
         env_cfg, _ = builder.compose_manager_cfg()
     assert env_cfg.terminations.success.func is TaskSuccessTerm
-    objectives = env_cfg.terminations.success.params["success_objectives"]
-    assert len(objectives) == 1
-    settled, lifted, placement_requirement = objectives[0].predicate_sequence
+    criteria_sets = env_cfg.terminations.success.params["success_criteria"]
+    assert len(criteria_sets) == 1
+    settled, lifted, placement_requirement = criteria_sets[0].predicate_sequence
     assert settled.func is objects_settled
     assert lifted.func is object_is_above_height
     assert placement_requirement.predicate.func is object_on_destination
@@ -643,9 +654,9 @@ def _test_open_door_uses_existing_sequence_and_thresholds(simulation_app):
         assert termination_cfg.timeout_s == 12.0
         assert termination_cfg.failures == {}
         assert len(termination_cfg.success) == 1
-        objective = termination_cfg.success[0]
-        assert objective.name == "open_door"
-        moved_from_rest, opened = objective.predicate_sequence
+        criteria = termination_cfg.success[0]
+        assert criteria.name == "open_door"
+        moved_from_rest, opened = criteria.predicate_sequence
         assert moved_from_rest.func is is_away_from_rest_openness
         assert moved_from_rest.keywords["asset_cfg"].name == "door"
         assert moved_from_rest.keywords["asset_cfg"].joint_names == ["hinge"]
@@ -678,10 +689,10 @@ def _test_cable_routing_preserves_success_parameters_and_timeout(simulation_app)
     assert termination_cfg.timeout_s == 45.0
     assert termination_cfg.failures == {}
     assert len(termination_cfg.success) == 1
-    objective = termination_cfg.success[0]
-    assert objective.name == "cable_routing"
-    assert len(objective.predicate_sequence) == 1
-    route_predicate = objective.predicate_sequence[0]
+    criteria = termination_cfg.success[0]
+    assert criteria.name == "cable_routing"
+    assert len(criteria.predicate_sequence) == 1
+    route_predicate = criteria.predicate_sequence[0]
     assert route_predicate.func is cable_route_success
     assert route_predicate.keywords == {
         "cable_asset_name": "routing_cable",
@@ -724,16 +735,16 @@ def test_temporal_requirement_resolves_scene_references_and_resets():
     assert run_function_with_persistent_simulation_app(_test_temporal_requirement_resolves_scene_references_and_resets)
 
 
-def test_success_requires_objectives_and_one_owner():
-    assert run_function_with_persistent_simulation_app(_test_success_requires_objectives_and_one_owner)
+def test_success_requires_criteria_and_one_owner():
+    assert run_function_with_persistent_simulation_app(_test_success_requires_criteria_and_one_owner)
 
 
-def test_manager_rejects_missing_success_objectives():
-    assert run_function_with_persistent_simulation_app(_test_manager_rejects_missing_success_objectives)
+def test_manager_rejects_missing_success_criteria():
+    assert run_function_with_persistent_simulation_app(_test_manager_rejects_missing_success_criteria)
 
 
-def test_builder_installs_success_only_for_success_objectives():
-    assert run_function_with_persistent_simulation_app(_test_builder_installs_success_only_for_success_objectives)
+def test_builder_installs_success_only_for_success_criteria():
+    assert run_function_with_persistent_simulation_app(_test_builder_installs_success_only_for_success_criteria)
 
 
 def test_task_termination_config_validation():
