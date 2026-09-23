@@ -48,7 +48,7 @@ def _apply_placer_params_override(
 
 
 def _drop_none_override_values(value: Any) -> Any:
-    """Drop null mapping entries used as omitted fields in strict generated schemas."""
+    """Drop null mapping entries so an explicit null use the dataclass default."""
     if not isinstance(value, dict):
         return value
     return {key: _drop_none_override_values(item) for key, item in value.items() if item is not None}

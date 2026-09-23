@@ -161,10 +161,32 @@ def test_placer_params_null_fields_are_treated_as_omitted():
     assert params.solver_params.clearance_m == pytest.approx(0.01)
 
 
+def test_graph_spec_converts_serialized_placer_param_types():
+    from isaaclab_arena.environment_spec.placer_params_cfg_override import build_placer_params_from_override
+    from isaaclab_arena.relations.collision_mode import CollisionMode
+
+    data = _minimal_env_graph_data()
+    data["placer_params"] = {
+        "enabled_checks": ["no_overlap"],
+        "solver_params": {
+            "clearance_m": 0,
+            "collision_mode": "mesh",
+        },
+    }
+
+    params = build_placer_params_from_override(ArenaEnvGraphSpec.from_dict(data).placer_params)
+
+    assert params.enabled_checks == {"no_overlap"}
+    assert params.solver_params.clearance_m == 0.0
+    assert isinstance(params.solver_params.clearance_m, float)
+    assert params.solver_params.collision_mode is CollisionMode.MESH
+
+
 @pytest.mark.parametrize(
     ("placer_params", "error_match"),
     [
         ({"unknown_field": True}, "Invalid placer_params"),
+        ({"solver_params": {"lr": "fast"}}, "expected <class 'float'>, got str"),
         ({"max_placement_attempts": 0}, "max_placement_attempts must be positive"),
         ({"solver_params": {"clearance_m": -0.1}}, "clearance_m must be >= 0"),
         ({"solver_params": {"strategies": {}}}, "cannot be overridden"),
