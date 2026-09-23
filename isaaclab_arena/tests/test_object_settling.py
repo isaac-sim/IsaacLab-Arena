@@ -89,3 +89,83 @@ def _test_temporal_rest_check_does_not_record_poses(_simulation_app) -> bool:
 
 def test_temporal_rest_check_does_not_record_poses():
     assert run_function_with_persistent_simulation_app(_test_temporal_rest_check_does_not_record_poses)
+
+
+def _test_off_table_sphere_does_not_settle_before_falling(_simulation_app) -> bool:
+    import torch
+
+    from isaaclab_arena.assets.object_library import DomeLight, GroundPlane, ProceduralTable, Sphere
+    from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
+    from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
+    from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
+    from isaaclab_arena.scene.scene import Scene
+    from isaaclab_arena.tests.objects_settled_task import ObjectsSettledTask
+    from isaaclab_arena.utils.physics_settle import step_physics
+    from isaaclab_arena.utils.pose import Pose
+    from isaaclab_arena.utils.velocity import Velocity
+
+    table = ProceduralTable(instance_name="table")
+    table.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.45)))
+    table_top_z = 0.47
+
+    table_sphere = Sphere(instance_name="table_sphere")
+    table_sphere.set_initial_pose(Pose(position_xyz=(0.0, 0.0, table_top_z + 0.1)))
+    table_sphere.set_initial_velocity(Velocity.zero())
+
+    falling_sphere = Sphere(instance_name="falling_sphere")
+    falling_sphere.set_initial_pose(Pose(position_xyz=(0.55, 0.0, table_top_z + 0.1)))
+    falling_sphere.set_initial_velocity(Velocity.zero())
+
+    environment = IsaacLabArenaEnvironment(
+        name="objects_settled",
+        scene=Scene(assets=[GroundPlane(), table, table_sphere, falling_sphere, DomeLight()]),
+        task=ObjectsSettledTask(
+            object_names=[table_sphere.name, falling_sphere.name],
+            consecutive_steps=5,
+        ),
+    )
+    args_cli = get_isaaclab_arena_cli_parser().parse_args([])
+    args_cli.num_envs = 1
+    env = ArenaEnvBuilder(environment, arena_env_builder_cfg_from_argparse(args_cli)).make_registered()
+    env.reset()
+
+    try:
+        arena_env = env.unwrapped
+        manager = arena_env.termination_manager
+
+        falling_speed = arena_env.arena_world.get_root_linear_velocity_w("falling_sphere").norm(dim=-1)
+        assert falling_speed.item() == 0.0
+        manager.compute()
+        assert not manager.get_term("success").item()
+
+        # Initial zero velocity must not complete the hold before the unsupported sphere falls.
+        step_physics(env, 1)
+        arena_env.episode_length_buf += 1
+        falling_speed = arena_env.arena_world.get_root_linear_velocity_w("falling_sphere").norm(dim=-1)
+        assert falling_speed.item() > 1e-2
+        manager.compute()
+        assert not manager.get_term("success").item()
+
+        actions = torch.zeros(env.action_space.shape, device=arena_env.device)
+        for _ in range(60):
+            _, _, terminated, truncated, info = env.step(actions)
+            progress = info["progress_tracking"]
+            progress_state = progress["states"][0]
+            if terminated.item():
+                assert not truncated.item()
+                assert progress_state.progress_objectives["objects_settled"].is_complete
+                settled_events = progress["events"][0]
+                assert len(settled_events) == 1
+                assert settled_events[0].step >= 5
+                break
+            assert not progress_state.progress_objectives["objects_settled"].is_complete
+            assert progress["events"][0] == []
+        else:
+            raise AssertionError("The spheres did not settle before the example task timed out.")
+    finally:
+        env.close()
+    return True
+
+
+def test_off_table_sphere_does_not_settle_before_falling():
+    assert run_function_with_persistent_simulation_app(_test_off_table_sphere_does_not_settle_before_falling)

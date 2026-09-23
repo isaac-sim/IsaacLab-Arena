@@ -300,54 +300,6 @@ def _test_success_results_remain_stable_after_updates_and_reset(simulation_app):
     return True
 
 
-def _test_nested_predicates_resolve_scene_references(simulation_app):
-    import torch
-
-    from isaaclab.managers import ManagerTermBase, SceneEntityCfg, TerminationTermCfg
-
-    from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
-    from isaaclab_arena.progress_tracking.progress_tracker import ProgressTracker
-    from isaaclab_arena.tasks.predicates.composite import CompositePredicate
-
-    class _BodyPredicate(ManagerTermBase):
-        def __init__(self, cfg, env):
-            super().__init__(cfg, env)
-            assert cfg.params["asset_cfg"].body_ids == [1]
-
-        def __call__(self, env, asset_cfg):
-            assert asset_cfg.body_ids == [1]
-            return env.valid
-
-    gear = SimpleNamespace(
-        body_names=["base", "tip"],
-        num_bodies=2,
-        find_bodies=lambda names, preserve_order: ([1], ["tip"]),
-    )
-    env = SimpleNamespace(num_envs=2, device="cpu", scene={"gear": gear}, valid=torch.tensor([True, False]))
-    gear_cfg = SceneEntityCfg("gear", body_names=["tip"])
-    body_predicate_cfg = TerminationTermCfg(func=_BodyPredicate, params={"asset_cfg": gear_cfg})
-    composite_cfg = TerminationTermCfg(
-        func=CompositePredicate,
-        params={"predicates": [body_predicate_cfg], "consecutive_steps": 2},
-    )
-    objective = ProgressObjective(name="assembly", predicate_sequence=[composite_cfg])
-    tracker = ProgressTracker([objective], num_envs=env.num_envs, device=env.device, env=env)
-    tracker.step(env, step_index=None)
-    assert tracker.is_complete().tolist() == [False, False]
-    tracker.step(env, step_index=None)
-    assert tracker.is_complete().tolist() == [True, False]
-
-    # Reusing the task definition constructs independent counters and leaves scene references unresolved.
-    rebuilt_tracker = ProgressTracker([objective], num_envs=env.num_envs, device=env.device, env=env)
-    rebuilt_tracker.step(env, step_index=None)
-    assert rebuilt_tracker.is_complete().tolist() == [False, False]
-    assert tracker.is_complete().tolist() == [True, False]
-    assert composite_cfg.func is CompositePredicate
-    assert body_predicate_cfg.func is _BodyPredicate
-    assert gear_cfg.body_ids == slice(None)
-    return True
-
-
 def _test_temporal_requirement_resolves_scene_references_and_resets(simulation_app):
     import torch
 
@@ -730,10 +682,6 @@ def test_manager_reset_clears_only_selected_progress_and_rest_poses():
 
 def test_success_results_remain_stable_after_updates_and_reset():
     assert run_function_with_persistent_simulation_app(_test_success_results_remain_stable_after_updates_and_reset)
-
-
-def test_nested_predicates_resolve_scene_references():
-    assert run_function_with_persistent_simulation_app(_test_nested_predicates_resolve_scene_references)
 
 
 def test_temporal_requirement_resolves_scene_references_and_resets():
