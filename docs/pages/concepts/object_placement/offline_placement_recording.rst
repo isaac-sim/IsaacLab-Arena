@@ -75,7 +75,9 @@ Acceptance checks
 -----------------
 
 Each recorded candidate must pass all required solver checks and every enabled,
-applicable post-physics validator. All validators share one physics pass. Disabled
+applicable post-physics validator. Candidates with missing explicitly required
+solver results are rejected before simulation, including unavailable IK checks.
+All validators share one physics pass. Disabled
 or inapplicable validators produce skipped reports, not successful verdicts.
 All rigid and articulation roots are recorded, including fixed rigid roots.
 
@@ -134,7 +136,9 @@ For an initialized environment with a placement pool:
 Collection does not consume the pool or change its validation results. It restores
 scene roots, joints and actuator targets on completion or failure. The recorder
 and ``run_placement_pool_validation.py`` share the same physics loop; a separate
-validation run is unnecessary.
+validation run is unnecessary. Pool validation lives in
+``isaaclab_arena.offline_placement.pool_validation``. The velocity-only pool
+validator also supports deformables; root-pose recording does not.
 
 Use concrete assets with writable rigid or articulation roots. Object sets and
 ``RandomAroundSolution`` are unsupported. Replay requires the same assets and

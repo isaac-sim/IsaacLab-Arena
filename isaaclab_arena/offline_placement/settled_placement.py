@@ -10,7 +10,9 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 from typing import TYPE_CHECKING
 
+from isaaclab_arena.offline_placement.pool_validation import iter_pool_validation
 from isaaclab_arena.offline_placement.recording_params import PlacementRecordingParams
+from isaaclab_arena.offline_placement.scene_snapshot import SceneSnapshot, articulation_link_poses_in_root_frame
 from isaaclab_arena.offline_placement.validators import (
     PostPhysicsState,
     build_post_physics_validators,
@@ -19,10 +21,8 @@ from isaaclab_arena.offline_placement.validators import (
 from isaaclab_arena.relations.bounding_box_helpers import has_heterogeneous_objects
 from isaaclab_arena.relations.physics_settle_params import PhysicsSettleParams
 from isaaclab_arena.relations.placement_layouts import PlacementLayouts
-from isaaclab_arena.relations.placement_pool_validation import iter_pool_validation
 from isaaclab_arena.relations.relations import RandomAroundSolution, get_relation
 from isaaclab_arena.utils.pose import Pose
-from isaaclab_arena.utils.scene_snapshot import SceneSnapshot, articulation_link_poses_in_root_frame
 
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedEnv
@@ -100,7 +100,7 @@ def collect_settled_pool_layouts(
     )
     try:
         for batch in batches:
-            env_ids = [env_id for env_id, layout in batch.layouts.items() if layout.success]
+            env_ids = [env_id for env_id in batch.layouts if env_id not in batch.skipped_layouts]
             state = PostPhysicsState(
                 env=env,
                 env_ids=env_ids,
@@ -111,8 +111,8 @@ def collect_settled_pool_layouts(
             )
             reports = validate_post_physics(validators, state)
             for env_id, layout in batch.layouts.items():
-                if not layout.success:
-                    rejections[env_id, batch.index] = "solver validation failed"
+                if env_id in batch.skipped_layouts:
+                    rejections[env_id, batch.index] = batch.skipped_layouts[env_id]
                     continue
                 failures = [f"{report.check}: {report.reason}" for report in reports[env_id] if report.passed is False]
                 if failures:

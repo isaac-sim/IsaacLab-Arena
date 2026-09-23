@@ -138,7 +138,7 @@ def _test_recording_filters_layouts(simulation_app, tmp_path):
     import yaml
     from copy import deepcopy
     from dataclasses import replace
-    from unittest.mock import Mock
+    from unittest.mock import Mock, patch
 
     from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
@@ -147,6 +147,8 @@ def _test_recording_filters_layouts(simulation_app, tmp_path):
     from isaaclab_arena.offline_placement.settled_placement import collect_settled_pool_layouts
     from isaaclab_arena.relations.placement_events import get_placement_pool
     from isaaclab_arena.relations.placement_validation import PlacementCheck
+    from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
+    from isaaclab_arena.relations.reachability_config import ReachabilityConfig
 
     register_no_embodiment()
     source = tmp_path / "scene.yaml"
@@ -231,6 +233,24 @@ def _test_recording_filters_layouts(simulation_app, tmp_path):
         assert report["passed"] is None
         assert report["reason"] == "disabled by configuration"
         assert PlacementRecordingParams().validators["pose_shift"]["enabled"] is True
+        # An unavailable required IK check must not turn into an accepted empty checklist.
+        unavailable_pool = PooledObjectPlacer(
+            pool.objects,
+            replace(
+                arena_env.placer_params,
+                enabled_checks={PlacementCheck.IK_REACHABLE},
+                required_checks={PlacementCheck.IK_REACHABLE},
+                reachability_config=ReachabilityConfig(),
+            ),
+            pool_size=2,
+            num_envs=2,
+        )
+        for queue in unavailable_pool.layouts_per_env():
+            assert PlacementCheck.IK_REACHABLE not in queue[0].validation_results.validation_results
+        with patch("isaaclab_arena.offline_placement.pool_validation.physics_settle.step_physics") as step:
+            with pytest.raises(AssertionError, match="missing required solver checks: ik_reachable"):
+                collect_settled_pool_layouts(env, unavailable_pool, scene_assets=arena_env.get_placement_assets())
+            step.assert_not_called()
         torch.testing.assert_close(base.arena_world.get_pose_e("cube_body"), initial)
     finally:
         env.close()
@@ -286,7 +306,7 @@ def _test_recording_with_robot(simulation_app, tmp_path):
         output = tmp_path / "robot.jsonl"
         result.layouts.write_episode_jsonl(output, source="settled", validation=result.validation)
         pool = get_placement_pool(env)
-        from isaaclab_arena.utils.scene_snapshot import articulation_link_poses_in_root_frame
+        from isaaclab_arena.offline_placement.scene_snapshot import articulation_link_poses_in_root_frame
 
         initial_links = articulation_link_poses_in_root_frame(env.unwrapped)
         moved_links = {key: poses.clone() for key, poses in initial_links.items()}
