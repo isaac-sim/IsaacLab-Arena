@@ -125,15 +125,15 @@ class ProgressObjectiveRunner:
         self.num_envs = num_envs
         self.device = device
 
-        #   current_predicate_index: How far each env has advanced through the predicate sequence.
-        #   sequence_score: Each env's accumulated score for the sequence, normalized to [0, 1].
-        #   sequence_complete: Whether each env has finished the entire predicate sequence.
+        #   current_predicate_index: How far each env has advanced through the group's predicate chain.
+        #   group_score: Each env's accumulated score for the group, normalized to [0, 1].
+        #   group_complete: Whether each env has finished the group's entire predicate chain.
         self.current_predicate_index: dict[str, torch.Tensor] = {}
-        self.sequence_score: dict[str, torch.Tensor] = {}
-        self.sequence_complete: dict[str, torch.Tensor] = {}
+        self.group_score: dict[str, torch.Tensor] = {}
+        self.group_complete: dict[str, torch.Tensor] = {}
         self.predicate_chains = {}
         self._consecutive_step_requirements: list[_TrueForConsecutiveSteps] = []
-        for sequence_name, chain in progress_objective.canonical_predicate_sequences.items():
+        for group_name, chain in progress_objective.canonical_predicate_sequences.items():
             resolved_chain = []
             for predicate, score in chain:
                 if isinstance(predicate, TrueForConsecutiveStepsCfg):
@@ -150,12 +150,12 @@ class ProgressObjectiveRunner:
                     # Prepare an instantaneous check without adding counter state.
                     predicate = _create_predicate_from_config(predicate, env)
                 resolved_chain.append((predicate, score))
-            self.predicate_chains[sequence_name] = resolved_chain
+            self.predicate_chains[group_name] = resolved_chain
 
-        for sequence_name in progress_objective.group_names:
-            self.current_predicate_index[sequence_name] = torch.zeros(num_envs, dtype=torch.long, device=device)
-            self.sequence_score[sequence_name] = torch.zeros(num_envs, dtype=torch.float32, device=device)
-            self.sequence_complete[sequence_name] = torch.zeros(num_envs, dtype=torch.bool, device=device)
+        for group_name in progress_objective.group_names:
+            self.current_predicate_index[group_name] = torch.zeros(num_envs, dtype=torch.long, device=device)
+            self.group_score[group_name] = torch.zeros(num_envs, dtype=torch.float32, device=device)
+            self.group_complete[group_name] = torch.zeros(num_envs, dtype=torch.bool, device=device)
 
     def step(
         self,
@@ -167,33 +167,29 @@ class ProgressObjectiveRunner:
     ) -> list[PredicateEvent]:
         """Step the runner for a single env.step.
 
-        Advance each predicate sequence by at most one position per env and return one
-        PredicateEvent for every env/sequence that advanced this step.
+        Advance each group's predicate chain by at most one position per env and return one
+        PredicateEvent for every env/group that advanced this step.
         """
 
         objective_complete = self.is_complete()
-        final_condition_check_mask = (
-            objective_complete if check_final_conditions else torch.zeros_like(objective_complete)
-        )
+        final_check_envs = objective_complete if check_final_conditions else torch.zeros_like(objective_complete)
         active_envs = active_envs & ~objective_complete
-        if not bool((active_envs | final_condition_check_mask).any().item()):
+        if not bool((active_envs | final_check_envs).any().item()):
             return []
 
         events: list[PredicateEvent] = []
-        for sequence_name, predicate_chain in self.predicate_chains.items():
-            sequence_final_condition_check_mask = final_condition_check_mask
+        for group_name, predicate_chain in self.predicate_chains.items():
+            group_final_check_envs = final_check_envs
             if check_final_conditions:
-                sequence_final_condition_check_mask = (
-                    sequence_final_condition_check_mask | self.sequence_complete[sequence_name]
-                )
-            events += self._step_sequence(
+                group_final_check_envs = group_final_check_envs | self.group_complete[group_name]
+            events += self._step_group(
                 env,
-                sequence_name,
+                group_name,
                 predicate_chain,
                 active_envs,
                 step_index,
                 predicate_results_this_step,
-                sequence_final_condition_check_mask,
+                group_final_check_envs,
             )
         return events
 
@@ -252,9 +248,9 @@ class ProgressObjectiveRunner:
         # Stateful final predicates were updated during step(); do not start newly reached predicates here.
         no_state_updates = torch.zeros_like(completed_envs)
         final_results = []
-        for sequence_name, predicate_chain in self.predicate_chains.items():
+        for group_name, predicate_chain in self.predicate_chains.items():
             # A true final predicate cannot bypass earlier predicates in its sequence.
-            reached_final_predicate = self.current_predicate_index[sequence_name] >= len(predicate_chain) - 1
+            reached_final_predicate = self.current_predicate_index[group_name] >= len(predicate_chain) - 1
             final_result = self._evaluate_predicate_with_cache(
                 predicate_chain[-1][0],
                 env,
@@ -262,29 +258,29 @@ class ProgressObjectiveRunner:
                 no_state_updates,
             )
             final_results.append(reached_final_predicate & final_result)
-        return torch.stack(final_results, dim=0).sum(dim=0) >= self._num_required_sequences()
+        return torch.stack(final_results, dim=0).sum(dim=0) >= self._num_required_groups()
 
-    def _step_sequence(
+    def _step_group(
         self,
         env,
-        sequence_name: str,
+        group_name: str,
         predicate_chain: list[tuple],
         active_envs: torch.Tensor,
         step_index: torch.Tensor | None,
         predicate_results_this_step: dict[int, tuple[torch.Tensor, torch.Tensor]],
-        sequence_final_condition_check_mask: torch.Tensor,
+        final_check_envs: torch.Tensor,
     ) -> list[PredicateEvent]:
-        """Advance a predicate sequence by at most one position per env.
+        """Advance a single group's predicate chain by at most one position per env.
 
         Evaluates the current predicate for the envs sitting at each chain position, advances
-        those whose predicate is satisfied, updates the sequence's score and completion mask, and
+        those whose predicate is satisfied, updates the group's score and completion mask, and
         returns one transition event per env that advanced.
         """
 
         # List of state transition events (events are emitted for an env when a predicate flips True)
         events: list[PredicateEvent] = []
         chain_length = len(predicate_chain)
-        # Mask for which envs have advanced this step (at most one advance per env per sequence).
+        # Mask for which envs have advanced this step (at most one advance per env per group).
         advanced = torch.zeros(self.num_envs, dtype=torch.bool, device=self.device)
 
         for chain_idx, (predicate, score_weight) in enumerate(predicate_chain):
@@ -293,12 +289,12 @@ class ProgressObjectiveRunner:
             #   1) They are at the current predicate position
             #   2) They have not yet advanced this step
             #   3) This ProgressObjective is active in that environment.
-            at_position = (self.current_predicate_index[sequence_name] == chain_idx) & ~advanced & active_envs
+            at_position = (self.current_predicate_index[group_name] == chain_idx) & ~advanced & active_envs
             state_update_mask = at_position
             if chain_idx == chain_length - 1:
                 # Include completed rows now so final checks reuse this evaluation and its diagnostics.
                 state_update_mask = state_update_mask | (
-                    sequence_final_condition_check_mask & (self.current_predicate_index[sequence_name] >= chain_idx)
+                    final_check_envs & (self.current_predicate_index[group_name] >= chain_idx)
                 )
             if not bool(state_update_mask.any().item()):
                 continue
@@ -312,15 +308,13 @@ class ProgressObjectiveRunner:
                 continue
 
             # Advance the runner to the next predicates.
-            self.current_predicate_index[sequence_name] = torch.where(
+            self.current_predicate_index[group_name] = torch.where(
                 advance_mask,
-                self.current_predicate_index[sequence_name] + 1,
-                self.current_predicate_index[sequence_name],
+                self.current_predicate_index[group_name] + 1,
+                self.current_predicate_index[group_name],
             )
-            # Update the sequence score for the envs that were advanced.
-            self.sequence_score[sequence_name] = self.sequence_score[sequence_name] + advance_mask.float() * float(
-                score_weight
-            )
+            # Update the group score for the envs that were advanced.
+            self.group_score[group_name] = self.group_score[group_name] + advance_mask.float() * float(score_weight)
             # Update the advanced mask for the envs that were advanced.
             advanced = advanced | advance_mask
 
@@ -332,15 +326,15 @@ class ProgressObjectiveRunner:
                         env_idx=int(env_idx),
                         step=int(step_index[env_idx].item()) if step_index is not None else -1,
                         progress_objective=self.progress_objective.name,
-                        group=sequence_name,
+                        group=group_name,
                         predicate_index=chain_idx,
                         predicate_name=pred_name,
                         score_delta=float(score_weight),
                     )
                 )
 
-        # Update the sequence complete mask for the envs that have completed the sequence.
-        self.sequence_complete[sequence_name] = self.current_predicate_index[sequence_name] >= chain_length
+        # Update the group complete mask for the envs that have completed the group.
+        self.group_complete[group_name] = self.current_predicate_index[group_name] >= chain_length
         return events
 
     def reset(self, env_ids) -> None:
@@ -350,16 +344,16 @@ class ProgressObjectiveRunner:
         """
 
         env_ids = torch.as_tensor(env_ids, dtype=torch.long, device=self.device)
-        for sequence_name in self.progress_objective.group_names:
-            self.current_predicate_index[sequence_name][env_ids] = 0
-            self.sequence_score[sequence_name][env_ids] = 0.0
-            self.sequence_complete[sequence_name][env_ids] = False
+        for group_name in self.progress_objective.group_names:
+            self.current_predicate_index[group_name][env_ids] = 0
+            self.group_score[group_name][env_ids] = 0.0
+            self.group_complete[group_name][env_ids] = False
 
         for requirement in self._consecutive_step_requirements:
             requirement.reset(env_ids)
 
-    def _num_required_sequences(self) -> int:
-        """Number of sequences that must complete for the objective to be complete."""
+    def _num_required_groups(self) -> int:
+        """Number of groups that must complete for the objective to be complete."""
 
         objective = self.progress_objective
         if objective.logical == ProgressObjectiveCompletionMode.ALL:
@@ -372,15 +366,15 @@ class ProgressObjectiveRunner:
     def is_complete(self) -> torch.Tensor:
         """Return which environments have completed this objective."""
 
-        sequence_names = self.progress_objective.group_names
-        stacked = torch.stack([self.sequence_complete[name] for name in sequence_names], dim=1)
-        return stacked.sum(dim=1) >= self._num_required_sequences()
+        groups = self.progress_objective.group_names
+        stacked = torch.stack([self.group_complete[g] for g in groups], dim=1)
+        return stacked.sum(dim=1) >= self._num_required_groups()
 
     def overall_score_per_env(self) -> torch.Tensor:
-        """Return progress across the required number of predicate sequences."""
-        sequence_names = self.progress_objective.group_names
-        stacked = torch.stack([self.sequence_score[name] for name in sequence_names], dim=1)
-        return torch.topk(stacked, self._num_required_sequences(), dim=1).values.mean(dim=1)
+        """Return progress across the required number of predicate groups."""
+        groups = self.progress_objective.group_names
+        stacked = torch.stack([self.group_score[g] for g in groups], dim=1)
+        return torch.topk(stacked, self._num_required_groups(), dim=1).values.mean(dim=1)
 
     def get_state_for_env(self, env_idx: int, is_complete, score) -> ProgressObjectiveState:
         """Per-env view of this objective's progress.
@@ -391,21 +385,21 @@ class ProgressObjectiveRunner:
         """
 
         objective = self.progress_objective
-        completed_sequences = 0
+        completed_groups = 0
         active_predicates: dict[str, str | None] = {}
-        # The active predicate for a sequence is the one at its current chain position. Any sequence
+        # The active predicate for a group is the one at its current chain position. Any group
         # whose pointer has run off the end of the chain is complete (no active predicate).
-        for sequence_name in objective.group_names:
-            predicate_chain = self.predicate_chains[sequence_name]
-            cur_predicate_index = int(self.current_predicate_index[sequence_name][env_idx].item())
+        for group_name in objective.group_names:
+            predicate_chain = self.predicate_chains[group_name]
+            cur_predicate_index = int(self.current_predicate_index[group_name][env_idx].item())
             if cur_predicate_index >= len(predicate_chain):
-                active_predicates[sequence_name] = None
-                completed_sequences += 1
+                active_predicates[group_name] = None
+                completed_groups += 1
             else:
-                active_predicates[sequence_name] = _predicate_repr(predicate_chain[cur_predicate_index][0])
+                active_predicates[group_name] = _predicate_repr(predicate_chain[cur_predicate_index][0])
 
         return ProgressObjectiveState(
-            completed_groups=completed_sequences,
+            completed_groups=completed_groups,
             total_groups=len(objective.group_names),
             score=float(score),
             is_complete=bool(is_complete),
