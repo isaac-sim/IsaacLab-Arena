@@ -91,7 +91,7 @@ open its run overview:
    :alt: Evaluation report showing success rate, task progress, and episode outcomes
    :align: center
 
-   The run overview summarizes its success rate, progress through the task objectives, and the
+   The run overview summarizes its success rate, progress through the task's completion criteria, and the
    outcome of each episode.
 
 Select **Open droid_pnp_camera_sensitivity_openpi to watch the videos** to inspect the individual

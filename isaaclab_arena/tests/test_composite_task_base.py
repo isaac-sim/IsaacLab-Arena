@@ -98,33 +98,33 @@ class _ControlledTask:
         self.timeout_s = timeout_s
 
     def get_termination_cfg(self):
-        from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
+        from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
         from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
 
         return TaskTerminationCfg(
             timeout_s=self.timeout_s,
-            success=[ProgressObjective(name="condition", predicate_sequence=[self.predicate])],
+            success=[CompletionCriteria(name="condition", predicate_sequence=[self.predicate])],
         )
 
     def get_metrics(self):
         return []
 
 
-class _MultipleObjectiveTask(_ControlledTask):
-    """A flat subtask requiring several independently tracked objectives."""
+class _MultipleCriteriaTask(_ControlledTask):
+    """A flat subtask requiring several independently tracked criteria_sets."""
 
     def __init__(self, predicates):
         super().__init__(predicate=None)
         self.predicates = predicates
 
     def get_termination_cfg(self):
-        from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
+        from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
         from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
 
         return TaskTerminationCfg(
             timeout_s=self.timeout_s,
             success=[
-                ProgressObjective(name=f"condition_{index}", predicate_sequence=[predicate])
+                CompletionCriteria(name=f"condition_{index}", predicate_sequence=[predicate])
                 for index, predicate in enumerate(self.predicates)
             ],
         )
@@ -249,18 +249,18 @@ def _test_subtask_recorder_reads_flat_completion_without_updating(simulation_app
     return True
 
 
-def _test_multiple_objective_subtask_retains_completion_history(simulation_app):
+def _test_multiple_criteria_subtask_retains_completion_history(simulation_app):
     from isaaclab_arena.tasks.composite_task_base import CompositeTaskBase
 
     predicates = [_ControlledPredicate(index) for index in range(3)]
-    task = CompositeTaskBase([_MultipleObjectiveTask(predicates[:2]), _ControlledTask(predicates[2])])
+    task = CompositeTaskBase([_MultipleCriteriaTask(predicates[:2]), _ControlledTask(predicates[2])])
     termination_cfg = task.get_termination_cfg()
-    assert [objective.name for objective in termination_cfg.success] == [
+    assert [criteria.name for criteria in termination_cfg.success] == [
         "subtask_0/condition_0",
         "subtask_0/condition_1",
         "subtask_1/condition",
     ]
-    assert [objective.parent_subtask_idx for objective in termination_cfg.success] == [
+    assert [criteria.parent_subtask_idx for criteria in termination_cfg.success] == [
         0,
         0,
         1,
@@ -275,13 +275,13 @@ def _test_multiple_objective_subtask_retains_completion_history(simulation_app):
     return True
 
 
-def _test_multiple_objective_final_states_use_current_conditions(simulation_app):
+def _test_multiple_criteria_final_states_use_current_conditions(simulation_app):
     from isaaclab_arena.tasks.composite_task_base import CompositeTaskBase
 
     for desired_state in (False, True):
         predicates = [_ControlledPredicate(index) for index in range(3)]
         task = CompositeTaskBase(
-            [_MultipleObjectiveTask(predicates[:2]), _ControlledTask(predicates[2])],
+            [_MultipleCriteriaTask(predicates[:2]), _ControlledTask(predicates[2])],
             desired_subtask_success_state=[desired_state, None],
         )
         env, tracker = _make_tracker(task, [[False, False, False]])
@@ -328,7 +328,7 @@ def _test_composite_preserves_each_subtask_failure_condition(simulation_app):
             return TaskTerminationCfg(timeout_s=self.timeout_s)
 
     invalid_task = CompositeTaskBase([InvalidTask(_ControlledPredicate(0))])
-    with pytest.raises(AssertionError, match="success objectives"):
+    with pytest.raises(AssertionError, match="success criteria_sets"):
         invalid_task.get_termination_cfg()
     return True
 
@@ -392,15 +392,15 @@ def test_composed_task_has_one_overall_timeout():
     assert run_function_with_persistent_simulation_app(_test_composed_task_has_one_overall_timeout, headless=HEADLESS)
 
 
-def test_multiple_objective_subtask_retains_completion_history():
+def test_multiple_criteria_subtask_retains_completion_history():
     assert run_function_with_persistent_simulation_app(
-        _test_multiple_objective_subtask_retains_completion_history, headless=HEADLESS
+        _test_multiple_criteria_subtask_retains_completion_history, headless=HEADLESS
     )
 
 
-def test_multiple_objective_final_states_use_current_conditions():
+def test_multiple_criteria_final_states_use_current_conditions():
     assert run_function_with_persistent_simulation_app(
-        _test_multiple_objective_final_states_use_current_conditions, headless=HEADLESS
+        _test_multiple_criteria_final_states_use_current_conditions, headless=HEADLESS
     )
 
 

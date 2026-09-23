@@ -33,21 +33,21 @@ def reset_gear_insertion_diagnostics(env: ManagerBasedEnv, env_ids=None) -> None
     # TODO(cvolk): Temporary CAP workaround while this predicate caches diagnostics.
     # Move those caches out of the predicate, then remove this reset callback.
     progress_tracker = env.progress_tracker
-    found_matching_objective = False
-    for objective in progress_tracker.progress_objectives:
-        # CompositeTaskBase prefixes objective names with the subtask index.
-        if objective.name.rsplit("/", 1)[-1] == "gear_insertion":
-            gear_insertion_conditions = progress_tracker.get_predicate(objective.name)
+    found_matching_criteria = False
+    for criteria in progress_tracker.criteria_sets:
+        # CompositeTaskBase prefixes criteria names with the subtask index.
+        if criteria.name.rsplit("/", 1)[-1] == "gear_insertion":
+            gear_insertion_conditions = progress_tracker.get_predicate(criteria.name)
             gear_insertion_conditions.reset(env_ids)
-            found_matching_objective = True
-    # A renamed objective must not leave diagnostics from the previous episode.
-    assert found_matching_objective, "reset_gear_insertion_diagnostics found no gear_insertion objective to reset."
+            found_matching_criteria = True
+    # Renamed criteria must not leave diagnostics from the previous episode.
+    assert found_matching_criteria, "reset_gear_insertion_diagnostics found no gear_insertion criteria to reset."
 
 
 class GearInsertionConditions:
     """Check every gear's current placement and cache named diagnostics.
 
-    ProgressObjectiveRunner owns the consecutive-step counters.
+    CompletionCriteriaRunner owns the consecutive-step counters.
     GearInsertionTask clears diagnostics through reset_gear_insertion_diagnostics.
     """
 

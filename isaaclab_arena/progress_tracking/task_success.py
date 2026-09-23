@@ -11,7 +11,7 @@ import torch
 
 from isaaclab.managers import ManagerTermBase, TerminationTermCfg
 
-from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
+from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
 from isaaclab_arena.progress_tracking.progress_tracker import ProgressTracker
 from isaaclab_arena.tasks.predicates.object_settling import reset_rest_pose_recorder
 
@@ -29,11 +29,11 @@ class TaskSuccessTerm(ManagerTermBase):
     def __init__(self, cfg: TerminationTermCfg, env):
         super().__init__(cfg, env)
         # Isaac Lab validates required __call__ parameters before constructing this term.
-        success_objectives: list[ProgressObjective] = cfg.params["success_objectives"]
-        assert success_objectives, "Task success requires at least one success objective."
+        success_criteria: list[CompletionCriteria] = cfg.params["success_criteria"]
+        assert success_criteria, "Task success requires at least one set of completion criteria."
         assert env.progress_tracker is None, "Only one root term may own task progress."
         self._progress_tracker = ProgressTracker(
-            success_objectives,
+            success_criteria,
             num_envs=env.num_envs,
             device=env.device,
             env=env,
@@ -46,7 +46,7 @@ class TaskSuccessTerm(ManagerTermBase):
     def __call__(
         self,
         env,
-        success_objectives: list[ProgressObjective],
+        success_criteria: list[CompletionCriteria],
         subtasks_are_sequential: bool = False,
         desired_subtask_success_state: list[bool | None] | None = None,
     ) -> torch.Tensor:

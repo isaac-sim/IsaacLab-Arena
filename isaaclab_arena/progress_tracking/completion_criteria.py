@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 
 from isaaclab_arena.progress_tracking.progress_tracking_utils import (
-    DEFAULT_GROUP_NAME,
+    DEFAULT_SEQUENCE_NAME,
     Predicate,
     PredicateSequence,
     PredicateSequences,
@@ -18,8 +18,8 @@ from isaaclab_arena.progress_tracking.progress_tracking_utils import (
 )
 
 
-class ProgressObjectiveCompletionMode(str, Enum):
-    """How completed predicate sequences determine whether a ProgressObjective is complete."""
+class SequenceCompletionMode(str, Enum):
+    """How completed predicate sequences satisfy a CompletionCriteria definition."""
 
     ALL = "all"
     """Complete when every sequence is complete."""
@@ -28,27 +28,27 @@ class ProgressObjectiveCompletionMode(str, Enum):
     """Complete when at least one sequence is complete."""
 
     CHOOSE = "choose"
-    """Complete when at least K sequences are complete (K is set on the ProgressObjective)."""
+    """Complete when at least K sequences are complete (K is set on the CompletionCriteria)."""
 
 
 @dataclass
-class ProgressObjective:
-    """Define task progress using one predicate sequence or named independent sequences.
+class CompletionCriteria:
+    """Define completion requirements using one predicate sequence or named independent sequences.
 
     Provide exactly one of predicate_sequence or predicate_sequences. Predicates within
     each sequence must hold in order. The logical setting determines how many sequences
     must complete.
 
     Args:
-        name: Identifies the ProgressObjective within the TaskBase.
+        name: Identifies the CompletionCriteria within the TaskBase.
         predicate_sequence: One ordered list of predicates, optionally paired with scores.
         predicate_sequences: Named independent lists of predicates, optionally paired with scores.
-        score: Weight of the ProgressObjective in the TaskBase-level overall_score.
-        logical: How completed sequences combine to determine if the ProgressObjective is complete.
-            A ProgressObjectiveCompletionMode (ALL, ANY, or CHOOSE); a matching string value is also accepted.
+        score: Weight of the CompletionCriteria in the TaskBase-level overall_score.
+        logical: How completed sequences combine to satisfy the completion criteria.
+            A SequenceCompletionMode (ALL, ANY, or CHOOSE); a matching string value is also accepted.
         K: Required when logical == "choose". Specifies the number of sequences that must be completed
-            to consider the ProgressObjective complete.
-        description: An optional description of the ProgressObjective.
+            to consider the CompletionCriteria complete.
+        description: An optional description of the CompletionCriteria.
     """
 
     name: str
@@ -59,19 +59,19 @@ class ProgressObjective:
     """Named predicate sequences that progress independently."""
 
     score: float = 1.0
-    logical: ProgressObjectiveCompletionMode = ProgressObjectiveCompletionMode.ALL
+    logical: SequenceCompletionMode = SequenceCompletionMode.ALL
     K: int | None = None
     description: str | None = None
 
     canonical_predicate_sequences: dict[str, list[tuple[Predicate, float]]] = field(init=False, repr=False)
 
     parent_subtask_idx: int | None = None
-    """Subtask index assigned by CompositeTaskBase; None for standalone task objectives."""
+    """Subtask index assigned by CompositeTaskBase; None for standalone task criteria."""
 
     def __post_init__(self):
-        assert 0.0 <= self.score <= 1.0, f"ProgressObjective '{self.name}': score must be in [0, 1], got {self.score}"
-        # Accept either a ProgressObjectiveCompletionMode or its string value; normalize to the enum (raises on invalid).
-        self.logical = ProgressObjectiveCompletionMode(self.logical)
+        assert 0.0 <= self.score <= 1.0, f"CompletionCriteria '{self.name}': score must be in [0, 1], got {self.score}"
+        # Accept either a SequenceCompletionMode or its string value; normalize to the enum (raises on invalid).
+        self.logical = SequenceCompletionMode(self.logical)
 
         assert self.parent_subtask_idx is None or (
             isinstance(self.parent_subtask_idx, int) and self.parent_subtask_idx >= 0
@@ -84,7 +84,7 @@ class ProgressObjective:
         ), "Provide exactly one of predicate_sequence or predicate_sequences."
 
         if self.predicate_sequence is not None:
-            named_sequences = {DEFAULT_GROUP_NAME: self.predicate_sequence}
+            named_sequences = {DEFAULT_SEQUENCE_NAME: self.predicate_sequence}
         else:
             assert isinstance(
                 self.predicate_sequences, dict
@@ -96,17 +96,17 @@ class ProgressObjective:
 
         # Validate the logical and K parameters.
         num_sequences = len(self.canonical_predicate_sequences)
-        if self.logical == ProgressObjectiveCompletionMode.CHOOSE:
-            assert self.K is not None, f"ProgressObjective '{self.name}': K is required when logical='choose'"
+        if self.logical == SequenceCompletionMode.CHOOSE:
+            assert self.K is not None, f"CompletionCriteria '{self.name}': K is required when logical='choose'"
             assert (
                 1 <= self.K <= num_sequences
-            ), f"ProgressObjective '{self.name}': K={self.K} but must be in [1, {num_sequences}]"
+            ), f"CompletionCriteria '{self.name}': K={self.K} but must be in [1, {num_sequences}]"
 
     @property
-    def group_names(self) -> list[str]:
-        """Return the sequence names used as group identifiers in progress reports."""
+    def sequence_names(self) -> list[str]:
+        """Return the predicate sequence names."""
         return list(self.canonical_predicate_sequences.keys())
 
-    def get_chain(self, group_name: str) -> list[tuple[Predicate, float]]:
-        """Return the weighted predicate sequence for a progress-report group."""
-        return self.canonical_predicate_sequences[group_name]
+    def get_sequence(self, sequence_name: str) -> list[tuple[Predicate, float]]:
+        """Return a named predicate sequence with normalized scores."""
+        return self.canonical_predicate_sequences[sequence_name]

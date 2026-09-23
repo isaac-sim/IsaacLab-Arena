@@ -27,22 +27,22 @@ def record_progress_results(env, env_id: int) -> dict[str, Any]:
         "progress": {
             "overall_score": state.overall_score,
             "all_complete": state.all_complete,
-            "objectives": {
+            "criteria_by_name": {
                 name: {
-                    "score": obj.score,
-                    "is_complete": obj.is_complete,
-                    "completed_groups": obj.completed_groups,
-                    "total_groups": obj.total_groups,
-                    "active_predicates": obj.active_predicates,
+                    "score": criteria_state.score,
+                    "is_complete": criteria_state.is_complete,
+                    "completed_sequences": criteria_state.completed_sequences,
+                    "total_sequences": criteria_state.total_sequences,
+                    "active_predicates": criteria_state.active_predicates,
                 }
-                for name, obj in state.progress_objectives.items()
+                for name, criteria_state in state.criteria_by_name.items()
             },
             # Per-episode predicate transitions, in the order they fired (step = episode-local step).
             "events": [
                 {
                     "step": event.step,
-                    "objective": event.progress_objective,
-                    "group": event.group,
+                    "criteria_name": event.criteria_name,
+                    "sequence": event.sequence,
                     "predicate_index": event.predicate_index,
                     "predicate_name": event.predicate_name,
                     "score_delta": event.score_delta,
