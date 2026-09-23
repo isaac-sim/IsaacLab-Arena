@@ -150,6 +150,9 @@ class CameraObsVideoRecorder(gym.Wrapper):
                 for camera_name, frames in cam_obs.items():
                     if not camera_name.endswith("_rgb"):
                         continue
+                    assert (
+                        frames.ndim == 4 and frames.shape[-1] == 3
+                    ), f"Camera observation '{camera_name}' has shape {frames.shape}; expected (N, H, W, 3) RGB."
                     if camera_name not in self.writers:
                         self.writers[camera_name] = [None] * n_envs
                     for env_idx in range(n_envs):
