@@ -198,17 +198,20 @@ relation.
 Cached Layouts
 --------------
 
-Set the companion file in the environment YAML:
+Pass the companion file to the environment builder:
 
-.. code-block:: yaml
+.. code-block:: bash
 
-   placement_layouts_path: layouts.jsonl
+   /isaac-sim/python.sh isaaclab_arena/scripts/environment_runner.py \
+       --env_spec scene.yaml --placement_layouts layouts.jsonl
 
-Run the environment with its usual ``--env_spec`` argument. The companion path
-is relative to the environment file. Loading from YAML resolves the path so a
-serialized spec remains usable. Python environments can set
-``ObjectPlacerParams(placement_layouts_path="layouts.jsonl")``, with the path
+For a registered Python environment, place ``--placement_layouts layouts.jsonl``
+before the environment subcommand. Python callers use
+``ArenaEnvBuilderCfg(placement_layouts_path="layouts.jsonl")``. All file paths are
 relative to the working directory.
+
+A ten-layout example for ``isaaclab_arena/tests/test_data/placement_replay.yaml``
+is available in ``isaaclab_arena/tests/test_data/placement_replay.jsonl``.
 
 Each JSONL line contains one complete layout under
 ``variations["scene.relation_placement"]["poses"]``. Poses use runtime scene keys

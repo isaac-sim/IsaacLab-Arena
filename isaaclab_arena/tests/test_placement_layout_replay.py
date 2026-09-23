@@ -14,6 +14,7 @@ import pytest
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
 SOURCE = Path(__file__).parent / "test_data/placement_replay.yaml"
+LAYOUTS = SOURCE.with_suffix(".jsonl")
 
 
 def _test_companion_cache_round_trip(simulation_app, tmp_path):
@@ -27,34 +28,14 @@ def _test_companion_cache_round_trip(simulation_app, tmp_path):
     from isaaclab_arena.relations.object_placer import ObjectPlacer
     from isaaclab_arena.relations.placement_layouts import PlacementLayouts
     from isaaclab_arena.relations.relation_solver import RelationSolver
-    from isaaclab_arena.utils.pose import Pose
 
+    cache = PlacementLayouts.from_episode_jsonl(LAYOUTS)
     data = yaml.safe_load(SOURCE.read_text())
-    arena_env = ArenaEnvGraphSpec.from_yaml(SOURCE).to_arena_env()
-    support = arena_env.scene.assets["office_table_background"].get_world_bounding_box()
-    cube = arena_env.scene.assets["cube_3"].get_bounding_box()
-    passive_position = [
-        float(support.max_point[0, 0]) - 0.1,
-        float(support.max_point[0, 1]) - 0.1,
-        float(support.max_point[0, 2] - cube.min_point[0, 2]),
-    ]
-    data["objects"][3]["params"] = {"initial_pose": {"position_xyz": passive_position}}
+    data["objects"][3]["params"] = {"initial_pose": cache.poses["cube_3"][0].to_dict()}
     data["relations"] = [relation for relation in data["relations"] if relation["subject"] != "cube_3"]
     data["relations"].append({"kind": "is_anchor", "subject": "cube_3"})
-    data["placement_layouts_path"] = "poses.jsonl"
     source = tmp_path / "scene.yaml"
     source.write_text(yaml.safe_dump(data))
-    path = tmp_path / "poses.jsonl"
-    height = float(support.max_point[0, 2] - cube.min_point[0, 2])
-    poses = {
-        f"cube_{i}": [Pose((-0.3 + 0.2 * i, -0.15 + 0.1 * layout, height)) for layout in range(4)] for i in range(3)
-    }
-    poses["cube_3"] = [Pose(tuple(passive_position))] * 4
-    PlacementLayouts(poses).write_episode_jsonl(path, source="solver")
-    cache = PlacementLayouts.from_episode_jsonl(path)
-    assert "cube_3" in cache.poses
-    assert cache.num_layouts == 4
-    assert cache.poses["cube_0"][0] != cache.poses["cube_0"][1]
     spec = ArenaEnvGraphSpec.from_yaml(source)
     with (
         patch.object(RelationSolver, "solve", side_effect=AssertionError("Cached replay must not solve")),
@@ -65,7 +46,8 @@ def _test_companion_cache_round_trip(simulation_app, tmp_path):
         arena_env = spec.to_arena_env()
         assert arena_env.scene.assets["cube_3"].has_pose_reset_event()
         arena_env.embodiment.set_initial_pose(arena_env.embodiment.get_initial_pose())
-        env = ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg(num_envs=3)).make_registered()
+        cfg = ArenaEnvBuilderCfg(num_envs=3, placement_layouts_path=str(LAYOUTS))
+        env = ArenaEnvBuilder(arena_env, cfg).make_registered()
         try:
             scene = env.unwrapped.scene
             world = env.unwrapped.arena_world
@@ -79,7 +61,8 @@ def _test_companion_cache_round_trip(simulation_app, tmp_path):
             assert all(not asset.has_pose_reset_event() for asset in cached_assets.values())
             robot = scene.articulations["robot"]
             robot_pose = robot.data.root_pose_w.torch.clone()
-            for iteration in range(4):
+            num_resets = 4
+            for iteration in range(num_resets):
                 moved = robot_pose.clone()
                 moved[:, 0] += 0.25
                 robot.write_root_pose_to_sim(moved)
@@ -96,6 +79,7 @@ def _test_companion_cache_round_trip(simulation_app, tmp_path):
                     )
                     torch.testing.assert_close(world.get_pose_e(name), expected, atol=2e-5, rtol=0)
             before = {name: world.get_pose_e(name) for name in cache.poses}
+            next_layout = num_resets * env.unwrapped.num_envs % cache.num_layouts
             env_ids = torch.tensor([1], device=device)
             for name in cache.poses:
                 displaced = scene[name].data.root_pose_w.torch[env_ids].clone()
@@ -106,7 +90,7 @@ def _test_companion_cache_round_trip(simulation_app, tmp_path):
             for name, poses in cache.poses.items():
                 actual = world.get_pose_e(name)
                 torch.testing.assert_close(actual[[0, 2]], before[name][[0, 2]], atol=2e-5, rtol=0)
-                torch.testing.assert_close(actual[1], poses[0].to_tensor(device), atol=2e-5, rtol=0)
+                torch.testing.assert_close(actual[1], poses[next_layout].to_tensor(device), atol=2e-5, rtol=0)
                 torch.testing.assert_close(
                     scene[name].data.root_vel_w.torch[env_ids],
                     torch.zeros((1, 6), device=device),
@@ -115,7 +99,12 @@ def _test_companion_cache_round_trip(simulation_app, tmp_path):
                 )
             env.unwrapped._reset_idx(torch.tensor([2], device=device))
             for name, poses in cache.poses.items():
-                torch.testing.assert_close(world.get_pose_e(name)[2], poses[1].to_tensor(device), atol=2e-5, rtol=0)
+                torch.testing.assert_close(
+                    world.get_pose_e(name)[2],
+                    poses[(next_layout + 1) % cache.num_layouts].to_tensor(device),
+                    atol=2e-5,
+                    rtol=0,
+                )
             before = {name: world.get_pose_e(name) for name in cache.poses}
             for _ in range(200):
                 scene.write_data_to_sim()
@@ -185,7 +174,7 @@ def _test_cache_rejects_conflicting_configuration(simulation_app, conflict, expe
     elif conflict == "fixed-layout":
         cfg.resolve_on_reset = False
     elif conflict == "two-layout-sources":
-        arena_env.placer_params.placement_layouts_path = "unused.jsonl"
+        cfg.placement_layouts_path = "unused.jsonl"
     elif conflict == "fixed-layout-default":
         arena_env.placer_params.resolve_on_reset = False
     builder = ArenaEnvBuilder(arena_env, cfg)
@@ -261,3 +250,66 @@ def _test_python_integer_layouts_reset_objects_and_robot(simulation_app):
 
 def test_python_integer_layouts_reset_objects_and_robot():
     assert run_function_with_persistent_simulation_app(_test_python_integer_layouts_reset_objects_and_robot)
+
+
+def _test_cli_loads_layouts_for_yaml_and_python_environments(simulation_app, tmp_path, environment):
+    import sys
+    import yaml
+    from unittest.mock import patch
+
+    from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
+    from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
+    from isaaclab_arena.relations.placement_layouts import PlacementLayouts
+    from isaaclab_arena.relations.relation_solver import RelationSolver
+    from isaaclab_arena.utils.pose import Pose
+    from isaaclab_arena_environments.cli import get_arena_builder_from_cli, get_isaaclab_arena_environments_cli_parser
+
+    path = tmp_path / "poses.jsonl"
+    if environment == "yaml":
+        data = yaml.safe_load(SOURCE.read_text())
+        data["embodiment"]["id"] = "arm"
+        source = tmp_path / "scene.yaml"
+        source.write_text(yaml.safe_dump(data))
+        env_args = ["--env_spec", str(source)]
+    else:
+        env_args = ["droid_table_multi_object_placement"]
+    with patch.object(sys, "argv", ["environment_runner.py", "--placement_layouts", str(path), *env_args]):
+        args = get_isaaclab_arena_environments_cli_parser().parse_args()
+    builder = get_arena_builder_from_cli(args)
+    poses = {
+        asset.get_scene_key(): [Pose((0.1 * i, 0, 1))]
+        for i, asset in enumerate(builder.arena_env.scene.assets.values())
+        if asset.get_spatial_relations() and not asset.is_anchor
+    }
+    poses["robot"] = [Pose((-1, 0, 0))]
+    PlacementLayouts(poses).write_episode_jsonl(path, source="example")
+    with patch.object(RelationSolver, "solve", side_effect=AssertionError("Cached replay must not solve")):
+        cfg, _ = builder.compose_manager_cfg()
+    recorded = cfg.events.cached_placement_reset.params["poses"]
+    assert set(recorded) == set(poses)
+    assert recorded["robot"] == [list(poses["robot"][0].position_xyz + poses["robot"][0].rotation_xyzw)]
+    assert cfg.scene.robot.init_state.pos == poses["robot"][0].position_xyz
+    if environment == "yaml":
+        assert "arm" not in recorded
+        assert cfg.scene.cube_1.init_state.pos == poses["cube_1"][0].position_xyz
+    else:
+        for invalid, message in (
+            ({"unknown": [Pose()]}, "Unknown cached"),
+            ({"robot": [Pose()]}, "missing placed"),
+        ):
+            invalid_path = tmp_path / f"{message.split()[0]}.jsonl"
+            PlacementLayouts(invalid).write_episode_jsonl(invalid_path, source="example")
+            arena_env = _make_cached_env()
+            arena_env.placement_layouts = None
+            builder = ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg())
+            builder.cfg.placement_layouts_path = str(invalid_path)
+            with pytest.raises(AssertionError, match=message):
+                builder.compose_manager_cfg()
+    return True
+
+
+@pytest.mark.parametrize("environment", ["yaml", "python"])
+def test_cli_loads_layouts_for_yaml_and_python_environments(tmp_path, environment):
+    assert run_function_with_persistent_simulation_app(
+        _test_cli_loads_layouts_for_yaml_and_python_environments, tmp_path=tmp_path, environment=environment
+    )

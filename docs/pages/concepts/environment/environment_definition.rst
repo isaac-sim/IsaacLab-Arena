@@ -22,24 +22,15 @@ Both produce the same object: an ``IsaacLabArenaEnvironment``.
 Companion placement files
 -------------------------
 
-Set the companion file in the environment YAML:
+Pass ``--placement_layouts layouts.jsonl`` to replay a companion file. This builder
+option works with both ``--env_spec`` and registered Python environments. Place it
+before the environment subcommand when using a registered environment.
 
-.. code-block:: yaml
-
-   placement_layouts_path: layouts.jsonl
-
-Each JSONL record holds a complete layout keyed by runtime scene names. The path
-is relative to the environment YAML. Python environments can set
-``ObjectPlacerParams(placement_layouts_path="layouts.jsonl")``; Python paths are
-relative to the working directory.
-
-Python environments can instead supply a ``PlacementLayouts`` instance through
-``IsaacLabArenaEnvironment.placement_layouts``. Supply a file path or in-memory
-layouts, not both.
-
-``from_yaml()`` resolves the companion path before storing it in the graph
-specification, so a dictionary round trip retains the resolved path. Graphs built
-from dictionaries use paths relative to the working directory.
+Python callers set ``ArenaEnvBuilderCfg(placement_layouts_path="layouts.jsonl")``.
+Paths are relative to the working directory. The builder reads the file when it
+composes the scene; the environment definition does not contain the replay path.
+Python callers can alternatively supply ``IsaacLabArenaEnvironment.placement_layouts``
+in memory. Supply a file path or in-memory layouts, not both.
 
 Replay bypasses relation solving and draws layouts from a shared queue on reset.
 See :doc:`../object_placement/relations` for the record format, queue behavior,

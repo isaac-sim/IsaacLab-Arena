@@ -38,7 +38,6 @@ _AFFORDANCE_REFERENCE_CLASSES: dict[str, type[ObjectReference]] = {
 
 if TYPE_CHECKING:
     from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
-    from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
 
 
 def parse_asset_params(params: dict[str, Any]) -> dict[str, Any]:
@@ -49,9 +48,7 @@ def parse_asset_params(params: dict[str, Any]) -> dict[str, Any]:
     return parsed
 
 
-def build_arena_env_from_graph_spec(
-    graph_spec: ArenaEnvGraphSpec, enable_cameras: bool = False
-) -> IsaacLabArenaEnvironment:
+def build_arena_env_from_graph_spec(graph_spec: ArenaEnvGraphSpec, enable_cameras: bool = False) -> Any:
     """Build an IsaacLabArenaEnvironment from a validated ArenaEnvGraphSpec.
 
     Args:
@@ -90,7 +87,6 @@ def build_checks_for_placer_params(graph_spec: ArenaEnvGraphSpec) -> ObjectPlace
     required_checks = placement_validators.required_checks if placement_validators is not None else None
 
     return ObjectPlacerParams(
-        placement_layouts_path=graph_spec.placement_layouts_path,
         enabled_checks=set(enabled_checks) if enabled_checks is not None else None,
         required_checks=set(required_checks) if required_checks is not None else None,
         solver_params=RelationSolverParams(verbose=False, save_position_history=False),

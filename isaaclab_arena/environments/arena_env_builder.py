@@ -79,6 +79,7 @@ class ArenaEnvBuilder:
             num_envs=cfg.num_envs, env_spacing=cfg.env_spacing, replicate_physics=False
         )
         self._placement_event_cfg: EventTermCfg | None = None
+        self._placement_layouts: PlacementLayouts | None = None
 
     @property
     def resolved_physics_backend(self) -> PhysicsBackend:
@@ -135,10 +136,9 @@ class ArenaEnvBuilder:
     def _load_placement_layouts(self) -> PlacementLayouts | None:
         """Read the configured companion file or return in-memory layouts."""
         layouts = self.arena_env.placement_layouts
-        placer_params = self.arena_env.placer_params
-        if placer_params is not None and placer_params.placement_layouts_path is not None:
+        if self.cfg.placement_layouts_path is not None:
             assert layouts is None, "Specify a placement layout file or in-memory layouts, not both"
-            layouts = PlacementLayouts.from_episode_jsonl(placer_params.placement_layouts_path)
+            layouts = PlacementLayouts.from_episode_jsonl(self.cfg.placement_layouts_path)
         return layouts
 
     def _apply_cached_layouts(self, layouts: PlacementLayouts) -> None:
@@ -284,9 +284,9 @@ class ArenaEnvBuilder:
             An (env_cfg, env_kwargs) tuple.
         """
         # Apply placement before building scene config so initial poses are captured correctly.
-        placement_layouts = self._load_placement_layouts()
-        if placement_layouts is not None:
-            self._apply_cached_layouts(placement_layouts)
+        self._placement_layouts = self._load_placement_layouts()
+        if self._placement_layouts is not None:
+            self._apply_cached_layouts(self._placement_layouts)
         elif self.cfg.solve_relations:
             self._solve_relations()
 
@@ -327,7 +327,7 @@ class ArenaEnvBuilder:
         if self._placement_event_cfg is not None:
             # The pooled event name is reserved for terms carrying a placement_pool handle.
             event_name = (
-                CACHED_PLACEMENT_RESET_EVENT_NAME if placement_layouts is not None else PLACEMENT_RESET_EVENT_NAME
+                CACHED_PLACEMENT_RESET_EVENT_NAME if self._placement_layouts is not None else PLACEMENT_RESET_EVENT_NAME
             )
             PlacementEventCfg = make_configclass(
                 "PlacementEventCfg", [(event_name, EventTermCfg, self._placement_event_cfg)]
