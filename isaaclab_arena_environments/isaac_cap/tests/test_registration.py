@@ -31,7 +31,7 @@ def _test_isaac_cap_components_registered(_simulation_app) -> bool:
     from isaaclab_arena_environments.isaac_cap.gear_insertion_v2 import asset_factories as gear_v2_assets
     from isaaclab_arena_environments.isaac_cap.gear_insertion_v2 import embodiment as gear_v2_embodiment
     from isaaclab_arena_environments.isaac_cap.gear_insertion_v2 import gear_mesh_environment
-    from isaaclab_arena_environments.isaac_cap.gear_insertion_v2 import task as gear_v2_task
+    from isaaclab_arena_environments.isaac_cap.gear_insertion_v2.task import task as gear_v2_task
     from isaaclab_arena_environments.isaac_cap.syringe_sort.environments import assets as syringe_assets
     from isaaclab_arena_environments.isaac_cap.syringe_sort.environments import environment as syringe_environment
     from isaaclab_arena_environments.isaac_cap.syringe_sort.tasks import task as syringe_task

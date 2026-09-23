@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Tests for the CAP gear-mesh task's gripper behavior."""
+"""Tests for CAP gear-mesh gripper behavior."""
 
 import pytest
 

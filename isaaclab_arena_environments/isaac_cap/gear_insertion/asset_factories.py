@@ -17,7 +17,7 @@ from isaaclab_arena.assets.nucleus import ARENA_NUCLEUS_DIR
 from isaaclab_arena.assets.object import Object
 from isaaclab_arena.assets.object_library import DomeLight
 from isaaclab_arena.assets.object_type import ObjectType
-from isaaclab_arena.assets.register import register_asset
+from isaaclab_arena.assets.register import register_asset, register_asset_factory
 from isaaclab_arena.utils.pose import Pose
 
 _ASSET_ROOT = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/temp_newton_envs/cap_envs/gear_assembly/assets"
@@ -48,6 +48,7 @@ def _make_factory_gear(
     return gear
 
 
+@register_asset_factory(name="factory_gear_base", object_type=ObjectType.RIGID)
 def make_factory_gear_base(
     instance_name: str = "gear_base",
     initial_pose: Pose | None = None,
@@ -62,6 +63,7 @@ def make_factory_gear_base(
     )
 
 
+@register_asset_factory(name="factory_gear_small", object_type=ObjectType.RIGID)
 def make_factory_gear_small(
     instance_name: str = "gear_small",
     initial_pose: Pose | None = None,
@@ -76,6 +78,7 @@ def make_factory_gear_small(
     )
 
 
+@register_asset_factory(name="factory_gear_medium", object_type=ObjectType.RIGID)
 def make_factory_gear_medium(
     instance_name: str = "gear_medium",
     initial_pose: Pose | None = None,
@@ -90,6 +93,7 @@ def make_factory_gear_medium(
     )
 
 
+@register_asset_factory(name="factory_gear_large", object_type=ObjectType.RIGID)
 def make_factory_gear_large(
     instance_name: str = "gear_large",
     initial_pose: Pose | None = None,
@@ -102,19 +106,6 @@ def make_factory_gear_large(
         "factory_gear_large",
         initial_pose,
     )
-
-
-for _name, _factory in {
-    "factory_gear_base": make_factory_gear_base,
-    "factory_gear_small": make_factory_gear_small,
-    "factory_gear_medium": make_factory_gear_medium,
-    "factory_gear_large": make_factory_gear_large,
-}.items():
-    _factory.name = _name
-    _factory.tags = ("object",)
-    _factory.object_type = ObjectType.RIGID
-    register_asset(_factory)
-del _name, _factory
 
 
 @register_asset

@@ -205,6 +205,3 @@ class CableRoutingTaskV2(TaskBase):
         from .scene import BOARD_TOP_Z
 
         return ViewerCfg(eye=(1.25, -1.10, 1.55), lookat=(0.0125, 0.0, BOARD_TOP_Z))
-
-
-__all__ = ["CableRoutingTaskV2", "terminated_cable_route_success"]
