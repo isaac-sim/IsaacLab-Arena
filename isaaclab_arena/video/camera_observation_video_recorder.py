@@ -28,7 +28,7 @@ import numpy as np
 import os
 import re
 import torch
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 
 from moviepy.video.io.ffmpeg_writer import FFMPEG_VideoWriter
 
@@ -91,6 +91,16 @@ def _sanitize_cam_key(camera_name: str) -> str:
     return camera_name.replace("/", "_").replace(os.sep, "_")
 
 
+def _get_rgb_camera_observation_names(env: gym.Env) -> set[str]:
+    """Return camera observation term names configured with the RGB data type."""
+    camera_obs_cfg = getattr(env.unwrapped.cfg.observations, CAMERA_OBS_GROUP_KEY)
+    return {
+        field.name
+        for field in fields(camera_obs_cfg)
+        if getattr(getattr(camera_obs_cfg, field.name), "params", {}).get("data_type") == "rgb"
+    }
+
+
 @dataclass
 class EpisodeVideoWriter:
     """The open ffmpeg encoder for one (env, camera, episode) and the file it is writing."""
@@ -125,6 +135,7 @@ class CameraObsVideoRecorder(gym.Wrapper):
         self.video_folder = video_folder
         self.name_prefix = name_prefix
         self.fps = fps if fps is not None else int(env.metadata.get("render_fps", 30))
+        self._rgb_camera_observation_names = _get_rgb_camera_observation_names(env)
 
         # camera_name -> one entry per env, holding that env's open encoder for its current
         # episode, or None while no episode is in progress.
@@ -148,7 +159,7 @@ class CameraObsVideoRecorder(gym.Wrapper):
 
             with Timer("record_camera_frames"):
                 for camera_name, frames in cam_obs.items():
-                    if not camera_name.endswith("_rgb"):
+                    if camera_name not in self._rgb_camera_observation_names:
                         continue
                     assert (
                         frames.ndim == 4 and frames.shape[-1] == 3

@@ -14,6 +14,8 @@ import gymnasium as gym
 import os
 import shutil
 import torch
+from dataclasses import dataclass, field
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import pytest
@@ -31,6 +33,26 @@ H, W, C = 4, 4, 3
 CAMERAS = ["front_rgb", "wrist_rgb"]
 
 
+@dataclass
+class _ObservationTermCfg:
+    """Minimal observation term configuration used by the stub environment."""
+
+    params: dict[str, str]
+
+
+@dataclass
+class _CameraObservationCfg:
+    """Camera observation terms and their configured sensor data types."""
+
+    front_rgb: _ObservationTermCfg = field(default_factory=lambda: _ObservationTermCfg({"data_type": "rgb"}))
+    wrist_rgb: _ObservationTermCfg = field(default_factory=lambda: _ObservationTermCfg({"data_type": "rgb"}))
+    exterior_color: _ObservationTermCfg = field(default_factory=lambda: _ObservationTermCfg({"data_type": "rgb"}))
+    exterior_rgb: _ObservationTermCfg = field(default_factory=lambda: _ObservationTermCfg({"data_type": "normals"}))
+    exterior_depth: _ObservationTermCfg = field(
+        default_factory=lambda: _ObservationTermCfg({"data_type": "distance_to_image_plane"})
+    )
+
+
 class _StubEnv(gym.Env):
     metadata = {"render_fps": 30}
     observation_space = gym.spaces.Dict({})
@@ -38,6 +60,8 @@ class _StubEnv(gym.Env):
 
     def __init__(self):
         super().__init__()
+        camera_obs_cfg = _CameraObservationCfg()
+        self.cfg = SimpleNamespace(observations=SimpleNamespace(camera_obs=camera_obs_cfg))
         self._step_return = ({}, None, torch.zeros(1, dtype=torch.bool), torch.zeros(1, dtype=torch.bool), None)
         # Per-env completed-episode counts, mirroring the Arena env's centralized episode index.
         self._episode_counts: dict[int, int] = {}
@@ -162,9 +186,9 @@ def test_non_rgb_camera_observations_are_not_recorded(tmp_path):
     env._step_return = (
         {
             CAMERA_OBS_GROUP_KEY: {
-                "exterior_rgb": torch.zeros(1, H, W, 3, dtype=torch.uint8),
-                "exterior_distance_to_image_plane": torch.zeros(1, H, W, 1),
-                "exterior_normals": torch.zeros(1, H, W, 3),
+                "exterior_color": torch.zeros(1, H, W, 3, dtype=torch.uint8),
+                "exterior_rgb": torch.zeros(1, H, W, 3),
+                "exterior_depth": torch.zeros(1, H, W, 1),
             }
         },
         None,
@@ -178,14 +202,14 @@ def test_non_rgb_camera_observations_are_not_recorded(tmp_path):
         recorder.step(None)
 
     assert len(writers) == 1
-    assert writers[0].filename.endswith("-exterior_rgb-episode-0.mp4")
+    assert writers[0].filename.endswith("-exterior_color-episode-0.mp4")
 
 
 def test_malformed_rgb_observation_is_rejected(tmp_path):
-    """An observation named as RGB must still contain three-channel frames."""
+    """An observation configured as RGB must still contain three-channel frames."""
     env = _make_env()
     env._step_return = (
-        {CAMERA_OBS_GROUP_KEY: {"exterior_rgb": torch.zeros(1, H, W, 1)}},
+        {CAMERA_OBS_GROUP_KEY: {"exterior_color": torch.zeros(1, H, W, 1)}},
         None,
         torch.zeros(1, dtype=torch.bool),
         torch.zeros(1, dtype=torch.bool),
