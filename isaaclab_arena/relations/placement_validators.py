@@ -7,12 +7,13 @@ from __future__ import annotations
 
 import torch
 import trimesh
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 from collections.abc import Iterator
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, ClassVar, cast
 
 from isaaclab_arena.relations.collision_mode import CollisionMode, get_object_collision_mode, object_uses_mesh_collision
-from isaaclab_arena.relations.placement_validation import PlacementCheck
+from isaaclab_arena.relations.placement_validation import PlacementCheck, PlacementValidator
 from isaaclab_arena.relations.placement_validator_registry import PlacementValidatorRegistry, register_validator
 from isaaclab_arena.relations.relation_loss_strategies import (
     SIDE_CONFIGS,
@@ -34,11 +35,27 @@ if TYPE_CHECKING:
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 
-class PlacementValidator(ABC):
+@dataclass
+class PlacementCandidateBatch:
+    """N solved layouts and their collision geometry before physics."""
+
+    positions: list[dict[PlaceableAsset, tuple[float, float, float]]]
+    """N mappings from asset to environment-local position, shape (3,)."""
+    orientations: list[dict[PlaceableAsset, float]]
+    """N mappings from asset to absolute world-Z yaw in radians."""
+    bboxes: list[dict[PlaceableAsset, AxisAlignedBoundingBox]]
+    """N mappings from asset to bounds with min/max tensors shaped (1, 3)."""
+    collision_objects: list[CollisionObject]
+    """Fixed collision geometry shared by all candidates."""
+
+
+class PrePhysicsPlacementValidator(PlacementValidator[PlacementCandidateBatch, list[bool]]):
     """A single build-time placement check evaluated over a batch of candidate layouts.
 
     Register a concrete validator with @register_validator so build_validators() can discover it.
     """
+
+    stage: ClassVar[str] = "pre_physics"
 
     check: ClassVar[str]
     """The check name this validator reports; its registry key and result key. Built-ins use a
@@ -52,6 +69,10 @@ class PlacementValidator(ABC):
     def __init__(self, params: ObjectPlacerParams, visualizer: PlacementRerunVisualizer | None = None) -> None:
         self._params = params
         self._visualizer = visualizer
+
+    def validate(self, data: PlacementCandidateBatch) -> list[bool]:
+        """Return one verdict per solved candidate."""
+        return self.validate_batch(data.positions, data.orientations, data.bboxes, data.collision_objects)
 
     @classmethod
     def is_available(cls, params: ObjectPlacerParams) -> bool:
@@ -87,7 +108,7 @@ def get_build_time_checks() -> tuple[str, ...]:
 
 def build_validators(
     params: ObjectPlacerParams, visualizer: PlacementRerunVisualizer | None = None
-) -> list[PlacementValidator]:
+) -> list[PrePhysicsPlacementValidator]:
     """Construct the enabled build-time validators in registration order.
 
     A registered check whose is_available() returns False is delisted; a check named in
@@ -106,7 +127,7 @@ def build_validators(
     if enabled_checks is not None:
         registered_checks = tuple(check for check in registered_checks if check in enabled_checks)
 
-    validators: list[PlacementValidator] = []
+    validators: list[PrePhysicsPlacementValidator] = []
     for check in registered_checks:
         validator_cls = registry.get_validator_by_name(check)
         if validator_cls.is_available(params):
@@ -115,8 +136,8 @@ def build_validators(
 
 
 @register_validator
-class OnRelationValidator(PlacementValidator):
-    """Validate every On relation: child rests on its parent within X/Y footprint and Z band."""
+class OnRelationValidator(PrePhysicsPlacementValidator):
+    """Support footprint and height checks for On and ClutterOn relations."""
 
     check = PlacementCheck.ON_RELATION
 
@@ -134,74 +155,61 @@ class OnRelationValidator(PlacementValidator):
         positions: dict[PlaceableAsset, tuple[float, float, float]],
         env_bboxes: dict[PlaceableAsset, AxisAlignedBoundingBox],
     ) -> bool:
-        """Validate each On relation; keep in sync with OnLossStrategy in relation_loss_strategies.py.
-
-        1. X: child's footprint is contained by the parent's inset X extent or overlaps its original extent.
-        2. Y: child's footprint is contained by the parent's inset Y extent or overlaps its original extent.
-        3. Z: child_bottom in (parent_top, parent_top+clearance_m], within on_relation_z_tolerance_m.
+        """Check support relations against the same bounds as their loss strategies.
 
         Args:
             positions: Solved positions for each object.
-            env_bboxes: Per-object bboxes for the current env, each with shape (1, 3).
+            env_bboxes: Per-object bounds for one environment, each with min/max shape (1, 3).
         """
         for obj in positions:
-            for rel in obj.get_relations():
-                if not isinstance(rel, On):
+            for relation in obj.get_relations():
+                if not isinstance(relation, On) or relation.parent not in positions:
                     continue
-                parent = rel.parent
-                if parent not in positions:
-                    continue
-                child_bbox = env_bboxes[obj]
-                parent_bbox = env_bboxes[parent]
-                child_world = child_bbox.translated(positions[obj])
-                parent_world = parent_bbox.translated(positions[parent])
-                parent_size = parent_world.max_point - parent_world.min_point
-                child_size = child_world.max_point - child_world.min_point
-
-                m = 0.0 if rel.overlap else rel.edge_margin_m  # Ignore edge_margin_m when overlap=True.
-                # 1) Check that the child fits inside the inset support for containment only.
-                if m > 0.0:
-                    freespace = (parent_size - child_size)[0, :2]
-                    if torch.any(freespace < 2 * m):
-                        max_feasible_margin = max(0.0, float(torch.min(freespace).item()) / 2.0)
-                        if self._params.verbose and max_feasible_margin > 0.0:
-                            print(
-                                f"On relation: edge_margin_m={m} m is too large for parent '{parent.name}'. Max"
-                                f" feasible margin here is {max_feasible_margin:.3f} m. Use a smaller"
-                                " edge_margin_m."
-                            )
-                        return False
-                # 2) Checking that the child lies within or overlaps the parent's xy footprint.
-                # CONTAINED: c_min >= p_min + m and c_max <= p_max - m.
-                # OVERLAP: c_max >= p_min and c_min <= p_max.
-                child_min, child_max = child_world.min_point[0], child_world.max_point[0]
-                if rel.overlap:
-                    child_min, child_max = child_max, child_min
-                if (
-                    child_min[0] < parent_world.min_point[0, 0] + m
-                    or child_max[0] > parent_world.max_point[0, 0] - m
-                    or child_min[1] < parent_world.min_point[0, 1] + m
-                    or child_max[1] > parent_world.max_point[0, 1] - m
-                ):
+                child_world = env_bboxes[obj].translated(positions[obj])
+                parent_world = relation.support_bbox(env_bboxes[relation.parent].translated(positions[relation.parent]))
+                # Preserve scalar height arithmetic at the strict On contact boundary.
+                bottom = positions[obj][2] + float(env_bboxes[obj].min_point[0, 2])
+                top = positions[relation.parent][2] + float(env_bboxes[relation.parent].max_point[0, 2])
+                height_fits = relation.accepts_child_bottom(bottom, top, self._params.on_relation_z_tolerance_m)
+                if not height_fits or not self._validate_footprint(relation, child_world, parent_world):
                     if self._params.verbose:
-                        print(f"On relation: '{obj.name}' XY outside parent (retrying)")
-                    return False
-                # 3) Checking that the child lies within an acceptable z-range.
-                parent_local_top_z: float = parent_bbox.max_point[0, 2].item()
-                child_local_bottom_z: float = child_bbox.min_point[0, 2].item()
-                parent_top_z = parent_local_top_z + positions[parent][2]
-                clearance_m = rel.clearance_m
-                child_bottom_z = child_local_bottom_z + positions[obj][2]
-                eps_z = self._params.on_relation_z_tolerance_m
-                if child_bottom_z <= parent_top_z - eps_z or child_bottom_z > parent_top_z + clearance_m + eps_z:
-                    if self._params.verbose:
-                        print(f"  On relation: '{obj.name}' Z outside band (retrying)")
+                        print(f"{type(relation).__name__}: '{obj.name}' outside support footprint or height range")
                     return False
         return True
 
+    def _validate_footprint(self, relation: On, child: AxisAlignedBoundingBox, parent: AxisAlignedBoundingBox) -> bool:
+        """Check feasible margins and containment or overlap within the support footprint."""
+        margin = 0.0 if relation.overlap else relation.edge_margin_m
+        return self._margin_fits(child, parent, margin) and self._footprint_fits(relation, child, parent, margin)
+
+    def _margin_fits(self, child: AxisAlignedBoundingBox, parent: AxisAlignedBoundingBox, margin: float) -> bool:
+        """Whether the child fits inside the inset support footprint."""
+        if margin == 0:
+            return True
+        free_space = (parent.size - child.size)[0, :2]
+        if torch.any(free_space < 2 * margin):
+            if self._params.verbose:
+                feasible_margin = max(0.0, float(free_space.min()) / 2.0)
+                print(f"Support relation: edge_margin_m={margin} exceeds feasible margin {feasible_margin:.3f} m")
+            return False
+        return True
+
+    @staticmethod
+    def _footprint_fits(
+        relation: On, child: AxisAlignedBoundingBox, parent: AxisAlignedBoundingBox, margin: float
+    ) -> bool:
+        """Whether the child is contained by, or overlaps, the support in XY."""
+        child_min, child_max = child.min_point[0, :2], child.max_point[0, :2]
+        if relation.overlap:
+            child_min, child_max = child_max, child_min
+        return bool(
+            torch.all(child_min >= parent.min_point[0, :2] + margin)
+            and torch.all(child_max <= parent.max_point[0, :2] - margin)
+        )
+
 
 @register_validator
-class NextToValidator(PlacementValidator):
+class NextToValidator(PrePhysicsPlacementValidator):
     """Validate every NextTo relation: child on the requested side within the relation's tolerance_m."""
 
     check = PlacementCheck.NEXT_TO
@@ -253,7 +261,7 @@ class NextToValidator(PlacementValidator):
 
 
 @register_validator
-class NotNextToValidator(PlacementValidator):
+class NotNextToValidator(PrePhysicsPlacementValidator):
     """Validate every NotNextTo relation: child has cleared the keep-out zone beside the parent."""
 
     check = PlacementCheck.NOT_NEXT_TO
@@ -314,7 +322,7 @@ class NotNextToValidator(PlacementValidator):
 
 
 @register_validator
-class FaceToValidator(PlacementValidator):
+class FaceToValidator(PrePhysicsPlacementValidator):
     """Validate every FaceTo subject has a defined target direction and a computed facing yaw."""
 
     check = PlacementCheck.FACE_TO
@@ -353,7 +361,7 @@ class FaceToValidator(PlacementValidator):
 
 
 @register_validator
-class NoOverlapValidator(PlacementValidator):
+class NoOverlapValidator(PrePhysicsPlacementValidator):
     """Validate that no two placed bounding boxes (or collision meshes) intersect.
 
     Owns the CPU mesh/sphere cache so the AABB→mesh short-circuit stays local: cheap AABB pairs are

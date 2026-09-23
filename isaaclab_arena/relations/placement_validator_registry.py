@@ -10,17 +10,17 @@ from typing import TYPE_CHECKING
 from isaaclab_arena.assets.registries import Registry
 
 if TYPE_CHECKING:
-    from isaaclab_arena.relations.placement_validators import PlacementValidator
+    from isaaclab_arena.relations.placement_validators import PrePhysicsPlacementValidator
 
 
 class PlacementValidatorRegistry(Registry):
-    """Registry for PlacementValidator subclasses, keyed by the check name they report.
+    """Registry for PrePhysicsPlacementValidator subclasses, keyed by the check name they report.
 
     Unlike the asset registries, this takes no part in the asset cascade: it self-populates when
     placement_validators is imported, always before any build_validators() lookup.
     """
 
-    def get_validator_by_name(self, check: str) -> type[PlacementValidator]:
+    def get_validator_by_name(self, check: str) -> type[PrePhysicsPlacementValidator]:
         """Gets a placement validator class by the check name it reports.
 
         Args:
@@ -30,7 +30,7 @@ class PlacementValidatorRegistry(Registry):
 
 
 def register_validator(cls):
-    """Class decorator registering a PlacementValidator subclass under its ``check`` name.
+    """Class decorator registering a PrePhysicsPlacementValidator subclass under its ``check`` name.
 
     Keyed by ``cls.check`` (the check it reports) so build_validators() can resolve it.
     """

@@ -454,7 +454,6 @@ def test_anchor_with_rotate_around_solution_rejected():
         placer.place([table, child])
 
 
-@requires_warp
 def test_centers_in_target_frame_applies_both_yaws():
     """Net yaw = source - target; equal yaws cancel out."""
 
@@ -488,6 +487,22 @@ def test_centers_in_target_frame_applies_both_yaws():
         centers, src, tgt, src_pos, tgt_pos, {src: math.pi / 2, tgt: math.pi / 2}
     )
     assert torch.allclose(result, centers, atol=1e-5)
+
+    # A tilted target retains its heading in this yaw-only frame transform.
+    half_roll, half_yaw = math.pi / 12, math.pi / 4
+    tgt.set_initial_pose(
+        Pose(
+            position_xyz=(0.0, 0.0, 0.0),
+            rotation_xyzw=(
+                math.sin(half_roll) * math.cos(half_yaw),
+                math.sin(half_roll) * math.sin(half_yaw),
+                math.cos(half_roll) * math.sin(half_yaw),
+                math.cos(half_roll) * math.cos(half_yaw),
+            ),
+        )
+    )
+    result = NoOverlapValidator._centers_in_target_frame(centers, src, tgt, src_pos, tgt_pos, None)
+    assert torch.allclose(result, torch.tensor([[0.0, -0.1, 0.0]]), atol=1e-6)
 
 
 @requires_warp
@@ -1318,3 +1333,38 @@ def test_batched_mesh_loss_matches_test_only_serial_oracle():
     serial_loss.sum().backward()
     serial_grad = state.optimizable_positions.grad.detach().clone()
     torch.testing.assert_close(batched_grad, serial_grad, rtol=1e-4, atol=1e-5)
+
+
+def test_tilted_clutter_requires_bbox_collision():
+    from isaaclab_arena.relations.object_placer import ObjectPlacer
+    from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+    from isaaclab_arena.relations.placement_validation import PlacementCheck
+    from isaaclab_arena.relations.relations import ClutterOn, RotateAroundSolution
+
+    support = _make_table()
+    rods = [_make_box_obj(f"rod_{i}", 0.8, 0.04, 0.04) for i in range(2)]
+    for rod in rods:
+        rod.relations = [ClutterOn(support, random_yaw=False), RotateAroundSolution(pitch_rad=math.pi / 2)]
+    params = ObjectPlacerParams(
+        solver_params=RelationSolverParams(collision_mode=CollisionMode.MESH, max_iters=0, verbose=False),
+        enabled_checks={PlacementCheck.NO_OVERLAP, PlacementCheck.ON_RELATION},
+        max_placement_attempts=1,
+        apply_positions_to_objects=False,
+        placement_seed=42,
+    )
+    with pytest.raises(AssertionError, match="rod_0.*CollisionMode.BBOX"):
+        ObjectPlacer(params).place([support, *rods])
+    # An object-level mesh override must not bypass the restriction.
+    params.solver_params.collision_mode = CollisionMode.BBOX
+    rods[0].collision_mode = CollisionMode.MESH
+    with pytest.raises(AssertionError, match="rod_0.*CollisionMode.BBOX"):
+        ObjectPlacer(params).place([support, *rods])
+    rods[0].collision_mode = CollisionMode.BBOX
+    result = ObjectPlacer(params).place([support, *rods])[0]
+    assert result.success
+    bounds = [
+        rod.get_bounding_box().rotated_by_quat((0, 2**-0.5, 0, 2**-0.5)).translated(result.positions[rod])
+        for rod in rods
+    ]
+    assert all(float(box.min_point[0, 2]) >= 0.025 for box in bounds)
+    assert float(bounds[1].min_point[0, 2] - bounds[0].max_point[0, 2]) >= 0

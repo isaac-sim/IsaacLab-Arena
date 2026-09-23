@@ -10,6 +10,8 @@ import tqdm
 import traceback
 from types import SimpleNamespace
 
+import pytest
+
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose
@@ -64,6 +66,30 @@ def test_object_reference_world_bbox_applies_parent_yaw():
 
     assert torch.allclose(world_bbox.min_point, torch.tensor([[7.9, 1.0, 0.0]]), atol=1e-6)
     assert torch.allclose(world_bbox.max_point, torch.tensor([[8.0, 1.2, 0.05]]), atol=1e-6)
+
+
+@pytest.mark.parametrize(
+    "parent_pose,expected_lower,expected_upper",
+    [
+        (None, (1.0, 2.0, 0.0), (2.6, 2.8, 0.1)),
+        (Pose((10.0, 0.0, 0.0), (0.0, 0.0, 2**-0.5, 2**-0.5)), (7.2, 1.0, 0.0), (8.0, 2.6, 0.1)),
+    ],
+)
+def test_reference_anchor_bounds_do_not_reapply_prim_rotation(parent_pose, expected_lower, expected_upper):
+    from isaaclab_arena.relations.bounding_box_helpers import build_per_env_bounding_boxes
+    from isaaclab_arena.relations.relations import IsAnchor
+
+    reference = _object_reference_with_cached_bbox(
+        parent_pose,
+        Pose((1.0, 2.0, 0.0), (0, 0, 0.3826834324, 0.9238795325)),
+        AxisAlignedBoundingBox((0, 0, 0), (1.6, 0.8, 0.1)),
+    )
+    reference.name = "counter"
+    reference.relations = [IsAnchor()]
+    bounds = build_per_env_bounding_boxes([reference], num_envs=2).object_bboxes[reference]
+    world_bounds = bounds.translated(reference.get_initial_pose().position_xyz)
+    torch.testing.assert_close(world_bounds.min_point, torch.tensor([expected_lower] * 2))
+    torch.testing.assert_close(world_bounds.max_point, torch.tensor([expected_upper] * 2))
 
 
 def test_object_reference_caches_parent_usd_prim_path(monkeypatch):
