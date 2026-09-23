@@ -9,6 +9,8 @@ import pytest
 
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
+pytestmark = pytest.mark.isaac_cap
+
 
 def _test_syringe_success_requires_all_objects_contained_and_settled(_simulation_app):
     import torch

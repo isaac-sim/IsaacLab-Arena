@@ -656,21 +656,18 @@ def _test_open_door_uses_existing_sequence_and_thresholds(simulation_app):
     return True
 
 
-def _test_cable_routing_preserves_success_parameters_and_timeout(simulation_app):
+def _test_press_button_preserves_success_parameters_and_timeout(simulation_app):
     from unittest.mock import Mock
 
-    from isaaclab_arena.assets.cable import Cable
+    from isaaclab_arena.affordances.pressable import Pressable
+    from isaaclab_arena.tasks.press_button_task import PressButtonTask
     from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
-    from isaaclab_arena_environments.isaac_cap.cable_routing.task import CableRoutingTask, cable_route_success
 
-    cable = Mock(spec=Cable)
-    cable.name = "routing_cable"
-    task = CableRoutingTask(
-        cable=cable,
-        pegs=[SimpleNamespace(name=f"peg_{index}") for index in range(3)],
-        route_peg_indices=(2, 0),
-        route_directions=(-1.0, 1.0),
-        task_description="Route the cable around the last and first pegs.",
+    button = Mock(spec=Pressable)
+    button.name = "start_button"
+    task = PressButtonTask(
+        pressable_object=button,
+        pressedness_threshold=0.75,
         episode_length_s=45.0,
     )
     termination_cfg = task.get_termination_cfg()
@@ -679,16 +676,11 @@ def _test_cable_routing_preserves_success_parameters_and_timeout(simulation_app)
     assert termination_cfg.failures == {}
     assert len(termination_cfg.success) == 1
     objective = termination_cfg.success[0]
-    assert objective.name == "cable_routing"
+    assert objective.name == "press_button"
     assert len(objective.predicate_sequence) == 1
-    route_predicate = objective.predicate_sequence[0]
-    assert route_predicate.func is cable_route_success
-    assert route_predicate.keywords == {
-        "cable_asset_name": "routing_cable",
-        "peg_asset_names": ("peg_0", "peg_1", "peg_2"),
-        "route_peg_indices": (2, 0),
-        "route_directions": (-1.0, 1.0),
-    }
+    pressed_predicate = objective.predicate_sequence[0]
+    assert pressed_predicate.func is button.is_pressed
+    assert pressed_predicate.keywords == {"pressedness_threshold": 0.75}
     return True
 
 
@@ -752,5 +744,5 @@ def test_open_door_uses_existing_sequence_and_thresholds():
     assert run_function_with_persistent_simulation_app(_test_open_door_uses_existing_sequence_and_thresholds)
 
 
-def test_cable_routing_preserves_success_parameters_and_timeout():
-    assert run_function_with_persistent_simulation_app(_test_cable_routing_preserves_success_parameters_and_timeout)
+def test_press_button_preserves_success_parameters_and_timeout():
+    assert run_function_with_persistent_simulation_app(_test_press_button_preserves_success_parameters_and_timeout)
