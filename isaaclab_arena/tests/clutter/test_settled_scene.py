@@ -191,6 +191,14 @@ def _test_settling_restores_scene_and_retries_only_rejected_layouts(simulation_a
     try:
         env.reset()
         initial = env.unwrapped.scene.get_state()
+
+        class StrictRest(RestValidator):
+            check = "strict_rest"
+
+        with pytest.raises(AssertionError, match="At most one enabled RestValidator"):
+            settle_clutter(env, assets, validators=[RestValidator(), StrictRest(move_thresh_m=0.0001)])
+        _assert_scene_state_equal(env.unwrapped.scene.get_state(), initial)
+
         with patch("isaaclab_arena.offline_placement.settle._release_objects", wraps=_release_objects) as release:
             results = settle_clutter(env, assets, attempts=3, validators=validators)
             layouts = [result.poses for result in results]

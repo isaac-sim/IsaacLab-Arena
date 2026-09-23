@@ -196,7 +196,7 @@ def build_post_physics_validators(configurations: dict[str, dict]) -> list[PostP
         assert isinstance(validator, PostPhysicsPlacementValidator), f"'{name}' must be a PostPhysicsPlacementValidator"
         assert validator.check == name, f"Check name '{name}' does not match implementation '{validator.check}'"
         status = "enabled; required to pass" if validator.enabled else "skipped; disabled by configuration"
-        print(f"[post_physics] {name}: {status}")
+        print(f"[post_physics] {name}: {status}; settings={asdict(validator)}")
         validators.append(validator)
     assert any(validator.enabled for validator in validators), "Enable at least one post-physics validator"
     return validators

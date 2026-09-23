@@ -110,8 +110,10 @@ Post-physics validation
 -----------------------
 
 ``post_physics`` maps check names to Hydra validator configurations. The command
-prints each configured check as enabled or skipped. Every enabled check must
-pass; unavailable implementations and invalid settings fail explicitly.
+prints each configured check's settings and enabled or skipped status. Every
+enabled check must pass; unavailable implementations and invalid settings fail
+explicitly. Only one rest check can be enabled; change its thresholds or replace
+it with a ``RestValidator`` subclass.
 
 For example, tighten support containment or explicitly disable the passive-body
 check:
@@ -129,7 +131,8 @@ Finite poses and valid scene construction are always required.
 Each record includes ``validation.post_physics``. Every entry contains the check
 name, stage, effective configuration, pass/fail result, and failure or skip
 reason. A skipped check has ``passed: null``. ``validation.pre_physics`` stores
-release-check verdicts; those verdicts apply to release poses, not settled poses.
+release-check verdicts only; effective validator settings are recorded for
+post-physics checks. Release verdicts do not certify settled poses.
 ``validation.sampling`` records the physics time step and sampling settings.
 Replay reads the poses and does not rerun these checks.
 
@@ -181,7 +184,9 @@ Limits
 Supports must be fixed ``IsAnchor`` assets, static or kinematic in physics, with
 untilted quarter-turn rotations. Clutter members must be dynamic rigid objects
 with gravity enabled and ``ClutterOn`` as their only spatial relation; rotation
-markers are allowed. Other placement must already be resolved to fixed anchors.
+markers are allowed. Clutter with roll or pitch requires ``collision_mode="bbox"``
+on the object because mesh collision checks support yaw only. BBOX checks use
+bounds enclosing the full rotation. Other placement must already be resolved to fixed anchors.
 Object sets must be expanded to concrete objects. Concave supports need a fixed
 reference for their usable surface. Robot joint configurations are not saved,
 reachability is not certified, and pose-changing variations must be disabled for

@@ -186,6 +186,13 @@ class ObjectPlacer:
             )
             for relation in obj.get_relations():
                 relation.validate_placement_configuration(obj, object_set)
+            marker = get_relation(obj, RotateAroundSolution)
+            if get_relation(obj, ClutterOn) is not None and marker is not None:
+                has_tilt = marker.roll_rad != 0.0 or marker.pitch_rad != 0.0
+                assert not (has_tilt and object_uses_mesh_collision(obj, self.params.solver_params.collision_mode)), (
+                    f"Tilted ClutterOn object '{obj.name}' requires CollisionMode.BBOX; "
+                    "MESH collision supports yaw only. Set the object's collision_mode to 'bbox'."
+                )
 
         anchor_objects = get_anchor_objects(objects)
         assert len(anchor_objects) > 0, (

@@ -107,9 +107,11 @@ def settle_clutter(
     if validators is None:
         validators = build_post_physics_validators(default_post_physics_validators())
     assert any(validator.enabled for validator in validators), "Enable at least one post-physics validator"
-    rest_validator = next(
-        (validator for validator in validators if isinstance(validator, RestValidator) and validator.enabled), None
-    )
+    rest_validators = [
+        validator for validator in validators if isinstance(validator, RestValidator) and validator.enabled
+    ]
+    assert len(rest_validators) <= 1, "At most one enabled RestValidator is supported; configure its thresholds"
+    rest_validator = rest_validators[0] if rest_validators else None
     assert attempts > 0, "attempts must be positive"
     groups, placement_assets, collision_objects = _prepare_scene(env, assets)
     capture_keys = dynamic_rigid_object_keys(env.scene)

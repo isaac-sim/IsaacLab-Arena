@@ -105,6 +105,8 @@ Most environments can be described with a small set of relations:
    ``ClutterOn`` must be the object's only spatial relation and cannot use
    ``RandomAroundSolution``. ``RotateAroundSolution`` sets the base rotation;
    ``random_yaw`` (default True) adds world-Z yaw while preserving its tilt.
+   Tilted clutter requires ``collision_mode="bbox"`` on the object; these bounds
+   enclose the full rotation. MESH collision checks support yaw only.
    For pooled placement, disable ``ObjectPlacerParams.allow_best_loss_fallbacks``
    to reject invalid layouts. Direct ``ObjectPlacer.place()`` callers must check
    each result's ``success`` before using it.
