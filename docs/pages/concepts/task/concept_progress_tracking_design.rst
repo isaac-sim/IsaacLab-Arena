@@ -264,7 +264,7 @@ Read each environment's state and completed-predicate events as follows:
    print(criteria.active_predicates)
 
    for event in progress["events"][env_id]:
-       print(event.step, event.criteria_name, event.sequence, event.predicate_name)
+       print(event.step, event.criteria_name, event.sequence_name, event.predicate_name)
 
 After an automatic reset, ``env.extras["progress_tracking"]`` still shows the finished episode
 until the next step.
@@ -296,7 +296,7 @@ For example, one entry of the JSONL record may look like this (placement predica
          {
            "step": 4,
            "criteria_name": "pick_and_place",
-           "sequence": "default_sequence",
+           "sequence_name": "default_sequence",
            "predicate_index": 0,
            "predicate_name": "objects_settled",
            "score_delta": 0.33
@@ -304,7 +304,7 @@ For example, one entry of the JSONL record may look like this (placement predica
          {
            "step": 18,
            "criteria_name": "pick_and_place",
-           "sequence": "default_sequence",
+           "sequence_name": "default_sequence",
            "predicate_index": 1,
            "predicate_name": "object_is_above_height(object_name='can', use_settled_state=True)",
            "score_delta": 0.33

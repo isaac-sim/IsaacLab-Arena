@@ -18,7 +18,7 @@ from isaaclab_arena.progress_tracking.progress_tracking_utils import (
 )
 
 
-class SequenceCompletionMode(str, Enum):
+class CriteriaCompletionMode(str, Enum):
     """How completed predicate sequences satisfy a CompletionCriteria definition."""
 
     ALL = "all"
@@ -45,7 +45,7 @@ class CompletionCriteria:
         predicate_sequences: Named independent lists of predicates, optionally paired with scores.
         score: Weight of the CompletionCriteria in the TaskBase-level overall_score.
         logical: How completed sequences combine to satisfy the completion criteria.
-            A SequenceCompletionMode (ALL, ANY, or CHOOSE); a matching string value is also accepted.
+            A CriteriaCompletionMode (ALL, ANY, or CHOOSE); a matching string value is also accepted.
         K: Required when logical == "choose". Specifies the number of sequences that must be completed
             to consider the CompletionCriteria complete.
         description: An optional description of the CompletionCriteria.
@@ -59,7 +59,7 @@ class CompletionCriteria:
     """Named predicate sequences that progress independently."""
 
     score: float = 1.0
-    logical: SequenceCompletionMode = SequenceCompletionMode.ALL
+    logical: CriteriaCompletionMode = CriteriaCompletionMode.ALL
     K: int | None = None
     description: str | None = None
 
@@ -70,8 +70,8 @@ class CompletionCriteria:
 
     def __post_init__(self):
         assert 0.0 <= self.score <= 1.0, f"CompletionCriteria '{self.name}': score must be in [0, 1], got {self.score}"
-        # Accept either a SequenceCompletionMode or its string value; normalize to the enum (raises on invalid).
-        self.logical = SequenceCompletionMode(self.logical)
+        # Accept either a CriteriaCompletionMode or its string value; normalize to the enum (raises on invalid).
+        self.logical = CriteriaCompletionMode(self.logical)
 
         assert self.parent_subtask_idx is None or (
             isinstance(self.parent_subtask_idx, int) and self.parent_subtask_idx >= 0
@@ -96,7 +96,7 @@ class CompletionCriteria:
 
         # Validate the logical and K parameters.
         num_sequences = len(self.canonical_predicate_sequences)
-        if self.logical == SequenceCompletionMode.CHOOSE:
+        if self.logical == CriteriaCompletionMode.CHOOSE:
             assert self.K is not None, f"CompletionCriteria '{self.name}': K is required when logical='choose'"
             assert (
                 1 <= self.K <= num_sequences

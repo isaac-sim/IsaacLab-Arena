@@ -15,7 +15,7 @@ from isaaclab.managers import SceneEntityCfg, TerminationTermCfg
 from isaaclab.managers.recorder_manager import RecorderManagerBaseCfg, RecorderTerm, RecorderTermCfg
 from isaaclab.utils.configclass import configclass
 
-from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria, SequenceCompletionMode
+from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria, CriteriaCompletionMode
 from isaaclab_arena.progress_tracking.progress_tracking_utils import DEFAULT_SEQUENCE_NAME, _predicate_repr
 from isaaclab_arena.tasks.predicates.temporal import TrueForConsecutiveStepsCfg, _TrueForConsecutiveSteps
 
@@ -70,7 +70,7 @@ class PredicateEvent:
     criteria_name: str
     """Name of the CompletionCriteria whose sequence advanced."""
 
-    sequence: str
+    sequence_name: str
     """Name of the sequence whose predicate chain advanced."""
 
     predicate_index: int
@@ -333,7 +333,7 @@ class CompletionCriteriaRunner:
                         env_idx=int(env_idx),
                         step=int(step_index[env_idx].item()) if step_index is not None else -1,
                         criteria_name=self.completion_criteria.name,
-                        sequence=sequence_name,
+                        sequence_name=sequence_name,
                         predicate_index=chain_idx,
                         predicate_name=pred_name,
                         score_delta=float(score_weight),
@@ -367,9 +367,9 @@ class CompletionCriteriaRunner:
         """Number of sequences that must complete for the criteria to be complete."""
 
         criteria = self.completion_criteria
-        if criteria.logical == SequenceCompletionMode.ALL:
+        if criteria.logical == CriteriaCompletionMode.ALL:
             return len(criteria.sequence_names)
-        if criteria.logical == SequenceCompletionMode.ANY:
+        if criteria.logical == CriteriaCompletionMode.ANY:
             return 1
         assert criteria.K is not None, "K is required (and validated) when logical='choose'"
         return int(criteria.K)
@@ -423,7 +423,7 @@ class ProgressTracker:
 
     def __init__(
         self,
-        criteria_sets: list[CompletionCriteria],
+        completion_criteria: list[CompletionCriteria],
         num_envs: int,
         device,
         env=None,
@@ -431,13 +431,15 @@ class ProgressTracker:
         subtasks_are_sequential: bool = False,
         desired_subtask_success_state: list[bool | None] | None = None,
     ):
-        assert criteria_sets, "Task success requires at least one set of completion criteria."
-        criteria_names = [criteria.name for criteria in criteria_sets]
+        assert completion_criteria, "Task success requires at least one set of completion criteria."
+        criteria_names = [criteria.name for criteria in completion_criteria]
         assert len(set(criteria_names)) == len(criteria_names), "Completion criteria names must be unique."
-        self.criteria_sets = criteria_sets
+        self.completion_criteria = completion_criteria
         self.num_envs = num_envs
         self.device = device
-        self.runners = [CompletionCriteriaRunner(criteria, num_envs, device, env=env) for criteria in criteria_sets]
+        self.runners = [
+            CompletionCriteriaRunner(criteria, num_envs, device, env=env) for criteria in completion_criteria
+        ]
         self._subtask_runners = self._group_runners_by_subtask(self.runners)
         assert not subtasks_are_sequential or self._subtask_runners, "Sequential tracking requires subtask indices."
         if desired_subtask_success_state is not None:
@@ -660,7 +662,7 @@ class ProgressTrackingRecorder(RecorderTerm):
                 ...
             ],
             "events": [                                    # one list of PredicateEvent per env
-                [PredicateEvent(env_idx, step, criteria_name, sequence,
+                [PredicateEvent(env_idx, step, criteria_name, sequence_name,
                                 predicate_index, predicate_name, score_delta), ...],
                 ...
             ],

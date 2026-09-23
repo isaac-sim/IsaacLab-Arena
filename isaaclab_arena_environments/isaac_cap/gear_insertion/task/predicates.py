@@ -34,7 +34,7 @@ def reset_gear_insertion_diagnostics(env: ManagerBasedEnv, env_ids=None) -> None
     # Move those caches out of the predicate, then remove this reset callback.
     progress_tracker = env.progress_tracker
     found_matching_criteria = False
-    for criteria in progress_tracker.criteria_sets:
+    for criteria in progress_tracker.completion_criteria:
         # CompositeTaskBase prefixes criteria names with the subtask index.
         if criteria.name.rsplit("/", 1)[-1] == "gear_insertion":
             gear_insertion_conditions = progress_tracker.get_predicate(criteria.name)

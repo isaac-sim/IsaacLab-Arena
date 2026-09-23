@@ -197,7 +197,7 @@ def _test_success_advances_once_and_reporting_is_passive(simulation_app):
         "active_predicates": {"default_sequence": None},
     }
     assert [event["step"] for event in recorded_progress["events"]] == [1, 2, 3]
-    assert [(event["criteria_name"], event["sequence"]) for event in recorded_progress["events"]] == [
+    assert [(event["criteria_name"], event["sequence_name"]) for event in recorded_progress["events"]] == [
         ("pick_and_place", "default_sequence")
     ] * 3
     return True
