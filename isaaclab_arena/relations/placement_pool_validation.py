@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.relations.physics_settle_params import PhysicsSettleParams
@@ -19,65 +21,85 @@ from isaaclab_arena.relations.relations import get_anchor_objects
 from isaaclab_arena.utils import physics_settle
 
 if TYPE_CHECKING:
+    import torch
+
     from isaaclab.envs import ManagerBasedEnv
 
-    from isaaclab_arena.relations.placement_asset import PlaceableAsset
     from isaaclab_arena.relations.placement_result import PlacementResult
     from isaaclab_arena.relations.placement_validation import PlacementValidationResults
     from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
+    from isaaclab_arena.utils.scene_snapshot import SceneSnapshot
 
 
-def _write_layout_to_envs_for_episode_index(
+@dataclass
+class PoolValidationBatch:
+    """Physics results for one queue index across N simulation environments."""
+
+    index: int
+    """Queue index shared by the candidates in this batch."""
+    layouts: dict[int, PlacementResult]
+    """Source candidates by environment ID, including any skipped solver failures."""
+    initial_poses: dict[str, torch.Tensor]
+    """Environment-local release poses (N, 7), ordered xyz/xyzw, by scene key."""
+    final_poses: dict[str, torch.Tensor]
+    """Environment-local post-physics poses (N, 7), ordered xyz/xyzw, by scene key."""
+
+
+def iter_pool_validation(
     env: ManagerBasedEnv,
-    layouts_per_env: list[list[PlacementResult]],
-    num_envs: int,
-    episode_index: int,
-    anchor_assets: set,
-    base_rotations: dict[PlaceableAsset, tuple[float, float, float, float]],
-) -> list[tuple[int, PlacementResult]]:
-    """Write one layout per env for this episode; return the ``(env_id, layout)`` layouts written.
-
-    Envs whose queue is shorter than ``episode_index`` contribute nothing, so the layouts written holds at most one
-    entry per env and may be empty on the final episodes.
-    """
-    layouts_written: list[tuple[int, PlacementResult]] = []
-    for env_id in range(num_envs):
-        layouts = layouts_per_env[env_id]
-        if episode_index < len(layouts):
-            layout = layouts[episode_index]
-            write_layout_to_sim(
-                env.unwrapped,
-                env_id,
-                layout,
-                anchor_assets,
-                base_rotations,
-            )
-            layouts_written.append((env_id, layout))
-    return layouts_written
-
-
-def _compute_physics_settled_and_add_to_validation_results(
-    env: ManagerBasedEnv,
-    layouts: list[tuple[int, PlacementResult]],
-    movable_object_names: list[str],
+    placement_pool: PooledObjectPlacer,
+    object_names: list[str],
+    *,
     settle_params: PhysicsSettleParams,
-) -> list[tuple[int, PlacementValidationResults]]:
-    """Read back per-object velocities for a list of layouts and stamp ``PHYSICS_SETTLED`` per layout.
+    snapshot: SceneSnapshot | None = None,
+    skip_failed: bool = False,
+    render: bool = False,
+) -> Iterator[PoolValidationBatch]:
+    """Apply and simulate each pool batch without consuming its queues.
 
-    Returns ``(env_id, validation_results)`` per layout; the settle verdict is stamped only if not already present.
+    The scene remains at the yielded poses until iteration resumes. This iterator
+    does not modify source checklists or restore state when it closes.
+
+    Args:
+        env: Initialized simulation environment.
+        placement_pool: Candidate queues indexed by absolute environment ID.
+        object_names: Scene roots to measure and check for rest.
+        settle_params: Simulation duration; this iterator does not evaluate velocity thresholds.
+        snapshot: Optional state restored before each batch; the caller owns final restoration.
+        skip_failed: Leave candidates with failed required solver checks unapplied.
+        render: Render each physics step.
+
+    Returns:
+        Batches containing source candidates, measured initial and final poses.
     """
-
-    env_ids = [env_id for env_id, _ in layouts]
-    settled_per_env = physics_settle.are_all_objects_settled_per_env(
-        env, env_ids, movable_object_names, settle_params.lin_vel_thresh, settle_params.ang_vel_thresh
-    )
-    validation_results_all_envs: list[tuple[int, PlacementValidationResults]] = []
-    for (env_id, layout), settled in zip(layouts, settled_per_env):
-        validation_results_per_env = layout.validation_results
-        if PlacementCheck.PHYSICS_SETTLED not in validation_results_per_env.validation_results:
-            validation_results_per_env.add_validation_check(PlacementCheck.PHYSICS_SETTLED, settled)
-        validation_results_all_envs.append((env_id, validation_results_per_env))
-    return validation_results_all_envs
+    env = env.unwrapped
+    assets = placement_pool.objects
+    anchors = set(get_anchor_objects(assets))
+    rotations = get_base_rotation_per_asset(assets)
+    queues = placement_pool.layouts_per_env()[: env.num_envs]
+    for index in range(max((len(queue) for queue in queues), default=0)):
+        if snapshot is not None:
+            snapshot.restore(env)
+        layouts = {}
+        env_ids = []
+        for env_id, queue in enumerate(queues):
+            if index >= len(queue):
+                continue
+            layout = queue[index]
+            layouts[env_id] = layout
+            if skip_failed and not layout.success:
+                continue
+            write_layout_to_sim(env, env_id, layout, anchors, rotations)
+            env_ids.append(env_id)
+        if not env_ids:
+            yield PoolValidationBatch(index, layouts, {}, {})
+            continue
+        env.scene.write_data_to_sim()
+        env.sim.forward()
+        initial = {key: env.arena_world.get_pose_e(key) for key in object_names}
+        physics_settle.step_physics(env, settle_params.num_steps * env.cfg.decimation, render=render)
+        final = {key: env.arena_world.get_pose_e(key) for key in object_names}
+        yield PoolValidationBatch(index, layouts, initial, final)
 
 
 def validate_pool_layouts(
@@ -111,42 +133,27 @@ def validate_pool_layouts(
         settle_params = PhysicsSettleParams()
 
     assets = placement_pool.objects
-    anchor_assets = set(get_anchor_objects(assets))
-    base_rotations = get_base_rotation_per_asset(assets)
-    movable_object_names = get_movable_asset_names(assets, anchor_assets)
-
-    # The length of each env queue is controlled by min_unique_layouts_per_env in ObjectPlacerParams.
-    layouts_per_env = placement_pool.layouts_per_env()
-    # The number of parallel envs SimApp is supposed to run specified by the user
-    num_expected_envs = env.unwrapped.num_envs
-    # The number of parallel envs that can be run in practice
-    num_envs = min(len(layouts_per_env), num_expected_envs)
-
-    # The number of episodes to validate is the length of the longest env queue
-    max_episodes = max((len(layouts_per_env[env_id]) for env_id in range(num_envs)), default=0)
-
-    # settle_params.num_steps is in env-step units; convert to physics substeps
-    num_physics_steps = settle_params.num_steps * env.unwrapped.cfg.decimation
-
+    anchors = set(get_anchor_objects(assets))
+    object_names = get_movable_asset_names(assets, anchors)
+    batches = iter_pool_validation(
+        env,
+        placement_pool,
+        object_names,
+        settle_params=settle_params,
+        render=render,
+    )
     results: list[tuple[int, int, PlacementValidationResults]] = []
-    for episode_index in range(max_episodes):
-        # Set layout, then settle and collect results in parallel.
-        layouts = _write_layout_to_envs_for_episode_index(
-            env,
-            layouts_per_env,
-            num_envs,
-            episode_index,
-            anchor_assets,
-            base_rotations,
+    for batch in batches:
+        env_ids = list(batch.layouts)
+        settled = physics_settle.are_all_objects_settled_per_env(
+            env, env_ids, object_names, settle_params.lin_vel_thresh, settle_params.ang_vel_thresh
         )
-        if layouts:
-            physics_settle.step_physics(env, num_physics_steps, render=render)
-            validation_results = _compute_physics_settled_and_add_to_validation_results(
-                env, layouts, movable_object_names, settle_params
-            )
-            for env_id, validation_results_per_env in validation_results:
-                results.append((env_id, episode_index, validation_results_per_env))
-    # The results are in (env_id, episode_index) order, so sort by env_id and then episode_index.
+        settled_per_env = dict(zip(env_ids, settled, strict=True))
+        for env_id, layout in batch.layouts.items():
+            checklist = layout.validation_results
+            if PlacementCheck.PHYSICS_SETTLED not in checklist.validation_results:
+                checklist.add_validation_check(PlacementCheck.PHYSICS_SETTLED, settled_per_env[env_id])
+            results.append((env_id, batch.index, checklist))
     results.sort(key=lambda item: (item[0], item[1]))
     return results
 
