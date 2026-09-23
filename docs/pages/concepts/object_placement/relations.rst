@@ -97,8 +97,10 @@ Most environments can be described with a small set of relations:
    Subsequent solving uses the shared collision clearance.
 
    Loss and validation enforce the release footprint and minimum height; contact
-   is not required. Physics makes objects fall when simulation starts. Offline
-   settling checks the resulting pile against the full support footprint.
+   is not required. ``ObjectPlacer`` computes release poses, and normal simulation
+   makes the objects fall. Use :doc:`offline_clutter_placement` to generate and
+   save settled poses before running a policy. Loading those records restores
+   the saved poses directly through the shared replay path.
 
    ``ClutterOn`` must be the object's only spatial relation and cannot use
    ``RandomAroundSolution``. ``RotateAroundSolution`` sets the base rotation;

@@ -32,18 +32,22 @@ def _assert_scene_state_equal(actual, expected):
 
 
 def _test_generation_writes_complete_layouts(simulation_app, tmp_path):
+    import torch
     import yaml
     from unittest.mock import patch
 
     from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
+    from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
+    from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
     from isaaclab_arena.offline_placement.clutter_generation import generate_clutter_layouts
     from isaaclab_arena.offline_placement.settle import settle_clutter
     from isaaclab_arena.relations.placement_layouts import PlacementLayouts
+    from isaaclab_arena.relations.relation_solver import RelationSolver
     from isaaclab_arena.utils.pose import Pose
 
     data = yaml.safe_load(SOURCE.read_text())
     data["objects"][0]["params"] = {"instance_name": "first_cube"}
-    data["placement_validators"] = {
+    data["placer_params"] = {
         "enabled_checks": ["no_overlap", "on_relation"],
         "required_checks": ["no_overlap", "on_relation"],
     }
@@ -86,8 +90,19 @@ def _test_generation_writes_complete_layouts(simulation_app, tmp_path):
             Pose.from_dict(value)
     layouts = PlacementLayouts.from_episode_jsonl(path)
     assert layouts.num_layouts == 4
-    replay_env = ArenaEnvGraphSpec.from_yaml(args.env_spec).to_arena_env(placement_layouts_path=path)
-    layouts.validate_assets(replay_env.get_placement_assets())
+    replay_env = ArenaEnvGraphSpec.from_yaml(args.env_spec).to_arena_env()
+    with patch.object(RelationSolver, "solve", side_effect=AssertionError("Replay must not solve")):
+        env = ArenaEnvBuilder(
+            replay_env, ArenaEnvBuilderCfg(num_envs=3, placement_layouts_path=str(path))
+        ).make_registered()
+        try:
+            env.reset()
+            for name, poses in layouts.poses.items():
+                expected = torch.stack([pose.to_tensor(env.unwrapped.device) for pose in poses[:3]])
+                torch.testing.assert_close(env.unwrapped.arena_world.get_pose_e(name), expected, atol=2e-5, rtol=0)
+        finally:
+            env.close()
+    replay_env.placement_layouts = layouts
     args.output = str(tmp_path / "regenerated.jsonl")
     with pytest.raises(AssertionError, match="Remove cached placement layouts"):
         generate_clutter_layouts(replay_env, args)
@@ -276,7 +291,7 @@ def _test_generation_honors_requested_validators(simulation_app, tmp_path, avail
 
     data = yaml.safe_load(SOURCE.read_text())
     if not available:
-        data["placement_validators"] = {
+        data["placer_params"] = {
             "enabled_checks": [RejectRelease.check],
             "required_checks": [RejectRelease.check],
         }

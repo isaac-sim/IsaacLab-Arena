@@ -1,8 +1,9 @@
 Offline Clutter Placement
 =========================
 
-Use ``ClutterOn`` to generate piles without choosing drop heights manually.
-The offline generator saves settled poses for reproducible starting layouts.
+``ClutterOn`` describes release poses above a support. The offline generator
+solves those poses, advances physics, and saves accepted settled layouts before
+policy evaluation. Runtime replay restores the saved layouts on reset.
 
 Declare and generate clutter
 ----------------------------
@@ -52,13 +53,19 @@ Recording uses runtime scene keys, so Python environments need no graph node IDs
 How it works
 ------------
 
-``ClutterOn`` → ``ObjectPlacer`` release poses → physics → rest and containment checks → JSONL.
+The relation, generator and replay have separate responsibilities:
+
+- ``ClutterOn`` and ``ObjectPlacer`` compute collision-checked release poses.
+- ``generate_clutter_scene.py`` advances physics, runs the configured post-physics
+  checks and writes accepted layouts to JSONL.
+- ``ArenaEnvBuilder`` loads the records, and the shared reset event restores the
+  saved poses without solving or settling them again.
 
 Running the environment directly also produces release poses; objects drop when
 physics starts. Use offline generation when initial poses must already be settled.
 
 The generator accepts only releases that pass the source environment's
-``placement_validators``. ``no_overlap`` and ``on_relation`` are always required.
+``placer_params.enabled_checks`` and ``placer_params.required_checks``. ``no_overlap`` and ``on_relation`` are always required.
 For clutter, ``on_relation`` checks containment and minimum height, so an object
 above the support passes without touching it. After the drop, the generator
 runs the configured post-physics validators. The defaults check rest, full-support
@@ -93,10 +100,11 @@ Each JSONL line stores placement data using the episode variations envelope. The
 ``source: "settled"`` and ``poses`` keyed by runtime scene key (the asset instance name).
 Positions are in metres in the local environment frame; quaternions use xyzw.
 These are placement records, without episode outcomes or other run metadata.
-Load them with ``--placement_layouts outputs/clutter/episodes.jsonl`` or set
-``placement_layouts_path`` in the environment YAML. See :doc:`relations` for
-replay selection and reset behavior. Remove any companion layout setting before
-generating new clutter; generation requires the source relations.
+Load them with ``--placement_layouts outputs/clutter/episodes.jsonl``. Python
+callers set ``ArenaEnvBuilderCfg(placement_layouts_path="outputs/clutter/episodes.jsonl")``.
+The builder owns replay configuration; no companion path is added to the environment YAML.
+See :doc:`relations` for replay selection and reset behavior.
+Generation requires the source relations and cannot use recorded layouts as input.
 
 Post-physics validation
 -----------------------
@@ -125,9 +133,10 @@ release-check verdicts; those verdicts apply to release poses, not settled poses
 ``validation.sampling`` records the physics time step and sampling settings.
 Replay reads the poses and does not rerun these checks.
 
-To add a check, define a dataclass subclass of ``PostPhysicsPlacementValidator``
-in ``isaaclab_arena.offline_placement.validators``. Its fields define its settings;
-``validate(state)`` returns ``self.report()`` on success or
+To add a check, import ``PostPhysicsPlacementValidator`` from
+``isaaclab_arena.offline_placement.validators`` and define a dataclass subclass
+in your own module. Its fields define its settings. ``validate(state)`` returns
+``self.report()`` on success or
 ``self.report("failure reason")`` on failure. ``state`` exposes the measured
 layout, reference poses, support geometry, and simulation environment.
 Select the class through its import path:

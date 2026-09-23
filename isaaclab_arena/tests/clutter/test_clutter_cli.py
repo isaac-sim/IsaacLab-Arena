@@ -52,6 +52,7 @@ def test_clutter_imports_respect_simulation_startup():
             "-c",
             (
                 "import sys; import isaaclab_arena.relations.object_placer; "
+                "import isaaclab_arena.relations.placement_layouts; "
                 "assert not any(m.startswith('isaaclab_arena.offline_placement') for m in sys.modules)"
             ),
         ],

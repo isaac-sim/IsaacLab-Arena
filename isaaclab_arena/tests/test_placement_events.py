@@ -955,19 +955,20 @@ def test_solve_and_apply_relation_placement_drops_embodiment_from_event_params()
 
     from isaaclab_arena.environments.relation_solver_interface import solve_and_apply_relation_placement
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+    from isaaclab_arena.relations.placement_validation import PlacementCheck
     from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 
     desk, box1, box2 = _create_test_objects()
     for box in (box1, box2):
         box.object_cfg = SimpleNamespace(init_state=SimpleNamespace(pos=(0.0, 0.0, 0.0), rot=(0.0, 0.0, 0.0, 1.0)))
-    # With no cuRobo reachability validator registered the embodiment is only carried, never dereferenced,
-    # so a sentinel stands in for a live (cyclic) EmbodimentBase.
+    # Exercise event ownership without depending on optional IK registration.
     embodiment = object()
 
     params = ObjectPlacerParams(
         solver_params=RelationSolverParams(max_iters=200, convergence_threshold=1e-3),
         min_unique_layouts_per_env=2,
         placement_seed=7,
+        enabled_checks={PlacementCheck.ON_RELATION, PlacementCheck.NO_OVERLAP},
     )
     params.reachability_config.embodiment = embodiment
 
