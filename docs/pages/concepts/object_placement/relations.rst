@@ -195,8 +195,8 @@ a Boolean value.
 Collision handling is integrated into placement and is not expressed as a
 relation.
 
-Cached Layouts
---------------
+Recorded Layouts
+----------------
 
 Pass the companion file to the environment builder:
 
@@ -252,19 +252,19 @@ every layout. Partial-reset order determines later assignments, so different
 policies may receive different per-environment sequences.
 
 Replay validates finite poses, unit quaternions, consistent object coverage and
-reset ownership. Cached objects share one reset writer, which zeros their root
+reset ownership. Recorded objects share one reset writer, which zeros their root
 velocities. All non-anchor objects with spatial relations must be included,
 as must a non-anchor embodiment carrying any placement relation or marker.
 Object sets, disabled pose resets, non-fixed pose-reset policies and nonzero
 initial velocities are unsupported.
 
-Cached replay requires ``resolve_on_reset=True``; an explicit
+Replay requires ``resolve_on_reset=True``; an explicit
 ``--no-resolve_on_reset`` or a false environment default is rejected. An explicit
 ``placement_seed`` in the placement configuration or on the CLI is also rejected
 because layouts are read in file order.
-``--no_solve_relations`` is compatible: cached replay never invokes the solver.
+``--no_solve_relations`` is compatible: replay never invokes the solver.
 Placement validator settings apply only when solving; they do not revalidate a
-cache or open the solver's debug viewer.
+recorded layout or open the solver's debug viewer.
 
 Loading bypasses solving and does not rerun geometry, reachability or settling
 checks. Recordings must match the scene and robot configuration being replayed;
