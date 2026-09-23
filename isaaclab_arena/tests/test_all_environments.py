@@ -45,7 +45,8 @@ def _build_jobs_for_all_envs() -> list[dict]:
     jobs = []
     for env_name in env_names:
         environment_factory_type = env_registry.get_component_by_name(env_name)
-        # Isaac CAP environments are covered by their marker-scoped test suite.
+        # TODO(xinjieyao, 2026.09.23): Remove after CAP envs are removed or
+        # https://github.com/isaac-sim/IsaacLab-Arena/pull/1315 is merged.
         if environment_factory_type.__module__.startswith("isaaclab_arena_environments.isaac_cap."):
             continue
         arena_env_args = {"environment": env_name}
