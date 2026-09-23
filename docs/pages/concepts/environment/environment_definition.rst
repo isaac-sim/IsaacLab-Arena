@@ -148,9 +148,9 @@ Only in Python
 ~~~~~~~~~~~~~~
 
 ``IsaacLabArenaEnvironment`` takes ten constructor arguments.
-``build_arena_env_from_graph_spec()`` fills five: ``name``, ``scene``,
-``embodiment``, ``task``, and a partial ``placer_params``. Everything else has no
-YAML key.
+``build_arena_env_from_graph_spec()`` fills the graph-owned scene, task,
+placement, physics-backend, and compiled-config callback fields. The remaining
+runtime integrations have no YAML key.
 
 **Teleoperation device.** YAML never sets ``env_cfg.teleop_devices``. Python can
 pass a device that drives the embodiment:
@@ -191,22 +191,6 @@ else on that config:
        ...,
        episode_recorder_terms={"cube_pose": EpisodeRecorderTermCfg(func=record_cube_pose)},
    )
-
-**Most placement tuning.** YAML ``placement_validators`` can set only four
-``ObjectPlacerParams`` fields: ``enabled_checks``, ``required_checks``,
-``debug_visualize``, and ``debug_visualize_output_path``. Seeds, random yaw, pool
-size, resolve-on-reset, and IK reachability need Python:
-
-.. code-block:: python
-
-   placer_params = ObjectPlacerParams(
-       placement_seed=42,          # reproducible layouts
-       random_yaw_init=True,       # random yaw per object
-       resolve_on_reset=False,     # solve once, reuse across resets
-       min_unique_layouts_per_env=20,
-       reachability_config=ReachabilityConfig(...),
-   )
-   return IsaacLabArenaEnvironment(..., placer_params=placer_params)
 
 **Extra variations.** Both formats get the defaults an asset attaches in its
 constructor (a light brings intensity, color, and HDR). Anything the asset class
@@ -274,6 +258,28 @@ Same key, different behavior
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Skip these when porting and you will not get the same environment.
+
+**Placement tuning.** YAML ``placer_params`` is a validated nested override of
+``ObjectPlacerParams`` and its data-only child configs. Field names and types
+come directly from those dataclasses, so nested solver settings do not need a
+second schema:
+
+.. code-block:: yaml
+
+   placer_params:
+     placement_seed: 42
+     random_yaw_init: true
+     resolve_on_reset: false
+     min_unique_layouts_per_env: 20
+     allow_best_loss_fallbacks: false
+     solver_params:
+       clearance_m: 0.0
+
+The same block selects ``enabled_checks``, ``required_checks``, and placement
+debug output. Runtime/code-bearing values such as
+``reachability_config.embodiment`` and ``solver_params.strategies`` are
+rejected. Explicit builder/CLI
+``placement_seed`` and ``resolve_on_reset`` values take precedence over YAML.
 
 **Duplicate instances need unique names.** YAML sets ``instance_name`` to the node
 id. Asset classes default it to the registry name, so two Python instances of the

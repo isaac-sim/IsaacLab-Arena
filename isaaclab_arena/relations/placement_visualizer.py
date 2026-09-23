@@ -9,7 +9,7 @@ Turn it on with ``ObjectPlacerParams.debug_visualize`` for a viewer window, or
 ``debug_visualize_output_path`` for an ``.rrd`` recording; either one alone is enough. From an env
 graph YAML (worked example: ``isaaclab_arena/tests/test_data/placement_debug_view_env_graph.yaml``)::
 
-    placement_validators:
+    placer_params:
       debug_visualize: true
       debug_visualize_output_path: /tmp/placement.rrd
 """

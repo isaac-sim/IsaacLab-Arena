@@ -116,6 +116,96 @@ def test_graph_spec_round_trips_pose_params_and_env_cfg_override():
     assert restored.env_cfg_override == data["env_cfg_override"]
 
 
+def test_graph_spec_round_trips_and_builds_placer_params():
+    from isaaclab_arena.environment_spec.placer_params_cfg_override import build_placer_params_from_override
+
+    data = _minimal_env_graph_data()
+    data["placer_params"] = {
+        "placement_seed": 42,
+        "resolve_on_reset": False,
+        "random_yaw_init": True,
+        "allow_best_loss_fallbacks": False,
+        "max_placement_attempts": 30,
+        "required_checks": [],
+        "solver_params": {"clearance_m": 0.015},
+    }
+
+    spec = ArenaEnvGraphSpec.from_dict(data)
+    restored = ArenaEnvGraphSpec.from_dict(spec.to_dict())
+    params = build_placer_params_from_override(restored.placer_params)
+
+    assert restored.placer_params == data["placer_params"]
+    assert params.placement_seed == 42
+    assert not params.resolve_on_reset
+    assert params.random_yaw_init
+    assert not params.allow_best_loss_fallbacks
+    assert params.max_placement_attempts == 30
+    assert params.solver_params.clearance_m == pytest.approx(0.015)
+    assert not params.solver_params.verbose
+    assert not params.solver_params.save_position_history
+    assert params.required_checks == set()
+
+
+def test_placer_params_null_fields_are_treated_as_omitted():
+    from isaaclab_arena.environment_spec.placer_params_cfg_override import build_placer_params_from_override
+
+    data = _minimal_env_graph_data()
+    data["placer_params"] = {
+        "random_yaw_init": None,
+        "solver_params": {"clearance_m": None},
+    }
+
+    params = build_placer_params_from_override(ArenaEnvGraphSpec.from_dict(data).placer_params)
+
+    assert not params.random_yaw_init
+    assert params.solver_params.clearance_m == pytest.approx(0.01)
+
+
+def test_graph_spec_converts_serialized_placer_param_types():
+    from isaaclab_arena.environment_spec.placer_params_cfg_override import build_placer_params_from_override
+    from isaaclab_arena.relations.collision_mode import CollisionMode
+
+    data = _minimal_env_graph_data()
+    data["placer_params"] = {
+        "enabled_checks": ["no_overlap"],
+        "solver_params": {
+            "clearance_m": 0,
+            "collision_mode": "mesh",
+        },
+    }
+
+    params = build_placer_params_from_override(ArenaEnvGraphSpec.from_dict(data).placer_params)
+
+    assert params.enabled_checks == {"no_overlap"}
+    assert params.solver_params.clearance_m == 0.0
+    assert isinstance(params.solver_params.clearance_m, float)
+    assert params.solver_params.collision_mode is CollisionMode.MESH
+
+
+@pytest.mark.parametrize(
+    ("placer_params", "error_match"),
+    [
+        ({"unknown_field": True}, "Invalid placer_params"),
+        ({"solver_params": {"lr": "fast"}}, "expected <class 'float'>, got str"),
+        ({"max_placement_attempts": 0}, "max_placement_attempts must be positive"),
+        ({"solver_params": {"clearance_m": -0.1}}, "clearance_m must be >= 0"),
+        ({"solver_params": {"strategies": {}}}, "cannot be overridden"),
+        ({"reachability_config": {"embodiment": "robot"}}, "cannot be overridden"),
+        (
+            {"enabled_checks": ["no_overlap"], "required_checks": ["on_relation"]},
+            "required_checks must be a subset",
+        ),
+        ({"_target_": "builtins.dict"}, "Unsupported Hydra control key"),
+    ],
+)
+def test_graph_spec_rejects_invalid_placer_params(placer_params, error_match):
+    data = _minimal_env_graph_data()
+    data["placer_params"] = placer_params
+
+    with pytest.raises(ValidationError, match=error_match):
+        ArenaEnvGraphSpec.from_dict(data)
+
+
 def test_graph_spec_parses_radial_position_limits():
     """Graph specs preserve cylindrical position-limit parameters for relation construction."""
 
@@ -506,26 +596,6 @@ def test_a_spec_naming_a_searched_simready_asset_by_its_search_name_is_rejected(
 
     assert result.returncode != 0
     assert "Unknown asset registry_name 'simready_replay_teapot'" in result.stderr
-
-
-def test_graph_spec_leaves_placement_debug_view_off_by_default():
-    """A graph YAML that says nothing about debug visualization builds placement params with it off."""
-    from isaaclab_arena.environment_spec.arena_env_graph_conversion_utils import build_checks_for_placer_params
-
-    params = build_checks_for_placer_params(ArenaEnvGraphSpec.from_yaml(_GRAPH))
-
-    assert not params.debug_visualize
-    assert params.debug_visualize_output_path is None
-
-
-def test_graph_spec_forwards_placement_debug_view_to_placer_params():
-    """A YAML asking for the debug view reaches the params ObjectPlacer reads, both fields intact."""
-    from isaaclab_arena.environment_spec.arena_env_graph_conversion_utils import build_checks_for_placer_params
-
-    params = build_checks_for_placer_params(ArenaEnvGraphSpec.from_yaml(_DEBUG_VIEW_GRAPH))
-
-    assert params.debug_visualize
-    assert params.debug_visualize_output_path == "/tmp/placement_debug_view.rrd"
 
 
 def test_graph_spec_leaves_shipped_envs_out_of_the_debug_view():
