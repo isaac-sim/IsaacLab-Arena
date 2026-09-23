@@ -15,7 +15,7 @@ from isaaclab_arena.relations.collision_mode import object_uses_mesh_collision
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_result import PlacementResult
 from isaaclab_arena.relations.placement_validation import PlacementValidationResults
-from isaaclab_arena.relations.placement_validators import build_validators
+from isaaclab_arena.relations.placement_validators import PlacementCandidateBatch, build_validators
 from isaaclab_arena.relations.placement_visualizer import get_or_create_placement_visualizer
 from isaaclab_arena.relations.relation_solver import RelationSolver
 from isaaclab_arena.relations.relations import (
@@ -35,7 +35,7 @@ from isaaclab_arena.utils.yaw import rotate_quat_by_yaw, wrap_angle_to_pi, yaw_f
 if TYPE_CHECKING:
     from isaaclab_arena.relations.collision_object import CollisionObject
     from isaaclab_arena.relations.placement_asset import PlaceableAsset
-    from isaaclab_arena.relations.placement_validators import PlacementValidator
+    from isaaclab_arena.relations.placement_validators import PrePhysicsPlacementValidator
 
 
 @dataclass
@@ -83,7 +83,7 @@ class ObjectPlacer:
         self.params = params or ObjectPlacerParams()
         self._solver = RelationSolver(params=self.params.solver_params)
         self._visualizer = get_or_create_placement_visualizer(self.params)
-        self._validators: list[PlacementValidator] = build_validators(self.params, self._visualizer)
+        self._validators: list[PrePhysicsPlacementValidator] = build_validators(self.params, self._visualizer)
 
     def place(
         self,
@@ -758,8 +758,8 @@ class ObjectPlacer:
         num_candidates = len(positions)
         for validator in self._validators:
             if not validator.run_after_inexpensive_checks:
-                layout_pass_verdicts_by_check[validator.check] = validator.validate_batch(
-                    positions, orientations, bboxes, collision_objects
+                layout_pass_verdicts_by_check[validator.check] = validator.validate(
+                    PlacementCandidateBatch(positions, orientations, bboxes, collision_objects)
                 )
                 evaluated_layout_indices_by_check[validator.check] = list(range(num_candidates))
 
@@ -785,11 +785,13 @@ class ObjectPlacer:
                 if self._visualizer is not None:
                     self._visualizer.set_active_layouts(passed_layout_indices)
                 # only passed layouts are validated
-                verdicts_over_passed_layout = validator.validate_batch(
-                    [positions[i] for i in passed_layout_indices],
-                    [orientations[i] for i in passed_layout_indices],
-                    [bboxes[i] for i in passed_layout_indices],
-                    collision_objects,
+                verdicts_over_passed_layout = validator.validate(
+                    PlacementCandidateBatch(
+                        [positions[i] for i in passed_layout_indices],
+                        [orientations[i] for i in passed_layout_indices],
+                        [bboxes[i] for i in passed_layout_indices],
+                        collision_objects,
+                    )
                 )
                 verdicts = [False] * num_candidates
                 for layout_index_within_batch, verdict in zip(passed_layout_indices, verdicts_over_passed_layout):

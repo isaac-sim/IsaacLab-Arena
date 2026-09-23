@@ -7,12 +7,13 @@ from __future__ import annotations
 
 import torch
 import trimesh
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 from collections.abc import Iterator
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, ClassVar, cast
 
 from isaaclab_arena.relations.collision_mode import CollisionMode, get_object_collision_mode, object_uses_mesh_collision
-from isaaclab_arena.relations.placement_validation import PlacementCheck
+from isaaclab_arena.relations.placement_validation import PlacementCheck, PlacementValidator
 from isaaclab_arena.relations.placement_validator_registry import PlacementValidatorRegistry, register_validator
 from isaaclab_arena.relations.relation_loss_strategies import (
     SIDE_CONFIGS,
@@ -34,11 +35,27 @@ if TYPE_CHECKING:
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 
-class PlacementValidator(ABC):
+@dataclass
+class PlacementCandidateBatch:
+    """N solved layouts and their collision geometry before physics."""
+
+    positions: list[dict[PlaceableAsset, tuple[float, float, float]]]
+    """N mappings from asset to environment-local position, shape (3,)."""
+    orientations: list[dict[PlaceableAsset, float]]
+    """N mappings from asset to absolute world-Z yaw in radians."""
+    bboxes: list[dict[PlaceableAsset, AxisAlignedBoundingBox]]
+    """N mappings from asset to bounds with min/max tensors shaped (1, 3)."""
+    collision_objects: list[CollisionObject]
+    """Fixed collision geometry shared by all candidates."""
+
+
+class PrePhysicsPlacementValidator(PlacementValidator[PlacementCandidateBatch, list[bool]]):
     """A single build-time placement check evaluated over a batch of candidate layouts.
 
     Register a concrete validator with @register_validator so build_validators() can discover it.
     """
+
+    stage: ClassVar[str] = "pre_physics"
 
     check: ClassVar[str]
     """The check name this validator reports; its registry key and result key. Built-ins use a
@@ -52,6 +69,10 @@ class PlacementValidator(ABC):
     def __init__(self, params: ObjectPlacerParams, visualizer: PlacementRerunVisualizer | None = None) -> None:
         self._params = params
         self._visualizer = visualizer
+
+    def validate(self, data: PlacementCandidateBatch) -> list[bool]:
+        """Return one verdict per solved candidate."""
+        return self.validate_batch(data.positions, data.orientations, data.bboxes, data.collision_objects)
 
     @classmethod
     def is_available(cls, params: ObjectPlacerParams) -> bool:
@@ -87,7 +108,7 @@ def get_build_time_checks() -> tuple[str, ...]:
 
 def build_validators(
     params: ObjectPlacerParams, visualizer: PlacementRerunVisualizer | None = None
-) -> list[PlacementValidator]:
+) -> list[PrePhysicsPlacementValidator]:
     """Construct the enabled build-time validators in registration order.
 
     A registered check whose is_available() returns False is delisted; a check named in
@@ -106,7 +127,7 @@ def build_validators(
     if enabled_checks is not None:
         registered_checks = tuple(check for check in registered_checks if check in enabled_checks)
 
-    validators: list[PlacementValidator] = []
+    validators: list[PrePhysicsPlacementValidator] = []
     for check in registered_checks:
         validator_cls = registry.get_validator_by_name(check)
         if validator_cls.is_available(params):
@@ -115,7 +136,7 @@ def build_validators(
 
 
 @register_validator
-class OnRelationValidator(PlacementValidator):
+class OnRelationValidator(PrePhysicsPlacementValidator):
     """Support footprint and height checks for On and ClutterOn relations."""
 
     check = PlacementCheck.ON_RELATION
@@ -188,7 +209,7 @@ class OnRelationValidator(PlacementValidator):
 
 
 @register_validator
-class NextToValidator(PlacementValidator):
+class NextToValidator(PrePhysicsPlacementValidator):
     """Validate every NextTo relation: child on the requested side within the relation's tolerance_m."""
 
     check = PlacementCheck.NEXT_TO
@@ -240,7 +261,7 @@ class NextToValidator(PlacementValidator):
 
 
 @register_validator
-class NotNextToValidator(PlacementValidator):
+class NotNextToValidator(PrePhysicsPlacementValidator):
     """Validate every NotNextTo relation: child has cleared the keep-out zone beside the parent."""
 
     check = PlacementCheck.NOT_NEXT_TO
@@ -301,7 +322,7 @@ class NotNextToValidator(PlacementValidator):
 
 
 @register_validator
-class FaceToValidator(PlacementValidator):
+class FaceToValidator(PrePhysicsPlacementValidator):
     """Validate every FaceTo subject has a defined target direction and a computed facing yaw."""
 
     check = PlacementCheck.FACE_TO
@@ -340,7 +361,7 @@ class FaceToValidator(PlacementValidator):
 
 
 @register_validator
-class NoOverlapValidator(PlacementValidator):
+class NoOverlapValidator(PrePhysicsPlacementValidator):
     """Validate that no two placed bounding boxes (or collision meshes) intersect.
 
     Owns the CPU mesh/sphere cache so the AABB→mesh short-circuit stays local: cheap AABB pairs are

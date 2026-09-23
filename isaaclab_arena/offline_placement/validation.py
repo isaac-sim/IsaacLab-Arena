@@ -12,8 +12,8 @@ from dataclasses import dataclass, field
 
 from isaaclab.utils.math import quat_error_magnitude
 
-from isaaclab_arena.relations.clutter.geometry import ClutterRegion
-from isaaclab_arena.relations.clutter.settle_params import ClutterSettleParams
+from isaaclab_arena.offline_placement.geometry import ClutterRegion
+from isaaclab_arena.offline_placement.validators import RestValidator
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 
@@ -55,7 +55,7 @@ class SettleTracker:
     A pile can pause before toppling, so one quiet sample is insufficient.
     """
 
-    def __init__(self, params: ClutterSettleParams):
+    def __init__(self, params: RestValidator):
         self._params = params
         self._previous: tuple[torch.Tensor, torch.Tensor] | None = None
         """Previous positions (N, 3) and xyzw quaternions (N, 4), or None before the first finite sample."""
@@ -113,18 +113,20 @@ class SettleTracker:
 def check_resting_poses(
     bounds: AxisAlignedBoundingBox,
     region: ClutterRegion,
-    params: ClutterSettleParams,
+    containment_margin_m: float,
+    fall_through_tolerance_m: float,
 ) -> ClutterRestVerdict:
     """Return containment failures for N members.
 
     Args:
         bounds: Rotated object bounds in the environment frame, min/max shape (N, 3).
         region: Full support footprint and surface height, without the release spread scaling.
-        params: Containment and fall-through tolerances.
+        containment_margin_m: Permitted overhang beyond the support footprint.
+        fall_through_tolerance_m: Permitted penetration below the support surface.
     """
     verdict = ClutterRestVerdict()
-    margin = params.containment_margin_m
-    floor = region.floor_z - params.fall_through_tolerance_m
+    margin = containment_margin_m
+    floor = region.floor_z - fall_through_tolerance_m
     for index, (lower, upper) in enumerate(zip(bounds.min_point, bounds.max_point, strict=True)):
         if not bool(torch.isfinite(lower).all() and torch.isfinite(upper).all()):
             verdict.diverged.append(index)

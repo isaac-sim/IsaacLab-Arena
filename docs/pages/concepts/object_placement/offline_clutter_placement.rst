@@ -42,9 +42,9 @@ relations:
 
 .. code-block:: python
 
-   from isaaclab_arena.scripts.generate_clutter_scene import ClutterGenerationCfg, generate_scene
+   from isaaclab_arena.offline_placement.clutter_generation import ClutterGenerationCfg, generate_clutter_layouts
 
-   generate_scene(arena_env, ClutterGenerationCfg(output="outputs/clutter/episodes.jsonl"))
+   generate_clutter_layouts(arena_env, ClutterGenerationCfg(output="outputs/clutter/episodes.jsonl"))
 
 The command-line entry point loads the YAML into this same environment type.
 Recording uses runtime scene keys, so Python environments need no graph node IDs.
@@ -61,7 +61,8 @@ The generator accepts only releases that pass the source environment's
 ``placement_validators``. ``no_overlap`` and ``on_relation`` are always required.
 For clutter, ``on_relation`` checks containment and minimum height, so an object
 above the support passes without touching it. After the drop, the generator
-checks rest, full-support containment and passive-body drift. It retries rejected
+runs the configured post-physics validators. The defaults check rest, full-support
+containment and passive-body drift. It retries rejected
 layouts and restores the original scene and robot targets on success or failure.
 Output is written only after every requested layout passes; existing files are
 never overwritten.
@@ -97,6 +98,53 @@ Load them with ``--placement_layouts outputs/clutter/episodes.jsonl`` or set
 replay selection and reset behavior. Remove any companion layout setting before
 generating new clutter; generation requires the source relations.
 
+Post-physics validation
+-----------------------
+
+``post_physics`` maps check names to Hydra validator configurations. The command
+prints each configured check as enabled or skipped. Every enabled check must
+pass; unavailable implementations and invalid settings fail explicitly.
+
+For example, tighten support containment or explicitly disable the passive-body
+check:
+
+.. code-block:: bash
+
+   post_physics.support_containment.fall_through_tolerance_m=0.002
+   post_physics.passive_drift.enabled=false
+
+Disabling a check removes its guarantee. If ``post_physics.rest.enabled=false``,
+the simulation runs for ``settle.timeout_s`` and records ``source: "physics"``
+instead of ``"settled"``. At least one post-physics check must remain enabled.
+Finite poses and valid scene construction are always required.
+
+Each record includes ``validation.post_physics``. Every entry contains the check
+name, stage, effective configuration, pass/fail result, and failure or skip
+reason. A skipped check has ``passed: null``. ``validation.pre_physics`` stores
+release-check verdicts; those verdicts apply to release poses, not settled poses.
+``validation.sampling`` records the physics time step and sampling settings.
+Replay reads the poses and does not rerun these checks.
+
+To add a check, define a dataclass subclass of ``PostPhysicsPlacementValidator``
+in ``isaaclab_arena.offline_placement.validators``. Its fields define its settings;
+``validate(state)`` returns ``self.report()`` on success or
+``self.report("failure reason")`` on failure. ``state`` exposes the measured
+layout, reference poses, support geometry, and simulation environment.
+Select the class through its import path:
+
+.. code-block:: python
+
+   cfg.post_physics["my_check"] = {
+       "_target_": "my_package.validation.MyValidator",
+       "enabled": True,
+   }
+
+The shared ``PlacementValidator`` contract lives in ``relations.placement_validation``.
+Solver extensions derive from ``PrePhysicsPlacementValidator`` and retain their
+``validate_batch`` implementation. Offline extensions derive from
+``PostPhysicsPlacementValidator``. The online solver and replay code do not
+import ``offline_placement``.
+
 Controls
 --------
 
@@ -110,12 +158,13 @@ Controls
 - ``num_envs`` / ``num_layouts``: parallel environments / total saved layouts.
   Omitting ``num_layouts`` saves one per environment.
 - ``attempts`` / ``settle.timeout_s``: retry count / simulated seconds per trial.
-- ``settle.move_thresh_m``, ``settle.turn_thresh_deg``,
-  ``settle.required_quiet_windows``: motion thresholds and consecutive quiet polls
+- ``post_physics.rest.move_thresh_m``, ``post_physics.rest.turn_thresh_deg``,
+  ``post_physics.rest.required_quiet_windows``: motion thresholds and consecutive quiet polls
   required for rest. Lower thresholds or more quiet polls are stricter.
-- ``settle.containment_margin_m`` / ``settle.fall_through_tolerance_m``: permitted
-  overhang / penetration below the support. ``settle.passive_move_thresh_m`` and
-  ``settle.passive_turn_thresh_deg`` limit support, neighbor and robot-link drift.
+- ``post_physics.support_containment.containment_margin_m`` /
+  ``post_physics.support_containment.fall_through_tolerance_m``: permitted
+  overhang / penetration below the support. ``post_physics.passive_drift.passive_move_thresh_m`` and
+  ``post_physics.passive_drift.passive_turn_thresh_deg`` limit support, neighbor and robot-link drift.
 
 Limits
 ------

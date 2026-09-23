@@ -9,26 +9,31 @@ from __future__ import annotations
 
 import math
 import torch
-from dataclasses import dataclass, replace
+from dataclasses import asdict, dataclass, replace
 from typing import TYPE_CHECKING
 
-from isaaclab.utils.math import quat_error_magnitude
-
-from isaaclab_arena.relations.clutter.geometry import (
+from isaaclab_arena.offline_placement.geometry import (
     dynamic_rigid_object_keys,
-    region_above_support,
     spawned_geometry_is_fixed,
     spawned_rigid_body_has_gravity,
 )
-from isaaclab_arena.relations.clutter.settle_params import ClutterSettleParams
-from isaaclab_arena.relations.clutter.validation import SettleTracker, check_resting_poses
+from isaaclab_arena.offline_placement.scene_snapshot import SceneSnapshot
+from isaaclab_arena.offline_placement.settle_params import ClutterSettleParams
+from isaaclab_arena.offline_placement.validation import SettleTracker
+from isaaclab_arena.offline_placement.validators import (
+    PostPhysicsPlacementValidator,
+    PostPhysicsState,
+    RestValidator,
+    build_post_physics_validators,
+    default_post_physics_validators,
+)
 from isaaclab_arena.relations.object_placer import ObjectPlacer
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_events import get_base_rotation_per_asset, write_layout_to_sim
 from isaaclab_arena.relations.placement_validation import PlacementCheck
 from isaaclab_arena.relations.placement_validators import build_validators, get_build_time_checks
 from isaaclab_arena.relations.relations import ClutterOn, get_relation
-from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, quaternion_to_90_deg_z_quarters
+from isaaclab_arena.utils.bounding_box import quaternion_to_90_deg_z_quarters
 from isaaclab_arena.utils.pose import Pose
 
 if TYPE_CHECKING:
@@ -61,6 +66,16 @@ def groups_from_assets(assets: list[PlaceableAsset]) -> list[ClutterGroup]:
     return [ClutterGroup(support, tuple(objects)) for support, objects in members.items()]
 
 
+@dataclass
+class SettledPlacement:
+    """One accepted layout and the checks that established its acceptance."""
+
+    poses: dict[str, Pose]
+    """Environment-local poses keyed by runtime scene name."""
+    validation: dict
+    """Pre-physics verdicts, post-physics reports and sampling settings."""
+
+
 def settle_clutter(
     env: ManagerBasedEnv,
     assets: list[PlaceableAsset],
@@ -69,24 +84,32 @@ def settle_clutter(
     attempts: int = 5,
     params: ClutterSettleParams | None = None,
     placer_params: ObjectPlacerParams | None = None,
-) -> list[dict[str, Pose]]:
-    """Generate one resting layout per environment and restore the caller's scene state.
+    validators: list[PostPhysicsPlacementValidator] | None = None,
+) -> list[SettledPlacement]:
+    """Generate one accepted layout per environment and restore the caller's scene state.
 
     Args:
         env: Constructed scene at the desired initial poses and articulation configuration.
         assets: Scene assets carrying ClutterOn members, IsAnchor supports, and fixed neighbors.
         seed: Seed for independent release samples in each environment and attempt.
         attempts: Maximum trials for each environment before failing.
-        params: Physics time budget, quiet thresholds and containment tolerances.
+        params: Physics time budget and sampling interval.
         placer_params: Solver, candidate-count and validation settings for release poses, before settling.
+        validators: Configured post-physics checks; None enables the default checks.
 
     Returns:
         Environment-local poses for every dynamic rigid object, indexed by environment.
-        Layouts are accepted only if passive bodies and robot links remain within drift tolerances.
+        Each result includes the effective settings and outcomes of its configured checks.
     """
     env = env.unwrapped
     params = replace(params) if params is not None else ClutterSettleParams()
     placer_params = _release_placer_params(placer_params)
+    if validators is None:
+        validators = build_post_physics_validators(default_post_physics_validators())
+    assert any(validator.enabled for validator in validators), "Enable at least one post-physics validator"
+    rest_validator = next(
+        (validator for validator in validators if isinstance(validator, RestValidator) and validator.enabled), None
+    )
     assert attempts > 0, "attempts must be positive"
     groups, placement_assets, collision_objects = _prepare_scene(env, assets)
     capture_keys = dynamic_rigid_object_keys(env.scene)
@@ -94,11 +117,11 @@ def settle_clutter(
     clutter_keys = {key for group in groups for key in group.objects}
     passive_keys = sorted(set(geometry_keys) - clutter_keys)
     boxes = {key: env.arena_world.get_aabb_in_local_frame(key) for key in geometry_keys}
-    snapshot = _SceneSnapshot(env, geometry_keys)
+    snapshot = SceneSnapshot(env, geometry_keys)
     requested_checks = (placer_params.enabled_checks or set()) | (placer_params.required_checks or set())
     requested_checks |= {PlacementCheck.NO_OVERLAP, PlacementCheck.ON_RELATION}
     candidate_count = env.num_envs * placer_params.max_placement_attempts
-    accepted: dict[int, dict[str, Pose]] = {}
+    accepted: dict[int, SettledPlacement] = {}
     failures: dict[int, list[str]] = {i: [] for i in range(env.num_envs)}
     try:
         for attempt in range(attempts):
@@ -109,26 +132,42 @@ def settle_clutter(
                 placement_assets, num_envs=env.num_envs, results_per_env=1, collision_objects=collision_objects
             )
             released, errors = _release_candidates(env, releases, pending, placement_assets, requested_checks)
-            trackers = _wait_for_rest(env, capture_keys, released, params)
+            trackers = _wait_for_rest(env, capture_keys, released, params, rest_validator)
             for env_id in released:
-                reasons = snapshot.passive_drift(env, env_id, passive_keys, params)
-                rest_failure = trackers[env_id].failure_reason(capture_keys)
-                if rest_failure:
-                    reasons.append(rest_failure)
-                if not reasons:
-                    layout = {key: _pose(env.arena_world.get_pose_e(key)[env_id]) for key in capture_keys}
-                    reasons = _containment_failures(layout, groups, boxes, snapshot.poses, env_id, params)
-                    if not reasons:
-                        accepted[env_id] = layout
+                measured = {key: env.arena_world.get_pose_e(key)[env_id] for key in capture_keys}
+                if not all(torch.isfinite(value).all() for value in measured.values()):
+                    errors[env_id] = "non-finite measured pose"
+                    continue
+                layout = {key: _pose(value) for key, value in measured.items()}
+                state = PostPhysicsState(
+                    env, env_id, layout, snapshot, passive_keys, groups, boxes, trackers.get(env_id)
+                )
+                reports = [
+                    validator.validate(state) if validator.enabled else validator.report() for validator in validators
+                ]
+                reasons = [
+                    f"{report.check}: {report.reason or 'did not pass'}"
+                    for validator, report in zip(validators, reports, strict=True)
+                    if validator.enabled and report.passed is not True
+                ]
                 if reasons:
                     errors[env_id] = "; ".join(reasons)
+                else:
+                    accepted[env_id] = SettledPlacement(
+                        layout,
+                        {
+                            "pre_physics": dict(releases[env_id][0].validation_results.validation_results),
+                            "post_physics": [asdict(report) for report in reports],
+                            "sampling": {**asdict(params), "physics_dt_s": env.sim.get_physics_dt()},
+                        },
+                    )
             for env_id, reason in errors.items():
                 failures[env_id].append(f"attempt {attempt + 1}: {reason}")
                 print(f"[clutter] env {env_id}, {failures[env_id][-1]}")
             if len(accepted) == env.num_envs:
                 return [accepted[i] for i in range(env.num_envs)]
         rejected = {i: failures[i] for i in range(env.num_envs) if i not in accepted}
-        raise AssertionError(f"No settled layout after {attempts} attempt(s): {rejected}")
+        raise AssertionError(f"No accepted layout after {attempts} attempt(s): {rejected}")
     finally:
         snapshot.restore(env)
 
@@ -177,54 +216,6 @@ def _prepare_scene(
     return groups, placement_assets, collision_objects
 
 
-class _SceneSnapshot:
-    """Scene and control state for N environments, with J joints and B links per articulation."""
-
-    def __init__(self, env: ManagerBasedEnv, geometry_keys: list[str]):
-        self.state = env.scene.get_state()
-        """Scene state in Isaac Lab's nested state-dictionary format."""
-        self.poses = {key: env.arena_world.get_pose_e(key).clone() for key in geometry_keys}
-        """Environment-local poses (N, 7), ordered xyz/xyzw, by scene key."""
-        self.targets = {
-            key: (
-                asset.data.joint_pos_target.torch.clone(),
-                asset.data.joint_vel_target.torch.clone(),
-                asset.data.joint_effort_target.torch.clone(),
-            )
-            for key, asset in env.scene.articulations.items()
-        }
-        """Position, velocity and effort targets, each (N, J), by articulation key."""
-        self.links = {key: asset.data.body_link_pose_w.torch.clone() for key, asset in env.scene.articulations.items()}
-        """World-frame link poses (N, B, 7), ordered xyz/xyzw, by articulation key."""
-
-    def restore(self, env: ManagerBasedEnv) -> None:
-        """Restore physics state and actuator targets."""
-        env.scene.reset_to(self.state)
-        for key, (position, velocity, effort) in self.targets.items():
-            asset = env.scene.articulations[key]
-            asset.set_joint_position_target_index(target=position)
-            asset.set_joint_velocity_target_index(target=velocity)
-            asset.set_joint_effort_target_index(target=effort)
-        env.scene.write_data_to_sim()
-        env.sim.forward()
-
-    def passive_drift(
-        self, env: ManagerBasedEnv, env_id: int, passive_keys: list[str], params: ClutterSettleParams
-    ) -> list[str]:
-        """Report passive objects or robot links that moved beyond the permitted tolerances."""
-        reasons = []
-        for key in passive_keys:
-            drift = _pose_drift_reason(self.poses[key][env_id], env.arena_world.get_pose_e(key)[env_id], params)
-            if drift:
-                reasons.append(f"{key}: {drift}")
-        for key, initial in self.links.items():
-            current = env.scene.articulations[key].data.body_link_pose_w.torch[env_id]
-            drift = _pose_drift_reason(initial[env_id], current, params)
-            if drift:
-                reasons.append(f"{key} links: {drift}")
-        return reasons
-
-
 def _release_candidates(
     env: ManagerBasedEnv,
     releases: list[list[PlacementResult]],
@@ -249,18 +240,25 @@ def _release_candidates(
 
 
 def _wait_for_rest(
-    env: ManagerBasedEnv, capture_keys: list[str], released: list[int], params: ClutterSettleParams
+    env: ManagerBasedEnv,
+    capture_keys: list[str],
+    released: list[int],
+    params: ClutterSettleParams,
+    rest: RestValidator | None,
 ) -> dict[int, SettleTracker]:
     """Step the scene until released layouts settle, diverge, or exhaust the time budget."""
     from isaaclab_arena.utils.physics_settle import step_physics
 
-    trackers = {i: SettleTracker(params) for i in released}
-    if not trackers:
-        return trackers
+    if not released:
+        return {}
+    if rest is None:
+        step_physics(env, math.floor(params.timeout_s / env.sim.get_physics_dt()))
+        return {}
+    trackers = {i: SettleTracker(rest) for i in released}
     dt = env.sim.get_physics_dt()
-    poll_steps, max_steps = _step_budget(dt, params)
+    poll_steps, max_steps = _step_budget(dt, params, rest)
     assert (
-        0.5 * abs(env.cfg.sim.gravity[2]) * (poll_steps * dt) ** 2 > params.move_thresh_m
+        0.5 * abs(env.cfg.sim.gravity[2]) * (poll_steps * dt) ** 2 > rest.move_thresh_m
     ), "Poll interval is too short to distinguish free fall from rest"
     for _ in range(max_steps // poll_steps):
         step_physics(env, poll_steps)
@@ -271,39 +269,6 @@ def _wait_for_rest(
         if all(tracker.settled or tracker.diverged for tracker in trackers.values()):
             break
     return trackers
-
-
-def _containment_failures(
-    layout: dict[str, Pose],
-    groups: list[ClutterGroup],
-    boxes: dict[str, AxisAlignedBoundingBox],
-    support_poses: dict[str, torch.Tensor],
-    env_id: int,
-    params: ClutterSettleParams,
-) -> list[str]:
-    """Report settled objects outside their support's full footprint or below its surface."""
-    reasons = []
-    for group in groups:
-        support = _pose(support_poses[group.support][env_id])
-        region = region_above_support(
-            support.position_xyz,
-            _box_for_env(boxes[group.support], env_id),
-            support_rotation_xyzw=support.rotation_xyzw,
-        )
-        object_bounds = [
-            _box_for_env(boxes[key], env_id)
-            .rotated_by_quat(layout[key].rotation_xyzw)
-            .translated(layout[key].position_xyz)
-            for key in group.objects
-        ]
-        bounds = AxisAlignedBoundingBox(
-            torch.cat([box.min_point for box in object_bounds]),
-            torch.cat([box.max_point for box in object_bounds]),
-        )
-        verdict = check_resting_poses(bounds, region, params)
-        if not verdict.ok:
-            reasons.append(f"support {group.support}: {verdict.describe(list(group.objects))}")
-    return reasons
 
 
 def _release_placer_params(params: ObjectPlacerParams | None) -> ObjectPlacerParams:
@@ -343,36 +308,17 @@ def _release_objects(
     env.sim.forward()
 
 
-def _box_for_env(box: AxisAlignedBoundingBox, env_id: int) -> AxisAlignedBoundingBox:
-    """Return one environment's local geometry bounds on the CPU."""
-    return AxisAlignedBoundingBox(box.min_point[env_id : env_id + 1].cpu(), box.max_point[env_id : env_id + 1].cpu())
-
-
 def _pose(value: torch.Tensor) -> Pose:
     """Convert a finite xyz/xyzw tensor of shape (7,) to an Arena pose."""
     assert torch.isfinite(value).all(), "Cannot cache a non-finite pose"
     return Pose(tuple(value[:3].tolist()), tuple(value[3:7].tolist()))
 
 
-def _pose_drift_reason(initial: torch.Tensor, current: torch.Tensor, params: ClutterSettleParams) -> str | None:
-    """Report excessive passive drift for poses shaped (..., 7), ordered xyz/xyzw."""
-    if not torch.isfinite(current).all():
-        return "non-finite passive pose"
-    distance = float((current[..., :3] - initial[..., :3]).norm(dim=-1).max())
-    angle = float(torch.rad2deg(quat_error_magnitude(current[..., 3:], initial[..., 3:])).max())
-    if distance > params.passive_move_thresh_m or angle > params.passive_turn_thresh_deg:
-        return (
-            f"passive drift {distance:.6f} m, {angle:.3f} deg; limits "
-            f"{params.passive_move_thresh_m:.6f} m, {params.passive_turn_thresh_deg:.3f} deg"
-        )
-    return None
-
-
-def _step_budget(dt: float, params: ClutterSettleParams) -> tuple[int, int]:
+def _step_budget(dt: float, params: ClutterSettleParams, rest: RestValidator) -> tuple[int, int]:
     """Return poll and trial step counts that allow the required quiet windows."""
     poll_steps = math.ceil(params.poll_interval_s / dt)
     max_steps = math.floor(params.timeout_s / dt)
-    required_polls = params.required_quiet_windows + 1
+    required_polls = rest.required_quiet_windows + 1
     assert max_steps // poll_steps >= required_polls, (
         f"timeout_s allows {max_steps // poll_steps} polls at physics dt={dt:g}; need {required_polls}. "
         "Increase timeout_s or reduce poll_interval_s."

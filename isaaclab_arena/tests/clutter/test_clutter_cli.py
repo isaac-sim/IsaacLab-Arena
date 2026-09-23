@@ -7,10 +7,13 @@
 
 import json
 import subprocess
+from dataclasses import dataclass
 from pathlib import Path
+from typing import ClassVar
 
 import pytest
 
+from isaaclab_arena.offline_placement.validators import PostPhysicsPlacementValidator
 from isaaclab_arena.tests.utils.constants import TestConstants
 from isaaclab_arena.tests.utils.subprocess import run_subprocess
 
@@ -33,7 +36,7 @@ def test_clutter_imports_respect_simulation_startup():
             (
                 "import runpy, sys; runpy.run_path(sys.argv[1]); "
                 "assert 'numpy' not in sys.modules, 'Numerical libraries imported before SimulationApp startup'; "
-                "import isaaclab_arena.relations.clutter.settle; "
+                "import isaaclab_arena.offline_placement.settle; "
                 "assert 'pxr' not in sys.modules, 'USD imported before SimulationApp startup'"
             ),
             str(SCRIPT),
@@ -43,6 +46,20 @@ def test_clutter_imports_respect_simulation_startup():
         timeout=60,
     )
     assert result.returncode == 0, result.stdout + result.stderr
+    online = subprocess.run(
+        [
+            TestConstants.python_path,
+            "-c",
+            (
+                "import sys; import isaaclab_arena.relations.object_placer; "
+                "assert not any(m.startswith('isaaclab_arena.offline_placement') for m in sys.modules)"
+            ),
+        ],
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert online.returncode == 0, online.stdout + online.stderr
 
 
 @pytest.mark.with_subprocess
@@ -126,3 +143,14 @@ def Xform "Support" (
             x, y, z = pose["position_xyz"]
             assert -0.5 < x < 0.5 and -0.5 < y < 0.5
             assert 0.0 < z < 1.5
+
+
+@dataclass
+class RejectPostPhysics(PostPhysicsPlacementValidator):
+    """Reject every measured layout to exercise configured output gating."""
+
+    check: ClassVar[str] = "reject_for_test"
+    threshold: float = 0.0
+
+    def validate(self, data):
+        return self.report("deliberately rejected")
