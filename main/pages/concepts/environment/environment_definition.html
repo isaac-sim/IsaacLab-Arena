@@ -724,9 +724,9 @@ read across to see the correspondence.</p>
 <section id="only-in-python">
 <h3>Only in Python<a class="headerlink" href="#only-in-python" title="Link to this heading">#</a></h3>
 <p><code class="docutils literal notranslate"><span class="pre">IsaacLabArenaEnvironment</span></code> takes ten constructor arguments.
-<code class="docutils literal notranslate"><span class="pre">build_arena_env_from_graph_spec()</span></code> fills five: <code class="docutils literal notranslate"><span class="pre">name</span></code>, <code class="docutils literal notranslate"><span class="pre">scene</span></code>,
-<code class="docutils literal notranslate"><span class="pre">embodiment</span></code>, <code class="docutils literal notranslate"><span class="pre">task</span></code>, and a partial <code class="docutils literal notranslate"><span class="pre">placer_params</span></code>. Everything else has no
-YAML key.</p>
+<code class="docutils literal notranslate"><span class="pre">build_arena_env_from_graph_spec()</span></code> fills the graph-owned scene, task,
+placement, physics-backend, and compiled-config callback fields. The remaining
+runtime integrations have no YAML key.</p>
 <p><strong>Teleoperation device.</strong> YAML never sets <code class="docutils literal notranslate"><span class="pre">env_cfg.teleop_devices</span></code>. Python can
 pass a device that drives the embodiment:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">teleop_device</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">device_registry</span><span class="o">.</span><span class="n">get_device_by_name</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">teleop_device</span><span class="p">)()</span>
@@ -757,20 +757,6 @@ else on that config:</p>
     <span class="o">...</span><span class="p">,</span>
     <span class="n">episode_recorder_terms</span><span class="o">=</span><span class="p">{</span><span class="s2">"cube_pose"</span><span class="p">:</span> <span class="n">EpisodeRecorderTermCfg</span><span class="p">(</span><span class="n">func</span><span class="o">=</span><span class="n">record_cube_pose</span><span class="p">)},</span>
 <span class="p">)</span>
-</pre></div>
-</div>
-<p><strong>Most placement tuning.</strong> YAML <code class="docutils literal notranslate"><span class="pre">placement_validators</span></code> can set only four
-<code class="docutils literal notranslate"><span class="pre">ObjectPlacerParams</span></code> fields: <code class="docutils literal notranslate"><span class="pre">enabled_checks</span></code>, <code class="docutils literal notranslate"><span class="pre">required_checks</span></code>,
-<code class="docutils literal notranslate"><span class="pre">debug_visualize</span></code>, and <code class="docutils literal notranslate"><span class="pre">debug_visualize_output_path</span></code>. Seeds, random yaw, pool
-size, resolve-on-reset, and IK reachability need Python:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">placer_params</span> <span class="o">=</span> <span class="n">ObjectPlacerParams</span><span class="p">(</span>
-    <span class="n">placement_seed</span><span class="o">=</span><span class="mi">42</span><span class="p">,</span>          <span class="c1"># reproducible layouts</span>
-    <span class="n">random_yaw_init</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>       <span class="c1"># random yaw per object</span>
-    <span class="n">resolve_on_reset</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>     <span class="c1"># solve once, reuse across resets</span>
-    <span class="n">min_unique_layouts_per_env</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span>
-    <span class="n">reachability_config</span><span class="o">=</span><span class="n">ReachabilityConfig</span><span class="p">(</span><span class="o">...</span><span class="p">),</span>
-<span class="p">)</span>
-<span class="k">return</span> <span class="n">IsaacLabArenaEnvironment</span><span class="p">(</span><span class="o">...</span><span class="p">,</span> <span class="n">placer_params</span><span class="o">=</span><span class="n">placer_params</span><span class="p">)</span>
 </pre></div>
 </div>
 <p><strong>Extra variations.</strong> Both formats get the defaults an asset attaches in its
@@ -826,6 +812,25 @@ see <a class="reference internal" href="env_cfg_override.html"><span class="doc"
 <section id="same-key-different-behavior">
 <h3>Same key, different behavior<a class="headerlink" href="#same-key-different-behavior" title="Link to this heading">#</a></h3>
 <p>Skip these when porting and you will not get the same environment.</p>
+<p><strong>Placement tuning.</strong> YAML <code class="docutils literal notranslate"><span class="pre">placer_params</span></code> is a validated nested override of
+<code class="docutils literal notranslate"><span class="pre">ObjectPlacerParams</span></code> and its data-only child configs. Field names and types
+come directly from those dataclasses, so nested solver settings do not need a
+second schema:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">placer_params</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">placement_seed</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">42</span>
+<span class="w">  </span><span class="nt">random_yaw_init</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">  </span><span class="nt">resolve_on_reset</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+<span class="w">  </span><span class="nt">min_unique_layouts_per_env</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">20</span>
+<span class="w">  </span><span class="nt">allow_best_loss_fallbacks</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+<span class="w">  </span><span class="nt">solver_params</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">clearance_m</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.0</span>
+</pre></div>
+</div>
+<p>The same block selects <code class="docutils literal notranslate"><span class="pre">enabled_checks</span></code>, <code class="docutils literal notranslate"><span class="pre">required_checks</span></code>, and placement
+debug output. Runtime/code-bearing values such as
+<code class="docutils literal notranslate"><span class="pre">reachability_config.embodiment</span></code> and <code class="docutils literal notranslate"><span class="pre">solver_params.strategies</span></code> are
+rejected. Explicit builder/CLI
+<code class="docutils literal notranslate"><span class="pre">placement_seed</span></code> and <code class="docutils literal notranslate"><span class="pre">resolve_on_reset</span></code> values take precedence over YAML.</p>
 <p><strong>Duplicate instances need unique names.</strong> YAML sets <code class="docutils literal notranslate"><span class="pre">instance_name</span></code> to the node
 id. Asset classes default it to the registry name, so two Python instances of the
 same asset share one name unless you set <code class="docutils literal notranslate"><span class="pre">instance_name</span></code>. Prim paths, event

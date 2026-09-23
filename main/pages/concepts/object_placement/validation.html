@@ -672,8 +672,8 @@ consistent. <code class="docutils literal notranslate"><span class="pre">face_to
 heading rather than a continuous loss, and the check only verifies that a
 facing yaw was computed. A check for a relation kind unused in the
 environment passes trivially.</p>
-<p>Set <code class="docutils literal notranslate"><span class="pre">debug_visualize=True</span></code> (or <code class="docutils literal notranslate"><span class="pre">placement_validators.debug_visualize:</span>
-<span class="pre">true</span></code> in YAML) to inspect candidates in a <a class="reference external" href="https://rerun.io/">Rerun</a>
+<p>Set <code class="docutils literal notranslate"><span class="pre">debug_visualize=True</span></code> (or <code class="docutils literal notranslate"><span class="pre">placer_params.debug_visualize:</span> <span class="pre">true</span></code> in
+YAML) to inspect candidates in a <a class="reference external" href="https://rerun.io/">Rerun</a>
 viewer:</p>
 <figure class="align-center" id="id1">
 <a class="reference internal image-reference" href="../../../_images/validator_bbox_rerun_viz.gif"><img alt="Rerun debug view of base placement validators with bounding boxes and a per-check pass/fail timeline." src="../../../_images/validator_bbox_rerun_viz.gif" style="width: 100%;" />
@@ -723,9 +723,8 @@ required — so when cuRobo is available, <code class="docutils literal notransl
 automatically. Making a check optional (enabled but not required) keeps it
 running and reported without rejecting layouts, which is the usual way to
 keep placement geometry-only.</p>
-<p>Both are set on <code class="docutils literal notranslate"><span class="pre">ObjectPlacerParams</span></code> in Python or the
-<code class="docutils literal notranslate"><span class="pre">placement_validators</span></code> block in YAML; see <a class="reference internal" href="../environment/environment_definition.html"><span class="doc">Environment Definition</span></a>
-for the field-level split.</p>
+<p>Both are set on <code class="docutils literal notranslate"><span class="pre">ObjectPlacerParams</span></code> in Python or the <code class="docutils literal notranslate"><span class="pre">placer_params</span></code> block
+in YAML; see <a class="reference internal" href="../environment/environment_definition.html"><span class="doc">Environment Definition</span></a>.</p>
 </section>
 <section id="next-steps">
 <h2>Next Steps<a class="headerlink" href="#next-steps" title="Link to this heading">#</a></h2>
