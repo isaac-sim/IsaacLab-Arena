@@ -93,7 +93,8 @@ def main() -> None:
         validation_results = validate_pool_layouts(env, settle_params=settle_params, render=args_cli.render)
         assert validation_results is not None, (
             "The selected environment has no pooled placement, so there are no candidates to validate. "
-            "Pooled placement is created when objects declare placement relations (e.g. On)."
+            "Cached replay bypasses the pool; remove --placement_layouts or in-memory layouts to validate "
+            "solver candidates. Pooled placement also requires placement relations and resolve_on_reset=True."
         )
         print_validation_results(validation_results)
 

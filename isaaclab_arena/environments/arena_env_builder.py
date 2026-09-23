@@ -42,7 +42,12 @@ from isaaclab_arena.recording.common_terms import CoreEpisodeRecorderTermCfg, Va
 from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTermCfg
 from isaaclab_arena.recording.progress_terms import ProgressEpisodeRecorderTermCfg
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-from isaaclab_arena.relations.placement_events import PLACEMENT_RESET_EVENT_NAME
+from isaaclab_arena.relations.placement_events import (
+    CACHED_PLACEMENT_RESET_EVENT_NAME,
+    PLACEMENT_RESET_EVENT_NAME,
+    make_cached_placement_event,
+)
+from isaaclab_arena.relations.placement_layouts import PlacementLayouts
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.tasks.no_task import NoTask
 from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
@@ -74,6 +79,7 @@ class ArenaEnvBuilder:
             num_envs=cfg.num_envs, env_spacing=cfg.env_spacing, replicate_physics=False
         )
         self._placement_event_cfg: EventTermCfg | None = None
+        self._placement_layouts: PlacementLayouts | None = None
 
     @property
     def resolved_physics_backend(self) -> PhysicsBackend:
@@ -125,6 +131,28 @@ class ArenaEnvBuilder:
             num_envs=self.cfg.num_envs,
             placer_params=placer_params,
             scene_assets=self.arena_env.scene.assets.values(),
+        )
+
+    def _load_placement_layouts(self) -> PlacementLayouts | None:
+        """Read the configured companion file or return in-memory layouts."""
+        layouts = self.arena_env.placement_layouts
+        if self.cfg.placement_layouts_path is not None:
+            assert layouts is None, "Specify a placement layout file or in-memory layouts, not both"
+            layouts = PlacementLayouts.from_episode_jsonl(self.cfg.placement_layouts_path)
+        return layouts
+
+    def _apply_cached_layouts(self, layouts: PlacementLayouts) -> None:
+        """Seed cached poses and register their reset event."""
+        assert self.cfg.placement_seed is None, "placement_seed applies to solving, not cached layouts"
+        placer_params = self.arena_env.placer_params
+        if placer_params is not None:
+            assert placer_params.placement_seed is None, "placement_seed applies to solving, not cached layouts"
+        resolve_on_reset = self.cfg.resolve_on_reset
+        if resolve_on_reset is None and placer_params is not None:
+            resolve_on_reset = placer_params.resolve_on_reset
+        assert resolve_on_reset is not False, "Cached replay requires resolve_on_reset=True"
+        self._placement_event_cfg = make_cached_placement_event(
+            layouts, self.arena_env.get_placement_assets(), self.cfg.num_envs
         )
 
     def get_all_variations(self) -> dict[str, list[VariationBase]]:
@@ -255,8 +283,11 @@ class ArenaEnvBuilder:
         Returns:
             An (env_cfg, env_kwargs) tuple.
         """
-        # Solve relations before building scene config so positions are captured correctly.
-        if self.cfg.solve_relations:
+        # Apply placement before building scene config so initial poses are captured correctly.
+        self._placement_layouts = self._load_placement_layouts()
+        if self._placement_layouts is not None:
+            self._apply_cached_layouts(self._placement_layouts)
+        elif self.cfg.solve_relations:
             self._solve_relations()
 
         # Apply Hydra variation overrides. Needs to happen before build-time variations are applied.
@@ -294,9 +325,12 @@ class ArenaEnvBuilder:
         )
         placement_event_cfg = None
         if self._placement_event_cfg is not None:
+            # The pooled event name is reserved for terms carrying a placement_pool handle.
+            event_name = (
+                CACHED_PLACEMENT_RESET_EVENT_NAME if self._placement_layouts is not None else PLACEMENT_RESET_EVENT_NAME
+            )
             PlacementEventCfg = make_configclass(
-                "PlacementEventCfg",
-                [(PLACEMENT_RESET_EVENT_NAME, EventTermCfg, self._placement_event_cfg)],
+                "PlacementEventCfg", [(event_name, EventTermCfg, self._placement_event_cfg)]
             )
             placement_event_cfg = PlacementEventCfg()
         variations_event_cfg = self._compose_variations_event_cfg()
