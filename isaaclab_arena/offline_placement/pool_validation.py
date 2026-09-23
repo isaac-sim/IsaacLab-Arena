@@ -25,10 +25,10 @@ if TYPE_CHECKING:
 
     from isaaclab.envs import ManagerBasedEnv
 
+    from isaaclab_arena.offline_placement.scene_snapshot import SceneSnapshot
     from isaaclab_arena.relations.placement_result import PlacementResult
     from isaaclab_arena.relations.placement_validation import PlacementValidationResults
     from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
-    from isaaclab_arena.utils.scene_snapshot import SceneSnapshot
 
 
 @dataclass
@@ -39,16 +39,18 @@ class PoolValidationBatch:
     """Queue index shared by the candidates in this batch."""
     layouts: dict[int, PlacementResult]
     """Source candidates by environment ID, including any skipped solver failures."""
+    skipped_layouts: dict[int, str]
+    """Reason each unapplied candidate was rejected, by environment ID."""
     initial_poses: dict[str, torch.Tensor]
-    """Environment-local release poses (N, 7), ordered xyz/xyzw, by scene key."""
+    """Environment-local release poses (N, 7), ordered xyz/xyzw; empty without pose capture."""
     final_poses: dict[str, torch.Tensor]
-    """Environment-local post-physics poses (N, 7), ordered xyz/xyzw, by scene key."""
+    """Environment-local final poses (N, 7), ordered xyz/xyzw; empty without pose capture."""
 
 
 def iter_pool_validation(
     env: ManagerBasedEnv,
     placement_pool: PooledObjectPlacer,
-    object_names: list[str],
+    object_names: list[str] | None = None,
     *,
     settle_params: PhysicsSettleParams,
     snapshot: SceneSnapshot | None = None,
@@ -63,16 +65,17 @@ def iter_pool_validation(
     Args:
         env: Initialized simulation environment.
         placement_pool: Candidate queues indexed by absolute environment ID.
-        object_names: Scene roots to measure and check for rest.
+        object_names: Scene roots to capture; None skips pose capture.
         settle_params: Simulation duration; this iterator does not evaluate velocity thresholds.
         snapshot: Optional state restored before each batch; the caller owns final restoration.
-        skip_failed: Leave candidates with failed required solver checks unapplied.
+        skip_failed: Leave candidates with missing or failed required solver checks unapplied.
         render: Render each physics step.
 
     Returns:
         Batches containing source candidates, measured initial and final poses.
     """
     env = env.unwrapped
+    object_names = object_names or []
     assets = placement_pool.objects
     anchors = set(get_anchor_objects(assets))
     rotations = get_base_rotation_per_asset(assets)
@@ -81,25 +84,40 @@ def iter_pool_validation(
         if snapshot is not None:
             snapshot.restore(env)
         layouts = {}
+        skipped_layouts = {}
         env_ids = []
         for env_id, queue in enumerate(queues):
             if index >= len(queue):
                 continue
             layout = queue[index]
             layouts[env_id] = layout
-            if skip_failed and not layout.success:
-                continue
+            if skip_failed:
+                failure = _solver_validation_failure(layout)
+                if failure is not None:
+                    skipped_layouts[env_id] = failure
+                    continue
             write_layout_to_sim(env, env_id, layout, anchors, rotations)
             env_ids.append(env_id)
         if not env_ids:
-            yield PoolValidationBatch(index, layouts, {}, {})
+            yield PoolValidationBatch(index, layouts, skipped_layouts, {}, {})
             continue
         env.scene.write_data_to_sim()
         env.sim.forward()
         initial = {key: env.arena_world.get_pose_e(key) for key in object_names}
         physics_settle.step_physics(env, settle_params.num_steps * env.cfg.decimation, render=render)
         final = {key: env.arena_world.get_pose_e(key) for key in object_names}
-        yield PoolValidationBatch(index, layouts, initial, final)
+        yield PoolValidationBatch(index, layouts, skipped_layouts, initial, final)
+
+
+def _solver_validation_failure(layout: PlacementResult) -> str | None:
+    """Return a rejection reason for incomplete or failed required solver checks."""
+    checklist = layout.validation_results
+    missing = (checklist.required_checks or set()) - checklist.validation_results.keys()
+    if missing:
+        return f"missing required solver checks: {', '.join(sorted(missing))}"
+    if not layout.success:
+        return "solver validation failed"
+    return None
 
 
 def validate_pool_layouts(
@@ -138,7 +156,6 @@ def validate_pool_layouts(
     batches = iter_pool_validation(
         env,
         placement_pool,
-        object_names,
         settle_params=settle_params,
         render=render,
     )

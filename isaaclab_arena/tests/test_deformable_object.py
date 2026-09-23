@@ -268,6 +268,7 @@ def _test_deformable_nodal_reset_terms(simulation_app) -> bool:
 
 def _test_deformable_reset_and_initial_pose(simulation_app) -> bool:
     import torch
+    from unittest.mock import Mock
 
     from isaaclab.assets import DeformableObjectCfg
 
@@ -275,6 +276,11 @@ def _test_deformable_reset_and_initial_pose(simulation_app) -> bool:
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
+    from isaaclab_arena.offline_placement.pool_validation import validate_pool_layouts
+    from isaaclab_arena.relations.physics_settle_params import PhysicsSettleParams
+    from isaaclab_arena.relations.placement_result import PlacementResult
+    from isaaclab_arena.relations.placement_validation import PlacementCheck, PlacementValidationResults
+    from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
     from isaaclab_arena.scene.scene import Scene
     from isaaclab_arena.utils.pose import Pose, PosePerEnv
 
@@ -321,6 +327,18 @@ def _test_deformable_reset_and_initial_pose(simulation_app) -> bool:
         env.reset()
         restored_nodal_state = deformable_asset.data.nodal_state_w.torch.clone()
         torch.testing.assert_close(restored_nodal_state, initial_nodal_state)
+
+        # Pool validation supports nodal bodies without requiring a rigid root pose.
+        pool = Mock(spec=PooledObjectPlacer)
+        pool.objects = [soft_cube]
+        pool.layouts_per_env.return_value = [
+            [PlacementResult(PlacementValidationResults(), {soft_cube: pose.position_xyz}, 0.0, 1)]
+            for pose in poses.poses
+        ]
+        results = validate_pool_layouts(env, pool, PhysicsSettleParams(num_steps=5))
+        assert len(results) == 2
+        assert all(not checks.validation_results[PlacementCheck.PHYSICS_SETTLED] for _, _, checks in results)
+        assert torch.all(deformable_asset.data.nodal_pos_w.torch[..., 2].mean(dim=1) < expected[:, 2])
     finally:
         env.close()
     return True

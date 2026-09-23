@@ -69,8 +69,8 @@ def main() -> None:
     args_cli, _ = args_parser.parse_known_args()
 
     with SimulationAppContext(args_cli):
+        from isaaclab_arena.offline_placement.pool_validation import print_validation_results, validate_pool_layouts
         from isaaclab_arena.relations.physics_settle_params import PhysicsSettleParams
-        from isaaclab_arena.relations.placement_pool_validation import print_validation_results, validate_pool_layouts
         from isaaclab_arena_environments.cli import (
             get_arena_builder_from_cli,
             get_isaaclab_arena_environments_cli_parser,

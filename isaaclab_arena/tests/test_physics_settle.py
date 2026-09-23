@@ -231,9 +231,9 @@ def _test_validate_pool_layouts_grades_each_layout(simulation_app):
     from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
+    from isaaclab_arena.offline_placement.pool_validation import validate_pool_layouts
     from isaaclab_arena.relations.physics_settle_params import PhysicsSettleParams
     from isaaclab_arena.relations.placement_events import get_placement_pool
-    from isaaclab_arena.relations.placement_pool_validation import validate_pool_layouts
     from isaaclab_arena.relations.placement_result import PlacementResult
     from isaaclab_arena.relations.placement_validation import PlacementCheck, PlacementValidationResults
     from isaaclab_arena.relations.pooled_object_placer import EnvLayoutPool
