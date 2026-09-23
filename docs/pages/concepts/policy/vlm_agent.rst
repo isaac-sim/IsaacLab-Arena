@@ -1,14 +1,55 @@
-Astra VLM agent policy
-======================
+VLM agent policy
+================
 
-The Astra example connects Arena directly to NVIDIA's OpenAI-compatible hosted
-inference endpoint. It sends the current wrist and external camera images,
-camera calibration, and measured DROID state to ``openai/openai/gpt-6-astra``.
-The model returns structured end-effector commands that Arena validates and
-executes through differential inverse kinematics.
+The VLM agent policy connects Arena to an OpenAI-compatible hosted inference
+endpoint. It encodes current camera observations and measured robot state,
+requests a structured model response, validates that response, and converts it
+into simulator actions.
 
-Prerequisites
--------------
+The policy separates model inference from robot-specific behavior. An
+observation adapter selects and calibrates the camera and proprioception data,
+while an action adapter defines the response schema and converts valid model
+commands into native robot actions. Experiments select both adapters at runtime.
+
+Configure a VLM agent
+---------------------
+
+Configure hosted inference and the adapters in the experiment's ``policy``
+mapping:
+
+``type``
+   Select either the goal-command or action-chunk VLM policy.
+
+``model`` and ``base_url``
+   Select a model and its OpenAI-compatible chat-completions endpoint.
+
+``api_key_env_var``
+   Name the environment variable that contains the endpoint credential. The
+   policy reads the value at runtime; do not put the credential in YAML.
+
+``system_prompt``
+   Define the model's task, coordinate, and action-generation instructions.
+
+``observation_adapter`` and ``action_adapter``
+   Select dotted class paths for the robot-specific observation and action
+   contracts. ``action_adapter_kwargs`` optionally configures motion rules.
+
+``decision_history``
+   Set the number of previous textual observation-response pairs to retain.
+   Previous images are never retained.
+
+The selected endpoint must accept image content and JSON-schema response
+formatting. The model's response must satisfy the schema supplied by the action
+adapter.
+
+Astra pick-and-place example
+----------------------------
+
+The included Astra example connects directly to NVIDIA's hosted inference
+endpoint and uses ``openai/openai/gpt-6-astra``. It sends wrist and external
+camera images, camera calibration, and measured DROID state. The DROID action
+adapter converts Astra's structured response into end-effector commands that
+Arena executes through differential inverse kinematics.
 
 Prepare an Arena runtime by following :doc:`../../quickstart/installation`.
 Access to the internal inference endpoint and an API key in ``NV_API_KEY`` are
@@ -21,8 +62,8 @@ required. Export the key in the shell that launches Arena:
 The Docker launcher forwards ``NV_API_KEY`` into the container. Never add the
 key to an experiment YAML file or commit it to the repository.
 
-Launch the pick-and-place evaluation
-------------------------------------
+Launch the example
+------------------
 
 The goal-command configuration runs one 70-second episode in which a DROID arm
 must pick up a banana and place it in a bowl. It uses three calibrated camera
@@ -78,5 +119,5 @@ action-chunk configuration:
      --record_camera_video \
      --output_base_dir outputs/astra_vlm_pick_and_place_chunk
 
-The chunk example uses the same model, cameras, task, and 70-second limit, but
-does not retain textual decision history by default.
+The chunk example uses the same Astra model, cameras, task, and 70-second limit,
+but does not retain textual decision history by default.
