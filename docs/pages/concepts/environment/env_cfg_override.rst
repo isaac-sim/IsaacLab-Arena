@@ -6,8 +6,8 @@ Environment graph YAML (``ArenaEnvGraphSpec``) may include an ``env_cfg_override
 ``apply_env_cfg_override`` after ``ArenaEnvBuilder`` assigns the default solver for the resolved
 physics backend.
 
-See :doc:`physics_backend_selection` for backend resolution, embodiment hooks, and
-``replicate_physics`` behavior.
+See :doc:`physics_configuration` for configuration scopes and application order, and
+:doc:`physics_backend_selection` for backend resolution and ``replicate_physics`` behavior.
 
 Minimal graph fragment
 ----------------------

@@ -624,7 +624,7 @@ def spawn_newton_droid(
 
     from isaaclab_arena.utils.usd.helpers import move_collision_schemas_to_meshes
 
-    prim = spawn_from_usd(
+    prim = spawn_from_usd.__wrapped__(
         prim_path,
         spawner_cfg,
         translation=translation,

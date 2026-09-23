@@ -44,13 +44,98 @@ Assets can also be tagged to make them discoverable by category:
 Useful tags include ``"graspable"``, ``"openable"``, ``"pressable"``, and ``"background"``.
 Assets can have multiple tags — for example, a fruit is tagged both ``"graspable"`` and ``"food"``.
 
+Object configuration
+--------------------
+
+An object's constructor sets its USD source, scale, initial pose, and object type.
+``asset_cfg_addon`` configures the Isaac Lab asset (for example, ``debug_vis`` or articulation
+actuators). ``spawn_cfg_addon`` configures how the USD is loaded and which physics properties
+are authored during spawning: mass/density, collision settings, and contact materials.
+Use ``prim_physics`` within the spawn addons for selected bodies, colliders, or joints.
+
+Physics spawn addons
+~~~~~~~~~~~~~~~~~~~~
+
+Use ``spawn_cfg_addon`` to override physics parameters:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 30 70
+
+   * - Addon
+     - Example parameters
+   * - ``mass_props``
+     - Mass and density.
+   * - ``rigid_props``
+     - Gravity, damping, and velocity limits.
+   * - ``collision_props``
+     - Collision enablement, contact offset, and rest offset.
+   * - ``physics_material``
+     - Static/dynamic friction and restitution.
+   * - ``articulation_props``
+     - Self-collision and articulation solver settings.
+   * - ``prim_physics``
+     - Selected-prim collision, material, mass, joint, or backend-specific settings,
+       defined by an environment-owned ``UsdPrimSpawnPhysicsCfg`` subclass.
+
+For example, override friction on the library red cube's ``Cube`` collider:
+
+.. code-block:: python
+
+   import math
+
+   from isaaclab.utils.configclass import configclass
+   from pxr import UsdPhysics, UsdShade
+
+   from isaaclab_arena.assets.object_library import RedCube
+   from isaaclab_arena.assets.physics_config import UsdPrimSpawnPhysicsCfg
+
+   @configclass
+   class ColliderFrictionCfg(UsdPrimSpawnPhysicsCfg):
+       """Bind an instance-local contact material to a selected collider."""
+
+       friction: float = 0.8
+       """Static and dynamic friction coefficient."""
+
+       def validate_target(self, prim, root):
+           """Require a collider and a finite nonnegative friction coefficient."""
+           assert prim.HasAPI(UsdPhysics.CollisionAPI)
+           assert math.isfinite(self.friction) and self.friction >= 0
+           assert not prim.GetStage().GetPrimAtPath(prim.GetPath().AppendChild("ContactMaterial"))
+
+       def apply(self, prim, root):
+           """Author and bind a material within the spawned asset."""
+           # A local material preserves shared source materials and remaps during cloning.
+           material = UsdShade.Material.Define(prim.GetStage(), prim.GetPath().AppendChild("ContactMaterial"))
+           physics = UsdPhysics.MaterialAPI.Apply(material.GetPrim())
+           physics.CreateStaticFrictionAttr(self.friction)
+           physics.CreateDynamicFrictionAttr(self.friction)
+           UsdShade.MaterialBindingAPI.Apply(prim).Bind(
+               material,
+               bindingStrength=UsdShade.Tokens.strongerThanDescendants,
+               materialPurpose="physics",
+           )
+
+   class HighFrictionRedCube(RedCube):
+       spawn_cfg_addon = {
+           "prim_physics": {"Cube": ColliderFrictionCfg(friction=0.8)},
+       }
+
+   red_cube = HighFrictionRedCube()
+
+``prim_physics`` keys are exact paths relative to the asset root; use ``"."`` for the root.
+Settings apply after USD loading and before cloning and physics import.
+
+See :doc:`../environment/physics_configuration` for configuration order and
+:doc:`../embodiment/index` for robot and end-effector physics.
+
 Object types
 ------------
 
 Every asset has an object type that determines how it is simulated:
 
 - **RIGID** — a single rigid body (boxes, bottles, tools, furniture).
-- **ARTICULATION** — a multi-body object with joints (robots, doors, drawers, appliances).
+- **ARTICULATION** — a multi-body scene object with joints (doors, drawers, appliances).
 - **BASE** — no physics; used for static backgrounds and markers.
 
 Deformable and backend-specific spawn configs must match the environment's resolved physics
