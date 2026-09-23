@@ -589,6 +589,20 @@ assets; edges are spatial relations and task parameters.
 <code class="docutils literal notranslate"><span class="pre">from_yaml()</span></code> validates on load; <code class="docutils literal notranslate"><span class="pre">to_arena_env()</span></code> returns the same
 <code class="docutils literal notranslate"><span class="pre">IsaacLabArenaEnvironment</span></code>.</p></li>
 </ul>
+<section id="companion-placement-files">
+<h2>Companion placement files<a class="headerlink" href="#companion-placement-files" title="Link to this heading">#</a></h2>
+<p>Pass <code class="docutils literal notranslate"><span class="pre">--placement_layouts</span> <span class="pre">layouts.jsonl</span></code> to replay a companion file. This builder
+option works with both <code class="docutils literal notranslate"><span class="pre">--env_spec</span></code> and registered Python environments. Place it
+before the environment subcommand when using a registered environment.</p>
+<p>Python callers set <code class="docutils literal notranslate"><span class="pre">ArenaEnvBuilderCfg(placement_layouts_path=&quot;layouts.jsonl&quot;)</span></code>.
+Paths are relative to the working directory. The builder reads the file when it
+composes the scene; the environment definition does not contain the replay path.
+Python callers can alternatively supply <code class="docutils literal notranslate"><span class="pre">IsaacLabArenaEnvironment.placement_layouts</span></code>
+in memory. Supply a file path or in-memory layouts, not both.</p>
+<p>Replay bypasses relation solving and draws layouts from a shared queue on reset.
+See <a class="reference internal" href="../object_placement/relations.html"><span class="doc">Relations and Strategies</span></a> for the record format, queue behavior,
+asset coverage and reset requirements.</p>
+</section>
 <section id="the-same-environment-side-by-side">
 <h2>The same environment, side by side<a class="headerlink" href="#the-same-environment-side-by-side" title="Link to this heading">#</a></h2>
 <p>Same pick-and-place setup in both columns: a DROID arm picks a Rubik’s cube off a
@@ -971,6 +985,7 @@ environment.</p>
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#companion-placement-files">Companion placement files</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-same-environment-side-by-side">The same environment, side by side</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#where-the-two-formats-differ">Where the two formats differ</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#only-in-python">Only in Python</a></li>

@@ -741,6 +741,69 @@ a Boolean value.</p>
 <p>Collision handling is integrated into placement and is not expressed as a
 relation.</p>
 </section>
+<section id="recorded-layouts">
+<h2>Recorded Layouts<a class="headerlink" href="#recorded-layouts" title="Link to this heading">#</a></h2>
+<p>Pass the companion file to the environment builder:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>/isaac-sim/python.sh<span class="w"> </span>isaaclab_arena/scripts/environment_runner.py<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--env_spec<span class="w"> </span>scene.yaml<span class="w"> </span>--placement_layouts<span class="w"> </span>layouts.jsonl
+</pre></div>
+</div>
+<p>For a registered Python environment, place <code class="docutils literal notranslate"><span class="pre">--placement_layouts</span> <span class="pre">layouts.jsonl</span></code>
+before the environment subcommand. Python callers use
+<code class="docutils literal notranslate"><span class="pre">ArenaEnvBuilderCfg(placement_layouts_path=&quot;layouts.jsonl&quot;)</span></code>. All file paths are
+relative to the working directory.</p>
+<p>A ten-layout example for <code class="docutils literal notranslate"><span class="pre">isaaclab_arena/tests/test_data/placement_replay.yaml</span></code>
+is available in <code class="docutils literal notranslate"><span class="pre">isaaclab_arena/tests/test_data/placement_replay.jsonl</span></code>.</p>
+<p>Each JSONL line contains one complete layout under
+<code class="docutils literal notranslate"><span class="pre">variations[&quot;scene.relation_placement&quot;][&quot;poses&quot;]</span></code>. Poses use runtime scene keys
+for both YAML and Python environments. Use <code class="docutils literal notranslate"><span class="pre">asset.get_scene_key()</span></code>: ordinary
+objects use their instance names, while the embodiment uses <code class="docutils literal notranslate"><span class="pre">&quot;robot&quot;</span></code> regardless
+of its YAML node ID.
+Positions are environment-local, in metres; rotations are xyzw quaternions.
+Every nonblank line must contain the placement block with the same object set.
+Additional episode fields are ignored; episodes without placement records cannot
+be loaded. Python callers can pass <code class="docutils literal notranslate"><span class="pre">PlacementLayouts</span></code> directly to
+<code class="docutils literal notranslate"><span class="pre">IsaacLabArenaEnvironment</span></code> instead of configuring a file path.
+Supplying both is rejected.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.relations.placement_layouts</span><span class="w"> </span><span class="kn">import</span> <span class="n">PlacementLayouts</span>
+
+<span class="n">arena_env</span><span class="o">.</span><span class="n">placement_layouts</span> <span class="o">=</span> <span class="n">PlacementLayouts</span><span class="o">.</span><span class="n">from_episode_jsonl</span><span class="p">(</span><span class="s2">"layouts.jsonl"</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Set replay inputs before <code class="docutils literal notranslate"><span class="pre">compose_manager_cfg()</span></code> or <code class="docutils literal notranslate"><span class="pre">make_registered()</span></code>.
+For registered Python environments, a Python runner can set
+<code class="docutils literal notranslate"><span class="pre">builder.arena_env.placement_layouts</span></code> after obtaining the builder. Replay inputs
+are read when the environment configuration is composed.</p>
+<p><code class="docutils literal notranslate"><span class="pre">PlacementLayouts.write_episode_jsonl(path,</span> <span class="pre">source=...)</span></code> writes the same format.
+The caller supplies the source label, such as <code class="docutils literal notranslate"><span class="pre">&quot;solver&quot;</span></code> or <code class="docutils literal notranslate"><span class="pre">&quot;settled&quot;</span></code>;
+the writer does not solve or simulate the poses.</p>
+<p>Resetting environments draw consecutive layouts from one shared queue, in reset
+request order. The queue wraps after its last layout. For four layouts and three
+environments, successive full resets select <code class="docutils literal notranslate"><span class="pre">[0,</span> <span class="pre">1,</span> <span class="pre">2]</span></code>, then <code class="docutils literal notranslate"><span class="pre">[3,</span> <span class="pre">0,</span> <span class="pre">1]</span></code>.
+A partial reset consumes only the layouts needed by those environments; other
+poses remain unchanged. Layouts can repeat across active environments after the
+queue wraps. If the environment count is a multiple of the layout count,
+repeated full resets assign the same layout to each environment. The queue covers
+all layouts across the batch; it does not guarantee that each environment visits
+every layout. Partial-reset order determines later assignments, so different
+policies may receive different per-environment sequences.</p>
+<p>Replay validates finite poses, unit quaternions, consistent object coverage and
+reset ownership. Recorded objects share one reset writer, which zeros their root
+velocities. All non-anchor objects with spatial relations must be included,
+as must a non-anchor embodiment carrying any placement relation or marker.
+Object sets, disabled pose resets, non-fixed pose-reset policies and nonzero
+initial velocities are unsupported.</p>
+<p>Replay requires <code class="docutils literal notranslate"><span class="pre">resolve_on_reset=True</span></code>; an explicit
+<code class="docutils literal notranslate"><span class="pre">--no-resolve_on_reset</span></code> or a false environment default is rejected. An explicit
+<code class="docutils literal notranslate"><span class="pre">placement_seed</span></code> in the placement configuration or on the CLI is also rejected
+because layouts are read in file order.
+<code class="docutils literal notranslate"><span class="pre">--no_solve_relations</span></code> is compatible: replay never invokes the solver.
+Placement validator settings apply only when solving; they do not revalidate a
+recorded layout or open the solver’s debug viewer.</p>
+<p>Loading bypasses solving and does not rerun geometry, reachability or settling
+checks. Recordings must match the scene and robot configuration being replayed;
+disable pose-changing variations and callbacks when exact replay is required.</p>
+</section>
 <section id="next-steps">
 <h2>Next Steps<a class="headerlink" href="#next-steps" title="Link to this heading">#</a></h2>
 <p>Continue to <a class="reference internal" href="collision_handling.html"><span class="doc">Collision Handling</span></a> to learn how Arena checks placed assets
@@ -802,6 +865,7 @@ against one another and against fixed geometry.</p>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#combining-relations">Combining Relations</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#placement-modifiers">Placement Modifiers</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#relations-in-environment-specifications">Relations in Environment Specifications</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#recorded-layouts">Recorded Layouts</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#next-steps">Next Steps</a></li>
 </ul>
   </nav></div>
