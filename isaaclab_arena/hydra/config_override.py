@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import copy
 import dataclasses
-from typing import Any
+from typing import Any, TypeVar
 
 from hydra.utils import get_class
 from isaaclab.utils.dict import update_class_from_dict
@@ -25,16 +25,17 @@ _ALLOWED_TARGET_MODULE_PREFIXES = (
 )
 _HYDRA_TARGET_KEY = "_target_"
 _ALLOW_CONFIG_OVERRIDE_METADATA_KEY = "allow_config_override"
+ConfigT = TypeVar("ConfigT")
 
 
 def apply_config_override(
-    config: Any,
+    config: ConfigT,
     override: dict[str, Any],
     *,
     override_name: str,
     path: str,
     allow_hydra_targets: bool = True,
-) -> Any:
+) -> ConfigT:
     """Apply a validated nested override to a configclass or dataclass."""
     assert override is not None, f"{override_name} must be provided"
     assert isinstance(override, dict), f"{override_name} must be a mapping, got {type(override).__name__}"
@@ -126,7 +127,7 @@ def _materialize_value(
     current_value: Any,
 ) -> Any:
     """Dispatch materialization based on the override value's structure."""
-    # Handle list
+    # Handle typed lists.
     list_element_type = config_type_utils.list_element_type(annotation)
     if list_element_type is not None:
         return _materialize_list(
@@ -146,11 +147,11 @@ def _materialize_value(
             raise ValueError(f"Invalid value at '{path}': expected {annotation}, got {type(value).__name__}")
         return converted_value
 
-    # Handle typed configclasses
+    # Handle explicitly typed configclasses.
     if _HYDRA_TARGET_KEY in value:
         return _materialize_target_mapping(annotation, value, path=path)
 
-    # Handle ordinary mappings
+    # Handle ordinary nested dataclass mappings.
     return _materialize_dataclass_mapping(
         annotation,
         value,
@@ -173,11 +174,6 @@ def _materialize_list(
     """Materialize every element of a typed override list."""
     assert isinstance(value, list), f"Expected a list at '{path}'"
 
-    def current_item(index: int) -> Any:
-        if isinstance(current_value, list) and index < len(current_value):
-            return current_value[index]
-        return None
-
     return [
         _materialize_value(
             element_type,
@@ -185,7 +181,9 @@ def _materialize_list(
             path=f"{path}[{index}]",
             construct_structured=construct_structured,
             strict=strict,
-            current_value=current_item(index),
+            current_value=(
+                current_value[index] if isinstance(current_value, list) and index < len(current_value) else None
+            ),
         )
         for index, item in enumerate(value)
     ]

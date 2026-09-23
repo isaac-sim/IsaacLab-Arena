@@ -11,9 +11,11 @@ import dataclasses
 import sys
 import types
 from enum import Enum
+from functools import cache
 from typing import Any, Literal, Union, get_args, get_origin, get_type_hints
 
 
+@cache
 def field_annotation(owner: type, field_name: str) -> Any:
     """Resolve one inherited dataclass field annotation without resolving unrelated fields."""
     for cls in owner.__mro__:
