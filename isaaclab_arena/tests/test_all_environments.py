@@ -3,12 +3,11 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Smoke-test every registered non-Isaac-CAP environment via experiment_runner.
+"""Smoke-test every registered environment via experiment_runner.
 
-Auto-discovers environments from the EnvironmentRegistry and runs each non-CAP
-environment for a few steps with the zero_action policy in a single
-experiment_runner subprocess. The test passes if no environment errors out
-during startup or stepping.
+Auto-discovers environments from the EnvironmentRegistry and runs each one for
+a few steps with the zero_action policy in a single experiment_runner subprocess.
+The test passes if no environment errors out during startup or stepping.
 """
 
 import argparse
@@ -41,14 +40,9 @@ ENV_ARG_OVERRIDES: dict[str, dict] = {
 
 def _build_jobs_for_all_envs() -> list[dict]:
     ensure_environments_registered()
-    env_registry = EnvironmentRegistry()
-    env_names = sorted(env_registry.get_all_keys())
+    env_names = sorted(EnvironmentRegistry().get_all_keys())
     jobs = []
     for env_name in env_names:
-        environment_factory_type = env_registry.get_component_by_name(env_name)
-        # Isaac CAP environments are covered by their marker-scoped test suite.
-        if environment_factory_type.__module__.startswith("isaaclab_arena_environments.isaac_cap."):
-            continue
         arena_env_args = {"environment": env_name}
         arena_env_args.update(ENV_ARG_OVERRIDES.get(env_name, {}))
         jobs.append({
@@ -63,7 +57,7 @@ def _build_jobs_for_all_envs() -> list[dict]:
 
 @pytest.mark.with_subprocess
 def test_experiment_runner_all_environments(tmp_path):
-    """Boot every registered non-Isaac-CAP environment with the zero_action policy."""
+    """Boot every registered environment for a few steps with the zero_action policy."""
     jobs = _build_jobs_for_all_envs()
     assert len(jobs) > 0, "Expected at least one environment to be registered"
 
