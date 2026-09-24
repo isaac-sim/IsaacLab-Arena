@@ -34,7 +34,7 @@ def register_validator(cls):
 
     Keyed by ``cls.check`` (the check it reports) so build_validators() can resolve it.
     """
-    registry = PrePhysicsPlacementValidatorRegistry()
+    registry = PlacementValidatorRegistry()
     if registry.is_registered(cls.check, ensure_loaded=False):
         print(f"WARNING: Placement validator for {cls.check} is already registered. Doing nothing.")
     else:

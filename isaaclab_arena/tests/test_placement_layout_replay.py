@@ -25,8 +25,8 @@ def _test_companion_cache_round_trip(simulation_app, tmp_path):
     from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
-    from isaaclab_arena.relations.object_placer import ObjectPlacer
     from isaaclab_arena.relations.placement_layouts import PlacementLayouts
+    from isaaclab_arena.relations.placement_validation_pipeline import PlacementValidationPipeline
     from isaaclab_arena.relations.relation_solver import RelationSolver
 
     cache = PlacementLayouts.from_episode_jsonl(LAYOUTS)
@@ -40,7 +40,9 @@ def _test_companion_cache_round_trip(simulation_app, tmp_path):
     with (
         patch.object(RelationSolver, "solve", side_effect=AssertionError("Cached replay must not solve")),
         patch.object(
-            ObjectPlacer, "_validate_candidates", side_effect=AssertionError("Cached replay must not revalidate")
+            PlacementValidationPipeline,
+            "validate_candidates",
+            side_effect=AssertionError("Cached replay must not revalidate"),
         ),
     ):
         arena_env = spec.to_arena_env()

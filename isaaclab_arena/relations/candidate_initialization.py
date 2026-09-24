@@ -11,6 +11,7 @@ import torch
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.relations.collision_mode import object_uses_mesh_collision
+from isaaclab_arena.relations.placement_candidate_batch import PlacementCandidateBatch
 from isaaclab_arena.relations.relations import ClutterOn, FaceTo, On, RotateAroundSolution, get_relation
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose
@@ -28,6 +29,28 @@ class CandidateInitializer:
 
     def __init__(self, params: ObjectPlacerParams):
         self.params = params
+
+    def generate_candidates(
+        self,
+        objects: list[PlaceableAsset],
+        anchor_objects: set[PlaceableAsset],
+        env_bboxes: list[dict[PlaceableAsset, AxisAlignedBoundingBox]],
+        candidates_per_env: int,
+        generator: torch.Generator | None,
+    ) -> PlacementCandidateBatch:
+        """Sample candidates in environment order with reproducible per-candidate seeds."""
+        positions, orientations, bboxes, env_ids, candidate_ids = [], [], [], [], []
+        for env_id, bounds in enumerate(env_bboxes):
+            for candidate_id in range(candidates_per_env):
+                if generator is not None:
+                    assert self.params.placement_seed is not None
+                    generator.manual_seed(self.params.placement_seed + env_id * candidates_per_env + candidate_id)
+                positions.append(self.generate_positions(objects, anchor_objects, bounds, generator))
+                orientations.append(self.generate_orientations(objects, anchor_objects, generator))
+                bboxes.append(bounds)
+                env_ids.append(env_id)
+                candidate_ids.append(candidate_id)
+        return PlacementCandidateBatch(positions, orientations, bboxes, env_ids, candidate_ids)
 
     def generate_positions(
         self,

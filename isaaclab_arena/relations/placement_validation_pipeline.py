@@ -7,17 +7,17 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from typing import TYPE_CHECKING
 
+from isaaclab_arena.relations.placement_candidate_batch import PlacementCandidateBatch
 from isaaclab_arena.relations.placement_validation import PlacementValidationResults
 
 if TYPE_CHECKING:
     from isaaclab_arena.relations.collision_object import CollisionObject
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-    from isaaclab_arena.relations.placement_asset import PlaceableAsset
     from isaaclab_arena.relations.placement_validators import PlacementValidator
     from isaaclab_arena.relations.placement_visualizer import PlacementRerunVisualizer
-    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 
 class PlacementValidationPipeline:
@@ -35,44 +35,28 @@ class PlacementValidationPipeline:
 
     def validate_candidates(
         self,
-        positions: list[dict[PlaceableAsset, tuple[float, float, float]]],
-        orientations: list[dict[PlaceableAsset, float]],
-        bboxes: list[dict[PlaceableAsset, AxisAlignedBoundingBox]],
+        batch: PlacementCandidateBatch,
         collision_objects: list[CollisionObject],
-    ) -> list[PlacementValidationResults]:
-        """Run every enabled validator over all candidates and collect per-candidate results.
-
-        Each validator reports one verdict per candidate; the verdicts are transposed into one
-        PlacementValidationResults per candidate, gated by the configured required_checks.
-
-        Args:
-            positions: Solved (x, y, z) per object, one dict per candidate.
-            orientations: Absolute world Z-yaw per object, one dict per candidate (may be empty).
-            bboxes: Per-object bboxes for each candidate's env, each (1, 3).
-            collision_objects: Fixed background obstacles shared across candidates.
-        """
+    ) -> PlacementCandidateBatch:
+        """Attach check results in candidate order, applying the configured required-check policy."""
         # required_checks=None means "every enabled check is required"; an empty set means no checks.
         required = self.params.required_checks
-        num_candidates = len(positions)
+        num_candidates = len(batch)
         # Per check, which layouts of this batch (each refill) it actually ran on
         evaluated_layout_indices_by_check: dict[str, list[int]] = {}
         layout_pass_verdicts_by_check: dict[str, list[bool]] = {}
 
         if self._visualizer is not None:
-            self._visualizer.start_new_batch(positions, orientations, bboxes)
+            self._visualizer.start_new_batch(batch.positions, batch.orientations, batch.bboxes)
 
         self._run_inexpensive_checks(
-            positions,
-            orientations,
-            bboxes,
+            batch,
             collision_objects,
             layout_pass_verdicts_by_check,
             evaluated_layout_indices_by_check,
         )
         self._run_expensive_checks(
-            positions,
-            orientations,
-            bboxes,
+            batch,
             collision_objects,
             required,
             layout_pass_verdicts_by_check,
@@ -90,46 +74,41 @@ class PlacementValidationPipeline:
                 for check, verdicts in layout_pass_verdicts_by_check.items()
             )
             print(f"[placement] Validated {num_candidates} candidate layout(s); passed per check: {summary}")
-        return [
+        validations = [
             PlacementValidationResults(
                 validation_results={
                     check: verdicts[candidate_idx] for check, verdicts in layout_pass_verdicts_by_check.items()
                 },
                 required_checks=set(required) if required is not None else None,
             )
-            for candidate_idx in range(len(positions))
+            for candidate_idx in range(len(batch))
         ]
+        return replace(batch, validations=validations)
 
     def _run_inexpensive_checks(
         self,
-        positions: list[dict[PlaceableAsset, tuple[float, float, float]]],
-        orientations: list[dict[PlaceableAsset, float]],
-        bboxes: list[dict[PlaceableAsset, AxisAlignedBoundingBox]],
+        batch: PlacementCandidateBatch,
         collision_objects: list[CollisionObject],
         layout_pass_verdicts_by_check: dict[str, list[bool]],
         evaluated_layout_indices_by_check: dict[str, list[int]],
     ) -> None:
         """Run every inexpensive validator on all candidates, recording verdicts and evaluated layouts."""
-        num_candidates = len(positions)
+        num_candidates = len(batch)
         for validator in self._validators:
             if not validator.run_after_inexpensive_checks:
-                layout_pass_verdicts_by_check[validator.check] = validator.validate_batch(
-                    positions, orientations, bboxes, collision_objects
-                )
+                layout_pass_verdicts_by_check[validator.check] = validator.validate_batch(batch, collision_objects)
                 evaluated_layout_indices_by_check[validator.check] = list(range(num_candidates))
 
     def _run_expensive_checks(
         self,
-        positions: list[dict[PlaceableAsset, tuple[float, float, float]]],
-        orientations: list[dict[PlaceableAsset, float]],
-        bboxes: list[dict[PlaceableAsset, AxisAlignedBoundingBox]],
+        batch: PlacementCandidateBatch,
         collision_objects: list[CollisionObject],
         required: set[str] | None,
         layout_pass_verdicts_by_check: dict[str, list[bool]],
         evaluated_layout_indices_by_check: dict[str, list[int]],
     ) -> None:
         """Run each expensive validator only on candidates that passed the required inexpensive checks."""
-        num_candidates = len(positions)
+        num_candidates = len(batch)
         for validator in self._validators:
             if validator.run_after_inexpensive_checks:
                 passed_layout_indices = [
@@ -141,13 +120,13 @@ class PlacementValidationPipeline:
                     self._visualizer.set_active_layouts(passed_layout_indices)
                 # only passed layouts are validated
                 verdicts_over_passed_layout = validator.validate_batch(
-                    [positions[i] for i in passed_layout_indices],
-                    [orientations[i] for i in passed_layout_indices],
-                    [bboxes[i] for i in passed_layout_indices],
+                    batch.select(passed_layout_indices),
                     collision_objects,
                 )
                 verdicts = [False] * num_candidates
-                for layout_index_within_batch, verdict in zip(passed_layout_indices, verdicts_over_passed_layout):
+                for layout_index_within_batch, verdict in zip(
+                    passed_layout_indices, verdicts_over_passed_layout, strict=True
+                ):
                     verdicts[layout_index_within_batch] = verdict
                 layout_pass_verdicts_by_check[validator.check] = verdicts
                 evaluated_layout_indices_by_check[validator.check] = passed_layout_indices

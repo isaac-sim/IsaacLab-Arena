@@ -19,10 +19,16 @@ How Validation Fits Placement
 that passes ``is_available()`` and survives ``enabled_checks`` (see
 :ref:`validation-toggle`). Each solved batch then runs in two passes:
 
-1. **Inexpensive checks** (``no_overlap``, ``on_relation``, ``next_to``,
+1. **Inexpensive checks** (``no_overlap``, ``on_relation``, ``clutter_on_relation``, ``next_to``,
    ``not_next_to``, ``face_to``) over every candidate.
 2. **Expensive checks** (``ik_reachable``) only on candidates that already
    passed every *required* inexpensive check.
+
+``PlacementCandidateBatch`` carries positions, orientations, bounds and candidate
+identities from initialization through solving, validation and ranking. Validator
+extensions implement ``validate_batch(batch, collision_objects)`` and return one
+boolean per row. ``batch.select(indices)`` retains the original environment and
+candidate IDs when expensive checks receive only a filtered subset.
 
 Verdicts land in each candidate's ``PlacementValidationResults``. A
 **required** check must pass for the candidate to count as valid; an
@@ -57,6 +63,11 @@ Types of Validators
      - Inexpensive
      - Yes
      - Every ``On`` relation holds (XY footprint and Z band).
+   * - ``clutter_on_relation``
+     - Build-time
+     - Inexpensive
+     - Yes
+     - Every ``ClutterOn`` release fits its region and clears its support.
    * - ``next_to``
      - Build-time
      - Inexpensive
@@ -82,8 +93,8 @@ Types of Validators
 Geometric and Relation Checks
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-``no_overlap``, ``on_relation``, ``next_to``, ``not_next_to``, and
-``face_to`` are always registered. The first four mirror the corresponding
+``no_overlap``, ``on_relation``, ``clutter_on_relation``, ``next_to``,
+``not_next_to``, and ``face_to`` are always registered. The first five mirror the corresponding
 relation's loss term, so low-loss solver output and validator verdicts stay
 consistent. ``face_to`` is different: ``FaceTo`` is applied as a post-solve
 heading rather than a continuous loss, and the check only verifies that a
