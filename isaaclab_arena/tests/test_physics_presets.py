@@ -282,6 +282,36 @@ def _test_env_cfg_override_nested_hydra_target_in_payload(simulation_app) -> boo
     return True
 
 
+def _test_env_cfg_override_registered_target(simulation_app) -> bool:
+    from isaaclab.sim import SimulationCfg
+    from isaaclab.utils.configclass import configclass
+    from isaaclab_newton.physics import MJWarpSolverCfg, NewtonCfg
+
+    from isaaclab_arena.environment_spec.env_cfg_override import apply_env_cfg_override
+    from isaaclab_arena.hydra.config_override import register_config_override_target
+
+    @configclass
+    class CustomSolverCfg(MJWarpSolverCfg):
+        enable_multiccd: bool = False
+
+    @configclass
+    class MinimalEnvCfg:
+        sim: SimulationCfg = SimulationCfg(physics=NewtonCfg())
+
+    target_path = f"{CustomSolverCfg.__module__}.{CustomSolverCfg.__qualname__}"
+    override = {"sim": {"physics": {"solver_cfg": {"_target_": target_path, "enable_multiccd": True}}}}
+    with pytest.raises(AssertionError, match="outside the approved"):
+        apply_env_cfg_override(MinimalEnvCfg(), override)
+
+    register_config_override_target(CustomSolverCfg)
+    env_cfg = apply_env_cfg_override(MinimalEnvCfg(), override)
+    assert isinstance(env_cfg.sim.physics.solver_cfg, CustomSolverCfg)
+    assert env_cfg.sim.physics.solver_cfg.enable_multiccd is True
+    with pytest.raises(AssertionError, match="incompatible"):
+        apply_env_cfg_override(MinimalEnvCfg(), {"sim": {"physics": {"_target_": target_path}}})
+    return True
+
+
 def _test_builder_applies_nested_env_cfg_override(simulation_app) -> bool:
     from isaaclab_newton.physics import MJWarpSolverCfg, NewtonCfg
 
@@ -436,6 +466,10 @@ def test_env_cfg_override_nested_hydra_target_in_payload():
     assert run_function_with_persistent_simulation_app(
         _test_env_cfg_override_nested_hydra_target_in_payload, headless=HEADLESS
     )
+
+
+def test_env_cfg_override_registered_target():
+    assert run_function_with_persistent_simulation_app(_test_env_cfg_override_registered_target, headless=HEADLESS)
 
 
 def test_builder_applies_nested_env_cfg_override():
