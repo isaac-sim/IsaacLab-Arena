@@ -35,7 +35,7 @@ from isaaclab_arena.utils.yaw import rotate_quat_by_yaw, yaw_from_quat_xyzw, yaw
 if TYPE_CHECKING:
     from isaaclab_arena.relations.collision_object import CollisionObject
     from isaaclab_arena.relations.placement_asset import PlaceableAsset
-    from isaaclab_arena.relations.placement_validators import PlacementValidator
+    from isaaclab_arena.relations.placement_validators import PrePhysicsPlacementValidator
 
 
 class ObjectPlacer:
@@ -62,7 +62,7 @@ class ObjectPlacer:
         self._initializer = CandidateInitializer(self.params)
         self._solver = RelationSolver(params=self.params.solver_params)
         self._visualizer = get_or_create_placement_visualizer(self.params)
-        self._validators: list[PlacementValidator] = build_validators(self.params, self._visualizer)
+        self._validators: list[PrePhysicsPlacementValidator] = build_validators(self.params, self._visualizer)
         self._validation = PlacementValidationPipeline(self.params, self._validators, self._visualizer)
 
     def place(

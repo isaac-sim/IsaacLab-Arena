@@ -299,6 +299,8 @@ Loading bypasses solving and does not rerun geometry, reachability or settling
 checks. Recordings must match the scene and robot configuration being replayed;
 disable pose-changing variations and callbacks when exact replay is required.
 
+See :doc:`../offline_placement/clutter` for offline settling.
+
 Next Steps
 ----------
 

@@ -26,8 +26,8 @@ that passes ``is_available()`` and survives ``enabled_checks`` (see
 
 ``PlacementCandidateBatch`` carries positions, orientations, bounds and candidate
 identities from initialization through solving, validation and ranking. Validator
-extensions implement ``validate_batch(batch, collision_objects)`` and return one
-boolean per row. ``batch.select(indices)`` retains the original environment and
+extensions derive from ``PrePhysicsPlacementValidator``, implement
+``validate_batch(batch, collision_objects)``, and return one boolean per row. ``batch.select(indices)`` retains the original environment and
 candidate IDs when expensive checks receive only a filtered subset.
 
 Verdicts land in each candidate's ``PlacementValidationResults``. A
@@ -39,6 +39,11 @@ reject-and-refill until each environment has enough valid layouts. By default,
 if the final refill batch still has no valid candidate, Arena can store a
 best-loss layout that failed required checks
 (``allow_best_loss_fallbacks=True``); see :doc:`./pooled_placement`.
+
+Pre-physics and offline post-physics validators share the ``PlacementValidator``
+base for check names and stages. They have separate inputs: solved candidate
+batches before physics, measured scene state after physics. See
+:doc:`../offline_placement/clutter` for offline acceptance checks.
 
 Types of Validators
 --------------------
