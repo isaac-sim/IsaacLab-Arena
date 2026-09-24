@@ -43,7 +43,7 @@ def ensure_environments_registered():
 # inherit ExampleEnvironmentBase continue using their own add_cli_args() and get_env().
 # TODO(cvolk, 2026-07-03): [typed-config-migration] Delete this section and the factories'
 # _legacy_argparse_cfg_type declarations when runners receive typed configs directly.
-_FIELDS_PROVIDED_BY_SHARED_PARSERS = {"auto", "enable_cameras", "mimic", "num_envs"}
+_FIELDS_PROVIDED_BY_SHARED_PARSERS = {"auto", "enable_cameras", "mimic", "num_envs", "presets"}
 
 
 def _get_legacy_argparse_cfg_type(
@@ -84,6 +84,12 @@ def _environment_cfg_from_cli(
 ) -> ArenaEnvironmentCfg:
     """Create a typed environment config from matching legacy Namespace values."""
     environment_cfg_type = _get_legacy_argparse_cfg_type(environment_factory_type)
+    if getattr(args_cli, "presets", None) is None:
+        default_presets = getattr(environment_cfg_type(), "presets", None)
+        if default_presets is not None:
+            # The builder consumes the same namespace after the environment, so resolve the
+            # environment-specific default here to keep their backend selections aligned.
+            args_cli.presets = default_presets
     return dataclass_from_cli(environment_cfg_type, args_cli)
 
 
