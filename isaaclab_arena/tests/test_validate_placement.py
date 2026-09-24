@@ -47,7 +47,7 @@ def _env_bboxes(positions: dict[DummyObject, tuple[float, float, float]]):
 
 def _validate_one(placer: ObjectPlacer, positions, env_bboxes, orientations=None):
     """Run every enabled validator over a single candidate and return its aggregated results."""
-    return placer._validate_candidates([positions], [orientations or {}], [env_bboxes], [])[0]
+    return placer._validation.validate_candidates([positions], [orientations or {}], [env_bboxes], [])[0]
 
 
 def _stack_rows(bbox: AxisAlignedBoundingBox, n: int) -> AxisAlignedBoundingBox:
@@ -200,7 +200,7 @@ def test_marker_only_yaw_rejects_overlap_after_applying_pose():
     b = _make_box("b", size=0.1)
     objects = [a, b]
     positions = {a: (0.0, 0.0, 0.0), b: (0.0, 0.2, 0.0)}
-    orientations = placer._generate_initial_orientations(objects, set())
+    orientations = placer._initializer.generate_orientations(objects, set())
     candidate_bboxes = placer._rotate_candidate_bboxes(objects, _env_bboxes(positions), [orientations])
     placer._apply_poses([positions], set(), [orientations])
 

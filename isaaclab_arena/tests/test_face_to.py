@@ -138,7 +138,7 @@ def test_coincident_face_to_fails_candidate_validation():
     orientations = [{}]
 
     ObjectPlacer._apply_face_to_orientations([positions], orientations)
-    validation = ObjectPlacer()._validate_candidates(
+    validation = ObjectPlacer()._validation.validate_candidates(
         [positions],
         [{subject: 0.0}],
         [{obj: obj.get_bounding_box() for obj in positions}],
@@ -161,12 +161,12 @@ def test_face_to_rebuilds_rotated_footprint_before_validation():
     orientations = [{}]
     placer = ObjectPlacer()
 
-    assert placer._validate_candidates([positions], [{}], [unrotated], [])[0].validation_results[
+    assert placer._validation.validate_candidates([positions], [{}], [unrotated], [])[0].validation_results[
         PlacementCheck.NO_OVERLAP
     ]
     ObjectPlacer._apply_face_to_orientations([positions], orientations)
     rotated = ObjectPlacer._rotate_candidate_bboxes(objects, unrotated, orientations)
-    validation = placer._validate_candidates([positions], [orientations[0]], [rotated], [])[0]
+    validation = placer._validation.validate_candidates([positions], [orientations[0]], [rotated], [])[0]
 
     assert orientations[0][subject] == pytest.approx(math.pi / 2)
     assert validation.validation_results[PlacementCheck.NO_OVERLAP] is False
@@ -176,7 +176,7 @@ def test_face_to_suppresses_initial_random_yaw_and_rejects_rotate_marker():
     pair = _face_to_pair()
     placer = ObjectPlacer(ObjectPlacerParams(random_yaw_init=True))
 
-    assert placer._generate_initial_orientations([pair.target, pair.subject], {pair.target}) == {}
+    assert placer._initializer.generate_orientations([pair.target, pair.subject], {pair.target}) == {}
 
     pair.subject.add_relation(RotateAroundSolution(yaw_rad=0.5))
     with pytest.raises(AssertionError, match="cannot combine FaceTo"):
