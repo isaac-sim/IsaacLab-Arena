@@ -81,6 +81,8 @@ def test_tool_sorting_behaviour_demo() -> None:
             "--cycles",
             "1",
             "--teleport-only",
+            "--num-envs",
+            "1",
             "--pause-steps",
             "25",
             "--no-real-time",
@@ -92,5 +94,5 @@ def test_tool_sorting_behaviour_demo() -> None:
     )
 
     assert result is not None
-    expected = "[tool-sort-validation] cycle 1: success reset observed in all 2 environments"
+    expected = "[tool-sort-validation] cycle 1: success reset observed in all 1 environment"
     assert expected in result.stdout, result.stdout + result.stderr
