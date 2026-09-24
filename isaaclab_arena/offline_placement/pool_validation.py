@@ -42,9 +42,9 @@ class PoolValidationBatch:
     skipped_layouts: dict[int, str]
     """Reason each unapplied candidate was rejected, by environment ID."""
     initial_poses: dict[str, torch.Tensor]
-    """Environment-local release poses (N, 7), ordered xyz/xyzw; empty without pose capture."""
+    """Environment-local pre-physics poses (N, 7), ordered xyz/xyzw; empty without pose capture."""
     final_poses: dict[str, torch.Tensor]
-    """Environment-local final poses (N, 7), ordered xyz/xyzw; empty without pose capture."""
+    """Environment-local post-physics poses (N, 7), ordered xyz/xyzw; empty without pose capture."""
 
 
 def iter_pool_validation(
