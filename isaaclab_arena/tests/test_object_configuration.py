@@ -30,6 +30,44 @@ def _test_object_initial_pose_update(simulation_app):
     return True
 
 
+def _test_default_spawner_cfg_not_shared(simulation_app):
+
+    import copy
+
+    from isaaclab_arena.assets.object_library import DirectionalLight, DomeLight, GroundPlane, Sphere
+
+    # No library object built from its class default may share (or alias) that cfg.
+    for cls in (GroundPlane, Sphere, DomeLight, DirectionalLight):
+        first = cls()
+        second = cls()
+        assert first.spawner_cfg is not second.spawner_cfg, cls.__name__
+        assert first.spawner_cfg is not cls.default_spawner_cfg, cls.__name__
+        assert type(first.spawner_cfg) is type(cls.default_spawner_cfg), cls.__name__
+
+    # Mutating one instance must not reach a sibling, the class default, or a later instance.
+    default_radius = Sphere.default_spawner_cfg.radius
+    mutated = Sphere()
+    sibling = Sphere()
+    mutated.spawner_cfg.radius = default_radius + 1.0
+    assert sibling.spawner_cfg.radius == default_radius
+    assert Sphere.default_spawner_cfg.radius == default_radius
+    assert Sphere().spawner_cfg.radius == default_radius
+
+    # Lights reach the cfg through their setters, so check that path for both light classes.
+    for light_cls in (DomeLight, DirectionalLight):
+        lit = light_cls()
+        other = light_cls()
+        lit.set_intensity(light_cls.default_intensity + 1000.0)
+        assert other.spawner_cfg.intensity == light_cls.default_intensity, light_cls.__name__
+        assert light_cls.default_spawner_cfg.intensity == light_cls.default_intensity, light_cls.__name__
+
+    # An explicitly passed cfg is still stored by reference.
+    own = copy.deepcopy(Sphere.default_spawner_cfg)
+    assert Sphere(spawner_cfg=own).spawner_cfg is own
+
+    return True
+
+
 def test_object_configuration():
     result = run_function_with_persistent_simulation_app(
         _test_object_initial_pose_update,
@@ -38,5 +76,14 @@ def test_object_configuration():
     assert result, "Test failed"
 
 
+def test_default_spawner_cfg_not_shared():
+    result = run_function_with_persistent_simulation_app(
+        _test_default_spawner_cfg_not_shared,
+        headless=HEADLESS,
+    )
+    assert result, "Test failed"
+
+
 if __name__ == "__main__":
     test_object_configuration()
+    test_default_spawner_cfg_not_shared()
