@@ -16,11 +16,11 @@ from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.assets.register import register_task
 from isaaclab_arena.metrics.success_rate import SuccessRateMetric
 from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
-from isaaclab_arena.tasks.predicates.composite import CompositePredicate
 from isaaclab_arena.tasks.predicates.spatial import velocity_below_threshold
+from isaaclab_arena.tasks.predicates.temporal import TrueForConsecutiveStepsCfg
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
-from isaaclab_arena.tasks.terminations import SuccessMode
+from isaaclab_arena.tasks.terminations import check_success
 from isaaclab_arena.utils.configclass import make_configclass
 
 from .geometry import LoopOnRod, PointInBox, goal_geometry_from_dict
@@ -117,13 +117,9 @@ class ToolHangingTask(TaskBase):
                     params={"subject_name": goal.tool.name, "linear_velocity_threshold": self.speed_m_s},
                 ),
             ]
-        all_tools_hung = TerminationTermCfg(
-            func=CompositePredicate,
-            params={
-                "predicates": predicates,
-                "mode": SuccessMode.ALL,
-                "consecutive_steps": self.consecutive_success_steps,
-            },
+        all_tools_hung = TrueForConsecutiveStepsCfg(
+            predicate=TerminationTermCfg(func=check_success, params={"predicates": predicates}),
+            required_steps=self.consecutive_success_steps,
         )
         return TaskTerminationCfg(
             timeout_s=self.episode_length_s,
