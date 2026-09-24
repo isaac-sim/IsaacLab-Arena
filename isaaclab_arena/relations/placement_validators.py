@@ -12,6 +12,7 @@ from collections.abc import Iterator
 from typing import TYPE_CHECKING, ClassVar, cast
 
 from isaaclab_arena.relations.collision_mode import CollisionMode, get_object_collision_mode, object_uses_mesh_collision
+from isaaclab_arena.relations.placement_candidate_batch import PlacementCandidateBatch
 from isaaclab_arena.relations.placement_validation import PlacementCheck
 from isaaclab_arena.relations.placement_validator_registry import (
     PrePhysicsPlacementValidatorRegistry,
@@ -23,7 +24,7 @@ from isaaclab_arena.relations.relation_loss_strategies import (
     next_to_violations,
     not_next_to_violations,
 )
-from isaaclab_arena.relations.relations import ClutterOn, FaceTo, NextTo, NotNextTo, On, get_relation
+from isaaclab_arena.relations.relations import ClutterOn, FaceTo, NextTo, NotNextTo, On, RelationBase, get_relation
 from isaaclab_arena.relations.warp_sdf_kernels import has_sdf_sentinel, mesh_sdf
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.yaw import centers_in_target_frame, yaw_from_quat_xyzw, yaw_toward_positions
@@ -65,21 +66,8 @@ class PlacementValidator(ABC):
         return True
 
     @abstractmethod
-    def validate_batch(
-        self,
-        positions: list[dict[PlaceableAsset, tuple[float, float, float]]],
-        orientations: list[dict[PlaceableAsset, float]],
-        bboxes: list[dict[PlaceableAsset, AxisAlignedBoundingBox]],
-        collision_objects: list[CollisionObject],
-    ) -> list[bool]:
-        """Return one pass/fail verdict per candidate layout.
-
-        Args:
-            positions: Solved (x, y, z) per object, one dict per candidate.
-            orientations: Absolute world Z-yaw per object, one dict per candidate (may be empty).
-            bboxes: Per-object bboxes for the candidate's env, one dict per candidate, each (1, 3).
-            collision_objects: Fixed background obstacles shared across candidates.
-        """
+    def validate_batch(self, batch: PlacementCandidateBatch, collision_objects: list[CollisionObject]) -> list[bool]:
+        """Return one verdict per candidate in batch order."""
         pass
 
 
@@ -119,18 +107,12 @@ def build_validators(
 
 @register_validator
 class OnRelationValidator(PlacementValidator):
-    """Support footprint and height checks for On and ClutterOn relations."""
+    """Contact-band and footprint checks for ordinary On relations."""
 
     check = PlacementCheck.ON_RELATION
 
-    def validate_batch(
-        self,
-        positions: list[dict[PlaceableAsset, tuple[float, float, float]]],
-        orientations: list[dict[PlaceableAsset, float]],
-        bboxes: list[dict[PlaceableAsset, AxisAlignedBoundingBox]],
-        collision_objects: list[CollisionObject],
-    ) -> list[bool]:
-        return [self._validate(positions[i], bboxes[i]) for i in range(len(positions))]
+    def validate_batch(self, batch: PlacementCandidateBatch, collision_objects: list[CollisionObject]) -> list[bool]:
+        return [self._validate(batch.positions[i], batch.bboxes[i]) for i in range(len(batch.positions))]
 
     def _validate(
         self,
@@ -145,12 +127,10 @@ class OnRelationValidator(PlacementValidator):
         """
         for obj in positions:
             for relation in obj.get_relations():
-                if not isinstance(relation, On) or relation.parent not in positions:
+                if not self._matches_relation(relation) or relation.parent not in positions:
                     continue
                 child_world = env_bboxes[obj].translated(positions[obj])
                 parent_world = env_bboxes[relation.parent].translated(positions[relation.parent])
-                if isinstance(relation, ClutterOn):
-                    parent_world = relation.get_release_region_bbox(parent_world)
                 # Preserve scalar height arithmetic at the strict On contact boundary.
                 bottom = positions[obj][2] + float(env_bboxes[obj].min_point[0, 2])
                 top = positions[relation.parent][2] + float(env_bboxes[relation.parent].max_point[0, 2])
@@ -162,6 +142,10 @@ class OnRelationValidator(PlacementValidator):
                         print(f"{type(relation).__name__}: '{obj.name}' outside support footprint or height range")
                     return False
         return True
+
+    @staticmethod
+    def _matches_relation(relation: RelationBase) -> bool:
+        return isinstance(relation, On) and not isinstance(relation, ClutterOn)
 
     def _validate_footprint(self, relation: On, child: AxisAlignedBoundingBox, parent: AxisAlignedBoundingBox) -> bool:
         """Check feasible margins and containment or overlap within the support footprint."""
@@ -195,19 +179,29 @@ class OnRelationValidator(PlacementValidator):
 
 
 @register_validator
+class ClutterOnRelationValidator(OnRelationValidator):
+    """Release-region containment and minimum-height checks for ClutterOn."""
+
+    check = PlacementCheck.CLUTTER_ON_RELATION
+
+    @staticmethod
+    def _matches_relation(relation: RelationBase) -> bool:
+        return isinstance(relation, ClutterOn)
+
+    def _validate_footprint(
+        self, relation: ClutterOn, child: AxisAlignedBoundingBox, parent: AxisAlignedBoundingBox
+    ) -> bool:
+        return super()._validate_footprint(relation, child, relation.get_release_region_bbox(parent))
+
+
+@register_validator
 class NextToValidator(PlacementValidator):
     """Validate every NextTo relation: child on the requested side within the relation's tolerance_m."""
 
     check = PlacementCheck.NEXT_TO
 
-    def validate_batch(
-        self,
-        positions: list[dict[PlaceableAsset, tuple[float, float, float]]],
-        orientations: list[dict[PlaceableAsset, float]],
-        bboxes: list[dict[PlaceableAsset, AxisAlignedBoundingBox]],
-        collision_objects: list[CollisionObject],
-    ) -> list[bool]:
-        return [self._validate(positions[i], bboxes[i]) for i in range(len(positions))]
+    def validate_batch(self, batch: PlacementCandidateBatch, collision_objects: list[CollisionObject]) -> list[bool]:
+        return [self._validate(batch.positions[i], batch.bboxes[i]) for i in range(len(batch.positions))]
 
     def _validate(
         self,
@@ -252,14 +246,8 @@ class NotNextToValidator(PlacementValidator):
 
     check = PlacementCheck.NOT_NEXT_TO
 
-    def validate_batch(
-        self,
-        positions: list[dict[PlaceableAsset, tuple[float, float, float]]],
-        orientations: list[dict[PlaceableAsset, float]],
-        bboxes: list[dict[PlaceableAsset, AxisAlignedBoundingBox]],
-        collision_objects: list[CollisionObject],
-    ) -> list[bool]:
-        return [self._validate(positions[i], bboxes[i]) for i in range(len(positions))]
+    def validate_batch(self, batch: PlacementCandidateBatch, collision_objects: list[CollisionObject]) -> list[bool]:
+        return [self._validate(batch.positions[i], batch.bboxes[i]) for i in range(len(batch.positions))]
 
     def _validate(
         self,
@@ -313,14 +301,8 @@ class FaceToValidator(PlacementValidator):
 
     check = PlacementCheck.FACE_TO
 
-    def validate_batch(
-        self,
-        positions: list[dict[PlaceableAsset, tuple[float, float, float]]],
-        orientations: list[dict[PlaceableAsset, float]],
-        bboxes: list[dict[PlaceableAsset, AxisAlignedBoundingBox]],
-        collision_objects: list[CollisionObject],
-    ) -> list[bool]:
-        return [self._validate(positions[i], orientations[i]) for i in range(len(positions))]
+    def validate_batch(self, batch: PlacementCandidateBatch, collision_objects: list[CollisionObject]) -> list[bool]:
+        return [self._validate(batch.positions[i], batch.orientations[i]) for i in range(len(batch.positions))]
 
     def _validate(
         self,
@@ -360,15 +342,10 @@ class NoOverlapValidator(PlacementValidator):
         super().__init__(params, visualizer)
         self._cpu_mesh_manager: WarpMeshAndSphereCache | None = None
 
-    def validate_batch(
-        self,
-        positions: list[dict[PlaceableAsset, tuple[float, float, float]]],
-        orientations: list[dict[PlaceableAsset, float]],
-        bboxes: list[dict[PlaceableAsset, AxisAlignedBoundingBox]],
-        collision_objects: list[CollisionObject],
-    ) -> list[bool]:
+    def validate_batch(self, batch: PlacementCandidateBatch, collision_objects: list[CollisionObject]) -> list[bool]:
         return [
-            self._validate(positions[i], bboxes[i], orientations[i], collision_objects) for i in range(len(positions))
+            self._validate(batch.positions[i], batch.bboxes[i], batch.orientations[i], collision_objects)
+            for i in range(len(batch.positions))
         ]
 
     def _validate(

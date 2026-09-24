@@ -7,15 +7,15 @@ from __future__ import annotations
 
 import math
 import torch
-from dataclasses import dataclass, field
+from dataclasses import replace
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.relations.bounding_box_helpers import assign_variants_for_envs, build_per_env_bounding_boxes
 from isaaclab_arena.relations.candidate_initialization import CandidateInitializer
 from isaaclab_arena.relations.collision_mode import object_uses_mesh_collision
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+from isaaclab_arena.relations.placement_candidate_batch import PlacementCandidateBatch
 from isaaclab_arena.relations.placement_result import PlacementResult
-from isaaclab_arena.relations.placement_validation import PlacementValidationResults
 from isaaclab_arena.relations.placement_validation_pipeline import PlacementValidationPipeline
 from isaaclab_arena.relations.placement_validators import build_validators
 from isaaclab_arena.relations.placement_visualizer import get_or_create_placement_visualizer
@@ -36,28 +36,6 @@ if TYPE_CHECKING:
     from isaaclab_arena.relations.collision_object import CollisionObject
     from isaaclab_arena.relations.placement_asset import PlaceableAsset
     from isaaclab_arena.relations.placement_validators import PlacementValidator
-
-
-@dataclass
-class PlacementCandidate:
-    """A candidate object layout with its solver loss and validation outcome."""
-
-    loss: float
-    """Loss value returned by the solver."""
-
-    positions: dict[PlaceableAsset, tuple[float, float, float]]
-    """Solved positions for each object."""
-
-    validation_results: PlacementValidationResults
-    """Per-check validation results for this candidate's layout."""
-
-    orientations: dict[PlaceableAsset, float] = field(default_factory=dict)
-    """Placement-computed absolute world Z-yaws. Omitted objects retain their marker orientation."""
-
-    @property
-    def is_valid(self) -> bool:
-        """True when all validation checks pass."""
-        return self.validation_results.do_all_required_validation_checks_pass()
 
 
 class ObjectPlacer:
@@ -238,137 +216,78 @@ class ObjectPlacer:
         assign_variants_for_envs(objects, num_envs, placement_seed=self.params.placement_seed)
         num_candidates = num_envs * candidates_per_env
         env_bboxes = build_per_env_bounding_boxes(objects, num_envs)
-        unrotated_candidate_bboxes = env_bboxes.get_bounding_boxes_for_solver_candidates(candidates_per_env)
-        per_env_bboxes = env_bboxes.get_bounding_boxes_for_all_envs()
-
-        initial_positions: list[dict[PlaceableAsset, tuple[float, float, float]]] = []
-        orientations_per_candidate: list[dict[PlaceableAsset, float]] = []
-        for candidate_idx in range(num_candidates):
-            cur_env = candidate_idx // candidates_per_env
-            if generator is not None:
-                assert self.params.placement_seed is not None
-                generator.manual_seed(self.params.placement_seed + candidate_idx)
-            initial_positions.append(
-                self._initializer.generate_positions(objects, anchor_objects_set, per_env_bboxes[cur_env], generator)
-            )
-            orientations_per_candidate.append(
-                self._initializer.generate_orientations(objects, anchor_objects_set, generator)
-            )
-
-        # Bake each candidate's yaw into a conservative enclosing bbox for overlap checks.
-        candidate_bboxes = self._rotate_candidate_bboxes(
-            objects, unrotated_candidate_bboxes, orientations_per_candidate
+        batch = self._initializer.generate_candidates(
+            objects, anchor_objects_set, env_bboxes.get_bounding_boxes_for_all_envs(), candidates_per_env, generator
         )
-
+        unrotated_bboxes = batch.stacked_bboxes()
+        batch = self._orient_candidate_bounds(objects, batch, unrotated_bboxes)
         collision_bboxes = self._initializer.get_clutter_collision_bounds(objects, collision_objects)
+        for positions, bounds in zip(batch.positions, batch.bboxes, strict=True):
+            self._initializer.initialize_clutter_positions(positions, bounds, collision_bboxes)
 
-        for i, positions in enumerate(initial_positions):
-            self._initializer.initialize_clutter_positions(
-                positions, self._get_bounding_boxes_for_candidate_index(candidate_bboxes, i), collision_bboxes
-            )
+        batch = self._solver.solve_candidates(objects, batch, collision_objects)
+        self._apply_face_to_orientations(batch.positions, batch.orientations)
+        # FaceTo is known after solving; rebuild bounds from the original geometry.
+        batch = self._orient_candidate_bounds(objects, batch, unrotated_bboxes)
+        self._assert_finite_solver_output(batch)
+        batch = self._validation.validate_candidates(batch, collision_objects)
+        ranked_batches = self._rank_candidates(batch, num_envs)
 
-        all_positions = self._solver.solve(
-            objects,
-            initial_positions,
-            env_bboxes=candidate_bboxes,
-            env_bboxes_include_yaw=any(orientations for orientations in orientations_per_candidate),
-            orientations=orientations_per_candidate,
-            collision_objects=collision_objects,
-        )
-        self._apply_face_to_orientations(all_positions, orientations_per_candidate)
-        # FaceTo yaw is only known after solving, so rebuild from unrotated boxes before validation.
-        candidate_bboxes = self._rotate_candidate_bboxes(
-            objects, unrotated_candidate_bboxes, orientations_per_candidate
-        )
-        assert self._solver.last_loss_per_env is not None
-        all_losses: list[float] = self._solver.last_loss_per_env.cpu().tolist()
-        self._assert_finite_solver_output(all_positions, orientations_per_candidate, all_losses, candidates_per_env)
-        bboxes_per_candidate = [
-            self._get_bounding_boxes_for_candidate_index(candidate_bboxes, candidate_idx)
-            for candidate_idx in range(num_candidates)
-        ]
-        all_validations = self._validation.validate_candidates(
-            all_positions, orientations_per_candidate, bboxes_per_candidate, collision_objects
-        )
-
-        candidates: list[PlacementCandidate] = []
-        for candidate_idx in range(num_candidates):
-            candidates.append(
-                PlacementCandidate(
-                    all_losses[candidate_idx],
-                    all_positions[candidate_idx],
-                    all_validations[candidate_idx],
-                    orientations_per_candidate[candidate_idx],
-                )
-            )
-
-        ranked_candidate_slices = self._rank_candidates(candidates, num_envs, candidates_per_env)
-        ranked_results = [
-            [
+        results = []
+        for ranked in ranked_batches:
+            assert ranked.validations is not None and ranked.losses is not None
+            results.append([
                 PlacementResult(
-                    validation_results=candidate.validation_results,
-                    positions=candidate.positions,
-                    final_loss=candidate.loss,
+                    validation_results=ranked.validations[i],
+                    positions=ranked.positions[i],
+                    final_loss=ranked.losses[i],
                     attempts=attempts_per_result,
-                    orientations=candidate.orientations,
+                    orientations=ranked.orientations[i],
                 )
-                for candidate in candidate_slice
-            ]
-            for candidate_slice in ranked_candidate_slices
-        ]
-
+                for i in range(len(ranked))
+            ])
         if self.params.verbose:
-            self._print_ranked_summary(ranked_candidate_slices, num_candidates, num_envs)
+            n_valid = sum(env_results[0].success for env_results in results)
+            print(f"Solved {num_candidates} candidates in one batch: {n_valid}/{num_envs} env(s) valid")
+        return results
 
-        return ranked_results
+    def _orient_candidate_bounds(
+        self,
+        objects: list[PlaceableAsset],
+        batch: PlacementCandidateBatch,
+        unrotated_bboxes: dict[PlaceableAsset, AxisAlignedBoundingBox],
+    ) -> PlacementCandidateBatch:
+        """Attach bounds enclosing each candidate's current full rotation."""
+        rotated = self._rotate_candidate_bboxes(objects, unrotated_bboxes, batch.orientations)
+        bounds = [self._get_bounding_boxes_for_candidate_index(rotated, i) for i in range(len(batch))]
+        return replace(batch, bboxes=bounds)
 
     @staticmethod
-    def _assert_finite_solver_output(
-        positions_per_candidate: list[dict[PlaceableAsset, tuple[float, float, float]]],
-        orientations_per_candidate: list[dict[PlaceableAsset, float]],
-        losses: list[float],
-        candidates_per_env: int,
-    ) -> None:
+    def _assert_finite_solver_output(batch: PlacementCandidateBatch) -> None:
         """Require finite XYZ positions, yaw angles and losses before validation and ranking."""
-        for index, (positions, orientations, loss) in enumerate(
-            zip(positions_per_candidate, orientations_per_candidate, losses, strict=True)
+        assert batch.losses is not None, "Candidates must be solved before validation"
+        for i, (positions, orientations, loss) in enumerate(
+            zip(batch.positions, batch.orientations, batch.losses, strict=True)
         ):
             values = [loss, *orientations.values(), *(value for position in positions.values() for value in position)]
-            assert all(math.isfinite(value) for value in values), (
-                f"Non-finite solver output for environment {index // candidates_per_env}, "
-                f"candidate {index % candidates_per_env}"
-            )
+            assert all(
+                math.isfinite(value) for value in values
+            ), f"Non-finite solver output for environment {batch.env_ids[i]}, candidate {batch.candidate_ids[i]}"
 
     @staticmethod
-    def _rank_candidates(
-        candidates: list[PlacementCandidate],
-        num_envs: int,
-        candidates_per_env: int,
-    ) -> list[list[PlacementCandidate]]:
-        """Return one ranked candidate slice per env: most validation checks passed first, then lowest loss."""
-        ranked_candidate_slices: list[list[PlacementCandidate]] = []
-        for cur_env in range(num_envs):
-            start = cur_env * candidates_per_env
-            env_candidates = candidates[start : start + candidates_per_env]
-            ranked_candidate_slices.append(
-                sorted(
-                    env_candidates,
-                    key=lambda candidate: (
-                        *candidate.validation_results.get_number_of_required_and_optional_failures,
-                        candidate.loss,
-                    ),
-                )
+    def _rank_candidates(batch: PlacementCandidateBatch, num_envs: int) -> list[PlacementCandidateBatch]:
+        """Rank by failed checks and loss within each environment, retaining candidate identities."""
+        assert batch.validations is not None and batch.losses is not None
+        indices_per_env = [[] for _ in range(num_envs)]
+        for i, env_id in enumerate(batch.env_ids):
+            indices_per_env[env_id].append(i)
+        ranked = []
+        for indices in indices_per_env:
+            indices.sort(
+                key=lambda i: (*batch.validations[i].get_number_of_required_and_optional_failures, batch.losses[i])
             )
-        return ranked_candidate_slices
-
-    def _print_ranked_summary(
-        self,
-        ranked_candidate_slices: list[list[PlacementCandidate]],
-        num_candidates: int,
-        num_envs: int,
-    ) -> None:
-        n_valid = sum(1 for candidate_slice in ranked_candidate_slices if candidate_slice[0].is_valid)
-        print(f"Solved {num_candidates} candidates in one batch: {n_valid}/{num_envs} env(s) valid")
+            ranked.append(batch.select(indices))
+        return ranked
 
     @staticmethod
     def _apply_face_to_orientations(

@@ -19,7 +19,7 @@ from isaaclab_arena.relations.relation_solver import RelationSolver
 from isaaclab_arena.relations.relation_solver_params import CollisionMode, RelationSolverParams
 from isaaclab_arena.relations.relations import IsAnchor, On
 from isaaclab_arena.relations.warp_mesh_manager import WarpMeshAndSphereCache, greedy_sphere_decomposition
-from isaaclab_arena.tests.dummy_object import DummyObject
+from isaaclab_arena.tests.dummy_object import DummyObject, make_candidate_batch
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose
 
@@ -575,11 +575,15 @@ def test_validate_placement_mesh_mode_rejects_aabb_foreground_background_overlap
     env_bboxes = {table: table.get_bounding_box(), box: box.get_bounding_box()}
 
     overlapping = {table: (0.0, 0.0, 0.0), box: (0.0, 0.0, 0.075)}
-    validation = placer._validation.validate_candidates([overlapping], [{}], [env_bboxes], [background])[0]
+    validation = placer._validation.validate_candidates(
+        make_candidate_batch([overlapping], [{}], [env_bboxes]), [background]
+    ).validations[0]
     assert not validation.validation_results[PlacementCheck.NO_OVERLAP]
 
     clear = {table: (0.0, 0.0, 0.0), box: (0.3, 0.0, 0.075)}
-    validation = placer._validation.validate_candidates([clear], [{}], [env_bboxes], [background])[0]
+    validation = placer._validation.validate_candidates(
+        make_candidate_batch([clear], [{}], [env_bboxes]), [background]
+    ).validations[0]
     assert validation.validation_results[PlacementCheck.NO_OVERLAP]
 
 
@@ -1226,12 +1230,18 @@ def test_mesh_mode_scores_background_collision_object():
     solver.solve([table, box], initial, collision_objects=[background])
 
     params = ObjectPlacerParams(solver_params=solver_params)
-    validation = ObjectPlacer(params=params)._validation.validate_candidates(
-        [{table: (0.0, 0.0, 0.0), box: (0.0, 0.0, 0.05)}],
-        [{}],
-        [{table: table.get_bounding_box(), box: box.get_bounding_box()}],
-        [background],
-    )[0]
+    validation = (
+        ObjectPlacer(params=params)
+        ._validation.validate_candidates(
+            make_candidate_batch(
+                [{table: (0.0, 0.0, 0.0), box: (0.0, 0.0, 0.05)}],
+                [{}],
+                [{table: table.get_bounding_box(), box: box.get_bounding_box()}],
+            ),
+            [background],
+        )
+        .validations[0]
+    )
 
     assert solver.last_loss_per_env[0].item() > 0.0
     assert not validation.do_all_required_validation_checks_pass()
@@ -1347,7 +1357,7 @@ def test_tilted_clutter_requires_bbox_collision():
         rod.relations = [ClutterOn(support, random_yaw=False), RotateAroundSolution(pitch_rad=math.pi / 2)]
     params = ObjectPlacerParams(
         solver_params=RelationSolverParams(collision_mode=CollisionMode.MESH, max_iters=0, verbose=False),
-        enabled_checks={PlacementCheck.NO_OVERLAP, PlacementCheck.ON_RELATION},
+        enabled_checks={PlacementCheck.NO_OVERLAP, PlacementCheck.CLUTTER_ON_RELATION},
         max_placement_attempts=1,
         apply_positions_to_objects=False,
         placement_seed=42,

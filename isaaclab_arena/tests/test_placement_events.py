@@ -853,19 +853,19 @@ class _StubReachabilityValidator(PlacementValidator):
     def is_available(cls, params) -> bool:
         return cls.predicate is not None
 
-    def validate_batch(self, positions, orientations, bboxes, collision_objects):
+    def validate_batch(self, batch, collision_objects):
         from isaaclab_arena.relations.placement_result import PlacementResult
         from isaaclab_arena.relations.placement_validation import PlacementValidationResults
 
         candidates = [
             PlacementResult(
                 validation_results=PlacementValidationResults(),
-                positions=positions[i],
+                positions=batch.positions[i],
                 final_loss=0.0,
                 attempts=0,
-                orientations=orientations[i],
+                orientations=batch.orientations[i],
             )
-            for i in range(len(positions))
+            for i in range(len(batch))
         ]
         return [bool(type(self).predicate(candidate)) for candidate in candidates]
 

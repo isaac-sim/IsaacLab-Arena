@@ -15,7 +15,7 @@ from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_validation import PlacementCheck
 from isaaclab_arena.relations.placement_validators import NextToValidator, NotNextToValidator, OnRelationValidator
 from isaaclab_arena.relations.relations import NextTo, NotNextTo, On, RotateAroundSolution, Side
-from isaaclab_arena.tests.dummy_object import DummyObject
+from isaaclab_arena.tests.dummy_object import DummyObject, make_candidate_batch
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 
@@ -47,7 +47,9 @@ def _env_bboxes(positions: dict[DummyObject, tuple[float, float, float]]):
 
 def _validate_one(placer: ObjectPlacer, positions, env_bboxes, orientations=None):
     """Run every enabled validator over a single candidate and return its aggregated results."""
-    return placer._validation.validate_candidates([positions], [orientations or {}], [env_bboxes], [])[0]
+    return placer._validation.validate_candidates(
+        make_candidate_batch([positions], [orientations or {}], [env_bboxes]), []
+    ).validations[0]
 
 
 def _stack_rows(bbox: AxisAlignedBoundingBox, n: int) -> AxisAlignedBoundingBox:
