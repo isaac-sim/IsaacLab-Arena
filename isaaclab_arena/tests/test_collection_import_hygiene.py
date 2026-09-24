@@ -25,11 +25,13 @@ from isaaclab_arena.tests.utils.constants import TestConstants
 _FORBIDDEN_PREFIXES = ("isaaclab.assets", "isaaclab.scene", "isaaclab_assets", "isaaclab_tasks")
 
 _CHILD_SCRIPT = f"""
-import glob, importlib, json, sys
+import importlib, json, sys
+from pathlib import Path
 
 offenders = {{}}
-for path in sorted(glob.glob(sys.argv[1] + "/test_*.py")):
-    module_name = "isaaclab_arena.tests." + path.rsplit("/", 1)[-1][:-3]
+test_dir = Path(sys.argv[1])
+for path in sorted(test_dir.rglob("test_*.py")):
+    module_name = "isaaclab_arena.tests." + ".".join(path.relative_to(test_dir).with_suffix("").parts)
     before = set(sys.modules)
     importlib.import_module(module_name)
     leaked = sorted(n for n in set(sys.modules) - before if n.startswith({_FORBIDDEN_PREFIXES!r}))
