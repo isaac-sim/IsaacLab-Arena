@@ -656,6 +656,34 @@ def _test_open_door_uses_existing_sequence_and_thresholds(simulation_app):
     return True
 
 
+def _test_press_button_preserves_success_parameters_and_timeout(simulation_app):
+    from unittest.mock import Mock
+
+    from isaaclab_arena.affordances.pressable import Pressable
+    from isaaclab_arena.tasks.press_button_task import PressButtonTask
+    from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
+
+    button = Mock(spec=Pressable)
+    button.name = "start_button"
+    task = PressButtonTask(
+        pressable_object=button,
+        pressedness_threshold=0.75,
+        episode_length_s=45.0,
+    )
+    termination_cfg = task.get_termination_cfg()
+    assert isinstance(termination_cfg, TaskTerminationCfg)
+    assert termination_cfg.timeout_s == 45.0
+    assert termination_cfg.failures == {}
+    assert len(termination_cfg.success) == 1
+    objective = termination_cfg.success[0]
+    assert objective.name == "press_button"
+    assert len(objective.predicate_sequence) == 1
+    pressed_predicate = objective.predicate_sequence[0]
+    assert pressed_predicate.func is button.is_pressed
+    assert pressed_predicate.keywords == {"pressedness_threshold": 0.75}
+    return True
+
+
 def test_flat_subtasks_share_manager_ordering_final_checks_and_reset():
     assert run_function_with_persistent_simulation_app(
         _test_flat_subtasks_share_manager_ordering_final_checks_and_reset
@@ -714,3 +742,7 @@ def test_pick_and_place_uses_typed_success_failure_and_timeout():
 
 def test_open_door_uses_existing_sequence_and_thresholds():
     assert run_function_with_persistent_simulation_app(_test_open_door_uses_existing_sequence_and_thresholds)
+
+
+def test_press_button_preserves_success_parameters_and_timeout():
+    assert run_function_with_persistent_simulation_app(_test_press_button_preserves_success_parameters_and_timeout)
