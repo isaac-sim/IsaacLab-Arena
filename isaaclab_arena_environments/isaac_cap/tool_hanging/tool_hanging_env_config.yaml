@@ -1,0 +1,25 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# AUTOLab's 60 Hz, eight-substep MuJoCo-contact regime shared by every tool-hanging scene.
+# Only fields that differ from Arena's Newton preset are listed.
+default_physics_backend: newton
+env_cfg_override:
+  decimation: 1
+  sim:
+    dt: 0.016666666666666666
+    use_newton_actuators: true
+    physics:
+      num_substeps: 8
+      default_shape_cfg:
+        gap: 0.0005
+      solver_cfg:
+        nconmax: 4096
+        njmax: 8192
+        iterations: 20
+        ls_iterations: 20
+        update_data_interval: 1
+        use_mujoco_contacts: true
+        disable_sensors: true
