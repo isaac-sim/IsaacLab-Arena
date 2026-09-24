@@ -16,6 +16,7 @@ def _test_task_registry_resolves_concrete_tasks(simulation_app):
         "LiftObjectTask",
         "LiftObjectTaskRL",
         "DexsuiteLiftTask",
+        "NistGearInsertionTask",
         "GoalPoseTask",
         "PressButtonTask",
         "RotateRevoluteJointTask",
