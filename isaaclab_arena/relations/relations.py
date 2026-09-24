@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import math
 import torch
 from enum import Enum
 from typing import TYPE_CHECKING, TypeVar
@@ -13,6 +14,7 @@ from isaaclab.utils.math import euler_xyz_from_quat
 
 from isaaclab_arena.assets.register import agent_ready, register_object_relation
 from isaaclab_arena.assets.registries import ObjectRelationLibraryRegistry
+from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import PoseRange  # runtime: constructed in to_pose_range_centered_at()
 
 if TYPE_CHECKING:
@@ -218,6 +220,81 @@ class On(Relation):
         self.clearance_m = clearance_m
         self.edge_margin_m = edge_margin_m
         self.overlap = overlap
+
+    def is_child_bottom_z_within_placement_height_range(
+        self, bottom: float, support_top: float, tolerance_m: float
+    ) -> bool:
+        """Whether the child bottom lies in the support's contact band, in metres."""
+        return support_top - tolerance_m < bottom <= support_top + self.clearance_m + tolerance_m
+
+
+@register_object_relation
+class ClutterOn(On):
+    """An object above a fixed support, with its footprint inside the release region.
+
+    The object's bottom must clear the support surface; contact is not required.
+    """
+
+    name = "clutter_on"
+    agent_ready = False
+    """Excluded from agentic generation; overrides On's inherited opt-in."""
+
+    def __init__(
+        self,
+        parent: PlaceableAsset,
+        spread: float = 0.2,
+        clearance_m: float = 0.01,
+        gap_m: float = 0.03,
+        random_yaw: bool = True,
+        edge_margin_m: float = 0.0,
+        relation_loss_weight: float = 1.0,
+    ):
+        """Declare a clutter release.
+
+        Args:
+            parent: Fixed support carrying IsAnchor.
+            spread: Fraction of support width and depth available for release, centered on the support.
+                For example, 0.2 restricts each axis to its central 20%; settled objects may use the full support.
+            clearance_m: Release clearance above the support in metres.
+            gap_m: Initial clearance from neighboring release bounds in metres, at least the solver clearance.
+            random_yaw: Sample world-Z yaw in addition to RotateAroundSolution.
+            edge_margin_m: Inward margin within the release region in metres.
+            relation_loss_weight: Weight for the relation loss.
+        """
+        super().__init__(parent, relation_loss_weight, clearance_m=clearance_m, edge_margin_m=edge_margin_m)
+        assert 0 < spread <= 1, "spread must be in (0, 1]"
+        assert isinstance(random_yaw, bool), "random_yaw must be a boolean"
+        assert (
+            math.isfinite(relation_loss_weight) and relation_loss_weight >= 0
+        ), "relation_loss_weight must be finite and non-negative"
+        for name, value in (("gap_m", gap_m), ("clearance_m", clearance_m), ("edge_margin_m", edge_margin_m)):
+            assert math.isfinite(value) and value >= 0, f"{name} must be finite and non-negative"
+        self.spread = spread
+        self.gap_m = gap_m
+        self.random_yaw = random_yaw
+
+    def get_release_region_bbox(self, bbox: AxisAlignedBoundingBox) -> AxisAlignedBoundingBox:
+        """Return the support bounds with its XY footprint scaled by spread."""
+        lower, upper = bbox.min_point.clone(), bbox.max_point.clone()
+        center = (lower[:, :2] + upper[:, :2]) * 0.5
+        half_size = (upper[:, :2] - lower[:, :2]) * (0.5 * self.spread)
+        lower[:, :2], upper[:, :2] = center - half_size, center + half_size
+        return AxisAlignedBoundingBox(lower, upper)
+
+    def is_child_bottom_z_within_placement_height_range(
+        self, bottom: float, support_top: float, tolerance_m: float
+    ) -> bool:
+        """Whether the child clears the support; release poses have no upper height limit."""
+        return bottom >= support_top + self.clearance_m - tolerance_m
+
+    def validate_placement_configuration(self, subject: PlaceableAsset, objects: set[PlaceableAsset]) -> None:
+        """Require a fixed support and preserve validated release poses."""
+        assert self.parent in objects and self.parent.is_anchor, "ClutterOn requires an IsAnchor support"
+        assert not subject.is_anchor, "ClutterOn cannot be an anchor"
+        assert subject.get_spatial_relations() == [self], "ClutterOn must be the object's only spatial relation"
+        assert not any(
+            isinstance(r, RandomAroundSolution) for r in subject.get_relations()
+        ), "ClutterOn cannot randomize a release after collision validation"
 
 
 @agent_ready

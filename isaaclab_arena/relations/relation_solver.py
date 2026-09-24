@@ -305,6 +305,10 @@ class RelationSolver:
                     print(f"Converged at iteration {iter}")
                 break
 
+        # Recompute ranking losses for the positions returned after the final optimizer step.
+        with torch.no_grad():
+            self._compute_total_loss(state)
+
         if self.params.profile and torch.cuda.is_available():
             torch.cuda.synchronize()
         solve_elapsed_ms = (time.perf_counter() - solve_start) * 1e3
