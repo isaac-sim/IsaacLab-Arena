@@ -206,11 +206,10 @@ touching for the same ten steps, after lifting and placement:
 Two separate sequence entries would allow the resting and touching periods to happen at different
 times. The combined predicate restarts its streak whenever either condition becomes false.
 
-``TaskSuccessTerm`` supplies the environment's control-step indices automatically, so repeated
-success checks do not count twice. When using ``ProgressTracker.step()`` directly with consecutive-step
-requirements, pass one integer index per environment, for example
-``tracker.step(env, step_index=env.episode_length_buf)``. Skipping an index clears the streak;
-unobserved steps cannot prove the condition held continuously.
+``TaskSuccessTerm`` advances ``ProgressTracker`` once per control step. Reporting and other consumers
+read ``is_complete()``, ``get_state()``, or ``get_events()`` without advancing progress.
+Direct callers of ``ProgressTracker.step()`` must also call it exactly once per control step;
+the optional ``step_index`` only records when predicates completed.
 
 
 Subtask progress tracking in composite and sequential tasks

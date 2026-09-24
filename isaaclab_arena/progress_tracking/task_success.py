@@ -21,7 +21,7 @@ class TaskSuccessTerm(ManagerTermBase):
 
     ArenaEnvBuilder registers this term with Isaac Lab's TerminationManager.
     TaskSuccessTerm creates and owns ProgressTracker. TerminationManager
-    calls this term to update progress and check the task's success
+    calls this term once per control step to update progress and check the task's success
     requirements. On episode resets, TerminationManager calls
     this term's reset() to clear progress for the restarting environments.
     """
