@@ -9,6 +9,7 @@ The simulation test teleports the wrench so its ring sits over the hook's shank 
 settle under gravity. It verifies that the task reports success and resets the episode.
 """
 
+import os
 import torch
 from pathlib import Path
 
@@ -48,22 +49,34 @@ def test_point_in_box_ignores_fixture_rotation():
     assert goal.evaluate(T_W_T, T_W_X).tolist() == [False]
 
 
-def _test_wrench_hangs_on_hook(_simulation_app):
+def _test_wrench_hangs_on_hook(_simulation_app, video_dir: Path):
     from isaaclab.utils.math import quat_apply, quat_from_matrix
 
     from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
     from isaaclab_arena.evaluation.arena_experiment_config_loader import load_arena_experiment_from_config_file
     from isaaclab_arena.evaluation.run_execution import build_arena_builder_from_run_cfg
     from isaaclab_arena.policy.zero_action_policy import ZeroActionPolicy, ZeroActionPolicyCfg
+    from isaaclab_arena.video.video_recording import VideoRecordingCfg, wrap_env_for_video
     from isaaclab_arena_environments.isaac_cap import tool_hanging
 
     config_dir = Path(tool_hanging.__file__).parent
     experiment = load_arena_experiment_from_config_file(
         config_dir / "experiment_configs/tool_hanging_zero_action_experiment.yaml", device="cuda:0"
     )
+    experiment.runs["tool_hanging"].environment.enable_cameras = True
     task_params = ArenaEnvGraphSpec.from_yaml(config_dir / "wrench_easy.yaml").task.subtasks[0].params
     goal = task_params["goals"][0]
     env = build_arena_builder_from_run_cfg(experiment.runs["tool_hanging"]).make_registered()
+    env = wrap_env_for_video(
+        env,
+        VideoRecordingCfg(
+            record_camera_video=True,
+            video_base_dir=str(video_dir),
+            camera_name_prefix="tool-hanging",
+        ),
+        num_steps=None,
+        num_episodes=1,
+    )
     try:
         obs, _ = env.reset()
         base = env.unwrapped
@@ -93,6 +106,20 @@ def _test_wrench_hangs_on_hook(_simulation_app):
                 if terminated.any():
                     assert success.all(), "Episode ended without tool-hanging success"
                     assert base.episode_length_buf[0] == 0, "Success did not reset the environment"
+                    expected_cameras = {
+                        "top_camera_rgb",
+                        "side_camera_rgb",
+                        "left_wrist_camera_rgb",
+                        "right_wrist_camera_rgb",
+                    }
+                    recorded_cameras = {
+                        path.name.removeprefix("tool-hanging-env0-").removesuffix("-episode-0.mp4")
+                        for path in video_dir.glob("tool-hanging-env0-*-episode-0.mp4")
+                        if path.stat().st_size > 0
+                    }
+                    assert (
+                        recorded_cameras == expected_cameras
+                    ), f"Expected recordings for {sorted(expected_cameras)}, got {sorted(recorded_cameras)}"
                     return True
         assert False, "Wrench did not settle on the hook"
     finally:
@@ -100,5 +127,12 @@ def _test_wrench_hangs_on_hook(_simulation_app):
 
 
 @pytest.mark.with_newton
-def test_wrench_hangs_on_hook():
-    assert run_function_with_persistent_simulation_app(_test_wrench_hangs_on_hook)
+@pytest.mark.with_cameras
+def test_wrench_hangs_on_hook(tmp_path: Path):
+    video_dir = Path(os.environ.get("ISAACLAB_ARENA_TEST_VIDEO_DIR", tmp_path / "tool_hanging_videos"))
+    print(f"Tool-hanging camera recordings: {video_dir}")
+    assert run_function_with_persistent_simulation_app(
+        _test_wrench_hangs_on_hook,
+        enable_cameras=True,
+        video_dir=video_dir,
+    )
