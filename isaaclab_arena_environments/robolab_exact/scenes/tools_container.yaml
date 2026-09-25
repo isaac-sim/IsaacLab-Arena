@@ -1,0 +1,46 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+embodiment:
+  id: droid
+  registry_name: droid_abs_joint_pos
+  params: {}
+background:
+  id: tools_container_robolab_exact
+  registry_name: tools_container_robolab_exact
+  params: {}
+objects: []
+object_references:
+- id: container_f24
+  parent_id: tools_container_robolab_exact
+  prim_path: left_bin
+  object_type: rigid
+  params: {}
+- id: bin_b04
+  parent_id: tools_container_robolab_exact
+  prim_path: right_bin
+  object_type: rigid
+  params: {}
+- id: spring_clamp
+  parent_id: tools_container_robolab_exact
+  prim_path: spring_clamp
+  object_type: rigid
+  params: {}
+- id: red_hammer
+  parent_id: tools_container_robolab_exact
+  prim_path: red_hammer
+  object_type: rigid
+  params: {}
+- id: black_hammer
+  parent_id: tools_container_robolab_exact
+  prim_path: husky_hammer
+  object_type: rigid
+  params: {}
+- id: cordless_drill
+  parent_id: tools_container_robolab_exact
+  prim_path: cordless_drill
+  object_type: rigid
+  params: {}
+relations: []

@@ -1,0 +1,205 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Smoke-test every RoboLab exact task with one environment and two short episodes.
+shared:
+  environment:
+    enable_cameras: false
+    episode_length_s: 1.0
+  environment_builder:
+    num_envs: 1
+  rollout_limit:
+    num_episodes: 2
+runs:
+  apple_and_yogurt_in_bowl:
+    environment:
+      type: isaaclab_arena_environments/robolab_exact/tasks/apple_and_yogurt_in_bowl.yaml
+    policy:
+      type: zero_action
+  bagels_on_plate:
+    environment:
+      type: isaaclab_arena_environments/robolab_exact/tasks/bagels_on_plate.yaml
+    policy:
+      type: zero_action
+  banana_in_bowl:
+    environment:
+      type: isaaclab_arena_environments/robolab_exact/tasks/banana_in_bowl.yaml
+    policy:
+      type: zero_action
+  banana_on_plate:
+    environment:
+      type: isaaclab_arena_environments/robolab_exact/tasks/banana_on_plate.yaml
+    policy:
+      type: zero_action
+  banana_then_rubiks_cube:
+    environment:
+      type: isaaclab_arena_environments/robolab_exact/tasks/banana_then_rubiks_cube.yaml
+    policy:
+      type: zero_action
+  bbq_sauce_in_bin:
+    environment:
+      type: isaaclab_arena_environments/robolab_exact/tasks/bbq_sauce_in_bin.yaml
+    policy:
+      type: zero_action
+  big_pumpkin_in_bin:
+    environment:
+      type: isaaclab_arena_environments/robolab_exact/tasks/big_pumpkin_in_bin.yaml
+    policy:
+      type: zero_action
+  black_items_in_bin:
+    environment:
+      type: isaaclab_arena_environments/robolab_exact/tasks/black_items_in_bin.yaml
+    policy:
+      type: zero_action
+  bowl_in_bin:
+    environment:
+      type: isaaclab_arena_environments/robolab_exact/tasks/bowl_in_bin.yaml
+    policy:
+      type: zero_action
+  butter_above_raisin:
+    environment:
+      type: isaaclab_arena_environments/robolab_exact/tasks/butter_above_raisin.yaml
+    policy:
+      type: zero_action
+  canned_food_in_bin:
+    environment:
+      type: isaaclab_arena_environments/robolab_exact/tasks/canned_food_in_bin.yaml
+    policy:
+      type: zero_action
+  clamp_in_right_bin:
+    environment:
+      type: isaaclab_arena_environments/robolab_exact/tasks/clamp_in_right_bin.yaml
+    policy:
+      type: zero_action
+  clear_organic_objects:
+    environment:
+      type: isaaclab_arena_environments/robolab_exact/tasks/clear_organic_objects.yaml
+    policy:
+      type: zero_action
+  clutter_plastic:
+    environment:
+      type: isaaclab_arena_environments/robolab_exact/tasks/clutter_plastic.yaml
+    policy:
+      type: zero_action
+  clutter_pumpkin:
+    environment:
+      type: isaaclab_arena_environments/robolab_exact/tasks/clutter_pumpkin.yaml
+    policy:
+      type: zero_action
+  coffee_pot_in_bin:
+    environment:
+      type: isaaclab_arena_environments/robolab_exact/tasks/coffee_pot_in_bin.yaml
+    policy:
+      type: zero_action
+  condiments_in_bin:
+    environment:
+      type: isaaclab_arena_environments/robolab_exact/tasks/condiments_in_bin.yaml
+    policy:
+      type: zero_action
+  electronics_in_bin:
+    environment:
+      type: isaaclab_arena_environments/robolab_exact/tasks/electronics_in_bin.yaml
+    policy:
+      type: zero_action
+  food_packing_1_boxes:
+    environment:
+      type: isaaclab_arena_environments/robolab_exact/tasks/food_packing_1_boxes.yaml
+    policy:
+      type: zero_action
+  food_packing_1_cans:
+    environment:
+      type: isaaclab_arena_environments/robolab_exact/tasks/food_packing_1_cans.yaml
+    policy:
+      type: zero_action
+  hammers_in_left_bin:
+    environment:
+      type: isaaclab_arena_environments/robolab_exact/tasks/hammers_in_left_bin.yaml
+    policy:
+      type: zero_action
+  larger_object_raisin_box_in_bin:
+    environment:
+      type: isaaclab_arena_environments/robolab_exact/tasks/larger_object_raisin_box_in_bin.yaml
+    policy:
+      type: zero_action
+  marker_in_mug:
+    environment:
+      type: isaaclab_arena_environments/robolab_exact/tasks/marker_in_mug.yaml
+    policy:
+      type: zero_action
+  mouse_on_keyboard:
+    environment:
+      type: isaaclab_arena_environments/robolab_exact/tasks/mouse_on_keyboard.yaml
+    policy:
+      type: zero_action
+  mustard_above_raisin:
+    environment:
+      type: isaaclab_arena_environments/robolab_exact/tasks/mustard_above_raisin.yaml
+    policy:
+      type: zero_action
+  mustard_in_left_bin:
+    environment:
+      type: isaaclab_arena_environments/robolab_exact/tasks/mustard_in_left_bin.yaml
+    policy:
+      type: zero_action
+  mustard_in_right_bin:
+    environment:
+      type: isaaclab_arena_environments/robolab_exact/tasks/mustard_in_right_bin.yaml
+    policy:
+      type: zero_action
+  non_hammer_tools_in_right_bin:
+    environment:
+      type: isaaclab_arena_environments/robolab_exact/tasks/non_hammer_tools_in_right_bin.yaml
+    policy:
+      type: zero_action
+  rubiks_cube:
+    environment:
+      type: isaaclab_arena_environments/robolab_exact/tasks/rubiks_cube.yaml
+    policy:
+      type: zero_action
+  rubiks_cube_and_banana:
+    environment:
+      type: isaaclab_arena_environments/robolab_exact/tasks/rubiks_cube_and_banana.yaml
+    policy:
+      type: zero_action
+  rubiks_cube_then_banana:
+    environment:
+      type: isaaclab_arena_environments/robolab_exact/tasks/rubiks_cube_then_banana.yaml
+    policy:
+      type: zero_action
+  sauce_bottles_crate:
+    environment:
+      type: isaaclab_arena_environments/robolab_exact/tasks/sauce_bottles_crate.yaml
+    policy:
+      type: zero_action
+  small_pumpkin_in_bin:
+    environment:
+      type: isaaclab_arena_environments/robolab_exact/tasks/small_pumpkin_in_bin.yaml
+    policy:
+      type: zero_action
+  smaller_object_butter_in_bin:
+    environment:
+      type: isaaclab_arena_environments/robolab_exact/tasks/smaller_object_butter_in_bin.yaml
+    policy:
+      type: zero_action
+  smartphone_in_bin:
+    environment:
+      type: isaaclab_arena_environments/robolab_exact/tasks/smartphone_in_bin.yaml
+    policy:
+      type: zero_action
+  throw_away_apple:
+    environment:
+      type: isaaclab_arena_environments/robolab_exact/tasks/throw_away_apple.yaml
+    policy:
+      type: zero_action
+  throw_away_snacks:
+    environment:
+      type: isaaclab_arena_environments/robolab_exact/tasks/throw_away_snacks.yaml
+    policy:
+      type: zero_action
+  toy_in_bin:
+    environment:
+      type: isaaclab_arena_environments/robolab_exact/tasks/toy_in_bin.yaml
+    policy:
+      type: zero_action

@@ -1,0 +1,41 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+embodiment:
+  id: droid
+  registry_name: droid_abs_joint_pos
+  params: {}
+background:
+  id: bin_mug_mustard_marker_bowl_robolab_exact
+  registry_name: bin_mug_mustard_marker_bowl_robolab_exact
+  params: {}
+objects: []
+object_references:
+- id: bowl
+  parent_id: bin_mug_mustard_marker_bowl_robolab_exact
+  prim_path: bowl
+  object_type: rigid
+  params: {}
+- id: grey_bin
+  parent_id: bin_mug_mustard_marker_bowl_robolab_exact
+  prim_path: grey_bin
+  object_type: rigid
+  params: {}
+- id: mustard
+  parent_id: bin_mug_mustard_marker_bowl_robolab_exact
+  prim_path: mustard
+  object_type: rigid
+  params: {}
+- id: dry_erase_marker
+  parent_id: bin_mug_mustard_marker_bowl_robolab_exact
+  prim_path: dry_erase_marker
+  object_type: rigid
+  params: {}
+- id: mug
+  parent_id: bin_mug_mustard_marker_bowl_robolab_exact
+  prim_path: mug
+  object_type: rigid
+  params: {}
+relations: []

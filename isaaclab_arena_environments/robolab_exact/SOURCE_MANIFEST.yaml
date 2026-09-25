@@ -1,0 +1,403 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+source_scene_directory: RoboLab/assets/scenes
+nucleus_scene_directory: Arena/assets/object_library/srl_robolab_assets/scenes
+scenes:
+  bagel_plate_banana_bowl:
+    source_usda: RoboLab/assets/scenes/bagel_plate_banana_bowl.usda
+    background_registry_name: bagel_plate_banana_bowl_robolab_exact
+    object_mappings:
+    - arena_object_id: banana
+      prim_path: /world/banana
+      object_type: rigid
+    - arena_object_id: plate
+      prim_path: /world/plate_large
+      object_type: rigid
+    - arena_object_id: bagel_1
+      prim_path: /world/bagel_00
+      object_type: rigid
+    - arena_object_id: bagel_2
+      prim_path: /world/bagel_06
+      object_type: rigid
+    - arena_object_id: bowl
+      prim_path: /world/bowl
+      object_type: rigid
+  banana_bowl:
+    source_usda: RoboLab/assets/scenes/banana_bowl.usda
+    background_registry_name: banana_bowl_robolab_exact
+    object_mappings:
+    - arena_object_id: banana
+      prim_path: /world/banana
+      object_type: rigid
+    - arena_object_id: bowl
+      prim_path: /world/bowl
+      object_type: rigid
+  bin_condiments:
+    source_usda: RoboLab/assets/scenes/bin_condiments.usda
+    background_registry_name: bin_condiments_robolab_exact
+    object_mappings:
+    - arena_object_id: coffee_pot
+      prim_path: /world/coffee_pot
+      object_type: rigid
+    - arena_object_id: grey_bin
+      prim_path: /world/grey_bin
+      object_type: rigid
+    - arena_object_id: mug
+      prim_path: /world/mug
+      object_type: rigid
+    - arena_object_id: mustard
+      prim_path: /world/mustard
+      object_type: rigid
+    - arena_object_id: bowl
+      prim_path: /world/bowl
+      object_type: rigid
+    - arena_object_id: ranch_dressing
+      prim_path: /world/ranch_dressing
+      object_type: rigid
+    - arena_object_id: bbq_sauce_bottle_1
+      prim_path: /world/bbq_sauce_bottle
+      object_type: rigid
+    - arena_object_id: bbq_sauce_bottle_2
+      prim_path: /world/bbq_sauce_bottle_01
+      object_type: rigid
+    - arena_object_id: oatmeal_raisin_cookies
+      prim_path: /world/oatmeal_raisin_cookies
+      object_type: rigid
+    - arena_object_id: canned_tuna
+      prim_path: /world/canned_tuna
+      object_type: rigid
+    - arena_object_id: soft_scrub
+      prim_path: /world/soft_scrub
+      object_type: rigid
+    - arena_object_id: wood_block
+      prim_path: /world/wood_block
+      object_type: rigid
+  bin_mug_mustard_marker_bowl:
+    source_usda: RoboLab/assets/scenes/bin_mug_mustard_marker_bowl.usda
+    background_registry_name: bin_mug_mustard_marker_bowl_robolab_exact
+    object_mappings:
+    - arena_object_id: bowl
+      prim_path: /world/bowl
+      object_type: rigid
+    - arena_object_id: grey_bin
+      prim_path: /world/grey_bin
+      object_type: rigid
+    - arena_object_id: mustard
+      prim_path: /world/mustard
+      object_type: rigid
+    - arena_object_id: dry_erase_marker
+      prim_path: /world/dry_erase_marker
+      object_type: rigid
+    - arena_object_id: mug
+      prim_path: /world/mug
+      object_type: rigid
+  bottles_crate:
+    source_usda: RoboLab/assets/scenes/bottles_crate.usda
+    background_registry_name: bottles_crate_robolab_exact
+    object_mappings:
+    - arena_object_id: bbq_sauce_bottle
+      prim_path: /World/bbq_sauce_bottle
+      object_type: rigid
+    - arena_object_id: purple_crate
+      prim_path: /World/purple_crate
+      object_type: rigid
+    - arena_object_id: ceramic_mug
+      prim_path: /World/ceramic_mug
+      object_type: rigid
+    - arena_object_id: salad_dressing_bottle
+      prim_path: /World/salad_dressing_bottle
+      object_type: rigid
+  butter_raisin_box:
+    source_usda: RoboLab/assets/scenes/butter_raisin_box.usda
+    background_registry_name: butter_raisin_box_robolab_exact
+    object_mappings:
+    - arena_object_id: butter_hope_robolab
+      prim_path: /world/butter
+      object_type: rigid
+    - arena_object_id: raisin_box_hope_robolab
+      prim_path: /world/raisin_box
+      object_type: rigid
+  butter_raisin_box_grey_bin:
+    source_usda: RoboLab/assets/scenes/butter_raisin_box_grey_bin.usda
+    background_registry_name: butter_raisin_box_grey_bin_robolab_exact
+    object_mappings:
+    - arena_object_id: raisin_box
+      prim_path: /world/raisin_box
+      object_type: rigid
+    - arena_object_id: grey_bin
+      prim_path: /world/grey_bin
+      object_type: rigid
+    - arena_object_id: butter
+      prim_path: /world/butter
+      object_type: rigid
+  clutter_fruit_bottle_bluebin:
+    source_usda: RoboLab/assets/scenes/clutter_fruit_bottle_bluebin.usda
+    background_registry_name: clutter_fruit_bottle_bluebin_robolab_exact
+    object_mappings:
+    - arena_object_id: pumpkin_large
+      prim_path: /world/pumpkinlarge
+      object_type: rigid
+    - arena_object_id: pumpkin_small
+      prim_path: /world/pumpkinsmall
+      object_type: rigid
+    - arena_object_id: lemon_1
+      prim_path: /world/lemon_01
+      object_type: rigid
+    - arena_object_id: lemon_2
+      prim_path: /world/lemon_02
+      object_type: rigid
+    - arena_object_id: lime_1
+      prim_path: /world/lime01
+      object_type: rigid
+    - arena_object_id: lime_2
+      prim_path: /world/lime01_01
+      object_type: rigid
+    - arena_object_id: orange_1
+      prim_path: /world/orange_01
+      object_type: rigid
+    - arena_object_id: orange_2
+      prim_path: /world/orange_02
+      object_type: rigid
+    - arena_object_id: pomegranate
+      prim_path: /world/pomegranate01
+      object_type: rigid
+    - arena_object_id: white_packer_bottle
+      prim_path: /world/whitepackerbottle_a01
+      object_type: rigid
+    - arena_object_id: avocado
+      prim_path: /world/avocado01
+      object_type: rigid
+    - arena_object_id: crabbypenholder
+      prim_path: /world/crabbypenholder
+      object_type: rigid
+    - arena_object_id: serving_bowl
+      prim_path: /world/serving_bowl
+      object_type: rigid
+    - arena_object_id: milk_jug
+      prim_path: /world/milkjug_a01
+      object_type: rigid
+    - arena_object_id: utilityjug
+      prim_path: /world/utilityjug_a03
+      object_type: rigid
+    - arena_object_id: red_onion
+      prim_path: /world/red_onion
+      object_type: rigid
+    - arena_object_id: container_f24
+      prim_path: /world/right_bin
+      object_type: rigid
+  foodpacking_1bin_1box_1can:
+    source_usda: RoboLab/assets/scenes/foodpacking_1bin_1box_1can.usda
+    background_registry_name: foodpacking_1bin_1box_1can_robolab_exact
+    object_mappings:
+    - arena_object_id: cheez_it_box
+      prim_path: /world/cheez_it
+      object_type: rigid
+    - arena_object_id: bin_a06
+      prim_path: /world/bin_a06
+      object_type: rigid
+    - arena_object_id: mustard
+      prim_path: /world/mustard
+      object_type: rigid
+    - arena_object_id: tomato_soup_can
+      prim_path: /world/tomato_soup_can
+      object_type: rigid
+  mustard_raisin_box:
+    source_usda: RoboLab/assets/scenes/mustard_raisin_box.usda
+    background_registry_name: mustard_raisin_box_robolab_exact
+    object_mappings:
+    - arena_object_id: mustard_bottle
+      prim_path: /world/mustard_bottle
+      object_type: rigid
+    - arena_object_id: raisin_box
+      prim_path: /world/raisin_box
+      object_type: rigid
+  rubiks_cube_banana_bowl:
+    source_usda: RoboLab/assets/scenes/rubiks_cube_banana_bowl.usda
+    background_registry_name: rubiks_cube_banana_bowl_robolab_exact
+    object_mappings:
+    - arena_object_id: banana
+      prim_path: /World/banana
+      object_type: rigid
+    - arena_object_id: cube
+      prim_path: /World/rubiks_cube
+      object_type: rigid
+    - arena_object_id: bowl
+      prim_path: /World/bowl
+      object_type: rigid
+  rubiks_cube_bowl:
+    source_usda: RoboLab/assets/scenes/rubiks_cube_bowl.usda
+    background_registry_name: rubiks_cube_bowl_robolab_exact
+    object_mappings:
+    - arena_object_id: rubiks_cube
+      prim_path: /World/rubiks_cube
+      object_type: rigid
+    - arena_object_id: bowl
+      prim_path: /World/bowl
+      object_type: rigid
+  tools_container:
+    source_usda: RoboLab/assets/scenes/tools_container.usda
+    background_registry_name: tools_container_robolab_exact
+    object_mappings:
+    - arena_object_id: container_f24
+      prim_path: /world/left_bin
+      object_type: rigid
+    - arena_object_id: bin_b04
+      prim_path: /world/right_bin
+      object_type: rigid
+    - arena_object_id: spring_clamp
+      prim_path: /world/spring_clamp
+      object_type: rigid
+    - arena_object_id: red_hammer
+      prim_path: /world/red_hammer
+      object_type: rigid
+    - arena_object_id: black_hammer
+      prim_path: /world/husky_hammer
+      object_type: rigid
+    - arena_object_id: cordless_drill
+      prim_path: /world/cordless_drill
+      object_type: rigid
+  two_bin:
+    source_usda: RoboLab/assets/scenes/two_bin.usda
+    background_registry_name: two_bin_robolab_exact
+    object_mappings:
+    - arena_object_id: grey_bin_left
+      prim_path: /world/grey_bin_left
+      object_type: rigid
+    - arena_object_id: grey_bin_right
+      prim_path: /world/grey_bin_right
+      object_type: rigid
+    - arena_object_id: mustard
+      prim_path: /world/mustard
+      object_type: rigid
+  workdesk:
+    source_usda: RoboLab/assets/scenes/workdesk.usda
+    background_registry_name: workdesk_robolab_exact
+    object_mappings:
+    - arena_object_id: computer_mouse
+      prim_path: /world/computer_mouse
+      object_type: rigid
+    - arena_object_id: keyboard
+      prim_path: /world/keyboard
+      object_type: rigid
+    - arena_object_id: ceramic_mug
+      prim_path: /world/ceramic_mug
+      object_type: rigid
+    - arena_object_id: glasses
+      prim_path: /world/glasses
+      object_type: rigid
+    - arena_object_id: lizard_figurine
+      prim_path: /world/lizard_figurine
+      object_type: rigid
+    - arena_object_id: marker
+      prim_path: /world/marker
+      object_type: rigid
+    - arena_object_id: remote_control
+      prim_path: /world/remote_control
+      object_type: rigid
+    - arena_object_id: rubiks_cube
+      prim_path: /world/rubiks_cube
+      object_type: rigid
+    - arena_object_id: smartphone
+      prim_path: /world/smartphone
+      object_type: rigid
+    - arena_object_id: wooden_bowl
+      prim_path: /world/wooden_bowl
+      object_type: rigid
+    - arena_object_id: yogurt_cup
+      prim_path: /world/yogurt_cup
+      object_type: rigid
+    - arena_object_id: oatmeal_raisin_cookies
+      prim_path: /world/oatmeal_raisin_cookies
+      object_type: rigid
+    - arena_object_id: granola_bar
+      prim_path: /world/granola_bars
+      object_type: rigid
+  workdesk_bin:
+    source_usda: RoboLab/assets/scenes/workdesk_bin.usda
+    background_registry_name: workdesk_bin_robolab_exact
+    object_mappings:
+    - arena_object_id: lizard_figurine
+      prim_path: /world/lizard_figurine
+      object_type: rigid
+    - arena_object_id: grey_bin
+      prim_path: /world/grey_bin
+      object_type: rigid
+    - arena_object_id: ceramic_mug
+      prim_path: /world/ceramic_mug
+      object_type: rigid
+    - arena_object_id: keyboard
+      prim_path: /world/keyboard
+      object_type: rigid
+    - arena_object_id: glasses
+      prim_path: /world/glasses
+      object_type: rigid
+    - arena_object_id: marker
+      prim_path: /world/marker
+      object_type: rigid
+    - arena_object_id: remote_control
+      prim_path: /world/remote_control
+      object_type: rigid
+    - arena_object_id: smartphone
+      prim_path: /world/smartphone
+      object_type: rigid
+    - arena_object_id: wooden_bowl
+      prim_path: /world/wooden_bowl
+      object_type: rigid
+    - arena_object_id: spoon_big
+      prim_path: /world/spoon_big
+      object_type: rigid
+    - arena_object_id: computer_mouse
+      prim_path: /world/computer_mouse
+      object_type: rigid
+    - arena_object_id: yogurt_cup
+      prim_path: /world/yogurt_cup
+      object_type: rigid
+    - arena_object_id: granola_bar
+      prim_path: /world/granola_bars
+      object_type: rigid
+  workdesk_snacks:
+    source_usda: RoboLab/assets/scenes/workdesk_snacks.usda
+    background_registry_name: workdesk_snacks_robolab_exact
+    object_mappings:
+    - arena_object_id: apple
+      prim_path: /world/apple_01
+      object_type: rigid
+    - arena_object_id: plasticpail
+      prim_path: /world/plasticpail_a02
+      object_type: rigid
+    - arena_object_id: ceramic_mug
+      prim_path: /world/ceramic_mug
+      object_type: rigid
+    - arena_object_id: glasses
+      prim_path: /world/glasses
+      object_type: rigid
+    - arena_object_id: keyboard
+      prim_path: /world/keyboard
+      object_type: rigid
+    - arena_object_id: marker
+      prim_path: /world/marker
+      object_type: rigid
+    - arena_object_id: remote_control
+      prim_path: /world/remote_control
+      object_type: rigid
+    - arena_object_id: smartphone
+      prim_path: /world/smartphone
+      object_type: rigid
+    - arena_object_id: wooden_bowl
+      prim_path: /world/wooden_bowl
+      object_type: rigid
+    - arena_object_id: spoon_big
+      prim_path: /world/spoon_big
+      object_type: rigid
+    - arena_object_id: computer_mouse
+      prim_path: /world/computer_mouse
+      object_type: rigid
+    - arena_object_id: yogurt_cup
+      prim_path: /world/yogurt_cup
+      object_type: rigid
+    - arena_object_id: pitcher
+      prim_path: /world/pitcher
+      object_type: rigid
