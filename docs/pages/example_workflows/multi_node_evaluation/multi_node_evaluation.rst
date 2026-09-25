@@ -14,19 +14,12 @@ in order to reduce the time it takes to run the evaluations.
 Setting up OSMO
 ---------------
 
-**Install the OSMO client:** Submitting an Experiment requires the OSMO command-line client, installed and authenticated
-against your cluster. The `OSMO User Guide <https://nvidia.github.io/OSMO/main/user_guide/index.html>`_
-covers this; follow its Getting Started pages in order:
-
-- `System Requirements <https://nvidia.github.io/OSMO/main/user_guide/getting_started/system_requirements.html>`_ — check your environment is supported.
-- `Install Client <https://nvidia.github.io/OSMO/main/user_guide/getting_started/install/index.html>`_ — install the ``osmo`` CLI.
-- `Setup Profile <https://nvidia.github.io/OSMO/main/user_guide/getting_started/profile.html>`_ — point the client at your cluster.
-- `Setup Credentials <https://nvidia.github.io/OSMO/main/user_guide/getting_started/credentials.html>`_ — authenticate with ``osmo login``.
-
-Once ``osmo`` is installed and you can log in, you are ready to submit an Experiment.
+**Install the OSMO client:** Follow the `OSMO 6.3 User Guide
+<https://nvidia.github.io/OSMO/release/6.3/user_guide/index.html>`_ to install the CLI,
+set up a profile, authenticate, and register workflow credentials.
 
 **Set up a cluster:** The steps above assume you already have a cluster running OSMO. If you need to stand one up, see the
-`OSMO Deployment Guide <https://nvidia.github.io/OSMO/main/deployment_guide/index.html>`_, which
+`OSMO Deployment Guide <https://nvidia.github.io/OSMO/release/6.3/deployment_guide/index.html>`_, which
 covers deploying the OSMO service and connecting your own compute.
 
 
@@ -67,6 +60,12 @@ Submit an Experiment
 Submit an Experiment with ``osmo/submit_arena_experiment.py``. Point ``--experiment_cfg`` at an
 Experiment YAML file. The command uses an experiment file included in the Arena repository.
 
+.. note::
+
+   The tested command below uses NVIDIA-internal images and Swift storage. NVIDIA developers must
+   complete the :ref:`internal OSMO prerequisites <internal-osmo-prerequisites>` before submitting
+   it. OSMO login alone is not sufficient.
+
 .. code-block:: bash
 
    python osmo/submit_arena_experiment.py \
@@ -84,10 +83,10 @@ The policies are executed on
 nodes.
 
 For these commands to work, you need a cluster running OSMO.
-Replace ``osmo.pool=isaac-dev-l40-03`` with your cluster name,
-``osmo.platform=ovx-l40`` with the model of available compute nodes,
-and ``osmo.output_url`` with the Swift path where the results are published to (keep
-``{{workflow_id}}`` for a unique path per submission).
+Use a pool and platform available to your account. The output URL must match an OSMO
+``DATA`` credential and an existing CSS container; see
+:ref:`CSS data credential setup <internal-osmo-css-data-credential>`. Keep
+``{{workflow_id}}`` in the object prefix.
 
 The submission script outputs:
 
@@ -123,7 +122,7 @@ To view the results, we first need to download the results.
 
 .. code-block:: bash
 
-   osmo download swift://pdx.s8k.io/AUTH_team-isaac/isaaclab_arena/workflows/robolab_2tasks_pi_and_cosmos_100ep-1 <PATH_TO_DOWNLOAD_FOLDER>
+   osmo data download swift://pdx.s8k.io/AUTH_team-isaac/isaaclab_arena/workflows/robolab_2tasks_pi_and_cosmos_100ep-1 <PATH_TO_DOWNLOAD_FOLDER>
 
 To view the experiment results, double click on the ``index.html`` file in the downloaded folder.
 This will open the results in your browser.
@@ -174,13 +173,14 @@ To run ``pi0.5`` with the wrist camera extrinsics variations enabled run:
      osmo.workflow_name=robolab_20tasks_pi_extrinsics \
      experiment_cfg.shared.variations.droid_abs_joint_pos.camera_extrinsics_wrist_camera.enabled=true
 
-Note that you should replace ``isaac-dev-l40-03`` with your cluster name and ``ovx-l40`` with the model of available compute nodes.
+Replace ``isaac-dev-l40-03`` with the name of an accessible pool and ``ovx-l40`` with a platform
+available in that pool.
 
 Download the results as described above with a command of the form:
 
 .. code-block:: bash
 
-   osmo download swift://pdx.s8k.io/AUTH_team-isaac/isaaclab_arena/workflows/robolab_20tasks_pi_extrinsics-1 <PATH_TO_DOWNLOAD_FOLDER>
+   osmo data download swift://pdx.s8k.io/AUTH_team-isaac/isaaclab_arena/workflows/robolab_20tasks_pi_extrinsics-1 <PATH_TO_DOWNLOAD_FOLDER>
 
 Where ``robolab_20tasks_pi_extrinsics-1`` is the workflow name assigned by OSMO during submission.
 
