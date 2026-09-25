@@ -24,6 +24,7 @@ def _test_task_registry_resolves_concrete_tasks(simulation_app):
         "TurnKnobTask",
         "AssemblyTask",
         "SortMultiObjectTask",
+        "ObjectsInRegionsTask",
     ]
     registry = TaskRegistry()
     for name in expected:
