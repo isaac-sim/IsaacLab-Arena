@@ -85,8 +85,9 @@ def settle_clutter(
     params: ClutterSettleParams | None = None,
     placer_params: ObjectPlacerParams | None = None,
     validators: list[ClutterPlacementValidator] | None = None,
+    env_ids: list[int] | None = None,
 ) -> list[SettledPlacement]:
-    """Generate one accepted layout per environment and restore the caller's scene state.
+    """Generate one accepted layout per requested environment and restore the caller's scene state.
 
     Args:
         env: Constructed scene at the desired initial poses and articulation configuration.
@@ -98,12 +99,16 @@ def settle_clutter(
         placer_params: Solver, candidate-count and validation settings for release poses.
             None uses fresh ObjectPlacerParams defaults.
         validators: Configured post-physics checks; None enables the default checks.
+        env_ids: Unique environment IDs to release and validate, in result order. None selects all.
 
     Returns:
-        Environment-local poses for every dynamic rigid object, indexed by environment.
+        Environment-local poses for every dynamic rigid object, in requested environment order.
         Each result includes the effective settings and outcomes of its configured checks.
     """
     env = env.unwrapped
+    env_ids = list(range(env.num_envs)) if env_ids is None else list(env_ids)
+    assert env_ids and len(set(env_ids)) == len(env_ids), "env_ids must be nonempty and unique"
+    assert all(0 <= i < env.num_envs for i in env_ids), "env_ids must identify existing environments"
     params = replace(params) if params is not None else ClutterSettleParams()
     placer_params = _release_placer_params(placer_params)
     if validators is None:
@@ -126,11 +131,11 @@ def settle_clutter(
     requested_checks |= {PlacementCheck.NO_OVERLAP, PlacementCheck.CLUTTER_ON_RELATION}
     candidate_count = env.num_envs * placer_params.max_placement_attempts
     accepted: dict[int, SettledPlacement] = {}
-    failures: dict[int, list[str]] = {i: [] for i in range(env.num_envs)}
+    failures: dict[int, list[str]] = {i: [] for i in env_ids}
     try:
         for attempt in range(attempts):
             snapshot.restore(env)
-            pending = [i for i in range(env.num_envs) if i not in accepted]
+            pending = [i for i in env_ids if i not in accepted]
             placer = ObjectPlacer(replace(placer_params, placement_seed=seed + attempt * candidate_count))
             releases = placer.place_ranked_per_env(
                 placement_assets, num_envs=env.num_envs, results_per_env=1, collision_objects=collision_objects
@@ -166,9 +171,9 @@ def settle_clutter(
             for env_id, reason in errors.items():
                 failures[env_id].append(f"attempt {attempt + 1}: {reason}")
                 print(f"[clutter] env {env_id}, {failures[env_id][-1]}")
-            if len(accepted) == env.num_envs:
-                return [accepted[i] for i in range(env.num_envs)]
-        rejected = {i: failures[i] for i in range(env.num_envs) if i not in accepted}
+            if len(accepted) == len(env_ids):
+                return [accepted[i] for i in env_ids]
+        rejected = {i: failures[i] for i in env_ids if i not in accepted}
         raise AssertionError(f"No accepted layout after {attempts} attempt(s): {rejected}")
     finally:
         snapshot.restore(env)

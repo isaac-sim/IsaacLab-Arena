@@ -119,9 +119,16 @@ class PlacementLayouts:
         except AssertionError as error:
             raise AssertionError(f"{path}: {error}") from error
 
-    def write_episode_jsonl(self, path: str | Path, source: str) -> None:
-        """Write layouts with their source label in the episode variations envelope without overwriting."""
+    def write_episode_jsonl(self, path: str | Path, source: str, validation: list[dict] | None = None) -> None:
+        """Write placement records without overwriting an existing file.
+
+        Args:
+            path: Output JSONL path.
+            source: Provenance label, such as solver or settled.
+            validation: Optional check evidence in layout order; replay ignores this metadata.
+        """
         self.validate()
+        assert validation is None or len(validation) == self.num_layouts, "Provide validation metadata for every layout"
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
         with path.open("x", encoding="utf-8") as stream:
@@ -131,6 +138,8 @@ class PlacementLayouts:
                     "source": source,
                     "poses": {name: poses[index].to_dict() for name, poses in self.poses.items()},
                 }
+                if validation is not None:
+                    placement["validation"] = validation[index]
                 record = {"variations": {"scene.relation_placement": placement}}
                 stream.write(json.dumps(record, allow_nan=False) + "\n")
 
