@@ -10,6 +10,8 @@ import re
 import subprocess
 import sys
 
+import pytest
+
 from isaaclab_arena.visualization.episode_results_files import (
     format_episode_video_filename,
     parse_episode_video_filename,
@@ -539,3 +541,37 @@ def test_media_paths_are_url_quoted_and_text_is_escaped(tmp_path):
     assert "wrist%20cam%3Frgb" in run_page
     assert "<script>alert(1)</script>" not in run_page
     assert "&lt;script&gt;alert(1)&lt;/script&gt;" in run_page
+
+
+@pytest.mark.parametrize("score, total_groups, displayed", [(0.5, 2, "50%"), (1.0, 3, "100%")])
+def test_report_displays_normalized_objective_scores(tmp_path, score, total_groups, displayed):
+    record = {
+        "env_id": 0,
+        "episode_in_env": 0,
+        "progress": {"objectives": {"reach": {"score": score, "total_groups": total_groups}}},
+    }
+    (tmp_path / "episode_results_rebuild0.jsonl").write_text(json.dumps(record) + "\n", encoding="utf-8")
+
+    build_report(tmp_path)
+
+    pages = "".join(path.read_text(encoding="utf-8") for path in (tmp_path / "report").glob("job_*.html"))
+    assert f'<span class="score">{displayed}</span>' in pages
+
+
+def test_report_displays_a_group_that_never_emitted_an_event(tmp_path):
+    record = {
+        "env_id": 0,
+        "episode_in_env": 0,
+        "success": False,
+        "progress": {
+            "objectives": {"reach": {"total_groups": 2, "active_predicates": {"left": None, "right": "arrive"}}},
+            "events": [{"objective": "reach", "group": "left", "predicate_index": 0, "predicate_name": "arrive"}],
+        },
+    }
+    (tmp_path / "episode_results_rebuild0.jsonl").write_text(json.dumps(record) + "\n", encoding="utf-8")
+    build_report(tmp_path)
+    pages = "".join(path.read_text(encoding="utf-8") for path in (tmp_path / "report").glob("task_*.html"))
+
+    assert "reach/left" in pages
+    assert "reach/right" in pages
+    assert "No predicate events recorded." in pages
