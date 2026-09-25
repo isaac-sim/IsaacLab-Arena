@@ -74,6 +74,78 @@ def test_settling_rejects_unfixed_variants_without_mutation(assigned_envs):
     )
 
 
+def _test_settling_rejects_kinematic_variant_before_release(simulation_app, tmp_path):
+    from unittest.mock import patch
+
+    from pxr import Usd, UsdGeom, UsdPhysics
+
+    from isaaclab_arena.assets.background_library import OfficeTableBackground
+    from isaaclab_arena.assets.object import Object
+    from isaaclab_arena.assets.object_set import RigidObjectSet
+    from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
+    from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
+    from isaaclab_arena.environments.arena_world_scene_access import get_representative_rigid_body_prims
+    from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
+    from isaaclab_arena.offline_placement.clutter_settling import settle_clutter
+    from isaaclab_arena.relations.relations import ClutterOn, IsAnchor
+    from isaaclab_arena.scene.scene import Scene
+    from isaaclab_arena.utils.pose import Pose
+
+    objects = []
+    for index, kinematic in enumerate((False, True)):
+        path = tmp_path / f"cube_{index}.usda"
+        stage = Usd.Stage.CreateNew(str(path))
+        root = UsdGeom.Xform.Define(stage, "/Cube").GetPrim()
+        stage.SetDefaultPrim(root)
+        UsdGeom.SetStageUpAxis(stage, UsdGeom.Tokens.z)
+        UsdGeom.SetStageMetersPerUnit(stage, 1.0)
+        body = UsdPhysics.RigidBodyAPI.Apply(root)
+        body.CreateRigidBodyEnabledAttr(True)
+        body.CreateKinematicEnabledAttr(kinematic)
+        UsdPhysics.MassAPI.Apply(root).CreateMassAttr(0.1)
+        cube = UsdGeom.Cube.Define(stage, "/Cube/geometry")
+        cube.CreateSizeAttr(0.06)
+        UsdPhysics.CollisionAPI.Apply(cube.GetPrim())
+        stage.GetRootLayer().Save()
+        objects.append(Object(name=f"cube_{index}", usd_path=str(path)))
+
+    table = OfficeTableBackground()
+    table.set_initial_pose(Pose.identity())
+    table.add_relation(IsAnchor())
+    variants = RigidObjectSet("mixed_cube", objects, initial_pose=Pose((0, 0, 1.2)))
+    variants.assign_variants(2)
+    assignments = list(variants.variant_indices_by_env)
+    variants.add_relation(ClutterOn(table, clearance_m=0.2, random_yaw=False))
+    arena_env = IsaacLabArenaEnvironment("mixed_mobility", Scene([table, variants]))
+    env = ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg(num_envs=2, solve_relations=False)).make_registered()
+    try:
+        env.reset()
+        bodies = get_representative_rigid_body_prims(env.unwrapped.scene, "mixed_cube")
+        assert sorted(UsdPhysics.RigidBodyAPI(body).GetKinematicEnabledAttr().Get() for body in bodies) == [
+            False,
+            True,
+        ]
+        initial = env.unwrapped.scene.get_state()
+        with patch(
+            "isaaclab_arena.offline_placement.clutter_settling._release_objects",
+            side_effect=AssertionError("release must not run for kinematic clutter"),
+        ) as release:
+            with pytest.raises(AssertionError, match="mixed_cube.*must be dynamic"):
+                settle_clutter(env, arena_env.get_placement_assets(), attempts=1)
+            release.assert_not_called()
+        assert variants.variant_indices_by_env == assignments
+        _assert_scene_state_equal(env.unwrapped.scene.get_state(), initial)
+    finally:
+        env.close()
+    return True
+
+
+def test_settling_rejects_kinematic_variant_before_release(tmp_path):
+    assert run_function_with_persistent_simulation_app(
+        _test_settling_rejects_kinematic_variant_before_release, tmp_path=tmp_path
+    )
+
+
 def _test_uncached_clutter_drops_at_simulation_start(simulation_app):
     import torch
 
