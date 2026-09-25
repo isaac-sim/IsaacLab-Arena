@@ -270,6 +270,9 @@ Loading bypasses solving and does not rerun geometry, reachability or settling
 checks. Recordings must match the scene and robot configuration being replayed;
 disable pose-changing variations and callbacks when exact replay is required.
 
+To generate a pose file from an existing environment, see
+:doc:`../offline_placement/recording`.
+
 Next Steps
 ----------
 

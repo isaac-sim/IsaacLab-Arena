@@ -119,9 +119,10 @@ class PlacementLayouts:
         except AssertionError as error:
             raise AssertionError(f"{path}: {error}") from error
 
-    def write_episode_jsonl(self, path: str | Path, source: str) -> None:
-        """Write layouts with their source label in the episode variations envelope without overwriting."""
+    def write_episode_jsonl(self, path: str | Path, source: str, validation: list[dict] | None = None) -> None:
+        """Write layouts and optional validation reports in the episode variations envelope without overwriting."""
         self.validate()
+        assert validation is None or len(validation) == self.num_layouts, "One validation report is required per layout"
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
         with path.open("x", encoding="utf-8") as stream:
@@ -131,8 +132,29 @@ class PlacementLayouts:
                     "source": source,
                     "poses": {name: poses[index].to_dict() for name, poses in self.poses.items()},
                 }
+                if validation is not None:
+                    placement["validation"] = validation[index]
                 record = {"variations": {"scene.relation_placement": placement}}
                 stream.write(json.dumps(record, allow_nan=False) + "\n")
+
+
+def validate_replay_reset_policies(assets: list[PlaceableAsset]) -> None:
+    """Require reset policies compatible with fixed-pose, zero-velocity replay."""
+    from isaaclab_arena.assets.object import Object
+    from isaaclab_arena.assets.object_base import ObjectBase
+
+    for asset in assets:
+        name = asset.get_scene_key()
+        if isinstance(asset, Object):
+            assert asset.reset_pose, f"Cached asset '{name}' has pose resets disabled"
+        if isinstance(asset, ObjectBase) and asset.initial_velocity is not None:
+            velocity = asset.initial_velocity
+            assert all(
+                value == 0 for value in (*velocity.linear_xyz, *velocity.angular_xyz)
+            ), f"Cached asset '{name}' has nonzero initial velocity; replay resets velocity to zero"
+        assert not asset.has_pose_reset_event() or isinstance(
+            asset.get_initial_pose(), Pose
+        ), f"Cached asset '{name}' has a non-fixed pose-reset policy"
 
 
 def _unique_json_mapping(items: list[tuple[str, object]]) -> dict[str, object]:

@@ -8,8 +8,6 @@ from __future__ import annotations
 import torch
 from typing import TYPE_CHECKING
 
-from isaaclab_arena.tasks.predicates.object_settling import compute_objects_settled_mask
-
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedEnv
 
@@ -24,8 +22,9 @@ def step_physics(env: ManagerBasedEnv, num_steps: int, render: bool = False) -> 
             False (physics-only).
     """
     dt = env.unwrapped.sim.get_physics_dt()
+    # Apply actuator targets on every substep without advancing episode recorders via env.step.
     for _ in range(num_steps):
-        # Does not perturb metric recorder as no env.step is called.
+        env.unwrapped.scene.write_data_to_sim()
         env.unwrapped.sim.step(render=render)
         env.unwrapped.scene.update(dt)
 
@@ -38,6 +37,8 @@ def are_all_objects_settled_per_env(
     ang_vel_thresh: float,
 ) -> list[bool]:
     """Settled check for a batch of envs, reading each object's velocity once per env in parallel."""
+    from isaaclab_arena.tasks.predicates.object_settling import compute_objects_settled_mask
+
     if not env_ids:
         return []
     arena_env = env.unwrapped
@@ -50,3 +51,21 @@ def are_all_objects_settled_per_env(
     )
     environment_ids = torch.as_tensor(env_ids, device=arena_env.device)
     return settled_mask[environment_ids].tolist()
+
+
+def pose_drift_reason(
+    initial: torch.Tensor, current: torch.Tensor, max_translation_m: float, max_rotation_deg: float
+) -> str | None:
+    """Report non-finite or excessive motion between xyz/xyzw poses shaped (..., 7)."""
+    from isaaclab.utils.math import quat_error_magnitude
+
+    if not torch.isfinite(initial).all() or not torch.isfinite(current).all():
+        return "non-finite pose"
+    distance = float((current[..., :3] - initial[..., :3]).norm(dim=-1).max())
+    angle = float(torch.rad2deg(quat_error_magnitude(current[..., 3:], initial[..., 3:])).max())
+    if distance > max_translation_m or angle > max_rotation_deg:
+        return (
+            f"moved {distance:.6f} m and rotated {angle:.3f} deg; limits {max_translation_m:g} m,"
+            f" {max_rotation_deg:g} deg"
+        )
+    return None

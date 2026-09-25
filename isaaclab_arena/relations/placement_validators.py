@@ -7,12 +7,13 @@ from __future__ import annotations
 
 import torch
 import trimesh
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 from collections.abc import Iterator
 from typing import TYPE_CHECKING, ClassVar, cast
 
 from isaaclab_arena.relations.collision_mode import CollisionMode, get_object_collision_mode, object_uses_mesh_collision
 from isaaclab_arena.relations.placement_validation import PlacementCheck
+from isaaclab_arena.relations.placement_validation import PlacementValidator as BasePlacementValidator
 from isaaclab_arena.relations.placement_validator_registry import PlacementValidatorRegistry, register_validator
 from isaaclab_arena.relations.relation_loss_strategies import (
     SIDE_CONFIGS,
@@ -34,11 +35,13 @@ if TYPE_CHECKING:
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 
-class PlacementValidator(ABC):
+class PlacementValidator(BasePlacementValidator):
     """A single build-time placement check evaluated over a batch of candidate layouts.
 
     Register a concrete validator with @register_validator so build_validators() can discover it.
     """
+
+    stage: ClassVar[str] = "pre_physics"
 
     check: ClassVar[str]
     """The check name this validator reports; its registry key and result key. Built-ins use a
