@@ -272,23 +272,11 @@ def make_cached_placement_event(
     layouts: PlacementLayouts, placement_assets: list[PlaceableAsset], num_envs: int
 ) -> EventTermCfg:
     """Replace cached assets' initial poses and pose-reset events with one reset writer."""
-    from isaaclab_arena.assets.object import Object
-    from isaaclab_arena.assets.object_base import ObjectBase
+    from isaaclab_arena.relations.placement_layouts import validate_replay_reset_policies
 
     layouts.validate_assets(placement_assets)
     assets = {asset.get_scene_key(): asset for asset in placement_assets}
-    for name in layouts.poses:
-        asset = assets[name]
-        if isinstance(asset, Object):
-            assert asset.reset_pose, f"Cached asset '{name}' has pose resets disabled"
-        if isinstance(asset, ObjectBase) and asset.initial_velocity is not None:
-            velocity = asset.initial_velocity
-            assert all(
-                value == 0 for value in (*velocity.linear_xyz, *velocity.angular_xyz)
-            ), f"Cached asset '{name}' has nonzero initial velocity; replay resets velocity to zero"
-        assert not asset.has_pose_reset_event() or isinstance(
-            asset.get_initial_pose(), Pose
-        ), f"Cached asset '{name}' has a non-fixed pose-reset policy"
+    validate_replay_reset_policies([assets[name] for name in layouts.poses])
     scene_poses: dict[str, list[list[float]]] = {}
     for name, poses in layouts.poses.items():
         asset = assets[name]

@@ -5,10 +5,10 @@
 
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
+from abc import ABC
 from dataclasses import dataclass, field
 from enum import StrEnum
-from typing import ClassVar, Generic, TypeVar
+from typing import ClassVar
 
 
 class PlacementCheck(StrEnum):
@@ -107,21 +107,13 @@ class PlacementValidationResults:
             self.required_checks.add(check)
 
 
-ValidationInput = TypeVar("ValidationInput")
-ValidationOutput = TypeVar("ValidationOutput")
-
-
-class PlacementValidator(ABC, Generic[ValidationInput, ValidationOutput]):
-    """A named placement check with stage-specific inputs and results."""
+class PlacementValidator(ABC):
+    """Shared identity and stage of a placement check."""
 
     check: ClassVar[str]
     """Unique check name within its validation stage."""
     stage: ClassVar[str]
     """The stage whose poses this check evaluates: pre_physics or post_physics."""
-
-    @abstractmethod
-    def validate(self, data: ValidationInput) -> ValidationOutput:
-        """Evaluate the supplied placement data."""
 
 
 @dataclass

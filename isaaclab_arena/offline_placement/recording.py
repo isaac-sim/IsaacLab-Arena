@@ -7,7 +7,6 @@
 
 from __future__ import annotations
 
-import importlib
 from collections import Counter
 from dataclasses import dataclass, field, replace
 from pathlib import Path
@@ -33,15 +32,13 @@ class PlacementRecordingCfg:
     """Seed for candidate placement."""
     presets: str | None = None
     """Optional physics backend override: physx or newton."""
-    register: list[str] = field(default_factory=list)
-    """Component registration entry points, each module:function."""
     render: bool = False
     """Render physics steps when a visualizer is enabled."""
     settle: PlacementRecordingParams = field(default_factory=PlacementRecordingParams)
     """Physics duration, configured validators and minimum accepted count."""
 
 
-def record_placements(cfg: PlacementRecordingCfg, device: str = "cuda:0") -> Path:
+def record_placements_to_jsonl(cfg: PlacementRecordingCfg, device: str = "cuda:0") -> Path:
     """Write physics-filtered final poses for a graph scene and return the output path.
 
     Args:
@@ -57,10 +54,6 @@ def record_placements(cfg: PlacementRecordingCfg, device: str = "cuda:0") -> Pat
     output = Path(cfg.output)
     assert not output.exists(), f"Output already exists: {output}"
     assert cfg.num_envs > 0 and cfg.layouts_per_env > 0, "Environment and layout counts must be positive"
-    for entry in cfg.register:
-        module, separator, function = entry.partition(":")
-        assert separator and module and function, "register entries must be module:function"
-        getattr(importlib.import_module(module), function)()
     spec = ArenaEnvGraphSpec.from_yaml(cfg.env_spec)
     assert not spec.object_sets, "Resolve object sets before recording reusable layouts"
     arena_env = spec.to_arena_env()

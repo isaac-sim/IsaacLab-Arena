@@ -11,16 +11,16 @@ from dataclasses import asdict, dataclass
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.offline_placement.pool_validation import iter_pool_validation
-from isaaclab_arena.offline_placement.recording_params import PlacementRecordingParams
-from isaaclab_arena.offline_placement.scene_snapshot import SceneSnapshot, articulation_link_poses_in_root_frame
-from isaaclab_arena.offline_placement.validators import (
+from isaaclab_arena.offline_placement.post_physics_validation import (
     PostPhysicsState,
     build_post_physics_validators,
     validate_post_physics,
 )
+from isaaclab_arena.offline_placement.recording_params import PlacementRecordingParams
+from isaaclab_arena.offline_placement.scene_snapshot import SceneSnapshot, articulation_link_poses_in_root_frame
 from isaaclab_arena.relations.bounding_box_helpers import has_heterogeneous_objects
 from isaaclab_arena.relations.physics_settle_params import PhysicsSettleParams
-from isaaclab_arena.relations.placement_layouts import PlacementLayouts
+from isaaclab_arena.relations.placement_layouts import PlacementLayouts, validate_replay_reset_policies
 from isaaclab_arena.relations.relations import RandomAroundSolution, get_relation
 from isaaclab_arena.utils.pose import Pose
 
@@ -158,4 +158,5 @@ def _recording_keys(env: ManagerBasedEnv, assets: list[PlaceableAsset]) -> list[
                 get_relation(asset, RandomAroundSolution) is None
             ), f"'{key}': remove RandomAroundSolution for cached replay"
     assert keys, "Recording requires rigid objects or articulations"
+    validate_replay_reset_policies([by_key[key] for key in sorted(keys)])
     return sorted(keys)

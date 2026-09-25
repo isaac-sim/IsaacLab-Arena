@@ -9,7 +9,6 @@ import torch
 import trimesh
 from abc import abstractmethod
 from collections.abc import Iterator
-from dataclasses import dataclass
 from typing import TYPE_CHECKING, ClassVar, cast
 
 from isaaclab_arena.relations.collision_mode import CollisionMode, get_object_collision_mode, object_uses_mesh_collision
@@ -36,21 +35,7 @@ if TYPE_CHECKING:
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 
-@dataclass
-class PlacementCandidateBatch:
-    """N solved layouts and their collision geometry before physics."""
-
-    positions: list[dict[PlaceableAsset, tuple[float, float, float]]]
-    """N mappings from asset to environment-local position, shape (3,)."""
-    orientations: list[dict[PlaceableAsset, float]]
-    """N mappings from asset to absolute world-Z yaw in radians."""
-    bboxes: list[dict[PlaceableAsset, AxisAlignedBoundingBox]]
-    """N mappings from asset to bounds with min/max tensors shaped (1, 3)."""
-    collision_objects: list[CollisionObject]
-    """Fixed collision geometry shared by all candidates."""
-
-
-class PlacementValidator(BasePlacementValidator[PlacementCandidateBatch, list[bool]]):
+class PlacementValidator(BasePlacementValidator):
     """A single build-time placement check evaluated over a batch of candidate layouts.
 
     Register a concrete validator with @register_validator so build_validators() can discover it.
@@ -70,10 +55,6 @@ class PlacementValidator(BasePlacementValidator[PlacementCandidateBatch, list[bo
     def __init__(self, params: ObjectPlacerParams, visualizer: PlacementRerunVisualizer | None = None) -> None:
         self._params = params
         self._visualizer = visualizer
-
-    def validate(self, data: PlacementCandidateBatch) -> list[bool]:
-        """Return one verdict per solved candidate."""
-        return self.validate_batch(data.positions, data.orientations, data.bboxes, data.collision_objects)
 
     @classmethod
     def is_available(cls, params: ObjectPlacerParams) -> bool:

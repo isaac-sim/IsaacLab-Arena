@@ -138,6 +138,25 @@ class PlacementLayouts:
                 stream.write(json.dumps(record, allow_nan=False) + "\n")
 
 
+def validate_replay_reset_policies(assets: list[PlaceableAsset]) -> None:
+    """Require reset policies compatible with fixed-pose, zero-velocity replay."""
+    from isaaclab_arena.assets.object import Object
+    from isaaclab_arena.assets.object_base import ObjectBase
+
+    for asset in assets:
+        name = asset.get_scene_key()
+        if isinstance(asset, Object):
+            assert asset.reset_pose, f"Cached asset '{name}' has pose resets disabled"
+        if isinstance(asset, ObjectBase) and asset.initial_velocity is not None:
+            velocity = asset.initial_velocity
+            assert all(
+                value == 0 for value in (*velocity.linear_xyz, *velocity.angular_xyz)
+            ), f"Cached asset '{name}' has nonzero initial velocity; replay resets velocity to zero"
+        assert not asset.has_pose_reset_event() or isinstance(
+            asset.get_initial_pose(), Pose
+        ), f"Cached asset '{name}' has a non-fixed pose-reset policy"
+
+
 def _unique_json_mapping(items: list[tuple[str, object]]) -> dict[str, object]:
     """Reject duplicate JSON keys instead of silently replacing object poses."""
     result = dict(items)

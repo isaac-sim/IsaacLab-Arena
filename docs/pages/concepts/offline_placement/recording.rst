@@ -59,8 +59,11 @@ and inspect the first record:
    wc -l outputs/placements/poses.jsonl
    head -n 1 outputs/placements/poses.jsonl | /isaac-sim/python.sh -m json.tool
 
-The line count must match the accepted count printed by the recorder. For this
-example, each record should have:
+The line count must match the accepted count printed by the recorder.
+``source``, ``poses`` and ``validation`` are all fields inside
+``variations["scene.relation_placement"]``. For example, post-physics reports are at
+``variations["scene.relation_placement"]["validation"]["post_physics"]``.
+For this example, each record should have:
 
 * ``source: "settled"`` and poses for ``cube``, ``bowl`` and ``robot``;
 * finite XYZ positions and XYZW unit quaternions;
@@ -117,8 +120,12 @@ one episode using the saved poses:
 
 Expect ``num_episodes: 1``, ``success_rate: 0.0`` and ``object_moved_rate: 0.0``.
 Zero task success is expected because the policy takes no action. The runner prints
-the path to its evaluation report. This checks loading, stepping and resetting;
-it does not measure a manipulation policy's performance.
+the path to its evaluation report. Open
+``outputs/placements/evaluation/<timestamp>/index.html`` in a browser to inspect
+the results. The adjacent ``episode_results_rank0.jsonl`` contains the per-episode
+results. Include these files and the input ``poses.jsonl`` when reporting a discrepancy.
+This checks loading, stepping and resetting; it does not measure a manipulation
+policy's performance.
 
 If recording fails
 ------------------
@@ -199,16 +206,23 @@ For an initialized environment with a placement pool:
        "poses.jsonl", source="settled", validation=result.validation,
    )
 
-Collection does not consume the pool or change its validation results. It restores
-scene roots, joints and actuator targets on completion or failure. The recorder
-and ``run_placement_pool_validation.py`` share the same physics loop; a separate
+Collection does not consume the pool or change its validation results. Before each
+batch, it restores scene roots, joints and actuator targets so earlier candidates
+cannot change the next candidates' starting conditions. It also restores that
+state on completion or failure for Python callers. This does not restore validator
+internals, task managers or all simulator state.
+
+The recorder and ``run_placement_pool_validation.py`` share the same physics loop; a separate
 validation run is unnecessary. Pool validation lives in
 ``isaaclab_arena.offline_placement.pool_validation``. The velocity-only pool
 validator also supports deformables; root-pose recording does not.
 
 Use concrete assets with writable rigid or articulation roots. Object sets and
-``RandomAroundSolution`` are unsupported. Replay requires the same assets and
-robot joint reset configuration. Disable pose-changing variations and callbacks
+``RandomAroundSolution`` are unsupported. Recording checks replay compatibility
+before stepping physics: recorded assets must allow pose resets, have zero initial
+velocity, and have no randomized or per-environment pose-reset policy. Replay
+requires the same assets and robot joint reset configuration. Disable pose-changing
+variations and callbacks
 when exact pose restoration is required. This tool records object and robot root
 poses, not general variations or joint states.
 
@@ -216,7 +230,7 @@ Custom checks
 -------------
 
 Custom post-physics checks subclass ``PostPhysicsPlacementValidator`` in
-``isaaclab_arena.offline_placement.validators``. Define a dataclass with a unique
+``isaaclab_arena.offline_placement.post_physics_validation``. Define a dataclass with a unique
 ``check`` name and implement ``validate(PostPhysicsState)`` to return one
 ``PlacementValidatorReport`` per ``env_ids`` entry, in order. Use ``self.report``
 to retain the effective settings. Enabled, applicable checks must return pass/fail;
