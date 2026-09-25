@@ -7,13 +7,13 @@ from __future__ import annotations
 
 import torch
 import trimesh
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 from collections.abc import Iterator
 from typing import TYPE_CHECKING, ClassVar, cast
 
 from isaaclab_arena.relations.collision_mode import CollisionMode, get_object_collision_mode, object_uses_mesh_collision
 from isaaclab_arena.relations.placement_candidate_batch import PlacementCandidateBatch
-from isaaclab_arena.relations.placement_validation import PlacementCheck
+from isaaclab_arena.relations.placement_validation import PlacementCheck, PlacementValidator
 from isaaclab_arena.relations.placement_validator_registry import (
     PrePhysicsPlacementValidatorRegistry,
     register_validator,
@@ -38,11 +38,13 @@ if TYPE_CHECKING:
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 
-class PlacementValidator(ABC):
+class PrePhysicsPlacementValidator(PlacementValidator):
     """A single build-time placement check evaluated over a batch of candidate layouts.
 
     Register a concrete validator with @register_validator so build_validators() can discover it.
     """
+
+    stage: ClassVar[str] = "pre_physics"
 
     check: ClassVar[str]
     """The check name this validator reports; its registry key and result key. Built-ins use a
@@ -78,7 +80,7 @@ def get_build_time_checks() -> tuple[str, ...]:
 
 def build_validators(
     params: ObjectPlacerParams, visualizer: PlacementRerunVisualizer | None = None
-) -> list[PlacementValidator]:
+) -> list[PrePhysicsPlacementValidator]:
     """Construct the enabled build-time validators in registration order.
 
     A registered check whose is_available() returns False is delisted; a check named in
@@ -97,7 +99,7 @@ def build_validators(
     if enabled_checks is not None:
         registered_checks = tuple(check for check in registered_checks if check in enabled_checks)
 
-    validators: list[PlacementValidator] = []
+    validators: list[PrePhysicsPlacementValidator] = []
     for check in registered_checks:
         validator_cls = registry.get_validator_by_name(check)
         if validator_cls.is_available(params):
@@ -106,7 +108,7 @@ def build_validators(
 
 
 @register_validator
-class OnRelationValidator(PlacementValidator):
+class OnRelationValidator(PrePhysicsPlacementValidator):
     """Contact-band and footprint checks for ordinary On relations."""
 
     check = PlacementCheck.ON_RELATION
@@ -195,7 +197,7 @@ class ClutterOnRelationValidator(OnRelationValidator):
 
 
 @register_validator
-class NextToValidator(PlacementValidator):
+class NextToValidator(PrePhysicsPlacementValidator):
     """Validate every NextTo relation: child on the requested side within the relation's tolerance_m."""
 
     check = PlacementCheck.NEXT_TO
@@ -241,7 +243,7 @@ class NextToValidator(PlacementValidator):
 
 
 @register_validator
-class NotNextToValidator(PlacementValidator):
+class NotNextToValidator(PrePhysicsPlacementValidator):
     """Validate every NotNextTo relation: child has cleared the keep-out zone beside the parent."""
 
     check = PlacementCheck.NOT_NEXT_TO
@@ -296,7 +298,7 @@ class NotNextToValidator(PlacementValidator):
 
 
 @register_validator
-class FaceToValidator(PlacementValidator):
+class FaceToValidator(PrePhysicsPlacementValidator):
     """Validate every FaceTo subject has a defined target direction and a computed facing yaw."""
 
     check = PlacementCheck.FACE_TO
@@ -329,7 +331,7 @@ class FaceToValidator(PlacementValidator):
 
 
 @register_validator
-class NoOverlapValidator(PlacementValidator):
+class NoOverlapValidator(PrePhysicsPlacementValidator):
     """Validate that no two placed bounding boxes (or collision meshes) intersect.
 
     Owns the CPU mesh/sphere cache so the AABB→mesh short-circuit stays local: cheap AABB pairs are

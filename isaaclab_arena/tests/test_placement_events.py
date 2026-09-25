@@ -12,7 +12,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from isaaclab_arena.relations.placement_validator_registry import register_validator
-from isaaclab_arena.relations.placement_validators import PlacementValidator
+from isaaclab_arena.relations.placement_validators import PrePhysicsPlacementValidator
 
 
 def _checklist(passed: bool):
@@ -835,7 +835,7 @@ _STUB_REACHABILITY_CHECK = "stub_reachability"
 
 
 @register_validator
-class _StubReachabilityValidator(PlacementValidator):
+class _StubReachabilityValidator(PrePhysicsPlacementValidator):
     """Test double for a run-after-inexpensive reachability gate, registered under a unique check name.
 
     Stands in for the cuRobo IK gate without cuRobo, an embodiment, or a GPU, so the pooled placer

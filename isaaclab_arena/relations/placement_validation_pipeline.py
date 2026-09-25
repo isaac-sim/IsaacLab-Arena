@@ -16,7 +16,7 @@ from isaaclab_arena.relations.placement_validation import PlacementValidationRes
 if TYPE_CHECKING:
     from isaaclab_arena.relations.collision_object import CollisionObject
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-    from isaaclab_arena.relations.placement_validators import PlacementValidator
+    from isaaclab_arena.relations.placement_validators import PrePhysicsPlacementValidator
     from isaaclab_arena.relations.placement_visualizer import PlacementRerunVisualizer
 
 
@@ -26,7 +26,7 @@ class PlacementValidationPipeline:
     def __init__(
         self,
         params: ObjectPlacerParams,
-        validators: list[PlacementValidator],
+        validators: list[PrePhysicsPlacementValidator],
         visualizer: PlacementRerunVisualizer | None = None,
     ):
         self.params = params

@@ -5,8 +5,10 @@
 
 from __future__ import annotations
 
+from abc import ABC
 from dataclasses import dataclass, field
 from enum import StrEnum
+from typing import ClassVar
 
 
 class PlacementCheck(StrEnum):
@@ -106,3 +108,28 @@ class PlacementValidationResults:
             if self.required_checks is None:
                 self.required_checks = set()
             self.required_checks.add(check)
+
+
+class PlacementValidator(ABC):
+    """A named placement check with a stage-specific validation interface."""
+
+    check: ClassVar[str]
+    """Unique check name within its validation stage."""
+    stage: ClassVar[str]
+    """Pose stage evaluated by the validator: pre_physics or post_physics."""
+
+
+@dataclass
+class PlacementValidatorReport:
+    """Configuration and outcome of one check for one placement."""
+
+    check: str
+    """Validator name."""
+    stage: str
+    """Pose stage evaluated by the validator."""
+    configuration: dict
+    """Effective validator settings, including its implementation path."""
+    passed: bool | None
+    """Pass/fail result; None means the validator was skipped."""
+    reason: str = ""
+    """Failure or skip reason, when applicable."""

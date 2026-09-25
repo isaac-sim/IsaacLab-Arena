@@ -63,7 +63,7 @@ def test_candidate_filtering_preserves_identity_and_separates_support_checks():
     from isaaclab_arena.relations.placement_validators import (
         ClutterOnRelationValidator,
         OnRelationValidator,
-        PlacementValidator,
+        PrePhysicsPlacementValidator,
     )
     from isaaclab_arena.relations.relations import ClutterOn, IsAnchor, On
     from isaaclab_arena.tests.dummy_object import DummyObject
@@ -82,7 +82,7 @@ def test_candidate_filtering_preserves_identity_and_separates_support_checks():
     batch = PlacementCandidateBatch(positions, [{}, {}, {}], [boxes] * 3, [1, 0, 1], [7, 4, 2], losses=[3, 0, 1])
     params = ObjectPlacerParams()
 
-    class ExpensiveCheck(PlacementValidator):
+    class ExpensiveCheck(PrePhysicsPlacementValidator):
         check = "expensive_for_test"
         run_after_inexpensive_checks = True
 
