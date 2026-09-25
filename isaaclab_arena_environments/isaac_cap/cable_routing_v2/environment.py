@@ -12,7 +12,6 @@ from functools import partial
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg, ArenaEnvironmentFactory
-from isaaclab_arena.utils.physics_backend import PhysicsBackend
 
 from ..registration import register_environment
 
