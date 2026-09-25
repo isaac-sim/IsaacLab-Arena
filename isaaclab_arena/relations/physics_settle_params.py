@@ -5,12 +5,14 @@
 
 from dataclasses import dataclass
 
+DEFAULT_SETTLE_NUM_STEPS = 5
+
 
 @dataclass
 class PhysicsSettleParams:
     """Configuration for the in-sim physics settle check."""
 
-    num_steps: int = 5
+    num_steps: int = DEFAULT_SETTLE_NUM_STEPS
     """Number of env steps to advance before reading back object state in the settle check. The settle
     check converts this to ``num_steps * decimation`` physics substeps internally."""
 

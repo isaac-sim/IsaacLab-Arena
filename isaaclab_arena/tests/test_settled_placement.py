@@ -21,6 +21,23 @@ def register_no_embodiment():
     AssetRegistry().register(NoEmbodiment, key="recording_no_embodiment")
 
 
+def run_cli_with_test_assets():
+    from unittest.mock import patch
+
+    from isaaclab_arena.scripts.record_placement_layouts import main
+    from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
+
+    enter = SimulationAppContext.__enter__
+
+    def enter_with_test_assets(context):
+        app = enter(context)
+        register_no_embodiment()
+        return app
+
+    with patch.object(SimulationAppContext, "__enter__", enter_with_test_assets):
+        main()
+
+
 def _write_scene(path: Path) -> None:
     import yaml
 
@@ -96,7 +113,11 @@ def test_recording_cli_saves_final_poses(tmp_path, backend):
     completed = run_subprocess(
         [
             TestConstants.python_path,
-            str(Path(TestConstants.scripts_dir) / "record_placement_layouts.py"),
+            "-c",
+            (
+                "from isaaclab_arena.tests.test_settled_placement import run_cli_with_test_assets;"
+                " run_cli_with_test_assets()"
+            ),
             f"env_spec={source}",
             f"output={output}",
             f"presets={backend}",
@@ -104,7 +125,6 @@ def test_recording_cli_saves_final_poses(tmp_path, backend):
             "layouts_per_env=2",
             "settle.num_steps=120",
             "settle.validators.pose_shift.max_translation_m=0.0015",
-            "register=[isaaclab_arena.tests.test_settled_placement:register_no_embodiment]",
             "--viz",
             "none",
         ],
@@ -133,6 +153,27 @@ def test_recording_cli_saves_final_poses(tmp_path, backend):
     assert len(positions) == len(records)
 
 
+def test_recording_cli_imports_before_simulation_startup():
+    import subprocess
+
+    script = Path(TestConstants.scripts_dir) / "record_placement_layouts.py"
+    result = subprocess.run(
+        [
+            TestConstants.python_path,
+            "-c",
+            (
+                "import runpy, sys; runpy.run_path(sys.argv[1]); "
+                "assert 'numpy' not in sys.modules, 'Numerical libraries imported before SimulationApp startup'"
+            ),
+            str(script),
+        ],
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
 def _test_recording_filters_layouts(simulation_app, tmp_path):
     import torch
     import yaml
@@ -145,10 +186,13 @@ def _test_recording_filters_layouts(simulation_app, tmp_path):
     from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
     from isaaclab_arena.offline_placement.recording_params import PlacementRecordingParams
     from isaaclab_arena.offline_placement.settled_placement import collect_settled_pool_layouts
-    from isaaclab_arena.relations.placement_events import get_placement_pool
+    from isaaclab_arena.relations.placement_events import get_placement_pool, make_cached_placement_event
+    from isaaclab_arena.relations.placement_layouts import PlacementLayouts
     from isaaclab_arena.relations.placement_validation import PlacementCheck
     from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
     from isaaclab_arena.relations.reachability_config import ReachabilityConfig
+    from isaaclab_arena.utils.pose import Pose, PoseRange
+    from isaaclab_arena.utils.velocity import Velocity
 
     register_no_embodiment()
     source = tmp_path / "scene.yaml"
@@ -171,6 +215,30 @@ def _test_recording_filters_layouts(simulation_app, tmp_path):
         env.reset()
         base = env.unwrapped
         pool = get_placement_pool(env)
+        assets = arena_env.get_placement_assets()
+        floor = arena_env.scene.assets["floor"]
+        assert floor.has_pose_reset_event()
+        state = base.scene.get_state()
+        layouts = PlacementLayouts({key: [Pose.identity()] for key in base.scene.rigid_objects})
+        for attribute, value, reason in (
+            ("reset_pose", False, "pose resets disabled"),
+            ("initial_velocity", Velocity(linear_xyz=(1.0, 0.0, 0.0)), "nonzero initial velocity"),
+            ("initial_pose", PoseRange(), "non-fixed pose-reset policy"),
+        ):
+            with (
+                patch.object(floor, attribute, value),
+                patch(
+                    "isaaclab_arena.offline_placement.settled_placement.iter_pool_validation",
+                    side_effect=AssertionError("Incompatible reset policies must fail before physics"),
+                ) as simulate,
+            ):
+                with pytest.raises(AssertionError, match=f"floor.*{reason}"):
+                    collect_settled_pool_layouts(env, pool, scene_assets=assets)
+                simulate.assert_not_called()
+                with pytest.raises(AssertionError, match=f"floor.*{reason}"):
+                    make_cached_placement_event(layouts, assets, base.num_envs)
+            torch.testing.assert_close(base.scene.get_state(), state)
+
         queues = pool.layouts_per_env()
         cube = arena_env.scene.assets["cube_body"]
         initial = base.arena_world.get_pose_e("cube_body").clone()
@@ -178,20 +246,11 @@ def _test_recording_filters_layouts(simulation_app, tmp_path):
         queues[0][0].positions[cube] = (0.0, 0.0, 0.571)
         queues[1][0].positions[cube] = (0.42, 0.0, 0.571)
         from isaaclab_arena.relations.bounding_box_helpers import build_per_env_bounding_boxes
-        from isaaclab_arena.relations.placement_validators import (
-            OnRelationValidator,
-            PlacementCandidateBatch,
-            PlacementValidator,
-        )
+        from isaaclab_arena.relations.placement_validators import OnRelationValidator, PlacementValidator
 
         boxes = build_per_env_bounding_boxes(pool.objects, 2).get_bounding_boxes_for_all_envs()
         validator = OnRelationValidator(arena_env.placer_params)
-        batch = PlacementCandidateBatch([queue[0].positions for queue in queues], [{}, {}], boxes, [])
-        assert (
-            validator.validate(batch)
-            == validator.validate_batch(batch.positions, batch.orientations, batch.bboxes, batch.collision_objects)
-            == [True, True]
-        )
+        assert validator.validate_batch([queue[0].positions for queue in queues], [{}, {}], boxes, []) == [True, True]
         # An unequal queue ends with a solver failure that must not be simulated or recorded.
         failed = replace(queues[1][0], validation_results=deepcopy(queues[1][0].validation_results))
         failed.validation_results.validation_results[PlacementCheck.NO_OVERLAP] = False

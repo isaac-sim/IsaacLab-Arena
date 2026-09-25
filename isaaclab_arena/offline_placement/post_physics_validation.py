@@ -8,12 +8,12 @@
 from __future__ import annotations
 
 import math
+from abc import abstractmethod
 from dataclasses import asdict, dataclass
 from typing import TYPE_CHECKING, ClassVar
 
 from isaaclab_arena.relations.physics_settle_params import PhysicsSettleParams
 from isaaclab_arena.relations.placement_validation import PlacementValidator, PlacementValidatorReport
-from isaaclab_arena.utils.physics_settle import are_all_objects_settled_per_env, pose_drift_reason
 
 if TYPE_CHECKING:
     import torch
@@ -40,12 +40,16 @@ class PostPhysicsState:
 
 
 @dataclass
-class PostPhysicsPlacementValidator(PlacementValidator[PostPhysicsState, list[PlacementValidatorReport]]):
+class PostPhysicsPlacementValidator(PlacementValidator):
     """A configured check returning one report per candidate environment."""
 
     stage: ClassVar[str] = "post_physics"
     enabled: bool = True
     """Whether this check must pass for applicable candidates."""
+
+    @abstractmethod
+    def validate(self, data: PostPhysicsState) -> list[PlacementValidatorReport]:
+        """Return one report per candidate environment, in env_ids order."""
 
     def configuration(self) -> dict:
         """Return the implementation path and effective settings."""
@@ -85,6 +89,8 @@ class VelocityValidator(PostPhysicsPlacementValidator):
         ), "ang_vel_thresh must be finite and non-negative"
 
     def validate(self, data: PostPhysicsState) -> list[PlacementValidatorReport]:
+        from isaaclab_arena.utils.physics_settle import are_all_objects_settled_per_env
+
         settled = are_all_objects_settled_per_env(
             data.env, data.env_ids, list(data.final_poses), self.lin_vel_thresh, self.ang_vel_thresh
         )
@@ -115,6 +121,8 @@ class PoseShiftValidator(PostPhysicsPlacementValidator):
     def _validate_poses(
         self, env_ids: list[int], initial: dict[str, torch.Tensor], final: dict[str, torch.Tensor]
     ) -> list[PlacementValidatorReport]:
+        from isaaclab_arena.utils.physics_settle import pose_drift_reason
+
         reports = []
         for env_id in env_ids:
             reason = ""

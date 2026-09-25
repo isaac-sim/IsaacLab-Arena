@@ -10,7 +10,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from isaaclab_arena.offline_placement.recording import PlacementRecordingCfg, record_placements
+from isaaclab_arena.offline_placement.recording import PlacementRecordingCfg, record_placements_to_jsonl
 
 
 def main() -> None:
@@ -32,7 +32,7 @@ def main() -> None:
         cfg = OmegaConf.to_object(compose(config_name="placement_recording", overrides=overrides))
     assert not Path(cfg.output).exists(), f"Output already exists: {cfg.output}"
     with SimulationAppContext(launcher_args):
-        record_placements(cfg, device=launcher_args.device)
+        record_placements_to_jsonl(cfg, device=launcher_args.device)
 
 
 if __name__ == "__main__":

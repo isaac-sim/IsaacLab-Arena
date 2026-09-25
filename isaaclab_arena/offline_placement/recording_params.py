@@ -7,15 +7,15 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from isaaclab_arena.offline_placement.validators import default_post_physics_validators
-from isaaclab_arena.relations.physics_settle_params import PhysicsSettleParams
+from isaaclab_arena.offline_placement.post_physics_validation import default_post_physics_validators
+from isaaclab_arena.relations.physics_settle_params import DEFAULT_SETTLE_NUM_STEPS
 
 
 @dataclass
 class PlacementRecordingParams:
     """Physics duration, acceptance checks and minimum recording yield."""
 
-    num_steps: int = PhysicsSettleParams.num_steps
+    num_steps: int = DEFAULT_SETTLE_NUM_STEPS
     """Environment steps per candidate, each containing decimation physics substeps."""
     min_layouts: int = 1
     """Minimum accepted layouts required before writing the recording."""
