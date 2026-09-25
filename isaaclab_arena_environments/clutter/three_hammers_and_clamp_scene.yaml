@@ -1,0 +1,47 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+
+embodiment:
+  id: robot
+  registry_name: franka_ik
+  params:
+    initial_pose:
+      position_xyz: [-1.0, 0.0, 0.0]
+background:
+  id: table
+  registry_name: office_table_background
+objects:
+- id: wood_hammer
+  registry_name: wood_hammer_robolab
+- id: red_hammer
+  registry_name: red_hammer_robolab
+- id: blue_hammer
+  registry_name: blue_hammer_robolab
+- id: clamp
+  registry_name: clamp_ycb_robolab
+relations:
+- kind: is_anchor
+  subject: table
+- kind: clutter_on
+  subject: wood_hammer
+  reference: table
+  params:
+    spread: 0.7
+- kind: clutter_on
+  subject: red_hammer
+  reference: table
+  params:
+    spread: 0.7
+- kind: clutter_on
+  subject: blue_hammer
+  reference: table
+  params:
+    spread: 0.7
+- kind: clutter_on
+  subject: clamp
+  reference: table
+  params:
+    spread: 0.7
