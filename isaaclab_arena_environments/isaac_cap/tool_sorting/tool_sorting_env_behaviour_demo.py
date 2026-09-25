@@ -34,8 +34,8 @@ _GRASP_DESCENT_TOLERANCE_M = 0.02
 _GRASP_Z_OFFSET_M = _ROBOTIQ_BASE_TO_GRASP_M + _GRASP_HEIGHT_OFFSET_M
 _PREGRASP_Z_OFFSET_M = _GRASP_Z_OFFSET_M + _PREGRASP_DISTANCE_M
 _MOVE_TO_MAX_STEPS = 720
-_DROP_HEIGHT_ABOVE_SLOT_M = 0.10
-_NUM_ENVS = 2
+_DROP_HEIGHT_ABOVE_SLOT_M = 0.05
+_DEFAULT_NUM_ENVS = 2
 _EASY_LEVELS = ("1", "2", "3")
 _PICK_TARGET_BY_LEVEL = {
     "1": "battery_0",
@@ -53,12 +53,10 @@ def _build_tool_sort_demo_environment(level: str):
     from isaaclab_arena_environments.isaac_cap.tool_sorting.embodiment import (
         ToolSortingFr3Robotiq2f85DifferentialIKEmbodiment,
     )
-    from isaaclab_arena_environments.isaac_cap.tool_sorting.environment import configure_tool_sort_placement
 
     register_components()
     spec_path = Path(__file__).with_name(f"tool_sorting_easy_{level}.yaml")
     arena_environment = ArenaEnvGraphSpec.from_yaml(str(spec_path)).to_arena_env(enable_cameras=False)
-    configure_tool_sort_placement(arena_environment)
 
     source_embodiment = arena_environment.embodiment
     arena_environment.embodiment = ToolSortingFr3Robotiq2f85DifferentialIKEmbodiment(
@@ -120,7 +118,7 @@ class ToolSortingEnvBehaviourDemo(DifferentialIKEnvBehaviourDemo):
         """Resolve IK controls, task objects, and compartment bounds."""
         from isaaclab_arena_environments.isaac_cap.tool_sorting.task import objects_in_regions
 
-        self.setup_differential_ik(_NUM_ENVS)
+        self.setup_differential_ik(self.builder_cfg.num_envs)
         self._objects_in_regions = objects_in_regions
 
         self.gripper_action = self.base_env.action_manager.get_term("gripper_action")
@@ -261,8 +259,9 @@ class ToolSortingEnvBehaviourDemo(DifferentialIKEnvBehaviourDemo):
         )
 
     def _report_success_reset(self, cycle: int) -> None:
+        environment_label = "environment" if self.num_envs == 1 else "environments"
         print(
-            f"[{self.label}] cycle {cycle}: success reset observed in all {self.num_envs} environments",
+            f"[{self.label}] cycle {cycle}: success reset observed in all {self.num_envs} {environment_label}",
             flush=True,
         )
 
@@ -386,6 +385,7 @@ def run_demo(
     level: str = "1",
     cycles: int = 0,
     teleport_only: bool = False,
+    num_envs: int = _DEFAULT_NUM_ENVS,
     pause_steps: int = 30,
     ik_log_interval: int = 0,
     real_time: bool = True,
@@ -398,7 +398,7 @@ def run_demo(
     demo = ToolSortingEnvBehaviourDemo(
         simulation_app,
         _build_tool_sort_demo_environment(level),
-        ArenaEnvBuilderCfg(num_envs=_NUM_ENVS, env_spacing=1.5, solve_relations=True),
+        ArenaEnvBuilderCfg(num_envs=num_envs, env_spacing=1.5, solve_relations=True),
         pick_target_object_name=_PICK_TARGET_BY_LEVEL[level],
         teleport_only=teleport_only,
         real_time=real_time,
@@ -427,6 +427,12 @@ def main() -> None:
         action="store_true",
         help="Skip the physical pick/lift/drop phase and validate scripted object teleports only.",
     )
+    parser.add_argument(
+        "--num-envs",
+        type=int,
+        default=_DEFAULT_NUM_ENVS,
+        help="Number of parallel environments.",
+    )
     parser.add_argument("--pause-steps", type=int, default=30, help="Frames shown between scripted phases.")
     parser.add_argument(
         "--ik-log-interval",
@@ -446,6 +452,7 @@ def main() -> None:
             level=args.level,
             cycles=args.cycles,
             teleport_only=args.teleport_only,
+            num_envs=args.num_envs,
             real_time=not args.no_real_time,
             pause_steps=args.pause_steps,
             ik_log_interval=args.ik_log_interval,

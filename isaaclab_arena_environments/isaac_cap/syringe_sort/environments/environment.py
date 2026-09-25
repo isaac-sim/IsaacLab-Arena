@@ -11,6 +11,8 @@ from pathlib import Path
 
 from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg, ArenaEnvironmentFactory
 
+from ...registration import register_environment
+
 
 def _apply_syringe_graph_config(env_cfg, graph_callback):
     """Apply the remaining Python physics settings and the graph's configuration."""
@@ -37,21 +39,15 @@ class SyringeBase(ArenaEnvironmentFactory[SyringeSortEnvironmentCfg]):
         from isaaclab.envs.mdp.actions.actions_cfg import JointPositionActionCfg
 
         from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
+        from isaaclab_arena_environments.isaac_cap import register_components
 
         from .cameras import configure_syringe_cameras
 
+        register_components()
         spec = ArenaEnvGraphSpec.from_yaml(str(Path(__file__).with_name(self.yaml_file)))
         arena_env = spec.to_arena_env(enable_cameras=cfg.enable_cameras)
-        # NOTE(alexmillane, 2028.09.17): The placement of 4 syringes on the tray is tight.
-        # Below ensures that they are correctly placed.
-        # NOTE(alexmillane, 2028.09.17) [arena-parameters-overrides-missing-feature]:
-        # Currently solver params only adjustable from python. Move these overrides to yaml when this is possible.
         # NOTE(alexmillane, 2028.09.17) [clutter-placement-missing-feature]:
         # Move to clutter-based placement when that feature is enabled.
-        arena_env.placer_params.random_yaw_init = False
-        arena_env.placer_params.allow_best_loss_fallbacks = False
-        arena_env.placer_params.solver_params.clearance_m = 0.015
-        arena_env.placer_params.max_placement_attempts = 30
 
         # TODO(alexmillane) [berkley-cap-align-embodiments]: Remove these per-task custom
         # embodiment configurations once the upstream repo has done it.
@@ -73,6 +69,7 @@ class SyringeBase(ArenaEnvironmentFactory[SyringeSortEnvironmentCfg]):
         return arena_env
 
 
+@register_environment(cfg_type=SyringeSortEnvironmentCfg)
 class SyringeSingleEnvironment(SyringeBase):
     """Dispose of one syringe from a fixed layout."""
 
@@ -86,6 +83,7 @@ class SyringeBothEnvironmentCfg(SyringeSortEnvironmentCfg):
     """Configure the randomized two-syringe benchmark."""
 
 
+@register_environment(cfg_type=SyringeBothEnvironmentCfg)
 class SyringeBothEnvironment(SyringeBase):
     """Dispose of both the red-cap and white-cap syringes."""
 
@@ -99,6 +97,7 @@ class SyringeClutteredEnvironmentCfg(SyringeBothEnvironmentCfg):
     """Configure the randomized four-syringe benchmark."""
 
 
+@register_environment(cfg_type=SyringeClutteredEnvironmentCfg)
 class SyringeClutteredEnvironment(SyringeBothEnvironment):
     """Dispose of all four syringes from the cluttered tray."""
 

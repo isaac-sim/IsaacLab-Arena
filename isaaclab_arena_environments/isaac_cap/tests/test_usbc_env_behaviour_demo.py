@@ -37,7 +37,8 @@ def _test_usbc_demo_geometry(_simulation_app) -> bool:
     for variant in ("easy", "medium"):
         task = _build_demo_environment(variant).task
         assert task.plug.scale == (1.0, 1.0, 1.0)
-        predicates = task.get_termination_cfg().success[0].predicate_sequence[0].params["predicates"]
+        success_requirement = task.get_termination_cfg().success[0].predicate_sequence[0]
+        predicates = success_requirement.predicate.params["predicates"]
         geometry_predicates = [
             predicate
             for predicate in predicates

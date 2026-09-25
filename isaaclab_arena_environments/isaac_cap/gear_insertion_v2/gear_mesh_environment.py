@@ -19,6 +19,8 @@ from typing import TYPE_CHECKING
 from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg, ArenaEnvironmentFactory
 from isaaclab_arena.utils.physics_backend import PhysicsBackend
 
+from ..registration import register_environment
+
 if TYPE_CHECKING:
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import IsaacLabArenaManagerBasedRLEnvCfg
@@ -84,19 +86,6 @@ def _configure_gear_mesh_physics(
     return env_cfg
 
 
-def _configure_gear_mesh_placement(arena_env):
-    """Configure strict source-bounded layout sampling."""
-    # On owns support Z/containment, box limits bound X/Y, and reset pose ranges
-    # draw the board's narrow yaw band and the gear's full clock angle.
-    arena_env.placer_params.min_unique_layouts_per_env = 5
-    arena_env.placer_params.allow_best_loss_fallbacks = False
-    # The loose gear is supported through the thin mat.  A global 1 cm
-    # inter-object clearance would incorrectly reject it against the table
-    # underneath that support chain.
-    arena_env.placer_params.solver_params.clearance_m = 0.0
-    return arena_env
-
-
 @dataclass
 class GearMeshNewtonEnvironmentCfg(ArenaEnvironmentCfg):
     """Configure the registered gear-insertion environment."""
@@ -135,7 +124,9 @@ class GearMeshNewtonEnvironment(ArenaEnvironmentFactory[GearMeshNewtonEnvironmen
 
     def build(self, cfg: GearMeshNewtonEnvironmentCfg) -> IsaacLabArenaEnvironment:
         from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
+        from isaaclab_arena_environments.isaac_cap import register_components
 
+        register_components()
         spec = ArenaEnvGraphSpec.from_yaml(str(self.scene_spec))
         arena_env = spec.to_arena_env(enable_cameras=cfg.enable_cameras)
         arena_env.embodiment.camera_config.use_overhead_profile("gear")
@@ -153,6 +144,7 @@ class GearMeshNewtonEnvironment(ArenaEnvironmentFactory[GearMeshNewtonEnvironmen
         return arena_env
 
 
+@register_environment(cfg_type=GearInsertionEasyNewtonEnvironmentCfg)
 class GearInsertionEasyNewtonEnvironment(GearMeshNewtonEnvironment):
     """Build AUTOLab gearmesh-easy-single-01."""
 
@@ -168,7 +160,7 @@ class GearInsertionEasyNewtonEnvironment(GearMeshNewtonEnvironment):
         board = arena_env.scene.assets["board"]
         gear = arena_env.scene.assets["gear_a"]
         board.add_variation(GearFamilyVariation(board, gear, arena_env.task))
-        return _configure_gear_mesh_placement(arena_env)
+        return arena_env
 
 
 class _GearMeshLayoutNewtonEnvironment(GearMeshNewtonEnvironment):
@@ -194,16 +186,6 @@ class _GearMeshLayoutNewtonEnvironment(GearMeshNewtonEnvironment):
                     GearLayoutVariationCfg(family=self.family),
                 )
             )
-        _configure_gear_mesh_placement(arena_env)
-        # Each upstream row has a fixed start. Scalar rebuilds select a new row;
-        # explicit parallel assignments keep one row per slot across resets.
-        arena_env.placer_params.min_unique_layouts_per_env = 1
-        # The source generator already enforces circular tip clearances. Arena's
-        # generic box validators conservatively reject some valid three-gear
-        # rows, so relations solve support Z while the exact recorded X/Y/yaw
-        # remain authoritative.
-        arena_env.placer_params.required_checks = set()
-
         physics_callback = self.env_cfg_callback
 
         def configure(env_cfg):
@@ -218,6 +200,7 @@ class _GearMeshLayoutNewtonEnvironment(GearMeshNewtonEnvironment):
         return arena_env
 
 
+@register_environment(cfg_type=GearMeshPairNewtonEnvironmentCfg)
 class GearMeshPairNewtonEnvironment(_GearMeshLayoutNewtonEnvironment):
     """Build AUTOLab's generated gearmesh-easy-pair family."""
 
@@ -228,6 +211,7 @@ class GearMeshPairNewtonEnvironment(_GearMeshLayoutNewtonEnvironment):
     gear_names = ("gear_a", "gear_b")
 
 
+@register_environment(cfg_type=GearMeshTrainNewtonEnvironmentCfg)
 class GearMeshTrainNewtonEnvironment(_GearMeshLayoutNewtonEnvironment):
     """Build AUTOLab's generated gearmesh-medium-train family."""
 

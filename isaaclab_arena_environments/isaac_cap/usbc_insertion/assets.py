@@ -11,7 +11,7 @@ from collections.abc import Mapping, Sequence
 from copy import deepcopy
 
 import isaaclab.sim as sim_utils
-from isaaclab_newton.sim.schemas import NewtonCollisionCfg
+from isaaclab_newton.sim.schemas import NewtonCollisionCfg, NewtonMaterialPropertiesCfg
 
 from isaaclab_arena.assets.background import Background
 from isaaclab_arena.assets.nucleus import ARENA_NUCLEUS_DIR
@@ -22,6 +22,7 @@ from isaaclab_arena.assets.registries import HDRImageRegistry
 from isaaclab_arena.utils.pose import Pose, PoseRange
 
 from .cables import UsbcConnectorCable
+from .physics import connector_prim_physics, friction_prim_physics
 
 ASSET_ROOT = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/temp_newton_envs/usbc_insertion/assets"
 
@@ -77,7 +78,10 @@ class UsbcEasyPlug(_UsbcConnector):
 
     name = "usbc_insertion_easy_plug"
     usd_path = f"{ASSET_ROOT}/industrial__usbc_easy_plug/industrial__usbc_easy_plug.usda"
-    spawn_cfg_addon = {key: value for key, value in _UsbcConnector.spawn_cfg_addon.items() if key != "collision_props"}
+    spawn_cfg_addon = {
+        **{key: value for key, value in _UsbcConnector.spawn_cfg_addon.items() if key != "collision_props"},
+        "prim_physics": connector_prim_physics("ArtistFrame/SourceCollisionMesh", friction=0.35),
+    }
 
 
 @register_asset
@@ -95,6 +99,10 @@ class UsbcEasyPort(_UsbcFixture):
 
     name = "usbc_insertion_easy_port"
     usd_path = f"{ASSET_ROOT}/industrial__usbc_easy_port/industrial__usbc_easy_port.usda"
+    spawn_cfg_addon = {
+        **_UsbcFixture.spawn_cfg_addon,
+        "prim_physics": connector_prim_physics("Geometry", friction=0.35),
+    }
 
 
 @register_asset
@@ -103,7 +111,10 @@ class UsbcBulkhead(_UsbcConnector):
 
     name = "usbc_insertion_bulkhead"
     usd_path = f"{ASSET_ROOT}/vabar_usbc_insert__bulkhead/vabar_usbc_insert__bulkhead.usda"
-    spawn_cfg_addon = UsbcEasyPlug.spawn_cfg_addon
+    spawn_cfg_addon = {
+        **{key: value for key, value in _UsbcConnector.spawn_cfg_addon.items() if key != "collision_props"},
+        "prim_physics": connector_prim_physics("Geometry/bulkhead_01_obj_00/SourceCollisionMesh", friction=2.5),
+    }
 
 
 @register_asset
@@ -112,6 +123,10 @@ class UsbcBench(_UsbcFixture):
 
     name = "usbc_insertion_bench"
     usd_path = f"{ASSET_ROOT}/industrial__yam_usbc_fixtures/bench.usda"
+    spawn_cfg_addon = {
+        **_UsbcFixture.spawn_cfg_addon,
+        "prim_physics": friction_prim_physics("Geometry", friction=0.4),
+    }
 
 
 @register_asset
@@ -157,7 +172,11 @@ class _UsbcTable(Background):
             object_min_z=0.0,
             initial_pose=initial_pose,
             tags=list(self.tags),
-            spawn_cfg_addon={"copy_from_source": False},
+            spawn_cfg_addon={
+                "copy_from_source": False,
+                "make_uninstanceable": True,
+                "physics_material": NewtonMaterialPropertiesCfg(static_friction=0.35, dynamic_friction=0.35),
+            },
             **kwargs,
         )
 

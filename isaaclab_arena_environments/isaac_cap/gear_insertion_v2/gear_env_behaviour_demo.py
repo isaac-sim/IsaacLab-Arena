@@ -122,14 +122,17 @@ class GearMeshBehaviourDemo(EnvBehaviourDemo):
         assert len(body_ids) == 1, f"Expected one robotiq_base body, got {body_ids}."
         self.ee_body_id = int(body_ids[0])
 
-        success_cfg = self.base_env.termination_manager.get_term_cfg("success")
-        self.success_term = success_cfg.func
-        self.board = self.success_term.board
-        self.gears = self.success_term.gears
+        success_objective = self.arena_environment.task.get_termination_cfg().success[0]
+        gear_mesh_cfg = success_objective.predicate_sequence[0]
+        progress_tracker = self.base_env.progress_tracker
+        assert progress_tracker is not None, "Gear mesh validation requires task success tracking."
+        self.gear_mesh_predicate = progress_tracker.get_predicate(success_objective.name)
+        self.board = self.gear_mesh_predicate.board
+        self.gears = self.gear_mesh_predicate.gears
         self.gear_names = tuple(asset.cfg.prim_path.rsplit("/", 1)[-1] for asset in self.gears)
 
         offsets = torch.as_tensor(
-            success_cfg.params["target_offsets_xyz"],
+            gear_mesh_cfg.params["target_offsets_xyz"],
             device=self.base_env.device,
             dtype=self.board.data.root_pos_w.torch.dtype,
         )
@@ -275,8 +278,8 @@ class GearMeshBehaviourDemo(EnvBehaviourDemo):
             # the task's matching finite-window velocity state as well because
             # Newton can dissipate an injected rigid-body velocity almost fully
             # while resolving the intentionally intermeshed teeth in one step.
-            self.success_term.spin_history[:] = signs[None, None, :] * _GEAR_SPEED_RAD_S
-            self.success_term.spin_samples_seen.fill_(self.success_term.spin_window_steps)
+            self.gear_mesh_predicate.spin_history[:] = signs[None, None, :] * _GEAR_SPEED_RAD_S
+            self.gear_mesh_predicate.spin_samples_seen.fill_(self.gear_mesh_predicate.spin_window_steps)
 
         for gear_index, gear in enumerate(self.gears):
             half_angle = self.gear_angles[:, gear_index] * 0.5
@@ -306,11 +309,11 @@ class GearMeshBehaviourDemo(EnvBehaviourDemo):
             dtype=self.board.data.joint_pos.torch.dtype,
         )
         joint_ids = self.torch.tensor(
-            [self.success_term.button_joint], device=self.base_env.device, dtype=self.torch.int32
+            [self.gear_mesh_predicate.button_joint], device=self.base_env.device, dtype=self.torch.int32
         )
         self.board.set_joint_position_target(
             position,
-            joint_ids=[self.success_term.button_joint],
+            joint_ids=[self.gear_mesh_predicate.button_joint],
         )
         self.board.write_joint_position_to_sim_index(
             position=position,
@@ -344,26 +347,26 @@ class GearMeshBehaviourDemo(EnvBehaviourDemo):
             self._write_button(0.0)
             if bool(self._step(drive_gears=True).any().item()):
                 raise RuntimeError("Environment ended before the board was started.")
-            if bool(self.success_term.seated_seen.all().item()):
+            if bool(self.gear_mesh_predicate.seated_seen.all().item()):
                 break
-        if not bool(self.success_term.seated_seen.all().item()):
+        if not bool(self.gear_mesh_predicate.seated_seen.all().item()):
             raise RuntimeError("Task did not observe every gear seated before button press.")
-        if bool(self.success_term.latched.any().item()):
+        if bool(self.gear_mesh_predicate.latched.any().item()):
             raise RuntimeError("Board motor latched before the scripted button press.")
 
         print(f"[gear-validation] cycle {cycle}: pressing the start button", flush=True)
         for _ in range(30):
-            if bool(self.success_term.latched.all().item()):
+            if bool(self.gear_mesh_predicate.latched.all().item()):
                 break
             self._write_button(_BUTTON_PRESSED_M)
             if bool(self._step(drive_gears=True).any().item()):
                 raise RuntimeError("Environment ended while pressing the board button.")
-        if not bool(self.success_term.latched.all().item()):
-            button_position = self.board.data.joint_pos.torch[:, self.success_term.button_joint]
+        if not bool(self.gear_mesh_predicate.latched.all().item()):
+            button_position = self.board.data.joint_pos.torch[:, self.gear_mesh_predicate.button_joint]
             raise RuntimeError(f"Board button did not latch; joint position is {button_position.tolist()}.")
 
         print(f"[gear-validation] cycle {cycle}: motor latched; validating driven rotation", flush=True)
-        maximum_steps = self.success_term.spin_window_steps + self.success_term.required_steps + 60
+        maximum_steps = self.gear_mesh_predicate.spin_window_steps + self.gear_mesh_predicate.required_steps + 60
         for _ in range(maximum_steps):
             if bool(self._step(drive_gears=True).all().item()):
                 print(
@@ -372,13 +375,13 @@ class GearMeshBehaviourDemo(EnvBehaviourDemo):
                 )
                 return
 
-        windowed_spin = self.success_term.spin_history.mean(dim=0)
+        windowed_spin = self.gear_mesh_predicate.spin_history.mean(dim=0)
         raise RuntimeError(
             "Driven gear state did not trigger success: "
-            f"latched={self.success_term.latched.tolist()}, "
-            f"seated_seen={self.success_term.seated_seen.tolist()}, "
-            f"started_after_seating={self.success_term.started_after_seating.tolist()}, "
-            f"success_steps={self.success_term.success_steps.tolist()}, "
+            f"latched={self.gear_mesh_predicate.latched.tolist()}, "
+            f"seated_seen={self.gear_mesh_predicate.seated_seen.tolist()}, "
+            f"started_after_seating={self.gear_mesh_predicate.started_after_seating.tolist()}, "
+            f"success_steps={self.gear_mesh_predicate.success_steps.tolist()}, "
             f"windowed_spin={windowed_spin.tolist()}."
         )
 

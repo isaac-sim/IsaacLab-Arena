@@ -10,6 +10,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from typing import ClassVar
 
+from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
 from isaaclab_arena.embodiments.gripper import RobotiqGripper
@@ -106,18 +107,20 @@ class _IndustrialFr3Robotiq2f85Base(EmbodimentBase):
         return "robotiq_base"
 
 
+@register_asset
 class IndustrialFr3Robotiq2f85Embodiment(_IndustrialFr3Robotiq2f85Base):
     """Fixed-base FR3 absolute-joint embodiment with DROID-compatible streams."""
 
-    name = "industrial_fr3_robotiq_2f85"
+    name = "industrial_fr3_robotiq_2f85_v2"
     tags: ClassVar[list[str]] = ["embodiment"]
     action_config_type = IndustrialFr3RobotiqActionsCfg
 
 
+@register_asset
 class IndustrialFr3Robotiq2f85DifferentialIKEmbodiment(_IndustrialFr3Robotiq2f85Base):
     """FR3 relative Cartesian control for keyboard and SpaceMouse teleoperation."""
 
-    name = "industrial_fr3_robotiq_2f85_differential_ik"
+    name = "industrial_fr3_robotiq_2f85_differential_ik_v2"
     tags: ClassVar[list[str]] = ["embodiment"]
     action_config_type = IndustrialFr3RobotiqDifferentialIKActionsCfg
 

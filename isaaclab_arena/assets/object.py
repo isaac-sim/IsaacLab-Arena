@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import torch
+from copy import deepcopy
 from typing import Any
 
 from isaaclab.assets import ArticulationCfg, AssetBaseCfg, RigidObjectCfg
@@ -15,6 +16,7 @@ from isaaclab.sim.spawners.spawner_cfg import SpawnerCfg
 from isaaclab_arena.assets.object_base import ObjectBase, RootedObjectBase
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.assets.object_utils import detect_object_type
+from isaaclab_arena.assets.physics_spawner import make_usd_spawn_cfg_with_addons
 from isaaclab_arena.relations.relations import RelationBase
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose
@@ -58,7 +60,8 @@ class Object(RootedObjectBase):
         self.initial_pose = initial_pose
         self.relations = list(relations)
         self.reset_pose = True
-        self.spawn_cfg_addon = spawn_cfg_addon
+        # Keep nested addon settings independent when multiple objects reuse the same input mapping.
+        self.spawn_cfg_addon = deepcopy(spawn_cfg_addon)
         self.asset_cfg_addon = asset_cfg_addon
         self.bounding_box = None
         self.object_cfg = self._init_object_cfg()
@@ -140,16 +143,20 @@ class Object(RootedObjectBase):
             filter_prim_paths_expr=filter_prim_paths,
         )
 
-    def _get_spawn_cfg(self, activate_contact_sensors: bool = False):
-        """Return the spawn config to use: custom spawner_cfg if set, else a UsdFileCfg."""
+    def _get_spawn_cfg(self, activate_contact_sensors: bool = False) -> SpawnerCfg:
+        """Return the custom spawn config if set, otherwise a USD spawn config with addons."""
         if self.spawner_cfg is not None:
+            assert not self.spawn_cfg_addon, (
+                "spawn_cfg_addon cannot be combined with spawner_cfg. "
+                "Configure spawn options and physics on the custom spawner instead."
+            )
             return self.spawner_cfg
-        return UsdFileCfg(
+        spawn_cfg = UsdFileCfg(
             usd_path=self.usd_path,
             scale=self.scale,
             activate_contact_sensors=activate_contact_sensors,
-            **self.spawn_cfg_addon,
         )
+        return make_usd_spawn_cfg_with_addons(spawn_cfg, self.spawn_cfg_addon)
 
     def _generate_rigid_cfg(self) -> RigidObjectCfg:
         assert self.object_type == ObjectType.RIGID

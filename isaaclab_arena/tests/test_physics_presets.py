@@ -460,5 +460,55 @@ def test_cli_preset_rejects_conflicting_yaml_backend():
     )
 
 
+def _test_droid_newton_prim_physics(simulation_app) -> bool:
+    from unittest.mock import patch
+
+    from isaaclab.sim.schemas import schemas
+    from isaaclab.sim.utils import create_new_stage
+    from pxr import Usd, UsdGeom, UsdPhysics, UsdShade
+
+    from isaaclab_arena.embodiments.droid.droid import DroidDifferentialIKEmbodiment, spawn_newton_droid
+    from isaaclab_arena.tests.utils.prim_physics_configs import FrictionCfg, MassCfg
+
+    stage = create_new_stage()
+    robot = DroidDifferentialIKEmbodiment()
+    baseline = _build_env_cfg(presets="newton", embodiment=robot).scene.robot.spawn
+    root = baseline.func("/World/Original", baseline)
+    # Use a real collider after DROID's Newton setup has moved schemas to meshes.
+    collider = next(prim for prim in Usd.PrimRange(root) if prim.HasAPI(UsdPhysics.CollisionAPI))
+    collider_path = str(collider.GetPath().MakeRelativePath(root.GetPath()))
+    robot.spawn_cfg_addon = {
+        "robot": {
+            "activate_contact_sensors": True,
+            "prim_physics": {"panda_link0": MassCfg(mass=0.5), collider_path: FrictionCfg(friction=1.2)},
+        },
+    }
+    spawn = _build_env_cfg(presets="newton", embodiment=robot).scene.robot.spawn
+    assert spawn.usd_spawn_func is spawn_newton_droid
+    # Config recording/restoration must retain the custom spawner without nesting decorators.
+    restored = spawn.copy()
+    restored.from_dict(spawn.to_dict())
+    for index in range(2):
+        UsdGeom.Xform.Define(stage, f"/World/env_{index}")
+    with patch.object(schemas, "activate_contact_sensors", wraps=schemas.activate_contact_sensors) as activate:
+        restored.func("/World/env_.*/Robot", restored)
+        assert activate.call_count == 1
+    for index in range(2):
+        root_path = f"/World/env_{index}/Robot"
+        body = stage.GetPrimAtPath(f"{root_path}/panda_link0")
+        assert UsdPhysics.MassAPI(body).GetMassAttr().Get() == 0.5
+        target = stage.GetPrimAtPath(f"{root_path}/{collider_path}")
+        material, _ = UsdShade.MaterialBindingAPI(target).ComputeBoundMaterial("physics")
+        assert UsdPhysics.MaterialAPI(material).GetDynamicFrictionAttr().Get() == pytest.approx(1.2)
+        assert str(material.GetPath()).startswith(root_path + "/")
+    assert not collider.GetChild("TestPhysicsMaterial")
+    return True
+
+
+@pytest.mark.with_newton
+def test_droid_newton_prim_physics():
+    assert run_function_with_persistent_simulation_app(_test_droid_newton_prim_physics, headless=HEADLESS)
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

@@ -11,6 +11,7 @@ import math
 import torch
 from collections.abc import Sequence
 from functools import partial
+from typing import TYPE_CHECKING
 
 import isaaclab.envs.mdp as mdp
 from isaaclab.envs.common import ViewerCfg
@@ -20,6 +21,7 @@ from isaaclab.utils.configclass import configclass
 
 from isaaclab_arena.assets.cable import Cable
 from isaaclab_arena.assets.object_base import ObjectBase
+from isaaclab_arena.assets.register import register_task
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.metrics.success_rate import SuccessRateMetric
 from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
@@ -27,7 +29,9 @@ from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
 
 from .geometry import capsule_centerline
-from .scene import BOARD_TOP_Z, CableRoutingVariant, TerminatedCableGoal
+
+if TYPE_CHECKING:
+    from .scene import CableRoutingVariant, TerminatedCableGoal
 
 
 def _torch(value):
@@ -125,7 +129,8 @@ class CableRoutingEventsCfg:
     )
 
 
-class CableRoutingTask(TaskBase):
+@register_task
+class CableRoutingTaskV2(TaskBase):
     """Weave every guide and place the released free end in the port."""
 
     def __init__(
@@ -197,7 +202,6 @@ class CableRoutingTask(TaskBase):
         return camera_warmup_recorder_cfg()
 
     def get_viewer_cfg(self) -> ViewerCfg:
+        from .scene import BOARD_TOP_Z
+
         return ViewerCfg(eye=(1.25, -1.10, 1.55), lookat=(0.0125, 0.0, BOARD_TOP_Z))
-
-
-__all__ = ["CableRoutingTask", "terminated_cable_route_success"]

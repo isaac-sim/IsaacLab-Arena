@@ -195,6 +195,81 @@ a Boolean value.
 Collision handling is integrated into placement and is not expressed as a
 relation.
 
+Recorded Layouts
+----------------
+
+Pass the companion file to the environment builder:
+
+.. code-block:: bash
+
+   /isaac-sim/python.sh isaaclab_arena/scripts/environment_runner.py \
+       --env_spec scene.yaml --placement_layouts layouts.jsonl
+
+For a registered Python environment, place ``--placement_layouts layouts.jsonl``
+before the environment subcommand. Python callers use
+``ArenaEnvBuilderCfg(placement_layouts_path="layouts.jsonl")``. All file paths are
+relative to the working directory.
+
+A ten-layout example for ``isaaclab_arena/tests/test_data/placement_replay.yaml``
+is available in ``isaaclab_arena/tests/test_data/placement_replay.jsonl``.
+
+Each JSONL line contains one complete layout under
+``variations["scene.relation_placement"]["poses"]``. Poses use runtime scene keys
+for both YAML and Python environments. Use ``asset.get_scene_key()``: ordinary
+objects use their instance names, while the embodiment uses ``"robot"`` regardless
+of its YAML node ID.
+Positions are environment-local, in metres; rotations are xyzw quaternions.
+Every nonblank line must contain the placement block with the same object set.
+Additional episode fields are ignored; episodes without placement records cannot
+be loaded. Python callers can pass ``PlacementLayouts`` directly to
+``IsaacLabArenaEnvironment`` instead of configuring a file path.
+Supplying both is rejected.
+
+.. code-block:: python
+
+   from isaaclab_arena.relations.placement_layouts import PlacementLayouts
+
+   arena_env.placement_layouts = PlacementLayouts.from_episode_jsonl("layouts.jsonl")
+
+Set replay inputs before ``compose_manager_cfg()`` or ``make_registered()``.
+For registered Python environments, a Python runner can set
+``builder.arena_env.placement_layouts`` after obtaining the builder. Replay inputs
+are read when the environment configuration is composed.
+
+``PlacementLayouts.write_episode_jsonl(path, source=...)`` writes the same format.
+The caller supplies the source label, such as ``"solver"`` or ``"settled"``;
+the writer does not solve or simulate the poses.
+
+Resetting environments draw consecutive layouts from one shared queue, in reset
+request order. The queue wraps after its last layout. For four layouts and three
+environments, successive full resets select ``[0, 1, 2]``, then ``[3, 0, 1]``.
+A partial reset consumes only the layouts needed by those environments; other
+poses remain unchanged. Layouts can repeat across active environments after the
+queue wraps. If the environment count is a multiple of the layout count,
+repeated full resets assign the same layout to each environment. The queue covers
+all layouts across the batch; it does not guarantee that each environment visits
+every layout. Partial-reset order determines later assignments, so different
+policies may receive different per-environment sequences.
+
+Replay validates finite poses, unit quaternions, consistent object coverage and
+reset ownership. Recorded objects share one reset writer, which zeros their root
+velocities. All non-anchor objects with spatial relations must be included,
+as must a non-anchor embodiment carrying any placement relation or marker.
+Object sets, disabled pose resets, non-fixed pose-reset policies and nonzero
+initial velocities are unsupported.
+
+Replay requires ``resolve_on_reset=True``; an explicit
+``--no-resolve_on_reset`` or a false environment default is rejected. An explicit
+``placement_seed`` in the placement configuration or on the CLI is also rejected
+because layouts are read in file order.
+``--no_solve_relations`` is compatible: replay never invokes the solver.
+Placement validator settings apply only when solving; they do not revalidate a
+recorded layout or open the solver's debug viewer.
+
+Loading bypasses solving and does not rerun geometry, reachability or settling
+checks. Recordings must match the scene and robot configuration being replayed;
+disable pose-changing variations and callbacks when exact replay is required.
+
 Next Steps
 ----------
 

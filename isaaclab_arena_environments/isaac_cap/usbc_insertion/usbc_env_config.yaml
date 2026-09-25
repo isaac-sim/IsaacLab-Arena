@@ -5,6 +5,12 @@
 
 # Both USB-C variants use the same Newton contact and solver configuration.
 default_physics_backend: newton
+placer_params:
+  allow_best_loss_fallbacks: false
+  required_checks: [on_relation]
+  solver_params:
+    clearance_m: 0.0
+    lr: 0.001
 env_cfg_override:
   decimation: 1
   sim:

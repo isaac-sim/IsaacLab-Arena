@@ -3,129 +3,165 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""CAP USB-C solver, full-hand contacts, and actuator tuning."""
+"""CAP USB-C asset contacts, solver cleanup, and actuator tuning."""
 
 from __future__ import annotations
 
+import math
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
+from isaaclab.sim import bind_physics_material
+from isaaclab.sim.schemas import CollisionFragment, UsdPhysicsCollisionCfg, apply_collision_properties
+from isaaclab.sim.spawners.materials import RigidBodyMaterialBaseCfg, spawn_physics_material
+from isaaclab.sim.utils import use_stage
+from isaaclab.utils.configclass import configclass
 from isaaclab_newton.physics import NewtonMJWarpManager
+from isaaclab_newton.sim.schemas import MujocoCollisionCfg, NewtonCollisionCfg, NewtonMaterialPropertiesCfg
+from pxr import Sdf, UsdGeom, UsdPhysics, Vt
+
+from isaaclab_arena.assets.physics_config import UsdPrimSpawnPhysicsCfg
 
 if TYPE_CHECKING:
     from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import IsaacLabArenaManagerBasedRLEnvCfg
 
+_SOLREF = (0.004, 1.0)
+_SOLIMP = (0.95, 0.999, 0.0005, 0.5, 2.0)
+_LINK_6 = "Geometry/arm/link_1/link_2/link_3/link_4/link_5/link_6"
+_FINGER_SHAPES = (
+    "Capsule",
+    "Capsule_1",
+    "Capsule_2",
+    "Box",
+    "Box_1",
+    "Sphere",
+    "Sphere_1",
+    "Sphere_2",
+    "Sphere_3",
+    "Sphere_4",
+    "Sphere_5",
+)
 
-# TODO(xinjieyao, 09/17/2026): Remove this customization once the MR to apply physics to spawn cfg is merged.
+
+@configclass
+class UsbcContactCfg(UsdPrimSpawnPhysicsCfg):
+    """Apply USB-C task contact schemas to one asset-relative prim."""
+
+    collision_props: list[CollisionFragment] = []
+    """Collision schema fragments authored on the target."""
+
+    physics_material: RigidBodyMaterialBaseCfg | None = None
+    """Optional collider-local Newton material."""
+
+    equality_solref: tuple[float, float] | None = None
+    """Optional MuJoCo equality response parameters."""
+
+    def validate_target(self, prim, root) -> None:
+        """Validate the selected collider or equality prim before authoring."""
+        if self.collision_props:
+            assert prim.IsA(UsdGeom.Gprim), f"Collision target must be geometry: {prim.GetPath()}"
+            assert all(isinstance(fragment, CollisionFragment) for fragment in self.collision_props)
+        if self.physics_material is not None:
+            assert (
+                prim.HasAPI(UsdPhysics.CollisionAPI) or self.collision_props
+            ), f"Physics material target must be a collider: {prim.GetPath()}"
+            material_path = prim.GetPath().AppendChild("UsbcPhysicsMaterial")
+            assert not prim.GetStage().GetPrimAtPath(material_path), f"Physics material already exists: {material_path}"
+        if self.equality_solref is not None:
+            assert any(
+                schema in prim.GetAppliedSchemas()
+                for schema in ("MjcEqualityJointAPI", "MjcEqualityConnectAPI", "MjcEqualityWeldAPI")
+            ), f"Equality target has no MuJoCo equality schema: {prim.GetPath()}"
+            assert len(self.equality_solref) == 2 and all(
+                math.isfinite(value) for value in self.equality_solref
+            ), f"Equality solref must contain two finite values: {prim.GetPath()}"
+
+    def apply(self, prim, root) -> None:
+        """Author collision, material, and equality properties on the selected prim."""
+        stage = prim.GetStage()
+        prim_path = str(prim.GetPath())
+        if self.collision_props:
+            assert apply_collision_properties(
+                prim_path, self.collision_props, stage
+            ), f"Failed to apply collision properties to {prim_path}"
+        if self.physics_material is not None:
+            material_path = f"{prim_path}/UsbcPhysicsMaterial"
+            with use_stage(stage):
+                spawn_physics_material(material_path, self.physics_material)
+            bind_physics_material(prim_path, material_path, stage=stage)
+        if self.equality_solref is not None:
+            prim.CreateAttribute("mjc:solref", Sdf.ValueTypeNames.DoubleArray).Set(Vt.DoubleArray(self.equality_solref))
 
 
-def _set_contact_attributes(builder, shapes, *, condim=None) -> None:
-    import warp as wp
-    from newton._src.solvers.mujoco.constants import SOLREF_MODE_RAW
-    from newton._src.solvers.mujoco.solver_mujoco import vec5
-
-    attributes = {
-        "mujoco:solref": wp.vec2(0.004, 1.0),
-        "mujoco:solref_mode": SOLREF_MODE_RAW,
-        "mujoco:geom_solimp": vec5(0.95, 0.999, 0.0005, 0.5, 2.0),
+def make_robot_spawn_cfg_addon() -> dict[str, dict]:
+    """Build per-instance full-hand contacts for both YAM robots."""
+    return {
+        "left_robot": {"make_uninstanceable": True, "prim_physics": _robot_prim_physics()},
+        "right_robot": {"make_uninstanceable": True, "prim_physics": _robot_prim_physics()},
     }
-    if condim is not None:
-        attributes["mujoco:condim"] = condim
-    for name, value in attributes.items():
-        attribute = builder.custom_attributes[name]
-        if attribute.values is None:
-            attribute.values = {}
-        for index in shapes:
-            attribute.values[index] = value
 
 
-def _configure_contacts(_event_payload=None) -> None:
-    """Apply CAP's matched contacts and passive-jaw coupling before model creation."""
-    import newton
-    import warp as wp
-    from isaaclab_newton.physics import NewtonManager
+def _robot_prim_physics() -> dict[str, UsbcContactCfg]:
+    """Build CAP's full-hand contacts and passive-jaw response for one YAM."""
+    overrides = {}
+    finger_roots = (
+        f"{_LINK_6}/link_left_finger/lf_rot/lf_down",
+        f"{_LINK_6}/link_right_finger/rf_rot/rf_down",
+    )
+    for root in finger_roots:
+        for shape_name in _FINGER_SHAPES:
+            overrides[f"{root}/{shape_name}"] = UsbcContactCfg(
+                collision_props=[
+                    NewtonCollisionCfg(contact_gap=0.0002),
+                    MujocoCollisionCfg(condim=4, solref=_SOLREF, solimp=_SOLIMP),
+                ],
+                physics_material=NewtonMaterialPropertiesCfg(
+                    static_friction=8.0,
+                    dynamic_friction=8.0,
+                    torsional_friction=0.002,
+                    rolling_friction=0.0001,
+                ),
+            )
+    for shape_name in ("Capsule", "Capsule_1", "Capsule_2"):
+        overrides[f"{_LINK_6}/{shape_name}"] = UsbcContactCfg(
+            collision_props=[
+                UsdPhysicsCollisionCfg(collision_enabled=True),
+                MujocoCollisionCfg(condim=3, solref=_SOLREF, solimp=_SOLIMP),
+            ]
+        )
+    overrides[f"{_LINK_6}/link_left_finger/left_finger"] = UsbcContactCfg(equality_solref=_SOLREF)
+    return overrides
 
-    builder = NewtonManager._builder
-    assert builder is not None, "USB-C contacts require a Newton builder."
-    equality_joints = builder.custom_attributes["mujoco:equality_constraint_joint1"].values
-    equality_solref = builder.custom_attributes["mujoco:eq_solref"]
-    if equality_solref.values is None:
-        equality_solref.values = {}
-    coupled_fingers = 0
-    for index, joint in enumerate(equality_joints):
-        if int(joint) >= 0 and "finger" in str(builder.joint_label[int(joint)]).casefold():
-            equality_solref.values[index] = wp.vec2(0.004, 1.0)
-            coupled_fingers += 1
-    assert coupled_fingers, "USB-C contact rig found no YAM finger equalities."
 
-    collide = int(newton.ShapeFlags.COLLIDE_SHAPES)
-    for robot_token in ("leftrobot", "rightrobot"):
-        finger_bodies = {
-            index
-            for index, label in enumerate(builder.body_label)
-            if robot_token in str(label).casefold() and "finger" in str(label).casefold()
-        }
-        fingers = [index for index, body in enumerate(builder.shape_body) if int(body) in finger_bodies]
-        references = [index for index in fingers if int(builder.shape_flags[index]) & collide]
-        assert references, f"USB-C contact rig found no colliding fingers for {robot_token}."
-        reference = references[0]
-        excluded = {
-            other
-            for pair in builder._shape_collision_filter_pairs
-            if reference in pair
-            for other in pair
-            if other != reference
-        }
-        housings = []
-        for index, body in enumerate(builder.shape_body):
-            if int(body) < 0:
-                continue
-            label = str(builder.body_label[int(body)]).casefold()
-            if robot_token not in label or label.rsplit("/", 1)[-1] != "link_6" or builder.shape_source[index] is None:
-                continue
-            builder.shape_flags[index] |= collide
-            builder.shape_collision_group[index] = builder.shape_collision_group[reference]
-            for other in {reference, *excluded}:
-                if other != index:
-                    builder.add_shape_collision_filter_pair(index, other)
-            housings.append(index)
-        for index in fingers:
-            builder.shape_material_mu[index] = 8.0
-            builder.shape_material_mu_torsional[index] = 0.002
-            builder.shape_material_mu_rolling[index] = 0.0001
-            builder.shape_gap[index] = 0.0002
-        _set_contact_attributes(builder, fingers, condim=4)
-        _set_contact_attributes(builder, housings, condim=3)
+def connector_prim_physics(relative_path: str, friction: float) -> dict[str, UsbcContactCfg]:
+    """Build matched connector contact properties for one collider."""
+    return {
+        relative_path: UsbcContactCfg(
+            collision_props=[MujocoCollisionCfg(solref=_SOLREF, solimp=_SOLIMP)],
+            physics_material=NewtonMaterialPropertiesCfg(
+                static_friction=friction,
+                dynamic_friction=friction,
+                contact_stiffness=62500.0,
+                contact_damping=500.0,
+            ),
+        )
+    }
 
-    connectors = []
-    for index, raw_label in enumerate(builder.shape_label):
-        label = str(raw_label).casefold()
-        path_components = set(label.split("/"))
-        if path_components & {"plug", "port", "bulkhead"}:
-            builder.shape_material_ke[index] = 62500.0
-            builder.shape_material_kd[index] = 500.0
-            builder.shape_material_mu[index] = 2.5 if "bulkhead" in path_components else 0.35
-            connectors.append(index)
-        elif "bench" in path_components:
-            builder.shape_material_mu[index] = 0.4
-        elif "table" in path_components:
-            builder.shape_material_mu[index] = 0.35
-    assert len(connectors) >= 2, "USB-C contact rig could not find both connector meshes."
-    _set_contact_attributes(builder, connectors)
+
+def friction_prim_physics(relative_path: str, friction: float) -> dict[str, UsbcContactCfg]:
+    """Build a collider-local friction material for one task fixture."""
+    return {
+        relative_path: UsbcContactCfg(
+            physics_material=NewtonMaterialPropertiesCfg(
+                static_friction=friction,
+                dynamic_friction=friction,
+            )
+        )
+    }
 
 
 class NewtonUsbcManager(NewtonMJWarpManager):
-    """Install USB-C contact tuning only when this task's manager is initialized."""
-
-    @classmethod
-    def initialize(cls, sim_context) -> None:
-        from isaaclab.physics import PhysicsEvent
-        from isaaclab_newton.physics import NewtonManager
-
-        NewtonManager.register_callback(
-            _configure_contacts, PhysicsEvent.MODEL_INIT, name="arena_usbc_contacts", wrap_weak_ref=False
-        )
-        super().initialize(sim_context)
+    """Clean up the task's procedural cable hooks during manager teardown."""
 
     @classmethod
     def _solver_specific_clear(cls) -> None:
@@ -140,7 +176,7 @@ def configure_usbc_runtime(
     *,
     apply_graph_override: Callable[[IsaacLabArenaManagerBasedRLEnvCfg], IsaacLabArenaManagerBasedRLEnvCfg],
 ) -> IsaacLabArenaManagerBasedRLEnvCfg:
-    """Apply the graph override, then install USB-C runtime-only tuning."""
+    """Apply the graph override, cable cleanup manager, and actuator tuning."""
     env_cfg = apply_graph_override(env_cfg)
     env_cfg.sim.physics.class_type = NewtonUsbcManager
     env_cfg.scene.replicate_physics = False

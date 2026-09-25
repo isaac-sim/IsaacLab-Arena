@@ -4,7 +4,3 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """Isaac Cap contact-rich Factory gear-insertion environments."""
-
-from .. import register_components
-
-register_components()

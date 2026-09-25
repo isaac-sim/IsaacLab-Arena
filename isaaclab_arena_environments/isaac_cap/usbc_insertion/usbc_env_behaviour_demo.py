@@ -105,7 +105,8 @@ class UsbcEnvBehaviourDemo(EnvBehaviourDemo):
 
         self.torch = torch
         self.task = self.arena_environment.task
-        self.predicates = self.task.get_termination_cfg().success[0].predicate_sequence[0].params["predicates"]
+        success_requirement = self.task.get_termination_cfg().success[0].predicate_sequence[0]
+        self.predicates = success_requirement.predicate.params["predicates"]
         expected_functions = [
             depth_in_range,
             lateral_in_proximity,

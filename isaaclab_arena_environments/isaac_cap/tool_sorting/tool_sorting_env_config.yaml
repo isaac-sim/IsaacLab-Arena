@@ -4,6 +4,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # Shared Newton contact profile for the three easy tool-sorting levels.
+placer_params:
+  random_yaw_init: true
+  allow_best_loss_fallbacks: false
 embodiment:
   id: fr3
   registry_name: tool_sorting_fr3_robotiq_2f85

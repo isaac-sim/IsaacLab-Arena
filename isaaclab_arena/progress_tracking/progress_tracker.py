@@ -17,8 +17,6 @@ from isaaclab.utils.configclass import configclass
 
 from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective, ProgressObjectiveCompletionMode
 from isaaclab_arena.progress_tracking.progress_tracking_utils import DEFAULT_GROUP_NAME, _predicate_repr
-from isaaclab_arena.tasks.predicates.composite import reset_managed_predicates
-from isaaclab_arena.tasks.predicates.consecutive import ConsecutivePredicate
 from isaaclab_arena.tasks.predicates.temporal import TrueForConsecutiveStepsCfg, _TrueForConsecutiveSteps
 
 
@@ -57,17 +55,6 @@ def _create_predicate_from_config(predicate, env):
     predicate_cfg = copy.deepcopy(predicate)
     _initialize_predicate_parameters(predicate_cfg, env)
     return functools.partial(predicate_cfg.func, **predicate_cfg.params)
-
-
-def _evaluate_progress_predicate_with_state_update_mask(predicate, env, state_update_mask: torch.Tensor):
-    """Evaluate a predicate without mutating inactive consecutive-predicate environments."""
-
-    # TODO(cvolk): Revisit ConsecutivePredicate-specific dispatch during the stateful predicate redesign.
-    # Preserve state updates only for environments where the predicate is active.
-    predicate_func = predicate.func if isinstance(predicate, functools.partial) else predicate
-    if isinstance(predicate_func, ConsecutivePredicate):
-        return predicate(env, active_mask=state_update_mask)
-    return predicate(env)
 
 
 @dataclass
@@ -228,8 +215,7 @@ class ProgressObjectiveRunner:
                 torch.zeros(self.num_envs, dtype=torch.bool, device=self.device),
             )
         cached_result, evaluated_envs = predicate_results_this_step[predicate_key]
-        predicate_func = predicate.func if isinstance(predicate, functools.partial) else predicate
-        if not isinstance(predicate_func, (ConsecutivePredicate, _TrueForConsecutiveSteps)):
+        if not isinstance(predicate, _TrueForConsecutiveSteps):
             state_update_mask = torch.ones_like(state_update_mask)
         # Evaluate only requested environments that have no result cached for this update.
         pending_envs = state_update_mask & ~evaluated_envs
@@ -243,7 +229,7 @@ class ProgressObjectiveRunner:
                 result = predicate.update(predicate_results, active_envs=pending_envs)
             else:
                 result = torch.as_tensor(
-                    _evaluate_progress_predicate_with_state_update_mask(predicate, env, pending_envs),
+                    predicate(env),
                     dtype=torch.bool,
                     device=self.device,
                 )
@@ -355,7 +341,10 @@ class ProgressObjectiveRunner:
         return events
 
     def reset(self, env_ids) -> None:
-        """Reset the runner for the provided envs."""
+        """Clear sequence progress and consecutive-step counters for the selected environments.
+
+        The underlying predicates are not reset.
+        """
 
         env_ids = torch.as_tensor(env_ids, dtype=torch.long, device=self.device)
         for group_name in self.progress_objective.group_names:
@@ -364,11 +353,6 @@ class ProgressObjectiveRunner:
             self.group_complete[group_name][env_ids] = False
 
         self._reset_consecutive_step_requirements(env_ids)
-
-        reset_managed_predicates(
-            (predicate for predicate_chain in self.predicate_chains.values() for predicate, _score in predicate_chain),
-            env_ids,
-        )
 
     def _reset_consecutive_step_requirements(self, env_ids) -> None:
         """Clear streaks without erasing completed predicates."""
@@ -573,9 +557,6 @@ class ProgressTracker:
         assert self._subtask_runners, "Subtask completion requires objectives with subtask indices."
         return torch.stack([self._all_objectives_complete(runners) for runners in self._subtask_runners], dim=1)
 
-    # TODO(cvolk): Revisit predicate-instance access during the stateful predicate redesign.
-    # Retained for GearInsertionFractionRecorder and GearEnvBehaviourDemo, which read
-    # cached CompositePredicate results.
     def get_predicate(
         self,
         objective_name: str,

@@ -16,6 +16,7 @@ from isaaclab_arena.assets.nucleus import ARENA_NUCLEUS_DIR
 from isaaclab_arena.assets.object import Object
 from isaaclab_arena.assets.object_library import LibraryObject
 from isaaclab_arena.assets.object_type import ObjectType
+from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.relations.collision_mode import CollisionMode
 from isaaclab_arena.utils.pose import Pose
 
@@ -46,66 +47,79 @@ class IndustrialToolSortObject(LibraryObject):
         self.disable_reset_pose()
 
 
+@register_asset
 class IndustrialToolSortAdjustableWrench(IndustrialToolSortObject):
     name = "vabar_tool_sort__adjustable_wrench"
     usd_path = _tool_usd_path(name)
 
 
+@register_asset
 class IndustrialToolSortBattery(IndustrialToolSortObject):
     name = "vabar_tool_sort__battery"
     usd_path = _tool_usd_path(name)
 
 
+@register_asset
 class IndustrialToolSortBreadboard(IndustrialToolSortObject):
     name = "vabar_tool_sort__breadboard"
     usd_path = _tool_usd_path(name)
 
 
+@register_asset
 class IndustrialToolSortCombinationPliers(IndustrialToolSortObject):
     name = "vabar_tool_sort__combination_pliers"
     usd_path = _tool_usd_path(name)
 
 
+@register_asset
 class IndustrialToolSortCuttingPliers(IndustrialToolSortObject):
     name = "vabar_tool_sort__cutting_pliers"
     usd_path = _tool_usd_path(name)
 
 
+@register_asset
 class IndustrialToolSortFlashlight(IndustrialToolSortObject):
     name = "vabar_tool_sort__flashlight"
     usd_path = _tool_usd_path(name)
 
 
+@register_asset
 class IndustrialToolSortInsulatingTape(IndustrialToolSortObject):
     name = "vabar_tool_sort__insulating_tape"
     usd_path = _tool_usd_path(name)
 
 
+@register_asset
 class IndustrialToolSortMultimeter(IndustrialToolSortObject):
     name = "vabar_tool_sort__multimeter"
     usd_path = _tool_usd_path(name)
 
 
+@register_asset
 class IndustrialToolSortSafetyGlasses(IndustrialToolSortObject):
     name = "vabar_tool_sort__safety_glasses"
     usd_path = _tool_usd_path(name)
 
 
+@register_asset
 class IndustrialToolSortSlottedScrewdriver(IndustrialToolSortObject):
     name = "vabar_tool_sort__slotted_screwdriver"
     usd_path = _tool_usd_path(name)
 
 
+@register_asset
 class IndustrialToolSortTapeMeasure(IndustrialToolSortObject):
     name = "vabar_tool_sort__tape_measure"
     usd_path = _tool_usd_path(name)
 
 
+@register_asset
 class IndustrialToolSortWireSpool(IndustrialToolSortObject):
     name = "vabar_tool_sort__wire_spool"
     usd_path = _tool_usd_path(name)
 
 
+@register_asset
 class IndustrialToolSortBin(Object):
     """Kinematic source or compartmented destination bin."""
 

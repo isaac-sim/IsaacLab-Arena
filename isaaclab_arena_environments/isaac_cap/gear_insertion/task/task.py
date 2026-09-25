@@ -12,101 +12,38 @@ from collections.abc import Sequence
 from typing import Any
 
 import isaaclab.envs.mdp as mdp
-from isaaclab.managers import EventTermCfg, SceneEntityCfg, TerminationTermCfg
+from isaaclab.managers import EventTermCfg, TerminationTermCfg
 from isaaclab.utils.configclass import configclass
 
 from isaaclab_arena.assets.asset import Asset
+from isaaclab_arena.assets.register import register_task
 from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.metrics.success_rate import SuccessRateMetric
 from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
-from isaaclab_arena.tasks.predicates.composite import CompositePredicate
-from isaaclab_arena.tasks.predicates.spatial import (
-    depth_in_range,
-    lateral_in_proximity,
-    tilt_axis_aligned,
-    velocity_below_threshold,
-)
+from isaaclab_arena.tasks.predicates.temporal import TrueForConsecutiveStepsCfg
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
-from isaaclab_arena.tasks.terminations import SuccessMode
 
 from .metrics import GearInsertionFractionMetric
-from .predicates import GearIsSupported
+from .predicates import GearInsertionConditions, reset_gear_insertion_diagnostics
 
 
 @configclass
 class EventsCfg:
-    """Standard scene reset only."""
+    """Reset the scene and gear insertion diagnostics."""
 
     reset_all: EventTermCfg = EventTermCfg(
         func=mdp.reset_scene_to_default,
         mode="reset",
         params={"reset_joint_targets": True},
     )
-
-
-def _make_gear_success_composite_predicate_cfg(
-    plate: Asset,
-    gear: Asset,
-    target_offset_xyz: tuple[float, float, float],
-    *,
-    xy_threshold: float,
-    z_threshold: float,
-    upright_axis_threshold_deg: float,
-    linear_velocity_threshold: float,
-    angular_velocity_threshold: float,
-    support_z_threshold: float,
-) -> TerminationTermCfg:
-    """Build the current geometric gates and stateful settling gate for one gear."""
-    relative_position_params = {
-        "subject_name": gear.name,
-        "receiver_name": plate.name,
-        "target_offset_xyz": target_offset_xyz,
-    }
-    predicates = [
-        TerminationTermCfg(
-            func=lateral_in_proximity,
-            params={**relative_position_params, "tolerance_lateral": xy_threshold},
-        ),
-        TerminationTermCfg(
-            func=depth_in_range,
-            params={
-                **relative_position_params,
-                "depth_min": -z_threshold,
-                "depth_max": z_threshold,
-            },
-        ),
-        TerminationTermCfg(
-            func=tilt_axis_aligned,
-            params={
-                "subject_name": gear.name,
-                "receiver_name": plate.name,
-                "max_tilt_rad": math.radians(upright_axis_threshold_deg),
-            },
-        ),
-        TerminationTermCfg(
-            func=GearIsSupported,
-            params={
-                "plate_asset_cfg": SceneEntityCfg(plate.name),
-                "gear_asset_cfg": SceneEntityCfg(gear.name),
-                "support_z_threshold": support_z_threshold,
-            },
-        ),
-        TerminationTermCfg(
-            func=velocity_below_threshold,
-            params={
-                "subject_name": gear.name,
-                "linear_velocity_threshold": linear_velocity_threshold,
-                "angular_velocity_threshold": angular_velocity_threshold,
-            },
-        ),
-    ]
-    return TerminationTermCfg(
-        func=CompositePredicate,
-        params={"predicates": predicates, "mode": SuccessMode.ALL},
+    reset_gear_insertion_diagnostics: EventTermCfg = EventTermCfg(
+        func=reset_gear_insertion_diagnostics,
+        mode="reset",
     )
 
 
+@register_task
 class GearInsertionTask(TaskBase):
     """Require every configured gear to be seated and settled on the plate."""
 
@@ -167,27 +104,22 @@ class GearInsertionTask(TaskBase):
         self.gears = gears
         self.target_offsets_xyz = offsets
         self.events_cfg = EventsCfg()
-        gear_success_predicates = [
-            _make_gear_success_composite_predicate_cfg(
-                plate,
-                gear,
-                target_offset_xyz,
-                xy_threshold=xy_threshold,
-                z_threshold=z_threshold,
-                upright_axis_threshold_deg=upright_axis_threshold_deg,
-                linear_velocity_threshold=linear_velocity_threshold,
-                angular_velocity_threshold=angular_velocity_threshold,
-                support_z_threshold=support_z_threshold,
-            )
-            for gear, target_offset_xyz in zip(gears, offsets, strict=True)
-        ]
-        success = TerminationTermCfg(
-            func=CompositePredicate,
-            params={
-                "predicates": gear_success_predicates,
-                "mode": SuccessMode.ALL,
-                "consecutive_steps": consecutive_success_steps,
-            },
+        success = TrueForConsecutiveStepsCfg(
+            predicate=TerminationTermCfg(
+                func=GearInsertionConditions,
+                params={
+                    "plate_name": plate.name,
+                    "gear_names": tuple(gear.name for gear in gears),
+                    "target_offsets_xyz": offsets,
+                    "xy_threshold": xy_threshold,
+                    "z_threshold": z_threshold,
+                    "upright_axis_threshold_deg": upright_axis_threshold_deg,
+                    "linear_velocity_threshold": linear_velocity_threshold,
+                    "angular_velocity_threshold": angular_velocity_threshold,
+                    "support_z_threshold": support_z_threshold,
+                },
+            ),
+            required_steps=consecutive_success_steps,
         )
         self.termination_cfg = TaskTerminationCfg(
             timeout_s=self.episode_length_s,

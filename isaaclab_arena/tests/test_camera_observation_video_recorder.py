@@ -14,6 +14,8 @@ import gymnasium as gym
 import os
 import shutil
 import torch
+from dataclasses import dataclass, field
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import pytest
@@ -28,7 +30,27 @@ from isaaclab_arena.video.video_recording import VideoRecordingCfg, wrap_env_for
 # ---------------------------------------------------------------------------
 
 H, W, C = 4, 4, 3
-CAMERAS = ["front", "wrist"]
+CAMERAS = ["front_rgb", "wrist_rgb"]
+
+
+@dataclass
+class _ObservationTermCfg:
+    """Minimal observation term configuration used by the stub environment."""
+
+    params: dict[str, str]
+
+
+@dataclass
+class _CameraObservationCfg:
+    """Camera observation terms and their configured sensor data types."""
+
+    front_rgb: _ObservationTermCfg = field(default_factory=lambda: _ObservationTermCfg({"data_type": "rgb"}))
+    wrist_rgb: _ObservationTermCfg = field(default_factory=lambda: _ObservationTermCfg({"data_type": "rgb"}))
+    exterior_color: _ObservationTermCfg = field(default_factory=lambda: _ObservationTermCfg({"data_type": "rgb"}))
+    exterior_rgb: _ObservationTermCfg = field(default_factory=lambda: _ObservationTermCfg({"data_type": "normals"}))
+    exterior_depth: _ObservationTermCfg = field(
+        default_factory=lambda: _ObservationTermCfg({"data_type": "distance_to_image_plane"})
+    )
 
 
 class _StubEnv(gym.Env):
@@ -38,6 +60,8 @@ class _StubEnv(gym.Env):
 
     def __init__(self):
         super().__init__()
+        camera_obs_cfg = _CameraObservationCfg()
+        self.cfg = SimpleNamespace(observations=SimpleNamespace(camera_obs=camera_obs_cfg))
         self._step_return = ({}, None, torch.zeros(1, dtype=torch.bool), torch.zeros(1, dtype=torch.bool), None)
         # Per-env completed-episode counts, mirroring the Arena env's centralized episode index.
         self._episode_counts: dict[int, int] = {}
@@ -154,6 +178,49 @@ def test_frames_are_streamed_not_buffered(tmp_path):
         assert all(writer.frames_written == 3 for writer in writers)
 
 
+def test_non_rgb_camera_observations_are_not_recorded(tmp_path):
+    """Only observations with the RGB modality become video streams."""
+    env = _make_env()
+    terminated = torch.zeros(1, dtype=torch.bool)
+    truncated = torch.zeros(1, dtype=torch.bool)
+    env._step_return = (
+        {
+            CAMERA_OBS_GROUP_KEY: {
+                "exterior_color": torch.zeros(1, H, W, 3, dtype=torch.uint8),
+                "exterior_rgb": torch.zeros(1, H, W, 3),
+                "exterior_depth": torch.zeros(1, H, W, 1),
+            }
+        },
+        None,
+        terminated,
+        truncated,
+        None,
+    )
+
+    with _patched_writers() as writers:
+        recorder = CameraObsVideoRecorder(env, video_folder=str(tmp_path))
+        recorder.step(None)
+
+    assert len(writers) == 1
+    assert writers[0].filename.endswith("-exterior_color-episode-0.mp4")
+
+
+def test_malformed_rgb_observation_is_rejected(tmp_path):
+    """An observation configured as RGB must still contain three-channel frames."""
+    env = _make_env()
+    env._step_return = (
+        {CAMERA_OBS_GROUP_KEY: {"exterior_color": torch.zeros(1, H, W, 1)}},
+        None,
+        torch.zeros(1, dtype=torch.bool),
+        torch.zeros(1, dtype=torch.bool),
+        None,
+    )
+    recorder = CameraObsVideoRecorder(env, video_folder=str(tmp_path))
+
+    with pytest.raises(AssertionError, match="expected.*RGB"):
+        recorder.step(None)
+
+
 def test_episode_counter_increments_per_env(tmp_path):
     """Each env tracks its own episode count independently via the env's centralized index."""
     env = _make_env()
@@ -227,7 +294,7 @@ def test_no_video_written_for_empty_episode(tmp_path):
         # No encoder was ever opened for the empty episode, but the env's centralized index still
         # advanced past it (so a later episode's video number stays in lockstep with the
         # per-episode results record).
-        assert not any(writer.filename.endswith("env0-front-episode-0.mp4") for writer in writers)
+        assert not any(writer.filename.endswith("env0-front_rgb-episode-0.mp4") for writer in writers)
         assert env.get_episode_index(0) == 1
 
 

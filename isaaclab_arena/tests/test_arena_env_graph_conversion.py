@@ -252,22 +252,20 @@ def test_direction_variation_lights_injected_directional_light():
 def _test_graph_parses_asset_poses(simulation_app):
     from isaaclab_arena.assets.registries import AssetRegistry
     from isaaclab_arena.utils.pose import Pose
-    from isaaclab_arena_environments import isaac_cap
 
-    isaac_cap.register_components()
-    spec = ArenaEnvGraphSpec.from_yaml(Path(isaac_cap.__file__).parent / "gear_insertion/gear_medium.yaml")
-    posed_objects = [obj for obj in spec.objects if obj.registry_name != "empty_warehouse_dome_light"]
-    for obj in posed_objects:
-        obj.params["initial_pose"] = {"position_xyz": [0.1, 0.2, 0.8]}
+    spec = ArenaEnvGraphSpec.from_yaml(TEST_DATA_DIR / "pick_and_place_maple_table_env_graph.yaml")
+    posed_assets = [spec.embodiment, *spec.objects]
+    for asset_spec in posed_assets:
+        asset_spec.params["initial_pose"] = {"position_xyz": [0.1, 0.2, 0.8]}
     serialized = spec.to_dict()
     arena_env = spec.to_arena_env()
 
-    # Every constructor receives Pose, while the reusable graph retains YAML mappings.
+    # Every posed constructor receives Pose, while the reusable graph retains YAML mappings.
+    expected = Pose(position_xyz=(0.1, 0.2, 0.8))
     assert isinstance(arena_env.embodiment.get_initial_pose(), Pose)
-    assert isinstance(arena_env.scene.assets["fr3_workcell_table"].get_initial_pose(), Pose)
-    for obj in posed_objects:
+    assert arena_env.embodiment.get_initial_pose() == expected
+    for obj in spec.objects:
         asset = arena_env.scene.assets[obj.id]
-        expected = Pose(position_xyz=(0.1, 0.2, 0.8))
         assert asset.get_initial_pose() == expected
         assert obj.resolve_usd_path() == asset.usd_path
         direct = AssetRegistry().get_asset_by_name(obj.registry_name)(initial_pose=expected)

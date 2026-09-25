@@ -5,6 +5,12 @@
 
 # Shared simulation configuration for all syringe variants.
 default_physics_backend: newton
+placer_params:
+  random_yaw_init: false
+  allow_best_loss_fallbacks: false
+  max_placement_attempts: 30
+  solver_params:
+    clearance_m: 0.015
 env_cfg_override:
   decimation: 1
   sim:

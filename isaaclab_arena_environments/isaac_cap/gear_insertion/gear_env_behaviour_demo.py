@@ -212,8 +212,7 @@ class GearEnvBehaviourDemo(DifferentialIKEnvBehaviourDemo):
                     return
 
         diagnostics = {
-            gear_name: self.success_predicate.results[gear_index].tolist()
-            for gear_index, gear_name in enumerate(self.gear_names)
+            gear_name: self.success_predicate.per_gear_results[gear_name].tolist() for gear_name in self.gear_names
         }
         raise RuntimeError(f"Final placement did not trigger the environment reset: {diagnostics}")
 

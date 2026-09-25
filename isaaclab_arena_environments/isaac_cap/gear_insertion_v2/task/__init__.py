@@ -4,7 +4,3 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """AUTOLab gear-mesh task and layout variations."""
-
-from .task import GearInsertionTask, GearMeshTask
-
-__all__ = ["GearInsertionTask", "GearMeshTask"]

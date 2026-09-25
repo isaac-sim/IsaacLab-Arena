@@ -5,7 +5,7 @@
 
 # TODO(alexmillane): [object-in-missing-feature]: Move to a more general ObjectIn task once we have it.
 
-"""Settled syringe containment using Arena's managed predicates."""
+"""Syringe containment and settling tracked by ProgressTracker."""
 
 from __future__ import annotations
 
@@ -16,13 +16,14 @@ from isaaclab.managers import TerminationTermCfg
 from isaaclab.utils.math import quat_apply_inverse
 
 from isaaclab_arena.assets.asset import Asset
+from isaaclab_arena.assets.register import register_task
 from isaaclab_arena.metrics.success_rate import SuccessRateMetric
 from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
-from isaaclab_arena.tasks.predicates.composite import CompositePredicate
 from isaaclab_arena.tasks.predicates.spatial import velocity_below_threshold
+from isaaclab_arena.tasks.predicates.temporal import TrueForConsecutiveStepsCfg
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
-from isaaclab_arena.tasks.terminations import SuccessMode
+from isaaclab_arena.tasks.terminations import check_success
 
 
 def center_of_mass_in_region(env, object_name: str, region_name: str, bounds: tuple[float, ...]) -> torch.Tensor:
@@ -43,6 +44,7 @@ def cap_episode_finished(env) -> torch.Tensor:
     return torch.full((env.num_envs,), getattr(env, "cap_episode_finished", False), device=env.device, dtype=torch.bool)
 
 
+@register_task
 class SyringeSortTask(TaskBase):
     """Require syringes to remain settled inside their disposal regions."""
 
@@ -97,13 +99,9 @@ class SyringeSortTask(TaskBase):
                     },
                 ),
             ])
-        settled_in_regions = TerminationTermCfg(
-            func=CompositePredicate,
-            params={
-                "predicates": predicates,
-                "mode": SuccessMode.ALL,
-                "consecutive_steps": self.consecutive_success_steps,
-            },
+        settled_in_regions = TrueForConsecutiveStepsCfg(
+            predicate=TerminationTermCfg(func=check_success, params={"predicates": predicates}),
+            required_steps=self.consecutive_success_steps,
         )
         return TaskTerminationCfg(
             timeout_s=self.episode_length_s,

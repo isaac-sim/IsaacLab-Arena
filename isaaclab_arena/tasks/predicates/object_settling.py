@@ -3,22 +3,12 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Object-settling predicate and recorder object.
-
-The ``objects_settled`` function reports instantaneous rest, while
-``ObjectsSettledForConsecutiveSteps`` requires a consecutive stability window. Both record the
-initial resting position through ``ObjectInitialRestPoseRecorder`` for downstream predicates. The
-environment reset lifecycle clears the shared recordings.
-"""
+"""Instantaneous rest checks and initial rest-pose recording."""
 
 from __future__ import annotations
 
 import torch
 from typing import TYPE_CHECKING
-
-from isaaclab.managers import TerminationTermCfg
-
-from isaaclab_arena.tasks.predicates.consecutive import ConsecutivePredicate
 
 if TYPE_CHECKING:
     from isaaclab.scene import InteractiveScene
@@ -193,51 +183,3 @@ def objects_below_velocity_thresholds(
         lin_vel_threshold,
         ang_vel_threshold,
     )
-
-
-class ObjectsSettledForConsecutiveSteps(ConsecutivePredicate):
-    """Pass after every named object remains below velocity thresholds for a duration."""
-
-    def __init__(self, cfg: TerminationTermCfg, env: IsaacLabArenaManagerBasedRLEnv):
-        super().__init__(cfg, env)
-        object_names = cfg.params["object_names"]
-        lin_vel_threshold = cfg.params.get("lin_vel_threshold", DEFAULT_LINEAR_VELOCITY_THRESHOLD)
-        ang_vel_threshold = cfg.params.get("ang_vel_threshold", DEFAULT_ANGULAR_VELOCITY_THRESHOLD)
-
-        assert object_names, "ObjectsSettledForConsecutiveSteps requires at least one object name."
-        assert all(
-            isinstance(name, str) and name for name in object_names
-        ), f"ObjectsSettledForConsecutiveSteps object names must be non-empty strings, got {object_names!r}."
-        assert (
-            lin_vel_threshold > 0.0
-        ), f"ObjectsSettledForConsecutiveSteps linear velocity threshold must be positive, got {lin_vel_threshold}."
-        assert (
-            ang_vel_threshold > 0.0
-        ), f"ObjectsSettledForConsecutiveSteps angular velocity threshold must be positive, got {ang_vel_threshold}."
-
-    def __call__(
-        self,
-        env: IsaacLabArenaManagerBasedRLEnv,
-        object_names: list[str],
-        consecutive_steps: int,
-        lin_vel_threshold: float = DEFAULT_LINEAR_VELOCITY_THRESHOLD,
-        ang_vel_threshold: float = DEFAULT_ANGULAR_VELOCITY_THRESHOLD,
-        active_mask: torch.Tensor | None = None,
-    ) -> torch.Tensor:
-        """Return where all objects have stayed below thresholds for ``consecutive_steps`` calls."""
-
-        # NOTE: Isaac Lab requires every cfg.params key in this signature; construction consumes this value.
-        del consecutive_steps
-
-        below_thresholds = objects_below_velocity_thresholds(
-            env,
-            object_names=object_names,
-            lin_vel_threshold=lin_vel_threshold,
-            ang_vel_threshold=ang_vel_threshold,
-        )
-        settled = self._update_consecutive_and_get_completion_mask(below_thresholds, active_mask=active_mask)
-
-        recorder = get_rest_pose_recorder(env)
-        for object_name in object_names:
-            recorder.record(object_name, env.arena_world.get_position_w(object_name), settled)
-        return settled

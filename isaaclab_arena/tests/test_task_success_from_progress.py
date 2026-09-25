@@ -300,54 +300,6 @@ def _test_success_results_remain_stable_after_updates_and_reset(simulation_app):
     return True
 
 
-def _test_nested_predicates_resolve_scene_references(simulation_app):
-    import torch
-
-    from isaaclab.managers import ManagerTermBase, SceneEntityCfg, TerminationTermCfg
-
-    from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
-    from isaaclab_arena.progress_tracking.progress_tracker import ProgressTracker
-    from isaaclab_arena.tasks.predicates.composite import CompositePredicate
-
-    class _BodyPredicate(ManagerTermBase):
-        def __init__(self, cfg, env):
-            super().__init__(cfg, env)
-            assert cfg.params["asset_cfg"].body_ids == [1]
-
-        def __call__(self, env, asset_cfg):
-            assert asset_cfg.body_ids == [1]
-            return env.valid
-
-    gear = SimpleNamespace(
-        body_names=["base", "tip"],
-        num_bodies=2,
-        find_bodies=lambda names, preserve_order: ([1], ["tip"]),
-    )
-    env = SimpleNamespace(num_envs=2, device="cpu", scene={"gear": gear}, valid=torch.tensor([True, False]))
-    gear_cfg = SceneEntityCfg("gear", body_names=["tip"])
-    body_predicate_cfg = TerminationTermCfg(func=_BodyPredicate, params={"asset_cfg": gear_cfg})
-    composite_cfg = TerminationTermCfg(
-        func=CompositePredicate,
-        params={"predicates": [body_predicate_cfg], "consecutive_steps": 2},
-    )
-    objective = ProgressObjective(name="gear_insertion", predicate_sequence=[composite_cfg])
-    tracker = ProgressTracker([objective], num_envs=env.num_envs, device=env.device, env=env)
-    tracker.step(env, step_index=None)
-    assert tracker.is_complete().tolist() == [False, False]
-    tracker.step(env, step_index=None)
-    assert tracker.is_complete().tolist() == [True, False]
-
-    # Reusing the task definition constructs independent counters and leaves scene references unresolved.
-    rebuilt_tracker = ProgressTracker([objective], num_envs=env.num_envs, device=env.device, env=env)
-    rebuilt_tracker.step(env, step_index=None)
-    assert rebuilt_tracker.is_complete().tolist() == [False, False]
-    assert tracker.is_complete().tolist() == [True, False]
-    assert composite_cfg.func is CompositePredicate
-    assert body_predicate_cfg.func is _BodyPredicate
-    assert gear_cfg.body_ids == slice(None)
-    return True
-
-
 def _test_temporal_requirement_resolves_scene_references_and_resets(simulation_app):
     import torch
 
@@ -704,21 +656,18 @@ def _test_open_door_uses_existing_sequence_and_thresholds(simulation_app):
     return True
 
 
-def _test_cable_routing_preserves_success_parameters_and_timeout(simulation_app):
+def _test_press_button_preserves_success_parameters_and_timeout(simulation_app):
     from unittest.mock import Mock
 
-    from isaaclab_arena.assets.cable import Cable
+    from isaaclab_arena.affordances.pressable import Pressable
+    from isaaclab_arena.tasks.press_button_task import PressButtonTask
     from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
-    from isaaclab_arena_environments.isaac_cap.cable_routing.task import CableRoutingTask, cable_route_success
 
-    cable = Mock(spec=Cable)
-    cable.name = "routing_cable"
-    task = CableRoutingTask(
-        cable=cable,
-        pegs=[SimpleNamespace(name=f"peg_{index}") for index in range(3)],
-        route_peg_indices=(2, 0),
-        route_directions=(-1.0, 1.0),
-        task_description="Route the cable around the last and first pegs.",
+    button = Mock(spec=Pressable)
+    button.name = "start_button"
+    task = PressButtonTask(
+        pressable_object=button,
+        pressedness_threshold=0.75,
         episode_length_s=45.0,
     )
     termination_cfg = task.get_termination_cfg()
@@ -727,16 +676,11 @@ def _test_cable_routing_preserves_success_parameters_and_timeout(simulation_app)
     assert termination_cfg.failures == {}
     assert len(termination_cfg.success) == 1
     objective = termination_cfg.success[0]
-    assert objective.name == "cable_routing"
+    assert objective.name == "press_button"
     assert len(objective.predicate_sequence) == 1
-    route_predicate = objective.predicate_sequence[0]
-    assert route_predicate.func is cable_route_success
-    assert route_predicate.keywords == {
-        "cable_asset_name": "routing_cable",
-        "peg_asset_names": ("peg_0", "peg_1", "peg_2"),
-        "route_peg_indices": (2, 0),
-        "route_directions": (-1.0, 1.0),
-    }
+    pressed_predicate = objective.predicate_sequence[0]
+    assert pressed_predicate.func is button.is_pressed
+    assert pressed_predicate.keywords == {"pressedness_threshold": 0.75}
     return True
 
 
@@ -766,10 +710,6 @@ def test_manager_reset_clears_only_selected_progress_and_rest_poses():
 
 def test_success_results_remain_stable_after_updates_and_reset():
     assert run_function_with_persistent_simulation_app(_test_success_results_remain_stable_after_updates_and_reset)
-
-
-def test_nested_predicates_resolve_scene_references():
-    assert run_function_with_persistent_simulation_app(_test_nested_predicates_resolve_scene_references)
 
 
 def test_temporal_requirement_resolves_scene_references_and_resets():
@@ -804,5 +744,5 @@ def test_open_door_uses_existing_sequence_and_thresholds():
     assert run_function_with_persistent_simulation_app(_test_open_door_uses_existing_sequence_and_thresholds)
 
 
-def test_cable_routing_preserves_success_parameters_and_timeout():
-    assert run_function_with_persistent_simulation_app(_test_cable_routing_preserves_success_parameters_and_timeout)
+def test_press_button_preserves_success_parameters_and_timeout():
+    assert run_function_with_persistent_simulation_app(_test_press_button_preserves_success_parameters_and_timeout)

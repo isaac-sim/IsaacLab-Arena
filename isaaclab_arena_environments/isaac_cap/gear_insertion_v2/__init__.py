@@ -5,13 +5,7 @@
 
 """Current Isaac CAP gear-mesh environments, isolated from the legacy port."""
 
-from .. import register_components as register_legacy_components
-from .registration import register_components
-
-register_legacy_components()
-register_components()
-
-from .gear_mesh_environment import (  # noqa: E402
+from .gear_mesh_environment import (
     GearInsertionEasyNewtonEnvironment,
     GearInsertionEasyNewtonEnvironmentCfg,
     GearMeshPairNewtonEnvironment,
