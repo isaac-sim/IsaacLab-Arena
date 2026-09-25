@@ -13,11 +13,27 @@ from isaaclab.utils.configclass import configclass
 
 # Import from the package root so this resolves whether MJWarpSolverCfg lives in
 # newton_manager_cfg (older isaaclab_newton) or mjwarp_manager_cfg (Isaac Lab Beta 2).
-from isaaclab_newton.physics import MJWarpSolverCfg, NewtonCfg
+from isaaclab_newton.physics import MJWarpSolverCfg, NewtonCfg, NewtonMJWarpManager
 from isaaclab_physx.physics import PhysxCfg
 from isaaclab_physx.renderers import IsaacRtxRendererGlobalSettingsCfg
 from isaaclab_physx.renderers.isaac_rtx_renderer_utils import apply_isaac_rtx_global_settings
 from isaaclab_tasks.utils import PresetCfg
+
+
+class ArenaNewtonMJWarpManager(NewtonMJWarpManager):
+    """Handle fixed-tendon models that use no MuJoCo actuators.
+
+    Newton-native actuators and passive tendons do not create ``model.mujoco.actuator_world``.
+    Isaac Lab's Newton 1.5 tendon adapter assumes that optional array exists.
+    """
+
+    @classmethod
+    def create_fixed_tendon_control(cls, articulation):
+        """Skip tendon control when the finalized model has no MuJoCo actuators."""
+        model = cls.get_model()
+        if not hasattr(model.mujoco, "actuator_world"):
+            return None
+        return super().create_fixed_tendon_control(articulation)
 
 
 @configclass
@@ -32,6 +48,7 @@ class ArenaPhysicsCfg(PresetCfg):
     physx = PhysxCfg()
     newton = NewtonCfg(
         solver_cfg=MJWarpSolverCfg(
+            class_type=ArenaNewtonMJWarpManager,
             solver="newton",
             integrator="implicitfast",
             njmax=300,

@@ -35,25 +35,13 @@ def _configure_gear_mesh_physics(
     env_cfg: IsaacLabArenaManagerBasedRLEnvCfg,
 ) -> IsaacLabArenaManagerBasedRLEnvCfg:
     """Match AUTOLab's 60 Hz x 16-substep contact-rich gear regime."""
-    from isaaclab_newton.physics import NewtonCollisionPipelineCfg, NewtonMJWarpManager
+    from isaaclab_newton.physics import NewtonCollisionPipelineCfg
 
     from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import ArenaPhysicsCfg
 
     from .physics import disable_mjwarp_sensors
 
-    class NewtonGearMeshMJWarpManager(NewtonMJWarpManager):
-        """Skip tendon command setup when the Robotiq tendon is passive."""
-
-        @classmethod
-        def create_fixed_tendon_control(cls, articulation):
-            model = cls.get_model()
-            if not hasattr(model.mujoco, "actuator_world"):
-                return None
-            return super().create_fixed_tendon_control(articulation)
-
     physics = disable_mjwarp_sensors(deepcopy(ArenaPhysicsCfg().newton))
-    physics.solver_cfg.class_type = NewtonGearMeshMJWarpManager
-    physics.class_type = NewtonGearMeshMJWarpManager
     physics.collision_decimation = 1
     physics.solver_cfg.update_data_interval = 1
     physics.default_shape_cfg.ke = 60_000.0
