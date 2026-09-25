@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg, ArenaEnvironmentFactory
+from isaaclab_arena.utils.physics_backend import PhysicsBackend
 
 from ..registration import register_environment
 
@@ -126,6 +127,7 @@ class GearMeshNewtonEnvironment(ArenaEnvironmentFactory[GearMeshNewtonEnvironmen
             if cfg.episode_length_s <= 0:
                 raise ValueError("episode_length_s must be positive")
             arena_env.task.episode_length_s = cfg.episode_length_s
+        arena_env.default_physics_backend = PhysicsBackend.NEWTON
         arena_env.env_cfg_callback = partial(self.env_cfg_callback)
         return arena_env
 

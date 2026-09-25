@@ -13,6 +13,8 @@ route through the goal regions, and demonstrates success followed by reset.
 from __future__ import annotations
 
 import argparse
+from dataclasses import replace
+from functools import partial
 
 from isaaclab_arena_environments.isaac_cap.tools import EnvBehaviourDemo
 
@@ -52,7 +54,21 @@ def _build_cable_demo_environment(variant: str):
     }
     assert variant in factories, f"Unsupported cable-routing variant {variant!r}."
     factory_type, cfg_type = factories[variant]
-    return factory_type().build(cfg_type())
+    arena_environment = factory_type().build(cfg_type())
+
+    # A state teleport produces a one-frame solver velocity spike even when the authored cable is
+    # connected at exact rest length. Replace the immutable goal only for this demo environment;
+    # the production task retains CAP's 0.05 m/s terminal speed requirement.
+    task_termination_cfg = arena_environment.task.get_termination_cfg()
+    success_objective = task_termination_cfg.success[0]
+    assert success_objective.predicate_sequence is not None
+    success_predicate = success_objective.predicate_sequence[0]
+    assert isinstance(success_predicate, partial), "Cable success must be configured as a partial predicate."
+    success_params = dict(success_predicate.keywords or {})
+    success_params["goal"] = replace(success_params["goal"], max_mean_speed=float("inf"))
+    demo_predicate = partial(success_predicate.func, *success_predicate.args, **success_params)
+    task_termination_cfg.success[0] = replace(success_objective, predicate_sequence=[demo_predicate])
+    return arena_environment
 
 
 def _polyline_length(points):
@@ -156,15 +172,12 @@ class CurrentCableRoutingBehaviourDemo(EnvBehaviourDemo):
             self.gripper_body_ids.append(body_id)
             self.gripper_quaternions.append(robot.data.body_link_quat_w.torch[:, body_id].clone())
 
-        success_cfg = self.base_env.termination_manager.get_term_cfg("success")
-        self.success_term = success_cfg.func
-        self.success_params = success_cfg.params
+        success_objective = self.arena_environment.task.get_termination_cfg().success[0]
+        assert success_objective.predicate_sequence is not None
+        self.success_predicate = success_objective.predicate_sequence[0]
+        assert isinstance(self.success_predicate, partial)
+        self.success_params = self.success_predicate.keywords or {}
         self.goal = self.success_params["goal"]
-        # A state teleport produces a one-frame solver velocity spike even
-        # when the authored cable is connected at exact rest length. Ignore
-        # that demo artifact; the production task retains CAP's 0.05 m/s
-        # terminal speed requirement.
-        self.goal.max_mean_speed = float("inf")
         self.cable = self.base_env.scene[self.success_params["cable_asset_name"]]
         self.peg_names = tuple(self.success_params["peg_asset_names"])
         self.port = self.base_env.scene[self.success_params["port_asset_name"]]
@@ -446,7 +459,7 @@ class CurrentCableRoutingBehaviourDemo(EnvBehaviourDemo):
         # finished. Exercise that signal through the demo-local compatibility
         # buffer installed in setup_demo().
         self.base_env.external_policy_termination_buf.fill_(True)
-        success = self.success_term(self.base_env, **self.success_params)
+        success = self.success_predicate(self.base_env)
         if not bool(success.all().item()):
             raise RuntimeError("Scripted cable route did not satisfy the current CAP terminal goal.")
         self.base_env.external_policy_termination_buf.fill_(False)
