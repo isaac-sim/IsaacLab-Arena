@@ -523,6 +523,7 @@ class ProgressTracker:
         current_success = self._compute_task_success(env, predicate_results_this_step)
         self._task_success = torch.where(updated_envs, current_success, self._task_success)
         if step_index is not None:
+            # Copy the values so later updates to env.episode_length_buf do not change the saved step indices.
             self._last_processed_step.copy_(step_index)
 
     def _compute_task_success(

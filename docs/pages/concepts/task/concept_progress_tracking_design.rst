@@ -124,12 +124,45 @@ Add ``ProgressObjective`` entries to ``TaskTerminationCfg.success``. Provide exa
            timeout_s=self.episode_length_s,
        )
 
-``functools.partial`` supplies the arguments for a single-step check.
-``TrueForConsecutiveStepsCfg`` wraps that configured callable when it must remain true for several steps.
-An instantaneous check that needs environment-dependent initialization can also be supplied
-as a ``TerminationTermCfg`` inside the requirement. For a callable class, ``ProgressObjectiveRunner``
-constructs it with ``(cfg, env)``; it does not need to inherit from ``ManagerTermBase``.
-This initialization is separate from counting steps.
+Configuring a predicate's arguments and requiring it to stay true are separate choices.
+Here, ``partial`` supplies the object names; ``ProgressObjectiveRunner`` supplies the environment
+when it calls the predicate:
+
+.. code-block:: python
+
+   from functools import partial
+
+   from isaaclab_arena.tasks.predicates.object_settling import objects_below_velocity_thresholds
+   from isaaclab_arena.tasks.predicates.temporal import TrueForConsecutiveStepsCfg
+
+   objects_are_resting = partial(objects_below_velocity_thresholds, object_names=["cube"])
+
+   # Complete this entry when the condition is true for one step.
+   predicate_sequence = [objects_are_resting]
+
+   # Or require the same condition to hold for ten consecutive steps.
+   predicate_sequence = [
+       TrueForConsecutiveStepsCfg(
+           predicate=objects_are_resting,
+           required_steps=10,
+       ),
+   ]
+
+``TerminationTermCfg`` is another way to supply the function and its arguments instead of ``partial``:
+
+.. code-block:: python
+
+   from isaaclab.managers import TerminationTermCfg
+
+   objects_are_resting = TerminationTermCfg(
+       func=objects_below_velocity_thresholds,
+       params={"object_names": ["cube"]},
+   )
+
+This configuration can also go directly in ``predicate_sequence`` or inside ``TrueForConsecutiveStepsCfg``.
+``ProgressObjectiveRunner`` prepares and evaluates these entries; ``TerminationTermCfg`` does not
+create a separate termination-manager term here. For a callable class, the runner initializes it
+with ``(cfg, env)``; ``ManagerTermBase`` inheritance is not required.
 
 ``PickAndPlaceTask`` defaults to ``placement_consecutive_steps=1``. Set it to a larger positive
 integer, such as ``10``, to require placement, support, and low speed to hold together for that
@@ -183,34 +216,82 @@ and active environments to that instance. ``_TrueForConsecutiveSteps`` stores th
 counts: true adds one; false clears the streak.
 The runner resets it through the existing ``TaskSuccessTerm`` / ``ProgressTracker`` episode-reset path.
 
-To require overlapping conditions, combine them before counting. Here A must rest while B is
-touching for the same ten steps, after lifting and placement:
-
-.. code-block:: python
-
-   def both_conditions_hold(env):
-       return object_a_is_resting(env) & object_b_is_touching(env)
-
-   objective = ProgressObjective(
-       name="place_and_hold",
-       predicate_sequence=[
-           lifted,
-           placed,
-           TrueForConsecutiveStepsCfg(
-               predicate=both_conditions_hold,
-               required_steps=10,
-           ),
-       ],
-   )
-
-Two separate sequence entries would allow the resting and touching periods to happen at different
-times. The combined predicate restarts its streak whenever either condition becomes false.
-
 ``TaskSuccessTerm`` supplies the environment's control-step indices automatically, so repeated
 success checks do not count twice. When using ``ProgressTracker.step()`` directly with consecutive-step
 requirements, pass one integer index per environment, for example
 ``tracker.step(env, step_index=env.episode_length_buf)``. Skipping an index clears the streak;
 unobserved steps cannot prove the condition held continuously.
+
+The examples below show three different requirements. ``object_still(env)`` and ``gripper_slow(env)``
+are configured instantaneous checks that each return one Boolean per environment.
+Step numbers start when the objective becomes active.
+
+One condition after another
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Put both requirements in one ``predicate_sequence`` to count them in order:
+
+.. code-block:: python
+
+   objective = ProgressObjective(
+       name="object_then_gripper",
+       predicate_sequence=[
+           TrueForConsecutiveStepsCfg(object_still, required_steps=10),
+           TrueForConsecutiveStepsCfg(gripper_slow, required_steps=10),
+       ],
+   )
+
+``ProgressObjectiveRunner`` first waits for ten consecutive steps with the object still.
+On the following step, it starts counting the gripper's ten steps. The earliest completion is
+step 20. The object may move again after its requirement completes; that completion is remembered.
+
+Independent conditions, both completed
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Use separate named ``predicate_sequences`` to start both counters together:
+
+.. code-block:: python
+
+   objective = ProgressObjective(
+       name="object_and_gripper_ready",
+       predicate_sequences={
+           "object": [TrueForConsecutiveStepsCfg(object_still, required_steps=10)],
+           "gripper": [TrueForConsecutiveStepsCfg(gripper_slow, required_steps=10)],
+       },
+       logical="all",
+   )
+
+Each sequence completes independently, and ``logical="all"`` requires both to finish.
+``ProgressObjectiveRunner`` remembers each sequence's completion until the episode resets.
+The successful periods do not have to overlap. For example, if the object is still during steps
+1–10 and the gripper is slow during steps 2–11, the objective completes at step 11, even if the
+object is moving again then.
+
+``logical`` combines completed sequences; it does not create separate counters inside one predicate.
+
+Both conditions during the same steps
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Combine the instantaneous checks before wrapping them to require ten shared steps:
+
+.. code-block:: python
+
+   def object_and_gripper_stable(env):
+       return object_still(env) & gripper_slow(env)
+
+   objective = ProgressObjective(
+       name="simultaneous_stability",
+       predicate_sequence=[
+           TrueForConsecutiveStepsCfg(
+               predicate=object_and_gripper_stable,
+               required_steps=10,
+           ),
+       ],
+   )
+
+One counter tracks the combined condition. If either check becomes false, the streak starts over.
+If the object is still only during steps 1–10 and the gripper is slow only during steps 2–11,
+this requirement does not complete: they overlap for only nine steps.
 
 
 Subtask progress tracking in composite and sequential tasks

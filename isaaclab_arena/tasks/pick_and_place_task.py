@@ -96,6 +96,11 @@ class PickAndPlaceTask(TaskBase):
             0.0 <= support_cone_half_angle_rad < math.pi / 2
         ), f"support_cone_half_angle_rad must be in [0, pi / 2), got {support_cone_half_angle_rad}"
         self.support_cone_half_angle_rad = support_cone_half_angle_rad
+        assert (
+            isinstance(placement_consecutive_steps, int)
+            and not isinstance(placement_consecutive_steps, bool)
+            and placement_consecutive_steps > 0
+        ), f"placement_consecutive_steps must be a positive integer, got {placement_consecutive_steps}"
         self.placement_consecutive_steps = placement_consecutive_steps
         self.mimic_env_cfg_factory = mimic_env_cfg_factory
         self.events_cfg = None
