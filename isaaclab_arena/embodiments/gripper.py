@@ -47,7 +47,7 @@ class ParallelJawGripper(Gripper, Protocol):
         return self.get_jaw_gap_m(world)
 
 
-@dataclass(frozen=True, kw_only=True)
+@dataclass(kw_only=True)
 class PandaGripper(ParallelJawGripper):
     """Franka Panda parallel-jaw gripper."""
 
@@ -74,7 +74,7 @@ class PandaGripper(ParallelJawGripper):
         return world.get_frame_position_w(self.frame_transformer_name, self.target_frame_name)
 
 
-@dataclass(frozen=True, kw_only=True)
+@dataclass(kw_only=True)
 class RobotiqGripper(ParallelJawGripper):
     """Robotiq 2F-85 gripper with independently configurable measurements.
 
