@@ -853,19 +853,19 @@ class _StubReachabilityValidator(PlacementValidator):
     def is_available(cls, params) -> bool:
         return cls.predicate is not None
 
-    def validate_batch(self, positions, orientations, bboxes, collision_objects):
+    def validate_batch(self, batch, collision_objects):
         from isaaclab_arena.relations.placement_result import PlacementResult
         from isaaclab_arena.relations.placement_validation import PlacementValidationResults
 
         candidates = [
             PlacementResult(
                 validation_results=PlacementValidationResults(),
-                positions=positions[i],
+                positions=batch.positions[i],
                 final_loss=0.0,
                 attempts=0,
-                orientations=orientations[i],
+                orientations=batch.orientations[i],
             )
-            for i in range(len(positions))
+            for i in range(len(batch))
         ]
         return [bool(type(self).predicate(candidate)) for candidate in candidates]
 
@@ -960,14 +960,15 @@ def test_solve_and_apply_relation_placement_drops_embodiment_from_event_params()
     desk, box1, box2 = _create_test_objects()
     for box in (box1, box2):
         box.object_cfg = SimpleNamespace(init_state=SimpleNamespace(pos=(0.0, 0.0, 0.0), rot=(0.0, 0.0, 0.0, 1.0)))
-    # With no cuRobo reachability validator registered the embodiment is only carried, never dereferenced,
-    # so a sentinel stands in for a live (cyclic) EmbodimentBase.
+    # Identity distinguishes the caller-owned embodiment from the pool copy.
+    # Disable IK here: this test exercises event ownership, not reachability.
     embodiment = object()
 
     params = ObjectPlacerParams(
         solver_params=RelationSolverParams(max_iters=200, convergence_threshold=1e-3),
         min_unique_layouts_per_env=2,
         placement_seed=7,
+        enabled_checks={"on_relation", "no_overlap"},
     )
     params.reachability_config.embodiment = embodiment
 

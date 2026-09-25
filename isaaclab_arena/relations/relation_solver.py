@@ -7,11 +7,13 @@ from __future__ import annotations
 
 import time
 import torch
+from dataclasses import replace
 from typing import TYPE_CHECKING, cast
 
 from isaaclab_arena.relations.collision_mode import CollisionMode, get_object_collision_mode
 from isaaclab_arena.relations.no_overlap_aabb import compute_no_overlap_loss_aabb
 from isaaclab_arena.relations.no_overlap_mesh import compute_no_overlap_loss_mesh, prepare_mesh_collision_cache
+from isaaclab_arena.relations.placement_candidate_batch import PlacementCandidateBatch
 from isaaclab_arena.relations.relation_loss_strategies import (
     NoCollisionLossStrategy,
     RelationLossStrategy,
@@ -181,6 +183,24 @@ class RelationSolver:
         self._last_no_overlap_pair_count = n
         return loss
 
+    def solve_candidates(
+        self,
+        objects: list[PlaceableAsset],
+        batch: PlacementCandidateBatch,
+        collision_objects: list[CollisionObject],
+    ) -> PlacementCandidateBatch:
+        """Solve oriented candidates while retaining their identities and attaching final losses."""
+        positions = self.solve(
+            objects,
+            batch.positions,
+            env_bboxes=batch.stacked_bboxes(),
+            env_bboxes_include_yaw=any(batch.orientations),
+            orientations=batch.orientations,
+            collision_objects=collision_objects,
+        )
+        assert self.last_loss_per_env is not None
+        return replace(batch, positions=positions, losses=self.last_loss_per_env.cpu().tolist(), validations=None)
+
     def solve(
         self,
         objects: list[PlaceableAsset],
@@ -304,6 +324,10 @@ class RelationSolver:
                 if self.params.verbose:
                     print(f"Converged at iteration {iter}")
                 break
+
+        # Recompute ranking losses for the positions returned after the final optimizer step.
+        with torch.no_grad():
+            self._compute_total_loss(state)
 
         if self.params.profile and torch.cuda.is_available():
             torch.cuda.synchronize()

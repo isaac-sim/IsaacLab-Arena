@@ -18,6 +18,9 @@ class PlacementCheck(StrEnum):
     """Build-time check: every ``On`` relation holds — the child rests on its parent within the
     configured Z tolerance."""
 
+    CLUTTER_ON_RELATION = "clutter_on_relation"
+    """Build-time check: clutter fits its release region and clears its support surface."""
+
     NEXT_TO = "next_to"
     """Build-time check: every ``NextTo`` relation holds — child on the requested side at the target
     offset, within the relation's ``tolerance_m``."""

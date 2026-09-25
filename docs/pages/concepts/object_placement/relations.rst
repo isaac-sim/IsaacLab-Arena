@@ -31,6 +31,11 @@ initial pose; in YAML, an omitted pose defaults to identity. An
 ``ObjectReference`` instead derives its pose from the referenced prim within
 its parent asset. A tabletop or counter reference is a common anchor.
 
+An anchor's fixed root rotation must be a multiple of 90 degrees about world Z,
+with no tilt. For an ``ObjectReference``, this restriction applies to its parent
+asset's pose; the referenced prim's authored rotation is already included in its
+bounds. The solver rotates these bounds into world-aligned bounds.
+
 When the support surface is part of a larger background, use an
 ``ObjectReference`` to identify that surface:
 
@@ -82,6 +87,30 @@ Most environments can be described with a small set of relations:
    anchor collected by ``ObjectPlacer`` as a proxy. This affects only the
    starting pose; final solving and validation use each relation's actual
    parent.
+
+``ClutterOn(parent)``
+   Defines release poses above a fixed ``IsAnchor`` support. ``ObjectPlacer``
+   samples within the central fraction of the support's width and depth
+   (``spread``, default 0.2), then stacks overlapping footprints above the surface.
+   ``clearance_m`` sets the minimum surface clearance; ``gap_m`` sets the initial
+   inter-object gap, increased to the solver's collision clearance when larger.
+   Subsequent solving uses the shared collision clearance.
+
+   The ``clutter_on_relation`` check enforces the release footprint and minimum height; contact
+   is not required. ``ObjectPlacer`` computes release poses, and normal simulation
+   makes the objects fall. Release validation certifies the initial geometry;
+   it does not certify the final pile after physics. With explicit ``enabled_checks``
+   or ``required_checks``, include ``clutter_on_relation`` for clutter and
+   ``on_relation`` for ordinary On objects. Both are enabled by default.
+
+   ``ClutterOn`` must be the object's only spatial relation and cannot use
+   ``RandomAroundSolution``. ``RotateAroundSolution`` sets the base rotation;
+   ``random_yaw`` (default True) adds world-Z yaw while preserving its tilt.
+   Tilted clutter requires ``collision_mode="bbox"`` on the object; these bounds
+   enclose the full rotation. MESH collision checks support yaw only.
+   For pooled placement, disable ``ObjectPlacerParams.allow_best_loss_fallbacks``
+   to reject invalid layouts. Direct ``ObjectPlacer.place()`` callers must check
+   each result's ``success`` before using it.
 
 .. _next-to-relation:
 
@@ -273,5 +302,4 @@ disable pose-changing variations and callbacks when exact replay is required.
 Next Steps
 ----------
 
-Continue to :doc:`./collision_handling` to learn how Arena checks placed assets
-against one another and against fixed geometry.
+See :doc:`collision_handling` for collision constraints and validation.

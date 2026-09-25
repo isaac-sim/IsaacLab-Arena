@@ -72,3 +72,11 @@ class DummyObject(PlaceableAsset):
     def get_collision_mesh(self) -> trimesh.Trimesh | None:
         """Return the collision mesh, or None to fall back to AABB."""
         return self._collision_mesh
+
+
+def make_candidate_batch(positions, orientations, bboxes):
+    """Build test candidates with one layout per environment."""
+    from isaaclab_arena.relations.placement_candidate_batch import PlacementCandidateBatch
+
+    count = len(positions)
+    return PlacementCandidateBatch(positions, orientations, bboxes, list(range(count)), [0] * count)

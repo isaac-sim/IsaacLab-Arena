@@ -13,7 +13,7 @@ if TYPE_CHECKING:
     from isaaclab_arena.relations.placement_validators import PlacementValidator
 
 
-class PlacementValidatorRegistry(Registry):
+class PrePhysicsPlacementValidatorRegistry(Registry):
     """Registry for PlacementValidator subclasses, keyed by the check name they report.
 
     Unlike the asset registries, this takes no part in the asset cascade: it self-populates when
@@ -34,7 +34,7 @@ def register_validator(cls):
 
     Keyed by ``cls.check`` (the check it reports) so build_validators() can resolve it.
     """
-    registry = PlacementValidatorRegistry()
+    registry = PrePhysicsPlacementValidatorRegistry()
     if registry.is_registered(cls.check, ensure_loaded=False):
         print(f"WARNING: Placement validator for {cls.check} is already registered. Doing nothing.")
     else:
