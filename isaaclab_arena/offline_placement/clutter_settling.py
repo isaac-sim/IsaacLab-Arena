@@ -16,6 +16,7 @@ from isaaclab_arena.offline_placement.clutter_geometry import (
     dynamic_rigid_object_keys,
     spawned_geometry_is_fixed,
     spawned_rigid_body_has_gravity,
+    spawned_rigid_body_is_dynamic,
 )
 from isaaclab_arena.offline_placement.clutter_params import ClutterSettleParams
 from isaaclab_arena.offline_placement.clutter_validation import SettleTracker
@@ -222,7 +223,9 @@ def _prepare_scene(
         ), f"Support {group.support!r} must be static or kinematic"
         for key in group.objects:
             assert key in env.scene.rigid_objects, f"Clutter object {key!r} must be a rigid object"
-            assert not spawned_geometry_is_fixed(env.scene, key), f"Clutter object {key!r} must be dynamic"
+            assert spawned_rigid_body_is_dynamic(
+                env.scene, key
+            ), f"Clutter object {key!r}: every spawned variant must be dynamic"
             assert spawned_rigid_body_has_gravity(env.scene, key), f"Clutter object {key!r} must have gravity enabled"
 
     return groups, placement_assets, collision_objects

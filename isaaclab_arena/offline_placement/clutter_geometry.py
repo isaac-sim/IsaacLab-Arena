@@ -97,6 +97,19 @@ def spawned_geometry_is_fixed(scene: InteractiveScene, scene_key: str) -> bool:
     return all(prim_geometry_is_fixed(prim) for prim, _ in get_representative_geometry_prim_groups(scene, scene_key))
 
 
+def spawned_rigid_body_is_dynamic(scene: InteractiveScene, scene_key: str) -> bool:
+    """Whether every spawned variant has an enabled, non-kinematic rigid body."""
+    from pxr import UsdPhysics
+
+    from isaaclab_arena.environments.arena_world_scene_access import get_representative_rigid_body_prims
+
+    for prim in get_representative_rigid_body_prims(scene, scene_key):
+        body = UsdPhysics.RigidBodyAPI(prim)
+        if not body.GetRigidBodyEnabledAttr().Get() or body.GetKinematicEnabledAttr().Get():
+            return False
+    return True
+
+
 def spawned_rigid_body_has_gravity(scene: InteractiveScene, scene_key: str) -> bool:
     """Whether all variants of a spawned rigid object participate in gravity."""
     from isaaclab_arena.environments.arena_world_scene_access import get_representative_rigid_body_prims
