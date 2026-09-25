@@ -8,7 +8,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass, field
 
-from isaaclab_arena.relations.placement_initializers import InitializerType
+from isaaclab_arena.relations.initializers.placement_initializer_base import InitializerType
 from isaaclab_arena.relations.reachability_config import ReachabilityConfig
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 
