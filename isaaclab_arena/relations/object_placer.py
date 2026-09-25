@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING
 
 from isaaclab_arena.relations.bounding_box_helpers import assign_variants_for_envs, build_per_env_bounding_boxes
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+from isaaclab_arena.relations.placement_initializers import create_initializer
 from isaaclab_arena.relations.placement_result import PlacementResult
 from isaaclab_arena.relations.placement_validation import PlacementValidationResults
 from isaaclab_arena.relations.placement_validators import build_validators
@@ -60,22 +61,18 @@ class ObjectPlacer:
     """High-level API for placing objects according to their spatial relations.
 
     Encapsulates the workflow of:
-    1. Seeding candidate positions per environment via ``params.initializer``
+    1. Random initialization of candidate positions per environment
     2. Running the RelationSolver on all candidates in one batch
     3. Validating each candidate
     4. Ranking candidates per environment (valid first, then by loss)
     5. Applying the best layout per environment to the objects
 
     Supports single-env (num_envs=1) and batched (num_envs>1) placement.
-
-    Note:
-        Initializers sample within axis-aligned bounding box footprints. This works correctly for
-        rectangular/box-shaped support surfaces. For non-rectangular surfaces (e.g. L-shaped
-        counters, curved or hollow objects), the sampled position may fall outside the actual surface.
     """
 
     def __init__(self, params: ObjectPlacerParams | None = None):
         self.params = params or ObjectPlacerParams()
+        self._initializer = create_initializer(self.params.initializer_type)
         self._solver = RelationSolver(params=self.params.solver_params)
         self._visualizer = get_or_create_placement_visualizer(self.params)
         self._validators: list[PlacementValidator] = build_validators(self.params, self._visualizer)
@@ -234,7 +231,7 @@ class ObjectPlacer:
                 assert self.params.placement_seed is not None
                 generator.manual_seed(self.params.placement_seed + candidate_idx)
             initial_positions.append(
-                self.params.initializer.generate_initial_positions(
+                self._initializer.generate_initial_positions(
                     objects, anchor_objects_set, per_env_bboxes[cur_env], generator
                 )
             )
