@@ -20,8 +20,8 @@ def _test_arena_physics_cfg_presets(simulation_app) -> bool:
     from isaaclab_physx.physics import PhysxCfg
 
     from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import (
-        ArenaNewtonMJWarpManager,
         ArenaPhysicsCfg,
+        NewtonArenaMJWarpManager,
     )
 
     cfg = ArenaPhysicsCfg()
@@ -32,11 +32,12 @@ def _test_arena_physics_cfg_presets(simulation_app) -> bool:
     with pytest.raises(AttributeError):
         getattr(cfg, "unknown_backend")
     assert cfg.newton.solver_cfg.solver == "newton"
-    assert cfg.newton.solver_cfg.class_type is ArenaNewtonMJWarpManager
-    assert cfg.newton.class_type is ArenaNewtonMJWarpManager
+    assert cfg.newton.solver_cfg.class_type is NewtonArenaMJWarpManager
+    assert cfg.newton.class_type is NewtonArenaMJWarpManager
+    assert NewtonArenaMJWarpManager.__name__.lower().startswith("newton")
     model_without_mujoco_actuators = SimpleNamespace(mujoco=SimpleNamespace())
-    with patch.object(ArenaNewtonMJWarpManager, "get_model", return_value=model_without_mujoco_actuators):
-        assert ArenaNewtonMJWarpManager.create_fixed_tendon_control(object()) is None
+    with patch.object(NewtonArenaMJWarpManager, "get_model", return_value=model_without_mujoco_actuators):
+        assert NewtonArenaMJWarpManager.create_fixed_tendon_control(object()) is None
     return True
 
 

@@ -20,7 +20,7 @@ from isaaclab_physx.renderers.isaac_rtx_renderer_utils import apply_isaac_rtx_gl
 from isaaclab_tasks.utils import PresetCfg
 
 
-class ArenaNewtonMJWarpManager(NewtonMJWarpManager):
+class NewtonArenaMJWarpManager(NewtonMJWarpManager):
     """Handle fixed-tendon models that use no MuJoCo actuators.
 
     Newton-native actuators and passive tendons do not create ``model.mujoco.actuator_world``.
@@ -48,7 +48,7 @@ class ArenaPhysicsCfg(PresetCfg):
     physx = PhysxCfg()
     newton = NewtonCfg(
         solver_cfg=MJWarpSolverCfg(
-            class_type=ArenaNewtonMJWarpManager,
+            class_type=NewtonArenaMJWarpManager,
             solver="newton",
             integrator="implicitfast",
             njmax=300,
