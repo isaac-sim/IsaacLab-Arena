@@ -1,0 +1,14 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+
+external_yaml: three_hammers_and_clamp_scene.yaml
+env_name: franka_three_hammers_and_clamp_no_task
+task:
+  composition: atomic
+  description: "No task."
+  subtasks:
+  - kind: NoTask
+    params: {}
