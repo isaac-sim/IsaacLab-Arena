@@ -11,8 +11,9 @@ from typing import TYPE_CHECKING
 from isaaclab_arena.relations.initializers.placement_initializer_base import (
     PlacementInitializerBase,
     get_fixed_anchor_position,
+    get_on_parent_position_bbox,
     get_world_bbox_at_initial_pose,
-    sample_on_parent,
+    sample_position_in_bbox,
 )
 from isaaclab_arena.relations.relations import On, get_relation
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
@@ -48,7 +49,8 @@ class AnchorInitializer(PlacementInitializerBase):
                 positions[obj] = get_fixed_anchor_position(obj)
             elif get_relation(obj, On) is not None:
                 parent_bbox = self._get_first_anchor_bbox_above(obj, anchor_objects, first_anchor_bbox, asset_to_bbox)
-                positions[obj] = sample_on_parent(obj, parent_bbox, asset_to_bbox, generator)
+                position_bbox = get_on_parent_position_bbox(obj, parent_bbox, asset_to_bbox)
+                positions[obj] = sample_position_in_bbox(position_bbox, generator)
             else:
                 positions[obj] = first_anchor_center
         return positions

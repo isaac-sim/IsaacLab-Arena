@@ -20,7 +20,7 @@ class ObjectPlacerParams:
     solver_params: RelationSolverParams = field(default_factory=RelationSolverParams)
     """Parameters for the underlying RelationSolver."""
 
-    initializer_type: InitializerType = InitializerType.ANCHOR
+    initializer_type: InitializerType = InitializerType.ON_TREE
     """Which strategy seeds each candidate's starting positions before the solve."""
 
     random_yaw_init: bool = False
