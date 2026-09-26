@@ -3,10 +3,12 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Tests for On-relation-guided initialization in ObjectPlacer."""
+"""Tests for the placement initializers that seed the relation solver."""
 
-from unittest.mock import patch
+import torch
 
+from isaaclab_arena.relations.initializers.anchor_initializer import AnchorInitializer
+from isaaclab_arena.relations.initializers.placement_initializer_base import InitializerType
 from isaaclab_arena.relations.object_placer import ObjectPlacer
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
@@ -26,75 +28,54 @@ def _make_desk():
     return desk
 
 
-def _env_bboxes(objects):
+def _make_box(name, size=0.2, height=0.2):
+    return DummyObject(
+        name=name,
+        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(size, size, height)),
+    )
+
+
+def _default_bboxes(objects):
     return {obj: obj.get_bounding_box() for obj in objects}
+
+
+def _seed(initializer, objects, anchors, asset_to_bbox=None, generator=None):
+    return initializer.generate_initial_positions(
+        objects, anchors, asset_to_bbox or _default_bboxes(objects), generator
+    )
+
+
+def _assert_footprint_within(position, child_bbox, parent_bbox, tolerance=1e-6):
+    """Assert the child's X/Y footprint at position lies inside the parent's world footprint."""
+    x, y, _ = position
+    for axis, value in ((0, x), (1, y)):
+        assert value + float(child_bbox.min_point[0, axis]) >= float(parent_bbox.min_point[0, axis]) - tolerance
+        assert value + float(child_bbox.max_point[0, axis]) <= float(parent_bbox.max_point[0, axis]) + tolerance
 
 
 def test_on_init_x_y_within_parent_footprint():
     """Object with On(anchor) is initialized with its bbox fully within parent's X/Y footprint."""
     desk = _make_desk()
-    box = DummyObject(
-        name="box",
-        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.2, 0.2, 0.2)),
-    )
+    box = _make_box("box")
     box.add_relation(On(desk, clearance_m=0.01))
 
-    placer = ObjectPlacer(params=ObjectPlacerParams())
-    objects = [desk, box]
-    positions = placer._generate_initial_positions(objects, {desk}, _env_bboxes(objects))
+    positions = _seed(AnchorInitializer(), [desk, box], {desk})
 
-    x, y, _ = positions[box]
-    child_bbox = box.get_bounding_box()
-    desk_world = desk.get_world_bounding_box()
-
-    assert x + child_bbox.min_point[0, 0] >= desk_world.min_point[0, 0] - 1e-6
-    assert x + child_bbox.max_point[0, 0] <= desk_world.max_point[0, 0] + 1e-6
-    assert y + child_bbox.min_point[0, 1] >= desk_world.min_point[0, 1] - 1e-6
-    assert y + child_bbox.max_point[0, 1] <= desk_world.max_point[0, 1] + 1e-6
-
-
-def test_on_init_overlap_uses_original_support_on_both_axes():
-    """Overlap initialization samples both axes against the original support despite a large margin."""
-    desk = _make_desk()
-    box = DummyObject(
-        name="box",
-        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.2, 0.2, 0.2)),
-    )
-    relation = On(desk, overlap=True, edge_margin_m=0.6)
-    box.add_relation(relation)
-    placer = ObjectPlacer(params=ObjectPlacerParams())
-
-    with patch.object(placer, "_sample_axis_position", return_value=0.0) as sample_axis:
-        placer._generate_initial_positions([desk, box], {desk}, _env_bboxes([desk, box]))
-
-    assert relation.overlap is True
-    x_call, y_call = sample_axis.call_args_list
-    for actual, expected in zip(x_call.args[:4], (0.0, 1.0, 0.2, 0.0)):
-        assert abs(float(actual) - expected) < 1e-6
-    for actual, expected in zip(y_call.args[:4], (0.0, 1.0, 0.2, 0.0)):
-        assert abs(float(actual) - expected) < 1e-6
+    _assert_footprint_within(positions[box], box.get_bounding_box(), desk.get_world_bounding_box())
 
 
 def test_on_init_z_places_bottom_at_parent_top():
     """Object with On(anchor) is initialized with its bottom face at parent top + clearance."""
     desk = _make_desk()
     clearance_m = 0.01
-    box = DummyObject(
-        name="box",
-        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.2, 0.2, 0.2)),
-    )
+    box = _make_box("box")
     box.add_relation(On(desk, clearance_m=clearance_m))
 
-    placer = ObjectPlacer(params=ObjectPlacerParams())
-    objects = [desk, box]
-    positions = placer._generate_initial_positions(objects, {desk}, _env_bboxes(objects))
+    positions = _seed(AnchorInitializer(), [desk, box], {desk})
 
     _, _, z = positions[box]
-    child_bbox = box.get_bounding_box()
-    desk_world = desk.get_world_bounding_box()
-
-    child_bottom = z + child_bbox.min_point[0, 2]
-    expected_bottom = desk_world.max_point[0, 2] + clearance_m
+    child_bottom = z + float(box.get_bounding_box().min_point[0, 2])
+    expected_bottom = float(desk.get_world_bounding_box().max_point[0, 2]) + clearance_m
     assert abs(child_bottom - expected_bottom) < 1e-6
 
 
@@ -110,19 +91,19 @@ def test_on_init_uses_env_specific_parent_bbox():
     small_table_bbox = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.3, 0.3, 0.1))
     box_bbox = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.05, 0.05, 0.05))
     box = DummyObject(name="box", bounding_box=box_bbox)
-    box.add_relation(On(table_set, clearance_m=0.02))
+    box.add_relation(On(table_set, clearance_m=0.02, edge_margin_m=0.0))
 
-    placer = ObjectPlacer(params=ObjectPlacerParams())
-    positions = placer._generate_initial_positions(
+    positions = _seed(
+        AnchorInitializer(),
         [table_set, box],
         {table_set},
-        {table_set: small_table_bbox, box: box_bbox},
+        asset_to_bbox={table_set: small_table_bbox, box: box_bbox},
     )
 
     x, y, z = positions[box]
     assert small_table_bbox.min_point[0, 0] <= x <= small_table_bbox.max_point[0, 0]
     assert small_table_bbox.min_point[0, 1] <= y <= small_table_bbox.max_point[0, 1]
-    assert abs(z - (small_table_bbox.max_point[0, 2] + 0.02 - box_bbox.min_point[0, 2])) < 1e-6
+    assert abs(z - float(small_table_bbox.max_point[0, 2] + 0.02 - box_bbox.min_point[0, 2])) < 1e-6
 
 
 def test_on_init_clamps_to_center_when_child_wider_than_parent():
@@ -134,124 +115,148 @@ def test_on_init_clamps_to_center_when_child_wider_than_parent():
     desk.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
     desk.add_relation(IsAnchor())
 
-    big_box = DummyObject(
-        name="big_box",
-        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.5, 0.5, 0.2)),
-    )
+    big_box = _make_box("big_box", size=0.5)
     big_box.add_relation(On(desk, clearance_m=0.0))
 
-    placer = ObjectPlacer(params=ObjectPlacerParams())
-    objects = [desk, big_box]
-    positions = placer._generate_initial_positions(objects, {desk}, _env_bboxes(objects))
+    positions = _seed(AnchorInitializer(), [desk, big_box], {desk})
 
     x, y, _ = positions[big_box]
-    desk_world = desk.get_world_bounding_box()
-    center_x = (desk_world.min_point[0, 0] + desk_world.max_point[0, 0]) / 2.0
-    center_y = (desk_world.min_point[0, 1] + desk_world.max_point[0, 1]) / 2.0
-
-    assert abs(x - center_x) < 1e-6
-    assert abs(y - center_y) < 1e-6
+    desk_center = desk.get_world_bounding_box().center[0]
+    assert abs(x - float(desk_center[0])) < 1e-6
+    assert abs(y - float(desk_center[1])) < 1e-6
 
 
 def test_no_on_relation_initializes_at_anchor_center():
     """Object with no On relation is initialized at the first anchor's center; solver handles placement."""
     desk = _make_desk()
-    box = DummyObject(
-        name="box",
-        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.2, 0.2, 0.2)),
-    )
+    box = _make_box("box")
     box.add_relation(NextTo(desk, side=Side.POSITIVE_X, distance_m=0.05))
 
-    placer = ObjectPlacer(params=ObjectPlacerParams())
-    objects = [desk, box]
-    positions = placer._generate_initial_positions(objects, {desk}, _env_bboxes(objects))
+    positions = _seed(AnchorInitializer(), [desk, box], {desk})
 
-    x, y, z = positions[box]
+    center = desk.get_world_bounding_box().center[0]
+    for axis, value in enumerate(positions[box]):
+        assert abs(value - float(center[axis])) < 1e-6
+
+
+def test_on_init_overlap_can_leave_parent_footprint():
+    """Overlap initialization samples against the original support, ignoring a large edge margin.
+
+    A containment reading of this relation would be infeasible (margin 0.6 on a 1.0 m desk), so
+    every draw would collapse to the desk center. Overlap instead admits any pose whose footprint
+    intersects the desk, which includes origins outside the desk itself.
+    """
+    desk = _make_desk()
+    box = _make_box("box")
+    box.add_relation(On(desk, overlap=True, edge_margin_m=0.6))
+    generator = torch.Generator().manual_seed(0)
+
+    samples = [_seed(AnchorInitializer(), [desk, box], {desk}, generator=generator)[box] for _ in range(200)]
+
     desk_world = desk.get_world_bounding_box()
-    center = desk_world.center[0]
+    child_bbox = box.get_bounding_box()
+    # The overlap interval for the child origin is [desk_min - child_max, desk_max - child_min].
+    for x, y, _ in samples:
+        for axis, value in ((0, x), (1, y)):
+            assert value >= float(desk_world.min_point[0, axis] - child_bbox.max_point[0, axis]) - 1e-6
+            assert value <= float(desk_world.max_point[0, axis] - child_bbox.min_point[0, axis]) + 1e-6
+    assert any(x < float(desk_world.min_point[0, 0]) for x, _, _ in samples), "Overlap never left the footprint"
 
-    assert abs(x - center[0]) < 1e-6
-    assert abs(y - center[1]) < 1e-6
-    assert abs(z - center[2]) < 1e-6
 
-
-def test_on_non_anchor_parent_with_anchor_grandparent_uses_proxy():
-    """Object with On(non-anchor) uses the grandparent anchor's bbox as proxy when parent has On(anchor)."""
+def test_anchor_init_on_non_anchor_parent_seeds_against_anchor_ancestor():
+    """An object on a non-anchor parent is seeded across the anchor above that parent."""
     desk = _make_desk()
     plate = DummyObject(
         name="plate",
         bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.3, 0.3, 0.02)),
     )
     plate.add_relation(On(desk, clearance_m=0.01))
-
-    mug = DummyObject(
-        name="mug",
-        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.1, 0.1, 0.12)),
-    )
+    mug = _make_box("mug", size=0.1, height=0.12)
     mug.add_relation(On(plate, clearance_m=0.0))
 
-    placer = ObjectPlacer(params=ObjectPlacerParams())
-    objects = [desk, plate, mug]
-    positions = placer._generate_initial_positions(objects, {desk}, _env_bboxes(objects))
+    positions = _seed(AnchorInitializer(), [desk, plate, mug], {desk})
 
     x, y, z = positions[mug]
     desk_world = desk.get_world_bounding_box()
-
-    # Mug's parent (plate) is non-anchor with On(desk): uses desk's bbox as proxy
     assert desk_world.min_point[0, 0] <= x <= desk_world.max_point[0, 0]
     assert desk_world.min_point[0, 1] <= y <= desk_world.max_point[0, 1]
-    # Z: desk top (0.1) + clearance (0.0) - mug bbox min_z (0.0) = 0.1
-    mug_bbox = mug.get_bounding_box()
-    assert abs(z - (desk_world.max_point[0, 2] + 0.0 - mug_bbox.min_point[0, 2])) < 1e-6
+    # Z comes from the desk, not the plate the mug is actually on.
+    assert abs(z - float(desk_world.max_point[0, 2] + 0.0 - mug.get_bounding_box().min_point[0, 2])) < 1e-6
 
 
-def test_on_non_anchor_parent_without_on_uses_fallback_bbox():
-    """Object with On(non-anchor) where parent has no On relation falls back to first anchor's world bbox."""
+def test_anchor_init_walks_past_several_on_levels_to_reach_the_anchor():
+    """A chain deeper than one On level still resolves to the anchor at the top of the chain."""
+    desk = _make_desk()
+    tray = DummyObject(
+        name="tray",
+        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.4, 0.4, 0.02)),
+    )
+    tray.add_relation(On(desk, clearance_m=0.0))
+    plate = DummyObject(
+        name="plate",
+        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.3, 0.3, 0.02)),
+    )
+    plate.add_relation(On(tray, clearance_m=0.0))
+    mug = _make_box("mug", size=0.1, height=0.12)
+    mug.add_relation(On(plate, clearance_m=0.0))
+
+    positions = _seed(AnchorInitializer(), [desk, tray, plate, mug], {desk})
+
+    desk_world = desk.get_world_bounding_box()
+    _assert_footprint_within(positions[mug], mug.get_bounding_box(), desk_world)
+    assert abs(positions[mug][2] - float(desk_world.max_point[0, 2] - mug.get_bounding_box().min_point[0, 2])) < 1e-6
+
+
+def test_anchor_init_falls_back_when_on_chain_loops():
+    """A cycle in the On chain falls back to the first anchor instead of looping forever."""
+    desk = _make_desk()
+    left = _make_box("left")
+    right = _make_box("right")
+    left.add_relation(On(right, clearance_m=0.0))
+    right.add_relation(On(left, clearance_m=0.0))
+
+    positions = _seed(AnchorInitializer(), [desk, left, right], {desk})
+
+    desk_world = desk.get_world_bounding_box()
+    for obj in (left, right):
+        _assert_footprint_within(positions[obj], obj.get_bounding_box(), desk_world)
+
+
+def test_anchor_init_on_parent_without_on_falls_back_to_anchor():
+    """AnchorInitializer falls back to the first anchor when the parent has no On relation."""
     desk = _make_desk()
     stand = DummyObject(
         name="stand",
         bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.3, 0.3, 0.5)),
     )
     stand.add_relation(NextTo(desk, side=Side.POSITIVE_X, distance_m=0.1))
-
-    mug = DummyObject(
-        name="mug",
-        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.1, 0.1, 0.12)),
-    )
+    mug = _make_box("mug", size=0.1, height=0.12)
     mug.add_relation(On(stand, clearance_m=0.0))
 
-    placer = ObjectPlacer(params=ObjectPlacerParams())
-    objects = [desk, stand, mug]
-    positions = placer._generate_initial_positions(objects, {desk}, _env_bboxes(objects))
+    positions = _seed(AnchorInitializer(), [desk, stand, mug], {desk})
 
     x, y, z = positions[mug]
     desk_world = desk.get_world_bounding_box()
-
-    # Parent (stand) has no On relation: falls back to desk's world bbox
     assert desk_world.min_point[0, 0] <= x <= desk_world.max_point[0, 0]
     assert desk_world.min_point[0, 1] <= y <= desk_world.max_point[0, 1]
-    # Z: desk.max_z (fallback) + clearance (0.0) - mug.min_z (0.0) = 0.1
-    assert abs(z - (desk_world.max_point[0, 2] + 0.0 - mug.get_bounding_box().min_point[0, 2])) < 1e-6
+    assert abs(z - float(desk_world.max_point[0, 2] + 0.0 - mug.get_bounding_box().min_point[0, 2])) < 1e-6
 
 
 def test_on_init_reproducible_with_placement_seed():
     """Same placement_seed produces identical On-guided init positions across independent runs."""
     solver_params = RelationSolverParams(max_iters=0, save_position_history=False, verbose=False)
-    params = ObjectPlacerParams(placement_seed=42, apply_positions_to_objects=False, solver_params=solver_params)
 
     def _run():
-        desk = _make_desk()
-        box = DummyObject(
-            name="box",
-            bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.2, 0.2, 0.2)),
+        params = ObjectPlacerParams(
+            placement_seed=42,
+            apply_positions_to_objects=False,
+            solver_params=solver_params,
+            initializer_type=InitializerType.ANCHOR,
         )
+        desk = _make_desk()
+        box = _make_box("box")
         box.add_relation(On(desk, clearance_m=0.01))
         (result,) = ObjectPlacer(params=params).place([desk, box])
-        return result
+        return next(pos for obj, pos in result.positions.items() if obj.name == "box")
 
-    result1 = _run()
-    result2 = _run()
-
-    pos1 = next(pos for obj, pos in result1.positions.items() if obj.name == "box")
-    pos2 = next(pos for obj, pos in result2.positions.items() if obj.name == "box")
-    assert pos1 == pos2, f"Expected identical positions with same seed, got {pos1} vs {pos2}"
+    assert _run() == _run()
