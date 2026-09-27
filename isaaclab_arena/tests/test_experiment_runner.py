@@ -116,6 +116,7 @@ def run_experiment_runner(
     config_option: str = "--eval_jobs_config",
     extra_args: list[str] | None = None,
     capture_output: bool = False,
+    timeout_sec: int | None = None,
 ) -> subprocess.CompletedProcess[str] | None:
     """Run the Experiment Runner as a subprocess with timeout.
 
@@ -129,6 +130,7 @@ def run_experiment_runner(
         config_option: CLI option used to pass the Experiment path.
         extra_args: Additional Experiment Runner arguments.
         capture_output: Whether to capture and return the subprocess output.
+        timeout_sec: Override the default subprocess timeout in seconds.
 
     Returns:
         The completed subprocess when output is captured, otherwise None.
@@ -141,7 +143,7 @@ def run_experiment_runner(
         args.append("--viz")
         args.append(DEFAULT_VISUALIZER)
 
-    return run_subprocess(args, capture_output=capture_output)
+    return run_subprocess(args, capture_output=capture_output, timeout_sec=timeout_sec)
 
 
 @pytest.mark.with_subprocess

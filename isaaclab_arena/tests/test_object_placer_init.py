@@ -5,6 +5,8 @@
 
 """Tests for On-relation-guided initialization in ObjectPlacer."""
 
+from unittest.mock import patch
+
 from isaaclab_arena.relations.object_placer import ObjectPlacer
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
@@ -49,6 +51,28 @@ def test_on_init_x_y_within_parent_footprint():
     assert x + child_bbox.max_point[0, 0] <= desk_world.max_point[0, 0] + 1e-6
     assert y + child_bbox.min_point[0, 1] >= desk_world.min_point[0, 1] - 1e-6
     assert y + child_bbox.max_point[0, 1] <= desk_world.max_point[0, 1] + 1e-6
+
+
+def test_on_init_overlap_uses_original_support_on_both_axes():
+    """Overlap initialization samples both axes against the original support despite a large margin."""
+    desk = _make_desk()
+    box = DummyObject(
+        name="box",
+        bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.2, 0.2, 0.2)),
+    )
+    relation = On(desk, overlap=True, edge_margin_m=0.6)
+    box.add_relation(relation)
+    placer = ObjectPlacer(params=ObjectPlacerParams())
+
+    with patch.object(placer, "_sample_axis_position", return_value=0.0) as sample_axis:
+        placer._generate_initial_positions([desk, box], {desk}, _env_bboxes([desk, box]))
+
+    assert relation.overlap is True
+    x_call, y_call = sample_axis.call_args_list
+    for actual, expected in zip(x_call.args[:4], (0.0, 1.0, 0.2, 0.0)):
+        assert abs(float(actual) - expected) < 1e-6
+    for actual, expected in zip(y_call.args[:4], (0.0, 1.0, 0.2, 0.0)):
+        assert abs(float(actual) - expected) < 1e-6
 
 
 def test_on_init_z_places_bottom_at_parent_top():

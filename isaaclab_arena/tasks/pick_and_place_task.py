@@ -16,6 +16,7 @@ from isaaclab.managers import SceneEntityCfg, TerminationTermCfg
 from isaaclab.utils.configclass import configclass
 
 from isaaclab_arena.assets.asset import Asset
+from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.assets.register import agent_ready, register_task
 from isaaclab_arena.assets.registries import ObjectRelationLibraryRegistry
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
@@ -26,7 +27,9 @@ from isaaclab_arena.progress_tracking.progress_objective import ProgressObjectiv
 from isaaclab_arena.tasks.common.mimic_default_params import MIMIC_DATAGEN_CONFIG_DEFAULTS
 from isaaclab_arena.tasks.predicates.object_settling import objects_settled
 from isaaclab_arena.tasks.predicates.spatial import object_is_above_height, object_on_destination
+from isaaclab_arena.tasks.predicates.temporal import TrueForConsecutiveStepsCfg
 from isaaclab_arena.tasks.task_base import TaskBase
+from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
 from isaaclab_arena.tasks.task_transition import Relocate, TaskTransition
 from isaaclab_arena.utils.cameras import get_viewer_cfg_look_at_object
 from isaaclab_arena.utils.configclass import make_configclass
@@ -37,13 +40,15 @@ from isaaclab_arena.utils.configclass import make_configclass
 class PickAndPlaceTask(TaskBase):
     """Pick an object up and place it on or in a destination.
 
-    Success requires the object's bounds center over the destination footprint, upward support
-    force, and low linear speed. Failure occurs when the object falls below the background.
+    Success requires the object to settle, rise above its resting height, then reach its destination
+    with support and low linear speed for the required consecutive steps. Rigid objects use contact
+    force to check support; deformable objects use their geometry. Failure occurs when the object
+    falls below the background.
 
     Args:
-        pick_up_object: Rigid object or rigid object set to pick up.
-        destination_location: Destination whose live pose and spawned geometry define placement.
-            It must be included in the environment scene.
+        pick_up_object: Object or rigid object set to pick up.
+        destination_location: Non-deformable destination whose live pose and spawned geometry
+            define placement. It must be included in the environment scene.
         background_scene: Background whose minimum object height defines the drop failure.
         destination_object: Destination asset used by the default Mimic configuration.
         episode_length_s: Maximum episode duration in seconds.
@@ -53,6 +58,7 @@ class PickAndPlaceTask(TaskBase):
         mimic_env_cfg_factory: Optional factory for a custom Mimic environment configuration.
         support_cone_half_angle_rad: Maximum angle in radians between the filtered contact force and
             world +Z. Smaller values require the support force to be more vertical.
+        placement_consecutive_steps: Number of consecutive control steps for which placement must hold.
 
     """
 
@@ -68,13 +74,20 @@ class PickAndPlaceTask(TaskBase):
         velocity_threshold: float = 0.003,
         mimic_env_cfg_factory: Callable[[ArmMode], MimicEnvCfg] | None = None,
         support_cone_half_angle_rad: float = math.pi / 4,
+        placement_consecutive_steps: int = 1,
     ):
         super().__init__(episode_length_s=episode_length_s)
+        assert (
+            destination_location.object_type != ObjectType.DEFORMABLE
+        ), "PickAndPlaceTask does not support deformable destinations"
         self.pick_up_object = pick_up_object
         self.destination_object = destination_object
         self.background_scene = background_scene
         self.destination_location = destination_location
-        self.contact_sensor_name = f"contact_sensor_{pick_up_object.name}"
+        self.contact_sensor_name = (
+            None if pick_up_object.object_type == ObjectType.DEFORMABLE else f"contact_sensor_{pick_up_object.name}"
+        )
+        self.contact_sensor_cfg = SceneEntityCfg(self.contact_sensor_name) if self.contact_sensor_name else None
         self.scene_config = self.make_scene_cfg()
         self.force_threshold = force_threshold
         assert velocity_threshold >= 0.0, f"velocity_threshold must be non-negative, got {velocity_threshold}"
@@ -83,9 +96,9 @@ class PickAndPlaceTask(TaskBase):
             0.0 <= support_cone_half_angle_rad < math.pi / 2
         ), f"support_cone_half_angle_rad must be in [0, pi / 2), got {support_cone_half_angle_rad}"
         self.support_cone_half_angle_rad = support_cone_half_angle_rad
+        self.placement_consecutive_steps = placement_consecutive_steps
         self.mimic_env_cfg_factory = mimic_env_cfg_factory
         self.events_cfg = None
-        self.termination_cfg = self.make_termination_cfg()
         self.task_description = (
             f"Pick up the {pick_up_object.name}, and place it into the {destination_location.name}"
             if task_description is None
@@ -97,44 +110,19 @@ class PickAndPlaceTask(TaskBase):
         self._apply_reachability_constraints([self.pick_up_object, self.destination_location])
 
     def make_scene_cfg(self):
-        contact_sensor_cfg = self.pick_up_object.get_contact_sensor_cfg(
+        if self.contact_sensor_cfg is None:
+            return None
+        sensor_cfg = self.pick_up_object.get_contact_sensor_cfg(
             contact_against_object=self.destination_location,
         )
         scene_cfg_type = make_configclass(
             "SceneCfg",
-            [(self.contact_sensor_name, type(contact_sensor_cfg), contact_sensor_cfg)],
+            [(self.contact_sensor_cfg.name, type(sensor_cfg), sensor_cfg)],
         )
         return scene_cfg_type()
 
     def get_scene_cfg(self):
         return self.scene_config
-
-    def get_termination_cfg(self):
-        return self.termination_cfg
-
-    def make_termination_cfg(self):
-        success = TerminationTermCfg(
-            func=object_on_destination,
-            params={
-                "object_cfg": SceneEntityCfg(self.pick_up_object.name),
-                "destination_cfg": SceneEntityCfg(self.destination_location.name),
-                "contact_sensor_cfg": SceneEntityCfg(self.contact_sensor_name),
-                "force_threshold": self.force_threshold,
-                "velocity_threshold": self.velocity_threshold,
-                "support_cone_half_angle_rad": self.support_cone_half_angle_rad,
-            },
-        )
-        object_dropped = TerminationTermCfg(
-            func=mdp_isaac_lab.root_height_below_minimum,
-            params={
-                "minimum_height": self.background_scene.object_min_z,
-                "asset_cfg": SceneEntityCfg(self.pick_up_object.name),
-            },
-        )
-        return TerminationsCfg(
-            success=success,
-            object_dropped=object_dropped,
-        )
 
     def get_events_cfg(self):
         return self.events_cfg
@@ -157,32 +145,48 @@ class PickAndPlaceTask(TaskBase):
     def get_metrics(self) -> list[MetricBase]:
         return [SuccessRateMetric(), ObjectMovedRateMetric(self.pick_up_object)]
 
-    def get_progress_objectives(self) -> list[ProgressObjective]:
-        return [
-            ProgressObjective(
-                name="pick_and_place",
-                predicate_groups=[
-                    partial(
-                        objects_settled,
-                        object_names=[self.pick_up_object.name],
-                    ),
-                    partial(
-                        object_is_above_height,
-                        object_name=self.pick_up_object.name,
-                        use_settled_state=True,
-                    ),
-                    partial(
-                        object_on_destination,
-                        object_cfg=SceneEntityCfg(self.pick_up_object.name),
-                        destination_cfg=SceneEntityCfg(self.destination_location.name),
-                        contact_sensor_cfg=SceneEntityCfg(self.contact_sensor_name),
-                        force_threshold=self.force_threshold,
-                        velocity_threshold=self.velocity_threshold,
-                        support_cone_half_angle_rad=self.support_cone_half_angle_rad,
-                    ),
-                ],
-            ),
-        ]
+    def get_termination_cfg(self) -> TaskTerminationCfg:
+        object_dropped = TerminationTermCfg(
+            func=mdp_isaac_lab.root_height_below_minimum,
+            params={
+                "minimum_height": self.background_scene.object_min_z,
+                "asset_cfg": SceneEntityCfg(self.pick_up_object.name),
+            },
+        )
+        return TaskTerminationCfg(
+            timeout_s=self.episode_length_s,
+            success=[
+                ProgressObjective(
+                    name="pick_and_place",
+                    predicate_sequence=[
+                        # TODO(cvolk): Record initial rest poses independently of task success before
+                        # removing objects_settled; object_is_above_height still needs that reference.
+                        partial(
+                            objects_settled,
+                            object_names=[self.pick_up_object.name],
+                        ),
+                        partial(
+                            object_is_above_height,
+                            object_name=self.pick_up_object.name,
+                            use_settled_state=True,
+                        ),
+                        TrueForConsecutiveStepsCfg(
+                            predicate=partial(
+                                object_on_destination,
+                                object_cfg=SceneEntityCfg(self.pick_up_object.name),
+                                destination_cfg=SceneEntityCfg(self.destination_location.name),
+                                contact_sensor_cfg=self.contact_sensor_cfg,
+                                force_threshold=self.force_threshold,
+                                velocity_threshold=self.velocity_threshold,
+                                support_cone_half_angle_rad=self.support_cone_half_angle_rad,
+                            ),
+                            required_steps=self.placement_consecutive_steps,
+                        ),
+                    ],
+                ),
+            ],
+            failures={"object_dropped": object_dropped},
+        )
 
     def get_viewer_cfg(self) -> ViewerCfg:
         return get_viewer_cfg_look_at_object(
@@ -201,17 +205,6 @@ class PickAndPlaceTask(TaskBase):
             subject=pick_up_object,
             effects=(Relocate(subject=pick_up_object, relation=relation.name, target=destination_location),),
         )
-
-
-@configclass
-class TerminationsCfg:
-    """Termination terms for the MDP."""
-
-    time_out: TerminationTermCfg = TerminationTermCfg(func=mdp_isaac_lab.time_out, time_out=True)
-
-    success: TerminationTermCfg = MISSING
-
-    object_dropped: TerminationTermCfg = MISSING
 
 
 @configclass

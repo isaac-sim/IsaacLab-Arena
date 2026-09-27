@@ -112,7 +112,7 @@ def add_policy_runner_arguments(parser: argparse.ArgumentParser) -> None:
         action="store_true",
         default=False,
         help=(
-            "Record one mp4 per camera in obs['camera_obs'] (what the policy actually sees)."
+            "Record one mp4 per RGB camera in obs['camera_obs'] (what the policy actually sees)."
             " Independent of --record_viewport_video; use either or both."
         ),
     )

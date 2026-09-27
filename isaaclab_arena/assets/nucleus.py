@@ -3,12 +3,12 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Nucleus asset root for Arena-hosted assets.
-
-Points to staging bucket before release and to production bucket after
-"""
+"""Public S3 and internal Nucleus asset roots for Arena-hosted assets."""
 
 from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR, ISAACLAB_NUCLEUS_DIR
+
+ARENA_STAGING_NUCLEUS_DIR: str = "omniverse://isaac-dev.ov.nvidia.com/Isaac/IsaacLab"
+"""Internal upload location, available immediately before the staging S3 mirror syncs."""
 
 # TODO(2026.07.14, Point Arena assets to the production bucket before release)
 ARENA_NUCLEUS_DIR: str = ISAACLAB_NUCLEUS_DIR.replace("omniverse-content-production", "omniverse-content-staging")

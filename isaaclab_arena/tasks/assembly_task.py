@@ -6,6 +6,7 @@
 
 import numpy as np
 from dataclasses import MISSING
+from functools import partial
 from typing import Literal
 
 import isaaclab.envs.mdp as mdp_isaac_lab
@@ -20,9 +21,11 @@ from isaaclab_arena.assets.register import register_task
 from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.metrics.object_moved import ObjectMovedRateMetric
 from isaaclab_arena.metrics.success_rate import SuccessRateMetric
+from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
 from isaaclab_arena.tasks.events import randomize_poses_and_align_auxiliary_assets
 from isaaclab_arena.tasks.predicates.spatial import objects_in_proximity
 from isaaclab_arena.tasks.task_base import TaskBase
+from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
 from isaaclab_arena.utils.cameras import get_viewer_cfg_look_at_object
 
 
@@ -52,6 +55,9 @@ class AssemblyTask(TaskBase):
         self.held_asset = held_asset
         self.auxiliary_asset_list = auxiliary_asset_list
         self.background_scene = background_scene
+        self.max_x_separation = max_x_separation
+        self.max_y_separation = max_y_separation
+        self.max_z_separation = max_z_separation
         self.scene_config = None
         # We use specialize randomization at reset for this task. So disable default pose resets.
         self.disable_default_pose_resets()
@@ -62,11 +68,6 @@ class AssemblyTask(TaskBase):
             fixed_asset_cfg=SceneEntityCfg(self.fixed_asset.name),
             auxiliary_asset_cfgs=[SceneEntityCfg(asset.name) for asset in self.auxiliary_asset_list],
             randomization_mode=randomization_mode,
-        )
-        self.termination_cfg = self._make_termination_cfg(
-            max_x_separation=max_x_separation,
-            max_y_separation=max_y_separation,
-            max_z_separation=max_z_separation,
         )
         self.task_description = (
             f"Assemble the {self.held_asset.name} with the {self.fixed_asset.name}"
@@ -82,36 +83,7 @@ class AssemblyTask(TaskBase):
         """Get scene configuration."""
         return self.scene_config
 
-    def get_termination_cfg(self):
-        return self.termination_cfg
-
-    def _make_termination_cfg(
-        self,
-        max_x_separation: float,
-        max_y_separation: float,
-        max_z_separation: float,
-    ):
-        """
-        Create termination configuration for the assembly task.
-
-        Args:
-            max_x_separation: Maximum allowed separation in x-axis for success.
-            max_y_separation: Maximum allowed separation in y-axis for success.
-            max_z_separation: Maximum allowed separation in z-axis for success.
-
-        Returns:
-            TerminationsCfg: The termination configuration.
-        """
-        success = TerminationTermCfg(
-            func=objects_in_proximity,
-            params={
-                "object_cfg": SceneEntityCfg(self.held_asset.name),
-                "target_object_cfg": SceneEntityCfg(self.fixed_asset.name),
-                "max_x_separation": max_x_separation,  # Tolerance for assembly alignment
-                "max_y_separation": max_y_separation,
-                "max_z_separation": max_z_separation,
-            },
-        )
+    def get_termination_cfg(self) -> TaskTerminationCfg:
         object_dropped = TerminationTermCfg(
             func=mdp_isaac_lab.root_height_below_minimum,
             params={
@@ -119,9 +91,24 @@ class AssemblyTask(TaskBase):
                 "asset_cfg": SceneEntityCfg(self.held_asset.name),
             },
         )
-        return TerminationsCfg(
-            success=success,
-            object_dropped=object_dropped,
+        return TaskTerminationCfg(
+            timeout_s=self.episode_length_s,
+            success=[
+                ProgressObjective(
+                    name="assemble",
+                    predicate_sequence=[
+                        partial(
+                            objects_in_proximity,
+                            object_cfg=SceneEntityCfg(self.held_asset.name),
+                            target_object_cfg=SceneEntityCfg(self.fixed_asset.name),
+                            max_x_separation=self.max_x_separation,
+                            max_y_separation=self.max_y_separation,
+                            max_z_separation=self.max_z_separation,
+                        )
+                    ],
+                ),
+            ],
+            failures={"object_dropped": object_dropped},
         )
 
     def get_events_cfg(self):
@@ -149,17 +136,6 @@ class AssemblyTask(TaskBase):
             lookat_object=self.held_asset,
             offset=np.array([1.5, -0.5, 1.0]),  # Rotated 180° around z-axis from original view
         )
-
-
-@configclass
-class TerminationsCfg:
-    """Termination terms for the MDP."""
-
-    time_out: TerminationTermCfg = TerminationTermCfg(func=mdp_isaac_lab.time_out, time_out=True)
-
-    success: TerminationTermCfg = MISSING
-
-    object_dropped: TerminationTermCfg = MISSING
 
 
 @configclass

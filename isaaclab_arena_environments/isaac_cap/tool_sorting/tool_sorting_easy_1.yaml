@@ -1,0 +1,167 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+external_yaml: tool_sorting_env_config.yaml
+env_name: vabar_tool_sorting_easy_1
+objects:
+- id: hdr_shadow_receiver
+  registry_name: hdr_shadow_receiver
+  params: {}
+- id: bin1
+  registry_name: industrial__tool_sort_bin
+  params:
+    instance_name: bin1
+    side: source
+    appearance: default
+    initial_pose:
+      position_xyz:
+      - 0.1
+      - -0.25
+      - 0.8
+      rotation_xyzw:
+      - 0.0
+      - 0.0
+      - 0.0
+      - 1.0
+- id: bin2
+  registry_name: industrial__tool_sort_bin
+  params:
+    instance_name: bin2
+    side: destination
+    appearance: electrical
+    initial_pose:
+      position_xyz:
+      - 0.1
+      - 0.28
+      - 0.8
+      rotation_xyzw:
+      - 0.0
+      - 0.0
+      - 0.0
+      - 1.0
+- id: benchmark_light
+  registry_name: empty_warehouse_dome_light
+  params: {}
+- id: battery_0
+  registry_name: vabar_tool_sort__battery
+  params:
+    instance_name: battery_0
+- id: multimeter_0
+  registry_name: vabar_tool_sort__multimeter
+  params:
+    instance_name: multimeter_0
+- id: flashlight_0
+  registry_name: vabar_tool_sort__flashlight
+  params:
+    instance_name: flashlight_0
+- id: safety_glasses_0
+  registry_name: vabar_tool_sort__safety_glasses
+  params:
+    instance_name: safety_glasses_0
+relations:
+- kind: is_anchor
+  subject: table
+  params: {}
+- kind: 'on'
+  subject: bin1
+  reference: table
+  params:
+    clearance_m: 0.0
+- kind: at_position
+  subject: bin1
+  params:
+    x: 0.1
+    y: -0.25
+- kind: is_anchor
+  subject: bin1
+  params: {}
+- kind: 'on'
+  subject: bin2
+  reference: table
+  params:
+    clearance_m: 0.0
+- kind: at_position
+  subject: bin2
+  params:
+    x: 0.1
+    y: 0.28
+- kind: is_anchor
+  subject: bin2
+  params: {}
+- kind: rotate_around_solution
+  subject: bin1
+  params:
+    yaw_rad: 0.0
+- kind: rotate_around_solution
+  subject: bin2
+  params:
+    yaw_rad: 0.0
+- kind: 'on'
+  subject: battery_0
+  reference: bin1
+  params:
+    clearance_m: 0.0
+    edge_margin_m: 0.01
+- kind: 'on'
+  subject: multimeter_0
+  reference: bin1
+  params:
+    clearance_m: 0.0
+    edge_margin_m: 0.01
+- kind: 'on'
+  subject: flashlight_0
+  reference: bin1
+  params:
+    clearance_m: 0.0
+    edge_margin_m: 0.01
+- kind: 'on'
+  subject: safety_glasses_0
+  reference: bin1
+  params:
+    clearance_m: 0.0
+    edge_margin_m: 0.01
+task:
+  composition: atomic
+  description: Sort the four items from bin1 into the compartment of bin2 whose label
+    names each one.
+  subtasks:
+  - kind: ObjectsInRegionsTask
+    params:
+      object_list:
+      - battery_0
+      - multimeter_0
+      - flashlight_0
+      - safety_glasses_0
+      region_list:
+      - bin2
+      - bin2
+      - bin2
+      - bin2
+      bounds_xyzxyz:
+      - - -0.195
+        - -0.245
+        - 0
+        - 0
+        - 0
+        - 0.15
+      - - 0
+        - -0.245
+        - 0
+        - 0.195
+        - 0
+        - 0.15
+      - - -0.195
+        - 0
+        - 0
+        - 0
+        - 0.245
+        - 0.15
+      - - 0
+        - 0
+        - 0
+        - 0.195
+        - 0.245
+        - 0.15
+      episode_length_s: 192.0

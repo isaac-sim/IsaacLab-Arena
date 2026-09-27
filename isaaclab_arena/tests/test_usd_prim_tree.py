@@ -10,7 +10,7 @@ from __future__ import annotations
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.environment_spec.arena_env_graph_types import AssetSpec
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
-from isaaclab_arena.utils.usd_prim_tree import load_usd_physics_roots, load_usd_prim_tree
+from isaaclab_arena.utils.usd.prim_tree import load_usd_physics_roots, load_usd_prim_tree
 
 
 def _test_kitchen_physics_prim_trees(_) -> bool:

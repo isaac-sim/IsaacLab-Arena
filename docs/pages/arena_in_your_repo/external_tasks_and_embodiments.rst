@@ -10,7 +10,8 @@ Defining a Custom Task
 ----------------------
 
 A custom task is defined by subclassing ``TaskBase`` and implementing the required methods.
-The code below shows how to define a simple task that succeeds after a fixed number of steps.
+The excerpt below shows a task that succeeds after a fixed number of steps.
+``get_termination_cfg()`` declares its success objectives, failure conditions, and time limit.
 This task can be passed to the ``ArenaEnvBuilder`` to create an environment
 (see :ref:`putting_it_all_together` below for an example).
 
@@ -28,20 +29,24 @@ This task can be passed to the ``ArenaEnvBuilder`` to create an environment
            )
            self.num_steps_for_success = num_steps_for_success
 
-       def get_termination_cfg(self):
-           n = self.num_steps_for_success
-           success = TerminationTermCfg(func=lambda env, n=n: env.episode_length_buf >= n)
-           return SuccessAfterNStepsTerminationsCfg(success=success)
+       def get_termination_cfg(self) -> TaskTerminationCfg:
+           return TaskTerminationCfg(
+               success=[
+                   ProgressObjective(name="wait", predicate_sequence=[self.has_reached_step_count]),
+               ],
+               timeout_s=self.episode_length_s,
+           )
+
+       def has_reached_step_count(self, env):
+           return env.episode_length_buf >= self.num_steps_for_success
 
        def get_metrics(self) -> list[MetricBase]:
            return [SuccessRateMetric()]
 
-
-   @configclass
-   class SuccessAfterNStepsTerminationsCfg:
-       time_out: TerminationTermCfg = TerminationTermCfg(func=mdp_isaac_lab.time_out, time_out=True)
-       success: TerminationTermCfg = MISSING
-
+Imports and the required ``get_scene_cfg()``, ``get_events_cfg()``, and ``get_mimic_env_cfg()``
+methods are omitted here. See the
+`complete example <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_examples/external_environments/advanced.py>`_
+for their definitions.
 
 Defining a Custom Embodiment
 ----------------------------

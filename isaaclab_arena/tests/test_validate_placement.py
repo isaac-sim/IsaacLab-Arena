@@ -8,6 +8,8 @@
 import math
 import torch
 
+import pytest
+
 from isaaclab_arena.relations.object_placer import ObjectPlacer
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_validation import PlacementCheck
@@ -160,6 +162,56 @@ def test_rotate_candidate_bboxes_encloses_marker_plus_sampled_yaw():
     assert not torch.allclose(rotated[box].max_point, sampled_only.max_point, atol=1e-6)
 
 
+@pytest.mark.parametrize("marker_yaw", [0.0, math.pi / 2, -2 * math.pi / 3, 0.17])
+@pytest.mark.parametrize("include_orientation", [False, True])
+def test_marker_yaw_expands_bounds_without_extra_rotation(marker_yaw, include_orientation):
+    """Marker-only rotation must enclose the syringe even when its extra yaw is exactly zero."""
+    from isaaclab_arena.utils.yaw import yaw_from_quat_xyzw
+
+    # An elongated box makes errors in the rotated XY extents visible.
+    half_x, half_y, half_z = 0.011783, 0.075, 0.006801
+    syringe = DummyObject(
+        "syringe",
+        AxisAlignedBoundingBox((-half_x, -half_y, -half_z), (half_x, half_y, half_z)),
+    )
+    marker = RotateAroundSolution(yaw_rad=marker_yaw)
+    syringe.add_relation(marker)
+    yaw = yaw_from_quat_xyzw(marker.get_rotation_xyzw())
+    orientations = {syringe: yaw} if include_orientation else {}
+
+    rotated = ObjectPlacer._rotate_candidate_bboxes([syringe], {syringe: syringe.get_bounding_box()}, [orientations])[
+        syringe
+    ]
+
+    expected_half = torch.tensor([[
+        abs(math.cos(marker_yaw)) * half_x + abs(math.sin(marker_yaw)) * half_y,
+        abs(math.sin(marker_yaw)) * half_x + abs(math.cos(marker_yaw)) * half_y,
+        half_z,
+    ]])
+    torch.testing.assert_close(rotated.min_point, -expected_half, atol=1e-6, rtol=0)
+    torch.testing.assert_close(rotated.max_point, expected_half, atol=1e-6, rtol=0)
+
+
+def test_marker_only_yaw_rejects_overlap_after_applying_pose():
+    """A fixed 90-degree marker must reject collisions even with no extra sampled yaw."""
+    placer = ObjectPlacer(params=ObjectPlacerParams(random_yaw_init=False))
+    a = _make_long_box("a")
+    a.add_relation(RotateAroundSolution(yaw_rad=math.pi / 2))
+    b = _make_box("b", size=0.1)
+    objects = [a, b]
+    positions = {a: (0.0, 0.0, 0.0), b: (0.0, 0.2, 0.0)}
+    orientations = placer._generate_initial_orientations(objects, set())
+    candidate_bboxes = placer._rotate_candidate_bboxes(objects, _env_bboxes(positions), [orientations])
+    placer._apply_poses([positions], set(), [orientations])
+
+    applied_bboxes = {
+        obj: obj.get_bounding_box().rotated_by_quat(obj.get_initial_pose().rotation_xyzw) for obj in objects
+    }
+    # The applied long box extends along Y and intersects b at y=0.2.
+    assert not _validate_one(placer, positions, applied_bboxes).do_all_required_validation_checks_pass()
+    assert not _validate_one(placer, positions, candidate_bboxes).do_all_required_validation_checks_pass()
+
+
 def test_enclosing_after_rotation_pitch_swaps_extents():
     """A 90° pitch rotates the tall Z extent into X, so the enclosing AABB swaps X and Z half-sizes."""
     box = AxisAlignedBoundingBox(min_point=(-0.05, -0.05, -0.3), max_point=(0.05, 0.05, 0.3))
@@ -290,6 +342,55 @@ def test_on_relation_edge_margin_inside_rim_but_in_margin_gap_fails():
 def test_on_relation_edge_margin_too_large_for_surface_rejected():
     # Desk free span 0.8 caps the margin at 0.4; 0.5 inverts the inset band so containment fails.
     assert _validate_box_on_desk(edge_margin_m=0.5, box_x=0.0) is False
+
+
+def test_on_relation_overlap_accepts_oversized_child_but_rejects_separation():
+    """Overlap constraints accept an oversized child only while footprints intersect."""
+    placer = ObjectPlacer(params=ObjectPlacerParams())
+    desk = _make_desk()
+    box = _make_box("large", size=1.2)
+    box.add_relation(
+        On(
+            desk,
+            clearance_m=0.0,
+            edge_margin_m=0.0,
+            overlap=True,
+        )
+    )
+    positions = {desk: (0.0, 0.0, 0.0), box: (0.0, 0.0, 0.65)}
+
+    assert OnRelationValidator(placer.params)._validate(positions, _env_bboxes(positions)) is True
+    positions[box] = (1.2, 0.0, 0.65)
+    assert OnRelationValidator(placer.params)._validate(positions, _env_bboxes(positions)) is False
+
+
+@pytest.mark.parametrize("edge_margin_m", [0.0, 0.05, 0.6])
+def test_on_relation_overlap_ignores_margin(edge_margin_m):
+    """Overlap accepts even shallow intersection on both axes, independent of the edge margin."""
+    placer = ObjectPlacer(params=ObjectPlacerParams())
+    desk = _make_desk()
+    box = _make_box("box", size=0.2)
+    box.add_relation(On(desk, clearance_m=0.0, edge_margin_m=edge_margin_m, overlap=True))
+    positions = {desk: (0.0, 0.0, 0.0), box: (0.0, 0.0, 0.15)}
+    validator = OnRelationValidator(placer.params)
+
+    for valid_pose in ((0.59, 0.0, 0.15), (0.0, -0.59, 0.15), (0.59, -0.59, 0.15)):
+        positions[box] = valid_pose
+        assert validator._validate(positions, _env_bboxes(positions)) is True
+    for invalid_pose in ((0.61, 0.0, 0.15), (0.0, -0.61, 0.15), (0.0, 0.0, 0.3), (0.0, 0.0, 0.0)):
+        positions[box] = invalid_pose
+        assert validator._validate(positions, _env_bboxes(positions)) is False
+
+
+def test_on_relation_overlap_accepts_exact_edge_contact():
+    """Touching the original support boundary counts as overlap even with a nonzero margin."""
+    placer = ObjectPlacer(params=ObjectPlacerParams())
+    desk = _make_desk()
+    box = _make_box("box", size=0.5)
+    box.add_relation(On(desk, clearance_m=0.0, overlap=True))
+    positions = {desk: (0.0, 0.0, 0.0), box: (0.75, -0.75, 0.3)}
+
+    assert OnRelationValidator(placer.params)._validate(positions, _env_bboxes(positions)) is True
 
 
 # --- NextTo validation (parent box XY in [-0.2, 0.2], child box half-extent 0.1) ---

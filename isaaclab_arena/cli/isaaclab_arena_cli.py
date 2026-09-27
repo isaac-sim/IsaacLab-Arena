@@ -91,10 +91,17 @@ def add_isaaclab_arena_cli_args(parser: argparse.ArgumentParser) -> None:
         help="Disable solving spatial relations in the environment.",
     )
     arena_group.add_argument(
+        "--placement_layouts",
+        dest="placement_layouts_path",
+        type=str,
+        default=None,
+        help="Replay a companion placement JSONL instead of solving; path is relative to the working directory.",
+    )
+    arena_group.add_argument(
         "--placement_seed",
         type=int,
         default=None,
-        help="Seed for object placement. If set, objects are placed at the same positions across runs.",
+        help="Seed for solved object placement. Not supported with cached placement layouts.",
     )
     arena_group.add_argument(
         "--presets",

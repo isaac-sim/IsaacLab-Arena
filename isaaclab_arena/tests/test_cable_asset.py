@@ -74,6 +74,7 @@ def _test_cable_reset_event_runtime(_, device: str):
     return True
 
 
+@pytest.mark.with_newton
 @pytest.mark.parametrize("device", test_devices(DeviceScope.CPU_AND_DEFAULT_CUDA))
 def test_cable_reset_event_runtime(device: str):
     assert run_function_with_persistent_simulation_app(_test_cable_reset_event_runtime, device=device)

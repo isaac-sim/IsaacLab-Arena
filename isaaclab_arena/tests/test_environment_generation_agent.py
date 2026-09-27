@@ -149,7 +149,7 @@ class TestGenerateSpec:
         mock_build_relations.assert_called_once_with()
         mock_build_tasks.assert_called_once_with()
 
-    @patch("isaaclab_arena.utils.usd_prim_tree.load_usd_prim_tree")
+    @patch("isaaclab_arena.utils.usd.prim_tree.load_usd_prim_tree")
     @patch("isaaclab_arena.environment_spec.arena_env_graph_types.AssetSpec.resolve_usd_path")
     def test_two_pass_generate_spec_resolves_object_references(self, mock_resolve_usd, mock_load_tree, agent):
         agent_obj, client = agent
@@ -170,7 +170,7 @@ class TestGenerateSpec:
         assert client.chat.completions.create.call_count == 2
         assert spec.object_references
 
-    @patch("isaaclab_arena.utils.usd_prim_tree.load_usd_prim_tree")
+    @patch("isaaclab_arena.utils.usd.prim_tree.load_usd_prim_tree")
     @patch("isaaclab_arena.environment_spec.arena_env_graph_types.AssetSpec.resolve_usd_path")
     def test_two_pass_generate_spec_returns_dict_on_pass2_failure(self, mock_resolve_usd, mock_load_tree, agent):
         agent_obj, client = agent

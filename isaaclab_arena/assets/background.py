@@ -15,7 +15,7 @@ from isaaclab.sim.utils import clone
 from isaaclab_arena.assets.object import Object
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.utils.pose import Pose
-from isaaclab_arena.utils.usd_prim_tree import load_usd_physics_roots
+from isaaclab_arena.utils.usd.prim_tree import load_usd_physics_roots
 
 if TYPE_CHECKING:
     from pxr import Usd

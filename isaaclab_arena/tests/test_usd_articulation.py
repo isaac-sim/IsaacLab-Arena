@@ -73,7 +73,7 @@ def _build_two_link_arm(joint_type: str = "revolute"):
 
 def _posed_forearm_origin(stage, joint_pos) -> np.ndarray:
     """Return where the forearm box's rest-pose origin lands once joint_pos is applied."""
-    from isaaclab_arena.utils.usd_articulation import compute_posed_prim_world_deltas, resolve_prim_world_delta
+    from isaaclab_arena.utils.usd.articulation import compute_posed_prim_world_deltas, resolve_prim_world_delta
 
     deltas = compute_posed_prim_world_deltas(stage, "/root", joint_pos)
     delta = resolve_prim_world_delta("/root/forearm/box", deltas)
@@ -128,7 +128,7 @@ def _test_authored_pose_away_from_joint_zero_is_corrected(simulation_app) -> boo
     forearm.AddRotateZOp().Set(90.0)
     UsdPhysics.RigidBodyAPI.Apply(forearm.GetPrim())
 
-    from isaaclab_arena.utils.usd_articulation import compute_posed_prim_world_deltas, resolve_prim_world_delta
+    from isaaclab_arena.utils.usd.articulation import compute_posed_prim_world_deltas, resolve_prim_world_delta
 
     deltas = compute_posed_prim_world_deltas(stage, "/root", {"elbow": 0.0})
     delta = resolve_prim_world_delta("/root/forearm/box", deltas)
@@ -140,7 +140,7 @@ def _test_authored_pose_away_from_joint_zero_is_corrected(simulation_app) -> boo
 
 def _test_unknown_joint_name_is_rejected(simulation_app) -> bool:
     """A joint position naming a joint the articulation lacks is a configuration error."""
-    from isaaclab_arena.utils.usd_articulation import compute_posed_prim_world_deltas
+    from isaaclab_arena.utils.usd.articulation import compute_posed_prim_world_deltas
 
     stage = _build_two_link_arm()
     try:
@@ -153,7 +153,7 @@ def _test_unknown_joint_name_is_rejected(simulation_app) -> bool:
 
 def _test_joint_pos_patterns_expand_to_joint_names(simulation_app) -> bool:
     """Isaac Lab regex joint keys expand to every joint they full-match, and misses are dropped."""
-    from isaaclab_arena.utils.usd_articulation import resolve_joint_pos_patterns
+    from isaaclab_arena.utils.usd.articulation import resolve_joint_pos_patterns
 
     names = ["panda_joint1", "panda_joint2", "right_outer_knuckle_joint", "left_inner_finger_joint"]
     resolved = resolve_joint_pos_patterns(names, {"panda_joint1": 0.5, "right_outer.*": 0.25})
@@ -176,8 +176,8 @@ def _test_droid_geometry_tracks_configured_joint_positions(simulation_app) -> bo
     from pxr import Usd
 
     from isaaclab_arena.embodiments.droid.droid import DroidAbsoluteJointPositionEmbodiment
-    from isaaclab_arena.utils.usd_articulation import articulation_joint_prims
-    from isaaclab_arena.utils.usd_helpers import (
+    from isaaclab_arena.utils.usd.articulation import articulation_joint_prims
+    from isaaclab_arena.utils.usd.helpers import (
         compute_local_bounding_box_from_usd_at_joint_pos,
         extract_trimesh_from_usd_at_joint_pos,
     )
@@ -205,7 +205,7 @@ def _test_droid_geometry_tracks_configured_joint_positions(simulation_app) -> bo
 def _test_droid_posed_bounding_box_covers_all_geometry(simulation_app) -> bool:
     """The link-box proxy covers every posed Gprim, including analytic geometry."""
     from isaaclab_arena.embodiments.droid.droid import DroidAbsoluteJointPositionEmbodiment
-    from isaaclab_arena.utils.usd_helpers import (
+    from isaaclab_arena.utils.usd.helpers import (
         compute_local_bounding_box_from_usd,
         compute_local_bounding_box_from_usd_at_joint_pos,
         extract_trimesh_from_usd_at_joint_pos,
@@ -245,7 +245,7 @@ def _test_offline_posing_matches_physx_link_poses(simulation_app) -> bool:
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.scene.scene import Scene
-    from isaaclab_arena.utils.usd_articulation import (
+    from isaaclab_arena.utils.usd.articulation import (
         articulation_joint_prims,
         compute_posed_prim_world_deltas,
         resolve_joint_pos_patterns,
@@ -329,7 +329,7 @@ def _test_instanced_geometry_is_posed_with_its_link(simulation_app) -> bool:
 
     from pxr import Gf, UsdGeom
 
-    from isaaclab_arena.utils.usd_helpers import (
+    from isaaclab_arena.utils.usd.helpers import (
         compute_local_bounding_box_from_usd_at_joint_pos,
         extract_trimesh_from_usd_at_joint_pos,
     )

@@ -1,0 +1,167 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+external_yaml: tool_sorting_env_config.yaml
+env_name: vabar_tool_sorting_easy_3
+objects:
+- id: hdr_shadow_receiver
+  registry_name: hdr_shadow_receiver
+  params: {}
+- id: bin1
+  registry_name: industrial__tool_sort_bin
+  params:
+    instance_name: bin1
+    side: source
+    appearance: default
+    initial_pose:
+      position_xyz:
+      - 0.1
+      - -0.25
+      - 0.8
+      rotation_xyzw:
+      - 0.0
+      - 0.0
+      - 0.0
+      - 1.0
+- id: bin2
+  registry_name: industrial__tool_sort_bin
+  params:
+    instance_name: bin2
+    side: destination
+    appearance: wiring
+    initial_pose:
+      position_xyz:
+      - 0.1
+      - 0.28
+      - 0.8
+      rotation_xyzw:
+      - 0.0
+      - 0.0
+      - 0.0
+      - 1.0
+- id: benchmark_light
+  registry_name: empty_warehouse_dome_light
+  params: {}
+- id: cutting_pliers_0
+  registry_name: vabar_tool_sort__cutting_pliers
+  params:
+    instance_name: cutting_pliers_0
+- id: breadboard_0
+  registry_name: vabar_tool_sort__breadboard
+  params:
+    instance_name: breadboard_0
+- id: wire_spool_0
+  registry_name: vabar_tool_sort__wire_spool
+  params:
+    instance_name: wire_spool_0
+- id: combination_pliers_0
+  registry_name: vabar_tool_sort__combination_pliers
+  params:
+    instance_name: combination_pliers_0
+relations:
+- kind: is_anchor
+  subject: table
+  params: {}
+- kind: 'on'
+  subject: bin1
+  reference: table
+  params:
+    clearance_m: 0.0
+- kind: at_position
+  subject: bin1
+  params:
+    x: 0.1
+    y: -0.25
+- kind: is_anchor
+  subject: bin1
+  params: {}
+- kind: 'on'
+  subject: bin2
+  reference: table
+  params:
+    clearance_m: 0.0
+- kind: at_position
+  subject: bin2
+  params:
+    x: 0.1
+    y: 0.28
+- kind: is_anchor
+  subject: bin2
+  params: {}
+- kind: rotate_around_solution
+  subject: bin1
+  params:
+    yaw_rad: 0.0
+- kind: rotate_around_solution
+  subject: bin2
+  params:
+    yaw_rad: 0.0
+- kind: 'on'
+  subject: cutting_pliers_0
+  reference: bin1
+  params:
+    clearance_m: 0.0
+    edge_margin_m: 0.01
+- kind: 'on'
+  subject: breadboard_0
+  reference: bin1
+  params:
+    clearance_m: 0.0
+    edge_margin_m: 0.01
+- kind: 'on'
+  subject: wire_spool_0
+  reference: bin1
+  params:
+    clearance_m: 0.0
+    edge_margin_m: 0.01
+- kind: 'on'
+  subject: combination_pliers_0
+  reference: bin1
+  params:
+    clearance_m: 0.0
+    edge_margin_m: 0.01
+task:
+  composition: atomic
+  description: Sort the four items from bin1 into the compartment of bin2 whose label
+    names each one.
+  subtasks:
+  - kind: ObjectsInRegionsTask
+    params:
+      object_list:
+      - cutting_pliers_0
+      - breadboard_0
+      - wire_spool_0
+      - combination_pliers_0
+      region_list:
+      - bin2
+      - bin2
+      - bin2
+      - bin2
+      bounds_xyzxyz:
+      - - -0.195
+        - -0.245
+        - 0
+        - 0
+        - 0
+        - 0.15
+      - - 0
+        - -0.245
+        - 0
+        - 0.195
+        - 0
+        - 0.15
+      - - -0.195
+        - 0
+        - 0
+        - 0
+        - 0.245
+        - 0.15
+      - - 0
+        - 0
+        - 0
+        - 0.195
+        - 0.245
+        - 0.15
+      episode_length_s: 192.0

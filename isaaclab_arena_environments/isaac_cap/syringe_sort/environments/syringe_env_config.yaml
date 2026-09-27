@@ -1,0 +1,41 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Shared simulation configuration for all syringe variants.
+default_physics_backend: newton
+placer_params:
+  random_yaw_init: false
+  allow_best_loss_fallbacks: false
+  max_placement_attempts: 30
+  solver_params:
+    clearance_m: 0.015
+env_cfg_override:
+  decimation: 1
+  sim:
+    dt: 0.02
+    render_interval: 1
+    gravity: [0.0, 0.0, -9.81]
+    use_newton_actuators: true
+    physics:
+      num_substeps: 10
+      use_cuda_graph: true
+      debug_mode: false
+      default_shape_cfg:
+        ke: 60000.0
+        kd: 500.0
+        gap: 0.002
+      solver_cfg:
+        solver: newton
+        disable_sensors: true
+        integrator: implicitfast
+        nconmax: 5000
+        njmax: 5000
+        iterations: 100
+        ls_iterations: 50
+        impratio: 20.0
+        cone: elliptic
+        use_mujoco_contacts: true
+        ccd_iterations: 35
+        update_data_interval: 1

@@ -1,0 +1,18 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+shared:
+  environment:
+    type: syringe_cluttered_newton
+    episode_length_s: null
+  environment_builder:
+    num_envs: 1
+    solve_relations: true
+  policy:
+    type: zero_action
+  rollout_limit:
+    num_episodes: 1
+runs:
+  syringe: {}

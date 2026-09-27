@@ -4,10 +4,17 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import traceback
+from types import SimpleNamespace
 
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
 HEADLESS = True
+
+
+class _ProgressEnvironment(SimpleNamespace):
+    @property
+    def progress_tracker(self):
+        return self._progress_tracker
 
 
 def _test_add_suffix_configclass_transform(simulation_app) -> bool:
@@ -73,315 +80,361 @@ def _test_add_suffix_configclass_transform(simulation_app) -> bool:
     return True
 
 
-def _test_remove_configclass_transform(simulation_app) -> bool:
-    """Test that _remove_configclass_transform correctly removes specified fields."""
+class _ControlledPredicate:
+    """Read one independently controlled condition from the test environment."""
 
-    from functools import partial
+    def __init__(self, index):
+        self.index = index
+        self.calls = 0
 
-    from isaaclab.utils.configclass import configclass
-
-    from isaaclab_arena.tasks.composite_task_base import CompositeTaskBase
-    from isaaclab_arena.utils.configclass import transform_configclass_instance
-
-    @configclass
-    class FooCfg:
-        field_a: int = 123
-        field_b: str = "123"
-        field_c: float = 1.23
-
-    try:
-        original_cfg = FooCfg()
-        edited_cfg = transform_configclass_instance(
-            original_cfg,
-            partial(CompositeTaskBase._remove_configclass_transform, exclude_fields={"field_b"}),
-        )
-
-        # Check that remaining fields exist
-        assert hasattr(edited_cfg, "field_a")
-        assert hasattr(edited_cfg, "field_c")
-
-        # Check that values are preserved
-        assert edited_cfg.field_a == 123
-        assert edited_cfg.field_c == 1.23
-
-        # Check that removed field doesn't exist
-        assert not hasattr(edited_cfg, "field_b")
-
-        # Test removing multiple fields
-        original_cfg = FooCfg()
-        edited_cfg = transform_configclass_instance(
-            original_cfg,
-            partial(CompositeTaskBase._remove_configclass_transform, exclude_fields={"field_a", "field_c"}),
-        )
-
-        # Check that only field_b remains
-        assert hasattr(edited_cfg, "field_b")
-        assert edited_cfg.field_b == "123"
-        assert not hasattr(edited_cfg, "field_a")
-        assert not hasattr(edited_cfg, "field_c")
-
-        # Test None input
-        edited_cfg = transform_configclass_instance(
-            None,
-            partial(CompositeTaskBase._remove_configclass_transform, exclude_fields=set()),
-        )
-        assert edited_cfg is None
-
-        # Test removing all fields returns None
-        original_cfg = FooCfg()
-        edited_cfg = transform_configclass_instance(
-            original_cfg,
-            partial(CompositeTaskBase._remove_configclass_transform, exclude_fields={"field_a", "field_b", "field_c"}),
-        )
-        assert edited_cfg is None
-
-    except Exception as e:
-        print(f"Error: {e}")
-        traceback.print_exc()
-        return False
-
-    return True
+    def __call__(self, env):
+        self.calls += 1
+        return env.conditions[:, self.index]
 
 
-class _MockSuccessFunc:
-    """Callable that returns a controlled per-env boolean tensor."""
-
-    def __init__(self, num_envs: int):
-        import torch
-
-        self.num_envs = num_envs
-        self.return_value = torch.tensor([False] * num_envs)
-
-    def set(self, values: list[bool]):
-        import torch
-
-        assert len(values) == self.num_envs
-        self.return_value = torch.tensor(values)
-
-    def __call__(self, env, **kwargs):
-        return self.return_value
-
-
-class _MockSubtask:
-    """Minimal stand-in for a TaskBase with a controllable success function."""
-
-    def __init__(self, num_envs: int):
-        from isaaclab.managers import TerminationTermCfg
-
-        self.func = _MockSuccessFunc(num_envs)
-
-        class _TerminationCfg:
-            pass
-
-        self._termination_cfg = _TerminationCfg()
-        self._termination_cfg.success = TerminationTermCfg(func=self.func, params={})
+class _ControlledTask:
+    def __init__(self, predicate, timeout_s=1.0):
+        self.predicate = predicate
+        self.timeout_s = timeout_s
 
     def get_termination_cfg(self):
-        return self._termination_cfg
+        from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
+        from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
 
-    def set_success(self, values: list[bool]):
-        self.func.set(values)
+        return TaskTerminationCfg(
+            timeout_s=self.timeout_s,
+            success=[ProgressObjective(name="condition", predicate_sequence=[self.predicate])],
+        )
 
-
-def _get_success_cfgs(subtasks: list[_MockSubtask]):
-    """Return the already-callable success configs used by the direct unit tests."""
-    return [subtask.get_termination_cfg().success for subtask in subtasks]
-
-
-class _MockEnv:
-    """Minimal stand-in for the env used by composite_task_success_func."""
-
-    def __init__(self, num_envs: int = 1, device: str = "cpu"):
-        self.num_envs = num_envs
-        self.device = device
-        self.extras = {}
+    def get_metrics(self):
+        return []
 
 
-def _test_composite_desired_subtask_success_state_with_none(simulation_app) -> bool:
-    """When ``desired_subtask_success_state`` contains None entries, those positions are
-    ignored and only positions with True/False are checked. Verifies the composite-task
-    matching logic (ordering does not matter for composite tasks)."""
+class _MultipleObjectiveTask(_ControlledTask):
+    """A flat subtask requiring several independently tracked objectives."""
 
+    def __init__(self, predicates):
+        super().__init__(predicate=None)
+        self.predicates = predicates
+
+    def get_termination_cfg(self):
+        from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
+        from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
+
+        return TaskTerminationCfg(
+            timeout_s=self.timeout_s,
+            success=[
+                ProgressObjective(name=f"condition_{index}", predicate_sequence=[predicate])
+                for index, predicate in enumerate(self.predicates)
+            ],
+        )
+
+
+def _make_tracker(task, conditions):
+    import torch
+
+    from isaaclab_arena.progress_tracking.progress_tracker import ProgressTracker
+
+    env = _ProgressEnvironment(
+        conditions=torch.tensor(conditions, dtype=torch.bool),
+        extras={},
+        num_envs=len(conditions),
+        device="cpu",
+        _progress_tracker=None,
+    )
+    termination_cfg = task.get_termination_cfg()
+    tracker = ProgressTracker(
+        termination_cfg.success,
+        len(conditions),
+        "cpu",
+        subtasks_are_sequential=termination_cfg.subtasks_are_sequential,
+        desired_subtask_success_state=termination_cfg.desired_subtask_success_state,
+    )
+    env._progress_tracker = tracker
+    return env, tracker
+
+
+def _test_composite_tracks_each_subtask_history(simulation_app):
     from isaaclab_arena.tasks.composite_task_base import CompositeTaskBase
 
-    try:
-        env = _MockEnv(num_envs=1)
-        subtasks = [_MockSubtask(num_envs=1) for _ in range(3)]
-        subtask_success_cfgs = _get_success_cfgs(subtasks)
-
-        # Latch all three subtasks True simultaneously (composite doesn't require order).
-        subtasks[0].set_success([True])
-        subtasks[1].set_success([True])
-        subtasks[2].set_success([True])
-        result = CompositeTaskBase.composite_task_success_func(env, subtask_success_cfgs, [None, True, True])
-        assert env._subtask_ever_succeeded == [[True, True, True]]
-        assert result.tolist() == [True]
-
-        # Subtask 0 currently False (don't-care) -> still success.
-        subtasks[0].set_success([False])
-        result = CompositeTaskBase.composite_task_success_func(env, subtask_success_cfgs, [None, True, True])
-        assert result.tolist() == [True]
-
-        # Subtask 2 currently False breaks the [None, True, True] pattern -> failure.
-        subtasks[2].set_success([False])
-        result = CompositeTaskBase.composite_task_success_func(env, subtask_success_cfgs, [None, True, True])
-        assert result.tolist() == [False]
-
-        # [None, False, None]: subtask 1 must be currently False AND latched True at
-        # some point. Drive subtask 1 False; it was latched True earlier -> success.
-        subtasks[1].set_success([False])
-        result = CompositeTaskBase.composite_task_success_func(env, subtask_success_cfgs, [None, False, None])
-        assert result.tolist() == [True]
-
-        # All-None desired state matches trivially.
-        result = CompositeTaskBase.composite_task_success_func(env, subtask_success_cfgs, [None, None, None])
-        assert result.tolist() == [True]
-
-    except Exception as e:
-        print(f"Error: {e}")
-        traceback.print_exc()
-        return False
-
+    task = CompositeTaskBase([_ControlledTask(_ControlledPredicate(index)) for index in range(2)])
+    env, tracker = _make_tracker(task, [[True, False], [False, True]])
+    tracker.step(env)
+    assert tracker.is_complete().tolist() == [False, False]
+    assert tracker.get_subtask_completion().tolist() == [[True, False], [False, True]]
+    env.conditions.logical_not_()
+    tracker.step(env)
+    assert tracker.is_complete().tolist() == [True, True]
+    assert not hasattr(env, "_subtask_ever_succeeded")
+    assert not hasattr(env, "_current_subtask_idx")
     return True
 
 
-def _test_manager_constructs_nested_subtask_success_terms(simulation_app) -> bool:
-    """Composite and sequential tasks evaluate child terms constructed by the manager."""
+def _test_composite_requires_history_and_desired_current_states(simulation_app):
+    from isaaclab_arena.tasks.composite_task_base import CompositeTaskBase
 
-    import torch
-    from types import SimpleNamespace
+    predicates = [_ControlledPredicate(index) for index in range(3)]
+    task = CompositeTaskBase(
+        [_ControlledTask(predicate) for predicate in predicates],
+        desired_subtask_success_state=[False, True, None],
+    )
+    env, tracker = _make_tracker(task, [[True, True, False]])
+    tracker.step(env)
+    assert tracker.is_complete().tolist() == [False]
+    env.conditions[0, 0] = False
+    tracker.step(env)
+    assert tracker.is_complete().tolist() == [True], "None skips this subtask's success requirement."
+    assert tracker.get_subtask_completion().tolist() == [[True, True, False]]
+    env.conditions[0, 1] = False
+    tracker.step(env)
+    assert tracker.is_complete().tolist() == [False], "True must still hold in the current state."
+    env.conditions[0, 1] = True
+    env.conditions[0, 0] = True
+    tracker.step(env)
+    assert tracker.is_complete().tolist() == [False], "False must still hold in the current state."
+    env.conditions[0, 0] = False
+    tracker.step(env)
+    assert tracker.is_complete().tolist() == [True]
+    return True
 
-    from isaaclab.managers import ManagerTermBase, TerminationManager, TerminationTermCfg
 
-    from isaaclab_arena.tasks.composite_task_base import CompositeTaskBase, TerminationsCfg
-    from isaaclab_arena.tasks.sequential_task_base import SequentialTaskBase
+def _test_final_conditions_are_evaluated_once_per_step(simulation_app):
+    from isaaclab_arena.tasks.composite_task_base import CompositeTaskBase
 
-    class _PlayingSimulation:
-        def is_playing(self) -> bool:
-            return True
+    predicates = [_ControlledPredicate(index) for index in range(2)]
+    task = CompositeTaskBase(
+        [_ControlledTask(predicate) for predicate in predicates],
+        desired_subtask_success_state=[True, True],
+    )
+    env, tracker = _make_tracker(task, [[True, True]])
+    tracker.step(env)
+    assert tracker.is_complete().tolist() == [True]
+    assert [predicate.calls for predicate in predicates] == [1, 1]
+    tracker.get_state()
+    tracker.get_subtask_completion()
+    assert [predicate.calls for predicate in predicates] == [1, 1]
+    return True
 
-    class _ConstantSuccessTerm(ManagerTermBase):
-        def __call__(self, env, success_value: bool) -> torch.Tensor:
-            return torch.full((env.num_envs,), success_value, dtype=torch.bool, device=env.device)
 
-    class _Subtask:
-        def __init__(self, success_cfg: TerminationTermCfg):
-            self._termination_cfg = TerminationsCfg(success=success_cfg)
+def _test_nested_composition_is_rejected(simulation_app):
+    import pytest
 
+    from isaaclab_arena.tasks.composite_task_base import CompositeTaskBase
+
+    subtasks = [_ControlledTask(_ControlledPredicate(index)) for index in range(2)]
+    for outer_subtasks_are_sequential in (False, True):
+        for inner_subtasks_are_sequential in (False, True):
+            nested_task = CompositeTaskBase(subtasks, subtasks_are_sequential=inner_subtasks_are_sequential)
+            with pytest.raises(AssertionError, match="[Nn]ested"):
+                CompositeTaskBase(
+                    [nested_task, subtasks[0]],
+                    subtasks_are_sequential=outer_subtasks_are_sequential,
+                )
+    return True
+
+
+def _test_subtask_recorder_reads_flat_completion_without_updating(simulation_app):
+    from isaaclab_arena.tasks.composite_task_base import CompositeTaskBase, SubtaskSuccessStateRecorderCfg
+
+    predicates = [_ControlledPredicate(index) for index in range(2)]
+    task = CompositeTaskBase([_ControlledTask(predicate) for predicate in predicates])
+    env, tracker = _make_tracker(task, [[True, False], [False, True]])
+    tracker.step(env)
+    recorder_cfg = SubtaskSuccessStateRecorderCfg()
+    recorder = recorder_cfg.class_type(recorder_cfg, env)
+    name, recorded_completion = recorder.record_post_step()
+    assert name == "subtask_success_rate"
+    assert recorded_completion.tolist() == [[True, False], [False, True]]
+    assert [predicate.calls for predicate in predicates] == [1, 1]
+    return True
+
+
+def _test_multiple_objective_subtask_retains_completion_history(simulation_app):
+    from isaaclab_arena.tasks.composite_task_base import CompositeTaskBase
+
+    predicates = [_ControlledPredicate(index) for index in range(3)]
+    task = CompositeTaskBase([_MultipleObjectiveTask(predicates[:2]), _ControlledTask(predicates[2])])
+    termination_cfg = task.get_termination_cfg()
+    assert [objective.name for objective in termination_cfg.success] == [
+        "subtask_0/condition_0",
+        "subtask_0/condition_1",
+        "subtask_1/condition",
+    ]
+    assert [objective.parent_subtask_idx for objective in termination_cfg.success] == [
+        0,
+        0,
+        1,
+    ]
+    env, tracker = _make_tracker(task, [[True, False, True]])
+    tracker.step(env)
+    assert tracker.get_subtask_completion().tolist() == [[False, True]]
+    env.conditions.logical_not_()
+    tracker.step(env)
+    assert tracker.get_subtask_completion().tolist() == [[True, True]]
+    assert tracker.is_complete().tolist() == [True]
+    return True
+
+
+def _test_multiple_objective_final_states_use_current_conditions(simulation_app):
+    from isaaclab_arena.tasks.composite_task_base import CompositeTaskBase
+
+    for desired_state in (False, True):
+        predicates = [_ControlledPredicate(index) for index in range(3)]
+        task = CompositeTaskBase(
+            [_MultipleObjectiveTask(predicates[:2]), _ControlledTask(predicates[2])],
+            desired_subtask_success_state=[desired_state, None],
+        )
+        env, tracker = _make_tracker(task, [[False, False, False]])
+        tracker.step(env)
+        assert tracker.is_complete().tolist() == [False], "False still requires the subtask to complete first."
+        env.conditions[0, :2] = True
+        tracker.step(env)
+        assert tracker.get_subtask_completion().tolist() == [[True, False]]
+        assert tracker.is_complete().tolist() == [desired_state]
+        env.conditions[0, 0] = False
+        tracker.step(env)
+        assert tracker.get_subtask_completion().tolist() == [[True, False]]
+        assert tracker.is_complete().tolist() == [not desired_state]
+        env.conditions[0, 0] = True
+        tracker.step(env)
+        assert tracker.is_complete().tolist() == [desired_state]
+    return True
+
+
+def _test_composite_preserves_each_subtask_failure_condition(simulation_app):
+    import pytest
+    from isaaclab.managers import TerminationTermCfg
+
+    from isaaclab_arena.tasks.composite_task_base import CompositeTaskBase
+    from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
+
+    class FailingTask(_ControlledTask):
         def get_termination_cfg(self):
-            return self._termination_cfg
+            termination = super().get_termination_cfg()
+            termination.failures["object_dropped"] = TerminationTermCfg(func=self.predicate)
+            return termination
 
-    try:
-        for composite_task_type in (CompositeTaskBase, SequentialTaskBase):
-            child_success_cfg = TerminationTermCfg(
-                func=_ConstantSuccessTerm,
-                params={"success_value": True},
-            )
-            task = composite_task_type([_Subtask(child_success_cfg)], episode_length_s=1.0)
-            env = SimpleNamespace(
-                num_envs=1,
-                device="cpu",
-                extras={},
-                scene={},
-                sim=_PlayingSimulation(),
-            )
+    children = [FailingTask(_ControlledPredicate(index)) for index in range(2)]
+    task = CompositeTaskBase(children)
+    env, _ = _make_tracker(task, [[True, False]])
+    terms = task.get_termination_cfg()
+    assert terms.failures["object_dropped_subtask_0"].func(env).tolist() == [True]
+    assert terms.failures["object_dropped_subtask_1"].func(env).tolist() == [False]
+    assert len(terms.success) == 2
+    assert terms.timeout_s == 2.0
 
-            termination_manager = TerminationManager(task.get_termination_cfg(), env)
-            composite_success_cfg = termination_manager.get_term_cfg("success")
-            resolved_subtask_success_cfg = composite_success_cfg.params["subtask_success_cfgs"][0]
+    class InvalidTask(_ControlledTask):
+        def get_termination_cfg(self):
+            return TaskTerminationCfg(timeout_s=self.timeout_s)
 
-            assert isinstance(resolved_subtask_success_cfg.func, _ConstantSuccessTerm)
-            assert child_success_cfg.func is _ConstantSuccessTerm
-            assert termination_manager.compute().tolist() == [True]
-            assert env._subtask_ever_succeeded == [[True]]
+    invalid_task = CompositeTaskBase([InvalidTask(_ControlledPredicate(0))])
+    with pytest.raises(AssertionError, match="success objectives"):
+        invalid_task.get_termination_cfg()
+    return True
 
-    except Exception as e:
-        print(f"Error: {e}")
-        traceback.print_exc()
-        return False
+
+def _test_composed_task_has_one_overall_timeout(simulation_app):
+    from isaaclab_arena.tasks.composite_task_base import CompositeTaskBase
+
+    children = [
+        _ControlledTask(_ControlledPredicate(0), timeout_s=2.0),
+        _ControlledTask(_ControlledPredicate(1), timeout_s=3.0),
+    ]
+    default_order_task = CompositeTaskBase(children)
+    assert default_order_task.subtasks_are_sequential is False
+    assert default_order_task.get_termination_cfg().subtasks_are_sequential is False
+
+    for subtasks_are_sequential in (False, True):
+        default_task = CompositeTaskBase(children, subtasks_are_sequential=subtasks_are_sequential)
+        default_termination = default_task.get_termination_cfg()
+        assert default_termination.timeout_s == 5.0
+        assert default_termination.failures == {}
+        assert default_task.subtasks_are_sequential is subtasks_are_sequential
+        assert default_termination.subtasks_are_sequential is subtasks_are_sequential
+
+        overridden_task = CompositeTaskBase(
+            children, episode_length_s=8.0, subtasks_are_sequential=subtasks_are_sequential
+        )
+        assert overridden_task.get_termination_cfg().timeout_s == 8.0
 
     return True
 
 
-def _test_direct_evaluation_constructs_nested_subtask_success_terms(simulation_app) -> bool:
-    """Test class-backed child terms when the composite success term is called directly."""
-
-    import torch
-    from types import SimpleNamespace
-
-    from isaaclab.managers import ManagerTermBase, TerminationTermCfg
+def _test_unbounded_subtask_requires_explicit_composite_timeout(simulation_app):
+    import pytest
 
     from isaaclab_arena.tasks.composite_task_base import CompositeTaskBase
-    from isaaclab_arena.tasks.sequential_task_base import SequentialTaskBase
 
-    class _ConstantSuccessTerm(ManagerTermBase):
-        def __call__(self, env, success_value: bool) -> torch.Tensor:
-            return torch.full((env.num_envs,), success_value, dtype=torch.bool, device=env.device)
+    children = [
+        _ControlledTask(_ControlledPredicate(0), timeout_s=2.0),
+        _ControlledTask(_ControlledPredicate(1), timeout_s=None),
+    ]
+    for subtasks_are_sequential in (False, True):
+        with pytest.raises(AssertionError, match="Set episode_length_s explicitly"):
+            CompositeTaskBase(children, subtasks_are_sequential=subtasks_are_sequential)
 
-    try:
-        for composite_task_type in (CompositeTaskBase, SequentialTaskBase):
-            child_success_cfg = TerminationTermCfg(
-                func=_ConstantSuccessTerm,
-                params={"success_value": True},
-            )
-            env = SimpleNamespace(num_envs=1, device="cpu", extras={})
-
-            result = composite_task_type.composite_task_success_func(env, [child_success_cfg], None)
-
-            assert result.tolist() == [True]
-            assert isinstance(child_success_cfg.func, _ConstantSuccessTerm)
-
-    except Exception as e:
-        print(f"Error: {e}")
-        traceback.print_exc()
-        return False
-
+        task = CompositeTaskBase(children, episode_length_s=8.0, subtasks_are_sequential=subtasks_are_sequential)
+        termination_cfg = task.get_termination_cfg()
+        assert termination_cfg.timeout_s == 8.0
+        assert len(termination_cfg.success) == 2
+        assert termination_cfg.subtasks_are_sequential is subtasks_are_sequential
+        assert children[1].get_termination_cfg().timeout_s is None
     return True
 
 
-def test_composite_desired_subtask_success_state_with_none():
-    result = run_function_with_persistent_simulation_app(
-        _test_composite_desired_subtask_success_state_with_none,
-        headless=HEADLESS,
+def test_unbounded_subtask_requires_explicit_composite_timeout():
+    assert run_function_with_persistent_simulation_app(
+        _test_unbounded_subtask_requires_explicit_composite_timeout, headless=HEADLESS
     )
-    assert result, f"Test {_test_composite_desired_subtask_success_state_with_none.__name__} failed"
 
 
-def test_manager_constructs_nested_subtask_success_terms():
-    result = run_function_with_persistent_simulation_app(
-        _test_manager_constructs_nested_subtask_success_terms,
-        headless=HEADLESS,
+def test_composed_task_has_one_overall_timeout():
+    assert run_function_with_persistent_simulation_app(_test_composed_task_has_one_overall_timeout, headless=HEADLESS)
+
+
+def test_multiple_objective_subtask_retains_completion_history():
+    assert run_function_with_persistent_simulation_app(
+        _test_multiple_objective_subtask_retains_completion_history, headless=HEADLESS
     )
-    assert result, f"Test {_test_manager_constructs_nested_subtask_success_terms.__name__} failed"
 
 
-def test_direct_evaluation_constructs_nested_subtask_success_terms():
-    result = run_function_with_persistent_simulation_app(
-        _test_direct_evaluation_constructs_nested_subtask_success_terms,
-        headless=HEADLESS,
+def test_multiple_objective_final_states_use_current_conditions():
+    assert run_function_with_persistent_simulation_app(
+        _test_multiple_objective_final_states_use_current_conditions, headless=HEADLESS
     )
-    assert result, f"Test {_test_direct_evaluation_constructs_nested_subtask_success_terms.__name__} failed"
+
+
+def test_composite_preserves_each_subtask_failure_condition():
+    assert run_function_with_persistent_simulation_app(
+        _test_composite_preserves_each_subtask_failure_condition, headless=HEADLESS
+    )
 
 
 def test_add_suffix_configclass_transform():
-    result = run_function_with_persistent_simulation_app(
-        _test_add_suffix_configclass_transform,
-        headless=HEADLESS,
+    assert run_function_with_persistent_simulation_app(_test_add_suffix_configclass_transform, headless=HEADLESS)
+
+
+def test_composite_tracks_each_subtask_history():
+    assert run_function_with_persistent_simulation_app(_test_composite_tracks_each_subtask_history, headless=HEADLESS)
+
+
+def test_composite_requires_history_and_desired_current_states():
+    assert run_function_with_persistent_simulation_app(
+        _test_composite_requires_history_and_desired_current_states, headless=HEADLESS
     )
-    assert result, f"Test {_test_add_suffix_configclass_transform.__name__} failed"
 
 
-def test_remove_configclass_transform():
-    result = run_function_with_persistent_simulation_app(
-        _test_remove_configclass_transform,
-        headless=HEADLESS,
+def test_final_conditions_are_evaluated_once_per_step():
+    assert run_function_with_persistent_simulation_app(
+        _test_final_conditions_are_evaluated_once_per_step, headless=HEADLESS
     )
-    assert result, f"Test {_test_remove_configclass_transform.__name__} failed"
 
 
-if __name__ == "__main__":
-    test_add_suffix_configclass_transform()
-    test_remove_configclass_transform()
-    test_composite_desired_subtask_success_state_with_none()
-    test_manager_constructs_nested_subtask_success_terms()
-    test_direct_evaluation_constructs_nested_subtask_success_terms()
+def test_nested_composition_is_rejected():
+    assert run_function_with_persistent_simulation_app(_test_nested_composition_is_rejected, headless=HEADLESS)
+
+
+def test_subtask_recorder_reads_flat_completion_without_updating():
+    assert run_function_with_persistent_simulation_app(
+        _test_subtask_recorder_reads_flat_completion_without_updating, headless=HEADLESS
+    )

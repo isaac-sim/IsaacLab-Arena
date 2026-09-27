@@ -176,7 +176,7 @@ class WarpMeshAndSphereCache:
         exclusions = tuple(sorted(excluded_prim_paths))
         key = (obj.usd_path, tuple(obj.scale), exclusions)
         if key not in self._trimesh_cache:
-            from isaaclab_arena.utils.usd_helpers import extract_trimesh_from_usd  # deferred: pxr import
+            from isaaclab_arena.utils.usd.helpers import extract_trimesh_from_usd  # deferred: pxr import
 
             try:
                 self._trimesh_cache[key] = extract_trimesh_from_usd(

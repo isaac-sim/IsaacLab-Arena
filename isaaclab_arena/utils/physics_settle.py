@@ -8,6 +8,8 @@ from __future__ import annotations
 import torch
 from typing import TYPE_CHECKING
 
+from isaaclab_arena.tasks.predicates.object_settling import compute_objects_settled_mask
+
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedEnv
 
@@ -39,15 +41,12 @@ def are_all_objects_settled_per_env(
     if not env_ids:
         return []
     arena_env = env.unwrapped
-    arena_world = arena_env.arena_world
+    settled_mask = compute_objects_settled_mask(
+        arena_env.arena_world,
+        arena_env.scene,
+        object_names,
+        lin_vel_thresh,
+        ang_vel_thresh,
+    )
     environment_ids = torch.as_tensor(env_ids, device=arena_env.device)
-    settled = torch.ones(len(env_ids), dtype=torch.bool, device=arena_env.device)
-    # Note(xinjie.yao): For per-asset loop, no single combined buffer holding each object's velocity.
-    # Loop over each asset is unavoidable.
-    for object_name in object_names:
-        linear_velocity_w = arena_world.get_root_linear_velocity_w(object_name)[environment_ids]
-        angular_velocity_w = arena_world.get_root_angular_velocity_w(object_name)[environment_ids]
-        settled &= (linear_velocity_w.norm(dim=-1) <= lin_vel_thresh) & (
-            angular_velocity_w.norm(dim=-1) <= ang_vel_thresh
-        )
-    return settled.tolist()
+    return settled_mask[environment_ids].tolist()

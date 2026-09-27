@@ -55,7 +55,7 @@ def _create_trajectory_recording_env(output_dir):
         parent_asset=background,
     )
 
-    scene = Scene(assets=[background, cracker_box])
+    scene = Scene(assets=[background, cracker_box, destination_location])
     arena_environment = IsaacLabArenaEnvironment(
         name="trajectory_recording",
         embodiment=embodiment,

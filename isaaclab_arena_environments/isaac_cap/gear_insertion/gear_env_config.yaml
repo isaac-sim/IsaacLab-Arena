@@ -1,0 +1,24 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Gear insertion uses Newton with task-specific solver and collision tuning.
+default_physics_backend: newton
+env_cfg_override:
+  sim:
+    physics:
+      num_substeps: 4
+      collision_decimation: 1
+      default_shape_cfg:
+        ke: 60000.0
+        kd: 500.0
+      solver_cfg:
+        njmax: 8192
+        nconmax: 4096
+        update_data_interval: 1
+      collision_cfg:
+        _target_: isaaclab_newton.physics.NewtonCollisionPipelineCfg
+        reduce_contacts: true
+        rigid_contact_max: 4096
+        max_triangle_pairs: 1000000

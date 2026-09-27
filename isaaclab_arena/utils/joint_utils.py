@@ -42,12 +42,27 @@ def get_joint_position_limits_from_articulation(articulation: Articulation, join
     return joint_min, joint_max
 
 
+def get_joint_position_from_articulation(articulation: Articulation, joint_name: str) -> torch.Tensor:
+    """Return a named joint's position for every environment.
+
+    Args:
+        articulation: Articulation supplying live joint state.
+        joint_name: Exact joint name within the articulation.
+
+    Returns:
+        Tensor of shape (num_envs,), in radians for revolute joints or meters
+        for prismatic joints.
+    """
+    assert joint_name in articulation.data.joint_names, f"Articulation has no joint '{joint_name}'."
+    joint_index = articulation.data.joint_names.index(joint_name)
+    return articulation.data.joint_pos.torch[:, joint_index]
+
+
 def get_unnormalized_joint_position(env: ManagerBasedEnv, asset_cfg: SceneEntityCfg) -> torch.Tensor:
-    """Get the unnormalized position of a joint in radians."""
+    """Get a joint's position in radians (revolute) or meters (prismatic)."""
     articulation = get_articulation_from_asset_cfg(env, asset_cfg)
-    joint_index = get_joint_index_from_asset_cfg(env, asset_cfg)
-    joint_position = wp.to_torch(articulation.data.joint_pos)[:, joint_index]
-    return joint_position
+    assert len(asset_cfg.joint_names) == 1, "Only one joint name is supported for now."
+    return get_joint_position_from_articulation(articulation, asset_cfg.joint_names[0])
 
 
 def get_normalized_joint_position(env: ManagerBasedEnv, asset_cfg: SceneEntityCfg) -> torch.Tensor:

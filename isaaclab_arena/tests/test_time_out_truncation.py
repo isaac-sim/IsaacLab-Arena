@@ -3,67 +3,60 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Guard that every task cfg marks its time-out term as a truncation.
+"""Check that ArenaEnvBuilder installs episode timeouts as truncations."""
 
-``TerminationTermCfg.time_out`` defaults to ``False``, which makes
-``TerminationManager`` report episode-length expiry as ``terminated`` instead of
-``truncated``.
+from types import SimpleNamespace
 
-The sweep imports every task module, which pulls in Isaac Lab cfg modules, so it runs
-in a child process: doing it in the pytest process would trip the duplicate
-``ArticulationCfg`` problem that ``test_collection_import_hygiene`` describes and break
-every robot-building test that runs afterwards.
-"""
+import pytest
 
-import json
-import subprocess
-
-from isaaclab_arena.tests.utils.constants import TestConstants
-
-# Packages whose task cfgs must mark their time-out term as a truncation.
-_TASK_PACKAGES = ("isaaclab_arena.tasks", "isaaclab_arena_examples.external_environments")
-
-_CHILD_SCRIPT = f"""
-import dataclasses, importlib, json, pkgutil
-
-from isaaclab.managers import TerminationTermCfg
-
-terms = {{}}
-for package_name in {_TASK_PACKAGES!r}:
-    package = importlib.import_module(package_name)
-    module_names = [n for _, n, _ in pkgutil.walk_packages(package.__path__, prefix=package_name + ".")]
-    for module_name in [package_name, *module_names]:
-        module = importlib.import_module(module_name)
-        for cls in vars(module).values():
-            # Only classes defined in this module, so a cfg imported elsewhere is not double-counted.
-            if not isinstance(cls, type) or getattr(cls, "__module__", None) != module_name:
-                continue
-            # dataclasses.fields() includes inherited fields, unlike __annotations__.
-            if not dataclasses.is_dataclass(cls):
-                continue
-            if not any(f.name == "time_out" for f in dataclasses.fields(cls)):
-                continue
-            term = cls().time_out
-            if isinstance(term, TerminationTermCfg):
-                terms[module_name + "." + cls.__name__] = term.time_out
-print("TERMS_JSON=" + json.dumps(terms))
-"""
+from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
 
-def test_all_task_cfgs_mark_time_out_as_truncation():
-    """Walks the task packages rather than listing cfgs, so a new task that forgets the
-    flag fails here without anyone remembering to update this test."""
-    result = subprocess.run(
-        [TestConstants.python_path, "-c", _CHILD_SCRIPT],
-        capture_output=True,
-        text=True,
-        timeout=600,
+def _test_builder_timeout_is_truncation(simulation_app, timeout_s):
+    import math
+    import torch
+
+    from isaaclab.envs.mdp import time_out
+    from isaaclab.managers import TerminationManager
+
+    from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
+    from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
+    from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
+    from isaaclab_arena.scene.scene import Scene
+    from isaaclab_arena.tasks.no_task import NoTask
+    from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
+
+    class TimeoutOnlyTask(NoTask):
+        def get_termination_cfg(self):
+            return TaskTerminationCfg(timeout_s=timeout_s)
+
+    description = IsaacLabArenaEnvironment(name="timeout_truncation", scene=Scene(), task=TimeoutOnlyTask())
+    builder = ArenaEnvBuilder(description, ArenaEnvBuilderCfg(num_envs=3, solve_relations=False, device="cpu"))
+    env_cfg, _ = builder.compose_manager_cfg()
+    if timeout_s is None:
+        assert "time_out" not in env_cfg.terminations.to_dict()
+    else:
+        assert env_cfg.episode_length_s == timeout_s
+        assert env_cfg.terminations.time_out.func is time_out
+        assert env_cfg.terminations.time_out.time_out is True
+
+    max_episode_length = math.ceil(env_cfg.episode_length_s / (env_cfg.decimation * env_cfg.sim.dt))
+    env = SimpleNamespace(
+        num_envs=3,
+        device="cpu",
+        sim=SimpleNamespace(is_playing=lambda: True),
+        scene={},
+        episode_length_buf=torch.tensor([max_episode_length - 1, max_episode_length, max_episode_length + 1]),
+        max_episode_length=max_episode_length,
     )
-    assert result.returncode == 0, f"collecting time_out terms failed:\n{result.stderr}"
-    json_lines = [line for line in result.stdout.splitlines() if line.startswith("TERMS_JSON=")]
-    assert len(json_lines) == 1, f"marker line not found in child output:\n{result.stdout}"
-    terms = json.loads(json_lines[0].removeprefix("TERMS_JSON="))
+    manager = TerminationManager(env_cfg.terminations, env)
+    expected_timeouts = torch.tensor([False, timeout_s is not None, timeout_s is not None])
+    torch.testing.assert_close(manager.compute(), expected_timeouts)
+    torch.testing.assert_close(manager.time_outs, expected_timeouts)
+    assert not manager.terminated.any()
+    return True
 
-    assert terms, f"No time_out terms discovered in {_TASK_PACKAGES}; the sweep is not testing anything."
-    offenders = sorted(name for name, is_time_out in terms.items() if is_time_out is not True)
-    assert not offenders, f"Termination cfgs declaring a time_out term without time_out=True: {offenders}"
+
+@pytest.mark.parametrize("timeout_s", [None, 1.0, 12.0])
+def test_builder_timeout_is_truncation(timeout_s):
+    assert run_function_with_persistent_simulation_app(_test_builder_timeout_is_truncation, timeout_s=timeout_s)

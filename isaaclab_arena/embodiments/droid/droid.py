@@ -46,6 +46,7 @@ from isaaclab_arena.embodiments.droid.observations import (
 )
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
 from isaaclab_arena.embodiments.franka.franka import franka_stack_events
+from isaaclab_arena.embodiments.gripper import RobotiqGripper
 from isaaclab_arena.embodiments.robot_on_stand_utils import RobotPrimSpec, StandPrimSpec, compose_on_stand_usd
 from isaaclab_arena.relations.collision_mode import CollisionMode
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
@@ -133,6 +134,7 @@ class DroidEmbodimentBase(EmbodimentBase, ABC):
             arm_mode=arm_mode,
             collision_mode=collision_mode,
         )
+        self.gripper = RobotiqGripper()
         self.stand_height_m = stand_height_m
         assert len(stand_footprint_xy_m) == 2, f"stand_footprint_xy_m must have 2 values, got {stand_footprint_xy_m!r}"
         assert all(
@@ -213,7 +215,7 @@ class DroidEmbodimentBase(EmbodimentBase, ABC):
 
     def get_collision_mesh(self) -> trimesh.Trimesh:
         """Return one posed box mesh for the robot and stand."""
-        from isaaclab_arena.utils.usd_helpers import extract_trimesh_from_usd_at_joint_pos
+        from isaaclab_arena.utils.usd.helpers import extract_trimesh_from_usd_at_joint_pos
 
         source = self.get_placement_geometry_source()
         return extract_trimesh_from_usd_at_joint_pos(source.usd_path, source.joint_pos, source.scale)
@@ -620,9 +622,9 @@ def spawn_newton_droid(
     from isaaclab.sim import schemas
     from isaaclab_newton.sim.schemas import MujocoRigidBodyPropertiesCfg
 
-    from isaaclab_arena.utils.usd_helpers import move_collision_schemas_to_meshes
+    from isaaclab_arena.utils.usd.helpers import move_collision_schemas_to_meshes
 
-    prim = spawn_from_usd(
+    prim = spawn_from_usd.__wrapped__(
         prim_path,
         spawner_cfg,
         translation=translation,

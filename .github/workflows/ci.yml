@@ -406,3 +406,33 @@ jobs:
         run: |
           chmod +x ./docker/push_to_ngc* || true
           ./docker/push_to_ngc.sh -c -p
+
+
+  test_isaac_cap:
+    name: Isaac CAP sanity checks
+    runs-on: [self-hosted, gpu-arena]
+    timeout-minutes: 120
+    needs: [pre_commit]
+
+    container:
+      image: nvcr.io/nvstaging/isaac-amr/isaaclab_arena:latest
+      credentials:
+        username: $oauthtoken
+        password: ${{ env.NGC_API_KEY }}
+    steps:
+      - *nvidia_smi
+      - *lscpu
+
+      - *install_git_step
+      - *cleanup_step
+      - *mark_repo_safe_step
+      - *checkout_step
+      - *git_lfs_step
+      - *install_project_step
+      - *setup_isaac_sim_kit_cache_step
+
+      - name: Run temporary Isaac CAP environment sanity checks
+        run: |
+          ISAACLAB_ARENA_SUBPROCESS_TIMEOUT=900 \
+          /isaac-sim/python.sh -m pytest -sv --durations=0 -m isaac_cap \
+            isaaclab_arena_environments/isaac_cap/tests/

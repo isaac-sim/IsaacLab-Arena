@@ -12,7 +12,7 @@ import warp as wp
 
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
-NUM_STEPS = 25
+NUM_STEPS = 100
 HEADLESS = True
 PLOT = False
 
@@ -27,6 +27,7 @@ def _test_object_on_destination_termination(simulation_app) -> bool:
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.scene.scene import Scene
     from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
+    from isaaclab_arena.tests.utils.pick_and_place import lift_settled_objects_once
     from isaaclab_arena.utils.pose import Pose
 
     args_parser = get_isaaclab_arena_cli_parser()
@@ -71,8 +72,10 @@ def _test_object_on_destination_termination(simulation_app) -> bool:
         success_vec = []
         terminated_vec = []
         sensor = env.unwrapped.scene.sensors[task.contact_sensor_name]
+        lifted_envs = torch.zeros(env.unwrapped.num_envs, dtype=torch.bool, device=env.unwrapped.device)
         for _ in tqdm.tqdm(range(NUM_STEPS)):
             with torch.inference_mode():
+                lift_settled_objects_once(env.unwrapped, cracker_box.name, lifted_envs)
                 actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
                 _, _, terminated, _, _ = env.step(actions)
                 # Get the force on the pick up object.
@@ -84,6 +87,8 @@ def _test_object_on_destination_termination(simulation_app) -> bool:
                 success = env.unwrapped.termination_manager.get_term("success")
                 success_vec.append(success.clone())
                 terminated_vec.append(terminated.item())
+                if success.any():
+                    assert env.unwrapped.extras["progress_tracking"]["states"][0].all_complete
 
     except Exception as e:
         print(f"Error: {e}")

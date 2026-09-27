@@ -4,12 +4,10 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import numpy as np
-from dataclasses import MISSING
+from functools import partial
 
-import isaaclab.envs.mdp as mdp_isaac_lab
 from isaaclab.envs.common import ViewerCfg
 from isaaclab.envs.mimic_env_cfg import MimicEnvCfg, SubTaskConfig
-from isaaclab.managers import TerminationTermCfg
 from isaaclab.scene import InteractiveSceneCfg
 from isaaclab.utils.configclass import configclass
 
@@ -19,8 +17,10 @@ from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.metrics.object_moved import ObjectMovedRateMetric
 from isaaclab_arena.metrics.success_rate import SuccessRateMetric
+from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
 from isaaclab_arena.tasks.common.mimic_default_params import MIMIC_DATAGEN_CONFIG_DEFAULTS
 from isaaclab_arena.tasks.task_base import TaskBase
+from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
 from isaaclab_arena.utils.cameras import get_viewer_cfg_look_at_object
 
 
@@ -42,7 +42,6 @@ class PlaceUprightTask(TaskBase):
         )
         self.scene_config = InteractiveSceneCfg(num_envs=1, env_spacing=3.0, replicate_physics=False)
         self.events_cfg = None
-        self.termination_cfg = self.make_termination_cfg()
         self.task_description = (
             f"Place the {placeable_object.name} upright" if task_description is None else task_description
         )
@@ -50,18 +49,19 @@ class PlaceUprightTask(TaskBase):
     def get_scene_cfg(self):
         return self.scene_config
 
-    def get_termination_cfg(self):
-        return self.termination_cfg
-
-    def make_termination_cfg(self):
+    def get_termination_cfg(self) -> TaskTerminationCfg:
         params = {}
         if self.orientation_threshold is not None:
             params["orientation_threshold"] = self.orientation_threshold
-        success = TerminationTermCfg(
-            func=self.placeable_object.is_placed_upright,
-            params=params,
+        return TaskTerminationCfg(
+            timeout_s=self.episode_length_s,
+            success=[
+                ProgressObjective(
+                    name="place_upright",
+                    predicate_sequence=[partial(self.placeable_object.is_placed_upright, **params)],
+                )
+            ],
         )
-        return TerminationsCfg(success=success)
 
     def get_events_cfg(self):
         return self.events_cfg
@@ -80,17 +80,6 @@ class PlaceUprightTask(TaskBase):
 
     def get_viewer_cfg(self) -> ViewerCfg:
         return get_viewer_cfg_look_at_object(lookat_object=self.placeable_object, offset=np.array([1.5, 1.5, 1.5]))
-
-
-@configclass
-class TerminationsCfg:
-    """Termination terms for the MDP."""
-
-    time_out: TerminationTermCfg = TerminationTermCfg(func=mdp_isaac_lab.time_out, time_out=True)
-
-    # Dependent on the placeable object, so this is passed in from the task at
-    # construction time.
-    success: TerminationTermCfg = MISSING
 
 
 @configclass

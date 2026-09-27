@@ -24,10 +24,13 @@ def _extract_asset_usd_path(asset_cls: type, **params: Any) -> str | None:
     if isinstance(class_usd, str) and class_usd:
         return class_usd
 
+    # Defer conversion imports until runtime; conversion utilities also import these schema types.
+    from isaaclab_arena.environment_spec.arena_env_graph_conversion_utils import parse_asset_params
+
     # Instantiate when usd_path is set lazily (e.g. Lightwheel backgrounds).
     # TODO(qianl): add support for embodiments, whose robot USD lives in scene_config.robot.spawn.
     try:
-        instance = asset_cls(**params)
+        instance = asset_cls(**parse_asset_params(params))
     except Exception:
         return None
 
@@ -294,53 +297,6 @@ def _convert_to_float_tuple(value: Any, length: int, field_name: str) -> tuple[f
         isinstance(item, Real) and not isinstance(item, bool) for item in value
     ), f"Field '{field_name}' must contain only numbers"
     return tuple(float(item) for item in value)
-
-
-class PlacementValidatorSpec(BaseModel):
-    """Per-env placement validators.
-
-    Selects which build-time geometric checks gate object placement for this env. Defaults to
-    every build-time check.
-    """
-
-    enabled_checks: list[str] | None = Field(
-        default=None,
-        description=(
-            "Build-time check names to evaluate during placement; none runs every registered build-time "
-            "check. A check not listed here is never run. Built-in names: no_overlap, on_relation, "
-            "next_to, not_next_to, face_to; externally-registered validators may add more."
-        ),
-    )
-    required_checks: list[str] | None = Field(
-        default=None,
-        description=(
-            "Enabled checks that must pass for a layout to be valid; none requires every enabled check. "
-            "Must be a subset of enabled_checks."
-        ),
-    )
-
-    debug_visualize: bool = Field(
-        default=False,
-        description=(
-            "Stream every candidate layout the checks evaluate to a spawned Rerun viewer window. Debug "
-            "aid, off by default; needs a reachable display. The viewer is its own process, so this "
-            "never starts Isaac Sim, and it closes with the run."
-        ),
-    )
-    debug_visualize_output_path: str | None = Field(
-        default=None,
-        description=(
-            "Path to record the debug visualization to as a Rerun .rrd file, for headless runs. Enables "
-            "the visualization on its own; combine with debug_visualize to both record and watch live."
-        ),
-    )
-
-    @model_validator(mode="after")
-    def _validate_required_subset(self) -> PlacementValidatorSpec:
-        if self.enabled_checks is not None and self.required_checks is not None:
-            extra = set(self.required_checks) - set(self.enabled_checks)
-            assert not extra, f"required_checks must be a subset of enabled_checks; unexpected: {sorted(extra)}"
-        return self
 
 
 class CliOverrideSpec(BaseModel):

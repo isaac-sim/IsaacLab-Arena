@@ -3,17 +3,15 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from dataclasses import MISSING
-
-import isaaclab.envs.mdp as mdp_isaac_lab
-from isaaclab.managers import TerminationTermCfg
-from isaaclab.utils.configclass import configclass
+from functools import partial
 
 from isaaclab_arena.affordances.openable import Openable
 from isaaclab_arena.assets.register import agent_ready, register_task
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
+from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
 from isaaclab_arena.tasks.common.open_close_door_mimic import RotateDoorMimicEnvCfg
 from isaaclab_arena.tasks.rotate_revolute_joint_task import RotateRevoluteJointTask
+from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
 
 
 @agent_ready
@@ -35,37 +33,26 @@ class CloseDoorTask(RotateRevoluteJointTask):
             task_description=task_description,
         )
 
-        self.termination_cfg = self.make_termination_cfg()
         self.task_description = (
             f"Reach out to the {openable_object.name} and close it." if task_description is None else task_description
         )
 
-    def make_termination_cfg(self):
+    def get_termination_cfg(self) -> TaskTerminationCfg:
         params = {}
         if self.target_joint_percentage_threshold is not None:
             params["threshold"] = self.target_joint_percentage_threshold
-        success = TerminationTermCfg(
-            func=self.openable_object.is_closed,
-            params=params,
+        return TaskTerminationCfg(
+            timeout_s=self.episode_length_s,
+            success=[
+                ProgressObjective(
+                    name="close_door",
+                    predicate_sequence=[partial(self.openable_object.is_closed, **params)],
+                )
+            ],
         )
-        return TerminationsCfg(success=success)
-
-    def get_termination_cfg(self):
-        return self.termination_cfg
 
     def get_mimic_env_cfg(self, arm_mode: ArmMode):
         return RotateDoorMimicEnvCfg(
             arm_mode=arm_mode,
             openable_object_name=self.openable_object.name,
         )
-
-
-@configclass
-class TerminationsCfg:
-    """Termination terms for the MDP."""
-
-    time_out: TerminationTermCfg = TerminationTermCfg(func=mdp_isaac_lab.time_out, time_out=True)
-
-    # Dependent on the openable object, so this is passed in from the task at
-    # construction time.
-    success: TerminationTermCfg = MISSING

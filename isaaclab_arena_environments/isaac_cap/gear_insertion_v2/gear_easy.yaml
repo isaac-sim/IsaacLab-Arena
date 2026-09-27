@@ -1,0 +1,104 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+env_name: gear_easy
+placer_params:
+  allow_best_loss_fallbacks: false
+  solver_params:
+    clearance_m: 0.0
+embodiment:
+  id: robot
+  registry_name: industrial_fr3_robotiq_2f85_v2
+  params:
+    initial_pose:
+      position_xyz: [-0.5, -0.1, 0.912]
+      rotation_xyzw: [0.0, 0.0, 0.0, -1.0]
+background:
+  id: background
+  registry_name: industrial__fr3_workcell_table
+  params:
+    initial_pose:
+      position_xyz: [-0.5, -0.1, 0.912]
+      rotation_xyzw: [0.0, 0.0, 0.0, 1.0]
+objects:
+- id: hdr_shadow_receiver
+  registry_name: industrial__hdr_shadow_receiver
+  params: {}
+- id: empty_warehouse_hdr_light
+  registry_name: industrial__empty_warehouse_dome_light
+  params: {}
+- id: gear_mat
+  registry_name: industrial__gear_mesh_mat
+  params: {}
+- id: board
+  registry_name: industrial__gear_mesh_board_20
+  params: {}
+- id: gear_a
+  registry_name: industrial__gear_mesh_20t
+  params: {}
+object_references:
+- id: table
+  parent_id: background
+  prim_path: placement_surface
+  object_type: base
+  params: {}
+relations:
+- kind: is_anchor
+  subject: table
+  params: {}
+- kind: "on"
+  subject: gear_mat
+  reference: table
+  params: {clearance_m: 0.001}
+- kind: at_position
+  subject: gear_mat
+  params: {x: -0.0309982590563552, y: 0.0155650225211777}
+- kind: rotate_around_solution
+  subject: gear_mat
+  params: {yaw_rad: 0.0}
+- kind: "on"
+  subject: board
+  reference: table
+  params: {clearance_m: 0.001}
+- kind: position_limits_box
+  subject: board
+  params:
+    x_min: 0.0890017409436448
+    x_max: 0.1490017409436448
+    y_min: -0.0144349774788223
+    y_max: 0.0455650225211777
+- kind: rotate_around_solution
+  subject: board
+  params: {yaw_rad: 1.5707963267948966}
+- kind: random_around_solution
+  subject: board
+  params: {yaw_half_rad: 0.17453292519943295}
+- kind: "on"
+  subject: gear_a
+  reference: gear_mat
+  params: {clearance_m: 0.001, edge_margin_m: 0.008}
+- kind: position_limits_box
+  subject: gear_a
+  params:
+    x_min: -0.0704982590563552
+    x_max: 0.0085017409436448
+    y_min: -0.0839349774788223
+    y_max: 0.1150650225211777
+- kind: rotate_around_solution
+  subject: gear_a
+  params: {yaw_rad: 0.0}
+- kind: random_around_solution
+  subject: gear_a
+  params: {yaw_half_rad: 3.141592653589793}
+task:
+  composition: atomic
+  description: put the gear on its peg so it meshes with the pinion, then press the red button at the near end of the board to start it
+  subtasks:
+  - kind: GearMeshTaskV2
+    params:
+      board: board
+      gear: gear_a
+      gear_teeth: 20
+      episode_length_s: 100.0

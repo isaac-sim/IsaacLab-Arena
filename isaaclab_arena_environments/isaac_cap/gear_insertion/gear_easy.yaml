@@ -3,6 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+external_yaml: gear_env_config.yaml
 env_name: gear_easy
 embodiment:
   id: robot
@@ -13,26 +14,26 @@ embodiment:
       rotation_xyzw: [0.0, 0.0, 0.0, -1.0]
 background:
   id: background
-  registry_name: industrial__fr3_workcell_table
+  registry_name: fr3_workcell_table
   params:
     initial_pose:
       position_xyz: [-0.5, -0.1, 0.912]
       rotation_xyzw: [0.0, 0.0, 0.0, 1.0]
 objects:
 - id: hdr_shadow_receiver
-  registry_name: industrial__hdr_shadow_receiver
+  registry_name: hdr_shadow_receiver
   params: {}
 - id: empty_warehouse_hdr_light
-  registry_name: industrial__empty_warehouse_dome_light
+  registry_name: empty_warehouse_dome_light
   params: {}
 - id: gear_base
-  registry_name: industrial__factory_gear_base
+  registry_name: factory_gear_base
   params: {}
 - id: gear_small
-  registry_name: industrial__factory_gear_small
+  registry_name: factory_gear_small
   params: {}
 - id: gear_medium
-  registry_name: industrial__factory_gear_medium
+  registry_name: factory_gear_medium
   params: {}
 object_references:
 - id: table
