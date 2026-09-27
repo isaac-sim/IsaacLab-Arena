@@ -29,8 +29,10 @@ class ToolHangingEnvBehaviourDemo(EnvBehaviourDemo):
 
     label = "tool-hanging-validation"
 
-    def __init__(self, *args, video_dir: Path | None = None, **kwargs) -> None:
+    def __init__(self, *args, reset_hold_steps: int, video_dir: Path | None = None, **kwargs) -> None:
+        assert reset_hold_steps >= 0, "reset_hold_steps must be non-negative."
         super().__init__(*args, **kwargs)
+        self.reset_hold_steps = reset_hold_steps
         self.video_dir = video_dir
 
     def make_env(self):
@@ -86,6 +88,10 @@ class ToolHangingEnvBehaviourDemo(EnvBehaviourDemo):
 
     def run_cycle(self, cycle: int) -> None:
         """Place and settle the wrench, then require the normal success reset."""
+        print(f"[{self.label}] cycle {cycle}: hold reset state", flush=True)
+        for _ in range(self.reset_hold_steps):
+            _, _, terminated, truncated, _ = self.step(self.zero_action)
+            assert not (terminated | truncated).any(), "Environment ended while displaying its reset state."
         print(f"[{self.label}] cycle {cycle}: place wrench on hook", flush=True)
         self._place_wrench_on_hook()
         with self.torch.inference_mode():
@@ -108,9 +114,12 @@ def run_demo(
     *,
     cycles: int = 0,
     real_time: bool = True,
+    reset_hold_steps: int = 60,
     video_dir: Path | None = None,
 ) -> None:
     """Run the tool-hanging behavior validation."""
+    from isaaclab_visualizers.kit import KitVisualizerCfg
+
     from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
 
     demo = ToolHangingEnvBehaviourDemo(
@@ -118,7 +127,13 @@ def run_demo(
         _build_tool_hanging_demo_environment(enable_cameras=video_dir is not None),
         ArenaEnvBuilderCfg(num_envs=1, solve_relations=True, placement_seed=42),
         real_time=real_time,
+        reset_hold_steps=reset_hold_steps,
         video_dir=video_dir,
+        visualizer_cfg=KitVisualizerCfg(
+            eye=(-1.4, -1.4, 1.8),
+            lookat=(0.88, 0.0, 1.1),
+            origin_type="world",
+        ),
     )
     demo.run_demo(cycles)
 
@@ -131,6 +146,12 @@ def main() -> None:
 
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--cycles", type=int, default=0, help="Cycles to run; zero repeats until Kit closes.")
+    parser.add_argument(
+        "--reset-hold-steps",
+        type=int,
+        default=60,
+        help="Simulation steps shown after each reset before placing the wrench.",
+    )
     parser.add_argument("--no-real-time", action="store_true", help="Run without wall-clock rate limiting.")
     parser.add_argument("--video-dir", type=Path, help="Optional directory for observation-camera recordings.")
     AppLauncher.add_app_launcher_args(parser)
@@ -143,6 +164,7 @@ def main() -> None:
             simulation_app,
             cycles=args.cycles,
             real_time=not args.no_real_time,
+            reset_hold_steps=args.reset_hold_steps,
             video_dir=args.video_dir,
         )
 
