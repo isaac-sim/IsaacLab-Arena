@@ -6,10 +6,16 @@
 # AUTOLab's 60 Hz, eight-substep MuJoCo-contact regime shared by every tool-hanging scene.
 # Only fields that differ from Arena's Newton preset are listed.
 default_physics_backend: newton
+placer_params:
+  random_yaw_init: false
 env_cfg_override:
   decimation: 1
+  scene:
+    replicate_physics: false
   sim:
     dt: 0.016666666666666666
+    render_interval: 1
+    gravity: [0.0, 0.0, -9.81]
     use_newton_actuators: true
     physics:
       num_substeps: 8
