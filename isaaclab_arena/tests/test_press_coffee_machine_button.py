@@ -56,6 +56,8 @@ def _test_press_button_coffee_machine(simulation_app) -> bool:
 
     from isaaclab.envs.manager_based_env import ManagerBasedEnv
 
+    from isaaclab_arena.tasks.press_button_task import PressButtonTask
+
     # Get the scene
     env, coffee_machine = get_test_environment(num_envs=1)
 
@@ -84,6 +86,16 @@ def _test_press_button_coffee_machine(simulation_app) -> bool:
         print("Unpressing coffee machine button")
         coffee_machine.unpress(env, env_ids=None)
         assert_unpressed(env)
+
+        default_task = PressButtonTask(coffee_machine)
+        deeper_press_task = PressButtonTask(coffee_machine, pressedness_threshold=0.8)
+        default_predicate = default_task.get_termination_cfg().success[0].predicate_sequence[0]
+        deeper_press_predicate = deeper_press_task.get_termination_cfg().success[0].predicate_sequence[0]
+        coffee_machine.press(env, env_ids=None, pressed_percentage=0.6)
+        assert default_predicate(env).item()
+        assert not deeper_press_predicate(env).item()
+        coffee_machine.press(env, env_ids=None, pressed_percentage=0.9)
+        assert deeper_press_predicate(env).item()
 
     except Exception as e:
         print(f"Error: {e}")

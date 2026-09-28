@@ -3,9 +3,11 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from collections.abc import Callable
 from types import get_original_bases
-from typing import TYPE_CHECKING, get_args, get_origin
+from typing import TYPE_CHECKING, TypeVar, get_args, get_origin
 
+from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.assets.registries import (
     AssetRegistry,
     DeviceRegistry,
@@ -21,6 +23,8 @@ from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironme
 if TYPE_CHECKING:
     from isaaclab_arena.policy.policy_base import PolicyBase, PolicyCfg
 
+_AssetFactoryT = TypeVar("_AssetFactoryT", bound=Callable[..., object])
+
 
 # Decorator to register an asset with the AssetRegistry.
 def register_asset(cls):
@@ -29,6 +33,20 @@ def register_asset(cls):
     else:
         AssetRegistry().register(cls, cls.name)
     return cls
+
+
+def register_asset_factory(
+    *, name: str, object_type: ObjectType, tags: tuple[str, ...] = ("object",)
+) -> Callable[[_AssetFactoryT], _AssetFactoryT]:
+    """Register an asset factory with its registry metadata."""
+
+    def decorator(factory: _AssetFactoryT) -> _AssetFactoryT:
+        factory.name = name
+        factory.tags = tags
+        factory.object_type = object_type
+        return register_asset(factory)
+
+    return decorator
 
 
 # Decorator to register an device with the DeviceRegistry.

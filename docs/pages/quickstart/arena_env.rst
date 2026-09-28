@@ -184,6 +184,8 @@ For more detail, see :doc:`Assets <../concepts/scene/concept_assets_design>`,
 :doc:`Scenes <../concepts/scene/index>`, :doc:`Embodiments <../concepts/embodiment/index>`,
 :doc:`Tasks <../concepts/task/index>`, and
 :doc:`Environment Builder <../concepts/environment/env_builder>`.
+PhysX vs Newton selection and ``--presets`` precedence are described in
+:doc:`Physics backend selection <../concepts/environment/physics_backend_selection>`.
 
 .. dropdown:: Environment definition: ``pick_and_place_maple_table_environment.py``
    :animate: fade-in

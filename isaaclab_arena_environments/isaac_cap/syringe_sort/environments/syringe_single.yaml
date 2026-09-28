@@ -1,0 +1,61 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+external_yaml: syringe_env_config.yaml
+
+env_name: syringe_single_newton
+embodiment:
+  id: robot
+  registry_name: industrial_fr3_robotiq_2f85
+  params:
+    initial_pose:
+      position_xyz: [-0.5, -0.1, 0.912]
+      rotation_xyzw: [0.0, 0.0, 0.0, 1.0]
+background:
+  id: background
+  registry_name: fr3_workcell_table
+  params:
+    initial_pose:
+      position_xyz: [-0.5, -0.1, 0.912]
+      rotation_xyzw: [0.0, 0.0, 0.0, 1.0]
+objects:
+  - id: syringe_receiver
+    registry_name: hdr_shadow_receiver
+  - id: sharps_container
+    registry_name: sharps_container
+    params:
+      initial_pose:
+        position_xyz: [0.1, 0.28, 0.8]
+  - id: instrument_tray
+    registry_name: instrument_tray
+    params:
+      initial_pose:
+        position_xyz: [0.1, -0.25, 0.8]
+  - id: syringe_0
+    registry_name: syringe
+    params:
+      initial_pose:
+        position_xyz: [0.1, -0.25, 0.84]
+  - id: light
+    registry_name: empty_warehouse_dome_light
+object_references:
+  - id: table
+    parent_id: background
+    prim_path: placement_surface
+    object_type: base
+relations: []
+task:
+  composition: atomic
+  description: pick up the syringe from the instrument tray and drop it through the hole in the top of the yellow sharps disposal box
+  subtasks:
+    # TODO(alexmillane): [object-in-missing-feature]: Move to a more general ObjectIn task once we have it.
+    - kind: SyringeSortTask
+      params:
+        object_list: [syringe_0]
+        region_list: [sharps_container]
+        bounds_xyzxyz:
+          - [0.053, -0.2055, -0.016, 0.142, -0.0395, 0.134]
+        consecutive_success_steps: 50
+        episode_length_s: 228.0

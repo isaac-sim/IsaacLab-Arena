@@ -7,9 +7,9 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
 from typing import ClassVar
 
+from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
 from isaaclab_arena.utils.pose import Pose
@@ -29,7 +29,7 @@ class _IndustrialFr3Robotiq2f85Base(EmbodimentBase):
     def __init__(
         self,
         enable_cameras: bool = False,
-        initial_pose: Pose | Mapping[str, Sequence[float]] | None = None,
+        initial_pose: Pose | None = None,
         initial_joint_pose: list[float] | None = None,
         concatenate_observation_terms: bool = False,
         arm_mode: ArmMode | None = None,
@@ -37,7 +37,7 @@ class _IndustrialFr3Robotiq2f85Base(EmbodimentBase):
     ):
         super().__init__(
             enable_cameras,
-            _normalize_initial_pose(initial_pose),
+            initial_pose,
             concatenate_observation_terms,
             arm_mode,
         )
@@ -79,6 +79,7 @@ class _IndustrialFr3Robotiq2f85Base(EmbodimentBase):
         return "robotiq_base"
 
 
+@register_asset
 class IndustrialFr3Robotiq2f85Embodiment(_IndustrialFr3Robotiq2f85Base):
     """Fixed-base FR3 absolute-joint embodiment with DROID-compatible streams."""
 
@@ -87,31 +88,10 @@ class IndustrialFr3Robotiq2f85Embodiment(_IndustrialFr3Robotiq2f85Base):
     action_config_type = IndustrialFr3RobotiqActionsCfg
 
 
+@register_asset
 class IndustrialFr3Robotiq2f85DifferentialIKEmbodiment(_IndustrialFr3Robotiq2f85Base):
     """FR3 relative Cartesian control for keyboard and SpaceMouse teleoperation."""
 
     name = "industrial_fr3_robotiq_2f85_differential_ik"
     tags: ClassVar[list[str]] = ["embodiment"]
     action_config_type = IndustrialFr3RobotiqDifferentialIKActionsCfg
-
-
-def _normalize_initial_pose(
-    initial_pose: Pose | Mapping[str, Sequence[float]] | None,
-) -> Pose | None:
-    """Convert graph/YAML pose parameters to Arena's typed pose."""
-    if initial_pose is None or isinstance(initial_pose, Pose):
-        return initial_pose
-    if set(initial_pose) != {"position_xyz", "rotation_xyzw"}:
-        raise ValueError("initial_pose must contain position_xyz and rotation_xyzw")
-    position_xyz = tuple(initial_pose["position_xyz"])
-    rotation_xyzw = tuple(initial_pose["rotation_xyzw"])
-    if len(position_xyz) != 3 or len(rotation_xyzw) != 4:
-        raise ValueError("initial_pose must contain three position and four rotation values")
-    if not all(
-        isinstance(value, (int, float)) and not isinstance(value, bool) for value in (*position_xyz, *rotation_xyzw)
-    ):
-        raise ValueError("initial_pose values must be numeric")
-    return Pose(
-        position_xyz=tuple(float(value) for value in position_xyz),
-        rotation_xyzw=tuple(float(value) for value in rotation_xyzw),
-    )

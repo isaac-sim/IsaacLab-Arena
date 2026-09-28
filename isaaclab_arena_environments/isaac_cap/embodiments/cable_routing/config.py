@@ -10,6 +10,7 @@ from __future__ import annotations
 import isaaclab.sim as sim_utils
 from isaaclab.actuators import ImplicitActuatorCfg
 from isaaclab.assets import ArticulationCfg
+from isaaclab.sensors.frame_transformer.frame_transformer_cfg import FrameTransformerCfg, OffsetCfg
 from isaaclab.utils.configclass import configclass
 
 ARM_JOINT_NAMES = [f"joint{index}" for index in range(1, 7)]
@@ -20,6 +21,8 @@ GRIPPER_OPEN_POSITION = 0.037524
 GRIPPER_CLOSED_POSITION = 0.0
 
 _DEFAULT_ARM_JOINT_POSITIONS = (0.0, 0.85, 0.60, 0.0, 0.0, 0.0)
+_LINK_SIX_PRIM_SUFFIX = "/Geometry/arm/link_1/link_2/link_3/link_4/link_5/link_6"
+_TCP_OFFSET_XYZ = (0.0, -0.044, 0.13)
 
 
 def make_yam_articulation_cfg(
@@ -78,9 +81,26 @@ def make_yam_articulation_cfg(
     )
 
 
+def make_yam_ee_frame_cfg(robot_prim_path: str, target_name: str) -> FrameTransformerCfg:
+    """Track one YAM grasp-site TCP from its terminal arm link."""
+    return FrameTransformerCfg(
+        prim_path=f"{robot_prim_path}/Geometry/arm",
+        debug_vis=False,
+        target_frames=[
+            FrameTransformerCfg.FrameCfg(
+                prim_path=f"{robot_prim_path}{_LINK_SIX_PRIM_SUFFIX}",
+                name=target_name,
+                offset=OffsetCfg(pos=_TCP_OFFSET_XYZ),
+            )
+        ],
+    )
+
+
 @configclass
 class BimanualYamSceneCfg:
     """Two independently addressable YAM articulations."""
 
     left_robot: ArticulationCfg | None = None
     right_robot: ArticulationCfg | None = None
+    left_ee_frame: FrameTransformerCfg | None = None
+    right_ee_frame: FrameTransformerCfg | None = None

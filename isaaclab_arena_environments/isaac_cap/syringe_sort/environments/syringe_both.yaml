@@ -1,0 +1,139 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+external_yaml: syringe_env_config.yaml
+
+env_name: syringe_both_newton
+embodiment:
+  id: fr3
+  registry_name: industrial_fr3_robotiq_2f85
+  params:
+    initial_pose:
+      position_xyz:
+      - -0.5
+      - -0.1
+      - 0.912
+      rotation_xyzw:
+      - 0.0
+      - 0.0
+      - 0.0
+      - 1.0
+background:
+  id: background
+  registry_name: fr3_workcell_table
+  params:
+    initial_pose:
+      position_xyz:
+      - -0.5
+      - -0.1
+      - 0.912
+      rotation_xyzw:
+      - 0.0
+      - 0.0
+      - 0.0
+      - 1.0
+objects:
+- id: syringe_receiver
+  registry_name: hdr_shadow_receiver
+  params: {}
+- id: sharps_container
+  registry_name: sharps_container
+  params:
+    instance_name: sharps_container
+- id: instrument_tray
+  registry_name: instrument_tray
+  params:
+    instance_name: instrument_tray
+- id: benchmark_light
+  registry_name: empty_warehouse_dome_light
+  params: {}
+- id: syringe_0
+  registry_name: syringe
+  params:
+    instance_name: syringe_0
+- id: syringe_1
+  # Upstream's syringe_pack_0 is the bare white mesh, not another red cap.
+  # It remains a scored goal below, exactly as in the upstream both task.
+  registry_name: syringe_blank
+  params:
+    instance_name: syringe_1
+object_references:
+- id: table
+  parent_id: background
+  prim_path: placement_surface
+  object_type: base
+  params: {}
+relations:
+- kind: is_anchor
+  subject: table
+  params: {}
+- kind: 'on'
+  subject: instrument_tray
+  reference: table
+  params:
+    clearance_m: 0.0
+- kind: position_limits_box
+  subject: instrument_tray
+  params:
+    x_min: 0.05
+    x_max: 0.15
+    y_min: -0.33
+    y_max: -0.23
+- kind: 'on'
+  subject: sharps_container
+  reference: table
+  params:
+    clearance_m: 0.0
+- kind: position_limits_box
+  subject: sharps_container
+  params:
+    # See syringe_single.yaml: brought toward the robot so the carry
+    # reorientation's z ~= 1.34 waypoint stays inside the FR3/Robotiq USD IK's
+    # 0.867 m reach.
+    x_min: 0.05
+    x_max: 0.12
+    y_min: 0.1075
+    y_max: 0.2075
+- kind: 'on'
+  subject: syringe_0
+  reference: instrument_tray
+  params:
+    clearance_m: 0.0
+    edge_margin_m: 0.01
+- kind: 'on'
+  subject: syringe_1
+  reference: instrument_tray
+  params:
+    clearance_m: 0.0
+    edge_margin_m: 0.01
+task:
+  composition: atomic
+  description: pick up both syringes from the instrument tray and drop each through
+    the hole in the yellow sharps disposal box
+  subtasks:
+  # TODO(alexmillane): [object-in-missing-feature]: Move to a more general ObjectIn task once we have it.
+  - kind: SyringeSortTask
+    params:
+      object_list:
+      - syringe_0
+      - syringe_1
+      region_list:
+      - sharps_container
+      - sharps_container
+      bounds_xyzxyz:
+      - - 0.053
+        - -0.2055
+        - -0.016
+        - 0.142
+        - -0.0395
+        - 0.134
+      - - 0.053
+        - -0.2055
+        - -0.016
+        - 0.142
+        - -0.0395
+        - 0.134
+      consecutive_success_steps: 50
+      episode_length_s: 456.0

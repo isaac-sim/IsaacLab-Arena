@@ -8,12 +8,16 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
+from isaaclab_arena.relations.placement_asset import PlaceableAsset
+from isaaclab_arena.utils.physics_backend import PhysicsBackend
+
 if TYPE_CHECKING:
     from isaaclab_arena.assets.teleop_device_base import TeleopDeviceBase
     from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
     from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import IsaacLabArenaManagerBasedRLEnvCfg
     from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTermCfg
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+    from isaaclab_arena.relations.placement_layouts import PlacementLayouts
     from isaaclab_arena.scene.scene import Scene
     from isaaclab_arena.tasks.task_base import TaskBase
 
@@ -28,11 +32,15 @@ class IsaacLabArenaEnvironment:
         embodiment: EmbodimentBase | None = None,
         task: TaskBase | None = None,
         teleop_device: TeleopDeviceBase | None = None,
-        env_cfg_callback: Callable[IsaacLabArenaManagerBasedRLEnvCfg] | None = None,
+        env_cfg_callback: (
+            Callable[[IsaacLabArenaManagerBasedRLEnvCfg], IsaacLabArenaManagerBasedRLEnvCfg] | None
+        ) = None,
         rl_framework_entry_point: str | None = None,
         rl_policy_cfg: str | None = None,
         episode_recorder_terms: dict[str, EpisodeRecorderTermCfg] | None = None,
         placer_params: ObjectPlacerParams | None = None,
+        default_physics_backend: PhysicsBackend = PhysicsBackend.PHYSX,
+        placement_layouts: PlacementLayouts | None = None,
     ):
         """
         Args:
@@ -41,8 +49,8 @@ class IsaacLabArenaEnvironment:
             embodiment: The embodiment to use in the environment.
             task: The task to use in the environment.
             teleop_device: The teleop device to use in the environment.
-            env_cfg_callback: A callback function that modifies the environment configuration.
-                It runs after the requested physics preset is applied.
+            env_cfg_callback: A callback that tunes the environment configuration after the
+                resolved physics backend is materialized. It must not change the backend type.
             rl_framework_entry_point: Gym kwargs key under which the RL policy config is
                 registered. This is an IsaacLab convention: each supported RL framework has a
                 fixed key that its training scripts look up via ``load_cfg_from_registry``.
@@ -55,6 +63,8 @@ class IsaacLabArenaEnvironment:
                 built-in ones, keyed by name.
             placer_params: Object placement configuration. When None, default
                 ObjectPlacerParams are used.
+            default_physics_backend: Default physics backend when ``--presets`` is omitted.
+            placement_layouts: Optional complete cached root layouts keyed by runtime scene names.
         """
         self.name = name
         self.scene = scene
@@ -68,3 +78,12 @@ class IsaacLabArenaEnvironment:
         self.rl_policy_cfg = rl_policy_cfg
         self.episode_recorder_terms = episode_recorder_terms or {}
         self.placer_params = placer_params
+        self.default_physics_backend = PhysicsBackend(default_physics_backend)
+        self.placement_layouts = placement_layouts
+
+    def get_placement_assets(self) -> list[PlaceableAsset]:
+        """Return placeable scene assets and the embodiment."""
+        assets = [asset for asset in self.scene.assets.values() if isinstance(asset, PlaceableAsset)]
+        if self.embodiment is not None:
+            assets.append(self.embodiment)
+        return assets

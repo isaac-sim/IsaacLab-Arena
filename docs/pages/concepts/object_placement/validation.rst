@@ -90,8 +90,8 @@ heading rather than a continuous loss, and the check only verifies that a
 facing yaw was computed. A check for a relation kind unused in the
 environment passes trivially.
 
-Set ``debug_visualize=True`` (or ``placement_validators.debug_visualize:
-true`` in YAML) to inspect candidates in a `Rerun <https://rerun.io/>`_
+Set ``debug_visualize=True`` (or ``placer_params.debug_visualize: true`` in
+YAML) to inspect candidates in a `Rerun <https://rerun.io/>`_
 viewer:
 
 .. figure:: ../../../images/validator_bbox_rerun_viz.gif
@@ -151,9 +151,8 @@ automatically. Making a check optional (enabled but not required) keeps it
 running and reported without rejecting layouts, which is the usual way to
 keep placement geometry-only.
 
-Both are set on ``ObjectPlacerParams`` in Python or the
-``placement_validators`` block in YAML; see :doc:`../environment/environment_definition`
-for the field-level split.
+Both are set on ``ObjectPlacerParams`` in Python or the ``placer_params`` block
+in YAML; see :doc:`../environment/environment_definition`.
 
 Next Steps
 ----------

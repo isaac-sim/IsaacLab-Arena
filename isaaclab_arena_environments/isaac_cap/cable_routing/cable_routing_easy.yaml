@@ -8,24 +8,24 @@ embodiment_frame:
   midpoint_position_xyz: [-0.335, 0.0, 0.767]
 fixtures:
   table:
-    registry_name: industrial__yam_workcell_table
+    registry_name: yam_workcell_table
     position_xyz: [-0.335, 0.0, 0.767]
     rotation_xyzw: [0.0, 0.0, 0.0, 1.0]
     tabletop_z: 0.767
   board:
-    registry_name: industrial__cable_routing_board
+    registry_name: cable_routing_board
     position_xyz: [0.0125, 0.0, 0.770175]
     rotation_xyzw: [0.0, 0.0, 0.0, 1.0]
   peg_0:
-    registry_name: industrial__cable_routing_peg
+    registry_name: cable_routing_peg
     position_xyz: [0.0125, -0.10, 0.7851]
     rotation_xyzw: [0.0, 0.0, 0.0, 1.0]
   peg_1:
-    registry_name: industrial__cable_routing_peg
+    registry_name: cable_routing_peg
     position_xyz: [0.0125, 0.0, 0.7851]
     rotation_xyzw: [0.0, 0.0, 0.0, 1.0]
   peg_2:
-    registry_name: industrial__cable_routing_peg
+    registry_name: cable_routing_peg
     position_xyz: [0.0125, 0.10, 0.7851]
     rotation_xyzw: [0.0, 0.0, 0.0, 1.0]
 cable:

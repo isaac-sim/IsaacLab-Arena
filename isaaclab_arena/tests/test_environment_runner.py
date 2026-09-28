@@ -78,7 +78,6 @@ def test_assert_interactive_runner_args_accepts_one_physx_kit_environment():
         ({"visualizer": ["viser"]}, "requires the Kit GUI"),
         ({"num_envs": 2}, "exactly one environment"),
         ({"distributed": True}, "does not support distributed execution"),
-        ({"presets": PhysicsBackend.NEWTON}, "requires PhysX"),
         ({"list_variations": True}, "does not support --list_variations"),
         ({"device": "cuda:0"}, "requires CPU PhysX"),
     ],
@@ -88,6 +87,38 @@ def test_assert_interactive_runner_args_rejects_unsupported_configuration(argume
 
     with pytest.raises(AssertionError, match=expected_message):
         environment_runner._assert_interactive_runner_args(_interactive_runner_args(**argument_overrides))
+
+
+@pytest.mark.parametrize(
+    ("presets", "env_default"),
+    [
+        (None, PhysicsBackend.NEWTON),
+        (PhysicsBackend.NEWTON, PhysicsBackend.PHYSX),
+    ],
+)
+def test_create_interactive_environment_rejects_newton_backend(presets, env_default, monkeypatch):
+    from isaaclab_arena.scripts import environment_runner
+
+    class FakeArenaBuilder:
+        def __init__(self) -> None:
+            self.cfg = SimpleNamespace(presets=presets, device="cpu")
+            self.arena_env = SimpleNamespace(default_physics_backend=env_default)
+
+        @property
+        def resolved_physics_backend(self) -> PhysicsBackend:
+            return self.cfg.presets if self.cfg.presets is not None else self.arena_env.default_physics_backend
+
+        def compose_manager_cfg(self):
+            raise AssertionError("compose_manager_cfg should not run when Newton is rejected")
+
+    monkeypatch.setattr(
+        environment_runner,
+        "get_arena_builder_from_cli",
+        lambda args_cli, hydra_overrides: FakeArenaBuilder(),
+    )
+
+    with pytest.raises(AssertionError, match="requires PhysX"):
+        environment_runner._create_interactive_environment(_interactive_runner_args(presets=presets), [])
 
 
 def test_run_environment_resets_and_steps_once_before_the_application_stops(monkeypatch):
@@ -207,7 +238,12 @@ def test_main_closes_the_environment_when_the_run_loop_fails(monkeypatch):
 
     class FakeArenaBuilder:
         def __init__(self, received_args) -> None:
-            self.cfg = SimpleNamespace(device=received_args.device)
+            self.cfg = SimpleNamespace(device=received_args.device, presets=None)
+            self.arena_env = SimpleNamespace(default_physics_backend=PhysicsBackend.PHYSX)
+
+        @property
+        def resolved_physics_backend(self) -> PhysicsBackend:
+            return self.cfg.presets if self.cfg.presets is not None else self.arena_env.default_physics_backend
 
         def compose_manager_cfg(self):
             return env_cfg, {"example_kwarg": "value"}

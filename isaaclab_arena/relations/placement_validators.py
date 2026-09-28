@@ -136,8 +136,8 @@ class OnRelationValidator(PlacementValidator):
     ) -> bool:
         """Validate each On relation; keep in sync with OnLossStrategy in relation_loss_strategies.py.
 
-        1. X: child's footprint within parent's X extent, inset by the relation's edge_margin_m.
-        2. Y: child's footprint within parent's Y extent, inset by the relation's edge_margin_m.
+        1. X: child's footprint is contained by the parent's inset X extent or overlaps its original extent.
+        2. Y: child's footprint is contained by the parent's inset Y extent or overlaps its original extent.
         3. Z: child_bottom in (parent_top, parent_top+clearance_m], within on_relation_z_tolerance_m.
 
         Args:
@@ -158,29 +158,30 @@ class OnRelationValidator(PlacementValidator):
                 parent_size = parent_world.max_point - parent_world.min_point
                 child_size = child_world.max_point - child_world.min_point
 
-                m = rel.edge_margin_m
-                # 1) Checking that with the specified margin, the parent is wide enough to place the child on top
+                m = 0.0 if rel.overlap else rel.edge_margin_m  # Ignore edge_margin_m when overlap=True.
+                # 1) Check that the child fits inside the inset support for containment only.
                 if m > 0.0:
-                    freespace = parent_size - child_size
-                    # A margin too large for the surface inverts the inset band so containment can never pass.
-                    if torch.any(freespace[0, :2] < 2 * m):
-                        # The maximum feasible margin is the minimum of the freespace on the xy axes.
-                        max_feasible_margin = max(0.0, min(freespace[0, :2]) / 2.0)
-                        # When parent < child, freespace[0, :2] is negative and max_feasible_margin is 0.0.
-                        if max_feasible_margin > 0.0:
-                            if self._params.verbose:
-                                print(
-                                    f"On relation: edge_margin_m={m} m is too large for parent '{parent.name}'. Max"
-                                    f" feasible margin here is {max_feasible_margin:.3f} m. Use a smaller"
-                                    " edge_margin_m."
-                                )
-                            return False
-                # 2) Checking that the child lies within the parent's xy
+                    freespace = (parent_size - child_size)[0, :2]
+                    if torch.any(freespace < 2 * m):
+                        max_feasible_margin = max(0.0, float(torch.min(freespace).item()) / 2.0)
+                        if self._params.verbose and max_feasible_margin > 0.0:
+                            print(
+                                f"On relation: edge_margin_m={m} m is too large for parent '{parent.name}'. Max"
+                                f" feasible margin here is {max_feasible_margin:.3f} m. Use a smaller"
+                                " edge_margin_m."
+                            )
+                        return False
+                # 2) Checking that the child lies within or overlaps the parent's xy footprint.
+                # CONTAINED: c_min >= p_min + m and c_max <= p_max - m.
+                # OVERLAP: c_max >= p_min and c_min <= p_max.
+                child_min, child_max = child_world.min_point[0], child_world.max_point[0]
+                if rel.overlap:
+                    child_min, child_max = child_max, child_min
                 if (
-                    child_world.min_point[0, 0] < parent_world.min_point[0, 0] + m
-                    or child_world.max_point[0, 0] > parent_world.max_point[0, 0] - m
-                    or child_world.min_point[0, 1] < parent_world.min_point[0, 1] + m
-                    or child_world.max_point[0, 1] > parent_world.max_point[0, 1] - m
+                    child_min[0] < parent_world.min_point[0, 0] + m
+                    or child_max[0] > parent_world.max_point[0, 0] - m
+                    or child_min[1] < parent_world.min_point[0, 1] + m
+                    or child_max[1] > parent_world.max_point[0, 1] - m
                 ):
                     if self._params.verbose:
                         print(f"On relation: '{obj.name}' XY outside parent (retrying)")

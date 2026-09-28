@@ -20,6 +20,8 @@ from isaaclab.managers import SceneEntityCfg
 from isaaclab.sim.schemas.schemas_cfg import ArticulationRootBaseCfg
 from isaaclab.utils.configclass import configclass
 
+from isaaclab_arena.assets.nucleus import ARENA_NUCLEUS_DIR
+
 ARM_JOINT_NAMES = [f"fr3_joint{index}" for index in range(1, 8)]
 GRIPPER_JOINT_NAME = "left_driver_joint"
 END_EFFECTOR_BODY_NAME = "robotiq_base"
@@ -27,8 +29,8 @@ END_EFFECTOR_BODY_NAME = "robotiq_base"
 GRIPPER_CLOSED_ANGLE = math.radians(51.5662)
 _DROID_WORKING_HEIGHT_M = 1.35
 _ROBOT_ON_CART_USD_PATH = (
-    "omniverse://isaac-dev.ov.nvidia.com/Projects/nvblox/isaac_arena/newton_envs/cap_envs/gear_assembly/"
-    "assets/industrial__fr3_robotiq_2f85_on_cart/industrial__fr3_robotiq_2f85_on_cart.usda"
+    f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/temp_newton_envs/cap_envs/gear_assembly/assets/"
+    "industrial__fr3_robotiq_2f85_on_cart/industrial__fr3_robotiq_2f85_on_cart.usda"
 )
 
 

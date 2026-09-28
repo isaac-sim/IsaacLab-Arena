@@ -12,6 +12,8 @@ fi
 chmod 777 -R /isaac-sim/kit/
 chmod a+x /isaac-sim
 
+# Install version-control, build, media, and command-line tools used in the container.
 apt-get update
 apt-get install -y git git-lfs cmake ffmpeg sudo jq python3-pip
+# Add a lightweight image viewer without its optional recommended packages.
 apt-get install -y --no-install-recommends pqiv

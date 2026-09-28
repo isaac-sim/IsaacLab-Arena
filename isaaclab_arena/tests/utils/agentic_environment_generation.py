@@ -29,7 +29,7 @@ if TYPE_CHECKING:
         TaskCatalogue,
     )
     from isaaclab_arena.agentic_environment_generation.inference_backend import InferenceBackend
-    from isaaclab_arena.utils.usd_prim_tree import UsdPrimRecord
+    from isaaclab_arena.utils.usd.prim_tree import UsdPrimRecord
 
 _TEST_DATA_DIR = Path(__file__).resolve().parent.parent / "test_data"
 _OPENAI_PATCH = "isaaclab_arena.agentic_environment_generation.inference_backend.OpenAI"
@@ -106,7 +106,7 @@ def kitchen_resolve_response() -> dict[str, Any]:
 def kitchen_prim_tree() -> list[UsdPrimRecord]:
     """Return the mocked kitchen USD prim tree for pass-2 resolver tests."""
     from isaaclab_arena.assets.object_type import ObjectType
-    from isaaclab_arena.utils.usd_prim_tree import UsdPrimRecord
+    from isaaclab_arena.utils.usd.prim_tree import UsdPrimRecord
 
     return [
         UsdPrimRecord("counter_right_main_group/top_geometry", ObjectType.BASE),

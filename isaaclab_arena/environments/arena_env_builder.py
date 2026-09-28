@@ -12,9 +12,12 @@ from typing import Any
 from isaaclab.devices.device_base import DeviceCfg, DevicesCfg
 from isaaclab.envs import ManagerBasedRLMimicEnv
 from isaaclab.envs.manager_based_env import ManagerBasedEnv
-from isaaclab.managers import EventTermCfg
+from isaaclab.envs.mdp import time_out
+from isaaclab.managers import EventTermCfg, TerminationTermCfg
 from isaaclab.managers.recorder_manager import RecorderManagerBaseCfg
 from isaaclab.scene import InteractiveSceneCfg
+from isaaclab_newton.physics import NewtonCfg
+from isaaclab_physx.physics import PhysxCfg
 from isaaclab_tasks.utils import parse_env_cfg
 from isaaclab_teleop import IsaacTeleopCfg
 
@@ -24,6 +27,7 @@ from isaaclab_arena.embodiments.no_embodiment import NoEmbodiment
 from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
 from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
 from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import (
+    ArenaPhysicsCfg,
     IsaacArenaManagerBasedMimicEnvCfg,
     IsaacLabArenaManagerBasedRLEnvCfg,
     apply_arena_global_settings,
@@ -32,17 +36,21 @@ from isaaclab_arena.environments.relation_solver_interface import solve_and_appl
 from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.metrics.metric_term_cfg import MetricTermCfg
 from isaaclab_arena.metrics.recorder_manager_utils import metrics_to_recorder_manager_cfg
-from isaaclab_arena.progress_tracking.progress_tracker import (
-    make_progress_tracking_events_cfg,
-    make_progress_tracking_recorder_cfg,
-)
+from isaaclab_arena.progress_tracking.progress_tracker import ProgressTrackingRecorderManagerCfg
+from isaaclab_arena.progress_tracking.task_success import TaskSuccessTerm
 from isaaclab_arena.recording.common_terms import CoreEpisodeRecorderTermCfg, VariationEpisodeRecorderTermCfg
 from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTermCfg
 from isaaclab_arena.recording.progress_terms import ProgressEpisodeRecorderTermCfg
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-from isaaclab_arena.relations.placement_events import PLACEMENT_RESET_EVENT_NAME
+from isaaclab_arena.relations.placement_events import (
+    CACHED_PLACEMENT_RESET_EVENT_NAME,
+    PLACEMENT_RESET_EVENT_NAME,
+    make_cached_placement_event,
+)
+from isaaclab_arena.relations.placement_layouts import PlacementLayouts
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.tasks.no_task import NoTask
+from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
 from isaaclab_arena.terms.events import ResetBackgroundPhysics
 from isaaclab_arena.terms.recorders import ArenaEnvRecorderManagerCfg
 from isaaclab_arena.utils.configclass import combine_configclass_instances, make_configclass
@@ -71,6 +79,12 @@ class ArenaEnvBuilder:
             num_envs=cfg.num_envs, env_spacing=cfg.env_spacing, replicate_physics=False
         )
         self._placement_event_cfg: EventTermCfg | None = None
+        self._placement_layouts: PlacementLayouts | None = None
+
+    @property
+    def resolved_physics_backend(self) -> PhysicsBackend:
+        """Return the physics backend selected for this build (CLI preset or environment default)."""
+        return self.cfg.presets if self.cfg.presets is not None else self.arena_env.default_physics_backend
 
     def _solve_relations(self) -> None:
         """Solve spatial relations for scene objects and the embodiment.
@@ -117,6 +131,28 @@ class ArenaEnvBuilder:
             num_envs=self.cfg.num_envs,
             placer_params=placer_params,
             scene_assets=self.arena_env.scene.assets.values(),
+        )
+
+    def _load_placement_layouts(self) -> PlacementLayouts | None:
+        """Read the configured companion file or return in-memory layouts."""
+        layouts = self.arena_env.placement_layouts
+        if self.cfg.placement_layouts_path is not None:
+            assert layouts is None, "Specify a placement layout file or in-memory layouts, not both"
+            layouts = PlacementLayouts.from_episode_jsonl(self.cfg.placement_layouts_path)
+        return layouts
+
+    def _apply_cached_layouts(self, layouts: PlacementLayouts) -> None:
+        """Seed cached poses and register their reset event."""
+        assert self.cfg.placement_seed is None, "placement_seed applies to solving, not cached layouts"
+        placer_params = self.arena_env.placer_params
+        if placer_params is not None:
+            assert placer_params.placement_seed is None, "placement_seed applies to solving, not cached layouts"
+        resolve_on_reset = self.cfg.resolve_on_reset
+        if resolve_on_reset is None and placer_params is not None:
+            resolve_on_reset = placer_params.resolve_on_reset
+        assert resolve_on_reset is not False, "Cached replay requires resolve_on_reset=True"
+        self._placement_event_cfg = make_cached_placement_event(
+            layouts, self.arena_env.get_placement_assets(), self.cfg.num_envs
         )
 
     def get_all_variations(self) -> dict[str, list[VariationBase]]:
@@ -188,6 +224,37 @@ class ArenaEnvBuilder:
         fields = [(m.name, MetricTermCfg, m.get_metric_term_cfg()) for m in metrics]
         return make_configclass("MetricsCfg", fields)()
 
+    def _build_termination_manager_cfg(
+        self,
+        task_termination_cfg: TaskTerminationCfg,
+    ) -> object:
+        """Translate TaskTerminationCfg into an Isaac Lab termination configclass.
+
+        Args:
+            task_termination_cfg: Task-owned success objectives, failures, and timeout.
+
+        Returns:
+            A configclass containing the requested failure, timeout, and success terms.
+        """
+        termination_terms = dict(task_termination_cfg.failures)
+        if task_termination_cfg.timeout_s is not None:
+            termination_terms["time_out"] = TerminationTermCfg(func=time_out, time_out=True)
+        success_objectives = task_termination_cfg.success
+
+        # Install the shared success term when the task defines success objectives.
+        if success_objectives:
+            success_term = TerminationTermCfg(
+                func=TaskSuccessTerm,
+                params={
+                    "success_objectives": success_objectives,
+                    "subtasks_are_sequential": task_termination_cfg.subtasks_are_sequential,
+                    "desired_subtask_success_state": task_termination_cfg.desired_subtask_success_state,
+                },
+            )
+            termination_terms["success"] = success_term
+        termination_fields = [(name, TerminationTermCfg, term) for name, term in termination_terms.items()]
+        return make_configclass("TerminationsCfg", termination_fields)()
+
     def _compose_episode_recorders_cfg(self, extra_terms: dict[str, EpisodeRecorderTermCfg] | None = None) -> object:
         """Build a configclass container with one EpisodeRecorderTermCfg field per episode recorder term.
 
@@ -216,8 +283,11 @@ class ArenaEnvBuilder:
         Returns:
             An (env_cfg, env_kwargs) tuple.
         """
-        # Solve relations before building scene config so positions are captured correctly.
-        if self.cfg.solve_relations:
+        # Apply placement before building scene config so initial poses are captured correctly.
+        self._placement_layouts = self._load_placement_layouts()
+        if self._placement_layouts is not None:
+            self._apply_cached_layouts(self._placement_layouts)
+        elif self.cfg.solve_relations:
             self._solve_relations()
 
         # Apply Hydra variation overrides. Needs to happen before build-time variations are applied.
@@ -233,10 +303,13 @@ class ArenaEnvBuilder:
         # Apply build-time variations now, before scene_cfg is materialised.
         self._apply_build_time_variations()
 
+        resolved_physics_backend = self.resolved_physics_backend
+
         # Constructing the environment by combining inputs from the scene, embodiment, and task.
         embodiment = self.arena_env.embodiment or NoEmbodiment()
-        embodiment.configure_physics_backend(self.cfg.presets)
+        embodiment.configure_physics_backend(resolved_physics_backend)
         task = self.arena_env.task or NoTask()
+        task.configure_for_embodiment(embodiment)
         scene_cfg = combine_configclass_instances(
             "SceneCfg",
             self.interactive_scene_cfg,
@@ -252,16 +325,19 @@ class ArenaEnvBuilder:
         )
         placement_event_cfg = None
         if self._placement_event_cfg is not None:
+            # The pooled event name is reserved for terms carrying a placement_pool handle.
+            event_name = (
+                CACHED_PLACEMENT_RESET_EVENT_NAME if self._placement_layouts is not None else PLACEMENT_RESET_EVENT_NAME
+            )
             PlacementEventCfg = make_configclass(
-                "PlacementEventCfg",
-                [(PLACEMENT_RESET_EVENT_NAME, EventTermCfg, self._placement_event_cfg)],
+                "PlacementEventCfg", [(event_name, EventTermCfg, self._placement_event_cfg)]
             )
             placement_event_cfg = PlacementEventCfg()
         variations_event_cfg = self._compose_variations_event_cfg()
-        progress_objectives = task.get_progress_objectives()
-        progress_tracking_events_cfg: Any = (
-            make_progress_tracking_events_cfg(progress_objectives) if progress_objectives else None
-        )
+        task_termination_cfg = task.get_termination_cfg()
+        assert isinstance(
+            task_termination_cfg, TaskTerminationCfg
+        ), "Tasks must return TaskTerminationCfg with success objectives, failures, and timeout_s."
         background_physics_events_cfg = None
         background_physics_paths = self.arena_env.scene.get_background_physics_paths()
         if background_physics_paths:
@@ -289,14 +365,8 @@ class ArenaEnvBuilder:
             task.get_events_cfg(),
             placement_event_cfg,
             variations_event_cfg,
-            progress_tracking_events_cfg,
         )
-        termination_cfg = combine_configclass_instances(
-            "TerminationCfg",
-            task.get_termination_cfg(),
-            self.arena_env.scene.get_termination_cfg(),
-            embodiment.get_termination_cfg(),
-        )
+        termination_cfg = self._build_termination_manager_cfg(task_termination_cfg)
         actions_cfg = embodiment.get_action_cfg()
         xr_cfg = embodiment.get_xr_cfg()
         isaac_teleop_cfg = None
@@ -312,7 +382,7 @@ class ArenaEnvBuilder:
         metrics_cfg = self._compose_metrics_cfg(metrics)
         metrics_recorder_manager_cfg = metrics_to_recorder_manager_cfg(metrics)
         progress_tracking_recorder_cfg: Any = (
-            make_progress_tracking_recorder_cfg(progress_objectives) if progress_objectives else None
+            ProgressTrackingRecorderManagerCfg() if task_termination_cfg.success else None
         )
 
         # Base has to be specified explicitly to avoid type errors and not lose inheritance.
@@ -356,7 +426,10 @@ class ArenaEnvBuilder:
 
         viewer_cfg = task.get_viewer_cfg()
 
-        episode_length_s = task.get_episode_length_s()
+        episode_length_s = task_termination_cfg.timeout_s
+        if episode_length_s is None:
+            # Isaac Lab still needs a numeric episode length without timeout termination.
+            episode_length_s = task.get_episode_length_s()
 
         task_description = self.cfg.language_instruction or task.get_task_description()
 
@@ -421,25 +494,25 @@ class ArenaEnvBuilder:
         # Set seed for Isaac Lab env.
         env_cfg.seed = self.cfg.seed
 
-        # Apply the requested physics backend before the callback so env-specific overrides can
-        # tune the selected preset. Callbacks that require a specific backend must validate the
-        # selected physics config before replacing or modifying it.
-        presets = self.cfg.presets
-        if presets is not None:
-            from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import ArenaPhysicsCfg
+        arena_physics = ArenaPhysicsCfg()
+        if resolved_physics_backend is PhysicsBackend.PHYSX:
+            env_cfg.sim.physics = arena_physics.physx
+        elif resolved_physics_backend is PhysicsBackend.NEWTON:
+            env_cfg.sim.physics = arena_physics.newton
+            # replicate_physics=False is not supported for Newton, so force it to True here.
+            # submodules/IsaacLab/source/isaaclab/isaaclab/scene/interactive_scene_cfg.py:120
+            env_cfg.scene.replicate_physics = True
 
-            env_cfg.sim.physics = getattr(ArenaPhysicsCfg(), presets.value)
-
-            # Set replicate_physics for shared physics representations.
-            # For Newton, without this flag, the simulation initialization
-            # takes a very long time for large number of parallel environments.
-            if presets is PhysicsBackend.NEWTON:
-                env_cfg.scene.replicate_physics = True
-
-        # Apply the environment configuration callback if it is set
-        # This can be used to modify the simulation configuration, etc.
         if self.arena_env.env_cfg_callback is not None:
             env_cfg = self.arena_env.env_cfg_callback(env_cfg)
+            if resolved_physics_backend is PhysicsBackend.PHYSX:
+                assert isinstance(
+                    env_cfg.sim.physics, PhysxCfg
+                ), "env_cfg_callback changed the physics backend away from PhysX."
+            elif resolved_physics_backend is PhysicsBackend.NEWTON:
+                assert isinstance(
+                    env_cfg.sim.physics, NewtonCfg
+                ), "env_cfg_callback changed the physics backend away from Newton."
 
         env_kwargs: dict[str, Any] = {"variation_recorder": variation_recorder}
         return env_cfg, env_kwargs

@@ -24,7 +24,7 @@ from isaaclab_arena.agentic_environment_generation.simready_asset_search import 
 from isaaclab_arena.agentic_environment_generation.spec_io import env_graph_spec_path, write_env_graph_spec
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
-from isaaclab_arena.utils.usd_prim_tree import UsdPrimRecord
+from isaaclab_arena.utils.usd.prim_tree import UsdPrimRecord
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.editor_panel import (
     SpecParseResult,
     try_save_env_graph_spec,
@@ -201,7 +201,7 @@ class TestBackgroundPrimTree:
             lambda self, *_args, **_kwargs: "/tmp/scene.usd",
         )
         monkeypatch.setattr(
-            "isaaclab_arena.utils.usd_prim_tree.load_usd_prim_tree",
+            "isaaclab_arena.utils.usd.prim_tree.load_usd_prim_tree",
             lambda *_args, **_kwargs: kitchen_prim_tree(),
         )
         prim_tree = resolve_background_prim_tree(spec)

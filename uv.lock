@@ -1585,6 +1585,10 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
+cap = [
+    { name = "msgpack", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
+    { name = "msgpack-numpy", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
+]
 dev = [
     { name = "debugpy", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
     { name = "jupyter", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
@@ -1634,6 +1638,8 @@ requires-dist = [
     { name = "lightwheel-sdk" },
     { name = "matplotlib" },
     { name = "moviepy", specifier = ">=1.0.3,<2.0.0.dev0" },
+    { name = "msgpack", marker = "extra == 'cap'", specifier = ">=1.1.0" },
+    { name = "msgpack-numpy", marker = "extra == 'cap'", specifier = ">=0.4.8" },
     { name = "onnxruntime" },
     { name = "openai", specifier = ">=2.0" },
     { name = "pandas", specifier = "==2.2.3" },
@@ -1651,7 +1657,7 @@ requires-dist = [
     { name = "vuer" },
     { name = "websockets", specifier = "==16.1.1" },
 ]
-provides-extras = ["dev"]
+provides-extras = ["cap", "dev"]
 
 [package.metadata.requires-dev]
 gr00t-client = [{ name = "gr00t", editable = "submodules/Isaac-GR00T" }]
@@ -3177,6 +3183,19 @@ sdist = { url = "https://files.pythonhosted.org/packages/cb/d0/7555686ae7ff57312
 wheels = [
     { url = "https://files.pythonhosted.org/packages/f1/54/65af8de681fa8255402c80eda2a501ba467921d5a7a028c9c22a2c2eedb5/msgpack-1.1.0-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:17fb65dd0bec285907f68b15734a993ad3fc94332b5bb21b0435846228de1f39", size = 401403, upload-time = "2024-09-10T04:25:40.428Z" },
     { url = "https://files.pythonhosted.org/packages/23/f0/d4101d4da054f04274995ddc4086c2715d9b93111eb9ed49686c0f7ccc8a/msgpack-1.1.0-cp312-cp312-musllinux_1_2_x86_64.whl", hash = "sha256:06f5fd2f6bb2a7914922d935d3b8bb4a7fff3a9a91cfce6d06c13bc42bec975b", size = 394254, upload-time = "2024-09-10T04:25:06.048Z" },
+]
+
+[[package]]
+name = "msgpack-numpy"
+version = "0.4.8"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "msgpack", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
+    { name = "numpy", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/08/94/61e8aee142733ebfdc400a05bdac6e1763c4514bba3b42743d223f388450/msgpack-numpy-0.4.8.tar.gz", hash = "sha256:c667d3180513422f9c7545be5eec5d296dcbb357e06f72ed39cc683797556e69", size = 10923, upload-time = "2022-06-09T03:43:08.739Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/9b/5d/f25ac7d4fb77cbd53ddc6d05d833c6bf52b12770a44fa9a447eed470ca9a/msgpack_numpy-0.4.8-py2.py3-none-any.whl", hash = "sha256:773c19d4dfbae1b3c7b791083e2caf66983bb19b40901646f61d8731554ae3da", size = 6919, upload-time = "2022-06-09T03:43:06.82Z" },
 ]
 
 [[package]]

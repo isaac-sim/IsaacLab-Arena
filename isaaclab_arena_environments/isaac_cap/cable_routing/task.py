@@ -9,19 +9,21 @@ from __future__ import annotations
 
 import torch
 from collections.abc import Sequence
-from dataclasses import MISSING
+from functools import partial
 
 import isaaclab.envs.mdp as mdp
 from isaaclab.envs.common import ViewerCfg
 from isaaclab.managers import EventTermCfg as EventTerm
-from isaaclab.managers import TerminationTermCfg as DoneTerm
 from isaaclab.utils.configclass import configclass
 
 from isaaclab_arena.assets.cable import Cable
 from isaaclab_arena.assets.object_base import ObjectBase
+from isaaclab_arena.assets.register import register_task
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.metrics.success_rate import SuccessRateMetric
+from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
 from isaaclab_arena.tasks.task_base import TaskBase
+from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
 
 from .geometry import cable_route_success_from_geometry
 
@@ -59,14 +61,7 @@ class CableRoutingEventsCfg:
     )
 
 
-@configclass
-class CableRoutingTerminationsCfg:
-    """Cable-route success and timeout terms."""
-
-    success: DoneTerm = MISSING
-    time_out: DoneTerm = DoneTerm(func=mdp.time_out, time_out=True)
-
-
+@register_task
 class CableRoutingTask(TaskBase):
     """Route one cable around the configured sequence of pegs."""
 
@@ -97,23 +92,29 @@ class CableRoutingTask(TaskBase):
         assert len(route_peg_indices) == len(route_directions), "Each route peg must have one direction."
         super().__init__(episode_length_s=episode_length_s, task_description=task_description)
         self._events_cfg = CableRoutingEventsCfg()
-        self._terminations_cfg = CableRoutingTerminationsCfg(
-            success=DoneTerm(
-                func=cable_route_success,
-                params={
-                    "cable_asset_name": cable.name,
-                    "peg_asset_names": tuple(peg.name for peg in pegs),
-                    "route_peg_indices": route_peg_indices,
-                    "route_directions": route_directions,
-                },
-            )
+        self._terminations_cfg = TaskTerminationCfg(
+            success=[
+                ProgressObjective(
+                    name="cable_routing",
+                    predicate_sequence=[
+                        partial(
+                            cable_route_success,
+                            cable_asset_name=cable.name,
+                            peg_asset_names=tuple(peg.name for peg in pegs),
+                            route_peg_indices=route_peg_indices,
+                            route_directions=route_directions,
+                        ),
+                    ],
+                ),
+            ],
+            timeout_s=self.episode_length_s,
         )
         self._viewer_lookat = viewer_lookat
 
     def get_scene_cfg(self):
         return None
 
-    def get_termination_cfg(self):
+    def get_termination_cfg(self) -> TaskTerminationCfg:
         return self._terminations_cfg
 
     def get_events_cfg(self):

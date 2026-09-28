@@ -7,21 +7,20 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
 from typing import Any, ClassVar
 
 import isaaclab.sim as sim_utils
 
 from isaaclab_arena.assets.background import Background
 from isaaclab_arena.assets.hdr_image_library import EmptyWarehouseHDRRobolab
+from isaaclab_arena.assets.nucleus import ARENA_NUCLEUS_DIR
 from isaaclab_arena.assets.object import Object
 from isaaclab_arena.assets.object_library import DomeLight
 from isaaclab_arena.assets.object_type import ObjectType
+from isaaclab_arena.assets.register import register_asset, register_asset_factory
 from isaaclab_arena.utils.pose import Pose
 
-_ASSET_ROOT = (
-    "omniverse://isaac-dev.ov.nvidia.com/Projects/nvblox/isaac_arena/newton_envs/cap_envs/gear_assembly/assets"
-)
+_ASSET_ROOT = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/temp_newton_envs/cap_envs/gear_assembly/assets"
 
 FR3_WORKCELL_TABLE_USD_PATH = f"{_ASSET_ROOT}/industrial__fr3_workcell_table/industrial__fr3_workcell_table.usda"
 HDR_SHADOW_RECEIVER_USD_PATH = f"{_ASSET_ROOT}/industrial__hdr_shadow_receiver/industrial__hdr_shadow_receiver.usda"
@@ -29,18 +28,6 @@ GEAR_ASSET_PATHS = {
     f"factory_gear_{size}": f"{_ASSET_ROOT}/industrial__factory_gear_{size}/industrial__factory_gear_{size}.usda"
     for size in ("base", "small", "medium", "large")
 }
-
-
-def _normalize_initial_pose(
-    initial_pose: Pose | Mapping[str, Sequence[float]] | None,
-) -> Pose | None:
-    """Normalize graph/YAML pose mappings to Arena poses."""
-    if initial_pose is None or isinstance(initial_pose, Pose):
-        return initial_pose
-    return Pose(
-        position_xyz=tuple(float(value) for value in initial_pose["position_xyz"]),
-        rotation_xyzw=tuple(float(value) for value in initial_pose["rotation_xyzw"]),
-    )
 
 
 def _make_factory_gear(
@@ -61,9 +48,10 @@ def _make_factory_gear(
     return gear
 
 
+@register_asset_factory(name="factory_gear_base", object_type=ObjectType.RIGID)
 def make_factory_gear_base(
     instance_name: str = "gear_base",
-    initial_pose: Pose | Mapping[str, Sequence[float]] | None = None,
+    initial_pose: Pose | None = None,
     **_ignored: Any,
 ) -> Object:
     """Create the fixed Factory gear base."""
@@ -71,13 +59,14 @@ def make_factory_gear_base(
         instance_name,
         "FactoryGearBase",
         "factory_gear_base",
-        _normalize_initial_pose(initial_pose),
+        initial_pose,
     )
 
 
+@register_asset_factory(name="factory_gear_small", object_type=ObjectType.RIGID)
 def make_factory_gear_small(
     instance_name: str = "gear_small",
-    initial_pose: Pose | Mapping[str, Sequence[float]] | None = None,
+    initial_pose: Pose | None = None,
     **_ignored: Any,
 ) -> Object:
     """Create the source small Factory gear."""
@@ -85,13 +74,14 @@ def make_factory_gear_small(
         instance_name,
         "FactoryGearSmall",
         "factory_gear_small",
-        _normalize_initial_pose(initial_pose),
+        initial_pose,
     )
 
 
+@register_asset_factory(name="factory_gear_medium", object_type=ObjectType.RIGID)
 def make_factory_gear_medium(
     instance_name: str = "gear_medium",
-    initial_pose: Pose | Mapping[str, Sequence[float]] | None = None,
+    initial_pose: Pose | None = None,
     **_ignored: Any,
 ) -> Object:
     """Create the source medium Factory gear."""
@@ -99,13 +89,14 @@ def make_factory_gear_medium(
         instance_name,
         "FactoryGearMedium",
         "factory_gear_medium",
-        _normalize_initial_pose(initial_pose),
+        initial_pose,
     )
 
 
+@register_asset_factory(name="factory_gear_large", object_type=ObjectType.RIGID)
 def make_factory_gear_large(
     instance_name: str = "gear_large",
-    initial_pose: Pose | Mapping[str, Sequence[float]] | None = None,
+    initial_pose: Pose | None = None,
     **_ignored: Any,
 ) -> Object:
     """Create the source large Factory gear."""
@@ -113,58 +104,48 @@ def make_factory_gear_large(
         instance_name,
         "FactoryGearLarge",
         "factory_gear_large",
-        _normalize_initial_pose(initial_pose),
+        initial_pose,
     )
 
 
-for _name, _factory in {
-    "industrial__factory_gear_base": make_factory_gear_base,
-    "industrial__factory_gear_small": make_factory_gear_small,
-    "industrial__factory_gear_medium": make_factory_gear_medium,
-    "industrial__factory_gear_large": make_factory_gear_large,
-}.items():
-    _factory.name = _name
-    _factory.tags = ("object",)
-    _factory.object_type = ObjectType.RIGID
-del _name, _factory
-
-
+@register_asset
 class IndustrialFr3WorkcellTable(Background):
     """Cap's FR3 workcell table background."""
 
-    name = "industrial__fr3_workcell_table"
+    name = "fr3_workcell_table"
     tags: ClassVar[list[str]] = ["background"]
     usd_path = FR3_WORKCELL_TABLE_USD_PATH
     object_min_z = 0.0
 
     def __init__(
         self,
-        initial_pose: Pose | Mapping[str, Sequence[float]] | None = None,
+        initial_pose: Pose | None = None,
         **kwargs: Any,
     ) -> None:
         super().__init__(
             name=self.name,
             usd_path=self.usd_path,
             object_min_z=self.object_min_z,
-            initial_pose=_normalize_initial_pose(initial_pose),
+            initial_pose=initial_pose,
             tags=self.tags,
             **kwargs,
         )
 
 
+@register_asset
 class IndustrialHdrShadowReceiver(Object):
     """Invisible collision-free floor anchor for the HDR scene."""
 
-    name = "industrial__hdr_shadow_receiver"
+    name = "hdr_shadow_receiver"
     tags: ClassVar[list[str]] = ["floor", "visual"]
 
     def __init__(
         self,
         instance_name: str = "hdr_shadow_receiver",
         ground_z: float = 0.0,
+        initial_pose: Pose | None = None,
         **kwargs: Any,
     ) -> None:
-        initial_pose = kwargs.pop("initial_pose", None)
         spawn_cfg_addon = dict(kwargs.pop("spawn_cfg_addon", {}) or {})
         spawn_cfg_addon["visible"] = False
         if initial_pose is None:
@@ -173,17 +154,18 @@ class IndustrialHdrShadowReceiver(Object):
             name=instance_name,
             usd_path=HDR_SHADOW_RECEIVER_USD_PATH,
             object_type=ObjectType.BASE,
-            initial_pose=_normalize_initial_pose(initial_pose),
+            initial_pose=initial_pose,
             spawn_cfg_addon=spawn_cfg_addon,
             tags=self.tags,
             **kwargs,
         )
 
 
+@register_asset
 class IndustrialEmptyWarehouseDomeLight(DomeLight):
     """Cap's shared empty-warehouse HDR dome light."""
 
-    name = "industrial__empty_warehouse_dome_light"
+    name = "empty_warehouse_dome_light"
 
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(
@@ -196,11 +178,3 @@ class IndustrialEmptyWarehouseDomeLight(DomeLight):
             ),
             **kwargs,
         )
-
-
-GEAR_ASSET_ENTRY_POINTS = {
-    make_factory_gear_base.name: make_factory_gear_base,
-    make_factory_gear_small.name: make_factory_gear_small,
-    make_factory_gear_medium.name: make_factory_gear_medium,
-    make_factory_gear_large.name: make_factory_gear_large,
-}

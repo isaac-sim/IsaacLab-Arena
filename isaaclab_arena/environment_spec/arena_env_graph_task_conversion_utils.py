@@ -34,20 +34,15 @@ def build_task_from_spec(task_spec: CompositeTaskSpec, assets_by_node_id: dict[s
         )
 
     subtasks = [_build_atomic_task_from_spec(spec, assets_by_node_id) for spec in task_spec.subtasks]
-    # Lazy import: CompositeTaskBase / SequentialTaskBase -> composite_task_base pulls in pxr (USD), which requires a
+    # Lazy import: CompositeTaskBase pulls in pxr (USD), which requires a
     # launched SimulationApp. Deferring it keeps this module importable by data-only consumers
     # (spec parsers, unit tests, pytest collection) without dragging in sim deps at import time.
     from isaaclab_arena.tasks.composite_task_base import CompositeTaskBase
-    from isaaclab_arena.tasks.sequential_task_base import SequentialTaskBase
 
-    if task_spec.composition is TaskCompositionType.PARALLEL:
-        return CompositeTaskBase(
-            subtasks=subtasks,
-            task_description=task_spec.description,
-        )
-    return SequentialTaskBase(
+    return CompositeTaskBase(
         subtasks=subtasks,
         task_description=task_spec.description,
+        subtasks_are_sequential=task_spec.composition is TaskCompositionType.SEQUENTIAL,
     )
 
 

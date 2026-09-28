@@ -1,0 +1,22 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+shared:
+  environment:
+    type: syringe_cluttered_newton
+    enable_cameras: true
+    episode_length_s: null
+  environment_builder:
+    num_envs: 1
+    solve_relations: true
+    placement_seed: 42
+  policy:
+    type: cap_remote
+    host: 127.0.0.1
+    port: 19000
+  rollout_limit:
+    num_episodes: 1
+runs:
+  cluttered: {}

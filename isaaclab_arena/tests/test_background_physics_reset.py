@@ -93,7 +93,7 @@ def _test_background_physics_discovery_and_reset(
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.scene.scene import Scene
     from isaaclab_arena.terms.events import ResetBackgroundPhysics, reset_articulation_pose_and_joints
-    from isaaclab_arena.utils.usd_prim_tree import load_usd_physics_roots
+    from isaaclab_arena.utils.usd.prim_tree import load_usd_physics_roots
 
     assert ResetBackgroundPhysics._is_unavailable_backend_error(
         RuntimeError("Failed to create rigid body at: /World/body. Please check PhysX logs.")

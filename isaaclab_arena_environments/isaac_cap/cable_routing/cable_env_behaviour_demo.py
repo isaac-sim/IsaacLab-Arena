@@ -322,9 +322,9 @@ class CableEnvBehaviourDemo(EnvBehaviourDemo):
         self._wrist_body_ids = (left_wrist_ids[0], right_wrist_ids[0])
         self._wrist_quaternions = None
 
-        success_cfg = self.base_env.termination_manager.get_term_cfg("success")
-        self.success_term = success_cfg.func
-        self.success_params = success_cfg.params
+        success_objective = self.arena_environment.task.get_termination_cfg().success[0]
+        self.cable_route_success_predicate = success_objective.predicate_sequence[0]
+        self.success_params = self.cable_route_success_predicate.keywords
         self.cable = self.base_env.scene[self.success_params["cable_asset_name"]]
         self.peg_names = tuple(self.success_params["peg_asset_names"])
         configured_route = tuple(
@@ -612,7 +612,8 @@ class CableEnvBehaviourDemo(EnvBehaviourDemo):
             ),
             env_ids=env_ids,
         )
-        success = self.success_term(self.base_env, **self.success_params)
+        # Check the stateless geometry without advancing progress before the next environment step.
+        success = self.cable_route_success_predicate(self.base_env)
         assert bool(success.all().item()), "Teleported cable state was not recognized as successful."
 
     def _step_hold(self):

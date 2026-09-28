@@ -133,7 +133,7 @@ def test_background_collision_objects_reject_failed_whole_background(monkeypatch
     from isaaclab_arena.relations.background_collision_object import make_fixed_collision_objects
     from isaaclab_arena.relations.warp_mesh_manager import WarpMeshAndSphereCache
     from isaaclab_arena.utils.pose import Pose
-    from isaaclab_arena.utils.usd_helpers import NoCollisionMeshError
+    from isaaclab_arena.utils.usd.helpers import NoCollisionMeshError
 
     left = _mesh_box("left_cabinet", (0.2, 0.2, 0.2), (-1.0, 0.0, 0.0))
     kitchen = Background.__new__(Background)
@@ -158,7 +158,7 @@ def test_warp_mesh_cache_caches_unsupported_usd_geometry(monkeypatch):
     from isaaclab_arena.assets.object import Object
     from isaaclab_arena.assets.object_type import ObjectType
     from isaaclab_arena.relations.warp_mesh_manager import WarpMeshAndSphereCache
-    from isaaclab_arena.utils.usd_helpers import UnsupportedCollisionGeometryError
+    from isaaclab_arena.utils.usd.helpers import UnsupportedCollisionGeometryError
 
     obj = Object.__new__(Object)
     obj.name = "kitchen"
@@ -172,7 +172,7 @@ def test_warp_mesh_cache_caches_unsupported_usd_geometry(monkeypatch):
         calls["count"] += 1
         raise UnsupportedCollisionGeometryError("Unsupported non-mesh geometry in /tmp/kitchen.usd: /World/cube")
 
-    monkeypatch.setattr("isaaclab_arena.utils.usd_helpers.extract_trimesh_from_usd", fail_extract)
+    monkeypatch.setattr("isaaclab_arena.utils.usd.helpers.extract_trimesh_from_usd", fail_extract)
     manager = WarpMeshAndSphereCache(device="cpu")
 
     assert manager.get_collision_mesh(obj) is None
@@ -200,7 +200,7 @@ def test_warp_mesh_cache_keys_exclusions(monkeypatch):
         calls.append(tuple(excluded_prim_paths))
         return _mesh_box("mesh", (0.2, 0.2, 0.2), (0.0, 0.0, 0.0)).get_collision_mesh()
 
-    monkeypatch.setattr("isaaclab_arena.utils.usd_helpers.extract_trimesh_from_usd", fake_extract)
+    monkeypatch.setattr("isaaclab_arena.utils.usd.helpers.extract_trimesh_from_usd", fake_extract)
     manager = WarpMeshAndSphereCache(device="cpu")
 
     manager.get_collision_mesh(obj, excluded_prim_paths=["/Kitchen/counter"])
@@ -219,7 +219,7 @@ def test_background_anchor_exclusions_can_remove_all_meshes(monkeypatch):
     def fake_extract(usd_path, scale, excluded_prim_paths=()):
         assert excluded_prim_paths == ("/Kitchen",)
 
-    monkeypatch.setattr("isaaclab_arena.utils.usd_helpers.extract_trimesh_from_usd", fake_extract)
+    monkeypatch.setattr("isaaclab_arena.utils.usd.helpers.extract_trimesh_from_usd", fake_extract)
 
     assert (
         make_fixed_collision_objects(
@@ -235,14 +235,14 @@ def test_background_exclusions_preserve_unsupported_geometry_error(monkeypatch):
     import pytest
 
     from isaaclab_arena.relations.background_collision_object import make_fixed_collision_objects
-    from isaaclab_arena.utils.usd_helpers import UnsupportedCollisionGeometryError
+    from isaaclab_arena.utils.usd.helpers import UnsupportedCollisionGeometryError
 
     kitchen = _make_usd_background()
 
     def fail_extract(usd_path, scale, excluded_prim_paths=()):
         raise UnsupportedCollisionGeometryError("unsupported geometry remains")
 
-    monkeypatch.setattr("isaaclab_arena.utils.usd_helpers.extract_trimesh_from_usd", fail_extract)
+    monkeypatch.setattr("isaaclab_arena.utils.usd.helpers.extract_trimesh_from_usd", fail_extract)
 
     with pytest.raises(AssertionError, match="whole-scene Background"):
         make_fixed_collision_objects(

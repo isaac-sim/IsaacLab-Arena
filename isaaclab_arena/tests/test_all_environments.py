@@ -40,9 +40,14 @@ ENV_ARG_OVERRIDES: dict[str, dict] = {
 
 def _build_jobs_for_all_envs() -> list[dict]:
     ensure_environments_registered()
-    env_names = sorted(EnvironmentRegistry().get_all_keys())
+    env_registry = EnvironmentRegistry()
+    env_names = sorted(env_registry.get_all_keys())
     jobs = []
     for env_name in env_names:
+        environment_factory_type = env_registry.get_component_by_name(env_name)
+        # TODO(xinjieyao, 2026.09.23): Remove after CAP envs are removed.
+        if environment_factory_type.__module__.startswith("isaaclab_arena_environments.isaac_cap."):
+            continue
         arena_env_args = {"environment": env_name}
         arena_env_args.update(ENV_ARG_OVERRIDES.get(env_name, {}))
         jobs.append({
@@ -63,7 +68,9 @@ def test_experiment_runner_all_environments(tmp_path):
 
     config_path = str(tmp_path / "test_experiment_runner_all_environments.json")
     write_jobs_config_to_file(jobs, config_path)
-    run_experiment_runner(config_path, headless=HEADLESS)
+    # Loading every environment and compiling both physics backends can exceed
+    # the default 15-minute timeout on CI with a cold asset/kernel cache.
+    run_experiment_runner(config_path, headless=HEADLESS, timeout_sec=30 * 60)
 
 
 def test_all_environments_have_default_args():

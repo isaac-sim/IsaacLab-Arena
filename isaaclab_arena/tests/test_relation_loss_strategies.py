@@ -143,6 +143,29 @@ def test_on_loss_strategy_constrains_entire_footprint():
     assert loss > 0.0, "Loss should penalize child footprint extending beyond parent"
 
 
+@pytest.mark.parametrize("edge_margin_m", [0.0, 0.05, 0.6])
+def test_on_loss_strategy_overlap_ignores_margin(edge_margin_m):
+    """Overlap uses both original support extents and still penalizes separation and wrong height."""
+    table = _create_table()
+    box = _create_box()
+    strategy = OnLossStrategy(slope=10.0)
+    overlap = On(
+        table,
+        clearance_m=0.0,
+        edge_margin_m=edge_margin_m,
+        overlap=True,
+    )
+    # Partial overlap in X, Y, and both; exact edge contact also remains valid.
+    for valid_pose in ([-0.19, 0.4, 0.1], [0.4, 0.99, 0.1], [-0.19, 0.99, 0.1], [-0.2, 1.0, 0.1]):
+        assert torch.isclose(
+            strategy.compute_loss(overlap, torch.tensor(valid_pose), box.bounding_box, table.bounding_box),
+            torch.tensor(0.0),
+            atol=1e-4,
+        )
+    for invalid_pose in ([-0.21, 0.4, 0.1], [0.4, 1.01, 0.1], [-0.1, 0.4, 0.2], [-0.1, 0.4, 0.0]):
+        assert strategy.compute_loss(overlap, torch.tensor(invalid_pose), box.bounding_box, table.bounding_box) > 0.0
+
+
 def test_on_loss_strategy_edge_margin_insets_band_by_margin():
     """The edge margin shifts the valid X band inward by exactly the margin."""
 

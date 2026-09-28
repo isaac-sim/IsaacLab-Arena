@@ -11,7 +11,7 @@ import streamlit as st
 
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 from isaaclab_arena.environment_spec.arena_env_graph_types import ObjectReferenceSpec, SpatialRelationSpec
-from isaaclab_arena.utils.usd_prim_tree import UsdPrimRecord
+from isaaclab_arena.utils.usd.prim_tree import UsdPrimRecord
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.spec_visualization.asset_cards import AssetCard
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.spec_visualization.mermaid_graph import (
     estimate_mermaid_height_px,

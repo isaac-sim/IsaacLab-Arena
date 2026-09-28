@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from copy import deepcopy
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
@@ -13,6 +14,7 @@ from isaaclab.envs import ManagerBasedRLMimicEnv
 from isaaclab.managers import EventTermCfg
 
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
+from isaaclab_arena.embodiments.gripper import Gripper
 from isaaclab_arena.relations.collision_mode import CollisionMode
 from isaaclab_arena.relations.placement_asset import PlaceableAsset
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
@@ -44,6 +46,10 @@ class EmbodimentBase(PlaceableAsset):
     name: str | None = None
     tags: list[str] = ["embodiment"]
     default_arm_mode: ArmMode | None = None
+    gripper: Gripper | None
+    """Gripper attached to the robot body, when the embodiment defines one."""
+    spawn_cfg_addon: dict[str, dict[str, Any]] = {}
+    """Define how embodiment USD/geometry is spawned and which schemas/properties are set."""
 
     def __init__(
         self,
@@ -52,6 +58,7 @@ class EmbodimentBase(PlaceableAsset):
         concatenate_observation_terms: bool = False,
         arm_mode: ArmMode | None = None,
         collision_mode: CollisionMode | str | None = None,
+        spawn_cfg_addon: dict[str, dict[str, Any]] | None = None,
     ):
         assert self.name is not None, "Embodiment name is required"
         super().__init__(name=self.name, tags=self.tags, collision_mode=collision_mode)
@@ -61,6 +68,9 @@ class EmbodimentBase(PlaceableAsset):
         self.initial_pose = initial_pose
         self.concatenate_observation_terms = concatenate_observation_terms
         self.arm_mode = arm_mode or self.default_arm_mode
+        self.gripper = None
+        # Give each robot its own copy so changes don't affect other robots.
+        self.spawn_cfg_addon = deepcopy(self.spawn_cfg_addon if spawn_cfg_addon is None else spawn_cfg_addon)
         # These should be filled by the subclass
         self.scene_config: Any | None = None
         self.camera_config: Any | None = None
@@ -72,7 +82,6 @@ class EmbodimentBase(PlaceableAsset):
         self.command_config: Any | None = None
         self.mimic_env: Any | None = None
         self.xr: Any | None = None
-        self.termination_cfg: Any | None = None
         self._configured_physics_backend: PhysicsBackend | None = None
 
     def get_placement_geometry_source(self) -> ArticulationGeometrySpec:
@@ -97,7 +106,7 @@ class EmbodimentBase(PlaceableAsset):
                 full default prim.
         """
         # Import locally because USD/pxr is available only after simulation initialization.
-        from isaaclab_arena.utils.usd_helpers import compute_local_bounding_box_from_usd_at_joint_pos
+        from isaaclab_arena.utils.usd.helpers import compute_local_bounding_box_from_usd_at_joint_pos
 
         source = self.get_placement_geometry_source()
         return compute_local_bounding_box_from_usd_at_joint_pos(
@@ -107,7 +116,7 @@ class EmbodimentBase(PlaceableAsset):
     def get_collision_mesh(self) -> trimesh.Trimesh | None:
         """Return the robot mesh from its USD default prim."""
         # Import locally because USD/pxr is available only after simulation initialization.
-        from isaaclab_arena.utils.usd_helpers import extract_trimesh_from_usd_path
+        from isaaclab_arena.utils.usd.helpers import extract_trimesh_from_usd_path
 
         source = self.get_placement_geometry_source()
         return extract_trimesh_from_usd_path(source.usd_path, source.scale)
@@ -166,7 +175,7 @@ class EmbodimentBase(PlaceableAsset):
             rotation_xyzw=tuple(float(v) for v in init_state.rot),
         )
 
-    def configure_physics_backend(self, backend: PhysicsBackend | None) -> None:
+    def configure_physics_backend(self, backend: PhysicsBackend) -> None:
         """Apply physics-backend-specific overrides before the env cfg is composed."""
         if self._configured_physics_backend == backend:
             return
@@ -174,14 +183,29 @@ class EmbodimentBase(PlaceableAsset):
             f"Embodiment '{self.name}' is already configured for physics backend "
             f"'{self._configured_physics_backend.value}' and cannot be reconfigured for '{backend}'."
         )
-        assert backend is not None
         self._configure_physics_backend(backend)
         self._configured_physics_backend = backend
 
     def _configure_physics_backend(self, backend: PhysicsBackend) -> None:
         """Apply subclass-specific physics-backend overrides."""
 
+    def _apply_spawn_cfg_addons(self) -> None:
+        """Apply this embodiment's named spawn addons after backend-specific defaults."""
+        from isaaclab_arena.assets.physics_spawner import make_usd_spawn_cfg_with_addons
+
+        replacements = {}
+        for name, addons in self.spawn_cfg_addon.items():
+            robot_cfg = getattr(self.scene_config, name, None)
+            assert robot_cfg is not None, f"Embodiment spawn addon references unknown scene entry {name!r}"
+            assert getattr(robot_cfg, "spawn", None) is not None, f"Embodiment scene entry {name!r} has no spawn config"
+            replacements[name] = make_usd_spawn_cfg_with_addons(robot_cfg.spawn, addons)
+        # Publish only after every embodiment entry validates, avoiding half-applied bimanual settings.
+        for name, spawn_cfg in replacements.items():
+            getattr(self.scene_config, name).spawn = spawn_cfg
+
     def get_scene_cfg(self) -> Any:
+        # Apply task settings whenever the scene is collected, even without a backend hook.
+        self._apply_spawn_cfg_addons()
         construction_pose = self._get_initial_pose_as_pose()
         if construction_pose is not None:
             self.scene_config = self._update_scene_cfg_with_robot_initial_pose(self.scene_config, construction_pose)
@@ -279,9 +303,6 @@ class EmbodimentBase(PlaceableAsset):
             frame_transformer_names=self.get_ee_frame_transformer_names(), asset_name=self.get_scene_key()
         )
 
-    def get_termination_cfg(self) -> Any:
-        return self.termination_cfg
-
     def get_scene_key(self) -> str:
         """Return the embodiment's Isaac Lab scene key."""
         return "robot"
@@ -300,6 +321,11 @@ class EmbodimentBase(PlaceableAsset):
 
     def get_command_body_name(self) -> str:
         return ""
+
+    def get_gripper(self) -> Gripper:
+        """Return this embodiment's supported width-reporting gripper."""
+        assert self.gripper is not None, f"Embodiment '{self.name}' has no supported gripper."
+        return self.gripper
 
     def get_arm_mode(self) -> ArmMode:
         return self.arm_mode

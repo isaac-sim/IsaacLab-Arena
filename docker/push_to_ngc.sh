@@ -59,6 +59,7 @@ echo "NGC_PATH is ${NGC_PATH}."
 "$SCRIPT_DIR/build_docker.sh" -t "$DOCKER_TARGET" \
     -n "$DOCKER_IMAGE_NAME" "${BUILD_OPTIONS[@]}"
 
+
 if [ "$PUSH_TO_NGC" = true ]; then
     echo "Pushing image to ${NGC_PATH}."
     docker tag "$DOCKER_IMAGE_NAME" "$NGC_PATH"

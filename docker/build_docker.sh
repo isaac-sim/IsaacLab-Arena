@@ -1,5 +1,5 @@
 #!/bin/bash
-# Build an Arena image without starting or attaching to a container.
+# Build an Arena docker image
 set -euo pipefail
 
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)

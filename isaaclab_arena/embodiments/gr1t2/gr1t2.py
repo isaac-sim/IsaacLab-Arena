@@ -95,6 +95,7 @@ class GR1T2EmbodimentBase(EmbodimentBase):
         arm_mode: ArmMode | None = None,
     ):
         super().__init__(enable_cameras, initial_pose, concatenate_observation_terms, arm_mode)
+        # TODO(xinjieyao, 2026.09.17): Add a gripper implementation for the GR1 embodiment.
         # Configuration structs
         self.scene_config = GR1T2SceneCfg()
         self.observation_config = GR1T2ObservationsCfg()

@@ -10,7 +10,7 @@ from __future__ import annotations
 import html
 from dataclasses import dataclass, field
 
-from isaaclab_arena.utils.usd_prim_tree import UsdPrimRecord
+from isaaclab_arena.utils.usd.prim_tree import UsdPrimRecord
 
 
 @dataclass
