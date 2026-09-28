@@ -23,13 +23,13 @@ if TYPE_CHECKING:
 
 @dataclass
 class PlacementLayouts:
-    """L complete layouts for N named objects, expressed in environment frame E.
+    """L complete layouts for N named scene roots, expressed in environment frame E.
 
-    The same list index selects one complete layout across every object.
+    The same list index selects one complete layout across every root.
     """
 
     poses: dict[str, list[Pose]]
-    """N object names mapped to L poses each; positions have shape (3,), quaternions (4,)."""
+    """N scene root names mapped to L poses each; positions have shape (3,), quaternions (4,)."""
 
     def __post_init__(self) -> None:
         self.validate()
@@ -51,31 +51,32 @@ class PlacementLayouts:
                 ), "Placement poses must have unit quaternions"
 
     def validate_assets(self, assets: list[PlaceableAsset]) -> None:
-        """Require concrete scene keys and complete coverage of relation-placed assets."""
+        """Require concrete root ownership and complete coverage of every selected asset."""
         from isaaclab_arena.assets.object_set import RigidObjectSet
         from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
+        from isaaclab_arena.relations.placement_asset import get_scene_root_owners
         from isaaclab_arena.relations.relations import RandomAroundSolution, get_relation
 
         self.validate()
         assert not any(
             isinstance(asset, RigidObjectSet) for asset in assets
         ), "Cached layouts require concrete assets, not object sets"
-        by_key = {asset.get_scene_key(): asset for asset in assets}
-        assert len(by_key) == len(assets), "Cached placement assets must have distinct scene keys"
-        unknown = set(self.poses) - set(by_key)
+        owners = get_scene_root_owners(assets)
+        unknown = set(self.poses) - owners.keys()
         assert not unknown, f"Unknown cached scene objects: {unknown}"
-        required = {
-            key
-            for key, asset in by_key.items()
-            if not asset.is_anchor
-            and (asset.get_spatial_relations() or (isinstance(asset, EmbodimentBase) and asset.get_relations()))
-        }
-        missing = required - set(self.poses)
-        assert not missing, f"Cache is missing placed objects: {missing}"
-        for name in self.poses:
-            assert (
-                get_relation(by_key[name], RandomAroundSolution) is None
-            ), f"Cached object '{name}' cannot randomize on reset"
+        for asset in assets:
+            keys = set(asset.get_scene_root_keys())
+            selected = keys.intersection(self.poses)
+            required = not asset.is_anchor and (
+                asset.get_spatial_relations() or (isinstance(asset, EmbodimentBase) and asset.get_relations())
+            )
+            if selected or required:
+                missing = keys - self.poses.keys()
+                assert not missing, f"Cache is missing placed objects: {missing}"
+            if selected:
+                assert (
+                    get_relation(asset, RandomAroundSolution) is None
+                ), f"Cached object '{asset.name}' cannot randomize on reset"
 
     @property
     def num_layouts(self) -> int:
@@ -138,8 +139,13 @@ class PlacementLayouts:
                 stream.write(json.dumps(record, allow_nan=False) + "\n")
 
 
-def validate_replay_reset_policies(assets: list[PlaceableAsset]) -> None:
-    """Require reset policies compatible with fixed-pose, zero-velocity replay."""
+def validate_root_reset_for_cached_layouts(assets: list[PlaceableAsset]) -> None:
+    """Require policies compatible with replacing root resets by fixed cached poses.
+
+    Cached replay replaces root reset events and writes zero root velocity,
+    while assets retain their non-root initialization such as joint resets.
+    Recording uses the same check before collecting layouts intended for that replay.
+    """
     from isaaclab_arena.assets.object import Object
     from isaaclab_arena.assets.object_base import ObjectBase
 

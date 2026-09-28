@@ -12,8 +12,6 @@ from typing import TYPE_CHECKING
 from isaaclab_arena.relations.bounding_box_helpers import assign_variants_for_envs, build_per_env_bounding_boxes
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_result import PlacementResult
-from isaaclab_arena.relations.placement_validation import PlacementValidationResults
-from isaaclab_arena.relations.placement_validators import build_validators
 from isaaclab_arena.relations.placement_visualizer import get_or_create_placement_visualizer
 from isaaclab_arena.relations.relation_solver import RelationSolver
 from isaaclab_arena.relations.relations import (
@@ -24,6 +22,8 @@ from isaaclab_arena.relations.relations import (
     get_anchor_objects,
     get_relation,
 )
+from isaaclab_arena.relations.validation.pre_physics import build_validators
+from isaaclab_arena.relations.validation.types import PlacementValidationResults
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose, PosePerEnv
 from isaaclab_arena.utils.random import get_random_rotation
@@ -32,7 +32,7 @@ from isaaclab_arena.utils.yaw import rotate_quat_by_yaw, wrap_angle_to_pi, yaw_f
 if TYPE_CHECKING:
     from isaaclab_arena.relations.collision_object import CollisionObject
     from isaaclab_arena.relations.placement_asset import PlaceableAsset
-    from isaaclab_arena.relations.placement_validators import PlacementValidator
+    from isaaclab_arena.relations.validation.pre_physics import PrePhysicsPlacementValidator
 
 
 @dataclass
@@ -80,7 +80,7 @@ class ObjectPlacer:
         self.params = params or ObjectPlacerParams()
         self._solver = RelationSolver(params=self.params.solver_params)
         self._visualizer = get_or_create_placement_visualizer(self.params)
-        self._validators: list[PlacementValidator] = build_validators(self.params, self._visualizer)
+        self._validators: list[PrePhysicsPlacementValidator] = build_validators(self.params, self._visualizer)
 
     def place(
         self,

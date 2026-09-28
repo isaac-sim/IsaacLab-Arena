@@ -12,9 +12,6 @@ from collections.abc import Iterator
 from typing import TYPE_CHECKING, ClassVar, cast
 
 from isaaclab_arena.relations.collision_mode import CollisionMode, get_object_collision_mode, object_uses_mesh_collision
-from isaaclab_arena.relations.placement_validation import PlacementCheck
-from isaaclab_arena.relations.placement_validation import PlacementValidator as BasePlacementValidator
-from isaaclab_arena.relations.placement_validator_registry import PlacementValidatorRegistry, register_validator
 from isaaclab_arena.relations.relation_loss_strategies import (
     SIDE_CONFIGS,
     NotNextToLossStrategy,
@@ -22,6 +19,9 @@ from isaaclab_arena.relations.relation_loss_strategies import (
     not_next_to_violations,
 )
 from isaaclab_arena.relations.relations import FaceTo, NextTo, NotNextTo, On, get_relation
+from isaaclab_arena.relations.validation import base
+from isaaclab_arena.relations.validation.registry import PlacementValidatorRegistry, register_validator
+from isaaclab_arena.relations.validation.types import PlacementCheck
 from isaaclab_arena.relations.warp_sdf_kernels import has_sdf_sentinel, mesh_sdf
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.yaw import centers_in_target_frame, yaw_from_quat_xyzw, yaw_toward_positions
@@ -35,7 +35,7 @@ if TYPE_CHECKING:
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 
-class PlacementValidator(BasePlacementValidator):
+class PrePhysicsPlacementValidator(base.PlacementValidator):
     """A single build-time placement check evaluated over a batch of candidate layouts.
 
     Register a concrete validator with @register_validator so build_validators() can discover it.
@@ -90,7 +90,7 @@ def get_build_time_checks() -> tuple[str, ...]:
 
 def build_validators(
     params: ObjectPlacerParams, visualizer: PlacementRerunVisualizer | None = None
-) -> list[PlacementValidator]:
+) -> list[PrePhysicsPlacementValidator]:
     """Construct the enabled build-time validators in registration order.
 
     A registered check whose is_available() returns False is delisted; a check named in
@@ -109,7 +109,7 @@ def build_validators(
     if enabled_checks is not None:
         registered_checks = tuple(check for check in registered_checks if check in enabled_checks)
 
-    validators: list[PlacementValidator] = []
+    validators: list[PrePhysicsPlacementValidator] = []
     for check in registered_checks:
         validator_cls = registry.get_validator_by_name(check)
         if validator_cls.is_available(params):
@@ -118,7 +118,7 @@ def build_validators(
 
 
 @register_validator
-class OnRelationValidator(PlacementValidator):
+class OnRelationValidator(PrePhysicsPlacementValidator):
     """Validate every On relation: child rests on its parent within X/Y footprint and Z band."""
 
     check = PlacementCheck.ON_RELATION
@@ -204,7 +204,7 @@ class OnRelationValidator(PlacementValidator):
 
 
 @register_validator
-class NextToValidator(PlacementValidator):
+class NextToValidator(PrePhysicsPlacementValidator):
     """Validate every NextTo relation: child on the requested side within the relation's tolerance_m."""
 
     check = PlacementCheck.NEXT_TO
@@ -256,7 +256,7 @@ class NextToValidator(PlacementValidator):
 
 
 @register_validator
-class NotNextToValidator(PlacementValidator):
+class NotNextToValidator(PrePhysicsPlacementValidator):
     """Validate every NotNextTo relation: child has cleared the keep-out zone beside the parent."""
 
     check = PlacementCheck.NOT_NEXT_TO
@@ -317,7 +317,7 @@ class NotNextToValidator(PlacementValidator):
 
 
 @register_validator
-class FaceToValidator(PlacementValidator):
+class FaceToValidator(PrePhysicsPlacementValidator):
     """Validate every FaceTo subject has a defined target direction and a computed facing yaw."""
 
     check = PlacementCheck.FACE_TO
@@ -356,7 +356,7 @@ class FaceToValidator(PlacementValidator):
 
 
 @register_validator
-class NoOverlapValidator(PlacementValidator):
+class NoOverlapValidator(PrePhysicsPlacementValidator):
     """Validate that no two placed bounding boxes (or collision meshes) intersect.
 
     Owns the CPU mesh/sphere cache so the AABB→mesh short-circuit stays local: cheap AABB pairs are

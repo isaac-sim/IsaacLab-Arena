@@ -318,7 +318,7 @@ def test_negative_clearance_m_raises():
 def test_validation_accepts_on_parent_overlap():
     """Non-anchor sitting On(anchor) should pass validation (On pairs are skipped)."""
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-    from isaaclab_arena.relations.placement_validators import NoOverlapValidator
+    from isaaclab_arena.relations.validation.pre_physics import NoOverlapValidator
 
     table = _create_table()
     table.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
@@ -339,7 +339,7 @@ def test_validation_accepts_on_parent_overlap():
 def test_validation_rejects_non_anchor_overlap():
     """Two overlapping non-anchor boxes should fail validation."""
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-    from isaaclab_arena.relations.placement_validators import NoOverlapValidator
+    from isaaclab_arena.relations.validation.pre_physics import NoOverlapValidator
 
     table = _create_table()
     table.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))

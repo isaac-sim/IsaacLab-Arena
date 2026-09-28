@@ -281,23 +281,21 @@ class ResetPlacementLayouts(ManagerTermBase):
 def make_cached_placement_event(
     layouts: PlacementLayouts, placement_assets: list[PlaceableAsset], num_envs: int
 ) -> EventTermCfg:
-    """Replace cached assets' initial poses and pose-reset events with one reset writer."""
-    from isaaclab_arena.relations.placement_layouts import validate_replay_reset_policies
+    """Replace cached assets' initial root poses and root-reset events with one root writer."""
+    from isaaclab_arena.relations.placement_asset import get_scene_root_owners
+    from isaaclab_arena.relations.placement_layouts import validate_root_reset_for_cached_layouts
 
     layouts.validate_assets(placement_assets)
-    assets = {asset.get_scene_key(): asset for asset in placement_assets}
-    validate_replay_reset_policies([assets[name] for name in layouts.poses])
+    owners = get_scene_root_owners(placement_assets)
+    initial_poses: dict[PlaceableAsset, dict[str, PosePerEnv]] = {}
     scene_poses: dict[str, list[list[float]]] = {}
     for name, poses in layouts.poses.items():
-        asset = assets[name]
-        asset.clear_pose_reset_event()
-        asset.set_initial_pose(
-            PosePerEnv([poses[i % layouts.num_layouts] for i in range(num_envs)]), create_reset_event=False
+        initial_poses.setdefault(owners[name], {})[name] = PosePerEnv(
+            [poses[i % layouts.num_layouts] for i in range(num_envs)]
         )
-        for pose in poses:
-            for scene_name, scene_pose in asset.layout_pose_to_scene_writes(pose):
-                scene_poses.setdefault(scene_name, []).append(list(scene_pose.position_xyz + scene_pose.rotation_xyzw))
-    assert scene_poses and all(
-        len(poses) == layouts.num_layouts for poses in scene_poses.values()
-    ), "Cached assets must write distinct scene entities in every layout"
+        scene_poses[name] = [list(pose.position_xyz + pose.rotation_xyzw) for pose in poses]
+    validate_root_reset_for_cached_layouts(list(initial_poses))
+    for asset, poses in initial_poses.items():
+        asset.clear_pose_reset_event()
+        asset.set_initial_scene_root_poses(poses)
     return EventTermCfg(func=ResetPlacementLayouts, mode="reset", params={"poses": scene_poses})

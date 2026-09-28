@@ -22,7 +22,7 @@ def step_physics(env: ManagerBasedEnv, num_steps: int, render: bool = False) -> 
             False (physics-only).
     """
     dt = env.unwrapped.sim.get_physics_dt()
-    # Apply actuator targets on every substep without advancing episode recorders via env.step.
+    # Write scene data each substep while bypassing env.step() and its episode recorders.
     for _ in range(num_steps):
         env.unwrapped.scene.write_data_to_sim()
         env.unwrapped.sim.step(render=render)
@@ -53,19 +53,22 @@ def are_all_objects_settled_per_env(
     return settled_mask[environment_ids].tolist()
 
 
-def pose_drift_reason(
-    initial: torch.Tensor, current: torch.Tensor, max_translation_m: float, max_rotation_deg: float
-) -> str | None:
-    """Report non-finite or excessive motion between xyz/xyzw poses shaped (..., 7)."""
+def get_pose_drift(initial: torch.Tensor, current: torch.Tensor) -> tuple[float, float] | None:
+    """Measure the maximum translation and rotation between corresponding poses.
+
+    Args:
+        initial: Initial xyz/xyzw poses shaped (..., 7), with positions in metres.
+        current: Current poses with matching shape, expressed in the same frame.
+
+    Returns:
+        Maximum translation in metres and maximum rotation in degrees, reduced
+        independently over all poses. Returns None if either input contains
+        non-finite values; unchanged finite poses return (0.0, 0.0).
+    """
     from isaaclab.utils.math import quat_error_magnitude
 
     if not torch.isfinite(initial).all() or not torch.isfinite(current).all():
-        return "non-finite pose"
+        return None
     distance = float((current[..., :3] - initial[..., :3]).norm(dim=-1).max())
     angle = float(torch.rad2deg(quat_error_magnitude(current[..., 3:], initial[..., 3:])).max())
-    if distance > max_translation_m or angle > max_rotation_deg:
-        return (
-            f"moved {distance:.6f} m and rotated {angle:.3f} deg; limits {max_translation_m:g} m,"
-            f" {max_rotation_deg:g} deg"
-        )
-    return None
+    return distance, angle

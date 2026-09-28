@@ -6,7 +6,7 @@
 """Unit tests for PlacementResult."""
 
 from isaaclab_arena.relations.placement_result import PlacementResult
-from isaaclab_arena.relations.placement_validation import PlacementCheck, PlacementValidationResults
+from isaaclab_arena.relations.validation.types import PlacementCheck, PlacementValidationResults
 
 
 def _make_result(

@@ -5,23 +5,18 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
-from isaaclab_arena.offline_placement.post_physics_validation import default_post_physics_validators
-from isaaclab_arena.relations.physics_settle_params import DEFAULT_SETTLE_NUM_STEPS
+from isaaclab_arena.offline_placement.settled_placement_params import SettledPlacementParams
 
 
 @dataclass
-class PlacementRecordingParams:
+class PlacementRecordingParams(SettledPlacementParams):
     """Physics duration, acceptance checks and minimum recording yield."""
 
-    num_steps: int = DEFAULT_SETTLE_NUM_STEPS
-    """Environment steps per candidate, each containing decimation physics substeps."""
     min_layouts: int = 1
     """Minimum accepted layouts required before writing the recording."""
-    validators: dict[str, dict] = field(default_factory=default_post_physics_validators)
-    """Post-physics checks by name, with Hydra implementation paths and settings."""
 
     def __post_init__(self) -> None:
-        assert self.num_steps > 0, "num_steps must be positive"
+        super().__post_init__()
         assert self.min_layouts > 0, "min_layouts must be positive"

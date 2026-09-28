@@ -16,16 +16,16 @@ from isaaclab_arena.relations.placement_events import (
     get_placement_pool,
     write_layout_to_sim,
 )
-from isaaclab_arena.relations.placement_validation import PlacementCheck
 from isaaclab_arena.relations.relations import get_anchor_objects
+from isaaclab_arena.relations.validation.types import PlacementCheck
 from isaaclab_arena.utils import physics_settle
 
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedEnv
 
     from isaaclab_arena.relations.placement_result import PlacementResult
-    from isaaclab_arena.relations.placement_validation import PlacementValidationResults
     from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
+    from isaaclab_arena.relations.validation.types import PlacementValidationResults
 
 
 @dataclass
@@ -84,22 +84,20 @@ def iter_pool_validation(
 def step_placement_physics(
     env: ManagerBasedEnv,
     num_steps: int,
-    batch_index: int,
-    num_batches: int,
+    batch_index: int | None = None,
+    num_batches: int | None = None,
     render: bool = False,
     log_progress: bool = False,
 ) -> None:
-    """Advance num_steps × decimation physics steps with optional batch progress reporting."""
+    """Advance num_steps × decimation physics steps with optional progress reporting."""
     num_steps *= env.cfg.decimation
     chunk_size = max(1, num_steps // 2 if log_progress else num_steps)
     for start in range(0, num_steps, chunk_size):
         steps = min(chunk_size, num_steps - start)
         physics_settle.step_physics(env, steps, render=render)
         if log_progress:
-            print(
-                f"[recording] batch {batch_index + 1}/{num_batches}: {start + steps}/{num_steps} physics steps",
-                flush=True,
-            )
+            batch_label = "" if batch_index is None else f"batch {batch_index + 1}/{num_batches}: "
+            print(f"[placement] {batch_label}{start + steps}/{num_steps} physics steps", flush=True)
 
 
 def solver_validation_failure(layout: PlacementResult) -> str | None:

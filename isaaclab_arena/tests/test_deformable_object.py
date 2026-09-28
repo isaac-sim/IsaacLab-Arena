@@ -279,8 +279,8 @@ def _test_deformable_reset_and_initial_pose(simulation_app) -> bool:
     from isaaclab_arena.offline_placement.pool_validation import validate_pool_layouts
     from isaaclab_arena.relations.physics_settle_params import PhysicsSettleParams
     from isaaclab_arena.relations.placement_result import PlacementResult
-    from isaaclab_arena.relations.placement_validation import PlacementCheck, PlacementValidationResults
     from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
+    from isaaclab_arena.relations.validation.types import PlacementCheck, PlacementValidationResults
     from isaaclab_arena.scene.scene import Scene
     from isaaclab_arena.utils.pose import Pose, PosePerEnv
 

@@ -3,40 +3,24 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Configurable checks of recorded poses after physics."""
+"""Configurable checks of measured poses after physics."""
 
 from __future__ import annotations
 
 import math
 from abc import abstractmethod
+from collections.abc import Sequence
 from dataclasses import asdict, dataclass
 from typing import TYPE_CHECKING, ClassVar
 
 from isaaclab_arena.relations.physics_settle_params import PhysicsSettleParams
-from isaaclab_arena.relations.placement_validation import PlacementValidator, PlacementValidatorReport
+from isaaclab_arena.relations.validation.base import PlacementValidator
+from isaaclab_arena.relations.validation.types import PlacementValidatorReport
 
 if TYPE_CHECKING:
     import torch
 
-    from isaaclab.envs import ManagerBasedEnv
-
-
-@dataclass
-class PostPhysicsState:
-    """Measured poses for N environments, with B links per articulation."""
-
-    env: ManagerBasedEnv
-    """Initialized simulation environment."""
-    env_ids: list[int]
-    """Absolute IDs of candidates that passed required solver checks."""
-    initial_poses: dict[str, torch.Tensor]
-    """Environment-local initial root poses (N, 7), xyz/xyzw, by scene key."""
-    final_poses: dict[str, torch.Tensor]
-    """Environment-local final root poses (N, 7), xyz/xyzw, by scene key."""
-    initial_links: dict[str, torch.Tensor]
-    """Initial task-object link poses relative to the root (N, B, 7), xyz/xyzw, by scene key."""
-    final_links: dict[str, torch.Tensor]
-    """Final task-object link poses relative to the root (N, B, 7), xyz/xyzw, by scene key."""
+    from isaaclab_arena.offline_placement.settled_batch import SettledBatch
 
 
 @dataclass
@@ -48,7 +32,7 @@ class PostPhysicsPlacementValidator(PlacementValidator):
     """Whether this check must pass for applicable candidates."""
 
     @abstractmethod
-    def validate(self, data: PostPhysicsState) -> list[PlacementValidatorReport]:
+    def validate(self, data: SettledBatch) -> list[PlacementValidatorReport]:
         """Return one report per candidate environment, in env_ids order."""
 
     def configuration(self) -> dict:
@@ -88,12 +72,16 @@ class VelocityValidator(PostPhysicsPlacementValidator):
             math.isfinite(self.ang_vel_thresh) and self.ang_vel_thresh >= 0
         ), "ang_vel_thresh must be finite and non-negative"
 
-    def validate(self, data: PostPhysicsState) -> list[PlacementValidatorReport]:
-        from isaaclab_arena.utils.physics_settle import are_all_objects_settled_per_env
+    def validate(self, data: SettledBatch) -> list[PlacementValidatorReport]:
+        import torch
 
-        settled = are_all_objects_settled_per_env(
-            data.env, data.env_ids, list(data.final_poses), self.lin_vel_thresh, self.ang_vel_thresh
-        )
+        settled_per_root = []
+        for velocity in data.final_root_velocities.values():
+            linear_speed = torch.linalg.vector_norm(velocity[:, :3], dim=-1)
+            angular_speed = torch.linalg.vector_norm(velocity[:, 3:], dim=-1)
+            settled_per_root.append((linear_speed < self.lin_vel_thresh) & (angular_speed < self.ang_vel_thresh))
+        assert settled_per_root, "Velocity validation requires captured root velocities"
+        settled = torch.stack(settled_per_root).all(dim=0)[data.env_ids].tolist()
         return [self.report(passed, "" if passed else "objects exceed final velocity limits") for passed in settled]
 
 
@@ -115,23 +103,28 @@ class PoseShiftValidator(PostPhysicsPlacementValidator):
             math.isfinite(self.max_rotation_deg) and self.max_rotation_deg >= 0
         ), "max_rotation_deg must be finite and non-negative"
 
-    def validate(self, data: PostPhysicsState) -> list[PlacementValidatorReport]:
-        return self._validate_poses(data.env_ids, data.initial_poses, data.final_poses)
+    def validate(self, data: SettledBatch) -> list[PlacementValidatorReport]:
+        return self._validate_poses(data.env_ids, data.initial_root_poses, data.final_root_poses)
 
     def _validate_poses(
         self, env_ids: list[int], initial: dict[str, torch.Tensor], final: dict[str, torch.Tensor]
     ) -> list[PlacementValidatorReport]:
-        from isaaclab_arena.utils.physics_settle import pose_drift_reason
+        from isaaclab_arena.utils.physics_settle import get_pose_drift
 
         reports = []
         for env_id in env_ids:
             reason = ""
             for key, poses in final.items():
-                drift = pose_drift_reason(
-                    initial[key][env_id], poses[env_id], self.max_translation_m, self.max_rotation_deg
-                )
-                if drift is not None:
-                    reason = f"{key}: {drift}"
+                drift = get_pose_drift(initial[key][env_id], poses[env_id])
+                if drift is None:
+                    reason = f"{key}: non-finite pose"
+                    break
+                distance, angle = drift
+                if distance > self.max_translation_m or angle > self.max_rotation_deg:
+                    reason = (
+                        f"{key}: moved {distance:.6f} m and rotated {angle:.3f} deg; "
+                        f"limits {self.max_translation_m:g} m, {self.max_rotation_deg:g} deg"
+                    )
                     break
             reports.append(self.report(not bool(reason), reason))
         return reports
@@ -149,24 +142,20 @@ class ArticulationLinkShiftValidator(PoseShiftValidator):
             return reason
         return None if articulation_keys else "no articulated task objects selected"
 
-    def validate(self, data: PostPhysicsState) -> list[PlacementValidatorReport]:
-        reports = self._validate_poses(data.env_ids, data.initial_links, data.final_links)
-        for report in reports:
-            if report.passed is False:
-                report.reason += "; joint states are not recorded"
-        return reports
+    def validate(self, data: SettledBatch) -> list[PlacementValidatorReport]:
+        return self._validate_poses(data.env_ids, data.initial_link_poses, data.final_link_poses)
 
 
 def default_post_physics_validators() -> dict[str, dict]:
-    """Default acceptance checks for recording ordinary solved placements."""
+    """Default acceptance checks for settled placements."""
     validators = (VelocityValidator(), PoseShiftValidator(), ArticulationLinkShiftValidator())
     return {validator.check: validator.configuration() for validator in validators}
 
 
 def build_post_physics_validators(
-    configurations: dict[str, dict], articulation_keys: list[str]
+    configurations: dict[str, dict], articulation_keys: list[str], *, log_progress: bool = False
 ) -> list[PostPhysicsPlacementValidator]:
-    """Construct configured checks and print their settings and skip reasons."""
+    """Construct configured checks, optionally printing their settings and skip reasons."""
     from hydra.utils import instantiate
 
     validators = []
@@ -174,9 +163,10 @@ def build_post_physics_validators(
         validator = instantiate(configuration)
         assert isinstance(validator, PostPhysicsPlacementValidator), f"'{name}' must be a PostPhysicsPlacementValidator"
         assert name == validator.check, f"'{name}' must match validator name '{validator.check}'"
-        reason = validator.skip_reason(articulation_keys)
-        status = f"SKIPPED: {reason}" if reason is not None else "ENABLED: required to pass"
-        print(f"[recording] {name}: {status}; {validator.configuration()}")
+        if log_progress:
+            reason = validator.skip_reason(articulation_keys)
+            status = f"SKIPPED: {reason}" if reason is not None else "ENABLED: required to pass"
+            print(f"[placement] {name}: {status}; {validator.configuration()}")
         validators.append(validator)
     assert any(
         validator.skip_reason(articulation_keys) is None for validator in validators
@@ -184,39 +174,64 @@ def build_post_physics_validators(
     return validators
 
 
-def validate_post_physics(
-    validators: list[PostPhysicsPlacementValidator], data: PostPhysicsState
-) -> dict[int, list[PlacementValidatorReport]]:
-    """Evaluate every configured check and retain disabled or inapplicable outcomes."""
-    results = {env_id: [] for env_id in data.env_ids}
+@dataclass
+class PlacementOutcome:
+    """Solver and post-physics verdicts for one sampled candidate."""
+
+    pre_physics: dict[str, bool]
+    """Copied source solver verdicts by check name."""
+    post_physics: list[PlacementValidatorReport]
+    """Configured check outcomes; empty when source solver validation failed."""
+    rejection_reason: str | None = None
+    """Why the candidate failed; None means all required checks passed."""
+
+    @property
+    def passed(self) -> bool:
+        """Whether the candidate passed its solver and enabled post-physics checks."""
+        return self.rejection_reason is None
+
+
+def evaluate_settled_batch(
+    batch: SettledBatch, validators: Sequence[PostPhysicsPlacementValidator]
+) -> dict[int, PlacementOutcome]:
+    """Evaluate captured measurements and return an outcome for every source candidate.
+
+    Args:
+        batch: Sampled candidates and owned measurements; no live environment is read.
+        validators: Configured checks to evaluate for candidates that passed solver validation.
+
+    Returns:
+        Outcomes by absolute environment ID, including solver failures and skipped checks.
+    """
+    from isaaclab_arena.offline_placement.pool_validation import solver_validation_failure
+
+    outcomes = {}
+    for env_id, layout in batch.source_layouts.items():
+        outcomes[env_id] = PlacementOutcome(
+            pre_physics=dict(layout.validation_results.validation_results),
+            post_physics=[],
+            rejection_reason=solver_validation_failure(layout),
+        )
+    eligible_env_ids = [env_id for env_id, outcome in outcomes.items() if outcome.passed]
+    assert sorted(batch.env_ids) == sorted(
+        eligible_env_ids
+    ), "Batch environment IDs must match candidates that passed solver checks"
+    if not batch.env_ids:
+        return outcomes
     for validator in validators:
-        reason = validator.skip_reason(list(data.initial_links))
+        reason = validator.skip_reason(list(batch.initial_link_poses))
         if reason is None:
-            reports = validator.validate(data)
+            reports = validator.validate(batch)
             assert all(
                 report.passed is not None for report in reports
             ), f"Enabled check '{validator.check}' must return pass/fail"
         else:
-            reports = [validator.report(None, reason) for _ in data.env_ids]
-        for env_id, report in zip(data.env_ids, reports, strict=True):
-            results[env_id].append(report)
-    return results
-
-
-def articulation_link_poses_in_root_frame(
-    env: ManagerBasedEnv, articulation_keys: list[str]
-) -> dict[str, torch.Tensor]:
-    """Return selected link-to-root poses (N, B, 7), with N environments and B links per articulation."""
-    import torch
-
-    from isaaclab.utils.math import quat_apply_inverse, quat_conjugate, quat_mul
-
-    poses = {}
-    for key in articulation_keys:
-        body = env.scene.articulations[key]
-        links = body.data.body_link_pose_w.torch
-        root = env.arena_world.get_pose_w(key)[:, None, :].expand_as(links)
-        position = quat_apply_inverse(root[..., 3:], links[..., :3] - root[..., :3])
-        rotation = quat_mul(quat_conjugate(root[..., 3:]), links[..., 3:])
-        poses[key] = torch.cat((position, rotation), dim=-1)
-    return poses
+            reports = [validator.report(None, reason) for _ in batch.env_ids]
+        for env_id, report in zip(batch.env_ids, reports, strict=True):
+            outcomes[env_id].post_physics.append(report)
+    for env_id in batch.env_ids:
+        outcome = outcomes[env_id]
+        failures = [f"{report.check}: {report.reason}" for report in outcome.post_physics if report.passed is False]
+        if failures:
+            outcome.rejection_reason = "; ".join(failures)
+    return outcomes

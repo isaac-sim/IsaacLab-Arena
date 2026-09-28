@@ -10,6 +10,7 @@ from copy import deepcopy
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
+from isaaclab.assets import ArticulationCfg, RigidObjectCfg
 from isaaclab.envs import ManagerBasedRLMimicEnv
 from isaaclab.managers import EventTermCfg
 
@@ -306,6 +307,28 @@ class EmbodimentBase(PlaceableAsset):
     def get_scene_key(self) -> str:
         """Return the embodiment's Isaac Lab scene key."""
         return "robot"
+
+    def get_scene_root_keys(self) -> tuple[str, ...]:
+        """Return every rigid-object and articulation root configured by this embodiment."""
+        if self.scene_config is None:
+            return ()
+        return tuple(
+            name for name, cfg in vars(self.scene_config).items() if isinstance(cfg, (ArticulationCfg, RigidObjectCfg))
+        )
+
+    def set_initial_scene_root_poses(self, poses: dict[str, PosePerEnv]) -> None:
+        """Seed each measured embodiment root, keeping independent roots independently positioned."""
+        assert set(poses) == set(self.get_scene_root_keys()), "Provide every embodiment scene root"
+        if tuple(poses) == (self.get_scene_key(),):
+            super().set_initial_scene_root_poses(poses)
+            return
+        # Independent articulation roots have no single logical placement pose.
+        self.initial_pose = None
+        for name, per_env_poses in poses.items():
+            root_cfg = getattr(self.scene_config, name)
+            pose = per_env_poses.poses[0]
+            root_cfg.init_state.pos = pose.position_xyz
+            root_cfg.init_state.rot = pose.rotation_xyzw
 
     def get_ee_frame_transformer_names(self) -> list[str]:
         """Names of the scene's end-effector frame transformer sensors.

@@ -321,6 +321,17 @@ def reset_articulation_pose_and_joints(
     if env_ids is None:
         return
     set_object_pose(env, env_ids, asset_cfg, pose, velocity)
+    reset_articulation_joints(env, env_ids, asset_cfg)
+
+
+def reset_articulation_joints(
+    env: ManagerBasedEnv,
+    env_ids: torch.Tensor,
+    asset_cfg: SceneEntityCfg,
+) -> None:
+    """Restore default joint positions and velocities for selected articulation instances."""
+    if env_ids is None:
+        return
     asset = env.scene[asset_cfg.name]
     joint_position = asset.data.default_joint_pos.torch[env_ids].clone()
     joint_velocity = asset.data.default_joint_vel.torch[env_ids].clone()

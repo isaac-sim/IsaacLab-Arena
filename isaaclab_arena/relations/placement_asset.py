@@ -125,6 +125,19 @@ class PlaceableAsset(Asset, ABC):
         """Return the resolved root pose (relation- or reference-derived) as a single ``Pose``."""
         return self._collapse_pose_to_single(self.get_initial_pose())
 
+    def get_scene_root_keys(self) -> tuple[str, ...]:
+        """Return the scene root names owned by this asset."""
+        return (self.get_scene_key(),)
+
+    def set_initial_scene_root_poses(self, poses: dict[str, PosePerEnv]) -> None:
+        """Seed measured root poses without creating a separate reset writer.
+
+        Args:
+            poses: All owned scene roots mapped to their environment-local initial poses.
+        """
+        assert set(poses) == {self.get_scene_key()}, "Compound assets must initialize each owned scene root"
+        self.set_initial_pose(poses[self.get_scene_key()], create_reset_event=False)
+
     def layout_pose_to_scene_writes(self, layout_pose: Pose) -> list[tuple[str, Pose]]:
         """Return the ``(scene entity name, env-local pose)`` writes that realize a solved layout pose.
 
@@ -171,3 +184,13 @@ class PlaceableAsset(Asset, ABC):
 
         Concrete (not abstract) so assets without a mesh simply keep the ``None`` default.
         """
+
+
+def get_scene_root_owners(assets: list[PlaceableAsset]) -> dict[str, PlaceableAsset]:
+    """Map every declared scene root to its unique owning asset."""
+    owners: dict[str, PlaceableAsset] = {}
+    for asset in assets:
+        for key in asset.get_scene_root_keys():
+            assert key not in owners, f"Scene root '{key}' has multiple asset owners"
+            owners[key] = asset
+    return owners

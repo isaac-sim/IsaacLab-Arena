@@ -5,10 +5,8 @@
 
 from __future__ import annotations
 
-from abc import ABC
 from dataclasses import dataclass, field
 from enum import StrEnum
-from typing import ClassVar
 
 
 class PlacementCheck(StrEnum):
@@ -32,8 +30,7 @@ class PlacementCheck(StrEnum):
     """Build-time check: every ``FaceTo`` subject has a defined target direction and facing yaw."""
 
     PHYSICS_SETTLED = "physics_settled"
-    """Run-time check: after stepping physics the movable objects' velocities fall
-    below threshold, i.e. the layout is stable and does not drift or topple."""
+    """Run-time check: final measured root speeds fall below the configured thresholds."""
 
     IK_REACHABLE = "ik_reachable"
     """Build-time check: the robot can reach a top-down grasp at every movable object's
@@ -44,7 +41,7 @@ class PlacementCheck(StrEnum):
 class PlacementValidationResults:
     """A collection of validation check results for placement layouts.
 
-    Keys are check names (see :class:`PlacementCheck` for the standard set and what each check means).
+    Keys are check names; PlacementCheck defines the standard set.
     """
 
     validation_results: dict[str, bool] = field(default_factory=dict)
@@ -105,15 +102,6 @@ class PlacementValidationResults:
             if self.required_checks is None:
                 self.required_checks = set()
             self.required_checks.add(check)
-
-
-class PlacementValidator(ABC):
-    """Shared identity and stage of a placement check."""
-
-    check: ClassVar[str]
-    """Unique check name within its validation stage."""
-    stage: ClassVar[str]
-    """The stage whose poses this check evaluates: pre_physics or post_physics."""
 
 
 @dataclass

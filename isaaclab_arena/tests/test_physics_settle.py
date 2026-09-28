@@ -235,9 +235,9 @@ def _test_validate_pool_layouts_grades_each_layout(simulation_app):
     from isaaclab_arena.relations.physics_settle_params import PhysicsSettleParams
     from isaaclab_arena.relations.placement_events import get_placement_pool
     from isaaclab_arena.relations.placement_result import PlacementResult
-    from isaaclab_arena.relations.placement_validation import PlacementCheck, PlacementValidationResults
     from isaaclab_arena.relations.pooled_object_placer import EnvLayoutPool
     from isaaclab_arena.relations.relations import IsAnchor, On, get_anchor_objects
+    from isaaclab_arena.relations.validation.types import PlacementCheck, PlacementValidationResults
     from isaaclab_arena.scene.scene import Scene
     from isaaclab_arena.utils.pose import Pose
 
