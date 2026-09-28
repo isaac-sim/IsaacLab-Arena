@@ -56,6 +56,7 @@ def iter_pool_validation(
     snapshot: SceneSnapshot | None = None,
     skip_failed: bool = False,
     render: bool = False,
+    log_progress: bool = False,
 ) -> Iterator[PoolValidationBatch]:
     """Apply and simulate each pool batch without consuming its queues.
 
@@ -70,6 +71,7 @@ def iter_pool_validation(
         snapshot: Optional state restored before each batch; the caller owns final restoration.
         skip_failed: Leave candidates with missing or failed required solver checks unapplied.
         render: Render each physics step.
+        log_progress: Print batch and physics-step progress.
 
     Returns:
         Batches containing source candidates, measured initial and final poses.
@@ -80,7 +82,8 @@ def iter_pool_validation(
     anchors = set(get_anchor_objects(assets))
     rotations = get_base_rotation_per_asset(assets)
     queues = placement_pool.layouts_per_env()[: env.num_envs]
-    for index in range(max((len(queue) for queue in queues), default=0)):
+    num_batches = max((len(queue) for queue in queues), default=0)
+    for index in range(num_batches):
         if snapshot is not None:
             snapshot.restore(env)
         layouts = {}
@@ -104,7 +107,16 @@ def iter_pool_validation(
         env.scene.write_data_to_sim()
         env.sim.forward()
         initial = {key: env.arena_world.get_pose_e(key) for key in object_names}
-        physics_settle.step_physics(env, settle_params.num_steps * env.cfg.decimation, render=render)
+        num_steps = settle_params.num_steps * env.cfg.decimation
+        chunk_size = max(1, num_steps // 2 if log_progress else num_steps)
+        for start in range(0, num_steps, chunk_size):
+            steps = min(chunk_size, num_steps - start)
+            physics_settle.step_physics(env, steps, render=render)
+            if log_progress:
+                print(
+                    f"[recording] batch {index + 1}/{num_batches}: {start + steps}/{num_steps} physics steps",
+                    flush=True,
+                )
         final = {key: env.arena_world.get_pose_e(key) for key in object_names}
         yield PoolValidationBatch(index, layouts, skipped_layouts, initial, final)
 

@@ -1,249 +1,212 @@
-Record Initial Placement Poses
+Record Settled Placement Poses
 ==============================
 
 Use ``record_placement_layouts.py`` to prepare reusable initial poses before
-running a policy. It solves existing placement relations, advances physics, and
-saves the final poses of layouts that remain close to the solved arrangement.
-The saved poses can then be loaded on reset without solving again.
+policy evaluation. It solves placement relations, advances physics, and records
+the final poses of accepted layouts. Replay loads those poses on reset without
+solving or settling them again.
 
-.. code-block:: text
+This walkthrough uses two existing Robolab tasks: a clamp scene that passes and
+a smartphone scene that demonstrates rejection. Both use four parallel environments
+and four batches. For acceptance rules and the Python API, see
+:doc:`recording_design`.
 
-   Environment YAML -> solver and required validation -> physics
-                          -> velocity and pose-shift checks -> poses.jsonl
-   Environment YAML + poses.jsonl -> restore poses on reset -> run policy
+.. toctree::
+   :hidden:
 
-1. Record a scene
------------------
+   recording_design
 
-Start with a working Arena container from :doc:`../../quickstart/installation`.
-Run the commands below from the repository root inside that container.
-Recording and the policy check run without a window; visual replay requires a
-workstation display available to the container. This example uses CPU PhysX.
-The Franka task is to pick up the cube and place it into the bowl.
-Both objects start ``On`` the office table with ``clearance_m: 0.001``.
-An ``AtPosition`` relation keeps their X coordinate in front of the robot while
-the solver varies their Y positions. The same environment YAML is used for
-recording, replay and policy evaluation:
+1. Record the clamp scene
+-------------------------
+
+Use a standard Docker image built from this checkout, as described in
+:doc:`../../quickstart/installation`. The reference runtime uses Isaac Sim 6.1.0,
+Newton 1.5.2 and Warp 1.16.0, without optional cuRobo IK validation.
+The launcher reuses existing images, so an older local image may have incompatible
+dependencies. To build and launch a separate image, run from the host repository root:
+
+.. code-block:: bash
+
+   ./docker/run_docker.sh -n isaaclab_arena_sqa -s record-replay
+
+Run the remaining commands from the repository root inside that container, with a
+workstation display available. Recording and replay use the same container.
+The examples use CPU PhysX and show the Kit viewport.
+
+The existing scenes use about 1 cm of ``On`` release clearance. This exceeds the
+recorder's default 2 mm shift limit. The commands explicitly allow 15 mm of root
+translation and 5 mm of articulation-link translation: the reference Droid run
+moved its links about 4 mm. Rotation limits remain 2 degrees and velocity limits
+remain 0.1 m/s and 0.1 rad/s. These are example settings, not changed defaults;
+use limits appropriate to the accuracy needed by your evaluation.
 
 .. code-block:: bash
 
    /isaac-sim/python.sh isaaclab_arena/scripts/record_placement_layouts.py \
-       env_spec=isaaclab_arena_environments/office_table/franka_pick_cube_into_bowl_office_table.yaml \
-       output=outputs/placements/poses.jsonl \
-       num_envs=2 layouts_per_env=5 seed=42 \
-       settle.num_steps=120 --device cpu --viz none
+       env_spec=isaaclab_arena_environments/robolab/tasks/clamp_in_right_bin.yaml \
+       output=outputs/placements/clamp.jsonl \
+       num_envs=4 env_spacing=2 layouts_per_env=4 seed=42 \
+       'viewer_eye=[4.0,4.0,6.3]' 'viewer_lookat=[0.6,0.6,0.3]' \
+       settle.num_steps=120 \
+       settle.validators.pose_shift.max_translation_m=0.015 \
+       settle.validators.articulation_link_shift.max_translation_m=0.005 \
+       render=true --device cpu --viz kit
 
-Expect all three default checks to print ``ENABLED``: ``physics_settled``,
-``pose_shift`` and ``articulation_link_shift``. The final line reports
-``Saved K/N accepted layouts: outputs/placements/poses.jsonl``. This command
-requests five candidates in each of two environments; the accepted count may be
-smaller if candidates fail validation. A successful run writes at least one layout.
+``viewer_eye`` and ``viewer_lookat`` set the camera in simulation-world coordinates
+before the first batch. These values produce the four-environment overview shown
+below; omitting them keeps the task's default camera. Set both together.
 
-An existing output file is never overwritten. For another recording, choose a
-new ``output`` path and use that same path in the inspection and replay commands.
+The viewport shows four tables and robots. Each batch applies a different solved
+layout, then advances 960 physics steps (120 environment steps with decimation 8).
+The clamp scene varies positions without randomizing tool orientations and has a
+small initial drop. The console prints enabled checks
+and their settings, physics-step progress, and acceptance counts per batch.
 
-Recording settings use Hydra ``key=value`` syntax. Isaac Lab launcher settings
-retain their ``--flag`` syntax. Use ``presets=newton`` for a Newton scene, and
-``render=true --viz kit`` to watch the recording pass. Every enabled source
-relation remains part of the same solver problem; no special relation is required.
+.. image:: ../../../images/offline_placement/clamp_recording.gif
+   :alt: Four batches of clamp layouts in four parallel environments.
+   :width: 100%
 
-2. Check the recording
-----------------------
+This eight-second GIF shows short excerpts from four batches: the first second
+of settling and a brief final view of each layout. Each batch still runs all
+960 physics steps. Use the console results below to check acceptance.
 
-Each line contains poses keyed by runtime scene name under
-``variations["scene.relation_placement"]["poses"]``. Check the layout count
-and inspect the first record:
+The reference run accepted 15 of 16 candidates. One black hammer moved 15.7 mm,
+exceeding the 15 mm root-shift limit, so that layout was excluded. Console excerpt:
+
+.. code-block:: text
+
+   [recording] batch 1/4: 480/960 physics steps
+   [recording] batch 1/4: 960/960 physics steps
+   [recording] batch 1/4: 4 solutions, 4 passed solver validation, 4 passed post-physics validation; overall 4/16 validated, 4 accepted
+   [recording] batch 2/4: 4 solutions, 4 passed solver validation, 4 passed post-physics validation; overall 8/16 validated, 8 accepted
+   [recording] batch 3/4: 4 solutions, 4 passed solver validation, 4 passed post-physics validation; overall 12/16 validated, 12 accepted
+   [recording] batch 4/4: 4 solutions, 4 passed solver validation, 3 passed post-physics validation; overall 16/16 validated, 15 accepted
+   Saved 15/16 accepted layouts: outputs/placements/clamp.jsonl
+     Rejected 1: pose_shift: black_hammer: moved 0.015724 m and rotated 1.112 deg; limits 0.015 m, 2 deg
+
+Counts can vary with the simulator, assets and solver configuration. Every saved
+layout must pass all enabled, applicable checks. An existing output file is never
+overwritten; choose a new path for each recording.
+
+2. Inspect the saved poses
+--------------------------
 
 .. code-block:: bash
 
-   wc -l outputs/placements/poses.jsonl
-   head -n 1 outputs/placements/poses.jsonl | /isaac-sim/python.sh -m json.tool
+   wc -l outputs/placements/clamp.jsonl
+   head -n 1 outputs/placements/clamp.jsonl | /isaac-sim/python.sh -m json.tool
 
-The line count must match the accepted count printed by the recorder.
-``source``, ``poses`` and ``validation`` are all fields inside
-``variations["scene.relation_placement"]``. For example, post-physics reports are at
-``variations["scene.relation_placement"]["validation"]["post_physics"]``.
-For this example, each record should have:
+The line count must match the recorder's accepted count. Each line contains one
+complete layout. ``source``, ``poses`` and ``validation`` are fields inside
+``variations["scene.relation_placement"]``. Check that:
 
-* ``source: "settled"`` and poses for ``cube``, ``bowl`` and ``robot``;
-* finite XYZ positions and XYZW unit quaternions;
-* ``passed: true`` for all three entries in ``validation.post_physics``.
+* ``source`` is ``"settled"``;
+* ``poses`` contains scene names, including ``spring_clamp``, the bins and ``robot``;
+* positions and quaternions contain finite numbers;
+* all three entries in ``validation.post_physics`` have ``passed: true`` and the
+  settings shown in the command above.
 
-Positions are in metres in the local environment frame. ``validation.pre_physics``
-contains solver verdicts for the initial candidate. Post-physics reports include
-check names, implementation paths, effective settings, results and reasons.
-Simulation duration is under ``validation.sampling``. Other scenes can contain
-skipped reports (``passed: null``), for example when they have no articulations.
+Positions are in metres in the local environment frame; quaternions are XYZW.
+``validation.pre_physics`` holds the solver verdicts for the initial candidate.
+``validation.sampling`` records the physics duration. Only root poses are saved,
+not robot joint states.
 
-3. Replay visually
-------------------
+3. Replay the accepted layouts
+------------------------------
 
-Load the saved poses with the evaluation runner and its zero-action policy:
+Use the same environment YAML and the saved file:
 
 .. code-block:: bash
 
    /isaac-sim/python.sh isaaclab_arena/evaluation/policy_runner.py \
-       --env_spec isaaclab_arena_environments/office_table/franka_pick_cube_into_bowl_office_table.yaml \
-       --placement_layouts outputs/placements/poses.jsonl \
+       --env_spec isaaclab_arena_environments/robolab/tasks/clamp_in_right_bin.yaml \
+       --placement_layouts outputs/placements/clamp.jsonl \
        --policy_type zero_action --num_episodes 3 \
        --num_envs 1 --device cpu --viz kit \
-       --output_base_dir outputs/placements/visual_replay
-
-Expect a Franka beside the cube and bowl on the table. The cube starts outside
-the bowl, and the objects should remain near their loaded poses without a visible
-release drop. The runner applies zero actions: it does not perform the pick-and-place
-task. Leave the objects untouched when checking stability.
-
-With one environment, each episode reset loads the next record in file order and
-wraps after the last one. This task times out after 70 seconds of simulation,
-which may run faster than wall-clock time. The command exits after three episodes;
-press Ctrl-C to stop early. Restarting the command loads the first record again.
-See :doc:`../object_placement/relations` for parallel and partial-reset selection.
-
-Exact reset poses do not imply identical future trajectories. Keep the environment
-YAML, robot reset configuration, backend and device unchanged when comparing runs.
-
-Headless alternative
---------------------
-
-Without a workstation display, use the same runner without Kit. This completes
-one episode using the saved poses:
-
-.. code-block:: bash
-
-   /isaac-sim/python.sh isaaclab_arena/evaluation/policy_runner.py \
-       --env_spec isaaclab_arena_environments/office_table/franka_pick_cube_into_bowl_office_table.yaml \
-       --placement_layouts outputs/placements/poses.jsonl \
-       --policy_type zero_action --num_episodes 1 \
-       --num_envs 1 --device cpu --viz none \
        --output_base_dir outputs/placements/evaluation
 
-Expect ``num_episodes: 1``, ``success_rate: 0.0`` and ``object_moved_rate: 0.0``.
-Zero task success is expected because the policy takes no action. The runner prints
-the path to its evaluation report. Open
-``outputs/placements/evaluation/<timestamp>/index.html`` in a browser to inspect
-the results. The adjacent ``episode_results_rank0.jsonl`` contains the per-episode
-results. Include these files and the input ``poses.jsonl`` when reporting a discrepancy.
-This checks loading, stepping and resetting; it does not measure a manipulation
-policy's performance.
+The clamp and bins should start at the saved poses without the original release
+drop. This task uses absolute joint-position actions, so zero actions can move the
+robot arm; they do not perform the pick-and-place task. Check the object poses
+at each reset before attributing later motion to replay. With one environment, each reset loads the next record
+and wraps after the last one. Restarting the command starts from the first record.
+The command exits after three episodes; each runs for up to 70 seconds of
+simulation, which may differ from wall-clock time.
 
-If recording fails
-------------------
+Open ``outputs/placements/evaluation/<timestamp>/index.html`` for the results.
+The adjacent ``episode_results_rank0.jsonl`` contains per-episode metrics. Zero
+task success is expected with this policy. Inspect the viewport and any
+reported object movement; this check does not measure manipulation performance.
+Include the command, console log, input JSONL and evaluation results when reporting
+a discrepancy.
 
-No file is written when fewer than ``settle.min_layouts`` candidates pass. Inspect
-the rejection summary before retrying:
+Exact reset poses do not guarantee identical future trajectories. Keep the scene,
+robot joint-reset configuration, backend and device unchanged when comparing runs.
+See :doc:`../object_placement/relations` for parallel and partial-reset selection.
 
-* ``missing required solver checks``: make the named validator available or fix
-  the scene configuration. Do not remove a required check to make recording pass.
-* ``physics_settled``: bodies still exceed the final velocity limits. Check contacts
-  and the source arrangement; allow more ``settle.num_steps`` if motion is transient.
-* ``pose_shift``: an object moved beyond the allowed displacement or rotation.
-  Check release clearance, support and collisions.
-* ``articulation_link_shift``: links moved too far from their reset configuration.
-  Joint states are not recorded, so root-pose replay cannot reproduce that configuration.
+4. Check rejection with the smartphone scene
+--------------------------------------------
 
-Keep the default validators enabled for this example. Save the command, log and
-JSONL file when reporting a discrepancy.
-
-Acceptance checks
------------------
-
-Each recorded candidate must pass all required solver checks and every enabled,
-applicable post-physics validator. Candidates with missing explicitly required
-solver results are rejected before simulation, including unavailable IK checks.
-All validators share one physics pass. Disabled or inapplicable validators produce
-skipped reports, not successful verdicts.
-All rigid and articulation roots are recorded, including fixed rigid roots.
-
-``settle.num_steps`` controls duration in environment steps (default 5), each
-containing ``decimation`` physics substeps. The example uses 120 to give the scene
-time to settle. ``settle.min_layouts`` sets the minimum accepted count needed to
-write output (default 1).
-
-The default validators are:
-
-* ``physics_settled``: existing final-velocity check, with ``lin_vel_thresh=0.1`` m/s
-  and ``ang_vel_thresh=0.1`` rad/s.
-* ``pose_shift``: maximum root displacement of ``max_translation_m=0.002`` metres
-  and rotation of ``max_rotation_deg=2`` degrees from the initial pose.
-* ``articulation_link_shift``: the same displacement and rotation limits for links
-  relative to their root. Skipped when the scene has no articulations.
-
-Settings live under ``settle.validators.<check>``. For example, append
-``settle.validators.pose_shift.max_translation_m=0.001`` to tighten the root limit.
-To disable a check explicitly, use
-``settle.validators.pose_shift.enabled=false``. Its skipped report remains in the
-record; that record no longer certifies the disabled condition. At least one
-applicable validator must remain enabled. Keep the defaults for the SQA example.
-
-With the default checks, a layout that comes to rest after a large drop is rejected.
-``On`` defaults to 1 cm of release clearance, which exceeds the recording shift
-limit. For an initial arrangement intended to remain still, use a smaller clearance,
-as in the sample, rather than weakening the recording limit. The accepted final
-pose, including a small permitted adjustment, is what gets recorded. Joint
-states are not saved, so excessive link motion also rejects the layout.
-
-The solver's IK and geometric checks are not repeated after physics. The default
-post-physics checks certify the velocity and shift limits above, not exact
-preservation of every relation or a new IK solution at the measured poses.
-
-Python use and scope
---------------------
-
-For an initialized environment with a placement pool:
-
-.. code-block:: python
-
-   from isaaclab_arena.offline_placement.recording_params import PlacementRecordingParams
-   from isaaclab_arena.offline_placement.settled_placement import collect_settled_pool_layouts
-   from isaaclab_arena.relations.placement_events import get_placement_pool
-
-   result = collect_settled_pool_layouts(
-       env, get_placement_pool(env), PlacementRecordingParams(num_steps=120),
-       scene_assets=arena_env.get_placement_assets(),
-   )
-   result.layouts.write_episode_jsonl(
-       "poses.jsonl", source="settled", validation=result.validation,
-   )
-
-Collection does not consume the pool or change its validation results. Before each
-batch, it restores scene roots, joints and actuator targets so earlier candidates
-cannot change the next candidates' starting conditions. It also restores that
-state on completion or failure for Python callers. This does not restore validator
-internals, task managers or all simulator state.
-
-The recorder and ``run_placement_pool_validation.py`` share the same physics loop; a separate
-validation run is unnecessary. Pool validation lives in
-``isaaclab_arena.offline_placement.pool_validation``. The velocity-only pool
-validator also supports deformables; root-pose recording does not.
-
-Use concrete assets with writable rigid or articulation roots. Object sets and
-``RandomAroundSolution`` are unsupported. Recording checks replay compatibility
-before stepping physics: recorded assets must allow pose resets, have zero initial
-velocity, and have no randomized or per-environment pose-reset policy. Replay
-requires the same assets and robot joint reset configuration. Disable pose-changing
-variations and callbacks
-when exact pose restoration is required. This tool records object and robot root
-poses, not general variations or joint states.
-
-Custom checks
--------------
-
-Custom post-physics checks subclass ``PostPhysicsPlacementValidator`` in
-``isaaclab_arena.offline_placement.post_physics_validation``. Define a dataclass with a unique
-``check`` name and implement ``validate(PostPhysicsState)`` to return one
-``PlacementValidatorReport`` per ``env_ids`` entry, in order. Use ``self.report``
-to retain the effective settings. Enabled, applicable checks must return pass/fail;
-``skip_reason`` describes scene-level inapplicability.
-
-For an importable ``my_project.validators.SupportValidator`` with
-``check = "support"``, add it to the existing checks with:
+Use the same settings on the existing smartphone task:
 
 .. code-block:: bash
 
-   +settle.validators.support._target_=my_project.validators.SupportValidator
+   /isaac-sim/python.sh isaaclab_arena/scripts/record_placement_layouts.py \
+       env_spec=isaaclab_arena_environments/robolab/tasks/smartphone_in_bin.yaml \
+       output=outputs/placements/smartphone.jsonl \
+       num_envs=4 env_spacing=2 layouts_per_env=4 seed=42 \
+       'viewer_eye=[4.0,4.0,6.3]' 'viewer_lookat=[0.6,0.6,0.3]' \
+       settle.num_steps=120 \
+       settle.validators.pose_shift.max_translation_m=0.015 \
+       settle.validators.articulation_link_shift.max_translation_m=0.005 \
+       render=true --device cpu --viz kit
 
-The shared ``PlacementValidator`` base lives in ``relations.placement_validation``.
-Existing solver validators keep their batch API; post-physics implementations
-live under ``offline_placement``. The online placement path does not import the
-offline package.
+.. image:: ../../../images/offline_placement/smartphone_recording.gif
+   :alt: Four batches of smartphone-scene layouts in four parallel environments, showing object motion.
+   :width: 100%
+
+All 16 candidates passed solver validation but failed post-physics validation,
+so no recording was written. The mouse moved or tumbled beyond the pose-shift
+limits. Several layouts also exceeded the separate final-velocity limits.
+The GIF uses the same short excerpts as the clamp example.
+
+Console excerpt:
+
+.. code-block:: text
+
+   [recording] batch 1/4: 480/960 physics steps
+   [recording] batch 1/4: 960/960 physics steps
+   [recording] batch 1/4: 4 solutions, 4 passed solver validation, 0 passed post-physics validation; overall 4/16 validated, 0 accepted
+   [recording] batch 2/4: 4 solutions, 4 passed solver validation, 0 passed post-physics validation; overall 8/16 validated, 0 accepted
+   [recording] batch 3/4: 4 solutions, 4 passed solver validation, 0 passed post-physics validation; overall 12/16 validated, 0 accepted
+   [recording] batch 4/4: 4 solutions, 4 passed solver validation, 0 passed post-physics validation; overall 16/16 validated, 0 accepted
+   AssertionError: Accepted 0 layouts; need 1. Rejections: {...}
+
+One of the reported reasons was:
+
+.. code-block:: text
+
+   pose_shift: computer_mouse: moved 0.023071 m and rotated 14.295 deg; limits 0.015 m, 2 deg
+
+A rejected run exits with an error and writes no file when fewer than
+``settle.min_layouts`` candidates pass (default 1). Check the named object and
+reason in the rejection summary:
+
+* ``physics_settled``: final velocity exceeds the limits. Inspect contacts and the
+  source arrangement; increase ``settle.num_steps`` only if the motion is transient.
+* ``pose_shift``: a root moved or rotated too far from its solved pose.
+* ``articulation_link_shift``: a link moved too far relative to its root. Root-only
+  replay cannot reproduce an altered joint configuration.
+* ``missing required solver checks``: make the named check available or fix the
+  source configuration. Do not remove required checks merely to obtain a file.
+
+Other runtimes can produce different rejection counts. Inspect the reported
+conditions instead of assuming that a task name guarantees acceptance or rejection.
+
+Without a display
+-----------------
+
+For recording, replace ``render=true --viz kit`` with
+``render=false --viz none``. For replay, replace ``--viz kit`` with ``--viz none``.
+The output and checks remain the same. Recording settings use Hydra ``key=value``
+syntax; launcher settings retain ``--flag`` syntax.

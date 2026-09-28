@@ -26,6 +26,12 @@ class PlacementRecordingCfg:
     """Placement JSONL output path; must not exist."""
     num_envs: int = 1
     """Number of parallel simulation environments."""
+    env_spacing: float = 30.0
+    """Distance between parallel environment origins, in metres."""
+    viewer_eye: tuple[float, float, float] | None = None
+    """Optional viewer position in simulation-world metres; requires viewer_lookat."""
+    viewer_lookat: tuple[float, float, float] | None = None
+    """Optional viewer target in simulation-world metres; requires viewer_eye."""
     layouts_per_env: int = 5
     """Minimum solved candidates per environment before physics filtering."""
     seed: int = 42
@@ -54,6 +60,7 @@ def record_placements_to_jsonl(cfg: PlacementRecordingCfg, device: str = "cuda:0
     output = Path(cfg.output)
     assert not output.exists(), f"Output already exists: {output}"
     assert cfg.num_envs > 0 and cfg.layouts_per_env > 0, "Environment and layout counts must be positive"
+    assert (cfg.viewer_eye is None) == (cfg.viewer_lookat is None), "Set viewer_eye and viewer_lookat together"
     spec = ArenaEnvGraphSpec.from_yaml(cfg.env_spec)
     assert not spec.object_sets, "Resolve object sets before recording reusable layouts"
     arena_env = spec.to_arena_env()
@@ -64,11 +71,17 @@ def record_placements_to_jsonl(cfg: PlacementRecordingCfg, device: str = "cuda:0
         resolve_on_reset=True,
     )
     builder = ArenaEnvBuilder(
-        arena_env, ArenaEnvBuilderCfg(num_envs=cfg.num_envs, seed=cfg.seed, device=device, presets=cfg.presets)
+        arena_env,
+        ArenaEnvBuilderCfg(
+            num_envs=cfg.num_envs, env_spacing=cfg.env_spacing, seed=cfg.seed, device=device, presets=cfg.presets
+        ),
     )
+    print(f"[recording] Solving placements for {cfg.num_envs} environments...", flush=True)
     env = builder.make_registered()
     try:
         env.reset()
+        if cfg.viewer_eye is not None:
+            env.unwrapped.sim.set_camera_view(cfg.viewer_eye, cfg.viewer_lookat)
         pool = get_placement_pool(env)
         assert pool is not None, "Scene must contain placement relations"
         result = collect_settled_pool_layouts(

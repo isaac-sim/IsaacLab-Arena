@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="830" viewBox="0 0 760 830">
+<title>Replay recorded poses</title>
+<defs><marker id="arrow" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7" fill="#42566b"/></marker></defs>
+<rect width="760" height="830" fill="white"/>
+<g font-family="Arial, sans-serif" fill="#162c40">
+<text x="25" y="38" font-size="28" font-weight="bold">Replay recorded poses</text>
+<rect x="25" y="90" width="345" height="90" fill="white" stroke="#42566b" stroke-width="1.5"/>
+<rect x="25" y="90" width="345" height="42" fill="#a3c7e6" stroke="#42566b" stroke-width="1.5"/>
+<text x="40" y="118" font-size="22" font-weight="bold">Environment YAML</text>
+<text x="40" y="158" font-size="20">Same scene and robot reset.</text>
+<rect x="390" y="90" width="345" height="90" fill="white" stroke="#42566b" stroke-width="1.5"/>
+<rect x="390" y="90" width="345" height="42" fill="#b8dca6" stroke="#42566b" stroke-width="1.5"/>
+<text x="405" y="118" font-size="22" font-weight="bold">Placement JSONL</text>
+<text x="405" y="158" font-size="20">Saved root poses.</text>
+<polyline points="197,180 197,217 380,217 380,250" fill="none" stroke="#42566b" stroke-width="2" marker-end="url(#arrow)"/>
+<polyline points="562,180 562,217 380,217" fill="none" stroke="#42566b" stroke-width="2" marker-end="url(#arrow)"/>
+<rect x="65" y="250" width="630" height="117" fill="white" stroke="#42566b" stroke-width="1.5"/>
+<rect x="65" y="250" width="630" height="42" fill="#a3c7e6" stroke="#42566b" stroke-width="1.5"/>
+<text x="80" y="278" font-size="22" font-weight="bold">ArenaEnvBuilder</text>
+<text x="80" y="318" font-size="20">Load PlacementLayouts; check assets and reset policies.</text>
+<text x="80" y="345" font-size="20">Set the initial spawn poses.</text>
+<polyline points="380,367 380,405" fill="none" stroke="#42566b" stroke-width="2" marker-end="url(#arrow)"/>
+<rect x="65" y="405" width="630" height="117" fill="white" stroke="#42566b" stroke-width="1.5"/>
+<rect x="65" y="405" width="630" height="42" fill="#a3c7e6" stroke="#42566b" stroke-width="1.5"/>
+<text x="80" y="433" font-size="22" font-weight="bold">Environment reset</text>
+<text x="80" y="473" font-size="20">Draw complete layouts from the shared wrapping queue.</text>
+<text x="80" y="500" font-size="20">Write saved root poses and zero root velocities.</text>
+<polyline points="380,522 380,560" fill="none" stroke="#42566b" stroke-width="2" marker-end="url(#arrow)"/>
+<rect x="65" y="560" width="630" height="90" fill="white" stroke="#42566b" stroke-width="1.5"/>
+<rect x="65" y="560" width="630" height="42" fill="#a3c7e6" stroke="#42566b" stroke-width="1.5"/>
+<text x="80" y="588" font-size="22" font-weight="bold">Policy rollout</text>
+<text x="80" y="628" font-size="20">Physics runs normally from the loaded poses.</text>
+<text x="25" y="710" font-size="20">Bypassed: relation solving, solver checks and pool generation.</text>
+<text x="25" y="745" font-size="20">Offline settling and acceptance checks are not repeated.</text>
+<text x="25" y="795" font-size="20">Reset poses are reproduced; later trajectories can differ.</text>
+</g></svg>

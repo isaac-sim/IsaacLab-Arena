@@ -89,6 +89,9 @@ def collect_settled_pool_layouts(
     accepted_indices: list[tuple[int, int]] = []
     rejections: dict[tuple[int, int], str] = {}
     validation: list[dict] = []
+    queues = placement_pool.layouts_per_env()
+    num_batches = max((len(queue) for queue in queues), default=0)
+    num_candidates = sum(len(queue) for queue in queues)
     batches = iter_pool_validation(
         env,
         placement_pool,
@@ -97,9 +100,11 @@ def collect_settled_pool_layouts(
         snapshot=snapshot,
         skip_failed=True,
         render=render,
+        log_progress=True,
     )
     try:
         for batch in batches:
+            previously_accepted = len(accepted_indices)
             env_ids = [env_id for env_id in batch.layouts if env_id not in batch.skipped_layouts]
             state = PostPhysicsState(
                 env=env,
@@ -131,6 +136,14 @@ def collect_settled_pool_layouts(
                         "physics_dt_s": env.sim.get_physics_dt(),
                     },
                 })
+            print(
+                f"[recording] batch {batch.index + 1}/{num_batches}: "
+                f"{len(batch.layouts)} solutions, {len(env_ids)} passed solver validation, "
+                f"{len(accepted_indices) - previously_accepted} passed post-physics validation; "
+                f"overall {len(accepted_indices) + len(rejections)}/{num_candidates} validated, "
+                f"{len(accepted_indices)} accepted",
+                flush=True,
+            )
         assert (
             len(accepted_indices) >= params.min_layouts
         ), f"Accepted {len(accepted_indices)} layouts; need {params.min_layouts}. Rejections: {rejections}"
