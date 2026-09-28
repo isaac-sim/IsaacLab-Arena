@@ -36,10 +36,10 @@ def _test_cable_routing_preserves_success_parameters_and_timeout(_simulation_app
     assert termination_cfg.timeout_s == 45.0
     assert termination_cfg.failures == {}
     assert len(termination_cfg.success) == 1
-    objective = termination_cfg.success[0]
-    assert objective.name == "cable_routing"
-    assert len(objective.predicate_sequence) == 1
-    route_predicate = objective.predicate_sequence[0]
+    criteria = termination_cfg.success[0]
+    assert criteria.name == "cable_routing"
+    assert len(criteria.predicate_sequence) == 1
+    route_predicate = criteria.predicate_sequence[0]
     assert route_predicate.func is cable_route_success
     assert route_predicate.keywords == {
         "cable_asset_name": "routing_cable",
