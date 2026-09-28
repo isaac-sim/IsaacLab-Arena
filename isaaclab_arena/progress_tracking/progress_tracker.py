@@ -9,7 +9,7 @@ import copy
 import functools
 import torch
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from isaaclab.managers import SceneEntityCfg, TerminationTermCfg
 from isaaclab.managers.recorder_manager import RecorderManagerBaseCfg, RecorderTerm, RecorderTermCfg
@@ -102,6 +102,12 @@ class ProgressObjectiveState:
     active_predicates: dict[str, str | None]
     """Next predicate per group, or None when the group is complete."""
 
+    diagnostic_predicates: dict[str, dict[str, bool | int | None]] = field(default_factory=dict)
+    """Current and first-passing state of reporting-only checks."""
+
+    best_simultaneous_checks: int = 0
+    """Largest number of reporting-only checks true on the same step."""
+
 
 @dataclass
 class ProgressState:
@@ -157,6 +163,21 @@ class ProgressObjectiveRunner:
             self.group_score[group_name] = torch.zeros(num_envs, dtype=torch.float32, device=device)
             self.group_complete[group_name] = torch.zeros(num_envs, dtype=torch.bool, device=device)
 
+        self.diagnostic_predicates = {
+            name: _create_predicate_from_config(predicate, env)
+            for name, predicate in progress_objective.diagnostic_predicates.items()
+        }
+        self.diagnostic_current = {
+            name: torch.zeros(num_envs, dtype=torch.bool, device=device) for name in self.diagnostic_predicates
+        }
+        self.diagnostic_ever_true = {
+            name: torch.zeros(num_envs, dtype=torch.bool, device=device) for name in self.diagnostic_predicates
+        }
+        self.diagnostic_first_true_step = {
+            name: torch.full((num_envs,), -1, dtype=torch.long, device=device) for name in self.diagnostic_predicates
+        }
+        self.best_simultaneous_checks = torch.zeros(num_envs, dtype=torch.long, device=device)
+
     def step(
         self,
         env,
@@ -172,6 +193,7 @@ class ProgressObjectiveRunner:
         PredicateEvent for every env/group that advanced this step.
         """
 
+        self._update_diagnostics(env, step_index, active_envs)
         objective_complete = self.is_complete()
         final_check_envs = (
             objective_complete & updated_envs if check_final_conditions else torch.zeros_like(objective_complete)
@@ -195,6 +217,33 @@ class ProgressObjectiveRunner:
                 group_final_check_envs,
             )
         return events
+
+    def _update_diagnostics(self, env, step_index: torch.Tensor | None, active_envs: torch.Tensor) -> None:
+        """Observe named checks without advancing the objective or changing task success."""
+        if not self.diagnostic_predicates or not bool(active_envs.any().item()):
+            return
+
+        results = []
+        for name, predicate in self.diagnostic_predicates.items():
+            result = torch.as_tensor(predicate(env), dtype=torch.bool, device=self.device)
+            assert result.shape == (
+                self.num_envs,
+            ), f"Diagnostic predicate {name!r} returned shape {tuple(result.shape)}; expected ({self.num_envs},)"
+            first_true = active_envs & result & ~self.diagnostic_ever_true[name]
+            if step_index is not None:
+                self.diagnostic_first_true_step[name] = torch.where(
+                    first_true, step_index, self.diagnostic_first_true_step[name]
+                )
+            self.diagnostic_ever_true[name] |= first_true
+            self.diagnostic_current[name] = torch.where(active_envs, result, self.diagnostic_current[name])
+            results.append(result)
+
+        simultaneous = torch.stack(results, dim=0).sum(dim=0)
+        self.best_simultaneous_checks = torch.where(
+            active_envs,
+            torch.maximum(self.best_simultaneous_checks, simultaneous),
+            self.best_simultaneous_checks,
+        )
 
     def _evaluate_predicate_with_cache(
         self,
@@ -352,6 +401,12 @@ class ProgressObjectiveRunner:
             self.group_score[group_name][env_ids] = 0.0
             self.group_complete[group_name][env_ids] = False
 
+        for name in self.diagnostic_predicates:
+            self.diagnostic_current[name][env_ids] = False
+            self.diagnostic_ever_true[name][env_ids] = False
+            self.diagnostic_first_true_step[name][env_ids] = -1
+        self.best_simultaneous_checks[env_ids] = 0
+
         self._reset_consecutive_step_requirements(env_ids)
 
     def _reset_consecutive_step_requirements(self, env_ids) -> None:
@@ -405,12 +460,24 @@ class ProgressObjectiveRunner:
             else:
                 active_predicates[group_name] = _predicate_repr(predicate_chain[cur_predicate_index][0])
 
+        diagnostic_predicates = {}
+        for name in self.diagnostic_predicates:
+            ever_true = bool(self.diagnostic_ever_true[name][env_idx].item())
+            first_true_step = int(self.diagnostic_first_true_step[name][env_idx].item())
+            diagnostic_predicates[name] = {
+                "currently_true": bool(self.diagnostic_current[name][env_idx].item()),
+                "ever_true": ever_true,
+                "first_true_step": first_true_step if ever_true and first_true_step >= 0 else None,
+            }
+
         return ProgressObjectiveState(
             completed_groups=completed_groups,
             total_groups=len(objective.group_names),
             score=float(score),
             is_complete=bool(is_complete),
             active_predicates=active_predicates,
+            diagnostic_predicates=diagnostic_predicates,
+            best_simultaneous_checks=int(self.best_simultaneous_checks[env_idx].item()),
         )
 
 

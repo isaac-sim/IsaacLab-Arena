@@ -23,20 +23,34 @@ def record_progress_results(env, env_id: int) -> dict[str, Any]:
 
     state = progress["states"][env_id]
     events = progress["events"][env_id]
+    objectives = {}
+    for name, objective in state.progress_objectives.items():
+        objective_record = {
+            "score": objective.score,
+            "is_complete": objective.is_complete,
+            "completed_groups": objective.completed_groups,
+            "total_groups": objective.total_groups,
+            "active_predicates": objective.active_predicates,
+        }
+        if objective.diagnostic_predicates:
+            first_pass_events = [
+                {"step": check["first_true_step"], "check": check_name}
+                for check_name, check in objective.diagnostic_predicates.items()
+                if check["first_true_step"] is not None
+            ]
+            first_pass_events.sort(key=lambda event: event["step"])
+            objective_record["intermediate_checks"] = {
+                "best_simultaneous": objective.best_simultaneous_checks,
+                "total": len(objective.diagnostic_predicates),
+                "checks": objective.diagnostic_predicates,
+                "first_pass_events": first_pass_events,
+            }
+        objectives[name] = objective_record
     return {
         "progress": {
             "overall_score": state.overall_score,
             "all_complete": state.all_complete,
-            "objectives": {
-                name: {
-                    "score": obj.score,
-                    "is_complete": obj.is_complete,
-                    "completed_groups": obj.completed_groups,
-                    "total_groups": obj.total_groups,
-                    "active_predicates": obj.active_predicates,
-                }
-                for name, obj in state.progress_objectives.items()
-            },
+            "objectives": objectives,
             # Per-episode predicate transitions, in the order they fired (step = episode-local step).
             "events": [
                 {

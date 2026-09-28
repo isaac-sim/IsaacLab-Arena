@@ -8,6 +8,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import Enum
 
+from isaaclab.managers import TerminationTermCfg
+
 from isaaclab_arena.progress_tracking.progress_tracking_utils import (
     DEFAULT_GROUP_NAME,
     Predicate,
@@ -49,6 +51,8 @@ class ProgressObjective:
         K: Required when logical == "choose". Specifies the number of sequences that must be completed
             to consider the ProgressObjective complete.
         description: An optional description of the ProgressObjective.
+        diagnostic_predicates: Named, stateless checks observed each step for reporting only.
+            They do not contribute to completion or score.
     """
 
     name: str
@@ -62,6 +66,8 @@ class ProgressObjective:
     logical: ProgressObjectiveCompletionMode = ProgressObjectiveCompletionMode.ALL
     K: int | None = None
     description: str | None = None
+    diagnostic_predicates: dict[str, Predicate] = field(default_factory=dict)
+    """Named checks reported independently of the success predicate sequence."""
 
     canonical_predicate_sequences: dict[str, list[tuple[Predicate, float]]] = field(init=False, repr=False)
 
@@ -93,6 +99,11 @@ class ProgressObjective:
 
         formatted_sequences = _format_predicate_sequences(named_sequences)
         self.canonical_predicate_sequences = _normalize_scores(formatted_sequences)
+
+        assert isinstance(self.diagnostic_predicates, dict) and all(
+            isinstance(name, str) and name and (callable(predicate) or isinstance(predicate, TerminationTermCfg))
+            for name, predicate in self.diagnostic_predicates.items()
+        ), "diagnostic_predicates must map nonempty names to callables or TerminationTermCfg definitions."
 
         # Validate the logical and K parameters.
         num_sequences = len(self.canonical_predicate_sequences)
