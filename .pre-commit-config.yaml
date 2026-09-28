@@ -47,8 +47,9 @@ repos:
     rev: v2.3.0
     hooks:
       - id: codespell
-        # isort uses this exact section name; it is not a spelling error.
-        args: ['--ignore-regex=\bTHIRDPARTY\b']
+        # THIRDPARTY: isort uses this exact section name; it is not a spelling error.
+        # ObjectIn: names a planned Arena task type.
+        args: ['--ignore-regex=\b(THIRDPARTY|ObjectIn)\b']
         additional_dependencies:
         - tomli
   - repo: https://github.com/pre-commit/pygrep-hooks
