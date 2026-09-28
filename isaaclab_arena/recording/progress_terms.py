@@ -23,20 +23,34 @@ def record_progress_results(env, env_id: int) -> dict[str, Any]:
 
     state = progress["states"][env_id]
     events = progress["events"][env_id]
+    objectives = {}
+    for name, objective in state.criteria_by_name.items():
+        objective_record = {
+            "score": objective.score,
+            "is_complete": objective.is_complete,
+            "completed_sequences": objective.completed_sequences,
+            "total_sequences": objective.total_sequences,
+            "active_predicates": objective.active_predicates,
+        }
+        if objective.diagnostic_predicates:
+            first_pass_events = [
+                {"step": check["first_true_step"], "check": check_name}
+                for check_name, check in objective.diagnostic_predicates.items()
+                if check["first_true_step"] is not None
+            ]
+            first_pass_events.sort(key=lambda event: event["step"])
+            objective_record["intermediate_checks"] = {
+                "best_simultaneous": objective.best_simultaneous_checks,
+                "total": len(objective.diagnostic_predicates),
+                "checks": objective.diagnostic_predicates,
+                "first_pass_events": first_pass_events,
+            }
+        objectives[name] = objective_record
     return {
         "progress": {
             "overall_score": state.overall_score,
             "all_complete": state.all_complete,
-            "criteria_by_name": {
-                name: {
-                    "score": criteria_state.score,
-                    "is_complete": criteria_state.is_complete,
-                    "completed_sequences": criteria_state.completed_sequences,
-                    "total_sequences": criteria_state.total_sequences,
-                    "active_predicates": criteria_state.active_predicates,
-                }
-                for name, criteria_state in state.criteria_by_name.items()
-            },
+            "criteria_by_name": objectives,
             # Per-episode predicate transitions, in the order they fired (step = episode-local step).
             "events": [
                 {
