@@ -70,7 +70,7 @@ class DeformableSurface(LibraryDeformableObject):
     name = "deformable_surface"
     spawner_cfg = sim_utils.MeshRectangleCfg(
         size=(0.2, 0.2),
-        resolution=(30, 30),
+        edge_refinement=30,
         deformable_props=PhysxDeformableBodyPropertiesCfg(),
         visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(0.95, 0.85, 0.1)),
         physics_material=PhysxSurfaceDeformableBodyMaterialCfg(),
