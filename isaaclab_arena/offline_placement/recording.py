@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Solve placements, filter them with physics, and record complete settled poses."""
+"""Record root poses that pass post-physics placement checks."""
 
 from __future__ import annotations
 
@@ -22,10 +22,10 @@ if TYPE_CHECKING:
 
 @dataclass
 class PlacementRecordingCfg:
-    """Source scene, candidate pool and offline recording settings."""
+    """Source scene, reset sampling and offline recording settings."""
 
     env_spec: str = MISSING
-    """Environment graph YAML path."""
+    """Environment YAML path."""
     output: str = MISSING
     """Placement JSONL output path; must not exist."""
     num_envs: int = 1
@@ -37,9 +37,9 @@ class PlacementRecordingCfg:
     viewer_lookat: tuple[float, float, float] | None = None
     """Optional viewer target in simulation-world metres; requires viewer_eye."""
     layouts_per_env: int = 5
-    """Minimum solved candidates per environment before physics filtering."""
+    """Number of reset placements sampled per environment before physics filtering."""
     seed: int = 42
-    """Seed for candidate placement."""
+    """Seed for placement solving and reset randomization."""
     presets: str | None = None
     """Optional physics backend override: physx or newton."""
     render: bool = False
@@ -73,8 +73,7 @@ def record_placements_to_jsonl(cfg: PlacementRecordingCfg, device: str = "cuda:0
     from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
-    from isaaclab_arena.offline_placement.settled_placement import collect_settled_pool_layouts
-    from isaaclab_arena.relations.placement_events import get_placement_pool
+    from isaaclab_arena.offline_placement.settled_placement import collect_settled_placements
 
     output = Path(cfg.output)
     assert not output.exists(), f"Output already exists: {output}"
@@ -93,14 +92,11 @@ def record_placements_to_jsonl(cfg: PlacementRecordingCfg, device: str = "cuda:0
     print(f"[recording] Solving placements for {cfg.num_envs} environments...", flush=True)
     env = builder.make_registered()
     try:
-        env.reset()
         if cfg.viewer_eye is not None:
             env.unwrapped.sim.set_camera_view(cfg.viewer_eye, cfg.viewer_lookat)
-        pool = get_placement_pool(env)
-        assert pool is not None, "Scene must contain placement relations"
-        result = collect_settled_pool_layouts(
+        result = collect_settled_placements(
             env,
-            pool,
+            cfg.layouts_per_env,
             cfg.settle,
             render=cfg.render,
             scene_assets=arena_env.get_placement_assets(),

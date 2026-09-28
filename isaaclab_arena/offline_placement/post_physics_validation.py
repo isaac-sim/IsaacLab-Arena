@@ -34,9 +34,9 @@ class PostPhysicsState:
     final_poses: dict[str, torch.Tensor]
     """Environment-local final root poses (N, 7), xyz/xyzw, by scene key."""
     initial_links: dict[str, torch.Tensor]
-    """Initial root-relative link poses (N, B, 7), xyz/xyzw, by articulation key."""
+    """Initial task-object link poses relative to the root (N, B, 7), xyz/xyzw, by scene key."""
     final_links: dict[str, torch.Tensor]
-    """Final root-relative link poses (N, B, 7), xyz/xyzw, by articulation key."""
+    """Final task-object link poses relative to the root (N, B, 7), xyz/xyzw, by scene key."""
 
 
 @dataclass
@@ -55,7 +55,7 @@ class PostPhysicsPlacementValidator(PlacementValidator):
         """Return the implementation path and effective settings."""
         return {"_target_": f"{type(self).__module__}.{type(self).__qualname__}", **asdict(self)}
 
-    def skip_reason(self, env: ManagerBasedEnv) -> str | None:
+    def skip_reason(self, articulation_keys: list[str]) -> str | None:
         """Return why the check is disabled or inapplicable, otherwise None."""
         return None if self.enabled else "disabled by configuration"
 
@@ -139,15 +139,15 @@ class PoseShiftValidator(PostPhysicsPlacementValidator):
 
 @dataclass
 class ArticulationLinkShiftValidator(PoseShiftValidator):
-    """Limit initial-to-final link displacement and rotation relative to the root."""
+    """Limit root-relative link motion of the measured articulated task objects."""
 
     check: ClassVar[str] = "articulation_link_shift"
 
-    def skip_reason(self, env: ManagerBasedEnv) -> str | None:
-        reason = super().skip_reason(env)
+    def skip_reason(self, articulation_keys: list[str]) -> str | None:
+        reason = super().skip_reason(articulation_keys)
         if reason is not None:
             return reason
-        return None if env.scene.articulations else "scene has no articulations"
+        return None if articulation_keys else "no articulated task objects selected"
 
     def validate(self, data: PostPhysicsState) -> list[PlacementValidatorReport]:
         reports = self._validate_poses(data.env_ids, data.initial_links, data.final_links)
@@ -164,7 +164,7 @@ def default_post_physics_validators() -> dict[str, dict]:
 
 
 def build_post_physics_validators(
-    configurations: dict[str, dict], env: ManagerBasedEnv
+    configurations: dict[str, dict], articulation_keys: list[str]
 ) -> list[PostPhysicsPlacementValidator]:
     """Construct configured checks and print their settings and skip reasons."""
     from hydra.utils import instantiate
@@ -174,12 +174,12 @@ def build_post_physics_validators(
         validator = instantiate(configuration)
         assert isinstance(validator, PostPhysicsPlacementValidator), f"'{name}' must be a PostPhysicsPlacementValidator"
         assert name == validator.check, f"'{name}' must match validator name '{validator.check}'"
-        reason = validator.skip_reason(env)
+        reason = validator.skip_reason(articulation_keys)
         status = f"SKIPPED: {reason}" if reason is not None else "ENABLED: required to pass"
         print(f"[recording] {name}: {status}; {validator.configuration()}")
         validators.append(validator)
     assert any(
-        validator.skip_reason(env) is None for validator in validators
+        validator.skip_reason(articulation_keys) is None for validator in validators
     ), "Enable at least one applicable post-physics validator"
     return validators
 
@@ -190,7 +190,7 @@ def validate_post_physics(
     """Evaluate every configured check and retain disabled or inapplicable outcomes."""
     results = {env_id: [] for env_id in data.env_ids}
     for validator in validators:
-        reason = validator.skip_reason(data.env)
+        reason = validator.skip_reason(list(data.initial_links))
         if reason is None:
             reports = validator.validate(data)
             assert all(
@@ -201,3 +201,22 @@ def validate_post_physics(
         for env_id, report in zip(data.env_ids, reports, strict=True):
             results[env_id].append(report)
     return results
+
+
+def articulation_link_poses_in_root_frame(
+    env: ManagerBasedEnv, articulation_keys: list[str]
+) -> dict[str, torch.Tensor]:
+    """Return selected link-to-root poses (N, B, 7), with N environments and B links per articulation."""
+    import torch
+
+    from isaaclab.utils.math import quat_apply_inverse, quat_conjugate, quat_mul
+
+    poses = {}
+    for key in articulation_keys:
+        body = env.scene.articulations[key]
+        links = body.data.body_link_pose_w.torch
+        root = env.arena_world.get_pose_w(key)[:, None, :].expand_as(links)
+        position = quat_apply_inverse(root[..., 3:], links[..., :3] - root[..., :3])
+        rotation = quat_mul(quat_conjugate(root[..., 3:]), links[..., 3:])
+        poses[key] = torch.cat((position, rotation), dim=-1)
+    return poses

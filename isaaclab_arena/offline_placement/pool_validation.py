@@ -21,11 +21,8 @@ from isaaclab_arena.relations.relations import get_anchor_objects
 from isaaclab_arena.utils import physics_settle
 
 if TYPE_CHECKING:
-    import torch
-
     from isaaclab.envs import ManagerBasedEnv
 
-    from isaaclab_arena.offline_placement.scene_snapshot import SceneSnapshot
     from isaaclab_arena.relations.placement_result import PlacementResult
     from isaaclab_arena.relations.placement_validation import PlacementValidationResults
     from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
@@ -33,95 +30,79 @@ if TYPE_CHECKING:
 
 @dataclass
 class PoolValidationBatch:
-    """Physics results for one queue index across N simulation environments."""
+    """Source layouts simulated at one queue index across parallel environments."""
 
     index: int
     """Queue index shared by the candidates in this batch."""
     layouts: dict[int, PlacementResult]
-    """Source candidates by environment ID, including any skipped solver failures."""
-    skipped_layouts: dict[int, str]
-    """Reason each unapplied candidate was rejected, by environment ID."""
-    initial_poses: dict[str, torch.Tensor]
-    """Environment-local pre-physics poses (N, 7), ordered xyz/xyzw; empty without pose capture."""
-    final_poses: dict[str, torch.Tensor]
-    """Environment-local post-physics poses (N, 7), ordered xyz/xyzw; empty without pose capture."""
+    """Source candidates by environment ID."""
 
 
 def iter_pool_validation(
     env: ManagerBasedEnv,
     placement_pool: PooledObjectPlacer,
-    object_names: list[str] | None = None,
     *,
     settle_params: PhysicsSettleParams,
-    snapshot: SceneSnapshot | None = None,
-    skip_failed: bool = False,
     render: bool = False,
     log_progress: bool = False,
 ) -> Iterator[PoolValidationBatch]:
     """Apply and simulate each pool batch without consuming its queues.
 
-    The scene remains at the yielded poses until iteration resumes. This iterator
+    The scene remains at its measured post-physics state until iteration resumes. This iterator
     does not modify source checklists or restore state when it closes.
 
     Args:
         env: Initialized simulation environment.
         placement_pool: Candidate queues indexed by absolute environment ID.
-        object_names: Scene roots to capture; None skips pose capture.
         settle_params: Simulation duration; this iterator does not evaluate velocity thresholds.
-        snapshot: Optional state restored before each batch; the caller owns final restoration.
-        skip_failed: Leave candidates with missing or failed required solver checks unapplied.
         render: Render each physics step.
         log_progress: Print batch and physics-step progress.
 
     Returns:
-        Batches containing source candidates, measured initial and final poses.
+        Batches containing the source candidates after physics.
     """
     env = env.unwrapped
-    object_names = object_names or []
     assets = placement_pool.objects
     anchors = set(get_anchor_objects(assets))
     rotations = get_base_rotation_per_asset(assets)
     queues = placement_pool.layouts_per_env()[: env.num_envs]
     num_batches = max((len(queue) for queue in queues), default=0)
     for index in range(num_batches):
-        if snapshot is not None:
-            snapshot.restore(env)
         layouts = {}
-        skipped_layouts = {}
-        env_ids = []
         for env_id, queue in enumerate(queues):
             if index >= len(queue):
                 continue
             layout = queue[index]
             layouts[env_id] = layout
-            if skip_failed:
-                failure = _solver_validation_failure(layout)
-                if failure is not None:
-                    skipped_layouts[env_id] = failure
-                    continue
             write_layout_to_sim(env, env_id, layout, anchors, rotations)
-            env_ids.append(env_id)
-        if not env_ids:
-            yield PoolValidationBatch(index, layouts, skipped_layouts, {}, {})
-            continue
         env.scene.write_data_to_sim()
         env.sim.forward()
-        initial = {key: env.arena_world.get_pose_e(key) for key in object_names}
-        num_steps = settle_params.num_steps * env.cfg.decimation
-        chunk_size = max(1, num_steps // 2 if log_progress else num_steps)
-        for start in range(0, num_steps, chunk_size):
-            steps = min(chunk_size, num_steps - start)
-            physics_settle.step_physics(env, steps, render=render)
-            if log_progress:
-                print(
-                    f"[recording] batch {index + 1}/{num_batches}: {start + steps}/{num_steps} physics steps",
-                    flush=True,
-                )
-        final = {key: env.arena_world.get_pose_e(key) for key in object_names}
-        yield PoolValidationBatch(index, layouts, skipped_layouts, initial, final)
+        step_placement_physics(env, settle_params.num_steps, index, num_batches, render, log_progress)
+        yield PoolValidationBatch(index, layouts)
 
 
-def _solver_validation_failure(layout: PlacementResult) -> str | None:
+def step_placement_physics(
+    env: ManagerBasedEnv,
+    num_steps: int,
+    batch_index: int,
+    num_batches: int,
+    render: bool = False,
+    log_progress: bool = False,
+) -> None:
+    """Advance num_steps × decimation physics steps with optional batch progress reporting."""
+    num_steps *= env.cfg.decimation
+    chunk_size = max(1, num_steps // 2 if log_progress else num_steps)
+    for start in range(0, num_steps, chunk_size):
+        steps = min(chunk_size, num_steps - start)
+        physics_settle.step_physics(env, steps, render=render)
+        if log_progress:
+            print(
+                f"[recording] batch {batch_index + 1}/{num_batches}: {start + steps}/{num_steps} physics steps",
+                flush=True,
+            )
+
+
+def solver_validation_failure(layout: PlacementResult) -> str | None:
     """Return a rejection reason for incomplete or failed required solver checks."""
     checklist = layout.validation_results
     missing = (checklist.required_checks or set()) - checklist.validation_results.keys()

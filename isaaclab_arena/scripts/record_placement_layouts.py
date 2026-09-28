@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Solve placements, filter them with physics, and record complete settled poses."""
+"""Record root poses that pass post-physics placement checks."""
 
 from __future__ import annotations
 

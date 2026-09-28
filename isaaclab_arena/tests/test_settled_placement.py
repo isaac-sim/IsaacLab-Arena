@@ -139,7 +139,7 @@ def test_recording_cli_saves_final_poses(tmp_path, backend):
     assert "2 solutions, 2 passed solver validation, 2 passed post-physics validation" in completed.stdout
     assert "overall 4/4 validated, 4 accepted" in completed.stdout
     assert "physics_settled: ENABLED" in completed.stdout
-    assert "articulation_link_shift: SKIPPED: scene has no articulations" in completed.stdout
+    assert "articulation_link_shift: SKIPPED: no articulated task objects selected" in completed.stdout
     records = [json.loads(line)["variations"]["scene.relation_placement"] for line in output.read_text().splitlines()]
     assert len(records) == 4
     for record in records:
@@ -149,7 +149,7 @@ def test_recording_cli_saves_final_poses(tmp_path, backend):
         assert reports["pose_shift"]["passed"] is True
         assert reports["pose_shift"]["configuration"]["max_translation_m"] == 0.0015
         assert reports["articulation_link_shift"]["passed"] is None
-        assert reports["articulation_link_shift"]["reason"] == "scene has no articulations"
+        assert reports["articulation_link_shift"]["reason"] == "no articulated task objects selected"
         assert set(record["poses"]) == {"cube_body", "table", "floor"}
         # Table top is 0.52, cube half-height is 0.05.
         x, y, _ = record["poses"]["cube_body"]["position_xyz"]
@@ -192,7 +192,7 @@ def _test_recording_filters_layouts(simulation_app, tmp_path):
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
     from isaaclab_arena.offline_placement.recording_params import PlacementRecordingParams
-    from isaaclab_arena.offline_placement.settled_placement import collect_settled_pool_layouts
+    from isaaclab_arena.offline_placement.settled_placement import collect_settled_placements
     from isaaclab_arena.relations.placement_events import get_placement_pool, make_cached_placement_event
     from isaaclab_arena.relations.placement_layouts import PlacementLayouts
     from isaaclab_arena.relations.placement_validation import PlacementCheck
@@ -211,7 +211,7 @@ def _test_recording_filters_layouts(simulation_app, tmp_path):
     arena_env = spec.to_arena_env()
     arena_env.placer_params = replace(
         arena_env.placer_params,
-        min_unique_layouts_per_env=1,
+        min_unique_layouts_per_env=2,
         placement_seed=42,
         random_yaw_init=False,
         enabled_checks={PlacementCheck.NO_OVERLAP},
@@ -219,11 +219,11 @@ def _test_recording_filters_layouts(simulation_app, tmp_path):
     )
     env = ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg(num_envs=2)).make_registered()
     try:
-        env.reset()
         base = env.unwrapped
         pool = get_placement_pool(env)
         assets = arena_env.get_placement_assets()
         floor = arena_env.scene.assets["floor"]
+        floor.tags = None
         assert floor.has_pose_reset_event()
         state = base.scene.get_state()
         layouts = PlacementLayouts({key: [Pose.identity()] for key in base.scene.rigid_objects})
@@ -235,12 +235,12 @@ def _test_recording_filters_layouts(simulation_app, tmp_path):
             with (
                 patch.object(floor, attribute, value),
                 patch(
-                    "isaaclab_arena.offline_placement.settled_placement.iter_pool_validation",
+                    "isaaclab_arena.offline_placement.settled_placement._settle_reset",
                     side_effect=AssertionError("Incompatible reset policies must fail before physics"),
                 ) as simulate,
             ):
                 with pytest.raises(AssertionError, match=f"floor.*{reason}"):
-                    collect_settled_pool_layouts(env, pool, scene_assets=assets)
+                    collect_settled_placements(env, 1, scene_assets=assets)
                 simulate.assert_not_called()
                 with pytest.raises(AssertionError, match=f"floor.*{reason}"):
                     make_cached_placement_event(layouts, assets, base.num_envs)
@@ -248,7 +248,6 @@ def _test_recording_filters_layouts(simulation_app, tmp_path):
 
         queues = pool.layouts_per_env()
         cube = arena_env.scene.assets["cube_body"]
-        initial = base.arena_world.get_pose_e("cube_body").clone()
         # Both pass On(overlap=True); only the overhanging cube falls to the floor.
         queues[0][0].positions[cube] = (0.0, 0.0, 0.571)
         queues[1][0].positions[cube] = (0.42, 0.0, 0.571)
@@ -258,43 +257,50 @@ def _test_recording_filters_layouts(simulation_app, tmp_path):
         boxes = build_per_env_bounding_boxes(pool.objects, 2).get_bounding_boxes_for_all_envs()
         validator = OnRelationValidator(arena_env.placer_params)
         assert validator.validate_batch([queue[0].positions for queue in queues], [{}, {}], boxes, []) == [True, True]
-        # An unequal queue ends with a solver failure that must not be simulated or recorded.
-        failed = replace(queues[1][0], validation_results=deepcopy(queues[1][0].validation_results))
-        failed.validation_results.validation_results[PlacementCheck.NO_OVERLAP] = False
-        pool._env_pools[1].append(failed)
+        # The second reset rejects a stable but excessive drop and a solver failure.
+        queues[0][1].positions[cube] = (0.0, 0.0, 0.575)
+        queues[1][1].validation_results.validation_results[PlacementCheck.NO_OVERLAP] = False
         ik_validator = Mock(spec=PlacementValidator)
         ik_validator.check = PlacementCheck.IK_REACHABLE
         pool._placer._validators.append(ik_validator)
         saved_positions = [dict(queue[0].positions) for queue in queues]
         saved_checks = [deepcopy(layout.validation_results) for queue in pool.layouts_per_env() for layout in queue]
-        result = collect_settled_pool_layouts(
-            env,
-            pool,
-            PlacementRecordingParams(num_steps=120),
-            scene_assets=arena_env.get_placement_assets(),
-        )
+        with (
+            patch.object(pool, "sample_for_envs", wraps=pool.sample_for_envs) as sample,
+            patch.object(pool, "_solve_and_store", side_effect=AssertionError("First batch must not be skipped")),
+        ):
+            result = collect_settled_placements(
+                env,
+                2,
+                PlacementRecordingParams(num_steps=120),
+                scene_assets=assets,
+            )
+        assert sample.call_count == 2
+        assert all(call.args == ([0, 1],) for call in sample.call_args_list)
+        assert pool.remaining == 0
         ik_validator.validate_batch.assert_not_called()
         layouts = result.layouts
-        assert result.attempted == 3
+        assert result.attempted == 4
         assert result.accepted_indices == [(0, 0)]
         assert "cube_body: moved" in result.rejections[1, 0]
         assert result.rejections[1, 1] == "solver validation failed"
         assert layouts.num_layouts == 1
         assert layouts.poses["cube_body"][0].position_xyz[2] == pytest.approx(0.57, abs=0.005)
-        torch.testing.assert_close(base.arena_world.get_pose_e("cube_body"), initial)
         assert [queue[0].positions for queue in queues] == saved_positions
         assert [layout.validation_results for queue in pool.layouts_per_env() for layout in queue] == saved_checks
-        queues[0][0].positions[cube] = (0.0, 0.0, 0.575)
-        # A 5 mm drop exceeds the shift limit even though the centered cube comes to rest.
-        with pytest.raises(AssertionError, match=r"cube_body: moved .*limits 0.002 m"):
-            collect_settled_pool_layouts(
-                env, pool, PlacementRecordingParams(num_steps=120), scene_assets=arena_env.get_placement_assets()
-            )
-        torch.testing.assert_close(base.arena_world.get_pose_e("cube_body"), initial)
+        assert "cube_body: moved" in result.rejections[0, 1]
+        assert result.validation[0]["pre_physics"] == queues[0][0].validation_results.validation_results
+        # The environment remains at its final measured state, not the release pose.
+        assert base.arena_world.get_pose_e("cube_body")[0, 2].item() == pytest.approx(0.57, abs=0.002)
+        pool._placer._validators.remove(ik_validator)
         params = PlacementRecordingParams(num_steps=120)
         params.validators["pose_shift"]["enabled"] = False
-        relaxed = collect_settled_pool_layouts(env, pool, params, scene_assets=arena_env.get_placement_assets())
-        assert (0, 0) in relaxed.accepted_indices
+        for env_pool, queue in zip(pool._env_pools, queues, strict=True):
+            env_pool.append(queue[1])
+        with patch.object(pool, "_solve_and_store", side_effect=AssertionError("Reuse the controlled drop")):
+            relaxed = collect_settled_placements(env, 1, params, scene_assets=assets)
+        assert relaxed.accepted_indices == [(0, 0)]
+        assert queues[0][1].positions[cube][2] - relaxed.layouts.poses["cube_body"][0].position_xyz[2] > 0.002
         report = next(report for report in relaxed.validation[0]["post_physics"] if report["check"] == "pose_shift")
         assert report["passed"] is None
         assert report["reason"] == "disabled by configuration"
@@ -313,11 +319,16 @@ def _test_recording_filters_layouts(simulation_app, tmp_path):
         )
         for queue in unavailable_pool.layouts_per_env():
             assert PlacementCheck.IK_REACHABLE not in queue[0].validation_results.validation_results
-        with patch("isaaclab_arena.offline_placement.pool_validation.physics_settle.step_physics") as step:
+        from isaaclab_arena.relations.placement_events import PLACEMENT_RESET_EVENT_NAME
+
+        handle = base.event_manager.get_term_cfg(PLACEMENT_RESET_EVENT_NAME).params["placement_pool"]
+        with (
+            patch.object(handle, "pool", unavailable_pool),
+            patch("isaaclab_arena.offline_placement.pool_validation.physics_settle.step_physics") as step,
+        ):
             with pytest.raises(AssertionError, match="missing required solver checks: ik_reachable"):
-                collect_settled_pool_layouts(env, unavailable_pool, scene_assets=arena_env.get_placement_assets())
+                collect_settled_placements(env, 1, scene_assets=arena_env.get_placement_assets())
             step.assert_not_called()
-        torch.testing.assert_close(base.arena_world.get_pose_e("cube_body"), initial)
     finally:
         env.close()
     return True
@@ -336,9 +347,9 @@ def _test_recording_with_robot(simulation_app, tmp_path):
     from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
+    from isaaclab_arena.offline_placement.post_physics_validation import articulation_link_poses_in_root_frame
     from isaaclab_arena.offline_placement.recording_params import PlacementRecordingParams
-    from isaaclab_arena.offline_placement.settled_placement import collect_settled_pool_layouts
-    from isaaclab_arena.relations.placement_events import get_placement_pool
+    from isaaclab_arena.offline_placement.settled_placement import collect_settled_placements
     from isaaclab_arena.relations.relation_solver import RelationSolver
 
     source = tmp_path / "robot.yaml"
@@ -354,41 +365,40 @@ def _test_recording_with_robot(simulation_app, tmp_path):
     )
     env = ArenaEnvBuilder(arena, ArenaEnvBuilderCfg(num_envs=1)).make_registered()
     try:
-        env.reset()
         scene = env.unwrapped.scene
-        state = scene.get_state()
         robot = scene.articulations["robot"]
-        targets = robot.data.joint_pos_target.torch.clone()
-        result = collect_settled_pool_layouts(
-            env,
-            get_placement_pool(env),
-            PlacementRecordingParams(num_steps=120),
-            scene_assets=arena.get_placement_assets(),
-        )
-        assert result.layouts.num_layouts == 1
+        robot.set_joint_position_target_index(target=robot.data.default_joint_pos.torch + 0.2)
+        joint_positions = []
+
+        def measure_links(env, articulation_keys):
+            assert articulation_keys == []
+            joint_positions.append(robot.data.joint_pos.torch.clone())
+            return articulation_link_poses_in_root_frame(env, articulation_keys)
+
+        with patch(
+            "isaaclab_arena.offline_placement.settled_placement.articulation_link_poses_in_root_frame",
+            side_effect=measure_links,
+        ):
+            result = collect_settled_placements(
+                env,
+                2,
+                PlacementRecordingParams(num_steps=120),
+                scene_assets=arena.get_placement_assets(),
+            )
+        assert result.layouts.num_layouts == 2
         assert set(result.layouts.poses) == {"cube_body", "robot", "table", "floor"}
-        torch.testing.assert_close(scene.get_state(), state)
-        torch.testing.assert_close(robot.data.joint_pos_target.torch, targets)
+        assert len(joint_positions) == 4
+        # Normal resets still randomize the robot joints.
+        assert not torch.allclose(joint_positions[0], joint_positions[2])
         output = tmp_path / "robot.jsonl"
         result.layouts.write_episode_jsonl(output, source="settled", validation=result.validation)
-        pool = get_placement_pool(env)
-        from isaaclab_arena.offline_placement.scene_snapshot import articulation_link_poses_in_root_frame
-
-        initial_links = articulation_link_poses_in_root_frame(env.unwrapped)
-        moved_links = {key: poses.clone() for key, poses in initial_links.items()}
-        moved_links["robot"][:, -1, 0] += 0.01
-        with (
-            patch(
-                "isaaclab_arena.offline_placement.settled_placement.articulation_link_poses_in_root_frame",
-                side_effect=[initial_links, moved_links],
-            ),
-            pytest.raises(AssertionError, match="joint states are not recorded"),
-        ):
-            collect_settled_pool_layouts(
-                env, pool, PlacementRecordingParams(num_steps=120), scene_assets=arena.get_placement_assets()
-            )
-        torch.testing.assert_close(scene.get_state(), state)
-        torch.testing.assert_close(robot.data.joint_pos_target.torch, targets)
+        for validation in result.validation:
+            reports = {report["check"]: report for report in validation["post_physics"]}
+            assert reports["articulation_link_shift"]["passed"] is None
+            assert "no articulated task objects selected" in reports["articulation_link_shift"]["reason"]
+            assert reports["physics_settled"]["passed"] is True
+            assert reports["pose_shift"]["passed"] is True
+            assert validation["sampling"]["embodiment_keys"] == ["robot"]
     finally:
         env.close()
     with patch.object(RelationSolver, "solve", side_effect=AssertionError("Replay must not solve")):
@@ -398,7 +408,7 @@ def _test_recording_with_robot(simulation_app, tmp_path):
         try:
             env.reset()
             for key, poses in result.layouts.poses.items():
-                expected = poses[0].to_tensor(env.unwrapped.device).expand(2, 7)
+                expected = torch.stack([pose.to_tensor(env.unwrapped.device) for pose in poses])
                 torch.testing.assert_close(env.unwrapped.arena_world.get_pose_e(key), expected, atol=2e-5, rtol=0)
             from isaaclab_arena.utils.physics_settle import step_physics
 
@@ -406,7 +416,7 @@ def _test_recording_with_robot(simulation_app, tmp_path):
             for key, poses in result.layouts.poses.items():
                 if key == "robot":
                     continue
-                expected = poses[0].to_tensor(env.unwrapped.device)[:3]
+                expected = torch.stack([pose.to_tensor(env.unwrapped.device)[:3] for pose in poses])
                 actual = env.unwrapped.arena_world.get_pose_e(key)[:, :3]
                 assert (actual - expected).norm(dim=-1).max() < 0.02
         finally:
@@ -414,5 +424,38 @@ def _test_recording_with_robot(simulation_app, tmp_path):
     return True
 
 
-def test_recording_with_robot_restores_scene_and_replays(tmp_path):
+def test_recording_with_robot_resets_and_replays(tmp_path):
     assert run_function_with_persistent_simulation_app(_test_recording_with_robot, tmp_path=tmp_path)
+
+
+def test_link_shift_checks_task_objects_separately_from_roots():
+    import torch
+    from types import SimpleNamespace
+
+    from isaaclab_arena.offline_placement.post_physics_validation import (
+        ArticulationLinkShiftValidator,
+        PoseShiftValidator,
+        PostPhysicsState,
+    )
+
+    root = torch.tensor([[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0]])
+    links = root[:, None, :].repeat(1, 2, 1)
+    env = SimpleNamespace(scene=SimpleNamespace(articulations={"arm": None, "cabinet": None}))
+    state = PostPhysicsState(
+        env=env,
+        env_ids=[0],
+        initial_poses={"arm": root.clone(), "cabinet": root.clone()},
+        final_poses={"arm": root.clone(), "cabinet": root.clone()},
+        initial_links={"cabinet": links.clone()},
+        final_links={"cabinet": links.clone()},
+    )
+    validator = ArticulationLinkShiftValidator()
+    assert validator.skip_reason(list(state.initial_links)) is None
+    assert validator.skip_reason([]) == "no articulated task objects selected"
+    assert validator.validate(state)[0].passed is True
+    state.final_links["cabinet"][0, 1, 0] += 0.01
+    report = validator.validate(state)[0]
+    assert report.passed is False
+    assert "cabinet" in report.reason and "joint states are not recorded" in report.reason
+    state.final_poses["arm"][0, 0] += 0.01
+    assert PoseShiftValidator().validate(state)[0].passed is False

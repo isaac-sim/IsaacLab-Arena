@@ -42,12 +42,13 @@ class PlacementPoolHandle:
     PooledObjectPlacer itself stays a normal class. EventTermCfg params use this handle.
     """
 
-    __slots__ = ("pool",)
-    """Store pool in a slot instead of an instance dictionary; ``hasattr(handle, "__dict__")`` is false,
-    so ``_validate(handle)`` stops traversing into PooledObjectPlacer ."""
+    __slots__ = ("pool", "last_results")
+    """Keep runtime state out of an instance dictionary so config validation does not traverse it."""
 
     def __init__(self, pool: PooledObjectPlacer) -> None:
         self.pool = pool
+        self.last_results: dict[int, PlacementResult] = {}
+        """Layouts applied by the most recent placement reset, keyed by environment ID."""
 
     def __deepcopy__(self, memo: dict[int, object]) -> PlacementPoolHandle:
         """Share the live pool across ``copy.deepcopy`` to avoid deep-copying the Warp cache BVHs."""
@@ -71,6 +72,12 @@ def get_placement_pool(env) -> PooledObjectPlacer | None:
     handle = term_cfg.params.get("placement_pool")
     assert handle is not None, f"'{PLACEMENT_RESET_EVENT_NAME}' event is missing its placement_pool parameter."
     return handle.pool
+
+
+def get_reset_placement_results(env: ManagerBasedEnv) -> dict[int, PlacementResult]:
+    """Return the layouts applied by the most recent pooled placement reset."""
+    term = env.unwrapped.event_manager.get_term_cfg(PLACEMENT_RESET_EVENT_NAME)
+    return dict(term.params["placement_pool"].last_results)
 
 
 def get_rotation_xyzw(asset: PlaceableAsset) -> tuple[float, float, float, float]:
@@ -194,6 +201,7 @@ def solve_and_place_objects(
     assert (
         pool.num_envs == num_scene_envs
     ), f"Placement pool has {pool.num_envs} envs, but scene has {num_scene_envs} env origins."
+    placement_pool.last_results = {}
     results_by_env = pool.sample_for_envs(reset_env_ids)
     anchor_assets = set(get_anchor_objects(assets))
     base_rotations = get_base_rotation_per_asset(assets)
@@ -207,6 +215,8 @@ def solve_and_place_objects(
             )
         # Only write non-anchor assets to the sim.
         write_layout_to_sim(env, cur_env, result, anchor_assets, base_rotations)
+
+    placement_pool.last_results = results_by_env
 
 
 class ResetPlacementLayouts(ManagerTermBase):
