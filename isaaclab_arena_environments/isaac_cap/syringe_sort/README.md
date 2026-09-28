@@ -4,8 +4,7 @@ Dispose of every syringe in the sharps container and let
 all syringes settle for 50 consecutive simulation steps. Scene layouts and goals
 live in YAML. All variants include `environments/syringe_env_config.yaml` for Newton
 physics settings. `environment.py` retains camera, gripper, and placement
-adaptations, plus a direct assignment of `enable_multiccd`, which Isaac Lab does
-not yet expose.
+adaptations.
 Policy code stays in Isaac-cap.
 
 Assets load directly from

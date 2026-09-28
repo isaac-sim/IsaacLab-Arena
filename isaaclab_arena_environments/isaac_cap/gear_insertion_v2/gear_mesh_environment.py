@@ -17,7 +17,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg, ArenaEnvironmentFactory
-from isaaclab_arena.utils.physics_backend import PhysicsBackend
 
 from ..registration import register_environment
 
@@ -33,6 +32,7 @@ _MEDIUM_TRAIN_SCENE_SPEC = Path(__file__).with_name("gear_medium_train.yaml")
 
 def _configure_gear_mesh_physics(
     env_cfg: IsaacLabArenaManagerBasedRLEnvCfg,
+    graph_callback,
 ) -> IsaacLabArenaManagerBasedRLEnvCfg:
     """Match AUTOLab's 60 Hz x 16-substep contact-rich gear regime."""
     from isaaclab_newton.physics import NewtonCollisionPipelineCfg
@@ -55,7 +55,6 @@ def _configure_gear_mesh_physics(
     physics.solver_cfg.njmax = 32768
     physics.solver_cfg.nconmax = 16384
     physics.solver_cfg.use_mujoco_contacts = False
-    physics.solver_cfg.enable_multiccd = True
     physics.solver_cfg.iterations = 100
     physics.solver_cfg.ls_iterations = 50
     physics.solver_cfg.cone = "elliptic"
@@ -71,7 +70,7 @@ def _configure_gear_mesh_physics(
     )
     physics.default_shape_cfg.gap = 5.0e-5
     env_cfg.sim.physics = physics
-    return env_cfg
+    return graph_callback(env_cfg)
 
 
 @dataclass
@@ -127,8 +126,10 @@ class GearMeshNewtonEnvironment(ArenaEnvironmentFactory[GearMeshNewtonEnvironmen
             if cfg.episode_length_s <= 0:
                 raise ValueError("episode_length_s must be positive")
             arena_env.task.episode_length_s = cfg.episode_length_s
-        arena_env.default_physics_backend = PhysicsBackend.NEWTON
-        arena_env.env_cfg_callback = partial(self.env_cfg_callback)
+        arena_env.env_cfg_callback = partial(
+            self.env_cfg_callback,
+            graph_callback=arena_env.env_cfg_callback,
+        )
         return arena_env
 
 
@@ -174,7 +175,7 @@ class _GearMeshLayoutNewtonEnvironment(GearMeshNewtonEnvironment):
                     GearLayoutVariationCfg(family=self.family),
                 )
             )
-        physics_callback = self.env_cfg_callback
+        physics_callback = arena_env.env_cfg_callback
 
         def configure(env_cfg):
             return configure_parallel_layouts(
