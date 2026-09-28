@@ -20,7 +20,7 @@ userdel ubuntu 2>/dev/null || true
 groupadd --force --gid "$DOCKER_RUN_GROUP_ID" "$DOCKER_RUN_GROUP_NAME"
 
 # Re-add the user
-useradd --no-log-init \
+useradd --create-home --no-log-init \
         --uid "$DOCKER_RUN_USER_ID" \
         --gid "$DOCKER_RUN_GROUP_NAME" \
         --groups sudo,isaac-sim \
@@ -53,7 +53,6 @@ fi
 
 # Run the passed command or just start the shell as the created user
 if [ $# -ge 1 ]; then
-    echo "alias pytest='/isaac-sim/python.sh -m pytest'" >> /etc/aliasess.bashrc
     # -i makes bash to expand aliases
     # -c makes bash to run a command
     exec sudo --preserve-env -u $DOCKER_RUN_USER_NAME \

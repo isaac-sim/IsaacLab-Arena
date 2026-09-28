@@ -1,159 +1,105 @@
+# syntax=docker/dockerfile:1
+#
+# Arena image uses a multi-stage build to share dependencies between developer
+# images with and without cuRobo. Dependency installation and cuRobo compilation
+# are independent of Arena source copies, so source edits reuse those build caches.
+#
+# sim-base:       Isaac Sim, common system packages, and runtime permissions.
+# isaaclab:       Isaac Lab checkout and its dependencies, on top of sim-base.
+# arena-deps:     Arena dependencies, policy clients, and developer tools, on isaaclab.
+# dev:            Arena source, editable install, shell setup, and entrypoint.
+# curobo-builder: Isolated CUDA toolkit and wheel compilation, branching from isaaclab.
+# dev-curobo:     Dev plus cuRobo installed from the builder's mounted wheel.
+#
+# The cuRobo builder's toolchain and wheel archives stay out of the final images.
+# Select a variant with --target.
+
 ARG BASE_IMAGE=nvcr.io/nvidia/isaac-sim:6.1.0
 
-FROM ${BASE_IMAGE}
-
+################################
+# STAGE: sim-base
+################################
+FROM ${BASE_IMAGE} AS sim-base
 USER root
-
-ARG WORKDIR="/workspace"
+ARG WORKDIR="/workspaces/isaaclab_arena"
 ENV WORKDIR=${WORKDIR}
 WORKDIR "${WORKDIR}"
-
-# Hide conflicting Vulkan files, if needed.
-RUN if [ -e "/usr/share/vulkan" ] && [ -e "/etc/vulkan" ]; then \
-      mv /usr/share/vulkan /usr/share/vulkan_hidden; \
-    fi
-
-# Install apt packages
-RUN apt-get update && apt-get install -y \
-  git \
-  git-lfs \
-  cmake \
-  ffmpeg \
-  sudo \
-  jq \
-  ffmpeg \
-  python3-pip && \
-  apt-get install -y --no-install-recommends \
-  pqiv
+RUN --mount=type=bind,source=docker/setup/install-system-deps.sh,target=/tmp/install-system-deps.sh \
+    bash /tmp/install-system-deps.sh
 
 ################################
-# Install Isaac Lab
+# STAGE: isaaclab
 ################################
-# Split copying into separate instructions
-# to avoid docker cache invalidation on code edits.
+FROM sim-base AS isaaclab
 COPY ./submodules/IsaacLab ${WORKDIR}/submodules/IsaacLab
-# Set the ISAACLAB_PATH environment variable
 ENV ISAACLAB_PATH=${WORKDIR}/submodules/IsaacLab
 ENV TERM=xterm
-# Symlink isaac sim to IsaacLab
-RUN ln -s /isaac-sim/ ${WORKDIR}/submodules/IsaacLab/_isaac_sim
-# Logs and other stuff appear under dist-packages per default, so this dir has to be writeable.
-RUN chmod 777 -R /isaac-sim/kit/
-# Make /isaac-sim directory traversable and readable by all users
-# This is needed when entrypoint switches to non-root user
-RUN chmod a+x /isaac-sim
-# Install Isaac Lab packages and their centralized dependencies. The installer
-# also installs the supported Newton stack and the default visualizers.
-RUN ${ISAACLAB_PATH}/isaaclab.sh -i
+RUN --mount=type=bind,source=docker/setup/install-isaaclab.sh,target=/tmp/install-isaaclab.sh \
+    bash /tmp/install-isaaclab.sh
 
-# Lightwheel server
-ENV LW_API_ENDPOINT="https://api-dev.lightwheel.net"
-
-# HuggingFace CLI for downloading datasets and models.
-# Use pipx so the hf binary gets an isolated venv with all its deps (e.g. requests),
-# without touching system Python packages.
-RUN apt-get update && apt-get install -y pipx && \
-    PIPX_HOME=/opt/pipx PIPX_BIN_DIR=/usr/local/bin \
-    pipx install \
-    "huggingface-hub[cli]" \
-    pre-commit
-
-# GitHub CLI inside the container
-RUN (type -p wget >/dev/null || (apt update && apt install wget -y)) \
-    && mkdir -p -m 755 /etc/apt/keyrings && \
-    out=$(mktemp) && wget -nv -O"$out" https://cli.github.com/packages/githubcli-archive-keyring.gpg && \
-    tee /etc/apt/keyrings/githubcli-archive-keyring.gpg > /dev/null < "$out" && \
-    chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg && \
-    mkdir -p -m 755 /etc/apt/sources.list.d && \
-    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | tee /etc/apt/sources.list.d/github-cli.list > /dev/null && \
-    apt update && \
-    apt install -y gh
-
+################################
+# STAGE: arena-deps
+################################
+FROM isaaclab AS arena-deps
 COPY ./submodules/Isaac-GR00T ${WORKDIR}/submodules/Isaac-GR00T
-# Make the `gr00t` package importable so the lightweight remote
-# PolicyClient (gr00t.policy.server_client) works in the base container.
-RUN /isaac-sim/python.sh -m pip install msgpack==1.1.0 msgpack-numpy==0.4.8 pyzmq==27.0.1 && \
-    /isaac-sim/python.sh -m pip install --no-deps --ignore-requires-python -e ${WORKDIR}/submodules/Isaac-GR00T/
-RUN /isaac-sim/python.sh -m pip install av
-
-# openpi remote-client. The pinned commit is read from
-# isaaclab_arena_openpi/docker/OPENPI_COMMIT, which is also consumed by
-# isaaclab_arena_openpi/docker/run_openpi_server.sh when it builds the
-# server image. Sharing the commit keeps the in-container client
-# wire-compatible with the server it talks to.
-COPY isaaclab_arena_openpi/docker/OPENPI_COMMIT /tmp/openpi_commit
-RUN OPENPI_COMMIT=$(tr -d '[:space:]' < /tmp/openpi_commit) && \
-    /isaac-sim/python.sh -m pip install --no-cache-dir \
-    "openpi-client @ git+https://github.com/Physical-Intelligence/openpi@${OPENPI_COMMIT}#subdirectory=packages/openpi-client" && \
-    rm /tmp/openpi_commit
-
-# Copy the rest of the files
-COPY *.* ${WORKDIR}/
-COPY isaaclab_arena ${WORKDIR}/isaaclab_arena
-COPY isaaclab_arena_cosmos ${WORKDIR}/isaaclab_arena_cosmos
-COPY isaaclab_arena_curobo ${WORKDIR}/isaaclab_arena_curobo
-COPY isaaclab_arena_dreamzero ${WORKDIR}/isaaclab_arena_dreamzero
-COPY isaaclab_arena_g1 ${WORKDIR}/isaaclab_arena_g1
-COPY isaaclab_arena_gr00t ${WORKDIR}/isaaclab_arena_gr00t
-COPY isaaclab_arena_openpi ${WORKDIR}/isaaclab_arena_openpi
-COPY isaaclab_arena_environments ${WORKDIR}/isaaclab_arena_environments
-COPY isaaclab_arena_examples ${WORKDIR}/isaaclab_arena_examples
-COPY docs ${WORKDIR}/docs
-
-# Install IsaacLab Arena (runtime + dev deps declared in pyproject.toml).
-# simready-search pins boto3==1.42.58, while Isaac Sim prebundles boto3 1.40.61 and isaacsim-kernel pins that version.
-# pip installs into a directory that precedes the prebundle on sys.path, so without this the image
-# would silently run its S3 asset searches against an AWS stack Isaac Sim does not ship.
-RUN /isaac-sim/python.sh -m pip install -e "${WORKDIR}/[dev]" \
-    && /isaac-sim/python.sh -m pip install --force-reinstall --no-deps \
-        boto3==1.40.61 botocore==1.40.61 s3transfer==0.14.0 requests==2.32.3
-
-################################
-# Install cuRobo (optional)
-################################
-COPY docker/setup/install_cuda.sh /tmp/install_cuda.sh
-ARG INSTALL_CUROBO=false
-RUN if [ "$INSTALL_CUROBO" = "true" ]; then \
-      bash /tmp/install_cuda.sh && \
-      export CUDA_HOME=/usr/local/cuda-12.8 && \
-      export PATH=${CUDA_HOME}/bin:${PATH} && \
-      export LD_LIBRARY_PATH=${CUDA_HOME}/lib64:${LD_LIBRARY_PATH:-} && \
-      export TORCH_CUDA_ARCH_LIST="8.0+PTX;8.6+PTX;8.9+PTX;9.0+PTX" && \
-      /isaac-sim/python.sh -m pip install --no-build-isolation \
-        "nvidia-curobo @ git+https://github.com/NVlabs/curobo.git@ebb71702f3f70e767f40fd8e050674af0288abe8" && \
-      echo 'export CUDA_HOME=/usr/local/cuda-12.8' > /etc/profile.d/cuda.sh && \
-      echo 'export PATH=${CUDA_HOME}/bin:${PATH}' >> /etc/profile.d/cuda.sh && \
-      echo 'export LD_LIBRARY_PATH=${CUDA_HOME}/lib64:${LD_LIBRARY_PATH:-}' >> /etc/profile.d/cuda.sh; \
-    else echo "Skipping cuRobo installation"; fi && \
-    rm -f /tmp/install_cuda.sh
-
-# Set an alias to run the isaac lab python interpreter.
-RUN echo "alias python='/isaac-sim/python.sh'" >> /etc/bash.bashrc
-RUN echo "alias pip3='/isaac-sim/python.sh -m pip'" >> /etc/bash.bashrc
-RUN echo "alias pytest='/isaac-sim/python.sh -m pytest'" >> /etc/bash.bashrc
-
-# Debugging with debugpy (installed via pyproject.toml's [dev] extra)
-# Usage:
-# 1) Set your breakpoints
-# 2) Start the script you want to debug with "debugpy" instead of "python".
-#    It will pause waiting for the debugger to attach.
-# 3) Attach to the running container with VSCode using the "Attach to debugpy session"
-#    configuration from the Run and Debug panel.
-RUN echo "alias debugpy='python -Xfrozen_modules=off -m debugpy --listen localhost:5678 --wait-for-client'" >> /etc/bash.bashrc
-
-# OSMO CLI
+RUN --mount=type=bind,source=isaaclab_arena_openpi/docker/OPENPI_COMMIT,target=/tmp/openpi_commit \
+    --mount=type=bind,source=docker/setup/install-policy-clients.sh,target=/tmp/install-policy-clients.sh \
+    bash /tmp/install-policy-clients.sh
+RUN --mount=type=bind,source=pyproject.toml,target=/tmp/arena-pyproject.toml \
+    --mount=type=bind,source=docker/setup/export_requirements.py,target=/tmp/export_requirements.py \
+    --mount=type=bind,source=docker/setup/install-arena-deps.sh,target=/tmp/install-arena-deps.sh \
+    bash /tmp/install-arena-deps.sh
 COPY --from=nvcr.io/nvidia/osmo/client:6.3.1 /osmo/osmo_cli_onedir/osmo /usr/local/osmo
 RUN ln -sf /usr/local/osmo/osmo /usr/local/bin/osmo
+RUN --mount=type=bind,source=docker/setup/install-dev-tools.sh,target=/tmp/install-dev-tools.sh \
+    bash /tmp/install-dev-tools.sh
 
-# Change prompt so it's obvious we're inside the arena container
-RUN echo "PS1='[IsaacLab Arena] \[\e[0;32m\]~\u \[\e[0;34m\]\w\[\e[0m\] \$ '" >> /etc/bash.bashrc
-# List files as a table, with colors, show hidden, append indicators (/ for dirs, * for executables, @ for symlinks)
-RUN echo "alias ll='ls -alF --color=auto'" >> /etc/bash.bashrc
-# Go one level up
-RUN echo "alias ..='cd ..'" >> /etc/bash.bashrc
-# Change prompt to colored one for root too
-RUN cp /etc/bash.bashrc /root/.bashrc
-
-# Set the entrypoint
+################################
+# STAGE: dev
+################################
+FROM arena-deps AS dev
+COPY *.* ${WORKDIR}/
+# Preserve package directory names when copying multiple sources into one layer.
+COPY --parents \
+    isaaclab_arena \
+    isaaclab_arena_cosmos \
+    isaaclab_arena_curobo \
+    isaaclab_arena_dreamzero \
+    isaaclab_arena_g1 \
+    isaaclab_arena_gr00t \
+    isaaclab_arena_openpi \
+    isaaclab_arena_environments \
+    isaaclab_arena_examples \
+    docs \
+    ${WORKDIR}/
+RUN /isaac-sim/python.sh -m pip install --no-deps --no-build-isolation -e "${WORKDIR}"
+ENV LW_API_ENDPOINT="https://api-dev.lightwheel.net"
+RUN --mount=type=bind,source=docker/setup/configure-shell.sh,target=/tmp/configure-shell.sh \
+    bash /tmp/configure-shell.sh
 COPY docker/setup/entrypoint.sh /entrypoint.sh
 ENTRYPOINT ["/entrypoint.sh"]
+
+###################################
+# STAGE: curobo-builder
+###################################
+# Branch from isaaclab rather than sim-base to make sure Arena's version of pytorch is used
+FROM isaaclab AS curobo-builder
+ARG CUROBO_COMMIT=ebb71702f3f70e767f40fd8e050674af0288abe8
+ARG TORCH_CUDA_ARCH_LIST="8.0+PTX;8.6+PTX;8.9+PTX;9.0+PTX"
+ARG MAX_JOBS=4
+RUN --mount=type=bind,source=docker/setup/install_cuda.sh,target=/tmp/install_cuda.sh \
+    --mount=type=bind,source=docker/setup/build-curobo-wheel.sh,target=/tmp/build-curobo-wheel.sh \
+    bash /tmp/build-curobo-wheel.sh
+
+################################
+# STAGE: dev-curobo
+################################
+# Note that we're not inheriting from curobo-builder. Instead we install the wheel through a mount.
+FROM dev AS dev-curobo
+RUN --mount=type=bind,from=curobo-builder,source=/wheels,target=/wheels \
+    --mount=type=bind,source=docker/setup/install-curobo-runtime-deps.sh,target=/tmp/install-curobo-runtime-deps.sh \
+    bash /tmp/install-curobo-runtime-deps.sh && \
+    /isaac-sim/python.sh -m pip install --no-deps /wheels/*.whl
+
+# Default to dev (without cuRobo).
+FROM dev AS default

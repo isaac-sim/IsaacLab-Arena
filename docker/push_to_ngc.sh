@@ -1,89 +1,70 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 
 ISAACLAB_ARENA_IMAGE_NAME='isaaclab_arena'
-TAG_NAME=latest
-CONTAINER_ID=""
+DOCKER_TARGET=dev
+TAG_NAME=""
 PUSH_TO_NGC=false
-INSTALL_CUROBO="false"
-WORKDIR="/workspaces/isaaclab_arena"
+BUILD_OPTIONS=()
 
-SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+source "$SCRIPT_DIR/setup/target_tag.sh"
 
-while getopts ":t:cn:vn:pn:Rn:hn:" OPTION; do
-    case $OPTION in
-        t)
-            TAG_NAME=$OPTARG
-            echo "Tag name is ${TAG_NAME}."
-            ;;
-        c)
-            INSTALL_CUROBO="true"
-            TAG_NAME='curobo'
-            echo "INSTALL_CUROBO is ${INSTALL_CUROBO}."
-            ;;
-        v)
-            set -x
-            ;;
-        p)
-            PUSH_TO_NGC="true"
-            echo "PUSH_TO_NGC (build and push to ngc)."
-            ;;
-        R)
-            NO_CACHE="--no-cache"
-            ;;
-        h | *)
-            script_name=$(basename "$0")
-            echo "Helper script for pushing IsaacLab Arena docker image to NGC."
-            echo ""
-            echo "Usage:"
-            echo "  ${script_name} [options]"
-            echo ""
-            echo "Examples:"
-            echo "- Build without cache and push to NGC:"
-            echo "    ${script_name} -R -p -t <tag_name>"
-            echo "- Build without cache and push to NGC with cuRobo dependencies:"
-            echo "    ${script_name} -R -p -t <tag_name> -c"
-            echo "- See help message:"
-            echo "    ${script_name} -h"
-            echo ""
-            echo "Options:"
-            echo "  -p - Push the image to NGC."
-            echo "  -t - Tag name of the image."
-            echo "  -c - Install cuRobo motion-planning library (compiles CUDA extensions)."
-            echo '  -R - Do not use cache when building the image.'
-            echo "  -v - Verbose output."
-            echo "  -h - Help (this output)"
-            exit 0
-            ;;
+usage() {
+    cat <<USAGE
+Usage: $(basename "$0") [-c] [-t tag] [-R] [-p] [-v]
+
+Build an Arena developer image, optionally tagging and pushing it to NGC.
+
+Options:
+  -c       Select dev-curobo instead of dev.
+  -t tag   Output tag (default: latest, or curobo with -c).
+  -R       Build without cache.
+  -p       Push the built image to NGC.
+  -v       Verbose output.
+  -h       Show this help.
+
+Examples:
+  $(basename "$0") -R -p -t candidate
+  $(basename "$0") -c -R -p -t candidate-curobo
+USAGE
+}
+
+while getopts ':t:cvpRh' OPTION; do
+    case "$OPTION" in
+        t) TAG_NAME=$OPTARG ;;
+        c) DOCKER_TARGET=dev-curobo ;;
+        v) set -x ;;
+        p) PUSH_TO_NGC=true ;;
+        R) BUILD_OPTIONS+=(-R) ;;
+        h) usage; exit 0 ;;
+        *) usage >&2; exit 2 ;;
     esac
 done
+shift $((OPTIND - 1))
+if [ "$#" -ne 0 ]; then
+    usage >&2
+    exit 2
+fi
 
-# Get the NGC path.
-DOCKER_IMAGE_NAME=${ISAACLAB_ARENA_IMAGE_NAME}:${TAG_NAME}
-NGC_PATH=nvcr.io/nvstaging/isaac-amr/${DOCKER_IMAGE_NAME}
-echo "DOCKER_IMAGE_NAME is ${DOCKER_IMAGE_NAME}."
+# An explicit tag takes precedence over the target's default, in either option order.
+DEFAULT_TAG=$(default_tag_for_target "$DOCKER_TARGET")
+TAG_NAME=${TAG_NAME:-$DEFAULT_TAG}
+DOCKER_IMAGE_NAME="${ISAACLAB_ARENA_IMAGE_NAME}:${TAG_NAME}"
+NGC_PATH="nvcr.io/nvstaging/isaac-amr/${DOCKER_IMAGE_NAME}"
+echo "Building target ${DOCKER_TARGET} as ${DOCKER_IMAGE_NAME}."
 echo "NGC_PATH is ${NGC_PATH}."
 
-# Build the image.
-docker build --pull \
-    $NO_CACHE \
-    --build-arg WORKDIR="${WORKDIR}" \
-    --build-arg INSTALL_CUROBO=$INSTALL_CUROBO \
-    -t ${DOCKER_IMAGE_NAME} \
-    --file $SCRIPT_DIR/Dockerfile.isaaclab_arena \
-    $SCRIPT_DIR/..
+# Build the thing
+"$SCRIPT_DIR/build_docker.sh" -t "$DOCKER_TARGET" \
+    -n "$DOCKER_IMAGE_NAME" "${BUILD_OPTIONS[@]}"
 
-# Push if requested.
+# Maybe push
 if [ "$PUSH_TO_NGC" = true ]; then
-
-    # Tag and push the image to NGC.
-    echo "Pushing container to ${NGC_PATH}."
-    docker tag ${DOCKER_IMAGE_NAME} ${NGC_PATH}
-    docker push ${NGC_PATH}
+    echo "Pushing image to ${NGC_PATH}."
+    docker tag "$DOCKER_IMAGE_NAME" "$NGC_PATH"
+    docker push "$NGC_PATH"
     echo "Pushing complete."
-
 else
-
     echo "Not pushing to NGC. Use -p to push to NGC."
-
 fi
