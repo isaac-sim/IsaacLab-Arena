@@ -9,7 +9,7 @@ import torch
 
 import pytest
 
-from isaaclab_arena.tests.dummy_object import make_candidate_batch
+from isaaclab_arena.tests.dummy_object import DummyObject, make_candidate_batch
 
 
 def test_release_loss_and_validation_use_centered_spread():
@@ -17,7 +17,6 @@ def test_release_loss_and_validation_use_centered_spread():
     from isaaclab_arena.relations.placement_validators import ClutterOnRelationValidator, OnRelationValidator
     from isaaclab_arena.relations.relation_loss_strategies import ClutterOnLossStrategy
     from isaaclab_arena.relations.relations import ClutterOn, IsAnchor, On
-    from isaaclab_arena.tests.dummy_object import DummyObject
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
     support = DummyObject("support", AxisAlignedBoundingBox((-2, -1, 0), (2, 3, 0.2)), relations=[IsAnchor()])
@@ -44,7 +43,6 @@ def test_release_loss_and_validation_use_centered_spread():
 
 def test_clutter_cannot_combine_spatial_relations():
     from isaaclab_arena.relations.relations import ClutterOn, IsAnchor, On
-    from isaaclab_arena.tests.dummy_object import DummyObject
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
     bounds = AxisAlignedBoundingBox((0, 0, 0), (1, 1, 1))
@@ -66,7 +64,6 @@ def test_candidate_filtering_preserves_identity_and_separates_support_checks():
         PlacementValidator,
     )
     from isaaclab_arena.relations.relations import ClutterOn, IsAnchor, On
-    from isaaclab_arena.tests.dummy_object import DummyObject
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
     support = DummyObject("table", AxisAlignedBoundingBox((-1, -1, -0.1), (1, 1, 0)), relations=[IsAnchor()])
@@ -116,7 +113,6 @@ def test_generated_clutter_bounds_and_release_height_include_rotation():
     from isaaclab_arena.relations.placement_candidate_generator import PlacementCandidateGenerator
     from isaaclab_arena.relations.placement_validators import ClutterOnRelationValidator, NoOverlapValidator
     from isaaclab_arena.relations.relations import ClutterOn, IsAnchor, On, RotateAroundSolution
-    from isaaclab_arena.tests.dummy_object import DummyObject
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
     from isaaclab_arena.utils.pose import Pose
 
@@ -152,7 +148,6 @@ def test_release_validation_rejects_support_penetration_and_clearance_shortfall(
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
     from isaaclab_arena.relations.placement_validation import PlacementCheck
     from isaaclab_arena.relations.relations import ClutterOn, IsAnchor
-    from isaaclab_arena.tests.dummy_object import DummyObject
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
     support = DummyObject("support", AxisAlignedBoundingBox((-1, -1, -0.1), (1, 1, 0)), relations=[IsAnchor()])

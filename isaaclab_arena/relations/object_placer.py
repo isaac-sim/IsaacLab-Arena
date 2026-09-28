@@ -343,7 +343,7 @@ class ObjectPlacer:
 
     @property
     def last_loss_history(self) -> list[float]:
-        """Loss values from the most recent place() call."""
+        """Mean batch losses before optimizer steps in the most recent place()."""
         return self._solver.last_loss_history
 
     @property

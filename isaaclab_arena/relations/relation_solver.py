@@ -369,7 +369,10 @@ class RelationSolver:
 
     @property
     def last_loss_history(self) -> list[float]:
-        """Loss values from the most recent solve() call."""
+        """Mean batch losses before optimizer steps in the most recent solve().
+
+        The final returned-pose losses are available in last_loss_per_env.
+        """
         return self._last_loss_history
 
     @property
