@@ -121,3 +121,16 @@ action-chunk configuration:
 
 The chunk example uses the same Astra model, cameras, task, and 70-second limit,
 but does not retain textual decision history by default.
+
+The following successful rollout shows the action-chunk policy placing the
+banana in the bowl:
+
+.. video:: ../../../images/vlm_agent_action_chunk_pick_and_place.mp4
+   :width: 100%
+   :alt: DROID robot using Astra action chunks to place a banana in a bowl
+   :autoplay:
+   :loop:
+   :muted:
+   :playsinline:
+   :align: center
+   :caption: Astra produces 15 absolute end-effector pose and gripper commands per model decision.
