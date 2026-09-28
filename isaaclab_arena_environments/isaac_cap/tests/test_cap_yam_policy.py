@@ -5,18 +5,16 @@
 
 """Test the Arena-owned bimanual YAM CAP policy adapter."""
 
-import numpy as np
-import torch
 from types import SimpleNamespace
 
 import pytest
-
-from isaaclab_arena_environments.isaac_cap.cap_policy import CapYamPolicy, CapYamPolicyCfg
 
 pytestmark = pytest.mark.isaac_cap
 
 
 def _robot(joints: list[float]):
+    import torch
+
     return SimpleNamespace(
         joint_names=[*(f"joint{index}" for index in range(1, 7)), "left_finger"],
         data=SimpleNamespace(joint_pos=SimpleNamespace(torch=torch.tensor([joints], dtype=torch.float32))),
@@ -34,11 +32,15 @@ def _environment():
     )
 
 
-def _policy() -> CapYamPolicy:
+def _policy():
+    from isaaclab_arena_environments.isaac_cap.cap_policy import CapYamPolicy, CapYamPolicyCfg
+
     return CapYamPolicy(CapYamPolicyCfg())
 
 
 def test_yam_hold_action_matches_bimanual_action_layout():
+    import torch
+
     action = _policy()._hold_action(_environment())
 
     assert action.shape == (14,)
@@ -63,6 +65,9 @@ def test_yam_observation_frame_includes_both_arms_and_camera_aliases():
 
 
 def test_yam_reply_updates_only_valid_channels():
+    import numpy as np
+    import torch
+
     policy = _policy()
     action = policy._hold_action(_environment())
     reply = {
