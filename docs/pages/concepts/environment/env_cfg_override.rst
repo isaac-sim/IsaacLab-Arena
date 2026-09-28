@@ -45,7 +45,8 @@ Hydra ``_target_`` nodes
 
 Use ``_target_`` when replacing a nested **configclass** field with a concrete Isaac Lab type
 (for example a Newton solver or collision pipeline). The target must live under an approved
-``isaaclab*`` package prefix and match the field annotation on the parent config.
+``isaaclab*`` package prefix or be explicitly registered by trusted application code, and match
+the field annotation on the parent config.
 
 .. code-block:: yaml
 
@@ -63,6 +64,17 @@ Use ``_target_`` when replacing a nested **configclass** field with a concrete I
 Nested ``_target_`` mappings anywhere in the tree are validated before any change is applied to
 the live environment configuration.
 
+An application can opt in its own configclass before building the environment:
+
+.. code-block:: python
+
+   from isaaclab_arena.hydra.config_override import register_config_override_target
+
+   register_config_override_target(MySolverCfg)
+
+The YAML may then use ``_target_: my_package.physics.MySolverCfg``. Registration permits only
+that exact class; it does not allow arbitrary targets from ``my_package``.
+
 Disallowed patterns
 -------------------
 
@@ -72,4 +84,4 @@ The following are rejected at validation time:
   ``default_physics_backend`` (or ``--presets``) instead.
 - Overriding ``class_type`` (derived by Isaac Lab).
 - OmegaConf interpolation (``${...}``) in override values.
-- Hydra targets outside approved Isaac Lab packages (for example ``builtins.*``).
+- Unregistered Hydra targets outside approved Isaac Lab packages (for example ``builtins.*``).

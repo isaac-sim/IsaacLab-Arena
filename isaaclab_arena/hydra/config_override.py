@@ -25,7 +25,14 @@ _ALLOWED_TARGET_MODULE_PREFIXES = (
 )
 _HYDRA_TARGET_KEY = "_target_"
 _ALLOW_CONFIG_OVERRIDE_METADATA_KEY = "allow_config_override"
+_REGISTERED_TARGET_CLASSES: dict[str, type] = {}
 ConfigT = TypeVar("ConfigT")
+
+
+def register_config_override_target(target_cls: type) -> None:
+    """Allow a trusted application configclass as a YAML ``_target_``."""
+    assert isinstance(target_cls, type) and dataclasses.is_dataclass(target_cls)
+    _REGISTERED_TARGET_CLASSES[f"{target_cls.__module__}.{target_cls.__qualname__}"] = target_cls
 
 
 def apply_config_override(
@@ -271,17 +278,20 @@ def _validated_target_class(target_path: Any, expected_type: Any, *, path: str) 
     """Resolve and validate one Hydra target against its annotated field type."""
     assert isinstance(target_path, str) and target_path, f"'{path}.{_HYDRA_TARGET_KEY}' must be a class path string"
     module_name, separator, _ = target_path.rpartition(".")
-    assert separator and module_name.startswith(
-        _ALLOWED_TARGET_MODULE_PREFIXES
-    ), f"Hydra target {target_path!r} at '{path}' is outside the approved Isaac Lab packages"
-
-    try:
-        target_cls = get_class(target_path)
-    except Exception as exc:
-        raise ValueError(f"Could not resolve Hydra target {target_path!r} at '{path}': {exc}") from exc
+    registered_target = _REGISTERED_TARGET_CLASSES.get(target_path)
+    if registered_target is None:
+        assert separator and module_name.startswith(
+            _ALLOWED_TARGET_MODULE_PREFIXES
+        ), f"Hydra target {target_path!r} at '{path}' is outside the approved Isaac Lab packages or registered targets"
+        try:
+            target_cls = get_class(target_path)
+        except Exception as exc:
+            raise ValueError(f"Could not resolve Hydra target {target_path!r} at '{path}': {exc}") from exc
+    else:
+        target_cls = registered_target
 
     assert isinstance(target_cls, type), f"Hydra target {target_path!r} at '{path}' must resolve to a class"
-    assert target_cls.__module__.startswith(
+    assert registered_target is not None or target_cls.__module__.startswith(
         _ALLOWED_TARGET_MODULE_PREFIXES
     ), f"Hydra target {target_path!r} at '{path}' resolves outside the approved Isaac Lab packages"
     assert dataclasses.is_dataclass(
