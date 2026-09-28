@@ -328,7 +328,7 @@ def _test_composite_preserves_each_subtask_failure_condition(simulation_app):
             return TaskTerminationCfg(timeout_s=self.timeout_s)
 
     invalid_task = CompositeTaskBase([InvalidTask(_ControlledPredicate(0))])
-    with pytest.raises(AssertionError, match="success criteria_sets"):
+    with pytest.raises(AssertionError, match="must define success criteria"):
         invalid_task.get_termination_cfg()
     return True
 
