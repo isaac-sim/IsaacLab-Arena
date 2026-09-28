@@ -58,8 +58,8 @@ def test_clutter_cannot_combine_spatial_relations():
 def test_candidate_filtering_preserves_identity_and_separates_support_checks():
     from isaaclab_arena.relations.object_placer import ObjectPlacer
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-    from isaaclab_arena.relations.placement_candidate_batch import PlacementCandidateBatch
-    from isaaclab_arena.relations.placement_validation_pipeline import PlacementValidationPipeline
+    from isaaclab_arena.relations.placement_candidate_batch import PlacementCandidate, PlacementCandidateBatch
+    from isaaclab_arena.relations.placement_validation_runner import PlacementValidationRunner
     from isaaclab_arena.relations.placement_validators import (
         ClutterOnRelationValidator,
         OnRelationValidator,
@@ -79,7 +79,11 @@ def test_candidate_filtering_preserves_identity_and_separates_support_checks():
         {support: (0, 0, 0), ordinary: (0, 0, 0.06), clutter: (-0.3, 0, 0.5)},
     ]
     boxes = {support: support.bounding_box, ordinary: bounds, clutter: bounds}
-    batch = PlacementCandidateBatch(positions, [{}, {}, {}], [boxes] * 3, [1, 0, 1], [7, 4, 2], losses=[3, 0, 1])
+    batch = PlacementCandidateBatch([
+        PlacementCandidate(1, 7, positions[0], {}, boxes, loss=3),
+        PlacementCandidate(0, 4, positions[1], {}, boxes, loss=0),
+        PlacementCandidate(1, 2, positions[2], {}, boxes, loss=1),
+    ])
     params = ObjectPlacerParams()
 
     class ExpensiveCheck(PlacementValidator):
@@ -87,26 +91,88 @@ def test_candidate_filtering_preserves_identity_and_separates_support_checks():
         run_after_inexpensive_checks = True
 
         def validate_batch(self, candidates, collision_objects):
-            assert candidates.env_ids == [1, 1]
-            assert candidates.candidate_ids == [7, 2]
-            assert candidates.losses == [3, 1]
-            assert candidates.positions == [positions[0], positions[2]]
+            assert candidates.candidates == [batch.candidates[0], batch.candidates[2]]
             return [False, True]
 
     validators = [OnRelationValidator(params), ClutterOnRelationValidator(params), ExpensiveCheck(params)]
-    checked = PlacementValidationPipeline(params, validators).validate_candidates(batch, [])
-    assert checked.validations[1].validation_results == {
+    checked = PlacementValidationRunner(params, validators).validate_candidates(batch, [])
+    assert checked.candidates[1].validation.validation_results == {
         "on_relation": False,
         "clutter_on_relation": False,
         "expensive_for_test": False,
     }
     reordered = checked.select([2, 0, 1])
-    assert reordered.env_ids == [1, 1, 0]
-    assert reordered.candidate_ids == [2, 7, 4]
-    assert reordered.losses == [1, 3, 0]
-    assert reordered.validations == [checked.validations[2], checked.validations[0], checked.validations[1]]
+    assert reordered.candidates == [checked.candidates[2], checked.candidates[0], checked.candidates[1]]
     ranked = ObjectPlacer._rank_candidates(reordered, num_envs=2)
-    assert ranked[0].candidate_ids == [4]
-    assert ranked[1].candidate_ids == [2, 7]
-    assert ranked[1].positions == [positions[2], positions[0]]
+    assert ranked[0].candidates == [checked.candidates[1]]
+    assert ranked[1].candidates == [checked.candidates[2], checked.candidates[0]]
     assert len(checked.select([])) == 0
+
+
+def test_generated_clutter_bounds_and_release_height_include_rotation():
+    import math
+
+    from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+    from isaaclab_arena.relations.placement_candidate_generator import PlacementCandidateGenerator
+    from isaaclab_arena.relations.placement_validators import ClutterOnRelationValidator, NoOverlapValidator
+    from isaaclab_arena.relations.relations import ClutterOn, IsAnchor, On, RotateAroundSolution
+    from isaaclab_arena.tests.dummy_object import DummyObject
+    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+    from isaaclab_arena.utils.pose import Pose
+
+    table = DummyObject(
+        "table", AxisAlignedBoundingBox((-1, -1, -0.1), (1, 1, 0)), relations=[IsAnchor()], initial_pose=Pose.identity()
+    )
+    obstacle = DummyObject("obstacle", AxisAlignedBoundingBox((-0.9, -0.9, 0), (0.9, 0.9, 0.2)), relations=[On(table)])
+    rotation = RotateAroundSolution(pitch_rad=math.pi / 4)
+    rod = DummyObject(
+        "rod",
+        AxisAlignedBoundingBox((-0.2, -0.02, -0.02), (0.2, 0.02, 0.02)),
+        relations=[ClutterOn(table, spread=0.4, random_yaw=False), rotation],
+    )
+    objects = [table, obstacle, rod]
+    bounds = {obj: obj.get_bounding_box() for obj in objects}
+    params = ObjectPlacerParams(placement_seed=7)
+    batch = PlacementCandidateGenerator(params).generate_candidates(
+        objects, {table}, [bounds], 2, torch.Generator(), []
+    )
+    expected = rod.get_bounding_box().rotated_by_quat(torch.tensor([rotation.get_rotation_xyzw()]))
+    for candidate in batch.candidates:
+        torch.testing.assert_close(candidate.bboxes[rod].min_point, expected.min_point)
+        torch.testing.assert_close(candidate.bboxes[rod].max_point, expected.max_point)
+        bottom = candidate.positions[rod][2] + float(expected.min_point[0, 2])
+        top = candidate.positions[obstacle][2] + float(bounds[obstacle].max_point[0, 2])
+        assert bottom >= top + params.solver_params.clearance_m - 1e-6
+    assert ClutterOnRelationValidator(params).validate_batch(batch, []) == [True, True]
+    assert NoOverlapValidator(params).validate_batch(batch, []) == [True, True]
+
+
+def test_release_validation_rejects_support_penetration_and_clearance_shortfall():
+    from isaaclab_arena.relations.object_placer import ObjectPlacer
+    from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+    from isaaclab_arena.relations.placement_validation import PlacementCheck
+    from isaaclab_arena.relations.relations import ClutterOn, IsAnchor
+    from isaaclab_arena.tests.dummy_object import DummyObject
+    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+
+    support = DummyObject("support", AxisAlignedBoundingBox((-1, -1, -0.1), (1, 1, 0)), relations=[IsAnchor()])
+    child = DummyObject("child", AxisAlignedBoundingBox((-0.05, -0.05, 0), (0.05, 0.05, 0.1)))
+    bounds = {support: support.get_bounding_box(), child: child.get_bounding_box()}
+    placer = ObjectPlacer(ObjectPlacerParams())
+    cases = [
+        (0.0, [-0.004, -1e-7, 0.0, 0.01], [False, False, True, True]),
+        (0.001, [-0.004, 0.0, 0.000998, 0.001, 0.002], [False, False, False, True, True]),
+        (0.01, [0.006, 0.009998, 0.0099995, 0.01, 0.02], [False, False, True, True, True]),
+    ]
+    for clearance, heights, expected in cases:
+        child.relations = [ClutterOn(support, spread=1.0, clearance_m=clearance)]
+        positions = [{support: (0, 0, 1.25), child: (0, 0, 1.25 + height)} for height in heights]
+        batch = make_candidate_batch(positions, [{}] * len(positions), [bounds] * len(positions))
+        checked = placer._validation.validate_candidates(batch, [])
+        assert [
+            candidate.validation.do_all_required_validation_checks_pass() for candidate in checked.candidates
+        ] == expected
+        assert [
+            candidate.validation.validation_results[PlacementCheck.CLUTTER_ON_RELATION]
+            for candidate in checked.candidates
+        ] == expected

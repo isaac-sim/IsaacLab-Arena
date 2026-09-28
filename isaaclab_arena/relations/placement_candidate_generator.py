@@ -11,12 +11,12 @@ import torch
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.relations.collision_mode import object_uses_mesh_collision
-from isaaclab_arena.relations.placement_candidate_batch import PlacementCandidateBatch
+from isaaclab_arena.relations.placement_candidate_batch import PlacementCandidate, PlacementCandidateBatch
 from isaaclab_arena.relations.relations import ClutterOn, FaceTo, On, RotateAroundSolution, get_relation
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.random import get_random_rotation
-from isaaclab_arena.utils.yaw import wrap_angle_to_pi, yaw_from_quat_xyzw
+from isaaclab_arena.utils.yaw import rotate_quat_by_yaw, wrap_angle_to_pi, yaw_from_quat_xyzw
 
 if TYPE_CHECKING:
     from isaaclab_arena.relations.collision_object import CollisionObject
@@ -24,8 +24,8 @@ if TYPE_CHECKING:
     from isaaclab_arena.relations.placement_asset import PlaceableAsset
 
 
-class CandidateInitializer:
-    """Position and orientation sampling for a configured placement solve."""
+class PlacementCandidateGenerator:
+    """Initial layouts with oriented bounds and clutter release positions ready for solving."""
 
     def __init__(self, params: ObjectPlacerParams):
         self.params = params
@@ -37,20 +37,84 @@ class CandidateInitializer:
         env_bboxes: list[dict[PlaceableAsset, AxisAlignedBoundingBox]],
         candidates_per_env: int,
         generator: torch.Generator | None,
+        collision_objects: list[CollisionObject],
     ) -> PlacementCandidateBatch:
-        """Sample candidates in environment order with reproducible per-candidate seeds."""
-        positions, orientations, bboxes, env_ids, candidate_ids = [], [], [], [], []
+        """Generate initial layouts with oriented bounds and prepared clutter release heights.
+
+        Layouts are grouped by environment and seeded by environment and sample ID.
+        """
+        candidates = []
         for env_id, bounds in enumerate(env_bboxes):
             for candidate_id in range(candidates_per_env):
                 if generator is not None:
                     assert self.params.placement_seed is not None
                     generator.manual_seed(self.params.placement_seed + env_id * candidates_per_env + candidate_id)
-                positions.append(self.generate_positions(objects, anchor_objects, bounds, generator))
-                orientations.append(self.generate_orientations(objects, anchor_objects, generator))
-                bboxes.append(bounds)
-                env_ids.append(env_id)
-                candidate_ids.append(candidate_id)
-        return PlacementCandidateBatch(positions, orientations, bboxes, env_ids, candidate_ids)
+                candidates.append(
+                    PlacementCandidate(
+                        env_id=env_id,
+                        candidate_id=candidate_id,
+                        positions=self.generate_positions(objects, anchor_objects, bounds, generator),
+                        orientations=self.generate_orientations(objects, anchor_objects, generator),
+                        bboxes=bounds,
+                    )
+                )
+        batch = PlacementCandidateBatch(candidates)
+        self.orient_candidate_bounds(batch, env_bboxes)
+        collision_bboxes = self.get_clutter_collision_bounds(objects, collision_objects)
+        for candidate in batch.candidates:
+            self.initialize_clutter_positions(candidate.positions, candidate.bboxes, collision_bboxes)
+        return batch
+
+    def orient_candidate_bounds(
+        self,
+        batch: PlacementCandidateBatch,
+        env_bboxes: list[dict[PlaceableAsset, AxisAlignedBoundingBox]],
+    ) -> None:
+        """Refit bounds from the environment's base geometry and each candidate's current orientations."""
+        objects = list(env_bboxes[0])
+        base_bounds = {
+            obj: AxisAlignedBoundingBox(
+                torch.cat([env_bboxes[candidate.env_id][obj].min_point for candidate in batch.candidates]),
+                torch.cat([env_bboxes[candidate.env_id][obj].max_point for candidate in batch.candidates]),
+            )
+            for obj in objects
+        }
+        rotated = self.rotate_candidate_bboxes(
+            objects, base_bounds, [candidate.orientations for candidate in batch.candidates]
+        )
+        for index, candidate in enumerate(batch.candidates):
+            candidate.bboxes = {obj: bounds[index] for obj, bounds in rotated.items()}
+
+    @staticmethod
+    def rotate_candidate_bboxes(
+        objects: list[PlaceableAsset],
+        candidate_bboxes: dict[PlaceableAsset, AxisAlignedBoundingBox],
+        orientations_per_candidate: list[dict[PlaceableAsset, float]],
+    ) -> dict[PlaceableAsset, AxisAlignedBoundingBox]:
+        """Enclose marker roll/pitch and candidate world yaw in axis-aligned bounds.
+
+        Bounds remain relative to object origins. Inputs are not modified.
+        """
+        num_candidates = len(orientations_per_candidate)
+        rotated: dict[PlaceableAsset, AxisAlignedBoundingBox] = {}
+        for obj in objects:
+            bbox = candidate_bboxes[obj]
+            marker = get_relation(obj, RotateAroundSolution)
+            marker_rotation = marker.get_rotation_xyzw() if marker is not None else (0.0, 0.0, 0.0, 1.0)
+            has_roll_pitch = marker is not None and (marker.roll_rad != 0.0 or marker.pitch_rad != 0.0)
+            # orientations carries absolute world yaw; subtract the marker's own yaw to get the delta to compose.
+            marker_yaw = yaw_from_quat_xyzw(marker_rotation)
+            extra_yaws = [
+                orientations_per_candidate[c].get(obj, marker_yaw) - marker_yaw for c in range(num_candidates)
+            ]
+            # Preserve the original bounds exactly when no rotation is applied.
+            if not has_roll_pitch and marker_yaw == 0.0 and all(yaw == 0.0 for yaw in extra_yaws):
+                rotated[obj] = bbox
+            else:
+                quats = [rotate_quat_by_yaw(marker_rotation, yaw) for yaw in extra_yaws]
+                quat_tensor = torch.tensor(quats, dtype=torch.float32, device=bbox.min_point.device)
+                rotated[obj] = bbox.rotated_by_quat(quat_tensor)
+        return rotated
 
     def generate_positions(
         self,
@@ -112,11 +176,10 @@ class CandidateInitializer:
         anchor_objects: set[PlaceableAsset],
         generator: torch.Generator | None = None,
     ) -> dict[PlaceableAsset, float]:
-        """Sample absolute world Z-yaws for non-anchor objects without FaceTo.
+        """Sample world Z headings, including marker yaw, for non-anchor objects without FaceTo.
 
-        Marker yaw is included; random_yaw_init adds a sampled delta for ordinary relations.
-        ClutterOn uses its random_yaw setting and preserves marker tilt. Other tilted markers
-        retain their authored rotation. Collision bounds enclose the resulting rotation.
+        ClutterOn.random_yaw controls clutter sampling; random_yaw_init controls other objects.
+        Ordinary objects with tilted markers keep their authored orientation.
         """
         orientations: dict[PlaceableAsset, float] = {}
         for obj in objects:

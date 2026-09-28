@@ -97,8 +97,11 @@ Most environments can be described with a small set of relations:
    Subsequent solving uses the shared collision clearance.
 
    The ``clutter_on_relation`` check enforces the release footprint and minimum height; contact
-   is not required. ``ObjectPlacer`` computes release poses, and normal simulation
-   makes the objects fall. Release validation certifies the initial geometry;
+   is not required. Height validation allows 1 micrometre of numerical slack on
+   ``clearance_m``, but never permits penetration below the support top. The ordinary
+   ``on_relation_z_tolerance_m`` contact tolerance does not apply to clutter.
+
+   ``ObjectPlacer`` computes release poses, and normal simulation makes the objects fall. Release validation certifies the initial geometry;
    it does not certify the final pile after physics. With explicit ``enabled_checks``
    or ``required_checks``, include ``clutter_on_relation`` for clutter and
    ``on_relation`` for ordinary On objects. Both are enabled by default.

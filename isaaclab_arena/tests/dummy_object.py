@@ -76,7 +76,9 @@ class DummyObject(PlaceableAsset):
 
 def make_candidate_batch(positions, orientations, bboxes):
     """Build test candidates with one layout per environment."""
-    from isaaclab_arena.relations.placement_candidate_batch import PlacementCandidateBatch
+    from isaaclab_arena.relations.placement_candidate_batch import PlacementCandidate, PlacementCandidateBatch
 
-    count = len(positions)
-    return PlacementCandidateBatch(positions, orientations, bboxes, list(range(count)), [0] * count)
+    return PlacementCandidateBatch([
+        PlacementCandidate(i, 0, position, orientation, bounds)
+        for i, (position, orientation, bounds) in enumerate(zip(positions, orientations, bboxes, strict=True))
+    ])

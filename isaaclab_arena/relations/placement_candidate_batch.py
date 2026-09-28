@@ -19,57 +19,46 @@ if TYPE_CHECKING:
 
 
 @dataclass
+class PlacementCandidate:
+    """One proposed layout of all placement objects in one environment."""
+
+    env_id: int
+    """Environment whose geometry and object variants this layout uses."""
+    candidate_id: int
+    """Sample index within the environment, unchanged by filtering or ranking."""
+    positions: dict[PlaceableAsset, tuple[float, float, float]]
+    """Object origins in the local environment frame, in metres; each value has shape (3,)."""
+    orientations: dict[PlaceableAsset, float]
+    """Absolute world Z headings in radians. Missing objects retain their marker rotation."""
+    bboxes: dict[PlaceableAsset, AxisAlignedBoundingBox]
+    """Bounds enclosing each object's orientation, relative to its origin; min/max tensors have shape (1, 3)."""
+    loss: float | None = None
+    """Final solver loss, or None before solving."""
+    validation: PlacementValidationResults | None = None
+    """Check outcomes, or None before validation."""
+
+
+@dataclass
 class PlacementCandidateBatch:
-    """N candidate layouts with matching geometry, identities and optional solve results."""
+    """N complete layouts, potentially with several candidates per environment."""
 
-    positions: list[dict[PlaceableAsset, tuple[float, float, float]]]
-    """N maps of object origins in the local environment frame, in metres."""
-    orientations: list[dict[PlaceableAsset, float]]
-    """N maps of absolute world-Z headings in radians; absent objects retain their marker rotation."""
-    bboxes: list[dict[PlaceableAsset, AxisAlignedBoundingBox]]
-    """N maps of oriented bounds relative to object origins; each min/max tensor has shape (1, 3)."""
-    env_ids: list[int]
-    """N environment IDs, preserved when selecting or reordering candidates."""
-    candidate_ids: list[int]
-    """N original candidate IDs within their environments."""
-    losses: list[float] | None = None
-    """N final solver losses, or None before solving."""
-    validations: list[PlacementValidationResults] | None = None
-    """N check results, or None before validation."""
-
-    def __post_init__(self) -> None:
-        count = len(self.positions)
-        assert len(self.orientations) == count, "One orientation map is required per candidate"
-        assert len(self.bboxes) == count, "One bounding-box map is required per candidate"
-        assert len(self.env_ids) == count, "One environment ID is required per candidate"
-        assert len(self.candidate_ids) == count, "One candidate ID is required per candidate"
-        assert self.losses is None or len(self.losses) == count, "One loss is required per solved candidate"
-        assert (
-            self.validations is None or len(self.validations) == count
-        ), "One verdict is required per checked candidate"
+    candidates: list[PlacementCandidate]
+    """Layouts in batch order, each with its own identity, geometry and results."""
 
     def __len__(self) -> int:
-        return len(self.positions)
+        return len(self.candidates)
 
     def select(self, indices: list[int]) -> PlacementCandidateBatch:
-        """Select rows in the requested order, retaining their original identities and results."""
-        return PlacementCandidateBatch(
-            positions=[self.positions[i] for i in indices],
-            orientations=[self.orientations[i] for i in indices],
-            bboxes=[self.bboxes[i] for i in indices],
-            env_ids=[self.env_ids[i] for i in indices],
-            candidate_ids=[self.candidate_ids[i] for i in indices],
-            losses=None if self.losses is None else [self.losses[i] for i in indices],
-            validations=None if self.validations is None else [self.validations[i] for i in indices],
-        )
+        """Select or reorder layouts by batch index without changing their identities."""
+        return PlacementCandidateBatch([self.candidates[i] for i in indices])
 
     def stacked_bboxes(self) -> dict[PlaceableAsset, AxisAlignedBoundingBox]:
-        """Return per-object min/max bounds with shape (N, 3), in candidate order."""
-        assert self.bboxes, "Cannot stack an empty candidate batch"
+        """Stack bounds into (N, 3) tensors in candidate order."""
+        assert self.candidates, "Cannot stack bounds for an empty candidate batch"
         return {
             obj: AxisAlignedBoundingBox(
-                torch.cat([bounds[obj].min_point for bounds in self.bboxes]),
-                torch.cat([bounds[obj].max_point for bounds in self.bboxes]),
+                torch.cat([candidate.bboxes[obj].min_point for candidate in self.candidates]),
+                torch.cat([candidate.bboxes[obj].max_point for candidate in self.candidates]),
             )
-            for obj in self.bboxes[0]
+            for obj in self.candidates[0].bboxes
         }

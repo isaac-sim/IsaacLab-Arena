@@ -192,14 +192,19 @@ class RelationSolver:
         """Solve oriented candidates while retaining their identities and attaching final losses."""
         positions = self.solve(
             objects,
-            batch.positions,
+            [candidate.positions for candidate in batch.candidates],
             env_bboxes=batch.stacked_bboxes(),
-            env_bboxes_include_yaw=any(batch.orientations),
-            orientations=batch.orientations,
+            env_bboxes_include_yaw=any(candidate.orientations for candidate in batch.candidates),
+            orientations=[candidate.orientations for candidate in batch.candidates],
             collision_objects=collision_objects,
         )
         assert self.last_loss_per_env is not None
-        return replace(batch, positions=positions, losses=self.last_loss_per_env.cpu().tolist(), validations=None)
+        return PlacementCandidateBatch([
+            replace(candidate, positions=position, loss=loss, validation=None)
+            for candidate, position, loss in zip(
+                batch.candidates, positions, self.last_loss_per_env.cpu().tolist(), strict=True
+            )
+        ])
 
     def solve(
         self,
@@ -296,7 +301,7 @@ class RelationSolver:
 
         # Compute initial loss so _last_loss_per_env is always populated, even when max_iters=0.
         with torch.no_grad():
-            self._compute_total_loss(state)
+            final_loss = self._compute_total_loss(state)
 
         # Optimization loop
         loss_history = []
@@ -327,7 +332,7 @@ class RelationSolver:
 
         # Recompute ranking losses for the positions returned after the final optimizer step.
         with torch.no_grad():
-            self._compute_total_loss(state)
+            final_loss = self._compute_total_loss(state)
 
         if self.params.profile and torch.cuda.is_available():
             torch.cuda.synchronize()
@@ -337,7 +342,7 @@ class RelationSolver:
             position_history.append(state.get_all_positions_snapshot())
 
         if self.params.verbose and loss_history:
-            print(f"\nFinal loss: {loss_history[-1]:.6f}")
+            print(f"\nFinal loss: {final_loss.item():.6f}")
             print(f"Total iterations: {len(loss_history)}")
 
         if self.params.profile and loss_history:

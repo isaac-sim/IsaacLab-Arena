@@ -7,16 +7,15 @@ from __future__ import annotations
 
 import math
 import torch
-from dataclasses import replace
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.relations.bounding_box_helpers import assign_variants_for_envs, build_per_env_bounding_boxes
-from isaaclab_arena.relations.candidate_initialization import CandidateInitializer
 from isaaclab_arena.relations.collision_mode import object_uses_mesh_collision
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_candidate_batch import PlacementCandidateBatch
+from isaaclab_arena.relations.placement_candidate_generator import PlacementCandidateGenerator
 from isaaclab_arena.relations.placement_result import PlacementResult
-from isaaclab_arena.relations.placement_validation_pipeline import PlacementValidationPipeline
+from isaaclab_arena.relations.placement_validation_runner import PlacementValidationRunner
 from isaaclab_arena.relations.placement_visualizer import get_or_create_placement_visualizer
 from isaaclab_arena.relations.relation_solver import RelationSolver
 from isaaclab_arena.relations.relations import (
@@ -29,7 +28,6 @@ from isaaclab_arena.relations.relations import (
 )
 from isaaclab_arena.relations.validation.pre_physics import build_validators
 from isaaclab_arena.relations.validation.types import PlacementValidationResults
-from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose, PosePerEnv
 from isaaclab_arena.utils.yaw import rotate_quat_by_yaw, yaw_from_quat_xyzw, yaw_toward_positions
 
@@ -60,11 +58,11 @@ class ObjectPlacer:
 
     def __init__(self, params: ObjectPlacerParams | None = None):
         self.params = params or ObjectPlacerParams()
-        self._initializer = CandidateInitializer(self.params)
+        self._candidate_generator = PlacementCandidateGenerator(self.params)
         self._solver = RelationSolver(params=self.params.solver_params)
         self._visualizer = get_or_create_placement_visualizer(self.params)
         self._validators: list[PrePhysicsPlacementValidator] = build_validators(self.params, self._visualizer)
-        self._validation = PlacementValidationPipeline(self.params, self._validators, self._visualizer)
+        self._validation = PlacementValidationRunner(self.params, self._validators, self._visualizer)
 
     def place(
         self,
@@ -216,78 +214,66 @@ class ObjectPlacer:
         # Variant assignment fixes the env-to-USD mapping before bbox expansion.
         assign_variants_for_envs(objects, num_envs, placement_seed=self.params.placement_seed)
         num_candidates = num_envs * candidates_per_env
-        env_bboxes = build_per_env_bounding_boxes(objects, num_envs)
-        batch = self._initializer.generate_candidates(
-            objects, anchor_objects_set, env_bboxes.get_bounding_boxes_for_all_envs(), candidates_per_env, generator
+        env_bboxes = build_per_env_bounding_boxes(objects, num_envs).get_bounding_boxes_for_all_envs()
+        batch = self._candidate_generator.generate_candidates(
+            objects, anchor_objects_set, env_bboxes, candidates_per_env, generator, collision_objects
         )
-        unrotated_bboxes = batch.stacked_bboxes()
-        batch = self._orient_candidate_bounds(objects, batch, unrotated_bboxes)
-        collision_bboxes = self._initializer.get_clutter_collision_bounds(objects, collision_objects)
-        for positions, bounds in zip(batch.positions, batch.bboxes, strict=True):
-            self._initializer.initialize_clutter_positions(positions, bounds, collision_bboxes)
-
         batch = self._solver.solve_candidates(objects, batch, collision_objects)
-        self._apply_face_to_orientations(batch.positions, batch.orientations)
-        # FaceTo is known after solving; rebuild bounds from the original geometry.
-        batch = self._orient_candidate_bounds(objects, batch, unrotated_bboxes)
+        self._apply_face_to_orientations(
+            [candidate.positions for candidate in batch.candidates],
+            [candidate.orientations for candidate in batch.candidates],
+        )
+        # FaceTo headings depend on solved positions; refit from the original bounds.
+        self._candidate_generator.orient_candidate_bounds(batch, env_bboxes)
         self._assert_finite_solver_output(batch)
         batch = self._validation.validate_candidates(batch, collision_objects)
         ranked_batches = self._rank_candidates(batch, num_envs)
 
         results = []
         for ranked in ranked_batches:
-            assert ranked.validations is not None and ranked.losses is not None
             results.append([
                 PlacementResult(
-                    validation_results=ranked.validations[i],
-                    positions=ranked.positions[i],
-                    final_loss=ranked.losses[i],
+                    validation_results=candidate.validation,
+                    positions=candidate.positions,
+                    final_loss=candidate.loss,
                     attempts=attempts_per_result,
-                    orientations=ranked.orientations[i],
+                    orientations=candidate.orientations,
                 )
-                for i in range(len(ranked))
+                for candidate in ranked.candidates
             ])
         if self.params.verbose:
             n_valid = sum(env_results[0].success for env_results in results)
             print(f"Solved {num_candidates} candidates in one batch: {n_valid}/{num_envs} env(s) valid")
         return results
 
-    def _orient_candidate_bounds(
-        self,
-        objects: list[PlaceableAsset],
-        batch: PlacementCandidateBatch,
-        unrotated_bboxes: dict[PlaceableAsset, AxisAlignedBoundingBox],
-    ) -> PlacementCandidateBatch:
-        """Attach bounds enclosing each candidate's current full rotation."""
-        rotated = self._rotate_candidate_bboxes(objects, unrotated_bboxes, batch.orientations)
-        bounds = [self._get_bounding_boxes_for_candidate_index(rotated, i) for i in range(len(batch))]
-        return replace(batch, bboxes=bounds)
-
     @staticmethod
     def _assert_finite_solver_output(batch: PlacementCandidateBatch) -> None:
         """Require finite XYZ positions, yaw angles and losses before validation and ranking."""
-        assert batch.losses is not None, "Candidates must be solved before validation"
-        for i, (positions, orientations, loss) in enumerate(
-            zip(batch.positions, batch.orientations, batch.losses, strict=True)
-        ):
-            values = [loss, *orientations.values(), *(value for position in positions.values() for value in position)]
+        for candidate in batch.candidates:
+            assert candidate.loss is not None, "Candidates must be solved before validation"
+            values = [candidate.loss, *candidate.orientations.values()]
+            for position in candidate.positions.values():
+                values.extend(position)
             assert all(
                 math.isfinite(value) for value in values
-            ), f"Non-finite solver output for environment {batch.env_ids[i]}, candidate {batch.candidate_ids[i]}"
+            ), f"Non-finite solver output for environment {candidate.env_id}, candidate {candidate.candidate_id}"
 
     @staticmethod
     def _rank_candidates(batch: PlacementCandidateBatch, num_envs: int) -> list[PlacementCandidateBatch]:
         """Rank by failed checks and loss within each environment, retaining candidate identities."""
-        assert batch.validations is not None and batch.losses is not None
-        indices_per_env = [[] for _ in range(num_envs)]
-        for i, env_id in enumerate(batch.env_ids):
-            indices_per_env[env_id].append(i)
+        candidates_per_env = [[] for _ in range(num_envs)]
+        for candidate in batch.candidates:
+            assert candidate.validation is not None and candidate.loss is not None
+            candidates_per_env[candidate.env_id].append(candidate)
         ranked = []
-        for indices in indices_per_env:
-            indices.sort(
-                key=lambda i: (*batch.validations[i].get_number_of_required_and_optional_failures, batch.losses[i])
+        for candidates in candidates_per_env:
+            candidates.sort(
+                key=lambda candidate: (
+                    *candidate.validation.get_number_of_required_and_optional_failures,
+                    candidate.loss,
+                )
             )
-            ranked.append(batch.select(indices))
+            ranked.append(PlacementCandidateBatch(candidates))
         return ranked
 
     @staticmethod
@@ -312,52 +298,6 @@ class ObjectPlacer:
             for candidate_idx, (yaw, direction_is_defined) in enumerate(zip(yaws, is_defined, strict=True)):
                 if direction_is_defined:
                     orientations_per_candidate[candidate_idx][obj] = yaw.item()
-
-    @staticmethod
-    def _rotate_candidate_bboxes(
-        objects: list[PlaceableAsset],
-        candidate_bboxes: dict[PlaceableAsset, AxisAlignedBoundingBox],
-        orientations_per_candidate: list[dict[PlaceableAsset, float]],
-    ) -> dict[PlaceableAsset, AxisAlignedBoundingBox]:
-        """Replace each candidate's bbox with the AABB enclosing its fully-oriented object.
-
-        Composes each object's static RotateAroundSolution marker rotation (roll/pitch/yaw) with the
-        per-candidate yaw (sampled + FaceTo, carried as absolute world yaw in orientations_per_candidate)
-        and refits the box to that combined quaternion -- the same composition _apply_poses uses for the
-        final pose, so overlap boxes match the placed object regardless of rotation axis. Objects with
-        no rotation are returned unchanged, keeping the no-rotation path exact.
-        """
-        num_candidates = len(orientations_per_candidate)
-        rotated: dict[PlaceableAsset, AxisAlignedBoundingBox] = {}
-        for obj in objects:
-            bbox = candidate_bboxes[obj]
-            marker = get_relation(obj, RotateAroundSolution)
-            marker_rotation = marker.get_rotation_xyzw() if marker is not None else (0.0, 0.0, 0.0, 1.0)
-            has_roll_pitch = marker is not None and (marker.roll_rad != 0.0 or marker.pitch_rad != 0.0)
-            # orientations carries absolute world yaw; subtract the marker's own yaw to get the delta to compose.
-            marker_yaw = yaw_from_quat_xyzw(marker_rotation)
-            extra_yaws = [
-                orientations_per_candidate[c].get(obj, marker_yaw) - marker_yaw for c in range(num_candidates)
-            ]
-            # extra_yaws exclude the marker rotation, so reuse the original bbox only when:
-            # 1. the marker has no roll or pitch;
-            # 2. the marker yaw is zero; and
-            # 3. every candidate adds zero extra yaw.
-            if not has_roll_pitch and marker_yaw == 0.0 and all(yaw == 0.0 for yaw in extra_yaws):
-                rotated[obj] = bbox
-            else:
-                quats = [rotate_quat_by_yaw(marker_rotation, yaw) for yaw in extra_yaws]
-                quat_tensor = torch.tensor(quats, dtype=torch.float32, device=bbox.min_point.device)
-                rotated[obj] = bbox.rotated_by_quat(quat_tensor)
-        return rotated
-
-    @staticmethod
-    def _get_bounding_boxes_for_candidate_index(
-        bboxes: dict[PlaceableAsset, AxisAlignedBoundingBox],
-        candidate_idx: int,
-    ) -> dict[PlaceableAsset, AxisAlignedBoundingBox]:
-        """Slice one candidate's bboxes (each (1, 3)) out of the stacked (num_candidates, 3) boxes."""
-        return {obj: bbox[candidate_idx] for obj, bbox in bboxes.items()}
 
     def _apply_poses(
         self,

@@ -20,8 +20,12 @@ if TYPE_CHECKING:
     from isaaclab_arena.relations.placement_visualizer import PlacementRerunVisualizer
 
 
-class PlacementValidationPipeline:
-    """Configured validators evaluated in cost order over solved candidate layouts."""
+class PlacementValidationRunner:
+    """Run configured placement checks and collect each candidate's results.
+
+    Geometry checks run first. Validators marked run_after_inexpensive_checks, such as IK,
+    run only on candidates that pass the required earlier checks. Neither pass steps physics.
+    """
 
     def __init__(
         self,
@@ -47,7 +51,11 @@ class PlacementValidationPipeline:
         layout_pass_verdicts_by_check: dict[str, list[bool]] = {}
 
         if self._visualizer is not None:
-            self._visualizer.start_new_batch(batch.positions, batch.orientations, batch.bboxes)
+            self._visualizer.start_new_batch(
+                [candidate.positions for candidate in batch.candidates],
+                [candidate.orientations for candidate in batch.candidates],
+                [candidate.bboxes for candidate in batch.candidates],
+            )
 
         self._run_inexpensive_checks(
             batch,
@@ -83,7 +91,10 @@ class PlacementValidationPipeline:
             )
             for candidate_idx in range(len(batch))
         ]
-        return replace(batch, validations=validations)
+        return PlacementCandidateBatch([
+            replace(candidate, validation=validation)
+            for candidate, validation in zip(batch.candidates, validations, strict=True)
+        ])
 
     def _run_inexpensive_checks(
         self,

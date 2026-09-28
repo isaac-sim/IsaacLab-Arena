@@ -24,11 +24,23 @@ that passes ``is_available()`` and survives ``enabled_checks`` (see
 2. **Expensive checks** (``ik_reachable``) only on candidates that already
    passed every *required* inexpensive check.
 
-``PlacementCandidateBatch`` carries positions, orientations, bounds and candidate
-identities from initialization through solving, validation and ranking. Validator
-extensions implement ``validate_batch(batch, collision_objects)`` and return one
-boolean per row. ``batch.select(indices)`` retains the original environment and
-candidate IDs when expensive checks receive only a filtered subset.
+A ``PlacementCandidate`` is one proposed layout of all placement objects in one
+environment. It stores the objects' positions, orientations and bounds, plus the
+environment ID and sample ID. Solving adds a loss; validation adds check results.
+
+``PlacementCandidateBatch`` groups these layouts. For example, four environments
+with ten attempts each produce a batch of forty candidates. Filtering and ranking
+move complete candidates, keeping their geometry and results together.
+
+``PlacementCandidateGenerator`` samples orientations, fits the bounds to those
+rotations and places clutter above its support and nearby objects before solving.
+``PlacementValidationRunner`` runs the configured checks on the solved candidates.
+Here, *expensive* means computational cost, such as solving IK. Neither validation
+pass steps physics.
+
+Validator extensions implement ``validate_batch(batch, collision_objects)`` and
+return one boolean per candidate in ``batch.candidates``. ``batch.select(indices)``
+selects layouts without changing their environment or sample IDs.
 
 Verdicts land in each candidate's ``PlacementValidationResults``. A
 **required** check must pass for the candidate to count as valid; an

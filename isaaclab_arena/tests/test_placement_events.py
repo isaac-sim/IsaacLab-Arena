@@ -860,12 +860,12 @@ class _StubReachabilityValidator(PrePhysicsPlacementValidator):
         candidates = [
             PlacementResult(
                 validation_results=PlacementValidationResults(),
-                positions=batch.positions[i],
+                positions=candidate.positions,
                 final_loss=0.0,
                 attempts=0,
-                orientations=batch.orientations[i],
+                orientations=candidate.orientations,
             )
-            for i in range(len(batch))
+            for candidate in batch.candidates
         ]
         return [bool(type(self).predicate(candidate)) for candidate in candidates]
 

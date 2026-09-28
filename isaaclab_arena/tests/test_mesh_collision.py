@@ -575,15 +575,19 @@ def test_validate_placement_mesh_mode_rejects_aabb_foreground_background_overlap
     env_bboxes = {table: table.get_bounding_box(), box: box.get_bounding_box()}
 
     overlapping = {table: (0.0, 0.0, 0.0), box: (0.0, 0.0, 0.075)}
-    validation = placer._validation.validate_candidates(
-        make_candidate_batch([overlapping], [{}], [env_bboxes]), [background]
-    ).validations[0]
+    validation = (
+        placer._validation.validate_candidates(make_candidate_batch([overlapping], [{}], [env_bboxes]), [background])
+        .candidates[0]
+        .validation
+    )
     assert not validation.validation_results[PlacementCheck.NO_OVERLAP]
 
     clear = {table: (0.0, 0.0, 0.0), box: (0.3, 0.0, 0.075)}
-    validation = placer._validation.validate_candidates(
-        make_candidate_batch([clear], [{}], [env_bboxes]), [background]
-    ).validations[0]
+    validation = (
+        placer._validation.validate_candidates(make_candidate_batch([clear], [{}], [env_bboxes]), [background])
+        .candidates[0]
+        .validation
+    )
     assert validation.validation_results[PlacementCheck.NO_OVERLAP]
 
 
@@ -1240,7 +1244,8 @@ def test_mesh_mode_scores_background_collision_object():
             ),
             [background],
         )
-        .validations[0]
+        .candidates[0]
+        .validation
     )
 
     assert solver.last_loss_per_env[0].item() > 0.0

@@ -114,8 +114,8 @@ class ReachabilityValidator(PrePhysicsPlacementValidator):
 
     def validate_batch(self, batch: PlacementCandidateBatch, collision_objects: list[CollisionObject]) -> list[bool]:
         return [
-            self._validate(batch.positions[i], batch.orientations[i], layout_index_within_batch=i)
-            for i in range(len(batch.positions))
+            self._validate(candidate.positions, candidate.orientations, layout_index_within_batch=i)
+            for i, candidate in enumerate(batch.candidates)
         ]
 
     def _validate(

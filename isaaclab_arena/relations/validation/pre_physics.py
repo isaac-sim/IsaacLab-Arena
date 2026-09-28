@@ -112,7 +112,7 @@ class OnRelationValidator(PrePhysicsPlacementValidator):
     check = PlacementCheck.ON_RELATION
 
     def validate_batch(self, batch: PlacementCandidateBatch, collision_objects: list[CollisionObject]) -> list[bool]:
-        return [self._validate(batch.positions[i], batch.bboxes[i]) for i in range(len(batch.positions))]
+        return [self._validate(candidate.positions, candidate.bboxes) for candidate in batch.candidates]
 
     def _validate(
         self,
@@ -201,7 +201,7 @@ class NextToValidator(PrePhysicsPlacementValidator):
     check = PlacementCheck.NEXT_TO
 
     def validate_batch(self, batch: PlacementCandidateBatch, collision_objects: list[CollisionObject]) -> list[bool]:
-        return [self._validate(batch.positions[i], batch.bboxes[i]) for i in range(len(batch.positions))]
+        return [self._validate(candidate.positions, candidate.bboxes) for candidate in batch.candidates]
 
     def _validate(
         self,
@@ -247,7 +247,7 @@ class NotNextToValidator(PrePhysicsPlacementValidator):
     check = PlacementCheck.NOT_NEXT_TO
 
     def validate_batch(self, batch: PlacementCandidateBatch, collision_objects: list[CollisionObject]) -> list[bool]:
-        return [self._validate(batch.positions[i], batch.bboxes[i]) for i in range(len(batch.positions))]
+        return [self._validate(candidate.positions, candidate.bboxes) for candidate in batch.candidates]
 
     def _validate(
         self,
@@ -302,7 +302,7 @@ class FaceToValidator(PrePhysicsPlacementValidator):
     check = PlacementCheck.FACE_TO
 
     def validate_batch(self, batch: PlacementCandidateBatch, collision_objects: list[CollisionObject]) -> list[bool]:
-        return [self._validate(batch.positions[i], batch.orientations[i]) for i in range(len(batch.positions))]
+        return [self._validate(candidate.positions, candidate.orientations) for candidate in batch.candidates]
 
     def _validate(
         self,
@@ -344,8 +344,8 @@ class NoOverlapValidator(PrePhysicsPlacementValidator):
 
     def validate_batch(self, batch: PlacementCandidateBatch, collision_objects: list[CollisionObject]) -> list[bool]:
         return [
-            self._validate(batch.positions[i], batch.bboxes[i], batch.orientations[i], collision_objects)
-            for i in range(len(batch.positions))
+            self._validate(candidate.positions, candidate.bboxes, candidate.orientations, collision_objects)
+            for candidate in batch.candidates
         ]
 
     def _validate(

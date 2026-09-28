@@ -26,6 +26,9 @@ RelationT = TypeVar("RelationT", bound="RelationBase")
 # the placed object's footprint off the rim.
 DEFAULT_ON_EDGE_MARGIN_M = 0.05
 
+CLUTTER_RELEASE_HEIGHT_TOLERANCE_M = 1e-6
+"""Numerical slack on release clearance in metres; never permits support penetration."""
+
 
 class Side(str, Enum):
     """Axis direction for spatial relationships."""
@@ -284,8 +287,12 @@ class ClutterOn(On):
     def is_child_bottom_z_within_placement_height_range(
         self, bottom: float, support_top: float, tolerance_m: float
     ) -> bool:
-        """Whether the child clears the support; release poses have no upper height limit."""
-        return bottom >= support_top + self.clearance_m - tolerance_m
+        """Require nonpenetrating clearance, with numerical slack and no upper height limit.
+
+        The ordinary On contact tolerance does not apply to release poses.
+        """
+        minimum_bottom = support_top + max(0.0, self.clearance_m - CLUTTER_RELEASE_HEIGHT_TOLERANCE_M)
+        return bottom >= minimum_bottom
 
     def validate_placement_configuration(self, subject: PlaceableAsset, objects: set[PlaceableAsset]) -> None:
         """Require a fixed support and preserve validated release poses."""

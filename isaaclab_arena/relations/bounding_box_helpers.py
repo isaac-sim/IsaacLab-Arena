@@ -126,8 +126,9 @@ def build_per_env_bounding_boxes(objects: list[PlaceableAsset], num_envs: int) -
     """Build per-env base bboxes for each placement object.
 
     Anchor bounds include their fixed quarter-turn rotation. Movable-object orientation is applied later
-    per candidate in ObjectPlacer._rotate_candidate_bboxes.
+    per candidate by PlacementCandidateGenerator.
     """
+    # Keep Isaac Lab and pxr out of module imports.
     from isaaclab_arena.assets.object_reference import ObjectReference
 
     object_bboxes = {obj: get_bounding_box_per_env(obj, num_envs) for obj in objects}
