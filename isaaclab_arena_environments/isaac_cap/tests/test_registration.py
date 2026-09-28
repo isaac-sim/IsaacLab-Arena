@@ -174,6 +174,8 @@ def _test_isaac_cap_components_registered(_simulation_app) -> bool:
     policy_registry = PolicyRegistry()
     assert policy_registry.get_component_by_name("cap_remote") is cap_policy.CapPolicy
     assert policy_registry.get_policy_cfg_type(cap_policy.CapPolicy) is cap_policy.CapPolicyCfg
+    assert policy_registry.get_component_by_name("cap_yam_remote") is cap_policy.CapYamPolicy
+    assert policy_registry.get_policy_cfg_type(cap_policy.CapYamPolicy) is cap_policy.CapYamPolicyCfg
 
     class ConflictingEnvironment:
         name = "vabar_cable_routing_v2__easy"

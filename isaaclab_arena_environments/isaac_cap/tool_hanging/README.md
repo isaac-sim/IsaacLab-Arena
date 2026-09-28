@@ -35,3 +35,44 @@ Run a scene in the GUI from the repository root inside its container; the config
 
 Cameras are exposed as `top_camera`, `side_camera`, `left_wrist_camera`, and `right_wrist_camera`,
 the names Isaac-cap's graph policy binds to.
+
+## Arena client + CAP policy
+
+Run Arena in this checkout's Docker container (host networking) and the GAP graph in a
+separate Isaac-cap checkout on the host. These commands were tested against Isaac-cap
+commit `587c7b047c635f64404f4b6a1a88333b362253df`.
+
+1. **Arena client** — from the repo root inside the container:
+
+   ```bash
+   /isaac-sim/python.sh -u isaaclab_arena/evaluation/experiment_runner.py \
+     --experiment_config isaaclab_arena_environments/isaac_cap/tool_hanging/experiment_configs/tool_hanging_cap_remote_experiment.yaml \
+     --viz kit
+   ```
+
+   The experiment defaults to `wrench_easy`. Select another scene with a Hydra override, for
+   example `shared.environment.type=isaaclab_arena_environments/isaac_cap/tool_hanging/scissors_medium.yaml`.
+
+   Wait for `Completed setting up the environment` before starting CAP so the graph's
+   first-image timeout does not fire while the scene is still loading.
+
+2. **CAP server** — in another host terminal, from the Isaac-cap checkout:
+
+   ```bash
+   GAP_PORT=19000 \
+   GAP_GRAPH=tool_hanging/gap_perception \
+   GAP_ADAPTATION=vabar_tool_hanging_artist_wrench \
+   CAP_GAP_ROBOT_PROFILE=yam_bimanual \
+   CAP_GAP_CONTROL_FREQUENCY_HZ=60 \
+   CAP_GAP_HONOURS_ROLL=1 \
+   CAP_GAP_CARTESIAN_CORRECTION_LIMIT_M=0.01 \
+   CAP_GAP_ARM_BASE_POSES='[
+     [[0.3025,0.17,0.81],[0,0,0,1]],
+     [[0.3025,-0.17,0.81],[0,0,0,1]]
+   ]' \
+   ./arena_gap/scripts/run_gap_graph.sh \
+     --inputs instruction='"hang the wrench on the hook"'
+   ```
+
+   Match `GAP_PORT` to `shared.policy.port` if you change the experiment port. Restart the
+   graph for each new episode.

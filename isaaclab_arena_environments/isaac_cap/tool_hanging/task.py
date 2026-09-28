@@ -22,6 +22,7 @@ from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
 from isaaclab_arena.tasks.terminations import check_success
 from isaaclab_arena.utils.configclass import make_configclass
+from isaaclab_arena_environments.isaac_cap.cap_policy import cap_episode_finished
 
 from .geometry import LoopOnRod, PointInBox, goal_geometry_from_dict
 
@@ -124,6 +125,7 @@ class ToolHangingTask(TaskBase):
         return TaskTerminationCfg(
             timeout_s=self.episode_length_s,
             success=[ProgressObjective(name="tool_hanging", predicate_sequence=[all_tools_hung])],
+            failures={"cap_finished": TerminationTermCfg(func=cap_episode_finished)},
         )
 
     def get_events_cfg(self):
