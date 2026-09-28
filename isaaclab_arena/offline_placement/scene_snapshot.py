@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 
 
 class SceneSnapshot:
-    """Scene and control state for N environments, with J joints per articulation."""
+    """Scene physics state and joint targets for N environments, with J joints per articulation."""
 
     def __init__(self, env: ManagerBasedEnv):
         self.state = env.scene.get_state()

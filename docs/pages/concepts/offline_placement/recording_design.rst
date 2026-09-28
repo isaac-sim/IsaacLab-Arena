@@ -42,12 +42,12 @@ write output (default 1).
 
 The default validators are:
 
-* ``physics_settled``: existing final-velocity check, with ``lin_vel_thresh=0.1`` m/s
+* ``physics_settled``: final linear and angular root-speed check, with ``lin_vel_thresh=0.1`` m/s
   and ``ang_vel_thresh=0.1`` rad/s.
-* ``pose_shift``: maximum root displacement of ``max_translation_m=0.002`` metres
+* ``pose_shift``: maximum initial-to-final root displacement of ``max_translation_m=0.002`` metres
   and rotation of ``max_rotation_deg=2`` degrees from the initial pose.
-* ``articulation_link_shift``: the same displacement and rotation limits for links
-  relative to their root. Skipped when the scene has no articulations.
+* ``articulation_link_shift``: the same initial-to-final displacement and rotation
+  limits for links relative to their root. Skipped when the scene has no articulations.
 
 Settings live under ``settle.validators.<check>``. For example, append
 ``settle.validators.pose_shift.max_translation_m=0.001`` to tighten the root limit.
@@ -69,6 +69,28 @@ The solver's IK and geometric checks are not repeated after physics. The default
 post-physics checks certify the velocity and shift limits above, not exact
 preservation of every relation or a new IK solution at the measured poses.
 
+.. _recording_robot_motion:
+
+Robot motion and replay
+-----------------------
+
+Physics advances the entire scene using the actuator targets present after reset.
+The robot is not held fixed: it may move or contact objects, affecting even an
+accepted layout.
+
+A fixed robot root can have zero speed while its joints move. Link-shift checks
+compare the initial and final poses; they measure neither joint/link velocities
+nor the largest displacement during settling. Passing these checks does not
+establish that the articulation stayed still or stopped moving.
+
+JSONL saves measured final root poses, including the robot root, but no joint
+states. Replay uses the environment's joint-reset behavior. The Droid example
+samples Gaussian joint offsets with a standard deviation of 0.02 radians and sets
+matching actuator targets. Reusing that YAML does not guarantee the same joint
+configuration. Matching robot contact geometry requires deterministic, matching
+joint initialization; root-only replay does not reconstruct the complete
+post-physics articulated state.
+
 Python use and scope
 --------------------
 
@@ -88,10 +110,10 @@ For an initialized environment with a placement pool:
        "poses.jsonl", source="settled", validation=result.validation,
    )
 
-Collection does not consume the pool or change its validation results. Before each
-batch, it restores scene roots, joints and actuator targets so earlier candidates
-cannot change the next candidates' starting conditions. It also restores that
-state on completion or failure for Python callers. This does not restore validator
+Collection does not consume the pool or change its validation results.
+``SceneSnapshot`` restores root poses and velocities, joint positions and velocities,
+and actuator targets before each batch and on completion or failure. It does not
+freeze the robot during physics or restore controller histories, validator
 internals, task managers or all simulator state.
 
 The recorder and ``run_placement_pool_validation.py`` share the same physics loop; a separate

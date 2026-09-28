@@ -10,10 +10,14 @@ from __future__ import annotations
 from collections import Counter
 from dataclasses import dataclass, field, replace
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from omegaconf import MISSING
 
 from isaaclab_arena.offline_placement.recording_params import PlacementRecordingParams
+
+if TYPE_CHECKING:
+    from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 
 
 @dataclass
@@ -44,8 +48,23 @@ class PlacementRecordingCfg:
     """Physics duration, configured validators and minimum accepted count."""
 
 
+def replace_placer_params(placer_params: ObjectPlacerParams, cfg: PlacementRecordingCfg) -> ObjectPlacerParams:
+    """Copy solver settings with the recording seed and pool requirements.
+
+    Args:
+        placer_params: Source settings, left unchanged.
+        cfg: Recording seed and minimum candidate count per environment.
+    """
+    return replace(
+        placer_params,
+        placement_seed=cfg.seed,
+        min_unique_layouts_per_env=cfg.layouts_per_env,
+        resolve_on_reset=True,
+    )
+
+
 def record_placements_to_jsonl(cfg: PlacementRecordingCfg, device: str = "cuda:0") -> Path:
-    """Write physics-filtered final poses for a graph scene and return the output path.
+    """Write accepted post-physics placement poses and return the output JSONL path.
 
     Args:
         cfg: Source, candidate count and filtering configuration.
@@ -64,12 +83,7 @@ def record_placements_to_jsonl(cfg: PlacementRecordingCfg, device: str = "cuda:0
     spec = ArenaEnvGraphSpec.from_yaml(cfg.env_spec)
     assert not spec.object_sets, "Resolve object sets before recording reusable layouts"
     arena_env = spec.to_arena_env()
-    arena_env.placer_params = replace(
-        arena_env.placer_params,
-        placement_seed=cfg.seed,
-        min_unique_layouts_per_env=cfg.layouts_per_env,
-        resolve_on_reset=True,
-    )
+    arena_env.placer_params = replace_placer_params(arena_env.placer_params, cfg)
     builder = ArenaEnvBuilder(
         arena_env,
         ArenaEnvBuilderCfg(

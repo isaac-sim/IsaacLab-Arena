@@ -72,13 +72,13 @@ class PostPhysicsPlacementValidator(PlacementValidator):
 
 @dataclass
 class VelocityValidator(PostPhysicsPlacementValidator):
-    """Require every recorded body to remain below the final velocity limits."""
+    """Require final linear and angular root speeds below the configured limits."""
 
     check: ClassVar[str] = "physics_settled"
     lin_vel_thresh: float = PhysicsSettleParams.lin_vel_thresh
-    """Maximum final linear speed, in m/s."""
+    """Maximum final root linear speed, in m/s."""
     ang_vel_thresh: float = PhysicsSettleParams.ang_vel_thresh
-    """Maximum final angular speed, in rad/s."""
+    """Maximum final root angular speed, in rad/s."""
 
     def __post_init__(self) -> None:
         assert (
@@ -99,7 +99,7 @@ class VelocityValidator(PostPhysicsPlacementValidator):
 
 @dataclass
 class PoseShiftValidator(PostPhysicsPlacementValidator):
-    """Limit root displacement and rotation from the initial poses."""
+    """Limit initial-to-final root displacement and rotation."""
 
     check: ClassVar[str] = "pose_shift"
     max_translation_m: float = 0.002
@@ -139,7 +139,7 @@ class PoseShiftValidator(PostPhysicsPlacementValidator):
 
 @dataclass
 class ArticulationLinkShiftValidator(PoseShiftValidator):
-    """Limit link motion relative to the root because joint states are not recorded."""
+    """Limit initial-to-final link displacement and rotation relative to the root."""
 
     check: ClassVar[str] = "articulation_link_shift"
 

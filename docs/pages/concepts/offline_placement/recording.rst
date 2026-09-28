@@ -40,6 +40,11 @@ moved its links about 4 mm. Rotation limits remain 2 degrees and velocity limits
 remain 0.1 m/s and 0.1 rad/s. These are example settings, not changed defaults;
 use limits appropriate to the accuracy needed by your evaluation.
 
+Physics also advances the robot, which may move or contact objects. The checks
+measure final root speeds and initial-to-final root/link shifts; they do not prove
+that every joint has stopped. Only root poses are saved. See
+:ref:`recording_robot_motion` before relying on replay to match robot contact geometry.
+
 .. code-block:: bash
 
    /isaac-sim/python.sh isaaclab_arena/scripts/record_placement_layouts.py \
@@ -140,8 +145,9 @@ reported object movement; this check does not measure manipulation performance.
 Include the command, console log, input JSONL and evaluation results when reporting
 a discrepancy.
 
-Exact reset poses do not guarantee identical future trajectories. Keep the scene,
-robot joint-reset configuration, backend and device unchanged when comparing runs.
+Exact root reset poses do not guarantee matching joint geometry or future
+trajectories. Matching joint geometry requires deterministic joint initialization
+as well as the same scene, backend and device.
 See :doc:`../object_placement/relations` for parallel and partial-reset selection.
 
 4. Check rejection with the smartphone scene
