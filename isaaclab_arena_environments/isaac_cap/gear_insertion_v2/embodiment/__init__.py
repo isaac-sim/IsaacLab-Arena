@@ -31,6 +31,28 @@ from .config import (
 )
 
 
+class _ManagerParamGripper:
+    """Expose a gripper without letting Isaac Lab traverse its dataclass fields."""
+
+    __slots__ = ("_gripper",)
+    # Isaac Lab treats objects without ``__dict__`` as opaque manager parameters.
+
+    def __init__(self, gripper: RobotiqGripper) -> None:
+        self._gripper = gripper
+
+    def get_opening_width_m(self, world):
+        """Return the wrapped gripper opening width."""
+        return self._gripper.get_opening_width_m(world)
+
+    def get_jaw_gap_m(self, world):
+        """Return the wrapped parallel-jaw gap."""
+        return self._gripper.get_jaw_gap_m(world)
+
+    def get_position_w(self, world):
+        """Return the wrapped gripper position."""
+        return self._gripper.get_position_w(world)
+
+
 class _IndustrialFr3Robotiq2f85Base(EmbodimentBase):
     """Shared FR3/Robotiq scene setup for each arm control mode."""
 
@@ -53,10 +75,12 @@ class _IndustrialFr3Robotiq2f85Base(EmbodimentBase):
             concatenate_observation_terms,
             arm_mode,
         )
-        self.gripper = RobotiqGripper(
-            driver_joint_name=GRIPPER_JOINT_NAME,
-            body_name=END_EFFECTOR_BODY_NAME,
-            body_point_offset_xyz=END_EFFECTOR_POINT_OFFSET_XYZ,
+        self.gripper = _ManagerParamGripper(
+            RobotiqGripper(
+                driver_joint_name=GRIPPER_JOINT_NAME,
+                body_name=END_EFFECTOR_BODY_NAME,
+                body_point_offset_xyz=END_EFFECTOR_POINT_OFFSET_XYZ,
+            )
         )
         self.scene_config = IndustrialFr3RobotiqSceneCfg()
         self.action_config = self.action_config_type()
