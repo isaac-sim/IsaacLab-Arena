@@ -457,6 +457,8 @@ def _test_manager_updates_and_resets_requirement_counters(simulation_app):
     assert manager.get_term("success").tolist() == [True, True]
 
     calls_after_completion = env.predicate_calls["resting"]
+    env.episode_length_buf += 1
+    manager.compute()
     recorder.record_post_step()
     assert manager.get_term("success").tolist() == [True, True]
     assert env.progress_tracker.is_complete().tolist() == [True, True]
