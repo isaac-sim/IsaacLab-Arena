@@ -683,12 +683,41 @@ A custom predicate must:</p>
     <span class="p">)</span>
 </pre></div>
 </div>
-<p><code class="docutils literal notranslate"><span class="pre">functools.partial</span></code> supplies the arguments for a single-step check.
-<code class="docutils literal notranslate"><span class="pre">TrueForConsecutiveStepsCfg</span></code> wraps that configured callable when it must remain true for several steps.
-An instantaneous check that needs environment-dependent initialization can also be supplied
-as a <code class="docutils literal notranslate"><span class="pre">TerminationTermCfg</span></code> inside the requirement. For a callable class, <code class="docutils literal notranslate"><span class="pre">ProgressObjectiveRunner</span></code>
-constructs it with <code class="docutils literal notranslate"><span class="pre">(cfg,</span> <span class="pre">env)</span></code>; it does not need to inherit from <code class="docutils literal notranslate"><span class="pre">ManagerTermBase</span></code>.
-This initialization is separate from counting steps.</p>
+<p>Configuring a predicate’s arguments and requiring it to stay true are separate choices.
+Here, <code class="docutils literal notranslate"><span class="pre">partial</span></code> supplies the object names; <code class="docutils literal notranslate"><span class="pre">ProgressObjectiveRunner</span></code> supplies the environment
+when it calls the predicate:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">functools</span><span class="w"> </span><span class="kn">import</span> <span class="n">partial</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.tasks.predicates.object_settling</span><span class="w"> </span><span class="kn">import</span> <span class="n">objects_below_velocity_thresholds</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.tasks.predicates.temporal</span><span class="w"> </span><span class="kn">import</span> <span class="n">TrueForConsecutiveStepsCfg</span>
+
+<span class="n">objects_are_resting</span> <span class="o">=</span> <span class="n">partial</span><span class="p">(</span><span class="n">objects_below_velocity_thresholds</span><span class="p">,</span> <span class="n">object_names</span><span class="o">=</span><span class="p">[</span><span class="s2">"cube"</span><span class="p">])</span>
+
+<span class="c1"># Complete this entry when the condition is true for one step.</span>
+<span class="n">predicate_sequence</span> <span class="o">=</span> <span class="p">[</span><span class="n">objects_are_resting</span><span class="p">]</span>
+
+<span class="c1"># Or require the same condition to hold for ten consecutive steps.</span>
+<span class="n">predicate_sequence</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="n">TrueForConsecutiveStepsCfg</span><span class="p">(</span>
+        <span class="n">predicate</span><span class="o">=</span><span class="n">objects_are_resting</span><span class="p">,</span>
+        <span class="n">required_steps</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
+    <span class="p">),</span>
+<span class="p">]</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">TerminationTermCfg</span></code> is another way to supply the function and its arguments instead of <code class="docutils literal notranslate"><span class="pre">partial</span></code>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab.managers</span><span class="w"> </span><span class="kn">import</span> <span class="n">TerminationTermCfg</span>
+
+<span class="n">objects_are_resting</span> <span class="o">=</span> <span class="n">TerminationTermCfg</span><span class="p">(</span>
+    <span class="n">func</span><span class="o">=</span><span class="n">objects_below_velocity_thresholds</span><span class="p">,</span>
+    <span class="n">params</span><span class="o">=</span><span class="p">{</span><span class="s2">"object_names"</span><span class="p">:</span> <span class="p">[</span><span class="s2">"cube"</span><span class="p">]},</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>This configuration can also go directly in <code class="docutils literal notranslate"><span class="pre">predicate_sequence</span></code> or inside <code class="docutils literal notranslate"><span class="pre">TrueForConsecutiveStepsCfg</span></code>.
+<code class="docutils literal notranslate"><span class="pre">ProgressObjectiveRunner</span></code> prepares and evaluates these entries; <code class="docutils literal notranslate"><span class="pre">TerminationTermCfg</span></code> does not
+create a separate termination-manager term here. For a callable class, the runner initializes it
+with <code class="docutils literal notranslate"><span class="pre">(cfg,</span> <span class="pre">env)</span></code>; <code class="docutils literal notranslate"><span class="pre">ManagerTermBase</span></code> inheritance is not required.</p>
 <p><code class="docutils literal notranslate"><span class="pre">PickAndPlaceTask</span></code> defaults to <code class="docutils literal notranslate"><span class="pre">placement_consecutive_steps=1</span></code>. Set it to a larger positive
 integer, such as <code class="docutils literal notranslate"><span class="pre">10</span></code>, to require placement, support, and low speed to hold together for that
 many consecutive control steps.</p>
@@ -733,31 +762,71 @@ before the task completes.</p>
 and active environments to that instance. <code class="docutils literal notranslate"><span class="pre">_TrueForConsecutiveSteps</span></code> stores the per-environment
 counts: true adds one; false clears the streak.
 The runner resets it through the existing <code class="docutils literal notranslate"><span class="pre">TaskSuccessTerm</span></code> / <code class="docutils literal notranslate"><span class="pre">ProgressTracker</span></code> episode-reset path.</p>
-<p>To require overlapping conditions, combine them before counting. Here A must rest while B is
-touching for the same ten steps, after lifting and placement:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">both_conditions_hold</span><span class="p">(</span><span class="n">env</span><span class="p">):</span>
-    <span class="k">return</span> <span class="n">object_a_is_resting</span><span class="p">(</span><span class="n">env</span><span class="p">)</span> <span class="o">&amp;</span> <span class="n">object_b_is_touching</span><span class="p">(</span><span class="n">env</span><span class="p">)</span>
+<p><code class="docutils literal notranslate"><span class="pre">TaskSuccessTerm</span></code> supplies the environment’s control-step indices automatically, so repeated
+success checks do not count twice. When using <code class="docutils literal notranslate"><span class="pre">ProgressTracker.step()</span></code> directly with consecutive-step
+requirements, pass one integer index per environment, for example
+<code class="docutils literal notranslate"><span class="pre">tracker.step(env,</span> <span class="pre">step_index=env.episode_length_buf)</span></code>. Skipping an index clears the streak;
+unobserved steps cannot prove the condition held continuously.</p>
+<p>The examples below show three different requirements. <code class="docutils literal notranslate"><span class="pre">object_still(env)</span></code> and <code class="docutils literal notranslate"><span class="pre">gripper_slow(env)</span></code>
+are configured instantaneous checks that each return one Boolean per environment.
+Step numbers start when the objective becomes active.</p>
+<section id="one-condition-after-another">
+<h3>One condition after another<a class="headerlink" href="#one-condition-after-another" title="Link to this heading">#</a></h3>
+<p>Put both requirements in one <code class="docutils literal notranslate"><span class="pre">predicate_sequence</span></code> to count them in order:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">objective</span> <span class="o">=</span> <span class="n">ProgressObjective</span><span class="p">(</span>
+    <span class="n">name</span><span class="o">=</span><span class="s2">"object_then_gripper"</span><span class="p">,</span>
+    <span class="n">predicate_sequence</span><span class="o">=</span><span class="p">[</span>
+        <span class="n">TrueForConsecutiveStepsCfg</span><span class="p">(</span><span class="n">object_still</span><span class="p">,</span> <span class="n">required_steps</span><span class="o">=</span><span class="mi">10</span><span class="p">),</span>
+        <span class="n">TrueForConsecutiveStepsCfg</span><span class="p">(</span><span class="n">gripper_slow</span><span class="p">,</span> <span class="n">required_steps</span><span class="o">=</span><span class="mi">10</span><span class="p">),</span>
+    <span class="p">],</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">ProgressObjectiveRunner</span></code> first waits for ten consecutive steps with the object still.
+On the following step, it starts counting the gripper’s ten steps. The earliest completion is
+step 20. The object may move again after its requirement completes; that completion is remembered.</p>
+</section>
+<section id="independent-conditions-both-completed">
+<h3>Independent conditions, both completed<a class="headerlink" href="#independent-conditions-both-completed" title="Link to this heading">#</a></h3>
+<p>Use separate named <code class="docutils literal notranslate"><span class="pre">predicate_sequences</span></code> to start both counters together:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">objective</span> <span class="o">=</span> <span class="n">ProgressObjective</span><span class="p">(</span>
+    <span class="n">name</span><span class="o">=</span><span class="s2">"object_and_gripper_ready"</span><span class="p">,</span>
+    <span class="n">predicate_sequences</span><span class="o">=</span><span class="p">{</span>
+        <span class="s2">"object"</span><span class="p">:</span> <span class="p">[</span><span class="n">TrueForConsecutiveStepsCfg</span><span class="p">(</span><span class="n">object_still</span><span class="p">,</span> <span class="n">required_steps</span><span class="o">=</span><span class="mi">10</span><span class="p">)],</span>
+        <span class="s2">"gripper"</span><span class="p">:</span> <span class="p">[</span><span class="n">TrueForConsecutiveStepsCfg</span><span class="p">(</span><span class="n">gripper_slow</span><span class="p">,</span> <span class="n">required_steps</span><span class="o">=</span><span class="mi">10</span><span class="p">)],</span>
+    <span class="p">},</span>
+    <span class="n">logical</span><span class="o">=</span><span class="s2">"all"</span><span class="p">,</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>Each sequence completes independently, and <code class="docutils literal notranslate"><span class="pre">logical=&quot;all&quot;</span></code> requires both to finish.
+<code class="docutils literal notranslate"><span class="pre">ProgressObjectiveRunner</span></code> remembers each sequence’s completion until the episode resets.
+The successful periods do not have to overlap. For example, if the object is still during steps
+1–10 and the gripper is slow during steps 2–11, the objective completes at step 11, even if the
+object is moving again then.</p>
+<p><code class="docutils literal notranslate"><span class="pre">logical</span></code> combines completed sequences; it does not create separate counters inside one predicate.</p>
+</section>
+<section id="both-conditions-during-the-same-steps">
+<h3>Both conditions during the same steps<a class="headerlink" href="#both-conditions-during-the-same-steps" title="Link to this heading">#</a></h3>
+<p>Combine the instantaneous checks before wrapping them to require ten shared steps:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">object_and_gripper_stable</span><span class="p">(</span><span class="n">env</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">object_still</span><span class="p">(</span><span class="n">env</span><span class="p">)</span> <span class="o">&amp;</span> <span class="n">gripper_slow</span><span class="p">(</span><span class="n">env</span><span class="p">)</span>
 
 <span class="n">objective</span> <span class="o">=</span> <span class="n">ProgressObjective</span><span class="p">(</span>
-    <span class="n">name</span><span class="o">=</span><span class="s2">"place_and_hold"</span><span class="p">,</span>
+    <span class="n">name</span><span class="o">=</span><span class="s2">"simultaneous_stability"</span><span class="p">,</span>
     <span class="n">predicate_sequence</span><span class="o">=</span><span class="p">[</span>
-        <span class="n">lifted</span><span class="p">,</span>
-        <span class="n">placed</span><span class="p">,</span>
         <span class="n">TrueForConsecutiveStepsCfg</span><span class="p">(</span>
-            <span class="n">predicate</span><span class="o">=</span><span class="n">both_conditions_hold</span><span class="p">,</span>
+            <span class="n">predicate</span><span class="o">=</span><span class="n">object_and_gripper_stable</span><span class="p">,</span>
             <span class="n">required_steps</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
         <span class="p">),</span>
     <span class="p">],</span>
 <span class="p">)</span>
 </pre></div>
 </div>
-<p>Two separate sequence entries would allow the resting and touching periods to happen at different
-times. The combined predicate restarts its streak whenever either condition becomes false.</p>
-<p><code class="docutils literal notranslate"><span class="pre">TaskSuccessTerm</span></code> supplies the environment’s control-step indices automatically, so repeated
-success checks do not count twice. When using <code class="docutils literal notranslate"><span class="pre">ProgressTracker.step()</span></code> directly with consecutive-step
-requirements, pass one integer index per environment, for example
-<code class="docutils literal notranslate"><span class="pre">tracker.step(env,</span> <span class="pre">step_index=env.episode_length_buf)</span></code>. Skipping an index clears the streak;
-unobserved steps cannot prove the condition held continuously.</p>
+<p>One counter tracks the combined condition. If either check becomes false, the streak starts over.
+If the object is still only during steps 1–10 and the gripper is slow only during steps 2–11,
+this requirement does not complete: they overlap for only nine steps.</p>
+</section>
 </section>
 <section id="subtask-progress-tracking-in-composite-and-sequential-tasks">
 <h2>Subtask progress tracking in composite and sequential tasks<a class="headerlink" href="#subtask-progress-tracking-in-composite-and-sequential-tasks" title="Link to this heading">#</a></h2>
@@ -908,7 +977,12 @@ Placement is still required. The two events record when settling and lifting com
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#defining-a-progress-objective">Defining a progress objective</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#conditions-that-must-remain-true">Conditions that must remain true</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#conditions-that-must-remain-true">Conditions that must remain true</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#one-condition-after-another">One condition after another</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#independent-conditions-both-completed">Independent conditions, both completed</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#both-conditions-during-the-same-steps">Both conditions during the same steps</a></li>
+</ul>
+</li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#subtask-progress-tracking-in-composite-and-sequential-tasks">Subtask progress tracking in composite and sequential tasks</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#reading-subtask-progress-tracking-at-runtime">Reading subtask progress tracking at runtime</a></li>
 </ul>
