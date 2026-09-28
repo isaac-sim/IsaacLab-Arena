@@ -223,7 +223,70 @@ def _test_named_sequences_keep_independent_counters(simulation_app):
     return True
 
 
+def _test_temporal_updates_reject_invalid_step_indices(simulation_app):
+    import torch
+
+    import pytest
+
+    from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
+    from isaaclab_arena.progress_tracking.progress_tracker import ProgressTracker
+    from isaaclab_arena.tasks.predicates.temporal import TrueForConsecutiveStepsCfg
+
+    predicate = _ControlledPredicate([True, True])
+    objective = ProgressObjective(name="hold", predicate_sequence=[TrueForConsecutiveStepsCfg(predicate, 3)])
+    tracker = ProgressTracker([objective], num_envs=2, device="cpu")
+    env = SimpleNamespace(num_envs=2, device="cpu")
+    with pytest.raises(AssertionError):
+        tracker.step(env)
+    assert predicate.calls == 0
+    assert tracker.get_events() == [[], []]
+
+    step_indices = torch.tensor([1, 1], dtype=torch.long)
+    tracker.step(env, step_index=step_indices)
+    for invalid_indices in ([1, 2], [2, 3], [2, 0], None):
+        with pytest.raises(AssertionError):
+            if invalid_indices is None:
+                tracker.step(env)
+            else:
+                _step(tracker, env, invalid_indices)
+        assert predicate.calls == 1, "An invalid row must prevent evaluation for the entire batch."
+        assert tracker.is_complete().tolist() == [False, False]
+        assert tracker.get_events() == [[], []]
+
+    # Reusing the caller's tensor must not change the tracker's previous indices.
+    step_indices += 1
+    tracker.step(env, step_index=step_indices)
+    assert predicate.calls == 2
+    assert tracker.is_complete().tolist() == [False, False]
+    assert tracker.get_events() == [[], []]
+    step_indices += 1
+    tracker.step(env, step_index=step_indices)
+    assert predicate.calls == 3
+    assert tracker.is_complete().tolist() == [True, True]
+    assert [[event.step for event in events] for events in tracker.get_events()] == [[3], [3]]
+    return True
+
+
+def _test_instantaneous_predicates_allow_unindexed_updates(simulation_app):
+    from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
+    from isaaclab_arena.progress_tracking.progress_tracker import ProgressTracker
+
+    predicate = _ControlledPredicate([True])
+    objective = ProgressObjective(name="plain", predicate_sequence=[predicate, predicate])
+    tracker = ProgressTracker([objective], num_envs=1, device="cpu")
+    env = SimpleNamespace(num_envs=1, device="cpu")
+    tracker.step(env)
+    assert not tracker.is_complete().item()
+    tracker.step(env)
+    assert tracker.is_complete().item()
+    assert predicate.calls == 2
+    assert [event.step for event in tracker.get_events()[0]] == [-1, -1]
+    return True
+
+
 def _test_partial_reset_preserves_other_environments(simulation_app):
+    import pytest
+
     from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
     from isaaclab_arena.progress_tracking.progress_tracker import ProgressTracker
     from isaaclab_arena.tasks.predicates.temporal import TrueForConsecutiveStepsCfg
@@ -236,6 +299,11 @@ def _test_partial_reset_preserves_other_environments(simulation_app):
     assert tracker.is_complete().tolist() == [False, False]
 
     tracker.reset([0])
+    with pytest.raises(AssertionError):
+        _step(tracker, env, [1, 1])
+    assert predicate.calls == 1
+    assert tracker.is_complete().tolist() == [False, False]
+    assert tracker.get_events() == [[], []]
     _step(tracker, env, [1, 2])
     assert tracker.is_complete().tolist() == [False, True]
     _step(tracker, env, [2, 3])
@@ -324,16 +392,16 @@ def _test_one_step_requirement_and_weighted_reporting(simulation_app):
     assert "object_is_resting" in predicate_name
     assert "TrueForConsecutiveStepsCfg" in predicate_name
     assert "1" in predicate_name
-    tracker.step(env)
+    _step(tracker, env, [1])
     assert tracker.get_state()[0].overall_score == 0.0
     resting.values = [True]
-    tracker.step(env)
+    _step(tracker, env, [2])
     assert tracker.get_state()[0].overall_score == 0.75
     assert tracker.get_events()[0][0].predicate_name == predicate_name
-    tracker.step(env)
+    _step(tracker, env, [3])
     assert tracker.is_complete().item()
     assert tracker.get_state()[0].overall_score == 1.0
-    assert [event.step for event in tracker.get_events()[0]] == [-1, -1]
+    assert [event.step for event in tracker.get_events()[0]] == [2, 3]
     return True
 
 
@@ -445,6 +513,18 @@ def test_reused_requirement_has_independent_counters():
 
 def test_named_sequences_keep_independent_counters():
     assert run_function_with_persistent_simulation_app(_test_named_sequences_keep_independent_counters, headless=True)
+
+
+def test_temporal_updates_reject_invalid_step_indices():
+    assert run_function_with_persistent_simulation_app(
+        _test_temporal_updates_reject_invalid_step_indices, headless=True
+    )
+
+
+def test_instantaneous_predicates_allow_unindexed_updates():
+    assert run_function_with_persistent_simulation_app(
+        _test_instantaneous_predicates_allow_unindexed_updates, headless=True
+    )
 
 
 def test_partial_reset_preserves_other_environments():

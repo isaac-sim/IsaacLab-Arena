@@ -446,6 +446,8 @@ class ProgressTracker:
         self.desired_subtask_success_state = desired_subtask_success_state
         self._task_success = torch.zeros(num_envs, dtype=torch.bool, device=device)
         self._events: list[list[PredicateEvent]] = [[] for _ in range(num_envs)]
+        self._last_processed_step = torch.full((num_envs,), -1, dtype=torch.long, device=device)
+        self._requires_step_index = any(runner._consecutive_step_requirements for runner in self.runners)
 
     @staticmethod
     def _group_runners_by_subtask(runners: list[ProgressObjectiveRunner]) -> list[list[ProgressObjectiveRunner]]:
@@ -471,13 +473,24 @@ class ProgressTracker:
 
         TaskSuccessTerm calls this once per control step. Other consumers read
         is_complete(), get_state(), or get_events() without advancing progress.
-        The optional per-environment step_index only timestamps recorded events.
+        Temporal requirements need a per-environment step_index. When supplied,
+        indices must advance by exactly one between updates for each environment,
+        except on its first update after construction or reset.
         """
 
+        assert (
+            step_index is not None or not self._requires_step_index
+        ), "TrueForConsecutiveStepsCfg requires a per-environment step_index."
         if step_index is not None:
             assert step_index.shape == (self.num_envs,), "step_index must contain one index per environment."
             assert step_index.dtype in (torch.int32, torch.int64), "step_index must contain integer indices."
+            step_index = step_index.to(device=self.device)
             assert bool((step_index >= 0).all()), "step_index must be non-negative."
+            first_update = self._last_processed_step < 0
+            next_control_step = step_index == self._last_processed_step + 1
+            assert bool(
+                (first_update | next_control_step).all()
+            ), "step_index must advance by exactly one per environment between resets."
         active_envs = torch.ones(self.num_envs, dtype=torch.bool, device=self.device)
         # Progress advancement and final-condition checks share predicate results.
         # Evaluating a stateful predicate twice could advance its counter twice
@@ -498,6 +511,9 @@ class ProgressTracker:
             if self.subtasks_are_sequential:
                 active_envs = active_envs & subtask_was_complete
         self._task_success = self._compute_task_success(env, predicate_results_this_step)
+        if step_index is not None:
+            # The environment increments episode_length_buf in place; keep our own snapshot.
+            self._last_processed_step.copy_(step_index)
 
     def _compute_task_success(
         self, env, predicate_results_this_step: dict[int, tuple[torch.Tensor, torch.Tensor]]
@@ -560,6 +576,7 @@ class ProgressTracker:
         if torch.is_tensor(env_ids):
             env_ids = env_ids.tolist()
         self._task_success[env_ids] = False
+        self._last_processed_step[env_ids] = -1
         for runner in self.runners:
             runner.reset(env_ids)
         for env_idx in env_ids:

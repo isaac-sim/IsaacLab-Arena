@@ -218,8 +218,11 @@ The runner resets it through the existing ``TaskSuccessTerm`` / ``ProgressTracke
 
 ``TaskSuccessTerm`` advances ``ProgressTracker`` once per control step. Reporting and other consumers
 read ``is_complete()``, ``get_state()``, or ``get_events()`` without advancing progress.
-Direct callers of ``ProgressTracker.step()`` must also call it exactly once per control step;
-the optional ``step_index`` only records when predicates completed.
+Direct callers of ``ProgressTracker.step()`` must also call it exactly once per control step.
+Temporal requirements need a ``step_index`` per environment, such as ``env.episode_length_buf``.
+After the first update, repeated, skipped, or backwards indices raise an assertion before any
+predicates are evaluated or counters change. ``ProgressTracker.reset()`` clears the stored index
+for each restarting environment.
 
 The examples below show three different requirements. ``object_still(env)`` and ``gripper_slow(env)``
 are configured instantaneous checks that each return one Boolean per environment.
