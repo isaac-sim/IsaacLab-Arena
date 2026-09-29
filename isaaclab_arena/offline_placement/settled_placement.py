@@ -100,6 +100,10 @@ def collect_settled_placements(
             embodiment_keys.update(asset.get_scene_root_keys())
     articulation_keys = [key for key in env.scene.articulations if key not in embodiment_keys]
     validators = build_post_physics_validators(params.validators, articulation_keys, log_progress=log_progress)
+    geometry_keys = set()
+    for validator in validators:
+        if validator.skip_reason(articulation_keys) is None:
+            geometry_keys.update(validator.get_geometry_keys(assets))
     accepted: dict[str, list[Pose]] = {key: [] for key in keys}
     accepted_indices: list[tuple[int, int]] = []
     rejections: dict[tuple[int, int], str] = {}
@@ -111,6 +115,7 @@ def collect_settled_placements(
             root_keys=keys,
             link_keys=articulation_keys,
             num_env_steps=params.num_steps,
+            geometry_keys=sorted(geometry_keys),
             render=render,
             log_progress=log_progress,
         )

@@ -7,7 +7,8 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+import torch
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, quaternion_to_90_deg_z_quarters
@@ -121,6 +122,66 @@ def spawned_rigid_body_has_gravity(scene: InteractiveScene, scene_key: str) -> b
     )
 
 
-def dynamic_rigid_object_keys(scene: InteractiveScene) -> list[str]:
-    """Return scene keys whose rigid geometry can move under physics."""
-    return [key for key in scene.rigid_objects if not spawned_geometry_is_fixed(scene, key)]
+@dataclass
+class ClutterContainmentResult:
+    """Indices of clutter members that failed containment checks."""
+
+    diverged: list[int] = field(default_factory=list)
+    """Indices of non-finite poses."""
+
+    fell_through: list[int] = field(default_factory=list)
+    """Indices below the support surface."""
+
+    fell_off: list[int] = field(default_factory=list)
+    """Indices outside the support footprint."""
+
+    @property
+    def ok(self) -> bool:
+        """Whether every member satisfies the containment checks."""
+        return not (self.diverged or self.fell_through or self.fell_off)
+
+    def describe(self, names: list[str]) -> str:
+        """Return a human-readable summary naming the offending members."""
+        parts = []
+        for label, indices in (
+            ("diverged", self.diverged),
+            ("fell through", self.fell_through),
+            ("fell off", self.fell_off),
+        ):
+            if indices:
+                offenders = ", ".join(names[index] for index in indices)
+                parts.append(f"{label}: {offenders}")
+        return "; ".join(parts) if parts else "all members within support"
+
+
+def check_resting_poses(
+    bounds: AxisAlignedBoundingBox,
+    region: ClutterRegion,
+    containment_margin_m: float,
+    fall_through_tolerance_m: float,
+) -> ClutterContainmentResult:
+    """Return containment failures for N members.
+
+    Args:
+        bounds: Rotated object bounds in the environment frame, min/max shape (N, 3).
+        region: Full support footprint and surface height, without the release spread scaling.
+        containment_margin_m: Permitted overhang beyond the support footprint.
+        fall_through_tolerance_m: Permitted penetration below the support surface.
+    """
+    verdict = ClutterContainmentResult()
+    margin = containment_margin_m
+    floor = region.floor_z - fall_through_tolerance_m
+    for index, (lower, upper) in enumerate(zip(bounds.min_point, bounds.max_point, strict=True)):
+        if not bool(torch.isfinite(lower).all() and torch.isfinite(upper).all()):
+            verdict.diverged.append(index)
+            continue
+        if lower[2] < floor:
+            verdict.fell_through.append(index)
+        if not (
+            lower[0] >= region.min_x - margin
+            and upper[0] <= region.max_x + margin
+            and lower[1] >= region.min_y - margin
+            and upper[1] <= region.max_y + margin
+        ):
+            verdict.fell_off.append(index)
+    return verdict

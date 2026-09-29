@@ -1,120 +1,104 @@
 Offline Clutter Settling
 ========================
 
-``ClutterOn`` defines release poses. ``settle_clutter`` uses the relation solver
-to generate those poses, advances physics, and returns accepted layouts.
-This API runs after ``SimulationApp`` starts and the environment is constructed.
+``ClutterOn`` defines collision-checked release poses. Offline settling uses the
+same reset, physics stepping and validation workflow as
+:doc:`recording`. Each reset selects a solved layout from the placement pool.
+Physics drops the objects, and the configured validators decide whether to keep
+their final poses.
+
+Collect layouts
+---------------
+
+Build the environment with relation solving enabled. For an environment definition
+containing ``ClutterOn`` relations:
 
 .. code-block:: python
 
    from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
    from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
    from isaaclab_arena.offline_placement.clutter_settling import settle_clutter
+   from isaaclab_arena.offline_placement.clutter_validators import default_clutter_validators
+   from isaaclab_arena.offline_placement.settled_placement_params import SettledPlacementParams
 
-   # arena_env is an environment definition containing ClutterOn relations.
-   env = ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg(solve_relations=False)).make_registered()
-   env.reset()
-   layouts = settle_clutter(
-       env, arena_env.get_placement_assets(), placer_params=arena_env.placer_params
+   params = SettledPlacementParams(
+       num_steps=480,
+       validators=default_clutter_validators(),
    )
-   poses = layouts[0].poses
-   checks = layouts[0].validation
-   env.close()
+   env = ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg(num_envs=4)).make_registered()
+   try:
+       result = settle_clutter(
+           env, arena_env.get_placement_assets(), num_batches=2,
+           params=params, render=True, log_progress=True,
+       )
+       print(result.accepted_indices)
+       print(result.rejections)
+   finally:
+       env.close()
 
-The result contains one layout per parallel environment, keyed by runtime scene
-name. Positions are environment-local metres and rotations are xyzw quaternions.
-The caller's initial scene and robot targets are restored after generation.
-Pass ``arena_env.placer_params`` to retain the environment's solver settings;
-omitting it uses fresh ``ObjectPlacerParams`` defaults.
+Run this after ``SimulationApp`` starts. Do not reset before collecting: collection
+resets once per batch. Two batches of four environments sample eight candidates.
+``num_steps`` counts environment steps, each containing the configured number of
+physics substeps; it is independent of the number of batches.
+
+``settle_clutter`` checks scene prerequisites and calls
+``collect_settled_placements``. It returns the same ``SettledPlacementResult``:
+
+* ``poses`` contains accepted rigid-object and articulation root poses, keyed by
+  runtime scene name. Positions are environment-local metres; rotations are xyzw.
+* ``accepted_indices`` identifies each accepted environment and reset batch.
+* ``validation`` retains solver verdicts and post-physics settings and outcomes.
+* ``rejections`` explains failed candidates. All-rejected runs return empty pose
+  lists. Increase ``num_batches`` to sample more candidates.
+
+The caller owns the environment. It remains at its final state after collection
+or failure.
 
 Acceptance checks
 -----------------
 
-Releases must pass the configured solver checks, including ``no_overlap`` and
-``clutter_on_relation``. The latter permits a positive height above the support
-while requiring the release footprint to fit.
+The shared validator builder and evaluator run these defaults:
 
-After physics, the default validators require consecutive quiet pose samples,
-containment on the full support, and no excessive drift of passive bodies or
-robot links. All enabled validators must pass. Failed environments are retried;
-exhausting the attempt limit fails the call instead of returning unvalidated poses.
+* ``physics_settled`` checks final root velocities for all measured objects.
+* ``pose_shift`` limits other objects to 2 mm translation and 2 degrees rotation.
+  Its clutter implementation excludes intentional ``ClutterOn`` drops.
+* ``articulation_link_shift`` checks articulated task objects using the existing
+  root-relative link check. Robot links are excluded, as in ordinary recording.
+* ``support_containment`` checks that clutter stays within its support footprint
+  and does not fall through it. It also requires successful release
+  ``no_overlap`` and ``clutter_on_relation`` checks.
 
-``build_post_physics_validators`` in ``offline_placement.clutter_validators``
-builds the configured checks. Pass its result through ``validators=``. The builder
-prints effective settings and disabled checks. Each result retains post-physics
-configurations and outcomes; pre-physics evidence contains release verdicts only.
-Only one rest validator may be enabled, so each reported threshold matches the
-motion history used for acceptance.
+All enabled, applicable checks must pass. Disabled and inapplicable checks retain
+their skip reasons. For example, set
+``params.validators["support_containment"]["containment_margin_m"] = 0.005``
+to permit 5 mm overhang. Physics runs for the configured duration; final velocity
+limits determine whether the objects are still moving.
+Validators read captured measurements, without stepping physics or reading the
+live environment themselves.
 
-For example, change the rest threshold while retaining the other default checks:
+Scope and limitations
+---------------------
 
-.. code-block:: python
+Supports must be fixed anchors. Clutter members must be dynamic rigid bodies with
+gravity enabled in every selected object-set variant. Assign object-set variants
+before scene construction. Other placement must already be resolved to fixed
+anchors. Anchors, backgrounds and passive obstacles must match their configured
+poses; pose-changing reset variations on this fixed geometry are unsupported.
 
-   from isaaclab_arena.offline_placement.clutter_validators import (
-       build_post_physics_validators,
-       default_post_physics_validators,
-   )
+Release generation uses normal placement's collision discovery, including MESH
+background fixtures, per-asset collision modes, and anchored support exclusions.
+Tilted clutter requires BBOX because the solver's mesh checks use yaw only.
+Post-physics checks do not rerun collision or IK validation.
 
-   configurations = default_post_physics_validators()
-   configurations["rest"]["move_thresh_m"] = 0.001
-   validators = build_post_physics_validators(configurations)
-   layouts = settle_clutter(
-       env,
-       arena_env.get_placement_assets(),
-       placer_params=arena_env.placer_params,
-       validators=validators,
-   )
+Assets marked ``RequiresReachability`` are rejected. Use a generation scene
+without reachability requirements. Retain ``no_overlap`` and
+``clutter_on_relation`` in its solver checks. Do not use the pre-physics
+``physics_settled`` check on intentional release poses; the post-physics velocity
+validator checks the dropped objects instead.
 
-Use this call in place of the default ``settle_clutter`` call above, before closing
-the environment. Set a check's ``enabled`` field to ``False`` to skip it; the report
-retains the skip reason. At least one post-physics check must remain enabled.
+Physics also advances the robot. The recorder does not immobilize its joints,
+and moving robot links can affect the objects. Only root poses are collected;
+joint states are not recorded. Root speed and displacement remain checked.
 
-Scope
------
-
-Supports must be fixed anchors. Anchors, backgrounds and passive obstacles must
-still be at their configured fixed poses in every environment. Settling rejects
-moved assets before releasing objects, rather than solving against stale geometry.
-Reset or rebuild the scene at its configured poses before calling this API.
-
-Release collision discovery follows normal relation placement: MESH includes
-background fixtures, respects per-asset collision modes, and excludes anchored
-support references from their parent mesh. BBOX does not use a whole room's bounds
-as a solid obstacle.
-
-Clutter members must be dynamic rigid bodies with gravity enabled. Other
-placement must already be resolved to fixed anchors.
-For each ``RigidObjectSet``, call ``assign_variants(num_envs, variant_seed=seed)``
-before constructing the environment, using the same ``num_envs`` as the builder.
-Settling rejects missing or differently sized assignments before solving or
-writing scene state. It cannot safely assign new variants to an already spawned
-scene.
-
-Assets marked ``RequiresReachability`` are rejected, even if ``ik_reachable`` is
-disabled. Explicitly enabling or requiring ``ik_reachable`` or ``physics_settled``
-is also rejected. Use an offline generation scene without reachability-marked
-assets and solver checks that exclude those two checks. Keep ``no_overlap`` and
-``clutter_on_relation`` enabled; the API requires both. This is not a substitute
-for reachability validation in a task that requires it.
-
-For a generation scene without reachability requirements, an explicit minimal
-release configuration is:
-
-.. code-block:: python
-
-   from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-
-   release_checks = {"no_overlap", "clutter_on_relation"}
-   placer_params = ObjectPlacerParams(
-       enabled_checks=release_checks, required_checks=release_checks
-   )
-   layouts = settle_clutter(env, arena_env.get_placement_assets(), placer_params=placer_params)
-
-Robot joints are not recorded. Post-physics acceptance checks rest, support
-containment and passive drift; it does not rerun the release collision or relation
-validators.
-Clutter with roll or pitch requires BBOX collision mode because the
-solver's mesh checks currently transform geometry by yaw only.
-
-The offline package depends on the solver and the shared validator base.
-The solver and runtime replay do not import the offline package.
+The offline package depends on the solver and shared records. Online placement
+and runtime replay do not import offline modules.

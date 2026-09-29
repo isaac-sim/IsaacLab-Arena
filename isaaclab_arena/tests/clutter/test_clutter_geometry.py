@@ -12,8 +12,7 @@ import pytest
 
 
 def test_resting_containment_uses_rotated_bounds():
-    from isaaclab_arena.offline_placement.clutter_geometry import get_placement_region
-    from isaaclab_arena.offline_placement.clutter_validation import check_resting_poses
+    from isaaclab_arena.offline_placement.clutter_geometry import check_resting_poses, get_placement_region
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, quaternion_to_90_deg_z_quarters
 
     support = AxisAlignedBoundingBox((-0.5, -0.2, -0.1), (0.5, 0.2, 0))
@@ -33,16 +32,26 @@ def test_resting_containment_uses_rotated_bounds():
     assert verdict.fell_through == [2]
 
 
-def test_motion_restarts_the_required_quiet_window():
-    from isaaclab_arena.offline_placement.clutter_validation import SettleTracker
-    from isaaclab_arena.offline_placement.clutter_validators import RestValidator
+def test_only_clutter_roots_are_exempt_from_shift_limits():
+    from isaaclab_arena.offline_placement.clutter_validators import NonClutterPoseShiftValidator
+    from isaaclab_arena.offline_placement.settled_batch import SettledBatch
+    from isaaclab_arena.relations.placement_result import PlacementResult
+    from isaaclab_arena.relations.relations import ClutterOn, IsAnchor
+    from isaaclab_arena.relations.validation.types import PlacementValidationResults
+    from isaaclab_arena.tests.dummy_object import DummyObject
+    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
-    tracker = SettleTracker(RestValidator(required_quiet_windows=2))
-    rotations = torch.tensor([[0.0, 0.0, 0.0, 1.0]])
-    positions = torch.zeros((1, 3))
-    assert not tracker.update(positions, rotations)
-    assert not tracker.update(positions, rotations)
-    positions[0, 2] = 0.1
-    assert not tracker.update(positions, rotations)
-    assert not tracker.update(positions, rotations)
-    assert tracker.update(positions, rotations)
+    bounds = AxisAlignedBoundingBox((-0.05, -0.05, -0.05), (0.05, 0.05, 0.05))
+    table = DummyObject("table", bounds, relations=[IsAnchor()])
+    cube = DummyObject("cube", bounds, relations=[ClutterOn(table)])
+    initial = {key: torch.tensor([[0.0, 0, 1, 0, 0, 0, 1]]) for key in ("cube", "neighbor")}
+    final = {key: pose.clone() for key, pose in initial.items()}
+    final["cube"][0, 2] -= 0.5
+    layout = PlacementResult(PlacementValidationResults({}), {cube: (0, 0, 1)}, 0, 1)
+    batch = SettledBatch({0: layout}, [0], initial, final, {}, {}, {})
+    validator = NonClutterPoseShiftValidator()
+    assert validator.validate(batch)[0].passed
+    final["neighbor"][0, 0] += 0.01
+    report = validator.validate(batch)[0]
+    assert not report.passed
+    assert "neighbor" in report.reason

@@ -21,6 +21,7 @@ if TYPE_CHECKING:
     import torch
 
     from isaaclab_arena.offline_placement.settled_batch import SettledBatch
+    from isaaclab_arena.relations.placement_asset import PlaceableAsset
 
 
 @dataclass
@@ -34,6 +35,10 @@ class PostPhysicsPlacementValidator(PlacementValidator):
     @abstractmethod
     def validate(self, data: SettledBatch) -> list[PlacementValidatorReport]:
         """Return one report per candidate environment, in env_ids order."""
+
+    def get_geometry_keys(self, assets: Sequence[PlaceableAsset]) -> set[str]:
+        """Return scene assets whose bounds and poses this check needs captured."""
+        return set()
 
     def configuration(self) -> dict:
         """Return the implementation path and effective settings."""
