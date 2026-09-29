@@ -10,10 +10,10 @@ import torch
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
-from isaaclab_arena.relations.initializers.placement_initializer_base import (
-    PlacementInitializerBase,
-    get_fixed_anchor_position,
-    get_on_parent_position_bbox,
+from isaaclab_arena.relations.initializers.placement_initializer_base import PlacementInitializerBase
+from isaaclab_arena.relations.initializers.sampling import (
+    get_child_bbox_given_parent_position,
+    get_initial_pose_or_assert_fail,
     get_world_bbox_at_initial_pose,
     sample_position_in_bbox,
 )
@@ -27,11 +27,7 @@ if TYPE_CHECKING:
 class OnTreeInitializer(PlacementInitializerBase):
     """Generates initial positions for objects by walking down the ``On`` tree in the relation graph.
 
-    Each object is sampled inside the footprint its own parent was just sampled at, narrowed by
-    any of the object's other relations that constrain its position. Seeding a child inside its
-    parent's footprint is only useful while the parent stays there; a parent free to move is
-    dragged to wherever its own constraints put it and leaves its children behind, which is the
-    clumping the narrowing avoids.
+    Each object is sampled inside the footprint its own parent was just sampled at.
     """
 
     def generate_initial_positions(
@@ -46,6 +42,7 @@ class OnTreeInitializer(PlacementInitializerBase):
         fallback_center = get_world_bbox_at_initial_pose(first_anchor, asset_to_bbox).center[0]
         fallback_position = (float(fallback_center[0]), float(fallback_center[1]), float(fallback_center[2]))
 
+        # The position sampled for each object so far, in the world frame.
         positions: dict[PlaceableAsset, tuple[float, float, float]] = {}
         # Bounding boxes of the objects sampled so far, in the world frame, i.e. their local
         # bounding boxes translated by the position each one was just sampled at.
@@ -53,20 +50,23 @@ class OnTreeInitializer(PlacementInitializerBase):
         ordered_objects: list[PlaceableAsset] = _order_parents_before_children(objects, anchor_objects)
         for obj in ordered_objects:
             if obj in anchor_objects:
-                positions[obj] = get_fixed_anchor_position(obj)
+                positions[obj] = get_initial_pose_or_assert_fail(obj).position_xyz
             else:
                 on_relation: On | None = get_relation(obj, On)
                 if on_relation is None:
                     positions[obj] = fallback_position
                 else:
                     parent_world_bbox: AxisAlignedBoundingBox = sampled_world_bboxes[on_relation.parent]
-                    position_bbox = get_on_parent_position_bbox(obj, parent_world_bbox, asset_to_bbox)
-                    # Narrowing keeps a parent close to where it is sampled, so its children are
-                    # not left behind when the solve pulls it towards its own constraints.
-                    bounds: AxisAlignedBoundingBox | None = _get_initialization_bounds(obj)
-                    if bounds is not None:
-                        position_bbox = _narrow_to_bounds(position_bbox, bounds)
-                    positions[obj] = sample_position_in_bbox(position_bbox, generator)
+                    # Take the positions that keep obj on its parent, shrink them to what obj's
+                    # other relations allow, and draw one. Narrowing keeps a parent close to where
+                    # it is sampled, so its children are not left behind when the solve pulls it
+                    # towards its own constraints.
+                    child_bbox_given_parent_position = get_child_bbox_given_parent_position(
+                        obj, parent_world_bbox, asset_to_bbox
+                    )
+                    other_bounds = _get_bounds_from_other_supported_relations(obj)
+                    sampling_bbox = _maybe_narrow_bounds(child_bbox_given_parent_position, other_bounds)
+                    positions[obj] = sample_position_in_bbox(sampling_bbox, generator)
             sampled_world_bboxes[obj] = asset_to_bbox[obj].translated(positions[obj])
         # Return the positions in the order the caller supplied the objects, rather than in the
         # parents-first order this method sampled them in.
@@ -77,13 +77,7 @@ def _order_parents_before_children(
     objects: list[PlaceableAsset],
     anchor_objects: set[PlaceableAsset],
 ) -> list[PlaceableAsset]:
-    """Return objects ordered so every ``On`` parent precedes its children.
-
-    Sampling a child needs its parent's sampled position, so the objects have to be visited in
-    dependency order. The ordering is built in rounds, like a topological sort: objects that need
-    no parent are placed first, then every round appends the objects whose parent is already
-    ordered, until nothing is left.
-    """
+    """Return objects ordered so every ``On`` parent precedes its children."""
     # Anchors are at fixed poses and unparented objects fall back to the anchor center, so
     # neither needs a parent sampled first. These seed the ordering.
     ordered: list[PlaceableAsset] = []
@@ -134,37 +128,39 @@ def _bounds_from_position_limits_box(relation: PositionLimitsBox) -> AxisAligned
 # Relation types whose constraint can be expressed as a box of allowed positions, and so can narrow
 # the region an object is seeded in. Anything absent from this table is simply not used for
 # narrowing; it still shapes the layout through its loss during the solve.
+# TODO(alexmillane, 2026.09.27): Expand this list of relations used for narrowing as required.
 _BOUNDS_FACTORY_BY_RELATION_TYPE: dict[type[RelationBase], Callable[[RelationBase], AxisAlignedBoundingBox]] = {
     PositionLimitsBox: _bounds_from_position_limits_box,
 }
 
 
-def _get_initialization_bounds(obj: PlaceableAsset) -> AxisAlignedBoundingBox | None:
-    """Return the box obj should be seeded within, or None when nothing narrows it.
+def _get_bounds_from_other_supported_relations(obj: PlaceableAsset) -> AxisAlignedBoundingBox:
+    """Return the box obj's supported non-``On`` relations confine its position to.
 
-    Every supported relation on obj contributes a box of allowed positions, and the result is
-    their intersection.
+    Every supported relation contributes a box of allowed positions and the result is their
+    intersection. An object with no such relation gets an unbounded box, which narrows nothing.
     """
-    bounds: AxisAlignedBoundingBox | None = None
+    bounds = AxisAlignedBoundingBox(
+        min_point=(-math.inf, -math.inf, -math.inf), max_point=(math.inf, math.inf, math.inf)
+    )
     for relation in obj.get_relations():
         for relation_type, bounds_factory in _BOUNDS_FACTORY_BY_RELATION_TYPE.items():
             if isinstance(relation, relation_type):
-                relation_bounds = bounds_factory(relation)
-                bounds = relation_bounds if bounds is None else bounds.intersected(relation_bounds)
+                bounds = bounds.intersected(bounds_factory(relation))
                 break
     return bounds
 
 
-def _narrow_to_bounds(position_bbox: AxisAlignedBoundingBox, bounds: AxisAlignedBoundingBox) -> AxisAlignedBoundingBox:
-    """Return the part of position_bbox that bounds allows.
+def _maybe_narrow_bounds(
+    child_bbox_given_parent_position: AxisAlignedBoundingBox, other_bounds: AxisAlignedBoundingBox
+) -> AxisAlignedBoundingBox:
+    """Return the two boxes intersected, or the first one alone when they do not overlap.
 
-    Axes where the two are disjoint have no position satisfying both, and collapse to the point of
-    position_bbox nearest bounds, which is the shortest reconciliation available.
+    An empty intersection means no position sits on the parent and satisfies the other relations,
+    so the other relations are dropped and the object is seeded on its parent as if they were
+    absent. The solve reconciles them from there.
     """
-    intersection = position_bbox.intersected(bounds)
-    nearest_allowed = torch.clamp(intersection.center, min=position_bbox.min_point, max=position_bbox.max_point)
-    is_empty = intersection.min_point > intersection.max_point
-    return AxisAlignedBoundingBox(
-        min_point=torch.where(is_empty, nearest_allowed, intersection.min_point),
-        max_point=torch.where(is_empty, nearest_allowed, intersection.max_point),
-    )
+    narrowed = child_bbox_given_parent_position.intersected(other_bounds)
+    if bool((narrowed.min_point > narrowed.max_point).any()):
+        return child_bbox_given_parent_position
+    return narrowed

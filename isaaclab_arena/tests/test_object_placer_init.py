@@ -403,8 +403,8 @@ def test_ontree_init_ignores_relations_that_do_not_narrow():
     assert len({round(x, 4) for x, _, _ in samples}) > 1, "NextTo must not pin the seed to one point"
 
 
-def test_ontree_init_clamps_to_footprint_when_bounds_are_unreachable():
-    """Bounds that sit off the parent seed the nearest reachable point on the parent instead."""
+def test_ontree_init_ignores_bounds_that_are_unreachable_on_the_parent():
+    """Bounds no position on the parent can satisfy are dropped rather than pulled towards."""
     desk = _make_desk()
     box = _make_box("box")
     box.add_relation(On(desk, clearance_m=0.0))
@@ -413,7 +413,7 @@ def test_ontree_init_clamps_to_footprint_when_bounds_are_unreachable():
 
     x, _unused_y, _unused_z = _seed(OnTreeInitializer(), [desk, box], {desk})[box]
 
-    assert abs(x - 0.8) < 1e-6, "Expected the footprint edge closest to the bounds"
+    assert 0.0 <= x <= 0.8, "Expected seeding on the parent, as if the limits were absent"
 
 
 def test_anchor_init_is_not_narrowed_by_position_limits():
