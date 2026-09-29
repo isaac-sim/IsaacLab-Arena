@@ -6,10 +6,8 @@ policy evaluation. It solves placement relations, advances physics, and records
 the final poses of accepted layouts. Replay loads those poses on reset without
 solving or settling them again.
 
-Each recording batch calls ``env.reset()`` to select one solved layout per
-parallel environment. It then steps physics, checks the measured poses, and saves
-accepted layouts. ``layouts_per_env`` is the number of reset batches; four
-environments and four batches produce 16 attempts.
+Each batch resets every environment to one solved layout. ``layouts_per_env``
+sets the number of batches; four environments and four batches produce 16 attempts.
 
 The examples use the existing Robolab environments with visualization enabled:
 ``clamp_in_right_bin`` for recording and replay, and ``smartphone_in_bin`` for rejection.
@@ -17,8 +15,11 @@ The examples use the existing Robolab environments with visualization enabled:
 Sampling Workflow
 -----------------
 
-1. Record ``clamp_in_right_bin``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+1. Record Placement Layouts
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This example records settled placement layouts from the ``clamp_in_right_bin``
+environment.
 
 Complete :doc:`../../quickstart/installation` using native ``uv`` or Docker.
 For an installed native ``uv`` environment, activate it from the repository root:
@@ -32,9 +33,8 @@ Run the following commands from the repository root in your chosen environment;
 ``python`` uses the configured Arena interpreter in either workflow. To run headless,
 use ``render=false --viz none`` when recording and ``--viz none`` when replaying.
 
-Recordings are portable JSONL files. You can copy them to another native or Docker
-installation with compatible assets, physics-root names and reset settings.
-Point the replay command at the copied file; the original container is unnecessary.
+JSONL recordings can be replayed in another native or Docker installation with
+compatible assets, physics-root names and reset settings.
 
 .. code-block:: bash
 
@@ -47,6 +47,20 @@ Point the replay command at the copied file; the original container is unnecessa
        settle.validators.pose_shift.max_translation_m=0.015 \
        render=true --device cpu --viz kit
 
+You should see four environments reset and settle over four batches.
+Recording is successful when:
+
+* the command exits without error and writes ``outputs/placements/clamp.jsonl``
+  with at least ``settle.min_layouts`` accepted layouts (default 1);
+* the file contains one complete layout per line, and its line count matches the
+  reported accepted count;
+* every saved layout passes all required solver checks and all enabled, applicable
+  post-physics checks at the configured limits.
+
+Partial acceptance is successful when these conditions hold. Counts and measured
+motion can differ between machines. Rejected layouts must be excluded from the
+file and have a reason in the console.
+
 These environments use about 1 cm of ``On`` release clearance. This exceeds the
 recorder's default 2 mm shift limit. The commands explicitly allow 15 mm of root
 translation. Rotation limits remain 2 degrees and root-speed limits remain
@@ -55,72 +69,45 @@ use limits appropriate to the accuracy needed by your evaluation.
 
 See :ref:`recording_robot_motion` for robot-motion and joint-state limitations.
 
-The default viewer is already part of the environment's task configuration.
-For these ``PickAndPlaceTask`` environments, it looks at the pickup object's
-initial position in the first environment, with the eye offset by
-``[-1.5, -1.5, 1.5]`` metres. The optional ``viewer_eye`` and ``viewer_lookat``
-values above instead frame all four environments together in simulation-world
-coordinates. Set both to override the camera, or omit both to keep the task's view.
+The ``PickAndPlaceTask`` default camera looks at the pickup object's initial
+position in the first environment, with an eye offset of ``[-1.5, -1.5, 1.5]`` meters.
+The optional ``viewer_eye`` and ``viewer_lookat`` values frame all four environments
+in simulation-world coordinates. Set both, or omit both to keep the task's view.
 
-Each batch resets the four environments to the next solved layouts. The command
-sets ``settle.num_steps=120`` environment steps; Arena's default environment
-configuration supplies ``decimation=8`` physics substeps per environment step.
-The stepping code multiplies them to advance 960 physics steps per batch. With
-that configuration's ``sim.dt=1/120`` seconds, this is eight seconds of simulation;
-the step count and duration depend on these settings.
+The command sets ``settle.num_steps=120`` environment steps. Arena's default
+``decimation=8`` supplies eight physics substeps per environment step, giving
+960 physics steps per settling batch.
 
 The ``clamp_in_right_bin`` environment varies object positions without randomizing
 tool orientations and has a small initial drop. Each reset also runs the Droid
 embodiment's configured robot-joint reset event. The console prints enabled checks
 and their settings, physics-step progress, and acceptance counts per batch.
+If every layout in a batch fails solver validation, physics is skipped and no
+physics-progress lines appear.
 
 .. image:: ../../../images/offline_placement/clamp_recording.gif
    :alt: Four batches of clamp_in_right_bin layouts in four parallel environments.
    :width: 100%
 
-This eight-second GIF shows short excerpts from four batches: the first second
-of settling and a brief final view of each layout. Each batch still runs all
-960 physics steps. Use the console results below to check acceptance.
-
-The reference run accepted 15/16 layouts. The pose-shift validator computes the
-distance between each root's measured initial and final positions. For one
-``black_hammer`` candidate it logged 0.015724 m (15.724 mm), exceeding the configured
-15 mm limit. The rejection diagnostic appears in the console:
+The GIF shows excerpts from the four settling batches.
+The console shows progress and batch results in this format. Values in angle
+brackets come from your run:
 
 .. code-block:: text
 
    [placement] 480/960 physics steps
-   [placement] batch 1/4: 4 solutions, 4 passed solver validation, 4 passed post-physics validation; overall 4/16 validated, 4 accepted
-   [placement] batch 2/4: 4 solutions, 4 passed solver validation, 4 passed post-physics validation; overall 8/16 validated, 8 accepted
-   [placement] batch 3/4: 4 solutions, 4 passed solver validation, 4 passed post-physics validation; overall 12/16 validated, 12 accepted
-   [placement] batch 4/4: 4 solutions, 4 passed solver validation, 3 passed post-physics validation; overall 16/16 validated, 15 accepted
-   Rejected 1: pose_shift: black_hammer: moved 0.015724 m and rotated 1.112 deg; limits 0.015 m, 2 deg
-   Saved 15/16 accepted layouts: outputs/placements/clamp.jsonl
-
-Both full and partial acceptance are valid outcomes. Two reference runs with
-``seed=42`` on the same machine and CPU PhysX runtime, using identical assets and
-settings apart from the output path, both accepted 15/16 and produced byte-identical
-JSONL. This is evidence from two runs, not a guarantee that a fixed seed always
-produces identical physics results. Regenerating placements samples and simulates
-again; replay reuses the saved root poses.
-
-No acceptance-count tolerance has been established across hardware, backends,
-simulator versions, assets or solver settings; 15/16 is a reference result, not a
-required pass count. For this command, a successful recording must:
-
-* exit successfully and save at least ``settle.min_layouts`` layouts (default 1);
-* write exactly the reported accepted count as JSONL records;
-* save only layouts that passed all required solver checks and all enabled,
-  applicable post-physics checks at the configured limits;
-* report reasons for every rejected layout.
-
-Rejection by a configured check is an expected outcome. If fewer than
-``settle.min_layouts`` layouts pass, the command must exit with an error and write
-no file. A different accepted count alone does not establish a recorder bug;
-missing reasons, saved invalid layouts, mismatched counts or incorrect output
-and exit behavior require investigation.
+   [placement] batch 1/4: 4 solutions, <solver_passed> passed solver validation, <physics_passed> passed post-physics validation; overall 4/16 validated, <accepted> accepted
+   ...
+   [placement] batch 4/4: 4 solutions, <solver_passed> passed solver validation, <physics_passed> passed post-physics validation; overall 16/16 validated, <accepted> accepted
+   Saved <accepted>/16 accepted layouts: outputs/placements/clamp.jsonl
 
 An existing output file is never overwritten; choose a new path for each recording.
+
+To compare repeated sampling, rerun with
+``output=outputs/placements/clamp_repeat.jsonl`` and keep all other settings,
+assets and runtime unchanged. Investigate changes in acceptance counts or failed
+checks using both runs' commands, logs and JSONL files. No accepted-count tolerance
+is established.
 
 2. Inspect the Saved Poses
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -130,8 +117,9 @@ An existing output file is never overwritten; choose a new path for each recordi
    wc -l outputs/placements/clamp.jsonl
    head -n 1 outputs/placements/clamp.jsonl | python -m json.tool
 
-The line count must match the recorder's accepted count. Each line contains one
-complete layout. ``source``, ``poses`` and ``validation`` are fields inside
+The line count must match the recorder's accepted count. The second command shows
+only the first record as a format example; it does not validate the whole file.
+``source``, ``poses`` and ``validation`` are fields inside
 ``variations["scene.relation_placement"]``. Check that:
 
 * ``source`` is ``"settled"``;
@@ -142,7 +130,7 @@ complete layout. ``source``, ``poses`` and ``validation`` are fields inside
 * ``articulation_link_shift`` has ``passed: null`` because no articulated task
   objects were selected. Robot joints are excluded from this check.
 
-Positions are in metres in the local environment frame; quaternions are XYZW.
+Positions are in meters in the local environment frame; quaternions are XYZW.
 ``validation.pre_physics`` holds the solver verdicts for the initial candidate.
 ``validation.sampling`` records the physics duration and ``embodiment_keys`` excluded
 from link-shift checks.
@@ -164,24 +152,25 @@ The following :doc:`Experiment Definition <../concept_arena_experiments>` reuses
        --device cpu --viz kit \
        --output_base_dir outputs/placements/evaluation
 
+The command should exit without error and write these files under
+``outputs/placements/evaluation/<timestamp>/``:
+
+* ``index.html``: the evaluation report to open in a browser.
+* ``arena_experiment_result.json``: the Run result, with ``clamp_replay`` marked
+  ``completed``.
+* ``clamp_replay/episode_results_rebuild0.jsonl``: three completed episode records.
+
+Task success is not expected with the zero-action policy. Completed episodes
+confirm execution; they do not measure whether reset poses match the input file.
+
 For another recording, copy the Experiment Definition and edit its
 ``environment.type`` and ``environment_builder.placement_layouts_path`` together
 inside the Run. Pass the copy to ``--experiment_config``; the environment YAML
 and JSONL paths are relative to the repository root.
 
-The clamp and bins should start at the saved poses without the original release
-drop. This zero-action run checks placement replay; task success is not expected.
-Check the object poses at each reset before attributing later motion to replay.
 With one environment, each reset loads the next record and wraps after the last
-one. Restarting the command starts from the first record.
-
-Open ``outputs/placements/evaluation/<timestamp>/index.html`` for the report.
-The adjacent ``arena_experiment_result.json`` should mark ``clamp_replay`` as
-``completed``; ``clamp_replay/episode_results_rebuild0.jsonl`` should contain three
-episodes. Runtime errors, missing episodes or incorrect root poses at reset fail
-this replay check. The reference replay reported ``object_moved_rate: 0.0``;
-if it is higher, inspect reset poses and subsequent motion before attributing it
-to replay. Include the command, logs, input JSONL and results when reporting a discrepancy.
+one. Restarting the command starts from the first record. Later motion depends on
+the simulation and policy, so it does not by itself show a replay error.
 
 See :doc:`../object_placement/relations` for parallel and partial-reset selection.
 
@@ -201,24 +190,46 @@ Generate and record poses in the ``smartphone_in_bin`` environment:
        settle.validators.pose_shift.max_translation_m=0.015 \
        render=true --device cpu --viz kit
 
+Layouts that fail a required solver check or an enabled, applicable post-physics
+check are excluded from the file and reported with a rejection reason.
+If fewer than ``settle.min_layouts`` pass, expect an insufficient-acceptance error
+and no output file; otherwise, the success conditions from step 1 apply.
+Use :ref:`recording_rejection_summary` to diagnose failures. If every layout passes,
+recording succeeded but rejection handling was not exercised.
+
 .. image:: ../../../images/offline_placement/smartphone_recording.gif
    :alt: Four batches of smartphone_in_bin layouts in four parallel environments, showing object motion.
    :width: 100%
 
-The reference run rejected all 16 candidates and wrote no file. Its log includes:
+This run prints the same progress and batch summaries, followed by any rejection
+reasons. For example, a mouse pose-shift rejection has this format; values in
+angle brackets come from your run:
 
 .. code-block:: text
 
-   [placement] batch 4/4: 4 solutions, 4 passed solver validation, 0 passed post-physics validation; overall 16/16 validated, 0 accepted
-   Rejected 1: pose_shift: computer_mouse: moved 0.053025 m and rotated 57.246 deg; limits 0.015 m, 2 deg
-   AssertionError: Accepted 0 layouts; need 1. Rejections: {...}
+   [placement] 480/960 physics steps
+   [placement] batch 1/4: 4 solutions, <solver_passed> passed solver validation, <physics_passed> passed post-physics validation; overall 4/16 validated, <accepted> accepted
+   ...
+   [placement] batch 4/4: 4 solutions, <solver_passed> passed solver validation, <physics_passed> passed post-physics validation; overall 16/16 validated, <accepted> accepted
+   Rejected <count>: pose_shift: computer_mouse: moved <distance> m and rotated <angle> deg; limits 0.015 m, 2 deg
+
+The mouse's layout is rejected when its translation exceeds 0.015 m or its rotation
+exceeds 2 degrees. Other layouts can still pass. If too few pass, the command ends
+with:
+
+.. code-block:: text
+
+   AssertionError: Accepted <accepted> layouts; need 1. Rejections: {...}
+
+.. _recording_rejection_summary:
 
 Understand the Rejection Summary
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Each ``Rejected`` line gives a count and the failed check. The mouse above moved
-53.025 mm and rotated 57.246 degrees, both beyond the configured limits.
-Use the named check to decide what to adjust:
+Each ``Rejected`` line gives a reason and the number of layouts rejected for it.
+When a pose-shift limit is exceeded, the message includes the object, measured
+translation and rotation, and configured limits. Use the named
+check to decide what to adjust:
 
 .. list-table::
    :header-rows: 1
@@ -227,6 +238,10 @@ Use the named check to decide what to adjust:
    * - Rejection
      - Meaning
      - What to check or change
+   * - ``solver validation failed``
+     - A layout failed a required solver check.
+     - Read earlier solver diagnostics and check relation constraints and collision
+       geometry. Increasing settling time cannot fix a solver failure.
    * - ``physics_settled``
      - Final root velocity is too high.
      - Inspect contacts and support. Increase ``settle.num_steps`` if motion is
@@ -248,8 +263,7 @@ Use the named check to decide what to adjust:
 See :doc:`../object_placement/relations` for relation settings. Change validation
 limits under ``settle.validators`` only when the new tolerance fits your evaluation.
 Increasing ``layouts_per_env`` samples more candidates; it does not make rejected
-layouts valid. If fewer than ``settle.min_layouts`` pass, the command exits with an
-error and writes no file. Rejection counts can differ across runtimes.
+layouts valid.
 
 Acceptance and Limitations
 --------------------------
@@ -392,18 +406,9 @@ compatibility and adds sampling metadata to the saved JSONL. Asset definitions
 are optional for collection; ``scene_assets`` supplies metadata used to distinguish
 embodiments from articulated task objects, not a required definition for each root.
 
-Collection omits progress messages by default; set ``log_progress=True`` to
-print validator settings, physics-step progress and batch results. The recording
-script enables these messages. Both APIs perform sampling resets; an initial
-``env.reset()`` is unnecessary. ``validate_pool_layouts()`` remains a separate tool
-for grading every stored candidate without consuming the pool.
-
-Each collection batch calls ``sample_and_settle_batch`` to capture source solver
-results, initial and final root/link poses, and final root velocities in a
-``SettledBatch``. ``evaluate_settled_batch`` evaluates these captured values and
-returns a ``PlacementOutcome`` for every environment, including solver failures.
-Evaluation does not read a live environment, so a captured batch can be evaluated
-after further simulation.
+Both APIs perform sampling resets; an initial ``env.reset()`` is unnecessary.
+Set ``log_progress=True`` on the collector to print validator settings, physics-step
+progress and batch results. The recording script enables these messages by default.
 
 Custom checks subclass ``PostPhysicsPlacementValidator`` in
 ``isaaclab_arena.offline_placement.post_physics_validation``. Implement
