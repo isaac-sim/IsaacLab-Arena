@@ -118,19 +118,19 @@ class ToolSortingEnvBehaviourDemo(DifferentialIKEnvBehaviourDemo):
 
     def setup_demo(self) -> None:
         """Resolve IK controls, task objects, and compartment bounds."""
-        import torch
-
         from isaaclab_arena_environments.isaac_cap.tool_sorting.task import objects_in_regions
 
         if self.teleport_only:
-            self.torch = torch
-            self.num_envs = self.base_env.num_envs
-            assert (
-                self.num_envs == self.builder_cfg.num_envs
-            ), f"Expected {self.builder_cfg.num_envs} environments, got {self.num_envs}."
+            self.setup_environment(self.builder_cfg.num_envs)
+            action_manager = self.base_env.action_manager
+            assert action_manager.active_terms == [
+                "arm_action",
+                "gripper_action",
+            ], f"Unexpected action terms: {action_manager.active_terms}."
+            self.arm_action = action_manager.get_term("arm_action")
+            self.robot = self.base_env.scene["robot"]
         else:
             self.setup_differential_ik(self.builder_cfg.num_envs)
-            self.gripper_action = self.base_env.action_manager.get_term("gripper_action")
             gripper_joint_ids, _ = self.robot.find_joints("left_driver_joint")
             assert len(gripper_joint_ids) == 1, f"Expected one left_driver_joint, got {gripper_joint_ids}."
             self.gripper_joint_id = int(gripper_joint_ids[0])
@@ -147,17 +147,19 @@ class ToolSortingEnvBehaviourDemo(DifferentialIKEnvBehaviourDemo):
             self.pick_target_object_name in self.object_names
         ), f"Pick target {self.pick_target_object_name!r} is not one of the task objects: {self.object_names}."
 
-    def _zero_action(self):
-        return self.torch.zeros(
+    def _hold_action(self):
+        action = self.torch.zeros(
             (self.num_envs, self.base_env.action_manager.total_action_dim),
             device=self.base_env.device,
         )
+        if self.teleport_only:
+            arm_joint_pos = self.robot.data.joint_pos.torch[:, self.arm_action._joint_ids]
+            action[:, : self.arm_action.action_dim] = arm_joint_pos
+        return action
 
-    def _hold_with_action(self, steps: int, action) -> bool:
+    def _hold(self, steps: int) -> bool:
+        action = self._hold_action()
         return any(bool(self._step(action).any().item()) for _ in range(steps))
-
-    def _hold_zero(self, steps: int) -> bool:
-        return self._hold_with_action(steps, self._zero_action())
 
     def _target_above_object(self, object_name: str, z_offset_m: float):
         object_position = self.base_env.scene[object_name].data.root_link_pos_w.torch.clone()
@@ -256,8 +258,7 @@ class ToolSortingEnvBehaviourDemo(DifferentialIKEnvBehaviourDemo):
         local_up = local_up.expand(self.num_envs, -1)
         region_up_w = math_utils.quat_apply(region_quat_w, local_up)
         hover_position_w = floor_position_w + region_up_w * _DROP_HEIGHT_ABOVE_SLOT_M
-        object_asset = self.base_env.scene[self.object_names[tool_index]]
-        object_quat_w = object_asset.data.root_quat_w.torch
+        object_quat_w = self.drop_quat_w[self.object_names[tool_index]]
         return self.torch.cat((hover_position_w, object_quat_w), dim=-1)
 
     def _success_mask(self):
@@ -346,22 +347,31 @@ class ToolSortingEnvBehaviourDemo(DifferentialIKEnvBehaviourDemo):
         self._teleport(tool_name, self._hover_pose_w(tool_index))
         settle_steps = max(1, round(0.25 / self.base_env.step_dt))
         reset_observed = self.torch.zeros(self.num_envs, device=self.base_env.device, dtype=self.torch.bool)
-        zero_action = self._zero_action()
+        hold_action = self._hold_action()
         for _ in range(settle_steps):
-            reset_observed |= self._step(zero_action)
+            reset_observed |= self._step(hold_action)
         if not is_last and bool(reset_observed.any().item()):
             raise RuntimeError(f"Environment ended unexpectedly while settling {tool_name}.")
         return reset_observed
 
+    def _teleport_all_tools_above_slots(self) -> None:
+        """Start one simultaneous physics-settled drop for every tool."""
+        for tool_index, tool_name in enumerate(self.object_names):
+            self._teleport(tool_name, self._hover_pose_w(tool_index))
+
     def run_cycle(self, cycle: int) -> None:
         """Optionally pick the target, teleport every tool into its slot, and require success reset."""
         print(f"[{self.label}] cycle {cycle}: settling", flush=True)
-        if self._hold_zero(10):
+        if self._hold(10):
             raise RuntimeError("Environment ended unexpectedly while settling.")
+        self.drop_quat_w = {
+            object_name: self.base_env.scene[object_name].data.root_quat_w.torch.clone()
+            for object_name in self.object_names
+        }
 
         if not self.teleport_only:
             self._run_ik_pick(cycle)
-            if self._hold_zero(self.pause_steps):
+            if self._hold(self.pause_steps):
                 raise RuntimeError("Environment ended unexpectedly after the IK pick.")
 
         last_index = len(self.object_names) - 1
@@ -375,14 +385,13 @@ class ToolSortingEnvBehaviourDemo(DifferentialIKEnvBehaviourDemo):
             if bool(reset_observed.all().item()):
                 self._report_success_reset(cycle)
                 return
-            # Earlier dynamic tools can drift while later tools are displayed. Reassert every
-            # scripted placement together so the final reset check tests the complete slot mapping.
-            for placed_index, tool_name in enumerate(self.object_names):
-                self._teleport(tool_name, self._hover_pose_w(placed_index))
+            # Sequential display drops give earlier tools time to drift. Retry all drops
+            # simultaneously from 5 cm above their slots, then let physics settle them.
+            self._teleport_all_tools_above_slots()
             wait_steps = max(self.pause_steps, round(2.0 / self.base_env.step_dt))
-            zero_action = self._zero_action()
+            hold_action = self._hold_action()
             for _ in range(wait_steps):
-                reset_observed |= self._step(zero_action)
+                reset_observed |= self._step(hold_action)
                 if bool(reset_observed.all().item()):
                     self._report_success_reset(cycle)
                     return
