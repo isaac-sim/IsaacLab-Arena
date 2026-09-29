@@ -44,8 +44,8 @@ _PICK_TARGET_BY_LEVEL = {
 }
 
 
-def _build_tool_sort_demo_environment(level: str):
-    """Compose one easy tool-sort graph with relative IK for the battery pick."""
+def _build_tool_sort_demo_environment(level: str, *, teleport_only: bool = False):
+    """Compose one easy tool-sort graph with relative IK controls."""
     assert level in _EASY_LEVELS, f"Unsupported easy level {level!r}."
 
     from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
@@ -63,6 +63,13 @@ def _build_tool_sort_demo_environment(level: str):
         initial_pose=source_embodiment.get_initial_pose(),
         initial_joint_pose=list(_DEMO_START_JOINT_POS),
     )
+    if teleport_only:
+        from isaaclab.controllers.differential_ik_cfg import DifferentialIKControllerCfg
+
+        # Idle IK steps still solve a Jacobian; stronger damping keeps singular poses invertible.
+        arena_environment.embodiment.action_config.arm_action.controller = DifferentialIKControllerCfg(
+            command_type="pose", use_relative_mode=True, ik_method="adaptive_dls"
+        )
     return arena_environment
 
 
@@ -236,7 +243,7 @@ class ToolSortingEnvBehaviourDemo(DifferentialIKEnvBehaviourDemo):
         return region_pos_w + math_utils.quat_apply(region_quat_w, center_local)
 
     def _hover_pose_w(self, tool_index: int):
-        """Return a hover pose ten centimeters above one destination compartment."""
+        """Return a hover pose above one destination compartment."""
         import isaaclab.utils.math as math_utils
 
         floor_position_w = self._compartment_floor_position_w(tool_index)
@@ -349,33 +356,57 @@ class ToolSortingEnvBehaviourDemo(DifferentialIKEnvBehaviourDemo):
         if self._hold_zero(10):
             raise RuntimeError("Environment ended unexpectedly while settling.")
 
-        if not self.teleport_only:
+        if self.teleport_only:
+            # Check the reset before physics can scatter tools dropped in earlier slots.
+            for tool_index, tool_name in enumerate(self.object_names):
+                print(f"[{self.label}] cycle {cycle}: place {tool_name} in its slot", flush=True)
+                self._teleport(tool_name, self._hover_pose_w(tool_index))
+            wait_steps = max(self.pause_steps, round(2.0 / self.base_env.step_dt))
+            reset_observed = self.torch.zeros(self.num_envs, device=self.base_env.device, dtype=self.torch.bool)
+            for _ in range(wait_steps):
+                reset_observed |= self._step(self._zero_action())
+                if bool(reset_observed.all().item()):
+                    self._report_success_reset(cycle)
+                    return
+        else:
             self._run_ik_pick(cycle)
             if self._hold_zero(self.pause_steps):
                 raise RuntimeError("Environment ended unexpectedly after the IK pick.")
 
-        last_index = len(self.object_names) - 1
-        for tool_index in range(len(self.object_names)):
-            is_last = tool_index == last_index
-            reset_observed = self._teleport_tool_above_slot(cycle, tool_index, is_last=is_last)
+            last_index = len(self.object_names) - 1
+            for tool_index in range(len(self.object_names)):
+                is_last = tool_index == last_index
+                reset_observed = self._teleport_tool_above_slot(cycle, tool_index, is_last=is_last)
 
-            if not is_last:
-                continue
+                if not is_last:
+                    continue
 
-            if bool(reset_observed.all().item()):
-                self._report_success_reset(cycle)
-                return
-            wait_steps = max(self.pause_steps, round(2.0 / self.base_env.step_dt))
-            zero_action = self._zero_action()
-            for _ in range(wait_steps):
-                reset_observed |= self._step(zero_action)
                 if bool(reset_observed.all().item()):
                     self._report_success_reset(cycle)
                     return
+                wait_steps = max(self.pause_steps, round(2.0 / self.base_env.step_dt))
+                zero_action = self._zero_action()
+                for _ in range(wait_steps):
+                    reset_observed |= self._step(zero_action)
+                    if bool(reset_observed.all().item()):
+                        self._report_success_reset(cycle)
+                        return
 
         success_mask = self._success_mask()
+        import isaaclab.utils.math as math_utils
+
+        region = self.base_env.scene[self.region_name]
+        positions_r = {}
+        for tool_index, tool_name in enumerate(self.object_names):
+            tool = self.base_env.scene[tool_name]
+            position_r = math_utils.quat_apply_inverse(
+                region.data.root_quat_w.torch,
+                tool.data.root_pos_w.torch - region.data.root_pos_w.torch,
+            )
+            positions_r[tool_name] = {"position": position_r.tolist(), "bounds": self.bounds[tool_index]}
         raise RuntimeError(
-            f"Final placement did not trigger the environment reset; objects_in_regions={success_mask.tolist()}"
+            "Final placement did not trigger the environment reset; "
+            f"objects_in_regions={success_mask.tolist()}, positions_r={positions_r}"
         )
 
 
@@ -397,7 +428,7 @@ def run_demo(
 
     demo = ToolSortingEnvBehaviourDemo(
         simulation_app,
-        _build_tool_sort_demo_environment(level),
+        _build_tool_sort_demo_environment(level, teleport_only=teleport_only),
         ArenaEnvBuilderCfg(num_envs=num_envs, env_spacing=1.5, solve_relations=True),
         pick_target_object_name=_PICK_TARGET_BY_LEVEL[level],
         teleport_only=teleport_only,
