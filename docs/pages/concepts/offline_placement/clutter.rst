@@ -79,8 +79,20 @@ live environment themselves.
 Scope and limitations
 ---------------------
 
-Supports must be fixed anchors. Clutter members must be dynamic rigid bodies with
-gravity enabled in every selected object-set variant. Assign object-set variants
+Supports must be fixed anchors with a flat rectangular collision surface covering
+the top face of their bounds. This is checked before the first reset. A whole tray
+with a rim or a table with rails does not satisfy that assumption: its highest
+point is not the resting surface. Use an ``ObjectReference`` to the Xform containing
+only the tray floor or tabletop collider as the ``ClutterOn`` parent, and mark that
+reference ``IsAnchor``. Author the reference's translate, orient and scale operations
+before building the environment; rewriting a collider's transforms after physics
+initialization can invalidate its physics view. Both release placement and settled
+containment then use that surface's bounds. Cube colliders and connected planar
+mesh facets are supported; curved surfaces and surfaces assembled from separate
+coplanar colliders are not.
+
+Clutter members must be dynamic rigid bodies with gravity enabled in every
+selected object-set variant. Assign object-set variants
 before scene construction. Other placement must already be resolved to fixed
 anchors. Anchors, backgrounds and passive obstacles must match their configured
 poses; pose-changing reset variations on this fixed geometry are unsupported.

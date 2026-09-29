@@ -173,10 +173,19 @@ class SceneExtraPoseReader:
         self._scene_extra_key = scene_extra_key
         self._num_envs = scene.num_envs
         scene_extra_prim_path = getattr(scene.cfg, scene_extra_key).prim_path.format(ENV_REGEX_NS=scene.env_regex_ns)
+        prims = sim_utils.find_matching_prims(scene_extra_prim_path, stage=scene.stage)
+        # Reauthoring an already valid collider frame can invalidate live physics views.
+        needs_standardization = False
+        for prim in prims:
+            operations = [op.GetOpName() for op in UsdGeom.Xformable(prim).GetOrderedXformOps()]
+            if operations != ["xformOp:translate", "xformOp:orient", "xformOp:scale"]:
+                needs_standardization = True
+                break
         self._frame_view = FrameView(
             scene_extra_prim_path,
             device=scene.device,
             stage=scene.stage,
+            validate_xform_ops=needs_standardization,
         )
         # InteractiveScene creates extras before cloning. This post-clone view must cover every environment.
         assert (

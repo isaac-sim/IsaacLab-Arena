@@ -10,6 +10,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.offline_placement.clutter_geometry import (
+    assert_flat_support_surface,
     spawned_geometry_is_fixed,
     spawned_rigid_body_has_gravity,
     spawned_rigid_body_is_dynamic,
@@ -94,7 +95,6 @@ def _prepare_scene(env: ManagerBasedEnv, assets: list[PlaceableAsset]) -> None:
     fixed_assets = [
         asset for asset in assets if asset.is_anchor or asset in passive_assets or isinstance(asset, Background)
     ]
-    _check_fixed_scene_poses(env, fixed_assets)
     gravity = env.cfg.sim.gravity
     assert gravity[0] == 0 and gravity[1] == 0 and gravity[2] < 0, "Offline settling requires downward world-Z gravity"
     for asset in placement_assets:
@@ -102,8 +102,6 @@ def _prepare_scene(env: ManagerBasedEnv, assets: list[PlaceableAsset]) -> None:
         if relation is None:
             continue
         support_key = relation.parent.get_scene_key()
-        for pose in env.arena_world.get_pose_e(support_key):
-            quaternion_to_90_deg_z_quarters(tuple(pose[3:].tolist()))
         assert spawned_geometry_is_fixed(env.scene, support_key), f"Support {support_key!r} must be static or kinematic"
         key = asset.get_scene_key()
         assert key in env.scene.rigid_objects, f"Clutter object {key!r} must be a rigid object"
@@ -111,6 +109,14 @@ def _prepare_scene(env: ManagerBasedEnv, assets: list[PlaceableAsset]) -> None:
             env.scene, key
         ), f"Clutter object {key!r}: every spawned variant must be dynamic"
         assert spawned_rigid_body_has_gravity(env.scene, key), f"Clutter object {key!r} must have gravity enabled"
+
+    support_keys = {relation.parent.get_scene_key() for relation in relations}
+    for support_key in sorted(support_keys):
+        assert_flat_support_surface(env.scene, support_key)
+    _check_fixed_scene_poses(env, fixed_assets)
+    for support_key in sorted(support_keys):
+        for pose in env.arena_world.get_pose_e(support_key):
+            quaternion_to_90_deg_z_quarters(tuple(pose[3:].tolist()))
 
 
 def _check_fixed_scene_poses(env: ManagerBasedEnv, assets: list[PlaceableAsset]) -> None:
