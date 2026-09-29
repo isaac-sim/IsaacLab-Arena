@@ -124,6 +124,10 @@ Use this table as a reading map:
      - How build-time geometric and reachability checks evaluate candidates,
        and how in-simulation physics checks evaluate stored layouts
      - :doc:`object_placement/validation`
+   * - Offline pose recording and replay
+     - How to filter solved layouts with physics, save their final poses, and
+       reuse them in interactive or policy runs
+     - :doc:`offline_placement/recording`
    * - Pooled placement and reset
      - How ranked layouts are stored, assigned to environments, reproduced, and
        refreshed on reset
@@ -175,6 +179,7 @@ objects to see placement adapt to different dimensions and footprints.
    :maxdepth: 1
 
    object_placement/relations
+   offline_placement/recording
    object_placement/collision_handling
    object_placement/solver
    object_placement/validation

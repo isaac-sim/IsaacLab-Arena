@@ -480,6 +480,7 @@
 </details></li>
 <li class="toctree-l1 current active has-children"><a class="reference internal" href="../concept_object_and_robot_placement.html">Object and Robot Placement</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
 <li class="toctree-l2"><a class="reference internal" href="relations.html">Relations and Strategies</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../offline_placement/recording.html">Record and Replay Placement Poses</a></li>
 <li class="toctree-l2"><a class="reference internal" href="collision_handling.html">Collision Handling</a></li>
 <li class="toctree-l2"><a class="reference internal" href="solver.html">Placement Solver</a></li>
 <li class="toctree-l2 current active"><a aria-current="page" class="current reference internal" href="#">Placement Validation</a></li>
@@ -726,6 +727,23 @@ keep placement geometry-only.</p>
 <p>Both are set on <code class="docutils literal notranslate"><span class="pre">ObjectPlacerParams</span></code> in Python or the <code class="docutils literal notranslate"><span class="pre">placer_params</span></code> block
 in YAML; see <a class="reference internal" href="../environment/environment_definition.html"><span class="doc">Environment Definition</span></a>.</p>
 </section>
+<section id="custom-validators">
+<h2>Custom Validators<a class="headerlink" href="#custom-validators" title="Link to this heading">#</a></h2>
+<p>Build-time checks subclass <code class="docutils literal notranslate"><span class="pre">PrePhysicsPlacementValidator</span></code> from
+<code class="docutils literal notranslate"><span class="pre">isaaclab_arena.relations.validation.pre_physics</span></code> and register with
+<code class="docutils literal notranslate"><span class="pre">register_validator</span></code> from <code class="docutils literal notranslate"><span class="pre">isaaclab_arena.relations.validation.registry</span></code>.
+Implement <code class="docutils literal notranslate"><span class="pre">validate_batch()</span></code> to return one boolean per candidate and give the
+class a unique <code class="docutils literal notranslate"><span class="pre">check</span></code> name. Include that name in <code class="docutils literal notranslate"><span class="pre">ObjectPlacerParams.enabled_checks</span></code>
+when explicitly selecting checks. Existing extensions importing the build-time
+<code class="docutils literal notranslate"><span class="pre">PlacementValidator</span></code> should use <code class="docutils literal notranslate"><span class="pre">PrePhysicsPlacementValidator</span></code> instead;
+its constructor and batch-validation contract are unchanged. Import
+<code class="docutils literal notranslate"><span class="pre">PlacementCheck</span></code>, <code class="docutils literal notranslate"><span class="pre">PlacementValidationResults</span></code> and <code class="docutils literal notranslate"><span class="pre">PlacementValidatorReport</span></code>
+from <code class="docutils literal notranslate"><span class="pre">isaaclab_arena.relations.validation.types</span></code>.</p>
+<p>The shared <code class="docutils literal notranslate"><span class="pre">PlacementValidator</span></code> in <code class="docutils literal notranslate"><span class="pre">isaaclab_arena.relations.validation.base</span></code>
+defines the check name and stage. Post-physics checks use
+<code class="docutils literal notranslate"><span class="pre">PostPhysicsPlacementValidator</span></code>; see <a class="reference internal" href="../offline_placement/recording.html"><span class="doc">Record and Replay Placement Poses</span></a> for
+their configuration and reporting contract.</p>
+</section>
 <section id="next-steps">
 <h2>Next Steps<a class="headerlink" href="#next-steps" title="Link to this heading">#</a></h2>
 <p>Continue to <a class="reference internal" href="pooled_placement.html"><span class="doc">Pooled Placement</span></a> for how Arena ranks, stores, and reuses
@@ -789,6 +807,7 @@ layouts that pass these checks.</p>
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#enabling-and-disabling-checks">Enabling and Disabling Checks</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#custom-validators">Custom Validators</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#next-steps">Next Steps</a></li>
 </ul>
   </nav></div>

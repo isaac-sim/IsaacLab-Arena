@@ -53,7 +53,7 @@
     <link rel="icon" href="../../../_static/favicon.png"/>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
-    <link rel="next" title="Collision Handling" href="collision_handling.html" />
+    <link rel="next" title="Record and Replay Placement Poses" href="../offline_placement/recording.html" />
     <link rel="prev" title="Object and Robot Placement" href="../concept_object_and_robot_placement.html" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
@@ -480,6 +480,7 @@
 </details></li>
 <li class="toctree-l1 current active has-children"><a class="reference internal" href="../concept_object_and_robot_placement.html">Object and Robot Placement</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
 <li class="toctree-l2 current active"><a aria-current="page" class="current reference internal" href="#">Relations and Strategies</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../offline_placement/recording.html">Record and Replay Placement Poses</a></li>
 <li class="toctree-l2"><a class="reference internal" href="collision_handling.html">Collision Handling</a></li>
 <li class="toctree-l2"><a class="reference internal" href="solver.html">Placement Solver</a></li>
 <li class="toctree-l2"><a class="reference internal" href="validation.html">Placement Validation</a></li>
@@ -756,9 +757,10 @@ relative to the working directory.</p>
 is available in <code class="docutils literal notranslate"><span class="pre">isaaclab_arena/tests/test_data/placement_replay.jsonl</span></code>.</p>
 <p>Each JSONL line contains one complete layout under
 <code class="docutils literal notranslate"><span class="pre">variations[&quot;scene.relation_placement&quot;][&quot;poses&quot;]</span></code>. Poses use runtime scene keys
-for both YAML and Python environments. Use <code class="docutils literal notranslate"><span class="pre">asset.get_scene_key()</span></code>: ordinary
-objects use their instance names, while the embodiment uses <code class="docutils literal notranslate"><span class="pre">&quot;robot&quot;</span></code> regardless
-of its YAML node ID.
+for both YAML and Python environments. Use <code class="docutils literal notranslate"><span class="pre">asset.get_scene_root_keys()</span></code> to
+identify all owned physics roots. Ordinary objects use their instance names;
+single-root embodiments commonly use <code class="docutils literal notranslate"><span class="pre">&quot;robot&quot;</span></code>. Compound embodiments expose
+each owned root, whose runtime name can differ from the YAML node ID.
 Positions are environment-local, in metres; rotations are xyzw quaternions.
 Every nonblank line must contain the placement block with the same object set.
 Additional episode fields are ignored; episodes without placement records cannot
@@ -806,6 +808,8 @@ disable pose-changing variations and callbacks when exact replay is required.</p
 </section>
 <section id="next-steps">
 <h2>Next Steps<a class="headerlink" href="#next-steps" title="Link to this heading">#</a></h2>
+<p>To generate a pose file from an existing environment, see
+<a class="reference internal" href="../offline_placement/recording.html"><span class="doc">Record and Replay Placement Poses</span></a>.</p>
 <p>Continue to <a class="reference internal" href="collision_handling.html"><span class="doc">Collision Handling</span></a> to learn how Arena checks placed assets
 against one another and against fixed geometry.</p>
 </section>
@@ -831,11 +835,11 @@ against one another and against fixed geometry.</p>
       </div>
     </a>
     <a class="right-next"
-       href="collision_handling.html"
+       href="../offline_placement/recording.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Collision Handling</p>
+        <p class="prev-next-title">Record and Replay Placement Poses</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>

@@ -215,9 +215,10 @@ is available in ``isaaclab_arena/tests/test_data/placement_replay.jsonl``.
 
 Each JSONL line contains one complete layout under
 ``variations["scene.relation_placement"]["poses"]``. Poses use runtime scene keys
-for both YAML and Python environments. Use ``asset.get_scene_key()``: ordinary
-objects use their instance names, while the embodiment uses ``"robot"`` regardless
-of its YAML node ID.
+for both YAML and Python environments. Use ``asset.get_scene_root_keys()`` to
+identify all owned physics roots. Ordinary objects use their instance names;
+single-root embodiments commonly use ``"robot"``. Compound embodiments expose
+each owned root, whose runtime name can differ from the YAML node ID.
 Positions are environment-local, in metres; rotations are xyzw quaternions.
 Every nonblank line must contain the placement block with the same object set.
 Additional episode fields are ignored; episodes without placement records cannot
@@ -272,6 +273,9 @@ disable pose-changing variations and callbacks when exact replay is required.
 
 Next Steps
 ----------
+
+To generate a pose file from an existing environment, see
+:doc:`../offline_placement/recording`.
 
 Continue to :doc:`./collision_handling` to learn how Arena checks placed assets
 against one another and against fixed geometry.

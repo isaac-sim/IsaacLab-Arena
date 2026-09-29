@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="1080" viewBox="0 0 760 1080">
+<title>Offline Recording</title>
+<defs><marker id="arrow" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><path d="M0,0 L9,3.5 L0,7" fill="#42566b"/></marker></defs>
+<rect width="760" height="1080" fill="white"/>
+<g font-family="Arial, sans-serif" fill="#162c40">
+<text x="25" y="38" font-size="28" font-weight="bold">Offline Recording</text>
+<text x="25" y="74" font-size="20">Blue: placement. Green: offline recording.</text>
+<rect x="115" y="105" width="610" height="117" fill="white" stroke="#42566b" stroke-width="1.5"/>
+<rect x="115" y="105" width="610" height="42" fill="#a3c7e6" stroke="#42566b" stroke-width="1.5"/>
+<text x="130" y="133" font-size="22" font-weight="bold">Build Candidates from the Environment YAML</text>
+<text x="130" y="173" font-size="20">ArenaEnvBuilder → ObjectPlacer</text>
+<text x="130" y="200" font-size="20">Solve relations, validate candidates, then rank.</text>
+<rect x="115" y="272" width="610" height="90" fill="white" stroke="#42566b" stroke-width="1.5"/>
+<rect x="115" y="272" width="610" height="42" fill="#a3c7e6" stroke="#42566b" stroke-width="1.5"/>
+<text x="130" y="300" font-size="22" font-weight="bold">Per-Environment Pools</text>
+<text x="130" y="340" font-size="20">Keep solved candidates and their check results.</text>
+<rect x="115" y="412" width="610" height="117" fill="white" stroke="#42566b" stroke-width="1.5"/>
+<rect x="115" y="412" width="610" height="42" fill="#b8dca6" stroke="#42566b" stroke-width="1.5"/>
+<text x="130" y="440" font-size="22" font-weight="bold">Reset to the Next Batch</text>
+<text x="130" y="480" font-size="20">Run env.reset() and the scene's reset events.</text>
+<text x="130" y="507" font-size="20">Draw one layout per environment; retain its checks.</text>
+<rect x="115" y="579" width="610" height="90" fill="white" stroke="#42566b" stroke-width="1.5"/>
+<rect x="115" y="579" width="610" height="42" fill="#b8dca6" stroke="#42566b" stroke-width="1.5"/>
+<text x="130" y="607" font-size="22" font-weight="bold">Step Physics</text>
+<text x="130" y="647" font-size="20">Advance num_steps × decimation physics steps.</text>
+<rect x="115" y="719" width="610" height="144" fill="white" stroke="#42566b" stroke-width="1.5"/>
+<rect x="115" y="719" width="610" height="42" fill="#b8dca6" stroke="#42566b" stroke-width="1.5"/>
+<text x="130" y="747" font-size="22" font-weight="bold">Run Post-Physics Validators</text>
+<text x="130" y="787" font-size="20">Check root speed/shift and task-object link shift.</text>
+<text x="130" y="814" font-size="20">Require every enabled, applicable check to pass.</text>
+<text x="130" y="841" font-size="20">Keep accepted poses; report rejected candidates.</text>
+<rect x="115" y="913" width="610" height="117" fill="white" stroke="#42566b" stroke-width="1.5"/>
+<rect x="115" y="913" width="610" height="42" fill="#b8dca6" stroke="#42566b" stroke-width="1.5"/>
+<text x="130" y="941" font-size="22" font-weight="bold">After All Batches: Write Placement JSONL</text>
+<text x="130" y="981" font-size="20">Save accepted root poses and validation reports.</text>
+<text x="130" y="1008" font-size="20">Require the configured minimum accepted count.</text>
+<polyline points="420,222 420,272" fill="none" stroke="#42566b" stroke-width="2" marker-end="url(#arrow)"/>
+<polyline points="420,362 420,412" fill="none" stroke="#42566b" stroke-width="2" marker-end="url(#arrow)"/>
+<polyline points="420,529 420,579" fill="none" stroke="#42566b" stroke-width="2" marker-end="url(#arrow)"/>
+<polyline points="420,669 420,719" fill="none" stroke="#42566b" stroke-width="2" marker-end="url(#arrow)"/>
+<polyline points="420,863 420,913" fill="none" stroke="#42566b" stroke-width="2" marker-end="url(#arrow)"/>
+<polyline points="115,790 65,790 65,462 115,462" fill="none" stroke="#42566b" stroke-width="2" marker-end="url(#arrow)"/>
+<text transform="translate(45 735) rotate(-90)" font-size="20">Next Batch</text>
+<text x="115" y="1064" font-size="18">Replay compatibility is checked before any offline physics.</text>
+</g></svg>
