@@ -8,11 +8,12 @@ from __future__ import annotations
 import torch
 from typing import TYPE_CHECKING
 
-from isaaclab_arena.relations.initializers.placement_initializer_base import (
-    PlacementInitializerBase,
-    get_fixed_anchor_position,
+from isaaclab_arena.relations.initializers.placement_initializer_base import PlacementInitializerBase
+from isaaclab_arena.relations.initializers.sampling import (
+    get_child_bbox_given_parent_position,
+    get_initial_pose_or_assert_fail,
     get_world_bbox_at_initial_pose,
-    sample_on_parent,
+    sample_position_in_bbox,
 )
 from isaaclab_arena.relations.relations import On, get_relation
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
@@ -45,10 +46,11 @@ class AnchorInitializer(PlacementInitializerBase):
         positions: dict[PlaceableAsset, tuple[float, float, float]] = {}
         for obj in objects:
             if obj in anchor_objects:
-                positions[obj] = get_fixed_anchor_position(obj)
+                positions[obj] = get_initial_pose_or_assert_fail(obj).position_xyz
             elif get_relation(obj, On) is not None:
                 parent_bbox = self._get_first_anchor_bbox_above(obj, anchor_objects, first_anchor_bbox, asset_to_bbox)
-                positions[obj] = sample_on_parent(obj, parent_bbox, asset_to_bbox, generator)
+                position_bbox = get_child_bbox_given_parent_position(obj, parent_bbox, asset_to_bbox)
+                positions[obj] = sample_position_in_bbox(position_bbox, generator)
             else:
                 positions[obj] = first_anchor_center
         return positions
