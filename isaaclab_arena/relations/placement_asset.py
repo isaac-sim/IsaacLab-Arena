@@ -167,16 +167,25 @@ class PlaceableAsset(Asset, ABC):
     def get_bounding_box(self) -> AxisAlignedBoundingBox:
         """Return root-relative axis-aligned bounds."""
 
-    def get_world_bounding_box(self) -> AxisAlignedBoundingBox:
-        """Return bounds transformed by a fixed root pose with a quarter-turn Z rotation.
+    def get_bounding_box_rotation(self) -> tuple[float, float, float, float]:
+        """Return the XYZW rotation from bounding-box axes to environment axes.
 
+        Unset, ranged and per-environment poses use identity.
+        """
+        pose = self.get_initial_pose()
+        return pose.rotation_xyzw if isinstance(pose, Pose) else (0.0, 0.0, 0.0, 1.0)
+
+    def get_world_bounding_box(self) -> AxisAlignedBoundingBox:
+        """Return environment-aligned bounds at the fixed root position.
+
+        The bounding-box rotation must be a quarter-turn about Z.
         Unset, ranged, and per-environment poses leave the root-relative bounds unchanged.
         """
         bounding_box = self.get_bounding_box()
         initial_pose = self.get_initial_pose()
         if not isinstance(initial_pose, Pose):
             return bounding_box
-        quarters = quaternion_to_90_deg_z_quarters(initial_pose.rotation_xyzw)
+        quarters = quaternion_to_90_deg_z_quarters(self.get_bounding_box_rotation())
         return bounding_box.rotated_90_around_z(quarters).translated(initial_pose.position_xyz)
 
     def get_collision_mesh(self) -> trimesh.Trimesh | None:
