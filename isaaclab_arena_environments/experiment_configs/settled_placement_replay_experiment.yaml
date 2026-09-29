@@ -1,0 +1,17 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+runs:
+  clamp_replay:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/clamp_in_right_bin.yaml
+    environment_builder:
+      num_envs: 1
+      presets: PHYSX
+      placement_layouts_path: outputs/placements/clamp.jsonl
+    policy:
+      type: zero_action
+    rollout_limit:
+      num_episodes: 3
