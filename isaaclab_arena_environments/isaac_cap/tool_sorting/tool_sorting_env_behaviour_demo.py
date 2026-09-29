@@ -44,8 +44,8 @@ _PICK_TARGET_BY_LEVEL = {
 }
 
 
-def _build_tool_sort_demo_environment(level: str):
-    """Compose one easy tool-sort graph with relative IK for the battery pick."""
+def _build_tool_sort_demo_environment(level: str, *, use_differential_ik: bool):
+    """Compose one easy tool-sort graph, optionally replacing joint control with relative IK."""
     assert level in _EASY_LEVELS, f"Unsupported easy level {level!r}."
 
     from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
@@ -57,6 +57,8 @@ def _build_tool_sort_demo_environment(level: str):
     register_components()
     spec_path = Path(__file__).with_name(f"tool_sorting_easy_{level}.yaml")
     arena_environment = ArenaEnvGraphSpec.from_yaml(str(spec_path)).to_arena_env(enable_cameras=False)
+    if not use_differential_ik:
+        return arena_environment
 
     source_embodiment = arena_environment.embodiment
     arena_environment.embodiment = ToolSortingFr3Robotiq2f85DifferentialIKEmbodiment(
@@ -116,15 +118,23 @@ class ToolSortingEnvBehaviourDemo(DifferentialIKEnvBehaviourDemo):
 
     def setup_demo(self) -> None:
         """Resolve IK controls, task objects, and compartment bounds."""
+        import torch
+
         from isaaclab_arena_environments.isaac_cap.tool_sorting.task import objects_in_regions
 
-        self.setup_differential_ik(self.builder_cfg.num_envs)
+        if self.teleport_only:
+            self.torch = torch
+            self.num_envs = self.base_env.num_envs
+            assert (
+                self.num_envs == self.builder_cfg.num_envs
+            ), f"Expected {self.builder_cfg.num_envs} environments, got {self.num_envs}."
+        else:
+            self.setup_differential_ik(self.builder_cfg.num_envs)
+            self.gripper_action = self.base_env.action_manager.get_term("gripper_action")
+            gripper_joint_ids, _ = self.robot.find_joints("left_driver_joint")
+            assert len(gripper_joint_ids) == 1, f"Expected one left_driver_joint, got {gripper_joint_ids}."
+            self.gripper_joint_id = int(gripper_joint_ids[0])
         self._objects_in_regions = objects_in_regions
-
-        self.gripper_action = self.base_env.action_manager.get_term("gripper_action")
-        gripper_joint_ids, _ = self.robot.find_joints("left_driver_joint")
-        assert len(gripper_joint_ids) == 1, f"Expected one left_driver_joint, got {gripper_joint_ids}."
-        self.gripper_joint_id = int(gripper_joint_ids[0])
 
         task = self.arena_environment.task
         self.object_names = tuple(object_.name for object_ in task.objects)
@@ -365,6 +375,10 @@ class ToolSortingEnvBehaviourDemo(DifferentialIKEnvBehaviourDemo):
             if bool(reset_observed.all().item()):
                 self._report_success_reset(cycle)
                 return
+            # Earlier dynamic tools can drift while later tools are displayed. Reassert every
+            # scripted placement together so the final reset check tests the complete slot mapping.
+            for placed_index, tool_name in enumerate(self.object_names):
+                self._teleport(tool_name, self._hover_pose_w(placed_index))
             wait_steps = max(self.pause_steps, round(2.0 / self.base_env.step_dt))
             zero_action = self._zero_action()
             for _ in range(wait_steps):
@@ -397,7 +411,7 @@ def run_demo(
 
     demo = ToolSortingEnvBehaviourDemo(
         simulation_app,
-        _build_tool_sort_demo_environment(level),
+        _build_tool_sort_demo_environment(level, use_differential_ik=not teleport_only),
         ArenaEnvBuilderCfg(num_envs=num_envs, env_spacing=1.5, solve_relations=True),
         pick_target_object_name=_PICK_TARGET_BY_LEVEL[level],
         teleport_only=teleport_only,
