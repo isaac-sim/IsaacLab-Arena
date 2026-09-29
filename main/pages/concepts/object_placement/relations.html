@@ -598,6 +598,10 @@ from the dimensions of the table, mug, and bowl.</p>
 initial pose; in YAML, an omitted pose defaults to identity. An
 <code class="docutils literal notranslate"><span class="pre">ObjectReference</span></code> instead derives its pose from the referenced prim within
 its parent asset. A tabletop or counter reference is a common anchor.</p>
+<p>An anchor’s fixed root rotation must be a multiple of 90 degrees about world Z,
+with no tilt. For an <code class="docutils literal notranslate"><span class="pre">ObjectReference</span></code>, this restriction applies to its parent
+asset’s pose; the referenced prim’s authored rotation is already included in its
+bounds. The solver rotates these bounds into world-aligned bounds.</p>
 <p>When the support surface is part of a larger background, use an
 <code class="docutils literal notranslate"><span class="pre">ObjectReference</span></code> to identify that surface:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.assets.object_reference</span><span class="w"> </span><span class="kn">import</span> <span class="n">ObjectReference</span>
@@ -640,6 +644,29 @@ anchor’s bounds as a proxy. For a deeper chain, such as a spoon <code class="d
 anchor collected by <code class="docutils literal notranslate"><span class="pre">ObjectPlacer</span></code> as a proxy. This affects only the
 starting pose; final solving and validation use each relation’s actual
 parent.</p>
+</dd>
+<dt><code class="docutils literal notranslate"><span class="pre">ClutterOn(parent)</span></code></dt><dd><p>Defines release poses above a fixed <code class="docutils literal notranslate"><span class="pre">IsAnchor</span></code> support. <code class="docutils literal notranslate"><span class="pre">ObjectPlacer</span></code>
+samples within the central fraction of the support’s width and depth
+(<code class="docutils literal notranslate"><span class="pre">spread</span></code>, default 0.2), then stacks overlapping footprints above the surface.
+<code class="docutils literal notranslate"><span class="pre">clearance_m</span></code> sets the minimum surface clearance; <code class="docutils literal notranslate"><span class="pre">gap_m</span></code> sets the initial
+inter-object gap, increased to the solver’s collision clearance when larger.
+Subsequent solving uses the shared collision clearance.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">clutter_on_relation</span></code> check enforces the release footprint and minimum height; contact
+is not required. Height validation allows 1 micrometre of numerical slack on
+<code class="docutils literal notranslate"><span class="pre">clearance_m</span></code>, but never permits penetration below the support top. The ordinary
+<code class="docutils literal notranslate"><span class="pre">on_relation_z_tolerance_m</span></code> contact tolerance does not apply to clutter.</p>
+<p><code class="docutils literal notranslate"><span class="pre">ObjectPlacer</span></code> computes release poses, and normal simulation makes the objects fall. Release validation certifies the initial geometry;
+it does not certify the final pile after physics. With explicit <code class="docutils literal notranslate"><span class="pre">enabled_checks</span></code>
+or <code class="docutils literal notranslate"><span class="pre">required_checks</span></code>, include <code class="docutils literal notranslate"><span class="pre">clutter_on_relation</span></code> for clutter and
+<code class="docutils literal notranslate"><span class="pre">on_relation</span></code> for ordinary On objects. Both are enabled by default.</p>
+<p><code class="docutils literal notranslate"><span class="pre">ClutterOn</span></code> must be the object’s only spatial relation and cannot use
+<code class="docutils literal notranslate"><span class="pre">RandomAroundSolution</span></code>. <code class="docutils literal notranslate"><span class="pre">RotateAroundSolution</span></code> sets the base rotation;
+<code class="docutils literal notranslate"><span class="pre">random_yaw</span></code> (default True) adds world-Z yaw while preserving its tilt.
+Tilted clutter requires <code class="docutils literal notranslate"><span class="pre">collision_mode=&quot;bbox&quot;</span></code> on the object; these bounds
+enclose the full rotation. MESH collision checks support yaw only.
+For pooled placement, disable <code class="docutils literal notranslate"><span class="pre">ObjectPlacerParams.allow_best_loss_fallbacks</span></code>
+to reject invalid layouts. Direct <code class="docutils literal notranslate"><span class="pre">ObjectPlacer.place()</span></code> callers must check
+each result’s <code class="docutils literal notranslate"><span class="pre">success</span></code> before using it.</p>
 </dd>
 </dl>
 <dl id="next-to-relation">

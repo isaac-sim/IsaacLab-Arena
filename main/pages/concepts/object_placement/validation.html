@@ -589,11 +589,26 @@ constraints the solver never optimizes enter the pipeline, for example IK reacha
 that passes <code class="docutils literal notranslate"><span class="pre">is_available()</span></code> and survives <code class="docutils literal notranslate"><span class="pre">enabled_checks</span></code> (see
 <a class="reference internal" href="#validation-toggle"><span class="std std-ref">Enabling and Disabling Checks</span></a>). Each solved batch then runs in two passes:</p>
 <ol class="arabic simple">
-<li><p><strong>Inexpensive checks</strong> (<code class="docutils literal notranslate"><span class="pre">no_overlap</span></code>, <code class="docutils literal notranslate"><span class="pre">on_relation</span></code>, <code class="docutils literal notranslate"><span class="pre">next_to</span></code>,
+<li><p><strong>Inexpensive checks</strong> (<code class="docutils literal notranslate"><span class="pre">no_overlap</span></code>, <code class="docutils literal notranslate"><span class="pre">on_relation</span></code>, <code class="docutils literal notranslate"><span class="pre">clutter_on_relation</span></code>, <code class="docutils literal notranslate"><span class="pre">next_to</span></code>,
 <code class="docutils literal notranslate"><span class="pre">not_next_to</span></code>, <code class="docutils literal notranslate"><span class="pre">face_to</span></code>) over every candidate.</p></li>
 <li><p><strong>Expensive checks</strong> (<code class="docutils literal notranslate"><span class="pre">ik_reachable</span></code>) only on candidates that already
 passed every <em>required</em> inexpensive check.</p></li>
 </ol>
+<p>A <code class="docutils literal notranslate"><span class="pre">PlacementCandidate</span></code> is one working layout of all placement objects in one
+environment. It stores the objects’ positions, orientations and bounds, plus the
+environment ID and sample ID. Solving updates that same candidate’s positions and
+loss; validation replaces its check results. These stages update the working batch
+in place and return <code class="docutils literal notranslate"><span class="pre">None</span></code>.</p>
+<p><code class="docutils literal notranslate"><span class="pre">PlacementCandidateBatch</span></code> groups these layouts. For example, four environments
+with ten attempts each produce a batch of forty candidates. Filtering and ranking
+select and reorder references to complete candidates, keeping their geometry and
+results together.</p>
+<p><code class="docutils literal notranslate"><span class="pre">PlacementCandidateGenerator</span></code> samples orientations, fits the bounds to those
+rotations and places clutter above its support and nearby objects before solving.
+After solving, <code class="docutils literal notranslate"><span class="pre">ObjectPlacer</span></code> applies <code class="docutils literal notranslate"><span class="pre">FaceTo</span></code> headings and refits the bounds.
+<code class="docutils literal notranslate"><span class="pre">PlacementValidationRunner</span></code> then replaces each candidate’s check results.
+Here, <em>expensive</em> means computational cost, such as solving IK. Neither validation
+pass steps physics.</p>
 <p>Verdicts land in each candidate’s <code class="docutils literal notranslate"><span class="pre">PlacementValidationResults</span></code>. A
 <strong>required</strong> check must pass for the candidate to count as valid; an
 <strong>optional</strong> (enabled but not required) check still runs and is reported, but
@@ -636,25 +651,31 @@ intersect. See <a class="reference internal" href="collision_handling.html"><spa
 <td><p>Yes</p></td>
 <td><p>Every <code class="docutils literal notranslate"><span class="pre">On</span></code> relation holds (XY footprint and Z band).</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">next_to</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">clutter_on_relation</span></code></p></td>
+<td><p>Build-time</p></td>
+<td><p>Inexpensive</p></td>
+<td><p>Yes</p></td>
+<td><p>Every <code class="docutils literal notranslate"><span class="pre">ClutterOn</span></code> release fits its region and clears its support.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">next_to</span></code></p></td>
 <td><p>Build-time</p></td>
 <td><p>Inexpensive</p></td>
 <td><p>Yes</p></td>
 <td><p>Every <code class="docutils literal notranslate"><span class="pre">NextTo</span></code> relation holds within tolerance.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">not_next_to</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">not_next_to</span></code></p></td>
 <td><p>Build-time</p></td>
 <td><p>Inexpensive</p></td>
 <td><p>Yes</p></td>
 <td><p>Every <code class="docutils literal notranslate"><span class="pre">NotNextTo</span></code> keep-out zone is cleared within tolerance.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">face_to</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">face_to</span></code></p></td>
 <td><p>Build-time</p></td>
 <td><p>Inexpensive</p></td>
 <td><p>Yes</p></td>
 <td><p>Every <code class="docutils literal notranslate"><span class="pre">FaceTo</span></code> subject has a well-defined facing yaw.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">ik_reachable</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ik_reachable</span></code></p></td>
 <td><p>Build-time</p></td>
 <td><p>Expensive</p></td>
 <td><p>When available</p></td>
@@ -666,8 +687,8 @@ intersect. See <a class="reference internal" href="collision_handling.html"><spa
 </div>
 <section id="geometric-and-relation-checks">
 <h3>Geometric and Relation Checks<a class="headerlink" href="#geometric-and-relation-checks" title="Link to this heading">#</a></h3>
-<p><code class="docutils literal notranslate"><span class="pre">no_overlap</span></code>, <code class="docutils literal notranslate"><span class="pre">on_relation</span></code>, <code class="docutils literal notranslate"><span class="pre">next_to</span></code>, <code class="docutils literal notranslate"><span class="pre">not_next_to</span></code>, and
-<code class="docutils literal notranslate"><span class="pre">face_to</span></code> are always registered. The first four mirror the corresponding
+<p><code class="docutils literal notranslate"><span class="pre">no_overlap</span></code>, <code class="docutils literal notranslate"><span class="pre">on_relation</span></code>, <code class="docutils literal notranslate"><span class="pre">clutter_on_relation</span></code>, <code class="docutils literal notranslate"><span class="pre">next_to</span></code>,
+<code class="docutils literal notranslate"><span class="pre">not_next_to</span></code>, and <code class="docutils literal notranslate"><span class="pre">face_to</span></code> are always registered. The first five mirror the corresponding
 relation’s loss term, so low-loss solver output and validator verdicts stay
 consistent. <code class="docutils literal notranslate"><span class="pre">face_to</span></code> is different: <code class="docutils literal notranslate"><span class="pre">FaceTo</span></code> is applied as a post-solve
 heading rather than a continuous loss, and the check only verifies that a
@@ -732,13 +753,36 @@ in YAML; see <a class="reference internal" href="../environment/environment_defi
 <p>Build-time checks subclass <code class="docutils literal notranslate"><span class="pre">PrePhysicsPlacementValidator</span></code> from
 <code class="docutils literal notranslate"><span class="pre">isaaclab_arena.relations.validation.pre_physics</span></code> and register with
 <code class="docutils literal notranslate"><span class="pre">register_validator</span></code> from <code class="docutils literal notranslate"><span class="pre">isaaclab_arena.relations.validation.registry</span></code>.
-Implement <code class="docutils literal notranslate"><span class="pre">validate_batch()</span></code> to return one boolean per candidate and give the
-class a unique <code class="docutils literal notranslate"><span class="pre">check</span></code> name. Include that name in <code class="docutils literal notranslate"><span class="pre">ObjectPlacerParams.enabled_checks</span></code>
-when explicitly selecting checks. Existing extensions importing the build-time
-<code class="docutils literal notranslate"><span class="pre">PlacementValidator</span></code> should use <code class="docutils literal notranslate"><span class="pre">PrePhysicsPlacementValidator</span></code> instead;
-its constructor and batch-validation contract are unchanged. Import
+Implement <code class="docutils literal notranslate"><span class="pre">validate_batch(batch,</span> <span class="pre">collision_objects)</span></code> to return one boolean per
+candidate and give the class a unique <code class="docutils literal notranslate"><span class="pre">check</span></code> name. Include that name in
+<code class="docutils literal notranslate"><span class="pre">ObjectPlacerParams.enabled_checks</span></code> when explicitly selecting checks.
+Existing extensions importing the build-time <code class="docutils literal notranslate"><span class="pre">PlacementValidator</span></code> should use
+<code class="docutils literal notranslate"><span class="pre">PrePhysicsPlacementValidator</span></code> instead. The constructor is unchanged, but
+<code class="docutils literal notranslate"><span class="pre">validate_batch</span></code> now takes a <code class="docutils literal notranslate"><span class="pre">PlacementCandidateBatch</span></code> instead of separate
+position, orientation and bounding-box lists. Import
 <code class="docutils literal notranslate"><span class="pre">PlacementCheck</span></code>, <code class="docutils literal notranslate"><span class="pre">PlacementValidationResults</span></code> and <code class="docutils literal notranslate"><span class="pre">PlacementValidatorReport</span></code>
 from <code class="docutils literal notranslate"><span class="pre">isaaclab_arena.relations.validation.types</span></code>.</p>
+<p>For example, reject layouts with any object origin above 1.5 metres:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.relations.validation.pre_physics</span><span class="w"> </span><span class="kn">import</span> <span class="n">PrePhysicsPlacementValidator</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.relations.validation.registry</span><span class="w"> </span><span class="kn">import</span> <span class="n">register_validator</span>
+
+<span class="nd">@register_validator</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">MaxOriginHeightValidator</span><span class="p">(</span><span class="n">PrePhysicsPlacementValidator</span><span class="p">):</span>
+    <span class="n">check</span> <span class="o">=</span> <span class="s2">"max_origin_height"</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">validate_batch</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">batch</span><span class="p">,</span> <span class="n">collision_objects</span><span class="p">):</span>
+        <span class="n">verdicts</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">candidate</span> <span class="ow">in</span> <span class="n">batch</span><span class="o">.</span><span class="n">candidates</span><span class="p">:</span>
+            <span class="n">below_limit</span> <span class="o">=</span> <span class="nb">all</span><span class="p">(</span>
+                <span class="n">position</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">&lt;=</span> <span class="mf">1.5</span> <span class="k">for</span> <span class="n">position</span> <span class="ow">in</span> <span class="n">candidate</span><span class="o">.</span><span class="n">positions</span><span class="o">.</span><span class="n">values</span><span class="p">()</span>
+            <span class="p">)</span>
+            <span class="n">verdicts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">below_limit</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">verdicts</span>
+</pre></div>
+</div>
+<p>Import the module defining this class before constructing <code class="docutils literal notranslate"><span class="pre">ObjectPlacer</span></code>.
+Default settings run and require the registered check. If <code class="docutils literal notranslate"><span class="pre">enabled_checks</span></code> is
+explicit, include <code class="docutils literal notranslate"><span class="pre">&quot;max_origin_height&quot;</span></code> to run it.</p>
 <p>The shared <code class="docutils literal notranslate"><span class="pre">PlacementValidator</span></code> in <code class="docutils literal notranslate"><span class="pre">isaaclab_arena.relations.validation.base</span></code>
 defines the check name and stage. Post-physics checks use
 <code class="docutils literal notranslate"><span class="pre">PostPhysicsPlacementValidator</span></code>; see <a class="reference internal" href="../offline_placement/recording.html"><span class="doc">Record and Replay Placement Poses</span></a> for
