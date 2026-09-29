@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""CAP's FR3 RGB-D socket client; all graph and planning code runs in CAP."""
+"""CAP's RGB-D socket client; all graph and planning code runs in CAP."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ import socket
 import struct
 import time
 import torch
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from itertools import product
 from typing import Any
 
@@ -32,13 +32,15 @@ def cap_episode_finished(env) -> torch.Tensor:
 
 @dataclass
 class CapPolicyCfg(PolicyCfg):
-    """Connect to a separately launched CAP graph for one FR3 environment."""
+    """Connect a supported CAP robot profile to a Arena environment."""
 
     host: str = "127.0.0.1"
     port: int = 9000
     connect_timeout_s: float = 180.0
     io_timeout_s: float = 180.0
     settle_s: float = 2.0
+    robot_profile: str = "fr3"
+    camera_mapping: dict[str, str] = field(default_factory=dict)
 
 
 @register_policy
@@ -50,6 +52,8 @@ class CapPolicy(PolicyBase[CapPolicyCfg]):
 
     def __init__(self, config: CapPolicyCfg) -> None:
         super().__init__(config)
+        if config.robot_profile not in ("fr3", "yam_bimanual"):
+            raise ValueError(f"Unsupported CAP robot profile: {config.robot_profile}")
         # Optional client dependencies must not prevent environment-only use.
         import msgpack
         import msgpack_numpy
@@ -142,15 +146,21 @@ class CapPolicy(PolicyBase[CapPolicyCfg]):
         return float(((world - tcp) * approach).sum(-1).max().cpu())
 
     @staticmethod
-    def _valid(reply: dict[str, Any], channel: str) -> bool:
-        value = reply.get(channel, reply.get("command_valid", False))
+    def _valid(reply: dict[str, Any], channel: str, arm: str = "left") -> bool:
+        if channel in reply:
+            value = reply[channel]
+        elif "command_valid" in reply:
+            value = reply["command_valid"]
+        else:
+            block = reply.get(arm, {})
+            value = block.get(channel, block.get("command_valid", False))
         if isinstance(value, dict):
-            value = value.get("left", False)
+            value = value.get(arm, False)
         assert isinstance(value, (bool, np.bool_)), f"Invalid CAP validity flag: {channel}={value!r}"
         return bool(value)
 
     @staticmethod
-    def _hold_action(env: ManagerBasedRLEnv) -> torch.Tensor:
+    def _fr3_hold_action(env: ManagerBasedRLEnv) -> torch.Tensor:
         robot = env.scene["robot"]
         names = list(robot.joint_names)
         joints = robot.data.joint_pos.torch[0]
@@ -159,43 +169,108 @@ class CapPolicy(PolicyBase[CapPolicyCfg]):
         closed = torch.clamp(joints[names.index("left_driver_joint")] / scale, 0, 1)
         return torch.cat((arm, closed.reshape(1))).clone()
 
-    def _observation_frame(self, env: ManagerBasedRLEnv, action: torch.Tensor) -> dict[str, Any]:
-        frame = {
-            "timestamp": time.time(),
-            "left": {"joint_pos": [*action[:7].cpu().tolist(), 1 - float(action[7])]},
-            "_isaac_cap": {
-                "workspace": {
-                    "surface_z": 0.780,
-                    "transport_z": 1.102,
-                    "align_clearance_m": 0.12,
-                    "pregrasp_standoff_m": 0.12,
-                },
-                "gripper": {"tip_reach_m": self._tip_reach(env.scene["robot"])},
-            },
-        }
-        for name, alias in (
+    @staticmethod
+    def _yam_hold_action(env: ManagerBasedRLEnv) -> torch.Tensor:
+        blocks = []
+        for side in ("left", "right"):
+            robot = env.scene[f"{side}_robot"]
+            names = list(robot.joint_names)
+            joints = robot.data.joint_pos.torch[0]
+            arm = joints[[names.index(f"joint{i}") for i in range(1, 7)]]
+            gripper_cfg = env.action_manager.get_term(f"{side}_gripper_action").cfg
+            driver = joints[names.index("left_finger")]
+            closed = torch.clamp((driver - gripper_cfg.offset) / gripper_cfg.scale, 0, 1)
+            blocks.extend((arm, closed.reshape(1)))
+        return torch.cat(blocks).clone()
+
+    def _hold_action(self, env: ManagerBasedRLEnv) -> torch.Tensor:
+        if self.config.robot_profile == "yam_bimanual":
+            return self._yam_hold_action(env)
+        elif self.config.robot_profile == "fr3":
+            return self._fr3_hold_action(env)
+        else:
+            raise ValueError(f"Unsupported CAP robot profile: {self.config.robot_profile}")
+
+    def _camera_pairs(self) -> tuple[tuple[str, str], ...]:
+        if self.config.camera_mapping:
+            return tuple(self.config.camera_mapping.items())
+        return (
             ("top_camera", "overhead"),
             ("wrist_camera", "eye_in_hand"),
             ("exterior_left_camera", "agentview"),
-        ):
-            frame[alias] = self._camera(env, name)
-        return frame
+        )
+
+    def _observation_frame(self, env: ManagerBasedRLEnv, action: torch.Tensor) -> dict[str, Any]:
+        if self.config.robot_profile == "yam_bimanual":
+            assert action.shape == (14,), f"Bimanual YAM action must have shape (14,), got {action.shape}."
+            frame = {
+                "timestamp": time.time(),
+                "left": {"joint_pos": [*action[:6].cpu().tolist(), 1 - float(action[6])]},
+                "right": {"joint_pos": [*action[7:13].cpu().tolist(), 1 - float(action[13])]},
+            }
+            for name, alias in self._camera_pairs():
+                frame[alias] = self._camera(env, name)
+            return frame
+
+        elif self.config.robot_profile == "fr3":
+            frame = {
+                "timestamp": time.time(),
+                "left": {"joint_pos": [*action[:7].cpu().tolist(), 1 - float(action[7])]},
+                "_isaac_cap": {
+                    "workspace": {
+                        "surface_z": 0.780,
+                        "transport_z": 1.102,
+                        "align_clearance_m": 0.12,
+                        "pregrasp_standoff_m": 0.12,
+                    },
+                    "gripper": {"tip_reach_m": self._tip_reach(env.scene["robot"])},
+                },
+            }
+            for name, alias in self._camera_pairs():
+                frame[alias] = self._camera(env, name)
+            return frame
+        else:
+            raise ValueError(f"Unsupported CAP robot profile: {self.config.robot_profile}")
 
     def _apply_reply(self, reply: dict[str, Any], action: torch.Tensor) -> None:
-        block = reply.get("left", {})
-        if self._valid(reply, "arm_valid"):
-            target = np.asarray(block["joint_pos"], dtype=np.float32)
-            assert target.shape == (7,) and np.isfinite(target).all()
-            action[:7] = torch.as_tensor(target, device=action.device)
-        if self._valid(reply, "gripper_valid"):
-            opened = float(block["gripper"])
-            assert np.isfinite(opened) and 0 <= opened <= 1
-            action[7] = 1 - opened
-        self._last_gripper = action[7].clone()
+        if self.config.robot_profile == "yam_bimanual":
+            assert action.shape == (14,), f"Bimanual YAM action must have shape (14,), got {action.shape}."
+            for arm, offset in (("left", 0), ("right", 7)):
+                block = reply.get(arm, {})
+                if self._valid(reply, "arm_valid", arm):
+                    target = np.asarray(block["joint_pos"], dtype=np.float32)
+                    assert target.shape == (6,) and np.isfinite(target).all()
+                    action[offset : offset + 6] = torch.as_tensor(target, device=action.device)
+                if self._valid(reply, "gripper_valid", arm):
+                    opened = float(block["gripper"])
+                    assert np.isfinite(opened) and 0 <= opened <= 1
+                    action[offset + 6] = 1 - opened
+            self._last_gripper = action[[6, 13]].clone()
+            return
+
+        elif self.config.robot_profile == "fr3":
+            block = reply.get("left", {})
+            if self._valid(reply, "arm_valid"):
+                target = np.asarray(block["joint_pos"], dtype=np.float32)
+                assert target.shape == (7,) and np.isfinite(target).all()
+                action[:7] = torch.as_tensor(target, device=action.device)
+            if self._valid(reply, "gripper_valid"):
+                opened = float(block["gripper"])
+                assert np.isfinite(opened) and 0 <= opened <= 1
+                action[7] = 1 - opened
+            self._last_gripper = action[7].clone()
+        else:
+            raise ValueError(f"Unsupported CAP robot profile: {self.config.robot_profile}")
 
     def _settle(self, env: ManagerBasedRLEnv, action: torch.Tensor) -> None:
-        if self._last_gripper is not None:
-            action[7] = self._last_gripper
+        if self.config.robot_profile == "yam_bimanual":
+            if self._last_gripper is not None:
+                action[[6, 13]] = self._last_gripper
+        elif self.config.robot_profile == "fr3":
+            if self._last_gripper is not None:
+                action[7] = self._last_gripper
+        else:
+            raise ValueError(f"Unsupported CAP robot profile: {self.config.robot_profile}")
         self._settle_steps += 1
         env.cap_episode_finished = self._settle_steps * env.step_dt >= self.config.settle_s
 
@@ -210,6 +285,10 @@ class CapPolicy(PolicyBase[CapPolicyCfg]):
                 for _ in range(5):
                     env.sim.render()
                 env.scene.update(0.0)
+                print(
+                    f"[CapPolicy] Environment ready; waiting for GaP at {self.config.host}:{self.config.port}",
+                    flush=True,
+                )
                 self._connect()
             try:
                 reply = self._exchange(self._observation_frame(env, action))

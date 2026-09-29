@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import math
+import torch
 from typing import TYPE_CHECKING, Any
 
 from isaaclab.managers import TerminationTermCfg
@@ -32,6 +33,11 @@ from isaaclab_arena.tasks.terminations import check_success
 
 if TYPE_CHECKING:
     from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
+
+
+def cap_episode_finished(env) -> torch.Tensor:
+    """End a disconnected CAP episode after policy settling without reporting success."""
+    return torch.full((env.num_envs,), getattr(env, "cap_episode_finished", False), device=env.device, dtype=torch.bool)
 
 
 @register_task
@@ -182,6 +188,7 @@ class UsbcInsertionTask(TaskBase):
                     predicate_sequence=[success_requirement],
                 )
             ],
+            failures={"cap_finished": TerminationTermCfg(func=cap_episode_finished)},
         )
 
     def configure_for_embodiment(self, embodiment: EmbodimentBase) -> None:
