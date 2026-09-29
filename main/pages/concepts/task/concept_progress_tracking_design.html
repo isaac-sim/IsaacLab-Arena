@@ -763,11 +763,13 @@ before the task completes.</p>
 and active environments to that instance. <code class="docutils literal notranslate"><span class="pre">_TrueForConsecutiveSteps</span></code> stores the per-environment
 counts: true adds one; false clears the streak.
 The runner resets it through the existing <code class="docutils literal notranslate"><span class="pre">TaskSuccessTerm</span></code> / <code class="docutils literal notranslate"><span class="pre">ProgressTracker</span></code> episode-reset path.</p>
-<p><code class="docutils literal notranslate"><span class="pre">TaskSuccessTerm</span></code> supplies the environment’s control-step indices automatically, so repeated
-success checks do not count twice. When using <code class="docutils literal notranslate"><span class="pre">ProgressTracker.step()</span></code> directly with consecutive-step
-requirements, pass one integer index per environment, for example
-<code class="docutils literal notranslate"><span class="pre">tracker.step(env,</span> <span class="pre">step_index=env.episode_length_buf)</span></code>. Skipping an index clears the streak;
-unobserved steps cannot prove the condition held continuously.</p>
+<p><code class="docutils literal notranslate"><span class="pre">TaskSuccessTerm</span></code> advances <code class="docutils literal notranslate"><span class="pre">ProgressTracker</span></code> once per control step. Reporting and other consumers
+read <code class="docutils literal notranslate"><span class="pre">is_complete()</span></code>, <code class="docutils literal notranslate"><span class="pre">get_state()</span></code>, or <code class="docutils literal notranslate"><span class="pre">get_events()</span></code> without advancing progress.
+Direct callers of <code class="docutils literal notranslate"><span class="pre">ProgressTracker.step()</span></code> must also call it exactly once per control step.
+Temporal requirements need a <code class="docutils literal notranslate"><span class="pre">step_index</span></code> per environment, such as <code class="docutils literal notranslate"><span class="pre">env.episode_length_buf</span></code>.
+After the first update, repeated, skipped, or backwards indices raise an assertion before any
+predicates are evaluated or counters change. <code class="docutils literal notranslate"><span class="pre">ProgressTracker.reset()</span></code> clears the stored index
+for each restarting environment.</p>
 <p>The examples below show three different requirements. <code class="docutils literal notranslate"><span class="pre">object_still(env)</span></code> and <code class="docutils literal notranslate"><span class="pre">gripper_slow(env)</span></code>
 are configured instantaneous checks that each return one Boolean per environment.
 Step numbers start when the objective becomes active.</p>
