@@ -15,12 +15,43 @@ from isaaclab_arena.assets.background import Background
 from isaaclab_arena.assets.object import Object
 from isaaclab_arena.assets.object_reference import ObjectReference
 from isaaclab_arena.relations.background_collision_object import make_fixed_collision_objects
+from isaaclab_arena.relations.collision_mode import CollisionMode, get_object_collision_mode
 from isaaclab_arena.relations.collision_object import CollisionObject
 from isaaclab_arena.utils.pose import Pose
 
 if TYPE_CHECKING:
     from isaaclab_arena.assets.asset import Asset
     from isaaclab_arena.assets.object_set import RigidObjectSet
+    from isaaclab_arena.relations.placement_asset import PlaceableAsset
+
+
+def get_placement_collision_objects(
+    placement_assets: list[PlaceableAsset],
+    scene_assets: Iterable[Asset | RigidObjectSet],
+    default_collision_mode: CollisionMode,
+) -> list[CollisionObject]:
+    """Discover obstacles using the scene's collision modes and anchored support exclusions.
+
+    Include room meshes when the solver, a placement asset, or a background requests
+    MESH. Exclude anchored references from their parent mesh because placement already
+    checks those supports separately.
+    """
+    scene_assets = list(scene_assets)
+    include_background = (
+        default_collision_mode == CollisionMode.MESH
+        or any(
+            get_object_collision_mode(asset, default_collision_mode) == CollisionMode.MESH for asset in placement_assets
+        )
+        or any(
+            isinstance(asset, Background)
+            and get_object_collision_mode(asset, default_collision_mode) == CollisionMode.MESH
+            for asset in scene_assets
+        )
+    )
+    exclusions = [asset for asset in placement_assets if asset.is_anchor and isinstance(asset, ObjectReference)]
+    return get_passive_collision_objects(
+        scene_assets, include_background=include_background, background_mesh_exclusions=exclusions
+    )
 
 
 def get_passive_collision_objects(

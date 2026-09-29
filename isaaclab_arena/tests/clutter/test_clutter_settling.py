@@ -278,3 +278,135 @@ def _test_settling_restores_scene_and_retries_only_rejected_layouts(simulation_a
 
 def test_settling_restores_scene_and_retries_only_rejected_layouts():
     assert run_function_with_persistent_simulation_app(_test_settling_restores_scene_and_retries_only_rejected_layouts)
+
+
+def _make_primitive_clutter_scene(tmp_path):
+    import yaml
+    from unittest.mock import patch
+
+    from isaaclab_arena.assets.registries import AssetRegistry
+    from isaaclab_arena.embodiments.no_embodiment import NoEmbodiment
+    from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
+    from isaaclab_arena.tests.test_settled_placement import _write_scene
+
+    source = tmp_path / "clutter.yaml"
+    _write_scene(source)
+    data = yaml.safe_load(source.read_text())
+    data["relations"][1] = {
+        "kind": "clutter_on",
+        "subject": "cube",
+        "reference": "table",
+        "params": {"clearance_m": 0.2, "random_yaw": False},
+    }
+    with patch.dict(AssetRegistry()._components, {"recording_no_embodiment": NoEmbodiment}):
+        return ArenaEnvGraphSpec.model_validate(data).to_arena_env()
+
+
+def _test_settling_rejects_moved_fixed_assets_before_solving(simulation_app, tmp_path):
+    from unittest.mock import patch
+
+    from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
+    from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
+    from isaaclab_arena.offline_placement.clutter_settling import settle_clutter
+
+    arena_env = _make_primitive_clutter_scene(tmp_path)
+    assets = arena_env.get_placement_assets()
+    env = ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg(num_envs=2, solve_relations=False)).make_registered()
+    try:
+        env.reset()
+        base = env.unwrapped
+        initial = base.scene.get_state()
+        for key in ("table", "floor"):
+            body = base.scene.rigid_objects[key]
+            original = body.data.root_pose_w.torch.clone()
+            moved = original.clone()
+            moved[1, 0] += 2.0
+            body.write_root_pose_to_sim_index(root_pose=moved)
+            base.scene.write_data_to_sim()
+            base.sim.forward()
+            before = base.scene.get_state()
+            with patch(
+                "isaaclab_arena.offline_placement.clutter_settling.ObjectPlacer",
+                side_effect=AssertionError("must reject before solving or releasing"),
+            ):
+                with pytest.raises(AssertionError, match=f"{key!r} differs from its configured pose"):
+                    settle_clutter(env, assets)
+            _assert_scene_state_equal(base.scene.get_state(), before)
+            body.write_root_pose_to_sim_index(root_pose=original)
+            base.scene.write_data_to_sim()
+            base.sim.forward()
+        # The same scene at its authored poses remains usable across both environments.
+        results = settle_clutter(env, assets, attempts=1, placer_params=arena_env.placer_params)
+        assert len(results) == 2
+        assert all(abs(result.poses["cube_body"].position_xyz[0]) < 0.4 for result in results)
+        _assert_scene_state_equal(base.scene.get_state(), initial)
+    finally:
+        env.close()
+    return True
+
+
+def test_settling_rejects_moved_fixed_assets_before_solving(tmp_path):
+    assert run_function_with_persistent_simulation_app(
+        _test_settling_rejects_moved_fixed_assets_before_solving, tmp_path=tmp_path
+    )
+
+
+def _test_settling_checks_background_mesh_obstacles(simulation_app, tmp_path):
+    import trimesh
+
+    from pxr import Usd, UsdGeom, UsdPhysics
+
+    from isaaclab_arena.assets.background import Background
+    from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
+    from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
+    from isaaclab_arena.offline_placement.clutter_settling import _prepare_scene
+    from isaaclab_arena.relations.collision_mode import CollisionMode
+    from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+    from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
+    from isaaclab_arena.relations.validation.pre_physics import NoOverlapValidator
+    from isaaclab_arena.tests.dummy_object import make_candidate_batch
+
+    path = tmp_path / "room.usda"
+    stage = Usd.Stage.CreateNew(str(path))
+    stage.SetDefaultPrim(UsdGeom.Xform.Define(stage, "/Room").GetPrim())
+    mesh = trimesh.creation.box(extents=(0.2, 0.4, 0.4))
+    mesh.apply_translation((0.3, 0.0, 0.8))
+    fixture = UsdGeom.Mesh.Define(stage, "/Room/fixture")
+    fixture.CreatePointsAttr(mesh.vertices.tolist())
+    fixture.CreateFaceVertexCountsAttr([3] * len(mesh.faces))
+    fixture.CreateFaceVertexIndicesAttr(mesh.faces.flatten().tolist())
+    UsdPhysics.CollisionAPI.Apply(fixture.GetPrim())
+    stage.GetRootLayer().Save()
+    arena_env = _make_primitive_clutter_scene(tmp_path)
+    room = Background(name="room", usd_path=str(path), object_min_z=-1)
+    arena_env.scene.assets["room"] = room
+    assets = arena_env.get_placement_assets()
+    by_key = {asset.get_scene_key(): asset for asset in assets}
+    table, cube = by_key["table"], by_key["cube_body"]
+    env = ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg(num_envs=1, solve_relations=False)).make_registered()
+    try:
+        env.reset()
+        boxes = {asset: asset.get_bounding_box() for asset in (table, cube)}
+        positions = [
+            {table: (0.0, 0.0, 0.5), cube: (0.3, 0.0, 0.8)},
+            {table: (0.0, 0.0, 0.5), cube: (-0.3, 0.0, 0.8)},
+        ]
+        batch = make_candidate_batch(positions, [{}, {}], [boxes, boxes])
+        for mode, override, expected in (
+            (CollisionMode.MESH, None, [False, True]),
+            (CollisionMode.BBOX, CollisionMode.MESH, [False, True]),
+            (CollisionMode.BBOX, None, [True, True]),
+        ):
+            room.collision_mode = override
+            _, _, obstacles = _prepare_scene(env.unwrapped, assets, mode)
+            validator = NoOverlapValidator(ObjectPlacerParams(solver_params=RelationSolverParams(collision_mode=mode)))
+            assert validator.validate_batch(batch, obstacles) == expected
+    finally:
+        env.close()
+    return True
+
+
+def test_settling_checks_background_mesh_obstacles(tmp_path):
+    assert run_function_with_persistent_simulation_app(
+        _test_settling_checks_background_mesh_obstacles, tmp_path=tmp_path
+    )

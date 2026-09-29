@@ -28,6 +28,7 @@ from isaaclab_arena.offline_placement.clutter_validators import (
     default_post_physics_validators,
 )
 from isaaclab_arena.offline_placement.scene_snapshot import SceneSnapshot
+from isaaclab_arena.relations.collision_mode import CollisionMode
 from isaaclab_arena.relations.object_placer import ObjectPlacer
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_events import get_base_rotation_per_asset, write_layout_to_sim
@@ -35,6 +36,7 @@ from isaaclab_arena.relations.relations import ClutterOn, get_relation
 from isaaclab_arena.relations.validation.pre_physics import build_validators, get_build_time_checks
 from isaaclab_arena.relations.validation.types import PlacementCheck
 from isaaclab_arena.utils.bounding_box import quaternion_to_90_deg_z_quarters
+from isaaclab_arena.utils.physics_settle import get_pose_drift
 from isaaclab_arena.utils.pose import Pose
 
 if TYPE_CHECKING:
@@ -90,7 +92,8 @@ def settle_clutter(
     """Generate one accepted layout per environment and restore the caller's scene state.
 
     Args:
-        env: Constructed scene at the desired initial poses and articulation configuration.
+        env: Constructed scene with anchors, backgrounds and passive obstacles at their
+            configured fixed poses. Articulation state is restored after settling.
         assets: Scene assets carrying ClutterOn members, IsAnchor supports, and fixed neighbors.
             Object-set variants must be assigned for all environments before scene construction.
         seed: Seed for independent release samples in each environment and attempt.
@@ -116,7 +119,9 @@ def settle_clutter(
     assert len(rest_validators) <= 1, "At most one enabled RestValidator is supported; configure its thresholds"
     rest_validator = rest_validators[0] if rest_validators else None
     assert attempts > 0, "attempts must be positive"
-    groups, placement_assets, collision_objects = _prepare_scene(env, assets)
+    groups, placement_assets, collision_objects = _prepare_scene(
+        env, assets, placer_params.solver_params.collision_mode
+    )
     capture_keys = dynamic_rigid_object_keys(env.scene)
     geometry_keys = sorted(set(env.scene.rigid_objects) | {group.support for group in groups})
     clutter_keys = {key for group in groups for key in group.objects}
@@ -176,11 +181,15 @@ def settle_clutter(
 
 
 def _prepare_scene(
-    env: ManagerBasedEnv, assets: list[PlaceableAsset]
+    env: ManagerBasedEnv, assets: list[PlaceableAsset], collision_mode: CollisionMode
 ) -> tuple[list[ClutterGroup], list[PlaceableAsset], list[CollisionObject]]:
     """Check support mobility, gravity and placement coverage before any scene writes."""
+    from isaaclab_arena.assets.background import Background
     from isaaclab_arena.assets.object_set import RigidObjectSet
-    from isaaclab_arena.relations.passive_collision_objects import get_passive_collision_objects
+    from isaaclab_arena.relations.passive_collision_objects import (
+        get_passive_collision_objects,
+        get_placement_collision_objects,
+    )
 
     for asset in assets:
         if isinstance(asset, RigidObjectSet):
@@ -198,15 +207,21 @@ def _prepare_scene(
     assert all(
         asset.is_anchor or get_relation(asset, ClutterOn) is not None for asset in placement_assets
     ), "Offline settling requires non-clutter placement to be resolved to fixed anchors first"
-    collision_objects = get_passive_collision_objects(assets)
+    # Check source assets before MESH discovery aggregates their collision geometry.
+    passive_assets = get_passive_collision_objects(assets)
     uncovered = [
         asset.get_scene_key()
         for asset in assets
         if asset.get_scene_key() in env.scene.rigid_objects
         and asset not in placement_assets
-        and asset not in collision_objects
+        and asset not in passive_assets
     ]
     assert not uncovered, f"Passive rigid objects need fixed poses and collision geometry: {uncovered}"
+    fixed_assets = [
+        asset for asset in assets if asset.is_anchor or asset in passive_assets or isinstance(asset, Background)
+    ]
+    _check_fixed_scene_poses(env, fixed_assets)
+    collision_objects = get_placement_collision_objects(placement_assets, assets, collision_mode)
     members = [key for group in groups for key in group.objects]
     assert len(set(members)) == len(members), "An object must belong to exactly one group"
     assert all(group.support not in members for group in groups), "Supports cannot be clutter members"
@@ -229,6 +244,23 @@ def _prepare_scene(
             assert spawned_rigid_body_has_gravity(env.scene, key), f"Clutter object {key!r} must have gravity enabled"
 
     return groups, placement_assets, collision_objects
+
+
+def _check_fixed_scene_poses(env: ManagerBasedEnv, assets: list[PlaceableAsset]) -> None:
+    """Reject live transforms that differ from the fixed geometry used by the solver."""
+    for asset in assets:
+        pose = asset.get_initial_pose()
+        if pose is None:
+            pose = Pose.identity()
+        assert isinstance(pose, Pose), f"Fixed scene asset {asset.name!r} requires a fixed Pose"
+        current = env.arena_world.get_pose_e(asset.get_scene_key())
+        expected = pose.to_tensor(device=current.device).expand_as(current)
+        drift = get_pose_drift(expected, current)
+        # Allow float32 transform roundoff, not physical movement of fixed geometry.
+        assert drift is not None and drift[0] <= 1e-5 and drift[1] <= 1e-3, (
+            f"Fixed scene asset {asset.get_scene_key()!r} differs from its configured pose. "
+            "Reset or rebuild the scene at its configured poses before settling."
+        )
 
 
 def _release_candidates(

@@ -72,17 +72,47 @@ retains the skip reason. At least one post-physics check must remain enabled.
 Scope
 -----
 
-Supports must be fixed anchors. Clutter members must be dynamic rigid bodies with
-gravity enabled. Other placement must already be resolved to fixed anchors.
+Supports must be fixed anchors. Anchors, backgrounds and passive obstacles must
+still be at their configured fixed poses in every environment. Settling rejects
+moved assets before releasing objects, rather than solving against stale geometry.
+Reset or rebuild the scene at its configured poses before calling this API.
+
+Release collision discovery follows normal relation placement: MESH includes
+background fixtures, respects per-asset collision modes, and excludes anchored
+support references from their parent mesh. BBOX does not use a whole room's bounds
+as a solid obstacle.
+
+Clutter members must be dynamic rigid bodies with gravity enabled. Other
+placement must already be resolved to fixed anchors.
 For each ``RigidObjectSet``, call ``assign_variants(num_envs, variant_seed=seed)``
 before constructing the environment, using the same ``num_envs`` as the builder.
 Settling rejects missing or differently sized assignments before solving or
 writing scene state. It cannot safely assign new variants to an already spawned
 scene.
 
-Robot joints are not recorded, and reachability of the settled pile is not
-certified. Post-physics acceptance checks rest, support containment and passive
-drift; it does not rerun the release collision or relation validators.
+Assets marked ``RequiresReachability`` are rejected, even if ``ik_reachable`` is
+disabled. Explicitly enabling or requiring ``ik_reachable`` or ``physics_settled``
+is also rejected. Use an offline generation scene without reachability-marked
+assets and solver checks that exclude those two checks. Keep ``no_overlap`` and
+``clutter_on_relation`` enabled; the API requires both. This is not a substitute
+for reachability validation in a task that requires it.
+
+For a generation scene without reachability requirements, an explicit minimal
+release configuration is:
+
+.. code-block:: python
+
+   from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+
+   release_checks = {"no_overlap", "clutter_on_relation"}
+   placer_params = ObjectPlacerParams(
+       enabled_checks=release_checks, required_checks=release_checks
+   )
+   layouts = settle_clutter(env, arena_env.get_placement_assets(), placer_params=placer_params)
+
+Robot joints are not recorded. Post-physics acceptance checks rest, support
+containment and passive drift; it does not rerun the release collision or relation
+validators.
 Clutter with roll or pitch requires BBOX collision mode because the
 solver's mesh checks currently transform geometry by yaw only.
 

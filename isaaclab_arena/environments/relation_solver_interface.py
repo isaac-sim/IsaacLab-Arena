@@ -9,7 +9,6 @@ import copy
 from collections.abc import Iterable
 from typing import TYPE_CHECKING
 
-from isaaclab_arena.relations.collision_mode import CollisionMode, get_object_collision_mode
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_events import PlacementPoolHandle, get_pose_from_layout, solve_and_place_objects
 from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
@@ -67,20 +66,11 @@ def solve_and_apply_relation_placement(
     # mutating the caller.
     placer_params.reachability_config = copy.copy(placer_params.reachability_config)
     if collision_objects is None and scene_assets is not None:
-        # Lazy import to avoid pxr import before SimulationApp is ready.
-        from isaaclab_arena.assets.object_reference import ObjectReference
-        from isaaclab_arena.relations.passive_collision_objects import get_passive_collision_objects
+        # Import after SimulationApp starts to avoid preloading USD before Kit.
+        from isaaclab_arena.relations.passive_collision_objects import get_placement_collision_objects
 
-        scene_assets = list(scene_assets)
-        background_mesh_exclusions = [
-            asset for asset in get_anchor_objects(assets) if isinstance(asset, ObjectReference)
-        ]
-        collision_objects = get_passive_collision_objects(
-            scene_assets,
-            include_background=_should_include_background_mesh(
-                assets, scene_assets, placer_params.solver_params.collision_mode
-            ),
-            background_mesh_exclusions=background_mesh_exclusions,
+        collision_objects = get_placement_collision_objects(
+            assets, scene_assets, placer_params.solver_params.collision_mode
         )
     placement_pool = PooledObjectPlacer(
         objects=assets,
@@ -104,24 +94,6 @@ def solve_and_apply_relation_placement(
         placer_params=placer_params,
         placement_pool=placement_pool,
         num_envs=num_envs,
-    )
-
-
-def _should_include_background_mesh(
-    assets: list[PlaceableAsset],
-    scene_assets: Iterable[Asset | RigidObjectSet],
-    default_collision_mode: CollisionMode,
-) -> bool:
-    """Return True when the default mode or any relevant asset override resolves to MESH."""
-    from isaaclab_arena.assets.background import Background
-
-    if default_collision_mode == CollisionMode.MESH:
-        return True
-    if any(get_object_collision_mode(asset, default_collision_mode) == CollisionMode.MESH for asset in assets):
-        return True
-    return any(
-        isinstance(asset, Background) and get_object_collision_mode(asset, default_collision_mode) == CollisionMode.MESH
-        for asset in scene_assets
     )
 
 
