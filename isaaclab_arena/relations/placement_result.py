@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from isaaclab_arena.relations.placement_asset import PlaceableAsset
-    from isaaclab_arena.relations.placement_validation import PlacementValidationResults
+    from isaaclab_arena.relations.validation.types import PlacementValidationResults
 
 
 @dataclass

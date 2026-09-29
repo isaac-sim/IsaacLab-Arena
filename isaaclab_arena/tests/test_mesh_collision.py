@@ -211,7 +211,7 @@ def test_sphere_decomposition_covers_surface():
 
 def test_object_placer_aabb_proxy_uses_candidate_bbox():
     """Mesh validation builds AABB proxies from the candidate bbox."""
-    from isaaclab_arena.relations.placement_validators import NoOverlapValidator
+    from isaaclab_arena.relations.validation.pre_physics import NoOverlapValidator
 
     bbox = AxisAlignedBoundingBox(min_point=(-0.2, -0.1, -0.05), max_point=(0.2, 0.1, 0.05))
     proxy = NoOverlapValidator._collision_mesh_or_aabb_proxy(None, bbox)
@@ -221,7 +221,7 @@ def test_object_placer_aabb_proxy_uses_candidate_bbox():
 
 def test_effective_yaw_ignores_placed_initial_pose_unless_allowed():
     """Placed non-anchors do not inherit initial_pose yaw unless the caller explicitly allows pose yaw."""
-    from isaaclab_arena.relations.placement_validators import NoOverlapValidator
+    from isaaclab_arena.relations.validation.pre_physics import NoOverlapValidator
 
     obj = _make_box_obj("placed", sx=0.1, sy=0.02, sz=0.05)
     obj.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.7071068, 0.7071068)))
@@ -458,7 +458,7 @@ def test_anchor_with_rotate_around_solution_rejected():
 def test_centers_in_target_frame_applies_both_yaws():
     """Net yaw = source - target; equal yaws cancel out."""
 
-    from isaaclab_arena.relations.placement_validators import NoOverlapValidator
+    from isaaclab_arena.relations.validation.pre_physics import NoOverlapValidator
 
     src = DummyObject(
         "src",
@@ -514,7 +514,7 @@ def test_object_placer_mesh_mode_end_to_end():
 @requires_warp
 def test_validate_no_overlap_mesh_catches_overlap():
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-    from isaaclab_arena.relations.placement_validators import NoOverlapValidator
+    from isaaclab_arena.relations.validation.pre_physics import NoOverlapValidator
 
     table = _make_table()
     a = _make_cylinder("cyl_a")
@@ -541,7 +541,7 @@ def test_validate_no_overlap_mesh_catches_overlap():
 def test_validate_placement_mesh_mode_rejects_aabb_foreground_background_overlap():
     from isaaclab_arena.relations.object_placer import ObjectPlacer
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-    from isaaclab_arena.relations.placement_validation import PlacementCheck
+    from isaaclab_arena.relations.validation.types import PlacementCheck
 
     table = _make_table()
     box = DummyObject(
@@ -573,7 +573,7 @@ def test_validate_no_overlap_mesh_sentinel_fails(monkeypatch):
     """A sentinel SDF (no resolvable face) must fail validation, not certify collision-free."""
     from isaaclab_arena.relations import warp_sdf_kernels
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-    from isaaclab_arena.relations.placement_validators import NoOverlapValidator
+    from isaaclab_arena.relations.validation.pre_physics import NoOverlapValidator
 
     table = _make_table()
     a = _make_cylinder("cyl_a")
@@ -591,7 +591,7 @@ def test_validate_no_overlap_mesh_sentinel_fails(monkeypatch):
     assert validator._validate_no_overlap_mesh(positions, env_bboxes)
 
     # Force every query to hit the sentinel; the same separated layout must now fail.
-    from isaaclab_arena.relations import placement_validators as _pv_mod
+    from isaaclab_arena.relations.validation import pre_physics as _pv_mod
 
     real_mesh_sdf = warp_sdf_kernels.mesh_sdf
 
@@ -607,7 +607,7 @@ def test_validate_no_overlap_mesh_sentinel_fails(monkeypatch):
 def test_validate_no_overlap_mesh_respects_anchor_yaw():
     """Validator must use anchor's initial_pose yaw (not identity) when checking overlap."""
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-    from isaaclab_arena.relations.placement_validators import NoOverlapValidator
+    from isaaclab_arena.relations.validation.pre_physics import NoOverlapValidator
 
     table = _make_table()
     # Long thin anchor rotated 90° about Z
@@ -835,7 +835,7 @@ def test_mixed_mesh_aabb_varying_proxy_uses_aabb_fallback():
 def test_yawed_aabb_proxy_validation_is_not_double_rotated():
     """AABB proxy spheres built from yaw-expanded bboxes must not rotate by source yaw again."""
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-    from isaaclab_arena.relations.placement_validators import NoOverlapValidator
+    from isaaclab_arena.relations.validation.pre_physics import NoOverlapValidator
 
     source = DummyObject(
         "source",
@@ -911,7 +911,7 @@ def test_yawed_aabb_proxy_solver_loss_rotates_unexpanded_bbox():
 def test_validate_no_overlap_mesh_respects_yawed_collision_object():
     """Passive mesh obstacles use their fixed initial_pose yaw during validation."""
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-    from isaaclab_arena.relations.placement_validators import NoOverlapValidator
+    from isaaclab_arena.relations.validation.pre_physics import NoOverlapValidator
 
     source = DummyObject(
         "source",
@@ -1095,7 +1095,7 @@ def test_anchor_initial_pose_yaw_affects_collision():
 def test_aabb_gate_does_not_reject_diagonal_cylinders():
     """Regression: MESH-mode validator accepts cylinders whose AABBs overlap but meshes don't."""
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-    from isaaclab_arena.relations.placement_validators import NoOverlapValidator
+    from isaaclab_arena.relations.validation.pre_physics import NoOverlapValidator
 
     table = _make_table()
     # r=0.05, b at (0.09, 0.09): AABB overlap (0.09 < 2*0.05=0.10) but geometric

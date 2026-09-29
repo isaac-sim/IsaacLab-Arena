@@ -30,8 +30,7 @@ class PlacementCheck(StrEnum):
     """Build-time check: every ``FaceTo`` subject has a defined target direction and facing yaw."""
 
     PHYSICS_SETTLED = "physics_settled"
-    """Run-time check: after stepping physics the movable objects' velocities fall
-    below threshold, i.e. the layout is stable and does not drift or topple."""
+    """Run-time check: final measured root speeds fall below the configured thresholds."""
 
     IK_REACHABLE = "ik_reachable"
     """Build-time check: the robot can reach a top-down grasp at every movable object's
@@ -42,7 +41,7 @@ class PlacementCheck(StrEnum):
 class PlacementValidationResults:
     """A collection of validation check results for placement layouts.
 
-    Keys are check names (see :class:`PlacementCheck` for the standard set and what each check means).
+    Keys are check names; PlacementCheck defines the standard set.
     """
 
     validation_results: dict[str, bool] = field(default_factory=dict)
@@ -103,3 +102,19 @@ class PlacementValidationResults:
             if self.required_checks is None:
                 self.required_checks = set()
             self.required_checks.add(check)
+
+
+@dataclass
+class PlacementValidatorReport:
+    """Configuration and outcome of one check for one placement."""
+
+    check: str
+    """Validator name."""
+    stage: str
+    """Pose stage evaluated by the validator."""
+    configuration: dict
+    """Effective validator settings, including its implementation path."""
+    passed: bool | None
+    """Pass/fail result; None means the validator was skipped."""
+    reason: str = ""
+    """Failure or skip reason, when applicable."""

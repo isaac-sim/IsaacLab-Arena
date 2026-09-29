@@ -18,10 +18,10 @@ import torch
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.relations.placement_events import get_base_rotation_per_asset
-from isaaclab_arena.relations.placement_validation import PlacementCheck
-from isaaclab_arena.relations.placement_validator_registry import register_validator
-from isaaclab_arena.relations.placement_validators import PlacementValidator
 from isaaclab_arena.relations.relations import RequiresReachability, get_anchor_objects
+from isaaclab_arena.relations.validation.pre_physics import PrePhysicsPlacementValidator
+from isaaclab_arena.relations.validation.registry import register_validator
+from isaaclab_arena.relations.validation.types import PlacementCheck
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.yaw import rotate_quat_by_yaw, yaw_from_quat_xyzw
 from isaaclab_arena_curobo.embodiment_curobo_registry import get_embodiment_curobo_cfg
@@ -64,7 +64,7 @@ def get_object_world_pose_from_layout(
 
 
 @register_validator
-class ReachabilityValidator(PlacementValidator):
+class ReachabilityValidator(PrePhysicsPlacementValidator):
     """Build-time placement gate: the robot can reach a top-down grasp at the target objects (cuRobo IK).
     Can be delisted (see ``is_available``) when the params carry no embodiment with a registered cuRobo config.
     """

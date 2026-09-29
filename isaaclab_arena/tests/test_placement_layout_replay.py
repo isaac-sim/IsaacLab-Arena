@@ -313,3 +313,220 @@ def test_cli_loads_layouts_for_yaml_and_python_environments(tmp_path, environmen
     assert run_function_with_persistent_simulation_app(
         _test_cli_loads_layouts_for_yaml_and_python_environments, tmp_path=tmp_path, environment=environment
     )
+
+
+def _make_two_root_embodiment(tmp_path):
+    """Build two independent procedural articulations for root replay coverage."""
+    import isaaclab.sim as sim_utils
+    from isaaclab.actuators import ImplicitActuatorCfg
+    from isaaclab.assets import ArticulationCfg
+    from pxr import Gf, Usd, UsdGeom, UsdPhysics
+
+    from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
+    from isaaclab_arena.embodiments.no_embodiment import EmptyActionsCfg
+    from isaaclab_arena.utils.configclass import make_configclass
+
+    path = tmp_path / "two_link_robot.usda"
+    stage = Usd.Stage.CreateNew(str(path))
+    root = UsdGeom.Xform.Define(stage, "/Robot")
+    stage.SetDefaultPrim(root.GetPrim())
+    UsdGeom.SetStageUpAxis(stage, UsdGeom.Tokens.z)
+    UsdGeom.SetStageMetersPerUnit(stage, 1.0)
+    UsdPhysics.ArticulationRootAPI.Apply(root.GetPrim())
+    for name, x in (("base", 0.0), ("link", 0.2)):
+        body = UsdGeom.Cube.Define(stage, f"/Robot/{name}")
+        body.CreateSizeAttr(0.1)
+        body.AddTranslateOp().Set(Gf.Vec3d(x, 0.0, 0.2))
+        UsdPhysics.CollisionAPI.Apply(body.GetPrim())
+        UsdPhysics.RigidBodyAPI.Apply(body.GetPrim())
+        UsdPhysics.MassAPI.Apply(body.GetPrim()).CreateMassAttr(1.0)
+    fixed = UsdPhysics.FixedJoint.Define(stage, "/Robot/world_joint")
+    fixed.CreateBody1Rel().SetTargets(["/Robot/base"])
+    joint = UsdPhysics.RevoluteJoint.Define(stage, "/Robot/joint")
+    joint.CreateBody0Rel().SetTargets(["/Robot/base"])
+    joint.CreateBody1Rel().SetTargets(["/Robot/link"])
+    joint.CreateAxisAttr("Z")
+    joint.CreateLocalPos0Attr(Gf.Vec3f(0.1, 0.0, 0.0))
+    joint.CreateLocalPos1Attr(Gf.Vec3f(-0.1, 0.0, 0.0))
+    stage.GetRootLayer().Save()
+
+    class TwoRootEmbodiment(EmbodimentBase):
+        name = "two_root_test"
+
+    embodiment = TwoRootEmbodiment()
+    embodiment.action_config = EmptyActionsCfg()
+    roots = []
+    for name, y in (("left_robot", 0.5), ("right_robot", -0.5)):
+        cfg = ArticulationCfg(
+            prim_path="{ENV_REGEX_NS}/" + name,
+            spawn=sim_utils.UsdFileCfg(usd_path=str(path)),
+            init_state=ArticulationCfg.InitialStateCfg(pos=(0.0, y, 0.0), joint_pos={"joint": 0.0}),
+            actuators={"joint": ImplicitActuatorCfg(joint_names_expr=["joint"], stiffness=10.0, damping=1.0)},
+        )
+        roots.append((name, ArticulationCfg, cfg))
+    embodiment.scene_config = make_configclass("TwoRootSceneCfg", roots)()
+    return embodiment
+
+
+def _test_bimanual_root_recording_and_replay(simulation_app, tmp_path):
+    import torch
+
+    from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
+    from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
+    from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
+    from isaaclab_arena.offline_placement.recording import validate_recording_assets
+    from isaaclab_arena.relations.placement_asset import get_scene_root_owners
+    from isaaclab_arena.relations.placement_layouts import PlacementLayouts
+    from isaaclab_arena.scene.scene import Scene
+    from isaaclab_arena.utils.pose import Pose
+
+    embodiment = _make_two_root_embodiment(tmp_path)
+    keys = ("left_robot", "right_robot")
+    assert embodiment.get_scene_root_keys() == keys
+    assert get_scene_root_owners([embodiment]) == {key: embodiment for key in keys}
+    with pytest.raises(AssertionError, match="multiple asset owners"):
+        get_scene_root_owners([embodiment, embodiment])
+    with pytest.raises(AssertionError, match="right_robot"):
+        PlacementLayouts({"left_robot": [Pose()]}).validate_assets([embodiment])
+
+    poses = {
+        "left_robot": [Pose((0.0, 0.5, 0.0)), Pose((0.2, 0.7, 0.0)), Pose((-0.2, 0.6, 0.0))],
+        "right_robot": [Pose((0.1, -0.5, 0.0)), Pose((-0.1, -0.7, 0.0)), Pose((0.3, -0.6, 0.0))],
+    }
+    path = tmp_path / "bimanual.jsonl"
+    PlacementLayouts(poses).write_episode_jsonl(path, source="settled")
+    arena = IsaacLabArenaEnvironment(name="bimanual_root_replay", scene=Scene(assets=[]), embodiment=embodiment)
+    env = ArenaEnvBuilder(arena, ArenaEnvBuilderCfg(num_envs=2, placement_layouts_path=str(path))).make_registered()
+    try:
+        base = env.unwrapped
+        assert set(base.scene.articulations) == set(keys)
+        validate_recording_assets(env, arena.get_placement_assets())
+        scene_cfg = embodiment.get_scene_cfg()
+        assert scene_cfg.left_robot.init_state.pos == poses["left_robot"][0].position_xyz
+        assert scene_cfg.right_robot.init_state.pos == poses["right_robot"][0].position_xyz
+        with pytest.raises(AssertionError, match="Pass scene_assets"):
+            validate_recording_assets(env, [])
+        env.reset()
+        for key in keys:
+            expected = torch.stack([pose.to_tensor(base.device) for pose in poses[key][:2]])
+            torch.testing.assert_close(base.arena_world.get_pose_e(key), expected, atol=2e-5, rtol=0)
+
+        before = {key: base.arena_world.get_pose_e(key) for key in keys}
+        env_ids = torch.tensor([1], device=base.device)
+        for key in keys:
+            body = base.scene.articulations[key]
+            moved = body.data.root_pose_w.torch[env_ids].clone()
+            moved[:, 0] += 0.5
+            body.write_root_pose_to_sim(moved, env_ids=env_ids)
+        base._reset_idx(env_ids)
+        for key in keys:
+            actual = base.arena_world.get_pose_e(key)
+            torch.testing.assert_close(actual[0], before[key][0], atol=2e-5, rtol=0)
+            torch.testing.assert_close(actual[1], poses[key][2].to_tensor(base.device), atol=2e-5, rtol=0)
+            torch.testing.assert_close(
+                base.scene.articulations[key].data.root_vel_w.torch[env_ids],
+                torch.zeros((1, 6), device=base.device),
+                atol=0,
+                rtol=0,
+            )
+        measured_poses = {}
+        for key in keys:
+            values = before[key][0].tolist()
+            measured_poses[key] = [Pose(tuple(values[:3]), tuple(values[3:]))]
+        measured = PlacementLayouts(measured_poses)
+        measured.validate_assets(arena.get_placement_assets())
+    finally:
+        env.close()
+    return True
+
+
+def test_bimanual_root_recording_and_replay(tmp_path):
+    assert run_function_with_persistent_simulation_app(_test_bimanual_root_recording_and_replay, tmp_path=tmp_path)
+
+
+def _test_cached_reference_preserves_joint_reset(simulation_app, tmp_path):
+    import torch
+
+    from isaaclab_arena.assets.background import Background
+    from isaaclab_arena.assets.object_reference import ObjectReference
+    from isaaclab_arena.assets.object_type import ObjectType
+    from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
+    from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
+    from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
+    from isaaclab_arena.offline_placement.recording import validate_recording_assets
+    from isaaclab_arena.relations.placement_layouts import PlacementLayouts
+    from isaaclab_arena.scene.scene import Scene
+    from isaaclab_arena.tests.test_background_physics_reset import _create_background_usds
+    from isaaclab_arena.utils.isaaclab_utils.simulation_app import teardown_simulation_app
+    from isaaclab_arena.utils.pose import Pose
+
+    background_path = tmp_path / "background.usd"
+    online_path = tmp_path / "online_asset.usd"
+    _create_background_usds(str(background_path), str(online_path), include_joint_network=False)
+    key = "referenced_articulation"
+    layouts = None
+    for cached in (False, True):
+        background = Background("background", str(background_path), object_min_z=0.0)
+        reference = ObjectReference(
+            name=key,
+            prim_path="{ENV_REGEX_NS}/background/referenced_articulation",
+            parent_asset=background,
+            object_type=ObjectType.ARTICULATION,
+        )
+        arena = IsaacLabArenaEnvironment(
+            name=f"reference_joint_reset_{cached}",
+            scene=Scene(assets=[background, reference]),
+            placement_layouts=layouts,
+        )
+        env = ArenaEnvBuilder(arena, ArenaEnvBuilderCfg(num_envs=2, device="cpu")).make_registered()
+        try:
+            base = env.unwrapped
+            env.reset()
+            validate_recording_assets(env, arena.get_placement_assets())
+            articulation = base.scene.articulations[key]
+            initial_root = articulation.data.root_pose_w.torch.clone()
+            initial_position = articulation.data.default_joint_pos.torch.clone()
+            initial_velocity = articulation.data.default_joint_vel.torch.clone()
+            assert initial_position.shape == (2, 1)
+            if cached:
+                expected_pose = layouts.poses[key][0].to_tensor(base.device)
+                torch.testing.assert_close(base.arena_world.get_pose_e(key)[0], expected_pose, atol=1e-5, rtol=0)
+            else:
+                local_pose = base.arena_world.get_pose_e(key)[0].tolist()
+                # The cached root must win even when it differs from the reference's source pose.
+                local_pose[0] += 0.1
+                layouts = PlacementLayouts({key: [Pose(tuple(local_pose[:3]), tuple(local_pose[3:]))]})
+
+            moved_root = initial_root.clone()
+            moved_root[:, 0] += 0.4
+            moved_position = initial_position + 0.2
+            moved_velocity = torch.full_like(initial_velocity, 0.5)
+            moved_root_velocity = torch.ones_like(articulation.data.root_vel_w.torch)
+            articulation.write_root_pose_to_sim(moved_root)
+            articulation.write_root_velocity_to_sim(moved_root_velocity)
+            articulation.write_joint_position_to_sim_index(position=moved_position)
+            articulation.write_joint_velocity_to_sim_index(velocity=moved_velocity)
+
+            # Public partial reset must restore env 1 without touching env 0's current episode.
+            base.reset(env_ids=torch.tensor([1], device=base.device))
+            torch.testing.assert_close(articulation.data.root_pose_w.torch[1], initial_root[1], atol=1e-5, rtol=0)
+            torch.testing.assert_close(articulation.data.root_pose_w.torch[0], moved_root[0], atol=1e-5, rtol=0)
+            torch.testing.assert_close(
+                articulation.data.root_vel_w.torch[1], torch.zeros_like(moved_root_velocity[1]), atol=0, rtol=0
+            )
+            torch.testing.assert_close(articulation.data.root_vel_w.torch[0], moved_root_velocity[0], atol=0, rtol=0)
+            for state, initial, moved in (
+                (articulation.data.joint_pos.torch, initial_position, moved_position),
+                (articulation.data.joint_vel.torch, initial_velocity, moved_velocity),
+            ):
+                torch.testing.assert_close(state[0], moved[0], atol=1e-5, rtol=0)
+                torch.testing.assert_close(state[1], initial[1], atol=1e-5, rtol=0, msg=f"cached={cached}: {state}")
+        finally:
+            env.close()
+            if not cached:
+                teardown_simulation_app(suppress_exceptions=False, make_new_stage=True)
+    return True
+
+
+def test_cached_reference_preserves_joint_reset(tmp_path):
+    assert run_function_with_persistent_simulation_app(_test_cached_reference_preserves_joint_reset, tmp_path=tmp_path)

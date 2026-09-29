@@ -154,6 +154,25 @@ keep placement geometry-only.
 Both are set on ``ObjectPlacerParams`` in Python or the ``placer_params`` block
 in YAML; see :doc:`../environment/environment_definition`.
 
+Custom Validators
+-----------------
+
+Build-time checks subclass ``PrePhysicsPlacementValidator`` from
+``isaaclab_arena.relations.validation.pre_physics`` and register with
+``register_validator`` from ``isaaclab_arena.relations.validation.registry``.
+Implement ``validate_batch()`` to return one boolean per candidate and give the
+class a unique ``check`` name. Include that name in ``ObjectPlacerParams.enabled_checks``
+when explicitly selecting checks. Existing extensions importing the build-time
+``PlacementValidator`` should use ``PrePhysicsPlacementValidator`` instead;
+its constructor and batch-validation contract are unchanged. Import
+``PlacementCheck``, ``PlacementValidationResults`` and ``PlacementValidatorReport``
+from ``isaaclab_arena.relations.validation.types``.
+
+The shared ``PlacementValidator`` in ``isaaclab_arena.relations.validation.base``
+defines the check name and stage. Post-physics checks use
+``PostPhysicsPlacementValidator``; see :doc:`../offline_placement/recording` for
+their configuration and reporting contract.
+
 Next Steps
 ----------
 

@@ -12,9 +12,9 @@ import pytest
 
 from isaaclab_arena.relations.object_placer import ObjectPlacer
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-from isaaclab_arena.relations.placement_validation import PlacementCheck
-from isaaclab_arena.relations.placement_validators import NextToValidator, NotNextToValidator, OnRelationValidator
 from isaaclab_arena.relations.relations import NextTo, NotNextTo, On, RotateAroundSolution, Side
+from isaaclab_arena.relations.validation.pre_physics import NextToValidator, NotNextToValidator, OnRelationValidator
+from isaaclab_arena.relations.validation.types import PlacementCheck
 from isaaclab_arena.tests.dummy_object import DummyObject
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
