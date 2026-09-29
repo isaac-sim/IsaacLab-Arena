@@ -124,8 +124,10 @@ def _test_flat_subtasks_share_manager_ordering_final_checks_and_reset(simulation
     assert set(env.extras["progress_tracking"]["states"][0].progress_objectives) == set(predicate_names)
 
     manager.reset(env_ids=[0])
+    env.episode_length_buf[0] = 0
     assert env.progress_tracker.get_subtask_completion().tolist() == [[False, False], [True, True]]
     assert env.progress_tracker.is_complete().tolist() == [False, True]
+    env.episode_length_buf += 1
     manager.compute()
     assert manager.get_term("success").tolist() == [False, True]
     env.episode_length_buf += 1
