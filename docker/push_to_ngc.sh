@@ -55,11 +55,11 @@ NGC_PATH="nvcr.io/nvstaging/isaac-amr/${DOCKER_IMAGE_NAME}"
 echo "Building target ${DOCKER_TARGET} as ${DOCKER_IMAGE_NAME}."
 echo "NGC_PATH is ${NGC_PATH}."
 
-# Build the thing
+# Share target selection and cache handling with local builds.
 "$SCRIPT_DIR/build_docker.sh" -t "$DOCKER_TARGET" \
     -n "$DOCKER_IMAGE_NAME" "${BUILD_OPTIONS[@]}"
 
-# Maybe push
+
 if [ "$PUSH_TO_NGC" = true ]; then
     echo "Pushing image to ${NGC_PATH}."
     docker tag "$DOCKER_IMAGE_NAME" "$NGC_PATH"

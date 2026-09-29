@@ -22,8 +22,13 @@ mkdir -p /wheels
 # that preserve Isaac Sim's existing packages.
 /isaac-sim/python.sh - <<'PYTHON'
 import email
+import hashlib
+import json
+import os
 from pathlib import Path
 import zipfile
+
+import torch
 
 wheels = list(Path('/wheels').glob('*.whl'))
 assert len(wheels) == 1, wheels
@@ -34,4 +39,13 @@ with zipfile.ZipFile(wheel) as archive:
     metadata = email.message_from_bytes(archive.read(metadata_path))
     requirements = metadata.get_all('Requires-Dist', [])
 Path('/wheels/runtime-requirements.txt').write_text('\n'.join(requirements) + '\n')
+# Human-readable provenance for diagnosing installed-wheel revision/ABI mismatches.
+Path('/wheels/build.json').write_text(json.dumps({
+    'commit': os.environ['CUROBO_COMMIT'],
+    'torch': torch.__version__,
+    'cuda': torch.version.cuda,
+    'architectures': os.environ['TORCH_CUDA_ARCH_LIST'],
+    'wheel': wheel.name,
+    'sha256': hashlib.sha256(wheel.read_bytes()).hexdigest(),
+}, indent=2) + '\n')
 PYTHON

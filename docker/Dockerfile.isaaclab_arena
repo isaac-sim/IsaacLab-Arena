@@ -96,10 +96,12 @@ RUN --mount=type=bind,source=docker/setup/install_cuda.sh,target=/tmp/install_cu
 ################################
 # Note that we're not inheriting from curobo-builder. Instead we install the wheel through a mount.
 FROM dev AS dev-curobo
+# Retain build provenance for manual inspection in /usr/local/share/arena/curobo-build.json.
 RUN --mount=type=bind,from=curobo-builder,source=/wheels,target=/wheels \
     --mount=type=bind,source=docker/setup/install-curobo-runtime-deps.sh,target=/tmp/install-curobo-runtime-deps.sh \
     bash /tmp/install-curobo-runtime-deps.sh && \
-    /isaac-sim/python.sh -m pip install --no-deps /wheels/*.whl
+    /isaac-sim/python.sh -m pip install --no-deps /wheels/*.whl && \
+    mkdir -p /usr/local/share/arena && cp /wheels/build.json /usr/local/share/arena/curobo-build.json
 
 # Default to dev (without cuRobo).
 FROM dev AS default
