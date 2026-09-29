@@ -53,7 +53,7 @@ def _make_world():
     return ArenaWorld(scene)
 
 
-def _test_gear_success_requires_jaw_release_and_samples_position_once(_simulation_app) -> bool:
+def _test_gear_success_requires_withdrawal_and_samples_position_once(_simulation_app) -> bool:
     import torch
     from types import SimpleNamespace
 
@@ -61,15 +61,12 @@ def _test_gear_success_requires_jaw_release_and_samples_position_once(_simulatio
 
     class TestGripper:
         def __init__(self):
-            self.opening_width_m = torch.tensor([0.05])
+            self.position_w = torch.tensor([[0.01, 0.0, 0.0]])
             self.position_calls = 0
-
-        def get_opening_width_m(self, _world):
-            return self.opening_width_m
 
         def get_position_w(self, _world):
             self.position_calls += 1
-            return torch.tensor([[0.1, 0.0, 0.0]])
+            return self.position_w
 
     board = SimpleNamespace(
         data=SimpleNamespace(
@@ -104,8 +101,6 @@ def _test_gear_success_requires_jaw_release_and_samples_position_once(_simulatio
         "board_asset_cfg": SimpleNamespace(),
         "gear_asset_cfgs": (SimpleNamespace(), SimpleNamespace()),
         "gripper": gripper,
-        "grasp_width_m": 0.055,
-        "release_clearance_m": 0.005,
         "target_offsets_xyz": ((0.0, 0.0, 0.0), (0.0, 0.0, 0.0)),
         "gear_teeth": (20, 20),
     }
@@ -113,16 +108,14 @@ def _test_gear_success_requires_jaw_release_and_samples_position_once(_simulatio
     assert not success(env, **params).item()
     assert gripper.position_calls == 1
 
-    gripper.opening_width_m[:] = 0.061
+    gripper.position_w[:, 0] = 0.1
     assert success(env, **params).item()
     assert gripper.position_calls == 2
     return True
 
 
-def test_gear_success_requires_jaw_release_and_samples_position_once() -> None:
-    assert run_function_with_persistent_simulation_app(
-        _test_gear_success_requires_jaw_release_and_samples_position_once
-    )
+def test_gear_success_requires_withdrawal_and_samples_position_once() -> None:
+    assert run_function_with_persistent_simulation_app(_test_gear_success_requires_withdrawal_and_samples_position_once)
 
 
 def _test_gear_mesh_reset_event_clears_legacy_state(_simulation_app) -> bool:
@@ -197,10 +190,9 @@ def test_gear_mesh_reset_event_clears_legacy_state() -> None:
     assert run_function_with_persistent_simulation_app(_test_gear_mesh_reset_event_clears_legacy_state)
 
 
-def _test_gear_task_configures_release_checks_for_the_embodiment_gripper(_simulation_app) -> bool:
+def _test_gear_task_configures_withdrawal_check_for_the_embodiment_gripper(_simulation_app) -> bool:
     from types import SimpleNamespace
 
-    from isaaclab_arena.tasks.predicates.gripper import gripper_released
     from isaaclab_arena_environments.isaac_cap.gear_insertion_v2.embodiment import IndustrialFr3Robotiq2f85Embodiment
     from isaaclab_arena_environments.isaac_cap.gear_insertion_v2.task.task import GearMeshTaskV2
     from isaaclab_arena_environments.isaac_cap.gear_insertion_v2.task.terminations import reset_gear_mesh_state
@@ -208,8 +200,6 @@ def _test_gear_task_configures_release_checks_for_the_embodiment_gripper(_simula
     task = GearMeshTaskV2(
         board=SimpleNamespace(name="board"),
         gear=SimpleNamespace(name="gear"),
-        grasp_width_m=0.035,
-        release_clearance_m=0.004,
     )
     params = task.get_termination_cfg().success[0].predicate_sequence[0].params
     assert "gripper" not in params
@@ -224,47 +214,27 @@ def _test_gear_task_configures_release_checks_for_the_embodiment_gripper(_simula
     assert "robot_asset_cfg" not in params
     assert "tcp_body_name" not in params
     assert "tcp_offset_xyz" not in params
-    assert params["grasp_width_m"] == pytest.approx(0.035)
-    assert params["release_clearance_m"] == pytest.approx(0.004)
-    released = gripper_released(
-        SimpleNamespace(arena_world=_make_world()),
-        gripper=params["gripper"],
-        grasp_width_m=params["grasp_width_m"],
-        release_clearance_m=params["release_clearance_m"],
-    )
-    assert released.tolist() == [True, False]
+    assert params["gripper"].get_position_w(_make_world()).shape == (2, 3)
     return True
 
 
-def test_gear_task_configures_release_checks_for_the_embodiment_gripper() -> None:
+def test_gear_task_configures_withdrawal_check_for_the_embodiment_gripper() -> None:
     assert run_function_with_persistent_simulation_app(
-        _test_gear_task_configures_release_checks_for_the_embodiment_gripper
+        _test_gear_task_configures_withdrawal_check_for_the_embodiment_gripper
     )
 
 
-def _test_gear_task_derives_default_grasp_width_from_teeth(_simulation_app) -> bool:
+def _test_gear_task_uses_cap_finished_failure(_simulation_app) -> bool:
     from types import SimpleNamespace
 
+    from isaaclab_arena_environments.isaac_cap.cap_policy import cap_episode_finished
     from isaaclab_arena_environments.isaac_cap.gear_insertion_v2.task.task import GearMeshTaskV2
 
     task = GearMeshTaskV2(board=SimpleNamespace(name="board"), gear=SimpleNamespace(name="gear"), gear_teeth=20)
-    params = task.get_termination_cfg().success[0].predicate_sequence[0].params
-    assert params["grasp_width_m"] == pytest.approx(0.055)
-
-    task.set_gear_teeth(24)
-    assert params["grasp_width_m"] == pytest.approx(0.065)
-
-    override_task = GearMeshTaskV2(
-        board=SimpleNamespace(name="board"),
-        gear=SimpleNamespace(name="gear"),
-        gear_teeth=20,
-        grasp_width_m=0.04,
-    )
-    override_params = override_task.get_termination_cfg().success[0].predicate_sequence[0].params
-    override_task.set_gear_teeth(24)
-    assert override_params["grasp_width_m"] == pytest.approx(0.04)
+    termination_cfg = task.get_termination_cfg()
+    assert termination_cfg.failures["cap_finished"].func is cap_episode_finished
     return True
 
 
-def test_gear_task_derives_default_grasp_width_from_teeth() -> None:
-    assert run_function_with_persistent_simulation_app(_test_gear_task_derives_default_grasp_width_from_teeth)
+def test_gear_task_uses_cap_finished_failure() -> None:
+    assert run_function_with_persistent_simulation_app(_test_gear_task_uses_cap_finished_failure)

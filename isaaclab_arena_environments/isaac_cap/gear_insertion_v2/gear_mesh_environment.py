@@ -117,7 +117,6 @@ class GearMeshNewtonEnvironment(ArenaEnvironmentFactory[GearMeshNewtonEnvironmen
         register_components()
         spec = ArenaEnvGraphSpec.from_yaml(str(self.scene_spec))
         arena_env = spec.to_arena_env(enable_cameras=cfg.enable_cameras)
-        arena_env.embodiment.camera_config.use_overhead_profile("gear")
         arena_env.embodiment.set_use_tiled_cameras(cfg.use_tiled_cameras)
         arena_env.embodiment.set_use_instanceable_meshes(cfg.use_instanceable_meshes)
         from .mesh_instancing import configure_scene_mesh_instancing

@@ -107,4 +107,4 @@ task:
       target_offsets_xyz:
       - [0.032, 0.0, 0.008]
       - [0.077, 0.0, 0.008]
-      episode_length_s: 200.0
+      episode_length_s: 500.0

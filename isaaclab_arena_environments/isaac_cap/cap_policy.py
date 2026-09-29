@@ -39,6 +39,9 @@ class CapPolicyCfg(PolicyCfg):
     connect_timeout_s: float = 180.0
     io_timeout_s: float = 180.0
     settle_s: float = 2.0
+    overhead_camera: str = "top_camera"
+    eye_in_hand_camera: str = "wrist_camera"
+    agentview_camera: str = "exterior_left_camera"
 
 
 @register_policy
@@ -174,11 +177,12 @@ class CapPolicy(PolicyBase[CapPolicyCfg]):
             },
         }
         for name, alias in (
-            ("top_camera", "overhead"),
-            ("wrist_camera", "eye_in_hand"),
-            ("exterior_left_camera", "agentview"),
+            (self.config.overhead_camera, "overhead"),
+            (self.config.eye_in_hand_camera, "eye_in_hand"),
+            (self.config.agentview_camera, "agentview"),
         ):
-            frame[alias] = self._camera(env, name)
+            if name:
+                frame[alias] = self._camera(env, name)
         return frame
 
     def _apply_reply(self, reply: dict[str, Any], action: torch.Tensor) -> None:

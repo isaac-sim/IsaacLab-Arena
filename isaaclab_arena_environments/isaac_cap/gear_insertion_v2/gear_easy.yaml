@@ -101,4 +101,4 @@ task:
       board: board
       gear: gear_a
       gear_teeth: 20
-      episode_length_s: 100.0
+      episode_length_s: 300.0
