@@ -90,6 +90,9 @@ def test_reference_anchor_bounds_do_not_reapply_prim_rotation(parent_pose, expec
     world_bounds = bounds.translated(reference.get_initial_pose().position_xyz)
     torch.testing.assert_close(world_bounds.min_point, torch.tensor([expected_lower] * 2))
     torch.testing.assert_close(world_bounds.max_point, torch.tensor([expected_upper] * 2))
+    torch.testing.assert_close(reference.get_world_bounding_box().min_point, torch.tensor([expected_lower]))
+    torch.testing.assert_close(reference.get_world_bounding_box().max_point, torch.tensor([expected_upper]))
+    assert reference.get_parent_pose() == (parent_pose if parent_pose is not None else Pose.identity())
 
 
 def test_object_reference_caches_parent_usd_prim_path(monkeypatch):

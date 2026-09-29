@@ -575,19 +575,15 @@ def test_validate_placement_mesh_mode_rejects_aabb_foreground_background_overlap
     env_bboxes = {table: table.get_bounding_box(), box: box.get_bounding_box()}
 
     overlapping = {table: (0.0, 0.0, 0.0), box: (0.0, 0.0, 0.075)}
-    validation = (
-        placer._validation.validate_candidates(make_candidate_batch([overlapping], [{}], [env_bboxes]), [background])
-        .candidates[0]
-        .validation
-    )
+    batch = make_candidate_batch([overlapping], [{}], [env_bboxes])
+    placer._validation.validate_candidates(batch, [background])
+    validation = batch.candidates[0].validation
     assert not validation.validation_results[PlacementCheck.NO_OVERLAP]
 
     clear = {table: (0.0, 0.0, 0.0), box: (0.3, 0.0, 0.075)}
-    validation = (
-        placer._validation.validate_candidates(make_candidate_batch([clear], [{}], [env_bboxes]), [background])
-        .candidates[0]
-        .validation
-    )
+    batch = make_candidate_batch([clear], [{}], [env_bboxes])
+    placer._validation.validate_candidates(batch, [background])
+    validation = batch.candidates[0].validation
     assert validation.validation_results[PlacementCheck.NO_OVERLAP]
 
 
@@ -1234,19 +1230,13 @@ def test_mesh_mode_scores_background_collision_object():
     solver.solve([table, box], initial, collision_objects=[background])
 
     params = ObjectPlacerParams(solver_params=solver_params)
-    validation = (
-        ObjectPlacer(params=params)
-        ._validation.validate_candidates(
-            make_candidate_batch(
-                [{table: (0.0, 0.0, 0.0), box: (0.0, 0.0, 0.05)}],
-                [{}],
-                [{table: table.get_bounding_box(), box: box.get_bounding_box()}],
-            ),
-            [background],
-        )
-        .candidates[0]
-        .validation
+    batch = make_candidate_batch(
+        [{table: (0.0, 0.0, 0.0), box: (0.0, 0.0, 0.05)}],
+        [{}],
+        [{table: table.get_bounding_box(), box: box.get_bounding_box()}],
     )
+    ObjectPlacer(params=params)._validation.validate_candidates(batch, [background])
+    validation = batch.candidates[0].validation
 
     assert solver.last_loss_per_env[0].item() > 0.0
     assert not validation.do_all_required_validation_checks_pass()
@@ -1353,8 +1343,8 @@ def test_batched_mesh_loss_matches_test_only_serial_oracle():
 def test_tilted_clutter_requires_bbox_collision():
     from isaaclab_arena.relations.object_placer import ObjectPlacer
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-    from isaaclab_arena.relations.placement_validation import PlacementCheck
     from isaaclab_arena.relations.relations import ClutterOn, RotateAroundSolution
+    from isaaclab_arena.relations.validation.types import PlacementCheck
 
     support = _make_table()
     rods = [_make_box_obj(f"rod_{i}", 0.8, 0.04, 0.04) for i in range(2)]

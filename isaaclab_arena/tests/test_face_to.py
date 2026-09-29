@@ -18,7 +18,6 @@ from isaaclab_arena.environment_spec.arena_env_graph_types import SpatialRelatio
 from isaaclab_arena.relations.collision_mode import CollisionMode
 from isaaclab_arena.relations.object_placer import ObjectPlacer
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-from isaaclab_arena.relations.placement_candidate_generator import PlacementCandidateGenerator
 from isaaclab_arena.relations.relation_solver import RelationSolver
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.relations.relations import AtPosition, FaceTo, IsAnchor, RandomAroundSolution, RotateAroundSolution
@@ -139,15 +138,9 @@ def test_coincident_face_to_fails_candidate_validation():
     orientations = [{}]
 
     ObjectPlacer._apply_face_to_orientations([positions], orientations)
-    validation = (
-        ObjectPlacer()
-        ._validation.validate_candidates(
-            make_candidate_batch([positions], [{subject: 0.0}], [{obj: obj.get_bounding_box() for obj in positions}]),
-            [],
-        )
-        .candidates[0]
-        .validation
-    )
+    batch = make_candidate_batch([positions], [{subject: 0.0}], [{obj: obj.get_bounding_box() for obj in positions}])
+    ObjectPlacer()._validation.validate_candidates(batch, [])
+    validation = batch.candidates[0].validation
 
     assert orientations == [{}]
     assert validation.validation_results[PlacementCheck.FACE_TO] is False
@@ -162,24 +155,55 @@ def test_face_to_rebuilds_rotated_footprint_before_validation():
     objects = [subject, target, blocker]
     positions = {subject: (0.0, 0.0, 0.0), target: (0.0, 2.0, 0.0), blocker: (0.0, 0.75, 0.0)}
     unrotated = {obj: obj.get_bounding_box() for obj in objects}
-    orientations = [{}]
+    batch = make_candidate_batch([positions], [{}], [unrotated])
     placer = ObjectPlacer()
 
-    assert (
-        placer._validation.validate_candidates(make_candidate_batch([positions], [{}], [unrotated]), [])
-        .candidates[0]
-        .validation.validation_results[PlacementCheck.NO_OVERLAP]
-    )
-    ObjectPlacer._apply_face_to_orientations([positions], orientations)
-    rotated = PlacementCandidateGenerator.rotate_candidate_bboxes(objects, unrotated, orientations)
-    validation = (
-        placer._validation.validate_candidates(make_candidate_batch([positions], [orientations[0]], [rotated]), [])
-        .candidates[0]
-        .validation
-    )
+    placer._validation.validate_candidates(batch, [])
+    assert batch.candidates[0].validation.validation_results[PlacementCheck.NO_OVERLAP]
+    placer._finish_candidate_geometry(batch, [unrotated])
+    placer._validation.validate_candidates(batch, [])
 
-    assert orientations[0][subject] == pytest.approx(math.pi / 2)
-    assert validation.validation_results[PlacementCheck.NO_OVERLAP] is False
+    assert batch.candidates[0].orientations[subject] == pytest.approx(math.pi / 2)
+    assert batch.candidates[0].validation.validation_results[PlacementCheck.NO_OVERLAP] is False
+
+
+def test_candidate_stages_update_the_same_layout():
+    from isaaclab_arena.relations.validation.types import PlacementValidationResults
+
+    pair = _face_to_pair(target_position=(0.0, 2.0, 0.0), subject_half_extents=(0.4, 0.1, 0.1))
+    pair.subject.add_relation(AtPosition(x=0.0, y=0.0, z=0.0))
+    objects = [pair.target, pair.subject]
+    bounds = {obj: obj.get_bounding_box() for obj in objects}
+    positions = {pair.target: (0.0, 2.0, 0.0), pair.subject: (1.0, 0.0, 0.0)}
+    batch = make_candidate_batch([positions], [{}], [bounds])
+    candidate = batch.candidates[0]
+    candidate.validation = PlacementValidationResults(validation_results={"stale": False})
+    placer = ObjectPlacer(ObjectPlacerParams(solver_params=RelationSolverParams(max_iters=1, lr=0.1)))
+
+    assert placer._solver.solve_candidates(objects, batch, []) is None
+    assert batch.candidates[0] is candidate
+    assert candidate.positions[pair.subject] == pytest.approx((0.9, 0.0, 0.0))
+    assert candidate.loss == pytest.approx(90.0)
+    assert candidate.validation is None
+
+    assert placer._finish_candidate_geometry(batch, [bounds]) is None
+    yaw = math.atan2(2.0, -candidate.positions[pair.subject][0])
+    assert candidate.orientations[pair.subject] == pytest.approx(yaw)
+    expected_half_extents = torch.tensor([[
+        0.4 * abs(math.cos(yaw)) + 0.1 * abs(math.sin(yaw)),
+        0.4 * abs(math.sin(yaw)) + 0.1 * abs(math.cos(yaw)),
+        0.1,
+    ]])
+    # Refitting twice must not rotate the already-rotated bounds again.
+    placer._finish_candidate_geometry(batch, [bounds])
+    torch.testing.assert_close(candidate.bboxes[pair.subject].min_point, -expected_half_extents)
+    torch.testing.assert_close(candidate.bboxes[pair.subject].max_point, expected_half_extents)
+    torch.testing.assert_close(bounds[pair.subject].max_point, torch.tensor([[0.4, 0.1, 0.1]]))
+
+    assert placer._validation.validate_candidates(batch, []) is None
+    assert batch.candidates[0] is candidate
+    assert "stale" not in candidate.validation.validation_results
+    assert candidate.validation.do_all_required_validation_checks_pass()
 
 
 def test_face_to_suppresses_initial_random_yaw_and_rejects_rotate_marker():

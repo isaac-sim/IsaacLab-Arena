@@ -15,12 +15,12 @@ from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 if TYPE_CHECKING:
     from isaaclab_arena.relations.placement_asset import PlaceableAsset
-    from isaaclab_arena.relations.placement_validation import PlacementValidationResults
+    from isaaclab_arena.relations.validation.types import PlacementValidationResults
 
 
 @dataclass
 class PlacementCandidate:
-    """One proposed layout of all placement objects in one environment."""
+    """One working layout of all placement objects in one environment."""
 
     env_id: int
     """Environment whose geometry and object variants this layout uses."""
@@ -49,7 +49,7 @@ class PlacementCandidateBatch:
         return len(self.candidates)
 
     def select(self, indices: list[int]) -> PlacementCandidateBatch:
-        """Select or reorder layouts by batch index without changing their identities."""
+        """Select or reorder layouts by batch index, retaining references to the same candidates."""
         return PlacementCandidateBatch([self.candidates[i] for i in indices])
 
     def stacked_bboxes(self) -> dict[PlaceableAsset, AxisAlignedBoundingBox]:

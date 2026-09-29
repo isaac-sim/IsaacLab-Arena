@@ -10,9 +10,9 @@ import torch
 
 import pytest
 
+from isaaclab_arena.relations.bounding_box_helpers import rotate_candidate_bboxes
 from isaaclab_arena.relations.object_placer import ObjectPlacer
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-from isaaclab_arena.relations.placement_candidate_generator import PlacementCandidateGenerator
 from isaaclab_arena.relations.relations import NextTo, NotNextTo, On, RotateAroundSolution, Side
 from isaaclab_arena.relations.validation.pre_physics import NextToValidator, NotNextToValidator, OnRelationValidator
 from isaaclab_arena.relations.validation.types import PlacementCheck
@@ -48,13 +48,9 @@ def _env_bboxes(positions: dict[DummyObject, tuple[float, float, float]]):
 
 def _validate_one(placer: ObjectPlacer, positions, env_bboxes, orientations=None):
     """Run every enabled validator over a single candidate and return its aggregated results."""
-    return (
-        placer._validation.validate_candidates(
-            make_candidate_batch([positions], [orientations or {}], [env_bboxes]), []
-        )
-        .candidates[0]
-        .validation
-    )
+    batch = make_candidate_batch([positions], [orientations or {}], [env_bboxes])
+    placer._validation.validate_candidates(batch, [])
+    return batch.candidates[0].validation
 
 
 def _stack_rows(bbox: AxisAlignedBoundingBox, n: int) -> AxisAlignedBoundingBox:
@@ -139,9 +135,7 @@ def test_candidate_bbox_aligns_with_candidate_yaw():
 
     # Two candidates share positions but assign distinct yaws to `a`.
     candidate_bboxes = {a: _stack_rows(a.get_bounding_box(), 2), b: _stack_rows(b.get_bounding_box(), 2)}
-    rotated = PlacementCandidateGenerator.rotate_candidate_bboxes(
-        [a, b], candidate_bboxes, [{a: 0.0}, {a: math.pi / 2}]
-    )
+    rotated = rotate_candidate_bboxes([a, b], candidate_bboxes, [{a: 0.0}, {a: math.pi / 2}])
 
     # Mirrors _place_ranked: each candidate validates against its own bbox row.
     validations = [
@@ -161,9 +155,7 @@ def test_rotate_candidate_bboxes_encloses_marker_plus_sampled_yaw():
     total_yaw = marker_yaw + sampled_yaw
     box.add_relation(RotateAroundSolution(yaw_rad=marker_yaw))
 
-    rotated = PlacementCandidateGenerator.rotate_candidate_bboxes(
-        [box], {box: box.get_bounding_box()}, [{box: total_yaw}]
-    )
+    rotated = rotate_candidate_bboxes([box], {box: box.get_bounding_box()}, [{box: total_yaw}])
 
     expected = box.get_bounding_box().rotated_around_z(total_yaw)
     torch.testing.assert_close(rotated[box].min_point, expected.min_point, atol=1e-6, rtol=0)
@@ -190,9 +182,7 @@ def test_marker_yaw_expands_bounds_without_extra_rotation(marker_yaw, include_or
     yaw = yaw_from_quat_xyzw(marker.get_rotation_xyzw())
     orientations = {syringe: yaw} if include_orientation else {}
 
-    rotated = PlacementCandidateGenerator.rotate_candidate_bboxes(
-        [syringe], {syringe: syringe.get_bounding_box()}, [orientations]
-    )[syringe]
+    rotated = rotate_candidate_bboxes([syringe], {syringe: syringe.get_bounding_box()}, [orientations])[syringe]
 
     expected_half = torch.tensor([[
         abs(math.cos(marker_yaw)) * half_x + abs(math.sin(marker_yaw)) * half_y,
@@ -212,9 +202,7 @@ def test_marker_only_yaw_rejects_overlap_after_applying_pose():
     objects = [a, b]
     positions = {a: (0.0, 0.0, 0.0), b: (0.0, 0.2, 0.0)}
     orientations = placer._candidate_generator.generate_orientations(objects, set())
-    candidate_bboxes = placer._candidate_generator.rotate_candidate_bboxes(
-        objects, _env_bboxes(positions), [orientations]
-    )
+    candidate_bboxes = rotate_candidate_bboxes(objects, _env_bboxes(positions), [orientations])
     placer._apply_poses([positions], set(), [orientations])
 
     applied_bboxes = {
@@ -247,7 +235,7 @@ def test_rotate_candidate_bboxes_encloses_pitched_object():
     assert _validate_one(placer, positions, axis_aligned).do_all_required_validation_checks_pass() is True
 
     # Composing the applied pitch grows a's X extent to 0.3, so it now overlaps b and is rejected.
-    rotated = PlacementCandidateGenerator.rotate_candidate_bboxes([a, b], axis_aligned, [{}])
+    rotated = rotate_candidate_bboxes([a, b], axis_aligned, [{}])
     assert _validate_one(placer, positions, rotated).do_all_required_validation_checks_pass() is False
 
 

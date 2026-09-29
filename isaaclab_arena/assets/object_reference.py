@@ -18,7 +18,7 @@ from isaaclab_arena.assets.object_base import ObjectBase, RootedObjectBase
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.relations.relations import IsAnchor, RelationBase
 from isaaclab_arena.terms.events import reset_articulation_joints, reset_articulation_pose_and_joints
-from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, quaternion_to_90_deg_z_quarters
+from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.usd.helpers import (
     NoCollisionMeshError,
@@ -70,20 +70,13 @@ class ObjectReference(RootedObjectBase):
         """Return T_E_O for reference O, parent P and local environment frame E."""
         T_P_O = self.initial_pose_relative_to_parent
         T_E_P = self.get_parent_pose()
-        if T_E_P is None:
-            return T_P_O
         T_E_O = T_E_P.multiply(T_P_O)
         return T_E_O
 
-    def get_parent_pose(self) -> Pose | None:
-        """Return the parent's fixed pose, or None when it has no configured pose."""
+    def get_parent_pose(self) -> Pose:
+        """Return the parent's fixed pose, using identity when no pose is configured."""
         pose = self.parent_asset.initial_pose
         assert pose is None or isinstance(pose, Pose), "ObjectReference requires a fixed parent pose"
-        return pose
-
-    def get_parent_pose_or_identity(self) -> Pose:
-        """Return the parent's fixed pose, using identity when no pose is configured."""
-        pose = self.get_parent_pose()
         return pose if pose is not None else Pose.identity()
 
     @property
@@ -124,16 +117,9 @@ class ObjectReference(RootedObjectBase):
                 self._bounding_box = raw_bbox.scaled(self._parent_scale)
         return self._bounding_box
 
-    def get_world_bounding_box(self) -> AxisAlignedBoundingBox:
-        """Bounding box in world coordinates.
-
-        get_bounding_box() is already axis-aligned in the parent's frame, so only the parent's
-        placement rotation (identity or a 90° Z multiple) and the prim's world position are applied.
-        """
-        box = self.get_bounding_box()
-        world_position = self.get_initial_pose().position_xyz
-        quarters = quaternion_to_90_deg_z_quarters(self.get_parent_pose_or_identity().rotation_xyzw)
-        return box.rotated_90_around_z(quarters).translated(world_position)
+    def get_bounding_box_rotation(self) -> tuple[float, float, float, float]:
+        """Return the parent rotation; the prim's authored rotation is already included in its bounds."""
+        return self.get_parent_pose().rotation_xyzw
 
     def get_collision_mesh(self) -> trimesh.Trimesh | None:
         """Return the referenced prim's collision mesh in its local frame, or None if unavailable."""

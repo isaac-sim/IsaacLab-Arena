@@ -9,7 +9,11 @@ import math
 import torch
 from typing import TYPE_CHECKING
 
-from isaaclab_arena.relations.bounding_box_helpers import assign_variants_for_envs, build_per_env_bounding_boxes
+from isaaclab_arena.relations.bounding_box_helpers import (
+    assign_variants_for_envs,
+    build_per_env_bounding_boxes,
+    update_candidate_bounds,
+)
 from isaaclab_arena.relations.collision_mode import object_uses_mesh_collision
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_candidate_batch import PlacementCandidateBatch
@@ -27,7 +31,6 @@ from isaaclab_arena.relations.relations import (
     get_relation,
 )
 from isaaclab_arena.relations.validation.pre_physics import build_validators
-from isaaclab_arena.relations.validation.types import PlacementValidationResults
 from isaaclab_arena.utils.pose import Pose, PosePerEnv
 from isaaclab_arena.utils.yaw import rotate_quat_by_yaw, yaw_from_quat_xyzw, yaw_toward_positions
 
@@ -35,6 +38,7 @@ if TYPE_CHECKING:
     from isaaclab_arena.relations.collision_object import CollisionObject
     from isaaclab_arena.relations.placement_asset import PlaceableAsset
     from isaaclab_arena.relations.validation.pre_physics import PrePhysicsPlacementValidator
+    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 
 class ObjectPlacer:
@@ -218,15 +222,10 @@ class ObjectPlacer:
         batch = self._candidate_generator.generate_candidates(
             objects, anchor_objects_set, env_bboxes, candidates_per_env, generator, collision_objects
         )
-        batch = self._solver.solve_candidates(objects, batch, collision_objects)
-        self._apply_face_to_orientations(
-            [candidate.positions for candidate in batch.candidates],
-            [candidate.orientations for candidate in batch.candidates],
-        )
-        # FaceTo headings depend on solved positions; refit from the original bounds.
-        self._candidate_generator.orient_candidate_bounds(batch, env_bboxes)
+        self._solver.solve_candidates(objects, batch, collision_objects)
+        self._finish_candidate_geometry(batch, env_bboxes)
         self._assert_finite_solver_output(batch)
-        batch = self._validation.validate_candidates(batch, collision_objects)
+        self._validation.validate_candidates(batch, collision_objects)
         ranked_batches = self._rank_candidates(batch, num_envs)
 
         results = []
@@ -245,6 +244,18 @@ class ObjectPlacer:
             n_valid = sum(env_results[0].success for env_results in results)
             print(f"Solved {num_candidates} candidates in one batch: {n_valid}/{num_envs} env(s) valid")
         return results
+
+    def _finish_candidate_geometry(
+        self,
+        batch: PlacementCandidateBatch,
+        env_bboxes: list[dict[PlaceableAsset, AxisAlignedBoundingBox]],
+    ) -> None:
+        """Update FaceTo headings from solved positions and refit bounds from the original geometry."""
+        self._apply_face_to_orientations(
+            [candidate.positions for candidate in batch.candidates],
+            [candidate.orientations for candidate in batch.candidates],
+        )
+        update_candidate_bounds(batch, env_bboxes)
 
     @staticmethod
     def _assert_finite_solver_output(batch: PlacementCandidateBatch) -> None:

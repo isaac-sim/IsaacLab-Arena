@@ -7,17 +7,16 @@
 
 from __future__ import annotations
 
-from dataclasses import replace
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.relations.placement_candidate_batch import PlacementCandidateBatch
-from isaaclab_arena.relations.placement_validation import PlacementValidationResults
+from isaaclab_arena.relations.validation.types import PlacementValidationResults
 
 if TYPE_CHECKING:
     from isaaclab_arena.relations.collision_object import CollisionObject
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-    from isaaclab_arena.relations.placement_validators import PlacementValidator
     from isaaclab_arena.relations.placement_visualizer import PlacementRerunVisualizer
+    from isaaclab_arena.relations.validation.pre_physics import PrePhysicsPlacementValidator
 
 
 class PlacementValidationRunner:
@@ -30,7 +29,7 @@ class PlacementValidationRunner:
     def __init__(
         self,
         params: ObjectPlacerParams,
-        validators: list[PlacementValidator],
+        validators: list[PrePhysicsPlacementValidator],
         visualizer: PlacementRerunVisualizer | None = None,
     ):
         self.params = params
@@ -41,9 +40,9 @@ class PlacementValidationRunner:
         self,
         batch: PlacementCandidateBatch,
         collision_objects: list[CollisionObject],
-    ) -> PlacementCandidateBatch:
-        """Attach check results in candidate order, applying the configured required-check policy."""
-        # required_checks=None means "every enabled check is required"; an empty set means no checks.
+    ) -> None:
+        """Update each candidate's validation in place using the configured required-check policy."""
+        # required_checks=None means "every enabled check is required"; an empty set means no checks are required.
         required = self.params.required_checks
         num_candidates = len(batch)
         # Per check, which layouts of this batch (each refill) it actually ran on
@@ -82,19 +81,13 @@ class PlacementValidationRunner:
                 for check, verdicts in layout_pass_verdicts_by_check.items()
             )
             print(f"[placement] Validated {num_candidates} candidate layout(s); passed per check: {summary}")
-        validations = [
-            PlacementValidationResults(
+        for candidate_idx, candidate in enumerate(batch.candidates):
+            candidate.validation = PlacementValidationResults(
                 validation_results={
                     check: verdicts[candidate_idx] for check, verdicts in layout_pass_verdicts_by_check.items()
                 },
                 required_checks=set(required) if required is not None else None,
             )
-            for candidate_idx in range(len(batch))
-        ]
-        return PlacementCandidateBatch([
-            replace(candidate, validation=validation)
-            for candidate, validation in zip(batch.candidates, validations, strict=True)
-        ])
 
     def _run_inexpensive_checks(
         self,

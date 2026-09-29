@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import time
 import torch
-from dataclasses import replace
 from typing import TYPE_CHECKING, cast
 
 from isaaclab_arena.relations.collision_mode import CollisionMode, get_object_collision_mode
@@ -188,8 +187,8 @@ class RelationSolver:
         objects: list[PlaceableAsset],
         batch: PlacementCandidateBatch,
         collision_objects: list[CollisionObject],
-    ) -> PlacementCandidateBatch:
-        """Solve oriented candidates while retaining their identities and attaching final losses."""
+    ) -> None:
+        """Update candidates in place with solved positions and losses, clearing previous validation."""
         positions = self.solve(
             objects,
             [candidate.positions for candidate in batch.candidates],
@@ -199,12 +198,12 @@ class RelationSolver:
             collision_objects=collision_objects,
         )
         assert self.last_loss_per_env is not None
-        return PlacementCandidateBatch([
-            replace(candidate, positions=position, loss=loss, validation=None)
-            for candidate, position, loss in zip(
-                batch.candidates, positions, self.last_loss_per_env.cpu().tolist(), strict=True
-            )
-        ])
+        for candidate, position, loss in zip(
+            batch.candidates, positions, self.last_loss_per_env.cpu().tolist(), strict=True
+        ):
+            candidate.positions = position
+            candidate.loss = loss
+            candidate.validation = None
 
     def solve(
         self,

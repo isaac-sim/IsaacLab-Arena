@@ -24,23 +24,23 @@ that passes ``is_available()`` and survives ``enabled_checks`` (see
 2. **Expensive checks** (``ik_reachable``) only on candidates that already
    passed every *required* inexpensive check.
 
-A ``PlacementCandidate`` is one proposed layout of all placement objects in one
+A ``PlacementCandidate`` is one working layout of all placement objects in one
 environment. It stores the objects' positions, orientations and bounds, plus the
-environment ID and sample ID. Solving adds a loss; validation adds check results.
+environment ID and sample ID. Solving updates that same candidate's positions and
+loss; validation replaces its check results. These stages update the working batch
+in place and return ``None``.
 
 ``PlacementCandidateBatch`` groups these layouts. For example, four environments
 with ten attempts each produce a batch of forty candidates. Filtering and ranking
-move complete candidates, keeping their geometry and results together.
+select and reorder references to complete candidates, keeping their geometry and
+results together.
 
 ``PlacementCandidateGenerator`` samples orientations, fits the bounds to those
 rotations and places clutter above its support and nearby objects before solving.
-``PlacementValidationRunner`` runs the configured checks on the solved candidates.
+After solving, ``ObjectPlacer`` applies ``FaceTo`` headings and refits the bounds.
+``PlacementValidationRunner`` then replaces each candidate's check results.
 Here, *expensive* means computational cost, such as solving IK. Neither validation
 pass steps physics.
-
-Validator extensions implement ``validate_batch(batch, collision_objects)`` and
-return one boolean per candidate in ``batch.candidates``. ``batch.select(indices)``
-selects layouts without changing their environment or sample IDs.
 
 Verdicts land in each candidate's ``PlacementValidationResults``. A
 **required** check must pass for the candidate to count as valid; an
@@ -183,13 +183,39 @@ Custom Validators
 Build-time checks subclass ``PrePhysicsPlacementValidator`` from
 ``isaaclab_arena.relations.validation.pre_physics`` and register with
 ``register_validator`` from ``isaaclab_arena.relations.validation.registry``.
-Implement ``validate_batch()`` to return one boolean per candidate and give the
-class a unique ``check`` name. Include that name in ``ObjectPlacerParams.enabled_checks``
-when explicitly selecting checks. Existing extensions importing the build-time
-``PlacementValidator`` should use ``PrePhysicsPlacementValidator`` instead;
-its constructor and batch-validation contract are unchanged. Import
+Implement ``validate_batch(batch, collision_objects)`` to return one boolean per
+candidate and give the class a unique ``check`` name. Include that name in
+``ObjectPlacerParams.enabled_checks`` when explicitly selecting checks.
+Existing extensions importing the build-time ``PlacementValidator`` should use
+``PrePhysicsPlacementValidator`` instead. The constructor is unchanged, but
+``validate_batch`` now takes a ``PlacementCandidateBatch`` instead of separate
+position, orientation and bounding-box lists. Import
 ``PlacementCheck``, ``PlacementValidationResults`` and ``PlacementValidatorReport``
 from ``isaaclab_arena.relations.validation.types``.
+
+For example, reject layouts with any object origin above 1.5 metres:
+
+.. code-block:: python
+
+   from isaaclab_arena.relations.validation.pre_physics import PrePhysicsPlacementValidator
+   from isaaclab_arena.relations.validation.registry import register_validator
+
+   @register_validator
+   class MaxOriginHeightValidator(PrePhysicsPlacementValidator):
+       check = "max_origin_height"
+
+       def validate_batch(self, batch, collision_objects):
+           verdicts = []
+           for candidate in batch.candidates:
+               below_limit = all(
+                   position[2] <= 1.5 for position in candidate.positions.values()
+               )
+               verdicts.append(below_limit)
+           return verdicts
+
+Import the module defining this class before constructing ``ObjectPlacer``.
+Default settings run and require the registered check. If ``enabled_checks`` is
+explicit, include ``"max_origin_height"`` to run it.
 
 The shared ``PlacementValidator`` in ``isaaclab_arena.relations.validation.base``
 defines the check name and stage. Post-physics checks use

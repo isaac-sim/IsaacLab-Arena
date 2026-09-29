@@ -123,19 +123,16 @@ def test_dummy_object_bbox_per_env_expands_single():
     assert torch.allclose(per_env.min_point[0], per_env.min_point[3])
 
 
-def test_per_env_bounding_boxes_formats_solver_and_env_views():
-    """PerEnvBoundingBoxes should expose solver and one-env bbox formats."""
+def test_per_env_bounding_boxes_formats_env_views():
+    """Each environment gets one row of object bounds."""
     obj = DummyObject(
         name="box",
         bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.2, 0.3, 0.4)),
     )
 
     env_bboxes = build_per_env_bounding_boxes([obj], num_envs=3)
-    solver_bboxes = env_bboxes.get_bounding_boxes_for_solver_candidates(candidates_per_env=2)
     per_env_bboxes = env_bboxes.get_bounding_boxes_for_all_envs()
 
-    assert solver_bboxes[obj].min_point.shape == (6, 3)
-    assert solver_bboxes[obj].max_point.shape == (6, 3)
     assert len(per_env_bboxes) == 3
     assert per_env_bboxes[1][obj].min_point.shape == (1, 3)
     assert torch.allclose(per_env_bboxes[1][obj].max_point[0], torch.tensor([0.2, 0.3, 0.4]))
