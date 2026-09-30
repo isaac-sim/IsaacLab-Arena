@@ -37,7 +37,7 @@ class TaskBase(ABC):
 
     @abstractmethod
     def get_termination_cfg(self) -> TaskTerminationCfg:
-        """Declare the task's success objectives, failure conditions, and episode time budget."""
+        """Declare the task's success criteria, failure conditions, and episode time budget."""
         raise NotImplementedError("Function not implemented yet.")
 
     @abstractmethod

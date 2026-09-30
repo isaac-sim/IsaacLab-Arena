@@ -94,12 +94,12 @@ def _test_sequential_waits_for_every_objective_in_active_subtask(simulation_app)
         _ControlledPredicate,
         _ControlledTask,
         _make_tracker,
-        _MultipleObjectiveTask,
+        _MultipleCriteriaTask,
     )
 
     predicates = [_ControlledPredicate(index) for index in range(3)]
     task = CompositeTaskBase(
-        [_MultipleObjectiveTask(predicates[:2]), _ControlledTask(predicates[2])],
+        [_MultipleCriteriaTask(predicates[:2]), _ControlledTask(predicates[2])],
         subtasks_are_sequential=True,
     )
     env, tracker = _make_tracker(task, [[True, False, True]])
