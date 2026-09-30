@@ -33,7 +33,7 @@ def test_resting_containment_uses_rotated_bounds():
 
 
 def test_only_clutter_roots_are_exempt_from_shift_limits():
-    from isaaclab_arena.offline_placement.clutter_validators import NonClutterPoseShiftValidator
+    from isaaclab_arena.offline_placement.post_physics_validation import PoseShiftValidator
     from isaaclab_arena.offline_placement.settled_batch import SettledBatch
     from isaaclab_arena.relations.placement_result import PlacementResult
     from isaaclab_arena.relations.relations import ClutterOn, IsAnchor
@@ -49,7 +49,7 @@ def test_only_clutter_roots_are_exempt_from_shift_limits():
     final["cube"][0, 2] -= 0.5
     layout = PlacementResult(PlacementValidationResults({}), {cube: (0, 0, 1)}, 0, 1)
     batch = SettledBatch({0: layout}, [0], initial, final, {}, {}, {})
-    validator = NonClutterPoseShiftValidator()
+    validator = PoseShiftValidator()
     assert validator.validate(batch)[0].passed
     final["neighbor"][0, 0] += 0.01
     report = validator.validate(batch)[0]

@@ -8,37 +8,24 @@
 from __future__ import annotations
 
 import math
+import torch
 from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, ClassVar
 
+from isaaclab_arena.offline_placement.clutter_geometry import check_resting_poses, get_placement_region
 from isaaclab_arena.offline_placement.post_physics_validation import (
-    ArticulationLinkShiftValidator,
-    PoseShiftValidator,
     PostPhysicsPlacementValidator,
-    VelocityValidator,
+    default_post_physics_validators,
 )
 from isaaclab_arena.relations.relations import ClutterOn, get_relation
+from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.physics_settle import get_pose_drift
 
 if TYPE_CHECKING:
     from isaaclab_arena.offline_placement.settled_batch import SettledBatch
     from isaaclab_arena.relations.placement_asset import PlaceableAsset
     from isaaclab_arena.relations.validation.types import PlacementValidatorReport
-
-
-@dataclass
-class NonClutterPoseShiftValidator(PoseShiftValidator):
-    """Apply the usual root-shift limits to all objects except intentional clutter drops."""
-
-    def validate(self, data: SettledBatch) -> list[PlacementValidatorReport]:
-        clutter_keys = set()
-        for layout in data.source_layouts.values():
-            for asset in layout.positions:
-                if get_relation(asset, ClutterOn) is not None:
-                    clutter_keys.update(asset.get_scene_root_keys())
-        final = {key: poses for key, poses in data.final_root_poses.items() if key not in clutter_keys}
-        return self._validate_poses(data.env_ids, data.initial_root_poses, final)
 
 
 @dataclass
@@ -66,11 +53,6 @@ class SupportContainmentValidator(PostPhysicsPlacementValidator):
         return keys
 
     def validate(self, data: SettledBatch) -> list[PlacementValidatorReport]:
-        import torch
-
-        from isaaclab_arena.offline_placement.clutter_geometry import check_resting_poses, get_placement_region
-        from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
-
         reports = []
         for env_id in data.env_ids:
             layout = data.source_layouts[env_id]
@@ -116,10 +98,7 @@ class SupportContainmentValidator(PostPhysicsPlacementValidator):
 
 def default_clutter_validators() -> dict[str, dict]:
     """Shared velocity/link checks, non-clutter root limits and support containment."""
-    validators = (
-        VelocityValidator(),
-        NonClutterPoseShiftValidator(),
-        ArticulationLinkShiftValidator(),
-        SupportContainmentValidator(),
-    )
-    return {validator.check: validator.configuration() for validator in validators}
+    validators = default_post_physics_validators()
+    containment = SupportContainmentValidator()
+    validators[containment.check] = containment.configuration()
+    return validators

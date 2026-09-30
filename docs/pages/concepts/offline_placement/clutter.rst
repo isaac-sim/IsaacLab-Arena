@@ -17,7 +17,7 @@ containing ``ClutterOn`` relations:
 
    from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
    from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
-   from isaaclab_arena.offline_placement.clutter_settling import settle_clutter
+   from isaaclab_arena.offline_placement.settled_placement import collect_settled_placements
    from isaaclab_arena.offline_placement.clutter_validators import default_clutter_validators
    from isaaclab_arena.offline_placement.settled_placement_params import SettledPlacementParams
 
@@ -27,9 +27,10 @@ containing ``ClutterOn`` relations:
    )
    env = ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg(num_envs=4)).make_registered()
    try:
-       result = settle_clutter(
-           env, arena_env.get_placement_assets(), num_batches=2,
-           params=params, render=True, log_progress=True,
+       result = collect_settled_placements(
+           env, num_batches=2, params=params,
+           scene_assets=arena_env.get_placement_assets(),
+           render=True, log_progress=True,
        )
        print(result.accepted_indices)
        print(result.rejections)
@@ -41,8 +42,10 @@ resets once per batch. Two batches of four environments sample eight candidates.
 ``num_steps`` counts environment steps, each containing the configured number of
 physics substeps; it is independent of the number of batches.
 
-``settle_clutter`` checks scene prerequisites and calls
-``collect_settled_placements``. It returns the same ``SettledPlacementResult``:
+``collect_settled_placements`` detects ``ClutterOn`` relations and checks their
+scene prerequisites before resetting or stepping physics. Pass the complete
+``scene_assets`` list so it can check passive objects as well as placement objects.
+It returns ``SettledPlacementResult``:
 
 * ``poses`` contains accepted rigid-object and articulation root poses, keyed by
   runtime scene name. Positions are environment-local metres; rotations are xyzw.
@@ -57,11 +60,17 @@ or failure.
 Acceptance checks
 -----------------
 
-The shared validator builder and evaluator run these defaults:
+When ``params`` is omitted, collection selects clutter defaults for ``ClutterOn``
+scenes and ordinary recording defaults otherwise. The shared default duration is
+short; the example above explicitly sets a longer drop window. Explicit ``params``
+are used unchanged, including disabled or custom validators. Use
+``default_clutter_validators()`` when configuring a longer clutter run.
+
+The shared validator builder and evaluator run these clutter defaults:
 
 * ``physics_settled`` checks final root velocities for all measured objects.
 * ``pose_shift`` limits other objects to 2 mm translation and 2 degrees rotation.
-  Its clutter implementation excludes intentional ``ClutterOn`` drops.
+  The shared ``PoseShiftValidator`` excludes intentional ``ClutterOn`` drops.
 * ``articulation_link_shift`` checks articulated task objects using the existing
   root-relative link check. Robot links are excluded, as in ordinary recording.
 * ``support_containment`` checks that clutter stays within its support footprint

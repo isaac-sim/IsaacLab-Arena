@@ -48,30 +48,39 @@ def get_placement_collision_objects(
             for asset in scene_assets
         )
     )
-    exclusions = [asset for asset in placement_assets if asset.is_anchor and isinstance(asset, ObjectReference)]
-    return get_passive_collision_objects(
-        scene_assets, include_background=include_background, background_mesh_exclusions=exclusions
-    )
+    passive_assets = discover_passive_assets(scene_assets, include_background=include_background)
+    passive_asset_set = set(passive_assets)
+    # A parent's collision geometry already contains its passive references.
+    collision_objects = [
+        asset
+        for asset in passive_assets
+        if not isinstance(asset, ObjectReference) or asset.parent_asset not in passive_asset_set
+    ]
+    if not include_background:
+        return collision_objects
+
+    excluded_prim_paths_by_object: defaultdict[CollisionObject, set[str]] = defaultdict(set)
+    for asset in placement_assets:
+        if isinstance(asset, ObjectReference) and asset.is_anchor and asset.parent_asset in passive_asset_set:
+            excluded_prim_paths_by_object[asset.parent_asset].add(asset.prim_path_in_parent_usd)
+    return make_fixed_collision_objects(collision_objects, excluded_prim_paths_by_object=excluded_prim_paths_by_object)
 
 
-def get_passive_collision_objects(
+def discover_passive_assets(
     assets: Iterable[Asset | RigidObjectSet],
     include_background: bool = False,
-    background_mesh_exclusions: Iterable[ObjectReference] = (),
-) -> list[CollisionObject]:
-    """Return relation-free scene assets that qualify as passive collision obstacles.
+) -> list[Object | ObjectReference]:
+    """Return original relation-free scene assets with fixed placement geometry.
 
-    PoseRange, PosePerEnv, and unset poses are skipped because passive collision obstacles
-    must have a fixed world transform during placement.
+    Objects need a fixed Pose. Included backgrounds may omit their pose to use identity.
+    Discovery does not aggregate geometry or remove references covered by a parent.
 
     Args:
         assets: Scene assets to scan for relation-free fixed objects.
-        include_background: If True, include Background assets and aggregate all
-            mesh-capable objects into a single FixedCollisionObject.
-        background_mesh_exclusions: Object references whose USD subtrees are omitted
-            from an aggregated parent Background mesh.
+        include_background: Include Background assets, treating an unset pose as identity.
+            Returned assets retain their identities, including references to returned parents.
     """
-    collision_objects: list[CollisionObject] = []
+    passive_assets: list[Object | ObjectReference] = []
     for asset in assets:
         if not isinstance(asset, (Object, ObjectReference)):
             continue
@@ -93,31 +102,14 @@ def get_passive_collision_objects(
         if isinstance(asset, Background) and include_background:
             assert initial_pose is None or isinstance(initial_pose, Pose), (
                 f"Whole-scene Background asset '{asset.name}' must have a fixed Pose or no initial_pose "
-                f"for aggregate mesh collision, got {type(initial_pose).__name__}."
+                f"for passive collision geometry, got {type(initial_pose).__name__}."
             )
-            collision_objects.append(asset)
+            passive_assets.append(asset)
             continue
         if not isinstance(initial_pose, Pose):
             pose_kind = "None" if initial_pose is None else type(initial_pose).__name__
             print(f"Skipping '{asset.name}' as a collision obstacle: needs a fixed pose but has {pose_kind}.")
             continue
-        collision_objects.append(asset)
+        passive_assets.append(asset)
 
-    collision_object_set = set(collision_objects)
-    # If a parent object is already an obstacle, its references are covered by the parent mesh/bbox.
-    collision_objects = [
-        asset
-        for asset in collision_objects
-        if not isinstance(asset, ObjectReference) or asset.parent_asset not in collision_object_set
-    ]
-
-    if include_background:
-        excluded_prim_paths_by_object: defaultdict[CollisionObject, set[str]] = defaultdict(set)
-        for reference in background_mesh_exclusions:
-            if reference.parent_asset in collision_object_set:
-                excluded_prim_paths_by_object[reference.parent_asset].add(reference.prim_path_in_parent_usd)
-        return make_fixed_collision_objects(
-            collision_objects,
-            excluded_prim_paths_by_object=excluded_prim_paths_by_object,
-        )
-    return collision_objects
+    return passive_assets

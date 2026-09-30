@@ -92,7 +92,7 @@ class VelocityValidator(PostPhysicsPlacementValidator):
 
 @dataclass
 class PoseShiftValidator(PostPhysicsPlacementValidator):
-    """Limit initial-to-final root displacement and rotation."""
+    """Limit root displacement and rotation, excluding intentional ClutterOn drops."""
 
     check: ClassVar[str] = "pose_shift"
     max_translation_m: float = 0.002
@@ -109,7 +109,15 @@ class PoseShiftValidator(PostPhysicsPlacementValidator):
         ), "max_rotation_deg must be finite and non-negative"
 
     def validate(self, data: SettledBatch) -> list[PlacementValidatorReport]:
-        return self._validate_poses(data.env_ids, data.initial_root_poses, data.final_root_poses)
+        from isaaclab_arena.relations.relations import ClutterOn, get_relation
+
+        clutter_keys = set()
+        for layout in data.source_layouts.values():
+            for asset in layout.positions:
+                if get_relation(asset, ClutterOn) is not None:
+                    clutter_keys.update(asset.get_scene_root_keys())
+        final = {key: poses for key, poses in data.final_root_poses.items() if key not in clutter_keys}
+        return self._validate_poses(data.env_ids, data.initial_root_poses, final)
 
     def _validate_poses(
         self, env_ids: list[int], initial: dict[str, torch.Tensor], final: dict[str, torch.Tensor]

@@ -10,13 +10,17 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from isaaclab_arena.offline_placement.clutter_preparation import prepare_clutter_settling
+from isaaclab_arena.offline_placement.clutter_validators import default_clutter_validators
 from isaaclab_arena.offline_placement.post_physics_validation import (
     build_post_physics_validators,
+    default_post_physics_validators,
     evaluate_settled_batch,
 )
 from isaaclab_arena.offline_placement.settled_batch import sample_and_settle_batch
 from isaaclab_arena.offline_placement.settled_placement_params import SettledPlacementParams
 from isaaclab_arena.relations.placement_events import get_placement_pool
+from isaaclab_arena.relations.relations import ClutterOn, get_relation
 from isaaclab_arena.utils.pose import Pose
 
 if TYPE_CHECKING:
@@ -69,9 +73,12 @@ def collect_settled_placements(
     Args:
         env: Environment with a pooled placement reset event.
         num_batches: Number of resets to sample, independent of pool refills.
-        params: Simulation duration and post-physics validator settings.
+        params: Simulation duration and post-physics validator settings. If omitted, use
+            clutter defaults for ClutterOn scenes and ordinary recording defaults otherwise.
+            Explicit settings are used unchanged.
         render: Render the offline physics steps.
-        scene_assets: Optional asset definitions supplementing the pool's embodiment tags.
+        scene_assets: Asset definitions supplementing the pool's embodiment tags.
+            Required for ClutterOn: pass the complete get_placement_assets() list for preflight.
             Embodiment tags exclude the asset's scene roots from task-object
             link checks. Other articulations receive those checks; root measurements
             cover all rigid objects and articulations.
@@ -85,13 +92,18 @@ def collect_settled_placements(
     assert num_batches > 0, "num_batches must be positive"
     placement_pool = get_placement_pool(env)
     assert placement_pool is not None, "Collection requires a pooled placement reset event"
-    if params is None:
-        params = SettledPlacementParams()
     assert placement_pool.num_envs == env.num_envs, "Placement pool and scene must have the same environment count"
     assets = list(placement_pool.objects)
     for asset in scene_assets or []:
         if asset not in assets:
             assets.append(asset)
+    has_clutter = any(get_relation(asset, ClutterOn) is not None for asset in assets)
+    if has_clutter:
+        assert scene_assets is not None, "Clutter collection requires complete scene_assets from get_placement_assets()"
+        prepare_clutter_settling(env, assets)
+    if params is None:
+        defaults = default_clutter_validators() if has_clutter else default_post_physics_validators()
+        params = SettledPlacementParams(validators=defaults)
     keys = sorted(set(env.scene.rigid_objects) | set(env.scene.articulations))
     assert keys, "Collection requires rigid objects or articulations"
     embodiment_keys = set()

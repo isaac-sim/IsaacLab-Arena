@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Collect clutter through the shared reset, settling and validation workflow."""
+"""Check clutter scene prerequisites before the shared placement collection workflow."""
 
 from __future__ import annotations
 
@@ -15,9 +15,6 @@ from isaaclab_arena.offline_placement.clutter_geometry import (
     spawned_rigid_body_has_gravity,
     spawned_rigid_body_is_dynamic,
 )
-from isaaclab_arena.offline_placement.settled_placement import SettledPlacementResult, collect_settled_placements
-from isaaclab_arena.offline_placement.settled_placement_params import SettledPlacementParams
-from isaaclab_arena.relations.placement_events import get_placement_pool
 from isaaclab_arena.relations.relations import ClutterOn, get_relation
 from isaaclab_arena.utils.bounding_box import quaternion_to_90_deg_z_quarters
 from isaaclab_arena.utils.physics_settle import get_pose_drift
@@ -29,41 +26,11 @@ if TYPE_CHECKING:
     from isaaclab_arena.relations.placement_asset import PlaceableAsset
 
 
-def settle_clutter(
-    env: ManagerBasedEnv,
-    assets: list[PlaceableAsset],
-    num_batches: int,
-    params: SettledPlacementParams,
-    *,
-    render: bool = False,
-    log_progress: bool = False,
-) -> SettledPlacementResult:
-    """Check clutter scene prerequisites, then collect accepted placements through normal resets.
-
-    Args:
-        env: Built environment with pooled relation placement enabled.
-        assets: Complete scene assets and embodiment, as returned by get_placement_assets().
-        num_batches: Number of resets to sample; rejected candidates are reported, not retried.
-        params: Shared settling duration and validator configuration. Use default_clutter_validators()
-            for velocity, support containment and non-clutter drift checks.
-        render: Render the physics steps.
-        log_progress: Print configured checks and batch progress.
-
-    Returns:
-        The shared collection result, including accepted root poses and rejection reasons.
-        The caller owns env; it remains at its final state, including on failure.
-    """
-    env = env.unwrapped
-    _prepare_scene(env, assets)
-    assert get_placement_pool(env) is not None, "Clutter settling requires a pooled placement reset event"
-    return collect_settled_placements(env, num_batches, params, render, scene_assets=assets, log_progress=log_progress)
-
-
-def _prepare_scene(env: ManagerBasedEnv, assets: list[PlaceableAsset]) -> None:
+def prepare_clutter_settling(env: ManagerBasedEnv, assets: list[PlaceableAsset]) -> None:
     """Check support mobility, gravity and placement coverage before any scene writes."""
     from isaaclab_arena.assets.background import Background
     from isaaclab_arena.assets.object_set import RigidObjectSet
-    from isaaclab_arena.relations.passive_collision_objects import get_passive_collision_objects
+    from isaaclab_arena.relations.passive_collision_objects import discover_passive_assets
 
     for asset in assets:
         if isinstance(asset, RigidObjectSet):
@@ -83,7 +50,7 @@ def _prepare_scene(env: ManagerBasedEnv, assets: list[PlaceableAsset]) -> None:
         asset.is_anchor or get_relation(asset, ClutterOn) is not None for asset in placement_assets
     ), "Offline settling requires non-clutter placement to be resolved to fixed anchors first"
     # Check source assets before MESH discovery aggregates their collision geometry.
-    passive_assets = get_passive_collision_objects(assets)
+    passive_assets = discover_passive_assets(assets)
     uncovered = [
         asset.get_scene_key()
         for asset in assets
