@@ -10,27 +10,30 @@ from __future__ import annotations
 import math
 import torch
 from collections.abc import Sequence
-from functools import partial
 from typing import TYPE_CHECKING
 
 import isaaclab.envs.mdp as mdp
 from isaaclab.envs.common import ViewerCfg
 from isaaclab.managers import EventTermCfg as EventTerm
-from isaaclab.utils import math as math_utils
+from isaaclab.managers import TerminationTermCfg
 from isaaclab.utils.configclass import configclass
 
 from isaaclab_arena.assets.cable import Cable
 from isaaclab_arena.assets.object_base import ObjectBase
 from isaaclab_arena.assets.register import register_task
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
+from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
 from isaaclab_arena.metrics.success_rate import SuccessRateMetric
 from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
+from isaaclab_arena_environments.isaac_cap.cap_policy import cap_episode_finished
 
 from .geometry import capsule_centerline
 
 if TYPE_CHECKING:
+    from isaaclab_arena.embodiments.gripper import Gripper
+
     from .scene import CableRoutingVariant, TerminatedCableGoal
 
 
@@ -46,11 +49,12 @@ def terminated_cable_route_success(
     port_asset_name: str,
     goal: TerminatedCableGoal,
     cable_half_lengths: tuple[float, ...],
+    gripper: Gripper,
 ) -> torch.Tensor:
     """Score the current CAP occupied regions after policy termination."""
 
-    def points_in_region(points, fixture, region, *, frame_z: float = 0.0):
-        fixture_position = _torch(fixture.data.root_pos_w)
+    def points_in_region(points, fixture_name, region, *, frame_z: float = 0.0):
+        fixture_position = env.arena_world.get_position_w(fixture_name)
         local = points - fixture_position[:, None, :]
         x_min, y_min, x_max, y_max = region
         return (
@@ -62,6 +66,7 @@ def terminated_cable_route_success(
             & (local[..., 2] <= frame_z + 0.15)
         )
 
+    # ArenaWorld does not yet expose procedural Cable segment state.
     cable = env.scene[cable_asset_name]
     cable_body_q = _torch(cable.data.segment_pose_w)
     half_lengths = cable_body_q.new_tensor(cable_half_lengths)
@@ -77,30 +82,20 @@ def terminated_cable_route_success(
         fraction = (
             points_in_region(
                 cable_points,
-                env.scene[peg_name],
+                peg_name,
                 region,
-                frame_z=-0.5 * 0.0235,
+                frame_z=-0.5 * goal.peg_height,
             )
             .to(torch.float64)
             .mean(dim=1)
         )
         result &= fraction >= minimum
 
-    port = env.scene[port_asset_name]
-    in_port = points_in_region(cable_points, port, goal.port_region)
+    in_port = points_in_region(cable_points, port_asset_name, goal.port_region)
     result &= in_port.to(torch.float64).mean(dim=1) >= goal.port_min_fraction
-    result &= points_in_region(cable_points[:, -1:], port, goal.port_region)[:, 0]
+    result &= points_in_region(cable_points[:, -1:], port_asset_name, goal.port_region)[:, 0]
 
-    tcp_offset = cable_points.new_tensor((0.0, 0.0, -0.1347))
-    robot = env.scene["right_robot"]
-    body_ids, _ = robot.find_bodies("right_gripper")
-    assert len(body_ids) == 1, "right_robot must contain exactly one right_gripper body"
-    body_position = _torch(robot.data.body_link_pos_w)[:, body_ids[0]]
-    body_orientation = _torch(robot.data.body_link_quat_w)[:, body_ids[0]]
-    tcp_position_w = body_position + math_utils.quat_apply(
-        body_orientation,
-        tcp_offset.expand(env.num_envs, -1),
-    )
+    tcp_position_w = gripper.get_position_w(env.arena_world)
     result &= torch.linalg.vector_norm(cable_points - tcp_position_w[:, None, :], dim=-1).amin(dim=1) > (
         goal.min_tcp_distance
     )
@@ -114,7 +109,7 @@ def terminated_cable_route_success(
     policy_termination = getattr(env, "external_policy_termination_buf", None)
     if policy_termination is None:
         policy_termination = torch.zeros_like(result)
-    result &= policy_termination | (env.episode_length_buf >= env.max_episode_length)
+    result &= policy_termination | cap_episode_finished(env) | (env.episode_length_buf >= env.max_episode_length)
     return result
 
 
@@ -162,24 +157,30 @@ class CableRoutingTaskV2(TaskBase):
         self.pegs = tuple(pegs)
         self.port = port
         self._events_cfg = CableRoutingEventsCfg()
+        self._success_cfg = TerminationTermCfg(
+            func=terminated_cable_route_success,
+            params={
+                "cable_asset_name": cable.name,
+                "peg_asset_names": tuple(peg.name for peg in pegs),
+                "port_asset_name": port.name,
+                "goal": variant.terminated_goal,
+                "cable_half_lengths": cable_half_lengths,
+            },
+        )
         self._terminations_cfg = TaskTerminationCfg(
             timeout_s=self.episode_length_s,
             success=[
                 CompletionCriteria(
                     name="cable_routing",
-                    predicate_sequence=[
-                        partial(
-                            terminated_cable_route_success,
-                            cable_asset_name=cable.name,
-                            peg_asset_names=tuple(peg.name for peg in pegs),
-                            port_asset_name=port.name,
-                            goal=variant.terminated_goal,
-                            cable_half_lengths=cable_half_lengths,
-                        ),
-                    ],
+                    predicate_sequence=[self._success_cfg],
                 ),
             ],
+            failures={"cap_finished": TerminationTermCfg(func=cap_episode_finished)},
         )
+
+    def configure_for_embodiment(self, embodiment: EmbodimentBase) -> None:
+        """Bind release-distance checks to the selected embodiment gripper."""
+        self._success_cfg.params["gripper"] = embodiment.get_gripper()
 
     def get_scene_cfg(self):
         return None

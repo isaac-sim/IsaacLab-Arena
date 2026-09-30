@@ -8,9 +8,10 @@
 from __future__ import annotations
 
 import math
-import yaml
+from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Literal
 
 import isaaclab.sim as sim_utils
 from isaaclab_newton.sim.schemas import NewtonCollisionPropertiesCfg, NewtonMaterialPropertiesCfg
@@ -21,21 +22,20 @@ from isaaclab_arena.assets.nucleus import ARENA_NUCLEUS_DIR
 from isaaclab_arena.assets.object import Object
 from isaaclab_arena.assets.object_library import DomeLight
 from isaaclab_arena.assets.object_type import ObjectType
+from isaaclab_arena.environment_spec.arena_env_graph_yaml_loader import load_env_graph_spec_dict
 from isaaclab_arena.scene.scene import Scene
 from isaaclab_arena.utils.pose import Pose
 
 from .distribution import anchor_pose_from_cable, sample_cable_routing_layout
 
 _PACKAGE_DIRECTORY = Path(__file__).resolve().parent
+_COMMON_SCENE_SPEC = _PACKAGE_DIRECTORY / "cable_env_config.yaml"
 _MEDIUM_SCENE_SPEC = _PACKAGE_DIRECTORY / "cable_routing_medium.yaml"
 _EASY_SCENE_SPEC = _PACKAGE_DIRECTORY / "cable_routing_easy.yaml"
 
 _ASSET_ROOT = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/temp_newton_envs/cap_envs/latest/cable_routing/assets"
 
-YAM_I2RT_USD_PATH = f"{_ASSET_ROOT}/yam_i2rt/yam_i2rt.usda"
 TABLE_USD_PATH = f"{_ASSET_ROOT}/industrial__yam_workcell_table/industrial__yam_workcell_table.usda"
-BOARD_USD_PATH = f"{_ASSET_ROOT}/industrial__cable_routing_board/board.usdc"
-ROUND_PEG_USD_PATH = f"{_ASSET_ROOT}/industrial__cable_routing_peg/round_peg.usdc"
 EASY_ROUND_PEG_USD_PATH = f"{_ASSET_ROOT}/industrial__cable_routing_peg/orange_round_peg.usda"
 TERMINAL_ASSET_DIRECTORY = f"{_ASSET_ROOT}/industrial__cable_routing_terminals"
 ANCHOR_USD_PATH = f"{TERMINAL_ASSET_DIRECTORY}/anchor.usda"
@@ -43,20 +43,20 @@ PORT_USD_PATH = f"{TERMINAL_ASSET_DIRECTORY}/port.usda"
 HDR_SHADOW_RECEIVER_USD_PATH = f"{_ASSET_ROOT}/industrial__hdr_shadow_receiver/industrial__hdr_shadow_receiver.usda"
 NATIVE_APPEARANCE_USD_PATH = f"{_ASSET_ROOT}/native_appearance/room.usda"
 
-_MEDIUM_SCENE_LAYOUT = yaml.safe_load(_MEDIUM_SCENE_SPEC.read_text())
-_EASY_SCENE_LAYOUT = yaml.safe_load(_EASY_SCENE_SPEC.read_text())
+_COMMON_SCENE_LAYOUT = load_env_graph_spec_dict(_COMMON_SCENE_SPEC)
+_MEDIUM_SCENE_LAYOUT = load_env_graph_spec_dict(_MEDIUM_SCENE_SPEC)
+_EASY_SCENE_LAYOUT = load_env_graph_spec_dict(_EASY_SCENE_SPEC)
 _EMBODIMENT_MIDPOINT = tuple(
-    float(value) for value in _MEDIUM_SCENE_LAYOUT["embodiment_frame"]["midpoint_position_xyz"]
+    float(value) for value in _COMMON_SCENE_LAYOUT["embodiment_frame"]["midpoint_position_xyz"]
 )
-_FIXTURES = _MEDIUM_SCENE_LAYOUT["fixtures"]
-TABLE_FRAME_POSITION = tuple(float(value) for value in _FIXTURES["table"]["position_xyz"])
-TABLE_FRAME_ROTATION = tuple(float(value) for value in _FIXTURES["table"]["rotation_xyzw"])
-TABLE_TOP_Z = float(_FIXTURES["table"]["tabletop_z"])
-TABLE_CENTER_X = _EMBODIMENT_MIDPOINT[0] + 0.3475
-BOARD_POSITION = tuple(float(value) for value in _FIXTURES["board"]["position_xyz"])
-BOARD_THICKNESS = 0.00635
+_WORKCELL = _COMMON_SCENE_LAYOUT["workcell"]
+TABLE_FRAME_POSITION = tuple(float(value) for value in _WORKCELL["table"]["position_xyz"])
+TABLE_FRAME_ROTATION = tuple(float(value) for value in _WORKCELL["table"]["rotation_xyzw"])
+TABLE_TOP_Z = float(_WORKCELL["table"]["tabletop_z"])
+TABLE_CENTER_X = float(_WORKCELL["surface_center_x"])
+BOARD_THICKNESS = float(_WORKCELL["board_thickness_m"])
 BOARD_TOP_Z = TABLE_TOP_Z + BOARD_THICKNESS
-PEG_HEIGHT = 0.0235
+PEG_HEIGHT = float(_WORKCELL["peg_height_m"])
 
 
 @dataclass(frozen=True)
@@ -78,6 +78,36 @@ class CablePhysics:
     color: tuple[float, float, float]
 
 
+@dataclass(frozen=True)
+class CableBuilderPhysics:
+    """Import-time settings not yet represented by Arena's procedural Cable."""
+
+    pin_start: bool
+    rigid_avbd_beta: float
+    rigid_contact_history: bool
+    rigid_body_contact_buffer_size: int
+
+
+@dataclass(frozen=True)
+class CableSolverExtensions:
+    """Newton options used by CAP but not yet declared by Isaac Lab."""
+
+    rigid_jacobian: str
+    contact_matching: Literal["disabled", "latest", "sticky"]
+
+
+@dataclass(frozen=True)
+class CableCouplerProxy:
+    """Proxy coupling that Arena's YAML override resolver cannot materialize yet."""
+
+    source: str
+    destination: str
+    bodies: tuple[str, ...]
+    mode: Literal["lagged", "staggered"]
+    mass_scale: float
+    collide_interval: int
+
+
 @dataclass
 class TerminatedCableGoal:
     """World-axis bounds relative to each fixture's origin."""
@@ -88,6 +118,7 @@ class TerminatedCableGoal:
     port_min_fraction: float
     min_tcp_distance: float
     max_mean_speed: float
+    peg_height: float
 
 
 @dataclass(frozen=True)
@@ -95,6 +126,7 @@ class CableRoutingVariant:
     """One sampled current-CAP cable layout and route objective."""
 
     name: str
+    embodiment_midpoint: tuple[float, float, float]
     cable_local_positions: tuple[tuple[float, float, float], ...]
     peg_positions: tuple[tuple[float, float, float], ...]
     route_peg_indices: tuple[int, ...]
@@ -109,7 +141,11 @@ class CableRoutingVariant:
     port_rotation_xyzw: tuple[float, float, float, float]
     terminated_goal: TerminatedCableGoal
     episode_length_s: float
-    pin_start: bool = True
+    default_physics_backend: str
+    env_cfg_override: dict
+    cable_builder: CableBuilderPhysics
+    solver_extensions: CableSolverExtensions
+    coupler_proxy: CableCouplerProxy
 
     @property
     def cable_num_segments(self) -> int:
@@ -187,24 +223,37 @@ def _terminated_variant(name: str, scene_layout: dict, layout_seed: int | None =
     }
     cable_positions = _make_sampled_cable_positions(cable)
     radius = float(cable["radius_m"])
-    reference_pitch = 0.9144 / 28
+    physics_config = scene_layout["cable_physics"]
+    reference_pitch = float(physics_config["reference_pitch_m"])
     pitch = float(cable["length_m"]) / int(cable["segments"])
-    bend_scale = (radius / 0.011) ** 4 * (reference_pitch / pitch)
+    reference_radius = float(physics_config["reference_radius_m"])
+    bend_scale = (radius / reference_radius) ** 4 * (reference_pitch / pitch)
     physics = CablePhysics(
         radius=radius,
-        density=350.0,
-        stretch_stiffness=2.0e5,
-        stretch_damping=1.0,
-        bend_stiffness=0.04 * bend_scale,
-        bend_damping=0.06 * bend_scale,
-        cable_friction=60.0,
-        fixture_friction=2.0,
-        table_friction=0.02,
-        contact_stiffness=1.0e4,
-        contact_damping=0.1,
-        contact_gap=0.01,
-        color=(0.88, 0.88, 0.87),
+        density=float(physics_config["density_kg_m3"]),
+        stretch_stiffness=float(physics_config["stretch_stiffness"]),
+        stretch_damping=float(physics_config["stretch_damping"]),
+        bend_stiffness=float(physics_config["bend_stiffness"]) * bend_scale,
+        bend_damping=float(physics_config["bend_damping"]) * bend_scale,
+        cable_friction=float(physics_config["cable_friction"]),
+        fixture_friction=float(physics_config["fixture_friction"]),
+        table_friction=float(physics_config["table_friction"]),
+        contact_stiffness=float(physics_config["contact_stiffness"]),
+        contact_damping=float(physics_config["contact_damping"]),
+        contact_gap=float(physics_config["contact_gap"]),
+        color=tuple(float(value) for value in physics_config["color_rgb"]),
     )
+    builder_config = scene_layout["cable_builder"]
+    solver_extensions = scene_layout["solver_extensions"]
+    contact_matching = str(solver_extensions["contact_matching"])
+    assert contact_matching in (
+        "disabled",
+        "latest",
+        "sticky",
+    ), f"Unsupported contact matching mode {contact_matching!r}."
+    proxy_config = scene_layout["coupler_proxy"]
+    proxy_mode = str(proxy_config["mode"])
+    assert proxy_mode in ("lagged", "staggered"), f"Unsupported cable proxy mode {proxy_mode!r}."
     anchor_x, anchor_y, anchor_yaw = anchor_pose_from_cable(
         cable_positions, float(distribution["anchor_mouth_inset_m"])
     )
@@ -212,6 +261,7 @@ def _terminated_variant(name: str, scene_layout: dict, layout_seed: int | None =
     goal = scene_layout["goal"]
     return CableRoutingVariant(
         name=name,
+        embodiment_midpoint=_EMBODIMENT_MIDPOINT,
         cable_local_positions=cable_positions,
         peg_positions=peg_positions,
         route_peg_indices=tuple(range(len(peg_positions))),
@@ -234,6 +284,27 @@ def _terminated_variant(name: str, scene_layout: dict, layout_seed: int | None =
             port_min_fraction=float(goal["port_min_fraction"]),
             min_tcp_distance=float(goal["min_tcp_distance_m"]),
             max_mean_speed=float(goal["max_mean_speed_mps"]),
+            peg_height=PEG_HEIGHT,
+        ),
+        default_physics_backend=str(scene_layout["default_physics_backend"]),
+        env_cfg_override=deepcopy(scene_layout["env_cfg_override"]),
+        cable_builder=CableBuilderPhysics(
+            pin_start=bool(builder_config["pin_start"]),
+            rigid_avbd_beta=float(builder_config["rigid_avbd_beta"]),
+            rigid_contact_history=bool(builder_config["rigid_contact_history"]),
+            rigid_body_contact_buffer_size=int(builder_config["rigid_body_contact_buffer_size"]),
+        ),
+        solver_extensions=CableSolverExtensions(
+            rigid_jacobian=str(solver_extensions["rigid_jacobian"]),
+            contact_matching=contact_matching,
+        ),
+        coupler_proxy=CableCouplerProxy(
+            source=str(proxy_config["source"]),
+            destination=str(proxy_config["destination"]),
+            bodies=tuple(str(body) for body in proxy_config["bodies"]),
+            mode=proxy_mode,
+            mass_scale=float(proxy_config["mass_scale"]),
+            collide_interval=int(proxy_config["collide_interval"]),
         ),
     )
 
@@ -411,10 +482,11 @@ def build_cable_routing_scene(variant: CableRoutingVariant) -> BuiltCableRouting
 
 __all__ = [
     "BOARD_TOP_Z",
+    "CableBuilderPhysics",
+    "CableCouplerProxy",
     "CablePhysics",
     "CableRoutingVariant",
     "TerminatedCableGoal",
-    "YAM_I2RT_USD_PATH",
     "build_cable_routing_scene",
     "easy_variant",
     "medium_variant",

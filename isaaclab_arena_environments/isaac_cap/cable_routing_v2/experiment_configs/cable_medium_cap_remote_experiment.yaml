@@ -1,0 +1,38 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+shared:
+  environment:
+    type: vabar_cable_routing_v2__medium
+    enable_cameras: true
+    layout_seed: 10009
+  environment_builder:
+    num_envs: 1
+    solve_relations: true
+    placement_seed: 42
+  policy:
+    type: cap_yam_i2rt_remote
+    host: 127.0.0.1
+    port: 19000
+    settle_s: 1.0
+    gripper_open_position: 0.0475
+    wire_arm_order: [right, left]
+    camera_mapping:
+      cable_camera: cable
+    workspace:
+      surface_z: 0.767
+      cable_radius_m: 0.0035
+      peg_height_m: 0.0235
+      peg_flange_radius_m: 0.0125
+      cable_rest_x_m: -0.1675
+      cable_end_y_m: 0.40
+      cable_station_count: 4
+      cable_medium_clearance: 1
+      gripper_pad_drop_m: 0.0107
+      seat_offset_m: 0.00825
+  rollout_limit:
+    num_episodes: 1
+runs:
+  cable_medium: {}
