@@ -1,0 +1,124 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Shared workcell and simulation settings for the current CAP cable tasks.
+default_physics_backend: newton
+
+embodiment_frame:
+  midpoint_position_xyz: [-0.335, 0.0, 0.767]
+
+workcell:
+  surface_center_x: 0.0125
+  board_thickness_m: 0.00635
+  peg_height_m: 0.0235
+  table:
+    position_xyz: [-0.335, 0.0, 0.767]
+    rotation_xyzw: [0.0, 0.0, 0.0, 1.0]
+    tabletop_z: 0.767
+
+cable_physics:
+  density_kg_m3: 350.0
+  stretch_stiffness: 200000.0
+  stretch_damping: 1.0
+  bend_stiffness: 0.04
+  bend_damping: 0.06
+  reference_radius_m: 0.011
+  reference_pitch_m: 0.03265714285714286
+  cable_friction: 60.0
+  fixture_friction: &fixture_friction 2.0
+  table_friction: 0.02
+  contact_stiffness: &contact_stiffness 10000.0
+  contact_damping: &contact_damping 0.1
+  contact_gap: 0.01
+  color_rgb: [0.88, 0.88, 0.87]
+
+# Arena's procedural Cable does not yet expose these import-time settings.
+# physics.py consumes only this narrow compatibility section.
+cable_builder:
+  pin_start: true
+  rigid_avbd_beta: 100.0
+  rigid_contact_history: true
+  rigid_body_contact_buffer_size: 256
+
+# CAP depends on two Newton options that the pinned Isaac Lab config classes do
+# not declare yet. physics.py adds only the missing config fields; the values
+# remain declarative here alongside the standard solver configuration below.
+solver_extensions:
+  rigid_jacobian: sparse
+  contact_matching: latest
+
+# Arena's override type resolver cannot currently materialize CouplerProxyMappingCfg
+# because its ModelView annotation is import-only. physics.py constructs this one
+# object while keeping its parameters declarative here.
+coupler_proxy:
+  source: rigid
+  destination: cable
+  bodies:
+  - '/World/envs/env_.*/Yam/Geometry/left_base/left_link1/left_link2/left_link3/left_link4/left_link5/left_link6'
+  - '/World/envs/env_.*/Yam/Geometry/right_base/right_link1/right_link2/right_link3/right_link4/right_link5/right_link6'
+  - '/World/envs/env_.*/(Board|Peg[0-3]|Anchor|Port)'
+  mode: staggered
+  mass_scale: 20.0
+  collide_interval: 1
+
+env_cfg_override:
+  num_rerenders_on_reset: 20
+  decimation: 1
+  scene:
+    replicate_physics: true
+  sim:
+    dt: 0.016666666666666666
+    render_interval: 4
+    use_newton_actuators: true
+    physics_material:
+      _target_: isaaclab_newton.sim.schemas.NewtonMaterialPropertiesCfg
+      static_friction: *fixture_friction
+      dynamic_friction: *fixture_friction
+      restitution: 0.0
+      contact_stiffness: *contact_stiffness
+      contact_damping: *contact_damping
+    physics:
+      solver_cfg:
+        _target_: isaaclab_contrib.coupling.CouplerProxyCfg
+        entries:
+        - _target_: isaaclab_contrib.coupling.CouplerEntryCfg
+          name: rigid
+          solver_cfg:
+            _target_: isaaclab_newton.physics.MJWarpSolverCfg
+            njmax: 1024
+            nconmax: 512
+            cone: elliptic
+            ls_iterations: 20
+            integrator: implicitfast
+            impratio: 10.0
+            tolerance: 0.00000001
+            use_mujoco_contacts: false
+            disable_sensors: true
+          bodies:
+          - '/World/envs/env_.*/Yam'
+          - '/World/envs/env_.*/(Board|Peg[0-3]|Anchor|Port)'
+          include_body_shapes: false
+        - _target_: isaaclab_contrib.coupling.CouplerEntryCfg
+          name: cable
+          solver_cfg:
+            _target_: isaaclab_newton.physics.VBDSolverCfg
+            iterations: 40
+            rigid_contact_k_start: 1000.0
+          bodies:
+          - '/World/envs/env_.*/Cable'
+          include_static_shapes: true
+        iterations: 2
+      default_shape_cfg:
+        ke: *contact_stiffness
+        kd: *contact_damping
+        mu: *fixture_friction
+        margin: 0.0
+        gap: 0.002
+      collision_cfg:
+        _target_: isaaclab_newton.physics.NewtonCollisionPipelineCfg
+      num_substeps: 16
+      use_cuda_graph: true
+      debug_mode: false
+      deterministic_mode: not_guaranteed

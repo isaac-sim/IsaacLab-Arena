@@ -17,6 +17,7 @@ from isaaclab_arena.utils.cameras import ArenaCameraCfg
 
 _CAMERA_WIDTH = 1280
 _CAMERA_HEIGHT = 720
+_CABLE_ROUTING_VERTICAL_FOV_DEG = 50.0
 _D405_MOUNT_POSITION = (-0.0107, 0.079729, 0.066021)
 _D405_MOUNT_ROTATION_XYZW = (0.423, 0.0, 0.0, 0.906)
 _TOP_CAMERA_OFFSET_FROM_ROBOT_MIDPOINT = (0.335, 0.0, 0.93732053)
@@ -77,6 +78,9 @@ class BimanualYamCameraCfg(ArenaCameraCfg):
         )
         self.top_camera.width = 640
         self.top_camera.height = 480
+        self.top_camera.spawn.focal_length = self.top_camera.spawn.vertical_aperture / (
+            2.0 * math.tan(math.radians(_CABLE_ROUTING_VERTICAL_FOV_DEG / 2.0))
+        )
         self.cable_camera = _d405_camera(
             "{ENV_REGEX_NS}/cable_camera",
             position=_CABLE_CAMERA_POSITION,
@@ -84,6 +88,9 @@ class BimanualYamCameraCfg(ArenaCameraCfg):
         )
         self.cable_camera.width = 1280
         self.cable_camera.height = 960
+        self.cable_camera.spawn.focal_length = self.cable_camera.spawn.vertical_aperture / (
+            2.0 * math.tan(math.radians(_CABLE_ROUTING_VERTICAL_FOV_DEG / 2.0))
+        )
 
     def set_robot_mount_positions(
         self,

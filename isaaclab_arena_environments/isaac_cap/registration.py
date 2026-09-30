@@ -64,6 +64,7 @@ _COMPONENT_MODULES = (
     ".gear_insertion_v2.embodiment",
     ".gear_insertion_v2.task.task",
     ".gear_insertion_v2.gear_mesh_environment",
+    ".cable_routing_v2.cap_policy",
     ".cable_routing_v2.task",
     ".cable_routing_v2.environment",
     ".tool_hanging.assets",
