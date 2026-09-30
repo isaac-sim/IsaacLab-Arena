@@ -47,9 +47,10 @@ def _test_generation_writes_complete_layouts(simulation_app, tmp_path):
     from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
     from isaaclab_arena.offline_placement.clutter_generation import generate_clutter_layouts
     from isaaclab_arena.relations.placement_layouts import PlacementLayouts
+    from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
     from isaaclab_arena.relations.relation_solver import RelationSolver
     from isaaclab_arena.relations.validation.types import PlacementCheck
-    from isaaclab_arena.tests.clutter.test_clutter_settling import _make_primitive_clutter_scene
+    from isaaclab_arena.tests.clutter.test_clutter_collection import _make_primitive_clutter_scene
     from isaaclab_arena.utils.pose import Pose
 
     arena_env = _make_primitive_clutter_scene(tmp_path)
@@ -67,8 +68,18 @@ def _test_generation_writes_complete_layouts(simulation_app, tmp_path):
 
     arena_env.env_cfg_callback = configure_physics
     output = tmp_path / "episodes.jsonl"
-    cfg = _arguments(output, num_envs=2, num_layouts=3, attempts=2)
-    assert generate_clutter_layouts(arena_env, cfg) == output
+    cfg = _arguments(output, num_envs=2, num_layouts=3, max_batches=2)
+    # A solve can supply only one layout per environment. Later refills must still
+    # satisfy an output request larger than the initial pool.
+    arena_env.placer_params.max_placement_attempts = 1
+    solve = PooledObjectPlacer._solve_env_ranked_layouts
+
+    def one_layout_per_env(pool, count):
+        ranked, layouts_per_env = solve(pool, count)
+        return [layouts[:1] for layouts in ranked], layouts_per_env
+
+    with patch.object(PooledObjectPlacer, "_solve_env_ranked_layouts", one_layout_per_env):
+        assert generate_clutter_layouts(arena_env, cfg) == output
     records = _read_records(output)
     # Three requested records exercise a final batch with more accepted candidates than needed.
     assert [record["layout_id"] for record in records] == [f"layout_{i:06d}" for i in range(3)]
@@ -129,7 +140,7 @@ def _test_generation_honors_required_solver_checks(simulation_app, tmp_path, ava
     from isaaclab_arena.relations.validation.pre_physics import PrePhysicsPlacementValidator
     from isaaclab_arena.relations.validation.registry import PlacementValidatorRegistry
     from isaaclab_arena.relations.validation.types import PlacementCheck
-    from isaaclab_arena.tests.clutter.test_clutter_settling import _make_primitive_clutter_scene
+    from isaaclab_arena.tests.clutter.test_clutter_collection import _make_primitive_clutter_scene
 
     validated_batches = []
 
@@ -146,7 +157,7 @@ def _test_generation_honors_required_solver_checks(simulation_app, tmp_path, ava
     arena_env.placer_params.required_checks = checks
     arena_env.placer_params.max_placement_attempts = 1
     output = tmp_path / "rejected.jsonl"
-    cfg = _arguments(output, attempts=1)
+    cfg = _arguments(output, max_batches=1)
     reason = "solver validation failed" if available else "missing required solver checks: reject_release"
     with (
         patch.dict(PlacementValidatorRegistry()._components, reject_release=RejectRelease),
@@ -170,10 +181,10 @@ def test_generation_honors_required_solver_checks(tmp_path, available):
 
 def _test_post_physics_checks_gate_output(simulation_app, tmp_path):
     from isaaclab_arena.offline_placement.clutter_generation import generate_clutter_layouts
-    from isaaclab_arena.tests.clutter.test_clutter_settling import _make_primitive_clutter_scene
+    from isaaclab_arena.tests.clutter.test_clutter_collection import _make_primitive_clutter_scene
 
     output = tmp_path / "checked.jsonl"
-    cfg = _arguments(output, num_envs=2, num_layouts=1, attempts=1)
+    cfg = _arguments(output, num_envs=2, num_layouts=1, max_batches=1)
     cfg.settle.validators["reject_for_test"] = {
         "_target_": "isaaclab_arena.tests.clutter.test_clutter_generation.RejectPostPhysics",
         "threshold": 7.0,
@@ -208,10 +219,10 @@ def _test_generation_exhausts_settling_budget(simulation_app, tmp_path):
 
     from isaaclab_arena.offline_placement.clutter_generation import generate_clutter_layouts
     from isaaclab_arena.offline_placement.settled_placement import collect_settled_placements
-    from isaaclab_arena.tests.clutter.test_clutter_settling import _make_primitive_clutter_scene
+    from isaaclab_arena.tests.clutter.test_clutter_collection import _make_primitive_clutter_scene
 
     output = tmp_path / "unsettled.jsonl"
-    cfg = _arguments(output, attempts=2)
+    cfg = _arguments(output, max_batches=2)
     cfg.settle.num_steps = 1
     cfg.settle.validators["physics_settled"]["lin_vel_thresh"] = 0.0001
     with patch(

@@ -93,6 +93,7 @@ def Xform "Body" (
 }
 """)
     data = yaml.safe_load(source.read_text())
+    data["background"]["params"]["prim_path"] = "{ENV_REGEX_NS}/fixtures/custom_table"
     data["object_references"] = [{"id": "surface", "parent_id": "table", "prim_path": "surface", "object_type": "base"}]
     data["relations"][1] = {
         "kind": "clutter_on",

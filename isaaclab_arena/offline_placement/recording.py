@@ -3,18 +3,20 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Asset requirements for reusable placement recordings."""
+"""Shared asset checks and JSONL output for placement recording."""
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedEnv
 
+    from isaaclab_arena.offline_placement.post_physics_validation import PlacementOutcome
     from isaaclab_arena.relations.placement_asset import PlaceableAsset
+    from isaaclab_arena.utils.pose import Pose
 
 
 @dataclass
@@ -63,3 +65,40 @@ def validate_recording_assets(env: ManagerBasedEnv, assets: list[PlaceableAsset]
             recorded_assets.append(asset)
     assert keys, "Recording requires rigid objects or articulations"
     validate_root_reset_for_cached_layouts(recorded_assets)
+
+
+def write_settled_layouts(
+    env: ManagerBasedEnv,
+    output: str | Path,
+    assets: list[PlaceableAsset],
+    poses: dict[str, list[Pose]],
+    outcomes: list[PlacementOutcome],
+    num_steps: int,
+) -> None:
+    """Write accepted root poses and their validation reports as episode JSONL.
+
+    The caller validates recording compatibility before sampling and owns env.
+    This function does not reset, step or close it. Existing output is never overwritten.
+    """
+    from isaaclab_arena.relations.placement_layouts import PlacementLayouts
+
+    layouts = PlacementLayouts(poses)
+    layouts.validate_assets(assets)
+    embodiment_keys = []
+    for asset in assets:
+        if asset.tags and "embodiment" in asset.tags:
+            embodiment_keys.extend(asset.get_scene_root_keys())
+    sampling = {
+        "num_steps": num_steps,
+        "decimation": env.unwrapped.cfg.decimation,
+        "physics_dt_s": env.unwrapped.sim.get_physics_dt(),
+        "embodiment_keys": embodiment_keys,
+    }
+    validation = []
+    for outcome in outcomes:
+        validation.append({
+            "pre_physics": outcome.pre_physics,
+            "post_physics": [asdict(report) for report in outcome.post_physics],
+            "sampling": sampling,
+        })
+    layouts.write_episode_jsonl(output, source="settled", validation=validation)
