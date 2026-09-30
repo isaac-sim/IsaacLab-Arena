@@ -26,8 +26,8 @@ from isaaclab.utils.configclass import configclass
 from isaaclab_arena.assets.nucleus import ARENA_NUCLEUS_DIR
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
-from isaaclab_arena_environments.isaac_cap.embodiments.bimanual_yam.config import BimanualYamEventCfg
 from isaaclab_arena.embodiments.gripper import ParallelJawGripper
+from isaaclab_arena_environments.isaac_cap.embodiments.bimanual_yam.config import BimanualYamEventCfg
 
 from .embodiment.actions import ContinuousJointPositionZeroToOneActionCfg, FiniteJointPositionActionCfg
 from .embodiment.cameras import BimanualYamCameraCfg as IndustrialBimanualYamCameraCfg
