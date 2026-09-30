@@ -12,13 +12,16 @@ import pytest
 
 from isaaclab_arena.environment_spec.arena_env_graph_yaml_loader import load_env_graph_spec_dict
 from isaaclab_arena.tests.utils.constants import TestConstants
+from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 from isaaclab_arena.tests.utils.subprocess import run_subprocess
+
+pytestmark = pytest.mark.isaac_cap
 
 _ENVIRONMENT_DIRECTORY = Path(__file__).parents[1] / "cable_routing_v2"
 _BEHAVIOUR_DEMO_SCRIPT = _ENVIRONMENT_DIRECTORY / "cable_env_behaviour_demo.py"
 
 
-def test_cable_routing_v2_camera_calibration() -> None:
+def _test_cable_routing_v2_camera_calibration(_simulation_app) -> bool:
     """Fixed camera focal lengths match the native CAP cable-routing rig."""
     from isaaclab_arena_environments.isaac_cap.cable_routing_v2.embodiment.cameras import BimanualYamCameraCfg
 
@@ -28,6 +31,11 @@ def test_cable_routing_v2_camera_calibration() -> None:
 
     assert cameras.top_camera.spawn.focal_length == expected_focal_length
     assert cameras.cable_camera.spawn.focal_length == expected_focal_length
+    return True
+
+
+def test_cable_routing_v2_camera_calibration() -> None:
+    assert run_function_with_persistent_simulation_app(_test_cable_routing_v2_camera_calibration)
 
 
 def test_cable_routing_v2_declarative_configuration() -> None:

@@ -10,6 +10,8 @@ from types import SimpleNamespace
 
 import pytest
 
+from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
+
 pytestmark = pytest.mark.isaac_cap
 
 _EXPERIMENT_CONFIG_DIRECTORY = Path(__file__).parents[1] / "cable_routing_v2" / "experiment_configs"
@@ -52,7 +54,7 @@ def _cable_policy():
     )
 
 
-def test_cable_env_cap_policy():
+def _test_cable_env_cap_policy(_simulation_app):
     import numpy as np
     import torch
 
@@ -90,9 +92,14 @@ def test_cable_env_cap_policy():
     assert float(action[6]) == pytest.approx(0.25)
     assert torch.equal(action[7:13], torch.arange(20, 26, dtype=torch.float32))
     assert float(action[13]) == pytest.approx(1.0)
+    return True
 
 
-def test_cable_cap_experiment_configs_use_i2rt_adapter():
+def test_cable_env_cap_policy():
+    assert run_function_with_persistent_simulation_app(_test_cable_env_cap_policy)
+
+
+def _test_cable_cap_experiment_configs_use_i2rt_adapter(_simulation_app):
     """Both cable experiments resolve to the isolated YAM-I2RT policy."""
     from isaaclab_arena.evaluation.arena_experiment_config_loader import load_arena_experiment_from_config_file
     from isaaclab_arena_environments.isaac_cap.cable_routing_v2.cap_policy import CapYamI2rtPolicyCfg
@@ -108,3 +115,8 @@ def test_cable_cap_experiment_configs_use_i2rt_adapter():
         assert policy.wire_arm_order == ["right", "left"]
         assert policy.camera_mapping
         assert policy.workspace
+    return True
+
+
+def test_cable_cap_experiment_configs_use_i2rt_adapter():
+    assert run_function_with_persistent_simulation_app(_test_cable_cap_experiment_configs_use_i2rt_adapter)
