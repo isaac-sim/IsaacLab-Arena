@@ -8,15 +8,16 @@
 import argparse
 from pathlib import Path
 
-from isaaclab_arena.offline_placement.clutter_generation import ClutterGenerationCfg, generate_clutter_layouts
+from isaaclab_arena.offline_placement.clutter_generation import (
+    ClutterGenerationCfg,
+    generate_clutter_layouts,
+    load_generation_config,
+)
 
 
 def parse_generation_args() -> tuple[argparse.Namespace, ClutterGenerationCfg]:
     """Parse launcher flags and Hydra generation settings."""
-    from hydra import compose, initialize
-    from hydra.core.config_store import ConfigStore
     from isaaclab.app import AppLauncher
-    from omegaconf import OmegaConf
 
     from isaaclab_arena.utils.hydra_overrides import assert_hydra_overrides
 
@@ -24,9 +25,7 @@ def parse_generation_args() -> tuple[argparse.Namespace, ClutterGenerationCfg]:
     AppLauncher.add_app_launcher_args(parser)
     launcher_args, overrides = parser.parse_known_args()
     assert_hydra_overrides(overrides, parser)
-    ConfigStore.instance().store(name="clutter_generation", node=ClutterGenerationCfg)
-    with initialize(version_base=None, config_path=None):
-        cfg = OmegaConf.to_object(compose(config_name="clutter_generation", overrides=overrides))
+    cfg = load_generation_config(overrides)
     assert not Path(cfg.output).exists(), f"Output already exists: {cfg.output}"
     assert cfg.env_spec is not None, "Set env_spec to the source environment YAML"
     return launcher_args, cfg

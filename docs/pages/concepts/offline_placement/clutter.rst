@@ -1,5 +1,5 @@
-Offline Clutter Settling
-========================
+Offline Clutter Placement
+=========================
 
 ``ClutterOn`` defines collision-checked release poses. Offline settling uses the
 same reset, physics stepping and validation workflow as
@@ -7,12 +7,95 @@ same reset, physics stepping and validation workflow as
 Physics drops the objects, and the configured validators decide whether to keep
 their final poses.
 
-Use ``collect_settled_placements`` from
-``isaaclab_arena.offline_placement.settled_placement`` to collect layouts in an
-environment you already own. For ``ClutterOn``, pass
+Generate reusable layouts
+-------------------------
+
+Complete :doc:`../../quickstart/installation` and run the following command from
+the repository root in your native environment or Arena container. The maintained
+``franka_three_hammers_and_clamp_no_task`` environment drops three hammers and a
+clamp onto a table:
+
+.. code-block:: bash
+
+   python isaaclab_arena/scripts/generate_clutter_scene.py \
+       env_spec=isaaclab_arena_environments/clutter/franka_three_hammers_and_clamp_no_task.yaml \
+       output=outputs/clutter/episodes.jsonl num_envs=4 num_layouts=10 \
+       seed=42 attempts=5 settle.num_steps=480 \
+       +settle.validators.support_containment.minimum_resting_heights_m.office_table_background=0.5306 \
+       --viz none
+
+The table has a beveled top, so the command sets its minimum resting height
+explicitly to 0.5306 m along its scaled local Z axis.
+
+Success writes exactly 10 accepted layouts to ``outputs/clutter/episodes.jsonl``
+and prints the saved count and path. The acceptance count per batch can vary;
+rejected candidates are reported and later batches supply replacements. If the
+requested count is not reached within the batch budget, generation raises an
+error with rejection reasons and writes no file. Existing files are never
+overwritten; choose a new output path when rerunning.
+
+``num_envs`` controls parallel environments; ``num_layouts`` is the total number
+to save and defaults to ``num_envs``. ``attempts`` multiplies the minimum batch
+count: this command permits up to 15 batches (three batches for 10 layouts, times
+five attempts). Each batch resets every environment, then advances
+``settle.num_steps`` environment steps if any candidate passed solver validation.
+Extra accepted layouts in the final batch are omitted.
+
+Generation settings use Hydra ``key=value`` syntax; launcher options use
+``--flag`` syntax. Configure post-physics checks through ``settle.validators``;
+for example, append ``settle.validators.physics_settled.lin_vel_thresh=0.05``
+to lower the final linear-speed limit. See `Acceptance checks`_ for all defaults.
+
+These images illustrate release and settled poses for the example environment;
+the generated layouts need not match them:
+
+.. figure:: ../../../images/clutter/release.png
+   :width: 640px
+   :alt: Three hammers and a clamp suspended above a table before settling.
+
+   Release poses selected by the placement solver.
+
+.. figure:: ../../../images/clutter/settled.png
+   :width: 640px
+   :alt: The hammers and clamp resting on the table after settling.
+
+   Final poses after physics settling.
+
+Each JSONL line stores a layout under ``variations["scene.relation_placement"]``:
+root poses keyed by runtime scene name, the source label and validator reports.
+Positions are environment-local metres; rotations are xyzw. Inspect one record
+as a format example:
+
+.. code-block:: bash
+
+   head -n 1 outputs/clutter/episodes.jsonl | python -m json.tool
+
+For interactive replay with a display available:
+
+.. code-block:: bash
+
+   python isaaclab_arena/scripts/environment_runner.py \
+       --env_spec isaaclab_arena_environments/clutter/franka_three_hammers_and_clamp_no_task.yaml \
+       --placement_layouts outputs/clutter/episodes.jsonl --num_envs 1 \
+       --device cpu --viz kit
+
+This command starts from the first saved layout. The ``NoTask`` environment has
+no episode resets; close the viewer to exit. For replay during policy evaluation,
+see :doc:`recording`; for queue and reset semantics, see
+:doc:`../object_placement/relations`.
+
+After starting ``SimulationApp``, Python callers can pass an
+``IsaacLabArenaEnvironment`` containing ``ClutterOn`` relations to
+``generate_clutter_layouts(arena_env, cfg)`` with a ``ClutterGenerationCfg`` from
+``isaaclab_arena.offline_placement.clutter_generation``. The generator builds and
+closes its environment. To collect poses from an environment you own, use the
+shared :doc:`recording` Python API.
+
+Use the :doc:`recording` Python API to collect layouts. For ``ClutterOn``, pass
 ``scene_assets=arena_env.get_placement_assets()`` so preparation can inspect the
 complete scene. Collection checks clutter prerequisites before resetting or
 stepping physics.
+
 
 Acceptance checks
 -----------------
