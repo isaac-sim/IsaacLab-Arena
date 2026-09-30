@@ -36,17 +36,15 @@ def reset_gear_mesh_state(env, env_ids=None) -> None:
     assert found_matching_criteria, "reset_gear_mesh_state found no gear_mesh criteria to reset."
 
 
-def _torch(value):
-    return value.torch if hasattr(value, "torch") else value
-
-
 class gear_mesh_success(ManagerTermBase):
     """Latch the motor and require seated rotation after gripper withdrawal."""
 
     def __init__(self, cfg: TerminationTermCfg, env):
         super().__init__(cfg, env)
-        self.board = env.scene[cfg.params["board_asset_cfg"].name]
-        self.gears = tuple(env.scene[asset_cfg.name] for asset_cfg in cfg.params["gear_asset_cfgs"])
+        self.board_name = cfg.params["board_asset_cfg"].name
+        self.gear_names = tuple(asset_cfg.name for asset_cfg in cfg.params["gear_asset_cfgs"])
+        self.board = env.scene[self.board_name]
+        self.gears = tuple(env.scene[name] for name in self.gear_names)
         self.gear = self.gears[0]
         assert cfg.params.get("gripper") is not None, "Gear mesh requires a bound embodiment gripper."
         self.pinion_joint = self.board.data.joint_names.index("pinion_joint")
@@ -99,19 +97,21 @@ class gear_mesh_success(ManagerTermBase):
             hold_time_s,
             spin_window_s,
         )
-        joint_pos = _torch(self.board.data.joint_pos)
-        pressed = joint_pos[:, self.button_joint] <= -button_latch_m
+        arena_world = env.arena_world
+        button_position = arena_world.get_joint_position(self.board_name, "button_joint")
+        pressed = button_position <= -button_latch_m
         newly_latched = pressed & ~self.latched
         self.latched |= pressed
         target = torch.where(
             self.latched[:, None],
-            torch.full_like(joint_pos[:, :1], drive_speed_rad_s),
-            torch.zeros_like(joint_pos[:, :1]),
+            torch.full_like(button_position[:, None], drive_speed_rad_s),
+            torch.zeros_like(button_position[:, None]),
         )
         self.board.set_joint_velocity_target(target, joint_ids=[self.pinion_joint])
 
-        board_pos = _torch(self.board.data.root_pos_w)
-        board_quat = _torch(self.board.data.root_quat_w)
+        board_pose_w = arena_world.get_pose_w(self.board_name)
+        board_pos = board_pose_w[:, :3]
+        board_quat = board_pose_w[:, 3:]
         offsets = torch.as_tensor(target_offsets_xyz, device=env.device, dtype=board_pos.dtype)
         if offsets.shape == (len(self.gears), 3):
             offsets = offsets[None].expand(env.num_envs, -1, -1)
@@ -121,14 +121,15 @@ class gear_mesh_success(ManagerTermBase):
             board_quat[:, None, :].expand(-1, len(self.gears), -1).reshape(-1, 4),
             offsets.reshape(-1, 3),
         ).reshape(env.num_envs, len(self.gears), 3)
-        gear_pos = torch.stack([_torch(asset.data.root_pos_w) for asset in self.gears], dim=1)
+        gear_poses_w = torch.stack([arena_world.get_pose_w(name) for name in self.gear_names], dim=1)
+        gear_pos = gear_poses_w[..., :3]
         error = gear_pos[:, None, :, :] - target_pos[:, :, None, :]
         seated = (torch.linalg.vector_norm(error[..., :2], dim=-1) <= xy_threshold_m) & (
             torch.abs(error[..., 2]) <= z_threshold_m
         )
 
         up = torch.tensor([0.0, 0.0, 1.0], device=env.device, dtype=board_pos.dtype).expand_as(board_pos)
-        gear_quat = torch.stack([_torch(asset.data.root_quat_w) for asset in self.gears], dim=1)
+        gear_quat = gear_poses_w[..., 3:]
         gear_up = math_utils.quat_apply(
             gear_quat.reshape(-1, 4),
             up[:, None, :].expand(-1, len(self.gears), -1).reshape(-1, 3),
@@ -137,7 +138,10 @@ class gear_mesh_success(ManagerTermBase):
         seated &= torch.sum(gear_up[:, None, :, :] * board_up[:, None, None, :], dim=-1) >= math.cos(
             math.radians(upright_threshold_deg)
         )
-        angular = torch.stack([_torch(asset.data.root_com_vel_w)[:, 3:] for asset in self.gears], dim=1)
+        angular = torch.stack(
+            [arena_world.get_root_angular_velocity_w(name) for name in self.gear_names],
+            dim=1,
+        )
         instantaneous_spin = torch.sum(angular * board_up[:, None, :], dim=-1)
         self.spin_history[self.spin_history_index] = instantaneous_spin
         self.spin_history_index = (self.spin_history_index + 1) % self.spin_window_steps

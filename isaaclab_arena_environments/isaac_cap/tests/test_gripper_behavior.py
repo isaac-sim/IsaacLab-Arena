@@ -68,22 +68,25 @@ def _test_gear_success_requires_withdrawal_and_samples_position_once(_simulation
             self.position_calls += 1
             return self.position_w
 
-    board = SimpleNamespace(
-        data=SimpleNamespace(
-            joint_pos=torch.tensor([[0.0, -0.01]]),
-            root_pos_w=torch.zeros((1, 3)),
-            root_quat_w=torch.tensor([[0.0, 0.0, 0.0, 1.0]]),
-        ),
-        set_joint_velocity_target=lambda _target, joint_ids: None,
-    )
-    gear_data = SimpleNamespace(
-        root_pos_w=torch.zeros((1, 3)),
-        root_quat_w=torch.tensor([[0.0, 0.0, 0.0, 1.0]]),
-        root_com_vel_w=torch.tensor([[0.0, 0.0, 0.0, 0.0, 0.0, 1.0]]),
-    )
+    class TestWorld:
+        def get_joint_position(self, scene_key, joint_name):
+            assert (scene_key, joint_name) == ("board", "button_joint")
+            return torch.tensor([-0.01])
+
+        def get_pose_w(self, scene_key):
+            assert scene_key in ("board", "gear_a", "gear_b")
+            return torch.tensor([[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0]])
+
+        def get_root_angular_velocity_w(self, scene_key):
+            assert scene_key in ("gear_a", "gear_b")
+            return torch.tensor([[0.0, 0.0, 1.0]])
+
+    board = SimpleNamespace(set_joint_velocity_target=lambda _target, joint_ids: None)
     success = object.__new__(gear_mesh_success)
+    success.board_name = "board"
+    success.gear_names = ("gear_a", "gear_b")
     success.board = board
-    success.gears = (SimpleNamespace(data=gear_data), SimpleNamespace(data=gear_data))
+    success.gears = (SimpleNamespace(), SimpleNamespace())
     success.pinion_joint = 0
     success.button_joint = 1
     success.latched = torch.tensor([False])
@@ -95,7 +98,7 @@ def _test_gear_success_requires_withdrawal_and_samples_position_once(_simulation
     success.spin_history = torch.zeros((1, 1, 2))
     success.spin_samples_seen = torch.zeros(1, dtype=torch.int32)
     success.spin_history_index = 0
-    env = SimpleNamespace(num_envs=1, device="cpu", arena_world=SimpleNamespace())
+    env = SimpleNamespace(num_envs=1, device="cpu", arena_world=TestWorld())
     gripper = TestGripper()
     params = {
         "board_asset_cfg": SimpleNamespace(),

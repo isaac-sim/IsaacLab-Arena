@@ -1,0 +1,34 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# AUTOLab's 60 Hz, 16-substep contact-rich regime shared by every gear-mesh scene.
+default_physics_backend: newton
+env_cfg_override:
+  decimation: 1
+  sim:
+    dt: 0.016666666666666666
+    physics:
+      num_substeps: 16
+      collision_decimation: 1
+      use_cuda_graph: false
+      default_shape_cfg:
+        ke: 60000.0
+        kd: 500.0
+        gap: 0.00005
+      solver_cfg:
+        update_data_interval: 1
+        disable_sensors: true
+        njmax: 32768
+        nconmax: 16384
+        use_mujoco_contacts: false
+        iterations: 100
+        ls_iterations: 50
+        cone: elliptic
+        impratio: 10.0
+      collision_cfg:
+        _target_: isaaclab_newton.physics.NewtonCollisionPipelineCfg
+        reduce_contacts: false
+        rigid_contact_max: 32768
+        max_triangle_pairs: 1000000

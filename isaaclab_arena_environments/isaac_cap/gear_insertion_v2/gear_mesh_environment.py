@@ -10,68 +10,21 @@
 
 from __future__ import annotations
 
-from copy import deepcopy
 from dataclasses import dataclass, field
-from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg, ArenaEnvironmentFactory
-from isaaclab_arena.utils.physics_backend import PhysicsBackend
 
 from ..registration import register_environment
 
 if TYPE_CHECKING:
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
-    from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import IsaacLabArenaManagerBasedRLEnvCfg
 
 
 _EASY_SCENE_SPEC = Path(__file__).with_name("gear_easy.yaml")
 _EASY_PAIR_SCENE_SPEC = Path(__file__).with_name("gear_easy_pair.yaml")
 _MEDIUM_TRAIN_SCENE_SPEC = Path(__file__).with_name("gear_medium_train.yaml")
-
-
-def _configure_gear_mesh_physics(
-    env_cfg: IsaacLabArenaManagerBasedRLEnvCfg,
-) -> IsaacLabArenaManagerBasedRLEnvCfg:
-    """Match AUTOLab's 60 Hz x 16-substep contact-rich gear regime."""
-    from isaaclab_newton.physics import NewtonCollisionPipelineCfg
-
-    from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import ArenaPhysicsCfg
-
-    from .physics import disable_mjwarp_sensors
-
-    physics = disable_mjwarp_sensors(deepcopy(ArenaPhysicsCfg().newton))
-    physics.collision_decimation = 1
-    physics.solver_cfg.update_data_interval = 1
-    physics.default_shape_cfg.ke = 60_000.0
-    physics.default_shape_cfg.kd = 500.0
-    env_cfg.sim.dt = 1.0 / 60.0
-    env_cfg.decimation = 1
-    physics.num_substeps = 16
-    # This contact-rich model exceeds a 48 GiB card during Warp graph
-    # instantiation at the upstream buffers; eager Warp keeps the same solver.
-    physics.use_cuda_graph = False
-    physics.solver_cfg.njmax = 32768
-    physics.solver_cfg.nconmax = 16384
-    physics.solver_cfg.use_mujoco_contacts = False
-    physics.solver_cfg.enable_multiccd = True
-    physics.solver_cfg.iterations = 100
-    physics.solver_cfg.ls_iterations = 50
-    physics.solver_cfg.cone = "elliptic"
-    physics.solver_cfg.impratio = 10.0
-    # AUTOLab's native-MuJoCo path uses enable_multiccd=True to retain a
-    # multi-point manifold for meshing convex pieces.  On Newton's collision
-    # path, preserving generated contacts instead of reducing them is the
-    # corresponding control.
-    physics.collision_cfg = NewtonCollisionPipelineCfg(
-        reduce_contacts=False,
-        rigid_contact_max=32768,
-        max_triangle_pairs=1_000_000,
-    )
-    physics.default_shape_cfg.gap = 5.0e-5
-    env_cfg.sim.physics = physics
-    return env_cfg
 
 
 @dataclass
@@ -104,11 +57,10 @@ class GearMeshTrainNewtonEnvironmentCfg(GearMeshNewtonEnvironmentCfg):
 
 
 class GearMeshNewtonEnvironment(ArenaEnvironmentFactory[GearMeshNewtonEnvironmentCfg]):
-    """Build gear insertion from its graph and task-owned Newton profile."""
+    """Build gear insertion from its graph-owned Newton profile."""
 
     _legacy_argparse_cfg_type = GearMeshNewtonEnvironmentCfg
     scene_spec: Path
-    env_cfg_callback = staticmethod(_configure_gear_mesh_physics)
 
     def build(self, cfg: GearMeshNewtonEnvironmentCfg) -> IsaacLabArenaEnvironment:
         from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
@@ -126,8 +78,6 @@ class GearMeshNewtonEnvironment(ArenaEnvironmentFactory[GearMeshNewtonEnvironmen
             if cfg.episode_length_s <= 0:
                 raise ValueError("episode_length_s must be positive")
             arena_env.task.episode_length_s = cfg.episode_length_s
-        arena_env.default_physics_backend = PhysicsBackend.NEWTON
-        arena_env.env_cfg_callback = partial(self.env_cfg_callback)
         return arena_env
 
 
@@ -138,7 +88,6 @@ class GearInsertionEasyNewtonEnvironment(GearMeshNewtonEnvironment):
     name = "vabar_contact_rich_insertion_v2__gear_easy"
     _legacy_argparse_cfg_type = GearInsertionEasyNewtonEnvironmentCfg
     scene_spec = _EASY_SCENE_SPEC
-    env_cfg_callback = staticmethod(_configure_gear_mesh_physics)
 
     def build(self, cfg: GearInsertionEasyNewtonEnvironmentCfg) -> IsaacLabArenaEnvironment:
         arena_env = super().build(cfg)
@@ -155,7 +104,6 @@ class _GearMeshLayoutNewtonEnvironment(GearMeshNewtonEnvironment):
 
     family: str
     gear_names: tuple[str, ...]
-    env_cfg_callback = staticmethod(_configure_gear_mesh_physics)
 
     def build(self, cfg: GearMeshNewtonEnvironmentCfg) -> IsaacLabArenaEnvironment:
         arena_env = super().build(cfg)
@@ -173,11 +121,12 @@ class _GearMeshLayoutNewtonEnvironment(GearMeshNewtonEnvironment):
                     GearLayoutVariationCfg(family=self.family),
                 )
             )
-        physics_callback = self.env_cfg_callback
+        graph_callback = arena_env.env_cfg_callback
+        assert graph_callback is not None, "Gear-mesh graphs must define env_cfg_override."
 
         def configure(env_cfg):
             return configure_parallel_layouts(
-                physics_callback(env_cfg),
+                graph_callback(env_cfg),
                 family=self.family,
                 gear_names=self.gear_names,
                 layout_names=cfg.layout_names,
