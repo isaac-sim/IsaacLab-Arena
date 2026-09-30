@@ -40,7 +40,8 @@ class ChoiceSampler(SamplerBase, Generic[T]):
         Returns:
             A ``list`` of length ``num_samples`` of items drawn from ``choices``.
         """
-        result = self._sample(num_samples, choices)
+        override = self._get_sample_override(num_samples, env_ids)
+        result = self._sample(num_samples, choices) if override is None else override
         self._notify(result, env_ids)
         return result
 

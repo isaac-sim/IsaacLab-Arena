@@ -35,6 +35,30 @@ class SamplerBase(ABC):
 
     def __init__(self) -> None:
         self._listeners: list[Callable[[Any, torch.Tensor | None], None]] = []
+        self._sample_override_provider: Callable[[int, torch.Tensor | None], list[Any] | None] | None = None
+
+    def set_sample_override_provider(
+        self,
+        provider: Callable[[int, torch.Tensor | None], list[Any] | None] | None,
+    ) -> None:
+        """Set an optional provider of recorded sample rows.
+
+        The provider receives the requested sample count and environment ids.
+        Returning ``None`` keeps normal random sampling; returning rows replaces
+        the random draw while preserving the sampler's public output type.
+        """
+        self._sample_override_provider = provider
+
+    def _get_sample_override(self, num_samples: int, env_ids: torch.Tensor | None) -> list[Any] | None:
+        """Return recorded rows for this draw, or ``None`` for live sampling."""
+        if self._sample_override_provider is None:
+            return None
+        rows = self._sample_override_provider(num_samples, env_ids)
+        if rows is not None:
+            assert (
+                len(rows) == num_samples
+            ), f"Sample override returned {len(rows)} rows for a {num_samples}-sample draw."
+        return rows
 
     def add_listener(self, listener: Callable[[Any, torch.Tensor | None], None]) -> None:
         """Register ``listener``, called as ``listener(sample, env_ids)`` for every sample drawn."""

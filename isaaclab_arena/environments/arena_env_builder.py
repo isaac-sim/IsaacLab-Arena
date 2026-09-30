@@ -61,9 +61,8 @@ from isaaclab_arena.utils.physics_backend import PhysicsBackend
 from isaaclab_arena.variations import variations_hydra, variations_printing
 from isaaclab_arena.variations.condition_replay import (
     ConditionReplayState,
-    bind_variation_record_keys,
+    bind_condition_replay_sample_overrides,
     enabled_variation_record_keys,
-    notify_variation_sample,
 )
 from isaaclab_arena.variations.condition_scheduler import ConditionScheduler
 from isaaclab_arena.variations.episode_conditions import (
@@ -71,7 +70,7 @@ from isaaclab_arena.variations.episode_conditions import (
     load_episode_conditions_overlay,
     validate_overlay_variation_keys,
 )
-from isaaclab_arena.variations.variation_base import BuildTimeVariationBase, RunTimeVariationBase, VariationBase
+from isaaclab_arena.variations.variation_base import RunTimeVariationBase, VariationBase
 from isaaclab_arena.variations.variation_recorder import VariationRecorder
 
 
@@ -235,26 +234,17 @@ class ArenaEnvBuilder:
         VariationsEventCfg = make_configclass("VariationsEventCfg", fields)
         return VariationsEventCfg()
 
-    def _apply_build_time_variations(self, build_time_overrides: dict[str, Any] | None = None) -> None:
+    def _apply_build_time_variations(self) -> None:
         """Configure every enabled variation at build time before ``scene_cfg`` is materialised.
 
         These mutate asset configs in place (e.g. a dome light's spawner
         texture), so this must run before ``scene_cfg`` is materialised.
         """
-        overrides = build_time_overrides or {}
-        for asset_name, asset_variations in self.get_all_variations().items():
+        for asset_variations in self.get_all_variations().values():
             for variation in asset_variations:
                 if not variation.enabled:
                     continue
-                record_key = f"{asset_name}.{variation.name}"
-                fixed_sample = overrides.get(record_key)
-                variation.configure_at_build_time(fixed_sample=fixed_sample)
-                if fixed_sample is not None and isinstance(variation, BuildTimeVariationBase):
-                    notify_variation_sample(
-                        variation,
-                        fixed_sample if isinstance(fixed_sample, list) else [fixed_sample],
-                        None,
-                    )
+                variation.configure_at_build_time()
 
     def _modify_recorder_cfg_dataset_filename(self, recorder_cfg: RecorderManagerBaseCfg) -> RecorderManagerBaseCfg:
         """Modify the recorder dataset filename to include the timestamp and rank."""
@@ -343,10 +333,12 @@ class ArenaEnvBuilder:
             variations_hydra.apply_overrides(variations, self.hydra_overrides)
 
         all_variations = self.get_all_variations()
-        bind_variation_record_keys(all_variations)
         condition_overlay = self._load_condition_overlay()
+        condition_scheduler = None
         if condition_overlay is not None:
             validate_overlay_variation_keys(condition_overlay, enabled_variation_record_keys(all_variations))
+            condition_scheduler = ConditionScheduler(condition_overlay)
+            bind_condition_replay_sample_overrides(all_variations, condition_overlay, condition_scheduler)
 
         # Attach the variation recorder before any sampling, so it observes both build-time samples
         # (drawn just below) and run-time samples (drawn during simulation).
@@ -354,8 +346,7 @@ class ArenaEnvBuilder:
         variation_recorder.attach(all_variations)
 
         # Apply build-time variations now, before scene_cfg is materialised.
-        build_time_overrides = condition_overlay.build_time_variations if condition_overlay is not None else None
-        self._apply_build_time_variations(build_time_overrides)
+        self._apply_build_time_variations()
 
         resolved_physics_backend = self.resolved_physics_backend
 
@@ -570,9 +561,10 @@ class ArenaEnvBuilder:
 
         env_kwargs: dict[str, Any] = {"variation_recorder": variation_recorder}
         if condition_overlay is not None:
+            assert condition_scheduler is not None
             env_kwargs["condition_replay"] = ConditionReplayState(
                 overlay=condition_overlay,
-                scheduler=ConditionScheduler(condition_overlay),
+                scheduler=condition_scheduler,
                 episode_results_source=str(condition_overlay.source.get("episode_results", "")) or None,
             )
         return env_cfg, env_kwargs
