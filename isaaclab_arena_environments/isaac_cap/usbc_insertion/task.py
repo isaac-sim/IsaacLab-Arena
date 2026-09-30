@@ -8,7 +8,6 @@
 from __future__ import annotations
 
 import math
-import torch
 from typing import TYPE_CHECKING, Any
 
 from isaaclab.managers import TerminationTermCfg
@@ -30,14 +29,10 @@ from isaaclab_arena.tasks.predicates.temporal import TrueForConsecutiveStepsCfg
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
 from isaaclab_arena.tasks.terminations import check_success
+from isaaclab_arena_environments.isaac_cap.cap_policy import cap_episode_finished
 
 if TYPE_CHECKING:
     from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
-
-
-def cap_episode_finished(env) -> torch.Tensor:
-    """End a disconnected CAP episode after policy settling without reporting success."""
-    return torch.full((env.num_envs,), getattr(env, "cap_episode_finished", False), device=env.device, dtype=torch.bool)
 
 
 @register_task

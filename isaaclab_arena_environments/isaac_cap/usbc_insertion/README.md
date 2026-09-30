@@ -111,8 +111,6 @@ Then start the easy graph from the configured Isaac-cap checkout in another
 terminal:
 
 ```bash
-cd /home/xyao/workspaces/Isaac-cap
-
 GAP_PORT=19000 \
 GAP_GRAPH=usbc_insert/mate \
 GAP_GRAPH_REVISION=bf985d08c0e2deafdbdca3f34c3a5a6d8d19deeb \
