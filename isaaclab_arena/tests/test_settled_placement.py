@@ -520,6 +520,42 @@ def test_recording_with_robot_resets_and_replays(tmp_path):
     assert run_function_with_persistent_simulation_app(_test_recording_with_robot, tmp_path=tmp_path)
 
 
+def _test_configured_validator_reports_write_jsonl(simulation_app, tmp_path, minimum_resting_heights):
+    import json
+    from dataclasses import asdict
+
+    from isaaclab_arena.offline_placement.clutter_validators import default_clutter_validators
+    from isaaclab_arena.offline_placement.post_physics_validation import build_post_physics_validators
+    from isaaclab_arena.relations.placement_layouts import PlacementLayouts
+    from isaaclab_arena.utils.pose import Pose
+
+    configurations = default_clutter_validators()
+    if minimum_resting_heights:
+        configurations["support_containment"]["minimum_resting_heights_m"] = minimum_resting_heights
+    validators = build_post_physics_validators(configurations, [])
+    reports = [asdict(validator.report(True)) for validator in validators]
+    output = tmp_path / "placements.jsonl"
+    PlacementLayouts({"cube": [Pose.identity()]}).write_episode_jsonl(
+        output, source="settled", validation=[{"post_physics": reports}]
+    )
+    record = json.loads(output.read_text())["variations"]["scene.relation_placement"]
+    recorded_reports = {report["check"]: report for report in record["validation"]["post_physics"]}
+    assert (
+        recorded_reports["support_containment"]["configuration"]["minimum_resting_heights_m"] == minimum_resting_heights
+    )
+    assert PlacementLayouts.from_episode_jsonl(output).poses == {"cube": [Pose.identity()]}
+    return True
+
+
+@pytest.mark.parametrize("minimum_resting_heights", [{}, {"bowl": -0.025}], ids=["flat-support", "bowl"])
+def test_configured_validator_reports_write_jsonl(tmp_path, minimum_resting_heights):
+    assert run_function_with_persistent_simulation_app(
+        _test_configured_validator_reports_write_jsonl,
+        tmp_path=tmp_path,
+        minimum_resting_heights=minimum_resting_heights,
+    )
+
+
 def test_link_shift_checks_task_objects_separately_from_roots():
     import torch
 

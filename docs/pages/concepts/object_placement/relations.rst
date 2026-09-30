@@ -306,6 +306,8 @@ disable pose-changing variations and callbacks when exact replay is required.
 Next Steps
 ----------
 
+See :doc:`../offline_placement/clutter` for offline settling.
+
 To generate a pose file from an existing environment, see
 :doc:`../offline_placement/recording`.
 

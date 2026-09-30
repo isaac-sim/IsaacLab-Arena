@@ -3,6 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+external_yaml: cable_env_config.yaml
 env_name: cable_routing_medium
 task_description: weave the cable through the four pegs and route its free end into the port
 source:
@@ -10,23 +11,11 @@ source:
   revision: bf985d08c0e2deafdbdca3f34c3a5a6d8d19deeb
   task: cable_route/port_medium
   sampler: staging:PORT_BOARD_REACHABLE
-max_episode_steps: 24000
-# Shared Arena workcell frame; cable, terminals and guides use the coupled
-# distribution below rather than independently randomized rigid poses.
-embodiment_frame:
-  midpoint_position_xyz: [-0.335, 0.0, 0.767]
+max_episode_steps: 30000
 fixtures:
   table:
-    registry_name: industrial__yam_workcell_table
-    position_xyz: [-0.335, 0.0, 0.767]
-    rotation_xyzw: [0.0, 0.0, 0.0, 1.0]
-    tabletop_z: 0.767
     collision_center_surface_xyz: [0.0, 0.0, -0.375]
     collision_size_xyz: [0.595, 1.3, 0.75]
-  board:
-    registry_name: industrial__cable_routing_board
-    position_xyz: [0.0125, 0.0, 0.770175]
-    rotation_xyzw: [0.0, 0.0, 0.0, 1.0]
   port:
     surface_pose_xyyaw: [0.026, 0.02, 3.141592653589793]
 cable:

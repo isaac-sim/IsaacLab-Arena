@@ -3,6 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+external_yaml: cable_env_config.yaml
 env_name: cable_routing_easy
 task_description: weave the cable through the two pegs and route its free end into the port
 source:
@@ -12,6 +13,7 @@ source:
   sampler: staging:PORT_BOARD
   regression_sample: cablerouting-easy-routecable-10
   regression_seed: 10009
+max_episode_steps: 30000
 fixtures:
   table:
     # Berkeley's BENCH_075 collision box, expressed in the work-surface frame.

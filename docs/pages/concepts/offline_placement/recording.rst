@@ -282,7 +282,8 @@ The post-physics checks share one settling pass:
      - Final linear and angular speed of every root, including the robot.
      - 0.1 m/s and 0.1 rad/s
    * - ``pose_shift``
-     - Initial-to-final translation and rotation of every root.
+     - Initial-to-final translation and rotation of each root, excluding intentional
+       ``ClutterOn`` drops.
      - 2 mm and 2 degrees
    * - ``articulation_link_shift``
      - Task-object link motion relative to its root; excludes robot embodiments.
@@ -402,9 +403,12 @@ environment and reset batch, not an index into a stored pool.
 
 The collector returns empty pose lists and rejection reasons when no candidates
 pass. The recording wrapper separately enforces ``min_layouts``, validates replay
-compatibility and adds sampling metadata to the saved JSONL. Asset definitions
-are optional for collection; ``scene_assets`` supplies metadata used to distinguish
-embodiments from articulated task objects, not a required definition for each root.
+compatibility and adds sampling metadata to the saved JSONL. For ordinary
+placements, ``scene_assets`` is optional and supplements the pool's metadata to
+distinguish embodiments from articulated task objects. For ``ClutterOn`` collection,
+pass the complete ``arena_env.get_placement_assets()`` list so preflight can also
+check passive objects and support geometry. See :doc:`clutter` for the required
+scene configuration and clutter validator defaults.
 
 Both APIs perform sampling resets; an initial ``env.reset()`` is unnecessary.
 Set ``log_progress=True`` on the collector to print validator settings, physics-step
