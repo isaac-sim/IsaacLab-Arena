@@ -155,7 +155,8 @@ def spawned_rigid_body_has_gravity(scene: InteractiveScene, scene_key: str) -> b
     """Whether all variants of a spawned rigid object participate in gravity."""
     from isaaclab_arena.environments.arena_world_scene_access import get_representative_rigid_body_prims
 
-    # Isaac Lab's solver-common RigidBodyBaseCfg maps disable_gravity to this USD attribute.
+    # Both backends import this USD attribute despite its PhysX namespace.
+    # It describes authored gravity intent; Newton does not support per-body gravity exclusion.
     return all(
         body.GetAttribute("physxRigidBody:disableGravity").Get() is not True
         for body in get_representative_rigid_body_prims(scene, scene_key)

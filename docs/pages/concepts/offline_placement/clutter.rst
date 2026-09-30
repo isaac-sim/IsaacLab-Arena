@@ -7,64 +7,28 @@ same reset, physics stepping and validation workflow as
 Physics drops the objects, and the configured validators decide whether to keep
 their final poses.
 
-Collect layouts
----------------
-
-Build the environment with relation solving enabled. For an environment definition
-containing ``ClutterOn`` relations:
-
-.. code-block:: python
-
-   from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
-   from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
-   from isaaclab_arena.offline_placement.settled_placement import collect_settled_placements
-   from isaaclab_arena.offline_placement.clutter_validators import default_clutter_validators
-   from isaaclab_arena.offline_placement.settled_placement_params import SettledPlacementParams
-
-   params = SettledPlacementParams(
-       num_steps=480,
-       validators=default_clutter_validators(),
-   )
-   env = ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg(num_envs=4)).make_registered()
-   try:
-       result = collect_settled_placements(
-           env, num_batches=2, params=params,
-           scene_assets=arena_env.get_placement_assets(),
-           render=True, log_progress=True,
-       )
-       print(result.accepted_indices)
-       print(result.rejections)
-   finally:
-       env.close()
-
-Run this after ``SimulationApp`` starts. Do not reset before collecting: collection
-resets once per batch. Two batches of four environments sample eight candidates.
-``num_steps`` counts environment steps, each containing the configured number of
-physics substeps; it is independent of the number of batches.
-
-``collect_settled_placements`` detects ``ClutterOn`` relations and checks their
-scene prerequisites before resetting or stepping physics. Pass the complete
-``scene_assets`` list so it can check passive objects as well as placement objects.
-It returns ``SettledPlacementResult``:
-
-* ``poses`` contains accepted rigid-object and articulation root poses, keyed by
-  runtime scene name. Positions are environment-local metres; rotations are xyzw.
-* ``accepted_indices`` identifies each accepted environment and reset batch.
-* ``validation`` retains solver verdicts and post-physics settings and outcomes.
-* ``rejections`` explains failed candidates. All-rejected runs return empty pose
-  lists. Increase ``num_batches`` to sample more candidates.
-
-The caller owns the environment. It remains at its final state after collection
-or failure.
+Use the :doc:`recording` Python API to collect layouts. For ``ClutterOn``, pass
+``scene_assets=arena_env.get_placement_assets()`` so preparation can inspect the
+complete scene. Collection checks clutter prerequisites before resetting or
+stepping physics.
 
 Acceptance checks
 -----------------
 
 When ``params`` is omitted, collection selects clutter defaults for ``ClutterOn``
 scenes and ordinary recording defaults otherwise. The shared default duration is
-short; the example above explicitly sets a longer drop window. Explicit ``params``
-are used unchanged, including disabled or custom validators. Use
-``default_clutter_validators()`` when configuring a longer clutter run.
+short. For an explicit drop window, keep the clutter checks when creating params:
+
+.. code-block:: python
+
+   from isaaclab_arena.offline_placement.clutter_validators import default_clutter_validators
+   from isaaclab_arena.offline_placement.settled_placement_params import SettledPlacementParams
+
+   params = SettledPlacementParams(num_steps=480, validators=default_clutter_validators())
+
+Explicit ``params`` are used unchanged, including disabled or custom validators.
+``num_steps`` counts environment steps per batch, including their configured
+physics substeps.
 
 .. list-table::
    :header-rows: 1

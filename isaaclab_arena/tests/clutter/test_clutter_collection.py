@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
-"""Offline clutter settling, acceptance and candidate isolation."""
+"""Clutter collection through the shared settled-placement API."""
 
 import pytest
 
@@ -95,7 +95,7 @@ def _make_primitive_clutter_scene(tmp_path, raised_support=False):
         return ArenaEnvGraphSpec.model_validate(data).to_arena_env()
 
 
-def _test_clutter_collection_uses_shared_batches(simulation_app, tmp_path):
+def _test_clutter_collection_uses_shared_batches(simulation_app, tmp_path, backend):
     import torch
     from copy import deepcopy
     from unittest.mock import patch
@@ -111,7 +111,7 @@ def _test_clutter_collection_uses_shared_batches(simulation_app, tmp_path):
 
     arena_env = _make_primitive_clutter_scene(tmp_path)
     arena_env.placer_params.min_unique_layouts_per_env = 2
-    env = ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg(num_envs=2)).make_registered()
+    env = ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg(num_envs=2, presets=backend)).make_registered()
     try:
         base = env.unwrapped
         pool = get_placement_pool(base)
@@ -179,8 +179,11 @@ def _test_clutter_collection_uses_shared_batches(simulation_app, tmp_path):
     return True
 
 
-def test_clutter_collection_uses_shared_batches(tmp_path):
-    assert run_function_with_persistent_simulation_app(_test_clutter_collection_uses_shared_batches, tmp_path=tmp_path)
+@pytest.mark.parametrize("backend", ["physx", "newton"])
+def test_clutter_collection_uses_shared_batches(tmp_path, backend):
+    assert run_function_with_persistent_simulation_app(
+        _test_clutter_collection_uses_shared_batches, tmp_path=tmp_path, backend=backend
+    )
 
 
 def _test_raised_support_requires_explicit_surface(simulation_app, tmp_path):

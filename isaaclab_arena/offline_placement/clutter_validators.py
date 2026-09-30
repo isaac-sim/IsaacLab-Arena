@@ -123,7 +123,7 @@ class SupportContainmentValidator(PostPhysicsPlacementValidator):
                     .rotated_by_quat(tuple(pose[3:]))
                     .translated(child.final_poses[env_id, :3])
                 )
-                verdict = check_resting_poses(
+                verdict = _check_resting_pose(
                     bounds,
                     support_bounds_e,
                     self.containment_margin_m,
@@ -134,14 +134,6 @@ class SupportContainmentValidator(PostPhysicsPlacementValidator):
                     reasons.append(f"support {support_key}: {verdict.describe([child_key])}")
             reports.append(self.report(not reasons, "; ".join(reasons)))
         return reports
-
-
-def default_clutter_validators() -> dict[str, dict]:
-    """Shared velocity/link checks, non-clutter root limits and support containment."""
-    validators = default_post_physics_validators()
-    containment = SupportContainmentValidator()
-    validators[containment.check] = containment.configuration()
-    return validators
 
 
 @dataclass
@@ -176,7 +168,7 @@ class ClutterContainmentResult:
         return "; ".join(parts) if parts else "all members within support"
 
 
-def check_resting_poses(
+def _check_resting_pose(
     bounds: AxisAlignedBoundingBox,
     support_bounds: AxisAlignedBoundingBox,
     containment_margin_m: float,
@@ -213,3 +205,11 @@ def check_resting_poses(
         ):
             verdict.fell_off.append(index)
     return verdict
+
+
+def default_clutter_validators() -> dict[str, dict]:
+    """Shared velocity/link checks, non-clutter root limits and support containment."""
+    validators = default_post_physics_validators()
+    containment = SupportContainmentValidator()
+    validators[containment.check] = containment.configuration()
+    return validators

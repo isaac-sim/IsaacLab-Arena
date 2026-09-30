@@ -12,7 +12,7 @@ import pytest
 
 
 def test_resting_containment_uses_rotated_bounds():
-    from isaaclab_arena.offline_placement.clutter_validators import check_resting_poses
+    from isaaclab_arena.offline_placement.clutter_validators import _check_resting_pose
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, quaternion_to_90_deg_z_quarters
 
     support = AxisAlignedBoundingBox((-0.5, -0.2, -0.1), (0.5, 0.2, 0))
@@ -26,7 +26,7 @@ def test_resting_containment_uses_rotated_bounds():
     bounds = child.rotated_by_quat((0, 0, 2**-0.5, 2**-0.5)).translated(
         torch.tensor([[0, 0, 1.05], [0.15, 0, 1.05], [0, 0, 0.9]])
     )
-    verdict = check_resting_poses(bounds, support_bounds, containment_margin_m=0.0, fall_through_tolerance_m=0.01)
+    verdict = _check_resting_pose(bounds, support_bounds, containment_margin_m=0.0, fall_through_tolerance_m=0.01)
     assert verdict.diverged == []
     assert verdict.fell_off == [1]
     assert verdict.fell_through == [2]
@@ -69,7 +69,7 @@ def test_clutter_preparation_is_noop_without_clutter():
 
 
 def test_container_height_keeps_footprint_and_fall_through_checks():
-    from isaaclab_arena.offline_placement.clutter_validators import check_resting_poses
+    from isaaclab_arena.offline_placement.clutter_validators import _check_resting_pose
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
     support = AxisAlignedBoundingBox((-0.5, -0.2, -0.1), (0.5, 0.2, 0.2))
@@ -78,7 +78,7 @@ def test_container_height_keeps_footprint_and_fall_through_checks():
     torch.testing.assert_close(support_bounds.max_point[0, :2], torch.tensor([1.2, 2.5]))
     child = AxisAlignedBoundingBox((-0.01, -0.01, 0), (0.01, 0.01, 0.02))
     bounds = child.translated(torch.tensor([[1, 2, 3.03], [1, 2, 2.99], [1.25, 2, 3.03]]))
-    result = check_resting_poses(
+    result = _check_resting_pose(
         bounds,
         support_bounds,
         containment_margin_m=0,
@@ -89,7 +89,7 @@ def test_container_height_keeps_footprint_and_fall_through_checks():
     assert result.fell_off == [2]
     assert not result.diverged
     # Without an override, objects below the rim fail the default top-surface check.
-    default = check_resting_poses(bounds, support_bounds, containment_margin_m=0, fall_through_tolerance_m=0.001)
+    default = _check_resting_pose(bounds, support_bounds, containment_margin_m=0, fall_through_tolerance_m=0.001)
     assert default.fell_through == [0, 1, 2]
 
 
