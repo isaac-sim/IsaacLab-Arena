@@ -20,79 +20,32 @@ def _assert_scene_state_equal(actual, expected):
                 torch.testing.assert_close(actual[kind][name][field], value, atol=1e-6, rtol=0)
 
 
-def _test_settling_rejects_kinematic_variant_before_release(simulation_app, tmp_path):
+def _test_settling_rejects_object_sets_before_reset(simulation_app, tmp_path):
     from unittest.mock import patch
 
-    from pxr import Usd, UsdGeom, UsdPhysics
-
-    from isaaclab_arena.assets.background_library import OfficeTableBackground
-    from isaaclab_arena.assets.object import Object
     from isaaclab_arena.assets.object_set import RigidObjectSet
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
-    from isaaclab_arena.environments.arena_world_scene_access import get_representative_rigid_body_prims
-    from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.offline_placement.settled_placement import collect_settled_placements
-    from isaaclab_arena.offline_placement.settled_placement_params import SettledPlacementParams
-    from isaaclab_arena.relations.relations import ClutterOn, IsAnchor
-    from isaaclab_arena.scene.scene import Scene
-    from isaaclab_arena.utils.pose import Pose
+    from isaaclab_arena.relations.relations import ClutterOn, get_relation
 
-    objects = []
-    for index, kinematic in enumerate((False, True)):
-        path = tmp_path / f"cube_{index}.usda"
-        stage = Usd.Stage.CreateNew(str(path))
-        root = UsdGeom.Xform.Define(stage, "/Cube").GetPrim()
-        stage.SetDefaultPrim(root)
-        UsdGeom.SetStageUpAxis(stage, UsdGeom.Tokens.z)
-        UsdGeom.SetStageMetersPerUnit(stage, 1.0)
-        body = UsdPhysics.RigidBodyAPI.Apply(root)
-        body.CreateRigidBodyEnabledAttr(True)
-        body.CreateKinematicEnabledAttr(kinematic)
-        UsdPhysics.MassAPI.Apply(root).CreateMassAttr(0.1)
-        cube = UsdGeom.Cube.Define(stage, "/Cube/geometry")
-        cube.CreateSizeAttr(0.06)
-        UsdPhysics.CollisionAPI.Apply(cube.GetPrim())
-        stage.GetRootLayer().Save()
-        objects.append(Object(name=f"cube_{index}", usd_path=str(path)))
-
-    table = OfficeTableBackground()
-    table.set_initial_pose(Pose.identity())
-    table.add_relation(IsAnchor())
-    variants = RigidObjectSet("mixed_cube", objects)
-    variants.assign_variants(2)
-    assignments = list(variants.variant_indices_by_env)
-    variants.add_relation(ClutterOn(table, clearance_m=0.2, random_yaw=False))
-    arena_env = IsaacLabArenaEnvironment("mixed_mobility", Scene([table, variants]))
-    env = ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg(num_envs=2)).make_registered()
+    arena_env = _make_primitive_clutter_scene(tmp_path)
+    assets = arena_env.get_placement_assets()
+    cube = next(asset for asset in assets if get_relation(asset, ClutterOn) is not None)
+    variants = RigidObjectSet("cube_variants", [cube])
+    env = ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg(num_envs=1)).make_registered()
     try:
-        env.reset()
-        bodies = get_representative_rigid_body_prims(env.unwrapped.scene, "mixed_cube")
-        assert sorted(UsdPhysics.RigidBodyAPI(body).GetKinematicEnabledAttr().Get() for body in bodies) == [
-            False,
-            True,
-        ]
-        initial = env.unwrapped.scene.get_state()
-        with patch.object(
-            env.unwrapped,
-            "reset",
-            side_effect=AssertionError("release must not run for kinematic clutter"),
-        ) as release:
-            with pytest.raises(AssertionError, match="mixed_cube.*must be dynamic"):
-                collect_settled_placements(
-                    env, 1, SettledPlacementParams(), scene_assets=arena_env.get_placement_assets()
-                )
-            release.assert_not_called()
-        assert variants.variant_indices_by_env == assignments
-        _assert_scene_state_equal(env.unwrapped.scene.get_state(), initial)
+        with patch.object(env.unwrapped, "reset", side_effect=AssertionError("must reject before resetting")):
+            with pytest.raises(AssertionError, match="Resolve object sets"):
+                collect_settled_placements(env, 1, scene_assets=[*assets, variants])
     finally:
         env.close()
     return True
 
 
-def test_settling_rejects_kinematic_variant_before_release(tmp_path):
+def test_settling_rejects_object_sets_before_reset(tmp_path):
     assert run_function_with_persistent_simulation_app(
-        _test_settling_rejects_kinematic_variant_before_release, tmp_path=tmp_path
+        _test_settling_rejects_object_sets_before_reset, tmp_path=tmp_path
     )
 
 
@@ -142,9 +95,17 @@ def _make_primitive_clutter_scene(tmp_path, raised_support=False):
         return ArenaEnvGraphSpec.model_validate(data).to_arena_env()
 
 
-def _test_settling_rejects_moved_fixed_assets_before_solving(simulation_app, tmp_path):
+def _test_settling_rejects_static_geometry_not_restored_by_reset(simulation_app, tmp_path):
+    import torch
+    from contextlib import closing
     from unittest.mock import patch
 
+    import warp as wp
+    from isaaclab.sim.views import FrameView
+    from pxr import Usd, UsdPhysics
+
+    from isaaclab_arena.assets.object import Object
+    from isaaclab_arena.assets.object_type import ObjectType
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
     from isaaclab_arena.offline_placement.clutter_validators import default_clutter_validators
@@ -152,45 +113,69 @@ def _test_settling_rejects_moved_fixed_assets_before_solving(simulation_app, tmp
     from isaaclab_arena.offline_placement.settled_placement_params import SettledPlacementParams
 
     arena_env = _make_primitive_clutter_scene(tmp_path)
+    floor = arena_env.scene.assets["floor"]
+    stage = Usd.Stage.Open(floor.usd_path)
+    stage.GetDefaultPrim().RemoveAPI(UsdPhysics.RigidBodyAPI)
+    stage.GetDefaultPrim().RemoveAPI(UsdPhysics.MassAPI)
+    stage.GetRootLayer().Save()
+    arena_env.scene.add_asset(
+        Object(
+            name=floor.name,
+            usd_path=floor.usd_path,
+            object_type=ObjectType.BASE,
+            initial_pose=floor.get_initial_pose(),
+        )
+    )
     assets = arena_env.get_placement_assets()
     env = ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg(num_envs=2)).make_registered()
     try:
         env.reset()
         base = env.unwrapped
-        for key in ("table", "floor"):
-            body = base.scene.rigid_objects[key]
-            original = body.data.root_pose_w.torch.clone()
+        assert "floor" in base.scene.extras
+        original = base.arena_world.get_pose_e("floor")
+        with closing(
+            FrameView(
+                floor.prim_path.format(ENV_REGEX_NS=base.scene.env_regex_ns),
+                device=base.device,
+                stage=base.scene.stage,
+                validate_xform_ops=False,
+            )
+        ) as floor_view:
+            original_positions = floor_view.get_world_poses()[0].torch.clone()
+            moved_positions = original_positions.clone()
+            moved_positions[1, 0] += 2.0
+            floor_view.set_world_poses(positions=wp.from_torch(moved_positions))
+            base.sim.forward()
+            # BASE geometry has no root reset event; normal reset cannot repair this scene edit.
+            env.reset()
             moved = original.clone()
             moved[1, 0] += 2.0
-            body.write_root_pose_to_sim_index(root_pose=moved)
-            base.scene.write_data_to_sim()
-            base.sim.forward()
+            torch.testing.assert_close(base.arena_world.get_pose_e("floor"), moved)
             before = base.scene.get_state()
-            with patch.object(
-                base,
-                "reset",
-                side_effect=AssertionError("must reject before solving or releasing"),
-            ):
-                with pytest.raises(AssertionError, match=f"{key!r} differs from its configured pose"):
+            with patch.object(base, "reset", side_effect=AssertionError("must reject before sampling again")):
+                with pytest.raises(AssertionError, match="'floor' differs from its configured pose"):
                     collect_settled_placements(env, 1, SettledPlacementParams(), scene_assets=assets)
             _assert_scene_state_equal(base.scene.get_state(), before)
-            body.write_root_pose_to_sim_index(root_pose=original)
-            base.scene.write_data_to_sim()
+            torch.testing.assert_close(base.arena_world.get_pose_e("floor"), moved)
+            floor_view.set_world_poses(positions=wp.from_torch(original_positions))
             base.sim.forward()
-        # The same scene at its authored poses remains usable across both environments.
-        results = collect_settled_placements(
-            env, 1, SettledPlacementParams(num_steps=480, validators=default_clutter_validators()), scene_assets=assets
-        )
-        assert len(results.accepted_indices) == 2
-        assert all(abs(pose.position_xyz[0]) < 0.4 for pose in results.poses["cube_body"])
+            # The same scene at its authored poses remains usable across both environments.
+            results = collect_settled_placements(
+                env,
+                1,
+                SettledPlacementParams(num_steps=480, validators=default_clutter_validators()),
+                scene_assets=assets,
+            )
+            assert len(results.accepted_indices) == 2
+            assert all(abs(pose.position_xyz[0]) < 0.4 for pose in results.poses["cube_body"])
     finally:
         env.close()
     return True
 
 
-def test_settling_rejects_moved_fixed_assets_before_solving(tmp_path):
+def test_settling_rejects_static_geometry_not_restored_by_reset(tmp_path):
     assert run_function_with_persistent_simulation_app(
-        _test_settling_rejects_moved_fixed_assets_before_solving, tmp_path=tmp_path
+        _test_settling_rejects_static_geometry_not_restored_by_reset, tmp_path=tmp_path
     )
 
 
@@ -205,6 +190,7 @@ def _test_clutter_collection_uses_shared_batches(simulation_app, tmp_path):
     from isaaclab_arena.offline_placement.settled_placement import collect_settled_placements
     from isaaclab_arena.offline_placement.settled_placement_params import SettledPlacementParams
     from isaaclab_arena.relations.placement_events import get_placement_pool
+    from isaaclab_arena.relations.relations import ClutterOn, RequiresReachability, get_relation
     from isaaclab_arena.utils.physics_settle import step_physics
 
     arena_env = _make_primitive_clutter_scene(tmp_path)
@@ -215,6 +201,15 @@ def _test_clutter_collection_uses_shared_batches(simulation_app, tmp_path):
         pool = get_placement_pool(base)
         params = SettledPlacementParams(num_steps=480, validators=default_clutter_validators())
         before = base.arena_world.get_pose_e("cube_body").clone()
+        assets = arena_env.get_placement_assets()
+        clutter = next(asset for asset in assets if get_relation(asset, ClutterOn) is not None)
+        clutter.add_relation(RequiresReachability())
+        with patch.object(base, "reset", side_effect=AssertionError("must reject before resetting")):
+            with pytest.raises(AssertionError, match="reachability after clutter drops"):
+                collect_settled_placements(env, 1, params, scene_assets=assets)
+        clutter.relations.remove(get_relation(clutter, RequiresReachability))
+        # A fixed target can retain its pre-physics reachability requirement.
+        get_relation(clutter, ClutterOn).parent.add_relation(RequiresReachability())
         with patch.object(pool, "sample_for_envs", wraps=pool.sample_for_envs) as sample:
             result = collect_settled_placements(env, 2, params, scene_assets=arena_env.get_placement_assets())
         assert sample.call_count == 2
@@ -287,14 +282,15 @@ def _test_raised_support_requires_explicit_surface(simulation_app, tmp_path):
     from isaaclab_arena.utils.physics_settle import step_physics
 
     params = SettledPlacementParams(num_steps=480, validators=default_clutter_validators())
-    for support_kind in ("whole_table", "unprepared_tabletop", "tabletop"):
+    for support_kind in ("whole_table", "unprepared_tabletop", "tabletop", "configured_table"):
+        params.validators["support_containment"]["minimum_resting_heights_m"] = {}
         directory = tmp_path / support_kind
         directory.mkdir()
         arena_env = _make_primitive_clutter_scene(directory, raised_support=True)
         assets = arena_env.get_placement_assets()
         cube = next(asset for asset in assets if get_relation(asset, ClutterOn) is not None)
         relation = get_relation(cube, ClutterOn)
-        if support_kind != "whole_table":
+        if support_kind in ("unprepared_tabletop", "tabletop"):
             if support_kind == "unprepared_tabletop":
                 from pxr import Usd, UsdGeom
 
@@ -314,7 +310,9 @@ def _test_raised_support_requires_explicit_surface(simulation_app, tmp_path):
         try:
             base = env.unwrapped
             assets = arena_env.get_placement_assets()
-            if support_kind != "tabletop":
+            if support_kind == "configured_table":
+                params.validators["support_containment"]["minimum_resting_heights_m"] = {"table": 0.02}
+            if support_kind in ("whole_table", "unprepared_tabletop"):
                 reason = "flat rectangular" if support_kind == "whole_table" else "translate, orient and scale"
                 before = base.scene.get_state()
                 with patch.object(base, "reset", side_effect=AssertionError("must reject before resetting")):
@@ -337,4 +335,76 @@ def _test_raised_support_requires_explicit_surface(simulation_app, tmp_path):
 def test_raised_support_requires_explicit_surface(tmp_path):
     assert run_function_with_persistent_simulation_app(
         _test_raised_support_requires_explicit_surface, tmp_path=tmp_path
+    )
+
+
+def _test_bowl_collection_uses_local_resting_height(simulation_app, tmp_path):
+    import torch
+    from unittest.mock import patch
+
+    import isaaclab.sim as sim_utils
+
+    from isaaclab_arena.assets.object import Object
+    from isaaclab_arena.assets.object_library import BowlYcbRobolab
+    from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
+    from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
+    from isaaclab_arena.offline_placement.clutter_validators import default_clutter_validators
+    from isaaclab_arena.offline_placement.settled_placement import collect_settled_placements
+    from isaaclab_arena.offline_placement.settled_placement_params import SettledPlacementParams
+    from isaaclab_arena.relations.relations import ClutterOn, IsAnchor
+    from isaaclab_arena.scene.scene import Scene
+    from isaaclab_arena.utils.physics_settle import step_physics
+    from isaaclab_arena.utils.pose import Pose
+
+    arena_env = _make_primitive_clutter_scene(tmp_path)
+    floor = next(asset for asset in arena_env.get_placement_assets() if asset.name == "floor")
+    bowl = BowlYcbRobolab(instance_name="bowl", initial_pose=Pose((0.3, -0.2, 0.5), (0, 0, 2**-0.5, 2**-0.5)))
+    bowl.object_cfg.spawn.rigid_props = sim_utils.RigidBodyBaseCfg(kinematic_enabled=True)
+    bowl.add_relation(IsAnchor())
+    cube = Object(name="cube_body", usd_path=str(tmp_path / "cube.usda"), scale=(0.4, 0.2, 0.2))
+    cube.add_relation(ClutterOn(bowl, clearance_m=0.01, spread=0.15, random_yaw=False))
+    arena_env.scene = Scene([bowl, cube, floor])
+    arena_env.placer_params.placement_seed = 42
+    env = ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg(num_envs=2)).make_registered()
+    params = SettledPlacementParams(num_steps=240, validators=default_clutter_validators())
+    containment = params.validators["support_containment"]
+    # This YCB bowl's inner floor is at about -0.025 m in its local frame; its rim is +0.0275 m.
+    containment["minimum_resting_heights_m"] = {"bowl": -0.025}
+    containment["fall_through_tolerance_m"] = 0.002
+    try:
+        assets = arena_env.get_placement_assets()
+        for heights, reason in (
+            ({"misspelled_bowl": -0.025}, "unknown ClutterOn supports"),
+            ({"bowl": -1}, "local Z bounds"),
+        ):
+            containment["minimum_resting_heights_m"] = heights
+            with patch.object(env.unwrapped, "reset", side_effect=AssertionError("must reject before resetting")):
+                with pytest.raises(AssertionError, match=reason):
+                    collect_settled_placements(env, 1, params, scene_assets=assets)
+        containment["minimum_resting_heights_m"] = {"bowl": -0.025}
+        result = collect_settled_placements(env, 1, params, scene_assets=assets)
+        poses = env.unwrapped.arena_world.get_pose_e("cube_body").clone()
+        assert result.accepted_indices, (result.rejections, poses.tolist())
+        assert result.attempted == 2
+        accepted_envs = [env_id for env_id, _ in result.accepted_indices]
+        accepted_poses = poses[accepted_envs]
+        # Entire accepted cubes are below the rim, yet above the configured interior floor.
+        assert torch.all(accepted_poses[:, 2] + 0.01 < 0.5 + 0.0275)
+        assert torch.all(accepted_poses[:, 2] - 0.01 >= 0.5 - 0.025 - 0.002)
+        for outcome in result.validation:
+            report = next(report for report in outcome.post_physics if report.check == "support_containment")
+            assert report.passed
+            assert report.configuration["minimum_resting_heights_m"] == {"bowl": -0.025}
+        step_physics(env.unwrapped, 200)
+        torch.testing.assert_close(
+            env.unwrapped.arena_world.get_pose_e("cube_body")[accepted_envs], accepted_poses, atol=0.002, rtol=0
+        )
+    finally:
+        env.close()
+    return True
+
+
+def test_bowl_collection_uses_local_resting_height(tmp_path):
+    assert run_function_with_persistent_simulation_app(
+        _test_bowl_collection_uses_local_resting_height, tmp_path=tmp_path
     )

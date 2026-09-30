@@ -115,6 +115,7 @@ def collect_settled_placements(
     geometry_keys = set()
     for validator in validators:
         if validator.skip_reason(articulation_keys) is None:
+            validator.validate_scene(env, assets)
             geometry_keys.update(validator.get_geometry_keys(assets))
     accepted: dict[str, list[Pose]] = {key: [] for key in keys}
     accepted_indices: list[tuple[int, int]] = []

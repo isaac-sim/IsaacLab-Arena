@@ -7,78 +7,50 @@
 
 from __future__ import annotations
 
-import torch
-from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
-from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, quaternion_to_90_deg_z_quarters
+from isaaclab_arena.utils.physics_settle import get_pose_drift
 
 if TYPE_CHECKING:
     import numpy as np
+    import torch
     import trimesh
 
     from isaaclab.scene import InteractiveScene
     from pxr import Usd
 
 
-@dataclass(frozen=True)
-class ClutterRegion:
-    """Axis-aligned support footprint and surface height, in the environment frame E."""
-
-    min_x: float
-    """Minimum X in E, in metres."""
-
-    min_y: float
-    """Minimum Y in E, in metres."""
-
-    max_x: float
-    """Maximum X in E, in metres."""
-
-    max_y: float
-    """Maximum Y in E, in metres."""
-
-    floor_z: float
-    """Z of the surface objects are dropped onto."""
-
-    def __post_init__(self) -> None:
-        assert self.max_x > self.min_x, f"region needs max_x > min_x, got {self.min_x}, {self.max_x}"
-        assert self.max_y > self.min_y, f"region needs max_y > min_y, got {self.min_y}, {self.max_y}"
+def fixed_poses_match(expected: torch.Tensor, current: torch.Tensor) -> bool:
+    """Compare fixed xyz/xyzw poses (..., 7) in the same frame, allowing float32 roundoff."""
+    drift = get_pose_drift(expected, current)
+    return drift is not None and drift[0] <= 1e-5 and drift[1] <= 1e-3
 
 
-def get_placement_region(
-    support_position: tuple[float, float, float],
-    placement_region_bbox: AxisAlignedBoundingBox,
-    support_rotation_xyzw: tuple[float, float, float, float],
-) -> ClutterRegion:
-    """Return the top-face region of a support with a verified flat rectangular surface.
+def assert_support_reference_transform(scene: InteractiveScene, scene_key: str) -> None:
+    """Require reference transforms that can be read without changing live collider operations."""
+    if scene_key not in scene.extras:
+        return
 
-    Args:
-        support_position: Support position in environment frame E, shape (3,).
-        placement_region_bbox: Object-local bounds for one environment, min/max shape (1, 3).
-        support_rotation_xyzw: Support-to-E quaternion, shape (4,); yaw must be a quarter turn.
-    """
-    quarters = quaternion_to_90_deg_z_quarters(support_rotation_xyzw)
-    bounds = placement_region_bbox.rotated_90_around_z(quarters)
-    lower, upper = bounds.min_point[0], bounds.max_point[0]
-    return ClutterRegion(
-        min_x=float(lower[0]) + support_position[0],
-        min_y=float(lower[1]) + support_position[1],
-        max_x=float(upper[0]) + support_position[0],
-        max_y=float(upper[1]) + support_position[1],
-        floor_z=float(upper[2]) + support_position[2],
-    )
+    import isaaclab.sim as sim_utils
+
+    from isaaclab_arena.environments.arena_world_scene_access import get_representative_geometry_prim_groups
+
+    for root, _ in get_representative_geometry_prim_groups(scene, scene_key):
+        assert sim_utils.validate_standard_xform_ops(root), (
+            f"Support reference {scene_key!r} needs translate, orient and scale operations authored "
+            "before scene construction; changing collider transforms after spawning invalidates physics views."
+        )
 
 
 def assert_flat_support_surface(scene: InteractiveScene, scene_key: str) -> None:
     """Require the support bounds' top face to be covered by a flat collision surface.
 
-    Composite assets with raised edges must reference their tabletop or tray floor
-    explicitly. Check each spawned variant before collecting any layouts.
+    Used for supports without an explicit minimum resting height. Check each
+    spawned geometry group before collecting any layouts.
     """
     import numpy as np
     import trimesh
 
-    import isaaclab.sim as sim_utils
     from pxr import Usd, UsdGeom, UsdPhysics
 
     from isaaclab_arena.environments.arena_world_scene_access import get_representative_geometry_prim_groups
@@ -86,11 +58,6 @@ def assert_flat_support_surface(scene: InteractiveScene, scene_key: str) -> None
 
     bounds_cache = UsdGeom.BBoxCache(Usd.TimeCode.Default(), [UsdGeom.Tokens.default_])
     for root, _ in get_representative_geometry_prim_groups(scene, scene_key):
-        if scene_key in scene.extras:
-            assert sim_utils.validate_standard_xform_ops(root), (
-                f"Support reference {scene_key!r} needs translate, orient and scale operations authored "
-                "before scene construction; changing collider transforms after spawning invalidates physics views."
-            )
         bounds = bounds_cache.ComputeWorldBound(root).ComputeAlignedRange()
         lower, upper = np.asarray(bounds.GetMin()), np.asarray(bounds.GetMax())
         has_surface = False
@@ -114,8 +81,8 @@ def assert_flat_support_surface(scene: InteractiveScene, scene_key: str) -> None
                 break
         assert has_surface, (
             f"Support {scene_key!r} needs a flat rectangular collision surface covering its bounds' top face. "
-            "For rails, rims or other raised geometry, use an ObjectReference to the tabletop or tray floor "
-            "as the ClutterOn parent."
+            "For containers, configure minimum_resting_heights_m for this support, or use an "
+            "ObjectReference to a flat tabletop or tray floor as the ClutterOn parent."
         )
 
 
@@ -193,68 +160,3 @@ def spawned_rigid_body_has_gravity(scene: InteractiveScene, scene_key: str) -> b
         body.GetAttribute("physxRigidBody:disableGravity").Get() is not True
         for body in get_representative_rigid_body_prims(scene, scene_key)
     )
-
-
-@dataclass
-class ClutterContainmentResult:
-    """Indices of clutter members that failed containment checks."""
-
-    diverged: list[int] = field(default_factory=list)
-    """Indices of non-finite poses."""
-
-    fell_through: list[int] = field(default_factory=list)
-    """Indices below the support surface."""
-
-    fell_off: list[int] = field(default_factory=list)
-    """Indices outside the support footprint."""
-
-    @property
-    def ok(self) -> bool:
-        """Whether every member satisfies the containment checks."""
-        return not (self.diverged or self.fell_through or self.fell_off)
-
-    def describe(self, names: list[str]) -> str:
-        """Return a human-readable summary naming the offending members."""
-        parts = []
-        for label, indices in (
-            ("diverged", self.diverged),
-            ("fell through", self.fell_through),
-            ("fell off", self.fell_off),
-        ):
-            if indices:
-                offenders = ", ".join(names[index] for index in indices)
-                parts.append(f"{label}: {offenders}")
-        return "; ".join(parts) if parts else "all members within support"
-
-
-def check_resting_poses(
-    bounds: AxisAlignedBoundingBox,
-    region: ClutterRegion,
-    containment_margin_m: float,
-    fall_through_tolerance_m: float,
-) -> ClutterContainmentResult:
-    """Return containment failures for N members.
-
-    Args:
-        bounds: Rotated object bounds in the environment frame, min/max shape (N, 3).
-        region: Full support footprint and surface height, without the release spread scaling.
-        containment_margin_m: Permitted overhang beyond the support footprint.
-        fall_through_tolerance_m: Permitted penetration below the support surface.
-    """
-    verdict = ClutterContainmentResult()
-    margin = containment_margin_m
-    floor = region.floor_z - fall_through_tolerance_m
-    for index, (lower, upper) in enumerate(zip(bounds.min_point, bounds.max_point, strict=True)):
-        if not bool(torch.isfinite(lower).all() and torch.isfinite(upper).all()):
-            verdict.diverged.append(index)
-            continue
-        if lower[2] < floor:
-            verdict.fell_through.append(index)
-        if not (
-            lower[0] >= region.min_x - margin
-            and upper[0] <= region.max_x + margin
-            and lower[1] >= region.min_y - margin
-            and upper[1] <= region.max_y + margin
-        ):
-            verdict.fell_off.append(index)
-    return verdict

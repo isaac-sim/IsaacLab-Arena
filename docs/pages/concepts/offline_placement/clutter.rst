@@ -66,60 +66,108 @@ short; the example above explicitly sets a longer drop window. Explicit ``params
 are used unchanged, including disabled or custom validators. Use
 ``default_clutter_validators()`` when configuring a longer clutter run.
 
-The shared validator builder and evaluator run these clutter defaults:
+.. list-table::
+   :header-rows: 1
+   :widths: 25 45 30
 
-* ``physics_settled`` checks final root velocities for all measured objects.
-* ``pose_shift`` limits other objects to 2 mm translation and 2 degrees rotation.
-  The shared ``PoseShiftValidator`` excludes intentional ``ClutterOn`` drops.
-* ``articulation_link_shift`` checks articulated task objects using the existing
-  root-relative link check. Robot links are excluded, as in ordinary recording.
-* ``support_containment`` checks that clutter stays within its support footprint
-  and does not fall through it. It also requires successful release
-  ``no_overlap`` and ``clutter_on_relation`` checks.
+   * - Check
+     - Measures
+     - Default limit
+   * - ``physics_settled``
+     - Final linear and angular speed of all measured roots.
+     - 0.1 m/s and 0.1 rad/s
+   * - ``pose_shift``
+     - Root displacement and rotation, excluding intentional ``ClutterOn`` drops.
+     - 2 mm and 2 degrees
+   * - ``articulation_link_shift``
+     - Task-object link motion relative to its root; excludes robot embodiments.
+     - 2 mm and 2 degrees
+   * - ``support_containment``
+     - Clutter bounds relative to the support footprint and minimum resting height.
+       Requires successful release ``no_overlap`` and ``clutter_on_relation`` checks.
+     - No overhang; 1 cm below the minimum height
 
 All enabled, applicable checks must pass. Disabled and inapplicable checks retain
 their skip reasons. For example, set
 ``params.validators["support_containment"]["containment_margin_m"] = 0.005``
 to permit 5 mm overhang. Physics runs for the configured duration; final velocity
-limits determine whether the objects are still moving.
-Validators read captured measurements, without stepping physics or reading the
-live environment themselves.
+limits determine whether the objects are still moving. Post-physics checks use captured
+measurements without stepping physics or reading the live environment.
+
+Containers
+----------
+
+Release placement stays above the full support bounds, including a container's
+rim. For settling inside a bin or bowl, configure the minimum accepted height of
+an object's bottom:
+
+.. code-block:: python
+
+   params.validators["support_containment"]["minimum_resting_heights_m"] = {
+       "bowl": -0.025,
+   }
+
+``bowl`` is the support's runtime scene key. The value is in metres along the
+support's local Z axis, after asset scaling, before its world translation. For
+the default-scale ``bowl_ycb_robolab`` asset, the inner floor is approximately
+-0.025 m and the rim is +0.0275 m in that frame. Choose a height appropriate to
+your asset; these values do not apply to all bowls. The configured height must
+lie within the support's local Z bounds, including either endpoint. Unknown support keys and invalid heights
+are rejected before sampling.
+
+Supports without an override still require a verified flat top surface. An
+override changes only the post-physics minimum height; release clearance,
+footprint checks and velocity checks remain unchanged. The height is saved with
+the validator configuration in each report.
+
+This is a bounding-box footprint and height check. It does not establish exact
+containment inside curved walls or detect every object-wall penetration.
 
 Scope and limitations
 ---------------------
 
-Supports must be fixed anchors with a flat rectangular collision surface covering
-the top face of their bounds. This is checked before the first reset. A whole tray
-with a rim or a table with rails does not satisfy that assumption: its highest
-point is not the resting surface. Use an ``ObjectReference`` to the Xform containing
-only the tray floor or tabletop collider as the ``ClutterOn`` parent, and mark that
-reference ``IsAnchor``. Author the reference's translate, orient and scale operations
-before building the environment; rewriting a collider's transforms after physics
-initialization can invalidate its physics view. Both release placement and settled
-containment then use that surface's bounds. Cube colliders and connected planar
-mesh facets are supported; curved surfaces and surfaces assembled from separate
-coplanar colliders are not.
+.. list-table::
+   :header-rows: 1
+   :widths: 25 75
 
-Clutter members must be dynamic rigid bodies with gravity enabled in every
-selected object-set variant. Assign object-set variants
-before scene construction. Other placement must already be resolved to fixed
-anchors. Anchors, backgrounds and passive obstacles must match their configured
-poses; pose-changing reset variations on this fixed geometry are unsupported.
+   * - Scene feature
+     - Support and limitations
+   * - Clutter objects
+     - Dynamic rigid bodies with gravity enabled. Object sets are rejected;
+       resolve them to individual objects before collection, as for recording.
+   * - Supports
+     - Fixed anchors with an upright quarter-turn orientation. Without a height
+       override, containment requires a flat rectangular top covered by a Cube
+       collider or connected planar mesh facet.
+   * - Rails and rims
+     - Set a minimum resting height for the full container, or use an
+       ``ObjectReference`` to its flat floor as the ``ClutterOn`` parent and mark
+       that reference ``IsAnchor``.
+   * - Support references
+     - Author translate, orient and scale operations before building the scene.
+       Rewriting collider transforms after physics initialization can invalidate
+       physics views.
+   * - Other placement relations
+     - Resolve them to fixed anchors before clutter collection. Anchors,
+       backgrounds and passive obstacles must match their configured poses;
+       pose-changing variations on this fixed geometry are unsupported.
+   * - Reachability
+     - ``ClutterOn`` objects cannot require reachability: dropping changes the
+       poses checked by the solver. Non-clutter fixed targets may retain
+       ``RequiresReachability``. Their solver checks and the displacement limits
+       still apply; collection does not rerun IK after physics.
+   * - Collision checks
+     - Release generation uses normal placement collision discovery, including
+       MESH background fixtures and anchored support exclusions. Tilted clutter
+       requires BBOX. Post-physics checks do not rerun collision validation.
+   * - Robot motion
+     - Physics also advances the robot; joints are not immobilized. Moving links
+       can affect objects. Root speed and displacement remain checked, but joint
+       states are not recorded.
 
-Release generation uses normal placement's collision discovery, including MESH
-background fixtures, per-asset collision modes, and anchored support exclusions.
-Tilted clutter requires BBOX because the solver's mesh checks use yaw only.
-Post-physics checks do not rerun collision or IK validation.
-
-Assets marked ``RequiresReachability`` are rejected. Use a generation scene
-without reachability requirements. Retain ``no_overlap`` and
-``clutter_on_relation`` in its solver checks. Do not use the pre-physics
-``physics_settled`` check on intentional release poses; the post-physics velocity
-validator checks the dropped objects instead.
-
-Physics also advances the robot. The recorder does not immobilize its joints,
-and moving robot links can affect the objects. Only root poses are collected;
-joint states are not recorded. Root speed and displacement remain checked.
+Retain ``no_overlap`` and ``clutter_on_relation`` in the solver checks. Do not use
+pre-physics ``physics_settled`` on intentional release poses: post-physics velocity
+validation checks the dropped objects instead.
 
 The offline package depends on the solver and shared records. Online placement
 and runtime replay do not import offline modules.

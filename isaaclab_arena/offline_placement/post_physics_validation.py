@@ -20,6 +20,8 @@ from isaaclab_arena.relations.validation.types import PlacementValidatorReport
 if TYPE_CHECKING:
     import torch
 
+    from isaaclab.envs import ManagerBasedEnv
+
     from isaaclab_arena.offline_placement.settled_batch import SettledBatch
     from isaaclab_arena.relations.placement_asset import PlaceableAsset
 
@@ -36,8 +38,11 @@ class PostPhysicsPlacementValidator(PlacementValidator):
     def validate(self, data: SettledBatch) -> list[PlacementValidatorReport]:
         """Return one report per candidate environment, in env_ids order."""
 
+    def validate_scene(self, env: ManagerBasedEnv, assets: Sequence[PlaceableAsset]) -> None:
+        """Check scene-dependent settings before any sampling reset or physics step."""
+
     def get_geometry_keys(self, assets: Sequence[PlaceableAsset]) -> set[str]:
-        """Return scene assets whose bounds and poses this check needs captured."""
+        """Return scene keys whose bounds and poses this check needs captured."""
         return set()
 
     def configuration(self) -> dict:
@@ -173,7 +178,7 @@ def build_post_physics_validators(
 
     validators = []
     for name, configuration in configurations.items():
-        validator = instantiate(configuration)
+        validator = instantiate(configuration, _convert_="all")
         assert isinstance(validator, PostPhysicsPlacementValidator), f"'{name}' must be a PostPhysicsPlacementValidator"
         assert name == validator.check, f"'{name}' must match validator name '{validator.check}'"
         if log_progress:
