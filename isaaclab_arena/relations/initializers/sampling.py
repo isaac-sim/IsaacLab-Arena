@@ -8,7 +8,7 @@ from __future__ import annotations
 import torch
 from typing import TYPE_CHECKING
 
-from isaaclab_arena.relations.relations import On, get_relation
+from isaaclab_arena.relations.relations import ClutterOn, On, get_relation
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose
 
@@ -51,7 +51,8 @@ def get_child_bbox_given_parent_position(
 ) -> AxisAlignedBoundingBox:
     """Return the positions at which obj sits on parent_world_bbox, as a box.
 
-    X and Y span the parent's footprint inset by the child's extents. An axis the child is too
+    X and Y span the parent's footprint inset by the child's extents, or, for ``ClutterOn``, its
+    release region inset the same way. An axis the child is too
     large for has no such position and collapses to the parent's center. Z is a single value: the
     height at which the child's bottom face meets the parent's top surface plus the relation's
     clearance.
@@ -62,6 +63,9 @@ def get_child_bbox_given_parent_position(
         asset_to_bbox: Local bounding box per object for the env this candidate belongs to.
     """
     on_relation = get_relation(obj, On)
+    if isinstance(on_relation, ClutterOn):
+        # Clutter is released over a sub-region of the parent's surface, not all of it.
+        parent_world_bbox = on_relation.get_release_region_bbox(parent_world_bbox)
     child_bbox = asset_to_bbox[obj]
 
     child_min, child_max = child_bbox.min_point[0], child_bbox.max_point[0]
