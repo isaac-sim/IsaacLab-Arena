@@ -180,6 +180,7 @@ objects to see placement adapt to different dimensions and footprints.
 
    object_placement/relations
    offline_placement/recording
+   offline_placement/clutter
    object_placement/collision_handling
    object_placement/solver
    object_placement/validation

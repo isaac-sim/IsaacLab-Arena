@@ -481,6 +481,7 @@
 <li class="toctree-l1 current active has-children"><a class="reference internal" href="../concept_object_and_robot_placement.html">Object and Robot Placement</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
 <li class="toctree-l2"><a class="reference internal" href="relations.html">Relations and Strategies</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../offline_placement/recording.html">Record and Replay Placement Poses</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../offline_placement/clutter.html">Offline Clutter Settling</a></li>
 <li class="toctree-l2"><a class="reference internal" href="collision_handling.html">Collision Handling</a></li>
 <li class="toctree-l2"><a class="reference internal" href="solver.html">Placement Solver</a></li>
 <li class="toctree-l2 current active"><a aria-current="page" class="current reference internal" href="#">Placement Validation</a></li>
@@ -618,6 +619,10 @@ reject-and-refill until each environment has enough valid layouts. By default,
 if the final refill batch still has no valid candidate, Arena can store a
 best-loss layout that failed required checks
 (<code class="docutils literal notranslate"><span class="pre">allow_best_loss_fallbacks=True</span></code>); see <a class="reference internal" href="pooled_placement.html"><span class="doc">Pooled Placement</span></a>.</p>
+<p>Pre-physics and offline post-physics validators share the <code class="docutils literal notranslate"><span class="pre">PlacementValidator</span></code>
+base for check names and stages. They have separate inputs: solved candidate
+batches before physics, measured scene state after physics. See
+<a class="reference internal" href="../offline_placement/clutter.html"><span class="doc">Offline Clutter Settling</span></a> for offline acceptance checks.</p>
 </section>
 <section id="types-of-validators">
 <h2>Types of Validators<a class="headerlink" href="#types-of-validators" title="Link to this heading">#</a></h2>
