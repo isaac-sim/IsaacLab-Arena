@@ -177,6 +177,84 @@ keep placement geometry-only.
 Both are set on ``ObjectPlacerParams`` in Python or the ``placer_params`` block
 in YAML; see :doc:`../environment/environment_definition`.
 
+Post-Physics Checks for Recordings
+----------------------------------
+
+The :doc:`placement recorder <../offline_placement/recording>` advances physics
+for ``settle.num_steps`` environment steps before checking the final state.
+
+All required solver checks and enabled, applicable post-physics checks must pass.
+The post-physics checks share one settling pass:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 25 45 30
+
+   * - Check
+     - Measures
+     - Default limit
+   * - ``physics_settled``
+     - Final linear and angular speed of every root, including the robot.
+     - 0.1 m/s and 0.1 rad/s
+   * - ``pose_shift``
+     - Initial-to-final translation and rotation of every root.
+     - 2 mm and 2 degrees
+   * - ``articulation_link_shift``
+     - Task-object link motion relative to its root, excluding robot embodiments.
+     - 2 mm and 2 degrees
+
+Configure ``settle.validators.<check>.<setting>`` to change a limit.
+An inapplicable or disabled check is recorded as skipped. At least one applicable
+post-physics check must remain enabled.
+
+The recorder writes a file only when at least ``settle.min_layouts`` layouts
+are accepted across all batches (default 1). Otherwise, it exits with an error
+and writes no file.
+
+.. _recording_rejection_summary:
+
+Understand the Rejection Summary
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Each ``Rejected`` line gives a reason and the number of layouts rejected for it.
+When a pose-shift limit is exceeded, the message includes the object, measured
+translation and rotation, and configured limits. Use the named
+check to decide what to adjust:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 25 30 45
+
+   * - Rejection
+     - Meaning
+     - What to check or change
+   * - ``solver validation failed``
+     - A layout failed a required solver check.
+     - Read earlier solver diagnostics and check relation constraints and collision
+       geometry. Increasing settling time cannot fix a solver failure.
+   * - ``physics_settled``
+     - Final root velocity is too high.
+     - Inspect contacts and support. Increase ``settle.num_steps`` if motion is
+       still decaying. More time will not fix an unstable placement.
+   * - ``pose_shift``
+     - A root moved or rotated beyond its limits.
+     - Inspect the named object. For ``On`` relations, reduce ``clearance_m`` to
+       reduce the release drop, or increase ``edge_margin_m`` to avoid support
+       edges. Edit the relation's ``params`` in the environment's scene YAML.
+   * - ``articulation_link_shift``
+     - A task-object link shifted relative to its root.
+     - Check joint initialization and contacts. A root-pose recording cannot
+       preserve the changed joint configuration.
+   * - ``missing required solver checks``
+     - A required pre-physics result is unavailable.
+     - Enable the required validator or fix its dependencies and source
+       configuration.
+
+See :doc:`./relations` for relation settings. Change validation
+limits under ``settle.validators`` only when the new tolerance fits your evaluation.
+Increasing ``layouts_per_env`` samples more candidates without changing which
+checks they must pass.
+
 Custom Validators
 -----------------
 
@@ -219,8 +297,8 @@ explicit, include ``"max_origin_height"`` to run it.
 
 The shared ``PlacementValidator`` in ``isaaclab_arena.relations.validation.base``
 defines the check name and stage. Post-physics checks use
-``PostPhysicsPlacementValidator``; see :doc:`../offline_placement/recording` for
-their configuration and reporting contract.
+``PostPhysicsPlacementValidator`` from
+``isaaclab_arena.offline_placement.post_physics_validation``.
 
 Next Steps
 ----------
