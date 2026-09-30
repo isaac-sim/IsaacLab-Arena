@@ -348,6 +348,49 @@ def test_unknown_blocked_predicate_is_shown_without_known_sequence(tmp_path):
     assert "never_seen" in run_page
 
 
+def test_run_page_distinguishes_waiting_prerequisites_from_an_active_predicate(tmp_path):
+    records = []
+    for episode_index, prerequisites_met in enumerate((False, True)):
+        records.append({
+            "env_id": 0,
+            "episode_in_env": episode_index,
+            "success": False,
+            "progress": {
+                "overall_score": 0.0,
+                "all_complete": False,
+                "criteria_by_name": {
+                    "pick_and_place": {
+                        "score": 0.0,
+                        "is_complete": False,
+                        "total_sequences": 1,
+                        "prerequisites_met": prerequisites_met,
+                        "active_predicates": {"default_sequence": "ObjectLifted" if prerequisites_met else None},
+                    }
+                },
+                "events": [],
+            },
+        })
+    run_dir = tmp_path / "banana_in_bowl_pi0"
+    run_dir.mkdir()
+    (run_dir / "episode_results_rebuild0.jsonl").write_text(
+        "\n".join(json.dumps(record) for record in records) + "\n", encoding="utf-8"
+    )
+    _write_run(tmp_path, "banana_in_bowl_cosmos")
+
+    build_report(tmp_path)
+
+    run_page = (tmp_path / "report" / "job_banana_in_bowl_pi0.html").read_text(encoding="utf-8")
+    waiting_card = re.search(r'<article class="episode" id="ep-0-0".*?</article>', run_page, re.DOTALL).group()
+    ready_card = re.search(r'<article class="episode" id="ep-0-1".*?</article>', run_page, re.DOTALL).group()
+    assert '<span class="prerequisite-status">waiting for prerequisites</span>' in waiting_card
+    assert 'class="signal ' not in waiting_card
+    assert "progress 0%" in waiting_card
+    assert "waiting for prerequisites" not in ready_card
+    assert 'class="signal blocked"' in ready_card
+    assert "ObjectLifted" in ready_card
+    assert "progress 0%" in ready_card
+
+
 def test_run_page_reports_conflicting_criteria_family_sequences(tmp_path):
     run_dir = tmp_path / "banana_in_bowl_pi0"
     run_dir.mkdir()

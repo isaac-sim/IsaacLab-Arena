@@ -141,6 +141,7 @@ def test_criteria_list_predicates_the_episode_never_reached():
     job = JobSummary(name="run", task="t", policy="p", cameras=[], episodes=[complete, stalled])
 
     criteria = job.criteria_for(stalled)[0]
+    assert criteria.prerequisites_met, "Older recordings have no prerequisite gate."
     assert criteria.num_triggered == 1
     assert [(signal.name, signal.triggered, signal.blocked) for signal in criteria.signals] == [
         ("objects_settled", True, False),
@@ -148,6 +149,50 @@ def test_criteria_list_predicates_the_episode_never_reached():
         ("object_on_destination", False, False),
     ]
     assert criteria.signals[0].step == 7
+
+
+def test_waiting_prerequisites_do_not_count_as_progress_or_active_predicates():
+    complete = _episode({
+        "success": True,
+        "progress": _progress(
+            {"pick_and_place": 1},
+            [
+                ("pick_and_place", 0, "ObjectLifted(object_name='banana')"),
+                ("pick_and_place", 1, "object_on_destination()"),
+            ],
+            score=1.0,
+        ),
+    })
+    pending_episodes = []
+    for episode_index, prerequisites_met in enumerate((False, True), start=1):
+        progress = _progress({"pick_and_place": 1}, [], score=0.0)
+        criteria = progress["criteria_by_name"]["pick_and_place"]
+        criteria["prerequisites_met"] = prerequisites_met
+        criteria["active_predicates"] = {"default_sequence": "ObjectLifted" if prerequisites_met else None}
+        pending_episodes.append(_episode({"success": False, "progress": progress}, episode=episode_index))
+    waiting, ready = pending_episodes
+    job = JobSummary(name="run", task="t", policy="p", cameras=[], episodes=[complete, waiting, ready])
+
+    waiting_criteria = job.criteria_for(waiting)[0]
+    assert not waiting_criteria.prerequisites_met
+    assert waiting_criteria.score == 0
+    assert waiting_criteria.num_triggered == 0
+    assert not waiting_criteria.is_complete
+    assert waiting_criteria.blocked_predicates == []
+    assert [(signal.name, signal.triggered, signal.blocked) for signal in waiting_criteria.signals] == [
+        ("ObjectLifted", False, False),
+        ("object_on_destination", False, False),
+    ]
+
+    ready_criteria = job.criteria_for(ready)[0]
+    assert ready_criteria.prerequisites_met
+    assert ready_criteria.score == 0
+    assert ready_criteria.signals[0].blocked
+    assert [(stage.name, stage.num_reached) for stage in job.funnels[0].stages] == [
+        ("ObjectLifted", 1),
+        ("object_on_destination", 1),
+    ]
+    assert job.funnels[0].num_instances == 3
 
 
 def test_temporal_predicates_keep_distinct_report_labels_and_recorded_details():

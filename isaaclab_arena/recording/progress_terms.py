@@ -33,6 +33,7 @@ def record_progress_results(env, env_id: int) -> dict[str, Any]:
                     "is_complete": criteria_state.is_complete,
                     "completed_sequences": criteria_state.completed_sequences,
                     "total_sequences": criteria_state.total_sequences,
+                    "prerequisites_met": criteria_state.prerequisites_met,
                     "active_predicates": criteria_state.active_predicates,
                 }
                 for name, criteria_state in state.criteria_by_name.items()

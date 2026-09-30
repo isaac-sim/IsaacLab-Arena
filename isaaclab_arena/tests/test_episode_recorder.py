@@ -203,7 +203,7 @@ def _test_core_terms(simulation_app, output_dir):  # noqa: ARG001
         per_env_counter: dict[int, int] = {}
         for record in records:
             # With no variation drawn and no custom term, every record is the core schema plus the
-            # progress block contributed by PickAndPlaceTask's progress objectives.
+            # progress block contributed by PickAndPlaceTask's completion criteria.
             expected_keys = CORE_KEYS | {PROGRESS_KEY}
             assert set(record.keys()) == expected_keys, f"Unexpected keys: {set(record.keys()) ^ expected_keys}"
             assert record["job_name"] == JOB_NAME
@@ -219,8 +219,9 @@ def _test_core_terms(simulation_app, output_dir):  # noqa: ARG001
                 record["success"] is expected_success
             ), f"env {env_id} episode {record['episode_in_env']}: expected success={expected_success}"
             assert record["progress"]["all_complete"] is expected_success
+            assert isinstance(record["progress"]["criteria_by_name"]["pick_and_place"]["prerequisites_met"], bool)
             if expected_success:
-                assert [event["predicate_index"] for event in record["progress"]["events"]] == [0, 1, 2]
+                assert [event["predicate_index"] for event in record["progress"]["events"]] == [0, 1]
 
         # Both envs must have completed at least one episode.
         assert set(per_env_counter.keys()) == {0, 1}

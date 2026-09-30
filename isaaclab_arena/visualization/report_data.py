@@ -127,6 +127,7 @@ class CompletionCriteriaProgress:
     max_score: float
     is_complete: bool
     signals: list[PredicateSignal]
+    prerequisites_met: bool = True
     blocked_predicates: list[str] = field(default_factory=list)
 
     @property
@@ -259,6 +260,8 @@ class JobSummary:
                     )
                 )
             total_sequences = _as_float(detail.get("total_sequences")) if isinstance(detail, dict) else None
+            # Earlier recordings in this schema had no prerequisite gate.
+            prerequisites_met = bool(detail.get("prerequisites_met", True)) if isinstance(detail, dict) else True
             results.append(
                 CompletionCriteriaProgress(
                     name=name,
@@ -267,6 +270,7 @@ class JobSummary:
                     max_score=total_sequences if total_sequences and total_sequences > 0 else 1.0,
                     is_complete=bool(detail.get("is_complete", False)) if isinstance(detail, dict) else False,
                     signals=signals,
+                    prerequisites_met=prerequisites_met,
                     blocked_predicates=[name for name in active_names if name not in matched_blocked],
                 )
             )

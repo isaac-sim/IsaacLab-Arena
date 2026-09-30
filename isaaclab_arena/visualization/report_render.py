@@ -394,10 +394,13 @@ def _render_criteria(criteria) -> str:
         track += f'<span class="signal blocked"><span class="glyph">&#9654;</span>{html.escape(blocked)}</span>'
     score = f"{round(criteria.score, 2):g} / {round(criteria.max_score, 2):g}"
     family = "" if criteria.family == criteria.name else f'<span class="score">{html.escape(criteria.family)}</span>'
+    readiness = (
+        "" if criteria.prerequisites_met else '<span class="prerequisite-status">waiting for prerequisites</span>'
+    )
     return (
         '<div class="criteria"><div class="criteria-head">'
         f'<span class="name">{html.escape(criteria.name)}</span>{family}'
-        f'<span class="score">{html.escape(score)}</span></div>'
+        f'<span class="score">{html.escape(score)}</span>{readiness}</div>'
         f'<div class="track">{track}</div></div>'
     )
 

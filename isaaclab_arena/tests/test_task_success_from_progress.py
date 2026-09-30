@@ -195,6 +195,7 @@ def _test_success_advances_once_and_reporting_is_passive(simulation_app):
         "completed_sequences": 1,
         "total_sequences": 1,
         "active_predicates": {"default_sequence": None},
+        "prerequisites_met": True,
     }
     assert [event["step"] for event in recorded_progress["events"]] == [1, 2, 3]
     assert [(event["criteria_name"], event["sequence_name"]) for event in recorded_progress["events"]] == [
