@@ -17,8 +17,8 @@ Predicates
 A predicate represents a boolean condition in a task, such as an object settling,
 being lifted, or reaching its destination. An instantaneous predicate is a callable that receives
 the manager-based environment and returns one Boolean per parallel environment. Predicates that
-retain episode state use a ``StatefulPredicateCfg`` declaration to create a separate runtime for
-each occurrence in the task.
+retain episode state follow the ``StatefulPredicate`` contract. Each configured occurrence has
+its own runtime state.
 
 Included predicates
 ~~~~~~~~~~~~~~~~~~~
@@ -27,14 +27,14 @@ Arena comes with an existing collection of predicates under ``isaaclab_arena.tas
 
 * ``objects_below_velocity_thresholds`` — all selected objects are below linear and angular velocity thresholds.
 * ``object_is_above_height`` — an object is above a fixed reference height.
-* ``ObjectLiftedCfg`` — declares a check for a rise above the height captured on first active evaluation.
+* ``ObjectLifted`` — captures a reference height on first active evaluation and detects a subsequent rise.
 * ``object_moving`` — an object exceeds a linear velocity threshold.
 * ``objects_in_proximity`` — two objects are within configured axis-aligned distances.
 * ``object_on_destination`` — destination-footprint, upward-support, and velocity checks for a placement goal.
 
 .. note::
 
-    Each runtime created from ``ObjectLiftedCfg`` owns its reference height per environment.
+    Each ``ObjectLifted`` occurrence owns its reference height per environment.
     It captures that height when it first becomes active and keeps it until reset.
     It does not check whether the object is at rest.
     ``PickAndPlaceTask`` first requires five consecutive low-velocity control steps through an
@@ -44,7 +44,7 @@ Arena comes with an existing collection of predicates under ``isaaclab_arena.tas
     the object must rise again after that reference is captured to satisfy the lift predicate.
 
     The shared ``ObjectInitialRestPoseRecorder`` and ``use_settled_state`` argument have been removed.
-    Use a settling prerequisite followed by ``ObjectLiftedCfg`` for a measured reference;
+    Use a settling prerequisite followed by ``ObjectLifted`` for a measured reference;
     use ``object_is_above_height`` with ``surface_height`` for a fixed reference.
     ``objects_below_velocity_thresholds`` only checks current velocity.
 
@@ -72,18 +72,15 @@ A predicate may accept any task-specific arguments it needs after ``env``. For e
 The arguments after ``env`` are configured when the predicate is added to a criteria set
 (shown in the next section).
 
-For a predicate that owns episode state, implement ``StatefulPredicateCfg.create_runtime(factory)``
-to return a fresh ``StatefulPredicate``. Its ``evaluate(evaluation, active_envs)`` method returns one
-Boolean per environment and updates state only for ``active_envs``. Its ``reset(env_ids)`` method
-clears state only for the restarting environments. Pass the declaration into task criteria;
-runtime instances are created by ``PredicateFactory``.
+For a predicate that owns episode state, implement ``StatefulPredicate`` and configure its class
+through ``TerminationTermCfg``. Its evaluation returns one Boolean per environment and updates
+state only for the active environments supplied by the runner. Its ``reset(env_ids)`` method clears
+state only for the restarting environments. The runner prepares a separate instance for each
+configured occurrence.
 
-A stateful predicate can own child predicates. Prepare each child with ``factory.prepare()`` and
-evaluate it through ``evaluation.evaluate(child, active_envs)`` so it shares the control step's cache.
-Reset owned stateful children from the parent's ``reset()``. Set ``requires_step_index`` when the
-predicate or any child needs consecutive control-step indices. ``TrueForConsecutiveStepsCfg``
-creates a runtime that implements this lifecycle for its counter and child, including nested
-stateful declarations.
+``TrueForConsecutiveStepsCfg`` can wrap either an instantaneous predicate or a configured stateful
+predicate. Its runtime owns the counter and its child, including forwarding selected episode resets
+to a stateful child. Nested consecutive-step configurations are also supported.
 
 
 Defining completion criteria
@@ -123,7 +120,7 @@ runs before the lift predicate captures its reference, without treating settling
    from isaaclab.managers import SceneEntityCfg, TerminationTermCfg
 
    from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
-   from isaaclab_arena.tasks.predicates.object_lifted import ObjectLiftedCfg
+   from isaaclab_arena.tasks.predicates.object_lifted import ObjectLifted
    from isaaclab_arena.tasks.predicates.object_settling import objects_below_velocity_thresholds
    from isaaclab_arena.tasks.predicates.spatial import object_on_destination
    from isaaclab_arena.tasks.predicates.temporal import TrueForConsecutiveStepsCfg
@@ -134,7 +131,7 @@ runs before the lift predicate captures its reference, without treating settling
            predicate=partial(objects_below_velocity_thresholds, object_names=[self.pick_up_object.name]),
            required_steps=self.settling_steps,
        )
-       lifted = ObjectLiftedCfg(object_name=self.pick_up_object.name)
+       lifted = TerminationTermCfg(func=ObjectLifted, params={"object_name": self.pick_up_object.name})
        return TaskTerminationCfg(
            success=[
                CompletionCriteria(
@@ -170,8 +167,8 @@ runs before the lift predicate captures its reference, without treating settling
        )
 
 Configuring a predicate's arguments and requiring it to stay true are separate choices.
-Here, ``partial`` supplies the object names; ``PredicateEvaluation`` supplies the environment
-when the runner requests the predicate's result:
+Here, ``partial`` supplies the object names; ``CompletionCriteriaRunner`` supplies the environment
+when it evaluates the predicate:
 
 .. code-block:: python
 
@@ -205,12 +202,12 @@ when the runner requests the predicate's result:
    )
 
 This configuration can also go directly in ``predicate_sequence`` or inside ``TrueForConsecutiveStepsCfg``.
-``CompletionCriteriaRunner`` delegates preparation to ``PredicateFactory`` and evaluation to
-``PredicateEvaluation``; ``TerminationTermCfg`` does not create a separate termination-manager term
-here. For a callable class, the factory initializes it with ``(cfg, env)``;
-``ManagerTermBase`` inheritance is not required. These classes retain the instantaneous callable
-contract. A ``reset()`` method alone does not opt them into episode resets; use
-``StatefulPredicateCfg`` and ``StatefulPredicate`` when the tracker must manage episode state.
+``CompletionCriteriaRunner`` prepares the configuration, including nested predicates, and evaluates
+the resulting runtime; ``TerminationTermCfg`` does not create a separate termination-manager term
+here. The runner initializes a configured class with ``(cfg, env)``;
+``ManagerTermBase`` inheritance is not required. Ordinary callable classes retain the instantaneous
+contract. A ``reset()`` method alone does not opt them into episode resets; implement
+``StatefulPredicate`` when the tracker must manage episode state.
 
 ``PickAndPlaceTask`` defaults to ``placement_consecutive_steps=1``. Set it to a larger positive
 integer, such as ``10``, to require placement, support, and low speed to hold together for that
@@ -248,7 +245,7 @@ before the task completes.
 Conditions that must remain true
 --------------------------------
 
-Use ``TrueForConsecutiveStepsCfg`` around an instantaneous predicate or a stateful declaration:
+Use ``TrueForConsecutiveStepsCfg`` around an instantaneous predicate or a configured stateful predicate:
 
 .. code-block:: python
 
@@ -258,29 +255,29 @@ Use ``TrueForConsecutiveStepsCfg`` around an instantaneous predicate or a statef
    )
 
 ``placed_and_stable`` returns one Boolean per environment; it does not maintain a counter.
-``PredicateFactory`` creates a fresh ``_TrueForConsecutiveSteps`` runtime for each declaration
-occurrence and prepares its child. The runtime owns its counter and the child's lifecycle.
+``CompletionCriteriaRunner`` prepares each ``TrueForConsecutiveStepsCfg`` occurrence recursively,
+creating a fresh ``_TrueForConsecutiveSteps`` runtime and its child. The runtime owns its counter
+and the child's lifecycle.
 For active environments, a true child result adds one to the counter and false clears the streak.
-``CompletionCriteriaRunner`` owns the runtime roots in its prerequisites and sequences, selects
+``CompletionCriteriaRunner`` owns its prepared prerequisite and sequence entries, selects
 their active environments, and resets them through ``TaskSuccessTerm`` / ``ProgressTracker``.
 Each runtime then resets its owned stateful children.
 
-For example, this declaration captures a lift reference when active and requires the object to
+For example, this configuration captures a lift reference when active and requires the object to
 remain above that reference for three consecutive steps:
 
 .. code-block:: python
 
    held_lift = TrueForConsecutiveStepsCfg(
-       predicate=ObjectLiftedCfg(object_name="cube"),
+       predicate=TerminationTermCfg(func=ObjectLifted, params={"object_name": "cube"}),
        required_steps=3,
    )
 
 Reusing ``held_lift`` in another sequence position creates a separate counter and lift reference.
-``PredicateEvaluation`` shares results within one tracker update, including nested evaluations and
-final-condition checks. It evaluates an ordinary callable once by identity for the full batch.
-For each stateful occurrence, it caches results per environment and updates only the requested
-environments that have not yet been evaluated. Reading a cached result does not activate another
-environment or advance state again.
+The tracker shares cached results within one control-step update, including nested evaluations and
+final-condition checks. An ordinary callable is evaluated once by identity for the full batch.
+Each stateful occurrence updates only the requested environments that have not yet been evaluated
+during that step. Reading a cached result does not activate another environment or advance state again.
 
 ``TaskSuccessTerm`` advances ``ProgressTracker`` once per control step. Reporting and other consumers
 read ``is_complete()``, ``get_state()``, or ``get_events()`` without advancing progress.
@@ -453,7 +450,7 @@ For example, one entry of the JSONL record may look like this (placement predica
            "criteria_name": "pick_and_place",
            "sequence_name": "default_sequence",
            "predicate_index": 0,
-           "predicate_name": "ObjectLiftedCfg(object_name='can', distance=0.01)",
+           "predicate_name": "ObjectLifted(object_name='can')",
            "score_delta": 0.5
          }
        ]

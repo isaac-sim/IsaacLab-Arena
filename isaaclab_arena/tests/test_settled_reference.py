@@ -35,18 +35,19 @@ def _make_environment():
 def _test_lift_captures_active_height_and_resets_selectively(simulation_app):
     import torch
 
-    from isaaclab_arena.tasks.predicates.object_lifted import ObjectLiftedCfg
+    from isaaclab.managers import TerminationTermCfg
+
+    from isaaclab_arena.progress_tracking.progress_tracker import _PredicateEvaluation
+    from isaaclab_arena.tasks.predicates.object_lifted import ObjectLifted
 
     env, positions, _, _, _ = _make_environment()
-    cfg = ObjectLiftedCfg(object_name="object")
-    from isaaclab_arena.progress_tracking.predicate_runtime import PredicateEvaluation, PredicateFactory
-
-    predicate = PredicateFactory(env.num_envs, env.device, env).prepare(cfg)
+    cfg = TerminationTermCfg(func=ObjectLifted, params={"object_name": "object"})
+    predicate = ObjectLifted(cfg, env)
 
     def evaluate(active_mask=None):
         if active_mask is None:
             active_mask = torch.ones(env.num_envs, dtype=torch.bool)
-        return PredicateEvaluation(env, env.num_envs, env.device).evaluate(predicate, active_mask)
+        return _PredicateEvaluation(env, env.num_envs, env.device).evaluate(predicate, active_mask)
 
     active_mask = torch.tensor([True, False])
     assert not evaluate(active_mask).any()
@@ -70,8 +71,10 @@ def _test_lift_captures_active_height_and_resets_selectively(simulation_app):
 def _test_tracker_gates_lift_and_resets_its_reference(simulation_app):
     from functools import partial
 
+    from isaaclab.managers import TerminationTermCfg
+
     from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
-    from isaaclab_arena.tasks.predicates.object_lifted import ObjectLiftedCfg
+    from isaaclab_arena.tasks.predicates.object_lifted import ObjectLifted
     from isaaclab_arena.tasks.predicates.object_settling import objects_below_velocity_thresholds
     from isaaclab_arena.tasks.predicates.temporal import TrueForConsecutiveStepsCfg
     from isaaclab_arena.tests.test_task_success_from_progress import (
@@ -83,7 +86,7 @@ def _test_tracker_gates_lift_and_resets_its_reference(simulation_app):
         predicate=partial(objects_below_velocity_thresholds, object_names=["object"]),
         required_steps=3,
     )
-    lifted = ObjectLiftedCfg(object_name="object")
+    lifted = TerminationTermCfg(func=ObjectLifted, params={"object_name": "object"})
     criteria_sets = [
         CompletionCriteria(
             name="earlier_task",

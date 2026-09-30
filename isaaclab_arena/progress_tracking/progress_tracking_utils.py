@@ -6,14 +6,50 @@
 
 from __future__ import annotations
 
-from isaaclab_arena.tasks.predicates.stateful_predicate import Predicate
-from isaaclab_arena.tasks.predicates.stateful_predicate import is_predicate as _is_predicate
+import functools
+from collections.abc import Callable
+
+from isaaclab.managers import ManagerTermBase, TerminationTermCfg
+
+from isaaclab_arena.tasks.predicates.stateful_predicate import StatefulPredicate
+from isaaclab_arena.tasks.predicates.temporal import TrueForConsecutiveStepsCfg, _TrueForConsecutiveSteps
+
+Predicate = Callable | TerminationTermCfg | TrueForConsecutiveStepsCfg
 
 PredicateSequence = list[Predicate] | list[tuple[Predicate, float]]
 PredicateSequences = dict[str, PredicateSequence]
 
 
 DEFAULT_SEQUENCE_NAME = "default_sequence"
+
+
+def _is_predicate(value) -> bool:
+    """Return whether value is a configuration or an ordinary callable."""
+    return not isinstance(value, StatefulPredicate) and (
+        isinstance(value, (TerminationTermCfg, TrueForConsecutiveStepsCfg))
+        or (callable(value) and not isinstance(value, type))
+    )
+
+
+def _predicate_repr(predicate) -> str:
+    """Describe a configured or prepared predicate for progress reports."""
+    if isinstance(predicate, (TrueForConsecutiveStepsCfg, _TrueForConsecutiveSteps)):
+        return (
+            f"TrueForConsecutiveStepsCfg({_predicate_repr(predicate.predicate)},"
+            f" required_steps={predicate.required_steps})"
+        )
+    if isinstance(predicate, ManagerTermBase):
+        predicate = functools.partial(predicate, **predicate.cfg.params)
+    elif isinstance(predicate, TerminationTermCfg):
+        predicate = functools.partial(predicate.func, **predicate.params)
+    if isinstance(predicate, functools.partial):
+        function, arguments, parameters = predicate.func, predicate.args, (predicate.keywords or {})
+    else:
+        function, arguments, parameters = predicate, (), {}
+    name = getattr(function, "__name__", type(function).__name__)
+    parts = [repr(argument) for argument in arguments]
+    parts += [f"{key}={value!r}" for key, value in parameters.items() if isinstance(value, (str, int, float, bool))]
+    return f"{name}({', '.join(parts)})" if parts else name
 
 
 def _format_predicate_sequences(
@@ -65,7 +101,7 @@ def _format_predicate_sequence(sequence: PredicateSequence, sequence_name: str) 
             predicate, score = item
             assert _is_predicate(predicate), (
                 f"Sequence '{sequence_name}' index {predicate_index}: expected a callable, TerminationTermCfg, or"
-                " StatefulPredicateCfg"
+                " TrueForConsecutiveStepsCfg"
             )
             assert isinstance(
                 score, (int, float)
@@ -77,7 +113,7 @@ def _format_predicate_sequence(sequence: PredicateSequence, sequence_name: str) 
     for predicate_index, predicate in enumerate(sequence):
         assert _is_predicate(predicate), (
             f"Sequence '{sequence_name}' index {predicate_index}: expected a callable, TerminationTermCfg, or"
-            " StatefulPredicateCfg"
+            " TrueForConsecutiveStepsCfg"
         )
         chain.append((predicate, 1.0))
     return chain

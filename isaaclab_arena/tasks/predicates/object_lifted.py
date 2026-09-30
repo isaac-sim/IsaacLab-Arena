@@ -9,48 +9,34 @@ from __future__ import annotations
 
 import math
 import torch
-from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from isaaclab_arena.tasks.predicates.stateful_predicate import StatefulPredicate, StatefulPredicateCfg
+from isaaclab.managers import ManagerTermBase, TerminationTermCfg
+
+from isaaclab_arena.tasks.predicates.stateful_predicate import StatefulPredicate
 
 if TYPE_CHECKING:
-    from isaaclab_arena.progress_tracking.predicate_runtime import PredicateEvaluation, PredicateFactory
+    from isaaclab_arena.progress_tracking.progress_tracker import _PredicateEvaluation
 
 
-@dataclass
-class ObjectLiftedCfg(StatefulPredicateCfg):
-    """Detect a rise above the height captured on this occurrence's first active evaluation.
+class ObjectLifted(ManagerTermBase, StatefulPredicate):
+    """Capture a reference height on first active evaluation and detect a subsequent rise.
 
-    Use a settling prerequisite when the reference should be captured at rest. Policy actions
-    continue while waiting; any earlier motion becomes part of the captured reference height.
+    Configure with TerminationTermCfg using object_name and optional distance (default 0.01 m).
+    Use a settling prerequisite to capture the reference at rest. Policy actions continue while
+    waiting; earlier motion becomes part of the reference. Each occurrence owns its heights.
     """
 
-    object_name: str
-    """Scene key of the object to track."""
+    def __init__(self, cfg: TerminationTermCfg, env):
+        super().__init__(cfg, env)
+        self._object_name = cfg.params["object_name"]
+        self._distance = cfg.params.get("distance", 1e-2)
+        assert isinstance(self._object_name, str) and self._object_name, "object_name must be a non-empty scene key."
+        assert math.isfinite(self._distance) and self._distance > 0, "distance must be finite and positive."
+        self._reference_height = torch.full((env.num_envs,), float("nan"), device=env.device)
+        self._has_reference_height = torch.zeros(env.num_envs, dtype=torch.bool, device=env.device)
 
-    distance: float = 1e-2
-    """Required vertical rise in meters; success requires strictly more than this distance."""
-
-    def __post_init__(self):
-        assert isinstance(self.object_name, str) and self.object_name, "object_name must be a non-empty scene key."
-        assert math.isfinite(self.distance) and self.distance > 0, "distance must be finite and positive."
-
-    def create_runtime(self, factory: PredicateFactory) -> StatefulPredicate:
-        return _ObjectLifted(self, factory.num_envs, factory.device)
-
-
-class _ObjectLifted(StatefulPredicate):
-    """Own one lift occurrence's reference height for each environment."""
-
-    def __init__(self, cfg: ObjectLiftedCfg, num_envs: int, device):
-        super().__init__(cfg.describe())
-        self._object_name = cfg.object_name
-        self._distance = cfg.distance
-        self._reference_height = torch.full((num_envs,), float("nan"), device=device)
-        self._has_reference_height = torch.zeros(num_envs, dtype=torch.bool, device=device)
-
-    def evaluate(self, evaluation: PredicateEvaluation, active_envs: torch.Tensor) -> torch.Tensor:
+    def evaluate(self, evaluation: _PredicateEvaluation, active_envs: torch.Tensor) -> torch.Tensor:
         current_height = evaluation.env.arena_world.get_position_w(self._object_name)[:, 2]
         needs_reference = active_envs & ~self._has_reference_height
         self._reference_height[needs_reference] = current_height[needs_reference]

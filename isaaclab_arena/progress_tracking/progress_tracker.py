@@ -5,21 +5,109 @@
 
 from __future__ import annotations
 
+import copy
+import functools
 import torch
 from collections.abc import Callable
 from dataclasses import dataclass
 
+from isaaclab.managers import SceneEntityCfg, TerminationTermCfg
 from isaaclab.managers.recorder_manager import RecorderManagerBaseCfg, RecorderTerm, RecorderTermCfg
 from isaaclab.utils.configclass import configclass
 
 from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria, CriteriaCompletionMode
-from isaaclab_arena.progress_tracking.predicate_runtime import PredicateEvaluation, PredicateFactory
-from isaaclab_arena.progress_tracking.progress_tracking_utils import DEFAULT_SEQUENCE_NAME
-from isaaclab_arena.tasks.predicates.stateful_predicate import (
-    StatefulPredicate,
-    predicate_description,
-    predicate_diagnostics,
+from isaaclab_arena.progress_tracking.progress_tracking_utils import (
+    DEFAULT_SEQUENCE_NAME,
+    _is_predicate,
+    _predicate_repr,
 )
+from isaaclab_arena.tasks.predicates.stateful_predicate import StatefulPredicate
+from isaaclab_arena.tasks.predicates.temporal import TrueForConsecutiveStepsCfg, _TrueForConsecutiveSteps
+
+
+def _initialize_predicate_parameters(value, env) -> None:
+    """Resolve scene references and construct nested Isaac Lab terms before their parents."""
+    # TaskSuccessTerm constructs the tracker before env.termination_manager exists.
+    # Isaac Lab therefore cannot initialize these nested configurations for us.
+    if isinstance(value, TerminationTermCfg):
+        assert not isinstance(
+            value.func, StatefulPredicate
+        ), "Configure a stateful predicate class, not a live instance."
+        _initialize_predicate_parameters(value.params, env)
+        if isinstance(value.func, type):
+            value.func = value.func(value, env)
+        assert callable(value.func) or isinstance(
+            value.func, StatefulPredicate
+        ), "Predicate configs must resolve to a predicate."
+    elif isinstance(value, SceneEntityCfg):
+        value.resolve(env.scene)
+    elif isinstance(value, dict):
+        for parameter in value.values():
+            _initialize_predicate_parameters(parameter, env)
+    elif isinstance(value, (list, tuple)):
+        for parameter in value:
+            _initialize_predicate_parameters(parameter, env)
+
+
+def _prepare_predicate(predicate, num_envs: int, device, env=None):
+    """Construct fresh stateful occurrences and preserve ordinary callable identity."""
+    assert _is_predicate(predicate), "Expected a callable, TerminationTermCfg, or TrueForConsecutiveStepsCfg."
+    if isinstance(predicate, TrueForConsecutiveStepsCfg):
+        return _TrueForConsecutiveSteps(
+            predicate=_prepare_predicate(predicate.predicate, num_envs, device, env),
+            required_steps=predicate.required_steps,
+            num_envs=num_envs,
+            device=device,
+        )
+    if not isinstance(predicate, TerminationTermCfg):
+        return predicate
+    assert not isinstance(
+        predicate.func, StatefulPredicate
+    ), "Configure a stateful predicate class, not a live instance."
+    assert env is not None, "An environment is required to initialize a configured progress predicate."
+    predicate_cfg = copy.deepcopy(predicate)
+    _initialize_predicate_parameters(predicate_cfg, env)
+    if isinstance(predicate_cfg.func, StatefulPredicate):
+        # Stateful classes bind their parameters during construction; keep their lifecycle visible.
+        return predicate_cfg.func
+    return functools.partial(predicate_cfg.func, **predicate_cfg.params)
+
+
+class _PredicateEvaluation:
+    """Cache predicate results for one control step, including nested predicate evaluations."""
+
+    def __init__(self, env, num_envs: int, device):
+        self.env = env
+        self.num_envs = num_envs
+        self.device = device
+        self._results: dict[int, tuple[torch.Tensor, torch.Tensor]] = {}
+
+    def evaluate(self, predicate: Callable | StatefulPredicate, active_envs: torch.Tensor) -> torch.Tensor:
+        """Evaluate each stateful occurrence at most once per active environment.
+
+        Ordinary callables evaluate the full batch once, keyed by callable identity.
+        An empty active mask reads cached stateful results without activating the runtime.
+        """
+        predicate_key = id(predicate)
+        if predicate_key not in self._results:
+            self._results[predicate_key] = (
+                torch.zeros(self.num_envs, dtype=torch.bool, device=self.device),
+                torch.zeros(self.num_envs, dtype=torch.bool, device=self.device),
+            )
+        cached_result, evaluated_envs = self._results[predicate_key]
+        stateful = isinstance(predicate, StatefulPredicate)
+        requested_envs = active_envs if stateful else torch.ones_like(active_envs)
+        pending_envs = requested_envs & ~evaluated_envs
+        if bool(pending_envs.any().item()):
+            result = predicate.evaluate(self, pending_envs) if stateful else predicate(self.env)
+            result = torch.as_tensor(result, dtype=torch.bool, device=self.device)
+            assert result.shape == (self.num_envs,), (
+                f"Predicate {_predicate_repr(predicate)} returned shape {tuple(result.shape)};"
+                f" expected ({self.num_envs},)"
+            )
+            cached_result = torch.where(pending_envs, result, cached_result)
+            self._results[predicate_key] = (cached_result, evaluated_envs | pending_envs)
+        return cached_result
 
 
 @dataclass
@@ -101,15 +189,14 @@ class CompletionCriteriaRunner:
         self.sequence_complete: dict[str, torch.Tensor] = {}
         self.predicate_chains = {}
         self._stateful_predicates: list[StatefulPredicate] = []
-        factory = PredicateFactory(num_envs, device, env)
         self.prerequisites = [
-            self._prepare_predicate(predicate, factory) for predicate in completion_criteria.prerequisites
+            self._prepare_owned_predicate(predicate, env) for predicate in completion_criteria.prerequisites
         ]
         self.prerequisites_met = torch.full((num_envs,), not self.prerequisites, dtype=torch.bool, device=device)
         for sequence_name, chain in completion_criteria.canonical_predicate_sequences.items():
             resolved_chain = []
             for predicate, score in chain:
-                resolved_chain.append((self._prepare_predicate(predicate, factory), score))
+                resolved_chain.append((self._prepare_owned_predicate(predicate, env), score))
             self.predicate_chains[sequence_name] = resolved_chain
 
         for sequence_name in completion_criteria.sequence_names:
@@ -117,9 +204,9 @@ class CompletionCriteriaRunner:
             self.sequence_score[sequence_name] = torch.zeros(num_envs, dtype=torch.float32, device=device)
             self.sequence_complete[sequence_name] = torch.zeros(num_envs, dtype=torch.bool, device=device)
 
-    def _prepare_predicate(self, predicate, factory: PredicateFactory):
+    def _prepare_owned_predicate(self, predicate, env):
         """Register the runtime roots whose lifecycle belongs to this runner."""
-        prepared_predicate = factory.prepare(predicate)
+        prepared_predicate = _prepare_predicate(predicate, self.num_envs, self.device, env)
         if isinstance(prepared_predicate, StatefulPredicate):
             self._stateful_predicates.append(prepared_predicate)
         return prepared_predicate
@@ -131,7 +218,7 @@ class CompletionCriteriaRunner:
 
     def step(
         self,
-        evaluation: PredicateEvaluation,
+        evaluation: _PredicateEvaluation,
         step_index: torch.Tensor | None,
         active_envs: torch.Tensor,
         check_final_conditions: bool = False,
@@ -176,7 +263,7 @@ class CompletionCriteriaRunner:
             )
         return events
 
-    def final_conditions_met(self, evaluation: PredicateEvaluation) -> torch.Tensor:
+    def final_conditions_met(self, evaluation: _PredicateEvaluation) -> torch.Tensor:
         """Evaluate final predicates using the CompletionCriteria's ALL, ANY, or CHOOSE requirement."""
         completed_envs = self.is_complete()
         if not bool(completed_envs.any().item()):
@@ -193,7 +280,7 @@ class CompletionCriteriaRunner:
 
     def _step_sequence(
         self,
-        evaluation: PredicateEvaluation,
+        evaluation: _PredicateEvaluation,
         sequence_name: str,
         predicate_chain: list[tuple],
         active_envs: torch.Tensor,
@@ -251,7 +338,7 @@ class CompletionCriteriaRunner:
             advanced = advanced | advance_mask
 
             # Emit an event for each env where a predicate was advanced.
-            pred_name = predicate_description(predicate)
+            pred_name = _predicate_repr(predicate)
             for env_idx in torch.nonzero(advance_mask, as_tuple=False).flatten().tolist():
                 events.append(
                     PredicateEvent(
@@ -328,7 +415,7 @@ class CompletionCriteriaRunner:
                 active_predicates[sequence_name] = None
                 completed_sequences += 1
             else:
-                active_predicates[sequence_name] = predicate_description(predicate_chain[cur_predicate_index][0])
+                active_predicates[sequence_name] = _predicate_repr(predicate_chain[cur_predicate_index][0])
 
         return CompletionCriteriaState(
             completed_sequences=completed_sequences,
@@ -428,7 +515,7 @@ class ProgressTracker:
         # Progress advancement and final-condition checks share predicate results.
         # Evaluating a stateful predicate twice could advance its counter twice
         # without another simulation step.
-        evaluation = PredicateEvaluation(env, self.num_envs, self.device)
+        evaluation = _PredicateEvaluation(env, self.num_envs, self.device)
         for subtask_index, subtask_runners in enumerate(self._subtask_runners or [self.runners]):
             # Use completion before advancing so the next subtask starts on the following step.
             subtask_was_complete = self._all_criteria_complete(subtask_runners)
@@ -446,7 +533,7 @@ class ProgressTracker:
             # The environment increments episode_length_buf in place; keep our own snapshot.
             self._last_processed_step.copy_(step_index)
 
-    def _compute_task_success(self, evaluation: PredicateEvaluation) -> torch.Tensor:
+    def _compute_task_success(self, evaluation: _PredicateEvaluation) -> torch.Tensor:
         """Combine recorded completion with any required current subtask conditions."""
         if self.desired_subtask_success_state is None:
             return self._all_criteria_complete(self.runners)
@@ -492,7 +579,11 @@ class ProgressTracker:
         for runner in self.runners:
             if runner.completion_criteria.name == criteria_name:
                 predicate = runner.predicate_chains[sequence_name][predicate_index][0]
-                return predicate_diagnostics(predicate)
+                while isinstance(predicate, _TrueForConsecutiveSteps):
+                    predicate = predicate.predicate
+                while isinstance(predicate, functools.partial):
+                    predicate = predicate.func
+                return predicate
         raise KeyError(f"Unknown completion criteria: {criteria_name!r}")
 
     def reset(self, env_ids: list[int] | torch.Tensor) -> None:

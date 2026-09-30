@@ -57,8 +57,7 @@ def _test_sequence_single_predicate(simulation_app) -> bool:
     from isaaclab.managers import TerminationTermCfg
 
     from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
-    from isaaclab_arena.progress_tracking.progress_tracking_utils import DEFAULT_SEQUENCE_NAME
-    from isaaclab_arena.tasks.predicates.stateful_predicate import predicate_description
+    from isaaclab_arena.progress_tracking.progress_tracking_utils import DEFAULT_SEQUENCE_NAME, _predicate_repr
 
     try:
         pred = _MockPredicate(num_envs=1)
@@ -72,7 +71,7 @@ def _test_sequence_single_predicate(simulation_app) -> bool:
         predicate_cfg = TerminationTermCfg(func=pred)
         criteria = CompletionCriteria(name="managed", predicate_sequence=[predicate_cfg])
         assert criteria.get_sequence(DEFAULT_SEQUENCE_NAME) == [(predicate_cfg, 1.0)]
-        assert predicate_description(predicate_cfg) == "mock_predicate"
+        assert _predicate_repr(predicate_cfg) == "mock_predicate"
         named_criteria = CompletionCriteria(
             name="named_managed", predicate_sequence=None, predicate_sequences={"settled": [predicate_cfg]}
         )

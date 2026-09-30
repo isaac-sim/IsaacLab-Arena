@@ -30,11 +30,11 @@ def _step(tracker, env, step_indices: list[int]):
 def _test_runtime_requirement_updates_only_active_environments(simulation_app):
     import torch
 
-    from isaaclab_arena.progress_tracking.predicate_runtime import PredicateEvaluation, PredicateFactory
+    from isaaclab_arena.progress_tracking.progress_tracker import _PredicateEvaluation, _prepare_predicate
     from isaaclab_arena.tasks.predicates.temporal import TrueForConsecutiveStepsCfg
 
     predicate = _ControlledPredicate([True, True, True])
-    requirement = PredicateFactory(3, "cpu").prepare(TrueForConsecutiveStepsCfg(predicate, required_steps=2))
+    requirement = _prepare_predicate(TrueForConsecutiveStepsCfg(predicate, required_steps=2), 3, "cpu")
     env = SimpleNamespace(num_envs=3, device="cpu")
     samples = [
         ([True, True, True], [True, False, True], [False, False, False]),
@@ -47,7 +47,7 @@ def _test_runtime_requirement_updates_only_active_environments(simulation_app):
     ]
     for predicate_results, active_envs, expected_completion in samples:
         predicate.values = predicate_results
-        completion = requirement.evaluate(PredicateEvaluation(env, 3, "cpu"), torch.tensor(active_envs))
+        completion = requirement.evaluate(_PredicateEvaluation(env, 3, "cpu"), torch.tensor(active_envs))
         assert completion.tolist() == expected_completion
     assert predicate.calls == len(samples)
     return True

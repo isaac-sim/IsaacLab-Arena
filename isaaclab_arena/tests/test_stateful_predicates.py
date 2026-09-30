@@ -46,13 +46,16 @@ def _step(tracker, env):
 
 
 def _test_reused_configuration_has_independent_sequence_occurrences(_simulation_app):
+    from isaaclab.managers import TerminationTermCfg
+
     from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
     from isaaclab_arena.progress_tracking.progress_tracker import ProgressTracker
-    from isaaclab_arena.tasks.predicates.object_lifted import ObjectLiftedCfg
+    from isaaclab_arena.tasks.predicates.object_lifted import ObjectLifted
     from isaaclab_arena.tasks.predicates.temporal import TrueForConsecutiveStepsCfg
 
     env = _make_environment()
-    held_lift = TrueForConsecutiveStepsCfg(ObjectLiftedCfg("object"), required_steps=2)
+    lifted = TerminationTermCfg(func=ObjectLifted, params={"object_name": "object"})
+    held_lift = TrueForConsecutiveStepsCfg(lifted, required_steps=2)
     criteria = CompletionCriteria(name="lift_twice", predicate_sequence=[held_lift, held_lift])
     tracker = ProgressTracker([criteria], env.num_envs, env.device, env=env)
 
@@ -81,12 +84,15 @@ def _test_reused_configuration_has_independent_sequence_occurrences(_simulation_
 
 
 def _test_reused_configuration_has_independent_tracker_state(_simulation_app):
+    from isaaclab.managers import TerminationTermCfg
+
     from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
     from isaaclab_arena.progress_tracking.progress_tracker import ProgressTracker
-    from isaaclab_arena.tasks.predicates.object_lifted import ObjectLiftedCfg
+    from isaaclab_arena.tasks.predicates.object_lifted import ObjectLifted
     from isaaclab_arena.tasks.predicates.temporal import TrueForConsecutiveStepsCfg
 
-    held_lift = TrueForConsecutiveStepsCfg(ObjectLiftedCfg("object"), required_steps=2)
+    lifted = TerminationTermCfg(func=ObjectLifted, params={"object_name": "object"})
+    held_lift = TrueForConsecutiveStepsCfg(lifted, required_steps=2)
     criteria = CompletionCriteria(name="held_lift", predicate_sequence=[held_lift])
     first_env = _make_environment((0.5,))
     second_env = _make_environment((1.0,))
@@ -116,17 +122,20 @@ def _test_reused_configuration_has_independent_tracker_state(_simulation_app):
 
 
 def _test_wrapped_lift_activates_and_resets_per_environment(_simulation_app):
+    from isaaclab.managers import TerminationTermCfg
+
     from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
     from isaaclab_arena.progress_tracking.progress_tracker import ProgressTracker
-    from isaaclab_arena.tasks.predicates.object_lifted import ObjectLiftedCfg
+    from isaaclab_arena.tasks.predicates.object_lifted import ObjectLifted
     from isaaclab_arena.tasks.predicates.temporal import TrueForConsecutiveStepsCfg
 
     env = _make_environment()
     env.ready[1] = False
+    lifted = TerminationTermCfg(func=ObjectLifted, params={"object_name": "object"})
     criteria = CompletionCriteria(
         name="held_lift",
         prerequisites=[_ready],
-        predicate_sequence=[TrueForConsecutiveStepsCfg(ObjectLiftedCfg("object"), required_steps=2)],
+        predicate_sequence=[TrueForConsecutiveStepsCfg(lifted, required_steps=2)],
         parent_subtask_idx=0,
     )
     tracker = ProgressTracker([criteria], env.num_envs, env.device, env=env, desired_subtask_success_state=[True])
@@ -169,13 +178,16 @@ def _test_wrapped_lift_activates_and_resets_per_environment(_simulation_app):
 
 
 def _test_nested_temporal_lift_updates_once_during_final_condition_checks(_simulation_app):
+    from isaaclab.managers import TerminationTermCfg
+
     from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
     from isaaclab_arena.progress_tracking.progress_tracker import ProgressTracker
-    from isaaclab_arena.tasks.predicates.object_lifted import ObjectLiftedCfg
+    from isaaclab_arena.tasks.predicates.object_lifted import ObjectLifted
     from isaaclab_arena.tasks.predicates.temporal import TrueForConsecutiveStepsCfg
 
     env = _make_environment((0.5,))
-    held_lift = TrueForConsecutiveStepsCfg(ObjectLiftedCfg("object"), required_steps=2)
+    lifted = TerminationTermCfg(func=ObjectLifted, params={"object_name": "object"})
+    held_lift = TrueForConsecutiveStepsCfg(lifted, required_steps=2)
     criteria = CompletionCriteria(
         name="held_lift",
         predicate_sequence=[TrueForConsecutiveStepsCfg(held_lift, required_steps=2)],
@@ -257,11 +269,11 @@ def _test_nested_requirements_share_plain_callable_results_without_resetting_it(
 
 def _test_stateful_declarations_reject_runtime_instances_and_invalid_parameters(_simulation_app):
     import pytest
+    from isaaclab.managers import TerminationTermCfg
 
     from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
-    from isaaclab_arena.progress_tracking.predicate_runtime import PredicateFactory
     from isaaclab_arena.progress_tracking.progress_tracker import ProgressTracker
-    from isaaclab_arena.tasks.predicates.object_lifted import ObjectLiftedCfg
+    from isaaclab_arena.tasks.predicates.object_lifted import ObjectLifted
     from isaaclab_arena.tasks.predicates.temporal import TrueForConsecutiveStepsCfg
 
     class _CallablePredicate:
@@ -269,12 +281,15 @@ def _test_stateful_declarations_reject_runtime_instances_and_invalid_parameters(
             return env.ready
 
     env = _make_environment()
-    factory = PredicateFactory(env.num_envs, env.device, env)
-    lifted = ObjectLiftedCfg("object")
-    runtime = factory.prepare(lifted)
-    for invalid_predicate in (runtime, _CallablePredicate, ObjectLiftedCfg):
-        with pytest.raises(AssertionError):
-            factory.prepare(invalid_predicate)
+    lifted = TerminationTermCfg(func=ObjectLifted, params={"object_name": "object"})
+    source_criteria = CompletionCriteria(name="source", predicate_sequence=[lifted])
+    source_tracker = ProgressTracker([source_criteria], env.num_envs, env.device, env=env)
+    runtime = source_tracker.get_predicate("source")
+    configured_runtime = TerminationTermCfg(func=runtime)
+    invalid_criteria = CompletionCriteria(name="configured_runtime", predicate_sequence=[configured_runtime])
+    with pytest.raises(AssertionError):
+        ProgressTracker([invalid_criteria], env.num_envs, env.device, env=env)
+    for invalid_predicate in (runtime, _CallablePredicate, ObjectLifted):
         with pytest.raises(AssertionError):
             TrueForConsecutiveStepsCfg(invalid_predicate, required_steps=2)
         with pytest.raises(AssertionError):
@@ -283,11 +298,17 @@ def _test_stateful_declarations_reject_runtime_instances_and_invalid_parameters(
             CompletionCriteria(name="invalid", prerequisites=[invalid_predicate], predicate_sequence=[_ready])
 
     for invalid_name in ("", None, 7):
+        invalid_lift = TerminationTermCfg(func=ObjectLifted, params={"object_name": invalid_name})
+        invalid_criteria = CompletionCriteria(name="invalid_lift", predicate_sequence=[invalid_lift])
         with pytest.raises(AssertionError, match="object_name"):
-            ObjectLiftedCfg(invalid_name)
+            ProgressTracker([invalid_criteria], env.num_envs, env.device, env=env)
     for invalid_distance in (0.0, -0.01, float("nan"), float("inf"), float("-inf")):
+        invalid_lift = TerminationTermCfg(
+            func=ObjectLifted, params={"object_name": "object", "distance": invalid_distance}
+        )
+        invalid_criteria = CompletionCriteria(name="invalid_lift", predicate_sequence=[invalid_lift])
         with pytest.raises(AssertionError, match="distance"):
-            ObjectLiftedCfg("object", distance=invalid_distance)
+            ProgressTracker([invalid_criteria], env.num_envs, env.device, env=env)
 
     held_lift = TrueForConsecutiveStepsCfg(lifted, required_steps=2)
     nested_requirement = TrueForConsecutiveStepsCfg(held_lift, required_steps=2)
