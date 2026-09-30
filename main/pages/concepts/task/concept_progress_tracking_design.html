@@ -574,13 +574,13 @@
                   
   <section id="predicates-and-subtask-progress-tracking">
 <h1>Predicates and Subtask Progress Tracking<a class="headerlink" href="#predicates-and-subtask-progress-tracking" title="Link to this heading">#</a></h1>
-<p>Arena defines task success through <code class="docutils literal notranslate"><span class="pre">ProgressObjective</span></code> objects. These objectives organize
+<p>Arena defines task success through <code class="docutils literal notranslate"><span class="pre">CompletionCriteria</span></code> objects. These criteria sets organize
 Boolean predicates into required milestones, such as settling, lifting, and placing an object.
 Their scores also describe partial progress when an episode ends before the task is complete.</p>
 <p>Every task returns a <code class="docutils literal notranslate"><span class="pre">TaskTerminationCfg</span></code> from <code class="docutils literal notranslate"><span class="pre">get_termination_cfg()</span></code>. This configuration
-declares its <code class="docutils literal notranslate"><span class="pre">success</span></code> objectives, named <code class="docutils literal notranslate"><span class="pre">failures</span></code>, and <code class="docutils literal notranslate"><span class="pre">timeout_s</span></code> in one place. The
-environment builder creates one success termination that advances the objectives and reports
-success when all required objectives are complete.</p>
+declares its <code class="docutils literal notranslate"><span class="pre">success</span></code> criteria, named <code class="docutils literal notranslate"><span class="pre">failures</span></code>, and <code class="docutils literal notranslate"><span class="pre">timeout_s</span></code> in one place. The
+environment builder creates one success termination that advances the criteria sets and reports
+success when all required criteria sets are complete.</p>
 <section id="predicates">
 <h2>Predicates<a class="headerlink" href="#predicates" title="Link to this heading">#</a></h2>
 <p>A predicate represents a boolean condition in a task, such as an object settling,
@@ -621,13 +621,13 @@ A custom predicate must:</p>
     <span class="k">return</span> <span class="p">(</span><span class="n">object_x_e</span> <span class="o">&gt;=</span> <span class="n">min_x</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">object_x_e</span> <span class="o">&lt;=</span> <span class="n">max_x</span><span class="p">)</span>
 </pre></div>
 </div>
-<p>The arguments after <code class="docutils literal notranslate"><span class="pre">env</span></code> are configured when the predicate is added to a progress objective
+<p>The arguments after <code class="docutils literal notranslate"><span class="pre">env</span></code> are configured when the predicate is added to a criteria set
 (shown in the next section).</p>
 </section>
 </section>
-<section id="defining-a-progress-objective">
-<h2>Defining a progress objective<a class="headerlink" href="#defining-a-progress-objective" title="Link to this heading">#</a></h2>
-<p>Add <code class="docutils literal notranslate"><span class="pre">ProgressObjective</span></code> entries to <code class="docutils literal notranslate"><span class="pre">TaskTerminationCfg.success</span></code>. Provide exactly one of
+<section id="defining-completion-criteria">
+<h2>Defining completion criteria<a class="headerlink" href="#defining-completion-criteria" title="Link to this heading">#</a></h2>
+<p>Add <code class="docutils literal notranslate"><span class="pre">CompletionCriteria</span></code> entries to <code class="docutils literal notranslate"><span class="pre">TaskTerminationCfg.success</span></code>. Provide exactly one of
 <code class="docutils literal notranslate"><span class="pre">predicate_sequence</span></code> for a list of predicates or <code class="docutils literal notranslate"><span class="pre">predicate_sequences</span></code> for a dictionary of named lists.</p>
 <p><code class="docutils literal notranslate"><span class="pre">PickAndPlaceTask</span></code> requires the object to settle, be lifted, and be placed, in that order:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">functools</span><span class="w"> </span><span class="kn">import</span> <span class="n">partial</span>
@@ -635,7 +635,7 @@ A custom predicate must:</p>
 <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab.envs</span><span class="w"> </span><span class="kn">import</span> <span class="n">mdp</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab.managers</span><span class="w"> </span><span class="kn">import</span> <span class="n">SceneEntityCfg</span><span class="p">,</span> <span class="n">TerminationTermCfg</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.progress_tracking.progress_objective</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProgressObjective</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.progress_tracking.completion_criteria</span><span class="w"> </span><span class="kn">import</span> <span class="n">CompletionCriteria</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.tasks.predicates.object_settling</span><span class="w"> </span><span class="kn">import</span> <span class="n">objects_settled</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.tasks.predicates.spatial</span><span class="w"> </span><span class="kn">import</span> <span class="n">object_is_above_height</span><span class="p">,</span> <span class="n">object_on_destination</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.tasks.predicates.temporal</span><span class="w"> </span><span class="kn">import</span> <span class="n">TrueForConsecutiveStepsCfg</span>
@@ -644,7 +644,7 @@ A custom predicate must:</p>
 <span class="k">def</span><span class="w"> </span><span class="nf">get_termination_cfg</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TaskTerminationCfg</span><span class="p">:</span>
     <span class="k">return</span> <span class="n">TaskTerminationCfg</span><span class="p">(</span>
         <span class="n">success</span><span class="o">=</span><span class="p">[</span>
-            <span class="n">ProgressObjective</span><span class="p">(</span>
+            <span class="n">CompletionCriteria</span><span class="p">(</span>
                 <span class="n">name</span><span class="o">=</span><span class="s2">"pick_and_place"</span><span class="p">,</span>
                 <span class="n">predicate_sequence</span><span class="o">=</span><span class="p">[</span>
                     <span class="n">partial</span><span class="p">(</span>
@@ -685,7 +685,7 @@ A custom predicate must:</p>
 </pre></div>
 </div>
 <p>Configuring a predicate’s arguments and requiring it to stay true are separate choices.
-Here, <code class="docutils literal notranslate"><span class="pre">partial</span></code> supplies the object names; <code class="docutils literal notranslate"><span class="pre">ProgressObjectiveRunner</span></code> supplies the environment
+Here, <code class="docutils literal notranslate"><span class="pre">partial</span></code> supplies the object names; <code class="docutils literal notranslate"><span class="pre">CompletionCriteriaRunner</span></code> supplies the environment
 when it calls the predicate:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">functools</span><span class="w"> </span><span class="kn">import</span> <span class="n">partial</span>
 
@@ -716,7 +716,7 @@ when it calls the predicate:</p>
 </pre></div>
 </div>
 <p>This configuration can also go directly in <code class="docutils literal notranslate"><span class="pre">predicate_sequence</span></code> or inside <code class="docutils literal notranslate"><span class="pre">TrueForConsecutiveStepsCfg</span></code>.
-<code class="docutils literal notranslate"><span class="pre">ProgressObjectiveRunner</span></code> prepares and evaluates these entries; <code class="docutils literal notranslate"><span class="pre">TerminationTermCfg</span></code> does not
+<code class="docutils literal notranslate"><span class="pre">CompletionCriteriaRunner</span></code> prepares and evaluates these entries; <code class="docutils literal notranslate"><span class="pre">TerminationTermCfg</span></code> does not
 create a separate termination-manager term here. For a callable class, the runner initializes it
 with <code class="docutils literal notranslate"><span class="pre">(cfg,</span> <span class="pre">env)</span></code>; <code class="docutils literal notranslate"><span class="pre">ManagerTermBase</span></code> inheritance is not required.</p>
 <p><code class="docutils literal notranslate"><span class="pre">PickAndPlaceTask</span></code> defaults to <code class="docutils literal notranslate"><span class="pre">placement_consecutive_steps=1</span></code>. Set it to a larger positive
@@ -724,7 +724,7 @@ integer, such as <code class="docutils literal notranslate"><span class="pre">10
 many consecutive control steps.</p>
 <p>Use a dictionary to track several sequences independently. This example requires any two
 objects to be lifted and placed. Each entry, such as <code class="docutils literal notranslate"><span class="pre">can_lifted</span></code>, is a configured callable:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">objective</span> <span class="o">=</span> <span class="n">ProgressObjective</span><span class="p">(</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">criteria</span> <span class="o">=</span> <span class="n">CompletionCriteria</span><span class="p">(</span>
     <span class="n">name</span><span class="o">=</span><span class="s2">"pack_objects"</span><span class="p">,</span>
     <span class="n">predicate_sequences</span><span class="o">=</span><span class="p">{</span>
         <span class="s2">"can"</span><span class="p">:</span> <span class="p">[</span><span class="n">can_lifted</span><span class="p">,</span> <span class="n">can_placed</span><span class="p">],</span>
@@ -736,13 +736,13 @@ objects to be lifted and placed. Each entry, such as <code class="docutils liter
 <span class="p">)</span>
 </pre></div>
 </div>
-<p><code class="docutils literal notranslate"><span class="pre">logical</span></code> and <code class="docutils literal notranslate"><span class="pre">K</span></code> control how completed predicate sequences make the objective complete:</p>
+<p><code class="docutils literal notranslate"><span class="pre">logical</span></code> and <code class="docutils literal notranslate"><span class="pre">K</span></code> control how completed predicate sequences make the criteria set complete:</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">all</span></code> — every sequence must complete. This is the default.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">any</span></code> — one sequence must complete.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">choose</span></code> — at least <code class="docutils literal notranslate"><span class="pre">K</span></code> sequences must complete.</p></li>
 </ul>
-<p>Completed stages are remembered until the environment resets. Separate chains therefore describe
+<p>Completed stages are remembered until the environment resets. Separate sequences therefore describe
 milestones that may complete at different times. If several conditions must hold simultaneously,
 combine them into one predicate. For example, checking that all gears are seated together requires
 one combined condition; remembering each gear’s earlier placement would allow a gear to be removed
@@ -758,7 +758,7 @@ before the task completes.</p>
 </pre></div>
 </div>
 <p><code class="docutils literal notranslate"><span class="pre">placed_and_stable</span></code> returns one Boolean per environment; it does not maintain a counter.
-<code class="docutils literal notranslate"><span class="pre">ProgressObjectiveRunner</span></code> creates an internal <code class="docutils literal notranslate"><span class="pre">_TrueForConsecutiveSteps</span></code> instance from each
+<code class="docutils literal notranslate"><span class="pre">CompletionCriteriaRunner</span></code> creates an internal <code class="docutils literal notranslate"><span class="pre">_TrueForConsecutiveSteps</span></code> instance from each
 <code class="docutils literal notranslate"><span class="pre">TrueForConsecutiveStepsCfg</span></code> occurrence. The runner evaluates the predicate and passes its results
 and active environments to that instance. <code class="docutils literal notranslate"><span class="pre">_TrueForConsecutiveSteps</span></code> stores the per-environment
 counts: true adds one; false clears the streak.
@@ -772,11 +772,11 @@ predicates are evaluated or counters change. <code class="docutils literal notra
 for each restarting environment.</p>
 <p>The examples below show three different requirements. <code class="docutils literal notranslate"><span class="pre">object_still(env)</span></code> and <code class="docutils literal notranslate"><span class="pre">gripper_slow(env)</span></code>
 are configured instantaneous checks that each return one Boolean per environment.
-Step numbers start when the objective becomes active.</p>
+Step numbers start when the criteria become active.</p>
 <section id="one-condition-after-another">
 <h3>One condition after another<a class="headerlink" href="#one-condition-after-another" title="Link to this heading">#</a></h3>
 <p>Put both requirements in one <code class="docutils literal notranslate"><span class="pre">predicate_sequence</span></code> to count them in order:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">objective</span> <span class="o">=</span> <span class="n">ProgressObjective</span><span class="p">(</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">criteria</span> <span class="o">=</span> <span class="n">CompletionCriteria</span><span class="p">(</span>
     <span class="n">name</span><span class="o">=</span><span class="s2">"object_then_gripper"</span><span class="p">,</span>
     <span class="n">predicate_sequence</span><span class="o">=</span><span class="p">[</span>
         <span class="n">TrueForConsecutiveStepsCfg</span><span class="p">(</span><span class="n">object_still</span><span class="p">,</span> <span class="n">required_steps</span><span class="o">=</span><span class="mi">10</span><span class="p">),</span>
@@ -785,14 +785,14 @@ Step numbers start when the objective becomes active.</p>
 <span class="p">)</span>
 </pre></div>
 </div>
-<p><code class="docutils literal notranslate"><span class="pre">ProgressObjectiveRunner</span></code> first waits for ten consecutive steps with the object still.
+<p><code class="docutils literal notranslate"><span class="pre">CompletionCriteriaRunner</span></code> first waits for ten consecutive steps with the object still.
 On the following step, it starts counting the gripper’s ten steps. The earliest completion is
 step 20. The object may move again after its requirement completes; that completion is remembered.</p>
 </section>
 <section id="independent-conditions-both-completed">
 <h3>Independent conditions, both completed<a class="headerlink" href="#independent-conditions-both-completed" title="Link to this heading">#</a></h3>
 <p>Use separate named <code class="docutils literal notranslate"><span class="pre">predicate_sequences</span></code> to start both counters together:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">objective</span> <span class="o">=</span> <span class="n">ProgressObjective</span><span class="p">(</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">criteria</span> <span class="o">=</span> <span class="n">CompletionCriteria</span><span class="p">(</span>
     <span class="n">name</span><span class="o">=</span><span class="s2">"object_and_gripper_ready"</span><span class="p">,</span>
     <span class="n">predicate_sequences</span><span class="o">=</span><span class="p">{</span>
         <span class="s2">"object"</span><span class="p">:</span> <span class="p">[</span><span class="n">TrueForConsecutiveStepsCfg</span><span class="p">(</span><span class="n">object_still</span><span class="p">,</span> <span class="n">required_steps</span><span class="o">=</span><span class="mi">10</span><span class="p">)],</span>
@@ -803,9 +803,9 @@ step 20. The object may move again after its requirement completes; that complet
 </pre></div>
 </div>
 <p>Each sequence completes independently, and <code class="docutils literal notranslate"><span class="pre">logical=&quot;all&quot;</span></code> requires both to finish.
-<code class="docutils literal notranslate"><span class="pre">ProgressObjectiveRunner</span></code> remembers each sequence’s completion until the episode resets.
+<code class="docutils literal notranslate"><span class="pre">CompletionCriteriaRunner</span></code> remembers each sequence’s completion until the episode resets.
 The successful periods do not have to overlap. For example, if the object is still during steps
-1–10 and the gripper is slow during steps 2–11, the objective completes at step 11, even if the
+1–10 and the gripper is slow during steps 2–11, the criteria are complete at step 11, even if the
 object is moving again then.</p>
 <p><code class="docutils literal notranslate"><span class="pre">logical</span></code> combines completed sequences; it does not create separate counters inside one predicate.</p>
 </section>
@@ -815,7 +815,7 @@ object is moving again then.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">object_and_gripper_stable</span><span class="p">(</span><span class="n">env</span><span class="p">):</span>
     <span class="k">return</span> <span class="n">object_still</span><span class="p">(</span><span class="n">env</span><span class="p">)</span> <span class="o">&amp;</span> <span class="n">gripper_slow</span><span class="p">(</span><span class="n">env</span><span class="p">)</span>
 
-<span class="n">objective</span> <span class="o">=</span> <span class="n">ProgressObjective</span><span class="p">(</span>
+<span class="n">criteria</span> <span class="o">=</span> <span class="n">CompletionCriteria</span><span class="p">(</span>
     <span class="n">name</span><span class="o">=</span><span class="s2">"simultaneous_stability"</span><span class="p">,</span>
     <span class="n">predicate_sequence</span><span class="o">=</span><span class="p">[</span>
         <span class="n">TrueForConsecutiveStepsCfg</span><span class="p">(</span>
@@ -833,23 +833,23 @@ this requirement does not complete: they overlap for only nine steps.</p>
 </section>
 <section id="subtask-progress-tracking-in-composite-and-sequential-tasks">
 <h2>Subtask progress tracking in composite and sequential tasks<a class="headerlink" href="#subtask-progress-tracking-in-composite-and-sequential-tasks" title="Link to this heading">#</a></h2>
-<p><code class="docutils literal notranslate"><span class="pre">CompositeTaskBase</span></code> collects subtask objectives in a flat <code class="docutils literal notranslate"><span class="pre">TaskTerminationCfg.success</span></code> list.
+<p><code class="docutils literal notranslate"><span class="pre">CompositeTaskBase</span></code> collects subtask criteria sets in a flat <code class="docutils literal notranslate"><span class="pre">TaskTerminationCfg.success</span></code> list.
 It prefixes their names with <code class="docutils literal notranslate"><span class="pre">subtask_&lt;index&gt;/</span></code> and sets <code class="docutils literal notranslate"><span class="pre">parent_subtask_idx</span></code> to identify
-which subtask each objective belongs to. Standalone tasks retain their original objective names,
+which subtask each criteria set belongs to. Standalone tasks retain their original criteria names,
 such as <code class="docutils literal notranslate"><span class="pre">pick_and_place</span></code>. Nested composite or sequential tasks are not supported.</p>
-<p>For an order-independent composite task, every subtask’s progress objectives are active.
+<p>For an order-independent composite task, every subtask’s criteria sets are active.
 With <code class="docutils literal notranslate"><span class="pre">CompositeTaskBase(...,</span> <span class="pre">subtasks_are_sequential=True)</span></code>, <code class="docutils literal notranslate"><span class="pre">ProgressTracker</span></code>
-activates each subtask only after all objectives of the preceding subtask complete in that
+activates each subtask only after all criteria sets of the preceding subtask complete in that
 environment. The next subtask starts on the following environment step. A later subtask’s predicates
 cannot advance before that subtask becomes active, even if their physical conditions already happen
 to be true.</p>
-<p><code class="docutils literal notranslate"><span class="pre">ProgressTracker</span></code> determines task success and reports the same objective completion history.
+<p><code class="docutils literal notranslate"><span class="pre">ProgressTracker</span></code> determines task success and reports the same criteria completion history.
 Completed milestones remain recorded. <code class="docutils literal notranslate"><span class="pre">TaskTerminationCfg.desired_subtask_success_state</span></code>
-preserves the composition’s optional final-condition checks. Reports contain the flat objectives
+preserves the composition’s optional final-condition checks. Reports contain the flat criteria sets
 and their weighted overall progress; subtask metrics read <code class="docutils literal notranslate"><span class="pre">ProgressTracker.get_subtask_completion()</span></code>.
 For a consecutive-step final condition, these checks continue updating its counter. If the condition
 becomes false, a new streak is required, but the recorded subtask completion is kept.
-There are no additional parent-objective reports. See
+There are no additional reports for parent criteria sets. See
 <a class="reference internal" href="concept_composite_tasks_design.html"><span class="doc">Composite and Sequential Tasks</span></a> for composition and success semantics.</p>
 <figure class="align-center" id="id1">
 <a class="reference internal image-reference" href="../../../_images/composite_vs_sequential_progress_tracking.png"><img alt="Comparison of predicate tracking activation in composite and sequential tasks" src="../../../_images/composite_vs_sequential_progress_tracking.png" style="width: 100%;" />
@@ -869,48 +869,48 @@ Read each environment’s state and completed-predicate events as follows:</p>
 <span class="n">state</span> <span class="o">=</span> <span class="n">progress</span><span class="p">[</span><span class="s2">"states"</span><span class="p">][</span><span class="n">env_id</span><span class="p">]</span>
 <span class="nb">print</span><span class="p">(</span><span class="n">state</span><span class="o">.</span><span class="n">overall_score</span><span class="p">,</span> <span class="n">state</span><span class="o">.</span><span class="n">all_complete</span><span class="p">)</span>
 
-<span class="n">objective</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">progress_objectives</span><span class="p">[</span><span class="s2">"pick_and_place"</span><span class="p">]</span>
-<span class="nb">print</span><span class="p">(</span><span class="n">objective</span><span class="o">.</span><span class="n">score</span><span class="p">,</span> <span class="n">objective</span><span class="o">.</span><span class="n">is_complete</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="n">objective</span><span class="o">.</span><span class="n">active_predicates</span><span class="p">)</span>
+<span class="n">criteria</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">criteria_by_name</span><span class="p">[</span><span class="s2">"pick_and_place"</span><span class="p">]</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">criteria</span><span class="o">.</span><span class="n">score</span><span class="p">,</span> <span class="n">criteria</span><span class="o">.</span><span class="n">is_complete</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">criteria</span><span class="o">.</span><span class="n">active_predicates</span><span class="p">)</span>
 
 <span class="k">for</span> <span class="n">event</span> <span class="ow">in</span> <span class="n">progress</span><span class="p">[</span><span class="s2">"events"</span><span class="p">][</span><span class="n">env_id</span><span class="p">]:</span>
-    <span class="nb">print</span><span class="p">(</span><span class="n">event</span><span class="o">.</span><span class="n">step</span><span class="p">,</span> <span class="n">event</span><span class="o">.</span><span class="n">progress_objective</span><span class="p">,</span> <span class="n">event</span><span class="o">.</span><span class="n">group</span><span class="p">,</span> <span class="n">event</span><span class="o">.</span><span class="n">predicate_name</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">event</span><span class="o">.</span><span class="n">step</span><span class="p">,</span> <span class="n">event</span><span class="o">.</span><span class="n">criteria_name</span><span class="p">,</span> <span class="n">event</span><span class="o">.</span><span class="n">sequence_name</span><span class="p">,</span> <span class="n">event</span><span class="o">.</span><span class="n">predicate_name</span><span class="p">)</span>
 </pre></div>
 </div>
 <p>After an automatic reset, <code class="docutils literal notranslate"><span class="pre">env.extras[&quot;progress_tracking&quot;]</span></code> still shows the finished episode
 until the next step.</p>
 <p>Arena’s episode recorder also serializes the final progress state and predicate events into the
-episode’s JSONL record when an output path is configured. Tasks without progress objectives have
+episode’s JSONL record when an output path is configured. Tasks without completion criteria have
 no success termination or progress-tracking configuration and produce no progress fields.</p>
 <p>For example, one entry of the JSONL record may look like this (placement predicate name shortened):</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">  </span><span class="nt">"progress"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="nt">"overall_score"</span><span class="p">:</span><span class="w"> </span><span class="mf">0.67</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">"all_complete"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">"objectives"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">"criteria_by_name"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">      </span><span class="nt">"pick_and_place"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">        </span><span class="nt">"score"</span><span class="p">:</span><span class="w"> </span><span class="mf">0.67</span><span class="p">,</span>
 <span class="w">        </span><span class="nt">"is_complete"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">"completed_groups"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">"total_groups"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"completed_sequences"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"total_sequences"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
 <span class="w">        </span><span class="nt">"active_predicates"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">          </span><span class="nt">"default_group"</span><span class="p">:</span><span class="w"> </span><span class="s2">"object_on_destination"</span>
+<span class="w">          </span><span class="nt">"default_sequence"</span><span class="p">:</span><span class="w"> </span><span class="s2">"object_on_destination"</span>
 <span class="w">        </span><span class="p">}</span>
 <span class="w">      </span><span class="p">}</span>
 <span class="w">    </span><span class="p">},</span>
 <span class="w">    </span><span class="nt">"events"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
 <span class="w">      </span><span class="p">{</span>
 <span class="w">        </span><span class="nt">"step"</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">"objective"</span><span class="p">:</span><span class="w"> </span><span class="s2">"pick_and_place"</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">"group"</span><span class="p">:</span><span class="w"> </span><span class="s2">"default_group"</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"criteria_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"pick_and_place"</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"sequence_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"default_sequence"</span><span class="p">,</span>
 <span class="w">        </span><span class="nt">"predicate_index"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
 <span class="w">        </span><span class="nt">"predicate_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"objects_settled"</span><span class="p">,</span>
 <span class="w">        </span><span class="nt">"score_delta"</span><span class="p">:</span><span class="w"> </span><span class="mf">0.33</span>
 <span class="w">      </span><span class="p">},</span>
 <span class="w">      </span><span class="p">{</span>
 <span class="w">        </span><span class="nt">"step"</span><span class="p">:</span><span class="w"> </span><span class="mi">18</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">"objective"</span><span class="p">:</span><span class="w"> </span><span class="s2">"pick_and_place"</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">"group"</span><span class="p">:</span><span class="w"> </span><span class="s2">"default_group"</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"criteria_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"pick_and_place"</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"sequence_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"default_sequence"</span><span class="p">,</span>
 <span class="w">        </span><span class="nt">"predicate_index"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
 <span class="w">        </span><span class="nt">"predicate_name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"object_is_above_height(object_name='can', use_settled_state=True)"</span><span class="p">,</span>
 <span class="w">        </span><span class="nt">"score_delta"</span><span class="p">:</span><span class="w"> </span><span class="mf">0.33</span>
@@ -922,6 +922,9 @@ no success termination or progress-tracking configuration and produce no progres
 </div>
 <p>The object has settled and been lifted: two of three predicates are complete, giving a score of <code class="docutils literal notranslate"><span class="pre">0.67</span></code>.
 Placement is still required. The two events record when settling and lifting completed.</p>
+<p>The recording schema uses the same criteria and sequence names as the runtime API. Older
+recordings that use <code class="docutils literal notranslate"><span class="pre">objectives</span></code>, <code class="docutils literal notranslate"><span class="pre">objective</span></code>, or <code class="docutils literal notranslate"><span class="pre">group</span></code> fields require conversion or
+regeneration before they can be read by the current report tools.</p>
 </section>
 </section>
 
@@ -979,7 +982,7 @@ Placement is still required. The two events record when settling and lifting com
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#defining-a-custom-predicate">Defining a custom predicate</a></li>
 </ul>
 </li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#defining-a-progress-objective">Defining a progress objective</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#defining-completion-criteria">Defining completion criteria</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#conditions-that-must-remain-true">Conditions that must remain true</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#one-condition-after-another">One condition after another</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#independent-conditions-both-completed">Independent conditions, both completed</a></li>

@@ -582,7 +582,7 @@ This page describes how that is done, in an external repo.</p>
 <h2>Defining a Custom Task<a class="headerlink" href="#defining-a-custom-task" title="Link to this heading">#</a></h2>
 <p>A custom task is defined by subclassing <code class="docutils literal notranslate"><span class="pre">TaskBase</span></code> and implementing the required methods.
 The excerpt below shows a task that succeeds after a fixed number of steps.
-<code class="docutils literal notranslate"><span class="pre">get_termination_cfg()</span></code> declares its success objectives, failure conditions, and time limit.
+<code class="docutils literal notranslate"><span class="pre">get_termination_cfg()</span></code> declares its success criteria, failure conditions, and time limit.
 This task can be passed to the <code class="docutils literal notranslate"><span class="pre">ArenaEnvBuilder</span></code> to create an environment
 (see <a class="reference internal" href="#putting-it-all-together"><span class="std std-ref">Putting It All Together</span></a> below for an example).</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># my_package/isaaclab_arena_environments/my_environment_with_task.py</span>
@@ -600,7 +600,7 @@ This task can be passed to the <code class="docutils literal notranslate"><span 
     <span class="k">def</span><span class="w"> </span><span class="nf">get_termination_cfg</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TaskTerminationCfg</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">TaskTerminationCfg</span><span class="p">(</span>
             <span class="n">success</span><span class="o">=</span><span class="p">[</span>
-                <span class="n">ProgressObjective</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"wait"</span><span class="p">,</span> <span class="n">predicate_sequence</span><span class="o">=</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">has_reached_step_count</span><span class="p">]),</span>
+                <span class="n">CompletionCriteria</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"wait"</span><span class="p">,</span> <span class="n">predicate_sequence</span><span class="o">=</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">has_reached_step_count</span><span class="p">]),</span>
             <span class="p">],</span>
             <span class="n">timeout_s</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">episode_length_s</span><span class="p">,</span>
         <span class="p">)</span>
