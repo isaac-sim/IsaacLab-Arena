@@ -83,3 +83,51 @@ The waypoint previews render without advancing physics. Only the final all-true
 state enters task termination, so intermediate predicate inspection cannot trigger
 an early reset. Use `--cycles 1 --pause-steps 1 --no-real-time --viz none` for a
 finite headless run.
+
+## GaP policy client
+
+The shared `cap_remote` client supports the USB-C environment's bimanual YAM.
+It sends both six-joint arm states plus normalized gripper openings and exposes
+the cameras to GaP as `topdown`, `wrist`, and `wrist_support`. GaP replies carry
+independent validity flags for each arm and gripper, so uncommanded channels hold
+their measured state.
+
+Run either one-environment, one-episode experiment inside Arena's container:
+
+```bash
+/isaac-sim/python.sh -u isaaclab_arena/evaluation/experiment_runner.py \
+  --experiment_config isaaclab_arena_environments/isaac_cap/usbc_insertion/experiment_configs/usbc_easy_gap_remote_experiment.yaml \
+  --viz none
+```
+
+Use `usbc_medium_gap_remote_experiment.yaml` for the movable-bulkhead variant.
+Wait until Arena prints:
+
+```text
+[CapPolicy] Environment ready; waiting for GaP at 127.0.0.1:19000
+```
+
+Then start the easy graph from the configured Isaac-cap checkout in another
+terminal:
+
+```bash
+GAP_PORT=19000 \
+GAP_GRAPH=usbc_insert/mate \
+GAP_GRAPH_REVISION=bf985d08c0e2deafdbdca3f34c3a5a6d8d19deeb \
+GAP_ADAPTATION=vabar_usbc_insert_canonical_yam \
+CAP_GAP_ROBOT_PROFILE=yam_bimanual \
+CAP_GAP_ARM_BASE_POSES='[[[0.2525,0.31,0.75],[0,0,0,1]],[[0.2525,-0.31,0.75],[0,0,0,1]]]' \
+CAP_GAP_CONTROL_FREQUENCY_HZ=60 \
+CAP_GAP_HONOURS_ROLL=0 \
+CAP_GAP_CARTESIAN_CORRECTION_LIMIT_M=0 \
+CAP_GAP_TASK_TOOLS=usbc_insert_easy \
+CAP_GAP_WORK_ARM=right \
+CAP_GAP_CAMERA_NAME=topdown,wrist,wrist_support \
+./arena_gap/scripts/run_gap_graph.sh --inputs 'perception="vision"'
+```
+
+For medium, change `GAP_ADAPTATION` to
+`vabar_usbc_insert_medium_canonical_yam` and `CAP_GAP_TASK_TOOLS` to
+`usbc_insert_medium`. Restart the graph for each episode. After disconnect,
+Arena holds both grippers for two seconds of settling and ends the episode
+without marking it successful.

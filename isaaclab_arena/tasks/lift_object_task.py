@@ -22,7 +22,7 @@ from isaaclab_arena.assets.register import register_task
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
 from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.metrics.success_rate import SuccessRateMetric
-from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
+from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
 from isaaclab_arena.tasks.observations import observations
 from isaaclab_arena.tasks.rewards import lift_object_rewards, rewards
 from isaaclab_arena.tasks.task_base import TaskBase
@@ -90,7 +90,7 @@ class LiftObjectTask(TaskBase):
         return TaskTerminationCfg(
             timeout_s=self.episode_length_s,
             success=[
-                ProgressObjective(
+                CompletionCriteria(
                     name="lift_object",
                     predicate_sequence=[
                         partial(
@@ -198,7 +198,7 @@ class LiftObjectTaskRL(LiftObjectTask):
     def get_termination_cfg(self) -> TaskTerminationCfg:
         termination_cfg = super().get_termination_cfg()
         termination_cfg.success = [
-            ProgressObjective(
+            CompletionCriteria(
                 name="lift_object",
                 predicate_sequence=[
                     partial(
@@ -364,7 +364,7 @@ class DexsuiteLiftTask(LiftObjectTask):
         return TaskTerminationCfg(
             timeout_s=self.episode_length_s,
             success=[
-                ProgressObjective(
+                CompletionCriteria(
                     name="lift_object",
                     predicate_sequence=[
                         partial(

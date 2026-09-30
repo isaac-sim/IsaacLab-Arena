@@ -12,9 +12,15 @@ shared:
     solve_relations: true
     placement_seed: 42
   policy:
-    type: cap_yam_remote
+    type: cap_remote
     host: 127.0.0.1
     port: 19000
+    robot_profile: yam_bimanual
+    camera_mapping:
+      top_camera: overhead
+      left_wrist_camera: eye_in_hand_left
+      right_wrist_camera: eye_in_hand_right
+      side_camera: side
   rollout_limit:
     num_episodes: 1
 runs:

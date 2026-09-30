@@ -5,9 +5,13 @@
 
 """Test the gear environment's Arena-owned CAP policy adapter."""
 
+import yaml
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+
+from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
 pytestmark = pytest.mark.isaac_cap
 
@@ -30,17 +34,27 @@ def _gear_environment():
     )
 
 
-def _gear_policy():
+def _gear_policy(config_name: str):
     from isaaclab_arena_environments.isaac_cap.cap_policy import CapPolicy, CapPolicyCfg
 
-    return CapPolicy(CapPolicyCfg(eye_in_hand_camera="", agentview_camera=""))
+    config_path = Path(__file__).parents[1] / "gear_insertion_v2/experiment_configs" / config_name
+    policy_values = yaml.safe_load(config_path.read_text(encoding="utf-8"))["shared"]["policy"]
+    assert policy_values.pop("type") == "cap_remote"
+    return CapPolicy(CapPolicyCfg(**policy_values))
 
 
-def test_gear_env_cap_policy():
+def _test_gear_env_cap_policy(_simulation_app) -> bool:
     import numpy as np
     import torch
 
-    policy = _gear_policy()
+    config_names = (
+        "gear_easy_cap_remote_experiment.yaml",
+        "gear_easy_pair_cap_remote_experiment.yaml",
+        "gear_medium_train_cap_remote_experiment.yaml",
+    )
+    policies = [_gear_policy(config_name) for config_name in config_names]
+    assert all(policy.config.camera_mapping == {"top_camera": "overhead"} for policy in policies)
+    policy = policies[0]
     policy._camera = lambda _env, name: {"camera": name}
     policy._tip_reach = lambda _robot: 0.157
     environment = _gear_environment()
@@ -82,3 +96,8 @@ def test_gear_env_cap_policy():
     assert torch.equal(action[:7], torch.arange(7, dtype=torch.float32))
     assert float(action[7]) == pytest.approx(0.75)
     assert float(policy._last_gripper) == pytest.approx(0.75)
+    return True
+
+
+def test_gear_env_cap_policy():
+    assert run_function_with_persistent_simulation_app(_test_gear_env_cap_policy)

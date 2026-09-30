@@ -278,18 +278,23 @@ def test_run_page_names_its_policy_throughout(tmp_path):
 def test_run_page_shows_which_success_signals_fired_and_which_did_not(tmp_path):
     def record(index: int, reached: int) -> dict:
         names = ["objects_settled", "object_is_above_height(object_name='banana')", "object_on_destination()"]
-        objective = {"score": reached / 3, "is_complete": reached == 3, "total_groups": 1}
+        criteria = {"score": reached / 3, "is_complete": reached == 3, "total_sequences": 1}
         if reached < 3:
-            objective["active_predicates"] = {"default_group": names[reached]}
+            criteria["active_predicates"] = {"default_sequence": names[reached]}
         return {
             "env_id": 0,
             "episode_in_env": index,
             "success": reached == 3,
             "progress": {
                 "overall_score": reached / 3,
-                "objectives": {"pick_and_place": objective},
+                "criteria_by_name": {"pick_and_place": criteria},
                 "events": [
-                    {"objective": "pick_and_place", "predicate_index": i, "predicate_name": names[i], "step": 10 * i}
+                    {
+                        "criteria_name": "pick_and_place",
+                        "predicate_index": i,
+                        "predicate_name": names[i],
+                        "step": 10 * i,
+                    }
                     for i in range(reached)
                 ],
             },
@@ -321,11 +326,11 @@ def test_unknown_blocked_predicate_is_shown_without_known_sequence(tmp_path):
             "episode_in_env": 0,
             "success": False,
             "progress": {
-                "objectives": {
+                "criteria_by_name": {
                     "pick": {
                         "score": 0.0,
                         "is_complete": False,
-                        "total_groups": 1,
+                        "total_sequences": 1,
                         "active_predicates": {"default": "never_seen(arg=1)"},
                     }
                 },
@@ -343,7 +348,7 @@ def test_unknown_blocked_predicate_is_shown_without_known_sequence(tmp_path):
     assert "never_seen" in run_page
 
 
-def test_run_page_reports_conflicting_objective_family_sequences(tmp_path):
+def test_run_page_reports_conflicting_criteria_family_sequences(tmp_path):
     run_dir = tmp_path / "banana_in_bowl_pi0"
     run_dir.mkdir()
     (run_dir / "episode_results_rebuild0.jsonl").write_text(
@@ -352,13 +357,13 @@ def test_run_page_reports_conflicting_objective_family_sequences(tmp_path):
             "episode_in_env": 0,
             "success": False,
             "progress": {
-                "objectives": {
-                    "subtask_0/pick": {"score": 0.0, "is_complete": False, "total_groups": 1},
-                    "subtask_1/pick": {"score": 0.0, "is_complete": False, "total_groups": 1},
+                "criteria_by_name": {
+                    "subtask_0/pick": {"score": 0.0, "is_complete": False, "total_sequences": 1},
+                    "subtask_1/pick": {"score": 0.0, "is_complete": False, "total_sequences": 1},
                 },
                 "events": [
-                    {"objective": "subtask_0/pick", "predicate_index": 0, "predicate_name": "first_predicate"},
-                    {"objective": "subtask_1/pick", "predicate_index": 0, "predicate_name": "other_predicate"},
+                    {"criteria_name": "subtask_0/pick", "predicate_index": 0, "predicate_name": "first_predicate"},
+                    {"criteria_name": "subtask_1/pick", "predicate_index": 0, "predicate_name": "other_predicate"},
                 ],
             },
         })

@@ -60,14 +60,14 @@ def _build_cable_demo_environment(variant: str):
     # connected at exact rest length. Replace the immutable goal only for this demo environment;
     # the production task retains CAP's 0.05 m/s terminal speed requirement.
     task_termination_cfg = arena_environment.task.get_termination_cfg()
-    success_objective = task_termination_cfg.success[0]
-    assert success_objective.predicate_sequence is not None
-    success_predicate = success_objective.predicate_sequence[0]
+    success_criteria = task_termination_cfg.success[0]
+    assert success_criteria.predicate_sequence is not None
+    success_predicate = success_criteria.predicate_sequence[0]
     assert isinstance(success_predicate, partial), "Cable success must be configured as a partial predicate."
     success_params = dict(success_predicate.keywords or {})
     success_params["goal"] = replace(success_params["goal"], max_mean_speed=float("inf"))
     demo_predicate = partial(success_predicate.func, *success_predicate.args, **success_params)
-    task_termination_cfg.success[0] = replace(success_objective, predicate_sequence=[demo_predicate])
+    task_termination_cfg.success[0] = replace(success_criteria, predicate_sequence=[demo_predicate])
     return arena_environment
 
 
@@ -172,9 +172,9 @@ class CurrentCableRoutingBehaviourDemo(EnvBehaviourDemo):
             self.gripper_body_ids.append(body_id)
             self.gripper_quaternions.append(robot.data.body_link_quat_w.torch[:, body_id].clone())
 
-        success_objective = self.arena_environment.task.get_termination_cfg().success[0]
-        assert success_objective.predicate_sequence is not None
-        self.success_predicate = success_objective.predicate_sequence[0]
+        success_criteria = self.arena_environment.task.get_termination_cfg().success[0]
+        assert success_criteria.predicate_sequence is not None
+        self.success_predicate = success_criteria.predicate_sequence[0]
         assert isinstance(self.success_predicate, partial)
         self.success_params = self.success_predicate.keywords or {}
         self.goal = self.success_params["goal"]

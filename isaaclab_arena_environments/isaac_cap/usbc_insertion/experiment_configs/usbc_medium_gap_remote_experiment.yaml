@@ -5,9 +5,8 @@
 
 shared:
   environment:
-    type: vabar_contact_rich_insertion_v2__gear_easy
+    type: vabar_contact_rich_insertion__usbc_insertion_medium
     enable_cameras: true
-    episode_length_s: null
   environment_builder:
     num_envs: 1
     solve_relations: true
@@ -16,9 +15,12 @@ shared:
     type: cap_remote
     host: 127.0.0.1
     port: 19000
+    robot_profile: yam_bimanual
     camera_mapping:
-      top_camera: overhead
+      top_camera: topdown
+      right_wrist_camera: wrist
+      left_wrist_camera: wrist_support
   rollout_limit:
     num_episodes: 1
 runs:
-  gear_easy: {}
+  usbc_medium: {}

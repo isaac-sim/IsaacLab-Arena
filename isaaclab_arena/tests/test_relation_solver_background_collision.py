@@ -922,3 +922,50 @@ def test_relation_placement_skips_background_mesh_for_default_bbox(monkeypatch):
     assert calls["include_background"] is False
     assert calls["objects"] == [placed_object]
     assert calls["collision_objects"] == []
+
+
+def _test_clutter_release_uses_usd_mesh_geometry(simulation_app, tmp_path):
+    import trimesh
+
+    from pxr import Usd, UsdGeom
+
+    from isaaclab_arena.assets.object import Object
+    from isaaclab_arena.assets.object_type import ObjectType
+    from isaaclab_arena.relations.collision_mode import CollisionMode
+    from isaaclab_arena.relations.object_placer import ObjectPlacer
+    from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+    from isaaclab_arena.relations.relations import ClutterOn
+    from isaaclab_arena.utils.pose import Pose
+
+    slabs = []
+    for height in (-0.05, 1.05):
+        slab = trimesh.creation.box(extents=(4, 4, 0.1))
+        slab.apply_translation((1, 0.5, height))
+        slabs.append(slab)
+    mesh = trimesh.util.concatenate(slabs)
+    path = tmp_path / "room.usda"
+    stage = Usd.Stage.CreateNew(str(path))
+    stage.SetDefaultPrim(UsdGeom.Xform.Define(stage, "/World").GetPrim())
+    usd_mesh = UsdGeom.Mesh.Define(stage, "/World/room")
+    usd_mesh.CreatePointsAttr(mesh.vertices.tolist())
+    usd_mesh.CreateFaceVertexCountsAttr([3] * len(mesh.faces))
+    usd_mesh.CreateFaceVertexIndicesAttr(mesh.faces.flatten().tolist())
+    stage.GetRootLayer().Save()
+    room = Object(
+        name="room",
+        usd_path=str(path),
+        object_type=ObjectType.BASE,
+        initial_pose=Pose.identity(),
+        collision_mode=CollisionMode.MESH,
+    )
+    desk, box = _make_desk(), _make_box()
+    box.relations = [ClutterOn(desk, spread=1.0, random_yaw=False)]
+    placer = ObjectPlacer(ObjectPlacerParams(max_placement_attempts=1, allow_best_loss_fallbacks=False))
+    layout = placer.place([desk, box], collision_objects=[room])[0]
+    assert layout.success
+    assert abs(layout.positions[box][2] - 0.11) < 1e-5
+    return True
+
+
+def test_clutter_release_uses_usd_mesh_geometry(tmp_path):
+    assert run_function_with_persistent_simulation_app(_test_clutter_release_uses_usd_mesh_geometry, tmp_path=tmp_path)

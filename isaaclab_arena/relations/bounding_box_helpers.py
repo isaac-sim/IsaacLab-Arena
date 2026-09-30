@@ -3,20 +3,22 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Bounding-box helpers for heterogeneous placement.
-
-Keeps num_envs and per-env geometry logic out of placement assets.
-"""
+"""Per-environment bounds and rotation fitting for placement candidates."""
 
 from __future__ import annotations
 
+import torch
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+from isaaclab_arena.relations.relations import RotateAroundSolution, get_relation
+from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, quaternion_to_90_deg_z_quarters
+from isaaclab_arena.utils.pose import Pose
+from isaaclab_arena.utils.yaw import rotate_quat_by_yaw, yaw_from_quat_xyzw
 
 if TYPE_CHECKING:
     from isaaclab_arena.relations.placement_asset import PlaceableAsset
+    from isaaclab_arena.relations.placement_candidate_batch import PlacementCandidateBatch
 
 
 def has_heterogeneous_objects(objects: list[PlaceableAsset]) -> bool:
@@ -64,16 +66,12 @@ def get_bounding_box_per_env(obj: PlaceableAsset, num_envs: int) -> AxisAlignedB
 
 @dataclass(frozen=True)
 class PerEnvBoundingBoxes:
-    """Per-env object bboxes, exposed in three layouts:
-
-    - get_bounding_boxes_for_env_id: one dict for a single env, bboxes (1, 3).
-    - get_bounding_boxes_for_all_envs: list[dict] of length num_envs, each bbox (1, 3).
-    - get_bounding_boxes_for_solver_candidates: one dict tiled to
-      (num_envs * candidates_per_env, 3), grouped contiguously by env.
-    """
+    """Object bounds for N environments."""
 
     object_bboxes: dict[PlaceableAsset, AxisAlignedBoundingBox]
+    """Per-object min/max tensors of shape (N, 3), in environment order."""
     num_envs: int
+    """Number of environments N."""
 
     def __post_init__(self) -> None:
         assert self.num_envs >= 1, f"num_envs must be >= 1, got {self.num_envs}"
@@ -103,29 +101,69 @@ class PerEnvBoundingBoxes:
         """
         return [self.get_bounding_boxes_for_env_id(env_id) for env_id in range(self.num_envs)]
 
-    def get_bounding_boxes_for_solver_candidates(
-        self, candidates_per_env: int
-    ) -> dict[PlaceableAsset, AxisAlignedBoundingBox]:
-        """Return bboxes tiled to one row per solver candidate.
-
-        Each bbox has shape (num_envs * candidates_per_env, 3). Rows are grouped
-        contiguously by env: rows [i * candidates_per_env : (i + 1) * candidates_per_env]
-        all hold env i's bbox. Callers recover the env via candidate_idx // candidates_per_env.
-        """
-        return {
-            obj: AxisAlignedBoundingBox(
-                min_point=bbox.min_point.repeat_interleave(candidates_per_env, dim=0),
-                max_point=bbox.max_point.repeat_interleave(candidates_per_env, dim=0),
-            )
-            for obj, bbox in self.object_bboxes.items()
-        }
-
 
 def build_per_env_bounding_boxes(objects: list[PlaceableAsset], num_envs: int) -> PerEnvBoundingBoxes:
     """Build per-env base bboxes for each placement object.
 
-    Object orientation (marker roll/pitch/yaw plus sampled and FaceTo yaw) is applied later per
-    candidate in ObjectPlacer._rotate_candidate_bboxes, so these boxes carry object geometry only.
+    Anchor bounds include their fixed quarter-turn rotation. Movable-object bounds remain
+    unrotated until candidate orientations are applied.
     """
     object_bboxes = {obj: get_bounding_box_per_env(obj, num_envs) for obj in objects}
+    for obj, bbox in object_bboxes.items():
+        if obj.is_anchor:
+            pose = obj.get_initial_pose()
+            assert isinstance(pose, Pose), f"Anchor '{obj.name}' must have a fixed Pose"
+            try:
+                quarters = quaternion_to_90_deg_z_quarters(obj.get_bounding_box_rotation())
+            except AssertionError as error:
+                raise AssertionError(f"Anchor '{obj.name}': {error}") from error
+            object_bboxes[obj] = bbox.rotated_90_around_z(quarters)
     return PerEnvBoundingBoxes(object_bboxes=object_bboxes, num_envs=num_envs)
+
+
+def update_candidate_bounds(
+    batch: PlacementCandidateBatch,
+    env_bboxes: list[dict[PlaceableAsset, AxisAlignedBoundingBox]],
+) -> None:
+    """Replace each candidate's bboxes in place using base geometry and its current orientations."""
+    objects = list(env_bboxes[0])
+    base_bounds = {
+        obj: AxisAlignedBoundingBox(
+            torch.cat([env_bboxes[candidate.env_id][obj].min_point for candidate in batch.candidates]),
+            torch.cat([env_bboxes[candidate.env_id][obj].max_point for candidate in batch.candidates]),
+        )
+        for obj in objects
+    }
+    rotated = rotate_candidate_bboxes(objects, base_bounds, [candidate.orientations for candidate in batch.candidates])
+    for index, candidate in enumerate(batch.candidates):
+        candidate.bboxes = {obj: bounds[index] for obj, bounds in rotated.items()}
+
+
+def rotate_candidate_bboxes(
+    objects: list[PlaceableAsset],
+    candidate_bboxes: dict[PlaceableAsset, AxisAlignedBoundingBox],
+    orientations_per_candidate: list[dict[PlaceableAsset, float]],
+) -> dict[PlaceableAsset, AxisAlignedBoundingBox]:
+    """Enclose RotateAroundSolution roll/pitch and candidate world yaw in axis-aligned bounds.
+
+    Supply base bounds: movable objects are unrotated; anchors include their fixed rotation.
+    Returned bounds remain relative to object origins. Inputs are not modified.
+    """
+    num_candidates = len(orientations_per_candidate)
+    rotated: dict[PlaceableAsset, AxisAlignedBoundingBox] = {}
+    for obj in objects:
+        bbox = candidate_bboxes[obj]
+        marker = get_relation(obj, RotateAroundSolution)
+        marker_rotation = marker.get_rotation_xyzw() if marker is not None else (0.0, 0.0, 0.0, 1.0)
+        has_roll_pitch = marker is not None and (marker.roll_rad != 0.0 or marker.pitch_rad != 0.0)
+        # orientations carries absolute world yaw; subtract the marker's own yaw to get the delta to compose.
+        marker_yaw = yaw_from_quat_xyzw(marker_rotation)
+        extra_yaws = [orientations_per_candidate[c].get(obj, marker_yaw) - marker_yaw for c in range(num_candidates)]
+        # Preserve the original bounds exactly when no rotation is applied.
+        if not has_roll_pitch and marker_yaw == 0.0 and all(yaw == 0.0 for yaw in extra_yaws):
+            rotated[obj] = bbox
+        else:
+            quats = [rotate_quat_by_yaw(marker_rotation, yaw) for yaw in extra_yaws]
+            quat_tensor = torch.tensor(quats, dtype=torch.float32, device=bbox.min_point.device)
+            rotated[obj] = bbox.rotated_by_quat(quat_tensor)
+    return rotated

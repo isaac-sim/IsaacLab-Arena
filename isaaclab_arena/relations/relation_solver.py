@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, cast
 from isaaclab_arena.relations.collision_mode import CollisionMode, get_object_collision_mode
 from isaaclab_arena.relations.no_overlap_aabb import compute_no_overlap_loss_aabb
 from isaaclab_arena.relations.no_overlap_mesh import compute_no_overlap_loss_mesh, prepare_mesh_collision_cache
+from isaaclab_arena.relations.placement_candidate_batch import PlacementCandidateBatch
 from isaaclab_arena.relations.relation_loss_strategies import (
     NoCollisionLossStrategy,
     RelationLossStrategy,
@@ -181,6 +182,29 @@ class RelationSolver:
         self._last_no_overlap_pair_count = n
         return loss
 
+    def solve_candidates(
+        self,
+        objects: list[PlaceableAsset],
+        batch: PlacementCandidateBatch,
+        collision_objects: list[CollisionObject],
+    ) -> None:
+        """Update candidates in place with solved positions and losses, clearing previous validation."""
+        positions = self.solve(
+            objects,
+            [candidate.positions for candidate in batch.candidates],
+            env_bboxes=batch.stacked_bboxes(),
+            env_bboxes_include_yaw=any(candidate.orientations for candidate in batch.candidates),
+            orientations=[candidate.orientations for candidate in batch.candidates],
+            collision_objects=collision_objects,
+        )
+        assert self.last_loss_per_env is not None
+        for candidate, position, loss in zip(
+            batch.candidates, positions, self.last_loss_per_env.cpu().tolist(), strict=True
+        ):
+            candidate.positions = position
+            candidate.loss = loss
+            candidate.validation = None
+
     def solve(
         self,
         objects: list[PlaceableAsset],
@@ -276,7 +300,7 @@ class RelationSolver:
 
         # Compute initial loss so _last_loss_per_env is always populated, even when max_iters=0.
         with torch.no_grad():
-            self._compute_total_loss(state)
+            final_loss = self._compute_total_loss(state)
 
         # Optimization loop
         loss_history = []
@@ -305,6 +329,10 @@ class RelationSolver:
                     print(f"Converged at iteration {iter}")
                 break
 
+        # Recompute ranking losses for the positions returned after the final optimizer step.
+        with torch.no_grad():
+            final_loss = self._compute_total_loss(state)
+
         if self.params.profile and torch.cuda.is_available():
             torch.cuda.synchronize()
         solve_elapsed_ms = (time.perf_counter() - solve_start) * 1e3
@@ -313,7 +341,7 @@ class RelationSolver:
             position_history.append(state.get_all_positions_snapshot())
 
         if self.params.verbose and loss_history:
-            print(f"\nFinal loss: {loss_history[-1]:.6f}")
+            print(f"\nFinal loss: {final_loss.item():.6f}")
             print(f"Total iterations: {len(loss_history)}")
 
         if self.params.profile and loss_history:
@@ -340,7 +368,10 @@ class RelationSolver:
 
     @property
     def last_loss_history(self) -> list[float]:
-        """Loss values from the most recent solve() call."""
+        """Mean batch losses before optimizer steps in the most recent solve().
+
+        The final returned-pose losses are available in last_loss_per_env.
+        """
         return self._last_loss_history
 
     @property

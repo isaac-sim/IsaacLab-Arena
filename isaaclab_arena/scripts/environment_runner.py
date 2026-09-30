@@ -24,6 +24,7 @@ Run an environment graph spec:
 from __future__ import annotations
 
 import argparse
+import sys
 import torch
 from typing import TYPE_CHECKING
 
@@ -49,14 +50,13 @@ def _assert_interactive_runner_args(args_cli: argparse.Namespace) -> None:
     assert args_cli.device == "cpu", "environment_runner mouse interaction requires CPU PhysX; use --device cpu"
 
 
-def _parse_interactive_runner_args() -> tuple[argparse.Namespace, list[str]]:
-    """Parse and validate arguments for interactive environment inspection."""
-    args_parser = get_isaaclab_arena_cli_parser()
-    args_parser.set_defaults(device="cpu", visualizer=["kit"], disable_fabric=True)
-    args_parser.allow_abbrev = False
+def _parse_interactive_runner_args(
+    args_parser: argparse.ArgumentParser, cli_args: list[str]
+) -> tuple[argparse.Namespace, list[str]]:
+    """Parse and validate environment arguments after Kit startup."""
     args_parser = get_isaaclab_arena_environments_cli_parser(args_parser)
 
-    args_cli, hydra_overrides = args_parser.parse_known_args()
+    args_cli, hydra_overrides = args_parser.parse_known_args(cli_args)
     assert_hydra_overrides(hydra_overrides, args_parser)
     _assert_interactive_runner_args(args_cli)
     return args_cli, hydra_overrides
@@ -134,10 +134,18 @@ def run_environment(
 
 def main() -> None:
     """Launch and continuously run one interactive Arena environment."""
-    args_cli, hydra_overrides = _parse_interactive_runner_args()
+    args_parser = get_isaaclab_arena_cli_parser()
+    args_parser.set_defaults(device="cpu", visualizer=["kit"], disable_fabric=True)
+    args_parser.allow_abbrev = False
+    # AppLauncher may append Kit flags to sys.argv.
+    original_cli_args = sys.argv[1:]
+    args_cli, _ = args_parser.parse_known_args(original_cli_args)
+    _assert_interactive_runner_args(args_cli)
     print("[environment_runner] Using CPU physics for interactive viewport manipulation.", flush=True)
 
+    # Start Kit before environment registration can import standalone USD.
     with SimulationAppContext(args_cli) as simulation_app:
+        args_cli, hydra_overrides = _parse_interactive_runner_args(args_parser, original_cli_args)
         env = _create_interactive_environment(args_cli, hydra_overrides)
         try:
             _enable_mouse_interaction()

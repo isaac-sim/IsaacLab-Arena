@@ -16,8 +16,8 @@ shared:
     type: cap_remote
     host: 127.0.0.1
     port: 19000
-    eye_in_hand_camera: ""
-    agentview_camera: ""
+    camera_mapping:
+      top_camera: overhead
   rollout_limit:
     num_episodes: 1
 runs:
