@@ -78,21 +78,13 @@ class EpisodeIdentityRecorder(RecorderTerm):
     pair alongside the trajectory makes that join explicit.
     """
 
-    def __init__(self, cfg: RecorderTermCfg, env) -> None:
-        super().__init__(cfg, env)
-        self._first_reset = True
-
     def record_pre_reset(self, env_ids: Sequence[int] | None):
-        # The initial reset touches every env before any episode has run; there is nothing to stamp.
-        if self._first_reset:
-            self._first_reset = False
-            return None, None
         env_ids = list(range(self._env.num_envs)) if env_ids is None else [int(env_id) for env_id in env_ids]
-        # Runs before the env advances its counters, so this is still the finishing episode's index.
-        episode_indices = [self._env.get_episode_index(env_id) for env_id in env_ids]
+        # The environment finalizes only assigned episodes, before starting replacements.
+        episode_indices_in_env = [self._env.get_episode_index(env_id) for env_id in env_ids]
         return "episode_id", {
             "env_id": torch.tensor(env_ids, dtype=torch.int64, device=self._env.device),
-            "episode_in_env": torch.tensor(episode_indices, dtype=torch.int64, device=self._env.device),
+            "episode_in_env": torch.tensor(episode_indices_in_env, dtype=torch.int64, device=self._env.device),
         }
 
 

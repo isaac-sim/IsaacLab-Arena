@@ -73,6 +73,17 @@ field. Arena uses this name in command-line overrides, output directories, and r
 
 Runs keep their YAML order and execute locally in that order.
 
+Episode limits
+--------------
+
+``rollout_limit.num_episodes`` starts exactly the requested number of episodes
+and waits for them all to finish. The count is shared across parallel environments
+and split across rebuilds.
+
+Use ``rollout_limit.num_steps`` instead to limit simulation steps; this may leave
+episodes unfinished. Only one limit can be set. Manual resets are disabled during
+episode-limited evaluations.
+
 
 .. _sequential-batch-experiment-runner:
 

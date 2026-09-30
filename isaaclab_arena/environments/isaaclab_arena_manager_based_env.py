@@ -5,12 +5,13 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+import torch
 from typing import TYPE_CHECKING
 
 from isaaclab.envs import ManagerBasedRLEnv
 
 from isaaclab_arena.environments.arena_world import ArenaWorld
+from isaaclab_arena.environments.episode_scheduler import EpisodeScheduler
 from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import (
     IsaacLabArenaManagerBasedRLEnvCfg,
     apply_arena_global_settings,
@@ -44,13 +45,13 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
             num_envs=cfg.scene.num_envs, device=cfg.sim.device
         )
         self._variation_recorder = variation_recorder
+        self._episode_scheduler = EpisodeScheduler(
+            num_envs=cfg.scene.num_envs,
+            device=cfg.sim.device,
+        )
         if variation_recorder is not None:
             # Bind so run-time variation draws can be attributed to the current episode index.
             variation_recorder.bind_env(self)
-        # Per-env count of completed episodes; advanced in ``_reset_idx``.
-        self._episode_counts: dict[int, int] = {}
-        # The initial reset touches every env before any episode has run; skip it.
-        self._first_reset = True
         super().__init__(cfg=cfg, render_mode=render_mode, **kwargs)
 
     @property
@@ -68,6 +69,24 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
     def variation_recorder(self) -> VariationRecorder | None:
         """The recorder of variation samples, or ``None`` if the env was not built with one."""
         return self._variation_recorder
+
+    @property
+    def episode_scheduler(self) -> EpisodeScheduler:
+        """Episode assignments and progress; only this environment changes them."""
+        return self._episode_scheduler
+
+    @property
+    def active_episode_mask(self) -> torch.Tensor:
+        """Parallel environments currently assigned an episode."""
+        return self._episode_scheduler.active_episode_mask
+
+    def set_episode_limit(self, episode_limit: int | None) -> None:
+        """Set the episode limit before the initial reset.
+
+        Args:
+            episode_limit: Exact episode count, or None for no limit.
+        """
+        self._episode_scheduler.set_episode_limit(episode_limit)
 
     @property
     def object_initial_rest_pose_recorder(self) -> ObjectInitialRestPoseRecorder:
@@ -91,26 +110,28 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
         return self.cfg.task_description
 
     def get_episode_index(self, env_id: int) -> int:
-        """Return the index of the current episode in ``env_id``."""
-        return self._episode_counts.get(env_id, 0)
+        """Return the current or most recent episode's index within this environment."""
+        return self._episode_scheduler.get_episode_index_in_env(env_id)
 
-    def _advance_episode_indices(self, env_ids: Sequence[int]) -> None:
-        """Advance the per-env episode counter for each episode in ``env_ids``."""
-        for env_id in env_ids:
-            env_id = int(env_id)
-            self._episode_counts[env_id] = self._episode_counts.get(env_id, 0) + 1
-
-    def _reset_idx(self, env_ids: Sequence[int]) -> None:
-        # The initial reset touches every env before any episode has run; nothing to record or count.
-        if self._first_reset:
-            self._first_reset = False
-            super()._reset_idx(env_ids)
+    def _finish_episodes(self, env_ids: torch.Tensor) -> None:
+        completed_env_ids = env_ids[self.active_episode_mask[env_ids]]
+        if not len(completed_env_ids):
             return
-        # Runs recorder before super() so the just-finished episode is still intact.
-        self.episode_recorder_manager.record_pre_reset(env_ids)
-        # Advance before super() so reset-mode variation draws are tagged with the episode they begin.
-        self._advance_episode_indices(env_ids)
-        super()._reset_idx(env_ids)
+        # Both recorders need the terminal state and the finishing episode's assignment.
+        self.episode_recorder_manager.finish_episodes(completed_env_ids)
+        super()._finish_episodes(completed_env_ids)
+        self._episode_scheduler.finish_episodes(completed_env_ids)
+
+    def _select_episode_start_env_ids(self, candidate_env_ids: torch.Tensor) -> torch.Tensor:
+        return self._episode_scheduler.start_episodes(candidate_env_ids)
+
+    def _validate_reset_request(self, reset_kind: str) -> None:
+        assert self._episode_scheduler.episode_limit is None or (
+            self._episode_scheduler.num_episodes_started == 0 and reset_kind == "reset"
+        ), (
+            f"Cannot request {reset_kind} during finite evaluation; only the initial reset is allowed. "
+            "Create a new environment for a new run."
+        )
 
     def compute_metrics(self) -> MetricsDataCollection:
         """Compute all registered metrics.

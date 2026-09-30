@@ -77,15 +77,15 @@ class EpisodeRecorderManager(ManagerBase):
         path.write_text("", encoding="utf-8")
         self._output_path = path
 
-    def record_pre_reset(self, env_ids: Sequence[int] | torch.Tensor | None) -> None:
+    def finish_episodes(self, completed_env_ids: Sequence[int] | torch.Tensor) -> None:
         """Record one record per finished episode.
 
         This function fires each recording terms' function and merges the results into a single record.
 
         Args:
-            env_ids: The env ids being reset (tensor, sequence, or ``None`` for all envs).
+            completed_env_ids: The environments whose episodes just completed.
         """
-        for env_id in self._normalize_env_ids(env_ids):
+        for env_id in self._normalize_env_ids(completed_env_ids):
             # The manager stamps the job name; terms add the per-episode fields.
             record: dict[str, Any] = {
                 "job_name": self._job_name,
@@ -109,10 +109,8 @@ class EpisodeRecorderManager(ManagerBase):
         with open(self._output_path, "a", encoding="utf-8") as f:
             f.write(json.dumps(record) + "\n")
 
-    def _normalize_env_ids(self, env_ids: Sequence[int] | torch.Tensor | None) -> list[int]:
-        """Normalize ``env_ids`` (tensor, sequence, or ``None`` for all envs) to a list of ints."""
-        if env_ids is None:
-            return list(range(self._env.num_envs))
+    def _normalize_env_ids(self, env_ids: Sequence[int] | torch.Tensor) -> list[int]:
+        """Normalize completed environment ids to a list of ints."""
         if isinstance(env_ids, torch.Tensor):
             env_ids = env_ids.tolist()
         return [int(env_id) for env_id in env_ids]

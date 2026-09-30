@@ -6,7 +6,7 @@
 """Gym wrapper that records one mp4 per (env, camera, episode) in ``obs['camera_obs']``.
 
 Each frame is streamed straight to a per-(env, camera) ffmpeg encoder as it arrives, and
-the file is finalised when that environment resets (terminated or truncated), so each
+the file is finalised when that episode ends (terminated or truncated), so each
 output file corresponds to exactly one complete episode. Partial episodes cut off by
 ``num_steps`` are deleted on ``close()``.
 
@@ -116,7 +116,7 @@ class CameraObsVideoRecorder(gym.Wrapper):
     """Record supported modalities as one mp4 per (env, camera, episode) in ``obs['camera_obs']``.
 
     Cameras are batched as ``[N_envs, H, W, C]``.  Each env is recorded
-    independently; its encoder is finalised when that env resets (terminated
+    independently; its encoder is finalised when that episode ends (terminated
     or truncated), producing one file per completed episode:
     ``<name_prefix>-env<N>-<camera_name>-episode-<E>.mp4``.
 
@@ -149,13 +149,12 @@ class CameraObsVideoRecorder(gym.Wrapper):
         if cam_obs:
             n_envs = next(iter(cam_obs.values())).shape[0]
 
-            # Determine done envs before appending frames. Isaac Lab auto-resets on
-            # termination, so the obs returned for a done env is the post-reset first
-            # frame of the new episode — discard it so it doesn't contaminate the
-            # current episode. This means each recorded episode is missing its first
-            # frame, which is acceptable given episodes are typically hundreds of steps.
-            done_envs = (terminated | truncated).nonzero().flatten().tolist()
-            done_set = set(done_envs)
+            # Done observations may already belong to a newly assigned episode.
+            # Omit them to avoid mixing episodes, and omit inactive environments throughout
+            # the remaining rollout so finalized videos are not reopened.
+            finished_env_ids = (terminated | truncated).nonzero().flatten().tolist()
+            recording_env_mask = self.unwrapped.active_episode_mask & ~(terminated | truncated)
+            recording_env_ids = recording_env_mask.nonzero(as_tuple=False).flatten().tolist()
 
             with Timer("record_camera_frames"):
                 for camera_name, frames in cam_obs.items():
@@ -166,14 +165,13 @@ class CameraObsVideoRecorder(gym.Wrapper):
                     ), f"Camera observation '{camera_name}' has shape {frames.shape}; expected (N, H, W, 3) RGB."
                     if camera_name not in self.writers:
                         self.writers[camera_name] = [None] * n_envs
-                    for env_idx in range(n_envs):
-                        if env_idx not in done_set:
-                            self._write_frame(camera_name, env_idx, _to_uint8(frames[env_idx]))
+                    for env_id in recording_env_ids:
+                        self._write_frame(camera_name, env_id, _to_uint8(frames[env_id]))
 
-            if done_envs:
+            if finished_env_ids:
                 # The encoder shutdown that finalises one episode's mp4 files.
                 with Timer("record_camera_finalize"):
-                    self._finish_envs(done_envs)
+                    self._finish_envs(finished_env_ids)
 
         return result
 
@@ -185,8 +183,7 @@ class CameraObsVideoRecorder(gym.Wrapper):
         )
         episode_writer = self.writers[camera_name][env_idx]
         if episode_writer is None:
-            # The env's counter still names the episode now in progress; it is advanced on reset,
-            # inside env.step.
+            # Starting an episode sets its per-environment index before the first recorded frame.
             episode_num = self.unwrapped.get_episode_index(env_idx)
             path = os.path.join(
                 self.video_folder,
@@ -202,7 +199,7 @@ class CameraObsVideoRecorder(gym.Wrapper):
         episode_writer.writer.write_frame(frame)
 
     def _finish_envs(self, env_ids: list[int]) -> None:
-        """Finalise the mp4 of every stream open for each env that just reset."""
+        """Finalise the mp4 of every stream open for each episode that just ended."""
         for env_idx in env_ids:
             for env_writers in self.writers.values():
                 episode_writer = env_writers[env_idx]
@@ -212,7 +209,7 @@ class CameraObsVideoRecorder(gym.Wrapper):
                 env_writers[env_idx] = None
 
     def close(self) -> None:
-        # Partial episodes (cut off by num_steps rather than a real reset) are discarded: the
+        # Partial episodes (cut off by num_steps before completion) are discarded: the
         # encoder is shut down and the incomplete file it was writing is removed.
         for env_writers in self.writers.values():
             for env_idx, episode_writer in enumerate(env_writers):

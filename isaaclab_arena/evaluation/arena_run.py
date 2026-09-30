@@ -30,7 +30,7 @@ class RolloutLimitCfg:
     """Number of environment steps, or ``None`` for an episode-driven rollout."""
 
     num_episodes: int | None = None
-    """Number of completed episodes, or ``None`` for a step-driven rollout."""
+    """Exact number of episodes to start and finish, or None for a step-driven rollout."""
 
     def __post_init__(self) -> None:
         assert not (

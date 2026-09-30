@@ -73,12 +73,17 @@ def rollout_policy(
 
     assert num_steps is not None or num_episodes is not None, "Either num_steps or num_episodes must be provided"
     assert num_steps is None or num_episodes is None, "Only one of num_steps or num_episodes must be provided"
+    assert num_steps is None or num_steps > 0, "num_steps must be positive"
+    assert num_episodes is None or num_episodes > 0, "num_episodes must be positive"
 
+    base_env = env.unwrapped
+    base_env.set_episode_limit(num_episodes)
+    episode_scheduler = base_env.episode_scheduler
     pbar = None
     try:
         obs, _ = env.reset()
         policy.reset()
-        policy.set_task_description(env.unwrapped.get_language_instruction())
+        policy.set_task_description(base_env.get_language_instruction())
 
         # Setup progress bar based on num_steps or num_episodes
         if num_steps is not None:
@@ -86,37 +91,35 @@ def rollout_policy(
         else:
             pbar = tqdm.tqdm(total=num_episodes, desc="Episodes", unit="episode")
 
-        num_episodes_completed = 0
         num_steps_completed = 0
 
         while True:
             with torch.inference_mode(), Timer("step"):
                 with Timer("policy_inference"):
+                    # TODO(cvolk, 2026-09-30): Update policies to skip inference and cached-action updates
+                    # for inactive environments.
                     actions = policy.get_action(env, obs)
                 with Timer("env_step"):
                     obs, _, terminated, truncated, _ = env.step(actions)
 
-                if terminated.any() or truncated.any():
-                    # Only reset policy for those envs that are terminated or truncated
-                    print(
-                        f"Resetting policy for terminated env_ids: {terminated.nonzero().flatten()}"
-                        f" and truncated env_ids: {truncated.nonzero().flatten()}"
-                    )
-                    env_ids = (terminated | truncated).nonzero().flatten()
-                    policy.reset(env_ids=env_ids)
-                    # Break if number of episodes is reached
-                    completed_episodes = env_ids.shape[0]
-                    num_episodes_completed += completed_episodes
-                    if hasattr(env.unwrapped.cfg, "metrics") and env.unwrapped.cfg.metrics is not None:
-                        metrics = env.unwrapped.compute_metrics()
+                completed_episode_mask = terminated | truncated
+                if completed_episode_mask.any():
+                    # env.step() has already started replacements where the episode limit allows them.
+                    # Reset policy state only for those new episodes.
+                    new_episode_env_ids = (completed_episode_mask & base_env.active_episode_mask).nonzero().flatten()
+                    if len(new_episode_env_ids):
+                        policy.reset(env_ids=new_episode_env_ids)
+                    if base_env.cfg.metrics is not None:
+                        metrics = base_env.compute_metrics()
                         tqdm.tqdm.write(
                             f"[Rank {get_local_rank()}/{get_world_size()}] Metrics:"
                             f" {metrics_to_plain_python_types(metrics)}"
                         )
                     if num_episodes is not None:
-                        pbar.update(completed_episodes)
-                        if num_episodes_completed >= num_episodes:
-                            break
+                        pbar.update(episode_scheduler.num_episodes_completed - pbar.n)
+                # Wait for every requested episode to finish, including those in slower environments.
+                if episode_scheduler.is_complete:
+                    break
                 # Break if number of steps is reached
                 num_steps_completed += 1
                 if num_steps is not None:
@@ -135,8 +138,8 @@ def rollout_policy(
 
         # Only compute metrics if env has non-None metrics.
         # Use unwrapped to reach the base env through any gym wrappers (e.g. OrderEnforcing)
-        if hasattr(env.unwrapped.cfg, "metrics") and env.unwrapped.cfg.metrics is not None:
-            return env.unwrapped.compute_metrics()
+        if base_env.cfg.metrics is not None:
+            return base_env.compute_metrics()
         return None
 
 

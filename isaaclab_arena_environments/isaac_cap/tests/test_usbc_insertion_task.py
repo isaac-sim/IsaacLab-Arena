@@ -603,7 +603,7 @@ def _check_usbc_cable_reset(base_env, arena_environment) -> None:
         np.testing.assert_array_equal(state.joint_q.numpy(), coordinates)
         np.testing.assert_array_equal(state.joint_qd.numpy(), velocities)
 
-    base_env._reset_idx(torch.tensor([0], device=base_env.device))
+    base_env.reset(env_ids=torch.tensor([0], device=base_env.device))
     for state in states:
         coordinates = state.joint_q.numpy()
         velocities = state.joint_qd.numpy()
@@ -615,7 +615,7 @@ def _check_usbc_cable_reset(base_env, arena_environment) -> None:
             np.testing.assert_allclose(
                 velocities[velocity_starts[index] : velocity_starts[index + 1]], 0.0 if reset else 0.1
             )
-    base_env._reset_idx(torch.arange(base_env.num_envs, device=base_env.device))
+    base_env.reset()
 
 
 def _test_usbc_insertion_environment(_simulation_app, variant: str, num_envs: int = 1) -> bool:
@@ -695,7 +695,7 @@ def _test_usbc_insertion_environment(_simulation_app, variant: str, num_envs: in
         moved_pose = receiver_pose.clone()
         moved_pose[:, 0] += 0.05
         receiver.write_root_pose_to_sim(moved_pose)
-        base_env._reset_idx(torch.arange(num_envs, device=base_env.device))
+        env.reset()
         restored_pose = base_env.arena_world.get_pose_w(arena_environment.task.receiver.name)
         if variant == "easy":
             assert torch.allclose(restored_pose[:, :3], receiver_pose[:, :3], atol=1.0e-6)

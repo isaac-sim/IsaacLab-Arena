@@ -54,7 +54,6 @@ class GearInsertionFractionRecorder(RecorderTerm):
         super().__init__(cfg, env)
         self.name = cfg.name
         self.gear_names = tuple(cfg.gear_names)
-        self.first_reset = True
         self._success_criteria_name = "gear_insertion"
         # CompositeTaskBase suffixes recorder names but prefixes criteria names.
         # TODO(cvolk): Replace this CAP naming workaround with an explicit diagnostics reference.
@@ -64,11 +63,6 @@ class GearInsertionFractionRecorder(RecorderTerm):
             self._success_criteria_name = f"subtask_{subtask_index}/gear_insertion"
 
     def record_pre_reset(self, env_ids):
-        if self.first_reset:
-            assert len(env_ids) == self._env.num_envs
-            self.first_reset = False
-            return None, None
-
         progress_tracker = self._env.progress_tracker
         assert progress_tracker is not None, "Gear insertion diagnostics require task success tracking."
         success_predicate = progress_tracker.get_predicate(self._success_criteria_name)

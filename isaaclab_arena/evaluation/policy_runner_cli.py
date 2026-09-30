@@ -84,7 +84,7 @@ def add_policy_runner_arguments(parser: argparse.ArgumentParser) -> None:
         "--num_episodes",
         type=int,
         default=None,
-        help="Number of episodes to run the policy (if num_steps is not provided)",
+        help="Exact number of episodes to start and finish (mutually exclusive with num_steps)",
     )
     parser.add_argument(
         "--language_instruction",

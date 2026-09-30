@@ -65,13 +65,20 @@ class _StubEnv(gym.Env):
         self._step_return = ({}, None, torch.zeros(1, dtype=torch.bool), torch.zeros(1, dtype=torch.bool), None)
         # Per-env completed-episode counts, mirroring the Arena env's centralized episode index.
         self._episode_counts: dict[int, int] = {}
+        self.inactive_env_ids: list[int] = []
+
+    @property
+    def active_episode_mask(self) -> torch.Tensor:
+        active_episode_mask = torch.ones_like(self._step_return[2])
+        active_episode_mask[self.inactive_env_ids] = False
+        return active_episode_mask
 
     def reset(self, **kwargs):
         return {}, {}
 
     def step(self, action):
         # Mirror the Arena env: advance the per-env episode index for each env that resets this
-        # step (the real env does this within _reset_idx, before step() returns).
+        # step (the episode scheduler assigns the new index before step() returns).
         _, _, terminated, truncated, _ = self._step_return
         for env_id in (terminated | truncated).nonzero().flatten().tolist():
             self._episode_counts[env_id] = self._episode_counts.get(env_id, 0) + 1
@@ -176,6 +183,44 @@ def test_frames_are_streamed_not_buffered(tmp_path):
         # One open encoder per (env, camera), each already handed all three frames.
         assert len(writers) == len(CAMERAS) * 2
         assert all(writer.frames_written == 3 for writer in writers)
+
+
+def test_inactive_environment_does_not_open_video(tmp_path):
+    env = _make_env()
+    env.inactive_env_ids = [0]
+    with _patched_writers() as writers:
+        recorder = CameraObsVideoRecorder(env, video_folder=str(tmp_path))
+        _configure_step(env)
+        recorder.step(None)
+
+        assert len(writers) == len(CAMERAS)
+        assert all("-env1-" in writer.filename for writer in writers)
+
+
+def test_finished_environment_does_not_reopen_video_while_others_continue(tmp_path):
+    env = _make_env()
+    with _patched_writers() as writers:
+        recorder = CameraObsVideoRecorder(env, video_folder=str(tmp_path))
+        _configure_step(env)
+        recorder.step(None)
+
+        env.inactive_env_ids = [0]
+        _configure_step(env, done_envs=[0])
+        recorder.step(None)
+        for _ in range(3):
+            _configure_step(env)
+            recorder.step(None)
+
+        assert len(writers) == len(CAMERAS) * 2
+        for writer in writers:
+            if "-env0-" in writer.filename:
+                assert writer.closed
+                assert writer.frames_written == 1
+            else:
+                assert not writer.closed
+                assert writer.frames_written == 5
+        recorder.close()
+        assert len(list(tmp_path.glob("*.mp4"))) == len(CAMERAS)
 
 
 def test_non_rgb_camera_observations_are_not_recorded(tmp_path):

@@ -6,7 +6,6 @@
 
 """Saved-layout replay and reset ownership."""
 
-
 from pathlib import Path
 
 import pytest
@@ -88,7 +87,7 @@ def _test_companion_cache_round_trip(simulation_app, tmp_path):
                 displaced[:, 2] += 1.0
                 scene[name].write_root_pose_to_sim(displaced, env_ids=env_ids)
                 scene[name].write_root_velocity_to_sim(torch.ones((1, 6), device=device), env_ids=env_ids)
-            env.unwrapped._reset_idx(env_ids)
+            env.unwrapped.reset(env_ids=env_ids)
             for name, poses in cache.poses.items():
                 actual = world.get_pose_e(name)
                 torch.testing.assert_close(actual[[0, 2]], before[name][[0, 2]], atol=2e-5, rtol=0)
@@ -99,7 +98,7 @@ def _test_companion_cache_round_trip(simulation_app, tmp_path):
                     atol=0,
                     rtol=0,
                 )
-            env.unwrapped._reset_idx(torch.tensor([2], device=device))
+            env.unwrapped.reset(env_ids=torch.tensor([2], device=device))
             for name, poses in cache.poses.items():
                 torch.testing.assert_close(
                     world.get_pose_e(name)[2],
@@ -374,7 +373,7 @@ def _test_bimanual_root_recording_and_replay(simulation_app, tmp_path):
             moved = body.data.root_pose_w.torch[env_ids].clone()
             moved[:, 0] += 0.5
             body.write_root_pose_to_sim(moved, env_ids=env_ids)
-        base._reset_idx(env_ids)
+        base.reset(env_ids=env_ids)
         for key in keys:
             actual = base.arena_world.get_pose_e(key)
             torch.testing.assert_close(actual[0], before[key][0], atol=2e-5, rtol=0)
