@@ -154,7 +154,6 @@ def _test_apple_on_plate_succeeds(simulation_app) -> bool:
 
     from isaaclab.assets import RigidObject
 
-    from isaaclab_arena.tasks.predicates.object_settling import get_object_initial_rest_state
     from isaaclab_arena.tests.utils.pick_and_place import lift_settled_objects_once
 
     env, apple, plate = get_test_environment(num_envs=1)
@@ -164,10 +163,10 @@ def _test_apple_on_plate_succeeds(simulation_app) -> bool:
 
         base_env = env.unwrapped
         for _ in range(APPLE_SETTLE_STEPS):
-            if get_object_initial_rest_state(base_env, apple.name)[1][0]:
+            if base_env.object_initial_rest_pose_recorder.get(apple.name)[1][0]:
                 break
             _step_with_standing_actions(env, 1)
-        assert get_object_initial_rest_state(base_env, apple.name)[1][0], "Apple did not settle before lifting."
+        assert base_env.object_initial_rest_pose_recorder.get(apple.name)[1][0], "Apple did not settle before lifting."
 
         lifted_envs = torch.zeros(base_env.num_envs, dtype=torch.bool, device=base_env.device)
         with torch.inference_mode():

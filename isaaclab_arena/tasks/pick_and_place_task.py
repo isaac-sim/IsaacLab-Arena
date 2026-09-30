@@ -25,7 +25,6 @@ from isaaclab_arena.metrics.object_moved import ObjectMovedRateMetric
 from isaaclab_arena.metrics.success_rate import SuccessRateMetric
 from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
 from isaaclab_arena.tasks.common.mimic_default_params import MIMIC_DATAGEN_CONFIG_DEFAULTS
-from isaaclab_arena.tasks.predicates.object_settling import objects_settled
 from isaaclab_arena.tasks.predicates.spatial import object_is_above_height, object_on_destination
 from isaaclab_arena.tasks.predicates.temporal import TrueForConsecutiveStepsCfg
 from isaaclab_arena.tasks.task_base import TaskBase
@@ -40,7 +39,7 @@ from isaaclab_arena.utils.configclass import make_configclass
 class PickAndPlaceTask(TaskBase):
     """Pick an object up and place it on or in a destination.
 
-    Success requires the object to settle, rise above its resting height, then reach its destination
+    Success requires the object to rise above its initial resting height, then reach its destination
     with support and low linear speed for the required consecutive steps. Rigid objects use contact
     force to check support; deformable objects use their geometry. Failure occurs when the object
     falls below the background.
@@ -164,12 +163,6 @@ class PickAndPlaceTask(TaskBase):
                 CompletionCriteria(
                     name="pick_and_place",
                     predicate_sequence=[
-                        # TODO(cvolk): Record initial rest poses independently of task success before
-                        # removing objects_settled; object_is_above_height still needs that reference.
-                        partial(
-                            objects_settled,
-                            object_names=[self.pick_up_object.name],
-                        ),
                         partial(
                             object_is_above_height,
                             object_name=self.pick_up_object.name,

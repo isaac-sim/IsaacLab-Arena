@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Check instantaneous rest, explicit pose recording, and tracked settling duration."""
+"""Check instantaneous rest and tracked settling duration without recording poses."""
 
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
@@ -15,18 +15,18 @@ def _test_temporal_rest_check_does_not_record_poses(_simulation_app) -> bool:
 
     from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
     from isaaclab_arena.progress_tracking.progress_tracker import ProgressTracker
-    from isaaclab_arena.tasks.predicates.object_settling import (
-        ObjectInitialRestPoseRecorder,
-        objects_below_velocity_thresholds,
-        objects_settled,
-    )
+    from isaaclab_arena.tasks.predicates.object_settling import objects_below_velocity_thresholds
     from isaaclab_arena.tasks.predicates.temporal import TrueForConsecutiveStepsCfg
+
+    class _Environment(SimpleNamespace):
+        @property
+        def object_initial_rest_pose_recorder(self):
+            raise AssertionError("Rest predicates must not access the environment's pose recorder.")
 
     class _World:
         def __init__(self):
             self.linear_velocity = torch.zeros((2, 3))
             self.angular_velocity = torch.zeros((2, 3))
-            self.positions = torch.tensor([[0.0, 0.0, 0.5], [1.0, 0.0, 0.5]])
 
         def get_root_linear_velocity_w(self, _name):
             return self.linear_velocity
@@ -35,16 +35,14 @@ def _test_temporal_rest_check_does_not_record_poses(_simulation_app) -> bool:
             return self.angular_velocity
 
         def get_position_w(self, _name):
-            return self.positions
+            raise AssertionError("Velocity predicates must not read object positions.")
 
     world = _World()
-    recorder = ObjectInitialRestPoseRecorder(2, "cpu")
-    env = SimpleNamespace(
+    env = _Environment(
         num_envs=2,
         device="cpu",
         arena_world=world,
         scene=SimpleNamespace(deformable_objects={}),
-        object_initial_rest_pose_recorder=recorder,
     )
     resting = partial(objects_below_velocity_thresholds, object_names=["sphere"])
     tracker = ProgressTracker(
@@ -68,20 +66,6 @@ def _test_temporal_rest_check_does_not_record_poses(_simulation_app) -> bool:
     assert tracker.is_complete().tolist() == [False, False]
     tracker.step(env, step_index=torch.tensor([4, 4]))
     assert tracker.is_complete().tolist() == [True, True]
-
-    # A duration requirement checks rest only. It must not record an earlier, provisional pose.
-    positions, recorded = recorder.get("sphere")
-    assert not recorded.any()
-    assert torch.isnan(positions).all()
-
-    # Existing PickAndPlace callers explicitly use objects_settled to capture the first rest pose.
-    assert objects_settled(env, object_names=["sphere"]).tolist() == [True, True]
-    original_positions = world.positions.clone()
-    world.positions[:, 2] += 1.0
-    objects_settled(env, object_names=["sphere"])
-    positions, recorded = recorder.get("sphere")
-    torch.testing.assert_close(positions, original_positions)
-    assert recorded.all()
 
     tracker.reset([0])
     tracker.step(env, step_index=torch.tensor([0, 5]))

@@ -10,9 +10,7 @@ import torch
 
 def lift_settled_objects_once(env, object_name: str, lifted_envs: torch.Tensor) -> None:
     """Lift newly settled objects once in each selected environment, then let physics place them."""
-    from isaaclab_arena.tasks.predicates.object_settling import get_object_initial_rest_state
-
-    _, has_settled = get_object_initial_rest_state(env, object_name)
+    _, has_settled = env.object_initial_rest_pose_recorder.get(object_name)
     ready_env_ids = (has_settled & ~lifted_envs).nonzero(as_tuple=False).flatten()
     if ready_env_ids.numel() == 0:
         return

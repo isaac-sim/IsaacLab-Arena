@@ -13,7 +13,6 @@ from isaaclab.managers import ManagerTermBase, TerminationTermCfg
 
 from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
 from isaaclab_arena.progress_tracking.progress_tracker import ProgressTracker
-from isaaclab_arena.tasks.predicates.object_settling import reset_rest_pose_recorder
 
 
 class TaskSuccessTerm(ManagerTermBase):
@@ -55,9 +54,6 @@ class TaskSuccessTerm(ManagerTermBase):
         return self._progress_tracker.is_complete()
 
     def reset(self, env_ids=None) -> None:
-        """Clear progress and initial resting positions for the restarting environments."""
+        """Clear progress for the restarting environments."""
         selected_env_ids = self._environment_ids if env_ids is None else self._environment_ids[env_ids]
         self._progress_tracker.reset(selected_env_ids)
-        # TODO(cvolk): Consider a shared Arena reset hook in IsaacLabArenaManagerBasedRLEnv.
-        # Revisit this if ObjectInitialRestPoseRecorder is used independently of task success.
-        reset_rest_pose_recorder(self._env, selected_env_ids)

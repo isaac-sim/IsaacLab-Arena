@@ -37,65 +37,19 @@ class _MockEnv:
     def __init__(self, num_envs: int = 1, device: str = "cpu"):
         import torch
 
-        from isaaclab_arena.tasks.predicates.object_settling import ObjectInitialRestPoseRecorder
-
         self.num_envs = num_envs
         self.device = device
         self.extras = {}
         self._progress_tracker = None
         self.episode_length_buf = torch.zeros(num_envs, dtype=torch.long)
-        self._object_initial_rest_pose_recorder = ObjectInitialRestPoseRecorder(num_envs, device)
 
     @property
     def progress_tracker(self):
         return self._progress_tracker
 
-    @property
-    def object_initial_rest_pose_recorder(self):
-        return self._object_initial_rest_pose_recorder
-
 
 def _advance_step(env, n: int = 1):
     env.episode_length_buf = env.episode_length_buf + n
-
-
-def _test_rest_pose_recorder_is_owned_by_env(simulation_app) -> bool:
-    """Rest-pose state is isolated by environment and resets only the requested environment IDs."""
-    import torch
-
-    from isaaclab_arena.tasks.predicates.object_settling import (
-        get_object_initial_rest_state,
-        get_rest_pose_recorder,
-        reset_rest_pose_recorder,
-    )
-
-    try:
-        first_env = _MockEnv(num_envs=2)
-        rebuilt_env = _MockEnv(num_envs=2)
-        first_recorder = get_rest_pose_recorder(first_env)
-        rebuilt_recorder = get_rest_pose_recorder(rebuilt_env)
-
-        assert first_recorder is first_env.object_initial_rest_pose_recorder
-        assert rebuilt_recorder is rebuilt_env.object_initial_rest_pose_recorder
-        assert first_recorder is not rebuilt_recorder
-
-        positions = torch.tensor([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]])
-        first_recorder.record("object", positions, torch.tensor([True, True]))
-
-        rebuilt_positions, rebuilt_settled = get_object_initial_rest_state(rebuilt_env, "object")
-        assert not bool(rebuilt_settled.any())
-        assert bool(torch.isnan(rebuilt_positions).all())
-
-        reset_rest_pose_recorder(first_env, env_ids=[0])
-        first_positions, first_settled = get_object_initial_rest_state(first_env, "object")
-        assert first_settled.tolist() == [False, True]
-        assert bool(torch.isnan(first_positions[0]).all())
-        assert torch.equal(first_positions[1], positions[1])
-    except Exception as e:
-        print(f"Error: {e}")
-        traceback.print_exc()
-        return False
-    return True
 
 
 def _test_sequence_single_predicate(simulation_app) -> bool:
@@ -899,10 +853,6 @@ def test_sequence_single_predicate():
     assert run_function_with_persistent_simulation_app(_test_sequence_single_predicate, headless=HEADLESS)
 
 
-def test_rest_pose_recorder_is_owned_by_env():
-    assert run_function_with_persistent_simulation_app(_test_rest_pose_recorder_is_owned_by_env, headless=HEADLESS)
-
-
 def test_sequence_unweighted_predicates():
     assert run_function_with_persistent_simulation_app(_test_sequence_unweighted_predicates, headless=HEADLESS)
 
@@ -972,7 +922,6 @@ def test_task_termination_cfg_assigns_flat_criteria_to_subtasks():
 
 if __name__ == "__main__":
     test_sequence_single_predicate()
-    test_rest_pose_recorder_is_owned_by_env()
     test_sequence_unweighted_predicates()
     test_sequence_weighted_predicates()
     test_named_predicate_sequences()

@@ -15,7 +15,6 @@ from isaaclab.managers import SceneEntityCfg
 from isaaclab.sensors.contact_sensor.contact_sensor import ContactSensor
 from isaaclab.utils.math import quat_apply, quat_apply_inverse
 
-from isaaclab_arena.tasks.predicates.object_settling import get_object_initial_rest_state
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 if TYPE_CHECKING:
@@ -289,7 +288,7 @@ def object_is_above_height(
     """Checks if an object is above a certain height.
 
     The reference height is either a fixed ``surface_height`` or, when ``use_settled_state`` is set, the
-    object's recorded resting height (see ``objects_settled``). For envs where no settled state
+    object's initial resting height recorded by the environment. For envs where no settled state
     has been recorded, the result is always False.
 
     Returns True when ``object_name`` is at least ``distance`` m above a height reference.
@@ -301,7 +300,7 @@ def object_is_above_height(
 
     object_z = env.arena_world.get_position_w(object_name)[:, 2]
     if use_settled_state:
-        settled_pos, has_settled = get_object_initial_rest_state(env, object_name)
+        settled_pos, has_settled = env.object_initial_rest_pose_recorder.get(object_name)
         result = has_settled & (object_z > (settled_pos[:, 2] + distance))
     else:
         result = object_z > (surface_height + distance)

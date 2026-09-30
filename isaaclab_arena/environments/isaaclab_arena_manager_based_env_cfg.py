@@ -19,6 +19,8 @@ from isaaclab_physx.renderers import IsaacRtxRendererGlobalSettingsCfg
 from isaaclab_physx.renderers.isaac_rtx_renderer_utils import apply_isaac_rtx_global_settings
 from isaaclab_tasks.utils import PresetCfg
 
+from isaaclab_arena.environments.object_initial_rest_pose_recorder import ObjectInitialRestPoseRecorderCfg
+
 
 class NewtonArenaMJWarpManager(NewtonMJWarpManager):
     """Handle fixed-tendon models that use no MuJoCo actuators.
@@ -88,6 +90,9 @@ class IsaacLabArenaManagerBasedRLEnvCfg(ManagerBasedRLEnvCfg):
     metrics: object | None = None
 
     episode_recorders: object | None = None
+
+    initial_rest_pose_recording: ObjectInitialRestPoseRecorderCfg = ObjectInitialRestPoseRecorderCfg()
+    """Capture episode reference positions independently of task success."""
 
     demo_recorder_config: RecorderManagerBaseCfg | None = None
     """Recorder configuration used by demonstration collection scripts."""

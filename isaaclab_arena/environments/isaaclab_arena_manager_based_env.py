@@ -9,16 +9,18 @@ from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
 from isaaclab.envs import ManagerBasedRLEnv
+from isaaclab.managers import DatasetExportMode, RecorderManagerBaseCfg, RecorderTermCfg
 
 from isaaclab_arena.environments.arena_world import ArenaWorld
 from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import (
     IsaacLabArenaManagerBasedRLEnvCfg,
     apply_arena_global_settings,
 )
+from isaaclab_arena.environments.object_initial_rest_pose_recorder import ObjectInitialRestPoseRecorder
 from isaaclab_arena.metrics.metric_data import MetricsDataCollection
 from isaaclab_arena.metrics.metrics_manager import MetricsManager
 from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderManager
-from isaaclab_arena.tasks.predicates.object_settling import ObjectInitialRestPoseRecorder
+from isaaclab_arena.terms.recorders import RecordInitialRestPoses
 from isaaclab_arena.variations.variation_recorder import VariationRecorder
 
 if TYPE_CHECKING:
@@ -40,16 +42,14 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
         apply_arena_global_settings()
         self._arena_world: ArenaWorld | None = None
         self._progress_tracker: ProgressTracker | None = None
-        self._object_initial_rest_pose_recorder = ObjectInitialRestPoseRecorder(
-            num_envs=cfg.scene.num_envs, device=cfg.sim.device
-        )
+        self._object_initial_rest_pose_recorder: ObjectInitialRestPoseRecorder | None = None
         self._variation_recorder = variation_recorder
         if variation_recorder is not None:
             # Bind so run-time variation draws can be attributed to the current episode index.
             variation_recorder.bind_env(self)
         # Per-env count of completed episodes; advanced in ``_reset_idx``.
         self._episode_counts: dict[int, int] = {}
-        # The initial reset touches every env before any episode has run; skip it.
+        # The initial reset has no finished episode to record or count.
         self._first_reset = True
         super().__init__(cfg=cfg, render_mode=render_mode, **kwargs)
 
@@ -71,7 +71,8 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
 
     @property
     def object_initial_rest_pose_recorder(self) -> ObjectInitialRestPoseRecorder:
-        """The recorder of initial object rest poses. Used when object_settled predicate is enabled by task progress tracking."""
+        """The environment-owned recorder of each object's first resting position in an episode."""
+        assert self._object_initial_rest_pose_recorder is not None, "Rest-pose recording requires loaded managers."
         return self._object_initial_rest_pose_recorder
 
     @property
@@ -82,6 +83,16 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
     def load_managers(self) -> None:
         assert self._arena_world is None, "ArenaWorld is already initialized."
         self._arena_world = ArenaWorld(self.scene)
+        self._object_initial_rest_pose_recorder = ObjectInitialRestPoseRecorder(
+            self.scene, self.arena_world, self.cfg.initial_rest_pose_recording
+        )
+        # Install after callers have selected their demonstration or evaluation recorders.
+        if not self.cfg.recorders:
+            self.cfg.recorders = RecorderManagerBaseCfg()
+        if not any(isinstance(term, RecorderTermCfg) for term in vars(self.cfg.recorders).values()):
+            # This callback stores no dataset data and must not enable file export by itself.
+            self.cfg.recorders.dataset_export_mode = DatasetExportMode.EXPORT_NONE
+        self.cfg.recorders.record_initial_rest_poses = RecorderTermCfg(class_type=RecordInitialRestPoses)
         super().load_managers()
         self.metrics_manager = MetricsManager(self.cfg.metrics, self)
         self.episode_recorder_manager = EpisodeRecorderManager(self.cfg.episode_recorders, self)
@@ -104,13 +115,12 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
         # The initial reset touches every env before any episode has run; nothing to record or count.
         if self._first_reset:
             self._first_reset = False
-            super()._reset_idx(env_ids)
-            return
-        # Runs recorder before super() so the just-finished episode is still intact.
-        self.episode_recorder_manager.record_pre_reset(env_ids)
-        # Advance before super() so reset-mode variation draws are tagged with the episode they begin.
-        self._advance_episode_indices(env_ids)
+        else:
+            # Preserve the finished episode until recording and episode attribution are complete.
+            self.episode_recorder_manager.record_pre_reset(env_ids)
+            self._advance_episode_indices(env_ids)
         super()._reset_idx(env_ids)
+        self.object_initial_rest_pose_recorder.reset(env_ids)
 
     def compute_metrics(self) -> MetricsDataCollection:
         """Compute all registered metrics.

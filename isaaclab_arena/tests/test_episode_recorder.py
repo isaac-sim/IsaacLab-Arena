@@ -217,8 +217,9 @@ def _test_core_terms(simulation_app, output_dir):  # noqa: ARG001
                 record["success"] is expected_success
             ), f"env {env_id} episode {record['episode_in_env']}: expected success={expected_success}"
             assert record["progress"]["all_complete"] is expected_success
-            if expected_success:
-                assert [event["predicate_index"] for event in record["progress"]["events"]] == [0, 1, 2]
+            expected_predicate_indices = [0, 1] if expected_success else []
+            assert [event["predicate_index"] for event in record["progress"]["events"]] == expected_predicate_indices
+            assert record["progress"]["overall_score"] == (1.0 if expected_success else 0.0)
 
         # Both envs must have completed at least one episode.
         assert set(per_env_counter.keys()) == {0, 1}

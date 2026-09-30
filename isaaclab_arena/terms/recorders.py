@@ -26,6 +26,15 @@ if TYPE_CHECKING:
     from isaaclab.assets import Articulation
 
 
+class RecordInitialRestPoses(RecorderTerm):
+    """Update environment-owned rest positions after physics and before automatic resets."""
+
+    def record_post_step(self):
+        # Terminations have already run; new references are available for the next control step.
+        self._env.object_initial_rest_pose_recorder.update()
+        return None, None
+
+
 class PreStepFlatCameraObservationsRecorder(RecorderTerm):
     """Recorder term that records the camera observations in each step."""
 
