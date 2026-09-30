@@ -11,7 +11,6 @@ from typing import TYPE_CHECKING
 
 from isaaclab_arena.offline_placement.clutter_geometry import (
     assert_support_reference_transform,
-    fixed_poses_match,
     spawned_geometry_is_fixed,
     spawned_rigid_body_has_gravity,
     spawned_rigid_body_is_dynamic,
@@ -76,18 +75,6 @@ def prepare_clutter_settling(env: ManagerBasedEnv, assets: list[PlaceableAsset])
     fixed_assets = [
         asset for asset in assets if asset.is_anchor or asset in passive_assets or isinstance(asset, Background)
     ]
-    # Static BASE and background transforms are not restored by ordinary root-pose reset events.
-    _check_fixed_scene_poses(env, fixed_assets)
-
-
-def _check_fixed_scene_poses(env: ManagerBasedEnv, assets: list[PlaceableAsset]) -> None:
-    """Reject live transforms that differ from the fixed geometry used by the solver."""
-    for asset in assets:
+    for asset in fixed_assets:
         pose = asset.get_initial_pose() or Pose.identity()
         assert isinstance(pose, Pose), f"Fixed scene asset {asset.name!r} requires a fixed Pose"
-        current = env.arena_world.get_pose_e(asset.get_scene_key())
-        expected = pose.to_tensor(device=current.device).expand_as(current)
-        assert fixed_poses_match(expected, current), (
-            f"Fixed scene asset {asset.get_scene_key()!r} differs from its configured pose. "
-            "Reset or rebuild the scene at its configured poses before settling."
-        )

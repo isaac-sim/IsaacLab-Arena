@@ -148,9 +148,9 @@ Scope and limitations
        Rewriting collider transforms after physics initialization can invalidate
        physics views.
    * - Other placement relations
-     - Resolve them to fixed anchors before clutter collection. Anchors,
-       backgrounds and passive obstacles must match their configured poses;
-       pose-changing variations on this fixed geometry are unsupported.
+     - Resolve them to fixed anchors before clutter collection. Keep anchors,
+       backgrounds and passive obstacles at their configured poses after building
+       the placement pool; runtime edits and pose-changing variations are unsupported.
    * - Reachability
      - ``ClutterOn`` objects cannot require reachability: dropping changes the
        poses checked by the solver. Non-clutter fixed targets may retain
