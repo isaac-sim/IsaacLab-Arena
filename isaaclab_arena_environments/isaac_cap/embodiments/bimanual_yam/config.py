@@ -73,7 +73,7 @@ def make_yam_articulation_cfg(
             joint_pos=joint_pos,
             joint_vel={".*": 0.0},
         ),
-        soft_joint_pos_limit_factor=0.95,
+        soft_joint_pos_limit_factor=1.0,
         actuators={
             "arm_joints_1_3": ImplicitActuatorCfg(
                 joint_names_expr=["joint[1-3]"],

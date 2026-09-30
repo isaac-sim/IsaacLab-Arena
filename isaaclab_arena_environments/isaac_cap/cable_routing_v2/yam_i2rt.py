@@ -15,7 +15,7 @@ import warp as wp
 from isaaclab.actuators import ImplicitActuatorCfg
 from isaaclab.assets import ArticulationCfg, AssetBaseCfg
 from isaaclab.envs import mdp
-from isaaclab.managers import ActionTermCfg, EventTermCfg
+from isaaclab.managers import ActionTermCfg
 from isaaclab.managers import ObservationGroupCfg as ObsGroup
 from isaaclab.managers import ObservationTermCfg as ObsTerm
 from isaaclab.managers import SceneEntityCfg
@@ -25,6 +25,7 @@ from isaaclab.utils.configclass import configclass
 from isaaclab_arena.assets.nucleus import ARENA_NUCLEUS_DIR
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
+from isaaclab_arena_environments.isaac_cap.embodiments.bimanual_yam.config import BimanualYamEventCfg
 
 from .embodiment.actions import ContinuousJointPositionZeroToOneActionCfg, FiniteJointPositionActionCfg
 from .embodiment.cameras import BimanualYamCameraCfg as IndustrialBimanualYamCameraCfg
@@ -238,28 +239,6 @@ class CableRoutingYamI2rtObservationsCfg:
     policy: PolicyCfg = PolicyCfg()
 
 
-@configclass
-class CableRoutingYamI2rtEventCfg:
-    reset_left_robot_joints: EventTermCfg = EventTermCfg(
-        func=mdp.reset_joints_by_offset,
-        mode="reset",
-        params={
-            "position_range": (0.0, 0.0),
-            "velocity_range": (0.0, 0.0),
-            "asset_cfg": SceneEntityCfg("left_robot"),
-        },
-    )
-    reset_right_robot_joints: EventTermCfg = EventTermCfg(
-        func=mdp.reset_joints_by_offset,
-        mode="reset",
-        params={
-            "position_range": (0.0, 0.0),
-            "velocity_range": (0.0, 0.0),
-            "asset_cfg": SceneEntityCfg("right_robot"),
-        },
-    )
-
-
 class CableRoutingYamI2rtEmbodiment(EmbodimentBase):
     """The exact upstream YAM I2RT model, isolated to Cable Easy."""
 
@@ -300,7 +279,7 @@ class CableRoutingYamI2rtEmbodiment(EmbodimentBase):
 
         self.action_config = CableRoutingYamI2rtActionsCfg()
         self.observation_config = CableRoutingYamI2rtObservationsCfg()
-        self.event_config = CableRoutingYamI2rtEventCfg()
+        self.event_config = BimanualYamEventCfg()
         self.camera_config = IndustrialBimanualYamCameraCfg() if enable_cameras else None
         if self.camera_config is not None:
             self.camera_config.use_tiled_camera = use_tiled_cameras

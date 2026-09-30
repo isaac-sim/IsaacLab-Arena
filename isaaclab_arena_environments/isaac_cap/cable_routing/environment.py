@@ -75,6 +75,8 @@ def _build_environment(
         use_tiled_cameras=cfg.use_tiled_cameras,
         use_instanceable_meshes=cfg.use_instanceable_meshes,
     )
+    for robot in (embodiment.scene_config.left_robot, embodiment.scene_config.right_robot):
+        robot.soft_joint_pos_limit_factor = 0.95
     task = CableRoutingTask(
         cable=built_scene.cable,
         pegs=built_scene.pegs,
