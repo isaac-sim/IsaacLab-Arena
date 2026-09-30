@@ -7,14 +7,14 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 from omegaconf import MISSING
 
-from isaaclab_arena.offline_placement.clutter_params import ClutterSettleParams
-from isaaclab_arena.offline_placement.clutter_validators import default_post_physics_validators
+from isaaclab_arena.offline_placement.clutter_validators import default_clutter_validators
+from isaaclab_arena.offline_placement.settled_placement_params import SettledPlacementParams
 
 if TYPE_CHECKING:
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
@@ -31,89 +31,126 @@ class ClutterGenerationCfg:
     num_envs: int = 1
     """Number of parallel physics environments."""
     num_layouts: int | None = None
-    """Total layouts to generate; None generates one per environment."""
+    """Exact number of accepted layouts to save; None uses num_envs."""
     seed: int = 42
-    """Initial release-sampling seed."""
+    """Seed for placement solving and reset randomization."""
     attempts: int = 5
-    """Maximum settling trials per environment."""
+    """Batch budget multiplier: at most ceil(num_layouts / num_envs) * attempts resets."""
     presets: str | None = None
     """Physics backend override: physx or newton."""
-    settle: ClutterSettleParams = field(default_factory=ClutterSettleParams)
-    """Physics time budget and sampling interval."""
-    post_physics: dict[str, dict] = field(default_factory=default_post_physics_validators)
-    """Named Hydra validator configurations; every enabled check must pass."""
+    render: bool = False
+    """Render the offline physics steps when a visualizer is enabled."""
+    settle: SettledPlacementParams = field(
+        default_factory=lambda: SettledPlacementParams(validators=default_clutter_validators())
+    )
+    """Environment-step duration and named post-physics validator configurations."""
+
+
+def load_generation_config(overrides: list[str]) -> ClutterGenerationCfg:
+    """Load typed generation settings from Hydra key=value overrides."""
+    from hydra import compose, initialize
+    from hydra.core.config_store import ConfigStore
+    from omegaconf import OmegaConf
+
+    ConfigStore.instance().store(name="clutter_generation", node=ClutterGenerationCfg)
+    with initialize(version_base=None, config_path=None):
+        return OmegaConf.to_object(compose(config_name="clutter_generation", overrides=overrides))
 
 
 def generate_clutter_layouts(
     arena_env: IsaacLabArenaEnvironment, cfg: ClutterGenerationCfg, device: str = "cuda:0"
 ) -> Path:
-    """Generate accepted placement records from offline physics and return the output path.
+    """Build, sample and close an environment, writing exactly the requested accepted layouts.
+
+    Call after SimulationApp startup. Uses ordinary pooled placement resets and leaves
+    no output file if the batch budget is exhausted before enough candidates pass.
+    Sampling replaces the description's placement seed, pool size and reset selection.
 
     Args:
-        arena_env: Environment description with ClutterOn relations.
-        cfg: Output and settling settings.
+        arena_env: Environment description containing ClutterOn relations.
+        cfg: Output, batch budget and post-physics check settings.
         device: Simulation device, such as cuda:0 or cpu.
+
+    Returns:
+        The written placement JSONL path.
     """
+    from isaaclab_arena.assets.object_set import RigidObjectSet
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
-    from isaaclab_arena.offline_placement.clutter_geometry import dynamic_rigid_object_keys
-    from isaaclab_arena.offline_placement.clutter_settling import groups_from_assets, settle_clutter
-    from isaaclab_arena.offline_placement.clutter_validators import RestValidator, build_post_physics_validators
-    from isaaclab_arena.relations.bounding_box_helpers import has_heterogeneous_objects
+    from isaaclab_arena.offline_placement.recording import validate_recording_assets
+    from isaaclab_arena.offline_placement.settled_placement import collect_settled_placements
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
     from isaaclab_arena.relations.placement_layouts import PlacementLayouts
+    from isaaclab_arena.relations.relations import ClutterOn, get_relation
 
-    assert arena_env.placement_layouts is None, "Remove cached placement layouts before generating clutter"
-
-    validators = build_post_physics_validators(cfg.post_physics)
     output = Path(cfg.output)
     assert not output.exists(), f"Output already exists: {output}"
+    assert arena_env.placement_layouts is None, "Remove cached placement layouts before generating clutter"
     assets = arena_env.get_placement_assets()
-    assert not has_heterogeneous_objects(
-        assets
-    ), "Resolve object sets to concrete assets before generation; placement replay does not restore variant identities"
-    groups_from_assets(assets)
-    placer_params = arena_env.placer_params or ObjectPlacerParams()
-    num_layouts = cfg.num_layouts if cfg.num_layouts is not None else cfg.num_envs
-    assert (
-        cfg.num_envs > 0 and num_layouts > 0 and cfg.attempts > 0
-    ), "num_envs, num_layouts and attempts must be positive"
+    assert not any(isinstance(asset, RigidObjectSet) for asset in assets), "Resolve object sets before generation"
+    assert any(get_relation(asset, ClutterOn) is not None for asset in assets), "Generation requires ClutterOn objects"
+    num_layouts = cfg.num_envs if cfg.num_layouts is None else cfg.num_layouts
+    assert cfg.num_envs > 0 and num_layouts > 0 and cfg.attempts > 0, "Counts and attempts must be positive"
+    batches = (num_layouts + cfg.num_envs - 1) // cfg.num_envs
+    arena_env.placer_params = replace(
+        arena_env.placer_params or ObjectPlacerParams(),
+        placement_seed=cfg.seed,
+        min_unique_layouts_per_env=batches,
+        resolve_on_reset=True,
+    )
     builder = ArenaEnvBuilder(
         arena_env,
-        ArenaEnvBuilderCfg(
-            num_envs=cfg.num_envs,
-            seed=cfg.seed,
-            device=device,
-            presets=cfg.presets,
-            solve_relations=False,
-        ),
+        ArenaEnvBuilderCfg(num_envs=cfg.num_envs, seed=cfg.seed, device=device, presets=cfg.presets),
     )
     env = builder.make_registered()
     try:
-        keys = dynamic_rigid_object_keys(env.unwrapped.scene)
-        env.reset()
-        layouts = []
-        for start in range(0, num_layouts, cfg.num_envs):
-            batch_size = min(cfg.num_envs, num_layouts - start)
-            batch = settle_clutter(
-                env,
-                assets,
-                seed=cfg.seed + start * cfg.attempts * placer_params.max_placement_attempts,
-                attempts=cfg.attempts,
-                params=cfg.settle,
-                placer_params=placer_params,
-                validators=validators,
-                env_ids=list(range(batch_size)),
+        validate_recording_assets(env, assets)
+        poses = {}
+        outcomes = []
+        rejections = {}
+        attempted = 0
+        for batch_index in range(batches * cfg.attempts):
+            result = collect_settled_placements(
+                env, 1, cfg.settle, render=cfg.render, scene_assets=assets, log_progress=True
             )
-            layouts.extend(batch)
-        cache = PlacementLayouts({key: [layout.poses[key] for layout in layouts] for key in keys})
-        source = (
-            "settled"
-            if any(isinstance(validator, RestValidator) and validator.enabled for validator in validators)
-            else "physics"
-        )
-        cache.write_episode_jsonl(output, source=source, validation=[layout.validation for layout in layouts])
-        print(f"Saved {cache.num_layouts} accepted layouts: {output}")
+            attempted += result.attempted
+            for (env_id, _), reason in result.rejections.items():
+                rejections[env_id, batch_index] = reason
+                print(f"  Rejected env {env_id}, batch {batch_index + 1}: {reason}")
+            remaining = num_layouts - len(outcomes)
+            for key, values in result.poses.items():
+                poses.setdefault(key, []).extend(values[:remaining])
+            outcomes.extend(result.validation[:remaining])
+            print(
+                f"[generation] batch {batch_index + 1}/{batches * cfg.attempts}:"
+                f" {len(outcomes)}/{num_layouts} collected"
+            )
+            if len(outcomes) == num_layouts:
+                break
+        assert (
+            len(outcomes) == num_layouts
+        ), f"Accepted {len(outcomes)} layouts; need {num_layouts}. Rejections: {rejections}"
+        layouts = PlacementLayouts(poses)
+        layouts.validate_assets(assets)
+        embodiment_keys = []
+        for asset in assets:
+            if asset.tags and "embodiment" in asset.tags:
+                embodiment_keys.extend(asset.get_scene_root_keys())
+        sampling = {
+            "num_steps": cfg.settle.num_steps,
+            "decimation": env.unwrapped.cfg.decimation,
+            "physics_dt_s": env.unwrapped.sim.get_physics_dt(),
+            "embodiment_keys": embodiment_keys,
+        }
+        validation = []
+        for outcome in outcomes:
+            validation.append({
+                "pre_physics": outcome.pre_physics,
+                "post_physics": [asdict(report) for report in outcome.post_physics],
+                "sampling": sampling,
+            })
+        layouts.write_episode_jsonl(output, source="settled", validation=validation)
+        print(f"Saved {layouts.num_layouts} accepted layouts from {attempted} candidates: {output}")
         return output
     finally:
         env.close()

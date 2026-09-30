@@ -52,8 +52,10 @@ For assets whose constructors accept ``initial_pose``, set it through
 Positions are environment-local, in metres; quaternions use xyzw order.
 ``position_xyz`` is required; omitted ``rotation_xyzw`` defaults to identity,
 as in ``Pose.from_dict``.
-An explicit pose is applied at construction and restored on reset. Do not
-combine it with relation placement for the same movable asset.
+The pose is applied at construction. Rigid objects and articulations also
+restore it on reset when pose resets are enabled; static background geometry
+remains at its construction pose. Do not combine it with relation placement for
+the same movable asset.
 
 The same environment, side by side
 ----------------------------------
