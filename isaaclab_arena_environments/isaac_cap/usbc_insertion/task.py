@@ -180,7 +180,7 @@ class UsbcInsertionTask(TaskBase):
                 ProgressObjective(
                     name="usbc_insertion",
                     predicate_sequence=[success_requirement],
-                    diagnostic_predicates={predicate.func.__name__: predicate for predicate in predicates},
+                    tracked_predicates={predicate.func.__name__: predicate for predicate in predicates},
                 )
             ],
         )
@@ -192,7 +192,7 @@ class UsbcInsertionTask(TaskBase):
         gripper = embodiment.get_gripper()
         for predicate in self._gripper_predicates:
             predicate.params["gripper"] = gripper
-        for predicate in self.termination_cfg.success[0].diagnostic_predicates.values():
+        for predicate in self.termination_cfg.success[0].tracked_predicates.values():
             if predicate.func in (gripper_released, gripper_distance_from_object_exceeds_threshold):
                 predicate.params["gripper"] = gripper
 

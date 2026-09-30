@@ -39,8 +39,8 @@ def _test_usbc_demo_geometry(_simulation_app) -> bool:
         assert task.plug.scale == (1.0, 1.0, 1.0)
         success_requirement = task.get_termination_cfg().success[0].predicate_sequence[0]
         predicates = success_requirement.predicate.params["predicates"]
-        diagnostics = task.get_termination_cfg().success[0].diagnostic_predicates
-        assert list(diagnostics) == [predicate.func.__name__ for predicate in predicates]
+        tracked_predicates = task.get_termination_cfg().success[0].tracked_predicates
+        assert list(tracked_predicates) == [predicate.func.__name__ for predicate in predicates]
         geometry_predicates = [
             predicate
             for predicate in predicates

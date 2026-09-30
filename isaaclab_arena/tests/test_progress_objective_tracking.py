@@ -664,8 +664,8 @@ def _test_recorder_publishes_to_extras_and_records_nothing(simulation_app) -> bo
     return True
 
 
-def _test_diagnostic_predicates_report_intermediate_checks(simulation_app) -> bool:
-    """Independent check history is reported without changing the success score or events."""
+def _test_tracked_predicates_report_progress(simulation_app) -> bool:
+    """Per-predicate progress is reported without changing the success score or events."""
     from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
     from isaaclab_arena.progress_tracking.progress_tracker import ProgressTracker
     from isaaclab_arena.recording.progress_terms import record_progress_results
@@ -677,7 +677,7 @@ def _test_diagnostic_predicates_report_intermediate_checks(simulation_app) -> bo
     objective = ProgressObjective(
         name="insertion",
         predicate_sequence=[success],
-        diagnostic_predicates={"depth": depth, "alignment": alignment},
+        tracked_predicates={"depth": depth, "alignment": alignment},
     )
     tracker = ProgressTracker(progress_objectives=[objective], num_envs=2, device="cpu", env=env)
 
@@ -687,12 +687,13 @@ def _test_diagnostic_predicates_report_intermediate_checks(simulation_app) -> bo
     state = tracker.get_state()[0].progress_objectives["insertion"]
     assert state.score == 0.0
     assert tracker.get_events()[0] == []
-    assert state.best_simultaneous_checks == 1
-    assert state.diagnostic_predicates["depth"] == {
+    assert state.max_simultaneous_true == 1
+    assert state.tracked_predicates["depth"] == {
         "currently_true": True,
         "ever_true": True,
         "first_true_step": 1,
     }
+    assert state.tracked_predicates["alignment"]["currently_true"] is False
 
     depth.set([False, False])
     alignment.set([True, False])
@@ -700,16 +701,17 @@ def _test_diagnostic_predicates_report_intermediate_checks(simulation_app) -> bo
     tracker.step(env, step_index=env.episode_length_buf)
     env.extras["progress_tracking"] = {"states": tracker.get_state(), "events": tracker.get_events()}
     recorded = record_progress_results(env, env_id=0)["progress"]["objectives"]["insertion"]
-    checks = recorded["intermediate_checks"]
+    predicate_progress = recorded["predicate_progress"]
     assert recorded["score"] == 0.0
-    assert checks["best_simultaneous"] == 1
-    assert checks["total"] == 2
-    assert checks["checks"]["depth"]["currently_true"] is False
-    assert checks["checks"]["depth"]["first_true_step"] == 1
-    assert checks["checks"]["alignment"]["first_true_step"] == 2
-    assert checks["first_pass_events"] == [
-        {"step": 1, "check": "depth"},
-        {"step": 2, "check": "alignment"},
+    assert predicate_progress["max_simultaneous_true"] == 1
+    assert predicate_progress["total"] == 2
+    assert predicate_progress["predicates"]["depth"]["currently_true"] is False
+    assert predicate_progress["predicates"]["depth"]["first_true_step"] == 1
+    assert predicate_progress["predicates"]["alignment"]["currently_true"] is True
+    assert predicate_progress["predicates"]["alignment"]["first_true_step"] == 2
+    assert predicate_progress["first_true_events"] == [
+        {"step": 1, "predicate": "depth"},
+        {"step": 2, "predicate": "alignment"},
     ]
 
     depth.set([True, False])
@@ -718,13 +720,13 @@ def _test_diagnostic_predicates_report_intermediate_checks(simulation_app) -> bo
     tracker.step(env, step_index=env.episode_length_buf)
     state = tracker.get_state()[0].progress_objectives["insertion"]
     assert state.score == 1.0
-    assert state.best_simultaneous_checks == 2
+    assert state.max_simultaneous_true == 2
 
     tracker.reset([0])
     state = tracker.get_state()[0].progress_objectives["insertion"]
-    assert state.best_simultaneous_checks == 0
-    assert not state.diagnostic_predicates["depth"]["ever_true"]
-    assert state.diagnostic_predicates["depth"]["first_true_step"] is None
+    assert state.max_simultaneous_true == 0
+    assert not state.tracked_predicates["depth"]["ever_true"]
+    assert state.tracked_predicates["depth"]["first_true_step"] is None
     return True
 
 
@@ -1024,10 +1026,8 @@ def test_recorder_publishes_to_extras_and_records_nothing():
     )
 
 
-def test_diagnostic_predicates_report_intermediate_checks():
-    assert run_function_with_persistent_simulation_app(
-        _test_diagnostic_predicates_report_intermediate_checks, headless=HEADLESS
-    )
+def test_tracked_predicates_report_progress():
+    assert run_function_with_persistent_simulation_app(_test_tracked_predicates_report_progress, headless=HEADLESS)
 
 
 def test_task_termination_cfg_assigns_flat_objectives_to_subtasks():
@@ -1053,7 +1053,7 @@ if __name__ == "__main__":
     test_state_machine_logical_choose()
     test_state_machine_reset_clears_state()
     test_recorder_publishes_to_extras_and_records_nothing()
-    test_diagnostic_predicates_report_intermediate_checks()
+    test_tracked_predicates_report_progress()
     test_task_termination_cfg_assigns_flat_objectives_to_subtasks()
     test_flat_subtask_objectives_report_weighted_progress()
     test_tracker_rejects_excluding_every_subtask_from_success()

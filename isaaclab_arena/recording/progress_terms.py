@@ -32,18 +32,18 @@ def record_progress_results(env, env_id: int) -> dict[str, Any]:
             "total_groups": objective.total_groups,
             "active_predicates": objective.active_predicates,
         }
-        if objective.diagnostic_predicates:
-            first_pass_events = [
-                {"step": check["first_true_step"], "check": check_name}
-                for check_name, check in objective.diagnostic_predicates.items()
-                if check["first_true_step"] is not None
+        if objective.tracked_predicates:
+            first_true_events = [
+                {"step": status["first_true_step"], "predicate": predicate_name}
+                for predicate_name, status in objective.tracked_predicates.items()
+                if status["first_true_step"] is not None
             ]
-            first_pass_events.sort(key=lambda event: event["step"])
-            objective_record["intermediate_checks"] = {
-                "best_simultaneous": objective.best_simultaneous_checks,
-                "total": len(objective.diagnostic_predicates),
-                "checks": objective.diagnostic_predicates,
-                "first_pass_events": first_pass_events,
+            first_true_events.sort(key=lambda event: event["step"])
+            objective_record["predicate_progress"] = {
+                "max_simultaneous_true": objective.max_simultaneous_true,
+                "total": len(objective.tracked_predicates),
+                "predicates": objective.tracked_predicates,
+                "first_true_events": first_true_events,
             }
         objectives[name] = objective_record
     return {
