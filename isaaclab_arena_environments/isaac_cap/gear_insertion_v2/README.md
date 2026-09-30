@@ -5,7 +5,7 @@ Isaac-cap checkout on the host. Both processes use port `19000`.
 
 ## Arena client
 
-From the Arena repository root inside the container, choose one environment and start it first:
+Inside the Arena container:
 
 ```bash
 # Easy
