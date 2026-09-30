@@ -12,7 +12,7 @@ or from source inside a Docker container.
      - Imitation learning
      - Reinforcement learning
      - Agentic environment generation
-     - CuRobo integration
+     - cuRobo integration
    * - Docker
      - ✓
      - ✓
@@ -24,7 +24,7 @@ or from source inside a Docker container.
      - ✓
      - ✓
      - ✓
-     - ❌
+     - ✗
 
 Supported Systems
 -----------------

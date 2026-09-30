@@ -300,6 +300,12 @@ defines the check name and stage. Post-physics checks use
 ``PostPhysicsPlacementValidator`` from
 ``isaaclab_arena.offline_placement.post_physics_validation``.
 
+Implement ``validate(batch: SettledBatch)`` and return one report per entry in
+``batch.env_ids``, in the same order, using ``self.report`` to include the check's
+settings and result. Add an importable validator to the recording command with
+``+settle.validators.support._target_=my_project.validators.SupportValidator``.
+The configuration key (``support`` here) must match the validator's ``check`` name.
+
 Next Steps
 ----------
 
