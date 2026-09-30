@@ -18,7 +18,13 @@ from isaaclab_arena.utils.pose import Pose
 
 from .actions import BimanualYamActionsCfg
 from .cameras import BimanualYamCameraCfg
-from .config import END_EFFECTOR_BODY_NAME, BimanualYamSceneCfg, make_yam_articulation_cfg, make_yam_ee_frame_cfg
+from .config import (
+    END_EFFECTOR_BODY_NAME,
+    BimanualYamEventCfg,
+    BimanualYamSceneCfg,
+    make_yam_articulation_cfg,
+    make_yam_ee_frame_cfg,
+)
 from .observations import BimanualYamObservationsCfg
 
 
@@ -73,6 +79,7 @@ class IndustrialBimanualYamEmbodiment(EmbodimentBase):
             self.scene_config.left_ee_frame = make_yam_ee_frame_cfg("{ENV_REGEX_NS}/LeftRobot", "tcp")
             self.scene_config.right_ee_frame = make_yam_ee_frame_cfg("{ENV_REGEX_NS}/RightRobot", "tcp")
         self.action_config = BimanualYamActionsCfg()
+        self.event_config = BimanualYamEventCfg()
         self.observation_config = BimanualYamObservationsCfg()
         self.camera_config = None
         if enable_cameras:

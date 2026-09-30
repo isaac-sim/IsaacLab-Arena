@@ -10,6 +10,8 @@ from __future__ import annotations
 import isaaclab.sim as sim_utils
 from isaaclab.actuators import ImplicitActuatorCfg
 from isaaclab.assets import ArticulationCfg
+from isaaclab.envs import mdp
+from isaaclab.managers import EventTermCfg, SceneEntityCfg
 from isaaclab.sensors.frame_transformer.frame_transformer_cfg import FrameTransformerCfg, OffsetCfg
 from isaaclab.utils.configclass import configclass
 
@@ -23,6 +25,30 @@ GRIPPER_CLOSED_POSITION = 0.0
 _DEFAULT_ARM_JOINT_POSITIONS = (0.0, 0.85, 0.60, 0.0, 0.0, 0.0)
 _LINK_SIX_PRIM_SUFFIX = "/Geometry/arm/link_1/link_2/link_3/link_4/link_5/link_6"
 _TCP_OFFSET_XYZ = (0.0, -0.044, 0.13)
+
+
+@configclass
+class BimanualYamEventCfg:
+    """Restore both YAM arms to their configured joint states on reset."""
+
+    reset_left_robot_joints: EventTermCfg = EventTermCfg(
+        func=mdp.reset_joints_by_offset,
+        mode="reset",
+        params={
+            "position_range": (0.0, 0.0),
+            "velocity_range": (0.0, 0.0),
+            "asset_cfg": SceneEntityCfg("left_robot"),
+        },
+    )
+    reset_right_robot_joints: EventTermCfg = EventTermCfg(
+        func=mdp.reset_joints_by_offset,
+        mode="reset",
+        params={
+            "position_range": (0.0, 0.0),
+            "velocity_range": (0.0, 0.0),
+            "asset_cfg": SceneEntityCfg("right_robot"),
+        },
+    )
 
 
 def make_yam_articulation_cfg(

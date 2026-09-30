@@ -691,6 +691,20 @@ def _test_usbc_insertion_environment(_simulation_app, variant: str, num_envs: in
         assert len(cable_joints) == (16 if variant == "easy" else 24) * num_envs
         _check_usbc_cable_reset(base_env, arena_environment)
 
+        for side in ("left", "right"):
+            robot = base_env.scene[f"{side}_robot"]
+            displaced_joints = robot.data.default_joint_pos.torch.clone()
+            displaced_joints[:, 0] += 0.2
+            robot.write_joint_state_to_sim(displaced_joints, torch.zeros_like(displaced_joints))
+        base_env._reset_idx(torch.arange(num_envs, device=base_env.device))
+        for side in ("left", "right"):
+            robot = base_env.scene[f"{side}_robot"]
+            assert torch.allclose(robot.data.joint_pos.torch[:, :6], robot.data.default_joint_pos.torch[:, :6])
+            # Newton clamps the open fingers about 1 mm inside their configured limit.
+            assert torch.allclose(
+                robot.data.joint_pos.torch[:, 6:], robot.data.default_joint_pos.torch[:, 6:], atol=0.002
+            )
+
         receiver = base_env.scene[arena_environment.task.receiver.name]
         moved_pose = receiver_pose.clone()
         moved_pose[:, 0] += 0.05
