@@ -7,7 +7,7 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field, replace
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -34,8 +34,8 @@ class ClutterGenerationCfg:
     """Exact number of accepted layouts to save; None uses num_envs."""
     seed: int = 42
     """Seed for placement solving and reset randomization."""
-    attempts: int = 5
-    """Batch budget multiplier: at most ceil(num_layouts / num_envs) * attempts resets."""
+    max_batches: int = 5
+    """Maximum resets to sample before requiring the requested accepted count."""
     presets: str | None = None
     """Physics backend override: physx or newton."""
     render: bool = False
@@ -77,10 +77,9 @@ def generate_clutter_layouts(
     from isaaclab_arena.assets.object_set import RigidObjectSet
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
-    from isaaclab_arena.offline_placement.recording import validate_recording_assets
+    from isaaclab_arena.offline_placement.recording import validate_recording_assets, write_settled_layouts
     from isaaclab_arena.offline_placement.settled_placement import collect_settled_placements
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-    from isaaclab_arena.relations.placement_layouts import PlacementLayouts
     from isaaclab_arena.relations.relations import ClutterOn, get_relation
 
     output = Path(cfg.output)
@@ -90,12 +89,13 @@ def generate_clutter_layouts(
     assert not any(isinstance(asset, RigidObjectSet) for asset in assets), "Resolve object sets before generation"
     assert any(get_relation(asset, ClutterOn) is not None for asset in assets), "Generation requires ClutterOn objects"
     num_layouts = cfg.num_envs if cfg.num_layouts is None else cfg.num_layouts
-    assert cfg.num_envs > 0 and num_layouts > 0 and cfg.attempts > 0, "Counts and attempts must be positive"
-    batches = (num_layouts + cfg.num_envs - 1) // cfg.num_envs
+    assert cfg.num_envs > 0 and num_layouts > 0 and cfg.max_batches > 0, "Counts and batch budget must be positive"
+    assert cfg.max_batches * cfg.num_envs >= num_layouts, "Batch budget cannot supply the requested layout count"
     arena_env.placer_params = replace(
         arena_env.placer_params or ObjectPlacerParams(),
         placement_seed=cfg.seed,
-        min_unique_layouts_per_env=batches,
+        # Refill on reset instead of solving the entire output quota at startup.
+        min_unique_layouts_per_env=1,
         resolve_on_reset=True,
     )
     builder = ArenaEnvBuilder(
@@ -109,7 +109,7 @@ def generate_clutter_layouts(
         outcomes = []
         rejections = {}
         attempted = 0
-        for batch_index in range(batches * cfg.attempts):
+        for batch_index in range(cfg.max_batches):
             result = collect_settled_placements(
                 env, 1, cfg.settle, render=cfg.render, scene_assets=assets, log_progress=True
             )
@@ -121,36 +121,14 @@ def generate_clutter_layouts(
             for key, values in result.poses.items():
                 poses.setdefault(key, []).extend(values[:remaining])
             outcomes.extend(result.validation[:remaining])
-            print(
-                f"[generation] batch {batch_index + 1}/{batches * cfg.attempts}:"
-                f" {len(outcomes)}/{num_layouts} collected"
-            )
+            print(f"[generation] batch {batch_index + 1}/{cfg.max_batches}: {len(outcomes)}/{num_layouts} collected")
             if len(outcomes) == num_layouts:
                 break
         assert (
             len(outcomes) == num_layouts
         ), f"Accepted {len(outcomes)} layouts; need {num_layouts}. Rejections: {rejections}"
-        layouts = PlacementLayouts(poses)
-        layouts.validate_assets(assets)
-        embodiment_keys = []
-        for asset in assets:
-            if asset.tags and "embodiment" in asset.tags:
-                embodiment_keys.extend(asset.get_scene_root_keys())
-        sampling = {
-            "num_steps": cfg.settle.num_steps,
-            "decimation": env.unwrapped.cfg.decimation,
-            "physics_dt_s": env.unwrapped.sim.get_physics_dt(),
-            "embodiment_keys": embodiment_keys,
-        }
-        validation = []
-        for outcome in outcomes:
-            validation.append({
-                "pre_physics": outcome.pre_physics,
-                "post_physics": [asdict(report) for report in outcome.post_physics],
-                "sampling": sampling,
-            })
-        layouts.write_episode_jsonl(output, source="settled", validation=validation)
-        print(f"Saved {layouts.num_layouts} accepted layouts from {attempted} candidates: {output}")
+        write_settled_layouts(env, output, assets, poses, outcomes, cfg.settle.num_steps)
+        print(f"Saved {len(outcomes)} accepted layouts from {attempted} candidates: {output}")
         return output
     finally:
         env.close()

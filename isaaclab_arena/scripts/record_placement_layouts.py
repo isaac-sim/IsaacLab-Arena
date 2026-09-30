@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import argparse
 from collections import Counter
-from dataclasses import asdict, replace
+from dataclasses import replace
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -102,11 +102,10 @@ def record_placements_to_jsonl(
         render: Render the offline physics steps.
         scene_assets: Asset definitions for scene roots outside the placement pool.
     """
-    from isaaclab_arena.offline_placement.recording import validate_recording_assets
+    from isaaclab_arena.offline_placement.recording import validate_recording_assets, write_settled_layouts
     from isaaclab_arena.offline_placement.recording_params import PlacementRecordingParams
     from isaaclab_arena.offline_placement.settled_placement import collect_settled_placements
     from isaaclab_arena.relations.placement_events import get_placement_pool
-    from isaaclab_arena.relations.placement_layouts import PlacementLayouts
 
     output = Path(output)
     assert not output.exists(), f"Output already exists: {output}"
@@ -128,26 +127,7 @@ def record_placements_to_jsonl(
     )
     if summary.accepted < params.min_layouts:
         return summary
-    layouts = PlacementLayouts(result.poses)
-    layouts.validate_assets(assets)
-    embodiment_keys = []
-    for asset in assets:
-        if asset.tags and "embodiment" in asset.tags:
-            embodiment_keys.extend(asset.get_scene_root_keys())
-    sampling = {
-        "num_steps": params.num_steps,
-        "decimation": env.unwrapped.cfg.decimation,
-        "physics_dt_s": env.unwrapped.sim.get_physics_dt(),
-        "embodiment_keys": embodiment_keys,
-    }
-    validation = []
-    for outcome in result.validation:
-        validation.append({
-            "pre_physics": outcome.pre_physics,
-            "post_physics": [asdict(report) for report in outcome.post_physics],
-            "sampling": sampling,
-        })
-    layouts.write_episode_jsonl(output, source="settled", validation=validation)
+    write_settled_layouts(env, output, assets, result.poses, result.validation, params.num_steps)
     summary.output = output
     return summary
 

@@ -13,16 +13,17 @@ Generate reusable layouts
 Complete :doc:`../../quickstart/installation` and run the following command from
 the repository root in your native environment or Arena container. The maintained
 ``franka_three_hammers_and_clamp_no_task`` environment drops three hammers and a
-clamp onto a table:
+clamp onto a table. This command opens a viewer and requires a display. For a
+headless run, use ``render=false --viz none`` instead of ``render=true --viz kit``:
 
 .. code-block:: bash
 
    python isaaclab_arena/scripts/generate_clutter_scene.py \
        env_spec=isaaclab_arena_environments/clutter/franka_three_hammers_and_clamp_no_task.yaml \
        output=outputs/clutter/episodes.jsonl num_envs=4 num_layouts=10 \
-       seed=42 attempts=5 settle.num_steps=480 \
+       seed=42 max_batches=15 settle.num_steps=480 render=true \
        +settle.validators.support_containment.minimum_resting_heights_m.office_table_background=0.5306 \
-       --viz none
+       --device cpu --viz kit
 
 The table has a beveled top, so the command sets its minimum resting height
 explicitly to 0.5306 m along its scaled local Z axis.
@@ -34,10 +35,16 @@ requested count is not reached within the batch budget, generation raises an
 error with rejection reasons and writes no file. Existing files are never
 overwritten; choose a new output path when rerunning.
 
+On PhysX, resetting a fixed support can print ``Body must be non-kinematic``
+when the background reset writes its velocity. This diagnostic also occurs in
+the normal reset path. Check the validator reports and saved-layout count to
+determine whether generation succeeded.
+
 ``num_envs`` controls parallel environments; ``num_layouts`` is the total number
-to save and defaults to ``num_envs``. ``attempts`` multiplies the minimum batch
-count: this command permits up to 15 batches (three batches for 10 layouts, times
-five attempts). Each batch resets every environment, then advances
+to save and defaults to ``num_envs``. ``max_batches`` is the maximum number of
+resets to sample: the command permits up to 15 batches. The initial placement pool
+holds one layout per environment and refills as needed. Each batch resets every
+environment, then advances
 ``settle.num_steps`` environment steps if any candidate passed solver validation.
 Extra accepted layouts in the final batch are omitted.
 
@@ -46,8 +53,8 @@ Generation settings use Hydra ``key=value`` syntax; launcher options use
 for example, append ``settle.validators.physics_settled.lin_vel_thresh=0.05``
 to lower the final linear-speed limit. See `Acceptance checks`_ for all defaults.
 
-These images illustrate release and settled poses for the example environment;
-the generated layouts need not match them:
+These captures show one environment with seed 42, before and after the same
+480-step settling pass. The four-environment command can produce different layouts:
 
 .. figure:: ../../../images/clutter/release.png
    :width: 640px
@@ -89,9 +96,7 @@ After starting ``SimulationApp``, Python callers can pass an
 ``generate_clutter_layouts(arena_env, cfg)`` with a ``ClutterGenerationCfg`` from
 ``isaaclab_arena.offline_placement.clutter_generation``. The generator builds and
 closes its environment. To collect poses from an environment you own, use the
-shared :doc:`recording` Python API.
-
-Use the :doc:`recording` Python API to collect layouts. For ``ClutterOn``, pass
+shared :doc:`recording` Python API. For ``ClutterOn``, pass
 ``scene_assets=arena_env.get_placement_assets()`` so preparation can inspect the
 complete scene. Collection checks clutter prerequisites before resetting or
 stepping physics.
@@ -145,6 +150,29 @@ measurements without stepping physics or reading the live environment.
 
 Containers
 ----------
+
+These captures use the library's ``bowl_ycb_robolab`` asset with three 2 cm
+cubes, seed 42 and 480 environment steps. The bowl is fixed at Z = 0.56 m;
+the cubes use ``ClutterOn(bowl, spread=0.3, clearance_m=0.01, random_yaw=False)``.
+Configure a fixed bowl before building the environment:
+
+.. code-block:: python
+
+   from isaaclab.sim import RigidBodyBaseCfg
+
+   bowl.object_cfg.spawn.rigid_props = RigidBodyBaseCfg(kinematic_enabled=True)
+
+.. figure:: ../../../images/clutter/bowl_release.png
+   :width: 640px
+   :alt: Three cubes above the bowl before physics settling.
+
+   Release poses above the rim, seed 42.
+
+.. figure:: ../../../images/clutter/bowl_settled.png
+   :width: 640px
+   :alt: The cubes resting inside the bowl after physics settling.
+
+   The same layout after 480 environment steps and acceptance checks.
 
 Release placement stays above the full support bounds, including a container's
 rim. For settling inside a bin or bowl, configure the minimum accepted height of
