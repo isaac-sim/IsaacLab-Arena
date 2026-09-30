@@ -37,7 +37,6 @@ def _test_lift_captures_active_height_and_resets_selectively(simulation_app):
 
     from isaaclab.managers import TerminationTermCfg
 
-    from isaaclab_arena.progress_tracking.progress_tracker import _PredicateEvaluation
     from isaaclab_arena.tasks.predicates.object_lifted import ObjectLifted
 
     env, positions, _, _, _ = _make_environment()
@@ -45,9 +44,7 @@ def _test_lift_captures_active_height_and_resets_selectively(simulation_app):
     predicate = ObjectLifted(cfg, env)
 
     def evaluate(active_mask=None):
-        if active_mask is None:
-            active_mask = torch.ones(env.num_envs, dtype=torch.bool)
-        return _PredicateEvaluation(env, env.num_envs, env.device).evaluate(predicate, active_mask)
+        return predicate(env, **cfg.params, active_envs=active_mask)
 
     active_mask = torch.tensor([True, False])
     assert not evaluate(active_mask).any()
@@ -63,7 +60,7 @@ def _test_lift_captures_active_height_and_resets_selectively(simulation_app):
     assert evaluate().tolist() == [False, True]
     positions[0, 2] += 0.1
     assert evaluate().all()
-    predicate.reset([0, 1])
+    predicate.reset()
     assert not evaluate().any()
     return True
 

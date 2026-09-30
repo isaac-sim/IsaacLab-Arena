@@ -21,7 +21,7 @@ from isaaclab_arena.progress_tracking.progress_tracking_utils import (
     _is_predicate,
     _predicate_repr,
 )
-from isaaclab_arena.tasks.predicates.stateful_predicate import StatefulPredicate
+from isaaclab_arena.tasks.predicates.object_lifted import ObjectLifted
 from isaaclab_arena.tasks.predicates.temporal import TrueForConsecutiveStepsCfg, _TrueForConsecutiveSteps
 
 
@@ -30,15 +30,13 @@ def _initialize_predicate_parameters(value, env) -> None:
     # TaskSuccessTerm constructs the tracker before env.termination_manager exists.
     # Isaac Lab therefore cannot initialize these nested configurations for us.
     if isinstance(value, TerminationTermCfg):
-        assert not isinstance(
-            value.func, StatefulPredicate
-        ), "Configure a stateful predicate class, not a live instance."
+        assert isinstance(value.func, type) or _is_predicate(
+            value.func
+        ), "Configure the ObjectLifted class, not a live instance."
         _initialize_predicate_parameters(value.params, env)
         if isinstance(value.func, type):
             value.func = value.func(value, env)
-        assert callable(value.func) or isinstance(
-            value.func, StatefulPredicate
-        ), "Predicate configs must resolve to a predicate."
+        assert callable(value.func), "Predicate configs must resolve to a callable."
     elif isinstance(value, SceneEntityCfg):
         value.resolve(env.scene)
     elif isinstance(value, dict):
@@ -61,15 +59,12 @@ def _prepare_predicate(predicate, num_envs: int, device, env=None):
         )
     if not isinstance(predicate, TerminationTermCfg):
         return predicate
-    assert not isinstance(
-        predicate.func, StatefulPredicate
-    ), "Configure a stateful predicate class, not a live instance."
+    assert isinstance(predicate.func, type) or _is_predicate(
+        predicate.func
+    ), "Configure the ObjectLifted class, not a live instance."
     assert env is not None, "An environment is required to initialize a configured progress predicate."
     predicate_cfg = copy.deepcopy(predicate)
     _initialize_predicate_parameters(predicate_cfg, env)
-    if isinstance(predicate_cfg.func, StatefulPredicate):
-        # Stateful classes bind their parameters during construction; keep their lifecycle visible.
-        return predicate_cfg.func
     return functools.partial(predicate_cfg.func, **predicate_cfg.params)
 
 
@@ -82,7 +77,7 @@ class _PredicateEvaluation:
         self.device = device
         self._results: dict[int, tuple[torch.Tensor, torch.Tensor]] = {}
 
-    def evaluate(self, predicate: Callable | StatefulPredicate, active_envs: torch.Tensor) -> torch.Tensor:
+    def evaluate(self, predicate: Callable | _TrueForConsecutiveSteps, active_envs: torch.Tensor) -> torch.Tensor:
         """Evaluate each stateful occurrence at most once per active environment.
 
         Ordinary callables evaluate the full batch once, keyed by callable identity.
@@ -95,11 +90,17 @@ class _PredicateEvaluation:
                 torch.zeros(self.num_envs, dtype=torch.bool, device=self.device),
             )
         cached_result, evaluated_envs = self._results[predicate_key]
-        stateful = isinstance(predicate, StatefulPredicate)
-        requested_envs = active_envs if stateful else torch.ones_like(active_envs)
+        predicate_function = predicate.func if isinstance(predicate, functools.partial) else predicate
+        updates_active_envs = isinstance(predicate_function, (ObjectLifted, _TrueForConsecutiveSteps))
+        requested_envs = active_envs if updates_active_envs else torch.ones_like(active_envs)
         pending_envs = requested_envs & ~evaluated_envs
         if bool(pending_envs.any().item()):
-            result = predicate.evaluate(self, pending_envs) if stateful else predicate(self.env)
+            if isinstance(predicate, _TrueForConsecutiveSteps):
+                result = predicate.evaluate(self, pending_envs)
+            elif isinstance(predicate_function, ObjectLifted):
+                result = predicate(self.env, active_envs=pending_envs)
+            else:
+                result = predicate(self.env)
             result = torch.as_tensor(result, dtype=torch.bool, device=self.device)
             assert result.shape == (self.num_envs,), (
                 f"Predicate {_predicate_repr(predicate)} returned shape {tuple(result.shape)};"
@@ -188,7 +189,7 @@ class CompletionCriteriaRunner:
         self.sequence_score: dict[str, torch.Tensor] = {}
         self.sequence_complete: dict[str, torch.Tensor] = {}
         self.predicate_chains = {}
-        self._stateful_predicates: list[StatefulPredicate] = []
+        self._stateful_predicates: list[ObjectLifted | _TrueForConsecutiveSteps] = []
         self.prerequisites = [
             self._prepare_owned_predicate(predicate, env) for predicate in completion_criteria.prerequisites
         ]
@@ -207,14 +208,17 @@ class CompletionCriteriaRunner:
     def _prepare_owned_predicate(self, predicate, env):
         """Register the runtime roots whose lifecycle belongs to this runner."""
         prepared_predicate = _prepare_predicate(predicate, self.num_envs, self.device, env)
-        if isinstance(prepared_predicate, StatefulPredicate):
-            self._stateful_predicates.append(prepared_predicate)
+        predicate_function = (
+            prepared_predicate.func if isinstance(prepared_predicate, functools.partial) else prepared_predicate
+        )
+        if isinstance(predicate_function, (ObjectLifted, _TrueForConsecutiveSteps)):
+            self._stateful_predicates.append(predicate_function)
         return prepared_predicate
 
     @property
     def requires_step_index(self) -> bool:
         """Whether any owned predicate requires consecutive control-step indices."""
-        return any(predicate.requires_step_index for predicate in self._stateful_predicates)
+        return any(isinstance(predicate, _TrueForConsecutiveSteps) for predicate in self._stateful_predicates)
 
     def step(
         self,
@@ -500,7 +504,7 @@ class ProgressTracker:
 
         assert (
             step_index is not None or not self._requires_step_index
-        ), "Stateful temporal predicates require a per-environment step_index."
+        ), "Consecutive-step predicates require a per-environment step_index."
         if step_index is not None:
             assert step_index.shape == (self.num_envs,), "step_index must contain one index per environment."
             assert step_index.dtype in (torch.int32, torch.int64), "step_index must contain integer indices."
@@ -568,7 +572,7 @@ class ProgressTracker:
         criteria_name: str,
         sequence_name: str = DEFAULT_SEQUENCE_NAME,
         predicate_index: int = 0,
-    ) -> Callable | StatefulPredicate:
+    ) -> Callable:
         """Return the resolved predicate for reading diagnostics without evaluating it.
 
         Args:

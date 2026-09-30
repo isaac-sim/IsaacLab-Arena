@@ -11,7 +11,7 @@ from collections.abc import Callable
 
 from isaaclab.managers import ManagerTermBase, TerminationTermCfg
 
-from isaaclab_arena.tasks.predicates.stateful_predicate import StatefulPredicate
+from isaaclab_arena.tasks.predicates.object_lifted import ObjectLifted
 from isaaclab_arena.tasks.predicates.temporal import TrueForConsecutiveStepsCfg, _TrueForConsecutiveSteps
 
 Predicate = Callable | TerminationTermCfg | TrueForConsecutiveStepsCfg
@@ -25,7 +25,8 @@ DEFAULT_SEQUENCE_NAME = "default_sequence"
 
 def _is_predicate(value) -> bool:
     """Return whether value is a configuration or an ordinary callable."""
-    return not isinstance(value, StatefulPredicate) and (
+    predicate_function = value.func if isinstance(value, functools.partial) else value
+    return not isinstance(predicate_function, (ObjectLifted, _TrueForConsecutiveSteps)) and (
         isinstance(value, (TerminationTermCfg, TrueForConsecutiveStepsCfg))
         or (callable(value) and not isinstance(value, type))
     )

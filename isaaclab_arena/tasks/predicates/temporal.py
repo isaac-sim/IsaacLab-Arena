@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import functools
 import torch
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -14,7 +15,7 @@ from typing import TYPE_CHECKING
 
 from isaaclab.managers import TerminationTermCfg
 
-from isaaclab_arena.tasks.predicates.stateful_predicate import StatefulPredicate
+from isaaclab_arena.tasks.predicates.object_lifted import ObjectLifted
 
 if TYPE_CHECKING:
     from isaaclab_arena.progress_tracking.progress_tracker import _PredicateEvaluation
@@ -24,8 +25,8 @@ if TYPE_CHECKING:
 class TrueForConsecutiveStepsCfg:
     """Require a predicate to remain true for consecutive active control steps.
 
-    Each occurrence owns its counter and any stateful child. Reusing a configuration
-    shares no episode state; reusing an ordinary callable shares its per-step evaluation.
+    Each occurrence owns its counter and its configured child. Reusing a configuration
+    creates separate instances; reusing an ordinary callable shares its per-step evaluation.
     """
 
     predicate: Callable | TerminationTermCfg | TrueForConsecutiveStepsCfg
@@ -35,7 +36,8 @@ class TrueForConsecutiveStepsCfg:
     """Positive number of consecutive qualifying control steps."""
 
     def __post_init__(self):
-        assert not isinstance(self.predicate, StatefulPredicate) and (
+        predicate_function = self.predicate.func if isinstance(self.predicate, functools.partial) else self.predicate
+        assert not isinstance(predicate_function, ObjectLifted) and (
             isinstance(self.predicate, (TerminationTermCfg, TrueForConsecutiveStepsCfg))
             or (callable(self.predicate) and not isinstance(self.predicate, type))
         ), "predicate must be a callable, TerminationTermCfg, or TrueForConsecutiveStepsCfg."
@@ -46,12 +48,10 @@ class TrueForConsecutiveStepsCfg:
         ), "required_steps must be a positive integer."
 
 
-class _TrueForConsecutiveSteps(StatefulPredicate):
-    """Own a consecutive-step counter and the lifecycle of its child predicate."""
+class _TrueForConsecutiveSteps:
+    """Count consecutive true steps and reset owned lift or consecutive-step children."""
 
-    requires_step_index = True
-
-    def __init__(self, *, predicate: Callable | StatefulPredicate, required_steps: int, num_envs: int, device):
+    def __init__(self, *, predicate: Callable | _TrueForConsecutiveSteps, required_steps: int, num_envs: int, device):
         self.predicate = predicate
         self.required_steps = required_steps
         self._consecutive_true_steps = torch.zeros(num_envs, dtype=torch.long, device=device)
@@ -68,5 +68,6 @@ class _TrueForConsecutiveSteps(StatefulPredicate):
 
     def reset(self, env_ids: list[int] | torch.Tensor) -> None:
         self._consecutive_true_steps[env_ids] = 0
-        if isinstance(self.predicate, StatefulPredicate):
-            self.predicate.reset(env_ids)
+        predicate = self.predicate.func if isinstance(self.predicate, functools.partial) else self.predicate
+        if isinstance(predicate, (ObjectLifted, _TrueForConsecutiveSteps)):
+            predicate.reset(env_ids)

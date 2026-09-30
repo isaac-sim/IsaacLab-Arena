@@ -16,9 +16,9 @@ Predicates
 
 A predicate represents a boolean condition in a task, such as an object settling,
 being lifted, or reaching its destination. An instantaneous predicate is a callable that receives
-the manager-based environment and returns one Boolean per parallel environment. Predicates that
-retain episode state follow the ``StatefulPredicate`` contract. Each configured occurrence has
-its own runtime state.
+the manager-based environment and returns one Boolean per parallel environment. ``ObjectLifted``
+and consecutive-step requirements also retain episode state. The tracker manages activation and
+reset for these checks, with separate state for each configured occurrence.
 
 Included predicates
 ~~~~~~~~~~~~~~~~~~~
@@ -72,16 +72,6 @@ A predicate may accept any task-specific arguments it needs after ``env``. For e
 The arguments after ``env`` are configured when the predicate is added to a criteria set
 (shown in the next section).
 
-For a predicate that owns episode state, implement ``StatefulPredicate`` and configure its class
-through ``TerminationTermCfg``. Its evaluation returns one Boolean per environment and updates
-state only for the active environments supplied by the runner. Its ``reset(env_ids)`` method clears
-state only for the restarting environments. The runner prepares a separate instance for each
-configured occurrence.
-
-``TrueForConsecutiveStepsCfg`` can wrap either an instantaneous predicate or a configured stateful
-predicate. Its runtime owns the counter and its child, including forwarding selected episode resets
-to a stateful child. Nested consecutive-step configurations are also supported.
-
 
 Defining completion criteria
 -----------------------------
@@ -103,8 +93,8 @@ The runner's state exposes ``prerequisites_met`` without evaluating the conditio
 For sequential subtasks, prerequisites begin when the subtask becomes active.
 Policy actions and the episode clock continue while prerequisites are pending.
 Ordinary callable prerequisites evaluate the full batch and should be free of state updates;
-the runner activates stateful prerequisites only for waiting environments in active criteria sets.
-It resets their runtimes through the tracker.
+the runner updates lift references and consecutive-step counters only for waiting environments
+in active criteria sets. It clears that state for the environments being reset.
 
 Add ``CompletionCriteria`` entries to ``TaskTerminationCfg.success``. Provide exactly one of
 ``predicate_sequence`` for a list of predicates or ``predicate_sequences`` for a dictionary of named lists.
@@ -205,9 +195,11 @@ This configuration can also go directly in ``predicate_sequence`` or inside ``Tr
 ``CompletionCriteriaRunner`` prepares the configuration, including nested predicates, and evaluates
 the resulting runtime; ``TerminationTermCfg`` does not create a separate termination-manager term
 here. The runner initializes a configured class with ``(cfg, env)``;
-``ManagerTermBase`` inheritance is not required. Ordinary callable classes retain the instantaneous
-contract. A ``reset()`` method alone does not opt them into episode resets; implement
-``StatefulPredicate`` when the tracker must manage episode state.
+``ManagerTermBase`` inheritance is not required. Ordinary callable classes evaluate the full batch.
+The tracker explicitly manages active-environment masks and episode resets for ``ObjectLifted``
+and consecutive-step runtimes. Inheriting ``ManagerTermBase`` or defining a ``reset()`` method alone
+does not enable that behavior for another class. Other predicates that retain episode state must
+clear it through their own reset path.
 
 ``PickAndPlaceTask`` defaults to ``placement_consecutive_steps=1``. Set it to a larger positive
 integer, such as ``10``, to require placement, support, and low speed to hold together for that
@@ -245,7 +237,8 @@ before the task completes.
 Conditions that must remain true
 --------------------------------
 
-Use ``TrueForConsecutiveStepsCfg`` around an instantaneous predicate or a configured stateful predicate:
+Use ``TrueForConsecutiveStepsCfg`` around an instantaneous predicate, a configured ``ObjectLifted``,
+or another consecutive-step requirement:
 
 .. code-block:: python
 
@@ -257,11 +250,12 @@ Use ``TrueForConsecutiveStepsCfg`` around an instantaneous predicate or a config
 ``placed_and_stable`` returns one Boolean per environment; it does not maintain a counter.
 ``CompletionCriteriaRunner`` prepares each ``TrueForConsecutiveStepsCfg`` occurrence recursively,
 creating a fresh ``_TrueForConsecutiveSteps`` runtime and its child. The runtime owns its counter
-and the child's lifecycle.
+and forwards activation and resets to a child that is ``ObjectLifted`` or another consecutive-step
+runtime. Ordinary callable children are evaluated without active masks or automatic resets.
 For active environments, a true child result adds one to the counter and false clears the streak.
-``CompletionCriteriaRunner`` owns its prepared prerequisite and sequence entries, selects
-their active environments, and resets them through ``TaskSuccessTerm`` / ``ProgressTracker``.
-Each runtime then resets its owned stateful children.
+``CompletionCriteriaRunner`` owns its prepared prerequisite and sequence entries. It selects active
+environments for lift and consecutive-step checks and resets them through
+``TaskSuccessTerm`` / ``ProgressTracker``. Each consecutive-step runtime then resets its supported child.
 
 For example, this configuration captures a lift reference when active and requires the object to
 remain above that reference for three consecutive steps:
@@ -276,8 +270,9 @@ remain above that reference for three consecutive steps:
 Reusing ``held_lift`` in another sequence position creates a separate counter and lift reference.
 The tracker shares cached results within one control-step update, including nested evaluations and
 final-condition checks. An ordinary callable is evaluated once by identity for the full batch.
-Each stateful occurrence updates only the requested environments that have not yet been evaluated
-during that step. Reading a cached result does not activate another environment or advance state again.
+Each lift or consecutive-step occurrence updates only the requested environments that have not yet
+been evaluated during that step. Reading a cached result does not activate another environment or
+advance state again.
 
 ``TaskSuccessTerm`` advances ``ProgressTracker`` once per control step. Reporting and other consumers
 read ``is_complete()``, ``get_state()``, or ``get_events()`` without advancing progress.

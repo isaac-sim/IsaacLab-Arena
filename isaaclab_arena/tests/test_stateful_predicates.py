@@ -285,11 +285,13 @@ def _test_stateful_declarations_reject_runtime_instances_and_invalid_parameters(
     source_criteria = CompletionCriteria(name="source", predicate_sequence=[lifted])
     source_tracker = ProgressTracker([source_criteria], env.num_envs, env.device, env=env)
     runtime = source_tracker.get_predicate("source")
-    configured_runtime = TerminationTermCfg(func=runtime)
-    invalid_criteria = CompletionCriteria(name="configured_runtime", predicate_sequence=[configured_runtime])
-    with pytest.raises(AssertionError):
-        ProgressTracker([invalid_criteria], env.num_envs, env.device, env=env)
-    for invalid_predicate in (runtime, _CallablePredicate, ObjectLifted):
+    configured_callable = partial(runtime, object_name="object")
+    for live_predicate in (runtime, configured_callable):
+        configured_runtime = TerminationTermCfg(func=live_predicate)
+        invalid_criteria = CompletionCriteria(name="configured_runtime", predicate_sequence=[configured_runtime])
+        with pytest.raises(AssertionError):
+            ProgressTracker([invalid_criteria], env.num_envs, env.device, env=env)
+    for invalid_predicate in (runtime, configured_callable, _CallablePredicate, ObjectLifted):
         with pytest.raises(AssertionError):
             TrueForConsecutiveStepsCfg(invalid_predicate, required_steps=2)
         with pytest.raises(AssertionError):
@@ -353,6 +355,61 @@ def _test_partial_predicates_keep_distinct_configured_arguments(_simulation_app)
     return True
 
 
+def _test_ordinary_manager_terms_keep_their_existing_call_and_reset_contract(_simulation_app):
+    from isaaclab.managers import ManagerTermBase, TerminationTermCfg
+
+    from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
+    from isaaclab_arena.progress_tracking.progress_tracker import ProgressTracker
+    from isaaclab_arena.tasks.predicates.temporal import TrueForConsecutiveStepsCfg
+
+    class _ReadyTerm(ManagerTermBase):
+        def __init__(self, cfg, env):
+            super().__init__(cfg, env)
+            self.calls = 0
+
+        def __call__(self, env, expected_ready=True):
+            self.calls += 1
+            return env.ready == expected_ready
+
+        def reset(self, env_ids=None):
+            raise AssertionError("Existing manager terms retain their external reset lifecycle.")
+
+    env = _make_environment()
+    ready_cfg = TerminationTermCfg(func=_ReadyTerm, params={"expected_ready": True})
+    criteria_sets = [
+        CompletionCriteria(name="ready", predicate_sequence=[ready_cfg]),
+        CompletionCriteria(
+            name="held_ready", predicate_sequence=[TrueForConsecutiveStepsCfg(ready_cfg, required_steps=2)]
+        ),
+    ]
+    tracker = ProgressTracker(criteria_sets, env.num_envs, env.device, env=env)
+    ready_term = tracker.get_predicate("ready")
+    held_ready_term = tracker.get_predicate("held_ready")
+    assert isinstance(ready_term, _ReadyTerm)
+    assert isinstance(held_ready_term, _ReadyTerm)
+    assert ready_term is not held_ready_term
+    assert ready_cfg.func is _ReadyTerm
+
+    _step(tracker, env)
+    assert not tracker.is_complete().any()
+    assert ready_term.calls == 1
+    assert held_ready_term.calls == 1
+    _step(tracker, env)
+    assert tracker.is_complete().all()
+    assert ready_term.calls == 1
+    assert held_ready_term.calls == 2
+
+    tracker.reset([0])
+    env.episode_length_buf[0] = 0
+    _step(tracker, env)
+    assert tracker.is_complete().tolist() == [False, True]
+    _step(tracker, env)
+    assert tracker.is_complete().all()
+    assert ready_term.calls == 2
+    assert held_ready_term.calls == 4
+    return True
+
+
 def test_reused_configuration_has_independent_sequence_occurrences():
     assert run_function_with_persistent_simulation_app(_test_reused_configuration_has_independent_sequence_occurrences)
 
@@ -385,3 +442,9 @@ def test_stateful_declarations_reject_runtime_instances_and_invalid_parameters()
 
 def test_partial_predicates_keep_distinct_configured_arguments():
     assert run_function_with_persistent_simulation_app(_test_partial_predicates_keep_distinct_configured_arguments)
+
+
+def test_ordinary_manager_terms_keep_their_existing_call_and_reset_contract():
+    assert run_function_with_persistent_simulation_app(
+        _test_ordinary_manager_terms_keep_their_existing_call_and_reset_contract
+    )
