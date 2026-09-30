@@ -540,7 +540,7 @@ def _test_pick_and_place_uses_typed_success_failure_and_timeout(simulation_app):
     from isaaclab_arena.progress_tracking.task_success import TaskSuccessTerm
     from isaaclab_arena.scene.scene import Scene
     from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
-    from isaaclab_arena.tasks.predicates.object_lifted import ObjectLifted
+    from isaaclab_arena.tasks.predicates.object_lifted import ObjectLiftedCfg
     from isaaclab_arena.tasks.predicates.object_settling import objects_below_velocity_thresholds
     from isaaclab_arena.tasks.predicates.spatial import object_on_destination
     from isaaclab_arena.tasks.predicates.temporal import TrueForConsecutiveStepsCfg
@@ -567,8 +567,8 @@ def _test_pick_and_place_uses_typed_success_failure_and_timeout(simulation_app):
     assert settled.predicate.keywords == {"object_names": ["object"]}
     assert settled.required_steps == task.settling_steps
     lifted, placement_requirement = termination_cfg.success[0].predicate_sequence
-    assert lifted.func is ObjectLifted
-    assert lifted.params == {"object_name": "object"}
+    assert isinstance(lifted, ObjectLiftedCfg)
+    assert lifted.object_name == "object"
     assert isinstance(placement_requirement, TrueForConsecutiveStepsCfg)
     assert placement_requirement.predicate.func is object_on_destination
     assert placement_requirement.required_steps == 1
@@ -587,7 +587,7 @@ def _test_pick_and_place_uses_typed_success_failure_and_timeout(simulation_app):
     criteria_sets = env_cfg.terminations.success.params["success_criteria"]
     assert len(criteria_sets) == 1
     lifted, placement_requirement = criteria_sets[0].predicate_sequence
-    assert lifted.func is ObjectLifted
+    assert isinstance(lifted, ObjectLiftedCfg)
     assert placement_requirement.predicate.func is object_on_destination
     assert placement_requirement.required_steps == 1
     assert env_cfg.terminations.object_dropped.func is root_height_below_minimum

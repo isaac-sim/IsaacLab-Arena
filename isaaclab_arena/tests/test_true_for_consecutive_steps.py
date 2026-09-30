@@ -30,10 +30,12 @@ def _step(tracker, env, step_indices: list[int]):
 def _test_runtime_requirement_updates_only_active_environments(simulation_app):
     import torch
 
-    from isaaclab_arena.tasks.predicates.temporal import _TrueForConsecutiveSteps
+    from isaaclab_arena.progress_tracking.predicate_runtime import PredicateEvaluation, PredicateFactory
+    from isaaclab_arena.tasks.predicates.temporal import TrueForConsecutiveStepsCfg
 
     predicate = _ControlledPredicate([True, True, True])
-    requirement = _TrueForConsecutiveSteps(predicate=predicate, required_steps=2, num_envs=3, device="cpu")
+    requirement = PredicateFactory(3, "cpu").prepare(TrueForConsecutiveStepsCfg(predicate, required_steps=2))
+    env = SimpleNamespace(num_envs=3, device="cpu")
     samples = [
         ([True, True, True], [True, False, True], [False, False, False]),
         # Inactive false results must not clear an existing count.
@@ -44,9 +46,10 @@ def _test_runtime_requirement_updates_only_active_environments(simulation_app):
         ([True, True, False], [False, True, True], [True, True, False]),
     ]
     for predicate_results, active_envs, expected_completion in samples:
-        completion = requirement.update(torch.tensor(predicate_results), torch.tensor(active_envs))
+        predicate.values = predicate_results
+        completion = requirement.evaluate(PredicateEvaluation(env, 3, "cpu"), torch.tensor(active_envs))
         assert completion.tolist() == expected_completion
-    assert predicate.calls == 0
+    assert predicate.calls == len(samples)
     return True
 
 
@@ -415,7 +418,7 @@ def _test_requirement_validation(simulation_app):
         with pytest.raises((AssertionError, TypeError, ValueError)):
             TrueForConsecutiveStepsCfg(predicate, required_steps=invalid_steps)
     requirement = TrueForConsecutiveStepsCfg(predicate, required_steps=2)
-    for invalid_predicate in (None, 42, requirement, _ControlledPredicate):
+    for invalid_predicate in (None, 42, _ControlledPredicate):
         with pytest.raises((AssertionError, TypeError, ValueError)):
             TrueForConsecutiveStepsCfg(invalid_predicate, required_steps=2)
     assert not callable(requirement)

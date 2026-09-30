@@ -35,39 +35,43 @@ def _make_environment():
 def _test_lift_captures_active_height_and_resets_selectively(simulation_app):
     import torch
 
-    from isaaclab.managers import TerminationTermCfg
-
-    from isaaclab_arena.tasks.predicates.object_lifted import ObjectLifted
+    from isaaclab_arena.tasks.predicates.object_lifted import ObjectLiftedCfg
 
     env, positions, _, _, _ = _make_environment()
-    cfg = TerminationTermCfg(func=ObjectLifted, params={"object_name": "object"})
-    predicate = ObjectLifted(cfg, env)
+    cfg = ObjectLiftedCfg(object_name="object")
+    from isaaclab_arena.progress_tracking.predicate_runtime import PredicateEvaluation, PredicateFactory
+
+    predicate = PredicateFactory(env.num_envs, env.device, env).prepare(cfg)
+
+    def evaluate(active_mask=None):
+        if active_mask is None:
+            active_mask = torch.ones(env.num_envs, dtype=torch.bool)
+        return PredicateEvaluation(env, env.num_envs, env.device).evaluate(predicate, active_mask)
+
     active_mask = torch.tensor([True, False])
-    assert not predicate(env, **cfg.params, active_mask=active_mask).any()
+    assert not evaluate(active_mask).any()
     positions[:, 2] += 0.1
-    assert predicate(env, **cfg.params, active_mask=active_mask).tolist() == [True, False]
+    assert evaluate(active_mask).tolist() == [True, False]
     active_mask[:] = True
-    assert predicate(env, **cfg.params, active_mask=active_mask).tolist() == [True, False]
+    assert evaluate(active_mask).tolist() == [True, False]
     positions[:, 2] += 0.1
-    assert predicate(env, **cfg.params).all()
+    assert evaluate().all()
     for _ in range(4):
-        assert predicate(env, **cfg.params).all(), "Evaluation must retain the first active height."
+        assert evaluate().all(), "Evaluation must retain the first active height."
     predicate.reset([0])
-    assert predicate(env, **cfg.params).tolist() == [False, True]
+    assert evaluate().tolist() == [False, True]
     positions[0, 2] += 0.1
-    assert predicate(env, **cfg.params).all()
-    predicate.reset()
-    assert not predicate(env, **cfg.params).any()
+    assert evaluate().all()
+    predicate.reset([0, 1])
+    assert not evaluate().any()
     return True
 
 
 def _test_tracker_gates_lift_and_resets_its_reference(simulation_app):
     from functools import partial
 
-    from isaaclab.managers import TerminationTermCfg
-
     from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
-    from isaaclab_arena.tasks.predicates.object_lifted import ObjectLifted
+    from isaaclab_arena.tasks.predicates.object_lifted import ObjectLiftedCfg
     from isaaclab_arena.tasks.predicates.object_settling import objects_below_velocity_thresholds
     from isaaclab_arena.tasks.predicates.temporal import TrueForConsecutiveStepsCfg
     from isaaclab_arena.tests.test_task_success_from_progress import (
@@ -79,7 +83,7 @@ def _test_tracker_gates_lift_and_resets_its_reference(simulation_app):
         predicate=partial(objects_below_velocity_thresholds, object_names=["object"]),
         required_steps=3,
     )
-    lifted = TerminationTermCfg(func=ObjectLifted, params={"object_name": "object"})
+    lifted = ObjectLiftedCfg(object_name="object")
     criteria_sets = [
         CompletionCriteria(
             name="earlier_task",

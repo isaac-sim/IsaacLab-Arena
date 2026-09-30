@@ -25,7 +25,7 @@ from isaaclab_arena.metrics.object_moved import ObjectMovedRateMetric
 from isaaclab_arena.metrics.success_rate import SuccessRateMetric
 from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
 from isaaclab_arena.tasks.common.mimic_default_params import MIMIC_DATAGEN_CONFIG_DEFAULTS
-from isaaclab_arena.tasks.predicates.object_lifted import DEFAULT_INITIAL_SETTLING_STEPS, ObjectLifted
+from isaaclab_arena.tasks.predicates.object_lifted import ObjectLiftedCfg
 from isaaclab_arena.tasks.predicates.object_settling import objects_below_velocity_thresholds
 from isaaclab_arena.tasks.predicates.spatial import object_on_destination
 from isaaclab_arena.tasks.predicates.temporal import TrueForConsecutiveStepsCfg
@@ -34,6 +34,8 @@ from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
 from isaaclab_arena.tasks.task_transition import Relocate, TaskTransition
 from isaaclab_arena.utils.cameras import get_viewer_cfg_look_at_object
 from isaaclab_arena.utils.configclass import make_configclass
+
+DEFAULT_INITIAL_SETTLING_STEPS = 5
 
 
 @agent_ready
@@ -167,7 +169,7 @@ class PickAndPlaceTask(TaskBase):
             predicate=partial(objects_below_velocity_thresholds, object_names=[self.pick_up_object.name]),
             required_steps=self.settling_steps,
         )
-        lifted = TerminationTermCfg(func=ObjectLifted, params={"object_name": self.pick_up_object.name})
+        lifted = ObjectLiftedCfg(object_name=self.pick_up_object.name)
         return TaskTerminationCfg(
             timeout_s=self.episode_length_s,
             success=[

@@ -10,7 +10,7 @@ import torch
 
 def lift_settled_objects_once(env, object_name: str, lifted_envs: torch.Tensor, settled_steps: torch.Tensor) -> None:
     """Lift newly settled objects once in each selected environment, then let physics place them."""
-    from isaaclab_arena.tasks.predicates.object_lifted import DEFAULT_INITIAL_SETTLING_STEPS
+    from isaaclab_arena.tasks.pick_and_place_task import DEFAULT_INITIAL_SETTLING_STEPS
     from isaaclab_arena.tasks.predicates.object_settling import objects_settled
 
     # Called once before each control step. Wait for physical stability without inspecting predicate state.

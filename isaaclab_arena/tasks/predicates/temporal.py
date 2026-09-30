@@ -3,78 +3,93 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Temporal predicate requirements with runtime state owned by CompletionCriteriaRunner."""
+"""Consecutive-step predicate declarations and their per-occurrence runtime state."""
+
+from __future__ import annotations
 
 import torch
-from collections.abc import Callable
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
-from isaaclab.managers import TerminationTermCfg
+from isaaclab_arena.tasks.predicates.stateful_predicate import (
+    Predicate,
+    PreparedPredicate,
+    StatefulPredicate,
+    StatefulPredicateCfg,
+    is_predicate,
+    predicate_description,
+    predicate_diagnostics,
+)
+
+if TYPE_CHECKING:
+    from isaaclab_arena.progress_tracking.predicate_runtime import PredicateEvaluation, PredicateFactory
 
 
-# Isaac Lab prepares nested configuration fields in place, so this dataclass must remain mutable.
 @dataclass
-class TrueForConsecutiveStepsCfg:
-    """Declare how long an instantaneous predicate must remain true.
+class TrueForConsecutiveStepsCfg(StatefulPredicateCfg):
+    """Require a predicate to remain true for consecutive active control steps.
 
-    CompletionCriteriaRunner creates and owns a _TrueForConsecutiveSteps runtime instance
-    for each configured occurrence.
-    The predicate returns one Boolean per environment without maintaining a streak itself.
-    CompletionCriteriaRunner resets the consecutive-step counter, not the wrapped predicate.
-    The wrapped predicate must not depend on this reset path to clear its own episode state.
-
-    Require the cube to remain below the velocity thresholds for ten consecutive control steps::
-
-        from functools import partial
-        from isaaclab_arena.tasks.predicates.object_settling import objects_below_velocity_thresholds
-
-        resting = partial(objects_below_velocity_thresholds, object_names=["cube"])
-        TrueForConsecutiveStepsCfg(
-            predicate=resting,
-            required_steps=10,
-        )
+    Each occurrence owns its counter and any stateful child runtime. Reusing a configuration
+    shares no episode state; reusing an ordinary callable shares its per-step evaluation.
     """
 
-    predicate: Callable | TerminationTermCfg
-    """Instantaneous check; a callable class in TerminationTermCfg can be initialized with the environment."""
+    predicate: Predicate
+    """Instantaneous callable, Isaac Lab term configuration, or stateful predicate configuration."""
 
     required_steps: int
     """Positive number of consecutive qualifying control steps."""
 
     def __post_init__(self):
-        assert isinstance(self.predicate, TerminationTermCfg) or (
-            callable(self.predicate) and not isinstance(self.predicate, type)
-        ), "predicate must be a configured instantaneous callable or TerminationTermCfg."
+        assert is_predicate(
+            self.predicate
+        ), "predicate must be a callable, TerminationTermCfg, or StatefulPredicateCfg."
         assert (
             isinstance(self.required_steps, int)
             and not isinstance(self.required_steps, bool)
             and self.required_steps > 0
         ), "required_steps must be a positive integer."
 
+    def create_runtime(self, factory: PredicateFactory) -> StatefulPredicate:
+        return _TrueForConsecutiveSteps(
+            predicate=factory.prepare(self.predicate),
+            required_steps=self.required_steps,
+            num_envs=factory.num_envs,
+            device=factory.device,
+            description=self.describe(),
+        )
 
-class _TrueForConsecutiveSteps:
-    """Runtime state for TrueForConsecutiveStepsCfg, owned by CompletionCriteriaRunner.
+    def describe(self) -> str:
+        return (
+            f"TrueForConsecutiveStepsCfg({predicate_description(self.predicate)}, required_steps={self.required_steps})"
+        )
 
-    CompletionCriteriaRunner supplies predicate results, selects active environments,
-    and resets this requirement. This class does not evaluate predicates or track step indices.
-    """
 
-    def __init__(self, *, predicate: Callable, required_steps: int, num_envs: int, device):
-        self.predicate = predicate
-        """Instantaneous callable prepared by CompletionCriteriaRunner."""
-        self.required_steps = required_steps
+class _TrueForConsecutiveSteps(StatefulPredicate):
+    """Own a consecutive-step counter and the lifecycle of its child predicate."""
+
+    requires_step_index = True
+
+    def __init__(self, *, predicate: PreparedPredicate, required_steps: int, num_envs: int, device, description: str):
+        super().__init__(description)
+        self._predicate = predicate
+        self._required_steps = required_steps
         self._consecutive_true_steps = torch.zeros(num_envs, dtype=torch.long, device=device)
 
-    def update(self, predicate_results: torch.Tensor, active_envs: torch.Tensor) -> torch.Tensor:
-        """Update active environments' streaks and return which have reached required_steps."""
+    def evaluate(self, evaluation: PredicateEvaluation, active_envs: torch.Tensor) -> torch.Tensor:
+        predicate_results = evaluation.evaluate(self._predicate, active_envs)
         next_counts = torch.where(
             predicate_results,
-            (self._consecutive_true_steps + 1).clamp(max=self.required_steps),
+            (self._consecutive_true_steps + 1).clamp(max=self._required_steps),
             0,
         )
         self._consecutive_true_steps[active_envs] = next_counts[active_envs]
-        return self._consecutive_true_steps >= self.required_steps
+        return self._consecutive_true_steps >= self._required_steps
 
     def reset(self, env_ids: list[int] | torch.Tensor) -> None:
-        """Clear the streaks for the selected environments."""
         self._consecutive_true_steps[env_ids] = 0
+        if isinstance(self._predicate, StatefulPredicate):
+            self._predicate.reset(env_ids)
+
+    @property
+    def diagnostics(self):
+        return predicate_diagnostics(self._predicate)
