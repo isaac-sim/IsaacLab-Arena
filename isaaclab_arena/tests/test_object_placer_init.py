@@ -15,7 +15,7 @@ from isaaclab_arena.relations.initializers.placement_initializer_base import Ini
 from isaaclab_arena.relations.object_placer import ObjectPlacer
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
-from isaaclab_arena.relations.relations import IsAnchor, NextTo, On, PositionLimitsBox, Side
+from isaaclab_arena.relations.relations import ClutterOn, IsAnchor, NextTo, On, PositionLimitsBox, Side
 from isaaclab_arena.tests.dummy_object import DummyObject
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose
@@ -136,6 +136,30 @@ def test_on_init_clamps_to_center_when_child_wider_than_parent(initializer_cls):
     desk_center = desk.get_world_bounding_box().center[0]
     assert abs(x - float(desk_center[0])) < 1e-6
     assert abs(y - float(desk_center[1])) < 1e-6
+
+
+@pytest.mark.parametrize("initializer_cls", ALL_INITIALIZERS)
+def test_clutter_on_init_stays_within_the_release_region(initializer_cls):
+    """ClutterOn seeds inside its release region, not across the whole support.
+
+    The region is the support's footprint scaled by ``spread``, so seeding against the full
+    footprint would still satisfy the plain On containment check. Several draws are taken because
+    a single one could land inside the region by chance.
+    """
+    desk = _make_desk()
+    box = _make_box("box", size=0.05, height=0.05)
+    relation = ClutterOn(desk, spread=0.2)
+    box.add_relation(relation)
+
+    desk_world = desk.get_bounding_box().translated(desk.get_initial_pose().position_xyz)
+    release_region = relation.get_release_region_bbox(desk_world)
+    assert float(release_region.size[0, 0]) < float(desk_world.size[0, 0]), "Region must be the tighter bound"
+
+    generator = torch.Generator()
+    for seed in range(16):
+        generator.manual_seed(seed)
+        position = _seed(initializer_cls(), [desk, box], {desk}, generator=generator)[box]
+        _assert_footprint_within(position, box.get_bounding_box(), release_region)
 
 
 @pytest.mark.parametrize("initializer_cls", ALL_INITIALIZERS)
