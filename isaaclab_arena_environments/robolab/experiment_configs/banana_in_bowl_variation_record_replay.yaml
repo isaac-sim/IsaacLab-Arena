@@ -1,0 +1,27 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Record by default. For replay, set episode_conditions_path to the recorded
+# episode_results_rebuild0.jsonl and clear rollout_limit.num_episodes.
+runs:
+  banana_in_bowl_variations:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/banana_in_bowl.yaml
+      enable_cameras: true
+    environment_builder:
+      num_envs: 1
+      episode_conditions_path: null
+    policy:
+      type: zero_action
+    rollout_limit:
+      num_episodes: 5
+    variations:
+      light.hdr_image.enabled: true
+      light.hdr_image.hdr_names: [home_office_robolab, billiard_hall_robolab, garage_robolab]
+      bowl.disappear.enabled: true
+      bowl.disappear.sampler_cfg.probability: 0.5
+      droid_abs_joint_pos.camera_extrinsics_wrist_camera.enabled: true
+      droid_abs_joint_pos.camera_extrinsics_wrist_camera.sampler_cfg.low: [-0.04, -0.04, -0.04]
+      droid_abs_joint_pos.camera_extrinsics_wrist_camera.sampler_cfg.high: [0.04, 0.04, 0.04]
