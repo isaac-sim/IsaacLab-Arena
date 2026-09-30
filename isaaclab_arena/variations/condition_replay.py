@@ -7,16 +7,14 @@
 
 from __future__ import annotations
 
-import torch
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from isaaclab.envs import ManagerBasedEnv
+    import torch
 
     from isaaclab_arena.variations.condition_scheduler import ConditionScheduler
     from isaaclab_arena.variations.episode_conditions import EpisodeConditionsOverlay
-    from isaaclab_arena.variations.sampler_base import SamplerBase
     from isaaclab_arena.variations.variation_base import VariationBase
 
 
@@ -29,12 +27,37 @@ class ConditionReplayState:
     episode_results_source: str | None = None
 
 
-def bind_variation_record_keys(variations: dict[str, list[VariationBase]]) -> None:
-    """Set ``variation._record_key`` for every enabled variation host."""
+def bind_condition_replay_sample_overrides(
+    variations: dict[str, list[VariationBase]],
+    overlay: EpisodeConditionsOverlay,
+    scheduler: ConditionScheduler,
+) -> None:
+    """Make enabled variation samplers consume recorded condition rows."""
     for asset_name, asset_variations in variations.items():
         for variation in asset_variations:
-            if variation.enabled:
-                variation._record_key = f"{asset_name}.{variation.name}"
+            if not variation.enabled:
+                continue
+            variation_key = f"{asset_name}.{variation.name}"
+
+            def sample_override(
+                num_samples: int,
+                env_ids: torch.Tensor | None,
+                *,
+                variation_key: str = variation_key,
+            ) -> list | None:
+                if env_ids is None:
+                    if variation_key not in overlay.build_time_variations:
+                        return None
+                    rows = [overlay.build_time_variations[variation_key]]
+                else:
+                    rows = scheduler.runtime_sample_for(variation_key, env_ids.tolist())
+                assert len(rows) == num_samples, (
+                    f"Condition replay returned {len(rows)} rows for variation {variation_key!r}; "
+                    f"expected {num_samples}."
+                )
+                return rows
+
+            variation.set_sample_override_provider(sample_override)
 
 
 def enabled_variation_record_keys(variations: dict[str, list[VariationBase]]) -> set[str]:
@@ -45,43 +68,3 @@ def enabled_variation_record_keys(variations: dict[str, list[VariationBase]]) ->
             if variation.enabled:
                 keys.add(f"{asset_name}.{variation.name}")
     return keys
-
-
-def notify_variation_sample(variation: VariationBase, sample: Any, env_ids: torch.Tensor | None) -> None:
-    """Forward a sample through variation-owned recorder listeners."""
-    for listener in variation._sample_listeners:
-        listener(sample, env_ids)
-
-
-def draw_runtime_variation_sample(
-    env: ManagerBasedEnv,
-    *,
-    variation_key: str,
-    variation: VariationBase,
-    env_ids: torch.Tensor,
-    sampler: SamplerBase,
-    num_samples: int,
-) -> Any:
-    """Draw from the replay scheduler or the live sampler."""
-    replay: ConditionReplayState | None = getattr(env.unwrapped, "condition_replay", None)
-    if replay is not None:
-        rows = replay.scheduler.runtime_sample_for(variation_key, env_ids.tolist())
-        sample = _rows_to_sample(rows, sampler=sampler, device=env_ids.device)
-        notify_variation_sample(variation, sample, env_ids)
-        return sample
-    sample = sampler.sample(num_samples=num_samples, env_ids=env_ids)
-    return sample
-
-
-def _rows_to_sample(rows: list[Any], *, sampler: SamplerBase, device: torch.device) -> Any:
-    if not rows:
-        return sampler.sample(num_samples=0)
-    if isinstance(rows[0], (int, float)):
-        tensor = torch.tensor(rows, device=device, dtype=torch.float32).reshape(len(rows), -1)
-        return tensor
-    if isinstance(rows[0], list):
-        tensor = torch.tensor(rows, device=device, dtype=torch.float32)
-        if tensor.ndim == 1:
-            tensor = tensor.reshape(len(rows), -1)
-        return tensor
-    return rows

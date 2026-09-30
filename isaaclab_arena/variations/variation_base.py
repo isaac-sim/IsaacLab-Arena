@@ -61,6 +61,7 @@ class VariationBase(ABC):
         self.name = name
         self._sampler: SamplerBase | None = None
         self._sample_listeners: list[Callable[[Any, Any], None]] = []
+        self._sample_override_provider: Callable[[int, torch.Tensor | None], list[Any] | None] | None = None
         self.apply_cfg(cfg)
 
     @property
@@ -91,6 +92,15 @@ class VariationBase(ABC):
         if self._sampler is not None:
             self._sampler.add_listener(listener)
 
+    def set_sample_override_provider(
+        self,
+        provider: Callable[[int, torch.Tensor | None], list[Any] | None] | None,
+    ) -> None:
+        """Route future sampler draws through an optional recorded-sample provider."""
+        self._sample_override_provider = provider
+        if self._sampler is not None:
+            self._sampler.set_sample_override_provider(provider)
+
     def _prepare_at_build_time(self) -> None:
         """Configure prerequisites required before environment construction. Default: no-op.
 
@@ -104,16 +114,10 @@ class VariationBase(ABC):
         A build-time variation realises its whole effect here; a run-time variation leaves it a no-op.
         """
 
-    def configure_at_build_time(self, fixed_sample: Any | None = None) -> None:
+    def configure_at_build_time(self) -> None:
         """Run this variation's build-time preparation and realization, once per env build."""
         self._prepare_at_build_time()
-        if fixed_sample is not None:
-            assert isinstance(
-                self, BuildTimeVariationBase
-            ), f"Variation '{self.name}' received a fixed build-time sample but is not build-time."
-            self.apply_build_time_sample(fixed_sample)
-        else:
-            self._realize_at_build_time()
+        self._realize_at_build_time()
 
     def apply_cfg(self, cfg: VariationBaseCfg) -> None:
         """Apply new ``cfg``.
@@ -130,6 +134,7 @@ class VariationBase(ABC):
             cfg.sampler_cfg, SamplerBaseCfg
         ), f"cfg.sampler_cfg must be a SamplerBaseCfg; got {type(cfg.sampler_cfg).__name__}."
         self._sampler = cfg.sampler_cfg.build()
+        self._sampler.set_sample_override_provider(self._sample_override_provider)
         # Re-bind variation-owned listeners so a cfg/sampler swap doesn't drop subscriptions.
         for listener in self._sample_listeners:
             self._sampler.add_listener(listener)
@@ -153,18 +158,10 @@ class BuildTimeVariationBase(VariationBase):
 
     Use for properties that can't change in-flight: HDR maps, USD swaps,
     spawner params baked into a config. Subclasses hold references to the
-    asset(s) they mutate and realise the effect in ``apply_build_time_sample``.
+    asset(s) they mutate and realise the effect in ``_realize_at_build_time``.
     """
 
+    @abstractmethod
     def _realize_at_build_time(self) -> None:
-        """Sample from the configured sampler and apply once per env build."""
-        self.apply_build_time_sample(self.draw_build_time_sample())
-
-    @abstractmethod
-    def draw_build_time_sample(self) -> Any:
-        """Draw one build-time sample from the variation sampler."""
-
-    @abstractmethod
-    def apply_build_time_sample(self, sample: Any) -> None:
-        """Apply a build-time sample to the bound asset configuration."""
+        """Sample and apply this variation to the target configuration once per env build."""
         ...

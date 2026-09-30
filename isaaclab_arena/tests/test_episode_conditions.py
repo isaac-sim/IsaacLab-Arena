@@ -6,17 +6,25 @@
 """Tests for variation condition extraction and scheduling."""
 
 import json
+import torch
 import yaml
 from pathlib import Path
 
 import pytest
 
+from isaaclab_arena.variations.bernoulli_sampler import BernoulliSampler
+from isaaclab_arena.variations.choice_sampler import ChoiceSampler
+from isaaclab_arena.variations.condition_replay import bind_condition_replay_sample_overrides
 from isaaclab_arena.variations.condition_scheduler import ConditionScheduler
 from isaaclab_arena.variations.episode_conditions import (
+    EpisodeCondition,
+    EpisodeConditionsOverlay,
     extract_overlay_from_episode_results,
     load_episode_conditions_overlay,
     overlay_to_yaml_dict,
 )
+from isaaclab_arena.variations.uniform_sampler import UniformSamplerCfg
+from isaaclab_arena.variations.variation_base import VariationBase, VariationBaseCfg
 
 
 def test_extract_overlay_splits_build_time_and_runtime(tmp_path: Path) -> None:
@@ -80,6 +88,41 @@ def test_condition_scheduler_fifo_assignment() -> None:
 
     scheduler.on_pre_reset([0], is_initial_reset=False)
     assert scheduler.runtime_sample_for("b.y", [0]) == [[0.3]]
+
+
+def test_condition_replay_overrides_variation_sampler_for_parallel_envs() -> None:
+    variation = VariationBase(
+        cfg=VariationBaseCfg(enabled=True, sampler_cfg=UniformSamplerCfg(low=[0.0], high=[0.0])),
+        name="offset",
+    )
+    overlay = EpisodeConditionsOverlay(
+        schema_version=1,
+        build_time_variations={"camera.offset": [0.4]},
+        episodes=[
+            EpisodeCondition("condition_0", {"camera.offset": [0.1]}),
+            EpisodeCondition("condition_1", {"camera.offset": [0.2]}),
+        ],
+    )
+    scheduler = ConditionScheduler(overlay)
+    scheduler.on_pre_reset([0, 1], is_initial_reset=True)
+    bind_condition_replay_sample_overrides({"camera": [variation]}, overlay, scheduler)
+
+    assert variation.sampler is not None
+    torch.testing.assert_close(variation.sampler.sample(1), torch.tensor([[0.4]]))
+    torch.testing.assert_close(
+        variation.sampler.sample(2, env_ids=torch.tensor([1, 0])),
+        torch.tensor([[0.2], [0.1]]),
+    )
+
+
+def test_condition_replay_preserves_discrete_sampler_output_types() -> None:
+    choice = ChoiceSampler()
+    choice.set_sample_override_provider(lambda _count, _env_ids: ["recorded"])
+    assert choice.sample(1, choices=["live"]) == ["recorded"]
+
+    bernoulli = BernoulliSampler(probability=0.0)
+    bernoulli.set_sample_override_provider(lambda _count, _env_ids: [True, False])
+    assert bernoulli.sample(2) == [True, False]
 
 
 def test_replay_run_cfg_rejects_rollout_limits() -> None:

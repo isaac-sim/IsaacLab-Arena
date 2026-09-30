@@ -44,7 +44,11 @@ class ContinuousSampler(SamplerBase):
         Returns:
             A tensor of shape ``(num_samples, *shape_per_sample)``.
         """
-        result = self._sample(num_samples)
+        override = self._get_sample_override(num_samples, env_ids)
+        if override is None:
+            result = self._sample(num_samples)
+        else:
+            result = torch.as_tensor(override, dtype=torch.float32).reshape(num_samples, *self.shape_per_sample)
         self._notify(result, env_ids)
         return result
 
