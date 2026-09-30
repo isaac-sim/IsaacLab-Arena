@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Observations for the bimanual YAM cable-routing embodiment."""
+"""Observations for the shared bimanual YAM embodiment."""
 
 from __future__ import annotations
 

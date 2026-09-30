@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Behavioral gripper implementation for the bimanual YAM."""
+"""Bimanual YAM gripper implementation."""
 
 from __future__ import annotations
 

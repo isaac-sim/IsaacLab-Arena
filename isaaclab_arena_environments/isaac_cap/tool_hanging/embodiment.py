@@ -10,8 +10,8 @@ from __future__ import annotations
 from collections.abc import Sequence
 
 from isaaclab_arena.assets.register import register_asset
-from isaaclab_arena_environments.isaac_cap.embodiments.cable_routing import IndustrialBimanualYamEmbodiment
-from isaaclab_arena_environments.isaac_cap.embodiments.cable_routing.config import (
+from isaaclab_arena_environments.isaac_cap.embodiments.bimanual_yam import IndustrialBimanualYamEmbodiment
+from isaaclab_arena_environments.isaac_cap.embodiments.bimanual_yam.config import (
     ARM_JOINT_NAMES,
     GRIPPER_CLOSED_POSITION,
     GRIPPER_JOINT_NAME,

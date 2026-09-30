@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Robot and scene configuration for the bimanual YAM embodiment."""
+"""Robot, scene, and reset configuration for the bimanual YAM embodiment."""
 
 from __future__ import annotations
 

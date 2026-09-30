@@ -24,7 +24,7 @@ def _test_isaac_cap_components_registered(_simulation_app) -> bool:
     from isaaclab_arena_environments.isaac_cap.cable_routing import task as cable_task
     from isaaclab_arena_environments.isaac_cap.cable_routing_v2 import environment as cable_v2_environment
     from isaaclab_arena_environments.isaac_cap.cable_routing_v2 import task as cable_v2_task
-    from isaaclab_arena_environments.isaac_cap.embodiments import cable_routing as cable_embodiment
+    from isaaclab_arena_environments.isaac_cap.embodiments import bimanual_yam as yam_embodiment
     from isaaclab_arena_environments.isaac_cap.embodiments import insertion_task as insertion_embodiment
     from isaaclab_arena_environments.isaac_cap.gear_insertion import asset_factories as gear_assets
     from isaaclab_arena_environments.isaac_cap.gear_insertion import task as gear_task
@@ -47,7 +47,7 @@ def _test_isaac_cap_components_registered(_simulation_app) -> bool:
         "industrial_fr3_robotiq_2f85_differential_ik": (
             insertion_embodiment.IndustrialFr3Robotiq2f85DifferentialIKEmbodiment
         ),
-        "industrial_bimanual_yam": cable_embodiment.IndustrialBimanualYamEmbodiment,
+        "industrial_bimanual_yam": yam_embodiment.IndustrialBimanualYamEmbodiment,
         "factory_gear_base": gear_assets.make_factory_gear_base,
         "factory_gear_small": gear_assets.make_factory_gear_small,
         "factory_gear_medium": gear_assets.make_factory_gear_medium,

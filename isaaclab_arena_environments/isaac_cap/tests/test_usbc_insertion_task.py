@@ -139,7 +139,7 @@ def _test_usbc_release_and_withdrawal(_simulation_app) -> bool:
     from isaaclab_arena.assets.asset import Asset
     from isaaclab_arena.tasks.predicates.gripper import gripper_released
     from isaaclab_arena.tasks.predicates.spatial import gripper_distance_from_object_exceeds_threshold
-    from isaaclab_arena_environments.isaac_cap.embodiments.cable_routing.gripper import YamGripper
+    from isaaclab_arena_environments.isaac_cap.embodiments.bimanual_yam.gripper import YamGripper
     from isaaclab_arena_environments.isaac_cap.usbc_insertion.task import UsbcInsertionTask
 
     gripper = YamGripper()
@@ -327,7 +327,7 @@ def _test_usbc_environment_yaml(_simulation_app) -> bool:
         velocity_below_threshold,
     )
     from isaaclab_arena.utils.physics_backend import PhysicsBackend
-    from isaaclab_arena_environments.isaac_cap.embodiments.cable_routing import IndustrialBimanualYamEmbodiment
+    from isaaclab_arena_environments.isaac_cap.embodiments.bimanual_yam import IndustrialBimanualYamEmbodiment
     from isaaclab_arena_environments.isaac_cap.usbc_insertion.assets import ASSET_ROOT
     from isaaclab_arena_environments.isaac_cap.usbc_insertion.environment import (
         UsbcInsertionEasyEnvironment,

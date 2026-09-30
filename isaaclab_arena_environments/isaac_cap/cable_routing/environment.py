@@ -45,7 +45,7 @@ def _build_environment(
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.utils.physics_backend import PhysicsBackend
 
-    from ..embodiments.cable_routing import IndustrialBimanualYamEmbodiment
+    from ..embodiments.bimanual_yam import IndustrialBimanualYamEmbodiment
     from .physics import configure_cable_routing_physics, configure_easy_cable_routing_physics
     from .scene import (
         BOARD_TOP_Z,

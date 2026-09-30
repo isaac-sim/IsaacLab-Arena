@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Arena embodiment for the benchmark-owned bimanual I2RT YAM."""
+"""Shared Arena embodiment for the bimanual I2RT YAM."""
 
 from __future__ import annotations
 

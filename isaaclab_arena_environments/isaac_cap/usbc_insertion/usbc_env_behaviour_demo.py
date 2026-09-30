@@ -98,7 +98,7 @@ class UsbcEnvBehaviourDemo(EnvBehaviourDemo):
             lateral_in_proximity,
             velocity_below_threshold,
         )
-        from isaaclab_arena_environments.isaac_cap.embodiments.cable_routing.config import (
+        from isaaclab_arena_environments.isaac_cap.embodiments.bimanual_yam.config import (
             GRIPPER_CLOSED_POSITION,
             GRIPPER_OPEN_POSITION,
         )

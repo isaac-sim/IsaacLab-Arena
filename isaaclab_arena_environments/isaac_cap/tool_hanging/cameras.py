@@ -13,7 +13,7 @@ import isaaclab.sim as sim_utils
 from isaaclab.sensors import CameraCfg
 from isaaclab.utils.configclass import configclass
 
-from isaaclab_arena_environments.isaac_cap.embodiments.cable_routing.cameras import BimanualYamCameraCfg
+from isaaclab_arena_environments.isaac_cap.embodiments.bimanual_yam.cameras import BimanualYamCameraCfg
 
 _LINK_SIX_SUFFIX = "/Geometry/arm/link_1/link_2/link_3/link_4/link_5/link_6"
 # Composed from yam_bimanual_scene.xml's housing -> camera_frame -> camera, in ROS optical axes.

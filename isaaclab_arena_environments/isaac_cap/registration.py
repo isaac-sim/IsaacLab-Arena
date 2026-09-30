@@ -46,7 +46,7 @@ _registering = False
 _COMPONENT_MODULES = (
     ".cap_policy",
     ".embodiments.insertion_task",
-    ".embodiments.cable_routing",
+    ".embodiments.bimanual_yam",
     ".gear_insertion.asset_factories",
     ".gear_insertion.task.task",
     ".cable_routing.task",
