@@ -41,7 +41,7 @@ the normal reset path. Check the validator reports and saved-layout count to
 determine whether generation succeeded.
 
 ``num_envs`` controls parallel environments. ``num_layouts`` is the total number
-of accepted layouts to save and defaults to ``num_envs`` times ``layouts_per_env``.
+of accepted layouts to save (default 1).
 ``layouts_per_env`` sets how many solver layouts each environment receives when
 the placement pool refills. ``max_batches`` caps reset-and-settle rounds; the
 example permits up to 15. The placement pool pre-solves ``layouts_per_env`` layouts

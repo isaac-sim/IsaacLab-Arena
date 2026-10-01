@@ -8,9 +8,9 @@ solving or settling them again.
 
 Recording runs an outer loop of reset-and-settle batches until it collects
 ``num_layouts`` accepted layouts or exhausts ``max_batches``. Each batch resets
-every environment once. ``num_layouts`` defaults to ``num_envs`` times
-``layouts_per_env``; ``layouts_per_env`` also sets how many solver layouts each
-environment receives when the placement pool refills.
+every environment once. ``num_layouts`` is how many accepted layouts to write
+(default 1). ``layouts_per_env`` sets how many solver layouts each environment
+receives when the placement pool refills.
 
 The examples use the existing Robolab environments with visualization enabled:
 ``clamp_in_right_bin`` for recording and replay, and ``smartphone_in_bin`` for rejection.

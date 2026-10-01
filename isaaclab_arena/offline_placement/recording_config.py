@@ -32,8 +32,8 @@ class PlacementRecordingCfg:
     """Optional viewer target in simulation-world metres; requires viewer_eye."""
     layouts_per_env: int = 5
     """Solver layouts added per environment when a placement pool refills."""
-    num_layouts: int | None = None
-    """Accepted settled layouts to write; defaults to num_envs times layouts_per_env."""
+    num_layouts: int = 1
+    """Accepted settled layouts to write."""
     max_batches: int = 5
     """Maximum reset-and-settle rounds before requiring the layout target."""
     seed: int = 42
@@ -44,13 +44,6 @@ class PlacementRecordingCfg:
     """Render physics steps when a visualizer is enabled."""
     settle: SettledPlacementParams = field(default_factory=SettledPlacementParams)
     """Physics duration and configured post-physics validators."""
-
-
-def resolved_num_layouts(cfg: PlacementRecordingCfg) -> int:
-    """Return the accepted-layout target after applying recording defaults."""
-    if cfg.num_layouts is not None:
-        return cfg.num_layouts
-    return cfg.num_envs * cfg.layouts_per_env
 
 
 def load_recording_config(overrides: list[str]) -> PlacementRecordingCfg:
