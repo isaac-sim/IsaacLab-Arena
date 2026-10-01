@@ -269,6 +269,56 @@ Read each environment's state and completed-predicate events as follows:
 After an automatic reset, ``env.extras["progress_tracking"]`` still shows the finished episode
 until the next step.
 
+Consecutive-step progress
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+Every ``TrueForConsecutiveStepsCfg`` automatically reports its counter in
+``objective.consecutive_step_progress``. No ``tracked_predicates`` configuration is needed.
+The dictionary maps sequence names to lists of requirement snapshots:
+
+.. code-block:: python
+
+   for sequence_name, requirements in objective.consecutive_step_progress.items():
+       for requirement in requirements:
+           print(
+               sequence_name,
+               requirement.predicate_index,
+               requirement.predicate_name,
+               requirement.status,
+               f"{requirement.consecutive_steps}/{requirement.required_steps}",
+           )
+
+For example, with ten steps required for both ``object_still`` and ``gripper_slow``:
+
+* One sequence containing both requirements reports ``object 6/10, active`` and
+  ``gripper 0/10, waiting`` after six qualifying steps. Once the object completes at step 10,
+  the gripper becomes active at 0/10 and counts its first step at step 11.
+* Separate named sequences count independently. At step 10, the report can show
+  ``object 10/10, completed`` and ``gripper 9/10, active``. At step 11 both are completed,
+  even if the object has started moving again.
+* One requirement wrapping ``object_still(env) & gripper_slow(env)`` reports one shared
+  streak, such as ``6/10, active``. Either check becoming false resets it to 0/10.
+
+``status`` describes the entry's sequence position: ``waiting`` means an earlier entry must
+complete, ``active`` means the current entry, and ``completed`` means its completion is remembered.
+An active entry counts only when its objective is enabled; for example, later sequential subtasks
+wait for earlier subtasks. Final-condition rechecks can reset a completed entry's counter while
+preserving its ``completed`` status. Episode resets clear both counts and completion history.
+
+Counters are snapshots and reading them does not evaluate predicates or advance time. Scores and
+completion events still describe finished milestones: 6/10 does not award a fractional score.
+The episode recorder writes these same fields under each objective's
+``consecutive_step_progress`` in the JSONL record.
+
+Optional ``tracked_predicates`` report instantaneous check states and first-true observations
+separately, under ``predicate_progress`` in the record. They do not measure streak lengths or
+change success. For example, both checks being true once gives ``max_simultaneous_true=2``;
+it does not establish a shared ten-step streak.
+
+
+Recording progress
+~~~~~~~~~~~~~~~~~~
+
 Arena's episode recorder also serializes the final progress state and predicate events into the
 episode's JSONL record when an output path is configured. Tasks without progress objectives have
 no success termination or progress-tracking configuration and produce no progress fields.

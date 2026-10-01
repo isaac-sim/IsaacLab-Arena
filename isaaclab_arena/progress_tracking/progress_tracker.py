@@ -10,6 +10,7 @@ import functools
 import torch
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from typing import Literal
 
 from isaaclab.managers import SceneEntityCfg, TerminationTermCfg
 from isaaclab.managers.recorder_manager import RecorderManagerBaseCfg, RecorderTerm, RecorderTermCfg
@@ -84,6 +85,30 @@ class PredicateEvent:
 
 
 @dataclass
+class ConsecutiveStepState:
+    """Snapshot of one consecutive-step requirement in a predicate sequence."""
+
+    predicate_index: int
+    """Position in the sequence, distinguishing repeated occurrences of a predicate."""
+
+    predicate_name: str
+    """Human-readable string of the consecutive-step requirement."""
+
+    consecutive_steps: int
+    """Current counter value, capped at required_steps."""
+
+    required_steps: int
+    """Number of consecutive qualifying control steps required."""
+
+    status: Literal["waiting", "active", "completed"]
+    """Sequence position: not yet reached, current entry, or remembered completion.
+
+    An active entry counts only while its objective is enabled. Final-condition rechecks
+    can reset the counter of a completed entry without erasing its completion history.
+    """
+
+
+@dataclass
 class ProgressObjectiveState:
     """Per-env snapshot of a single ProgressObjective's progress."""
 
@@ -107,6 +132,9 @@ class ProgressObjectiveState:
 
     max_simultaneous_true: int = 0
     """Largest number of tracked predicates true on the same step."""
+
+    consecutive_step_progress: dict[str, list[ConsecutiveStepState]] = field(default_factory=dict)
+    """Consecutive-step requirements by sequence, including waiting and completed entries."""
 
 
 @dataclass
@@ -193,6 +221,8 @@ class ProgressObjectiveRunner:
         PredicateEvent for every env/group that advanced this step.
         """
 
+        # Observe optional reporting checks independently of sequence position. For example,
+        # gripper_slow can already be true while its ten-step requirement is still waiting.
         self._update_tracked_predicates(env, step_index, active_envs)
         objective_complete = self.is_complete()
         final_check_envs = (
@@ -203,6 +233,8 @@ class ProgressObjectiveRunner:
             return []
 
         events: list[PredicateEvent] = []
+        # Each named sequence gets the same active environments, so object and gripper
+        # counters in separate groups start together. Within a group, only one entry advances.
         for group_name, predicate_chain in self.predicate_chains.items():
             group_final_check_envs = final_check_envs
             if check_final_conditions:
@@ -230,6 +262,8 @@ class ProgressObjectiveRunner:
                 self.num_envs,
             ), f"Tracked predicate {name!r} returned shape {tuple(result.shape)}; expected ({self.num_envs},)"
             first_true = active_envs & result & ~self.tracked_ever_true[name]
+            # Keep the first observed true step even after the check becomes false.
+            # This is instantaneous history, not completion of a ten-step requirement.
             if step_index is not None:
                 self.tracked_first_true_step[name] = torch.where(
                     first_true, step_index, self.tracked_first_true_step[name]
@@ -239,6 +273,8 @@ class ProgressObjectiveRunner:
             results.append(result)
 
         simultaneous = torch.stack(results, dim=0).sum(dim=0)
+        # Two checks true on one step give a maximum of two; this does not imply
+        # that both checks held together for ten consecutive steps.
         self.max_simultaneous_true = torch.where(
             active_envs,
             torch.maximum(self.max_simultaneous_true, simultaneous),
@@ -342,6 +378,8 @@ class ProgressObjectiveRunner:
             #   2) They have not yet advanced this step
             #   3) This ProgressObjective is active in that environment.
             at_position = (self.current_predicate_index[group_name] == chain_idx) & ~advanced & active_envs
+            # For [object(10), gripper(10)], completing object at step 10 sets advanced.
+            # The gripper counter therefore starts at step 11, never on that same step.
             state_update_mask = at_position
             if chain_idx == chain_length - 1:
                 # Include completed rows now so final checks reuse this evaluation and its diagnostics.
@@ -365,7 +403,8 @@ class ProgressObjectiveRunner:
                 self.current_predicate_index[group_name] + 1,
                 self.current_predicate_index[group_name],
             )
-            # Update the group score for the envs that were advanced.
+            # Award the predicate's full weight only when it completes. A streak of 6/10
+            # is reported separately and earns no milestone score yet.
             self.group_score[group_name] = self.group_score[group_name] + advance_mask.float() * float(score_weight)
             # Update the advanced mask for the envs that were advanced.
             advanced = advanced | advance_mask
@@ -449,6 +488,7 @@ class ProgressObjectiveRunner:
         objective = self.progress_objective
         completed_groups = 0
         active_predicates: dict[str, str | None] = {}
+        consecutive_step_progress: dict[str, list[ConsecutiveStepState]] = {}
         # The active predicate for a group is the one at its current chain position. Any group
         # whose pointer has run off the end of the chain is complete (no active predicate).
         for group_name in objective.group_names:
@@ -460,6 +500,36 @@ class ProgressObjectiveRunner:
             else:
                 active_predicates[group_name] = _predicate_repr(predicate_chain[cur_predicate_index][0])
 
+            # Snapshot every temporal occurrence, not just the active predicate. This lets
+            # [object(10), gripper(10)] report "object 6/10; gripper waiting 0/10".
+            # Named groups instead expose two independent counters; a combined predicate
+            # exposes one shared counter that resets if either underlying check fails.
+            requirements = []
+            for predicate_index, (predicate, _) in enumerate(predicate_chain):
+                if not isinstance(predicate, _TrueForConsecutiveSteps):
+                    continue
+                # Sequence position records completion history; the counter records the
+                # latest streak. Final-condition rechecks can show completed with 0/10.
+                if predicate_index < cur_predicate_index:
+                    status = "completed"
+                elif predicate_index == cur_predicate_index:
+                    status = "active"
+                else:
+                    status = "waiting"
+                requirements.append(
+                    ConsecutiveStepState(
+                        predicate_index=predicate_index,
+                        predicate_name=_predicate_repr(predicate),
+                        consecutive_steps=predicate.get_consecutive_steps(env_idx),
+                        required_steps=predicate.required_steps,
+                        status=status,
+                    )
+                )
+            if requirements:
+                consecutive_step_progress[group_name] = requirements
+
+        # Convert cached observations into plain values without evaluating predicates.
+        # Repeated reads must not turn a 6/10 streak into 7/10 or change its history.
         tracked_predicates = {}
         for name in self.tracked_predicates:
             ever_true = bool(self.tracked_ever_true[name][env_idx].item())
@@ -478,6 +548,7 @@ class ProgressObjectiveRunner:
             active_predicates=active_predicates,
             tracked_predicates=tracked_predicates,
             max_simultaneous_true=int(self.max_simultaneous_true[env_idx].item()),
+            consecutive_step_progress=consecutive_step_progress,
         )
 
 
