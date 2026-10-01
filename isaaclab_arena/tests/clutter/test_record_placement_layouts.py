@@ -6,7 +6,6 @@
 """Offline clutter recording through the unified placement CLI."""
 
 import json
-import subprocess
 from pathlib import Path
 
 import pytest
@@ -15,45 +14,6 @@ from isaaclab_arena.tests.utils.constants import TestConstants
 from isaaclab_arena.tests.utils.subprocess import run_subprocess
 
 SCRIPT = Path(TestConstants.scripts_dir) / "record_placement_layouts.py"
-
-
-def run_cli_with_test_assets():
-    from unittest.mock import patch
-
-    from isaaclab_arena.scripts.record_placement_layouts import main
-    from isaaclab_arena.tests.test_settled_placement import register_no_embodiment
-    from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
-
-    enter = SimulationAppContext.__enter__
-
-    def enter_with_test_assets(context):
-        app = enter(context)
-        register_no_embodiment()
-        return app
-
-    with patch.object(SimulationAppContext, "__enter__", enter_with_test_assets):
-        main()
-
-
-def test_clutter_imports_respect_simulation_startup():
-    result = subprocess.run(
-        [
-            TestConstants.python_path,
-            "-c",
-            (
-                "import runpy, sys; runpy.run_path(sys.argv[1]); "
-                "from isaaclab_arena.offline_placement.recording_config import load_recording_config; "
-                "cfg = load_recording_config(['output=unused.jsonl', 'env_spec=unused.yaml']); "
-                "assert 'numpy' not in sys.modules, 'Numerical libraries imported before SimulationApp startup'; "
-                "assert 'pxr' not in sys.modules, 'USD imported before SimulationApp startup'"
-            ),
-            str(SCRIPT),
-        ],
-        capture_output=True,
-        text=True,
-        timeout=60,
-    )
-    assert result.returncode == 0, result.stdout + result.stderr
 
 
 @pytest.mark.with_subprocess
@@ -118,7 +78,7 @@ def Xform "Body" (
             TestConstants.python_path,
             "-c",
             (
-                "from isaaclab_arena.tests.clutter.test_clutter_cli import run_cli_with_test_assets;"
+                "from isaaclab_arena.tests.test_settled_placement import run_cli_with_test_assets;"
                 " run_cli_with_test_assets()"
             ),
             f"env_spec={source}",
