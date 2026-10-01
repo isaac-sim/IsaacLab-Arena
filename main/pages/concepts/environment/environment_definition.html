@@ -481,7 +481,7 @@
 <li class="toctree-l1 has-children"><a class="reference internal" href="../concept_object_and_robot_placement.html">Object and Robot Placement</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="../object_placement/relations.html">Relations and Strategies</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../offline_placement/recording.html">Record and Replay Placement Poses</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../offline_placement/clutter.html">Offline Clutter Settling</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../offline_placement/clutter.html">Record and Replay Clutter Layouts</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../object_placement/collision_handling.html">Collision Handling</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../object_placement/solver.html">Placement Solver</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../object_placement/validation.html">Placement Validation</a></li>
@@ -604,6 +604,24 @@ in memory. Supply a file path or in-memory layouts, not both.</p>
 <p>Replay bypasses relation solving and draws layouts from a shared queue on reset.
 See <a class="reference internal" href="../object_placement/relations.html"><span class="doc">Relations and Strategies</span></a> for the record format, queue behavior,
 asset coverage and reset requirements.</p>
+</section>
+<section id="fixed-poses-in-yaml">
+<h2>Fixed poses in YAML<a class="headerlink" href="#fixed-poses-in-yaml" title="Link to this heading">#</a></h2>
+<p>For assets whose constructors accept <code class="docutils literal notranslate"><span class="pre">initial_pose</span></code>, set it through
+<code class="docutils literal notranslate"><span class="pre">params.initial_pose</span></code> on embodiment, background or object nodes:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">params</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">initial_pose</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">position_xyz</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">-1.0</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0.0</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0.0</span><span class="p p-Indicator">]</span>
+<span class="w">    </span><span class="nt">rotation_xyzw</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">0.0</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0.0</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0.0</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">1.0</span><span class="p p-Indicator">]</span>
+</pre></div>
+</div>
+<p>Positions are environment-local, in metres; quaternions use xyzw order.
+<code class="docutils literal notranslate"><span class="pre">position_xyz</span></code> is required; omitted <code class="docutils literal notranslate"><span class="pre">rotation_xyzw</span></code> defaults to identity,
+as in <code class="docutils literal notranslate"><span class="pre">Pose.from_dict</span></code>.
+The pose is applied at construction. Rigid objects and articulations also
+restore it on reset when pose resets are enabled; static background geometry
+remains at its construction pose. Do not combine it with relation placement for
+the same movable asset.</p>
 </section>
 <section id="the-same-environment-side-by-side">
 <h2>The same environment, side by side<a class="headerlink" href="#the-same-environment-side-by-side" title="Link to this heading">#</a></h2>
@@ -988,6 +1006,7 @@ environment.</p>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#companion-placement-files">Companion placement files</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#fixed-poses-in-yaml">Fixed poses in YAML</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-same-environment-side-by-side">The same environment, side by side</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#where-the-two-formats-differ">Where the two formats differ</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#only-in-python">Only in Python</a></li>

@@ -53,7 +53,7 @@
     <link rel="icon" href="../../../_static/favicon.png"/>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
-    <link rel="next" title="Offline Clutter Settling" href="clutter.html" />
+    <link rel="next" title="Record and Replay Clutter Layouts" href="clutter.html" />
     <link rel="prev" title="Relations and Strategies" href="../object_placement/relations.html" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
@@ -481,7 +481,7 @@
 <li class="toctree-l1 current active has-children"><a class="reference internal" href="../concept_object_and_robot_placement.html">Object and Robot Placement</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
 <li class="toctree-l2"><a class="reference internal" href="../object_placement/relations.html">Relations and Strategies</a></li>
 <li class="toctree-l2 current active"><a aria-current="page" class="current reference internal" href="#">Record and Replay Placement Poses</a></li>
-<li class="toctree-l2"><a class="reference internal" href="clutter.html">Offline Clutter Settling</a></li>
+<li class="toctree-l2"><a class="reference internal" href="clutter.html">Record and Replay Clutter Layouts</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../object_placement/collision_handling.html">Collision Handling</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../object_placement/solver.html">Placement Solver</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../object_placement/validation.html">Placement Validation</a></li>
@@ -578,7 +578,8 @@
 <p>Use <code class="docutils literal notranslate"><span class="pre">record_placement_layouts.py</span></code> to save reusable initial poses for policy
 evaluation. It solves placement relations, advances physics, and writes accepted
 layouts to JSONL. Replay restores those poses on reset without solving or settling
-them again.</p>
+them again. The same recorder supports ordinary placement relations and
+<code class="docutils literal notranslate"><span class="pre">ClutterOn</span></code> scenes.</p>
 <section id="how-recording-differs-from-online-placement">
 <h2>How Recording Differs from Online Placement<a class="headerlink" href="#how-recording-differs-from-online-placement" title="Link to this heading">#</a></h2>
 <p>Both workflows start with the <a class="reference internal" href="../concept_object_and_robot_placement.html"><span class="doc">placement pipeline</span></a>: solve relations, run pre-physics
@@ -635,14 +636,22 @@ mounted repository root inside the container:</p>
 </section>
 <section id="record-placement-layouts">
 <h2>Record Placement Layouts<a class="headerlink" href="#record-placement-layouts" title="Link to this heading">#</a></h2>
+<p>Use an Arena runtime prepared through <a class="reference internal" href="../../quickstart/installation.html"><span class="doc">Installation</span></a>.
+Run the commands from the repository root in that runtime’s shell.</p>
 <p>To run without a viewer, use <code class="docutils literal notranslate"><span class="pre">render=false</span> <span class="pre">--viz</span> <span class="pre">none</span></code> when recording and
 <code class="docutils literal notranslate"><span class="pre">--viz</span> <span class="pre">none</span></code> when replaying.</p>
+<p>Recording repeats reset-and-settle batches until it collects <code class="docutils literal notranslate"><span class="pre">min_layouts</span></code>
+accepted layouts (default 1) or exhausts <code class="docutils literal notranslate"><span class="pre">max_batches</span></code> (default 5). Each batch
+resets every environment once. <code class="docutils literal notranslate"><span class="pre">layouts_per_env</span></code> controls how many solver
+layouts each environment receives when its pool refills (default 5); it does
+not set the accepted-layout target. The batch budget must allow at least
+<code class="docutils literal notranslate"><span class="pre">min_layouts</span></code> attempts: <code class="docutils literal notranslate"><span class="pre">max_batches</span> <span class="pre">*</span> <span class="pre">num_envs</span> <span class="pre">&gt;=</span> <span class="pre">min_layouts</span></code>.</p>
 <p>Run this command from the repository root to record layouts from
 <code class="docutils literal notranslate"><span class="pre">clamp_in_right_bin</span></code> in <code class="docutils literal notranslate"><span class="pre">outputs/placements/clamp.jsonl</span></code>:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/scripts/record_placement_layouts.py<span class="w"> </span><span class="se">\</span>
 <span class="w">    </span><span class="nv">env_spec</span><span class="o">=</span>isaaclab_arena_environments/robolab/tasks/clamp_in_right_bin.yaml<span class="w"> </span><span class="se">\</span>
 <span class="w">    </span><span class="nv">output</span><span class="o">=</span>outputs/placements/clamp.jsonl<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span><span class="nv">num_envs</span><span class="o">=</span><span class="m">4</span><span class="w"> </span><span class="nv">env_spacing</span><span class="o">=</span><span class="m">2</span><span class="w"> </span><span class="nv">layouts_per_env</span><span class="o">=</span><span class="m">4</span><span class="w"> </span><span class="nv">seed</span><span class="o">=</span><span class="m">42</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span><span class="nv">num_envs</span><span class="o">=</span><span class="m">4</span><span class="w"> </span><span class="nv">env_spacing</span><span class="o">=</span><span class="m">2</span><span class="w"> </span><span class="nv">min_layouts</span><span class="o">=</span><span class="m">16</span><span class="w"> </span><span class="nv">max_batches</span><span class="o">=</span><span class="m">5</span><span class="w"> </span><span class="nv">seed</span><span class="o">=</span><span class="m">42</span><span class="w"> </span><span class="se">\</span>
 <span class="w">    </span><span class="s1">'viewer_eye=[4.0,4.0,6.3]'</span><span class="w"> </span><span class="s1">'viewer_lookat=[0.6,0.6,0.3]'</span><span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>settle.num_steps<span class="o">=</span><span class="m">120</span><span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>settle.validators.pose_shift.max_translation_m<span class="o">=</span><span class="m">0</span>.015<span class="w"> </span><span class="se">\</span>
@@ -651,13 +660,50 @@ mounted repository root inside the container:</p>
 </div>
 <p>Objects start about 1 cm above their supporting surfaces. The command allows
 15 mm of displacement during settling to accommodate this drop.</p>
-<p>The example records four batches in four parallel environments:</p>
+<p>The command targets 16 accepted layouts using up to five batches in four
+parallel environments. If the batch budget is exhausted, any accepted layouts
+are still written, and the command logs the shortfall as an error and exits
+normally. If no layouts pass, no output file is written. Check the reported
+accepted count to confirm whether the target was reached; each JSONL line
+contains one accepted layout.</p>
+<p>Console excerpts follow this format; angle brackets represent values from your
+run, not fixed acceptance criteria:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>[placement] &lt;step&gt;/&lt;total&gt; physics steps
+[recording] batch &lt;batch&gt;/5: &lt;accepted&gt;/16 collected
+Saved 16/&lt;attempted&gt; accepted layouts: outputs/placements/clamp.jsonl
+</pre></div>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">Saved</span></code> line appears when the target is reached. Acceptance counts and
+settling motion can vary between machines and physics backends.</p>
+<p>The GIF illustrates four reset-and-settle batches. Your run may need a different
+number of batches to reach the target:</p>
 <a class="reference internal image-reference" href="../../../_images/clamp_recording.gif"><img alt="Four batches of clamp_in_right_bin layouts in four parallel environments." src="../../../_images/clamp_recording.gif" style="width: 100%;" />
 </a>
 <p>Choose a new output path for each recording. Existing files are not overwritten.
 See <a class="reference internal" href="../object_placement/validation.html"><span class="doc">Placement Validation</span></a> for acceptance checks and their settings.
-For intentional <code class="docutils literal notranslate"><span class="pre">ClutterOn</span></code> drops, see <a class="reference internal" href="clutter.html"><span class="doc">Offline Clutter Settling</span></a> for collection prerequisites
-and the additional support-containment check.</p>
+For <code class="docutils literal notranslate"><span class="pre">ClutterOn</span></code> scenes, the recorder merges clutter defaults, including
+<code class="docutils literal notranslate"><span class="pre">support_containment</span></code>, with <code class="docutils literal notranslate"><span class="pre">settle.validators</span></code>. Explicit settings override
+defaults within each check; other default checks remain configured. See
+<a class="reference internal" href="clutter.html"><span class="doc">Record and Replay Clutter Layouts</span></a> for collection prerequisites and intentional-drop validation.</p>
+<section id="inspect-the-recording">
+<h3>Inspect the Recording<a class="headerlink" href="#inspect-the-recording" title="Link to this heading">#</a></h3>
+<p>If a file was written, check its layout count and inspect its first record:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>wc<span class="w"> </span>-l<span class="w"> </span>outputs/placements/clamp.jsonl
+head<span class="w"> </span>-n<span class="w"> </span><span class="m">1</span><span class="w"> </span>outputs/placements/clamp.jsonl<span class="w"> </span><span class="p">|</span><span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>json.tool
+</pre></div>
+</div>
+<p>The line count must match the reported accepted count. Inspecting the first
+record shows the format; it does not validate the whole file.
+Under <code class="docutils literal notranslate"><span class="pre">variations[&quot;scene.relation_placement&quot;]</span></code>, check:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">source</span></code> is <code class="docutils literal notranslate"><span class="pre">&quot;settled&quot;</span></code>, and <code class="docutils literal notranslate"><span class="pre">poses</span></code> contains the recorded physics roots.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">validation.post_physics</span></code> reports <code class="docutils literal notranslate"><span class="pre">passed:</span> <span class="pre">true</span></code> for applicable checks;
+skipped checks have <code class="docutils literal notranslate"><span class="pre">passed:</span> <span class="pre">null</span></code> and a reason.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">validation.pre_physics</span></code> stores solver verdicts, and <code class="docutils literal notranslate"><span class="pre">validation.sampling</span></code>
+stores the settling duration and robot roots excluded from link checks.</p></li>
+</ul>
+<p>See <a class="reference internal" href="../object_placement/relations.html"><span class="doc">Relations and Strategies</span></a> for pose names, units and replay constraints.</p>
+</section>
 </section>
 <section id="replay-placement-layouts">
 <h2>Replay Placement Layouts<a class="headerlink" href="#replay-placement-layouts" title="Link to this heading">#</a></h2>
@@ -684,8 +730,13 @@ and the additional support-containment check.</p>
 <span class="w">    </span>--output_base_dir<span class="w"> </span>outputs/placements/evaluation
 </pre></div>
 </div>
-<p>This example uses a zero-action policy to replay the initial poses.
-Recordings restore object and robot root poses, while robot joints use their
+<p>Open <code class="docutils literal notranslate"><span class="pre">outputs/placements/evaluation/&lt;timestamp&gt;/index.html</span></code> to inspect the
+report. In the same directory, <code class="docutils literal notranslate"><span class="pre">arena_experiment_result.json</span></code> should show
+<code class="docutils literal notranslate"><span class="pre">runs.clamp_replay.status</span></code> as <code class="docutils literal notranslate"><span class="pre">&quot;completed&quot;</span></code>, and
+<code class="docutils literal notranslate"><span class="pre">clamp_replay/episode_results_rebuild0.jsonl</span></code> should contain three episodes.
+Task success is not expected with this zero-action policy. Completed episodes
+confirm execution; they alone do not verify that reset poses match the recording.</p>
+<p>Recordings restore object and robot root poses, while robot joints use their
 configured resets, which randomize the arm configuration in this Droid example.
 See <a class="reference internal" href="../object_placement/relations.html"><span class="doc">Relations and Strategies</span></a> for the file format and replay behavior.</p>
 </section>
@@ -696,7 +747,7 @@ move beyond the allowed limits during settling:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/scripts/record_placement_layouts.py<span class="w"> </span><span class="se">\</span>
 <span class="w">    </span><span class="nv">env_spec</span><span class="o">=</span>isaaclab_arena_environments/robolab/tasks/smartphone_in_bin.yaml<span class="w"> </span><span class="se">\</span>
 <span class="w">    </span><span class="nv">output</span><span class="o">=</span>outputs/placements/smartphone.jsonl<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span><span class="nv">num_envs</span><span class="o">=</span><span class="m">4</span><span class="w"> </span><span class="nv">env_spacing</span><span class="o">=</span><span class="m">2</span><span class="w"> </span><span class="nv">layouts_per_env</span><span class="o">=</span><span class="m">4</span><span class="w"> </span><span class="nv">seed</span><span class="o">=</span><span class="m">42</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span><span class="nv">num_envs</span><span class="o">=</span><span class="m">4</span><span class="w"> </span><span class="nv">env_spacing</span><span class="o">=</span><span class="m">2</span><span class="w"> </span><span class="nv">min_layouts</span><span class="o">=</span><span class="m">16</span><span class="w"> </span><span class="nv">max_batches</span><span class="o">=</span><span class="m">5</span><span class="w"> </span><span class="nv">seed</span><span class="o">=</span><span class="m">42</span><span class="w"> </span><span class="se">\</span>
 <span class="w">    </span><span class="s1">'viewer_eye=[4.0,4.0,6.3]'</span><span class="w"> </span><span class="s1">'viewer_lookat=[0.6,0.6,0.3]'</span><span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>settle.num_steps<span class="o">=</span><span class="m">120</span><span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>settle.validators.pose_shift.max_translation_m<span class="o">=</span><span class="m">0</span>.015<span class="w"> </span><span class="se">\</span>
@@ -707,6 +758,13 @@ move beyond the allowed limits during settling:</p>
 </a>
 <p>Only accepted layouts are saved. The console reports rejection reasons, explained
 in <a class="reference internal" href="../object_placement/validation.html#recording-rejection-summary"><span class="std std-ref">Understand the Rejection Summary</span></a>.</p>
+<p>For example, a pose-shift rejection has this format (the message is shortened):</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Rejected &lt;count&gt;: pose_shift: computer_mouse: moved &lt;metres&gt; m ...
+</pre></div>
+</div>
+<p>The full message includes measured rotation and the configured limits. A run
+with no accepted layouts writes no file and logs that outcome. If every layout
+passes, recording succeeded but rejection handling was not exercised.</p>
 </section>
 <section id="supported-use-cases-and-limits">
 <h2>Supported Use Cases and Limits<a class="headerlink" href="#supported-use-cases-and-limits" title="Link to this heading">#</a></h2>
@@ -768,6 +826,47 @@ whole batch. Candidates that failed those checks remain rejected.</p></td>
 </table>
 </div>
 </section>
+<section id="python-api">
+<h2>Python API<a class="headerlink" href="#python-api" title="Link to this heading">#</a></h2>
+<p>With <code class="docutils literal notranslate"><span class="pre">SimulationApp</span></code> already running, the same workflow can build an environment,
+record layouts, and close the environment:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.offline_placement.recording_config</span><span class="w"> </span><span class="kn">import</span> <span class="n">PlacementRecordingCfg</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.offline_placement.settled_placement_params</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">SettledPlacementParams</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.scripts.record_placement_layouts</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">record_settled_placement_layouts</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="n">settle</span> <span class="o">=</span> <span class="n">SettledPlacementParams</span><span class="p">(</span><span class="n">num_steps</span><span class="o">=</span><span class="mi">120</span><span class="p">)</span>
+<span class="n">settle</span><span class="o">.</span><span class="n">validators</span><span class="p">[</span><span class="s2">"pose_shift"</span><span class="p">][</span><span class="s2">"max_translation_m"</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.015</span>
+<span class="n">cfg</span> <span class="o">=</span> <span class="n">PlacementRecordingCfg</span><span class="p">(</span>
+    <span class="n">env_spec</span><span class="o">=</span><span class="s2">"isaaclab_arena_environments/robolab/tasks/clamp_in_right_bin.yaml"</span><span class="p">,</span>
+    <span class="n">output</span><span class="o">=</span><span class="s2">"outputs/placements/clamp_python.jsonl"</span><span class="p">,</span>
+    <span class="n">num_envs</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">env_spacing</span><span class="o">=</span><span class="mf">2.0</span><span class="p">,</span> <span class="n">min_layouts</span><span class="o">=</span><span class="mi">16</span><span class="p">,</span> <span class="n">max_batches</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">settle</span><span class="o">=</span><span class="n">settle</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="n">summary</span> <span class="o">=</span> <span class="n">record_settled_placement_layouts</span><span class="p">(</span><span class="n">cfg</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="s2">"cpu"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">summary</span><span class="o">.</span><span class="n">output</span><span class="p">,</span> <span class="n">summary</span><span class="o">.</span><span class="n">accepted</span><span class="p">,</span> <span class="n">summary</span><span class="o">.</span><span class="n">attempted</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">summary.rejections</span></code> contains rejection reasons. <code class="docutils literal notranslate"><span class="pre">summary.output</span></code> is <code class="docutils literal notranslate"><span class="pre">None</span></code>
+only when nothing was accepted; partial recordings still have an output path.
+Pass <code class="docutils literal notranslate"><span class="pre">arena_env=</span></code> to use an in-memory environment description instead of YAML.</p>
+<p>For an environment you already own:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">record_placements_to_jsonl(env,</span> <span class="pre">output,</span> <span class="pre">min_layouts=...,</span> <span class="pre">max_batches=...)</span></code>
+in the same script writes reusable JSONL and returns the same summary.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">collect_settled_placements(env,</span> <span class="pre">num_batches=...)</span></code> in
+<code class="docutils literal notranslate"><span class="pre">isaaclab_arena.offline_placement.settled_placement</span></code> returns accepted poses,
+validation reports and rejection reasons in memory. It processes a fixed
+number of batches without enforcing replay restrictions or writing a file.</p></li>
+</ul>
+<p>Both caller-owned APIs accept <code class="docutils literal notranslate"><span class="pre">params=SettledPlacementParams(...)</span></code> and
+<code class="docutils literal notranslate"><span class="pre">scene_assets=arena_env.get_placement_assets()</span></code>. Provide the complete asset list
+for clutter preflight and for recording scene roots outside the placement pool.
+These calls reset and advance the environment, leave it open at its final state
+even on failure, and leave cleanup to the caller.</p>
+</section>
 </section>
 
 
@@ -794,7 +893,7 @@ whole batch. Candidates that failed those checks remain rejected.</p></td>
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">Offline Clutter Settling</p>
+        <p class="prev-next-title">Record and Replay Clutter Layouts</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -821,10 +920,14 @@ whole batch. Candidates that failed those checks remain rejected.</p></td>
     <ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#how-recording-differs-from-online-placement">How Recording Differs from Online Placement</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#choose-your-runtime">Choose Your Runtime</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#record-placement-layouts">Record Placement Layouts</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#record-placement-layouts">Record Placement Layouts</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#inspect-the-recording">Inspect the Recording</a></li>
+</ul>
+</li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#replay-placement-layouts">Replay Placement Layouts</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#record-layouts-with-rejections">Record Layouts with Rejections</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#supported-use-cases-and-limits">Supported Use Cases and Limits</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#python-api">Python API</a></li>
 </ul>
   </nav></div>
 

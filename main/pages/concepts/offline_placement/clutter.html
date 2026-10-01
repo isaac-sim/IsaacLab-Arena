@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Offline Clutter Settling &#8212; isaaclab_arena</title>
+    <title>Record and Replay Clutter Layouts &#8212; isaaclab_arena</title>
   
   
   
@@ -481,7 +481,7 @@
 <li class="toctree-l1 current active has-children"><a class="reference internal" href="../concept_object_and_robot_placement.html">Object and Robot Placement</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
 <li class="toctree-l2"><a class="reference internal" href="../object_placement/relations.html">Relations and Strategies</a></li>
 <li class="toctree-l2"><a class="reference internal" href="recording.html">Record and Replay Placement Poses</a></li>
-<li class="toctree-l2 current active"><a aria-current="page" class="current reference internal" href="#">Offline Clutter Settling</a></li>
+<li class="toctree-l2 current active"><a aria-current="page" class="current reference internal" href="#">Record and Replay Clutter Layouts</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../object_placement/collision_handling.html">Collision Handling</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../object_placement/solver.html">Placement Solver</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../object_placement/validation.html">Placement Validation</a></li>
@@ -556,7 +556,7 @@
     
     <li class="breadcrumb-item"><a href="../concept_object_and_robot_placement.html" class="nav-link">Object and Robot Placement</a></li>
     
-    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Offline Clutter Settling</span></li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Record and Replay Clutter Layouts</span></li>
   </ul>
 </nav>
 </div>
@@ -573,158 +573,111 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="offline-clutter-settling">
-<h1>Offline Clutter Settling<a class="headerlink" href="#offline-clutter-settling" title="Link to this heading">#</a></h1>
-<p><code class="docutils literal notranslate"><span class="pre">ClutterOn</span></code> defines collision-checked release poses. Offline settling uses the
-same reset, physics stepping and validation workflow as
-<a class="reference internal" href="recording.html"><span class="doc">Record and Replay Placement Poses</span></a>. Each reset selects a solved layout from the placement pool.
-Physics drops the objects, and the configured validators decide whether to keep
-their final poses.</p>
-<p>Use <code class="docutils literal notranslate"><span class="pre">collect_settled_placements</span></code> from
-<code class="docutils literal notranslate"><span class="pre">isaaclab_arena.offline_placement.settled_placement</span></code> to collect layouts in an
-environment you already own. For <code class="docutils literal notranslate"><span class="pre">ClutterOn</span></code>, pass
-<code class="docutils literal notranslate"><span class="pre">scene_assets=arena_env.get_placement_assets()</span></code> so preparation can inspect the
-complete scene. Collection checks clutter prerequisites before resetting or
-stepping physics.</p>
-<section id="acceptance-checks">
-<h2>Acceptance checks<a class="headerlink" href="#acceptance-checks" title="Link to this heading">#</a></h2>
-<p>When <code class="docutils literal notranslate"><span class="pre">params</span></code> is omitted, collection selects clutter defaults for <code class="docutils literal notranslate"><span class="pre">ClutterOn</span></code>
-scenes and ordinary recording defaults otherwise. The shared default duration is
-short. For an explicit drop window, keep the clutter checks when creating params:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.offline_placement.clutter_validators</span><span class="w"> </span><span class="kn">import</span> <span class="n">default_clutter_validators</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.offline_placement.settled_placement_params</span><span class="w"> </span><span class="kn">import</span> <span class="n">SettledPlacementParams</span>
-
-<span class="n">params</span> <span class="o">=</span> <span class="n">SettledPlacementParams</span><span class="p">(</span><span class="n">num_steps</span><span class="o">=</span><span class="mi">480</span><span class="p">,</span> <span class="n">validators</span><span class="o">=</span><span class="n">default_clutter_validators</span><span class="p">())</span>
+  <section id="record-and-replay-clutter-layouts">
+<h1>Record and Replay Clutter Layouts<a class="headerlink" href="#record-and-replay-clutter-layouts" title="Link to this heading">#</a></h1>
+<p><code class="docutils literal notranslate"><span class="pre">ClutterOn</span></code> places objects above a support so physics can settle them into a
+reusable layout. Use <code class="docutils literal notranslate"><span class="pre">record_placement_layouts.py</span></code> to save accepted root poses
+to JSONL, then replay those poses without solving or settling again.</p>
+<p>Complete <a class="reference internal" href="../../quickstart/installation.html"><span class="doc">Installation</span></a> and run the commands below from the
+repository root. Recording can run headless: replace <code class="docutils literal notranslate"><span class="pre">render=true</span> <span class="pre">--viz</span> <span class="pre">kit</span></code>
+with <code class="docutils literal notranslate"><span class="pre">render=false</span> <span class="pre">--viz</span> <span class="pre">none</span></code>. The interactive replay commands below require
+a display; use the Experiment workflow in <a class="reference internal" href="recording.html"><span class="doc">Record and Replay Placement Poses</span></a> for headless replay.</p>
+<section id="tool-clutter-on-a-table">
+<h2>Tool Clutter on a Table<a class="headerlink" href="#tool-clutter-on-a-table" title="Link to this heading">#</a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">franka_three_hammers_and_clamp_no_task</span></code> environment drops three hammers
+and a clamp onto a fixed table.</p>
+<section id="record">
+<h3>Record<a class="headerlink" href="#record" title="Link to this heading">#</a></h3>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/scripts/record_placement_layouts.py<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span><span class="nv">env_spec</span><span class="o">=</span>isaaclab_arena_environments/clutter/franka_three_hammers_and_clamp_no_task.yaml<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span><span class="nv">output</span><span class="o">=</span>outputs/clutter/tools_on_table.jsonl<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span><span class="nv">num_envs</span><span class="o">=</span><span class="m">4</span><span class="w"> </span><span class="nv">min_layouts</span><span class="o">=</span><span class="m">10</span><span class="w"> </span><span class="nv">layouts_per_env</span><span class="o">=</span><span class="m">4</span><span class="w"> </span><span class="nv">max_batches</span><span class="o">=</span><span class="m">15</span><span class="w"> </span><span class="nv">seed</span><span class="o">=</span><span class="m">42</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>settle.num_steps<span class="o">=</span><span class="m">480</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>+settle.validators.support_containment.minimum_resting_heights_m.office_table_background<span class="o">=</span><span class="m">0</span>.5306<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span><span class="nv">render</span><span class="o">=</span><span class="nb">true</span><span class="w"> </span>--device<span class="w"> </span>cpu<span class="w"> </span>--viz<span class="w"> </span>kit
 </pre></div>
 </div>
-<p>Explicit <code class="docutils literal notranslate"><span class="pre">params</span></code> are used unchanged, including disabled or custom validators.
-<code class="docutils literal notranslate"><span class="pre">num_steps</span></code> counts environment steps per batch, including their configured
-physics substeps.</p>
-<div class="pst-scrollable-table-container"><table class="table">
-<colgroup>
-<col style="width: 25.0%" />
-<col style="width: 45.0%" />
-<col style="width: 30.0%" />
-</colgroup>
-<thead>
-<tr class="row-odd"><th class="head"><p>Check</p></th>
-<th class="head"><p>Measures</p></th>
-<th class="head"><p>Default limit</p></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">physics_settled</span></code></p></td>
-<td><p>Final linear and angular speed of all measured roots.</p></td>
-<td><p>0.1 m/s and 0.1 rad/s</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">pose_shift</span></code></p></td>
-<td><p>Root displacement and rotation, excluding intentional <code class="docutils literal notranslate"><span class="pre">ClutterOn</span></code> drops.</p></td>
-<td><p>2 mm and 2 degrees</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">articulation_link_shift</span></code></p></td>
-<td><p>Task-object link motion relative to its root; excludes robot embodiments.</p></td>
-<td><p>2 mm and 2 degrees</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">support_containment</span></code></p></td>
-<td><p>Clutter bounds relative to the support footprint and minimum resting height.
-Requires successful release <code class="docutils literal notranslate"><span class="pre">no_overlap</span></code> and <code class="docutils literal notranslate"><span class="pre">clutter_on_relation</span></code> checks.</p></td>
-<td><p>No overhang; 1 cm below the minimum height</p></td>
-</tr>
-</tbody>
-</table>
-</div>
-<p>All enabled, applicable checks must pass. Disabled and inapplicable checks retain
-their skip reasons. For example, set
-<code class="docutils literal notranslate"><span class="pre">params.validators[&quot;support_containment&quot;][&quot;containment_margin_m&quot;]</span> <span class="pre">=</span> <span class="pre">0.005</span></code>
-to permit 5 mm overhang. Physics runs for the configured duration; final velocity
-limits determine whether the objects are still moving. Post-physics checks use captured
-measurements without stepping physics or reading the live environment.</p>
+<p>The table has a beveled top, so the command supplies its local-Z top height.</p>
+<figure class="align-default" id="id3">
+<a class="reference internal image-reference" href="../../../_images/release.png"><img alt="Three hammers and a clamp suspended above a table before settling." src="../../../_images/release.png" style="width: 640px;" />
+</a>
+<figcaption>
+<p><span class="caption-text">Release poses selected by the placement solver.</span><a class="headerlink" href="#id3" title="Link to this image">#</a></p>
+</figcaption>
+</figure>
+<figure class="align-default" id="id4">
+<a class="reference internal image-reference" href="../../../_images/settled.png"><img alt="Three hammers and a clamp resting on a table after settling." src="../../../_images/settled.png" style="width: 640px;" />
+</a>
+<figcaption>
+<p><span class="caption-text">The recorded root poses after physics settling.</span><a class="headerlink" href="#id4" title="Link to this image">#</a></p>
+</figcaption>
+</figure>
 </section>
-<section id="containers">
-<h2>Containers<a class="headerlink" href="#containers" title="Link to this heading">#</a></h2>
-<p>Release placement stays above the full support bounds, including a container’s
-rim. For settling inside a bin or bowl, configure the minimum accepted height of
-an object’s bottom:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">params</span><span class="o">.</span><span class="n">validators</span><span class="p">[</span><span class="s2">"support_containment"</span><span class="p">][</span><span class="s2">"minimum_resting_heights_m"</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="s2">"bowl"</span><span class="p">:</span> <span class="o">-</span><span class="mf">0.025</span><span class="p">,</span>
-<span class="p">}</span>
+<section id="replay">
+<h3>Replay<a class="headerlink" href="#replay" title="Link to this heading">#</a></h3>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/scripts/environment_runner.py<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--env_spec<span class="w"> </span>isaaclab_arena_environments/clutter/franka_three_hammers_and_clamp_no_task.yaml<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--placement_layouts<span class="w"> </span>outputs/clutter/tools_on_table.jsonl<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--num_envs<span class="w"> </span><span class="m">1</span><span class="w"> </span>--device<span class="w"> </span>cpu<span class="w"> </span>--viz<span class="w"> </span>kit
 </pre></div>
 </div>
-<p><code class="docutils literal notranslate"><span class="pre">bowl</span></code> is the support’s runtime scene key. The value is in metres along the
-support’s local Z axis, after asset scaling, before its world translation. For
-the default-scale <code class="docutils literal notranslate"><span class="pre">bowl_ycb_robolab</span></code> asset, the inner floor is approximately
--0.025 m and the rim is +0.0275 m in that frame. Choose a height appropriate to
-your asset; these values do not apply to all bowls. The configured height must
-lie within the support’s local Z bounds, including either endpoint. Unknown support keys and invalid heights
-are rejected before sampling.</p>
-<p>Supports without an override still require a verified flat top surface. An
-override changes only the post-physics minimum height; release clearance,
-footprint checks and velocity checks remain unchanged. The height is saved with
-the validator configuration in each report.</p>
-<p>This is a bounding-box footprint and height check. It does not establish exact
-containment inside curved walls or detect every object-wall penetration.</p>
 </section>
-<section id="scope-and-limitations">
-<h2>Scope and limitations<a class="headerlink" href="#scope-and-limitations" title="Link to this heading">#</a></h2>
-<div class="pst-scrollable-table-container"><table class="table">
-<colgroup>
-<col style="width: 25.0%" />
-<col style="width: 75.0%" />
-</colgroup>
-<thead>
-<tr class="row-odd"><th class="head"><p>Scene feature</p></th>
-<th class="head"><p>Support and limitations</p></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p>Clutter objects</p></td>
-<td><p>Dynamic rigid bodies with gravity enabled. Object sets are rejected;
-resolve them to individual objects before collection, as for recording.</p></td>
-</tr>
-<tr class="row-odd"><td><p>Supports</p></td>
-<td><p>Fixed anchors with an upright quarter-turn orientation. Without a height
-override, containment requires a flat rectangular top covered by a Cube
-collider or connected planar mesh facet.</p></td>
-</tr>
-<tr class="row-even"><td><p>Rails and rims</p></td>
-<td><p>Set a minimum resting height for the full container, or use an
-<code class="docutils literal notranslate"><span class="pre">ObjectReference</span></code> to its flat floor as the <code class="docutils literal notranslate"><span class="pre">ClutterOn</span></code> parent and mark
-that reference <code class="docutils literal notranslate"><span class="pre">IsAnchor</span></code>.</p></td>
-</tr>
-<tr class="row-odd"><td><p>Support references</p></td>
-<td><p>Author translate, orient and scale operations before building the scene.
-Rewriting collider transforms after physics initialization can invalidate
-physics views.</p></td>
-</tr>
-<tr class="row-even"><td><p>Other placement relations</p></td>
-<td><p>Resolve them to fixed anchors before clutter collection. Keep anchors,
-backgrounds and passive obstacles at their configured poses after building
-the placement pool; runtime edits and pose-changing variations are unsupported.</p></td>
-</tr>
-<tr class="row-odd"><td><p>Reachability</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">ClutterOn</span></code> objects cannot require reachability: dropping changes the
-poses checked by the solver. Non-clutter fixed targets may retain
-<code class="docutils literal notranslate"><span class="pre">RequiresReachability</span></code>. Their solver checks and the displacement limits
-still apply; collection does not rerun IK after physics.</p></td>
-</tr>
-<tr class="row-even"><td><p>Collision checks</p></td>
-<td><p>Release generation uses normal placement collision discovery, including
-MESH background fixtures and anchored support exclusions. Tilted clutter
-requires BBOX. Post-physics checks do not rerun collision validation.</p></td>
-</tr>
-<tr class="row-odd"><td><p>Robot motion</p></td>
-<td><p>Physics also advances the robot; joints are not immobilized. Moving links
-can affect objects. Root speed and displacement remain checked, but joint
-states are not recorded.</p></td>
-</tr>
-</tbody>
-</table>
+</section>
+<section id="cube-clutter-in-a-container">
+<h2>Cube Clutter in a Container<a class="headerlink" href="#cube-clutter-in-a-container" title="Link to this heading">#</a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">franka_three_cubes_in_bowl_no_task</span></code> environment drops three cubes into a
+fixed YCB bowl.</p>
+<section id="id1">
+<h3>Record<a class="headerlink" href="#id1" title="Link to this heading">#</a></h3>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/scripts/record_placement_layouts.py<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span><span class="nv">env_spec</span><span class="o">=</span>isaaclab_arena_environments/clutter/franka_three_cubes_in_bowl_no_task.yaml<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span><span class="nv">output</span><span class="o">=</span>outputs/clutter/three_cubes_in_bowl.jsonl<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span><span class="nv">num_envs</span><span class="o">=</span><span class="m">1</span><span class="w"> </span><span class="nv">min_layouts</span><span class="o">=</span><span class="m">1</span><span class="w"> </span><span class="nv">layouts_per_env</span><span class="o">=</span><span class="m">5</span><span class="w"> </span><span class="nv">max_batches</span><span class="o">=</span><span class="m">5</span><span class="w"> </span><span class="nv">seed</span><span class="o">=</span><span class="m">42</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>settle.num_steps<span class="o">=</span><span class="m">480</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>+settle.validators.support_containment.minimum_resting_heights_m.bowl<span class="o">=</span>-0.025<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span><span class="nv">render</span><span class="o">=</span><span class="nb">true</span><span class="w"> </span>--device<span class="w"> </span>cpu<span class="w"> </span>--viz<span class="w"> </span>kit
+</pre></div>
 </div>
-<p>Retain <code class="docutils literal notranslate"><span class="pre">no_overlap</span></code> and <code class="docutils literal notranslate"><span class="pre">clutter_on_relation</span></code> in the solver checks. Do not use
-pre-physics <code class="docutils literal notranslate"><span class="pre">physics_settled</span></code> on intentional release poses: post-physics velocity
-validation checks the dropped objects instead.</p>
-<p>The offline package depends on the solver and shared records. Online placement
-and runtime replay do not import offline modules.</p>
+<p>The minimum resting height is the bowl floor in the bowl’s local frame. It lets
+the cubes settle below the rim while still rejecting objects that fall through
+the bowl.</p>
+<figure class="align-default" id="id5">
+<a class="reference internal image-reference" href="../../../_images/bowl_release.png"><img alt="Three cubes above a bowl before settling." src="../../../_images/bowl_release.png" style="width: 640px;" />
+</a>
+<figcaption>
+<p><span class="caption-text">Release poses above the bowl rim.</span><a class="headerlink" href="#id5" title="Link to this image">#</a></p>
+</figcaption>
+</figure>
+<figure class="align-default" id="id6">
+<a class="reference internal image-reference" href="../../../_images/bowl_settled.png"><img alt="Three cubes resting inside a bowl after settling." src="../../../_images/bowl_settled.png" style="width: 640px;" />
+</a>
+<figcaption>
+<p><span class="caption-text">The recorded root poses after physics settling.</span><a class="headerlink" href="#id6" title="Link to this image">#</a></p>
+</figcaption>
+</figure>
+</section>
+<section id="id2">
+<h3>Replay<a class="headerlink" href="#id2" title="Link to this heading">#</a></h3>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/scripts/environment_runner.py<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--env_spec<span class="w"> </span>isaaclab_arena_environments/clutter/franka_three_cubes_in_bowl_no_task.yaml<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--placement_layouts<span class="w"> </span>outputs/clutter/three_cubes_in_bowl.jsonl<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--num_envs<span class="w"> </span><span class="m">1</span><span class="w"> </span>--device<span class="w"> </span>cpu<span class="w"> </span>--viz<span class="w"> </span>kit
+</pre></div>
+</div>
+</section>
+</section>
+<section id="recording-and-replay-notes">
+<h2>Recording and Replay Notes<a class="headerlink" href="#recording-and-replay-notes" title="Link to this heading">#</a></h2>
+<p>Choose a new output path for each recording; existing JSONL files are not
+overwritten. Each line stores one accepted layout. If the batch budget ends
+early, any accepted layouts are still written; no file is created when none pass.</p>
+<p>Both examples use <code class="docutils literal notranslate"><span class="pre">NoTask</span></code>, so interactive replay loads the first saved layout
+and does not trigger episode resets. Close the viewer to exit. For policy
+evaluation replay, use the Experiment workflow in <a class="reference internal" href="recording.html"><span class="doc">Record and Replay Placement Poses</span></a>.</p>
+<p>See <a class="reference internal" href="../object_placement/validation.html"><span class="doc">Placement Validation</span></a> for clutter acceptance checks,
+container-height settings and rejection guidance. See
+<a class="reference internal" href="../object_placement/relations.html"><span class="doc">Relations and Strategies</span></a> for the JSONL format and layout selection
+across resets and parallel environments.</p>
 </section>
 </section>
 
@@ -777,9 +730,17 @@ and runtime replay do not import offline modules.</p>
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#acceptance-checks">Acceptance checks</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#containers">Containers</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#scope-and-limitations">Scope and limitations</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#tool-clutter-on-a-table">Tool Clutter on a Table</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#record">Record</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#replay">Replay</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#cube-clutter-in-a-container">Cube Clutter in a Container</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id1">Record</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id2">Replay</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#recording-and-replay-notes">Recording and Replay Notes</a></li>
 </ul>
   </nav></div>
 
