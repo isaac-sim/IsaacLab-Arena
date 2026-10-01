@@ -35,7 +35,7 @@ def record_placements_to_jsonl(
     render: bool = False,
     scene_assets: list[PlaceableAsset] | None = None,
 ) -> PlacementRecordingSummary:
-    """Collect poses iteratively, write JSONL when the layout target is met.
+    """Collect poses up to the layout target or batch budget and write accepted layouts.
 
     Each outer batch resets every environment once and runs one settle pass.
     The caller owns the environment; it stays open at its final state on success
@@ -45,7 +45,7 @@ def record_placements_to_jsonl(
     Args:
         env: Built environment with a pooled placement reset event.
         output: JSONL destination; must not exist.
-        min_layouts: Minimum accepted layouts required before writing.
+        min_layouts: Target number of accepted layouts to collect.
         max_batches: Maximum reset-and-settle rounds.
         params: Simulation duration and post-physics validators.
         render: Render the offline physics steps.
@@ -108,6 +108,7 @@ def record_settled_placement_layouts(
     """
     from isaaclab_arena.assets.object_set import RigidObjectSet
     from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
+    from isaaclab_arena.environment_spec.placer_params_cfg_override import build_placer_params_from_override
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
 
@@ -126,8 +127,11 @@ def record_settled_placement_layouts(
     assert arena_env.placement_layouts is None, "Remove cached placement layouts before recording"
     scene_assets = arena_env.get_placement_assets()
     assert not any(isinstance(asset, RigidObjectSet) for asset in scene_assets), "Resolve object sets before recording"
+    placer_params = arena_env.placer_params
+    if placer_params is None:
+        placer_params = build_placer_params_from_override(None)
     arena_env.placer_params = replace(
-        arena_env.placer_params,
+        placer_params,
         placement_seed=cfg.seed,
         min_unique_layouts_per_env=cfg.layouts_per_env,
         resolve_on_reset=True,

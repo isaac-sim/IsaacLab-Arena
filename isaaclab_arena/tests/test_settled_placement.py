@@ -176,6 +176,7 @@ def test_recording_cli_saves_final_poses(tmp_path, backend):
 def test_record_placements_to_jsonl_leaves_no_file_when_target_unmet(tmp_path):
     from unittest.mock import Mock, patch
 
+    from isaaclab_arena.offline_placement import settled_placement
     from isaaclab_arena.scripts.record_placement_layouts import record_placements_to_jsonl
 
     env = Mock()
@@ -187,9 +188,7 @@ def test_record_placements_to_jsonl_leaves_no_file_when_target_unmet(tmp_path):
             return_value=({"cube": []}, [], 1, {(0, 0): "failed"}),
         ),
         patch("isaaclab_arena.offline_placement.recording.validate_recording_assets"),
-        patch(
-            "isaaclab_arena.offline_placement.settled_placement.resolve_settle_params", return_value=Mock(num_steps=1)
-        ),
+        patch.object(settled_placement, "resolve_settle_params", return_value=Mock(num_steps=1)),
     ):
         output = tmp_path / "unused.jsonl"
         summary = record_placements_to_jsonl(env, output, min_layouts=2, max_batches=2, scene_assets=[])
@@ -201,6 +200,7 @@ def test_record_placements_to_jsonl_leaves_no_file_when_target_unmet(tmp_path):
 def test_record_placements_to_jsonl_writes_partial_acceptance(tmp_path):
     from unittest.mock import Mock, patch
 
+    from isaaclab_arena.offline_placement import settled_placement
     from isaaclab_arena.scripts.record_placement_layouts import record_placements_to_jsonl
 
     env = Mock()
@@ -218,9 +218,7 @@ def test_record_placements_to_jsonl_writes_partial_acceptance(tmp_path):
         ),
         patch("isaaclab_arena.offline_placement.recording.validate_recording_assets"),
         patch("isaaclab_arena.offline_placement.recording.write_settled_layouts", side_effect=write_partial),
-        patch(
-            "isaaclab_arena.offline_placement.settled_placement.resolve_settle_params", return_value=Mock(num_steps=1)
-        ),
+        patch.object(settled_placement, "resolve_settle_params", return_value=Mock(num_steps=1)),
     ):
         summary = record_placements_to_jsonl(env, output, min_layouts=2, max_batches=1, scene_assets=[])
     assert summary.output == output
@@ -289,6 +287,54 @@ def test_recording_cli_imports_before_simulation_startup():
         timeout=60,
     )
     assert result.returncode == 0, result.stdout + result.stderr
+
+
+def _test_recording_with_default_placer_params(simulation_app, tmp_path):
+    import json
+    from unittest.mock import patch
+
+    from isaaclab_arena.assets.registries import AssetRegistry, ensure_assets_registered
+    from isaaclab_arena.embodiments.no_embodiment import NoEmbodiment
+    from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
+    from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
+    from isaaclab_arena.offline_placement.recording_config import PlacementRecordingCfg
+    from isaaclab_arena.offline_placement.settled_placement_params import SettledPlacementParams
+    from isaaclab_arena.scripts.record_placement_layouts import record_settled_placement_layouts
+
+    source, output = tmp_path / "scene.yaml", tmp_path / "placements.jsonl"
+    _write_scene(source)
+    ensure_assets_registered()
+    with patch.dict(AssetRegistry()._components, {"recording_no_embodiment": NoEmbodiment}):
+        scene_description = ArenaEnvGraphSpec.from_yaml(source).to_arena_env()
+    arena_env = IsaacLabArenaEnvironment(
+        name=scene_description.name,
+        scene=scene_description.scene,
+        embodiment=scene_description.embodiment,
+        task=scene_description.task,
+    )
+    assert arena_env.placer_params is None
+    cfg = PlacementRecordingCfg(
+        output=str(output),
+        min_layouts=2,
+        layouts_per_env=1,
+        max_batches=3,
+        settle=SettledPlacementParams(num_steps=120),
+    )
+    summary = record_settled_placement_layouts(cfg, arena_env=arena_env)
+    assert summary.output == output
+    assert summary.accepted == 2
+    records = [json.loads(line)["variations"]["scene.relation_placement"] for line in output.read_text().splitlines()]
+    assert len(records) == 2
+    for record in records:
+        assert record["poses"]["cube_body"]["position_xyz"][2] == pytest.approx(0.57, abs=0.002)
+        reports = {report["check"]: report for report in record["validation"]["post_physics"]}
+        assert reports["physics_settled"]["passed"]
+        assert reports["pose_shift"]["passed"]
+    return True
+
+
+def test_recording_with_default_placer_params(tmp_path):
+    assert run_function_with_persistent_simulation_app(_test_recording_with_default_placer_params, tmp_path=tmp_path)
 
 
 def _test_recording_filters_layouts(simulation_app, tmp_path):

@@ -33,9 +33,9 @@ class PlacementRecordingCfg:
     layouts_per_env: int = 5
     """Solver layouts added per environment when a placement pool refills."""
     min_layouts: int = 1
-    """Minimum accepted settled layouts required before writing JSONL."""
+    """Target number of accepted settled layouts to record."""
     max_batches: int = 5
-    """Maximum reset-and-settle rounds before requiring ``min_layouts``."""
+    """Maximum reset-and-settle rounds; accepted layouts are saved even below the target."""
     seed: int = 42
     """Seed for placement solving and reset randomization."""
     presets: str | None = None
