@@ -38,7 +38,7 @@ from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.metrics.metric_term_cfg import MetricTermCfg
 from isaaclab_arena.metrics.recorder_manager_utils import metrics_to_recorder_manager_cfg
 from isaaclab_arena.progress_tracking.progress_tracker import ProgressTrackingRecorderManagerCfg
-from isaaclab_arena.progress_tracking.task_success import TaskSuccessTerm
+from isaaclab_arena.progress_tracking.task_success import TaskSuccessCfg, task_success
 from isaaclab_arena.recording.common_terms import CoreEpisodeRecorderTermCfg, VariationEpisodeRecorderTermCfg
 from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTermCfg
 from isaaclab_arena.recording.progress_terms import ProgressEpisodeRecorderTermCfg
@@ -264,14 +264,7 @@ class ArenaEnvBuilder:
 
         # Install the shared success term when the task defines success criteria.
         if success_criteria:
-            success_term = TerminationTermCfg(
-                func=TaskSuccessTerm,
-                params={
-                    "success_criteria": success_criteria,
-                    "subtasks_are_sequential": task_termination_cfg.subtasks_are_sequential,
-                    "desired_subtask_success_state": task_termination_cfg.desired_subtask_success_state,
-                },
-            )
+            success_term = TerminationTermCfg(func=task_success)
             termination_terms["success"] = success_term
         termination_fields = [(name, TerminationTermCfg, term) for name, term in termination_terms.items()]
         return make_configclass("TerminationsCfg", termination_fields)()
@@ -453,6 +446,13 @@ class ArenaEnvBuilder:
             episode_length_s = task.get_episode_length_s()
 
         task_description = self.cfg.language_instruction or task.get_task_description()
+        task_success_cfg = None
+        if task_termination_cfg.success:
+            task_success_cfg = TaskSuccessCfg(
+                success_criteria=task_termination_cfg.success,
+                subtasks_are_sequential=task_termination_cfg.subtasks_are_sequential,
+                desired_subtask_success_state=task_termination_cfg.desired_subtask_success_state,
+            )
 
         demo_recorder_config = ArenaEnvRecorderManagerCfg() if embodiment.enable_cameras else None
 
@@ -474,6 +474,7 @@ class ArenaEnvBuilder:
                 demo_recorder_config=demo_recorder_config,
                 metrics=metrics_cfg,
                 episode_recorders=episode_recorders_cfg,
+                task_success=task_success_cfg,
                 task_description=task_description,
                 viewer=viewer_cfg,
             )
@@ -504,6 +505,7 @@ class ArenaEnvBuilder:
                 subtask_configs=task_mimic_env_cfg.subtask_configs,
                 task_constraint_configs=task_mimic_env_cfg.task_constraint_configs,
                 mimic_recorder_config=mimic_recorder_config,
+                task_success=task_success_cfg,
                 # NOTE(alexmillane, 2025-09-25): Metric + recorders excluded from mimic env,
                 # I assume that they're not needed for the mimic env.
                 # recorders=recorder_manager_cfg,

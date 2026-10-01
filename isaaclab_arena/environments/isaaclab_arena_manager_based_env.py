@@ -5,10 +5,10 @@
 
 from __future__ import annotations
 
+import torch
 from collections.abc import Sequence
-from typing import TYPE_CHECKING
 
-from isaaclab.envs import ManagerBasedRLEnv
+from isaaclab.envs import ManagerBasedRLEnv, ManagerBasedRLMimicEnv
 
 from isaaclab_arena.environments.arena_world import ArenaWorld
 from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import (
@@ -17,12 +17,10 @@ from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import (
 )
 from isaaclab_arena.metrics.metric_data import MetricsDataCollection
 from isaaclab_arena.metrics.metrics_manager import MetricsManager
+from isaaclab_arena.progress_tracking.progress_tracker import ProgressTracker
 from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderManager
-from isaaclab_arena.tasks.predicates.object_settling import ObjectInitialRestPoseRecorder
+from isaaclab_arena.tasks.predicates.object_settling import ObjectInitialRestPoseRecorder, reset_rest_pose_recorder
 from isaaclab_arena.variations.variation_recorder import VariationRecorder
-
-if TYPE_CHECKING:
-    from isaaclab_arena.progress_tracking.progress_tracker import ProgressTracker
 
 
 class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
@@ -61,7 +59,7 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
 
     @property
     def progress_tracker(self) -> ProgressTracker | None:
-        """The ProgressTracker owned by TaskSuccessTerm, or None if not initialized."""
+        """The environment-owned task progress tracker, or None for tasks without success objectives."""
         return self._progress_tracker
 
     @property
@@ -82,6 +80,16 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
     def load_managers(self) -> None:
         assert self._arena_world is None, "ArenaWorld is already initialized."
         self._arena_world = ArenaWorld(self.scene)
+        if self.cfg.task_success is not None:
+            assert self.cfg.task_success.success_criteria, "Task success requires at least one completion criterion."
+            self._progress_tracker = ProgressTracker(
+                self.cfg.task_success.success_criteria,
+                num_envs=self.num_envs,
+                device=self.device,
+                env=self,
+                subtasks_are_sequential=self.cfg.task_success.subtasks_are_sequential,
+                desired_subtask_success_state=self.cfg.task_success.desired_subtask_success_state,
+            )
         super().load_managers()
         self.metrics_manager = MetricsManager(self.cfg.metrics, self)
         self.episode_recorder_manager = EpisodeRecorderManager(self.cfg.episode_recorders, self)
@@ -104,13 +112,24 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
         # The initial reset touches every env before any episode has run; nothing to record or count.
         if self._first_reset:
             self._first_reset = False
+            self._reset_task_progress(env_ids)
             super()._reset_idx(env_ids)
             return
         # Runs recorder before super() so the just-finished episode is still intact.
         self.episode_recorder_manager.record_pre_reset(env_ids)
         # Advance before super() so reset-mode variation draws are tagged with the episode they begin.
         self._advance_episode_indices(env_ids)
+        self._reset_task_progress(env_ids)
         super()._reset_idx(env_ids)
+
+    def _reset_task_progress(self, env_ids: Sequence[int] | slice | None) -> None:
+        """Reset environment-owned progress state for the selected environments."""
+        if self._progress_tracker is None:
+            return
+        all_env_ids = torch.arange(self.num_envs, device=self.device)
+        selected_env_ids = all_env_ids if env_ids is None else all_env_ids[env_ids]
+        self._progress_tracker.reset(selected_env_ids)
+        reset_rest_pose_recorder(self, selected_env_ids)
 
     def compute_metrics(self) -> MetricsDataCollection:
         """Compute all registered metrics.
@@ -119,3 +138,7 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
             A MetricsDataCollection instance.
         """
         return self.metrics_manager.compute()
+
+
+class IsaacLabArenaManagerBasedRLMimicEnv(IsaacLabArenaManagerBasedRLEnv, ManagerBasedRLMimicEnv):
+    """Arena environment with the Isaac Lab Mimic interface."""

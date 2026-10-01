@@ -19,6 +19,8 @@ from isaaclab_physx.renderers import IsaacRtxRendererGlobalSettingsCfg
 from isaaclab_physx.renderers.isaac_rtx_renderer_utils import apply_isaac_rtx_global_settings
 from isaaclab_tasks.utils import PresetCfg
 
+from isaaclab_arena.progress_tracking.task_success import TaskSuccessCfg
+
 
 class NewtonArenaMJWarpManager(NewtonMJWarpManager):
     """Handle fixed-tendon models that use no MuJoCo actuators.
@@ -88,6 +90,9 @@ class IsaacLabArenaManagerBasedRLEnvCfg(ManagerBasedRLEnvCfg):
     metrics: object | None = None
 
     episode_recorders: object | None = None
+
+    task_success: TaskSuccessCfg | None = None
+    """Configuration for environment-owned task progress and success evaluation."""
 
     demo_recorder_config: RecorderManagerBaseCfg | None = None
     """Recorder configuration used by demonstration collection scripts."""

@@ -3,61 +3,35 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Connect task progress to Isaac Lab's termination evaluation and reset lifecycle."""
+"""Connect Arena-owned task progress to Isaac Lab's termination evaluation."""
 
 from __future__ import annotations
 
 import torch
+from dataclasses import MISSING
 
-from isaaclab.managers import ManagerTermBase, TerminationTermCfg
+from isaaclab.utils.configclass import configclass
 
 from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
-from isaaclab_arena.progress_tracking.progress_tracker import ProgressTracker
-from isaaclab_arena.tasks.predicates.object_settling import reset_rest_pose_recorder
 
 
-class TaskSuccessTerm(ManagerTermBase):
-    """Determine task success using ProgressTracker.
+@configclass
+class TaskSuccessCfg:
+    """Configure the progress tracker owned by an Arena environment."""
 
-    ArenaEnvBuilder registers this term with Isaac Lab's TerminationManager.
-    TaskSuccessTerm creates and owns ProgressTracker. TerminationManager
-    calls this term once per control step to update progress and check the task's success
-    requirements. On episode resets, TerminationManager calls
-    this term's reset() to clear progress for the restarting environments.
-    """
+    success_criteria: list[CompletionCriteria] = MISSING
+    """Ordered completion criteria whose completion determines success."""
 
-    def __init__(self, cfg: TerminationTermCfg, env):
-        super().__init__(cfg, env)
-        # Isaac Lab validates required __call__ parameters before constructing this term.
-        success_criteria: list[CompletionCriteria] = cfg.params["success_criteria"]
-        assert success_criteria, "Task success requires at least one set of completion criteria."
-        assert env.progress_tracker is None, "Only one root term may own task progress."
-        self._progress_tracker = ProgressTracker(
-            success_criteria,
-            num_envs=env.num_envs,
-            device=env.device,
-            env=env,
-            subtasks_are_sequential=cfg.params.get("subtasks_are_sequential", False),
-            desired_subtask_success_state=cfg.params.get("desired_subtask_success_state"),
-        )
-        self._environment_ids = torch.arange(env.num_envs, device=env.device)
-        env._progress_tracker = self._progress_tracker
+    subtasks_are_sequential: bool = False
+    """Whether later subtasks wait for all criteria in the current subtask."""
 
-    def __call__(
-        self,
-        env,
-        success_criteria: list[CompletionCriteria],
-        subtasks_are_sequential: bool = False,
-        desired_subtask_success_state: list[bool | None] | None = None,
-    ) -> torch.Tensor:
-        """Update ProgressTracker and return whether the task's success requirements are met in each environment."""
-        self._progress_tracker.step(env, step_index=env.episode_length_buf)
-        return self._progress_tracker.is_complete()
+    desired_subtask_success_state: list[bool | None] | None = None
+    """Required completion state for each subtask, or None for normal completion."""
 
-    def reset(self, env_ids=None) -> None:
-        """Clear progress and initial resting positions for the restarting environments."""
-        selected_env_ids = self._environment_ids if env_ids is None else self._environment_ids[env_ids]
-        self._progress_tracker.reset(selected_env_ids)
-        # TODO(cvolk): Consider a shared Arena reset hook in IsaacLabArenaManagerBasedRLEnv.
-        # Revisit this if ObjectInitialRestPoseRecorder is used independently of task success.
-        reset_rest_pose_recorder(self._env, selected_env_ids)
+
+def task_success(env) -> torch.Tensor:
+    """Advance Arena-owned task progress and return success for each environment."""
+    progress_tracker = env.progress_tracker
+    assert progress_tracker is not None, "Arena must initialize task progress before evaluating success."
+    progress_tracker.step(env, step_index=env.episode_length_buf)
+    return progress_tracker.is_complete()

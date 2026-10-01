@@ -45,9 +45,8 @@ def _create_predicate_from_config(predicate, env):
     """
 
     # Isaac Lab does not resolve configs inside CompletionCriteria dataclasses.
-    # NOTE(cvolk): TaskSuccessTerm creates the tracker while TerminationManager is
-    # still being constructed, before env.termination_manager is assigned.
-    # We therefore cannot delegate nested predicate initialization to that manager.
+    # Arena creates the tracker before its managers, so nested predicate initialization
+    # cannot delegate to the termination manager.
     if not isinstance(predicate, TerminationTermCfg):
         return predicate
 
@@ -477,7 +476,7 @@ class ProgressTracker:
     def step(self, env, step_index: torch.Tensor | None = None) -> None:
         """Advance predicate sequences and update task success for one control step.
 
-        TaskSuccessTerm calls this once per control step. Other consumers read
+        The task-success termination function calls this once per control step. Other consumers read
         is_complete(), get_state(), or get_events() without advancing progress.
         Temporal requirements need a per-environment step_index. When supplied,
         indices must advance by exactly one between updates for each environment,
