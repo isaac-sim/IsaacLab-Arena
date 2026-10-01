@@ -143,7 +143,7 @@ def test_recording_cli_saves_final_poses(tmp_path, backend):
             "viewer_eye=[4.0,4.0,6.3]",
             "viewer_lookat=[0.6,0.6,0.3]",
             "layouts_per_env=2",
-            "num_layouts=4",
+            "min_layouts=4",
             "max_batches=5",
             "settle.num_steps=120",
             "settle.validators.pose_shift.max_translation_m=0.0015",
@@ -192,7 +192,7 @@ def test_record_placements_to_jsonl_leaves_no_file_when_target_unmet(tmp_path):
         ),
     ):
         output = tmp_path / "unused.jsonl"
-        summary = record_placements_to_jsonl(env, output, num_layouts=2, max_batches=2, scene_assets=[])
+        summary = record_placements_to_jsonl(env, output, min_layouts=2, max_batches=2, scene_assets=[])
     assert summary.output is None
     assert summary.accepted == 0
     assert summary.attempted == 1
@@ -220,7 +220,7 @@ def test_recording_cli_rejects_insufficient_batch_budget(tmp_path):
             "presets=physx",
             "num_envs=1",
             "layouts_per_env=1",
-            "num_layouts=2",
+            "min_layouts=2",
             "max_batches=1",
             "settle.num_steps=120",
             "--viz",
@@ -319,7 +319,7 @@ def _test_recording_filters_layouts(simulation_app, tmp_path):
             ):
                 with pytest.raises(AssertionError, match=f"floor.*{reason}"):
                     record_placements_to_jsonl(
-                        env, tmp_path / "incompatible.jsonl", num_layouts=1, max_batches=1, scene_assets=assets
+                        env, tmp_path / "incompatible.jsonl", min_layouts=1, max_batches=1, scene_assets=assets
                     )
                 reset.assert_not_called()
                 with pytest.raises(AssertionError, match=f"floor.*{reason}"):
@@ -383,7 +383,7 @@ def _test_recording_filters_layouts(simulation_app, tmp_path):
             patch.object(base, "close", wraps=base.close) as close,
         ):
             summary = record_placements_to_jsonl(
-                env, output, num_layouts=1, max_batches=1, params=params, scene_assets=assets
+                env, output, min_layouts=1, max_batches=1, params=params, scene_assets=assets
             )
             close.assert_not_called()
         assert summary.output == output
@@ -440,7 +440,7 @@ def _test_recording_filters_layouts(simulation_app, tmp_path):
                 "missing required solver checks: ik_reachable" in reason for reason in rejected.rejections.values()
             )
             summary = record_placements_to_jsonl(
-                env, rejected_output, num_layouts=1, max_batches=1, scene_assets=assets
+                env, rejected_output, min_layouts=1, max_batches=1, scene_assets=assets
             )
             assert summary.output is None
             assert summary.accepted == 0 and summary.attempted == base.num_envs
@@ -712,10 +712,10 @@ def test_collect_layouts_until_count_trims_and_merges():
         "isaaclab_arena.offline_placement.settled_placement.collect_settled_placements",
         side_effect=[batch_one, batch_two],
     ) as collect:
-        result = collect_layouts_until_count(env, target_count=3, max_batches=5)
+        poses, validation, attempted, rejections = collect_layouts_until_count(env, min_layouts=3, max_batches=5)
 
     assert collect.call_count == 2
-    assert len(result.validation) == 3
-    assert len(result.poses["cube"]) == 3
-    assert result.attempted == batch_one.attempted + batch_two.attempted
-    assert result.rejections == {(1, 1): "pose_shift"}
+    assert len(validation) == 3
+    assert len(poses["cube"]) == 3
+    assert attempted == batch_one.attempted + batch_two.attempted
+    assert rejections == {(1, 1): "pose_shift"}

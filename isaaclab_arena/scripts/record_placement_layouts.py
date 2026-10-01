@@ -28,7 +28,7 @@ def record_placements_to_jsonl(
     env: gym.Env,
     output: str | Path,
     *,
-    num_layouts: int,
+    min_layouts: int,
     max_batches: int,
     params: SettledPlacementParams | None = None,
     render: bool = False,
@@ -38,13 +38,13 @@ def record_placements_to_jsonl(
 
     Each outer batch resets every environment once and runs one settle pass.
     The caller owns the environment; it stays open at its final state on success
-    or failure. If the batch budget is exhausted before ``num_layouts`` accepts,
+    or failure. If the batch budget is exhausted before ``min_layouts`` accepts,
     returns a summary with output=None and leaves the destination unwritten.
 
     Args:
         env: Built environment with a pooled placement reset event.
         output: JSONL destination; must not exist.
-        num_layouts: Accepted layouts required before writing.
+        min_layouts: Minimum accepted layouts required before writing.
         max_batches: Maximum reset-and-settle rounds.
         params: Simulation duration and post-physics validators.
         render: Render the offline physics steps.
@@ -70,7 +70,7 @@ def record_placements_to_jsonl(
     settle = resolve_settle_params(assets, params)
     poses, validation, attempted, rejections = collect_layouts_until_count(
         env,
-        num_layouts,
+        min_layouts,
         max_batches,
         settle,
         render=render,
@@ -78,7 +78,7 @@ def record_placements_to_jsonl(
     )
     accepted = len(validation)
     summary = PlacementRecordingSummary(output=None, accepted=accepted, attempted=attempted, rejections=rejections)
-    if accepted < num_layouts:
+    if accepted < min_layouts:
         return summary
     write_settled_layouts(env, output, assets, poses, validation, settle.num_steps)
     summary.output = output
@@ -112,9 +112,9 @@ def record_settled_placement_layouts(
 
     assert not Path(cfg.output).exists(), f"Output already exists: {cfg.output}"
     assert cfg.num_envs > 0 and cfg.layouts_per_env > 0, "Environment and layout counts must be positive"
-    assert cfg.num_layouts > 0 and cfg.max_batches > 0, "Layout target and batch budget must be positive"
+    assert cfg.min_layouts > 0 and cfg.max_batches > 0, "Layout target and batch budget must be positive"
     assert (
-        cfg.max_batches * cfg.num_envs >= cfg.num_layouts
+        cfg.max_batches * cfg.num_envs >= cfg.min_layouts
     ), "Batch budget cannot supply the requested accepted layout count"
     assert (cfg.viewer_eye is None) == (cfg.viewer_lookat is None), "Set viewer_eye and viewer_lookat together"
 
@@ -145,7 +145,7 @@ def record_settled_placement_layouts(
         return record_placements_to_jsonl(
             env,
             cfg.output,
-            num_layouts=cfg.num_layouts,
+            min_layouts=cfg.min_layouts,
             max_batches=cfg.max_batches,
             params=cfg.settle,
             render=cfg.render,
@@ -174,7 +174,7 @@ def main() -> None:
             print(f"  Rejected {count}: {reason}")
         assert (
             summary.output is not None
-        ), f"Accepted {summary.accepted} layouts; need {cfg.num_layouts}. Rejections: {summary.rejections}"
+        ), f"Accepted {summary.accepted} layouts; need {cfg.min_layouts}. Rejections: {summary.rejections}"
         print(f"Saved {summary.accepted}/{summary.attempted} accepted layouts: {summary.output}")
 
 

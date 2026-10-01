@@ -20,7 +20,7 @@ headless run, use ``render=false --viz none`` instead of ``render=true --viz kit
 
    python isaaclab_arena/scripts/record_placement_layouts.py \
        env_spec=isaaclab_arena_environments/clutter/franka_three_hammers_and_clamp_no_task.yaml \
-       output=outputs/clutter/episodes.jsonl num_envs=4 num_layouts=10 layouts_per_env=4 \
+       output=outputs/clutter/episodes.jsonl num_envs=4 min_layouts=10 layouts_per_env=4 \
        seed=42 max_batches=15 settle.num_steps=480 render=true \
        +settle.validators.support_containment.minimum_resting_heights_m.office_table_background=0.5306 \
        --device cpu --viz kit
@@ -40,7 +40,7 @@ when the background reset writes its velocity. This diagnostic also occurs in
 the normal reset path. Check the validator reports and saved-layout count to
 determine whether generation succeeded.
 
-``num_envs`` controls parallel environments. ``num_layouts`` is the total number
+``num_envs`` controls parallel environments. ``min_layouts`` is the minimum number
 of accepted layouts to save (default 1).
 ``layouts_per_env`` sets how many solver layouts each environment receives when
 the placement pool refills. ``max_batches`` caps reset-and-settle rounds; the

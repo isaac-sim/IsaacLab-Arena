@@ -7,10 +7,10 @@ the final poses of accepted layouts. Replay loads those poses on reset without
 solving or settling them again.
 
 Recording runs an outer loop of reset-and-settle batches until it collects
-``num_layouts`` accepted layouts or exhausts ``max_batches``. Each batch resets
-every environment once. ``num_layouts`` is how many accepted layouts to write
+``min_layouts`` accepted layouts or exhausts ``max_batches``. Each batch resets
+every environment once. ``min_layouts`` is the minimum accepted layouts to write
 (default 1). ``layouts_per_env`` sets how many solver layouts each environment
-receives when the placement pool refills.
+receives when the placement pool refills (default 5).
 
 The examples use the existing Robolab environments with visualization enabled:
 ``clamp_in_right_bin`` for recording and replay, and ``smartphone_in_bin`` for rejection.
@@ -44,7 +44,7 @@ compatible assets, physics-root names and reset settings.
    python isaaclab_arena/scripts/record_placement_layouts.py \
        env_spec=isaaclab_arena_environments/robolab/tasks/clamp_in_right_bin.yaml \
        output=outputs/placements/clamp.jsonl \
-       num_envs=4 env_spacing=2 layouts_per_env=4 num_layouts=16 max_batches=5 seed=42 \
+       num_envs=4 env_spacing=2 min_layouts=16 max_batches=5 seed=42 \
        'viewer_eye=[4.0,4.0,6.3]' 'viewer_lookat=[0.6,0.6,0.3]' \
        settle.num_steps=120 \
        settle.validators.pose_shift.max_translation_m=0.015 \
@@ -55,7 +55,7 @@ You should see four environments reset and settle over several batches until
 Recording is successful when:
 
 * the command exits without error and writes ``outputs/placements/clamp.jsonl``
-  with exactly the requested ``num_layouts`` accepted layouts;
+  with exactly the requested ``min_layouts`` accepted layouts;
 * the file contains one complete layout per line, and its line count matches the
   reported accepted count;
 * every saved layout passes all required solver checks and all enabled, applicable
@@ -188,7 +188,7 @@ Generate and record poses in the ``smartphone_in_bin`` environment:
    python isaaclab_arena/scripts/record_placement_layouts.py \
        env_spec=isaaclab_arena_environments/robolab/tasks/smartphone_in_bin.yaml \
        output=outputs/placements/smartphone.jsonl \
-       num_envs=4 env_spacing=2 layouts_per_env=4 num_layouts=16 max_batches=5 seed=42 \
+       num_envs=4 env_spacing=2 min_layouts=16 max_batches=5 seed=42 \
        'viewer_eye=[4.0,4.0,6.3]' 'viewer_lookat=[0.6,0.6,0.3]' \
        settle.num_steps=120 \
        settle.validators.pose_shift.max_translation_m=0.015 \
@@ -196,7 +196,7 @@ Generate and record poses in the ``smartphone_in_bin`` environment:
 
 Layouts that fail a required solver check or an enabled, applicable post-physics
 check are excluded from the file and reported with a rejection reason.
-If the batch budget ends before ``num_layouts`` pass, expect an insufficient-acceptance
+If the batch budget ends before ``min_layouts`` pass, expect an insufficient-acceptance
 error and no output file; otherwise, the success conditions from step 1 apply.
 Use :ref:`recording_rejection_summary` to diagnose failures. If every layout passes,
 recording succeeded but rejection handling was not exercised.
@@ -366,7 +366,7 @@ environment, collect accepted poses and write JSONL:
        PlacementRecordingCfg(
            env_spec="isaaclab_arena_environments/robolab/tasks/clamp_in_right_bin.yaml",
            output="outputs/placements/clamp_python.jsonl",
-           num_envs=4, env_spacing=2.0, layouts_per_env=4, settle=settling,
+           num_envs=4, env_spacing=2.0, layouts_per_env=4, min_layouts=16, max_batches=5, settle=settling,
        ),
        device="cpu",
    )
@@ -381,7 +381,7 @@ Pass ``arena_env=`` to ``record_settled_placement_layouts`` when the scene is
 already built in memory (for example clutter tests); omit it to load ``env_spec``.
 
 For a simulation environment you already own, ``record_placements_to_jsonl`` accepts
-``env``, an output path, ``num_layouts`` and ``max_batches`` and returns the same
+``env``, an output path, ``min_layouts`` and ``max_batches`` and returns the same
 summary. This helper leaves environment cleanup to its caller.
 
 For the reusable library API, call ``collect_settled_placements`` to inspect
@@ -409,7 +409,7 @@ with ``check``, ``passed``, ``reason`` and ``configuration`` attributes.
 environment and reset batch, not an index into a stored pool.
 
 The collector returns empty pose lists and rejection reasons when no candidates
-pass. The recording wrapper iterates batches until ``num_layouts`` accepts or the
+pass. The recording wrapper iterates batches until ``min_layouts`` accepts or the
 batch budget is exhausted, validates replay compatibility and adds sampling
 metadata to the saved JSONL. For ordinary placements, ``scene_assets`` is optional
 and supplements the pool's metadata to distinguish embodiments from articulated

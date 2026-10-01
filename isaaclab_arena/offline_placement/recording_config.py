@@ -32,10 +32,10 @@ class PlacementRecordingCfg:
     """Optional viewer target in simulation-world metres; requires viewer_eye."""
     layouts_per_env: int = 5
     """Solver layouts added per environment when a placement pool refills."""
-    num_layouts: int = 1
-    """Accepted settled layouts to write."""
+    min_layouts: int = 1
+    """Minimum accepted settled layouts required before writing JSONL."""
     max_batches: int = 5
-    """Maximum reset-and-settle rounds before requiring the layout target."""
+    """Maximum reset-and-settle rounds before requiring ``min_layouts``."""
     seed: int = 42
     """Seed for placement solving and reset randomization."""
     presets: str | None = None

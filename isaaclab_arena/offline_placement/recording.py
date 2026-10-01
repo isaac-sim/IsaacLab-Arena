@@ -36,18 +36,18 @@ class PlacementRecordingSummary:
 
 def collect_layouts_until_count(
     env: ManagerBasedEnv,
-    target_count: int,
+    min_layouts: int,
     max_batches: int,
     params: SettledPlacementParams | None = None,
     *,
     render: bool = False,
     scene_assets: list[PlaceableAsset] | None = None,
 ) -> tuple[dict[str, list[Pose]], list[PlacementOutcome], int, dict[tuple[int, int], str]]:
-    """Sample reset batches until the target accept count or batch budget is reached.
+    """Sample reset batches until ``min_layouts`` accepts or the batch budget is reached.
 
     Args:
         env: Built environment with a pooled placement reset event.
-        target_count: Number of accepted layouts to collect.
+        min_layouts: Minimum accepted layouts to collect.
         max_batches: Maximum outer reset-and-settle rounds.
         params: Physics duration and post-physics validators.
         render: Render offline physics steps.
@@ -58,7 +58,7 @@ def collect_layouts_until_count(
     """
     from isaaclab_arena.offline_placement.settled_placement import collect_settled_placements
 
-    assert target_count > 0 and max_batches > 0, "Target count and batch budget must be positive"
+    assert min_layouts > 0 and max_batches > 0, "min_layouts and batch budget must be positive"
     poses: dict[str, list[Pose]] = {}
     outcomes: list[PlacementOutcome] = []
     rejections: dict[tuple[int, int], str] = {}
@@ -68,15 +68,15 @@ def collect_layouts_until_count(
         attempted += result.attempted
         for (env_id, _), reason in result.rejections.items():
             rejections[env_id, batch_index] = reason
-        remaining = target_count - len(outcomes)
+        remaining = min_layouts - len(outcomes)
         for key, values in result.poses.items():
             poses.setdefault(key, []).extend(values[:remaining])
         outcomes.extend(result.validation[:remaining])
         print(
-            f"[recording] batch {batch_index + 1}/{max_batches}: {len(outcomes)}/{target_count} collected",
+            f"[recording] batch {batch_index + 1}/{max_batches}: {len(outcomes)}/{min_layouts} collected",
             flush=True,
         )
-        if len(outcomes) >= target_count:
+        if len(outcomes) >= min_layouts:
             break
     return poses, outcomes, attempted, rejections
 
