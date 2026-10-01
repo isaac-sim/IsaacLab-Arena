@@ -58,8 +58,9 @@ class _StubEnv(gym.Env):
     observation_space = gym.spaces.Dict({})
     action_space = gym.spaces.Discrete(1)
 
-    def __init__(self):
+    def __init__(self, autoreset_mode=gym.vector.AutoresetMode.SAME_STEP):
         super().__init__()
+        self.metadata = dict(self.metadata, autoreset_mode=autoreset_mode)
         camera_obs_cfg = _CameraObservationCfg()
         self.cfg = SimpleNamespace(observations=SimpleNamespace(camera_obs=camera_obs_cfg))
         self._step_return = ({}, None, torch.zeros(1, dtype=torch.bool), torch.zeros(1, dtype=torch.bool), None)
@@ -73,7 +74,12 @@ class _StubEnv(gym.Env):
         active_episode_mask[self.inactive_env_ids] = False
         return active_episode_mask
 
-    def reset(self, **kwargs):
+    def reset(self, *, env_ids=None, **kwargs):
+        if env_ids is not None:
+            for env_id in env_ids:
+                if env_id in self.inactive_env_ids:
+                    self.inactive_env_ids.remove(env_id)
+                    self._episode_counts[env_id] = self._episode_counts.get(env_id, 0) + 1
         return {}, {}
 
     def step(self, action):
@@ -81,7 +87,10 @@ class _StubEnv(gym.Env):
         # step (the episode scheduler assigns the new index before step() returns).
         _, _, terminated, truncated, _ = self._step_return
         for env_id in (terminated | truncated).nonzero().flatten().tolist():
-            self._episode_counts[env_id] = self._episode_counts.get(env_id, 0) + 1
+            if self.metadata["autoreset_mode"] == gym.vector.AutoresetMode.DISABLED:
+                self.inactive_env_ids.append(env_id)
+            else:
+                self._episode_counts[env_id] = self._episode_counts.get(env_id, 0) + 1
         return self._step_return
 
     def get_episode_index(self, env_id: int) -> int:
@@ -341,6 +350,31 @@ def test_no_video_written_for_empty_episode(tmp_path):
         # per-episode results record).
         assert not any(writer.filename.endswith("env0-front_rgb-episode-0.mp4") for writer in writers)
         assert env.get_episode_index(0) == 1
+
+
+def test_explicit_resets_record_terminal_frame_in_the_finishing_episode(tmp_path):
+    """A one-step episode keeps its final frame, and a later explicit reset starts the next video."""
+    env = _StubEnv(autoreset_mode=gym.vector.AutoresetMode.DISABLED)
+    with _patched_writers() as writers:
+        recorder = CameraObsVideoRecorder(env, video_folder=str(tmp_path))
+        _configure_step(env, done_envs=[0])
+        recorder.step(None)
+        _configure_step(env)
+        recorder.step(None)
+        env.reset(env_ids=[0])
+        _configure_step(env, done_envs=[0])
+        recorder.step(None)
+        completed_writers = [writer for writer in writers if "-env0-" in writer.filename]
+        assert len(completed_writers) == 2 * len(CAMERAS)
+        assert all(writer.closed and writer.frames_written == 1 for writer in completed_writers)
+        for episode_index in range(2):
+            for camera in CAMERAS:
+                assert any(
+                    writer.filename.endswith(f"env0-{camera}-episode-{episode_index}.mp4")
+                    for writer in completed_writers
+                )
+        recorder.close()
+        assert len(list(tmp_path.glob("*.mp4"))) == 2 * len(CAMERAS)
 
 
 def test_frame_writing_is_timed_separately_from_finalizing(tmp_path):

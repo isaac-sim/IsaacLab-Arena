@@ -3,8 +3,11 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import gymnasium as gym
 import torch
 from types import SimpleNamespace
+
+import pytest
 
 from isaaclab_arena.metrics.success_rate import SuccessRecorder, SuccessRecorderCfg
 from isaaclab_arena.terms.recorders import (
@@ -49,25 +52,37 @@ def test_multiple_frame_transformers_add_one_end_effector_poses_term_each():
     assert terms_cfg.record_end_effector_poses_1.asset_name == "robot"
 
 
-def test_first_finished_episodes_have_trajectory_identity():
+@pytest.mark.parametrize("autoreset_mode", [gym.vector.AutoresetMode.SAME_STEP, gym.vector.AutoresetMode.DISABLED])
+def test_first_finished_episodes_have_trajectory_identity(autoreset_mode):
     """The first completion callback stamps each demo with its environment ID and episode index within that environment."""
-    env = SimpleNamespace(num_envs=3, device="cpu", get_episode_index=lambda env_id: 0)
+    env = SimpleNamespace(
+        num_envs=3,
+        device="cpu",
+        cfg=SimpleNamespace(autoreset_mode=autoreset_mode),
+        get_episode_index=lambda env_id: 0,
+    )
     recorder = EpisodeIdentityRecorder(EpisodeIdentityRecorderCfg(), env)
+    if autoreset_mode == gym.vector.AutoresetMode.SAME_STEP:
+        assert recorder.record_pre_reset([0, 1, 2]) == (None, None)
     key, identity = recorder.record_pre_reset([2, 0])
     assert key == "episode_id"
     assert identity["env_id"].tolist() == [2, 0]
     assert identity["episode_in_env"].tolist() == [0, 0]
 
 
-def test_first_partial_completion_records_success():
+@pytest.mark.parametrize("autoreset_mode", [gym.vector.AutoresetMode.SAME_STEP, gym.vector.AutoresetMode.DISABLED])
+def test_first_partial_completion_records_success(autoreset_mode):
     """Success is recorded when the first completed batch contains only one environment."""
     success = torch.tensor([False, True, True])
     env = SimpleNamespace(
         num_envs=3,
         device="cpu",
+        cfg=SimpleNamespace(autoreset_mode=autoreset_mode),
         termination_manager=SimpleNamespace(active_terms=["success"], get_term=lambda name: success),
     )
     recorder = SuccessRecorder(SuccessRecorderCfg(), env)
+    if autoreset_mode == gym.vector.AutoresetMode.SAME_STEP:
+        assert recorder.record_pre_reset([0, 1, 2]) == (None, None)
     name, values = recorder.record_pre_reset([2])
     assert name == "success"
     assert values.tolist() == [True]

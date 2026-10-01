@@ -3,6 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import gymnasium as gym
 import numpy as np
 import torch
 
@@ -20,8 +21,13 @@ class SuccessRecorder(RecorderTerm):
         super().__init__(cfg, env)
         # Get name from config instead of class attribute
         self.name = cfg.name
+        self._skip_initial_reset = env.cfg.autoreset_mode == gym.vector.AutoresetMode.SAME_STEP
 
     def record_pre_reset(self, env_ids):
+        # Explicit-reset environments call this only for actual episodes.
+        if self._skip_initial_reset:
+            self._skip_initial_reset = False
+            return None, None
         assert hasattr(self._env, "termination_manager")
         assert "success" in self._env.termination_manager.active_terms
         success_results = torch.zeros(len(env_ids), dtype=bool, device=self._env.device)

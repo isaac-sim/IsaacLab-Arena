@@ -12,6 +12,9 @@ from isaaclab_arena.environments.episode_scheduler import EpisodeScheduler
 
 def test_episode_scheduler_waits_for_every_started_episode() -> None:
     episode_scheduler = EpisodeScheduler(3, episode_limit=5)
+    assert episode_scheduler.select_episode_start_env_ids([2, 0, 1]).tolist() == [0, 1, 2]
+    assert episode_scheduler.num_episodes_started == 0
+    assert [episode_scheduler.get_global_episode_index(env_id) for env_id in range(3)] == [None, None, None]
     assert episode_scheduler.start_episodes([2, 0, 1]).tolist() == [0, 1, 2]
     assert [episode_scheduler.get_global_episode_index(env_id) for env_id in range(3)] == [0, 1, 2]
 
@@ -25,7 +28,7 @@ def test_episode_scheduler_waits_for_every_started_episode() -> None:
     episode_scheduler.finish_episodes([1])
     assert episode_scheduler.start_episodes([1]).numel() == 0
     assert episode_scheduler.get_global_episode_index(1) is None
-    assert episode_scheduler.active_episode_mask.tolist() == [True, False, True]
+    assert [episode_scheduler.get_global_episode_index(env_id) for env_id in range(3)] == [0, None, 4]
     assert episode_scheduler.num_episodes_completed == 3
     assert not episode_scheduler.is_complete
 
@@ -79,11 +82,3 @@ def test_episode_scheduler_rejects_invalid_transitions_without_changing_assignme
     assert episode_scheduler.get_global_episode_index(0) == 0
     assert episode_scheduler.num_episodes_completed == 0
     assert episode_scheduler.num_episodes_started == 1
-
-
-def test_episode_scheduler_active_mask_cannot_change_assignments() -> None:
-    episode_scheduler = EpisodeScheduler(2)
-    episode_scheduler.start_episodes([0])
-    episode_scheduler.active_episode_mask.fill_(False)
-    assert episode_scheduler.active_episode_mask.tolist() == [True, False]
-    assert episode_scheduler.get_global_episode_index(0) == 0

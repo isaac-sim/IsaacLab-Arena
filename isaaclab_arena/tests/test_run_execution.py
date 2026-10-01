@@ -3,6 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import gymnasium as gym
 import json
 from copy import deepcopy
 from dataclasses import dataclass
@@ -59,6 +60,9 @@ class _ArenaEnvBuilder:
     def __init__(self, recorders):
         self.env_cfg = SimpleNamespace(recorders=recorders)
         self.made_with = None
+
+    def compose_manager_cfg(self):
+        return self.env_cfg, {}
 
     def make_registered(self, env_cfg=None, env_kwargs=None, render_mode=None):
         self.made_with = SimpleNamespace(env_cfg=env_cfg, env_kwargs=env_kwargs, render_mode=render_mode)
@@ -276,6 +280,7 @@ def test_build_environment_names_the_dataset_per_rebuild(monkeypatch):
     assert captured["environment_builder"].record_trajectories is False
     assert captured["environment_builder"].recorder_dataset_export_dir_path is None
     assert builder.made_with.render_mode == "rgb_array"
+    assert builder.made_with.env_cfg.autoreset_mode == gym.vector.AutoresetMode.DISABLED
 
 
 def test_build_environment_exports_configured_trajectories_to_the_run_directory(monkeypatch, tmp_path):

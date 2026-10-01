@@ -12,7 +12,10 @@ import pytest
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
 
-def _verify_exact_episode_limits(simulation_app, tmp_path, num_envs, episode_lengths_in_steps, complete_on_timeout):
+def _verify_episode_rollout_limits(
+    simulation_app, tmp_path, num_envs, episode_lengths_in_steps, complete_on_timeout, num_steps=None
+):
+    import gymnasium as gym
     import h5py
     import torch
 
@@ -100,6 +103,7 @@ def _verify_exact_episode_limits(simulation_app, tmp_path, num_envs, episode_len
     )
     env_cfg, env_kwargs = environment_builder.compose_manager_cfg()
     env_cfg.decimation = 1
+    env_cfg.autoreset_mode = gym.vector.AutoresetMode.DISABLED
     env_cfg.events.remember_assignment = EventTermCfg(func=record_started_episode_indices, mode="reset")
     env_cfg.terminations.finished = TerminationTermCfg(func=has_reached_episode_length, time_out=complete_on_timeout)
     env_cfg.terminations.success = TerminationTermCfg(func=has_succeeded)
@@ -111,14 +115,17 @@ def _verify_exact_episode_limits(simulation_app, tmp_path, num_envs, episode_len
     base_env.episode_recorder.set_output_path(results_path)
     policy = ZeroActionPolicy(ZeroActionPolicyCfg())
     try:
-        metrics = rollout_policy(env, policy, num_steps=None, num_episodes=len(episode_lengths_in_steps))
+        num_episodes = len(episode_lengths_in_steps) if num_steps is None else None
+        metrics = rollout_policy(env, policy, num_steps=num_steps, num_episodes=num_episodes)
         expected_success_rate = sum(
             global_episode_index % 2 == 0 for global_episode_index in range(len(episode_lengths_in_steps))
         ) / len(episode_lengths_in_steps)
         assert metrics.num_episodes == len(episode_lengths_in_steps)
         assert metrics.metric_data_entries["success_rate"].metric_value == pytest.approx(expected_success_rate)
         episode_scheduler = base_env.episode_scheduler
-        assert episode_scheduler.is_complete
+        assert episode_scheduler.is_complete == (num_episodes is not None)
+        if num_steps is not None:
+            assert base_env.common_step_counter == num_steps
         assert (
             episode_scheduler.num_episodes_started
             == episode_scheduler.num_episodes_completed
@@ -140,8 +147,9 @@ def _verify_exact_episode_limits(simulation_app, tmp_path, num_envs, episode_len
             assert not rewards.any()
         assert len(results_path.read_text().splitlines()) == len(episode_lengths_in_steps)
         assert started_global_episode_indices == list(range(len(episode_lengths_in_steps)))
-        with pytest.raises(AssertionError, match="finite evaluation"):
+        if num_episodes is not None:
             env.reset()
+            assert episode_scheduler.num_episodes_started == len(episode_lengths_in_steps)
         with pytest.raises(AssertionError, match="started"):
             base_env.set_episode_limit(len(episode_lengths_in_steps))
     finally:
@@ -183,9 +191,20 @@ def _verify_exact_episode_limits(simulation_app, tmp_path, num_envs, episode_len
 )
 def test_exact_episode_limits(tmp_path, num_envs, episode_lengths_in_steps, complete_on_timeout):
     assert run_function_with_persistent_simulation_app(
-        _verify_exact_episode_limits,
+        _verify_episode_rollout_limits,
         tmp_path=tmp_path,
         num_envs=num_envs,
         episode_lengths_in_steps=episode_lengths_in_steps,
         complete_on_timeout=complete_on_timeout,
+    )
+
+
+def test_step_limit_does_not_start_replacements_after_final_step(tmp_path):
+    assert run_function_with_persistent_simulation_app(
+        _verify_episode_rollout_limits,
+        tmp_path=tmp_path,
+        num_envs=2,
+        episode_lengths_in_steps=[2, 2, 2, 2],
+        complete_on_timeout=True,
+        num_steps=4,
     )

@@ -63,14 +63,6 @@ class EpisodeScheduler:
         """Whether a finite episode limit is set and all requested episodes have finished."""
         return self._episode_limit is not None and self.num_episodes_completed == self._episode_limit
 
-    @property
-    def active_episode_mask(self) -> torch.Tensor:
-        """Return a mask identifying environments with an assigned episode."""
-        active_episode_mask = torch.zeros(self._num_envs, dtype=torch.bool, device=self._device)
-        if self._active_global_episode_index_by_env:
-            active_episode_mask[list(self._active_global_episode_index_by_env)] = True
-        return active_episode_mask
-
     def get_global_episode_index(self, env_id: int) -> int | None:
         """Return the environment's current global episode index, or None when inactive."""
         return self._active_global_episode_index_by_env.get(int(env_id))
@@ -81,17 +73,23 @@ class EpisodeScheduler:
 
     def start_episodes(self, available_env_ids: Sequence[int] | torch.Tensor) -> torch.Tensor:
         """Assign episodes in environment ID order and return the IDs that receive an episode."""
-        selected_env_ids = self._validate_and_sort_env_ids(available_env_ids)
+        available_env_ids = self._validate_and_sort_env_ids(available_env_ids)
         assert all(
-            env_id not in self._active_global_episode_index_by_env for env_id in selected_env_ids
+            env_id not in self._active_global_episode_index_by_env for env_id in available_env_ids
         ), "Cannot start another episode in an active environment"
-        if self._episode_limit is not None:
-            num_remaining_episodes = self._episode_limit - self.num_episodes_started
-            selected_env_ids = selected_env_ids[:num_remaining_episodes]
+        selected_env_ids = self.select_episode_start_env_ids(available_env_ids).tolist()
         for env_id in selected_env_ids:
             self._active_global_episode_index_by_env[env_id] = self._next_global_episode_index
             self._next_global_episode_index += 1
             self._num_episodes_started_by_env[env_id] += 1
+        return torch.tensor(selected_env_ids, dtype=torch.long, device=self._device)
+
+    def select_episode_start_env_ids(self, available_env_ids: Sequence[int] | torch.Tensor) -> torch.Tensor:
+        """Return the environments that can receive an episode, without changing assignments."""
+        selected_env_ids = self._validate_and_sort_env_ids(available_env_ids)
+        if self._episode_limit is not None:
+            num_remaining_episodes = self._episode_limit - self.num_episodes_started
+            selected_env_ids = selected_env_ids[:num_remaining_episodes]
         return torch.tensor(selected_env_ids, dtype=torch.long, device=self._device)
 
     def finish_episodes(self, completed_env_ids: Sequence[int] | torch.Tensor) -> None:

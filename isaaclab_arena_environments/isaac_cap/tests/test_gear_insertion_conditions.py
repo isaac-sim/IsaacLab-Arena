@@ -12,7 +12,8 @@ from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_wi
 pytestmark = pytest.mark.isaac_cap
 
 
-def _test_gear_insertion_overlap_reporting_and_partial_reset(_simulation_app):
+def _test_gear_insertion_overlap_reporting_and_partial_reset(_simulation_app, autoreset_mode):
+    import gymnasium as gym
     import torch
     from types import SimpleNamespace
     from unittest.mock import patch
@@ -69,6 +70,7 @@ def _test_gear_insertion_overlap_reporting_and_partial_reset(_simulation_app):
     env = SimpleNamespace(
         num_envs=2,
         device="cpu",
+        cfg=SimpleNamespace(autoreset_mode=gym.vector.AutoresetMode[autoreset_mode]),
         arena_world=_ArenaWorld(),
         scene={name: SimpleNamespace(name=name) for name in ("plate", "gear_a", "gear_b")},
     )
@@ -77,6 +79,8 @@ def _test_gear_insertion_overlap_reporting_and_partial_reset(_simulation_app):
     env.progress_tracker = tracker
     conditions = tracker.get_predicate("gear_insertion")
     recorder = GearInsertionFractionRecorder(GearInsertionFractionRecorderCfg(gear_names=("gear_a", "gear_b")), env)
+    if env.cfg.autoreset_mode == gym.vector.AutoresetMode.SAME_STEP:
+        assert recorder.record_pre_reset([0, 1]) == (None, None)
 
     # Different gears being ready on different steps must not add up to success.
     env.arena_world.linear_velocity["gear_b"][0, 0] = 0.1
@@ -143,6 +147,8 @@ def _test_gear_insertion_overlap_reporting_and_partial_reset(_simulation_app):
         if not isinstance(recorder_cfg, GearInsertionFractionRecorderCfg):
             continue
         subtask_recorder = recorder_cfg.class_type(recorder_cfg, env)
+        if env.cfg.autoreset_mode == gym.vector.AutoresetMode.SAME_STEP:
+            assert subtask_recorder.record_pre_reset([0, 1]) == (None, None)
         name, fractions = subtask_recorder.record_pre_reset([0, 1])
         recorded_fractions[name] = fractions.tolist()
     assert recorded_fractions == {
@@ -152,8 +158,11 @@ def _test_gear_insertion_overlap_reporting_and_partial_reset(_simulation_app):
     return True
 
 
-def test_gear_insertion_overlap_reporting_and_partial_reset():
-    assert run_function_with_persistent_simulation_app(_test_gear_insertion_overlap_reporting_and_partial_reset)
+@pytest.mark.parametrize("autoreset_mode", ["SAME_STEP", "DISABLED"])
+def test_gear_insertion_overlap_reporting_and_partial_reset(autoreset_mode):
+    assert run_function_with_persistent_simulation_app(
+        _test_gear_insertion_overlap_reporting_and_partial_reset, autoreset_mode=autoreset_mode
+    )
 
 
 def _test_graph_parses_cap_asset_poses(_simulation_app) -> bool:

@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import gymnasium as gym
 import torch
 from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any
@@ -78,7 +79,14 @@ class EpisodeIdentityRecorder(RecorderTerm):
     pair alongside the trajectory makes that join explicit.
     """
 
+    def __init__(self, cfg, env):
+        super().__init__(cfg, env)
+        self._skip_initial_reset = env.cfg.autoreset_mode == gym.vector.AutoresetMode.SAME_STEP
+
     def record_pre_reset(self, env_ids: Sequence[int] | None):
+        if self._skip_initial_reset:
+            self._skip_initial_reset = False
+            return None, None
         env_ids = list(range(self._env.num_envs)) if env_ids is None else [int(env_id) for env_id in env_ids]
         # The environment finalizes only assigned episodes, before starting replacements.
         episode_indices_in_env = [self._env.get_episode_index(env_id) for env_id in env_ids]

@@ -149,11 +149,13 @@ class CameraObsVideoRecorder(gym.Wrapper):
         if cam_obs:
             n_envs = next(iter(cam_obs.values())).shape[0]
 
-            # Done observations may already belong to a newly assigned episode.
-            # Omit them to avoid mixing episodes, and omit inactive environments throughout
-            # the remaining rollout so finalized videos are not reopened.
             finished_env_ids = (terminated | truncated).nonzero().flatten().tolist()
-            recording_env_mask = self.unwrapped.active_episode_mask & ~(terminated | truncated)
+            if self.unwrapped.metadata.get("autoreset_mode") == gym.vector.AutoresetMode.DISABLED:
+                # Explicit resets leave the final frame in the finishing episode's observations.
+                recording_env_mask = self.unwrapped.active_episode_mask | terminated | truncated
+            else:
+                # Same-step resets already expose the next episode's initial observations.
+                recording_env_mask = self.unwrapped.active_episode_mask & ~(terminated | truncated)
             recording_env_ids = recording_env_mask.nonzero(as_tuple=False).flatten().tolist()
 
             with Timer("record_camera_frames"):

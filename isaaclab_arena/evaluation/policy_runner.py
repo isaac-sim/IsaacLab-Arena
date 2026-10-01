@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import argparse
+import gymnasium as gym
 import os
 import tqdm
 from importlib import import_module
@@ -77,6 +78,9 @@ def rollout_policy(
     assert num_episodes is None or num_episodes > 0, "num_episodes must be positive"
 
     base_env = env.unwrapped
+    assert (
+        base_env.cfg.autoreset_mode == gym.vector.AutoresetMode.DISABLED
+    ), "Policy rollouts require autoreset_mode=DISABLED so the runner controls replacement episodes."
     base_env.set_episode_limit(num_episodes)
     episode_scheduler = base_env.episode_scheduler
     pbar = None
@@ -102,13 +106,21 @@ def rollout_policy(
                 with Timer("env_step"):
                     obs, _, terminated, truncated, _ = env.step(actions)
 
+                num_steps_completed += 1
+                rollout_complete = episode_scheduler.is_complete or (
+                    num_steps is not None and num_steps_completed >= num_steps
+                )
                 completed_episode_mask = terminated | truncated
                 if completed_episode_mask.any():
-                    # env.step() has already started replacements where the episode limit allows them.
-                    # Reset policy state only for those new episodes.
-                    new_episode_env_ids = (completed_episode_mask & base_env.active_episode_mask).nonzero().flatten()
-                    if len(new_episode_env_ids):
-                        policy.reset(env_ids=new_episode_env_ids)
+                    if not rollout_complete:
+                        completed_env_ids = completed_episode_mask.nonzero().flatten()
+                        # Whole-rollout wrappers stay open while individual environments restart.
+                        obs, _ = base_env.reset(env_ids=completed_env_ids)
+                        new_episode_env_ids = (
+                            (completed_episode_mask & base_env.active_episode_mask).nonzero().flatten()
+                        )
+                        if len(new_episode_env_ids):
+                            policy.reset(env_ids=new_episode_env_ids)
                     if base_env.cfg.metrics is not None:
                         metrics = base_env.compute_metrics()
                         tqdm.tqdm.write(
@@ -117,15 +129,11 @@ def rollout_policy(
                         )
                     if num_episodes is not None:
                         pbar.update(episode_scheduler.num_episodes_completed - pbar.n)
-                # Wait for every requested episode to finish, including those in slower environments.
-                if episode_scheduler.is_complete:
-                    break
-                # Break if number of steps is reached
-                num_steps_completed += 1
                 if num_steps is not None:
                     pbar.update(1)
-                    if num_steps_completed >= num_steps:
-                        break
+                # Wait for every requested episode, or stop at the configured step limit.
+                if rollout_complete:
+                    break
 
         pbar.close()
 
@@ -216,7 +224,9 @@ def main():
             record_camera_video=args_cli.record_camera_video,
             video_base_dir=output_dir,
         )
-        env = arena_builder.make_registered(render_mode=video_cfg.render_mode)
+        env_cfg, env_kwargs = arena_builder.compose_manager_cfg()
+        env_cfg.autoreset_mode = gym.vector.AutoresetMode.DISABLED
+        env = arena_builder.make_registered(env_cfg, env_kwargs, render_mode=video_cfg.render_mode)
 
         # Write per-episode results to disk.
         results_path = os.path.join(output_dir, f"episode_results_rank{local_rank}.jsonl")

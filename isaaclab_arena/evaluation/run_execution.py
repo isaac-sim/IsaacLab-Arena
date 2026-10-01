@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import gymnasium as gym
 import os
 import traceback
 from copy import deepcopy
@@ -30,8 +31,6 @@ from isaaclab_arena.variations.variations_hydra import overrides_from_dict
 from isaaclab_arena.video.video_recording import VideoRecordingCfg, wrap_env_for_video
 
 if TYPE_CHECKING:
-    import gymnasium as gym
-
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.metrics.metric_data import MetricsDataCollection
     from isaaclab_arena.policy.policy_base import PolicyBase, PolicyCfg
@@ -171,7 +170,9 @@ def _build_environment_from_cfg(
     )
     run_cfg.environment_builder.recorder_dataset_filename = f"dataset_{cfg.name}_rebuild{rebuild_index}"
     arena_builder = build_arena_builder_from_run_cfg(run_cfg)
-    return arena_builder.make_registered(render_mode=render_mode)
+    env_cfg, env_kwargs = arena_builder.compose_manager_cfg()
+    env_cfg.autoreset_mode = gym.vector.AutoresetMode.DISABLED
+    return arena_builder.make_registered(env_cfg, env_kwargs, render_mode=render_mode)
 
 
 def build_arena_builder_from_run_cfg(cfg: ArenaRunCfg) -> ArenaEnvBuilder:

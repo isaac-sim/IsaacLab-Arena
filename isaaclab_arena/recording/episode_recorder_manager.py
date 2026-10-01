@@ -13,7 +13,7 @@ from pathlib import Path
 from prettytable import PrettyTable
 from typing import Any
 
-from isaaclab.managers import ManagerBase, ManagerTermBaseCfg
+from isaaclab.managers import ManagerBase, ManagerTermBaseCfg, RecorderTerm, RecorderTermCfg
 from isaaclab.utils.configclass import configclass
 
 
@@ -28,6 +28,26 @@ class EpisodeRecorderTermCfg(ManagerTermBaseCfg):
     return a flat, JSON-serializable dict that is merged into the episode's record. It may be a plain
     function or a callable class inheriting from ManagerTermBase (built once by the manager).
     """
+
+
+class EpisodeResultsRecorder(RecorderTerm):
+    """Write Arena episode results while Isaac Lab still holds the terminal scene state."""
+
+    def record_pre_reset(self, env_ids):
+        completed_env_ids = [
+            int(env_id)
+            for env_id in env_ids
+            if self._env.episode_scheduler.get_global_episode_index(int(env_id)) is not None
+        ]
+        self._env.episode_recorder.finish_episodes(completed_env_ids)
+        return None, None
+
+
+@configclass
+class EpisodeResultsRecorderCfg:
+    """Add Arena result recording to Isaac Lab's existing recorder callbacks."""
+
+    arena_episode_results = RecorderTermCfg(class_type=EpisodeResultsRecorder)
 
 
 class EpisodeRecorderManager(ManagerBase):
