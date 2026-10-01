@@ -12,7 +12,9 @@ or from source inside a Docker container.
      - Imitation learning
      - Reinforcement learning
      - Agentic environment generation
+     - cuRobo integration
    * - Docker
+     - ✓
      - ✓
      - ✓
      - ✓
@@ -22,6 +24,7 @@ or from source inside a Docker container.
      - ✓
      - ✓
      - ✓
+     - ✗
 
 Supported Systems
 -----------------
@@ -104,7 +107,7 @@ Installation via Docker
 
 
 Isaac Lab Arena supports installation from source inside a Docker container.
-Future versions of Isaac Lab Arena, we will support a larger range of
+Future versions of Isaac Lab Arena will support a larger range of
 installation options.
 
 
