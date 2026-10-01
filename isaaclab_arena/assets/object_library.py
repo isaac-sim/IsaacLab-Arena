@@ -1550,6 +1550,16 @@ class BowlYcbRobolab(LibraryObject):
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/ycb/bowl.usd"
 
 
+# TODO(qianl, 2026-10-01): This is a temporary asset for offline clutter settling. Delete once we support spawn_cfg_addon
+# though env yaml or clutter on supports dynamic supports.
+@register_asset
+class KinematicBowlYcbRobolab(BowlYcbRobolab):
+    """YCB bowl fixed in place for offline clutter settling."""
+
+    name = "kinematic_bowl_ycb_robolab"
+    spawn_cfg_addon = {"rigid_props": sim_utils.RigidBodyPropertiesCfg(kinematic_enabled=True)}
+
+
 @register_asset
 class BrickYcbRobolab(LibraryObject):
     name = "brick_ycb_robolab"

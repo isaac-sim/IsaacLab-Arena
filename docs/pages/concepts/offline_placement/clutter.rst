@@ -155,16 +155,22 @@ measurements without stepping physics or reading the live environment.
 Containers
 ----------
 
-These captures use the library's ``bowl_ycb_robolab`` asset with three 2 cm
-cubes, seed 42 and 480 environment steps. The bowl is fixed at Z = 0.56 m;
-the cubes use ``ClutterOn(bowl, spread=0.3, clearance_m=0.01, random_yaw=False)``.
-Configure a fixed bowl before building the environment:
+The maintained
+``isaaclab_arena_environments/clutter/franka_three_cubes_in_bowl_no_task.yaml``
+environment uses the library's ``kinematic_bowl_ycb_robolab`` fixed variant with
+three 2 cm cubes. It fixes the bowl at Z = 0.56 m. The cubes use
+``ClutterOn(bowl, spread=0.3, clearance_m=0.01, random_yaw=False)``.
+Record the example with seed 42 and 480 environment steps:
 
-.. code-block:: python
+.. code-block:: bash
 
-   from isaaclab.sim import RigidBodyBaseCfg
-
-   bowl.object_cfg.spawn.rigid_props = RigidBodyBaseCfg(kinematic_enabled=True)
+   python isaaclab_arena/scripts/record_placement_layouts.py \
+       env_spec=isaaclab_arena_environments/clutter/franka_three_cubes_in_bowl_no_task.yaml \
+       output=outputs/clutter/three_cubes_in_bowl.jsonl \
+       num_envs=1 min_layouts=1 layouts_per_env=5 max_batches=5 seed=42 \
+       settle.num_steps=480 \
+       +settle.validators.support_containment.minimum_resting_heights_m.bowl=-0.025 \
+       render=true --device cpu --viz kit
 
 .. figure:: ../../../images/clutter/bowl_release.png
    :width: 640px
