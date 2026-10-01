@@ -258,20 +258,13 @@ checks they must pass.
 Custom Validators
 -----------------
 
-Build-time checks subclass ``PrePhysicsPlacementValidator`` from
-``isaaclab_arena.relations.validation.pre_physics`` and register with
-``register_validator`` from ``isaaclab_arena.relations.validation.registry``.
-Implement ``validate_batch(batch, collision_objects)`` to return one boolean per
-candidate and give the class a unique ``check`` name. Include that name in
-``ObjectPlacerParams.enabled_checks`` when explicitly selecting checks.
-Existing extensions importing the build-time ``PlacementValidator`` should use
-``PrePhysicsPlacementValidator`` instead. The constructor is unchanged, but
-``validate_batch`` now takes a ``PlacementCandidateBatch`` instead of separate
-position, orientation and bounding-box lists. Import
-``PlacementCheck``, ``PlacementValidationResults`` and ``PlacementValidatorReport``
-from ``isaaclab_arena.relations.validation.types``.
+Pre-Physics Validators
+~~~~~~~~~~~~~~~~~~~~~~
 
-For example, reject layouts with any object origin above 1.5 metres:
+Pre-physics validators checks the solver's proposed layout before physics is advanced. Subclass
+``PrePhysicsPlacementValidator`` and register a unique ``check`` name which should be included in
+``ObjectPlacerParams.enabled_checks``. Return one boolean per candidate, in batch order. For
+example, reject layouts with any object origin above 1.5 metres:
 
 .. code-block:: python
 
@@ -295,16 +288,70 @@ Import the module defining this class before constructing ``ObjectPlacer``.
 Default settings run and require the registered check. If ``enabled_checks`` is
 explicit, include ``"max_origin_height"`` to run it.
 
-The shared ``PlacementValidator`` in ``isaaclab_arena.relations.validation.base``
-defines the check name and stage. Post-physics checks use
-``PostPhysicsPlacementValidator`` from
-``isaaclab_arena.offline_placement.post_physics_validation``.
+Post-Physics Validators
+~~~~~~~~~~~~~~~~~~~~~~~
 
-Implement ``validate(batch: SettledBatch)`` and return one report per entry in
-``batch.env_ids``, in the same order, using ``self.report`` to include the check's
-settings and result. Add an importable validator to the recording command with
-``+settle.validators.support._target_=my_project.validators.SupportValidator``.
-The configuration key (``support`` here) must match the validator's ``check`` name.
+Subclass ``PostPhysicsPlacementValidator`` to check captured measurements after
+settling. Return one report per entry in ``batch.env_ids``, in the same order.
+``self.report`` includes the validator's settings, verdict and rejection reason.
+
+Save this example as ``placement_validators.py`` in the repository root. It checks
+the final height of every recorded root, including the robot, in metres relative
+to the local environment origin:
+
+.. code-block:: python
+
+   import math
+   from dataclasses import dataclass
+   from typing import ClassVar
+
+   from isaaclab_arena.offline_placement.post_physics_validation import (
+       PostPhysicsPlacementValidator,
+   )
+   from isaaclab_arena.offline_placement.settled_batch import SettledBatch
+   from isaaclab_arena.relations.validation.types import PlacementValidatorReport
+
+   @dataclass
+   class MaxRootHeightValidator(PostPhysicsPlacementValidator):
+       check: ClassVar[str] = "max_root_height"
+       max_height_m: float = 1.5
+       """Maximum final root height in the local environment frame, in metres."""
+
+       def validate(self, batch: SettledBatch) -> list[PlacementValidatorReport]:
+           reports = []
+           for env_id in batch.env_ids:
+               reason = ""
+               for key, poses in batch.final_root_poses.items():
+                   height_m = poses[env_id, 2].item()
+                   if not math.isfinite(height_m) or height_m > self.max_height_m:
+                       reason = (
+                           f"{key}: final root height {height_m:g} m; "
+                           f"limit {self.max_height_m:g} m"
+                       )
+                       break
+               reports.append(self.report(passed=not bool(reason), reason=reason))
+           return reports
+
+Run the recorder from the repository root, adding that directory to
+``PYTHONPATH`` so Hydra can import the module:
+
+.. code-block:: bash
+
+   PYTHONPATH="$PWD${PYTHONPATH:+:$PYTHONPATH}" \
+   python isaaclab_arena/scripts/record_placement_layouts.py \
+       env_spec=isaaclab_arena_environments/robolab/tasks/clamp_in_right_bin.yaml \
+       output=outputs/placements/clamp_custom.jsonl \
+       num_envs=4 env_spacing=2 layouts_per_env=4 seed=42 \
+       settle.num_steps=120 \
+       settle.validators.pose_shift.max_translation_m=0.015 \
+       +settle.validators.max_root_height._target_=placement_validators.MaxRootHeightValidator \
+       +settle.validators.max_root_height.max_height_m=1.5 \
+       render=false --device cpu --viz none
+
+The configuration key (``max_root_height``) must match the class's ``check`` name.
+Hydra loads post-physics validators through ``_target_``; no ``@register_validator``
+decorator is needed. This command adds the custom check alongside the default
+checks. Every enabled, applicable check must pass for a layout to be recorded.
 
 Next Steps
 ----------
