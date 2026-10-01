@@ -42,6 +42,33 @@ configuration. Geometry and reachability checks are not rerun after settling.
 See :doc:`../object_placement/validation` for the checks at each stage and
 :doc:`../object_placement/pooled_placement` for pool and reset settings.
 
+Choose Your Runtime
+-------------------
+
+Complete :doc:`../../quickstart/installation`, then select your setup below.
+Keep using the same shell for all recording and replay commands.
+
+.. tab-set::
+
+   .. tab-item:: Native uv
+
+      From the repository root on your host, activate the installed environment:
+
+      .. code-block:: bash
+
+         source .venv/bin/activate
+
+   .. tab-item:: Docker
+
+      Use the Arena container shell prepared during installation. Change to the
+      mounted repository root inside the container:
+
+      .. code-block:: bash
+
+         cd /workspaces/isaaclab_arena
+
+The commands below use ``python`` from your selected runtime.
+
 Record Placement Layouts
 ------------------------
 
