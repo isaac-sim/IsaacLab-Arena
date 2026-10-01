@@ -8,7 +8,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
-from isaaclab.envs import ManagerBasedRLEnv
+from isaaclab.envs import ManagerBasedRLEnv, ManagerBasedRLMimicEnv
 
 from isaaclab_arena.environments.arena_world import ArenaWorld
 from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import (
@@ -119,3 +119,7 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
             A MetricsDataCollection instance.
         """
         return self.metrics_manager.compute()
+
+
+class IsaacLabArenaManagerBasedRLMimicEnv(IsaacLabArenaManagerBasedRLEnv, ManagerBasedRLMimicEnv):
+    """Arena environment with the Isaac Lab Mimic interface."""

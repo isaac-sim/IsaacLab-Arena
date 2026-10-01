@@ -14,7 +14,6 @@ import isaaclab.sim as sim_utils
 import isaaclab.utils.math as PoseUtils
 from isaaclab.assets.articulation.articulation_cfg import ArticulationCfg
 from isaaclab.controllers.differential_ik_cfg import DifferentialIKControllerCfg
-from isaaclab.envs import ManagerBasedRLMimicEnv
 from isaaclab.envs.mdp.actions.actions_cfg import (
     BinaryJointPositionActionCfg,
     DifferentialInverseKinematicsActionCfg,
@@ -41,6 +40,7 @@ from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
 from isaaclab_arena.embodiments.franka.observations import gripper_pos
 from isaaclab_arena.embodiments.gripper import PandaGripper
 from isaaclab_arena.embodiments.robot_on_stand_utils import RobotPrimSpec, StandPrimSpec, compose_on_stand_usd
+from isaaclab_arena.environments.isaaclab_arena_manager_based_env import IsaacLabArenaManagerBasedRLMimicEnv
 from isaaclab_arena.utils.cameras import ArenaCameraCfg
 from isaaclab_arena.utils.pose import Pose
 
@@ -364,7 +364,7 @@ class FrankaRewardsCfg:
 # This is copied from FrankaCubeStackIKAbsMimicEnv in isaaclab_mimic.
 # We copy it as we only need a few methods from it.
 # The remaining ones belong to the task.
-class FrankaMimicEnv(ManagerBasedRLMimicEnv):
+class FrankaMimicEnv(IsaacLabArenaManagerBasedRLMimicEnv):
     """Configuration for Franka Mimic."""
 
     def get_robot_eef_pose(self, eef_name: str, env_ids: Sequence[int] | None = None) -> torch.Tensor:
