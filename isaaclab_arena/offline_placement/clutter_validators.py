@@ -8,27 +8,26 @@
 from __future__ import annotations
 
 import math
-import torch
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from numbers import Real
 from typing import TYPE_CHECKING, ClassVar
 
-from isaaclab_arena.offline_placement.clutter_geometry import assert_flat_support_surface, fixed_poses_match
 from isaaclab_arena.offline_placement.post_physics_validation import (
     PostPhysicsPlacementValidator,
     default_post_physics_validators,
 )
-from isaaclab_arena.relations.relations import ClutterOn, get_relation
 from isaaclab_arena.relations.validation.types import PlacementCheck
-from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, quaternion_to_90_deg_z_quarters
 
 if TYPE_CHECKING:
+    import torch
+
     from isaaclab.envs import ManagerBasedEnv
 
     from isaaclab_arena.offline_placement.settled_batch import SettledBatch
     from isaaclab_arena.relations.placement_asset import PlaceableAsset
     from isaaclab_arena.relations.validation.types import PlacementValidatorReport
+    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 
 @dataclass
@@ -60,6 +59,9 @@ class SupportContainmentValidator(PostPhysicsPlacementValidator):
 
     def validate_scene(self, env: ManagerBasedEnv, assets: Sequence[PlaceableAsset]) -> None:
         """Verify support keys and heights, retaining flat-top checks for unspecified supports."""
+        from isaaclab_arena.offline_placement.clutter_geometry import assert_flat_support_surface
+        from isaaclab_arena.relations.relations import ClutterOn, get_relation
+
         support_keys = set()
         for asset in assets:
             relation = get_relation(asset, ClutterOn)
@@ -78,6 +80,8 @@ class SupportContainmentValidator(PostPhysicsPlacementValidator):
             ), f"Support {key!r}: minimum resting height must be finite and within its local Z bounds"
 
     def get_geometry_keys(self, assets: Sequence[PlaceableAsset]) -> set[str]:
+        from isaaclab_arena.relations.relations import ClutterOn, get_relation
+
         keys = set()
         for asset in assets:
             relation = get_relation(asset, ClutterOn)
@@ -86,6 +90,12 @@ class SupportContainmentValidator(PostPhysicsPlacementValidator):
         return keys
 
     def validate(self, data: SettledBatch) -> list[PlacementValidatorReport]:
+        import torch
+
+        from isaaclab_arena.offline_placement.clutter_geometry import fixed_poses_match
+        from isaaclab_arena.relations.relations import ClutterOn, get_relation
+        from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, quaternion_to_90_deg_z_quarters
+
         reports = []
         for env_id in data.env_ids:
             layout = data.source_layouts[env_id]
@@ -186,6 +196,8 @@ def _check_resting_pose(
         minimum_resting_height_m: Minimum object-bottom Z in the environment frame, as a
             scalar in metres. None uses the support bounds' top surface.
     """
+    import torch
+
     verdict = ClutterContainmentResult()
     margin = containment_margin_m
     support_lower, support_upper = support_bounds.min_point[0], support_bounds.max_point[0]

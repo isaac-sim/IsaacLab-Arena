@@ -59,8 +59,10 @@ def get_test_environment(
 
 def _test_object_mass_variation_registration(simulation_app):
     import torch
-    from types import SimpleNamespace
+    from tempfile import TemporaryDirectory
     from unittest.mock import patch
+
+    from pxr import Usd
 
     from isaaclab_arena.assets.object import Object
     from isaaclab_arena.assets.object_reference import ObjectReference
@@ -68,7 +70,6 @@ def _test_object_mass_variation_registration(simulation_app):
     from isaaclab_arena.assets.object_type import ObjectType
     from isaaclab_arena.assets.registries import AssetRegistry
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
-    from isaaclab_arena.utils.pose import Pose
 
     registry = AssetRegistry()
     sphere = registry.get_asset_by_name("sphere")()
@@ -92,42 +93,17 @@ def _test_object_mass_variation_registration(simulation_app):
         obj_set = RigidObjectSet(name="cans", objects=[can_a, can_b], random_choice=True)
     assert "mass" in obj_set.variations
 
-    class DefaultPrim:
-        def GetPath(self):
-            return "/World/parent"
+    with TemporaryDirectory() as temp_dir:
+        parent_usd_path = f"{temp_dir}/parent.usda"
+        stage = Usd.Stage.CreateNew(parent_usd_path)
+        stage.SetDefaultPrim(stage.DefinePrim("/parent", "Xform"))
+        stage.DefinePrim("/parent/object_ref", "Xform")
+        stage.GetRootLayer().Save()
 
-    class Stage:
-        def GetDefaultPrim(self):
-            return DefaultPrim()
-
-        def GetPrimAtPath(self, prim_path):
-            return object()
-
-    class OpenStage:
-        def __init__(self, path):
-            pass
-
-        def __enter__(self):
-            return Stage()
-
-        def __exit__(self, exc_type, exc, tb):
-            return False
-
-    parent = SimpleNamespace(
-        name="parent",
-        usd_path="/tmp/parent.usd",
-        scale=(1.0, 1.0, 1.0),
-        initial_pose=None,
-    )
-    with (
-        patch("isaaclab_arena.assets.object_reference.open_stage", OpenStage),
-        patch(
-            "isaaclab_arena.assets.object_reference.get_prim_pose_in_default_prim_frame", return_value=Pose.identity()
-        ),
-    ):
+        parent = Object(name="parent", object_type=ObjectType.BASE, usd_path=parent_usd_path)
         object_ref = ObjectReference(
             name="object_ref",
-            prim_path="{ENV_REGEX_NS}/parent/object_ref",
+            prim_path=f"{parent.get_prim_path()}/object_ref",
             parent_asset=parent,
             object_type=ObjectType.RIGID,
         )

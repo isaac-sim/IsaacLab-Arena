@@ -202,30 +202,62 @@ The post-physics checks share one settling pass:
      - Final linear and angular speed of every root, including the robot.
      - 0.1 m/s and 0.1 rad/s
    * - ``pose_shift``
-     - Initial-to-final translation and rotation of each root, excluding intentional
+     - Initial-to-final root translation and rotation, excluding intentional
        ``ClutterOn`` drops.
      - 2 mm and 2 degrees
    * - ``articulation_link_shift``
      - Task-object link motion relative to its root, excluding robot embodiments.
      - 2 mm and 2 degrees
+   * - ``support_containment``
+     - Final clutter bounds relative to the support footprint and minimum resting
+       height.
+     - No overhang; 1 cm below the minimum height
 
-Configure ``settle.validators.<check>.<setting>`` to change a limit.
-An inapplicable or disabled check is recorded as skipped. At least one applicable
-post-physics check must remain enabled.
+Configure a limit with
+``settle.validators.<check>.<setting>=<value>``. An inapplicable or disabled
+check is recorded as skipped. At least one applicable post-physics check must
+remain enabled.
 
-The recorder writes a file only when at least ``settle.min_layouts`` layouts
-are accepted across all batches (default 1). Otherwise, it exits with an error
-and writes no file.
+Clutter Recording Checks
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+Scenes using ``ClutterOn`` automatically include ``support_containment``. The
+clutter objects must be dynamic rigid bodies with gravity enabled. Their supports
+must be fixed anchors with upright quarter-turn orientations. Resolve other
+placement relations to fixed anchors before collecting clutter layouts.
+
+Flat supports use their verified top surface as the minimum resting height.
+Containers need an explicit local-Z height so objects can settle below the rim:
+
+.. code-block:: bash
+
+   +settle.validators.support_containment.minimum_resting_heights_m.bowl=-0.025
+
+The key is the support's runtime scene name. The value is measured in metres in
+the scaled support-local frame before world translation and must lie within the
+support's local Z bounds. For ``kinematic_bowl_ycb_robolab``, ``-0.025`` is
+approximately the inner floor.
+
+Containment compares bounding-box footprints and heights. It does not establish
+exact containment inside curved walls or detect every object-wall penetration.
+Release candidates must also pass ``no_overlap`` and
+``clutter_on_relation``. ``ClutterOn`` objects cannot require reachability
+because settling changes the poses checked by the solver.
 
 .. _recording_rejection_summary:
 
 Understand the Rejection Summary
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+The recorder excludes rejected layouts and prints each rejection reason. If
+``max_batches`` is exhausted before ``min_layouts`` is reached, any accepted
+layouts are still written and the command logs the shortfall. No file is written
+when no layouts pass.
+
 Each ``Rejected`` line gives a reason and the number of layouts rejected for it.
 When a pose-shift limit is exceeded, the message includes the object, measured
-translation and rotation, and configured limits. Use the named
-check to decide what to adjust:
+translation and rotation, and configured limits. Use the named check to decide
+what to adjust:
 
 .. list-table::
    :header-rows: 1
@@ -243,23 +275,27 @@ check to decide what to adjust:
      - Inspect contacts and support. Increase ``settle.num_steps`` if motion is
        still decaying. More time will not fix an unstable placement.
    * - ``pose_shift``
-     - A root moved or rotated beyond its limits.
+     - A non-clutter root moved or rotated beyond its limits.
      - Inspect the named object. For ``On`` relations, reduce ``clearance_m`` to
        reduce the release drop, or increase ``edge_margin_m`` to avoid support
        edges. Edit the relation's ``params`` in the environment's scene YAML.
    * - ``articulation_link_shift``
      - A task-object link shifted relative to its root.
-     - Check joint initialization and contacts. A root-pose recording cannot
-       preserve the changed joint configuration.
+     - Check joint initialization and contacts. Root-pose replay cannot restore
+       the changed joint configuration.
+   * - ``support_containment``
+     - Settled clutter fell off, fell through or left the support footprint.
+     - Check support geometry, the configured minimum resting height and the
+       containment margin.
    * - ``missing required solver checks``
      - A required pre-physics result is unavailable.
      - Enable the required validator or fix its dependencies and source
        configuration.
 
-See :doc:`./relations` for relation settings. Change validation
-limits under ``settle.validators`` only when the new tolerance fits your evaluation.
-Increasing ``layouts_per_env`` samples more candidates without changing which
-checks they must pass.
+See :doc:`./relations` for relation settings. Change validation limits under
+``settle.validators`` only when the new tolerance fits your evaluation.
+Increasing ``max_batches`` allows more attempts without changing which checks
+layouts must pass.
 
 Custom Validators
 -----------------
@@ -267,7 +303,7 @@ Custom Validators
 Pre-Physics Validators
 ~~~~~~~~~~~~~~~~~~~~~~
 
-Pre-physics validators checks the solver's proposed layout before physics is advanced. Subclass
+Pre-physics validators check the solver's proposed layout before physics is advanced. Subclass
 ``PrePhysicsPlacementValidator`` and register a unique ``check`` name which should be included in
 ``ObjectPlacerParams.enabled_checks``. Return one boolean per candidate, in batch order. For
 example, reject layouts with any object origin above 1.5 metres:
@@ -347,7 +383,7 @@ Run the recorder from the repository root, adding that directory to
    python isaaclab_arena/scripts/record_placement_layouts.py \
        env_spec=isaaclab_arena_environments/robolab/tasks/clamp_in_right_bin.yaml \
        output=outputs/placements/clamp_custom.jsonl \
-       num_envs=4 env_spacing=2 layouts_per_env=4 seed=42 \
+       num_envs=4 env_spacing=2 min_layouts=16 max_batches=5 seed=42 \
        settle.num_steps=120 \
        settle.validators.pose_shift.max_translation_m=0.015 \
        +settle.validators.max_root_height._target_=placement_validators.MaxRootHeightValidator \

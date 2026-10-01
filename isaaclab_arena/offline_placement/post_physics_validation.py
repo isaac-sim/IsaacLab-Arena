@@ -171,9 +171,9 @@ def default_post_physics_validators() -> dict[str, dict]:
 
 
 def build_post_physics_validators(
-    configurations: dict[str, dict], articulation_keys: list[str], *, log_progress: bool = False
+    configurations: dict[str, dict], articulation_keys: list[str]
 ) -> list[PostPhysicsPlacementValidator]:
-    """Construct configured checks, optionally printing their settings and skip reasons."""
+    """Construct configured post-physics checks."""
     from hydra.utils import instantiate
 
     validators = []
@@ -181,10 +181,6 @@ def build_post_physics_validators(
         validator = instantiate(configuration, _convert_="all")
         assert isinstance(validator, PostPhysicsPlacementValidator), f"'{name}' must be a PostPhysicsPlacementValidator"
         assert name == validator.check, f"'{name}' must match validator name '{validator.check}'"
-        if log_progress:
-            reason = validator.skip_reason(articulation_keys)
-            status = f"SKIPPED: {reason}" if reason is not None else "ENABLED: required to pass"
-            print(f"[placement] {name}: {status}; {validator.configuration()}")
         validators.append(validator)
     assert any(
         validator.skip_reason(articulation_keys) is None for validator in validators

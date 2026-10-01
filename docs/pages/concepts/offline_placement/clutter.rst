@@ -1,139 +1,115 @@
-Offline Clutter Settling
-========================
+Record and Replay Clutter Layouts
+=================================
 
-``ClutterOn`` defines collision-checked release poses. Offline settling uses the
-same reset, physics stepping and validation workflow as
-:doc:`recording`. Each reset selects a solved layout from the placement pool.
-Physics drops the objects, and the configured validators decide whether to keep
-their final poses.
+``ClutterOn`` places objects above a support so physics can settle them into a
+reusable layout. Use ``record_placement_layouts.py`` to save accepted root poses
+to JSONL, then replay those poses without solving or settling again.
 
-Use ``collect_settled_placements`` from
-``isaaclab_arena.offline_placement.settled_placement`` to collect layouts in an
-environment you already own. For ``ClutterOn``, pass
-``scene_assets=arena_env.get_placement_assets()`` so preparation can inspect the
-complete scene. Collection checks clutter prerequisites before resetting or
-stepping physics.
+Complete :doc:`../../quickstart/installation` and run the commands below from the
+repository root. Recording can run headless: replace ``render=true --viz kit``
+with ``render=false --viz none``. The interactive replay commands below require
+a display; use the Experiment workflow in :doc:`recording` for headless replay.
 
-Acceptance checks
------------------
+Tool Clutter on a Table
+-----------------------
 
-When ``params`` is omitted, collection selects clutter defaults for ``ClutterOn``
-scenes and ordinary recording defaults otherwise. The shared default duration is
-short. For an explicit drop window, keep the clutter checks when creating params:
+The ``franka_three_hammers_and_clamp_no_task`` environment drops three hammers
+and a clamp onto a fixed table.
 
-.. code-block:: python
+Record
+~~~~~~
 
-   from isaaclab_arena.offline_placement.clutter_validators import default_clutter_validators
-   from isaaclab_arena.offline_placement.settled_placement_params import SettledPlacementParams
+.. code-block:: bash
 
-   params = SettledPlacementParams(num_steps=480, validators=default_clutter_validators())
+   python isaaclab_arena/scripts/record_placement_layouts.py \
+       env_spec=isaaclab_arena_environments/clutter/franka_three_hammers_and_clamp_no_task.yaml \
+       output=outputs/clutter/tools_on_table.jsonl \
+       num_envs=4 min_layouts=10 layouts_per_env=4 max_batches=15 seed=42 \
+       settle.num_steps=480 \
+       +settle.validators.support_containment.minimum_resting_heights_m.office_table_background=0.5306 \
+       render=true --device cpu --viz kit
 
-Explicit ``params`` are used unchanged, including disabled or custom validators.
-``num_steps`` counts environment steps per batch, including their configured
-physics substeps.
+The table has a beveled top, so the command supplies its local-Z top height.
 
-.. list-table::
-   :header-rows: 1
-   :widths: 25 45 30
+.. figure:: ../../../images/clutter/release.png
+   :width: 640px
+   :alt: Three hammers and a clamp suspended above a table before settling.
 
-   * - Check
-     - Measures
-     - Default limit
-   * - ``physics_settled``
-     - Final linear and angular speed of all measured roots.
-     - 0.1 m/s and 0.1 rad/s
-   * - ``pose_shift``
-     - Root displacement and rotation, excluding intentional ``ClutterOn`` drops.
-     - 2 mm and 2 degrees
-   * - ``articulation_link_shift``
-     - Task-object link motion relative to its root; excludes robot embodiments.
-     - 2 mm and 2 degrees
-   * - ``support_containment``
-     - Clutter bounds relative to the support footprint and minimum resting height.
-       Requires successful release ``no_overlap`` and ``clutter_on_relation`` checks.
-     - No overhang; 1 cm below the minimum height
+   Release poses selected by the placement solver.
 
-All enabled, applicable checks must pass. Disabled and inapplicable checks retain
-their skip reasons. For example, set
-``params.validators["support_containment"]["containment_margin_m"] = 0.005``
-to permit 5 mm overhang. Physics runs for the configured duration; final velocity
-limits determine whether the objects are still moving. Post-physics checks use captured
-measurements without stepping physics or reading the live environment.
+.. figure:: ../../../images/clutter/settled.png
+   :width: 640px
+   :alt: Three hammers and a clamp resting on a table after settling.
 
-Containers
-----------
+   The recorded root poses after physics settling.
 
-Release placement stays above the full support bounds, including a container's
-rim. For settling inside a bin or bowl, configure the minimum accepted height of
-an object's bottom:
+Replay
+~~~~~~
 
-.. code-block:: python
+.. code-block:: bash
 
-   params.validators["support_containment"]["minimum_resting_heights_m"] = {
-       "bowl": -0.025,
-   }
+   python isaaclab_arena/scripts/environment_runner.py \
+       --env_spec isaaclab_arena_environments/clutter/franka_three_hammers_and_clamp_no_task.yaml \
+       --placement_layouts outputs/clutter/tools_on_table.jsonl \
+       --num_envs 1 --device cpu --viz kit
 
-``bowl`` is the support's runtime scene key. The value is in metres along the
-support's local Z axis, after asset scaling, before its world translation. For
-the default-scale ``bowl_ycb_robolab`` asset, the inner floor is approximately
--0.025 m and the rim is +0.0275 m in that frame. Choose a height appropriate to
-your asset; these values do not apply to all bowls. The configured height must
-lie within the support's local Z bounds, including either endpoint. Unknown support keys and invalid heights
-are rejected before sampling.
+Cube Clutter in a Container
+---------------------------
 
-Supports without an override still require a verified flat top surface. An
-override changes only the post-physics minimum height; release clearance,
-footprint checks and velocity checks remain unchanged. The height is saved with
-the validator configuration in each report.
+The ``franka_three_cubes_in_bowl_no_task`` environment drops three cubes into a
+fixed YCB bowl.
 
-This is a bounding-box footprint and height check. It does not establish exact
-containment inside curved walls or detect every object-wall penetration.
+Record
+~~~~~~
 
-Scope and limitations
----------------------
+.. code-block:: bash
 
-.. list-table::
-   :header-rows: 1
-   :widths: 25 75
+   python isaaclab_arena/scripts/record_placement_layouts.py \
+       env_spec=isaaclab_arena_environments/clutter/franka_three_cubes_in_bowl_no_task.yaml \
+       output=outputs/clutter/three_cubes_in_bowl.jsonl \
+       num_envs=1 min_layouts=1 layouts_per_env=5 max_batches=5 seed=42 \
+       settle.num_steps=480 \
+       +settle.validators.support_containment.minimum_resting_heights_m.bowl=-0.025 \
+       render=true --device cpu --viz kit
 
-   * - Scene feature
-     - Support and limitations
-   * - Clutter objects
-     - Dynamic rigid bodies with gravity enabled. Object sets are rejected;
-       resolve them to individual objects before collection, as for recording.
-   * - Supports
-     - Fixed anchors with an upright quarter-turn orientation. Without a height
-       override, containment requires a flat rectangular top covered by a Cube
-       collider or connected planar mesh facet.
-   * - Rails and rims
-     - Set a minimum resting height for the full container, or use an
-       ``ObjectReference`` to its flat floor as the ``ClutterOn`` parent and mark
-       that reference ``IsAnchor``.
-   * - Support references
-     - Author translate, orient and scale operations before building the scene.
-       Rewriting collider transforms after physics initialization can invalidate
-       physics views.
-   * - Other placement relations
-     - Resolve them to fixed anchors before clutter collection. Keep anchors,
-       backgrounds and passive obstacles at their configured poses after building
-       the placement pool; runtime edits and pose-changing variations are unsupported.
-   * - Reachability
-     - ``ClutterOn`` objects cannot require reachability: dropping changes the
-       poses checked by the solver. Non-clutter fixed targets may retain
-       ``RequiresReachability``. Their solver checks and the displacement limits
-       still apply; collection does not rerun IK after physics.
-   * - Collision checks
-     - Release generation uses normal placement collision discovery, including
-       MESH background fixtures and anchored support exclusions. Tilted clutter
-       requires BBOX. Post-physics checks do not rerun collision validation.
-   * - Robot motion
-     - Physics also advances the robot; joints are not immobilized. Moving links
-       can affect objects. Root speed and displacement remain checked, but joint
-       states are not recorded.
+The minimum resting height is the bowl floor in the bowl's local frame. It lets
+the cubes settle below the rim while still rejecting objects that fall through
+the bowl.
 
-Retain ``no_overlap`` and ``clutter_on_relation`` in the solver checks. Do not use
-pre-physics ``physics_settled`` on intentional release poses: post-physics velocity
-validation checks the dropped objects instead.
+.. figure:: ../../../images/clutter/bowl_release.png
+   :width: 640px
+   :alt: Three cubes above a bowl before settling.
 
-The offline package depends on the solver and shared records. Online placement
-and runtime replay do not import offline modules.
+   Release poses above the bowl rim.
+
+.. figure:: ../../../images/clutter/bowl_settled.png
+   :width: 640px
+   :alt: Three cubes resting inside a bowl after settling.
+
+   The recorded root poses after physics settling.
+
+Replay
+~~~~~~
+
+.. code-block:: bash
+
+   python isaaclab_arena/scripts/environment_runner.py \
+       --env_spec isaaclab_arena_environments/clutter/franka_three_cubes_in_bowl_no_task.yaml \
+       --placement_layouts outputs/clutter/three_cubes_in_bowl.jsonl \
+       --num_envs 1 --device cpu --viz kit
+
+Recording and Replay Notes
+--------------------------
+
+Choose a new output path for each recording; existing JSONL files are not
+overwritten. Each line stores one accepted layout. If the batch budget ends
+early, any accepted layouts are still written; no file is created when none pass.
+
+Both examples use ``NoTask``, so interactive replay loads the first saved layout
+and does not trigger episode resets. Close the viewer to exit. For policy
+evaluation replay, use the Experiment workflow in :doc:`recording`.
+
+See :doc:`../object_placement/validation` for clutter acceptance checks,
+container-height settings and rejection guidance. See
+:doc:`../object_placement/relations` for the JSONL format and layout selection
+across resets and parallel environments.
