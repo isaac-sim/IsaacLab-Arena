@@ -14,64 +14,14 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.offline_placement.recording import PlacementRecordingSummary
-from isaaclab_arena.offline_placement.recording_config import (
-    PlacementRecordingCfg,
-    load_recording_config,
-    resolved_num_layouts,
-)
+from isaaclab_arena.offline_placement.recording_config import PlacementRecordingCfg, load_recording_config
 
 if TYPE_CHECKING:
     import gymnasium as gym
 
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.offline_placement.settled_placement_params import SettledPlacementParams
-    from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
     from isaaclab_arena.relations.placement_asset import PlaceableAsset
-
-
-def replace_placer_params(placer_params: ObjectPlacerParams, cfg: PlacementRecordingCfg) -> ObjectPlacerParams:
-    """Copy solver settings with the recording seed and pool requirements.
-
-    Args:
-        placer_params: Source settings, left unchanged.
-        cfg: Recording seed and refill tranche size per environment.
-    """
-    return replace(
-        placer_params,
-        placement_seed=cfg.seed,
-        min_unique_layouts_per_env=cfg.layouts_per_env,
-        resolve_on_reset=True,
-    )
-
-
-def _assert_recording_cfg(cfg: PlacementRecordingCfg) -> int:
-    """Validate recording counts and return the resolved layout target."""
-    num_layouts = resolved_num_layouts(cfg)
-    assert cfg.num_envs > 0 and cfg.layouts_per_env > 0, "Environment and layout counts must be positive"
-    assert num_layouts > 0 and cfg.max_batches > 0, "Layout target and batch budget must be positive"
-    assert (
-        cfg.max_batches * cfg.num_envs >= num_layouts
-    ), "Batch budget cannot supply the requested accepted layout count"
-    assert (cfg.viewer_eye is None) == (cfg.viewer_lookat is None), "Set viewer_eye and viewer_lookat together"
-    return num_layouts
-
-
-def _load_recording_arena_env(cfg: PlacementRecordingCfg) -> IsaacLabArenaEnvironment:
-    """Build an environment description from the recording YAML path."""
-    from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
-
-    spec = ArenaEnvGraphSpec.from_yaml(cfg.env_spec)
-    assert not spec.object_sets, "Resolve object sets before recording reusable layouts"
-    return spec.to_arena_env()
-
-
-def _validate_recording_arena_env(arena_env: IsaacLabArenaEnvironment) -> None:
-    """Require a fresh, concrete scene description before building the sim."""
-    from isaaclab_arena.assets.object_set import RigidObjectSet
-
-    assert arena_env.placement_layouts is None, "Remove cached placement layouts before recording"
-    assets = arena_env.get_placement_assets()
-    assert not any(isinstance(asset, RigidObjectSet) for asset in assets), "Resolve object sets before recording"
 
 
 def record_placements_to_jsonl(
@@ -126,13 +76,9 @@ def record_placements_to_jsonl(
         render=render,
         scene_assets=assets,
     )
-    summary = PlacementRecordingSummary(
-        output=None,
-        accepted=len(validation),
-        attempted=attempted,
-        rejections=rejections,
-    )
-    if summary.accepted < num_layouts:
+    accepted = len(validation)
+    summary = PlacementRecordingSummary(output=None, accepted=accepted, attempted=attempted, rejections=rejections)
+    if accepted < num_layouts:
         return summary
     write_settled_layouts(env, output, assets, poses, validation, settle.num_steps)
     summary.output = output
@@ -159,16 +105,33 @@ def record_settled_placement_layouts(
     Returns:
         Output path, acceptance counts and per-candidate rejection reasons.
     """
+    from isaaclab_arena.assets.object_set import RigidObjectSet
+    from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
 
     assert not Path(cfg.output).exists(), f"Output already exists: {cfg.output}"
-    num_layouts = _assert_recording_cfg(cfg)
+    assert cfg.num_envs > 0 and cfg.layouts_per_env > 0, "Environment and layout counts must be positive"
+    assert cfg.num_layouts > 0 and cfg.max_batches > 0, "Layout target and batch budget must be positive"
+    assert (
+        cfg.max_batches * cfg.num_envs >= cfg.num_layouts
+    ), "Batch budget cannot supply the requested accepted layout count"
+    assert (cfg.viewer_eye is None) == (cfg.viewer_lookat is None), "Set viewer_eye and viewer_lookat together"
+
     if arena_env is None:
-        arena_env = _load_recording_arena_env(cfg)
-    _validate_recording_arena_env(arena_env)
-    arena_env.placer_params = replace_placer_params(arena_env.placer_params, cfg)
+        spec = ArenaEnvGraphSpec.from_yaml(cfg.env_spec)
+        assert not spec.object_sets, "Resolve object sets before recording reusable layouts"
+        arena_env = spec.to_arena_env()
+    assert arena_env.placement_layouts is None, "Remove cached placement layouts before recording"
     scene_assets = arena_env.get_placement_assets()
+    assert not any(isinstance(asset, RigidObjectSet) for asset in scene_assets), "Resolve object sets before recording"
+    arena_env.placer_params = replace(
+        arena_env.placer_params,
+        placement_seed=cfg.seed,
+        min_unique_layouts_per_env=cfg.layouts_per_env,
+        resolve_on_reset=True,
+    )
+
     print(f"[recording] Solving placements for {cfg.num_envs} environments...", flush=True)
     env = ArenaEnvBuilder(
         arena_env,
@@ -182,7 +145,7 @@ def record_settled_placement_layouts(
         return record_placements_to_jsonl(
             env,
             cfg.output,
-            num_layouts=num_layouts,
+            num_layouts=cfg.num_layouts,
             max_batches=cfg.max_batches,
             params=cfg.settle,
             render=cfg.render,
@@ -204,7 +167,6 @@ def main() -> None:
     launcher_args, overrides = parser.parse_known_args()
     assert_hydra_overrides(overrides, parser)
     cfg = load_recording_config(overrides)
-    target = resolved_num_layouts(cfg)
     assert not Path(cfg.output).exists(), f"Output already exists: {cfg.output}"
     with SimulationAppContext(launcher_args):
         summary = record_settled_placement_layouts(cfg, device=launcher_args.device)
@@ -212,7 +174,7 @@ def main() -> None:
             print(f"  Rejected {count}: {reason}")
         assert (
             summary.output is not None
-        ), f"Accepted {summary.accepted} layouts; need {target}. Rejections: {summary.rejections}"
+        ), f"Accepted {summary.accepted} layouts; need {cfg.num_layouts}. Rejections: {summary.rejections}"
         print(f"Saved {summary.accepted}/{summary.attempted} accepted layouts: {summary.output}")
 
 

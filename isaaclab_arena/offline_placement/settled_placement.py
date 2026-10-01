@@ -53,6 +53,11 @@ class SettledPlacementResult:
         return len(self.accepted_indices) + len(self.rejections)
 
 
+def _assets_use_clutter(assets: list[PlaceableAsset]) -> bool:
+    """Return whether any asset participates in a ClutterOn relation."""
+    return any(get_relation(asset, ClutterOn) is not None for asset in assets)
+
+
 def _merge_validator_configs(base: dict[str, dict], overrides: dict[str, dict]) -> dict[str, dict]:
     """Combine default validator targets with partial Hydra overrides."""
     merged = {name: dict(configuration) for name, configuration in base.items()}
@@ -67,15 +72,20 @@ def _merge_validator_configs(base: dict[str, dict], overrides: dict[str, dict]) 
 
 
 def resolve_settle_params(
-    assets: list[PlaceableAsset], params: SettledPlacementParams | None
+    assets: list[PlaceableAsset],
+    params: SettledPlacementParams | None,
+    *,
+    has_clutter: bool | None = None,
 ) -> SettledPlacementParams:
     """Return settle params, merging clutter validators when the scene uses ClutterOn.
 
     Args:
-        assets: Placement and scene assets checked for clutter relations.
+        assets: Placement and scene assets checked for clutter relations when ``has_clutter`` is omitted.
         params: User settle settings, or None for scene-appropriate defaults.
+        has_clutter: When set, skip scanning ``assets`` for ClutterOn.
     """
-    has_clutter = any(get_relation(asset, ClutterOn) is not None for asset in assets)
+    if has_clutter is None:
+        has_clutter = _assets_use_clutter(assets)
     if params is None:
         validators = default_clutter_validators() if has_clutter else default_post_physics_validators()
         return SettledPlacementParams(validators=validators)
@@ -107,7 +117,8 @@ def collect_settled_placements(
         num_batches: Number of resets to sample, independent of pool refills.
         params: Simulation duration and post-physics validator settings. If omitted, use
             clutter defaults for ClutterOn scenes and ordinary recording defaults otherwise.
-            Explicit settings are used unchanged.
+            When provided, ``num_steps`` is kept; on ClutterOn scenes, validator entries are
+            shallow-merged with clutter defaults (partial Hydra overrides per check).
         render: Render the offline physics steps.
         scene_assets: Asset definitions supplementing the pool's embodiment tags.
             Required for ClutterOn: pass the complete get_placement_assets() list for preflight.
@@ -126,14 +137,16 @@ def collect_settled_placements(
     assert placement_pool is not None, "Collection requires a pooled placement reset event"
     assert placement_pool.num_envs == env.num_envs, "Placement pool and scene must have the same environment count"
     assets = list(placement_pool.objects)
+    seen_asset_ids = {id(asset) for asset in assets}
     for asset in scene_assets or []:
-        if asset not in assets:
+        if id(asset) not in seen_asset_ids:
             assets.append(asset)
-    has_clutter = any(get_relation(asset, ClutterOn) is not None for asset in assets)
+            seen_asset_ids.add(id(asset))
+    has_clutter = _assets_use_clutter(assets)
     if has_clutter:
         assert scene_assets is not None, "Clutter collection requires complete scene_assets from get_placement_assets()"
         prepare_clutter_settling(env, assets)
-    params = resolve_settle_params(assets, params)
+    params = resolve_settle_params(assets, params, has_clutter=has_clutter)
     keys = sorted(set(env.scene.rigid_objects) | set(env.scene.articulations))
     assert keys, "Collection requires rigid objects or articulations"
     embodiment_keys = set()
@@ -142,11 +155,12 @@ def collect_settled_placements(
             embodiment_keys.update(asset.get_scene_root_keys())
     articulation_keys = [key for key in env.scene.articulations if key not in embodiment_keys]
     validators = build_post_physics_validators(params.validators, articulation_keys, log_progress=log_progress)
-    geometry_keys = set()
-    for validator in validators:
-        if validator.skip_reason(articulation_keys) is None:
-            validator.validate_scene(env, assets)
-            geometry_keys.update(validator.get_geometry_keys(assets))
+    enabled_validators = [validator for validator in validators if validator.skip_reason(articulation_keys) is None]
+    geometry_keys: set[str] = set()
+    for validator in enabled_validators:
+        validator.validate_scene(env, assets)
+        geometry_keys.update(validator.get_geometry_keys(assets))
+    sorted_geometry_keys = sorted(geometry_keys)
     accepted: dict[str, list[Pose]] = {key: [] for key in keys}
     accepted_indices: list[tuple[int, int]] = []
     rejections: dict[tuple[int, int], str] = {}
@@ -158,7 +172,7 @@ def collect_settled_placements(
             root_keys=keys,
             link_keys=articulation_keys,
             num_env_steps=params.num_steps,
-            geometry_keys=sorted(geometry_keys),
+            geometry_keys=sorted_geometry_keys,
             render=render,
             log_progress=log_progress,
         )
@@ -182,4 +196,9 @@ def collect_settled_placements(
                 f"{len(accepted_indices)} accepted",
                 flush=True,
             )
-    return SettledPlacementResult(accepted, accepted_indices, rejections, validation)
+    return SettledPlacementResult(
+        poses=accepted,
+        accepted_indices=accepted_indices,
+        rejections=rejections,
+        validation=validation,
+    )

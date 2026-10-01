@@ -143,6 +143,7 @@ def test_recording_cli_saves_final_poses(tmp_path, backend):
             "viewer_eye=[4.0,4.0,6.3]",
             "viewer_lookat=[0.6,0.6,0.3]",
             "layouts_per_env=2",
+            "num_layouts=4",
             "max_batches=5",
             "settle.num_steps=120",
             "settle.validators.pose_shift.max_translation_m=0.0015",
@@ -186,7 +187,9 @@ def test_record_placements_to_jsonl_leaves_no_file_when_target_unmet(tmp_path):
             return_value=({"cube": []}, [], 1, {(0, 0): "failed"}),
         ),
         patch("isaaclab_arena.offline_placement.recording.validate_recording_assets"),
-        patch("isaaclab_arena.offline_placement.recording.resolve_settle_params", return_value=Mock(num_steps=1)),
+        patch(
+            "isaaclab_arena.offline_placement.settled_placement.resolve_settle_params", return_value=Mock(num_steps=1)
+        ),
     ):
         output = tmp_path / "unused.jsonl"
         summary = record_placements_to_jsonl(env, output, num_layouts=2, max_batches=2, scene_assets=[])
