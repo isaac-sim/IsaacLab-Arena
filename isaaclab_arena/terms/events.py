@@ -16,6 +16,7 @@ from isaaclab.utils import math as math_utils
 
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.utils.pose import Pose
+from isaaclab_arena.utils.usd.helpers import is_enabled_dynamic_rigid_body
 from isaaclab_arena.utils.usd.prim_tree import exclude_referenced_physics_roots, find_nested_physics_roots
 from isaaclab_arena.utils.velocity import Velocity
 
@@ -241,9 +242,6 @@ class ResetBackgroundPhysics(ManagerTermBase):
                     runtime_prim = env.scene.stage.GetPrimAtPath(
                         self._runtime_path(path_template, env.scene.env_prim_paths[0])
                     )
-                    assert runtime_prim.IsValid(), f"Missing nested rigid body prim at '{prim_path}'"
-                    from isaaclab_arena.utils.usd.helpers import is_enabled_dynamic_rigid_body
-
                     self._rigid_resets.append(
                         _RigidReset(
                             asset=asset,
