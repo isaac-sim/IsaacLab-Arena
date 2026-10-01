@@ -49,15 +49,3 @@ class PlacementInitializerBase(ABC):
         Returns:
             Position-initialization per object.
         """
-
-
-def create_initializer(initializer_type: InitializerType) -> PlacementInitializerBase:
-    """Return a new initializer of the requested type."""
-    # Imported here because the concrete initializers import this module for their base class.
-    from isaaclab_arena.relations.initializers.anchor_initializer import AnchorInitializer
-
-    initializers_by_type: dict[InitializerType, type[PlacementInitializerBase]] = {
-        InitializerType.ANCHOR: AnchorInitializer,
-    }
-    assert initializer_type in initializers_by_type, f"No initializer registered for {initializer_type}."
-    return initializers_by_type[initializer_type]()

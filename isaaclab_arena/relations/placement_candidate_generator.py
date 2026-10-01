@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING
 
 from isaaclab_arena.relations.bounding_box_helpers import update_candidate_bounds
 from isaaclab_arena.relations.collision_mode import object_uses_mesh_collision
-from isaaclab_arena.relations.initializers.placement_initializer_base import create_initializer
+from isaaclab_arena.relations.initializers.initializer_factory import create_initializer
 from isaaclab_arena.relations.placement_candidate_batch import PlacementCandidate, PlacementCandidateBatch
 from isaaclab_arena.relations.relations import ClutterOn, FaceTo, RotateAroundSolution, get_relation
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
