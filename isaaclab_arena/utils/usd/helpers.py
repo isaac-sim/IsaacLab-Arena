@@ -92,16 +92,6 @@ def is_rigid_body(prim: Usd.Prim) -> bool:
     return prim.HasAPI(UsdPhysics.RigidBodyAPI)
 
 
-def is_kinematic_rigid_body(prim: Usd.Prim) -> bool:
-    """Return whether ``prim`` is an enabled kinematic rigid body."""
-    if not is_rigid_body(prim):
-        return False
-    body = UsdPhysics.RigidBodyAPI(prim)
-    if not body.GetRigidBodyEnabledAttr().Get():
-        return False
-    return bool(body.GetKinematicEnabledAttr().Get())
-
-
 def is_enabled_dynamic_rigid_body(prim: Usd.Prim) -> bool:
     """Return whether ``prim`` is an enabled, non-kinematic rigid body."""
     if not is_rigid_body(prim):
@@ -110,13 +100,6 @@ def is_enabled_dynamic_rigid_body(prim: Usd.Prim) -> bool:
     if not body.GetRigidBodyEnabledAttr().Get():
         return False
     return not bool(body.GetKinematicEnabledAttr().Get())
-
-
-def nested_physics_requires_velocity_reset(root: Usd.Prim) -> bool:
-    """Return whether any enabled dynamic rigid body under ``root`` needs velocity zeroing on reset."""
-    from pxr import Usd
-
-    return any(is_enabled_dynamic_rigid_body(prim) for prim in Usd.PrimRange(root, Usd.TraverseInstanceProxies()))
 
 
 def has_physics_or_collision(prim: Usd.Prim) -> bool:

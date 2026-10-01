@@ -243,6 +243,7 @@ def _test_background_physics_discovery_and_reset(
             assert runtime_rigid_prim.IsValid()
             kinematic_attr = UsdPhysics.RigidBodyAPI(runtime_rigid_prim).GetKinematicEnabledAttr()
             assert not kinematic_attr.IsValid() or not kinematic_attr.Get()
+            assert rigid_reset.reset_velocity
 
             # Reset env 1 to verify the env-0 snapshot is translated through env-local coordinates.
             base_env.reset(env_ids=torch.tensor([1], device=base_env.device))
@@ -330,6 +331,7 @@ def _test_maple_table_pose_restored_on_reset(_) -> bool:
             for reset in reset_term._rigid_resets
             if reset.asset.cfg.prim_path.endswith("/maple_table_robolab/table")
         )
+        assert not table_reset.reset_velocity
         table = table_reset.asset
         initial_pose = table.data.root_pose_w.torch.clone()
         env_ids = torch.tensor([0], device=base_env.device)
@@ -337,16 +339,11 @@ def _test_maple_table_pose_restored_on_reset(_) -> bool:
         moved_pose = initial_pose.clone()
         moved_pose[:, 0] += 1.0
         table.write_root_pose_to_sim_index(root_pose=moved_pose, env_ids=env_ids)
-        table.write_root_velocity_to_sim_index(
-            root_velocity=torch.ones((1, 6), device=base_env.device),
-            env_ids=env_ids,
-        )
         assert torch.allclose(table.data.root_pose_w.torch, moved_pose)
 
         env.reset()
 
         assert torch.allclose(table.data.root_pose_w.torch, initial_pose, atol=1.0e-5)
-        assert torch.count_nonzero(table.data.root_vel_w.torch) == 0
     finally:
         env.close()
     return True

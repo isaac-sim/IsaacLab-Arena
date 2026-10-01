@@ -95,31 +95,29 @@ def _write_nested_rigid_bodies_usd(
     stage.GetRootLayer().Save()
 
 
-def test_nested_physics_requires_velocity_reset_only_for_dynamic_bodies(tmp_path: Path):
+def test_is_enabled_dynamic_rigid_body_classifies_reset_targets(tmp_path: Path):
     from pxr import Usd
 
-    from isaaclab_arena.utils.usd.helpers import is_kinematic_rigid_body, nested_physics_requires_velocity_reset
+    from isaaclab_arena.utils.usd.helpers import is_enabled_dynamic_rigid_body
 
-    usd_path = tmp_path / "nested_rigids.usda"
+    kinematic_path = tmp_path / "kinematic.usda"
     _write_nested_rigid_bodies_usd(
-        usd_path,
+        kinematic_path,
         [
             ("/Root/kinematic_table", True, True),
             ("/Root/kinematic_table/leg", True, True),
         ],
     )
-    stage = Usd.Stage.Open(str(usd_path))
-    root = stage.GetDefaultPrim()
-    table = stage.GetPrimAtPath("/Root/kinematic_table")
-
-    assert is_kinematic_rigid_body(table)
-    assert not nested_physics_requires_velocity_reset(root)
-    assert not nested_physics_requires_velocity_reset(table)
+    kinematic_stage = Usd.Stage.Open(str(kinematic_path))
+    table = kinematic_stage.GetPrimAtPath("/Root/kinematic_table")
+    leg = kinematic_stage.GetPrimAtPath("/Root/kinematic_table/leg")
+    assert not is_enabled_dynamic_rigid_body(table)
+    assert not is_enabled_dynamic_rigid_body(leg)
 
     dynamic_path = tmp_path / "dynamic.usda"
     _write_nested_rigid_bodies_usd(dynamic_path, [("/Root/free_prop", False, True)])
     dynamic_stage = Usd.Stage.Open(str(dynamic_path))
-    assert nested_physics_requires_velocity_reset(dynamic_stage.GetDefaultPrim())
+    assert is_enabled_dynamic_rigid_body(dynamic_stage.GetPrimAtPath("/Root/free_prop"))
 
     mixed_path = tmp_path / "mixed.usda"
     _write_nested_rigid_bodies_usd(
@@ -130,7 +128,10 @@ def test_nested_physics_requires_velocity_reset_only_for_dynamic_bodies(tmp_path
         ],
     )
     mixed_stage = Usd.Stage.Open(str(mixed_path))
-    assert nested_physics_requires_velocity_reset(mixed_stage.GetDefaultPrim())
+    mixed_table = mixed_stage.GetPrimAtPath("/Root/kinematic_table")
+    mixed_prop = mixed_stage.GetPrimAtPath("/Root/kinematic_table/prop")
+    assert not is_enabled_dynamic_rigid_body(mixed_table)
+    assert is_enabled_dynamic_rigid_body(mixed_prop)
 
     disabled_dynamic_path = tmp_path / "disabled_dynamic.usda"
     _write_nested_rigid_bodies_usd(
@@ -138,4 +139,4 @@ def test_nested_physics_requires_velocity_reset_only_for_dynamic_bodies(tmp_path
         [("/Root/off_prop", False, False)],
     )
     disabled_stage = Usd.Stage.Open(str(disabled_dynamic_path))
-    assert not nested_physics_requires_velocity_reset(disabled_stage.GetDefaultPrim())
+    assert not is_enabled_dynamic_rigid_body(disabled_stage.GetPrimAtPath("/Root/off_prop"))
