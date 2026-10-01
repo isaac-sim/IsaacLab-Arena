@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import math
 import torch
+from dataclasses import replace
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.relations.bounding_box_helpers import (
@@ -93,17 +94,8 @@ class ObjectPlacer:
             One PlacementResult per environment.
         """
         collision_objects = collision_objects or []
-        anchor_objects_set, generator = self._prepare_placement(objects)
-        max_attempts = self.params.max_placement_attempts
-        ranked_results_per_env = self._place_ranked(
-            objects,
-            anchor_objects_set,
-            num_envs,
-            candidates_per_env=max_attempts,
-            attempts_per_result=max_attempts,
-            generator=generator,
-            collision_objects=collision_objects,
-        )
+        ranked_results_per_env = self.place_ranked_per_env(objects, num_envs, 1, collision_objects)
+        anchor_objects_set = set(get_anchor_objects(objects))
         results_per_env = [env_results[0] for env_results in ranked_results_per_env]
 
         if self.params.verbose:
@@ -142,7 +134,24 @@ class ObjectPlacer:
         """
         collision_objects = collision_objects or []
         assert results_per_env > 0, f"results_per_env must be positive, got {results_per_env}"
+        if self.params.staged_clutter:
+            from isaaclab_arena.relations.staged_clutter_placement import place_staged_clutter
+
+            return place_staged_clutter(self, objects, num_envs, results_per_env, collision_objects)
+        return self._place_ranked_per_env(objects, num_envs, results_per_env, collision_objects)
+
+    def _place_ranked_per_env(
+        self,
+        objects: list[PlaceableAsset],
+        num_envs: int,
+        results_per_env: int,
+        collision_objects: list[CollisionObject],
+        placement_seed: int | None = None,
+    ) -> list[list[PlacementResult]]:
+        """Run one solver pass, optionally using a separate candidate seed stream."""
         anchor_objects_set, generator = self._prepare_placement(objects)
+        if placement_seed is not None:
+            generator = torch.Generator()
         max_attempts = self.params.max_placement_attempts
         ranked_results_per_env = self._place_ranked(
             objects,
@@ -152,6 +161,7 @@ class ObjectPlacer:
             attempts_per_result=max_attempts,
             generator=generator,
             collision_objects=collision_objects,
+            placement_seed=placement_seed,
         )
 
         return [ranked_results[:results_per_env] for ranked_results in ranked_results_per_env]
@@ -207,6 +217,7 @@ class ObjectPlacer:
         attempts_per_result: int,
         generator: torch.Generator | None,
         collision_objects: list[CollisionObject] | None = None,
+        placement_seed: int | None = None,
     ) -> list[list[PlacementResult]]:
         """Solve and rank placement candidates per environment.
 
@@ -215,11 +226,14 @@ class ObjectPlacer:
         candidate is never compared against another env's geometry.
         """
         collision_objects = collision_objects or []
+        candidate_generator = self._candidate_generator
+        if placement_seed is not None:
+            candidate_generator = PlacementCandidateGenerator(replace(self.params, placement_seed=placement_seed))
         # Variant assignment fixes the env-to-USD mapping before bbox expansion.
-        assign_variants_for_envs(objects, num_envs, placement_seed=self.params.placement_seed)
+        assign_variants_for_envs(objects, num_envs, placement_seed=candidate_generator.params.placement_seed)
         num_candidates = num_envs * candidates_per_env
         env_bboxes = build_per_env_bounding_boxes(objects, num_envs).get_bounding_boxes_for_all_envs()
-        batch = self._candidate_generator.generate_candidates(
+        batch = candidate_generator.generate_candidates(
             objects, anchor_objects_set, env_bboxes, candidates_per_env, generator, collision_objects
         )
         self._solver.solve_candidates(objects, batch, collision_objects)
@@ -354,10 +368,13 @@ class ObjectPlacer:
 
     @property
     def last_loss_history(self) -> list[float]:
-        """Mean batch losses before optimizer steps in the most recent place()."""
+        """Mean losses from the most recent solver pass (the final clutter pass when staged)."""
         return self._solver.last_loss_history
 
     @property
     def last_position_history(self) -> list:
-        """Position snapshots from the most recent place() call."""
+        """Position snapshots from the most recent solver pass.
+
+        Staged snapshots use solver-only asset copies from the final clutter pass.
+        """
         return self._solver.last_position_history

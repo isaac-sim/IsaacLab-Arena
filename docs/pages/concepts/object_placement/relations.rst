@@ -91,7 +91,8 @@ Most environments can be described with a small set of relations:
 .. _clutter-on-relation:
 
 ``ClutterOn(parent)``
-   Defines a **release pose** above an ``IsAnchor`` support, before physics.
+   Defines a **release pose** above a support, fixed with ``IsAnchor`` by default,
+   before physics.
    ``ObjectPlacer`` samples a central release region and raises objects above
    overlapping footprints. The support must be upright, with a fixed yaw that
    is a multiple of 90 degrees.
@@ -146,6 +147,29 @@ Most environments can be described with a small set of relations:
    For pooled placement, disable ``ObjectPlacerParams.allow_best_loss_fallbacks``
    to reject invalid layouts. Direct ``ObjectPlacer.place()`` callers must check
    each result's ``success`` before using it.
+
+   To vary the support pose between layouts, enable two-pass placement in the
+   environment YAML:
+
+   .. code-block:: yaml
+
+      placer_params:
+        staged_clutter: true
+
+   Give the support ordinary relations such as ``On(table)`` and
+   ``PositionLimitsBox``; give its children ``ClutterOn(support)``. The first pass
+   solves non-clutter objects, then the second solves clutter with those poses
+   held fixed. The pool keeps the complete layout together, including on refill.
+   Both passes' checks contribute to acceptance. Python callers can set
+   ``ObjectPlacerParams(staged_clutter=True)``.
+
+   Staged placement requires concrete assets and fixed fixture orientations at
+   multiples of 90 degrees around Z. Fixtures cannot use ``FaceTo``,
+   ``RandomAroundSolution`` or ``random_yaw_init``. Clutter may still sample yaw.
+   Clutter cannot support other clutter, and first-pass objects cannot depend on
+   clutter. Recording requires movable fixtures to be kinematic rigid bodies;
+   their solved poses must remain unchanged during settling. Use the shared
+   :doc:`../offline_placement/clutter` recording and replay workflow.
 
 .. _next-to-relation:
 

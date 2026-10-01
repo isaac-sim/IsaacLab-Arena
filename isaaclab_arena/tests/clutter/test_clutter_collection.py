@@ -186,6 +186,130 @@ def test_clutter_collection_uses_shared_batches(tmp_path, backend):
     )
 
 
+def _test_staged_clutter_recording_replays_randomized_supports(simulation_app, tmp_path, backend):
+    import torch
+    from unittest.mock import patch
+
+    from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
+    from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
+    from isaaclab_arena.offline_placement.clutter_validators import SupportContainmentValidator
+    from isaaclab_arena.offline_placement.post_physics_validation import evaluate_settled_batch
+    from isaaclab_arena.offline_placement.settled_placement_params import SettledPlacementParams
+    from isaaclab_arena.relations.placement_events import get_placement_pool, get_pose_from_layout
+    from isaaclab_arena.relations.placement_layouts import PlacementLayouts
+    from isaaclab_arena.relations.relations import IsAnchor, On, PositionLimitsBox
+    from isaaclab_arena.scripts.record_placement_layouts import record_placements_to_jsonl
+    from isaaclab_arena.utils.pose import Pose
+
+    arena_env = _make_primitive_clutter_scene(tmp_path)
+    floor, table, cube = (arena_env.scene.assets[key] for key in ("floor", "table", "cube_body"))
+    floor.set_initial_pose(Pose((0.0, 0.0, 0.0)))
+    floor.add_relation(IsAnchor())
+    table.relations = [On(floor), PositionLimitsBox(x_min=-0.3, x_max=0.3, y_min=-0.3, y_max=0.3)]
+    table.clear_pose_reset_event()
+    arena_env.placer_params.staged_clutter = True
+    arena_env.placer_params.placement_seed = 42
+    arena_env.placer_params.min_unique_layouts_per_env = 1
+    arena_env.placer_params.allow_best_loss_fallbacks = False
+    assets = arena_env.get_placement_assets()
+    params = SettledPlacementParams(num_steps=240)
+    output = tmp_path / "randomized_supports.jsonl"
+    batches = []
+    outcomes = []
+
+    def capture_batch(batch, validators):
+        batches.append(batch)
+        evaluated = evaluate_settled_batch(batch, validators)
+        outcomes.extend(evaluated.values())
+        return evaluated
+
+    env = ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg(num_envs=2, env_spacing=5.0, presets=backend)).make_registered()
+    try:
+        base = env.unwrapped
+        pool = get_placement_pool(env)
+        assert pool.remaining == 1
+        assert bool((base.scene.env_origins != 0).any())
+        with patch(
+            "isaaclab_arena.offline_placement.settled_placement.evaluate_settled_batch", side_effect=capture_batch
+        ):
+            summary = record_placements_to_jsonl(
+                env, output, min_layouts=4, max_batches=2, params=params, scene_assets=assets
+            )
+        assert pool.remaining == 0  # Two batches exhausted and refilled the one-layout queues.
+        assert summary.accepted == summary.attempted == 4, summary.rejections
+        assert not summary.rejections and summary.output == output
+        assert len(batches) == 2 and all(outcome.passed for outcome in outcomes)
+        layouts = PlacementLayouts.from_episode_jsonl(output)
+        assert layouts.num_layouts == 4
+        assert set(layouts.poses) == {"floor", "table", "cube_body"}
+        assert len({pose.position_xyz for pose in layouts.poses["table"]}) > 1
+        for batch_index, batch in enumerate(batches):
+            for env_id in range(2):
+                layout = batch.source_layouts[env_id]
+                assert {table, cube} <= layout.positions.keys()
+                expected = get_pose_from_layout(table, layout).to_tensor(base.device)
+                support = batch.geometry["table"]
+                torch.testing.assert_close(support.initial_poses[env_id], expected, atol=1e-5, rtol=0)
+                torch.testing.assert_close(support.final_poses[env_id], expected, atol=1e-5, rtol=0)
+                index = batch_index * 2 + env_id
+                torch.testing.assert_close(layouts.poses["table"][index].to_tensor(base.device), expected)
+                # The box support is 0.04 m tall and the falling cube is 0.1 m tall.
+                resting_height = layouts.poses["cube_body"][index].position_xyz[2] - expected[2].item()
+                assert resting_height == pytest.approx(0.07, abs=0.005)
+                release = get_pose_from_layout(cube, layout)
+                assert release.position_xyz[2] - layouts.poses["cube_body"][index].position_xyz[2] > 0.15
+
+        # Reject either a wrong reset pose or drift, without borrowing another environment's fixture pose.
+        validator = SupportContainmentValidator()
+        batch = batches[-1]
+        for poses in (batch.geometry["table"].initial_poses, batch.geometry["table"].final_poses):
+            original = poses[0].clone()
+            poses[0, 0] += 0.05
+            reports = validator.validate(batch)
+            assert not reports[0].passed and "support 'table'" in reports[0].reason
+            assert reports[1].passed
+            poses[0] = original
+        assert all(report.passed for report in validator.validate(batch))
+    finally:
+        env.close()
+
+    arena_env.placer_params.placement_seed = None
+    replay_cfg = ArenaEnvBuilderCfg(num_envs=2, env_spacing=5.0, presets=backend, placement_layouts_path=str(output))
+    env = ArenaEnvBuilder(arena_env, replay_cfg).make_registered()
+    try:
+        base = env.unwrapped
+        assert get_placement_pool(env) is None
+        env.reset()
+        for key, poses in layouts.poses.items():
+            expected = torch.stack([pose.to_tensor(base.device) for pose in poses[:2]])
+            torch.testing.assert_close(base.arena_world.get_pose_e(key), expected, atol=2e-5, rtol=0)
+            body = base.scene[key]
+            torch.testing.assert_close(body.data.root_vel_w.torch, torch.zeros((2, 6), device=base.device))
+            displaced = body.data.root_pose_w.torch.clone()
+            displaced[:, 2] += 0.25
+            body.write_root_pose_to_sim(displaced)
+            body.write_root_velocity_to_sim(torch.ones((2, 6), device=base.device))
+        before = {key: base.arena_world.get_pose_e(key).clone() for key in layouts.poses}
+        base._reset_idx(torch.tensor([1], device=base.device))
+        for key, poses in layouts.poses.items():
+            actual = base.arena_world.get_pose_e(key)
+            torch.testing.assert_close(actual[0], before[key][0], atol=2e-5, rtol=0)
+            torch.testing.assert_close(actual[1], poses[2].to_tensor(base.device), atol=2e-5, rtol=0)
+            torch.testing.assert_close(
+                base.scene[key].data.root_vel_w.torch[1], torch.zeros(6, device=base.device), atol=0, rtol=0
+            )
+    finally:
+        env.close()
+    return True
+
+
+@pytest.mark.parametrize("backend", ["physx", "newton"])
+def test_staged_clutter_recording_replays_randomized_supports(tmp_path, backend):
+    assert run_function_with_persistent_simulation_app(
+        _test_staged_clutter_recording_replays_randomized_supports, tmp_path=tmp_path, backend=backend
+    )
+
+
 def _test_raised_support_requires_explicit_surface(simulation_app, tmp_path):
     import torch
     from unittest.mock import patch

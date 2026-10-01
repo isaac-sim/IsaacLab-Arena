@@ -227,11 +227,13 @@ Clutter Recording Checks
 
 Scenes using ``ClutterOn`` automatically include ``support_containment``. The
 clutter objects must be dynamic rigid bodies with gravity enabled, and scene
-gravity must point downward along world Z. Supports must carry ``IsAnchor``
-and have static or kinematic collision geometry, with no tilt and a yaw that is
-a multiple of 90 degrees. ``IsAnchor`` fixes the placement solve; physics mobility
-is a separate requirement. Resolve every non-clutter placement relation to a
-fixed anchor before collection, including destination fixtures.
+gravity must point downward along world Z. Supports must have static or
+kinematic collision geometry, with no tilt and a yaw that is a multiple of
+90 degrees. ``IsAnchor`` fixes the placement solve; physics mobility is a separate
+requirement. By default, resolve non-clutter placement to fixed anchors before
+collection, including destination fixtures. With ``placer_params.staged_clutter: true``,
+fixtures can instead be solved kinematic rigid bodies. Containment checks compare
+each support's poses before and after physics with that candidate's solved pose.
 
 Release candidates must pass ``no_overlap`` and ``clutter_on_relation``.
 ``ClutterOn`` objects cannot require reachability because settling changes the
