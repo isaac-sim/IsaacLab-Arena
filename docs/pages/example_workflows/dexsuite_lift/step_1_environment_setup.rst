@@ -145,7 +145,7 @@ Verify the environment loads correctly with a zero-action policy:
 
    # Newton (environment default):
    PYOPENGL_PLATFORM=glx python isaaclab_arena/evaluation/policy_runner.py \
-     --viz newton \
+     --viz newton_gl \
      --policy_type zero_action \
      --num_steps 100 \
      dexsuite_lift
@@ -154,7 +154,7 @@ You should see the Kuka Allegro hand in the scene with the cuboid on the table.
 
 .. tip::
 
-   ``--viz newton`` uses the MuJoCo viewer; ``--viz kit`` uses
+   ``--viz newton_gl`` uses the MuJoCo viewer; ``--viz kit`` uses
    the Kit viewer. The visualizer setting is independent of the physics backend.
    For example, ``--viz kit --presets newton`` runs Newton physics with
    the Kit viewer.
