@@ -354,3 +354,22 @@ def _test_maple_table_pose_restored_on_reset(_) -> bool:
 
 def test_maple_table_pose_restored_on_reset():
     assert run_function_with_persistent_simulation_app(_test_maple_table_pose_restored_on_reset)
+
+
+def test_rigid_reset_skips_velocity_write_when_disabled():
+    """``_RigidReset.restore`` must not call PhysX velocity writes for kinematic nested rigids."""
+    import torch
+    from unittest.mock import MagicMock
+
+    from isaaclab_arena.terms.events import _RigidReset
+
+    asset = MagicMock()
+    asset.data.root_vel_w.torch = torch.zeros(1, 6)
+    reset = _RigidReset(asset=asset, root_pose_local=torch.zeros(7), reset_velocity=False)
+    env_ids = torch.tensor([0])
+    env_origins = torch.zeros(1, 3)
+
+    reset.restore(env_ids, env_origins)
+
+    asset.write_root_pose_to_sim_index.assert_called_once()
+    asset.write_root_velocity_to_sim_index.assert_not_called()
