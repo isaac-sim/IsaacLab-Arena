@@ -12,6 +12,37 @@ sets the number of batches; four environments and four batches produce 16 attemp
 The examples use the existing Robolab environments with visualization enabled:
 ``clamp_in_right_bin`` for recording and replay, and ``smartphone_in_bin`` for rejection.
 
+Choose Your Runtime
+-------------------
+
+Complete :doc:`../../quickstart/installation`, then select your setup below.
+Keep using the same shell for all recording, inspection and replay commands.
+
+.. tab-set::
+
+   .. tab-item:: Native uv
+
+      From the repository root on your host, activate the installed environment:
+
+      .. code-block:: bash
+
+         source .venv/bin/activate
+
+   .. tab-item:: Docker
+
+      Use the Arena container shell prepared during installation. Change to the
+      mounted repository root inside the container:
+
+      .. code-block:: bash
+
+         cd /workspaces/isaaclab_arena
+
+The commands below use ``python`` from your selected runtime. To run headless,
+use ``render=false --viz none`` when recording and ``--viz none`` when replaying.
+
+JSONL recordings can be replayed in another installation with compatible assets,
+physics-root names and reset settings.
+
 Sampling Workflow
 -----------------
 
@@ -20,21 +51,6 @@ Sampling Workflow
 
 This example records settled placement layouts from the ``clamp_in_right_bin``
 environment.
-
-Complete :doc:`../../quickstart/installation` using native ``uv`` or Docker.
-For an installed native ``uv`` environment, activate it from the repository root:
-
-.. code-block:: bash
-
-   source .venv/bin/activate
-
-For Docker, use the Arena container shell prepared during installation.
-Run the following commands from the repository root in your chosen environment;
-``python`` uses the configured Arena interpreter in either workflow. To run headless,
-use ``render=false --viz none`` when recording and ``--viz none`` when replaying.
-
-JSONL recordings can be replayed in another native or Docker installation with
-compatible assets, physics-root names and reset settings.
 
 .. code-block:: bash
 
