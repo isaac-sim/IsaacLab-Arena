@@ -218,36 +218,24 @@ class ObjectReference(RootedObjectBase):
     def isaaclab_prim_path_to_original_prim_path(
         isaaclab_prim_path: str, parent_asset: Object, stage: Usd.Stage
     ) -> str:
-        """Convert an IsaacLab prim path to the prim path in the original USD stage.
-
-        Two steps to getting the original prim path from the IsaacLab prim path.
-
-        # 1. Remove the ENV_REGEX_NS prefix
-        # 2. Replace the asset name with the default prim path.
+        """Map a runtime path beneath the parent asset to its source USD stage.
 
         Args:
-            isaaclab_prim_path: The IsaacLab prim path.
-            parent_asset: The asset the prim belongs to; its name is stripped from the path.
-            stage: The parent asset's opened USD stage, used to resolve the default prim.
+            isaaclab_prim_path: The runtime prim path of the reference.
+            parent_asset: Asset whose configured prim path prefixes the reference.
+            stage: The parent asset's opened USD stage.
 
         Returns:
-            The prim path in the original USD stage.
+            The same relative path beneath the source stage's default prim.
         """
         default_prim = stage.GetDefaultPrim()
-        default_prim_path = default_prim.GetPath()
-        assert default_prim_path is not None
-        # Check that the path starts with the ENV_REGEX_NS prefix.
-        assert isaaclab_prim_path.startswith("{ENV_REGEX_NS}/")
-        original_prim_path = isaaclab_prim_path.removeprefix("{ENV_REGEX_NS}/")
-        # Check that the path starts with the asset name.
-        assert original_prim_path.startswith(parent_asset.name), (
-            "Expected the prim path to start with the parent asset name {parent_asset.name}. Instead got"
-            " {original_prim_path}"
-        )
-        original_prim_path = original_prim_path.removeprefix(parent_asset.name)
-        # Append the default prim path.
-        original_prim_path = str(default_prim_path) + original_prim_path
-        return original_prim_path
+        assert default_prim.IsValid(), "Parent USD must have a default prim"
+        parent_path = parent_asset.get_prim_path().rstrip("/")
+        assert isaaclab_prim_path == parent_path or isaaclab_prim_path.startswith(
+            parent_path + "/"
+        ), f"Reference path '{isaaclab_prim_path}' must be beneath parent path '{parent_path}'"
+        relative_path = isaaclab_prim_path.removeprefix(parent_path)
+        return str(default_prim.GetPath()) + relative_path
 
 
 class OpenableObjectReference(ObjectReference, Openable):

@@ -45,7 +45,7 @@ def _build_environment(
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.utils.physics_backend import PhysicsBackend
 
-    from ..embodiments.cable_routing import IndustrialBimanualYamEmbodiment
+    from ..embodiments.bimanual_yam import IndustrialBimanualYamEmbodiment
     from .physics import configure_cable_routing_physics, configure_easy_cable_routing_physics
     from .scene import (
         BOARD_TOP_Z,
@@ -75,6 +75,8 @@ def _build_environment(
         use_tiled_cameras=cfg.use_tiled_cameras,
         use_instanceable_meshes=cfg.use_instanceable_meshes,
     )
+    for robot in (embodiment.scene_config.left_robot, embodiment.scene_config.right_robot):
+        robot.soft_joint_pos_limit_factor = 0.95
     task = CableRoutingTask(
         cable=built_scene.cable,
         pegs=built_scene.pegs,

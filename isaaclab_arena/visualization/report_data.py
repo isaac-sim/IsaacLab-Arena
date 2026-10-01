@@ -35,7 +35,7 @@ DEFAULT_POLICY_SUFFIXES = ()
 _METADATA_EXCLUDED_FIELDS = frozenset({"env_id", "episode_in_env", "success", "job_name", "progress"})
 _PREDICATE_ARGUMENTS_PATTERN = re.compile(r"\(.*\)$")
 _CONSECUTIVE_STEPS_PATTERN = re.compile(r"TrueForConsecutiveStepsCfg\((?P<predicate>.*), required_steps=\d+\)")
-_SUBTASK_OBJECTIVE_PATTERN = re.compile(r"^subtask_\d+/(?P<family>.+)$")
+_SUBTASK_CRITERIA_PATTERN = re.compile(r"^subtask_\d+/(?P<family>.+)$")
 UNGROUPED_TASK = "(ungrouped)"
 
 
@@ -74,7 +74,7 @@ class EpisodeSummary:
         return None if score is None else max(0.0, min(1.0, score))
 
     @property
-    def all_objectives_complete(self) -> bool | None:
+    def all_criteria_complete(self) -> bool | None:
         progress = self.record.get("progress")
         if not isinstance(progress, dict) or "all_complete" not in progress:
             return None
@@ -83,7 +83,7 @@ class EpisodeSummary:
 
     @property
     def outcome_disagrees_with_progress(self) -> bool:
-        success, complete = self.success, self.all_objectives_complete
+        success, complete = self.success, self.all_criteria_complete
         return success is not None and complete is not None and success != complete
 
     @property
@@ -103,7 +103,7 @@ class FunnelStage:
 
 
 @dataclass
-class ObjectiveFunnel:
+class CompletionCriteriaFunnel:
     name: str
     num_instances: int
     stages: list[FunnelStage]
@@ -120,7 +120,7 @@ class PredicateSignal:
 
 
 @dataclass
-class ObjectiveProgress:
+class CompletionCriteriaProgress:
     name: str
     family: str
     score: float
@@ -152,13 +152,13 @@ class JobSummary:
     episodes: list[EpisodeSummary]
     issues: list[DataIssue] = field(default_factory=list)
 
-    _objective_family_by_name: dict[str, str] = field(init=False, repr=False)
+    _criteria_family_by_name: dict[str, str] = field(init=False, repr=False)
     _family_sequences: dict[str, dict[int, str]] = field(init=False, repr=False)
 
     def __post_init__(self) -> None:
-        self._objective_family_by_name, family_issues = _build_objective_family_map(self.name, self.episodes)
+        self._criteria_family_by_name, family_issues = _build_criteria_family_map(self.name, self.episodes)
         self._family_sequences, sequence_issues = _build_family_sequences(
-            self.name, self.episodes, self._objective_family_by_name
+            self.name, self.episodes, self._criteria_family_by_name
         )
         self.issues.extend(family_issues)
         self.issues.extend(sequence_issues)
@@ -194,20 +194,20 @@ class JobSummary:
         return sum(len(episode.video_by_camera) for episode in self.episodes)
 
     @functools.cached_property
-    def funnels(self) -> list[ObjectiveFunnel]:
+    def funnels(self) -> list[CompletionCriteriaFunnel]:
         instances_by_family: dict[str, set[tuple[int, int, str]]] = defaultdict(set)
         reached_by_family_index: dict[tuple[str, int], set[tuple[int, int, str]]] = defaultdict(set)
         for episode in self.episodes:
-            for objective_name in _episode_objective_names(episode):
-                family = self._objective_family_by_name.get(objective_name, objective_name)
-                instances_by_family[family].add((episode.env_index, episode.episode_index, objective_name))
+            for criteria_name in _episode_criteria_names(episode):
+                family = self._criteria_family_by_name.get(criteria_name, criteria_name)
+                instances_by_family[family].add((episode.env_index, episode.episode_index, criteria_name))
             for event in _progress_events(episode.record):
-                objective_name = _event_objective_name(event)
+                criteria_name = _event_criteria_name(event)
                 index = _as_int(event.get("predicate_index"))
-                if objective_name is None or index is None:
+                if criteria_name is None or index is None:
                     continue
-                family = self._objective_family_by_name.get(objective_name, objective_name)
-                instance = (episode.env_index, episode.episode_index, objective_name)
+                family = self._criteria_family_by_name.get(criteria_name, criteria_name)
+                instance = (episode.env_index, episode.episode_index, criteria_name)
                 instances_by_family[family].add(instance)
                 reached_by_family_index[(family, index)].add(instance)
 
@@ -221,18 +221,20 @@ class JobSummary:
                 for index in sorted(sequence)
             ]
             funnels.append(
-                ObjectiveFunnel(name=family, num_instances=len(instances_by_family.get(family, ())), stages=stages)
+                CompletionCriteriaFunnel(
+                    name=family, num_instances=len(instances_by_family.get(family, ())), stages=stages
+                )
             )
         return funnels
 
-    def objectives_for(self, episode: EpisodeSummary) -> list[ObjectiveProgress]:
-        objectives = _progress_objectives(episode.record)
-        names = list(objectives) if objectives else sorted(_event_objectives(episode.record))
+    def criteria_for(self, episode: EpisodeSummary) -> list[CompletionCriteriaProgress]:
+        criteria_by_name = _progress_criteria(episode.record)
+        names = list(criteria_by_name) if criteria_by_name else sorted(_event_criteria_names(episode.record))
         results = []
-        fired = _events_by_objective_and_index(episode.record)
+        fired = _events_by_criteria_and_index(episode.record)
         for name in names:
-            detail = objectives.get(name, {}) if objectives else {}
-            family = self._objective_family_by_name.get(name, name)
+            detail = criteria_by_name.get(name, {}) if criteria_by_name else {}
+            family = self._criteria_family_by_name.get(name, name)
             sequence = self._family_sequences.get(family, {})
             active_names = [
                 _base_predicate_name(predicate)
@@ -256,13 +258,13 @@ class JobSummary:
                         blocked=blocked,
                     )
                 )
-            total_groups = _as_float(detail.get("total_groups")) if isinstance(detail, dict) else None
+            total_sequences = _as_float(detail.get("total_sequences")) if isinstance(detail, dict) else None
             results.append(
-                ObjectiveProgress(
+                CompletionCriteriaProgress(
                     name=name,
                     family=family,
                     score=_as_float(detail.get("score")) or 0.0 if isinstance(detail, dict) else 0.0,
-                    max_score=total_groups if total_groups and total_groups > 0 else 1.0,
+                    max_score=total_sequences if total_sequences and total_sequences > 0 else 1.0,
                     is_complete=bool(detail.get("is_complete", False)) if isinstance(detail, dict) else False,
                     signals=signals,
                     blocked_predicates=[name for name in active_names if name not in matched_blocked],
@@ -370,16 +372,16 @@ def _base_predicate_name(predicate_name: object) -> str:
     return _PREDICATE_ARGUMENTS_PATTERN.sub("", predicate_description)
 
 
-def _candidate_family_name(objective_name: str) -> str:
-    match = _SUBTASK_OBJECTIVE_PATTERN.match(objective_name)
-    return objective_name if match is None else match.group("family")
+def _candidate_family_name(criteria_name: str) -> str:
+    match = _SUBTASK_CRITERIA_PATTERN.match(criteria_name)
+    return criteria_name if match is None else match.group("family")
 
 
-def _build_objective_family_map(
+def _build_criteria_family_map(
     job_name: str,
     episodes: list[EpisodeSummary],
 ) -> tuple[dict[str, str], list[DataIssue]]:
-    exact_names = sorted(_objective_names(episodes))
+    exact_names = sorted(_criteria_names(episodes))
     candidates: dict[str, list[str]] = defaultdict(list)
     for name in exact_names:
         candidates[_candidate_family_name(name)].append(name)
@@ -390,14 +392,15 @@ def _build_objective_family_map(
         if len(names) == 1:
             family_by_name[names[0]] = names[0]
             continue
-        if _objective_names_are_compatible(episodes, names):
+        if _criteria_names_are_compatible(episodes, names):
             for name in names:
                 family_by_name[name] = candidate
         else:
             issues.append(
                 DataIssue(
                     job_name or ".",
-                    f"objective family '{candidate}' has conflicting predicate sequences; showing exact objectives",
+                    f"completion criteria family '{candidate}' has conflicting predicate sequences; showing exact"
+                    " criteria",
                 )
             )
             for name in names:
@@ -413,11 +416,11 @@ def _build_family_sequences(
     names_by_family_index: dict[tuple[str, int], set[str]] = defaultdict(set)
     for episode in episodes:
         for event in _progress_events(episode.record):
-            objective_name = _event_objective_name(event)
+            criteria_name = _event_criteria_name(event)
             index = _as_int(event.get("predicate_index"))
-            if objective_name is None or index is None:
+            if criteria_name is None or index is None:
                 continue
-            family = family_by_name.get(objective_name, objective_name)
+            family = family_by_name.get(criteria_name, criteria_name)
             names_by_family_index[(family, index)].add(_base_predicate_name(event.get("predicate_name", "")))
 
     issues = []
@@ -427,21 +430,22 @@ def _build_family_sequences(
             issues.append(
                 DataIssue(
                     job_name or ".",
-                    f"objective family '{family}' has multiple predicate names at index {index}: {sorted(names)}",
+                    f"completion criteria family '{family}' has multiple predicate names at index {index}:"
+                    f" {sorted(names)}",
                 )
             )
         sequences[family][index] = sorted(names)[0]
     return dict(sequences), issues
 
 
-def _objective_names_are_compatible(episodes: list[EpisodeSummary], objective_names: list[str]) -> bool:
+def _criteria_names_are_compatible(episodes: list[EpisodeSummary], criteria_names: list[str]) -> bool:
     names_by_index: dict[int, set[str]] = defaultdict(set)
-    objective_name_set = set(objective_names)
+    criteria_name_set = set(criteria_names)
     for episode in episodes:
         for event in _progress_events(episode.record):
-            objective_name = _event_objective_name(event)
+            criteria_name = _event_criteria_name(event)
             index = _as_int(event.get("predicate_index"))
-            if objective_name in objective_name_set and index is not None:
+            if criteria_name in criteria_name_set and index is not None:
                 names_by_index[index].add(_base_predicate_name(event.get("predicate_name", "")))
     return all(len(names) <= 1 for names in names_by_index.values())
 
@@ -451,9 +455,9 @@ def _progress(record: dict[str, Any]) -> dict[str, Any]:
     return progress if isinstance(progress, dict) else {}
 
 
-def _progress_objectives(record: dict[str, Any]) -> dict[str, dict[str, Any]]:
-    objectives = _progress(record).get("objectives")
-    return objectives if isinstance(objectives, dict) else {}
+def _progress_criteria(record: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    criteria_by_name = _progress(record).get("criteria_by_name")
+    return criteria_by_name if isinstance(criteria_by_name, dict) else {}
 
 
 def _progress_events(record: dict[str, Any]) -> list[dict[str, Any]]:
@@ -461,33 +465,37 @@ def _progress_events(record: dict[str, Any]) -> list[dict[str, Any]]:
     return [event for event in events if isinstance(event, dict)] if isinstance(events, list) else []
 
 
-def _event_objective_name(event: dict[str, Any]) -> str | None:
-    objective = event.get("objective")
-    return str(objective) if objective is not None else None
+def _event_criteria_name(event: dict[str, Any]) -> str | None:
+    criteria_name = event.get("criteria_name")
+    return str(criteria_name) if criteria_name is not None else None
 
 
-def _event_objectives(record: dict[str, Any]) -> set[str]:
-    return {objective for event in _progress_events(record) if (objective := _event_objective_name(event)) is not None}
+def _event_criteria_names(record: dict[str, Any]) -> set[str]:
+    return {
+        criteria_name
+        for event in _progress_events(record)
+        if (criteria_name := _event_criteria_name(event)) is not None
+    }
 
 
-def _episode_objective_names(episode: EpisodeSummary) -> set[str]:
-    return set(_progress_objectives(episode.record)) | _event_objectives(episode.record)
+def _episode_criteria_names(episode: EpisodeSummary) -> set[str]:
+    return set(_progress_criteria(episode.record)) | _event_criteria_names(episode.record)
 
 
-def _objective_names(episodes: list[EpisodeSummary]) -> set[str]:
+def _criteria_names(episodes: list[EpisodeSummary]) -> set[str]:
     names = set()
     for episode in episodes:
-        names.update(_episode_objective_names(episode))
+        names.update(_episode_criteria_names(episode))
     return names
 
 
-def _events_by_objective_and_index(record: dict[str, Any]) -> dict[str, dict[int, dict[str, Any]]]:
+def _events_by_criteria_and_index(record: dict[str, Any]) -> dict[str, dict[int, dict[str, Any]]]:
     result: dict[str, dict[int, dict[str, Any]]] = {}
     for event in _progress_events(record):
-        objective_name = _event_objective_name(event)
+        criteria_name = _event_criteria_name(event)
         index = _as_int(event.get("predicate_index"))
-        if objective_name is not None and index is not None:
-            result.setdefault(objective_name, {})[index] = event
+        if criteria_name is not None and index is not None:
+            result.setdefault(criteria_name, {})[index] = event
     return result
 
 

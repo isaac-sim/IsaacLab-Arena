@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 
 from omegaconf import MISSING
 
-from isaaclab_arena.offline_placement.recording_params import PlacementRecordingParams
+from isaaclab_arena.offline_placement.settled_placement_params import SettledPlacementParams
 
 
 @dataclass
@@ -31,15 +31,19 @@ class PlacementRecordingCfg:
     viewer_lookat: tuple[float, float, float] | None = None
     """Optional viewer target in simulation-world metres; requires viewer_eye."""
     layouts_per_env: int = 5
-    """Number of reset placements sampled per environment before physics filtering."""
+    """Solver layouts added per environment when a placement pool refills."""
+    min_layouts: int = 1
+    """Target number of accepted settled layouts to record."""
+    max_batches: int = 5
+    """Maximum reset-and-settle rounds; accepted layouts are saved even below the target."""
     seed: int = 42
     """Seed for placement solving and reset randomization."""
     presets: str | None = None
     """Optional physics backend override: physx or newton."""
     render: bool = False
     """Render physics steps when a visualizer is enabled."""
-    settle: PlacementRecordingParams = field(default_factory=PlacementRecordingParams)
-    """Physics duration, configured validators and minimum accepted count."""
+    settle: SettledPlacementParams = field(default_factory=SettledPlacementParams)
+    """Physics duration and configured post-physics validators."""
 
 
 def load_recording_config(overrides: list[str]) -> PlacementRecordingCfg:

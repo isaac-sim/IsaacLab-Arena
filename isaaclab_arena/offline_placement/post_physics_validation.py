@@ -20,7 +20,10 @@ from isaaclab_arena.relations.validation.types import PlacementValidatorReport
 if TYPE_CHECKING:
     import torch
 
+    from isaaclab.envs import ManagerBasedEnv
+
     from isaaclab_arena.offline_placement.settled_batch import SettledBatch
+    from isaaclab_arena.relations.placement_asset import PlaceableAsset
 
 
 @dataclass
@@ -34,6 +37,13 @@ class PostPhysicsPlacementValidator(PlacementValidator):
     @abstractmethod
     def validate(self, data: SettledBatch) -> list[PlacementValidatorReport]:
         """Return one report per candidate environment, in env_ids order."""
+
+    def validate_scene(self, env: ManagerBasedEnv, assets: Sequence[PlaceableAsset]) -> None:
+        """Check scene-dependent settings before any sampling reset or physics step."""
+
+    def get_geometry_keys(self, assets: Sequence[PlaceableAsset]) -> set[str]:
+        """Return scene keys whose bounds and poses this check needs captured."""
+        return set()
 
     def configuration(self) -> dict:
         """Return the implementation path and effective settings."""
@@ -87,7 +97,7 @@ class VelocityValidator(PostPhysicsPlacementValidator):
 
 @dataclass
 class PoseShiftValidator(PostPhysicsPlacementValidator):
-    """Limit initial-to-final root displacement and rotation."""
+    """Limit root displacement and rotation, excluding intentional ClutterOn drops."""
 
     check: ClassVar[str] = "pose_shift"
     max_translation_m: float = 0.002
@@ -104,7 +114,15 @@ class PoseShiftValidator(PostPhysicsPlacementValidator):
         ), "max_rotation_deg must be finite and non-negative"
 
     def validate(self, data: SettledBatch) -> list[PlacementValidatorReport]:
-        return self._validate_poses(data.env_ids, data.initial_root_poses, data.final_root_poses)
+        from isaaclab_arena.relations.relations import ClutterOn, get_relation
+
+        clutter_keys = set()
+        for layout in data.source_layouts.values():
+            for asset in layout.positions:
+                if get_relation(asset, ClutterOn) is not None:
+                    clutter_keys.update(asset.get_scene_root_keys())
+        final = {key: poses for key, poses in data.final_root_poses.items() if key not in clutter_keys}
+        return self._validate_poses(data.env_ids, data.initial_root_poses, final)
 
     def _validate_poses(
         self, env_ids: list[int], initial: dict[str, torch.Tensor], final: dict[str, torch.Tensor]
@@ -153,20 +171,16 @@ def default_post_physics_validators() -> dict[str, dict]:
 
 
 def build_post_physics_validators(
-    configurations: dict[str, dict], articulation_keys: list[str], *, log_progress: bool = False
+    configurations: dict[str, dict], articulation_keys: list[str]
 ) -> list[PostPhysicsPlacementValidator]:
-    """Construct configured checks, optionally printing their settings and skip reasons."""
+    """Construct configured post-physics checks."""
     from hydra.utils import instantiate
 
     validators = []
     for name, configuration in configurations.items():
-        validator = instantiate(configuration)
+        validator = instantiate(configuration, _convert_="all")
         assert isinstance(validator, PostPhysicsPlacementValidator), f"'{name}' must be a PostPhysicsPlacementValidator"
         assert name == validator.check, f"'{name}' must match validator name '{validator.check}'"
-        if log_progress:
-            reason = validator.skip_reason(articulation_keys)
-            status = f"SKIPPED: {reason}" if reason is not None else "ENABLED: required to pass"
-            print(f"[placement] {name}: {status}; {validator.configuration()}")
         validators.append(validator)
     assert any(
         validator.skip_reason(articulation_keys) is None for validator in validators

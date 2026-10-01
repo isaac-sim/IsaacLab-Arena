@@ -122,11 +122,11 @@ class GearMeshBehaviourDemo(EnvBehaviourDemo):
         assert len(body_ids) == 1, f"Expected one robotiq_base body, got {body_ids}."
         self.ee_body_id = int(body_ids[0])
 
-        success_objective = self.arena_environment.task.get_termination_cfg().success[0]
-        gear_mesh_cfg = success_objective.predicate_sequence[0]
+        success_criteria = self.arena_environment.task.get_termination_cfg().success[0]
+        gear_mesh_cfg = success_criteria.predicate_sequence[0]
         progress_tracker = self.base_env.progress_tracker
         assert progress_tracker is not None, "Gear mesh validation requires task success tracking."
-        self.gear_mesh_predicate = progress_tracker.get_predicate(success_objective.name)
+        self.gear_mesh_predicate = progress_tracker.get_predicate(success_criteria.name)
         self.board = self.gear_mesh_predicate.board
         self.gears = self.gear_mesh_predicate.gears
         self.gear_names = tuple(asset.cfg.prim_path.rsplit("/", 1)[-1] for asset in self.gears)

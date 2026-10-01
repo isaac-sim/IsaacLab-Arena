@@ -6,13 +6,14 @@
 from __future__ import annotations
 
 import argparse
+import sys
+from contextlib import contextmanager
 from types import SimpleNamespace
 from typing import TYPE_CHECKING
 
 import pytest
 
 from isaaclab_arena.tests.utils.constants import TestConstants
-from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 from isaaclab_arena.tests.utils.subprocess import run_subprocess
 from isaaclab_arena.utils.physics_backend import PhysicsBackend
 
@@ -170,10 +171,6 @@ def _test_mouse_interaction_uses_d6_grab_for_current_stage(simulation_app) -> bo
     import omni.physx.bindings._physx as physx_bindings
     import omni.usd
 
-    from isaaclab_arena.scripts import environment_runner
-
-    environment_runner._enable_mouse_interaction()
-
     extension_manager = omni.kit.app.get_app().get_extension_manager()
     assert extension_manager.is_extension_enabled("omni.physx.ui")
 
@@ -193,7 +190,42 @@ def _test_mouse_interaction_uses_d6_grab_for_current_stage(simulation_app) -> bo
 
 @pytest.mark.with_subprocess
 def test_mouse_interaction_uses_d6_grab_for_current_stage():
-    run_subprocess([TestConstants.python_path, __file__])
+    """Check mouse interaction through the runner's actual startup path."""
+    result = run_subprocess(
+        [TestConstants.python_path, __file__, "pick_and_place_maple_table"],
+        capture_output=True,
+    )
+    # Kit may exit successfully before reaching the checks.
+    assert "Mouse interaction checks passed" in result.stdout, result.stdout + result.stderr
+
+
+def test_main_preserves_arguments_when_launcher_changes_sys_argv(monkeypatch):
+    from isaaclab_arena.scripts import environment_runner
+
+    monkeypatch.setattr(sys, "argv", ["environment_runner.py", "example", "--object", "cube", "env.seed=7"])
+
+    @contextmanager
+    def launch_app(args):
+        sys.argv.extend(["--enable", "omni.physx.pvd"])
+        yield
+
+    def add_environment_arguments(parser):
+        subparser = parser.add_subparsers(dest="example_environment").add_parser("example")
+        subparser.add_argument("--object")
+        return parser
+
+    def check_environment_arguments(args, hydra_overrides):
+        assert args.example_environment == "example"
+        assert args.object == "cube"
+        assert hydra_overrides == ["env.seed=7"]
+        raise RuntimeError("stop before scene creation")
+
+    monkeypatch.setattr(environment_runner, "SimulationAppContext", launch_app)
+    monkeypatch.setattr(environment_runner, "get_isaaclab_arena_environments_cli_parser", add_environment_arguments)
+    monkeypatch.setattr(environment_runner, "_create_interactive_environment", check_environment_arguments)
+
+    with pytest.raises(RuntimeError, match="stop before scene creation"):
+        environment_runner.main()
 
 
 def test_main_closes_the_environment_when_the_run_loop_fails(monkeypatch):
@@ -214,7 +246,7 @@ def test_main_closes_the_environment_when_the_run_loop_fails(monkeypatch):
             for argument_name, default_value in defaults.items():
                 setattr(args_cli, argument_name, default_value)
 
-        def parse_known_args(self):
+        def parse_known_args(self, args=None):
             return args_cli, []
 
     class FakeSimulationAppContext:
@@ -297,7 +329,17 @@ def test_main_closes_the_environment_when_the_run_loop_fails(monkeypatch):
 
 
 if __name__ == "__main__":
-    result = run_function_with_persistent_simulation_app(
-        _test_mouse_interaction_uses_d6_grab_for_current_stage, headless=True
-    )
-    raise SystemExit(0 if result else 1)
+    from unittest.mock import patch
+
+    from isaaclab_arena.scripts import environment_runner
+
+    def check_mouse_interaction(simulation_app, env):
+        assert _test_mouse_interaction_uses_d6_grab_for_current_stage(simulation_app)
+        print("Mouse interaction checks passed", flush=True)
+
+    # Keep real startup and CLI parsing; stub scene creation and the run loop.
+    with (
+        patch.object(environment_runner, "_create_interactive_environment", return_value=_FakeEnvironment()),
+        patch.object(environment_runner, "run_environment", check_mouse_interaction),
+    ):
+        environment_runner.main()
