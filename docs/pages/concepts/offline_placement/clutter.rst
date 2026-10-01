@@ -31,8 +31,9 @@ explicitly to 0.5306 m along its scaled local Z axis.
 Success writes exactly 10 accepted layouts to ``outputs/clutter/episodes.jsonl``
 and prints the saved count and path. The acceptance count per batch can vary;
 rejected candidates are reported and later batches supply replacements. If the
-requested count is not reached within the batch budget, generation raises an
-error with rejection reasons and writes no file. Existing files are never
+requested count is not reached within the batch budget, generation writes any
+accepted layouts, logs an error with the partial count and exits normally. No
+file is written when every candidate is rejected. Existing files are never
 overwritten; choose a new output path when rerunning.
 
 On PhysX, resetting a fixed support can print ``Body must be non-kinematic``
@@ -40,7 +41,7 @@ when the background reset writes its velocity. This diagnostic also occurs in
 the normal reset path. Check the validator reports and saved-layout count to
 determine whether generation succeeded.
 
-``num_envs`` controls parallel environments. ``min_layouts`` is the minimum number
+``num_envs`` controls parallel environments. ``min_layouts`` is the target number
 of accepted layouts to save (default 1).
 ``layouts_per_env`` sets how many solver layouts each environment receives when
 the placement pool refills. ``max_batches`` caps reset-and-settle rounds; the

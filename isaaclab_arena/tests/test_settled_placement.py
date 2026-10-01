@@ -198,8 +198,39 @@ def test_record_placements_to_jsonl_leaves_no_file_when_target_unmet(tmp_path):
     assert summary.attempted == 1
 
 
+def test_record_placements_to_jsonl_writes_partial_acceptance(tmp_path):
+    from unittest.mock import Mock, patch
+
+    from isaaclab_arena.scripts.record_placement_layouts import record_placements_to_jsonl
+
+    env = Mock()
+    pool = Mock(objects=[])
+    output = tmp_path / "partial.jsonl"
+
+    def write_partial(_env, destination, _assets, _poses, _validation, _num_steps):
+        Path(destination).write_text("accepted\n")
+
+    with (
+        patch("isaaclab_arena.relations.placement_events.get_placement_pool", return_value=pool),
+        patch(
+            "isaaclab_arena.offline_placement.recording.collect_layouts_until_count",
+            return_value=({"cube": [Mock()]}, [Mock()], 2, {(1, 0): "failed"}),
+        ),
+        patch("isaaclab_arena.offline_placement.recording.validate_recording_assets"),
+        patch("isaaclab_arena.offline_placement.recording.write_settled_layouts", side_effect=write_partial),
+        patch(
+            "isaaclab_arena.offline_placement.settled_placement.resolve_settle_params", return_value=Mock(num_steps=1)
+        ),
+    ):
+        summary = record_placements_to_jsonl(env, output, min_layouts=2, max_batches=1, scene_assets=[])
+    assert summary.output == output
+    assert summary.accepted == 1
+    assert summary.attempted == 2
+    assert output.read_text() == "accepted\n"
+
+
 @pytest.mark.with_subprocess
-def test_recording_cli_rejects_insufficient_batch_budget(tmp_path):
+def test_recording_cli_writes_partial_acceptance(tmp_path):
     import os
     import subprocess
 
@@ -232,9 +263,9 @@ def test_recording_cli_rejects_insufficient_batch_budget(tmp_path):
         text=True,
         start_new_session=True,
     )
-    assert completed.returncode != 0, completed.stdout + completed.stderr
-    assert "Batch budget cannot supply" in completed.stdout + completed.stderr
-    assert not output.exists()
+    assert completed.returncode == 0, completed.stdout + completed.stderr
+    assert "Only 1 of 2 requested layouts were recorded" in completed.stdout + completed.stderr
+    assert len(output.read_text().splitlines()) == 1
 
 
 def test_recording_cli_imports_before_simulation_startup():

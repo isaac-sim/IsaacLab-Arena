@@ -68,7 +68,7 @@ def _test_generation_writes_complete_layouts(simulation_app, tmp_path):
 
     arena_env.env_cfg_callback = configure_physics
     output = tmp_path / "episodes.jsonl"
-    cfg = _arguments(output, scene_path, num_envs=2, num_layouts=3, max_batches=2, layouts_per_env=1)
+    cfg = _arguments(output, scene_path, num_envs=2, min_layouts=3, max_batches=2, layouts_per_env=1)
     # A solve can supply only one layout per environment. Later refills must still
     # satisfy an output request larger than the initial pool.
     arena_env.placer_params.max_placement_attempts = 1
@@ -188,7 +188,7 @@ def _test_post_physics_checks_gate_output(simulation_app, tmp_path):
 
     scene_path = tmp_path / "scene.yaml"
     output = tmp_path / "checked.jsonl"
-    cfg = _arguments(output, scene_path, num_envs=2, num_layouts=1, max_batches=1, layouts_per_env=1)
+    cfg = _arguments(output, scene_path, num_envs=2, min_layouts=1, max_batches=1, layouts_per_env=1)
     cfg.settle.validators = dict(default_clutter_validators())
     cfg.settle.validators["reject_for_test"] = {
         "_target_": "isaaclab_arena.tests.clutter.test_clutter_generation.RejectPostPhysics",

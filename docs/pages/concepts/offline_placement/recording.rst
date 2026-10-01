@@ -8,7 +8,7 @@ solving or settling them again.
 
 Recording runs an outer loop of reset-and-settle batches until it collects
 ``min_layouts`` accepted layouts or exhausts ``max_batches``. Each batch resets
-every environment once. ``min_layouts`` is the minimum accepted layouts to write
+every environment once. ``min_layouts`` is the target number of accepted layouts
 (default 1). ``layouts_per_env`` sets how many solver layouts each environment
 receives when the placement pool refills (default 5).
 
@@ -52,7 +52,7 @@ compatible assets, physics-root names and reset settings.
 
 You should see four environments reset and settle over several batches until
 16 accepted layouts are collected or the batch budget is reached.
-Recording is successful when:
+Full recording is successful when:
 
 * the command exits without error and writes ``outputs/placements/clamp.jsonl``
   with exactly the requested ``min_layouts`` accepted layouts;
@@ -61,8 +61,9 @@ Recording is successful when:
 * every saved layout passes all required solver checks and all enabled, applicable
   post-physics checks at the configured limits.
 
-Partial acceptance is successful when these conditions hold. Counts and measured
-motion can differ between machines. Rejected layouts must be excluded from the
+If the batch budget is exhausted first, any accepted layouts are still written and
+the command logs an error with the partial count. Counts and measured motion can
+differ between machines. Rejected layouts must be excluded from the
 file and have a reason in the console.
 
 These environments use about 1 cm of ``On`` release clearance. This exceeds the
@@ -196,8 +197,10 @@ Generate and record poses in the ``smartphone_in_bin`` environment:
 
 Layouts that fail a required solver check or an enabled, applicable post-physics
 check are excluded from the file and reported with a rejection reason.
-If the batch budget ends before ``min_layouts`` pass, expect an insufficient-acceptance
-error and no output file; otherwise, the success conditions from step 1 apply.
+If the batch budget ends before ``min_layouts`` pass, the command writes any
+accepted layouts and logs an insufficient-acceptance error. If none pass, no
+output file is written. Every written layout still satisfies the configured
+solver and post-physics checks.
 Use :ref:`recording_rejection_summary` to diagnose failures. If every layout passes,
 recording succeeded but rejection handling was not exercised.
 
@@ -373,9 +376,10 @@ environment, collect accepted poses and write JSONL:
 
 The workflow owns and closes the environment. Inspect ``summary.accepted``,
 ``summary.attempted`` and ``summary.rejections`` to see the outcome. When the
-layout target is not reached within ``max_batches``, ``summary.output`` is
-``None`` and no file is written; otherwise it contains the output path. The
-command-line entry point reports insufficient acceptance as an error.
+layout target is not reached within ``max_batches``, accepted layouts are still
+written and ``summary.output`` contains the output path. It is ``None`` only when
+no layouts pass. The command-line entry point logs insufficient acceptance as an
+error and exits normally.
 
 Pass ``arena_env=`` to ``record_settled_placement_layouts`` when the scene is
 already built in memory (for example clutter tests); omit it to load ``env_spec``.
@@ -419,8 +423,8 @@ objects and support geometry; settle validators merge clutter defaults automatic
 See :doc:`clutter` for the required scene configuration and clutter validator defaults.
 
 Both APIs perform sampling resets; an initial ``env.reset()`` is unnecessary.
-Set ``log_progress=True`` on the collector to print validator settings, physics-step
-progress and batch results. The recording script enables these messages by default.
+Set ``log_progress=True`` on the collector to print physics-step progress and batch
+results. The recording script enables these messages by default.
 
 Custom checks subclass ``PostPhysicsPlacementValidator`` in
 ``isaaclab_arena.offline_placement.post_physics_validation``. Implement

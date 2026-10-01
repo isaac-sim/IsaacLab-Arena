@@ -125,7 +125,7 @@ def collect_settled_placements(
             Embodiment tags exclude the asset's scene roots from task-object
             link checks. Other articulations receive those checks; root measurements
             cover all rigid objects and articulations.
-        log_progress: Print validator settings, physics-step progress, and per-batch results.
+        log_progress: Print physics-step progress and per-batch results.
 
     Returns:
         Final environment-local poses, source indices, typed validation results and
@@ -154,7 +154,7 @@ def collect_settled_placements(
         if asset.tags and "embodiment" in asset.tags:
             embodiment_keys.update(asset.get_scene_root_keys())
     articulation_keys = [key for key in env.scene.articulations if key not in embodiment_keys]
-    validators = build_post_physics_validators(params.validators, articulation_keys, log_progress=log_progress)
+    validators = build_post_physics_validators(params.validators, articulation_keys)
     enabled_validators = [validator for validator in validators if validator.skip_reason(articulation_keys) is None]
     geometry_keys: set[str] = set()
     for validator in enabled_validators:

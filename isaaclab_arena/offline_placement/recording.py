@@ -25,7 +25,7 @@ class PlacementRecordingSummary:
     """Recording output and candidate acceptance counts."""
 
     output: Path | None
-    """Written JSONL path, or None when too few candidates were accepted."""
+    """Written JSONL path, or None when no candidates were accepted."""
     accepted: int
     """Number of candidates that passed all required checks."""
     attempted: int

@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import argparse
+import logging
 from collections import Counter
 from dataclasses import replace
 from pathlib import Path
@@ -38,8 +39,8 @@ def record_placements_to_jsonl(
 
     Each outer batch resets every environment once and runs one settle pass.
     The caller owns the environment; it stays open at its final state on success
-    or failure. If the batch budget is exhausted before ``min_layouts`` accepts,
-    returns a summary with output=None and leaves the destination unwritten.
+    or failure. If the batch budget is exhausted, every accepted layout is
+    written. The destination remains unwritten only when no layouts are accepted.
 
     Args:
         env: Built environment with a pooled placement reset event.
@@ -78,7 +79,7 @@ def record_placements_to_jsonl(
     )
     accepted = len(validation)
     summary = PlacementRecordingSummary(output=None, accepted=accepted, attempted=attempted, rejections=rejections)
-    if accepted < min_layouts:
+    if accepted == 0:
         return summary
     write_settled_layouts(env, output, assets, poses, validation, settle.num_steps)
     summary.output = output
@@ -95,7 +96,7 @@ def record_settled_placement_layouts(
 
     Call after starting SimulationApp. Pass ``arena_env`` to record from an
     in-memory description; otherwise ``cfg.env_spec`` loads the scene YAML.
-    A summary with output=None means the layout target was not reached.
+    A summary with output=None means no layouts were accepted.
 
     Args:
         cfg: Sampling, validation and output settings.
@@ -172,9 +173,20 @@ def main() -> None:
         summary = record_settled_placement_layouts(cfg, device=launcher_args.device)
         for reason, count in Counter(summary.rejections.values()).items():
             print(f"  Rejected {count}: {reason}")
-        assert (
-            summary.output is not None
-        ), f"Accepted {summary.accepted} layouts; need {cfg.min_layouts}. Rejections: {summary.rejections}"
+        if summary.accepted < cfg.min_layouts:
+            if summary.output is None:
+                logging.error(
+                    "No layouts were accepted; no recording was written (requested %d).",
+                    cfg.min_layouts,
+                )
+            else:
+                logging.error(
+                    "Only %d of %d requested layouts were recorded: %s",
+                    summary.accepted,
+                    cfg.min_layouts,
+                    summary.output,
+                )
+            return
         print(f"Saved {summary.accepted}/{summary.attempted} accepted layouts: {summary.output}")
 
 

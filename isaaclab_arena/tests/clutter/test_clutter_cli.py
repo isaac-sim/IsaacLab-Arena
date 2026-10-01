@@ -112,7 +112,7 @@ def Xform "Body" (
     source.write_text(yaml.safe_dump(data))
     original = source.read_bytes()
     num_envs = 12 if preset == "newton" else 2
-    num_layouts = num_envs + 1
+    min_layouts = num_envs + 1
     run_subprocess(
         [
             TestConstants.python_path,
@@ -124,7 +124,7 @@ def Xform "Body" (
             f"env_spec={source}",
             f"output={output}",
             f"num_envs={num_envs}",
-            f"num_layouts={num_layouts}",
+            f"min_layouts={min_layouts}",
             "layouts_per_env=1",
             "max_batches=15",
             "settle.num_steps=120",
@@ -136,8 +136,8 @@ def Xform "Body" (
     )
     assert source.read_bytes() == original
     records = [json.loads(line)["variations"]["scene.relation_placement"] for line in output.read_text().splitlines()]
-    assert len(records) == num_layouts
-    assert len({record["layout_id"] for record in records}) == num_layouts
+    assert len(records) == min_layouts
+    assert len({record["layout_id"] for record in records}) == min_layouts
     for record in records:
         assert record["source"] == "settled"
         assert set(record["poses"]) == {"cube_body", "table", "floor"}
@@ -166,7 +166,7 @@ def test_cli_generates_maintained_clutter(tmp_path):
             f"env_spec={source}",
             f"output={output}",
             "num_envs=1",
-            "num_layouts=1",
+            "min_layouts=1",
             "layouts_per_env=1",
             "max_batches=15",
             "settle.num_steps=480",
