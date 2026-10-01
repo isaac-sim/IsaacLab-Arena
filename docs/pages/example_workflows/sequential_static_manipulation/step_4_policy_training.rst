@@ -2,7 +2,7 @@ Policy Post-training
 --------------------
 
 This workflow covers post-training an example policy using the generated dataset,
-here we use `GR00T N1.6 <https://huggingface.co/nvidia/GR00T-N1.6-3B>`_ as the base model.
+here we use `GR00T N1.6 <https://research.nvidia.com/labs/gear/gr00t-n1_6/>`_ as the base model.
 
 
 Use the Arena **Base** container for dataset download and LeRobot conversion. Run GR00T
