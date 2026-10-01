@@ -329,7 +329,7 @@ def _test_bimanual_root_recording_and_replay(simulation_app, tmp_path):
     from isaaclab_arena.scene.scene import Scene
     from isaaclab_arena.utils.pose import Pose
     from isaaclab_arena_environments.isaac_cap.cable_routing.scene import YAM_INSTANCEABLE_USD_PATH, YAM_USD_PATH
-    from isaaclab_arena_environments.isaac_cap.embodiments.cable_routing import IndustrialBimanualYamEmbodiment
+    from isaaclab_arena_environments.isaac_cap.embodiments.bimanual_yam import IndustrialBimanualYamEmbodiment
 
     embodiment = IndustrialBimanualYamEmbodiment(
         robot_usd_path=YAM_USD_PATH,

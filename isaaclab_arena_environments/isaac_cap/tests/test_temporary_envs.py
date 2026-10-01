@@ -20,6 +20,7 @@ pytestmark = [pytest.mark.isaac_cap, pytest.mark.with_subprocess]
 
 _CABLE_DEMO_SCRIPT = f"{TestConstants.arena_environments_dir}/isaac_cap/cable_routing/cable_env_behaviour_demo.py"
 _GEAR_DEMO_SCRIPT = f"{TestConstants.arena_environments_dir}/isaac_cap/gear_insertion/gear_env_behaviour_demo.py"
+_GEAR_V2_DEMO_SCRIPT = f"{TestConstants.arena_environments_dir}/isaac_cap/gear_insertion_v2/gear_env_behaviour_demo.py"
 _TOOL_SORT_DEMO_SCRIPT = (
     f"{TestConstants.arena_environments_dir}/isaac_cap/tool_sorting/tool_sorting_env_behaviour_demo.py"
 )
@@ -74,6 +75,31 @@ def test_gear_insertion_behaviour_demo(variant: str) -> None:
 
     assert result is not None
     expected = "[gear-validation] cycle 1: success reset observed in all 2 environments"
+    assert expected in result.stdout, result.stdout + result.stderr
+
+
+@pytest.mark.parametrize("variant", ("easy", "medium"))
+def test_gear_insertion_v2_behaviour_demo(variant: str) -> None:
+    """Run one headless v2 demo cycle and verify that success resets the environment."""
+    result = run_subprocess(
+        [
+            TestConstants.python_path,
+            _GEAR_V2_DEMO_SCRIPT,
+            variant,
+            "--cycles",
+            "1",
+            "--pause-steps",
+            "1",
+            "--no-real-time",
+            "--viz",
+            "none",
+        ],
+        capture_output=True,
+        timeout_sec=900,
+    )
+
+    assert result is not None
+    expected = "[gear-validation] cycle 1: success reset observed in all 1 environment"
     assert expected in result.stdout, result.stdout + result.stderr
 
 

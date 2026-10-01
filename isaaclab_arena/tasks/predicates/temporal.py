@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Temporal predicate requirements with runtime state owned by ProgressObjectiveRunner."""
+"""Temporal predicate requirements with runtime state owned by CompletionCriteriaRunner."""
 
 import torch
 from collections.abc import Callable
@@ -17,10 +17,10 @@ from isaaclab.managers import TerminationTermCfg
 class TrueForConsecutiveStepsCfg:
     """Declare how long an instantaneous predicate must remain true.
 
-    ProgressObjectiveRunner creates and owns a _TrueForConsecutiveSteps runtime instance
+    CompletionCriteriaRunner creates and owns a _TrueForConsecutiveSteps runtime instance
     for each configured occurrence.
     The predicate returns one Boolean per environment without maintaining a streak itself.
-    ProgressObjectiveRunner resets the consecutive-step counter, not the wrapped predicate.
+    CompletionCriteriaRunner resets the consecutive-step counter, not the wrapped predicate.
     The wrapped predicate must not depend on this reset path to clear its own episode state.
 
     Require the cube to remain below the velocity thresholds for ten consecutive control steps::
@@ -53,15 +53,15 @@ class TrueForConsecutiveStepsCfg:
 
 
 class _TrueForConsecutiveSteps:
-    """Runtime state for TrueForConsecutiveStepsCfg, owned by ProgressObjectiveRunner.
+    """Runtime state for TrueForConsecutiveStepsCfg, owned by CompletionCriteriaRunner.
 
-    ProgressObjectiveRunner supplies predicate results, selects active environments,
+    CompletionCriteriaRunner supplies predicate results, selects active environments,
     and resets this requirement. This class does not evaluate predicates or track step indices.
     """
 
     def __init__(self, *, predicate: Callable, required_steps: int, num_envs: int, device):
         self.predicate = predicate
-        """Instantaneous callable prepared by ProgressObjectiveRunner."""
+        """Instantaneous callable prepared by CompletionCriteriaRunner."""
         self.required_steps = required_steps
         self._consecutive_true_steps = torch.zeros(num_envs, dtype=torch.long, device=device)
 

@@ -45,7 +45,7 @@ Available tasks include (but are not limited to) ``PickAndPlaceTask``, ``LiftObj
 ``OpenDoorTask``, ``CloseDoorTask``, and ``PressButtonTask``.
 
 Individual tasks can be combined into order-independent or sequential composite tasks. Each task
-returns a ``TaskTerminationCfg`` from ``get_termination_cfg()``, declaring its ``success`` objectives,
+returns a ``TaskTerminationCfg`` from ``get_termination_cfg()``, declaring its ``success`` criteria,
 named ``failures``, and ``timeout_s`` time limit.
 
 More details

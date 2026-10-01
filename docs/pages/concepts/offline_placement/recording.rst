@@ -6,11 +6,47 @@ evaluation. It solves placement relations, advances physics, and writes accepted
 layouts to JSONL. Replay restores those poses on reset without solving or settling
 them again.
 
-To run without a viewer, use ``render=false --viz none`` when recording and
-``--viz none`` when replaying.
+How Recording Differs from Online Placement
+-------------------------------------------
+
+Both workflows start with the :doc:`placement pipeline
+<../concept_object_and_robot_placement>`: solve relations, run pre-physics
+validators, and store candidate layouts in per-environment pools.
+
+**Online placement** applies a solved layout on reset, then policy evaluation
+begins. Resets normally consume the next pooled layout, generating more when the
+pool is empty. There is no recording-time settling and acceptance pass, so an
+object released above its support may still fall into place during the episode.
+
+**Offline recording** uses a separate run to reset into pooled layouts, advance
+physics for a configured duration, and run post-physics validators. Layouts must
+pass their required solver checks and every enabled, applicable post-physics
+check. The recorder saves their **final root poses after settling** and validation
+results to JSONL, then those poses can be reused across evaluations.
+
+.. figure:: ../../../images/offline_placement/recording_pipeline.svg
+   :alt: Shared solving and validation feed a placement pool. Online resets apply
+      solved poses before policy evaluation. Offline recording settles and filters
+      pooled layouts, saves their final poses, and replays them for evaluation.
+   :width: 100%
+
+   Offline recording adds a settling and filtering stage to the shared placement
+   pipeline. Replay uses its saved output.
+
+**Replay** restores the saved root poses and zeros root velocities on reset. It
+bypasses solving and the recorder's settling and acceptance pass; physics runs
+normally during policy evaluation. Recordings contain root poses, so joint states
+and other randomized properties still follow the evaluation environment's reset
+configuration. Geometry and reachability checks are not rerun after settling.
+
+See :doc:`../object_placement/validation` for the checks at each stage and
+:doc:`../object_placement/pooled_placement` for pool and reset settings.
 
 Record Placement Layouts
 ------------------------
+
+To run without a viewer, use ``render=false --viz none`` when recording and
+``--viz none`` when replaying.
 
 Run this command from the repository root to record layouts from
 ``clamp_in_right_bin`` in ``outputs/placements/clamp.jsonl``:
@@ -37,6 +73,8 @@ The example records four batches in four parallel environments:
 
 Choose a new output path for each recording. Existing files are not overwritten.
 See :doc:`../object_placement/validation` for acceptance checks and their settings.
+For intentional ``ClutterOn`` drops, see :doc:`clutter` for collection prerequisites
+and the additional support-containment check.
 
 Replay Placement Layouts
 ------------------------

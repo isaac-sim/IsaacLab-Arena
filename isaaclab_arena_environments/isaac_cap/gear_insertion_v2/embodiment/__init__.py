@@ -104,7 +104,6 @@ class _IndustrialFr3Robotiq2f85Base(EmbodimentBase):
                     )
                 )
             )
-        self.add_variation(CameraExtrinsicsVariation(camera_name="wrist_camera"))
         self.add_variation(CameraExtrinsicsVariation(camera_name="top_camera"))
 
     def set_use_tiled_cameras(self, enabled: bool) -> None:

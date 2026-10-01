@@ -52,6 +52,11 @@ if the final refill batch still has no valid candidate, Arena can store a
 best-loss layout that failed required checks
 (``allow_best_loss_fallbacks=True``); see :doc:`./pooled_placement`.
 
+Pre-physics and offline post-physics validators share the ``PlacementValidator``
+base for check names and stages. They have separate inputs: solved candidate
+batches before physics, measured scene state after physics. See
+:doc:`../offline_placement/clutter` for offline acceptance checks.
+
 Types of Validators
 --------------------
 
@@ -197,7 +202,8 @@ The post-physics checks share one settling pass:
      - Final linear and angular speed of every root, including the robot.
      - 0.1 m/s and 0.1 rad/s
    * - ``pose_shift``
-     - Initial-to-final translation and rotation of every root.
+     - Initial-to-final translation and rotation of each root, excluding intentional
+       ``ClutterOn`` drops.
      - 2 mm and 2 degrees
    * - ``articulation_link_shift``
      - Task-object link motion relative to its root, excluding robot embodiments.

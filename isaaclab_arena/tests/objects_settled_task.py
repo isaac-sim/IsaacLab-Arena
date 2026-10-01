@@ -10,7 +10,7 @@ from isaaclab.managers import TerminationTermCfg
 
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.metrics.metric_base import MetricBase
-from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
+from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
 from isaaclab_arena.tasks.predicates.object_settling import objects_below_velocity_thresholds
 from isaaclab_arena.tasks.predicates.temporal import TrueForConsecutiveStepsCfg
 from isaaclab_arena.tasks.task_base import TaskBase
@@ -39,7 +39,7 @@ class ObjectsSettledTask(TaskBase):
         return TaskTerminationCfg(
             timeout_s=self.episode_length_s,
             success=[
-                ProgressObjective(
+                CompletionCriteria(
                     name="objects_settled",
                     predicate_sequence=[success],
                     description="All objects completed the consecutive settling window.",

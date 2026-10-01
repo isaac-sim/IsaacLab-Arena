@@ -8,7 +8,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -17,6 +17,19 @@ if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedEnv
 
     from isaaclab_arena.relations.placement_result import PlacementResult
+    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+
+
+@dataclass
+class SettledGeometry:
+    """Measured environment-local poses and local bounds for N copies of an asset."""
+
+    initial_poses: torch.Tensor
+    """Poses before physics, shaped (N, 7), ordered xyz metres and xyzw."""
+    final_poses: torch.Tensor
+    """Poses after physics, shaped (N, 7), ordered xyz metres and xyzw."""
+    bounds: AxisAlignedBoundingBox
+    """Asset-local bounds, with min/max shaped (N, 3), in metres."""
 
 
 @dataclass
@@ -41,6 +54,8 @@ class SettledBatch:
     """Final T_R_L link poses (N, B, 7), xyz metres and xyzw rotation, by articulation key."""
     final_root_velocities: dict[str, torch.Tensor]
     """Final world-frame root velocities (N, 6), linear xyz m/s then angular xyz rad/s, by scene key."""
+    geometry: dict[str, SettledGeometry] = field(default_factory=dict)
+    """Additional geometry requested by validators, keyed by scene name."""
 
 
 def sample_and_settle_batch(
@@ -49,6 +64,7 @@ def sample_and_settle_batch(
     root_keys: Sequence[str],
     link_keys: Sequence[str],
     num_env_steps: int,
+    geometry_keys: Sequence[str] = (),
     render: bool = False,
     log_progress: bool = False,
 ) -> SettledBatch:
@@ -63,6 +79,7 @@ def sample_and_settle_batch(
         root_keys: Rigid-object and articulation scene keys whose roots are measured.
         link_keys: Articulation scene keys whose root-relative links are measured.
         num_env_steps: Positive number of environment steps, each containing decimation substeps.
+        geometry_keys: Assets whose local bounds and poses are needed by geometry checks.
         render: Render each physics substep.
         log_progress: Print physics-step progress.
 
@@ -73,6 +90,7 @@ def sample_and_settle_batch(
 
     from isaaclab_arena.offline_placement.pool_validation import solver_validation_failure, step_placement_physics
     from isaaclab_arena.relations.placement_events import get_placement_pool, get_reset_placement_results
+    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
     env = env.unwrapped
     assert num_env_steps > 0, "num_env_steps must be positive"
@@ -98,6 +116,11 @@ def sample_and_settle_batch(
     env_ids = [env_id for env_id, layout in source_layouts.items() if solver_validation_failure(layout) is None]
     initial_root_poses = {key: env.arena_world.get_pose_e(key) for key in root_keys}
     initial_link_poses = capture_articulation_link_poses_in_root_frame(env, link_keys)
+    initial_geometry_poses = {key: env.arena_world.get_pose_e(key) for key in geometry_keys}
+    geometry_bounds = {}
+    for key in geometry_keys:
+        bounds = env.arena_world.get_aabb_in_local_frame(key)
+        geometry_bounds[key] = AxisAlignedBoundingBox(bounds.min_point.clone(), bounds.max_point.clone())
     if env_ids:
         step_placement_physics(env, num_env_steps, render=render, log_progress=log_progress)
     final_root_poses = {key: env.arena_world.get_pose_e(key) for key in root_keys}
@@ -115,6 +138,10 @@ def sample_and_settle_batch(
         initial_link_poses=initial_link_poses,
         final_link_poses=final_link_poses,
         final_root_velocities=final_root_velocities,
+        geometry={
+            key: SettledGeometry(initial_geometry_poses[key], env.arena_world.get_pose_e(key), geometry_bounds[key])
+            for key in geometry_keys
+        },
     )
 
 

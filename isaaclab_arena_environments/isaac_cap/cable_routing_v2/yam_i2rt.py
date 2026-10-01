@@ -9,13 +9,14 @@ from __future__ import annotations
 
 import math
 import torch
+from typing import TYPE_CHECKING
 
 import isaaclab.sim as sim_utils
 import warp as wp
 from isaaclab.actuators import ImplicitActuatorCfg
 from isaaclab.assets import ArticulationCfg, AssetBaseCfg
 from isaaclab.envs import mdp
-from isaaclab.managers import ActionTermCfg, EventTermCfg
+from isaaclab.managers import ActionTermCfg
 from isaaclab.managers import ObservationGroupCfg as ObsGroup
 from isaaclab.managers import ObservationTermCfg as ObsTerm
 from isaaclab.managers import SceneEntityCfg
@@ -25,9 +26,14 @@ from isaaclab.utils.configclass import configclass
 from isaaclab_arena.assets.nucleus import ARENA_NUCLEUS_DIR
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
+from isaaclab_arena.embodiments.gripper import ParallelJawGripper
+from isaaclab_arena_environments.isaac_cap.embodiments.bimanual_yam.config import BimanualYamEventCfg
 
 from .embodiment.actions import ContinuousJointPositionZeroToOneActionCfg, FiniteJointPositionActionCfg
 from .embodiment.cameras import BimanualYamCameraCfg as IndustrialBimanualYamCameraCfg
+
+if TYPE_CHECKING:
+    from isaaclab_arena.environments.arena_world import ArenaWorld
 
 _ASSET_ROOT = (
     f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/temp_newton_envs/cap_envs/latest/cable_routing/assets/yam_i2rt"
@@ -61,6 +67,36 @@ def gripper_joint_names(side: str) -> tuple[str, str]:
 
 def gripper_body_name(side: str) -> str:
     return f"{side}_gripper"
+
+
+class YamI2rtGripper(ParallelJawGripper):
+    """Parallel-jaw gripper on the I2RT YAM's right work arm."""
+
+    __slots__ = ()
+    # Isaac Lab treats objects without ``__dict__`` as opaque manager parameters.
+
+    articulation_name = "right_robot"
+    """Scene key of the work-arm articulation."""
+
+    side = "right"
+    """Joint and body name prefix for the work arm."""
+
+    body_point_offset_xyz = GRASP_SITE_OFFSET
+    """CAP grasp-site offset expressed in the gripper body frame."""
+
+    def get_jaw_gap_m(self, world: ArenaWorld) -> torch.Tensor:
+        """Return the distance between the two commanded fingers."""
+        positions = [
+            world.get_joint_position(self.articulation_name, joint_name)
+            for joint_name in gripper_joint_names(self.side)
+        ]
+        return torch.stack(positions, dim=-1).sum(dim=-1)
+
+    def get_position_w(self, world: ArenaWorld) -> torch.Tensor:
+        """Return the CAP grasp-site position in world coordinates."""
+        T_W_B = world.get_body_pose_w(self.articulation_name, gripper_body_name(self.side))
+        t_B_G = T_W_B.new_tensor(self.body_point_offset_xyz).expand_as(T_W_B[:, :3])
+        return T_W_B[:, :3] + math_utils.quat_apply(T_W_B[:, 3:], t_B_G)
 
 
 def _link_six_path(side: str) -> str:
@@ -238,28 +274,6 @@ class CableRoutingYamI2rtObservationsCfg:
     policy: PolicyCfg = PolicyCfg()
 
 
-@configclass
-class CableRoutingYamI2rtEventCfg:
-    reset_left_robot_joints: EventTermCfg = EventTermCfg(
-        func=mdp.reset_joints_by_offset,
-        mode="reset",
-        params={
-            "position_range": (0.0, 0.0),
-            "velocity_range": (0.0, 0.0),
-            "asset_cfg": SceneEntityCfg("left_robot"),
-        },
-    )
-    reset_right_robot_joints: EventTermCfg = EventTermCfg(
-        func=mdp.reset_joints_by_offset,
-        mode="reset",
-        params={
-            "position_range": (0.0, 0.0),
-            "velocity_range": (0.0, 0.0),
-            "asset_cfg": SceneEntityCfg("right_robot"),
-        },
-    )
-
-
 class CableRoutingYamI2rtEmbodiment(EmbodimentBase):
     """The exact upstream YAM I2RT model, isolated to Cable Easy."""
 
@@ -283,6 +297,7 @@ class CableRoutingYamI2rtEmbodiment(EmbodimentBase):
             concatenate_observation_terms=True,
             arm_mode=ArmMode.DUAL_ARM,
         )
+        self.gripper = YamI2rtGripper()
         self.scene_config = CableRoutingYamI2rtSceneCfg()
         if medium:
             self.scene_config.yam_model.spawn.usd_path = f"{_ASSET_ROOT}/yam_i2rt_medium.usda"
@@ -300,7 +315,7 @@ class CableRoutingYamI2rtEmbodiment(EmbodimentBase):
 
         self.action_config = CableRoutingYamI2rtActionsCfg()
         self.observation_config = CableRoutingYamI2rtObservationsCfg()
-        self.event_config = CableRoutingYamI2rtEventCfg()
+        self.event_config = BimanualYamEventCfg()
         self.camera_config = IndustrialBimanualYamCameraCfg() if enable_cameras else None
         if self.camera_config is not None:
             self.camera_config.use_tiled_camera = use_tiled_cameras
@@ -340,9 +355,11 @@ class CableRoutingYamI2rtEmbodiment(EmbodimentBase):
             ):
                 camera.spawn.horizontal_aperture_offset = -0.5 * camera.spawn.horizontal_aperture / camera.width
                 camera.spawn.vertical_aperture_offset = 0.5 * camera.spawn.vertical_aperture / camera.height
+            # The frozen Easy graph uses the right wrist view only.  Do not
+            # render an unused left-wrist stream on every policy step.
+            self.camera_config.left_wrist_camera = None
             if medium:
                 self.camera_config.top_camera = None
-                self.camera_config.left_wrist_camera = None
                 self.camera_config.right_wrist_camera = None
 
     def get_ee_frame_name(self, arm_mode: ArmMode) -> str:
