@@ -39,7 +39,7 @@ The Arena evaluation client runs in the Base container and connects to a GR00T p
 Before running the evaluation, open another terminal **outside the Arena development
 container**.
 The server runs out of
-the `Isaac-GR00T <https://github.com/NVIDIA/Isaac-GR00T/tree/e29d8fc50b0e4745120ae3fb72447986fe638aa6>`_
+the `Isaac-GR00T source <https://github.com/NVIDIA/Isaac-GR00T/tree/e29d8fc50b0e4745120ae3fb72447986fe638aa6>`_
 submodule pinned at commit ``e29d8fc``; populate it with
 ``git submodule update --init submodules/Isaac-GR00T`` if it is not already
 checked out. Then, from the repository root in that terminal, launch the server and
@@ -48,9 +48,8 @@ leave it running:
 .. note::
 
    Blackwell GPUs with compute capability ``sm_120`` require CUDA 12.8 or newer. The
-   `official GR00T documentation <https://github.com/NVIDIA/Isaac-GR00T/blob/e29d8fc50b0e4745120ae3fb72447986fe638aa6/README.md?plain=1#L102>`_
-   specifies CUDA 12.8 and ``pytorch-cu128`` for RTX 5090 systems. Please refer to the
-   documentation for the latest requirements.
+   `GR00T environment setup guide <https://github.com/NVIDIA/Isaac-GR00T/blob/e29d8fc50b0e4745120ae3fb72447986fe638aa6/README.md#set-up-the-environment>`_
+   specifies CUDA 12.8 and ``pytorch-cu128`` for RTX 5090 systems.
 
 .. note::
 

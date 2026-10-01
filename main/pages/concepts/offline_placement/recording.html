@@ -608,6 +608,31 @@ configuration. Geometry and reachability checks are not rerun after settling.</p
 <p>See <a class="reference internal" href="../object_placement/validation.html"><span class="doc">Placement Validation</span></a> for the checks at each stage and
 <a class="reference internal" href="../object_placement/pooled_placement.html"><span class="doc">Pooled Placement</span></a> for pool and reset settings.</p>
 </section>
+<section id="choose-your-runtime">
+<h2>Choose Your Runtime<a class="headerlink" href="#choose-your-runtime" title="Link to this heading">#</a></h2>
+<p>Complete <a class="reference internal" href="../../quickstart/installation.html"><span class="doc">Installation</span></a>, then select your setup below.
+Keep using the same shell for all recording and replay commands.</p>
+<div class="sd-tab-set docutils">
+<input checked="checked" id="sd-tab-item-0" name="sd-tab-set-0" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-0">
+Native uv</label><div class="sd-tab-content docutils">
+<p>From the repository root on your host, activate the installed environment:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">source</span><span class="w"> </span>.venv/bin/activate
+</pre></div>
+</div>
+</div>
+<input id="sd-tab-item-1" name="sd-tab-set-0" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-1">
+Docker</label><div class="sd-tab-content docutils">
+<p>Use the Arena container shell prepared during installation. Change to the
+mounted repository root inside the container:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span>/workspaces/isaaclab_arena
+</pre></div>
+</div>
+</div>
+</div>
+<p>The commands below use <code class="docutils literal notranslate"><span class="pre">python</span></code> from your selected runtime.</p>
+</section>
 <section id="record-placement-layouts">
 <h2>Record Placement Layouts<a class="headerlink" href="#record-placement-layouts" title="Link to this heading">#</a></h2>
 <p>To run without a viewer, use <code class="docutils literal notranslate"><span class="pre">render=false</span> <span class="pre">--viz</span> <span class="pre">none</span></code> when recording and
@@ -795,6 +820,7 @@ whole batch. Candidates that failed those checks remain rejected.</p></td>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#how-recording-differs-from-online-placement">How Recording Differs from Online Placement</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#choose-your-runtime">Choose Your Runtime</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#record-placement-layouts">Record Placement Layouts</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#replay-placement-layouts">Replay Placement Layouts</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#record-layouts-with-rejections">Record Layouts with Rejections</a></li>
