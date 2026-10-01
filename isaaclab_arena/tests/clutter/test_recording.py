@@ -23,9 +23,14 @@ class RejectPostPhysics(PostPhysicsPlacementValidator):
 
     check: ClassVar[str] = "reject_for_test"
     threshold: float = 0.0
+    reject_env_ids: list[int] | None = None
 
     def validate(self, data):
-        return [self.report(False, "deliberately rejected") for _ in data.env_ids]
+        rejected = set(data.env_ids if self.reject_env_ids is None else self.reject_env_ids)
+        return [
+            self.report(env_id not in rejected, "deliberately rejected" if env_id in rejected else "")
+            for env_id in data.env_ids
+        ]
 
 
 def _recording_cfg(output, scene_path, **kwargs):

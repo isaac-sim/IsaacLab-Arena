@@ -169,7 +169,7 @@ def _test_clutter_collection_uses_shared_batches(simulation_app, tmp_path, backe
         explicit_reports = {report.check: report for report in checked_outcomes[1][0].post_physics}
         assert default_reports["support_containment"].passed
         assert default_reports["pose_shift"].passed  # Intentional drops are not displacement failures.
-        assert "support_containment" not in explicit_reports  # Explicit check selection is preserved.
+        assert explicit_reports["support_containment"].passed  # Clutter defaults supplement explicit settings.
         assert short.validators == explicit_settings
         assert rejected.attempted == 2
         assert not rejected.accepted_indices
