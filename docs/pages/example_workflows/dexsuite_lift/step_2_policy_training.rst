@@ -48,6 +48,8 @@ Checkpoints are saved every 250 iterations to
 .. tip::
 
    Add ``--viz newton`` to visualize training with the Newton (MuJoCo) viewer.
+   On Linux, prefix the command with ``PYOPENGL_PLATFORM=glx`` to avoid a
+   PyOpenGL context initialization failure.
 
 
 Overriding Hyperparameters
