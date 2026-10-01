@@ -357,10 +357,10 @@ environment, collect accepted poses and write JSONL:
 .. code-block:: python
 
    from isaaclab_arena.offline_placement.recording_config import PlacementRecordingCfg
-   from isaaclab_arena.offline_placement.recording_params import PlacementRecordingParams
+   from isaaclab_arena.offline_placement.settled_placement_params import SettledPlacementParams
    from isaaclab_arena.scripts.record_placement_layouts import record_settled_placement_layouts
 
-   settling = PlacementRecordingParams(num_steps=120)
+   settling = SettledPlacementParams(num_steps=120)
    settling.validators["pose_shift"]["max_translation_m"] = 0.015
    summary = record_settled_placement_layouts(
        PlacementRecordingCfg(

@@ -266,7 +266,6 @@ def _test_recording_filters_layouts(simulation_app, tmp_path):
     from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
-    from isaaclab_arena.offline_placement.recording_params import PlacementRecordingParams
     from isaaclab_arena.offline_placement.settled_placement import collect_settled_placements
     from isaaclab_arena.offline_placement.settled_placement_params import SettledPlacementParams
     from isaaclab_arena.relations.placement_events import get_placement_pool, make_cached_placement_event
@@ -371,7 +370,7 @@ def _test_recording_filters_layouts(simulation_app, tmp_path):
         # The environment remains at its final measured state, not the release pose.
         assert base.arena_world.get_pose_e("cube_body")[0, 2].item() == pytest.approx(0.57, abs=0.002)
         pool._placer._validators.remove(ik_validator)
-        params = PlacementRecordingParams(num_steps=120)
+        params = SettledPlacementParams(num_steps=120)
         params.validators["pose_shift"]["enabled"] = False
         for env_pool, queue in zip(pool._env_pools, queues, strict=True):
             env_pool.append(queue[1])
@@ -404,7 +403,7 @@ def _test_recording_filters_layouts(simulation_app, tmp_path):
         report = next(report for report in record["validation"]["post_physics"] if report["check"] == "pose_shift")
         assert report["passed"] is None
         assert report["reason"]
-        assert PlacementRecordingParams().validators["pose_shift"]["enabled"] is True
+        assert SettledPlacementParams().validators["pose_shift"]["enabled"] is True
         # An unavailable required IK check must not turn into an accepted empty checklist.
         unavailable_pool = PooledObjectPlacer(
             pool.objects,

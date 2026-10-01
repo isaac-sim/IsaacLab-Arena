@@ -7,7 +7,7 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, replace
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedEnv
 
     from isaaclab_arena.offline_placement.post_physics_validation import PlacementOutcome
-    from isaaclab_arena.offline_placement.recording_params import PlacementRecordingParams
+    from isaaclab_arena.offline_placement.settled_placement_params import SettledPlacementParams
     from isaaclab_arena.relations.placement_asset import PlaceableAsset
     from isaaclab_arena.utils.pose import Pose
 
@@ -34,48 +34,11 @@ class PlacementRecordingSummary:
     """Rejection reasons keyed by source (environment index, reset batch index)."""
 
 
-def _merge_validator_configs(base: dict[str, dict], overrides: dict[str, dict]) -> dict[str, dict]:
-    """Combine default validator targets with partial Hydra overrides."""
-    merged = {name: dict(configuration) for name, configuration in base.items()}
-    for name, override in overrides.items():
-        if name in merged:
-            combined = dict(merged[name])
-            combined.update(override)
-            merged[name] = combined
-        else:
-            merged[name] = dict(override)
-    return merged
-
-
-def resolve_settle_params(
-    assets: list[PlaceableAsset], params: PlacementRecordingParams | None
-) -> PlacementRecordingParams:
-    """Return settle params, merging clutter validators when the scene uses ClutterOn.
-
-    Args:
-        assets: Placement and scene assets checked for clutter relations.
-        params: User settle settings, or None for scene-appropriate defaults.
-    """
-    from isaaclab_arena.offline_placement.clutter_validators import default_clutter_validators
-    from isaaclab_arena.offline_placement.post_physics_validation import default_post_physics_validators
-    from isaaclab_arena.offline_placement.recording_params import PlacementRecordingParams
-    from isaaclab_arena.relations.relations import ClutterOn, get_relation
-
-    has_clutter = any(get_relation(asset, ClutterOn) is not None for asset in assets)
-    if params is None:
-        validators = default_clutter_validators() if has_clutter else default_post_physics_validators()
-        return PlacementRecordingParams(validators=validators)
-    if not has_clutter:
-        return params
-    merged = _merge_validator_configs(default_clutter_validators(), params.validators)
-    return replace(params, validators=merged)
-
-
 def collect_layouts_until_count(
     env: ManagerBasedEnv,
     target_count: int,
     max_batches: int,
-    params: PlacementRecordingParams | None = None,
+    params: SettledPlacementParams | None = None,
     *,
     render: bool = False,
     scene_assets: list[PlaceableAsset] | None = None,
