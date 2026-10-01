@@ -42,8 +42,10 @@ class EpisodeConditionsOverlay:
 
 
 def load_episode_conditions_overlay(path: str | Path) -> EpisodeConditionsOverlay:
-    """Load a condition overlay YAML file."""
+    """Load conditions from episode-result JSONL or a condition-overlay YAML file."""
     path = Path(path)
+    if path.suffix.lower() == ".jsonl":
+        return extract_overlay_from_episode_results(path)
     payload = yaml.safe_load(path.read_text())
     assert isinstance(payload, dict), f"Condition overlay must be a mapping: {path}"
     schema_version = payload.get("schema_version", CONDITION_OVERLAY_SCHEMA_VERSION)

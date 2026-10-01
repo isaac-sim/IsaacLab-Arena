@@ -73,6 +73,25 @@ def test_overlay_round_trip_yaml(tmp_path: Path) -> None:
     assert loaded.episodes[0].runtime_variations == overlay.episodes[0].runtime_variations
 
 
+def test_load_episode_conditions_directly_from_jsonl(tmp_path: Path) -> None:
+    jsonl_path = _write_jsonl(
+        tmp_path,
+        [
+            {"variations": {"light.hdr_image": "a", "obj.mass": [1.0]}},
+            {"variations": {"light.hdr_image": "a", "obj.mass": [2.0]}},
+        ],
+    )
+
+    loaded = load_episode_conditions_overlay(jsonl_path)
+
+    assert loaded.source == {"episode_results": str(jsonl_path)}
+    assert loaded.build_time_variations == {"light.hdr_image": "a"}
+    assert [episode.runtime_variations for episode in loaded.episodes] == [
+        {"obj.mass": [1.0]},
+        {"obj.mass": [2.0]},
+    ]
+
+
 def test_condition_scheduler_fifo_assignment() -> None:
     overlay = extract_overlay_from_episode_results(
         _write_jsonl_from_records([
@@ -83,11 +102,19 @@ def test_condition_scheduler_fifo_assignment() -> None:
     )
     scheduler = ConditionScheduler(overlay)
     scheduler.on_pre_reset([0, 1], is_initial_reset=True)
+    scheduler.on_pre_reset([0, 1], is_initial_reset=True)
     assert scheduler.runtime_sample_for("b.y", [0]) == [[0.1]]
     assert scheduler.runtime_sample_for("b.y", [1]) == [[0.2]]
 
     scheduler.on_pre_reset([0], is_initial_reset=False)
     assert scheduler.runtime_sample_for("b.y", [0]) == [[0.3]]
+
+    scheduler.on_pre_reset([1], is_initial_reset=False)
+    assert scheduler.condition_id_for_env(1) is None
+    assert scheduler.runtime_sample_for("b.y", [1]) == [[0.2]]
+
+    scheduler.on_pre_reset([0], is_initial_reset=False)
+    assert scheduler.all_conditions_complete()
 
 
 def test_condition_replay_overrides_variation_sampler_for_parallel_envs() -> None:

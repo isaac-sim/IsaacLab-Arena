@@ -50,7 +50,9 @@ class ConditionScheduler:
         """Assign the next condition(s) before reset-mode variation events run."""
         if is_initial_reset:
             for env_id in env_ids:
-                self._assign_next_condition(int(env_id))
+                env_id = int(env_id)
+                if env_id not in self._env_to_condition_index:
+                    self._assign_next_condition(env_id)
             return
         for env_id in env_ids:
             env_id = int(env_id)
@@ -58,7 +60,9 @@ class ConditionScheduler:
                 self._mark_condition_complete(self._env_to_condition_index[env_id])
             if self._next_condition_index >= self.num_conditions:
                 self._parked_env_ids.add(env_id)
-                self._env_to_condition_index.pop(env_id, None)
+                # Isaac Lab applies reset events before returning the terminal step.
+                # Retain the completed assignment so variation events can harmlessly
+                # reapply its final sample during that automatic reset.
                 continue
             self._assign_next_condition(env_id)
 
@@ -67,7 +71,6 @@ class ConditionScheduler:
         rows: list[Any] = []
         for env_id in env_ids:
             env_id = int(env_id)
-            assert env_id not in self._parked_env_ids, f"Env {env_id} is parked but requested {variation_key!r}"
             condition = self.condition_for_env(env_id)
             assert (
                 variation_key in condition.runtime_variations

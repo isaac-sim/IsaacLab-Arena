@@ -129,7 +129,7 @@ def add_isaaclab_arena_cli_args(parser: argparse.ArgumentParser) -> None:
         "--episode_conditions_path",
         type=str,
         default=None,
-        help="Replay recorded variation conditions from a YAML overlay (one condition per episode).",
+        help="Replay variation conditions from episode-result JSONL or overlay YAML (one condition per episode).",
     )
 
 

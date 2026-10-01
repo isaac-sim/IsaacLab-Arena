@@ -62,6 +62,7 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
         self._completed_episode_count = 0
         self._active_episode_mask = torch.zeros(cfg.scene.num_envs, dtype=torch.bool, device=cfg.sim.device)
         self._reset_env_ids = torch.empty(0, dtype=torch.long, device=cfg.sim.device)
+        self._condition_replay_has_started_stepping = False
         super().__init__(cfg=cfg, render_mode=render_mode, **kwargs)
 
     @property
@@ -155,6 +156,8 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
 
     def step(self, action: torch.Tensor) -> VecEnvStepReturn:
         """Step all environments and report completions only for assigned episodes."""
+        if self._condition_replay is not None:
+            self._condition_replay_has_started_stepping = True
         active_before_step = self._active_episode_mask.clone()
         self._reset_env_ids = self._reset_env_ids[:0]
         observations, rewards, terminated, truncated, extras = super().step(action)
@@ -163,6 +166,14 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
 
     def _reset_idx(self, env_ids: Sequence[int]) -> None:
         requested_env_ids = torch.as_tensor(env_ids, dtype=torch.long, device=self.device).sort().values
+        if (
+            self._condition_replay is not None
+            and not self._condition_replay_has_started_stepping
+            and self._started_episode_count > 0
+        ):
+            self._condition_replay.scheduler.on_pre_reset(requested_env_ids, is_initial_reset=True)
+            super()._reset_idx(requested_env_ids)
+            return
         finishing_env_ids = requested_env_ids[self._active_episode_mask[requested_env_ids]]
         if len(finishing_env_ids) > 0:
             # Record the JSONL result with the finishing episode's index
