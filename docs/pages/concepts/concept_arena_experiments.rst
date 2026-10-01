@@ -81,8 +81,8 @@ and waits for them all to finish. The count is shared across parallel environmen
 and split across rebuilds.
 
 Use ``rollout_limit.num_steps`` instead to limit simulation steps; this may leave
-episodes unfinished. Only one limit can be set. Manual resets are disabled during
-episode-limited evaluations.
+episodes unfinished. Only one limit can be set. Active episodes cannot be reset
+during episode-limited runs.
 
 
 .. _sequential-batch-experiment-runner:
