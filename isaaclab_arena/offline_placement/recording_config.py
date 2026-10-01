@@ -31,7 +31,11 @@ class PlacementRecordingCfg:
     viewer_lookat: tuple[float, float, float] | None = None
     """Optional viewer target in simulation-world metres; requires viewer_eye."""
     layouts_per_env: int = 5
-    """Number of reset placements sampled per environment before physics filtering."""
+    """Solver layouts added per environment when a placement pool refills."""
+    num_layouts: int | None = None
+    """Accepted settled layouts to write; defaults to num_envs times layouts_per_env."""
+    max_batches: int = 5
+    """Maximum reset-and-settle rounds before requiring the layout target."""
     seed: int = 42
     """Seed for placement solving and reset randomization."""
     presets: str | None = None
@@ -40,6 +44,13 @@ class PlacementRecordingCfg:
     """Render physics steps when a visualizer is enabled."""
     settle: PlacementRecordingParams = field(default_factory=PlacementRecordingParams)
     """Physics duration, configured validators and minimum accepted count."""
+
+
+def resolved_num_layouts(cfg: PlacementRecordingCfg) -> int:
+    """Return the accepted-layout target after applying recording defaults."""
+    if cfg.num_layouts is not None:
+        return cfg.num_layouts
+    return cfg.num_envs * cfg.layouts_per_env
 
 
 def load_recording_config(overrides: list[str]) -> PlacementRecordingCfg:

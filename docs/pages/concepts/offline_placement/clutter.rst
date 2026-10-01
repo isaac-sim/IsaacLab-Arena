@@ -18,9 +18,9 @@ headless run, use ``render=false --viz none`` instead of ``render=true --viz kit
 
 .. code-block:: bash
 
-   python isaaclab_arena/scripts/generate_clutter_scene.py \
+   python isaaclab_arena/scripts/record_placement_layouts.py \
        env_spec=isaaclab_arena_environments/clutter/franka_three_hammers_and_clamp_no_task.yaml \
-       output=outputs/clutter/episodes.jsonl num_envs=4 num_layouts=10 \
+       output=outputs/clutter/episodes.jsonl num_envs=4 num_layouts=10 layouts_per_env=4 \
        seed=42 max_batches=15 settle.num_steps=480 render=true \
        +settle.validators.support_containment.minimum_resting_heights_m.office_table_background=0.5306 \
        --device cpu --viz kit
@@ -40,13 +40,15 @@ when the background reset writes its velocity. This diagnostic also occurs in
 the normal reset path. Check the validator reports and saved-layout count to
 determine whether generation succeeded.
 
-``num_envs`` controls parallel environments; ``num_layouts`` is the total number
-to save and defaults to ``num_envs``. ``max_batches`` is the maximum number of
-resets to sample: the command permits up to 15 batches. The initial placement pool
-holds one layout per environment and refills as needed. Each batch resets every
-environment, then advances
-``settle.num_steps`` environment steps if any candidate passed solver validation.
-Extra accepted layouts in the final batch are omitted.
+``num_envs`` controls parallel environments. ``num_layouts`` is the total number
+of accepted layouts to save and defaults to ``num_envs`` times ``layouts_per_env``.
+``layouts_per_env`` sets how many solver layouts each environment receives when
+the placement pool refills. ``max_batches`` caps reset-and-settle rounds; the
+example permits up to 15. The placement pool pre-solves ``layouts_per_env`` layouts
+per environment and refills in the same tranche size when depleted. Each batch
+resets every environment,
+then advances ``settle.num_steps`` environment steps if any candidate passed
+solver validation. Extra accepted layouts in the final batch are omitted.
 
 Generation settings use Hydra ``key=value`` syntax; launcher options use
 ``--flag`` syntax. Configure post-physics checks through ``settle.validators``;
@@ -91,23 +93,24 @@ no episode resets; close the viewer to exit. For replay during policy evaluation
 see :doc:`recording`; for queue and reset semantics, see
 :doc:`../object_placement/relations`.
 
-After starting ``SimulationApp``, Python callers can pass an
-``IsaacLabArenaEnvironment`` containing ``ClutterOn`` relations to
-``generate_clutter_layouts(arena_env, cfg)`` with a ``ClutterGenerationCfg`` from
-``isaaclab_arena.offline_placement.clutter_generation``. The generator builds and
-closes its environment. To collect poses from an environment you own, use the
-shared :doc:`recording` Python API. For ``ClutterOn``, pass
-``scene_assets=arena_env.get_placement_assets()`` so preparation can inspect the
-complete scene. Collection checks clutter prerequisites before resetting or
-stepping physics.
+After starting ``SimulationApp``, call
+``record_settled_placement_layouts(cfg, arena_env=arena_env)`` in
+``isaaclab_arena.scripts.record_placement_layouts`` with a
+``PlacementRecordingCfg`` from ``isaaclab_arena.offline_placement.recording_config``.
+The helper builds and closes its simulation environment. To collect poses from a
+simulation environment you already own, use ``record_placements_to_jsonl`` from the
+same module. Clutter
+scenes merge ``support_containment`` into settle validators automatically when
+``ClutterOn`` is present. Collection checks clutter prerequisites before resetting
+or stepping physics.
 
 
 Acceptance checks
 -----------------
 
-When ``params`` is omitted, collection selects clutter defaults for ``ClutterOn``
-scenes and ordinary recording defaults otherwise. The shared default duration is
-short. For an explicit drop window, keep the clutter checks when creating params:
+Recording merges clutter validators for ``ClutterOn`` scenes when settle settings
+are omitted or partially overridden. The shared default duration is short. For an
+explicit drop window, keep the clutter checks when creating params:
 
 .. code-block:: python
 

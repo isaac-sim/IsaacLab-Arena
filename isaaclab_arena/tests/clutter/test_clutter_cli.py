@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Offline clutter generation through the command line."""
+"""Offline clutter recording through the unified placement CLI."""
 
 import json
 import subprocess
@@ -14,13 +14,13 @@ import pytest
 from isaaclab_arena.tests.utils.constants import TestConstants
 from isaaclab_arena.tests.utils.subprocess import run_subprocess
 
-SCRIPT = Path(TestConstants.scripts_dir) / "generate_clutter_scene.py"
+SCRIPT = Path(TestConstants.scripts_dir) / "record_placement_layouts.py"
 
 
 def run_cli_with_test_assets():
     from unittest.mock import patch
 
-    from isaaclab_arena.scripts.generate_clutter_scene import main
+    from isaaclab_arena.scripts.record_placement_layouts import main
     from isaaclab_arena.tests.test_settled_placement import register_no_embodiment
     from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
 
@@ -42,8 +42,8 @@ def test_clutter_imports_respect_simulation_startup():
             "-c",
             (
                 "import runpy, sys; runpy.run_path(sys.argv[1]); "
-                "from isaaclab_arena.offline_placement.clutter_generation import load_generation_config; "
-                "cfg = load_generation_config(['output=unused.jsonl']); "
+                "from isaaclab_arena.offline_placement.recording_config import load_recording_config; "
+                "cfg = load_recording_config(['output=unused.jsonl', 'env_spec=unused.yaml']); "
                 "assert 'numpy' not in sys.modules, 'Numerical libraries imported before SimulationApp startup'; "
                 "assert 'pxr' not in sys.modules, 'USD imported before SimulationApp startup'"
             ),
@@ -125,8 +125,10 @@ def Xform "Body" (
             f"output={output}",
             f"num_envs={num_envs}",
             f"num_layouts={num_layouts}",
+            "layouts_per_env=1",
+            "max_batches=15",
             "settle.num_steps=120",
-            "settle.validators.support_containment.fall_through_tolerance_m=0.005",
+            "+settle.validators.support_containment.fall_through_tolerance_m=0.005",
             "--viz",
             "none",
         ],
@@ -165,6 +167,8 @@ def test_cli_generates_maintained_clutter(tmp_path):
             f"output={output}",
             "num_envs=1",
             "num_layouts=1",
+            "layouts_per_env=1",
+            "max_batches=15",
             "settle.num_steps=480",
             # The real table is beveled; its top is 0.530645 m in scaled local coordinates.
             "+settle.validators.support_containment.minimum_resting_heights_m.office_table_background=0.5306",

@@ -7,7 +7,7 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -15,6 +15,7 @@ if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedEnv
 
     from isaaclab_arena.offline_placement.post_physics_validation import PlacementOutcome
+    from isaaclab_arena.offline_placement.recording_params import PlacementRecordingParams
     from isaaclab_arena.relations.placement_asset import PlaceableAsset
     from isaaclab_arena.utils.pose import Pose
 
@@ -31,6 +32,90 @@ class PlacementRecordingSummary:
     """Total sampled candidates, including solver failures."""
     rejections: dict[tuple[int, int], str]
     """Rejection reasons keyed by source (environment index, reset batch index)."""
+
+
+def _merge_validator_configs(base: dict[str, dict], overrides: dict[str, dict]) -> dict[str, dict]:
+    """Combine default validator targets with partial Hydra overrides."""
+    merged = {name: dict(configuration) for name, configuration in base.items()}
+    for name, override in overrides.items():
+        if name in merged:
+            combined = dict(merged[name])
+            combined.update(override)
+            merged[name] = combined
+        else:
+            merged[name] = dict(override)
+    return merged
+
+
+def resolve_settle_params(
+    assets: list[PlaceableAsset], params: PlacementRecordingParams | None
+) -> PlacementRecordingParams:
+    """Return settle params, merging clutter validators when the scene uses ClutterOn.
+
+    Args:
+        assets: Placement and scene assets checked for clutter relations.
+        params: User settle settings, or None for scene-appropriate defaults.
+    """
+    from isaaclab_arena.offline_placement.clutter_validators import default_clutter_validators
+    from isaaclab_arena.offline_placement.post_physics_validation import default_post_physics_validators
+    from isaaclab_arena.offline_placement.recording_params import PlacementRecordingParams
+    from isaaclab_arena.relations.relations import ClutterOn, get_relation
+
+    has_clutter = any(get_relation(asset, ClutterOn) is not None for asset in assets)
+    if params is None:
+        validators = default_clutter_validators() if has_clutter else default_post_physics_validators()
+        return PlacementRecordingParams(validators=validators)
+    if not has_clutter:
+        return params
+    merged = _merge_validator_configs(default_clutter_validators(), params.validators)
+    return replace(params, validators=merged)
+
+
+def collect_layouts_until_count(
+    env: ManagerBasedEnv,
+    target_count: int,
+    max_batches: int,
+    params: PlacementRecordingParams | None = None,
+    *,
+    render: bool = False,
+    scene_assets: list[PlaceableAsset] | None = None,
+) -> tuple[dict[str, list[Pose]], list[PlacementOutcome], int, dict[tuple[int, int], str]]:
+    """Sample reset batches until the target accept count or batch budget is reached.
+
+    Args:
+        env: Built environment with a pooled placement reset event.
+        target_count: Number of accepted layouts to collect.
+        max_batches: Maximum outer reset-and-settle rounds.
+        params: Physics duration and post-physics validators.
+        render: Render offline physics steps.
+        scene_assets: Asset definitions for scene roots outside the placement pool.
+
+    Returns:
+        Accepted poses, validation outcomes, attempt count and rejection reasons.
+    """
+    from isaaclab_arena.offline_placement.settled_placement import collect_settled_placements
+
+    assert target_count > 0 and max_batches > 0, "Target count and batch budget must be positive"
+    poses: dict[str, list[Pose]] = {}
+    outcomes: list[PlacementOutcome] = []
+    rejections: dict[tuple[int, int], str] = {}
+    attempted = 0
+    for batch_index in range(max_batches):
+        result = collect_settled_placements(env, 1, params, render=render, scene_assets=scene_assets, log_progress=True)
+        attempted += result.attempted
+        for (env_id, _), reason in result.rejections.items():
+            rejections[env_id, batch_index] = reason
+        remaining = target_count - len(outcomes)
+        for key, values in result.poses.items():
+            poses.setdefault(key, []).extend(values[:remaining])
+        outcomes.extend(result.validation[:remaining])
+        print(
+            f"[recording] batch {batch_index + 1}/{max_batches}: {len(outcomes)}/{target_count} collected",
+            flush=True,
+        )
+        if len(outcomes) >= target_count:
+            break
+    return poses, outcomes, attempted, rejections
 
 
 def validate_recording_assets(env: ManagerBasedEnv, assets: list[PlaceableAsset]) -> None:

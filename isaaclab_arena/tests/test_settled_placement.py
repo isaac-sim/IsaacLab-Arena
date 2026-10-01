@@ -143,6 +143,7 @@ def test_recording_cli_saves_final_poses(tmp_path, backend):
             "viewer_eye=[4.0,4.0,6.3]",
             "viewer_lookat=[0.6,0.6,0.3]",
             "layouts_per_env=2",
+            "max_batches=5",
             "settle.num_steps=120",
             "settle.validators.pose_shift.max_translation_m=0.0015",
             "--viz",
@@ -171,14 +172,35 @@ def test_recording_cli_saves_final_poses(tmp_path, backend):
     assert len(positions) == len(records)
 
 
+def test_record_placements_to_jsonl_leaves_no_file_when_target_unmet(tmp_path):
+    from unittest.mock import Mock, patch
+
+    from isaaclab_arena.scripts.record_placement_layouts import record_placements_to_jsonl
+
+    env = Mock()
+    pool = Mock(objects=[])
+    with (
+        patch("isaaclab_arena.relations.placement_events.get_placement_pool", return_value=pool),
+        patch(
+            "isaaclab_arena.offline_placement.recording.collect_layouts_until_count",
+            return_value=({"cube": []}, [], 1, {(0, 0): "failed"}),
+        ),
+        patch("isaaclab_arena.offline_placement.recording.validate_recording_assets"),
+        patch("isaaclab_arena.offline_placement.recording.resolve_settle_params", return_value=Mock(num_steps=1)),
+    ):
+        output = tmp_path / "unused.jsonl"
+        summary = record_placements_to_jsonl(env, output, num_layouts=2, max_batches=2, scene_assets=[])
+    assert summary.output is None
+    assert summary.accepted == 0
+    assert summary.attempted == 1
+
+
 @pytest.mark.with_subprocess
-def test_recording_cli_rejects_insufficient_yield(tmp_path):
-    import json
+def test_recording_cli_rejects_insufficient_batch_budget(tmp_path):
     import os
     import subprocess
 
     source, output = tmp_path / "scene.yaml", tmp_path / "placements.jsonl"
-    summary_path = tmp_path / "summary.json"
     _write_scene(source)
     child_env = os.environ.copy()
     child_env["ISAACLAB_ARENA_FORCE_EXIT_ON_COMPLETE"] = "1"
@@ -187,17 +209,17 @@ def test_recording_cli_rejects_insufficient_yield(tmp_path):
             TestConstants.python_path,
             "-c",
             (
-                "from pathlib import Path;"
-                " from isaaclab_arena.tests.test_settled_placement import run_cli_with_test_assets;"
-                f" run_cli_with_test_assets(Path({str(summary_path)!r}))"
+                "from isaaclab_arena.tests.test_settled_placement import run_cli_with_test_assets;"
+                " run_cli_with_test_assets()"
             ),
             f"env_spec={source}",
             f"output={output}",
             "presets=physx",
             "num_envs=1",
             "layouts_per_env=1",
+            "num_layouts=2",
+            "max_batches=1",
             "settle.num_steps=120",
-            "settle.min_layouts=2",
             "--viz",
             "none",
         ],
@@ -208,8 +230,8 @@ def test_recording_cli_rejects_insufficient_yield(tmp_path):
         start_new_session=True,
     )
     assert completed.returncode != 0, completed.stdout + completed.stderr
+    assert "Batch budget cannot supply" in completed.stdout + completed.stderr
     assert not output.exists()
-    assert json.loads(summary_path.read_text()) == {"accepted": 1, "attempted": 1, "output": None}
 
 
 def test_recording_cli_imports_before_simulation_startup():
@@ -294,7 +316,9 @@ def _test_recording_filters_layouts(simulation_app, tmp_path):
                 ) as reset,
             ):
                 with pytest.raises(AssertionError, match=f"floor.*{reason}"):
-                    record_placements_to_jsonl(env, tmp_path / "incompatible.jsonl", 1, scene_assets=assets)
+                    record_placements_to_jsonl(
+                        env, tmp_path / "incompatible.jsonl", num_layouts=1, max_batches=1, scene_assets=assets
+                    )
                 reset.assert_not_called()
                 with pytest.raises(AssertionError, match=f"floor.*{reason}"):
                     make_cached_placement_event(layouts, assets, base.num_envs)
@@ -356,7 +380,9 @@ def _test_recording_filters_layouts(simulation_app, tmp_path):
             patch.object(pool, "_solve_and_store", side_effect=AssertionError("Reuse the controlled drop")),
             patch.object(base, "close", wraps=base.close) as close,
         ):
-            summary = record_placements_to_jsonl(env, output, 1, params, scene_assets=assets)
+            summary = record_placements_to_jsonl(
+                env, output, num_layouts=1, max_batches=1, params=params, scene_assets=assets
+            )
             close.assert_not_called()
         assert summary.output == output
         assert summary.accepted == 1 and summary.attempted == 2
@@ -411,7 +437,9 @@ def _test_recording_filters_layouts(simulation_app, tmp_path):
             assert all(
                 "missing required solver checks: ik_reachable" in reason for reason in rejected.rejections.values()
             )
-            summary = record_placements_to_jsonl(env, rejected_output, 1, scene_assets=assets)
+            summary = record_placements_to_jsonl(
+                env, rejected_output, num_layouts=1, max_batches=1, scene_assets=assets
+            )
             assert summary.output is None
             assert summary.accepted == 0 and summary.attempted == base.num_envs
             assert summary.rejections == rejected.rejections
@@ -655,3 +683,37 @@ def test_settled_batch_evaluation_uses_captured_state():
     assert batch.initial_root_poses["cube"][0, 0].item() == 0.0
     assert batch.final_root_poses["cube"][0, 0].item() == pytest.approx(0.01)
     assert batch.final_root_velocities["cube"][1, 0].item() == pytest.approx(0.2)
+
+
+def test_collect_layouts_until_count_trims_and_merges():
+    from unittest.mock import Mock, patch
+
+    from isaaclab_arena.offline_placement.recording import collect_layouts_until_count
+    from isaaclab_arena.offline_placement.settled_placement import SettledPlacementResult
+    from isaaclab_arena.utils.pose import Pose
+
+    env = Mock()
+    batch_one = SettledPlacementResult(
+        poses={"cube": [Pose.identity(), Pose.identity()]},
+        accepted_indices=[(0, 0), (1, 0)],
+        rejections={},
+        validation=[Mock(), Mock()],
+    )
+    batch_two = SettledPlacementResult(
+        poses={"cube": [Pose.identity()]},
+        accepted_indices=[(0, 0)],
+        rejections={(1, 0): "pose_shift"},
+        validation=[Mock()],
+    )
+
+    with patch(
+        "isaaclab_arena.offline_placement.settled_placement.collect_settled_placements",
+        side_effect=[batch_one, batch_two],
+    ) as collect:
+        result = collect_layouts_until_count(env, target_count=3, max_batches=5)
+
+    assert collect.call_count == 2
+    assert len(result.validation) == 3
+    assert len(result.poses["cube"]) == 3
+    assert result.attempted == batch_one.attempted + batch_two.attempted
+    assert result.rejections == {(1, 1): "pose_shift"}
