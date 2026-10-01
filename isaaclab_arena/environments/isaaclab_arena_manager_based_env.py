@@ -12,6 +12,7 @@ from isaaclab.envs import ManagerBasedRLEnv, ManagerBasedRLMimicEnv
 
 from isaaclab_arena.environments.arena_world import ArenaWorld
 from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import (
+    IsaacArenaManagerBasedMimicEnvCfg,
     IsaacLabArenaManagerBasedRLEnvCfg,
     apply_arena_global_settings,
 )
@@ -123,3 +124,5 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
 
 class IsaacLabArenaManagerBasedRLMimicEnv(IsaacLabArenaManagerBasedRLEnv, ManagerBasedRLMimicEnv):
     """Arena environment with the Isaac Lab Mimic interface."""
+
+    cfg: IsaacArenaManagerBasedMimicEnvCfg
