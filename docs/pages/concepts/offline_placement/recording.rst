@@ -1,43 +1,63 @@
 Record and Replay Placement Poses
 =================================
 
-Use ``record_placement_layouts.py`` to prepare reusable initial poses before
-policy evaluation. It solves placement relations, advances physics, and records
-the final poses of accepted layouts. Replay loads those poses on reset without
-solving or settling them again.
+Use ``record_placement_layouts.py`` to save reusable initial poses for policy
+evaluation. It solves placement relations, advances physics, and writes accepted
+layouts to JSONL. Replay restores those poses on reset without solving or settling
+them again. The same recorder supports ordinary placement relations and
+``ClutterOn`` scenes.
 
-Recording runs an outer loop of reset-and-settle batches until it collects
-``min_layouts`` accepted layouts or exhausts ``max_batches``. Each batch resets
-every environment once. ``min_layouts`` is the target number of accepted layouts
-(default 1). ``layouts_per_env`` sets how many solver layouts each environment
-receives when the placement pool refills (default 5).
+How Recording Differs from Online Placement
+-------------------------------------------
 
-The examples use the existing Robolab environments with visualization enabled:
-``clamp_in_right_bin`` for recording and replay, and ``smartphone_in_bin`` for rejection.
+Both workflows start with the :doc:`placement pipeline
+<../concept_object_and_robot_placement>`: solve relations, run pre-physics
+validators, and store candidate layouts in per-environment pools.
 
-Sampling Workflow
------------------
+**Online placement** applies a solved layout on reset, then policy evaluation
+begins. Resets normally consume the next pooled layout, generating more when the
+pool is empty. There is no recording-time settling and acceptance pass, so an
+object released above its support may still fall into place during the episode.
 
-1. Record Placement Layouts
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
+**Offline recording** uses a separate run to reset into pooled layouts, advance
+physics for a configured duration, and run post-physics validators. Layouts must
+pass their required solver checks and every enabled, applicable post-physics
+check. The recorder saves their **final root poses after settling** and validation
+results to JSONL, then those poses can be reused across evaluations.
 
-This example records settled placement layouts from the ``clamp_in_right_bin``
-environment.
+.. figure:: ../../../images/offline_placement/recording_pipeline.svg
+   :alt: Shared solving and validation feed a placement pool. Online resets apply
+      solved poses before policy evaluation. Offline recording settles and filters
+      pooled layouts, saves their final poses, and replays them for evaluation.
+   :width: 100%
 
-Complete :doc:`../../quickstart/installation` using native ``uv`` or Docker.
-For an installed native ``uv`` environment, activate it from the repository root:
+   Offline recording adds a settling and filtering stage to the shared placement
+   pipeline. Replay uses its saved output.
 
-.. code-block:: bash
+**Replay** restores the saved root poses and zeros root velocities on reset. It
+bypasses solving and the recorder's settling and acceptance pass; physics runs
+normally during policy evaluation. Recordings contain root poses, so joint states
+and other randomized properties still follow the evaluation environment's reset
+configuration. Geometry and reachability checks are not rerun after settling.
 
-   source .venv/bin/activate
+See :doc:`../object_placement/validation` for the checks at each stage and
+:doc:`../object_placement/pooled_placement` for pool and reset settings.
 
-For Docker, use the Arena container shell prepared during installation.
-Run the following commands from the repository root in your chosen environment;
-``python`` uses the configured Arena interpreter in either workflow. To run headless,
-use ``render=false --viz none`` when recording and ``--viz none`` when replaying.
+Record Placement Layouts
+------------------------
 
-JSONL recordings can be replayed in another native or Docker installation with
-compatible assets, physics-root names and reset settings.
+To run without a viewer, use ``render=false --viz none`` when recording and
+``--viz none`` when replaying.
+
+Recording repeats reset-and-settle batches until it collects ``min_layouts``
+accepted layouts (default 1) or exhausts ``max_batches`` (default 5). Each batch
+resets every environment once. ``layouts_per_env`` controls how many solver
+layouts each environment receives when its pool refills (default 5); it does
+not set the accepted-layout target. The batch budget must allow at least
+``min_layouts`` attempts: ``max_batches * num_envs >= min_layouts``.
+
+Run this command from the repository root to record layouts from
+``clamp_in_right_bin`` in ``outputs/placements/clamp.jsonl``:
 
 .. code-block:: bash
 
@@ -50,105 +70,41 @@ compatible assets, physics-root names and reset settings.
        settle.validators.pose_shift.max_translation_m=0.015 \
        render=true --device cpu --viz kit
 
-You should see four environments reset and settle over several batches until
-16 accepted layouts are collected or the batch budget is reached.
-Full recording is successful when:
+Objects start about 1 cm above their supporting surfaces. The command allows
+15 mm of displacement during settling to accommodate this drop.
 
-* the command exits without error and writes ``outputs/placements/clamp.jsonl``
-  with exactly the requested ``min_layouts`` accepted layouts;
-* the file contains one complete layout per line, and its line count matches the
-  reported accepted count;
-* every saved layout passes all required solver checks and all enabled, applicable
-  post-physics checks at the configured limits.
+The command targets 16 accepted layouts using up to five batches in four
+parallel environments. If the batch budget is exhausted, any accepted layouts
+are still written, and the command logs the shortfall as an error and exits
+normally. If no layouts pass, no output file is written. Check the reported
+accepted count to confirm whether the target was reached; each JSONL line
+contains one accepted layout.
 
-If the batch budget is exhausted first, any accepted layouts are still written and
-the command logs an error with the partial count. Counts and measured motion can
-differ between machines. Rejected layouts must be excluded from the
-file and have a reason in the console.
-
-These environments use about 1 cm of ``On`` release clearance. This exceeds the
-recorder's default 2 mm shift limit. The commands explicitly allow 15 mm of root
-translation. Rotation limits remain 2 degrees and root-speed limits remain
-0.1 m/s and 0.1 rad/s. These are example settings, not changed defaults;
-use limits appropriate to the accuracy needed by your evaluation.
-
-See :ref:`recording_robot_motion` for robot-motion and joint-state limitations.
-
-The ``PickAndPlaceTask`` default camera looks at the pickup object's initial
-position in the first environment, with an eye offset of ``[-1.5, -1.5, 1.5]`` meters.
-The optional ``viewer_eye`` and ``viewer_lookat`` values frame all four environments
-in simulation-world coordinates. Set both, or omit both to keep the task's view.
-
-The command sets ``settle.num_steps=120`` environment steps. Arena's default
-``decimation=8`` supplies eight physics substeps per environment step, giving
-960 physics steps per settling batch.
-
-The ``clamp_in_right_bin`` environment varies object positions without randomizing
-tool orientations and has a small initial drop. Each reset also runs the Droid
-embodiment's configured robot-joint reset event. The console prints enabled checks
-and their settings, physics-step progress, and acceptance counts per batch.
-If every layout in a batch fails solver validation, physics is skipped and no
-physics-progress lines appear.
+The GIF illustrates four reset-and-settle batches. Your run may need a different
+number of batches to reach the target:
 
 .. image:: ../../../images/offline_placement/clamp_recording.gif
    :alt: Four batches of clamp_in_right_bin layouts in four parallel environments.
    :width: 100%
 
-The GIF shows excerpts from the four settling batches.
-The console shows progress and batch results in this format. Values in angle
-brackets come from your run:
+Choose a new output path for each recording. Existing files are not overwritten.
+See :doc:`../object_placement/validation` for acceptance checks and their settings.
+For ``ClutterOn`` scenes, the recorder merges clutter defaults, including
+``support_containment``, with ``settle.validators``. Explicit settings override
+defaults within each check; other default checks remain configured. See
+:doc:`clutter` for collection prerequisites and intentional-drop validation.
 
-.. code-block:: text
+Replay Placement Layouts
+------------------------
 
-   [placement] 480/960 physics steps
-   [placement] batch 1/1: 4 solutions, <solver_passed> passed solver validation, <physics_passed> passed post-physics validation; overall 4/4 validated, <accepted> accepted
-   [recording] batch 1/5: <accepted>/16 collected
-   ...
-   Saved 16/<attempted> accepted layouts: outputs/placements/clamp.jsonl
-
-An existing output file is never overwritten; choose a new path for each recording.
-
-To compare repeated sampling, rerun with
-``output=outputs/placements/clamp_repeat.jsonl`` and keep all other settings,
-assets and runtime unchanged. Investigate changes in acceptance counts or failed
-checks using both runs' commands, logs and JSONL files. No accepted-count tolerance
-is established.
-
-2. Inspect the Saved Poses
-~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. code-block:: bash
-
-   wc -l outputs/placements/clamp.jsonl
-   head -n 1 outputs/placements/clamp.jsonl | python -m json.tool
-
-The line count must match the recorder's accepted count. The second command shows
-only the first record as a format example; it does not validate the whole file.
-``source``, ``poses`` and ``validation`` are fields inside
-``variations["scene.relation_placement"]``. Check that:
-
-* ``source`` is ``"settled"``;
-* ``poses`` contains physics-root names, including ``spring_clamp``, the bins and ``robot``;
-* positions and quaternions contain finite numbers;
-* ``physics_settled`` and ``pose_shift`` in ``validation.post_physics`` have
-  ``passed: true`` and the settings shown above;
-* ``articulation_link_shift`` has ``passed: null`` because no articulated task
-  objects were selected. Robot joints are excluded from this check.
-
-Positions are in meters in the local environment frame; quaternions are XYZW.
-``validation.pre_physics`` holds the solver verdicts for the initial candidate.
-``validation.sampling`` records the physics duration and ``embodiment_keys`` excluded
-from link-shift checks.
-
-3. Replay the Accepted Layouts
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-The following :doc:`Experiment Definition <../concept_arena_experiments>` reuses
-``clamp_in_right_bin`` and the saved JSONL:
+Set ``environment_builder.placement_layouts_path`` in an
+:doc:`Experiment Definition <../concept_arena_experiments>` to load the recording:
 
 .. literalinclude:: ../../../../isaaclab_arena_environments/experiment_configs/settled_placement_replay_experiment.yaml
    :language: yaml
    :start-at: runs:
+
+Run this command to replay the recording with the experiment definition above:
 
 .. code-block:: bash
 
@@ -157,32 +113,16 @@ The following :doc:`Experiment Definition <../concept_arena_experiments>` reuses
        --device cpu --viz kit \
        --output_base_dir outputs/placements/evaluation
 
-The command should exit without error and write these files under
-``outputs/placements/evaluation/<timestamp>/``:
+This example uses a zero-action policy to replay the initial poses.
+Recordings restore object and robot root poses, while robot joints use their
+configured resets, which randomize the arm configuration in this Droid example.
+See :doc:`../object_placement/relations` for the file format and replay behavior.
 
-* ``index.html``: the evaluation report to open in a browser.
-* ``arena_experiment_result.json``: the Run result, with ``clamp_replay`` marked
-  ``completed``.
-* ``clamp_replay/episode_results_rebuild0.jsonl``: three completed episode records.
+Record Layouts with Rejections
+------------------------------
 
-Task success is not expected with the zero-action policy. Completed episodes
-confirm execution; they do not measure whether reset poses match the input file.
-
-For another recording, copy the Experiment Definition and edit its
-``environment.type`` and ``environment_builder.placement_layouts_path`` together
-inside the Run. Pass the copy to ``--experiment_config``; the environment YAML
-and JSONL paths are relative to the repository root.
-
-With one environment, each reset loads the next record and wraps after the last
-one. Restarting the command starts from the first record. Later motion depends on
-the simulation and policy, so it does not by itself show a replay error.
-
-See :doc:`../object_placement/relations` for parallel and partial-reset selection.
-
-4. Check Rejected Placement Layouts
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Generate and record poses in the ``smartphone_in_bin`` environment:
+Run this command to record layouts from ``smartphone_in_bin``, where objects can
+move beyond the allowed limits during settling:
 
 .. code-block:: bash
 
@@ -195,244 +135,54 @@ Generate and record poses in the ``smartphone_in_bin`` environment:
        settle.validators.pose_shift.max_translation_m=0.015 \
        render=true --device cpu --viz kit
 
-Layouts that fail a required solver check or an enabled, applicable post-physics
-check are excluded from the file and reported with a rejection reason.
-If the batch budget ends before ``min_layouts`` pass, the command writes any
-accepted layouts and logs an insufficient-acceptance error. If none pass, no
-output file is written. Every written layout still satisfies the configured
-solver and post-physics checks.
-Use :ref:`recording_rejection_summary` to diagnose failures. If every layout passes,
-recording succeeded but rejection handling was not exercised.
-
 .. image:: ../../../images/offline_placement/smartphone_recording.gif
    :alt: Four batches of smartphone_in_bin layouts in four parallel environments, showing object motion.
    :width: 100%
 
-This run prints the same progress and batch summaries, followed by any rejection
-reasons. For example, a mouse pose-shift rejection has this format; values in
-angle brackets come from your run:
+Only accepted layouts are saved. The console reports rejection reasons, explained
+in :ref:`recording_rejection_summary`.
 
-.. code-block:: text
+Supported Use Cases and Limits
+-------------------------------
 
-   [placement] 480/960 physics steps
-   [placement] batch 1/4: 4 solutions, <solver_passed> passed solver validation, <physics_passed> passed post-physics validation; overall 4/16 validated, <accepted> accepted
-   ...
-   [placement] batch 4/4: 4 solutions, <solver_passed> passed solver validation, <physics_passed> passed post-physics validation; overall 16/16 validated, <accepted> accepted
-   Rejected <count>: pose_shift: computer_mouse: moved <distance> m and rotated <angle> deg; limits 0.015 m, 2 deg
-
-The mouse's layout is rejected when its translation exceeds 0.015 m or its rotation
-exceeds 2 degrees. Other layouts can still pass. If too few pass, the command ends
-with:
-
-.. code-block:: text
-
-   AssertionError: Accepted <accepted> layouts; need 16. Rejections: {...}
-
-.. _recording_rejection_summary:
-
-Understand the Rejection Summary
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Each ``Rejected`` line gives a reason and the number of layouts rejected for it.
-When a pose-shift limit is exceeded, the message includes the object, measured
-translation and rotation, and configured limits. Use the named
-check to decide what to adjust:
+The table summarizes the requirements for recording and the state that replay
+can restore.
 
 .. list-table::
-   :header-rows: 1
-   :widths: 25 30 45
-
-   * - Rejection
-     - Meaning
-     - What to check or change
-   * - ``solver validation failed``
-     - A layout failed a required solver check.
-     - Read earlier solver diagnostics and check relation constraints and collision
-       geometry. Increasing settling time cannot fix a solver failure.
-   * - ``physics_settled``
-     - Final root velocity is too high.
-     - Inspect contacts and support. Increase ``settle.num_steps`` if motion is
-       still decaying; more time will not fix an unstable placement.
-   * - ``pose_shift``
-     - A root moved or rotated beyond its limits.
-     - Inspect the named object. For ``On`` relations, reduce ``clearance_m`` to
-       reduce the release drop, or increase ``edge_margin_m`` to avoid support
-       edges. Edit the relation's ``params`` in the environment's scene YAML.
-   * - ``articulation_link_shift``
-     - A task-object link shifted relative to its root.
-     - Check joint initialization and contacts. A root-pose recording cannot
-       preserve the changed joint configuration.
-   * - ``missing required solver checks``
-     - A required pre-physics result is unavailable.
-     - Enable the required validator or fix its dependencies and source
-       configuration; do not remove a required check to obtain a recording.
-
-See :doc:`../object_placement/relations` for relation settings. Change validation
-limits under ``settle.validators`` only when the new tolerance fits your evaluation.
-Increasing ``max_batches`` allows more reset-and-settle rounds; increasing
-``layouts_per_env`` enlarges pool refills. Neither makes rejected layouts valid.
-
-Acceptance and Limitations
---------------------------
-
-All required solver checks and enabled, applicable post-physics checks must pass.
-The post-physics checks share one settling pass:
-
-.. list-table::
-   :header-rows: 1
-   :widths: 25 45 30
-
-   * - Check
-     - Measures
-     - Default limit
-   * - ``physics_settled``
-     - Final linear and angular speed of every root, including the robot.
-     - 0.1 m/s and 0.1 rad/s
-   * - ``pose_shift``
-     - Initial-to-final translation and rotation of each root, excluding intentional
-       ``ClutterOn`` drops.
-     - 2 mm and 2 degrees
-   * - ``articulation_link_shift``
-     - Task-object link motion relative to its root; excludes robot embodiments.
-     - 2 mm and 2 degrees
-
-Configure ``settle.validators.<check>.<setting>`` to change a limit.
-An inapplicable or disabled check is recorded as skipped, not passed; at least
-one applicable post-physics check must remain enabled.
-
-.. _recording_robot_motion:
-
-.. list-table:: Supported Use Cases and Limits
    :header-rows: 1
    :widths: 25 75
 
    * - Use case or setting
      - Support and limitations
    * - Rigid and articulation roots
-     - Supported with writable roots, enabled pose resets, fixed root-reset poses
-       and zero initial velocity. Replay restores root poses and zero root velocity.
-   * - Object sets; ``RandomAroundSolution``
+     - Require writable roots, enabled pose resets, fixed root-reset poses and
+       zero initial velocity. Replay restores root poses and zeros root velocities.
+   * - Object sets and ``RandomAroundSolution``
      - Unsupported for recording. Resolve sets to concrete assets and remove
-       the pose modifier before recording.
+       ``RandomAroundSolution`` before recording.
    * - Randomized or per-environment root-reset poses
-     - Unsupported. Additional pose-changing variations and callbacks must also
-       be disabled for exact root replay.
+     - Unsupported. Disable other pose-changing variations and callbacks when
+       exact root replay is required.
    * - Robot motion and joint state
-     - The robot is not frozen and may push objects. Only roots are recorded;
-       robot joints are not acceptance-checked and use their configured resets
-       during replay. The Droid examples randomize joint positions on reset.
+     - The robot can move and push objects during settling. Robot joints are
+       neither recorded nor checked for acceptance and use their configured resets
+       during replay.
    * - Articulated task objects
-     - Link checks compare initial and final poses, not joint speeds or continuous
-       stillness. Replay cannot restore joint changes that occurred during settling.
+     - Link checks compare initial and final poses relative to the root.
+       They do not check joint speeds or motion between those times. Replay
+       cannot restore joint changes that occurred during settling.
    * - Geometry and IK after settling
-     - Not rechecked. Passing the enabled checks does not certify all contacts,
-       reachability or a deterministic future trajectory; behavior also depends
-       on environment settings, physics backend and device.
+     - Geometry and reachability are not rechecked after settling. Accepted
+       layouts do not guarantee valid contacts, reachability or deterministic
+       motion during evaluation.
    * - Other variations, such as mass or visibility
-     - Sampled normally but not stored in the pose recording. Match these settings
-       and joint initialization when comparing replay behavior across runtimes.
+     - Sampled normally but not stored. Match these settings and joint
+       initialization when comparing recording and replay.
    * - Reusing an environment for collection
-     - Collection consumes pool entries and leaves the final state, including on
-       failure. Reset events must reset required roots, joints and actuator targets;
-       physics-only steps do not advance counters for reset events with a minimum
-       step interval.
-   * - A batch containing solver failures
-     - If any candidate passes required solver checks, physics advances the whole
-       batch. Solver-failed candidates remain rejected.
-
-Recording and Replay Flow
--------------------------
-
-.. image:: ../../../images/offline_placement/recording_pipeline.svg
-   :alt: Solve layouts, reset to one per environment, step physics, validate and save accepted poses.
-   :width: 100%
-
-.. image:: ../../../images/offline_placement/replay_pipeline.svg
-   :alt: Load the scene and saved poses, select layouts on reset, then run the policy.
-   :width: 100%
-
-Python API
-----------
-
-With ``SimulationApp`` already running, use the recording workflow to build an
-environment, collect accepted poses and write JSONL:
-
-.. code-block:: python
-
-   from isaaclab_arena.offline_placement.recording_config import PlacementRecordingCfg
-   from isaaclab_arena.offline_placement.settled_placement_params import SettledPlacementParams
-   from isaaclab_arena.scripts.record_placement_layouts import record_settled_placement_layouts
-
-   settling = SettledPlacementParams(num_steps=120)
-   settling.validators["pose_shift"]["max_translation_m"] = 0.015
-   summary = record_settled_placement_layouts(
-       PlacementRecordingCfg(
-           env_spec="isaaclab_arena_environments/robolab/tasks/clamp_in_right_bin.yaml",
-           output="outputs/placements/clamp_python.jsonl",
-           num_envs=4, env_spacing=2.0, layouts_per_env=4, min_layouts=16, max_batches=5, settle=settling,
-       ),
-       device="cpu",
-   )
-
-The workflow owns and closes the environment. Inspect ``summary.accepted``,
-``summary.attempted`` and ``summary.rejections`` to see the outcome. When the
-layout target is not reached within ``max_batches``, accepted layouts are still
-written and ``summary.output`` contains the output path. It is ``None`` only when
-no layouts pass. The command-line entry point logs insufficient acceptance as an
-error and exits normally.
-
-Pass ``arena_env=`` to ``record_settled_placement_layouts`` when the scene is
-already built in memory (for example clutter tests); omit it to load ``env_spec``.
-
-For a simulation environment you already own, ``record_placements_to_jsonl`` accepts
-``env``, an output path, ``min_layouts`` and ``max_batches`` and returns the same
-summary. This helper leaves environment cleanup to its caller.
-
-For the reusable library API, call ``collect_settled_placements`` to inspect
-poses and rejection reasons in memory. It measures the scene's rigid and
-articulation roots without enforcing recording or replay policies:
-
-.. code-block:: python
-
-   from isaaclab_arena.offline_placement.settled_placement import collect_settled_placements
-   from isaaclab_arena.offline_placement.settled_placement_params import SettledPlacementParams
-
-   try:
-       result = collect_settled_placements(
-           env, num_batches=4, params=SettledPlacementParams(num_steps=120),
-           scene_assets=arena_env.get_placement_assets(),
-       )
-   finally:
-       env.close()
-
-``result.poses`` maps runtime scene names to accepted ``Pose`` lists in matching
-order. ``result.validation`` contains the accepted ``PlacementOutcome`` values:
-each has ``pre_physics`` solver verdicts and ``post_physics`` validator reports
-with ``check``, ``passed``, ``reason`` and ``configuration`` attributes.
-``result.accepted_indices`` and ``result.rejections`` identify the source
-environment and reset batch, not an index into a stored pool.
-
-The collector returns empty pose lists and rejection reasons when no candidates
-pass. The recording wrapper iterates batches until ``min_layouts`` accepts or the
-batch budget is exhausted, validates replay compatibility and adds sampling
-metadata to the saved JSONL. For ordinary placements, ``scene_assets`` is optional
-and supplements the pool's metadata to distinguish embodiments from articulated
-task objects. For ``ClutterOn`` collection, pass the complete
-``arena_env.get_placement_assets()`` list so preflight can also check passive
-objects and support geometry; settle validators merge clutter defaults automatically.
-See :doc:`clutter` for the required scene configuration and clutter validator defaults.
-
-Both APIs perform sampling resets; an initial ``env.reset()`` is unnecessary.
-Set ``log_progress=True`` on the collector to print physics-step progress and batch
-results. The recording script enables these messages by default.
-
-Custom checks subclass ``PostPhysicsPlacementValidator`` in
-``isaaclab_arena.offline_placement.post_physics_validation``. Implement
-``validate(batch: SettledBatch)`` with one report per ID in ``batch.env_ids``, using
-``self.report`` to retain settings and results. The batch includes all measured
-root poses and velocities, and only the selected task-object link poses.
-To add an importable check:
-
-.. code-block:: bash
-
-   +settle.validators.support._target_=my_project.validators.SupportValidator
+     - Collection consumes pool entries and leaves the final state, even on
+       failure. Reset events must restore roots, joints and actuator targets.
+       Physics-only steps do not advance counters for reset events with a
+       minimum step interval.
+   * - Batches with solver failures
+     - If any candidate passes the required solver checks, physics advances the
+       whole batch. Candidates that failed those checks remain rejected.
