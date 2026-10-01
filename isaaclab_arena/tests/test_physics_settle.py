@@ -95,7 +95,8 @@ def _test_objects_settled_when_at_rest(simulation_app):
         settled = physics_settle.are_all_objects_settled_per_env(
             env, [0], object_names, LIN_VEL_THRESH, ANG_VEL_THRESH
         )[0]
-        assert settled, "Motionless objects should settle"
+        velocities_w = {name: env.unwrapped.scene[name].data.root_vel_w.torch.tolist() for name in object_names}
+        assert settled, f"Motionless objects should settle; root velocities: {velocities_w}"
     except Exception as e:
         print(f"Error: {e}")
         traceback.print_exc()

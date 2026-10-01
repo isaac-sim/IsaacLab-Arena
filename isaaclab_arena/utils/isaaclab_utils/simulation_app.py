@@ -82,8 +82,13 @@ def teardown_simulation_app(suppress_exceptions: bool = False, make_new_stage: b
     if make_new_stage:
         with error_manager:
             import omni.usd
+            from isaaclab.sim.utils import close_stage, create_new_stage, get_current_stage_id
 
-            omni.usd.get_context().new_stage()
+            # Isaac Lab keeps its own current stage and USD cache. Resetting only Kit's
+            # context lets the next SimulationContext reuse the previous scene.
+            close_stage()
+            create_new_stage()
+            omni.usd.get_context().attach_stage_with_callback(get_current_stage_id())
 
 
 def collect_garbage_and_clear_cuda_cache() -> None:

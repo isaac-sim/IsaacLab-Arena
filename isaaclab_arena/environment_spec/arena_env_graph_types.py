@@ -203,7 +203,11 @@ class CompositeTaskSpec(BaseModel):
     """Root task node for an environment graph."""
 
     composition: TaskCompositionType = Field(
-        description="How the subtasks combine: " + ", ".join([f"'{e.value}'" for e in TaskCompositionType])
+        description=(
+            "How all requested subtasks combine: 'atomic' for exactly one task; 'parallel' for multiple tasks "
+            "that must all succeed in any order (the default when no order is specified); 'sequential' when "
+            "the tasks must succeed in a required order. Parallel does not require simultaneous motion."
+        )
     )
     description: str = Field(
         min_length=1,
@@ -211,7 +215,11 @@ class CompositeTaskSpec(BaseModel):
     )
     subtasks: list[TaskSpec] = Field(
         default_factory=list,
-        description="Atomic registered tasks that compose this root task.",
+        description=(
+            "Atomic registered tasks covering every requested action and object instance. "
+            "When moving multiple objects, include one PickAndPlaceTask per requested object, "
+            "each with its own pick_up_object id."
+        ),
     )
 
     @model_validator(mode="after")

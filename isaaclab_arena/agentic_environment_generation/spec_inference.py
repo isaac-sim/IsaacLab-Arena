@@ -166,9 +166,18 @@ GUIDANCE:
 - REQUIRED: a task or relation param naming part of the background must use that
   ``object_reference`` id, never the background id.
 - For each ``object_reference``, leave ``prim_path`` empty.
-- REQUIRED: pick ``task.composition`` from the number of subtasks you emit. One subtask is
-  ``atomic``. Two or more is ``parallel`` when the prompt says the order does not matter, and
-  ``sequential`` when the prompt fixes an order. ``atomic`` never has more than one subtask.
+- REQUIRED: cover every requested action and object in ``task.subtasks``. When the prompt asks
+  to manipulate all instances, emit one subtask per instance using its distinct object id.
+  A single PickAndPlaceTask moves only its ``pick_up_object``; it does not move other instances
+  of the same asset. Objects mentioned only as scenery do not need manipulation subtasks.
+- REQUIRED: choose ``task.composition`` after enumerating all requested subtasks. One subtask
+  is ``atomic``. Two or more is ``parallel`` by default, including when no order is specified;
+  use ``sequential`` only when the prompt requires an order or one action depends on another.
+  ``parallel`` means all subtasks must succeed, in any order, not simultaneous robot motion.
+  For example, placing three apples into one basket requires three PickAndPlaceTask subtasks
+  with distinct ``pick_up_object`` ids, the same ``destination_location``, and ``parallel``
+  composition unless the prompt requires a particular order. Never omit requested subtasks
+  to fit ``atomic``.
 - Task parameters referring to an asest (object, background or object reference) must use the ID (NOT registry_name).
 - Relation subject and references must use the asset ID (NOT registry_name).
 - REQUIRED: include an ``is_anchor`` relation on the resting surface. That is the

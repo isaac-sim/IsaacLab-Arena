@@ -41,6 +41,32 @@ def test_run_function_with_persistent_simulation_app_with_arg():
     assert test_passed, "Tested function returned False"
 
 
+def _leave_in_memory_stage(simulation_app) -> bool:
+    from isaaclab.sim.utils import create_new_stage
+    from pxr import UsdGeom
+
+    stage = create_new_stage()
+    UsdGeom.Xform.Define(stage, "/LeakedScene")
+    return True
+
+
+def _check_fresh_stage(simulation_app) -> bool:
+    import omni.usd
+    from isaaclab.sim.utils import get_current_stage
+
+    stage = get_current_stage()
+    assert stage is not None
+    assert not stage.GetPrimAtPath("/LeakedScene"), "Isaac Lab reused the preceding test's scene"
+    assert stage == omni.usd.get_context().get_stage(), "Isaac Lab and Kit must use the same fresh stage"
+    return True
+
+
+def test_persistent_simulation_app_clears_in_memory_stage():
+    """A test that authors an in-memory scene must not leak it into the next test."""
+    assert run_function_with_persistent_simulation_app(_leave_in_memory_stage)
+    assert run_function_with_persistent_simulation_app(_check_fresh_stage)
+
+
 @pytest.mark.parametrize(
     ("pytest_failed", "fallback_failed", "expected_exit_code"),
     [(None, False, 0), (None, True, 1), (False, True, 0), (True, False, 1)],
