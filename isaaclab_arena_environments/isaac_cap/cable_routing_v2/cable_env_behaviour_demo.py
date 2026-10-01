@@ -14,7 +14,6 @@ from __future__ import annotations
 
 import argparse
 from dataclasses import replace
-from functools import partial
 
 from isaaclab_arena_environments.isaac_cap.tools import EnvBehaviourDemo
 
@@ -60,14 +59,16 @@ def _build_cable_demo_environment(variant: str):
     # connected at exact rest length. Replace the immutable goal only for this demo environment;
     # the production task retains CAP's 0.05 m/s terminal speed requirement.
     task_termination_cfg = arena_environment.task.get_termination_cfg()
-    success_objective = task_termination_cfg.success[0]
-    assert success_objective.predicate_sequence is not None
-    success_predicate = success_objective.predicate_sequence[0]
-    assert isinstance(success_predicate, partial), "Cable success must be configured as a partial predicate."
-    success_params = dict(success_predicate.keywords or {})
-    success_params["goal"] = replace(success_params["goal"], max_mean_speed=float("inf"))
-    demo_predicate = partial(success_predicate.func, *success_predicate.args, **success_params)
-    task_termination_cfg.success[0] = replace(success_objective, predicate_sequence=[demo_predicate])
+    success_criteria = task_termination_cfg.success[0]
+    assert success_criteria.predicate_sequence is not None
+    success_predicate = success_criteria.predicate_sequence[0]
+    from isaaclab.managers import TerminationTermCfg
+
+    assert isinstance(success_predicate, TerminationTermCfg), "Cable success must use a termination-term config."
+    success_predicate.params["goal"] = replace(
+        success_predicate.params["goal"],
+        max_mean_speed=float("inf"),
+    )
     return arena_environment
 
 
@@ -172,11 +173,13 @@ class CurrentCableRoutingBehaviourDemo(EnvBehaviourDemo):
             self.gripper_body_ids.append(body_id)
             self.gripper_quaternions.append(robot.data.body_link_quat_w.torch[:, body_id].clone())
 
-        success_objective = self.arena_environment.task.get_termination_cfg().success[0]
-        assert success_objective.predicate_sequence is not None
-        self.success_predicate = success_objective.predicate_sequence[0]
-        assert isinstance(self.success_predicate, partial)
-        self.success_params = self.success_predicate.keywords or {}
+        success_criteria = self.arena_environment.task.get_termination_cfg().success[0]
+        assert success_criteria.predicate_sequence is not None
+        self.success_predicate = success_criteria.predicate_sequence[0]
+        from isaaclab.managers import TerminationTermCfg
+
+        assert isinstance(self.success_predicate, TerminationTermCfg)
+        self.success_params = self.success_predicate.params
         self.goal = self.success_params["goal"]
         self.cable = self.base_env.scene[self.success_params["cable_asset_name"]]
         self.peg_names = tuple(self.success_params["peg_asset_names"])
@@ -459,7 +462,7 @@ class CurrentCableRoutingBehaviourDemo(EnvBehaviourDemo):
         # finished. Exercise that signal through the demo-local compatibility
         # buffer installed in setup_demo().
         self.base_env.external_policy_termination_buf.fill_(True)
-        success = self.success_predicate(self.base_env)
+        success = self.success_predicate.func(self.base_env, **self.success_params)
         if not bool(success.all().item()):
             raise RuntimeError("Scripted cable route did not satisfy the current CAP terminal goal.")
         self.base_env.external_policy_termination_buf.fill_(False)

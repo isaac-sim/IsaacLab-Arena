@@ -139,7 +139,7 @@ def _test_usbc_release_and_withdrawal(_simulation_app) -> bool:
     from isaaclab_arena.assets.asset import Asset
     from isaaclab_arena.tasks.predicates.gripper import gripper_released
     from isaaclab_arena.tasks.predicates.spatial import gripper_distance_from_object_exceeds_threshold
-    from isaaclab_arena_environments.isaac_cap.embodiments.cable_routing.gripper import YamGripper
+    from isaaclab_arena_environments.isaac_cap.embodiments.bimanual_yam.gripper import YamGripper
     from isaaclab_arena_environments.isaac_cap.usbc_insertion.task import UsbcInsertionTask
 
     gripper = YamGripper()
@@ -327,7 +327,7 @@ def _test_usbc_environment_yaml(_simulation_app) -> bool:
         velocity_below_threshold,
     )
     from isaaclab_arena.utils.physics_backend import PhysicsBackend
-    from isaaclab_arena_environments.isaac_cap.embodiments.cable_routing import IndustrialBimanualYamEmbodiment
+    from isaaclab_arena_environments.isaac_cap.embodiments.bimanual_yam import IndustrialBimanualYamEmbodiment
     from isaaclab_arena_environments.isaac_cap.usbc_insertion.assets import ASSET_ROOT
     from isaaclab_arena_environments.isaac_cap.usbc_insertion.environment import (
         UsbcInsertionEasyEnvironment,
@@ -380,9 +380,9 @@ def _test_usbc_environment_yaml(_simulation_app) -> bool:
         assert environment.task.receiver.usd_path.startswith(f"{ASSET_ROOT}/")
         assert environment.task.plug.scale == (1.0, 1.0, 1.0)
         assert environment.task.get_events_cfg() is None
-        success_objective = environment.task.get_termination_cfg().success[0]
-        assert success_objective.name == "usbc_insertion"
-        predicates = success_objective.predicate_sequence[0].predicate.params["predicates"]
+        success_criteria = environment.task.get_termination_cfg().success[0]
+        assert success_criteria.name == "usbc_insertion"
+        predicates = success_criteria.predicate_sequence[0].predicate.params["predicates"]
         assert [term.func for term in predicates] == [
             depth_in_range,
             lateral_in_proximity,
@@ -455,6 +455,7 @@ def _test_usbc_environment_yaml(_simulation_app) -> bool:
         assert not env_cfg.sim.physics.solver_cfg.use_mujoco_contacts
         assert not env_cfg.sim.physics.use_cuda_graph
         for robot in (env_cfg.scene.left_robot, env_cfg.scene.right_robot):
+            assert robot.soft_joint_pos_limit_factor == 1.0
             assert isinstance(robot.spawn, UsdFileCfgPrimPhysicsWrapper)
             assert robot.spawn.make_uninstanceable
             assert len(robot.spawn.prim_physics) == 26
@@ -626,6 +627,12 @@ def _test_usbc_insertion_environment(_simulation_app, variant: str, num_envs: in
 
     from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
+    from isaaclab_arena_environments.isaac_cap.embodiments.bimanual_yam.config import (
+        ARM_JOINT_NAMES,
+        GRIPPER_CLOSED_POSITION,
+        GRIPPER_JOINT_NAME,
+        PASSIVE_GRIPPER_JOINT_NAME,
+    )
     from isaaclab_arena_environments.isaac_cap.usbc_insertion.environment import (
         UsbcInsertionEasyEnvironment,
         UsbcInsertionEasyEnvironmentCfg,
@@ -690,6 +697,24 @@ def _test_usbc_insertion_environment(_simulation_app, variant: str, num_envs: in
         cable_joints = [label for label in NewtonManager.get_model().joint_label if "UsbcConnectorCable" in label]
         assert len(cable_joints) == (16 if variant == "easy" else 24) * num_envs
         _check_usbc_cable_reset(base_env, arena_environment)
+
+        for side in ("left", "right"):
+            robot = base_env.scene[f"{side}_robot"]
+            arm_joint_ids, _ = robot.find_joints(ARM_JOINT_NAMES)
+            gripper_joint_ids, _ = robot.find_joints([GRIPPER_JOINT_NAME, PASSIVE_GRIPPER_JOINT_NAME])
+            displaced_joints = robot.data.default_joint_pos.torch.clone()
+            displaced_joints[:, arm_joint_ids] += 0.2
+            displaced_joints[:, gripper_joint_ids] = GRIPPER_CLOSED_POSITION
+            robot.write_joint_state_to_sim(displaced_joints, torch.full_like(displaced_joints, 0.1))
+        base_env._reset_idx(torch.arange(num_envs, device=base_env.device))
+        for side in ("left", "right"):
+            robot = base_env.scene[f"{side}_robot"]
+            joint_pos_limits = robot.data.soft_joint_pos_limits.torch
+            expected_joint_pos = robot.data.default_joint_pos.torch.clamp(
+                joint_pos_limits[..., 0], joint_pos_limits[..., 1]
+            )
+            assert torch.allclose(robot.data.joint_pos.torch, expected_joint_pos)
+            assert torch.allclose(robot.data.joint_vel.torch, robot.data.default_joint_vel.torch)
 
         receiver = base_env.scene[arena_environment.task.receiver.name]
         moved_pose = receiver_pose.clone()

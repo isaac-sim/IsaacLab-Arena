@@ -3,6 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+external_yaml: gear_env_config.yaml
 env_name: gear_medium_train
 placer_params:
   allow_best_loss_fallbacks: false
@@ -119,4 +120,4 @@ task:
       - [0.032, 0.0, 0.008]
       - [0.077, 0.0, 0.008]
       - [0.127, 0.0, 0.008]
-      episode_length_s: 300.0
+      episode_length_s: 700.0

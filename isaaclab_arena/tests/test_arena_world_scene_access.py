@@ -8,6 +8,8 @@
 from types import SimpleNamespace
 from unittest.mock import patch
 
+import pytest
+
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
 
@@ -336,12 +338,15 @@ def _check_scene_extra_pose_reader_uses_current_frame_view_poses(scene_access_mo
     """Check FrameView construction and current T_W_F reads in environment row order."""
     import torch
 
+    from pxr import Usd
+
+    stage = Usd.Stage.CreateInMemory()
+    prims = [stage.DefinePrim(f"/World/envs/env_{i}/reference", "Xform") for i in range(2)]
+
     class FrameViewDouble:
         def __init__(self):
-            self.prim_paths = [
-                "/World/envs/env_0/reference",
-                "/World/envs/env_1/reference",
-            ]
+            self.count = 2
+            self.prims = []
             self.read_count = 0
             self.t_W_F_values = [
                 torch.tensor([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0]]),
@@ -361,7 +366,7 @@ def _check_scene_extra_pose_reader_uses_current_frame_view_poses(scene_access_mo
     scene = SimpleNamespace(
         num_envs=2,
         device="cpu",
-        stage=object(),
+        stage=stage,
         extras={"reference": object()},
         cfg=SimpleNamespace(reference=SimpleNamespace(prim_path="{ENV_REGEX_NS}/reference")),
         env_regex_ns="/World/envs/env_.*",
@@ -377,8 +382,19 @@ def _check_scene_extra_pose_reader_uses_current_frame_view_poses(scene_access_mo
         "/World/envs/env_.*/reference",
         device="cpu",
         stage=scene.stage,
+        validate_xform_ops=True,
     )
     assert frame_view.read_count == 2
+    frame_view.prims = prims
+    with patch.object(scene_access_module, "FrameView", return_value=frame_view):
+        scene_access_module.SceneExtraPoseReader(scene, "reference")
+        frame_view.prims.reverse()
+        with pytest.raises(AssertionError, match="pose row 0 belongs to"):
+            scene_access_module.SceneExtraPoseReader(scene, "reference")
+    frame_view.count = 1
+    with patch.object(scene_access_module, "FrameView", return_value=frame_view):
+        with pytest.raises(AssertionError, match="resolved to 1 frames; expected 2"):
+            scene_access_module.SceneExtraPoseReader(scene, "reference")
     torch.testing.assert_close(
         T_W_F_first,
         torch.cat((frame_view.t_W_F_values[0], frame_view.q_W_F_values[0]), dim=-1),

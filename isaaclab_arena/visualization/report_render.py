@@ -15,9 +15,9 @@ from urllib.parse import quote
 
 from isaaclab_arena.visualization.episode_results_files import REPORT_DIRNAME, DataIssue
 from isaaclab_arena.visualization.report_data import (
+    CompletionCriteriaFunnel,
     ExperimentSummary,
     JobSummary,
-    ObjectiveFunnel,
     RunExecutionReport,
     TaskSummary,
     is_completed_execution,
@@ -256,7 +256,7 @@ def _experiment_summary_line(summary: ExperimentSummary) -> str:
     )
 
 
-def _render_funnel(funnel: ObjectiveFunnel) -> str:
+def _render_funnel(funnel: CompletionCriteriaFunnel) -> str:
     if not funnel.stages:
         return ""
     rows = []
@@ -273,7 +273,7 @@ def _render_funnel(funnel: ObjectiveFunnel) -> str:
     return (
         f'<div class="funnel"><h3>{html.escape(funnel.name)}</h3>'
         + "".join(rows)
-        + f'<p class="note">{funnel.num_instances:,} objective instance(s)</p></div>'
+        + f'<p class="note">{funnel.num_instances:,} completion criteria instance(s)</p></div>'
     )
 
 
@@ -387,38 +387,38 @@ def _render_signal(signal) -> str:
     )
 
 
-def _render_objective(objective) -> str:
-    track = "".join(_render_signal(signal) for signal in objective.signals)
-    if objective.blocked_predicates:
-        blocked = ", ".join(objective.blocked_predicates)
+def _render_criteria(criteria) -> str:
+    track = "".join(_render_signal(signal) for signal in criteria.signals)
+    if criteria.blocked_predicates:
+        blocked = ", ".join(criteria.blocked_predicates)
         track += f'<span class="signal blocked"><span class="glyph">&#9654;</span>{html.escape(blocked)}</span>'
-    score = f"{round(objective.score, 2):g} / {round(objective.max_score, 2):g}"
-    family = "" if objective.family == objective.name else f'<span class="score">{html.escape(objective.family)}</span>'
+    score = f"{round(criteria.score, 2):g} / {round(criteria.max_score, 2):g}"
+    family = "" if criteria.family == criteria.name else f'<span class="score">{html.escape(criteria.family)}</span>'
     return (
-        '<div class="objective"><div class="objective-head">'
-        f'<span class="name">{html.escape(objective.name)}</span>{family}'
+        '<div class="criteria"><div class="criteria-head">'
+        f'<span class="name">{html.escape(criteria.name)}</span>{family}'
         f'<span class="score">{html.escape(score)}</span></div>'
         f'<div class="track">{track}</div></div>'
     )
 
 
-def _render_signals(objectives: list) -> str:
-    if not objectives:
+def _render_signals(criteria_sets: list) -> str:
+    if not criteria_sets:
         return ""
-    if len(objectives) == 1:
-        return f'<div class="signals">{_render_objective(objectives[0])}</div>'
+    if len(criteria_sets) == 1:
+        return f'<div class="signals">{_render_criteria(criteria_sets[0])}</div>'
 
-    num_triggered = sum(objective.num_triggered for objective in objectives)
-    num_signals = sum(len(objective.signals) for objective in objectives)
-    num_complete = sum(1 for objective in objectives if objective.is_complete)
-    body = "".join(_render_objective(objective) for objective in objectives)
+    num_triggered = sum(criteria.num_triggered for criteria in criteria_sets)
+    num_signals = sum(len(criteria.signals) for criteria in criteria_sets)
+    num_complete = sum(1 for criteria in criteria_sets if criteria.is_complete)
+    body = "".join(_render_criteria(criteria) for criteria in criteria_sets)
     return (
-        f'<details class="signals"><summary>{num_triggered} of {num_signals} known signals triggered '
-        f"across {len(objectives)} objectives &middot; {num_complete} complete</summary>{body}</details>"
+        f'<details class="signals"><summary>{num_triggered} of {num_signals} known signals triggered across'
+        f" {len(criteria_sets)} completion criteria sets &middot; {num_complete} complete</summary>{body}</details>"
     )
 
 
-def _render_episode_card(episode, cameras: list[str], video_prefix: str, policy: str = "", objectives=None) -> str:
+def _render_episode_card(episode, cameras: list[str], video_prefix: str, policy: str = "", criteria_sets=None) -> str:
     outcome = _episode_outcome(episode)
     progress = episode.progress_fraction
     progress_text = "" if progress is None else f'<span class="sub">progress {progress * 100:.0f}%</span>'
@@ -433,9 +433,11 @@ def _render_episode_card(episode, cameras: list[str], video_prefix: str, policy:
             body = f'<div class="placeholder" data-video-src="{_media_src(video_prefix, source)}">video</div>'
         slots.append(f'<div class="videoslot"><div class="camera">{html.escape(camera)}</div>{body}</div>')
 
-    signals_html = _render_signals(objectives or [])
+    signals_html = _render_signals(criteria_sets or [])
     if episode.outcome_disagrees_with_progress:
-        reached = "every objective completed" if episode.all_objectives_complete else "objectives are incomplete"
+        reached = (
+            "all completion criteria met" if episode.all_criteria_complete else "completion criteria are incomplete"
+        )
         verdict = "succeeded" if episode.success else "did not succeed"
         signals_html += (
             f'<p class="disagree">&#9888; {reached}, but the task\'s success term says this episode {verdict}.</p>'
@@ -479,7 +481,7 @@ def render_job_page(
     )
     cards = "".join(
         _render_episode_card(
-            episode, job.cameras, video_prefix, policy=job.policy, objectives=job.objectives_for(episode)
+            episode, job.cameras, video_prefix, policy=job.policy, criteria_sets=job.criteria_for(episode)
         )
         for episode in episodes
     )

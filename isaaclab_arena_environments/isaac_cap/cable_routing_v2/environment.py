@@ -61,7 +61,7 @@ class CableRoutingMediumEnvironment(ArenaEnvironmentFactory[CableRoutingMediumEn
         variant = self._variant_for_cfg(cfg)
         built_scene = build_cable_routing_scene(variant)
         embodiment = CableRoutingYamI2rtEmbodiment(
-            model_position=(-0.335, 0.0, 0.767),
+            model_position=variant.embodiment_midpoint,
             enable_cameras=cfg.enable_cameras,
             use_tiled_cameras=cfg.use_tiled_cameras,
             cable_camera_width=cfg.cable_camera_width,
@@ -81,9 +81,12 @@ class CableRoutingMediumEnvironment(ArenaEnvironmentFactory[CableRoutingMediumEn
             env_cfg_callback=partial(
                 configure_cable_routing_physics,
                 physics=variant.physics,
-                pin_start=variant.pin_start,
+                builder_physics=variant.cable_builder,
+                solver_extensions=variant.solver_extensions,
+                coupler_proxy=variant.coupler_proxy,
+                env_cfg_override=variant.env_cfg_override,
             ),
-            default_physics_backend=PhysicsBackend.NEWTON,
+            default_physics_backend=PhysicsBackend(variant.default_physics_backend),
         )
 
 

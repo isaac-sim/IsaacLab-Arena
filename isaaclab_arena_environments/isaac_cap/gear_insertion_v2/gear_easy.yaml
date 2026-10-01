@@ -3,6 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+external_yaml: gear_env_config.yaml
 env_name: gear_easy
 placer_params:
   allow_best_loss_fallbacks: false
@@ -101,4 +102,4 @@ task:
       board: board
       gear: gear_a
       gear_teeth: 20
-      episode_length_s: 100.0
+      episode_length_s: 300.0
