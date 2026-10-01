@@ -7,7 +7,9 @@ same reset, physics stepping and validation workflow as
 Physics drops the objects, and the configured validators decide whether to keep
 their final poses.
 
-Use the :doc:`recording` Python API to collect layouts. For ``ClutterOn``, pass
+Use ``collect_settled_placements`` from
+``isaaclab_arena.offline_placement.settled_placement`` to collect layouts in an
+environment you already own. For ``ClutterOn``, pass
 ``scene_assets=arena_env.get_placement_assets()`` so preparation can inspect the
 complete scene. Collection checks clutter prerequisites before resetting or
 stepping physics.

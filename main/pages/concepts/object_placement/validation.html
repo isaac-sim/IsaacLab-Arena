@@ -753,21 +753,109 @@ keep placement geometry-only.</p>
 <p>Both are set on <code class="docutils literal notranslate"><span class="pre">ObjectPlacerParams</span></code> in Python or the <code class="docutils literal notranslate"><span class="pre">placer_params</span></code> block
 in YAML; see <a class="reference internal" href="../environment/environment_definition.html"><span class="doc">Environment Definition</span></a>.</p>
 </section>
+<section id="post-physics-checks-for-recordings">
+<h2>Post-Physics Checks for Recordings<a class="headerlink" href="#post-physics-checks-for-recordings" title="Link to this heading">#</a></h2>
+<p>The <a class="reference internal" href="../offline_placement/recording.html"><span class="doc">placement recorder</span></a> advances physics
+for <code class="docutils literal notranslate"><span class="pre">settle.num_steps</span></code> environment steps before checking the final state.</p>
+<p>All required solver checks and enabled, applicable post-physics checks must pass.
+The post-physics checks share one settling pass:</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<colgroup>
+<col style="width: 25.0%" />
+<col style="width: 45.0%" />
+<col style="width: 30.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Check</p></th>
+<th class="head"><p>Measures</p></th>
+<th class="head"><p>Default limit</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">physics_settled</span></code></p></td>
+<td><p>Final linear and angular speed of every root, including the robot.</p></td>
+<td><p>0.1 m/s and 0.1 rad/s</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">pose_shift</span></code></p></td>
+<td><p>Initial-to-final translation and rotation of each root, excluding intentional
+<code class="docutils literal notranslate"><span class="pre">ClutterOn</span></code> drops.</p></td>
+<td><p>2 mm and 2 degrees</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">articulation_link_shift</span></code></p></td>
+<td><p>Task-object link motion relative to its root, excluding robot embodiments.</p></td>
+<td><p>2 mm and 2 degrees</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>Configure <code class="docutils literal notranslate"><span class="pre">settle.validators.&lt;check&gt;.&lt;setting&gt;</span></code> to change a limit.
+An inapplicable or disabled check is recorded as skipped. At least one applicable
+post-physics check must remain enabled.</p>
+<p>The recorder writes a file only when at least <code class="docutils literal notranslate"><span class="pre">settle.min_layouts</span></code> layouts
+are accepted across all batches (default 1). Otherwise, it exits with an error
+and writes no file.</p>
+<section id="understand-the-rejection-summary">
+<span id="recording-rejection-summary"></span><h3>Understand the Rejection Summary<a class="headerlink" href="#understand-the-rejection-summary" title="Link to this heading">#</a></h3>
+<p>Each <code class="docutils literal notranslate"><span class="pre">Rejected</span></code> line gives a reason and the number of layouts rejected for it.
+When a pose-shift limit is exceeded, the message includes the object, measured
+translation and rotation, and configured limits. Use the named
+check to decide what to adjust:</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<colgroup>
+<col style="width: 25.0%" />
+<col style="width: 30.0%" />
+<col style="width: 45.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Rejection</p></th>
+<th class="head"><p>Meaning</p></th>
+<th class="head"><p>What to check or change</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">solver</span> <span class="pre">validation</span> <span class="pre">failed</span></code></p></td>
+<td><p>A layout failed a required solver check.</p></td>
+<td><p>Read earlier solver diagnostics and check relation constraints and collision
+geometry. Increasing settling time cannot fix a solver failure.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">physics_settled</span></code></p></td>
+<td><p>Final root velocity is too high.</p></td>
+<td><p>Inspect contacts and support. Increase <code class="docutils literal notranslate"><span class="pre">settle.num_steps</span></code> if motion is
+still decaying. More time will not fix an unstable placement.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">pose_shift</span></code></p></td>
+<td><p>A root moved or rotated beyond its limits.</p></td>
+<td><p>Inspect the named object. For <code class="docutils literal notranslate"><span class="pre">On</span></code> relations, reduce <code class="docutils literal notranslate"><span class="pre">clearance_m</span></code> to
+reduce the release drop, or increase <code class="docutils literal notranslate"><span class="pre">edge_margin_m</span></code> to avoid support
+edges. Edit the relation’s <code class="docutils literal notranslate"><span class="pre">params</span></code> in the environment’s scene YAML.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">articulation_link_shift</span></code></p></td>
+<td><p>A task-object link shifted relative to its root.</p></td>
+<td><p>Check joint initialization and contacts. A root-pose recording cannot
+preserve the changed joint configuration.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">missing</span> <span class="pre">required</span> <span class="pre">solver</span> <span class="pre">checks</span></code></p></td>
+<td><p>A required pre-physics result is unavailable.</p></td>
+<td><p>Enable the required validator or fix its dependencies and source
+configuration.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>See <a class="reference internal" href="relations.html"><span class="doc">Relations and Strategies</span></a> for relation settings. Change validation
+limits under <code class="docutils literal notranslate"><span class="pre">settle.validators</span></code> only when the new tolerance fits your evaluation.
+Increasing <code class="docutils literal notranslate"><span class="pre">layouts_per_env</span></code> samples more candidates without changing which
+checks they must pass.</p>
+</section>
+</section>
 <section id="custom-validators">
 <h2>Custom Validators<a class="headerlink" href="#custom-validators" title="Link to this heading">#</a></h2>
-<p>Build-time checks subclass <code class="docutils literal notranslate"><span class="pre">PrePhysicsPlacementValidator</span></code> from
-<code class="docutils literal notranslate"><span class="pre">isaaclab_arena.relations.validation.pre_physics</span></code> and register with
-<code class="docutils literal notranslate"><span class="pre">register_validator</span></code> from <code class="docutils literal notranslate"><span class="pre">isaaclab_arena.relations.validation.registry</span></code>.
-Implement <code class="docutils literal notranslate"><span class="pre">validate_batch(batch,</span> <span class="pre">collision_objects)</span></code> to return one boolean per
-candidate and give the class a unique <code class="docutils literal notranslate"><span class="pre">check</span></code> name. Include that name in
-<code class="docutils literal notranslate"><span class="pre">ObjectPlacerParams.enabled_checks</span></code> when explicitly selecting checks.
-Existing extensions importing the build-time <code class="docutils literal notranslate"><span class="pre">PlacementValidator</span></code> should use
-<code class="docutils literal notranslate"><span class="pre">PrePhysicsPlacementValidator</span></code> instead. The constructor is unchanged, but
-<code class="docutils literal notranslate"><span class="pre">validate_batch</span></code> now takes a <code class="docutils literal notranslate"><span class="pre">PlacementCandidateBatch</span></code> instead of separate
-position, orientation and bounding-box lists. Import
-<code class="docutils literal notranslate"><span class="pre">PlacementCheck</span></code>, <code class="docutils literal notranslate"><span class="pre">PlacementValidationResults</span></code> and <code class="docutils literal notranslate"><span class="pre">PlacementValidatorReport</span></code>
-from <code class="docutils literal notranslate"><span class="pre">isaaclab_arena.relations.validation.types</span></code>.</p>
-<p>For example, reject layouts with any object origin above 1.5 metres:</p>
+<section id="pre-physics-validators">
+<h3>Pre-Physics Validators<a class="headerlink" href="#pre-physics-validators" title="Link to this heading">#</a></h3>
+<p>Pre-physics validators checks the solver’s proposed layout before physics is advanced. Subclass
+<code class="docutils literal notranslate"><span class="pre">PrePhysicsPlacementValidator</span></code> and register a unique <code class="docutils literal notranslate"><span class="pre">check</span></code> name which should be included in
+<code class="docutils literal notranslate"><span class="pre">ObjectPlacerParams.enabled_checks</span></code>. Return one boolean per candidate, in batch order. For
+example, reject layouts with any object origin above 1.5 metres:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.relations.validation.pre_physics</span><span class="w"> </span><span class="kn">import</span> <span class="n">PrePhysicsPlacementValidator</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.relations.validation.registry</span><span class="w"> </span><span class="kn">import</span> <span class="n">register_validator</span>
 
@@ -788,10 +876,66 @@ from <code class="docutils literal notranslate"><span class="pre">isaaclab_arena
 <p>Import the module defining this class before constructing <code class="docutils literal notranslate"><span class="pre">ObjectPlacer</span></code>.
 Default settings run and require the registered check. If <code class="docutils literal notranslate"><span class="pre">enabled_checks</span></code> is
 explicit, include <code class="docutils literal notranslate"><span class="pre">&quot;max_origin_height&quot;</span></code> to run it.</p>
-<p>The shared <code class="docutils literal notranslate"><span class="pre">PlacementValidator</span></code> in <code class="docutils literal notranslate"><span class="pre">isaaclab_arena.relations.validation.base</span></code>
-defines the check name and stage. Post-physics checks use
-<code class="docutils literal notranslate"><span class="pre">PostPhysicsPlacementValidator</span></code>; see <a class="reference internal" href="../offline_placement/recording.html"><span class="doc">Record and Replay Placement Poses</span></a> for
-their configuration and reporting contract.</p>
+</section>
+<section id="post-physics-validators">
+<h3>Post-Physics Validators<a class="headerlink" href="#post-physics-validators" title="Link to this heading">#</a></h3>
+<p>Subclass <code class="docutils literal notranslate"><span class="pre">PostPhysicsPlacementValidator</span></code> to check captured measurements after
+settling. Return one report per entry in <code class="docutils literal notranslate"><span class="pre">batch.env_ids</span></code>, in the same order.
+<code class="docutils literal notranslate"><span class="pre">self.report</span></code> includes the validator’s settings, verdict and rejection reason.</p>
+<p>Save this example as <code class="docutils literal notranslate"><span class="pre">placement_validators.py</span></code> in the repository root. It checks
+the final height of every recorded root, including the robot, in metres relative
+to the local environment origin:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">math</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">ClassVar</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.offline_placement.post_physics_validation</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">PostPhysicsPlacementValidator</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.offline_placement.settled_batch</span><span class="w"> </span><span class="kn">import</span> <span class="n">SettledBatch</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.relations.validation.types</span><span class="w"> </span><span class="kn">import</span> <span class="n">PlacementValidatorReport</span>
+
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">MaxRootHeightValidator</span><span class="p">(</span><span class="n">PostPhysicsPlacementValidator</span><span class="p">):</span>
+    <span class="n">check</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"max_root_height"</span>
+    <span class="n">max_height_m</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.5</span>
+<span class="w">    </span><span class="sd">"""Maximum final root height in the local environment frame, in metres."""</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">validate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">batch</span><span class="p">:</span> <span class="n">SettledBatch</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">PlacementValidatorReport</span><span class="p">]:</span>
+        <span class="n">reports</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">env_id</span> <span class="ow">in</span> <span class="n">batch</span><span class="o">.</span><span class="n">env_ids</span><span class="p">:</span>
+            <span class="n">reason</span> <span class="o">=</span> <span class="s2">""</span>
+            <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">poses</span> <span class="ow">in</span> <span class="n">batch</span><span class="o">.</span><span class="n">final_root_poses</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="n">height_m</span> <span class="o">=</span> <span class="n">poses</span><span class="p">[</span><span class="n">env_id</span><span class="p">,</span> <span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">math</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">height_m</span><span class="p">)</span> <span class="ow">or</span> <span class="n">height_m</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_height_m</span><span class="p">:</span>
+                    <span class="n">reason</span> <span class="o">=</span> <span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2">: final root height </span><span class="si">{</span><span class="n">height_m</span><span class="si">:</span><span class="s2">g</span><span class="si">}</span><span class="s2"> m; "</span>
+                        <span class="sa">f</span><span class="s2">"limit </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">max_height_m</span><span class="si">:</span><span class="s2">g</span><span class="si">}</span><span class="s2"> m"</span>
+                    <span class="p">)</span>
+                    <span class="k">break</span>
+            <span class="n">reports</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">report</span><span class="p">(</span><span class="n">passed</span><span class="o">=</span><span class="ow">not</span> <span class="nb">bool</span><span class="p">(</span><span class="n">reason</span><span class="p">),</span> <span class="n">reason</span><span class="o">=</span><span class="n">reason</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">reports</span>
+</pre></div>
+</div>
+<p>Run the recorder from the repository root, adding that directory to
+<code class="docutils literal notranslate"><span class="pre">PYTHONPATH</span></code> so Hydra can import the module:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nv">PYTHONPATH</span><span class="o">=</span><span class="s2">"</span><span class="nv">$PWD</span><span class="si">${</span><span class="nv">PYTHONPATH</span><span class="p">:+:</span><span class="nv">$PYTHONPATH</span><span class="si">}</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
+python<span class="w"> </span>isaaclab_arena/scripts/record_placement_layouts.py<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span><span class="nv">env_spec</span><span class="o">=</span>isaaclab_arena_environments/robolab/tasks/clamp_in_right_bin.yaml<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span><span class="nv">output</span><span class="o">=</span>outputs/placements/clamp_custom.jsonl<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span><span class="nv">num_envs</span><span class="o">=</span><span class="m">4</span><span class="w"> </span><span class="nv">env_spacing</span><span class="o">=</span><span class="m">2</span><span class="w"> </span><span class="nv">layouts_per_env</span><span class="o">=</span><span class="m">4</span><span class="w"> </span><span class="nv">seed</span><span class="o">=</span><span class="m">42</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>settle.num_steps<span class="o">=</span><span class="m">120</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>settle.validators.pose_shift.max_translation_m<span class="o">=</span><span class="m">0</span>.015<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>+settle.validators.max_root_height._target_<span class="o">=</span>placement_validators.MaxRootHeightValidator<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>+settle.validators.max_root_height.max_height_m<span class="o">=</span><span class="m">1</span>.5<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span><span class="nv">render</span><span class="o">=</span><span class="nb">false</span><span class="w"> </span>--device<span class="w"> </span>cpu<span class="w"> </span>--viz<span class="w"> </span>none
+</pre></div>
+</div>
+<p>The configuration key (<code class="docutils literal notranslate"><span class="pre">max_root_height</span></code>) must match the class’s <code class="docutils literal notranslate"><span class="pre">check</span></code> name.
+Hydra loads post-physics validators through <code class="docutils literal notranslate"><span class="pre">_target_</span></code>; no <code class="docutils literal notranslate"><span class="pre">&#64;register_validator</span></code>
+decorator is needed. This command adds the custom check alongside the default
+checks. Every enabled, applicable check must pass for a layout to be recorded.</p>
+</section>
 </section>
 <section id="next-steps">
 <h2>Next Steps<a class="headerlink" href="#next-steps" title="Link to this heading">#</a></h2>
@@ -856,7 +1000,15 @@ layouts that pass these checks.</p>
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#enabling-and-disabling-checks">Enabling and Disabling Checks</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#custom-validators">Custom Validators</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#post-physics-checks-for-recordings">Post-Physics Checks for Recordings</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#understand-the-rejection-summary">Understand the Rejection Summary</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#custom-validators">Custom Validators</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#pre-physics-validators">Pre-Physics Validators</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#post-physics-validators">Post-Physics Validators</a></li>
+</ul>
+</li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#next-steps">Next Steps</a></li>
 </ul>
   </nav></div>

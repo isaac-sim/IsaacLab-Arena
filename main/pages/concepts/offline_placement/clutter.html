@@ -580,7 +580,9 @@ same reset, physics stepping and validation workflow as
 <a class="reference internal" href="recording.html"><span class="doc">Record and Replay Placement Poses</span></a>. Each reset selects a solved layout from the placement pool.
 Physics drops the objects, and the configured validators decide whether to keep
 their final poses.</p>
-<p>Use the <a class="reference internal" href="recording.html"><span class="doc">Record and Replay Placement Poses</span></a> Python API to collect layouts. For <code class="docutils literal notranslate"><span class="pre">ClutterOn</span></code>, pass
+<p>Use <code class="docutils literal notranslate"><span class="pre">collect_settled_placements</span></code> from
+<code class="docutils literal notranslate"><span class="pre">isaaclab_arena.offline_placement.settled_placement</span></code> to collect layouts in an
+environment you already own. For <code class="docutils literal notranslate"><span class="pre">ClutterOn</span></code>, pass
 <code class="docutils literal notranslate"><span class="pre">scene_assets=arena_env.get_placement_assets()</span></code> so preparation can inspect the
 complete scene. Collection checks clutter prerequisites before resetting or
 stepping physics.</p>
