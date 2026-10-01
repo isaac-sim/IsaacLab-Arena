@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 
 from omegaconf import MISSING
 
-from isaaclab_arena.offline_placement.recording_params import PlacementRecordingParams
+from isaaclab_arena.offline_placement.settled_placement_params import SettledPlacementParams
 
 
 @dataclass
@@ -42,8 +42,8 @@ class PlacementRecordingCfg:
     """Optional physics backend override: physx or newton."""
     render: bool = False
     """Render physics steps when a visualizer is enabled."""
-    settle: PlacementRecordingParams = field(default_factory=PlacementRecordingParams)
-    """Physics duration, configured validators and minimum accepted count."""
+    settle: SettledPlacementParams = field(default_factory=SettledPlacementParams)
+    """Physics duration and configured post-physics validators."""
 
 
 def resolved_num_layouts(cfg: PlacementRecordingCfg) -> int:

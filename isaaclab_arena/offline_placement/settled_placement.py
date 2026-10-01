@@ -7,7 +7,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.offline_placement.clutter_preparation import prepare_clutter_settling
@@ -51,6 +51,38 @@ class SettledPlacementResult:
     def attempted(self) -> int:
         """Total source candidates, including solver failures."""
         return len(self.accepted_indices) + len(self.rejections)
+
+
+def _merge_validator_configs(base: dict[str, dict], overrides: dict[str, dict]) -> dict[str, dict]:
+    """Combine default validator targets with partial Hydra overrides."""
+    merged = {name: dict(configuration) for name, configuration in base.items()}
+    for name, override in overrides.items():
+        if name in merged:
+            combined = dict(merged[name])
+            combined.update(override)
+            merged[name] = combined
+        else:
+            merged[name] = dict(override)
+    return merged
+
+
+def resolve_settle_params(
+    assets: list[PlaceableAsset], params: SettledPlacementParams | None
+) -> SettledPlacementParams:
+    """Return settle params, merging clutter validators when the scene uses ClutterOn.
+
+    Args:
+        assets: Placement and scene assets checked for clutter relations.
+        params: User settle settings, or None for scene-appropriate defaults.
+    """
+    has_clutter = any(get_relation(asset, ClutterOn) is not None for asset in assets)
+    if params is None:
+        validators = default_clutter_validators() if has_clutter else default_post_physics_validators()
+        return SettledPlacementParams(validators=validators)
+    if not has_clutter:
+        return params
+    merged = _merge_validator_configs(default_clutter_validators(), params.validators)
+    return replace(params, validators=merged)
 
 
 def collect_settled_placements(
@@ -101,9 +133,7 @@ def collect_settled_placements(
     if has_clutter:
         assert scene_assets is not None, "Clutter collection requires complete scene_assets from get_placement_assets()"
         prepare_clutter_settling(env, assets)
-    if params is None:
-        defaults = default_clutter_validators() if has_clutter else default_post_physics_validators()
-        params = SettledPlacementParams(validators=defaults)
+    params = resolve_settle_params(assets, params)
     keys = sorted(set(env.scene.rigid_objects) | set(env.scene.articulations))
     assert keys, "Collection requires rigid objects or articulations"
     embodiment_keys = set()

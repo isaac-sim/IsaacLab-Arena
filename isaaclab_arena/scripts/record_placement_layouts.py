@@ -24,7 +24,7 @@ if TYPE_CHECKING:
     import gymnasium as gym
 
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
-    from isaaclab_arena.offline_placement.recording_params import PlacementRecordingParams
+    from isaaclab_arena.offline_placement.settled_placement_params import SettledPlacementParams
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
     from isaaclab_arena.relations.placement_asset import PlaceableAsset
 
@@ -80,7 +80,7 @@ def record_placements_to_jsonl(
     *,
     num_layouts: int,
     max_batches: int,
-    params: PlacementRecordingParams | None = None,
+    params: SettledPlacementParams | None = None,
     render: bool = False,
     scene_assets: list[PlaceableAsset] | None = None,
 ) -> PlacementRecordingSummary:
@@ -102,10 +102,10 @@ def record_placements_to_jsonl(
     """
     from isaaclab_arena.offline_placement.recording import (
         collect_layouts_until_count,
-        resolve_settle_params,
         validate_recording_assets,
         write_settled_layouts,
     )
+    from isaaclab_arena.offline_placement.settled_placement import resolve_settle_params
     from isaaclab_arena.relations.placement_events import get_placement_pool
 
     output = Path(output)
