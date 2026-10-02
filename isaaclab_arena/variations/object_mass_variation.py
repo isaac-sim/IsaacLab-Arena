@@ -65,7 +65,10 @@ class ObjectMassVariation(RunTimeVariationBase):
             "sampler_cfg.high": ParameterMetadata(units="kg", minimum=_MIN_PHYSICAL_MASS_KG),
         },
         constraints=("Supports one rigid body; inertia scaling assumes unchanged geometry and uniform density.",),
-        reset_semantics="One absolute mass per resetting environment; inertia is scaled from its nominal value.",
+        reset_semantics=(
+            "One absolute mass per resetting environment; inertia scales from its nominal value "
+            "when recompute_inertia is enabled."
+        ),
     )
 
     def __init__(

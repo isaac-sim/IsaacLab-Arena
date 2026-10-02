@@ -42,10 +42,10 @@ Lint and format tooling (`pre-commit` and the hooks it runs — black, flake8, i
 - `osmo/` — OSMO policy-runner workflow
 - `docs/` — Sphinx documentation
 
-## Discover environment authoring APIs first
+## Discover existing authoring features
 
-Read [the authoring discovery guide](docs/pages/concepts/agentic_environment_generation/authoring_discovery.rst)
-before inventing a task, asset wrapper, or variation interface. In the clone's container:
+Read [the authoring guide](docs/pages/concepts/agentic_environment_generation/authoring_discovery.rst)
+before adding a factory, task or variation. In the clone's container:
 
 ```bash
 /isaac-sim/python.sh isaaclab_arena_examples/agentic_environment_generation/cli_runner.py --mode catalog --format json
@@ -53,18 +53,12 @@ before inventing a task, asset wrapper, or variation interface. In the clone's c
 /isaac-sim/python.sh isaaclab_arena_examples/agentic_environment_generation/cli_runner.py --mode validate --format json --env_spec <graph.yaml>
 ```
 
-These modes do not construct assets or start SimulationApp. Prefer configuring an existing registered
-environment, then composing a graph, before writing a Python factory. Experiment Definitions accept
-graph YAML paths directly as `environment.type`; a graph needs no custom runner wrapper.
-Use the registered task catalogue first (generation supports `@agent_ready` tasks), then existing
-predicates and composite task contracts.
-Use a custom task runtime only for state or lifecycle behavior those interfaces cannot express.
-Match required/provided affordances, inspect declared parameter units and reset semantics, and run
-static validation before simulation. For attached variations, use the existing runner's
-`--list_variations --variations_format json --variations_output /tmp/arena_variations.json`
-to discover exact paths and task restriction reasons. Parse the output file, since stdout also
-contains simulator logs. Attached variation discovery starts SimulationApp and constructs assets;
-unlike static catalogue/schema/validation, it requires the simulation runtime and asset access.
+Prefer configuring a registered environment, then composing a graph, before writing a Python factory.
+Match the graph schema to the required options; constructor metadata does not expand graph support.
+Experiment Definitions accept graph YAML paths directly as `environment.type`, without a custom runner.
+Catalogue/schema/validation do not construct assets or start SimulationApp. For attached variations,
+use the existing runner's `--list_variations --variations_format json --variations_output <file.json>`;
+that inspection starts SimulationApp, so parse the separate file rather than simulator console output.
 
 ## Coding style
 

@@ -13,33 +13,12 @@ import pytest
 
 from isaaclab_arena.affordances.openable import Openable
 from isaaclab_arena.affordances.pressable import Pressable
-from isaaclab_arena.agentic_environment_generation.catalogues import (
-    RelationCatalogue,
-    build_asset_catalogue,
-    build_task_catalogue,
-)
-from isaaclab_arena.agentic_environment_generation.semantic_validation import (
-    collect_semantic_validation_issues,
-    validate_authoring_spec,
-)
+from isaaclab_arena.agentic_environment_generation.catalogues import build_asset_catalogue
+from isaaclab_arena.agentic_environment_generation.semantic_validation import validate_authoring_spec
 from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.environment_spec.arena_env_graph_yaml_loader import load_env_graph_spec_dict
 from isaaclab_arena_environments.return_to_service import asset_adapters
 from isaaclab_arena_environments.return_to_service.assets import PreparedAssets
-
-
-class _Registry:
-    def __init__(self, entries):
-        self.entries = entries
-
-    def get_all_keys(self):
-        return list(self.entries)
-
-    def get_asset_by_name(self, name):
-        return self.entries[name]
-
-    def get_task_by_name(self, name):
-        return self.entries[name]
 
 
 def test_service_discovery_and_small_graph_do_not_prepare_assets(monkeypatch):
@@ -47,6 +26,7 @@ def test_service_discovery_and_small_graph_do_not_prepare_assets(monkeypatch):
         raise AssertionError("Discovery must not prepare or generate service assets")
 
     monkeypatch.setattr(asset_adapters, "prepare_assets", fail)
+    monkeypatch.setattr(Asset, "__init__", fail)
     catalogue = build_asset_catalogue()
     assert "return_to_service_bench" in {entry["name"] for entry in catalogue.backgrounds}
     entries = {entry["name"]: entry for entry in catalogue.objects}
@@ -137,67 +117,3 @@ def test_adapters_reject_incompatible_geometry_before_preparing_assets(monkeypat
     monkeypatch.setattr(asset_adapters, "prepare_assets", fail)
     with pytest.raises(AssertionError, match="Unknown"):
         asset_type(component=value)
-
-
-@pytest.mark.parametrize("subject", ["fixture", "case"])
-def test_region_placement_rejects_nonrigid_registered_service_subjects_without_constructing(monkeypatch, subject):
-    from isaaclab_arena.tasks.place_in_region_task import PlaceInRegionTask
-    from isaaclab_arena_environments.return_to_service.asset_adapters import (
-        ServiceCase,
-        ServiceComponent,
-        ServiceFixture,
-    )
-
-    def fail(*args, **kwargs):
-        raise AssertionError("Static validation must not construct service assets")
-
-    for asset_class in (ServiceComponent, ServiceFixture, ServiceCase):
-        monkeypatch.setattr(asset_class, "__new__", staticmethod(fail))
-    classes = {"part": ServiceComponent, "fixture": ServiceFixture, "case": ServiceCase}
-    catalogue = build_asset_catalogue(_Registry(classes))
-    task_catalogue = build_task_catalogue(_Registry({"PlaceInRegionTask": PlaceInRegionTask}))
-    data = {
-        "objects": [{"id": name, "registry_name": name} for name in classes],
-        "task": {
-            "subtasks": [{
-                "kind": "PlaceInRegionTask",
-                "params": {
-                    "subject": subject,
-                    "destination": "fixture",
-                    "region_bounds": [[-1, -1, -1], [1, 1, 1]],
-                },
-            }]
-        },
-    }
-    issues = collect_semantic_validation_issues(data, catalogue, task_catalogue, RelationCatalogue())
-    issue = next(issue for issue in issues if issue.path == "/task/subtasks/0/params/subject")
-    assert issue.code == "missing_capability"
-    assert issue.expected == {"capabilities": ["rigid"]}
-    assert issue.compatible_choices == ["part"]
-    data["task"]["subtasks"][0]["params"]["subject"] = "part"
-    issues = collect_semantic_validation_issues(data, catalogue, task_catalogue, RelationCatalogue())
-    assert not any(issue.path.startswith("/task/") for issue in issues)
-    # These interfaces certify the declared physics type, not collision-shape compatibility.
-    part = next(entry for entry in catalogue.objects if entry["name"] == "part")
-    assert "rigid" in part["provides"]
-
-
-def test_droid_battery_in_bin_example_passes_declared_contract_validation(monkeypatch):
-    import yaml
-    from pathlib import Path
-
-    from isaaclab_arena_environments.return_to_service import asset_adapters
-
-    def fail(*args, **kwargs):
-        raise AssertionError("Example validation must not prepare or instantiate assets")
-
-    monkeypatch.setattr(asset_adapters, "prepare_assets", fail)
-    monkeypatch.setattr(Asset, "__init__", fail)
-    path = (
-        Path(__file__).resolve().parents[2]
-        / "isaaclab_arena_environments/return_to_service/authoring_examples/battery_in_bin.yaml"
-    )
-    data = yaml.safe_load(path.read_text())
-    assert data["embodiment"]["registry_name"] == "droid_differential_ik"
-    report = validate_authoring_spec(data)
-    assert report["valid"], report["issues"]

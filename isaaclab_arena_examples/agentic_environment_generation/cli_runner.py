@@ -68,7 +68,7 @@ def add_agentic_env_gen_runner_cli_args(parser: argparse.ArgumentParser) -> None
         help=(
             "Which phases to run: 'schema' (print the spec JSON schema and exit), "
             "'catalog' (print the agent catalog and exit), "
-            "'validate' (check --env_spec schema and declared semantics without a build), "
+            "'validate' (check --env_spec with the existing schema and catalogue checks), "
             "'prim_tree' (print the background prim tree of --env_spec and exit), "
             "'resolve' (prompt -> spec YAML, no Isaac Sim), "
             "'build' (needs --env_spec), or 'full' (resolve and build in one process; default). "
@@ -269,10 +269,8 @@ def validate_env_spec(path: Path | None, output_format: str = "text") -> int:
         report = {
             "schema_version": 1,
             "valid": False,
-            "validation_scope": "schema_and_declared_semantics",
-            "issues": [
-                {"code": "input_error", "path": "/", "message": str(exc), "expected": None, "compatible_choices": []}
-            ],
+            "validation_scope": "schema_and_catalogue",
+            "issues": [{"code": "input_error", "path": "/", "message": str(exc)}],
         }
     else:
         with redirect_stdout(sys.stderr):
@@ -280,12 +278,10 @@ def validate_env_spec(path: Path | None, output_format: str = "text") -> int:
     if output_format == "json":
         print(json.dumps(report, indent=2, allow_nan=False))
     elif report["valid"]:
-        print("Valid schema and declared semantics. Build and simulation checks remain necessary.")
+        print("Existing schema and catalogue checks passed. Build and simulation checks remain necessary.")
     else:
         for issue in report["issues"]:
             print(f"{issue['path']}: {issue['message']}")
-            if issue["compatible_choices"]:
-                print(f"  Compatible choices: {', '.join(str(choice) for choice in issue['compatible_choices'])}")
     return 0 if report["valid"] else 1
 
 
