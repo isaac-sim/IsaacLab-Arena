@@ -23,12 +23,16 @@ Both tasks reuse `depth_in_range`, `lateral_in_proximity`, and
 depth ≥10.4 mm, CAP's calibrated lateral error ≤8.7931792 mm, and plug speed
 ≤0.05 m/s.
 Neither current CAP variant adds a tilt gate or maximum depth.
-Arena's shared `gripper_released` predicate checks measured jaw clearance, and
+The core `gripper_not_grasping` predicate matches CAP: a grasp is
+detected only when the measured finger position exceeds its command by more than
+0.2 mm and the jaw gap is within 1.5 mm of the plug's 10 mm grasp width. Release
+is the negation of that condition; a closed empty hand can therefore count as
+released. The shared
 `gripper_distance_from_object_exceeds_threshold` checks the embodiment-owned
 work-hand TCP against the plug (>40 mm for easy, >50 mm for medium). The YAM
 embodiment owns the robot joint and frame details; the task graphs contain only
 the grasp geometry and success thresholds. Both predicates must pass;
-`gripper_released` is included only when `require_released` is enabled.
+`gripper_not_grasping` is included only when `require_released` is enabled.
 Success is not just geometric alignment while a hand still holds the plug.
 
 The shared graph `env_cfg_override` selects Newton and configures 60 Hz control

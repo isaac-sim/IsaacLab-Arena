@@ -91,17 +91,14 @@ class UsbcEnvBehaviourDemo(EnvBehaviourDemo):
         """Resolve the five predicates and state writers used by the trajectory."""
         import torch
 
-        from isaaclab_arena.tasks.predicates.gripper import gripper_released
+        from isaaclab_arena.tasks.predicates.gripper import gripper_not_grasping
         from isaaclab_arena.tasks.predicates.spatial import (
             depth_in_range,
             gripper_distance_from_object_exceeds_threshold,
             lateral_in_proximity,
             velocity_below_threshold,
         )
-        from isaaclab_arena_environments.isaac_cap.embodiments.bimanual_yam.config import (
-            GRIPPER_CLOSED_POSITION,
-            GRIPPER_OPEN_POSITION,
-        )
+        from isaaclab_arena_environments.isaac_cap.embodiments.bimanual_yam.config import GRIPPER_OPEN_POSITION
 
         self.torch = torch
         self.task = self.arena_environment.task
@@ -111,7 +108,7 @@ class UsbcEnvBehaviourDemo(EnvBehaviourDemo):
             depth_in_range,
             lateral_in_proximity,
             velocity_below_threshold,
-            gripper_released,
+            gripper_not_grasping,
             gripper_distance_from_object_exceeds_threshold,
         ]
         actual_functions = [predicate.func for predicate in self.predicates]
@@ -146,7 +143,8 @@ class UsbcEnvBehaviourDemo(EnvBehaviourDemo):
         assert len(gripper_joint_ids) == 1, f"Expected one work-hand gripper joint, got {gripper_joint_names}."
         self.gripper_joint_ids = gripper_joint_ids
         self.gripper_open_position = GRIPPER_OPEN_POSITION
-        self.gripper_closed_position = GRIPPER_CLOSED_POSITION
+        self.gripper_grasp_position = release_params["grasp_width_m"] / 2.0
+        self.gripper_action = self.base_env.action_manager.get_term(self.gripper.action_term_name)
 
         withdrawal_params = self.predicates[4].params
         assert withdrawal_params["gripper"] is self.gripper, "Release and withdrawal must use the same gripper."
@@ -179,8 +177,10 @@ class UsbcEnvBehaviourDemo(EnvBehaviourDemo):
         asset.write_root_velocity_to_sim_index(root_velocity=velocity, env_ids=self.env_ids)
 
     def _set_gripper_released(self, released: bool) -> None:
-        """Teleport the measured work-hand joint to its open or closed position."""
-        position = self.gripper_open_position if released else self.gripper_closed_position
+        """Set an open hand or a stalled closing grasp without stepping physics."""
+        position = self.gripper_open_position if released else self.gripper_grasp_position
+        closedness = self.zero_velocity.new_full((self.num_envs, 1), 0.0 if released else 1.0)
+        self.gripper_action.process_actions(closedness)
         joint_position = self.zero_velocity.new_full((self.num_envs, 1), position)
         joint_velocity = self.zero_velocity.new_zeros((self.num_envs, 1))
         self.work_robot.write_joint_state_to_sim_index(
@@ -419,7 +419,7 @@ class UsbcEnvBehaviourDemo(EnvBehaviourDemo):
                 {**start_state, "lateral_m": 0.0, "speed_m_s": 0.0},
             ),
             (
-                "gripper_released",
+                "gripper_not_grasping",
                 [True, True, True, True, False],
                 {**start_state, "lateral_m": 0.0, "speed_m_s": 0.0, "gripper_released": True},
             ),

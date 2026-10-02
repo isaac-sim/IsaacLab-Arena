@@ -160,7 +160,7 @@ def test_usbc_demo_headless_cli(variant: str) -> None:
         "depth_in_range",
         "lateral_in_proximity",
         "velocity_below_threshold",
-        "gripper_released",
+        "gripper_not_grasping",
         "gripper_distance_from_object_exceeds_threshold",
     ):
         assert predicate_name in result.stdout, result.stdout

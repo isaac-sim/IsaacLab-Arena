@@ -17,7 +17,7 @@ from isaaclab_arena.assets.register import register_task
 from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.metrics.success_rate import SuccessRateMetric
 from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
-from isaaclab_arena.tasks.predicates.gripper import gripper_released
+from isaaclab_arena.tasks.predicates.gripper import gripper_not_grasping
 from isaaclab_arena.tasks.predicates.spatial import (
     depth_in_range,
     gripper_distance_from_object_exceeds_threshold,
@@ -55,7 +55,8 @@ class UsbcInsertionTask(TaskBase):
         tilt_max: float | None = None,
         allow_antiparallel_axes: bool = False,
         grasp_width_m: float | None = None,
-        release_clearance_m: float = 1.5e-3,
+        release_gap_band_m: float = 1.5e-3,
+        release_stall_margin_m: float = 2.0e-4,
         withdrawal_distance_min: float | None = None,
         require_released: bool = False,
         consecutive_success_steps: int = 1,
@@ -82,8 +83,11 @@ class UsbcInsertionTask(TaskBase):
             math.isfinite(grasp_width_m) and grasp_width_m > 0.0
         ), "grasp_width_m must be positive and finite."
         assert (
-            math.isfinite(release_clearance_m) and release_clearance_m >= 0.0
-        ), "release_clearance_m must be non-negative and finite."
+            math.isfinite(release_gap_band_m) and release_gap_band_m > 0.0
+        ), "release_gap_band_m must be positive and finite."
+        assert (
+            math.isfinite(release_stall_margin_m) and release_stall_margin_m >= 0.0
+        ), "release_stall_margin_m must be non-negative and finite."
         assert not require_released or grasp_width_m is not None, "Release checking requires grasp_width_m."
         assert withdrawal_distance_min is None or (
             math.isfinite(withdrawal_distance_min) and withdrawal_distance_min > 0.0
@@ -150,10 +154,11 @@ class UsbcInsertionTask(TaskBase):
         )
         if require_released:
             release_cfg = TerminationTermCfg(
-                func=gripper_released,
+                func=gripper_not_grasping,
                 params={
                     "grasp_width_m": grasp_width_m,
-                    "release_clearance_m": release_clearance_m,
+                    "gap_band_m": release_gap_band_m,
+                    "stall_margin_m": release_stall_margin_m,
                 },
             )
             predicates.append(release_cfg)
@@ -173,7 +178,7 @@ class UsbcInsertionTask(TaskBase):
         self._gripper_predicates = [
             predicate
             for predicate in success_requirement.predicate.params["predicates"]
-            if predicate.func in (gripper_released, gripper_distance_from_object_exceeds_threshold)
+            if predicate.func in (gripper_not_grasping, gripper_distance_from_object_exceeds_threshold)
         ]
         self.termination_cfg = TaskTerminationCfg(
             timeout_s=self.episode_length_s,

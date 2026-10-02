@@ -16,6 +16,7 @@ from isaaclab.utils.math import combine_frame_transforms
 
 if TYPE_CHECKING:
     from isaaclab_arena.environments.arena_world import ArenaWorld
+    from isaaclab_arena.environments.isaaclab_arena_manager_based_env import IsaacLabArenaManagerBasedRLEnv
 
 
 _ROBOTIQ_2F85_LINKAGE_AMPLITUDE_M = 0.1143
@@ -33,6 +34,10 @@ class Gripper(Protocol):
     def get_opening_width_m(self, world: ArenaWorld) -> torch.Tensor:
         """Return the gripper opening width in meters with shape ``(num_envs,)``."""
         ...
+
+    def get_closing_error_m(self, env: IsaacLabArenaManagerBasedRLEnv) -> torch.Tensor:
+        """Return closing displacement error in meters; positive means more open than commanded."""
+        raise NotImplementedError(f"{type(self).__name__} does not expose a closing command error.")
 
 
 class ParallelJawGripper(Gripper, Protocol):

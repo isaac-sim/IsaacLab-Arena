@@ -122,7 +122,8 @@ task:
       lateral_max: 0.0087931792
       speed_max: 0.05
       grasp_width_m: 0.01
-      release_clearance_m: 0.0015
+      release_gap_band_m: 0.0015
+      release_stall_margin_m: 0.0002
       withdrawal_distance_min: 0.04
       require_released: true
       episode_length_s: 150.0

@@ -137,7 +137,7 @@ def _test_usbc_release_and_withdrawal(_simulation_app) -> bool:
     from types import SimpleNamespace
 
     from isaaclab_arena.assets.asset import Asset
-    from isaaclab_arena.tasks.predicates.gripper import gripper_released
+    from isaaclab_arena.tasks.predicates.gripper import gripper_not_grasping
     from isaaclab_arena.tasks.predicates.spatial import gripper_distance_from_object_exceeds_threshold
     from isaaclab_arena_environments.isaac_cap.embodiments.bimanual_yam.gripper import YamGripper
     from isaaclab_arena_environments.isaac_cap.usbc_insertion.task import UsbcInsertionTask
@@ -151,7 +151,9 @@ def _test_usbc_release_and_withdrawal(_simulation_app) -> bool:
             joint_pos=torch.tensor([[0.037524], [0.005], [0.037524]]),
         )
     )
+    action = SimpleNamespace(processed_actions=torch.zeros((3, 1)))
     env = SimpleNamespace(
+        action_manager=SimpleNamespace(get_term={gripper.action_term_name: action}.__getitem__),
         arena_world=SimpleNamespace(
             get_joint_position=lambda _robot, _joint: robot.data.joint_pos[:, 0],
             get_frame_position_w=lambda _sensor, _target: frame_positions,
@@ -161,7 +163,8 @@ def _test_usbc_release_and_withdrawal(_simulation_app) -> bool:
     release_params = dict(
         gripper=gripper,
         grasp_width_m=0.01,
-        release_clearance_m=0.0015,
+        gap_band_m=0.0015,
+        stall_margin_m=0.0002,
     )
     params = dict(
         subject_name="plug",
@@ -169,10 +172,10 @@ def _test_usbc_release_and_withdrawal(_simulation_app) -> bool:
         distance_threshold_m=0.04,
     )
     assert gripper.get_jaw_gap_m(env.arena_world).tolist() == pytest.approx([0.075048, 0.01, 0.075048])
-    assert gripper_released(env, **release_params).tolist() == [True, False, True]
+    assert gripper_not_grasping(env, **release_params).tolist() == [True, False, True]
     assert gripper_distance_from_object_exceeds_threshold(env, **params).tolist() == [False, True, True]
     assert (
-        gripper_released(env, **release_params) & gripper_distance_from_object_exceeds_threshold(env, **params)
+        gripper_not_grasping(env, **release_params) & gripper_distance_from_object_exceeds_threshold(env, **params)
     ).tolist() == [
         False,
         False,
@@ -189,14 +192,14 @@ def _test_usbc_release_and_withdrawal(_simulation_app) -> bool:
             lateral_max=0.01,
             speed_max=0.05,
             grasp_width_m=0.01,
-            release_clearance_m=0.0015,
+            release_gap_band_m=0.0015,
             withdrawal_distance_min=0.04,
             require_released=require_released,
         )
         success_requirement = task.get_termination_cfg().success[0].predicate_sequence[0]
         hand_predicates = success_requirement.predicate.params["predicates"][3:]
         assert [term.func for term in hand_predicates] == (
-            [gripper_released, gripper_distance_from_object_exceeds_threshold]
+            [gripper_not_grasping, gripper_distance_from_object_exceeds_threshold]
             if require_released
             else [gripper_distance_from_object_exceeds_threshold]
         )
@@ -206,9 +209,9 @@ def _test_usbc_release_and_withdrawal(_simulation_app) -> bool:
         result = torch.stack([term.func(env, **term.params) for term in hand_predicates]).all(dim=0)
         assert result.tolist() == ([False, False, True] if require_released else [False, True, True])
     robot.data.joint_pos[1, 0] = 0.006
-    assert gripper_released(env, **release_params).tolist() == [True, True, True]
+    assert gripper_not_grasping(env, **release_params).tolist() == [True, True, True]
     assert (
-        gripper_released(env, **release_params) & gripper_distance_from_object_exceeds_threshold(env, **params)
+        gripper_not_grasping(env, **release_params) & gripper_distance_from_object_exceeds_threshold(env, **params)
     ).tolist() == [
         False,
         True,
@@ -223,6 +226,48 @@ def _test_usbc_release_and_withdrawal(_simulation_app) -> bool:
 
 def test_usbc_release_and_withdrawal() -> None:
     assert run_function_with_persistent_simulation_app(_test_usbc_release_and_withdrawal)
+
+
+def _test_usbc_release_cap_semantics(_simulation_app) -> bool:
+    import torch
+    from types import SimpleNamespace
+
+    from isaaclab_arena.tasks.predicates.gripper import gripper_not_grasping
+    from isaaclab_arena_environments.isaac_cap.embodiments.bimanual_yam.gripper import YamGripper
+
+    gripper = YamGripper(action_term_name="work_gripper")
+    for device in ("cpu", "cuda:0"):
+        for dtype in (torch.float32, torch.float64):
+            # Empty closed hand, stalled grasp, matched command, opening command, open hand,
+            # and a stalled finger whose gap is smaller than the plug.
+            measured = torch.tensor([0.0, 0.005, 0.005, 0.005, 0.037524, 0.002], device=device, dtype=dtype)
+            commanded = torch.tensor([0.0, 0.0, 0.005, 0.037524, 0.037524, 0.0], device=device, dtype=dtype)
+            action = SimpleNamespace(processed_actions=commanded[:, None])
+            env = SimpleNamespace(
+                arena_world=SimpleNamespace(get_joint_position=lambda _robot, _joint: measured),
+                action_manager=SimpleNamespace(get_term={"work_gripper": action}.__getitem__),
+            )
+            result = gripper_not_grasping(env, gripper, grasp_width_m=0.01, gap_band_m=0.0015, stall_margin_m=0.0002)
+            assert result.tolist() == [True, False, True, True, True, True]
+            assert result.dtype == torch.bool and result.device == measured.device
+
+            # Exactly representable values exercise CAP's strict comparisons on both boundaries.
+            width, band, margin = 1 / 32, 1 / 256, 1 / 1024
+            measured = torch.tensor(
+                [width / 2, width / 2, (width - band) / 2, (width + band) / 2],
+                device=device,
+                dtype=dtype,
+            )
+            commanded = torch.tensor([width / 2 - margin, 0.0, 0.0, 0.0], device=device, dtype=dtype)
+            action.processed_actions = commanded[:, None]
+            assert gripper_not_grasping(
+                env, gripper, grasp_width_m=width, gap_band_m=band, stall_margin_m=margin
+            ).tolist() == [True, False, True, True]
+    return True
+
+
+def test_usbc_release_cap_semantics() -> None:
+    assert run_function_with_persistent_simulation_app(_test_usbc_release_cap_semantics)
 
 
 def _test_usbc_contact_rig(_simulation_app) -> bool:
@@ -319,7 +364,7 @@ def _test_usbc_environment_yaml(_simulation_app) -> bool:
     from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
-    from isaaclab_arena.tasks.predicates.gripper import gripper_released
+    from isaaclab_arena.tasks.predicates.gripper import gripper_not_grasping
     from isaaclab_arena.tasks.predicates.spatial import (
         depth_in_range,
         gripper_distance_from_object_exceeds_threshold,
@@ -387,7 +432,7 @@ def _test_usbc_environment_yaml(_simulation_app) -> bool:
             depth_in_range,
             lateral_in_proximity,
             velocity_below_threshold,
-            gripper_released,
+            gripper_not_grasping,
             gripper_distance_from_object_exceeds_threshold,
         ]
         assert predicates[0].params["depth_min"] == 0.0104
@@ -397,7 +442,8 @@ def _test_usbc_environment_yaml(_simulation_app) -> bool:
         environment.task.configure_for_embodiment(environment.embodiment)
         assert predicates[-2].params == {
             "grasp_width_m": 0.01,
-            "release_clearance_m": 0.0015,
+            "gap_band_m": 0.0015,
+            "stall_margin_m": 0.0002,
             "gripper": environment.embodiment.gripper,
         }
         assert predicates[-1].params["subject_name"] == "plug"
