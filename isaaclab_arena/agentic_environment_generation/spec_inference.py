@@ -44,6 +44,10 @@ class SpecInference:
     ) -> tuple[ArenaEnvGraphSpec | None, dict[str, Any]]:
         """Generate an ArenaEnvGraphSpec from a natural-language prompt.
 
+        Validation checks graph structure and catalogue entries, not whether subtasks cover
+        the full request. Prompt guidance encourages coverage, but a valid partial task can
+        still be accepted without a retry.
+
         Args:
             prompt: End-user environment description.
             traces: Accumulator for validation error lines, extended in place on failure.
