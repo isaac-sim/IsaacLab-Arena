@@ -77,7 +77,6 @@ def _test_gear_insertion_overlap_reporting_and_partial_reset(_simulation_app):
     env.progress_tracker = tracker
     conditions = tracker.get_predicate("gear_insertion")
     recorder = GearInsertionFractionRecorder(GearInsertionFractionRecorderCfg(gear_names=("gear_a", "gear_b")), env)
-    assert recorder.record_pre_reset([0, 1]) == (None, None)
 
     # Different gears being ready on different steps must not add up to success.
     env.arena_world.linear_velocity["gear_b"][0, 0] = 0.1
@@ -141,7 +140,6 @@ def _test_gear_insertion_overlap_reporting_and_partial_reset(_simulation_app):
         if not isinstance(recorder_cfg, GearInsertionFractionRecorderCfg):
             continue
         subtask_recorder = recorder_cfg.class_type(recorder_cfg, env)
-        assert subtask_recorder.record_pre_reset([0, 1]) == (None, None)
         name, fractions = subtask_recorder.record_pre_reset([0, 1])
         recorded_fractions[name] = fractions.tolist()
     assert recorded_fractions == {

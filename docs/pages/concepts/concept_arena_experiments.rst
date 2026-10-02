@@ -73,6 +73,17 @@ field. Arena uses this name in command-line overrides, output directories, and r
 
 Runs keep their YAML order and execute locally in that order.
 
+Set ``rollout_limit.num_episodes`` to run an exact number of episodes instead of a fixed number
+of steps. A parallel environment that finishes starts another episode immediately while episodes
+remain to assign. Once all episodes have been assigned, finished environments become inactive
+and the Run waits for every remaining episode to finish. When the budget is smaller than
+``environment_builder.num_envs``, only that many environments start episodes.
+
+The episode budget covers the whole Run, including all rebuilds when ``num_rebuilds`` is greater
+than one. Each completed episode contributes one result and, when trajectory recording is enabled,
+one trajectory. Inactive environments may continue being simulated, but their activity is excluded
+from subsequent episode results and trajectory data.
+
 
 .. _sequential-batch-experiment-runner:
 

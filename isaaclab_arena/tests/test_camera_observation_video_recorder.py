@@ -63,8 +63,16 @@ class _StubEnv(gym.Env):
         camera_obs_cfg = _CameraObservationCfg()
         self.cfg = SimpleNamespace(observations=SimpleNamespace(camera_obs=camera_obs_cfg))
         self._step_return = ({}, None, torch.zeros(1, dtype=torch.bool), torch.zeros(1, dtype=torch.bool), None)
-        # Per-env completed-episode counts, mirroring the Arena env's centralized episode index.
+        # Per-env current episode indexes, mirroring the Arena env's centralized episode index.
         self._episode_counts: dict[int, int] = {}
+        self.inactive_env_ids: set[int] = set()
+
+    @property
+    def active_episode_mask(self):
+        active_episode_mask = torch.ones_like(self._step_return[2])
+        for env_id in self.inactive_env_ids:
+            active_episode_mask[env_id] = False
+        return active_episode_mask
 
     def reset(self, **kwargs):
         return {}, {}
@@ -73,12 +81,13 @@ class _StubEnv(gym.Env):
         # Mirror the Arena env: advance the per-env episode index for each env that resets this
         # step (the real env does this within _reset_idx, before step() returns).
         _, _, terminated, truncated, _ = self._step_return
-        for env_id in (terminated | truncated).nonzero().flatten().tolist():
+        reset_env_ids = ((terminated | truncated) & self.active_episode_mask).nonzero().flatten().tolist()
+        for env_id in reset_env_ids:
             self._episode_counts[env_id] = self._episode_counts.get(env_id, 0) + 1
         return self._step_return
 
     def get_episode_index(self, env_id: int) -> int:
-        """The current episode index for ``env_id`` (its count of completed episodes)."""
+        """The current or last completed episode index for ``env_id``."""
         return self._episode_counts.get(env_id, 0)
 
     def render(self):
@@ -89,7 +98,12 @@ def _make_env() -> _StubEnv:
     return _StubEnv()
 
 
-def _configure_step(env: _StubEnv, done_envs: list[int] | None = None, n_envs: int = 2):
+def _configure_step(
+    env: _StubEnv,
+    done_envs: list[int] | None = None,
+    n_envs: int = 2,
+    inactive_envs: list[int] | None = None,
+):
     """Set the next step return value with given terminations."""
     terminated = torch.zeros(n_envs, dtype=torch.bool)
     for idx in done_envs or []:
@@ -98,6 +112,7 @@ def _configure_step(env: _StubEnv, done_envs: list[int] | None = None, n_envs: i
     cam_obs = {cam: torch.zeros(n_envs, H, W, C, dtype=torch.uint8) for cam in CAMERAS}
     obs = {CAMERA_OBS_GROUP_KEY: cam_obs}
     env._step_return = (obs, None, terminated, truncated, None)
+    env.inactive_env_ids = set(inactive_envs or [])
 
 
 class _FakeVideoWriter:
@@ -113,6 +128,7 @@ class _FakeVideoWriter:
         self.fps = fps
         self.frames_written = 0
         self.closed = False
+        self.close_count = 0
         with open(filename, "wb"):
             pass
 
@@ -121,6 +137,7 @@ class _FakeVideoWriter:
 
     def close(self):
         self.closed = True
+        self.close_count += 1
 
 
 @contextlib.contextmanager
@@ -176,6 +193,31 @@ def test_frames_are_streamed_not_buffered(tmp_path):
         # One open encoder per (env, camera), each already handed all three frames.
         assert len(writers) == len(CAMERAS) * 2
         assert all(writer.frames_written == 3 for writer in writers)
+
+
+def test_inactive_environments_do_not_open_or_reopen_video_files(tmp_path):
+    env = _make_env()
+    with _patched_writers() as writers:
+        recorder = CameraObsVideoRecorder(env, video_folder=str(tmp_path))
+
+        _configure_step(env, n_envs=3, inactive_envs=[2])
+        recorder.step(None)
+        _configure_step(env, done_envs=[0], n_envs=3, inactive_envs=[0, 2])
+        recorder.step(None)
+        _configure_step(env, n_envs=3, inactive_envs=[0, 2])
+        recorder.step(None)
+        _configure_step(env, done_envs=[1], n_envs=3, inactive_envs=[0, 1, 2])
+        recorder.step(None)
+        recorder.close()
+
+    assert len(writers) == 2 * len(CAMERAS)
+    assert all(writer.close_count == 1 for writer in writers)
+    for writer in writers:
+        expected_frames = 1 if "-env0-" in writer.filename else 3
+        assert writer.frames_written == expected_frames
+        assert os.path.isfile(writer.filename)
+        assert writer.filename.endswith("-episode-0.mp4")
+    assert len(list(tmp_path.glob("*.mp4"))) == 2 * len(CAMERAS)
 
 
 def test_non_rgb_camera_observations_are_not_recorded(tmp_path):
