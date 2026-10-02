@@ -107,6 +107,10 @@ def _order_parents_before_children(
     return ordered
 
 
+# NOTE(alexmillane, 2026.10.02): Partial limits are not currently supported by our bounding box
+# class, and would break some of the methods there. I'm adding local support to this file, where we
+# need it for intersection with narrowing bounds, however, if we end up needing this in multiple
+# places consider expanding our bounding box class to handle it (or add another class).
 def _bounding_box_from_partial_limits(
     min_point: tuple[float | None, float | None, float | None],
     max_point: tuple[float | None, float | None, float | None],
