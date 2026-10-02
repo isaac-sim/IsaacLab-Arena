@@ -130,3 +130,32 @@ def test_minimum_resting_height_accepts_both_bounds(height):
     validator.minimum_resting_heights_m["support"] = height + (-0.01 if height == 0.1 else 0.01)
     with pytest.raises(AssertionError, match="local Z bounds"):
         validator.validate_scene(env, [child, support])
+
+
+def test_flat_top_covers_release_region_without_filling_holes():
+    import numpy as np
+    import trimesh
+
+    from isaaclab_arena.offline_placement.clutter_geometry import _has_rectangular_top
+
+    # An octagonal tabletop has a flat center but no surface beneath its bounding-box corners.
+    tabletop = trimesh.creation.cylinder(radius=1.0, height=0.04, sections=8)
+    lower, upper = tabletop.bounds.copy()
+    lower[:2], upper[:2] = (-0.7, -0.7), (0.7, 0.7)
+    assert _has_rectangular_top(tabletop, lower, upper)
+    assert not _has_rectangular_top(tabletop, *tabletop.bounds)
+
+    # Parent scaling, quarter-turn rotation and translation preserve the covered rectangle.
+    T_W_S = trimesh.transformations.rotation_matrix(np.pi / 2, (0, 0, 1))
+    T_W_S[:3, 3] = (2, -3, 0.5)
+    tabletop.apply_scale((1, 1, 0.7))
+    tabletop.apply_transform(T_W_S)
+    lower, upper = tabletop.bounds.copy()
+    lower[:2], upper[:2] = (1.3, -3.7), (2.7, -2.3)
+    assert _has_rectangular_top(tabletop, lower, upper)
+
+    # A rim has the same outer coverage, but the center hole must not be filled by its convex hull.
+    rim = trimesh.creation.annulus(r_min=0.2, r_max=1.0, height=0.04, sections=8)
+    lower, upper = rim.bounds.copy()
+    lower[:2], upper[:2] = (-0.7, -0.7), (0.7, 0.7)
+    assert not _has_rectangular_top(rim, lower, upper)

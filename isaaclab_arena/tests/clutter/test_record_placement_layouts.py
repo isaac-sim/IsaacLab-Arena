@@ -130,8 +130,6 @@ def test_cli_generates_maintained_clutter(tmp_path):
             "layouts_per_env=1",
             "max_batches=15",
             "settle.num_steps=480",
-            # The real table is beveled; its top is 0.530645 m in scaled local coordinates.
-            "+settle.validators.support_containment.minimum_resting_heights_m.office_table_background=0.5306",
             "--viz",
             "none",
         ],
@@ -144,6 +142,4 @@ def test_cli_generates_maintained_clutter(tmp_path):
     reports = {report["check"]: report for report in record["validation"]["post_physics"]}
     assert reports["physics_settled"]["passed"]
     assert reports["support_containment"]["passed"]
-    assert reports["support_containment"]["configuration"]["minimum_resting_heights_m"] == {
-        "office_table_background": 0.5306
-    }
+    assert reports["support_containment"]["configuration"]["minimum_resting_heights_m"] == {}

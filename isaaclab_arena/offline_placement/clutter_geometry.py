@@ -42,11 +42,14 @@ def assert_support_reference_transform(scene: InteractiveScene, scene_key: str) 
         )
 
 
-def assert_flat_support_surface(scene: InteractiveScene, scene_key: str) -> None:
-    """Require the support bounds' top face to be covered by a flat collision surface.
+def assert_flat_support_surface(scene: InteractiveScene, scene_key: str, spread: float) -> None:
+    """Require a flat collision surface beneath the configured clutter release region.
 
-    Used for supports without an explicit minimum resting height. Check each
-    spawned geometry group before collecting any layouts.
+    Args:
+        scene: Scene containing the spawned support.
+        scene_key: Support's runtime scene key.
+        spread: Largest ClutterOn spread on this support. Edge margins are ignored
+            conservatively; settled objects may still use the full support bounds.
     """
     import numpy as np
     import trimesh
@@ -60,6 +63,9 @@ def assert_flat_support_surface(scene: InteractiveScene, scene_key: str) -> None
     for root, _ in get_representative_geometry_prim_groups(scene, scene_key):
         bounds = bounds_cache.ComputeWorldBound(root).ComputeAlignedRange()
         lower, upper = np.asarray(bounds.GetMin()), np.asarray(bounds.GetMax())
+        center_xy = (lower[:2] + upper[:2]) * 0.5
+        half_size_xy = (upper[:2] - lower[:2]) * (0.5 * spread)
+        lower[:2], upper[:2] = center_xy - half_size_xy, center_xy + half_size_xy
         has_surface = False
         for prim in Usd.PrimRange(root, Usd.TraverseInstanceProxies()):
             if not prim.HasAPI(UsdPhysics.CollisionAPI):
@@ -80,28 +86,38 @@ def assert_flat_support_surface(scene: InteractiveScene, scene_key: str) -> None
                 has_surface = True
                 break
         assert has_surface, (
-            f"Support {scene_key!r} needs a flat rectangular collision surface covering its bounds' top face. "
+            f"Support {scene_key!r} needs a flat collision surface at its bounds' top height "
+            f"covering the ClutterOn release region (spread={spread:g}). "
             "For containers, configure minimum_resting_heights_m for this support, or use an "
             "ObjectReference to a flat tabletop or tray floor as the ClutterOn parent."
         )
 
 
 def _has_rectangular_top(mesh: trimesh.Trimesh, lower: np.ndarray, upper: np.ndarray) -> bool:
-    """Whether one connected planar facet covers the bounds' full rectangular top."""
+    """Whether a connected convex top facet covers the requested XY rectangle at upper Z."""
     import numpy as np
+    from scipy.spatial import ConvexHull
 
-    footprint_area = float(np.prod((upper - lower)[:2]))
+    corners_xy = np.array([
+        [lower[0], lower[1]],
+        [lower[0], upper[1]],
+        [upper[0], lower[1]],
+        [upper[0], upper[1]],
+    ])
     for faces, area in zip(mesh.facets, mesh.facets_area):
         vertices = mesh.triangles[faces].reshape(-1, 3)
-        # Allow one micrometre of transform roundoff when comparing surface coordinates.
-        at_top = np.allclose(vertices[:, 2], upper[2], rtol=0, atol=1e-6)
-        covers_footprint = np.allclose(
-            [vertices[:, :2].min(axis=0), vertices[:, :2].max(axis=0)],
-            [lower[:2], upper[:2]],
-            rtol=0,
-            atol=1e-6,
-        )
-        if at_top and covers_footprint and np.isclose(area, footprint_area, rtol=1e-5, atol=1e-8):
+        # Allow one micrometre of transform roundoff at the support's highest point.
+        if not np.allclose(vertices[:, 2], upper[2], rtol=0, atol=1e-6):
+            continue
+        if not np.allclose(np.abs(mesh.face_normals[faces, 2]), 1.0, rtol=0, atol=1e-6):
+            continue
+        hull = ConvexHull(vertices[:, :2])
+        # In 2D, hull.volume is area. Equality rejects holes and concave cutouts
+        # that would otherwise be filled by the hull, including a container rim.
+        if not np.isclose(hull.volume, area, rtol=1e-5, atol=1e-8):
+            continue
+        distances = corners_xy @ hull.equations[:, :2].T + hull.equations[:, 2]
+        if np.all(distances <= 1e-6):
             return True
     return False
 

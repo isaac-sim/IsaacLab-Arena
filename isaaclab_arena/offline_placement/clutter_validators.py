@@ -62,17 +62,18 @@ class SupportContainmentValidator(PostPhysicsPlacementValidator):
         from isaaclab_arena.offline_placement.clutter_geometry import assert_flat_support_surface
         from isaaclab_arena.relations.relations import ClutterOn, get_relation
 
-        support_keys = set()
+        support_spreads = {}
         for asset in assets:
             relation = get_relation(asset, ClutterOn)
             if relation is not None:
-                support_keys.add(relation.parent.get_scene_key())
-        unknown = self.minimum_resting_heights_m.keys() - support_keys
+                key = relation.parent.get_scene_key()
+                support_spreads[key] = max(support_spreads.get(key, 0.0), relation.spread)
+        unknown = self.minimum_resting_heights_m.keys() - support_spreads.keys()
         assert not unknown, f"Minimum resting heights reference unknown ClutterOn supports: {sorted(unknown)}"
-        for key in sorted(support_keys):
+        for key in sorted(support_spreads):
             height = self.minimum_resting_heights_m.get(key)
             if height is None:
-                assert_flat_support_surface(env.scene, key)
+                assert_flat_support_surface(env.scene, key, support_spreads[key])
                 continue
             bounds = env.arena_world.get_aabb_in_local_frame(key)
             assert math.isfinite(height) and bool(

@@ -26,10 +26,11 @@ Record
        output=outputs/clutter/tools_on_table.jsonl \
        num_envs=4 min_layouts=10 layouts_per_env=4 max_batches=15 seed=42 \
        settle.num_steps=480 \
-       +settle.validators.support_containment.minimum_resting_heights_m.office_table_background=0.5306 \
        render=true --device cpu --viz kit
 
-The table has a beveled top, so the command supplies its local-Z top height.
+The table's flat collision surface covers the configured release region
+(``spread: 0.7``), inside its beveled edges. The recorder verifies that surface
+and obtains the top height from geometry, so no height override is needed.
 
 .. figure:: ../../../images/clutter/release.png
    :width: 640px

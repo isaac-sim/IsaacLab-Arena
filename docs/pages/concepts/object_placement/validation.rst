@@ -227,6 +227,11 @@ must be fixed anchors with upright quarter-turn orientations. Resolve other
 placement relations to fixed anchors before collecting clutter layouts.
 
 Flat supports use their verified top surface as the minimum resting height.
+A connected, convex horizontal collision surface at the support bounds' top
+must cover the configured ``ClutterOn`` release region. This check uses the
+largest ``spread`` on each support, without subtracting ``edge_margin_m``.
+Final containment still uses the full support footprint.
+
 Containers need an explicit local-Z height so objects can settle below the rim:
 
 .. code-block:: bash

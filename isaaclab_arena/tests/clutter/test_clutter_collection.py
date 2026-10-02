@@ -232,7 +232,7 @@ def _test_raised_support_requires_explicit_surface(simulation_app, tmp_path):
             if support_kind == "configured_table":
                 params.validators["support_containment"]["minimum_resting_heights_m"] = {"table": 0.02}
             if support_kind in ("whole_table", "unprepared_tabletop"):
-                reason = "flat rectangular" if support_kind == "whole_table" else "translate, orient and scale"
+                reason = "flat collision surface" if support_kind == "whole_table" else "translate, orient and scale"
                 before = base.scene.get_state()
                 with patch.object(base, "reset", side_effect=AssertionError("must reject before resetting")):
                     with pytest.raises(AssertionError, match=reason):
