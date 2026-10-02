@@ -38,8 +38,11 @@ env:
 jobs:
 
   pre_commit:
-    name: Pre-commit
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    # Draft checks use a different name so they cannot satisfy the required
+    # Pre-commit context before a ready-for-review run completes.
+    name: >-
+      ${{ github.event_name == 'pull_request' && github.event.pull_request.draft
+          && 'Pre-commit (draft)' || 'Pre-commit' }}
     runs-on: [self-hosted, gpu-arena]
     timeout-minutes: 30
 
@@ -104,7 +107,6 @@ jobs:
           PRE_COMMIT_HOME: /tmp/pre-commit-cache
 
       - name: Test cache diagnostics
-        if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
         run: python3 -m unittest discover -s docker -p 'test_report_build_cache.py' -v
 
 
@@ -241,7 +243,10 @@ jobs:
 
 
   test:
-    name: Run tests
+    # Keep skipped draft checks distinct from the required ready-PR context.
+    name: >-
+      ${{ github.event_name == 'pull_request' && github.event.pull_request.draft
+          && 'Run tests (draft skipped)' || 'Run tests' }}
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: [self-hosted, gpu-arena]
     timeout-minutes: 80
@@ -321,7 +326,10 @@ jobs:
 
 
   tests_with_subprocess:
-    name: Run tests with subprocess
+    # Keep skipped draft checks distinct from the required ready-PR context.
+    name: >-
+      ${{ github.event_name == 'pull_request' && github.event.pull_request.draft
+          && 'Run tests with subprocess (draft skipped)' || 'Run tests with subprocess' }}
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: [self-hosted, gpu-arena]
     timeout-minutes: 120
@@ -452,7 +460,10 @@ jobs:
 
 
   build_docs_pre_merge:
-    name: Build the docs (pre-merge)
+    # Keep skipped draft checks distinct from the required ready-PR context.
+    name: >-
+      ${{ github.event_name == 'pull_request' && github.event.pull_request.draft
+          && 'Build the docs (draft skipped)' || 'Build the docs (pre-merge)' }}
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: [self-hosted, gpu-arena]
     timeout-minutes: 30
