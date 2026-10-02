@@ -54,6 +54,14 @@ Before adding an environment, task, or variation, check existing authoring surfa
   [progress tracking guide](docs/pages/concepts/task/concept_progress_tracking_design.rst).
 - Randomization: use existing attached variations and the
   [variations guide](docs/pages/concepts/variations/variations.rst).
+- Adaptive or randomized layouts: use the
+  [placement solver](docs/pages/concepts/concept_object_and_robot_placement.rst)
+  via `asset.add_relation(...)` or YAML `relations` (`IsAnchor`, `On`, `NextTo`
+  with an explicit side). `ArenaEnvBuilder` handles solving and placement resets.
+  Configure `ObjectPlacerParams` through `arena_environment.placer_params`
+  (YAML `placer_params`); set `allow_best_loss_fallbacks=False` to reject invalid
+  layouts. Start with default tolerances; tightening them can exhaust the pool.
+  Leave relation-placed movable poses to the builder.
 
 Graph generation and Python task support have different boundaries. The graph
 catalogue intentionally exposes only `@agent_ready` tasks; a registered Python

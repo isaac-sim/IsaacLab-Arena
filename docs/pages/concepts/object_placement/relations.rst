@@ -12,12 +12,12 @@ advanced users can replace entries in ``RelationSolverParams.strategies``.
 
 .. code-block:: python
 
-   from isaaclab_arena.relations.relations import IsAnchor, NextTo, On
+   from isaaclab_arena.relations.relations import IsAnchor, NextTo, On, Side
 
    table.add_relation(IsAnchor())
    mug.add_relation(On(table))
    bowl.add_relation(On(table))
-   bowl.add_relation(NextTo(mug))
+   bowl.add_relation(NextTo(mug, side=Side.POSITIVE_X))
 
 This describes the intended arrangement without requiring coordinates derived
 from the dimensions of the table, mug, and bowl.
@@ -117,15 +117,15 @@ Most environments can be described with a small set of relations:
 
 .. _next-to-relation:
 
-``NextTo(parent)``
-   Places an object beside another object. A side and distance can be specified
-   when needed. Geometric validation rejects candidates that are not on the
+``NextTo(parent, side)``
+   Places an object beside another object. A side is required; distance is
+   optional. Geometric validation rejects candidates that are not on the
    requested side, or whose gap to the parent differs from ``distance_m`` by
    more than ``tolerance_m`` (0.01 m by default). Placing the object closer than
    requested also fails.
 
-   With no additional arguments, ``NextTo(parent)`` places the subject on the
-   parent's positive X side at a distance of 0.05 m.
+   ``NextTo(parent, side=Side.POSITIVE_X)`` places the subject on the parent's
+   positive X side at the default distance of 0.05 m.
 
    ``side`` accepts ``Side.POSITIVE_X``, ``Side.NEGATIVE_X``,
    ``Side.POSITIVE_Y``, or ``Side.NEGATIVE_Y``.
@@ -218,11 +218,13 @@ YAML environment specifications use the same model:
      - kind: next_to
        subject: bowl
        reference: mug
+       params:
+         side: positive_x
 
 Each entry identifies the relation, its subject, and—when needed—the object it
-references. Add parameters only when the default relation does not express the
-intended arrangement. Quote ``'on'`` so YAML treats it as a string rather than
-a Boolean value.
+references. Include required parameters such as ``next_to``'s ``side``; optional
+parameters customize the arrangement. Quote ``'on'`` so YAML treats it as a
+string rather than a Boolean value.
 
 Collision handling is integrated into placement and is not expressed as a
 relation.
