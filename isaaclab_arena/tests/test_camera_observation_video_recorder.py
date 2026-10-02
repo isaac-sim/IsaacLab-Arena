@@ -22,7 +22,12 @@ import pytest
 
 from isaaclab_arena.utils.env_step_timer import EnvStepTimerWrapper
 from isaaclab_arena.utils.timer import Timer, get_timer_stats, reset_timer_stats
-from isaaclab_arena.video.camera_observation_video_recorder import CAMERA_OBS_GROUP_KEY, CameraObsVideoRecorder
+from isaaclab_arena.video.camera_observation_video_recorder import (
+    CAMERA_FINALIZE_TIMER_NAME,
+    CAMERA_FRAMES_TIMER_NAME,
+    CAMERA_OBS_GROUP_KEY,
+    CameraObsVideoRecorder,
+)
 from isaaclab_arena.video.video_recording import VideoRecordingCfg, wrap_env_for_video
 
 # ---------------------------------------------------------------------------
@@ -310,15 +315,15 @@ def test_frame_writing_is_timed_separately_from_finalizing(tmp_path):
         recorder.step(None)
 
         stats = get_timer_stats()
-        assert stats["record_camera_frames"].count == 2
-        assert "record_camera_finalize" not in stats
+        assert stats[CAMERA_FRAMES_TIMER_NAME].count == 2
+        assert CAMERA_FINALIZE_TIMER_NAME not in stats
 
         _configure_step(env, done_envs=[0])
         recorder.step(None)
 
         stats = get_timer_stats()
-        assert stats["record_camera_frames"].count == 3
-        assert stats["record_camera_finalize"].count == 1
+        assert stats[CAMERA_FRAMES_TIMER_NAME].count == 3
+        assert stats[CAMERA_FINALIZE_TIMER_NAME].count == 1
 
 
 def test_recording_stack_reports_its_costs_under_the_enclosing_step_timer(tmp_path):
@@ -347,7 +352,7 @@ def test_recording_stack_reports_its_costs_under_the_enclosing_step_timer(tmp_pa
     stats = get_timer_stats()
     assert stats["env_step"].count == 1
     assert stats["env_step/sim_step"].count == 1
-    assert stats["env_step/record_camera_frames"].count == 1
+    assert stats[f"env_step/{CAMERA_FRAMES_TIMER_NAME}"].count == 1
     assert stats["env_step"].total_ms >= stats["env_step/sim_step"].total_ms
 
 
@@ -371,7 +376,7 @@ def test_no_timing_recorded_without_camera_observations(tmp_path):
 
         recorder.step(None)  # _StubEnv returns an empty obs until _configure_step is called
 
-        assert "record_camera_frames" not in get_timer_stats()
+        assert CAMERA_FRAMES_TIMER_NAME not in get_timer_stats()
 
 
 def test_post_reset_frame_not_recorded(tmp_path):

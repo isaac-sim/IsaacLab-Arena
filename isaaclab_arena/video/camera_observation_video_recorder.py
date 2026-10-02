@@ -35,6 +35,8 @@ from moviepy.video.io.ffmpeg_writer import FFMPEG_VideoWriter
 from isaaclab_arena.utils.timer import Timer
 
 CAMERA_OBS_GROUP_KEY = "camera_obs"
+CAMERA_FRAMES_TIMER_NAME = "record_camera_frames"
+CAMERA_FINALIZE_TIMER_NAME = "record_camera_finalize"
 
 # Regular expression to parse the filename of an episode video.
 _EPISODE_VIDEO_FILENAME_PATTERN = re.compile(
@@ -157,7 +159,7 @@ class CameraObsVideoRecorder(gym.Wrapper):
             done_envs = (terminated | truncated).nonzero().flatten().tolist()
             done_set = set(done_envs)
 
-            with Timer("record_camera_frames"):
+            with Timer(CAMERA_FRAMES_TIMER_NAME):
                 for camera_name, frames in cam_obs.items():
                     if camera_name not in self._rgb_camera_observation_names:
                         continue
@@ -172,7 +174,7 @@ class CameraObsVideoRecorder(gym.Wrapper):
 
             if done_envs:
                 # The encoder shutdown that finalises one episode's mp4 files.
-                with Timer("record_camera_finalize"):
+                with Timer(CAMERA_FINALIZE_TIMER_NAME):
                     self._finish_envs(done_envs)
 
         return result
