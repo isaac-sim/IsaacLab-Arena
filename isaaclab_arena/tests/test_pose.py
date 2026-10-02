@@ -72,6 +72,24 @@ def test_pose_composition_rotates_inner_translation():
     )
 
 
+def test_pose_composition_with_rotations_about_different_axes():
+    """Compose a parent's yaw with a child's roll."""
+    square_root_of_half = math.sqrt(0.5)
+    parent_pose = Pose(
+        position_xyz=(2.0, 0.0, 0.0),
+        rotation_xyzw=(0.0, 0.0, square_root_of_half, square_root_of_half),
+    )
+    child_pose = Pose(
+        position_xyz=(1.0, 0.0, 0.0),
+        rotation_xyzw=(square_root_of_half, 0.0, 0.0, square_root_of_half),
+    )
+
+    world_pose = parent_pose.multiply(child_pose)
+
+    assert world_pose.position_xyz == pytest.approx((2.0, 1.0, 0.0), abs=1e-6)
+    assert world_pose.rotation_xyzw == pytest.approx((0.5, 0.5, 0.5, 0.5), abs=1e-6)
+
+
 def test_rotate_points_by_yaw_batch_matches_scalar():
     """Batch rotation with per-element yaws produces the same result as scalar rotation per row."""
     points = torch.tensor([[1.0, 2.0, 0.5], [3.0, -1.0, 1.0], [0.0, 4.0, -0.3]])
