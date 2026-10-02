@@ -33,7 +33,6 @@ def _diagnostics(host: str, port: int, tcp_timeout_sec: float) -> str:
 
 def _ping(host: str, port: int, timeout_ms: int) -> tuple[bool, object]:
     """Call the GR00T ping endpoint with explicit socket timeouts."""
-    # Keep CLI help available without the optional GR00T client dependencies.
     import zmq
     from gr00t.policy.server_client import MsgSerializer
 
