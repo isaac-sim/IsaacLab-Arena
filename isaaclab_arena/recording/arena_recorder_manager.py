@@ -15,9 +15,10 @@ from isaaclab.managers.recorder_manager import RecorderManager
 class ArenaRecorderManager(RecorderManager):
     """Keep recordings aligned with Arena's active episodes and actual resets.
 
-    Isaac Lab still calls recorder hooks when Arena leaves a finished environment inactive.
-    This manager ignores those calls so no more samples are added to the finished episode.
-    It records a new episode's initial state only when Arena actually resets that environment.
+    Isaac Lab calls the recorder manager's record_pre_step() and record_post_step() methods
+    to collect samples, and record_pre_reset() and record_post_reset() to record episode results
+    and initial states. These calls can include environments that Arena leaves inactive.
+    This manager excludes those environments and records initial states only after actual resets.
     """
 
     def add_to_episodes(
