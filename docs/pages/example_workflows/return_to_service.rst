@@ -239,8 +239,11 @@ Inspect effective paths before selecting factors:
 
    python isaaclab_arena/evaluation/experiment_runner.py \
      --experiment_config isaaclab_arena_environments/return_to_service/experiment_configs/full.yaml \
-     --list_variations --variations_format json
+     --list_variations --variations_format json \
+     --variations_output /tmp/service_variations.json
 
+This inspection starts SimulationApp and constructs the environment definition.
+Read the output file directly; simulator diagnostics remain in the console.
 The structured catalogue includes disabled variations and explains task-specific
 restrictions. Disappearance is rejected for required inventory. Existing fixed
 scenario Runs preserve their work order and conditions; randomized conditions
@@ -467,7 +470,7 @@ After preparing the asset bundle, the normal graph runner can build the example:
 .. code-block:: bash
 
    python isaaclab_arena_examples/agentic_environment_generation/cli_runner.py \
-      --mode build --headless --num_envs 1 \
+      --mode build --visualizer none --num_envs 1 \
       --env_spec isaaclab_arena_environments/return_to_service/authoring_examples/battery_in_bin.yaml
 
 For Python composites, ``case.for_joint("hinge")`` and

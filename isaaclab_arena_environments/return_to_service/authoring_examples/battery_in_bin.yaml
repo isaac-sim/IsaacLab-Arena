@@ -33,6 +33,9 @@ objects:
     registry_name: return_to_service_fixture
     params:
       component: battery_bin
+      initial_pose:
+        position_xyz: [0.48, 0.18, 0.782]
+        rotation_xyzw: [0.0, 0.0, 0.0, 1.0]
   - id: lighting
     registry_name: return_to_service_lighting
 relations:
@@ -40,14 +43,11 @@ relations:
     subject: table
   - kind: is_anchor
     subject: robot
-  - kind: is_anchor
-    subject: lighting
   - kind: 'on'
     subject: battery
     reference: table
-  - kind: 'on'
+  - kind: is_anchor
     subject: bin
-    reference: table
 task:
   composition: atomic
   description: Place the service battery completely inside the battery bin and release it.
