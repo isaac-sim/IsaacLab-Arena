@@ -91,6 +91,20 @@ class _Gripper:
         return world.gripper_width
 
 
+@pytest.mark.parametrize("gripper_name", ("PandaGripper", "RobotiqGripper"))
+def test_release_configuration_accepts_immutable_embodiment_grippers(gripper_name):
+    from copy import deepcopy
+
+    from isaaclab_arena.embodiments import gripper
+
+    subject = Asset("part")
+    subject.object_type = ObjectType.RIGID
+    task = PlaceInRegionTask(subject, Asset("bin"), ((-1, -1, -1), (1, 1, 1)), grasp_width_m=0.04)
+    task.configure_for_embodiment(SimpleNamespace(gripper=getattr(gripper, gripper_name)()))
+    cfg = deepcopy(task.get_termination_cfg())
+    assert len(cfg.success) == 1
+
+
 def test_full_shape_settling_and_release_share_one_interruptible_hold(measured):
     env, poses, velocity = measured
     subject = Asset("part")

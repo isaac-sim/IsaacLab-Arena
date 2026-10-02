@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import asdict
+from functools import partial
 
 from isaaclab.managers import TerminationTermCfg
 
@@ -153,9 +154,10 @@ class PlaceInRegionTask(TaskBase):
             assert self.gripper is not None, "Bind an embodiment gripper before configuring the release predicate"
             predicates.append(
                 TerminationTermCfg(
-                    func=gripper_released,
+                    # Embodiment grippers are immutable protocol implementations,
+                    # not mutable Isaac Lab configuration nodes.
+                    func=partial(gripper_released, gripper=self.gripper),
                     params={
-                        "gripper": self.gripper,
                         "grasp_width_m": self.grasp_width_m,
                         "release_clearance_m": self.release_clearance_m,
                     },

@@ -41,6 +41,18 @@ Use this checklist when authoring:
 * Validate the graph before building. Then inspect the selected environment's
   variation paths and task restrictions before enabling variations.
 
+For a long task, compose existing tasks with ``CompositeTaskBase`` and use
+``desired_subtask_success_state`` when earlier conditions must still hold at
+completion. Reuse ``TrueForConsecutiveStepsCfg`` for stable completion and the
+predicates in ``isaaclab_arena/tasks/predicates/`` for instantaneous conditions.
+``PlaceInRegionTask`` provides full supported collision-shape containment with
+settling and optional measured release. If several conditions share instruments,
+certificates, or episode-owned mechanisms, use the optional ``TaskRuntimeCfg``
+contract described in :doc:`the environment builder guide <../environment/env_builder>`.
+That guide specifies update/reset ordering and its limitations. The
+:doc:`variation guide <../variations/variations>` covers sampling, replay, and
+the distinction between variation traces and placement layouts.
+
 Static validation
 -----------------
 
@@ -110,9 +122,26 @@ are named without executing them. The normal asset/task registration and
 Variation paths and effective configuration
 -------------------------------------------
 
-The policy runner's existing ``--list_variations`` flow accepts
-``--variations_format json``. The Python interface uses the same attached
-variation objects and Hydra configuration path resolution:
+Both runners accept ``--list_variations --variations_format json``. For a
+machine-readable artifact, pass ``--variations_output`` instead of redirecting
+stdout, which also contains simulator startup and shutdown messages:
+
+.. code-block:: bash
+
+   python isaaclab_arena/evaluation/policy_runner.py \
+      --list_variations --variations_format json \
+      --variations_output /tmp/arena_variations.json \
+      franka_put_and_close_door
+
+Unlike the static catalogue and schema commands above, attached variation
+discovery starts SimulationApp and constructs the selected environment's assets;
+it requires the normal simulation runtime and asset access. The output file
+contains only the catalogue. ``--variations_output`` requires
+``--list_variations``, creates missing parent directories, and replaces an
+existing file. The console output remains available for inspection.
+
+The Python interface uses the same attached variation objects and Hydra
+configuration path resolution:
 
 .. code-block:: python
 

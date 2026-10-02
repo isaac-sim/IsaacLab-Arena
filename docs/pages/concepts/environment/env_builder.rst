@@ -171,3 +171,7 @@ updates at the same control step idempotent and reset only selected environment 
 Failure terms run before this success hook, so they must not depend on its new
 snapshot. This optional lifecycle currently requires a task with success criteria
 and the standard Arena environment; Mimic compilation rejects it explicitly.
+
+``CompositeTaskBase`` forwards a single child's runtime configuration. If several
+children require shared state, override ``get_runtime_cfg()`` on the composite
+and return one owner for that state; implicit multiple runtimes are rejected.

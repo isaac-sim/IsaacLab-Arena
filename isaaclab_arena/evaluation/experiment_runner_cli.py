@@ -8,6 +8,7 @@ from pathlib import Path
 
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
 from isaaclab_arena.utils.hydra_overrides import assert_hydra_overrides
+from isaaclab_arena.variations.catalogue_output import validate_variations_output
 
 _DEFAULT_EXPERIMENT_CONFIG_PATH = "isaaclab_arena_environments/eval_jobs_configs/zero_action_jobs_config.json"
 _DEFAULT_EXPERIMENT_OUTPUT_BASE_DIRECTORY = "outputs"
@@ -109,6 +110,7 @@ def parse_experiment_runner_args(argv: list[str] | None = None) -> tuple[argpars
     add_experiment_runner_arguments(parser)
     parser.allow_abbrev = False
     args_cli, experiment_overrides = parser.parse_known_args(argv)
+    validate_variations_output(args_cli, parser)
     assert_hydra_overrides(experiment_overrides, parser)
     assert not args_cli.distributed, "Distributed evaluation is not supported yet"
     return args_cli, experiment_overrides

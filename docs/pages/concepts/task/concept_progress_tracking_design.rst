@@ -29,6 +29,8 @@ Arena comes with an existing collection of predicates under ``isaaclab_arena.tas
 * ``object_moving`` — an object exceeds a linear velocity threshold.
 * ``objects_in_proximity`` — two objects are within configured axis-aligned distances.
 * ``object_on_destination`` — destination-footprint, upward-support, and velocity checks for a placement goal.
+* ``ObjectInRegion`` — full supported collision-shape containment in a box attached to a live scene frame.
+* ``relative_pose_matches`` — measured translation and angular alignment, with optional keyed yaw.
 
 .. note::
 

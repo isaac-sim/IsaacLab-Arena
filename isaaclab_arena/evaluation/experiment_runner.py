@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -21,6 +20,7 @@ from isaaclab_arena.evaluation.legacy_experiment_runner import (
 )
 from isaaclab_arena.hydra.typed_experiment_yaml_search import typed_experiment_requires_cameras
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
+from isaaclab_arena.variations.catalogue_output import emit_variations_catalogue
 from isaaclab_arena.video.video_recording import timestamped_run_dir
 
 if TYPE_CHECKING:
@@ -28,22 +28,31 @@ if TYPE_CHECKING:
     from isaaclab_arena.evaluation.arena_run import ArenaRunResult
 
 
-# TODO(cvolk): Move experiment-level variation inspection out of this CLI entry point.
-# Run orchestration belongs in evaluation; catalogue formatting belongs in variations.
-def list_variations(experiment_cfg: ArenaExperimentCfg, output_format: str = "text") -> None:
-    """Print the Hydra-configurable variations for each run's environment."""
+def list_variations(
+    experiment_cfg: ArenaExperimentCfg, output_format: str = "text", output_path: str | Path | None = None
+) -> None:
+    """Print the variations for each run's environment and optionally write a clean catalogue file.
+
+    Args:
+        experiment_cfg: Experiment whose attached variations to inspect.
+        output_format: Text or JSON output.
+        output_path: Optional catalogue file, separate from simulation console messages.
+    """
     from isaaclab_arena.evaluation.run_execution import build_arena_builder_from_run_cfg
 
     if output_format == "json":
         catalogues = {}
         for run_cfg in experiment_cfg.runs.values():
             catalogues[run_cfg.name] = build_arena_builder_from_run_cfg(run_cfg).get_variations_catalogue_as_dict()
-        print(json.dumps({"schema_version": 1, "runs": catalogues}, indent=2), flush=True)
+        emit_variations_catalogue({"schema_version": 1, "runs": catalogues}, output_path)
         return
+    sections = []
     for run_cfg in experiment_cfg.runs.values():
         arena_builder = build_arena_builder_from_run_cfg(run_cfg)
-        print(f"=== Variations for run '{run_cfg.name}' ===", flush=True)
-        print(arena_builder.get_variations_catalogue_as_string(), flush=True)
+        sections.append(
+            f"=== Variations for run '{run_cfg.name}' ===\n{arena_builder.get_variations_catalogue_as_string()}"
+        )
+    emit_variations_catalogue("\n".join(sections), output_path)
 
 
 def _experiment_requires_cameras(
@@ -125,7 +134,11 @@ def main():
                 overrides=experiment_overrides,
             )
             _assert_camera_support_enabled(experiment_cfg, args_cli.enable_cameras)
-            if args_cli.variations_format == "json":
+            if args_cli.variations_output is not None:
+                list_variations(
+                    experiment_cfg, output_format=args_cli.variations_format, output_path=args_cli.variations_output
+                )
+            elif args_cli.variations_format == "json":
                 list_variations(experiment_cfg, output_format="json")
             else:
                 list_variations(experiment_cfg)
