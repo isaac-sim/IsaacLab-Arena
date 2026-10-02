@@ -11,9 +11,6 @@ import argparse
 import socket
 import time
 
-import zmq
-from gr00t.policy.server_client import MsgSerializer
-
 
 def _diagnostics(host: str, port: int, tcp_timeout_sec: float) -> str:
     """Return cheap network diagnostics for CI logs.
@@ -36,6 +33,10 @@ def _diagnostics(host: str, port: int, tcp_timeout_sec: float) -> str:
 
 def _ping(host: str, port: int, timeout_ms: int) -> tuple[bool, object]:
     """Call the GR00T ping endpoint with explicit socket timeouts."""
+    # Keep CLI help available without the optional GR00T client dependencies.
+    import zmq
+    from gr00t.policy.server_client import MsgSerializer
+
     # PolicyClient accepts a timeout_ms constructor argument but does not apply
     # it to the socket in the GR00T version used by this image. Use ZMQ directly
     # so recv() cannot block forever while the sidecar is still booting.
