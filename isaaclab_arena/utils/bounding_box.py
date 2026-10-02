@@ -166,26 +166,26 @@ class AxisAlignedBoundingBox:
         center = (self._min_point + self._max_point) * 0.5
         return AxisAlignedBoundingBox(min_point=self._min_point - center, max_point=self._max_point - center)
 
-    def intersected(
-        self, other: "AxisAlignedBoundingBox", return_bounding_box_on_empty_intersection: bool = False
-    ) -> "AxisAlignedBoundingBox | None":
-        """Return the box common to this one and other, or None when they do not overlap.
+    def intersected(self, other: "AxisAlignedBoundingBox") -> "AxisAlignedBoundingBox":
+        """Return the box common to this one and other.
 
-        With return_bounding_box_on_empty_intersection the empty case is returned as a box whose
-        min exceeds its max on every axis that failed to overlap. That is not a valid bounding box
-        and size, center and the corner helpers are meaningless on it, but it records which axes
-        failed, which callers reconciling one axis at a time need. A batched box reports no overlap
-        when any row fails, so the per-axis form is the one to use for batches.
+        Rows and axes where the two do not overlap come back with ``min_point > max_point``. No
+        clamping is done, so an empty result still records how far apart the two were, and which
+        row and axis failed. Returning a single "no overlap" answer instead would be lossy here,
+        because a batched box can overlap in some environments and not others.
+
+        That makes an empty result unsafe for the rest of this class: ``size``, ``center`` and the
+        corner and rotation helpers assume min <= max. Check ``is_empty`` before using one.
         """
-        intersection = AxisAlignedBoundingBox(
+        return AxisAlignedBoundingBox(
             min_point=torch.maximum(self._min_point, other._min_point),
             max_point=torch.minimum(self._max_point, other._max_point),
         )
-        if return_bounding_box_on_empty_intersection:
-            return intersection
-        if bool((intersection.min_point > intersection.max_point).any()):
-            return None
-        return intersection
+
+    @property
+    def is_empty(self) -> torch.Tensor:
+        """Per-env flag for boxes with min > max on any axis, as ``intersected`` can produce. Shape (N,)."""
+        return (self._min_point > self._max_point).any(dim=-1)
 
     def overlaps(self, other: "AxisAlignedBoundingBox", margin: float = 0.0) -> torch.Tensor:
         """Check if two AABBs overlap in 3D.

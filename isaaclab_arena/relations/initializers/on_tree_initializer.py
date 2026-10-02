@@ -152,7 +152,7 @@ def _get_bounds_from_other_supported_relations(obj: PlaceableAsset) -> AxisAlign
     for relation in obj.get_relations():
         for relation_type, bounds_factory in _BOUNDS_FACTORY_BY_RELATION_TYPE.items():
             if isinstance(relation, relation_type):
-                bounds = bounds.intersected(bounds_factory(relation), return_bounding_box_on_empty_intersection=True)
+                bounds = bounds.intersected(bounds_factory(relation))
                 break
     return bounds
 
@@ -167,10 +167,7 @@ def _maybe_narrow_bounds(
     The solve reconciles it from there. ``On`` pins Z to a single value, so a relation that also
     bounds Z would otherwise discard the X and Y narrowing along with it.
     """
-    # The per-axis form: a conflicting axis must be identifiable, not collapsed to no result.
-    narrowed = child_bbox_given_parent_position.intersected(
-        other_bounds, return_bounding_box_on_empty_intersection=True
-    )
+    narrowed = child_bbox_given_parent_position.intersected(other_bounds)
     empty_axes = narrowed.min_point > narrowed.max_point
     return AxisAlignedBoundingBox(
         min_point=torch.where(empty_axes, child_bbox_given_parent_position.min_point, narrowed.min_point),

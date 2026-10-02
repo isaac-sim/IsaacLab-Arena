@@ -216,24 +216,33 @@ def test_intersected_returns_the_common_box():
     assert result.max_point[0].tolist() == [1.0, 0.75, 0.5]
 
 
-def test_intersected_returns_none_when_the_boxes_do_not_overlap():
-    """The default protects callers from a box whose min exceeds its max."""
+def test_intersected_reports_empty_axes_without_clamping():
+    """Boxes that miss on an axis give min > max there, so callers can see which axis failed."""
     first = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(1.0, 1.0, 1.0))
     second = AxisAlignedBoundingBox(min_point=(2.0, 0.0, 0.0), max_point=(3.0, 1.0, 1.0))
 
-    assert first.intersected(second) is None
-
-
-def test_intersected_reports_empty_axes_when_asked_for_the_box():
-    """Opting in gives min > max on the axes that failed, so callers can reconcile per axis."""
-    first = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(1.0, 1.0, 1.0))
-    second = AxisAlignedBoundingBox(min_point=(2.0, 0.0, 0.0), max_point=(3.0, 1.0, 1.0))
-
-    result = first.intersected(second, return_bounding_box_on_empty_intersection=True)
+    result = first.intersected(second)
 
     assert result.min_point[0, 0] > result.max_point[0, 0], "Expected an empty X axis"
     assert result.min_point[0, 0].item() == 2.0 and result.max_point[0, 0].item() == 1.0
     assert result.min_point[0, 1] <= result.max_point[0, 1], "Y overlapped and should be intact"
+
+
+def test_intersected_keeps_per_env_results_when_only_some_envs_overlap():
+    """A batched intersection must not discard the envs that do overlap."""
+    first = AxisAlignedBoundingBox(
+        min_point=torch.tensor([[0.0, 0.0, 0.0], [0.0, 0.0, 0.0]]),
+        max_point=torch.tensor([[1.0, 1.0, 1.0], [1.0, 1.0, 1.0]]),
+    )
+    second = AxisAlignedBoundingBox(
+        min_point=torch.tensor([[0.5, 0.0, 0.0], [2.0, 0.0, 0.0]]),
+        max_point=torch.tensor([[2.0, 1.0, 1.0], [3.0, 1.0, 1.0]]),
+    )
+
+    result = first.intersected(second)
+
+    assert result.is_empty.tolist() == [False, True]
+    assert result.min_point[0, 0].item() == 0.5 and result.max_point[0, 0].item() == 1.0
 
 
 def test_intersected_leaves_infinite_axes_untouched():
