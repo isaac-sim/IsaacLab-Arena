@@ -110,9 +110,6 @@ prerelease = "if-necessary-or-explicit"
 # route below handles the one known NVIDIA/PyPI name collision without merging
 # candidates from multiple indexes.
 index-strategy = "first-index"
-# Arena validates the pinned Isaac Lab source checkout against the newer public
-# Isaac Sim release. Override Isaac Lab's exact 6.0 requirement without modifying
-# the submodule so fresh checkouts resolve the same environment.
 # Pin numpy to the exact version Isaac Sim requires: isaacsim-kernel needs
 # ==2.3.1 and numba needs <2.5. An override (not a plain dep) is needed to also
 # beat a transitive constraint that would otherwise pull numpy<2.
@@ -128,19 +125,15 @@ index-strategy = "first-index"
 # boto3 1.40.61 / requests 2.32.3 / s3transfer 0.14.0 that isaacsim-kernel
 # pins. Without these overrides simready-search cannot resolve alongside either
 # environment at all, leaving the asset search with no installable runtime.
-# NOTE(qianl, 2026-09-10): the pinned IsaacLab submodule declares isaacsim==6.0.1.0.
-# Drop this override once the submodule itself moves to 6.1.
 override-dependencies = [
-    "isaacsim[all,extscache]==6.1.0.0",
     "numpy==2.3.1",
     "mujoco~=3.11.0",
     "mujoco-warp~=3.11.0",
-    "newton[sim] @ git+https://github.com/newton-physics/newton.git@release-1.5",
+    "newton[sim]==1.5.2",
     "newton-usd-schemas>=0.4.1",
     "torch==2.11.0",
     "torchvision==0.26.0",
     "torchaudio==2.11.0",
-    "typing-extensions>=4.15.0",
     "warp-lang==1.16.0",
     "coverage==7.4.4",
     "packaging==26.0",

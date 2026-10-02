@@ -1,14 +1,14 @@
 Predicates and Subtask Progress Tracking
 ========================================
 
-Arena defines task success through ``ProgressObjective`` objects. These objectives organize
+Arena defines task success through ``CompletionCriteria`` objects. These criteria sets organize
 Boolean predicates into required milestones, such as settling, lifting, and placing an object.
 Their scores also describe partial progress when an episode ends before the task is complete.
 
 Every task returns a ``TaskTerminationCfg`` from ``get_termination_cfg()``. This configuration
-declares its ``success`` objectives, named ``failures``, and ``timeout_s`` in one place. The
-environment builder creates one success termination that advances the objectives and reports
-success when all required objectives are complete.
+declares its ``success`` criteria, named ``failures``, and ``timeout_s`` in one place. The
+environment builder creates one success termination that advances the criteria sets and reports
+success when all required criteria sets are complete.
 
 
 Predicates
@@ -57,14 +57,14 @@ A predicate may accept any task-specific arguments it needs after ``env``. For e
        object_x_e = env.arena_world.get_pose_e(object_name)[:, 0]
        return (object_x_e >= min_x) & (object_x_e <= max_x)
 
-The arguments after ``env`` are configured when the predicate is added to a progress objective
+The arguments after ``env`` are configured when the predicate is added to a criteria set
 (shown in the next section).
 
 
-Defining a progress objective
+Defining completion criteria
 -----------------------------
 
-Add ``ProgressObjective`` entries to ``TaskTerminationCfg.success``. Provide exactly one of
+Add ``CompletionCriteria`` entries to ``TaskTerminationCfg.success``. Provide exactly one of
 ``predicate_sequence`` for a list of predicates or ``predicate_sequences`` for a dictionary of named lists.
 
 ``PickAndPlaceTask`` requires the object to settle, be lifted, and be placed, in that order:
@@ -76,7 +76,7 @@ Add ``ProgressObjective`` entries to ``TaskTerminationCfg.success``. Provide exa
    from isaaclab.envs import mdp
    from isaaclab.managers import SceneEntityCfg, TerminationTermCfg
 
-   from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
+   from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
    from isaaclab_arena.tasks.predicates.object_settling import objects_settled
    from isaaclab_arena.tasks.predicates.spatial import object_is_above_height, object_on_destination
    from isaaclab_arena.tasks.predicates.temporal import TrueForConsecutiveStepsCfg
@@ -85,7 +85,7 @@ Add ``ProgressObjective`` entries to ``TaskTerminationCfg.success``. Provide exa
    def get_termination_cfg(self) -> TaskTerminationCfg:
        return TaskTerminationCfg(
            success=[
-               ProgressObjective(
+               CompletionCriteria(
                    name="pick_and_place",
                    predicate_sequence=[
                        partial(
@@ -124,12 +124,45 @@ Add ``ProgressObjective`` entries to ``TaskTerminationCfg.success``. Provide exa
            timeout_s=self.episode_length_s,
        )
 
-``functools.partial`` supplies the arguments for a single-step check.
-``TrueForConsecutiveStepsCfg`` wraps that configured callable when it must remain true for several steps.
-An instantaneous check that needs environment-dependent initialization can also be supplied
-as a ``TerminationTermCfg`` inside the requirement. For a callable class, ``ProgressObjectiveRunner``
-constructs it with ``(cfg, env)``; it does not need to inherit from ``ManagerTermBase``.
-This initialization is separate from counting steps.
+Configuring a predicate's arguments and requiring it to stay true are separate choices.
+Here, ``partial`` supplies the object names; ``CompletionCriteriaRunner`` supplies the environment
+when it calls the predicate:
+
+.. code-block:: python
+
+   from functools import partial
+
+   from isaaclab_arena.tasks.predicates.object_settling import objects_below_velocity_thresholds
+   from isaaclab_arena.tasks.predicates.temporal import TrueForConsecutiveStepsCfg
+
+   objects_are_resting = partial(objects_below_velocity_thresholds, object_names=["cube"])
+
+   # Complete this entry when the condition is true for one step.
+   predicate_sequence = [objects_are_resting]
+
+   # Or require the same condition to hold for ten consecutive steps.
+   predicate_sequence = [
+       TrueForConsecutiveStepsCfg(
+           predicate=objects_are_resting,
+           required_steps=10,
+       ),
+   ]
+
+``TerminationTermCfg`` is another way to supply the function and its arguments instead of ``partial``:
+
+.. code-block:: python
+
+   from isaaclab.managers import TerminationTermCfg
+
+   objects_are_resting = TerminationTermCfg(
+       func=objects_below_velocity_thresholds,
+       params={"object_names": ["cube"]},
+   )
+
+This configuration can also go directly in ``predicate_sequence`` or inside ``TrueForConsecutiveStepsCfg``.
+``CompletionCriteriaRunner`` prepares and evaluates these entries; ``TerminationTermCfg`` does not
+create a separate termination-manager term here. For a callable class, the runner initializes it
+with ``(cfg, env)``; ``ManagerTermBase`` inheritance is not required.
 
 ``PickAndPlaceTask`` defaults to ``placement_consecutive_steps=1``. Set it to a larger positive
 integer, such as ``10``, to require placement, support, and low speed to hold together for that
@@ -140,7 +173,7 @@ objects to be lifted and placed. Each entry, such as ``can_lifted``, is a config
 
 .. code-block:: python
 
-   objective = ProgressObjective(
+   criteria = CompletionCriteria(
        name="pack_objects",
        predicate_sequences={
            "can": [can_lifted, can_placed],
@@ -151,13 +184,13 @@ objects to be lifted and placed. Each entry, such as ``can_lifted``, is a config
        K=2,
    )
 
-``logical`` and ``K`` control how completed predicate sequences make the objective complete:
+``logical`` and ``K`` control how completed predicate sequences make the criteria set complete:
 
 * ``all`` — every sequence must complete. This is the default.
 * ``any`` — one sequence must complete.
 * ``choose`` — at least ``K`` sequences must complete.
 
-Completed stages are remembered until the environment resets. Separate chains therefore describe
+Completed stages are remembered until the environment resets. Separate sequences therefore describe
 milestones that may complete at different times. If several conditions must hold simultaneously,
 combine them into one predicate. For example, checking that all gears are seated together requires
 one combined condition; remembering each gear's earlier placement would allow a gear to be removed
@@ -177,64 +210,114 @@ Use ``TrueForConsecutiveStepsCfg`` around a configured callable:
    )
 
 ``placed_and_stable`` returns one Boolean per environment; it does not maintain a counter.
-``ProgressObjectiveRunner`` creates an internal ``_TrueForConsecutiveSteps`` instance from each
+``CompletionCriteriaRunner`` creates an internal ``_TrueForConsecutiveSteps`` instance from each
 ``TrueForConsecutiveStepsCfg`` occurrence. The runner evaluates the predicate and passes its results
 and active environments to that instance. ``_TrueForConsecutiveSteps`` stores the per-environment
 counts: true adds one; false clears the streak.
 The runner resets it through the existing ``TaskSuccessTerm`` / ``ProgressTracker`` episode-reset path.
 
-To require overlapping conditions, combine them before counting. Here A must rest while B is
-touching for the same ten steps, after lifting and placement:
+``TaskSuccessTerm`` advances ``ProgressTracker`` once per control step. Reporting and other consumers
+read ``is_complete()``, ``get_state()``, or ``get_events()`` without advancing progress.
+Direct callers of ``ProgressTracker.step()`` must also call it exactly once per control step.
+Temporal requirements need a ``step_index`` per environment, such as ``env.episode_length_buf``.
+After the first update, repeated, skipped, or backwards indices raise an assertion before any
+predicates are evaluated or counters change. ``ProgressTracker.reset()`` clears the stored index
+for each restarting environment.
+
+The examples below show three different requirements. ``object_still(env)`` and ``gripper_slow(env)``
+are configured instantaneous checks that each return one Boolean per environment.
+Step numbers start when the criteria become active.
+
+One condition after another
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Put both requirements in one ``predicate_sequence`` to count them in order:
 
 .. code-block:: python
 
-   def both_conditions_hold(env):
-       return object_a_is_resting(env) & object_b_is_touching(env)
-
-   objective = ProgressObjective(
-       name="place_and_hold",
+   criteria = CompletionCriteria(
+       name="object_then_gripper",
        predicate_sequence=[
-           lifted,
-           placed,
+           TrueForConsecutiveStepsCfg(object_still, required_steps=10),
+           TrueForConsecutiveStepsCfg(gripper_slow, required_steps=10),
+       ],
+   )
+
+``CompletionCriteriaRunner`` first waits for ten consecutive steps with the object still.
+On the following step, it starts counting the gripper's ten steps. The earliest completion is
+step 20. The object may move again after its requirement completes; that completion is remembered.
+
+Independent conditions, both completed
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Use separate named ``predicate_sequences`` to start both counters together:
+
+.. code-block:: python
+
+   criteria = CompletionCriteria(
+       name="object_and_gripper_ready",
+       predicate_sequences={
+           "object": [TrueForConsecutiveStepsCfg(object_still, required_steps=10)],
+           "gripper": [TrueForConsecutiveStepsCfg(gripper_slow, required_steps=10)],
+       },
+       logical="all",
+   )
+
+Each sequence completes independently, and ``logical="all"`` requires both to finish.
+``CompletionCriteriaRunner`` remembers each sequence's completion until the episode resets.
+The successful periods do not have to overlap. For example, if the object is still during steps
+1–10 and the gripper is slow during steps 2–11, the criteria are complete at step 11, even if the
+object is moving again then.
+
+``logical`` combines completed sequences; it does not create separate counters inside one predicate.
+
+Both conditions during the same steps
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Combine the instantaneous checks before wrapping them to require ten shared steps:
+
+.. code-block:: python
+
+   def object_and_gripper_stable(env):
+       return object_still(env) & gripper_slow(env)
+
+   criteria = CompletionCriteria(
+       name="simultaneous_stability",
+       predicate_sequence=[
            TrueForConsecutiveStepsCfg(
-               predicate=both_conditions_hold,
+               predicate=object_and_gripper_stable,
                required_steps=10,
            ),
        ],
    )
 
-Two separate sequence entries would allow the resting and touching periods to happen at different
-times. The combined predicate restarts its streak whenever either condition becomes false.
-
-``TaskSuccessTerm`` supplies the environment's control-step indices automatically, so repeated
-success checks do not count twice. When using ``ProgressTracker.step()`` directly with consecutive-step
-requirements, pass one integer index per environment, for example
-``tracker.step(env, step_index=env.episode_length_buf)``. Skipping an index clears the streak;
-unobserved steps cannot prove the condition held continuously.
+One counter tracks the combined condition. If either check becomes false, the streak starts over.
+If the object is still only during steps 1–10 and the gripper is slow only during steps 2–11,
+this requirement does not complete: they overlap for only nine steps.
 
 
 Subtask progress tracking in composite and sequential tasks
 -----------------------------------------------------------
 
-``CompositeTaskBase`` collects subtask objectives in a flat ``TaskTerminationCfg.success`` list.
+``CompositeTaskBase`` collects subtask criteria sets in a flat ``TaskTerminationCfg.success`` list.
 It prefixes their names with ``subtask_<index>/`` and sets ``parent_subtask_idx`` to identify
-which subtask each objective belongs to. Standalone tasks retain their original objective names,
+which subtask each criteria set belongs to. Standalone tasks retain their original criteria names,
 such as ``pick_and_place``. Nested composite or sequential tasks are not supported.
 
-For an order-independent composite task, every subtask's progress objectives are active.
+For an order-independent composite task, every subtask's criteria sets are active.
 With ``CompositeTaskBase(..., subtasks_are_sequential=True)``, ``ProgressTracker``
-activates each subtask only after all objectives of the preceding subtask complete in that
+activates each subtask only after all criteria sets of the preceding subtask complete in that
 environment. The next subtask starts on the following environment step. A later subtask's predicates
 cannot advance before that subtask becomes active, even if their physical conditions already happen
 to be true.
 
-``ProgressTracker`` determines task success and reports the same objective completion history.
+``ProgressTracker`` determines task success and reports the same criteria completion history.
 Completed milestones remain recorded. ``TaskTerminationCfg.desired_subtask_success_state``
-preserves the composition's optional final-condition checks. Reports contain the flat objectives
+preserves the composition's optional final-condition checks. Reports contain the flat criteria sets
 and their weighted overall progress; subtask metrics read ``ProgressTracker.get_subtask_completion()``.
 For a consecutive-step final condition, these checks continue updating its counter. If the condition
 becomes false, a new streak is required, but the recorded subtask completion is kept.
-There are no additional parent-objective reports. See
+There are no additional reports for parent criteria sets. See
 :doc:`concept_composite_tasks_design` for composition and success semantics.
 
 .. figure:: ../../../images/composite_vs_sequential_progress_tracking.png
@@ -259,18 +342,18 @@ Read each environment's state and completed-predicate events as follows:
    state = progress["states"][env_id]
    print(state.overall_score, state.all_complete)
 
-   objective = state.progress_objectives["pick_and_place"]
-   print(objective.score, objective.is_complete)
-   print(objective.active_predicates)
+   criteria = state.criteria_by_name["pick_and_place"]
+   print(criteria.score, criteria.is_complete)
+   print(criteria.active_predicates)
 
    for event in progress["events"][env_id]:
-       print(event.step, event.progress_objective, event.group, event.predicate_name)
+       print(event.step, event.criteria_name, event.sequence_name, event.predicate_name)
 
 After an automatic reset, ``env.extras["progress_tracking"]`` still shows the finished episode
 until the next step.
 
 Arena's episode recorder also serializes the final progress state and predicate events into the
-episode's JSONL record when an output path is configured. Tasks without progress objectives have
+episode's JSONL record when an output path is configured. Tasks without completion criteria have
 no success termination or progress-tracking configuration and produce no progress fields.
 
 For example, one entry of the JSONL record may look like this (placement predicate name shortened):
@@ -281,30 +364,30 @@ For example, one entry of the JSONL record may look like this (placement predica
      "progress": {
        "overall_score": 0.67,
        "all_complete": false,
-       "objectives": {
+       "criteria_by_name": {
          "pick_and_place": {
            "score": 0.67,
            "is_complete": false,
-           "completed_groups": 0,
-           "total_groups": 1,
+           "completed_sequences": 0,
+           "total_sequences": 1,
            "active_predicates": {
-             "default_group": "object_on_destination"
+             "default_sequence": "object_on_destination"
            }
          }
        },
        "events": [
          {
            "step": 4,
-           "objective": "pick_and_place",
-           "group": "default_group",
+           "criteria_name": "pick_and_place",
+           "sequence_name": "default_sequence",
            "predicate_index": 0,
            "predicate_name": "objects_settled",
            "score_delta": 0.33
          },
          {
            "step": 18,
-           "objective": "pick_and_place",
-           "group": "default_group",
+           "criteria_name": "pick_and_place",
+           "sequence_name": "default_sequence",
            "predicate_index": 1,
            "predicate_name": "object_is_above_height(object_name='can', use_settled_state=True)",
            "score_delta": 0.33
@@ -315,3 +398,7 @@ For example, one entry of the JSONL record may look like this (placement predica
 
 The object has settled and been lifted: two of three predicates are complete, giving a score of ``0.67``.
 Placement is still required. The two events record when settling and lifting completed.
+
+The recording schema uses the same criteria and sequence names as the runtime API. Older
+recordings that use ``objectives``, ``objective``, or ``group`` fields require conversion or
+regeneration before they can be read by the current report tools.

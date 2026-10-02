@@ -8,6 +8,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass, field
 
+from isaaclab_arena.relations.initializers.placement_initializer_base import InitializerType
 from isaaclab_arena.relations.reachability_config import ReachabilityConfig
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 
@@ -19,9 +20,13 @@ class ObjectPlacerParams:
     solver_params: RelationSolverParams = field(default_factory=RelationSolverParams)
     """Parameters for the underlying RelationSolver."""
 
+    initializer_type: InitializerType = InitializerType.ANCHOR
+    """Which strategy seeds each candidate's starting positions before the solve."""
+
     random_yaw_init: bool = False
     """If True, give each non-anchor object a random fixed yaw about Z (uniform in [-pi, pi)) for
-    scene variety. Not optimized; collisions use the conservative box enclosing the rotated object."""
+    scene variety. ClutterOn uses its own random_yaw setting. Not optimized; collisions use the
+    conservative box enclosing the rotated object."""
 
     max_placement_attempts: int = 10
     """Number of candidate layouts solved and ranked per result. Higher values raise the chance a valid

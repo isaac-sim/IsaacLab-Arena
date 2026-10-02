@@ -46,7 +46,7 @@ _registering = False
 _COMPONENT_MODULES = (
     ".cap_policy",
     ".embodiments.insertion_task",
-    ".embodiments.cable_routing",
+    ".embodiments.bimanual_yam",
     ".gear_insertion.asset_factories",
     ".gear_insertion.task.task",
     ".cable_routing.task",
@@ -64,8 +64,12 @@ _COMPONENT_MODULES = (
     ".gear_insertion_v2.embodiment",
     ".gear_insertion_v2.task.task",
     ".gear_insertion_v2.gear_mesh_environment",
+    ".cable_routing_v2.cap_policy",
     ".cable_routing_v2.task",
     ".cable_routing_v2.environment",
+    ".tool_hanging.assets",
+    ".tool_hanging.embodiment",
+    ".tool_hanging.task",
 )
 
 

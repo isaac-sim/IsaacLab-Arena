@@ -42,12 +42,13 @@ class PlacementPoolHandle:
     PooledObjectPlacer itself stays a normal class. EventTermCfg params use this handle.
     """
 
-    __slots__ = ("pool",)
-    """Store pool in a slot instead of an instance dictionary; ``hasattr(handle, "__dict__")`` is false,
-    so ``_validate(handle)`` stops traversing into PooledObjectPlacer ."""
+    __slots__ = ("pool", "last_results")
+    """Keep runtime state out of an instance dictionary so config validation does not traverse it."""
 
     def __init__(self, pool: PooledObjectPlacer) -> None:
         self.pool = pool
+        self.last_results: dict[int, PlacementResult] = {}
+        """Layouts applied by the most recent placement reset, keyed by environment ID."""
 
     def __deepcopy__(self, memo: dict[int, object]) -> PlacementPoolHandle:
         """Share the live pool across ``copy.deepcopy`` to avoid deep-copying the Warp cache BVHs."""
@@ -71,6 +72,12 @@ def get_placement_pool(env) -> PooledObjectPlacer | None:
     handle = term_cfg.params.get("placement_pool")
     assert handle is not None, f"'{PLACEMENT_RESET_EVENT_NAME}' event is missing its placement_pool parameter."
     return handle.pool
+
+
+def get_reset_placement_results(env: ManagerBasedEnv) -> dict[int, PlacementResult]:
+    """Return the layouts applied by the most recent pooled placement reset."""
+    term = env.unwrapped.event_manager.get_term_cfg(PLACEMENT_RESET_EVENT_NAME)
+    return dict(term.params["placement_pool"].last_results)
 
 
 def get_rotation_xyzw(asset: PlaceableAsset) -> tuple[float, float, float, float]:
@@ -194,6 +201,7 @@ def solve_and_place_objects(
     assert (
         pool.num_envs == num_scene_envs
     ), f"Placement pool has {pool.num_envs} envs, but scene has {num_scene_envs} env origins."
+    placement_pool.last_results = {}
     results_by_env = pool.sample_for_envs(reset_env_ids)
     anchor_assets = set(get_anchor_objects(assets))
     base_rotations = get_base_rotation_per_asset(assets)
@@ -207,6 +215,8 @@ def solve_and_place_objects(
             )
         # Only write non-anchor assets to the sim.
         write_layout_to_sim(env, cur_env, result, anchor_assets, base_rotations)
+
+    placement_pool.last_results = results_by_env
 
 
 class ResetPlacementLayouts(ManagerTermBase):
@@ -271,35 +281,21 @@ class ResetPlacementLayouts(ManagerTermBase):
 def make_cached_placement_event(
     layouts: PlacementLayouts, placement_assets: list[PlaceableAsset], num_envs: int
 ) -> EventTermCfg:
-    """Replace cached assets' initial poses and pose-reset events with one reset writer."""
-    from isaaclab_arena.assets.object import Object
-    from isaaclab_arena.assets.object_base import ObjectBase
+    """Replace cached assets' initial root poses and root-reset events with one root writer."""
+    from isaaclab_arena.relations.placement_asset import get_scene_root_owners
+    from isaaclab_arena.relations.placement_layouts import validate_root_reset_for_cached_layouts
 
     layouts.validate_assets(placement_assets)
-    assets = {asset.get_scene_key(): asset for asset in placement_assets}
-    for name in layouts.poses:
-        asset = assets[name]
-        if isinstance(asset, Object):
-            assert asset.reset_pose, f"Cached asset '{name}' has pose resets disabled"
-        if isinstance(asset, ObjectBase) and asset.initial_velocity is not None:
-            velocity = asset.initial_velocity
-            assert all(
-                value == 0 for value in (*velocity.linear_xyz, *velocity.angular_xyz)
-            ), f"Cached asset '{name}' has nonzero initial velocity; replay resets velocity to zero"
-        assert not asset.has_pose_reset_event() or isinstance(
-            asset.get_initial_pose(), Pose
-        ), f"Cached asset '{name}' has a non-fixed pose-reset policy"
+    owners = get_scene_root_owners(placement_assets)
+    initial_poses: dict[PlaceableAsset, dict[str, PosePerEnv]] = {}
     scene_poses: dict[str, list[list[float]]] = {}
     for name, poses in layouts.poses.items():
-        asset = assets[name]
-        asset.clear_pose_reset_event()
-        asset.set_initial_pose(
-            PosePerEnv([poses[i % layouts.num_layouts] for i in range(num_envs)]), create_reset_event=False
+        initial_poses.setdefault(owners[name], {})[name] = PosePerEnv(
+            [poses[i % layouts.num_layouts] for i in range(num_envs)]
         )
-        for pose in poses:
-            for scene_name, scene_pose in asset.layout_pose_to_scene_writes(pose):
-                scene_poses.setdefault(scene_name, []).append(list(scene_pose.position_xyz + scene_pose.rotation_xyzw))
-    assert scene_poses and all(
-        len(poses) == layouts.num_layouts for poses in scene_poses.values()
-    ), "Cached assets must write distinct scene entities in every layout"
+        scene_poses[name] = [list(pose.position_xyz + pose.rotation_xyzw) for pose in poses]
+    validate_root_reset_for_cached_layouts(list(initial_poses))
+    for asset, poses in initial_poses.items():
+        asset.clear_pose_reset_event()
+        asset.set_initial_scene_root_poses(poses)
     return EventTermCfg(func=ResetPlacementLayouts, mode="reset", params={"poses": scene_poses})

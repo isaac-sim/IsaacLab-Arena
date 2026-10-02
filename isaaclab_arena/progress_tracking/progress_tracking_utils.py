@@ -13,12 +13,14 @@ from isaaclab.managers import TerminationTermCfg
 
 from isaaclab_arena.tasks.predicates.temporal import TrueForConsecutiveStepsCfg, _TrueForConsecutiveSteps
 
+# TODO(cvolk): Revisit predicate configuration with an Arena-owned PredicateCfg
+# instead of TerminationTermCfg, and decide whether plain callables remain supported.
 Predicate = Callable | TerminationTermCfg | TrueForConsecutiveStepsCfg
 PredicateSequence = list[Predicate] | list[tuple[Predicate, float]]
 PredicateSequences = dict[str, PredicateSequence]
 
 
-DEFAULT_GROUP_NAME = "default_group"
+DEFAULT_SEQUENCE_NAME = "default_sequence"
 
 
 def _predicate_repr(pred: Predicate | _TrueForConsecutiveSteps) -> str:
@@ -53,7 +55,7 @@ def _format_predicate_sequences(
     """
 
     assert isinstance(predicate_sequences, dict), "predicate_sequences must map names to predicate sequences."
-    assert predicate_sequences, "ProgressObjective.predicate_sequences cannot be empty."
+    assert predicate_sequences, "CompletionCriteria.predicate_sequences cannot be empty."
     assert all(
         isinstance(sequence_name, str) for sequence_name in predicate_sequences
     ), "Predicate sequence names must be strings."

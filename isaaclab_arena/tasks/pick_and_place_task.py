@@ -23,7 +23,7 @@ from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.metrics.object_moved import ObjectMovedRateMetric
 from isaaclab_arena.metrics.success_rate import SuccessRateMetric
-from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
+from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
 from isaaclab_arena.tasks.common.mimic_default_params import MIMIC_DATAGEN_CONFIG_DEFAULTS
 from isaaclab_arena.tasks.predicates.object_settling import objects_settled
 from isaaclab_arena.tasks.predicates.spatial import object_is_above_height, object_on_destination
@@ -96,6 +96,11 @@ class PickAndPlaceTask(TaskBase):
             0.0 <= support_cone_half_angle_rad < math.pi / 2
         ), f"support_cone_half_angle_rad must be in [0, pi / 2), got {support_cone_half_angle_rad}"
         self.support_cone_half_angle_rad = support_cone_half_angle_rad
+        assert (
+            isinstance(placement_consecutive_steps, int)
+            and not isinstance(placement_consecutive_steps, bool)
+            and placement_consecutive_steps > 0
+        ), f"placement_consecutive_steps must be a positive integer, got {placement_consecutive_steps}"
         self.placement_consecutive_steps = placement_consecutive_steps
         self.mimic_env_cfg_factory = mimic_env_cfg_factory
         self.events_cfg = None
@@ -156,7 +161,7 @@ class PickAndPlaceTask(TaskBase):
         return TaskTerminationCfg(
             timeout_s=self.episode_length_s,
             success=[
-                ProgressObjective(
+                CompletionCriteria(
                     name="pick_and_place",
                     predicate_sequence=[
                         # TODO(cvolk): Record initial rest poses independently of task success before

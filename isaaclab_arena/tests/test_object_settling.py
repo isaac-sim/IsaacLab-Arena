@@ -13,7 +13,7 @@ def _test_temporal_rest_check_does_not_record_poses(_simulation_app) -> bool:
     from functools import partial
     from types import SimpleNamespace
 
-    from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
+    from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
     from isaaclab_arena.progress_tracking.progress_tracker import ProgressTracker
     from isaaclab_arena.tasks.predicates.object_settling import (
         ObjectInitialRestPoseRecorder,
@@ -48,7 +48,11 @@ def _test_temporal_rest_check_does_not_record_poses(_simulation_app) -> bool:
     )
     resting = partial(objects_below_velocity_thresholds, object_names=["sphere"])
     tracker = ProgressTracker(
-        [ProgressObjective(name="settled", predicate_sequence=[TrueForConsecutiveStepsCfg(resting, required_steps=2)])],
+        [
+            CompletionCriteria(
+                name="settled", predicate_sequence=[TrueForConsecutiveStepsCfg(resting, required_steps=2)]
+            )
+        ],
         num_envs=2,
         device="cpu",
     )
@@ -153,12 +157,12 @@ def _test_off_table_sphere_does_not_settle_before_falling(_simulation_app) -> bo
             progress_state = progress["states"][0]
             if terminated.item():
                 assert not truncated.item()
-                assert progress_state.progress_objectives["objects_settled"].is_complete
+                assert progress_state.criteria_by_name["objects_settled"].is_complete
                 settled_events = progress["events"][0]
                 assert len(settled_events) == 1
                 assert settled_events[0].step >= 5
                 break
-            assert not progress_state.progress_objectives["objects_settled"].is_complete
+            assert not progress_state.criteria_by_name["objects_settled"].is_complete
             assert progress["events"][0] == []
         else:
             raise AssertionError("The spheres did not settle before the example task timed out.")

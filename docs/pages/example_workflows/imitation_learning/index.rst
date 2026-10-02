@@ -25,7 +25,7 @@ GR00T finetuning and GR00T policy servers use the native Isaac-GR00T ``uv`` envi
 from ``submodules/Isaac-GR00T`` instead of Arena's Docker environment. Open another terminal
 outside the Arena Base Docker container, ``cd`` to the Isaac-GR00T checkout, and set up the
 environment by following the
-`GR00T installation guide <https://github.com/NVIDIA/Isaac-GR00T#installation-guide>`_.
+`GR00T environment setup guide <https://github.com/NVIDIA/Isaac-GR00T/blob/e29d8fc50b0e4745120ae3fb72447986fe638aa6/README.md#set-up-the-environment>`_.
 
 
 .. toctree::

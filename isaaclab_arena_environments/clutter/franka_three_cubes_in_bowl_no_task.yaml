@@ -1,0 +1,69 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+env_name: franka_three_cubes_in_bowl_no_task
+embodiment:
+  id: robot
+  registry_name: franka_ik
+  params:
+    initial_pose:
+      position_xyz: [-1.0, 0.0, 0.0]
+background:
+  id: table
+  registry_name: office_table_background
+objects:
+- id: bowl
+  registry_name: kinematic_bowl_ycb_robolab
+  params:
+    initial_pose:
+      position_xyz: [0.0, 0.0, 0.56]
+- id: cube_0
+  registry_name: dex_cube
+  params:
+    scale: [0.4, 0.4, 0.4]
+- id: cube_1
+  registry_name: dex_cube
+  params:
+    scale: [0.4, 0.4, 0.4]
+- id: cube_2
+  registry_name: dex_cube
+  params:
+    scale: [0.4, 0.4, 0.4]
+relations:
+- kind: is_anchor
+  subject: table
+- kind: is_anchor
+  subject: bowl
+- kind: clutter_on
+  subject: cube_0
+  reference: bowl
+  params:
+    spread: 0.3
+    clearance_m: 0.01
+    random_yaw: false
+- kind: clutter_on
+  subject: cube_1
+  reference: bowl
+  params:
+    spread: 0.3
+    clearance_m: 0.01
+    random_yaw: false
+- kind: clutter_on
+  subject: cube_2
+  reference: bowl
+  params:
+    spread: 0.3
+    clearance_m: 0.01
+    random_yaw: false
+task:
+  composition: atomic
+  description: "No task."
+  subtasks:
+  - kind: NoTask
+    params: {}
+env_cfg_override:
+  viewer:
+    eye: [1.2, 1.2, 1.35]
+    lookat: [0.0, 0.0, 0.6]

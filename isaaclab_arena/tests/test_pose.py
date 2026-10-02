@@ -6,6 +6,8 @@
 import math
 import torch
 
+import pytest
+
 from isaaclab_arena.utils.pose import Pose, PosePerEnv
 from isaaclab_arena.utils.yaw import (
     rotate_points_by_yaw,
@@ -93,3 +95,17 @@ def test_pose_per_env_stores_poses():
     assert pose_per_env.poses[0].position_xyz == (1.0, 2.0, 3.0)
     assert pose_per_env.poses[1].position_xyz == (4.0, 5.0, 6.0)
     assert pose_per_env.poses[2].position_xyz == (7.0, 8.0, 9.0)
+
+
+def test_world_yaw_preserves_base_tilt():
+    angles, yaw = (0.4, 0.3, 0.7), 0.8
+    from isaaclab_arena.relations.relations import RotateAroundSolution
+    from isaaclab_arena.utils.yaw import yaw_from_quat_xyzw
+
+    base = RotateAroundSolution(roll_rad=angles[0], pitch_rad=angles[1], yaw_rad=angles[2]).get_rotation_xyzw()
+    base_matrix = Pose(rotation_xyzw=base).to_transform_matrix("cpu")[:3, :3]
+    yaw_matrix = Pose(rotation_xyzw=(0.0, 0.0, math.sin(yaw / 2), math.cos(yaw / 2))).to_transform_matrix("cpu")[:3, :3]
+    rotated = rotate_quat_by_yaw(base, yaw)
+    actual = Pose(rotation_xyzw=rotated).to_transform_matrix("cpu")[:3, :3]
+    torch.testing.assert_close(actual, yaw_matrix @ base_matrix, atol=1e-6, rtol=0)
+    assert yaw_from_quat_xyzw(rotated) == pytest.approx(math.atan2(actual[1, 0], actual[0, 0]), abs=1e-6)

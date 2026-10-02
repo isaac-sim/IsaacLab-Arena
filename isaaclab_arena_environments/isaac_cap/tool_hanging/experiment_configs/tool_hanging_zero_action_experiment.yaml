@@ -1,0 +1,20 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# One zero-action episode; pick another scene with shared.environment.type=<scene yaml>.
+shared:
+  environment:
+    type: isaaclab_arena_environments/isaac_cap/tool_hanging/wrench_easy.yaml
+    enable_cameras: false
+  environment_builder:
+    num_envs: 1
+    solve_relations: true
+    placement_seed: 42
+  policy:
+    type: zero_action
+  rollout_limit:
+    num_episodes: 1
+runs:
+  tool_hanging: {}

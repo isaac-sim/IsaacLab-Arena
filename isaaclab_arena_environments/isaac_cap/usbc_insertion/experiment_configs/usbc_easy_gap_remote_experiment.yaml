@@ -1,0 +1,26 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+shared:
+  environment:
+    type: vabar_contact_rich_insertion__usbc_insertion_easy
+    enable_cameras: true
+  environment_builder:
+    num_envs: 1
+    solve_relations: true
+    placement_seed: 42
+  policy:
+    type: cap_remote
+    host: 127.0.0.1
+    port: 19000
+    robot_profile: yam_bimanual
+    camera_mapping:
+      top_camera: topdown
+      right_wrist_camera: wrist
+      left_wrist_camera: wrist_support
+  rollout_limit:
+    num_episodes: 1
+runs:
+  usbc_easy: {}

@@ -129,13 +129,17 @@ class DifferentialIKEnvBehaviourDemo(EnvBehaviourDemo):
     move_to_max_steps: int
     position_tolerance_m: float
 
-    def setup_differential_ik(self, expected_num_envs: int = 2) -> None:
-        """Resolve the differential-IK action term and robot end-effector."""
+    def setup_environment(self, expected_num_envs: int = 2) -> None:
+        """Resolve shared environment state used by behavior demos."""
         import torch
 
         self.torch = torch
         self.num_envs = self.base_env.num_envs
         assert self.num_envs == expected_num_envs, f"Expected {expected_num_envs} environments, got {self.num_envs}."
+
+    def setup_differential_ik(self, expected_num_envs: int = 2) -> None:
+        """Resolve the differential-IK action term and robot end-effector."""
+        self.setup_environment(expected_num_envs)
         action_manager = self.base_env.action_manager
         assert action_manager.active_terms == [
             "arm_action",

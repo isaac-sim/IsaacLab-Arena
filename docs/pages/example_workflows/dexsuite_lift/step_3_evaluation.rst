@@ -44,8 +44,8 @@ Single Environment Evaluation
 
 .. code-block:: bash
 
-   python isaaclab_arena/evaluation/policy_runner.py \
-     --viz newton \
+   PYOPENGL_PLATFORM=glx python isaaclab_arena/evaluation/policy_runner.py \
+     --viz newton_gl \
      --policy_type rsl_rl \
      --num_steps 800 \
      --checkpoint_path $MODELS_DIR/model_14999.pt \
