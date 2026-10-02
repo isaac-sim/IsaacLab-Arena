@@ -169,13 +169,8 @@ class AxisAlignedBoundingBox:
     def intersected(self, other: "AxisAlignedBoundingBox") -> "AxisAlignedBoundingBox":
         """Return the box common to this one and other.
 
-        Rows and axes where the two do not overlap come back with ``min_point > max_point``. No
-        clamping is done, so an empty result still records how far apart the two were, and which
-        row and axis failed. Returning a single "no overlap" answer instead would be lossy here,
-        because a batched box can overlap in some environments and not others.
-
-        That makes an empty result unsafe for the rest of this class: ``size``, ``center`` and the
-        corner and rotation helpers assume min <= max. Check ``is_empty`` before using one.
+        Rows and axes where the two do not overlap come back with ``min_point > max_point``.
+        Check ``is_empty`` before using the resulting AABB.
         """
         return AxisAlignedBoundingBox(
             min_point=torch.maximum(self._min_point, other._min_point),
@@ -184,7 +179,7 @@ class AxisAlignedBoundingBox:
 
     @property
     def is_empty(self) -> torch.Tensor:
-        """Per-env flag for boxes with min > max on any axis, as ``intersected`` can produce. Shape (N,)."""
+        """Per-env flag for boxes with min > max on any axis."""
         return (self._min_point > self._max_point).any(dim=-1)
 
     def overlaps(self, other: "AxisAlignedBoundingBox", margin: float = 0.0) -> torch.Tensor:
