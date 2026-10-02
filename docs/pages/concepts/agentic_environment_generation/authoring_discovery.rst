@@ -94,6 +94,22 @@ three steps do not establish task success or produce a complete episode. Use
 episode reporting. Graph paths resolve from the process working directory, so
 use an absolute path or run from the repository root consistently.
 
+For a timeout smoke, reuse a graph that has neither ``env_cfg_override`` nor
+``external_yaml`` with this sibling ``smoke.yaml`` instead of copying its task
+and scene:
+
+.. code-block:: yaml
+
+   external_yaml: environment.yaml
+   env_cfg_override:
+     episode_length_s: 1.5
+
+Select it in the same Experiment with the CLI override
+``shared.environment.type=/absolute/path/to/smoke.yaml``. The include path is
+relative to the including file; includes accept disjoint top-level keys and
+one level only. This changes the generated environment's timeout; the task
+declaration stays unchanged.
+
 Inspect this Experiment's attached variations with ``--list_variations
 --variations_format json --variations_output /tmp/arena_variations.json`` before
 adding a Run's ``variations`` overrides. Mass sampler bounds are absolute
