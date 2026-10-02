@@ -1,5 +1,5 @@
 Placement Validation
-====================
+=====================
 
 The solver (:doc:`./solver`) minimizes a continuous loss over relations and
 collisions. A low loss does not guarantee that a relation holds exactly, that
@@ -13,7 +13,7 @@ candidate actually satisfies the property it checks. Validation is also where
 constraints the solver never optimizes enter the pipeline, for example IK reachability.
 
 How Validation Fits Placement
------------------------------
+------------------------------
 
 ``ObjectPlacer`` builds its validator list once from every registered check
 that passes ``is_available()`` and survives ``enabled_checks`` (see
@@ -55,7 +55,7 @@ best-loss layout that failed required checks
 Pre-physics and offline post-physics validators share the ``PlacementValidator``
 base for check names and stages. They have separate inputs: solved candidate
 batches before physics, measured scene state after physics. See
-:doc:`../offline_placement/clutter` for offline acceptance checks.
+:ref:`recording-post-physics-checks` for offline acceptance checks.
 
 Types of Validators
 --------------------
@@ -169,7 +169,7 @@ check passes trivially. Grasp offset and IK tolerances are configurable; see
 .. _validation-toggle:
 
 Enabling and Disabling Checks
--------------------------------
+------------------------------
 
 Two concepts control the build-time checks: which checks **run**
 (``enabled_checks``) and, of those, which must **pass** for a layout to be
@@ -182,8 +182,10 @@ keep placement geometry-only.
 Both are set on ``ObjectPlacerParams`` in Python or the ``placer_params`` block
 in YAML; see :doc:`../environment/environment_definition`.
 
+.. _recording-post-physics-checks:
+
 Post-Physics Checks for Recordings
-----------------------------------
+-----------------------------------
 
 The :doc:`placement recorder <../offline_placement/recording>` advances physics
 for ``settle.num_steps`` environment steps before checking the final state.
@@ -218,13 +220,29 @@ Configure a limit with
 check is recorded as skipped. At least one applicable post-physics check must
 remain enabled.
 
+.. _clutter-recording-checks:
+
 Clutter Recording Checks
-~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Scenes using ``ClutterOn`` automatically include ``support_containment``. The
-clutter objects must be dynamic rigid bodies with gravity enabled. Their supports
-must be fixed anchors with upright quarter-turn orientations. Resolve other
-placement relations to fixed anchors before collecting clutter layouts.
+clutter objects must be dynamic rigid bodies with gravity enabled, and scene
+gravity must point downward along world Z. Supports must carry ``IsAnchor``
+and have static or kinematic collision geometry, with no tilt and a yaw that is
+a multiple of 90 degrees. ``IsAnchor`` fixes the placement solve; physics mobility
+is a separate requirement. Resolve every non-clutter placement relation to a
+fixed anchor before collection, including destination fixtures.
+
+Release candidates must pass ``no_overlap`` and ``clutter_on_relation``.
+``ClutterOn`` objects cannot require reachability because settling changes the
+poses checked by the solver. Containment checks the full support footprint,
+independent of the release region's ``spread``. Acceptance establishes the
+configured checks; it does not establish graspability or policy success.
+
+.. _clutter-support-floor-height:
+
+Support Floor Height
+^^^^^^^^^^^^^^^^^^^^^
 
 Flat supports use their verified top surface as the minimum resting height.
 Containers need an explicit local-Z height so objects can settle below the rim:
@@ -240,19 +258,64 @@ approximately the inner floor.
 
 Containment compares bounding-box footprints and heights. It does not establish
 exact containment inside curved walls or detect every object-wall penetration.
-Release candidates must also pass ``no_overlap`` and
-``clutter_on_relation``. ``ClutterOn`` objects cannot require reachability
-because settling changes the poses checked by the solver.
+
+.. _clutter-recording-preflight:
+
+Fix Setup and Replay Errors
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Use these actions when scene construction, release solving or replay fails.
+Check the named asset or setting before changing physics duration or acceptance
+limits.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 28 72
+
+   * - Failure
+     - Action
+   * - Unknown registry entry or unavailable asset
+     - Import the external package's registration modules before loading its
+       environment. Check the registry name, asset path and asset access from
+       the runtime that runs the recorder.
+   * - Support is not an anchor, or is dynamic
+     - Set a fixed pose and ``IsAnchor`` for placement; also use static or
+       kinematic collision geometry for settling. Both requirements must hold.
+   * - Unresolved non-clutter placement
+     - Resolve every non-clutter asset with placement relations to a fixed pose
+       and anchor, including fixtures unrelated to the clutter support. Resolve
+       object sets to concrete assets before collection.
+   * - Unsupported support orientation or tilted mesh release
+     - Keep supports upright at multiples of 90 degrees in yaw. For clutter
+       with roll or pitch, set the object's ``collision_mode="bbox"``; see
+       :ref:`ClutterOn settings <clutter-on-relation>`.
+   * - Release footprint cannot fit
+     - Compare the rotated object bounds with ``spread`` and ``edge_margin_m``.
+       Enlarge the release region or use smaller objects; also inspect neighboring
+       collision geometry and the solver's clearance.
+   * - Missing flat surface, unknown support key or invalid floor height
+     - Inspect enabled colliders or select an ``ObjectReference`` to the flat
+       support surface. For a container, use its runtime scene key and a measured
+       :ref:`support-local floor height <clutter-support-floor-height>` within
+       its local Z bounds.
+   * - Existing output path
+     - Choose a new JSONL path. Recording refuses to overwrite an existing file.
+   * - Replay seed conflict, missing roots or incompatible resets
+     - Remove explicit ``placement_seed`` settings, include every owned root,
+       and follow :ref:`placement-replay-configuration` for fixed pose resets,
+       zero root velocities and ``resolve_on_reset=True``.
 
 .. _recording_rejection_summary:
 
 Understand the Rejection Summary
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The recorder excludes rejected layouts and prints each rejection reason. If
 ``max_batches`` is exhausted before ``min_layouts`` is reached, any accepted
 layouts are still written and the command logs the shortfall. No file is written
-when no layouts pass.
+when no layouts pass. A normal command exit or an existing output file does not
+mean the requested count was reached; compare the accepted count with
+``min_layouts``.
 
 Each ``Rejected`` line gives a reason and the number of layouts rejected for it.
 When a pose-shift limit is exceeded, the message includes the object, measured
@@ -298,10 +361,10 @@ Increasing ``max_batches`` allows more attempts without changing which checks
 layouts must pass.
 
 Custom Validators
------------------
+------------------
 
 Pre-Physics Validators
-~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~
 
 Pre-physics validators check the solver's proposed layout before physics is advanced. Subclass
 ``PrePhysicsPlacementValidator`` and register a unique ``check`` name which should be included in
@@ -331,7 +394,7 @@ Default settings run and require the registered check. If ``enabled_checks`` is
 explicit, include ``"max_origin_height"`` to run it.
 
 Post-Physics Validators
-~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~
 
 Subclass ``PostPhysicsPlacementValidator`` to check captured measurements after
 settling. Return one report per entry in ``batch.env_ids``, in the same order.
@@ -396,7 +459,7 @@ decorator is needed. This command adds the custom check alongside the default
 checks. Every enabled, applicable check must pass for a layout to be recorded.
 
 Next Steps
-----------
+-----------
 
 Continue to :doc:`./pooled_placement` for how Arena ranks, stores, and reuses
 layouts that pass these checks.
