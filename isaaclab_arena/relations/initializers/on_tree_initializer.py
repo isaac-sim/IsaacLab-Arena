@@ -47,6 +47,7 @@ class OnTreeInitializer(PlacementInitializerBase):
         # Bounding boxes of the objects sampled so far, in the world frame, i.e. their local
         # bounding boxes translated by the position each one was just sampled at.
         sampled_world_bboxes: dict[PlaceableAsset, AxisAlignedBoundingBox] = {}
+        # Sampling a child needs its parent's position, so visit parents first.
         ordered_objects: list[PlaceableAsset] = _order_parents_before_children(objects, anchor_objects)
         for obj in ordered_objects:
             if obj in anchor_objects:
@@ -57,15 +58,15 @@ class OnTreeInitializer(PlacementInitializerBase):
                     positions[obj] = fallback_position
                 else:
                     parent_world_bbox: AxisAlignedBoundingBox = sampled_world_bboxes[on_relation.parent]
-                    # Take the positions that keep obj on its parent, shrink them to what obj's
-                    # other relations allow, and draw one. Narrowing keeps a parent close to where
-                    # it is sampled, so its children are not left behind when the solve pulls it
-                    # towards its own constraints.
+                    # The positions that keep obj on its parent.
                     child_bbox_given_parent_position = get_child_bbox_given_parent_position(
                         obj, parent_world_bbox, asset_to_bbox
                     )
+                    # The positions obj's other relations allow.
                     other_bounds = _get_bounds_from_other_supported_relations(obj)
+                    # Both at once, which keeps obj near where the solve will pull it.
                     sampling_bbox = _maybe_narrow_bounds(child_bbox_given_parent_position, other_bounds)
+                    # One position drawn from what is left.
                     positions[obj] = sample_position_in_bbox(sampling_bbox, generator)
             sampled_world_bboxes[obj] = asset_to_bbox[obj].translated(positions[obj])
         # Return the positions in the order the caller supplied the objects, rather than in the
@@ -130,9 +131,7 @@ def _bounds_from_position_limits_box(relation: PositionLimitsBox) -> AxisAligned
     )
 
 
-# Relation types whose constraint can be expressed as a box of allowed positions, and so can narrow
-# the region an object is seeded in. Anything absent from this table is simply not used for
-# narrowing; it still shapes the layout through its loss during the solve.
+# Relation types that are currently supported by narrowing.
 # TODO(alexmillane, 2026.09.27): Expand this list of relations used for narrowing as required.
 _BOUNDS_FACTORY_BY_RELATION_TYPE: dict[type[RelationBase], Callable[[RelationBase], AxisAlignedBoundingBox]] = {
     PositionLimitsBox: _bounds_from_position_limits_box,
@@ -157,13 +156,16 @@ def _get_bounds_from_other_supported_relations(obj: PlaceableAsset) -> AxisAlign
 def _maybe_narrow_bounds(
     child_bbox_given_parent_position: AxisAlignedBoundingBox, other_bounds: AxisAlignedBoundingBox
 ) -> AxisAlignedBoundingBox:
-    """Return the two boxes intersected, or the first one alone when they do not overlap.
+    """Return the two boxes intersected, falling back per axis where they do not overlap.
 
-    An empty intersection means no position sits on the parent and satisfies the other relations,
-    so the other relations are dropped and the object is seeded on its parent as if they were
-    absent. The solve reconciles them from there.
+    An axis with an empty intersection has no position that both sits on the parent and satisfies
+    the other relations, so that axis keeps the on-parent range as if those relations were absent.
+    The solve reconciles it from there. ``On`` pins Z to a single value, so a relation that also
+    bounds Z would otherwise discard the X and Y narrowing along with it.
     """
     narrowed = child_bbox_given_parent_position.intersected(other_bounds)
-    if bool((narrowed.min_point > narrowed.max_point).any()):
-        return child_bbox_given_parent_position
-    return narrowed
+    empty_axes = narrowed.min_point > narrowed.max_point
+    return AxisAlignedBoundingBox(
+        min_point=torch.where(empty_axes, child_bbox_given_parent_position.min_point, narrowed.min_point),
+        max_point=torch.where(empty_axes, child_bbox_given_parent_position.max_point, narrowed.max_point),
+    )
