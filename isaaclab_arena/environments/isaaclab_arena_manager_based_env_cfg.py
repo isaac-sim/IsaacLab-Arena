@@ -87,6 +87,9 @@ class IsaacLabArenaManagerBasedRLEnvCfg(ManagerBasedRLEnvCfg):
 
     metrics: object | None = None
 
+    rl_policy_cfg: str | None = None
+    """Registered policy configuration used when a checkpoint has no adjacent agent YAML."""
+
     episode_recorders: object | None = None
 
     demo_recorder_config: RecorderManagerBaseCfg | None = None

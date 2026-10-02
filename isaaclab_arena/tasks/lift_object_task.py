@@ -4,7 +4,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import numpy as np
-from dataclasses import MISSING
+from copy import deepcopy
+from dataclasses import MISSING, field, fields
 from functools import partial
 from typing import Any
 
@@ -27,9 +28,23 @@ from isaaclab_arena.tasks.observations import observations
 from isaaclab_arena.tasks.rewards import lift_object_rewards, rewards
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
-from isaaclab_arena.tasks.terminations import lift_object_il_success, lift_object_rl_success
+from isaaclab_arena.tasks.terminations import lift_object_il_success, lift_object_rl_success, reward_term_succeeded
 from isaaclab_arena.utils.cameras import get_viewer_cfg_look_at_object
+from isaaclab_arena.utils.configclass import make_configclass
 from isaaclab_arena.utils.pose import PoseRange
+
+
+def _copy_config_without_post_init(config: Any, name: str) -> Any:
+    """Copy an initialized config without replaying its type-specific post-init."""
+    config_fields = []
+    for config_field in fields(config):
+        value = deepcopy(getattr(config, config_field.name))
+        config_fields.append((
+            config_field.name,
+            config_field.type,
+            field(default_factory=lambda value=value: deepcopy(value)),
+        ))
+    return make_configclass(name, config_fields)()
 
 
 @register_task
@@ -340,24 +355,23 @@ class LiftObjectRewardCfg:
 
 @register_task
 class DexsuiteLiftTask(LiftObjectTask):
-    """Dexsuite lift task for Arena evaluation.
-
-    Rewards and curriculum are omitted (evaluation-only).
-    """
+    """Dexsuite lift task matching Isaac Lab's Kuka-Allegro play configuration."""
 
     def __init__(self, lift_object: Asset, background_scene: Asset) -> None:
+        from isaaclab_tasks.core.lift.config.kuka_allegro.kuka_allegro_env_cfg import KukaAllegroLiftEnvCfg
+
+        lab_cfg = KukaAllegroLiftEnvCfg()
+        lab_cfg.play_mode()
         super().__init__(
             lift_object=lift_object,
             background_scene=background_scene,
-            episode_length_s=6.0,
-            goal_position_delta_xyz=(0.0, 0.0, 0.3),
-            goal_position_tolerance=0.05,
+            episode_length_s=lab_cfg.episode_length_s,
         )
-        self.task_description = "Dexsuite lift (Arena, Newton-ready scene)."
-
-        self.commands_cfg = lift.CommandsCfg()
-        self.commands_cfg.object_pose.position_only = True
-        self.commands_cfg.object_pose.resampling_time_range = (2.0, 3.0)
+        self.task_description = "Dexsuite lift using Isaac Lab's published Kuka-Allegro policy configuration."
+        self.commands_cfg = _copy_config_without_post_init(lab_cfg.commands, "DexsuiteLiftCommandsCfg")
+        self.events_cfg = _copy_config_without_post_init(lab_cfg.events, "DexsuiteLiftEventsCfg")
+        self.rewards_cfg = _copy_config_without_post_init(lab_cfg.rewards, "DexsuiteLiftRewardsCfg")
+        self.curriculum_cfg = _copy_config_without_post_init(lab_cfg.curriculum, "DexsuiteLiftCurriculumCfg")
 
     def get_termination_cfg(self) -> TaskTerminationCfg:
         native_termination_cfg = lift.TerminationsCfg()
@@ -368,9 +382,8 @@ class DexsuiteLiftTask(LiftObjectTask):
                     name="lift_object",
                     predicate_sequence=[
                         partial(
-                            lift_object_rl_success,
-                            command_name="object_pose",
-                            position_tolerance=self.goal_position_tolerance,
+                            reward_term_succeeded,
+                            reward_term_name="success",
                         )
                     ],
                 ),
@@ -385,7 +398,7 @@ class DexsuiteLiftTask(LiftObjectTask):
         return self.commands_cfg
 
     def get_rewards_cfg(self) -> Any:
-        return None
+        return self.rewards_cfg
 
     def get_curriculum_cfg(self) -> Any:
-        return None
+        return self.curriculum_cfg

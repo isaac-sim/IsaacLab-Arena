@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+from copy import deepcopy
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -15,6 +16,19 @@ from isaaclab_arena.utils.physics_backend import PhysicsBackend
 
 if TYPE_CHECKING:
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
+
+
+def _match_isaac_lab_lift_cfg(env_cfg):
+    """Match Isaac Lab's Kuka-Allegro control rate and Newton configuration."""
+    from isaaclab_newton.physics import NewtonCfg
+    from isaaclab_tasks.core.lift import lift_env_cfg as lift
+
+    env_cfg.sim.dt = 1 / 120
+    env_cfg.sim.render_interval = 4
+    env_cfg.decimation = 4
+    if isinstance(env_cfg.sim.physics, NewtonCfg):
+        env_cfg.sim.physics = deepcopy(lift.PhysicsCfg().newton_mjwarp)
+    return env_cfg
 
 
 @dataclass
@@ -34,28 +48,34 @@ class DexsuiteLiftEnvironment(ArenaEnvironmentFactory[DexsuiteLiftEnvironmentCfg
 
     def build(self, cfg: DexsuiteLiftEnvironmentCfg) -> IsaacLabArenaEnvironment:
         """Build the environment from its typed configuration."""
-        import math
-
         import isaaclab_tasks.core.lift  # noqa: F401
+        from isaaclab_tasks.core.lift import lift_env_cfg as lift
 
+        from isaaclab_arena.assets.object import Object
+        from isaaclab_arena.assets.object_type import ObjectType
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
-        from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import set_control_rate_50hz
         from isaaclab_arena.scene.scene import Scene
         from isaaclab_arena.tasks.lift_object_task import DexsuiteLiftTask
-        from isaaclab_arena.utils.pose import Pose, PoseRange
+        from isaaclab_arena.utils.pose import Pose
 
-        dexsuite_table = self.asset_registry.get_asset_by_name("procedural_table")()
-        dexsuite_table.set_initial_pose(Pose(position_xyz=(-0.55, 0.0, 0.235)))
-
-        manip_object = self.asset_registry.get_asset_by_name("procedural_cube")()
-        manip_object.set_initial_pose(
-            PoseRange(
-                position_xyz_min=(-0.75, -0.1, 0.35),
-                position_xyz_max=(-0.35, 0.3, 0.75),
-                rpy_min=(-math.pi, -math.pi, -math.pi),
-                rpy_max=(math.pi, math.pi, math.pi),
-            )
+        dexsuite_table = Object(
+            name="table",
+            prim_path="{ENV_REGEX_NS}/table",
+            object_type=ObjectType.RIGID,
+            spawner_cfg=deepcopy(lift.TABLE_SPAWN_CFG),
+            initial_pose=Pose(position_xyz=(-0.55, 0.0, 0.235)),
         )
+        dexsuite_table.object_min_z = 0.0
+        dexsuite_table.disable_reset_pose()
+
+        manip_object = Object(
+            name="object",
+            prim_path="{ENV_REGEX_NS}/Object",
+            object_type=ObjectType.RIGID,
+            spawner_cfg=deepcopy(lift.ObjectCfg().default),
+            initial_pose=Pose(position_xyz=(-0.55, 0.1, 0.35)),
+        )
+        manip_object.disable_reset_pose()
 
         ground_plane = self.asset_registry.get_asset_by_name("ground_plane")()
         light = self.asset_registry.get_asset_by_name("light")()
@@ -78,6 +98,5 @@ class DexsuiteLiftEnvironment(ArenaEnvironmentFactory[DexsuiteLiftEnvironmentCfg
             rl_framework_entry_point="rsl_rl_cfg_entry_point",
             rl_policy_cfg=dexsuite_rl_cfg_entry,
             default_physics_backend=PhysicsBackend.NEWTON,
-            # 50 Hz control, the rate the RL policies for this task were trained at.
-            env_cfg_callback=set_control_rate_50hz,
+            env_cfg_callback=_match_isaac_lab_lift_cfg,
         )

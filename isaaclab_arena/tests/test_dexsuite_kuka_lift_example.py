@@ -45,15 +45,18 @@ def test_dexsuite_kuka_lift_task_matches_lift_mdp_flags() -> None:
     assert isinstance(task, LiftObjectTask)
     assert task.lift_object is lift
     assert task.get_scene_cfg() is None
-    assert task.get_rewards_cfg() is None
+    assert task.get_rewards_cfg() is not None
+    assert task.get_curriculum_cfg() is not None
+    assert task.get_events_cfg() is not None
     assert task.commands_cfg.object_pose.position_only is True
+    assert task.commands_cfg.object_pose.resampling_time_range == (4.0, 6.0)
     metrics = task.get_metrics()
     assert len(metrics) == 1
     assert isinstance(metrics[0], SuccessRateMetric)
     assert metrics[0].recorder_term_name == "success"
     termination_cfg = task.get_termination_cfg()
     assert isinstance(termination_cfg, TaskTerminationCfg)
-    assert termination_cfg.timeout_s == 6.0
+    assert termination_cfg.timeout_s == 12.0
     assert set(termination_cfg.failures) == {"object_out_of_bound", "abnormal_robot"}
     objectives = termination_cfg.success
     assert len(objectives) == 1
@@ -61,20 +64,17 @@ def test_dexsuite_kuka_lift_task_matches_lift_mdp_flags() -> None:
     import torch
     from types import SimpleNamespace
 
-    robot_pose_w = torch.tensor([
-        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0],
-        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0],
-    ])
-    object_position_w = torch.tensor([[0.0, 0.0, 0.5], [0.0, 0.0, 0.3]])
-    command_goal = torch.tensor([[0.0, 0.0, 0.5], [0.0, 0.0, 0.5]])
+    class FakeSuccessReward:
+        succeeded = torch.tensor([True, False])
+
+        def __call__(self, env):
+            return self.succeeded.float()
+
+    success_reward = FakeSuccessReward()
     env = SimpleNamespace(
-        num_envs=2,
-        device="cpu",
-        arena_world=SimpleNamespace(
-            get_pose_w=lambda scene_key: robot_pose_w,
-            get_position_w=lambda scene_key: object_position_w,
-        ),
-        command_manager=SimpleNamespace(get_command=lambda command_name: command_goal),
+        reward_manager=SimpleNamespace(
+            get_term_cfg=lambda term_name: SimpleNamespace(func=success_reward, params={}),
+        )
     )
-    # Dexsuite keeps its live command goal instead of inheriting the fixed IL goal.
+    # Evaluation uses the same sticky success condition as Isaac Lab's reward term.
     torch.testing.assert_close(objectives[0].predicate_sequence[0](env), torch.tensor([True, False]))

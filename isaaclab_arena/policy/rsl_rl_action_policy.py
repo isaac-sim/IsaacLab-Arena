@@ -4,6 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import gymnasium as gym
+import importlib.metadata as metadata
 import os
 import torch
 from dataclasses import dataclass
@@ -11,7 +12,8 @@ from gymnasium.spaces.dict import Dict as GymSpacesDict
 
 from isaaclab.utils.assets import retrieve_file_path
 from isaaclab.utils.io import load_yaml
-from isaaclab_rl.rsl_rl import RslRlVecEnvWrapper
+from isaaclab.utils.string import string_to_callable
+from isaaclab_rl.rsl_rl import RslRlVecEnvWrapper, handle_deprecated_rsl_rl_cfg
 from rsl_rl.runners import DistillationRunner, OnPolicyRunner
 
 from isaaclab_arena.assets.register import register_policy
@@ -94,13 +96,24 @@ class RslRlActionPolicy(PolicyBase[RslRlActionPolicyCfg]):
         checkpoint_path = retrieve_file_path(self.config.checkpoint_path)
         agent_yaml_path = os.path.join(os.path.dirname(checkpoint_path), "params", "agent.yaml")
 
-        if not os.path.exists(agent_yaml_path):
-            raise FileNotFoundError(
-                f"No agent config found at {agent_yaml_path}. "
-                "Ensure the checkpoint was produced by IsaacLab's train.py."
+        if os.path.exists(agent_yaml_path):
+            agent_cfg_dict = load_yaml(agent_yaml_path)
+        else:
+            agent_cfg_entry_point = env.unwrapped.cfg.rl_policy_cfg
+            assert (
+                agent_cfg_entry_point is not None
+            ), f"No params/agent.yaml beside {checkpoint_path}, and the environment has no registered policy config."
+            agent_cfg = string_to_callable(agent_cfg_entry_point, separator=":")()
+            agent_cfg = getattr(agent_cfg, "default", agent_cfg)
+            agent_cfg = handle_deprecated_rsl_rl_cfg(agent_cfg, metadata.version("rsl-rl-lib"))
+            assert hasattr(
+                agent_cfg, "to_dict"
+            ), f"Registered RSL-RL configuration '{agent_cfg_entry_point}' cannot be converted to a dictionary."
+            agent_cfg_dict = agent_cfg.to_dict()
+            print(
+                f"[INFO] No params/agent.yaml beside {checkpoint_path}; "
+                f"using the registered RSL-RL configuration '{agent_cfg_entry_point}'."
             )
-
-        agent_cfg_dict = load_yaml(agent_yaml_path)
         agent_cfg_dict["device"] = self.config.device
 
         clip_actions = agent_cfg_dict.get("clip_actions")

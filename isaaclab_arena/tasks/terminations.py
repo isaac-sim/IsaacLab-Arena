@@ -161,6 +161,28 @@ def lift_object_rl_success(
     return distance < position_tolerance
 
 
+def reward_term_succeeded(
+    env: IsaacLabArenaManagerBasedRLEnv,
+    reward_term_name: str,
+) -> torch.Tensor:
+    """Return a stateful reward term's per-environment success flags.
+
+    The reward term is evaluated first so the termination observes success on
+    the current step rather than one step later.
+
+    Args:
+        env: The RL environment instance.
+        reward_term_name: Reward term exposing a ``succeeded`` tensor.
+
+    Returns:
+        A boolean tensor of shape ``(num_envs,)`` indicating success.
+    """
+    term_cfg = env.reward_manager.get_term_cfg(reward_term_name)
+    term_cfg.func(env, **term_cfg.params)
+    assert hasattr(term_cfg.func, "succeeded"), f"Reward term '{reward_term_name}' must expose a 'succeeded' tensor."
+    return term_cfg.func.succeeded
+
+
 def goal_pose_task_termination(
     env: IsaacLabArenaManagerBasedRLEnv,
     object_cfg: SceneEntityCfg = SceneEntityCfg("object"),

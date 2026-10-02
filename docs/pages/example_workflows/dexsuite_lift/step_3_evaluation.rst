@@ -12,22 +12,36 @@ Once inside the container, set the models directory:
    export MODELS_DIR=/models/isaaclab_arena/dexsuite_lift
    mkdir -p $MODELS_DIR
 
-This step evaluates a checkpoint using Arena's ``dexsuite_lift`` environment.
-It uses Newton physics by default, matching the backend used to train the
-provided checkpoint.
+This step evaluates Isaac Lab's published Newton state-policy checkpoint using
+Arena's ``dexsuite_lift`` environment. Arena mirrors the corresponding Isaac
+Lab play configuration.
 
 .. dropdown:: Download Pre-trained Model (skip training)
    :animate: fade-in
 
    .. code-block:: bash
 
-      hf download \
-        nvidia/Arena-Dexsuite-Lift-RL-Newton-Task \
-        --local-dir $MODELS_DIR
+      /isaac-sim/python.sh - <<'PY'
+      import os
+      import shutil
+
+      from isaaclab_rl.utils.pretrained_checkpoint import get_published_pretrained_checkpoint
+
+      source = get_published_pretrained_checkpoint(
+          "rsl_rl", "Isaac-Lift-KukaAllegro", "newtonmjwarp", "none"
+      )
+      assert source is not None
+      destination = os.path.join(os.environ["MODELS_DIR"], "Isaac-Lift-KukaAllegro.pt")
+      shutil.copy2(source, destination)
+      print(destination)
+      PY
 
    After downloading, the checkpoint is at:
 
-   ``$MODELS_DIR/model_14999.pt``
+   ``$MODELS_DIR/Isaac-Lift-KukaAllegro.pt``
+
+   Published checkpoints do not include ``params/agent.yaml``. Arena therefore
+   loads the environment's registered ``KukaAllegroPPORunnerCfg``.
 
 .. note::
 
@@ -44,18 +58,38 @@ Single Environment Evaluation
 
 .. code-block:: bash
 
-   PYOPENGL_PLATFORM=glx python isaaclab_arena/evaluation/policy_runner.py \
-     --viz newton_gl \
+   python isaaclab_arena/evaluation/policy_runner.py \
      --policy_type rsl_rl \
-     --num_steps 800 \
-     --checkpoint_path $MODELS_DIR/model_14999.pt \
+     --num_episodes 100 \
+     --num_envs 1 \
+     --checkpoint_path $MODELS_DIR/Isaac-Lift-KukaAllegro.pt \
      dexsuite_lift
 
 At the end of the run, metrics are printed to the console:
 
 .. code-block:: text
 
-   Metrics: {'success_rate': 0.75, 'num_episodes': 12}
+   Metrics: {'num_episodes': 100, 'success_rate': 0.98}
+
+The same checkpoint achieved 96 successes over 100 sequential episodes in
+Isaac Lab's native play environment. The two measurements agree within normal
+sampling variation.
+
+Use one environment for this comparison. Successful Arena episodes terminate
+early, whereas Isaac Lab runs them until timeout; stopping a many-environment
+run after the first 100 completions would therefore over-sample shorter,
+successful episodes.
+
+To inspect the rollout interactively:
+
+.. code-block:: bash
+
+   PYOPENGL_PLATFORM=glx python isaaclab_arena/evaluation/policy_runner.py \
+     --viz newton_gl \
+     --policy_type rsl_rl \
+     --num_episodes 5 \
+     --checkpoint_path $MODELS_DIR/Isaac-Lift-KukaAllegro.pt \
+     dexsuite_lift
 
 
 .. image:: ../../../images/dexsuite_lift_task.gif
@@ -74,13 +108,12 @@ At the end of the run, metrics are printed to the console:
         --presets physx \
         --policy_type rsl_rl \
         --num_steps 800 \
-        --checkpoint_path $MODELS_DIR/model_14999.pt \
+        --checkpoint_path $MODELS_DIR/Isaac-Lift-KukaAllegro.pt \
         dexsuite_lift
 
    However, the model behaviour may differ significantly when training and
-   evaluation use different physics backends. The above model, which was
-   trained with Newton, fails to grasp or lift the cube completely when
-   evaluated with PhysX.
+   evaluation use different physics backends; the published policy is validated
+   against Newton.
 
 
 Parallel Environment Evaluation
@@ -95,12 +128,11 @@ For statistically significant results, run across many environments in parallel:
      --num_steps 5000 \
      --num_envs 64 \
      --env_spacing 3 \
-     --checkpoint_path $MODELS_DIR/model_14999.pt \
+     --checkpoint_path $MODELS_DIR/Isaac-Lift-KukaAllegro.pt \
      dexsuite_lift
 
-.. code-block:: text
-
-   Metrics: {'success_rate': 0.72, 'num_episodes': 320}
+Use a fixed-step parallel rollout for throughput checks. Use the single-
+environment command above when comparing an exact episode count with Isaac Lab.
 
 
 Batch Evaluation
