@@ -151,9 +151,11 @@ class CameraObsVideoRecorder(gym.Wrapper):
 
             # Skip completion-step frames so replacement observations cannot enter
             # the completed episode's video. Inactive environments must not reopen writers.
-            done_envs = (terminated | truncated).nonzero().flatten().tolist()
-            done_set = set(done_envs)
-            active_env_ids = self.unwrapped.active_episode_mask.nonzero().flatten().tolist()
+            completed_episode_mask = terminated | truncated
+            completed_env_ids = completed_episode_mask.nonzero().flatten().tolist()
+            env_ids_to_record = (
+                (self.unwrapped.active_episode_mask & ~completed_episode_mask).nonzero().flatten().tolist()
+            )
 
             with Timer("record_camera_frames"):
                 for camera_name, frames in cam_obs.items():
@@ -164,14 +166,13 @@ class CameraObsVideoRecorder(gym.Wrapper):
                     ), f"Camera observation '{camera_name}' has shape {frames.shape}; expected (N, H, W, 3) RGB."
                     if camera_name not in self.writers:
                         self.writers[camera_name] = [None] * n_envs
-                    for env_idx in active_env_ids:
-                        if env_idx not in done_set:
-                            self._write_frame(camera_name, env_idx, _to_uint8(frames[env_idx]))
+                    for env_idx in env_ids_to_record:
+                        self._write_frame(camera_name, env_idx, _to_uint8(frames[env_idx]))
 
-            if done_envs:
+            if completed_env_ids:
                 # The encoder shutdown that finalises one episode's mp4 files.
                 with Timer("record_camera_finalize"):
-                    self._finish_envs(done_envs)
+                    self._finish_envs(completed_env_ids)
 
         return result
 

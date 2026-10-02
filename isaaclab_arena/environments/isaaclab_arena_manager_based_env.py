@@ -152,8 +152,8 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
         return observations, rewards, terminated & active_before_step, truncated & active_before_step, extras
 
     def _reset_idx(self, env_ids: Sequence[int]) -> None:
-        env_ids = torch.as_tensor(env_ids, dtype=torch.long, device=self.device).sort().values
-        finishing_env_ids = env_ids[self._active_episode_mask[env_ids]]
+        requested_env_ids = torch.as_tensor(env_ids, dtype=torch.long, device=self.device).sort().values
+        finishing_env_ids = requested_env_ids[self._active_episode_mask[requested_env_ids]]
         if len(finishing_env_ids) > 0:
             # Isaac Lab has already exported the terminal trajectory. Preserve the old
             # assignment through JSONL recording, before selecting any replacements.
@@ -161,21 +161,22 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
             self._completed_episode_count += len(finishing_env_ids)
             self._active_episode_mask[finishing_env_ids] = False
 
+        episode_start_env_ids = requested_env_ids
         if self._episode_limit is not None:
             if self._started_episode_count > 0:
-                env_ids = finishing_env_ids
-            remaining_episodes = self._episode_limit - self._started_episode_count
-            env_ids = env_ids[:remaining_episodes]
-        if len(env_ids) == 0:
+                episode_start_env_ids = finishing_env_ids
+            remaining_episode_starts = self._episode_limit - self._started_episode_count
+            episode_start_env_ids = episode_start_env_ids[:remaining_episode_starts]
+        if len(episode_start_env_ids) == 0:
             return
 
         # Reset-mode variation draws must refer to the episode being started.
-        for env_id in env_ids.tolist():
+        for env_id in episode_start_env_ids.tolist():
             self._episode_indices[env_id] = self._episode_indices.get(env_id, -1) + 1
-        self._started_episode_count += len(env_ids)
-        self._active_episode_mask[env_ids] = True
-        self._reset_env_ids = torch.cat((self._reset_env_ids, env_ids))
-        super()._reset_idx(env_ids)
+        self._started_episode_count += len(episode_start_env_ids)
+        self._active_episode_mask[episode_start_env_ids] = True
+        self._reset_env_ids = torch.cat((self._reset_env_ids, episode_start_env_ids))
+        super()._reset_idx(episode_start_env_ids)
 
     def compute_metrics(self) -> MetricsDataCollection:
         """Compute all registered metrics.

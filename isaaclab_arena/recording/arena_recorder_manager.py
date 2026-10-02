@@ -41,15 +41,15 @@ class ArenaRecorderManager(RecorderManager):
             return
 
         requested_env_ids = self._normalize_env_ids(env_ids)
-        active_positions = self._env.active_episode_mask[requested_env_ids].nonzero(as_tuple=False).flatten()
-        if active_positions.numel() == 0:
+        active_row_indices = self._env.active_episode_mask[requested_env_ids].nonzero(as_tuple=False).flatten()
+        if active_row_indices.numel() == 0:
             return
         if isinstance(value, wp.array):
             value = wp.to_torch(value)
         super().add_to_episodes(
             key,
-            value[active_positions.to(device=value.device)],
-            requested_env_ids[active_positions],
+            value[active_row_indices.to(device=value.device)],
+            requested_env_ids[active_row_indices],
         )
 
     def record_pre_reset(
