@@ -10,7 +10,10 @@ import torch
 import pytest
 
 from isaaclab_arena.relations.initializers.anchor_initializer import AnchorInitializer
-from isaaclab_arena.relations.initializers.on_tree_initializer import OnTreeInitializer
+from isaaclab_arena.relations.initializers.on_tree_initializer import (
+    OnTreeInitializer,
+    _bounding_box_from_partial_limits,
+)
 from isaaclab_arena.relations.initializers.placement_initializer_base import InitializerType
 from isaaclab_arena.relations.object_placer import ObjectPlacer
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
@@ -381,6 +384,28 @@ def test_ontree_init_handles_two_disjoint_on_trees():
         for tray, mug in ((left_tray, left_mug), (right_tray, right_mug)):
             tray_world = tray.get_bounding_box().translated(positions[tray])
             _assert_footprint_within(positions[mug], mug.get_bounding_box(), tray_world)
+
+
+def test_partial_limits_leave_unset_axes_unbounded():
+    """None on a side means unbounded there, so intersecting leaves that axis alone."""
+    partial = _bounding_box_from_partial_limits((0.3, None, None), (0.4, None, None))
+    footprint = AxisAlignedBoundingBox(min_point=(0.0, 0.1, 0.2), max_point=(1.0, 0.9, 0.8))
+
+    narrowed = footprint.intersected(partial)
+
+    assert narrowed.min_point[0].tolist() == pytest.approx([0.3, 0.1, 0.2])
+    assert narrowed.max_point[0].tolist() == pytest.approx([0.4, 0.9, 0.8])
+
+
+def test_partial_limits_with_nothing_set_is_the_intersection_identity():
+    """A fully unset box narrows nothing, which is how the fold starts."""
+    unbounded = _bounding_box_from_partial_limits((None, None, None), (None, None, None))
+    footprint = AxisAlignedBoundingBox(min_point=(0.0, 0.1, 0.2), max_point=(1.0, 0.9, 0.8))
+
+    narrowed = footprint.intersected(unbounded)
+
+    assert narrowed.min_point[0].tolist() == footprint.min_point[0].tolist()
+    assert narrowed.max_point[0].tolist() == footprint.max_point[0].tolist()
 
 
 def test_ontree_init_narrows_to_position_limits_box():

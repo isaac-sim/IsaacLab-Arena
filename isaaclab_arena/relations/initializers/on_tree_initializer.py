@@ -106,22 +106,27 @@ def _order_parents_before_children(
     return ordered
 
 
-def _bounds_from_position_limits_box(relation: PositionLimitsBox) -> AxisAlignedBoundingBox:
-    """Read the region a PositionLimitsBox confines an object's position to.
+def _bounding_box_from_partial_limits(
+    min_point: tuple[float | None, float | None, float | None],
+    max_point: tuple[float | None, float | None, float | None],
+) -> AxisAlignedBoundingBox:
+    """Build a box from per-axis limits where None means unbounded on that side.
 
-    Axes the relation leaves unset become infinite, so they survive intersection untouched.
+    Unset sides become infinite, which is the identity for ``intersected``, so they narrow
+    nothing. The result may therefore be unbounded: that is fine for ``intersected`` and
+    ``overlaps``, which only compare, but not for ``size``, ``center`` or the rotation helpers.
     """
     return AxisAlignedBoundingBox(
-        min_point=(
-            relation.x_min if relation.x_min is not None else -math.inf,
-            relation.y_min if relation.y_min is not None else -math.inf,
-            relation.z_min if relation.z_min is not None else -math.inf,
-        ),
-        max_point=(
-            relation.x_max if relation.x_max is not None else math.inf,
-            relation.y_max if relation.y_max is not None else math.inf,
-            relation.z_max if relation.z_max is not None else math.inf,
-        ),
+        min_point=tuple(-math.inf if limit is None else limit for limit in min_point),
+        max_point=tuple(math.inf if limit is None else limit for limit in max_point),
+    )
+
+
+def _bounds_from_position_limits_box(relation: PositionLimitsBox) -> AxisAlignedBoundingBox:
+    """Read the region a PositionLimitsBox confines an object's position to."""
+    return _bounding_box_from_partial_limits(
+        (relation.x_min, relation.y_min, relation.z_min),
+        (relation.x_max, relation.y_max, relation.z_max),
     )
 
 
@@ -140,9 +145,7 @@ def _get_bounds_from_other_supported_relations(obj: PlaceableAsset) -> AxisAlign
     Every supported relation contributes a box of allowed positions and the result is their
     intersection. An object with no such relation gets an unbounded box, which narrows nothing.
     """
-    bounds = AxisAlignedBoundingBox(
-        min_point=(-math.inf, -math.inf, -math.inf), max_point=(math.inf, math.inf, math.inf)
-    )
+    bounds = _bounding_box_from_partial_limits((None, None, None), (None, None, None))
     for relation in obj.get_relations():
         for relation_type, bounds_factory in _BOUNDS_FACTORY_BY_RELATION_TYPE.items():
             if isinstance(relation, relation_type):
