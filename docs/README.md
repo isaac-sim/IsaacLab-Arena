@@ -1,6 +1,6 @@
 # `isaaclab_arena` Docs - Developer Guide
 
-The docs are built on the **host machine** (not inside Docker) using a dedicated Python 3.11 venv.
+The docs are built on the **host machine** (not inside Docker) using a dedicated Python 3.12 venv.
 
 ## Prerequisites
 
