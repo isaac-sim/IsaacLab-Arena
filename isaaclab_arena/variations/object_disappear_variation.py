@@ -20,6 +20,7 @@ events are composed after both, so the park is what survives.
 
 from __future__ import annotations
 
+import math
 import torch
 from dataclasses import field
 from typing import TYPE_CHECKING
@@ -27,6 +28,7 @@ from typing import TYPE_CHECKING
 from isaaclab.managers import EventTermCfg, SceneEntityCfg
 from isaaclab.utils.configclass import configclass
 
+from isaaclab_arena.agentic_environment_generation.authoring_metadata import AuthoringMetadata, ParameterMetadata
 from isaaclab_arena.terms.events import set_object_pose
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.variations.bernoulli_sampler import BernoulliSampler, BernoulliSamplerCfg
@@ -85,6 +87,17 @@ class ObjectDisappearVariation(RunTimeVariationBase):
 
     cfg: ObjectDisappearVariationCfg
 
+    authoring_metadata = AuthoringMetadata(
+        configuration={
+            "away_position_xyz": ParameterMetadata(
+                units="m", description="Finite XYZ parking position in the environment frame."
+            ),
+            "sampler_cfg.probability": ParameterMetadata(minimum=0, maximum=1),
+        },
+        constraints=("Use for optional objects; the task may prohibit removing required inventory.",),
+        reset_semantics="Parks selected objects after placement; reappearance requires an ordinary pose reset.",
+    )
+
     def __init__(
         self,
         asset_name: str,
@@ -93,6 +106,11 @@ class ObjectDisappearVariation(RunTimeVariationBase):
     ):
         super().__init__(cfg=cfg if cfg is not None else ObjectDisappearVariationCfg(), name=name)
         self.asset_name = asset_name
+
+    def validate_cfg(self) -> None:
+        assert len(self.cfg.away_position_xyz) == 3 and all(
+            math.isfinite(x) for x in self.cfg.away_position_xyz
+        ), "Disappearance parking position must contain three finite coordinates."
 
     def build_event_cfg(self) -> tuple[str, EventTermCfg]:
         assert self._sampler is not None, f"ObjectDisappearVariation on '{self.asset_name}': sampler not set."

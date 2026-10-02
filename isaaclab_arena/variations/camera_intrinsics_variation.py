@@ -18,6 +18,7 @@ from isaaclab.managers import EventTermCfg, ManagerTermBase, SceneEntityCfg
 from isaaclab.sensors import Camera, TiledCamera
 from isaaclab.utils.configclass import configclass
 
+from isaaclab_arena.agentic_environment_generation.authoring_metadata import AuthoringMetadata, ParameterMetadata
 from isaaclab_arena.variations.continuous_sampler import ContinuousSampler
 from isaaclab_arena.variations.uniform_sampler import UniformSamplerCfg
 from isaaclab_arena.variations.variation_base import RunTimeVariationBase, VariationBaseCfg
@@ -66,6 +67,19 @@ class CameraIntrinsicsVariation(RunTimeVariationBase):
 
     cfg: CameraIntrinsicsVariationCfg
 
+    authoring_metadata = AuthoringMetadata(
+        configuration={
+            "sampler_cfg.low": ParameterMetadata(
+                units="fraction", description="Signed fx/fy changes; both must exceed -1."
+            ),
+            "sampler_cfg.high": ParameterMetadata(
+                units="fraction", description="Signed fx/fy changes; both must exceed -1."
+            ),
+        },
+        constraints=("Requires cameras enabled and changes the rig to untiled cameras.",),
+        reset_semantics="Per-environment focal-length changes from nominal intrinsics; changes do not accumulate.",
+    )
+
     def __init__(
         self,
         camera_name: str,
@@ -78,6 +92,9 @@ class CameraIntrinsicsVariation(RunTimeVariationBase):
         super().__init__(cfg=cfg, name=name)
         self.camera_name = camera_name
         self._camera_rig = camera_rig
+
+    def validate_cfg(self) -> None:
+        self.sampler.validate_range((2,), minimum=-1.0, minimum_inclusive=False)
 
     def _prepare_at_build_time(self) -> None:
         """Force the target camera's rig untiled so the per-env perturbation takes effect."""

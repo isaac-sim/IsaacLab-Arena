@@ -11,7 +11,7 @@ from enum import Enum
 from numbers import Real
 from typing import Any
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, StrictBool, field_validator, model_validator
 
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.assets.registries import AssetRegistry, ObjectRelationLibraryRegistry, TaskRegistry
@@ -213,6 +213,20 @@ class CompositeTaskSpec(BaseModel):
         default_factory=list,
         description="Atomic registered tasks that compose this root task.",
     )
+    episode_length_s: float | None = Field(
+        default=None,
+        gt=0,
+        allow_inf_nan=False,
+        strict=True,
+        description="Overall episode budget in seconds; omitted uses the atomic budget or sum of subtask budgets.",
+    )
+    desired_subtask_success_state: list[StrictBool | None] | None = Field(
+        default=None,
+        description=(
+            "Optional final conditions, one per subtask. True/False require recorded completion and a matching "
+            "current final condition. Null entries exclude both history and final state for that subtask."
+        ),
+    )
 
     @model_validator(mode="after")
     def _validate_composition_task_count(self) -> CompositeTaskSpec:
@@ -226,6 +240,13 @@ class CompositeTaskSpec(BaseModel):
                 f"composition '{self.composition.value}' requires at least two atomic tasks, got {len(self.subtasks)}."
                 " Use atomic as composition instead."
             )
+        if self.desired_subtask_success_state is not None:
+            assert len(self.desired_subtask_success_state) == len(
+                self.subtasks
+            ), "Desired subtask states must have one entry per subtask."
+            assert any(
+                state is not None for state in self.desired_subtask_success_state
+            ), "At least one subtask must participate in the success check."
         return self
 
 

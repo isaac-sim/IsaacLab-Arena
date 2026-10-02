@@ -20,6 +20,10 @@ class ArenaEnvBuilderCfg:
     num_envs: int = 1
     env_spacing: float = 30.0
     seed: int = 42
+    variation_seed: int | None = None
+    """Optional independent seed for variation draws, keyed by path and episode identity."""
+    variation_replay_path: str | None = None
+    """Sample-trace or episode JSONL whose recorded draws replace enabled variation sampling."""
     solve_relations: bool = True
     placement_seed: int | None = None
     resolve_on_reset: bool | None = None
@@ -40,5 +44,6 @@ class ArenaEnvBuilderCfg:
 
     def __post_init__(self) -> None:
         assert self.num_envs > 0, "num_envs must be greater than zero"
+        assert self.variation_seed is None or type(self.variation_seed) is int, "variation_seed must be an integer"
         if self.presets is not None:
             self.presets = PhysicsBackend(self.presets)

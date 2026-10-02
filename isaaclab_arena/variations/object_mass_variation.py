@@ -19,6 +19,7 @@ import warp as wp
 from isaaclab.managers import EventTermCfg, ManagerTermBase, SceneEntityCfg
 from isaaclab.utils.configclass import configclass
 
+from isaaclab_arena.agentic_environment_generation.authoring_metadata import AuthoringMetadata, ParameterMetadata
 from isaaclab_arena.variations.continuous_sampler import ContinuousSampler
 from isaaclab_arena.variations.uniform_sampler import UniformSamplerCfg
 from isaaclab_arena.variations.variation_base import RunTimeVariationBase, VariationBaseCfg
@@ -58,6 +59,15 @@ class ObjectMassVariation(RunTimeVariationBase):
 
     cfg: ObjectMassVariationCfg
 
+    authoring_metadata = AuthoringMetadata(
+        configuration={
+            "sampler_cfg.low": ParameterMetadata(units="kg", minimum=_MIN_PHYSICAL_MASS_KG),
+            "sampler_cfg.high": ParameterMetadata(units="kg", minimum=_MIN_PHYSICAL_MASS_KG),
+        },
+        constraints=("Supports one rigid body; inertia scaling assumes unchanged geometry and uniform density.",),
+        reset_semantics="One absolute mass per resetting environment; inertia is scaled from its nominal value.",
+    )
+
     def __init__(
         self,
         asset_name: str,
@@ -66,6 +76,9 @@ class ObjectMassVariation(RunTimeVariationBase):
     ):
         super().__init__(cfg=cfg if cfg is not None else ObjectMassVariationCfg(), name=name)
         self.asset_name = asset_name
+
+    def validate_cfg(self) -> None:
+        self.sampler.validate_range((1,), minimum=_MIN_PHYSICAL_MASS_KG)
 
     def build_event_cfg(self) -> tuple[str, EventTermCfg]:
         assert self._sampler is not None, (

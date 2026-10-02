@@ -42,6 +42,24 @@ Lint and format tooling (`pre-commit` and the hooks it runs — black, flake8, i
 - `osmo/` — OSMO policy-runner workflow
 - `docs/` — Sphinx documentation
 
+## Discover environment authoring APIs first
+
+Read [the authoring discovery guide](docs/pages/concepts/agentic_environment_generation/authoring_discovery.rst)
+before inventing a task, asset wrapper, or variation interface. In the clone's container:
+
+```bash
+/isaac-sim/python.sh isaaclab_arena_examples/agentic_environment_generation/cli_runner.py --mode catalog --format json
+/isaac-sim/python.sh isaaclab_arena_examples/agentic_environment_generation/cli_runner.py --mode schema
+/isaac-sim/python.sh isaaclab_arena_examples/agentic_environment_generation/cli_runner.py --mode validate --format json --env_spec <graph.yaml>
+```
+
+These modes do not construct assets or start SimulationApp. Use the registered task catalogue first
+(generation supports `@agent_ready` tasks), then existing predicates and composite task contracts.
+Use a custom task runtime only for state or lifecycle behavior those interfaces cannot express.
+Match required/provided affordances, inspect declared parameter units and reset semantics, and run
+static validation before simulation. For attached variations, use the existing runner's
+`--list_variations --variations_format json` to discover exact paths and task restriction reasons.
+
 ## Coding style
 
 - Keep comprehensions simple. When they contain nested loops, filtering, or multiple transformations that make them hard to read, use explicit loops and named intermediate variables instead.

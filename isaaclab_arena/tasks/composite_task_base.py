@@ -22,6 +22,7 @@ from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.metrics.metric_term_cfg import MetricTermCfg
 from isaaclab_arena.tasks.common.mimic_default_params import MIMIC_DATAGEN_CONFIG_DEFAULTS
 from isaaclab_arena.tasks.task_base import TaskBase
+from isaaclab_arena.tasks.task_runtime import TaskRuntimeCfg
 from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
 from isaaclab_arena.utils.configclass import (
     check_configclass_field_duplicates,
@@ -152,6 +153,28 @@ class CompositeTaskBase(TaskBase):
             ), "Set episode_length_s explicitly for a composite task when a subtask has no timeout."
             total_timeout_s += subtask_timeout_s
         return total_timeout_s
+
+    def get_runtime_cfg(self) -> TaskRuntimeCfg | None:
+        """Forward one child's runtime; tasks sharing mechanisms must declare a root owner."""
+        runtimes = []
+        for subtask in self.subtasks:
+            runtime = subtask.get_runtime_cfg()
+            if runtime is not None:
+                runtimes.append(runtime)
+        assert len(runtimes) <= 1, (
+            "Composite children declare multiple task runtimes; override get_runtime_cfg() "
+            "on the root task to provide one explicit shared owner."
+        )
+        return runtimes[0] if runtimes else None
+
+    def get_variation_restrictions(self) -> dict[str, str]:
+        """Keep every child's variation restrictions active in the composite task."""
+        restrictions = {}
+        for index, subtask in enumerate(self.subtasks):
+            for path, reason in subtask.get_variation_restrictions().items():
+                previous = restrictions.get(path, "")
+                restrictions[path] = f"{previous} Subtask {index}: {reason}".strip()
+        return restrictions
 
     def get_viewer_cfg(self) -> ViewerCfg:
         """Use the first subtask's viewport framing (e.g. pick-and-place look-at-object)."""

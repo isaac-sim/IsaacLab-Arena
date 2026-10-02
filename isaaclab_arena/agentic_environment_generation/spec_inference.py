@@ -133,7 +133,12 @@ REJECTED RESPONSE:
             f"{relation_catalog.to_catalog_string()}\n\n"
             f"{task_catalog.to_catalog_string()}"
         )
-        return f"{vocabulary}\n\nUSER PROMPT:\n{prompt}"
+        metadata = {
+            "assets": asset_catalog.to_dict(),
+            **relation_catalog.to_dict(),
+            **task_catalog.to_dict(),
+        }
+        return f"{vocabulary}\n\nAUTHORING METADATA:\n{json.dumps(metadata)}\n\nUSER PROMPT:\n{prompt}"
 
     @staticmethod
     def _system_prompt() -> str:
@@ -143,6 +148,10 @@ Convert a natural-language prompt into an ArenaEnvGraphSpec.
 
 GUIDANCE:
 - Follow the per-field ``description`` strings in the schema.
+- Follow AUTHORING METADATA parameter types, defaults, enum values, units, bounds, and reset semantics.
+  Match task ``requires`` capabilities to asset ``provides`` capabilities. Parameters marked
+  ``x-arena-reference`` name graph nodes; other string parameters are literal values.
+  Textual constraints describe further obligations; static validation alone does not establish physical feasibility.
 - REQUIRED: leave ``placer_params`` and ``cli_override_specs`` null.
 - Use only exact names from the catalog for ``registry_name``:
   EMBODIMENTS for ``embodiment``, BACKGROUNDS for ``background``, and OBJECTS for ``objects``.

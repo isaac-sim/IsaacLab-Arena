@@ -5,32 +5,24 @@
 
 from __future__ import annotations
 
-import types
-import typing
 from typing import TYPE_CHECKING, Any
 
-from isaaclab_arena.affordances.affordance_base import AffordanceBase
-from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.assets.registries import TaskRegistry
 
 if TYPE_CHECKING:
     from isaaclab_arena.environment_spec.arena_env_graph_types import CompositeTaskSpec, TaskSpec
 
 
-# Annotation bases that mark a task __init__ kwarg as a graph-node reference.
-#   * Asset           — direct ("background_scene: Asset")
-#   * AffordanceBase  — task interface enforces an affordance contract on the kwarg
-#                       ("placeable_object: Placeable").
-NODE_REF_BASES: tuple[type, ...] = (Asset, AffordanceBase)
-
-
 def build_task_from_spec(task_spec: CompositeTaskSpec, assets_by_node_id: dict[str, Any]) -> Any:
     """Build the root graph task into a live env-level task instance."""
     from isaaclab_arena.environment_spec.arena_env_graph_types import TaskCompositionType
 
-    if task_spec.composition is TaskCompositionType.ATOMIC:
+    if task_spec.composition is TaskCompositionType.ATOMIC and task_spec.desired_subtask_success_state is None:
         return _build_atomic_task_from_spec(
-            task_spec.subtasks[0], assets_by_node_id, task_description=task_spec.description
+            task_spec.subtasks[0],
+            assets_by_node_id,
+            task_description=task_spec.description,
+            episode_length_s=task_spec.episode_length_s,
         )
 
     subtasks = [_build_atomic_task_from_spec(spec, assets_by_node_id) for spec in task_spec.subtasks]
@@ -43,6 +35,8 @@ def build_task_from_spec(task_spec: CompositeTaskSpec, assets_by_node_id: dict[s
         subtasks=subtasks,
         task_description=task_spec.description,
         subtasks_are_sequential=task_spec.composition is TaskCompositionType.SEQUENTIAL,
+        episode_length_s=task_spec.episode_length_s,
+        desired_subtask_success_state=task_spec.desired_subtask_success_state,
     )
 
 
@@ -51,12 +45,15 @@ def _build_atomic_task_from_spec(
     assets_by_node_id: dict[str, Any],
     *,
     task_description: str | None = None,
+    episode_length_s: float | None = None,
 ) -> Any:
     """Look up the task class by name, resolve any Asset-typed kwargs, instantiate."""
     task_class = TaskRegistry().get_task_by_name(task_spec.kind)
     task_init_kwargs = _resolve_node_refs_in_task_args(task_class, task_spec.params, assets_by_node_id)
     if task_description and "task_description" not in task_init_kwargs:
         task_init_kwargs["task_description"] = task_description
+    if episode_length_s is not None:
+        task_init_kwargs["episode_length_s"] = episode_length_s
     return task_class(**task_init_kwargs)
 
 
@@ -83,6 +80,8 @@ def _resolve_node_refs_in_task_args(
     for param_name, is_collection in is_collection_by_param_name.items():
         if param_name in raw_task_args:
             raw_param_value = raw_task_args[param_name]
+            if raw_param_value is None:
+                continue
             if is_collection:
                 # list[Asset]-typed param: resolve each element to its live asset.
                 #   e.g. "targets": ["cube", "ball"]  ->  "targets": [<Object: cube>, <Object: ball>]
@@ -112,37 +111,13 @@ def find_node_ref_params_in_signature(task_class: type) -> dict[str, bool]:
 
     e.g. ``(obj: Asset, group: list[Asset], height: float)`` -> ``{"obj": False, "group": True}``.
     """
+    from isaaclab_arena.agentic_environment_generation.authoring_metadata import constructor_parameters
+
     node_ref_params: dict[str, bool] = {}
-    for param_name, annotation in typing.get_type_hints(task_class.__init__).items():
-        is_collection = _classify_node_ref(annotation)
-        # Keep only node refs.
-        if is_collection is not None:
-            node_ref_params[param_name] = is_collection
+    for param_name, schema in constructor_parameters(task_class).items():
+        for branch in schema.get("anyOf", [schema]):
+            if branch.get("x-arena-reference-collection"):
+                node_ref_params[param_name] = True
+            elif schema.get("x-arena-reference") or branch.get("x-arena-reference"):
+                node_ref_params[param_name] = False
     return node_ref_params
-
-
-def _classify_node_ref(annotation: Any) -> bool | None:
-    """Match node-ref type to a bool: False=scalar, True=list, None=not a ref. e.g. ``list[Asset] | None`` -> True."""
-    # Look at non-None members of a union, like list[Asset] | None.
-    for branch in _strip_none(annotation):
-        # For a scalar ref: the branch is itself an Asset / AffordanceBase subclass. e.g. Asset.
-        if _is_node_ref_type(branch):
-            return False
-        # For a list ref: list[X] with X a ref. e.g. list[Asset].
-        if typing.get_origin(branch) is list and _is_node_ref_type(next(iter(typing.get_args(branch)), None)):
-            return True
-    return None
-
-
-def _is_node_ref_type(annotation: Any) -> bool:
-    """True if annotation is an Asset / AffordanceBase subclass. e.g. Asset -> True, list[Asset] / None -> False."""
-    # The isinstance(..., type) guard rejects non-classes (None, generics like list[Asset]) so issubclass won't raise.
-    return isinstance(annotation, type) and issubclass(annotation, NODE_REF_BASES)
-
-
-def _strip_none(annotation: Any) -> tuple[Any, ...]:
-    """Non-None members of a union, else the annotation alone. e.g. ``Asset | None`` -> ``(Asset,)``; ``float`` -> ``(float,)``."""
-    # Only unions branch; everything else is wrapped in a 1-tuple so callers iterate uniformly.
-    if typing.get_origin(annotation) in (typing.Union, types.UnionType):
-        return tuple(member for member in typing.get_args(annotation) if member is not type(None))
-    return (annotation,)

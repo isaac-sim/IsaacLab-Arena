@@ -32,6 +32,12 @@ class ArenaWorld:
         self._aabbs_in_local_frame_cache: dict[str, AxisAlignedBoundingBox] = {}
         self._scene_extra_pose_reader_cache: dict[str, scene_access.SceneExtraPoseReader] = {}
 
+    def close(self) -> None:
+        """Release cached live pose readers; repeated calls are safe."""
+        for reader in self._scene_extra_pose_reader_cache.values():
+            reader.close()
+        self._scene_extra_pose_reader_cache.clear()
+
     # -------------------------------------------------------------------------
     # Rooted object APIs
     # -------------------------------------------------------------------------

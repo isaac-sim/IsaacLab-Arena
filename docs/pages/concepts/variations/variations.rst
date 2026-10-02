@@ -152,6 +152,81 @@ each run's environment:
      --list_variations \
      --experiment_config isaaclab_arena_environments/experiment_configs/droid_pnp_variations_experiment.yaml
 
+Reproducible draws and replay
+-----------------------------
+
+Set ``environment_builder.variation_seed`` to give enabled variations an
+independent random stream. In an Experiment Definition, for example:
+
+.. code-block:: yaml
+
+   shared:
+     environment_builder:
+       seed: 42
+       variation_seed: 73
+
+The built-in uniform, choice and Bernoulli samplers derive each draw from the
+variation seed, its qualified ``asset.variation`` path, and either a build-time
+key or the runtime ``(env_id, episode_in_env)`` pair. Unrelated variations and
+global Torch RNG calls do not change those draws. Reordered or partial resets
+give the same value for the same environment and episode. Experiment rebuilds
+offset the variation seed, just as they offset the environment seed.
+
+This guarantee does not assign logical cases across different environment
+counts or worker shards: changing the environment or episode ID changes the
+key. It also does not guarantee identical physics trajectories across devices
+or simulator versions. With ``variation_seed: null`` and no replay file,
+samplers retain their existing global-RNG behavior; build-time draws are then
+not fixed by the environment seed.
+
+Every accepted draw is recorded by the existing variation recorder in the
+episode JSONL's ``variations`` field. The experiment runner also exports a
+complete ``variation_samples_rebuild<N>.jsonl`` trace, including initializations
+drawn by the final autoreset after the last completed episode. To apply
+recorded values instead of sampling, set
+``environment_builder.variation_replay_path`` to this companion trace from one
+Run and one rebuild. Runtime draws require the exact recorded environment and
+episode IDs. Set ``num_rebuilds: 1`` for replay; use a separate Run for each
+recorded rebuild's trace. Multiple rebuilds with one replay path are rejected.
+
+Existing ``episode_results_rebuild<N>.jsonl`` files are also accepted. They
+must include every requested reset, including a lookahead episode if the run
+autoresets at completion. Such files contain only completed episodes; use the
+companion trace to replay a complete evaluation with its final autoreset.
+Build-time values in an episode-results file must be present and identical in
+every row.
+
+Replay never falls back to random sampling. Missing values, duplicate episode
+keys, wrong numeric shapes, nonfinite numbers, incorrect categorical types,
+and values outside the configured domain are rejected. Configure the same
+variation domains as the recorded run, and do not request resets beyond those
+in the trace. The normal variation event applies the value and the
+recorder receives one notification for the complete accepted sample batch.
+
+Variation replay restores sampled parameters. It does not restore robot
+joints, object poses, contacts, task history, or the complete simulator state.
+Use placement replay or trajectory/state recording when those are needed,
+and keep asset versions, task configuration, and simulator settings with the
+evaluation artifacts.
+
+Custom variations can implement ``validate_cfg()`` to reject invalid physical
+domains before construction. Custom continuous samplers retain their legacy
+``_sample`` implementation. ``ContinuousSampler.validate_range()`` checks the
+declared shape without sampling and registers physical bounds to check on
+every realized batch before recording or application. Custom samplers can
+override that hook, call ``super()``, and add distribution-specific preflight
+checks; the built-in uniform sampler also validates its configured bounds.
+For Hydra composition, a replacement sampler config must match the variation
+config's declared ``sampler_cfg`` type. Subclass the variation config and
+override that annotation when replacing its default ``UniformSamplerCfg``
+with another distribution's config.
+Opt into keyed sampling by implementing
+``_sample_with_generator(generator)`` for one sample row. This method must use
+the supplied CPU generator without changing global RNG state. The base class
+handles row attribution and listener notification. Custom replay domains can
+override ``_replay_value(value)`` and call the base implementation for numeric
+shape and finiteness checks.
+
 .. _available-variations:
 
 Available variations
@@ -171,12 +246,15 @@ variations are sampled once and applied to asset configs before the environment 
    * - ``CameraExtrinsicsVariation``
      - run-time
      - Adds a small sampled offset to a camera's nominal local position on every reset.
-   * - ``CameraIntrinsicsBuildTimeVariation``
-     - build-time
-     - Perturbs a pinhole camera's focal lengths and principal point when the environment is built.
-   * - ``CameraIntrinsicsRunTimeVariation``
+   * - ``CameraIntrinsicsVariation``
      - run-time
-     - Perturbs a pinhole camera's focal lengths and principal point on every reset.
+     - Perturbs a pinhole camera's focal lengths on every reset; uses untiled cameras.
+   * - ``ObjectMassVariation``
+     - run-time
+     - Sets a rigid object's absolute mass, optionally scaling its inertia from the nominal value.
+   * - ``ObjectDisappearVariation``
+     - run-time
+     - Parks optional objects away from the workcell; tasks may prohibit removal of required objects.
    * - ``HDRImageVariation``
      - build-time
      - Samples a single HDR and attaches it to a dome light.
