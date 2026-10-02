@@ -53,8 +53,11 @@ before inventing a task, asset wrapper, or variation interface. In the clone's c
 /isaac-sim/python.sh isaaclab_arena_examples/agentic_environment_generation/cli_runner.py --mode validate --format json --env_spec <graph.yaml>
 ```
 
-These modes do not construct assets or start SimulationApp. Use the registered task catalogue first
-(generation supports `@agent_ready` tasks), then existing predicates and composite task contracts.
+These modes do not construct assets or start SimulationApp. Prefer configuring an existing registered
+environment, then composing a graph, before writing a Python factory. Experiment Definitions accept
+graph YAML paths directly as `environment.type`; a graph needs no custom runner wrapper.
+Use the registered task catalogue first (generation supports `@agent_ready` tasks), then existing
+predicates and composite task contracts.
 Use a custom task runtime only for state or lifecycle behavior those interfaces cannot express.
 Match required/provided affordances, inspect declared parameter units and reset semantics, and run
 static validation before simulation. For attached variations, use the existing runner's

@@ -109,6 +109,32 @@ def test_catalogues_reflect_types_defaults_and_affordances_without_constructing(
     json.dumps({"assets": assets, "task": task}, allow_nan=False)
 
 
+@pytest.mark.parametrize(
+    "annotation",
+    [_Mode, _Mode | None, list[_Mode], tuple[_Mode, int], dict[str, _Mode], Literal["soft", "firm"]],
+)
+def test_text_catalogue_preserves_choices_from_parameter_schemas(annotation):
+    class Task:
+        """Choose a mode."""
+
+        agent_ready = True
+
+        def __init__(self, choice, retries: int = 2, task_description: str = "ignored", **kwargs):
+            raise AssertionError("Discovery must not construct tasks")
+
+    Task.__init__.__annotations__["choice"] = annotation
+    catalogue = build_task_catalogue(_Registry({"Task": Task}))
+    entry = catalogue.tasks[0]
+    assert entry.required_params == ["choice"]
+    assert entry.optional_params == ["retries"]
+    assert entry.enum_options == {"choice": ["soft", "firm"]}
+    assert "task_description" not in entry.parameters
+    assert (
+        catalogue.to_catalog_string()
+        == "TASKS (1):\n- Task (required: choice={soft, firm}; optional: retries): Choose a mode."
+    )
+
+
 def test_asset_factory_signature_is_discovered_without_calling(monkeypatch):
     from isaaclab_arena.assets.register import register_asset_factory
     from isaaclab_arena.assets.registries import AssetRegistry
