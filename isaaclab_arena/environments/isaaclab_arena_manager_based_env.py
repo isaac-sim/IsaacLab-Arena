@@ -148,15 +148,15 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
         active_before_step = self._active_episode_mask.clone()
         self._reset_env_ids = self._reset_env_ids[:0]
         observations, rewards, terminated, truncated, extras = super().step(action)
-        # A newly finished episode still emits its boundary; inactive environments do not.
+        # Report an episode's completion even if its environment became inactive during this step.
         return observations, rewards, terminated & active_before_step, truncated & active_before_step, extras
 
     def _reset_idx(self, env_ids: Sequence[int]) -> None:
         requested_env_ids = torch.as_tensor(env_ids, dtype=torch.long, device=self.device).sort().values
         finishing_env_ids = requested_env_ids[self._active_episode_mask[requested_env_ids]]
         if len(finishing_env_ids) > 0:
-            # Isaac Lab has already exported the terminal trajectory. Preserve the old
-            # assignment through JSONL recording, before selecting any replacements.
+            # Record the JSONL result with the finishing episode's index
+            # before starting any replacements.
             self.episode_recorder_manager.record_pre_reset(finishing_env_ids)
             self._completed_episode_count += len(finishing_env_ids)
             self._active_episode_mask[finishing_env_ids] = False

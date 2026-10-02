@@ -58,7 +58,7 @@ class ArenaRecorderManager(RecorderManager):
         env_ids: Sequence[int] | torch.Tensor | None,
         force_export_or_skip: bool | None = None,
     ) -> None:
-        """Finalize assigned episodes before Arena releases their assignments.
+        """Record episode results before Arena resets or deactivates environments.
 
         Args:
             env_ids: Environments requesting a reset, or None for all environments.
