@@ -11,11 +11,6 @@ from typing import TYPE_CHECKING
 from isaaclab.envs import ManagerBasedRLEnv, ManagerBasedRLMimicEnv
 
 from isaaclab_arena.environments.arena_world import ArenaWorld
-from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import (
-    IsaacArenaManagerBasedMimicEnvCfg,
-    IsaacLabArenaManagerBasedRLEnvCfg,
-    apply_arena_global_settings,
-)
 from isaaclab_arena.metrics.metric_data import MetricsDataCollection
 from isaaclab_arena.metrics.metrics_manager import MetricsManager
 from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderManager
@@ -23,6 +18,10 @@ from isaaclab_arena.tasks.predicates.object_settling import ObjectInitialRestPos
 from isaaclab_arena.variations.variation_recorder import VariationRecorder
 
 if TYPE_CHECKING:
+    from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import (
+        IsaacArenaManagerBasedMimicEnvCfg,
+        IsaacLabArenaManagerBasedRLEnvCfg,
+    )
     from isaaclab_arena.progress_tracking.progress_tracker import ProgressTracker
 
 
@@ -38,6 +37,8 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
         variation_recorder: VariationRecorder | None = None,
         **kwargs,
     ):
+        from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import apply_arena_global_settings
+
         apply_arena_global_settings()
         self._arena_world: ArenaWorld | None = None
         self._progress_tracker: ProgressTracker | None = None
