@@ -51,9 +51,6 @@ class TaskSuccessTerm(ManagerTermBase):
         desired_subtask_success_state: list[bool | None] | None = None,
     ) -> torch.Tensor:
         """Update ProgressTracker and return whether the task's success requirements are met in each environment."""
-        runtime = getattr(env, "task_runtime", None)
-        if runtime is not None:
-            runtime.update()
         self._progress_tracker.step(env, step_index=env.episode_length_buf)
         return self._progress_tracker.is_complete()
 

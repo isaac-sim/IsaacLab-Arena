@@ -98,18 +98,6 @@ def add_isaaclab_arena_cli_args(parser: argparse.ArgumentParser) -> None:
         help="Replay a companion placement JSONL instead of solving; path is relative to the working directory.",
     )
     arena_group.add_argument(
-        "--variation_seed",
-        type=int,
-        default=None,
-        help="Independent variation seed keyed by path, environment ID, and episode index.",
-    )
-    arena_group.add_argument(
-        "--variation_replay_path",
-        type=str,
-        default=None,
-        help="Replay one Run/rebuild's variation sample JSONL; every requested draw must be recorded.",
-    )
-    arena_group.add_argument(
         "--placement_seed",
         type=int,
         default=None,
@@ -135,7 +123,7 @@ def add_isaaclab_arena_cli_args(parser: argparse.ArgumentParser) -> None:
         "--variations_format",
         choices=("text", "json"),
         default="text",
-        help="Output format for --list_variations; JSON includes exact override paths and task restrictions.",
+        help="Output format for --list_variations; JSON includes exact override paths and effective configuration.",
     )
     arena_group.add_argument(
         "--variations_output",

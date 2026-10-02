@@ -51,22 +51,6 @@ environment and then exit before rollout:
      --list_variations \
      pick_and_place_maple_table
 
-For agents and scripts, write JSON directly to a file. Redirecting stdout also
-captures simulator messages and does not produce a clean JSON document:
-
-.. code-block:: bash
-
-   python isaaclab_arena/evaluation/policy_runner.py \
-     --list_variations --variations_format json \
-     --variations_output outputs/variations.json \
-     pick_and_place_maple_table
-
-Discovery starts SimulationApp and constructs the selected environment's assets,
-so it requires the simulation runtime and asset access even though it does not
-run a policy. ``--variations_output`` requires ``--list_variations``, writes the
-selected text or JSON format, creates missing parent directories, and replaces
-an existing file. Console output is unchanged.
-
 The output lists each asset (scene asset or embodiment), the variation name, whether it is
 run-time or build-time, the Hydra path to enable it, and all tunable fields with their current
 defaults:
@@ -168,86 +152,28 @@ each run's environment:
      --list_variations \
      --experiment_config isaaclab_arena_environments/experiment_configs/droid_pnp_variations_experiment.yaml
 
-To save its machine-readable catalogue, add ``--variations_format json
---variations_output outputs/experiment_variations.json`` to that discovery
-command. The JSON document contains ``schema_version`` and ``runs``, with each
-run name mapped to its environment's catalogue. The policy runner writes one
-environment catalogue directly.
+Machine-readable discovery
+--------------------------
 
-Reproducible draws and replay
------------------------------
+Both runners accept ``--variations_format json`` and ``--variations_output`` with
+``--list_variations``. The output file contains only the catalogue, separate from
+simulation console logs:
 
-Set ``environment_builder.variation_seed`` to give enabled variations an
-independent random stream. In an Experiment Definition, for example:
+.. code-block:: bash
 
-.. code-block:: yaml
+   python isaaclab_arena/evaluation/experiment_runner.py --viz none \
+     --experiment_config isaaclab_arena_environments/experiment_configs/droid_pnp_variations_experiment.yaml \
+     --list_variations --variations_format json --variations_output /tmp/variations.json
 
-   shared:
-     environment_builder:
-       seed: 42
-       variation_seed: 73
+The versioned JSON describes exact enable and override paths, build/reset timing,
+field types, initial values, effective overrides, and any declared units or reset
+semantics. Inspection constructs the environment definition under SimulationApp
+but does not sample variations or execute a rollout. It preserves the live
+configuration. The default text format remains available.
 
-The built-in uniform, choice and Bernoulli samplers derive each draw from the
-variation seed, its qualified ``asset.variation`` path, and either a build-time
-key or the runtime ``(env_id, episode_in_env)`` pair. Unrelated variations and
-global Torch RNG calls do not change those draws. Reordered or partial resets
-give the same value for the same environment and episode. Experiment rebuilds
-offset the variation seed, just as they offset the environment seed.
-
-This guarantee does not assign logical cases across different environment
-counts or worker shards: changing the environment or episode ID changes the
-key. It also does not guarantee identical physics trajectories across devices
-or simulator versions. With ``variation_seed: null`` and no replay file,
-samplers retain their existing global-RNG behavior; build-time draws are then
-not fixed by the environment seed.
-
-Every accepted draw is recorded by the existing variation recorder in the
-episode JSONL's ``variations`` field. The experiment runner also exports a
-complete ``variation_samples_rebuild<N>.jsonl`` trace, including initializations
-drawn by the final autoreset after the last completed episode. To apply
-recorded values instead of sampling, set
-``environment_builder.variation_replay_path`` to this companion trace from one
-Run and one rebuild. Runtime draws require the exact recorded environment and
-episode IDs. Set ``num_rebuilds: 1`` for replay; use a separate Run for each
-recorded rebuild's trace. Multiple rebuilds with one replay path are rejected.
-
-Existing ``episode_results_rebuild<N>.jsonl`` files are also accepted. They
-must include every requested reset, including a lookahead episode if the run
-autoresets at completion. Such files contain only completed episodes; use the
-companion trace to replay a complete evaluation with its final autoreset.
-Build-time values in an episode-results file must be present and identical in
-every row.
-
-Replay never falls back to random sampling. Missing values, duplicate episode
-keys, wrong numeric shapes, nonfinite numbers, incorrect categorical types,
-and values outside the configured domain are rejected. Configure the same
-variation domains as the recorded run, and do not request resets beyond those
-in the trace. The normal variation event applies the value and the
-recorder receives one notification for the complete accepted sample batch.
-
-Variation replay restores sampled parameters. It does not restore robot
-joints, object poses, contacts, task history, or the complete simulator state.
-Use placement replay or trajectory/state recording when those are needed,
-and keep asset versions, task configuration, and simulator settings with the
-evaluation artifacts.
-
-Custom variations can implement ``validate_cfg()`` to reject invalid physical
-domains before construction. Custom continuous samplers retain their legacy
-``_sample`` implementation. ``ContinuousSampler.validate_range()`` checks the
-declared shape without sampling and registers physical bounds to check on
-every realized batch before recording or application. Custom samplers can
-override that hook, call ``super()``, and add distribution-specific preflight
-checks; the built-in uniform sampler also validates its configured bounds.
-For Hydra composition, a replacement sampler config must match the variation
-config's declared ``sampler_cfg`` type. Subclass the variation config and
-override that annotation when replacing its default ``UniformSamplerCfg``
-with another distribution's config.
-Opt into keyed sampling by implementing
-``_sample_with_generator(generator)`` for one sample row. This method must use
-the supplied CPU generator without changing global RNG state. The base class
-handles row attribution and listener notification. Custom replay domains can
-override ``_replay_value(value)`` and call the base implementation for numeric
-shape and finiteness checks.
+Use these paths in a Run's ``variations`` mapping. For mass variations, bounds
+are absolute kilograms; they are not multipliers of a native USD mass. Discovery
+describes declared configuration and does not measure physical asset properties.
 
 .. _available-variations:
 
@@ -268,15 +194,12 @@ variations are sampled once and applied to asset configs before the environment 
    * - ``CameraExtrinsicsVariation``
      - run-time
      - Adds a small sampled offset to a camera's nominal local position on every reset.
-   * - ``CameraIntrinsicsVariation``
+   * - ``CameraIntrinsicsBuildTimeVariation``
+     - build-time
+     - Perturbs a pinhole camera's focal lengths and principal point when the environment is built.
+   * - ``CameraIntrinsicsRunTimeVariation``
      - run-time
-     - Perturbs a pinhole camera's focal lengths on every reset; uses untiled cameras.
-   * - ``ObjectMassVariation``
-     - run-time
-     - Sets a rigid object's absolute mass, optionally scaling its inertia from the nominal value.
-   * - ``ObjectDisappearVariation``
-     - run-time
-     - Parks optional objects away from the workcell; tasks may prohibit removal of required objects.
+     - Perturbs a pinhole camera's focal lengths and principal point on every reset.
    * - ``HDRImageVariation``
      - build-time
      - Samples a single HDR and attaches it to a dome light.

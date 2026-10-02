@@ -18,7 +18,6 @@ from typing import TYPE_CHECKING
 from isaaclab.utils.configclass import configclass
 from isaaclab.utils.math import quat_from_angle_axis
 
-from isaaclab_arena.agentic_environment_generation.authoring_metadata import AuthoringMetadata, ParameterMetadata
 from isaaclab_arena.variations.uniform_sampler import UniformSamplerCfg
 from isaaclab_arena.variations.variation_base import BuildTimeVariationBase, VariationBaseCfg
 
@@ -82,22 +81,6 @@ class LightDirectionVariation(BuildTimeVariationBase):
 
     cfg: LightDirectionVariationCfg
 
-    authoring_metadata = AuthoringMetadata(
-        configuration={
-            "sampler_cfg.low": ParameterMetadata(
-                units="rad", description="Azimuth about +Z and elevation down from overhead."
-            ),
-            "sampler_cfg.high": ParameterMetadata(
-                units="rad", description="Azimuth about +Z and elevation down from overhead."
-            ),
-            "dome_intensity_when_active": ParameterMetadata(
-                minimum=0, description="USD dome-light intensity when dimmed."
-            ),
-        },
-        constraints=("May dim a registered dome light; check interaction with other dome-light variations.",),
-        reset_semantics="One shared distant-light orientation for the environment build.",
-    )
-
     def __init__(
         self,
         light: DirectionalLight,
@@ -107,10 +90,6 @@ class LightDirectionVariation(BuildTimeVariationBase):
         super().__init__(cfg=cfg if cfg is not None else LightDirectionVariationCfg(), name=name)
         self._light = light
         self._dome_light: DomeLight | None = None
-
-    def validate_cfg(self) -> None:
-        self.sampler.validate_range((2,))
-        assert math.isfinite(self.cfg.dome_intensity_when_active) and self.cfg.dome_intensity_when_active >= 0.0
 
     def set_dome_light(self, dome_light: DomeLight) -> None:
         """Register a dome light to dim while this variation is active, so shadows are visible."""

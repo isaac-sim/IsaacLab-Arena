@@ -83,6 +83,9 @@ def test_find_node_ref_params_empty_when_no_refs():
     assert conversion.find_node_ref_params_in_signature(T) == {}
 
 
+# --------------------------------- _classify_node_ref ------------------------------------
+
+
 @pytest.mark.parametrize(
     "annotation, expected",
     [
@@ -99,16 +102,9 @@ def test_find_node_ref_params_empty_when_no_refs():
         (None, None),
     ],
 )
-def test_signature_reference_annotation_shapes(annotation, expected):
-    """Discovery and construction share the same reference classification."""
-
-    class Task:
-        def __init__(self, value):
-            pass
-
-    Task.__init__.__annotations__["value"] = annotation
-    expected_parameters = {} if expected is None else {"value": expected}
-    assert conversion.find_node_ref_params_in_signature(Task) == expected_parameters
+def test_classify_node_ref(annotation, expected):
+    """False = scalar ref, True = list ref, None = not a node ref."""
+    assert conversion._classify_node_ref(annotation) is expected
 
 
 # ----------------------------- _resolve_node_refs_in_task_args ---------------------------
@@ -196,11 +192,10 @@ def test_build_task_from_spec_composes_multiple_tasks(monkeypatch, composition, 
     captured: dict[str, Any] = {}
 
     class FakeCompositeTask:
-        def __init__(self, subtasks, task_description=None, subtasks_are_sequential=False, **kwargs):
+        def __init__(self, subtasks, task_description=None, subtasks_are_sequential=False):
             captured["subtasks"] = subtasks
             captured["task_description"] = task_description
             captured["subtasks_are_sequential"] = subtasks_are_sequential
-            captured.update(kwargs)
 
     monkeypatch.setattr(
         conversion,
@@ -227,8 +222,6 @@ def test_build_task_from_spec_composes_multiple_tasks(monkeypatch, composition, 
     assert captured["subtasks"] == ["PickAndPlaceTask", "PickAndPlaceTask"]
     assert captured["task_description"] == "place two objects"
     assert captured["subtasks_are_sequential"] is subtasks_are_sequential
-    assert captured["episode_length_s"] is None
-    assert captured["desired_subtask_success_state"] is None
 
 
 def test_build_atomic_task_from_spec_params_task_description_takes_precedence(monkeypatch):
@@ -250,82 +243,3 @@ def test_build_atomic_task_from_spec_params_task_description_takes_precedence(mo
     )
     conversion._build_atomic_task_from_spec(spec, {}, task_description="from root")
     assert captured["task_description"] == "from params"
-
-
-@pytest.mark.parametrize("composition", ("parallel", "sequential", "atomic"))
-def test_graph_composition_preserves_overall_budget_and_current_final_states(monkeypatch, composition):
-    from isaaclab_arena.environment_spec.arena_env_graph_types import CompositeTaskSpec, TaskSpec
-
-    captured = {}
-
-    class FakeCompositeTask:
-        def __init__(self, **kwargs):
-            captured.update(kwargs)
-
-    monkeypatch.setattr("isaaclab_arena.tasks.composite_task_base.CompositeTaskBase", FakeCompositeTask)
-    monkeypatch.setattr(conversion, "_build_atomic_task_from_spec", lambda spec, assets: spec.params)
-    states = [False] if composition == "atomic" else [False, True, None]
-    spec = CompositeTaskSpec(
-        composition=composition,
-        description="Complete manipulation and check its final state",
-        episode_length_s=600,
-        desired_subtask_success_state=states,
-        subtasks=[TaskSpec(kind="PickAndPlaceTask", params={"episode_length_s": 20}) for _ in states],
-    )
-    conversion.build_task_from_spec(spec, {})
-    assert captured["episode_length_s"] == 600
-    assert captured["desired_subtask_success_state"] == states
-    assert captured["subtasks_are_sequential"] is (composition == "sequential")
-    assert all(child["episode_length_s"] == 20 for child in captured["subtasks"])
-    assert CompositeTaskSpec.model_validate_json(spec.model_dump_json()) == spec
-
-
-def test_atomic_graph_overall_budget_overrides_child_budget(monkeypatch):
-    from isaaclab_arena.environment_spec.arena_env_graph_types import CompositeTaskSpec, TaskSpec
-
-    captured = {}
-
-    class FakeTask:
-        def __init__(self, **kwargs):
-            captured.update(kwargs)
-
-    registry = type("R", (), {"get_task_by_name": lambda self, name: FakeTask})()
-    monkeypatch.setattr(conversion, "TaskRegistry", lambda: registry)
-    spec = CompositeTaskSpec(
-        composition="atomic",
-        description="Atomic budget",
-        episode_length_s=40,
-        subtasks=[TaskSpec(kind="PickAndPlaceTask", params={"episode_length_s": 10})],
-    )
-    conversion.build_task_from_spec(spec, {})
-    assert captured["episode_length_s"] == 40
-
-
-@pytest.mark.parametrize("budget", (0, -1, float("nan"), float("inf"), True, "600"))
-def test_graph_rejects_invalid_episode_budget(budget):
-    from pydantic import ValidationError
-
-    from isaaclab_arena.environment_spec.arena_env_graph_types import CompositeTaskSpec, TaskSpec
-
-    with pytest.raises(ValidationError):
-        CompositeTaskSpec(
-            composition="atomic",
-            description="Invalid budget",
-            episode_length_s=budget,
-            subtasks=[TaskSpec(kind="PickAndPlaceTask", params={})],
-        )
-
-
-@pytest.mark.parametrize("states", ([], [True], [None, None], [1, False], ["true", False]))
-def test_graph_rejects_invalid_final_state_contract(states):
-    from pydantic import ValidationError
-
-    from isaaclab_arena.environment_spec.arena_env_graph_types import CompositeTaskSpec, TaskSpec
-
-    with pytest.raises(ValidationError):
-        CompositeTaskSpec(
-            composition="parallel",
-            description="Invalid final states",
-            desired_subtask_success_state=states,
-            subtasks=[TaskSpec(kind="PickAndPlaceTask", params={}) for _ in range(2)],
-        )

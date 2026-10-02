@@ -43,22 +43,6 @@ class BernoulliSampler(SamplerBase):
             A ``list`` of length ``num_samples`` of booleans.
         """
         assert num_samples >= 0, f"num_samples must be non-negative; got {num_samples}."
-        context = self._sampling_context
-        if context is None:
-            result = (torch.rand(num_samples) < self.probability).tolist()
-        else:
-            result = []
-            for key in context.episode_keys(num_samples, env_ids):
-                if context.replay is not None:
-                    value = context.replay.value(self._variation_path, key)
-                    assert type(value) is bool, f"Replay value for '{self._variation_path}' must be a boolean."
-                    assert not (self.probability == 0 and value) and not (
-                        self.probability == 1 and not value
-                    ), f"Replay value for '{self._variation_path}' contradicts the configured probability."
-                else:
-                    value = (
-                        torch.rand((), generator=context.generator(self._variation_path, key)) < self.probability
-                    ).item()
-                result.append(value)
+        result = (torch.rand(num_samples) < self.probability).tolist()
         self._notify(result, env_ids)
         return result

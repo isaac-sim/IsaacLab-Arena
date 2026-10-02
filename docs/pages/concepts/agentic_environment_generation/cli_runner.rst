@@ -43,9 +43,9 @@ The ``--mode`` option selects which parts of the
        not call the model or start Isaac Sim.
      - Inspects background object-reference paths.
    * - ``validate``
-     - Checks ``--env_spec`` against the graph schema and declared authoring
-       semantics without constructing assets or starting Isaac Sim.
-     - Inspects parameter types, graph references, and required capabilities.
+     - Runs the existing graph schema and catalogue checks on ``--env_spec``
+       without constructing assets or starting Isaac Sim.
+     - Checks graph structure, references, registry names and supported parameters.
    * - ``resolve``
      - Sends the prompt and catalogs to the agent, validates the returned spec,
        prints its graph, and writes ``<env_name>.yaml``.

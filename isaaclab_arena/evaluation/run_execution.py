@@ -92,10 +92,6 @@ def build_and_run(
     video_cfg: VideoRecordingCfg | None = None,
 ) -> ArenaRunResult:
     """Build and execute one typed Arena run, then return its result."""
-    assert cfg.environment_builder.variation_replay_path is None or cfg.num_rebuilds == 1, (
-        "Variation replay describes one rebuild; set num_rebuilds=1 and use a separate Run "
-        "for each recorded rebuild's trace."
-    )
     metrics_per_rebuild: list[MetricsDataCollection] = []
     output_dir = str(output_dir)
     video_cfg = video_cfg or VideoRecordingCfg(video_base_dir=output_dir)
@@ -136,12 +132,7 @@ def build_and_run(
             if metrics is not None:
                 metrics_per_rebuild.append(metrics)
         finally:
-            try:
-                if env is not None and env.unwrapped.variation_recorder is not None:
-                    samples_path = Path(output_dir) / f"variation_samples_rebuild{rebuild_index}.jsonl"
-                    env.unwrapped.variation_recorder.write_samples_jsonl(samples_path)
-            finally:
-                close_run_resources(policy, env)
+            close_run_resources(policy, env)
 
     return ArenaRunResult(
         run_name=cfg.name,
@@ -154,8 +145,6 @@ def _seed_cfg_for_rebuild(cfg: ArenaRunCfg, rebuild_index: int) -> ArenaRunCfg:
     """Offset the environment-builder seed for a rebuild so each fresh construction differs."""
     cfg = deepcopy(cfg)
     cfg.environment_builder.seed += rebuild_index
-    if cfg.environment_builder.variation_seed is not None:
-        cfg.environment_builder.variation_seed += rebuild_index
     return cfg
 
 

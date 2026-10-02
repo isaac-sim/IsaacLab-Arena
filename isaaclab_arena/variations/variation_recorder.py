@@ -5,11 +5,9 @@
 
 from __future__ import annotations
 
-import json
 import torch
 from collections.abc import Sequence
 from dataclasses import dataclass
-from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -34,7 +32,6 @@ class VariationRecord:
         self._samples_by_env_episode: dict[EnvEpisodeKey, Any] = {}
         # Build-time (all-envs) draw; applies to every episode of every env.
         self._build_time_sample: Any = None
-        self._has_build_time_sample = False
 
     def record_runtime_sample(self, sample: Any, env_ids: Sequence[int], episode_indices: Sequence[int]) -> None:
         """Record each row of ``sample`` against the (env id, episode index) it was drawn for.
@@ -59,7 +56,6 @@ class VariationRecord:
             len(sample) == 1
         ), f"Variation '{self.name}' build-time draw expected a single sample for all envs; got {len(sample)}."
         self._build_time_sample = sample[0]
-        self._has_build_time_sample = True
 
     def sample_for_episode(self, env_id: int, episode_idx: int) -> Any:
         """Return the value drawn for ``env_id``'s ``episode_idx``, or ``None`` if none was drawn.
@@ -86,35 +82,6 @@ class VariationRecorder:
         """Bind the env so run-time draws can be attributed to its current episode index."""
         self._env = env
 
-    def write_samples_jsonl(self, path: str | Path) -> None:
-        """Write every sampled value, including autoresets without a completed episode.
-
-        Args:
-            path: Companion trace for one Run and one rebuild; replay with VariationReplay.from_jsonl().
-        """
-        rows = [{"schema": "arena.variation_samples", "version": 1}]
-        for name, record in sorted(self.records.items()):
-            if record._has_build_time_sample:
-                value = record._build_time_sample
-                rows.append({
-                    "variation": name,
-                    "scope": "build",
-                    "value": value.tolist() if isinstance(value, torch.Tensor) else value,
-                })
-            for key, value in sorted(
-                record._samples_by_env_episode.items(), key=lambda item: (item[0].env_id, item[0].episode_idx)
-            ):
-                rows.append({
-                    "variation": name,
-                    "scope": "runtime",
-                    "env_id": key.env_id,
-                    "episode_in_env": key.episode_idx,
-                    "value": value.tolist() if isinstance(value, torch.Tensor) else value,
-                })
-        path = Path(path)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text("".join(json.dumps(row, sort_keys=True, allow_nan=False) + "\n" for row in rows))
-
     def __getitem__(self, key: str) -> VariationRecord:
         """Return the record stored under "{asset_name}.{variation_name}"."""
         return self.records[key]
@@ -139,9 +106,7 @@ class VariationRecorder:
                 self.records[variation_key] = record
 
                 def on_sample(
-                    sample: Any,
-                    env_ids: torch.Tensor | None = None,
-                    record: VariationRecord = record,
+                    sample: Any, env_ids: torch.Tensor | None = None, record: VariationRecord = record
                 ) -> None:
                     if isinstance(sample, torch.Tensor):
                         sample = sample.detach().cpu()
@@ -150,7 +115,7 @@ class VariationRecorder:
                         record.record_buildtime_sample(sample)
                     else:
                         assert self._env is not None, "VariationRecorder needs bind_env() before per-env draws."
-                        env_id_list = env_ids.tolist() if isinstance(env_ids, torch.Tensor) else list(env_ids)
+                        env_id_list = env_ids.tolist()
                         episode_indices = [self._env.get_episode_index(env_id) for env_id in env_id_list]
                         record.record_runtime_sample(sample, env_id_list, episode_indices)
 

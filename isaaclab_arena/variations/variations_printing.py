@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Human-readable printing of an environment's Hydra-configurable variations."""
+"""Describe an environment's Hydra-configurable variations as text or JSON data."""
 
 from __future__ import annotations
 
@@ -28,21 +28,18 @@ def get_variations_catalogue_as_dict(
     variations: dict[str, list[VariationBase]],
     *,
     hydra_overrides: list[str] | None = None,
-    restrictions: dict[str, str] | None = None,
 ) -> dict[str, Any]:
-    """Describe exact variation paths, effective configuration, and task restrictions as JSON data.
+    """Describe exact variation paths and effective configuration as JSON data.
 
     Args:
         variations: Attached variations from the environment's existing traversal.
         hydra_overrides: Overrides to reflect without mutating or sampling the variations.
-        restrictions: Task-provided ``host.variation`` paths mapped to incompatibility reasons.
 
     Returns:
         A versioned catalogue with one entry per variation, including declared field types,
         pre-override defaults, effective values, and optional class-local semantic metadata.
     """
     resolved = variations_hydra.compose_variations_cfg_and_apply_overrides(variations, hydra_overrides or [])
-    restrictions = restrictions or {}
     entries = []
     for asset_name in sorted(variations):
         for variation in sorted(variations[asset_name], key=lambda item: item.name):
@@ -70,8 +67,6 @@ def get_variations_catalogue_as_dict(
                 "timing": _get_build_or_run_time_string(variation),
                 "enabled": bool(effective_cfg.enabled),
                 "enable_path": f"{path}.enabled",
-                "supported": path not in restrictions,
-                "restriction_reason": restrictions.get(path),
                 "effective_config": _json_configuration(effective_cfg),
                 "fields": fields_by_path,
                 "constraints": list(metadata.constraints),

@@ -153,26 +153,13 @@ class ArenaEnvGraphSpec(BaseModel):
 
     @staticmethod
     def _assert_task_param_references(subtasks: list[TaskSpec], known_ids: set[str]) -> None:
-        """Check declared graph-node parameters without treating literal strings as node ids."""
-        from isaaclab_arena.assets.registries import TaskRegistry
-        from isaaclab_arena.environment_spec.arena_env_graph_task_conversion_utils import (
-            find_node_ref_params_in_signature,
-        )
-
+        """Ensure string-valued task params reference known asset ids."""
         for task in subtasks:
-            references = find_node_ref_params_in_signature(TaskRegistry().get_task_by_name(task.kind))
-            for param_name, is_collection in references.items():
-                value = task.params.get(param_name)
-                if value is None:
-                    continue
-                values = value if is_collection else [value]
-                assert isinstance(
-                    values, (list, tuple)
-                ), f"Task '{task.kind}' param '{param_name}' must list graph nodes"
-                for node_id in values:
-                    assert isinstance(node_id, str) and node_id in known_ids, (
+            for param_name, param_value in task.params.items():
+                if isinstance(param_value, str):
+                    assert param_value in known_ids, (
                         f"Task '{task.kind}' param '{param_name}' references unknown node"
-                        f" '{node_id}'. Add it to 'objects' or 'object_references'."
+                        f" '{param_value}'. Add it to 'objects' or 'object_references'."
                     )
 
     def summary(self) -> str:

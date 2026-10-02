@@ -75,8 +75,8 @@ run-time variation draws to be reproducible independently.
 What it is
 ~~~~~~~~~~
 
-``ArenaEnvBuilder`` exposes three seeds. They are independent; locking one does
-not fix the others.
+``ArenaEnvBuilder`` exposes two seeds. They are independent — locking one does
+not fix the other.
 
 .. list-table::
    :header-rows: 1
@@ -98,18 +98,8 @@ not fix the others.
        :doc:`RigidObjectSet <../scene/concept_rigid_object_set>` member
        assignment. With ``None``, placement stays non-reproducible across runs.
 
-   * - Variation seed
-     - ``--variation_seed`` / ``ArenaEnvBuilderCfg.variation_seed``
-     - ``None`` (legacy sampling)
-     - Built-in sampler draws keyed by variation path, environment ID, and episode
-       index, independently of reset ordering and unrelated variations.
-
-Without an explicit variation seed, run-time variations follow ``--seed`` and
-build-time draws retain their existing random stream. Set ``variation_seed`` in
-Python or an Experiment Definition's ``environment_builder`` mapping to control
-both. ``variation_replay_path`` accepts one Run/rebuild's recorded episode JSONL
-and requires a recorded value for every enabled variation and requested episode.
-It replays variation values, not robot trajectories or complete physical state.
+There is no variation seed. Run-time variations follow ``--seed``; build-time
+variations are drawn once at compile time and are not locked by either seed.
 See :doc:`../variations/variations` and
 :doc:`../object_placement/pooled_placement`.
 
@@ -155,23 +145,3 @@ Next Steps
 
 Continue to :doc:`../object_placement/relations` to learn how anchors and spatial
 relations describe a placement layout.
-
-Shared task state
------------------
-
-A task that owns instruments or coupled mechanisms may return a ``TaskRuntimeCfg``
-from ``get_runtime_cfg()``. Arena constructs the runtime once after scene handles
-exist. ``prepare_reset(env_ids)`` releases episode constraints before ordinary reset
-and variation events; ``reset(env_ids)`` establishes coherent episode state after
-those events. Episode recording happens before either hook modifies terminal state.
-
-``update()`` runs immediately before success/progress evaluation, after physics.
-Predicates and observations read its snapshot. Implementations must make repeated
-updates at the same control step idempotent and reset only selected environment IDs.
-Failure terms run before this success hook, so they must not depend on its new
-snapshot. This optional lifecycle currently requires a task with success criteria
-and the standard Arena environment; Mimic compilation rejects it explicitly.
-
-``CompositeTaskBase`` forwards a single child's runtime configuration. If several
-children require shared state, override ``get_runtime_cfg()`` on the composite
-and return one owner for that state; implicit multiple runtimes are rejected.

@@ -31,8 +31,6 @@ from isaaclab_arena.variations.sampler_base import SamplerBase, SamplerBaseCfg
 if TYPE_CHECKING:
     import torch
 
-    from isaaclab_arena.variations.sampling_context import VariationSamplingContext
-
 
 @configclass
 class VariationBaseCfg:
@@ -63,15 +61,7 @@ class VariationBase(ABC):
         self.name = name
         self._sampler: SamplerBase | None = None
         self._sample_listeners: list[Callable[[Any, Any], None]] = []
-        self._sampling_context: VariationSamplingContext | None = None
-        self._variation_path = ""
         self.apply_cfg(cfg)
-
-    def bind_sampling_context(self, context: VariationSamplingContext, path: str) -> None:
-        """Bind reproducible sampling or replay, preserving the binding across config swaps."""
-        self._sampling_context, self._variation_path = context, path
-        assert self._sampler is not None
-        self._sampler.bind_sampling_context(context, path)
 
     @property
     def enabled(self) -> bool:
@@ -116,12 +106,8 @@ class VariationBase(ABC):
 
     def configure_at_build_time(self) -> None:
         """Run this variation's build-time preparation and realization, once per env build."""
-        self.validate_cfg()
         self._prepare_at_build_time()
         self._realize_at_build_time()
-
-    def validate_cfg(self) -> None:
-        """Check configured domains before sampling or applying a variation. Default: no-op."""
 
     def apply_cfg(self, cfg: VariationBaseCfg) -> None:
         """Apply new ``cfg``.
@@ -138,8 +124,6 @@ class VariationBase(ABC):
             cfg.sampler_cfg, SamplerBaseCfg
         ), f"cfg.sampler_cfg must be a SamplerBaseCfg; got {type(cfg.sampler_cfg).__name__}."
         self._sampler = cfg.sampler_cfg.build()
-        if self._sampling_context is not None:
-            self._sampler.bind_sampling_context(self._sampling_context, self._variation_path)
         # Re-bind variation-owned listeners so a cfg/sampler swap doesn't drop subscriptions.
         for listener in self._sample_listeners:
             self._sampler.add_listener(listener)

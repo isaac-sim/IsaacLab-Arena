@@ -18,7 +18,6 @@ from isaaclab_arena.evaluation.arena_experiment_result import ARENA_EXPERIMENT_T
 from isaaclab_arena.evaluation.arena_run import ArenaRunCfg, ArenaRunResult, RolloutLimitCfg, RunStatus
 from isaaclab_arena.policy.policy_base import PolicyCfg
 from isaaclab_arena.utils.timer import Timer
-from isaaclab_arena.variations.variation_recorder import VariationRecorder
 
 
 @dataclass
@@ -45,9 +44,7 @@ class _EpisodeRecorder:
 
 
 def _environment():
-    return SimpleNamespace(
-        unwrapped=SimpleNamespace(episode_recorder=_EpisodeRecorder(), variation_recorder=VariationRecorder())
-    )
+    return SimpleNamespace(unwrapped=SimpleNamespace(episode_recorder=_EpisodeRecorder()))
 
 
 @dataclass
@@ -122,9 +119,6 @@ def test_build_and_run_splits_episode_budget_without_mutating_config(monkeypatch
     assert result.run_name == "test_run"
     assert result.status is RunStatus.COMPLETED
     assert rollout_limits == [(None, 3), (None, 2)]
-    for index in (0, 1):
-        trace = tmp_path / f"variation_samples_rebuild{index}.jsonl"
-        assert json.loads(trace.read_text().splitlines()[0])["schema"] == "arena.variation_samples"
     # Runs are the same except for their seeds.
     assert received_run_cfgs == [run_seed_0, run_seed_1]
     # The original config is never mutated.
@@ -134,9 +128,6 @@ def test_build_and_run_splits_episode_budget_without_mutating_config(monkeypatch
 
 def test_seed_cfg_for_rebuild_offsets_seed_per_rebuild():
     run = _run(num_rebuilds=3)
-    run.environment_builder.variation_seed = 123
-    assert run_execution._seed_cfg_for_rebuild(run, 2).environment_builder.variation_seed == 125
-    assert run.environment_builder.variation_seed == 123
     base_seed = run.environment_builder.seed
 
     assert run_execution._seed_cfg_for_rebuild(run, 0).environment_builder.seed == base_seed
@@ -144,20 +135,6 @@ def test_seed_cfg_for_rebuild_offsets_seed_per_rebuild():
     assert run_execution._seed_cfg_for_rebuild(run, 2).environment_builder.seed == base_seed + 2
     # The original config is never mutated.
     assert run.environment_builder.seed == base_seed
-
-
-def test_multiple_rebuilds_cannot_silently_reuse_one_variation_replay(monkeypatch, tmp_path):
-    run = _run()
-    run.environment_builder.variation_replay_path = "variation_samples_rebuild0.jsonl"
-
-    def fail(*args, **kwargs):
-        raise AssertionError("Invalid replay must fail before constructing an environment or policy")
-
-    monkeypatch.setattr(run_execution, "_build_environment_from_cfg", fail)
-    monkeypatch.setattr(run_execution, "_build_policy_from_cfg", fail)
-    with pytest.raises(AssertionError, match="Variation replay describes one rebuild"):
-        run_execution.build_and_run(run, output_dir=tmp_path)
-    assert not list(tmp_path.iterdir())
 
 
 def test_build_and_run_raises_and_closes_resources(monkeypatch, tmp_path):

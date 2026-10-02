@@ -16,7 +16,6 @@ from isaaclab_arena.tasks import (  # noqa: F401
     no_task,
     open_door_task,
     pick_and_place_task,
-    place_in_region_task,
     place_upright_task,
     press_button_task,
     rotate_revolute_joint_task,

@@ -161,9 +161,6 @@ class SceneExtraPoseReader:
         scene_extra_prim_path = getattr(scene.cfg, scene_extra_key).prim_path.format(ENV_REGEX_NS=scene.env_regex_ns)
         self._frame_view = FrameView(
             scene_extra_prim_path,
-            # This view only reads poses. Standardizing authored xform ops would
-            # mutate the USD and can invalidate live Fabric transforms.
-            validate_xform_ops=False,
             device=scene.device,
             stage=scene.stage,
         )
@@ -179,10 +176,6 @@ class SceneExtraPoseReader:
                 f"Scene extra '{scene_extra_key}' pose row {environment_id} belongs to '{prim_path}', "
                 f"not environment '{environment_prim_path}'."
             )
-
-    def close(self) -> None:
-        """Release the live frame view before its simulation stage is destroyed."""
-        self._frame_view.close()
 
     def get_pose_w(self) -> torch.Tensor:
         """Return T_W_F with shape (num_envs, 7), ordered as (x, y, z, qx, qy, qz, qw)."""
