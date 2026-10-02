@@ -10,15 +10,16 @@ defines the recorded scene, and its ``rebuild`` index names the sibling trajecto
 annotations are available, each opt-in on the CLI:
 
 - Static predicates (``--predicates``): a sibling ``*.static_predicates.jsonl`` listing every
-  predicate the job's progress objectives define, whether or not it fired (see
+  predicate the job's completion criteria define, whether or not it fired (see
   ``annotate_episode_results_dir``).
 - Bounding boxes (``--bounding-boxes``): the local (object-frame) AABB of every recorded rigid
   object, written into the trajectory dataset itself (see ``annotate_bounding_boxes_dir``). Read
   them back with ``isaaclab_arena.analysis.aabb_overlap``.
 
-Both need to reach into the ``pxr`` module, which requires a headless ``SimulationApp`` to already be
-running. Since launching a ``SimulationApp`` is real work (tens of seconds), both the app launch and
-the imports that reach ``pxr`` are deferred into the ``main`` function.
+Both need a headless ``SimulationApp`` already running: building a task reads USD through ``pxr``.
+Importing this module must not load PyTorch or NumPy either. Kit calls ``fork()`` during startup,
+and SciPy OpenBLAS's at-fork handler segfaults if those libraries are already loaded. Those imports
+therefore live inside the functions that run after ``SimulationApp`` starts.
 """
 
 from __future__ import annotations
@@ -27,18 +28,19 @@ import argparse
 import importlib.util
 import io
 import json
-import numpy as np
 import os
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from isaaclab_arena.progress_tracking.progress_objective import ProgressObjective
-from isaaclab_arena.progress_tracking.progress_tracking_utils import _predicate_repr
 from isaaclab_arena.visualization.episode_results_files import (
     find_episode_results_files,
     parse_episode_results_filename,
 )
+from isaaclab_arena.visualization.report_data import _base_predicate_name
+
+if TYPE_CHECKING:
+    from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
 
 STATIC_PREDICATES_SUFFIX = ".static_predicates.jsonl"
 """Appended to an episode_results*.jsonl stem to name its annotated sibling file."""
@@ -103,10 +105,10 @@ def build_task_from_job_name(job_name: str, env_package: str) -> Any:
     return task
 
 
-def _task_for_objective(task: Any, objective: ProgressObjective) -> Any:
-    """Return the subtask instance that produced ``objective``, or ``task`` itself if it is not composite."""
-    if objective.parent_subtask_idx is not None:
-        return task.subtasks[objective.parent_subtask_idx]
+def _task_for_criteria(task: Any, criteria: CompletionCriteria) -> Any:
+    """Return the subtask instance that produced ``criteria``, or ``task`` itself if it is not composite."""
+    if criteria.parent_subtask_idx is not None:
+        return task.subtasks[criteria.parent_subtask_idx]
     return task
 
 
@@ -124,7 +126,7 @@ def _pick_and_place_targets(task: Any) -> dict[str, str] | None:
 
 
 def static_predicates_for_job(job_name: str, env_package: str) -> dict[str, dict[str, Any]]:
-    """Return every predicate defined by ``job_name``'s progress objectives, whether or not any episode reached it.
+    """Return every predicate defined by ``job_name``'s completion criteria, whether or not any episode reached it.
 
     Args:
         job_name: A recorded episode's ``job_name`` field, matching a task yaml filename stem.
@@ -132,28 +134,32 @@ def static_predicates_for_job(job_name: str, env_package: str) -> dict[str, dict
             (e.g. ``"robolab"``).
 
     Returns:
-        ``{objective_name: {"pick_up_object": str, "destination_location": str, "groups": {...}}}``.
-        The ``pick_up_object``/``destination_location`` keys are only present when the objective's
-        subtask is a ``PickAndPlaceTask``. ``groups`` maps each group name to its ordered predicate
-        chain, as ``[{"index": int, "predicate": str, "score": float}, ...]``. A composite task's
-        objective names carry the same ``subtask_{i}/{name}`` prefixes as the recorded
-        ``progress.objectives`` keys.
+        ``{criteria_name: {"pick_up_object": str, "destination_location": str, "sequences": {...}}}``.
+        The ``pick_up_object``/``destination_location`` keys are only present when the criteria's
+        subtask is a ``PickAndPlaceTask``. ``sequences`` maps each sequence name to its ordered
+        predicates, as ``[{"index": int, "predicate": str, "score": float}, ...]``. ``predicate`` is
+        the base name: a ``TrueForConsecutiveStepsCfg`` wrapper and any call arguments are removed.
+        A composite task's criteria names carry the same ``subtask_{i}/{name}`` prefixes as the
+        recorded ``progress.criteria_by_name`` keys.
     """
+    # Deferred: progress_tracking_utils imports torch via isaaclab and temporal predicates.
+    from isaaclab_arena.progress_tracking.progress_tracking_utils import _predicate_repr
+
     task = build_task_from_job_name(job_name, env_package)
     predicates: dict[str, dict[str, Any]] = {}
-    for objective in task.get_progress_objectives():
+    for criteria in task.get_termination_cfg().success:
         entry: dict[str, Any] = {}
-        targets = _pick_and_place_targets(_task_for_objective(task, objective))
+        targets = _pick_and_place_targets(_task_for_criteria(task, criteria))
         if targets is not None:
             entry.update(targets)
-        entry["groups"] = {
-            group_name: [
-                {"index": index, "predicate": _predicate_repr(predicate), "score": score}
-                for index, (predicate, score) in enumerate(chain)
+        entry["sequences"] = {
+            sequence_name: [
+                {"index": index, "predicate": _base_predicate_name(_predicate_repr(predicate)), "score": score}
+                for index, (predicate, score) in enumerate(sequence)
             ]
-            for group_name, chain in objective.canonical_predicate_groups.items()
+            for sequence_name, sequence in criteria.canonical_predicate_sequences.items()
         }
-        predicates[objective.name] = entry
+        predicates[criteria.name] = entry
     return predicates
 
 
@@ -174,7 +180,9 @@ def local_bounding_boxes_for_job(job_name: str, env_package: str) -> dict[str, d
         geometry cannot be resolved (e.g. a ``RigidObjectSet``, whose per-env variant assignment is
         not recoverable from the recording).
     """
-    # Deferred: reaches isaaclab-backed asset classes and reads USD via pxr.
+    # Deferred: reaches isaaclab-backed asset classes, reads USD via pxr, and imports numpy.
+    import numpy as np
+
     from isaaclab_arena.assets.object_set import RigidObjectSet
 
     _, assets_by_node_id = build_task_and_assets_from_job_name(job_name, env_package)
