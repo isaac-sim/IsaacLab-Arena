@@ -104,7 +104,6 @@ jobs:
           PRE_COMMIT_HOME: /tmp/pre-commit-cache
 
       - name: Test cache diagnostics
-        if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
         run: python3 -m unittest discover -s docker -p 'test_report_build_cache.py' -v
 
 
