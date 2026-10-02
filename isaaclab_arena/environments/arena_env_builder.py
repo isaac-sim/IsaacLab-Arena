@@ -475,7 +475,7 @@ class ArenaEnvBuilder:
                 metrics=metrics_cfg,
                 episode_recorders=episode_recorders_cfg,
                 task_description=task_description,
-                rl_policy_cfg=self.arena_env.rl_policy_cfg,
+                gym_env_id=self.arena_env.name,
                 viewer=viewer_cfg,
             )
             # Tasks always resolve to a concrete episode length.
@@ -510,7 +510,7 @@ class ArenaEnvBuilder:
                 # recorders=recorder_manager_cfg,
                 # metrics=metrics_cfg,
                 task_description=task_description,
-                rl_policy_cfg=self.arena_env.rl_policy_cfg,
+                gym_env_id=self.arena_env.name,
                 viewer=viewer_cfg,
             )
 

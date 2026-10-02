@@ -12,7 +12,6 @@ from gymnasium.spaces.dict import Dict as GymSpacesDict
 
 from isaaclab.utils.assets import retrieve_file_path
 from isaaclab.utils.io import load_yaml
-from isaaclab.utils.string import string_to_callable
 from isaaclab_rl.rsl_rl import RslRlVecEnvWrapper, handle_deprecated_rsl_rl_cfg
 from rsl_rl.runners import DistillationRunner, OnPolicyRunner
 
@@ -49,8 +48,8 @@ class RslRlActionPolicyCfg(PolicyCfg):
     checkpoint_path: str
     """Path to the RSL-RL checkpoint file.
 
-    The agent config is loaded automatically from ``params/agent.yaml`` in the
-    same directory, which is saved by IsaacLab's ``train.py`` alongside the checkpoint.
+    The agent config is loaded from ``params/agent.yaml`` when present, otherwise
+    from the environment's registered RSL-RL configuration.
     """
 
     device: str = "cuda:0"
@@ -61,8 +60,8 @@ class RslRlActionPolicyCfg(PolicyCfg):
 class RslRlActionPolicy(PolicyBase[RslRlActionPolicyCfg]):
     """Policy that uses a trained RSL-RL model for inference.
 
-    Loads the checkpoint and agent config (``params/agent.yaml``) produced by
-    IsaacLab's ``train.py``. No separate JSON config file is required.
+    Loads the checkpoint and uses either its adjacent ``params/agent.yaml`` or
+    the environment's registered RSL-RL configuration.
 
     Example configuration for Experiment Runner:
 
@@ -92,27 +91,30 @@ class RslRlActionPolicy(PolicyBase[RslRlActionPolicyCfg]):
         self._runner = None
 
     def _load_policy(self, env: gym.Env) -> None:
-        """Load the RSL-RL policy from checkpoint and its accompanying agent.yaml."""
+        """Load the RSL-RL policy and resolve its agent configuration."""
         checkpoint_path = retrieve_file_path(self.config.checkpoint_path)
         agent_yaml_path = os.path.join(os.path.dirname(checkpoint_path), "params", "agent.yaml")
 
         if os.path.exists(agent_yaml_path):
             agent_cfg_dict = load_yaml(agent_yaml_path)
         else:
-            agent_cfg_entry_point = env.unwrapped.cfg.rl_policy_cfg
-            assert (
-                agent_cfg_entry_point is not None
-            ), f"No params/agent.yaml beside {checkpoint_path}, and the environment has no registered policy config."
-            agent_cfg = string_to_callable(agent_cfg_entry_point, separator=":")()
-            agent_cfg = getattr(agent_cfg, "default", agent_cfg)
+            from isaaclab_tasks.utils import resolve_task_config
+
+            gym_env_id = env.unwrapped.cfg.gym_env_id
+            assert gym_env_id is not None, "RSL-RL config fallback requires a registered Gym environment"
+            _, agent_cfg = resolve_task_config(
+                gym_env_id,
+                "rsl_rl_cfg_entry_point",
+                overrides=(),
+            )
             agent_cfg = handle_deprecated_rsl_rl_cfg(agent_cfg, metadata.version("rsl-rl-lib"))
             assert hasattr(
                 agent_cfg, "to_dict"
-            ), f"Registered RSL-RL configuration '{agent_cfg_entry_point}' cannot be converted to a dictionary."
+            ), f"Registered RSL-RL configuration for '{gym_env_id}' cannot be converted to a dictionary."
             agent_cfg_dict = agent_cfg.to_dict()
             print(
                 f"[INFO] No params/agent.yaml beside {checkpoint_path}; "
-                f"using the registered RSL-RL configuration '{agent_cfg_entry_point}'."
+                f"using the registered RSL-RL configuration for '{gym_env_id}'."
             )
         agent_cfg_dict["device"] = self.config.device
 

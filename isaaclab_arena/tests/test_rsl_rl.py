@@ -7,6 +7,7 @@
 
 import glob
 import os
+import shutil
 import time
 
 import pytest
@@ -27,8 +28,7 @@ def run_rl_train(
     """Train an RSL-RL policy for a single iteration and return the checkpoint path.
 
     Uses Arena's bridge to Isaac Lab's unified training entry point with the environment registration callback.
-    The training script saves params/agent.yaml alongside the checkpoint, which is
-    required by RslRlActionPolicy at inference time.
+    The training script saves params/agent.yaml alongside the checkpoint.
     """
     train_script = f"{TestConstants.repo_root}/isaaclab_arena/scripts/train.py"
     args = [
@@ -82,7 +82,7 @@ def run_policy_runner(checkpoint_path: str, example_environment: str, embodiment
 
 # TODO(xinjie.yao, 2026.04.01): Add a test case for num_episodes once it's enabled
 @pytest.mark.with_subprocess
-def test_rl_train_and_eval_lift_object():
+def test_rl_train_and_eval_lift_object(tmp_path):
     checkpoint_path = run_rl_train(
         example_environment="lift_object",
         embodiment="franka_ik",
@@ -90,6 +90,15 @@ def test_rl_train_and_eval_lift_object():
     )
     run_policy_runner(
         checkpoint_path=checkpoint_path,
+        example_environment="lift_object",
+        embodiment="franka_ik",
+        object_name="dex_cube",
+    )
+
+    standalone_checkpoint = tmp_path / os.path.basename(checkpoint_path)
+    shutil.copy2(checkpoint_path, standalone_checkpoint)
+    run_policy_runner(
+        checkpoint_path=str(standalone_checkpoint),
         example_environment="lift_object",
         embodiment="franka_ik",
         object_name="dex_cube",
