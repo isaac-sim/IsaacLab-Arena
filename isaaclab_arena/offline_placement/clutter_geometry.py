@@ -115,7 +115,9 @@ def prim_geometry_is_fixed(prim: Usd.Prim) -> bool:
     Returns:
         True for static collision geometry and kinematic bodies, including nested references.
     """
-    from pxr import Usd, UsdPhysics
+    from pxr import Usd
+
+    from isaaclab_arena.utils.usd.helpers import is_enabled_dynamic_rigid_body
 
     assert prim.IsValid(), "Cannot inspect an invalid support prim"
     candidates = list(Usd.PrimRange(prim, Usd.TraverseInstanceProxies()))
@@ -123,12 +125,7 @@ def prim_geometry_is_fixed(prim: Usd.Prim) -> bool:
     while ancestor.IsValid() and not ancestor.IsPseudoRoot():
         candidates.append(ancestor)
         ancestor = ancestor.GetParent()
-    for candidate in candidates:
-        if candidate.HasAPI(UsdPhysics.RigidBodyAPI):
-            body = UsdPhysics.RigidBodyAPI(candidate)
-            if body.GetRigidBodyEnabledAttr().Get() and not body.GetKinematicEnabledAttr().Get():
-                return False
-    return True
+    return not any(is_enabled_dynamic_rigid_body(candidate) for candidate in candidates)
 
 
 def spawned_geometry_is_fixed(scene: InteractiveScene, scene_key: str) -> bool:
@@ -140,15 +137,10 @@ def spawned_geometry_is_fixed(scene: InteractiveScene, scene_key: str) -> bool:
 
 def spawned_rigid_body_is_dynamic(scene: InteractiveScene, scene_key: str) -> bool:
     """Whether every spawned variant has an enabled, non-kinematic rigid body."""
-    from pxr import UsdPhysics
-
     from isaaclab_arena.environments.arena_world_scene_access import get_representative_rigid_body_prims
+    from isaaclab_arena.utils.usd.helpers import is_enabled_dynamic_rigid_body
 
-    for prim in get_representative_rigid_body_prims(scene, scene_key):
-        body = UsdPhysics.RigidBodyAPI(prim)
-        if not body.GetRigidBodyEnabledAttr().Get() or body.GetKinematicEnabledAttr().Get():
-            return False
-    return True
+    return all(is_enabled_dynamic_rigid_body(prim) for prim in get_representative_rigid_body_prims(scene, scene_key))
 
 
 def spawned_rigid_body_has_gravity(scene: InteractiveScene, scene_key: str) -> bool:

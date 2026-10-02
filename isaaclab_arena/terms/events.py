@@ -16,6 +16,7 @@ from isaaclab.utils import math as math_utils
 
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.utils.pose import Pose
+from isaaclab_arena.utils.usd.helpers import is_enabled_dynamic_rigid_body
 from isaaclab_arena.utils.usd.prim_tree import exclude_referenced_physics_roots, find_nested_physics_roots
 from isaaclab_arena.utils.velocity import Velocity
 
@@ -99,11 +100,15 @@ class _RigidReset:
     asset: Any
     root_pose_local: torch.Tensor
     """Root pose with shape ``(7,)``."""
+    reset_velocity: bool = True
+    """When False, skip velocity writes for kinematic bodies that reject them in PhysX."""
 
     def restore(self, env_ids: torch.Tensor, env_origins: torch.Tensor) -> None:
         root_pose = self.root_pose_local.unsqueeze(0).repeat(len(env_ids), 1)
         root_pose[:, :3] += env_origins[env_ids]
         self.asset.write_root_pose_to_sim_index(root_pose=root_pose, env_ids=env_ids)
+        if not self.reset_velocity:
+            return
         root_velocity = torch.zeros_like(self.asset.data.root_vel_w.torch[env_ids])
         self.asset.write_root_velocity_to_sim_index(root_velocity=root_velocity, env_ids=env_ids)
 
@@ -234,10 +239,14 @@ class ResetBackgroundPhysics(ManagerTermBase):
                     asset = self._initialize_asset(asset_cfg, prim_path, "rigid body")
                     if asset is None:
                         continue
+                    runtime_prim = env.scene.stage.GetPrimAtPath(
+                        self._runtime_path(path_template, env.scene.env_prim_paths[0])
+                    )
                     self._rigid_resets.append(
                         _RigidReset(
                             asset=asset,
                             root_pose_local=self._env_local_root_pose(asset, env),
+                            reset_velocity=is_enabled_dynamic_rigid_body(runtime_prim),
                         )
                     )
                 else:

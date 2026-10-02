@@ -92,6 +92,16 @@ def is_rigid_body(prim: Usd.Prim) -> bool:
     return prim.HasAPI(UsdPhysics.RigidBodyAPI)
 
 
+def is_enabled_dynamic_rigid_body(prim: Usd.Prim) -> bool:
+    """Return whether ``prim`` is an enabled, non-kinematic rigid body."""
+    if not is_rigid_body(prim):
+        return False
+    body = UsdPhysics.RigidBodyAPI(prim)
+    if not body.GetRigidBodyEnabledAttr().Get():
+        return False
+    return not bool(body.GetKinematicEnabledAttr().Get())
+
+
 def has_physics_or_collision(prim: Usd.Prim) -> bool:
     """Return True when prim participates in physics simulation or collision."""
     if is_articulation_root(prim) or is_rigid_body(prim):
