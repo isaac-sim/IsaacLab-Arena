@@ -59,8 +59,7 @@ jobs:
     if: >-
       !cancelled() &&
       (github.event_name != 'pull_request' ||
-       (github.event.pull_request.draft == false &&
-        needs.uv_changes.outputs.uv == 'true'))
+       needs.uv_changes.outputs.uv == 'true')
     env:
       ARENA_INFERENCE_ENDPOINT: public
       NVIDIA_API_KEY: ${{ secrets.ARENA_NVIDIA_API_KEY }}
