@@ -1,0 +1,23 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# A short timeout yields a recorded failed episode and exercises the reporting path.
+shared:
+  environment:
+    type: return_to_service
+    embodiment: droid_differential_ik
+    enable_cameras: false
+    scenarios: [combined]
+    episode_length_s: 2.0
+  environment_builder:
+    num_envs: 1
+    presets: PHYSX
+  policy:
+    type: zero_action
+  rollout_limit:
+    num_episodes: 1
+
+runs:
+  smoke: {}

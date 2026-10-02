@@ -49,6 +49,9 @@ goal-pose / lift (RL), sandbox, and sequential / composite tasks.
 See :doc:`python_environment_catalog` for the full list with per-environment
 Key Specifications tables.
 
+For a longer task with diagnostic tests, component servicing, reassembly,
+and packing, see :doc:`return_to_service`. This example uses a fixed-base
+DROID workcell and eight combinations of return conditions.
 
 
 See Also
@@ -65,3 +68,4 @@ See Also
    robolab_task_catalog
    kitchen_bench_catalog
    python_environment_catalog
+   return_to_service

@@ -17,6 +17,43 @@ tables in the :doc:`imitation_learning/index` and
    :depth: 1
 
 
+Equipment Servicing
+-------------------
+
+return_to_service
+^^^^^^^^^^^^^^^^^
+
+**Task ID:** ``return_to_service``
+
+**Class:** ``ReturnToServiceEnvironment`` (``isaaclab_arena_environments/return_to_service_environment.py``)
+
+**Task Description:** Diagnose and service a returned handheld vacuum, verify
+the repaired assembly, and pack the tested kit. Eight assignments combine
+battery weakness, filter clogging, and a removable inlet obstruction.
+
+.. list-table::
+   :widths: 30 70
+   :header-rows: 1
+
+   * - Property
+     - Value
+   * - **Skills**
+     - Inspection, testing, disassembly, debris disposal, component exchange, reassembly, packing
+   * - **Embodiment**
+     - ``droid_differential_ik`` with a fixed base and parallel-jaw gripper
+   * - **Scene**
+     - Blender-authored service bench, fixtures, instruments, stock, and carrying case
+   * - **Task Class**
+     - ``ReturnToServiceTask`` with current-state completion and test provenance
+   * - **Configuration**
+     - ``asset_root``, ``scenarios``, ``episode_length_s``, ``table_height_m``, ``enable_cameras``
+   * - **Physics**
+     - PhysX rigid-body manipulation with functional voltage and airflow models
+
+See :doc:`return_to_service` for asset generation, typed experiments, scoring,
+and the current physical-validation boundary.
+
+
 Pick & Place
 ------------
 
