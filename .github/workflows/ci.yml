@@ -7,6 +7,7 @@ name: IsaacLab Arena CI
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
   push:
     branches: [ "main" ]
   schedule:
@@ -102,11 +103,13 @@ jobs:
           PRE_COMMIT_HOME: /tmp/pre-commit-cache
 
       - name: Test cache diagnostics
+        if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
         run: python3 -m unittest discover -s docker -p 'test_report_build_cache.py' -v
 
 
   build_and_push_image:
     name: Build and push Arena image
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: [self-hosted, gpu-arena]
     timeout-minutes: 120
     needs: [pre_commit]
@@ -223,6 +226,7 @@ jobs:
 
   build_curobo_image:
     name: Build Arena cuRobo image
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: [self-hosted, gpu-arena]
     timeout-minutes: 120
     needs: [pre_commit]
@@ -237,6 +241,7 @@ jobs:
 
   test:
     name: Run tests
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: [self-hosted, gpu-arena]
     timeout-minutes: 80
     needs: [build_and_push_image]
@@ -316,6 +321,7 @@ jobs:
 
   tests_with_subprocess:
     name: Run tests with subprocess
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: [self-hosted, gpu-arena]
     timeout-minutes: 120
     needs: [build_and_push_image]
@@ -351,6 +357,7 @@ jobs:
 
   test_gr00t_closedloop_e2e:
     name: GR00T closed-loop E2E
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: [self-hosted, gpu-arena]
     timeout-minutes: 60
     needs: [build_and_push_image]
@@ -416,6 +423,7 @@ jobs:
 
   test_curobo_deps:
     name: cuRobo deps check
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: [self-hosted, gpu-arena]
     timeout-minutes: 30
     needs: [build_curobo_image]
@@ -444,6 +452,7 @@ jobs:
 
   build_docs_pre_merge:
     name: Build the docs (pre-merge)
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: [self-hosted, gpu-arena]
     timeout-minutes: 30
     needs: [pre_commit]
@@ -510,6 +519,7 @@ jobs:
 
   test_isaac_cap:
     name: Isaac CAP sanity checks
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: [self-hosted, gpu-arena]
     timeout-minutes: 120
     needs: [pre_commit]
