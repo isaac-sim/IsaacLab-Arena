@@ -24,6 +24,18 @@ modules. For an extension, pass the existing
 imports its declarations without calling the factory. The Python catalogue
 function describes the registries currently loaded by its caller.
 
+Choose the smallest extension first:
+
+* If a registered environment already implements the task, configure it in an
+  Experiment Definition. The catalogue's ``environments`` entries describe its
+  configuration fields. Start from the
+  :doc:`first Experiment example <../../quickstart/arena_experiment>`.
+* For a new combination of existing tasks and assets, use a graph YAML file.
+  Graphs support flat sequential or parallel composition, an overall
+  ``task.episode_length_s``, and ``task.desired_subtask_success_state``.
+* Use a Python factory when the graph cannot express the required wiring or
+  behavior. Reuse existing tasks and predicates inside it before adding new ones.
+
 Use this checklist when authoring:
 
 * Select exact registry names. Reuse an existing task or affordance before
@@ -53,6 +65,41 @@ That guide specifies update/reset ordering and its limitations. The
 :doc:`variation guide <../variations/variations>` covers sampling, replay, and
 the distinction between variation traces and placement layouts.
 
+Run a graph through the existing Experiment Runner
+--------------------------------------------------
+
+An Experiment's ``environment.type`` accepts either a registered environment
+name or a graph YAML path. A graph does not need a Python factory or a runner
+wrapper. For example, save this as ``experiment.yaml`` after authoring your graph:
+
+.. code-block:: yaml
+
+   shared:
+     environment:
+       type: /absolute/path/to/environment.yaml
+       enable_cameras: false
+     environment_builder:
+       num_envs: 1
+     policy:
+       type: zero_action
+     rollout_limit:
+       num_steps: 3
+   runs:
+     baseline: {}
+
+Run ``python isaaclab_arena/evaluation/experiment_runner.py --viz none
+--experiment_config experiment.yaml``. This builds and steps the environment;
+three steps do not establish task success or produce a complete episode. Use
+``num_episodes`` instead of ``num_steps`` and a short task timeout to verify
+episode reporting. Graph paths resolve from the process working directory, so
+use an absolute path or run from the repository root consistently.
+
+Inspect this Experiment's attached variations with ``--list_variations
+--variations_format json --variations_output /tmp/arena_variations.json`` before
+adding a Run's ``variations`` overrides. Mass sampler bounds are absolute
+kilograms, not scale factors; derive them from the asset's configured nominal
+mass. Static discovery does not measure USD mass or other physical properties.
+
 Static validation
 -----------------
 
@@ -61,8 +108,21 @@ Static validation
    python isaaclab_arena_examples/agentic_environment_generation/cli_runner.py \
       --mode validate --format json --env_spec /path/to/environment.yaml
 
-The command returns zero on success and one on invalid input. Its report has
-``validation_scope: schema_and_declared_semantics`` and an ``issues`` array.
+Then build and step that graph with the current launcher's headless option:
+
+.. code-block:: bash
+
+   python isaaclab_arena_examples/agentic_environment_generation/cli_runner.py \
+      --mode build --env_spec /path/to/environment.yaml \
+      --num_envs 1 --num_steps 3 --viz none
+
+Use ``--viz none`` for headless execution. If explicitly selecting a physics
+preset, CLI spelling is ``--presets physx`` while typed Experiment YAML uses
+``environment_builder: {presets: PHYSX}`` (the enum member name). Omitting the
+preset keeps the default; inspect the runner's ``--help`` for CLI spellings.
+
+The validation command returns zero on success and one on invalid input. Its
+report has ``validation_scope: schema_and_declared_semantics`` and an ``issues`` array.
 Every issue includes a code, JSON Pointer path, message, expected schema or
 capabilities, and compatible choices where available. For example, a task
 argument pointing at an object without ``Openable`` identifies
