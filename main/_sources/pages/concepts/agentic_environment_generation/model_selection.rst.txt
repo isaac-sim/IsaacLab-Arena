@@ -60,10 +60,10 @@ resolution.
      - Mean runtime
    * - ``public`` (default)
      - Public (free)
-     - ``deepseek-ai/deepseek-v4.1-flash``
+     - ``deepseek-ai/deepseek-v4-pro-0813``
      - ``NVIDIA_API_KEY``
      - 15/15 (100%)
-     - 36.98 s
+     - 150.66 s
    * - ``internal``
      - NVIDIA internal
      - ``openai/openai/gpt-5.6-terra``
@@ -134,9 +134,9 @@ models.
      - 112.15 s
      - 0
    * - Public
-     - ``deepseek-ai/deepseek-v4.1-flash``
+     - ``deepseek-ai/deepseek-v4-pro-0813``
      - 15/15
-     - 36.98 s
+     - 150.66 s
      - 1
    * - Public
      - ``nvidia/nemotron-3-ultra-550b-a55b``

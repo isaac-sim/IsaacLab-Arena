@@ -449,9 +449,6 @@
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../concepts/environment/index.html">Environment</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="../../concepts/environment/environment_definition.html">Environment Definition</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../concepts/environment/env_builder.html">Environment Builder</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../concepts/environment/physics_configuration.html">Physics configuration</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../concepts/environment/physics_backend_selection.html">Physics backend selection</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../concepts/environment/env_cfg_override.html">Graph YAML <code class="docutils literal notranslate"><span class="pre">env_cfg_override</span></code></a></li>
 </ul>
 </details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../concepts/agentic_environment_generation/index.html">Agentic Environment Generation</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -480,8 +477,6 @@
 </details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../concepts/concept_object_and_robot_placement.html">Object and Robot Placement</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="../../concepts/object_placement/relations.html">Relations and Strategies</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../concepts/offline_placement/recording.html">Record and Replay Placement Poses</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../concepts/offline_placement/clutter.html">Record and Replay Clutter Layouts</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../concepts/object_placement/collision_handling.html">Collision Handling</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../concepts/object_placement/solver.html">Placement Solver</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../concepts/object_placement/validation.html">Placement Validation</a></li>
@@ -611,8 +606,8 @@ and validate that we can load it in Isaac Lab.</p>
       <span class="p">)</span>
       <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.scene.scene</span><span class="w"> </span><span class="kn">import</span> <span class="n">Scene</span>
       <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.tasks.close_door_task</span><span class="w"> </span><span class="kn">import</span> <span class="n">CloseDoorTask</span>
-      <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.tasks.composite_task_base</span><span class="w"> </span><span class="kn">import</span> <span class="n">CompositeTaskBase</span>
       <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.tasks.pick_and_place_task</span><span class="w"> </span><span class="kn">import</span> <span class="n">PickAndPlaceTask</span>
+      <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.tasks.sequential_task_base</span><span class="w"> </span><span class="kn">import</span> <span class="n">SequentialTaskBase</span>
       <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.tasks.task_base</span><span class="w"> </span><span class="kn">import</span> <span class="n">TaskBase</span>
       <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.utils.pose</span><span class="w"> </span><span class="kn">import</span> <span class="n">Pose</span><span class="p">,</span> <span class="n">PoseRange</span>
 
@@ -633,17 +628,14 @@ and validate that we can load it in Isaac Lab.</p>
           <span class="p">)</span>
 
       <span class="c1"># Custom task class for this environment</span>
-      <span class="k">class</span><span class="w"> </span><span class="nc">PutAndCloseDoorTask</span><span class="p">(</span><span class="n">CompositeTaskBase</span><span class="p">):</span>
+      <span class="k">class</span><span class="w"> </span><span class="nc">PutAndCloseDoorTask</span><span class="p">(</span><span class="n">SequentialTaskBase</span><span class="p">):</span>
           <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
               <span class="bp">self</span><span class="p">,</span>
               <span class="n">subtasks</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">TaskBase</span><span class="p">],</span>
               <span class="n">episode_length_s</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
           <span class="p">):</span>
               <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
-                  <span class="n">subtasks</span><span class="o">=</span><span class="n">subtasks</span><span class="p">,</span>
-                  <span class="n">episode_length_s</span><span class="o">=</span><span class="n">episode_length_s</span><span class="p">,</span>
-                  <span class="n">desired_subtask_success_state</span><span class="o">=</span><span class="p">[</span><span class="kc">True</span><span class="p">,</span> <span class="kc">True</span><span class="p">],</span>
-                  <span class="n">subtasks_are_sequential</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                  <span class="n">subtasks</span><span class="o">=</span><span class="n">subtasks</span><span class="p">,</span> <span class="n">episode_length_s</span><span class="o">=</span><span class="n">episode_length_s</span><span class="p">,</span> <span class="n">desired_subtask_success_state</span><span class="o">=</span><span class="p">[</span><span class="kc">True</span><span class="p">,</span> <span class="kc">True</span><span class="p">]</span>
               <span class="p">)</span>
 
           <span class="k">def</span><span class="w"> </span><span class="nf">get_viewer_cfg</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>

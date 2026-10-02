@@ -445,9 +445,6 @@
 <li class="toctree-l1 current active has-children"><a aria-current="page" class="current reference internal" href="#">Environment</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="environment_definition.html">Environment Definition</a></li>
 <li class="toctree-l2"><a class="reference internal" href="env_builder.html">Environment Builder</a></li>
-<li class="toctree-l2"><a class="reference internal" href="physics_configuration.html">Physics configuration</a></li>
-<li class="toctree-l2"><a class="reference internal" href="physics_backend_selection.html">Physics backend selection</a></li>
-<li class="toctree-l2"><a class="reference internal" href="env_cfg_override.html">Graph YAML <code class="docutils literal notranslate"><span class="pre">env_cfg_override</span></code></a></li>
 </ul>
 </details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../agentic_environment_generation/index.html">Agentic Environment Generation</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -476,8 +473,6 @@
 </details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../concept_object_and_robot_placement.html">Object and Robot Placement</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="../object_placement/relations.html">Relations and Strategies</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../offline_placement/recording.html">Record and Replay Placement Poses</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../offline_placement/clutter.html">Record and Replay Clutter Layouts</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../object_placement/collision_handling.html">Collision Handling</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../object_placement/solver.html">Placement Solver</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../object_placement/validation.html">Placement Validation</a></li>
@@ -595,7 +590,6 @@ environment.</span><a class="headerlink" href="#id1" title="Link to this image">
     <span class="n">scene</span><span class="o">=</span><span class="n">scene</span><span class="p">,</span>
     <span class="n">task</span><span class="o">=</span><span class="n">task</span><span class="p">,</span>
     <span class="n">teleop_device</span><span class="o">=</span><span class="n">teleop_device</span><span class="p">,</span>  <span class="c1"># optional</span>
-    <span class="n">default_physics_backend</span><span class="o">=</span><span class="n">PhysicsBackend</span><span class="o">.</span><span class="n">PHYSX</span><span class="p">,</span>  <span class="c1"># default; use NEWTON when required</span>
 <span class="p">)</span>
 
 <span class="n">env</span> <span class="o">=</span> <span class="n">ArenaEnvBuilder</span><span class="p">(</span><span class="n">environment</span><span class="p">,</span> <span class="n">ArenaEnvBuilderCfg</span><span class="p">())</span><span class="o">.</span><span class="n">make_registered</span><span class="p">()</span>
@@ -609,16 +603,12 @@ The same pick-and-place task works with any robot on any scene: swap the Franka
 for a G1, or the kitchen for a warehouse, with no changes to the task.
 This moves us from a library of monolithic environment descriptions to a library
 of environment <em>parts</em>.</p>
-<p>The pages below cover how you define an environment, how it is built, and how physics is configured:</p>
+<p>The two pages below cover how you define an environment, and how it is built:</p>
 <ul class="simple">
 <li><p><a class="reference internal" href="environment_definition.html"><span class="doc">Environment Definition</span></a> — the two ways to define an environment, Python
 or YAML.</p></li>
 <li><p><a class="reference internal" href="env_builder.html"><span class="doc">Environment Builder</span></a> — how <code class="docutils literal notranslate"><span class="pre">ArenaEnvBuilder</span></code> compiles a specification into an
 Isaac Lab <code class="docutils literal notranslate"><span class="pre">ManagerBasedRLEnv</span></code>.</p></li>
-<li><p><a class="reference internal" href="physics_configuration.html"><span class="doc">Physics configuration</span></a> — where physics settings belong and when they are applied.</p></li>
-<li><p><a class="reference internal" href="physics_backend_selection.html"><span class="doc">Physics backend selection</span></a> — PhysX vs Newton, <code class="docutils literal notranslate"><span class="pre">--presets</span></code>,
-and <code class="docutils literal notranslate"><span class="pre">default_physics_backend</span></code>.</p></li>
-<li><p><a class="reference internal" href="env_cfg_override.html"><span class="doc">Graph YAML env_cfg_override</span></a> — graph YAML <code class="docutils literal notranslate"><span class="pre">env_cfg_override</span></code> and Hydra <code class="docutils literal notranslate"><span class="pre">_target_</span></code> rules.</p></li>
 </ul>
 <p>The individual components are covered in <a class="reference internal" href="../scene/index.html"><span class="doc">Scene</span></a>,
 <a class="reference internal" href="../embodiment/index.html"><span class="doc">Embodiment</span></a>, and <a class="reference internal" href="../task/index.html"><span class="doc">Task</span></a>.</p>
@@ -626,9 +616,6 @@ and <code class="docutils literal notranslate"><span class="pre">default_physics
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="environment_definition.html">Environment Definition</a></li>
 <li class="toctree-l1"><a class="reference internal" href="env_builder.html">Environment Builder</a></li>
-<li class="toctree-l1"><a class="reference internal" href="physics_configuration.html">Physics configuration</a></li>
-<li class="toctree-l1"><a class="reference internal" href="physics_backend_selection.html">Physics backend selection</a></li>
-<li class="toctree-l1"><a class="reference internal" href="env_cfg_override.html">Graph YAML <code class="docutils literal notranslate"><span class="pre">env_cfg_override</span></code></a></li>
 </ul>
 </div>
 </section>

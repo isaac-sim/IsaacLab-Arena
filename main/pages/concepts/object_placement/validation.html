@@ -449,9 +449,6 @@
 <li class="toctree-l1 has-children"><a class="reference internal" href="../environment/index.html">Environment</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="../environment/environment_definition.html">Environment Definition</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../environment/env_builder.html">Environment Builder</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../environment/physics_configuration.html">Physics configuration</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../environment/physics_backend_selection.html">Physics backend selection</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../environment/env_cfg_override.html">Graph YAML <code class="docutils literal notranslate"><span class="pre">env_cfg_override</span></code></a></li>
 </ul>
 </details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../agentic_environment_generation/index.html">Agentic Environment Generation</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -480,8 +477,6 @@
 </details></li>
 <li class="toctree-l1 current active has-children"><a class="reference internal" href="../concept_object_and_robot_placement.html">Object and Robot Placement</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
 <li class="toctree-l2"><a class="reference internal" href="relations.html">Relations and Strategies</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../offline_placement/recording.html">Record and Replay Placement Poses</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../offline_placement/clutter.html">Record and Replay Clutter Layouts</a></li>
 <li class="toctree-l2"><a class="reference internal" href="collision_handling.html">Collision Handling</a></li>
 <li class="toctree-l2"><a class="reference internal" href="solver.html">Placement Solver</a></li>
 <li class="toctree-l2 current active"><a aria-current="page" class="current reference internal" href="#">Placement Validation</a></li>
@@ -590,26 +585,11 @@ constraints the solver never optimizes enter the pipeline, for example IK reacha
 that passes <code class="docutils literal notranslate"><span class="pre">is_available()</span></code> and survives <code class="docutils literal notranslate"><span class="pre">enabled_checks</span></code> (see
 <a class="reference internal" href="#validation-toggle"><span class="std std-ref">Enabling and Disabling Checks</span></a>). Each solved batch then runs in two passes:</p>
 <ol class="arabic simple">
-<li><p><strong>Inexpensive checks</strong> (<code class="docutils literal notranslate"><span class="pre">no_overlap</span></code>, <code class="docutils literal notranslate"><span class="pre">on_relation</span></code>, <code class="docutils literal notranslate"><span class="pre">clutter_on_relation</span></code>, <code class="docutils literal notranslate"><span class="pre">next_to</span></code>,
+<li><p><strong>Inexpensive checks</strong> (<code class="docutils literal notranslate"><span class="pre">no_overlap</span></code>, <code class="docutils literal notranslate"><span class="pre">on_relation</span></code>, <code class="docutils literal notranslate"><span class="pre">next_to</span></code>,
 <code class="docutils literal notranslate"><span class="pre">not_next_to</span></code>, <code class="docutils literal notranslate"><span class="pre">face_to</span></code>) over every candidate.</p></li>
 <li><p><strong>Expensive checks</strong> (<code class="docutils literal notranslate"><span class="pre">ik_reachable</span></code>) only on candidates that already
 passed every <em>required</em> inexpensive check.</p></li>
 </ol>
-<p>A <code class="docutils literal notranslate"><span class="pre">PlacementCandidate</span></code> is one working layout of all placement objects in one
-environment. It stores the objects’ positions, orientations and bounds, plus the
-environment ID and sample ID. Solving updates that same candidate’s positions and
-loss; validation replaces its check results. These stages update the working batch
-in place and return <code class="docutils literal notranslate"><span class="pre">None</span></code>.</p>
-<p><code class="docutils literal notranslate"><span class="pre">PlacementCandidateBatch</span></code> groups these layouts. For example, four environments
-with ten attempts each produce a batch of forty candidates. Filtering and ranking
-select and reorder references to complete candidates, keeping their geometry and
-results together.</p>
-<p><code class="docutils literal notranslate"><span class="pre">PlacementCandidateGenerator</span></code> samples orientations, fits the bounds to those
-rotations and places clutter above its support and nearby objects before solving.
-After solving, <code class="docutils literal notranslate"><span class="pre">ObjectPlacer</span></code> applies <code class="docutils literal notranslate"><span class="pre">FaceTo</span></code> headings and refits the bounds.
-<code class="docutils literal notranslate"><span class="pre">PlacementValidationRunner</span></code> then replaces each candidate’s check results.
-Here, <em>expensive</em> means computational cost, such as solving IK. Neither validation
-pass steps physics.</p>
 <p>Verdicts land in each candidate’s <code class="docutils literal notranslate"><span class="pre">PlacementValidationResults</span></code>. A
 <strong>required</strong> check must pass for the candidate to count as valid; an
 <strong>optional</strong> (enabled but not required) check still runs and is reported, but
@@ -619,10 +599,6 @@ reject-and-refill until each environment has enough valid layouts. By default,
 if the final refill batch still has no valid candidate, Arena can store a
 best-loss layout that failed required checks
 (<code class="docutils literal notranslate"><span class="pre">allow_best_loss_fallbacks=True</span></code>); see <a class="reference internal" href="pooled_placement.html"><span class="doc">Pooled Placement</span></a>.</p>
-<p>Pre-physics and offline post-physics validators share the <code class="docutils literal notranslate"><span class="pre">PlacementValidator</span></code>
-base for check names and stages. They have separate inputs: solved candidate
-batches before physics, measured scene state after physics. See
-<a class="reference internal" href="../offline_placement/clutter.html"><span class="doc">Record and Replay Clutter Layouts</span></a> for offline acceptance checks.</p>
 </section>
 <section id="types-of-validators">
 <h2>Types of Validators<a class="headerlink" href="#types-of-validators" title="Link to this heading">#</a></h2>
@@ -656,31 +632,25 @@ intersect. See <a class="reference internal" href="collision_handling.html"><spa
 <td><p>Yes</p></td>
 <td><p>Every <code class="docutils literal notranslate"><span class="pre">On</span></code> relation holds (XY footprint and Z band).</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">clutter_on_relation</span></code></p></td>
-<td><p>Build-time</p></td>
-<td><p>Inexpensive</p></td>
-<td><p>Yes</p></td>
-<td><p>Every <code class="docutils literal notranslate"><span class="pre">ClutterOn</span></code> release fits its region and clears its support.</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">next_to</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">next_to</span></code></p></td>
 <td><p>Build-time</p></td>
 <td><p>Inexpensive</p></td>
 <td><p>Yes</p></td>
 <td><p>Every <code class="docutils literal notranslate"><span class="pre">NextTo</span></code> relation holds within tolerance.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">not_next_to</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">not_next_to</span></code></p></td>
 <td><p>Build-time</p></td>
 <td><p>Inexpensive</p></td>
 <td><p>Yes</p></td>
 <td><p>Every <code class="docutils literal notranslate"><span class="pre">NotNextTo</span></code> keep-out zone is cleared within tolerance.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">face_to</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">face_to</span></code></p></td>
 <td><p>Build-time</p></td>
 <td><p>Inexpensive</p></td>
 <td><p>Yes</p></td>
 <td><p>Every <code class="docutils literal notranslate"><span class="pre">FaceTo</span></code> subject has a well-defined facing yaw.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ik_reachable</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">ik_reachable</span></code></p></td>
 <td><p>Build-time</p></td>
 <td><p>Expensive</p></td>
 <td><p>When available</p></td>
@@ -692,15 +662,15 @@ intersect. See <a class="reference internal" href="collision_handling.html"><spa
 </div>
 <section id="geometric-and-relation-checks">
 <h3>Geometric and Relation Checks<a class="headerlink" href="#geometric-and-relation-checks" title="Link to this heading">#</a></h3>
-<p><code class="docutils literal notranslate"><span class="pre">no_overlap</span></code>, <code class="docutils literal notranslate"><span class="pre">on_relation</span></code>, <code class="docutils literal notranslate"><span class="pre">clutter_on_relation</span></code>, <code class="docutils literal notranslate"><span class="pre">next_to</span></code>,
-<code class="docutils literal notranslate"><span class="pre">not_next_to</span></code>, and <code class="docutils literal notranslate"><span class="pre">face_to</span></code> are always registered. The first five mirror the corresponding
+<p><code class="docutils literal notranslate"><span class="pre">no_overlap</span></code>, <code class="docutils literal notranslate"><span class="pre">on_relation</span></code>, <code class="docutils literal notranslate"><span class="pre">next_to</span></code>, <code class="docutils literal notranslate"><span class="pre">not_next_to</span></code>, and
+<code class="docutils literal notranslate"><span class="pre">face_to</span></code> are always registered. The first four mirror the corresponding
 relation’s loss term, so low-loss solver output and validator verdicts stay
 consistent. <code class="docutils literal notranslate"><span class="pre">face_to</span></code> is different: <code class="docutils literal notranslate"><span class="pre">FaceTo</span></code> is applied as a post-solve
 heading rather than a continuous loss, and the check only verifies that a
 facing yaw was computed. A check for a relation kind unused in the
 environment passes trivially.</p>
-<p>Set <code class="docutils literal notranslate"><span class="pre">debug_visualize=True</span></code> (or <code class="docutils literal notranslate"><span class="pre">placer_params.debug_visualize:</span> <span class="pre">true</span></code> in
-YAML) to inspect candidates in a <a class="reference external" href="https://rerun.io/">Rerun</a>
+<p>Set <code class="docutils literal notranslate"><span class="pre">debug_visualize=True</span></code> (or <code class="docutils literal notranslate"><span class="pre">placement_validators.debug_visualize:</span>
+<span class="pre">true</span></code> in YAML) to inspect candidates in a <a class="reference external" href="https://rerun.io/">Rerun</a>
 viewer:</p>
 <figure class="align-center" id="id1">
 <a class="reference internal image-reference" href="../../../_images/validator_bbox_rerun_viz.gif"><img alt="Rerun debug view of base placement validators with bounding boxes and a per-check pass/fail timeline." src="../../../_images/validator_bbox_rerun_viz.gif" style="width: 100%;" />
@@ -750,225 +720,9 @@ required — so when cuRobo is available, <code class="docutils literal notransl
 automatically. Making a check optional (enabled but not required) keeps it
 running and reported without rejecting layouts, which is the usual way to
 keep placement geometry-only.</p>
-<p>Both are set on <code class="docutils literal notranslate"><span class="pre">ObjectPlacerParams</span></code> in Python or the <code class="docutils literal notranslate"><span class="pre">placer_params</span></code> block
-in YAML; see <a class="reference internal" href="../environment/environment_definition.html"><span class="doc">Environment Definition</span></a>.</p>
-</section>
-<section id="post-physics-checks-for-recordings">
-<h2>Post-Physics Checks for Recordings<a class="headerlink" href="#post-physics-checks-for-recordings" title="Link to this heading">#</a></h2>
-<p>The <a class="reference internal" href="../offline_placement/recording.html"><span class="doc">placement recorder</span></a> advances physics
-for <code class="docutils literal notranslate"><span class="pre">settle.num_steps</span></code> environment steps before checking the final state.</p>
-<p>All required solver checks and enabled, applicable post-physics checks must pass.
-The post-physics checks share one settling pass:</p>
-<div class="pst-scrollable-table-container"><table class="table">
-<colgroup>
-<col style="width: 25.0%" />
-<col style="width: 45.0%" />
-<col style="width: 30.0%" />
-</colgroup>
-<thead>
-<tr class="row-odd"><th class="head"><p>Check</p></th>
-<th class="head"><p>Measures</p></th>
-<th class="head"><p>Default limit</p></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">physics_settled</span></code></p></td>
-<td><p>Final linear and angular speed of every root, including the robot.</p></td>
-<td><p>0.1 m/s and 0.1 rad/s</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">pose_shift</span></code></p></td>
-<td><p>Initial-to-final root translation and rotation, excluding intentional
-<code class="docutils literal notranslate"><span class="pre">ClutterOn</span></code> drops.</p></td>
-<td><p>2 mm and 2 degrees</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">articulation_link_shift</span></code></p></td>
-<td><p>Task-object link motion relative to its root, excluding robot embodiments.</p></td>
-<td><p>2 mm and 2 degrees</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">support_containment</span></code></p></td>
-<td><p>Final clutter bounds relative to the support footprint and minimum resting
-height.</p></td>
-<td><p>No overhang; 1 cm below the minimum height</p></td>
-</tr>
-</tbody>
-</table>
-</div>
-<p>Configure a limit with
-<code class="docutils literal notranslate"><span class="pre">settle.validators.&lt;check&gt;.&lt;setting&gt;=&lt;value&gt;</span></code>. An inapplicable or disabled
-check is recorded as skipped. At least one applicable post-physics check must
-remain enabled.</p>
-<section id="clutter-recording-checks">
-<h3>Clutter Recording Checks<a class="headerlink" href="#clutter-recording-checks" title="Link to this heading">#</a></h3>
-<p>Scenes using <code class="docutils literal notranslate"><span class="pre">ClutterOn</span></code> automatically include <code class="docutils literal notranslate"><span class="pre">support_containment</span></code>. The
-clutter objects must be dynamic rigid bodies with gravity enabled. Their supports
-must be fixed anchors with upright quarter-turn orientations. Resolve other
-placement relations to fixed anchors before collecting clutter layouts.</p>
-<p>Flat supports use their verified top surface as the minimum resting height.
-Containers need an explicit local-Z height so objects can settle below the rim:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>+settle.validators.support_containment.minimum_resting_heights_m.bowl<span class="o">=</span>-0.025
-</pre></div>
-</div>
-<p>The key is the support’s runtime scene name. The value is measured in metres in
-the scaled support-local frame before world translation and must lie within the
-support’s local Z bounds. For <code class="docutils literal notranslate"><span class="pre">kinematic_bowl_ycb_robolab</span></code>, <code class="docutils literal notranslate"><span class="pre">-0.025</span></code> is
-approximately the inner floor.</p>
-<p>Containment compares bounding-box footprints and heights. It does not establish
-exact containment inside curved walls or detect every object-wall penetration.
-Release candidates must also pass <code class="docutils literal notranslate"><span class="pre">no_overlap</span></code> and
-<code class="docutils literal notranslate"><span class="pre">clutter_on_relation</span></code>. <code class="docutils literal notranslate"><span class="pre">ClutterOn</span></code> objects cannot require reachability
-because settling changes the poses checked by the solver.</p>
-</section>
-<section id="understand-the-rejection-summary">
-<span id="recording-rejection-summary"></span><h3>Understand the Rejection Summary<a class="headerlink" href="#understand-the-rejection-summary" title="Link to this heading">#</a></h3>
-<p>The recorder excludes rejected layouts and prints each rejection reason. If
-<code class="docutils literal notranslate"><span class="pre">max_batches</span></code> is exhausted before <code class="docutils literal notranslate"><span class="pre">min_layouts</span></code> is reached, any accepted
-layouts are still written and the command logs the shortfall. No file is written
-when no layouts pass.</p>
-<p>Each <code class="docutils literal notranslate"><span class="pre">Rejected</span></code> line gives a reason and the number of layouts rejected for it.
-When a pose-shift limit is exceeded, the message includes the object, measured
-translation and rotation, and configured limits. Use the named check to decide
-what to adjust:</p>
-<div class="pst-scrollable-table-container"><table class="table">
-<colgroup>
-<col style="width: 25.0%" />
-<col style="width: 30.0%" />
-<col style="width: 45.0%" />
-</colgroup>
-<thead>
-<tr class="row-odd"><th class="head"><p>Rejection</p></th>
-<th class="head"><p>Meaning</p></th>
-<th class="head"><p>What to check or change</p></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">solver</span> <span class="pre">validation</span> <span class="pre">failed</span></code></p></td>
-<td><p>A layout failed a required solver check.</p></td>
-<td><p>Read earlier solver diagnostics and check relation constraints and collision
-geometry. Increasing settling time cannot fix a solver failure.</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">physics_settled</span></code></p></td>
-<td><p>Final root velocity is too high.</p></td>
-<td><p>Inspect contacts and support. Increase <code class="docutils literal notranslate"><span class="pre">settle.num_steps</span></code> if motion is
-still decaying. More time will not fix an unstable placement.</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">pose_shift</span></code></p></td>
-<td><p>A non-clutter root moved or rotated beyond its limits.</p></td>
-<td><p>Inspect the named object. For <code class="docutils literal notranslate"><span class="pre">On</span></code> relations, reduce <code class="docutils literal notranslate"><span class="pre">clearance_m</span></code> to
-reduce the release drop, or increase <code class="docutils literal notranslate"><span class="pre">edge_margin_m</span></code> to avoid support
-edges. Edit the relation’s <code class="docutils literal notranslate"><span class="pre">params</span></code> in the environment’s scene YAML.</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">articulation_link_shift</span></code></p></td>
-<td><p>A task-object link shifted relative to its root.</p></td>
-<td><p>Check joint initialization and contacts. Root-pose replay cannot restore
-the changed joint configuration.</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">support_containment</span></code></p></td>
-<td><p>Settled clutter fell off, fell through or left the support footprint.</p></td>
-<td><p>Check support geometry, the configured minimum resting height and the
-containment margin.</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">missing</span> <span class="pre">required</span> <span class="pre">solver</span> <span class="pre">checks</span></code></p></td>
-<td><p>A required pre-physics result is unavailable.</p></td>
-<td><p>Enable the required validator or fix its dependencies and source
-configuration.</p></td>
-</tr>
-</tbody>
-</table>
-</div>
-<p>See <a class="reference internal" href="relations.html"><span class="doc">Relations and Strategies</span></a> for relation settings. Change validation limits under
-<code class="docutils literal notranslate"><span class="pre">settle.validators</span></code> only when the new tolerance fits your evaluation.
-Increasing <code class="docutils literal notranslate"><span class="pre">max_batches</span></code> allows more attempts without changing which checks
-layouts must pass.</p>
-</section>
-</section>
-<section id="custom-validators">
-<h2>Custom Validators<a class="headerlink" href="#custom-validators" title="Link to this heading">#</a></h2>
-<section id="pre-physics-validators">
-<h3>Pre-Physics Validators<a class="headerlink" href="#pre-physics-validators" title="Link to this heading">#</a></h3>
-<p>Pre-physics validators check the solver’s proposed layout before physics is advanced. Subclass
-<code class="docutils literal notranslate"><span class="pre">PrePhysicsPlacementValidator</span></code> and register a unique <code class="docutils literal notranslate"><span class="pre">check</span></code> name which should be included in
-<code class="docutils literal notranslate"><span class="pre">ObjectPlacerParams.enabled_checks</span></code>. Return one boolean per candidate, in batch order. For
-example, reject layouts with any object origin above 1.5 metres:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.relations.validation.pre_physics</span><span class="w"> </span><span class="kn">import</span> <span class="n">PrePhysicsPlacementValidator</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.relations.validation.registry</span><span class="w"> </span><span class="kn">import</span> <span class="n">register_validator</span>
-
-<span class="nd">@register_validator</span>
-<span class="k">class</span><span class="w"> </span><span class="nc">MaxOriginHeightValidator</span><span class="p">(</span><span class="n">PrePhysicsPlacementValidator</span><span class="p">):</span>
-    <span class="n">check</span> <span class="o">=</span> <span class="s2">"max_origin_height"</span>
-
-    <span class="k">def</span><span class="w"> </span><span class="nf">validate_batch</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">batch</span><span class="p">,</span> <span class="n">collision_objects</span><span class="p">):</span>
-        <span class="n">verdicts</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="k">for</span> <span class="n">candidate</span> <span class="ow">in</span> <span class="n">batch</span><span class="o">.</span><span class="n">candidates</span><span class="p">:</span>
-            <span class="n">below_limit</span> <span class="o">=</span> <span class="nb">all</span><span class="p">(</span>
-                <span class="n">position</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">&lt;=</span> <span class="mf">1.5</span> <span class="k">for</span> <span class="n">position</span> <span class="ow">in</span> <span class="n">candidate</span><span class="o">.</span><span class="n">positions</span><span class="o">.</span><span class="n">values</span><span class="p">()</span>
-            <span class="p">)</span>
-            <span class="n">verdicts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">below_limit</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">verdicts</span>
-</pre></div>
-</div>
-<p>Import the module defining this class before constructing <code class="docutils literal notranslate"><span class="pre">ObjectPlacer</span></code>.
-Default settings run and require the registered check. If <code class="docutils literal notranslate"><span class="pre">enabled_checks</span></code> is
-explicit, include <code class="docutils literal notranslate"><span class="pre">&quot;max_origin_height&quot;</span></code> to run it.</p>
-</section>
-<section id="post-physics-validators">
-<h3>Post-Physics Validators<a class="headerlink" href="#post-physics-validators" title="Link to this heading">#</a></h3>
-<p>Subclass <code class="docutils literal notranslate"><span class="pre">PostPhysicsPlacementValidator</span></code> to check captured measurements after
-settling. Return one report per entry in <code class="docutils literal notranslate"><span class="pre">batch.env_ids</span></code>, in the same order.
-<code class="docutils literal notranslate"><span class="pre">self.report</span></code> includes the validator’s settings, verdict and rejection reason.</p>
-<p>Save this example as <code class="docutils literal notranslate"><span class="pre">placement_validators.py</span></code> in the repository root. It checks
-the final height of every recorded root, including the robot, in metres relative
-to the local environment origin:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">math</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">ClassVar</span>
-
-<span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.offline_placement.post_physics_validation</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
-    <span class="n">PostPhysicsPlacementValidator</span><span class="p">,</span>
-<span class="p">)</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.offline_placement.settled_batch</span><span class="w"> </span><span class="kn">import</span> <span class="n">SettledBatch</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.relations.validation.types</span><span class="w"> </span><span class="kn">import</span> <span class="n">PlacementValidatorReport</span>
-
-<span class="nd">@dataclass</span>
-<span class="k">class</span><span class="w"> </span><span class="nc">MaxRootHeightValidator</span><span class="p">(</span><span class="n">PostPhysicsPlacementValidator</span><span class="p">):</span>
-    <span class="n">check</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"max_root_height"</span>
-    <span class="n">max_height_m</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.5</span>
-<span class="w">    </span><span class="sd">"""Maximum final root height in the local environment frame, in metres."""</span>
-
-    <span class="k">def</span><span class="w"> </span><span class="nf">validate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">batch</span><span class="p">:</span> <span class="n">SettledBatch</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">PlacementValidatorReport</span><span class="p">]:</span>
-        <span class="n">reports</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="k">for</span> <span class="n">env_id</span> <span class="ow">in</span> <span class="n">batch</span><span class="o">.</span><span class="n">env_ids</span><span class="p">:</span>
-            <span class="n">reason</span> <span class="o">=</span> <span class="s2">""</span>
-            <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">poses</span> <span class="ow">in</span> <span class="n">batch</span><span class="o">.</span><span class="n">final_root_poses</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-                <span class="n">height_m</span> <span class="o">=</span> <span class="n">poses</span><span class="p">[</span><span class="n">env_id</span><span class="p">,</span> <span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
-                <span class="k">if</span> <span class="ow">not</span> <span class="n">math</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">height_m</span><span class="p">)</span> <span class="ow">or</span> <span class="n">height_m</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_height_m</span><span class="p">:</span>
-                    <span class="n">reason</span> <span class="o">=</span> <span class="p">(</span>
-                        <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2">: final root height </span><span class="si">{</span><span class="n">height_m</span><span class="si">:</span><span class="s2">g</span><span class="si">}</span><span class="s2"> m; "</span>
-                        <span class="sa">f</span><span class="s2">"limit </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">max_height_m</span><span class="si">:</span><span class="s2">g</span><span class="si">}</span><span class="s2"> m"</span>
-                    <span class="p">)</span>
-                    <span class="k">break</span>
-            <span class="n">reports</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">report</span><span class="p">(</span><span class="n">passed</span><span class="o">=</span><span class="ow">not</span> <span class="nb">bool</span><span class="p">(</span><span class="n">reason</span><span class="p">),</span> <span class="n">reason</span><span class="o">=</span><span class="n">reason</span><span class="p">))</span>
-        <span class="k">return</span> <span class="n">reports</span>
-</pre></div>
-</div>
-<p>Run the recorder from the repository root, adding that directory to
-<code class="docutils literal notranslate"><span class="pre">PYTHONPATH</span></code> so Hydra can import the module:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nv">PYTHONPATH</span><span class="o">=</span><span class="s2">"</span><span class="nv">$PWD</span><span class="si">${</span><span class="nv">PYTHONPATH</span><span class="p">:+:</span><span class="nv">$PYTHONPATH</span><span class="si">}</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
-python<span class="w"> </span>isaaclab_arena/scripts/record_placement_layouts.py<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span><span class="nv">env_spec</span><span class="o">=</span>isaaclab_arena_environments/robolab/tasks/clamp_in_right_bin.yaml<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span><span class="nv">output</span><span class="o">=</span>outputs/placements/clamp_custom.jsonl<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span><span class="nv">num_envs</span><span class="o">=</span><span class="m">4</span><span class="w"> </span><span class="nv">env_spacing</span><span class="o">=</span><span class="m">2</span><span class="w"> </span><span class="nv">min_layouts</span><span class="o">=</span><span class="m">16</span><span class="w"> </span><span class="nv">max_batches</span><span class="o">=</span><span class="m">5</span><span class="w"> </span><span class="nv">seed</span><span class="o">=</span><span class="m">42</span><span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>settle.num_steps<span class="o">=</span><span class="m">120</span><span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>settle.validators.pose_shift.max_translation_m<span class="o">=</span><span class="m">0</span>.015<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>+settle.validators.max_root_height._target_<span class="o">=</span>placement_validators.MaxRootHeightValidator<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>+settle.validators.max_root_height.max_height_m<span class="o">=</span><span class="m">1</span>.5<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span><span class="nv">render</span><span class="o">=</span><span class="nb">false</span><span class="w"> </span>--device<span class="w"> </span>cpu<span class="w"> </span>--viz<span class="w"> </span>none
-</pre></div>
-</div>
-<p>The configuration key (<code class="docutils literal notranslate"><span class="pre">max_root_height</span></code>) must match the class’s <code class="docutils literal notranslate"><span class="pre">check</span></code> name.
-Hydra loads post-physics validators through <code class="docutils literal notranslate"><span class="pre">_target_</span></code>; no <code class="docutils literal notranslate"><span class="pre">&#64;register_validator</span></code>
-decorator is needed. This command adds the custom check alongside the default
-checks. Every enabled, applicable check must pass for a layout to be recorded.</p>
-</section>
+<p>Both are set on <code class="docutils literal notranslate"><span class="pre">ObjectPlacerParams</span></code> in Python or the
+<code class="docutils literal notranslate"><span class="pre">placement_validators</span></code> block in YAML; see <a class="reference internal" href="../environment/environment_definition.html"><span class="doc">Environment Definition</span></a>
+for the field-level split.</p>
 </section>
 <section id="next-steps">
 <h2>Next Steps<a class="headerlink" href="#next-steps" title="Link to this heading">#</a></h2>
@@ -1033,16 +787,6 @@ layouts that pass these checks.</p>
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#enabling-and-disabling-checks">Enabling and Disabling Checks</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#post-physics-checks-for-recordings">Post-Physics Checks for Recordings</a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#clutter-recording-checks">Clutter Recording Checks</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#understand-the-rejection-summary">Understand the Rejection Summary</a></li>
-</ul>
-</li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#custom-validators">Custom Validators</a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#pre-physics-validators">Pre-Physics Validators</a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#post-physics-validators">Post-Physics Validators</a></li>
-</ul>
-</li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#next-steps">Next Steps</a></li>
 </ul>
   </nav></div>

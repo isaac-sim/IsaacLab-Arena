@@ -449,9 +449,6 @@
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../concepts/environment/index.html">Environment</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="../../concepts/environment/environment_definition.html">Environment Definition</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../concepts/environment/env_builder.html">Environment Builder</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../concepts/environment/physics_configuration.html">Physics configuration</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../concepts/environment/physics_backend_selection.html">Physics backend selection</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../concepts/environment/env_cfg_override.html">Graph YAML <code class="docutils literal notranslate"><span class="pre">env_cfg_override</span></code></a></li>
 </ul>
 </details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../concepts/agentic_environment_generation/index.html">Agentic Environment Generation</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -480,8 +477,6 @@
 </details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../concepts/concept_object_and_robot_placement.html">Object and Robot Placement</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="../../concepts/object_placement/relations.html">Relations and Strategies</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../concepts/offline_placement/recording.html">Record and Replay Placement Poses</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../concepts/offline_placement/clutter.html">Record and Replay Clutter Layouts</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../concepts/object_placement/collision_handling.html">Collision Handling</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../concepts/object_placement/solver.html">Placement Solver</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../concepts/object_placement/validation.html">Placement Validation</a></li>
@@ -588,8 +583,8 @@ mkdir<span class="w"> </span>-p<span class="w"> </span><span class="nv">$MODELS_
 </pre></div>
 </div>
 <p>This step evaluates a checkpoint using Arena’s <code class="docutils literal notranslate"><span class="pre">dexsuite_lift</span></code> environment.
-It uses Newton physics by default, matching the backend used to train the
-provided checkpoint.</p>
+Pass <code class="docutils literal notranslate"><span class="pre">--presets</span> <span class="pre">newton</span></code> to use Newton physics (recommended when the checkpoint
+was trained with Newton).</p>
 <details class="sd-sphinx-override sd-dropdown sd-card sd-mb-3 sd-fade-in">
 <summary class="sd-summary-title sd-card-header">
 <span class="sd-summary-text">Download Pre-trained Model (skip training)</span><span class="sd-summary-state-marker sd-summary-chevron-right"><svg version="1.1" width="1.5em" height="1.5em" class="sd-octicon sd-octicon-chevron-right" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.72 18.78a.75.75 0 0 1 0-1.06L14.44 12 8.72 6.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018l6.25 6.25a.75.75 0 0 1 0 1.06l-6.25 6.25a.75.75 0 0 1-1.06 0Z"></path></svg></span></summary><div class="sd-summary-content sd-card-body docutils">
@@ -610,8 +605,9 @@ are at:</p>
 </div>
 <section id="single-environment-evaluation">
 <h2>Single Environment Evaluation<a class="headerlink" href="#single-environment-evaluation" title="Link to this heading">#</a></h2>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nv">PYOPENGL_PLATFORM</span><span class="o">=</span>glx<span class="w"> </span>python<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--viz<span class="w"> </span>newton_gl<span class="w"> </span><span class="se">\</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--viz<span class="w"> </span>newton<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--presets<span class="w"> </span>newton<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--policy_type<span class="w"> </span>rsl_rl<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--num_steps<span class="w"> </span><span class="m">800</span><span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--checkpoint_path<span class="w"> </span><span class="nv">$MODELS_DIR</span>/model_14999.pt<span class="w"> </span><span class="se">\</span>
@@ -629,7 +625,6 @@ are at:</p>
 <p>You can also evaluate a Newton-trained model using PhysX:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--viz<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--presets<span class="w"> </span>physx<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--policy_type<span class="w"> </span>rsl_rl<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--num_steps<span class="w"> </span><span class="m">800</span><span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--checkpoint_path<span class="w"> </span><span class="nv">$MODELS_DIR</span>/model_14999.pt<span class="w"> </span><span class="se">\</span>
@@ -646,6 +641,7 @@ evaluated with PhysX.</p>
 <h2>Parallel Environment Evaluation<a class="headerlink" href="#parallel-environment-evaluation" title="Link to this heading">#</a></h2>
 <p>For statistically significant results, run across many environments in parallel:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--presets<span class="w"> </span>newton<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--policy_type<span class="w"> </span>rsl_rl<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--num_steps<span class="w"> </span><span class="m">5000</span><span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--num_envs<span class="w"> </span><span class="m">64</span><span class="w"> </span><span class="se">\</span>
@@ -697,7 +693,7 @@ JSON config.</p>
 </pre></div>
 </div>
 <p><strong>2. Run</strong></p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/experiment_runner.py<span class="w"> </span>--eval_jobs_config<span class="w"> </span>eval_config.json
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/experiment_runner.py<span class="w"> </span>--presets<span class="w"> </span>newton<span class="w"> </span>--eval_jobs_config<span class="w"> </span>eval_config.json
 </pre></div>
 </div>
 </section>

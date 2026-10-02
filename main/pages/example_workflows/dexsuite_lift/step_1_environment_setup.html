@@ -449,9 +449,6 @@
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../concepts/environment/index.html">Environment</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="../../concepts/environment/environment_definition.html">Environment Definition</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../concepts/environment/env_builder.html">Environment Builder</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../concepts/environment/physics_configuration.html">Physics configuration</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../concepts/environment/physics_backend_selection.html">Physics backend selection</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../concepts/environment/env_cfg_override.html">Graph YAML <code class="docutils literal notranslate"><span class="pre">env_cfg_override</span></code></a></li>
 </ul>
 </details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../concepts/agentic_environment_generation/index.html">Agentic Environment Generation</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -480,8 +477,6 @@
 </details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../concepts/concept_object_and_robot_placement.html">Object and Robot Placement</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="../../concepts/object_placement/relations.html">Relations and Strategies</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../concepts/offline_placement/recording.html">Record and Replay Placement Poses</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../concepts/offline_placement/clutter.html">Record and Replay Clutter Layouts</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../concepts/object_placement/collision_handling.html">Collision Handling</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../concepts/object_placement/solver.html">Placement Solver</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../concepts/object_placement/validation.html">Placement Validation</a></li>
@@ -586,8 +581,8 @@
 <h2>Environment Description<a class="headerlink" href="#environment-description" title="Link to this heading">#</a></h2>
 <p>The <code class="docutils literal notranslate"><span class="pre">dexsuite_lift</span></code> Arena environment wraps the Isaac Lab
 <code class="docutils literal notranslate"><span class="pre">Isaac-Lift-KukaAllegro</span></code> MDP for evaluation.
-The physics backend defaults to Newton. Pass <code class="docutils literal notranslate"><span class="pre">--presets</span> <span class="pre">physx</span></code> to override
-that environment default.</p>
+The physics backend defaults to PhysX and can be switched to Newton by passing
+<code class="docutils literal notranslate"><span class="pre">--presets</span> <span class="pre">newton</span></code> on the command line.</p>
 <p>The environment is defined in
 <code class="docutils literal notranslate"><span class="pre">isaaclab_arena_environments/dexsuite_lift_environment.py</span></code>:</p>
 <details class="sd-sphinx-override sd-dropdown sd-card sd-mb-3 sd-fade-in">
@@ -605,7 +600,6 @@ that environment default.</p>
         <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.environments.isaaclab_arena_environment</span><span class="w"> </span><span class="kn">import</span> <span class="n">IsaacLabArenaEnvironment</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.scene.scene</span><span class="w"> </span><span class="kn">import</span> <span class="n">Scene</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.tasks.lift_object_task</span><span class="w"> </span><span class="kn">import</span> <span class="n">DexsuiteLiftTask</span>
-        <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.utils.physics_backend</span><span class="w"> </span><span class="kn">import</span> <span class="n">PhysicsBackend</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.utils.pose</span><span class="w"> </span><span class="kn">import</span> <span class="n">Pose</span><span class="p">,</span> <span class="n">PoseRange</span>
 
         <span class="n">dexsuite_table</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">"procedural_table"</span><span class="p">)()</span>
@@ -642,15 +636,16 @@ that environment default.</p>
             <span class="n">teleop_device</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
             <span class="n">rl_framework_entry_point</span><span class="o">=</span><span class="s2">"rsl_rl_cfg_entry_point"</span><span class="p">,</span>
             <span class="n">rl_policy_cfg</span><span class="o">=</span><span class="n">dexsuite_rl_cfg_entry</span><span class="p">,</span>
-            <span class="n">default_physics_backend</span><span class="o">=</span><span class="n">PhysicsBackend</span><span class="o">.</span><span class="n">NEWTON</span><span class="p">,</span>
         <span class="p">)</span>
 </pre></div>
 </div>
 </div>
 </details><div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>The environment declares Newton as its default backend. The common
-<code class="docutils literal notranslate"><span class="pre">--presets</span></code> CLI flag can override that default.</p>
+<p>The environment does not contain a physics-specific callback.
+Physics backend selection is handled globally by the <code class="docutils literal notranslate"><span class="pre">--presets</span></code> CLI flag
+(e.g. <code class="docutils literal notranslate"><span class="pre">--presets</span> <span class="pre">newton</span></code>), which is applied by <code class="docutils literal notranslate"><span class="pre">ArenaEnvBuilder</span></code>
+after all environment-specific configuration.</p>
 </div>
 </section>
 <section id="step-by-step-breakdown">
@@ -683,12 +678,13 @@ fingertip contact forces.</p></li>
 It provides the <code class="docutils literal notranslate"><span class="pre">object_pose</span></code> command (position-only, resampled every 2–3 s),
 a success termination at 5 cm position tolerance, and a time-out termination.</p>
 <p><strong>3. Physics Backend Selection</strong></p>
-<p>The physics backend is selected by <code class="docutils literal notranslate"><span class="pre">ArenaEnvBuilder</span></code>:</p>
+<p>The physics backend is selected via the common <code class="docutils literal notranslate"><span class="pre">--presets</span></code> CLI flag, handled
+by <code class="docutils literal notranslate"><span class="pre">ArenaEnvBuilder</span></code>:</p>
 <ul class="simple">
-<li><p><strong>Default (Newton)</strong>: no extra flag needed.</p></li>
-<li><p><strong>PhysX override</strong>: pass <code class="docutils literal notranslate"><span class="pre">--presets</span> <span class="pre">physx</span></code> to <code class="docutils literal notranslate"><span class="pre">policy_runner.py</span></code>.</p></li>
+<li><p><strong>Default (PhysX)</strong>: no extra flag needed.</p></li>
+<li><p><strong>Newton</strong>: pass <code class="docutils literal notranslate"><span class="pre">--presets</span> <span class="pre">newton</span></code> to <code class="docutils literal notranslate"><span class="pre">policy_runner.py</span></code>.</p></li>
 </ul>
-<p>When Newton is resolved, the builder automatically:</p>
+<p>When <code class="docutils literal notranslate"><span class="pre">--presets</span> <span class="pre">newton</span></code> is set, the builder automatically:</p>
 <ol class="arabic simple">
 <li><p>Applies the <code class="docutils literal notranslate"><span class="pre">ArenaPhysicsCfg().newton</span></code> configuration (MuJoCo-Warp solver
 with tuned parameters for dexterous manipulation).</p></li>
@@ -698,17 +694,17 @@ with tuned parameters for dexterous manipulation).</p></li>
 <section id="validation-run-zero-action-policy">
 <h2>Validation: Run Zero-Action Policy<a class="headerlink" href="#validation-run-zero-action-policy" title="Link to this heading">#</a></h2>
 <p>Verify the environment loads correctly with a zero-action policy:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># PhysX override:</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># PhysX (default):</span>
 python<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--viz<span class="w"> </span>kit<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--presets<span class="w"> </span>physx<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--policy_type<span class="w"> </span>zero_action<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--num_steps<span class="w"> </span><span class="m">100</span><span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>dexsuite_lift
 
-<span class="c1"># Newton (environment default):</span>
-<span class="nv">PYOPENGL_PLATFORM</span><span class="o">=</span>glx<span class="w"> </span>python<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--viz<span class="w"> </span>newton_gl<span class="w"> </span><span class="se">\</span>
+<span class="c1"># Newton:</span>
+python<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--viz<span class="w"> </span>newton<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--presets<span class="w"> </span>newton<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--policy_type<span class="w"> </span>zero_action<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--num_steps<span class="w"> </span><span class="m">100</span><span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>dexsuite_lift
@@ -717,13 +713,10 @@ python<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span cl
 <p>You should see the Kuka Allegro hand in the scene with the cuboid on the table.</p>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
-<p><code class="docutils literal notranslate"><span class="pre">--viz</span> <span class="pre">newton_gl</span></code> uses the MuJoCo viewer; <code class="docutils literal notranslate"><span class="pre">--viz</span> <span class="pre">kit</span></code> uses
+<p><code class="docutils literal notranslate"><span class="pre">--viz</span> <span class="pre">newton</span></code> uses the MuJoCo viewer; <code class="docutils literal notranslate"><span class="pre">--viz</span> <span class="pre">kit</span></code> uses
 the Kit viewer. The visualizer setting is independent of the physics backend.
 For example, <code class="docutils literal notranslate"><span class="pre">--viz</span> <span class="pre">kit</span> <span class="pre">--presets</span> <span class="pre">newton</span></code> runs Newton physics with
 the Kit viewer.</p>
-<p>On Linux, set <code class="docutils literal notranslate"><span class="pre">PYOPENGL_PLATFORM=glx</span></code> before starting Python with the
-interactive Newton viewer. This avoids a PyOpenGL context initialization
-failure.</p>
 </div>
 </section>
 </section>

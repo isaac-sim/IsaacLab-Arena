@@ -449,9 +449,6 @@
 <li class="toctree-l1 has-children"><a class="reference internal" href="../concepts/environment/index.html">Environment</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="../concepts/environment/environment_definition.html">Environment Definition</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../concepts/environment/env_builder.html">Environment Builder</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../concepts/environment/physics_configuration.html">Physics configuration</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../concepts/environment/physics_backend_selection.html">Physics backend selection</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../concepts/environment/env_cfg_override.html">Graph YAML <code class="docutils literal notranslate"><span class="pre">env_cfg_override</span></code></a></li>
 </ul>
 </details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../concepts/agentic_environment_generation/index.html">Agentic Environment Generation</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -480,8 +477,6 @@
 </details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../concepts/concept_object_and_robot_placement.html">Object and Robot Placement</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="../concepts/object_placement/relations.html">Relations and Strategies</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../concepts/offline_placement/recording.html">Record and Replay Placement Poses</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../concepts/offline_placement/clutter.html">Record and Replay Clutter Layouts</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../concepts/object_placement/collision_handling.html">Collision Handling</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../concepts/object_placement/solver.html">Placement Solver</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../concepts/object_placement/validation.html">Placement Validation</a></li>
@@ -598,11 +593,6 @@ See the <a class="reference external" href="https://github.com/isaac-sim/IsaacLa
 </div>
 <section id="adding-assets">
 <h2>Adding assets<a class="headerlink" href="#adding-assets" title="Link to this heading">#</a></h2>
-<p>For immediate access to new uploads, use <code class="docutils literal notranslate"><span class="pre">ARENA_STAGING_NUCLEUS_DIR</span></code> from
-<code class="docutils literal notranslate"><span class="pre">isaaclab_arena.assets.nucleus</span></code>. It points to the internal Nucleus location
-<code class="docutils literal notranslate"><span class="pre">omniverse://isaac-dev.ov.nvidia.com/Isaac/IsaacLab</span></code> and requires internal access.
-Append <code class="docutils literal notranslate"><span class="pre">/Arena/assets/...</span></code> to build an asset path. <code class="docutils literal notranslate"><span class="pre">ARENA_NUCLEUS_DIR</span></code> uses the
-public S3 mirror, where uploads become available after synchronization.</p>
 <p>To add your own assets to Isaac Lab Arena’s <em>staging</em> S3 bucket, you can follow the following steps:</p>
 <ol class="arabic">
 <li><p>Upload your assets to the Nucleus Server (<code class="docutils literal notranslate"><span class="pre">omniverse://isaac-dev.ov.nvidia.com/Isaac/IsaacLab/Arena</span></code>). Depend on the type of your assets, you can upload them to the following directories:</p>

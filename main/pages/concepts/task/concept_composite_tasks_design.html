@@ -449,9 +449,6 @@
 <li class="toctree-l1 has-children"><a class="reference internal" href="../environment/index.html">Environment</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="../environment/environment_definition.html">Environment Definition</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../environment/env_builder.html">Environment Builder</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../environment/physics_configuration.html">Physics configuration</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../environment/physics_backend_selection.html">Physics backend selection</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../environment/env_cfg_override.html">Graph YAML <code class="docutils literal notranslate"><span class="pre">env_cfg_override</span></code></a></li>
 </ul>
 </details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../agentic_environment_generation/index.html">Agentic Environment Generation</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -480,8 +477,6 @@
 </details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../concept_object_and_robot_placement.html">Object and Robot Placement</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="../object_placement/relations.html">Relations and Strategies</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../offline_placement/recording.html">Record and Replay Placement Poses</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../offline_placement/clutter.html">Record and Replay Clutter Layouts</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../object_placement/collision_handling.html">Collision Handling</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../object_placement/solver.html">Placement Solver</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../object_placement/validation.html">Placement Validation</a></li>
@@ -575,21 +570,55 @@
                   
   <section id="composite-and-sequential-tasks">
 <h1>Composite and Sequential Tasks<a class="headerlink" href="#composite-and-sequential-tasks" title="Link to this heading">#</a></h1>
-<p><code class="docutils literal notranslate"><span class="pre">CompositeTaskBase</span></code> combines tasks, such as placing an object and closing a door:</p>
+<p>An Arena task describes what the robot should do in an environment, such as opening a door or placing an object in a bin.
+Arena can combine multiple tasks (subtasks) into one longer-horizon task in two ways:</p>
 <ul class="simple">
-<li><p>By default, subtasks may finish in any order.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">subtasks_are_sequential=True</span></code> requires them to finish in the listed order.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">CompositeTaskBase</span></code> creates an <strong>order-independent</strong> task. Its subtasks may succeed in any order.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">SequentialTaskBase</span></code> creates an <strong>ordered</strong> task. It is a <code class="docutils literal notranslate"><span class="pre">CompositeTaskBase</span></code> subclass that
+requires subtasks to succeed in the listed order.</p></li>
 </ul>
-<p>The class combines the subtasks’ scene settings, reset events, and metrics.
-Its <code class="docutils literal notranslate"><span class="pre">get_termination_cfg()</span></code> returns one <code class="docutils literal notranslate"><span class="pre">TaskTerminationCfg</span></code> with the subtasks’ success
-criteria, failure conditions, and a time limit for the whole task.</p>
-<p>By default, a finished subtask stays marked complete. For example, placing the can still counts
-if it moves while the robot places the bottle. Use <code class="docutils literal notranslate"><span class="pre">desired_subtask_success_state</span></code> below to
-require the can to be in place when the whole task finishes.</p>
+<p>Both classes collect the subtasks scene configuration, reset events, failure terminations,
+metrics, Mimic configuration, and progress objectives. They replace the individual success
+terminations with one success condition for the complete task.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>“Order-independent” does not mean every subtask must be satisfied simultaneously. The environment tracks and remembers
+which subtasks have succeeded during the episode. This makes <code class="docutils literal notranslate"><span class="pre">CompositeTaskBase</span></code> appropriate for
+goals such as placing several objects into a bin, where the policy may choose the object order.</p>
+</div>
+<section id="choosing-the-composition-type">
+<h2>Choosing the composition type<a class="headerlink" href="#choosing-the-composition-type" title="Link to this heading">#</a></h2>
+<div class="pst-scrollable-table-container"><table class="table">
+<colgroup>
+<col style="width: 25.0%" />
+<col style="width: 30.0%" />
+<col style="width: 45.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Class</p></th>
+<th class="head"><p>Ordering</p></th>
+<th class="head"><p>Completion Criteria</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">CompositeTaskBase</span></code></p></td>
+<td><p>No required order</p></td>
+<td><p>Every subtask must report success at least once. A subtask may return to an unsuccessful
+state after it has been completed.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">SequentialTaskBase</span></code></p></td>
+<td><p>List order</p></td>
+<td><p>Each subtask must report success after the preceding subtask has completed. A completed
+subtask may subsequently return to an unsuccessful state.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
 <section id="composing-tasks">
 <h2>Composing tasks<a class="headerlink" href="#composing-tasks" title="Link to this heading">#</a></h2>
-<p>Pass a flat list of <code class="docutils literal notranslate"><span class="pre">TaskBase</span></code> instances. Composite tasks cannot contain other composite tasks.
-For example, let the robot place two objects in either order:</p>
+<p>Pass ordinary <code class="docutils literal notranslate"><span class="pre">TaskBase</span></code> instances to the composition class. For example, use <code class="docutils literal notranslate"><span class="pre">CompositeTaskBase</span></code> to
+create an order-independent packing task for two objects:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.tasks.composite_task_base</span><span class="w"> </span><span class="kn">import</span> <span class="n">CompositeTaskBase</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.tasks.pick_and_place_task</span><span class="w"> </span><span class="kn">import</span> <span class="n">PickAndPlaceTask</span>
 
@@ -602,18 +631,17 @@ For example, let the robot place two objects in either order:</p>
 <span class="p">)</span>
 </pre></div>
 </div>
-<p>Set <code class="docutils literal notranslate"><span class="pre">subtasks_are_sequential=True</span></code> when the order is part of the task. Here, placing the object must happen
+<p>Use <code class="docutils literal notranslate"><span class="pre">SequentialTaskBase</span></code> when the order is part of the task. Here, placing the object must happen
 before closing the refrigerator:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.tasks.close_door_task</span><span class="w"> </span><span class="kn">import</span> <span class="n">CloseDoorTask</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.tasks.composite_task_base</span><span class="w"> </span><span class="kn">import</span> <span class="n">CompositeTaskBase</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.tasks.pick_and_place_task</span><span class="w"> </span><span class="kn">import</span> <span class="n">PickAndPlaceTask</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.tasks.sequential_task_base</span><span class="w"> </span><span class="kn">import</span> <span class="n">SequentialTaskBase</span>
 
 <span class="n">pick_and_place_task</span> <span class="o">=</span> <span class="n">PickAndPlaceTask</span><span class="p">(</span><span class="n">pick_object</span><span class="p">,</span> <span class="n">refrigerator_shelf</span><span class="p">,</span> <span class="n">kitchen</span><span class="p">)</span>
 <span class="n">close_door_task</span> <span class="o">=</span> <span class="n">CloseDoorTask</span><span class="p">(</span><span class="n">refrigerator</span><span class="p">,</span> <span class="n">closedness_threshold</span><span class="o">=</span><span class="mf">0.10</span><span class="p">)</span>
 
-<span class="n">put_away_task</span> <span class="o">=</span> <span class="n">CompositeTaskBase</span><span class="p">(</span>
+<span class="n">put_away_task</span> <span class="o">=</span> <span class="n">SequentialTaskBase</span><span class="p">(</span>
     <span class="n">subtasks</span><span class="o">=</span><span class="p">[</span><span class="n">pick_and_place_task</span><span class="p">,</span> <span class="n">close_door_task</span><span class="p">],</span>
-    <span class="n">subtasks_are_sequential</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
     <span class="n">task_description</span><span class="o">=</span><span class="s2">"Place the object in the refrigerator, then close the door."</span><span class="p">,</span>
 <span class="p">)</span>
 </pre></div>
@@ -623,26 +651,20 @@ workflow that places an object in a refrigerator and then closes the door.</p>
 </section>
 <section id="specifying-a-final-subtask-state">
 <h2>Specifying a final subtask state<a class="headerlink" href="#specifying-a-final-subtask-state" title="Link to this heading">#</a></h2>
-<p>Use <code class="docutils literal notranslate"><span class="pre">desired_subtask_success_state</span></code> to check subtask conditions when the whole task finishes:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">task</span> <span class="o">=</span> <span class="n">CompositeTaskBase</span><span class="p">(</span>
+<p>By default, both composite and sequential tasks only require every subtask to have succeeded at some point. Use
+<code class="docutils literal notranslate"><span class="pre">desired_subtask_success_state</span></code> if you want the final simulator state to be a specific one:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">task</span> <span class="o">=</span> <span class="n">SequentialTaskBase</span><span class="p">(</span>
     <span class="n">subtasks</span><span class="o">=</span><span class="p">[</span><span class="n">pick_and_place_task</span><span class="p">,</span> <span class="n">close_door_task</span><span class="p">],</span>
-    <span class="n">subtasks_are_sequential</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
     <span class="n">desired_subtask_success_state</span><span class="o">=</span><span class="p">[</span><span class="kc">True</span><span class="p">,</span> <span class="kc">True</span><span class="p">],</span>
 <span class="p">)</span>
 </pre></div>
 </div>
-<p>The entries follow the order of <code class="docutils literal notranslate"><span class="pre">subtasks</span></code>:</p>
+<p>Each entry corresponds to one subtask with ordering corresponding to the order of the subtask list in the definition:</p>
 <ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">True</span></code> requires the subtask to have completed and its final condition to hold now.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">False</span></code> requires the subtask to have completed and its final condition to be false now.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">None</span></code> ignores the subtask in the success check. In a sequential task, it must still finish
-before the next subtask starts.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">True</span></code> requires the subtask to have succeeded previously and to be succeeding now.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">False</span></code> requires the subtask to have succeeded previously but to be unsuccessful now.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">None</span></code> ignores that subtask when checking the final state.</p></li>
 </ul>
-<p>For a task with one ordered predicate sequence, the final condition is the last predicate.
-Earlier milestones stay recorded: a placed object does not need to remain above its initial lift
-height, for example. Conditions that must hold together belong in the same final predicate.
-For named sequences, the criteria set’s <code class="docutils literal notranslate"><span class="pre">ALL</span></code>, <code class="docutils literal notranslate"><span class="pre">ANY</span></code>, or <code class="docutils literal notranslate"><span class="pre">CHOOSE</span></code> setting combines their final predicates.
-If a subtask defines multiple criteria sets, all their final conditions must hold for its current result to be true.</p>
 </section>
 </section>
 
@@ -695,6 +717,7 @@ If a subtask defines multiple criteria sets, all their final conditions must hol
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#choosing-the-composition-type">Choosing the composition type</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#composing-tasks">Composing tasks</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#specifying-a-final-subtask-state">Specifying a final subtask state</a></li>
 </ul>

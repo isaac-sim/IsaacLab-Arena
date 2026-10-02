@@ -449,9 +449,6 @@
 <li class="toctree-l1 current active has-children"><a class="reference internal" href="index.html">Environment</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
 <li class="toctree-l2 current active"><a aria-current="page" class="current reference internal" href="#">Environment Definition</a></li>
 <li class="toctree-l2"><a class="reference internal" href="env_builder.html">Environment Builder</a></li>
-<li class="toctree-l2"><a class="reference internal" href="physics_configuration.html">Physics configuration</a></li>
-<li class="toctree-l2"><a class="reference internal" href="physics_backend_selection.html">Physics backend selection</a></li>
-<li class="toctree-l2"><a class="reference internal" href="env_cfg_override.html">Graph YAML <code class="docutils literal notranslate"><span class="pre">env_cfg_override</span></code></a></li>
 </ul>
 </details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../agentic_environment_generation/index.html">Agentic Environment Generation</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -480,8 +477,6 @@
 </details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../concept_object_and_robot_placement.html">Object and Robot Placement</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="../object_placement/relations.html">Relations and Strategies</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../offline_placement/recording.html">Record and Replay Placement Poses</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../offline_placement/clutter.html">Record and Replay Clutter Layouts</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../object_placement/collision_handling.html">Collision Handling</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../object_placement/solver.html">Placement Solver</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../object_placement/validation.html">Placement Validation</a></li>
@@ -591,38 +586,6 @@ assets; edges are spatial relations and task parameters.
 <code class="docutils literal notranslate"><span class="pre">from_yaml()</span></code> validates on load; <code class="docutils literal notranslate"><span class="pre">to_arena_env()</span></code> returns the same
 <code class="docutils literal notranslate"><span class="pre">IsaacLabArenaEnvironment</span></code>.</p></li>
 </ul>
-<section id="companion-placement-files">
-<h2>Companion placement files<a class="headerlink" href="#companion-placement-files" title="Link to this heading">#</a></h2>
-<p>Pass <code class="docutils literal notranslate"><span class="pre">--placement_layouts</span> <span class="pre">layouts.jsonl</span></code> to replay a companion file. This builder
-option works with both <code class="docutils literal notranslate"><span class="pre">--env_spec</span></code> and registered Python environments. Place it
-before the environment subcommand when using a registered environment.</p>
-<p>Python callers set <code class="docutils literal notranslate"><span class="pre">ArenaEnvBuilderCfg(placement_layouts_path=&quot;layouts.jsonl&quot;)</span></code>.
-Paths are relative to the working directory. The builder reads the file when it
-composes the scene; the environment definition does not contain the replay path.
-Python callers can alternatively supply <code class="docutils literal notranslate"><span class="pre">IsaacLabArenaEnvironment.placement_layouts</span></code>
-in memory. Supply a file path or in-memory layouts, not both.</p>
-<p>Replay bypasses relation solving and draws layouts from a shared queue on reset.
-See <a class="reference internal" href="../object_placement/relations.html"><span class="doc">Relations and Strategies</span></a> for the record format, queue behavior,
-asset coverage and reset requirements.</p>
-</section>
-<section id="fixed-poses-in-yaml">
-<h2>Fixed poses in YAML<a class="headerlink" href="#fixed-poses-in-yaml" title="Link to this heading">#</a></h2>
-<p>For assets whose constructors accept <code class="docutils literal notranslate"><span class="pre">initial_pose</span></code>, set it through
-<code class="docutils literal notranslate"><span class="pre">params.initial_pose</span></code> on embodiment, background or object nodes:</p>
-<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">params</span><span class="p">:</span>
-<span class="w">  </span><span class="nt">initial_pose</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">position_xyz</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">-1.0</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0.0</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0.0</span><span class="p p-Indicator">]</span>
-<span class="w">    </span><span class="nt">rotation_xyzw</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">0.0</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0.0</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">0.0</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">1.0</span><span class="p p-Indicator">]</span>
-</pre></div>
-</div>
-<p>Positions are environment-local, in metres; quaternions use xyzw order.
-<code class="docutils literal notranslate"><span class="pre">position_xyz</span></code> is required; omitted <code class="docutils literal notranslate"><span class="pre">rotation_xyzw</span></code> defaults to identity,
-as in <code class="docutils literal notranslate"><span class="pre">Pose.from_dict</span></code>.
-The pose is applied at construction. Rigid objects and articulations also
-restore it on reset when pose resets are enabled; static background geometry
-remains at its construction pose. Do not combine it with relation placement for
-the same movable asset.</p>
-</section>
 <section id="the-same-environment-side-by-side">
 <h2>The same environment, side by side<a class="headerlink" href="#the-same-environment-side-by-side" title="Link to this heading">#</a></h2>
 <p>Same pick-and-place setup in both columns: a DROID arm picks a Rubik’s cube off a
@@ -758,9 +721,9 @@ read across to see the correspondence.</p>
 <section id="only-in-python">
 <h3>Only in Python<a class="headerlink" href="#only-in-python" title="Link to this heading">#</a></h3>
 <p><code class="docutils literal notranslate"><span class="pre">IsaacLabArenaEnvironment</span></code> takes ten constructor arguments.
-<code class="docutils literal notranslate"><span class="pre">build_arena_env_from_graph_spec()</span></code> fills the graph-owned scene, task,
-placement, physics-backend, and compiled-config callback fields. The remaining
-runtime integrations have no YAML key.</p>
+<code class="docutils literal notranslate"><span class="pre">build_arena_env_from_graph_spec()</span></code> fills five: <code class="docutils literal notranslate"><span class="pre">name</span></code>, <code class="docutils literal notranslate"><span class="pre">scene</span></code>,
+<code class="docutils literal notranslate"><span class="pre">embodiment</span></code>, <code class="docutils literal notranslate"><span class="pre">task</span></code>, and a partial <code class="docutils literal notranslate"><span class="pre">placer_params</span></code>. Everything else has no
+YAML key.</p>
 <p><strong>Teleoperation device.</strong> YAML never sets <code class="docutils literal notranslate"><span class="pre">env_cfg.teleop_devices</span></code>. Python can
 pass a device that drives the embodiment:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">teleop_device</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">device_registry</span><span class="o">.</span><span class="n">get_device_by_name</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">teleop_device</span><span class="p">)()</span>
@@ -791,6 +754,20 @@ else on that config:</p>
     <span class="o">...</span><span class="p">,</span>
     <span class="n">episode_recorder_terms</span><span class="o">=</span><span class="p">{</span><span class="s2">"cube_pose"</span><span class="p">:</span> <span class="n">EpisodeRecorderTermCfg</span><span class="p">(</span><span class="n">func</span><span class="o">=</span><span class="n">record_cube_pose</span><span class="p">)},</span>
 <span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>Most placement tuning.</strong> YAML <code class="docutils literal notranslate"><span class="pre">placement_validators</span></code> can set only four
+<code class="docutils literal notranslate"><span class="pre">ObjectPlacerParams</span></code> fields: <code class="docutils literal notranslate"><span class="pre">enabled_checks</span></code>, <code class="docutils literal notranslate"><span class="pre">required_checks</span></code>,
+<code class="docutils literal notranslate"><span class="pre">debug_visualize</span></code>, and <code class="docutils literal notranslate"><span class="pre">debug_visualize_output_path</span></code>. Seeds, random yaw, pool
+size, resolve-on-reset, and IK reachability need Python:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">placer_params</span> <span class="o">=</span> <span class="n">ObjectPlacerParams</span><span class="p">(</span>
+    <span class="n">placement_seed</span><span class="o">=</span><span class="mi">42</span><span class="p">,</span>          <span class="c1"># reproducible layouts</span>
+    <span class="n">random_yaw_init</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>       <span class="c1"># random yaw per object</span>
+    <span class="n">resolve_on_reset</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>     <span class="c1"># solve once, reuse across resets</span>
+    <span class="n">min_unique_layouts_per_env</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span>
+    <span class="n">reachability_config</span><span class="o">=</span><span class="n">ReachabilityConfig</span><span class="p">(</span><span class="o">...</span><span class="p">),</span>
+<span class="p">)</span>
+<span class="k">return</span> <span class="n">IsaacLabArenaEnvironment</span><span class="p">(</span><span class="o">...</span><span class="p">,</span> <span class="n">placer_params</span><span class="o">=</span><span class="n">placer_params</span><span class="p">)</span>
 </pre></div>
 </div>
 <p><strong>Extra variations.</strong> Both formats get the defaults an asset attaches in its
@@ -840,31 +817,10 @@ with no code change. Below, <code class="docutils literal notranslate"><span cla
 <a class="reference internal" href="../../example_workflows/agentic_env_gen/index.html"><span class="doc">Agentic Environment Generation</span></a>: natural language in,
 validated <code class="docutils literal notranslate"><span class="pre">ArenaEnvGraphSpec</span></code> out. Pydantic checks registry names, node ids,
 relation arity, and task params before the simulator sees anything.</p>
-<p>Graph specs may also declare <code class="docutils literal notranslate"><span class="pre">default_physics_backend</span></code> and <code class="docutils literal notranslate"><span class="pre">env_cfg_override</span></code>;
-see <a class="reference internal" href="env_cfg_override.html"><span class="doc">Graph YAML env_cfg_override</span></a> and <a class="reference internal" href="physics_backend_selection.html"><span class="doc">Physics backend selection</span></a>.</p>
 </section>
 <section id="same-key-different-behavior">
 <h3>Same key, different behavior<a class="headerlink" href="#same-key-different-behavior" title="Link to this heading">#</a></h3>
 <p>Skip these when porting and you will not get the same environment.</p>
-<p><strong>Placement tuning.</strong> YAML <code class="docutils literal notranslate"><span class="pre">placer_params</span></code> is a validated nested override of
-<code class="docutils literal notranslate"><span class="pre">ObjectPlacerParams</span></code> and its data-only child configs. Field names and types
-come directly from those dataclasses, so nested solver settings do not need a
-second schema:</p>
-<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">placer_params</span><span class="p">:</span>
-<span class="w">  </span><span class="nt">placement_seed</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">42</span>
-<span class="w">  </span><span class="nt">random_yaw_init</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-<span class="w">  </span><span class="nt">resolve_on_reset</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
-<span class="w">  </span><span class="nt">min_unique_layouts_per_env</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">20</span>
-<span class="w">  </span><span class="nt">allow_best_loss_fallbacks</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
-<span class="w">  </span><span class="nt">solver_params</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">clearance_m</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.0</span>
-</pre></div>
-</div>
-<p>The same block selects <code class="docutils literal notranslate"><span class="pre">enabled_checks</span></code>, <code class="docutils literal notranslate"><span class="pre">required_checks</span></code>, and placement
-debug output. Runtime/code-bearing values such as
-<code class="docutils literal notranslate"><span class="pre">reachability_config.embodiment</span></code> and <code class="docutils literal notranslate"><span class="pre">solver_params.strategies</span></code> are
-rejected. Explicit builder/CLI
-<code class="docutils literal notranslate"><span class="pre">placement_seed</span></code> and <code class="docutils literal notranslate"><span class="pre">resolve_on_reset</span></code> values take precedence over YAML.</p>
 <p><strong>Duplicate instances need unique names.</strong> YAML sets <code class="docutils literal notranslate"><span class="pre">instance_name</span></code> to the node
 id. Asset classes default it to the registry name, so two Python instances of the
 same asset share one name unless you set <code class="docutils literal notranslate"><span class="pre">instance_name</span></code>. Prim paths, event
@@ -1005,8 +961,6 @@ environment.</p>
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#companion-placement-files">Companion placement files</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#fixed-poses-in-yaml">Fixed poses in YAML</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#the-same-environment-side-by-side">The same environment, side by side</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#where-the-two-formats-differ">Where the two formats differ</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#only-in-python">Only in Python</a></li>
