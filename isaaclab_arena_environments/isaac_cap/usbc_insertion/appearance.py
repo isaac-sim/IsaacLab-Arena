@@ -31,7 +31,7 @@ def spawn_usbc_with_materials(prim_path, cfg, translation=None, orientation=None
         shader = UsdShade.Shader(child)
         source = shader.GetSourceAsset("mdl")
         if source and source.path.endswith("/materials/OmniPBR/OmniPBR.mdl"):
-            # TODO(xinjieyao, 10/1/2026): Remove this override when migrating to CAP-local assets.
+            # TODO(xinjieyao, 10/1/2026): Check if necessary when migrating to CAP repo.
             # The bundled copy imports OmniPBR_ClearCoat, which is absent from the bundle.
             # Use Kit's complete module while retaining the orange albedo and metal ORM maps.
             shader.SetSourceAsset(Sdf.AssetPath("OmniPBR.mdl"), "mdl")
