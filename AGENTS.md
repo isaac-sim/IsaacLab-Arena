@@ -58,7 +58,10 @@ These modes do not construct assets or start SimulationApp. Use the registered t
 Use a custom task runtime only for state or lifecycle behavior those interfaces cannot express.
 Match required/provided affordances, inspect declared parameter units and reset semantics, and run
 static validation before simulation. For attached variations, use the existing runner's
-`--list_variations --variations_format json` to discover exact paths and task restriction reasons.
+`--list_variations --variations_format json --variations_output /tmp/arena_variations.json`
+to discover exact paths and task restriction reasons. Parse the output file, since stdout also
+contains simulator logs. Attached variation discovery starts SimulationApp and constructs assets;
+unlike static catalogue/schema/validation, it requires the simulation runtime and asset access.
 
 ## Coding style
 

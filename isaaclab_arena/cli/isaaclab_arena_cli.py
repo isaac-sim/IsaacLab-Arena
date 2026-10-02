@@ -138,6 +138,12 @@ def add_isaaclab_arena_cli_args(parser: argparse.ArgumentParser) -> None:
         help="Output format for --list_variations; JSON includes exact override paths and task restrictions.",
     )
     arena_group.add_argument(
+        "--variations_output",
+        type=str,
+        default=None,
+        help="Also write the catalogue to this file without simulation logs; requires --list_variations.",
+    )
+    arena_group.add_argument(
         "--list_variations",
         action="store_true",
         default=False,

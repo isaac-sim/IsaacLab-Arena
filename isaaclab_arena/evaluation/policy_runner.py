@@ -6,7 +6,6 @@
 from __future__ import annotations
 
 import argparse
-import json
 import os
 import tqdm
 from importlib import import_module
@@ -24,6 +23,7 @@ from isaaclab_arena.utils.hydra_overrides import assert_hydra_overrides
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
 from isaaclab_arena.utils.multiprocess import get_local_rank, get_world_size
 from isaaclab_arena.utils.timer import Timer
+from isaaclab_arena.variations.catalogue_output import emit_variations_catalogue, validate_variations_output
 from isaaclab_arena.video.video_recording import VideoRecordingCfg, timestamped_run_dir, wrap_env_for_video
 from isaaclab_arena.visualization.report import build_report, serve_until_ctrl_c
 from isaaclab_arena_environments.cli import get_arena_builder_from_cli, get_isaaclab_arena_environments_cli_parser
@@ -148,9 +148,10 @@ def list_variations(args_parser: argparse.ArgumentParser) -> None:
     assert_hydra_overrides(hydra_overrides, args_parser)
     arena_builder = get_arena_builder_from_cli(args_cli, hydra_overrides=hydra_overrides)
     if args_cli.variations_format == "json":
-        print(json.dumps(arena_builder.get_variations_catalogue_as_dict(), indent=2))
+        catalogue = arena_builder.get_variations_catalogue_as_dict()
     else:
-        print(arena_builder.get_variations_catalogue_as_string())
+        catalogue = arena_builder.get_variations_catalogue_as_string()
+    emit_variations_catalogue(catalogue, args_cli.variations_output)
 
 
 def main():
@@ -160,6 +161,7 @@ def main():
     args_parser = get_isaaclab_arena_cli_parser()
     # We do this as the parser is shared between the example environment and policy runner
     args_cli, unknown = args_parser.parse_known_args()
+    validate_variations_output(args_cli, args_parser)
 
     local_rank = get_local_rank()
     world_size = get_world_size()

@@ -51,6 +51,22 @@ environment and then exit before rollout:
      --list_variations \
      pick_and_place_maple_table
 
+For agents and scripts, write JSON directly to a file. Redirecting stdout also
+captures simulator messages and does not produce a clean JSON document:
+
+.. code-block:: bash
+
+   python isaaclab_arena/evaluation/policy_runner.py \
+     --list_variations --variations_format json \
+     --variations_output outputs/variations.json \
+     pick_and_place_maple_table
+
+Discovery starts SimulationApp and constructs the selected environment's assets,
+so it requires the simulation runtime and asset access even though it does not
+run a policy. ``--variations_output`` requires ``--list_variations``, writes the
+selected text or JSON format, creates missing parent directories, and replaces
+an existing file. Console output is unchanged.
+
 The output lists each asset (scene asset or embodiment), the variation name, whether it is
 run-time or build-time, the Hydra path to enable it, and all tunable fields with their current
 defaults:
@@ -151,6 +167,12 @@ each run's environment:
    python isaaclab_arena/evaluation/experiment_runner.py \
      --list_variations \
      --experiment_config isaaclab_arena_environments/experiment_configs/droid_pnp_variations_experiment.yaml
+
+To save its machine-readable catalogue, add ``--variations_format json
+--variations_output outputs/experiment_variations.json`` to that discovery
+command. The JSON document contains ``schema_version`` and ``runs``, with each
+run name mapped to its environment's catalogue. The policy runner writes one
+environment catalogue directly.
 
 Reproducible draws and replay
 -----------------------------
