@@ -187,10 +187,22 @@ class ArenaEnvBuilder:
             scene_and_embodiment_variations[self.arena_env.embodiment.name] = embodiment_variations
         return scene_and_embodiment_variations
 
+    def get_variations_catalogue_as_dict(self) -> dict[str, Any]:
+        """Describe effective variation paths and task compatibility without sampling."""
+        return variations_printing.get_variations_catalogue_as_dict(
+            self.get_all_variations(),
+            hydra_overrides=self.hydra_overrides,
+            restrictions=self.get_variation_restrictions(),
+        )
+
     def get_variations_catalogue_as_string(self) -> str:
         """Return a human-readable catalog of Hydra-configurable variations for this env."""
         variations: dict[str, list[VariationBase]] = self.get_all_variations()
         return variations_printing.get_variations_catalogue_as_string(variations, hydra_overrides=self.hydra_overrides)
+
+    def get_variation_restrictions(self) -> dict[str, str]:
+        """Return task-specific restrictions on otherwise available asset variations."""
+        return {} if self.arena_env.task is None else self.arena_env.task.get_variation_restrictions()
 
     def _compose_variations_event_cfg(self) -> Any | None:
         """Build a configclass with one :class:`EventTermCfg` per enabled run-time variation.
@@ -316,6 +328,27 @@ class ArenaEnvBuilder:
             variations: dict[str, list[VariationBase]] = self.get_all_variations()
             variations_hydra.apply_overrides(variations, self.hydra_overrides)
 
+        from isaaclab_arena.variations.sampling_context import VariationReplay, VariationSamplingContext
+
+        replay = None
+        if self.cfg.variation_replay_path is not None:
+            replay = VariationReplay.from_jsonl(self.cfg.variation_replay_path)
+        sampling_context = None
+        if self.cfg.variation_seed is not None or replay is not None:
+            assert not self.cfg.mimic, "Seeded variation sampling and replay require the Arena evaluation environment."
+            sampling_context = VariationSamplingContext(seed=self.cfg.variation_seed, replay=replay)
+        restrictions = self.get_variation_restrictions()
+        for asset_name, asset_variations in self.get_all_variations().items():
+            for variation in asset_variations:
+                path = f"{asset_name}.{variation.name}"
+                if variation.enabled:
+                    assert (
+                        path not in restrictions
+                    ), f"Variation '{path}' is unsupported by this task: {restrictions.get(path)}"
+                    variation.validate_cfg()
+                    if sampling_context is not None:
+                        variation.bind_sampling_context(sampling_context, path)
+
         # Attach the variation recorder before any sampling, so it observes both build-time samples
         # (drawn just below) and run-time samples (drawn during simulation).
         variation_recorder = VariationRecorder()
@@ -356,6 +389,11 @@ class ArenaEnvBuilder:
             placement_event_cfg = PlacementEventCfg()
         variations_event_cfg = self._compose_variations_event_cfg()
         task_termination_cfg = task.get_termination_cfg()
+        task_runtime_cfg = task.get_runtime_cfg()
+        assert task_runtime_cfg is None or task_termination_cfg.success, "A task runtime requires success criteria."
+        assert (
+            task_runtime_cfg is None or not self.cfg.mimic
+        ), "Task runtimes currently require the Arena evaluation environment."
         assert isinstance(
             task_termination_cfg, TaskTerminationCfg
         ), "Tasks must return TaskTerminationCfg with success criteria, failures, and timeout_s."
@@ -535,7 +573,12 @@ class ArenaEnvBuilder:
                     env_cfg.sim.physics, NewtonCfg
                 ), "env_cfg_callback changed the physics backend away from Newton."
 
-        env_kwargs: dict[str, Any] = {"variation_recorder": variation_recorder}
+        env_kwargs: dict[str, Any] = {
+            "variation_recorder": variation_recorder,
+            "variation_sampling_context": sampling_context,
+        }
+        if task_runtime_cfg is not None:
+            env_kwargs["task_runtime_cfg"] = task_runtime_cfg
         return env_cfg, env_kwargs
 
     def get_entry_point(self) -> str | type[ManagerBasedRLMimicEnv]:

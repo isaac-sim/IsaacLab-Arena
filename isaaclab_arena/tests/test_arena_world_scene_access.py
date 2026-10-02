@@ -291,10 +291,14 @@ def _check_arena_world_reuses_scene_extra_pose_reader(
     class PoseReaderDouble:
         def __init__(self):
             self.read_count = 0
+            self.close_count = 0
             self.T_W_F_values = [
                 torch.tensor([[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0]]),
                 torch.tensor([[1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0]]),
             ]
+
+        def close(self):
+            self.close_count += 1
 
         def get_pose_w(self):
             T_W_F = self.T_W_F_values[self.read_count]
@@ -309,6 +313,9 @@ def _check_arena_world_reuses_scene_extra_pose_reader(
         T_W_F_second = arena_world.get_pose_w("reference")
 
     make_pose_reader.assert_called_once_with(scene, "reference")
+    arena_world.close()
+    arena_world.close()
+    assert pose_reader.close_count == 1
     assert pose_reader.read_count == 2
     torch.testing.assert_close(T_W_F_first, pose_reader.T_W_F_values[0])
     torch.testing.assert_close(T_W_F_second, pose_reader.T_W_F_values[1])
@@ -375,6 +382,7 @@ def _check_scene_extra_pose_reader_uses_current_frame_view_poses(scene_access_mo
 
     make_frame_view.assert_called_once_with(
         "/World/envs/env_.*/reference",
+        validate_xform_ops=False,
         device="cpu",
         stage=scene.stage,
     )

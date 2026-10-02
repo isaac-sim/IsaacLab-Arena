@@ -16,6 +16,7 @@ from isaaclab_arena.assets.object import Object
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.relations.relations import RequiresReachability
+from isaaclab_arena.tasks.task_runtime import TaskRuntimeCfg
 from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
 from isaaclab_arena.tasks.task_transition import TaskTransition
 
@@ -54,6 +55,13 @@ class TaskBase(ABC):
 
     def get_observation_cfg(self) -> Any:
         return None
+
+    def get_runtime_cfg(self) -> TaskRuntimeCfg | None:
+        """Declare shared state updated before success and reset after all reset events."""
+
+    def get_variation_restrictions(self) -> dict[str, str]:
+        """Map unsupported ``asset.variation`` paths to actionable task-specific reasons."""
+        return {}
 
     def get_rewards_cfg(self) -> Any:
         return None

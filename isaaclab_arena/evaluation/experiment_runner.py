@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -29,10 +30,16 @@ if TYPE_CHECKING:
 
 # TODO(cvolk): Move experiment-level variation inspection out of this CLI entry point.
 # Run orchestration belongs in evaluation; catalogue formatting belongs in variations.
-def list_variations(experiment_cfg: ArenaExperimentCfg) -> None:
+def list_variations(experiment_cfg: ArenaExperimentCfg, output_format: str = "text") -> None:
     """Print the Hydra-configurable variations for each run's environment."""
     from isaaclab_arena.evaluation.run_execution import build_arena_builder_from_run_cfg
 
+    if output_format == "json":
+        catalogues = {}
+        for run_cfg in experiment_cfg.runs.values():
+            catalogues[run_cfg.name] = build_arena_builder_from_run_cfg(run_cfg).get_variations_catalogue_as_dict()
+        print(json.dumps({"schema_version": 1, "runs": catalogues}, indent=2), flush=True)
+        return
     for run_cfg in experiment_cfg.runs.values():
         arena_builder = build_arena_builder_from_run_cfg(run_cfg)
         print(f"=== Variations for run '{run_cfg.name}' ===", flush=True)
@@ -118,7 +125,10 @@ def main():
                 overrides=experiment_overrides,
             )
             _assert_camera_support_enabled(experiment_cfg, args_cli.enable_cameras)
-            list_variations(experiment_cfg)
+            if args_cli.variations_format == "json":
+                list_variations(experiment_cfg, output_format="json")
+            else:
+                list_variations(experiment_cfg)
         return
 
     # Chunked dispatch (--chunk_size N). Splits this config across subprocesses so each

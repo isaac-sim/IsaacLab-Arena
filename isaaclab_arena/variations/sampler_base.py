@@ -14,6 +14,8 @@ from isaaclab.utils.configclass import configclass
 if TYPE_CHECKING:
     import torch
 
+    from isaaclab_arena.variations.sampling_context import VariationSamplingContext
+
 
 @configclass
 class SamplerBaseCfg:
@@ -35,6 +37,14 @@ class SamplerBase(ABC):
 
     def __init__(self) -> None:
         self._listeners: list[Callable[[Any, torch.Tensor | None], None]] = []
+        self._sampling_context: VariationSamplingContext | None = None
+        self._variation_path = ""
+
+    def bind_sampling_context(self, context: VariationSamplingContext, path: str) -> None:
+        """Use contextual sampling under the stable ``host.variation`` path."""
+        assert path and "." in path, "A sampling context requires a qualified variation path."
+        self._sampling_context = context
+        self._variation_path = path
 
     def add_listener(self, listener: Callable[[Any, torch.Tensor | None], None]) -> None:
         """Register ``listener``, called as ``listener(sample, env_ids)`` for every sample drawn."""

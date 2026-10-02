@@ -19,10 +19,12 @@ from isaaclab_arena.metrics.metric_data import MetricsDataCollection
 from isaaclab_arena.metrics.metrics_manager import MetricsManager
 from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderManager
 from isaaclab_arena.tasks.predicates.object_settling import ObjectInitialRestPoseRecorder
+from isaaclab_arena.tasks.task_runtime import TaskRuntime, TaskRuntimeCfg
 from isaaclab_arena.variations.variation_recorder import VariationRecorder
 
 if TYPE_CHECKING:
     from isaaclab_arena.progress_tracking.progress_tracker import ProgressTracker
+    from isaaclab_arena.variations.sampling_context import VariationSamplingContext
 
 
 class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
@@ -35,6 +37,8 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
         cfg: IsaacLabArenaManagerBasedRLEnvCfg,
         render_mode: str | None = None,
         variation_recorder: VariationRecorder | None = None,
+        task_runtime_cfg: TaskRuntimeCfg | None = None,
+        variation_sampling_context: VariationSamplingContext | None = None,
         **kwargs,
     ):
         apply_arena_global_settings()
@@ -44,6 +48,10 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
             num_envs=cfg.scene.num_envs, device=cfg.sim.device
         )
         self._variation_recorder = variation_recorder
+        self._task_runtime_cfg = task_runtime_cfg
+        self._task_runtime: TaskRuntime | None = None
+        if variation_sampling_context is not None:
+            variation_sampling_context.bind_env(self)
         if variation_recorder is not None:
             # Bind so run-time variation draws can be attributed to the current episode index.
             variation_recorder.bind_env(self)
@@ -52,6 +60,11 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
         # The initial reset touches every env before any episode has run; skip it.
         self._first_reset = True
         super().__init__(cfg=cfg, render_mode=render_mode, **kwargs)
+
+    @property
+    def task_runtime(self) -> TaskRuntime | None:
+        """Shared task state; predicates and observations should only read its snapshot."""
+        return self._task_runtime
 
     @property
     def arena_world(self) -> ArenaWorld:
@@ -82,6 +95,8 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
     def load_managers(self) -> None:
         assert self._arena_world is None, "ArenaWorld is already initialized."
         self._arena_world = ArenaWorld(self.scene)
+        if self._task_runtime_cfg is not None:
+            self._task_runtime = self._task_runtime_cfg.build(self)
         super().load_managers()
         self.metrics_manager = MetricsManager(self.cfg.metrics, self)
         self.episode_recorder_manager = EpisodeRecorderManager(self.cfg.episode_recorders, self)
@@ -104,13 +119,27 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
         # The initial reset touches every env before any episode has run; nothing to record or count.
         if self._first_reset:
             self._first_reset = False
+            if self.task_runtime is not None:
+                self.task_runtime.prepare_reset(env_ids)
             super()._reset_idx(env_ids)
+            if self.task_runtime is not None:
+                self.task_runtime.reset(env_ids)
             return
         # Runs recorder before super() so the just-finished episode is still intact.
         self.episode_recorder_manager.record_pre_reset(env_ids)
         # Advance before super() so reset-mode variation draws are tagged with the episode they begin.
         self._advance_episode_indices(env_ids)
+        if self.task_runtime is not None:
+            self.task_runtime.prepare_reset(env_ids)
         super()._reset_idx(env_ids)
+        if self.task_runtime is not None:
+            self.task_runtime.reset(env_ids)
+
+    def close(self) -> None:
+        """Release Arena's live scene readers before Isaac Lab destroys the scene."""
+        if self._arena_world is not None:
+            self._arena_world.close()
+        super().close()
 
     def compute_metrics(self) -> MetricsDataCollection:
         """Compute all registered metrics.

@@ -35,6 +35,7 @@ import argparse
 import json
 import logging
 import sys
+from contextlib import redirect_stdout
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -62,16 +63,23 @@ def add_agentic_env_gen_runner_cli_args(parser: argparse.ArgumentParser) -> None
     group.add_argument(
         "--mode",
         type=str,
-        choices=("full", "resolve", "build", "schema", "catalog", "prim_tree"),
+        choices=("full", "resolve", "build", "schema", "catalog", "validate", "prim_tree"),
         default="full",
         help=(
             "Which phases to run: 'schema' (print the spec JSON schema and exit), "
             "'catalog' (print the agent catalog and exit), "
+            "'validate' (check --env_spec schema and declared semantics without a build), "
             "'prim_tree' (print the background prim tree of --env_spec and exit), "
             "'resolve' (prompt -> spec YAML, no Isaac Sim), "
             "'build' (needs --env_spec), or 'full' (resolve and build in one process; default). "
             "'schema', 'catalog', and 'prim_tree' make no agent call."
         ),
+    )
+    group.add_argument(
+        "--format",
+        choices=("text", "json"),
+        default="text",
+        help="Output format for catalog and validate modes (schema always emits JSON).",
     )
     group.add_argument(
         "--prompt",
@@ -226,19 +234,59 @@ def print_schema() -> None:
     print(json.dumps(ArenaEnvGraphSpec.model_json_schema(), indent=2))
 
 
-def print_catalog() -> None:
+def print_catalog(output_format: str = "text") -> None:
     """Print the asset, relation, and task catalogs sent to the agent."""
     from isaaclab_arena.agentic_environment_generation.catalogues import (
         build_asset_catalogue,
+        build_catalogue_dict,
         build_relation_catalogue,
         build_task_catalogue,
     )
 
+    if output_format == "json":
+        with redirect_stdout(sys.stderr):
+            data = build_catalogue_dict()
+        print(json.dumps(data, indent=2, allow_nan=False))
+        return
     print(build_asset_catalogue().to_catalog_string())
     print()
     print(build_relation_catalogue().to_catalog_string())
     print()
     print(build_task_catalogue().to_catalog_string())
+
+
+def validate_env_spec(path: Path | None, output_format: str = "text") -> int:
+    """Print static authoring diagnostics and return zero only when validation succeeds."""
+    from yaml import YAMLError
+
+    from isaaclab_arena.agentic_environment_generation.semantic_validation import validate_authoring_spec
+    from isaaclab_arena.environment_spec.arena_env_graph_yaml_loader import load_env_graph_spec_dict
+
+    try:
+        assert path is not None, "--mode validate requires --env_spec"
+        data = load_env_graph_spec_dict(path)
+    except (AssertionError, OSError, YAMLError) as exc:
+        report = {
+            "schema_version": 1,
+            "valid": False,
+            "validation_scope": "schema_and_declared_semantics",
+            "issues": [
+                {"code": "input_error", "path": "/", "message": str(exc), "expected": None, "compatible_choices": []}
+            ],
+        }
+    else:
+        with redirect_stdout(sys.stderr):
+            report = validate_authoring_spec(data)
+    if output_format == "json":
+        print(json.dumps(report, indent=2, allow_nan=False))
+    elif report["valid"]:
+        print("Valid schema and declared semantics. Build and simulation checks remain necessary.")
+    else:
+        for issue in report["issues"]:
+            print(f"{issue['path']}: {issue['message']}")
+            if issue["compatible_choices"]:
+                print(f"  Compatible choices: {', '.join(str(choice) for choice in issue['compatible_choices'])}")
+    return 0 if report["valid"] else 1
 
 
 def print_background_prim_tree(env_graph_spec_path: Path) -> None:
@@ -351,18 +399,41 @@ def _resolved_graph_spec_yaml(args_cli: argparse.Namespace) -> Path:
     return path
 
 
+def _load_authoring_registrations(external_environment_class_path: str | None) -> None:
+    # Reuse normal extension discovery, without building a factory or an asset.
+    with redirect_stdout(sys.stderr):
+        from isaaclab_arena.assets.register import register_environment
+        from isaaclab_arena.assets.registries import EnvironmentRegistry
+        from isaaclab_arena_environments.cli import (
+            ensure_environments_registered,
+            parse_and_return_external_environment_from_string,
+        )
+
+        ensure_environments_registered()
+        if external_environment_class_path:
+            name, factory = parse_and_return_external_environment_from_string(external_environment_class_path)
+            if not EnvironmentRegistry().is_registered(name):
+                register_environment(factory)
+
+
 def main() -> int:
     parser = get_isaaclab_arena_cli_parser()
     add_agentic_env_gen_runner_cli_args(parser)
     args_cli = parser.parse_args()
+
+    if args_cli.mode in ("catalog", "validate", "resolve", "prim_tree"):
+        _load_authoring_registrations(args_cli.external_environment_class_path)
 
     if args_cli.mode == "schema":
         print_schema()
         return 0
 
     if args_cli.mode == "catalog":
-        print_catalog()
+        print_catalog(args_cli.format)
         return 0
+
+    if args_cli.mode == "validate":
+        return validate_env_spec(Path(args_cli.env_spec) if args_cli.env_spec else None, args_cli.format)
 
     if args_cli.mode == "prim_tree":
         print_background_prim_tree(_resolved_graph_spec_yaml(args_cli))
@@ -373,10 +444,12 @@ def main() -> int:
 
     if args_cli.mode == "build":
         with SimulationAppContext(args_cli):
+            _load_authoring_registrations(args_cli.external_environment_class_path)
             build_env_and_run_policy(_resolved_graph_spec_yaml(args_cli), args_cli)
         return 0
 
     with SimulationAppContext(args_cli):
+        _load_authoring_registrations(args_cli.external_environment_class_path)
         env_graph_spec_path = resolve_env_spec(args_cli)
         if env_graph_spec_path is None:
             return 1

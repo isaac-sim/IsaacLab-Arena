@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING
 
 from isaaclab.managers import SceneEntityCfg
 from isaaclab.sensors.contact_sensor.contact_sensor import ContactSensor
-from isaaclab.utils.math import quat_apply, quat_apply_inverse
+from isaaclab.utils.math import quat_apply, quat_apply_inverse, quat_mul
 
 from isaaclab_arena.tasks.predicates.object_settling import get_object_initial_rest_state
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
@@ -277,6 +277,54 @@ def velocity_below_threshold(
         angular_velocity_w = arena_world.get_root_angular_velocity_w(subject_name)
         result &= torch.linalg.vector_norm(angular_velocity_w, dim=-1) <= angular_velocity_threshold
     return result
+
+
+def relative_pose_matches(
+    env: IsaacLabArenaManagerBasedRLEnv,
+    subject_name: str,
+    parent_name: str,
+    target_position_xyz: tuple[float, float, float],
+    target_rotation_xyzw: tuple[float, float, float, float],
+    position_tolerance_m: float,
+    orientation_tolerance_rad: float,
+) -> torch.Tensor:
+    """Check a full subject pose against a target carried by a live parent frame.
+
+    Args:
+        env: Environment providing measured ArenaWorld poses.
+        subject_name: Subject object O.
+        parent_name: Parent object P carrying the target frame.
+        target_position_xyz: Target translation t_P_O in meters.
+        target_rotation_xyzw: Target unit quaternion q_P_O.
+        position_tolerance_m: Strict translation-error threshold in meters.
+        orientation_tolerance_rad: Strict full quaternion-angle threshold in radians.
+
+    Returns:
+        One Boolean per environment. Both live poses must be finite with unit quaternions
+        within 1e-4; accepted small drift is normalized without modifying observations.
+        Quaternion signs are equivalent; rotations about the mating axis remain constrained.
+    """
+    assert math.isfinite(position_tolerance_m) and position_tolerance_m >= 0.0
+    assert math.isfinite(orientation_tolerance_rad) and 0.0 <= orientation_tolerance_rad <= math.pi
+    world = env.arena_world
+    T_W_O, T_W_P = world.get_pose_w(subject_name), world.get_pose_w(parent_name)
+    assert T_W_O.shape == T_W_P.shape and T_W_O.shape[-1] == 7, "Measured poses must have matching XYZ+XYZW batches"
+    assert T_W_O.dtype == T_W_P.dtype and T_W_O.device == T_W_P.device, "Measured frames must share dtype and device"
+    target = T_W_O.new_tensor((*target_position_xyz, *target_rotation_xyzw))
+    assert target.shape == (7,) and bool(torch.isfinite(target).all()), "Invalid relative target pose"
+    target_norm = torch.linalg.vector_norm(target[3:])
+    assert abs(float(target_norm) - 1.0) <= 1e-4, "Target quaternion must be unit"
+    norm_O = torch.linalg.vector_norm(T_W_O[..., 3:], dim=-1, keepdim=True)
+    norm_P = torch.linalg.vector_norm(T_W_P[..., 3:], dim=-1, keepdim=True)
+    valid = torch.isfinite(T_W_O).all(dim=-1) & torch.isfinite(T_W_P).all(dim=-1)
+    valid &= ((norm_O[..., 0] - 1.0).abs() <= 1e-4) & ((norm_P[..., 0] - 1.0).abs() <= 1e-4)
+    q_W_O = T_W_O[..., 3:] / norm_O.clamp_min(1e-12)
+    q_W_P = T_W_P[..., 3:] / norm_P.clamp_min(1e-12)
+    target_position_W = T_W_P[..., :3] + quat_apply(q_W_P, target[:3].expand_as(T_W_P[..., :3]))
+    target_quaternion_W = quat_mul(q_W_P, (target[3:] / target_norm).expand_as(q_W_P))
+    distance = torch.linalg.vector_norm(T_W_O[..., :3] - target_position_W, dim=-1)
+    dot = (q_W_O * target_quaternion_W).sum(dim=-1).abs().clamp(max=1.0)
+    return valid & (distance < position_tolerance_m) & (2 * torch.acos(dot) < orientation_tolerance_rad)
 
 
 def object_is_above_height(

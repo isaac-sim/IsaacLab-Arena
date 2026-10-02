@@ -135,6 +135,7 @@ Arena's environment generation agent explicitly does not provide the following:
    :maxdepth: 1
 
    system_overview
+   authoring_discovery
    model_selection
    gui_runner
    cli_runner

@@ -42,6 +42,7 @@ class UniformSampler(ContinuousSampler):
         assert (
             self.low.shape == self.high.shape
         ), f"UniformSampler low/high must have matching shape; got {tuple(self.low.shape)} vs {tuple(self.high.shape)}."
+        assert torch.isfinite(self.low).all() and torch.isfinite(self.high).all(), "Uniform bounds must be finite."
         assert torch.all(
             self.low <= self.high
         ), f"UniformSampler requires low <= high elementwise; got low={self.low}, high={self.high}."
@@ -55,3 +56,30 @@ class UniformSampler(ContinuousSampler):
         shape = (num_samples, *self.shape_per_sample)
         u = torch.rand(shape)
         return self.low + (self.high - self.low) * u
+
+    def _sample_with_generator(self, generator: torch.Generator) -> torch.Tensor:
+        u = torch.rand(self.shape_per_sample, generator=generator)
+        return self.low + (self.high - self.low) * u
+
+    def _replay_value(self, value) -> torch.Tensor:
+        result = super()._replay_value(value)
+        assert (
+            (result >= self.low) & (result <= self.high)
+        ).all(), f"Replay value for '{self._variation_path}' is outside the configured uniform bounds."
+        return result
+
+    def validate_range(
+        self,
+        shape: tuple[int, ...],
+        *,
+        minimum: float | None = None,
+        maximum: float | None = None,
+        minimum_inclusive: bool = True,
+    ) -> None:
+        """Check that every possible draw satisfies a variation's physical domain."""
+        super().validate_range(shape, minimum=minimum, maximum=maximum, minimum_inclusive=minimum_inclusive)
+        if minimum is not None:
+            valid = self.low >= minimum if minimum_inclusive else self.low > minimum
+            assert valid.all(), f"Sampler lower bounds violate the physical minimum {minimum}."
+        if maximum is not None:
+            assert (self.high <= maximum).all(), f"Sampler upper bounds violate the physical maximum {maximum}."

@@ -27,7 +27,12 @@ class ChoiceSamplerCfg(SamplerBaseCfg):
 class ChoiceSampler(SamplerBase, Generic[T]):
     """Uniform sampler returning items drawn from a per-call ``choices`` sequence."""
 
-    def sample(self, num_samples: int, choices: Sequence[T], env_ids: torch.Tensor | None = None) -> list[T]:
+    def sample(
+        self,
+        num_samples: int,
+        choices: Sequence[T],
+        env_ids: torch.Tensor | None = None,
+    ) -> list[T]:
         """Draw ``num_samples`` items from ``choices``.
 
         Args:
@@ -40,7 +45,23 @@ class ChoiceSampler(SamplerBase, Generic[T]):
         Returns:
             A ``list`` of length ``num_samples`` of items drawn from ``choices``.
         """
-        result = self._sample(num_samples, choices)
+        assert len(choices) >= 1, "ChoiceSampler requires nonempty choices."
+        context = self._sampling_context
+        if context is None:
+            result = self._sample(num_samples, choices)
+        else:
+            result = []
+            for key in context.episode_keys(num_samples, env_ids):
+                if context.replay is not None:
+                    value = context.replay.value(self._variation_path, key)
+                    assert any(
+                        type(value) is type(choice) and value == choice for choice in choices
+                    ), f"Replay value for '{self._variation_path}' is not one of the configured choices."
+                else:
+                    generator = context.generator(self._variation_path, key)
+                    index = int(torch.randint(len(choices), (1,), generator=generator)[0])
+                    value = choices[index]
+                result.append(value)
         self._notify(result, env_ids)
         return result
 

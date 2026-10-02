@@ -25,6 +25,7 @@ from isaaclab.sensors import Camera, TiledCamera
 from isaaclab.utils.configclass import configclass
 from isaaclab.utils.math import quat_apply
 
+from isaaclab_arena.agentic_environment_generation.authoring_metadata import AuthoringMetadata, ParameterMetadata
 from isaaclab_arena.patches.camera_render_pose import CameraPoseWriter
 from isaaclab_arena.variations.continuous_sampler import ContinuousSampler
 from isaaclab_arena.variations.uniform_sampler import UniformSamplerCfg
@@ -71,6 +72,18 @@ class CameraExtrinsicsVariation(RunTimeVariationBase):
 
     cfg: CameraExtrinsicsVariationCfg
 
+    authoring_metadata = AuthoringMetadata(
+        configuration={
+            "sampler_cfg.low": ParameterMetadata(
+                units="m", description="XYZ in the ROS optical frame: right, down, forward."
+            ),
+            "sampler_cfg.high": ParameterMetadata(
+                units="m", description="XYZ in the ROS optical frame: right, down, forward."
+            ),
+        },
+        reset_semantics="Per-environment translation from the nominal camera mount; offsets do not accumulate.",
+    )
+
     def __init__(
         self,
         camera_name: str,
@@ -81,6 +94,9 @@ class CameraExtrinsicsVariation(RunTimeVariationBase):
         name = name if name is not None else f"camera_extrinsics_{camera_name}"
         super().__init__(cfg=cfg, name=name)
         self.camera_name = camera_name
+
+    def validate_cfg(self) -> None:
+        self.sampler.validate_range((3,))
 
     def build_event_cfg(self) -> tuple[str, EventTermCfg]:
         assert self._sampler is not None, (
@@ -154,7 +170,10 @@ class apply_camera_extrinsics_from_sampler(ManagerTermBase):
         # Sample a decalibration vector in the camera's ROS-style optical frame. Pass env_ids so
         # sample listeners (e.g. the variation recorder) can attribute each row to its env.
         sample = sampler.sample(num_samples=len(env_ids), env_ids=env_ids)
-        t_C_Cnew_in_Cros = sample.to(device=self._t_parent_C_in_parent.device, dtype=self._t_parent_C_in_parent.dtype)
+        t_C_Cnew_in_Cros = sample.to(
+            device=self._t_parent_C_in_parent.device,
+            dtype=self._t_parent_C_in_parent.dtype,
+        )
 
         # Isaac Lab tensors use xyzw. 180 deg about +X maps ROS optical axes to OpenGL camera axes.
         q_ros_to_opengl_xyzw = t_C_Cnew_in_Cros.new_tensor((1.0, 0.0, 0.0, 0.0)).expand(len(env_ids), 4)

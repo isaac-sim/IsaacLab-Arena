@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import tqdm
 from importlib import import_module
@@ -146,7 +147,10 @@ def list_variations(args_parser: argparse.ArgumentParser) -> None:
     args_cli, hydra_overrides = args_parser.parse_known_args()
     assert_hydra_overrides(hydra_overrides, args_parser)
     arena_builder = get_arena_builder_from_cli(args_cli, hydra_overrides=hydra_overrides)
-    print(arena_builder.get_variations_catalogue_as_string())
+    if args_cli.variations_format == "json":
+        print(json.dumps(arena_builder.get_variations_catalogue_as_dict(), indent=2))
+    else:
+        print(arena_builder.get_variations_catalogue_as_string())
 
 
 def main():

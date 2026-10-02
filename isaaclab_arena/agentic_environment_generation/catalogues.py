@@ -9,11 +9,22 @@ from __future__ import annotations
 
 import inspect
 import sys
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from enum import Enum
 from typing import Any, get_args, get_type_hints
 
-from isaaclab_arena.assets.registries import AssetRegistry, ObjectRelationLibraryRegistry, TaskRegistry
+from isaaclab_arena.agentic_environment_generation.authoring_metadata import (
+    accepts_extra_parameters,
+    constructor_parameters,
+    get_authoring_metadata,
+    provided_capabilities,
+)
+from isaaclab_arena.assets.registries import (
+    AssetRegistry,
+    EnvironmentRegistry,
+    ObjectRelationLibraryRegistry,
+    TaskRegistry,
+)
 from isaaclab_arena.relations.relations import RelationBase
 
 # Constructor kwargs already expressed as top-level ArenaEnvGraphTypes fields (not as
@@ -37,6 +48,10 @@ class AssetCatalogue:
     backgrounds: list[dict[str, Any]] = field(default_factory=list)
     # A list of object names, object types, and tags for agent to choose from.
     objects: list[dict[str, Any]] = field(default_factory=list)
+
+    def to_dict(self) -> dict[str, Any]:
+        """Return machine-readable metadata without constructing registered assets."""
+        return asdict(self)
 
     def to_catalog_string(self) -> str:
         """Format this catalogue as the user-message vocabulary block."""
@@ -65,16 +80,17 @@ def build_asset_catalogue(registry: AssetRegistry | None = None) -> AssetCatalog
     # TODO(qianl): add tag to filter out validated/agent-ready assets only.
     # Classify by registry tags, not issubclass(Background/Object/EmbodimentBase): importing those
     # types pulls in pxr before SimulationApp and breaks unit tests.
-    for name in registry.get_all_keys():
+    for name in sorted(registry.get_all_keys()):
         cls = registry.get_asset_by_name(name)
         tags = getattr(cls, "tags", None) or []
         # TODO(xinjieyao): Support agentic environment generation consuming procedural assets.
         if "procedural" in tags:
             continue
+        metadata = _component_metadata(cls)
         if "embodiment" in tags:
-            catalogue.embodiments.append({"name": name, "tags": [t for t in tags if t != "embodiment"]})
+            catalogue.embodiments.append({"name": name, "tags": [t for t in tags if t != "embodiment"], **metadata})
         elif "background" in tags:
-            catalogue.backgrounds.append({"name": name, "tags": [t for t in tags if t != "background"]})
+            catalogue.backgrounds.append({"name": name, "tags": [t for t in tags if t != "background"], **metadata})
         # Only assets existed in the catalogue are exposed.
         elif "object" in tags:
             # Exposed so the agent can honour type constraints, e.g. object-set members must be rigid.
@@ -83,6 +99,7 @@ def build_asset_catalogue(registry: AssetRegistry | None = None) -> AssetCatalog
                 "name": name,
                 "tags": [t for t in tags if t != "object"],
                 "object_type": object_type.value if object_type else "unknown",
+                **metadata,
             })
     return catalogue
 
@@ -102,6 +119,12 @@ class RelationCatalogueEntry:
     optional_params: list[str]
     enum_options: dict[str, list[str]]
     summary: str
+    parameters: dict[str, dict[str, Any]] = field(default_factory=dict)
+    provides: list[str] = field(default_factory=list)
+    requires: dict[str, list[str]] = field(default_factory=dict)
+    constraints: list[str] = field(default_factory=list)
+    reset_semantics: str | None = None
+    accepts_extra_parameters: bool = False
 
 
 @dataclass
@@ -109,6 +132,10 @@ class RelationCatalogue:
     """Registered object-relation vocabulary for the agent prompt."""
 
     relations: list[RelationCatalogueEntry] = field(default_factory=list)
+
+    def to_dict(self) -> dict[str, Any]:
+        """Return machine-readable relation metadata."""
+        return asdict(self)
 
     def to_catalog_string(self) -> str:
         """Format this catalogue as the user-message RELATIONS block."""
@@ -150,6 +177,7 @@ def build_relation_catalogue(
                 optional_params=optional_params,
                 enum_options=enum_options,
                 summary=_first_docstring_line(relation_cls),
+                **_component_metadata(relation_cls, _RELATION_CATALOGUE_EXCLUDED_PARAMS),
             )
         )
     return catalogue
@@ -169,6 +197,12 @@ class TaskCatalogueEntry:
     optional_params: list[str]
     enum_options: dict[str, list[str]]
     summary: str
+    parameters: dict[str, dict[str, Any]] = field(default_factory=dict)
+    provides: list[str] = field(default_factory=list)
+    requires: dict[str, list[str]] = field(default_factory=dict)
+    constraints: list[str] = field(default_factory=list)
+    reset_semantics: str | None = None
+    accepts_extra_parameters: bool = False
 
 
 @dataclass
@@ -176,6 +210,10 @@ class TaskCatalogue:
     """Agent-ready task vocabulary for the agent prompt."""
 
     tasks: list[TaskCatalogueEntry] = field(default_factory=list)
+
+    def to_dict(self) -> dict[str, Any]:
+        """Return machine-readable metadata for the same agent-ready tasks."""
+        return asdict(self)
 
     def to_catalog_string(self) -> str:
         """Format this catalogue as the user-message TASKS block."""
@@ -218,6 +256,7 @@ def build_task_catalogue(registry: TaskRegistry | None = None) -> TaskCatalogue:
                 optional_params=optional_params,
                 enum_options=enum_options,
                 summary=_first_docstring_line(task_cls),
+                **_component_metadata(task_cls, _TASK_CATALOGUE_EXCLUDED_PARAMS),
             )
         )
     return catalogue
@@ -226,6 +265,54 @@ def build_task_catalogue(registry: TaskRegistry | None = None) -> TaskCatalogue:
 # ---------------------------------------------------------------------------
 # Shared helpers
 # ---------------------------------------------------------------------------
+
+
+def _component_metadata(component: Any, excluded: frozenset[str] = frozenset()) -> dict[str, Any]:
+    metadata = get_authoring_metadata(component)
+    parameters = constructor_parameters(component, excluded)
+    requirements = {}
+    for name, schema in parameters.items():
+        if schema.get("x-required-capabilities"):
+            requirements[name] = schema["x-required-capabilities"]
+    return {
+        "parameters": parameters,
+        "provides": provided_capabilities(component),
+        "requires": requirements,
+        "constraints": list(metadata.constraints),
+        "reset_semantics": metadata.reset_semantics,
+        "accepts_extra_parameters": accepts_extra_parameters(component),
+    }
+
+
+def build_catalogue_dict() -> dict[str, Any]:
+    """Return the live authoring catalogues as one versioned JSON-compatible mapping."""
+    return {
+        "schema_version": 1,
+        "assets": build_asset_catalogue().to_dict(),
+        "environments": build_environment_catalogue(),
+        **build_relation_catalogue().to_dict(),
+        **build_task_catalogue().to_dict(),
+    }
+
+
+def build_environment_catalogue(registry: EnvironmentRegistry | None = None) -> list[dict[str, Any]]:
+    """Describe registered environment factories and their typed configs without constructing either."""
+    registry = registry or EnvironmentRegistry()
+    entries = []
+    for name in sorted(registry.get_all_keys()):
+        factory = registry.get_component_by_name(name)
+        cfg_type = registry.get_environment_cfg_type(factory)
+        metadata = get_authoring_metadata(factory)
+        entries.append({
+            "name": name,
+            "summary": _first_docstring_line(factory),
+            "config_type": f"{cfg_type.__module__}.{cfg_type.__qualname__}",
+            "parameters": constructor_parameters(cfg_type),
+            "provides": provided_capabilities(factory),
+            "constraints": list(metadata.constraints),
+            "reset_semantics": metadata.reset_semantics,
+        })
+    return entries
 
 
 def _first_docstring_line(cls: type) -> str:
