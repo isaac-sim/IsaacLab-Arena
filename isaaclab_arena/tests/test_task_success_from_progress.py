@@ -176,6 +176,9 @@ def _test_success_advances_once_and_reporting_is_passive(simulation_app):
     for step_number, completed_predicate in enumerate(["settle", "lift", "place"], start=1):
         env.episode_length_buf += 1
         manager.compute()
+        success_cfg = manager.get_term_cfg("success")
+        duplicate_result = success_cfg.func(env, **success_cfg.params)
+        assert duplicate_result.tolist() == [step_number == 3, step_number == 3]
         assert manager.get_term("success").tolist() == [step_number == 3, step_number == 3]
         assert env.predicate_calls[completed_predicate] == 1
         for _ in range(2):

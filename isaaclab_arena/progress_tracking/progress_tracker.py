@@ -548,6 +548,10 @@ class ProgressTracker:
         """Return task success from the latest step without evaluating predicates again."""
         return self._task_success.clone()
 
+    def has_processed_step(self, step_index: torch.Tensor) -> bool:
+        """Return whether every environment was already updated at ``step_index``."""
+        return torch.equal(self._last_processed_step, step_index.to(device=self.device))
+
     def get_subtask_completion(self) -> torch.Tensor:
         """Return recorded completion for each environment and subtask, in subtask order."""
         assert self._subtask_runners, "Subtask completion requires criteria sets with subtask indices."
