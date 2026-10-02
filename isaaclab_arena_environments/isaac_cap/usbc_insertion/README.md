@@ -59,6 +59,12 @@ All USDs resolve from Arena's staging S3 bucket under
 by the cable-routing environments. The factories and demo do not expose a local
 asset-root override.
 
+The plug and bulkhead spawners select Isaac Sim's built-in `OmniPBR.mdl` because
+the bundled shader imports an absent `OmniPBR_ClearCoat` module. This preserves
+the authored orange plastic textures, silver metal maps, and per-part material
+bindings. The override applies before cloning, alongside the existing contact
+configuration.
+
 ## Behavior demo
 
 Like the gear demo, this is a task-validation tool, not a robot policy. It uses a

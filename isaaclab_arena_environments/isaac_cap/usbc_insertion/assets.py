@@ -21,6 +21,7 @@ from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.assets.registries import HDRImageRegistry
 from isaaclab_arena.utils.pose import Pose, PoseRange
 
+from .appearance import spawn_usbc_with_materials
 from .cables import UsbcConnectorCable
 from .physics import connector_prim_physics, friction_prim_physics
 
@@ -80,6 +81,7 @@ class UsbcEasyPlug(_UsbcConnector):
     usd_path = f"{ASSET_ROOT}/industrial__usbc_easy_plug/industrial__usbc_easy_plug.usda"
     spawn_cfg_addon = {
         **{key: value for key, value in _UsbcConnector.spawn_cfg_addon.items() if key != "collision_props"},
+        "func": spawn_usbc_with_materials,
         "prim_physics": connector_prim_physics("ArtistFrame/SourceCollisionMesh", friction=0.35),
     }
 
@@ -113,6 +115,7 @@ class UsbcBulkhead(_UsbcConnector):
     usd_path = f"{ASSET_ROOT}/vabar_usbc_insert__bulkhead/vabar_usbc_insert__bulkhead.usda"
     spawn_cfg_addon = {
         **{key: value for key, value in _UsbcConnector.spawn_cfg_addon.items() if key != "collision_props"},
+        "func": spawn_usbc_with_materials,
         "prim_physics": connector_prim_physics("Geometry/bulkhead_01_obj_00/SourceCollisionMesh", friction=2.5),
     }
 
