@@ -45,10 +45,6 @@ Isaac Lab, which provides:
 Checkpoints are saved every 250 iterations to
 ``logs/rsl_rl/lift_kuka_allegro/<timestamp>/``.
 
-.. tip::
-
-   Add ``--viz newton`` to visualize training with the Newton (MuJoCo) viewer.
-
 
 Overriding Hyperparameters
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
