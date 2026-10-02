@@ -99,6 +99,36 @@ class PreparedAssets:
         _save_stage(stage, path)
         return path
 
+    def lighting_usd(
+        self,
+        *,
+        intensity: float | None = None,
+        color: tuple[float, float, float] | None = None,
+    ) -> Path:
+        """Cache authored studio-dome intensity/color opinions without changing its source USD."""
+        from pxr import Gf, UsdLux
+
+        assert intensity is None or math.isfinite(intensity) and intensity >= 0.0, "Invalid light intensity"
+        assert (
+            color is None
+            or len(color) == 3
+            and all(math.isfinite(channel) and 0.0 <= channel <= 1.0 for channel in color)
+        ), "Invalid linear RGB light color"
+        path = self._cache_path("service_lighting", ["lighting"], {"intensity": intensity, "color": color})
+        if path.is_file():
+            return path
+        stage, root = _new_stage()
+        _reference_source(self, root, "lighting")
+        dome_prim = stage.GetPrimAtPath("/Asset/StudioDome")
+        assert dome_prim.IsValid() and dome_prim.IsA(UsdLux.DomeLight), "Authored lighting must contain StudioDome"
+        light = UsdLux.LightAPI(dome_prim)
+        if intensity is not None:
+            light.CreateIntensityAttr(float(intensity))
+        if color is not None:
+            light.CreateColorAttr(Gf.Vec3f(*color))
+        _save_stage(stage, path)
+        return path
+
     def case_usd(self) -> Path:
         """Return an anchored case with independent passive lid and latch joints."""
         from pxr import Gf, UsdGeom, UsdPhysics

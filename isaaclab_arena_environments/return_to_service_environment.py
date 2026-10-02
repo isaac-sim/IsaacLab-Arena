@@ -10,10 +10,12 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass, field
 from functools import partial
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
+from isaaclab_arena.agentic_environment_generation.authoring_metadata import AuthoringMetadata, ParameterMetadata
 from isaaclab_arena.assets.register import register_environment
 from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg, ArenaEnvironmentFactory
+from isaaclab_arena_environments.return_to_service import asset_adapters  # noqa: F401
 
 if TYPE_CHECKING:
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
@@ -23,6 +25,34 @@ if TYPE_CHECKING:
 class ReturnToServiceEnvironmentCfg(ArenaEnvironmentCfg):
     """Select the asset bundle, DROID controls, and return conditions."""
 
+    authoring_metadata: ClassVar[AuthoringMetadata] = AuthoringMetadata(
+        parameters={
+            "scenarios": ParameterMetadata(
+                description=(
+                    "Nonempty list of healthy, battery, filter, obstruction, battery_filter, "
+                    "battery_obstruction, filter_obstruction, or combined conditions."
+                )
+            ),
+            "layout_name": ParameterMetadata(description="One of baseline, translated_left, or rotated_right."),
+            "episode_length_s": ParameterMetadata(
+                units="s", description="Finite and strictly positive episode budget."
+            ),
+            "table_height_m": ParameterMetadata(
+                units="m", description="Strictly positive bench and robot mount height."
+            ),
+            "gripper_stiffness": ParameterMetadata(
+                units="N m/rad", description="Finite and strictly positive stiffness."
+            ),
+            "gripper_damping": ParameterMetadata(
+                units="N m s/rad", description="Finite and strictly positive damping."
+            ),
+        },
+        constraints=(
+            "Requires an existing DROID embodiment and a prepared Blender service asset bundle.",
+            "Choose static workstation layouts at build time; all movable components reset coherently.",
+        ),
+    )
+
     asset_root: str | None = None
     """Blender-generated bundle; defaults to the user's Arena asset cache."""
 
@@ -31,6 +61,9 @@ class ReturnToServiceEnvironmentCfg(ArenaEnvironmentCfg):
 
     scenarios: list[str] = field(default_factory=lambda: ["combined"])
     """Fault conditions assigned cyclically across parallel environments."""
+
+    layout_name: str = "baseline"
+    """Coherent workstation layout selected once per environment build."""
 
     episode_length_s: float = 600.0
     """Simulated-time budget for the complete servicing and packing episode."""
@@ -75,11 +108,18 @@ class ReturnToServiceEnvironment(ArenaEnvironmentFactory[ReturnToServiceEnvironm
     def build(self, cfg: ReturnToServiceEnvironmentCfg) -> IsaacLabArenaEnvironment:
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
         from isaaclab_arena.utils.pose import Pose
+        from isaaclab_arena_environments.return_to_service.layouts import (
+            apply_service_layout,
+            service_placement_layouts,
+        )
         from isaaclab_arena_environments.return_to_service.scene import build_service_scene
         from isaaclab_arena_environments.return_to_service.task import ReturnToServiceTask
+        from isaaclab_arena_environments.return_to_service.variations import ServiceScenarioVariation
 
         assert cfg.embodiment.startswith("droid_"), "This example requires an existing DROID embodiment."
         workcell = build_service_scene(cfg.asset_root, table_height_m=cfg.table_height_m)
+        workcell = apply_service_layout(workcell, cfg.layout_name)
+        workcell.assets["body"].add_variation(ServiceScenarioVariation())
         embodiment = self.asset_registry.get_asset_by_name(cfg.embodiment)(
             enable_cameras=cfg.enable_cameras,
             initial_pose=Pose(position_xyz=(0.0, 0.0, cfg.table_height_m)),
@@ -92,6 +132,7 @@ class ReturnToServiceEnvironment(ArenaEnvironmentFactory[ReturnToServiceEnvironm
             scene=workcell.scene,
             embodiment=embodiment,
             task=task,
+            placement_layouts=service_placement_layouts(workcell),
             env_cfg_callback=partial(
                 _configure_service_physics,
                 gripper_stiffness=cfg.gripper_stiffness,

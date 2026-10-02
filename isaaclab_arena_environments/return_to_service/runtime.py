@@ -14,8 +14,11 @@ from typing import TYPE_CHECKING
 
 from pxr import Gf, Sdf, UsdGeom, UsdPhysics
 
+from isaaclab_arena.geometry.containment import BoxRegion, ContainmentMeasurement, RegionContainment
+from isaaclab_arena.tasks.predicates.spatial import relative_pose_matches
+from isaaclab_arena.tasks.task_runtime import TaskRuntime
+
 from .connectors import RetainedSocket, Socket, environment_prim_path, relative_pose
-from .containment import ContainmentMeasurement, RegionContainment
 from .model import ServiceModel, ServiceSnapshot
 from .scenarios import SCENARIOS
 from .scene import DEBRIS_NAMES
@@ -35,23 +38,15 @@ class ServiceRuntimeCfg:
     gripper: ParallelJawGripper | None = None
 
 
-def get_service_runtime(env, cfg: ServiceRuntimeCfg):
-    """Create one workcell runtime shared by task predicates, observations, and reset events."""
-    if not hasattr(env, "return_to_service"):
-        env.return_to_service = ServiceRuntime(env, cfg)
-    return env.return_to_service
-
-
-class ServiceRuntime:
+class ServiceRuntime(TaskRuntime):
     """Advance physical latches and functional instruments once per control step."""
 
     def __init__(self, env, cfg: ServiceRuntimeCfg) -> None:
         self.env = env
         self.cfg = cfg
         self.layout = cfg.layout
-        self.models = [
-            ServiceModel(SCENARIOS[cfg.scenario_names[i % len(cfg.scenario_names)]]) for i in range(env.num_envs)
-        ]
+        self.scenario_names = [cfg.scenario_names[i % len(cfg.scenario_names)] for i in range(env.num_envs)]
+        self.models = [ServiceModel(SCENARIOS[name]) for name in self.scenario_names]
         self.statuses = [model.status for model in self.models]
         self.snapshots: list[ServiceSnapshot | None] = [None] * env.num_envs
         self._last_steps = [-1] * env.num_envs
@@ -74,7 +69,12 @@ class ServiceRuntime:
         self._case_locks = self._create_case_locks()
         self._display_states: dict[tuple[int, str], tuple[str, float | None]] = {}
         self._bounds_cache: dict[tuple[str, ...], torch.Tensor] = {}
-        self.region_containment = RegionContainment(env.cfg.scene, self.layout.regions, unit_scale_regions=("case",))
+        self.region_containment = RegionContainment(env.cfg.scene, unit_scale_regions=tuple(self.layout.regions))
+        self.regions = {
+            name: BoxRegion(name, self.layout.source_records[name]["affordances"]["interior_bounds"])
+            for name in self.layout.regions
+        }
+        self._stock_targets = self._make_stock_targets()
         self._case_interior: torch.Tensor | None = None
         self._case_overlap_bounds: torch.Tensor | None = None
         self._case_region_definition = self._case_region_configuration()
@@ -86,6 +86,29 @@ class ServiceRuntime:
             for name in self._velocity_names
             if name in self.layout.source_records and name not in ("cradle", "battery_tester", "airflow_tester")
         )
+
+    def _make_stock_targets(self):
+        """Keep return targets in their fixture frames so coherent layouts can move."""
+        from isaaclab_arena.utils.pose import Pose
+
+        parents = {
+            "battery_original": "body",
+            "filter_original": "body",
+            "battery_spare": "spare_rack",
+            "battery_decoy": "spare_rack",
+            "filter_spare": "spare_rack",
+            "filter_decoy": "spare_rack",
+            "crevice_tool": "parking_tray",
+            "brush_tool": "parking_tray",
+            "airflow_adapter": "airflow_tester",
+        }
+        targets = {}
+        for name, parent in parents.items():
+            T_E_P = self.layout.initial_poses[parent].to_tensor(device="cpu").unsqueeze(0)
+            T_E_O = self.layout.initial_poses[name].to_tensor(device="cpu").unsqueeze(0)
+            T_P_O = relative_pose(T_E_P, T_E_O)[0].tolist()
+            targets[name] = (parent, Pose(tuple(T_P_O[:3]), tuple(T_P_O[3:])))
+        return targets
 
     def _create_case_locks(self):
         """Model the case's retaining catch only after its lid and latch physically close."""
@@ -108,6 +131,14 @@ class ServiceRuntime:
             joints.append(joint)
         return joints
 
+    def prepare_reset(self, env_ids) -> None:
+        """Release connectors before placement and variation events move their bodies."""
+        ids = list(range(self.env.num_envs)) if env_ids is None else [int(i) for i in env_ids]
+        for socket in self.sockets.values():
+            socket.reset(ids, initial=None)
+        for env_id in ids:
+            self._case_locks[env_id].GetJointEnabledAttr().Set(False)
+
     def reset(self, env_ids) -> None:
         """Reset episode state and physical mechanisms for selected environments only."""
         ids = list(range(self.env.num_envs)) if env_ids is None else [int(i) for i in env_ids]
@@ -122,7 +153,7 @@ class ServiceRuntime:
             velocity = torch.zeros_like(position)
             articulation.write_joint_state_to_sim_index(position=position, velocity=velocity, env_ids=tensor_ids)
         for env_id in ids:
-            scenario = SCENARIOS[self.cfg.scenario_names[env_id % len(self.cfg.scenario_names)]]
+            scenario = SCENARIOS[self.scenario_names[env_id]]
             self.models[env_id] = ServiceModel(scenario)
             self.statuses[env_id] = self.models[env_id].status
             self.snapshots[env_id] = None
@@ -133,8 +164,12 @@ class ServiceRuntime:
             if not scenario.inlet_obstruction:
                 obstruction = self.env.scene["obstruction"]
                 pose = obstruction.data.default_root_state.torch[env_id : env_id + 1, :7].clone()
-                pose[:, :3] = pose.new_tensor(self.layout.regions["waste"].center_xyz)
-                pose[:, :3] += self.env.scene.env_origins[env_id]
+                from isaaclab.utils.math import quat_apply
+
+                T_W_P = self.env.arena_world.get_pose_w("waste")[env_id : env_id + 1]
+                bounds = pose.new_tensor(self.regions["waste"].bounds)
+                center = bounds.mean(dim=0).unsqueeze(0)
+                pose[:, :3] = T_W_P[:, :3] + quat_apply(T_W_P[:, 3:], center)
                 selected = tensor_ids.new_tensor([env_id])
                 obstruction.write_root_pose_to_sim_index(root_pose=pose, env_ids=selected)
                 obstruction.write_root_velocity_to_sim_index(root_velocity=pose.new_zeros((1, 6)), env_ids=selected)
@@ -180,15 +215,22 @@ class ServiceRuntime:
 
     def _in_region(self, name: str, region_name: str) -> list[bool]:
         """Require all configured physical component shapes inside a workcell region."""
-        T_E_O = self.env.arena_world.get_pose_e(name)
-        return self.region_containment.contains(name, T_E_O, region_name).tolist()
+        world = self.env.arena_world
+        region = self.regions[region_name]
+        return self.region_containment.measure_region(
+            name, world.get_pose_w(name), world.get_pose_w(region.parent_name), region
+        ).contained.tolist()
 
     def _at_pose(self, name: str, parent: str, pose, distance_m: float = 0.012, angle_deg: float = 10.0):
-        world = self.env.arena_world
-        T_P_O = relative_pose(world.get_pose_w(parent), world.get_pose_w(name))
-        distance = torch.linalg.vector_norm(T_P_O[:, :3] - T_P_O.new_tensor(pose.position_xyz), dim=-1)
-        dot = (T_P_O[:, 3:] * T_P_O.new_tensor(pose.rotation_xyzw)).sum(-1).abs().clamp(max=1.0)
-        return ((distance < distance_m) & (2 * torch.acos(dot) < math.radians(angle_deg))).tolist()
+        return relative_pose_matches(
+            self.env,
+            name,
+            parent,
+            pose.position_xyz,
+            pose.rotation_xyzw,
+            position_tolerance_m=distance_m,
+            orientation_tolerance_rad=math.radians(angle_deg),
+        ).tolist()
 
     def _seated_in_fixture(self, socket_name: str) -> list[str | None]:
         spec = self.layout.sockets[socket_name]
@@ -206,26 +248,12 @@ class ServiceRuntime:
         return seated
 
     def _stock_ready(self, used: set[str], env_id: int) -> bool:
-        for name in (
-            "battery_original",
-            "battery_spare",
-            "battery_decoy",
-            "filter_original",
-            "filter_spare",
-            "filter_decoy",
-            "crevice_tool",
-            "brush_tool",
-            "airflow_adapter",
-        ):
+        for name, (parent, target) in self._stock_targets.items():
             if name in used:
                 continue
-            current = self.env.arena_world.get_pose_e(name)[env_id]
-            pose = self.layout.initial_poses[name]
-            target = current.new_tensor(pose.position_xyz)
-            dot = (current[3:] * current.new_tensor(pose.rotation_xyzw)).sum().abs().clamp(max=1.0)
-            if torch.linalg.vector_norm(current[:3] - target).item() > 0.025:
+            if not self._at_pose(name, parent, target, distance_m=0.025, angle_deg=15.0)[env_id]:
                 return False
-            if 2 * torch.acos(dot).item() > math.radians(15) or not self._settled(name)[env_id]:
+            if not self._settled(name)[env_id]:
                 return False
         return True
 
@@ -266,7 +294,7 @@ class ServiceRuntime:
 
     def _cup_contents(self) -> tuple[list[bool], list[bool]]:
         """Detect blocked inlet and remaining debris from geometry, independent of orientation."""
-        from .measurements import box_overlaps, sphere_overlaps_cylinder
+        from isaaclab_arena.geometry.measurements import box_overlaps, sphere_overlaps_cylinder
 
         world = self.env.arena_world
         T_W_C = world.get_pose_w("dust_cup")
@@ -316,7 +344,7 @@ class ServiceRuntime:
 
     def _case_contents(self) -> tuple[dict[str, list[bool]], dict[str, list[bool]]]:
         """Measure primitive containment and conservative authored-envelope intrusion."""
-        from .measurements import box_overlaps
+        from isaaclab_arena.geometry.measurements import box_overlaps
 
         world = self.env.arena_world
         T_W_C = world.get_pose_w("case")

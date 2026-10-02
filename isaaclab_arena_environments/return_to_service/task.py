@@ -13,12 +13,14 @@ from functools import partial
 from typing import TYPE_CHECKING
 
 from isaaclab.envs.common import ViewerCfg
-from isaaclab.managers import EventTermCfg, ObservationGroupCfg, ObservationTermCfg
+from isaaclab.managers import ObservationGroupCfg, ObservationTermCfg
 
 from isaaclab_arena.metrics.success_rate import SuccessRateMetric
 from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
+from isaaclab_arena.tasks.composite_task_base import CompositeTaskBase
 from isaaclab_arena.tasks.predicates.temporal import TrueForConsecutiveStepsCfg
 from isaaclab_arena.tasks.task_base import TaskBase
+from isaaclab_arena.tasks.task_runtime import TaskRuntimeCfg
 from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
 from isaaclab_arena.utils.configclass import make_configclass
 
@@ -30,30 +32,18 @@ if TYPE_CHECKING:
     from .scene import ServiceScene
 
 
-def service_condition(env, name: str, runtime_cfg) -> torch.Tensor:
-    """Read one current condition after a single cached runtime update."""
-    from .runtime import get_service_runtime
-
-    runtime = get_service_runtime(env, runtime_cfg)
-    runtime.update()
-    return torch.tensor([getattr(status, name) for status in runtime.statuses], dtype=torch.bool, device=env.device)
+def service_condition(env, name: str) -> torch.Tensor:
+    """Read a condition from the snapshot owned by Arena's task runtime."""
+    return torch.tensor(
+        [getattr(status, name) for status in env.task_runtime.statuses], dtype=torch.bool, device=env.device
+    )
 
 
-def reset_service(env, env_ids, runtime_cfg) -> None:
-    """Reset only the requested workcells after their ordinary physical scene reset."""
-    from .runtime import get_service_runtime
-
-    get_service_runtime(env, runtime_cfg).reset(env_ids)
-
-
-def instrument_readings(env, runtime_cfg) -> torch.Tensor:
+def instrument_readings(env) -> torch.Tensor:
     """Expose the same public voltage and airflow readings shown by the physical instruments."""
-    from .runtime import get_service_runtime
-
-    runtime = get_service_runtime(env, runtime_cfg)
     values = []
     result_codes = {"idle": 0.0, "running": 1.0, "pass": 2.0, "fail": 3.0, "invalid": 4.0}
-    for status in runtime.statuses:
+    for status in env.task_runtime.statuses:
         battery, airflow = status.battery_reading, status.airflow_reading
         values.append([
             battery.value if battery.value is not None else -1.0,
@@ -64,7 +54,37 @@ def instrument_readings(env, runtime_cfg) -> torch.Tensor:
     return torch.tensor(values, device=env.device, dtype=torch.float32)
 
 
-class ReturnToServiceTask(TaskBase):
+class ServiceConditionTask(TaskBase):
+    """Declare one measured service condition for Arena's composite progress tracker."""
+
+    def __init__(self, name: str, required_steps: int = 1) -> None:
+        super().__init__()
+        self.name = name
+        self.required_steps = required_steps
+
+    def get_termination_cfg(self) -> TaskTerminationCfg:
+        predicate = partial(service_condition, name=self.name)
+        if self.required_steps > 1:
+            predicate = TrueForConsecutiveStepsCfg(predicate=predicate, required_steps=self.required_steps)
+        return TaskTerminationCfg(
+            success=[CompletionCriteria(name=self.name, predicate_sequence=[predicate])],
+            timeout_s=self.episode_length_s,
+        )
+
+    def get_scene_cfg(self):
+        return None
+
+    def get_events_cfg(self):
+        return None
+
+    def get_mimic_env_cfg(self, arm_mode):
+        return None
+
+    def get_metrics(self):
+        return [SuccessRateMetric()]
+
+
+class ReturnToServiceTask(CompositeTaskBase):
     """Require verified servicing and correct packing while allowing evidence-dependent rework."""
 
     def __init__(self, workcell: ServiceScene, scenario_names: list[str], episode_length_s: float = 600.0) -> None:
@@ -76,7 +96,15 @@ class ReturnToServiceTask(TaskBase):
         self.runtime_cfg = ServiceRuntimeCfg(workcell.layout, tuple(scenario_names))
         instructions = {SCENARIOS[name].work_order for name in scenario_names}
         assert len(instructions) == 1, "Parallel scenarios must share one public work order."
-        super().__init__(episode_length_s, instructions.pop())
+        milestones = ("battery_verified", "airway_serviced", "vacuum_verified", "kit_complete", "station_reset")
+        subtasks = [ServiceConditionTask(name) for name in milestones]
+        subtasks.append(ServiceConditionTask("success", required_steps=15))
+        super().__init__(
+            subtasks=subtasks,
+            episode_length_s=episode_length_s,
+            task_description=instructions.pop(),
+            desired_subtask_success_state=[True] * len(subtasks),
+        )
 
     def configure_for_embodiment(self, embodiment: EmbodimentBase) -> None:
         self.runtime_cfg.gripper = embodiment.gripper
@@ -91,39 +119,19 @@ class ReturnToServiceTask(TaskBase):
                 fields.append((f"service_contact_{socket_name}_{candidate}", type(sensor), sensor))
         return make_configclass("ServiceContactsCfg", fields)()
 
-    def get_termination_cfg(self) -> TaskTerminationCfg:
-        criteria = []
-        for name in ("battery_verified", "airway_serviced", "vacuum_verified", "kit_complete", "station_reset"):
-            criteria.append(
-                CompletionCriteria(
-                    name=name,
-                    predicate_sequence=[partial(service_condition, name=name, runtime_cfg=self.runtime_cfg)],
-                )
-            )
-        # Milestones may have happened earlier. This gate rechecks the complete
-        # serviced assembly, certificate, inventory, and isolation history now.
-        criteria.append(
-            CompletionCriteria(
-                name="return_to_service",
-                predicate_sequence=[
-                    TrueForConsecutiveStepsCfg(
-                        predicate=partial(service_condition, name="success", runtime_cfg=self.runtime_cfg),
-                        required_steps=15,
-                    )
-                ],
-            )
-        )
-        return TaskTerminationCfg(success=criteria, timeout_s=self.episode_length_s)
+    def get_runtime_cfg(self) -> TaskRuntimeCfg:
+        from .runtime import ServiceRuntime
 
-    def get_events_cfg(self):
-        return make_configclass(
-            "ServiceEventsCfg",
-            [(
-                "reset_service",
-                EventTermCfg,
-                EventTermCfg(func=reset_service, mode="reset", params={"runtime_cfg": self.runtime_cfg}),
-            )],
-        )()
+        return TaskRuntimeCfg(ServiceRuntime, {"cfg": self.runtime_cfg})
+
+    def get_variation_restrictions(self) -> dict[str, str]:
+        restrictions = {
+            f"{name}.disappear": "Every service part is required inventory; use the scenario variation for faults."
+            for name in self.workcell.assets
+        }
+        for name in ("cradle", "battery_tester", "airflow_tester"):
+            restrictions[f"{name}.mass"] = "Kinematic fixtures do not respond dynamically to mass changes."
+        return restrictions
 
     def get_observation_cfg(self):
         group = make_configclass(
@@ -131,7 +139,7 @@ class ReturnToServiceTask(TaskBase):
             [(
                 "readings",
                 ObservationTermCfg,
-                ObservationTermCfg(func=instrument_readings, params={"runtime_cfg": self.runtime_cfg}),
+                ObservationTermCfg(func=instrument_readings),
             )],
             bases=(ObservationGroupCfg,),
         )()
@@ -145,7 +153,7 @@ class ReturnToServiceTask(TaskBase):
     def get_metrics(self):
         from .metrics import ServiceMetrics
 
-        return [SuccessRateMetric(), ServiceMetrics()]
+        return [*super().get_metrics(), ServiceMetrics()]
 
     def get_viewer_cfg(self) -> ViewerCfg:
         z = self.workcell.layout.table_height_m

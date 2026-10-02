@@ -11,28 +11,20 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from isaaclab_arena.geometry.containment import FixedRegion
+
 from .assets import PreparedAssets, prepare_assets
 
 if TYPE_CHECKING:
     from isaaclab_arena.assets.object import Object
+    from isaaclab_arena.geometry.measurements import Bounds
     from isaaclab_arena.scene.scene import Scene
     from isaaclab_arena.utils.pose import Pose
-
-    from .measurements import Bounds
 
 
 BATTERY_NAMES = ("battery_original", "battery_spare", "battery_decoy")
 FILTER_NAMES = ("filter_original", "filter_spare", "filter_decoy")
 DEBRIS_NAMES = ("debris_0", "debris_1", "debris_2")
-
-
-@dataclass(frozen=True)
-class Region:
-    """Describe an oriented interior volume relative to the local environment frame."""
-
-    center_xyz: tuple[float, float, float]
-    half_extents_xyz: tuple[float, float, float]
-    rotation_xyzw: tuple[float, float, float, float] = (0.0, 0.0, 0.0, 1.0)
 
 
 @dataclass(frozen=True)
@@ -75,7 +67,7 @@ class ServiceLayout:
     """Runtime scene names mapped to Blender manifest asset names."""
 
     sockets: dict[str, SocketSpec]
-    regions: dict[str, Region]
+    regions: dict[str, FixedRegion]
     buttons: dict[str, ButtonSpec]
     packing_poses: dict[str, Pose]
     """Component root target poses in the case base frame."""
@@ -100,25 +92,19 @@ class ServiceScene:
     prepared: PreparedAssets
 
 
-def build_service_scene(asset_root: str | Path | None = None, table_height_m: float = 0.78) -> ServiceScene:
-    """Build the Blender workstation around a fixed robot at (0, 0, table_height_m).
+def build_service_layout(prepared: PreparedAssets, table_height_m: float = 0.78) -> ServiceLayout:
+    """Derive the workstation's pose and interaction contract without simulator construction.
 
     Args:
-        asset_root: Blender manifest and exported asset directory.
-        table_height_m: World height of the bench's authored top surface.
+        prepared: Validated Blender asset records and source paths.
+        table_height_m: Bench surface and fixed robot mounting height, in meters.
 
     Returns:
-        The configured Arena scene, named assets, and socket/region contract.
+        Baseline object poses, component sockets, regions, and authored interaction frames.
     """
-    from isaaclab.actuators import ImplicitActuatorCfg
-
-    from isaaclab_arena.assets.object import Object
-    from isaaclab_arena.assets.object_type import ObjectType
-    from isaaclab_arena.scene.scene import Scene
     from isaaclab_arena.utils.pose import Pose
 
     assert table_height_m > 0.0, "The workstation requires a positive table height"
-    prepared = prepare_assets(asset_root)
     source_names = {
         "bench": "bench",
         "floor": "floor",
@@ -240,67 +226,6 @@ def build_service_scene(asset_root: str | Path | None = None, table_height_m: fl
         buttons[name] = ButtonSpec(name, position)
         poses[name] = Pose(position)
 
-    static_names = {
-        "bench",
-        "floor",
-        "lighting",
-        "work_order",
-        "battery_service",
-        "filter_service",
-        "waste",
-        "spare_rack",
-        "parking_tray",
-        "release_panel",
-        "airflow_test_panel",
-    }
-    kinematic_names = {"cradle", "battery_tester", "airflow_tester"}
-    assets = {}
-    for name, source_name in source_names.items():
-        if name in static_names:
-            kind = "static"
-            object_type = ObjectType.BASE
-        else:
-            kind = "kinematic" if name in kinematic_names else "rigid"
-            object_type = ObjectType.RIGID
-        assets[name] = Object(
-            name=name,
-            prim_path="/World/ServiceLighting" if name == "lighting" else None,
-            object_type=object_type,
-            usd_path=str(prepared.asset_usd(source_name, kind)),
-            initial_pose=poses[name],
-        )
-
-    for name in buttons:
-        button = Object(
-            name=name,
-            object_type=ObjectType.ARTICULATION,
-            usd_path=str(prepared.button_usd()),
-            initial_pose=poses[name],
-        )
-        button.object_cfg.actuators = {
-            "spring": ImplicitActuatorCfg(
-                joint_names_expr=["press"], stiffness=180.0, damping=1.5, joint_effort_limit=8.0
-            )
-        }
-        button.object_cfg.init_state.joint_pos = {"press": 0.0}
-        button.object_cfg.init_state.joint_vel = {"press": 0.0}
-        assets[name] = button
-
-    case = Object(
-        name="case",
-        object_type=ObjectType.ARTICULATION,
-        usd_path=str(prepared.case_usd()),
-        initial_pose=poses["case"],
-    )
-    case.object_cfg.actuators = {
-        "passive": ImplicitActuatorCfg(
-            joint_names_expr=["hinge", "latch"], stiffness=0.0, damping=0.08, joint_effort_limit=10.0
-        )
-    }
-    case.object_cfg.init_state.joint_pos = {"hinge": -1.8, "latch": 1.4}
-    case.object_cfg.init_state.joint_vel = {"hinge": 0.0, "latch": 0.0}
-    assets["case"] = case
-
     regions = {}
     for name in ("battery_service", "filter_service", "waste", "parking_tray", "spare_rack"):
         source_name = source_names[name]
@@ -322,6 +247,74 @@ def build_service_scene(asset_root: str | Path | None = None, table_height_m: fl
     layout = ServiceLayout(
         table_height_m, poses, source_names, sockets, regions, buttons, packing_poses, grasp_poses, source_records
     )
+    return layout
+
+
+def build_service_scene(asset_root: str | Path | None = None, table_height_m: float = 0.78) -> ServiceScene:
+    """Build the Blender workstation around a fixed robot at (0, 0, table_height_m).
+
+    Args:
+        asset_root: Blender manifest and exported asset directory.
+        table_height_m: World height of the bench's authored top surface.
+
+    Returns:
+        The configured Arena scene, named assets, and socket/region contract.
+    """
+    from isaaclab_arena.scene.scene import Scene
+
+    from .asset_adapters import (
+        ServiceButton,
+        ServiceCase,
+        ServiceComponent,
+        ServiceFixture,
+        ServiceInstrument,
+        ServiceLighting,
+    )
+
+    prepared = prepare_assets(asset_root)
+    layout = build_service_layout(prepared, table_height_m)
+    source_names, poses, buttons = layout.source_names, layout.initial_poses, layout.buttons
+    static_names = {
+        "bench",
+        "floor",
+        "lighting",
+        "work_order",
+        "battery_service",
+        "filter_service",
+        "waste",
+        "spare_rack",
+        "parking_tray",
+        "release_panel",
+        "airflow_test_panel",
+    }
+    kinematic_names = {"cradle", "battery_tester", "airflow_tester"}
+    assets = {}
+    for name, source_name in source_names.items():
+        if name == "lighting":
+            assets[name] = ServiceLighting(
+                asset_root=asset_root,
+                instance_name=name,
+                initial_pose=poses[name],
+                prim_path="/World/ServiceLighting",
+            )
+            continue
+        if name in static_names:
+            asset_class = ServiceFixture
+        elif name in kinematic_names:
+            asset_class = ServiceInstrument
+        else:
+            asset_class = ServiceComponent
+        assets[name] = asset_class(
+            component=source_name,
+            asset_root=asset_root,
+            instance_name=name,
+            initial_pose=poses[name],
+        )
+
+    for name in buttons:
+        assets[name] = ServiceButton(asset_root=asset_root, instance_name=name, initial_pose=poses[name])
+    assets["case"] = ServiceCase(asset_root=asset_root, instance_name="case", initial_pose=poses["case"])
+
     return ServiceScene(Scene(list(assets.values())), assets, layout, prepared)
 
 
@@ -349,7 +342,7 @@ def _on_bench(prepared: PreparedAssets, source_name: str, x: float, y: float, ta
     return Pose((x, y, table_height_m - lower_z + 0.002))
 
 
-def _interior_region(prepared: PreparedAssets, source_name: str, initial_pose: Pose) -> Region:
+def _interior_region(prepared: PreparedAssets, source_name: str, initial_pose: Pose) -> FixedRegion:
     from isaaclab_arena.utils.pose import Pose
 
     lower, upper = prepared.affordance(source_name, "interior_bounds")
@@ -358,4 +351,4 @@ def _interior_region(prepared: PreparedAssets, source_name: str, initial_pose: P
     half_extents = tuple((upper[index] - lower[index]) / 2 for index in range(3))
     assert all(extent > 0 for extent in half_extents), "Interior bounds must have positive volume"
     T_E_R = initial_pose.multiply(Pose(center))
-    return Region(T_E_R.position_xyz, half_extents, T_E_R.rotation_xyzw)
+    return FixedRegion(T_E_R.position_xyz, half_extents, T_E_R.rotation_xyzw)

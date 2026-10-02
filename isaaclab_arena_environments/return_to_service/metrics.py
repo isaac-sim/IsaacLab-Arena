@@ -66,7 +66,7 @@ class ServiceRecorder(RecorderTerm):
             return None, None
         if isinstance(env_ids, torch.Tensor):
             env_ids = env_ids.tolist()
-        statuses = self._env.return_to_service.statuses
+        statuses = self._env.task_runtime.statuses
         values = []
         for env_id in env_ids:
             values.append(terminal_service_values(statuses[env_id]))

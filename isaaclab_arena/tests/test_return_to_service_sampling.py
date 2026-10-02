@@ -44,7 +44,7 @@ class _MeasuredWorld:
 def _runtime(num_envs: int, asset_directory):
     from pxr import Gf, Usd, UsdGeom, UsdPhysics
 
-    from isaaclab_arena_environments.return_to_service.containment import RegionContainment
+    from isaaclab_arena.geometry.containment import RegionContainment
     from isaaclab_arena_environments.return_to_service.runtime import ServiceRuntime
     from isaaclab_arena_environments.return_to_service.scene import ServiceLayout
 
@@ -100,12 +100,8 @@ def _runtime(num_envs: int, asset_directory):
 
 @pytest.mark.parametrize("num_envs", (1, 5))
 def test_batched_case_and_cup_match_individual_measurements(num_envs, tmp_path):
+    from isaaclab_arena.geometry.measurements import box_contained, box_overlaps, sphere_overlaps_cylinder
     from isaaclab_arena_environments.return_to_service.connectors import relative_pose
-    from isaaclab_arena_environments.return_to_service.measurements import (
-        box_contained,
-        box_overlaps,
-        sphere_overlaps_cylinder,
-    )
 
     runtime = _runtime(num_envs, tmp_path)
     world = runtime.env.arena_world
@@ -176,6 +172,7 @@ def test_settled_cache_refreshes_after_partial_reset_without_resetting_other_epi
     runtime._case_contents()
     cached_bounds = runtime._bounds_cache[runtime._case_names]
     runtime.cfg = SimpleNamespace(scenario_names=("combined",))
+    runtime.scenario_names = ["combined", "combined"]
     runtime.layout.buttons = {}
     runtime.sockets = {}
     case = SimpleNamespace(
@@ -208,7 +205,7 @@ def test_settled_cache_refreshes_after_partial_reset_without_resetting_other_epi
 def test_geometry_caches_keep_reading_current_object_poses(tmp_path):
     from pxr import Gf, Usd, UsdGeom, UsdPhysics
 
-    from isaaclab_arena_environments.return_to_service.containment import RegionContainment
+    from isaaclab_arena.geometry.containment import BoxRegion, RegionContainment
 
     runtime = _runtime(2, tmp_path)
     runtime.layout.regions = {
@@ -232,13 +229,19 @@ def test_geometry_caches_keep_reading_current_object_poses(tmp_path):
     stage.GetRootLayer().Save()
     scene_cfg = runtime.env.cfg.scene
     scene_cfg.debris_0.spawn.usd_path = str(path)
-    runtime.region_containment = RegionContainment(scene_cfg, runtime.layout.regions)
+    runtime.region_containment = RegionContainment(scene_cfg)
+    scene_cfg.waste = SimpleNamespace(spawn=SimpleNamespace(usd_path=str(path), scale=None))
+    runtime.regions = {"waste": BoxRegion("waste", ((-0.02, -0.15, -0.1), (0.02, 0.15, 0.1)))}
+    runtime.env.arena_world.poses["waste"] = runtime.env.arena_world.poses["case"].clone()
+    runtime.env.arena_world.poses["waste"][:] = torch.tensor(
+        [0.1, 0, 0, 0, 0, math.sqrt(0.5), math.sqrt(0.5)], dtype=torch.float64
+    )
     assert runtime._case_contents()[0]["obstruction"] == [True, True]
     assert runtime._cup_contents() == ([True, True], [True, True])
     assert runtime._in_region("debris_0", "waste") == [True, True]
     cached_interior = runtime._case_interior
     cached_inlet = runtime._cup_inlet
-    cached_region = runtime.region_containment._regions["waste"]
+    cached_region = runtime.regions["waste"]
     cached_geometry = runtime.region_containment._geometry["debris_0"]
     for name in ("obstruction", "debris_0", "debris_1", "debris_2"):
         runtime.env.arena_world.poses[name][1, 0] = 2
@@ -248,5 +251,8 @@ def test_geometry_caches_keep_reading_current_object_poses(tmp_path):
     assert runtime._in_region("debris_0", "waste") == [True, False]
     assert runtime._case_interior is cached_interior
     assert runtime._cup_inlet is cached_inlet
-    assert runtime.region_containment._regions["waste"] is cached_region
+    assert runtime.regions["waste"] is cached_region
     assert runtime.region_containment._geometry["debris_0"] is cached_geometry
+
+    runtime.env.arena_world.poses["waste"][1, 0] += 2
+    assert runtime._in_region("debris_0", "waste") == [True, True], "Containment must follow the live fixture."

@@ -1,0 +1,66 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Short verification runs. Replace the policy and use a 600 s budget for evaluation.
+# Fault sampling does not guarantee all eight conditions; full.yaml supplies that control.
+shared:
+  environment:
+    type: return_to_service
+    embodiment: droid_differential_ik
+    enable_cameras: false
+    scenarios: [combined]
+    episode_length_s: 2.0
+  environment_builder:
+    num_envs: 2
+    presets: PHYSX
+    seed: 42
+    variation_seed: 73
+  policy:
+    type: zero_action
+  rollout_limit:
+    num_episodes: 4
+
+runs:
+  sampled_conditions:
+    variations:
+      body.scenario.enabled: true
+      body.scenario.scenario_names:
+        - healthy
+        - battery
+        - filter
+        - obstruction
+        - battery_filter
+        - battery_obstruction
+        - filter_obstruction
+        - combined
+  battery_mass:
+    variations:
+      battery_original.mass.enabled: true
+      battery_original.mass.sampler_cfg.low: [0.162]
+      battery_original.mass.sampler_cfg.high: [0.198]
+      battery_spare.mass.enabled: true
+      battery_spare.mass.sampler_cfg.low: [0.162]
+      battery_spare.mass.sampler_cfg.high: [0.198]
+  camera_translation:
+    environment:
+      enable_cameras: true
+    variations:
+      droid_differential_ik.camera_extrinsics_wrist_camera.enabled: true
+      droid_differential_ik.camera_extrinsics_wrist_camera.sampler_cfg.low: [-0.002, -0.002, -0.002]
+      droid_differential_ik.camera_extrinsics_wrist_camera.sampler_cfg.high: [0.002, 0.002, 0.002]
+  translated_left:
+    environment:
+      layout_name: translated_left
+  rotated_right:
+    environment:
+      layout_name: rotated_right
+  lighting:
+    variations:
+      lighting.intensity.enabled: true
+      lighting.intensity.sampler_cfg.low: [585.0]
+      lighting.intensity.sampler_cfg.high: [715.0]
+      lighting.color.enabled: true
+      lighting.color.sampler_cfg.low: [0.82, 0.89, 0.97]
+      lighting.color.sampler_cfg.high: [0.88, 0.95, 1.0]

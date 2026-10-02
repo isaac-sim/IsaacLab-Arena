@@ -19,7 +19,7 @@ from dataclasses import dataclass, field
 from isaaclab.utils.math import quat_apply, quat_conjugate, quat_mul
 from pxr import Gf, Sdf, UsdGeom, UsdPhysics
 
-from .measurements import Bounds, box_contained, point_velocity
+from isaaclab_arena.geometry.measurements import Bounds, box_contained, point_velocity
 
 
 @dataclass(frozen=True)

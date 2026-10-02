@@ -41,8 +41,8 @@ def _sample_probe(base, env_id: int) -> None:
     """Sample an injected physical-state probe without representing it as a policy action."""
     # Invalidate only this adapter cache; the environment's physical step counter
     # and ProgressTracker sequence must still advance exclusively through env.step.
-    base.return_to_service._last_steps[env_id] = -1
-    base.return_to_service.update()
+    base.task_runtime._last_steps[env_id] = -1
+    base.task_runtime.update()
 
 
 def _write_velocity(base, name: str, env_id: int, velocity) -> None:
@@ -59,7 +59,7 @@ def _display_visibility(base, env_id: int, name: str) -> dict[str, str]:
 
     from isaaclab_arena_environments.return_to_service.connectors import environment_prim_path
 
-    runtime = base.return_to_service
+    runtime = base.task_runtime
     record = runtime.layout.source_records[name]
     root = environment_prim_path(base, name, base.scene.env_prim_paths[env_id])
     result = {}
@@ -142,7 +142,7 @@ def _test_runtime_reset_and_observation_isolation(_simulation_app) -> bool:
         env.reset()
         _step_physics(env, 15)
         base = env.unwrapped
-        runtime = base.return_to_service
+        runtime = base.task_runtime
         assert all(not status.success for status in runtime.statuses)
         assert all(status.battery_test_count == 0 and status.airflow_test_count == 0 for status in runtime.statuses)
         assert runtime.snapshots[0].cup_debris_present
@@ -150,12 +150,12 @@ def _test_runtime_reset_and_observation_isolation(_simulation_app) -> bool:
         assert not runtime.snapshots[0].inlet_obstructed
         assert runtime.snapshots[1].inlet_obstructed
 
-        readings = instrument_readings(base, runtime.cfg)
+        readings = instrument_readings(base)
         torch.testing.assert_close(readings, readings.new_tensor([[-1, 0, -1, 0], [-1, 0, -1, 0]]))
         before = tuple(runtime.statuses)
         for _ in range(4):
-            service_condition(base, "success", runtime.cfg)
-            instrument_readings(base, runtime.cfg)
+            service_condition(base, "success")
+            instrument_readings(base)
             runtime.update()
         assert tuple(runtime.statuses) == before, "Repeated evidence reads must not advance time or test state."
 
@@ -205,7 +205,7 @@ def _test_retention_release_and_capture_evidence(_simulation_app) -> bool:
         env.reset()
         _step_physics(env, 15)
         base = env.unwrapped
-        runtime = base.return_to_service
+        runtime = base.task_runtime
         battery_socket = runtime.sockets["battery"]
         assert runtime.sockets["cup"].socket.position_tolerance_m == 0.001
         for name in ("battery", "filter", "cradle"):
@@ -301,10 +301,10 @@ def _assert_released_filter_supported(base, elapsed_s: float) -> None:
     """Check both workcells without confusing physical guidance with retained seating."""
     import torch
 
+    from isaaclab_arena.geometry.measurements import box_contained
     from isaaclab_arena_environments.return_to_service.connectors import relative_pose
-    from isaaclab_arena_environments.return_to_service.measurements import box_contained
 
-    runtime = base.return_to_service
+    runtime = base.task_runtime
     specification = runtime.layout.sockets["filter"]
     socket = runtime.sockets["filter"]
     assert specification.capture_bounds is not None, "Filter dwell requires the authored physical guide volume."
@@ -339,7 +339,7 @@ def _test_released_filter_remains_supported_with_cup_present(_simulation_app) ->
         env.reset()
         _step_physics(env, 15)
         base = env.unwrapped
-        runtime = base.return_to_service
+        runtime = base.task_runtime
         assert runtime.sockets["filter"].attached == ["filter_original"] * base.num_envs
         # Inject only the physical release button, as in the mechanism probes
         # above. Do not move or stabilize the cup, filter, body, or robot.
@@ -373,7 +373,7 @@ def _test_adversarial_packing_and_fixture_evidence(_simulation_app) -> bool:
         env.reset()
         _step_physics(env, 15)
         base = env.unwrapped
-        runtime = base.return_to_service
+        runtime = base.task_runtime
 
         spec = runtime.layout.sockets["battery_tester"]
         target = _pose_in_parent(base, spec.parent_name, spec.pose_in_parent, 0)
@@ -440,3 +440,33 @@ def test_adversarial_packing_and_fixture_evidence():
     from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
     assert run_function_with_persistent_simulation_app(_test_adversarial_packing_and_fixture_evidence)
+
+
+def _test_live_fixture_frames_match_authored_layout(_simulation_app) -> bool:
+    import torch
+
+    env = _make_environment()
+    try:
+        env.reset()
+        _step_physics(env, 3)
+        base = env.unwrapped
+        for name in ("waste", "battery_service", "filter_service", "spare_rack", "parking_tray"):
+            T_E_F = base.arena_world.get_pose_e(name)
+            expected = base.task_runtime.layout.initial_poses[name].to_tensor(base.device).expand_as(T_E_F)
+            torch.testing.assert_close(T_E_F, expected, atol=1e-5, rtol=0)
+        base._reset_idx(torch.tensor([1], device=base.device))
+        _step_physics(env, 2)
+        for name in ("spare_rack", "parking_tray"):
+            T_E_F = base.arena_world.get_pose_e(name)
+            expected = base.task_runtime.layout.initial_poses[name].to_tensor(base.device).expand_as(T_E_F)
+            torch.testing.assert_close(T_E_F, expected, atol=1e-5, rtol=0)
+    finally:
+        env.close()
+    return True
+
+
+def test_live_fixture_frames_match_authored_layout():
+    _require_assets()
+    from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
+
+    assert run_function_with_persistent_simulation_app(_test_live_fixture_frames_match_authored_layout)

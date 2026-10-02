@@ -46,14 +46,14 @@ def _test_service_metric_records_terminal_selection_and_averages_episodes(simula
     env = SimpleNamespace(
         num_envs=2,
         device="cpu",
-        return_to_service=SimpleNamespace(statuses=[completed, failed]),
+        task_runtime=SimpleNamespace(statuses=[completed, failed]),
     )
     recorder = ServiceRecorder(ServiceRecorderCfg(), env)
     assert recorder.record_pre_reset(None) == (None, None), "Initial reset must not emit a fabricated episode."
     name, sample = recorder.record_pre_reset(torch.tensor([1]))
     assert name == "service_diagnostics"
     assert sample.tolist() == [[0.5, 1.0, 1.0, 2.0, 240.0, 1.0]]
-    assert env.return_to_service.statuses[0] is completed, "Reading one terminal state must not reset any model."
+    assert env.task_runtime.statuses[0] is completed, "Reading one terminal state must not reset any model."
     _, sample = recorder.record_pre_reset([0, 1])
     episode_rows = [row[None, :].numpy() for row in sample]
     assert compute_service_metrics(episode_rows) == [0.75, 1.5, 2.5, 1.0, 180.0, 0.5]

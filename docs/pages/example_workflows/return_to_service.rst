@@ -206,6 +206,84 @@ and camera interfaces. Its gripper driver uses 4 N m/rad stiffness and
 existing disabled self-collision setting are preserved.
 
 
+Arena integration
+-----------------
+
+``ReturnToServiceTask`` extends ``CompositeTaskBase``. Its six condition tasks
+share Arena's progress tracker, current final-state checks, consecutive-step
+predicate, per-subtask metrics, and episode timeout. The service-specific
+conditions remain explicit because voltage certificates, isolation history,
+and fault-dependent disposition cannot be represented by ordinary pick-and-place
+success alone.
+
+``ServiceRuntime`` implements Arena's optional ``TaskRuntime`` lifecycle.
+Predicates and observations only read the resulting snapshot. Arena updates it
+before success evaluation, releases its connectors before reset events, then
+initializes the selected episodes after placement and variation events. The
+runtime uses ``ArenaWorld``, shared collision geometry, and the full relative-pose
+predicate, including angular alignment. Tray volumes and unused-part return
+targets follow live fixture frames.
+
+The shared ``PlaceInRegionTask`` is available for independent placement tasks
+using these assets. It checks full supported collision shapes, settling, and
+optional measured gripper release. The complete service benchmark additionally
+checks unexpected case contents, keyed packing poses, component certificates,
+and isolation history.
+
+Variation inspection and replay
+-------------------------------
+
+Inspect effective paths before selecting factors:
+
+.. code-block:: bash
+
+   python isaaclab_arena/evaluation/experiment_runner.py \
+     --experiment_config isaaclab_arena_environments/return_to_service/experiment_configs/full.yaml \
+     --list_variations --variations_format json
+
+The structured catalogue includes disabled variations and explains task-specific
+restrictions. Disappearance is rejected for required inventory. Existing fixed
+scenario Runs preserve their work order and conditions; randomized conditions
+are evaluator configuration and are not added to policy observations.
+
+The companion ``experiment_configs/variations.yaml`` separates each factor into
+one named Run. These are short zero-action verification runs; configure a policy
+and a 600-second episode budget for evaluation.
+
+.. list-table:: Variation examples
+   :header-rows: 1
+   :widths: 25 75
+
+   * - Run
+     - Configuration
+   * - ``sampled_conditions``
+     - Samples the eight fault scenarios independently at episode reset.
+   * - ``battery_mass``
+     - Uses Arena's mass variation for original and spare batteries, within 10 percent of nominal mass.
+   * - ``camera_translation``
+     - Uses Arena's wrist-camera extrinsics variation within 2 mm on each axis.
+   * - ``translated_left``
+     - Moves the workstation group 10 mm along positive Y at build time.
+   * - ``rotated_right``
+     - Rotates that group by minus one degree about the cradle neighborhood at build time.
+   * - ``lighting``
+     - Uses Arena's build-time intensity and color variations on the authored studio dome.
+
+Each layout moves fixtures and contents coherently, retaining their local socket
+and region frames. The robot, bench, floor, and lighting stay fixed. Arena's
+``PlacementLayouts`` restores the selected layout's writable physics roots on
+reset; static fixtures select their pose at build time. The narrow layout bank
+preserves the compact workcell's reach constraints. It does not establish
+collision-free trajectories between interaction poses.
+
+Set ``environment_builder.variation_seed`` to reproduce enabled built-in sampler
+draws independently of unrelated factors. Replay a Run's
+``variation_samples_rebuild0.jsonl`` using ``variation_replay_path`` with the same
+environment IDs and episode schedule. The companion includes the final automatic
+reset draw. It does not replay robot motion, contacts, or arbitrary physical
+state. Placement artifacts and variation artifacts serve different purposes.
+
+
 Measurements and scoring
 ------------------------
 
@@ -322,19 +400,88 @@ The implementation separates responsibilities:
      - Cached physics layers and shared workcell layout.
    * - ``connectors.py``
      - Measured capture, physical retention, and release.
-   * - ``measurements.py``, ``collision_geometry.py``, ``containment.py``
-     - Batched physical geometry, containment, and overlap.
+   * - ``isaaclab_arena.geometry``
+     - Shared batched physical geometry, parent-relative containment, and overlap.
    * - ``model.py``, ``scenarios.py``
      - Simulator-independent instruments, certificates, faults, and success rules.
    * - ``runtime.py``
      - Physical measurements and one model update per control step.
    * - ``task.py``, ``metrics.py``
-     - Arena observations, reset events, progress criteria, and terminal metrics.
+     - Public instruments, composite task criteria, and terminal metrics.
 
 To add a fault, define its observable consequences in the model and measure
 its physical evidence in the runtime. Keep the core model independent of a
 particular policy. Test certificate and interlock rules separately from
 physical contact, reset, and manipulation behavior.
+
+
+Reuse the service assets
+------------------------
+
+The scene uses registered Arena asset adapters. They reference the existing
+Blender bundle and defer all manifest and USD preparation until construction:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 42 58
+
+   * - Registry name
+     - Existing Arena interface
+   * - ``return_to_service_bench``
+     - Authored work surface exposed as a graph background.
+   * - ``return_to_service_component``
+     - Movable rigid parts; ``component`` selects a declared source asset.
+   * - ``return_to_service_fixture``
+     - Fixed bins, trays, panels, and work surfaces.
+   * - ``return_to_service_instrument``
+     - Kinematic cradle and test instruments, with their authored socket geometry.
+   * - ``return_to_service_button``
+     - ``Pressable`` over the physical spring-return ``press`` joint.
+   * - ``return_to_service_case``
+     - ``Openable`` over a selected ``hinge`` or ``latch`` joint.
+   * - ``return_to_service_lighting``
+     - Authored studio dome with existing intensity and RGB variations.
+
+Inspect their typed parameters, affordances, and reset semantics using the
+:doc:`authoring discovery interfaces <../concepts/agentic_environment_generation/authoring_discovery>`:
+
+.. code-block:: bash
+
+   python isaaclab_arena_examples/agentic_environment_generation/cli_runner.py \
+      --mode catalog --format json
+   python isaaclab_arena_examples/agentic_environment_generation/cli_runner.py \
+      --mode validate --format json \
+      --env_spec isaaclab_arena_environments/return_to_service/authoring_examples/battery_in_bin.yaml
+
+The small graph example uses the existing DROID embodiment and the Blender-authored
+service bench, lighting, battery, and bin with ``PlaceInRegionTask``.
+It requires collision-shape containment, settling, and
+measured gripper release. Its explicit region bounds match the bin manifest's
+interior; update those bounds if authoring a different bin. This is a reusable
+placement example, separate from the full benchmark's diagnosis, retention,
+certificate, and interlock requirements. A static validation pass does not
+establish that a policy can complete it.
+
+After preparing the asset bundle, the normal graph runner can build the example:
+
+.. code-block:: bash
+
+   python isaaclab_arena_examples/agentic_environment_generation/cli_runner.py \
+      --mode build --headless --num_envs 1 \
+      --env_spec isaaclab_arena_environments/return_to_service/authoring_examples/battery_in_bin.yaml
+
+For Python composites, ``case.for_joint("hinge")`` and
+``case.for_joint("latch")`` produce task-only ``Openable`` views of the same
+case. Add the original case once to the scene. The views share its scene key
+and asset config; they do not spawn duplicate articulations. Arena's existing
+joint utilities preserve the authored negative-opening lid and negative-travel
+button conventions.
+
+``lighting.intensity`` and ``lighting.color`` use the existing build-time
+variation classes. They start disabled, preserving the authored baseline.
+Enabling them creates a cached USD opinion over ``StudioDome``; the Blender
+source file remains unchanged. Use ``--list_variations --variations_format
+json`` on the benchmark runner to inspect effective values and restrictions.
 
 
 Real-world basis

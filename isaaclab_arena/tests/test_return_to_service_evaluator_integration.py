@@ -125,7 +125,7 @@ class _ScoringFixture:
 
 def _reset(f):
     f.env.reset()
-    f.runtime = f.base.return_to_service
+    f.runtime = f.base.task_runtime
     f.observe_resets = True
     f.step(15)
     runtime = f.runtime
