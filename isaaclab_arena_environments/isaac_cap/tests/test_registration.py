@@ -138,6 +138,10 @@ def _test_isaac_cap_components_registered(_simulation_app) -> bool:
             syringe_environment.SyringeClutteredEnvironment,
             syringe_environment.SyringeClutteredEnvironmentCfg,
         ),
+        "syringe_designated_newton": (
+            syringe_environment.SyringeDesignatedEnvironment,
+            syringe_environment.SyringeDesignatedEnvironmentCfg,
+        ),
         "vabar_contact_rich_insertion__usbc_insertion_easy": (
             usbc_environment.UsbcInsertionEasyEnvironment,
             usbc_environment.UsbcInsertionEasyEnvironmentCfg,

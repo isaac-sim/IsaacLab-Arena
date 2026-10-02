@@ -36,32 +36,17 @@ class SyringeBase(ArenaEnvironmentFactory[SyringeSortEnvironmentCfg]):
     yaml_file: str
 
     def build(self, cfg: SyringeSortEnvironmentCfg):
-        from isaaclab.envs.mdp.actions.actions_cfg import JointPositionActionCfg
-
         from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
         from isaaclab_arena_environments.isaac_cap import register_components
 
-        from .cameras import configure_syringe_cameras
+        from .cameras import SyringeCameraCfg
 
         register_components()
         spec = ArenaEnvGraphSpec.from_yaml(str(Path(__file__).with_name(self.yaml_file)))
         arena_env = spec.to_arena_env(enable_cameras=cfg.enable_cameras)
-        # NOTE(alexmillane, 2028.09.17) [clutter-placement-missing-feature]:
-        # Move to clutter-based placement when that feature is enabled.
-
-        # TODO(alexmillane) [berkley-cap-align-embodiments]: Remove these per-task custom
-        # embodiment configurations once the upstream repo has done it.
-        configure_syringe_cameras(arena_env.embodiment.camera_config)
-        gripper = arena_env.embodiment.scene_config.robot.actuators["robotiq_driver"]
-        gripper.stiffness, gripper.damping = 20.0, 1.0
-        arena_env.embodiment.action_config.gripper_action = JointPositionActionCfg(
-            asset_name="robot",
-            joint_names=["left_driver_joint"],
-            preserve_order=True,
-            use_default_offset=False,
-            scale=0.8,
-            offset=0.0,
-        )
+        cameras = SyringeCameraCfg()
+        cameras.use_tiled_camera = arena_env.embodiment.camera_config.use_tiled_camera
+        arena_env.embodiment.camera_config = cameras
         if cfg.episode_length_s is not None:
             assert cfg.episode_length_s > 0
             arena_env.task.episode_length_s = cfg.episode_length_s
@@ -71,7 +56,7 @@ class SyringeBase(ArenaEnvironmentFactory[SyringeSortEnvironmentCfg]):
 
 @register_environment(cfg_type=SyringeSortEnvironmentCfg)
 class SyringeSingleEnvironment(SyringeBase):
-    """Dispose of one syringe from a fixed layout."""
+    """Dispose of one red-cap syringe from a randomized tray."""
 
     name = "syringe_single_newton"
     yaml_file = "syringe_single.yaml"
@@ -85,7 +70,7 @@ class SyringeBothEnvironmentCfg(SyringeSortEnvironmentCfg):
 
 @register_environment(cfg_type=SyringeBothEnvironmentCfg)
 class SyringeBothEnvironment(SyringeBase):
-    """Dispose of both the red-cap and white-cap syringes."""
+    """Dispose of both red-cap syringes."""
 
     name = "syringe_both_newton"
     yaml_file = "syringe_both.yaml"
@@ -93,13 +78,27 @@ class SyringeBothEnvironment(SyringeBase):
 
 
 @dataclass
-class SyringeClutteredEnvironmentCfg(SyringeBothEnvironmentCfg):
-    """Configure the randomized four-syringe benchmark."""
+class SyringeDesignatedEnvironmentCfg(SyringeSortEnvironmentCfg):
+    """Configure the red-cap syringe benchmark with a blank distractor."""
+
+
+@register_environment(cfg_type=SyringeDesignatedEnvironmentCfg)
+class SyringeDesignatedEnvironment(SyringeBase):
+    """Dispose of the red-cap syringe beside an unscored blank syringe."""
+
+    name = "syringe_designated_newton"
+    yaml_file = "syringe_designated.yaml"
+    _legacy_argparse_cfg_type = SyringeDesignatedEnvironmentCfg
+
+
+@dataclass
+class SyringeClutteredEnvironmentCfg(SyringeSortEnvironmentCfg):
+    """Configure the randomized six-syringe benchmark."""
 
 
 @register_environment(cfg_type=SyringeClutteredEnvironmentCfg)
-class SyringeClutteredEnvironment(SyringeBothEnvironment):
-    """Dispose of all four syringes from the cluttered tray."""
+class SyringeClutteredEnvironment(SyringeBase):
+    """Dispose of all six syringes from the cluttered tray."""
 
     name = "syringe_cluttered_newton"
     yaml_file = "syringe_cluttered.yaml"

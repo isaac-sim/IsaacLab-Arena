@@ -24,6 +24,7 @@ from isaaclab_arena.tasks.predicates.temporal import TrueForConsecutiveStepsCfg
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
 from isaaclab_arena.tasks.terminations import check_success
+from isaaclab_arena_environments.isaac_cap.cap_policy import cap_episode_finished
 
 
 def center_of_mass_in_region(env, object_name: str, region_name: str, bounds: tuple[float, ...]) -> torch.Tensor:
@@ -36,12 +37,9 @@ def center_of_mass_in_region(env, object_name: str, region_name: str, bounds: tu
     return ((center_R >= limits[:3]) & (center_R <= limits[3:])).all(dim=-1)
 
 
-# TODO(alexmillane, 2026.09.17) [policy-requested-termination-requested-feature]: Remove this task-specific
-# policy-requested termination once we add a framework-wide method for allow the policy to request an
-# episode termination.
-def cap_episode_finished(env) -> torch.Tensor:
-    """End a disconnected CAP episode after settling; never count it as success."""
-    return torch.full((env.num_envs,), getattr(env, "cap_episode_finished", False), device=env.device, dtype=torch.bool)
+def syringe_gripper_open(env, robot_name: str, joint_name: str, position_threshold: float) -> torch.Tensor:
+    """Check CAP's release criterion against the measured Robotiq driver position."""
+    return env.arena_world.get_joint_position(robot_name, joint_name).abs() <= position_threshold
 
 
 @register_task
@@ -56,6 +54,9 @@ class SyringeSortTask(TaskBase):
         linear_velocity_threshold: float = 0.01,
         angular_velocity_threshold: float = 0.05,
         consecutive_success_steps: int = 50,
+        robot_asset_name: str = "robot",
+        gripper_joint_name: str = "left_driver_joint",
+        gripper_open_position_threshold: float = 0.1,
         episode_length_s: float = 228.0,
         task_description: str | None = None,
     ):
@@ -66,6 +67,7 @@ class SyringeSortTask(TaskBase):
             linear_velocity_threshold,
             angular_velocity_threshold,
             episode_length_s,
+            gripper_open_position_threshold,
         ):
             assert math.isfinite(value) and value > 0
         for bounds in bounds_xyzxyz:
@@ -78,12 +80,24 @@ class SyringeSortTask(TaskBase):
         self.bounds = bounds_xyzxyz
         self.linear_velocity_threshold = linear_velocity_threshold
         self.angular_velocity_threshold = angular_velocity_threshold
+        self.robot_asset_name = robot_asset_name
+        self.gripper_joint_name = gripper_joint_name
+        self.gripper_open_position_threshold = gripper_open_position_threshold
 
     def get_scene_cfg(self):
         return None
 
     def get_termination_cfg(self) -> TaskTerminationCfg:
-        predicates = []
+        predicates = [
+            TerminationTermCfg(
+                func=syringe_gripper_open,
+                params={
+                    "robot_name": self.robot_asset_name,
+                    "joint_name": self.gripper_joint_name,
+                    "position_threshold": self.gripper_open_position_threshold,
+                },
+            )
+        ]
         for obj, region, bounds in zip(self.objects, self.regions, self.bounds, strict=True):
             predicates.extend([
                 TerminationTermCfg(

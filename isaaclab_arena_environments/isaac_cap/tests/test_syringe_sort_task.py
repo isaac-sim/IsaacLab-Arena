@@ -36,6 +36,7 @@ def _test_syringe_success_requires_all_objects_contained_and_settled(_simulation
     centers = {name: torch.zeros((2, 3)) for name in ("syringe_a", "syringe_b")}
     linear_velocities = {name: torch.zeros((2, 3)) for name in centers}
     angular_velocities = {name: torch.zeros((2, 3)) for name in centers}
+    gripper_positions = torch.zeros(2)
     receiver_pose = torch.tensor([[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0]]).repeat(2, 1)
     env.scene = {
         name: SimpleNamespace(data=SimpleNamespace(root_com_pos_w=SimpleNamespace(torch=center)))
@@ -45,6 +46,7 @@ def _test_syringe_success_requires_all_objects_contained_and_settled(_simulation
         get_pose_w=lambda _name: receiver_pose,
         get_root_linear_velocity_w=lambda name: linear_velocities[name],
         get_root_angular_velocity_w=lambda name: angular_velocities[name],
+        get_joint_position=lambda _robot, _joint: gripper_positions,
     )
 
     assert success_predicate.func(env, **success_predicate.params).tolist() == [True, True]
@@ -57,6 +59,10 @@ def _test_syringe_success_requires_all_objects_contained_and_settled(_simulation
     assert success_predicate.func(env, **success_predicate.params).tolist() == [True, False]
     centers["syringe_a"][1, 0] = 0.0
     assert success_predicate.func(env, **success_predicate.params).tolist() == [True, True]
+    gripper_positions[:] = torch.tensor([0.1, -0.101])
+    assert success_predicate.func(env, **success_predicate.params).tolist() == [True, False]
+    gripper_positions[:] = torch.tensor([0.8, 0.0])
+    assert success_predicate.func(env, **success_predicate.params).tolist() == [False, True]
     return True
 
 
@@ -65,6 +71,7 @@ def test_syringe_success_requires_all_objects_contained_and_settled():
 
 
 def _test_syringe_drop(_simulation_app):
+    import math
     import torch
 
     from isaaclab.utils.math import quat_apply
@@ -80,10 +87,12 @@ def _test_syringe_drop(_simulation_app):
 
     register_components()
     arena_env = SyringeSingleEnvironment().build(SyringeSortEnvironmentCfg())
-    env = ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg(solve_relations=False)).make_registered()
+    env = ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg(solve_relations=True, placement_seed=42)).make_registered()
     try:
         obs, _ = env.reset()
         base = env.unwrapped
+        assert base.step_dt == pytest.approx(0.02)
+        assert base.cfg.sim.physics.solver_cfg.to_dict()["enable_multiccd"]
         syringe = base.scene["syringe_0"]
         # W is world, R is the receiver, and S is the syringe root frame.
         T_W_R = base.arena_world.get_pose_w("sharps_container")
@@ -91,8 +100,9 @@ def _test_syringe_drop(_simulation_app):
         t_R_S = T_W_R.new_tensor([[0.0975, -0.1225, 0.30]])
         T_W_S = T_W_R.clone()
         T_W_S[:, :3] = T_W_R[:, :3] + quat_apply(T_W_R[:, 3:], t_R_S)
-        # q_W_S rotates +90 degrees about world X, making the syringe's Y axis vertical.
-        T_W_S[:, 3:] = T_W_S.new_tensor([[2**-0.5, 0, 0, 2**-0.5]])
+        # Tilt the long Y axis slightly so the dropped syringe settles onto its side.
+        half_angle = math.radians(80) / 2
+        T_W_S[:, 3:] = T_W_S.new_tensor([[math.sin(half_angle), 0, 0, math.cos(half_angle)]])
         syringe.write_root_pose_to_sim(T_W_S)
         syringe.write_root_velocity_to_sim(torch.zeros((1, 6), device=base.device))
         policy = ZeroActionPolicy(ZeroActionPolicyCfg())

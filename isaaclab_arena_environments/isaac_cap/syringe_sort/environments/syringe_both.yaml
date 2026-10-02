@@ -4,7 +4,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 external_yaml: syringe_env_config.yaml
-
 env_name: syringe_both_newton
 embodiment:
   id: fr3
@@ -35,7 +34,7 @@ background:
       - 0.0
       - 1.0
 objects:
-- id: syringe_receiver
+- id: hdr_shadow_receiver
   registry_name: hdr_shadow_receiver
   params: {}
 - id: sharps_container
@@ -54,9 +53,7 @@ objects:
   params:
     instance_name: syringe_0
 - id: syringe_1
-  # Upstream's syringe_pack_0 is the bare white mesh, not another red cap.
-  # It remains a scored goal below, exactly as in the upstream both task.
-  registry_name: syringe_blank
+  registry_name: syringe
   params:
     instance_name: syringe_1
 object_references:
@@ -113,7 +110,6 @@ task:
   description: pick up both syringes from the instrument tray and drop each through
     the hole in the yellow sharps disposal box
   subtasks:
-  # TODO(alexmillane): [object-in-missing-feature]: Move to a more general ObjectIn task once we have it.
   - kind: SyringeSortTask
     params:
       object_list:

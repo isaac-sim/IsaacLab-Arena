@@ -1,82 +1,155 @@
 # Syringe disposal
 
-Dispose of every syringe in the sharps container and let
-all syringes settle for 50 consecutive simulation steps. Scene layouts and goals
-live in YAML. All variants include `environments/syringe_env_config.yaml` for Newton
-physics settings. `environment.py` retains camera, gripper, and placement
-adaptations, plus a direct assignment of `enable_multiccd`, which Isaac Lab does
-not yet expose.
-Policy code stays in Isaac-cap.
+Run the Arena environment in this checkout's Docker container and the GaP policy
+in a separate Isaac-cap checkout on the host. Both processes use port `19000`.
 
-Assets load directly from
-`{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/temp_newton_envs/cap_envs/syringe_disposal/assets`.
-These assets are available through the public staging S3 mirror.
-No local asset preparation or separate robot asset is required.
+Four Newton environments match the syringe definitions in Isaac-cap main
+(`35e74598a7630597fb48d44bd71b94228c239737`):
 
-External-right camera views after one second of settling (placement seed 43 for both and cluttered):
+| Variant | Environment | Goal | Episode limit |
+| --- | --- | --- | --- |
+| Single | `syringe_single_newton` | Dispose of one red-cap syringe | 228 s |
+| Both | `syringe_both_newton` | Dispose of two red-cap syringes | 456 s |
+| Designated | `syringe_designated_newton` | Dispose of the red-cap syringe beside an unscored blank syringe | 228 s |
+| Cluttered | `syringe_cluttered_newton` | Dispose of six red-cap syringes | 1368 s |
 
-| Single | Both | Cluttered |
-| --- | --- | --- |
-| One red-cap syringe; fixed layout | Red-cap and white syringes; randomized layout | Four red-cap syringes; cluttered tray |
-| ![Single syringe](docs/images/single.png) | ![Both syringes](docs/images/both.png) | ![Cluttered syringes](docs/images/cluttered.png) |
+## Run with CAP
 
-## Zero action
+Use a running Arena container with host networking and Arena's optional `cap`
+dependencies installed, plus a configured Isaac-cap checkout with its submodules,
+GaP tool environments, and VLM credentials. All four variants use the same
+`syringe_packing/gap_perception` graph; no separate task-source checkout is needed.
+See [Running the CAP policy](docs/running_cap_policy.md#prerequisites) for setup details.
 
-Run the cluttered variant in the GUI from the Arena repository root inside its container:
+### Terminal 1: Arena client
+
+From `/workspaces/isaaclab_arena` inside the Arena container, choose one variant
+and start it first. Each command runs one episode with placement seed 42, opens
+the simulator GUI, and records camera videos.
+
+Single:
 
 ```bash
-/isaac-sim/python.sh isaaclab_arena/evaluation/experiment_runner.py \
-  --experiment_config isaaclab_arena_environments/isaac_cap/syringe_sort/experiment_configs/cluttered_zero_action_experiment.yaml \
+/isaac-sim/python.sh -u isaaclab_arena/evaluation/experiment_runner.py \
+  --experiment_config isaaclab_arena_environments/isaac_cap/syringe_sort/experiment_configs/single_cap_remote_experiment.yaml \
+  --record_camera_video \
   --viz kit
 ```
 
-## Isaac-cap policy — agent instructions
+Both:
 
-See [Running the CAP policy](docs/running_cap_policy.md) for a two-terminal guide,
-prerequisites, result interpretation, and troubleshooting.
+```bash
+/isaac-sim/python.sh -u isaaclab_arena/evaluation/experiment_runner.py \
+  --experiment_config isaaclab_arena_environments/isaac_cap/syringe_sort/experiment_configs/both_cap_remote_experiment.yaml \
+  --record_camera_video \
+  --viz kit
+```
 
-Run the environment in this checkout's Docker container and the policy graph in
-the existing Isaac-cap checkout on the host; do not copy graph, perception, or
-planning code into Arena. These instructions cover `both` and `cluttered`.
+Designated:
 
-1. Use the `dev-container` and `run-experiment` skills. Confirm Nucleus access,
-   Arena's optional `cap` dependencies
-   (`/isaac-sim/python.sh -m pip install -e '.[cap]'` inside the container if missing),
-   and CAP's configured tool environments and VLM credentials. Keep credentials
-   in CAP's existing configuration. The container must use host networking.
+```bash
+/isaac-sim/python.sh -u isaaclab_arena/evaluation/experiment_runner.py \
+  --experiment_config isaaclab_arena_environments/isaac_cap/syringe_sort/experiment_configs/designated_cap_remote_experiment.yaml \
+  --record_camera_video \
+  --viz kit
+```
 
-2. From the Arena checkout on the host, start one episode with one environment:
+Cluttered:
 
-   ```bash
-   ARENA_CONTAINER=$(docker ps --filter "volume=$(git rev-parse --show-toplevel)" --format '{{.Names}}' | head -1)
-   docker exec "$ARENA_CONTAINER" su "$(id -un)" -c \
-     'cd /workspaces/isaaclab_arena && /isaac-sim/python.sh isaaclab_arena/evaluation/experiment_runner.py \
-       --experiment_config isaaclab_arena_environments/isaac_cap/syringe_sort/experiment_configs/cluttered_cap_remote_experiment.yaml \
-       --viz none shared.environment_builder.placement_seed=43'
-   ```
+```bash
+/isaac-sim/python.sh -u isaaclab_arena/evaluation/experiment_runner.py \
+  --experiment_config isaaclab_arena_environments/isaac_cap/syringe_sort/experiment_configs/cluttered_cap_remote_experiment.yaml \
+  --record_camera_video \
+  --viz kit
+```
 
-   Add `shared.environment.type=syringe_both_newton` for both, or use `--viz kit` for the GUI.
-   Keep this process running and wait for `Completed setting up the environment`.
-   Arena waits up to 180 seconds for CAP; starting CAP earlier can exhaust its
-   60-second first-image timeout while the scene loads.
+Wait for `[CapPolicy] Environment ready; waiting for GaP at 127.0.0.1:19000`
+before starting Terminal 2. Arena waits up to 180 seconds. Append
+`shared.policy.connect_timeout_s=600` if more startup time is needed.
 
-3. In another host terminal, from the Isaac-cap checkout, launch the graph:
+### Terminal 2: GaP policy server
 
-   ```bash
-   GAP_PORT=19000 GAP_GRAPH=local/syringe_packing_v2 \
-   CAP_GAP_ROBOT_PROFILE=fr3 CAP_GAP_ARM_BASE_POSITION=-0.5,-0.1,0.912 \
-   CAP_GAP_CONTROL_FREQUENCY_HZ=50 CAP_GAP_HONOURS_ROLL=0 \
-   CAP_GAP_CARTESIAN_CORRECTION_LIMIT_M=0 \
-   CAP_GAP_CAMERA_NAME=overhead,eye_in_hand,agentview \
-   GAP_HAND_TO_FINGERTIP_Z=0.157 GAP_TCP_ROTATION_Z=0.7853981633974483 \
-   ./arena_gap/scripts/run_gap_graph.sh
-   ```
+In another terminal on the host, run the following from your Isaac-cap checkout.
+Replace `/path/to/Isaac-cap` with your checkout path. **Use this same command for
+Single, Both, Designated, and Cluttered.**
 
-   For another port, set both `GAP_PORT` and Arena's `shared.policy.port` override.
-   Restart the graph for each episode; the client supports one environment.
+```bash
+cd /path/to/Isaac-cap
 
-4. Wait for evaluation completion and inspect `arena_experiment_result.json`,
-   `<run>/episode_results_rebuild0.jsonl`, and `index.html` in the reported output
-   directory. Arena's episode result is authoritative: CAP completing its graph
-   does not guarantee task success. On disconnect, Arena allows two seconds of
-   settling before ending the episode. Preserve failed trials and their logs.
+GAP_PORT=19000 \
+GAP_GRAPH=syringe_packing/gap_perception \
+CAP_GAP_ROBOT_PROFILE=fr3 \
+CAP_GAP_ARM_BASE_POSITION=-0.5,-0.1,0.912 \
+CAP_GAP_CONTROL_FREQUENCY_HZ=50 \
+CAP_GAP_HONOURS_ROLL=0 \
+CAP_GAP_CARTESIAN_CORRECTION_LIMIT_M=0 \
+CAP_GAP_CAMERA_NAME=overhead,eye_in_hand,agentview \
+GAP_HAND_TO_FINGERTIP_Z=0.157 \
+GAP_TCP_ROTATION_Z=0.7853981633974483 \
+./arena_gap/scripts/run_gap_graph.sh
+```
+
+Keep the syringe-specific 50 Hz control rate and `CAP_GAP_HONOURS_ROLL=0` settings.
+Restart both commands for each new trial. If Arena exits before the graph finishes,
+stop the graph with Ctrl-C before starting the next trial.
+
+Use `--viz none` for headless operation, or omit `--record_camera_video` to skip
+recording. To change the layout, append
+`shared.environment_builder.placement_seed=43` to the Arena command. For a different
+port, change both `GAP_PORT` and Arena's `shared.policy.port` override.
+
+Results and videos are saved under the timestamped `outputs/` directory printed
+by Arena. Open `index.html` to review the run and check the episode success flag;
+CAP graph completion alone does not establish task success. See the
+[detailed guide](docs/running_cap_policy.md) for troubleshooting and the optional
+single-syringe comparison against native CAP.
+
+## Environment details
+
+All variants randomize the tray, sharps container, and syringe XY positions with
+fixed headings. Cluttered starts three syringes on the tray and three 3 cm above
+it to settle under gravity. Invalid placement fallbacks are disabled.
+
+Success requires every scored syringe's center of mass inside the receiver-local
+bounds, linear speed at most 0.01 m/s, angular speed at most 0.05 rad/s, and the
+measured Robotiq driver position within +/-0.1 rad of open. All conditions must
+hold together for 50 consecutive steps at 50 Hz. The blank syringe in designated
+is not scored. A completed policy graph alone does not establish success.
+
+Scene definitions and shared Newton settings live in `environments/*.yaml`.
+`SyringeCameraCfg` declares CAP's calibrated views on the shared FR3 camera rig.
+The factory selects this configuration and applies the `enable_multiccd` field
+that Isaac Lab does not yet expose in its configuration. The shared FR3 embodiment
+supplies CAP's binary gripper commands, actuator gains, and robot reset events.
+The tray spawner restores CAP's original mesh collider in the hosted asset,
+which otherwise adds primitive cavity faces. Newton uses Arena's supported
+`replicate_physics=True` setting.
+
+Assets load from
+`{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/temp_newton_envs/cap_envs/syringe_disposal/assets`.
+The images in `docs/images/` show the original three-variant port and are historical.
+
+## Scripted behavior check
+
+Inside Arena Docker:
+
+```bash
+python isaaclab_arena_environments/isaac_cap/syringe_sort/syringe_env_behaviour_demo.py \
+  --variant cluttered --cycles 1 --no-real-time --visualizer none
+```
+
+Choose `single`, `both`, `designated`, or `cluttered`. This check releases the
+scored syringes through the aperture in the smaller scenes and places successive
+layers inside the receiver in cluttered. It lets them settle under physics and
+verifies that a closed gripper prevents success, then opens the gripper and
+requires a settled success reset. It validates task physics and scoring, not
+policy grasping. Add `--video-dir outputs/syringe-demo` for camera recordings, or
+`--visualizer kit` for interactive inspection.
+
+The zero-action cluttered experiment remains available for scene inspection:
+
+```bash
+python isaaclab_arena/evaluation/experiment_runner.py \
+  --experiment_config isaaclab_arena_environments/isaac_cap/syringe_sort/experiment_configs/cluttered_zero_action_experiment.yaml \
+  --viz kit
+```

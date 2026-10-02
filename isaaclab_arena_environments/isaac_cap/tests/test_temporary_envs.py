@@ -26,6 +26,29 @@ _TOOL_SORT_DEMO_SCRIPT = (
 _TOOL_HANGING_DEMO_SCRIPT = (
     f"{TestConstants.arena_environments_dir}/isaac_cap/tool_hanging/tool_hanging_env_behaviour_demo.py"
 )
+_SYRINGE_DEMO_SCRIPT = f"{TestConstants.arena_environments_dir}/isaac_cap/syringe_sort/syringe_env_behaviour_demo.py"
+
+
+@pytest.mark.parametrize("variant", ("single", "both", "designated", "cluttered"))
+def test_syringe_behaviour_demo(variant: str) -> None:
+    """Dispose of each variant's scored syringes and require release before reset."""
+    result = run_subprocess(
+        [
+            TestConstants.python_path,
+            _SYRINGE_DEMO_SCRIPT,
+            "--variant",
+            variant,
+            "--cycles",
+            "1",
+            "--no-real-time",
+            "--visualizer",
+            "none",
+        ],
+        capture_output=True,
+        timeout_sec=900,
+    )
+    assert result is not None
+    assert "[syringe-validation] cycle 1: success reset observed" in result.stdout, result.stdout + result.stderr
 
 
 @pytest.mark.parametrize("variant", ("easy", "medium"))

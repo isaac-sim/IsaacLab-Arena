@@ -5,7 +5,7 @@
 
 shared:
   environment:
-    type: syringe_cluttered_newton
+    type: syringe_designated_newton
     enable_cameras: true
     episode_length_s: null
   environment_builder:
@@ -30,4 +30,4 @@ shared:
   rollout_limit:
     num_episodes: 1
 runs:
-  cluttered: {}
+  designated: {}

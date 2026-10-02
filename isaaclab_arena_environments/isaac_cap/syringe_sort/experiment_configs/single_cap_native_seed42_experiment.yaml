@@ -3,15 +3,19 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+# Replay CAP's actual seed-42 reset poses. Placement solver revisions can select
+# different layouts from the same seed; cached poses make the comparison exact.
 shared:
   environment:
-    type: syringe_cluttered_newton
+    type: syringe_single_newton
     enable_cameras: true
     episode_length_s: null
   environment_builder:
     num_envs: 1
+    seed: 42
     solve_relations: true
-    placement_seed: 42
+    placement_seed: null
+    placement_layouts_path: isaaclab_arena_environments/isaac_cap/syringe_sort/experiment_configs/single_cap_native_seed42_layout.jsonl
   policy:
     type: cap_remote
     host: 127.0.0.1
@@ -30,4 +34,4 @@ shared:
   rollout_limit:
     num_episodes: 1
 runs:
-  cluttered: {}
+  single: {}

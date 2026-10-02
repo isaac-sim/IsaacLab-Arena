@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 external_yaml: syringe_env_config.yaml
-env_name: syringe_cluttered_newton
+env_name: syringe_designated_newton
 embodiment:
   id: fr3
   registry_name: industrial_fr3_robotiq_2f85
@@ -53,25 +53,9 @@ objects:
   params:
     instance_name: syringe_0
 - id: syringe_1
-  registry_name: syringe
+  registry_name: syringe_blank
   params:
     instance_name: syringe_1
-- id: syringe_2
-  registry_name: syringe
-  params:
-    instance_name: syringe_2
-- id: syringe_3
-  registry_name: syringe
-  params:
-    instance_name: syringe_3
-- id: syringe_4
-  registry_name: syringe
-  params:
-    instance_name: syringe_4
-- id: syringe_5
-  registry_name: syringe
-  params:
-    instance_name: syringe_5
 object_references:
 - id: table
   parent_id: background
@@ -125,50 +109,16 @@ relations:
   params:
     clearance_m: 0.0
     edge_margin_m: 0.01
-- kind: 'on'
-  subject: syringe_2
-  reference: instrument_tray
-  params:
-    clearance_m: 0.0
-    edge_margin_m: 0.01
-- kind: 'on'
-  subject: syringe_3
-  reference: instrument_tray
-  params:
-    clearance_m: 0.03
-    edge_margin_m: 0.01
-- kind: 'on'
-  subject: syringe_4
-  reference: instrument_tray
-  params:
-    clearance_m: 0.03
-    edge_margin_m: 0.01
-- kind: 'on'
-  subject: syringe_5
-  reference: instrument_tray
-  params:
-    clearance_m: 0.03
-    edge_margin_m: 0.01
 task:
   composition: atomic
-  description: pick up all six syringes from the cluttered instrument tray and drop
-    each through the hole in the yellow sharps disposal box
+  description: pick up the syringe with the red cap from the instrument tray and drop
+    it through the hole in the yellow sharps disposal box
   subtasks:
   - kind: SyringeSortTask
     params:
       object_list:
       - syringe_0
-      - syringe_1
-      - syringe_2
-      - syringe_3
-      - syringe_4
-      - syringe_5
       region_list:
-      - sharps_container
-      - sharps_container
-      - sharps_container
-      - sharps_container
-      - sharps_container
       - sharps_container
       bounds_xyzxyz:
       - - 0.053
@@ -177,35 +127,5 @@ task:
         - 0.142
         - -0.0395
         - 0.134
-      - - 0.053
-        - -0.2055
-        - -0.016
-        - 0.142
-        - -0.0395
-        - 0.134
-      - - 0.053
-        - -0.2055
-        - -0.016
-        - 0.142
-        - -0.0395
-        - 0.134
-      - - 0.053
-        - -0.2055
-        - -0.016
-        - 0.142
-        - -0.0395
-        - 0.134
-      - - 0.053
-        - -0.2055
-        - -0.016
-        - 0.142
-        - -0.0395
-        - 0.134
-      - - 0.053
-        - -0.2055
-        - -0.016
-        - 0.142
-        - -0.0395
-        - 0.134
       consecutive_success_steps: 50
-      episode_length_s: 1368.0
+      episode_length_s: 228.0

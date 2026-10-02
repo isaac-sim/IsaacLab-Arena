@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import gymnasium as gym
+import math
 import numpy as np
 import socket
 import struct
@@ -42,9 +43,22 @@ class CapPolicyCfg(PolicyCfg):
     port: int = 9000
     connect_timeout_s: float = 180.0
     io_timeout_s: float = 180.0
+    startup_render_steps: int = 5
+    """Additional renders before connecting; use zero when environment reset refreshes cameras."""
     settle_s: float = 2.0
     robot_profile: str = _CAP_ROBOT_FR3
     camera_mapping: dict[str, str] = field(default_factory=dict)
+    gripper_closed_position: float | None = None
+    """FR3 driver position used to normalize observations; otherwise use its action scale."""
+    workspace: dict[str, float] = field(
+        default_factory=lambda: {
+            "surface_z": 0.780,
+            "transport_z": 1.102,
+            "align_clearance_m": 0.12,
+            "pregrasp_standoff_m": 0.12,
+        }
+    )
+    """Task measurements in the coordinate frame expected by the selected CAP graph."""
 
 
 @register_policy
@@ -58,6 +72,11 @@ class CapPolicy(PolicyBase[CapPolicyCfg]):
         super().__init__(config)
         if config.robot_profile not in (_CAP_ROBOT_FR3, _CAP_ROBOT_YAM_BIMANUAL):
             raise ValueError(f"Unsupported CAP robot profile: {config.robot_profile}")
+        assert config.gripper_closed_position is None or (
+            math.isfinite(config.gripper_closed_position) and config.gripper_closed_position > 0
+        ), "gripper_closed_position must be positive and finite"
+        assert all(math.isfinite(value) for value in config.workspace.values()), "Workspace values must be finite"
+        assert config.startup_render_steps >= 0, "startup_render_steps must be nonnegative"
         # Optional client dependencies must not prevent environment-only use.
         import msgpack
         import msgpack_numpy
@@ -164,12 +183,14 @@ class CapPolicy(PolicyBase[CapPolicyCfg]):
         return bool(value)
 
     @staticmethod
-    def _fr3_hold_action(env: ManagerBasedRLEnv) -> torch.Tensor:
+    def _fr3_hold_action(env: ManagerBasedRLEnv, gripper_closed_position: float | None = None) -> torch.Tensor:
         robot = env.scene["robot"]
         names = list(robot.joint_names)
         joints = robot.data.joint_pos.torch[0]
         arm = joints[[names.index(f"fr3_joint{i}") for i in range(1, 8)]]
-        scale = env.action_manager.get_term("gripper_action").cfg.scale
+        scale = gripper_closed_position
+        if scale is None:
+            scale = env.action_manager.get_term("gripper_action").cfg.scale
         closed = torch.clamp(joints[names.index("left_driver_joint")] / scale, 0, 1)
         return torch.cat((arm, closed.reshape(1))).clone()
 
@@ -191,7 +212,7 @@ class CapPolicy(PolicyBase[CapPolicyCfg]):
         if self.config.robot_profile == _CAP_ROBOT_YAM_BIMANUAL:
             return self._yam_hold_action(env)
         elif self.config.robot_profile == _CAP_ROBOT_FR3:
-            return self._fr3_hold_action(env)
+            return self._fr3_hold_action(env, self.config.gripper_closed_position)
         else:
             raise ValueError(f"Unsupported CAP robot profile: {self.config.robot_profile}")
 
@@ -221,12 +242,7 @@ class CapPolicy(PolicyBase[CapPolicyCfg]):
                 "timestamp": time.time(),
                 "left": {"joint_pos": [*action[:7].cpu().tolist(), 1 - float(action[7])]},
                 "_isaac_cap": {
-                    "workspace": {
-                        "surface_z": 0.780,
-                        "transport_z": 1.102,
-                        "align_clearance_m": 0.12,
-                        "pregrasp_standoff_m": 0.12,
-                    },
+                    "workspace": dict(self.config.workspace),
                     "gripper": {"tip_reach_m": self._tip_reach(env.scene["robot"])},
                 },
             }
@@ -286,9 +302,10 @@ class CapPolicy(PolicyBase[CapPolicyCfg]):
         if not self._finished:
             if self._socket is None:
                 # Refresh RTX buffers after the episode reset before CAP sees them.
-                for _ in range(5):
+                for _ in range(self.config.startup_render_steps):
                     env.sim.render()
-                env.scene.update(0.0)
+                if self.config.startup_render_steps:
+                    env.scene.update(0.0)
                 print(
                     f"[CapPolicy] Environment ready; waiting for GaP at {self.config.host}:{self.config.port}",
                     flush=True,
