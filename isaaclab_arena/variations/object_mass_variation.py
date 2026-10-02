@@ -19,7 +19,6 @@ import warp as wp
 from isaaclab.managers import EventTermCfg, ManagerTermBase, SceneEntityCfg
 from isaaclab.utils.configclass import configclass
 
-from isaaclab_arena.agentic_environment_generation.authoring_metadata import AuthoringMetadata, ParameterMetadata
 from isaaclab_arena.variations.continuous_sampler import ContinuousSampler
 from isaaclab_arena.variations.uniform_sampler import UniformSamplerCfg
 from isaaclab_arena.variations.variation_base import RunTimeVariationBase, VariationBaseCfg
@@ -58,18 +57,6 @@ class ObjectMassVariation(RunTimeVariationBase):
     """
 
     cfg: ObjectMassVariationCfg
-
-    authoring_metadata = AuthoringMetadata(
-        configuration={
-            "sampler_cfg.low": ParameterMetadata(units="kg", minimum=_MIN_PHYSICAL_MASS_KG),
-            "sampler_cfg.high": ParameterMetadata(units="kg", minimum=_MIN_PHYSICAL_MASS_KG),
-        },
-        constraints=("Supports one rigid body; inertia scaling assumes unchanged geometry and uniform density.",),
-        reset_semantics=(
-            "One absolute mass per resetting environment; inertia scales from its nominal value "
-            "when recompute_inertia is enabled."
-        ),
-    )
 
     def __init__(
         self,

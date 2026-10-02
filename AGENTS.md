@@ -42,23 +42,29 @@ Lint and format tooling (`pre-commit` and the hooks it runs — black, flake8, i
 - `osmo/` — OSMO policy-runner workflow
 - `docs/` — Sphinx documentation
 
-## Discover existing authoring features
+## Authoring tasks
 
-Read [the authoring guide](docs/pages/concepts/agentic_environment_generation/authoring_discovery.rst)
-before adding a factory, task or variation. In the clone's container:
+Before adding an environment, task, or variation, check existing authoring surfaces first:
 
-```bash
-/isaac-sim/python.sh isaaclab_arena_examples/agentic_environment_generation/cli_runner.py --mode catalog --format json
-/isaac-sim/python.sh isaaclab_arena_examples/agentic_environment_generation/cli_runner.py --mode schema
-/isaac-sim/python.sh isaaclab_arena_examples/agentic_environment_generation/cli_runner.py --mode validate --format json --env_spec <graph.yaml>
-```
+- Experiments and registered or graph-backed environments:
+  [Arena Experiments](docs/pages/concepts/concept_arena_experiments.rst).
+- Ordered workflows: reuse `CompositeTaskBase` and the
+  [composite task guide](docs/pages/concepts/task/concept_composite_tasks_design.rst).
+- Success, dwell, and ordered predicates: use the
+  [progress tracking guide](docs/pages/concepts/task/concept_progress_tracking_design.rst).
+- Randomization: use existing attached variations and the
+  [variations guide](docs/pages/concepts/variations/variations.rst).
 
-Prefer configuring a registered environment, then composing a graph, before writing a Python factory.
-Match the graph schema to the required options; constructor metadata does not expand graph support.
-Experiment Definitions accept graph YAML paths directly as `environment.type`, without a custom runner.
-Catalogue/schema/validation do not construct assets or start SimulationApp. For attached variations,
-use the existing runner's `--list_variations --variations_format json --variations_output <file.json>`;
-that inspection starts SimulationApp, so parse the separate file rather than simulator console output.
+Graph generation and Python task support have different boundaries. The graph
+catalogue intentionally exposes only `@agent_ready` tasks; a registered Python
+task may still be supported through `isaaclab_arena/tasks/task_library.py` even
+when it is absent from graph-generation catalogues. Prefer configuring a
+registered environment or graph YAML before adding a factory. When sequencing
+children that share assets, remember that every child reset event executes at
+episode reset, not at stage activation. Align `reset_openness` across open/close
+children that touch the same door because their defaults differ. Verify the
+final-state requirements for the combined task. Use `--viz none` for headless
+execution. Do not add `--headless`: that obsolete flag is rejected by Arena.
 
 ## Coding style
 

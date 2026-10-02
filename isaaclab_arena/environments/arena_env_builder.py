@@ -187,12 +187,6 @@ class ArenaEnvBuilder:
             scene_and_embodiment_variations[self.arena_env.embodiment.name] = embodiment_variations
         return scene_and_embodiment_variations
 
-    def get_variations_catalogue_as_dict(self) -> dict[str, Any]:
-        """Describe effective variation configuration and override paths without sampling."""
-        return variations_printing.get_variations_catalogue_as_dict(
-            self.get_all_variations(), hydra_overrides=self.hydra_overrides
-        )
-
     def get_variations_catalogue_as_string(self) -> str:
         """Return a human-readable catalog of Hydra-configurable variations for this env."""
         variations: dict[str, list[VariationBase]] = self.get_all_variations()

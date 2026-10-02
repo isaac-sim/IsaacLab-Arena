@@ -8,7 +8,7 @@ container:
 
 .. note::
 
-   Modes ``schema``, ``catalog``, ``validate``, ``prim_tree``, and ``build`` do not call a
+   Modes ``schema``, ``catalog``, ``prim_tree``, and ``build`` do not call a
    remote model and do not require an inference API key.
 
 .. code-block:: bash
@@ -42,10 +42,6 @@ The ``--mode`` option selects which parts of the
      - Prints the background prim tree from ``--env_spec`` and exits. It does
        not call the model or start Isaac Sim.
      - Inspects background object-reference paths.
-   * - ``validate``
-     - Runs the existing graph schema and catalogue checks on ``--env_spec``
-       without constructing assets or starting Isaac Sim.
-     - Checks graph structure, references, registry names and supported parameters.
    * - ``resolve``
      - Sends the prompt and catalogs to the agent, validates the returned spec,
        prints its graph, and writes ``<env_name>.yaml``.
@@ -89,13 +85,9 @@ These options are defined by the environment generation runner:
    * - Option
      - Purpose
      - System stage
-   * - ``--mode {full,resolve,build,schema,catalog,validate,prim_tree}``
+   * - ``--mode {full,resolve,build,schema,catalog,prim_tree}``
      - Selects the phases described above. Default: ``full``.
      - Pipeline selection
-   * - ``--format {text,json}``
-     - Output format for ``catalog`` and ``validate``. Default: ``text``.
-       See :doc:`authoring_discovery` for the machine-readable interfaces.
-     - Discovery and validation
    * - ``--prompt TEXT``
      - Natural-language environment and task description.
      - Prompt

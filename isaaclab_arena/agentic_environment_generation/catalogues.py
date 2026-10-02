@@ -7,21 +7,13 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
-from typing import Any
+import inspect
+import sys
+from dataclasses import dataclass, field
+from enum import Enum
+from typing import Any, get_args, get_type_hints
 
-from isaaclab_arena.agentic_environment_generation.authoring_metadata import (
-    accepts_extra_parameters,
-    constructor_parameters,
-    get_authoring_metadata,
-    provided_capabilities,
-)
-from isaaclab_arena.assets.registries import (
-    AssetRegistry,
-    EnvironmentRegistry,
-    ObjectRelationLibraryRegistry,
-    TaskRegistry,
-)
+from isaaclab_arena.assets.registries import AssetRegistry, ObjectRelationLibraryRegistry, TaskRegistry
 from isaaclab_arena.relations.relations import RelationBase
 
 # Constructor kwargs already expressed as top-level ArenaEnvGraphTypes fields (not as
@@ -45,10 +37,6 @@ class AssetCatalogue:
     backgrounds: list[dict[str, Any]] = field(default_factory=list)
     # A list of object names, object types, and tags for agent to choose from.
     objects: list[dict[str, Any]] = field(default_factory=list)
-
-    def to_dict(self) -> dict[str, Any]:
-        """Return machine-readable metadata without constructing registered assets."""
-        return asdict(self)
 
     def to_catalog_string(self) -> str:
         """Format this catalogue as the user-message vocabulary block."""
@@ -77,17 +65,16 @@ def build_asset_catalogue(registry: AssetRegistry | None = None) -> AssetCatalog
     # TODO(qianl): add tag to filter out validated/agent-ready assets only.
     # Classify by registry tags, not issubclass(Background/Object/EmbodimentBase): importing those
     # types pulls in pxr before SimulationApp and breaks unit tests.
-    for name in sorted(registry.get_all_keys()):
+    for name in registry.get_all_keys():
         cls = registry.get_asset_by_name(name)
         tags = getattr(cls, "tags", None) or []
         # TODO(xinjieyao): Support agentic environment generation consuming procedural assets.
         if "procedural" in tags:
             continue
-        metadata = _component_metadata(cls)
         if "embodiment" in tags:
-            catalogue.embodiments.append({"name": name, "tags": [t for t in tags if t != "embodiment"], **metadata})
+            catalogue.embodiments.append({"name": name, "tags": [t for t in tags if t != "embodiment"]})
         elif "background" in tags:
-            catalogue.backgrounds.append({"name": name, "tags": [t for t in tags if t != "background"], **metadata})
+            catalogue.backgrounds.append({"name": name, "tags": [t for t in tags if t != "background"]})
         # Only assets existed in the catalogue are exposed.
         elif "object" in tags:
             # Exposed so the agent can honour type constraints, e.g. object-set members must be rigid.
@@ -96,7 +83,6 @@ def build_asset_catalogue(registry: AssetRegistry | None = None) -> AssetCatalog
                 "name": name,
                 "tags": [t for t in tags if t != "object"],
                 "object_type": object_type.value if object_type else "unknown",
-                **metadata,
             })
     return catalogue
 
@@ -116,12 +102,6 @@ class RelationCatalogueEntry:
     optional_params: list[str]
     enum_options: dict[str, list[str]]
     summary: str
-    parameters: dict[str, dict[str, Any]] = field(default_factory=dict)
-    provides: list[str] = field(default_factory=list)
-    requires: dict[str, list[str]] = field(default_factory=dict)
-    constraints: list[str] = field(default_factory=list)
-    reset_semantics: str | None = None
-    accepts_extra_parameters: bool = False
 
 
 @dataclass
@@ -129,10 +109,6 @@ class RelationCatalogue:
     """Registered object-relation vocabulary for the agent prompt."""
 
     relations: list[RelationCatalogueEntry] = field(default_factory=list)
-
-    def to_dict(self) -> dict[str, Any]:
-        """Return machine-readable relation metadata."""
-        return asdict(self)
 
     def to_catalog_string(self) -> str:
         """Format this catalogue as the user-message RELATIONS block."""
@@ -162,8 +138,10 @@ def build_relation_catalogue(
         assert issubclass(relation_cls, RelationBase), f"{name!r} is not a RelationBase subclass"
         if not getattr(relation_cls, "agent_ready", False):
             continue
-        metadata = _component_metadata(relation_cls, _RELATION_CATALOGUE_EXCLUDED_PARAMS)
-        required_params, optional_params, enum_options = _parameter_summary(metadata["parameters"])
+        required_params, optional_params, enum_options = _collect_init_params(
+            relation_cls,
+            excluded_params=set(_RELATION_CATALOGUE_EXCLUDED_PARAMS),
+        )
         catalogue.relations.append(
             RelationCatalogueEntry(
                 name=name,
@@ -172,7 +150,6 @@ def build_relation_catalogue(
                 optional_params=optional_params,
                 enum_options=enum_options,
                 summary=_first_docstring_line(relation_cls),
-                **metadata,
             )
         )
     return catalogue
@@ -192,12 +169,6 @@ class TaskCatalogueEntry:
     optional_params: list[str]
     enum_options: dict[str, list[str]]
     summary: str
-    parameters: dict[str, dict[str, Any]] = field(default_factory=dict)
-    provides: list[str] = field(default_factory=list)
-    requires: dict[str, list[str]] = field(default_factory=dict)
-    constraints: list[str] = field(default_factory=list)
-    reset_semantics: str | None = None
-    accepts_extra_parameters: bool = False
 
 
 @dataclass
@@ -205,10 +176,6 @@ class TaskCatalogue:
     """Agent-ready task vocabulary for the agent prompt."""
 
     tasks: list[TaskCatalogueEntry] = field(default_factory=list)
-
-    def to_dict(self) -> dict[str, Any]:
-        """Return machine-readable metadata for the same agent-ready tasks."""
-        return asdict(self)
 
     def to_catalog_string(self) -> str:
         """Format this catalogue as the user-message TASKS block."""
@@ -240,8 +207,10 @@ def build_task_catalogue(registry: TaskRegistry | None = None) -> TaskCatalogue:
     catalogue = TaskCatalogue()
     for name in sorted(agent_ready_task_names(registry)):
         task_cls = registry.get_task_by_name(name)
-        metadata = _component_metadata(task_cls, _TASK_CATALOGUE_EXCLUDED_PARAMS)
-        required_params, optional_params, enum_options = _parameter_summary(metadata["parameters"])
+        required_params, optional_params, enum_options = _collect_init_params(
+            task_cls,
+            excluded_params=set(_TASK_CATALOGUE_EXCLUDED_PARAMS),
+        )
         catalogue.tasks.append(
             TaskCatalogueEntry(
                 name=name,
@@ -249,7 +218,6 @@ def build_task_catalogue(registry: TaskRegistry | None = None) -> TaskCatalogue:
                 optional_params=optional_params,
                 enum_options=enum_options,
                 summary=_first_docstring_line(task_cls),
-                **metadata,
             )
         )
     return catalogue
@@ -258,54 +226,6 @@ def build_task_catalogue(registry: TaskRegistry | None = None) -> TaskCatalogue:
 # ---------------------------------------------------------------------------
 # Shared helpers
 # ---------------------------------------------------------------------------
-
-
-def _component_metadata(component: Any, excluded: frozenset[str] = frozenset()) -> dict[str, Any]:
-    metadata = get_authoring_metadata(component)
-    parameters = constructor_parameters(component, excluded)
-    requirements = {}
-    for name, schema in parameters.items():
-        if schema.get("x-required-capabilities"):
-            requirements[name] = schema["x-required-capabilities"]
-    return {
-        "parameters": parameters,
-        "provides": provided_capabilities(component),
-        "requires": requirements,
-        "constraints": list(metadata.constraints),
-        "reset_semantics": metadata.reset_semantics,
-        "accepts_extra_parameters": accepts_extra_parameters(component),
-    }
-
-
-def build_catalogue_dict() -> dict[str, Any]:
-    """Return the live authoring catalogues as one versioned JSON-compatible mapping."""
-    return {
-        "schema_version": 1,
-        "assets": build_asset_catalogue().to_dict(),
-        "environments": build_environment_catalogue(),
-        **build_relation_catalogue().to_dict(),
-        **build_task_catalogue().to_dict(),
-    }
-
-
-def build_environment_catalogue(registry: EnvironmentRegistry | None = None) -> list[dict[str, Any]]:
-    """Describe registered environment factories and their typed configs without constructing either."""
-    registry = registry or EnvironmentRegistry()
-    entries = []
-    for name in sorted(registry.get_all_keys()):
-        factory = registry.get_component_by_name(name)
-        cfg_type = registry.get_environment_cfg_type(factory)
-        metadata = get_authoring_metadata(factory)
-        entries.append({
-            "name": name,
-            "summary": _first_docstring_line(factory),
-            "config_type": f"{cfg_type.__module__}.{cfg_type.__qualname__}",
-            "parameters": constructor_parameters(cfg_type),
-            "provides": provided_capabilities(factory),
-            "constraints": list(metadata.constraints),
-            "reset_semantics": metadata.reset_semantics,
-        })
-    return entries
 
 
 def _first_docstring_line(cls: type) -> str:
@@ -317,28 +237,51 @@ def _first_docstring_line(cls: type) -> str:
     return ""
 
 
-def _parameter_summary(
-    parameters: dict[str, dict[str, Any]],
+def _collect_init_params(
+    cls: type,
+    excluded_params: set[str],
 ) -> tuple[list[str], list[str], dict[str, list[str]]]:
-    """Derive legacy text fields from the same parameter schemas used by JSON discovery."""
-    required = [name for name, schema in parameters.items() if schema["required"]]
-    optional = [name for name, schema in parameters.items() if not schema["required"]]
-    enum_options = {}
-    for name, schema in parameters.items():
-        if options := _enum_options(schema):
-            enum_options[name] = options
+    """Collect required, optional, and Enum-valued constructor parameters."""
+    signature = inspect.signature(cls.__init__)
+    params = {
+        name: param
+        for name, param in signature.parameters.items()
+        if name != "self"
+        and name not in excluded_params
+        and param.kind not in (inspect.Parameter.VAR_POSITIONAL, inspect.Parameter.VAR_KEYWORD)
+    }
+    required = [name for name, param in params.items() if param.default is inspect.Parameter.empty]
+    optional = [name for name, param in params.items() if param.default is not inspect.Parameter.empty]
+    try:
+        type_hints = get_type_hints(cls.__init__)
+    except (NameError, TypeError):
+        module_globals = vars(sys.modules[cls.__module__])
+        type_hints = {}
+        for name, param in params.items():
+            type_hints[name] = _resolve_annotation(param.annotation, module_globals)
+    enum_options = {
+        name: [str(member.value) for member in enum_type]
+        for name, annotation in type_hints.items()
+        if name in params and (enum_type := _find_enum_type(annotation)) is not None
+    }
     return required, optional, enum_options
 
 
-def _enum_options(schema: dict[str, Any]) -> list[str]:
-    """Return the first finite choice set, including optional and collection parameters."""
-    if "enum" in schema:
-        return [str(value) for value in schema["enum"]]
-    children = schema.get("anyOf", []) + schema.get("prefixItems", [])
-    for key in ("items", "additionalProperties"):
-        if isinstance(schema.get(key), dict):
-            children.append(schema[key])
-    for child in children:
-        if options := _enum_options(child):
-            return options
-    return []
+def _find_enum_type(annotation: Any) -> type[Enum] | None:
+    """Return the Enum type contained in an annotation, including union annotations."""
+    if isinstance(annotation, type) and issubclass(annotation, Enum):
+        return annotation
+    for argument in get_args(annotation):
+        if (enum_type := _find_enum_type(argument)) is not None:
+            return enum_type
+    return None
+
+
+def _resolve_annotation(annotation: Any, module_globals: dict[str, Any]) -> Any:
+    """Resolve one trusted internal string annotation when its names are available."""
+    if not isinstance(annotation, str):
+        return annotation
+    try:
+        return eval(annotation, module_globals)  # noqa: S307 — trusted internal annotations
+    except (NameError, SyntaxError, TypeError):
+        return annotation

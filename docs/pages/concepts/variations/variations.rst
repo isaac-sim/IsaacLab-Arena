@@ -152,29 +152,6 @@ each run's environment:
      --list_variations \
      --experiment_config isaaclab_arena_environments/experiment_configs/droid_pnp_variations_experiment.yaml
 
-Machine-readable discovery
---------------------------
-
-Both runners accept ``--variations_format json`` and ``--variations_output`` with
-``--list_variations``. The output file contains only the catalogue, separate from
-simulation console logs:
-
-.. code-block:: bash
-
-   python isaaclab_arena/evaluation/experiment_runner.py --viz none \
-     --experiment_config isaaclab_arena_environments/experiment_configs/droid_pnp_variations_experiment.yaml \
-     --list_variations --variations_format json --variations_output /tmp/variations.json
-
-The versioned JSON describes exact enable and override paths, build/reset timing,
-field types, initial values, effective overrides, and any declared units or reset
-semantics. Inspection constructs the environment definition under SimulationApp
-but does not sample variations or execute a rollout. It preserves the live
-configuration. The default text format remains available.
-
-Use these paths in a Run's ``variations`` mapping. For mass variations, bounds
-are absolute kilograms; they are not multipliers of a native USD mass. Discovery
-describes declared configuration and does not measure physical asset properties.
-
 .. _available-variations:
 
 Available variations

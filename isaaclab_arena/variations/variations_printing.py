@@ -3,15 +3,13 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Describe an environment's Hydra-configurable variations as text or JSON data."""
+"""Human-readable printing of an environment's Hydra-configurable variations."""
 
 from __future__ import annotations
 
-from dataclasses import asdict, fields, is_dataclass
-from enum import Enum
-from typing import TYPE_CHECKING, Any, get_type_hints
+from dataclasses import fields, is_dataclass
+from typing import TYPE_CHECKING, Any
 
-from isaaclab_arena.agentic_environment_generation.authoring_metadata import annotation_schema, get_authoring_metadata
 from isaaclab_arena.variations import variations_hydra
 from isaaclab_arena.variations.variation_base import BuildTimeVariationBase, RunTimeVariationBase
 
@@ -22,91 +20,6 @@ if TYPE_CHECKING:
 _EMPTY_MESSAGE = "No variations attached to this environment.\n"
 # Shown under an asset header when that asset has no variations.
 _NO_ASSET_VARIATIONS = "  (no variations)"
-
-
-def get_variations_catalogue_as_dict(
-    variations: dict[str, list[VariationBase]],
-    *,
-    hydra_overrides: list[str] | None = None,
-) -> dict[str, Any]:
-    """Describe exact variation paths and effective configuration as JSON data.
-
-    Args:
-        variations: Attached variations from the environment's existing traversal.
-        hydra_overrides: Overrides to reflect without mutating or sampling the variations.
-
-    Returns:
-        A versioned catalogue with one entry per variation, including declared field types,
-        pre-override defaults, effective values, and optional class-local semantic metadata.
-    """
-    resolved = variations_hydra.compose_variations_cfg_and_apply_overrides(variations, hydra_overrides or [])
-    entries = []
-    for asset_name in sorted(variations):
-        for variation in sorted(variations[asset_name], key=lambda item: item.name):
-            path = f"{asset_name}.{variation.name}"
-            effective_cfg = getattr(getattr(resolved, asset_name), variation.name)
-            metadata = get_authoring_metadata(type(variation))
-            fields_by_path = _configuration_fields(path, variation.cfg, effective_cfg)
-            for relative_path, declaration in metadata.configuration.items():
-                field_path = f"{path}.{relative_path}"
-                if field_path not in fields_by_path and relative_path.startswith("sampler_cfg."):
-                    # A custom sampler may replace the default distribution's low/high fields.
-                    continue
-                assert field_path in fields_by_path, f"Unknown authoring configuration path: {field_path}"
-                for key, value in asdict(declaration).items():
-                    if value is not None:
-                        field_schema = fields_by_path[field_path]
-                        if key in ("minimum", "maximum") and field_schema.get("type") == "array":
-                            field_schema = field_schema.setdefault("items", {})
-                        field_schema[{"units": "x-units", "reference": "x-arena-reference"}.get(key, key)] = value
-            entries.append({
-                "path": path,
-                "asset": asset_name,
-                "name": variation.name,
-                "class": type(variation).__name__,
-                "timing": _get_build_or_run_time_string(variation),
-                "enabled": bool(effective_cfg.enabled),
-                "enable_path": f"{path}.enabled",
-                "effective_config": _json_configuration(effective_cfg),
-                "fields": fields_by_path,
-                "constraints": list(metadata.constraints),
-                "reset_semantics": metadata.reset_semantics,
-            })
-    return {"schema_version": 1, "variations": entries}
-
-
-def _configuration_fields(prefix: str, initial: Any, effective: Any) -> dict[str, dict[str, Any]]:
-    result = {}
-    try:
-        hints = get_type_hints(type(effective))
-    except (NameError, TypeError):
-        hints = {}
-    for cfg_field in fields(effective):
-        name = cfg_field.name
-        path = f"{prefix}.{name}"
-        value = getattr(effective, name)
-        default = getattr(initial, name)
-        if is_dataclass(value) and not isinstance(value, type):
-            result.update(_configuration_fields(path, default, value))
-        else:
-            result[path] = {
-                **annotation_schema(hints.get(name, cfg_field.type)),
-                "default": _json_configuration(default),
-                "value": _json_configuration(value),
-            }
-    return result
-
-
-def _json_configuration(value: Any) -> Any:
-    if is_dataclass(value) and not isinstance(value, type):
-        return {cfg_field.name: _json_configuration(getattr(value, cfg_field.name)) for cfg_field in fields(value)}
-    if isinstance(value, Enum):
-        return value.value
-    if isinstance(value, (tuple, list)):
-        return [_json_configuration(item) for item in value]
-    if isinstance(value, dict):
-        return {key: _json_configuration(item) for key, item in value.items()}
-    return value
 
 
 def get_variations_catalogue_as_string(
