@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -19,7 +19,7 @@ class ReachabilityConfig:
     Pure data forwarded to the extension that builds the check (cuRobo); core placement never reads it.
     """
 
-    embodiment: EmbodimentBase | None = None
+    embodiment: EmbodimentBase | None = field(default=None, metadata={"allow_config_override": False})
     """Robot embodiment the grasps must be reachable by; the cuRobo check builds its IK solver from it."""
 
     grasp_z_offset_m: float = 0.02

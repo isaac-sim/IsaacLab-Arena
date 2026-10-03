@@ -55,7 +55,6 @@ def test_isaaclab_uv_overrides_match_submodule():
         "torch",
         "torchaudio",
         "torchvision",
-        "typing-extensions",
     }
     arena_overrides = tomllib.loads(_ARENA_PYPROJECT.read_text())["tool"]["uv"]["override-dependencies"]
     isaaclab_overrides = tomllib.loads(_ISAACLAB_PYPROJECT.read_text())["tool"]["uv"]["override-dependencies"]

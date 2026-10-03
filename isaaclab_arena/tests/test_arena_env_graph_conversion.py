@@ -28,14 +28,15 @@ TEST_DATA_DIR = Path(__file__).parent / "test_data"
 
 
 def _test_arena_env_graph_conversion_builds_sequential_pick_and_place_task(simulation_app):
+    from isaaclab_arena.tasks.composite_task_base import CompositeTaskBase
     from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
-    from isaaclab_arena.tasks.sequential_task_base import SequentialTaskBase
 
     spec = ArenaEnvGraphSpec.from_yaml(TEST_DATA_DIR / "pick_and_place_maple_table_env_graph.yaml")
     arena_env = spec.to_arena_env()
 
     assert arena_env.name == "pick_and_place_maple_table_default"
-    assert isinstance(arena_env.task, SequentialTaskBase)
+    assert isinstance(arena_env.task, CompositeTaskBase)
+    assert arena_env.task.subtasks_are_sequential is True
     assert arena_env.task.desired_subtask_success_state is None
     assert len(arena_env.task.subtasks) == 2
     assert all(isinstance(subtask, PickAndPlaceTask) for subtask in arena_env.task.subtasks)
@@ -246,3 +247,34 @@ def test_direction_variation_lights_injected_directional_light():
 
     result = run_function_with_persistent_simulation_app(_test_direction_variation_lights_injected_directional_light)
     assert result
+
+
+def _test_graph_parses_asset_poses(simulation_app):
+    from isaaclab_arena.assets.registries import AssetRegistry
+    from isaaclab_arena.utils.pose import Pose
+
+    spec = ArenaEnvGraphSpec.from_yaml(TEST_DATA_DIR / "pick_and_place_maple_table_env_graph.yaml")
+    posed_assets = [spec.embodiment, *spec.objects]
+    for asset_spec in posed_assets:
+        asset_spec.params["initial_pose"] = {"position_xyz": [0.1, 0.2, 0.8]}
+    serialized = spec.to_dict()
+    arena_env = spec.to_arena_env()
+
+    # Every posed constructor receives Pose, while the reusable graph retains YAML mappings.
+    expected = Pose(position_xyz=(0.1, 0.2, 0.8))
+    assert isinstance(arena_env.embodiment.get_initial_pose(), Pose)
+    assert arena_env.embodiment.get_initial_pose() == expected
+    for obj in spec.objects:
+        asset = arena_env.scene.assets[obj.id]
+        assert asset.get_initial_pose() == expected
+        assert obj.resolve_usd_path() == asset.usd_path
+        direct = AssetRegistry().get_asset_by_name(obj.registry_name)(initial_pose=expected)
+        assert direct.get_initial_pose() == expected
+    assert spec.to_dict() == serialized
+    return True
+
+
+def test_graph_parses_asset_poses():
+    from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
+
+    assert run_function_with_persistent_simulation_app(_test_graph_parses_asset_poses)

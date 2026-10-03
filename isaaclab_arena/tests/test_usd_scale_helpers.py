@@ -30,7 +30,7 @@ def _test_extract_trimesh_translated_child_nonuniform_scale(simulation_app):
 
     from pxr import Gf, Usd, UsdGeom
 
-    from isaaclab_arena.utils.usd_helpers import extract_trimesh_from_usd
+    from isaaclab_arena.utils.usd.helpers import extract_trimesh_from_usd
 
     stage = Usd.Stage.CreateInMemory()
     root = stage.DefinePrim("/root", "Xform")
@@ -105,7 +105,7 @@ def _test_extract_trimesh_from_prim_scales_in_root_frame(simulation_app):
     """extract_trimesh_from_prim applies parent scale in the referenced prim frame."""
     from pxr import Gf, Usd, UsdGeom
 
-    from isaaclab_arena.utils.usd_helpers import extract_trimesh_from_prim
+    from isaaclab_arena.utils.usd.helpers import extract_trimesh_from_prim
 
     stage = Usd.Stage.CreateInMemory()
     root_xform = UsdGeom.Xform.Define(stage, "/root")
@@ -175,7 +175,7 @@ def _test_extract_trimesh_from_prim_keeps_mesh_with_unsupported_geometry(simulat
     """extract_trimesh_from_prim keeps extracted meshes when analytic geometry is present."""
     from pxr import Gf, Usd, UsdGeom
 
-    from isaaclab_arena.utils.usd_helpers import extract_trimesh_from_prim
+    from isaaclab_arena.utils.usd.helpers import extract_trimesh_from_prim
 
     stage = Usd.Stage.CreateInMemory()
     root = stage.DefinePrim("/root", "Xform")
@@ -201,7 +201,7 @@ def _test_extract_trimesh_from_prim_rejects_analytic_only_geometry(simulation_ap
     """extract_trimesh_from_prim rejects geometry with no mesh subset."""
     from pxr import Usd, UsdGeom
 
-    from isaaclab_arena.utils.usd_helpers import UnsupportedCollisionGeometryError, extract_trimesh_from_prim
+    from isaaclab_arena.utils.usd.helpers import UnsupportedCollisionGeometryError, extract_trimesh_from_prim
 
     stage = Usd.Stage.CreateInMemory()
     root = stage.DefinePrim("/root", "Xform")
@@ -218,7 +218,7 @@ def _test_extract_trimesh_from_usd_keeps_mesh_with_unsupported_geometry(simulati
     """extract_trimesh_from_usd keeps extracted meshes when analytic geometry is present."""
     from pxr import Gf, Usd, UsdGeom
 
-    from isaaclab_arena.utils.usd_helpers import extract_trimesh_from_usd
+    from isaaclab_arena.utils.usd.helpers import extract_trimesh_from_usd
 
     stage = Usd.Stage.CreateInMemory()
     root = stage.DefinePrim("/root", "Xform")
@@ -250,7 +250,7 @@ def _test_extract_trimesh_from_usd_rejects_analytic_only_geometry(simulation_app
 
     from pxr import Usd, UsdGeom
 
-    from isaaclab_arena.utils.usd_helpers import UnsupportedCollisionGeometryError, extract_trimesh_from_usd
+    from isaaclab_arena.utils.usd.helpers import UnsupportedCollisionGeometryError, extract_trimesh_from_usd
 
     stage = Usd.Stage.CreateInMemory()
     root = stage.DefinePrim("/root", "Xform")
@@ -273,7 +273,7 @@ def _test_bbox_translated_child_nonuniform_scale(simulation_app):
 
     from pxr import Gf, Usd, UsdGeom
 
-    from isaaclab_arena.utils.usd_helpers import compute_local_bounding_box_from_usd
+    from isaaclab_arena.utils.usd.helpers import compute_local_bounding_box_from_usd
 
     stage = Usd.Stage.CreateInMemory()
     root = stage.DefinePrim("/root", "Xform")
@@ -349,7 +349,7 @@ def _test_both_paths_agree_origin_prim(simulation_app):
 
     from pxr import Gf, Usd, UsdGeom
 
-    from isaaclab_arena.utils.usd_helpers import compute_local_bounding_box_from_usd, extract_trimesh_from_usd
+    from isaaclab_arena.utils.usd.helpers import compute_local_bounding_box_from_usd, extract_trimesh_from_usd
 
     stage = Usd.Stage.CreateInMemory()
     root = stage.DefinePrim("/root", "Xform")

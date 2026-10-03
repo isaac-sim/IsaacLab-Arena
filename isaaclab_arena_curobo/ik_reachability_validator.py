@@ -17,11 +17,12 @@ from __future__ import annotations
 import torch
 from typing import TYPE_CHECKING
 
+from isaaclab_arena.relations.placement_candidate_batch import PlacementCandidateBatch
 from isaaclab_arena.relations.placement_events import get_base_rotation_per_asset
-from isaaclab_arena.relations.placement_validation import PlacementCheck
-from isaaclab_arena.relations.placement_validator_registry import register_validator
-from isaaclab_arena.relations.placement_validators import PlacementValidator
 from isaaclab_arena.relations.relations import RequiresReachability, get_anchor_objects
+from isaaclab_arena.relations.validation.pre_physics import PrePhysicsPlacementValidator
+from isaaclab_arena.relations.validation.registry import register_validator
+from isaaclab_arena.relations.validation.types import PlacementCheck
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.yaw import rotate_quat_by_yaw, yaw_from_quat_xyzw
 from isaaclab_arena_curobo.embodiment_curobo_registry import get_embodiment_curobo_cfg
@@ -41,7 +42,6 @@ if TYPE_CHECKING:
     from isaaclab_arena.relations.collision_object import CollisionObject
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
     from isaaclab_arena.relations.placement_visualizer import PlacementRerunVisualizer
-    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
     from isaaclab_arena_curobo.reachability_visualizer import ReachabilityRerunLayer
 
 
@@ -64,7 +64,7 @@ def get_object_world_pose_from_layout(
 
 
 @register_validator
-class ReachabilityValidator(PlacementValidator):
+class ReachabilityValidator(PrePhysicsPlacementValidator):
     """Build-time placement gate: the robot can reach a top-down grasp at the target objects (cuRobo IK).
     Can be delisted (see ``is_available``) when the params carry no embodiment with a registered cuRobo config.
     """
@@ -112,15 +112,10 @@ class ReachabilityValidator(PlacementValidator):
             return False
         return True
 
-    def validate_batch(
-        self,
-        positions: list[dict[ObjectBase, tuple[float, float, float]]],
-        orientations: list[dict[ObjectBase, float]],
-        bboxes: list[dict[ObjectBase, AxisAlignedBoundingBox]],
-        collision_objects: list[CollisionObject],
-    ) -> list[bool]:
+    def validate_batch(self, batch: PlacementCandidateBatch, collision_objects: list[CollisionObject]) -> list[bool]:
         return [
-            self._validate(positions[i], orientations[i], layout_index_within_batch=i) for i in range(len(positions))
+            self._validate(candidate.positions, candidate.orientations, layout_index_within_batch=i)
+            for i, candidate in enumerate(batch.candidates)
         ]
 
     def _validate(

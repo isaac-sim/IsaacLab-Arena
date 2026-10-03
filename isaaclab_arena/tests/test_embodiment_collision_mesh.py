@@ -81,7 +81,7 @@ def _test_spawn_pose_matches_the_reset_pose(simulation_app) -> bool:
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.scene.scene import Scene
-    from isaaclab_arena.utils.usd_articulation import resolve_joint_pos_patterns
+    from isaaclab_arena.utils.usd.articulation import resolve_joint_pos_patterns
 
     franka_override = [0.0444, -0.1894, -0.1107, -2.5148, 0.0044, 2.3775, 0.6952, 0.0400, 0.0400]
     droid_override = [0.0444, -0.1894, -0.1107, -2.5148, 0.0044, 2.3775, 0.6952, 0.0400] + [0.0] * 5

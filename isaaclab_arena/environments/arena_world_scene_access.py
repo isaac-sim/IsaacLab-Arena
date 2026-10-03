@@ -19,12 +19,17 @@ from pxr import Usd, UsdGeom, UsdPhysics
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 
-def _get_representative_prim_groups(
+def get_representative_geometry_prim_groups(
     scene: InteractiveScene,
     scene_key: str,
-    geometry_prim_path: str,
 ) -> list[tuple[Usd.Prim, tuple[int, ...]]]:
-    """Return one representative prim and its cloned environments per asset variant."""
+    """Return one geometry root and its environment IDs per spawned asset variant.
+
+    Args:
+        scene: Scene containing the cloned assets.
+        scene_key: Asset key in the scene configuration.
+    """
+    geometry_prim_path = getattr(scene.cfg, scene_key).prim_path.format(ENV_REGEX_NS=scene.env_regex_ns)
     assert scene.clone_plan is not None, f"Cannot resolve geometry for scene key '{scene_key}' without a clone plan."
 
     clone_matches = tuple(cloner.query.iter_sources(scene.clone_plan, geometry_prim_path))
@@ -55,6 +60,20 @@ def _find_single_rigid_body_prim_in_subtree(root_prim: Usd.Prim, rigid_object_na
         f"{len(rigid_body_prims_in_subtree)} rigid bodies; expected exactly one."
     )
     return rigid_body_prims_in_subtree[0]
+
+
+def get_representative_rigid_body_prims(scene: InteractiveScene, scene_key: str) -> list[Usd.Prim]:
+    """Return the single rigid body of each spawned variant of a rigid object.
+
+    Args:
+        scene: Scene containing the cloned rigid objects.
+        scene_key: Key in scene.rigid_objects.
+    """
+    assert scene_key in scene.rigid_objects, f"Scene key {scene_key!r} is not a rigid object"
+    return [
+        _find_single_rigid_body_prim_in_subtree(prim, scene_key)
+        for prim, _ in get_representative_geometry_prim_groups(scene, scene_key)
+    ]
 
 
 def _compute_geometry_bounds_in_prim_frame(prim: Usd.Prim) -> AxisAlignedBoundingBox:
@@ -111,22 +130,17 @@ def compute_spawned_geometry_bounds_in_local_frame(
         valid under whole-subtree motion, but not when descendants move relative
         to frame F.
     """
-    assert scene_key in scene.rigid_objects or scene_key in scene.extras, (
-        "ArenaWorld geometry queries require a scene key registered in InteractiveScene.rigid_objects or "
-        f"InteractiveScene.extras; '{scene_key}' is registered in neither."
+    assert scene_key in scene.rigid_objects or scene_key in scene.deformable_objects or scene_key in scene.extras, (
+        "ArenaWorld geometry queries require a scene key registered in InteractiveScene.rigid_objects, "
+        f"InteractiveScene.deformable_objects, or InteractiveScene.extras; '{scene_key}' is registered in none."
     )
     is_rigid_object = scene_key in scene.rigid_objects
-    resolved_geometry_prim_path = getattr(scene.cfg, scene_key).prim_path.format(ENV_REGEX_NS=scene.env_regex_ns)
 
     minimum_points_F_by_environment = torch.empty((scene.num_envs, 3), dtype=torch.float32, device=scene.device)
     maximum_points_F_by_environment = torch.empty_like(minimum_points_F_by_environment)
     coverage_count = [0] * scene.num_envs
 
-    for representative_prim, environment_ids in _get_representative_prim_groups(
-        scene,
-        scene_key,
-        resolved_geometry_prim_path,
-    ):
+    for representative_prim, environment_ids in get_representative_geometry_prim_groups(scene, scene_key):
         local_frame_prim = (
             _find_single_rigid_body_prim_in_subtree(representative_prim, scene_key)
             if is_rigid_object
@@ -159,20 +173,31 @@ class SceneExtraPoseReader:
         self._scene_extra_key = scene_extra_key
         self._num_envs = scene.num_envs
         scene_extra_prim_path = getattr(scene.cfg, scene_extra_key).prim_path.format(ENV_REGEX_NS=scene.env_regex_ns)
+        prims = sim_utils.find_matching_prims(scene_extra_prim_path, stage=scene.stage)
+        # Reauthoring an already valid collider frame can invalidate live physics views.
+        needs_standardization = False
+        for prim in prims:
+            operations = [op.GetOpName() for op in UsdGeom.Xformable(prim).GetOrderedXformOps()]
+            if operations != ["xformOp:translate", "xformOp:orient", "xformOp:scale"]:
+                needs_standardization = True
+                break
         self._frame_view = FrameView(
             scene_extra_prim_path,
             device=scene.device,
             stage=scene.stage,
+            validate_xform_ops=needs_standardization,
         )
         # InteractiveScene creates extras before cloning. This post-clone view must cover every environment.
-        scene_extra_prim_paths = self._frame_view.prim_paths
-        assert len(scene_extra_prim_paths) == scene.num_envs, (
-            f"Scene extra '{scene_extra_key}' resolved to {len(scene_extra_prim_paths)} prims; expected"
-            f" {scene.num_envs}."
-        )
-        for environment_id, prim_path in enumerate(scene_extra_prim_paths):
+        assert (
+            self._frame_view.count == scene.num_envs
+        ), f"Scene extra '{scene_extra_key}' resolved to {self._frame_view.count} frames; expected {scene.num_envs}."
+
+        # Newton exposes no USD prim handles, so this check only verifies USD-backed
+        # views. Newton row ordering is supplied by FrameView.
+        for environment_id, prim in enumerate(self._frame_view.prims):
+            prim_path = str(prim.GetPath())
             environment_prim_path = scene.env_prim_paths[environment_id]
-            assert str(prim_path).startswith(f"{environment_prim_path}/"), (
+            assert prim_path.startswith(f"{environment_prim_path}/"), (
                 f"Scene extra '{scene_extra_key}' pose row {environment_id} belongs to '{prim_path}', "
                 f"not environment '{environment_prim_path}'."
             )

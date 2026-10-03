@@ -31,6 +31,11 @@ initial pose; in YAML, an omitted pose defaults to identity. An
 ``ObjectReference`` instead derives its pose from the referenced prim within
 its parent asset. A tabletop or counter reference is a common anchor.
 
+An anchor's fixed root rotation must be a multiple of 90 degrees about world Z,
+with no tilt. For an ``ObjectReference``, this restriction applies to its parent
+asset's pose; the referenced prim's authored rotation is already included in its
+bounds. The solver rotates these bounds into world-aligned bounds.
+
 When the support surface is part of a larger background, use an
 ``ObjectReference`` to identify that surface:
 
@@ -62,6 +67,16 @@ Most environments can be described with a small set of relations:
    support bounds. Use ``clearance_m`` to leave a vertical gap and
    ``edge_margin_m`` to keep the object away from the support edges.
 
+   Set ``overlap=True`` to allow the object to extend beyond the support:
+
+   .. code-block:: python
+
+      box.add_relation(On(table, overlap=True))
+
+   This requires overlap in both X and Y (edge contact counts), ignores
+   ``edge_margin_m``, and keeps the same height constraint. It does not guarantee
+   stable support: the object may tip or fall. The default is ``overlap=False``.
+
    ``On`` uses the top and horizontal footprint of the parent's axis-aligned
    bounding box. For L-shaped, hollow, or concave supports, anchor an
    ``ObjectReference`` that identifies the valid support surface.
@@ -72,6 +87,33 @@ Most environments can be described with a small set of relations:
    anchor collected by ``ObjectPlacer`` as a proxy. This affects only the
    starting pose; final solving and validation use each relation's actual
    parent.
+
+``ClutterOn(parent)``
+   Defines release poses above a fixed ``IsAnchor`` support. ``ObjectPlacer``
+   samples within the central fraction of the support's width and depth
+   (``spread``, default 0.2), then stacks overlapping footprints above the surface.
+   ``clearance_m`` sets the minimum surface clearance; ``gap_m`` sets the initial
+   inter-object gap, increased to the solver's collision clearance when larger.
+   Subsequent solving uses the shared collision clearance.
+
+   The ``clutter_on_relation`` check enforces the release footprint and minimum height; contact
+   is not required. Height validation allows 1 micrometre of numerical slack on
+   ``clearance_m``, but never permits penetration below the support top. The ordinary
+   ``on_relation_z_tolerance_m`` contact tolerance does not apply to clutter.
+
+   ``ObjectPlacer`` computes release poses, and normal simulation makes the objects fall. Release validation certifies the initial geometry;
+   it does not certify the final pile after physics. With explicit ``enabled_checks``
+   or ``required_checks``, include ``clutter_on_relation`` for clutter and
+   ``on_relation`` for ordinary On objects. Both are enabled by default.
+
+   ``ClutterOn`` must be the object's only spatial relation and cannot use
+   ``RandomAroundSolution``. ``RotateAroundSolution`` sets the base rotation;
+   ``random_yaw`` (default True) adds world-Z yaw while preserving its tilt.
+   Tilted clutter requires ``collision_mode="bbox"`` on the object; these bounds
+   enclose the full rotation. MESH collision checks support yaw only.
+   For pooled placement, disable ``ObjectPlacerParams.allow_best_loss_fallbacks``
+   to reject invalid layouts. Direct ``ObjectPlacer.place()`` callers must check
+   each result's ``success`` before using it.
 
 .. _next-to-relation:
 
@@ -185,8 +227,89 @@ a Boolean value.
 Collision handling is integrated into placement and is not expressed as a
 relation.
 
+Recorded Layouts
+----------------
+
+Pass the companion file to the environment builder:
+
+.. code-block:: bash
+
+   /isaac-sim/python.sh isaaclab_arena/scripts/environment_runner.py \
+       --env_spec scene.yaml --placement_layouts layouts.jsonl
+
+For a registered Python environment, place ``--placement_layouts layouts.jsonl``
+before the environment subcommand. Python callers use
+``ArenaEnvBuilderCfg(placement_layouts_path="layouts.jsonl")``. All file paths are
+relative to the working directory.
+
+A ten-layout example for ``isaaclab_arena/tests/test_data/placement_replay.yaml``
+is available in ``isaaclab_arena/tests/test_data/placement_replay.jsonl``.
+
+Each JSONL line contains one complete layout under
+``variations["scene.relation_placement"]["poses"]``. Poses use runtime scene keys
+for both YAML and Python environments. Use ``asset.get_scene_root_keys()`` to
+identify all owned physics roots. Ordinary objects use their instance names;
+single-root embodiments commonly use ``"robot"``. Compound embodiments expose
+each owned root, whose runtime name can differ from the YAML node ID.
+Positions are environment-local, in metres; rotations are xyzw quaternions.
+Every nonblank line must contain the placement block with the same object set.
+Additional episode fields are ignored; episodes without placement records cannot
+be loaded. Python callers can pass ``PlacementLayouts`` directly to
+``IsaacLabArenaEnvironment`` instead of configuring a file path.
+Supplying both is rejected.
+
+.. code-block:: python
+
+   from isaaclab_arena.relations.placement_layouts import PlacementLayouts
+
+   arena_env.placement_layouts = PlacementLayouts.from_episode_jsonl("layouts.jsonl")
+
+Set replay inputs before ``compose_manager_cfg()`` or ``make_registered()``.
+For registered Python environments, a Python runner can set
+``builder.arena_env.placement_layouts`` after obtaining the builder. Replay inputs
+are read when the environment configuration is composed.
+
+``PlacementLayouts.write_episode_jsonl(path, source=...)`` writes the same format.
+The caller supplies the source label, such as ``"solver"`` or ``"settled"``;
+the writer does not solve or simulate the poses.
+
+Resetting environments draw consecutive layouts from one shared queue, in reset
+request order. The queue wraps after its last layout. For four layouts and three
+environments, successive full resets select ``[0, 1, 2]``, then ``[3, 0, 1]``.
+A partial reset consumes only the layouts needed by those environments; other
+poses remain unchanged. Layouts can repeat across active environments after the
+queue wraps. If the environment count is a multiple of the layout count,
+repeated full resets assign the same layout to each environment. The queue covers
+all layouts across the batch; it does not guarantee that each environment visits
+every layout. Partial-reset order determines later assignments, so different
+policies may receive different per-environment sequences.
+
+Replay validates finite poses, unit quaternions, consistent object coverage and
+reset ownership. Recorded objects share one reset writer, which zeros their root
+velocities. All non-anchor objects with spatial relations must be included,
+as must a non-anchor embodiment carrying any placement relation or marker.
+Object sets, disabled pose resets, non-fixed pose-reset policies and nonzero
+initial velocities are unsupported.
+
+Replay requires ``resolve_on_reset=True``; an explicit
+``--no-resolve_on_reset`` or a false environment default is rejected. An explicit
+``placement_seed`` in the placement configuration or on the CLI is also rejected
+because layouts are read in file order.
+``--no_solve_relations`` is compatible: replay never invokes the solver.
+Placement validator settings apply only when solving; they do not revalidate a
+recorded layout or open the solver's debug viewer.
+
+Loading bypasses solving and does not rerun geometry, reachability or settling
+checks. Recordings must match the scene and robot configuration being replayed;
+disable pose-changing variations and callbacks when exact replay is required.
+
 Next Steps
 ----------
+
+See :doc:`../offline_placement/clutter` for offline settling.
+
+To generate a pose file from an existing environment, see
+:doc:`../offline_placement/recording`.
 
 Continue to :doc:`./collision_handling` to learn how Arena checks placed assets
 against one another and against fixed geometry.

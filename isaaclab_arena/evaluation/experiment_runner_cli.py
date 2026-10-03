@@ -40,7 +40,7 @@ def add_experiment_runner_arguments(parser: argparse.ArgumentParser) -> None:
         "--record_camera_video",
         action="store_true",
         default=False,
-        help="Record one mp4 per (env, camera, episode) from obs['camera_obs'] for each Run.",
+        help="Record one mp4 per (env, RGB camera, episode) from obs['camera_obs'] for each Run.",
     )
     # Keep existing Experiment Runner commands backward compatible:
     # --output_base_dir <base> writes to <base>/<timestamp>.

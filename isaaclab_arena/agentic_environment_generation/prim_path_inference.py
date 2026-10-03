@@ -23,7 +23,7 @@ from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSp
 from isaaclab_arena.environment_spec.arena_env_graph_types import ObjectReferenceSpec
 
 if TYPE_CHECKING:
-    from isaaclab_arena.utils.usd_prim_tree import UsdPrimRecord
+    from isaaclab_arena.utils.usd.prim_tree import UsdPrimRecord
 
 
 class PrimPathInference:
@@ -54,7 +54,7 @@ class PrimPathInference:
             (with error lines appended to ``traces``).
         """
         # Defer pxr import until call time to avoid conflict with SimulationApp.
-        from isaaclab_arena.utils.usd_prim_tree import load_usd_prim_tree
+        from isaaclab_arena.utils.usd.prim_tree import load_usd_prim_tree
 
         spec = _enforce_object_reference_types(spec)
         usd_path = spec.background.resolve_usd_path()

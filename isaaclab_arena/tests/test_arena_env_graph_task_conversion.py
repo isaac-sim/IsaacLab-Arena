@@ -187,13 +187,15 @@ def test_build_task_from_spec_atomic_returns_single_task(monkeypatch):
     assert built == [{"task_description": "pick up the cube"}]
 
 
-def test_build_task_from_spec_sequential_wraps_multiple_tasks(monkeypatch):
+@pytest.mark.parametrize("composition, subtasks_are_sequential", [("sequential", True), ("parallel", False)])
+def test_build_task_from_spec_composes_multiple_tasks(monkeypatch, composition, subtasks_are_sequential):
     captured: dict[str, Any] = {}
 
-    class FakeSequential:
-        def __init__(self, subtasks, task_description=None):
+    class FakeCompositeTask:
+        def __init__(self, subtasks, task_description=None, subtasks_are_sequential=False):
             captured["subtasks"] = subtasks
             captured["task_description"] = task_description
+            captured["subtasks_are_sequential"] = subtasks_are_sequential
 
     monkeypatch.setattr(
         conversion,
@@ -201,24 +203,25 @@ def test_build_task_from_spec_sequential_wraps_multiple_tasks(monkeypatch):
         lambda task_spec, _assets, task_description=None: task_spec.kind,
     )
     monkeypatch.setattr(
-        "isaaclab_arena.tasks.sequential_task_base.SequentialTaskBase",
-        FakeSequential,
+        "isaaclab_arena.tasks.composite_task_base.CompositeTaskBase",
+        FakeCompositeTask,
     )
 
     from isaaclab_arena.environment_spec.arena_env_graph_types import CompositeTaskSpec, TaskCompositionType, TaskSpec
 
     spec = CompositeTaskSpec(
-        composition=TaskCompositionType.SEQUENTIAL,
-        description="do two things in order",
+        composition=TaskCompositionType(composition),
+        description="place two objects",
         subtasks=[
             TaskSpec(kind="PickAndPlaceTask", params={}),
             TaskSpec(kind="PickAndPlaceTask", params={}),
         ],
     )
     result = conversion.build_task_from_spec(spec, {})
-    assert isinstance(result, FakeSequential)
+    assert isinstance(result, FakeCompositeTask)
     assert captured["subtasks"] == ["PickAndPlaceTask", "PickAndPlaceTask"]
-    assert captured["task_description"] == "do two things in order"
+    assert captured["task_description"] == "place two objects"
+    assert captured["subtasks_are_sequential"] is subtasks_are_sequential
 
 
 def test_build_atomic_task_from_spec_params_task_description_takes_precedence(monkeypatch):

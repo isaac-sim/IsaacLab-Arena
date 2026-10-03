@@ -7,11 +7,13 @@
 
 from __future__ import annotations
 
+import torch
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.relations.collision_mode import CollisionMode
+from isaaclab_arena.relations.placement_events import write_scene_poses_to_sim
 from isaaclab_arena.relations.relations import IsAnchor, Relation, RelationBase, RequiresReachability, UnaryRelation
 from isaaclab_arena.utils.bounding_box import quaternion_to_90_deg_z_quarters
 from isaaclab_arena.utils.pose import Pose, PosePerEnv, PoseRange
@@ -19,6 +21,7 @@ from isaaclab_arena.utils.pose import Pose, PosePerEnv, PoseRange
 if TYPE_CHECKING:
     import trimesh
 
+    from isaaclab.envs import ManagerBasedEnv
     from isaaclab.managers import EventTermCfg
 
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
@@ -122,6 +125,19 @@ class PlaceableAsset(Asset, ABC):
         """Return the resolved root pose (relation- or reference-derived) as a single ``Pose``."""
         return self._collapse_pose_to_single(self.get_initial_pose())
 
+    def get_scene_root_keys(self) -> tuple[str, ...]:
+        """Return the scene root names owned by this asset."""
+        return (self.get_scene_key(),)
+
+    def set_initial_scene_root_poses(self, poses: dict[str, PosePerEnv]) -> None:
+        """Seed measured root poses without creating a separate reset writer.
+
+        Args:
+            poses: All owned scene roots mapped to their environment-local initial poses.
+        """
+        assert set(poses) == {self.get_scene_key()}, "Compound assets must initialize each owned scene root"
+        self.set_initial_pose(poses[self.get_scene_key()], create_reset_event=False)
+
     def layout_pose_to_scene_writes(self, layout_pose: Pose) -> list[tuple[str, Pose]]:
         """Return the ``(scene entity name, env-local pose)`` writes that realize a solved layout pose.
 
@@ -130,24 +146,46 @@ class PlaceableAsset(Asset, ABC):
         """
         return [(self.get_scene_key(), layout_pose)]
 
+    def write_layout_pose_to_sim(self, env: ManagerBasedEnv, env_id: int, layout_pose: Pose) -> None:
+        """Write a solved environment-local pose to this asset's runtime scene entries."""
+        env_ids = torch.tensor([env_id], device=env.device)
+        scene_poses = {
+            name: pose.to_tensor(device=env.device).unsqueeze(0)
+            for name, pose in self.layout_pose_to_scene_writes(layout_pose)
+        }
+        write_scene_poses_to_sim(env, env_ids, scene_poses)
+
     def has_pose_reset_event(self) -> bool:
         """Return whether the asset owns a root-pose reset event."""
         return self._pose_event_cfg is not None
+
+    def clear_pose_reset_event(self) -> None:
+        """Remove the asset-owned root-pose reset event."""
+        self._pose_event_cfg = None
 
     @abstractmethod
     def get_bounding_box(self) -> AxisAlignedBoundingBox:
         """Return root-relative axis-aligned bounds."""
 
-    def get_world_bounding_box(self) -> AxisAlignedBoundingBox:
-        """Return bounds transformed by a fixed root pose with a quarter-turn Z rotation.
+    def get_bounding_box_rotation(self) -> tuple[float, float, float, float]:
+        """Return the XYZW rotation from bounding-box axes to environment axes.
 
+        Unset, ranged and per-environment poses use identity.
+        """
+        pose = self.get_initial_pose()
+        return pose.rotation_xyzw if isinstance(pose, Pose) else (0.0, 0.0, 0.0, 1.0)
+
+    def get_world_bounding_box(self) -> AxisAlignedBoundingBox:
+        """Return environment-aligned bounds at the fixed root position.
+
+        The bounding-box rotation must be a quarter-turn about Z.
         Unset, ranged, and per-environment poses leave the root-relative bounds unchanged.
         """
         bounding_box = self.get_bounding_box()
         initial_pose = self.get_initial_pose()
         if not isinstance(initial_pose, Pose):
             return bounding_box
-        quarters = quaternion_to_90_deg_z_quarters(initial_pose.rotation_xyzw)
+        quarters = quaternion_to_90_deg_z_quarters(self.get_bounding_box_rotation())
         return bounding_box.rotated_90_around_z(quarters).translated(initial_pose.position_xyz)
 
     def get_collision_mesh(self) -> trimesh.Trimesh | None:
@@ -155,3 +193,13 @@ class PlaceableAsset(Asset, ABC):
 
         Concrete (not abstract) so assets without a mesh simply keep the ``None`` default.
         """
+
+
+def get_scene_root_owners(assets: list[PlaceableAsset]) -> dict[str, PlaceableAsset]:
+    """Map every declared scene root to its unique owning asset."""
+    owners: dict[str, PlaceableAsset] = {}
+    for asset in assets:
+        for key in asset.get_scene_root_keys():
+            assert key not in owners, f"Scene root '{key}' has multiple asset owners"
+            owners[key] = asset
+    return owners

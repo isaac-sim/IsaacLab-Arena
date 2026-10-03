@@ -17,7 +17,7 @@ def _test_get_prim_pose_in_default_prim_frame(simulation_app):
     from pxr import Usd
 
     from isaaclab_arena.assets.registries import AssetRegistry
-    from isaaclab_arena.utils.usd_pose_helpers import get_prim_pose_in_default_prim_frame
+    from isaaclab_arena.utils.usd.pose import get_prim_pose_in_default_prim_frame
 
     asset_registry = AssetRegistry()
     kitchen = asset_registry.get_asset_by_name("kitchen")()

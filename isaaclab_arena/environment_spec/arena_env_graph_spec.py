@@ -17,11 +17,11 @@ from isaaclab_arena.environment_spec.arena_env_graph_types import (
     CompositeTaskSpec,
     ObjectReferenceSpec,
     ObjectSetSpec,
-    PlacementValidatorSpec,
     SpatialRelationSpec,
     TaskSpec,
 )
 from isaaclab_arena.environment_spec.arena_env_graph_yaml_loader import load_env_graph_spec_dict
+from isaaclab_arena.utils.physics_backend import PhysicsBackend
 
 if TYPE_CHECKING:
     import argparse
@@ -50,9 +50,21 @@ class ArenaEnvGraphSpec(BaseModel):
         default_factory=list, description="Spatial layout relations across all assets."
     )
     task: CompositeTaskSpec = Field(description="Root task the robot performs to manipulate the objects.")
-    placement_validators: PlacementValidatorSpec | None = Field(
+    # TODO(qianl, 2026-09-22): [env-spec-refactor] Add tags for fields excluded from agentic inference.
+    placer_params: dict[str, Any] | None = Field(
         default=None,
-        description="Per-env placement validators; none runs all build-time checks.",
+        description="Validated nested overrides for ObjectPlacerParams and its data-only child configs.",
+    )
+    env_cfg_override: dict[str, Any] | None = Field(
+        default=None,
+        description="Optional validated Hydra override for the generated Isaac Lab environment configuration.",
+    )
+    default_physics_backend: PhysicsBackend | None = Field(
+        default=None,
+        description=(
+            "Default PhysX or Newton backend when the runner omits ``--presets``. "
+            "Maps to ``IsaacLabArenaEnvironment.default_physics_backend`` (PhysX when omitted)."
+        ),
     )
     cli_override_specs: list[CliOverrideSpec] | None = Field(
         default=None, description="Optional authoring-time CLI flags that swap an asset's registry_name; usually empty."
@@ -63,6 +75,26 @@ class ArenaEnvGraphSpec(BaseModel):
     def _none_if_empty_list(cls, value: Any) -> Any:
         if value == []:
             return None
+        return value
+
+    @field_validator("placer_params")
+    @classmethod
+    def _validate_placer_params(cls, value: dict[str, Any] | None) -> dict[str, Any] | None:
+        """Dry-run placer-parameter construction to reject invalid serialized overrides."""
+        if value is None:
+            return None
+        from isaaclab_arena.environment_spec.placer_params_cfg_override import build_placer_params_from_override
+
+        build_placer_params_from_override(value)
+        return value
+
+    # TODO(qianl, 2026-09-22): [env-spec-refactor] Set extra="forbid" on ArenaEnvGraphSpec model and remove this.
+    @model_validator(mode="before")
+    @classmethod
+    def _reject_legacy_placement_validators(cls, value: Any) -> Any:
+        """Detects the removed yaml key before parsing graph spec."""
+        if isinstance(value, dict) and "placement_validators" in value:
+            raise ValueError("placement_validators was removed; put validator fields under placer_params")
         return value
 
     @model_validator(mode="after")

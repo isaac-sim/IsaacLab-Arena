@@ -23,6 +23,7 @@ from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 if TYPE_CHECKING:
     from isaaclab_arena.relations.relations import (
         AtPosition,
+        ClutterOn,
         NextTo,
         NotNextTo,
         On,
@@ -341,18 +342,21 @@ class OnLossStrategy(RelationLossStrategy):
         parent_y_max = parent_world_bbox.max_point[:, 1]
         parent_z_max = parent_world_bbox.max_point[:, 2]  # Top surface
 
-        # Compute valid position ranges such that child's entire footprint is within parent,
-        # with the parent's extent inset by edge_margin_m so the footprint stays off the rim.
-        m = relation.edge_margin_m
-        valid_x_min = parent_x_min + m - child_bbox.min_point[:, 0]  # child's left at parent's left + margin
-        valid_x_max = parent_x_max - m - child_bbox.max_point[:, 0]  # child's right at parent's right - margin
-        valid_y_min = parent_y_min + m - child_bbox.min_point[:, 1]
-        valid_y_max = parent_y_max - m - child_bbox.max_point[:, 1]
+        # Containment uses the parent's inset extent; overlap uses its original footprint.
+        # CONTAINED: c_min >= p_min + m and c_max <= p_max - m.
+        # OVERLAP: c_max >= p_min and c_min <= p_max.
+        m = 0.0 if relation.overlap else relation.edge_margin_m  # Ignore edge_margin_m when overlap=True.
+        child_min, child_max = child_bbox.min_point, child_bbox.max_point
+        if relation.overlap:
+            child_min, child_max = child_max, child_min
+        valid_x_min = parent_x_min + m - child_min[:, 0]
+        valid_x_max = parent_x_max - m - child_max[:, 0]
+        valid_y_min = parent_y_min + m - child_min[:, 1]
+        valid_y_max = parent_y_max - m - child_max[:, 1]
 
-        # The bounds invert (lower > upper) when the margin is too large for the surface or the
-        # child is oversized. The loss becomes a non-zero constant with gradient zero.
+        # For containment, infeasible bounds produce a non-zero constant loss.
 
-        # 1. X band loss: child's footprint entirely within parent's X extent
+        # 1. X band loss: child is contained by or overlaps the parent's X extent.
         x_band_loss = linear_band_loss(
             child_pos[:, 0],
             lower_bound=valid_x_min,
@@ -360,7 +364,7 @@ class OnLossStrategy(RelationLossStrategy):
             slope=self.slope,
         )
 
-        # 2. Y band loss: child's footprint entirely within parent's Y extent
+        # 2. Y band loss: child is contained by or overlaps the parent's Y extent.
         y_band_loss = linear_band_loss(
             child_pos[:, 1],
             lower_bound=valid_y_min,
@@ -389,6 +393,28 @@ class OnLossStrategy(RelationLossStrategy):
         total_loss = x_band_loss + y_band_loss + z_loss
         result = relation.relation_loss_weight * total_loss
         return result.squeeze(0) if single_input else result
+
+
+class ClutterOnLossStrategy(OnLossStrategy):
+    """Release-region containment and a lower height bound above a clutter support."""
+
+    def compute_loss(
+        self,
+        relation: ClutterOn,
+        child_pos: torch.Tensor,
+        child_bbox: AxisAlignedBoundingBox,
+        parent_world_bbox: AxisAlignedBoundingBox,
+    ) -> torch.Tensor:
+        """Return footprint and below-surface penalties, shape (N,) or scalar for one position."""
+        support = relation.get_release_region_bbox(parent_world_bbox)
+        position = child_pos.reshape(-1, 3)
+        min_z = support.max_point[:, 2] + relation.clearance_m - child_bbox.min_point[:, 2]
+        min_xy = support.min_point[:, :2] + relation.edge_margin_m - child_bbox.min_point[:, :2]
+        max_xy = support.max_point[:, :2] - relation.edge_margin_m - child_bbox.max_point[:, :2]
+        xy_loss = linear_band_loss(position[:, :2], min_xy, max_xy, slope=self.slope).sum(dim=-1)
+        z_loss = self.slope * torch.relu(min_z - position[:, 2])
+        loss = relation.relation_loss_weight * (xy_loss + z_loss)
+        return loss.squeeze(0) if child_pos.dim() == 1 else loss
 
 
 class NotNextToLossStrategy(RelationLossStrategy):

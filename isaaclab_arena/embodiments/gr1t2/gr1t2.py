@@ -14,7 +14,6 @@ import isaaclab.utils.math as PoseUtils
 import isaaclab_tasks.contrib.pick_place.mdp as mdp
 from isaaclab.actuators import ImplicitActuatorCfg
 from isaaclab.assets.articulation.articulation_cfg import ArticulationCfg
-from isaaclab.envs import ManagerBasedRLMimicEnv
 from isaaclab.envs.mdp.actions import JointPositionActionCfg
 from isaaclab.managers import EventTermCfg as EventTerm
 from isaaclab.managers import ObservationGroupCfg as ObsGroup
@@ -31,6 +30,7 @@ from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.embodiments.common.mimic_utils import get_rigid_and_articulated_object_poses
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
+from isaaclab_arena.environments.isaaclab_arena_manager_based_env import IsaacLabArenaManagerBasedRLMimicEnv
 from isaaclab_arena.terms.events import reset_all_articulation_joints
 from isaaclab_arena.utils.cameras import ArenaCameraCfg
 from isaaclab_arena.utils.pose import Pose
@@ -95,6 +95,7 @@ class GR1T2EmbodimentBase(EmbodimentBase):
         arm_mode: ArmMode | None = None,
     ):
         super().__init__(enable_cameras, initial_pose, concatenate_observation_terms, arm_mode)
+        # TODO(xinjieyao, 2026.09.17): Add a gripper implementation for the GR1 embodiment.
         # Configuration structs
         self.scene_config = GR1T2SceneCfg()
         self.observation_config = GR1T2ObservationsCfg()
@@ -409,7 +410,7 @@ class GR1T2EventCfg:
     reset_all = EventTerm(func=reset_all_articulation_joints, mode="reset")
 
 
-class GR1T2MimicEnv(ManagerBasedRLMimicEnv):
+class GR1T2MimicEnv(IsaacLabArenaManagerBasedRLMimicEnv):
     """Configuration for GR1T2 Mimic."""
 
     def get_robot_eef_pose(self, eef_name: str, env_ids: Sequence[int] | None = None) -> torch.Tensor:

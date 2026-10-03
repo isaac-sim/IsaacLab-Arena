@@ -150,21 +150,29 @@ def _test_initial_state_not_terminated(simulation_app) -> bool:
 
 
 def _test_apple_on_plate_succeeds(simulation_app) -> bool:
-    """Teleporting the apple just above the plate once should trigger success as it settles.
-
-    Single-teleport + settle pattern: the apple falls a small distance under gravity,
-    rests on the plate, and the contact force + low velocity reliably trigger the
-    termination within ``APPLE_SETTLE_STEPS``. (An earlier "re-teleport every step"
-    pattern was flaky -- it kept the apple's velocity above the velocity threshold and
-    relied on a coincidental low-velocity moment during the post-teleport bounce.)
-    """
+    """Settle and lift the apple, then place it above the plate and let it settle into success."""
 
     from isaaclab.assets import RigidObject
+
+    from isaaclab_arena.tasks.predicates.object_settling import get_object_initial_rest_state
+    from isaaclab_arena.tests.utils.pick_and_place import lift_settled_objects_once
 
     env, apple, plate = get_test_environment(num_envs=1)
 
     try:
         _step_with_standing_actions(env, WARMUP_STEPS)
+
+        base_env = env.unwrapped
+        for _ in range(APPLE_SETTLE_STEPS):
+            if get_object_initial_rest_state(base_env, apple.name)[1][0]:
+                break
+            _step_with_standing_actions(env, 1)
+        assert get_object_initial_rest_state(base_env, apple.name)[1][0], "Apple did not settle before lifting."
+
+        lifted_envs = torch.zeros(base_env.num_envs, dtype=torch.bool, device=base_env.device)
+        with torch.inference_mode():
+            lift_settled_objects_once(base_env, apple.name, lifted_envs)
+        assert not _step_with_standing_actions(env, 1)[0], "Task terminated before placement."
 
         plate_object: RigidObject = env.unwrapped.scene[plate.name]
         plate_pos_world = wp.to_torch(plate_object.data.root_pos_w)[0]
@@ -180,14 +188,14 @@ def _test_apple_on_plate_succeeds(simulation_app) -> bool:
         # settles into stable contact (or we hit APPLE_SETTLE_STEPS).
         _teleport_apple(env, apple, apple_target)
 
-        terminated_list = _step_with_standing_actions(env, APPLE_SETTLE_STEPS)
-        terminated_ever = any(terminated_list)
-
-        assert terminated_ever, (
-            "Task should terminate after apple is placed on plate; got terminated_list="
-            f"{terminated_list[:10]}... (showing first 10 of {len(terminated_list)})"
-        )
-        print(f"Success: apple-on-plate termination detected (fired at step {terminated_list.index(True)})")
+        success = False
+        for step in range(APPLE_SETTLE_STEPS):
+            terminated = _step_with_standing_actions(env, 1)[0]
+            success = bool(base_env.termination_manager.get_term("success")[0])
+            if terminated:
+                break
+        assert success, "Task did not succeed after the lifted apple was placed on the plate."
+        print(f"Success: apple-on-plate termination detected (fired at step {step})")
 
     except Exception as e:
         print(f"Error: {e}")

@@ -186,7 +186,7 @@ def _run_pick_and_place_object_set_test(
     from isaaclab_arena.assets.object_reference import ObjectReference
     from isaaclab_arena.assets.registries import AssetRegistry
     from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
-    from isaaclab_arena.utils.usd_helpers import get_asset_usd_path_from_prim_path
+    from isaaclab_arena.utils.usd.helpers import get_asset_usd_path_from_prim_path
 
     asset_registry = AssetRegistry()
     background = asset_registry.get_asset_by_name("kitchen")()
@@ -268,7 +268,7 @@ def _test_single_object_in_one_object_set(simulation_app):
     from isaaclab_arena.scene.scene import Scene
     from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
     from isaaclab_arena.utils.pose import Pose
-    from isaaclab_arena.utils.usd_helpers import get_asset_usd_path_from_prim_path
+    from isaaclab_arena.utils.usd.helpers import get_asset_usd_path_from_prim_path
 
     asset_registry = AssetRegistry()
     background = asset_registry.get_asset_by_name("kitchen")()
@@ -332,7 +332,7 @@ def _test_multi_objects_in_one_object_set(simulation_app):
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.scene.scene import Scene
     from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
-    from isaaclab_arena.utils.usd_helpers import get_asset_usd_path_from_prim_path
+    from isaaclab_arena.utils.usd.helpers import get_asset_usd_path_from_prim_path
 
     asset_registry = AssetRegistry()
     background = asset_registry.get_asset_by_name("kitchen")()
@@ -404,7 +404,7 @@ def _test_multi_object_sets(simulation_app):
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.scene.scene import Scene
-    from isaaclab_arena.utils.usd_helpers import get_asset_usd_path_from_prim_path
+    from isaaclab_arena.utils.usd.helpers import get_asset_usd_path_from_prim_path
 
     asset_registry = AssetRegistry()
     background = asset_registry.get_asset_by_name("packing_table")()

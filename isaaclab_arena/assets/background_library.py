@@ -112,6 +112,10 @@ class GalileoLocomanipBackground(LibraryBackground):
     initial_pose = Pose(position_xyz=(4.420, 1.408, -0.795), rotation_xyzw=(0.0, 0.0, 0.0, 1.0))
     object_min_z = -0.2
 
+    def __init__(self, **kwargs):
+        # NOTE: The dolly in the scene is authored as an articulation root but is not materialized as a PhysX articulation.
+        super().__init__(reset_nested_physics=False, **kwargs)
+
 
 @register_asset
 class Table(LibraryBackground):

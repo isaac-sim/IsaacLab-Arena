@@ -32,7 +32,8 @@ def test_procedural_assets_registered() -> None:
 def test_dexsuite_kuka_lift_task_matches_lift_mdp_flags() -> None:
     from isaaclab_arena.assets.registries import AssetRegistry
     from isaaclab_arena.metrics.success_rate import SuccessRateMetric
-    from isaaclab_arena.tasks.lift_object_task import DexsuiteLiftTask, DexsuiteLiftTerminationsCfg, LiftObjectTask
+    from isaaclab_arena.tasks.lift_object_task import DexsuiteLiftTask, LiftObjectTask
+    from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
     from isaaclab_arena.utils.pose import Pose, PoseRange
 
     reg = AssetRegistry()
@@ -50,5 +51,30 @@ def test_dexsuite_kuka_lift_task_matches_lift_mdp_flags() -> None:
     assert len(metrics) == 1
     assert isinstance(metrics[0], SuccessRateMetric)
     assert metrics[0].recorder_term_name == "success"
-    assert isinstance(task.termination_cfg, DexsuiteLiftTerminationsCfg)
-    assert hasattr(task.termination_cfg, "success")
+    termination_cfg = task.get_termination_cfg()
+    assert isinstance(termination_cfg, TaskTerminationCfg)
+    assert termination_cfg.timeout_s == 6.0
+    assert set(termination_cfg.failures) == {"object_out_of_bound", "abnormal_robot"}
+    objectives = termination_cfg.success
+    assert len(objectives) == 1
+
+    import torch
+    from types import SimpleNamespace
+
+    robot_pose_w = torch.tensor([
+        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0],
+        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0],
+    ])
+    object_position_w = torch.tensor([[0.0, 0.0, 0.5], [0.0, 0.0, 0.3]])
+    command_goal = torch.tensor([[0.0, 0.0, 0.5], [0.0, 0.0, 0.5]])
+    env = SimpleNamespace(
+        num_envs=2,
+        device="cpu",
+        arena_world=SimpleNamespace(
+            get_pose_w=lambda scene_key: robot_pose_w,
+            get_position_w=lambda scene_key: object_position_w,
+        ),
+        command_manager=SimpleNamespace(get_command=lambda command_name: command_goal),
+    )
+    # Dexsuite keeps its live command goal instead of inheriting the fixed IL goal.
+    torch.testing.assert_close(objectives[0].predicate_sequence[0](env), torch.tensor([True, False]))

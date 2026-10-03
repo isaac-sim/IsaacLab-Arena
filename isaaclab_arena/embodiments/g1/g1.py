@@ -15,7 +15,6 @@ import isaaclab_tasks.contrib.pick_place.mdp as mdp
 import warp as wp
 from isaaclab.actuators import IdealPDActuatorCfg
 from isaaclab.assets.articulation.articulation_cfg import ArticulationCfg
-from isaaclab.envs import ManagerBasedRLMimicEnv  # noqa: F401
 from isaaclab.managers import EventTermCfg as EventTerm
 from isaaclab.managers import ObservationGroupCfg as ObsGroup
 from isaaclab.managers import ObservationTermCfg as ObsTerm
@@ -31,6 +30,7 @@ import isaaclab_arena.terms.transforms as transforms_terms
 from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
+from isaaclab_arena.environments.isaaclab_arena_manager_based_env import IsaacLabArenaManagerBasedRLMimicEnv
 from isaaclab_arena.terms.events import reset_all_articulation_joints
 from isaaclab_arena.utils.cameras import ArenaCameraCfg
 from isaaclab_arena.utils.pose import Pose
@@ -56,6 +56,7 @@ class G1EmbodimentBase(EmbodimentBase):
         arm_mode: ArmMode | None = None,
     ):
         super().__init__(enable_cameras, initial_pose, concatenate_observation_terms, arm_mode)
+        # TODO(xinjieyao, 2026.09.17): Add a gripper implementation for the G1 embodiment.
         # Configuration structs
         self.scene_config = G1SceneCfg()
         self.camera_config = G1CameraCfg()
@@ -799,7 +800,7 @@ class G1WBCPinkEventCfg:
     apply_high_friction_to_g1_fingers: EventTerm | None = None
 
 
-class G1MimicEnv(ManagerBasedRLMimicEnv):
+class G1MimicEnv(IsaacLabArenaManagerBasedRLMimicEnv):
     """Configuration for G1 Mimic."""
 
     def get_robot_eef_pose(self, eef_name: str, env_ids: Sequence[int] | None = None) -> torch.Tensor:

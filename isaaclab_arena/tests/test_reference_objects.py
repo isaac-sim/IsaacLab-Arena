@@ -10,11 +10,13 @@ import tqdm
 import traceback
 from types import SimpleNamespace
 
+import pytest
+
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose
 
-NUM_STEPS = 50
+NUM_STEPS = 100
 HEADLESS = True
 OPEN_STEP = NUM_STEPS // 2
 
@@ -64,6 +66,33 @@ def test_object_reference_world_bbox_applies_parent_yaw():
 
     assert torch.allclose(world_bbox.min_point, torch.tensor([[7.9, 1.0, 0.0]]), atol=1e-6)
     assert torch.allclose(world_bbox.max_point, torch.tensor([[8.0, 1.2, 0.05]]), atol=1e-6)
+
+
+@pytest.mark.parametrize(
+    "parent_pose,expected_lower,expected_upper",
+    [
+        (None, (1.0, 2.0, 0.0), (2.6, 2.8, 0.1)),
+        (Pose((10.0, 0.0, 0.0), (0.0, 0.0, 2**-0.5, 2**-0.5)), (7.2, 1.0, 0.0), (8.0, 2.6, 0.1)),
+    ],
+)
+def test_reference_anchor_bounds_do_not_reapply_prim_rotation(parent_pose, expected_lower, expected_upper):
+    from isaaclab_arena.relations.bounding_box_helpers import build_per_env_bounding_boxes
+    from isaaclab_arena.relations.relations import IsAnchor
+
+    reference = _object_reference_with_cached_bbox(
+        parent_pose,
+        Pose((1.0, 2.0, 0.0), (0, 0, 0.3826834324, 0.9238795325)),
+        AxisAlignedBoundingBox((0, 0, 0), (1.6, 0.8, 0.1)),
+    )
+    reference.name = "counter"
+    reference.relations = [IsAnchor()]
+    bounds = build_per_env_bounding_boxes([reference], num_envs=2).object_bboxes[reference]
+    world_bounds = bounds.translated(reference.get_initial_pose().position_xyz)
+    torch.testing.assert_close(world_bounds.min_point, torch.tensor([expected_lower] * 2))
+    torch.testing.assert_close(world_bounds.max_point, torch.tensor([expected_upper] * 2))
+    torch.testing.assert_close(reference.get_world_bounding_box().min_point, torch.tensor([expected_lower]))
+    torch.testing.assert_close(reference.get_world_bounding_box().max_point, torch.tensor([expected_upper]))
+    assert reference.get_parent_pose() == (parent_pose if parent_pose is not None else Pose.identity())
 
 
 def test_object_reference_caches_parent_usd_prim_path(monkeypatch):
@@ -161,7 +190,7 @@ def test_object_reference_get_collision_mesh_extracts_referenced_prim(monkeypatc
 def test_object_reference_get_collision_mesh_returns_none_on_extraction_failure(monkeypatch):
     """Meshless references fall back to AABB collision instead of aborting aggregation."""
     from isaaclab_arena.assets.object_reference import ObjectReference
-    from isaaclab_arena.utils.usd_helpers import NoCollisionMeshError
+    from isaaclab_arena.utils.usd.helpers import NoCollisionMeshError
 
     calls = {"extract_count": 0}
     obj_ref = ObjectReference.__new__(ObjectReference)
@@ -207,7 +236,7 @@ def test_object_reference_get_collision_mesh_returns_none_on_extraction_failure(
 def test_object_reference_get_collision_mesh_returns_none_on_unsupported_geometry(monkeypatch):
     """Unsupported reference geometry falls back to AABB collision."""
     from isaaclab_arena.assets.object_reference import ObjectReference
-    from isaaclab_arena.utils.usd_helpers import UnsupportedCollisionGeometryError
+    from isaaclab_arena.utils.usd.helpers import UnsupportedCollisionGeometryError
 
     obj_ref = ObjectReference.__new__(ObjectReference)
     obj_ref.name = "counter"
@@ -337,6 +366,7 @@ def _test_reference_objects_with_background_pose(background_pose: Pose, tmp_path
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.scene.scene import Scene
     from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
+    from isaaclab_arena.tests.utils.pick_and_place import lift_settled_objects_once
 
     args_parser = get_isaaclab_arena_cli_parser()
     args_cli = args_parser.parse_args([])
@@ -404,10 +434,12 @@ def _test_reference_objects_with_background_pose(background_pose: Pose, tmp_path
         terminated_list: list[bool] = []
         success_list: list[bool] = []
         open_list: list[bool] = []
+        lifted_envs = torch.zeros(env.unwrapped.num_envs, dtype=torch.bool, device=env.unwrapped.device)
         for _ in tqdm.tqdm(range(NUM_STEPS)):
             with torch.inference_mode():
                 if _ == OPEN_STEP:
                     open_microwave()
+                lift_settled_objects_once(env.unwrapped, cracker_box.name, lifted_envs)
                 actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
                 _, _, terminated, _, _ = env.step(actions)
                 success = env.unwrapped.termination_manager.get_term("success")

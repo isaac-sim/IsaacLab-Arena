@@ -6,19 +6,23 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from typing import TYPE_CHECKING
 
-from isaaclab.envs import ManagerBasedRLEnv
+from isaaclab.envs import ManagerBasedRLEnv, ManagerBasedRLMimicEnv
 
 from isaaclab_arena.environments.arena_world import ArenaWorld
-from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import (
-    IsaacLabArenaManagerBasedRLEnvCfg,
-    apply_arena_global_settings,
-)
 from isaaclab_arena.metrics.metric_data import MetricsDataCollection
 from isaaclab_arena.metrics.metrics_manager import MetricsManager
 from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderManager
 from isaaclab_arena.tasks.predicates.object_settling import ObjectInitialRestPoseRecorder
 from isaaclab_arena.variations.variation_recorder import VariationRecorder
+
+if TYPE_CHECKING:
+    from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import (
+        IsaacArenaManagerBasedMimicEnvCfg,
+        IsaacLabArenaManagerBasedRLEnvCfg,
+    )
+    from isaaclab_arena.progress_tracking.progress_tracker import ProgressTracker
 
 
 class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
@@ -33,8 +37,11 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
         variation_recorder: VariationRecorder | None = None,
         **kwargs,
     ):
+        from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import apply_arena_global_settings
+
         apply_arena_global_settings()
         self._arena_world: ArenaWorld | None = None
+        self._progress_tracker: ProgressTracker | None = None
         self._object_initial_rest_pose_recorder = ObjectInitialRestPoseRecorder(
             num_envs=cfg.scene.num_envs, device=cfg.sim.device
         )
@@ -53,6 +60,11 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
         """The environment's live Arena scene queries and cached geometry."""
         assert self._arena_world is not None, "ArenaWorld is unavailable before managers are loaded."
         return self._arena_world
+
+    @property
+    def progress_tracker(self) -> ProgressTracker | None:
+        """The ProgressTracker owned by TaskSuccessTerm, or None if not initialized."""
+        return self._progress_tracker
 
     @property
     def variation_recorder(self) -> VariationRecorder | None:
@@ -109,3 +121,9 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
             A MetricsDataCollection instance.
         """
         return self.metrics_manager.compute()
+
+
+class IsaacLabArenaManagerBasedRLMimicEnv(IsaacLabArenaManagerBasedRLEnv, ManagerBasedRLMimicEnv):
+    """Arena environment with the Isaac Lab Mimic interface."""
+
+    cfg: IsaacArenaManagerBasedMimicEnvCfg

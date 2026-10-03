@@ -8,6 +8,8 @@
 from types import SimpleNamespace
 from unittest.mock import patch
 
+import pytest
+
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
 
@@ -91,6 +93,7 @@ def _check_rigid_object_reads_and_local_aabb_cache(
                 ),
             }
             self.articulations = {}
+            self.deformable_objects = {}
             self.extras = {}
 
     scene = SceneDouble()
@@ -102,7 +105,7 @@ def _check_rigid_object_reads_and_local_aabb_cache(
         if scene_key == "object":
             return axis_aligned_bounding_box_type(
                 min_point=torch.tensor([-0.1, -0.1, -0.1]).expand(2, 3),
-                max_point=torch.tensor([0.1, 0.1, 0.1]).expand(2, 3),
+                max_point=torch.tensor([0.3, 0.1, 0.1]).expand(2, 3),
             )
         return axis_aligned_bounding_box_type(
             min_point=torch.tensor([-1.0, -0.5, 0.0]).expand(2, 3),
@@ -120,6 +123,10 @@ def _check_rigid_object_reads_and_local_aabb_cache(
     torch.testing.assert_close(arena_world.get_pose_w("object"), T_W_O_initial)
     torch.testing.assert_close(arena_world.get_root_linear_velocity_w("object"), initial_root_linear_velocity_w)
     torch.testing.assert_close(arena_world.get_root_angular_velocity_w("object"), initial_root_angular_velocity_w)
+    torch.testing.assert_close(
+        arena_world.get_mean_linear_velocity_w("object"),
+        initial_root_linear_velocity_w,
+    )
 
     T_W_O_moved = T_W_O_initial.clone()
     T_W_O_moved[:, 0] += 0.25
@@ -146,6 +153,10 @@ def _check_rigid_object_reads_and_local_aabb_cache(
         destination_bounds_D = arena_world.get_aabb_in_local_frame("destination")
         assert arena_world.get_aabb_in_local_frame("object") is object_bounds_O
         assert arena_world.get_aabb_in_local_frame("destination") is destination_bounds_D
+        torch.testing.assert_close(
+            arena_world.get_centroid_w("object"),
+            T_W_O_moved[:, :3] + torch.tensor([0.1, 0.0, 0.0]),
+        )
 
     assert object_bounds_O is not destination_bounds_D
     assert geometry_build_calls == ["object", "destination"]
@@ -210,6 +221,61 @@ def _check_articulation_root_state_reads(arena_world_module) -> None:
     )
 
 
+def _check_deformable_object_reads(arena_world_module) -> None:
+    """Check live aggregate and nodal state reads for a deformable object."""
+    import torch
+
+    class RuntimeBufferDouble:
+        def __init__(self, tensor: torch.Tensor):
+            self.torch = tensor
+
+    root_pos_w = torch.tensor([[0.1, 0.2, 0.3], [1.1, 1.2, 1.3]])
+    root_vel_w = torch.tensor([[0.0, 0.3, 0.4], [0.0, 0.0, 0.1]])
+    nodal_pos_w = torch.tensor([
+        [[0.0, 0.0, 0.2], [0.2, 0.3, 0.4]],
+        [[1.0, 1.0, 1.2], [1.2, 1.3, 1.4]],
+    ])
+    nodal_vel_w = torch.tensor([
+        [[0.0, 0.0, 0.0], [0.3, 0.4, 0.0]],
+        [[0.0, 0.0, 0.1], [0.0, 0.0, 0.2]],
+    ])
+    deformable = SimpleNamespace(
+        data=SimpleNamespace(
+            root_pos_w=RuntimeBufferDouble(root_pos_w),
+            root_vel_w=RuntimeBufferDouble(root_vel_w),
+            nodal_pos_w=RuntimeBufferDouble(nodal_pos_w),
+            nodal_vel_w=RuntimeBufferDouble(nodal_vel_w),
+        )
+    )
+    scene = SimpleNamespace(
+        num_envs=2,
+        rigid_objects={},
+        articulations={},
+        deformable_objects={"deformable": deformable},
+        extras={},
+    )
+    arena_world = arena_world_module.ArenaWorld(scene)
+
+    torch.testing.assert_close(arena_world.get_position_w("deformable"), root_pos_w)
+    torch.testing.assert_close(arena_world.get_centroid_w("deformable"), root_pos_w)
+    torch.testing.assert_close(arena_world.get_nodal_positions_w("deformable"), nodal_pos_w)
+    torch.testing.assert_close(arena_world.get_nodal_velocities_w("deformable"), nodal_vel_w)
+    torch.testing.assert_close(arena_world.get_mean_linear_velocity_w("deformable"), root_vel_w)
+    torch.testing.assert_close(arena_world.get_vertices_w("deformable"), nodal_pos_w)
+
+    for rooted_query in (
+        arena_world.get_pose_w,
+        arena_world.get_root_linear_velocity_w,
+        arena_world.get_root_angular_velocity_w,
+    ):
+        try:
+            rooted_query("deformable")
+        except AssertionError:
+            pass
+        else:
+            raise AssertionError(f"{rooted_query.__name__} accepted a deformable object.")
+
+
 def _check_arena_world_reuses_scene_extra_pose_reader(
     arena_world_module,
     scene_access_module,
@@ -272,12 +338,15 @@ def _check_scene_extra_pose_reader_uses_current_frame_view_poses(scene_access_mo
     """Check FrameView construction and current T_W_F reads in environment row order."""
     import torch
 
+    from pxr import Usd
+
+    stage = Usd.Stage.CreateInMemory()
+    prims = [stage.DefinePrim(f"/World/envs/env_{i}/reference", "Xform") for i in range(2)]
+
     class FrameViewDouble:
         def __init__(self):
-            self.prim_paths = [
-                "/World/envs/env_0/reference",
-                "/World/envs/env_1/reference",
-            ]
+            self.count = 2
+            self.prims = []
             self.read_count = 0
             self.t_W_F_values = [
                 torch.tensor([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0]]),
@@ -297,7 +366,7 @@ def _check_scene_extra_pose_reader_uses_current_frame_view_poses(scene_access_mo
     scene = SimpleNamespace(
         num_envs=2,
         device="cpu",
-        stage=object(),
+        stage=stage,
         extras={"reference": object()},
         cfg=SimpleNamespace(reference=SimpleNamespace(prim_path="{ENV_REGEX_NS}/reference")),
         env_regex_ns="/World/envs/env_.*",
@@ -313,8 +382,19 @@ def _check_scene_extra_pose_reader_uses_current_frame_view_poses(scene_access_mo
         "/World/envs/env_.*/reference",
         device="cpu",
         stage=scene.stage,
+        validate_xform_ops=True,
     )
     assert frame_view.read_count == 2
+    frame_view.prims = prims
+    with patch.object(scene_access_module, "FrameView", return_value=frame_view):
+        scene_access_module.SceneExtraPoseReader(scene, "reference")
+        frame_view.prims.reverse()
+        with pytest.raises(AssertionError, match="pose row 0 belongs to"):
+            scene_access_module.SceneExtraPoseReader(scene, "reference")
+    frame_view.count = 1
+    with patch.object(scene_access_module, "FrameView", return_value=frame_view):
+        with pytest.raises(AssertionError, match="resolved to 1 frames; expected 2"):
+            scene_access_module.SceneExtraPoseReader(scene, "reference")
     torch.testing.assert_close(
         T_W_F_first,
         torch.cat((frame_view.t_W_F_values[0], frame_view.q_W_F_values[0]), dim=-1),
@@ -337,6 +417,7 @@ def _test_arena_world_scene_access(_simulation_app) -> bool:
         AxisAlignedBoundingBox,
     )
     _check_articulation_root_state_reads(arena_world)
+    _check_deformable_object_reads(arena_world)
     _check_arena_world_reuses_scene_extra_pose_reader(arena_world, scene_access)
     _check_arena_world_rejects_unsupported_pose_scene_key(arena_world)
     _check_scene_extra_pose_reader_uses_current_frame_view_poses(scene_access)

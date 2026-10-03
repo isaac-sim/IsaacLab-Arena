@@ -93,7 +93,7 @@ def _test_background_physics_discovery_and_reset(
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.scene.scene import Scene
     from isaaclab_arena.terms.events import ResetBackgroundPhysics, reset_articulation_pose_and_joints
-    from isaaclab_arena.utils.usd_prim_tree import load_usd_physics_roots
+    from isaaclab_arena.utils.usd.prim_tree import load_usd_physics_roots
 
     assert ResetBackgroundPhysics._is_unavailable_backend_error(
         RuntimeError("Failed to create rigid body at: /World/body. Please check PhysX logs.")
@@ -243,6 +243,7 @@ def _test_background_physics_discovery_and_reset(
             assert runtime_rigid_prim.IsValid()
             kinematic_attr = UsdPhysics.RigidBodyAPI(runtime_rigid_prim).GetKinematicEnabledAttr()
             assert not kinematic_attr.IsValid() or not kinematic_attr.Get()
+            assert rigid_reset.reset_velocity
 
             # Reset env 1 to verify the env-0 snapshot is translated through env-local coordinates.
             base_env.reset(env_ids=torch.tensor([1], device=base_env.device))
@@ -354,3 +355,104 @@ def _test_maple_table_pose_restored_on_reset(_) -> bool:
 
 def test_maple_table_pose_restored_on_reset():
     assert run_function_with_persistent_simulation_app(_test_maple_table_pose_restored_on_reset)
+
+
+def _test_rigid_reset_skips_velocity_write_when_disabled(_) -> bool:
+    """``_RigidReset.restore`` must not call PhysX velocity writes for kinematic nested rigids."""
+    import torch
+    from unittest.mock import MagicMock
+
+    from isaaclab_arena.terms.events import _RigidReset
+
+    asset = MagicMock()
+    asset.data.root_vel_w.torch = torch.zeros(1, 6)
+    reset = _RigidReset(asset=asset, root_pose_local=torch.zeros(7), reset_velocity=False)
+    env_ids = torch.tensor([0])
+    env_origins = torch.zeros(1, 3)
+
+    reset.restore(env_ids, env_origins)
+
+    asset.write_root_pose_to_sim_index.assert_called_once()
+    asset.write_root_velocity_to_sim_index.assert_not_called()
+    return True
+
+
+def test_rigid_reset_skips_velocity_write_when_disabled():
+    assert run_function_with_persistent_simulation_app(_test_rigid_reset_skips_velocity_write_when_disabled)
+
+
+def _test_reset_background_physics_handles_mixed_rigids(_) -> bool:
+    """Reset a kinematic parent and dynamic child with independent velocity behavior."""
+    import torch
+    from types import SimpleNamespace
+    from unittest.mock import MagicMock, patch
+
+    from pxr import Usd, UsdGeom, UsdPhysics
+
+    from isaaclab_arena.assets.object_type import ObjectType
+    from isaaclab_arena.terms.events import ResetBackgroundPhysics
+
+    stage = Usd.Stage.CreateInMemory()
+    UsdGeom.Xform.Define(stage, "/World/envs/env_0/background")
+    parent = UsdGeom.Xform.Define(stage, "/World/envs/env_0/background/kinematic_parent")
+    parent_body = UsdPhysics.RigidBodyAPI.Apply(parent.GetPrim())
+    parent_body.CreateRigidBodyEnabledAttr(True)
+    parent_body.CreateKinematicEnabledAttr(True)
+    child = UsdGeom.Xform.Define(stage, "/World/envs/env_0/background/kinematic_parent/dynamic_child")
+    child_body = UsdPhysics.RigidBodyAPI.Apply(child.GetPrim())
+    child_body.CreateRigidBodyEnabledAttr(True)
+    child_body.CreateKinematicEnabledAttr(False)
+
+    env_regex_ns = "/World/envs/env_[^/]+"
+    parent_path = f"{env_regex_ns}/background/kinematic_parent"
+    child_path = f"{parent_path}/dynamic_child"
+    scene = SimpleNamespace(
+        stage=stage,
+        env_prim_paths=["/World/envs/env_0"],
+        env_regex_ns=env_regex_ns,
+        env_origins=torch.zeros(1, 3),
+        num_envs=1,
+    )
+    env = SimpleNamespace(scene=scene, device="cpu")
+
+    term = object.__new__(ResetBackgroundPhysics)
+    term._background_prim_paths = {"background": "{ENV_REGEX_NS}/background"}
+    term._physics_paths = {
+        "background": {
+            "{ENV_REGEX_NS}/background/kinematic_parent": ObjectType.RIGID,
+            "{ENV_REGEX_NS}/background/kinematic_parent/dynamic_child": ObjectType.RIGID,
+        }
+    }
+    term._referenced_paths = {"background": {}}
+    term._is_initialized = False
+    term._rigid_resets = []
+    term._articulation_resets = []
+    term._all_env_ids = torch.tensor([0])
+
+    assets = {}
+
+    def initialize_asset(asset_cfg, prim_path, _asset_kind):
+        asset = MagicMock()
+        asset.cfg = asset_cfg
+        asset.data.root_pose_w.torch = torch.tensor([[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0]])
+        asset.data.root_vel_w.torch = torch.ones(1, 6)
+        assets[prim_path] = asset
+        return asset
+
+    with patch.object(ResetBackgroundPhysics, "_initialize_asset", side_effect=initialize_asset):
+        term(env, torch.tensor([0]), {}, {}, {})
+
+    resets = {reset.asset.cfg.prim_path: reset for reset in term._rigid_resets}
+    assert not resets[parent_path].reset_velocity
+    assert resets[child_path].reset_velocity
+    assets[parent_path].write_root_pose_to_sim_index.assert_called_once()
+    assets[parent_path].write_root_velocity_to_sim_index.assert_not_called()
+    assets[child_path].write_root_pose_to_sim_index.assert_called_once()
+    assets[child_path].write_root_velocity_to_sim_index.assert_called_once()
+    child_velocity = assets[child_path].write_root_velocity_to_sim_index.call_args.kwargs["root_velocity"]
+    assert torch.count_nonzero(child_velocity) == 0
+    return True
+
+
+def test_reset_background_physics_handles_mixed_rigids():
+    assert run_function_with_persistent_simulation_app(_test_reset_background_physics_handles_mixed_rigids)
