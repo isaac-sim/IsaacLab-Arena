@@ -6,10 +6,17 @@
 import importlib
 import pkgutil
 
-import isaaclab_arena_environments
-
 _NON_ENVIRONMENT_MODULES = {"cli", "example_environment_base"}
+_ENVIRONMENTS_REGISTERED = False
 
-for _importer, _modname, _ispkg in pkgutil.iter_modules(isaaclab_arena_environments.__path__):
-    if not _ispkg and _modname not in _NON_ENVIRONMENT_MODULES:
-        importlib.import_module(f"isaaclab_arena_environments.{_modname}")
+
+def register_environments() -> None:
+    """Import all first-party environment modules so their decorators register them."""
+    global _ENVIRONMENTS_REGISTERED
+    if _ENVIRONMENTS_REGISTERED:
+        return
+
+    for _importer, modname, ispkg in pkgutil.iter_modules(__path__):
+        if not ispkg and modname not in _NON_ENVIRONMENT_MODULES:
+            importlib.import_module(f"{__name__}.{modname}")
+    _ENVIRONMENTS_REGISTERED = True
