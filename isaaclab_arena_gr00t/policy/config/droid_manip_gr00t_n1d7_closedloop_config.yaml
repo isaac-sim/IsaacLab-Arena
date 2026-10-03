@@ -1,0 +1,16 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+embodiment_tag: OXE_DROID_RELATIVE_EEF_RELATIVE_JOINT
+task_mode_name: droid_manipulation
+action_horizon: 40
+action_chunk_length: 8
+# N1.7 modalities are read from the server's checkpoint, not the N1.6 client registry.
+policy_joints_config_path: isaaclab_arena_gr00t/embodiments/droid/gr00t_8dof_joint_space.yaml
+action_joints_config_path: isaaclab_arena_gr00t/embodiments/droid/8dof_joint_space.yaml
+state_joints_config_path: isaaclab_arena_gr00t/embodiments/droid/13dof_joint_space.yaml
+pov_cam_name_sim: [external_camera_rgb, wrist_camera_rgb]
+original_image_size: [720, 1280, 3]
+target_image_size: [180, 320, 3]

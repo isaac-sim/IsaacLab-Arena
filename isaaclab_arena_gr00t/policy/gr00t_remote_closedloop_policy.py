@@ -20,7 +20,12 @@ from typing import Any
 from isaaclab_arena.assets.register import register_policy
 from isaaclab_arena.policy.action_scheduling import ActionChunkScheduler, ActionScheduler, SyncedBatchActionScheduler
 from isaaclab_arena.policy.policy_base import PolicyBase
-from isaaclab_arena_gr00t.policy.config.gr00t_closedloop_policy_config import Gr00tClosedloopPolicyCfg, TaskMode
+from isaaclab_arena_gr00t.embodiments.droid.n1d7_observations import droid_pose_to_eef9d
+from isaaclab_arena_gr00t.policy.config.gr00t_closedloop_policy_config import (
+    DROID_N1D7_EMBODIMENT,
+    Gr00tClosedloopPolicyCfg,
+    TaskMode,
+)
 from isaaclab_arena_gr00t.policy.gr00t_core import (
     Gr00tBasePolicyCfg,
     build_gr00t_action_tensor,
@@ -29,7 +34,8 @@ from isaaclab_arena_gr00t.policy.gr00t_core import (
     extract_obs_numpy_from_torch,
     load_gr00t_joint_configs,
 )
-from isaaclab_arena_gr00t.utils.io_utils import create_config_from_yaml, load_gr00t_modality_config_from_file
+from isaaclab_arena_gr00t.utils.io_utils import create_config_from_yaml, load_gr00t_modality_config_from_file, to_numpy
+from isaaclab_arena_gr00t.utils.n1d7_wire import decode_n1d7_response
 
 
 class ActionSchedulerType(str, Enum):
@@ -102,11 +108,6 @@ class Gr00tRemoteClosedloopPolicy(PolicyBase[Gr00tRemoteClosedloopPolicyCfg]):
             self.robot_state_joints_config,
         ) = load_gr00t_joint_configs(self.policy_config)
 
-        self.modality_configs = load_gr00t_modality_config_from_file(
-            self.policy_config.modality_config_path,
-            self.policy_config.embodiment_tag,
-        )
-
         # Action / chunk shapes
         self.action_dim = compute_action_dim(self.task_mode, self.robot_action_joints_config)
         self.action_chunk_length = self.policy_config.action_chunk_length
@@ -132,6 +133,24 @@ class Gr00tRemoteClosedloopPolicy(PolicyBase[Gr00tRemoteClosedloopPolicyCfg]):
         self._client: Any | None = client
         if not client.ping():
             raise ConnectionError(f"Cannot reach GR00T policy server at {config.remote_host}:{config.remote_port}")
+
+        if self.policy_config.embodiment_tag == DROID_N1D7_EMBODIMENT:
+            # N1.7 accepts the lightweight N1.6 client's requests; decode its
+            # newer response envelopes without changing the N1.6 serializer.
+            self.modality_configs = decode_n1d7_response(client.get_modality_config())
+            assert set(self.modality_configs["state"].modality_keys) == {
+                "eef_9d",
+                "joint_position",
+                "gripper_position",
+            }, "The server must serve a GR00T N1.7 DROID checkpoint"
+            assert (
+                len(self.modality_configs["action"].delta_indices) == self.policy_config.action_horizon
+            ), "The configured action_horizon must match the server checkpoint"
+        else:
+            self.modality_configs = load_gr00t_modality_config_from_file(
+                self.policy_config.modality_config_path,
+                self.policy_config.embodiment_tag,
+            )
 
         self.task_description: str | None = None
 
@@ -168,6 +187,10 @@ class Gr00tRemoteClosedloopPolicy(PolicyBase[Gr00tRemoteClosedloopPolicyCfg]):
             state_idx = self.robot_state_joints_config.get(joint_name)
             if state_idx is not None:
                 hold_action[:, action_idx] = joint_pos_sim[:, state_idx]
+        if self.policy_config.embodiment_tag == DROID_N1D7_EMBODIMENT:
+            hold_action[:, self.robot_action_joints_config["finger_joint"]] = (
+                observation["policy"]["gripper_pos"].to(device=self.device, dtype=torch.float).reshape(self.num_envs)
+            )
         return hold_action
 
     def _get_action_chunk(
@@ -184,6 +207,14 @@ class Gr00tRemoteClosedloopPolicy(PolicyBase[Gr00tRemoteClosedloopPolicyCfg]):
         assert self.task_description is not None, "Task description is not set"
         assert self._client is not None, "GR00T remote policy has been closed"
         rgb_list_np, joint_pos_sim_np = extract_obs_numpy_from_torch(nested_obs=observation, camera_names=camera_names)
+        additional_state = None
+        if self.policy_config.embodiment_tag == DROID_N1D7_EMBODIMENT:
+            state = observation["policy"]
+            additional_state = {
+                "eef_9d": droid_pose_to_eef9d(to_numpy(state["droid_eef_pose_base"])),
+                # DROID uses 0=open, 1=closed, rather than the finger joint's radians.
+                "gripper_position": to_numpy(state["gripper_pos"]).astype("float32"),
+            }
         policy_observations = build_gr00t_policy_observations(
             rgb_list_np=rgb_list_np,
             joint_pos_sim_np=joint_pos_sim_np,
@@ -192,10 +223,13 @@ class Gr00tRemoteClosedloopPolicy(PolicyBase[Gr00tRemoteClosedloopPolicyCfg]):
             robot_state_joints_config=self.robot_state_joints_config,
             policy_joints_config=self.policy_joints_config,
             modality_configs=self.modality_configs,
+            additional_state=additional_state,
         )
 
         # 2. Call GR00T's own client
         robot_action_policy, _ = self._client.get_action(policy_observations)
+        if self.policy_config.embodiment_tag == DROID_N1D7_EMBODIMENT:
+            robot_action_policy = decode_n1d7_response(robot_action_policy)
 
         # 3. Action translation from policy output to sim action tensor
         action_tensor = build_gr00t_action_tensor(

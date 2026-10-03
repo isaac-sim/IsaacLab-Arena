@@ -34,7 +34,13 @@ from isaaclab_arena.assets.nucleus import ARENA_NUCLEUS_DIR
 from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.embodiments.droid.actions import BinaryJointPositionZeroToOneAction
-from isaaclab_arena.embodiments.droid.observations import arm_joint_pos, ee_pos, ee_quat, gripper_pos
+from isaaclab_arena.embodiments.droid.observations import (
+    arm_joint_pos,
+    droid_eef_pose_base,
+    ee_pos,
+    ee_quat,
+    gripper_pos,
+)
 from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
 from isaaclab_arena.embodiments.franka.franka import franka_stack_events
 from isaaclab_arena.embodiments.robot_on_stand_utils import RobotPrimSpec, StandPrimSpec, compose_on_stand_usd
@@ -460,6 +466,7 @@ class DroidObservationsCfg:
         gripper_pos = ObsTerm(func=gripper_pos)
         eef_pos = ObsTerm(func=ee_pos)
         eef_quat = ObsTerm(func=ee_quat)
+        droid_eef_pose_base = ObsTerm(func=droid_eef_pose_base)
 
         def __post_init__(self):
             self.enable_corruption = False

@@ -1,0 +1,27 @@
+# Inference dependencies from Isaac-GR00T 51d4c89, without training, TensorRT,
+# FlashAttention or video-file decoding. Arena sends decoded RGB arrays.
+albumentations==1.4.18
+huggingface-hub==0.36.2
+opencv-python-headless==4.11.0.86
+diffusers==0.35.1
+dm-tree==0.1.10
+lmdb==1.7.5
+msgpack==1.1.0
+msgpack-numpy==0.4.8
+pandas==2.2.3
+peft==0.17.1
+termcolor==3.2.0
+transformers==4.57.3
+tyro==0.9.17
+click==8.1.8
+datasets==3.6.0
+einops==0.8.1
+gitpython==3.1.50
+jsonlines==4.0.0
+gymnasium==1.2.2
+matplotlib==3.10.1
+numpy==1.26.4
+omegaconf==2.3.0
+scipy==1.15.3
+wandb==0.23.0
+pyzmq==27.0.1

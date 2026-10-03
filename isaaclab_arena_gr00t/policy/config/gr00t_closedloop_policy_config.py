@@ -8,6 +8,8 @@ from pathlib import Path
 
 from isaaclab_arena_gr00t.policy.config.task_mode import TaskMode
 
+DROID_N1D7_EMBODIMENT = "OXE_DROID_RELATIVE_EEF_RELATIVE_JOINT"
+
 
 @dataclass
 class Gr00tClosedloopPolicyCfg:
@@ -110,7 +112,8 @@ class Gr00tClosedloopPolicyCfg:
             "GR1",
             "NEW_EMBODIMENT",
             "OXE_DROID",
-        ], "embodiment_tag must be one of the following: " + ", ".join(["GR1", "NEW_EMBODIMENT", "OXE_DROID"])
+            DROID_N1D7_EMBODIMENT,
+        ], f"Unsupported GR00T embodiment tag: {self.embodiment_tag}"
         if self.task_mode_name == TaskMode.G1_LOCOMANIPULATION.value:
             assert (
                 self.embodiment_tag == "NEW_EMBODIMENT"
@@ -118,6 +121,9 @@ class Gr00tClosedloopPolicyCfg:
         elif self.task_mode_name == TaskMode.GR1_TABLETOP_MANIPULATION.value:
             assert self.embodiment_tag == "GR1", "embodiment_tag must be GR1 for GR1 tabletop manipulation"
         elif self.task_mode_name == TaskMode.DROID_MANIPULATION.value:
-            assert self.embodiment_tag == "OXE_DROID", "embodiment_tag must be OXE_DROID for DROID manipulation"
+            assert self.embodiment_tag in (
+                "OXE_DROID",
+                DROID_N1D7_EMBODIMENT,
+            ), "DROID manipulation requires a DROID embodiment tag"
         else:
             raise ValueError(f"Invalid inference mode: {self.task_mode}")

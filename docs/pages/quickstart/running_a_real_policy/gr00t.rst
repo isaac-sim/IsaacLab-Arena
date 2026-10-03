@@ -97,6 +97,83 @@ If the server runs on another host or port, override the declared policy value. 
      --experiment_config isaaclab_arena_environments/experiment_configs/droid_pnp_gr00t_experiment.yaml \
      runs.droid_pnp_gr00t.policy.remote_port=5556
 
+Run GR00T N1.7-DROID on GB300
+-----------------------------
+
+N1.7-DROID uses a separate inference environment and checkout. The Arena submodule
+and the N1.6 examples above retain their existing versions. Merely changing the
+N1.6 server's model path does not load N1.7.
+
+From the Arena repository root in your inference environment, with Python 3.12
+and ``uv`` available, prepare the CUDA 13 runtime:
+
+.. code-block:: bash
+
+   bash tools/gb300/prepare_gr00t_n1d7.sh
+
+This installs PyTorch 2.9 with CUDA 13 and Transformers 4.57.3 into
+``~/.cache/arena-gr00t-n17-runtime`` and checks out Isaac-GR00T commit
+``51d4c89f72fda44cbf77285c6a8114b52676b8a1`` in
+``~/.cache/arena-gr00t-n17-src``. Set ``GR00T_N1D7_RUNTIME`` and
+``GR00T_N1D7_ROOT`` to choose other locations. It uses PyTorch SDPA without
+FlashAttention, TensorRT, or compilation. This is an inference-only environment;
+video dataset decoding and training dependencies are not installed.
+
+The backbone, `Cosmos-Reason2-2B <https://huggingface.co/nvidia/Cosmos-Reason2-2B>`_,
+requires Hugging Face access. Accept access on its model page and authenticate
+in the inference environment before launching:
+
+.. code-block:: bash
+
+   ~/.cache/arena-gr00t-n17-runtime/bin/hf auth login
+
+Start the policy server on a free port. On the split-GPU machine, set
+``CUDA_VISIBLE_DEVICES`` to the GB300's UUID from ``nvidia-smi -L``:
+
+.. code-block:: bash
+
+   CUDA_VISIBLE_DEVICES=<inference-gpu-uuid> \
+     ~/.cache/arena-gr00t-n17-runtime/bin/python tools/gb300/serve_gr00t_n1d7.py \
+       --host 127.0.0.1 --port 5557 --seed 42
+
+The default checkpoint is ``nvidia/GR00T-N1.7-DROID`` at revision
+``05e7cc97e40dbd33b0890c35cc0214fcb0547ab5``. For another compatible checkpoint,
+pass ``--model-path`` and, for a Hugging Face repository, ``--model-revision``.
+Use ``--gr00t-root`` when the source checkout is at a custom location.
+
+After the server reports readiness, verify its protocol endpoint:
+
+.. code-block:: bash
+
+   python isaaclab_arena_gr00t/utils/wait_for_gr00t_server.py \
+     --host 127.0.0.1 --port 5557 \
+     --timeout-sec 60 --poll-interval-sec 5 --request-timeout-ms 5000
+
+In the Arena simulation environment, run three episodes of the RoboLab spring-clamp
+task. On a split-GPU machine, set ``CUDA_VISIBLE_DEVICES`` to the RTX GPU's UUID
+before starting the Experiment Runner:
+
+.. code-block:: bash
+
+   CUDA_VISIBLE_DEVICES=<simulation-gpu-uuid> \
+     python isaaclab_arena/evaluation/experiment_runner.py \
+       --viz none \
+       --experiment_config isaaclab_arena_environments/experiment_configs/robolab_clamp_gr00t_n1d7_experiment.yaml
+
+This uses ``isaaclab_arena_environments/robolab/tasks/clamp_in_right_bin.yaml``
+with its original 70-second task horizon and success criteria. Change the port with
+``runs.clamp_in_right_bin.policy.remote_port=5558`` and the episode count with
+``runs.clamp_in_right_bin.rollout_limit.num_episodes=1``.
+
+N1.7 uses the embodiment tag ``OXE_DROID_RELATIVE_EEF_RELATIVE_JOINT``.
+Arena reads the checkpoint's modality configuration through the server, supplies
+normalized gripper state and the ``panda_link8`` pose relative to ``panda_link0``,
+and applies GR00T's DROID Euler/rotation-6D convention. It consumes eight actions
+from each 40-action prediction before observing again. The upstream processor
+decodes relative predictions to absolute joint positions, so the simulator uses
+``droid_abs_joint_pos`` without adding the current joints a second time.
+
+
 Evaluate several object variations
 ----------------------------------
 
