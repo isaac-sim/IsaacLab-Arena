@@ -232,6 +232,7 @@ def build_gr00t_policy_observations(
     robot_state_joints_config: dict[str, Any],
     policy_joints_config: dict[str, Any],
     modality_configs: dict[str, Any],
+    additional_state: dict[str, np.ndarray] | None = None,
 ) -> dict[str, Any]:
     """Build GR00T policy observation dict from numpy env observations.
 
@@ -247,6 +248,7 @@ def build_gr00t_policy_observations(
         robot_state_joints_config: State joint name->index for sim order.
         policy_joints_config: Policy group name->list of joint names.
         modality_configs: Dict with "language", "video", "state" modality configs.
+        additional_state: Extra or overridden state groups, each shaped (N, D).
 
     Returns:
         Nested dict "language" / "video" / "state" with keys from modality
@@ -258,6 +260,8 @@ def build_gr00t_policy_observations(
     joint_pos_state_policy = remap_sim_joints_to_policy_joints_from_np(
         joint_pos_sim_np, robot_state_joints_config, policy_joints_config
     )
+    if additional_state is not None:
+        joint_pos_state_policy.update(additional_state)
     num_envs = rgb_list_np[0].shape[0]
 
     language_keys = modality_configs["language"].modality_keys

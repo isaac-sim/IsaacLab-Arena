@@ -1,0 +1,25 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+runs:
+  clamp_in_right_bin:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/clamp_in_right_bin.yaml
+      enable_cameras: true
+    environment_builder:
+      num_envs: 1
+      seed: 42
+      placement_seed: 42
+      device: cuda:0
+      solve_relations: true
+      resolve_on_reset: true
+    policy:
+      type: isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy
+      policy_config_yaml_path: isaaclab_arena_gr00t/policy/config/droid_manip_gr00t_n1d7_closedloop_config.yaml
+      policy_device: cuda:0
+      remote_host: 127.0.0.1
+      remote_port: 5557
+    rollout_limit:
+      num_episodes: 3
