@@ -35,6 +35,7 @@ from isaaclab_arena_gr00t.policy.gr00t_core import (
     load_gr00t_joint_configs,
 )
 from isaaclab_arena_gr00t.utils.io_utils import create_config_from_yaml, load_gr00t_modality_config_from_file, to_numpy
+from isaaclab_arena_gr00t.utils.n1d7_wire import decode_n1d7_response
 
 
 class ActionSchedulerType(str, Enum):
@@ -134,9 +135,9 @@ class Gr00tRemoteClosedloopPolicy(PolicyBase[Gr00tRemoteClosedloopPolicyCfg]):
             raise ConnectionError(f"Cannot reach GR00T policy server at {config.remote_host}:{config.remote_port}")
 
         if self.policy_config.embodiment_tag == DROID_N1D7_EMBODIMENT:
-            # The simulation can keep the lightweight N1.6 client: the wire schema
-            # is compatible, and checkpoint modalities come from the N1.7 server.
-            self.modality_configs = client.get_modality_config()
+            # N1.7 accepts the lightweight N1.6 client's requests; decode its
+            # newer response envelopes without changing the N1.6 serializer.
+            self.modality_configs = decode_n1d7_response(client.get_modality_config())
             assert set(self.modality_configs["state"].modality_keys) == {
                 "eef_9d",
                 "joint_position",
@@ -227,6 +228,8 @@ class Gr00tRemoteClosedloopPolicy(PolicyBase[Gr00tRemoteClosedloopPolicyCfg]):
 
         # 2. Call GR00T's own client
         robot_action_policy, _ = self._client.get_action(policy_observations)
+        if self.policy_config.embodiment_tag == DROID_N1D7_EMBODIMENT:
+            robot_action_policy = decode_n1d7_response(robot_action_policy)
 
         # 3. Action translation from policy output to sim action tensor
         action_tensor = build_gr00t_action_tensor(

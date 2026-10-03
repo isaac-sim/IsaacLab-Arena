@@ -11,9 +11,11 @@ from copy import deepcopy
 from scipy.spatial.transform import Rotation
 from types import SimpleNamespace
 
+import msgpack
 import pytest
 import warp as wp
 from gr00t.data.types import ModalityConfig
+from gr00t.data.utils import to_json_serializable
 from gr00t.policy.server_client import MsgSerializer
 
 from isaaclab_arena_gr00t.embodiments.droid.n1d7_observations import droid_pose_to_eef9d
@@ -21,8 +23,34 @@ from isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy import (
     Gr00tRemoteClosedloopPolicy,
     Gr00tRemoteClosedloopPolicyCfg,
 )
+from isaaclab_arena_gr00t.utils.n1d7_wire import decode_n1d7_response
 
 pytestmark = pytest.mark.gr00t_policy
+
+
+def n1d7_wire_response(value):
+    """Emit N1.7 envelopes, then receive them through the real N1.6 decoder."""
+
+    def encode(item):
+        if isinstance(item, ModalityConfig):
+            return {"__ModalityConfig__": True, "as_json": to_json_serializable(item)}
+        if isinstance(item, np.ndarray):
+            return {
+                b"nd": True,
+                b"type": item.dtype.str,
+                b"kind": b"",
+                b"shape": item.shape,
+                b"data": item.tobytes(),
+            }
+        raise TypeError(type(item))
+
+    return MsgSerializer.from_bytes(msgpack.packb(value, default=encode))
+
+
+def test_wire_adapter_rejects_object_arrays():
+    payload = {b"nd": True, b"type": "O", b"data": b"not numeric", b"shape": [1]}
+    with pytest.raises(ValueError, match="Unsupported GR00T response dtype"):
+        decode_n1d7_response(payload)
 
 
 class DroidClient:
@@ -49,17 +77,20 @@ class DroidClient:
             ),
             "language": ModalityConfig([0], ["annotation.language.language_instruction"]),
         }
-        return MsgSerializer.from_bytes(MsgSerializer.to_bytes(modalities))
+        return n1d7_wire_response(modalities)
 
     def get_action(self, observation):
         self.observation = observation
         batch = observation["state"]["joint_position"].shape[0]
         # Upstream decode_action already converts relative predictions to absolute positions.
-        return {
-            "eef_9d": np.zeros((batch, 40, 9), dtype=np.float32),
-            "joint_position": np.full((batch, 40, 7), 0.25, dtype=np.float32),
-            "gripper_position": np.full((batch, 40, 1), 0.9, dtype=np.float32),
-        }, {}
+        return (
+            n1d7_wire_response({
+                "eef_9d": np.zeros((batch, 40, 9), dtype=np.float32),
+                "joint_position": np.full((batch, 40, 7), 0.25, dtype=np.float32),
+                "gripper_position": np.full((batch, 40, 1), 0.9, dtype=np.float32),
+            }),
+            {},
+        )
 
 
 @pytest.fixture
@@ -166,7 +197,7 @@ def test_n1d6_droid_retains_its_local_modalities(monkeypatch, droid_observation)
 
         def get_action(self, observation):
             actions, info = super().get_action(observation)
-            return {k: v[:, :32] for k, v in actions.items() if k != "eef_9d"}, info
+            return {k: v[:, :32] for k, v in decode_n1d7_response(actions).items() if k != "eef_9d"}, info
 
     monkeypatch.setattr("gr00t.policy.server_client.PolicyClient", N1d6Client)
     policy = Gr00tRemoteClosedloopPolicy(
@@ -191,7 +222,7 @@ def test_n1d6_droid_retains_its_local_modalities(monkeypatch, droid_observation)
 def test_rejects_mismatched_checkpoint(monkeypatch, state_keys, horizon):
     class WrongCheckpointClient(DroidClient):
         def get_modality_config(self):
-            config = super().get_modality_config()
+            config = decode_n1d7_response(super().get_modality_config())
             config["state"].modality_keys = state_keys
             config["action"].delta_indices = list(range(horizon))
             return config
