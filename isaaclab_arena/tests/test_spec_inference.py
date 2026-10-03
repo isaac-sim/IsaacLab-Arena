@@ -104,6 +104,11 @@ def test_infer_retries_after_api_error_then_succeeds(spec_inference):
     assert isinstance(spec, ArenaEnvGraphSpec)
     assert spec.background.registry_name == "maple_table_robolab"
     assert client.chat.completions.create.call_count == 2
+    assert inference.last_infer_stats == {
+        "num_calls": 1,
+        "num_retries": 0,
+        "retry_errors": [],
+    }
 
 
 def test_infer_returns_none_with_validation_traces_on_invalid_spec(spec_inference):
@@ -118,6 +123,10 @@ def test_infer_returns_none_with_validation_traces_on_invalid_spec(spec_inferenc
     assert traces
     assert any("registry_name" in line for line in traces)
     assert client.chat.completions.create.call_count == 3
+    assert inference.last_infer_stats["num_calls"] == 3
+    assert inference.last_infer_stats["num_retries"] == 2
+    assert len(inference.last_infer_stats["retry_errors"]) == 2
+    assert all("registry_name" in error for error in inference.last_infer_stats["retry_errors"])
 
 
 def test_infer_feeds_validation_errors_back_and_recovers(spec_inference):
@@ -138,6 +147,10 @@ def test_infer_feeds_validation_errors_back_and_recovers(spec_inference):
     assert "CRITIC FEEDBACK" in critic_message
     assert "not_a_real_asset" in critic_message
     assert "registry_name" in critic_message
+    assert inference.last_infer_stats["num_calls"] == 2
+    assert inference.last_infer_stats["num_retries"] == 1
+    assert len(inference.last_infer_stats["retry_errors"]) == 1
+    assert "registry_name" in inference.last_infer_stats["retry_errors"][0]
 
 
 def test_infer_feeds_catalog_validation_errors_back_and_recovers(spec_inference):
