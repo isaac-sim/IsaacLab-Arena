@@ -1893,6 +1893,11 @@ class GreyBinRobolab(LibraryObject):
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/fixtures/grey_bin.usd"
     # USD has 0.07 scale which is ignored by spawner. Setting it back again.
     scale = (0.007, 0.007, 0.007)
+    # The source USD references unavailable DigitalTwin MDL/textures and authors a red diffuse color.
+    # Bind a self-contained grey surface while retaining the original mesh and physics properties.
+    spawn_cfg_addon = {
+        "visual_material": sim_utils.PreviewSurfaceCfg(diffuse_color=(0.35, 0.35, 0.35), roughness=0.65),
+    }
 
 
 # ---------------------------------------------------------------------------
