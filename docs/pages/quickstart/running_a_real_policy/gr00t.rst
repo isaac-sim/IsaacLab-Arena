@@ -98,7 +98,7 @@ If the server runs on another host or port, override the declared policy value. 
      runs.droid_pnp_gr00t.policy.remote_port=5556
 
 Run GR00T N1.7-DROID on GB300
----------------------------
+-----------------------------
 
 N1.7-DROID uses a separate inference environment and checkout. The Arena submodule
 and the N1.6 examples above retain their existing versions. Merely changing the
