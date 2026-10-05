@@ -1,5 +1,7 @@
-Record and Replay Clutter Layouts
-=================================
+.. _record-and-replay-clutter-layouts:
+
+Clutter Layouts
+===============
 
 Use ``ClutterOn`` to release objects above a fixed support, let physics settle
 them, and save accepted layouts for later resets. The same

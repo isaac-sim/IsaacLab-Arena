@@ -7,6 +7,8 @@ layouts to JSONL. Replay restores those poses on reset without solving or settli
 them again. The same recorder supports ordinary placement relations and
 ``ClutterOn`` scenes.
 
+For table and container examples, see :doc:`clutter`.
+
 How Recording Differs from Online Placement
 -------------------------------------------
 
@@ -363,3 +365,9 @@ Both caller-owned APIs accept ``params=SettledPlacementParams(...)`` and
 for clutter preflight and for recording scene roots outside the placement pool.
 These calls reset and advance the environment, leave it open at its final state
 even on failure, and leave cleanup to the caller.
+
+.. toctree::
+   :hidden:
+   :maxdepth: 1
+
+   clutter

@@ -357,10 +357,9 @@ Disable pose-changing variations and callbacks when exact root replay is require
 Next Steps
 ----------
 
-See :doc:`../offline_placement/clutter` for offline settling.
-
-To generate a pose file from an existing environment, see
-:doc:`../offline_placement/recording`.
+See :doc:`../offline_placement/recording` to settle layouts and save poses
+for reuse. For table and container examples, see
+:doc:`../offline_placement/clutter`.
 
 Continue to :doc:`./collision_handling` to learn how Arena checks placed assets
 against one another and against fixed geometry.
