@@ -138,10 +138,43 @@ class GR1T2JointEmbodiment(GR1T2EmbodimentBase):
         self.scene_config.robot.actuators["trunk"] = ImplicitActuatorCfg(
             joint_names_expr=["waist_.*"],
             effort_limit=torch.inf,
-            velocity_limit=0.0,
-            stiffness=1e9,
-            damping=1e9,
+            velocity_limit=None,
+            stiffness=4400,
+            damping=40,
         )
+        # Lock head joints. The head actuator group otherwise has
+        # stiffness=None/damping=None (no active PD control), so the
+        # passively-mounted head-POV camera visibly swings away from the
+        # scene whenever the body is disturbed, even with the pelvis pinned.
+        self.scene_config.robot.actuators["head"] = ImplicitActuatorCfg(
+            joint_names_expr=["head_.*"],
+            effort_limit=torch.inf,
+            velocity_limit=None,
+            stiffness=4400,
+            damping=40,
+        )
+        # Lock leg joints (hip/knee/ankle). This embodiment is used for
+        # tabletop manipulation tasks only (e.g. gr1_open_microwave) where
+        # leg mobility is never needed, so locking them out removes another
+        # source of unconstrained motion.
+        self.scene_config.robot.actuators["legs"] = ImplicitActuatorCfg(
+            joint_names_expr=[".*_hip_.*", ".*_knee_.*", ".*_ankle_.*"],
+            effort_limit=torch.inf,
+            velocity_limit=None,
+            stiffness=4400,
+            damping=40,
+        )
+        # Pin the pelvis (root link) to the world with a fixed joint.
+        # GR1T2_CFG is a free-floating articulation (disable_gravity=True on
+        # rigid_props, but no kinematic constraint), and the leg/hip/knee/
+        # ankle/head actuator groups have stiffness=None, damping=None (no
+        # active PD control). This means any large arm-action reaction torque
+        # has nothing to counteract it, causing the whole floating body to
+        # spin/recoil in yaw. This embodiment is used for tabletop
+        # manipulation tasks only (e.g. gr1_open_microwave) where leg
+        # mobility is never needed, so pinning the root removes this failure
+        # mode entirely without touching leg/arm actuator gains.
+        self.scene_config.robot.spawn.articulation_props.fix_root_link = True
 
 
 @register_asset
