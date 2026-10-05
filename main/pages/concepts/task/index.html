@@ -449,6 +449,9 @@
 <li class="toctree-l1 has-children"><a class="reference internal" href="../environment/index.html">Environment</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="../environment/environment_definition.html">Environment Definition</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../environment/env_builder.html">Environment Builder</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../environment/physics_configuration.html">Physics configuration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../environment/physics_backend_selection.html">Physics backend selection</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../environment/env_cfg_override.html">Graph YAML <code class="docutils literal notranslate"><span class="pre">env_cfg_override</span></code></a></li>
 </ul>
 </details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../agentic_environment_generation/index.html">Agentic Environment Generation</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -477,6 +480,8 @@
 </details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../concept_object_and_robot_placement.html">Object and Robot Placement</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="../object_placement/relations.html">Relations and Strategies</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../offline_placement/recording.html">Record and Replay Placement Poses</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../offline_placement/clutter.html">Record and Replay Clutter Layouts</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../object_placement/collision_handling.html">Collision Handling</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../object_placement/solver.html">Placement Solver</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../object_placement/validation.html">Placement Validation</a></li>
@@ -605,9 +610,9 @@ making it reusable with any openable object.</span><a class="headerlink" href="#
 and scenes without any changes.</p>
 <p>Available tasks include (but are not limited to) <code class="docutils literal notranslate"><span class="pre">PickAndPlaceTask</span></code>, <code class="docutils literal notranslate"><span class="pre">LiftObjectTask</span></code>,
 <code class="docutils literal notranslate"><span class="pre">OpenDoorTask</span></code>, <code class="docutils literal notranslate"><span class="pre">CloseDoorTask</span></code>, and <code class="docutils literal notranslate"><span class="pre">PressButtonTask</span></code>.</p>
-<p>Individual tasks can be combined into order-independent or sequential composite tasks. Tasks can also
-define predicate-based progress objectives to report partial completion without changing their
-success termination.</p>
+<p>Individual tasks can be combined into order-independent or sequential composite tasks. Each task
+returns a <code class="docutils literal notranslate"><span class="pre">TaskTerminationCfg</span></code> from <code class="docutils literal notranslate"><span class="pre">get_termination_cfg()</span></code>, declaring its <code class="docutils literal notranslate"><span class="pre">success</span></code> criteria,
+named <code class="docutils literal notranslate"><span class="pre">failures</span></code>, and <code class="docutils literal notranslate"><span class="pre">timeout_s</span></code> time limit.</p>
 </section>
 <section id="more-details">
 <h2>More details<a class="headerlink" href="#more-details" title="Link to this heading">#</a></h2>

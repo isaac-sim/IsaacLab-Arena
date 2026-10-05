@@ -29,6 +29,12 @@ Isaac Lab Arena uses the following environment variables to access those S3 buck
 Adding assets
 -------------
 
+For immediate access to new uploads, use ``ARENA_STAGING_NUCLEUS_DIR`` from
+``isaaclab_arena.assets.nucleus``. It points to the internal Nucleus location
+``omniverse://isaac-dev.ov.nvidia.com/Isaac/IsaacLab`` and requires internal access.
+Append ``/Arena/assets/...`` to build an asset path. ``ARENA_NUCLEUS_DIR`` uses the
+public S3 mirror, where uploads become available after synchronization.
+
 To add your own assets to Isaac Lab Arena's *staging* S3 bucket, you can follow the following steps:
 
 1. Upload your assets to the Nucleus Server (``omniverse://isaac-dev.ov.nvidia.com/Isaac/IsaacLab/Arena``). Depend on the type of your assets, you can upload them to the following directories:

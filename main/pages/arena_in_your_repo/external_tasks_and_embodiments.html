@@ -449,6 +449,9 @@
 <li class="toctree-l1 has-children"><a class="reference internal" href="../concepts/environment/index.html">Environment</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="../concepts/environment/environment_definition.html">Environment Definition</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../concepts/environment/env_builder.html">Environment Builder</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/environment/physics_configuration.html">Physics configuration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/environment/physics_backend_selection.html">Physics backend selection</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/environment/env_cfg_override.html">Graph YAML <code class="docutils literal notranslate"><span class="pre">env_cfg_override</span></code></a></li>
 </ul>
 </details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../concepts/agentic_environment_generation/index.html">Agentic Environment Generation</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -477,6 +480,8 @@
 </details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../concepts/concept_object_and_robot_placement.html">Object and Robot Placement</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="../concepts/object_placement/relations.html">Relations and Strategies</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/offline_placement/recording.html">Record and Replay Placement Poses</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../concepts/offline_placement/clutter.html">Record and Replay Clutter Layouts</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../concepts/object_placement/collision_handling.html">Collision Handling</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../concepts/object_placement/solver.html">Placement Solver</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../concepts/object_placement/validation.html">Placement Validation</a></li>
@@ -577,7 +582,8 @@ This page describes how that is done, in an external repo.</p>
 <section id="defining-a-custom-task">
 <h2>Defining a Custom Task<a class="headerlink" href="#defining-a-custom-task" title="Link to this heading">#</a></h2>
 <p>A custom task is defined by subclassing <code class="docutils literal notranslate"><span class="pre">TaskBase</span></code> and implementing the required methods.
-The code below shows how to define a simple task that succeeds after a fixed number of steps.
+The excerpt below shows a task that succeeds after a fixed number of steps.
+<code class="docutils literal notranslate"><span class="pre">get_termination_cfg()</span></code> declares its success criteria, failure conditions, and time limit.
 This task can be passed to the <code class="docutils literal notranslate"><span class="pre">ArenaEnvBuilder</span></code> to create an environment
 (see <a class="reference internal" href="#putting-it-all-together"><span class="std std-ref">Putting It All Together</span></a> below for an example).</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># my_package/isaaclab_arena_environments/my_environment_with_task.py</span>
@@ -592,21 +598,25 @@ This task can be passed to the <code class="docutils literal notranslate"><span 
         <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">num_steps_for_success</span> <span class="o">=</span> <span class="n">num_steps_for_success</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">get_termination_cfg</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="n">n</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_steps_for_success</span>
-        <span class="n">success</span> <span class="o">=</span> <span class="n">TerminationTermCfg</span><span class="p">(</span><span class="n">func</span><span class="o">=</span><span class="k">lambda</span> <span class="n">env</span><span class="p">,</span> <span class="n">n</span><span class="o">=</span><span class="n">n</span><span class="p">:</span> <span class="n">env</span><span class="o">.</span><span class="n">episode_length_buf</span> <span class="o">&gt;=</span> <span class="n">n</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">SuccessAfterNStepsTerminationsCfg</span><span class="p">(</span><span class="n">success</span><span class="o">=</span><span class="n">success</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_termination_cfg</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TaskTerminationCfg</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">TaskTerminationCfg</span><span class="p">(</span>
+            <span class="n">success</span><span class="o">=</span><span class="p">[</span>
+                <span class="n">CompletionCriteria</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"wait"</span><span class="p">,</span> <span class="n">predicate_sequence</span><span class="o">=</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">has_reached_step_count</span><span class="p">]),</span>
+            <span class="p">],</span>
+            <span class="n">timeout_s</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">episode_length_s</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">has_reached_step_count</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">env</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">env</span><span class="o">.</span><span class="n">episode_length_buf</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_steps_for_success</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">get_metrics</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">MetricBase</span><span class="p">]:</span>
         <span class="k">return</span> <span class="p">[</span><span class="n">SuccessRateMetric</span><span class="p">()]</span>
-
-
-<span class="nd">@configclass</span>
-<span class="k">class</span><span class="w"> </span><span class="nc">SuccessAfterNStepsTerminationsCfg</span><span class="p">:</span>
-    <span class="n">time_out</span><span class="p">:</span> <span class="n">TerminationTermCfg</span> <span class="o">=</span> <span class="n">TerminationTermCfg</span><span class="p">(</span><span class="n">func</span><span class="o">=</span><span class="n">mdp_isaac_lab</span><span class="o">.</span><span class="n">time_out</span><span class="p">,</span> <span class="n">time_out</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-    <span class="n">success</span><span class="p">:</span> <span class="n">TerminationTermCfg</span> <span class="o">=</span> <span class="n">MISSING</span>
 </pre></div>
 </div>
+<p>Imports and the required <code class="docutils literal notranslate"><span class="pre">get_scene_cfg()</span></code>, <code class="docutils literal notranslate"><span class="pre">get_events_cfg()</span></code>, and <code class="docutils literal notranslate"><span class="pre">get_mimic_env_cfg()</span></code>
+methods are omitted here. See the
+<a class="reference external" href="https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_examples/external_environments/advanced.py">complete example</a>
+for their definitions.</p>
 </section>
 <section id="defining-a-custom-embodiment">
 <h2>Defining a Custom Embodiment<a class="headerlink" href="#defining-a-custom-embodiment" title="Link to this heading">#</a></h2>

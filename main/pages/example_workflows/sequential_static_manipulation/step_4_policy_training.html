@@ -449,6 +449,9 @@
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../concepts/environment/index.html">Environment</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="../../concepts/environment/environment_definition.html">Environment Definition</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../concepts/environment/env_builder.html">Environment Builder</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../concepts/environment/physics_configuration.html">Physics configuration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../concepts/environment/physics_backend_selection.html">Physics backend selection</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../concepts/environment/env_cfg_override.html">Graph YAML <code class="docutils literal notranslate"><span class="pre">env_cfg_override</span></code></a></li>
 </ul>
 </details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../concepts/agentic_environment_generation/index.html">Agentic Environment Generation</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -477,6 +480,8 @@
 </details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../concepts/concept_object_and_robot_placement.html">Object and Robot Placement</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="../../concepts/object_placement/relations.html">Relations and Strategies</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../concepts/offline_placement/recording.html">Record and Replay Placement Poses</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../concepts/offline_placement/clutter.html">Record and Replay Clutter Layouts</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../concepts/object_placement/collision_handling.html">Collision Handling</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../concepts/object_placement/solver.html">Placement Solver</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../concepts/object_placement/validation.html">Placement Validation</a></li>
@@ -574,7 +579,7 @@
   <section id="policy-post-training">
 <h1>Policy Post-training<a class="headerlink" href="#policy-post-training" title="Link to this heading">#</a></h1>
 <p>This workflow covers post-training an example policy using the generated dataset,
-here we use <a class="reference external" href="https://github.com/NVIDIA/Isaac-GR00T/tree/e29d8fc50b0e4745120ae3fb72447986fe638aa6">GR00T N1.6</a> as the base model.</p>
+here we use <a class="reference external" href="https://research.nvidia.com/labs/gear/gr00t-n1_6/">GR00T N1.6</a> as the base model.</p>
 <p>Use the Arena <strong>Base</strong> container for dataset download and LeRobot conversion. Run GR00T
 finetuning from the native Isaac-GR00T <code class="docutils literal notranslate"><span class="pre">uv</span></code> environment in <code class="docutils literal notranslate"><span class="pre">submodules/Isaac-GR00T</span></code>,
 not from the Arena container.</p>
@@ -677,9 +682,8 @@ We provide two post-training options:</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>Blackwell GPUs with compute capability <code class="docutils literal notranslate"><span class="pre">sm_120</span></code> require CUDA 12.8 or newer. The
-<a class="reference external" href="https://github.com/NVIDIA/Isaac-GR00T/blob/e29d8fc50b0e4745120ae3fb72447986fe638aa6/README.md?plain=1#L102">official GR00T documentation</a>
-specifies CUDA 12.8 and <code class="docutils literal notranslate"><span class="pre">pytorch-cu128</span></code> for RTX 5090 systems. Please refer to the
-documentation for the latest requirements.</p>
+<a class="reference external" href="https://github.com/NVIDIA/Isaac-GR00T/blob/e29d8fc50b0e4745120ae3fb72447986fe638aa6/README.md#set-up-the-environment">GR00T environment setup guide</a>
+specifies CUDA 12.8 and <code class="docutils literal notranslate"><span class="pre">pytorch-cu128</span></code> for RTX 5090 systems.</p>
 </div>
 <div class="sd-tab-set docutils">
 <input checked="checked" id="sd-tab-item-0" name="sd-tab-set-0" type="radio">
@@ -708,7 +712,7 @@ longer to converge.</p>
 </ul>
 <p>To post-train the policy, open another terminal <strong>outside</strong> the Arena Base Docker container
 and <code class="docutils literal notranslate"><span class="pre">cd</span></code> to <code class="docutils literal notranslate"><span class="pre">submodules/Isaac-GR00T</span></code>. Set up GR00T’s native <code class="docutils literal notranslate"><span class="pre">uv</span></code> environment by
-following the <a class="reference external" href="https://github.com/NVIDIA/Isaac-GR00T/blob/e29d8fc50b0e4745120ae3fb72447986fe638aa6/README.md?plain=1#L81">GR00T installation guide</a>,
+following the <a class="reference external" href="https://github.com/NVIDIA/Isaac-GR00T/blob/e29d8fc50b0e4745120ae3fb72447986fe638aa6/README.md#set-up-the-environment">GR00T environment setup guide</a>,
 then run the finetuning command below. The paths assume the default Arena Docker mounts
 (<code class="docutils literal notranslate"><span class="pre">~/datasets</span></code> and <code class="docutils literal notranslate"><span class="pre">~/models</span></code> on the host); adjust them if you launched Arena with
 custom mount directories.</p>
@@ -748,7 +752,7 @@ Low Hardware Requirements</label><div class="sd-tab-content docutils">
 </ul>
 <p>To post-train the policy, open another terminal <strong>outside</strong> the Arena Base Docker container
 and <code class="docutils literal notranslate"><span class="pre">cd</span></code> to <code class="docutils literal notranslate"><span class="pre">submodules/Isaac-GR00T</span></code>. Set up GR00T’s native <code class="docutils literal notranslate"><span class="pre">uv</span></code> environment by
-following the <a class="reference external" href="https://github.com/NVIDIA/Isaac-GR00T/blob/e29d8fc50b0e4745120ae3fb72447986fe638aa6/README.md?plain=1#L81">GR00T installation guide</a>,
+following the <a class="reference external" href="https://github.com/NVIDIA/Isaac-GR00T/blob/e29d8fc50b0e4745120ae3fb72447986fe638aa6/README.md#set-up-the-environment">GR00T environment setup guide</a>,
 then run the finetuning command below. The paths assume the default Arena Docker mounts
 (<code class="docutils literal notranslate"><span class="pre">~/datasets</span></code> and <code class="docutils literal notranslate"><span class="pre">~/models</span></code> on the host); adjust them if you launched Arena with
 custom mount directories.</p>
@@ -773,7 +777,7 @@ custom mount directories.</p>
 </div>
 </div>
 </div>
-<p>see the <a class="reference external" href="https://github.com/NVIDIA/Isaac-GR00T/blob/e29d8fc50b0e4745120ae3fb72447986fe638aa6/README.md?plain=1#L184">GR00T fine-tuning guidelines</a>
+<p>see the <a class="reference external" href="https://github.com/NVIDIA/Isaac-GR00T/blob/e29d8fc50b0e4745120ae3fb72447986fe638aa6/README.md#recommended-fine-tuning-configuration">GR00T fine-tuning recommendations</a>
 for information on how to adjust the training configuration to your hardware, to achieve
 the best results.</p>
 </section>
