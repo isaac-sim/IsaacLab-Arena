@@ -61,7 +61,8 @@ def gripper_not_grasping(
         gripper: Embodiment-owned opening and closing-error measurements.
         grasp_width_m: Object width at the grasp, in meters.
         gap_band_m: Strict tolerance around the grasp width, in meters.
-        stall_margin_m: Strict minimum closing displacement error, in meters.
+        stall_margin_m: Strict minimum measured-minus-commanded finger displacement,
+            in meters, as reported by ``gripper.get_closing_error_m(env)``.
 
     Returns:
         True for each environment where the hand does not meet both grasp conditions.

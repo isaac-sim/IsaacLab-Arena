@@ -36,7 +36,20 @@ class Gripper(Protocol):
         ...
 
     def get_closing_error_m(self, env: IsaacLabArenaManagerBasedRLEnv) -> torch.Tensor:
-        """Return closing displacement error in meters; positive means more open than commanded."""
+        """Return measured-minus-commanded finger displacement in meters.
+
+        Use a linear finger-position coordinate that increases as the gripper opens.
+        A positive error means the finger is more open than its commanded position;
+        zero means it has reached that position, and negative means it is more closed.
+        For a symmetric parallel-jaw gripper, this is one driven finger's displacement,
+        not the full jaw gap. A positive error alone does not establish contact or a stall.
+
+        Args:
+            env: Environment supplying the measured finger position and commanded target.
+
+        Returns:
+            Signed position error with shape ``(num_envs,)``.
+        """
         raise NotImplementedError(f"{type(self).__name__} does not expose a closing command error.")
 
 
