@@ -82,7 +82,10 @@ def run_policy_runner(checkpoint_path: str, example_environment: str, embodiment
 
 # TODO(xinjie.yao, 2026.04.01): Add a test case for num_episodes once it's enabled
 @pytest.mark.with_subprocess
-def test_rl_train_and_eval_lift_object():
+def test_rl_train_and_eval_lift_object(monkeypatch):
+    # Kit forks during startup; avoid OpenBLAS worker teardown racing with those forks.
+    monkeypatch.setenv("OPENBLAS_NUM_THREADS", "1")
+
     checkpoint_path = run_rl_train(
         example_environment="lift_object",
         embodiment="franka_ik",
