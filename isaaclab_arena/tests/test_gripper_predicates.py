@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Check physical gripper release independently of commanded motion."""
+"""Check physical clearance and command-based grasp detection."""
 
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
@@ -54,3 +54,36 @@ def _test_gripper_released(_simulation_app) -> bool:
 
 def test_gripper_released() -> None:
     assert run_function_with_persistent_simulation_app(_test_gripper_released)
+
+
+def _test_gripper_not_grasping(_simulation_app) -> bool:
+    import torch
+    from types import SimpleNamespace
+
+    import pytest
+
+    from isaaclab_arena.tasks.predicates.gripper import gripper_not_grasping
+
+    # Binary fractions keep exact boundary checks independent of rounding.
+    width, band, margin = 1 / 32, 1 / 256, 1 / 1024
+    for device in ("cpu", "cuda:0"):
+        for dtype in (torch.float32, torch.float64):
+            gaps = torch.tensor([0, width, width, width, width - band, width + band], device=device, dtype=dtype)
+            errors = torch.tensor([0, 2 * margin, margin, -margin, 2 * margin, 2 * margin], device=device, dtype=dtype)
+            gripper = SimpleNamespace(
+                get_opening_width_m=lambda _world: gaps,
+                get_closing_error_m=lambda _env: errors,
+            )
+            env = SimpleNamespace(arena_world=SimpleNamespace())
+            params = dict(gripper=gripper, grasp_width_m=width, gap_band_m=band, stall_margin_m=margin)
+            result = gripper_not_grasping(env, **params)
+            assert result.tolist() == [True, False, True, True, True, True]
+            assert result.device == gaps.device and result.dtype == torch.bool
+            for key, value in (("grasp_width_m", 0.0), ("gap_band_m", 0.0), ("stall_margin_m", -1.0)):
+                with pytest.raises(AssertionError, match=key):
+                    gripper_not_grasping(env, **{**params, key: value})
+    return True
+
+
+def test_gripper_not_grasping() -> None:
+    assert run_function_with_persistent_simulation_app(_test_gripper_not_grasping)
