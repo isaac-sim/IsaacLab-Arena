@@ -82,12 +82,11 @@ Most environments can be described with a small set of relations:
    bounding box. For L-shaped, hollow, or concave supports, anchor an
    ``ObjectReference`` that identifies the valid support surface.
 
-   During initial sampling, a movable parent directly on an anchor uses that
-   anchor's bounds as a proxy. For a deeper chain, such as a spoon ``On`` a cup
-   ``On`` a tray ``On`` a table, initialization of the spoon uses the first
-   anchor collected by ``ObjectPlacer`` as a proxy. This affects only the
-   starting pose; final solving and validation use each relation's actual
-   parent.
+   During initial sampling, the default initializer follows the object's ``On``
+   chain and uses the nearest ``IsAnchor`` ancestor's bounds as a proxy. If the
+   chain has no anchor or loops, it falls back to the first anchor collected by
+   ``ObjectPlacer``. This affects only the starting pose; final solving and
+   validation use each relation's actual parent.
 
 .. _clutter-on-relation:
 

@@ -184,7 +184,6 @@ objects to see placement adapt to different dimensions and footprints.
    object_placement/relations
    offline_placement/recording
    offline_placement/clutter
-   offline_placement/qualification
    object_placement/collision_handling
    object_placement/solver
    object_placement/validation

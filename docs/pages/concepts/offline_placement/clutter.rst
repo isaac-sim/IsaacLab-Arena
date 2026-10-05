@@ -1,60 +1,46 @@
 Record and Replay Clutter Layouts
-==================================
+=================================
 
 Use ``ClutterOn`` to release objects above a fixed support, let physics settle
-them, and save accepted layouts for later resets. The result is a JSONL file of
-complete scene root poses, including the robot root. The workflow is:
+them, and save accepted layouts for later resets. The same
+:doc:`recorder <recording>` handles ordinary placement relations and clutter.
 
-**Solve release poses → step physics → check acceptance → save JSONL → replay.**
+How ClutterOn Recording Differs from Other Relations
+----------------------------------------------------
 
-This guide starts with one layout, then shows batch recording and a bowl example.
-See :ref:`ClutterOn settings <clutter-on-relation>` for relation parameters and
-:doc:`recording` for the shared recorder API and ordinary placement examples.
+Ordinary relations describe the intended arrangement before physics. The default
+recording checks require objects to settle close to those solved poses.
+``ClutterOn`` instead describes a release region: its objects are expected to
+fall and rotate before reaching their resting poses.
 
-Before You Start
------------------
+Clutter recording adds a scene preflight for fixed supports, dynamic clutter
+and gravity. Release layouts must pass ``no_overlap`` and
+``clutter_on_relation``. After physics, ``pose_shift`` excludes clutter roots,
+while ``support_containment`` checks their final footprint and minimum height.
+Root velocity checks still apply to clutter and other recorded roots.
 
-Complete :doc:`../../quickstart/installation` and select your
-:ref:`Arena runtime <placement-recording-runtime>`. Run every command from the
-repository root in that runtime's shell. Asset downloads must be accessible;
-the first run can take longer while assets load.
+.. figure:: ../../../images/offline_placement/clutter_recording_pipeline.svg
+   :width: 100%
+   :alt: Ordinary and clutter recording share solving, pooled resets, physics,
+      acceptance and replay. Clutter adds scene preflight, release checks and
+      support containment, and excludes intentional drops from pose-shift checks.
 
-These recipes explicitly use **PhysX on CPU**. ``--viz kit`` requires a graphical
-display, including display forwarding in a remote session. For headless
-recording, replace ``render=true --viz kit`` with ``render=false --viz none``.
-Keep the backend, asset geometry, and reset configuration consistent on replay.
-
-The supplied scenes already meet the following requirements. When adapting a
-scene, check them before recording:
-
-* Supports are both ``IsAnchor`` assets and physically static or kinematic.
-  Marking an asset as an anchor alone does not stop it moving in simulation.
-* Clutter members are dynamic rigid objects with gravity enabled. Each has one
-  ``ClutterOn`` spatial relation to a fixed support.
-* Other placement relations have already been resolved to fixed anchors.
-  This collection path does not solve a movable support or an ordinary fixture
-  around the clutter during settling.
-* Supports are upright, with only quarter-turn rotations about world Z.
-  Object sets and clutter reachability requirements are unsupported.
-* Recorded scene roots have compatible pose resets. Joint states and other
-  randomized properties are not saved.
-
-See :ref:`clutter-recording-preflight` for exact restrictions and remedies.
-Use a **new output path** for each recording; existing files are not overwritten.
+   Clutter uses the shared recording pipeline with different acceptance checks.
+   Saved layouts pass the required solver checks and every applicable enabled
+   post-physics check.
 
 .. _tool-clutter-on-a-table:
 
 Record One Table Layout
 ------------------------
 
+Use an installed :ref:`Arena runtime <placement-recording-runtime>` and run the
+commands from the repository root. These examples use PhysX on CPU. A viewer
+requires a graphical display; for headless recording, replace
+``render=true --viz kit`` with ``render=false --viz none``. Use a new output
+path for each run; recordings are not overwritten.
+
 The maintained scene releases three hammers and a clamp above an office table.
-Its relation definitions are:
-
-.. literalinclude:: ../../../../isaaclab_arena_environments/clutter/franka_three_hammers_and_clamp_no_task.yaml
-   :language: yaml
-   :start-at: relations:
-   :end-before: task:
-
 Record one accepted layout:
 
 .. code-block:: bash
@@ -67,8 +53,8 @@ Record one accepted layout:
        +settle.validators.support_containment.minimum_resting_heights_m.office_table_background=0.5306 \
        presets=physx render=true --device cpu --viz kit
 
-The table has a beveled top. ``0.5306`` is its measured surface height in the
-scaled table-local frame, in metres. ``office_table_background`` is the runtime
+The table has sloped edges around its flat top. ``0.5306`` is its measured
+surface height in the scaled table-local frame, in metres. ``office_table_background`` is the runtime
 scene key, not the YAML node ID ``table``. A leading ``+`` adds this new key to
 Hydra's configuration dictionary; existing fields such as ``settle.num_steps``
 use plain ``=``.
@@ -104,9 +90,10 @@ The console reports progress and then a line of this form:
    [recording] batch <batch>/15: 1/1 collected
    Saved 1/<attempted> accepted layouts: outputs/clutter/tools_on_table.jsonl
 
-The supplied PhysX scenes can also emit :ref:`kinematic-body diagnostics
-<clutter-physx-diagnostics>` during setup and reset. Read that explanation when
-checking the log; it applies to those specific messages, not other runtime errors.
+Every saved layout has passed the required solver checks and all applicable
+enabled post-physics checks. The file stores the final root poses, validator
+settings and outcomes. Replay restores these root poses; joint states and other
+randomized properties still follow the environment's reset configuration.
 
 Inspect the recorded root names and validation reports:
 
@@ -126,16 +113,15 @@ Inspect the recorded root names and validation reports:
    PYTHON
 
 ``source``, ``poses``, and ``validation`` all belong to the
-``scene.relation_placement`` variation. An applicable post-physics check must
-have ``passed: true``. ``passed: null`` denotes a skipped check with a reason.
-Use :doc:`qualification` to check every pose, report, and replayed root.
+``scene.relation_placement`` variation. An enabled, applicable post-physics check
+must have ``passed: true``. ``passed: null`` denotes a skipped check with a reason.
 
 For larger targets, exhausting the batch budget can produce a **partial file**.
-With zero accepts, **no file** is written. A shortfall is logged as an error but
-the command returns normally: neither exit status zero nor file existence proves
-that the target was reached. Inspect the accepted count and
-:ref:`rejection summary <recording_rejection_summary>` before changing settings.
-More batches give more attempts; they do not relax the checks.
+Every layout in that file has passed the same checks. With zero accepts,
+**no file** is written. A shortfall is logged as an error and the command returns
+normally. Compare the reported count with ``min_layouts`` to distinguish a
+completed target from partial output. See :ref:`clutter-recording-troubleshooting`
+if too few layouts are accepted.
 
 Replay in the Viewer
 ~~~~~~~~~~~~~~~~~~~~~
@@ -151,9 +137,8 @@ Load the same scene and the file just recorded:
 
 The viewer starts with the recorded arrangement. These examples use ``NoTask``:
 they load the first layout and do not trigger episode resets. Close the viewer
-or press Ctrl-C to exit. Physics continues after reset, so a visible match is
-only a visual check. :doc:`qualification` compares poses numerically across
-multiple resets, including queue wraparound, without a viewer.
+or press Ctrl-C to exit. Physics continues after reset. Keep the same backend,
+asset geometry and joint-reset configuration when replaying the recording.
 
 For policy evaluation, configure the same scene in an Experiment and pass this
 file as its placement layouts. Follow the :ref:`evaluation replay instructions
@@ -200,6 +185,13 @@ The second maintained scene releases three cubes into a fixed YCB bowl:
        +settle.validators.support_containment.minimum_resting_heights_m.bowl=-0.025 \
        presets=physx render=true --device cpu --viz kit
 
+.. note::
+
+   During bowl setup, PhysX may report ``kinematic bodies with CCD enabled are
+   not supported! CCD will be ignored.`` The fixed bowl asset enables continuous
+   collision detection (CCD), which PhysX ignores for that kinematic body. This
+   message does not disable CCD on the falling cubes.
+
 Here ``bowl`` is the support's runtime scene key. ``-0.025`` is a minimum
 resting height in the scaled bowl-local frame, before adding its world position.
 It permits settling below the rim. It is not a world-Z coordinate or the rim
@@ -223,7 +215,8 @@ penetration. Inspect the contacts as well as the saved validation reports.
    The corresponding accepted layout after settling.
 
 Success produces one row in ``outputs/clutter/three_cubes_in_bowl.jsonl``.
-Run the checks in :doc:`qualification`, then inspect it in the viewer:
+Inspect it with the earlier Python snippet, changing ``path`` to this bowl
+recording, then open the viewer:
 
 .. code-block:: bash
 
@@ -244,10 +237,28 @@ Register its assets, tasks, and embodiments before resolving them, and start
 physics callbacks, and runtime configuration are retained. Loading raw YAML is
 not a substitute for a factory that also applies these settings.
 
-Prepare the scene using the eligibility checklist above. Resolve ordinary
-fixtures to fixed anchors before adding clutter; use
-:ref:`ClutterOn settings <clutter-on-relation>` to choose release spread,
-clearance, and rotations. Provide measured local heights for non-flat supports.
+The supplied scenes meet these requirements. When adapting another scene:
+
+* Use fixed ``IsAnchor`` supports with static or kinematic collision geometry.
+  Supports must be upright, with only quarter-turn rotations about world Z.
+* Use dynamic rigid objects with gravity enabled for clutter. Each has one
+  ``ClutterOn`` spatial relation to its support.
+* Resolve non-clutter placement relations to fixed anchors before collection.
+  Object sets and reachability requirements on clutter objects are unsupported.
+* Keep recorded roots compatible with pose resets. Joint states and other
+  randomized properties are not saved.
+
+Use :ref:`ClutterOn settings <clutter-on-relation>` to choose release spread,
+clearance and rotations. For containers or supports without a verified flat top,
+provide a measured :ref:`support-local floor height <clutter-support-floor-height>`.
+
+For example, the table scene fixes the table as an anchor and gives each tool
+a ``ClutterOn`` relation with a smaller release region:
+
+.. literalinclude:: ../../../../isaaclab_arena_environments/clutter/franka_three_hammers_and_clamp_no_task.yaml
+   :language: yaml
+   :start-at: relations:
+   :end-before: task:
 
 The following is a runnable built-in equivalent of passing a factory-built
 description to the recorder. Save it as ``outputs/clutter/record_python.py``;
@@ -302,3 +313,27 @@ If you already own a built environment, use the :ref:`caller-owned recording API
 at its final state. Use ``env.unwrapped`` when accessing Isaac Lab attributes
 through a Gym wrapper. Preserve the same geometry, root names, joint resets,
 and physics settings when replaying in your environment.
+
+.. _clutter-recording-troubleshooting:
+
+Troubleshoot Recording
+----------------------
+
+Scene setup errors name the unsupported asset or setting. Use
+:ref:`clutter-recording-preflight` to fix support mobility, orientation,
+release-region or replay-configuration problems before changing acceptance limits.
+
+When too few layouts pass, inspect the printed :ref:`rejection summary
+<recording_rejection_summary>`:
+
+* ``physics_settled`` means a root exceeds the final speed limits. Inspect
+  contacts and increase ``settle.num_steps`` if the scene needs more time to settle.
+* ``support_containment`` means clutter failed a release check, the support moved,
+  or final bounds extend beyond the footprint or below the minimum height. Check
+  the support geometry and configured floor height.
+* ``pose_shift`` identifies a non-clutter root that moved too far. Check whether
+  clutter hit a fixture or robot; intentional clutter drops are excluded.
+
+Increasing ``max_batches`` gives more attempts without relaxing the checks.
+Acceptance counts can vary across machines and backends; a partial recording
+still contains usable layouts that passed validation.

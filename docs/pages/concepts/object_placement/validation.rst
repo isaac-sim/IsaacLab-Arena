@@ -1,5 +1,5 @@
 Placement Validation
-=====================
+====================
 
 The solver (:doc:`./solver`) minimizes a continuous loss over relations and
 collisions. A low loss does not guarantee that a relation holds exactly, that
@@ -13,7 +13,7 @@ candidate actually satisfies the property it checks. Validation is also where
 constraints the solver never optimizes enter the pipeline, for example IK reachability.
 
 How Validation Fits Placement
-------------------------------
+-----------------------------
 
 ``ObjectPlacer`` builds its validator list once from every registered check
 that passes ``is_available()`` and survives ``enabled_checks`` (see
@@ -169,7 +169,7 @@ check passes trivially. Grasp offset and IK tolerances are configurable; see
 .. _validation-toggle:
 
 Enabling and Disabling Checks
-------------------------------
+-------------------------------
 
 Two concepts control the build-time checks: which checks **run**
 (``enabled_checks``) and, of those, which must **pass** for a layout to be
@@ -185,7 +185,7 @@ in YAML; see :doc:`../environment/environment_definition`.
 .. _recording-post-physics-checks:
 
 Post-Physics Checks for Recordings
------------------------------------
+----------------------------------
 
 The :doc:`placement recorder <../offline_placement/recording>` advances physics
 for ``settle.num_steps`` environment steps before checking the final state.
@@ -223,7 +223,7 @@ remain enabled.
 .. _clutter-recording-checks:
 
 Clutter Recording Checks
-~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~
 
 Scenes using ``ClutterOn`` automatically include ``support_containment``. The
 clutter objects must be dynamic rigid bodies with gravity enabled, and scene
@@ -308,7 +308,7 @@ limits.
 .. _recording_rejection_summary:
 
 Understand the Rejection Summary
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The recorder excludes rejected layouts and prints each rejection reason. If
 ``max_batches`` is exhausted before ``min_layouts`` is reached, any accepted
@@ -361,10 +361,10 @@ Increasing ``max_batches`` allows more attempts without changing which checks
 layouts must pass.
 
 Custom Validators
-------------------
+-----------------
 
 Pre-Physics Validators
-~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~
 
 Pre-physics validators check the solver's proposed layout before physics is advanced. Subclass
 ``PrePhysicsPlacementValidator`` and register a unique ``check`` name which should be included in
@@ -394,7 +394,7 @@ Default settings run and require the registered check. If ``enabled_checks`` is
 explicit, include ``"max_origin_height"`` to run it.
 
 Post-Physics Validators
-~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~
 
 Subclass ``PostPhysicsPlacementValidator`` to check captured measurements after
 settling. Return one report per entry in ``batch.env_ids``, in the same order.
@@ -459,7 +459,7 @@ decorator is needed. This command adds the custom check alongside the default
 checks. Every enabled, applicable check must pass for a layout to be recorded.
 
 Next Steps
------------
+----------
 
 Continue to :doc:`./pooled_placement` for how Arena ranks, stores, and reuses
 layouts that pass these checks.

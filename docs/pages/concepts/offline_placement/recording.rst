@@ -1,5 +1,5 @@
 Record and Replay Placement Poses
-==================================
+=================================
 
 Use ``record_placement_layouts.py`` to save reusable initial poses for policy
 evaluation. It solves placement relations, advances physics, and writes accepted
@@ -8,7 +8,7 @@ them again. The same recorder supports ordinary placement relations and
 ``ClutterOn`` scenes.
 
 How Recording Differs from Online Placement
---------------------------------------------
+-------------------------------------------
 
 Both workflows start with the :doc:`placement pipeline
 <../concept_object_and_robot_placement>`: solve relations, run pre-physics
@@ -46,7 +46,7 @@ See :doc:`../object_placement/validation` for the checks at each stage and
 .. _placement-recording-runtime:
 
 Choose Your Runtime
---------------------
+-------------------
 
 Complete :doc:`../../quickstart/installation`, then select your setup below.
 Keep using the same shell for all recording and replay commands.
@@ -75,7 +75,7 @@ The commands below use ``python`` from your selected runtime.
 .. _placement-recording-options:
 
 Record Placement Layouts
--------------------------
+------------------------
 
 To run without a viewer, use ``render=false --viz none`` when recording and
 ``--viz none`` when replaying.
@@ -179,7 +179,7 @@ defaults within each check; other default checks remain configured. See
 :ref:`clutter-recording-checks` for intentional-drop validation.
 
 Inspect the Recording
-~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~
 
 If a file was written, check its layout count and inspect its first record:
 
@@ -203,7 +203,7 @@ See :doc:`../object_placement/relations` for pose names, units and replay constr
 .. _placement-recording-replay:
 
 Replay Placement Layouts
--------------------------
+------------------------
 
 Set ``environment_builder.placement_layouts_path`` in an
 :doc:`Experiment Definition <../concept_arena_experiments>` to load the recording:
@@ -233,7 +233,7 @@ configured resets, which randomize the arm configuration in this Droid example.
 See :doc:`../object_placement/relations` for the file format and replay behavior.
 
 Record Layouts with Rejections
--------------------------------
+------------------------------
 
 Run this command to record layouts from ``smartphone_in_bin``, where objects can
 move beyond the allowed limits during settling:
@@ -314,7 +314,7 @@ can restore.
 .. _placement-recording-python-api:
 
 Python API
------------
+----------
 
 With ``SimulationApp`` already running, the same workflow can build an environment,
 record layouts, and close the environment:
