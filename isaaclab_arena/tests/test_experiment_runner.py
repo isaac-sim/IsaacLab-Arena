@@ -194,6 +194,62 @@ runs:
 
 
 @pytest.mark.with_subprocess
+def test_experiment_runner_finishes_episode_budget_across_rebuilds(tmp_path):
+    """Finish each rebuild's exact episode allocation and match its results to trajectories."""
+    import h5py
+
+    experiment_config_path = tmp_path / "finite_episodes.yaml"
+    experiment_config_path.write_text(
+        """
+runs:
+  finite_episodes:
+    environment:
+      type: pick_and_place_maple_table
+      episode_length_s: 0.2
+    environment_builder:
+      num_envs: 2
+      record_trajectories: true
+    policy:
+      type: zero_action
+    rollout_limit:
+      num_episodes: 7
+    num_rebuilds: 2
+""",
+        encoding="utf-8",
+    )
+    output_dir = tmp_path / "output"
+    run_experiment_runner(
+        str(experiment_config_path),
+        config_option="--experiment_config",
+        extra_args=["--experiment_output_directory", str(output_dir)],
+    )
+
+    experiment_result = json.loads((output_dir / ARENA_EXPERIMENT_RESULT_FILENAME).read_text(encoding="utf-8"))
+    run_result = experiment_result["runs"]["finite_episodes"]
+    assert run_result["status"] == "completed"
+    assert [len(rebuild["episodes"]) for rebuild in run_result["rebuilds"]] == [4, 3]
+    run_dir = output_dir / "finite_episodes"
+    for rebuild_index, expected_count in enumerate((4, 3)):
+        records_path = run_dir / f"episode_results_rebuild{rebuild_index}.jsonl"
+        records = [json.loads(line) for line in records_path.read_text(encoding="utf-8").splitlines()]
+        assert len(records) == expected_count
+        records_by_identity = {(record["env_id"], record["episode_in_env"]): record for record in records}
+        assert len(records_by_identity) == expected_count
+        dataset_path = run_dir / f"dataset_finite_episodes_rebuild{rebuild_index}.hdf5"
+        with h5py.File(dataset_path, "r") as dataset:
+            assert len(dataset["data"]) == expected_count
+            exported_identities = set()
+            for demo in dataset["data"].values():
+                identity = (int(demo["episode_id/env_id"][0]), int(demo["episode_id/episode_in_env"][0]))
+                assert identity not in exported_identities
+                exported_identities.add(identity)
+                record = records_by_identity[identity]
+                assert demo["actions"].shape[0] == record["episode_length"] > 0
+                assert bool(demo["success"][0]) is record["success"]
+            assert exported_identities == set(records_by_identity)
+
+
+@pytest.mark.with_subprocess
 def test_experiment_runner_two_jobs_zero_action(tmp_path):
     """Test experiment_runner with 2 jobs using zero_action policy on different objects."""
     jobs = [
