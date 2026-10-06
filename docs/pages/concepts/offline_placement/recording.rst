@@ -7,6 +7,8 @@ layouts to JSONL. Replay restores those poses on reset without solving or settli
 them again. The same recorder supports ordinary placement relations and
 ``ClutterOn`` scenes.
 
+For table and container examples, see :doc:`clutter`.
+
 How Recording Differs from Online Placement
 -------------------------------------------
 
@@ -43,6 +45,8 @@ configuration. Geometry and reachability checks are not rerun after settling.
 See :doc:`../object_placement/validation` for the checks at each stage and
 :doc:`../object_placement/pooled_placement` for pool and reset settings.
 
+.. _placement-recording-runtime:
+
 Choose Your Runtime
 -------------------
 
@@ -70,21 +74,60 @@ Keep using the same shell for all recording and replay commands.
 
 The commands below use ``python`` from your selected runtime.
 
+.. _placement-recording-options:
+
 Record Placement Layouts
 ------------------------
-
-Use an Arena runtime prepared through :doc:`../../quickstart/installation`.
-Run the commands from the repository root in that runtime's shell.
 
 To run without a viewer, use ``render=false --viz none`` when recording and
 ``--viz none`` when replaying.
 
 Recording repeats reset-and-settle batches until it collects ``min_layouts``
-accepted layouts (default 1) or exhausts ``max_batches`` (default 5). Each batch
+accepted layouts or exhausts ``max_batches``. Each batch
 resets every environment once. ``layouts_per_env`` controls how many solver
-layouts each environment receives when its pool refills (default 5); it does
+layouts each environment receives when its pool refills; it does
 not set the accepted-layout target. The batch budget must allow at least
 ``min_layouts`` attempts: ``max_batches * num_envs >= min_layouts``.
+
+The defaults are API defaults, not a recommended settling duration for every
+scene. The examples below override them where needed:
+
+.. list-table:: Recording Options
+   :header-rows: 1
+   :widths: 25 15 60
+
+   * - Option
+     - Default
+     - Meaning
+   * - ``num_envs``
+     - ``1``
+     - Parallel environments; one candidate per environment in a reset batch.
+   * - ``min_layouts``
+     - ``1``
+     - Accepted-layout target; partial results are still saved.
+   * - ``max_batches``
+     - ``5``
+     - Maximum reset-and-settle batches.
+   * - ``layouts_per_env``
+     - ``5``
+     - Solver pool refill size per environment, not the output count.
+   * - ``seed``
+     - ``42``
+     - Seed for placement and resets; does not ensure identical physics across machines.
+   * - ``settle.num_steps``
+     - ``5``
+     - Environment steps per batch. Examples use longer settling intervals.
+   * - ``presets`` / ``--device``
+     - Environment preset / launcher default
+     - Backend override and execution device. Select them explicitly for reproducible runs.
+   * - ``render`` / ``--viz``
+     - ``false`` / launcher default
+     - Render physics steps and select a viewer. Use ``false`` / ``none`` for headless recording.
+
+Settling time is ``num_steps × decimation × physics_dt_s`` seconds. The saved
+``validation.sampling`` metadata contains all three values. Clutter examples
+explicitly use 480 environment steps; omitting that override uses only five.
+Validator settings are described in :ref:`recording-post-physics-checks`.
 
 Run this command from the repository root to record layouts from
 ``clamp_in_right_bin`` in ``outputs/placements/clamp.jsonl``:
@@ -134,7 +177,8 @@ See :doc:`../object_placement/validation` for acceptance checks and their settin
 For ``ClutterOn`` scenes, the recorder merges clutter defaults, including
 ``support_containment``, with ``settle.validators``. Explicit settings override
 defaults within each check; other default checks remain configured. See
-:doc:`clutter` for collection prerequisites and intentional-drop validation.
+:ref:`clutter-recording-preflight` for collection prerequisites and
+:ref:`clutter-recording-checks` for intentional-drop validation.
 
 Inspect the Recording
 ~~~~~~~~~~~~~~~~~~~~~
@@ -157,6 +201,8 @@ Under ``variations["scene.relation_placement"]``, check:
   stores the settling duration and robot roots excluded from link checks.
 
 See :doc:`../object_placement/relations` for pose names, units and replay constraints.
+
+.. _placement-recording-replay:
 
 Replay Placement Layouts
 ------------------------
@@ -267,6 +313,8 @@ can restore.
      - If any candidate passes the required solver checks, physics advances the
        whole batch. Candidates that failed those checks remain rejected.
 
+.. _placement-recording-python-api:
+
 Python API
 ----------
 
@@ -296,6 +344,8 @@ record layouts, and close the environment:
 ``summary.rejections`` contains rejection reasons. ``summary.output`` is ``None``
 only when nothing was accepted; partial recordings still have an output path.
 Pass ``arena_env=`` to use an in-memory environment description instead of YAML.
+See :ref:`clutter-adapt-environment` for a complete application example and
+factory-configuration guidance.
 
 For an environment you already own:
 
@@ -306,8 +356,18 @@ For an environment you already own:
   validation reports and rejection reasons in memory. It processes a fixed
   number of batches without enforcing replay restrictions or writing a file.
 
+Both APIs require a pooled placement reset event, normally built with
+``resolve_on_reset=True``. Fixed-placement and cached-replay environments do not
+provide that pool and cannot be recorded through these APIs.
+
 Both caller-owned APIs accept ``params=SettledPlacementParams(...)`` and
 ``scene_assets=arena_env.get_placement_assets()``. Provide the complete asset list
 for clutter preflight and for recording scene roots outside the placement pool.
 These calls reset and advance the environment, leave it open at its final state
 even on failure, and leave cleanup to the caller.
+
+.. toctree::
+   :hidden:
+   :maxdepth: 1
+
+   clutter
