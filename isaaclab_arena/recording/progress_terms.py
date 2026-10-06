@@ -34,6 +34,7 @@ def record_progress_results(env, env_id: int) -> dict[str, Any]:
                     "completed_sequences": criteria_state.completed_sequences,
                     "total_sequences": criteria_state.total_sequences,
                     "active_predicates": criteria_state.active_predicates,
+                    "required_for_success": criteria_state.required_for_success,
                 }
                 for name, criteria_state in state.criteria_by_name.items()
             },
@@ -46,6 +47,7 @@ def record_progress_results(env, env_id: int) -> dict[str, Any]:
                     "predicate_index": event.predicate_index,
                     "predicate_name": event.predicate_name,
                     "score_delta": event.score_delta,
+                    **({"details": event.details} if event.details else {}),
                 }
                 for event in events
             ],

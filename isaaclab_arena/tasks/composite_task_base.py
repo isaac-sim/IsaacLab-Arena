@@ -211,7 +211,9 @@ class CompositeTaskBase(TaskBase):
         for subtask_index, subtask in enumerate(self.subtasks):
             subtask_termination = subtask.get_termination_cfg()
             assert isinstance(subtask_termination, TaskTerminationCfg), "Subtasks must return TaskTerminationCfg."
-            assert subtask_termination.success, f"Subtask {subtask_index} must define success criteria."
+            assert any(
+                criteria.required_for_success for criteria in subtask_termination.success
+            ), f"Subtask {subtask_index} must define success criteria with required_for_success=True."
             assert (
                 not subtask_termination.subtasks_are_sequential
                 and subtask_termination.desired_subtask_success_state is None

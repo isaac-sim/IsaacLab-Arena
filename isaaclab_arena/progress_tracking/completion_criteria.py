@@ -43,7 +43,8 @@ class CompletionCriteria:
         name: Identifies the CompletionCriteria within the TaskBase.
         predicate_sequence: One ordered list of predicates, optionally paired with scores.
         predicate_sequences: Named independent lists of predicates, optionally paired with scores.
-        score: Weight of the CompletionCriteria in the TaskBase-level overall_score.
+        score: Weight of the CompletionCriteria in the TaskBase-level overall_score; ignored when
+            required_for_success is False.
         logical: How completed sequences combine to satisfy the completion criteria.
             A CriteriaCompletionMode (ALL, ANY, or CHOOSE); a matching string value is also accepted.
         K: Required when logical == "choose". Specifies the number of sequences that must be completed
@@ -67,6 +68,9 @@ class CompletionCriteria:
 
     parent_subtask_idx: int | None = None
     """Subtask index assigned by CompositeTaskBase; None for standalone task criteria."""
+
+    required_for_success: bool = True
+    """Whether task success waits for these criteria; False tracks their progress and events without gating success."""
 
     def __post_init__(self):
         assert 0.0 <= self.score <= 1.0, f"CompletionCriteria '{self.name}': score must be in [0, 1], got {self.score}"

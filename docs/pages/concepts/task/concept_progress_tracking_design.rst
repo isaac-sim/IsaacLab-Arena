@@ -306,10 +306,10 @@ such as ``pick_and_place``. Nested composite or sequential tasks are not support
 
 For an order-independent composite task, every subtask's criteria sets are active.
 With ``CompositeTaskBase(..., subtasks_are_sequential=True)``, ``ProgressTracker``
-activates each subtask only after all criteria sets of the preceding subtask complete in that
-environment. The next subtask starts on the following environment step. A later subtask's predicates
-cannot advance before that subtask becomes active, even if their physical conditions already happen
-to be true.
+activates each subtask only after all required criteria sets of the preceding subtask complete in
+that environment. The next subtask starts on the following environment step. A later subtask's
+required criteria cannot advance before that subtask becomes active, even if their physical
+conditions already happen to be true.
 
 ``ProgressTracker`` determines task success and reports the same criteria completion history.
 Completed milestones remain recorded. ``TaskTerminationCfg.desired_subtask_success_state``
@@ -326,7 +326,35 @@ There are no additional reports for parent criteria sets. See
    :align: center
 
    Composite tasks activate tracking on all subtasks' predicates together, while sequential tasks activate
-   tracking on each subtask's predicates only after the preceding subtask succeeds.
+   tracking on each subtask's predicates only after the preceding subtask succeeds. Tracked criteria
+   advance regardless of subtask order.
+
+
+Tracked criteria
+----------------
+
+Set ``required_for_success=False`` on a ``CompletionCriteria`` in ``TaskTerminationCfg.success`` to
+record its progress and events without requiring it for success. Such tracked criteria can record
+events, such as a robot finding an object or falling, beside the criteria that define success:
+
+.. code-block:: python
+
+   success=[
+       CompletionCriteria(name="arrived", predicate_sequence=[robot_arrived]),
+       CompletionCriteria(name="fallen", predicate_sequence=[robot_fallen], required_for_success=False),
+   ]
+
+A task must still declare at least one criteria set required for success, and so must each subtask
+of a composite task. ``ProgressTracker`` advances tracked criteria on every control step in every
+environment, regardless of subtask order. Like other criteria, a tracked criteria set records when
+it first completes and stops evaluating until the environment resets. ``criteria_by_name`` reports
+each tracked set's score and completion, while ``overall_score`` and task success consider only the
+criteria required for success.
+
+Tracked criteria advance independently of the success criteria, so their predicates must not change
+environment state that success checks read. For example, a tracked ``objects_settled`` could record an
+object's first resting pose before the success sequence reaches it; use
+``objects_below_velocity_thresholds`` as a read-only rest check.
 
 
 Reading subtask progress tracking at runtime
@@ -372,7 +400,8 @@ For example, one entry of the JSONL record may look like this (placement predica
            "total_sequences": 1,
            "active_predicates": {
              "default_sequence": "object_on_destination"
-           }
+           },
+           "required_for_success": true
          }
        },
        "events": [
@@ -398,6 +427,12 @@ For example, one entry of the JSONL record may look like this (placement predica
 
 The object has settled and been lifted: two of three predicates are complete, giving a score of ``0.67``.
 Placement is still required. The two events record when settling and lifting completed.
+
+A predicate implemented as a callable class can describe its transition with an
+``event_details(env_idx)`` method, which returns a JSON-serializable mapping for one environment.
+When the predicate advances, ``ProgressTracker`` copies that mapping into the event's ``details``
+field; the episode record and the report tooltip show it. The copy is taken at the transition
+because the predicate's state keeps changing afterwards.
 
 The recording schema uses the same criteria and sequence names as the runtime API. Older
 recordings that use ``objectives``, ``objective``, or ``group`` fields require conversion or

@@ -57,6 +57,15 @@ def _create_predicate_from_config(predicate, env):
     return functools.partial(predicate_cfg.func, **predicate_cfg.params)
 
 
+def _unwrap_predicate(predicate):
+    """Return the configured predicate inside a consecutive-step requirement and partial bindings."""
+    if isinstance(predicate, _TrueForConsecutiveSteps):
+        predicate = predicate.predicate
+    while isinstance(predicate, functools.partial):
+        predicate = predicate.func
+    return predicate
+
+
 @dataclass
 class PredicateEvent:
     """A single predicate transition event emitted by the progress tracker."""
@@ -82,6 +91,9 @@ class PredicateEvent:
     score_delta: float
     """Normalized score this advance added to the sequence."""
 
+    details: dict[str, object]
+    """Copy of the predicate's optional event_details(env_idx) mapping, taken when the predicate advanced."""
+
 
 @dataclass
 class CompletionCriteriaState:
@@ -102,6 +114,9 @@ class CompletionCriteriaState:
     active_predicates: dict[str, str | None]
     """Next predicate per sequence, or None when the sequence is complete."""
 
+    required_for_success: bool
+    """Whether task success waits for these criteria."""
+
 
 @dataclass
 class ProgressState:
@@ -111,7 +126,7 @@ class ProgressState:
     """Per-criteria state, keyed by CompletionCriteria name."""
 
     overall_score: float
-    """Weighted progress of the criteria sets, normalized to [0, 1]."""
+    """Weighted progress of the criteria sets required for success, normalized to [0, 1]."""
 
     all_complete: bool
     """Whether the task's success requirements are met for this env."""
@@ -324,9 +339,12 @@ class CompletionCriteriaRunner:
             # Update the advanced mask for the envs that were advanced.
             advanced = advanced | advance_mask
 
-            # Emit an event for each env where a predicate was advanced.
+            # Emit an event for each env where a predicate was advanced. Copy optional details now,
+            # because the predicate's state keeps changing after this step.
             pred_name = _predicate_repr(predicate)
+            event_details = getattr(_unwrap_predicate(predicate), "event_details", None)
             for env_idx in torch.nonzero(advance_mask, as_tuple=False).flatten().tolist():
+                details = copy.deepcopy(event_details(env_idx)) if event_details is not None else {}
                 events.append(
                     PredicateEvent(
                         env_idx=int(env_idx),
@@ -336,6 +354,7 @@ class CompletionCriteriaRunner:
                         predicate_index=chain_idx,
                         predicate_name=pred_name,
                         score_delta=float(score_weight),
+                        details=details,
                     )
                 )
 
@@ -410,11 +429,16 @@ class CompletionCriteriaRunner:
             score=float(score),
             is_complete=bool(is_complete),
             active_predicates=active_predicates,
+            required_for_success=criteria.required_for_success,
         )
 
 
 class ProgressTracker:
-    """Track predicate completion and coordinate a flat list of subtasks."""
+    """Track predicate completion and coordinate a flat list of subtasks.
+
+    Criteria sets with required_for_success=False are tracked: they advance on every
+    control step regardless of subtask order and do not gate task success.
+    """
 
     def __init__(
         self,
@@ -426,7 +450,9 @@ class ProgressTracker:
         subtasks_are_sequential: bool = False,
         desired_subtask_success_state: list[bool | None] | None = None,
     ):
-        assert completion_criteria, "Task success requires at least one set of completion criteria."
+        assert any(
+            criteria.required_for_success for criteria in completion_criteria
+        ), "Task success requires at least one set of completion criteria with required_for_success=True."
         criteria_names = [criteria.name for criteria in completion_criteria]
         assert len(set(criteria_names)) == len(criteria_names), "Completion criteria names must be unique."
         self.completion_criteria = completion_criteria
@@ -435,7 +461,11 @@ class ProgressTracker:
         self.runners = [
             CompletionCriteriaRunner(criteria, num_envs, device, env=env) for criteria in completion_criteria
         ]
-        self._subtask_runners = self._group_runners_by_subtask(self.runners)
+        self._required_runners = [runner for runner in self.runners if runner.completion_criteria.required_for_success]
+        self._tracked_runners = [
+            runner for runner in self.runners if not runner.completion_criteria.required_for_success
+        ]
+        self._subtask_runners = self._group_runners_by_subtask(self._required_runners)
         assert not subtasks_are_sequential or self._subtask_runners, "Sequential tracking requires subtask indices."
         if desired_subtask_success_state is not None:
             assert self._subtask_runners, "Final subtask conditions require subtask indices."
@@ -497,12 +527,13 @@ class ProgressTracker:
             assert bool(
                 (first_update | next_control_step).all()
             ), "step_index must advance by exactly one per environment between resets."
-        active_envs = torch.ones(self.num_envs, dtype=torch.bool, device=self.device)
+        all_envs = torch.ones(self.num_envs, dtype=torch.bool, device=self.device)
+        active_envs = all_envs
         # Progress advancement and final-condition checks share predicate results.
         # Evaluating a stateful predicate twice could advance its counter twice
         # without another simulation step.
         predicate_results_this_step: dict[int, tuple[torch.Tensor, torch.Tensor]] = {}
-        for subtask_index, subtask_runners in enumerate(self._subtask_runners or [self.runners]):
+        for subtask_index, subtask_runners in enumerate(self._subtask_runners or [self._required_runners]):
             # Use completion before advancing so the next subtask starts on the following step.
             subtask_was_complete = self._all_criteria_complete(subtask_runners)
             check_final_conditions = (
@@ -516,6 +547,10 @@ class ProgressTracker:
                     self._events[event.env_idx].append(event)
             if self.subtasks_are_sequential:
                 active_envs = active_envs & subtask_was_complete
+        # Tracked criteria advance in every environment, whether or not their subtask is active.
+        for runner in self._tracked_runners:
+            for event in runner.step(env, step_index, all_envs, predicate_results_this_step):
+                self._events[event.env_idx].append(event)
         self._task_success = self._compute_task_success(env, predicate_results_this_step)
         if step_index is not None:
             # The environment increments episode_length_buf in place; keep our own snapshot.
@@ -526,7 +561,7 @@ class ProgressTracker:
     ) -> torch.Tensor:
         """Combine recorded completion with any required current subtask conditions."""
         if self.desired_subtask_success_state is None:
-            return self._all_criteria_complete(self.runners)
+            return self._all_criteria_complete(self._required_runners)
 
         # Preserve the existing 'don't care' behavior: None skips both history and final state.
         required_subtasks = [
@@ -572,12 +607,7 @@ class ProgressTracker:
         """
         for runner in self.runners:
             if runner.completion_criteria.name == criteria_name:
-                predicate = runner.predicate_chains[sequence_name][predicate_index][0]
-                if isinstance(predicate, _TrueForConsecutiveSteps):
-                    predicate = predicate.predicate
-                while isinstance(predicate, functools.partial):
-                    predicate = predicate.func
-                return predicate
+                return _unwrap_predicate(runner.predicate_chains[sequence_name][predicate_index][0])
         raise KeyError(f"Unknown completion criteria: {criteria_name!r}")
 
     def reset(self, env_ids: list[int] | torch.Tensor) -> None:
@@ -600,8 +630,12 @@ class ProgressTracker:
         scores = [runner.overall_score_per_env() for runner in self.runners]
         task_complete = self.is_complete()
 
-        # Total criteria weight for normalization.
-        total_criteria_weight = sum(runner.completion_criteria.score for runner in self.runners)
+        # Tracked criteria report their own scores but carry no weight in the overall score.
+        weights = [
+            runner.completion_criteria.score if runner.completion_criteria.required_for_success else 0.0
+            for runner in self.runners
+        ]
+        total_criteria_weight = sum(weights)
 
         output: list[ProgressState] = []
         for env_idx in range(self.num_envs):
@@ -611,9 +645,7 @@ class ProgressTracker:
                 criteria = runner.completion_criteria
                 state = runner.get_state_for_env(env_idx, completeness[i][env_idx], scores[i][env_idx])
                 criteria_states[criteria.name] = state
-            weighted_score = sum(
-                runner.completion_criteria.score * float(score[env_idx]) for runner, score in zip(self.runners, scores)
-            )
+            weighted_score = sum(weight * float(score[env_idx]) for weight, score in zip(weights, scores))
 
             overall_score = (
                 max(0.0, min(1.0, weighted_score / total_criteria_weight)) if total_criteria_weight > 0 else 0.0
@@ -648,18 +680,19 @@ class ProgressTrackingRecorder(RecorderTerm):
                 ProgressState(
                     criteria_by_name={
                         "<name>": CompletionCriteriaState(
-                            completed_sequences, total_sequences, score, is_complete, active_predicates
+                            completed_sequences, total_sequences, score, is_complete, active_predicates,
+                            required_for_success,
                         ),
                         ...
                     },
-                    overall_score=float,                   # weighted mean of criteria scores, in [0, 1]
+                    overall_score=float,                   # weighted mean of required criteria scores, in [0, 1]
                     all_complete=bool,
                 ),
                 ...
             ],
             "events": [                                    # one list of PredicateEvent per env
                 [PredicateEvent(env_idx, step, criteria_name, sequence_name,
-                                predicate_index, predicate_name, score_delta), ...],
+                                predicate_index, predicate_name, score_delta, details), ...],
                 ...
             ],
         }

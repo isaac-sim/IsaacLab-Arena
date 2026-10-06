@@ -12,6 +12,7 @@ evaluation, video, policy, environment, Isaac Sim, or Isaac Lab stacks.
 from __future__ import annotations
 
 import functools
+import json
 import pathlib
 import re
 from collections import defaultdict
@@ -236,11 +237,15 @@ class JobSummary:
             detail = criteria_by_name.get(name, {}) if criteria_by_name else {}
             family = self._criteria_family_by_name.get(name, name)
             sequence = self._family_sequences.get(family, {})
-            active_names = [
-                _base_predicate_name(predicate)
-                for predicate in (detail.get("active_predicates") or {}).values()
-                if predicate
-            ]
+            # Success never waits for tracked criteria, so their unfired predicates are not blocked.
+            # Records without the flag predate tracked criteria, when every set was required.
+            active_names = []
+            if detail.get("required_for_success", True):
+                active_names = [
+                    _base_predicate_name(predicate)
+                    for predicate in (detail.get("active_predicates") or {}).values()
+                    if predicate
+                ]
             signals = []
             matched_blocked: set[str] = set()
             for index in sorted(sequence):
@@ -254,7 +259,7 @@ class JobSummary:
                         name=sequence[index],
                         triggered=event is not None,
                         step=_as_int(event.get("step")) if event is not None else None,
-                        detail=str(event.get("predicate_name", "")) if event is not None else "",
+                        detail=_signal_detail(event),
                         blocked=blocked,
                     )
                 )
@@ -497,6 +502,15 @@ def _events_by_criteria_and_index(record: dict[str, Any]) -> dict[str, dict[int,
         if criteria_name is not None and index is not None:
             result.setdefault(criteria_name, {})[index] = event
     return result
+
+
+def _signal_detail(event: dict[str, Any] | None) -> str:
+    """Return a fired signal's tooltip: its recorded details as sorted JSON, else its predicate name."""
+    if event is None:
+        return ""
+    if event.get("details"):
+        return json.dumps(event["details"], sort_keys=True)
+    return str(event.get("predicate_name", ""))
 
 
 def _mean(values: list[float]) -> float | None:

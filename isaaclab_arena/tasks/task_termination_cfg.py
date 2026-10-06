@@ -19,13 +19,16 @@ class TaskTerminationCfg:
     """Episode time limit in seconds; None disables timeout termination."""
 
     success: list[CompletionCriteria] = field(default_factory=list)
-    """Criteria sets required for success by default; an empty list disables success termination."""
+    """Criteria sets for success; sets with required_for_success=False are tracked but never gate success.
+
+    An empty list disables success termination.
+    """
 
     failures: dict[str, TerminationTermCfg] = field(default_factory=dict)
     """Named failure conditions; any true condition ends the episode."""
 
     subtasks_are_sequential: bool = False
-    """Whether ProgressTracker waits for each subtask's criteria before advancing the next subtask."""
+    """Whether ProgressTracker waits for each subtask's required criteria before advancing the next subtask."""
 
     desired_subtask_success_state: list[bool | None] | None = None
     """Optional final subtask conditions; None entries exclude that subtask from the success check."""

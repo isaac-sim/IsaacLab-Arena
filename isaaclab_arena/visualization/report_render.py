@@ -436,7 +436,9 @@ def _render_episode_card(episode, cameras: list[str], video_prefix: str, policy:
     signals_html = _render_signals(criteria_sets or [])
     if episode.outcome_disagrees_with_progress:
         reached = (
-            "all completion criteria met" if episode.all_criteria_complete else "completion criteria are incomplete"
+            "all required completion criteria met"
+            if episode.all_criteria_complete
+            else "completion criteria are incomplete"
         )
         verdict = "succeeded" if episode.success else "did not succeed"
         signals_html += (
