@@ -224,77 +224,8 @@ After the first update, repeated, skipped, or backwards indices raise an asserti
 predicates are evaluated or counters change. ``ProgressTracker.reset()`` clears the stored index
 for each restarting environment.
 
-The examples below show three different requirements. ``object_still(env)`` and ``gripper_slow(env)``
-are configured instantaneous checks that each return one Boolean per environment.
-Step numbers start when the criteria become active.
-
-One condition after another
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Put both requirements in one ``predicate_sequence`` to count them in order:
-
-.. code-block:: python
-
-   criteria = CompletionCriteria(
-       name="object_then_gripper",
-       predicate_sequence=[
-           TrueForConsecutiveStepsCfg(object_still, required_steps=10),
-           TrueForConsecutiveStepsCfg(gripper_slow, required_steps=10),
-       ],
-   )
-
-``CompletionCriteriaRunner`` first waits for ten consecutive steps with the object still.
-On the following step, it starts counting the gripper's ten steps. The earliest completion is
-step 20. The object may move again after its requirement completes; that completion is remembered.
-
-Independent conditions, both completed
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Use separate named ``predicate_sequences`` to start both counters together:
-
-.. code-block:: python
-
-   criteria = CompletionCriteria(
-       name="object_and_gripper_ready",
-       predicate_sequences={
-           "object": [TrueForConsecutiveStepsCfg(object_still, required_steps=10)],
-           "gripper": [TrueForConsecutiveStepsCfg(gripper_slow, required_steps=10)],
-       },
-       logical="all",
-   )
-
-Each sequence completes independently, and ``logical="all"`` requires both to finish.
-``CompletionCriteriaRunner`` remembers each sequence's completion until the episode resets.
-The successful periods do not have to overlap. For example, if the object is still during steps
-1–10 and the gripper is slow during steps 2–11, the criteria are complete at step 11, even if the
-object is moving again then.
-
-``logical`` combines completed sequences; it does not create separate counters inside one predicate.
-
-Both conditions during the same steps
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Combine the instantaneous checks before wrapping them to require ten shared steps:
-
-.. code-block:: python
-
-   def object_and_gripper_stable(env):
-       return object_still(env) & gripper_slow(env)
-
-   criteria = CompletionCriteria(
-       name="simultaneous_stability",
-       predicate_sequence=[
-           TrueForConsecutiveStepsCfg(
-               predicate=object_and_gripper_stable,
-               required_steps=10,
-           ),
-       ],
-   )
-
-One counter tracks the combined condition. If either check becomes false, the streak starts over.
-If the object is still only during steps 1–10 and the gripper is slow only during steps 2–11,
-this requirement does not complete: they overlap for only nine steps.
-
+See :doc:`concept_consecutive_step_predicates` for sequential requirements, independent
+parallel streaks, and conditions that must hold during the same steps.
 
 Subtask progress tracking in composite and sequential tasks
 -----------------------------------------------------------
@@ -352,6 +283,8 @@ Read each environment's state and completed-predicate events as follows:
 After an automatic reset, ``env.extras["progress_tracking"]`` still shows the finished episode
 until the next step.
 
+.. _consecutive-step-episode-summary:
+
 Episode consecutive-step summary
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -386,58 +319,24 @@ a false result resets the streak. A waiting requirement has not been reached yet
 Completed milestones retain their first satisfied step even if a later final-condition
 recheck resets the streak. Counts reflect each requirement's last evaluation.
 
-Three ways to require consecutive steps
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Example episode results
+^^^^^^^^^^^^^^^^^^^^^^^
 
-Let ``A(env)`` check object settling and ``B(env)`` check gripper release. Both return one
-Boolean per environment. These existing definitions have different meanings:
+The three configurations are defined in :doc:`concept_consecutive_step_predicates`.
+Here, A is the object-settling check and B is the gripper check. The result examples call
+the combined predicate ``both`` and its criteria ``settling``.
 
-.. code-block:: python
-
-   from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
-   from isaaclab_arena.tasks.predicates.temporal import TrueForConsecutiveStepsCfg
-
-   # Sequential: B starts counting on the step after A completes.
-   sequential = CompletionCriteria(
-       "settling",
-       predicate_sequence=[TrueForConsecutiveStepsCfg(A, 10), TrueForConsecutiveStepsCfg(B, 10)],
-   )
-
-   # Independent: each sequence needs its own ten-step streak; overlap is not required.
-   parallel = CompletionCriteria(
-       "settling",
-       predicate_sequences={
-           "A": [TrueForConsecutiveStepsCfg(A, 10)],
-           "B": [TrueForConsecutiveStepsCfg(B, 10)],
-       },
-       logical="all",
-   )
-
-   # Joint: both must be true during the same ten control steps.
-   def both(env):
-       return A(env) & B(env)
-
-   joint = CompletionCriteria("settling", predicate_sequence=[TrueForConsecutiveStepsCfg(both, 10)])
-
-Before and after in episode results
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Previously, JSON and HTML showed milestone scores and completion events, but no streak counts.
-The new ``consecutive_step_summary`` and HTML table add counts and first satisfied steps; they do
-not change task success, scoring, or the definitions above.
-
-The following controlled examples were replayed through the tracker and episode recorder.
 For the first three rows, A is true on steps 1–10 and false afterwards; B is false at step 1
 and true from step 2 onward. Stop at task success or the stated timeout. Event times below
 refer to settling requirements.
 
-.. list-table:: Before and after reporting for consecutive-step requirements
+.. list-table:: Consecutive-step requirements in episode results
    :header-rows: 1
    :widths: 25 30 45
 
    * - Case
-     - Before: milestone result
-     - After: additional episode summary
+     - Task result
+     - Consecutive-step summary
    * - Sequential, ends at step 20
      - Score 1; A completed at 10, B at 20
      - A 10/10, first satisfied 10; B 10/10, first satisfied 20
@@ -471,7 +370,7 @@ milestone history, while ``all_complete`` and episode ``success`` determine the 
 Rechecking applies to the final requirement of each sequence; to keep both checks jointly
 required, use the combined ``both`` requirement as that final entry.
 
-For the partial joint case, the added JSON entry is:
+For the partial joint case, the JSON entry is:
 
 .. code-block:: json
 
@@ -488,8 +387,7 @@ For the partial joint case, the added JSON entry is:
 
 This entry appears in ``progress.consecutive_step_summary`` in episode JSONL and
 ``arena_experiment_result.json``. HTML labels it **Incomplete**, with **6/10** consecutive
-steps and **4** steps remaining. Before this addition, its zero score and empty event list
-could not distinguish it from the interrupted 0/10 case.
+steps and **4** steps remaining.
 
 Arena's episode recorder also serializes the final progress state and predicate events into the
 episode's JSONL record when an output path is configured. Tasks without completion criteria have
