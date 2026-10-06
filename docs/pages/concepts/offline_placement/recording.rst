@@ -92,6 +92,12 @@ not set the accepted-layout target. The batch budget must allow at least
 The defaults are API defaults, not a recommended settling duration for every
 scene. The examples below override them where needed:
 
+Select exactly one environment source. ``env_spec=path/to/environment.yaml``
+loads a graph environment, while ``environment_name=my_environment`` builds a
+registered Python environment with its typed default configuration. In either
+case, the environment must define relation placement that produces a placement
+pool.
+
 .. list-table:: Recording Options
    :header-rows: 1
    :widths: 25 15 60
@@ -99,6 +105,9 @@ scene. The examples below override them where needed:
    * - Option
      - Default
      - Meaning
+   * - ``env_spec`` / ``environment_name``
+     - None
+     - Graph-YAML path or registered Python environment name; specify exactly one.
    * - ``num_envs``
      - ``1``
      - Parallel environments; one candidate per environment in a reset batch.

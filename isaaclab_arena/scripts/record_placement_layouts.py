@@ -86,6 +86,28 @@ def record_placements_to_jsonl(
     return summary
 
 
+def _build_recording_environment(cfg: PlacementRecordingCfg) -> IsaacLabArenaEnvironment:
+    """Build the configured graph-YAML or registered Python environment."""
+    from isaaclab_arena.assets.registries import EnvironmentRegistry
+    from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
+    from isaaclab_arena_environments.cli import ensure_environments_registered
+
+    assert (cfg.env_spec is None) != (
+        cfg.environment_name is None
+    ), "Specify exactly one environment source: env_spec or environment_name"
+    if cfg.env_spec is not None:
+        spec = ArenaEnvGraphSpec.from_yaml(cfg.env_spec)
+        assert not spec.object_sets, "Resolve object sets before recording reusable layouts"
+        return spec.to_arena_env()
+
+    assert cfg.environment_name is not None, "Validated registered environment source is missing"
+    ensure_environments_registered()
+    registry = EnvironmentRegistry()
+    factory_type = registry.get_component_by_name(cfg.environment_name)
+    environment_cfg_type = registry.get_environment_cfg_type(factory_type)
+    return factory_type().build(environment_cfg_type())
+
+
 def record_settled_placement_layouts(
     cfg: PlacementRecordingCfg,
     *,
@@ -95,8 +117,9 @@ def record_settled_placement_layouts(
     """Build an environment, collect accepted poses, and close the simulation.
 
     Call after starting SimulationApp. Pass ``arena_env`` to record from an
-    in-memory description; otherwise ``cfg.env_spec`` loads the scene YAML.
-    A summary with output=None means no layouts were accepted.
+    in-memory description; otherwise configure exactly one of ``cfg.env_spec``
+    or ``cfg.environment_name``. A summary with output=None means no layouts
+    were accepted.
 
     Args:
         cfg: Sampling, validation and output settings.
@@ -107,7 +130,6 @@ def record_settled_placement_layouts(
         Output path, acceptance counts and per-candidate rejection reasons.
     """
     from isaaclab_arena.assets.object_set import RigidObjectSet
-    from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
     from isaaclab_arena.environment_spec.placer_params_cfg_override import build_placer_params_from_override
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
@@ -121,9 +143,7 @@ def record_settled_placement_layouts(
     assert (cfg.viewer_eye is None) == (cfg.viewer_lookat is None), "Set viewer_eye and viewer_lookat together"
 
     if arena_env is None:
-        spec = ArenaEnvGraphSpec.from_yaml(cfg.env_spec)
-        assert not spec.object_sets, "Resolve object sets before recording reusable layouts"
-        arena_env = spec.to_arena_env()
+        arena_env = _build_recording_environment(cfg)
     assert arena_env.placement_layouts is None, "Remove cached placement layouts before recording"
     scene_assets = arena_env.get_placement_assets()
     assert not any(isinstance(asset, RigidObjectSet) for asset in scene_assets), "Resolve object sets before recording"
@@ -173,6 +193,9 @@ def main() -> None:
     assert_hydra_overrides(overrides, parser)
     cfg = load_recording_config(overrides)
     assert not Path(cfg.output).exists(), f"Output already exists: {cfg.output}"
+    assert (cfg.env_spec is None) != (
+        cfg.environment_name is None
+    ), "Specify exactly one environment source: env_spec or environment_name"
     with SimulationAppContext(launcher_args):
         summary = record_settled_placement_layouts(cfg, device=launcher_args.device)
         for reason, count in Counter(summary.rejections.values()).items():

@@ -289,6 +289,14 @@ def test_recording_cli_imports_before_simulation_startup():
     assert result.returncode == 0, result.stdout + result.stderr
 
 
+def test_recording_config_accepts_registered_environment_source():
+    from isaaclab_arena.offline_placement.recording_config import load_recording_config
+
+    cfg = load_recording_config(["environment_name=registered_environment", "output=placements.jsonl"])
+    assert cfg.environment_name == "registered_environment"
+    assert cfg.env_spec is None
+
+
 def _test_recording_with_default_placer_params(simulation_app, tmp_path):
     import json
     from unittest.mock import patch
@@ -335,6 +343,65 @@ def _test_recording_with_default_placer_params(simulation_app, tmp_path):
 
 def test_recording_with_default_placer_params(tmp_path):
     assert run_function_with_persistent_simulation_app(_test_recording_with_default_placer_params, tmp_path=tmp_path)
+
+
+def _test_recording_with_registered_environment(simulation_app, tmp_path):
+    from dataclasses import dataclass
+    from unittest.mock import patch
+
+    from isaaclab_arena.assets.registries import AssetRegistry, EnvironmentRegistry, ensure_assets_registered
+    from isaaclab_arena.embodiments.no_embodiment import NoEmbodiment
+    from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
+    from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg, ArenaEnvironmentFactory
+    from isaaclab_arena.offline_placement.recording_config import PlacementRecordingCfg
+    from isaaclab_arena.offline_placement.settled_placement_params import SettledPlacementParams
+    from isaaclab_arena.scripts.record_placement_layouts import record_settled_placement_layouts
+
+    source, output = tmp_path / "scene.yaml", tmp_path / "placements.jsonl"
+    _write_scene(source)
+    ensure_assets_registered()
+    with patch.dict(AssetRegistry()._components, {"recording_no_embodiment": NoEmbodiment}):
+        arena_env = ArenaEnvGraphSpec.from_yaml(source).to_arena_env()
+
+    @dataclass
+    class RecordingEnvironmentCfg(ArenaEnvironmentCfg):
+        pass
+
+    class RecordingEnvironment(ArenaEnvironmentFactory[RecordingEnvironmentCfg]):
+        name = "recording_registered_environment"
+
+        def build(self, cfg):
+            assert isinstance(cfg, RecordingEnvironmentCfg)
+            return arena_env
+
+    registry = EnvironmentRegistry()
+    with (
+        patch.dict(registry._components),
+        patch.dict(registry._cfg_types_by_factory_type),
+        patch.dict(registry._factory_types_by_cfg_type),
+    ):
+        registry.register_environment(RecordingEnvironment, RecordingEnvironmentCfg)
+        summary = record_settled_placement_layouts(
+            PlacementRecordingCfg(
+                environment_name=RecordingEnvironment.name,
+                output=str(output),
+                min_layouts=1,
+                layouts_per_env=1,
+                max_batches=1,
+                settle=SettledPlacementParams(num_steps=120),
+            )
+        )
+
+    assert summary.output == output
+    assert summary.accepted == 1
+    return True
+
+
+def test_recording_with_registered_environment(tmp_path):
+    assert run_function_with_persistent_simulation_app(
+        _test_recording_with_registered_environment,
+        tmp_path=tmp_path,
+    )
 
 
 def _test_recording_filters_layouts(simulation_app, tmp_path):
