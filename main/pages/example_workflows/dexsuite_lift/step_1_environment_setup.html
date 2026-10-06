@@ -595,21 +595,11 @@ that environment default.</p>
 <details class="sd-sphinx-override sd-dropdown sd-card sd-mb-3 sd-fade-in">
 <summary class="sd-summary-title sd-card-header">
 <span class="sd-summary-text">The Dexsuite Lift Environment</span><span class="sd-summary-state-marker sd-summary-chevron-right"><svg version="1.1" width="1.5em" height="1.5em" class="sd-octicon sd-octicon-chevron-right" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.72 18.78a.75.75 0 0 1 0-1.06L14.44 12 8.72 6.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018l6.25 6.25a.75.75 0 0 1 0 1.06l-6.25 6.25a.75.75 0 0 1-1.06 0Z"></path></svg></span></summary><div class="sd-summary-content sd-card-body docutils">
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">DexsuiteLiftEnvironment</span><span class="p">(</span><span class="n">ExampleEnvironmentBase</span><span class="p">):</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">DexsuiteLiftEnvironment</span><span class="p">(</span><span class="n">ArenaEnvironmentFactory</span><span class="p">):</span>
 
     <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"dexsuite_lift"</span>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">get_env</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">args_cli</span><span class="p">:</span> <span class="n">argparse</span><span class="o">.</span><span class="n">Namespace</span><span class="p">):</span>
-        <span class="kn">import</span><span class="w"> </span><span class="nn">math</span>
-
-        <span class="kn">import</span><span class="w"> </span><span class="nn">isaaclab_tasks.core.lift</span>  <span class="c1"># noqa: F401</span>
-
-        <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.environments.isaaclab_arena_environment</span><span class="w"> </span><span class="kn">import</span> <span class="n">IsaacLabArenaEnvironment</span>
-        <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.scene.scene</span><span class="w"> </span><span class="kn">import</span> <span class="n">Scene</span>
-        <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.tasks.lift_object_task</span><span class="w"> </span><span class="kn">import</span> <span class="n">DexsuiteLiftTask</span>
-        <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.utils.physics_backend</span><span class="w"> </span><span class="kn">import</span> <span class="n">PhysicsBackend</span>
-        <span class="kn">from</span><span class="w"> </span><span class="nn">isaaclab_arena.utils.pose</span><span class="w"> </span><span class="kn">import</span> <span class="n">Pose</span><span class="p">,</span> <span class="n">PoseRange</span>
-
+    <span class="k">def</span><span class="w"> </span><span class="nf">build</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cfg</span><span class="p">):</span>
         <span class="n">dexsuite_table</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">"procedural_table"</span><span class="p">)()</span>
         <span class="n">dexsuite_table</span><span class="o">.</span><span class="n">set_initial_pose</span><span class="p">(</span><span class="n">Pose</span><span class="p">(</span><span class="n">position_xyz</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mf">0.55</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.235</span><span class="p">)))</span>
 
@@ -625,26 +615,20 @@ that environment default.</p>
 
         <span class="n">ground_plane</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">"ground_plane"</span><span class="p">)()</span>
         <span class="n">light</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">"light"</span><span class="p">)()</span>
-
         <span class="n">embodiment</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_registry</span><span class="o">.</span><span class="n">get_asset_by_name</span><span class="p">(</span><span class="s2">"kuka_allegro"</span><span class="p">)()</span>
 
         <span class="n">scene</span> <span class="o">=</span> <span class="n">Scene</span><span class="p">(</span><span class="n">assets</span><span class="o">=</span><span class="p">[</span><span class="n">dexsuite_table</span><span class="p">,</span> <span class="n">manip_object</span><span class="p">,</span> <span class="n">ground_plane</span><span class="p">,</span> <span class="n">light</span><span class="p">])</span>
         <span class="n">task</span> <span class="o">=</span> <span class="n">DexsuiteLiftTask</span><span class="p">(</span><span class="n">lift_object</span><span class="o">=</span><span class="n">manip_object</span><span class="p">,</span> <span class="n">background_scene</span><span class="o">=</span><span class="n">dexsuite_table</span><span class="p">)</span>
-
-        <span class="n">dexsuite_rl_cfg_entry</span> <span class="o">=</span> <span class="p">(</span>
-            <span class="s2">"isaaclab_tasks.core.lift.config.kuka_allegro.agents."</span>
-            <span class="s2">"rsl_rl_ppo_cfg:KukaAllegroPPORunnerCfg"</span>
-        <span class="p">)</span>
 
         <span class="k">return</span> <span class="n">IsaacLabArenaEnvironment</span><span class="p">(</span>
             <span class="n">name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
             <span class="n">embodiment</span><span class="o">=</span><span class="n">embodiment</span><span class="p">,</span>
             <span class="n">scene</span><span class="o">=</span><span class="n">scene</span><span class="p">,</span>
             <span class="n">task</span><span class="o">=</span><span class="n">task</span><span class="p">,</span>
-            <span class="n">teleop_device</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
             <span class="n">rl_framework_entry_point</span><span class="o">=</span><span class="s2">"rsl_rl_cfg_entry_point"</span><span class="p">,</span>
-            <span class="n">rl_policy_cfg</span><span class="o">=</span><span class="n">dexsuite_rl_cfg_entry</span><span class="p">,</span>
+            <span class="n">rl_policy_cfg</span><span class="o">=</span><span class="n">DEXSUITE_RSL_RL_CFG</span><span class="p">,</span>
             <span class="n">default_physics_backend</span><span class="o">=</span><span class="n">PhysicsBackend</span><span class="o">.</span><span class="n">NEWTON</span><span class="p">,</span>
+            <span class="n">env_cfg_callback</span><span class="o">=</span><span class="n">_match_isaac_lab_lift_cfg</span><span class="p">,</span>
         <span class="p">)</span>
 </pre></div>
 </div>
@@ -674,26 +658,31 @@ fingertip contact forces.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">perception</span></code>: object point cloud (64 points, flattened).</p></li>
 </ul>
 </li>
-<li><p><strong>Events</strong>: Joint-position randomization on reset (±0.5 rad offset from default).</p></li>
+<li><p><strong>Events</strong>: Arena resets the procedural cube from its configured
+<code class="docutils literal notranslate"><span class="pre">PoseRange</span></code> and resets the Kuka-Allegro embodiment to its default state.</p></li>
 </ul>
 <p><strong>2. Scene and Task</strong></p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">scene</span> <span class="o">=</span> <span class="n">Scene</span><span class="p">(</span><span class="n">assets</span><span class="o">=</span><span class="p">[</span><span class="n">dexsuite_table</span><span class="p">,</span> <span class="n">manip_object</span><span class="p">,</span> <span class="n">ground_plane</span><span class="p">,</span> <span class="n">light</span><span class="p">])</span>
 <span class="n">task</span> <span class="o">=</span> <span class="n">DexsuiteLiftTask</span><span class="p">(</span><span class="n">lift_object</span><span class="o">=</span><span class="n">manip_object</span><span class="p">,</span> <span class="n">background_scene</span><span class="o">=</span><span class="n">dexsuite_table</span><span class="p">)</span>
 </pre></div>
 </div>
-<p><code class="docutils literal notranslate"><span class="pre">DexsuiteLiftTask</span></code> is evaluation-only: no rewards, no curriculum.
-It provides the <code class="docutils literal notranslate"><span class="pre">object_pose</span></code> command (position-only, resampled every 2–3 s),
-a success termination at 5 cm position tolerance, and a time-out termination.</p>
+<p>The scene uses Arena’s procedural table and cube. The cube’s <code class="docutils literal notranslate"><span class="pre">PoseRange</span></code>
+generates its pose-reset event; no Isaac Lab conditional reset bank is used.
+<code class="docutils literal notranslate"><span class="pre">DexsuiteLiftTask</span></code> defines the policy command and evaluation termination
+settings. Evaluation omits rewards and curriculum. The position-only
+<code class="docutils literal notranslate"><span class="pre">object_pose</span></code> target is regenerated every 4–6 seconds, episodes last 12
+seconds, and success requires the object position to be within 5 cm of the
+commanded target.</p>
 <p><strong>3. Physics Backend Selection</strong></p>
 <p>The physics backend is selected by <code class="docutils literal notranslate"><span class="pre">ArenaEnvBuilder</span></code>:</p>
 <ul class="simple">
 <li><p><strong>Default (Newton)</strong>: no extra flag needed.</p></li>
 <li><p><strong>PhysX override</strong>: pass <code class="docutils literal notranslate"><span class="pre">--presets</span> <span class="pre">physx</span></code> to <code class="docutils literal notranslate"><span class="pre">policy_runner.py</span></code>.</p></li>
 </ul>
-<p>When Newton is resolved, the builder automatically:</p>
+<p>When Newton is resolved, the environment callback:</p>
 <ol class="arabic simple">
-<li><p>Applies the <code class="docutils literal notranslate"><span class="pre">ArenaPhysicsCfg().newton</span></code> configuration (MuJoCo-Warp solver
-with tuned parameters for dexterous manipulation).</p></li>
+<li><p>Applies Isaac Lab’s <code class="docutils literal notranslate"><span class="pre">PhysicsCfg.newton_mjwarp</span></code> solver configuration.</p></li>
+<li><p>Uses a 1/120-second simulation step and decimation of 4 (30 Hz control).</p></li>
 <li><p>Enables <code class="docutils literal notranslate"><span class="pre">scene.replicate_physics</span> <span class="pre">=</span> <span class="pre">True</span></code> (required by Newton).</p></li>
 </ol>
 </section>
@@ -716,7 +705,7 @@ python<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span cl
 <span class="w">  </span>dexsuite_lift
 </pre></div>
 </div>
-<p>You should see the Kuka Allegro hand in the scene with the cuboid on the table.</p>
+<p>You should see the Kuka Allegro hand with Arena’s procedural cuboid.</p>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
 <p><code class="docutils literal notranslate"><span class="pre">--viz</span> <span class="pre">newton_gl</span></code> uses the MuJoCo viewer; <code class="docutils literal notranslate"><span class="pre">--viz</span> <span class="pre">kit</span></code> uses

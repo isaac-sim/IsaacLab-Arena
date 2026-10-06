@@ -589,19 +589,38 @@
 mkdir<span class="w"> </span>-p<span class="w"> </span><span class="nv">$MODELS_DIR</span>
 </pre></div>
 </div>
-<p>This step evaluates a checkpoint using Arena’s <code class="docutils literal notranslate"><span class="pre">dexsuite_lift</span></code> environment.
-It uses Newton physics by default, matching the backend used to train the
-provided checkpoint.</p>
+<p>This step evaluates Isaac Lab’s published Newton state-policy checkpoint using
+Arena’s <code class="docutils literal notranslate"><span class="pre">dexsuite_lift</span></code> environment. Arena uses the corresponding policy,
+observation, command, control-rate, and physics configuration with its
+procedural cube and pose-range reset.</p>
 <details class="sd-sphinx-override sd-dropdown sd-card sd-mb-3 sd-fade-in">
 <summary class="sd-summary-title sd-card-header">
 <span class="sd-summary-text">Download Pre-trained Model (skip training)</span><span class="sd-summary-state-marker sd-summary-chevron-right"><svg version="1.1" width="1.5em" height="1.5em" class="sd-octicon sd-octicon-chevron-right" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.72 18.78a.75.75 0 0 1 0-1.06L14.44 12 8.72 6.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018l6.25 6.25a.75.75 0 0 1 0 1.06l-6.25 6.25a.75.75 0 0 1-1.06 0Z"></path></svg></span></summary><div class="sd-summary-content sd-card-body docutils">
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>hf<span class="w"> </span>download<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>nvidia/Arena-Dexsuite-Lift-RL-Newton-Task<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--local-dir<span class="w"> </span><span class="nv">$MODELS_DIR</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>/isaac-sim/python.sh<span class="w"> </span>-<span class="w"> </span><span class="s">&lt;&lt;'PY'</span>
+<span class="s">import os</span>
+<span class="s">import shutil</span>
+
+<span class="s">from isaaclab_rl.utils.pretrained_checkpoint import get_published_pretrained_checkpoint</span>
+
+<span class="s">source = get_published_pretrained_checkpoint(</span>
+<span class="s">    "rsl_rl", "Isaac-Lift-KukaAllegro", "newtonmjwarp", "none"</span>
+<span class="s">)</span>
+<span class="s">assert source is not None</span>
+<span class="s">destination = os.path.join(os.environ["MODELS_DIR"], "Isaac-Lift-KukaAllegro.pt")</span>
+<span class="s">shutil.copy2(source, destination)</span>
+<span class="s">print(destination)</span>
+<span class="s">PY</span>
+
+mkdir<span class="w"> </span>-p<span class="w"> </span><span class="s2">"</span><span class="nv">$MODELS_DIR</span><span class="s2">/params"</span>
+cp<span class="w"> </span>isaaclab_arena_examples/policy/dexsuite_lift_agent.yaml<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span><span class="s2">"</span><span class="nv">$MODELS_DIR</span><span class="s2">/params/agent.yaml"</span>
 </pre></div>
 </div>
 <p class="sd-card-text">After downloading, the checkpoint is at:</p>
-<p class="sd-card-text"><code class="docutils literal notranslate"><span class="pre">$MODELS_DIR/model_14999.pt</span></code></p>
+<p class="sd-card-text"><code class="docutils literal notranslate"><span class="pre">$MODELS_DIR/Isaac-Lift-KukaAllegro.pt</span></code></p>
+<p class="sd-card-text">Published checkpoints do not include <code class="docutils literal notranslate"><span class="pre">params/agent.yaml</span></code>. The copy command
+installs Arena’s checked-in snapshot of Isaac Lab’s state-policy runner
+configuration where <code class="docutils literal notranslate"><span class="pre">RslRlActionPolicy</span></code> expects it.</p>
 </div>
 </details><div class="admonition note">
 <p class="admonition-title">Note</p>
@@ -615,13 +634,13 @@ are at:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nv">PYOPENGL_PLATFORM</span><span class="o">=</span>glx<span class="w"> </span>python<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--viz<span class="w"> </span>newton_gl<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--policy_type<span class="w"> </span>rsl_rl<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--num_steps<span class="w"> </span><span class="m">800</span><span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--checkpoint_path<span class="w"> </span><span class="nv">$MODELS_DIR</span>/model_14999.pt<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--num_episodes<span class="w"> </span><span class="m">20</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--checkpoint_path<span class="w"> </span><span class="nv">$MODELS_DIR</span>/Isaac-Lift-KukaAllegro.pt<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>dexsuite_lift
 </pre></div>
 </div>
 <p>At the end of the run, metrics are printed to the console:</p>
-<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Metrics: {'success_rate': 0.75, 'num_episodes': 12}
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Metrics: {'num_episodes': 20, 'success_rate': 0.75}
 </pre></div>
 </div>
 <a class="reference internal image-reference" href="../../../_images/dexsuite_lift_task.gif"><img alt="../../../_images/dexsuite_lift_task.gif" class="align-center" src="../../../_images/dexsuite_lift_task.gif" style="height: 400px;" />
@@ -634,29 +653,29 @@ are at:</p>
 <span class="w">  </span>--presets<span class="w"> </span>physx<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--policy_type<span class="w"> </span>rsl_rl<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--num_steps<span class="w"> </span><span class="m">800</span><span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--checkpoint_path<span class="w"> </span><span class="nv">$MODELS_DIR</span>/model_14999.pt<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--checkpoint_path<span class="w"> </span><span class="nv">$MODELS_DIR</span>/Isaac-Lift-KukaAllegro.pt<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>dexsuite_lift
 </pre></div>
 </div>
 <p>However, the model behaviour may differ significantly when training and
-evaluation use different physics backends. The above model, which was
-trained with Newton, fails to grasp or lift the cube completely when
-evaluated with PhysX.</p>
+evaluation use different physics backends; the published policy is validated
+against Newton.</p>
 </div>
 </section>
 <section id="parallel-environment-evaluation">
 <h2>Parallel Environment Evaluation<a class="headerlink" href="#parallel-environment-evaluation" title="Link to this heading">#</a></h2>
 <p>For statistically significant results, run across many environments in parallel:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span><span class="se">\</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nv">PYOPENGL_PLATFORM</span><span class="o">=</span>glx<span class="w"> </span>python<span class="w"> </span>isaaclab_arena/evaluation/policy_runner.py<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--viz<span class="w"> </span>newton_gl<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--policy_type<span class="w"> </span>rsl_rl<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--num_steps<span class="w"> </span><span class="m">5000</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--num_episodes<span class="w"> </span><span class="m">400</span><span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--num_envs<span class="w"> </span><span class="m">64</span><span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>--env_spacing<span class="w"> </span><span class="m">3</span><span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>--checkpoint_path<span class="w"> </span><span class="nv">$MODELS_DIR</span>/model_14999.pt<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--checkpoint_path<span class="w"> </span><span class="nv">$MODELS_DIR</span>/Isaac-Lift-KukaAllegro.pt<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>dexsuite_lift
 </pre></div>
 </div>
-<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Metrics: {'success_rate': 0.72, 'num_episodes': 320}
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Metrics: {'num_episodes': 400, 'success_rate': 0.82}
 </pre></div>
 </div>
 </section>

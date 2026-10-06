@@ -627,7 +627,7 @@ body states, object point cloud, and 5-step observation history.</p>
 <td><p>Procedural table (static background) with ground plane and lighting</p></td>
 </tr>
 <tr class="row-even"><td><p><strong>Objects</strong></p></td>
-<td><p>Procedural lift cuboid (<code class="docutils literal notranslate"><span class="pre">procedural_cube</span></code>)</p></td>
+<td><p>Arena procedural cuboid with a <code class="docutils literal notranslate"><span class="pre">PoseRange</span></code> reset</p></td>
 </tr>
 <tr class="row-odd"><td><p><strong>Policy</strong></p></td>
 <td><p>RSL-RL PPO (<code class="docutils literal notranslate"><span class="pre">KukaAllegroPPORunnerCfg</span></code>)</p></td>
@@ -639,16 +639,16 @@ body states, object point cloud, and 5-step observation history.</p>
 <td><p>Newton (default) or PhysX (<code class="docutils literal notranslate"><span class="pre">--presets</span> <span class="pre">physx</span></code>)</p></td>
 </tr>
 <tr class="row-even"><td><p><strong>Simulation Rate</strong></p></td>
-<td><p>200 Hz physics, 50 Hz control (decimation = 4)</p></td>
+<td><p>120 Hz physics, 30 Hz control (decimation = 4)</p></td>
 </tr>
 <tr class="row-odd"><td><p><strong>Episode Length</strong></p></td>
-<td><p>6 seconds</p></td>
+<td><p>12 seconds</p></td>
 </tr>
 <tr class="row-even"><td><p><strong>Closed-loop</strong></p></td>
-<td><p>Yes (50 Hz control)</p></td>
+<td><p>Yes (30 Hz control)</p></td>
 </tr>
 <tr class="row-odd"><td><p><strong>Command Space</strong></p></td>
-<td><p>Target position [x, y, z], position-only, resampled every 2–3 s</p></td>
+<td><p>Target position [x, y, z], position-only, resampled every 4–6 s</p></td>
 </tr>
 </tbody>
 </table>
