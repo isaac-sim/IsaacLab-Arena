@@ -26,7 +26,8 @@ Anchors
 -------
 
 An anchor is a fixed reference in the relation graph. Mark it with
-``IsAnchor()``; the solver does not move it. A standalone anchor needs a fixed
+``IsAnchor()``; the solver does not move it. This marker does not make an asset
+static or kinematic in physics. A standalone anchor needs a fixed
 initial pose; in YAML, an omitted pose defaults to identity. An
 ``ObjectReference`` instead derives its pose from the referenced prim within
 its parent asset. A tabletop or counter reference is a common anchor.
@@ -81,36 +82,67 @@ Most environments can be described with a small set of relations:
    bounding box. For L-shaped, hollow, or concave supports, anchor an
    ``ObjectReference`` that identifies the valid support surface.
 
-   During initial sampling, a movable parent directly on an anchor uses that
-   anchor's bounds as a proxy. For a deeper chain, such as a spoon ``On`` a cup
-   ``On`` a tray ``On`` a table, initialization of the spoon uses the first
-   anchor collected by ``ObjectPlacer`` as a proxy. This affects only the
-   starting pose; final solving and validation use each relation's actual
-   parent.
+   During initial sampling, the default initializer follows the object's ``On``
+   chain and uses the nearest ``IsAnchor`` ancestor's bounds as a proxy. If the
+   chain has no anchor or loops, it falls back to the first anchor collected by
+   ``ObjectPlacer``. This affects only the starting pose; final solving and
+   validation use each relation's actual parent.
+
+.. _clutter-on-relation:
 
 ``ClutterOn(parent)``
-   Defines release poses above a fixed ``IsAnchor`` support. ``ObjectPlacer``
-   samples within the central fraction of the support's width and depth
-   (``spread``, default 0.2), then stacks overlapping footprints above the surface.
-   ``clearance_m`` sets the minimum surface clearance; ``gap_m`` sets the initial
-   inter-object gap, increased to the solver's collision clearance when larger.
-   Subsequent solving uses the shared collision clearance.
+   Defines a **release pose** above an ``IsAnchor`` support, before physics.
+   ``ObjectPlacer`` samples a central release region and raises objects above
+   overlapping footprints. The support must be upright, with a fixed yaw that
+   is a multiple of 90 degrees.
 
-   The ``clutter_on_relation`` check enforces the release footprint and minimum height; contact
-   is not required. Height validation allows 1 micrometre of numerical slack on
-   ``clearance_m``, but never permits penetration below the support top. The ordinary
-   ``on_relation_z_tolerance_m`` contact tolerance does not apply to clutter.
+   .. list-table::
+      :header-rows: 1
+      :widths: 22 13 65
 
-   ``ObjectPlacer`` computes release poses, and normal simulation makes the objects fall. Release validation certifies the initial geometry;
-   it does not certify the final pile after physics. With explicit ``enabled_checks``
-   or ``required_checks``, include ``clutter_on_relation`` for clutter and
-   ``on_relation`` for ordinary On objects. Both are enabled by default.
+      * - Parameter
+        - Default
+        - Meaning
+      * - ``spread``
+        - ``0.2``
+        - Fraction of the support's width and depth, in ``(0, 1]``. A value of
+          0.2 selects the central 20% of each axis, or 4% of the XY area.
+      * - ``clearance_m``
+        - ``0.01``
+        - Minimum height of the object's bottom above the support top, in metres.
+      * - ``gap_m``
+        - ``0.03``
+        - Initial gap to neighboring release bounds, in metres. Sampling uses
+          the larger of this value and the solver's collision clearance;
+          subsequent solving uses the shared collision clearance.
+      * - ``edge_margin_m``
+        - ``0.0``
+        - Inward margin within the release region, in metres. The rotated object
+          footprint must fit inside the remaining region.
+      * - ``random_yaw``
+        - ``True``
+        - Sample world-Z yaw in addition to ``RotateAroundSolution``. This setting
+          controls clutter independently of ``ObjectPlacerParams.random_yaw_init``.
 
    ``ClutterOn`` must be the object's only spatial relation and cannot use
-   ``RandomAroundSolution``. ``RotateAroundSolution`` sets the base rotation;
-   ``random_yaw`` (default True) adds world-Z yaw while preserving its tilt.
-   Tilted clutter requires ``collision_mode="bbox"`` on the object; these bounds
-   enclose the full rotation. MESH collision checks support yaw only.
+   ``RandomAroundSolution``. ``RotateAroundSolution`` sets its base rotation;
+   random yaw preserves that rotation's tilt. Both ``bbox`` and ``mesh`` collision
+   modes support yaw-only clutter. Roll or pitch requires ``collision_mode="bbox"``
+   on the object, whose bounds enclose the full rotation.
+
+   The ``clutter_on_relation`` check enforces the release footprint and minimum
+   height without requiring contact or an upper height limit. It allows
+   1 micrometre of numerical slack on ``clearance_m``, but never penetration below
+   the support top. ``on_relation_z_tolerance_m`` does not apply to clutter.
+   With explicit ``enabled_checks`` or ``required_checks``, include
+   ``clutter_on_relation`` for clutter and ``on_relation`` for ordinary ``On``
+   objects. Both checks are enabled by default.
+
+   A **settled pose** is the final pose after the configured physics interval.
+   An **accepted layout** passes the required pre-physics and enabled, applicable
+   :ref:`post-physics checks <recording-post-physics-checks>` for the complete
+   candidate. Settled objects may use the full support footprint, beyond the
+   smaller release region. Release validation alone does not certify the final pile.
    For pooled placement, disable ``ObjectPlacerParams.allow_best_loss_fallbacks``
    to reject invalid layouts. Direct ``ObjectPlacer.place()`` callers must check
    each result's ``success`` before using it.
@@ -227,6 +259,8 @@ a Boolean value.
 Collision handling is integrated into placement and is not expressed as a
 relation.
 
+.. _recorded-layouts:
+
 Recorded Layouts
 ----------------
 
@@ -273,6 +307,9 @@ are read when the environment configuration is composed.
 The caller supplies the source label, such as ``"solver"`` or ``"settled"``;
 the writer does not solve or simulate the poses.
 
+Replay Order
+~~~~~~~~~~~~
+
 Resetting environments draw consecutive layouts from one shared queue, in reset
 request order. The queue wraps after its last layout. For four layouts and three
 environments, successive full resets select ``[0, 1, 2]``, then ``[3, 0, 1]``.
@@ -284,32 +321,45 @@ all layouts across the batch; it does not guarantee that each environment visits
 every layout. Partial-reset order determines later assignments, so different
 policies may receive different per-environment sequences.
 
+.. _placement-replay-configuration:
+
+Replay Configuration
+~~~~~~~~~~~~~~~~~~~~
+
 Replay validates finite poses, unit quaternions, consistent object coverage and
 reset ownership. Recorded objects share one reset writer, which zeros their root
 velocities. All non-anchor objects with spatial relations must be included,
 as must a non-anchor embodiment carrying any placement relation or marker.
-Object sets, disabled pose resets, non-fixed pose-reset policies and nonzero
-initial velocities are unsupported.
 
-Replay requires ``resolve_on_reset=True``; an explicit
-``--no-resolve_on_reset`` or a false environment default is rejected. An explicit
-``placement_seed`` in the placement configuration or on the CLI is also rejected
-because layouts are read in file order.
+Before replaying a recording:
+
+- Use concrete assets rather than object sets, and include every owned root of
+  each recorded asset.
+- Enable pose resets and use fixed initial poses for assets with pose-reset
+  events. Remove ``RandomAroundSolution`` from recorded assets and keep their
+  initial root velocities zero.
+- Keep ``resolve_on_reset=True``. An explicit ``--no-resolve_on_reset`` or a
+  false environment default is rejected.
+- Remove explicit ``placement_seed`` settings from the CLI, builder configuration
+  and ``placer_params``. The recording seed selects release candidates; replay
+  consumes layouts in file order.
+
 ``--no_solve_relations`` is compatible: replay never invokes the solver.
 Placement validator settings apply only when solving; they do not revalidate a
 recorded layout or open the solver's debug viewer.
 
 Loading bypasses solving and does not rerun geometry, reachability or settling
-checks. Recordings must match the scene and robot configuration being replayed;
-disable pose-changing variations and callbacks when exact replay is required.
+checks. Preserve the scene geometry, robot initialization and physics settings
+used to record the layouts. The file contains root poses, not joint states or
+other randomized properties; their normal reset initialization still applies.
+Disable pose-changing variations and callbacks when exact root replay is required.
 
 Next Steps
 ----------
 
-See :doc:`../offline_placement/clutter` for offline settling.
-
-To generate a pose file from an existing environment, see
-:doc:`../offline_placement/recording`.
+See :doc:`../offline_placement/recording` to settle layouts and save poses
+for reuse. For table and container examples, see
+:doc:`../offline_placement/clutter`.
 
 Continue to :doc:`./collision_handling` to learn how Arena checks placed assets
 against one another and against fixed geometry.

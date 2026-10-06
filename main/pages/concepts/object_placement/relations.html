@@ -480,8 +480,10 @@
 </details></li>
 <li class="toctree-l1 current active has-children"><a class="reference internal" href="../concept_object_and_robot_placement.html">Object and Robot Placement</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
 <li class="toctree-l2 current active"><a aria-current="page" class="current reference internal" href="#">Relations and Strategies</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../offline_placement/recording.html">Record and Replay Placement Poses</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../offline_placement/clutter.html">Record and Replay Clutter Layouts</a></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../offline_placement/recording.html">Record and Replay Placement Poses</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../offline_placement/clutter.html">Clutter Layouts</a></li>
+</ul>
+</details></li>
 <li class="toctree-l2"><a class="reference internal" href="collision_handling.html">Collision Handling</a></li>
 <li class="toctree-l2"><a class="reference internal" href="solver.html">Placement Solver</a></li>
 <li class="toctree-l2"><a class="reference internal" href="validation.html">Placement Validation</a></li>
@@ -595,7 +597,8 @@ from the dimensions of the table, mug, and bowl.</p>
 <section id="anchors">
 <h2>Anchors<a class="headerlink" href="#anchors" title="Link to this heading">#</a></h2>
 <p>An anchor is a fixed reference in the relation graph. Mark it with
-<code class="docutils literal notranslate"><span class="pre">IsAnchor()</span></code>; the solver does not move it. A standalone anchor needs a fixed
+<code class="docutils literal notranslate"><span class="pre">IsAnchor()</span></code>; the solver does not move it. This marker does not make an asset
+static or kinematic in physics. A standalone anchor needs a fixed
 initial pose; in YAML, an omitted pose defaults to identity. An
 <code class="docutils literal notranslate"><span class="pre">ObjectReference</span></code> instead derives its pose from the referenced prim within
 its parent asset. A tabletop or counter reference is a common anchor.</p>
@@ -639,32 +642,76 @@ stable support: the object may tip or fall. The default is <code class="docutils
 <p><code class="docutils literal notranslate"><span class="pre">On</span></code> uses the top and horizontal footprint of the parent’s axis-aligned
 bounding box. For L-shaped, hollow, or concave supports, anchor an
 <code class="docutils literal notranslate"><span class="pre">ObjectReference</span></code> that identifies the valid support surface.</p>
-<p>During initial sampling, a movable parent directly on an anchor uses that
-anchor’s bounds as a proxy. For a deeper chain, such as a spoon <code class="docutils literal notranslate"><span class="pre">On</span></code> a cup
-<code class="docutils literal notranslate"><span class="pre">On</span></code> a tray <code class="docutils literal notranslate"><span class="pre">On</span></code> a table, initialization of the spoon uses the first
-anchor collected by <code class="docutils literal notranslate"><span class="pre">ObjectPlacer</span></code> as a proxy. This affects only the
-starting pose; final solving and validation use each relation’s actual
-parent.</p>
+<p>During initial sampling, the default initializer follows the object’s <code class="docutils literal notranslate"><span class="pre">On</span></code>
+chain and uses the nearest <code class="docutils literal notranslate"><span class="pre">IsAnchor</span></code> ancestor’s bounds as a proxy. If the
+chain has no anchor or loops, it falls back to the first anchor collected by
+<code class="docutils literal notranslate"><span class="pre">ObjectPlacer</span></code>. This affects only the starting pose; final solving and
+validation use each relation’s actual parent.</p>
 </dd>
-<dt><code class="docutils literal notranslate"><span class="pre">ClutterOn(parent)</span></code></dt><dd><p>Defines release poses above a fixed <code class="docutils literal notranslate"><span class="pre">IsAnchor</span></code> support. <code class="docutils literal notranslate"><span class="pre">ObjectPlacer</span></code>
-samples within the central fraction of the support’s width and depth
-(<code class="docutils literal notranslate"><span class="pre">spread</span></code>, default 0.2), then stacks overlapping footprints above the surface.
-<code class="docutils literal notranslate"><span class="pre">clearance_m</span></code> sets the minimum surface clearance; <code class="docutils literal notranslate"><span class="pre">gap_m</span></code> sets the initial
-inter-object gap, increased to the solver’s collision clearance when larger.
-Subsequent solving uses the shared collision clearance.</p>
-<p>The <code class="docutils literal notranslate"><span class="pre">clutter_on_relation</span></code> check enforces the release footprint and minimum height; contact
-is not required. Height validation allows 1 micrometre of numerical slack on
-<code class="docutils literal notranslate"><span class="pre">clearance_m</span></code>, but never permits penetration below the support top. The ordinary
-<code class="docutils literal notranslate"><span class="pre">on_relation_z_tolerance_m</span></code> contact tolerance does not apply to clutter.</p>
-<p><code class="docutils literal notranslate"><span class="pre">ObjectPlacer</span></code> computes release poses, and normal simulation makes the objects fall. Release validation certifies the initial geometry;
-it does not certify the final pile after physics. With explicit <code class="docutils literal notranslate"><span class="pre">enabled_checks</span></code>
-or <code class="docutils literal notranslate"><span class="pre">required_checks</span></code>, include <code class="docutils literal notranslate"><span class="pre">clutter_on_relation</span></code> for clutter and
-<code class="docutils literal notranslate"><span class="pre">on_relation</span></code> for ordinary On objects. Both are enabled by default.</p>
+</dl>
+<dl id="clutter-on-relation">
+<dt><code class="docutils literal notranslate"><span class="pre">ClutterOn(parent)</span></code></dt><dd><p>Defines a <strong>release pose</strong> above an <code class="docutils literal notranslate"><span class="pre">IsAnchor</span></code> support, before physics.
+<code class="docutils literal notranslate"><span class="pre">ObjectPlacer</span></code> samples a central release region and raises objects above
+overlapping footprints. The support must be upright, with a fixed yaw that
+is a multiple of 90 degrees.</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<colgroup>
+<col style="width: 22.0%" />
+<col style="width: 13.0%" />
+<col style="width: 65.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Parameter</p></th>
+<th class="head"><p>Default</p></th>
+<th class="head"><p>Meaning</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">spread</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0.2</span></code></p></td>
+<td><p>Fraction of the support’s width and depth, in <code class="docutils literal notranslate"><span class="pre">(0,</span> <span class="pre">1]</span></code>. A value of
+0.2 selects the central 20% of each axis, or 4% of the XY area.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">clearance_m</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0.01</span></code></p></td>
+<td><p>Minimum height of the object’s bottom above the support top, in metres.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">gap_m</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0.03</span></code></p></td>
+<td><p>Initial gap to neighboring release bounds, in metres. Sampling uses
+the larger of this value and the solver’s collision clearance;
+subsequent solving uses the shared collision clearance.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">edge_margin_m</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0.0</span></code></p></td>
+<td><p>Inward margin within the release region, in metres. The rotated object
+footprint must fit inside the remaining region.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">random_yaw</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">True</span></code></p></td>
+<td><p>Sample world-Z yaw in addition to <code class="docutils literal notranslate"><span class="pre">RotateAroundSolution</span></code>. This setting
+controls clutter independently of <code class="docutils literal notranslate"><span class="pre">ObjectPlacerParams.random_yaw_init</span></code>.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
 <p><code class="docutils literal notranslate"><span class="pre">ClutterOn</span></code> must be the object’s only spatial relation and cannot use
-<code class="docutils literal notranslate"><span class="pre">RandomAroundSolution</span></code>. <code class="docutils literal notranslate"><span class="pre">RotateAroundSolution</span></code> sets the base rotation;
-<code class="docutils literal notranslate"><span class="pre">random_yaw</span></code> (default True) adds world-Z yaw while preserving its tilt.
-Tilted clutter requires <code class="docutils literal notranslate"><span class="pre">collision_mode=&quot;bbox&quot;</span></code> on the object; these bounds
-enclose the full rotation. MESH collision checks support yaw only.
+<code class="docutils literal notranslate"><span class="pre">RandomAroundSolution</span></code>. <code class="docutils literal notranslate"><span class="pre">RotateAroundSolution</span></code> sets its base rotation;
+random yaw preserves that rotation’s tilt. Both <code class="docutils literal notranslate"><span class="pre">bbox</span></code> and <code class="docutils literal notranslate"><span class="pre">mesh</span></code> collision
+modes support yaw-only clutter. Roll or pitch requires <code class="docutils literal notranslate"><span class="pre">collision_mode=&quot;bbox&quot;</span></code>
+on the object, whose bounds enclose the full rotation.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">clutter_on_relation</span></code> check enforces the release footprint and minimum
+height without requiring contact or an upper height limit. It allows
+1 micrometre of numerical slack on <code class="docutils literal notranslate"><span class="pre">clearance_m</span></code>, but never penetration below
+the support top. <code class="docutils literal notranslate"><span class="pre">on_relation_z_tolerance_m</span></code> does not apply to clutter.
+With explicit <code class="docutils literal notranslate"><span class="pre">enabled_checks</span></code> or <code class="docutils literal notranslate"><span class="pre">required_checks</span></code>, include
+<code class="docutils literal notranslate"><span class="pre">clutter_on_relation</span></code> for clutter and <code class="docutils literal notranslate"><span class="pre">on_relation</span></code> for ordinary <code class="docutils literal notranslate"><span class="pre">On</span></code>
+objects. Both checks are enabled by default.</p>
+<p>A <strong>settled pose</strong> is the final pose after the configured physics interval.
+An <strong>accepted layout</strong> passes the required pre-physics and enabled, applicable
+<a class="reference internal" href="validation.html#recording-post-physics-checks"><span class="std std-ref">post-physics checks</span></a> for the complete
+candidate. Settled objects may use the full support footprint, beyond the
+smaller release region. Release validation alone does not certify the final pile.
 For pooled placement, disable <code class="docutils literal notranslate"><span class="pre">ObjectPlacerParams.allow_best_loss_fallbacks</span></code>
 to reject invalid layouts. Direct <code class="docutils literal notranslate"><span class="pre">ObjectPlacer.place()</span></code> callers must check
 each result’s <code class="docutils literal notranslate"><span class="pre">success</span></code> before using it.</p>
@@ -771,7 +818,7 @@ a Boolean value.</p>
 relation.</p>
 </section>
 <section id="recorded-layouts">
-<h2>Recorded Layouts<a class="headerlink" href="#recorded-layouts" title="Link to this heading">#</a></h2>
+<span id="id1"></span><h2>Recorded Layouts<a class="headerlink" href="#recorded-layouts" title="Link to this heading">#</a></h2>
 <p>Pass the companion file to the environment builder:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>/isaac-sim/python.sh<span class="w"> </span>isaaclab_arena/scripts/environment_runner.py<span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>--env_spec<span class="w"> </span>scene.yaml<span class="w"> </span>--placement_layouts<span class="w"> </span>layouts.jsonl
@@ -807,6 +854,8 @@ are read when the environment configuration is composed.</p>
 <p><code class="docutils literal notranslate"><span class="pre">PlacementLayouts.write_episode_jsonl(path,</span> <span class="pre">source=...)</span></code> writes the same format.
 The caller supplies the source label, such as <code class="docutils literal notranslate"><span class="pre">&quot;solver&quot;</span></code> or <code class="docutils literal notranslate"><span class="pre">&quot;settled&quot;</span></code>;
 the writer does not solve or simulate the poses.</p>
+<section id="replay-order">
+<h3>Replay Order<a class="headerlink" href="#replay-order" title="Link to this heading">#</a></h3>
 <p>Resetting environments draw consecutive layouts from one shared queue, in reset
 request order. The queue wraps after its last layout. For four layouts and three
 environments, successive full resets select <code class="docutils literal notranslate"><span class="pre">[0,</span> <span class="pre">1,</span> <span class="pre">2]</span></code>, then <code class="docutils literal notranslate"><span class="pre">[3,</span> <span class="pre">0,</span> <span class="pre">1]</span></code>.
@@ -817,28 +866,41 @@ repeated full resets assign the same layout to each environment. The queue cover
 all layouts across the batch; it does not guarantee that each environment visits
 every layout. Partial-reset order determines later assignments, so different
 policies may receive different per-environment sequences.</p>
+</section>
+<section id="replay-configuration">
+<span id="placement-replay-configuration"></span><h3>Replay Configuration<a class="headerlink" href="#replay-configuration" title="Link to this heading">#</a></h3>
 <p>Replay validates finite poses, unit quaternions, consistent object coverage and
 reset ownership. Recorded objects share one reset writer, which zeros their root
 velocities. All non-anchor objects with spatial relations must be included,
-as must a non-anchor embodiment carrying any placement relation or marker.
-Object sets, disabled pose resets, non-fixed pose-reset policies and nonzero
-initial velocities are unsupported.</p>
-<p>Replay requires <code class="docutils literal notranslate"><span class="pre">resolve_on_reset=True</span></code>; an explicit
-<code class="docutils literal notranslate"><span class="pre">--no-resolve_on_reset</span></code> or a false environment default is rejected. An explicit
-<code class="docutils literal notranslate"><span class="pre">placement_seed</span></code> in the placement configuration or on the CLI is also rejected
-because layouts are read in file order.
-<code class="docutils literal notranslate"><span class="pre">--no_solve_relations</span></code> is compatible: replay never invokes the solver.
+as must a non-anchor embodiment carrying any placement relation or marker.</p>
+<p>Before replaying a recording:</p>
+<ul class="simple">
+<li><p>Use concrete assets rather than object sets, and include every owned root of
+each recorded asset.</p></li>
+<li><p>Enable pose resets and use fixed initial poses for assets with pose-reset
+events. Remove <code class="docutils literal notranslate"><span class="pre">RandomAroundSolution</span></code> from recorded assets and keep their
+initial root velocities zero.</p></li>
+<li><p>Keep <code class="docutils literal notranslate"><span class="pre">resolve_on_reset=True</span></code>. An explicit <code class="docutils literal notranslate"><span class="pre">--no-resolve_on_reset</span></code> or a
+false environment default is rejected.</p></li>
+<li><p>Remove explicit <code class="docutils literal notranslate"><span class="pre">placement_seed</span></code> settings from the CLI, builder configuration
+and <code class="docutils literal notranslate"><span class="pre">placer_params</span></code>. The recording seed selects release candidates; replay
+consumes layouts in file order.</p></li>
+</ul>
+<p><code class="docutils literal notranslate"><span class="pre">--no_solve_relations</span></code> is compatible: replay never invokes the solver.
 Placement validator settings apply only when solving; they do not revalidate a
 recorded layout or open the solver’s debug viewer.</p>
 <p>Loading bypasses solving and does not rerun geometry, reachability or settling
-checks. Recordings must match the scene and robot configuration being replayed;
-disable pose-changing variations and callbacks when exact replay is required.</p>
+checks. Preserve the scene geometry, robot initialization and physics settings
+used to record the layouts. The file contains root poses, not joint states or
+other randomized properties; their normal reset initialization still applies.
+Disable pose-changing variations and callbacks when exact root replay is required.</p>
+</section>
 </section>
 <section id="next-steps">
 <h2>Next Steps<a class="headerlink" href="#next-steps" title="Link to this heading">#</a></h2>
-<p>See <a class="reference internal" href="../offline_placement/clutter.html"><span class="doc">Record and Replay Clutter Layouts</span></a> for offline settling.</p>
-<p>To generate a pose file from an existing environment, see
-<a class="reference internal" href="../offline_placement/recording.html"><span class="doc">Record and Replay Placement Poses</span></a>.</p>
+<p>See <a class="reference internal" href="../offline_placement/recording.html"><span class="doc">Record and Replay Placement Poses</span></a> to settle layouts and save poses
+for reuse. For table and container examples, see
+<a class="reference internal" href="../offline_placement/clutter.html"><span class="doc">Clutter Layouts</span></a>.</p>
 <p>Continue to <a class="reference internal" href="collision_handling.html"><span class="doc">Collision Handling</span></a> to learn how Arena checks placed assets
 against one another and against fixed geometry.</p>
 </section>
@@ -898,7 +960,11 @@ against one another and against fixed geometry.</p>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#combining-relations">Combining Relations</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#placement-modifiers">Placement Modifiers</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#relations-in-environment-specifications">Relations in Environment Specifications</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#recorded-layouts">Recorded Layouts</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#recorded-layouts">Recorded Layouts</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#replay-order">Replay Order</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#replay-configuration">Replay Configuration</a></li>
+</ul>
+</li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#next-steps">Next Steps</a></li>
 </ul>
   </nav></div>

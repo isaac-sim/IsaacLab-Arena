@@ -476,8 +476,10 @@
 </details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../concepts/concept_object_and_robot_placement.html">Object and Robot Placement</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="../concepts/object_placement/relations.html">Relations and Strategies</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../concepts/offline_placement/recording.html">Record and Replay Placement Poses</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../concepts/offline_placement/clutter.html">Record and Replay Clutter Layouts</a></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../concepts/offline_placement/recording.html">Record and Replay Placement Poses</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../concepts/offline_placement/clutter.html">Clutter Layouts</a></li>
+</ul>
+</details></li>
 <li class="toctree-l2"><a class="reference internal" href="../concepts/object_placement/collision_handling.html">Collision Handling</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../concepts/object_placement/solver.html">Placement Solver</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../concepts/object_placement/validation.html">Placement Validation</a></li>
@@ -571,6 +573,9 @@
 <p>This section explains how to integrate IsaacLab-Arena into your own repository — installing
 it as a submodule, defining custom environments, and registering your own tasks and
 embodiments.</p>
+<p>To record clutter layouts from your own environment, see
+<a class="reference internal" href="../concepts/offline_placement/clutter.html#clutter-adapt-environment"><span class="std std-ref">Adapt Your Own Environment</span></a> for registration, factory configuration, and
+recording/replay requirements.</p>
 <div class="toctree-wrapper compound">
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="external_installation.html">Installing IsaacLab-Arena in Your Repository</a></li>

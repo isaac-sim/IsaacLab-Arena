@@ -480,8 +480,10 @@
 </details></li>
 <li class="toctree-l1 current active has-children"><a class="reference internal" href="../concept_object_and_robot_placement.html">Object and Robot Placement</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
 <li class="toctree-l2"><a class="reference internal" href="relations.html">Relations and Strategies</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../offline_placement/recording.html">Record and Replay Placement Poses</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../offline_placement/clutter.html">Record and Replay Clutter Layouts</a></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../offline_placement/recording.html">Record and Replay Placement Poses</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../offline_placement/clutter.html">Clutter Layouts</a></li>
+</ul>
+</details></li>
 <li class="toctree-l2"><a class="reference internal" href="collision_handling.html">Collision Handling</a></li>
 <li class="toctree-l2"><a class="reference internal" href="solver.html">Placement Solver</a></li>
 <li class="toctree-l2 current active"><a aria-current="page" class="current reference internal" href="#">Placement Validation</a></li>
@@ -622,7 +624,7 @@ best-loss layout that failed required checks
 <p>Pre-physics and offline post-physics validators share the <code class="docutils literal notranslate"><span class="pre">PlacementValidator</span></code>
 base for check names and stages. They have separate inputs: solved candidate
 batches before physics, measured scene state after physics. See
-<a class="reference internal" href="../offline_placement/clutter.html"><span class="doc">Record and Replay Clutter Layouts</span></a> for offline acceptance checks.</p>
+<a class="reference internal" href="#recording-post-physics-checks"><span class="std std-ref">Post-Physics Checks for Recordings</span></a> for offline acceptance checks.</p>
 </section>
 <section id="types-of-validators">
 <h2>Types of Validators<a class="headerlink" href="#types-of-validators" title="Link to this heading">#</a></h2>
@@ -702,25 +704,25 @@ environment passes trivially.</p>
 <p>Set <code class="docutils literal notranslate"><span class="pre">debug_visualize=True</span></code> (or <code class="docutils literal notranslate"><span class="pre">placer_params.debug_visualize:</span> <span class="pre">true</span></code> in
 YAML) to inspect candidates in a <a class="reference external" href="https://rerun.io/">Rerun</a>
 viewer:</p>
-<figure class="align-center" id="id1">
+<figure class="align-center" id="id2">
 <a class="reference internal image-reference" href="../../../_images/validator_bbox_rerun_viz.gif"><img alt="Rerun debug view of base placement validators with bounding boxes and a per-check pass/fail timeline." src="../../../_images/validator_bbox_rerun_viz.gif" style="width: 100%;" />
 </a>
 <figcaption>
 <p><span class="caption-text">Base debug view: anchors in gray, movable objects in blue. The
 <code class="docutils literal notranslate"><span class="pre">checks/</span></code> stream plots per-candidate pass/fail for the inexpensive
-geometric checks.</span><a class="headerlink" href="#id1" title="Link to this image">#</a></p>
+geometric checks.</span><a class="headerlink" href="#id2" title="Link to this image">#</a></p>
 </figcaption>
 </figure>
 </section>
 <section id="ik-reachability-ik-reachable">
 <span id="ik-reachable-check"></span><h3>IK Reachability (<code class="docutils literal notranslate"><span class="pre">ik_reachable</span></code>)<a class="headerlink" href="#ik-reachability-ik-reachable" title="Link to this heading">#</a></h3>
-<figure class="align-center" id="id2">
+<figure class="align-center" id="id3">
 <a class="reference internal image-reference" href="../../../_images/reachability_black_into_bin_bbox_viz.png"><img alt="Candidate layouts with reachable task objects in green, unreachable distractors in red, and a light-green reachability voxel field." src="../../../_images/reachability_black_into_bin_bbox_viz.png" style="width: 100%;" />
 </a>
 <figcaption>
 <p><span class="caption-text"><code class="docutils literal notranslate"><span class="pre">ik_reachable</span></code> gates only objects marked <code class="docutils literal notranslate"><span class="pre">RequiresReachability</span></code>
 (green). Distractors outside the reachable volume may appear red for
-illustration, but they never reject the layout.</span><a class="headerlink" href="#id2" title="Link to this image">#</a></p>
+illustration, but they never reject the layout.</span><a class="headerlink" href="#id3" title="Link to this image">#</a></p>
 </figcaption>
 </figure>
 <p><code class="docutils literal notranslate"><span class="pre">ReachabilityValidator</span></code> lives in the optional <code class="docutils literal notranslate"><span class="pre">isaaclab_arena_curobo</span></code>
@@ -731,12 +733,12 @@ the env’s embodiment into <code class="docutils literal notranslate"><span cla
 such as <code class="docutils literal notranslate"><span class="pre">PickAndPlaceTask</span></code> stamp automatically. With no such relation, the
 check passes trivially. Grasp offset and IK tolerances are configurable; see
 <a class="reference internal" href="../environment/environment_definition.html"><span class="doc">Environment Definition</span></a>.</p>
-<figure class="align-center" id="id3">
+<figure class="align-center" id="id4">
 <a class="reference internal image-reference" href="../../../_images/reachability_rerun_viz.gif"><img alt="Rerun view of IK reachability with green and red robot collision spheres above target bounding boxes." src="../../../_images/reachability_rerun_viz.gif" style="width: 100%;" />
 </a>
 <figcaption>
 <p><span class="caption-text">With <code class="docutils literal notranslate"><span class="pre">debug_visualize</span></code> on, green spheres mark a reachable,
-collision-free grasp; red marks a failure that rejects the candidate.</span><a class="headerlink" href="#id3" title="Link to this image">#</a></p>
+collision-free grasp; red marks a failure that rejects the candidate.</span><a class="headerlink" href="#id4" title="Link to this image">#</a></p>
 </figcaption>
 </figure>
 </section>
@@ -754,7 +756,7 @@ keep placement geometry-only.</p>
 in YAML; see <a class="reference internal" href="../environment/environment_definition.html"><span class="doc">Environment Definition</span></a>.</p>
 </section>
 <section id="post-physics-checks-for-recordings">
-<h2>Post-Physics Checks for Recordings<a class="headerlink" href="#post-physics-checks-for-recordings" title="Link to this heading">#</a></h2>
+<span id="recording-post-physics-checks"></span><h2>Post-Physics Checks for Recordings<a class="headerlink" href="#post-physics-checks-for-recordings" title="Link to this heading">#</a></h2>
 <p>The <a class="reference internal" href="../offline_placement/recording.html"><span class="doc">placement recorder</span></a> advances physics
 for <code class="docutils literal notranslate"><span class="pre">settle.num_steps</span></code> environment steps before checking the final state.</p>
 <p>All required solver checks and enabled, applicable post-physics checks must pass.
@@ -798,11 +800,21 @@ height.</p></td>
 check is recorded as skipped. At least one applicable post-physics check must
 remain enabled.</p>
 <section id="clutter-recording-checks">
-<h3>Clutter Recording Checks<a class="headerlink" href="#clutter-recording-checks" title="Link to this heading">#</a></h3>
+<span id="id1"></span><h3>Clutter Recording Checks<a class="headerlink" href="#clutter-recording-checks" title="Link to this heading">#</a></h3>
 <p>Scenes using <code class="docutils literal notranslate"><span class="pre">ClutterOn</span></code> automatically include <code class="docutils literal notranslate"><span class="pre">support_containment</span></code>. The
-clutter objects must be dynamic rigid bodies with gravity enabled. Their supports
-must be fixed anchors with upright quarter-turn orientations. Resolve other
-placement relations to fixed anchors before collecting clutter layouts.</p>
+clutter objects must be dynamic rigid bodies with gravity enabled, and scene
+gravity must point downward along world Z. Supports must carry <code class="docutils literal notranslate"><span class="pre">IsAnchor</span></code>
+and have static or kinematic collision geometry, with no tilt and a yaw that is
+a multiple of 90 degrees. <code class="docutils literal notranslate"><span class="pre">IsAnchor</span></code> fixes the placement solve; physics mobility
+is a separate requirement. Resolve every non-clutter placement relation to a
+fixed anchor before collection, including destination fixtures.</p>
+<p>Release candidates must pass <code class="docutils literal notranslate"><span class="pre">no_overlap</span></code> and <code class="docutils literal notranslate"><span class="pre">clutter_on_relation</span></code>.
+<code class="docutils literal notranslate"><span class="pre">ClutterOn</span></code> objects cannot require reachability because settling changes the
+poses checked by the solver. Containment checks the full support footprint,
+independent of the release region’s <code class="docutils literal notranslate"><span class="pre">spread</span></code>. Acceptance establishes the
+configured checks; it does not establish graspability or policy success.</p>
+<section id="support-floor-height">
+<span id="clutter-support-floor-height"></span><h4>Support Floor Height<a class="headerlink" href="#support-floor-height" title="Link to this heading">#</a></h4>
 <p>Flat supports use their verified top surface as the minimum resting height.
 Containers need an explicit local-Z height so objects can settle below the rim:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>+settle.validators.support_containment.minimum_resting_heights_m.bowl<span class="o">=</span>-0.025
@@ -813,17 +825,75 @@ the scaled support-local frame before world translation and must lie within the
 support’s local Z bounds. For <code class="docutils literal notranslate"><span class="pre">kinematic_bowl_ycb_robolab</span></code>, <code class="docutils literal notranslate"><span class="pre">-0.025</span></code> is
 approximately the inner floor.</p>
 <p>Containment compares bounding-box footprints and heights. It does not establish
-exact containment inside curved walls or detect every object-wall penetration.
-Release candidates must also pass <code class="docutils literal notranslate"><span class="pre">no_overlap</span></code> and
-<code class="docutils literal notranslate"><span class="pre">clutter_on_relation</span></code>. <code class="docutils literal notranslate"><span class="pre">ClutterOn</span></code> objects cannot require reachability
-because settling changes the poses checked by the solver.</p>
+exact containment inside curved walls or detect every object-wall penetration.</p>
+</section>
+</section>
+<section id="fix-setup-and-replay-errors">
+<span id="clutter-recording-preflight"></span><h3>Fix Setup and Replay Errors<a class="headerlink" href="#fix-setup-and-replay-errors" title="Link to this heading">#</a></h3>
+<p>Use these actions when scene construction, release solving or replay fails.
+Check the named asset or setting before changing physics duration or acceptance
+limits.</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<colgroup>
+<col style="width: 28.0%" />
+<col style="width: 72.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Failure</p></th>
+<th class="head"><p>Action</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Unknown registry entry or unavailable asset</p></td>
+<td><p>Import the external package’s registration modules before loading its
+environment. Check the registry name, asset path and asset access from
+the runtime that runs the recorder.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Support is not an anchor, or is dynamic</p></td>
+<td><p>Set a fixed pose and <code class="docutils literal notranslate"><span class="pre">IsAnchor</span></code> for placement; also use static or
+kinematic collision geometry for settling. Both requirements must hold.</p></td>
+</tr>
+<tr class="row-even"><td><p>Unresolved non-clutter placement</p></td>
+<td><p>Resolve every non-clutter asset with placement relations to a fixed pose
+and anchor, including fixtures unrelated to the clutter support. Resolve
+object sets to concrete assets before collection.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Unsupported support orientation or tilted mesh release</p></td>
+<td><p>Keep supports upright at multiples of 90 degrees in yaw. For clutter
+with roll or pitch, set the object’s <code class="docutils literal notranslate"><span class="pre">collision_mode=&quot;bbox&quot;</span></code>; see
+<a class="reference internal" href="relations.html#clutter-on-relation"><span class="std std-ref">ClutterOn settings</span></a>.</p></td>
+</tr>
+<tr class="row-even"><td><p>Release footprint cannot fit</p></td>
+<td><p>Compare the rotated object bounds with <code class="docutils literal notranslate"><span class="pre">spread</span></code> and <code class="docutils literal notranslate"><span class="pre">edge_margin_m</span></code>.
+Enlarge the release region or use smaller objects; also inspect neighboring
+collision geometry and the solver’s clearance.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Missing flat surface, unknown support key or invalid floor height</p></td>
+<td><p>Inspect enabled colliders or select an <code class="docutils literal notranslate"><span class="pre">ObjectReference</span></code> to the flat
+support surface. For a container, use its runtime scene key and a measured
+<a class="reference internal" href="#clutter-support-floor-height"><span class="std std-ref">support-local floor height</span></a> within
+its local Z bounds.</p></td>
+</tr>
+<tr class="row-even"><td><p>Existing output path</p></td>
+<td><p>Choose a new JSONL path. Recording refuses to overwrite an existing file.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Replay seed conflict, missing roots or incompatible resets</p></td>
+<td><p>Remove explicit <code class="docutils literal notranslate"><span class="pre">placement_seed</span></code> settings, include every owned root,
+and follow <a class="reference internal" href="relations.html#placement-replay-configuration"><span class="std std-ref">Replay Configuration</span></a> for fixed pose resets,
+zero root velocities and <code class="docutils literal notranslate"><span class="pre">resolve_on_reset=True</span></code>.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
 </section>
 <section id="understand-the-rejection-summary">
 <span id="recording-rejection-summary"></span><h3>Understand the Rejection Summary<a class="headerlink" href="#understand-the-rejection-summary" title="Link to this heading">#</a></h3>
 <p>The recorder excludes rejected layouts and prints each rejection reason. If
 <code class="docutils literal notranslate"><span class="pre">max_batches</span></code> is exhausted before <code class="docutils literal notranslate"><span class="pre">min_layouts</span></code> is reached, any accepted
 layouts are still written and the command logs the shortfall. No file is written
-when no layouts pass.</p>
+when no layouts pass. A normal command exit or an existing output file does not
+mean the requested count was reached; compare the accepted count with
+<code class="docutils literal notranslate"><span class="pre">min_layouts</span></code>.</p>
 <p>Each <code class="docutils literal notranslate"><span class="pre">Rejected</span></code> line gives a reason and the number of layouts rejected for it.
 When a pose-shift limit is exceeded, the message includes the object, measured
 translation and rotation, and configured limits. Use the named check to decide
@@ -1034,7 +1104,11 @@ layouts that pass these checks.</p>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#enabling-and-disabling-checks">Enabling and Disabling Checks</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#post-physics-checks-for-recordings">Post-Physics Checks for Recordings</a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#clutter-recording-checks">Clutter Recording Checks</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#clutter-recording-checks">Clutter Recording Checks</a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#support-floor-height">Support Floor Height</a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#fix-setup-and-replay-errors">Fix Setup and Replay Errors</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#understand-the-rejection-summary">Understand the Rejection Summary</a></li>
 </ul>
 </li>
