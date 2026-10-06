@@ -148,15 +148,12 @@ def collect_run_outputs_into_experiment_output(
             experiment_runner_result_path,
             destination_run_output_directory / EXPERIMENT_RUNNER_RESULT_FILE_NAME,
         )
-        # The runner writes its timings beside the Run directory, so copy them in alongside the episode results.
-        source_run_timings_path = experiment_runner_output_directory / ARENA_EXPERIMENT_TIMINGS_FILENAME
+        # The per-Run timings file arrives with the Run directory copied above. The file beside that
+        # directory is the Experiment-level aggregate, a different shape, and must not replace it.
+        source_run_timings_path = source_run_output_directory / ARENA_EXPERIMENT_TIMINGS_FILENAME
         assert (
             source_run_timings_path.is_file()
         ), f"Completed Run '{run_name}' is missing its timings file: '{source_run_timings_path}'"
-        shutil.copy2(
-            source_run_timings_path,
-            destination_run_output_directory / ARENA_EXPERIMENT_TIMINGS_FILENAME,
-        )
     return (
         sorted(run_execution_reports, key=lambda run_execution_report: run_execution_report.run_name),
         run_metadata_by_name,
