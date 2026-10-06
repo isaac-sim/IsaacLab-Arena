@@ -382,11 +382,11 @@ Each entry identifies the criteria, sequence, and predicate position, and includ
    * - ``waiting``
      - An earlier requirement in the same sequence must complete first.
 
-The HTML report shows these fields in each episode's **Task completion summary** table.
-An incomplete ``6/10`` streak needs four additional uninterrupted qualifying control steps;
-a false result resets the streak. A waiting requirement has not been reached yet.
-Completed milestones retain their first satisfied step even if a later final-condition
-recheck resets the streak. Counts reflect each requirement's last evaluation.
+Each episode's **Task completion summary** table shows requirement statuses, first satisfied
+steps, and streak counts from their last evaluation. A waiting requirement has not yet been
+reached. For an active requirement, ``6/10`` means four more uninterrupted qualifying control
+steps are needed; a false result resets the streak. Once a requirement completes, its first
+satisfied step remains recorded even if a later final-condition recheck resets its streak.
 
 Example consecutive-step summaries
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
