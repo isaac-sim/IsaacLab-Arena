@@ -68,6 +68,9 @@ class OnTreeInitializer(PlacementInitializerBase):
                     sampling_bbox = _maybe_narrow_bounds(child_bbox_given_parent_position, other_bounds)
                     # One position drawn from what is left.
                     positions[obj] = sample_position_in_bbox(sampling_bbox, generator)
+            # TODO(zhx06, 2026.10.06): Refactor yaw handling to sample yaw -> sample positions
+            # -> solve.
+            # With random_yaw_init=True, yaw is currently sampled after positions.
             sampled_world_bboxes[obj] = asset_to_bbox[obj].translated(positions[obj])
         # Return the positions in the order the caller supplied the objects, rather than in the
         # parents-first order this method sampled them in.
