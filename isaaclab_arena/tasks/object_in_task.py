@@ -15,7 +15,7 @@ from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.assets.register import register_task
 from isaaclab_arena.metrics.success_rate import SuccessRateMetric
 from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
-from isaaclab_arena.tasks.predicates.spatial import object_in_target_aabb, object_settled_in_target
+from isaaclab_arena.tasks.predicates.spatial import object_in_target_aabb, object_settled_in_target_aabb
 from isaaclab_arena.tasks.predicates.temporal import TrueForConsecutiveStepsCfg
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
@@ -88,7 +88,7 @@ class ObjectInTask(TaskBase):
                         ),
                         TrueForConsecutiveStepsCfg(
                             predicate=partial(
-                                object_settled_in_target,
+                                object_settled_in_target_aabb,
                                 object_name=self.object.name,
                                 target_name=self.target.name,
                                 contact_sensor_cfg=self.contact_sensor_cfg,

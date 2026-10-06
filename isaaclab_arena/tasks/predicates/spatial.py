@@ -517,7 +517,7 @@ def object_in_contact_with_target(
     return (torch.linalg.vector_norm(forces_W, dim=-1) >= force_threshold).flatten(start_dim=1).any(dim=-1)
 
 
-def object_settled_in_target(
+def object_settled_in_target_aabb(
     env: IsaacLabArenaManagerBasedRLEnv,
     object_name: str,
     target_name: str,
@@ -527,7 +527,7 @@ def object_settled_in_target(
     linear_velocity_threshold: float,
     angular_velocity_threshold: float,
 ) -> torch.Tensor:
-    """Check containment, target contact, and low velocity for the current step.
+    """Check world-AABB volume containment, target contact, and low velocity for the current step.
 
     Args:
         env: Environment supplying geometry, contact forces, and velocities.
