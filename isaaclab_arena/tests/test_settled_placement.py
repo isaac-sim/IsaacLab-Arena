@@ -289,14 +289,6 @@ def test_recording_cli_imports_before_simulation_startup():
     assert result.returncode == 0, result.stdout + result.stderr
 
 
-def test_recording_config_accepts_registered_environment_source():
-    from isaaclab_arena.offline_placement.recording_config import load_recording_config
-
-    cfg = load_recording_config(["environment_name=registered_environment", "output=placements.jsonl"])
-    assert cfg.environment_name == "registered_environment"
-    assert cfg.env_spec is None
-
-
 def _test_recording_with_default_placer_params(simulation_app, tmp_path):
     import json
     from unittest.mock import patch

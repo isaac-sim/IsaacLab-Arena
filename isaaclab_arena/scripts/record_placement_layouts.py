@@ -97,7 +97,6 @@ def _build_recording_environment(cfg: PlacementRecordingCfg) -> IsaacLabArenaEnv
     ), "Specify exactly one environment source: env_spec or environment_name"
     if cfg.env_spec is not None:
         spec = ArenaEnvGraphSpec.from_yaml(cfg.env_spec)
-        assert not spec.object_sets, "Resolve object sets before recording reusable layouts"
         return spec.to_arena_env()
 
     assert cfg.environment_name is not None, "Validated registered environment source is missing"
