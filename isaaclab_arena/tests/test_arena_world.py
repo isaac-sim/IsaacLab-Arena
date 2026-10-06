@@ -49,6 +49,10 @@ def _test_arena_world(_simulation_app) -> bool:
         measured = arena_world.get_joint_position("robot", joint_name)
         torch.testing.assert_close(measured, robot.data.joint_pos.torch[:, joint_index])
         torch.testing.assert_close(
+            arena_world.get_joint_position_target("robot", joint_name),
+            robot.data.joint_pos_target.torch[:, joint_index],
+        )
+        torch.testing.assert_close(
             measured, get_unnormalized_joint_position(env, SceneEntityCfg("robot", joint_names=[joint_name]))
         )
         body_index = robot.data.body_names.index("panda_hand")
@@ -107,25 +111,33 @@ def _test_arena_world_articulation_queries(_simulation_app) -> bool:
     data = SimpleNamespace(
         joint_names=["unused", "finger"],
         joint_pos=SimpleNamespace(torch=joint_positions),
+        joint_pos_target=SimpleNamespace(torch=joint_positions + 0.25),
         body_names=["base", "wrist"],
         body_link_pose_w=SimpleNamespace(torch=body_poses),
     )
     scene = SimpleNamespace(num_envs=2, articulations={"robot": SimpleNamespace(data=data)})
     world = ArenaWorld(scene)
     torch.testing.assert_close(world.get_joint_position("robot", "finger"), joint_positions[:, 1])
+    torch.testing.assert_close(world.get_joint_position_target("robot", "finger"), joint_positions[:, 1] + 0.25)
     torch.testing.assert_close(world.get_body_pose_w("robot", "wrist"), body_poses[:, 1])
 
     # Replacing the backing tensors must not leave cached state behind.
     data.joint_pos.torch = joint_positions + 0.5
+    data.joint_pos_target.torch = joint_positions + 0.75
     data.body_link_pose_w.torch = body_poses.clone()
     data.body_link_pose_w.torch[:, 1, 0] += 0.5
     torch.testing.assert_close(world.get_joint_position("robot", "finger"), joint_positions[:, 1] + 0.5)
+    torch.testing.assert_close(world.get_joint_position_target("robot", "finger"), joint_positions[:, 1] + 0.75)
     torch.testing.assert_close(world.get_body_pose_w("robot", "wrist"), data.body_link_pose_w.torch[:, 1])
 
     with pytest.raises(AssertionError, match="must name an articulation"):
         world.get_joint_position("missing", "finger")
     with pytest.raises(AssertionError, match="has no joint"):
         world.get_joint_position("robot", "missing")
+    with pytest.raises(AssertionError, match="must name an articulation"):
+        world.get_joint_position_target("missing", "finger")
+    with pytest.raises(AssertionError, match="has no joint"):
+        world.get_joint_position_target("robot", "missing")
     with pytest.raises(AssertionError, match="has no body"):
         world.get_body_pose_w("robot", "missing")
     return True
