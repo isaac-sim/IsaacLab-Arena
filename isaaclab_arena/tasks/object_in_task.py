@@ -50,6 +50,7 @@ class ObjectInTask(TaskBase):
             task_description: Optional task description.
             contact_force_threshold: Minimum destination contact force in newtons.
             minimum_contained_fraction: Required object AABB volume fraction inside the target, in (0, 1].
+                Both bounds are aligned with the target's local frame.
         """
         super().__init__(episode_length_s=episode_length_s, task_description=task_description)
         assert 0 < minimum_contained_fraction <= 1
@@ -78,6 +79,8 @@ class ObjectInTask(TaskBase):
                 CompletionCriteria(
                     name="object_in",
                     predicate_sequence=[
+                        # Record entering the target as a separate progress milestone.
+                        # The settling step rechecks containment throughout its consecutive-step window.
                         partial(
                             object_in_target_aabb,
                             object_name=self.object.name,

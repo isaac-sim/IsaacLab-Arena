@@ -291,3 +291,15 @@ def test_volume_fraction_within():
     large = AxisAlignedBoundingBox((0.0, 0.0, 0.0), (2.0, 2.0, 2.0))
     torch.testing.assert_close(large.volume_fraction_within(target), torch.tensor([0.125]))
     torch.testing.assert_close(target.volume_fraction_within(large), torch.tensor([1.0]))
+
+
+def test_contained_corner_fraction_is_not_volume_fraction():
+    """Two targets can contain the same corners but very different object volumes."""
+    object_bounds = AxisAlignedBoundingBox((0.0, 0.0, 0.0), (1.0, 1.0, 1.0))
+    targets = AxisAlignedBoundingBox(
+        min_point=torch.zeros(2, 3),
+        max_point=torch.tensor([[0.1, 1.0, 1.0], [0.9, 1.0, 1.0]]),
+    )
+    corners_inside = targets.points_within(object_bounds.get_corners_at()).float().mean(dim=1)
+    torch.testing.assert_close(corners_inside, torch.tensor([0.5, 0.5]))
+    torch.testing.assert_close(object_bounds.volume_fraction_within(targets), torch.tensor([0.1, 0.9]))

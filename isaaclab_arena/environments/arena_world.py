@@ -17,7 +17,7 @@ from __future__ import annotations
 import torch
 
 from isaaclab.scene import InteractiveScene
-from isaaclab.utils.math import quat_apply, transform_points
+from isaaclab.utils.math import quat_apply
 
 import isaaclab_arena.environments.arena_world_scene_access as scene_access
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
@@ -322,16 +322,12 @@ class ArenaWorld:
         return vertices_w
 
     def get_aabb_w(self, scene_key: str) -> AxisAlignedBoundingBox:
-        """Return current rigid-object or scene-extra bounds in world frame W.
+        """Return bounds of current geometry vertices in world frame W.
 
-        The local cache assumes descendants remain fixed relative to frame F.
+        Deformables use live nodes; other objects use transformed cached local-box corners.
+        The local cache assumes descendants remain fixed relative to their geometry frame.
         """
-
-        corners_F = self.get_aabb_in_local_frame(scene_key).get_corners_at()
-        if corners_F.shape[0] == 1 and self._scene.num_envs > 1:
-            corners_F = corners_F.expand(self._scene.num_envs, -1, -1)
-        T_W_F = self.get_pose_w(scene_key)
-        vertices_W = transform_points(corners_F, pos=T_W_F[:, :3], quat=T_W_F[:, 3:])
+        vertices_W = self.get_vertices_w(scene_key)
         return AxisAlignedBoundingBox(min_point=vertices_W.amin(dim=1), max_point=vertices_W.amax(dim=1))
 
     def get_aabb_in_local_frame(self, scene_key: str) -> AxisAlignedBoundingBox:

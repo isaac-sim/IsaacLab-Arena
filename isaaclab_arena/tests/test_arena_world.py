@@ -147,6 +147,33 @@ def test_arena_world_articulation_queries() -> None:
     assert run_function_with_persistent_simulation_app(_test_arena_world_articulation_queries)
 
 
+def _test_deformable_aabb_w(_simulation_app) -> bool:
+    import torch
+    from types import SimpleNamespace
+
+    from isaaclab_arena.environments.arena_world import ArenaWorld
+
+    nodes = SimpleNamespace(
+        torch=torch.tensor([[[0.0, 2.0, -1.0], [3.0, 0.0, 4.0]], [[-2.0, 1.0, 5.0], [1.0, -3.0, 2.0]]])
+    )
+    scene = SimpleNamespace(
+        num_envs=2, deformable_objects={"cloth": SimpleNamespace(data=SimpleNamespace(nodal_pos_w=nodes))}
+    )
+    world = ArenaWorld(scene)
+    bounds = world.get_aabb_w("cloth")
+    torch.testing.assert_close(bounds.min_point, torch.tensor([[0.0, 0.0, -1.0], [-2.0, -3.0, 2.0]]))
+    torch.testing.assert_close(bounds.max_point, torch.tensor([[3.0, 2.0, 4.0], [1.0, 1.0, 5.0]]))
+
+    # Bounds follow deformation instead of reusing a cached box.
+    nodes.torch[0, 0, 0] = -4.0
+    torch.testing.assert_close(world.get_aabb_w("cloth").min_point[0], torch.tensor([-4.0, 0.0, -1.0]))
+    return True
+
+
+def test_deformable_aabb_w():
+    assert run_function_with_persistent_simulation_app(_test_deformable_aabb_w)
+
+
 if __name__ == "__main__":
     test_arena_world()
     test_arena_world_articulation_queries()
