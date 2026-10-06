@@ -627,12 +627,17 @@ class ProgressTracker:
             )
         return output
 
-    def get_episode_completion_summary(self, env_idx: int) -> list[dict[str, str | int | None]]:
-        """Capture temporal requirement outcomes before resetting a finished episode.
+    def get_consecutive_step_summary(self, env_idx: int) -> list[dict[str, str | int | None]]:
+        """Summarize recorded consecutive-step requirements for one environment's episode.
 
-        Read existing counters and completion events without evaluating predicates.
-        Counts reflect each requirement's last evaluation; completion history is retained
-        even when a final-condition recheck resets a completed requirement's streak.
+        Read each requirement's first completion step, current count, and required steps
+        without evaluating predicates. Only _TrueForConsecutiveSteps requirements are included.
+
+        Args:
+            env_idx: Environment index whose episode is summarized before reset.
+
+        Returns:
+            Requirement summaries, or an empty list when there are no consecutive-step requirements.
         """
         first_satisfied_steps = {}
         for event in self._events[env_idx]:
@@ -647,6 +652,9 @@ class ProgressTracker:
                 for index, (predicate, _) in enumerate(chain):
                     if not isinstance(predicate, _TrueForConsecutiveSteps):
                         continue
+                    # completed: the sequence has advanced past this requirement.
+                    # active: this is the current requirement in its sequence.
+                    # waiting: an earlier requirement must complete first.
                     status = "completed" if index < position else "active" if index == position else "waiting"
                     summary.append({
                         "criteria_name": criteria_name,

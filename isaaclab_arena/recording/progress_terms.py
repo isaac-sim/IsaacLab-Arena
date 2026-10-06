@@ -55,9 +55,9 @@ def record_progress_results(env, env_id: int) -> dict[str, Any]:
     # EpisodeRecorderManager invokes this before resetting the tracker's live counters.
     tracker = getattr(env, "progress_tracker", None)
     if tracker is not None:
-        summary = tracker.get_episode_completion_summary(env_id)
+        summary = tracker.get_consecutive_step_summary(env_id)
         if summary:
-            recorded["progress"]["completion_summary"] = summary
+            recorded["progress"]["consecutive_step_summary"] = summary
     return recorded
 
 

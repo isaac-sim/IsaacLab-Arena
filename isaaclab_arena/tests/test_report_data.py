@@ -507,11 +507,11 @@ def test_temporal_episode_summary_handles_missing_and_malformed_records():
         "required_steps": 10,
         "status": "active",
     }
-    assert _episode({"progress": {"completion_summary": None}}).consecutive_step_summaries == []
+    assert _episode({"progress": {"consecutive_step_summary": None}}).consecutive_step_summaries == []
     valid.update(criteria_name="task", sequence_name="left")
     episode = _episode({
         "progress": {
-            "completion_summary": [
+            "consecutive_step_summary": [
                 None,
                 {},
                 {**valid, "required_steps": 0},

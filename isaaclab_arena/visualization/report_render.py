@@ -418,7 +418,7 @@ def _render_signals(criteria_sets: list) -> str:
     )
 
 
-def _render_completion_summary(episode) -> str:
+def _render_consecutive_step_summary(episode) -> str:
     """Show satisfaction steps and unfinished streaks from the episode's recorded state."""
     requirements = episode.consecutive_step_summaries
     if not requirements:
@@ -468,7 +468,7 @@ def _render_episode_card(episode, cameras: list[str], video_prefix: str, policy:
             body = f'<div class="placeholder" data-video-src="{_media_src(video_prefix, source)}">video</div>'
         slots.append(f'<div class="videoslot"><div class="camera">{html.escape(camera)}</div>{body}</div>')
 
-    signals_html = _render_completion_summary(episode) + _render_signals(criteria_sets or [])
+    signals_html = _render_consecutive_step_summary(episode) + _render_signals(criteria_sets or [])
     if episode.outcome_disagrees_with_progress:
         reached = (
             "all completion criteria met" if episode.all_criteria_complete else "completion criteria are incomplete"

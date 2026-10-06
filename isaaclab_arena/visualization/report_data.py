@@ -98,7 +98,7 @@ class EpisodeSummary:
     def consecutive_step_summaries(self) -> list[ConsecutiveStepSummary]:
         """Read recorded temporal requirements for this episode's completion summary."""
         summaries = []
-        requirements = _progress(self.record).get("completion_summary", [])
+        requirements = _progress(self.record).get("consecutive_step_summary", [])
         if not isinstance(requirements, list):
             return summaries
         for requirement in requirements:

@@ -546,7 +546,7 @@ def test_media_paths_are_url_quoted_and_text_is_escaped(tmp_path):
     assert "&lt;script&gt;alert(1)&lt;/script&gt;" in run_page
 
 
-def test_episode_completion_summary_shows_streaks_and_satisfaction_steps(tmp_path):
+def test_consecutive_step_summary_shows_streaks_and_satisfaction_steps(tmp_path):
     requirements = [
         ("settled", 10, "completed", 120),
         ("released<script>", 6, "active", None),
@@ -559,7 +559,7 @@ def test_episode_completion_summary_shows_streaks_and_satisfaction_steps(tmp_pat
         "success": False,
         "progress": {
             "overall_score": 0.5,
-            "completion_summary": [
+            "consecutive_step_summary": [
                 {
                     "criteria_name": "place",
                     "sequence_name": "sequence<a>",

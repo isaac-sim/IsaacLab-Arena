@@ -50,7 +50,7 @@ def _test_runtime_requirement_updates_only_active_environments(simulation_app):
     return True
 
 
-def _test_episode_completion_summary(simulation_app):
+def _test_consecutive_step_summary(simulation_app):
     import json
 
     from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
@@ -79,7 +79,7 @@ def _test_episode_completion_summary(simulation_app):
     calls = held.calls
     env.extras = {"progress_tracking": {"states": tracker.get_state(), "events": tracker.get_events()}}
     recorded = json.loads(json.dumps(record_progress_results(env, 0)))
-    summary = recorded["progress"]["completion_summary"]
+    summary = recorded["progress"]["consecutive_step_summary"]
     assert [
         (
             item["sequence_name"],
@@ -99,8 +99,8 @@ def _test_episode_completion_summary(simulation_app):
     assert record_progress_results(env, 0) == recorded
     assert held.calls == calls
     tracker.reset([0])
-    assert all(item["consecutive_steps"] == 0 for item in tracker.get_episode_completion_summary(0))
-    assert all(item["first_satisfied_step"] is None for item in tracker.get_episode_completion_summary(0))
+    assert all(item["consecutive_steps"] == 0 for item in tracker.get_consecutive_step_summary(0))
+    assert all(item["first_satisfied_step"] is None for item in tracker.get_consecutive_step_summary(0))
     assert summary[0]["consecutive_steps"] == 2
     assert summary[0]["first_satisfied_step"] == 2
     return True
@@ -326,6 +326,7 @@ def _test_temporal_updates_reject_invalid_step_indices(simulation_app):
 def _test_instantaneous_predicates_allow_unindexed_updates(simulation_app):
     from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
     from isaaclab_arena.progress_tracking.progress_tracker import ProgressTracker
+    from isaaclab_arena.recording.progress_terms import record_progress_results
 
     predicate = _ControlledPredicate([True])
     criteria = CompletionCriteria(name="plain", predicate_sequence=[predicate, predicate])
@@ -337,6 +338,13 @@ def _test_instantaneous_predicates_allow_unindexed_updates(simulation_app):
     assert tracker.is_complete().item()
     assert predicate.calls == 2
     assert [event.step for event in tracker.get_events()[0]] == [-1, -1]
+    assert tracker.get_consecutive_step_summary(0) == []
+    env.progress_tracker = tracker
+    env.extras = {"progress_tracking": {"states": tracker.get_state(), "events": tracker.get_events()}}
+    recorded = record_progress_results(env, 0)["progress"]
+    assert "consecutive_step_summary" not in recorded
+    assert recorded["criteria_by_name"]["plain"]["is_complete"]
+    assert len(recorded["events"]) == 2
     return True
 
 
@@ -413,7 +421,7 @@ def _test_final_requirement_loses_and_reacquires_its_streak(simulation_app):
     _step(tracker, env, [3])
     assert tracker.get_subtask_completion().tolist() == [[True, True]]
     assert not tracker.is_complete().item()
-    summary = tracker.get_episode_completion_summary(0)
+    summary = tracker.get_consecutive_step_summary(0)
     assert summary[0]["first_satisfied_step"] == 2
     assert summary[0]["consecutive_steps"] == 0
     assert summary[0]["status"] == "completed"
@@ -557,8 +565,8 @@ def test_runtime_requirement_updates_only_active_environments():
     )
 
 
-def test_episode_completion_summary():
-    assert run_function_with_persistent_simulation_app(_test_episode_completion_summary, headless=True)
+def test_consecutive_step_summary():
+    assert run_function_with_persistent_simulation_app(_test_consecutive_step_summary, headless=True)
 
 
 def test_interrupted_streaks_complete_independently():

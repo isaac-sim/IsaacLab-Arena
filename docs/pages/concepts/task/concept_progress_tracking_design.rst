@@ -352,25 +352,39 @@ Read each environment's state and completed-predicate events as follows:
 After an automatic reset, ``env.extras["progress_tracking"]`` still shows the finished episode
 until the next step.
 
-Episode task completion summary
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Episode consecutive-step summary
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-For consecutive-step requirements, the episode recorder reads the tracker's existing counters
-and completion events before reset. It adds ``progress.completion_summary`` to the episode
-JSONL and the Experiment Runner's ``arena_experiment_result.json``. Each entry identifies the
-criteria, sequence, and predicate position, and includes:
+The episode recorder calls ``ProgressTracker.get_consecutive_step_summary(env_idx)`` before
+reset to read existing counters and completion events for ``TrueForConsecutiveStepsCfg``
+requirements only. Nonempty results are added as ``progress.consecutive_step_summary`` to
+episode JSONL and the Experiment Runner's ``arena_experiment_result.json``. When no such
+requirements exist, the method returns an empty list and the recorder omits the field.
+Each entry identifies the criteria, sequence, and predicate position, and includes:
 
 * ``consecutive_steps`` and ``required_steps``: the recorded streak and its target.
 * ``first_satisfied_step``: the episode control step when the requirement completed, or ``null``.
-* ``status``: ``waiting``, ``active``, or ``completed`` within the sequence.
+* ``status``: the requirement's position in its sequence, as described below.
+
+.. list-table:: Consecutive-step requirement statuses
+   :header-rows: 1
+   :widths: 20 80
+
+   * - Status
+     - Meaning
+   * - ``completed``
+     - The sequence has advanced past this requirement. Its completion history is retained
+       even if a later final-condition recheck resets its streak.
+   * - ``active``
+     - This is the current requirement in its sequence. Counting occurs when its subtask is enabled.
+   * - ``waiting``
+     - An earlier requirement in the same sequence must complete first.
 
 The HTML report shows these fields in each episode's **Task completion summary** table.
 An incomplete ``6/10`` streak needs four additional uninterrupted qualifying control steps;
 a false result resets the streak. A waiting requirement has not been reached yet.
 Completed milestones retain their first satisfied step even if a later final-condition
 recheck resets the streak. Counts reflect each requirement's last evaluation.
-
-This is an episode summary. It does not add a per-step trace or change milestone scores.
 
 Three ways to require consecutive steps
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -409,7 +423,7 @@ Before and after in episode results
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Previously, JSON and HTML showed milestone scores and completion events, but no streak counts.
-The new ``completion_summary`` and HTML table add counts and first satisfied steps; they do
+The new ``consecutive_step_summary`` and HTML table add counts and first satisfied steps; they do
 not change task success, scoring, or the definitions above.
 
 The following controlled examples were replayed through the tracker and episode recorder.
@@ -472,7 +486,7 @@ For the partial joint case, the added JSON entry is:
      "first_satisfied_step": null
    }
 
-This entry appears in ``progress.completion_summary`` in episode JSONL and
+This entry appears in ``progress.consecutive_step_summary`` in episode JSONL and
 ``arena_experiment_result.json``. HTML labels it **Incomplete**, with **6/10** consecutive
 steps and **4** steps remaining. Before this addition, its zero score and empty event list
 could not distinguish it from the interrupted 0/10 case.
