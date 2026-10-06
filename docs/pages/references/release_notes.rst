@@ -1,13 +1,14 @@
 Release Notes
 =============
 
-v0.3.1 (unreleased)
--------------------
+v0.3.1
+-------
 
-This draft covers changes on ``main`` since v0.3.0. It adds offline placement and
-clutter generation, multiple heterogeneous object sets, and consecutive-step task
-requirements with episode summaries. It also updates the simulation stack and
-unifies task success with progress tracking.
+This release:
+
+- Updates the simulation stack with expanded Newton support for cable assets and robot control.
+- Adds simulation setup overrides through environment YAML.
+- Adds placement recording and replay, with offline clutter generation and validation.
 
 **Features and improvements**
 
@@ -23,19 +24,25 @@ unifies task success with progress tracking.
   around ``CompletionCriteria``. Added consecutive-step requirements, one progress
   update per control step, and episode-end streak counts and first-completion steps
   in Experiment Runner JSON and HTML reports (#1255, #1304, #1305, #1307, #1316, #1382).
-- **Assets and grippers:** Added cable assets, PhysX deformable pick-and-place
+- **Newton support:** Enhanced support for contact-rich workflows with DROID control,
+  cable assets, and backend-specific deformable configuration. Added gripper release
+  and withdrawal predicates for insertion tasks (#1189, #1204, #1276, #1284).
+- **Assets and grippers:** Added PhysX deformable pick-and-place
   support, an embodiment-owned gripper interface, and shared release, withdrawal,
-  and ``gripper_not_grasping`` predicates (#1204, #1191, #1276, #1293, #1370).
+  and ``gripper_not_grasping`` predicates (#1191, #1276, #1293, #1370).
+- **Simulation setup from environment YAML:** Added ``env_cfg_override`` to configure
+  simulation timestep, control decimation, solver, and collision settings directly
+  in environment definitions. Select the backend with ``default_physics_backend``
+  or ``--presets``; overrides tune the selected backend (#1266, #1363).
 - **Scene access and configuration:** Added ``ArenaWorld`` scene queries and routed
-  task state reads through them. Added YAML environment and placer overrides, graph
-  asset parameters, flexible poses, and staging assets. Physics backend selection
-  now happens before environment composition, with environment-specific spawn
-  physics settings (#1173, #1187, #1195, #1197, #1266, #1284, #1302, #1363).
+  task state reads through them. Added YAML placer overrides, graph asset parameters,
+  flexible poses, and staging assets, plus environment-specific spawn physics settings
+  (#1173, #1187, #1195, #1197, #1284, #1302, #1363).
 - **Evaluation and recording:** Added rollout timing, trajectory extraction, and a
   runtime distractor-disappearance variation (#1198, #1254, #1268).
 - **Simulation and training:** Updated to Isaac Sim 6.1 and a newer Isaac Lab
-  checkpoint, enabled Newton support for DROID control, and updated Arena's
-  integration with Isaac Lab's unified RL training entry point (#1237, #1189, #1363).
+  checkpoint and updated Arena's integration with Isaac Lab's unified RL training
+  entry point (#1237, #1363).
 
 **Bug fixes**
 
@@ -83,6 +90,16 @@ unifies task success with progress tracking.
   from ``isaaclab_arena.assets.object_type`` (#1218, #1292).
 - Refresh the Docker or native source environment for Isaac Sim 6.1 and the updated
   Isaac Lab submodule before running examples (#1237, #1363).
+
+
+**What's Next**
+
+Future releases will focus on:
+
+- Newton-based example workflows for contact-rich tasks (insertion, cables, and deformables).
+- Reference examples for LLMs as policies.
+- Improve Arena agentic readiness for complex long-horizon tasks.
+
 
 
 v0.3.0

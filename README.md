@@ -23,7 +23,7 @@
 > Isaac Lab-Arena `v0.3` is an early code release intended to give the community a practical starting point to experiment, provide feedback, and influence future design direction. APIs are unstable and will change. Features are incomplete. Documentation is evolving. **Do not use this in production.** See [Project Status](#%EF%B8%8F-project-status) for details.
 
 > [!NOTE]
-> Changes on `main` contain an in-development version based on v0.3.0 and Isaac Lab 3.0.
+> Changes on `main` contain an in-development version based on v0.3.1 and Isaac Lab 3.0.
 ---
 
 ## Overview
@@ -47,7 +47,7 @@ Building on that foundation, Arena provides three connected capabilities across 
 
 ## Why Isaac Lab-Arena?
 
-See the [documentation overview](https://isaac-sim.github.io/IsaacLab-Arena/release/0.3.0/index.html#why-isaac-lab-arena) for the motivation behind Arena and how it addresses evaluation scale, reproducibility, and failure diagnosis.
+See the [documentation overview](https://isaac-sim.github.io/IsaacLab-Arena/release/0.3.1/index.html#why-isaac-lab-arena) for the motivation behind Arena and how it addresses evaluation scale, reproducibility, and failure diagnosis.
 
 ## Key Features
 
@@ -220,15 +220,16 @@ IsaacLab-Arena/
 
 ## Version Compatibility
 
-| Isaac Lab-Arena                      | Isaac Lab | Isaac Sim | Python |
-|--------------------------------------|-----------|-----------|--------|
-| `main`                               | 3.0.0     | 6.0.0     | ≥ 3.12 |
-| `release/0.3.0`                      | 3.0.0     | 6.0.0     | ≥ 3.12 |
-| `release/0.2.1`                      | 3.0.0     | 6.0.0     | ≥ 3.12 |
-| `release/0.2.0`                      | 3.0.0     | 6.0.0     | ≥ 3.12 |
-| `feature/arena_v0.2_on_lab_2.3`      | 2.3.0     | 5.1.0     | ≥ 3.10 |
-| `release/0.1.1`                      | 2.3.0     | 5.0.0     | ≥ 3.10 |
-| `release/0.1.0`                      | 2.3.0     | 5.0.0     | ≥ 3.10 |
+| Isaac Lab-Arena                 | Isaac Lab   | Isaac Sim | Python |
+| ------------------------------- | ----------- | --------- | ------ |
+| `main`                          | 3.0.0 EA    | 6.1.0     | ≥ 3.12 |
+| `release/0.3.1`                 | 3.0.0 EA    | 6.1.0     | ≥ 3.12 |
+| `release/0.3.0`                 | 3.0.0 beta2 | 6.0.0     | ≥ 3.12 |
+| `release/0.2.1`                 | 3.0.0 beta  | 6.0.0     | ≥ 3.12 |
+| `release/0.2.0`                 | 3.0.0 beta  | 6.0.0     | ≥ 3.12 |
+| `feature/arena_v0.2_on_lab_2.3` | 2.3.0       | 5.1.0     | ≥ 3.10 |
+| `release/0.1.1`                 | 2.3.0       | 5.0.0     | ≥ 3.10 |
+| `release/0.1.0`                 | 2.3.0       | 5.0.0     | ≥ 3.10 |
 
 ## ⚠️ Project Status
 
@@ -239,7 +240,7 @@ Isaac Lab-Arena is in **alpha** (`v0.3`). This is important to understand:
 | **Not EA / GA** | This is not an Early Access or General Availability release. It is a very early community code drop. |
 | **APIs will break** | Public interfaces are under active development and will change without deprecation warnings. |
 | **Features are evolving** | Agentic environment generation is experimental, performance is not yet hardened for production-scale workloads, and benchmark and analysis coverage continues to expand. |
-| **Limited testing** | The `main` branch contains the latest code but may not be fully tested. Use `release/0.3.0` for the most stable experience. |
+| **Limited testing** | The `main` branch contains the latest code but may not be fully tested. Use `release/0.3.1` for the most stable experience. |
 
 
 ## Ecosystem
@@ -324,7 +325,7 @@ Isaac Lab-Arena was built in collaboration with the authors of Robolab ([website
 
 <div align="center">
 
-**Isaac Lab-Arena** · Alpha · [Documentation](https://isaac-sim.github.io/IsaacLab-Arena/release/0.3.0/index.html) · [GitHub](https://github.com/isaac-sim/IsaacLab-Arena)
+**Isaac Lab-Arena** · Alpha · [Documentation](https://isaac-sim.github.io/IsaacLab-Arena/release/0.3.1/index.html) · [GitHub](https://github.com/isaac-sim/IsaacLab-Arena)
 
 Made with ❤️ by the NVIDIA Robotics Team
 
