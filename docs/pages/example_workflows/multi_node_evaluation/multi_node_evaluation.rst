@@ -123,7 +123,7 @@ To view the results, we first need to download the results.
 
 .. code-block:: bash
 
-   osmo download swift://pdx.s8k.io/AUTH_team-isaac/isaaclab_arena/workflows/robolab_2tasks_pi_and_cosmos_100ep-1 <PATH_TO_DOWNLOAD_FOLDER>
+   osmo data download swift://pdx.s8k.io/AUTH_team-isaac/isaaclab_arena/workflows/robolab_2tasks_pi_and_cosmos_100ep-1 <PATH_TO_DOWNLOAD_FOLDER>
 
 To view the experiment results, double click on the ``index.html`` file in the downloaded folder.
 This will open the results in your browser.
@@ -180,7 +180,7 @@ Download the results as described above with a command of the form:
 
 .. code-block:: bash
 
-   osmo download swift://pdx.s8k.io/AUTH_team-isaac/isaaclab_arena/workflows/robolab_20tasks_pi_extrinsics-1 <PATH_TO_DOWNLOAD_FOLDER>
+   osmo data download swift://pdx.s8k.io/AUTH_team-isaac/isaaclab_arena/workflows/robolab_20tasks_pi_extrinsics-1 <PATH_TO_DOWNLOAD_FOLDER>
 
 Where ``robolab_20tasks_pi_extrinsics-1`` is the workflow name assigned by OSMO during submission.
 
