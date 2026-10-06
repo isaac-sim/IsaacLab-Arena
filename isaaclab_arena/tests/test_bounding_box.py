@@ -256,3 +256,28 @@ def test_intersected_leaves_infinite_axes_untouched():
 
     assert result.min_point[0].tolist() == bounded.min_point[0].tolist()
     assert result.max_point[0].tolist() == bounded.max_point[0].tolist()
+
+
+def test_volume_fraction_within():
+    """Containment measures object volume, including partial overlap and degenerate boxes."""
+    target = AxisAlignedBoundingBox((0.0, 0.0, 0.0), (1.0, 1.0, 1.0))
+    objects = AxisAlignedBoundingBox(
+        min_point=torch.tensor([[0.0, 0.0, 0.0], [0.5, 0.0, 0.0], [0.5, 0.5, 0.5], [1.0, 0.0, 0.0], [0.0, 0.0, 0.0]]),
+        max_point=torch.tensor([[1.0, 1.0, 1.0], [1.5, 1.0, 1.0], [1.5, 1.5, 1.5], [2.0, 1.0, 1.0], [0.0, 1.0, 1.0]]),
+    )
+    torch.testing.assert_close(objects.volume_fraction_within(target), torch.tensor([1.0, 0.5, 0.125, 0.0, 0.0]))
+    torch.testing.assert_close(target.volume_fraction_within(objects), torch.tensor([1.0, 0.5, 0.125, 0.0, 0.0]))
+    large = AxisAlignedBoundingBox((0.0, 0.0, 0.0), (2.0, 2.0, 2.0))
+    torch.testing.assert_close(large.volume_fraction_within(target), torch.tensor([0.125]))
+    torch.testing.assert_close(target.volume_fraction_within(large), torch.tensor([1.0]))
+
+
+def test_volume_fraction_within_partial_targets():
+    """Two targets can contain the same corners but very different object volumes."""
+    object_bounds = AxisAlignedBoundingBox((0.0, 0.0, 0.0), (1.0, 1.0, 1.0))
+    targets = AxisAlignedBoundingBox(
+        min_point=torch.zeros(2, 3),
+        max_point=torch.tensor([[0.1, 1.0, 1.0], [0.9, 1.0, 1.0]]),
+    )
+    # Both targets contain the four x=0 corners, but overlap different volumes.
+    torch.testing.assert_close(object_bounds.volume_fraction_within(targets), torch.tensor([0.1, 0.9]))
