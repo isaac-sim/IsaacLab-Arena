@@ -21,7 +21,7 @@ from isaaclab_arena.relations.relations import RelationBase
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.usd.helpers import compute_local_bounding_box_from_usd, has_light, open_stage
-from isaaclab_arena.utils.usd.rigid_bodies import find_shallowest_rigid_body
+from isaaclab_arena.utils.usd.rigid_bodies import find_shallowest_rigid_body, read_asset_rigid_body_paths
 
 
 class Object(RootedObjectBase):
@@ -120,7 +120,18 @@ class Object(RootedObjectBase):
                 contact_against_object, RootedObjectBase
             ), "Contact sensors against deformable objects and other non-rooted objects are not supported"
         contact_sensor_prim_path = self.get_contact_sensor_prim_path()
-        if isinstance(contact_against_object, Object):
+        if isinstance(contact_against_object, Object) and contact_against_object.object_type == ObjectType.BASE:
+            # PhysX needs a separate filter expression for each nested target body.
+            body_paths = read_asset_rigid_body_paths(
+                contact_against_object.usd_path,
+                variants=(contact_against_object.spawn_cfg_addon or {}).get("variants"),
+            )
+            assert body_paths, "Contact targets must contain rigid bodies."
+            filter_prim_paths = []
+            for path in body_paths:
+                relative_path = path.removeprefix("/Asset")
+                filter_prim_paths.append(contact_against_object.get_prim_path() + relative_path)
+        elif isinstance(contact_against_object, Object):
             filter_prim_paths = [contact_against_object.get_contact_sensor_prim_path()]
         elif isinstance(contact_against_object, ObjectBase):
             # Handles ObjectReference.
