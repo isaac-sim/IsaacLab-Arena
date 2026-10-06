@@ -1,6 +1,90 @@
 Release Notes
 =============
 
+v0.3.1 (unreleased)
+-------------------
+
+This draft covers changes on ``main`` since v0.3.0. It adds offline placement and
+clutter generation, multiple heterogeneous object sets, and consecutive-step task
+requirements with episode summaries. It also updates the simulation stack and
+unifies task success with progress tracking.
+
+**Features and improvements**
+
+- **Object placement and clutter:** Added recording and replay of settled placement
+  layouts, ``ClutterOn`` release poses, and offline clutter settling and validation.
+  Added footprint-overlap constraints for ``On`` relations and made
+  ``OnTreeInitializer`` the default placement initializer
+  (#1265, #1291, #1308, #1318, #1319, #1320, #1369).
+- **Heterogeneous object sets:** Added support for multiple heterogeneous object sets
+  in one scene, including contact-sensor path validation and a multi-object
+  pick-and-place example (#1381).
+- **Task completion and progress:** Unified success checks and progress tracking
+  around ``CompletionCriteria``. Added consecutive-step requirements, one progress
+  update per control step, and episode-end streak counts and first-completion steps
+  in Experiment Runner JSON and HTML reports (#1255, #1304, #1305, #1307, #1316, #1382).
+- **Assets and grippers:** Added cable assets, PhysX deformable pick-and-place
+  support, an embodiment-owned gripper interface, and shared release, withdrawal,
+  and ``gripper_not_grasping`` predicates (#1204, #1191, #1276, #1293, #1370).
+- **Scene access and configuration:** Added ``ArenaWorld`` scene queries and routed
+  task state reads through them. Added YAML environment and placer overrides, graph
+  asset parameters, flexible poses, and staging assets. Physics backend selection
+  now happens before environment composition, with environment-specific spawn
+  physics settings (#1173, #1187, #1195, #1197, #1266, #1284, #1302, #1363).
+- **Evaluation and recording:** Added rollout timing, trajectory extraction, and a
+  runtime distractor-disappearance variation (#1198, #1254, #1268).
+- **Simulation and training:** Updated to Isaac Sim 6.1 and a newer Isaac Lab
+  checkpoint, enabled Newton support for DROID control, and updated Arena's
+  integration with Isaac Lab's unified RL training entry point (#1237, #1189, #1363).
+
+**Bug fixes**
+
+- **Episode counts:** Run exactly the requested number of evaluation episodes,
+  including when the count is not divisible by the number of parallel environments
+  (#1371).
+- **Task correctness:** Refined settling and spatial success checks, restored Arena
+  success tracking during Mimic generation, and required complete subtask definitions
+  in generated environments (#1260, #1337, #1368).
+- **Placement and physics:** Fixed collision bounds for ``RotateAroundSolution`` yaw
+  and skipped velocity resets for kinematic nested background rigid bodies
+  (#1272, #1339).
+- **Cameras and startup:** Fixed camera-extrinsics variation under Newton, skipped
+  non-RGB observations during video recording, and corrected interactive runner USD
+  startup order (#1196, #1312, #1327).
+- **Dexsuite evaluation:** Aligned the lift environment and evaluation workflow with
+  the updated Isaac Lab checkpoint (#1383).
+
+**Documentation**
+
+- Added or expanded guides for offline placement recording, clutter generation,
+  physics configuration, embodiments, YAML overrides, and consecutive-step summaries
+  (#1266, #1284, #1308, #1320, #1330, #1372, #1382).
+- Corrected GR00T, RL, placement, and OSMO output-download instructions, and documented
+  the Newton GLX workaround (#1341, #1343, #1373).
+
+**Infrastructure and CI**
+
+- Split Docker builds into stages and setup scripts, and added premerge image builds
+  using remote NGC caches (#1280, #1282).
+- Updated native source-install dependencies for the newer simulation stack and
+  skipped CI jobs for draft pull requests (#1363, #1367).
+
+**API migration**
+
+- Replace ``ProgressObjective`` with ``CompletionCriteria`` and predicate groups with
+  predicate sequences. Return a ``TaskTerminationCfg`` from ``get_termination_cfg()``
+  and declare success through its ``success`` field (#1255, #1316).
+- Replace ``SequentialTaskBase`` with ``CompositeTaskBase`` using
+  ``subtasks_are_sequential=True`` for ordered subtasks. Pass a flat subtask list;
+  nested composite tasks are not supported (#1255).
+- Use ``TrueForConsecutiveStepsCfg`` around an instantaneous predicate to require a
+  continuous streak; the progress runner owns and resets the counters (#1305).
+- Update USD helper imports to ``isaaclab_arena.utils.usd`` and import ``ObjectType``
+  from ``isaaclab_arena.assets.object_type`` (#1218, #1292).
+- Refresh the Docker or native source environment for Isaac Sim 6.1 and the updated
+  Isaac Lab submodule before running examples (#1237, #1363).
+
+
 v0.3.0
 ------
 
