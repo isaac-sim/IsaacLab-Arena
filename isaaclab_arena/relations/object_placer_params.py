@@ -74,16 +74,11 @@ class ObjectPlacerParams:
     debug_visualize_output_path: str | None = None
     """Path to record the debug visualization to as a Rerun ``.rrd`` file, for headless runs."""
 
-    staged_clutter: bool = False
-    """Solve non-clutter fixtures first when ClutterOn uses a non-anchor support, then freeze their poses.
-    Two-pass placement requires concrete assets and fixed quarter-turn fixture rotations."""
-
     def __post_init__(self) -> None:
         self.validate()
 
     def validate(self) -> None:
         """Validate scalar placement controls."""
-        assert isinstance(self.staged_clutter, bool), "staged_clutter must be a boolean"
         assert isinstance(self.max_placement_attempts, int) and not isinstance(self.max_placement_attempts, bool)
         assert self.max_placement_attempts > 0, "max_placement_attempts must be positive"
         assert isinstance(self.min_unique_layouts_per_env, int) and not isinstance(

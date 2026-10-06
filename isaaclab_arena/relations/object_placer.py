@@ -47,12 +47,14 @@ class ObjectPlacer:
 
     Encapsulates the workflow of:
     1. Random initialization of candidate positions per environment
-    2. Running the RelationSolver on all candidates in one batch
+    2. Running the RelationSolver on candidate batches
     3. Validating each candidate
     4. Ranking candidates per environment (valid first, then by loss)
     5. Applying the best layout per environment to the objects
 
     Supports single-env (num_envs=1) and batched (num_envs>1) placement.
+    ClutterOn with non-anchor supports solves fixtures first, then freezes
+    their poses while solving clutter releases.
 
     Note:
         On-relation initialization samples positions within the anchor's axis-aligned bounding
@@ -127,18 +129,17 @@ class ObjectPlacer:
         The return value has shape (num_envs, results_per_env): each
         outer list entry corresponds to a real env, and each inner list is
         sorted with valid lower-loss layouts first.
+        ClutterOn with non-anchor supports automatically uses two solver passes.
 
         Args:
             collision_objects: Optional fixed background obstacles avoided during
                 placement but never optimized or relation-constrained.
         """
+        from isaaclab_arena.relations.staged_clutter_placement import place_staged_clutter
+
         collision_objects = collision_objects or []
         assert results_per_env > 0, f"results_per_env must be positive, got {results_per_env}"
-        if self.params.staged_clutter:
-            from isaaclab_arena.relations.staged_clutter_placement import place_staged_clutter
-
-            return place_staged_clutter(self, objects, num_envs, results_per_env, collision_objects)
-        return self._place_ranked_per_env(objects, num_envs, results_per_env, collision_objects)
+        return place_staged_clutter(self, objects, num_envs, results_per_env, collision_objects)
 
     def _place_ranked_per_env(
         self,

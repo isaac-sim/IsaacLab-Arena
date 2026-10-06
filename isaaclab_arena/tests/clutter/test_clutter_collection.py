@@ -115,7 +115,6 @@ def _make_primitive_clutter_scene(tmp_path, raised_support=False, num_support_le
             data["relations"][1]["params"]["spread"] = 0.5
             data["relations"].append({"kind": "on", "subject": "tray", "reference": "table"})
         data["placer_params"] = {
-            "staged_clutter": True,
             "placement_seed": 42,
             "min_unique_layouts_per_env": 1,
             "allow_best_loss_fallbacks": False,
@@ -235,7 +234,6 @@ def _test_staged_clutter_recording_replays_randomized_supports(simulation_app, t
     support_key = fixture_keys[-1]
     cube = arena_env.scene.assets["cube_body"]
     fixtures = [arena_env.scene.assets[key] for key in fixture_keys]
-    assert arena_env.placer_params.staged_clutter
     assets = arena_env.get_placement_assets()
     params = SettledPlacementParams(num_steps=240)
     output = tmp_path / "randomized_supports.jsonl"

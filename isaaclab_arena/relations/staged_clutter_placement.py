@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 from copy import copy
+from itertools import chain
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.relations.bounding_box_helpers import (
@@ -38,18 +39,19 @@ def place_staged_clutter(
     results_per_env: int,
     collision_objects: list[CollisionObject],
 ) -> list[list[PlacementResult]]:
-    """Solve ordinary fixtures, then freeze their poses while solving clutter releases.
+    """Solve movable clutter supports first; otherwise retain the joint solve.
 
     Args:
         placer: Owner of the reusable solver, validators and placement settings.
-        objects: Assets whose ClutterOn supports are ordinary non-clutter fixtures.
+        objects: Placement assets, including any ClutterOn supports as non-clutter fixtures.
         num_envs: Number of independent environment queues.
         results_per_env: Number of complete candidates to return for each queue.
         collision_objects: Fixed obstacles to avoid in both passes.
 
     Returns:
         Complete results keyed by the original assets, ranked by failed checks then combined loss.
-        Both passes contribute losses, attempt counts and required-check failures.
+        When two passes are needed, both contribute losses, attempts and required-check failures.
+        Tie-breaking favors variation across retained fixture layouts.
     """
     clutter = [obj for obj in objects if get_relation(obj, ClutterOn) is not None]
     if not clutter or all(get_relation(obj, ClutterOn).parent.is_anchor for obj in clutter):
@@ -66,13 +68,19 @@ def place_staged_clutter(
     fixture_results = placer._place_ranked_per_env(
         fixtures, num_envs, results_per_env, collision_objects, validation=stage_validation
     )
-    results = _place_clutter_for_fixtures(
+    fixture_groups = _place_clutter_for_fixtures(
         placer, objects, clutter, fixture_results, collision_objects, stage_validation
     )
+    results = [list(chain.from_iterable(groups)) for groups in fixture_groups]
     _validate_complete_layouts(placer, objects, results, collision_objects)
-    for layouts in results:
-        layouts.sort(key=_layout_rank)
-    return [layouts[:results_per_env] for layouts in results]
+    for env_id, groups in enumerate(fixture_groups):
+        for layouts in groups:
+            layouts.sort(key=_layout_rank)
+        # Each fixture has the same restart budget. Interleave after all checks so tied
+        # restarts from one fixture do not crowd out other equally ranked fixture poses.
+        interleaved = chain.from_iterable(zip(*groups, strict=True))
+        results[env_id] = sorted(interleaved, key=_layout_rank)[:results_per_env]
+    return results
 
 
 def _validate_fixture_dependencies(
@@ -107,11 +115,11 @@ def _place_clutter_for_fixtures(
     fixture_results: list[list[PlacementResult]],
     collision_objects: list[CollisionObject],
     validation: PlacementValidationRunner,
-) -> list[list[PlacementResult]]:
-    """Keep all clutter restarts until their fixture checks and complete-layout checks are included."""
+) -> list[list[list[PlacementResult]]]:
+    """Keep all clutter restarts grouped by environment, then source fixture layout."""
     results = []
     for env_id, layouts in enumerate(fixture_results):
-        complete_layouts = []
+        fixture_groups = []
         for layout_index, layout in enumerate(layouts):
             copies = _freeze_fixtures(objects, clutter, layout)
             clutter_seed = None
@@ -131,8 +139,8 @@ def _place_clutter_for_fixtures(
                 validation=validation,
                 return_all_candidates=True,
             )[0]
-            complete_layouts.extend(_combine_layouts(layout, current, clutter, copies) for current in clutter_layouts)
-        results.append(complete_layouts)
+            fixture_groups.append([_combine_layouts(layout, current, clutter, copies) for current in clutter_layouts])
+        results.append(fixture_groups)
     return results
 
 

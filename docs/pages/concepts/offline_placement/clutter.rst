@@ -235,11 +235,11 @@ recording, then open the viewer:
 Record Clutter on a Movable Bowl
 --------------------------------
 
-This example uses :ref:`two-pass clutter placement <staged_clutter>` to solve
-the bowl's position on the anchored table, freeze that pose, then solve the three cubes'
-``ClutterOn(bowl)`` release poses. The YAML enables ``staged_clutter`` and bounds
-the bowl's X and Y positions to [-0.2, 0.2] metres. The bowl is kinematic: its
-position can vary between layouts, but physics must not move it during settling.
+The bowl's ``On(table)`` relation and the cubes' ``ClutterOn(bowl)`` relations
+automatically select :ref:`two-pass clutter placement <staged_clutter>`: solve
+the bowl's position, freeze it, then solve the cubes' release poses. The YAML
+bounds the bowl's X and Y positions to [-0.2, 0.2] metres. The bowl is kinematic:
+its position can vary between layouts, but physics must not move it during settling.
 
 Record four accepted layouts:
 

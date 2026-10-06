@@ -63,24 +63,16 @@ similar prim should support placement.
 Clutter on Solved Supports
 --------------------------
 
-Enable ``staged_clutter`` to place clutter on a support whose pose is solved
-rather than authored as an ``IsAnchor``:
-
-.. code-block:: yaml
-
-   placer_params:
-     staged_clutter: true
-
-Python callers can use ``ObjectPlacerParams(staged_clutter=True)``. For example,
-``tray On(table)`` and ``tools ClutterOn(tray)`` use two passes when the table is
-an anchor:
+Arena automatically uses two passes when any ``ClutterOn`` support is not an
+``IsAnchor``. For example, ``tray On(table)`` and ``tools ClutterOn(tray)`` use
+two passes when the table is an anchor:
 
 1. Optimize all non-clutter objects jointly, including the tray and its ordinary
    ``On`` and ``NextTo`` constraints.
 2. Freeze those poses and optimize the clutter release poses.
 
-Without a movable ``ClutterOn`` support, the existing joint solve is unchanged,
-even with this setting enabled. Clutter on existing anchors needs no extra pass.
+Without ``ClutterOn``, or when all clutter supports are anchors, Arena uses the
+existing joint solve.
 The two-pass solve does not support nested ``ClutterOn`` supports or non-clutter
 objects that depend on clutter objects.
 
@@ -91,6 +83,8 @@ these complete layouts. The clutter pass runs separately for each retained
 fixture layout because its fixed poses can differ, increasing solve time.
 It does not revise frozen poses or retry discarded fixture candidates, so clutter
 can fail on an otherwise valid fixture layout. Reported loss sums both passes.
+Final ranking prioritizes fewer failed checks, then lower combined loss.
+Tie-breaking favors variation across retained fixture layouts.
 
 The two-pass solve requires concrete assets and participating relation parents.
 Frozen fixtures must have upright quarter-turn rotations about Z: disable
@@ -136,8 +130,7 @@ Most environments can be described with a small set of relations:
 .. _clutter-on-relation:
 
 ``ClutterOn(parent)``
-   Defines a **release pose** above a support, fixed with ``IsAnchor`` by default,
-   before physics.
+   Defines a **release pose** above a support, before physics.
    ``ObjectPlacer`` samples a central release region and raises objects above
    overlapping footprints. The support must be upright, with a fixed yaw that
    is a multiple of 90 degrees.
@@ -193,8 +186,8 @@ Most environments can be described with a small set of relations:
    to reject invalid layouts. Direct ``ObjectPlacer.place()`` callers must check
    each result's ``success`` before using it.
 
-   To vary the support pose between layouts, use
-   :ref:`staged_clutter`. Recording requires solved fixtures to be kinematic
+   Supports without ``IsAnchor`` use :ref:`two-pass placement <staged_clutter>`.
+   Recording requires solved fixtures to be kinematic
    rigid bodies so their poses remain unchanged during settling. Use the shared
    :doc:`../offline_placement/clutter` recording and replay workflow.
 

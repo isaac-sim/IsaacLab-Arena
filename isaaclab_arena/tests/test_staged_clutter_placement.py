@@ -58,7 +58,6 @@ def _params(**kwargs):
     from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 
     return ObjectPlacerParams(
-        staged_clutter=True,
         apply_positions_to_objects=False,
         placement_seed=17,
         max_placement_attempts=3,
@@ -105,12 +104,11 @@ def _test_ranked_staging_preserves_source_assets_and_returns_rotated_complete_la
     assert params.placement_seed == 17
 
     assert [len(layouts) for layouts in ranked] == [2, 2]
-    tray_positions = set()
     for layouts in ranked:
         for layout in layouts:
             _assert_complete_release(layout, objects)
-            tray_positions.add(layout.positions[tray])
-    assert len(tray_positions) > 1
+        # Equally ranked clutter restarts must not crowd out the other solved support.
+        assert len({layout.positions[tray] for layout in layouts}) == 2
     assert tray.object_cfg.init_state.pos == (7, 8, 9)
     assert not tray.is_anchor
     assert tray.relations[0].parent is table
@@ -551,6 +549,67 @@ def test_deferred_validation_selects_another_final_restart(monkeypatch):
     )
 
 
+def _test_tied_fixture_selection_uses_deferred_verdicts(simulation_app, monkeypatch, second_fixture_passes):
+    from isaaclab_arena.relations.object_placer import ObjectPlacer
+    from isaaclab_arena.relations.relation_solver import RelationSolver
+    from isaaclab_arena.relations.validation.pre_physics import PrePhysicsPlacementValidator
+
+    objects = _make_scene()
+    tray, clutter = objects[-2:]
+    original_solve = RelationSolver.solve_candidates
+    restart_sources = {}
+    fixture_positions = []
+
+    def capture_restarts(self, solved_objects, batch, collision_objects):
+        original_solve(self, solved_objects, batch, collision_objects)
+        child = next((asset for asset in solved_objects if asset.name == "clutter"), None)
+        if child is None:
+            return
+        fixture_index = len(fixture_positions)
+        fixture_positions.append(batch.candidates[0].positions[child.relations[0].parent])
+        for index, candidate in enumerate(batch.candidates):
+            x, y, z = candidate.positions[child.relations[0].parent]
+            candidate.positions[child] = (x + index * 0.001, y, z + 0.09)
+            candidate.loss = 0.0
+            restart_sources[candidate.positions[child]] = (fixture_index, index)
+
+    monkeypatch.setattr(RelationSolver, "solve_candidates", capture_restarts)
+    inspected = []
+
+    class DeferredValidator(PrePhysicsPlacementValidator):
+        check = "late_check"
+        run_after_inexpensive_checks = True
+
+        def validate_batch(self, batch, collision_objects):
+            passed = []
+            for candidate in batch.candidates:
+                fixture_index, restart = restart_sources[candidate.positions[clutter]]
+                inspected.append((fixture_index, restart))
+                # The second fixture's first two restarts fail only this deferred check.
+                passed.append(fixture_index == 0 or (second_fixture_passes and restart == 2))
+            return passed
+
+    params = _params()
+    placer = ObjectPlacer(params)
+    placer._validators.append(DeferredValidator(params))
+    [layouts] = placer.place_ranked_per_env(objects, num_envs=1, results_per_env=2)
+    assert len(inspected) == 6  # Neither fixture loses a restart before deferred validation.
+    assert len(layouts) == 2 and all(layout.success for layout in layouts)
+    assert len(set(fixture_positions)) == 2
+    expected_supports = set(fixture_positions if second_fixture_passes else fixture_positions[:1])
+    assert {layout.positions[tray] for layout in layouts} == expected_supports
+    return True
+
+
+@pytest.mark.parametrize("second_fixture_passes", [True, False])
+def test_tied_fixture_selection_uses_deferred_verdicts(monkeypatch, second_fixture_passes):
+    assert run_function_with_persistent_simulation_app(
+        _test_tied_fixture_selection_uses_deferred_verdicts,
+        monkeypatch=monkeypatch,
+        second_fixture_passes=second_fixture_passes,
+    )
+
+
 def _test_ordinary_relations_preserve_joint_solver_behavior(simulation_app, monkeypatch):
     from isaaclab_arena.relations.relations import FaceTo, IsAnchor, NextTo, On, Side
     from isaaclab_arena.tests.dummy_object import DummyObject
@@ -598,19 +657,17 @@ def _assert_joint_solver_equivalence(objects, monkeypatch, placement_seed=17):
     monkeypatch.setattr(RelationSolver, "solve_candidates", capture_batches)
     params = _params()
     params.placement_seed = placement_seed
-    params.staged_clutter = False
-    joint = ObjectPlacer(params).place_ranked_per_env(objects, num_envs=2, results_per_env=2)
+    joint = ObjectPlacer(params)._place_ranked_per_env(objects, num_envs=2, results_per_env=2, collision_objects=[])
     joint_calls = calls.copy()
     calls.clear()
-    params.staged_clutter = True
-    staged = ObjectPlacer(params).place_ranked_per_env(objects, num_envs=2, results_per_env=2)
+    automatic = ObjectPlacer(params).place_ranked_per_env(objects, num_envs=2, results_per_env=2)
     assert len(joint_calls) == 1
     assert calls == joint_calls
     assert set(joint_calls[0][1]) == {0, 1}
     assert any(layout.success for layouts in joint for layout in layouts)
-    for joint_layouts, staged_layouts in zip(joint, staged, strict=True):
-        assert len(joint_layouts) == len(staged_layouts) == 2
-        for expected, actual in zip(joint_layouts, staged_layouts, strict=True):
+    for joint_layouts, automatic_layouts in zip(joint, automatic, strict=True):
+        assert len(joint_layouts) == len(automatic_layouts) == 2
+        for expected, actual in zip(joint_layouts, automatic_layouts, strict=True):
             assert _layout_signature(actual) == _layout_signature(expected)
             assert actual.validation_results == expected.validation_results
             assert actual.final_loss == expected.final_loss
