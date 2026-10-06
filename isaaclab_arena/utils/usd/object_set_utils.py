@@ -38,7 +38,7 @@ def rescale_root(stage: Usd.Stage, asset: Asset) -> None:
 
 def rename_rigid_body(stage: Usd.Stage, new_name: str) -> str:
     """Rename the shallowest rigid body prim to new_name. Returns the path before rename (old path)."""
-    shallowest_rigid_body = find_shallowest_rigid_body_from_stage(stage)
+    shallowest_rigid_body = find_shallowest_rigid_body_from_stage(stage, within_default_prim=True)
     prim = stage.GetPrimAtPath(shallowest_rigid_body)
     assert prim.IsValid()
     prim_spec = stage.GetRootLayer().GetPrimAtPath(shallowest_rigid_body)
@@ -122,7 +122,7 @@ def _rewrite_path_targets_in_root_layer(
 
 def _wrap_root_rigid_body_in_container(stage: Usd.Stage) -> None:
     """Reparent a root-level rigid body under a container Xform, leaving deeper ones alone."""
-    rigid_body_path = find_shallowest_rigid_body_from_stage(stage)
+    rigid_body_path = find_shallowest_rigid_body_from_stage(stage, within_default_prim=True)
     assert rigid_body_path is not None, "No rigid body found in stage"
     if rigid_body_path.count("/") > 1:
         return
@@ -151,7 +151,7 @@ def _set_default_prim_for_object_set_cache(stage: Usd.Stage) -> None:
     with its rigid body at the same path, "/rigid_body". It also gives activate_contact_sensors what
     it looks for: a prim with the rigid body under it, rather than the rigid body itself.
     """
-    rigid_body_path = find_shallowest_rigid_body_from_stage(stage)
+    rigid_body_path = find_shallowest_rigid_body_from_stage(stage, within_default_prim=True)
     assert rigid_body_path is not None, "No rigid body found in stage"
     assert rigid_body_path.count("/") > 1, f"Rigid body {rigid_body_path!r} must be wrapped in a container first"
     default_prim_path = str(Sdf.Path(rigid_body_path).GetParentPath())
@@ -179,7 +179,7 @@ def rescale_rename_rigid_body_and_save_to_cache(asset: Asset) -> str:
         # Unify name; need old path for rewrite
         old_rb_path = rename_rigid_body(stage, new_name="rigid_body")
         # Path after rename (e.g. /rigid_body or /root/rigid_body)
-        new_rb_path = find_shallowest_rigid_body_from_stage(stage)
+        new_rb_path = find_shallowest_rigid_body_from_stage(stage, within_default_prim=True)
         # Keep materials/connections in scope
         _rewrite_path_targets_in_root_layer(stage, old_rb_path, new_rb_path)
         # So contact sensors are found when cache is referenced
