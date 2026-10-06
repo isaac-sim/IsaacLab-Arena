@@ -90,7 +90,9 @@ This release:
   nested composite tasks are not supported (#1255).
 - Use ``TrueForConsecutiveStepsCfg`` around an instantaneous predicate to require a
   continuous streak; the progress runner owns and resets the counters (#1305).
-- Update USD helper imports to ``isaaclab_arena.utils.usd`` and import ``ObjectType``
+- Update USD helper imports to concrete submodules such as
+  ``isaaclab_arena.utils.usd.helpers`` and ``isaaclab_arena.utils.usd.rigid_bodies``;
+  the ``utils.usd`` package does not re-export these helpers. Import ``ObjectType``
   from ``isaaclab_arena.assets.object_type`` (#1218, #1292).
 - Refresh the Docker or native source environment for Isaac Sim 6.1 and the updated
   Isaac Lab submodule before running examples (#1237, #1363).
