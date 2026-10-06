@@ -71,8 +71,9 @@ def _test_sequential_streak_progress(simulation_app):
         # The completed object requirement stays recorded after motion resumes.
         object_still.values = [step <= 10]
         _step(tracker, env, [step])
-        state = tracker.get_state()[0].criteria_by_name["hold"]
-        object_progress, gripper_progress = state.consecutive_step_progress[DEFAULT_SEQUENCE_NAME]
+        snapshot = tracker.get_state()[0]
+        state = snapshot.criteria_by_name["hold"]
+        object_progress, gripper_progress = snapshot.consecutive_step_progress["hold"][DEFAULT_SEQUENCE_NAME]
         assert object_progress.consecutive_steps == min(step, 10)
         assert gripper_progress.consecutive_steps == max(step - 10, 0)
         assert object_progress.required_steps == gripper_progress.required_steps == 10
@@ -99,8 +100,12 @@ def _test_sequential_streak_progress(simulation_app):
     assert [event.step for event in tracker.get_events()[0]] == [10, 20]
     assert object_still.calls == gripper_slow.calls == 10
     # Snapshots remain unchanged after later updates.
-    saved = env.extras["progress_tracking"]["states"][0].criteria_by_name["hold"]
-    assert saved.consecutive_step_progress[DEFAULT_SEQUENCE_NAME][0].consecutive_steps == 6
+    saved = env.extras["progress_tracking"]["states"][0]
+    assert saved.consecutive_step_progress["hold"][DEFAULT_SEQUENCE_NAME][0].consecutive_steps == 6
+    tracker.reset([0])
+    assert tracker.get_state()[0].consecutive_step_progress["hold"][DEFAULT_SEQUENCE_NAME][0].consecutive_steps == 0
+    assert saved.consecutive_step_progress["hold"][DEFAULT_SEQUENCE_NAME][0].consecutive_steps == 6
+    assert json.loads(json.dumps(record_progress_results(env, 0))) == recorded
     return True
 
 
@@ -127,9 +132,10 @@ def _test_independent_streak_progress(simulation_app):
         object_still.values = [step <= 10, True]
         gripper_slow.values = [step >= 2, True]
         _step(tracker, env, [step, step])
-        state = tracker.get_state()[0].criteria_by_name["hold"]
-        object_progress = state.consecutive_step_progress["object"][0]
-        gripper_progress = state.consecutive_step_progress["gripper"][0]
+        snapshot = tracker.get_state()[0]
+        state = snapshot.criteria_by_name["hold"]
+        object_progress = snapshot.consecutive_step_progress["hold"]["object"][0]
+        gripper_progress = snapshot.consecutive_step_progress["hold"]["gripper"][0]
         assert object_progress.consecutive_steps == min(step, 10)
         assert gripper_progress.consecutive_steps == step - 1
         assert object_progress.status == ("active" if step < 10 else "completed")
@@ -140,14 +146,14 @@ def _test_independent_streak_progress(simulation_app):
         calls = (object_still.calls, gripper_slow.calls)
         with pytest.raises(AssertionError, match="advance by exactly one"):
             _step(tracker, env, [step, step])
-        assert tracker.get_state()[0].criteria_by_name["hold"] == state
+        assert tracker.get_state()[0] == snapshot
         assert (object_still.calls, gripper_slow.calls) == calls
     assert [event.step for event in tracker.get_events()[0]] == [10, 11]
     tracker.reset([0])
     states = tracker.get_state()
     for group in ("object", "gripper"):
-        reset_progress = states[0].criteria_by_name["hold"].consecutive_step_progress[group][0]
-        other_progress = states[1].criteria_by_name["hold"].consecutive_step_progress[group][0]
+        reset_progress = states[0].consecutive_step_progress["hold"][group][0]
+        other_progress = states[1].consecutive_step_progress["hold"][group][0]
         assert reset_progress.consecutive_steps == 0
         assert reset_progress.status == "active"
         assert other_progress.consecutive_steps == 10
@@ -178,8 +184,9 @@ def _test_combined_streak_progress(simulation_app):
         object_still.values = [object_value]
         gripper_slow.values = [gripper_value]
         _step(tracker, env, [step])
-        state = tracker.get_state()[0].criteria_by_name["hold"]
-        requirement = state.consecutive_step_progress[DEFAULT_SEQUENCE_NAME][0]
+        snapshot = tracker.get_state()[0]
+        state = snapshot.criteria_by_name["hold"]
+        requirement = snapshot.consecutive_step_progress["hold"][DEFAULT_SEQUENCE_NAME][0]
         assert requirement.consecutive_steps == expected_count
         assert requirement.status == ("completed" if expected_count == 10 else "active")
         assert state.score == (1.0 if expected_count == 10 else 0.0)
@@ -316,13 +323,16 @@ def _test_reused_requirement_has_independent_counters(simulation_app):
     _step(tracker, env, [3])
     assert not tracker.is_complete().item()
     assert len(tracker.get_events()[0]) == 2
-    requirements = tracker.get_state()[0].criteria_by_name["twice"].consecutive_step_progress[DEFAULT_SEQUENCE_NAME]
+    snapshot = tracker.get_state()[0]
+    requirements = snapshot.consecutive_step_progress["twice"][DEFAULT_SEQUENCE_NAME]
     assert [(requirement.predicate_index, requirement.consecutive_steps) for requirement in requirements] == [
         (0, 2),
         (1, 1),
     ]
     assert requirements[0].status == "completed"
     assert requirements[1].status == "active"
+    delayed = snapshot.consecutive_step_progress["delayed"][DEFAULT_SEQUENCE_NAME]
+    assert [(item.predicate_index, item.consecutive_steps, item.status) for item in delayed] == [(1, 1, "active")]
     _step(tracker, env, [4])
     assert tracker.is_complete().item()
     assert [(event.criteria_name, event.predicate_index, event.step) for event in tracker.get_events()[0]] == [
@@ -504,15 +514,16 @@ def _test_final_requirement_loses_and_reacquires_its_streak(simulation_app):
     assert tracker.get_subtask_completion().tolist() == [[True, True]]
     assert not tracker.is_complete().item()
     # Rechecking a final condition changes its live streak, not its milestone history.
-    state = tracker.get_state()[0].criteria_by_name["rest"]
-    requirement = state.consecutive_step_progress[DEFAULT_SEQUENCE_NAME][0]
+    snapshot = tracker.get_state()[0]
+    state = snapshot.criteria_by_name["rest"]
+    requirement = snapshot.consecutive_step_progress["rest"][DEFAULT_SEQUENCE_NAME][0]
     assert requirement.status == "completed"
     assert requirement.consecutive_steps == 0
     assert state.score == 1.0
     resting.values = [True]
     _step(tracker, env, [4])
     assert not tracker.is_complete().item()
-    requirement = tracker.get_state()[0].criteria_by_name["rest"].consecutive_step_progress[DEFAULT_SEQUENCE_NAME][0]
+    requirement = tracker.get_state()[0].consecutive_step_progress["rest"][DEFAULT_SEQUENCE_NAME][0]
     assert requirement.status == "completed"
     assert requirement.consecutive_steps == 1
     _step(tracker, env, [5])

@@ -37,12 +37,13 @@ def record_progress_results(env, env_id: int) -> dict[str, Any]:
             "total_sequences": criteria_state.total_sequences,
             "active_predicates": criteria_state.active_predicates,
         }
-        if criteria_state.consecutive_step_progress:
+        counter_snapshots = state.consecutive_step_progress.get(name, {})
+        if counter_snapshots:
             # Store live counters beside milestone scores, preserving sequence name and predicate
             # index. Example: object completed 10/10, gripper active 6/10, score still 0.5.
             # asdict converts each snapshot to JSON-compatible fields, with no tensors.
             consecutive_step_progress = {}
-            for sequence_name, requirements in criteria_state.consecutive_step_progress.items():
+            for sequence_name, requirements in counter_snapshots.items():
                 consecutive_step_progress[sequence_name] = [asdict(requirement) for requirement in requirements]
             criteria_record["consecutive_step_progress"] = consecutive_step_progress
         criteria_by_name[name] = criteria_record
@@ -52,7 +53,7 @@ def record_progress_results(env, env_id: int) -> dict[str, Any]:
             "all_complete": state.all_complete,
             "criteria_by_name": criteria_by_name,
             # Completion events remain milestones, e.g. object at step 10 and gripper at
-            # step 20. Intermediate streak counts belong to the criteria snapshot above.
+            # step 20. Intermediate streak counts are copied from the progress snapshot above.
             "events": [
                 {
                     "step": event.step,

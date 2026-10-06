@@ -356,13 +356,15 @@ Consecutive-step progress
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
 Each ``TrueForConsecutiveStepsCfg`` in a completion criteria sequence automatically reports
-its counter in ``criteria.consecutive_step_progress``. Completion criteria are the single
-source of truth for progress; no separate reporting configuration is needed.
-The dictionary maps sequence names to lists of requirement snapshots:
+its counter in ``state.consecutive_step_progress``. The tracker owns and updates the live
+counters; ``ProgressState`` contains copied values keyed by criteria name, then sequence name.
+``CompletionCriteriaState`` contains only the completion summary. Completion criteria remain
+the single source of configuration; no separate reporting configuration is needed:
 
 .. code-block:: python
 
-   for sequence_name, requirements in criteria.consecutive_step_progress.items():
+   sequences = state.consecutive_step_progress.get("pick_and_place", {})
+   for sequence_name, requirements in sequences.items():
        for requirement in requirements:
            print(
                sequence_name,
@@ -389,7 +391,8 @@ An active entry counts only when its completion criteria are enabled; for exampl
 wait for earlier subtasks. Final-condition rechecks can reset a completed entry's counter while
 preserving its ``completed`` status. Episode resets clear both counts and completion history.
 
-Counters are snapshots and reading them does not evaluate predicates or advance time. Scores and
+Reading snapshots does not evaluate predicates or advance time. Later steps and resets do not
+change previously published snapshots. Scores and
 completion events still describe finished milestones: 6/10 does not award a fractional score.
 The episode recorder writes these same fields under each criteria set's
 ``consecutive_step_progress`` in the JSONL record.

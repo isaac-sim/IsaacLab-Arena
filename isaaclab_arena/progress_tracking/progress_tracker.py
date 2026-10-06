@@ -127,9 +127,6 @@ class CompletionCriteriaState:
     active_predicates: dict[str, str | None]
     """Next predicate per sequence, or None when the sequence is complete."""
 
-    consecutive_step_progress: dict[str, list[ConsecutiveStepState]] = field(default_factory=dict)
-    """Consecutive-step requirements by sequence, including waiting and completed entries."""
-
 
 @dataclass
 class ProgressState:
@@ -143,6 +140,9 @@ class ProgressState:
 
     all_complete: bool
     """Whether the task's success requirements are met for this env."""
+
+    consecutive_step_progress: dict[str, dict[str, list[ConsecutiveStepState]]] = field(default_factory=dict)
+    """Copied counter snapshots keyed by criteria and sequence; live counters belong to the tracker."""
 
 
 class CompletionCriteriaRunner:
@@ -426,7 +426,6 @@ class CompletionCriteriaRunner:
         criteria = self.completion_criteria
         completed_sequences = 0
         active_predicates: dict[str, str | None] = {}
-        consecutive_step_progress: dict[str, list[ConsecutiveStepState]] = {}
         # The active predicate for a sequence is the one at its current chain position. Any sequence
         # whose pointer has run off the end of the chain is complete (no active predicate).
         for sequence_name in criteria.sequence_names:
@@ -438,6 +437,19 @@ class CompletionCriteriaRunner:
             else:
                 active_predicates[sequence_name] = _predicate_repr(predicate_chain[cur_predicate_index][0])
 
+        return CompletionCriteriaState(
+            completed_sequences=completed_sequences,
+            total_sequences=len(criteria.sequence_names),
+            score=float(score),
+            is_complete=bool(is_complete),
+            active_predicates=active_predicates,
+        )
+
+    def get_consecutive_step_progress_for_env(self, env_idx: int) -> dict[str, list[ConsecutiveStepState]]:
+        """Copy this environment's temporal counters without updating runtime state."""
+        consecutive_step_progress = {}
+        for sequence_name, predicate_chain in self.predicate_chains.items():
+            cur_predicate_index = int(self.current_predicate_index[sequence_name][env_idx].item())
             # Snapshot every temporal occurrence, not just the active predicate. This lets
             # [object(10), gripper(10)] report "object 6/10; gripper waiting 0/10".
             # Named sequences instead expose two independent counters; a combined predicate
@@ -466,14 +478,7 @@ class CompletionCriteriaRunner:
             if requirements:
                 consecutive_step_progress[sequence_name] = requirements
 
-        return CompletionCriteriaState(
-            completed_sequences=completed_sequences,
-            total_sequences=len(criteria.sequence_names),
-            score=float(score),
-            is_complete=bool(is_complete),
-            active_predicates=active_predicates,
-            consecutive_step_progress=consecutive_step_progress,
-        )
+        return consecutive_step_progress
 
 
 class ProgressTracker:
@@ -656,7 +661,7 @@ class ProgressTracker:
             self._events[env_idx] = []
 
     def get_state(self) -> list[ProgressState]:
-        """Get the progress state of all CompletionCriteria definitions for each env."""
+        """Copy completion summaries and tracker-owned counters into per-env snapshots."""
 
         # Compute the per-runner (num_envs,) tensors once
         completeness = [runner.is_complete() for runner in self.runners]
@@ -670,10 +675,14 @@ class ProgressTracker:
         for env_idx in range(self.num_envs):
             # Build a per-env state from each runner's state.
             criteria_states: dict[str, CompletionCriteriaState] = {}
+            consecutive_step_progress = {}
             for i, runner in enumerate(self.runners):
                 criteria = runner.completion_criteria
                 state = runner.get_state_for_env(env_idx, completeness[i][env_idx], scores[i][env_idx])
                 criteria_states[criteria.name] = state
+                counter_snapshots = runner.get_consecutive_step_progress_for_env(env_idx)
+                if counter_snapshots:
+                    consecutive_step_progress[criteria.name] = counter_snapshots
             weighted_score = sum(
                 runner.completion_criteria.score * float(score[env_idx]) for runner, score in zip(self.runners, scores)
             )
@@ -686,6 +695,7 @@ class ProgressTracker:
                     criteria_by_name=criteria_states,
                     overall_score=overall_score,
                     all_complete=bool(task_complete[env_idx]),
+                    consecutive_step_progress=consecutive_step_progress,
                 )
             )
         return output
@@ -717,6 +727,7 @@ class ProgressTrackingRecorder(RecorderTerm):
                     },
                     overall_score=float,                   # weighted mean of criteria scores, in [0, 1]
                     all_complete=bool,
+                    consecutive_step_progress={"<criteria>": {"<sequence>": [...]}},
                 ),
                 ...
             ],
