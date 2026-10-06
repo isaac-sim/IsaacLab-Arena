@@ -9,8 +9,7 @@ import copy
 import functools
 import torch
 from collections.abc import Callable
-from dataclasses import dataclass, field
-from typing import Literal
+from dataclasses import dataclass
 
 from isaaclab.managers import SceneEntityCfg, TerminationTermCfg
 from isaaclab.managers.recorder_manager import RecorderManagerBaseCfg, RecorderTerm, RecorderTermCfg
@@ -85,30 +84,6 @@ class PredicateEvent:
 
 
 @dataclass
-class ConsecutiveStepState:
-    """Snapshot of one consecutive-step requirement in a predicate sequence."""
-
-    predicate_index: int
-    """Position in the sequence, distinguishing repeated occurrences of a predicate."""
-
-    predicate_name: str
-    """Human-readable string of the consecutive-step requirement."""
-
-    consecutive_steps: int
-    """Current counter value, capped at required_steps."""
-
-    required_steps: int
-    """Number of consecutive qualifying control steps required."""
-
-    status: Literal["waiting", "active", "completed"]
-    """Sequence position: not yet reached, current entry, or remembered completion.
-
-    An active entry counts only while its completion criteria are enabled. Final-condition rechecks
-    can reset the counter of a completed entry without erasing its completion history.
-    """
-
-
-@dataclass
 class CompletionCriteriaState:
     """Per-env snapshot of a single CompletionCriteria's progress."""
 
@@ -140,9 +115,6 @@ class ProgressState:
 
     all_complete: bool
     """Whether the task's success requirements are met for this env."""
-
-    consecutive_step_progress: dict[str, dict[str, list[ConsecutiveStepState]]] = field(default_factory=dict)
-    """Copied counter snapshots keyed by criteria and sequence; live counters belong to the tracker."""
 
 
 class CompletionCriteriaRunner:
@@ -208,8 +180,6 @@ class CompletionCriteriaRunner:
             return []
 
         events: list[PredicateEvent] = []
-        # Each named sequence gets the same active environments, so object and gripper
-        # counters in separate sequences start together. Within a sequence, only one entry advances.
         for sequence_name, predicate_chain in self.predicate_chains.items():
             sequence_final_condition_check_mask = final_condition_check_mask
             if check_final_conditions:
@@ -324,8 +294,6 @@ class CompletionCriteriaRunner:
             #   2) They have not yet advanced this step
             #   3) This CompletionCriteria is active in that environment.
             at_position = (self.current_predicate_index[sequence_name] == chain_idx) & ~advanced & active_envs
-            # For [object(10), gripper(10)], completing object at step 10 sets advanced.
-            # The gripper counter therefore starts at step 11, never on that same step.
             state_update_mask = at_position
             if chain_idx == chain_length - 1:
                 # Include completed rows now so final checks reuse this evaluation and its diagnostics.
@@ -349,8 +317,7 @@ class CompletionCriteriaRunner:
                 self.current_predicate_index[sequence_name] + 1,
                 self.current_predicate_index[sequence_name],
             )
-            # Award the full weight only when the predicate completes. A streak of 6/10
-            # is reported separately and earns no milestone score yet.
+            # Update the sequence score for the envs that were advanced.
             self.sequence_score[sequence_name] = self.sequence_score[sequence_name] + advance_mask.float() * float(
                 score_weight
             )
@@ -444,41 +411,6 @@ class CompletionCriteriaRunner:
             is_complete=bool(is_complete),
             active_predicates=active_predicates,
         )
-
-    def get_consecutive_step_progress_for_env(self, env_idx: int) -> dict[str, list[ConsecutiveStepState]]:
-        """Copy this environment's temporal counters without updating runtime state."""
-        consecutive_step_progress = {}
-        for sequence_name, predicate_chain in self.predicate_chains.items():
-            cur_predicate_index = int(self.current_predicate_index[sequence_name][env_idx].item())
-            # Snapshot every temporal occurrence, not just the active predicate. This lets
-            # [object(10), gripper(10)] report "object 6/10; gripper waiting 0/10".
-            # Named sequences instead expose two independent counters; a combined predicate
-            # exposes one shared counter that resets if either underlying check fails.
-            requirements = []
-            for predicate_index, (predicate, _) in enumerate(predicate_chain):
-                if not isinstance(predicate, _TrueForConsecutiveSteps):
-                    continue
-                # Sequence position records completion history; the counter records the
-                # latest streak. Final-condition rechecks can show completed with 0/10.
-                if predicate_index < cur_predicate_index:
-                    status = "completed"
-                elif predicate_index == cur_predicate_index:
-                    status = "active"
-                else:
-                    status = "waiting"
-                requirements.append(
-                    ConsecutiveStepState(
-                        predicate_index=predicate_index,
-                        predicate_name=_predicate_repr(predicate),
-                        consecutive_steps=predicate.get_consecutive_steps(env_idx),
-                        required_steps=predicate.required_steps,
-                        status=status,
-                    )
-                )
-            if requirements:
-                consecutive_step_progress[sequence_name] = requirements
-
-        return consecutive_step_progress
 
 
 class ProgressTracker:
@@ -661,7 +593,7 @@ class ProgressTracker:
             self._events[env_idx] = []
 
     def get_state(self) -> list[ProgressState]:
-        """Copy completion summaries and tracker-owned counters into per-env snapshots."""
+        """Get the progress state of all CompletionCriteria definitions for each env."""
 
         # Compute the per-runner (num_envs,) tensors once
         completeness = [runner.is_complete() for runner in self.runners]
@@ -675,14 +607,10 @@ class ProgressTracker:
         for env_idx in range(self.num_envs):
             # Build a per-env state from each runner's state.
             criteria_states: dict[str, CompletionCriteriaState] = {}
-            consecutive_step_progress = {}
             for i, runner in enumerate(self.runners):
                 criteria = runner.completion_criteria
                 state = runner.get_state_for_env(env_idx, completeness[i][env_idx], scores[i][env_idx])
                 criteria_states[criteria.name] = state
-                counter_snapshots = runner.get_consecutive_step_progress_for_env(env_idx)
-                if counter_snapshots:
-                    consecutive_step_progress[criteria.name] = counter_snapshots
             weighted_score = sum(
                 runner.completion_criteria.score * float(score[env_idx]) for runner, score in zip(self.runners, scores)
             )
@@ -695,10 +623,42 @@ class ProgressTracker:
                     criteria_by_name=criteria_states,
                     overall_score=overall_score,
                     all_complete=bool(task_complete[env_idx]),
-                    consecutive_step_progress=consecutive_step_progress,
                 )
             )
         return output
+
+    def get_episode_completion_summary(self, env_idx: int) -> list[dict[str, str | int | None]]:
+        """Capture temporal requirement outcomes before resetting a finished episode.
+
+        Read existing counters and completion events without evaluating predicates.
+        Counts reflect each requirement's last evaluation; completion history is retained
+        even when a final-condition recheck resets a completed requirement's streak.
+        """
+        first_satisfied_steps = {}
+        for event in self._events[env_idx]:
+            if event.step >= 0:
+                key = (event.criteria_name, event.sequence_name, event.predicate_index)
+                first_satisfied_steps.setdefault(key, event.step)
+        summary = []
+        for runner in self.runners:
+            criteria_name = runner.completion_criteria.name
+            for sequence_name, chain in runner.predicate_chains.items():
+                position = int(runner.current_predicate_index[sequence_name][env_idx].item())
+                for index, (predicate, _) in enumerate(chain):
+                    if not isinstance(predicate, _TrueForConsecutiveSteps):
+                        continue
+                    status = "completed" if index < position else "active" if index == position else "waiting"
+                    summary.append({
+                        "criteria_name": criteria_name,
+                        "sequence_name": sequence_name,
+                        "predicate_index": index,
+                        "predicate_name": _predicate_repr(predicate),
+                        "consecutive_steps": predicate.get_consecutive_steps(env_idx),
+                        "required_steps": predicate.required_steps,
+                        "status": status,
+                        "first_satisfied_step": first_satisfied_steps.get((criteria_name, sequence_name, index)),
+                    })
+        return summary
 
     def get_events(self) -> list[list[PredicateEvent]]:
         """Get all events for all envs."""
@@ -727,7 +687,6 @@ class ProgressTrackingRecorder(RecorderTerm):
                     },
                     overall_score=float,                   # weighted mean of criteria scores, in [0, 1]
                     all_complete=bool,
-                    consecutive_step_progress={"<criteria>": {"<sequence>": [...]}},
                 ),
                 ...
             ],

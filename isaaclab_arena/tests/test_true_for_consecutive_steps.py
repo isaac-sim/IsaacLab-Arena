@@ -50,147 +50,59 @@ def _test_runtime_requirement_updates_only_active_environments(simulation_app):
     return True
 
 
-def _test_sequential_streak_progress(simulation_app):
+def _test_episode_completion_summary(simulation_app):
     import json
 
     from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
     from isaaclab_arena.progress_tracking.progress_tracker import ProgressTracker
-    from isaaclab_arena.progress_tracking.progress_tracking_utils import DEFAULT_SEQUENCE_NAME
     from isaaclab_arena.recording.progress_terms import record_progress_results
     from isaaclab_arena.tasks.predicates.temporal import TrueForConsecutiveStepsCfg
 
-    object_still = _ControlledPredicate([True], name="object_still")
-    gripper_slow = _ControlledPredicate([True], name="gripper_slow")
-    objective = CompletionCriteria(
-        name="hold",
-        predicate_sequence=[TrueForConsecutiveStepsCfg(object_still, 10), TrueForConsecutiveStepsCfg(gripper_slow, 10)],
+    held = _ControlledPredicate([True], name="held")
+    requirement = TrueForConsecutiveStepsCfg(held, 2)
+    tracker = ProgressTracker(
+        [
+            CompletionCriteria(
+                "hold",
+                predicate_sequences={
+                    "left": [requirement, requirement, requirement],
+                    "right": [TrueForConsecutiveStepsCfg(held, 3)],
+                },
+            ),
+        ],
+        num_envs=1,
+        device="cpu",
     )
-    tracker = ProgressTracker([objective], num_envs=1, device="cpu")
-    env = SimpleNamespace(num_envs=1, device="cpu", extras={})
-    for step in range(1, 21):
-        # The completed object requirement stays recorded after motion resumes.
-        object_still.values = [step <= 10]
+    env = SimpleNamespace(num_envs=1, device="cpu", progress_tracker=tracker)
+    for step in range(1, 4):
         _step(tracker, env, [step])
-        snapshot = tracker.get_state()[0]
-        state = snapshot.criteria_by_name["hold"]
-        object_progress, gripper_progress = snapshot.consecutive_step_progress["hold"][DEFAULT_SEQUENCE_NAME]
-        assert object_progress.consecutive_steps == min(step, 10)
-        assert gripper_progress.consecutive_steps == max(step - 10, 0)
-        assert object_progress.required_steps == gripper_progress.required_steps == 10
-        assert object_progress.status == ("active" if step < 10 else "completed")
-        assert gripper_progress.status == ("waiting" if step < 10 else "active" if step < 20 else "completed")
-        assert state.score == (0.0 if step < 10 else 0.5 if step < 20 else 1.0)
-        assert state.is_complete == (step == 20)
-        if step == 6:
-            env.extras["progress_tracking"] = {"states": tracker.get_state(), "events": tracker.get_events()}
-            recorded = json.loads(json.dumps(record_progress_results(env, 0)))
-            requirements = recorded["progress"]["criteria_by_name"]["hold"]["consecutive_step_progress"][
-                DEFAULT_SEQUENCE_NAME
-            ]
-            assert requirements[0] == {
-                "predicate_index": 0,
-                "predicate_name": "TrueForConsecutiveStepsCfg(object_still, required_steps=10)",
-                "consecutive_steps": 6,
-                "required_steps": 10,
-                "status": "active",
-            }
-            assert requirements[1]["status"] == "waiting"
-            assert requirements[1]["predicate_index"] == 1
-            assert requirements[1]["consecutive_steps"] == 0
-    assert [event.step for event in tracker.get_events()[0]] == [10, 20]
-    assert object_still.calls == gripper_slow.calls == 10
-    # Snapshots remain unchanged after later updates.
-    saved = env.extras["progress_tracking"]["states"][0]
-    assert saved.consecutive_step_progress["hold"][DEFAULT_SEQUENCE_NAME][0].consecutive_steps == 6
+    calls = held.calls
+    env.extras = {"progress_tracking": {"states": tracker.get_state(), "events": tracker.get_events()}}
+    recorded = json.loads(json.dumps(record_progress_results(env, 0)))
+    summary = recorded["progress"]["completion_summary"]
+    assert [
+        (
+            item["sequence_name"],
+            item["predicate_index"],
+            item["status"],
+            item["consecutive_steps"],
+            item["required_steps"],
+            item["first_satisfied_step"],
+        )
+        for item in summary
+    ] == [
+        ("left", 0, "completed", 2, 2, 2),
+        ("left", 1, "active", 1, 2, None),
+        ("left", 2, "waiting", 0, 2, None),
+        ("right", 0, "completed", 3, 3, 3),
+    ]
+    assert record_progress_results(env, 0) == recorded
+    assert held.calls == calls
     tracker.reset([0])
-    assert tracker.get_state()[0].consecutive_step_progress["hold"][DEFAULT_SEQUENCE_NAME][0].consecutive_steps == 0
-    assert saved.consecutive_step_progress["hold"][DEFAULT_SEQUENCE_NAME][0].consecutive_steps == 6
-    assert json.loads(json.dumps(record_progress_results(env, 0))) == recorded
-    return True
-
-
-def _test_independent_streak_progress(simulation_app):
-    import pytest
-
-    from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
-    from isaaclab_arena.progress_tracking.progress_tracker import ProgressTracker
-    from isaaclab_arena.tasks.predicates.temporal import TrueForConsecutiveStepsCfg
-
-    object_still = _ControlledPredicate([True, True])
-    gripper_slow = _ControlledPredicate([False, True])
-    objective = CompletionCriteria(
-        name="hold",
-        predicate_sequences={
-            "object": [TrueForConsecutiveStepsCfg(object_still, 10)],
-            "gripper": [TrueForConsecutiveStepsCfg(gripper_slow, 10)],
-        },
-        logical="all",
-    )
-    tracker = ProgressTracker([objective], num_envs=2, device="cpu")
-    env = SimpleNamespace(num_envs=2, device="cpu")
-    for step in range(1, 12):
-        object_still.values = [step <= 10, True]
-        gripper_slow.values = [step >= 2, True]
-        _step(tracker, env, [step, step])
-        snapshot = tracker.get_state()[0]
-        state = snapshot.criteria_by_name["hold"]
-        object_progress = snapshot.consecutive_step_progress["hold"]["object"][0]
-        gripper_progress = snapshot.consecutive_step_progress["hold"]["gripper"][0]
-        assert object_progress.consecutive_steps == min(step, 10)
-        assert gripper_progress.consecutive_steps == step - 1
-        assert object_progress.status == ("active" if step < 10 else "completed")
-        assert gripper_progress.status == ("active" if step < 11 else "completed")
-        assert state.score == (0.0 if step < 10 else 0.5 if step == 10 else 1.0)
-        assert state.is_complete == (step == 11)
-        # Reading progress and repeating a control-step index must not increment counters.
-        calls = (object_still.calls, gripper_slow.calls)
-        with pytest.raises(AssertionError, match="advance by exactly one"):
-            _step(tracker, env, [step, step])
-        assert tracker.get_state()[0] == snapshot
-        assert (object_still.calls, gripper_slow.calls) == calls
-    assert [event.step for event in tracker.get_events()[0]] == [10, 11]
-    tracker.reset([0])
-    states = tracker.get_state()
-    for group in ("object", "gripper"):
-        reset_progress = states[0].consecutive_step_progress["hold"][group][0]
-        other_progress = states[1].consecutive_step_progress["hold"][group][0]
-        assert reset_progress.consecutive_steps == 0
-        assert reset_progress.status == "active"
-        assert other_progress.consecutive_steps == 10
-        assert other_progress.status == "completed"
-    return True
-
-
-def _test_combined_streak_progress(simulation_app):
-    from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
-    from isaaclab_arena.progress_tracking.progress_tracker import ProgressTracker
-    from isaaclab_arena.progress_tracking.progress_tracking_utils import DEFAULT_SEQUENCE_NAME
-    from isaaclab_arena.tasks.predicates.temporal import TrueForConsecutiveStepsCfg
-
-    object_still = _ControlledPredicate([True])
-    gripper_slow = _ControlledPredicate([True])
-
-    def both_stable(env):
-        return object_still(env) & gripper_slow(env)
-
-    objective = CompletionCriteria(name="hold", predicate_sequence=[TrueForConsecutiveStepsCfg(both_stable, 10)])
-    tracker = ProgressTracker([objective], num_envs=1, device="cpu")
-    env = SimpleNamespace(num_envs=1, device="cpu")
-    # Either condition becoming false resets the joint streak.
-    samples = [(True, True, step) for step in range(1, 7)]
-    samples += [(False, True, 0), (True, True, 1), (True, False, 0)]
-    samples += [(True, True, step) for step in range(1, 11)]
-    for step, (object_value, gripper_value, expected_count) in enumerate(samples, start=1):
-        object_still.values = [object_value]
-        gripper_slow.values = [gripper_value]
-        _step(tracker, env, [step])
-        snapshot = tracker.get_state()[0]
-        state = snapshot.criteria_by_name["hold"]
-        requirement = snapshot.consecutive_step_progress["hold"][DEFAULT_SEQUENCE_NAME][0]
-        assert requirement.consecutive_steps == expected_count
-        assert requirement.status == ("completed" if expected_count == 10 else "active")
-        assert state.score == (1.0 if expected_count == 10 else 0.0)
-    assert [event.step for event in tracker.get_events()[0]] == [19]
+    assert all(item["consecutive_steps"] == 0 for item in tracker.get_episode_completion_summary(0))
+    assert all(item["first_satisfied_step"] is None for item in tracker.get_episode_completion_summary(0))
+    assert summary[0]["consecutive_steps"] == 2
+    assert summary[0]["first_satisfied_step"] == 2
     return True
 
 
@@ -299,7 +211,6 @@ def _test_joint_conditions_require_overlapping_steps(simulation_app):
 def _test_reused_requirement_has_independent_counters(simulation_app):
     from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
     from isaaclab_arena.progress_tracking.progress_tracker import ProgressTracker
-    from isaaclab_arena.progress_tracking.progress_tracking_utils import DEFAULT_SEQUENCE_NAME
     from isaaclab_arena.tasks.predicates.temporal import TrueForConsecutiveStepsCfg
 
     held = _ControlledPredicate([True])
@@ -323,16 +234,6 @@ def _test_reused_requirement_has_independent_counters(simulation_app):
     _step(tracker, env, [3])
     assert not tracker.is_complete().item()
     assert len(tracker.get_events()[0]) == 2
-    snapshot = tracker.get_state()[0]
-    requirements = snapshot.consecutive_step_progress["twice"][DEFAULT_SEQUENCE_NAME]
-    assert [(requirement.predicate_index, requirement.consecutive_steps) for requirement in requirements] == [
-        (0, 2),
-        (1, 1),
-    ]
-    assert requirements[0].status == "completed"
-    assert requirements[1].status == "active"
-    delayed = snapshot.consecutive_step_progress["delayed"][DEFAULT_SEQUENCE_NAME]
-    assert [(item.predicate_index, item.consecutive_steps, item.status) for item in delayed] == [(1, 1, "active")]
     _step(tracker, env, [4])
     assert tracker.is_complete().item()
     assert [(event.criteria_name, event.predicate_index, event.step) for event in tracker.get_events()[0]] == [
@@ -484,7 +385,6 @@ def _test_partial_reset_preserves_other_environments(simulation_app):
 def _test_final_requirement_loses_and_reacquires_its_streak(simulation_app):
     from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
     from isaaclab_arena.progress_tracking.progress_tracker import ProgressTracker
-    from isaaclab_arena.progress_tracking.progress_tracking_utils import DEFAULT_SEQUENCE_NAME
     from isaaclab_arena.tasks.predicates.temporal import TrueForConsecutiveStepsCfg
 
     resting = _ControlledPredicate([True])
@@ -513,19 +413,13 @@ def _test_final_requirement_loses_and_reacquires_its_streak(simulation_app):
     _step(tracker, env, [3])
     assert tracker.get_subtask_completion().tolist() == [[True, True]]
     assert not tracker.is_complete().item()
-    # Rechecking a final condition changes its live streak, not its milestone history.
-    snapshot = tracker.get_state()[0]
-    state = snapshot.criteria_by_name["rest"]
-    requirement = snapshot.consecutive_step_progress["rest"][DEFAULT_SEQUENCE_NAME][0]
-    assert requirement.status == "completed"
-    assert requirement.consecutive_steps == 0
-    assert state.score == 1.0
+    summary = tracker.get_episode_completion_summary(0)
+    assert summary[0]["first_satisfied_step"] == 2
+    assert summary[0]["consecutive_steps"] == 0
+    assert summary[0]["status"] == "completed"
     resting.values = [True]
     _step(tracker, env, [4])
     assert not tracker.is_complete().item()
-    requirement = tracker.get_state()[0].consecutive_step_progress["rest"][DEFAULT_SEQUENCE_NAME][0]
-    assert requirement.status == "completed"
-    assert requirement.consecutive_steps == 1
     _step(tracker, env, [5])
     assert tracker.is_complete().item()
     assert resting.calls == 5
@@ -663,16 +557,8 @@ def test_runtime_requirement_updates_only_active_environments():
     )
 
 
-def test_sequential_streak_progress():
-    assert run_function_with_persistent_simulation_app(_test_sequential_streak_progress, headless=True)
-
-
-def test_independent_streak_progress():
-    assert run_function_with_persistent_simulation_app(_test_independent_streak_progress, headless=True)
-
-
-def test_combined_streak_progress():
-    assert run_function_with_persistent_simulation_app(_test_combined_streak_progress, headless=True)
+def test_episode_completion_summary():
+    assert run_function_with_persistent_simulation_app(_test_episode_completion_summary, headless=True)
 
 
 def test_interrupted_streaks_complete_independently():

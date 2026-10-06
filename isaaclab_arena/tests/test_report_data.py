@@ -495,3 +495,44 @@ def test_run_status_normalizes_enum_like_values():
         value = "FAILED"
 
     assert normalize_run_status(Status()) == "failed"
+
+
+def test_temporal_episode_summary_handles_missing_and_malformed_records():
+    assert _episode().consecutive_step_summaries == []
+    assert _episode({"progress": {"criteria_by_name": {"task": {"score": 0.5}}}}).consecutive_step_summaries == []
+    valid = {
+        "predicate_index": 0,
+        "predicate_name": "TrueForConsecutiveStepsCfg(settled, required_steps=10)",
+        "consecutive_steps": 6,
+        "required_steps": 10,
+        "status": "active",
+    }
+    assert _episode({"progress": {"completion_summary": None}}).consecutive_step_summaries == []
+    valid.update(criteria_name="task", sequence_name="left")
+    episode = _episode({
+        "progress": {
+            "completion_summary": [
+                None,
+                {},
+                {**valid, "required_steps": 0},
+                {**valid, "consecutive_steps": 11},
+                valid,
+                {
+                    **valid,
+                    "sequence_name": "right",
+                    "consecutive_steps": 10,
+                    "status": "completed",
+                    "first_satisfied_step": 12,
+                },
+            ]
+        }
+    })
+    summaries = episode.consecutive_step_summaries
+    assert [(item.criteria_name, item.sequence_name, item.predicate_index) for item in summaries] == [
+        ("task", "left", 0),
+        ("task", "right", 0),
+    ]
+    assert summaries[0].predicate_name == "settled"
+    assert summaries[0].consecutive_steps == 6
+    assert summaries[0].first_satisfied_step is None
+    assert summaries[1].first_satisfied_step == 12

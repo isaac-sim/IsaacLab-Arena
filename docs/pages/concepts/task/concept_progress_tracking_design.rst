@@ -352,53 +352,25 @@ Read each environment's state and completed-predicate events as follows:
 After an automatic reset, ``env.extras["progress_tracking"]`` still shows the finished episode
 until the next step.
 
-Consecutive-step progress
-~~~~~~~~~~~~~~~~~~~~~~~~
+Episode task completion summary
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Each ``TrueForConsecutiveStepsCfg`` in a completion criteria sequence automatically reports
-its counter in ``state.consecutive_step_progress``. The tracker owns and updates the live
-counters; ``ProgressState`` contains copied values keyed by criteria name, then sequence name.
-``CompletionCriteriaState`` contains only the completion summary. Completion criteria remain
-the single source of configuration; no separate reporting configuration is needed:
+For consecutive-step requirements, the episode recorder reads the tracker's existing counters
+and completion events before reset. It adds ``progress.completion_summary`` to the episode
+JSONL and the Experiment Runner's ``arena_experiment_result.json``. Each entry identifies the
+criteria, sequence, and predicate position, and includes:
 
-.. code-block:: python
+* ``consecutive_steps`` and ``required_steps``: the recorded streak and its target.
+* ``first_satisfied_step``: the episode control step when the requirement completed, or ``null``.
+* ``status``: ``waiting``, ``active``, or ``completed`` within the sequence.
 
-   sequences = state.consecutive_step_progress.get("pick_and_place", {})
-   for sequence_name, requirements in sequences.items():
-       for requirement in requirements:
-           print(
-               sequence_name,
-               requirement.predicate_index,
-               requirement.predicate_name,
-               requirement.status,
-               f"{requirement.consecutive_steps}/{requirement.required_steps}",
-           )
+The HTML report shows these fields in each episode's **Task completion summary** table.
+An incomplete ``6/10`` streak needs four additional uninterrupted qualifying control steps;
+a false result resets the streak. A waiting requirement has not been reached yet.
+Completed milestones retain their first satisfied step even if a later final-condition
+recheck resets the streak. Counts reflect each requirement's last evaluation.
 
-For example, with ten steps required for both ``object_still`` and ``gripper_slow``:
-
-* One sequence containing both requirements reports ``object 6/10, active`` and
-  ``gripper 0/10, waiting`` after six qualifying steps. Once the object completes at step 10,
-  the gripper becomes active at 0/10 and counts its first step at step 11.
-* Separate named sequences count independently. At step 10, the report can show
-  ``object 10/10, completed`` and ``gripper 9/10, active``. At step 11 both are completed,
-  even if the object has started moving again.
-* One requirement wrapping ``object_still(env) & gripper_slow(env)`` reports one shared
-  streak, such as ``6/10, active``. Either check becoming false resets it to 0/10.
-
-``status`` describes the entry's sequence position: ``waiting`` means an earlier entry must
-complete, ``active`` means the current entry, and ``completed`` means its completion is remembered.
-An active entry counts only when its completion criteria are enabled; for example, later sequential subtasks
-wait for earlier subtasks. Final-condition rechecks can reset a completed entry's counter while
-preserving its ``completed`` status. Episode resets clear both counts and completion history.
-
-Reading snapshots does not evaluate predicates or advance time. Later steps and resets do not
-change previously published snapshots. Scores and
-completion events still describe finished milestones: 6/10 does not award a fractional score.
-The episode recorder writes these same fields under each criteria set's
-``consecutive_step_progress`` in the JSONL record.
-
-Recording progress
-~~~~~~~~~~~~~~~~~~
+This is an episode summary. It does not add a per-step trace or change milestone scores.
 
 Arena's episode recorder also serializes the final progress state and predicate events into the
 episode's JSONL record when an output path is configured. Tasks without completion criteria have

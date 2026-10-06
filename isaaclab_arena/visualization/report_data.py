@@ -94,6 +94,59 @@ class EpisodeSummary:
             if key not in _METADATA_EXCLUDED_FIELDS and value is not None
         }
 
+    @property
+    def consecutive_step_summaries(self) -> list[ConsecutiveStepSummary]:
+        """Read recorded temporal requirements for this episode's completion summary."""
+        summaries = []
+        requirements = _progress(self.record).get("completion_summary", [])
+        if not isinstance(requirements, list):
+            return summaries
+        for requirement in requirements:
+            if not isinstance(requirement, dict):
+                continue
+            count = _as_int(requirement.get("consecutive_steps"))
+            required = _as_int(requirement.get("required_steps"))
+            index = _as_int(requirement.get("predicate_index"))
+            status = requirement.get("status")
+            if (
+                count is None
+                or required is None
+                or index is None
+                or not 0 <= count <= required
+                or required <= 0
+                or index < 0
+                or status not in ("waiting", "active", "completed")
+            ):
+                continue
+            step = _as_int(requirement.get("first_satisfied_step"))
+            summaries.append(
+                ConsecutiveStepSummary(
+                    criteria_name=str(requirement.get("criteria_name", "")),
+                    sequence_name=str(requirement.get("sequence_name", "")),
+                    predicate_index=index,
+                    predicate_name=_base_predicate_name(requirement.get("predicate_name", "")),
+                    consecutive_steps=count,
+                    required_steps=required,
+                    status=status,
+                    first_satisfied_step=step if step is not None and step >= 0 else None,
+                )
+            )
+        return summaries
+
+
+@dataclass
+class ConsecutiveStepSummary:
+    """One temporal completion requirement recorded at the end of an episode."""
+
+    criteria_name: str
+    sequence_name: str
+    predicate_index: int
+    predicate_name: str
+    consecutive_steps: int
+    required_steps: int
+    status: str
+    first_satisfied_step: int | None
+
 
 @dataclass
 class FunnelStage:

@@ -418,6 +418,41 @@ def _render_signals(criteria_sets: list) -> str:
     )
 
 
+def _render_completion_summary(episode) -> str:
+    """Show satisfaction steps and unfinished streaks from the episode's recorded state."""
+    requirements = episode.consecutive_step_summaries
+    if not requirements:
+        return ""
+    rows = []
+    for requirement in requirements:
+        first_satisfied = (
+            "&mdash;" if requirement.first_satisfied_step is None else f"step {requirement.first_satisfied_step}"
+        )
+        status = {"waiting": "Not reached", "active": "Incomplete", "completed": "Completed"}[requirement.status]
+        remaining = (
+            "&mdash;"
+            if requirement.status == "completed"
+            else str(requirement.required_steps - requirement.consecutive_steps)
+        )
+        rows.append(
+            f"<tr><td>{html.escape(requirement.criteria_name)}</td>"
+            f"<td>{html.escape(requirement.sequence_name)} / {requirement.predicate_index + 1}</td>"
+            f"<td>{html.escape(requirement.predicate_name)}</td>"
+            f"<td>{requirement.consecutive_steps}/{requirement.required_steps}</td>"
+            f"<td>{first_satisfied}</td><td>{remaining}</td><td>{status}</td></tr>"
+        )
+    return (
+        '<details class="signals" open><summary>Task completion summary</summary>'
+        "<table><thead><tr><th>Criterion</th><th>Sequence / position</th><th>Predicate</th>"
+        "<th>Consecutive steps</th><th>First satisfied</th><th>Steps remaining</th><th>Status</th>"
+        f'</tr></thead><tbody>{"".join(rows)}</tbody></table>'
+        '<p class="note">Counts use simulation control steps. An unfinished requirement needs the remaining steps'
+        " to stay true without interruption; false resets its streak. Not reached means it is waiting for an"
+        " earlier requirement. Completed records a milestone, even if a later recheck resets its streak."
+        " Counts reflect each requirement's last evaluation.</p></details>"
+    )
+
+
 def _render_episode_card(episode, cameras: list[str], video_prefix: str, policy: str = "", criteria_sets=None) -> str:
     outcome = _episode_outcome(episode)
     progress = episode.progress_fraction
@@ -433,7 +468,7 @@ def _render_episode_card(episode, cameras: list[str], video_prefix: str, policy:
             body = f'<div class="placeholder" data-video-src="{_media_src(video_prefix, source)}">video</div>'
         slots.append(f'<div class="videoslot"><div class="camera">{html.escape(camera)}</div>{body}</div>')
 
-    signals_html = _render_signals(criteria_sets or [])
+    signals_html = _render_completion_summary(episode) + _render_signals(criteria_sets or [])
     if episode.outcome_disagrees_with_progress:
         reached = (
             "all completion criteria met" if episode.all_criteria_complete else "completion criteria are incomplete"
