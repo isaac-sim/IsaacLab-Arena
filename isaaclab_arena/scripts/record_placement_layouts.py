@@ -188,15 +188,47 @@ def main() -> None:
 
     parser = argparse.ArgumentParser(description=__doc__)
     AppLauncher.add_app_launcher_args(parser)
+    parser.add_argument(
+        "--external_environment_class_path",
+        type=str,
+        default=None,
+        help="Import an external registered environment factory as module.path:ClassName.",
+    )
     launcher_args, overrides = parser.parse_known_args()
-    assert_hydra_overrides(overrides, parser)
-    cfg = load_recording_config(overrides)
-    assert not Path(cfg.output).exists(), f"Output already exists: {cfg.output}"
-    assert (cfg.env_spec is None) != (
-        cfg.environment_name is None
-    ), "Specify exactly one environment source: env_spec or environment_name"
+    external_environment_path = launcher_args.external_environment_class_path
+    if external_environment_path is None:
+        assert_hydra_overrides(overrides, parser)
+        cfg = load_recording_config(overrides)
+        assert not Path(cfg.output).exists(), f"Output already exists: {cfg.output}"
+        assert (cfg.env_spec is None) != (
+            cfg.environment_name is None
+        ), "Specify exactly one environment source: env_spec or environment_name"
     with SimulationAppContext(launcher_args):
-        summary = record_settled_placement_layouts(cfg, device=launcher_args.device)
+        arena_env = None
+        if external_environment_path is not None:
+            # Resolve the class after SimulationApp starts because external modules may import pxr/omni transitively.
+            from isaaclab_arena_environments.cli import (
+                add_environment_cli_args,
+                build_environment_from_cli,
+                parse_and_return_external_environment_from_string,
+            )
+
+            environment_name, environment_factory_type = parse_and_return_external_environment_from_string(
+                external_environment_path
+            )
+            environment_parser = argparse.ArgumentParser(add_help=False)
+            subparsers = environment_parser.add_subparsers(dest="example_environment", required=True)
+            environment_subparser = subparsers.add_parser(environment_name)
+            add_environment_cli_args(environment_subparser, environment_factory_type)
+            environment_cli, recording_overrides = environment_parser.parse_known_args(overrides)
+            assert_hydra_overrides(recording_overrides, environment_parser)
+            cfg = load_recording_config(recording_overrides)
+            assert (
+                cfg.env_spec is None and cfg.environment_name is None
+            ), "Do not combine --external_environment_class_path with env_spec or environment_name"
+            assert not Path(cfg.output).exists(), f"Output already exists: {cfg.output}"
+            arena_env = build_environment_from_cli(environment_factory_type, environment_cli)
+        summary = record_settled_placement_layouts(cfg, device=launcher_args.device, arena_env=arena_env)
         for reason, count in Counter(summary.rejections.values()).items():
             print(f"  Rejected {count}: {reason}")
         if summary.accepted < cfg.min_layouts:

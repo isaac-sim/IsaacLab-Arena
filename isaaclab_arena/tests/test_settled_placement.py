@@ -36,8 +36,8 @@ def run_cli_with_test_assets(summary_path: Path | None = None):
         register_no_embodiment()
         return app
 
-    def record_with_summary(cfg, *, device):
-        summary = record(cfg, device=device)
+    def record_with_summary(cfg, *, device, arena_env=None):
+        summary = record(cfg, device=device, arena_env=arena_env)
         if summary_path is not None:
             summary_path.write_text(
                 json.dumps({

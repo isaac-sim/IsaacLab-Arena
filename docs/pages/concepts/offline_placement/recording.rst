@@ -96,7 +96,15 @@ Select exactly one environment source. ``env_spec=path/to/environment.yaml``
 loads a graph environment, while ``environment_name=my_environment`` builds a
 registered Python environment with its typed default configuration. In either
 case, the environment must define relation placement that produces a placement
-pool.
+pool. Environments defined in another package use the same external registration
+syntax as the policy runner:
+
+.. code-block:: bash
+
+   python isaaclab_arena/scripts/record_placement_layouts.py \
+       --external_environment_class_path package.module:EnvironmentClass \
+       environment_name [environment-specific options] \
+       output=outputs/placements/external.jsonl
 
 .. list-table:: Recording Options
    :header-rows: 1
@@ -105,9 +113,9 @@ pool.
    * - Option
      - Default
      - Meaning
-   * - ``env_spec`` / ``environment_name``
+   * - ``env_spec`` / ``environment_name`` / ``--external_environment_class_path``
      - None
-     - Graph-YAML path or registered Python environment name; specify exactly one.
+     - Graph-YAML path, registered Python environment name, or external factory class path.
    * - ``num_envs``
      - ``1``
      - Parallel environments; one candidate per environment in a reset batch.
