@@ -1,0 +1,210 @@
+Assets
+======
+
+Assets are the objects and backgrounds that make up a scene.
+Arena ships with a set of assets ready to use by name,
+and new assets can be added by registering them in the asset library.
+
+.. code-block:: python
+
+   background = asset_registry.get_asset_by_name("kitchen")()
+   cracker_box = asset_registry.get_asset_by_name("cracker_box")()
+
+Registering a new asset
+-----------------------
+
+To add a new object, subclass ``LibraryObject``, provide the USD path and object type,
+and decorate it with ``@register_asset``:
+
+.. code-block:: python
+
+   @register_asset
+   class MyObject(LibraryObject):
+       name = "my_object"
+       tags = ["object", "graspable"]
+       usd_path = "path/to/my_object.usd"
+       object_type = ObjectType.RIGID
+
+Once registered, the object is available in the registry like any other asset:
+
+.. code-block:: python
+
+   obj = asset_registry.get_asset_by_name("my_object")()
+
+Assets can also be tagged to make them discoverable by category:
+
+.. code-block:: python
+
+   # All graspable objects
+   objects = asset_registry.get_assets_by_tag("graspable")
+
+   # A random graspable object
+   obj = asset_registry.get_random_asset_by_tag("graspable")()
+
+Useful tags include ``"graspable"``, ``"openable"``, ``"pressable"``, and ``"background"``.
+Assets can have multiple tags — for example, a fruit is tagged both ``"graspable"`` and ``"food"``.
+
+Object configuration
+--------------------
+
+An object's constructor sets its USD source, scale, initial pose, and object type.
+``asset_cfg_addon`` configures the Isaac Lab asset (for example, ``debug_vis`` or articulation
+actuators). ``spawn_cfg_addon`` configures how the USD is loaded and which physics properties
+are authored during spawning: mass/density, collision settings, and contact materials.
+Use ``prim_physics`` within the spawn addons for selected bodies, colliders, or joints.
+
+Physics spawn addons
+~~~~~~~~~~~~~~~~~~~~
+
+Use ``spawn_cfg_addon`` to override physics parameters:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 30 70
+
+   * - Addon
+     - Example parameters
+   * - ``mass_props``
+     - Mass and density.
+   * - ``rigid_props``
+     - Gravity, damping, and velocity limits.
+   * - ``collision_props``
+     - Collision enablement, contact offset, and rest offset.
+   * - ``physics_material``
+     - Static/dynamic friction and restitution.
+   * - ``articulation_props``
+     - Self-collision and articulation solver settings.
+   * - ``prim_physics``
+     - Selected-prim collision, material, mass, joint, or backend-specific settings,
+       defined by an environment-owned ``UsdPrimSpawnPhysicsCfg`` subclass.
+
+For example, override friction on the library red cube's ``Cube`` collider:
+
+.. code-block:: python
+
+   import math
+
+   from isaaclab.utils.configclass import configclass
+   from pxr import UsdPhysics, UsdShade
+
+   from isaaclab_arena.assets.object_library import RedCube
+   from isaaclab_arena.assets.physics_config import UsdPrimSpawnPhysicsCfg
+
+   @configclass
+   class ColliderFrictionCfg(UsdPrimSpawnPhysicsCfg):
+       """Bind an instance-local contact material to a selected collider."""
+
+       friction: float = 0.8
+       """Static and dynamic friction coefficient."""
+
+       def validate_target(self, prim, root):
+           """Require a collider and a finite nonnegative friction coefficient."""
+           assert prim.HasAPI(UsdPhysics.CollisionAPI)
+           assert math.isfinite(self.friction) and self.friction >= 0
+           assert not prim.GetStage().GetPrimAtPath(prim.GetPath().AppendChild("ContactMaterial"))
+
+       def apply(self, prim, root):
+           """Author and bind a material within the spawned asset."""
+           # A local material preserves shared source materials and remaps during cloning.
+           material = UsdShade.Material.Define(prim.GetStage(), prim.GetPath().AppendChild("ContactMaterial"))
+           physics = UsdPhysics.MaterialAPI.Apply(material.GetPrim())
+           physics.CreateStaticFrictionAttr(self.friction)
+           physics.CreateDynamicFrictionAttr(self.friction)
+           UsdShade.MaterialBindingAPI.Apply(prim).Bind(
+               material,
+               bindingStrength=UsdShade.Tokens.strongerThanDescendants,
+               materialPurpose="physics",
+           )
+
+   class HighFrictionRedCube(RedCube):
+       spawn_cfg_addon = {
+           "prim_physics": {"Cube": ColliderFrictionCfg(friction=0.8)},
+       }
+
+   red_cube = HighFrictionRedCube()
+
+``prim_physics`` keys are exact paths relative to the asset root; use ``"."`` for the root.
+Settings apply after USD loading and before cloning and physics import.
+
+See :doc:`../environment/physics_configuration` for configuration order and
+:doc:`../embodiment/index` for robot and end-effector physics.
+
+Object types
+------------
+
+Every asset has an object type that determines how it is simulated:
+
+- **RIGID** — a single rigid body (boxes, bottles, tools, furniture).
+- **ARTICULATION** — a multi-body scene object with joints (doors, drawers, appliances).
+- **BASE** — no physics; used for static backgrounds and markers.
+
+Deformable and backend-specific spawn configs must match the environment's resolved physics
+backend (PhysX or Newton). See :doc:`../environment/physics_backend_selection`.
+
+Backgrounds
+-----------
+
+Backgrounds are registered as ``BASE`` assets, but their composed USDs may contain
+dynamic rigid bodies and articulations whose states can change as they interact with
+the robot or other objects. Arena resets these nested physics roots by default. Set
+``reset_nested_physics=False`` on a ``Background`` to opt out.
+
+Arena registers the roots as private Isaac Lab reset views. After simulation and RTX
+initialization, Arena creates the views and records one environment-local pose and
+joint configuration. On each episode reset, Arena applies those values to the
+resetting environments and zeros all root and joint velocities. The private views
+are not exposed through the Isaac Lab scene entity registries.
+
+Arena discovers nested roots through the composed USD physics APIs.
+
+Included:
+
+- Standalone rigid bodies.
+- Articulation roots, which own their links and joints.
+
+Excluded:
+
+- ``BASE`` and collision-only prims.
+- Rigid and articulation roots owned by matching ``ObjectReference`` entries.
+- Articulation links, which cannot own reset state independently.
+- Authored roots without a live physics backend object after composition.
+
+``BASE`` object references remain observational and do not transfer reset
+ownership away from the background.
+
+Instanceable subtrees that contribute dynamic physics are materialized at spawn
+time because physics views cannot control dynamic instance proxies.
+
+Object references
+-----------------
+
+A background asset like a kitchen is a single USD file containing many prims:
+countertops, shelves, drawers, and so on. To use one of these internal prims
+as a destination or interaction target (e.g. "place the object on the counter"),
+you use an ``ObjectReference``.
+
+.. code-block:: python
+
+   kitchen = asset_registry.get_asset_by_name("kitchen")()
+
+   counter = ObjectReference(
+       name="kitchen_counter",
+       prim_path="{ENV_REGEX_NS}/kitchen/counter_right_main_group/top_geometry",
+       parent_asset=kitchen,
+   )
+
+   task = PickAndPlaceTask(
+       pick_up_object=cracker_box,
+       destination_location=counter,
+       background_scene=kitchen,
+   )
+
+The ``parent_asset`` tells the environment which spawned USD the prim path belongs to.
+The prim path uses ``{ENV_REGEX_NS}`` so it resolves correctly across parallel environments.
+
+Rigid object sets
+-----------------
+
+To fill one scene role with different rigid objects across parallel
+environments, wrap the candidates in a ``RigidObjectSet``. See
+:doc:`./concept_rigid_object_set` for motivation, usage, and limitations.

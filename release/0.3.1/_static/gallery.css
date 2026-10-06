@@ -1,0 +1,114 @@
+/* The Gallery preserves the original developer-media showcase on a dedicated page. */
+body:has(#gallery) .theme-switch-container {
+    display: none !important;
+}
+
+#gallery > section {
+    max-width: 1040px;
+    margin: 3.4rem auto 0;
+}
+
+#gallery > section:first-of-type {
+    margin-top: 1.9rem;
+}
+
+#gallery > section > h2 {
+    margin-bottom: 0.5rem;
+    color: #20271e;
+    font-size: clamp(1.35rem, 2.2vw, 1.8rem);
+    letter-spacing: -0.025em;
+}
+
+#gallery .arena-media-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+    margin: 1.15rem 0 0;
+}
+
+#gallery .arena-media-grid-3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+#gallery .arena-media-grid > img,
+#gallery .arena-media-grid > .sphinx-contrib-video-container,
+#gallery .arena-media-feature > .sphinx-contrib-video-container {
+    width: 100%;
+    min-width: 0;
+    margin: 0;
+}
+
+#gallery .arena-media-grid img,
+#gallery .arena-media-grid video,
+#gallery .arena-media-feature video {
+    display: block;
+    width: 100%;
+    height: auto;
+    border: 1px solid #dce4d7;
+    border-radius: 7px;
+    background: #f5f7f3;
+}
+
+#gallery .arena-media-feature {
+    width: min(100%, 760px);
+    margin: 1.15rem auto 0;
+}
+
+#gallery .arena-media-caption {
+    max-width: 820px;
+    margin: 0.7rem auto 0;
+    color: #6a7465;
+    font-size: 0.78rem;
+    line-height: 1.5;
+    text-align: center;
+}
+
+#gallery .arena-media-caption > p {
+    margin: 0;
+}
+
+#gallery figure.align-center {
+    margin-top: 1.2rem;
+    margin-bottom: 0;
+}
+
+#gallery figure.align-center img {
+    border: 1px solid #dce4d7;
+    border-radius: 7px;
+    background: #fff;
+}
+
+#gallery figure.align-center figcaption {
+    max-width: 820px;
+    margin: 0.65rem auto 0;
+    color: #6a7465;
+    font-size: 0.78rem;
+    line-height: 1.5;
+    text-align: center;
+}
+
+@media (max-width: 900px) {
+    #gallery .arena-media-grid-3 {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 767px) {
+    #gallery > section {
+        margin-top: 2.75rem;
+    }
+
+    #gallery .arena-media-grid {
+        gap: 0.65rem;
+    }
+}
+
+@media (max-width: 480px) {
+    #gallery .arena-media-grid {
+        grid-template-columns: 1fr;
+    }
+
+    #gallery .arena-media-grid-3 {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
