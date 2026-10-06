@@ -398,6 +398,12 @@ separately, under ``predicate_progress`` in the record. They do not measure stre
 change success. For example, both checks being true once gives ``max_simultaneous_true=2``;
 it does not establish a shared ten-step streak.
 
+Tracked predicates must be stateless callables or ``TerminationTermCfg`` definitions of
+instantaneous checks. Use initialized callables, rather than bare classes. The tracker resets
+their reporting history, but does not reset state owned by the predicate itself. Reusing the
+same definition for tracking and a success check within one set of criteria shares its
+per-step observation; reading snapshots does not evaluate either check again.
+
 
 Recording progress
 ~~~~~~~~~~~~~~~~~~

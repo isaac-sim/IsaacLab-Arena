@@ -733,6 +733,87 @@ def _test_tracked_predicates_report_progress(simulation_app) -> bool:
     return True
 
 
+def _test_tracked_predicates_share_step_results(simulation_app, configured=False):
+    """Reporting aliases and a temporal success check sample their shared predicate once."""
+    import torch
+
+    from isaaclab.managers import TerminationTermCfg
+
+    from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
+    from isaaclab_arena.progress_tracking.progress_tracker import ProgressTracker
+    from isaaclab_arena.tasks.predicates.temporal import TrueForConsecutiveStepsCfg
+
+    env = _MockEnv(num_envs=2)
+    env.calls = 0
+
+    def sample(env):
+        env.calls += 1
+        return torch.tensor([True, False])
+
+    predicate = TerminationTermCfg(func=sample) if configured else sample
+    criteria = CompletionCriteria(
+        name="hold",
+        predicate_sequence=[TrueForConsecutiveStepsCfg(predicate, 2)],
+        tracked_predicates={"first": predicate, "alias": predicate},
+    )
+    tracker = ProgressTracker([criteria], num_envs=2, device="cpu", env=env)
+    for step in (1, 2):
+        tracker.step(env, step_index=torch.tensor([step, step]))
+        assert env.calls == step, "Reporting must reuse the success predicate's per-step sample."
+        states = tracker.get_state()
+        state = states[0].criteria_by_name["hold"]
+        assert state.tracked_predicates["first"] == state.tracked_predicates["alias"]
+        assert state.tracked_predicates["first"]["first_true_step"] == 1
+        assert state.is_complete == (step == 2)
+        assert not states[1].criteria_by_name["hold"].tracked_predicates["first"]["ever_true"]
+    tracker.reset([0])
+    tracker.step(env, step_index=torch.tensor([1, 3]))
+    assert env.calls == 3
+    assert not tracker.is_complete().any()
+    return True
+
+
+def _test_tracked_predicates_preserve_positional_subtask_index(simulation_app):
+    """Adding reporting checks must retain the existing positional constructor arguments."""
+    from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
+
+    criteria = CompletionCriteria("task", [_MockPredicate(1)], None, 1.0, "all", None, None, 0)
+    assert criteria.parent_subtask_idx == 0
+    assert criteria.tracked_predicates == {}
+    return True
+
+
+def _test_tracked_predicates_reject_bare_classes(simulation_app):
+    """A class requires TerminationTermCfg; passing the class itself is not an initialized check."""
+    import pytest
+
+    from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
+
+    with pytest.raises(AssertionError, match="tracked_predicates"):
+        CompletionCriteria("task", [_MockPredicate(1)], tracked_predicates={"invalid": _MockPredicate})
+    return True
+
+
+def test_tracked_predicates_share_step_results():
+    assert run_function_with_persistent_simulation_app(_test_tracked_predicates_share_step_results, headless=HEADLESS)
+
+
+def test_configured_tracked_predicates_share_step_results():
+    assert run_function_with_persistent_simulation_app(
+        _test_tracked_predicates_share_step_results, configured=True, headless=HEADLESS
+    )
+
+
+def test_tracked_predicates_preserve_positional_subtask_index():
+    assert run_function_with_persistent_simulation_app(
+        _test_tracked_predicates_preserve_positional_subtask_index, headless=HEADLESS
+    )
+
+
+def test_tracked_predicates_reject_bare_classes():
+    assert run_function_with_persistent_simulation_app(_test_tracked_predicates_reject_bare_classes, headless=HEADLESS)
+
+
 def _test_task_termination_cfg_assigns_flat_criteria_to_subtasks(
     simulation_app,
 ) -> bool:
@@ -926,6 +1007,7 @@ def _test_shared_predicate_results_are_reused_across_criteria(simulation_app):
         CompletionCriteria(
             name=f"objective_{index}",
             predicate_sequence=[predicate],
+            tracked_predicates={"shared": predicate},
             parent_subtask_idx=index,
         )
         for index in range(2)

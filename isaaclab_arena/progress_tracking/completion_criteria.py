@@ -66,13 +66,13 @@ class CompletionCriteria:
     logical: CriteriaCompletionMode = CriteriaCompletionMode.ALL
     K: int | None = None
     description: str | None = None
-    tracked_predicates: dict[str, Predicate] = field(default_factory=dict)
-    """Named predicate states reported independently of the success predicate sequence."""
-
     canonical_predicate_sequences: dict[str, list[tuple[Predicate, float]]] = field(init=False, repr=False)
 
     parent_subtask_idx: int | None = None
     """Subtask index assigned by CompositeTaskBase; None for standalone task criteria."""
+
+    tracked_predicates: dict[str, Predicate] = field(default_factory=dict)
+    """Named stateless checks reported independently; their wrapped state is not reset by the tracker."""
 
     def __post_init__(self):
         assert 0.0 <= self.score <= 1.0, f"CompletionCriteria '{self.name}': score must be in [0, 1], got {self.score}"
@@ -100,10 +100,12 @@ class CompletionCriteria:
         formatted_sequences = _format_predicate_sequences(named_sequences)
         self.canonical_predicate_sequences = _normalize_scores(formatted_sequences)
 
-        assert isinstance(self.tracked_predicates, dict) and all(
-            isinstance(name, str) and name and (callable(predicate) or isinstance(predicate, TerminationTermCfg))
-            for name, predicate in self.tracked_predicates.items()
-        ), "tracked_predicates must map nonempty names to callables or TerminationTermCfg definitions."
+        assert isinstance(self.tracked_predicates, dict), "tracked_predicates must be a dictionary."
+        for name, predicate in self.tracked_predicates.items():
+            assert isinstance(name, str) and name, "tracked_predicates must use nonempty string names."
+            assert isinstance(predicate, TerminationTermCfg) or (
+                callable(predicate) and not isinstance(predicate, type)
+            ), "tracked_predicates must contain initialized callables or TerminationTermCfg definitions."
 
         # Validate the logical and K parameters.
         num_sequences = len(self.canonical_predicate_sequences)

@@ -167,14 +167,20 @@ class CompletionCriteriaRunner:
         self.sequence_complete: dict[str, torch.Tensor] = {}
         self.predicate_chains = {}
         self._consecutive_step_requirements: list[_TrueForConsecutiveSteps] = []
+        resolved_predicates = {}
         for sequence_name, chain in completion_criteria.canonical_predicate_sequences.items():
             resolved_chain = []
             for predicate, score in chain:
+                source_predicate = (
+                    predicate.predicate if isinstance(predicate, TrueForConsecutiveStepsCfg) else predicate
+                )
+                resolved_predicate = _create_predicate_from_config(source_predicate, env)
+                resolved_predicates[id(source_predicate)] = resolved_predicate
                 if isinstance(predicate, TrueForConsecutiveStepsCfg):
                     # Prepare the instantaneous check and create independent counters
                     # for this occurrence, even when the same configuration is reused.
                     predicate = _TrueForConsecutiveSteps(
-                        predicate=_create_predicate_from_config(predicate.predicate, env),
+                        predicate=resolved_predicate,
                         required_steps=predicate.required_steps,
                         num_envs=num_envs,
                         device=device,
@@ -182,7 +188,7 @@ class CompletionCriteriaRunner:
                     self._consecutive_step_requirements.append(predicate)
                 else:
                     # Prepare an instantaneous check without adding counter state.
-                    predicate = _create_predicate_from_config(predicate, env)
+                    predicate = resolved_predicate
                 resolved_chain.append((predicate, score))
             self.predicate_chains[sequence_name] = resolved_chain
 
@@ -191,10 +197,13 @@ class CompletionCriteriaRunner:
             self.sequence_score[sequence_name] = torch.zeros(num_envs, dtype=torch.float32, device=device)
             self.sequence_complete[sequence_name] = torch.zeros(num_envs, dtype=torch.bool, device=device)
 
-        self.tracked_predicates = {
-            name: _create_predicate_from_config(predicate, env)
-            for name, predicate in completion_criteria.tracked_predicates.items()
-        }
+        # Reuse a sequence's resolved check when the same definition is also tracked.
+        # Reporting aliases must share one callable so the per-step cache can reuse its result.
+        self.tracked_predicates = {}
+        for name, predicate in completion_criteria.tracked_predicates.items():
+            if id(predicate) not in resolved_predicates:
+                resolved_predicates[id(predicate)] = _create_predicate_from_config(predicate, env)
+            self.tracked_predicates[name] = resolved_predicates[id(predicate)]
         self.tracked_current = {
             name: torch.zeros(num_envs, dtype=torch.bool, device=device) for name in self.tracked_predicates
         }
@@ -222,7 +231,7 @@ class CompletionCriteriaRunner:
 
         # Observe optional reporting checks independently of sequence position. For example,
         # gripper_slow can already be true while its ten-step requirement is still waiting.
-        self._update_tracked_predicates(env, step_index, active_envs)
+        self._update_tracked_predicates(env, step_index, active_envs, predicate_results_this_step)
         criteria_complete = self.is_complete()
         final_condition_check_mask = (
             criteria_complete if check_final_conditions else torch.zeros_like(criteria_complete)
@@ -251,17 +260,20 @@ class CompletionCriteriaRunner:
             )
         return events
 
-    def _update_tracked_predicates(self, env, step_index: torch.Tensor | None, active_envs: torch.Tensor) -> None:
+    def _update_tracked_predicates(
+        self,
+        env,
+        step_index: torch.Tensor | None,
+        active_envs: torch.Tensor,
+        predicate_results_this_step: dict[int, tuple[torch.Tensor, torch.Tensor]],
+    ) -> None:
         """Update per-predicate progress without advancing the success sequence."""
         if not self.tracked_predicates or not bool(active_envs.any().item()):
             return
 
         results = []
         for name, predicate in self.tracked_predicates.items():
-            result = torch.as_tensor(predicate(env), dtype=torch.bool, device=self.device)
-            assert result.shape == (
-                self.num_envs,
-            ), f"Tracked predicate {name!r} returned shape {tuple(result.shape)}; expected ({self.num_envs},)"
+            result = self._evaluate_predicate_with_cache(predicate, env, predicate_results_this_step, active_envs)
             first_true = active_envs & result & ~self.tracked_ever_true[name]
             # Keep the first observed true step even after the check becomes false.
             # This is instantaneous history, not completion of a ten-step requirement.
