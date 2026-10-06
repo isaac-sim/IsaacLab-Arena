@@ -132,6 +132,9 @@ class Object(RootedObjectBase):
                 relative_path = path.removeprefix("/Asset")
                 filter_prim_paths.append(contact_against_object.get_prim_path() + relative_path)
         elif isinstance(contact_against_object, Object):
+            # This branch supports rigid targets only. For ObjectInTask in kitchen scenes,
+            # supply receptacles such as the microwave as Background objects so the branch
+            # above filters contacts against their nested rigid bodies.
             filter_prim_paths = [contact_against_object.get_contact_sensor_prim_path()]
         elif isinstance(contact_against_object, ObjectBase):
             # Handles ObjectReference.
