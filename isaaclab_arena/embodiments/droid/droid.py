@@ -291,6 +291,47 @@ class DroidDifferentialIKEmbodiment(DroidEmbodimentBase):
 
 
 @register_asset
+class DroidAbsoluteIKEmbodiment(DroidEmbodimentBase):
+    """DROID with absolute Robotiq-base pose actions in the robot-root frame."""
+
+    name = "droid_absolute_ik"
+    default_arm_mode = ArmMode.SINGLE_ARM
+
+    def __init__(
+        self,
+        enable_cameras: bool = False,
+        initial_pose: Pose | None = None,
+        initial_joint_pose: list[float] | None = None,
+        concatenate_observation_terms: bool = False,
+        arm_mode: ArmMode | None = None,
+        stand_height_m: float = _DROID_STAND_PRIM.stand_default_height,
+        stand_footprint_xy_m: tuple[float, float] | list[float] = _DROID_STAND_PRIM.stand_default_footprint_xy_m,
+        placement_bbox_stand_only: bool = False,
+        collision_mode: CollisionMode | str | None = None,
+    ):
+        super().__init__(
+            enable_cameras=enable_cameras,
+            initial_pose=initial_pose,
+            initial_joint_pose=initial_joint_pose,
+            concatenate_observation_terms=concatenate_observation_terms,
+            arm_mode=arm_mode,
+            stand_height_m=stand_height_m,
+            stand_footprint_xy_m=stand_footprint_xy_m,
+            placement_bbox_stand_only=placement_bbox_stand_only,
+            collision_mode=collision_mode,
+        )
+        self.action_config = DroidDifferentialIKActionsCfg()
+        self.action_config.arm_action = DifferentialInverseKinematicsActionCfg(
+            asset_name="robot",
+            joint_names=["panda_joint.*"],
+            body_name="base_link",
+            body_offset=None,
+            scale=1.0,
+            controller=DifferentialIKControllerCfg(command_type="pose", use_relative_mode=False, ik_method="dls"),
+        )
+
+
+@register_asset
 class DroidRelativeJointPositionEmbodiment(DroidEmbodimentBase):
     """Embodiment for the DROID setup with relative joint position action controller."""
 
@@ -567,7 +608,9 @@ class DroidEventCfg:
 class DroidCameraCfg(ArenaCameraCfg):
     """Configuration for cameras. DROID cameras are mounted with pre-set poses."""
 
+    # Calibrated observations require current world poses, especially for the moving wrist camera.
     external_camera: CameraCfg = CameraCfg(
+        update_latest_camera_pose=True,
         prim_path="{ENV_REGEX_NS}/Robot/panda_link0/external_camera",
         height=720,
         width=1280,
@@ -581,6 +624,7 @@ class DroidCameraCfg(ArenaCameraCfg):
         offset=CameraCfg.OffsetCfg(pos=(0.05, 0.57, 0.66), rot=(-0.195, 0.399, 0.805, -0.393), convention="opengl"),
     )
     external_camera_2: CameraCfg = CameraCfg(
+        update_latest_camera_pose=True,
         prim_path="{ENV_REGEX_NS}/Robot/panda_link0/external_camera_2",
         height=720,
         width=1280,
@@ -594,6 +638,7 @@ class DroidCameraCfg(ArenaCameraCfg):
         offset=CameraCfg.OffsetCfg(pos=(0.05, -0.57, 0.66), rot=(0.399, -0.195, -0.393, 0.805), convention="opengl"),
     )
     wrist_camera: CameraCfg = CameraCfg(
+        update_latest_camera_pose=True,
         prim_path="{ENV_REGEX_NS}/Robot/Gripper/Robotiq_2F_85/base_link/wrist_camera",
         height=720,
         width=1280,
