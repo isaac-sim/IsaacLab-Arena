@@ -334,33 +334,29 @@ class LiftObjectRewardCfg:
 
 
 # ---------------------------------------------------------------------------
-# Dexsuite Kuka Allegro lift (evaluation-only, no rewards/curriculum)
+# Dexsuite Kuka Allegro lift
 # ---------------------------------------------------------------------------
 
 
 @register_task
 class DexsuiteLiftTask(LiftObjectTask):
-    """Dexsuite lift task for Arena evaluation.
-
-    Rewards and curriculum are omitted (evaluation-only).
-    """
+    """Dexsuite lift task using the published Kuka-Allegro policy configuration."""
 
     def __init__(self, lift_object: Asset, background_scene: Asset) -> None:
         super().__init__(
             lift_object=lift_object,
             background_scene=background_scene,
-            episode_length_s=6.0,
-            goal_position_delta_xyz=(0.0, 0.0, 0.3),
-            goal_position_tolerance=0.05,
+            episode_length_s=12.0,
         )
-        self.task_description = "Dexsuite lift (Arena, Newton-ready scene)."
-
+        self.task_description = "Dexsuite lift using Isaac Lab's published Kuka-Allegro policy configuration."
         self.commands_cfg = lift.CommandsCfg()
+        self.commands_cfg.object_pose.body_name = "palm_link"
         self.commands_cfg.object_pose.position_only = True
-        self.commands_cfg.object_pose.resampling_time_range = (2.0, 3.0)
+        self.commands_cfg.object_pose.debug_vis = True
 
     def get_termination_cfg(self) -> TaskTerminationCfg:
         native_termination_cfg = lift.TerminationsCfg()
+        native_termination_cfg.object_out_of_bound.params["in_bound_range"]["z"] = (0.0, 2.0)
         return TaskTerminationCfg(
             timeout_s=self.episode_length_s,
             success=[
@@ -369,6 +365,7 @@ class DexsuiteLiftTask(LiftObjectTask):
                     predicate_sequence=[
                         partial(
                             lift_object_rl_success,
+                            object_cfg=SceneEntityCfg(self.lift_object.name),
                             command_name="object_pose",
                             position_tolerance=self.goal_position_tolerance,
                         )

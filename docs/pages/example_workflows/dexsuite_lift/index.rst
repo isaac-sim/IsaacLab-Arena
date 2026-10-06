@@ -51,7 +51,7 @@ body states, object point cloud, and 5-step observation history.
    * - **Scene**
      - Procedural table (static background) with ground plane and lighting
    * - **Objects**
-     - Procedural lift cuboid (``procedural_cube``)
+     - Isaac Lab's default procedural training shape set
    * - **Policy**
      - RSL-RL PPO (``KukaAllegroPPORunnerCfg``)
    * - **Training Method**
@@ -59,13 +59,13 @@ body states, object point cloud, and 5-step observation history.
    * - **Physics Backend**
      - Newton (default) or PhysX (``--presets physx``)
    * - **Simulation Rate**
-     - 200 Hz physics, 50 Hz control (decimation = 4)
+     - 120 Hz physics, 30 Hz control (decimation = 4)
    * - **Episode Length**
-     - 6 seconds
+     - 12 seconds
    * - **Closed-loop**
-     - Yes (50 Hz control)
+     - Yes (30 Hz control)
    * - **Command Space**
-     - Target position [x, y, z], position-only, resampled every 2–3 s
+     - Target position [x, y, z], position-only, resampled every 4–6 s
 
 .. note::
 
