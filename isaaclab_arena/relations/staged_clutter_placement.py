@@ -38,7 +38,7 @@ def place_staged_clutter(
     results_per_env: int,
     collision_objects: list[CollisionObject],
 ) -> list[list[PlacementResult]]:
-    """Place supports before clutter when needed; otherwise use the joint solve.
+    """Place non-clutter objects first, then solve clutter with their poses fixed.
 
     Args:
         placer: Owner of the reusable solver, validators and placement settings.
@@ -50,13 +50,10 @@ def place_staged_clutter(
     Returns:
         Complete results keyed by the original assets, ranked by required failures, optional
         failures, then combined loss.
-        When two passes are needed, both contribute losses, attempts and required-check failures.
+        Both passes contribute losses, attempts and required-check failures.
         Tie-breaking favors variation across retained non-clutter layouts.
     """
     clutter_objects = [obj for obj in objects if get_relation(obj, ClutterOn) is not None]
-    if not clutter_objects or all(get_relation(obj, ClutterOn).parent.is_anchor for obj in clutter_objects):
-        return placer._place_ranked_per_env(objects, num_envs, results_per_env, collision_objects)
-
     assert not has_heterogeneous_objects(objects), "Resolve object sets before staged clutter placement"
     non_clutter_objects = [obj for obj in objects if obj not in clutter_objects]
     _validate_non_clutter_objects(non_clutter_objects, clutter_objects, placer.params)
@@ -112,6 +109,8 @@ def _place_clutter_for_layouts(
     validation: PlacementValidationRunner,
 ) -> list[list[list[PlacementResult]]]:
     """Return complete candidates indexed by environment, non-clutter layout, then clutter attempt."""
+    # NOTE: Anchors share one pose across rows. This costs num_envs * results_per_env
+    # serial clutter solves after the batched non-clutter pass.
     candidates_by_env_and_layout = []
     for env_id, non_clutter_layouts in enumerate(non_clutter_layouts_per_env):
         candidates_by_layout = []
@@ -124,7 +123,6 @@ def _place_clutter_for_layouts(
                 clutter_seed = int.from_bytes(hashlib.sha256(seed_key.encode()).digest()[:8], "little") & (
                     (1 << 63) - 1
                 )
-            # Solver anchors share one pose across rows, so extend one complete candidate at a time.
             clutter_layouts = placer._place_ranked_per_env(
                 list(object_copies.values()),
                 num_envs=1,

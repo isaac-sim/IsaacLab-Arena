@@ -10,15 +10,34 @@ from types import SimpleNamespace
 
 import pytest
 
-from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
+from isaaclab_arena.offline_placement import pool_validation
+from isaaclab_arena.relations.object_placer import ObjectPlacer
+from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+from isaaclab_arena.relations.placement_events import get_pose_from_layout
+from isaaclab_arena.relations.placement_validation_runner import PlacementValidationRunner
+from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
+from isaaclab_arena.relations.relation_solver import RelationSolver
+from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
+from isaaclab_arena.relations.relations import (
+    ClutterOn,
+    FaceTo,
+    IsAnchor,
+    NextTo,
+    On,
+    PositionLimitsBox,
+    RandomAroundSolution,
+    RequiresReachability,
+    RotateAroundSolution,
+    Side,
+)
+from isaaclab_arena.relations.validation.pre_physics import PrePhysicsPlacementValidator
+from isaaclab_arena.relations.validation.types import PlacementCheck, PlacementValidationResults
+from isaaclab_arena.tests.dummy_object import DummyObject
+from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+from isaaclab_arena.utils.pose import Pose
 
 
 def _make_scene():
-    from isaaclab_arena.relations.relations import ClutterOn, IsAnchor, On, PositionLimitsBox, RotateAroundSolution
-    from isaaclab_arena.tests.dummy_object import DummyObject
-    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
-    from isaaclab_arena.utils.pose import Pose
-
     class ConfiguredDummyObject(DummyObject):
         """Expose the shared construction-config mutation caused by copying a live asset."""
 
@@ -54,9 +73,6 @@ def _make_scene():
 
 
 def _params(**kwargs):
-    from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-    from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
-
     return ObjectPlacerParams(
         apply_positions_to_objects=False,
         placement_seed=17,
@@ -68,8 +84,6 @@ def _params(**kwargs):
 
 
 def _assert_complete_release(layout, objects):
-    from isaaclab_arena.relations.placement_events import get_pose_from_layout
-
     table, tray, clutter = objects
     assert layout.success, layout.validation_results.report()
     assert set(layout.positions) == set(objects)
@@ -86,9 +100,7 @@ def _assert_complete_release(layout, objects):
     assert child_z - 0.02 >= tray_z + 0.05 + 0.01 - 1e-6
 
 
-def _test_ranked_staging_preserves_source_assets_and_returns_rotated_complete_layouts(simulation_app):
-    from isaaclab_arena.relations.object_placer import ObjectPlacer
-
+def test_ranked_staging_preserves_source_assets_and_returns_rotated_complete_layouts():
     objects = _make_scene()
     table, tray, clutter = objects
     original_relations = [asset.relations for asset in objects]
@@ -121,22 +133,13 @@ def _test_ranked_staging_preserves_source_assets_and_returns_rotated_complete_la
         assert not asset.has_pose_reset_event()
         assert asset.bounding_box.min_point.equal(bounds[0])
         assert asset.bounding_box.max_point.equal(bounds[1])
-    return True
-
-
-def test_ranked_staging_preserves_source_assets_and_returns_rotated_complete_layouts():
-    assert run_function_with_persistent_simulation_app(
-        _test_ranked_staging_preserves_source_assets_and_returns_rotated_complete_layouts
-    )
 
 
 def _layout_signature(layout):
     return {asset.name: (position, layout.orientations.get(asset)) for asset, position in layout.positions.items()}
 
 
-def _test_staged_pools_reproduce_refills_and_keep_partial_resets_in_their_environment(simulation_app):
-    from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
-
+def test_staged_pools_reproduce_refills_and_keep_partial_resets_in_their_environment():
     objects_a, objects_b = _make_scene(), _make_scene()
     pools = [PooledObjectPlacer(objects, _params(), pool_size=2, num_envs=2) for objects in (objects_a, objects_b)]
     initial = [pool.layouts_per_env() for pool in pools]
@@ -156,21 +159,9 @@ def _test_staged_pools_reproduce_refills_and_keep_partial_resets_in_their_enviro
     assert observed[2] is initial[0][0][0]
     assert _layout_signature(observed[0]) != _layout_signature(observed[1])
     assert not any(pool.had_fallbacks for pool in pools)
-    return True
 
 
-def test_staged_pools_reproduce_refills_and_keep_partial_resets_in_their_environment():
-    assert run_function_with_persistent_simulation_app(
-        _test_staged_pools_reproduce_refills_and_keep_partial_resets_in_their_environment
-    )
-
-
-def _test_both_stages_avoid_passive_obstacles(simulation_app):
-    from isaaclab_arena.relations.object_placer import ObjectPlacer
-    from isaaclab_arena.tests.dummy_object import DummyObject
-    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
-    from isaaclab_arena.utils.pose import Pose
-
+def test_both_stages_avoid_passive_obstacles():
     objects = _make_scene()
     wall = DummyObject(
         "wall",
@@ -190,20 +181,17 @@ def _test_both_stages_avoid_passive_obstacles(simulation_app):
     assert wall not in layout.positions and canopy not in layout.positions
     assert wall.get_initial_pose() == Pose.identity()
     assert canopy.get_initial_pose() == Pose.identity()
-    return True
 
 
-def test_both_stages_avoid_passive_obstacles():
-    assert run_function_with_persistent_simulation_app(_test_both_stages_avoid_passive_obstacles)
-
-
-def _test_stage_failures_survive_checklist_merge(
-    simulation_app, monkeypatch, failed_stage, required_checks, expected_success
-):
-    from isaaclab_arena.relations.object_placer import ObjectPlacer
-    from isaaclab_arena.relations.relation_solver import RelationSolver
-    from isaaclab_arena.relations.validation.types import PlacementCheck
-
+@pytest.mark.parametrize(
+    ("failed_stage", "required_checks", "expected_success"),
+    [
+        ("tray", None, False),
+        ("tray", "optional_on", True),
+        ("clutter", None, False),
+    ],
+)
+def test_stage_failures_survive_checklist_merge(monkeypatch, failed_stage, required_checks, expected_success):
     if required_checks == "optional_on":
         required_checks = {PlacementCheck.NO_OVERLAP, PlacementCheck.CLUTTER_ON_RELATION}
     original_solve = RelationSolver.solve_candidates
@@ -225,34 +213,10 @@ def _test_stage_failures_survive_checklist_merge(
     assert layout.validation_results.validation_results[check] is False
     assert layout.success is expected_success
     assert set(layout.positions) == set(objects)
-    return True
 
 
-@pytest.mark.parametrize(
-    ("failed_stage", "required_checks", "expected_success"),
-    [
-        ("tray", None, False),
-        ("tray", "optional_on", True),
-        ("clutter", None, False),
-    ],
-)
-def test_stage_failures_survive_checklist_merge(monkeypatch, failed_stage, required_checks, expected_success):
-    assert run_function_with_persistent_simulation_app(
-        _test_stage_failures_survive_checklist_merge,
-        monkeypatch=monkeypatch,
-        failed_stage=failed_stage,
-        required_checks=required_checks,
-        expected_success=expected_success,
-    )
-
-
-def _test_staged_ranking_merges_failures_before_selecting_restarts(simulation_app, monkeypatch, consumer):
-    from isaaclab_arena.relations.object_placer import ObjectPlacer
-    from isaaclab_arena.relations.placement_validation_runner import PlacementValidationRunner
-    from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
-    from isaaclab_arena.relations.relation_solver import RelationSolver
-    from isaaclab_arena.relations.validation.types import PlacementCheck, PlacementValidationResults
-
+@pytest.mark.parametrize("consumer", ["place", "pool"])
+def test_staged_ranking_merges_failures_before_selecting_restarts(monkeypatch, consumer):
     def solve_candidates(self, objects, batch, collision_objects):
         target = next((asset for asset in objects if asset.name == "clutter" and not asset.is_anchor), None)
         for candidate in batch.candidates:
@@ -300,23 +264,12 @@ def _test_staged_ranking_merges_failures_before_selecting_restarts(simulation_ap
         PlacementCheck.NO_OVERLAP: False,
         PlacementCheck.ON_RELATION: True,
     }
-    return True
 
 
-@pytest.mark.parametrize("consumer", ["place", "pool"])
-def test_staged_ranking_merges_failures_before_selecting_restarts(monkeypatch, consumer):
-    assert run_function_with_persistent_simulation_app(
-        _test_staged_ranking_merges_failures_before_selecting_restarts,
-        monkeypatch=monkeypatch,
-        consumer=consumer,
-    )
-
-
-def _test_staged_required_checks_apply_to_later_pool_validation(simulation_app, monkeypatch, policy, expected_success):
-    from isaaclab_arena.offline_placement import pool_validation
-    from isaaclab_arena.relations.object_placer import ObjectPlacer
-    from isaaclab_arena.relations.validation.types import PlacementCheck
-
+@pytest.mark.parametrize(
+    "policy,expected_success", [("default", False), ("geometry_only", True), ("physics_required", False)]
+)
+def test_staged_required_checks_apply_to_later_pool_validation(monkeypatch, policy, expected_success):
     required_checks = None
     if policy == "geometry_only":
         required_checks = {PlacementCheck.NO_OVERLAP}
@@ -337,25 +290,21 @@ def _test_staged_required_checks_apply_to_later_pool_validation(simulation_app, 
     assert layout.validation_results.validation_results[PlacementCheck.PHYSICS_SETTLED] is False
     assert layout.success is expected_success
     assert layout.validation_results.required_checks == required_checks
-    return True
 
 
 @pytest.mark.parametrize(
-    "policy,expected_success", [("default", False), ("geometry_only", True), ("physics_required", False)]
+    "configuration",
+    [
+        "nested_clutter",
+        "fixture_relation",
+        "fixture_face_to",
+        "missing_parent",
+        "missing_face_to_parent",
+        "randomization",
+        "rotation",
+    ],
 )
-def test_staged_required_checks_apply_to_later_pool_validation(monkeypatch, policy, expected_success):
-    assert run_function_with_persistent_simulation_app(
-        _test_staged_required_checks_apply_to_later_pool_validation,
-        monkeypatch=monkeypatch,
-        policy=policy,
-        expected_success=expected_success,
-    )
-
-
-def _test_staging_rejects_invalid_dependencies(simulation_app, configuration):
-    from isaaclab_arena.relations.object_placer import ObjectPlacer
-    from isaaclab_arena.relations.relations import ClutterOn, FaceTo, On, RandomAroundSolution, RotateAroundSolution
-
+def test_staging_rejects_invalid_dependencies(configuration):
     objects = _make_scene()
     table, tray, clutter = objects
     if configuration == "nested_clutter":
@@ -381,52 +330,17 @@ def _test_staging_rejects_invalid_dependencies(simulation_app, configuration):
         diagnostic = "90|quarter"
     with pytest.raises(AssertionError, match=diagnostic):
         ObjectPlacer(_params()).place(objects)
-    return True
 
 
-@pytest.mark.parametrize(
-    "configuration",
-    [
-        "nested_clutter",
-        "fixture_relation",
-        "fixture_face_to",
-        "missing_parent",
-        "missing_face_to_parent",
-        "randomization",
-        "rotation",
-    ],
-)
-def test_staging_rejects_invalid_dependencies(configuration):
-    assert run_function_with_persistent_simulation_app(
-        _test_staging_rejects_invalid_dependencies, configuration=configuration
-    )
-
-
-def _test_anchor_clutter_preserves_joint_solver_behavior(simulation_app, monkeypatch):
-    from isaaclab_arena.relations.relations import ClutterOn
-
+def test_anchor_clutter_preserves_joint_solver_behavior(monkeypatch):
     table, tray, child = _make_scene()
     child.relations = [ClutterOn(table, spread=0.8, random_yaw=False)]
     # Clutter on an existing anchor and ordinary placements can share the existing solve.
     _assert_joint_solver_equivalence([table, tray, child], monkeypatch)
-    return True
 
 
-def test_anchor_clutter_preserves_joint_solver_behavior(monkeypatch):
-    assert run_function_with_persistent_simulation_app(
-        _test_anchor_clutter_preserves_joint_solver_behavior, monkeypatch=monkeypatch
-    )
-
-
-def _test_expensive_validation_uses_complete_original_layouts(
-    simulation_app, monkeypatch, stage_passes, expensive_passes
-):
-    from isaaclab_arena.relations.object_placer import ObjectPlacer
-    from isaaclab_arena.relations.relation_solver import RelationSolver
-    from isaaclab_arena.relations.relations import RequiresReachability
-    from isaaclab_arena.relations.validation.pre_physics import PrePhysicsPlacementValidator
-    from isaaclab_arena.relations.validation.types import PlacementCheck
-
+@pytest.mark.parametrize("stage_passes,expensive_passes", [(True, True), (True, False), (False, True)])
+def test_expensive_validation_uses_complete_original_layouts(monkeypatch, stage_passes, expensive_passes):
     objects = _make_scene()
     _, tray, clutter = objects
     tray.add_relation(RequiresReachability())
@@ -484,26 +398,9 @@ def _test_expensive_validation_uses_complete_original_layouts(
             assert layout.positions in inspected_layouts
         else:
             assert layout.validation_results.validation_results["stage_gate"] is False
-    return True
 
 
-@pytest.mark.parametrize("stage_passes,expensive_passes", [(True, True), (True, False), (False, True)])
-def test_expensive_validation_uses_complete_original_layouts(monkeypatch, stage_passes, expensive_passes):
-    assert run_function_with_persistent_simulation_app(
-        _test_expensive_validation_uses_complete_original_layouts,
-        monkeypatch=monkeypatch,
-        stage_passes=stage_passes,
-        expensive_passes=expensive_passes,
-    )
-
-
-def _test_deferred_validation_selects_another_final_restart(simulation_app, monkeypatch):
-    from isaaclab_arena.relations.object_placer import ObjectPlacer
-    from isaaclab_arena.relations.relation_solver import RelationSolver
-    from isaaclab_arena.relations.relations import RequiresReachability
-    from isaaclab_arena.relations.validation.pre_physics import PrePhysicsPlacementValidator
-    from isaaclab_arena.relations.validation.types import PlacementCheck
-
+def test_deferred_validation_selects_another_final_restart(monkeypatch):
     objects = _make_scene()
     tray, clutter = objects[-2:]
     clutter.add_relation(RequiresReachability())
@@ -540,20 +437,10 @@ def _test_deferred_validation_selects_another_final_restart(simulation_app, monk
     assert min(inspected_offsets) == pytest.approx(0)
     assert max(inspected_offsets) > 0.0005
     assert layout.positions[clutter][0] - layout.positions[tray][0] == pytest.approx(0.001)
-    return True
 
 
-def test_deferred_validation_selects_another_final_restart(monkeypatch):
-    assert run_function_with_persistent_simulation_app(
-        _test_deferred_validation_selects_another_final_restart, monkeypatch=monkeypatch
-    )
-
-
-def _test_tied_fixture_selection_uses_deferred_verdicts(simulation_app, monkeypatch, second_fixture_passes):
-    from isaaclab_arena.relations.object_placer import ObjectPlacer
-    from isaaclab_arena.relations.relation_solver import RelationSolver
-    from isaaclab_arena.relations.validation.pre_physics import PrePhysicsPlacementValidator
-
+@pytest.mark.parametrize("second_fixture_passes", [True, False])
+def test_tied_fixture_selection_uses_deferred_verdicts(monkeypatch, second_fixture_passes):
     objects = _make_scene()
     tray, clutter = objects[-2:]
     original_solve = RelationSolver.solve_candidates
@@ -598,24 +485,9 @@ def _test_tied_fixture_selection_uses_deferred_verdicts(simulation_app, monkeypa
     assert len(set(fixture_positions)) == 2
     expected_supports = set(fixture_positions if second_fixture_passes else fixture_positions[:1])
     assert {layout.positions[tray] for layout in layouts} == expected_supports
-    return True
 
 
-@pytest.mark.parametrize("second_fixture_passes", [True, False])
-def test_tied_fixture_selection_uses_deferred_verdicts(monkeypatch, second_fixture_passes):
-    assert run_function_with_persistent_simulation_app(
-        _test_tied_fixture_selection_uses_deferred_verdicts,
-        monkeypatch=monkeypatch,
-        second_fixture_passes=second_fixture_passes,
-    )
-
-
-def _test_ordinary_relations_preserve_joint_solver_behavior(simulation_app, monkeypatch):
-    from isaaclab_arena.relations.relations import FaceTo, IsAnchor, NextTo, On, Side
-    from isaaclab_arena.tests.dummy_object import DummyObject
-    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
-    from isaaclab_arena.utils.pose import Pose
-
+def test_ordinary_relations_preserve_joint_solver_behavior(monkeypatch):
     table = DummyObject(
         "table",
         AxisAlignedBoundingBox((-1, -1, -0.1), (1, 1, 0)),
@@ -640,13 +512,9 @@ def _test_ordinary_relations_preserve_joint_solver_behavior(simulation_app, monk
     )
     objects = [table, guide, tray, child]
     _assert_joint_solver_equivalence(objects, monkeypatch, placement_seed=0)
-    return True
 
 
 def _assert_joint_solver_equivalence(objects, monkeypatch, placement_seed=17):
-    from isaaclab_arena.relations.object_placer import ObjectPlacer
-    from isaaclab_arena.relations.relation_solver import RelationSolver
-
     calls = []
     original_solve = RelationSolver.solve_candidates
 
@@ -674,18 +542,7 @@ def _assert_joint_solver_equivalence(objects, monkeypatch, placement_seed=17):
             assert actual.attempts == expected.attempts
 
 
-def test_ordinary_relations_preserve_joint_solver_behavior(monkeypatch):
-    assert run_function_with_persistent_simulation_app(
-        _test_ordinary_relations_preserve_joint_solver_behavior, monkeypatch=monkeypatch
-    )
-
-
-def _test_final_clutter_stage_allows_ordinary_cycles(simulation_app, monkeypatch):
-    from isaaclab_arena.relations.object_placer import ObjectPlacer
-    from isaaclab_arena.relations.relation_solver import RelationSolver
-    from isaaclab_arena.relations.relations import ClutterOn, FaceTo
-    from isaaclab_arena.tests.dummy_object import DummyObject
-
+def test_final_clutter_stage_allows_ordinary_cycles(monkeypatch):
     table, tray, clutter = _make_scene()
     sibling = DummyObject(
         "sibling", clutter.bounding_box, relations=[ClutterOn(tray, spread=0.8, random_yaw=False), FaceTo(clutter)]
@@ -708,21 +565,9 @@ def _test_final_clutter_stage_allows_ordinary_cycles(simulation_app, monkeypatch
         subject_x, subject_y, _ = layout.positions[subject]
         target_x, target_y, _ = layout.positions[target]
         assert layout.orientations[subject] == pytest.approx(math.atan2(target_y - subject_y, target_x - subject_x))
-    return True
 
 
-def test_final_clutter_stage_allows_ordinary_cycles(monkeypatch):
-    assert run_function_with_persistent_simulation_app(
-        _test_final_clutter_stage_allows_ordinary_cycles, monkeypatch=monkeypatch
-    )
-
-
-def _test_mixed_support_clutter_shares_final_pass(simulation_app, monkeypatch):
-    from isaaclab_arena.relations.object_placer import ObjectPlacer
-    from isaaclab_arena.relations.relation_solver import RelationSolver
-    from isaaclab_arena.relations.relations import ClutterOn
-    from isaaclab_arena.tests.dummy_object import DummyObject
-
+def test_mixed_support_clutter_shares_final_pass(monkeypatch):
     table, tray, clutter = _make_scene()
     anchor_clutter = DummyObject("anchor_clutter", clutter.bounding_box, relations=[ClutterOn(table, spread=0.8)])
     objects = [table, anchor_clutter, tray, clutter]
@@ -739,10 +584,3 @@ def _test_mixed_support_clutter_shares_final_pass(simulation_app, monkeypatch):
     assert layout.success, layout.validation_results.report()
     assert set(layout.positions) == set(objects)
     assert anchor_clutter in layout.orientations
-    return True
-
-
-def test_mixed_support_clutter_shares_final_pass(monkeypatch):
-    assert run_function_with_persistent_simulation_app(
-        _test_mixed_support_clutter_shares_final_pass, monkeypatch=monkeypatch
-    )

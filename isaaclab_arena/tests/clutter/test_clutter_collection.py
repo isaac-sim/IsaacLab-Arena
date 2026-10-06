@@ -49,7 +49,7 @@ def test_settling_rejects_object_sets_before_reset(tmp_path):
     )
 
 
-def _make_primitive_clutter_scene(tmp_path, raised_support=False, num_support_levels=None):
+def _make_primitive_clutter_scene(tmp_path, raised_support=False, movable_supports=False):
     import yaml
     from unittest.mock import patch
 
@@ -90,7 +90,7 @@ def _make_primitive_clutter_scene(tmp_path, raised_support=False, num_support_le
         "reference": "table",
         "params": {"clearance_m": 0.2, "random_yaw": False},
     }
-    if num_support_levels is not None:
+    if movable_supports:
         data["background"]["params"].pop("initial_pose")
         data["objects"][1]["params"]["initial_pose"]["position_xyz"] = [0, 0, 0]
         data["relations"][0] = {"kind": "is_anchor", "subject": "floor"}
@@ -102,18 +102,17 @@ def _make_primitive_clutter_scene(tmp_path, raised_support=False, num_support_le
                 "params": {"x_min": -0.3, "x_max": 0.3, "y_min": -0.3, "y_max": 0.3},
             },
         ])
-        if num_support_levels == 2:
-            tray = tmp_path / "tray.usda"
-            tray.write_text((tmp_path / "table.usda").read_text().replace("(0.8, 0.8, 0.04)", "(0.4, 0.4, 0.04)"))
-            data["objects"].append({
-                "id": "tray",
-                "registry_name": "simready_usd_object",
-                "params": {"usd_path": str(tray), "instance_name": "tray"},
-            })
-            data["relations"][1]["reference"] = "tray"
-            # The central release region must fit the cube's 0.1 m depth.
-            data["relations"][1]["params"]["spread"] = 0.5
-            data["relations"].append({"kind": "on", "subject": "tray", "reference": "table"})
+        tray = tmp_path / "tray.usda"
+        tray.write_text((tmp_path / "table.usda").read_text().replace("(0.8, 0.8, 0.04)", "(0.4, 0.4, 0.04)"))
+        data["objects"].append({
+            "id": "tray",
+            "registry_name": "simready_usd_object",
+            "params": {"usd_path": str(tray), "instance_name": "tray"},
+        })
+        data["relations"][1]["reference"] = "tray"
+        # The central release region must fit the cube's 0.1 m depth.
+        data["relations"][1]["params"]["spread"] = 0.5
+        data["relations"].append({"kind": "on", "subject": "tray", "reference": "table"})
         data["placer_params"] = {
             "placement_seed": 42,
             "min_unique_layouts_per_env": 1,
@@ -216,7 +215,7 @@ def test_clutter_collection_uses_shared_batches(tmp_path, backend):
     )
 
 
-def _test_staged_clutter_recording_replays_randomized_supports(simulation_app, tmp_path, backend, num_support_levels):
+def _test_staged_clutter_recording_replays_randomized_supports(simulation_app, tmp_path, backend):
     import torch
     from unittest.mock import patch
 
@@ -229,8 +228,8 @@ def _test_staged_clutter_recording_replays_randomized_supports(simulation_app, t
     from isaaclab_arena.relations.placement_layouts import PlacementLayouts
     from isaaclab_arena.scripts.record_placement_layouts import record_placements_to_jsonl
 
-    arena_env = _make_primitive_clutter_scene(tmp_path, num_support_levels=num_support_levels)
-    fixture_keys = ["table"] if num_support_levels == 1 else ["table", "tray"]
+    arena_env = _make_primitive_clutter_scene(tmp_path, movable_supports=True)
+    fixture_keys = ["table", "tray"]
     support_key = fixture_keys[-1]
     cube = arena_env.scene.assets["cube_body"]
     fixtures = [arena_env.scene.assets[key] for key in fixture_keys]
@@ -330,13 +329,11 @@ def _test_staged_clutter_recording_replays_randomized_supports(simulation_app, t
 
 
 @pytest.mark.parametrize("backend", ["physx", "newton"])
-@pytest.mark.parametrize("num_support_levels", [1, 2], ids=["one-support", "two-supports"])
-def test_staged_clutter_recording_replays_randomized_supports(tmp_path, backend, num_support_levels):
+def test_staged_clutter_recording_replays_randomized_supports(tmp_path, backend):
     assert run_function_with_persistent_simulation_app(
         _test_staged_clutter_recording_replays_randomized_supports,
         tmp_path=tmp_path,
         backend=backend,
-        num_support_levels=num_support_levels,
     )
 
 

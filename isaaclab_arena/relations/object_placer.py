@@ -31,6 +31,7 @@ from isaaclab_arena.relations.relations import (
     get_anchor_objects,
     get_relation,
 )
+from isaaclab_arena.relations.staged_clutter_placement import place_staged_clutter
 from isaaclab_arena.relations.validation.pre_physics import build_validators
 from isaaclab_arena.utils.pose import Pose, PosePerEnv
 from isaaclab_arena.utils.yaw import rotate_quat_by_yaw, yaw_from_quat_xyzw, yaw_toward_positions
@@ -135,11 +136,13 @@ class ObjectPlacer:
             collision_objects: Optional fixed background obstacles avoided during
                 placement but never optimized or relation-constrained.
         """
-        from isaaclab_arena.relations.staged_clutter_placement import place_staged_clutter
-
         collision_objects = collision_objects or []
         assert results_per_env > 0, f"results_per_env must be positive, got {results_per_env}"
-        return place_staged_clutter(self, objects, num_envs, results_per_env, collision_objects)
+        for obj in objects:
+            clutter_relation = get_relation(obj, ClutterOn)
+            if clutter_relation is not None and not clutter_relation.parent.is_anchor:
+                return place_staged_clutter(self, objects, num_envs, results_per_env, collision_objects)
+        return self._place_ranked_per_env(objects, num_envs, results_per_env, collision_objects)
 
     def _place_ranked_per_env(
         self,
@@ -153,8 +156,6 @@ class ObjectPlacer:
     ) -> list[list[PlacementResult]]:
         """Run one solver pass, optionally using a separate candidate seed stream."""
         anchor_objects_set, generator = self._prepare_placement(objects)
-        if placement_seed is not None:
-            generator = torch.Generator()
         max_attempts = self.params.max_placement_attempts
         ranked_results_per_env = self._place_ranked(
             objects,
