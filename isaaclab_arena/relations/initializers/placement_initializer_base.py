@@ -22,6 +22,9 @@ class InitializerType(Enum):
     ANCHOR = "anchor"
     """Seed against the footprint of the first anchor at or above each object's On parent."""
 
+    ON_TREE = "on_tree"
+    """Walk the tree formed by On relations, initializing objects in the AABB of their parents."""
+
 
 class PlacementInitializerBase(ABC):
     """Produces an initialization for the relation solver.

@@ -7,15 +7,23 @@
 
 import torch
 
+import pytest
+
 from isaaclab_arena.relations.initializers.anchor_initializer import AnchorInitializer
+from isaaclab_arena.relations.initializers.on_tree_initializer import OnTreeInitializer
 from isaaclab_arena.relations.initializers.placement_initializer_base import InitializerType
 from isaaclab_arena.relations.object_placer import ObjectPlacer
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
-from isaaclab_arena.relations.relations import ClutterOn, IsAnchor, NextTo, On, Side
+from isaaclab_arena.relations.relations import ClutterOn, IsAnchor, NextTo, On, PositionLimitsBox, Side
 from isaaclab_arena.tests.dummy_object import DummyObject
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose
+
+# Both initializers seed anchors, unparented objects, and On children the same way; the tests
+# that cover those shared rules run against each.
+ALL_INITIALIZERS = [AnchorInitializer, OnTreeInitializer]
+_TYPE_BY_CLASS = {AnchorInitializer: InitializerType.ANCHOR, OnTreeInitializer: InitializerType.ON_TREE}
 
 
 def _make_desk():
@@ -53,25 +61,27 @@ def _assert_footprint_within(position, child_bbox, parent_bbox, tolerance=1e-6):
         assert value + float(child_bbox.max_point[0, axis]) <= float(parent_bbox.max_point[0, axis]) + tolerance
 
 
-def test_on_init_x_y_within_parent_footprint():
+@pytest.mark.parametrize("initializer_cls", ALL_INITIALIZERS)
+def test_on_init_x_y_within_parent_footprint(initializer_cls):
     """Object with On(anchor) is initialized with its bbox fully within parent's X/Y footprint."""
     desk = _make_desk()
     box = _make_box("box")
     box.add_relation(On(desk, clearance_m=0.01))
 
-    positions = _seed(AnchorInitializer(), [desk, box], {desk})
+    positions = _seed(initializer_cls(), [desk, box], {desk})
 
     _assert_footprint_within(positions[box], box.get_bounding_box(), desk.get_world_bounding_box())
 
 
-def test_on_init_z_places_bottom_at_parent_top():
+@pytest.mark.parametrize("initializer_cls", ALL_INITIALIZERS)
+def test_on_init_z_places_bottom_at_parent_top(initializer_cls):
     """Object with On(anchor) is initialized with its bottom face at parent top + clearance."""
     desk = _make_desk()
     clearance_m = 0.01
     box = _make_box("box")
     box.add_relation(On(desk, clearance_m=clearance_m))
 
-    positions = _seed(AnchorInitializer(), [desk, box], {desk})
+    positions = _seed(initializer_cls(), [desk, box], {desk})
 
     _, _, z = positions[box]
     child_bottom = z + float(box.get_bounding_box().min_point[0, 2])
@@ -79,7 +89,8 @@ def test_on_init_z_places_bottom_at_parent_top():
     assert abs(child_bottom - expected_bottom) < 1e-6
 
 
-def test_on_init_uses_env_specific_parent_bbox():
+@pytest.mark.parametrize("initializer_cls", ALL_INITIALIZERS)
+def test_on_init_uses_env_specific_parent_bbox(initializer_cls):
     """Object with On(anchor set) should initialize against that env's assigned bbox."""
     table_set = DummyObject(
         name="table_set",
@@ -94,7 +105,7 @@ def test_on_init_uses_env_specific_parent_bbox():
     box.add_relation(On(table_set, clearance_m=0.02, edge_margin_m=0.0))
 
     positions = _seed(
-        AnchorInitializer(),
+        initializer_cls(),
         [table_set, box],
         {table_set},
         asset_to_bbox={table_set: small_table_bbox, box: box_bbox},
@@ -106,7 +117,8 @@ def test_on_init_uses_env_specific_parent_bbox():
     assert abs(z - float(small_table_bbox.max_point[0, 2] + 0.02 - box_bbox.min_point[0, 2])) < 1e-6
 
 
-def test_on_init_clamps_to_center_when_child_wider_than_parent():
+@pytest.mark.parametrize("initializer_cls", ALL_INITIALIZERS)
+def test_on_init_clamps_to_center_when_child_wider_than_parent(initializer_cls):
     """Object wider than its On parent in X/Y is clamped to parent center, not an invalid range."""
     desk = DummyObject(
         name="desk",
@@ -118,7 +130,7 @@ def test_on_init_clamps_to_center_when_child_wider_than_parent():
     big_box = _make_box("big_box", size=0.5)
     big_box.add_relation(On(desk, clearance_m=0.0))
 
-    positions = _seed(AnchorInitializer(), [desk, big_box], {desk})
+    positions = _seed(initializer_cls(), [desk, big_box], {desk})
 
     x, y, _ = positions[big_box]
     desk_center = desk.get_world_bounding_box().center[0]
@@ -126,7 +138,8 @@ def test_on_init_clamps_to_center_when_child_wider_than_parent():
     assert abs(y - float(desk_center[1])) < 1e-6
 
 
-def test_clutter_on_init_stays_within_the_release_region():
+@pytest.mark.parametrize("initializer_cls", ALL_INITIALIZERS)
+def test_clutter_on_init_stays_within_the_release_region(initializer_cls):
     """ClutterOn seeds inside its release region, not across the whole support.
 
     The region is the support's footprint scaled by ``spread``, so seeding against the full
@@ -145,24 +158,26 @@ def test_clutter_on_init_stays_within_the_release_region():
     generator = torch.Generator()
     for seed in range(16):
         generator.manual_seed(seed)
-        position = _seed(AnchorInitializer(), [desk, box], {desk}, generator=generator)[box]
+        position = _seed(initializer_cls(), [desk, box], {desk}, generator=generator)[box]
         _assert_footprint_within(position, box.get_bounding_box(), release_region)
 
 
-def test_no_on_relation_initializes_at_anchor_center():
+@pytest.mark.parametrize("initializer_cls", ALL_INITIALIZERS)
+def test_no_on_relation_initializes_at_anchor_center(initializer_cls):
     """Object with no On relation is initialized at the first anchor's center; solver handles placement."""
     desk = _make_desk()
     box = _make_box("box")
     box.add_relation(NextTo(desk, side=Side.POSITIVE_X, distance_m=0.05))
 
-    positions = _seed(AnchorInitializer(), [desk, box], {desk})
+    positions = _seed(initializer_cls(), [desk, box], {desk})
 
     center = desk.get_world_bounding_box().center[0]
     for axis, value in enumerate(positions[box]):
         assert abs(value - float(center[axis])) < 1e-6
 
 
-def test_on_init_overlap_can_leave_parent_footprint():
+@pytest.mark.parametrize("initializer_cls", ALL_INITIALIZERS)
+def test_on_init_overlap_can_leave_parent_footprint(initializer_cls):
     """Overlap initialization samples against the original support, ignoring a large edge margin.
 
     A containment reading of this relation would be infeasible (margin 0.6 on a 1.0 m desk), so
@@ -174,7 +189,7 @@ def test_on_init_overlap_can_leave_parent_footprint():
     box.add_relation(On(desk, overlap=True, edge_margin_m=0.6))
     generator = torch.Generator().manual_seed(0)
 
-    samples = [_seed(AnchorInitializer(), [desk, box], {desk}, generator=generator)[box] for _ in range(200)]
+    samples = [_seed(initializer_cls(), [desk, box], {desk}, generator=generator)[box] for _ in range(200)]
 
     desk_world = desk.get_world_bounding_box()
     child_bbox = box.get_bounding_box()
@@ -265,7 +280,8 @@ def test_anchor_init_on_parent_without_on_falls_back_to_anchor():
     assert abs(z - float(desk_world.max_point[0, 2] + 0.0 - mug.get_bounding_box().min_point[0, 2])) < 1e-6
 
 
-def test_on_init_reproducible_with_placement_seed():
+@pytest.mark.parametrize("initializer_cls", ALL_INITIALIZERS)
+def test_on_init_reproducible_with_placement_seed(initializer_cls):
     """Same placement_seed produces identical On-guided init positions across independent runs."""
     solver_params = RelationSolverParams(max_iters=0, save_position_history=False, verbose=False)
 
@@ -274,7 +290,7 @@ def test_on_init_reproducible_with_placement_seed():
             placement_seed=42,
             apply_positions_to_objects=False,
             solver_params=solver_params,
-            initializer_type=InitializerType.ANCHOR,
+            initializer_type=_TYPE_BY_CLASS[initializer_cls],
         )
         desk = _make_desk()
         box = _make_box("box")
@@ -283,3 +299,16 @@ def test_on_init_reproducible_with_placement_seed():
         return next(pos for obj, pos in result.positions.items() if obj.name == "box")
 
     assert _run() == _run()
+
+
+def test_anchor_init_is_not_narrowed_by_position_limits():
+    """AnchorInitializer keeps its original behaviour and ignores narrowing constraints."""
+    desk = _make_desk()
+    box = _make_box("box")
+    box.add_relation(On(desk, clearance_m=0.0))
+    box.add_relation(PositionLimitsBox(x_min=0.1, x_max=0.2))
+    generator = torch.Generator().manual_seed(0)
+
+    samples = [_seed(AnchorInitializer(), [desk, box], {desk}, generator=generator)[box] for _ in range(50)]
+
+    assert any(x > 0.2 + 1e-6 for x, _, _ in samples), "AnchorInitializer must not apply narrowing"
