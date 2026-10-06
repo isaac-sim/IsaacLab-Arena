@@ -7,30 +7,26 @@ Policy Training (Isaac Lab)
 
 .. important::
 
-   Training is performed **in Isaac Lab** (not Arena). To use **Newton**
-   physics, add ``physics=newton_mjwarp`` to the training command. Without
-   that override, training uses the default PhysX backend.
-   It's important to use the same physics backend for training and evaluation,
-   to avoid the sim-to-sim gap between PhysX and Newton.
+   Training is performed **in Isaac Lab** (not Arena). The command below keeps
+   Isaac Lab's 4,096-environment and multi-shape defaults. Arena evaluation
+   uses the same policy-facing configuration and Newton backend with Arena's
+   procedural cube and pose-range reset.
 
 
 Training Command
 ^^^^^^^^^^^^^^^^
 
-Train the ``Isaac-Lift-KukaAllegro`` task with Isaac Lab's RSL-RL
-training script:
+Train the ``Isaac-Lift-KukaAllegro`` task with Isaac Lab's unified CLI:
 
 .. code-block:: bash
 
-   # Newton physics (recommended for this example):
    python submodules/IsaacLab/scripts/reinforcement_learning/train.py \
      --rl_library rsl_rl \
      --task Isaac-Lift-KukaAllegro \
-     --num_envs 512 \
-     physics=newton_mjwarp presets=cube
+     physics=newton_mjwarp
 
-``physics=newton_mjwarp`` selects the Newton physics backend and ``presets=cube``
-switches the manipulation object to a single-geometry cube.
+``physics=newton_mjwarp`` explicitly selects the backend used by the published
+checkpoint.
 
 This uses the ``KukaAllegroPPORunnerCfg`` configuration defined in
 Isaac Lab, which provides:
@@ -39,7 +35,7 @@ Isaac Lab, which provides:
 - **Observation groups**: ``policy`` + ``proprio`` + ``perception`` (all three groups
   concatenated, each with 5-step history)
 - **Algorithm**: PPO with adaptive learning rate schedule, starting at ``1e-3``
-- **Training**: 15,000 iterations, 32 steps per environment, 512 parallel environments
+- **Training**: 15,000 iterations, 32 steps per environment, 4,096 parallel environments
 - **Physics**: Newton (MuJoCo-Warp solver) when ``physics=newton_mjwarp`` is used
 
 Checkpoints are saved every 250 iterations to
@@ -56,33 +52,23 @@ Hyperparameters can be overridden with Hydra-style CLI arguments:
    python submodules/IsaacLab/scripts/reinforcement_learning/train.py \
      --rl_library rsl_rl \
      --task Isaac-Lift-KukaAllegro \
-     --num_envs 512 \
-     physics=newton_mjwarp presets=cube \
+     physics=newton_mjwarp \
      agent.max_iterations=20000 agent.save_interval=500 agent.algorithm.learning_rate=0.0005
 
 
 Resuming from a Checkpoint
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-To resume training from a previously saved checkpoint, use the ``--resume`` flag
-together with ``--load_run`` (run folder name) and ``--checkpoint`` (model filename).
-Both arguments are optional — when omitted, the most recent run and latest checkpoint
-are used automatically.
+Resume from the newest compatible local run with ``--checkpoint latest``, or
+replace ``latest`` with an explicit checkpoint path:
 
 .. code-block:: bash
 
    python submodules/IsaacLab/scripts/reinforcement_learning/train.py \
      --rl_library rsl_rl \
      --task Isaac-Lift-KukaAllegro \
-     --num_envs 512 \
-     --resume \
-     --load_run <timestamp> \
-     --checkpoint model_5000.pt \
-     physics=newton_mjwarp presets=cube
-
-Replace ``<timestamp>`` with the run folder name under ``logs/rsl_rl/lift_kuka_allegro/``.
-If ``--load_run`` is omitted, the latest run is selected. If ``--checkpoint`` is omitted,
-the latest checkpoint in that run is loaded.
+     --checkpoint latest \
+     physics=newton_mjwarp
 
 
 Monitoring Training
@@ -101,8 +87,8 @@ losses, and termination statistics.
 Expected Results
 ^^^^^^^^^^^^^^^^
 
-After 15,000 iterations (~4 hours on a single GPU with 512 environments), the
-Kuka Allegro hand should reliably grasp and lift the cuboid to target positions.
+After 15,000 iterations, the Kuka Allegro hand should reliably grasp and lift
+the sampled objects to target poses.
 
 .. note::
 
