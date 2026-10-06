@@ -55,7 +55,6 @@ More details
    :maxdepth: 1
 
    concept_composite_tasks_design
-   concept_consecutive_step_predicates
    concept_progress_tracking_design
    concept_rl_tasks_design
    concept_metrics_design
