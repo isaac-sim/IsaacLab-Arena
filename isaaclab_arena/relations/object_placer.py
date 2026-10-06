@@ -147,6 +147,8 @@ class ObjectPlacer:
         results_per_env: int,
         collision_objects: list[CollisionObject],
         placement_seed: int | None = None,
+        validation: PlacementValidationRunner | None = None,
+        return_all_candidates: bool = False,
     ) -> list[list[PlacementResult]]:
         """Run one solver pass, optionally using a separate candidate seed stream."""
         anchor_objects_set, generator = self._prepare_placement(objects)
@@ -162,8 +164,11 @@ class ObjectPlacer:
             generator=generator,
             collision_objects=collision_objects,
             placement_seed=placement_seed,
+            validation=validation,
         )
 
+        if return_all_candidates:
+            return ranked_results_per_env
         return [ranked_results[:results_per_env] for ranked_results in ranked_results_per_env]
 
     def _prepare_placement(
@@ -218,6 +223,7 @@ class ObjectPlacer:
         generator: torch.Generator | None,
         collision_objects: list[CollisionObject] | None = None,
         placement_seed: int | None = None,
+        validation: PlacementValidationRunner | None = None,
     ) -> list[list[PlacementResult]]:
         """Solve and rank placement candidates per environment.
 
@@ -239,7 +245,8 @@ class ObjectPlacer:
         self._solver.solve_candidates(objects, batch, collision_objects)
         self._finish_candidate_geometry(batch, env_bboxes)
         self._assert_finite_solver_output(batch)
-        self._validation.validate_candidates(batch, collision_objects)
+        validation = self._validation if validation is None else validation
+        validation.validate_candidates(batch, collision_objects)
         ranked_batches = self._rank_candidates(batch, num_envs)
 
         results = []
@@ -368,13 +375,13 @@ class ObjectPlacer:
 
     @property
     def last_loss_history(self) -> list[float]:
-        """Mean losses from the most recent solver pass (the final clutter pass when staged)."""
+        """Mean losses from the most recent solver pass (the final stage when staged)."""
         return self._solver.last_loss_history
 
     @property
     def last_position_history(self) -> list:
         """Position snapshots from the most recent solver pass.
 
-        Staged snapshots use solver-only asset copies from the final clutter pass.
+        Staged snapshots use solver-only asset copies from the final stage.
         """
         return self._solver.last_position_history

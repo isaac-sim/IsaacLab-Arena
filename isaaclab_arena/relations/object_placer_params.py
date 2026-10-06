@@ -75,8 +75,8 @@ class ObjectPlacerParams:
     """Path to record the debug visualization to as a Rerun ``.rrd`` file, for headless runs."""
 
     staged_clutter: bool = False
-    """Solve ordinary fixtures first, then ClutterOn objects against each solved fixture layout.
-    Requires concrete assets and fixed quarter-turn fixture rotations; disabled by default."""
+    """Solve non-clutter fixtures first when ClutterOn uses a non-anchor support, then freeze their poses.
+    Two-pass placement requires concrete assets and fixed quarter-turn fixture rotations."""
 
     def __post_init__(self) -> None:
         self.validate()

@@ -192,7 +192,10 @@ The second maintained scene releases three cubes into a fixed YCB bowl:
    During bowl setup, PhysX may report ``kinematic bodies with CCD enabled are
    not supported! CCD will be ignored.`` The fixed bowl asset enables continuous
    collision detection (CCD), which PhysX ignores for that kinematic body. This
-   message does not disable CCD on the falling cubes.
+   message does not disable CCD on the falling cubes. Resets can also log
+   ``Body must be non-kinematic!``: the shared reset path writes zero root
+   velocities, which PhysX rejects for the kinematic bowl. Its pose reset still
+   applies; use the recorded checks to assess acceptance.
 
 Here ``bowl`` is the support's runtime scene key. ``-0.025`` is a minimum
 resting height in the scaled bowl-local frame, before adding its world position.
@@ -227,6 +230,72 @@ recording, then open the viewer:
        --placement_layouts outputs/clutter/three_cubes_in_bowl.jsonl \
        --num_envs 1 --device cpu --viz kit
 
+.. _staged-bowl-clutter:
+
+Record Clutter on a Movable Bowl
+--------------------------------
+
+This example uses :ref:`two-pass clutter placement <staged_clutter>` to solve
+the bowl's position on the anchored table, freeze that pose, then solve the three cubes'
+``ClutterOn(bowl)`` release poses. The YAML enables ``staged_clutter`` and bounds
+the bowl's X and Y positions to [-0.2, 0.2] metres. The bowl is kinematic: its
+position can vary between layouts, but physics must not move it during settling.
+
+Record four accepted layouts:
+
+.. code-block:: bash
+
+   python isaaclab_arena/scripts/record_placement_layouts.py \
+       env_spec=isaaclab_arena_environments/clutter/franka_staged_bowl_clutter_no_task.yaml \
+       output=outputs/clutter/staged_bowl.jsonl \
+       num_envs=2 min_layouts=4 layouts_per_env=2 max_batches=8 seed=42 \
+       settle.num_steps=480 \
+       +settle.validators.support_containment.minimum_resting_heights_m.bowl=-0.025 \
+       presets=physx render=false --device cpu --viz none
+
+The minimum resting height has the same bowl-local meaning as in the fixed-bowl
+example above. The command stops at four accepted layouts or eight batches;
+partial output and zero acceptance follow :ref:`recording-and-replay-notes`.
+
+.. list-table:: Expected behavior
+   :header-rows: 1
+   :widths: 20 80
+
+   * - Step
+     - What to check
+   * - Recording
+     - A completed target writes four JSONL rows and reports
+       ``Saved 4/<attempted> accepted layouts``. Bowl positions vary across
+       rows, each saved together with its three cubes. Exact poses
+       and the number of attempts can vary.
+   * - Settling
+     - ``pose_shift`` and ``support_containment`` pass for every saved row.
+       The latter also checks that the bowl matches its solved pose before and
+       after physics; clutter cubes are allowed to fall and rotate.
+   * - Replay
+     - Reset restores the bowl and cubes from the same row, without solving new
+       bowl positions. Compare poses immediately after reset; physics continues
+       afterward.
+
+Open the first recorded layout in the viewer:
+
+.. code-block:: bash
+
+   python isaaclab_arena/scripts/environment_runner.py \
+       --env_spec isaaclab_arena_environments/clutter/franka_staged_bowl_clutter_no_task.yaml \
+       --placement_layouts outputs/clutter/staged_bowl.jsonl \
+       --num_envs 1 --device cpu --viz kit
+
+As in the other ``NoTask`` examples, this viewer does not trigger further
+resets. For an automated check of all three criteria, the following test records
+four layouts from this same YAML, compares the bowl's solved, pre-physics and
+post-physics poses, then replays every recorded root across two resets:
+
+.. code-block:: bash
+
+   python -m pytest -q isaaclab_arena/tests/clutter/test_clutter_collection.py \
+       -k maintained_staged_bowl_recording_and_replay
+
 .. _clutter-adapt-environment:
 
 Adapt Your Own Environment
@@ -241,11 +310,12 @@ not a substitute for a factory that also applies these settings.
 
 The supplied scenes meet these requirements. When adapting another scene:
 
-* Use fixed ``IsAnchor`` supports with static or kinematic collision geometry.
-  Supports must be upright, with only quarter-turn rotations about world Z.
+* Use fixed ``IsAnchor`` supports, or solve kinematic rigid supports with
+  :ref:`two-pass clutter placement <staged_clutter>`. Supports must have static or
+  kinematic collision geometry and upright quarter-turn rotations about world Z.
 * Use dynamic rigid objects with gravity enabled for clutter. Each has one
   ``ClutterOn`` spatial relation to its support.
-* Resolve non-clutter placement relations to fixed anchors before collection.
+* Use fixed anchors or solved kinematic rigid bodies for non-clutter fixtures.
   Object sets and reachability requirements on clutter objects are unsupported.
 * Keep recorded roots compatible with pose resets. Joint states and other
   randomized properties are not saved.

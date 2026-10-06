@@ -58,6 +58,51 @@ Anchor the background asset directly when its complete bounds represent the
 support. Use an ``ObjectReference`` when only an internal tabletop, counter, or
 similar prim should support placement.
 
+.. _staged_clutter:
+
+Clutter on Solved Supports
+--------------------------
+
+Enable ``staged_clutter`` to place clutter on a support whose pose is solved
+rather than authored as an ``IsAnchor``:
+
+.. code-block:: yaml
+
+   placer_params:
+     staged_clutter: true
+
+Python callers can use ``ObjectPlacerParams(staged_clutter=True)``. For example,
+``tray On(table)`` and ``tools ClutterOn(tray)`` use two passes when the table is
+an anchor:
+
+1. Optimize all non-clutter objects jointly, including the tray and its ordinary
+   ``On`` and ``NextTo`` constraints.
+2. Freeze those poses and optimize the clutter release poses.
+
+Without a movable ``ClutterOn`` support, the existing joint solve is unchanged,
+even with this setting enabled. Clutter on existing anchors needs no extra pass.
+The two-pass solve does not support nested ``ClutterOn`` supports or non-clutter
+objects that depend on clutter objects.
+
+Each pool entry contains a complete layout, successful only if both passes'
+required checks succeed. Expensive checks such as reachability run on the complete
+layout with original object identities. Pool refills and partial resets select
+these complete layouts. The clutter pass runs separately for each retained
+fixture layout because its fixed poses can differ, increasing solve time.
+It does not revise frozen poses or retry discarded fixture candidates, so clutter
+can fail on an otherwise valid fixture layout. Reported loss sums both passes.
+
+The two-pass solve requires concrete assets and participating relation parents.
+Frozen fixtures must have upright quarter-turn rotations about Z: disable
+``random_yaw_init`` and do not use ``FaceTo`` or ``RandomAroundSolution`` on these
+objects. Clutter may use ``ClutterOn.random_yaw`` and rotation markers.
+For recording, solved fixtures must be kinematic rigid bodies so physics does
+not move them during settling.
+
+Try the :ref:`movable-bowl recording and replay example <staged-bowl-clutter>`.
+Custom validators must follow the :ref:`two-pass validator input contract
+<staged-clutter-validator-inputs>`.
+
 Common Relations
 ----------------
 
@@ -148,27 +193,9 @@ Most environments can be described with a small set of relations:
    to reject invalid layouts. Direct ``ObjectPlacer.place()`` callers must check
    each result's ``success`` before using it.
 
-   To vary the support pose between layouts, enable two-pass placement in the
-   environment YAML:
-
-   .. code-block:: yaml
-
-      placer_params:
-        staged_clutter: true
-
-   Give the support ordinary relations such as ``On(table)`` and
-   ``PositionLimitsBox``; give its children ``ClutterOn(support)``. The first pass
-   solves non-clutter objects, then the second solves clutter with those poses
-   held fixed. The pool keeps the complete layout together, including on refill.
-   Both passes' checks contribute to acceptance. Python callers can set
-   ``ObjectPlacerParams(staged_clutter=True)``.
-
-   Staged placement requires concrete assets and fixed fixture orientations at
-   multiples of 90 degrees around Z. Fixtures cannot use ``FaceTo``,
-   ``RandomAroundSolution`` or ``random_yaw_init``. Clutter may still sample yaw.
-   Clutter cannot support other clutter, and first-pass objects cannot depend on
-   clutter. Recording requires movable fixtures to be kinematic rigid bodies;
-   their solved poses must remain unchanged during settling. Use the shared
+   To vary the support pose between layouts, use
+   :ref:`staged_clutter`. Recording requires solved fixtures to be kinematic
+   rigid bodies so their poses remain unchanged during settling. Use the shared
    :doc:`../offline_placement/clutter` recording and replay workflow.
 
 .. _next-to-relation:
