@@ -17,7 +17,7 @@ How Validation Fits Placement
 
 ``ObjectPlacer`` builds its validator list once from every registered check
 that passes ``is_available()`` and survives ``enabled_checks`` (see
-:ref:`validation-toggle`). With default joint solving, each batch runs in two passes:
+:ref:`validation-toggle`). With joint solving, each batch runs in two passes:
 
 1. **Inexpensive checks** (``no_overlap``, ``on_relation``, ``clutter_on_relation``, ``next_to``,
    ``not_next_to``, ``face_to``) over every candidate.
@@ -62,9 +62,9 @@ batches before physics, measured scene state after physics. See
 Validator Inputs with Two-Pass Clutter Placement
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-With :ref:`two-pass clutter placement <staged_clutter>`, inexpensive validators
-see the inputs below. Scenes that need no fixture pass retain the existing
-complete-graph validation. Validators marked
+When :ref:`ClutterOn <staged_clutter>` places its supports first, inexpensive
+validators see the inputs below. Joint solving retains the existing complete-graph
+validation. Validators marked
 ``run_after_inexpensive_checks=True`` run after both passes, only if the complete
 layout passed all required inexpensive checks.
 
@@ -75,13 +75,13 @@ layout passed all required inexpensive checks.
    * - Validation pass
      - Candidate objects
      - ``env_id``
-   * - Fixtures, inexpensive
+   * - Non-clutter, inexpensive
      - Original anchors and non-clutter objects, with original identities.
      - Actual environment ID.
    * - Clutter, inexpensive
-     - Copies of all objects. Solved fixtures have ``IsAnchor`` in place of
-       their original relations.
-     - Local ID ``0``; each fixture layout is extended separately.
+     - Copies of all objects. Non-clutter objects have ``IsAnchor`` in place
+       of their original relations.
+     - Local ID ``0``; each non-clutter layout is extended separately.
    * - Deferred checks
      - Complete graph with original asset identities and relations.
      - Actual environment ID.
@@ -264,7 +264,7 @@ clutter objects must be dynamic rigid bodies with gravity enabled, and scene
 gravity must point downward along world Z. Supports must have static or
 kinematic collision geometry, with no tilt and a yaw that is a multiple of
 90 degrees. ``IsAnchor`` fixes the placement solve; physics mobility is a separate
-requirement. Non-clutter fixtures, including destinations, must be fixed anchors
+requirement. Non-clutter objects, including destinations, must be fixed anchors
 or solved kinematic rigid bodies. A ``ClutterOn`` support without ``IsAnchor``
 automatically uses :ref:`two-pass placement <staged_clutter>`. Containment checks
 compare each support's poses before and after physics with that candidate's
@@ -320,8 +320,8 @@ limits.
        :ref:`two-pass clutter placement <staged_clutter>`. Supports must remain static
        or kinematic during settling.
    * - Unsupported non-clutter placement
-     - Use fixed anchors or solved kinematic rigid fixtures, including fixtures
-       unrelated to the clutter support. Resolve object sets to concrete assets
+     - Use fixed anchors or solved kinematic rigid bodies for non-clutter objects,
+       including those unrelated to the clutter support. Resolve object sets to concrete assets
        before collection.
    * - Unsupported support orientation or tilted mesh release
      - Keep supports upright at multiples of 90 degrees in yaw. For clutter

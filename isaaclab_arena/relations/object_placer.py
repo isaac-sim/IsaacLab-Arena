@@ -53,8 +53,8 @@ class ObjectPlacer:
     5. Applying the best layout per environment to the objects
 
     Supports single-env (num_envs=1) and batched (num_envs>1) placement.
-    ClutterOn with non-anchor supports solves fixtures first, then freezes
-    their poses while solving clutter releases.
+    ClutterOn supports can be placed with the other non-clutter objects first,
+    then held fixed while solving clutter release poses.
 
     Note:
         On-relation initialization samples positions within the anchor's axis-aligned bounding

@@ -235,11 +235,11 @@ recording, then open the viewer:
 Record Clutter on a Movable Bowl
 --------------------------------
 
-The bowl's ``On(table)`` relation and the cubes' ``ClutterOn(bowl)`` relations
-automatically select :ref:`two-pass clutter placement <staged_clutter>`: solve
-the bowl's position, freeze it, then solve the cubes' release poses. The YAML
-bounds the bowl's X and Y positions to [-0.2, 0.2] metres. The bowl is kinematic:
-its position can vary between layouts, but physics must not move it during settling.
+The bowl uses ``On(table)`` and the cubes use :ref:`ClutterOn(bowl)
+<staged_clutter>`. Arena places the bowl first, then keeps its pose fixed while
+placing the cubes above it. The YAML bounds the bowl's X and Y positions to
+[-0.2, 0.2] metres. The bowl is kinematic: its position can vary between layouts,
+but physics must not move it during settling.
 
 Record four accepted layouts:
 
@@ -315,7 +315,7 @@ The supplied scenes meet these requirements. When adapting another scene:
   kinematic collision geometry and upright quarter-turn rotations about world Z.
 * Use dynamic rigid objects with gravity enabled for clutter. Each has one
   ``ClutterOn`` spatial relation to its support.
-* Use fixed anchors or solved kinematic rigid bodies for non-clutter fixtures.
+* Use fixed anchors or solved kinematic rigid bodies for non-clutter objects.
   Object sets and reachability requirements on clutter objects are unsupported.
 * Keep recorded roots compatible with pose resets. Joint states and other
   randomized properties are not saved.

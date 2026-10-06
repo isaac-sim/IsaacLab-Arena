@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 class PlacementCandidate:
     """One working layout of the objects participating in a placement pass.
 
-    Two-pass clutter checks see fixtures first, then a complete graph with copied assets.
+    Two-pass clutter checks see non-clutter objects first, then a complete graph with copied assets.
     Deferred checks receive complete layouts keyed by the original assets.
     """
 
