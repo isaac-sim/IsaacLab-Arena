@@ -51,7 +51,7 @@ body states, object point cloud, and 5-step observation history.
    * - **Scene**
      - Procedural table (static background) with ground plane and lighting
    * - **Objects**
-     - Isaac Lab's default procedural training shape set
+     - Arena procedural cuboid with a ``PoseRange`` reset
    * - **Policy**
      - RSL-RL PPO (``KukaAllegroPPORunnerCfg``)
    * - **Training Method**

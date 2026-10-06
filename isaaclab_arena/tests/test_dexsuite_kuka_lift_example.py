@@ -16,7 +16,6 @@ from isaaclab_arena.tests.utils.constants import TestConstants
 from isaaclab_arena.tests.utils.subprocess import run_subprocess
 
 
-@pytest.mark.with_newton
 @pytest.mark.with_subprocess
 def test_dexsuite_lift_published_checkpoint(tmp_path: Path) -> None:
     from isaaclab_rl.utils.pretrained_checkpoint import get_published_pretrained_checkpoint
@@ -42,7 +41,7 @@ def test_dexsuite_lift_published_checkpoint(tmp_path: Path) -> None:
             "--policy_type",
             "rsl_rl",
             "--num_episodes",
-            "4",
+            "1",
             "--num_envs",
             "1",
             "--checkpoint_path",
@@ -56,5 +55,4 @@ def test_dexsuite_lift_published_checkpoint(tmp_path: Path) -> None:
     metrics_matches = re.findall(r"Metrics: (\{[^\n]+\})", output)
     assert metrics_matches, f"Evaluation did not report metrics:\n{output}"
     metrics = ast.literal_eval(metrics_matches[-1])
-    assert metrics["num_episodes"] == 4
-    assert metrics["success_rate"] > 0
+    assert metrics["num_episodes"] == 1

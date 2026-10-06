@@ -27,23 +27,18 @@ The environment is defined in
           name: str = "dexsuite_lift"
 
           def build(self, cfg):
-              # Reuse Isaac Lab's exact table and default multi-shape spawners.
-              dexsuite_table = Object(
-                  name="table",
-                  prim_path="{ENV_REGEX_NS}/table",
-                  object_type=ObjectType.RIGID,
-                  spawner_cfg=deepcopy(lift.TABLE_SPAWN_CFG),
-                  initial_pose=Pose(position_xyz=(-0.55, 0.0, 0.235)),
+              dexsuite_table = self.asset_registry.get_asset_by_name("procedural_table")()
+              dexsuite_table.set_initial_pose(Pose(position_xyz=(-0.55, 0.0, 0.235)))
+
+              manip_object = self.asset_registry.get_asset_by_name("procedural_cube")()
+              manip_object.set_initial_pose(
+                  PoseRange(
+                      position_xyz_min=(-0.75, -0.1, 0.35),
+                      position_xyz_max=(-0.35, 0.3, 0.75),
+                      rpy_min=(-math.pi, -math.pi, -math.pi),
+                      rpy_max=(math.pi, math.pi, math.pi),
+                  )
               )
-              manip_object = Object(
-                  name="object",
-                  prim_path="{ENV_REGEX_NS}/Object",
-                  object_type=ObjectType.RIGID,
-                  spawner_cfg=deepcopy(lift.ObjectCfg().default),
-                  initial_pose=Pose(position_xyz=(-0.55, 0.1, 0.35)),
-              )
-              dexsuite_table.disable_reset_pose()
-              manip_object.disable_reset_pose()
 
               ground_plane = self.asset_registry.get_asset_by_name("ground_plane")()
               light = self.asset_registry.get_asset_by_name("light")()
@@ -144,8 +139,7 @@ Verify the environment loads correctly with a zero-action policy:
      --num_steps 100 \
      dexsuite_lift
 
-You should see the Kuka Allegro hand with one object sampled from Isaac Lab's
-training shape set.
+You should see the Kuka Allegro hand with Arena's procedural cuboid.
 
 .. tip::
 
