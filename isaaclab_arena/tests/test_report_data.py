@@ -7,6 +7,8 @@
 
 import json
 
+import pytest
+
 from isaaclab_arena.visualization.episode_results_files import format_episode_video_filename
 from isaaclab_arena.visualization.report_data import (
     EpisodeIdentity,
@@ -536,3 +538,22 @@ def test_temporal_episode_summary_handles_missing_and_malformed_records():
     assert summaries[0].consecutive_steps == 6
     assert summaries[0].first_satisfied_step is None
     assert summaries[1].first_satisfied_step == 12
+
+
+@pytest.mark.parametrize("value", [float("inf"), float("-inf"), float("nan")])
+@pytest.mark.parametrize("field", ["consecutive_steps", "required_steps", "predicate_index", "first_satisfied_step"])
+def test_consecutive_step_summary_handles_nonfinite_numbers(field, value):
+    valid = {
+        "predicate_index": 0,
+        "predicate_name": "settled",
+        "consecutive_steps": 6,
+        "required_steps": 10,
+        "status": "active",
+        "first_satisfied_step": None,
+    }
+    episode = _episode({"progress": {"consecutive_step_summary": [{**valid, field: value}, valid]}})
+    summaries = episode.consecutive_step_summaries
+    # An invalid optional completion step is unknown; invalid required fields discard the entry.
+    assert len(summaries) == (2 if field == "first_satisfied_step" else 1)
+    assert all(summary.first_satisfied_step is None for summary in summaries)
+    assert all(summary.consecutive_steps == 6 for summary in summaries)

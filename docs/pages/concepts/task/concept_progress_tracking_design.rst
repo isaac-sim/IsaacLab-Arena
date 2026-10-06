@@ -357,6 +357,12 @@ until the next step.
 Episode consecutive-step summary
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+Some task conditions must remain true for several consecutive control steps. The episode
+summary shows each condition's last recorded streak and when it first completed. For example,
+an object that must stay still for ten steps needs four more uninterrupted qualifying steps
+at ``6/10``; movement resets the streak. Counts reflect the last evaluation, not the longest
+streak achieved during the episode.
+
 The episode recorder calls ``ProgressTracker.get_consecutive_step_summary(env_idx)`` before
 reset to read existing counters and completion events for ``TrueForConsecutiveStepsCfg``
 requirements only. Nonempty results are added as ``progress.consecutive_step_summary`` to
@@ -366,7 +372,7 @@ Each entry identifies the criteria, sequence, and predicate position, and includ
 
 * ``consecutive_steps`` and ``required_steps``: the recorded streak and its target.
 * ``first_satisfied_step``: the episode control step when the requirement completed, or ``null``.
-* ``status``: the requirement's position in its sequence, as described below.
+* ``status``: whether the requirement is completed, active, or waiting, as described below.
 
 .. list-table:: Consecutive-step requirement statuses
    :header-rows: 1
@@ -378,15 +384,13 @@ Each entry identifies the criteria, sequence, and predicate position, and includ
      - The sequence has advanced past this requirement. Its completion history is retained
        even if a later final-condition recheck resets its streak.
    * - ``active``
-     - This is the current requirement in its sequence. Counting occurs when its subtask is enabled.
+     - This is the current requirement in its sequence and its subtask is enabled.
    * - ``waiting``
-     - An earlier requirement in the same sequence must complete first.
+     - An earlier requirement in the same sequence or an earlier sequential subtask must complete first.
 
-Each episode's **Task completion summary** table shows requirement statuses, first satisfied
-steps, and streak counts from their last evaluation. A waiting requirement has not yet been
-reached. For an active requirement, ``6/10`` means four more uninterrupted qualifying control
-steps are needed; a false result resets the streak. Once a requirement completes, its first
-satisfied step remains recorded even if a later final-condition recheck resets its streak.
+The HTML report shows these fields in each episode's **Task completion summary** table.
+A waiting requirement has not yet been reached. Completed milestones retain their first
+satisfied step even if a later final-condition recheck resets the streak.
 
 Example consecutive-step summaries
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
