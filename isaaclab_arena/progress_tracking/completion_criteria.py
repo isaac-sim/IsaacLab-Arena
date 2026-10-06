@@ -8,8 +8,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import Enum
 
-from isaaclab.managers import TerminationTermCfg
-
 from isaaclab_arena.progress_tracking.progress_tracking_utils import (
     DEFAULT_SEQUENCE_NAME,
     Predicate,
@@ -51,8 +49,6 @@ class CompletionCriteria:
         K: Required when logical == "choose". Specifies the number of sequences that must be completed
             to consider the CompletionCriteria complete.
         description: An optional description of the CompletionCriteria.
-        tracked_predicates: Named, stateless predicates observed each step for progress reporting.
-            They do not contribute to completion or score.
     """
 
     name: str
@@ -66,13 +62,11 @@ class CompletionCriteria:
     logical: CriteriaCompletionMode = CriteriaCompletionMode.ALL
     K: int | None = None
     description: str | None = None
+
     canonical_predicate_sequences: dict[str, list[tuple[Predicate, float]]] = field(init=False, repr=False)
 
     parent_subtask_idx: int | None = None
     """Subtask index assigned by CompositeTaskBase; None for standalone task criteria."""
-
-    tracked_predicates: dict[str, Predicate] = field(default_factory=dict)
-    """Named stateless checks reported independently; their wrapped state is not reset by the tracker."""
 
     def __post_init__(self):
         assert 0.0 <= self.score <= 1.0, f"CompletionCriteria '{self.name}': score must be in [0, 1], got {self.score}"
@@ -99,13 +93,6 @@ class CompletionCriteria:
 
         formatted_sequences = _format_predicate_sequences(named_sequences)
         self.canonical_predicate_sequences = _normalize_scores(formatted_sequences)
-
-        assert isinstance(self.tracked_predicates, dict), "tracked_predicates must be a dictionary."
-        for name, predicate in self.tracked_predicates.items():
-            assert isinstance(name, str) and name, "tracked_predicates must use nonempty string names."
-            assert isinstance(predicate, TerminationTermCfg) or (
-                callable(predicate) and not isinstance(predicate, type)
-            ), "tracked_predicates must contain initialized callables or TerminationTermCfg definitions."
 
         # Validate the logical and K parameters.
         num_sequences = len(self.canonical_predicate_sequences)

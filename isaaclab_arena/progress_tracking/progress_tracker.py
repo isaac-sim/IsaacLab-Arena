@@ -103,7 +103,7 @@ class ConsecutiveStepState:
     status: Literal["waiting", "active", "completed"]
     """Sequence position: not yet reached, current entry, or remembered completion.
 
-    An active entry counts only while its objective is enabled. Final-condition rechecks
+    An active entry counts only while its completion criteria are enabled. Final-condition rechecks
     can reset the counter of a completed entry without erasing its completion history.
     """
 
@@ -126,12 +126,6 @@ class CompletionCriteriaState:
 
     active_predicates: dict[str, str | None]
     """Next predicate per sequence, or None when the sequence is complete."""
-
-    tracked_predicates: dict[str, dict[str, bool | int | None]] = field(default_factory=dict)
-    """Current and first-true state of each predicate tracked for progress."""
-
-    max_simultaneous_true: int = 0
-    """Largest number of tracked predicates true on the same step."""
 
     consecutive_step_progress: dict[str, list[ConsecutiveStepState]] = field(default_factory=dict)
     """Consecutive-step requirements by sequence, including waiting and completed entries."""
@@ -167,20 +161,14 @@ class CompletionCriteriaRunner:
         self.sequence_complete: dict[str, torch.Tensor] = {}
         self.predicate_chains = {}
         self._consecutive_step_requirements: list[_TrueForConsecutiveSteps] = []
-        resolved_predicates = {}
         for sequence_name, chain in completion_criteria.canonical_predicate_sequences.items():
             resolved_chain = []
             for predicate, score in chain:
-                source_predicate = (
-                    predicate.predicate if isinstance(predicate, TrueForConsecutiveStepsCfg) else predicate
-                )
-                resolved_predicate = _create_predicate_from_config(source_predicate, env)
-                resolved_predicates[id(source_predicate)] = resolved_predicate
                 if isinstance(predicate, TrueForConsecutiveStepsCfg):
                     # Prepare the instantaneous check and create independent counters
                     # for this occurrence, even when the same configuration is reused.
                     predicate = _TrueForConsecutiveSteps(
-                        predicate=resolved_predicate,
+                        predicate=_create_predicate_from_config(predicate.predicate, env),
                         required_steps=predicate.required_steps,
                         num_envs=num_envs,
                         device=device,
@@ -188,7 +176,7 @@ class CompletionCriteriaRunner:
                     self._consecutive_step_requirements.append(predicate)
                 else:
                     # Prepare an instantaneous check without adding counter state.
-                    predicate = resolved_predicate
+                    predicate = _create_predicate_from_config(predicate, env)
                 resolved_chain.append((predicate, score))
             self.predicate_chains[sequence_name] = resolved_chain
 
@@ -196,24 +184,6 @@ class CompletionCriteriaRunner:
             self.current_predicate_index[sequence_name] = torch.zeros(num_envs, dtype=torch.long, device=device)
             self.sequence_score[sequence_name] = torch.zeros(num_envs, dtype=torch.float32, device=device)
             self.sequence_complete[sequence_name] = torch.zeros(num_envs, dtype=torch.bool, device=device)
-
-        # Reuse a sequence's resolved check when the same definition is also tracked.
-        # Reporting aliases must share one callable so the per-step cache can reuse its result.
-        self.tracked_predicates = {}
-        for name, predicate in completion_criteria.tracked_predicates.items():
-            if id(predicate) not in resolved_predicates:
-                resolved_predicates[id(predicate)] = _create_predicate_from_config(predicate, env)
-            self.tracked_predicates[name] = resolved_predicates[id(predicate)]
-        self.tracked_current = {
-            name: torch.zeros(num_envs, dtype=torch.bool, device=device) for name in self.tracked_predicates
-        }
-        self.tracked_ever_true = {
-            name: torch.zeros(num_envs, dtype=torch.bool, device=device) for name in self.tracked_predicates
-        }
-        self.tracked_first_true_step = {
-            name: torch.full((num_envs,), -1, dtype=torch.long, device=device) for name in self.tracked_predicates
-        }
-        self.max_simultaneous_true = torch.zeros(num_envs, dtype=torch.long, device=device)
 
     def step(
         self,
@@ -229,9 +199,6 @@ class CompletionCriteriaRunner:
         PredicateEvent for every env/sequence that advanced this step.
         """
 
-        # Observe optional reporting checks independently of sequence position. For example,
-        # gripper_slow can already be true while its ten-step requirement is still waiting.
-        self._update_tracked_predicates(env, step_index, active_envs, predicate_results_this_step)
         criteria_complete = self.is_complete()
         final_condition_check_mask = (
             criteria_complete if check_final_conditions else torch.zeros_like(criteria_complete)
@@ -242,7 +209,7 @@ class CompletionCriteriaRunner:
 
         events: list[PredicateEvent] = []
         # Each named sequence gets the same active environments, so object and gripper
-        # counters in separate groups start together. Within a group, only one entry advances.
+        # counters in separate sequences start together. Within a sequence, only one entry advances.
         for sequence_name, predicate_chain in self.predicate_chains.items():
             sequence_final_condition_check_mask = final_condition_check_mask
             if check_final_conditions:
@@ -259,40 +226,6 @@ class CompletionCriteriaRunner:
                 sequence_final_condition_check_mask,
             )
         return events
-
-    def _update_tracked_predicates(
-        self,
-        env,
-        step_index: torch.Tensor | None,
-        active_envs: torch.Tensor,
-        predicate_results_this_step: dict[int, tuple[torch.Tensor, torch.Tensor]],
-    ) -> None:
-        """Update per-predicate progress without advancing the success sequence."""
-        if not self.tracked_predicates or not bool(active_envs.any().item()):
-            return
-
-        results = []
-        for name, predicate in self.tracked_predicates.items():
-            result = self._evaluate_predicate_with_cache(predicate, env, predicate_results_this_step, active_envs)
-            first_true = active_envs & result & ~self.tracked_ever_true[name]
-            # Keep the first observed true step even after the check becomes false.
-            # This is instantaneous history, not completion of a ten-step requirement.
-            if step_index is not None:
-                self.tracked_first_true_step[name] = torch.where(
-                    first_true, step_index, self.tracked_first_true_step[name]
-                )
-            self.tracked_ever_true[name] |= first_true
-            self.tracked_current[name] = torch.where(active_envs, result, self.tracked_current[name])
-            results.append(result)
-
-        simultaneous = torch.stack(results, dim=0).sum(dim=0)
-        # Two checks true on one step give a maximum of two; this does not imply
-        # that both checks held together for ten consecutive steps.
-        self.max_simultaneous_true = torch.where(
-            active_envs,
-            torch.maximum(self.max_simultaneous_true, simultaneous),
-            self.max_simultaneous_true,
-        )
 
     def _evaluate_predicate_with_cache(
         self,
@@ -455,12 +388,6 @@ class CompletionCriteriaRunner:
             self.sequence_score[sequence_name][env_ids] = 0.0
             self.sequence_complete[sequence_name][env_ids] = False
 
-        for name in self.tracked_predicates:
-            self.tracked_current[name][env_ids] = False
-            self.tracked_ever_true[name][env_ids] = False
-            self.tracked_first_true_step[name][env_ids] = -1
-        self.max_simultaneous_true[env_ids] = 0
-
         for requirement in self._consecutive_step_requirements:
             requirement.reset(env_ids)
 
@@ -500,7 +427,7 @@ class CompletionCriteriaRunner:
         completed_sequences = 0
         active_predicates: dict[str, str | None] = {}
         consecutive_step_progress: dict[str, list[ConsecutiveStepState]] = {}
-        # The active predicate for a group is the one at its current chain position. Any group
+        # The active predicate for a sequence is the one at its current chain position. Any sequence
         # whose pointer has run off the end of the chain is complete (no active predicate).
         for sequence_name in criteria.sequence_names:
             predicate_chain = self.predicate_chains[sequence_name]
@@ -513,7 +440,7 @@ class CompletionCriteriaRunner:
 
             # Snapshot every temporal occurrence, not just the active predicate. This lets
             # [object(10), gripper(10)] report "object 6/10; gripper waiting 0/10".
-            # Named groups instead expose two independent counters; a combined predicate
+            # Named sequences instead expose two independent counters; a combined predicate
             # exposes one shared counter that resets if either underlying check fails.
             requirements = []
             for predicate_index, (predicate, _) in enumerate(predicate_chain):
@@ -539,26 +466,12 @@ class CompletionCriteriaRunner:
             if requirements:
                 consecutive_step_progress[sequence_name] = requirements
 
-        # Convert cached observations into plain values without evaluating predicates.
-        # Repeated reads must not turn a 6/10 streak into 7/10 or change its history.
-        tracked_predicates = {}
-        for name in self.tracked_predicates:
-            ever_true = bool(self.tracked_ever_true[name][env_idx].item())
-            first_true_step = int(self.tracked_first_true_step[name][env_idx].item())
-            tracked_predicates[name] = {
-                "currently_true": bool(self.tracked_current[name][env_idx].item()),
-                "ever_true": ever_true,
-                "first_true_step": first_true_step if ever_true and first_true_step >= 0 else None,
-            }
-
         return CompletionCriteriaState(
             completed_sequences=completed_sequences,
             total_sequences=len(criteria.sequence_names),
             score=float(score),
             is_complete=bool(is_complete),
             active_predicates=active_predicates,
-            tracked_predicates=tracked_predicates,
-            max_simultaneous_true=int(self.max_simultaneous_true[env_idx].item()),
             consecutive_step_progress=consecutive_step_progress,
         )
 

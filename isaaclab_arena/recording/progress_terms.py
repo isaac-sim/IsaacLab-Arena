@@ -26,49 +26,33 @@ def record_progress_results(env, env_id: int) -> dict[str, Any]:
     # here could observe an already-reset scene or accidentally advance a stateful check.
     state = progress["states"][env_id]
     events = progress["events"][env_id]
-    objectives = {}
-    for name, objective in state.criteria_by_name.items():
+    criteria_by_name = {}
+    for name, criteria_state in state.criteria_by_name.items():
         # Milestone scores describe completed sequence entries. For [object(10),
         # gripper(10)], the score is 0.5 once only the object requirement has completed.
-        objective_record = {
-            "score": objective.score,
-            "is_complete": objective.is_complete,
-            "completed_sequences": objective.completed_sequences,
-            "total_sequences": objective.total_sequences,
-            "active_predicates": objective.active_predicates,
+        criteria_record = {
+            "score": criteria_state.score,
+            "is_complete": criteria_state.is_complete,
+            "completed_sequences": criteria_state.completed_sequences,
+            "total_sequences": criteria_state.total_sequences,
+            "active_predicates": criteria_state.active_predicates,
         }
-        if objective.consecutive_step_progress:
-            # Store live counters beside milestone scores, preserving group and sequence
+        if criteria_state.consecutive_step_progress:
+            # Store live counters beside milestone scores, preserving sequence name and predicate
             # index. Example: object completed 10/10, gripper active 6/10, score still 0.5.
             # asdict converts each snapshot to JSON-compatible fields, with no tensors.
             consecutive_step_progress = {}
-            for group, requirements in objective.consecutive_step_progress.items():
-                consecutive_step_progress[group] = [asdict(requirement) for requirement in requirements]
-            objective_record["consecutive_step_progress"] = consecutive_step_progress
-        if objective.tracked_predicates:
-            # These optional instantaneous checks have a separate history. "First true
-            # at step 2" means the check held then, not that its ten-step streak finished.
-            first_true_events = [
-                {"step": status["first_true_step"], "predicate": predicate_name}
-                for predicate_name, status in objective.tracked_predicates.items()
-                if status["first_true_step"] is not None
-            ]
-            # Present first observations chronologically even if configuration order differs.
-            first_true_events.sort(key=lambda event: event["step"])
-            objective_record["predicate_progress"] = {
-                "max_simultaneous_true": objective.max_simultaneous_true,
-                "total": len(objective.tracked_predicates),
-                "predicates": objective.tracked_predicates,
-                "first_true_events": first_true_events,
-            }
-        objectives[name] = objective_record
+            for sequence_name, requirements in criteria_state.consecutive_step_progress.items():
+                consecutive_step_progress[sequence_name] = [asdict(requirement) for requirement in requirements]
+            criteria_record["consecutive_step_progress"] = consecutive_step_progress
+        criteria_by_name[name] = criteria_record
     return {
         "progress": {
             "overall_score": state.overall_score,
             "all_complete": state.all_complete,
-            "criteria_by_name": objectives,
+            "criteria_by_name": criteria_by_name,
             # Completion events remain milestones, e.g. object at step 10 and gripper at
-            # step 20. Intermediate streak counts belong to the objective snapshot above.
+            # step 20. Intermediate streak counts belong to the criteria snapshot above.
             "events": [
                 {
                     "step": event.step,

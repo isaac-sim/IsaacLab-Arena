@@ -667,153 +667,6 @@ def _test_recorder_publishes_to_extras_and_records_nothing(simulation_app) -> bo
     return True
 
 
-def _test_tracked_predicates_report_progress(simulation_app) -> bool:
-    """Per-predicate progress is reported without changing the success score or events."""
-    from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
-    from isaaclab_arena.progress_tracking.progress_tracker import ProgressTracker
-    from isaaclab_arena.recording.progress_terms import record_progress_results
-
-    env = _MockEnv(num_envs=2)
-    success = _MockPredicate(num_envs=2, name="success")
-    depth = _MockPredicate(num_envs=2, name="depth")
-    alignment = _MockPredicate(num_envs=2, name="alignment")
-    objective = CompletionCriteria(
-        name="insertion",
-        predicate_sequence=[success],
-        tracked_predicates={"depth": depth, "alignment": alignment},
-    )
-    tracker = ProgressTracker(completion_criteria=[objective], num_envs=2, device="cpu", env=env)
-
-    depth.set([True, False])
-    _advance_step(env)
-    tracker.step(env, step_index=env.episode_length_buf)
-    state = tracker.get_state()[0].criteria_by_name["insertion"]
-    assert state.score == 0.0
-    assert tracker.get_events()[0] == []
-    assert state.max_simultaneous_true == 1
-    assert state.tracked_predicates["depth"] == {
-        "currently_true": True,
-        "ever_true": True,
-        "first_true_step": 1,
-    }
-    assert state.tracked_predicates["alignment"]["currently_true"] is False
-
-    depth.set([False, False])
-    alignment.set([True, False])
-    _advance_step(env)
-    tracker.step(env, step_index=env.episode_length_buf)
-    env.extras["progress_tracking"] = {"states": tracker.get_state(), "events": tracker.get_events()}
-    recorded = record_progress_results(env, env_id=0)["progress"]["criteria_by_name"]["insertion"]
-    predicate_progress = recorded["predicate_progress"]
-    assert recorded["score"] == 0.0
-    assert predicate_progress["max_simultaneous_true"] == 1
-    assert predicate_progress["total"] == 2
-    assert predicate_progress["predicates"]["depth"]["currently_true"] is False
-    assert predicate_progress["predicates"]["depth"]["first_true_step"] == 1
-    assert predicate_progress["predicates"]["alignment"]["currently_true"] is True
-    assert predicate_progress["predicates"]["alignment"]["first_true_step"] == 2
-    assert predicate_progress["first_true_events"] == [
-        {"step": 1, "predicate": "depth"},
-        {"step": 2, "predicate": "alignment"},
-    ]
-
-    depth.set([True, False])
-    success.set([True, False])
-    _advance_step(env)
-    tracker.step(env, step_index=env.episode_length_buf)
-    state = tracker.get_state()[0].criteria_by_name["insertion"]
-    assert state.score == 1.0
-    assert state.max_simultaneous_true == 2
-
-    tracker.reset([0])
-    state = tracker.get_state()[0].criteria_by_name["insertion"]
-    assert state.max_simultaneous_true == 0
-    assert not state.tracked_predicates["depth"]["ever_true"]
-    assert state.tracked_predicates["depth"]["first_true_step"] is None
-    return True
-
-
-def _test_tracked_predicates_share_step_results(simulation_app, configured=False):
-    """Reporting aliases and a temporal success check sample their shared predicate once."""
-    import torch
-
-    from isaaclab.managers import TerminationTermCfg
-
-    from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
-    from isaaclab_arena.progress_tracking.progress_tracker import ProgressTracker
-    from isaaclab_arena.tasks.predicates.temporal import TrueForConsecutiveStepsCfg
-
-    env = _MockEnv(num_envs=2)
-    env.calls = 0
-
-    def sample(env):
-        env.calls += 1
-        return torch.tensor([True, False])
-
-    predicate = TerminationTermCfg(func=sample) if configured else sample
-    criteria = CompletionCriteria(
-        name="hold",
-        predicate_sequence=[TrueForConsecutiveStepsCfg(predicate, 2)],
-        tracked_predicates={"first": predicate, "alias": predicate},
-    )
-    tracker = ProgressTracker([criteria], num_envs=2, device="cpu", env=env)
-    for step in (1, 2):
-        tracker.step(env, step_index=torch.tensor([step, step]))
-        assert env.calls == step, "Reporting must reuse the success predicate's per-step sample."
-        states = tracker.get_state()
-        state = states[0].criteria_by_name["hold"]
-        assert state.tracked_predicates["first"] == state.tracked_predicates["alias"]
-        assert state.tracked_predicates["first"]["first_true_step"] == 1
-        assert state.is_complete == (step == 2)
-        assert not states[1].criteria_by_name["hold"].tracked_predicates["first"]["ever_true"]
-    tracker.reset([0])
-    tracker.step(env, step_index=torch.tensor([1, 3]))
-    assert env.calls == 3
-    assert not tracker.is_complete().any()
-    return True
-
-
-def _test_tracked_predicates_preserve_positional_subtask_index(simulation_app):
-    """Adding reporting checks must retain the existing positional constructor arguments."""
-    from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
-
-    criteria = CompletionCriteria("task", [_MockPredicate(1)], None, 1.0, "all", None, None, 0)
-    assert criteria.parent_subtask_idx == 0
-    assert criteria.tracked_predicates == {}
-    return True
-
-
-def _test_tracked_predicates_reject_bare_classes(simulation_app):
-    """A class requires TerminationTermCfg; passing the class itself is not an initialized check."""
-    import pytest
-
-    from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
-
-    with pytest.raises(AssertionError, match="tracked_predicates"):
-        CompletionCriteria("task", [_MockPredicate(1)], tracked_predicates={"invalid": _MockPredicate})
-    return True
-
-
-def test_tracked_predicates_share_step_results():
-    assert run_function_with_persistent_simulation_app(_test_tracked_predicates_share_step_results, headless=HEADLESS)
-
-
-def test_configured_tracked_predicates_share_step_results():
-    assert run_function_with_persistent_simulation_app(
-        _test_tracked_predicates_share_step_results, configured=True, headless=HEADLESS
-    )
-
-
-def test_tracked_predicates_preserve_positional_subtask_index():
-    assert run_function_with_persistent_simulation_app(
-        _test_tracked_predicates_preserve_positional_subtask_index, headless=HEADLESS
-    )
-
-
-def test_tracked_predicates_reject_bare_classes():
-    assert run_function_with_persistent_simulation_app(_test_tracked_predicates_reject_bare_classes, headless=HEADLESS)
-
-
 def _test_task_termination_cfg_assigns_flat_criteria_to_subtasks(
     simulation_app,
 ) -> bool:
@@ -1007,7 +860,6 @@ def _test_shared_predicate_results_are_reused_across_criteria(simulation_app):
         CompletionCriteria(
             name=f"objective_{index}",
             predicate_sequence=[predicate],
-            tracked_predicates={"shared": predicate},
             parent_subtask_idx=index,
         )
         for index in range(2)
@@ -1111,10 +963,6 @@ def test_recorder_publishes_to_extras_and_records_nothing():
     )
 
 
-def test_tracked_predicates_report_progress():
-    assert run_function_with_persistent_simulation_app(_test_tracked_predicates_report_progress, headless=HEADLESS)
-
-
 def test_task_termination_cfg_assigns_flat_criteria_to_subtasks():
     assert run_function_with_persistent_simulation_app(
         _test_task_termination_cfg_assigns_flat_criteria_to_subtasks,
@@ -1138,7 +986,6 @@ if __name__ == "__main__":
     test_state_machine_logical_choose()
     test_state_machine_reset_clears_state()
     test_recorder_publishes_to_extras_and_records_nothing()
-    test_tracked_predicates_report_progress()
     test_task_termination_cfg_assigns_flat_criteria_to_subtasks()
     test_flat_subtask_criteria_report_weighted_progress()
     test_tracker_rejects_excluding_every_subtask_from_success()

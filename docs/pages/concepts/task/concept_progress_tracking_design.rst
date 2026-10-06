@@ -355,8 +355,9 @@ until the next step.
 Consecutive-step progress
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
-Every ``TrueForConsecutiveStepsCfg`` automatically reports its counter in
-``criteria.consecutive_step_progress``. No ``tracked_predicates`` configuration is needed.
+Each ``TrueForConsecutiveStepsCfg`` in a completion criteria sequence automatically reports
+its counter in ``criteria.consecutive_step_progress``. Completion criteria are the single
+source of truth for progress; no separate reporting configuration is needed.
 The dictionary maps sequence names to lists of requirement snapshots:
 
 .. code-block:: python
@@ -392,18 +393,6 @@ Counters are snapshots and reading them does not evaluate predicates or advance 
 completion events still describe finished milestones: 6/10 does not award a fractional score.
 The episode recorder writes these same fields under each criteria set's
 ``consecutive_step_progress`` in the JSONL record.
-
-Optional ``tracked_predicates`` report instantaneous check states and first-true observations
-separately, under ``predicate_progress`` in the record. They do not measure streak lengths or
-change success. For example, both checks being true once gives ``max_simultaneous_true=2``;
-it does not establish a shared ten-step streak.
-
-Tracked predicates must be stateless callables or ``TerminationTermCfg`` definitions of
-instantaneous checks. Use initialized callables, rather than bare classes. The tracker resets
-their reporting history, but does not reset state owned by the predicate itself. Reusing the
-same definition for tracking and a success check within one set of criteria shares its
-per-step observation; reading snapshots does not evaluate either check again.
-
 
 Recording progress
 ~~~~~~~~~~~~~~~~~~
