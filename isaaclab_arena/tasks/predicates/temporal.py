@@ -78,3 +78,7 @@ class _TrueForConsecutiveSteps:
     def reset(self, env_ids: list[int] | torch.Tensor) -> None:
         """Clear the streaks for the selected environments."""
         self._consecutive_true_steps[env_ids] = 0
+
+    def get_consecutive_steps(self, env_idx: int) -> int:
+        """Return the current streak for one environment without updating it."""
+        return int(self._consecutive_true_steps[env_idx].item())

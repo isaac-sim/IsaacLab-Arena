@@ -352,6 +352,68 @@ Read each environment's state and completed-predicate events as follows:
 After an automatic reset, ``env.extras["progress_tracking"]`` still shows the finished episode
 until the next step.
 
+.. _consecutive-step-episode-summary:
+
+Episode consecutive-step summary
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Some task conditions must remain true for several consecutive control steps. The episode
+summary shows each condition's last recorded streak and when it first completed. For example,
+an object that must stay still for ten steps needs four more uninterrupted qualifying steps
+at ``6/10``; movement resets the streak. Counts reflect the last evaluation, not the longest
+streak achieved during the episode.
+
+The episode recorder calls ``ProgressTracker.get_consecutive_step_summary(env_idx)`` before
+reset to read existing counters and completion events for ``TrueForConsecutiveStepsCfg``
+requirements only. Nonempty results are added as ``progress.consecutive_step_summary`` to
+episode JSONL and the Experiment Runner's ``arena_experiment_result.json``. When no such
+requirements exist, the method returns an empty list and the recorder omits the field.
+Each entry identifies the criteria, sequence, and predicate position, and includes:
+
+* ``consecutive_steps`` and ``required_steps``: the recorded streak and its target.
+* ``first_satisfied_step``: the episode control step when the requirement completed, or ``null``.
+* ``status``: whether the requirement is completed, active, or waiting, as described below.
+
+.. list-table:: Consecutive-step requirement statuses
+   :header-rows: 1
+   :widths: 20 80
+
+   * - Status
+     - Meaning
+   * - ``completed``
+     - The sequence has advanced past this requirement. Its completion history is retained
+       even if a later final-condition recheck resets its streak.
+   * - ``active``
+     - This is the current requirement in its sequence and its subtask is enabled.
+   * - ``waiting``
+     - An earlier requirement in the same sequence or an earlier sequential subtask must complete first.
+
+The HTML report shows these fields in each episode's **Task completion summary** table.
+A waiting requirement has not yet been reached. Completed milestones retain their first
+satisfied step even if a later final-condition recheck resets the streak.
+
+Example consecutive-step summaries
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+These examples cover consecutive-step requirements only. A is true on steps 1–10, then
+false; B is true from step 2 onward. Each requirement needs ten qualifying steps.
+
+.. list-table:: Episode summaries
+   :header-rows: 1
+   :widths: 35 65
+
+   * - Requirement
+     - Recorded summary
+   * - Sequential A then B
+     - Both 10/10; first satisfied at steps 10 and 20.
+   * - Independent parallel A and B
+     - Both 10/10; first satisfied at steps 10 and 11.
+   * - Joint A & B for the same ten steps
+     - At timeout step 20: 0/10, active, first satisfied is null.
+
+The joint streak reaches 9/10, then resets when A becomes false. If that episode instead
+ends at step 7, the summary shows 6/10, with four more uninterrupted qualifying steps needed.
+
 Arena's episode recorder also serializes the final progress state and predicate events into the
 episode's JSONL record when an output path is configured. Tasks without completion criteria have
 no success termination or progress-tracking configuration and produce no progress fields.

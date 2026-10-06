@@ -62,7 +62,14 @@ def _test_sequential_subtasks_count_only_active_environments(_simulation_app):
     ]
     tracker = ProgressTracker(criteria_sets, env.num_envs, env.device, env=env, subtasks_are_sequential=True)
 
+    assert tracker.get_consecutive_step_summary(0)[0]["status"] == "waiting"
+    assert tracker.get_consecutive_step_summary(1)[0]["status"] == "waiting"
     _step(tracker, env)
+    enabled_summary = tracker.get_consecutive_step_summary(0)[0]
+    gated_summary = tracker.get_consecutive_step_summary(1)[0]
+    assert (enabled_summary["status"], enabled_summary["consecutive_steps"]) == ("active", 0)
+    assert (gated_summary["status"], gated_summary["consecutive_steps"]) == ("waiting", 0)
+    assert gated_summary["first_satisfied_step"] is None
     assert tracker.get_subtask_completion().tolist() == [[True, False], [False, False]]
     assert env.predicate_calls["stable"] == 0
 
@@ -77,6 +84,15 @@ def _test_sequential_subtasks_count_only_active_environments(_simulation_app):
     assert tracker.is_complete().tolist() == [True, True]
     assert tracker.get_events()[0][-1].step == 3
     assert tracker.get_events()[1][-1].step == 5
+    for env_idx, completion_step in enumerate((3, 5)):
+        summary = tracker.get_consecutive_step_summary(env_idx)[0]
+        assert (summary["status"], summary["consecutive_steps"]) == ("completed", 2)
+        assert summary["first_satisfied_step"] == completion_step
+    # A reset must restore gating independently for this environment.
+    tracker.reset([0])
+    assert tracker.get_consecutive_step_summary(0)[0]["status"] == "waiting"
+    assert tracker.get_consecutive_step_summary(1)[0]["status"] == "completed"
+    assert enabled_summary["status"] == "active"
     return True
 
 

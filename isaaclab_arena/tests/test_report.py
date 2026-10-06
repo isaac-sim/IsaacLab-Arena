@@ -544,3 +544,48 @@ def test_media_paths_are_url_quoted_and_text_is_escaped(tmp_path):
     assert "wrist%20cam%3Frgb" in run_page
     assert "<script>alert(1)</script>" not in run_page
     assert "&lt;script&gt;alert(1)&lt;/script&gt;" in run_page
+
+
+def test_consecutive_step_summary_shows_streaks_and_satisfaction_steps(tmp_path):
+    requirements = [
+        ("settled", 10, "completed", 120),
+        ("released<script>", 6, "active", None),
+        ("next", 0, "waiting", None),
+        ("rechecked", 0, "completed", 90),
+    ]
+    record = {
+        "env_id": 0,
+        "episode_in_env": 0,
+        "success": False,
+        "progress": {
+            "overall_score": 0.5,
+            "consecutive_step_summary": [
+                {
+                    "criteria_name": "place",
+                    "sequence_name": "sequence<a>",
+                    "predicate_index": index,
+                    "predicate_name": f"TrueForConsecutiveStepsCfg({name}, required_steps=10)",
+                    "consecutive_steps": count,
+                    "required_steps": 10,
+                    "status": status,
+                    "first_satisfied_step": step,
+                }
+                for index, (name, count, status, step) in enumerate(requirements)
+            ],
+        },
+    }
+    run_dir = tmp_path / "settling"
+    run_dir.mkdir()
+    (run_dir / "episode_results_rebuild0.jsonl").write_text(json.dumps(record) + "\n")
+
+    build_report(tmp_path)
+    page = (tmp_path / "report" / "job_settling.html").read_text()
+
+    assert "Task completion summary" in page
+    assert "<td>10/10</td><td>step 120</td><td>&mdash;</td><td>Completed</td>" in page
+    assert "<td>6/10</td><td>&mdash;</td><td>4</td><td>Incomplete</td>" in page
+    assert "<td>0/10</td><td>&mdash;</td><td>10</td><td>Not reached</td>" in page
+    assert "<td>0/10</td><td>step 90</td><td>&mdash;</td><td>Completed</td>" in page
+    assert "sequence&lt;a&gt; / 2" in page
+    assert "released&lt;script&gt;" in page
+    assert "released<script>" not in page

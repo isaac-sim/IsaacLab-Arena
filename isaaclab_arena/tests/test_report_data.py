@@ -7,6 +7,8 @@
 
 import json
 
+import pytest
+
 from isaaclab_arena.visualization.episode_results_files import format_episode_video_filename
 from isaaclab_arena.visualization.report_data import (
     EpisodeIdentity,
@@ -495,3 +497,63 @@ def test_run_status_normalizes_enum_like_values():
         value = "FAILED"
 
     assert normalize_run_status(Status()) == "failed"
+
+
+def test_temporal_episode_summary_handles_missing_and_malformed_records():
+    assert _episode().consecutive_step_summaries == []
+    assert _episode({"progress": {"criteria_by_name": {"task": {"score": 0.5}}}}).consecutive_step_summaries == []
+    valid = {
+        "predicate_index": 0,
+        "predicate_name": "TrueForConsecutiveStepsCfg(settled, required_steps=10)",
+        "consecutive_steps": 6,
+        "required_steps": 10,
+        "status": "active",
+    }
+    assert _episode({"progress": {"consecutive_step_summary": None}}).consecutive_step_summaries == []
+    valid.update(criteria_name="task", sequence_name="left")
+    episode = _episode({
+        "progress": {
+            "consecutive_step_summary": [
+                None,
+                {},
+                {**valid, "required_steps": 0},
+                {**valid, "consecutive_steps": 11},
+                valid,
+                {
+                    **valid,
+                    "sequence_name": "right",
+                    "consecutive_steps": 10,
+                    "status": "completed",
+                    "first_satisfied_step": 12,
+                },
+            ]
+        }
+    })
+    summaries = episode.consecutive_step_summaries
+    assert [(item.criteria_name, item.sequence_name, item.predicate_index) for item in summaries] == [
+        ("task", "left", 0),
+        ("task", "right", 0),
+    ]
+    assert summaries[0].predicate_name == "settled"
+    assert summaries[0].consecutive_steps == 6
+    assert summaries[0].first_satisfied_step is None
+    assert summaries[1].first_satisfied_step == 12
+
+
+@pytest.mark.parametrize("value", [float("inf"), float("-inf"), float("nan")])
+@pytest.mark.parametrize("field", ["consecutive_steps", "required_steps", "predicate_index", "first_satisfied_step"])
+def test_consecutive_step_summary_handles_nonfinite_numbers(field, value):
+    valid = {
+        "predicate_index": 0,
+        "predicate_name": "settled",
+        "consecutive_steps": 6,
+        "required_steps": 10,
+        "status": "active",
+        "first_satisfied_step": None,
+    }
+    episode = _episode({"progress": {"consecutive_step_summary": [{**valid, field: value}, valid]}})
+    summaries = episode.consecutive_step_summaries
+    # An invalid optional completion step is unknown; invalid required fields discard the entry.
+    assert len(summaries) == (2 if field == "first_satisfied_step" else 1)
+    assert all(summary.first_satisfied_step is None for summary in summaries)
+    assert all(summary.consecutive_steps == 6 for summary in summaries)

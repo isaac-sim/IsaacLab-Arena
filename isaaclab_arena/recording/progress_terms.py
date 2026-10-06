@@ -23,7 +23,7 @@ def record_progress_results(env, env_id: int) -> dict[str, Any]:
 
     state = progress["states"][env_id]
     events = progress["events"][env_id]
-    return {
+    recorded = {
         "progress": {
             "overall_score": state.overall_score,
             "all_complete": state.all_complete,
@@ -51,6 +51,14 @@ def record_progress_results(env, env_id: int) -> dict[str, Any]:
             ],
         }
     }
+
+    # EpisodeRecorderManager invokes this before resetting the tracker's live counters.
+    tracker = env.progress_tracker
+    if tracker is not None:
+        summary = tracker.get_consecutive_step_summary(env_id)
+        if summary:
+            recorded["progress"]["consecutive_step_summary"] = summary
+    return recorded
 
 
 @configclass
