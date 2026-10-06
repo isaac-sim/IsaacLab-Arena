@@ -372,6 +372,111 @@ recheck resets the streak. Counts reflect each requirement's last evaluation.
 
 This is an episode summary. It does not add a per-step trace or change milestone scores.
 
+Three ways to require consecutive steps
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Let ``A(env)`` check object settling and ``B(env)`` check gripper release. Both return one
+Boolean per environment. These existing definitions have different meanings:
+
+.. code-block:: python
+
+   from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
+   from isaaclab_arena.tasks.predicates.temporal import TrueForConsecutiveStepsCfg
+
+   # Sequential: B starts counting on the step after A completes.
+   sequential = CompletionCriteria(
+       "settling",
+       predicate_sequence=[TrueForConsecutiveStepsCfg(A, 10), TrueForConsecutiveStepsCfg(B, 10)],
+   )
+
+   # Independent: each sequence needs its own ten-step streak; overlap is not required.
+   parallel = CompletionCriteria(
+       "settling",
+       predicate_sequences={
+           "A": [TrueForConsecutiveStepsCfg(A, 10)],
+           "B": [TrueForConsecutiveStepsCfg(B, 10)],
+       },
+       logical="all",
+   )
+
+   # Joint: both must be true during the same ten control steps.
+   def both(env):
+       return A(env) & B(env)
+
+   joint = CompletionCriteria("settling", predicate_sequence=[TrueForConsecutiveStepsCfg(both, 10)])
+
+Before and after in episode results
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Previously, JSON and HTML showed milestone scores and completion events, but no streak counts.
+The new ``completion_summary`` and HTML table add counts and first satisfied steps; they do
+not change task success, scoring, or the definitions above.
+
+The following controlled examples were replayed through the tracker and episode recorder.
+For the first three rows, A is true on steps 1–10 and false afterwards; B is false at step 1
+and true from step 2 onward. Stop at task success or the stated timeout. Event times below
+refer to settling requirements.
+
+.. list-table:: Before and after reporting for consecutive-step requirements
+   :header-rows: 1
+   :widths: 25 30 45
+
+   * - Case
+     - Before: milestone result
+     - After: additional episode summary
+   * - Sequential, ends at step 20
+     - Score 1; A completed at 10, B at 20
+     - A 10/10, first satisfied 10; B 10/10, first satisfied 20
+   * - Independent parallel, ends at step 11
+     - Score 1; A completed at 10, B at 11
+     - A 10/10, first satisfied 10; B 10/10, first satisfied 11
+   * - Joint interrupted, timeout at step 20
+     - Score 0; no completion event
+     - Both 0/10, incomplete; first satisfied is null
+   * - Joint partial, timeout at step 7
+     - Score 0; no completion event
+     - Both 6/10, incomplete; four more uninterrupted qualifying steps needed
+   * - Joint completed, A stays true beyond step 10
+     - Score 1; both completed at step 11
+     - Both 10/10, first satisfied 11
+   * - False after completion, no final recheck
+     - Score 1; settling completed at 10; task succeeds at 11
+     - Both retains 10/10 and first satisfied 10
+   * - False after completion, with final recheck
+     - Score 1; settling completed at 10; task success is false at 11
+     - Both 0/10, first satisfied 10, status completed
+
+In the joint interrupted case, the shared streak reaches 9/10 at step 10, then resets to
+0/10 at step 11 when A becomes false. Separate ten-step streaks do not prove ten shared steps.
+
+For the last two rows, both checks are true on steps 1–10 and A becomes false at step 11.
+A second subtask finishes at step 11, keeping the episode running after settling completed.
+With ``desired_subtask_success_state=[True, True]``, the completed settling subtask is rechecked;
+without final rechecks its last evaluated count is retained. ``completed`` records the
+milestone history, while ``all_complete`` and episode ``success`` determine the task outcome.
+Rechecking applies to the final requirement of each sequence; to keep both checks jointly
+required, use the combined ``both`` requirement as that final entry.
+
+For the partial joint case, the added JSON entry is:
+
+.. code-block:: json
+
+   {
+     "criteria_name": "settling",
+     "sequence_name": "default_sequence",
+     "predicate_index": 0,
+     "predicate_name": "TrueForConsecutiveStepsCfg(both, required_steps=10)",
+     "consecutive_steps": 6,
+     "required_steps": 10,
+     "status": "active",
+     "first_satisfied_step": null
+   }
+
+This entry appears in ``progress.completion_summary`` in episode JSONL and
+``arena_experiment_result.json``. HTML labels it **Incomplete**, with **6/10** consecutive
+steps and **4** steps remaining. Before this addition, its zero score and empty event list
+could not distinguish it from the interrupted 0/10 case.
+
 Arena's episode recorder also serializes the final progress state and predicate events into the
 episode's JSONL record when an output path is configured. Tasks without completion criteria have
 no success termination or progress-tracking configuration and produce no progress fields.
