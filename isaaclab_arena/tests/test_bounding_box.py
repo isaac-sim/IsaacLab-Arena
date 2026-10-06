@@ -258,27 +258,6 @@ def test_intersected_leaves_infinite_axes_untouched():
     assert result.max_point[0].tolist() == bounded.max_point[0].tolist()
 
 
-def test_points_within():
-    """Check inclusive boundaries, outside points, batching, and empty point sets."""
-    boxes = AxisAlignedBoundingBox(
-        min_point=torch.tensor([[0.0, 0.0, 0.0], [2.0, 2.0, 2.0]]),
-        max_point=torch.tensor([[1.0, 1.0, 1.0], [3.0, 3.0, 3.0]]),
-    )
-    points = torch.tensor([[0.0, 0.0, 0.0], [1.0, 1.0, 1.0], [0.5, 0.5, 0.5], [0.5, -0.1, 0.5], [2.5, 2.5, 2.5]])
-    expected = torch.tensor([[True, True, True, False, False], [False, False, False, False, True]])
-    torch.testing.assert_close(boxes.points_within(points), expected)
-    batched = torch.stack([points, points + 2])
-    torch.testing.assert_close(boxes.points_within(batched), expected[:1].expand(2, -1))
-    torch.testing.assert_close(
-        boxes[0].points_within(batched), torch.stack([expected[0], torch.zeros(5, dtype=torch.bool)])
-    )
-    assert boxes.points_within(torch.empty(0, 3)).shape == (2, 0)
-    with pytest.raises(AssertionError, match="batch sizes"):
-        boxes.points_within(torch.zeros(3, 5, 3))
-    with pytest.raises(AssertionError, match="Expected points"):
-        boxes.points_within(torch.zeros(5, 2))
-
-
 def test_volume_fraction_within():
     """Containment measures object volume, including partial overlap and degenerate boxes."""
     target = AxisAlignedBoundingBox((0.0, 0.0, 0.0), (1.0, 1.0, 1.0))
@@ -293,13 +272,12 @@ def test_volume_fraction_within():
     torch.testing.assert_close(target.volume_fraction_within(large), torch.tensor([1.0]))
 
 
-def test_contained_corner_fraction_is_not_volume_fraction():
+def test_volume_fraction_within_partial_targets():
     """Two targets can contain the same corners but very different object volumes."""
     object_bounds = AxisAlignedBoundingBox((0.0, 0.0, 0.0), (1.0, 1.0, 1.0))
     targets = AxisAlignedBoundingBox(
         min_point=torch.zeros(2, 3),
         max_point=torch.tensor([[0.1, 1.0, 1.0], [0.9, 1.0, 1.0]]),
     )
-    corners_inside = targets.points_within(object_bounds.get_corners_at()).float().mean(dim=1)
-    torch.testing.assert_close(corners_inside, torch.tensor([0.5, 0.5]))
+    # Both targets contain the four x=0 corners, but overlap different volumes.
     torch.testing.assert_close(object_bounds.volume_fraction_within(targets), torch.tensor([0.1, 0.9]))
