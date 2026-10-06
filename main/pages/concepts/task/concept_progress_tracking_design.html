@@ -882,6 +882,82 @@ Read each environment’s state and completed-predicate events as follows:</p>
 </div>
 <p>After an automatic reset, <code class="docutils literal notranslate"><span class="pre">env.extras[&quot;progress_tracking&quot;]</span></code> still shows the finished episode
 until the next step.</p>
+<section id="episode-consecutive-step-summary">
+<span id="consecutive-step-episode-summary"></span><h3>Episode consecutive-step summary<a class="headerlink" href="#episode-consecutive-step-summary" title="Link to this heading">#</a></h3>
+<p>Some task conditions must remain true for several consecutive control steps. The episode
+summary shows each condition’s last recorded streak and when it first completed. For example,
+an object that must stay still for ten steps needs four more uninterrupted qualifying steps
+at <code class="docutils literal notranslate"><span class="pre">6/10</span></code>; movement resets the streak. Counts reflect the last evaluation, not the longest
+streak achieved during the episode.</p>
+<p>The episode recorder calls <code class="docutils literal notranslate"><span class="pre">ProgressTracker.get_consecutive_step_summary(env_idx)</span></code> before
+reset to read existing counters and completion events for <code class="docutils literal notranslate"><span class="pre">TrueForConsecutiveStepsCfg</span></code>
+requirements only. Nonempty results are added as <code class="docutils literal notranslate"><span class="pre">progress.consecutive_step_summary</span></code> to
+episode JSONL and the Experiment Runner’s <code class="docutils literal notranslate"><span class="pre">arena_experiment_result.json</span></code>. When no such
+requirements exist, the method returns an empty list and the recorder omits the field.
+Each entry identifies the criteria, sequence, and predicate position, and includes:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">consecutive_steps</span></code> and <code class="docutils literal notranslate"><span class="pre">required_steps</span></code>: the recorded streak and its target.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">first_satisfied_step</span></code>: the episode control step when the requirement completed, or <code class="docutils literal notranslate"><span class="pre">null</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">status</span></code>: whether the requirement is completed, active, or waiting, as described below.</p></li>
+</ul>
+<div class="pst-scrollable-table-container"><table class="table" id="id2">
+<caption><span class="caption-text">Consecutive-step requirement statuses</span><a class="headerlink" href="#id2" title="Link to this table">#</a></caption>
+<colgroup>
+<col style="width: 20.0%" />
+<col style="width: 80.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Status</p></th>
+<th class="head"><p>Meaning</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">completed</span></code></p></td>
+<td><p>The sequence has advanced past this requirement. Its completion history is retained
+even if a later final-condition recheck resets its streak.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">active</span></code></p></td>
+<td><p>This is the current requirement in its sequence and its subtask is enabled.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">waiting</span></code></p></td>
+<td><p>An earlier requirement in the same sequence or an earlier sequential subtask must complete first.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>The HTML report shows these fields in each episode’s <strong>Task completion summary</strong> table.
+A waiting requirement has not yet been reached. Completed milestones retain their first
+satisfied step even if a later final-condition recheck resets the streak.</p>
+<section id="example-consecutive-step-summaries">
+<h4>Example consecutive-step summaries<a class="headerlink" href="#example-consecutive-step-summaries" title="Link to this heading">#</a></h4>
+<p>These examples cover consecutive-step requirements only. A is true on steps 1–10, then
+false; B is true from step 2 onward. Each requirement needs ten qualifying steps.</p>
+<div class="pst-scrollable-table-container"><table class="table" id="id3">
+<caption><span class="caption-text">Episode summaries</span><a class="headerlink" href="#id3" title="Link to this table">#</a></caption>
+<colgroup>
+<col style="width: 35.0%" />
+<col style="width: 65.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Requirement</p></th>
+<th class="head"><p>Recorded summary</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Sequential A then B</p></td>
+<td><p>Both 10/10; first satisfied at steps 10 and 20.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Independent parallel A and B</p></td>
+<td><p>Both 10/10; first satisfied at steps 10 and 11.</p></td>
+</tr>
+<tr class="row-even"><td><p>Joint A &amp; B for the same ten steps</p></td>
+<td><p>At timeout step 20: 0/10, active, first satisfied is null.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>The joint streak reaches 9/10, then resets when A becomes false. If that episode instead
+ends at step 7, the summary shows 6/10, with four more uninterrupted qualifying steps needed.</p>
 <p>Arena’s episode recorder also serializes the final progress state and predicate events into the
 episode’s JSONL record when an output path is configured. Tasks without completion criteria have
 no success termination or progress-tracking configuration and produce no progress fields.</p>
@@ -928,6 +1004,8 @@ Placement is still required. The two events record when settling and lifting com
 <p>The recording schema uses the same criteria and sequence names as the runtime API. Older
 recordings that use <code class="docutils literal notranslate"><span class="pre">objectives</span></code>, <code class="docutils literal notranslate"><span class="pre">objective</span></code>, or <code class="docutils literal notranslate"><span class="pre">group</span></code> fields require conversion or
 regeneration before they can be read by the current report tools.</p>
+</section>
+</section>
 </section>
 </section>
 
@@ -993,7 +1071,13 @@ regeneration before they can be read by the current report tools.</p>
 </ul>
 </li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#subtask-progress-tracking-in-composite-and-sequential-tasks">Subtask progress tracking in composite and sequential tasks</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#reading-subtask-progress-tracking-at-runtime">Reading subtask progress tracking at runtime</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#reading-subtask-progress-tracking-at-runtime">Reading subtask progress tracking at runtime</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#episode-consecutive-step-summary">Episode consecutive-step summary</a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#example-consecutive-step-summaries">Example consecutive-step summaries</a></li>
+</ul>
+</li>
+</ul>
+</li>
 </ul>
   </nav></div>
 
