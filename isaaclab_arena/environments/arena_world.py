@@ -321,6 +321,15 @@ class ArenaWorld:
         )
         return vertices_w
 
+    def get_aabb_w(self, scene_key: str) -> AxisAlignedBoundingBox:
+        """Return bounds of current geometry vertices in world frame W.
+
+        Deformables use live nodes; other objects use transformed cached local-box corners.
+        The local cache assumes descendants remain fixed relative to their geometry frame.
+        """
+        vertices_W = self.get_vertices_w(scene_key)
+        return AxisAlignedBoundingBox(min_point=vertices_W.amin(dim=1), max_point=vertices_W.amax(dim=1))
+
     def get_aabb_in_local_frame(self, scene_key: str) -> AxisAlignedBoundingBox:
         """Return cached rigid-object or scene-extra geometry bounds in local frame F.
 

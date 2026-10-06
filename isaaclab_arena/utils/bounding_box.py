@@ -182,6 +182,25 @@ class AxisAlignedBoundingBox:
         """Per-env flag for boxes with min > max on any axis."""
         return (self._min_point > self._max_point).any(dim=-1)
 
+    def volume_fraction_within(self, other: "AxisAlignedBoundingBox") -> torch.Tensor:
+        """Return the fraction of this box's volume inside another box.
+
+        Args:
+            other: Destination bounds in the same frame and on the same device.
+                Batch sizes must match, or one must be one.
+
+        Returns:
+            Fractions in [0, 1], one per broadcast box pair. Zero-volume boxes
+            return zero because they have no contained volume.
+        """
+        assert self.num_envs == other.num_envs or self.num_envs == 1 or other.num_envs == 1
+        intersection_min = torch.maximum(self.min_point, other.min_point)
+        intersection_max = torch.minimum(self.max_point, other.max_point)
+        intersection_volume = (intersection_max - intersection_min).clamp_min(0).prod(dim=-1)
+        volume = self.size.clamp_min(0).prod(dim=-1)
+        safe_volume = torch.where(volume > 0, volume, torch.ones_like(volume))
+        return (intersection_volume / safe_volume).clamp(0, 1)
+
     def overlaps(self, other: "AxisAlignedBoundingBox", margin: float = 0.0) -> torch.Tensor:
         """Check if two AABBs overlap in 3D.
 

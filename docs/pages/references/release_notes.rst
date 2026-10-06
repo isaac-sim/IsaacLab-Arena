@@ -20,6 +20,10 @@ This release:
 - **Heterogeneous object sets:** Added support for multiple heterogeneous object sets
   in one scene, including contact-sensor path validation and a multi-object
   pick-and-place example (#1381).
+- **Object-in task:** Added ``ObjectInTask`` for placing and settling objects in
+  containers. Success combines configurable bounding-box containment, target contact,
+  and low velocity over consecutive steps, with separate entry and settling progress
+  milestones (#1390).
 - **Task completion and progress:** Unified success checks and progress tracking
   around ``CompletionCriteria``. Added consecutive-step requirements, one progress
   update per control step, and episode-end streak counts and first-completion steps
