@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="780" height="524" viewBox="0 0 780 524" role="img" aria-labelledby="title description">
+  <title id="title">Ordinary and clutter recording</title>
+  <desc id="description">Ordinary relations produce target poses; ClutterOn produces release poses. Both use solver checks. Clutter also checks scene prerequisites before reset. The shared recorder resets and settles the scene, then applies post-physics checks. Both check final speeds. Ordinary roots have pose-shift limits; clutter drops are exempt and checked for support containment instead. Accepted final root poses are recorded for replay. The surrounding guide describes the full acceptance criteria.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8" fill="#42566b"/>
+    </marker>
+    <style>
+      text { font-family: Arial, sans-serif; fill: #162c40; text-anchor: middle; }
+      .heading { font-size: 21px; font-weight: bold; }
+      .detail { font-size: 18px; }
+      .box { stroke: #42566b; stroke-width: 1.5; rx: 8; }
+      .flow { fill: none; stroke: #42566b; stroke-width: 2; marker-end: url(#arrow); }
+      .divider { stroke: #a8b6c3; stroke-width: 1; }
+    </style>
+  </defs>
+  <rect width="780" height="524" fill="white"/>
+
+  <text class="heading" x="195" y="27">Ordinary relations</text>
+  <text class="heading" x="585" y="27">ClutterOn</text>
+
+  <rect class="box" x="20" y="46" width="350" height="74" fill="#e7f1f9"/>
+  <text class="heading" x="195" y="77">Solve target poses</text>
+  <text class="detail" x="195" y="103">Relation + collision checks</text>
+  <rect class="box" x="410" y="46" width="350" height="74" fill="#e7f1f9"/>
+  <text class="heading" x="585" y="77">Solve release poses</text>
+  <text class="detail" x="585" y="103">Release region + collision checks</text>
+
+  <path class="flow" d="M195,120 V222 H285 V238"/>
+  <path class="flow" d="M585,120 V144"/>
+  <rect class="box" x="410" y="144" width="350" height="62" fill="#fff2de"/>
+  <text class="heading" x="585" y="170">Clutter preflight</text>
+  <text class="detail" x="585" y="195">Fixed supports · dynamic clutter</text>
+  <path class="flow" d="M585,206 V222 H495 V238"/>
+
+  <rect class="box" x="195" y="238" width="390" height="50" fill="#e8f3e1"/>
+  <text class="heading" x="390" y="270">Reset → settle</text>
+  <path class="flow" d="M390,288 V308"/>
+
+  <rect class="box" x="20" y="308" width="740" height="132" fill="#e8f3e1"/>
+  <text class="heading" x="390" y="335">Post-physics checks</text>
+  <text class="detail" x="390" y="360">Both: final speed limits</text>
+  <path class="divider" d="M36,374 H744 M390,384 V430"/>
+  <text class="detail" x="195" y="406">Limit pose shift</text>
+  <text class="detail" x="585" y="397">Allow clutter drops</text>
+  <text class="detail" x="585" y="423">Check support containment</text>
+  <path class="flow" d="M390,440 V464"/>
+
+  <rect class="box" x="135" y="464" width="510" height="48" fill="#e7f1f9"/>
+  <text class="heading" x="390" y="495">Record accepted poses → replay</text>
+</svg>

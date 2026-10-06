@@ -6,10 +6,47 @@
 import contextlib
 import os
 import tempfile
+from types import SimpleNamespace
+from unittest.mock import patch
 
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
 HEADLESS = True
+
+
+def _test_cache_pipeline_preserves_nested_default_rigid_body(simulation_app, tmp_path):
+    """Renaming a nested default prim must preserve lookup scope and material bindings."""
+    from pxr import Gf, Usd, UsdGeom, UsdPhysics, UsdShade
+
+    from isaaclab_arena.utils.usd.object_set_utils import rescale_rename_rigid_body_and_save_to_cache
+
+    source_path = tmp_path / "nested.usda"
+    stage = Usd.Stage.CreateNew(str(source_path))
+    body = UsdGeom.Xform.Define(stage, "/Outer/Asset").GetPrim()
+    UsdPhysics.RigidBodyAPI.Apply(body)
+    stage.SetDefaultPrim(body)
+    material = UsdShade.Material.Define(stage, "/Outer/Asset/Looks/Mat")
+    UsdShade.MaterialBindingAPI.Apply(body).Bind(material)
+    # An unrelated shallower body must not become the target after the default prim is renamed.
+    auxiliary = UsdGeom.Xform.Define(stage, "/Auxiliary").GetPrim()
+    UsdPhysics.RigidBodyAPI.Apply(auxiliary)
+    stage.GetRootLayer().Save()
+    asset = SimpleNamespace(name="nested", usd_path=str(source_path), scale=(2.0, 2.0, 2.0))
+
+    with patch("isaaclab_arena.utils.usd.object_set_utils.get_arena_asset_cache_dir", return_value=tmp_path):
+        cache_path = rescale_rename_rigid_body_and_save_to_cache(asset)
+
+    cached_stage = Usd.Stage.Open(cache_path)
+    assert cached_stage.GetDefaultPrim().GetPath() == "/Outer"
+    composed_stage = Usd.Stage.CreateInMemory()
+    holder = composed_stage.DefinePrim("/World/member", "Xform")
+    holder.GetReferences().AddReference(cache_path)
+    bodies = [prim for prim in composed_stage.Traverse() if prim.HasAPI(UsdPhysics.RigidBodyAPI)]
+    assert [str(prim.GetPath()) for prim in bodies] == ["/World/member/rigid_body"]
+    assert bodies[0].GetAttribute("xformOp:scale").Get() == Gf.Vec3f(2.0, 2.0, 2.0)
+    bound_material, _ = UsdShade.MaterialBindingAPI(bodies[0]).ComputeBoundMaterial()
+    assert bound_material.GetPath() == "/World/member/rigid_body/Looks/Mat"
+    return True
 
 
 def _test_rescale_rename_rigid_body_and_save_to_cache_depth0(simulation_app):
@@ -179,6 +216,15 @@ def _test_cache_pipeline_unifies_mixed_rigid_body_depths(simulation_app):
                 os.unlink(asset.usd_path)
             with contextlib.suppress(OSError):
                 os.unlink(get_object_set_asset_cache_path(asset, asset.scale))
+
+
+def test_cache_pipeline_preserves_nested_default_rigid_body(tmp_path):
+    result = run_function_with_persistent_simulation_app(
+        _test_cache_pipeline_preserves_nested_default_rigid_body,
+        headless=HEADLESS,
+        tmp_path=tmp_path,
+    )
+    assert result
 
 
 def test_rescale_rename_rigid_body_and_save_to_cache_depth0():

@@ -76,6 +76,8 @@ def rollout_policy(
 
     pbar = None
     try:
+        if num_episodes is not None:
+            env.unwrapped.configure_episode_limit(num_episodes)
         obs, _ = env.reset()
         policy.reset()
         policy.set_task_description(env.unwrapped.get_language_instruction())
@@ -86,7 +88,6 @@ def rollout_policy(
         else:
             pbar = tqdm.tqdm(total=num_episodes, desc="Episodes", unit="episode")
 
-        num_episodes_completed = 0
         num_steps_completed = 0
 
         while True:
@@ -96,27 +97,23 @@ def rollout_policy(
                 with Timer("env_step"):
                     obs, _, terminated, truncated, _ = env.step(actions)
 
+                reset_env_ids = env.unwrapped.reset_env_ids
+                if reset_env_ids.numel() > 0:
+                    print(f"Resetting policy state for env_ids: {reset_env_ids}")
+                    policy.reset(env_ids=reset_env_ids)
+
                 if terminated.any() or truncated.any():
-                    # Only reset policy for those envs that are terminated or truncated
-                    print(
-                        f"Resetting policy for terminated env_ids: {terminated.nonzero().flatten()}"
-                        f" and truncated env_ids: {truncated.nonzero().flatten()}"
-                    )
-                    env_ids = (terminated | truncated).nonzero().flatten()
-                    policy.reset(env_ids=env_ids)
-                    # Break if number of episodes is reached
-                    completed_episodes = env_ids.shape[0]
-                    num_episodes_completed += completed_episodes
                     if hasattr(env.unwrapped.cfg, "metrics") and env.unwrapped.cfg.metrics is not None:
                         metrics = env.unwrapped.compute_metrics()
                         tqdm.tqdm.write(
                             f"[Rank {get_local_rank()}/{get_world_size()}] Metrics:"
                             f" {metrics_to_plain_python_types(metrics)}"
                         )
-                    if num_episodes is not None:
-                        pbar.update(completed_episodes)
-                        if num_episodes_completed >= num_episodes:
-                            break
+                if num_episodes is not None:
+                    completed_episode_count = env.unwrapped.completed_episode_count
+                    pbar.update(completed_episode_count - pbar.n)
+                    if completed_episode_count == num_episodes:
+                        break
                 # Break if number of steps is reached
                 num_steps_completed += 1
                 if num_steps is not None:

@@ -138,6 +138,26 @@ class ArenaWorld:
         ), f"Joint '{joint_name}' returned shape {tuple(joint_position.shape)}; expected ({self._scene.num_envs},)."
         return joint_position
 
+    def get_joint_position_target(self, scene_key: str, joint_name: str) -> torch.Tensor:
+        """Return a named joint's most recently applied position target.
+
+        Args:
+            scene_key: Articulation scene entity name.
+            joint_name: Exact joint name within the articulation.
+
+        Returns:
+            Tensor of shape (num_envs,), in radians for revolute joints or meters
+            for prismatic joints, from the articulation's command buffer.
+        """
+        assert scene_key in self._scene.articulations, f"'{scene_key}' must name an articulation."
+        data = self._scene.articulations[scene_key].data
+        assert joint_name in data.joint_names, f"Articulation '{scene_key}' has no joint '{joint_name}'."
+        target = data.joint_pos_target.torch[:, data.joint_names.index(joint_name)]
+        assert target.shape == (
+            self._scene.num_envs,
+        ), f"Joint '{joint_name}' returned target shape {tuple(target.shape)}; expected ({self._scene.num_envs},)."
+        return target
+
     def get_body_pose_w(self, scene_key: str, body_name: str) -> torch.Tensor:
         """Return the world-frame link pose of a named articulation body.
 

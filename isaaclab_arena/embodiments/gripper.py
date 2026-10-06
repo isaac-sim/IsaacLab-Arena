@@ -16,11 +16,21 @@ from isaaclab.utils.math import combine_frame_transforms
 
 if TYPE_CHECKING:
     from isaaclab_arena.environments.arena_world import ArenaWorld
+    from isaaclab_arena.environments.isaaclab_arena_manager_based_env import IsaacLabArenaManagerBasedRLEnv
 
 
 _ROBOTIQ_2F85_LINKAGE_AMPLITUDE_M = 0.1143
 _ROBOTIQ_2F85_PHASE_OFFSET_RAD = 0.715
 _ROBOTIQ_2F85_GAP_OFFSET_M = 0.01
+
+
+def _robotiq_jaw_gap_m(driver_position: torch.Tensor) -> torch.Tensor:
+    """Convert the 2F-85 driver angle to its physical inner-finger opening."""
+    jaw_gap_m = (
+        _ROBOTIQ_2F85_LINKAGE_AMPLITUDE_M * torch.sin(_ROBOTIQ_2F85_PHASE_OFFSET_RAD - driver_position)
+        + _ROBOTIQ_2F85_GAP_OFFSET_M
+    )
+    return torch.clamp(jaw_gap_m, min=0.0, max=0.085)
 
 
 class Gripper(Protocol):
@@ -33,6 +43,23 @@ class Gripper(Protocol):
     def get_opening_width_m(self, world: ArenaWorld) -> torch.Tensor:
         """Return the gripper opening width in meters with shape ``(num_envs,)``."""
         ...
+
+    def get_closing_error_m(self, env: IsaacLabArenaManagerBasedRLEnv) -> torch.Tensor:
+        """Return measured-minus-commanded finger displacement in meters.
+
+        Use a linear finger-position coordinate that increases as the gripper opens.
+        A positive error means the finger is more open than its commanded position;
+        zero means it has reached that position, and negative means it is more closed.
+        For a symmetric parallel-jaw gripper, this is one driven finger's displacement,
+        not the full jaw gap. A positive error alone does not establish contact or a stall.
+
+        Args:
+            env: Environment supplying the measured finger position and commanded target.
+
+        Returns:
+            Signed position error with shape ``(num_envs,)``.
+        """
+        raise NotImplementedError(f"{type(self).__name__} does not expose a closing command error.")
 
 
 class ParallelJawGripper(Gripper, Protocol):
@@ -73,6 +100,13 @@ class PandaGripper(ParallelJawGripper):
         """Return the configured Franka grasp-frame position."""
         return world.get_frame_position_w(self.frame_transformer_name, self.target_frame_name)
 
+    def get_closing_error_m(self, env: IsaacLabArenaManagerBasedRLEnv) -> torch.Tensor:
+        """Return the left finger's measured position minus its applied position target, in meters."""
+        world = env.arena_world
+        measured = world.get_joint_position("robot", self.left_finger_joint_name)
+        commanded = world.get_joint_position_target("robot", self.left_finger_joint_name)
+        return measured - commanded
+
 
 @dataclass(frozen=True, kw_only=True)
 class RobotiqGripper(ParallelJawGripper):
@@ -83,7 +117,10 @@ class RobotiqGripper(ParallelJawGripper):
     """
 
     driver_joint_name: str | None = None
-    """Joint used to measure opening, or None to use tracked finger pads."""
+    """Joint used to measure opening, or None to use tracked finger pads.
+
+    Closing error uses this joint, or ``finger_joint`` when None.
+    """
 
     body_name: str | None = None
     """Body used to measure position, or None to use the frame-transformer target."""
@@ -117,15 +154,18 @@ class RobotiqGripper(ParallelJawGripper):
         """Return the physical distance between the two finger pads."""
         if self.driver_joint_name is not None:
             driver_position = world.get_joint_position("robot", self.driver_joint_name)
-            # The 2F-85 linkage maps its driver angle to an 85 mm maximum inner-finger opening.
-            jaw_gap_m = (
-                _ROBOTIQ_2F85_LINKAGE_AMPLITUDE_M * torch.sin(_ROBOTIQ_2F85_PHASE_OFFSET_RAD - driver_position)
-                + _ROBOTIQ_2F85_GAP_OFFSET_M
-            )
-            return torch.clamp(jaw_gap_m, min=0.0, max=0.085)
+            return _robotiq_jaw_gap_m(driver_position)
         left = world.get_frame_position_w(self.frame_transformer_name, self.left_finger_frame_name)
         right = world.get_frame_position_w(self.frame_transformer_name, self.right_finger_frame_name)
         return torch.linalg.vector_norm(left - right, dim=-1)
+
+    def get_closing_error_m(self, env: IsaacLabArenaManagerBasedRLEnv) -> torch.Tensor:
+        """Return half the measured-minus-commanded jaw gap, mapping both driver angles to meters."""
+        world = env.arena_world
+        joint_name = self.driver_joint_name or "finger_joint"
+        measured = world.get_joint_position("robot", joint_name)
+        commanded = world.get_joint_position_target("robot", joint_name)
+        return 0.5 * (_robotiq_jaw_gap_m(measured) - _robotiq_jaw_gap_m(commanded))
 
     def get_position_w(self, world: ArenaWorld) -> torch.Tensor:
         """Return the configured Robotiq grasp-frame position."""

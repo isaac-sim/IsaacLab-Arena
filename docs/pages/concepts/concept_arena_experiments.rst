@@ -71,6 +71,9 @@ values are reused by every Run. Each key below ``runs`` is a Run name:
 the background. The Run name comes from its key below ``runs``; there is no separate ``name``
 field. Arena uses this name in command-line overrides, output directories, and reports.
 
+Use ``rollout_limit.num_episodes`` instead of ``rollout_limit.num_steps`` to start and finish
+exactly that many episodes per Run, across all rebuilds.
+
 Runs keep their YAML order and execute locally in that order.
 
 
