@@ -50,7 +50,6 @@ class ObjectInTask(TaskBase):
             task_description: Optional task description.
             contact_force_threshold: Minimum destination contact force in newtons.
             minimum_contained_fraction: Required object AABB volume fraction inside the target, in (0, 1].
-                Both bounds are aligned with the target's local frame.
         """
         super().__init__(episode_length_s=episode_length_s, task_description=task_description)
         assert 0 < minimum_contained_fraction <= 1

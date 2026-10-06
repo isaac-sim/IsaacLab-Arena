@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Verify target-frame containment and a simulated apple drop."""
+"""Verify outside-to-inside containment through a simulated apple drop."""
 
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
@@ -106,55 +106,3 @@ def _test_apple_in_microwave(_simulation_app):
 
 def test_apple_in_microwave():
     assert run_function_with_persistent_simulation_app(_test_apple_in_microwave)
-
-
-def _test_target_frame_containment(_simulation_app):
-    import math
-    import torch
-    from types import SimpleNamespace
-
-    from isaaclab_arena.tasks.predicates.spatial import object_in_target_aabb
-    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
-
-    target_bounds = AxisAlignedBoundingBox((-1.0, -1.0, 0.0), (1.0, 1.0, 1.0))
-    object_bounds = AxisAlignedBoundingBox((-0.05, -0.05, -0.05), (0.05, 0.05, 0.05))
-    # Four translated targets, all yawed 45 degrees. Case 0 is inside the world
-    # AABB but outside the target; the final two cases violate its Z bounds.
-    translations = torch.tensor([[2.0, 3.0, 4.0], [-2.0, 1.0, 0.0], [0.0, 0.0, 0.0], [5.0, 0.0, 2.0]])
-    offsets_W = torch.tensor([[1.2, 1.2, 0.5], [0.0, 0.0, 0.5], [0.0, 0.0, 1.2], [0.0, 0.0, -0.2]])
-    vertices_W = object_bounds.get_corners_at() + (translations + offsets_W)[:, None, :]
-    quaternion = torch.tensor([0.0, 0.0, math.sin(math.pi / 8), math.cos(math.pi / 8)])
-    poses = torch.cat([translations, quaternion.expand(4, -1)], dim=1)
-    world = SimpleNamespace(
-        get_vertices_w=lambda _: vertices_W,
-        get_pose_w=lambda _: poses,
-        get_aabb_in_local_frame=lambda _: target_bounds,
-    )
-    env = SimpleNamespace(arena_world=world)
-    torch.testing.assert_close(
-        object_in_target_aabb(env, "object", "target"), torch.tensor([False, True, False, False])
-    )
-
-    # Confirm case 0 would pass the former world-AABB check.
-    target_world_bounds = AxisAlignedBoundingBox(
-        (-math.sqrt(2), -math.sqrt(2), 0.0), (math.sqrt(2), math.sqrt(2), 1.0)
-    ).translated(translations[0])
-    object_world_bounds = AxisAlignedBoundingBox(vertices_W[0].amin(dim=0), vertices_W[0].amax(dim=0))
-    torch.testing.assert_close(object_world_bounds.volume_fraction_within(target_world_bounds), torch.ones(1))
-
-    # Rotate both a unit cube and its target together: the overlap fractions
-    # remain 10% and 90%, although both targets contain four of eight corners.
-    corners_T = AxisAlignedBoundingBox((0.0, 0.0, 0.0), (1.0, 1.0, 1.0)).get_corners_at()
-    x, y, z = corners_T.unbind(dim=-1)
-    corners_W = torch.stack([(x - y) / math.sqrt(2), (x + y) / math.sqrt(2), z], dim=-1)
-    vertices_W = corners_W + translations[:2, None, :]
-    poses = poses[:2]
-    target_bounds = AxisAlignedBoundingBox(torch.zeros(2, 3), torch.tensor([[0.1, 1.0, 1.0], [0.9, 1.0, 1.0]]))
-    torch.testing.assert_close(object_in_target_aabb(env, "object", "target", 0.05), torch.tensor([True, True]))
-    torch.testing.assert_close(object_in_target_aabb(env, "object", "target", 0.8), torch.tensor([False, True]))
-    torch.testing.assert_close(object_in_target_aabb(env, "object", "target", 0.95), torch.tensor([False, False]))
-    return True
-
-
-def test_target_frame_containment():
-    assert run_function_with_persistent_simulation_app(_test_target_frame_containment)

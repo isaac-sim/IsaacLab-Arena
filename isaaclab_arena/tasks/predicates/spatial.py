@@ -475,16 +475,12 @@ def object_in_target_aabb(
     target_name: str,
     minimum_contained_fraction: float = 1.0,
 ) -> torch.Tensor:
-    """Check object AABB volume containment in the target's local frame.
-
-    Transform object vertices into target frame T before enclosing them in an AABB.
-    This avoids enlarging the target bounds when the target rotates. The fraction
-    measures this enclosing box's volume, not mesh volume or the fraction of vertices.
+    """Check the fraction of object AABB volume within the target world-frame AABB.
 
     Args:
         env: Environment supplying live geometry through ArenaWorld.
         object_name: Deposited object's scene key.
-        target_name: Rooted container object's scene key, with cached local geometry bounds.
+        target_name: Container object's scene key.
         minimum_contained_fraction: Required volume fraction in (0, 1]; 1 requires full containment.
 
     Returns:
@@ -492,14 +488,9 @@ def object_in_target_aabb(
         not mesh volume.
     """
     assert math.isfinite(minimum_contained_fraction) and 0 < minimum_contained_fraction <= 1
-    world = env.arena_world
-    vertices_W = world.get_vertices_w(object_name)
-    T_W_T = world.get_pose_w(target_name)
-    q_W_T = T_W_T[:, None, 3:].expand(-1, vertices_W.shape[1], -1)
-    vertices_T = quat_apply_inverse(q_W_T, vertices_W - T_W_T[:, None, :3])
-    object_aabb_T = AxisAlignedBoundingBox(min_point=vertices_T.amin(dim=1), max_point=vertices_T.amax(dim=1))
-    target_aabb_T = world.get_aabb_in_local_frame(target_name)
-    return object_aabb_T.volume_fraction_within(target_aabb_T) >= minimum_contained_fraction
+    object_aabb_W = env.arena_world.get_aabb_w(object_name)
+    target_aabb_W = env.arena_world.get_aabb_w(target_name)
+    return object_aabb_W.volume_fraction_within(target_aabb_W) >= minimum_contained_fraction
 
 
 def object_in_contact_with_target(
