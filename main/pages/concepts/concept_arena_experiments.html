@@ -648,6 +648,8 @@ values are reused by every Run. Each key below <code class="docutils literal not
 <p><code class="docutils literal notranslate"><span class="pre">baseline</span></code> inherits all shared values. <code class="docutils literal notranslate"><span class="pre">billiard_hall</span></code> inherits them too, then replaces only
 the background. The Run name comes from its key below <code class="docutils literal notranslate"><span class="pre">runs</span></code>; there is no separate <code class="docutils literal notranslate"><span class="pre">name</span></code>
 field. Arena uses this name in command-line overrides, output directories, and reports.</p>
+<p>Use <code class="docutils literal notranslate"><span class="pre">rollout_limit.num_episodes</span></code> instead of <code class="docutils literal notranslate"><span class="pre">rollout_limit.num_steps</span></code> to start and finish
+exactly that many episodes per Run, across all rebuilds.</p>
 <p>Runs keep their YAML order and execute locally in that order.</p>
 </section>
 <section id="one-definition-two-execution-paths">
