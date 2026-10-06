@@ -41,8 +41,13 @@ def rename_rigid_body(stage: Usd.Stage, new_name: str) -> str:
     shallowest_rigid_body = find_shallowest_rigid_body_from_stage(stage, within_default_prim=True)
     prim = stage.GetPrimAtPath(shallowest_rigid_body)
     assert prim.IsValid()
+    is_default_prim = prim == stage.GetDefaultPrim()
     prim_spec = stage.GetRootLayer().GetPrimAtPath(shallowest_rigid_body)
     prim_spec.name = new_name
+    if is_default_prim:
+        # Renaming a prim spec does not update the layer's defaultPrim metadata.
+        # Keep default-prim-scoped lookups valid until the cache selects the parent.
+        stage.SetDefaultPrim(stage.GetPrimAtPath(prim_spec.path))
     return shallowest_rigid_body
 
 
