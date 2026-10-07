@@ -49,7 +49,7 @@ relations:
     yaw_rad: 1.57
 task:
   composition: atomic
-  description: open the fridge door
+  description: Open the fridge door.
   subtasks:
   - kind: OpenDoorTask
     params:
