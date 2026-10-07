@@ -170,8 +170,7 @@ To validate the environment loads correctly, run one training iteration and chec
 
 If the environment is set up correctly, you will see one iteration of training output before the script exits.
 
-You should see a summary like the following, captured with the command above and
-``--viz none`` for headless execution. Timings and metric values vary with hardware,
+You should see a summary like the following. Timings and metric values vary with hardware,
 configuration, and random seed.
 
 .. code-block:: text
