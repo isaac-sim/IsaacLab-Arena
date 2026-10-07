@@ -43,7 +43,7 @@ def _test_camera_observation(simulation_app) -> bool:
 
     isaaclab_arena_environment = IsaacLabArenaEnvironment(
         name="camera_observation_test",
-        embodiment=GR1T2PinkEmbodiment(enable_cameras=True),
+        embodiments=[GR1T2PinkEmbodiment(enable_cameras=True)],
         scene=scene,
     )
 

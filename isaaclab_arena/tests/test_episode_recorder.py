@@ -28,6 +28,7 @@ LANGUAGE_INSTRUCTION = "put the box in the drawer"
 CORE_KEYS = {
     "job_name",
     "episode_in_env",
+    "embodiments",
     "env_id",
     "seed",
     "success",
@@ -127,7 +128,7 @@ def create_recorder_env(
     scene = Scene(assets=[background, cracker_box, destination_location])
     isaaclab_arena_environment = IsaacLabArenaEnvironment(
         name="episode_recorder",
-        embodiment=embodiment,
+        embodiments=[embodiment],
         scene=scene,
         task=PickAndPlaceTask(cracker_box, destination_location, background),
         teleop_device=None,

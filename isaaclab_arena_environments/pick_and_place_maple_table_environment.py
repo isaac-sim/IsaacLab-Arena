@@ -114,7 +114,7 @@ class PickAndPlaceMapleTableEnvironment(ArenaEnvironmentFactory[PickAndPlaceMapl
         # Step 7: Assemble the environment
         isaaclab_arena_environment = IsaacLabArenaEnvironment(
             name=self.name,
-            embodiment=embodiment,
+            embodiments=[embodiment],
             scene=scene,
             task=task,
             env_cfg_callback=_set_viewer_cfg,

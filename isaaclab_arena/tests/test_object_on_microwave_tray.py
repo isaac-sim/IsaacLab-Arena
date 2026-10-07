@@ -47,7 +47,7 @@ def _make_microwave_tray_environment():
     scene = Scene(assets=[background, microwave, dex_cube, destination_ref])
     isaaclab_arena_environment = IsaacLabArenaEnvironment(
         name="microwave_tray",
-        embodiment=FrankaIKEmbodiment(),
+        embodiments=[FrankaIKEmbodiment()],
         scene=scene,
         task=PickAndPlaceTask(dex_cube, destination_ref, background),
     )

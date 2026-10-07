@@ -97,7 +97,7 @@ def _test_spawn_pose_matches_the_reset_pose(simulation_app) -> bool:
             embodiment = embodiment_class(initial_joint_pose=override)
             environment = IsaacLabArenaEnvironment(
                 name=f"spawn_pose_{embodiment_class.__name__}_{override is not None}",
-                embodiment=embodiment,
+                embodiments=[embodiment],
                 scene=Scene(assets=[]),
             )
             builder_cfg = arena_env_builder_cfg_from_argparse(get_isaaclab_arena_cli_parser().parse_args([]))

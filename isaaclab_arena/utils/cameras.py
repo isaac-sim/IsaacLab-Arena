@@ -17,7 +17,12 @@ from isaaclab.managers import SceneEntityCfg
 from isaaclab.sensors import CameraCfg, TiledCameraCfg  # noqa: F401
 
 from isaaclab_arena.assets.asset import Asset
-from isaaclab_arena.utils.configclass import make_configclass
+from isaaclab_arena.utils.configclass import (
+    combine_configclass_instances,
+    combine_unique,
+    make_configclass,
+    transform_configclass_instance,
+)
 from isaaclab_arena.utils.pose import Pose, PosePerEnv, PoseRange
 
 
@@ -186,3 +191,36 @@ def get_viewer_cfg_look_at_object(lookat_object: Asset, offset: np.ndarray) -> V
     camera_vec = np.array(lookat, dtype=float) + np.array(offset, dtype=float)
     camera_position = tuple(float(x) for x in camera_vec.tolist())
     return ViewerCfg(eye=camera_position, lookat=lookat, origin_type="env")
+
+
+def combine_observation_cfgs(*configs: Any) -> Any:
+    """Combine observation configurations, merging every camera term into one ``camera_obs`` group.
+
+    A later ordinary observation group replaces an earlier group of the same name, so a task can
+    override a robot's group. Camera terms extend each other, and every contribution must agree on
+    the camera group's settings.
+
+    Args:
+        configs: Observation configurations in contribution order. None entries are skipped.
+
+    Returns:
+        The combined observation configuration.
+    """
+    configs = [cfg for cfg in configs if cfg is not None]
+    camera_groups = [cfg.camera_obs for cfg in configs if getattr(cfg, "camera_obs", None) is not None]
+    if len(camera_groups) <= 1:
+        return combine_configclass_instances("ObservationCfg", *configs)
+    for group in camera_groups[1:]:
+        for setting in fields(ObsGroup):
+            assert getattr(group, setting.name) == getattr(
+                camera_groups[0], setting.name
+            ), f"Camera groups disagree on '{setting.name}'"
+    camera_group = combine_unique("CameraObsCfg", *camera_groups, bases=(ObsGroup,))
+    cameras = make_configclass("CameraObservationsCfg", [("camera_obs", type(camera_group), camera_group)])()
+    ordinary_cfgs = [transform_configclass_instance(cfg, _without_camera_group) for cfg in configs]
+    return combine_configclass_instances("ObservationCfg", *ordinary_cfgs, cameras)
+
+
+def _without_camera_group(entries: list[tuple[str, type, Any]]) -> list[tuple[str, type, Any]]:
+    """Return the observation field entries other than the ``camera_obs`` group."""
+    return [entry for entry in entries if entry[0] != "camera_obs"]

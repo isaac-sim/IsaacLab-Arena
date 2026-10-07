@@ -138,6 +138,11 @@ Every asset has an object type that determines how it is simulated:
 - **ARTICULATION** — a multi-body scene object with joints (doors, drawers, appliances).
 - **BASE** — no physics; used for static backgrounds and markers.
 
+Each articulated object resets its own joints to their defaults on every episode reset. With an
+initial pose, the same reset event also restores its root pose. When another event owns the root
+pose, such as relation placement, the object keeps a joint-only reset. Robots likewise reset
+only their own articulation, so a robot's reset never moves scene objects.
+
 Deformable and backend-specific spawn configs must match the environment's resolved physics
 backend (PhysX or Newton). See :doc:`../environment/physics_backend_selection`.
 

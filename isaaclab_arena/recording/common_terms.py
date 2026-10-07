@@ -15,13 +15,20 @@ from isaaclab.utils.configclass import configclass
 from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTermCfg
 
 
-def record_core_episode_results(env, env_id: int) -> dict[str, Any]:
-    """Record the core per-episode fields for ``env_id``."""
+def record_core_episode_results(env, env_id: int, embodiments: dict[str, str]) -> dict[str, Any]:
+    """Record the core per-episode fields for ``env_id``.
+
+    Args:
+        env: The environment.
+        env_id: The environment whose episode finished.
+        embodiments: The robots' registered types by scene key, recorded when not empty.
+    """
     success = None
     if "success" in env.termination_manager.active_terms:
         success = bool(env.termination_manager.get_term("success")[env_id].item())
     return {
         "env_id": env_id,
+        **({"embodiments": dict(embodiments)} if embodiments else {}),
         "episode_in_env": env.get_episode_index(env_id),
         "seed": env.cfg.seed,
         "success": success,

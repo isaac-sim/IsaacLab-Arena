@@ -41,7 +41,7 @@ def _test_object_pose_randomization(simulation_app):
     scene = Scene(assets=[background, cracker_box])
     isaaclab_arena_environment = IsaacLabArenaEnvironment(
         name="reference_object_test",
-        embodiment=embodiment,
+        embodiments=[embodiment],
         scene=scene,
     )
 

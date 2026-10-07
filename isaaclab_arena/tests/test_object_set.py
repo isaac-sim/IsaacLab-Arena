@@ -236,7 +236,7 @@ def _build_and_reset_env(simulation_app, scene_assets, env_name="object_set_test
     scene = Scene(assets=scene_assets)
     isaaclab_arena_environment = IsaacLabArenaEnvironment(
         name=env_name,
-        embodiment=embodiment,
+        embodiments=[embodiment],
         scene=scene,
         task=task,
         teleop_device=None,
@@ -363,7 +363,7 @@ def _test_single_object_in_one_object_set(simulation_app):
     )
     isaaclab_arena_environment = IsaacLabArenaEnvironment(
         name="single_object_set_test",
-        embodiment=embodiment,
+        embodiments=[embodiment],
         scene=scene,
         task=task,
         teleop_device=None,
@@ -429,7 +429,7 @@ def _test_multi_objects_in_one_object_set(simulation_app):
     )
     isaaclab_arena_environment = IsaacLabArenaEnvironment(
         name="multi_objects_in_one_object_set_test",
-        embodiment=embodiment,
+        embodiments=[embodiment],
         scene=scene,
         task=task,
         teleop_device=None,
@@ -498,7 +498,7 @@ def _test_multi_object_sets(simulation_app):
     scene = Scene(assets=[background, obj_set_1, obj_set_2])
     isaaclab_arena_environment = IsaacLabArenaEnvironment(
         name="multi_object_sets_test",
-        embodiment=embodiment,
+        embodiments=[embodiment],
         scene=scene,
     )
     args_cli = get_isaaclab_arena_cli_parser().parse_args([])
@@ -591,7 +591,7 @@ def _test_object_set_with_robot_mounted_cameras(simulation_app) -> bool:
 
     isaaclab_arena_environment = IsaacLabArenaEnvironment(
         name="object_set_with_cameras_test",
-        embodiment=DroidAbsoluteJointPositionEmbodiment(enable_cameras=True),
+        embodiments=[DroidAbsoluteJointPositionEmbodiment(enable_cameras=True)],
         scene=scene,
     )
 

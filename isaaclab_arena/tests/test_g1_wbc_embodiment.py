@@ -71,7 +71,7 @@ def get_test_environment(num_envs: int, pink_ik_enabled: bool):
 
     isaaclab_arena_environment = IsaacLabArenaEnvironment(
         name="g1_standing_test",
-        embodiment=embodiment,
+        embodiments=[embodiment],
         scene=scene,
         # The whole-body controller requires 50 Hz control; at the 15 Hz default the standing
         # policy drifts off its initial position.

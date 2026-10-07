@@ -62,7 +62,7 @@ def get_test_environment(num_envs: int, position_1: tuple[float, float, float], 
 
     isaaclab_arena_environment = IsaacLabArenaEnvironment(
         name="test_two_cubes",
-        embodiment=embodiment,
+        embodiments=[embodiment],
         scene=scene,
     )
 

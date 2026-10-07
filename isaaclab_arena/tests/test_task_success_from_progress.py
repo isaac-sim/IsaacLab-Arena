@@ -442,7 +442,7 @@ def _test_builder_installs_success_only_for_success_criteria(simulation_app):
     ]
     for task in tasks:
         description = IsaacLabArenaEnvironment(
-            name="progress_success_builder", scene=Scene(), task=task, embodiment=NoEmbodiment()
+            name="progress_success_builder", scene=Scene(), task=task, embodiments=[NoEmbodiment()]
         )
         builder = ArenaEnvBuilder(description, ArenaEnvBuilderCfg(num_envs=2, solve_relations=False, device="cpu"))
         env_cfg, _ = builder.compose_manager_cfg()

@@ -408,7 +408,7 @@ def _test_reference_objects_with_background_pose(background_pose: Pose, tmp_path
     # Build the environment
     isaaclab_arena_environment = IsaacLabArenaEnvironment(
         name="reference_object_test",
-        embodiment=embodiment,
+        embodiments=[embodiment],
         scene=scene,
         task=PickAndPlaceTask(cracker_box, destination_location, background),
         teleop_device=None,

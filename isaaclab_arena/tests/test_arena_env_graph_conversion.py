@@ -262,8 +262,8 @@ def _test_graph_parses_asset_poses(simulation_app):
 
     # Every posed constructor receives Pose, while the reusable graph retains YAML mappings.
     expected = Pose(position_xyz=(0.1, 0.2, 0.8))
-    assert isinstance(arena_env.embodiment.get_initial_pose(), Pose)
-    assert arena_env.embodiment.get_initial_pose() == expected
+    assert isinstance(arena_env.embodiments[0].get_initial_pose(), Pose)
+    assert arena_env.embodiments[0].get_initial_pose() == expected
     for obj in spec.objects:
         asset = arena_env.scene.assets[obj.id]
         assert asset.get_initial_pose() == expected

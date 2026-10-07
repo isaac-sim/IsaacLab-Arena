@@ -47,7 +47,7 @@ def _test_revolute_joint_moved_rate(simulation_app):
     scene = Scene(assets=[background, microwave])
     isaaclab_arena_environment = IsaacLabArenaEnvironment(
         name="robot_initial_position",
-        embodiment=embodiment,
+        embodiments=[embodiment],
         scene=scene,
         task=OpenDoorTask(microwave, openness_threshold=0.8, reset_openness=0.2),
         teleop_device=None,

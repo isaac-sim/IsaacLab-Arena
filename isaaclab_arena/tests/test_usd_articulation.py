@@ -254,7 +254,7 @@ def _test_offline_posing_matches_physx_link_poses(simulation_app) -> bool:
     embodiment = DroidAbsoluteJointPositionEmbodiment()
     usd_path = embodiment.scene_config.robot.spawn.usd_path
 
-    arena_env = IsaacLabArenaEnvironment(name="verify_articulation", embodiment=embodiment, scene=Scene(assets=[]))
+    arena_env = IsaacLabArenaEnvironment(name="verify_articulation", embodiments=[embodiment], scene=Scene(assets=[]))
     args_cli = get_isaaclab_arena_cli_parser().parse_args([])
     env = ArenaEnvBuilder(arena_env, arena_env_builder_cfg_from_argparse(args_cli)).make_registered()
     try:

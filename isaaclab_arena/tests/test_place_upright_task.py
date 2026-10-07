@@ -44,7 +44,7 @@ def get_test_environment(dont_reset_placeable_object_pose: bool, num_envs: int):
 
     isaaclab_arena_environment = IsaacLabArenaEnvironment(
         name="place_upright_mug",
-        embodiment=AgibotEmbodiment(arm_mode=ArmMode.LEFT),
+        embodiments=[AgibotEmbodiment(arm_mode=ArmMode.LEFT)],
         scene=scene,
         task=PlaceUprightTask(mug, mug.orientation_threshold),
     )

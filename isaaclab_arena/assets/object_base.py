@@ -16,7 +16,15 @@ from isaaclab_tasks.contrib.stack.mdp.franka_stack_events import randomize_objec
 
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.relations.placement_asset import PlaceableAsset
-from isaaclab_arena.terms.events import set_object_pose, set_object_pose_per_env
+from isaaclab_arena.terms.events import (
+    reset_articulation_joints,
+    reset_articulation_pose_and_joints,
+    reset_articulation_pose_per_env_and_joints,
+    reset_articulation_random_pose_and_joints,
+    reset_articulation_to_default,
+    set_object_pose,
+    set_object_pose_per_env,
+)
 from isaaclab_arena.utils.pose import Pose, PosePerEnv, PoseRange
 from isaaclab_arena.utils.velocity import Velocity
 from isaaclab_arena.variations.object_disappear_variation import ObjectDisappearVariation
@@ -77,6 +85,21 @@ class RootedObjectBase(ObjectBase):
             self.add_variation(ObjectMassVariation(self.name))
             self.add_variation(ObjectDisappearVariation(self.name))
         self.initial_velocity: Velocity | None = None
+        self.reset_pose = True
+
+    def get_event_cfg(self) -> tuple[str, EventTermCfg | None]:
+        """Return the reset event, keeping an articulation's joint reset when another event owns its root."""
+        name, event_cfg = super().get_event_cfg()
+        if event_cfg is None and self.object_type == ObjectType.ARTICULATION:
+            reset_func = reset_articulation_joints
+            if self.get_initial_pose() is None and self.reset_pose:
+                reset_func = reset_articulation_to_default
+            event_cfg = EventTermCfg(
+                func=reset_func,
+                mode="reset",
+                params={"asset_cfg": SceneEntityCfg(name)},
+            )
+        return name, event_cfg
 
     def _set_initial_pose(self, pose: Pose | PoseRange | PosePerEnv) -> None:
         """Store the pose and write its construction values into the object config."""
@@ -105,24 +128,24 @@ class RootedObjectBase(ObjectBase):
         self._pose_event_cfg = self._build_reset_event()
 
     def _requires_reset_pose_event(self) -> bool:
-        """Whether a reset-event for the initial pose should be generated.
-
-        Subclasses may override to add extra conditions (e.g. a ``reset_pose`` flag).
-        """
-        return self.get_initial_pose() is not None and self.object_type in (
-            ObjectType.RIGID,
-            ObjectType.ARTICULATION,
+        """Whether a reset event for the initial pose should be generated."""
+        return (
+            self.reset_pose
+            and self.get_initial_pose() is not None
+            and self.object_type in (ObjectType.RIGID, ObjectType.ARTICULATION)
         )
 
     def _build_reset_event(self) -> EventTermCfg | None:
-        """Build the ``EventTermCfg`` for resetting this object's pose and velocity."""
+        """Build the ``EventTermCfg`` that resets this object's pose and velocity, and an articulation's joints."""
         if not self._requires_reset_pose_event():
             return None
 
         initial_pose = self.get_initial_pose()
+        # An articulation also restores its joints, since no other event resets them.
+        is_articulation = self.object_type == ObjectType.ARTICULATION
         if isinstance(initial_pose, PosePerEnv):
             return EventTermCfg(
-                func=set_object_pose_per_env,
+                func=reset_articulation_pose_per_env_and_joints if is_articulation else set_object_pose_per_env,
                 mode="reset",
                 params={
                     "asset_cfg": SceneEntityCfg(self.name),
@@ -131,7 +154,7 @@ class RootedObjectBase(ObjectBase):
             )
         elif isinstance(initial_pose, PoseRange):
             return EventTermCfg(
-                func=randomize_object_pose,
+                func=reset_articulation_random_pose_and_joints if is_articulation else randomize_object_pose,
                 mode="reset",
                 params={
                     "pose_range": initial_pose.to_dict(),
@@ -140,7 +163,7 @@ class RootedObjectBase(ObjectBase):
             )
         else:  # Pose
             return EventTermCfg(
-                func=set_object_pose,
+                func=reset_articulation_pose_and_joints if is_articulation else set_object_pose,
                 mode="reset",
                 params={
                     "pose": initial_pose,

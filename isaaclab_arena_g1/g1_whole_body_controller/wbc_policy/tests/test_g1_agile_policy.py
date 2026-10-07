@@ -40,7 +40,7 @@ def _get_agile_test_env(num_envs: int = 1):
 
     env = IsaacLabArenaEnvironment(
         name="g1_agile_standing_test",
-        embodiment=embodiment,
+        embodiments=[embodiment],
         scene=scene,
     )
 

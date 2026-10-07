@@ -212,7 +212,7 @@ Environment Description
             # Create and return environment
             isaaclab_arena_environment = IsaacLabArenaEnvironment(
                 name=self.name,
-                embodiment=embodiment,
+                embodiments=[embodiment],
                 scene=scene,
                 task=sequential_task,
                 teleop_device=teleop_device,
@@ -347,7 +347,7 @@ See :doc:`../../concepts/scene/index` for scene composition details.
 
    isaaclab_arena_environment = IsaacLabArenaEnvironment(
         name=self.name,
-        embodiment=embodiment,
+        embodiments=[embodiment],
         scene=scene,
         task=sequential_task,
         teleop_device=teleop_device,

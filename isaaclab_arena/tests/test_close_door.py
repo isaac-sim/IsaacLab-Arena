@@ -24,6 +24,7 @@ def get_test_environment(remove_reset_door_state_event: bool, num_envs: int):
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.scene.scene import Scene
     from isaaclab_arena.tasks.close_door_task import CloseDoorTask
+    from isaaclab_arena.terms.events import set_object_pose
     from isaaclab_arena.utils.pose import Pose
 
     args_parser = get_isaaclab_arena_cli_parser()
@@ -45,7 +46,7 @@ def get_test_environment(remove_reset_door_state_event: bool, num_envs: int):
 
     isaaclab_arena_environment = IsaacLabArenaEnvironment(
         name="close_door",
-        embodiment=FrankaIKEmbodiment(),
+        embodiments=[FrankaIKEmbodiment()],
         scene=scene,
         task=CloseDoorTask(microwave),
     )
@@ -53,6 +54,8 @@ def get_test_environment(remove_reset_door_state_event: bool, num_envs: int):
     env_builder = ArenaEnvBuilder(isaaclab_arena_environment, arena_env_builder_cfg_from_argparse(args_cli))
     name, cfg, env_kwargs = env_builder.build_registered()
     if remove_reset_door_state_event:
+        # Restore the microwave body without resetting its door joint.
+        cfg.events.microwave.func = set_object_pose
         # NOTE: We remove the event to reset the door position,
         # to allow us to inspect the scene without having it reset.
         cfg.events.reset_openable_object_revolute_joint_percentage = None

@@ -139,7 +139,7 @@ class DroidTableMultiObjectPlacementEnvironment(ArenaEnvironmentFactory[DroidTab
 
         return IsaacLabArenaEnvironment(
             name=self.name,
-            embodiment=embodiment,
+            embodiments=[embodiment],
             scene=scene,
             task=NoTask(),
             env_cfg_callback=_configure_viewer_and_timeout,

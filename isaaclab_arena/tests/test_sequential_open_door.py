@@ -25,6 +25,7 @@ def get_test_environment(remove_reset_door_state_event: bool, num_envs: int):
     from isaaclab_arena.scene.scene import Scene
     from isaaclab_arena.tasks.composite_task_base import CompositeTaskBase
     from isaaclab_arena.tasks.open_door_task import OpenDoorTask
+    from isaaclab_arena.terms.events import set_object_pose
     from isaaclab_arena.utils.pose import Pose
 
     args_parser = get_isaaclab_arena_cli_parser()
@@ -59,7 +60,7 @@ def get_test_environment(remove_reset_door_state_event: bool, num_envs: int):
 
     isaaclab_arena_environment = IsaacLabArenaEnvironment(
         name="sequential_open_door",
-        embodiment=FrankaIKEmbodiment(),
+        embodiments=[FrankaIKEmbodiment()],
         scene=scene,
         task=CompositeTaskBase([subtask_1, subtask_2], subtasks_are_sequential=True),
     )
@@ -67,6 +68,9 @@ def get_test_environment(remove_reset_door_state_event: bool, num_envs: int):
     env_builder = ArenaEnvBuilder(isaaclab_arena_environment, arena_env_builder_cfg_from_argparse(args_cli))
     name, cfg, env_kwargs = env_builder.build_registered()
     if remove_reset_door_state_event:
+        # Restore the microwave bodies without resetting their door joints.
+        cfg.events.microwave_0.func = set_object_pose
+        cfg.events.microwave_1.func = set_object_pose
         # Preserve door poses for geometry assertions while task progress resets normally.
         cfg.events.reset_openable_object_revolute_joint_percentage_subtask_0 = None
         cfg.events.reset_openable_object_revolute_joint_percentage_subtask_1 = None

@@ -72,7 +72,7 @@ def build_arena_env_from_graph_spec(graph_spec: ArenaEnvGraphSpec, enable_camera
     return IsaacLabArenaEnvironment(
         name=graph_spec.env_name,
         scene=Scene(assets=scene_assets),
-        embodiment=assets_by_node_id[graph_spec.embodiment.id],
+        embodiments=[assets_by_node_id[graph_spec.embodiment.id]],
         task=build_task_from_spec(graph_spec.task, assets_by_node_id),
         placer_params=build_placer_params_from_override(graph_spec.placer_params),
         env_cfg_callback=env_cfg_callback,

@@ -34,7 +34,7 @@ def get_test_environment(*, camera_extrinsics_enabled: bool):
 
     return IsaacLabArenaEnvironment(
         name="test_camera_extrinsics_variations",
-        embodiment=embodiment,
+        embodiments=[embodiment],
         scene=Scene(),
     )
 

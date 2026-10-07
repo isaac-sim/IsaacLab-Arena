@@ -166,7 +166,7 @@ read across to see the correspondence.
 
                   return IsaacLabArenaEnvironment(
                       name=self.name,
-                      embodiment=embodiment,
+                      embodiments=[embodiment],
                       scene=Scene(assets=[
                           maple_table, light, cube, bowl, table,
                       ]),
@@ -187,8 +187,9 @@ Only in Python
 
 ``IsaacLabArenaEnvironment`` takes ten constructor arguments.
 ``build_arena_env_from_graph_spec()`` fills the graph-owned scene, task,
-placement, physics-backend, and compiled-config callback fields. The remaining
-runtime integrations have no YAML key.
+placement, physics-backend, and compiled-config callback fields, and passes the
+graph's one robot as a one-element ``embodiments`` list. Several robots and the
+remaining runtime integrations have no YAML key.
 
 **Teleoperation device.** YAML never sets ``env_cfg.teleop_devices``. Python can
 pass a device that drives the embodiment:
@@ -404,6 +405,40 @@ Many assets and relations? Start with YAML as it is validated, and machine-gener
 can focus on the scene layout and task definition. Reach for Python when the YAML cannot
 express what you need: RL registration, teleop, ``ManagerBasedRLEnvCfg`` patches,
 placement parameters, and so on.
+
+Several robots in one environment
+---------------------------------
+
+``embodiments`` holds every robot of an environment: ``[]`` for none, ``[robot]``
+for one, and ``[left, right]`` for several. Give each robot a distinct instance key
+and list the robots in action-column order:
+
+.. code-block:: python
+
+   left = FrankaJointPosEmbodiment(instance_key="left", enable_cameras=True)
+   right = FrankaJointPosEmbodiment(instance_key="right", enable_cameras=True)
+   left.set_initial_pose(Pose(position_xyz=(-2.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
+   right.set_initial_pose(Pose(position_xyz=(2.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
+   environment = IsaacLabArenaEnvironment(
+       name="two_arms", scene=scene, embodiments=[left, right], task=task,
+   )
+
+An environment with more than one robot requires an instance key on every robot,
+so embodiments without key support, such as G1, run only as an environment's sole
+robot. Every keyed robot follows the :doc:`embodiment naming rule <../embodiment/index>`.
+
+Each robot contributes its own scene entities, actions, observations, resets,
+rewards, and end-effector recorders, and the builder combines them with the
+composition rules in :doc:`env_builder`. Trajectory recording writes the
+scene-wide state and action terms once, and each robot's end-effector frames
+under their own names. Each robot's variations and placement relations apply to
+that robot. The episode record maps scene keys to registered robot types under
+``embodiments``.
+
+Demonstration generation, teleoperation, and extended reality require exactly one
+robot without an instance key. Reachability validation is skipped, with a warning,
+for several robots, and tasks that override ``configure_for_embodiment`` require one
+robot.
 
 Next Steps
 ----------

@@ -34,7 +34,7 @@ def get_test_environment(*, camera_intrinsics_variation_enabled: bool):
         )
         embodiment.get_variation(VARIATION_NAME).enable()
 
-    return IsaacLabArenaEnvironment(name="test_camera_intrinsics_variation", embodiment=embodiment, scene=Scene())
+    return IsaacLabArenaEnvironment(name="test_camera_intrinsics_variation", embodiments=[embodiment], scene=Scene())
 
 
 def _test_disabled_camera_intrinsics_variation_not_in_events_cfg(simulation_app):

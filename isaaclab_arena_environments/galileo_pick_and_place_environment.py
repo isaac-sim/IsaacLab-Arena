@@ -72,7 +72,7 @@ class GalileoPickAndPlaceEnvironment(ArenaEnvironmentFactory[GalileoPickAndPlace
         scene = Scene(assets=[background, pick_up_object, destination_location])
         isaaclab_arena_environment = IsaacLabArenaEnvironment(
             name=self.name,
-            embodiment=embodiment,
+            embodiments=[embodiment],
             scene=scene,
             task=PickAndPlaceTask(pick_up_object, destination_location, background),
             teleop_device=teleop_device,

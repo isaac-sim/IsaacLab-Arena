@@ -82,7 +82,7 @@ class DroidDeformablePickAndPlaceEnvironment(ArenaEnvironmentFactory[DroidDeform
         )
         return IsaacLabArenaEnvironment(
             name=self.name,
-            embodiment=embodiment,
+            embodiments=[embodiment],
             scene=Scene(assets=[table, table_reference, light, directional_light, destination, pick_object]),
             task=task,
         )

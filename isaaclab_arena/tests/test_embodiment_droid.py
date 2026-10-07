@@ -51,7 +51,7 @@ def _newton_droid_env(env_name: str):
     teleop_device = device_registry.get_device_by_name("keyboard")()
     arena_env = IsaacLabArenaEnvironment(
         name=env_name,
-        embodiment=embodiment,
+        embodiments=[embodiment],
         scene=Scene(assets=[background]),
         teleop_device=teleop_device,
     )

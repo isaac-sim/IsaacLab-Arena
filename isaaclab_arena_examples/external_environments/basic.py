@@ -51,7 +51,7 @@ class ExternalFrankaTableEnvironment(ExampleEnvironmentBase):
         # Create the environment
         isaaclab_arena_environment = IsaacLabArenaEnvironment(
             name=self.name,
-            embodiment=embodiment,
+            embodiments=[embodiment],
             scene=scene,
             task=NoTask(),
         )

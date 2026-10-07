@@ -43,7 +43,7 @@ tomato_soup_can.add_relation(On(cracker_box))
 scene = Scene(assets=[background, cracker_box, tomato_soup_can, dome_light])
 isaaclab_arena_environment = IsaacLabArenaEnvironment(
     name="reference_object_test",
-    embodiment=franka,
+    embodiments=[franka],
     scene=scene,
 )
 

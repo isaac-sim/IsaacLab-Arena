@@ -77,7 +77,7 @@ class DexsuiteLiftEnvironment(ArenaEnvironmentFactory[ArenaEnvironmentCfg]):
 
         return IsaacLabArenaEnvironment(
             name=self.name,
-            embodiment=embodiment,
+            embodiments=[embodiment],
             scene=scene,
             task=task,
             teleop_device=None,

@@ -85,7 +85,7 @@ def _build_env_cfg(
 
     arena_env = IsaacLabArenaEnvironment(
         name="test_physics_preset",
-        embodiment=embodiment,
+        embodiments=[embodiment],
         scene=scene,
         env_cfg_callback=combined_callback,
         **env_init_kwargs,

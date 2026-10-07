@@ -32,7 +32,7 @@ To add teleoperation to an environment, pick a device by name and pass it in:
 
    environment = IsaacLabArenaEnvironment(
        name="kitchen_pick_and_place",
-       embodiment=embodiment,
+       embodiments=[embodiment],
        scene=scene,
        task=task,
        teleop_device=teleop_device,

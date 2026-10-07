@@ -47,7 +47,7 @@ def _test_companion_cache_round_trip(simulation_app, tmp_path):
     ):
         arena_env = spec.to_arena_env()
         assert arena_env.scene.assets["cube_3"].has_pose_reset_event()
-        arena_env.embodiment.set_initial_pose(arena_env.embodiment.get_initial_pose())
+        arena_env.embodiments[0].set_initial_pose(arena_env.embodiments[0].get_initial_pose())
         cfg = ArenaEnvBuilderCfg(num_envs=3, placement_layouts_path=str(LAYOUTS))
         env = ArenaEnvBuilder(arena_env, cfg).make_registered()
         try:
@@ -143,7 +143,7 @@ def _make_cached_env():
     return IsaacLabArenaEnvironment(
         name="python_placement_replay",
         scene=Scene(assets=[table, *cubes, DomeLight()]),
-        embodiment=FrankaIKEmbodiment(initial_pose=Pose((-1.0, 0.0, 0.0))),
+        embodiments=[FrankaIKEmbodiment(initial_pose=Pose((-1.0, 0.0, 0.0)))],
         placer_params=ObjectPlacerParams(),
         placement_layouts=PlacementLayouts({cube.get_scene_key(): [Pose((0, 0, 1))] for cube in cubes}),
     )
@@ -168,7 +168,7 @@ def _test_cache_rejects_conflicting_configuration(simulation_app, conflict, expe
     elif conflict == "initial-velocity":
         cube.set_initial_velocity(Velocity(linear_xyz=(1.0, 0.0, 0.0)))
     elif conflict == "missing-robot":
-        arena_env.embodiment.add_relation(RotateAroundSolution(yaw_rad=0.5))
+        arena_env.embodiments[0].add_relation(RotateAroundSolution(yaw_rad=0.5))
     elif conflict == "placement-seed":
         cfg.placement_seed = 42
     elif conflict == "placement-seed-default":
@@ -220,12 +220,12 @@ def _test_python_integer_layouts_reset_objects_and_robot(simulation_app):
     arena_env.placement_layouts = None
     builder = ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg(num_envs=2, resolve_on_reset=True))
     arena_env.placement_layouts = PlacementLayouts(poses)
-    arena_env.embodiment.set_initial_pose(arena_env.embodiment.get_initial_pose())
-    assert arena_env.embodiment.has_pose_reset_event()
+    arena_env.embodiments[0].set_initial_pose(arena_env.embodiments[0].get_initial_pose())
+    assert arena_env.embodiments[0].has_pose_reset_event()
     arena_env.placer_params.resolve_on_reset = False
     env = builder.make_registered()
     try:
-        assert not arena_env.embodiment.has_pose_reset_event()
+        assert not arena_env.embodiments[0].has_pose_reset_event()
         # Equal counts consume and wrap the whole queue on every full reset.
         for _ in range(3):
             for name in poses:
@@ -397,7 +397,7 @@ def _test_bimanual_root_recording_and_replay(simulation_app, tmp_path):
     }
     path = tmp_path / "bimanual.jsonl"
     PlacementLayouts(poses).write_episode_jsonl(path, source="settled")
-    arena = IsaacLabArenaEnvironment(name="bimanual_root_replay", scene=Scene(assets=[]), embodiment=embodiment)
+    arena = IsaacLabArenaEnvironment(name="bimanual_root_replay", scene=Scene(assets=[]), embodiments=[embodiment])
     env = ArenaEnvBuilder(arena, ArenaEnvBuilderCfg(num_envs=2, placement_layouts_path=str(path))).make_registered()
     try:
         base = env.unwrapped

@@ -49,7 +49,7 @@ Below is an example of a custom environment that places a single object on a tab
            # Create the environment
            isaaclab_arena_environment = IsaacLabArenaEnvironment(
                name=self.name,
-               embodiment=embodiment,
+               embodiments=[embodiment],
                scene=scene,
                task=NoTask(),
            )

@@ -17,7 +17,7 @@ Concretely, a task specifies four things:
 
    environment = IsaacLabArenaEnvironment(
        name="open_microwave",
-       embodiment=embodiment,
+       embodiments=[embodiment],
        scene=scene,
        task=task,
    )

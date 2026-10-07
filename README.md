@@ -160,7 +160,7 @@ tomato_soup_can = asset_registry.get_asset_by_name("tomato_soup_can")()
 scene = Scene(assets=[background, cracker_box, tomato_soup_can])
 env_cfg = IsaacLabArenaEnvironment(
     name="franka_kitchen_example",
-    embodiment=embodiment,
+    embodiments=[embodiment],
     scene=scene,
 )
 

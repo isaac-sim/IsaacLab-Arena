@@ -58,7 +58,7 @@ def _create_trajectory_recording_env(output_dir):
     scene = Scene(assets=[background, cracker_box, destination_location])
     arena_environment = IsaacLabArenaEnvironment(
         name="trajectory_recording",
-        embodiment=embodiment,
+        embodiments=[embodiment],
         scene=scene,
         task=PickAndPlaceTask(cracker_box, destination_location, background),
         teleop_device=None,

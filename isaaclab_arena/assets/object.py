@@ -59,7 +59,6 @@ class Object(RootedObjectBase):
         self.scale = scale
         self.initial_pose = initial_pose
         self.relations = list(relations)
-        self.reset_pose = True
         # Keep nested addon settings independent when multiple objects reuse the same input mapping.
         self.spawn_cfg_addon = deepcopy(spawn_cfg_addon)
         self.asset_cfg_addon = asset_cfg_addon
@@ -205,6 +204,3 @@ class Object(RootedObjectBase):
             object_cfg.init_state.pos = initial_pose.position_xyz
             object_cfg.init_state.rot = initial_pose.rotation_xyzw
         return object_cfg
-
-    def _requires_reset_pose_event(self) -> bool:
-        return super()._requires_reset_pose_event() and self.reset_pose

@@ -24,7 +24,7 @@ Authoring and CLI inputs:
    return IsaacLabArenaEnvironment(
        name="dexsuite_lift",
        scene=scene,
-       embodiment=embodiment,
+       embodiments=[embodiment],
        task=task,
        default_physics_backend=PhysicsBackend.NEWTON,
    )
@@ -107,15 +107,20 @@ Next step in ``compose_manager_cfg`` (embodiment hooks, then merge):
 
 .. code-block:: python
 
-   embodiment = self.arena_env.embodiment or NoEmbodiment()
-   embodiment.configure_physics_backend(resolved_physics_backend)
+   embodiments = self.arena_env.embodiments or [NoEmbodiment()]
+   for embodiment in embodiments:
+       embodiment.configure_physics_backend(resolved_physics_backend)
 
    scene_cfg = combine_configclass_instances(
        "SceneCfg",
        self.interactive_scene_cfg,
-       self.arena_env.scene.get_scene_cfg(),
-       embodiment.get_scene_cfg(),  # spawn/actuators already backend-specific
-       task.get_scene_cfg(),
+       combine_unique(
+           "SceneCfg",
+           self.arena_env.scene.get_scene_cfg(),
+           # Spawn and actuator settings are already backend-specific.
+           *[embodiment.get_scene_cfg() for embodiment in embodiments],
+           task.get_scene_cfg(),
+       ),
    )
    # ... observation, action, event, and other manager cfgs follow ...
 

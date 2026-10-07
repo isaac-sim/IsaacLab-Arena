@@ -251,7 +251,7 @@ def _test_droid_stand_and_externals_under_link0(simulation_app) -> bool:
     try:
         arena_env = IsaacLabArenaEnvironment(
             name="droid_stand_follow",
-            embodiment=DroidAbsoluteJointPositionEmbodiment(enable_cameras=True, stand_height_m=0.8),
+            embodiments=[DroidAbsoluteJointPositionEmbodiment(enable_cameras=True, stand_height_m=0.8)],
             scene=Scene(),
         )
         args_cli = get_isaaclab_arena_cli_parser().parse_args(["--num_envs", "1", "--enable_cameras"])

@@ -77,7 +77,7 @@ def get_test_environment(num_envs: int):
 
     isaaclab_arena_environment = IsaacLabArenaEnvironment(
         name="test_g1_locomanip_apple_to_plate",
-        embodiment=embodiment,
+        embodiments=[embodiment],
         scene=scene,
         task=task,
     )

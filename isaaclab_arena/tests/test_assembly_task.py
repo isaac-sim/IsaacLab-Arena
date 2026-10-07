@@ -65,7 +65,7 @@ def get_peg_insert_test_environment(num_envs: int, remove_events: bool = False):
 
     isaaclab_arena_environment = IsaacLabArenaEnvironment(
         name="test_peg_insert",
-        embodiment=embodiment,
+        embodiments=[embodiment],
         scene=scene,
         task=task,
         env_cfg_callback=mdp.assembly_env_cfg_callback,
@@ -142,7 +142,7 @@ def get_gear_mesh_test_environment(num_envs: int, remove_events: bool = False):
 
     isaaclab_arena_environment = IsaacLabArenaEnvironment(
         name="test_gear_mesh",
-        embodiment=embodiment,
+        embodiments=[embodiment],
         scene=scene,
         task=task,
         env_cfg_callback=mdp.assembly_env_cfg_callback,

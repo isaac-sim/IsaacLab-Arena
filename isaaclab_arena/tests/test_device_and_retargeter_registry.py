@@ -42,7 +42,7 @@ def _test_all_devices_and_retargeters_in_registry(simulation_app):
             teleop_device = device_registry.get_device_by_name(device_name)()
             isaaclab_arena_environment = IsaacLabArenaEnvironment(
                 name=f"{device_name}_{retargeter_key}",
-                embodiment=embodiment,
+                embodiments=[embodiment],
                 scene=Scene([background, asset]),
                 teleop_device=teleop_device,
             )

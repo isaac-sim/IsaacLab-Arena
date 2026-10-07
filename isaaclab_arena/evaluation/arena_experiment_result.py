@@ -39,6 +39,8 @@ class ArenaEpisodeResultData(TypedDict):
     timestamp: str
     variations: NotRequired[dict[str, Any]]
     progress: NotRequired[dict[str, Any]]
+    embodiments: NotRequired[dict[str, str]]
+    """Robot scene keys mapped to registered embodiment types."""
 
 
 class ArenaRebuildResultData(TypedDict):

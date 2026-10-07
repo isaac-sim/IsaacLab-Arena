@@ -13,6 +13,7 @@ from isaaclab.envs import ManagerBasedEnv
 from isaaclab.managers import EventTermCfg, ManagerTermBase, SceneEntityCfg
 from isaaclab.sim.spawners.from_files.from_files_cfg import UsdFileCfg
 from isaaclab.utils import math as math_utils
+from isaaclab_tasks.contrib.stack.mdp.franka_stack_events import randomize_object_pose
 
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.utils.pose import Pose
@@ -333,6 +334,33 @@ def reset_articulation_pose_and_joints(
     reset_articulation_joints(env, env_ids, asset_cfg)
 
 
+def reset_articulation_pose_per_env_and_joints(
+    env: ManagerBasedEnv,
+    env_ids: torch.Tensor,
+    asset_cfg: SceneEntityCfg,
+    pose_list: list[Pose],
+) -> None:
+    """Restore an articulation's per-environment root pose and default joint state."""
+    if env_ids is None:
+        return
+    set_object_pose_per_env(env, env_ids, asset_cfg, pose_list)
+    reset_articulation_joints(env, env_ids, asset_cfg)
+
+
+def reset_articulation_random_pose_and_joints(
+    env: ManagerBasedEnv,
+    env_ids: torch.Tensor,
+    asset_cfgs: list[SceneEntityCfg],
+    pose_range: dict[str, tuple[float, float]],
+) -> None:
+    """Sample articulation root poses from ``pose_range`` and restore their default joint state."""
+    if env_ids is None:
+        return
+    randomize_object_pose(env, env_ids, asset_cfgs=asset_cfgs, pose_range=pose_range)
+    for asset_cfg in asset_cfgs:
+        reset_articulation_joints(env, env_ids, asset_cfg)
+
+
 def reset_articulation_joints(
     env: ManagerBasedEnv,
     env_ids: torch.Tensor,
@@ -346,6 +374,22 @@ def reset_articulation_joints(
     joint_velocity = asset.data.default_joint_vel.torch[env_ids].clone()
     asset.write_joint_position_to_sim_index(position=joint_position, env_ids=env_ids)
     asset.write_joint_velocity_to_sim_index(velocity=joint_velocity, env_ids=env_ids)
+
+
+def reset_articulation_to_default(
+    env: ManagerBasedEnv,
+    env_ids: torch.Tensor,
+    asset_cfg: SceneEntityCfg,
+) -> None:
+    """Restore the default root pose, root velocity, and joint state of selected articulation instances."""
+    if env_ids is None:
+        return
+    asset = env.scene[asset_cfg.name]
+    default_root_state = wp.to_torch(asset.data.default_root_state)[env_ids].clone()
+    default_root_state[:, 0:3] += env.scene.env_origins[env_ids]
+    asset.write_root_pose_to_sim(default_root_state[:, :7], env_ids=env_ids)
+    asset.write_root_velocity_to_sim(default_root_state[:, 7:], env_ids=env_ids)
+    reset_articulation_joints(env, env_ids, asset_cfg)
 
 
 def set_object_pose_per_env(
@@ -422,19 +466,3 @@ def reset_placement_asset_pose_per_env(
         single_env = torch.tensor([cur_env], device=env.device)
         for scene_name, pose in write_pose_list[cur_env]:
             _write_scene_pose(env, scene_name, pose, single_env)
-
-
-def reset_all_articulation_joints(env: ManagerBasedEnv, env_ids: torch.Tensor):
-    """Reset the articulation joints to the initial state."""
-    for articulation_asset in env.scene.articulations.values():
-        # obtain default and deal with the offset for env origins
-        default_root_state = wp.to_torch(articulation_asset.data.default_root_state)[env_ids].clone()
-        default_root_state[:, 0:3] += env.scene.env_origins[env_ids]
-        # set into the physics simulation
-        articulation_asset.write_root_pose_to_sim(default_root_state[:, :7], env_ids=env_ids)
-        articulation_asset.write_root_velocity_to_sim(default_root_state[:, 7:], env_ids=env_ids)
-        # obtain default joint positions
-        default_joint_pos = wp.to_torch(articulation_asset.data.default_joint_pos)[env_ids].clone()
-        default_joint_vel = wp.to_torch(articulation_asset.data.default_joint_vel)[env_ids].clone()
-        # set into the physics simulation
-        articulation_asset.write_joint_state_to_sim(default_joint_pos, default_joint_vel, env_ids=env_ids)

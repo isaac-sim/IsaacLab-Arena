@@ -309,7 +309,7 @@ def _test_recording_with_default_placer_params(simulation_app, tmp_path):
     arena_env = IsaacLabArenaEnvironment(
         name=scene_description.name,
         scene=scene_description.scene,
-        embodiment=scene_description.embodiment,
+        embodiments=scene_description.embodiments,
         task=scene_description.task,
     )
     assert arena_env.placer_params is None
