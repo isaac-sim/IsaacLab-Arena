@@ -126,6 +126,62 @@ def test_build_and_run_splits_episode_budget_without_mutating_config(monkeypatch
     assert run.environment_builder.seed == base_seed
 
 
+@pytest.mark.parametrize(("configured_episodes", "expected_episodes"), [(None, 3), (8, 8)])
+def test_build_and_run_resolves_condition_replay_budget(
+    monkeypatch,
+    tmp_path,
+    configured_episodes,
+    expected_episodes,
+):
+    conditions_path = tmp_path / "conditions.jsonl"
+    conditions_path.write_text("\n".join(['{"variations": {}}'] * 3) + "\n")
+    run = _run(
+        environment_builder=ArenaEnvBuilderCfg(episode_conditions_path=str(conditions_path)),
+        rollout_limit=RolloutLimitCfg(num_episodes=configured_episodes),
+        num_rebuilds=1,
+    )
+    rollout_limits = []
+    monkeypatch.setattr(run_execution, "_build_environment_from_cfg", lambda *args, **kwargs: _environment())
+    monkeypatch.setattr(run_execution, "_build_policy_from_cfg", lambda cfg: _Policy())
+    monkeypatch.setattr(run_execution, "wrap_env_for_video", lambda env, video_cfg, steps, episodes: env)
+    monkeypatch.setattr(run_execution, "close_run_resources", lambda policy, env: None)
+    monkeypatch.setattr(
+        run_execution,
+        "rollout_policy",
+        lambda env, policy, num_steps, num_episodes: rollout_limits.append((num_steps, num_episodes)),
+    )
+
+    run_execution.build_and_run(run, output_dir=tmp_path)
+
+    assert rollout_limits == [(None, expected_episodes)]
+
+
+def test_build_and_run_rejects_condition_replay_across_rebuilds(tmp_path):
+    conditions_path = tmp_path / "conditions.jsonl"
+    conditions_path.write_text('{"variations": {}}\n')
+    run = _run(
+        environment_builder=ArenaEnvBuilderCfg(episode_conditions_path=str(conditions_path)),
+        rollout_limit=RolloutLimitCfg(num_episodes=2),
+        num_rebuilds=2,
+    )
+
+    with pytest.raises(AssertionError, match="num_rebuilds must be 1"):
+        run_execution.build_and_run(run, output_dir=tmp_path)
+
+
+def test_build_and_run_rejects_step_limited_condition_replay(tmp_path):
+    conditions_path = tmp_path / "conditions.jsonl"
+    conditions_path.write_text('{"variations": {}}\n')
+    run = _run(
+        environment_builder=ArenaEnvBuilderCfg(episode_conditions_path=str(conditions_path)),
+        rollout_limit=RolloutLimitCfg(num_steps=2),
+        num_rebuilds=1,
+    )
+
+    with pytest.raises(AssertionError, match="num_steps is not supported"):
+        run_execution.build_and_run(run, output_dir=tmp_path)
+
+
 def test_seed_cfg_for_rebuild_offsets_seed_per_rebuild():
     run = _run(num_rebuilds=3)
     base_seed = run.environment_builder.seed

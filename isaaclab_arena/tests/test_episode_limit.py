@@ -20,7 +20,12 @@ def _episode_finished(env, episode_lengths, successful):
     return (env.episode_length_buf >= lengths) & (successful_envs == successful)
 
 
-def _create_episode_limit_env(output_dir, episode_lengths, record_trajectories):
+def _create_episode_limit_env(
+    output_dir,
+    episode_lengths,
+    record_trajectories,
+    episode_conditions_path=None,
+):
     import torch
 
     from isaaclab.envs.mdp.recorders.recorders_cfg import PreStepActionsRecorderCfg
@@ -68,7 +73,12 @@ def _create_episode_limit_env(output_dir, episode_lengths, record_trajectories):
 
     arena_environment = IsaacLabArenaEnvironment(name="episode_limit", scene=Scene())
     builder = ArenaEnvBuilder(
-        arena_environment, ArenaEnvBuilderCfg(num_envs=len(episode_lengths), solve_relations=False)
+        arena_environment,
+        ArenaEnvBuilderCfg(
+            num_envs=len(episode_lengths),
+            solve_relations=False,
+            episode_conditions_path=episode_conditions_path,
+        ),
     )
     env_cfg, env_kwargs = builder.compose_manager_cfg()
     env_cfg.decimation = 2
@@ -220,6 +230,44 @@ def test_episode_limit(tmp_path, num_episodes, episode_lengths, expected_starts,
         episode_lengths=episode_lengths,
         expected_starts=expected_starts,
         record_trajectories=record_trajectories,
+    )
+
+
+def _test_condition_replay_cycles_across_async_resets(simulation_app, output_dir):
+    import torch
+
+    conditions_path = output_dir / "conditions.jsonl"
+    conditions_path.write_text("\n".join(['{"variations": {}}'] * 3) + "\n")
+    env, _, results_path = _create_episode_limit_env(
+        output_dir,
+        episode_lengths=(1, 5, 3),
+        record_trajectories=False,
+        episode_conditions_path=str(conditions_path),
+    )
+    base_env = env.unwrapped
+    try:
+        base_env.configure_episode_limit(8)
+        env.reset()
+        action = torch.zeros(env.action_space.shape, device=base_env.device)
+        with torch.inference_mode():
+            while base_env.completed_episode_count < 8:
+                env.step(action)
+    finally:
+        env.close()
+
+    records = [json.loads(line) for line in results_path.read_text(encoding="utf-8").splitlines()]
+    records.sort(key=lambda record: record["replay_condition_occurrence"])
+    assert [record["replay_condition_occurrence"] for record in records] == list(range(8))
+    assert [record["replay_source_record_index"] for record in records] == [0, 1, 2, 0, 1, 2, 0, 1]
+    assert base_env.condition_replay_state.scheduler.num_assignments_started == 8
+    assert base_env.condition_replay_state.scheduler.num_assignments_completed == 8
+    return True
+
+
+def test_condition_replay_cycles_across_async_resets(tmp_path):
+    assert run_function_with_persistent_simulation_app(
+        _test_condition_replay_cycles_across_async_resets,
+        output_dir=tmp_path,
     )
 
 
