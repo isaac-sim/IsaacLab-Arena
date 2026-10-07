@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING
 
 from isaaclab_arena.assets.registries import PolicyRegistry
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
+from isaaclab_arena.evaluation.episode_conditions_rollout import resolve_policy_runner_replay_budget
 from isaaclab_arena.evaluation.policy_runner_cli import (
     add_policy_cli_args,
     add_policy_runner_arguments,
@@ -221,7 +222,15 @@ def main():
         policy = build_policy_from_cli(policy_cls, args_cli)
 
         # Simulation length.
-        if policy.has_length():
+        if arena_builder.cfg.episode_conditions_path is not None:
+            num_steps = args_cli.num_steps
+            num_episodes = resolve_policy_runner_replay_budget(
+                arena_builder.cfg,
+                num_steps=num_steps,
+                num_episodes=args_cli.num_episodes,
+            )
+            print(f"[Rank {local_rank}/{world_size}] Simulation length: {num_episodes} replay episodes")
+        elif policy.has_length():
             num_steps = policy.length()
             num_episodes = None
         else:
@@ -234,7 +243,11 @@ def main():
                 num_episodes = args_cli.num_episodes
                 print(f"[Rank {local_rank}/{world_size}] Simulation length: {num_episodes} episodes")
             else:
-                raise ValueError(f"[Rank {local_rank}/{world_size}] Either num_steps or num_episodes must be provided")
+                num_steps = None
+                num_episodes = None
+
+        if num_steps is None and num_episodes is None:
+            raise ValueError(f"[Rank {local_rank}/{world_size}] Either num_steps or num_episodes must be provided")
 
         # Optionally wrap with the viewport/camera video recorders (both independent).
         env = wrap_env_for_video(env, video_cfg, num_steps, num_episodes)
