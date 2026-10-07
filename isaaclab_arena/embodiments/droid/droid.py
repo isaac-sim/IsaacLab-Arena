@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import torch
 from abc import ABC
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 import isaaclab.envs.mdp as mdp_isaac_lab
 import isaaclab.sim as sim_utils
@@ -28,6 +28,7 @@ from isaaclab.managers import SceneEntityCfg
 from isaaclab.markers.config import FRAME_MARKER_CFG
 from isaaclab.sensors.camera.camera_cfg import CameraCfg
 from isaaclab.sensors.frame_transformer.frame_transformer_cfg import FrameTransformerCfg, OffsetCfg
+from isaaclab.sim.schemas import JointDriveFragment, UsdPhysicsDriveCfg
 from isaaclab.sim.spawners.from_files import spawn_from_usd
 from isaaclab.sim.utils import clone
 from isaaclab.utils.configclass import configclass
@@ -94,6 +95,19 @@ _DROID_NEWTON_GRIPPER_MIMIC_SIGNS = {
     "right_inner_finger_joint": 1.0,
     "right_inner_finger_knuckle_joint": -1.0,
 }
+
+
+@configclass
+class _NewtonJointPropertiesCfg(JointDriveFragment):
+    """Author Newton joint inertia and solver velocity limits when spawning DROID."""
+
+    _usd_namespace: ClassVar[str | None] = "newton"
+
+    armature: float | None = None
+    """Added joint inertia [kg·m²] for revolute joints."""
+
+    velocity_limit: float | None = None
+    """Requested solver joint velocity limit [rad/s] for revolute joints."""
 
 
 class DroidEmbodimentBase(EmbodimentBase, ABC):
@@ -165,6 +179,7 @@ class DroidEmbodimentBase(EmbodimentBase, ABC):
         if backend is PhysicsBackend.NEWTON:
             self._configure_newton_spawn()
             self._configure_newton_gripper()
+            self._configure_newton_joint_properties()
 
     def _configure_newton_spawn(self) -> None:
         """Apply Newton-compatible robot spawning shared across DROID control modes."""
@@ -185,8 +200,8 @@ class DroidEmbodimentBase(EmbodimentBase, ABC):
         gripper_joint_names = tuple(_DROID_NEWTON_GRIPPER_MIMIC_SIGNS)
         self.scene_config.robot.actuators["gripper"] = ImplicitActuatorCfg(
             joint_names_expr=list(gripper_joint_names),
-            effort_limit=20.0,
-            velocity_limit=1.2,
+            joint_effort_limit=20.0,
+            actuator_velocity_limit=1.2,
             stiffness=40.0,
             damping=8.0,
             armature=0.05,
@@ -203,6 +218,28 @@ class DroidEmbodimentBase(EmbodimentBase, ABC):
             close_command_expr=close_command,
         )
         self.observation_config.policy.gripper_pos = ObsTerm(func=newton_gripper_pos)
+
+    def _configure_newton_joint_properties(self) -> None:
+        """Keep implicit actuator tuning in the USD imported by Newton simulation rebuilds."""
+        robot_cfg = self.scene_config.robot
+        joint_properties = {}
+        for actuator in robot_cfg.actuators.values():
+            fragments = [
+                UsdPhysicsDriveCfg(
+                    drive_type="force",
+                    stiffness=actuator.stiffness,
+                    damping=actuator.damping,
+                    max_force=actuator.joint_effort_limit,
+                ),
+                _NewtonJointPropertiesCfg(
+                    armature=actuator.armature,
+                    velocity_limit=actuator.joint_velocity_limit,
+                ),
+            ]
+            for joint_name_expr in actuator.joint_names_expr:
+                joint_properties[f"/.*/{joint_name_expr}"] = fragments
+        robot_cfg.spawn.joint_drive_props = joint_properties
+        robot_cfg.spawn.joint_drive_props_create_if_missing = True
 
     def get_bounding_box(self) -> AxisAlignedBoundingBox:
         """Return root-relative placement bounds from the composed on-stand USD spawn.
@@ -400,15 +437,15 @@ class DroidSceneCfg:
         actuators={
             "panda_shoulder": ImplicitActuatorCfg(
                 joint_names_expr=["panda_joint[1-4]"],
-                effort_limit=87.0,
-                velocity_limit=2.175,
+                joint_effort_limit=87.0,
+                actuator_velocity_limit=2.175,
                 stiffness=400.0,
                 damping=80.0,
             ),
             "panda_forearm": ImplicitActuatorCfg(
                 joint_names_expr=["panda_joint[5-7]"],
-                effort_limit=12.0,
-                velocity_limit=2.61,
+                joint_effort_limit=12.0,
+                actuator_velocity_limit=2.61,
                 stiffness=400.0,
                 damping=80.0,
             ),
@@ -416,7 +453,7 @@ class DroidSceneCfg:
                 joint_names_expr=["finger_joint"],
                 stiffness=None,
                 damping=None,
-                velocity_limit=5.0,
+                actuator_velocity_limit=5.0,
             ),
         },
     )

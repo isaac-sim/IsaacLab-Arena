@@ -99,6 +99,7 @@ def environment_registration_callback() -> list[str]:
         add_isaaclab_arena_cli_args,
     )
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
+    from isaaclab_arena.progress_tracking.task_success import TaskSuccessTerm, external_task_success
 
     # Get the requested environment from the CLI.
     parser = argparse.ArgumentParser()
@@ -140,7 +141,14 @@ def environment_registration_callback() -> list[str]:
     # TODO(cvolk, 2026-07-06): [typed-config-migration] Remove this Namespace conversion when the Isaac Lab
     # external callback can receive ArenaEnvBuilderCfg directly.
     env_builder = ArenaEnvBuilder(isaaclab_arena_environment, arena_env_builder_cfg_from_argparse(args))
-    env_builder.build_registered()
+    env_cfg, env_kwargs = env_builder.compose_manager_cfg()
+    success_term = getattr(env_cfg.terminations, "success", None)
+    if success_term is not None and success_term.func is TaskSuccessTerm:
+        # Lab demo tools call success directly and may remove all termination terms.
+        # Retain the stateful evaluator separately and expose a normal function.
+        env_cfg.external_success_term = success_term
+        env_cfg.terminations.success = success_term.replace(func=external_task_success, params={})
+    env_builder.build_registered(env_cfg, env_kwargs)
     # Return the arguments that were not consumed by this callback
     return remaining_args
 

@@ -10,10 +10,13 @@ from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
 from isaaclab.envs import ManagerBasedRLEnv, ManagerBasedRLMimicEnv
+from isaaclab.managers import TerminationManager
+from isaaclab.managers.recorder_manager import DatasetExportMode, RecorderManagerBaseCfg
 
 from isaaclab_arena.environments.arena_world import ArenaWorld
 from isaaclab_arena.metrics.metric_data import MetricsDataCollection
 from isaaclab_arena.metrics.metrics_manager import MetricsManager
+from isaaclab_arena.progress_tracking.task_success import ExternalTaskSuccessRecorderCfg
 from isaaclab_arena.recording.arena_recorder_manager import ArenaRecorderManager
 from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderManager
 from isaaclab_arena.tasks.predicates.object_settling import ObjectInitialRestPoseRecorder
@@ -46,6 +49,8 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
         apply_arena_global_settings()
         self._arena_world: ArenaWorld | None = None
         self._progress_tracker: ProgressTracker | None = None
+        self._external_success_manager: TerminationManager | None = None
+        self._external_success_step = -1
         self._object_initial_rest_pose_recorder = ObjectInitialRestPoseRecorder(
             num_envs=cfg.scene.num_envs, device=cfg.sim.device
         )
@@ -113,9 +118,29 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
             super().load_managers()
         finally:
             self.cfg.recorders = recorder_cfg
+        if self.cfg.external_success_term is not None:
+            self._external_success_manager = TerminationManager({"success": self.cfg.external_success_term}, self)
+            self._external_success_step = self.common_step_counter
+            if not recorder_cfg:
+                recorder_cfg = RecorderManagerBaseCfg(dataset_export_mode=DatasetExportMode.EXPORT_NONE)
+            # This term writes no dataset data. Keep its pre-reset progress hook even
+            # when Lab's replay tool removes the trajectory recorder configuration.
+            recorder_cfg.progress_tracking = ExternalTaskSuccessRecorderCfg()
+            self.cfg.recorders = recorder_cfg
         self.recorder_manager = ArenaRecorderManager(recorder_cfg, self)
         self.metrics_manager = MetricsManager(self.cfg.metrics, self)
         self.episode_recorder_manager = EpisodeRecorderManager(self.cfg.episode_recorders, self)
+
+    def compute_external_success(self) -> torch.Tensor:
+        """Evaluate retained success once per control step, preserving results across partial resets."""
+        assert self._external_success_manager is not None, "No external success evaluator is configured."
+        if self._external_success_step != self.common_step_counter:
+            self._external_success_manager.compute()
+            self._external_success_step = self.common_step_counter
+        # A reset clears the affected tracker's rows. Queries after an automatic
+        # reset must not advance the surviving episodes a second time this step.
+        assert self.progress_tracker is not None
+        return self.progress_tracker.is_complete()
 
     def get_language_instruction(self) -> str | None:
         """Return the language instruction that is passed to the policy."""
@@ -179,6 +204,8 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
         self._active_episode_mask[episode_start_env_ids] = True
         self._reset_env_ids = torch.cat((self._reset_env_ids, episode_start_env_ids))
         super()._reset_idx(episode_start_env_ids)
+        if self._external_success_manager is not None:
+            self._external_success_manager.reset(episode_start_env_ids)
 
     def compute_metrics(self) -> MetricsDataCollection:
         """Compute all registered metrics.
