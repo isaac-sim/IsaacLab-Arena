@@ -1,0 +1,17 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+env_name: tuna_can_in_bin
+external_yaml: ../scenes_new/tuna_soup_bin.yaml
+task:
+  composition: atomic
+  description: Put the tuna can in the bin.
+  subtasks:
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: tuna_can
+      destination_location: bin
+      background_scene: maple_table_robolab
+      episode_length_s: 70.0

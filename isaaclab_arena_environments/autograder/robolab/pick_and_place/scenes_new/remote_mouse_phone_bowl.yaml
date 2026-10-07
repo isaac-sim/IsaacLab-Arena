@@ -1,0 +1,51 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+embodiment:
+  id: droid
+  registry_name: droid_abs_joint_pos
+  params: {}
+background:
+  id: maple_table_robolab
+  registry_name: maple_table_robolab
+  params: {}
+objects:
+- id: remote_control
+  registry_name: remote_control_hot3d_robolab
+  params: {}
+- id: computer_mouse
+  registry_name: computer_mouse_hot3d_robolab
+  params: {}
+- id: smartphone
+  registry_name: smartphone_hot3d_robolab
+  params: {}
+- id: wooden_bowl
+  registry_name: wooden_bowl_hot3d_robolab
+  params:
+    scale:
+    - 0.5
+    - 0.5
+    - 0.5
+relations:
+- kind: is_anchor
+  subject: maple_table_robolab
+  reference: null
+  params: {}
+- kind: 'on'
+  subject: remote_control
+  reference: maple_table_robolab
+  params: {}
+- kind: 'on'
+  subject: computer_mouse
+  reference: maple_table_robolab
+  params: {}
+- kind: 'on'
+  subject: smartphone
+  reference: maple_table_robolab
+  params: {}
+- kind: 'on'
+  subject: wooden_bowl
+  reference: maple_table_robolab
+  params: {}

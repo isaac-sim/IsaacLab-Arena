@@ -1,0 +1,29 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+env_name: canned_vegetables_in_bin
+external_yaml: ../scenes_new/canned_vegetables_butter_bin.yaml
+task:
+  composition: parallel
+  description: Put the canned vegetables in the grey bin.
+  subtasks:
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: corn
+      destination_location: grey_bin
+      background_scene: maple_table_robolab
+      episode_length_s: 70.0
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: green_beans
+      destination_location: grey_bin
+      background_scene: maple_table_robolab
+      episode_length_s: 70.0
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: peas_and_carrots
+      destination_location: grey_bin
+      background_scene: maple_table_robolab
+      episode_length_s: 70.0

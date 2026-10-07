@@ -1,0 +1,23 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+env_name: scissors_and_clamp_in_container
+external_yaml: ../scenes_new/scissors_clamp_hammer_container.yaml
+task:
+  composition: parallel
+  description: Put the scissors and the clamp in the container.
+  subtasks:
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: scissors
+      destination_location: container
+      background_scene: maple_table_robolab
+      episode_length_s: 70.0
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: clamp
+      destination_location: container
+      background_scene: maple_table_robolab
+      episode_length_s: 70.0

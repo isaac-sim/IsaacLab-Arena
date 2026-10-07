@@ -1,0 +1,23 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+env_name: lime_then_lemon_in_bowl
+external_yaml: ../scenes_new/lime_lemon_orange_bowl.yaml
+task:
+  composition: sequential
+  description: Put the lime in the bowl, then the lemon.
+  subtasks:
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: lime
+      destination_location: bowl
+      background_scene: maple_table_robolab
+      episode_length_s: 70.0
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: lemon
+      destination_location: bowl
+      background_scene: maple_table_robolab
+      episode_length_s: 70.0

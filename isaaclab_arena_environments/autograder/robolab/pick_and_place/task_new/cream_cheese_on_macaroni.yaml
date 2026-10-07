@@ -1,0 +1,17 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+env_name: cream_cheese_on_macaroni
+external_yaml: ../scenes_new/cream_cheese_macaroni_popcorn.yaml
+task:
+  composition: atomic
+  description: Pick up the cream cheese and place it on top of the macaroni and cheese box.
+  subtasks:
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: cream_cheese
+      destination_location: macaroni
+      background_scene: maple_table_robolab
+      episode_length_s: 70.0

@@ -1,0 +1,23 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+env_name: remote_then_mouse_in_bowl
+external_yaml: ../scenes_new/remote_mouse_phone_bowl.yaml
+task:
+  composition: sequential
+  description: Put the remote control in the wooden bowl, then the computer mouse.
+  subtasks:
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: remote_control
+      destination_location: wooden_bowl
+      background_scene: maple_table_robolab
+      episode_length_s: 70.0
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: computer_mouse
+      destination_location: wooden_bowl
+      background_scene: maple_table_robolab
+      episode_length_s: 70.0
