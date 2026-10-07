@@ -576,6 +576,100 @@
                   
   <section id="release-notes">
 <h1>Release Notes<a class="headerlink" href="#release-notes" title="Link to this heading">#</a></h1>
+<section id="v0-3-1">
+<h2>v0.3.1<a class="headerlink" href="#v0-3-1" title="Link to this heading">#</a></h2>
+<p>This release introduces:</p>
+<ul class="simple">
+<li><p>Updates the simulation stack with expanded Newton support for objects and robots.</p></li>
+<li><p>Adds simulation setup and placement parameter overrides through environment YAML.</p></li>
+<li><p>Adds placement recording and replay, with offline clutter generation and validation.</p></li>
+</ul>
+<p>Details below:</p>
+<p><strong>Features and improvements</strong></p>
+<ul class="simple">
+<li><p><strong>Object placement and clutter:</strong> Added recording and replay of settled placement
+layouts, <code class="docutils literal notranslate"><span class="pre">ClutterOn</span></code> release poses, and offline clutter settling and validation.
+Added footprint-overlap constraints for <code class="docutils literal notranslate"><span class="pre">On</span></code> relations and made
+<code class="docutils literal notranslate"><span class="pre">OnTreeInitializer</span></code> the default placement initializer (#1265, #1291, #1308, #1318,
+#1319, #1320, #1369).</p></li>
+<li><p><strong>Task completion and progress:</strong> Unified success checks and progress tracking
+around <code class="docutils literal notranslate"><span class="pre">CompletionCriteria</span></code>. Added consecutive-step requirements, one progress
+update per control step, and episode-end streak counts and first-completion steps
+in Experiment Runner JSON and HTML reports (#1255, #1304, #1305, #1307, #1316, #1382).</p></li>
+<li><p><strong>Runtime scene access consolidation:</strong> Added <code class="docutils literal notranslate"><span class="pre">ArenaWorld</span></code> as the read-only runtime
+scene facade on <code class="docutils literal notranslate"><span class="pre">ManagerBasedEnv</span></code>. Migrated task predicates, rewards, terminations,
+observations, and metrics to query through it (#1173, #1187, #1195, #1197).</p></li>
+<li><p><strong>Environment YAML extensions:</strong> Added <code class="docutils literal notranslate"><span class="pre">env_cfg_override</span></code> to configure
+simulation timestep, control decimation, solver, and collision settings directly
+in environment definitions. Select the backend with <code class="docutils literal notranslate"><span class="pre">default_physics_backend</span></code>
+or <code class="docutils literal notranslate"><span class="pre">--presets</span></code>; overrides tune the selected backend. Added YAML placer overrides,
+graph asset parameters and initial poses (#1266, #1302, #1363).</p></li>
+<li><p><strong>Evaluation and recording:</strong> Added rollout timing and trajectory extraction. Run
+exactly the requested number of evaluation episodes (#1198, #1254, #1371).</p></li>
+<li><p><strong>Embodiments and physics backends:</strong> Enabled Newton-backed DROID control and
+backend hooks on embodiments. Added an embodiment-owned gripper interface and
+environment-specific spawn physics settings (#1189, #1284, #1293).</p></li>
+<li><p><strong>Heterogeneous object sets:</strong> Added support for multiple heterogeneous object sets
+in one scene, including contact-sensor path validation and a multi-object
+pick-and-place example (#1381).</p></li>
+<li><p><strong>Deformables and cables:</strong> Added PhysX deformable pick-and-place assets and tasks,
+and a cable asset class (#1191, #1204, #1276, #1284).</p></li>
+<li><p><strong>New tasks and predicates:</strong> Added <code class="docutils literal notranslate"><span class="pre">ObjectInTask</span></code> for placing and settling objects
+in containers. Added shared gripper release, withdrawal, and <code class="docutils literal notranslate"><span class="pre">gripper_not_grasping</span></code>
+predicates for insertion and manipulation tasks (#1276, #1370, #1390).</p></li>
+<li><p><strong>New variation:</strong> Added <code class="docutils literal notranslate"><span class="pre">ObjectDisappearVariation</span></code>, a run-time Bernoulli
+distractor-disappearance variation on rigid objects, disabled by default and
+configurable per object from the CLI or experiment YAML (#1268).</p></li>
+</ul>
+<p><strong>Documentation</strong></p>
+<ul class="simple">
+<li><p>Added or expanded guides for offline placement recording, clutter generation,
+physics configuration, embodiments, YAML overrides, and consecutive-step summaries
+(#1266, #1284, #1308, #1320, #1330, #1372, #1382).</p></li>
+</ul>
+<p><strong>Infrastructure and CI</strong></p>
+<ul class="simple">
+<li><p>Split Docker builds into stages and setup scripts, and added premerge image builds
+using remote NGC caches (#1280, #1282).</p></li>
+</ul>
+<p><strong>Bug fixes</strong></p>
+<ul class="simple">
+<li><p><strong>Multi-rebuild evaluation:</strong> Isaac Sim 6.1 fixes scene displacement after
+environment rebuild and removes the CPU physics fallback during multi-rebuild
+evaluation (#1237, #1174, #1192).</p></li>
+<li><p><strong>Physics presets:</strong> Fixed Arena preset application so preset Newton settings no
+longer override user-configured Newton settings (#1262, #1266).</p></li>
+<li><p><strong>Task correctness:</strong> Refined settling and spatial success checks, restored Arena
+success tracking during Mimic generation, and required complete subtask definitions
+in generated environments (#1260, #1337, #1368).</p></li>
+<li><p><strong>Placement and physics:</strong> Fixed collision bounds for <code class="docutils literal notranslate"><span class="pre">RotateAroundSolution</span></code> yaw
+and skipped velocity resets for kinematic nested background rigid bodies (#1272, #1339).</p></li>
+<li><p><strong>Cameras and startup:</strong> Fixed camera-extrinsics variation under Newton, skipped
+non-RGB observations during video recording, and corrected interactive runner USD
+startup order (#1196, #1312, #1327).</p></li>
+</ul>
+<p><strong>API migration</strong></p>
+<ul class="simple">
+<li><p>Replace <code class="docutils literal notranslate"><span class="pre">ProgressObjective</span></code> with <code class="docutils literal notranslate"><span class="pre">CompletionCriteria</span></code> and predicate groups with
+predicate sequences. Return a <code class="docutils literal notranslate"><span class="pre">TaskTerminationCfg</span></code> from <code class="docutils literal notranslate"><span class="pre">get_termination_cfg()</span></code>
+and declare success through its <code class="docutils literal notranslate"><span class="pre">success</span></code> field (#1255, #1316).</p></li>
+<li><p>Replace <code class="docutils literal notranslate"><span class="pre">SequentialTaskBase</span></code> with <code class="docutils literal notranslate"><span class="pre">CompositeTaskBase</span></code> using
+<code class="docutils literal notranslate"><span class="pre">subtasks_are_sequential=True</span></code> for ordered subtasks. Pass a flat subtask list;
+nested composite tasks are not supported (#1255).</p></li>
+<li><p>Use <code class="docutils literal notranslate"><span class="pre">TrueForConsecutiveStepsCfg</span></code> around an instantaneous predicate to require a
+continuous streak; the progress runner owns and resets the counters (#1305).</p></li>
+<li><p>Update USD helper imports to concrete submodules such as
+<code class="docutils literal notranslate"><span class="pre">isaaclab_arena.utils.usd.helpers</span></code> and <code class="docutils literal notranslate"><span class="pre">isaaclab_arena.utils.usd.rigid_bodies</span></code>.
+Import <code class="docutils literal notranslate"><span class="pre">ObjectType</span></code> from <code class="docutils literal notranslate"><span class="pre">isaaclab_arena.assets.object_type</span></code> (#1218, #1292).</p></li>
+</ul>
+<p><strong>What’s Next</strong></p>
+<p>Future releases will focus on:</p>
+<ul class="simple">
+<li><p>Newton-based example workflows for contact-rich and deformable tasks.</p></li>
+<li><p>Reference examples for LLMs as policies.</p></li>
+<li><p>Improve Arena agentic readiness for complex long-horizon task generation.</p></li>
+</ul>
+</section>
 <section id="v0-3-0">
 <h2>v0.3.0<a class="headerlink" href="#v0-3-0" title="Link to this heading">#</a></h2>
 <p>This release introduces:</p>
@@ -898,6 +992,7 @@ performed on a single GPU.)</p></li>
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#v0-3-1">v0.3.1</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#v0-3-0">v0.3.0</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#v0-2-0">v0.2.0</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#v0-1-1">v0.1.1</a></li>
