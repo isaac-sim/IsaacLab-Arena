@@ -56,7 +56,7 @@ relations:
   reference: counter_top
 task:
   composition: atomic
-  description: pick up the mustard bottle and place it in the red bowl
+  description: Pick up the mustard bottle and place it in the red bowl.
   subtasks:
   - kind: PickAndPlaceTask
     params:

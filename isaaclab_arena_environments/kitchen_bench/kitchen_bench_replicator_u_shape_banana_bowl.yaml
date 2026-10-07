@@ -56,7 +56,7 @@ relations:
   reference: corner_counter
 task:
   composition: atomic
-  description: pick up the banana and place it in the red bowl
+  description: Pick up the banana and place it in the red bowl.
   subtasks:
   - kind: PickAndPlaceTask
     params:
