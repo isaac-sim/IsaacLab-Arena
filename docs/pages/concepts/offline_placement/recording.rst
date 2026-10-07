@@ -37,10 +37,12 @@ results to JSONL, then those poses can be reused across evaluations.
    pipeline. Replay uses its saved output.
 
 **Replay** restores the saved root poses and zeros root velocities on reset. It
-bypasses solving and the recorder's settling and acceptance pass; physics runs
-normally during policy evaluation. Recordings contain root poses, so joint states
-and other randomized properties still follow the evaluation environment's reset
-configuration. Geometry and reachability checks are not rerun after settling.
+uses the common episode-condition scheduler and bypasses the recorder's settling
+and acceptance pass; physics runs normally during policy evaluation. Environment
+construction still prepares its relation-placement pool, but replay does not
+consume that pool. Recordings contain root poses, so joint states and other
+randomized properties still follow the evaluation environment's reset
+configuration. Geometry and reachability checks are not rerun at reset.
 
 See :doc:`../object_placement/validation` for the checks at each stage and
 :doc:`../object_placement/pooled_placement` for pool and reset settings.
@@ -207,7 +209,7 @@ See :doc:`../object_placement/relations` for pose names, units and replay constr
 Replay Placement Layouts
 ------------------------
 
-Set ``environment_builder.placement_layouts_path`` in an
+Set ``environment_builder.episode_conditions_path`` in an
 :doc:`Experiment Definition <../concept_arena_experiments>` to load the recording:
 
 .. literalinclude:: ../../../../isaaclab_arena_environments/experiment_configs/settled_placement_replay_experiment.yaml
@@ -356,9 +358,9 @@ For an environment you already own:
   validation reports and rejection reasons in memory. It processes a fixed
   number of batches without enforcing replay restrictions or writing a file.
 
-Both APIs require a pooled placement reset event, normally built with
-``resolve_on_reset=True``. Fixed-placement and cached-replay environments do not
-provide that pool and cannot be recorded through these APIs.
+Both APIs require the scene-level relation-placement variation and its placement
+pool. ``resolve_on_reset=True`` supplies fresh candidates; fixed placement
+repeats its build-time per-environment layouts.
 
 Both caller-owned APIs accept ``params=SettledPlacementParams(...)`` and
 ``scene_assets=arena_env.get_placement_assets()``. Provide the complete asset list

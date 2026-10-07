@@ -103,6 +103,12 @@ def test_solve_and_apply_relation_placement_with_only_anchors_returns_no_reset_e
     assert placement_event_cfg is None
 
 
+def test_relation_placement_variation_skips_anchor_only_graph():
+    from isaaclab_arena.environments.relation_solver_interface import create_relation_placement_variation
+
+    assert create_relation_placement_variation([_make_desk()], num_envs=2) is None
+
+
 def test_static_solve_and_apply_relation_placement_reuses_object_only_placement():
     from isaaclab_arena.environments.relation_solver_interface import solve_and_apply_relation_placement
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams

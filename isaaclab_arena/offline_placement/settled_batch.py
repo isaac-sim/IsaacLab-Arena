@@ -75,7 +75,7 @@ def sample_and_settle_batch(
     The caller owns env, which remains open at its final state.
 
     Args:
-        env: Built environment with a pooled placement reset event.
+        env: Built environment with a scene relation-placement variation.
         root_keys: Rigid-object and articulation scene keys whose roots are measured.
         link_keys: Articulation scene keys whose root-relative links are measured.
         num_env_steps: Positive number of environment steps, each containing decimation substeps.
@@ -89,18 +89,22 @@ def sample_and_settle_batch(
     import torch
 
     from isaaclab_arena.offline_placement.pool_validation import solver_validation_failure, step_placement_physics
-    from isaaclab_arena.relations.placement_events import get_placement_pool, get_reset_placement_results
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+    from isaaclab_arena.variations.relation_placement_variation import get_relation_placement_variation
 
     env = env.unwrapped
     assert num_env_steps > 0, "num_env_steps must be positive"
     assert root_keys, "Sampling requires at least one rigid-object or articulation root"
-    placement_pool = get_placement_pool(env)
-    assert placement_pool is not None, "Sampling requires a pooled placement reset event"
+    placement_variation = get_relation_placement_variation(env)
+    assert placement_variation is not None, "Sampling requires relation placement"
+    assert (
+        not placement_variation.sampler.replays_recorded_samples
+    ), "Sampling requires live placement samples, not episode-condition replay"
+    placement_pool = placement_variation.placement_pool
     assert placement_pool.num_envs == env.num_envs, "Placement pool and scene must have the same environment count"
     env.reset()
     source_layouts = {}
-    for env_id, layout in get_reset_placement_results(env).items():
+    for env_id, layout in placement_variation.last_results.items():
         checklist = layout.validation_results
         source_layouts[env_id] = replace(
             layout,

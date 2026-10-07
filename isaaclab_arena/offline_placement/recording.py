@@ -46,7 +46,7 @@ def collect_layouts_until_count(
     """Sample reset batches until ``min_layouts`` accepts or the batch budget is reached.
 
     Args:
-        env: Built environment with a pooled placement reset event.
+        env: Built environment with a scene relation-placement variation.
         min_layouts: Minimum accepted layouts to collect.
         max_batches: Maximum outer reset-and-settle rounds.
         params: Physics duration and post-physics validators.
@@ -90,7 +90,7 @@ def validate_recording_assets(env: ManagerBasedEnv, assets: list[PlaceableAsset]
     """
     from isaaclab_arena.relations.bounding_box_helpers import has_heterogeneous_objects
     from isaaclab_arena.relations.placement_asset import get_scene_root_owners
-    from isaaclab_arena.relations.placement_layouts import validate_root_reset_for_cached_layouts
+    from isaaclab_arena.relations.placement_layouts import validate_root_reset_for_placement_replay
     from isaaclab_arena.relations.relations import RandomAroundSolution, get_relation
 
     env = env.unwrapped
@@ -112,7 +112,7 @@ def validate_recording_assets(env: ManagerBasedEnv, assets: list[PlaceableAsset]
             ), f"'{asset.name}': remove RandomAroundSolution for cached replay"
             recorded_assets.append(asset)
     assert keys, "Recording requires rigid objects or articulations"
-    validate_root_reset_for_cached_layouts(recorded_assets)
+    validate_root_reset_for_placement_replay(recorded_assets)
 
 
 def write_settled_layouts(
@@ -149,4 +149,18 @@ def write_settled_layouts(
             "post_physics": [asdict(report) for report in outcome.post_physics],
             "sampling": sampling,
         })
-    layouts.write_episode_jsonl(output, source="settled", validation=validation)
+    from isaaclab_arena.variations.relation_placement_variation import get_relation_placement_variation
+
+    placement_variation = get_relation_placement_variation(env)
+    asset_identities = None
+    if placement_variation is not None:
+        identities = placement_variation.sampler.asset_identities
+        if identities:
+            assert identities.keys() >= layouts.poses.keys(), "Graph identities must cover every recorded root"
+            asset_identities = {key: identities[key] for key in layouts.poses}
+    layouts.write_episode_jsonl(
+        output,
+        source="settled",
+        validation=validation,
+        asset_identities=asset_identities,
+    )

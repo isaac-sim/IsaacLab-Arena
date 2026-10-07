@@ -69,6 +69,10 @@ def _validate_condition_replay_variations(
             assert (
                 variation_key not in conditions.build_time_variations
             ), f"Run-time variation {variation_key!r} cannot appear in build_time_variations."
+            if appears_at_runtime:
+                variation.validate_replay_samples(
+                    [episode.runtime_variations[variation_key] for episode in conditions.episodes]
+                )
 
 
 def _bind_condition_replay_samplers(

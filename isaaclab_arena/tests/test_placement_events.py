@@ -290,18 +290,6 @@ def test_reset_placement_asset_pose_per_env_requires_full_env_coverage():
         reset_placement_asset_pose_per_env(env, torch.tensor([2]), write_pose_list=short_list)
 
 
-def test_get_placement_pool_returns_runtime_pool():
-    from isaaclab_arena.relations.placement_events import PlacementPoolHandle, get_placement_pool
-
-    class Pool:
-        pass
-
-    pool = Pool()
-    env = MagicMock()
-    env.unwrapped.event_manager.get_term_cfg.return_value.params = {"placement_pool": PlacementPoolHandle(pool)}
-    assert get_placement_pool(env) is pool
-
-
 def test_solve_and_place_objects_applies_random_yaw():
     """With random_yaw_init enabled the runtime path should write yawed (non-identity) poses."""
 

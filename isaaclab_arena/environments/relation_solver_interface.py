@@ -10,6 +10,7 @@ from collections.abc import Iterable
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+from isaaclab_arena.relations.placement_asset import get_scene_root_owners
 from isaaclab_arena.relations.placement_events import PlacementPoolHandle, get_pose_from_layout, solve_and_place_objects
 from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
 from isaaclab_arena.relations.relations import get_anchor_objects
@@ -23,6 +24,65 @@ if TYPE_CHECKING:
     from isaaclab_arena.relations.collision_object import CollisionObject
     from isaaclab_arena.relations.placement_asset import PlaceableAsset
     from isaaclab_arena.relations.placement_result import PlacementResult
+
+
+def create_relation_placement_variation(
+    assets: list[PlaceableAsset],
+    num_envs: int,
+    placer_params: ObjectPlacerParams | None = None,
+    collision_objects: list[CollisionObject] | None = None,
+    scene_assets: Iterable[Asset | RigidObjectSet] | None = None,
+    asset_identities: dict[str, str] | None = None,
+    replay_assets: list[PlaceableAsset] | None = None,
+):
+    """Build relation placement as one coordinated scene-level variation."""
+    from isaaclab_arena.variations.relation_placement_variation import PlacementPoolSampler, RelationPlacementVariation
+
+    prepared = _build_relation_placement_pool(
+        assets=assets,
+        num_envs=num_envs,
+        placer_params=placer_params,
+        collision_objects=collision_objects,
+        scene_assets=scene_assets,
+    )
+    if prepared is None:
+        return None
+    if replay_assets is not None:
+        get_scene_root_owners(replay_assets)
+    resolved_params, placement_pool = prepared
+    anchor_assets = set(get_anchor_objects(assets))
+    _validate_no_conflicting_pose_reset_events(assets, anchor_assets)
+    if anchor_assets == set(assets):
+        return None
+    fixed_results = None
+    if resolved_params.resolve_on_reset:
+        [construction_layout] = placement_pool.sample_with_replacement(1)
+        _seed_spawn_config_from_layout(assets, anchor_assets, construction_layout)
+    else:
+        layouts = placement_pool.sample_with_replacement(num_envs)
+        fixed_results = {env_id: layout for env_id, layout in enumerate(layouts)}
+        _apply_static_initial_poses(
+            assets=assets,
+            placement_pool=placement_pool,
+            anchor_assets=anchor_assets,
+            num_envs=num_envs,
+            layouts=layouts,
+        )
+        for asset in assets:
+            if asset in anchor_assets:
+                continue
+            assert asset.has_pose_reset_event(), (
+                f"Static relation placement stored a per-env pose for non-anchor asset '{asset.name}', but it "
+                "owns no reset event, so its solved layout would be silently discarded on every reset."
+            )
+    sampler = PlacementPoolSampler(
+        assets=assets,
+        placement_pool=placement_pool,
+        fixed_results=fixed_results,
+        asset_identities=asset_identities,
+        replay_assets=replay_assets,
+    )
+    return RelationPlacementVariation(sampler, write_live_samples=resolved_params.resolve_on_reset)
 
 
 def solve_and_apply_relation_placement(
@@ -48,6 +108,33 @@ def solve_and_apply_relation_placement(
         Reset event config to attach to the environment when placement should be
         resolved on reset. Returns ``None`` when no reset event is needed.
     """
+    prepared = _build_relation_placement_pool(
+        assets=assets,
+        num_envs=num_envs,
+        placer_params=placer_params,
+        collision_objects=collision_objects,
+        scene_assets=scene_assets,
+    )
+    if prepared is None:
+        return None
+    placer_params, placement_pool = prepared
+
+    return _apply_relation_placement_result(
+        assets=assets,
+        placer_params=placer_params,
+        placement_pool=placement_pool,
+        num_envs=num_envs,
+    )
+
+
+def _build_relation_placement_pool(
+    assets: list[PlaceableAsset],
+    num_envs: int,
+    placer_params: ObjectPlacerParams | None,
+    collision_objects: list[CollisionObject] | None,
+    scene_assets: Iterable[Asset | RigidObjectSet] | None,
+) -> tuple[ObjectPlacerParams, PooledObjectPlacer] | None:
+    """Validate relation assets and build their reusable placement pool."""
     if not assets:
         print("No assets with relations found in scene. Skipping relation solving.")
         return None
@@ -56,17 +143,10 @@ def solve_and_apply_relation_placement(
     scene_keys = [asset.get_scene_key() for asset in assets]
     assert len(set(scene_keys)) == len(scene_keys), "Placement assets map to duplicate scene keys"
 
-    if placer_params is None:
-        placer_params = ObjectPlacerParams()
-    else:
-        placer_params = copy.copy(placer_params)
+    placer_params = ObjectPlacerParams() if placer_params is None else copy.copy(placer_params)
     placer_params.apply_positions_to_objects = False
-    # Note(xinjieyao, 2026-07-23): The build-time IK-reachability check reads the embodiment only while its validator is built (during the
-    # pool construction below). Copy the config so the live embodiment can be dropped afterwards without
-    # mutating the caller.
     placer_params.reachability_config = copy.copy(placer_params.reachability_config)
     if collision_objects is None and scene_assets is not None:
-        # Import after SimulationApp starts to avoid preloading USD before Kit.
         from isaaclab_arena.relations.passive_collision_objects import get_placement_collision_objects
 
         collision_objects = get_placement_collision_objects(
@@ -79,22 +159,13 @@ def solve_and_apply_relation_placement(
         num_envs=num_envs,
         collision_objects=collision_objects,
     )
-    # Validators are built once above and reused for every refill, so the embodiment is done being read; drop
-    # it before the reset-event params below capture (and deep-copy/validate) the pool.
     placer_params.reachability_config.embodiment = None
-
     if placement_pool.had_fallbacks:
         print(
             "Warning: Relation placement pool accepted best-loss fallback layouts "
             "that failed strict placement validation."
         )
-
-    return _apply_relation_placement_result(
-        assets=assets,
-        placer_params=placer_params,
-        placement_pool=placement_pool,
-        num_envs=num_envs,
-    )
+    return placer_params, placement_pool
 
 
 def _apply_relation_placement_result(
@@ -177,9 +248,10 @@ def _apply_static_initial_poses(
     placement_pool: PooledObjectPlacer,
     anchor_assets: set[PlaceableAsset],
     num_envs: int,
+    layouts: list[PlacementResult] | None = None,
 ) -> None:
     """Apply fixed per-environment poses for ``resolve_on_reset=False``."""
-    layouts = placement_pool.sample_with_replacement(num_envs)
+    layouts = placement_pool.sample_with_replacement(num_envs) if layouts is None else layouts
     for asset in assets:
         if asset in anchor_assets:
             continue

@@ -121,8 +121,8 @@ def _test_disappeared_object_survives_relation_placement(simulation_app):
     env = ArenaEnvBuilder(arena_env, arena_env_builder_cfg_from_argparse(args_cli)).make_registered()
     try:
         assert hasattr(
-            env.unwrapped.cfg.events, "placement_reset"
-        ), "Test setup is wrong: relation solving did not register a placement reset event."
+            env.unwrapped.cfg.events, "scene_relation_placement"
+        ), "Test setup is wrong: relation solving did not register its scene variation."
         env.reset()
         distance = get_env_local_distances(env, "cracker_box")[0]
         assert (

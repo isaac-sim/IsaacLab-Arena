@@ -906,6 +906,7 @@ def test_real_rigid_object_set_through_pooled_placer():
     from isaaclab_arena.assets.object_set import RigidObjectSet
     from isaaclab_arena.assets.object_type import ObjectType
     from isaaclab_arena.relations.bounding_box_helpers import has_heterogeneous_objects
+    from isaaclab_arena.variations.relation_placement_variation import PlacementPoolSampler
 
     desk = _make_desk()
 
@@ -938,3 +939,14 @@ def test_real_rigid_object_set_through_pooled_placer():
         assert obj_set in draw.positions
         z = draw.positions[obj_set][2]
         assert abs(z - 0.11) < 0.05, f"z={z:.4f}, expected ~0.11"
+
+    sampler = PlacementPoolSampler(
+        [desk, obj_set],
+        pool,
+        replay_assets=[desk, obj_set],
+        # Object-set member identity is intentionally unavailable until heterogeneous replay is supported.
+        asset_identities={desk.get_scene_key(): "desk"},
+    )
+    rows = sampler.sample(2, torch.tensor([0, 1]))
+    assert all(set(row["poses"]) == {"cans"} for row in rows)
+    assert all("assets" not in row for row in rows)

@@ -28,6 +28,7 @@ if TYPE_CHECKING:
     )
     from isaaclab_arena.progress_tracking.progress_tracker import ProgressTracker
     from isaaclab_arena.variations.condition_scheduler import ConditionScheduler
+    from isaaclab_arena.variations.variation_base import VariationBase
 
 
 class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
@@ -41,6 +42,7 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
         render_mode: str | None = None,
         variation_recorder: VariationRecorder | None = None,
         condition_scheduler: ConditionScheduler | None = None,
+        scene_variations: dict[str, VariationBase] | None = None,
         **kwargs,
     ):
         from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import apply_arena_global_settings
@@ -53,6 +55,7 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
         )
         self._variation_recorder = variation_recorder
         self._condition_scheduler = condition_scheduler
+        self._scene_variations = scene_variations or {}
         if variation_recorder is not None:
             # Bind so run-time variation draws can be attributed to the current episode index.
             variation_recorder.bind_env(self)
@@ -84,6 +87,11 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
     def condition_scheduler(self) -> ConditionScheduler | None:
         """The active episode-condition scheduler, or ``None``."""
         return self._condition_scheduler
+
+    @property
+    def scene_variations(self) -> dict[str, VariationBase]:
+        """Builder-created coordinated variations keyed by variation name."""
+        return self._scene_variations
 
     @property
     def object_initial_rest_pose_recorder(self) -> ObjectInitialRestPoseRecorder:

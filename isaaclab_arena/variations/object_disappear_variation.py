@@ -83,6 +83,9 @@ class ObjectDisappearVariation(RunTimeVariationBase):
             Defaults to ``"disappear"``.
     """
 
+    reset_priority = 200
+    """Run after relation placement so a disappeared object stays parked."""
+
     cfg: ObjectDisappearVariationCfg
 
     def __init__(
