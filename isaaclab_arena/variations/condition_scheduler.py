@@ -8,18 +8,9 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from dataclasses import dataclass
 from typing import Any
 
 from isaaclab_arena.variations.episode_conditions import EpisodeCondition, RebuildConditions
-
-
-@dataclass(frozen=True)
-class ConditionAssignment:
-    """One occurrence of a source condition assigned to an environment."""
-
-    occurrence_index: int
-    source_index: int
 
 
 class ConditionScheduler:
@@ -29,13 +20,7 @@ class ConditionScheduler:
         assert conditions.num_conditions > 0, "Rebuild conditions must list at least one episode"
         self._conditions = conditions
         self._next_occurrence_index = 0
-        self._env_assignments: dict[int, ConditionAssignment] = {}
-        self._num_assignments_completed = 0
-
-    @property
-    def num_conditions(self) -> int:
-        """Number of source rows in the rebuild conditions."""
-        return self._conditions.num_conditions
+        self._source_index_by_env: dict[int, int] = {}
 
     @property
     def num_assignments_started(self) -> int:
@@ -45,36 +30,26 @@ class ConditionScheduler:
     @property
     def num_assignments_completed(self) -> int:
         """Number of assignment occurrences completed so far."""
-        return self._num_assignments_completed
+        return self._next_occurrence_index - len(self._source_index_by_env)
 
     def assign_new_episodes(self, env_ids: Sequence[int]) -> None:
         """Assign conditions to envs that do not already have an active assignment."""
         for raw_env_id in env_ids:
             env_id = int(raw_env_id)
-            if env_id in self._env_assignments:
+            if env_id in self._source_index_by_env:
                 continue
-            occurrence_index = self._next_occurrence_index
-            self._env_assignments[env_id] = ConditionAssignment(
-                occurrence_index=occurrence_index,
-                source_index=occurrence_index % self.num_conditions,
-            )
+            self._source_index_by_env[env_id] = self._next_occurrence_index % self._conditions.num_conditions
             self._next_occurrence_index += 1
 
     def complete_episodes(self, env_ids: Sequence[int]) -> None:
         """Mark and remove the active assignment for each finishing env."""
         for raw_env_id in env_ids:
             env_id = int(raw_env_id)
-            self._env_assignments.pop(env_id)
-            self._num_assignments_completed += 1
-
-    def assignment_for_env(self, env_id: int) -> ConditionAssignment:
-        """Return the active assignment for ``env_id``."""
-        return self._env_assignments[int(env_id)]
+            self._source_index_by_env.pop(env_id)
 
     def condition_for_env(self, env_id: int) -> EpisodeCondition:
         """Return the source condition currently assigned to ``env_id``."""
-        assignment = self.assignment_for_env(env_id)
-        return self._conditions.episodes[assignment.source_index]
+        return self._conditions.episodes[self._source_index_by_env[int(env_id)]]
 
     def runtime_sample_for(self, variation_key: str, env_ids: Sequence[int]) -> list[Any]:
         """Return one recorded sample row per env in ``env_ids``."""

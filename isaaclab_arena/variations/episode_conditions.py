@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Collection
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -43,7 +44,7 @@ class RebuildConditions:
 def load_episode_conditions_overlay(
     path: str | Path,
     *,
-    build_time_variation_keys: set[str] | None = None,
+    build_time_variation_keys: Collection[str] = (),
 ) -> RebuildConditions:
     """Load one episode-result JSONL as rebuild conditions.
 
@@ -56,10 +57,10 @@ def load_episode_conditions_overlay(
     """
     path = Path(path)
     assert path.suffix.lower() == ".jsonl", f"Episode conditions must be loaded from JSONL: {path}"
-    requested_build_time_keys = build_time_variation_keys or set()
+    requested_build_time_keys = set(build_time_variation_keys)
     build_time_variations: dict[str, Any] = {}
     build_time_counts = dict.fromkeys(requested_build_time_keys, 0)
-    variations_per_line: list[dict[str, Any]] = []
+    episodes: list[EpisodeCondition] = []
     with path.open(encoding="utf-8") as episode_results:
         for line_number, raw_line in enumerate(episode_results, start=1):
             raw_line = raw_line.strip()
@@ -69,7 +70,6 @@ def load_episode_conditions_overlay(
             assert isinstance(record, dict), f"Line {line_number} in {path} is not a JSON object"
             variations = record.get("variations", {})
             assert isinstance(variations, dict), "variations must be a mapping when present"
-            variations_per_line.append(variations)
             for key, value in variations.items():
                 if key not in requested_build_time_keys:
                     continue
@@ -80,24 +80,22 @@ def load_episode_conditions_overlay(
                 else:
                     build_time_variations[key] = value
                 build_time_counts[key] += 1
+            episodes.append(
+                EpisodeCondition(
+                    condition_id=f"condition_{len(episodes):06d}",
+                    runtime_variations={
+                        key: value for key, value in variations.items() if key not in requested_build_time_keys
+                    },
+                )
+            )
 
-    assert variations_per_line, f"No episode records found in {path}"
+    assert episodes, f"No episode records found in {path}"
     for key in sorted(requested_build_time_keys):
         count = build_time_counts[key]
         assert count == 0 or count == len(
-            variations_per_line
+            episodes
         ), f"Build-time variation {key!r} is missing from some episode records"
 
-    episodes: list[EpisodeCondition] = []
-    for index, variations in enumerate(variations_per_line):
-        for key in build_time_variations:
-            del variations[key]
-        episodes.append(
-            EpisodeCondition(
-                condition_id=f"condition_{index:06d}",
-                runtime_variations=variations,
-            )
-        )
     return RebuildConditions(
         build_time_variations=build_time_variations,
         episodes=episodes,

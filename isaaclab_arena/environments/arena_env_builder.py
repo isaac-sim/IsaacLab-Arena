@@ -59,12 +59,7 @@ from isaaclab_arena.utils.isaaclab_utils.warp_patch import install_empty_cpu_war
 from isaaclab_arena.utils.multiprocess import get_local_rank
 from isaaclab_arena.utils.physics_backend import PhysicsBackend
 from isaaclab_arena.variations import variations_hydra, variations_printing
-from isaaclab_arena.variations.condition_replay import (
-    ConditionReplayState,
-    bind_condition_replay_samplers,
-    load_variation_conditions,
-)
-from isaaclab_arena.variations.condition_scheduler import ConditionScheduler
+from isaaclab_arena.variations.condition_replay import configure_condition_replay
 from isaaclab_arena.variations.variation_base import RunTimeVariationBase, VariationBase
 from isaaclab_arena.variations.variation_recorder import VariationRecorder
 
@@ -322,15 +317,11 @@ class ArenaEnvBuilder:
         if self.hydra_overrides:
             variations_hydra.apply_overrides(variations, self.hydra_overrides)
 
-        condition_replay_state = None
-        if self.cfg.episode_conditions_path is not None:
-            conditions = load_variation_conditions(self.cfg.episode_conditions_path, variations)
-            scheduler = ConditionScheduler(conditions)
-            bind_condition_replay_samplers(variations, conditions, scheduler)
-            condition_replay_state = ConditionReplayState(
-                scheduler=scheduler,
-                episode_results_source=self.cfg.episode_conditions_path,
-            )
+        condition_scheduler = (
+            configure_condition_replay(self.cfg.episode_conditions_path, variations)
+            if self.cfg.episode_conditions_path is not None
+            else None
+        )
 
         # Attach the variation recorder before any sampling, so it observes both build-time samples
         # (drawn just below) and run-time samples (drawn during simulation).
@@ -553,7 +544,7 @@ class ArenaEnvBuilder:
 
         env_kwargs: dict[str, Any] = {
             "variation_recorder": variation_recorder,
-            "condition_replay_state": condition_replay_state,
+            "condition_scheduler": condition_scheduler,
         }
         return env_cfg, env_kwargs
 

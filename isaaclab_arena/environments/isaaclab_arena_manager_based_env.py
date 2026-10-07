@@ -27,7 +27,7 @@ if TYPE_CHECKING:
         IsaacLabArenaManagerBasedRLEnvCfg,
     )
     from isaaclab_arena.progress_tracking.progress_tracker import ProgressTracker
-    from isaaclab_arena.variations.condition_replay import ConditionReplayState
+    from isaaclab_arena.variations.condition_scheduler import ConditionScheduler
 
 
 class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
@@ -40,7 +40,7 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
         cfg: IsaacLabArenaManagerBasedRLEnvCfg,
         render_mode: str | None = None,
         variation_recorder: VariationRecorder | None = None,
-        condition_replay_state: ConditionReplayState | None = None,
+        condition_scheduler: ConditionScheduler | None = None,
         **kwargs,
     ):
         from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import apply_arena_global_settings
@@ -52,7 +52,7 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
             num_envs=cfg.scene.num_envs, device=cfg.sim.device
         )
         self._variation_recorder = variation_recorder
-        self._condition_replay_state = condition_replay_state
+        self._condition_scheduler = condition_scheduler
         if variation_recorder is not None:
             # Bind so run-time variation draws can be attributed to the current episode index.
             variation_recorder.bind_env(self)
@@ -81,9 +81,9 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
         return self._variation_recorder
 
     @property
-    def condition_replay_state(self) -> ConditionReplayState | None:
-        """The active episode-condition replay state, or ``None``."""
-        return self._condition_replay_state
+    def condition_scheduler(self) -> ConditionScheduler | None:
+        """The active episode-condition scheduler, or ``None``."""
+        return self._condition_scheduler
 
     @property
     def object_initial_rest_pose_recorder(self) -> ObjectInitialRestPoseRecorder:
@@ -168,8 +168,8 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
             # Record the JSONL result with the finishing episode's index
             # before starting any replacements.
             self.episode_recorder_manager.record_pre_reset(finishing_env_ids)
-            if self._condition_replay_state is not None:
-                self._condition_replay_state.scheduler.complete_episodes(finishing_env_ids.tolist())
+            if self._condition_scheduler is not None:
+                self._condition_scheduler.complete_episodes(finishing_env_ids.tolist())
             self._completed_episode_count += len(finishing_env_ids)
             self._active_episode_mask[finishing_env_ids] = False
 
@@ -185,8 +185,8 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
         # Reset-mode variation draws must refer to the episode being started.
         for env_id in episode_start_env_ids.tolist():
             self._episode_indices[env_id] = self._episode_indices.get(env_id, -1) + 1
-        if self._condition_replay_state is not None:
-            self._condition_replay_state.scheduler.assign_new_episodes(episode_start_env_ids.tolist())
+        if self._condition_scheduler is not None:
+            self._condition_scheduler.assign_new_episodes(episode_start_env_ids.tolist())
         self._started_episode_count += len(episode_start_env_ids)
         self._active_episode_mask[episode_start_env_ids] = True
         self._reset_env_ids = torch.cat((self._reset_env_ids, episode_start_env_ids))

@@ -7,9 +7,9 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from isaaclab_arena.variations.condition_scheduler import ConditionScheduler
 from isaaclab_arena.variations.episode_conditions import (
     RebuildConditions,
     load_episode_conditions_overlay,
@@ -20,37 +20,40 @@ from isaaclab_arena.variations.variation_base import BuildTimeVariationBase, Run
 if TYPE_CHECKING:
     import torch
 
-    from isaaclab_arena.variations.condition_scheduler import ConditionScheduler
     from isaaclab_arena.variations.variation_base import VariationBase
 
 
-@dataclass
-class ConditionReplayState:
-    """Replay metadata and scheduler attached to a constructed environment."""
-
-    scheduler: ConditionScheduler
-    episode_results_source: str
-
-
-def load_variation_conditions(
+def configure_condition_replay(
     path: str,
     variations: dict[str, list[VariationBase]],
-) -> RebuildConditions:
-    """Load and validate rebuild conditions against the enabled variations."""
+) -> ConditionScheduler:
+    """Load episode conditions, bind replay samplers, and return their scheduler.
+
+    Args:
+        path: Episode-result JSONL to replay.
+        variations: Variations available in the environment.
+
+    Returns:
+        Scheduler configured to assign and replay the loaded conditions.
+    """
+    enabled = _enabled_variations_by_key(variations)
     conditions = load_episode_conditions_overlay(
         path,
-        build_time_variation_keys=enabled_build_time_variation_keys(variations),
+        build_time_variation_keys={
+            key for key, variation in enabled.items() if isinstance(variation, BuildTimeVariationBase)
+        },
     )
-    validate_condition_replay_variations(variations, conditions)
-    return conditions
+    _validate_condition_replay_variations(enabled, conditions)
+    scheduler = ConditionScheduler(conditions)
+    _bind_condition_replay_samplers(enabled, conditions, scheduler)
+    return scheduler
 
 
-def validate_condition_replay_variations(
-    variations: dict[str, list[VariationBase]],
+def _validate_condition_replay_variations(
+    enabled: dict[str, VariationBase],
     conditions: RebuildConditions,
 ) -> None:
     """Validate condition keys, lifecycle phases, and per-row presence."""
-    enabled = _enabled_variations_by_key(variations)
     validate_overlay_variation_keys(conditions, set(enabled))
     for variation_key, variation in enabled.items():
         runtime_presence = [variation_key in episode.runtime_variations for episode in conditions.episodes]
@@ -68,14 +71,13 @@ def validate_condition_replay_variations(
             ), f"Run-time variation {variation_key!r} cannot appear in build_time_variations."
 
 
-def bind_condition_replay_samplers(
-    variations: dict[str, list[VariationBase]],
+def _bind_condition_replay_samplers(
+    enabled: dict[str, VariationBase],
     conditions: RebuildConditions,
     scheduler: ConditionScheduler,
 ) -> None:
     """Replay recorded values while leaving absent enabled variations live-sampled."""
-    validate_condition_replay_variations(variations, conditions)
-    for variation_key, variation in _enabled_variations_by_key(variations).items():
+    for variation_key, variation in enabled.items():
         if isinstance(variation, BuildTimeVariationBase):
             if variation_key not in conditions.build_time_variations:
                 variation.set_replay_sampler(None)
@@ -108,15 +110,6 @@ def bind_condition_replay_samplers(
             return scheduler.runtime_sample_for(variation_key, env_ids.tolist())
 
         variation.set_replay_sampler(runtime_replay_sampler)
-
-
-def enabled_build_time_variation_keys(variations: dict[str, list[VariationBase]]) -> set[str]:
-    """Return record keys for enabled build-time variations."""
-    return {
-        key
-        for key, variation in _enabled_variations_by_key(variations).items()
-        if isinstance(variation, BuildTimeVariationBase)
-    }
 
 
 def _enabled_variations_by_key(

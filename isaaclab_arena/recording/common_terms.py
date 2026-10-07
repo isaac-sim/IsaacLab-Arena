@@ -29,12 +29,9 @@ def record_core_episode_results(env, env_id: int) -> dict[str, Any]:
         "language_instruction": env.get_language_instruction(),
         "timestamp": datetime.datetime.now().isoformat(),
     }
-    replay = getattr(env, "condition_replay_state", None)
-    if replay is not None:
-        assignment = replay.scheduler.assignment_for_env(env_id)
-        payload["replay_condition_id"] = replay.scheduler.condition_for_env(env_id).condition_id
-        payload["replay_condition_occurrence"] = assignment.occurrence_index
-        payload["replay_source"] = replay.episode_results_source
+    scheduler = env.condition_scheduler
+    if scheduler is not None:
+        payload["replay_condition_id"] = scheduler.condition_for_env(env_id).condition_id
     return payload
 
 
