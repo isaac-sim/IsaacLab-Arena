@@ -10,9 +10,14 @@ from __future__ import annotations
 import torch
 
 from isaaclab.managers import ManagerTermBase, TerminationTermCfg
+from isaaclab.utils.configclass import configclass
 
 from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
-from isaaclab_arena.progress_tracking.progress_tracker import ProgressTracker
+from isaaclab_arena.progress_tracking.progress_tracker import (
+    ProgressTracker,
+    ProgressTrackingRecorder,
+    ProgressTrackingRecorderCfg,
+)
 from isaaclab_arena.tasks.predicates.object_settling import reset_rest_pose_recorder
 
 
@@ -24,6 +29,8 @@ class TaskSuccessTerm(ManagerTermBase):
     calls this term once per control step to update progress and check the task's success
     requirements. On episode resets, TerminationManager calls
     this term's reset() to clear progress for the restarting environments.
+    The Isaac Lab interop adapter retains a separate TerminationManager when Lab tools
+    disable automatic success termination.
     """
 
     def __init__(self, cfg: TerminationTermCfg, env):
@@ -63,3 +70,22 @@ class TaskSuccessTerm(ManagerTermBase):
         # TODO(cvolk): Consider a shared Arena reset hook in IsaacLabArenaManagerBasedRLEnv.
         # Revisit this if ObjectInitialRestPoseRecorder is used independently of task success.
         reset_rest_pose_recorder(self._env, selected_env_ids)
+
+
+def external_task_success(env) -> torch.Tensor:
+    """Return Arena task success through the plain callback expected by Isaac Lab tools."""
+    return env.compute_external_success()
+
+
+class ExternalTaskSuccessRecorder(ProgressTrackingRecorder):
+    """Advance retained task success before resets, including when Lab disables terminations."""
+
+    def record_post_step(self):
+        """Evaluate success once per control step and publish progress without recording data."""
+        self._env.compute_external_success()
+        return super().record_post_step()
+
+
+@configclass
+class ExternalTaskSuccessRecorderCfg(ProgressTrackingRecorderCfg):
+    class_type: type[ProgressTrackingRecorder] = ExternalTaskSuccessRecorder
