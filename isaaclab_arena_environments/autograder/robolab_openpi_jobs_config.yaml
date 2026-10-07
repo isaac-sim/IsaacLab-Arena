@@ -1,0 +1,264 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Equivalent of eval_jobs_configs/robolab_openpi_jobs.config.json (38 OpenPI runs).
+# Values under shared are used by every Run below.
+# A Run only needs to list what is different; its values override the shared ones.
+# To change a shared value for every Run on the command line:
+# - with experiment_runner.py, use shared.<path>=<value>
+# - with osmo/submit_arena_experiment.py, use experiment_cfg.shared.<path>=<value>
+shared:
+  environment:
+    enable_cameras: true
+  environment_builder:
+    num_envs: 1
+    record_trajectories: true
+  # The dome-light HDR is drawn once per environment build, so every episode of a Run shares
+  # one background. capture_hdr_backgrounds.sh overrides hdr_names to sweep one background per
+  # invocation; a shared override can only replace a path declared here.
+  variations:
+    light:
+      hdr_image:
+        enabled: true
+        hdr_names: ["home_office_robolab"]
+  policy:
+    type: isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy
+    policy_variant: pi05
+    policy_device: cuda:0
+    remote_host: 127.0.0.1
+    remote_port: 8003
+    openpi_embodiment_adapter: droid
+  rollout_limit:
+    num_episodes: 10
+
+runs:
+
+  apple_and_yogurt_in_bowl:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/apple_and_yogurt_in_bowl.yaml
+    environment_builder:
+      language_instruction: Put the apple and yogurt in the bowl.
+
+  bagels_on_plate:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/bagels_on_plate.yaml
+    environment_builder:
+      language_instruction: Put the bagels on the plate.
+
+  banana_in_bowl:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/banana_in_bowl.yaml
+    environment_builder:
+      language_instruction: Pick up the banana and place it in the bowl.
+
+  banana_on_plate:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/banana_on_plate.yaml
+    environment_builder:
+      language_instruction: Pick up the banana and place it on the plate.
+
+  banana_then_rubiks_cube:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/banana_then_rubiks_cube.yaml
+    environment_builder:
+      language_instruction: Pick up the banana and place it in the bowl, then pick up the cube and place it in the bowl.
+
+  bbq_sauce_in_bin:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/bbq_sauce_in_bin.yaml
+    environment_builder:
+      language_instruction: Put the red BBQ sauce bottles in the grey bin.
+
+  big_pumpkin_in_bin:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/big_pumpkin_in_bin.yaml
+    environment_builder:
+      language_instruction: Pick up the large pumpkin and place it into the bin.
+
+  black_items_in_bin:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/black_items_in_bin.yaml
+    environment_builder:
+      language_instruction: Put the black items in the grey bin.
+
+  bowl_in_bin:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/bowl_in_bin.yaml
+    environment_builder:
+      language_instruction: Pick up the bowl and place it in the grey bin.
+
+  butter_above_raisin:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/butter_above_raisin.yaml
+    environment_builder:
+      language_instruction: Pick up the butter box and place it on top of the raisin box.
+
+  canned_food_in_bin:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/canned_food_in_bin.yaml
+    environment_builder:
+      language_instruction: Put the canned food in the grey bin.
+
+  clamp_in_right_bin:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/clamp_in_right_bin.yaml
+    environment_builder:
+      language_instruction: Pick up the spring clamp and place it in the right bin.
+
+  clear_organic_objects:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/clear_organic_objects.yaml
+    environment_builder:
+      language_instruction: Clear away the organic objects.
+
+  clutter_plastic:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/clutter_plastic.yaml
+    environment_builder:
+      language_instruction: Put all plastic bottles away in the bin.
+
+  clutter_pumpkin:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/clutter_pumpkin.yaml
+    environment_builder:
+      language_instruction: Put all the pumpkins away in the bin.
+
+  coffee_pot_in_bin:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/coffee_pot_in_bin.yaml
+    environment_builder:
+      language_instruction: Pick up the coffee pot and place it into the grey bin.
+
+  condiments_in_bin:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/condiments_in_bin.yaml
+    environment_builder:
+      language_instruction: Sort the sauce condiments into the grey bin.
+
+  electronics_in_bin:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/electronics_in_bin.yaml
+    environment_builder:
+      language_instruction: Put the electronic devices in the grey bin.
+
+  food_packing_1_boxes:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/food_packing_1_boxes.yaml
+    environment_builder:
+      language_instruction: Pick up the cheez it box and place it into the bin.
+
+  food_packing_1_cans:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/food_packing_1_cans.yaml
+    environment_builder:
+      language_instruction: Pack canned foods into the bin.
+
+  hammers_in_left_bin:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/hammers_in_left_bin.yaml
+    environment_builder:
+      language_instruction: Put the red hammer and black hammer in the left bin.
+
+  larger_object_raisin_box_in_bin:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/larger_object_raisin_box_in_bin.yaml
+    environment_builder:
+      language_instruction: Pick up the red raisin box and place it into the grey bin.
+
+  marker_in_mug:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/marker_in_mug.yaml
+    environment_builder:
+      language_instruction: Put the whiteboard marker in the mug.
+
+  mouse_on_keyboard:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/mouse_on_keyboard.yaml
+    environment_builder:
+      language_instruction: Place the computer mouse on the keyboard.
+
+  mustard_above_raisin:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/mustard_above_raisin.yaml
+    environment_builder:
+      language_instruction: Pick up the mustard bottle and place it on the raisin box.
+
+  mustard_in_left_bin:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/mustard_in_left_bin.yaml
+    environment_builder:
+      language_instruction: Put the mustard in the left bin.
+
+  mustard_in_right_bin:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/mustard_in_right_bin.yaml
+    environment_builder:
+      language_instruction: Put the mustard in the right bin.
+
+  non_hammer_tools_in_right_bin:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/non_hammer_tools_in_right_bin.yaml
+    environment_builder:
+      language_instruction: Put the non-hammer tools in the right bin.
+
+  rubiks_cube_and_banana:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/rubiks_cube_and_banana.yaml
+    environment_builder:
+      language_instruction: Put the cube and the banana in the bowl.
+
+  rubiks_cube_then_banana:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/rubiks_cube_then_banana.yaml
+    environment_builder:
+      language_instruction: Put the cube then the banana in the bowl.
+
+  rubiks_cube:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/rubiks_cube.yaml
+    environment_builder:
+      language_instruction: "Put the Rubik's cube in the bowl."
+
+  sauce_bottles_crate:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/sauce_bottles_crate.yaml
+    environment_builder:
+      language_instruction: Place the BBQ sauce bottle into the purple crate on the table.
+
+  smaller_object_butter_in_bin:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/smaller_object_butter_in_bin.yaml
+    environment_builder:
+      language_instruction: Place the smaller object in the grey bin.
+
+  small_pumpkin_in_bin:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/small_pumpkin_in_bin.yaml
+    environment_builder:
+      language_instruction: Put the small pumpkin in the bin.
+
+  smartphone_in_bin:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/smartphone_in_bin.yaml
+    environment_builder:
+      language_instruction: Put the smartphone in the grey bin.
+
+  throw_away_apple:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/throw_away_apple.yaml
+    environment_builder:
+      language_instruction: Place the apple into the plastic pail on the table.
+
+  throw_away_snacks:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/throw_away_snacks.yaml
+    environment_builder:
+      language_instruction: Put away the snacks in the bin.
+
+  toy_in_bin:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/toy_in_bin.yaml
+    environment_builder:
+      language_instruction: Place the lizard figurine into the grey bin on the table.
