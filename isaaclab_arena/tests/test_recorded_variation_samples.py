@@ -12,13 +12,12 @@ from typing import Any
 
 import pytest
 
-from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
-from isaaclab_arena.evaluation.episode_conditions_rollout import resolve_policy_runner_replay_budget
 from isaaclab_arena.variations.bernoulli_sampler import BernoulliSampler
 from isaaclab_arena.variations.choice_sampler import ChoiceSampler
 from isaaclab_arena.variations.condition_replay import (
-    bind_condition_replay_samplers,
-    validate_condition_replay_variations,
+    _bind_condition_replay_samplers,
+    _enabled_variations_by_key,
+    _validate_condition_replay_variations,
 )
 from isaaclab_arena.variations.condition_scheduler import ConditionScheduler
 from isaaclab_arena.variations.recorded_variation_samples import (
@@ -54,32 +53,15 @@ def test_loader_splits_build_time_and_runtime(tmp_path: Path) -> None:
     validate_recorded_variation_sample_keys(samples, {"light.hdr_image", "pick_object.mass"})
 
 
-def test_constant_runtime_values_are_not_inferred_as_build_time(tmp_path: Path) -> None:
-    jsonl_path = _write_jsonl(
-        tmp_path,
-        [
-            {"variations": {"obj.mass": [1.0]}},
-            {"variations": {"obj.mass": [1.0]}},
-        ],
-    )
-
-    loaded = load_rebuild_variation_record(jsonl_path, build_time_variation_keys=set())
-
-    assert loaded.build_time_samples == {}
-    assert [record.runtime_samples for record in loaded.episode_records] == [
-        {"obj.mass": [1.0]},
-        {"obj.mass": [1.0]},
-    ]
-
-
-def test_single_row_runtime_value_is_not_inferred_as_build_time(tmp_path: Path) -> None:
+@pytest.mark.parametrize("num_records", [1, 2])
+def test_runtime_values_are_not_inferred_as_build_time(tmp_path: Path, num_records: int) -> None:
     loaded = load_rebuild_variation_record(
-        _write_jsonl(tmp_path, [{"variations": {"obj.mass": [1.0]}}]),
+        _write_jsonl(tmp_path, [{"variations": {"obj.mass": [1.0]}}] * num_records),
         build_time_variation_keys=set(),
     )
 
     assert loaded.build_time_samples == {}
-    assert loaded.episode_records[0].runtime_samples == {"obj.mass": [1.0]}
+    assert [record.runtime_samples for record in loaded.episode_records] == [{"obj.mass": [1.0]}] * num_records
 
 
 @pytest.mark.parametrize(
@@ -190,33 +172,23 @@ def test_replay_samplers_preserve_public_preconditions() -> None:
 
 
 def test_condition_scheduler_cycles_globally_across_partial_resets() -> None:
-    variation_record = _runtime_record([0, 1, 2])
-    scheduler = ConditionScheduler(variation_record)
-    observed_source_indices: list[int] = []
+    scheduler = ConditionScheduler(_runtime_record([0, 1, 2]))
+    observed_values: list[int] = []
 
     scheduler.assign_new_episodes([0, 1])
-    observed_source_indices.extend([
-        scheduler.source_record_index_for_env(0),
-        scheduler.source_record_index_for_env(1),
+    scheduler.assign_new_episodes([0, 1])
+    assert scheduler.num_assignments_started == 2
+    observed_values.extend([
+        scheduler.record_for_env(0).runtime_samples["asset.value"],
+        scheduler.record_for_env(1).runtime_samples["asset.value"],
     ])
     for env_id in [1, 0, 0, 1, 0, 1]:
         scheduler.complete_episodes([env_id])
         scheduler.assign_new_episodes([env_id])
-        observed_source_indices.append(scheduler.source_record_index_for_env(env_id))
+        observed_values.append(scheduler.record_for_env(env_id).runtime_samples["asset.value"])
 
-    assert observed_source_indices == [0, 1, 2, 0, 1, 2, 0, 1]
+    assert observed_values == [0, 1, 2, 0, 1, 2, 0, 1]
     assert scheduler.num_assignments_started == 8
-
-
-def test_repeated_initial_assignment_does_not_consume_condition() -> None:
-    scheduler = ConditionScheduler(_runtime_record([0, 1, 2]))
-
-    scheduler.assign_new_episodes([0, 1])
-    scheduler.assign_new_episodes([0, 1])
-
-    assert scheduler.num_assignments_started == 2
-    assert scheduler.source_record_index_for_env(0) == 0
-    assert scheduler.source_record_index_for_env(1) == 1
 
 
 def test_condition_replay_replays_present_variation_and_samples_absent_live() -> None:
@@ -232,8 +204,8 @@ def test_condition_replay_replays_present_variation_and_samples_absent_live() ->
     scheduler = ConditionScheduler(variation_record)
     scheduler.assign_new_episodes([0, 1])
 
-    bind_condition_replay_samplers(
-        {"asset": [replayed, live]},
+    _bind_condition_replay_samplers(
+        _enabled_variations_by_key({"asset": [replayed, live]}),
         variation_record,
         scheduler,
     )
@@ -259,44 +231,33 @@ def test_condition_replay_rejects_mixed_runtime_presence() -> None:
     )
 
     with pytest.raises(AssertionError, match="present in every source record or none"):
-        validate_condition_replay_variations({"asset": [variation]}, variation_record)
+        _validate_condition_replay_variations(
+            _enabled_variations_by_key({"asset": [variation]}),
+            variation_record,
+        )
 
 
-def test_condition_replay_rejects_wrong_variation_lifecycle() -> None:
-    runtime = _RunTimeTestVariation("runtime", live_value=0.0)
-    build_time = _BuildTimeTestVariation("build_time", live_value=0.0)
-    variation_record = RebuildVariationRecord(
-        build_time_samples={"asset.runtime": [0.1]},
-        episode_records=[
-            EpisodeVariationRecord(runtime_samples={"asset.build_time": [0.2]}),
-        ],
-    )
+@pytest.mark.parametrize("recorded_at_runtime", [False, True])
+def test_condition_replay_rejects_wrong_variation_lifecycle(recorded_at_runtime: bool) -> None:
+    variation: BuildTimeVariationBase | RunTimeVariationBase
+    if recorded_at_runtime:
+        variation = _BuildTimeTestVariation("value", live_value=0.0)
+        variation_record = RebuildVariationRecord(
+            build_time_samples={},
+            episode_records=[EpisodeVariationRecord(runtime_samples={"asset.value": [0.2]})],
+        )
+    else:
+        variation = _RunTimeTestVariation("value", live_value=0.0)
+        variation_record = RebuildVariationRecord(
+            build_time_samples={"asset.value": [0.1]},
+            episode_records=[EpisodeVariationRecord(runtime_samples={})],
+        )
 
     with pytest.raises(AssertionError, match="cannot appear"):
-        validate_condition_replay_variations({"asset": [runtime, build_time]}, variation_record)
-
-
-def test_policy_runner_replay_budget_defaults_to_exact_pass(tmp_path: Path) -> None:
-    path = _write_jsonl(
-        tmp_path,
-        [
-            {"variations": {}},
-            {"variations": {}},
-            {"variations": {}},
-        ],
-    )
-    cfg = ArenaEnvBuilderCfg(episode_conditions_path=str(path))
-
-    assert resolve_policy_runner_replay_budget(cfg, num_steps=None, num_episodes=None) == 3
-
-
-def test_policy_runner_replay_budget_honors_explicit_episode_count(tmp_path: Path) -> None:
-    path = _write_jsonl(tmp_path, [{"variations": {}}, {"variations": {}}])
-    cfg = ArenaEnvBuilderCfg(episode_conditions_path=str(path))
-
-    assert resolve_policy_runner_replay_budget(cfg, num_steps=None, num_episodes=8) == 8
-    with pytest.raises(AssertionError, match="does not support --num_steps"):
-        resolve_policy_runner_replay_budget(cfg, num_steps=8, num_episodes=None)
+        _validate_condition_replay_variations(
+            _enabled_variations_by_key({"asset": [variation]}),
+            variation_record,
+        )
 
 
 class _RunTimeTestVariation(RunTimeVariationBase):

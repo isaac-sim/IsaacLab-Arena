@@ -6,6 +6,7 @@
 """Finite episode budgets through Isaac Lab's automatic reset and recording sequence."""
 
 import json
+from collections import Counter
 
 import pytest
 
@@ -256,11 +257,13 @@ def _test_condition_replay_cycles_across_async_resets(simulation_app, output_dir
         env.close()
 
     records = [json.loads(line) for line in results_path.read_text(encoding="utf-8").splitlines()]
-    records.sort(key=lambda record: record["replay_condition_occurrence"])
-    assert [record["replay_condition_occurrence"] for record in records] == list(range(8))
-    assert [record["replay_source_record_index"] for record in records] == [0, 1, 2, 0, 1, 2, 0, 1]
-    assert base_env.condition_replay_state.scheduler.num_assignments_started == 8
-    assert base_env.condition_replay_state.scheduler.num_assignments_completed == 8
+    assert Counter(record["replay_source_record_index"] for record in records) == {
+        0: 3,
+        1: 3,
+        2: 2,
+    }
+    assert base_env.condition_scheduler.num_assignments_started == 8
+    assert base_env.condition_scheduler.num_assignments_completed == 8
     return True
 
 

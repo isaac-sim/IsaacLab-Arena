@@ -7,9 +7,9 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from isaaclab_arena.variations.condition_scheduler import ConditionScheduler
 from isaaclab_arena.variations.recorded_variation_samples import (
     RebuildVariationRecord,
     load_rebuild_variation_record,
@@ -20,37 +20,40 @@ from isaaclab_arena.variations.variation_base import BuildTimeVariationBase, Run
 if TYPE_CHECKING:
     import torch
 
-    from isaaclab_arena.variations.condition_scheduler import ConditionScheduler
     from isaaclab_arena.variations.variation_base import VariationBase
 
 
-@dataclass
-class ConditionReplayState:
-    """Replay metadata and scheduler attached to a constructed environment."""
-
-    scheduler: ConditionScheduler
-    episode_results_source: str
-
-
-def load_variation_conditions(
+def configure_condition_replay(
     path: str,
     variations: dict[str, list[VariationBase]],
-) -> RebuildVariationRecord:
-    """Load and validate rebuild conditions against the enabled variations."""
+) -> ConditionScheduler:
+    """Load recorded variation samples, bind replay samplers, and return their scheduler.
+
+    Args:
+        path: Episode-result JSONL to replay.
+        variations: Variations available in the environment.
+
+    Returns:
+        Scheduler configured to assign and replay the loaded sample records.
+    """
+    enabled = _enabled_variations_by_key(variations)
     variation_record = load_rebuild_variation_record(
         path,
-        build_time_variation_keys=enabled_build_time_variation_keys(variations),
+        build_time_variation_keys={
+            key for key, variation in enabled.items() if isinstance(variation, BuildTimeVariationBase)
+        },
     )
-    validate_condition_replay_variations(variations, variation_record)
-    return variation_record
+    _validate_condition_replay_variations(enabled, variation_record)
+    scheduler = ConditionScheduler(variation_record)
+    _bind_condition_replay_samplers(enabled, variation_record, scheduler)
+    return scheduler
 
 
-def validate_condition_replay_variations(
-    variations: dict[str, list[VariationBase]],
+def _validate_condition_replay_variations(
+    enabled: dict[str, VariationBase],
     variation_record: RebuildVariationRecord,
 ) -> None:
-    """Validate condition keys, lifecycle phases, and per-row presence."""
-    enabled = _enabled_variations_by_key(variations)
+    """Validate sample keys, lifecycle phases, and per-record presence."""
     validate_recorded_variation_sample_keys(variation_record, set(enabled))
     for variation_key, variation in enabled.items():
         runtime_presence = [
@@ -70,14 +73,13 @@ def validate_condition_replay_variations(
             ), f"Run-time variation {variation_key!r} cannot appear in build-time samples."
 
 
-def bind_condition_replay_samplers(
-    variations: dict[str, list[VariationBase]],
+def _bind_condition_replay_samplers(
+    enabled: dict[str, VariationBase],
     variation_record: RebuildVariationRecord,
     scheduler: ConditionScheduler,
 ) -> None:
     """Replay recorded values while leaving absent enabled variations live-sampled."""
-    validate_condition_replay_variations(variations, variation_record)
-    for variation_key, variation in _enabled_variations_by_key(variations).items():
+    for variation_key, variation in enabled.items():
         if isinstance(variation, BuildTimeVariationBase):
             if variation_key not in variation_record.build_time_samples:
                 variation.set_replay_sampler(None)
@@ -112,15 +114,6 @@ def bind_condition_replay_samplers(
             return scheduler.runtime_sample_for(variation_key, env_ids.tolist())
 
         variation.set_replay_sampler(runtime_replay_sampler)
-
-
-def enabled_build_time_variation_keys(variations: dict[str, list[VariationBase]]) -> set[str]:
-    """Return record keys for enabled build-time variations."""
-    return {
-        key
-        for key, variation in _enabled_variations_by_key(variations).items()
-        if isinstance(variation, BuildTimeVariationBase)
-    }
 
 
 def _enabled_variations_by_key(

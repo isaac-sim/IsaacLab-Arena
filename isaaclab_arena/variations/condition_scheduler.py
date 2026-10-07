@@ -8,34 +8,19 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from dataclasses import dataclass
 from typing import Any
 
 from isaaclab_arena.variations.recorded_variation_samples import EpisodeVariationRecord, RebuildVariationRecord
 
 
-@dataclass(frozen=True)
-class ConditionAssignment:
-    """One occurrence of a source condition assigned to an environment."""
-
-    occurrence_index: int
-    source_record_index: int
-
-
 class ConditionScheduler:
-    """Assign source conditions globally in file order, cycling when needed."""
+    """Assign source sample records globally in file order, cycling when needed."""
 
     def __init__(self, variation_record: RebuildVariationRecord) -> None:
         assert variation_record.num_recorded_episodes > 0, "Rebuild variation record must list at least one episode"
         self._variation_record = variation_record
         self._next_occurrence_index = 0
-        self._env_assignments: dict[int, ConditionAssignment] = {}
-        self._num_assignments_completed = 0
-
-    @property
-    def num_sample_records(self) -> int:
-        """Number of source episode records available for replay."""
-        return self._variation_record.num_recorded_episodes
+        self._source_record_index_by_env: dict[int, int] = {}
 
     @property
     def num_assignments_started(self) -> int:
@@ -45,35 +30,27 @@ class ConditionScheduler:
     @property
     def num_assignments_completed(self) -> int:
         """Number of assignment occurrences completed so far."""
-        return self._num_assignments_completed
+        return self._next_occurrence_index - len(self._source_record_index_by_env)
 
     def assign_new_episodes(self, env_ids: Sequence[int]) -> None:
-        """Assign conditions to envs that do not already have an active assignment."""
+        """Assign source records to envs that do not already have an active assignment."""
         for raw_env_id in env_ids:
             env_id = int(raw_env_id)
-            if env_id in self._env_assignments:
+            if env_id in self._source_record_index_by_env:
                 continue
-            occurrence_index = self._next_occurrence_index
-            self._env_assignments[env_id] = ConditionAssignment(
-                occurrence_index=occurrence_index,
-                source_record_index=occurrence_index % self.num_sample_records,
+            self._source_record_index_by_env[env_id] = (
+                self._next_occurrence_index % self._variation_record.num_recorded_episodes
             )
             self._next_occurrence_index += 1
 
     def complete_episodes(self, env_ids: Sequence[int]) -> None:
         """Mark and remove the active assignment for each finishing env."""
         for raw_env_id in env_ids:
-            env_id = int(raw_env_id)
-            self._env_assignments.pop(env_id)
-            self._num_assignments_completed += 1
-
-    def assignment_for_env(self, env_id: int) -> ConditionAssignment:
-        """Return the active assignment for ``env_id``."""
-        return self._env_assignments[int(env_id)]
+            self._source_record_index_by_env.pop(int(raw_env_id))
 
     def source_record_index_for_env(self, env_id: int) -> int:
         """Return the source episode-record index currently assigned to ``env_id``."""
-        return self.assignment_for_env(env_id).source_record_index
+        return self._source_record_index_by_env[int(env_id)]
 
     def record_for_env(self, env_id: int) -> EpisodeVariationRecord:
         """Return the source episode record currently assigned to ``env_id``."""

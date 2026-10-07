@@ -156,29 +156,28 @@ def test_build_and_run_resolves_condition_replay_budget(
     assert rollout_limits == [(None, expected_episodes)]
 
 
-def test_build_and_run_rejects_condition_replay_across_rebuilds(tmp_path):
+@pytest.mark.parametrize(
+    ("rollout_limit", "num_rebuilds", "message"),
+    [
+        (RolloutLimitCfg(num_episodes=2), 2, "num_rebuilds must be 1"),
+        (RolloutLimitCfg(num_steps=2), 1, "num_steps is not supported"),
+    ],
+)
+def test_build_and_run_rejects_invalid_condition_replay_limits(
+    tmp_path,
+    rollout_limit,
+    num_rebuilds,
+    message,
+):
     conditions_path = tmp_path / "conditions.jsonl"
     conditions_path.write_text('{"variations": {}}\n')
     run = _run(
         environment_builder=ArenaEnvBuilderCfg(episode_conditions_path=str(conditions_path)),
-        rollout_limit=RolloutLimitCfg(num_episodes=2),
-        num_rebuilds=2,
+        rollout_limit=rollout_limit,
+        num_rebuilds=num_rebuilds,
     )
 
-    with pytest.raises(AssertionError, match="num_rebuilds must be 1"):
-        run_execution.build_and_run(run, output_dir=tmp_path)
-
-
-def test_build_and_run_rejects_step_limited_condition_replay(tmp_path):
-    conditions_path = tmp_path / "conditions.jsonl"
-    conditions_path.write_text('{"variations": {}}\n')
-    run = _run(
-        environment_builder=ArenaEnvBuilderCfg(episode_conditions_path=str(conditions_path)),
-        rollout_limit=RolloutLimitCfg(num_steps=2),
-        num_rebuilds=1,
-    )
-
-    with pytest.raises(AssertionError, match="num_steps is not supported"):
+    with pytest.raises(AssertionError, match=message):
         run_execution.build_and_run(run, output_dir=tmp_path)
 
 
