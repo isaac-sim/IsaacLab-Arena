@@ -9,7 +9,7 @@ external_yaml:
 - ../robolab_defaults.yaml
 task:
   composition: atomic
-  description: Put the smartphone in the grey bin
+  description: Put the smartphone in the grey bin.
   subtasks:
   - kind: PickAndPlaceTask
     params:

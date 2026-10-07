@@ -9,7 +9,7 @@ external_yaml:
 - ../robolab_defaults.yaml
 task:
   composition: atomic
-  description: place the computer mouse on the keyboard
+  description: Place the computer mouse on the keyboard.
   subtasks:
   - kind: PickAndPlaceTask
     params:

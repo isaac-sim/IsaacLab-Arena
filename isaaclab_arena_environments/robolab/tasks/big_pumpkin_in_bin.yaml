@@ -9,7 +9,7 @@ external_yaml:
 - ../robolab_defaults.yaml
 task:
   composition: atomic
-  description: Put the bigger pumpkin in the bin
+  description: Put the bigger pumpkin in the bin.
   subtasks:
   - kind: PickAndPlaceTask
     params:

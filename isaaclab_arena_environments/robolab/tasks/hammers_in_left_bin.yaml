@@ -9,7 +9,7 @@ external_yaml:
 - ../robolab_defaults.yaml
 task:
   composition: parallel
-  description: Put the red hammer and black hammer in the left bin
+  description: Put the red hammer and black hammer in the left bin.
   subtasks:
   - kind: PickAndPlaceTask
     params:

@@ -9,7 +9,7 @@ external_yaml:
 - ../robolab_defaults.yaml
 task:
   composition: atomic
-  description: pick up the coffee pot and place it into the grey bin
+  description: Pick up the coffee pot and place it into the grey bin.
   subtasks:
   - kind: PickAndPlaceTask
     params:

@@ -9,7 +9,7 @@ external_yaml:
 - ../robolab_defaults.yaml
 task:
   composition: parallel
-  description: Sort the sauce condiments into the grey bin
+  description: Sort the sauce condiments into the grey bin.
   subtasks:
   - kind: PickAndPlaceTask
     params:

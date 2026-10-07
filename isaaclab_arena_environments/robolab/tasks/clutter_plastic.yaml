@@ -9,7 +9,7 @@ external_yaml:
 - ../robolab_defaults.yaml
 task:
   composition: parallel
-  description: Put all plastic bottles away in the bin
+  description: Put all plastic bottles away in the bin.
   subtasks:
   - kind: PickAndPlaceTask
     params:

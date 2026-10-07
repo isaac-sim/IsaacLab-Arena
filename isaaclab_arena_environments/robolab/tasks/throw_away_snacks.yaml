@@ -9,7 +9,7 @@ external_yaml:
 - ../robolab_defaults.yaml
 task:
   composition: parallel
-  description: Put away the snacks in the bin
+  description: Put away the snacks in the bin.
   subtasks:
   - kind: PickAndPlaceTask
     params:

@@ -9,7 +9,7 @@ external_yaml:
 - ../robolab_defaults.yaml
 task:
   composition: sequential
-  description: Put the cube then the banana in the bowl
+  description: Put the cube then the banana in the bowl.
   subtasks:
   - kind: PickAndPlaceTask
     params:

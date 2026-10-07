@@ -9,7 +9,7 @@ external_yaml:
 - ../robolab_defaults.yaml
 task:
   composition: atomic
-  description: put the mustard in the left bin
+  description: Put the mustard in the left bin.
   subtasks:
   - kind: PickAndPlaceTask
     params:

@@ -9,7 +9,7 @@ external_yaml:
 - ../robolab_defaults.yaml
 task:
   composition: parallel
-  description: Put the red BBQ sauce bottles in the grey bin
+  description: Put the red BBQ sauce bottles in the grey bin.
   subtasks:
   - kind: PickAndPlaceTask
     params:
