@@ -3,8 +3,8 @@
 Clutter Layouts
 ===============
 
-Use ``ClutterOn`` to release objects above a fixed support, let physics settle
-them, and save accepted layouts for later resets. The same
+Use ``ClutterOn`` to release objects above a support, let physics settle them,
+and save accepted layouts for later resets. The same
 :doc:`recorder <recording>` handles ordinary placement relations and clutter.
 
 How ClutterOn Recording Differs from Other Relations
@@ -15,9 +15,9 @@ recording checks require objects to settle close to those solved poses.
 ``ClutterOn`` instead describes a release region: its objects are expected to
 fall and rotate before reaching their resting poses.
 
-Clutter recording adds a scene preflight for fixed supports, dynamic clutter
-and gravity. Release layouts must pass ``no_overlap`` and
-``clutter_on_relation``. After physics, ``pose_shift`` excludes clutter roots,
+Clutter recording checks that supports stay fixed during physics and that
+clutter is dynamic with gravity enabled. Release layouts must pass
+``no_overlap`` and ``clutter_on_relation``. After physics, ``pose_shift`` excludes clutter roots,
 while ``support_containment`` checks their final footprint and minimum height.
 Root velocity checks still apply to clutter and other recorded roots.
 
@@ -230,24 +230,24 @@ recording, then open the viewer:
        --placement_layouts outputs/clutter/three_cubes_in_bowl.jsonl \
        --num_envs 1 --device cpu --viz kit
 
-.. _staged-bowl-clutter:
+.. _movable-bowl-clutter:
 
 Record Clutter on a Movable Bowl
 --------------------------------
 
 The bowl uses ``On(table)`` and the cubes use :ref:`ClutterOn(bowl)
-<staged_clutter>`. Arena places the bowl first, then keeps its pose fixed while
-placing the cubes above it. The YAML bounds the bowl's X and Y positions to
-[-0.2, 0.2] metres. The bowl is kinematic: its position can vary between layouts,
-but physics must not move it during settling.
+<clutter-on-relation>`. Arena solves the bowl and cube positions together. The
+YAML bounds the bowl's X and Y positions to [-0.2, 0.2] metres. The bowl is
+kinematic: its position can vary between layouts, but physics must not move it
+during settling.
 
 Record four accepted layouts:
 
 .. code-block:: bash
 
    python isaaclab_arena/scripts/record_placement_layouts.py \
-       env_spec=isaaclab_arena_environments/clutter/franka_staged_bowl_clutter_no_task.yaml \
-       output=outputs/clutter/staged_bowl.jsonl \
+       env_spec=isaaclab_arena_environments/clutter/franka_movable_bowl_clutter_no_task.yaml \
+       output=outputs/clutter/movable_bowl.jsonl \
        num_envs=2 min_layouts=4 layouts_per_env=2 max_batches=8 seed=42 \
        settle.num_steps=480 \
        +settle.validators.support_containment.minimum_resting_heights_m.bowl=-0.025 \
@@ -282,8 +282,8 @@ Open the first recorded layout in the viewer:
 .. code-block:: bash
 
    python isaaclab_arena/scripts/environment_runner.py \
-       --env_spec isaaclab_arena_environments/clutter/franka_staged_bowl_clutter_no_task.yaml \
-       --placement_layouts outputs/clutter/staged_bowl.jsonl \
+       --env_spec isaaclab_arena_environments/clutter/franka_movable_bowl_clutter_no_task.yaml \
+       --placement_layouts outputs/clutter/movable_bowl.jsonl \
        --num_envs 1 --device cpu --viz kit
 
 As in the other ``NoTask`` examples, this viewer does not trigger further
@@ -294,7 +294,7 @@ post-physics poses, then replays every recorded root across two resets:
 .. code-block:: bash
 
    python -m pytest -q isaaclab_arena/tests/clutter/test_clutter_collection.py \
-       -k maintained_staged_bowl_recording_and_replay
+       -k movable_bowl_recording_and_replay
 
 .. _clutter-adapt-environment:
 
@@ -310,9 +310,9 @@ not a substitute for a factory that also applies these settings.
 
 The supplied scenes meet these requirements. When adapting another scene:
 
-* Use fixed ``IsAnchor`` supports, or solve kinematic rigid supports with
-  :ref:`two-pass clutter placement <staged_clutter>`. Supports must have static or
-  kinematic collision geometry and upright quarter-turn rotations about world Z.
+* Use fixed ``IsAnchor`` supports, or position kinematic rigid supports through
+  their own relations. Supports must have static or kinematic collision geometry
+  and upright quarter-turn rotations about world Z.
 * Use dynamic rigid objects with gravity enabled for clutter. Each has one
   ``ClutterOn`` spatial relation to its support.
 * Use fixed anchors or solved kinematic rigid bodies for non-clutter objects.

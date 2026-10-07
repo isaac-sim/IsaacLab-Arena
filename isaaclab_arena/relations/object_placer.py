@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import math
 import torch
-from dataclasses import replace
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.relations.bounding_box_helpers import (
@@ -19,6 +18,7 @@ from isaaclab_arena.relations.collision_mode import object_uses_mesh_collision
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_candidate_batch import PlacementCandidateBatch
 from isaaclab_arena.relations.placement_candidate_generator import PlacementCandidateGenerator
+from isaaclab_arena.relations.placement_events import get_rotation_xyzw
 from isaaclab_arena.relations.placement_result import PlacementResult
 from isaaclab_arena.relations.placement_validation_runner import PlacementValidationRunner
 from isaaclab_arena.relations.placement_visualizer import get_or_create_placement_visualizer
@@ -31,8 +31,8 @@ from isaaclab_arena.relations.relations import (
     get_anchor_objects,
     get_relation,
 )
-from isaaclab_arena.relations.staged_clutter_placement import place_staged_clutter
 from isaaclab_arena.relations.validation.pre_physics import build_validators
+from isaaclab_arena.utils.bounding_box import quaternion_to_90_deg_z_quarters
 from isaaclab_arena.utils.pose import Pose, PosePerEnv
 from isaaclab_arena.utils.yaw import rotate_quat_by_yaw, yaw_from_quat_xyzw, yaw_toward_positions
 
@@ -48,14 +48,12 @@ class ObjectPlacer:
 
     Encapsulates the workflow of:
     1. Random initialization of candidate positions per environment
-    2. Running the RelationSolver on candidate batches
+    2. Running the RelationSolver on all candidates in one batch
     3. Validating each candidate
     4. Ranking candidates per environment (valid first, then by loss)
     5. Applying the best layout per environment to the objects
 
     Supports single-env (num_envs=1) and batched (num_envs>1) placement.
-    ClutterOn supports can be placed with the other non-clutter objects first,
-    then held fixed while solving clutter release poses.
 
     Note:
         On-relation initialization samples positions within the anchor's axis-aligned bounding
@@ -97,8 +95,17 @@ class ObjectPlacer:
             One PlacementResult per environment.
         """
         collision_objects = collision_objects or []
-        ranked_results_per_env = self.place_ranked_per_env(objects, num_envs, 1, collision_objects)
-        anchor_objects_set = set(get_anchor_objects(objects))
+        anchor_objects_set, generator = self._prepare_placement(objects)
+        max_attempts = self.params.max_placement_attempts
+        ranked_results_per_env = self._place_ranked(
+            objects,
+            anchor_objects_set,
+            num_envs,
+            candidates_per_env=max_attempts,
+            attempts_per_result=max_attempts,
+            generator=generator,
+            collision_objects=collision_objects,
+        )
         results_per_env = [env_results[0] for env_results in ranked_results_per_env]
 
         if self.params.verbose:
@@ -130,7 +137,6 @@ class ObjectPlacer:
         The return value has shape (num_envs, results_per_env): each
         outer list entry corresponds to a real env, and each inner list is
         sorted with valid lower-loss layouts first.
-        ClutterOn with non-anchor supports automatically uses two solver passes.
 
         Args:
             collision_objects: Optional fixed background obstacles avoided during
@@ -138,23 +144,6 @@ class ObjectPlacer:
         """
         collision_objects = collision_objects or []
         assert results_per_env > 0, f"results_per_env must be positive, got {results_per_env}"
-        for obj in objects:
-            clutter_relation = get_relation(obj, ClutterOn)
-            if clutter_relation is not None and not clutter_relation.parent.is_anchor:
-                return place_staged_clutter(self, objects, num_envs, results_per_env, collision_objects)
-        return self._place_ranked_per_env(objects, num_envs, results_per_env, collision_objects)
-
-    def _place_ranked_per_env(
-        self,
-        objects: list[PlaceableAsset],
-        num_envs: int,
-        results_per_env: int,
-        collision_objects: list[CollisionObject],
-        placement_seed: int | None = None,
-        validation: PlacementValidationRunner | None = None,
-        return_all_candidates: bool = False,
-    ) -> list[list[PlacementResult]]:
-        """Run one solver pass, optionally using a separate candidate seed stream."""
         anchor_objects_set, generator = self._prepare_placement(objects)
         max_attempts = self.params.max_placement_attempts
         ranked_results_per_env = self._place_ranked(
@@ -165,12 +154,8 @@ class ObjectPlacer:
             attempts_per_result=max_attempts,
             generator=generator,
             collision_objects=collision_objects,
-            placement_seed=placement_seed,
-            validation=validation,
         )
 
-        if return_all_candidates:
-            return ranked_results_per_env
         return [ranked_results[:results_per_env] for ranked_results in ranked_results_per_env]
 
     def _prepare_placement(
@@ -186,8 +171,20 @@ class ObjectPlacer:
             )
             for relation in obj.get_relations():
                 relation.validate_placement_configuration(obj, object_set)
+            clutter = get_relation(obj, ClutterOn)
+            if clutter is not None and not clutter.parent.is_anchor:
+                support = clutter.parent
+                assert not self.params.random_yaw_init and get_relation(support, FaceTo) is None, (
+                    f"ClutterOn support '{support.name}' requires a fixed quarter-turn rotation; "
+                    "disable random_yaw_init and FaceTo"
+                )
+                assert (
+                    get_relation(support, RandomAroundSolution) is None
+                ), f"ClutterOn support '{support.name}' cannot randomize after placement validation"
+                # Validate that the release region stays axis-aligned; the quarter count is unused.
+                quaternion_to_90_deg_z_quarters(get_rotation_xyzw(support))
             marker = get_relation(obj, RotateAroundSolution)
-            if get_relation(obj, ClutterOn) is not None and marker is not None:
+            if clutter is not None and marker is not None:
                 # Mesh loss and validation use yaw only; tilted release bounds would disagree.
                 has_tilt = marker.roll_rad != 0.0 or marker.pitch_rad != 0.0
                 assert not (has_tilt and object_uses_mesh_collision(obj, self.params.solver_params.collision_mode)), (
@@ -224,8 +221,6 @@ class ObjectPlacer:
         attempts_per_result: int,
         generator: torch.Generator | None,
         collision_objects: list[CollisionObject] | None = None,
-        placement_seed: int | None = None,
-        validation: PlacementValidationRunner | None = None,
     ) -> list[list[PlacementResult]]:
         """Solve and rank placement candidates per environment.
 
@@ -234,21 +229,17 @@ class ObjectPlacer:
         candidate is never compared against another env's geometry.
         """
         collision_objects = collision_objects or []
-        candidate_generator = self._candidate_generator
-        if placement_seed is not None:
-            candidate_generator = PlacementCandidateGenerator(replace(self.params, placement_seed=placement_seed))
         # Variant assignment fixes the env-to-USD mapping before bbox expansion.
-        assign_variants_for_envs(objects, num_envs, placement_seed=candidate_generator.params.placement_seed)
+        assign_variants_for_envs(objects, num_envs, placement_seed=self.params.placement_seed)
         num_candidates = num_envs * candidates_per_env
         env_bboxes = build_per_env_bounding_boxes(objects, num_envs).get_bounding_boxes_for_all_envs()
-        batch = candidate_generator.generate_candidates(
+        batch = self._candidate_generator.generate_candidates(
             objects, anchor_objects_set, env_bboxes, candidates_per_env, generator, collision_objects
         )
         self._solver.solve_candidates(objects, batch, collision_objects)
         self._finish_candidate_geometry(batch, env_bboxes)
         self._assert_finite_solver_output(batch)
-        validation = self._validation if validation is None else validation
-        validation.validate_candidates(batch, collision_objects)
+        self._validation.validate_candidates(batch, collision_objects)
         ranked_batches = self._rank_candidates(batch, num_envs)
 
         results = []
@@ -377,13 +368,10 @@ class ObjectPlacer:
 
     @property
     def last_loss_history(self) -> list[float]:
-        """Mean losses from the most recent solver pass (the final stage when staged)."""
+        """Mean batch losses before optimizer steps in the most recent place()."""
         return self._solver.last_loss_history
 
     @property
     def last_position_history(self) -> list:
-        """Position snapshots from the most recent solver pass.
-
-        Staged snapshots use solver-only asset copies from the final stage.
-        """
+        """Position snapshots from the most recent place() call."""
         return self._solver.last_position_history

@@ -49,12 +49,9 @@ class PrePhysicsPlacementValidator(base.PlacementValidator):
     PlacementCheck constant; external validators may use any unique string."""
 
     run_after_inexpensive_checks: bool = False
-    """If True, defer until required inexpensive checks pass.
-
-    When clutter needs two passes, True uses complete layouts with original assets and environment
-    IDs; False checks non-clutter objects first, then copied assets with local env ID 0. Joint solving
-    uses complete layouts with original assets and environment IDs for either value.
-    """
+    """If True, run this validator only on candidates that already pass every required check that does not
+    set this flag, so an expensive check (e.g. IK reachability) never runs on a layout rejected on cheaper
+    geometry."""
 
     def __init__(self, params: ObjectPlacerParams, visualizer: PlacementRerunVisualizer | None = None) -> None:
         self._params = params

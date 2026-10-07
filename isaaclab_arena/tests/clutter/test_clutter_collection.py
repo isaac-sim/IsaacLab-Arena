@@ -215,7 +215,7 @@ def test_clutter_collection_uses_shared_batches(tmp_path, backend):
     )
 
 
-def _test_staged_clutter_recording_replays_randomized_supports(simulation_app, tmp_path, backend):
+def _test_clutter_recording_replays_movable_supports(simulation_app, tmp_path, backend):
     import torch
     from unittest.mock import patch
 
@@ -329,15 +329,15 @@ def _test_staged_clutter_recording_replays_randomized_supports(simulation_app, t
 
 
 @pytest.mark.parametrize("backend", ["physx", "newton"])
-def test_staged_clutter_recording_replays_randomized_supports(tmp_path, backend):
+def test_clutter_recording_replays_movable_supports(tmp_path, backend):
     assert run_function_with_persistent_simulation_app(
-        _test_staged_clutter_recording_replays_randomized_supports,
+        _test_clutter_recording_replays_movable_supports,
         tmp_path=tmp_path,
         backend=backend,
     )
 
 
-def _test_maintained_staged_bowl_recording_and_replay(simulation_app, tmp_path):
+def _test_movable_bowl_recording_and_replay(simulation_app, tmp_path):
     import json
     import torch
     from pathlib import Path
@@ -354,8 +354,8 @@ def _test_maintained_staged_bowl_recording_and_replay(simulation_app, tmp_path):
     from isaaclab_arena.scripts.record_placement_layouts import record_settled_placement_layouts
     from isaaclab_arena.tests.utils.constants import TestConstants
 
-    source = Path(TestConstants.arena_environments_dir) / "clutter/franka_staged_bowl_clutter_no_task.yaml"
-    output = tmp_path / "staged_bowl.jsonl"
+    source = Path(TestConstants.arena_environments_dir) / "clutter/franka_movable_bowl_clutter_no_task.yaml"
+    output = tmp_path / "movable_bowl.jsonl"
     cfg = PlacementRecordingCfg(
         env_spec=str(source),
         output=str(output),
@@ -413,10 +413,8 @@ def _test_maintained_staged_bowl_recording_and_replay(simulation_app, tmp_path):
     return True
 
 
-def test_maintained_staged_bowl_recording_and_replay(tmp_path):
-    assert run_function_with_persistent_simulation_app(
-        _test_maintained_staged_bowl_recording_and_replay, tmp_path=tmp_path
-    )
+def test_movable_bowl_recording_and_replay(tmp_path):
+    assert run_function_with_persistent_simulation_app(_test_movable_bowl_recording_and_replay, tmp_path=tmp_path)
 
 
 def _test_raised_support_requires_explicit_surface(simulation_app, tmp_path):

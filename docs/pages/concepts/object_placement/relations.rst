@@ -90,22 +90,16 @@ Most environments can be described with a small set of relations:
 
 .. _clutter-on-relation:
 
-.. _staged_clutter:
-
 ``ClutterOn(parent)``
    Defines a **release pose** above a support, before physics. The support can
    be fixed with ``IsAnchor`` or placed through its own relations, such as
    ``tray On(table)`` with ``tools ClutterOn(tray)``.
 
-   When a support needs placement, Arena automatically:
-
-   1. Places all non-clutter objects together using their ordinary relations.
-   2. Keeps those poses fixed while placing the clutter above its supports.
-
-   Scenes without ``ClutterOn``, or with only anchored clutter supports, retain
-   the existing joint solve. ``ObjectPlacer`` samples a central release region
-   and raises clutter above overlapping footprints. Supports must be upright,
-   with a fixed yaw that is a multiple of 90 degrees.
+   The solver optimizes the support and clutter positions together using the
+   relation and collision losses. An anchored support remains fixed.
+   ``ObjectPlacer`` initializes clutter inside a central release region and
+   above overlapping footprints. The release region follows the support as
+   the solver moves it.
 
    .. list-table::
       :header-rows: 1
@@ -149,21 +143,15 @@ Most environments can be described with a small set of relations:
    ``clutter_on_relation`` for clutter and ``on_relation`` for ordinary ``On``
    objects. Both checks are enabled by default.
 
-   When placing supports first, each retained non-clutter layout is extended
-   separately with clutter, increasing solve time. The clutter solve cannot move
-   those objects or retry discarded candidates, so it can fail on an otherwise valid
-   arrangement. Nested ``ClutterOn`` supports and non-clutter objects that depend
-   on clutter objects are unsupported. All assets must be concrete and relation
-   parents must participate in placement. Non-anchor objects placed first need
-   fixed quarter-turn rotations: disable ``random_yaw_init`` and do not use
-   ``FaceTo`` or ``RandomAroundSolution`` on them.
+   The support must participate in placement and cannot itself use ``ClutterOn``.
+   Supports must remain upright with a fixed yaw that is a multiple of 90 degrees.
+   For a non-anchor support, disable ``random_yaw_init`` and do not use ``FaceTo``
+   or ``RandomAroundSolution`` on the support. Other objects retain their ordinary
+   relation constraints.
 
-   Pools and resets still receive complete layouts. Required checks from both
-   passes must succeed; expensive checks such as reachability run on the complete
-   layout. Ranking prioritizes fewer required-check failures, then fewer optional
-   failures, then lower loss summed over both passes. Tie-breaking favors
-   candidates from different non-clutter layouts. Custom validators must follow
-   the :ref:`two-pass input contract <staged-clutter-validator-inputs>`.
+   Each candidate contains the complete layout. The standard
+   :doc:`validation <validation>` and :doc:`pooling <pooled_placement>` rules apply;
+   a low solver loss alone does not guarantee a valid release.
 
    A **settled pose** is the final pose after the configured physics interval.
    An **accepted layout** passes the required pre-physics and enabled, applicable
@@ -176,7 +164,7 @@ Most environments can be described with a small set of relations:
 
    For recording, placed non-clutter objects must be kinematic rigid bodies so
    physics does not move them during settling. Try the
-   :ref:`movable-bowl example <staged-bowl-clutter>` in the shared
+   :ref:`movable-bowl example <movable-bowl-clutter>` in the shared
    :doc:`../offline_placement/clutter` recording and replay workflow.
 
 .. _next-to-relation:

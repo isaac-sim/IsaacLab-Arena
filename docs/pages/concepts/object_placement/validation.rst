@@ -17,7 +17,7 @@ How Validation Fits Placement
 
 ``ObjectPlacer`` builds its validator list once from every registered check
 that passes ``is_available()`` and survives ``enabled_checks`` (see
-:ref:`validation-toggle`). With joint solving, each batch runs in two passes:
+:ref:`validation-toggle`). Each batch runs validation in two passes:
 
 1. **Inexpensive checks** (``no_overlap``, ``on_relation``, ``clutter_on_relation``, ``next_to``,
    ``not_next_to``, ``face_to``) over every candidate.
@@ -25,15 +25,16 @@ that passes ``is_available()`` and survives ``enabled_checks`` (see
    passed every *required* inexpensive check.
 
 A ``PlacementCandidate`` stores the participating objects' positions, orientations
-and bounds, plus the environment ID and sample ID for that pass. By default, it
-contains the complete placement graph; two-pass clutter placement uses the inputs below.
-Solving updates the candidate's positions and loss; validation replaces its check
-results. These operations update the working batch in place and return ``None``.
+and bounds, plus the actual environment ID and sample ID. Each candidate contains
+the complete placement graph with the original asset identities and relations,
+including when ``ClutterOn`` supports move during solving. Solving updates the
+candidate's positions and loss; validation replaces its check results. These
+operations update the working batch in place and return ``None``.
 
 ``PlacementCandidateBatch`` groups these layouts. For example, four environments
 with ten attempts each produce a batch of forty candidates. Filtering and ranking
 keep each candidate's geometry and results together. Sample IDs are local to a
-pass, not persistent layout identifiers across solves or pool refills.
+solve, not persistent layout identifiers across solves or pool refills.
 
 ``PlacementCandidateGenerator`` samples orientations, fits the bounds to those
 rotations and places clutter above its support and nearby objects before solving.
@@ -56,40 +57,6 @@ Pre-physics and offline post-physics validators share the ``PlacementValidator``
 base for check names and stages. They have separate inputs: solved candidate
 batches before physics, measured scene state after physics. See
 :ref:`recording-post-physics-checks` for offline acceptance checks.
-
-.. _staged-clutter-validator-inputs:
-
-Validator Inputs with Two-Pass Clutter Placement
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-When :ref:`ClutterOn <staged_clutter>` places its supports first, inexpensive
-validators see the inputs below. Joint solving retains the existing complete-graph
-validation. Validators marked
-``run_after_inexpensive_checks=True`` run after both passes, only if the complete
-layout passed all required inexpensive checks.
-
-.. list-table::
-   :header-rows: 1
-   :widths: 22 53 25
-
-   * - Validation pass
-     - Candidate objects
-     - ``env_id``
-   * - Non-clutter, inexpensive
-     - Original anchors and non-clutter objects, with original identities.
-     - Actual environment ID.
-   * - Clutter, inexpensive
-     - Copies of all objects. Non-clutter objects have ``IsAnchor`` in place
-       of their original relations.
-     - Local ID ``0``; each non-clutter layout is extended separately.
-   * - Deferred checks
-     - Complete graph with original asset identities and relations.
-     - Actual environment ID.
-
-Inexpensive custom checks must use the objects and geometry supplied in each
-candidate. Do not index external per-environment state or look up copied assets
-by original object identity. Set ``run_after_inexpensive_checks=True`` for checks
-that need either of these, original relations, or the complete layout.
 
 Types of Validators
 --------------------
@@ -265,10 +232,9 @@ gravity must point downward along world Z. Supports must have static or
 kinematic collision geometry, with no tilt and a yaw that is a multiple of
 90 degrees. ``IsAnchor`` fixes the placement solve; physics mobility is a separate
 requirement. Non-clutter objects, including destinations, must be fixed anchors
-or solved kinematic rigid bodies. A ``ClutterOn`` support without ``IsAnchor``
-automatically uses :ref:`two-pass placement <staged_clutter>`. Containment checks
-compare each support's poses before and after physics with that candidate's
-solved pose.
+or solved kinematic rigid bodies. A support without ``IsAnchor`` is positioned
+jointly with its clutter. Containment checks compare each support's poses before
+and after physics with that candidate's solved pose.
 
 Release candidates must pass ``no_overlap`` and ``clutter_on_relation``.
 ``ClutterOn`` objects cannot require reachability because settling changes the
@@ -315,10 +281,10 @@ limits.
      - Import the external package's registration modules before loading its
        environment. Check the registry name, asset path and asset access from
        the runtime that runs the recorder.
-   * - Support is not fixed for placement or settling
-     - Use a fixed pose and ``IsAnchor``, or solve a kinematic rigid support with
-       :ref:`two-pass clutter placement <staged_clutter>`. Supports must remain static
-       or kinematic during settling.
+   * - Support can move during settling
+     - Use static or kinematic collision geometry. ``IsAnchor`` fixes a support
+       during placement only; a support placed through relations must be a
+       kinematic rigid body for recording.
    * - Unsupported non-clutter placement
      - Use fixed anchors or solved kinematic rigid bodies for non-clutter objects,
        including those unrelated to the clutter support. Resolve object sets to concrete assets
@@ -417,7 +383,6 @@ example, check the complete layout for any object origin above 1.5 metres:
    @register_validator
    class MaxOriginHeightValidator(PrePhysicsPlacementValidator):
        check = "max_origin_height"
-       run_after_inexpensive_checks = True
 
        def validate_batch(self, batch, collision_objects):
            verdicts = []

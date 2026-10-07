@@ -20,16 +20,12 @@ if TYPE_CHECKING:
 
 @dataclass
 class PlacementCandidate:
-    """One working layout of the objects participating in a placement pass.
-
-    Two-pass clutter checks see non-clutter objects first, then a complete graph with copied assets.
-    Deferred checks receive complete layouts keyed by the original assets.
-    """
+    """One working layout of all placement objects in one environment."""
 
     env_id: int
-    """Environment index for this pass; the second clutter-placement pass uses local index 0."""
+    """Environment whose geometry and object variants this layout uses."""
     candidate_id: int
-    """Sample index within this pass and environment, unchanged by filtering or ranking."""
+    """Sample index within the environment, unchanged by filtering or ranking."""
     positions: dict[PlaceableAsset, tuple[float, float, float]]
     """Object origins in the local environment frame, in metres; each value has shape (3,)."""
     orientations: dict[PlaceableAsset, float]
@@ -44,7 +40,7 @@ class PlacementCandidate:
 
 @dataclass
 class PlacementCandidateBatch:
-    """N candidate layouts for one pass, potentially with several per environment."""
+    """N complete layouts, potentially with several candidates per environment."""
 
     candidates: list[PlacementCandidate]
     """Layouts in batch order, each with its own identity, geometry and results."""

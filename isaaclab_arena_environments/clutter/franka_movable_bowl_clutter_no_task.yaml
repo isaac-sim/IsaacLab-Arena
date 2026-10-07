@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-env_name: franka_staged_bowl_clutter_no_task
+env_name: franka_movable_bowl_clutter_no_task
 embodiment:
   id: robot
   registry_name: franka_ik
