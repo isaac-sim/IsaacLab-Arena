@@ -7,8 +7,8 @@
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
-from functools import partial
 
 import isaaclab.envs.mdp as mdp
 from isaaclab.envs.common import ViewerCfg
@@ -24,11 +24,17 @@ from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.metrics.object_moved import ObjectMovedRateMetric
 from isaaclab_arena.metrics.success_rate import SuccessRateMetric
 from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
-from isaaclab_arena.tasks.predicates.gear_insertion import gear_is_inserted
+from isaaclab_arena.tasks.predicates.spatial import (
+    depth_in_range,
+    lateral_in_proximity,
+    tilt_axis_aligned,
+    velocity_below_threshold,
+)
 from isaaclab_arena.tasks.predicates.temporal import TrueForConsecutiveStepsCfg
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
 from isaaclab_arena.tasks.task_transition import Relocate, TaskTransition
+from isaaclab_arena.tasks.terminations import check_success
 
 
 @dataclass(frozen=True)
@@ -126,19 +132,45 @@ class GearAssemblyTask(TaskBase):
 
     def _make_termination_cfg(self) -> TaskTerminationCfg:
         criteria = self.success_criteria
+        mating_params = {
+            "subject_name": self.held_asset.name,
+            "receiver_name": self.insertion_target.name,
+            "target_offset_xyz": (0.0, 0.0, 0.0),
+            "subject_offset_xyz": criteria.gear_insertion_offset_xyz,
+        }
+        predicates = [
+            TerminationTermCfg(
+                func=lateral_in_proximity,
+                params={**mating_params, "tolerance_lateral": criteria.xy_threshold},
+            ),
+            TerminationTermCfg(
+                func=depth_in_range,
+                params={
+                    **mating_params,
+                    "depth_min": -criteria.z_threshold,
+                    "depth_max": min(criteria.z_threshold, criteria.support_z_threshold),
+                },
+            ),
+            TerminationTermCfg(
+                func=tilt_axis_aligned,
+                params={
+                    "subject_name": self.held_asset.name,
+                    "receiver_name": self.insertion_target.name,
+                    "max_tilt_rad": math.radians(criteria.upright_axis_threshold_deg),
+                },
+            ),
+            TerminationTermCfg(
+                func=velocity_below_threshold,
+                params={
+                    "subject_name": self.held_asset.name,
+                    "linear_velocity_threshold": criteria.linear_velocity_threshold,
+                    "angular_velocity_threshold": criteria.angular_velocity_threshold,
+                },
+            ),
+        ]
         success = TerminationTermCfg(
-            func=gear_is_inserted,
-            params={
-                "gear_cfg": SceneEntityCfg(self.held_asset.name),
-                "insertion_target_cfg": SceneEntityCfg(self.insertion_target.name),
-                "gear_insertion_offset_xyz": criteria.gear_insertion_offset_xyz,
-                "xy_threshold": criteria.xy_threshold,
-                "z_threshold": criteria.z_threshold,
-                "upright_axis_threshold_deg": criteria.upright_axis_threshold_deg,
-                "linear_velocity_threshold": criteria.linear_velocity_threshold,
-                "angular_velocity_threshold": criteria.angular_velocity_threshold,
-                "support_z_threshold": criteria.support_z_threshold,
-            },
+            func=check_success,
+            params={"predicates": predicates},
         )
         gear_dropped = TerminationTermCfg(
             func=mdp.root_height_below_minimum,
@@ -154,7 +186,7 @@ class GearAssemblyTask(TaskBase):
                     name="insert_gear",
                     predicate_sequence=[
                         TrueForConsecutiveStepsCfg(
-                            predicate=partial(success.func, **success.params),
+                            predicate=success,
                             required_steps=criteria.consecutive_success_steps,
                         )
                     ],
