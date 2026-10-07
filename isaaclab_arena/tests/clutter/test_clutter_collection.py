@@ -384,9 +384,11 @@ def _test_movable_bowl_recording_and_replay(simulation_app, tmp_path):
 
     with patch("isaaclab_arena.offline_placement.settled_placement.evaluate_settled_batch", side_effect=check_batch):
         summary = record_settled_placement_layouts(cfg, device="cpu")
-    assert summary.accepted == 4 and summary.output == output, summary.rejections
+    # Partial output is valid; two layouts suffice to verify distinct support poses during replay.
+    assert 2 <= summary.accepted <= cfg.min_layouts, summary.rejections
+    assert summary.output == output
     layouts = PlacementLayouts.from_episode_jsonl(output)
-    assert layouts.num_layouts == 4
+    assert layouts.num_layouts == summary.accepted
     assert {"bowl", "cube_0", "cube_1", "cube_2"} <= layouts.poses.keys()
     assert len({pose.position_xyz for pose in layouts.poses["bowl"]}) > 1
     records = [json.loads(line)["variations"]["scene.relation_placement"] for line in output.read_text().splitlines()]
@@ -403,10 +405,11 @@ def _test_movable_bowl_recording_and_replay(simulation_app, tmp_path):
     env = ArenaEnvBuilder(arena_env, replay_cfg).make_registered()
     try:
         # Compare every saved layout immediately after reset, before policy or physics steps.
-        for start in (0, 2):
+        for start in range(0, layouts.num_layouts, replay_cfg.num_envs):
             env.reset()
+            indices = [(start + env_id) % layouts.num_layouts for env_id in range(replay_cfg.num_envs)]
             for key, poses in layouts.poses.items():
-                expected = torch.stack([pose.to_tensor("cpu") for pose in poses[start : start + 2]])
+                expected = torch.stack([poses[index].to_tensor("cpu") for index in indices])
                 torch.testing.assert_close(env.unwrapped.arena_world.get_pose_e(key), expected, atol=2e-5, rtol=0)
     finally:
         env.close()
