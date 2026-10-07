@@ -7,7 +7,7 @@ env_name: coffee_pot_in_bin
 external_yaml: ../scenes/bin_condiments.yaml
 task:
   composition: atomic
-  description: pick up the coffee pot and place it into the grey bin
+  description: Pick up the coffee pot and place it into the grey bin.
   subtasks:
   - kind: PickAndPlaceTask
     params:

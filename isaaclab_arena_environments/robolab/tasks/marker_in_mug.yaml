@@ -7,7 +7,7 @@ env_name: marker_in_mug
 external_yaml: ../scenes/workdesk.yaml
 task:
   composition: atomic
-  description: Put the whiteboard marker in the mug
+  description: Put the whiteboard marker in the mug.
   subtasks:
   - kind: PickAndPlaceTask
     params:

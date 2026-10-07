@@ -7,7 +7,7 @@ env_name: electronics_in_bin
 external_yaml: ../scenes/workdesk_bin.yaml
 task:
   composition: parallel
-  description: Put the electronic devices in the grey bin
+  description: Put the electronic devices in the grey bin.
   subtasks:
   - kind: PickAndPlaceTask
     params:

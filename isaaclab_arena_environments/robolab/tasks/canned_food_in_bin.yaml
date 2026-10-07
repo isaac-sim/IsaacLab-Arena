@@ -7,7 +7,7 @@ env_name: canned_food_in_bin
 external_yaml: ../scenes/bin_condiments.yaml
 task:
   composition: atomic
-  description: Put the canned food in the grey bin
+  description: Put the canned food in the grey bin.
   subtasks:
   - kind: PickAndPlaceTask
     params:

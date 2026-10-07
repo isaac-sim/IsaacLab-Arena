@@ -7,7 +7,7 @@ env_name: rubiks_cube
 external_yaml: ../scenes/rubiks_cube_bowl.yaml
 task:
   composition: atomic
-  description: put the rubiks cube in the bowl
+  description: "Put the Rubik's cube in the bowl."
   subtasks:
   - kind: PickAndPlaceTask
     params:

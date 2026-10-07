@@ -7,7 +7,7 @@ env_name: non_hammer_tools_in_right_bin
 external_yaml: ../scenes/tools_container.yaml
 task:
   composition: parallel
-  description: Put the non-hammer tools in the right bin
+  description: Put the non-hammer tools in the right bin.
   subtasks:
   - kind: PickAndPlaceTask
     params:

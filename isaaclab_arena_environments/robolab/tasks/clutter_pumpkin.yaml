@@ -7,7 +7,7 @@ env_name: clutter_pumpkin
 external_yaml: ../scenes/clutter_fruit_bottle_bluebin.yaml
 task:
   composition: parallel
-  description: Put all the pumpkins away in the bin
+  description: Put all the pumpkins away in the bin.
   subtasks:
   - kind: PickAndPlaceTask
     params:

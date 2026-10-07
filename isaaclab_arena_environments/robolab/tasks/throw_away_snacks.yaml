@@ -7,7 +7,7 @@ env_name: throw_away_snacks
 external_yaml: ../scenes/workdesk_snacks.yaml
 task:
   composition: parallel
-  description: Put away the snacks in the bin
+  description: Put away the snacks in the bin.
   subtasks:
   - kind: PickAndPlaceTask
     params:

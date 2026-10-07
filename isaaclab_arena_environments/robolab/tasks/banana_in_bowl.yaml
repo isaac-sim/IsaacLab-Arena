@@ -7,7 +7,7 @@ env_name: banana_in_bowl
 external_yaml: ../scenes/banana_bowl.yaml
 task:
   composition: atomic
-  description: pick up the banana and place it in the bowl
+  description: Pick up the banana and place it in the bowl.
   subtasks:
   - kind: PickAndPlaceTask
     params:

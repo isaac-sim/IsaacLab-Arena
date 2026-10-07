@@ -7,7 +7,7 @@ env_name: apple_and_yogurt_in_bowl
 external_yaml: ../scenes/workdesk_snacks.yaml
 task:
   composition: parallel
-  description: Put the apple and yogurt in the bowl
+  description: Put the apple and yogurt in the bowl.
   subtasks:
   - kind: PickAndPlaceTask
     params:

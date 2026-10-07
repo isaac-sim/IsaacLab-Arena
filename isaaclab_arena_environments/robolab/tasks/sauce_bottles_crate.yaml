@@ -7,7 +7,7 @@ env_name: sauce_bottles_crate
 external_yaml: ../scenes/bottles_crate.yaml
 task:
   composition: atomic
-  description: place the bbq sauce bottle into the purple crate on the table
+  description: Place the BBQ sauce bottle into the purple crate on the table.
   subtasks:
   - kind: PickAndPlaceTask
     params:

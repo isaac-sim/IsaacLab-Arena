@@ -7,7 +7,7 @@ env_name: clamp_in_right_bin
 external_yaml: ../scenes/tools_container.yaml
 task:
   composition: atomic
-  description: pick up the spring clamp and place it in the right bin
+  description: Pick up the spring clamp and place it in the right bin.
   subtasks:
   - kind: PickAndPlaceTask
     params:

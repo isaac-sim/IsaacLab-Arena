@@ -7,7 +7,7 @@ env_name: food_packing_1_boxes
 external_yaml: ../scenes/foodpacking_1bin_1box_1can.yaml
 task:
   composition: atomic
-  description: pick up the cheez it box and place it into the bin
+  description: Pick up the cheez it box and place it into the bin.
   subtasks:
   - kind: PickAndPlaceTask
     params:

@@ -7,7 +7,7 @@ env_name: mustard_in_left_bin
 external_yaml: ../scenes/two_bin.yaml
 task:
   composition: atomic
-  description: put the mustard in the left bin
+  description: Put the mustard in the left bin.
   subtasks:
   - kind: PickAndPlaceTask
     params:

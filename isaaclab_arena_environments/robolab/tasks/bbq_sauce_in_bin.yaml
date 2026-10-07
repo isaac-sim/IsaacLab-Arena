@@ -7,7 +7,7 @@ env_name: bbq_sauce_in_bin
 external_yaml: ../scenes/bin_condiments.yaml
 task:
   composition: parallel
-  description: Put the red BBQ sauce bottles in the grey bin
+  description: Put the red BBQ sauce bottles in the grey bin.
   subtasks:
   - kind: PickAndPlaceTask
     params:

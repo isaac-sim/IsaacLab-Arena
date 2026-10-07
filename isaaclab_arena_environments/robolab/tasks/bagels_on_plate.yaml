@@ -7,7 +7,7 @@ env_name: bagels_on_plate
 external_yaml: ../scenes/bagel_plate_banana_bowl.yaml
 task:
   composition: parallel
-  description: Put the bagels on the plate
+  description: Put the bagels on the plate.
   subtasks:
   - kind: PickAndPlaceTask
     params:

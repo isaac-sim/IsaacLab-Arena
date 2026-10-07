@@ -7,7 +7,7 @@ env_name: condiments_in_bin
 external_yaml: ../scenes/bin_condiments.yaml
 task:
   composition: parallel
-  description: Sort the sauce condiments into the grey bin
+  description: Sort the sauce condiments into the grey bin.
   subtasks:
   - kind: PickAndPlaceTask
     params:

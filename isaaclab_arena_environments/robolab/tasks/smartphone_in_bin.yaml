@@ -7,7 +7,7 @@ env_name: smartphone_in_bin
 external_yaml: ../scenes/workdesk_bin.yaml
 task:
   composition: atomic
-  description: Put the smartphone in the grey bin
+  description: Put the smartphone in the grey bin.
   subtasks:
   - kind: PickAndPlaceTask
     params:

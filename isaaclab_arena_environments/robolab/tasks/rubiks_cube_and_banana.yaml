@@ -7,7 +7,7 @@ env_name: rubiks_cube_and_banana
 external_yaml: ../scenes/rubiks_cube_banana_bowl.yaml
 task:
   composition: parallel
-  description: Put the cube and the banana in the bowl
+  description: Put the cube and the banana in the bowl.
   subtasks:
   - kind: PickAndPlaceTask
     params:

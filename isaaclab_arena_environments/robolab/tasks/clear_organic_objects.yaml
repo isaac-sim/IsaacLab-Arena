@@ -7,7 +7,7 @@ env_name: clear_organic_objects
 external_yaml: ../scenes/clutter_fruit_bottle_bluebin.yaml
 task:
   composition: parallel
-  description: Clear away the organic objects
+  description: Clear away the organic objects.
   subtasks:
   - kind: PickAndPlaceTask
     params:

@@ -7,7 +7,7 @@ env_name: black_items_in_bin
 external_yaml: ../scenes/workdesk_bin.yaml
 task:
   composition: parallel
-  description: Put the black items in the grey bin
+  description: Put the black items in the grey bin.
   subtasks:
   - kind: PickAndPlaceTask
     params:

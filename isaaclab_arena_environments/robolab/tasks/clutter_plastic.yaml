@@ -7,7 +7,7 @@ env_name: clutter_plastic
 external_yaml: ../scenes/clutter_fruit_bottle_bluebin.yaml
 task:
   composition: parallel
-  description: Put all plastic bottles away in the bin
+  description: Put all plastic bottles away in the bin.
   subtasks:
   - kind: PickAndPlaceTask
     params:

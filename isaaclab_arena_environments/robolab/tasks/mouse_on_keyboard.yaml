@@ -7,7 +7,7 @@ env_name: mouse_on_keyboard
 external_yaml: ../scenes/workdesk.yaml
 task:
   composition: atomic
-  description: place the computer mouse on the keyboard
+  description: Place the computer mouse on the keyboard.
   subtasks:
   - kind: PickAndPlaceTask
     params:

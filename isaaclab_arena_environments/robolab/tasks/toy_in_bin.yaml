@@ -7,7 +7,7 @@ env_name: toy_in_bin
 external_yaml: ../scenes/workdesk_bin.yaml
 task:
   composition: atomic
-  description: place the lizard figurine into the grey bin on the table
+  description: Place the lizard figurine into the grey bin on the table.
   subtasks:
   - kind: PickAndPlaceTask
     params:
