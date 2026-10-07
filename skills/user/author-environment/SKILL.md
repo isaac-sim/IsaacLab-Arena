@@ -53,7 +53,7 @@ catalogue; search the full registry implementation and feature directory.
 
 Keep the environment focused on assembling `Scene`, embodiment, and task. Use task constructor
 parameters for semantics and builder/Experiment configuration for execution settings. Do not edit
-core APIs merely to make a one-off environment fit YAML. New registered modules in
+core APIs merely to make a one-off environment fit YAML. New registered top-level modules in
 `isaaclab_arena_environments/` are discovered automatically; do not add imports to `__init__.py`.
 
 ## Compose the requested behavior
