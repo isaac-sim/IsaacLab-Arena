@@ -17,16 +17,12 @@ from typing import TYPE_CHECKING
 from isaaclab_arena.assets.registries import EnvironmentRegistry, PolicyRegistry
 from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
 from isaaclab_arena.evaluation.arena_run import ArenaRunCfg, ArenaRunResult, RunStatus
-from isaaclab_arena.evaluation.episode_conditions_rollout import (
-    assert_replay_compatible_run_cfg,
-    resolve_replay_episode_budget,
-)
 from isaaclab_arena.evaluation.experiment_timings import write_run_timings
 from isaaclab_arena.evaluation.legacy_graph_environment_cli import (
     LegacyGraphEnvironmentCfg,
     build_arena_builder_from_legacy_graph,
 )
-from isaaclab_arena.evaluation.policy_runner import rollout_policy
+from isaaclab_arena.evaluation.policy_runner import resolve_replay_episode_budget, rollout_policy
 from isaaclab_arena.evaluation.resource_cleanup import close_run_resources
 from isaaclab_arena.metrics.aggregate_metrics import aggregate_metrics
 from isaaclab_arena.utils.timer import print_timer_stats, reset_timer_stats
@@ -99,7 +95,11 @@ def build_and_run(
     metrics_per_rebuild: list[MetricsDataCollection] = []
     output_dir = str(output_dir)
     video_cfg = video_cfg or VideoRecordingCfg(video_base_dir=output_dir)
-    assert_replay_compatible_run_cfg(cfg)
+    if cfg.environment_builder.episode_conditions_path is not None:
+        assert cfg.num_rebuilds == 1, f"Run '{cfg.name}' sets episode_conditions_path; num_rebuilds must be 1."
+        assert (
+            cfg.rollout_limit.num_steps is None
+        ), f"Run '{cfg.name}' replays episode conditions; num_steps is not supported."
     total_num_episodes = resolve_replay_episode_budget(
         cfg.environment_builder,
         cfg.rollout_limit.num_episodes,
