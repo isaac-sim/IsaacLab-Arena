@@ -43,6 +43,13 @@ class BernoulliSampler(SamplerBase):
             A ``list`` of length ``num_samples`` of booleans.
         """
         assert num_samples >= 0, f"num_samples must be non-negative; got {num_samples}."
-        result = (torch.rand(num_samples) < self.probability).tolist()
+        replay_samples = self._get_replay_sampler(num_samples, env_ids)
+        if replay_samples is None:
+            result = (torch.rand(num_samples) < self.probability).tolist()
+        else:
+            assert all(
+                isinstance(value, bool) for value in replay_samples
+            ), "Bernoulli replay samples must be booleans."
+            result = replay_samples
         self._notify(result, env_ids)
         return result

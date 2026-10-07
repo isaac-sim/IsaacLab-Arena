@@ -35,6 +35,30 @@ class SamplerBase(ABC):
 
     def __init__(self) -> None:
         self._listeners: list[Callable[[Any, torch.Tensor | None], None]] = []
+        self._replay_sampler: Callable[[int, torch.Tensor | None], list[Any] | None] | None = None
+
+    def set_replay_sampler(
+        self,
+        replay_sampler: Callable[[int, torch.Tensor | None], list[Any] | None] | None,
+    ) -> None:
+        """Set an optional callable that supplies recorded sample rows.
+
+        The replay sampler receives the requested sample count and environment ids.
+        Returning ``None`` keeps normal random sampling; returning rows replaces
+        the random draw while preserving the sampler's public output type.
+        """
+        self._replay_sampler = replay_sampler
+
+    def _get_replay_sampler(self, num_samples: int, env_ids: torch.Tensor | None) -> list[Any] | None:
+        """Return recorded rows for this draw, or ``None`` for live sampling."""
+        if self._replay_sampler is None:
+            return None
+        rows = self._replay_sampler(num_samples, env_ids)
+        if rows is not None:
+            assert (
+                len(rows) == num_samples
+            ), f"Replay sampler returned {len(rows)} rows for a {num_samples}-sample draw."
+        return rows
 
     def add_listener(self, listener: Callable[[Any, torch.Tensor | None], None]) -> None:
         """Register ``listener``, called as ``listener(sample, env_ids)`` for every sample drawn."""
