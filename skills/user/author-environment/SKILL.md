@@ -11,9 +11,21 @@ use compatibility interfaces. Paths below are relative to the repository root un
 
 ## Discover before extending
 
-Read the relevant rows of the [feature map](references/feature-map.md), then the linked source and
-nearest maintained example. Use source search on the host; load Arena registries only in the
-supported runtime after SimulationApp startup. Registry access can import USD transitively.
+Start with the relevant concept under `docs/pages/concepts/` and the nearest maintained example in
+`isaaclab_arena_environments/` or `isaaclab_arena_examples/`. Use `rg --files` to locate these in the
+current checkout, then inspect their implementation in `isaaclab_arena/` and the relevant first-party
+extension package. Inspect `isaaclab_arena/assets/registries.py` for registered components. Keep
+discovery grounded in these sources instead of maintaining a second feature inventory in agent
+instructions.
+
+Use any Arena feature needed by the request, including untagged classes and Python APIs outside
+registries. `@agent_ready` filters the built-in environment generator's prompt catalogues; it is not
+an eligibility requirement for coding agents. Neither those catalogues nor the examples below are
+an exhaustive list of supported features. Inspect each candidate's API and requirements before use.
+
+Use source search on the host; load Arena registries only in the supported runtime after
+SimulationApp startup. Registry access can import USD transitively. Registry methods such as
+`get_all_keys()` provide a live inventory of registered components.
 
 For each requirement, identify the existing component and the configuration or composition that
 uses it. Keep this mapping brief in the work notes or final handoff; no extra design document is
