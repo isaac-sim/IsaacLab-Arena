@@ -24,6 +24,10 @@ def _test_recording_follows_episode_assignments(_simulation_app):
     from isaaclab_arena.terms.recorders import EpisodeIdentityRecorderCfg
 
     class ResetRecorder(RecorderTerm):
+        def record_post_step(self):
+            self._env.post_step_calls.append("recorder")
+            return None, None
+
         def record_pre_reset(self, env_ids):
             self._env.pre_reset_calls.append([int(env_id) for env_id in env_ids])
             return None, None
@@ -55,9 +59,13 @@ def _test_recording_follows_episode_assignments(_simulation_app):
         ),
         pre_reset_calls=[],
         post_reset_calls=[],
+        post_step_calls=[],
     )
+    env.update_task_progress = lambda: env.post_step_calls.append("progress")
     recorder = ArenaRecorderManager(RecorderTestCfg(), env)
     try:
+        recorder.record_post_step()
+        assert env.post_step_calls == ["progress", "recorder"]
         recorder.record_pre_reset(None)
         recorder.record_post_reset(None)
         assert env.pre_reset_calls == []

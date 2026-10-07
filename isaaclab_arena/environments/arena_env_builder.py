@@ -38,7 +38,8 @@ from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.metrics.metric_term_cfg import MetricTermCfg
 from isaaclab_arena.metrics.recorder_manager_utils import metrics_to_recorder_manager_cfg
 from isaaclab_arena.progress_tracking.progress_tracker import ProgressTrackingRecorderManagerCfg
-from isaaclab_arena.progress_tracking.task_success import TaskSuccessTerm
+from isaaclab_arena.progress_tracking.task_progress_cfg import TaskProgressCfg
+from isaaclab_arena.progress_tracking.task_success import task_success
 from isaaclab_arena.recording.common_terms import CoreEpisodeRecorderTermCfg, VariationEpisodeRecorderTermCfg
 from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTermCfg
 from isaaclab_arena.recording.progress_terms import ProgressEpisodeRecorderTermCfg
@@ -264,14 +265,7 @@ class ArenaEnvBuilder:
 
         # Install the shared success term when the task defines success criteria.
         if success_criteria:
-            success_term = TerminationTermCfg(
-                func=TaskSuccessTerm,
-                params={
-                    "success_criteria": success_criteria,
-                    "subtasks_are_sequential": task_termination_cfg.subtasks_are_sequential,
-                    "desired_subtask_success_state": task_termination_cfg.desired_subtask_success_state,
-                },
-            )
+            success_term = TerminationTermCfg(func=task_success)
             termination_terms["success"] = success_term
         termination_fields = [(name, TerminationTermCfg, term) for name, term in termination_terms.items()]
         return make_configclass("TerminationsCfg", termination_fields)()
@@ -388,6 +382,13 @@ class ArenaEnvBuilder:
             variations_event_cfg,
         )
         termination_cfg = self._build_termination_manager_cfg(task_termination_cfg)
+        task_progress_cfg = None
+        if task_termination_cfg.success:
+            task_progress_cfg = TaskProgressCfg(
+                success_criteria=task_termination_cfg.success,
+                subtasks_are_sequential=task_termination_cfg.subtasks_are_sequential,
+                desired_subtask_success_state=task_termination_cfg.desired_subtask_success_state,
+            )
         actions_cfg = embodiment.get_action_cfg()
         xr_cfg = embodiment.get_xr_cfg()
         isaac_teleop_cfg = None
@@ -464,6 +465,7 @@ class ArenaEnvBuilder:
                 events=events_cfg,
                 scene=scene_cfg,
                 terminations=termination_cfg,
+                task_progress=task_progress_cfg,
                 rewards=rewards_cfg,
                 curriculum=curriculum_cfg,
                 commands=commands_cfg,
@@ -492,6 +494,7 @@ class ArenaEnvBuilder:
                 events=events_cfg,
                 scene=scene_cfg,
                 terminations=termination_cfg,
+                task_progress=task_progress_cfg,
                 rewards=rewards_cfg,
                 curriculum=curriculum_cfg,
                 commands=commands_cfg,

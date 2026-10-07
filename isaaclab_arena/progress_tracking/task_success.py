@@ -3,89 +3,27 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Connect task progress to Isaac Lab's termination evaluation and reset lifecycle."""
+"""Expose the environment's task success to termination managers and direct callers."""
 
 from __future__ import annotations
 
 import torch
+from typing import TYPE_CHECKING
 
-from isaaclab.managers import ManagerTermBase, TerminationTermCfg
-from isaaclab.utils.configclass import configclass
-
-from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
-from isaaclab_arena.progress_tracking.progress_tracker import (
-    ProgressTracker,
-    ProgressTrackingRecorder,
-    ProgressTrackingRecorderCfg,
-)
-from isaaclab_arena.tasks.predicates.object_settling import reset_rest_pose_recorder
+if TYPE_CHECKING:
+    from isaaclab_arena.environments.isaaclab_arena_manager_based_env import IsaacLabArenaManagerBasedRLEnv
 
 
-class TaskSuccessTerm(ManagerTermBase):
-    """Determine task success using ProgressTracker.
+def task_success(env: IsaacLabArenaManagerBasedRLEnv) -> torch.Tensor:
+    """Update task progress and return success for each environment.
 
-    ArenaEnvBuilder registers this term with Isaac Lab's TerminationManager.
-    TaskSuccessTerm creates and owns ProgressTracker. TerminationManager
-    calls this term once per control step to update progress and check the task's success
-    requirements. On episode resets, TerminationManager calls
-    this term's reset() to clear progress for the restarting environments.
-    The Isaac Lab interop adapter retains a separate TerminationManager when Lab tools
-    disable automatic success termination.
+    Args:
+        env: An Arena environment with task progress configured.
+
+    Returns:
+        Boolean success for each environment after the latest control step.
     """
-
-    def __init__(self, cfg: TerminationTermCfg, env):
-        super().__init__(cfg, env)
-        # Isaac Lab validates required __call__ parameters before constructing this term.
-        success_criteria: list[CompletionCriteria] = cfg.params["success_criteria"]
-        assert success_criteria, "Task success requires at least one set of completion criteria."
-        assert env.progress_tracker is None, "Only one root term may own task progress."
-        self._progress_tracker = ProgressTracker(
-            success_criteria,
-            num_envs=env.num_envs,
-            device=env.device,
-            env=env,
-            subtasks_are_sequential=cfg.params.get("subtasks_are_sequential", False),
-            desired_subtask_success_state=cfg.params.get("desired_subtask_success_state"),
-        )
-        self._environment_ids = torch.arange(env.num_envs, device=env.device)
-        env._progress_tracker = self._progress_tracker
-
-    def __call__(
-        self,
-        env,
-        success_criteria: list[CompletionCriteria],
-        subtasks_are_sequential: bool = False,
-        desired_subtask_success_state: list[bool | None] | None = None,
-    ) -> torch.Tensor:
-        """Update ProgressTracker and return whether the task's success requirements are met in each environment."""
-        step_index = env.episode_length_buf
-        if not self._progress_tracker.has_processed_step(step_index):
-            self._progress_tracker.step(env, step_index=step_index)
-        return self._progress_tracker.is_complete()
-
-    def reset(self, env_ids=None) -> None:
-        """Clear progress and initial resting positions for the restarting environments."""
-        selected_env_ids = self._environment_ids if env_ids is None else self._environment_ids[env_ids]
-        self._progress_tracker.reset(selected_env_ids)
-        # TODO(cvolk): Consider a shared Arena reset hook in IsaacLabArenaManagerBasedRLEnv.
-        # Revisit this if ObjectInitialRestPoseRecorder is used independently of task success.
-        reset_rest_pose_recorder(self._env, selected_env_ids)
-
-
-def external_task_success(env) -> torch.Tensor:
-    """Return Arena task success through the plain callback expected by Isaac Lab tools."""
-    return env.compute_external_success()
-
-
-class ExternalTaskSuccessRecorder(ProgressTrackingRecorder):
-    """Advance retained task success before resets, including when Lab disables terminations."""
-
-    def record_post_step(self):
-        """Evaluate success once per control step and publish progress without recording data."""
-        self._env.compute_external_success()
-        return super().record_post_step()
-
-
-@configclass
-class ExternalTaskSuccessRecorderCfg(ProgressTrackingRecorderCfg):
-    class_type: type[ProgressTrackingRecorder] = ExternalTaskSuccessRecorder
+    env.update_task_progress()
+    tracker = env.progress_tracker
+    assert tracker is not None, "Task progress is not configured."
+    return tracker.is_complete()
