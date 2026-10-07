@@ -604,7 +604,7 @@ def _test_recording_with_robot(simulation_app, tmp_path):
         env.close()
     with patch.object(RelationSolver, "solve", side_effect=AssertionError("Replay must not solve")):
         env = ArenaEnvBuilder(
-            spec.to_arena_env(), ArenaEnvBuilderCfg(num_envs=2, placement_layouts_path=str(output))
+            spec.to_arena_env(), ArenaEnvBuilderCfg(num_envs=2, episode_conditions_path=str(output))
         ).make_registered()
         try:
             env.reset()

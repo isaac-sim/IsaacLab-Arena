@@ -269,11 +269,11 @@ Pass the companion file to the environment builder:
 .. code-block:: bash
 
    /isaac-sim/python.sh isaaclab_arena/scripts/environment_runner.py \
-       --env_spec scene.yaml --placement_layouts layouts.jsonl
+       --env_spec scene.yaml --episode_conditions_path layouts.jsonl
 
-For a registered Python environment, place ``--placement_layouts layouts.jsonl``
+For a registered Python environment, place ``--episode_conditions_path layouts.jsonl``
 before the environment subcommand. Python callers use
-``ArenaEnvBuilderCfg(placement_layouts_path="layouts.jsonl")``. All file paths are
+``ArenaEnvBuilderCfg(episode_conditions_path="layouts.jsonl")``. All file paths are
 relative to the working directory.
 
 A ten-layout example for ``isaaclab_arena/tests/test_data/placement_replay.yaml``
@@ -287,21 +287,8 @@ single-root embodiments commonly use ``"robot"``. Compound embodiments expose
 each owned root, whose runtime name can differ from the YAML node ID.
 Positions are environment-local, in metres; rotations are xyzw quaternions.
 Every nonblank line must contain the placement block with the same object set.
-Additional episode fields are ignored; episodes without placement records cannot
-be loaded. Python callers can pass ``PlacementLayouts`` directly to
-``IsaacLabArenaEnvironment`` instead of configuring a file path.
-Supplying both is rejected.
-
-.. code-block:: python
-
-   from isaaclab_arena.relations.placement_layouts import PlacementLayouts
-
-   arena_env.placement_layouts = PlacementLayouts.from_episode_jsonl("layouts.jsonl")
-
-Set replay inputs before ``compose_manager_cfg()`` or ``make_registered()``.
-For registered Python environments, a Python runner can set
-``builder.arena_env.placement_layouts`` after obtaining the builder. Replay inputs
-are read when the environment configuration is composed.
+Additional episode fields and variation samples are replayed as part of the same
+condition. If any episode has a placement block, every episode must have one.
 
 ``PlacementLayouts.write_episode_jsonl(path, source=...)`` writes the same format.
 The caller supplies the source label, such as ``"solver"`` or ``"settled"``;
@@ -310,16 +297,12 @@ the writer does not solve or simulate the poses.
 Replay Order
 ~~~~~~~~~~~~
 
-Resetting environments draw consecutive layouts from one shared queue, in reset
-request order. The queue wraps after its last layout. For four layouts and three
-environments, successive full resets select ``[0, 1, 2]``, then ``[3, 0, 1]``.
-A partial reset consumes only the layouts needed by those environments; other
-poses remain unchanged. Layouts can repeat across active environments after the
-queue wraps. If the environment count is a multiple of the layout count,
-repeated full resets assign the same layout to each environment. The queue covers
-all layouts across the batch; it does not guarantee that each environment visits
-every layout. Partial-reset order determines later assignments, so different
-policies may receive different per-environment sequences.
+The condition scheduler assigns rows in file order as episodes start. Placement
+and variation values from one row remain paired for the entire episode. When one
+environment finishes, its replacement episode receives the next unassigned row;
+other environments retain their current rows. Repeated resets before an episode
+steps reapply the same condition. Replay stops after every row has completed and
+never wraps to the beginning.
 
 .. _placement-replay-configuration:
 

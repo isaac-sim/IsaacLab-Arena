@@ -36,8 +36,12 @@ class ConditionScheduler:
 
     def condition_for_env(self, env_id: int) -> EpisodeCondition:
         """Return the condition currently bound to ``env_id``."""
-        index = self._env_to_condition_index[int(env_id)]
+        index = self.condition_index_for_env(env_id)
         return self._overlay.episodes[index]
+
+    def condition_index_for_env(self, env_id: int) -> int:
+        """Return the ordered condition index currently bound to ``env_id``."""
+        return self._env_to_condition_index[int(env_id)]
 
     def condition_id_for_env(self, env_id: int) -> str | None:
         """Return the active replay condition id for ``env_id``, if assigned."""

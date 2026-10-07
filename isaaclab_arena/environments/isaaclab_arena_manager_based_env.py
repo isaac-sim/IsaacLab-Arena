@@ -188,6 +188,10 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
                 episode_start_env_ids = finishing_env_ids
             remaining_episode_starts = self._episode_limit - self._started_episode_count
             episode_start_env_ids = episode_start_env_ids[:remaining_episode_starts]
+
+        # Reset-mode condition application and variation draws refer to the episode being started.
+        for env_id in episode_start_env_ids.tolist():
+            self._episode_indices[env_id] = self._episode_indices.get(env_id, -1) + 1
         if self._condition_replay is not None:
             is_initial_reset = self._started_episode_count == 0
             replay_env_ids = episode_start_env_ids if is_initial_reset else finishing_env_ids
@@ -195,9 +199,6 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
         if len(episode_start_env_ids) == 0:
             return
 
-        # Reset-mode variation draws must refer to the episode being started.
-        for env_id in episode_start_env_ids.tolist():
-            self._episode_indices[env_id] = self._episode_indices.get(env_id, -1) + 1
         self._started_episode_count += len(episode_start_env_ids)
         self._active_episode_mask[episode_start_env_ids] = True
         self._reset_env_ids = torch.cat((self._reset_env_ids, episode_start_env_ids))

@@ -106,6 +106,7 @@ def test_solve_and_apply_relation_placement_with_only_anchors_returns_no_reset_e
 def test_static_solve_and_apply_relation_placement_reuses_object_only_placement():
     from isaaclab_arena.environments.relation_solver_interface import solve_and_apply_relation_placement
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+    from isaaclab_arena.relations.placement_events import record_static_placement_conditions
     from isaaclab_arena.relations.relations import On
     from isaaclab_arena.utils.pose import PosePerEnv
 
@@ -120,7 +121,8 @@ def test_static_solve_and_apply_relation_placement_reuses_object_only_placement(
         placer_params=params,
     )
 
-    assert placement_event_cfg is None
+    assert placement_event_cfg.func is record_static_placement_conditions
+    assert len(placement_event_cfg.params["conditions"]) == 2
 
     initial_pose = box.get_initial_pose()
     assert isinstance(initial_pose, PosePerEnv)
@@ -229,8 +231,9 @@ def test_static_embodiment_placement_stores_per_env_poses():
         num_envs=2,
     )
 
-    # Embodiments now store their solved pose per env like objects, so no coordinated reset event.
-    assert event_cfg is None
+    # The event records the per-env poses after each asset's ordinary reset event applies them.
+    assert event_cfg is not None
+    assert len(event_cfg.params["conditions"]) == 2
     initial_pose = robot.get_initial_pose()
     assert isinstance(initial_pose, PosePerEnv)
     assert initial_pose.poses[0].position_xyz == (0.1, 0.2, 0.0)

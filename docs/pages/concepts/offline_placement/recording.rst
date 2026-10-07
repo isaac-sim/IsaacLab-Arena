@@ -207,7 +207,7 @@ See :doc:`../object_placement/relations` for pose names, units and replay constr
 Replay Placement Layouts
 ------------------------
 
-Set ``environment_builder.placement_layouts_path`` in an
+Set ``environment_builder.episode_conditions_path`` in an
 :doc:`Experiment Definition <../concept_arena_experiments>` to load the recording:
 
 .. literalinclude:: ../../../../isaaclab_arena_environments/experiment_configs/settled_placement_replay_experiment.yaml

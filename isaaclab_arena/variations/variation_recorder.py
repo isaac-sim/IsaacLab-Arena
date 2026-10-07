@@ -25,7 +25,7 @@ class EnvEpisodeKey:
 class VariationRecord:
     """Per-variation record of the values drawn for it."""
 
-    def __init__(self, name: str, cfg: VariationBaseCfg) -> None:
+    def __init__(self, name: str, cfg: VariationBaseCfg | None) -> None:
         self.name = name
         self.cfg = cfg
         # Run-time draw, one per (env id, episode index).
@@ -45,10 +45,15 @@ class VariationRecord:
         """
         for row, (env_id, episode_idx) in enumerate(zip(env_ids, episode_indices)):
             key = EnvEpisodeKey(env_id, episode_idx)
-            assert (
-                key not in self._samples_by_env_episode
-            ), f"Variation '{self.name}' already recorded a sample for env {env_id}, episode {episode_idx}."
-            self._samples_by_env_episode[key] = sample[row]
+            value = sample[row]
+            if key in self._samples_by_env_episode:
+                previous = self._samples_by_env_episode[key]
+                same_value = torch.equal(previous, value) if isinstance(previous, torch.Tensor) else previous == value
+                assert (
+                    same_value
+                ), f"Variation '{self.name}' recorded conflicting samples for env {env_id}, episode {episode_idx}."
+                continue
+            self._samples_by_env_episode[key] = value
 
     def record_buildtime_sample(self, sample: Any) -> None:
         """Record the all-envs (build-time) ``sample``; it applies to every episode of every env."""
@@ -120,3 +125,11 @@ class VariationRecorder:
                         record.record_runtime_sample(sample, env_id_list, episode_indices)
 
                 variation.add_sample_listener(on_sample)
+
+    def record_runtime_samples(self, key: str, samples: Sequence[Any], env_ids: Sequence[int]) -> None:
+        """Record externally applied episode conditions such as relation placement."""
+        assert self._env is not None, "VariationRecorder needs bind_env() before per-env samples."
+        if key not in self.records:
+            self.records[key] = VariationRecord(name=key, cfg=None)
+        episode_indices = [self._env.get_episode_index(int(env_id)) for env_id in env_ids]
+        self.records[key].record_runtime_sample(samples, env_ids, episode_indices)

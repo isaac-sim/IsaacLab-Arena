@@ -13,7 +13,7 @@ import math
 from dataclasses import dataclass
 from numbers import Real
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from isaaclab_arena.utils.pose import Pose
 
@@ -84,39 +84,59 @@ class PlacementLayouts:
         return len(next(iter(self.poses.values())))
 
     @classmethod
+    def from_condition_values(cls, values: list[Any]) -> PlacementLayouts:
+        """Parse ordered ``scene.relation_placement`` episode values."""
+        poses: dict[str, list[Pose]] = {}
+        for index, placement in enumerate(values):
+            try:
+                assert isinstance(placement, dict), "Placement condition must be a mapping"
+                pose_values = placement["poses"]
+                assert isinstance(pose_values, dict) and pose_values, "Placement poses must be a nonempty mapping"
+                if not poses:
+                    poses = {name: [] for name in pose_values}
+                assert pose_values.keys() == poses.keys(), "Every record must contain the same objects"
+                for name, value in pose_values.items():
+                    assert isinstance(value, dict) and set(value) == {
+                        "position_xyz",
+                        "rotation_xyzw",
+                    }, f"Object '{name}' requires position_xyz and rotation_xyzw only"
+                    for field, size in (("position_xyz", 3), ("rotation_xyzw", 4)):
+                        assert (
+                            isinstance(value[field], list) and len(value[field]) == size
+                        ), f"Object '{name}' {field} must contain {size} numbers"
+                    assert all(
+                        isinstance(component, Real) and not isinstance(component, bool)
+                        for field in value.values()
+                        for component in field
+                    ), f"Object '{name}' pose components must be numbers"
+                    poses[name].append(Pose.from_dict(value))
+            except (AssertionError, KeyError, TypeError, ValueError) as error:
+                raise AssertionError(f"Placement condition {index}: {error}") from error
+        return cls(poses)
+
+    def condition_value(self, index: int, *, source: str = "cached") -> dict[str, Any]:
+        """Return one layout in the episode-condition placement schema."""
+        return {
+            "layout_id": f"layout_{index:06d}",
+            "source": source,
+            "poses": {name: poses[index].to_dict() for name, poses in self.poses.items()},
+        }
+
+    @classmethod
     def from_episode_jsonl(cls, path: str | Path) -> PlacementLayouts:
         """Read complete layouts in line order, ignoring other episode metadata."""
-        poses: dict[str, list[Pose]] = {}
+        values: list[Any] = []
         with Path(path).open(encoding="utf-8") as stream:
             for line_number, line in enumerate(stream, start=1):
                 if not line.strip():
                     continue
                 try:
                     record = json.loads(line, object_pairs_hook=_unique_json_mapping)
-                    values = record["variations"]["scene.relation_placement"]["poses"]
-                    assert isinstance(values, dict) and values, "Placement poses must be a nonempty mapping"
-                    if not poses:
-                        poses = {name: [] for name in values}
-                    assert values.keys() == poses.keys(), "Every record must contain the same objects"
-                    for name, value in values.items():
-                        assert isinstance(value, dict) and set(value) == {
-                            "position_xyz",
-                            "rotation_xyzw",
-                        }, f"Object '{name}' requires position_xyz and rotation_xyzw only"
-                        for field, size in (("position_xyz", 3), ("rotation_xyzw", 4)):
-                            assert (
-                                isinstance(value[field], list) and len(value[field]) == size
-                            ), f"Object '{name}' {field} must contain {size} numbers"
-                        assert all(
-                            isinstance(component, Real) and not isinstance(component, bool)
-                            for field in value.values()
-                            for component in field
-                        ), f"Object '{name}' pose components must be numbers"
-                        poses[name].append(Pose.from_dict(value))
+                    values.append(record["variations"]["scene.relation_placement"])
                 except (AssertionError, KeyError, TypeError, ValueError) as error:
                     raise AssertionError(f"{path}, line {line_number}: {error}") from error
         try:
-            return cls(poses)
+            return cls.from_condition_values(values)
         except AssertionError as error:
             raise AssertionError(f"{path}: {error}") from error
 
@@ -128,11 +148,7 @@ class PlacementLayouts:
         path.parent.mkdir(parents=True, exist_ok=True)
         with path.open("x", encoding="utf-8") as stream:
             for index in range(self.num_layouts):
-                placement = {
-                    "layout_id": f"layout_{index:06d}",
-                    "source": source,
-                    "poses": {name: poses[index].to_dict() for name, poses in self.poses.items()},
-                }
+                placement = self.condition_value(index, source=source)
                 if validation is not None:
                     placement["validation"] = validation[index]
                 record = {"variations": {"scene.relation_placement": placement}}

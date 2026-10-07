@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Load and extract episode condition overlays for variation replay."""
+"""Load and extract placement and variation condition overlays."""
 
 from __future__ import annotations
 
@@ -13,8 +13,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-# Placement layouts are not replayed in this phase; strip them when extracting conditions.
-_PLACEMENT_VARIATION_KEYS = frozenset({"scene.relation_placement"})
+RELATION_PLACEMENT_CONDITION_KEY = "scene.relation_placement"
 
 CONDITION_OVERLAY_SCHEMA_VERSION = 1
 
@@ -79,7 +78,7 @@ def _collect_variations_per_line(lines: list[dict[str, Any]]) -> list[dict[str, 
     for record in lines:
         variations = record.get("variations") or {}
         assert isinstance(variations, dict), "variations must be a mapping when present"
-        per_line.append({key: value for key, value in variations.items() if key not in _PLACEMENT_VARIATION_KEYS})
+        per_line.append(dict(variations))
     return per_line
 
 
@@ -90,6 +89,8 @@ def _infer_build_time_variations(per_line: list[dict[str, Any]]) -> dict[str, An
     build_time: dict[str, Any] = {}
     all_keys = set().union(*per_line)
     for key in sorted(all_keys):
+        if key == RELATION_PLACEMENT_CONDITION_KEY:
+            continue
         values = [line[key] for line in per_line if key in line]
         if len(values) != len(per_line):
             continue
@@ -111,7 +112,7 @@ def extract_overlay_from_episode_results(
         raw_line = raw_line.strip()
         if not raw_line:
             continue
-        record = json.loads(raw_line)
+        record = json.loads(raw_line, object_pairs_hook=_unique_json_mapping)
         assert isinstance(record, dict), f"Line {line_number} in {path} is not a JSON object"
         lines.append(record)
     assert lines, f"No episode records found in {path}"
@@ -153,12 +154,33 @@ def validate_overlay_variation_keys(
     enabled_record_keys: set[str],
 ) -> None:
     """Assert every overlay key matches an enabled variation on this build."""
+    assert (
+        RELATION_PLACEMENT_CONDITION_KEY not in overlay.build_time_variations
+    ), f"'{RELATION_PLACEMENT_CONDITION_KEY}' is episode-scoped and cannot be a build-time condition"
     unknown_build = set(overlay.build_time_variations) - enabled_record_keys
     assert (
         not unknown_build
     ), f"Condition overlay lists build-time keys with no enabled variation on this build: {sorted(unknown_build)}"
     for episode in overlay.episodes:
-        unknown_runtime = set(episode.runtime_variations) - enabled_record_keys
+        unknown_runtime = set(episode.runtime_variations) - enabled_record_keys - {RELATION_PLACEMENT_CONDITION_KEY}
         assert (
             not unknown_runtime
         ), f"Condition {episode.condition_id!r} lists runtime keys with no enabled variation: {sorted(unknown_runtime)}"
+
+    placement_values = [
+        episode.runtime_variations.get(RELATION_PLACEMENT_CONDITION_KEY) for episode in overlay.episodes
+    ]
+    if any(value is not None for value in placement_values):
+        assert all(
+            value is not None for value in placement_values
+        ), f"Every episode must define '{RELATION_PLACEMENT_CONDITION_KEY}' when placement replay is used"
+        from isaaclab_arena.relations.placement_layouts import PlacementLayouts
+
+        PlacementLayouts.from_condition_values(placement_values)
+
+
+def _unique_json_mapping(items: list[tuple[str, Any]]) -> dict[str, Any]:
+    """Reject duplicate JSON keys instead of silently replacing condition values."""
+    result = dict(items)
+    assert len(result) == len(items), "Duplicate key in episode condition record"
+    return result

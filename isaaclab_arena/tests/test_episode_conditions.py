@@ -17,11 +17,13 @@ from isaaclab_arena.variations.choice_sampler import ChoiceSampler
 from isaaclab_arena.variations.condition_replay import bind_condition_replay_sample_overrides
 from isaaclab_arena.variations.condition_scheduler import ConditionScheduler
 from isaaclab_arena.variations.episode_conditions import (
+    RELATION_PLACEMENT_CONDITION_KEY,
     EpisodeCondition,
     EpisodeConditionsOverlay,
     extract_overlay_from_episode_results,
     load_episode_conditions_overlay,
     overlay_to_yaml_dict,
+    validate_overlay_variation_keys,
 )
 from isaaclab_arena.variations.uniform_sampler import UniformSamplerCfg
 from isaaclab_arena.variations.variation_base import VariationBase, VariationBaseCfg
@@ -35,7 +37,7 @@ def test_extract_overlay_splits_build_time_and_runtime(tmp_path: Path) -> None:
             "variations": {
                 "light.hdr_image": "home_office",
                 "pick_object.mass": [0.5],
-                "scene.relation_placement": {"layout_id": "layout_0"},
+                RELATION_PLACEMENT_CONDITION_KEY: _placement("layout_0", 0.0),
             },
         },
         {
@@ -43,6 +45,7 @@ def test_extract_overlay_splits_build_time_and_runtime(tmp_path: Path) -> None:
             "variations": {
                 "light.hdr_image": "home_office",
                 "pick_object.mass": [0.8],
+                RELATION_PLACEMENT_CONDITION_KEY: _placement("layout_1", 1.0),
             },
         },
     ]
@@ -51,9 +54,15 @@ def test_extract_overlay_splits_build_time_and_runtime(tmp_path: Path) -> None:
     overlay = extract_overlay_from_episode_results(jsonl_path)
     assert overlay.build_time_variations == {"light.hdr_image": "home_office"}
     assert overlay.num_conditions == 2
-    assert overlay.episodes[0].runtime_variations == {"pick_object.mass": [0.5]}
-    assert "scene.relation_placement" not in overlay.episodes[0].runtime_variations
-    assert overlay.episodes[1].runtime_variations == {"pick_object.mass": [0.8]}
+    assert overlay.episodes[0].runtime_variations == {
+        "pick_object.mass": [0.5],
+        RELATION_PLACEMENT_CONDITION_KEY: _placement("layout_0", 0.0),
+    }
+    assert overlay.episodes[1].runtime_variations == {
+        "pick_object.mass": [0.8],
+        RELATION_PLACEMENT_CONDITION_KEY: _placement("layout_1", 1.0),
+    }
+    validate_overlay_variation_keys(overlay, {"light.hdr_image", "pick_object.mass"})
 
 
 def test_overlay_round_trip_yaml(tmp_path: Path) -> None:
@@ -152,6 +161,64 @@ def test_condition_replay_preserves_discrete_sampler_output_types() -> None:
     assert bernoulli.sample(2) == [True, False]
 
 
+def test_placement_only_jsonl_loads_as_episode_conditions(tmp_path: Path) -> None:
+    overlay = load_episode_conditions_overlay(
+        _write_jsonl(
+            tmp_path,
+            [
+                {"variations": {RELATION_PLACEMENT_CONDITION_KEY: _placement("layout_0", 0.0)}},
+                {"variations": {RELATION_PLACEMENT_CONDITION_KEY: _placement("layout_1", 1.0)}},
+            ],
+        )
+    )
+
+    assert overlay.build_time_variations == {}
+    assert overlay.episodes[1].runtime_variations[RELATION_PLACEMENT_CONDITION_KEY] == _placement("layout_1", 1.0)
+    validate_overlay_variation_keys(overlay, set())
+
+
+def test_partial_placement_conditions_are_rejected() -> None:
+    overlay = EpisodeConditionsOverlay(
+        schema_version=1,
+        build_time_variations={},
+        episodes=[
+            EpisodeCondition("condition_0", {RELATION_PLACEMENT_CONDITION_KEY: _placement("layout_0", 0.0)}),
+            EpisodeCondition("condition_1", {}),
+        ],
+    )
+
+    with pytest.raises(AssertionError, match="Every episode"):
+        validate_overlay_variation_keys(overlay, set())
+
+
+def test_invalid_condition_keys_and_placement_payloads_are_rejected() -> None:
+    unknown = EpisodeConditionsOverlay(
+        schema_version=1,
+        build_time_variations={},
+        episodes=[EpisodeCondition("condition_0", {"unknown.variation": 1})],
+    )
+    with pytest.raises(AssertionError, match="no enabled variation"):
+        validate_overlay_variation_keys(unknown, set())
+
+    build_time_placement = EpisodeConditionsOverlay(
+        schema_version=1,
+        build_time_variations={RELATION_PLACEMENT_CONDITION_KEY: _placement("layout_0", 0.0)},
+        episodes=[EpisodeCondition("condition_0", {})],
+    )
+    with pytest.raises(AssertionError, match="cannot be a build-time"):
+        validate_overlay_variation_keys(build_time_placement, set())
+
+    malformed = _placement("layout_0", 0.0)
+    malformed["poses"]["object"]["rotation_xyzw"] = [0.0, 0.0, 0.0]
+    malformed_overlay = EpisodeConditionsOverlay(
+        schema_version=1,
+        build_time_variations={},
+        episodes=[EpisodeCondition("condition_0", {RELATION_PLACEMENT_CONDITION_KEY: malformed})],
+    )
+    with pytest.raises(AssertionError, match="rotation_xyzw"):
+        validate_overlay_variation_keys(malformed_overlay, set())
+
+
 def test_replay_run_cfg_rejects_rollout_limits() -> None:
     from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
     from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg
@@ -174,6 +241,19 @@ def _write_jsonl(tmp_path: Path, records: list[dict]) -> Path:
     path = tmp_path / "episodes.jsonl"
     path.write_text("\n".join(json.dumps(record) for record in records) + "\n")
     return path
+
+
+def _placement(layout_id: str, x: float) -> dict:
+    return {
+        "layout_id": layout_id,
+        "source": "test",
+        "poses": {
+            "object": {
+                "position_xyz": [x, 0.0, 0.0],
+                "rotation_xyzw": [0.0, 0.0, 0.0, 1.0],
+            }
+        },
+    }
 
 
 def _write_jsonl_from_records(records: list[dict]) -> Path:

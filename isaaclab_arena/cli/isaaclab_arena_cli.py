@@ -91,17 +91,10 @@ def add_isaaclab_arena_cli_args(parser: argparse.ArgumentParser) -> None:
         help="Disable solving spatial relations in the environment.",
     )
     arena_group.add_argument(
-        "--placement_layouts",
-        dest="placement_layouts_path",
-        type=str,
-        default=None,
-        help="Replay a companion placement JSONL instead of solving; path is relative to the working directory.",
-    )
-    arena_group.add_argument(
         "--placement_seed",
         type=int,
         default=None,
-        help="Seed for solved object placement. Not supported with cached placement layouts.",
+        help="Seed for solved object placement. Not supported with replayed placement conditions.",
     )
     arena_group.add_argument(
         "--presets",
@@ -129,7 +122,7 @@ def add_isaaclab_arena_cli_args(parser: argparse.ArgumentParser) -> None:
         "--episode_conditions_path",
         type=str,
         default=None,
-        help="Replay variation conditions from episode-result JSONL or overlay YAML (one condition per episode).",
+        help="Replay placement and variation conditions from episode-result JSONL or overlay YAML.",
     )
 
 

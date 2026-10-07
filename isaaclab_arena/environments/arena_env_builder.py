@@ -46,6 +46,7 @@ from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_events import (
     CACHED_PLACEMENT_RESET_EVENT_NAME,
     PLACEMENT_RESET_EVENT_NAME,
+    STATIC_PLACEMENT_RECORD_EVENT_NAME,
     make_cached_placement_event,
 )
 from isaaclab_arena.relations.placement_layouts import PlacementLayouts
@@ -66,6 +67,7 @@ from isaaclab_arena.variations.condition_replay import (
 )
 from isaaclab_arena.variations.condition_scheduler import ConditionScheduler
 from isaaclab_arena.variations.episode_conditions import (
+    RELATION_PLACEMENT_CONDITION_KEY,
     EpisodeConditionsOverlay,
     load_episode_conditions_overlay,
     validate_overlay_variation_keys,
@@ -170,13 +172,13 @@ class ArenaEnvBuilder:
             scene_assets=self.arena_env.scene.assets.values(),
         )
 
-    def _load_placement_layouts(self) -> PlacementLayouts | None:
-        """Read the configured companion file or return in-memory layouts."""
-        layouts = self.arena_env.placement_layouts
-        if self.cfg.placement_layouts_path is not None:
-            assert layouts is None, "Specify a placement layout file or in-memory layouts, not both"
-            layouts = PlacementLayouts.from_episode_jsonl(self.cfg.placement_layouts_path)
-        return layouts
+    def _load_placement_layouts(self, overlay: EpisodeConditionsOverlay | None) -> PlacementLayouts | None:
+        """Return placement conditions from the shared overlay."""
+        if overlay is not None and overlay.episodes:
+            values = [episode.runtime_variations.get(RELATION_PLACEMENT_CONDITION_KEY) for episode in overlay.episodes]
+            if any(value is not None for value in values):
+                return PlacementLayouts.from_condition_values(values)
+        return None
 
     def _apply_cached_layouts(self, layouts: PlacementLayouts) -> None:
         """Seed cached poses and register their reset event."""
@@ -320,13 +322,6 @@ class ArenaEnvBuilder:
         Returns:
             An (env_cfg, env_kwargs) tuple.
         """
-        # Apply placement before building scene config so initial poses are captured correctly.
-        self._placement_layouts = self._load_placement_layouts()
-        if self._placement_layouts is not None:
-            self._apply_cached_layouts(self._placement_layouts)
-        elif self.cfg.solve_relations:
-            self._solve_relations()
-
         # Apply Hydra variation overrides. Needs to happen before build-time variations are applied.
         if self.hydra_overrides:
             variations: dict[str, list[VariationBase]] = self.get_all_variations()
@@ -339,6 +334,13 @@ class ArenaEnvBuilder:
             validate_overlay_variation_keys(condition_overlay, enabled_variation_record_keys(all_variations))
             condition_scheduler = ConditionScheduler(condition_overlay)
             bind_condition_replay_sample_overrides(all_variations, condition_overlay, condition_scheduler)
+
+        # Apply placement before building scene config so initial poses are captured correctly.
+        self._placement_layouts = self._load_placement_layouts(condition_overlay)
+        if self._placement_layouts is not None:
+            self._apply_cached_layouts(self._placement_layouts)
+        elif self.cfg.solve_relations:
+            self._solve_relations()
 
         # Attach the variation recorder before any sampling, so it observes both build-time samples
         # (drawn just below) and run-time samples (drawn during simulation).
@@ -370,10 +372,12 @@ class ArenaEnvBuilder:
         )
         placement_event_cfg = None
         if self._placement_event_cfg is not None:
-            # The pooled event name is reserved for terms carrying a placement_pool handle.
-            event_name = (
-                CACHED_PLACEMENT_RESET_EVENT_NAME if self._placement_layouts is not None else PLACEMENT_RESET_EVENT_NAME
-            )
+            if self._placement_layouts is not None:
+                event_name = CACHED_PLACEMENT_RESET_EVENT_NAME
+            elif "placement_pool" in self._placement_event_cfg.params:
+                event_name = PLACEMENT_RESET_EVENT_NAME
+            else:
+                event_name = STATIC_PLACEMENT_RECORD_EVENT_NAME
             PlacementEventCfg = make_configclass(
                 "PlacementEventCfg", [(event_name, EventTermCfg, self._placement_event_cfg)]
             )

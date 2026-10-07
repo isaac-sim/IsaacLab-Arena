@@ -7,7 +7,6 @@
 
 import json
 from dataclasses import dataclass
-from pathlib import Path
 from typing import ClassVar
 
 import pytest
@@ -100,7 +99,7 @@ def _test_recording_writes_complete_layouts(simulation_app, tmp_path):
     replay_env = _make_primitive_clutter_scene(tmp_path)
     with patch.object(RelationSolver, "solve", side_effect=AssertionError("Replay must not solve")):
         env = ArenaEnvBuilder(
-            replay_env, ArenaEnvBuilderCfg(num_envs=2, placement_layouts_path=str(output))
+            replay_env, ArenaEnvBuilderCfg(num_envs=2, episode_conditions_path=str(output))
         ).make_registered()
         try:
             env.reset()
@@ -110,11 +109,6 @@ def _test_recording_writes_complete_layouts(simulation_app, tmp_path):
         finally:
             env.close()
 
-    replay_env.placement_layouts = layouts
-    cfg.output = str(tmp_path / "regenerated.jsonl")
-    with pytest.raises(AssertionError, match="Remove cached placement layouts"):
-        record_settled_placement_layouts(cfg, arena_env=replay_env)
-    assert not Path(cfg.output).exists()
     cfg.output = str(output)
     saved = output.read_bytes()
     with pytest.raises(AssertionError, match="Output already exists"):

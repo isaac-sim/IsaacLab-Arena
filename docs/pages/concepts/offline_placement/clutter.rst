@@ -134,7 +134,7 @@ Load the same scene and the file just recorded:
 
    python isaaclab_arena/scripts/environment_runner.py \
        --env_spec isaaclab_arena_environments/clutter/franka_three_hammers_and_clamp_no_task.yaml \
-       --placement_layouts outputs/clutter/tools_on_table.jsonl \
+       --episode_conditions_path outputs/clutter/tools_on_table.jsonl \
        --num_envs 1 --device cpu --viz kit
 
 The viewer starts with the recorded arrangement. These examples use ``NoTask``:
@@ -224,7 +224,7 @@ recording, then open the viewer:
 
    python isaaclab_arena/scripts/environment_runner.py \
        --env_spec isaaclab_arena_environments/clutter/franka_three_cubes_in_bowl_no_task.yaml \
-       --placement_layouts outputs/clutter/three_cubes_in_bowl.jsonl \
+       --episode_conditions_path outputs/clutter/three_cubes_in_bowl.jsonl \
        --num_envs 1 --device cpu --viz kit
 
 .. _clutter-adapt-environment:

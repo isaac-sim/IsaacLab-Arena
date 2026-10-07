@@ -48,7 +48,7 @@ def _test_companion_cache_round_trip(simulation_app, tmp_path):
         arena_env = spec.to_arena_env()
         assert arena_env.scene.assets["cube_3"].has_pose_reset_event()
         arena_env.embodiment.set_initial_pose(arena_env.embodiment.get_initial_pose())
-        cfg = ArenaEnvBuilderCfg(num_envs=3, placement_layouts_path=str(LAYOUTS))
+        cfg = ArenaEnvBuilderCfg(num_envs=3, episode_conditions_path=str(LAYOUTS))
         env = ArenaEnvBuilder(arena_env, cfg).make_registered()
         try:
             scene = env.unwrapped.scene
@@ -76,12 +76,9 @@ def _test_companion_cache_round_trip(simulation_app, tmp_path):
                 env.reset()
                 torch.testing.assert_close(robot.data.root_pose_w.torch, robot_pose, atol=2e-5, rtol=0)
                 for name, poses in cache.poses.items():
-                    expected = torch.stack(
-                        [poses[(iteration * 3 + i) % cache.num_layouts].to_tensor(device) for i in range(3)]
-                    )
+                    expected = torch.stack([poses[i].to_tensor(device) for i in range(3)])
                     torch.testing.assert_close(world.get_pose_e(name), expected, atol=2e-5, rtol=0)
             before = {name: world.get_pose_e(name) for name in cache.poses}
-            next_layout = num_resets * env.unwrapped.num_envs % cache.num_layouts
             env_ids = torch.tensor([1], device=device)
             for name in cache.poses:
                 displaced = scene[name].data.root_pose_w.torch[env_ids].clone()
@@ -92,7 +89,7 @@ def _test_companion_cache_round_trip(simulation_app, tmp_path):
             for name, poses in cache.poses.items():
                 actual = world.get_pose_e(name)
                 torch.testing.assert_close(actual[[0, 2]], before[name][[0, 2]], atol=2e-5, rtol=0)
-                torch.testing.assert_close(actual[1], poses[next_layout].to_tensor(device), atol=2e-5, rtol=0)
+                torch.testing.assert_close(actual[1], poses[1].to_tensor(device), atol=2e-5, rtol=0)
                 torch.testing.assert_close(
                     scene[name].data.root_vel_w.torch[env_ids],
                     torch.zeros((1, 6), device=device),
@@ -103,7 +100,7 @@ def _test_companion_cache_round_trip(simulation_app, tmp_path):
             for name, poses in cache.poses.items():
                 torch.testing.assert_close(
                     world.get_pose_e(name)[2],
-                    poses[(next_layout + 1) % cache.num_layouts].to_tensor(device),
+                    poses[2].to_tensor(device),
                     atol=2e-5,
                     rtol=0,
                 )
@@ -123,13 +120,100 @@ def test_companion_cache_round_trip(tmp_path):
     assert run_function_with_persistent_simulation_app(_test_companion_cache_round_trip, tmp_path=tmp_path)
 
 
+def _test_combined_condition_applies_and_records_paired_values(simulation_app, tmp_path):
+    import json
+    import torch
+
+    import warp as wp
+
+    from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
+    from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
+    from isaaclab_arena.recording.common_terms import record_variation_samples
+    from isaaclab_arena.relations.placement_layouts import PlacementLayouts
+    from isaaclab_arena.utils.pose import Pose
+    from isaaclab_arena.variations.episode_conditions import (
+        RELATION_PLACEMENT_CONDITION_KEY,
+        extract_overlay_from_episode_results,
+    )
+    from isaaclab_arena.variations.object_mass_variation import ObjectMassVariationCfg
+    from isaaclab_arena.variations.uniform_sampler import UniformSamplerCfg
+
+    arena_env = _make_cached_env()
+    variation = arena_env.scene.assets["cube_0"].get_variation("mass")
+    variation.apply_cfg(
+        ObjectMassVariationCfg(
+            sampler_cfg=UniformSamplerCfg(low=[1.0], high=[1.0]),
+            recompute_inertia=True,
+        )
+    )
+    variation.enable()
+    layouts = PlacementLayouts({
+        f"cube_{asset_index}": [
+            Pose((0.1 * asset_index, -0.2, 1.0)),
+            Pose((0.1 * asset_index, 0.2, 1.0)),
+        ]
+        for asset_index in range(4)
+    })
+    masses = ([0.25], [0.75])
+    conditions_path = tmp_path / "combined.jsonl"
+    records = []
+    for index, mass in enumerate(masses):
+        records.append({
+            "variations": {
+                RELATION_PLACEMENT_CONDITION_KEY: layouts.condition_value(index, source="test"),
+                "cube_0.mass": mass,
+            }
+        })
+    conditions_path.write_text("\n".join(json.dumps(record) for record in records) + "\n")
+
+    env = ArenaEnvBuilder(
+        arena_env,
+        ArenaEnvBuilderCfg(num_envs=2, episode_conditions_path=str(conditions_path)),
+    ).make_registered()
+    try:
+        env.reset()
+        base = env.unwrapped
+        for name, poses in layouts.poses.items():
+            expected = torch.stack([pose.to_tensor(base.device) for pose in poses])
+            torch.testing.assert_close(base.arena_world.get_pose_e(name), expected, atol=2e-5, rtol=0)
+        actual_mass = wp.to_torch(base.scene["cube_0"].data.body_mass)[:, 0]
+        torch.testing.assert_close(actual_mass, torch.tensor([0.25, 0.75], device=base.device))
+
+        recorded = [record_variation_samples(base, env_id)["variations"] for env_id in range(2)]
+        for index, values in enumerate(recorded):
+            assert (
+                values[RELATION_PLACEMENT_CONDITION_KEY]
+                == records[index]["variations"][RELATION_PLACEMENT_CONDITION_KEY]
+            )
+            assert values["cube_0.mass"] == masses[index]
+
+        # A repeated pre-step partial reset reuses the same condition instead of advancing either value.
+        base.reset(env_ids=torch.tensor([1], device=base.device))
+        assert record_variation_samples(base, 1)["variations"] == recorded[1]
+
+        round_trip_path = tmp_path / "recorded.jsonl"
+        round_trip_path.write_text("\n".join(json.dumps({"variations": values}) for values in recorded) + "\n")
+        round_trip = extract_overlay_from_episode_results(round_trip_path)
+        assert [episode.runtime_variations for episode in round_trip.episodes] == [
+            record["variations"] for record in records
+        ]
+    finally:
+        env.close()
+    return True
+
+
+def test_combined_condition_applies_and_records_paired_values(tmp_path):
+    assert run_function_with_persistent_simulation_app(
+        _test_combined_condition_applies_and_records_paired_values, tmp_path=tmp_path
+    )
+
+
 def _make_cached_env():
     from isaaclab_arena.assets.background_library import OfficeTableBackground
     from isaaclab_arena.assets.object_library import DexCube, DomeLight
     from isaaclab_arena.embodiments.franka.franka import FrankaIKEmbodiment
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-    from isaaclab_arena.relations.placement_layouts import PlacementLayouts
     from isaaclab_arena.relations.relations import IsAnchor, On
     from isaaclab_arena.scene.scene import Scene
     from isaaclab_arena.utils.pose import Pose
@@ -145,19 +229,25 @@ def _make_cached_env():
         scene=Scene(assets=[table, *cubes, DomeLight()]),
         embodiment=FrankaIKEmbodiment(initial_pose=Pose((-1.0, 0.0, 0.0))),
         placer_params=ObjectPlacerParams(),
-        placement_layouts=PlacementLayouts({cube.get_scene_key(): [Pose((0, 0, 1))] for cube in cubes}),
     )
 
 
-def _test_cache_rejects_conflicting_configuration(simulation_app, conflict, expected_error):
+def _test_cache_rejects_conflicting_configuration(simulation_app, tmp_path, conflict, expected_error):
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
+    from isaaclab_arena.relations.placement_layouts import PlacementLayouts
     from isaaclab_arena.relations.relations import RandomAroundSolution, RotateAroundSolution
-    from isaaclab_arena.utils.pose import PoseRange
+    from isaaclab_arena.utils.pose import Pose, PoseRange
     from isaaclab_arena.utils.velocity import Velocity
 
     arena_env = _make_cached_env()
-    cfg = ArenaEnvBuilderCfg()
+    layouts_path = tmp_path / "layouts.jsonl"
+    PlacementLayouts({
+        cube.get_scene_key(): [Pose((0, 0, 1))]
+        for cube in arena_env.scene.assets.values()
+        if cube.name.startswith("cube")
+    }).write_episode_jsonl(layouts_path, source="test")
+    cfg = ArenaEnvBuilderCfg(episode_conditions_path=str(layouts_path))
     cube = arena_env.scene.assets["cube_0"]
     if conflict == "random-reset":
         cube.add_relation(RandomAroundSolution())
@@ -175,8 +265,6 @@ def _test_cache_rejects_conflicting_configuration(simulation_app, conflict, expe
         arena_env.placer_params.placement_seed = 42
     elif conflict == "fixed-layout":
         cfg.resolve_on_reset = False
-    elif conflict == "two-layout-sources":
-        cfg.placement_layouts_path = "unused.jsonl"
     elif conflict == "fixed-layout-default":
         arena_env.placer_params.resolve_on_reset = False
     builder = ArenaEnvBuilder(arena_env, cfg)
@@ -197,16 +285,18 @@ def _test_cache_rejects_conflicting_configuration(simulation_app, conflict, expe
         ("placement-seed-default", "placement_seed applies to solving"),
         ("fixed-layout", "requires resolve_on_reset=True"),
         ("fixed-layout-default", "requires resolve_on_reset=True"),
-        ("two-layout-sources", "not both"),
     ],
 )
-def test_cache_rejects_conflicting_configuration(conflict, expected_error):
+def test_cache_rejects_conflicting_configuration(tmp_path, conflict, expected_error):
     assert run_function_with_persistent_simulation_app(
-        _test_cache_rejects_conflicting_configuration, conflict=conflict, expected_error=expected_error
+        _test_cache_rejects_conflicting_configuration,
+        tmp_path=tmp_path,
+        conflict=conflict,
+        expected_error=expected_error,
     )
 
 
-def _test_python_integer_layouts_reset_objects_and_robot(simulation_app):
+def _test_python_integer_layouts_reset_objects_and_robot(simulation_app, tmp_path):
     import torch
 
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
@@ -217,9 +307,16 @@ def _test_python_integer_layouts_reset_objects_and_robot(simulation_app):
     arena_env = _make_cached_env()
     poses = {f"cube_{i}": [Pose((i, 0, 2), (0, 0, 0, 1)), Pose((i, 1, 2), (0, 0, 0, 1))] for i in range(4)}
     poses["robot"] = [Pose((-1, 0, 0), (0, 0, 0, 1)), Pose((-1, 1, 0), (0, 0, 0, 1))]
-    arena_env.placement_layouts = None
-    builder = ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg(num_envs=2, resolve_on_reset=True))
-    arena_env.placement_layouts = PlacementLayouts(poses)
+    layouts_path = tmp_path / "integer-layouts.jsonl"
+    PlacementLayouts(poses).write_episode_jsonl(layouts_path, source="test")
+    builder = ArenaEnvBuilder(
+        arena_env,
+        ArenaEnvBuilderCfg(
+            num_envs=2,
+            resolve_on_reset=True,
+            episode_conditions_path=str(layouts_path),
+        ),
+    )
     arena_env.embodiment.set_initial_pose(arena_env.embodiment.get_initial_pose())
     assert arena_env.embodiment.has_pose_reset_event()
     arena_env.placer_params.resolve_on_reset = False
@@ -250,8 +347,10 @@ def _test_python_integer_layouts_reset_objects_and_robot(simulation_app):
     return True
 
 
-def test_python_integer_layouts_reset_objects_and_robot():
-    assert run_function_with_persistent_simulation_app(_test_python_integer_layouts_reset_objects_and_robot)
+def test_python_integer_layouts_reset_objects_and_robot(tmp_path):
+    assert run_function_with_persistent_simulation_app(
+        _test_python_integer_layouts_reset_objects_and_robot, tmp_path=tmp_path
+    )
 
 
 def _test_cli_loads_layouts_for_yaml_and_python_environments(simulation_app, tmp_path, environment):
@@ -275,7 +374,7 @@ def _test_cli_loads_layouts_for_yaml_and_python_environments(simulation_app, tmp
         env_args = ["--env_spec", str(source)]
     else:
         env_args = ["droid_table_multi_object_placement"]
-    with patch.object(sys, "argv", ["environment_runner.py", "--placement_layouts", str(path), *env_args]):
+    with patch.object(sys, "argv", ["environment_runner.py", "--episode_conditions_path", str(path), *env_args]):
         args = get_isaaclab_arena_environments_cli_parser().parse_args()
     builder = get_arena_builder_from_cli(args)
     poses = {
@@ -302,9 +401,8 @@ def _test_cli_loads_layouts_for_yaml_and_python_environments(simulation_app, tmp
             invalid_path = tmp_path / f"{message.split()[0]}.jsonl"
             PlacementLayouts(invalid).write_episode_jsonl(invalid_path, source="example")
             arena_env = _make_cached_env()
-            arena_env.placement_layouts = None
             builder = ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg())
-            builder.cfg.placement_layouts_path = str(invalid_path)
+            builder.cfg.episode_conditions_path = str(invalid_path)
             with pytest.raises(AssertionError, match=message):
                 builder.compose_manager_cfg()
     return True
@@ -398,7 +496,7 @@ def _test_bimanual_root_recording_and_replay(simulation_app, tmp_path):
     path = tmp_path / "bimanual.jsonl"
     PlacementLayouts(poses).write_episode_jsonl(path, source="settled")
     arena = IsaacLabArenaEnvironment(name="bimanual_root_replay", scene=Scene(assets=[]), embodiment=embodiment)
-    env = ArenaEnvBuilder(arena, ArenaEnvBuilderCfg(num_envs=2, placement_layouts_path=str(path))).make_registered()
+    env = ArenaEnvBuilder(arena, ArenaEnvBuilderCfg(num_envs=2, episode_conditions_path=str(path))).make_registered()
     try:
         base = env.unwrapped
         assert set(base.scene.articulations) == set(keys)
@@ -420,6 +518,7 @@ def _test_bimanual_root_recording_and_replay(simulation_app, tmp_path):
             moved = body.data.root_pose_w.torch[env_ids].clone()
             moved[:, 0] += 0.5
             body.write_root_pose_to_sim(moved, env_ids=env_ids)
+        base._condition_replay_has_started_stepping = True
         base._reset_idx(env_ids)
         for key in keys:
             actual = base.arena_world.get_pose_e(key)
@@ -478,9 +577,13 @@ def _test_cached_reference_preserves_joint_reset(simulation_app, tmp_path):
         arena = IsaacLabArenaEnvironment(
             name=f"reference_joint_reset_{cached}",
             scene=Scene(assets=[background, reference]),
-            placement_layouts=layouts,
         )
-        env = ArenaEnvBuilder(arena, ArenaEnvBuilderCfg(num_envs=2, device="cpu")).make_registered()
+        builder_cfg = ArenaEnvBuilderCfg(num_envs=2, device="cpu")
+        if cached:
+            layouts_path = tmp_path / "reference-layouts.jsonl"
+            layouts.write_episode_jsonl(layouts_path, source="test")
+            builder_cfg.episode_conditions_path = str(layouts_path)
+        env = ArenaEnvBuilder(arena, builder_cfg).make_registered()
         try:
             base = env.unwrapped
             env.reset()
@@ -497,7 +600,8 @@ def _test_cached_reference_preserves_joint_reset(simulation_app, tmp_path):
                 local_pose = base.arena_world.get_pose_e(key)[0].tolist()
                 # The cached root must win even when it differs from the reference's source pose.
                 local_pose[0] += 0.1
-                layouts = PlacementLayouts({key: [Pose(tuple(local_pose[:3]), tuple(local_pose[3:]))]})
+                pose = Pose(tuple(local_pose[:3]), tuple(local_pose[3:]))
+                layouts = PlacementLayouts({key: [pose, pose]})
 
             moved_root = initial_root.clone()
             moved_root[:, 0] += 0.4

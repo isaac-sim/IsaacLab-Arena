@@ -13,6 +13,7 @@ from isaaclab.managers import EventTermCfg, ManagerTermBase
 from isaaclab_arena.relations.relations import RotateAroundSolution, get_anchor_objects
 from isaaclab_arena.utils.pose import Pose, PosePerEnv
 from isaaclab_arena.utils.yaw import rotate_quat_by_yaw, yaw_from_quat_xyzw
+from isaaclab_arena.variations.episode_conditions import RELATION_PLACEMENT_CONDITION_KEY
 
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedEnv
@@ -27,6 +28,7 @@ IDENTITY_ROTATION_XYZW = (0.0, 0.0, 0.0, 1.0)
 # Name of the reset event term that owns the pooled object placer.
 PLACEMENT_RESET_EVENT_NAME = "placement_reset"
 CACHED_PLACEMENT_RESET_EVENT_NAME = "cached_placement_reset"
+STATIC_PLACEMENT_RECORD_EVENT_NAME = "static_placement_record"
 
 
 class PlacementPoolHandle:
@@ -175,6 +177,29 @@ def write_layout_to_sim(
         asset.write_layout_pose_to_sim(env, env_id, layout_pose)
 
 
+def _placement_condition_value(
+    result: PlacementResult,
+    assets: list[PlaceableAsset],
+    anchor_assets: set[PlaceableAsset],
+    *,
+    layout_id: str,
+) -> dict:
+    """Serialize the scene-root poses applied from one solved placement."""
+    poses = {}
+    for asset in assets:
+        if asset in anchor_assets or asset not in result.positions:
+            continue
+        layout_pose = get_pose_from_layout(asset, result)
+        for name, pose in asset.layout_pose_to_scene_writes(layout_pose):
+            assert name not in poses, f"Multiple placement assets own scene root '{name}'"
+            poses[name] = pose.to_dict()
+    return {
+        "layout_id": layout_id,
+        "source": "relation_solver",
+        "poses": poses,
+    }
+
+
 def solve_and_place_objects(
     env: ManagerBasedEnv,
     env_ids: torch.Tensor | None,
@@ -217,10 +242,61 @@ def solve_and_place_objects(
         write_layout_to_sim(env, cur_env, result, anchor_assets, base_rotations)
 
     placement_pool.last_results = results_by_env
+    if env.variation_recorder is not None:
+        samples = [
+            _placement_condition_value(
+                results_by_env[env_id],
+                assets,
+                anchor_assets,
+                layout_id=f"env_{env_id}_episode_{env.get_episode_index(env_id)}",
+            )
+            for env_id in reset_env_ids
+        ]
+        env.variation_recorder.record_runtime_samples(RELATION_PLACEMENT_CONDITION_KEY, samples, reset_env_ids)
+
+
+def record_static_placement_conditions(
+    env: ManagerBasedEnv,
+    env_ids: torch.Tensor | None,
+    conditions: list[dict],
+) -> None:
+    """Record fixed per-environment relation placements after their reset events run."""
+    if env.variation_recorder is None:
+        return
+    if env_ids is None:
+        env_ids = torch.arange(env.num_envs, device=env.device)
+    env_id_list = env_ids.tolist()
+    env.variation_recorder.record_runtime_samples(
+        RELATION_PLACEMENT_CONDITION_KEY,
+        [conditions[env_id] for env_id in env_id_list],
+        env_id_list,
+    )
+
+
+def make_static_placement_record_event(
+    layouts: list[PlacementResult],
+    assets: list[PlaceableAsset],
+    anchor_assets: set[PlaceableAsset],
+) -> EventTermCfg:
+    """Build a reset event that records fixed relation placements without rewriting them."""
+    conditions = [
+        _placement_condition_value(
+            layout,
+            assets,
+            anchor_assets,
+            layout_id=f"static_env_{env_id}",
+        )
+        for env_id, layout in enumerate(layouts)
+    ]
+    return EventTermCfg(
+        func=record_static_placement_conditions,
+        mode="reset",
+        params={"conditions": conditions},
+    )
 
 
 class ResetPlacementLayouts(ManagerTermBase):
-    """Complete cached layouts drawn from one shared queue for N environments.
+    """Apply complete cached layouts selected by the episode condition scheduler.
 
     L is the layout count; each pose contains xyz position and xyzw rotation.
     """
@@ -241,15 +317,13 @@ class ResetPlacementLayouts(ManagerTermBase):
         self._num_layouts = shape[0]
         self._all_env_ids = torch.arange(env.num_envs, device=env.device)
         """Absolute environment indices, shape (N,)."""
-        self._next_layout = 0
-        """Next index in the shared layout queue; wraps after all L layouts are consumed."""
         for name in self._poses:
             assert (
                 name in env.scene.rigid_objects or name in env.scene.articulations
             ), f"Cached object '{name}' must have a writable physics root"
 
     def __call__(self, env: ManagerBasedEnv, env_ids: torch.Tensor | None, poses: dict[str, list[list[float]]]) -> None:
-        """Apply the next complete layout to each resetting environment.
+        """Apply each resetting environment's assigned layout.
 
         Args:
             env: Environment whose root poses are reset.
@@ -260,22 +334,23 @@ class ResetPlacementLayouts(ManagerTermBase):
         env_ids = self._all_env_ids if env_ids is None else env_ids
         if len(env_ids) == 0:
             return
-        selected_poses = self.draw(env_ids)
+        layout_ids = self._layout_ids(env, env_ids)
+        selected_poses = {name: values[layout_ids] for name, values in self._poses.items()}
         write_scene_poses_to_sim(env, env_ids, selected_poses)
+        if env.variation_recorder is not None:
+            samples = env.condition_replay.scheduler.runtime_sample_for(
+                RELATION_PLACEMENT_CONDITION_KEY, env_ids.tolist()
+            )
+            env.variation_recorder.record_runtime_samples(RELATION_PLACEMENT_CONDITION_KEY, samples, env_ids.tolist())
 
-    def draw(self, env_ids: torch.Tensor) -> dict[str, torch.Tensor]:
-        """Draw complete layouts in env_ids order, wrapping the shared queue on exhaustion.
-
-        Args:
-            env_ids: Absolute indices of the M resetting environments, shape (M,).
-
-        Returns:
-            Scene entity poses in the environment frame, each shaped (M, 7).
-        """
-        layout_ids = (self._next_layout + torch.arange(len(env_ids), device=env_ids.device)) % self._num_layouts
-        poses = {name: values[layout_ids] for name, values in self._poses.items()}
-        self._next_layout = (self._next_layout + len(env_ids)) % self._num_layouts
-        return poses
+    def _layout_ids(self, env: ManagerBasedEnv, env_ids: torch.Tensor) -> torch.Tensor:
+        """Return layout indices from the scheduler's currently assigned conditions."""
+        assert env.condition_replay is not None, "Cached placement requires episode condition replay"
+        return torch.tensor(
+            [env.condition_replay.scheduler.condition_index_for_env(env_id) for env_id in env_ids.tolist()],
+            dtype=torch.long,
+            device=env_ids.device,
+        )
 
 
 def make_cached_placement_event(

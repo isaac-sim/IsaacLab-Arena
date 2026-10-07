@@ -1,10 +1,10 @@
 Variation record and replay
 ===========================
 
-Arena writes every enabled variation sample into the per-rebuild episode-result
-JSONL.  A later run can consume that JSONL directly through
+Arena writes every enabled variation sample and applied relation placement into
+the per-rebuild episode-result JSONL.  A later run can consume that JSONL directly through
 ``episode_conditions_path`` so the same build-time and per-episode samples are
-applied instead of being drawn again.
+applied together instead of being drawn again.
 
 The comparison below uses one environment, five episodes, and a one-second
 episode timeout.  The left side records live draws and the right side replays
@@ -52,7 +52,9 @@ Each complete JSON object occupies one line.  An abridged pair looks like:
 
 Build-time samples repeat on every line because they describe the shared
 environment build.  Run-time samples contain the value drawn for that episode
-and environment slot.
+and environment slot. The abridged records omit the
+``scene.relation_placement`` block that pairs each episode with its applied
+root poses.
 
 Replay the JSONL directly
 -------------------------
@@ -76,7 +78,7 @@ requires ``num_rebuilds: 1``.  Keep the environment definition and enabled
 variation set the same as the recording run.
 
 For multiple parallel environments, Arena assigns recorded conditions through
-a global FIFO queue as slots reset.  This preserves the recorded condition set
+a global FIFO scheduler as slots reset.  This preserves the recorded condition set
 without requiring the same condition to return to the same environment index.
 Replay output includes ``replay_condition_id`` and
 ``replay_source_episode_results`` for traceability.
@@ -84,12 +86,12 @@ Replay output includes ``replay_condition_id`` and
 Scope
 -----
 
-Variation replay covers values owned by Arena variations, including lighting,
-camera, mass, and object-visibility samples.  Relation-solver placement layouts
-are deliberately excluded from this path.  Use
-:doc:`../offline_placement/recording` when exact object poses must be recorded
-and replayed; the comparison above fixes the placement seed only to isolate the
-variation behavior.
+Condition replay covers values owned by Arena variations, including lighting,
+camera, mass and object-visibility samples, together with relation-solver
+placement layouts under ``scene.relation_placement``. Use
+:doc:`../offline_placement/recording` to produce placement-only condition JSONL
+after physics settling. Placement-only and combined files use the same replay
+API.
 
 The extraction utility remains available when an editable YAML overlay is
 useful:

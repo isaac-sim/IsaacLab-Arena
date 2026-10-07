@@ -164,6 +164,26 @@ def test_record_variation_samples_emits_the_per_episode_draw():
     assert record_variation_samples(env, env_id=1) == {}
 
 
+def test_record_variation_samples_merges_applied_placement() -> None:
+    """Externally applied placement is emitted beside sampler draws for the same episode."""
+    from isaaclab_arena.recording.common_terms import record_variation_samples
+    from isaaclab_arena.variations.episode_conditions import RELATION_PLACEMENT_CONDITION_KEY
+
+    variation = _RecorderTestVariation()
+    variation.enable()
+    recorder = VariationRecorder()
+    recorder.attach({"asset": [variation]})
+    env = _FakeEnv(recorder, episode_index=2)
+    recorder.bind_env(env)
+    variation.sampler.sample(num_samples=1, env_ids=torch.tensor([3]))
+    placement = {"layout_id": "layout_3", "source": "test", "poses": {"object": {}}}
+    recorder.record_runtime_samples(RELATION_PLACEMENT_CONDITION_KEY, [placement], [3])
+
+    samples = record_variation_samples(env, env_id=3)["variations"]
+    assert samples[RELATION_PLACEMENT_CONDITION_KEY] == placement
+    assert "asset.recorder_test" in samples
+
+
 def test_recorder_skips_disabled_variations():
     variation = _RecorderTestVariation()  # disabled by default
     recorder = VariationRecorder()
