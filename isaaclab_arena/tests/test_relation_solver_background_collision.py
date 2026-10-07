@@ -678,12 +678,14 @@ def test_arena_env_builder_forwards_background_collisions_by_default(monkeypatch
         def get_objects_with_relations(self):
             return objects_with_relations
 
-    def fake_solve_and_apply_relation_placement(
+    def fake_create_relation_placement_variation(
         objects,
         num_envs,
         placer_params,
         collision_objects=None,
         scene_assets=None,
+        asset_identities=None,
+        replay_assets=None,
     ):
         calls["objects"] = objects
         calls["num_envs"] = num_envs
@@ -692,9 +694,16 @@ def test_arena_env_builder_forwards_background_collisions_by_default(monkeypatch
         calls["collision_objects"] = collision_objects
         return "placement_event"
 
-    monkeypatch.setattr(builder_module, "solve_and_apply_relation_placement", fake_solve_and_apply_relation_placement)
+    monkeypatch.setattr(builder_module, "create_relation_placement_variation", fake_create_relation_placement_variation)
     placer_params = ObjectPlacerParams(solver_params=RelationSolverParams(collision_mode=CollisionMode.MESH))
-    arena_env = SimpleNamespace(scene=Scene(), placer_params=placer_params, embodiment=None, task=None)
+    arena_env = SimpleNamespace(
+        scene=Scene(),
+        placer_params=placer_params,
+        embodiment=None,
+        task=None,
+        placement_asset_identities={},
+        get_placement_assets=lambda: [],
+    )
     builder = ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg(num_envs=2))
 
     builder._solve_relations()
@@ -704,7 +713,7 @@ def test_arena_env_builder_forwards_background_collisions_by_default(monkeypatch
     assert calls["placer_params"] is placer_params
     assert calls["scene_assets"] == [background_collision]
     assert calls["collision_objects"] is None
-    assert builder._placement_event_cfg == "placement_event"
+    assert builder._scene_variations == ["placement_event"]
 
 
 def test_arena_env_builder_forwards_empty_relation_graph(monkeypatch):
@@ -723,19 +732,28 @@ def test_arena_env_builder_forwards_empty_relation_graph(monkeypatch):
         def get_objects_with_relations(self):
             return []
 
-    def fake_solve_and_apply_relation_placement(
+    def fake_create_relation_placement_variation(
         objects,
         num_envs,
         placer_params,
         collision_objects=None,
         scene_assets=None,
+        asset_identities=None,
+        replay_assets=None,
     ):
         calls["objects"] = objects
         calls["scene_assets"] = list(scene_assets)
         calls["collision_objects"] = collision_objects
 
-    monkeypatch.setattr(builder_module, "solve_and_apply_relation_placement", fake_solve_and_apply_relation_placement)
-    arena_env = SimpleNamespace(scene=Scene(), placer_params=None, embodiment=None, task=None)
+    monkeypatch.setattr(builder_module, "create_relation_placement_variation", fake_create_relation_placement_variation)
+    arena_env = SimpleNamespace(
+        scene=Scene(),
+        placer_params=None,
+        embodiment=None,
+        task=None,
+        placement_asset_identities={},
+        get_placement_assets=lambda: [],
+    )
     builder = ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg())
 
     builder._solve_relations()
@@ -766,13 +784,20 @@ def test_arena_env_builder_includes_embodiment_relations(monkeypatch):
         def get_relations(self):
             return [object()]
 
-    def fake_solve_and_apply_relation_placement(*args, **kwargs):
+    def fake_create_relation_placement_variation(*args, **kwargs):
         calls.update(kwargs)
         calls["objects"] = args[0]
 
-    monkeypatch.setattr(builder_module, "solve_and_apply_relation_placement", fake_solve_and_apply_relation_placement)
+    monkeypatch.setattr(builder_module, "create_relation_placement_variation", fake_create_relation_placement_variation)
     embodiment = Embodiment()
-    arena_env = SimpleNamespace(scene=Scene(), embodiment=embodiment, placer_params=None, task=None)
+    arena_env = SimpleNamespace(
+        scene=Scene(),
+        embodiment=embodiment,
+        placer_params=None,
+        task=None,
+        placement_asset_identities={},
+        get_placement_assets=lambda: [embodiment],
+    )
 
     ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg())._solve_relations()
 

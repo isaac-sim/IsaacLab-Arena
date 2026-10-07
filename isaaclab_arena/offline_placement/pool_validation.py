@@ -13,12 +13,12 @@ from isaaclab_arena.relations.physics_settle_params import PhysicsSettleParams
 from isaaclab_arena.relations.placement_events import (
     get_base_rotation_per_asset,
     get_movable_asset_names,
-    get_placement_pool,
     write_layout_to_sim,
 )
 from isaaclab_arena.relations.relations import get_anchor_objects
 from isaaclab_arena.relations.validation.types import PlacementCheck
 from isaaclab_arena.utils import physics_settle
+from isaaclab_arena.variations.relation_placement_variation import get_relation_placement_variation
 
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedEnv
@@ -135,9 +135,10 @@ def validate_pool_layouts(
         or ``None`` when ``placement_pool`` is omitted and the env has no pooled layouts.
     """
     if placement_pool is None:
-        placement_pool = get_placement_pool(env)
-        if placement_pool is None:
+        placement_variation = get_relation_placement_variation(env)
+        if placement_variation is None:
             return None
+        placement_pool = placement_variation.placement_pool
     if settle_params is None:
         settle_params = PhysicsSettleParams()
 

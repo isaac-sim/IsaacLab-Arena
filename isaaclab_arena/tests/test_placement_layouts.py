@@ -16,9 +16,10 @@ from isaaclab_arena.utils.pose import Pose
 def test_offline_and_episode_records_share_layout_order(tmp_path):
     layouts = PlacementLayouts({"cup": [Pose((1, 2, 3)), Pose((4, 5, 6))]})
     path = tmp_path / "layouts.jsonl"
-    layouts.write_episode_jsonl(path, source="settled")
+    layouts.write_episode_jsonl(path, source="settled", asset_identities={"cup": "registered_cup"})
     records = [json.loads(line) for line in path.read_text().splitlines()]
     assert records[0]["variations"]["scene.relation_placement"]["source"] == "settled"
+    assert records[0]["variations"]["scene.relation_placement"]["assets"] == {"cup": "registered_cup"}
     records[1].update(env_id=7, success=True)
     records[1]["variations"]["scene.relation_placement"]["source"] = "solver"
     records[1]["variations"]["light.brightness"] = 2

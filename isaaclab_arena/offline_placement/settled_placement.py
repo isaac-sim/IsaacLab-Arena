@@ -19,9 +19,9 @@ from isaaclab_arena.offline_placement.post_physics_validation import (
 )
 from isaaclab_arena.offline_placement.settled_batch import sample_and_settle_batch
 from isaaclab_arena.offline_placement.settled_placement_params import SettledPlacementParams
-from isaaclab_arena.relations.placement_events import get_placement_pool
 from isaaclab_arena.relations.relations import ClutterOn, get_relation
 from isaaclab_arena.utils.pose import Pose
+from isaaclab_arena.variations.relation_placement_variation import get_relation_placement_variation
 
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedEnv
@@ -113,7 +113,7 @@ def collect_settled_placements(
     enforce replay restrictions or a minimum accepted count, and does not close env.
 
     Args:
-        env: Environment with a pooled placement reset event.
+        env: Environment with a scene relation-placement variation.
         num_batches: Number of resets to sample, independent of pool refills.
         params: Simulation duration and post-physics validator settings. If omitted, use
             clutter defaults for ClutterOn scenes and ordinary recording defaults otherwise.
@@ -133,8 +133,12 @@ def collect_settled_placements(
     """
     env = env.unwrapped
     assert num_batches > 0, "num_batches must be positive"
-    placement_pool = get_placement_pool(env)
-    assert placement_pool is not None, "Collection requires a pooled placement reset event"
+    placement_variation = get_relation_placement_variation(env)
+    assert placement_variation is not None, "Collection requires relation placement"
+    assert (
+        not placement_variation.sampler.replays_recorded_samples
+    ), "Collection requires live placement samples, not episode-condition replay"
+    placement_pool = placement_variation.placement_pool
     assert placement_pool.num_envs == env.num_envs, "Placement pool and scene must have the same environment count"
     assets = list(placement_pool.objects)
     seen_asset_ids = {id(asset) for asset in assets}

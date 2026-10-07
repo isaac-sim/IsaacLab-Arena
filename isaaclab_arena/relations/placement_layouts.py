@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.recording.episode_results import read_episode_records
-from isaaclab_arena.utils.pose import Pose
+from isaaclab_arena.utils.pose import Pose, PosePerEnv
 
 if TYPE_CHECKING:
     from isaaclab_arena.relations.placement_asset import PlaceableAsset
@@ -61,10 +61,10 @@ class PlacementLayouts:
         self.validate()
         assert not any(
             isinstance(asset, RigidObjectSet) for asset in assets
-        ), "Cached layouts require concrete assets, not object sets"
+        ), "Placement replay requires concrete assets, not object sets"
         owners = get_scene_root_owners(assets)
         unknown = set(self.poses) - owners.keys()
-        assert not unknown, f"Unknown cached scene objects: {unknown}"
+        assert not unknown, f"Unknown placement replay scene objects: {unknown}"
         for asset in assets:
             keys = set(asset.get_scene_root_keys())
             selected = keys.intersection(self.poses)
@@ -77,7 +77,7 @@ class PlacementLayouts:
             if selected:
                 assert (
                     get_relation(asset, RandomAroundSolution) is None
-                ), f"Cached object '{asset.name}' cannot randomize on reset"
+                ), f"Placement replay object '{asset.name}' cannot randomize on reset"
 
     @property
     def num_layouts(self) -> int:
@@ -117,10 +117,18 @@ class PlacementLayouts:
         except AssertionError as error:
             raise AssertionError(f"{path}: {error}") from error
 
-    def write_episode_jsonl(self, path: str | Path, source: str, validation: list[dict] | None = None) -> None:
+    def write_episode_jsonl(
+        self,
+        path: str | Path,
+        source: str,
+        validation: list[dict] | None = None,
+        asset_identities: dict[str, str] | None = None,
+    ) -> None:
         """Write layouts and optional validation reports in the episode variations envelope without overwriting."""
         self.validate()
         assert validation is None or len(validation) == self.num_layouts, "One validation report is required per layout"
+        if asset_identities is not None:
+            assert asset_identities.keys() == self.poses.keys(), "Asset identities must cover every placement pose"
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
         with path.open("x", encoding="utf-8") as stream:
@@ -132,14 +140,16 @@ class PlacementLayouts:
                 }
                 if validation is not None:
                     placement["validation"] = validation[index]
+                if asset_identities is not None:
+                    placement["assets"] = asset_identities
                 record = {"variations": {"scene.relation_placement": placement}}
                 stream.write(json.dumps(record, allow_nan=False) + "\n")
 
 
-def validate_root_reset_for_cached_layouts(assets: list[PlaceableAsset]) -> None:
-    """Require policies compatible with replacing root resets by fixed cached poses.
+def validate_root_reset_for_placement_replay(assets: list[PlaceableAsset]) -> None:
+    """Require policies compatible with replacing root resets by replayed poses.
 
-    Cached replay replaces root reset events and writes zero root velocity,
+    Placement replay runs after root reset events and writes zero root velocity,
     while assets retain their non-root initialization such as joint resets.
     Recording uses the same check before collecting layouts intended for that replay.
     """
@@ -149,12 +159,12 @@ def validate_root_reset_for_cached_layouts(assets: list[PlaceableAsset]) -> None
     for asset in assets:
         name = asset.get_scene_key()
         if isinstance(asset, Object):
-            assert asset.reset_pose, f"Cached asset '{name}' has pose resets disabled"
+            assert asset.reset_pose, f"Placement replay asset '{name}' has pose resets disabled"
         if isinstance(asset, ObjectBase) and asset.initial_velocity is not None:
             velocity = asset.initial_velocity
             assert all(
                 value == 0 for value in (*velocity.linear_xyz, *velocity.angular_xyz)
-            ), f"Cached asset '{name}' has nonzero initial velocity; replay resets velocity to zero"
+            ), f"Placement replay asset '{name}' has nonzero initial velocity; replay resets velocity to zero"
         assert not asset.has_pose_reset_event() or isinstance(
-            asset.get_initial_pose(), Pose
-        ), f"Cached asset '{name}' has a non-fixed pose-reset policy"
+            asset.get_initial_pose(), (Pose, PosePerEnv)
+        ), f"Placement replay asset '{name}' has a non-fixed pose-reset policy"

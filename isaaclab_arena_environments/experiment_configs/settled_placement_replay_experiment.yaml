@@ -10,7 +10,7 @@ runs:
     environment_builder:
       num_envs: 1
       presets: PHYSX
-      placement_layouts_path: outputs/placements/clamp.jsonl
+      episode_conditions_path: outputs/placements/clamp.jsonl
     policy:
       type: zero_action
     rollout_limit:

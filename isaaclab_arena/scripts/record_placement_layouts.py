@@ -43,7 +43,7 @@ def record_placements_to_jsonl(
     written. The destination remains unwritten only when no layouts are accepted.
 
     Args:
-        env: Built environment with a pooled placement reset event.
+        env: Built environment with a scene relation-placement variation.
         output: JSONL destination; must not exist.
         min_layouts: Target number of accepted layouts to collect.
         max_batches: Maximum reset-and-settle rounds.
@@ -57,12 +57,13 @@ def record_placements_to_jsonl(
         write_settled_layouts,
     )
     from isaaclab_arena.offline_placement.settled_placement import resolve_settle_params
-    from isaaclab_arena.relations.placement_events import get_placement_pool
+    from isaaclab_arena.variations.relation_placement_variation import get_relation_placement_variation
 
     output = Path(output)
     assert not output.exists(), f"Output already exists: {output}"
-    pool = get_placement_pool(env)
-    assert pool is not None, "Recording requires a pooled placement reset event"
+    placement_variation = get_relation_placement_variation(env)
+    assert placement_variation is not None, "Recording requires relation placement"
+    pool = placement_variation.placement_pool
     assets = list(pool.objects)
     for asset in scene_assets or []:
         if asset not in assets:
@@ -124,7 +125,6 @@ def record_settled_placement_layouts(
         spec = ArenaEnvGraphSpec.from_yaml(cfg.env_spec)
         assert not spec.object_sets, "Resolve object sets before recording reusable layouts"
         arena_env = spec.to_arena_env()
-    assert arena_env.placement_layouts is None, "Remove cached placement layouts before recording"
     scene_assets = arena_env.get_placement_assets()
     assert not any(isinstance(asset, RigidObjectSet) for asset in scene_assets), "Resolve object sets before recording"
     placer_params = arena_env.placer_params

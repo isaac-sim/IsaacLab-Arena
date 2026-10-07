@@ -269,11 +269,11 @@ Pass the companion file to the environment builder:
 .. code-block:: bash
 
    /isaac-sim/python.sh isaaclab_arena/scripts/environment_runner.py \
-       --env_spec scene.yaml --placement_layouts layouts.jsonl
+       --env_spec scene.yaml --episode_conditions layouts.jsonl
 
-For a registered Python environment, place ``--placement_layouts layouts.jsonl``
+For a registered Python environment, place ``--episode_conditions layouts.jsonl``
 before the environment subcommand. Python callers use
-``ArenaEnvBuilderCfg(placement_layouts_path="layouts.jsonl")``. All file paths are
+``ArenaEnvBuilderCfg(episode_conditions_path="layouts.jsonl")``. All file paths are
 relative to the working directory.
 
 A ten-layout example for ``isaaclab_arena/tests/test_data/placement_replay.yaml``
@@ -288,20 +288,14 @@ each owned root, whose runtime name can differ from the YAML node ID.
 Positions are environment-local, in metres; rotations are xyzw quaternions.
 Every nonblank line must contain the placement block with the same object set.
 Additional episode fields are ignored; episodes without placement records cannot
-be loaded. Python callers can pass ``PlacementLayouts`` directly to
-``IsaacLabArenaEnvironment`` instead of configuring a file path.
-Supplying both is rejected.
+be loaded. Set the replay path before ``compose_manager_cfg()`` or
+``make_registered()``.
 
-.. code-block:: python
-
-   from isaaclab_arena.relations.placement_layouts import PlacementLayouts
-
-   arena_env.placement_layouts = PlacementLayouts.from_episode_jsonl("layouts.jsonl")
-
-Set replay inputs before ``compose_manager_cfg()`` or ``make_registered()``.
-For registered Python environments, a Python runner can set
-``builder.arena_env.placement_layouts`` after obtaining the builder. Replay inputs
-are read when the environment configuration is composed.
+Recordings produced from graph-spec environments also include an ``assets`` mapping
+from scene root to concrete registry name. Replay rejects a different CLI-selected
+object in the same graph slot because its recorded pose may not be valid for the
+replacement geometry. Older files without this mapping retain scene-key-only
+compatibility checks.
 
 ``PlacementLayouts.write_episode_jsonl(path, source=...)`` writes the same format.
 The caller supplies the source label, such as ``"solver"`` or ``"settled"``;
@@ -338,21 +332,19 @@ Before replaying a recording:
 - Enable pose resets and use fixed initial poses for assets with pose-reset
   events. Remove ``RandomAroundSolution`` from recorded assets and keep their
   initial root velocities zero.
-- Keep ``resolve_on_reset=True``. An explicit ``--no-resolve_on_reset`` or a
-  false environment default is rejected.
-- Remove explicit ``placement_seed`` settings from the CLI, builder configuration
-  and ``placer_params``. The recording seed selects release candidates; replay
-  consumes layouts in file order.
+- Keep relation solving enabled so the scene-level placement variation is
+  registered. Both ``resolve_on_reset`` modes support replay.
 
-``--no_solve_relations`` is compatible: replay never invokes the solver.
 Placement validator settings apply only when solving; they do not revalidate a
 recorded layout or open the solver's debug viewer.
 
-Loading bypasses solving and does not rerun geometry, reachability or settling
-checks. Preserve the scene geometry, robot initialization and physics settings
-used to record the layouts. The file contains root poses, not joint states or
-other randomized properties; their normal reset initialization still applies.
-Disable pose-changing variations and callbacks when exact root replay is required.
+Environment construction still prepares the normal relation-placement pool.
+Reset-time replay does not consume that pool or rerun geometry, reachability or
+settling checks. Preserve the scene geometry, robot initialization and physics
+settings used to record the layouts. The file contains root poses, not joint
+states or other randomized properties; their normal reset initialization still
+applies. Disable pose-changing variations and callbacks when exact root replay is
+required.
 
 Next Steps
 ----------

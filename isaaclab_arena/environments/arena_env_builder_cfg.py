@@ -35,9 +35,6 @@ class ArenaEnvBuilderCfg:
     recorder_dataset_filename: str | None = None
     """If set, overrides the recorder manager's dataset filename."""
 
-    placement_layouts_path: str | None = None
-    """Companion JSONL to replay instead of solving; relative to the working directory."""
-
     recorded_variation_samples_path: str | None = None
     """Episode-result JSONL containing variation samples to replay; relative to the working directory."""
 

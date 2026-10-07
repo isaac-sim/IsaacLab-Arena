@@ -233,13 +233,13 @@ def _test_validate_pool_layouts_grades_each_layout(simulation_app):
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.offline_placement.pool_validation import validate_pool_layouts
     from isaaclab_arena.relations.physics_settle_params import PhysicsSettleParams
-    from isaaclab_arena.relations.placement_events import get_placement_pool
     from isaaclab_arena.relations.placement_result import PlacementResult
     from isaaclab_arena.relations.pooled_object_placer import EnvLayoutPool
     from isaaclab_arena.relations.relations import IsAnchor, On, get_anchor_objects
     from isaaclab_arena.relations.validation.types import PlacementCheck, PlacementValidationResults
     from isaaclab_arena.scene.scene import Scene
     from isaaclab_arena.utils.pose import Pose
+    from isaaclab_arena.variations.relation_placement_variation import get_relation_placement_variation
 
     num_envs = 2
     drop_height = 2.0
@@ -263,8 +263,9 @@ def _test_validate_pool_layouts_grades_each_layout(simulation_app):
     env.reset()
 
     try:
-        pool = get_placement_pool(env)
-        assert pool is not None, "Pool validation requires a pooled placer on the env."
+        placement_variation = get_relation_placement_variation(env)
+        assert placement_variation is not None, "Pool validation requires relation placement."
+        pool = placement_variation.placement_pool
         # The settle config drives the sweep; max_retries is unused by validate_pool_layouts.
         # num_steps is in env-step units; validate_pool_layouts converts it to physics substeps via the
         # env's decimation. Target ~60 substeps (~0.3 s at dt=0.005): the resting box settles within the

@@ -164,6 +164,7 @@ def test_recording_cli_saves_final_poses(tmp_path, backend):
         assert reports["articulation_link_shift"]["passed"] is None
         assert reports["articulation_link_shift"]["reason"]
         assert set(record["poses"]) == {"cube_body", "table", "floor"}
+        assert record["assets"].keys() == record["poses"].keys()
         # Table top is 0.52, cube half-height is 0.05.
         x, y, _ = record["poses"]["cube_body"]["position_xyz"]
         assert abs(x) < 0.4 and abs(y) < 0.4
@@ -182,7 +183,10 @@ def test_record_placements_to_jsonl_leaves_no_file_when_target_unmet(tmp_path):
     env = Mock()
     pool = Mock(objects=[])
     with (
-        patch("isaaclab_arena.relations.placement_events.get_placement_pool", return_value=pool),
+        patch(
+            "isaaclab_arena.variations.relation_placement_variation.get_relation_placement_variation",
+            return_value=Mock(placement_pool=pool, sampler=Mock(replays_recorded_samples=False)),
+        ),
         patch(
             "isaaclab_arena.offline_placement.recording.collect_layouts_until_count",
             return_value=({"cube": []}, [], 1, {(0, 0): "failed"}),
@@ -211,7 +215,10 @@ def test_record_placements_to_jsonl_writes_partial_acceptance(tmp_path):
         Path(destination).write_text("accepted\n")
 
     with (
-        patch("isaaclab_arena.relations.placement_events.get_placement_pool", return_value=pool),
+        patch(
+            "isaaclab_arena.variations.relation_placement_variation.get_relation_placement_variation",
+            return_value=Mock(placement_pool=pool, sampler=Mock(replays_recorded_samples=False)),
+        ),
         patch(
             "isaaclab_arena.offline_placement.recording.collect_layouts_until_count",
             return_value=({"cube": [Mock()]}, [Mock()], 2, {(1, 0): "failed"}),
@@ -350,14 +357,13 @@ def _test_recording_filters_layouts(simulation_app, tmp_path):
     from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
     from isaaclab_arena.offline_placement.settled_placement import collect_settled_placements
     from isaaclab_arena.offline_placement.settled_placement_params import SettledPlacementParams
-    from isaaclab_arena.relations.placement_events import get_placement_pool, make_cached_placement_event
-    from isaaclab_arena.relations.placement_layouts import PlacementLayouts
     from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
     from isaaclab_arena.relations.reachability_config import ReachabilityConfig
     from isaaclab_arena.relations.validation.types import PlacementCheck
     from isaaclab_arena.scripts.record_placement_layouts import record_placements_to_jsonl
-    from isaaclab_arena.utils.pose import Pose, PoseRange
+    from isaaclab_arena.utils.pose import PoseRange
     from isaaclab_arena.utils.velocity import Velocity
+    from isaaclab_arena.variations.relation_placement_variation import get_relation_placement_variation
 
     register_no_embodiment()
     source = tmp_path / "scene.yaml"
@@ -378,13 +384,14 @@ def _test_recording_filters_layouts(simulation_app, tmp_path):
     env = ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg(num_envs=2)).make_registered()
     try:
         base = env.unwrapped
-        pool = get_placement_pool(env)
+        placement_variation = get_relation_placement_variation(env)
+        assert placement_variation is not None
+        pool = placement_variation.placement_pool
         assets = arena_env.get_placement_assets()
         floor = arena_env.scene.assets["floor"]
         floor.tags = None
         assert floor.has_pose_reset_event()
         state = base.scene.get_state()
-        layouts = PlacementLayouts({key: [Pose.identity()] for key in base.scene.rigid_objects})
         for attribute, value, reason in (
             ("reset_pose", False, "pose resets disabled"),
             ("initial_velocity", Velocity(linear_xyz=(1.0, 0.0, 0.0)), "nonzero initial velocity"),
@@ -401,8 +408,6 @@ def _test_recording_filters_layouts(simulation_app, tmp_path):
                         env, tmp_path / "incompatible.jsonl", min_layouts=1, max_batches=1, scene_assets=assets
                     )
                 reset.assert_not_called()
-                with pytest.raises(AssertionError, match=f"floor.*{reason}"):
-                    make_cached_placement_event(layouts, assets, base.num_envs)
             torch.testing.assert_close(base.scene.get_state(), state)
 
         queues = pool.layouts_per_env()
@@ -500,12 +505,9 @@ def _test_recording_filters_layouts(simulation_app, tmp_path):
         )
         for queue in unavailable_pool.layouts_per_env():
             assert PlacementCheck.IK_REACHABLE not in queue[0].validation_results.validation_results
-        from isaaclab_arena.relations.placement_events import PLACEMENT_RESET_EVENT_NAME
-
-        handle = base.event_manager.get_term_cfg(PLACEMENT_RESET_EVENT_NAME).params["placement_pool"]
         rejected_output = tmp_path / "rejected.jsonl"
         with (
-            patch.object(handle, "pool", unavailable_pool),
+            patch.object(placement_variation.sampler, "placement_pool", unavailable_pool),
             patch("isaaclab_arena.offline_placement.pool_validation.physics_settle.step_physics") as step,
             patch.object(base, "close", wraps=base.close) as close,
         ):
@@ -549,7 +551,6 @@ def _test_recording_with_robot(simulation_app, tmp_path):
     from isaaclab_arena.offline_placement.settled_placement import collect_settled_placements
     from isaaclab_arena.offline_placement.settled_placement_params import SettledPlacementParams
     from isaaclab_arena.relations.placement_layouts import PlacementLayouts
-    from isaaclab_arena.relations.relation_solver import RelationSolver
 
     source = tmp_path / "robot.yaml"
     _write_scene(source)
@@ -602,26 +603,25 @@ def _test_recording_with_robot(simulation_app, tmp_path):
             assert reports["pose_shift"].passed is True
     finally:
         env.close()
-    with patch.object(RelationSolver, "solve", side_effect=AssertionError("Replay must not solve")):
-        env = ArenaEnvBuilder(
-            spec.to_arena_env(), ArenaEnvBuilderCfg(num_envs=2, placement_layouts_path=str(output))
-        ).make_registered()
-        try:
-            env.reset()
-            for key, poses in result.poses.items():
-                expected = torch.stack([pose.to_tensor(env.unwrapped.device) for pose in poses])
-                torch.testing.assert_close(env.unwrapped.arena_world.get_pose_e(key), expected, atol=2e-5, rtol=0)
-            from isaaclab_arena.utils.physics_settle import step_physics
+    env = ArenaEnvBuilder(
+        spec.to_arena_env(), ArenaEnvBuilderCfg(num_envs=2, episode_conditions_path=str(output))
+    ).make_registered()
+    try:
+        env.reset()
+        for key, poses in result.poses.items():
+            expected = torch.stack([pose.to_tensor(env.unwrapped.device) for pose in poses])
+            torch.testing.assert_close(env.unwrapped.arena_world.get_pose_e(key), expected, atol=2e-5, rtol=0)
+        from isaaclab_arena.utils.physics_settle import step_physics
 
-            step_physics(env, 200)
-            for key, poses in result.poses.items():
-                if key == "robot":
-                    continue
-                expected = torch.stack([pose.to_tensor(env.unwrapped.device)[:3] for pose in poses])
-                actual = env.unwrapped.arena_world.get_pose_e(key)[:, :3]
-                assert (actual - expected).norm(dim=-1).max() < 0.02
-        finally:
-            env.close()
+        step_physics(env, 200)
+        for key, poses in result.poses.items():
+            if key == "robot":
+                continue
+            expected = torch.stack([pose.to_tensor(env.unwrapped.device)[:3] for pose in poses])
+            actual = env.unwrapped.arena_world.get_pose_e(key)[:, :3]
+            assert (actual - expected).norm(dim=-1).max() < 0.02
+    finally:
+        env.close()
     return True
 
 
@@ -740,8 +740,14 @@ def test_settled_batch_evaluation_uses_captured_state():
         linear_velocity[1, 0] = 0.2
 
     with (
-        patch("isaaclab_arena.relations.placement_events.get_placement_pool", return_value=SimpleNamespace(num_envs=3)),
-        patch("isaaclab_arena.relations.placement_events.get_reset_placement_results", return_value=source_layouts),
+        patch(
+            "isaaclab_arena.variations.relation_placement_variation.get_relation_placement_variation",
+            return_value=SimpleNamespace(
+                placement_pool=SimpleNamespace(num_envs=3),
+                last_results=source_layouts,
+                sampler=SimpleNamespace(replays_recorded_samples=False),
+            ),
+        ),
         patch("isaaclab_arena.utils.physics_settle.step_physics", side_effect=advance_physics),
     ):
         batch = sample_and_settle_batch(env, root_keys=["cube"], link_keys=[], num_env_steps=2)

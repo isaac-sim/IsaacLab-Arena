@@ -99,6 +99,9 @@ class VariationBase(ABC):
         self._replay_sampler = replay_sampler
         self._sampler.set_replay_sampler(replay_sampler)
 
+    def validate_replay_samples(self, samples: list[Any]) -> None:
+        """Validate recorded sample rows before environment construction. Default: no-op."""
+
     def _prepare_at_build_time(self) -> None:
         """Configure prerequisites required before environment construction. Default: no-op.
 
@@ -144,6 +147,9 @@ class RunTimeVariationBase(VariationBase):
     Use when the underlying property can be flipped during simulation (e.g.
     visual color, initial pose, mass).
     """
+
+    reset_priority: int = 0
+    """Ordering among run-time variation reset terms; larger values run later."""
 
     @abstractmethod
     def build_event_cfg(self) -> tuple[str, EventTermCfg]:
