@@ -21,24 +21,8 @@ pre-commit install    # on the host — registers git pre-commit hooks
 ## Environment authoring and feature discovery
 
 For creating or changing environments, scenes, tasks, success conditions, or randomization, read
-[author-environment](skills/user/author-environment/SKILL.md) before implementing. Discover features
-through the existing concept docs, registries, and maintained examples as described in the skill.
-These are repository instructions even when the client has not refreshed its discovered skills.
+[author-environment](skills/developer/author-environment/SKILL.md) before implementing.
 Use `run-experiment` when executing an existing evaluation.
-
-- All Arena features are available to coding agents, including untagged and unregistered Python
-  APIs. `@agent_ready` filters the built-in environment generator's prompt catalogues; it does not
-  restrict environment authoring. Search the full source, registries, docs, and examples for reuse.
-- Identify reusable Arena components and a maintained reference example before writing code.
-  Prefer configuration, then composition, then a small extension for a demonstrated
-  gap. Name the gap when adding a task, predicate, reset event, sampler, or placement helper.
-- Reuse registered assets, relations and placement pools, tasks and completion criteria, progress
-  recording, and variations. Do not duplicate their solvers, counters, reset loops, or metrics.
-  Include only features the requested environment needs.
-- Distinguish recorded milestones from conditions that must hold at success, and independent
-  completion from simultaneous predicates. Review reset behavior for parallel environments.
-- Finish with the example followed, reused features, any extension rationale, and actual validation
-  evidence. Do not equate a parse/lint pass with a runnable or physically solvable environment.
 
 ## Docker environment
 
