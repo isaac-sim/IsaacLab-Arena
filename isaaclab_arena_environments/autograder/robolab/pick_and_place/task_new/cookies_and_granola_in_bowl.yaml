@@ -1,0 +1,23 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+env_name: cookies_and_granola_in_bowl
+external_yaml: ../scenes_new/cookies_granola_yogurt_bowl.yaml
+task:
+  composition: parallel
+  description: Put the cookies and the granola bars in the wooden bowl.
+  subtasks:
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: cookies
+      destination_location: wooden_bowl
+      background_scene: maple_table_robolab
+      episode_length_s: 70.0
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: granola
+      destination_location: wooden_bowl
+      background_scene: maple_table_robolab
+      episode_length_s: 70.0

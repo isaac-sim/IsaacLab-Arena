@@ -1,0 +1,17 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+env_name: marker_in_ycb_mug
+external_yaml: ../scenes_new/marker_mug_glasses.yaml
+task:
+  composition: atomic
+  description: Put the dry erase marker in the mug.
+  subtasks:
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: marker
+      destination_location: mug
+      background_scene: maple_table_robolab
+      episode_length_s: 70.0

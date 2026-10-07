@@ -1,0 +1,23 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+env_name: apples_in_serving_bowl
+external_yaml: ../scenes_new/two_apples_pepper_bowl.yaml
+task:
+  composition: parallel
+  description: Put both apples in the serving bowl.
+  subtasks:
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: apple_1
+      destination_location: serving_bowl
+      background_scene: maple_table_robolab
+      episode_length_s: 70.0
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: apple_2
+      destination_location: serving_bowl
+      background_scene: maple_table_robolab
+      episode_length_s: 70.0

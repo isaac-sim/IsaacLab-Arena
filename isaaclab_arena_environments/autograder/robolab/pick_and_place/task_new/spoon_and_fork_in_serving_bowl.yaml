@@ -1,0 +1,23 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+env_name: spoon_and_fork_in_serving_bowl
+external_yaml: ../scenes_new/spoon_fork_spatula_bowl.yaml
+task:
+  composition: parallel
+  description: Put the spoon and the fork in the serving bowl.
+  subtasks:
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: spoon
+      destination_location: serving_bowl
+      background_scene: maple_table_robolab
+      episode_length_s: 70.0
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: fork
+      destination_location: serving_bowl
+      background_scene: maple_table_robolab
+      episode_length_s: 70.0
