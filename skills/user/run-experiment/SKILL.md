@@ -145,6 +145,8 @@ preserved partial artifacts or failures.
 
 ## Hand off other workflows
 
+- Use [author-environment](../author-environment/SKILL.md) to create or change an environment's
+  scene, placement, task semantics, or available variations before executing an Experiment.
 - Use `setup-arena` for installation, container creation, mounts, or readiness repair.
 - Use `run-tests` for pytest and regression checks.
 - Use the Environment Runner for interactive inspection without a policy.

@@ -18,6 +18,29 @@ Fresh-clone setup (run once):
 pre-commit install    # on the host — registers git pre-commit hooks
 ```
 
+## Environment authoring and feature discovery
+
+For creating or changing environments, scenes, tasks, success conditions, or randomization, read
+[author-environment](skills/user/author-environment/SKILL.md) before implementing. For a feature
+question, start with its [feature map](skills/user/author-environment/references/feature-map.md)
+and read the relevant source and example. These are repository instructions even when the client
+has not refreshed its discovered skills. Use `run-experiment` when executing an existing evaluation.
+
+- Map each requested behavior to an existing Arena component and a maintained example before
+  writing code. Prefer configuration, then composition, then a small extension for a demonstrated
+  gap. Name the gap when adding a task, predicate, reset event, sampler, or placement helper.
+- Follow current typed factories in `isaaclab_arena_environments/`:
+  `ArenaEnvironmentCfg` + `ArenaEnvironmentFactory[Cfg].build(cfg)`. For declarative tasks, check
+  `ArenaEnvGraphSpec` and its converter first; unsupported YAML keys may be silently ignored.
+  `ExampleEnvironmentBase.get_env(args_cli)` is legacy compatibility, not a new-environment template.
+- Reuse registered assets, relations and placement pools, tasks and completion criteria, progress
+  recording, and variations. Do not duplicate their solvers, counters, reset loops, or metrics.
+  Include only features the requested environment needs.
+- Distinguish recorded milestones from conditions that must hold at success, and independent
+  completion from simultaneous predicates. Review reset behavior for parallel environments.
+- Finish with the example followed, reused features, any extension rationale, and actual validation
+  evidence. Do not equate a parse/lint pass with a runnable or physically solvable environment.
+
 ## Docker environment
 
 Commands that touch Isaac Sim or Arena's package code (tests, training, evaluation, runtime scripts) run inside the local repo clone's Docker container. The repo root is mounted at `/workspaces/isaaclab_arena`. Inside the container, `python` is aliased to `/isaac-sim/python.sh` — prefer the explicit path in `docker exec` invocations from outside the container, where the alias is not active.
