@@ -17,9 +17,17 @@ Declare the alternatives
    .. tab-item:: Python
       :selected:
 
-      ``as_variant()`` copies a concrete object's native spawn configuration.
-      Its scene name, initial pose, and relations belong to the object role
-      and are not copied. Placement geometry comes from the native configuration.
+      Use a library asset directly when every environment needs the same asset:
+
+      .. code-block:: python
+
+         fruit = asset_registry.get_asset_by_name("banana_ycb_robolab")(
+             instance_name="fruit"
+         )
+
+      For alternatives, pass library assets to ``variants``. ``Object`` copies
+      their native spawn settings, including scale and physics. Their scene names,
+      initial poses, and relations are not copied; these belong to ``fruit``.
 
       .. code-block:: python
 
@@ -28,12 +36,13 @@ Declare the alternatives
          from isaaclab_arena.scene.scene import Scene
          from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
 
-         fruit_assets = [
-             asset_registry.get_asset_by_name("banana_ycb_robolab")(),
-             asset_registry.get_asset_by_name("orange_01_fruits_veggies_robolab")(),
-             asset_registry.get_asset_by_name("lemon_01_fruits_veggies_robolab")(),
-         ]
-         fruit = Object(name="fruit", variants=[asset.as_variant() for asset in fruit_assets])
+         banana = asset_registry.get_asset_by_name("banana_ycb_robolab")()
+         orange = asset_registry.get_asset_by_name("orange_01_fruits_veggies_robolab")()
+         fruit = Object(
+             name="fruit",
+             variants=[banana, orange],
+             assign_variants_to_environments="sequential",
+         )
          fruit.add_relation(On(table_reference))
 
          scene = Scene(assets=[background, table_reference, bowl, fruit])
@@ -43,8 +52,9 @@ Declare the alternatives
              background_scene=background,
          )
 
-      You can also pass native Isaac Lab spawner configurations directly in
-      ``variants``. Configure each variant's scale and physics on its configuration.
+      A single variant behaves like an ordinary object: each environment gets
+      its own instance of the same asset. Advanced callers can also pass native
+      Isaac Lab spawner configurations directly in ``variants``.
 
    .. tab-item:: YAML
 
@@ -66,7 +76,7 @@ Declare the alternatives
            - registry_name: simready_usd_object
              params:
                usd_path: /datasets/lemon.usd
-           random_choice: false
+           assign_variants_to_environments: sequential
          relations:
          - kind: 'on'
            subject: fruit
@@ -88,20 +98,25 @@ Declare the alternatives
 Assign variants to environments
 --------------------------------
 
-``ArenaEnvBuilder`` assigns variants before placement and passes that same
-assignment to Isaac Lab's native scene clone planning. Ordered assignment cycles
-through the configurations in their declared order; ``random_choice=True``
-samples each environment independently. To reproduce random choices, assignment uses the
+``ArenaEnvBuilder`` assigns variants once during environment construction, before
+placement, and passes that same assignment to Isaac Lab's native scene clone planning.
+``assign_variants_to_environments="sequential"`` is the default: it cycles through
+the declared order, such as banana, orange, banana, orange.
+``assign_variants_to_environments="random"`` samples each environment independently,
+so repeats are possible. To reproduce random choices, assignment uses the
 builder's ``placement_seed``, then ``arena_env.placer_params.placement_seed``
 when the builder value is unset, and finally the builder's ``seed``.
 The assignment remains fixed across resets, even when the layout changes.
+
+This setting applies to each ``Object`` independently. Isaac Lab's scene-level
+``clone_strategy`` instead assigns combinations of variants across the scene.
 
 Assignments are stored as data in the environment configuration, so Isaac Lab's
 Hydra configuration roundtrip preserves them. Arena installs the native clone
 strategy when the environment starts and checks that configuration overrides
 have not changed the assigned assets or environment count.
 
-With three variants and ``--num_envs 3``, ordered assignment gives each environment
+With two variants and ``--num_envs 2``, sequential assignment gives each environment
 one different fruit. Use more than one environment to see alternatives side by
 side.
 
@@ -118,10 +133,11 @@ establish the assignment first:
 Native spawning and asset preparation
 ---------------------------------------
 
-``Object`` accepts native spawn configurations through the ``variants`` constructor
-argument. Multiple alternatives are stored in Isaac Lab's ``MultiAssetSpawnerCfg``
-and are available through ``object.spawn_cfg.assets_cfg``. A single alternative
-uses its concrete native configuration directly as ``object.spawn_cfg``.
+``Object`` converts library assets passed in ``variants`` to copies of their native
+spawn configurations. Multiple alternatives are stored in Isaac Lab's
+``MultiAssetSpawnerCfg`` and are available through ``object.spawn_cfg.assets_cfg``.
+A single alternative uses its concrete native configuration directly as
+``object.spawn_cfg``.
 After assignment, ``object.variant_indices_by_env`` identifies the selected
 configuration for each environment.
 

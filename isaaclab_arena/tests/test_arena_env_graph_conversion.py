@@ -140,7 +140,7 @@ def _test_arena_env_graph_conversion_builds_object_variants(simulation_app):
     assert isinstance(varied_object, Object)
     assert varied_object.has_variants
     assert len(varied_object.spawn_cfg.assets_cfg) == 2
-    assert varied_object.random_choice
+    assert varied_object.assign_variants_to_environments == "random"
     assert arena_env.task.pick_up_object is varied_object
 
     assign_object_variants([varied_object], num_envs=4, seed=42)

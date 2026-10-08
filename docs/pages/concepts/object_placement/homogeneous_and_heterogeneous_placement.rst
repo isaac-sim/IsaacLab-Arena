@@ -33,9 +33,9 @@ Implementation Differences
      - The environment clones one ``Object`` definition, so the same USD fills
        the role in every environment.
      - Arena selects one variant for each environment at build time, after
-       the environment count is known and before assets are spawned. Ordered
-       objects repeat their variant order; objects with ``random_choice=True`` sample
-       independently.
+       the environment count is known and before assets are spawned.
+       ``assign_variants_to_environments="sequential"`` repeats the declared order;
+       ``"random"`` samples independently.
    * - Dimensions used by spatial relations
      - Arena broadcasts the object's bounding box to every environment.
      - Arena uses the selected variant's bounding box in each environment.
@@ -105,7 +105,7 @@ uses:
 
    for role_name, variant_names in HETEROGENEOUS_VARIANT_SETS.items():
        assets = self._build_registered_objects(variant_names)
-       obj = Object(name=role_name, variants=[asset.as_variant() for asset in assets])
+       obj = Object(name=role_name, variants=assets)
        obj.add_relation(On(table_reference))
        placeable_assets.append(obj)
 

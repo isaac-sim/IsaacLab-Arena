@@ -18,10 +18,11 @@ def _make_box_cfg(size=(1.0, 2.0, 3.0), mass=0.2):
     return CuboidCfg(size=size, mass_props=MassPropertiesCfg(mass=mass), rigid_props=RigidBodyPropertiesCfg())
 
 
-def _test_native_members_keep_independent_settings_and_bounds(simulation_app):
+def _test_asset_and_native_variants_keep_independent_settings_and_bounds(simulation_app):
     from isaaclab.sim import MassPropertiesCfg, MultiAssetSpawnerCfg, RigidBodyPropertiesCfg, SphereCfg
 
     from isaaclab_arena.assets.object import Object
+    from isaaclab_arena.assets.object_type import ObjectType
 
     box_cfg = _make_box_cfg()
     box_cfg.activate_contact_sensors = True
@@ -31,8 +32,9 @@ def _test_native_members_keep_independent_settings_and_bounds(simulation_app):
         rigid_props=RigidBodyPropertiesCfg(kinematic_enabled=True),
         activate_contact_sensors=False,
     )
-    first = Object(name="first", variants=[box_cfg, sphere_cfg])
-    second = Object(name="second", variants=[box_cfg, sphere_cfg])
+    sphere = Object(name="sphere", spawner_cfg=sphere_cfg, object_type=ObjectType.RIGID)
+    first = Object(name="first", variants=[box_cfg, sphere])
+    second = Object(name="second", variants=[box_cfg, sphere])
     assert isinstance(first.spawn_cfg, MultiAssetSpawnerCfg)
     assert first.spawn_cfg is first.object_cfg.spawn
     native_box, native_sphere = first.spawn_cfg.assets_cfg
@@ -61,6 +63,7 @@ def _test_native_members_keep_independent_settings_and_bounds(simulation_app):
     assert box_cfg.size == (1.0, 2.0, 3.0)
     assert box_cfg.mass_props.mass == pytest.approx(0.2)
     assert sphere_cfg.radius == 2.0
+    assert sphere.spawn_cfg.radius == 2.0
     assert first.variant_indices_by_env == (0, 1, 0)
     return True
 
@@ -122,33 +125,59 @@ def _test_variants_require_one_explicit_source(simulation_app):
             spawner_cfg=multi_cfg,
             object_type=ObjectType.RIGID,
         )
+    for object_type in (ObjectType.BASE, ObjectType.ARTICULATION):
+        non_rigid = Object(name="non_rigid", spawner_cfg=variant_cfg, object_type=object_type)
+        with pytest.raises(AssertionError, match="rigid objects only"):
+            Object(name="invalid_member", variants=[non_rigid])
+    bounded = Object(name="bounded", spawner_cfg=variant_cfg, object_type=ObjectType.RIGID)
+    bounded.bounding_box = bounded.get_bounding_box()
+    with pytest.raises(AssertionError, match="bounds override"):
+        Object(name="invalid_bounds", variants=[bounded])
+    with pytest.raises(AssertionError, match="must be 'sequential' or 'random'"):
+        Object(name="invalid_assignment", variants=[variant_cfg], assign_variants_to_environments="cycle_in_order")
+    with pytest.raises(AssertionError, match="requires object variants"):
+        Object(
+            name="no_variants",
+            spawner_cfg=variant_cfg,
+            object_type=ObjectType.RIGID,
+            assign_variants_to_environments="random",
+        )
     return True
 
 
-def _test_single_variant_collapses_and_as_variant_copies_native_settings(simulation_app):
+def _test_single_asset_variant_copies_spawn_settings_without_scene_state(simulation_app):
     from isaaclab.sim import CuboidCfg
-    from isaaclab.sim.spawners.spawner_cfg import SpawnerCfg
 
     from isaaclab_arena.assets.object import Object
     from isaaclab_arena.assets.object_type import ObjectType
+    from isaaclab_arena.relations.relations import IsAnchor
+    from isaaclab_arena.utils.pose import Pose
 
     source_cfg = _make_box_cfg()
-    obj = Object(name="single", variants=[source_cfg])
+    source = Object(
+        name="source",
+        spawner_cfg=source_cfg,
+        object_type=ObjectType.RIGID,
+        initial_pose=Pose(position_xyz=(1.0, 2.0, 3.0)),
+        relations=[IsAnchor()],
+    )
+    obj = Object(name="single", variants=[source])
     assert obj.object_type == ObjectType.RIGID
     assert not obj.has_variants
     assert isinstance(obj.spawn_cfg, CuboidCfg)
+    assert obj.name == "single"
+    assert obj.prim_path == "{ENV_REGEX_NS}/single"
+    assert obj.initial_pose is None
+    assert not obj.relations
     torch.testing.assert_close(obj.get_bounding_box_per_env(3).size, torch.tensor([[1.0, 2.0, 3.0]]).expand(3, 3))
-    copied_cfg = obj.as_variant()
-    assert isinstance(copied_cfg, SpawnerCfg)
-    assert isinstance(copied_cfg, CuboidCfg)
-    assert copied_cfg is not obj.spawn_cfg
-    copied_cfg.mass_props.mass = 0.9
-    copied_cfg.size = (4.0, 5.0, 6.0)
-    assert obj.spawn_cfg.mass_props.mass == pytest.approx(0.2)
-    assert obj.spawn_cfg.size == (1.0, 2.0, 3.0)
+    obj.spawn_cfg.mass_props.mass = 0.9
+    obj.spawn_cfg.size = (4.0, 5.0, 6.0)
+    assert source.spawn_cfg.mass_props.mass == pytest.approx(0.2)
+    assert source.spawn_cfg.size == (1.0, 2.0, 3.0)
     assert source_cfg.mass_props.mass == pytest.approx(0.2)
-    restored = Object(name="restored", variants=[copied_cfg])
-    torch.testing.assert_close(restored.get_bounding_box().size, torch.tensor([[4.0, 5.0, 6.0]]))
+    source.spawn_cfg.mass_props.mass = 0.4
+    assert obj.spawn_cfg.mass_props.mass == pytest.approx(0.9)
+    torch.testing.assert_close(obj.get_bounding_box().size, torch.tensor([[4.0, 5.0, 6.0]]))
     return True
 
 
@@ -161,8 +190,8 @@ def _test_heterogeneous_bounds_require_a_stable_assignment(simulation_app):
         obj.get_bounding_box()
     with pytest.raises(AssertionError, match="variant assignment"):
         obj.get_bounding_box_for_env(0)
-    with pytest.raises(AssertionError, match="concrete native variant"):
-        obj.as_variant()
+    with pytest.raises(AssertionError, match="nested variants"):
+        Object(name="nested", variants=[obj])
     obj.bind_variant_assignment((1, 0, 1))
     obj.bind_variant_assignment((1, 0, 1))
     torch.testing.assert_close(
@@ -176,8 +205,10 @@ def _test_heterogeneous_bounds_require_a_stable_assignment(simulation_app):
     return True
 
 
-def test_native_members_keep_independent_settings_and_bounds():
-    assert run_function_with_persistent_simulation_app(_test_native_members_keep_independent_settings_and_bounds)
+def test_asset_and_native_variants_keep_independent_settings_and_bounds():
+    assert run_function_with_persistent_simulation_app(
+        _test_asset_and_native_variants_keep_independent_settings_and_bounds
+    )
 
 
 def test_usd_variants_use_independent_native_scales(tmp_path):
@@ -190,9 +221,9 @@ def test_variants_require_one_explicit_source():
     assert run_function_with_persistent_simulation_app(_test_variants_require_one_explicit_source)
 
 
-def test_single_variant_collapses_and_as_variant_copies_native_settings():
+def test_single_asset_variant_copies_spawn_settings_without_scene_state():
     assert run_function_with_persistent_simulation_app(
-        _test_single_variant_collapses_and_as_variant_copies_native_settings
+        _test_single_asset_variant_copies_spawn_settings_without_scene_state
     )
 
 

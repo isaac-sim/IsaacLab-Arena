@@ -45,9 +45,7 @@ def _test_single_variant_object(simulation_app):
         prim_path="{ENV_REGEX_NS}/kitchen/Cabinet_B_02",
         parent_asset=background,
     )
-    varied_object = Object(
-        name="single_object_variants", variants=[cracker_box.as_variant()], prim_path=VARIANT_OBJECT_1_PRIM_PATH
-    )
+    varied_object = Object(name="single_object_variants", variants=[cracker_box], prim_path=VARIANT_OBJECT_1_PRIM_PATH)
     varied_object.set_initial_pose(Pose(position_xyz=(0.1, 0.0, 0.1), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
     scene = Scene(assets=[background, varied_object, destination_location])
     task = PickAndPlaceTask(
@@ -114,7 +112,7 @@ def _test_object_variants_across_environments(simulation_app):
     )
     varied_object = Object(
         name="multiple_objects_with_variants",
-        variants=[cracker_box.as_variant(), sugar_box.as_variant()],
+        variants=[cracker_box, sugar_box],
         prim_path=VARIANT_OBJECT_2_PRIM_PATH,
     )
     scene = Scene(assets=[background, varied_object, destination_location])
@@ -185,12 +183,12 @@ def _test_multiple_objects_with_variants(simulation_app):
 
     first_object = Object(
         name="multiple_objects_with_variants_1",
-        variants=[cracker_box.as_variant(), sugar_box.as_variant()],
+        variants=[cracker_box, sugar_box],
         prim_path=VARIANT_OBJECT_1_PRIM_PATH,
     )
     second_object = Object(
         name="multiple_objects_with_variants_2",
-        variants=[sugar_box.as_variant(), mustard_bottle.as_variant()],
+        variants=[sugar_box, mustard_bottle],
         prim_path=VARIANT_OBJECT_2_PRIM_PATH,
     )
     scene = Scene(assets=[background, first_object, second_object])
@@ -270,7 +268,7 @@ def _test_object_variants_with_robot_mounted_cameras(simulation_app) -> bool:
     sweet_potato = asset_registry.get_asset_by_name("sweet_potato")()
     jug = asset_registry.get_asset_by_name("jug")()
 
-    object_variants = Object(name="object_variants", variants=[sweet_potato.as_variant(), jug.as_variant()])
+    object_variants = Object(name="object_variants", variants=[sweet_potato, jug])
     object_variants.set_initial_pose(
         Pose(position_xyz=(0.0758066475391388, -0.5088448524475098, 0.5), rotation_xyzw=(0, 0, 0, 1))
     )

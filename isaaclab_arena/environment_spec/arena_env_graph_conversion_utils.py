@@ -191,11 +191,11 @@ def instantiate_assets_from_spec(
             variants = []
             for variant in obj.variants:
                 member = asset_registry.get_asset_by_name(variant.registry_name)(**parse_asset_params(variant.params))
-                variants.append(member.as_variant())
+                variants.append(member)
             assets_by_node_id[obj.id] = Object(
                 name=obj.id,
                 variants=variants,
-                random_choice=obj.random_choice,
+                assign_variants_to_environments=obj.assign_variants_to_environments,
                 **params,
             )
 

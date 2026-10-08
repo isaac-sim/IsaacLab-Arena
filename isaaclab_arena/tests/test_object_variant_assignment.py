@@ -10,7 +10,7 @@ from __future__ import annotations
 import torch
 from copy import deepcopy
 from functools import wraps
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 import pytest
 
@@ -36,7 +36,9 @@ def _with_simulation_app(test_function):
     return run_test
 
 
-def _make_object(name: str, variant_count: int, random_choice: bool = False) -> Object:
+def _make_object(
+    name: str, variant_count: int, assign_variants_to_environments: Literal["sequential", "random"] = "sequential"
+) -> Object:
     from isaaclab.sim import CuboidCfg
 
     from isaaclab_arena.assets.object import Object
@@ -45,7 +47,7 @@ def _make_object(name: str, variant_count: int, random_choice: bool = False) -> 
     for variant_index in range(variant_count):
         width = 0.1 * (variant_index + 1)
         variants.append(CuboidCfg(size=(width, width, width)))
-    return Object(name=name, variants=variants, random_choice=random_choice)
+    return Object(name=name, variants=variants, assign_variants_to_environments=assign_variants_to_environments)
 
 
 def _make_scene(objects: list[Object], num_envs: int) -> InteractiveSceneCfg:
@@ -100,6 +102,8 @@ def test_native_clone_plan_matches_bounds_for_two_unequal_variant_counts():
 
     objects = [_make_object("pickup", 2), _make_object("destination", 3)]
     assignments = assign_object_variants(objects, num_envs=7, seed=19)
+    assert objects[0].variant_indices_by_env == (0, 1, 0, 1, 0, 1, 0)
+    assert objects[1].variant_indices_by_env == (0, 1, 2, 0, 1, 2, 0)
     scene_cfg = _make_scene(objects, num_envs=7)
     validate_object_variant_assignments(scene_cfg, assignments)
     with object_variant_clone_strategy(scene_cfg, assignments):
@@ -119,9 +123,18 @@ def test_native_clone_plan_matches_bounds_for_two_unequal_variant_counts():
 def test_assignment_is_seeded_by_object_name_and_preserved_after_binding():
     from isaaclab_arena.scene.object_variant_assignment import assign_object_variants, object_variant_clone_strategy
 
-    objects = [_make_object("pickup", 3, True), _make_object("destination", 3, True)]
-    reordered_objects = [_make_object("destination", 3, True), _make_object("pickup", 3, True)]
-    other_seed_objects = [_make_object("pickup", 3, True), _make_object("destination", 3, True)]
+    objects = [
+        _make_object("pickup", 3, assign_variants_to_environments="random"),
+        _make_object("destination", 3, assign_variants_to_environments="random"),
+    ]
+    reordered_objects = [
+        _make_object("destination", 3, assign_variants_to_environments="random"),
+        _make_object("pickup", 3, assign_variants_to_environments="random"),
+    ]
+    other_seed_objects = [
+        _make_object("pickup", 3, assign_variants_to_environments="random"),
+        _make_object("destination", 3, assign_variants_to_environments="random"),
+    ]
     assignments = assign_object_variants(objects, num_envs=20, seed=19)
     assign_object_variants(reordered_objects, num_envs=20, seed=19)
     assign_object_variants(other_seed_objects, num_envs=20, seed=20)
@@ -226,7 +239,7 @@ def test_source_edit_before_assignment_rejects_incompatible_rigid_body_paths(tmp
         UsdPhysics.RigidBodyAPI.Apply(body)
         stage.GetRootLayer().Save()
     member = Object(name="member", object_type=ObjectType.RIGID, spawner_cfg=UsdFileCfg(usd_path=str(root_path)))
-    obj = Object(name="pickup", variants=[member.as_variant(), member.as_variant()])
+    obj = Object(name="pickup", variants=[member, member])
     obj.spawn_cfg.assets_cfg[1].usd_path = str(nested_path)
     with pytest.raises(AssertionError, match="incompatible rigid-body paths"):
         assign_object_variants([obj], num_envs=3)
@@ -284,7 +297,10 @@ def _roundtrip_environment_config(scene_cfg, assignments):
 def test_clone_strategy_survives_hydra_config_roundtrip():
     from isaaclab_arena.scene.object_variant_assignment import assign_object_variants, object_variant_clone_strategy
 
-    objects = [_make_object("pickup", 2, True), _make_object("destination", 3, True)]
+    objects = [
+        _make_object("pickup", 2, assign_variants_to_environments="random"),
+        _make_object("destination", 3, assign_variants_to_environments="random"),
+    ]
     assignments = assign_object_variants(objects, num_envs=7, seed=19)
     restored, serialized = _roundtrip_environment_config(_make_scene(objects, num_envs=7), assignments)
     original_strategy = restored.scene.clone_cfg.clone_strategy
@@ -320,7 +336,7 @@ def test_runtime_rejects_hydra_overrides_that_change_placement_geometry(override
 
     from isaaclab_arena.scene.object_variant_assignment import assign_object_variants, object_variant_clone_strategy
 
-    obj = _make_object("pickup", 2, True)
+    obj = _make_object("pickup", 2, assign_variants_to_environments="random")
     assignments = assign_object_variants([obj], num_envs=7, seed=19)
     restored, _ = _roundtrip_environment_config(_make_scene([obj], num_envs=7), assignments)
     if override == "num_envs":

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from enum import Enum
 from numbers import Real
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -128,9 +128,12 @@ class ObjectSpec(AssetSpec):
         min_length=1,
         description="Rigid alternatives for this object role; every environment spawns one of them.",
     )
-    random_choice: bool = Field(
-        default=False,
-        description="Choose variants randomly per environment; otherwise repeat their declared order.",
+    assign_variants_to_environments: Literal["sequential", "random"] = Field(
+        default="sequential",
+        description=(
+            "Assign one variant per environment during construction: sequential repeats their declared order; "
+            "random samples independently. The assignment stays fixed across resets."
+        ),
     )
 
     @field_validator("registry_name")
@@ -143,8 +146,10 @@ class ObjectSpec(AssetSpec):
         assert (self.registry_name is None) != (
             self.variants is None
         ), "Object must define exactly one of registry_name or variants"
-        assert self.variants is not None or not self.random_choice, "random_choice requires object variants"
-        reserved = {"variants", "random_choice"}
+        assert (
+            self.variants is not None or self.assign_variants_to_environments == "sequential"
+        ), "Random assignment requires object variants"
+        reserved = {"variants", "assign_variants_to_environments"}
         if self.variants is not None:
             reserved.update({"name", "instance_name", "object_type", "usd_path", "spawner_cfg"})
         duplicate_params = sorted(reserved & self.params.keys())

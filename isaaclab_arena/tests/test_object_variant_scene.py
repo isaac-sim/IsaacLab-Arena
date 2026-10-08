@@ -65,13 +65,13 @@ def _test_native_variant_scene(simulation_app, tmp_path):
 
     pickup = Object(
         name="pickup",
-        variants=[make_member(root_path, 1.0).as_variant(), make_member(nested_path, 1.5).as_variant()],
+        variants=[make_member(root_path, 1.0), make_member(nested_path, 1.5)],
         initial_pose=Pose(position_xyz=(0.0, 0.0, 2.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)),
     )
     destination = Object(
         name="destination",
-        variants=[make_member(nested_path, scale).as_variant() for scale in (0.5, 1.0, 2.0)],
-        random_choice=True,
+        variants=[make_member(nested_path, scale) for scale in (0.5, 1.0, 2.0)],
+        assign_variants_to_environments="random",
         initial_pose=Pose(position_xyz=(1.0, 0.0, 2.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)),
     )
     assert pickup.get_contact_sensor_prim_path().endswith("/rigid_body")

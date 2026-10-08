@@ -247,9 +247,7 @@ class GR1TableMultiObjectNoCollisionEnvironment(ArenaEnvironmentFactory[GR1Table
 
             for set_name, variant_names in HETERO_VARIANT_SETS.items():
                 members = [self.asset_registry.get_asset_by_name(n)() for n in variant_names]
-                obj_set = Object(
-                    name=set_name, variants=[member.as_variant() for member in members], random_choice=True
-                )
+                obj_set = Object(name=set_name, variants=members, assign_variants_to_environments="random")
                 obj_set.add_relation(On(tabletop_reference, clearance_m=0.01))
                 placeable_assets.append(obj_set)
 

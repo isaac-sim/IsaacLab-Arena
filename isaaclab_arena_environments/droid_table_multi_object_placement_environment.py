@@ -162,7 +162,7 @@ class DroidTableMultiObjectPlacementEnvironment(ArenaEnvironmentFactory[DroidTab
         placeable_assets = []
         for role_name, variant_names in HETEROGENEOUS_VARIANT_SETS.items():
             assets = self._build_registered_objects(variant_names)
-            obj = Object(name=role_name, variants=[asset.as_variant() for asset in assets])
+            obj = Object(name=role_name, variants=assets)
             obj.add_relation(On(table_reference))
             placeable_assets.append(obj)
         return placeable_assets

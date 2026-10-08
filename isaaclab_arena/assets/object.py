@@ -8,7 +8,7 @@ import torch
 import trimesh
 from collections.abc import Collection, Sequence
 from copy import deepcopy
-from typing import Any
+from typing import Any, Literal
 
 from isaaclab.assets import ArticulationCfg, AssetBaseCfg, RigidObjectCfg
 from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
@@ -42,10 +42,35 @@ class Object(RootedObjectBase):
         initial_pose: Pose | None = None,
         relations: list[RelationBase] | None = None,
         spawner_cfg: SpawnerCfg | None = None,
-        variants: Sequence[SpawnerCfg] | None = None,
-        random_choice: bool = False,
+        variants: Sequence[Object | SpawnerCfg] | None = None,
+        assign_variants_to_environments: Literal["sequential", "random"] = "sequential",
         **kwargs,
     ):
+        """Create a scene object, optionally choosing a rigid asset for each environment.
+
+        Args:
+            name: Scene name shared by this object's instances across environments.
+            prim_path: Scene prim path; defaults to the environment namespace and name.
+            object_type: Physics type, inferred for USD sources and rigid for variants.
+            usd_path: USD source when not using a library object or native spawner.
+            scale: Scale for a USD source; configure each variant's scale on that asset.
+            initial_pose: Initial pose of this scene object.
+            relations: Placement relations of this scene object.
+            spawner_cfg: Native spawn configuration for a single asset.
+            variants: Rigid Object instances or native spawn configurations. Spawn settings
+                are copied; member names, poses, and relations are not inherited.
+            assign_variants_to_environments: Cycle through variants in order ("sequential")
+                or sample independently per environment ("random"). The builder assigns
+                once before placement; resets keep the same choices.
+            **kwargs: Additional asset configuration and base-class options.
+        """
+        assert assign_variants_to_environments in (
+            "sequential",
+            "random",
+        ), "assign_variants_to_environments must be 'sequential' or 'random'"
+        assert (
+            variants is not None or assign_variants_to_environments == "sequential"
+        ), "Random assignment requires object variants"
         spawn_cfg_addon: dict[str, Any] = kwargs.pop("spawn_cfg_addon", {}) or {}
         asset_cfg_addon: dict[str, Any] = kwargs.pop("asset_cfg_addon", {}) or {}
         source_count = sum(source is not None for source in (usd_path, spawner_cfg, variants))
@@ -54,18 +79,28 @@ class Object(RootedObjectBase):
             assert variants, "Object variants require at least one native spawn configuration"
             assert object_type in (None, ObjectType.RIGID), "Object variants support rigid objects only"
             assert not spawn_cfg_addon and scale == (1.0, 1.0, 1.0), "Configure spawn options on each variant"
-            for variant_cfg in variants:
-                assert isinstance(variant_cfg, SpawnerCfg), "Object variants must be native spawn configurations"
+            spawn_configs = []
+            for variant in variants:
+                if isinstance(variant, Object):
+                    assert variant.object_type == ObjectType.RIGID, "Object variants support rigid objects only"
+                    assert not variant.has_variants, "Object variants cannot contain nested variants"
+                    assert variant.bounding_box is None, "Object variants cannot copy a bounds override"
+                    variant_cfg = variant.spawn_cfg
+                else:
+                    variant_cfg = variant
+                assert isinstance(
+                    variant_cfg, SpawnerCfg
+                ), "Object variants must be rigid Object instances or native spawn configurations"
                 assert not isinstance(
                     variant_cfg, (MultiAssetSpawnerCfg, MultiUsdFileCfg)
                 ), "Object variants must each spawn one rigid body; nested multi-spawners are not supported"
+                spawn_configs.append(variant_cfg)
             object_type = ObjectType.RIGID
-            spawn_configs = prepare_rigid_object_variants(variants)
+            spawn_configs = prepare_rigid_object_variants(spawn_configs)
             spawn_cfg = spawn_configs[0]
             if len(spawn_configs) > 1:
                 spawn_cfg = MultiAssetSpawnerCfg(
                     assets_cfg=spawn_configs,
-                    random_choice=False,
                     # None keeps each member's native setting; the wrapper's False default replaces it.
                     activate_contact_sensors=None,
                 )
@@ -92,7 +127,7 @@ class Object(RootedObjectBase):
         self.relations = list(relations or [])
         self.reset_pose = True
         self.bounding_box: AxisAlignedBoundingBox | None = None
-        self.random_choice = random_choice
+        self.assign_variants_to_environments = assign_variants_to_environments
         self._variant_indices_by_env: tuple[int, ...] | None = None
         self._geometry: dict[int, ObjectGeometry] = {}
         cfg_options = deepcopy(asset_cfg_addon)
@@ -151,15 +186,6 @@ class Object(RootedObjectBase):
             indices,
         ), f"Object '{self.name}' already has a different variant assignment; construct a new object for a new scene."
         self._variant_indices_by_env = indices
-
-    def as_variant(self) -> SpawnerCfg:
-        """Copy this rigid singleton's native spawn configuration for Object(variants=...)."""
-        assert self.object_type == ObjectType.RIGID, "Only rigid objects can supply a spawn variant"
-        assert not self.has_variants, f"Select a concrete native variant of '{self.name}'"
-        assert (
-            self.bounding_box is None
-        ), "Variants derive bounds from native geometry and cannot copy a bounds override"
-        return deepcopy(self._get_variant_spawn_configs()[0])
 
     def _get_variant_spawn_configs(self) -> list[SpawnerCfg]:
         """Read alternatives from the authoritative native spawn configuration."""

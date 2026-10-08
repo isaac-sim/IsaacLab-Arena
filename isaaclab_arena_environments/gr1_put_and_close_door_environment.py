@@ -175,7 +175,7 @@ class GR1PutAndCloseDoorEnvironment(ArenaEnvironmentFactory[GR1PutAndCloseDoorEn
 
         if cfg.object_variants is not None and len(cfg.object_variants) > 0:
             objects = [self.asset_registry.get_asset_by_name(obj)() for obj in cfg.object_variants]
-            pickup_object = Object(name="pick_up_object", variants=[member.as_variant() for member in objects])
+            pickup_object = Object(name="pick_up_object", variants=objects)
         else:
             pickup_object = self.asset_registry.get_asset_by_name(cfg.object)()
 

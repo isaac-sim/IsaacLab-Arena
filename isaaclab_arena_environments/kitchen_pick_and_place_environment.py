@@ -57,7 +57,7 @@ class KitchenPickAndPlaceEnvironment(ArenaEnvironmentFactory[KitchenPickAndPlace
         if has_object_variants:
             assert cfg.object_variants is not None
             objects = [self.asset_registry.get_asset_by_name(obj)() for obj in cfg.object_variants]
-            pick_up_object = Object(name="pick_up_object", variants=[member.as_variant() for member in objects])
+            pick_up_object = Object(name="pick_up_object", variants=objects)
         else:
             pick_up_object = self.asset_registry.get_asset_by_name(cfg.object)()
         pick_up_object.add_relation(On(table_top_reference, clearance_m=0.02))

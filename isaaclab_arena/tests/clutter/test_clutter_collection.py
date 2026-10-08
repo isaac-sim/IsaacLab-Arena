@@ -32,7 +32,7 @@ def _test_settling_rejects_object_variants_before_reset(simulation_app, tmp_path
     arena_env = _make_primitive_clutter_scene(tmp_path)
     assets = arena_env.get_placement_assets()
     cube = next(asset for asset in assets if get_relation(asset, ClutterOn) is not None)
-    variants = Object("cube_variants", variants=[cube.as_variant(), cube.as_variant()])
+    variants = Object("cube_variants", variants=[cube, cube])
     env = ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg(num_envs=1)).make_registered()
     try:
         with patch.object(env.unwrapped, "reset", side_effect=AssertionError("must reject before resetting")):

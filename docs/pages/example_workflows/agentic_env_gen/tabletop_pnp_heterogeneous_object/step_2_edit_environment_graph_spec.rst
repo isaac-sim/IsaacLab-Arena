@@ -39,7 +39,7 @@ The generated spec has one block per part of the environment graph:
      - registry_name: orange_02_fruits_veggies_robolab
      - registry_name: pomegranate01_fruits_veggies_robolab
      - registry_name: lychee01_fruits_veggies_robolab
-     random_choice: true             # each env samples its variant independently
+     assign_variants_to_environments: random  # each env samples independently
      params: {}
    relations:                        # spatial constraints solved at build time
    - kind: is_anchor
@@ -76,8 +76,8 @@ Editing object variants
 ^^^^^^^^^^^^^^^^^^^^^^^
 
 Widening or narrowing the variation is a one-block edit — ``variants`` and
-``random_choice`` — that leaves the relations and the task untouched. For the
-asset concept behind object variants, see
+``assign_variants_to_environments`` — that leaves the relations and the task
+untouched. For the asset concept behind object variants, see
 :doc:`../../../concepts/scene/concept_object_variants`.
 
 #. Add or remove a variant to change which assets the environments draw from.
@@ -89,15 +89,16 @@ asset concept behind object variants, see
         variants:
         - registry_name: apple_01_objaverse_robolab
         - registry_name: banana_ycb_robolab
-        random_choice: true
+        assign_variants_to_environments: random
         params: {}
 
-#. Set ``random_choice`` to choose how variants map to environments. With ``true`` each environment samples its
-   variant independently; with ``false``, it follows the declared variant order across environments.
+#. Set ``assign_variants_to_environments`` to choose how variants map to environments.
+   ``random`` samples independently, with possible repeats; ``sequential`` cycles
+   through the declared order. Assignment stays fixed across resets.
 
    .. code-block:: yaml
 
-      random_choice: false
+      assign_variants_to_environments: sequential
 
 
 .. note::

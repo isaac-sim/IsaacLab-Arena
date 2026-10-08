@@ -47,7 +47,7 @@ def _test_object_variants_on_destination_termination(simulation_app) -> bool:
 
     object_variants = Object(
         name="object_variants",
-        variants=[sweet_potato.as_variant(), jug.as_variant()],
+        variants=[sweet_potato, jug],
     )
     object_variants.set_initial_pose(
         Pose(

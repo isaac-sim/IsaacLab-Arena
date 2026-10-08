@@ -17,7 +17,7 @@ objects:
   variants:
   - registry_name: sweet_potato
   - registry_name: jug
-  random_choice: true
+  assign_variants_to_environments: random
 relations:
 - kind: is_anchor
   subject: maple_table_robolab

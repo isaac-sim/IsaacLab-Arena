@@ -371,13 +371,17 @@ variant accepts its own ``params``, including a SimReady ``usd_path`` or scale:
        params:
          usd_path: /datasets/bottle.usd
      - registry_name: ketchup_bottle_hope_robolab
-     random_choice: false
+     assign_variants_to_environments: sequential
 
-The equivalent Python declaration uses each concrete object's native spawn configuration:
+The equivalent Python declaration takes library assets directly:
 
 .. code-block:: python
 
-   Object(name="bottle", variants=[simready_bottle.as_variant(), ycb_bottle.as_variant()])
+   Object(
+       name="bottle",
+       variants=[simready_bottle, ycb_bottle],
+       assign_variants_to_environments="sequential",
+   )
 
 Relations and tasks reference the object role's ``id`` regardless of which variant
 an environment receives. ``object_sets`` is no longer a graph field.

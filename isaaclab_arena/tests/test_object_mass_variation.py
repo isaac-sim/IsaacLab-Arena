@@ -79,7 +79,9 @@ def _test_object_mass_variation_registration(simulation_app):
     assert "mass" not in table.variations
 
     varied_object = Object(
-        name="boxes", variants=[CuboidCfg(size=(0.1, 0.1, height)) for height in (0.2, 0.3)], random_choice=True
+        name="boxes",
+        variants=[CuboidCfg(size=(0.1, 0.1, height)) for height in (0.2, 0.3)],
+        assign_variants_to_environments="random",
     )
     assert "mass" in varied_object.variations
 
