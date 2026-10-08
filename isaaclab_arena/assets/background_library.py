@@ -18,10 +18,7 @@ from isaaclab_arena.utils.pose import Pose
 
 
 class LibraryBackground(Background):
-    """
-    Base class for objects in the library which are defined in this file.
-    These objects have class attributes (rather than instance attributes).
-    """
+    """Construct library backgrounds from class defaults and instance overrides."""
 
     name: str
     tags: list[str]
@@ -31,13 +28,14 @@ class LibraryBackground(Background):
     spawn_cfg_addon: dict[str, Any] = {}
     asset_cfg_addon: dict[str, Any] = {}
 
-    def __init__(self, **kwargs):
+    def __init__(self, usd_path: str | None = None, **kwargs):
         # Check lazy USD paths are set by here
-        assert self.usd_path is not None
+        usd_path = usd_path if usd_path is not None else type(self).usd_path
+        assert usd_path is not None
         super().__init__(
             name=self.name,
             tags=self.tags,
-            usd_path=self.usd_path,
+            usd_path=usd_path,
             initial_pose=self.initial_pose,
             object_min_z=self.object_min_z,
             spawn_cfg_addon=self.spawn_cfg_addon,
@@ -145,7 +143,7 @@ class OfficeTableBackground(LibraryBackground):
     }
 
     def __init__(self, **kwargs):
-        super().__init__(scale=self.scale, **kwargs)
+        super().__init__(scale=type(self).scale, **kwargs)
 
 
 @register_asset
@@ -176,7 +174,7 @@ class LightwheelKitchenBackground(LibraryBackground):
             style_id = self.style_id
 
         # Lazily download the USD
-        self.usd_path = str(
+        usd_path = str(
             acquire_lightwheel_asset(
                 floorplan_loader,
                 floorplan_loader.get_usd,
@@ -187,7 +185,7 @@ class LightwheelKitchenBackground(LibraryBackground):
                 backend="robocasa",
             )[0]
         )
-        super().__init__(**kwargs)
+        super().__init__(usd_path=usd_path, **kwargs)
 
     def get_viewer_cfg(self) -> ViewerCfg:
         # Looking in through the open front.

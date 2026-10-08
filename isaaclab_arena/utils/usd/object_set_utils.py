@@ -31,9 +31,9 @@ def rescale_root(stage: Usd.Stage, asset: Asset) -> None:
     xformable = UsdGeom.Xformable(root_prim)
     scale_attr = root_prim.GetAttribute("xformOp:scale")
     if scale_attr.IsValid():
-        UsdGeom.XformOp(scale_attr).Set(Gf.Vec3f(*asset.scale))
+        UsdGeom.XformOp(scale_attr).Set(Gf.Vec3f(*(asset.spawn_cfg.scale or (1.0, 1.0, 1.0))))
     else:
-        xformable.AddScaleOp().Set(Gf.Vec3f(*asset.scale))
+        xformable.AddScaleOp().Set(Gf.Vec3f(*(asset.spawn_cfg.scale or (1.0, 1.0, 1.0))))
 
 
 def rename_rigid_body(stage: Usd.Stage, new_name: str) -> str:
@@ -176,8 +176,8 @@ def rescale_rename_rigid_body_and_save_to_cache(asset: Asset) -> str:
     (6) exports to the cache. Without step (4), material bindings and shader connections would
     point at the old root path and be ignored by USD, causing grey/missing materials.
     """
-    cache_path = get_object_set_asset_cache_path(asset, asset.scale)
-    with open_stage(asset.usd_path) as stage:
+    cache_path = get_object_set_asset_cache_path(asset, (asset.spawn_cfg.scale or (1.0, 1.0, 1.0)))
+    with open_stage(asset.spawn_cfg.usd_path) as stage:
         rescale_root(stage, asset)
         # Move root-level rigid body under a container so every member nests it the same way.
         _wrap_root_rigid_body_in_container(stage)

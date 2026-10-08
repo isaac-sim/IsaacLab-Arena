@@ -119,14 +119,14 @@ def _test_auto_object_type(simulation_app):
             name="cracker_box",
             prim_path="{ENV_REGEX_NS}/cracker_box",
             object_type=None,
-            usd_path=asset_registry.get_asset_by_name("cracker_box")().usd_path,
+            usd_path=asset_registry.get_asset_by_name("cracker_box")().spawn_cfg.usd_path,
         )
 
         microwave = Object(
             name="microwave",
             prim_path="{ENV_REGEX_NS}/microwave",
             object_type=None,
-            usd_path=asset_registry.get_asset_by_name("microwave")().usd_path,
+            usd_path=asset_registry.get_asset_by_name("microwave")().spawn_cfg.usd_path,
         )
 
         scene = Scene(assets=[background, cracker_box, microwave])

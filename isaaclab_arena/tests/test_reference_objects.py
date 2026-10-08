@@ -103,11 +103,11 @@ def test_object_reference_caches_parent_usd_prim_path(monkeypatch):
     obj_ref = ObjectReference.__new__(ObjectReference)
     obj_ref.prim_path = "{ENV_REGEX_NS}/kitchen/counter"
     obj_ref._parent_scale = (1.0, 1.0, 1.0)
-    parent = SimpleNamespace(usd_path="/tmp/kitchen.usd", name="kitchen")
+    parent = SimpleNamespace(spawn_cfg=SimpleNamespace(usd_path="/tmp/kitchen.usd"), name="kitchen")
 
     class OpenStage:
         def __init__(self, path):
-            assert path == parent.usd_path
+            assert path == parent.spawn_cfg.usd_path
 
         def __enter__(self):
             calls["open_count"] += 1
@@ -146,7 +146,7 @@ def test_object_reference_get_collision_mesh_extracts_referenced_prim(monkeypatc
     expected_mesh = trimesh.creation.box(extents=(0.2, 0.1, 0.05))
     calls = {}
     obj_ref = ObjectReference.__new__(ObjectReference)
-    obj_ref.parent_asset = SimpleNamespace(usd_path="/tmp/kitchen.usd", name="kitchen")
+    obj_ref.parent_asset = SimpleNamespace(spawn_cfg=SimpleNamespace(usd_path="/tmp/kitchen.usd"), name="kitchen")
     obj_ref.prim_path = "{ENV_REGEX_NS}/kitchen/counter"
     obj_ref._parent_scale = (2.0, 1.0, 1.0)
     obj_ref._collision_mesh = None
@@ -195,7 +195,7 @@ def test_object_reference_get_collision_mesh_returns_none_on_extraction_failure(
     calls = {"extract_count": 0}
     obj_ref = ObjectReference.__new__(ObjectReference)
     obj_ref.name = "counter"
-    obj_ref.parent_asset = SimpleNamespace(usd_path="/tmp/kitchen.usd", name="kitchen")
+    obj_ref.parent_asset = SimpleNamespace(spawn_cfg=SimpleNamespace(usd_path="/tmp/kitchen.usd"), name="kitchen")
     obj_ref.prim_path = "{ENV_REGEX_NS}/kitchen/counter"
     obj_ref._parent_scale = (1.0, 1.0, 1.0)
     obj_ref._collision_mesh = None
@@ -240,7 +240,7 @@ def test_object_reference_get_collision_mesh_returns_none_on_unsupported_geometr
 
     obj_ref = ObjectReference.__new__(ObjectReference)
     obj_ref.name = "counter"
-    obj_ref.parent_asset = SimpleNamespace(usd_path="/tmp/kitchen.usd", name="kitchen")
+    obj_ref.parent_asset = SimpleNamespace(spawn_cfg=SimpleNamespace(usd_path="/tmp/kitchen.usd"), name="kitchen")
     obj_ref.prim_path = "{ENV_REGEX_NS}/kitchen/counter"
     obj_ref._parent_scale = (1.0, 1.0, 1.0)
     obj_ref._collision_mesh = None
@@ -283,7 +283,7 @@ def test_object_reference_get_collision_mesh_raises_on_missing_prim(monkeypatch)
 
     obj_ref = ObjectReference.__new__(ObjectReference)
     obj_ref.name = "counter"
-    obj_ref.parent_asset = SimpleNamespace(usd_path="/tmp/kitchen.usd", name="kitchen")
+    obj_ref.parent_asset = SimpleNamespace(spawn_cfg=SimpleNamespace(usd_path="/tmp/kitchen.usd"), name="kitchen")
     obj_ref.prim_path = "{ENV_REGEX_NS}/kitchen/missing"
     obj_ref._parent_scale = (1.0, 1.0, 1.0)
     obj_ref._collision_mesh = None

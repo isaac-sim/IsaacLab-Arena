@@ -8,6 +8,7 @@ import trimesh
 from isaaclab.assets import ArticulationCfg, AssetBaseCfg, RigidObjectCfg
 from isaaclab.managers import EventTermCfg, SceneEntityCfg
 from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
+from isaaclab.sim.spawners.from_files.from_files_cfg import UsdFileCfg
 from pxr import Usd
 
 from isaaclab_arena.affordances.openable import Openable
@@ -35,7 +36,8 @@ class ObjectReference(RootedObjectBase):
     def __init__(self, parent_asset: Object, **kwargs):
         super().__init__(**kwargs)
         self.parent_asset = parent_asset
-        self._parent_scale = parent_asset.scale
+        assert isinstance(parent_asset.spawn_cfg, UsdFileCfg), "ObjectReference requires a USD parent asset"
+        self._parent_scale = parent_asset.spawn_cfg.scale or (1.0, 1.0, 1.0)
         # Resolve the path and pose together to avoid opening the parent USD stage multiple times.
         (
             self._prim_path_in_parent_usd,
@@ -108,7 +110,7 @@ class ObjectReference(RootedObjectBase):
         The bounding box is computed lazily and cached for subsequent calls.
         """
         if self._bounding_box is None:
-            with open_stage(self.parent_asset.usd_path) as parent_stage:
+            with open_stage(self.parent_asset.spawn_cfg.usd_path) as parent_stage:
                 prim_path_in_usd = self.isaaclab_prim_path_to_original_prim_path(
                     self.prim_path, self.parent_asset, parent_stage
                 )
@@ -138,12 +140,14 @@ class ObjectReference(RootedObjectBase):
 
     def _extract_collision_mesh(self) -> trimesh.Trimesh:
         """Extract the referenced prim mesh from the parent asset USD."""
-        with open_stage(self.parent_asset.usd_path) as parent_stage:
+        with open_stage(self.parent_asset.spawn_cfg.usd_path) as parent_stage:
             prim_path_in_usd = self.isaaclab_prim_path_to_original_prim_path(
                 self.prim_path, self.parent_asset, parent_stage
             )
             if not parent_stage.GetPrimAtPath(prim_path_in_usd):
-                raise ValueError(f"No prim found with path {prim_path_in_usd} in {self.parent_asset.usd_path}")
+                raise ValueError(
+                    f"No prim found with path {prim_path_in_usd} in {self.parent_asset.spawn_cfg.usd_path}"
+                )
             return extract_trimesh_from_prim(parent_stage, prim_path_in_usd, self._parent_scale)
 
     def get_contact_sensor_cfg(self, contact_against_object: ObjectBase | None = None) -> ContactSensorCfg:
@@ -158,53 +162,35 @@ class ObjectReference(RootedObjectBase):
         # Just call out to the parent class method.
         return super().get_contact_sensor_cfg(contact_against_object)
 
-    def _generate_rigid_cfg(self) -> RigidObjectCfg:
-        assert self.object_type == ObjectType.RIGID
+    def _init_object_cfg(self) -> RigidObjectCfg | ArticulationCfg | AssetBaseCfg:
+        """Build a config that binds the existing prim without spawning another asset."""
+        config_types = {
+            ObjectType.RIGID: RigidObjectCfg,
+            ObjectType.ARTICULATION: ArticulationCfg,
+            ObjectType.BASE: AssetBaseCfg,
+        }
+        config_type = config_types[self.object_type]
         initial_pose = self.get_initial_pose()
-        object_cfg = RigidObjectCfg(
+        config_options = {"actuators": {}} if self.object_type == ObjectType.ARTICULATION else {}
+        return config_type(
             prim_path=self.prim_path,
-            init_state=RigidObjectCfg.InitialStateCfg(
+            init_state=config_type.InitialStateCfg(
                 pos=initial_pose.position_xyz,
                 rot=initial_pose.rotation_xyzw,
             ),
+            **config_options,
         )
-        return object_cfg
-
-    def _generate_articulation_cfg(self) -> ArticulationCfg:
-        assert self.object_type == ObjectType.ARTICULATION
-        initial_pose = self.get_initial_pose()
-        object_cfg = ArticulationCfg(
-            prim_path=self.prim_path,
-            actuators={},
-            init_state=ArticulationCfg.InitialStateCfg(
-                pos=initial_pose.position_xyz,
-                rot=initial_pose.rotation_xyzw,
-            ),
-        )
-        return object_cfg
-
-    def _generate_base_cfg(self) -> AssetBaseCfg:
-        assert self.object_type == ObjectType.BASE
-        initial_pose = self.get_initial_pose()
-        object_cfg = AssetBaseCfg(
-            prim_path=self.prim_path,
-            init_state=AssetBaseCfg.InitialStateCfg(
-                pos=initial_pose.position_xyz,
-                rot=initial_pose.rotation_xyzw,
-            ),
-        )
-        return object_cfg
 
     def _get_referenced_prim_path_and_pose_relative_to_parent(self, parent_asset: Object) -> tuple[str, Pose]:
         """Get the prim path and transform pose relative to the parent's default prim.
 
         The position is scaled by the parent's scale factor.
         """
-        with open_stage(parent_asset.usd_path) as parent_stage:
+        with open_stage(parent_asset.spawn_cfg.usd_path) as parent_stage:
             prim_path_in_usd = self.isaaclab_prim_path_to_original_prim_path(self.prim_path, parent_asset, parent_stage)
             prim = parent_stage.GetPrimAtPath(prim_path_in_usd)
             if not prim:
-                raise ValueError(f"No prim found with path {prim_path_in_usd} in {parent_asset.usd_path}")
+                raise ValueError(f"No prim found with path {prim_path_in_usd} in {parent_asset.spawn_cfg.usd_path}")
             prim_pose = get_prim_pose_in_default_prim_frame(prim, parent_stage)
             # Apply parent's scale to the position
             scaled_pos = (

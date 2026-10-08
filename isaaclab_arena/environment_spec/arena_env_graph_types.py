@@ -20,21 +20,22 @@ from isaaclab_arena.assets.simready_constants import SIMREADY_USD_OBJECT_REGISTR
 
 def _extract_asset_usd_path(asset_cls: type, **params: Any) -> str | None:
     """Return the asset's root USD path or URL, or ``None`` if not extractable."""
-    class_usd = getattr(asset_cls, "usd_path", None)
-    if isinstance(class_usd, str) and class_usd:
-        return class_usd
+    if "usd_path" not in params:
+        class_usd = getattr(asset_cls, "usd_path", None)
+        if isinstance(class_usd, str) and class_usd:
+            return class_usd
 
     # Defer conversion imports until runtime; conversion utilities also import these schema types.
     from isaaclab_arena.environment_spec.arena_env_graph_conversion_utils import parse_asset_params
 
-    # Instantiate when usd_path is set lazily (e.g. Lightwheel backgrounds).
+    # Instantiate for constructor overrides or lazy paths (e.g. Lightwheel backgrounds).
     # TODO(qianl): add support for embodiments, whose robot USD lives in scene_config.robot.spawn.
     try:
         instance = asset_cls(**parse_asset_params(params))
     except Exception:
         return None
 
-    usd_path = getattr(instance, "usd_path", None)
+    usd_path = getattr(getattr(instance, "spawn_cfg", None), "usd_path", None)
     return str(usd_path) if usd_path else None
 
 

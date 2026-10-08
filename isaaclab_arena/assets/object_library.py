@@ -4,7 +4,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
-import copy
 from abc import ABC
 from typing import TYPE_CHECKING, Any
 
@@ -13,7 +12,6 @@ import isaaclab.sim as sim_utils
 if TYPE_CHECKING:
     from isaaclab_arena.assets.hdr_image import HDRImage
 
-from isaaclab.assets import RigidObjectCfg
 from isaaclab.sim.spawners.from_files.from_files_cfg import GroundPlaneCfg
 from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR
 
@@ -35,10 +33,7 @@ from isaaclab_arena.utils.pose import Pose
 
 
 class LibraryObject(Object):
-    """
-    Base class for objects in the library which are defined in this file.
-    These objects have class attributes (rather than instance attributes).
-    """
+    """Construct library objects from class defaults and instance overrides."""
 
     name: str
     tags: list[str]
@@ -57,12 +52,12 @@ class LibraryObject(Object):
         **kwargs,
     ):
         name = instance_name if instance_name is not None else self.name
-        scale = scale if scale is not None else self.scale
+        scale = scale if scale is not None else type(self).scale
         super().__init__(
             name=name,
             prim_path=prim_path,
             tags=self.tags,
-            usd_path=self.usd_path,
+            usd_path=type(self).usd_path,
             object_type=self.object_type,
             scale=scale,
             initial_pose=initial_pose,
@@ -314,17 +309,17 @@ class GroundPlane(LibraryObject):
     # Setting a global prim path for the ground plane. Will not get repeated for each environment.
     default_prim_path = "/World/GroundPlane"
     object_type = ObjectType.BASE
-    default_spawner_cfg = GroundPlaneCfg()
+    default_spawn_cfg = GroundPlaneCfg()
 
     def __init__(
         self,
         instance_name: str | None = None,
         prim_path: str | None = default_prim_path,
         initial_pose: Pose | None = None,
-        spawner_cfg: sim_utils.GroundPlaneCfg = default_spawner_cfg,
+        spawn_cfg: sim_utils.GroundPlaneCfg = default_spawn_cfg,
     ):
         super().__init__(
-            instance_name=instance_name, prim_path=prim_path, initial_pose=initial_pose, spawner_cfg=spawner_cfg
+            instance_name=instance_name, prim_path=prim_path, initial_pose=initial_pose, spawn_cfg=spawn_cfg
         )
 
 
@@ -337,7 +332,7 @@ class Sphere(LibraryObject):
     name = "sphere"
     tags = ["object"]
     scale = (1.0, 1.0, 1.0)
-    default_spawner_cfg = sim_utils.SphereCfg(
+    default_spawn_cfg = sim_utils.SphereCfg(
         radius=0.1,
         visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(0.8, 0.2, 0.2)),
         collision_props=sim_utils.CollisionPropertiesCfg(),
@@ -358,21 +353,21 @@ class Sphere(LibraryObject):
         prim_path: str | None = None,
         initial_pose: Pose | None = None,
         scale: tuple[float, float, float] | None = None,
-        spawner_cfg: sim_utils.SphereCfg = default_spawner_cfg,
+        spawn_cfg: sim_utils.SphereCfg = default_spawn_cfg,
     ):
         super().__init__(
             instance_name=instance_name,
             prim_path=prim_path,
             initial_pose=initial_pose,
             scale=scale,
-            spawner_cfg=spawner_cfg,
+            spawn_cfg=spawn_cfg,
         )
 
 
 class LightBase(LibraryObject, ABC):
     """Abstract base for spawnable lights.
 
-    Concrete subclasses set default_spawner_cfg to an Isaac Lab light cfg.
+    Concrete subclasses set default_spawn_cfg to an Isaac Lab light cfg.
     """
 
     object_type = ObjectType.BASE
@@ -380,10 +375,6 @@ class LightBase(LibraryObject, ABC):
 
     default_intensity: float
     """Intensity the light is lit at by default, and the intensity ``on()`` restores."""
-
-    def __init__(self, *args, spawner_cfg: sim_utils.LightCfg, **kwargs):
-        # Deep-copy here to avoid altering the shared class default.
-        super().__init__(*args, spawner_cfg=copy.deepcopy(spawner_cfg), **kwargs)
 
     def on(self, intensity: float | None = None) -> None:
         """Turn the light on, at ``intensity`` if given, else at the class default intensity."""
@@ -396,15 +387,13 @@ class LightBase(LibraryObject, ABC):
     def set_intensity(self, intensity: float) -> None:
         """Set the light's intensity."""
         assert intensity >= 0.0, f"Light intensity must be non-negative, got {intensity}."
-        self.spawner_cfg.intensity = intensity
-        self.object_cfg = self._init_object_cfg()
+        self.spawn_cfg.intensity = intensity
 
     def set_color(self, color: tuple[float, float, float]) -> None:
         """Set the light's RGB color, with each channel in [0, 1]."""
         assert len(color) == 3, f"Light color must be an (r, g, b) triple, got {color}."
         assert all(0.0 <= c <= 1.0 for c in color), f"Light color channels must be in [0, 1], got {color}."
-        self.spawner_cfg.color = tuple(color)
-        self.object_cfg = self._init_object_cfg()
+        self.spawn_cfg.color = tuple(color)
 
     def set_color_temperature(self, color_temperature: float) -> None:
         """Enable and set the light's white-point color temperature in Kelvin.
@@ -414,9 +403,8 @@ class LightBase(LibraryObject, ABC):
         assert (
             1000.0 <= color_temperature <= 10000.0
         ), f"Light color temperature must be in [1000, 10000] K, got {color_temperature}."
-        self.spawner_cfg.enable_color_temperature = True
-        self.spawner_cfg.color_temperature = color_temperature
-        self.object_cfg = self._init_object_cfg()
+        self.spawn_cfg.enable_color_temperature = True
+        self.spawn_cfg.color_temperature = color_temperature
 
 
 @register_asset
@@ -440,9 +428,9 @@ class DomeLight(LightBase):
     # Setting a global prim path for the dome light. Will not get repeated for each environment.
     default_prim_path = "/World/Light"
     default_intensity = 1500.0
-    default_spawner_cfg = sim_utils.DomeLightCfg(color=(0.75, 0.75, 0.75), intensity=default_intensity)
+    default_spawn_cfg = sim_utils.DomeLightCfg(color=(0.75, 0.75, 0.75), intensity=default_intensity)
 
-    spawner_cfg: sim_utils.DomeLightCfg
+    spawn_cfg: sim_utils.DomeLightCfg
     """Narrows the base-class spawner cfg type to ``DomeLightCfg`` for this asset."""
 
     def __init__(
@@ -450,7 +438,7 @@ class DomeLight(LightBase):
         instance_name: str | None = None,
         prim_path: str | None = default_prim_path,
         initial_pose: Pose | None = None,
-        spawner_cfg: sim_utils.DomeLightCfg = default_spawner_cfg,
+        spawn_cfg: sim_utils.DomeLightCfg = default_spawn_cfg,
         hdr: "HDRImage | None" = None,  # noqa: F821
     ):
         from isaaclab_arena.variations.hdr_image_variation import HDRImageVariation
@@ -459,7 +447,7 @@ class DomeLight(LightBase):
         from isaaclab_arena.variations.light_intensity_variation import LightIntensityVariation
 
         super().__init__(
-            instance_name=instance_name, prim_path=prim_path, initial_pose=initial_pose, spawner_cfg=spawner_cfg
+            instance_name=instance_name, prim_path=prim_path, initial_pose=initial_pose, spawn_cfg=spawn_cfg
         )
         if hdr is not None:
             self.add_hdr(hdr)
@@ -478,10 +466,9 @@ class DomeLight(LightBase):
 
         assert isinstance(hdr, HDRImage), f"Expected an HDRImage instance, got {type(hdr)}"
         # Apply the HDR texture in place, preserving user-specified intensity, color, etc.
-        self.spawner_cfg.texture_file = hdr.texture_file
-        self.spawner_cfg.texture_format = hdr.texture_format  # type: ignore[assignment]
-        self.spawner_cfg.visible_in_primary_ray = True
-        self.object_cfg = self._init_object_cfg()
+        self.spawn_cfg.texture_file = hdr.texture_file
+        self.spawn_cfg.texture_format = hdr.texture_format  # type: ignore[assignment]
+        self.spawn_cfg.visible_in_primary_ray = True
 
 
 @register_asset
@@ -494,17 +481,17 @@ class DirectionalLight(LightBase):
     name = "directional_light"
     default_prim_path = "/World/DirectionalLight"
     default_intensity = 1000.0
-    default_spawner_cfg = sim_utils.DistantLightCfg(intensity=default_intensity)
+    default_spawn_cfg = sim_utils.DistantLightCfg(intensity=default_intensity)
     default_initial_pose = Pose(position_xyz=(0.0, 0.0, 5.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0))
 
-    spawner_cfg: sim_utils.DistantLightCfg
+    spawn_cfg: sim_utils.DistantLightCfg
 
     def __init__(
         self,
         instance_name: str | None = None,
         prim_path: str | None = default_prim_path,
         initial_pose: Pose | None = None,
-        spawner_cfg: sim_utils.DistantLightCfg = default_spawner_cfg,
+        spawn_cfg: sim_utils.DistantLightCfg = default_spawn_cfg,
     ):
         from isaaclab_arena.variations.light_color_temperature_variation import LightColorTemperatureVariation
         from isaaclab_arena.variations.light_color_variation import LightColorVariation
@@ -515,7 +502,7 @@ class DirectionalLight(LightBase):
             instance_name=instance_name,
             prim_path=prim_path,
             initial_pose=initial_pose if initial_pose is not None else self.default_initial_pose,
-            spawner_cfg=spawner_cfg,
+            spawn_cfg=spawn_cfg,
         )
         self.add_variation(LightDirectionVariation(self))
         self.add_variation(LightIntensityVariation(self))
@@ -525,8 +512,7 @@ class DirectionalLight(LightBase):
     def set_orientation(self, rotation_xyzw: tuple[float, float, float, float]) -> None:
         """Set the light's orientation."""
         position_xyz = self.initial_pose.position_xyz if self.initial_pose is not None else (0.0, 0.0, 0.0)
-        self.initial_pose = Pose(position_xyz=position_xyz, rotation_xyzw=tuple(rotation_xyzw))
-        self.object_cfg = self._init_object_cfg()
+        self.set_initial_pose(Pose(position_xyz=position_xyz, rotation_xyzw=tuple(rotation_xyzw)))
 
     def set_dome_light(self, dome_light: LightBase) -> None:
         """Register a dome light for the direction variation to dim when it activates."""
@@ -1937,17 +1923,9 @@ class ProceduralTable(Object):
             name=resolved_name,
             prim_path=resolved_prim,
             object_type=ObjectType.RIGID,
-            usd_path="",
+            spawn_cfg=_PROCEDURAL_TABLE_SPAWN_CFG,
             initial_pose=initial_pose,
         )
-
-    def _generate_rigid_cfg(self) -> RigidObjectCfg:
-        cfg = RigidObjectCfg(
-            prim_path=self.prim_path,
-            spawn=_PROCEDURAL_TABLE_SPAWN_CFG,
-            **self.asset_cfg_addon,
-        )
-        return self._add_initial_pose_to_cfg(cfg)
 
 
 _PROCEDURAL_CUBE_SPAWN_CFG = sim_utils.CuboidCfg(
@@ -1982,14 +1960,6 @@ class ProceduralCube(Object):
             name=resolved_name,
             prim_path=resolved_prim,
             object_type=ObjectType.RIGID,
-            usd_path="",
+            spawn_cfg=_PROCEDURAL_CUBE_SPAWN_CFG,
             initial_pose=initial_pose,
         )
-
-    def _generate_rigid_cfg(self) -> RigidObjectCfg:
-        cfg = RigidObjectCfg(
-            prim_path=self.prim_path,
-            spawn=_PROCEDURAL_CUBE_SPAWN_CFG,
-            **self.asset_cfg_addon,
-        )
-        return self._add_initial_pose_to_cfg(cfg)
