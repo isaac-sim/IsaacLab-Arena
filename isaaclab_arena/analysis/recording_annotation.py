@@ -5,9 +5,10 @@
 
 """Post-hoc annotation of a recordings folder with task information the rollout did not capture.
 
-Every ``episode_results*.jsonl`` is the reference file: it names the ``job_name`` whose task yaml
-defines the recorded scene, and its ``rebuild`` index names the sibling trajectory dataset. Two
-annotations are available, each opt-in on the CLI:
+Every ``episode_results*.jsonl`` is the reference file: it names the ``job_name`` of the recorded
+Run, and its ``rebuild`` index names the sibling trajectory dataset. The task yaml that defines the
+recorded scene is the Run's environment definition in the sibling ``experiment_runner_result.json``.
+Two annotations are available, each opt-in on the CLI:
 
 - Static predicates (``--predicates``): a sibling ``*.static_predicates.jsonl`` listing every
   predicate the job's completion criteria define, whether or not it fired (see
@@ -54,6 +55,9 @@ ORIGINAL_DATASET_SUFFIX = ".copy.hdf5"
 DEFAULT_MAX_IN_MEMORY_MB = 512
 """Datasets larger than this are refused rather than loaded into memory for annotation."""
 
+EXPERIMENT_RUNNER_RESULT_FILENAME = "experiment_runner_result.json"
+"""Per-Run metadata written beside the recordings; maps each Run name to its environment definition."""
+
 
 def _environments_package_root() -> Path:
     """Resolve the installed location of the ``isaaclab_arena_environments`` package."""
@@ -62,21 +66,33 @@ def _environments_package_root() -> Path:
     return Path(spec.origin).parent
 
 
-def _task_yaml_path(job_name: str, env_package: str) -> Path:
-    """Return the task-graph YAML path for ``job_name`` under ``<env_package>/tasks/``.
+def task_yaml_path_for_run(episode_results_path: str | Path, job_name: str) -> Path:
+    """Return the task-graph YAML that defined the Run ``job_name`` recorded in ``episode_results_path``.
+
+    The yaml is the Run's environment definition in the sibling ``experiment_runner_result.json``;
+    a relative definition is resolved against the repository root, as the Experiment Runner did.
 
     Args:
-        job_name: A recorded episode's ``job_name`` field, matching a task yaml filename stem.
-        env_package: Subpackage of ``isaaclab_arena_environments`` whose ``tasks/`` directory holds it
-            (e.g. ``"robolab"``).
+        episode_results_path: One recorded ``episode_results*.jsonl`` file.
+        job_name: A recorded episode's ``job_name`` field, i.e. the Run name.
     """
-    yaml_path = _environments_package_root() / env_package / "tasks" / f"{job_name}.yaml"
-    assert yaml_path.is_file(), f"No task yaml for job_name={job_name!r} under env_package={env_package!r}: {yaml_path}"
-    return yaml_path
+    result_path = Path(episode_results_path).with_name(EXPERIMENT_RUNNER_RESULT_FILENAME)
+    assert result_path.is_file(), f"No {EXPERIMENT_RUNNER_RESULT_FILENAME} beside {episode_results_path}"
+    runs = json.loads(result_path.read_text(encoding="utf-8")).get("runs", {})
+    assert job_name in runs, f"Run {job_name!r} not listed in {result_path}"
+    definition = runs[job_name]["environment"]["definition"]
+    assert definition.endswith(
+        ".yaml"
+    ), f"Run {job_name!r} uses registered environment {definition!r}, not a task yaml: {result_path}"
+    yaml_path = Path(definition)
+    if not yaml_path.is_absolute():
+        yaml_path = _environments_package_root().parent / yaml_path
+    assert yaml_path.is_file(), f"Task yaml for Run {job_name!r} not found: {yaml_path}"
+    return yaml_path.resolve()
 
 
-def build_task_and_assets_from_job_name(job_name: str, env_package: str) -> tuple[Any, dict[str, Any]]:
-    """Build ``job_name``'s (possibly composite) Task and the assets its scene instantiates.
+def build_task_and_assets_from_yaml(task_yaml_path: str | Path) -> tuple[Any, dict[str, Any]]:
+    """Build the (possibly composite) Task defined by ``task_yaml_path`` and the assets its scene instantiates.
 
     Requires a headless ``SimulationApp`` to already be running (see the module docstring): building
     the task resolves its assets' USD files, and remote-hosted ones need Kit's asset resolver.
@@ -94,14 +110,14 @@ def build_task_and_assets_from_job_name(job_name: str, env_package: str) -> tupl
     )
     from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 
-    spec = ArenaEnvGraphSpec.from_yaml(_task_yaml_path(job_name, env_package))
+    spec = ArenaEnvGraphSpec.from_yaml(task_yaml_path)
     assets_by_node_id = instantiate_assets_from_spec(spec, AssetRegistry())
     return build_task_from_spec(spec.task, assets_by_node_id), assets_by_node_id
 
 
-def build_task_from_job_name(job_name: str, env_package: str) -> Any:
-    """Build the (possibly composite) Task instance for ``job_name``."""
-    task, _ = build_task_and_assets_from_job_name(job_name, env_package)
+def build_task_from_yaml(task_yaml_path: str | Path) -> Any:
+    """Build the (possibly composite) Task instance defined by ``task_yaml_path``."""
+    task, _ = build_task_and_assets_from_yaml(task_yaml_path)
     return task
 
 
@@ -125,13 +141,11 @@ def _pick_and_place_targets(task: Any) -> dict[str, str] | None:
     }
 
 
-def static_predicates_for_job(job_name: str, env_package: str) -> dict[str, dict[str, Any]]:
-    """Return every predicate defined by ``job_name``'s completion criteria, whether or not any episode reached it.
+def static_predicates_for_task(task_yaml_path: str | Path) -> dict[str, dict[str, Any]]:
+    """Return every predicate defined by the task's completion criteria, whether or not any episode reached it.
 
     Args:
-        job_name: A recorded episode's ``job_name`` field, matching a task yaml filename stem.
-        env_package: Subpackage of ``isaaclab_arena_environments`` whose ``tasks/`` directory holds it
-            (e.g. ``"robolab"``).
+        task_yaml_path: Task-graph YAML that defined the recorded Run (see ``task_yaml_path_for_run``).
 
     Returns:
         ``{criteria_name: {"pick_up_object": str, "destination_location": str, "sequences": {...}}}``.
@@ -145,7 +159,7 @@ def static_predicates_for_job(job_name: str, env_package: str) -> dict[str, dict
     # Deferred: progress_tracking_utils imports torch via isaaclab and temporal predicates.
     from isaaclab_arena.progress_tracking.progress_tracking_utils import _predicate_repr
 
-    task = build_task_from_job_name(job_name, env_package)
+    task = build_task_from_yaml(task_yaml_path)
     predicates: dict[str, dict[str, Any]] = {}
     for criteria in task.get_termination_cfg().success:
         entry: dict[str, Any] = {}
@@ -163,16 +177,15 @@ def static_predicates_for_job(job_name: str, env_package: str) -> dict[str, dict
     return predicates
 
 
-def local_bounding_boxes_for_job(job_name: str, env_package: str) -> dict[str, dict[str, Any]]:
-    """Return the local (object-frame) AABB of every rigid object in ``job_name``'s scene.
+def local_bounding_boxes_for_task(task_yaml_path: str | Path) -> dict[str, dict[str, Any]]:
+    """Return the local (object-frame) AABB of every rigid object in the task's scene.
 
     The box is expressed in the object's own frame at the spawned scale, so it is independent of pose
     and therefore shared by every demo and frame of a recording. A caller places it in the world by
     rotating and translating it with a recorded ``root_pose``.
 
     Args:
-        job_name: A recorded episode's ``job_name`` field, matching a task yaml filename stem.
-        env_package: Subpackage of ``isaaclab_arena_environments`` whose ``tasks/`` directory holds it.
+        task_yaml_path: Task-graph YAML that defined the recorded Run (see ``task_yaml_path_for_run``).
 
     Returns:
         ``{object_name: entry}``, where ``entry`` carries ``min_point``/``max_point`` of shape
@@ -185,7 +198,7 @@ def local_bounding_boxes_for_job(job_name: str, env_package: str) -> dict[str, d
 
     from isaaclab_arena.assets.object_set import RigidObjectSet
 
-    _, assets_by_node_id = build_task_and_assets_from_job_name(job_name, env_package)
+    _, assets_by_node_id = build_task_and_assets_from_yaml(task_yaml_path)
 
     boxes: dict[str, dict[str, Any]] = {}
     for asset in assets_by_node_id.values():
@@ -216,26 +229,29 @@ def local_bounding_boxes_for_job(job_name: str, env_package: str) -> dict[str, d
     return boxes
 
 
-class _JobLookupCache:
-    """Memoizes a per-job-name lookup across every file processed in one run.
+class _TaskLookupCache:
+    """Memoizes a per-task lookup across every file processed in one run.
 
     Building a task instance re-reads USD via pxr, so a recordings folder with many files/episodes for
-    the same handful of jobs should only pay that cost once per job name.
+    the same handful of tasks should only pay that cost once per task yaml.
     """
 
-    def __init__(self, env_package: str, lookup_fn: Callable[[str, str], dict[str, Any]]):
-        self._env_package = env_package
+    def __init__(self, lookup_fn: Callable[[Path], dict[str, Any]]):
         self._lookup_fn = lookup_fn
-        self._cache: dict[str, dict[str, Any] | Exception] = {}
+        self._cache: dict[Path, dict[str, Any] | Exception] = {}
 
-    def get(self, job_name: str) -> dict[str, Any] | Exception:
-        """Return the cached lookup result for ``job_name``, or the exception raised building it."""
-        if job_name not in self._cache:
+    def get(self, episode_results_path: Path, job_name: str) -> dict[str, Any] | Exception:
+        """Return the lookup result for Run ``job_name`` of ``episode_results_path``, or the exception raised."""
+        try:
+            task_yaml_path = task_yaml_path_for_run(episode_results_path, job_name)
+        except Exception as exc:  # noqa: BLE001 - reported per-line/per-file; must not abort the run
+            return exc
+        if task_yaml_path not in self._cache:
             try:
-                self._cache[job_name] = self._lookup_fn(job_name, self._env_package)
+                self._cache[task_yaml_path] = self._lookup_fn(task_yaml_path)
             except Exception as exc:  # noqa: BLE001 - reported per-line/per-file; must not abort the run
-                self._cache[job_name] = exc
-        return self._cache[job_name]
+                self._cache[task_yaml_path] = exc
+        return self._cache[task_yaml_path]
 
 
 def _annotated_output_path(episode_results_path: Path) -> Path:
@@ -247,7 +263,7 @@ def _annotated_output_path(episode_results_path: Path) -> Path:
     return episode_results_path.with_name(episode_results_path.stem + STATIC_PREDICATES_SUFFIX)
 
 
-def _annotate_line(line: str, line_number: int, source_path: Path, cache: _JobLookupCache) -> dict[str, Any]:
+def _annotate_line(line: str, line_number: int, source_path: Path, cache: _TaskLookupCache) -> dict[str, Any]:
     """Build one output record for one non-blank input line, never raising."""
     try:
         record = json.loads(line)
@@ -257,7 +273,7 @@ def _annotate_line(line: str, line_number: int, source_path: Path, cache: _JobLo
         return {"error": f"{source_path.name} line {line_number}: expected a JSON object with a 'job_name' field"}
 
     job_name = record["job_name"]
-    predicates = cache.get(job_name)
+    predicates = cache.get(source_path, job_name)
     if isinstance(predicates, Exception):
         return {"error": f"{source_path.name} line {line_number}: {predicates}"}
 
@@ -269,9 +285,7 @@ def _annotate_line(line: str, line_number: int, source_path: Path, cache: _JobLo
     }
 
 
-def annotate_episode_results_file(
-    episode_results_path: str | Path, env_package: str, cache: _JobLookupCache | None = None
-) -> Path:
+def annotate_episode_results_file(episode_results_path: str | Path, cache: _TaskLookupCache | None = None) -> Path:
     """Write a sibling file with one predicates record per line of ``episode_results_path``.
 
     Preserves exact line-for-line correspondence with the source file: a blank input line yields a
@@ -279,16 +293,15 @@ def annotate_episode_results_file(
     rather than aborting the rest of the file.
 
     Args:
-        episode_results_path: One recorded ``episode_results*.jsonl`` file.
-        env_package: Subpackage of ``isaaclab_arena_environments`` whose ``tasks/`` directory defines
-            the recorded ``job_name``s (e.g. ``"robolab"``).
+        episode_results_path: One recorded ``episode_results*.jsonl`` file, with its
+            ``experiment_runner_result.json`` beside it.
         cache: Reused across multiple files by ``annotate_episode_results_dir``; built fresh if omitted.
 
     Returns:
         The path of the annotated sibling file that was written.
     """
     episode_results_path = Path(episode_results_path)
-    cache = cache if cache is not None else _JobLookupCache(env_package, static_predicates_for_job)
+    cache = cache if cache is not None else _TaskLookupCache(static_predicates_for_task)
     output_path = _annotated_output_path(episode_results_path)
 
     lines = episode_results_path.read_text(encoding="utf-8").splitlines()
@@ -301,22 +314,17 @@ def annotate_episode_results_file(
     return output_path
 
 
-def annotate_episode_results_dir(recordings_root: str | Path, env_package: str) -> list[Path]:
+def annotate_episode_results_dir(recordings_root: str | Path) -> list[Path]:
     """Annotate every ``episode_results*.jsonl`` found under ``recordings_root``.
 
     Args:
         recordings_root: Folder to search recursively for recorded results files.
-        env_package: Subpackage of ``isaaclab_arena_environments`` whose ``tasks/`` directory defines
-            the recorded ``job_name``s (e.g. ``"robolab"``).
 
     Returns:
         The paths of the annotated sibling files that were written, one per source file found.
     """
-    cache = _JobLookupCache(env_package, static_predicates_for_job)
-    return [
-        annotate_episode_results_file(path, env_package, cache=cache)
-        for path in find_episode_results_files(recordings_root)
-    ]
+    cache = _TaskLookupCache(static_predicates_for_task)
+    return [annotate_episode_results_file(path, cache=cache) for path in find_episode_results_files(recordings_root)]
 
 
 def job_names_in_episode_results(episode_results_path: str | Path) -> set[str]:
@@ -405,7 +413,7 @@ def annotate_bounding_boxes_for_dataset(
     Args:
         dataset_path: The recorded ``dataset_*.hdf5`` to annotate.
         job_name: Job whose task yaml the boxes were resolved from; recorded on the group.
-        boxes: Per-object entries as returned by ``local_bounding_boxes_for_job``.
+        boxes: Per-object entries as returned by ``local_bounding_boxes_for_task``.
         overwrite: Re-annotate a dataset that already has a preserved original.
         dry_run: Report what would happen without writing anything.
         max_in_memory_mb: Refuse datasets larger than this rather than loading them into memory.
@@ -465,12 +473,11 @@ def annotate_bounding_boxes_for_dataset(
 
 def annotate_bounding_boxes_dir(
     recordings_root: str | Path,
-    env_package: str,
     *,
     overwrite: bool = False,
     dry_run: bool = False,
     max_in_memory_mb: int = DEFAULT_MAX_IN_MEMORY_MB,
-    boxes_lookup_fn: Callable[[str, str], dict[str, Any]] = local_bounding_boxes_for_job,
+    boxes_lookup_fn: Callable[[Path], dict[str, Any]] = local_bounding_boxes_for_task,
 ) -> list[str]:
     """Annotate the dataset paired with every ``episode_results*.jsonl`` under ``recordings_root``.
 
@@ -480,17 +487,15 @@ def annotate_bounding_boxes_dir(
 
     Args:
         recordings_root: Folder to search recursively for recorded results files.
-        env_package: Subpackage of ``isaaclab_arena_environments`` whose ``tasks/`` directory defines
-            the recorded ``job_name``s (e.g. ``"robolab"``).
         overwrite: Re-annotate datasets that already have a preserved original.
         dry_run: Report what would happen without writing anything.
         max_in_memory_mb: Refuse datasets larger than this rather than loading them into memory.
-        boxes_lookup_fn: Resolves a job's per-object boxes; injectable for tests.
+        boxes_lookup_fn: Resolves a task yaml's per-object boxes; injectable for tests.
 
     Returns:
         One human-readable report line per dataset considered.
     """
-    cache = _JobLookupCache(env_package, boxes_lookup_fn)
+    cache = _TaskLookupCache(boxes_lookup_fn)
     reports: list[str] = []
     seen: set[Path] = set()
 
@@ -513,7 +518,7 @@ def annotate_bounding_boxes_dir(
             reports.append(f"skip (no dataset recorded): {dataset_path}")
             continue
 
-        boxes = cache.get(job_name)
+        boxes = cache.get(results_path, job_name)
         if isinstance(boxes, Exception):
             reports.append(f"skip ({boxes}): {dataset_path}")
             continue
@@ -541,13 +546,12 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
             "each episode_results*.jsonl as the reference file. Pick at least one annotation."
         )
     )
-    parser.add_argument("recordings_dir", type=Path, help="Folder to search recursively for episode_results*.jsonl.")
     parser.add_argument(
-        "--env-package",
-        required=True,
+        "recordings_dir",
+        type=Path,
         help=(
-            "Subpackage of isaaclab_arena_environments whose tasks/ directory defines the recorded"
-            " job_names, e.g. 'robolab'."
+            "Folder to search recursively for episode_results*.jsonl. Each needs an"
+            f" {EXPERIMENT_RUNNER_RESULT_FILENAME} beside it naming the Run's task yaml."
         ),
     )
     parser.add_argument(
@@ -598,7 +602,7 @@ def main(argv: list[str] | None = None) -> None:
     sim_app_args.enable_cameras = False
     with SimulationAppContext(sim_app_args):
         if args.predicates:
-            output_paths = annotate_episode_results_dir(args.recordings_dir, args.env_package)
+            output_paths = annotate_episode_results_dir(args.recordings_dir)
             if not output_paths:
                 print(f"No episode_results*.jsonl files found under {args.recordings_dir}")
             else:
@@ -607,7 +611,6 @@ def main(argv: list[str] | None = None) -> None:
         if args.bounding_boxes:
             reports = annotate_bounding_boxes_dir(
                 args.recordings_dir,
-                args.env_package,
                 overwrite=args.overwrite,
                 dry_run=args.dry_run,
                 max_in_memory_mb=args.max_in_memory_mb,
