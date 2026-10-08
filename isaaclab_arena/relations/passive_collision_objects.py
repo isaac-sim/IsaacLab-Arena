@@ -11,6 +11,8 @@ from collections import defaultdict
 from collections.abc import Iterable
 from typing import TYPE_CHECKING
 
+from isaaclab.sim import GroundPlaneCfg, LightCfg, MultiAssetSpawnerCfg, MultiUsdFileCfg, UsdFileCfg
+
 from isaaclab_arena.assets.background import Background
 from isaaclab_arena.assets.object import Object
 from isaaclab_arena.assets.object_reference import ObjectReference
@@ -84,18 +86,20 @@ def discover_passive_assets(
     for asset in assets:
         if not isinstance(asset, (Object, ObjectReference)):
             continue
+        # Lights have no collision geometry; ground planes are infinite half-spaces.
+        # Multi-spawners have no single geometry for a passive collision obstacle.
+        if isinstance(asset, Object) and isinstance(
+            asset.spawn_cfg, (LightCfg, GroundPlaneCfg, MultiAssetSpawnerCfg, MultiUsdFileCfg)
+        ):
+            continue
         if isinstance(asset, Background) and not include_background:
             continue
         if asset.get_relations():
             continue
-        # Without a USD path no bounding box can be computed for collision.
-        if isinstance(asset, Object) and asset.usd_path is None:
-            print(f"Skipping '{asset.name}' as a collision obstacle: missing USD path.")
-            continue
-        if isinstance(asset, ObjectReference) and asset.parent_asset.usd_path is None:
+        if isinstance(asset, ObjectReference) and not isinstance(asset.parent_asset.spawn_cfg, UsdFileCfg):
             print(
                 f"Skipping object reference '{asset.name}' as a collision obstacle: "
-                f"parent asset '{asset.parent_asset.name}' is missing a USD path."
+                f"parent asset '{asset.parent_asset.name}' has no USD spawn configuration."
             )
             continue
         initial_pose = asset.get_initial_pose()

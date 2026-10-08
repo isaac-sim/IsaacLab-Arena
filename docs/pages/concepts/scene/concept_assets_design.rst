@@ -53,6 +53,19 @@ actuators). ``spawn_cfg_addon`` configures how the USD is loaded and which physi
 are authored during spawning: mass/density, collision settings, and contact materials.
 Use ``prim_physics`` within the spawn addons for selected bodies, colliders, or joints.
 
+Constructor options populate one native Isaac Lab spawn configuration. Access it
+through ``obj.spawn_cfg`` (the same configuration as ``obj.object_cfg.spawn``):
+
+.. code-block:: python
+
+   obj.spawn_cfg.scale = (0.8, 0.8, 0.8)
+   obj.spawn_cfg.visible = False
+
+Make these changes before building the environment. Geometry queries, contact-body
+discovery, and scene export read the current native configuration. Class attributes
+such as ``LibraryObject.usd_path`` provide registry defaults; they are not the
+configuration of an existing instance.
+
 Physics spawn addons
 ~~~~~~~~~~~~~~~~~~~~
 

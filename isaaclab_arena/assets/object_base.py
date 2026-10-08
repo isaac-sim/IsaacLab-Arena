@@ -6,9 +6,9 @@
 from __future__ import annotations
 
 import torch
-from abc import ABC, abstractmethod
+from abc import ABC
 
-from isaaclab.assets import ArticulationCfg, AssetBaseCfg, RigidObjectCfg
+from isaaclab.assets import AssetBaseCfg
 from isaaclab.envs import ManagerBasedEnv
 from isaaclab.managers import EventTermCfg, SceneEntityCfg
 from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
@@ -149,17 +149,6 @@ class RootedObjectBase(ObjectBase):
                 },
             )
 
-    def _init_object_cfg(self) -> RigidObjectCfg | ArticulationCfg | AssetBaseCfg:
-        if self.object_type == ObjectType.RIGID:
-            object_cfg = self._generate_rigid_cfg()
-        elif self.object_type == ObjectType.ARTICULATION:
-            object_cfg = self._generate_articulation_cfg()
-        elif self.object_type == ObjectType.BASE:
-            object_cfg = self._generate_base_cfg()
-        else:
-            raise ValueError(f"Invalid object type: {self.object_type}")
-        return object_cfg
-
     def set_object_pose(self, env: ManagerBasedEnv, pose: Pose, env_ids: torch.Tensor | None = None) -> None:
         """Set the pose of the object in the environment.
 
@@ -189,18 +178,3 @@ class RootedObjectBase(ObjectBase):
             prim_path=self.prim_path,
             filter_prim_paths_expr=filter_prim_paths,
         )
-
-    @abstractmethod
-    def _generate_rigid_cfg(self) -> RigidObjectCfg:
-        # Subclasses must implement this method
-        pass
-
-    @abstractmethod
-    def _generate_articulation_cfg(self) -> ArticulationCfg:
-        # Subclasses must implement this method
-        pass
-
-    @abstractmethod
-    def _generate_base_cfg(self) -> AssetBaseCfg:
-        # Subclasses must implement this method
-        pass

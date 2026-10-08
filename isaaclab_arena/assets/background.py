@@ -14,6 +14,7 @@ from isaaclab.sim.utils import clone
 
 from isaaclab_arena.assets.object import Object
 from isaaclab_arena.assets.object_type import ObjectType
+from isaaclab_arena.assets.physics_config import UsdFileCfgPrimPhysicsWrapper
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.usd.prim_tree import load_usd_physics_roots
 
@@ -46,21 +47,17 @@ class Background(Object):
             object_type=ObjectType.BASE,
             **kwargs,
         )
+        if self.reset_nested_physics:
+            if isinstance(self.spawn_cfg, UsdFileCfgPrimPhysicsWrapper):
+                self.spawn_cfg.usd_spawn_func = _spawn_from_usd_with_resettable_nested_physics
+            else:
+                self.spawn_cfg.func = _spawn_from_usd_with_resettable_nested_physics
         # We use this to define reset terms for when objects are dropped.
         # NOTE(alexmillane, 2025.09.19): This is a global z height. If you shift the
         # background, by using initial_pose, this height doesn't shift with it.
         # TODO(alexmillane, 2025.09.19): Make this value relative to the background
         # prim origin.
         self.object_min_z = object_min_z
-
-    def _get_spawn_cfg(self, activate_contact_sensors: bool = False):
-        """Return a USD spawner that materializes nested instance-proxy physics."""
-        cfg = super()._get_spawn_cfg(activate_contact_sensors)
-        if self.reset_nested_physics:
-            assert isinstance(cfg, UsdFileCfg), "Nested background physics requires a USD file spawner"
-            cfg = cfg.copy()
-            cfg.func = _spawn_from_usd_with_resettable_nested_physics
-        return cfg
 
     def get_nested_physics_prim_paths(
         self,
@@ -86,7 +83,7 @@ class Background(Object):
             referenced_relative_paths[prim_path.removeprefix(prim_path_prefix)] = object_type
 
         physics_roots = load_usd_physics_roots(
-            self.usd_path,
+            self.spawn_cfg.usd_path,
             referenced_prim_paths=referenced_relative_paths,
         )
         return {

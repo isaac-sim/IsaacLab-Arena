@@ -34,7 +34,7 @@ def _extract_asset_usd_path(asset_cls: type, **params: Any) -> str | None:
     except Exception:
         return None
 
-    usd_path = getattr(instance, "usd_path", None)
+    usd_path = getattr(getattr(instance, "spawn_cfg", None), "usd_path", None)
     return str(usd_path) if usd_path else None
 
 

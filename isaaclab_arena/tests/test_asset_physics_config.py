@@ -203,7 +203,7 @@ def _test_spawn_addon_argument_types(_simulation_app, _asset_path: Path) -> bool
     with pytest.raises(AssertionError, match="must use @clone"):
         make_usd_spawn_cfg_with_addons(original, {"func": lambda *args: None, "prim_physics": {}})
     for addons in ({"visible": False}, {"prim_physics": {}}):
-        with pytest.raises(AssertionError, match="cannot be combined with spawner_cfg"):
+        with pytest.raises(AssertionError, match="Configure spawn options directly on spawner_cfg"):
             Object(name="custom", object_type=ObjectType.BASE, spawner_cfg=custom, spawn_cfg_addon=addons)
     return True
 

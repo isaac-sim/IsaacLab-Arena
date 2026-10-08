@@ -65,10 +65,9 @@ def test_simready_usd_object_enables_physics_variant_by_default(tmp_path):
     assert stage.Export(usd_path)
 
     obj = SimReadyUsdObject(usd_path=usd_path, instance_name="kettle")
-    assert obj.spawn_cfg_addon["variants"] == {"Physics": "physics"}
-    spawn = obj._get_spawn_cfg(activate_contact_sensors=True)
+    spawn = obj.spawn_cfg
     assert spawn.variants == {"Physics": "physics"}
-    assert obj.usd_path == usd_path
+    assert spawn.usd_path == usd_path
 
 
 def test_simready_search_registry_name_derives_an_identifier_from_the_phrase():

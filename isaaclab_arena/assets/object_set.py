@@ -4,9 +4,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import torch
+from collections.abc import Collection
 
 import isaaclab.sim as sim_utils
-from isaaclab.assets import RigidObjectCfg
 
 from isaaclab_arena.assets.object import Object
 from isaaclab_arena.assets.object_type import ObjectType
@@ -55,8 +55,7 @@ class RigidObjectSet(Object):
         else:
             self.member_usd_paths = []
             for obj in objects:
-                assert obj.usd_path is not None
-                self.member_usd_paths.append(obj.usd_path)
+                self.member_usd_paths.append(obj.spawn_cfg.usd_path)
 
         self.objects: list[Object] = objects
         self.random_choice = random_choice
@@ -68,9 +67,13 @@ class RigidObjectSet(Object):
         super().__init__(
             name=name,
             object_type=ObjectType.RIGID,
-            usd_path="",
+            spawner_cfg=sim_utils.MultiUsdFileCfg(
+                usd_path=self.object_usd_paths,
+                # Arena owns assignment so spawned USDs and per-env bounds stay aligned.
+                random_choice=False,
+                activate_contact_sensors=True,
+            ),
             prim_path=prim_path,
-            scale=(1.0, 1.0, 1.0),  # We rewrite the USDs to handle scaling.
             initial_pose=initial_pose,
             **kwargs,
         )
@@ -95,6 +98,10 @@ class RigidObjectSet(Object):
         uses its actual variant geometry.
         """
         return max(self.objects, key=lambda obj: obj.get_bounding_box().size[0, 2].item()).get_bounding_box()
+
+    def get_collision_mesh(self, excluded_prim_paths: Collection[str] = ()) -> None:
+        """Object sets do not expose a single collision mesh."""
+        assert not excluded_prim_paths, "Object sets do not support USD prim exclusions"
 
     def assign_variants(self, num_envs: int, variant_seed: int | None = None) -> None:
         """Fix one member-variant index per environment.
@@ -150,8 +157,13 @@ class RigidObjectSet(Object):
 
     def get_contact_sensor_prim_path(self) -> str:
         """Return the contact-sensor path shared by all normalized member USDs."""
-        get_member_prim_path = super().get_contact_sensor_prim_path
-        member_prim_paths = [get_member_prim_path(usd_path) for usd_path in self.member_usd_paths]
+        member_prim_paths = []
+        for usd_path in self.member_usd_paths:
+            relative_path = find_shallowest_rigid_body(
+                usd_path, within_default_prim=True, relative_to_default_prim=True
+            )
+            assert relative_path is not None, f"No rigid body found in object set member {usd_path}"
+            member_prim_paths.append(self.prim_path + relative_path)
         assert len(set(member_prim_paths)) == 1, (
             f"RigidObjectSet '{self.name}' member USDs must have the same contact-sensor prim path; "
             f"got {member_prim_paths}."
@@ -180,47 +192,22 @@ class RigidObjectSet(Object):
             0 <= idx < n for idx in variant_indices_by_env
         ), f"RigidObjectSet '{self.name}' variant indices must be in [0, {n}); got {variant_indices_by_env}."
         self.variant_indices_by_env = variant_indices_by_env
-        # During __init__, Object.object_cfg has not been built yet; _generate_rigid_cfg()
-        # reads object_usd_paths after this assignment.
+        # Assignment may happen before the native object config is constructed.
         spawn_cfg = self.object_cfg.spawn if getattr(self, "object_cfg", None) is not None else None
         if isinstance(spawn_cfg, sim_utils.MultiUsdFileCfg):
             spawn_cfg.usd_path = self.object_usd_paths
 
     def _are_all_objects_type_rigid(self, objects: list[Object]) -> bool:
         for obj in objects:
-            assert obj.usd_path is not None
-            if detect_object_type(usd_path=obj.usd_path) != ObjectType.RIGID:
+            assert isinstance(obj.spawn_cfg, sim_utils.UsdFileCfg), "Object set members require USD spawners"
+            if detect_object_type(usd_path=obj.spawn_cfg.usd_path) != ObjectType.RIGID:
                 return False
         return True
-
-    def _generate_rigid_cfg(self) -> RigidObjectCfg:
-        assert self.object_type == ObjectType.RIGID
-        object_cfg = RigidObjectCfg(
-            prim_path=self.prim_path,
-            spawn=sim_utils.MultiUsdFileCfg(
-                usd_path=self.object_usd_paths,
-                # Arena owns per-env variant assignment so bbox selection and
-                # spawned USDs stay aligned.
-                random_choice=False,
-                activate_contact_sensors=True,
-            ),
-        )
-        object_cfg = self._add_initial_pose_to_cfg(object_cfg)
-        return object_cfg
-
-    def _generate_articulation_cfg(self):
-        raise NotImplementedError("Articulation configuration is not supported for object sets")
-
-    def _generate_base_cfg(self):
-        raise NotImplementedError("Base configuration is not supported for object sets")
-
-    def _generate_spawner_cfg(self):
-        raise NotImplementedError("Spawner configuration is not supported for object sets")
 
     def _is_asset_modification_needed(self, objects: list[Object]) -> bool:
         # If any asset is scaled, we need to modify the assets
         for asset in objects:
-            if asset.scale != (1.0, 1.0, 1.0):
+            if asset.spawn_cfg.scale not in (None, (1.0, 1.0, 1.0)):
                 return True
         # If all assets have rigid bodies at the root, we don't need to modify the assets
         depths = self._get_all_rigid_body_depths(objects)
@@ -232,8 +219,7 @@ class RigidObjectSet(Object):
     def _get_all_rigid_body_depths(self, objects: list[Object]) -> list[int]:
         depths = []
         for asset in objects:
-            assert asset.usd_path is not None
-            shallowest_rigid_body = find_shallowest_rigid_body(asset.usd_path, within_default_prim=True)
+            shallowest_rigid_body = find_shallowest_rigid_body(asset.spawn_cfg.usd_path, within_default_prim=True)
             depth = shallowest_rigid_body.count("/") - 1 if shallowest_rigid_body else -1
             depths.append(depth)
         return depths

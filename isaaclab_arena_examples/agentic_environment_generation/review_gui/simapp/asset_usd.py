@@ -48,7 +48,7 @@ def resolve_node_usd_paths(assets_by_node_id: dict[str, object], node_ids: list[
         if asset is None:
             print(f"[asset_usd]   {node_id}: not found in instantiated assets, skipping.", file=sys.stderr)
             continue
-        usd_path = getattr(asset, "usd_path", None)
+        usd_path = getattr(getattr(asset, "spawn_cfg", None), "usd_path", None)
         if usd_path:
             paths[node_id] = usd_path
     return paths
