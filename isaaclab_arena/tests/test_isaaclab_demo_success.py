@@ -91,6 +91,7 @@ def _test_external_success(simulation_app, mode):
     env._episode_limit = None
     env._started_episode_count = 2
     env._completed_episode_count = 0
+    env._variation_replay_scheduler = None
 
     def load_lab_managers(self):
         assert self.cfg.recorders is None
