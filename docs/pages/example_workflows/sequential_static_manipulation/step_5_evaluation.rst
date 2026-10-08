@@ -239,7 +239,7 @@ This step demonstrates evaluation of the policy in heterogeneous environments wi
          --enable_cameras \
          put_item_in_fridge_and_close_door \
          --embodiment gr1_joint \
-         --object_set ketchup_bottle_hope_robolab ranch_dressing_hope_robolab bbq_sauce_bottle_hope_robolab mayonnaise_bottle_hope_robolab
+         --object_variants ketchup_bottle_hope_robolab ranch_dressing_hope_robolab bbq_sauce_bottle_hope_robolab mayonnaise_bottle_hope_robolab
 
    .. tab-item:: Distribute Multi-GPU Evaluation
 
@@ -258,9 +258,9 @@ This step demonstrates evaluation of the policy in heterogeneous environments wi
            --distributed \
            put_item_in_fridge_and_close_door \
            --embodiment gr1_joint \
-           --object_set ketchup_bottle_hope_robolab ranch_dressing_hope_robolab bbq_sauce_bottle_hope_robolab mayonnaise_bottle_hope_robolab
+           --object_variants ketchup_bottle_hope_robolab ranch_dressing_hope_robolab bbq_sauce_bottle_hope_robolab mayonnaise_bottle_hope_robolab
 
-Each environment has a different object spawned from the object set. The same policy is used for all those environments.
+Each environment has a different object variant. The same policy is used for all those environments.
 At then end of the evaluation, you should see the following output on the console indicating the metrics.
 You can see that the success rate for this sequential task, object moved rate for the first subtask,
 and the revolute joint moved rate for the second subtask, and the subtask success rate for each subtask.

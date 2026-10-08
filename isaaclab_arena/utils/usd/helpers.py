@@ -203,14 +203,14 @@ def compute_local_bounding_box_from_usd(
 
     Opening a USD directly includes the default prim's root ``xformOp:scale``
     in ``ComputeWorldBound``, but Isaac Lab's spawner ignores it and only
-    Object.scale on the spawn wrapper applies.
+    UsdFileCfg.scale on the spawn wrapper applies.
     This helper unbakes the default prim's root scale from the USD, then
-    applies ``Object.scale`` once so relation-solver bboxes match what is
+    applies ``UsdFileCfg.scale`` once so relation-solver bboxes match what is
     actually spawned.
 
     Args:
         usd_path: Path to the USD file.
-        scale: Spawn-time scale passed to ``UsdFileCfg`` / ``Object.scale``.
+        scale: Spawn-time scale passed to ``UsdFileCfg.scale``.
         prim_path: Optional sub-prim to bound. When set, returns that prim's AABB
             expressed in the default prim's frame (root-relative). When None,
             bounds the default prim itself.

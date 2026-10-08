@@ -15,14 +15,8 @@ def _make_variant_object(name, sizes, **kwargs):
     from isaaclab.sim import CuboidCfg
 
     from isaaclab_arena.assets.object import Object
-    from isaaclab_arena.assets.object_set import RigidObjectSet
-    from isaaclab_arena.assets.object_type import ObjectType
 
-    members = [
-        Object(name=f"{name}_{index}", spawner_cfg=CuboidCfg(size=size), object_type=ObjectType.RIGID)
-        for index, size in enumerate(sizes)
-    ]
-    return RigidObjectSet(name=name, objects=members, **kwargs)
+    return Object(name=name, variants=[CuboidCfg(size=size) for size in sizes], **kwargs)
 
 
 def _make_rotated_anchor():

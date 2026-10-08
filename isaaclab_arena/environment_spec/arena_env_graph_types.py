@@ -11,11 +11,10 @@ from enum import Enum
 from numbers import Real
 from typing import Any
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.assets.registries import AssetRegistry, ObjectRelationLibraryRegistry, TaskRegistry
-from isaaclab_arena.assets.simready_constants import SIMREADY_USD_OBJECT_REGISTRY_NAME
 
 
 def _extract_asset_usd_path(asset_cls: type, **params: Any) -> str | None:
@@ -95,55 +94,69 @@ class AssetSpec(BaseModel):
         return usd_path
 
 
-class ObjectSetSpec(BaseModel):
-    """A set of rigid objects distributed among parallel environments, one object per environment."""
+class ObjectVariantSpec(BaseModel):
+    """One registered rigid asset and its constructor parameters for an object role."""
 
-    id: str = Field(
-        min_length=1,
-        description=(
-            "Unique id for this object set (e.g. 'bottles'). Referenced by relations and task "
-            "params exactly like an object id."
-        ),
-    )
-    members: list[str] = Field(
-        min_length=1,
-        description=(
-            "Exact registered object names from OBJECTS marked type=rigid that this set draws "
-            "from; every environment spawns one of them."
-        ),
-    )
-    random_choice: bool = Field(
-        default=False,
-        description=(
-            "Sample each environment's member independently at random. When false, members are "
-            "assigned by repeating their declared order across environments."
-        ),
-    )
+    model_config = ConfigDict(extra="forbid")
+
+    registry_name: str = Field(min_length=1, description="Exact registered rigid object name from OBJECTS.")
     params: dict[str, Any] = Field(
         default_factory=dict,
-        description="Optional constructor kwargs forwarded to RigidObjectSet; leave empty by default.",
+        description="Constructor kwargs for this variant, including scale or a SimReady usd_path.",
     )
 
-    # TODO(xinjieyao, 2026-08-03): Support searched SimReady assets as object set members.
-    @field_validator("members")
+    @field_validator("registry_name")
     @classmethod
-    def _validate_member_registry_names(cls, value: list[str]) -> list[str]:
-        for registry_name in value:
-            # ObjectSet members are built with no arguments, but Simready assets need usd_path. Only an object's params can carry.
-            assert registry_name != SIMREADY_USD_OBJECT_REGISTRY_NAME, (
-                f"'{registry_name}' cannot be an object set member, because a member has nowhere to"
-                " carry the usd_path it needs. Use it as an object instead."
-            )
-        return [_assert_registered_asset_name(registry_name, ObjectType.RIGID) for registry_name in value]
+    def _validate_registry_name(cls, value: str) -> str:
+        return _assert_registered_asset_name(value, ObjectType.RIGID)
 
     @field_validator("params")
     @classmethod
-    def _reject_reserved_params(cls, value: dict[str, Any]) -> dict[str, Any]:
-        # These are forwarded from the fields above, so a duplicate here would be a TypeError at
-        # build time, and an 'objects' override would skip the rigid-member check on members.
-        reserved = sorted({"name", "objects", "random_choice"} & set(value))
-        assert not reserved, f"params must not set {reserved}; use the id, members, random_choice fields instead"
-        return value
+    def _validate_params(cls, value: dict[str, Any]) -> dict[str, Any]:
+        assert "variants" not in value, "Object variants cannot contain nested variants"
+        return AssetSpec._drop_catalogue_tags(value)
+
+
+class ObjectSpec(AssetSpec):
+    """One scene object with either a registered asset or rigid alternatives across environments."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    registry_name: str | None = Field(default=None, min_length=1, description="Registered asset for a fixed object.")
+    variants: list[ObjectVariantSpec] | None = Field(
+        default=None,
+        min_length=1,
+        description="Rigid alternatives for this object role; every environment spawns one of them.",
+    )
+    random_choice: bool = Field(
+        default=False,
+        description="Choose variants randomly per environment; otherwise repeat their declared order.",
+    )
+
+    @field_validator("registry_name")
+    @classmethod
+    def _validate_registry_name(cls, value: str | None) -> str | None:
+        return _assert_registered_asset_name(value) if value is not None else None
+
+    @model_validator(mode="after")
+    def _validate_source(self) -> ObjectSpec:
+        assert (self.registry_name is None) != (
+            self.variants is None
+        ), "Object must define exactly one of registry_name or variants"
+        assert self.variants is not None or not self.random_choice, "random_choice requires object variants"
+        reserved = {"variants", "random_choice"}
+        if self.variants is not None:
+            reserved.update({"name", "instance_name", "object_type", "usd_path", "spawner_cfg"})
+        duplicate_params = sorted(reserved & self.params.keys())
+        assert (
+            not duplicate_params
+        ), f"Object params must not set {duplicate_params}; use the object fields or variant params"
+        return self
+
+    def resolve_usd_path(self) -> str:
+        """Return the USD path for a fixed object; alternatives each have their own source."""
+        assert self.registry_name is not None, f"Object '{self.id}' has variants instead of one USD path"
+        return super().resolve_usd_path()
 
 
 class ObjectReferenceSpec(BaseModel):

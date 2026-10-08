@@ -20,8 +20,8 @@ on the table.
 
 The scene is *heterogeneous* because each parallel environment spawns a
 different fruit, while the embodiment, background scene, spatial relationships
-and task stay the same. The fruit is declared as an **object set**: a group of
-interchangeable assets under a single id, distributed one member per
+and task stay the same. The fruit is declared as an **object with variants**:
+interchangeable assets under a single id, distributed one variant per
 environment. Running with ``--num_envs 1`` shows a single fruit, so raise
 ``--num_envs`` to see the variation.
 

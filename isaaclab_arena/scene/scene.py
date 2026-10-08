@@ -18,7 +18,6 @@ from isaaclab_arena.assets.background import Background
 from isaaclab_arena.assets.cable import Cable
 from isaaclab_arena.assets.object import Object
 from isaaclab_arena.assets.object_reference import ObjectReference
-from isaaclab_arena.assets.object_set import RigidObjectSet
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.relations.placement_asset import PlaceableAsset
 from isaaclab_arena.utils.configclass import make_configclass
@@ -30,8 +29,8 @@ AssetCfg = Union[AssetBaseCfg, RigidObjectCfg, ArticulationCfg, ContactSensorCfg
 
 class Scene:
 
-    def __init__(self, assets: list[Asset, RigidObjectSet] | None = None):
-        self.assets: dict[str, Asset | RigidObjectSet] = {}
+    def __init__(self, assets: list[Asset] | None = None):
+        self.assets: dict[str, Asset] = {}
         # We add these here so a user can override them if they want.
         self.observation_cfg = None
         self.events_cfg = None
@@ -44,14 +43,14 @@ class Scene:
         if assets is not None:
             self.add_assets(assets)
 
-    def add_asset(self, asset: Asset | RigidObjectSet):
+    def add_asset(self, asset: Asset):
         """Add an asset to the scene.
 
         Args:
             asset: An Asset instance or a dictionary of Assets. If a dictionary is provided,
                    the keys will be used as the names of the assets and the values will be the list of assets.
         """
-        if not isinstance(asset, Asset | RigidObjectSet):
+        if not isinstance(asset, Asset):
             raise ValueError(f"Invalid asset type: {type(asset)}")
 
         if asset.name is None:
@@ -60,7 +59,7 @@ class Scene:
         # if name already exists, overwrite
         self.assets[asset.name] = asset
 
-    def add_assets(self, assets: list[Asset | RigidObjectSet]):
+    def add_assets(self, assets: list[Asset]):
         all_assets = set(assets)
         for asset in assets:
             if isinstance(asset, ObjectReference):
@@ -226,9 +225,6 @@ def _create_prim_from_asset(stage: Usd.Stage, asset: Asset) -> None:
     import isaaclab.sim as sim_utils
 
     assert isinstance(asset, Object)
-    assert not isinstance(
-        asset, RigidObjectSet
-    ), f"Select a concrete member of '{asset.name}' before exporting the scene."
     initial_pose = asset.get_initial_pose()
     assert initial_pose is None or isinstance(
         initial_pose, Pose

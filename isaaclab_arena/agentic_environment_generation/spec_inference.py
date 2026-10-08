@@ -158,7 +158,8 @@ GUIDANCE:
   variance of that family in EMBODIMENTS, pick the one with the default tag.
 - For multiple instances of the same registry asset, use semantic (left/right) or numerical (1/2/3)
   suffixes in ``id``.
-- Use ``object_sets`` only when one object varies across environments; list its variants as ``members``.
+- When an object varies across environments, give its ``objects`` entry a ``variants`` list instead of
+  ``registry_name``. Each variant has its own ``registry_name`` and optional ``params``; use only rigid objects.
   Every member must be an OBJECTS entry marked ``type=rigid``.
 - An ``object_reference`` names a prim inside the background. Add one for every surface or appliance
   the prompt names that the background merely contains — the floor the robot stands on, a counter top,

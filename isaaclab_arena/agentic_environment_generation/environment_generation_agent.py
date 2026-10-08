@@ -155,37 +155,18 @@ class EnvironmentGenerationAgent:
             if resolved is None:
                 return None, spec.to_dict()
             spec = resolved
-        unusable = self._add_simready_usd_path_to_searched_objects(spec)
-        if unusable is not None:
-            self._traces.append(unusable)
-            return None, spec.to_dict()
+        self._add_simready_usd_path_to_searched_objects(spec)
         return spec, None
 
-    def _add_simready_usd_path_to_searched_objects(self, spec: ArenaEnvGraphSpec) -> str | None:
-        """Point the spec's searched objects at the generic SimReady asset, USD path in params.
-
-        A search name only exists in the process that searched, so a spec keeping it loads nowhere else.
-
-        Args:
-            spec: Generated spec, rewritten in place.
-
-        Returns:
-            An error message, or None when every searched object was rewritten.
-        """
-        # TODO(xinjieyao, 2026-08-03): Lift this once ObjectSetSpec.members can carry a usd_path.
-        for object_set in spec.object_sets or []:
-            searched_members = [name for name in object_set.members if name in self._simready_usd_paths]
-            if searched_members:
-                return (
-                    f"Object set '{object_set.id}' has searched SimReady members {searched_members}."
-                    " Members have nowhere to carry a usd_path; use them as objects instead."
-                )
+    def _add_simready_usd_path_to_searched_objects(self, spec: ArenaEnvGraphSpec) -> None:
+        """Replace searched names with portable SimReady references for fixed objects and variants."""
         for obj in spec.objects:
-            usd_path = self._simready_usd_paths.get(obj.registry_name)
-            if usd_path is not None:
-                obj.registry_name = SIMREADY_USD_OBJECT_REGISTRY_NAME
-                obj.params = {**obj.params, "usd_path": usd_path}
-        return None
+            sources = obj.variants if obj.variants is not None else [obj]
+            for source in sources:
+                usd_path = self._simready_usd_paths.get(source.registry_name)
+                if usd_path is not None:
+                    source.registry_name = SIMREADY_USD_OBJECT_REGISTRY_NAME
+                    source.params = {**source.params, "usd_path": usd_path}
 
     def _extend_catalogue_with_simready(self, prompt: str, asset_catalog: AssetCatalogue) -> AssetCatalogue:
         """Search SimReady for the objects the catalog misses, and add what it finds to the catalog.

@@ -23,13 +23,12 @@ from isaaclab_arena.utils.pose import Pose
 
 if TYPE_CHECKING:
     from isaaclab_arena.assets.asset import Asset
-    from isaaclab_arena.assets.object_set import RigidObjectSet
     from isaaclab_arena.relations.placement_asset import PlaceableAsset
 
 
 def get_placement_collision_objects(
     placement_assets: list[PlaceableAsset],
-    scene_assets: Iterable[Asset | RigidObjectSet],
+    scene_assets: Iterable[Asset],
     default_collision_mode: CollisionMode,
 ) -> list[CollisionObject]:
     """Discover obstacles using the scene's collision modes and anchored support exclusions.
@@ -69,7 +68,7 @@ def get_placement_collision_objects(
 
 
 def discover_passive_assets(
-    assets: Iterable[Asset | RigidObjectSet],
+    assets: Iterable[Asset],
     include_background: bool = False,
 ) -> list[Object | ObjectReference]:
     """Return original relation-free scene assets with fixed placement geometry.

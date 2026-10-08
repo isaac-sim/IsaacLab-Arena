@@ -206,7 +206,7 @@ uses five cached layouts.
    :widths: 24, 43, 33
 
    "Tabletop homogeneous pick and place", "DROID picks a banana to a plate on a maple tabletop.", "0, 6, or 14 fruit/vegetable distractors; SimReady beverage can and basket variant"
-   "Tabletop heterogeneous pick and place", "DROID picks fruit to a plate on a tabletop.", "Heterogeneous fruit object set"
+   "Tabletop heterogeneous pick and place", "DROID picks fruit to a plate on a tabletop.", "Fruit variants across environments"
    "Kitchen homogeneous pick and place", "DROID picks a banana to a plate on a kitchen countertop. DROID is next to the countertop, on the floor.", "0, 6, or 14 fruit/vegetable distractors"
    "Kitchen open door", "DROID opens the fridge door in the kitchen. DROID is next to the fridge, on the floor.", "Referenced articulated fridge"
 

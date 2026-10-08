@@ -43,7 +43,6 @@ def _test_native_variant_scene(simulation_app, tmp_path):
     from pxr import UsdPhysics
 
     from isaaclab_arena.assets.object import Object
-    from isaaclab_arena.assets.object_set import RigidObjectSet
     from isaaclab_arena.assets.object_type import ObjectType
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
@@ -64,14 +63,14 @@ def _test_native_variant_scene(simulation_app, tmp_path):
             object_type=ObjectType.RIGID,
         )
 
-    pickup = RigidObjectSet(
+    pickup = Object(
         name="pickup",
-        objects=[make_member(root_path, 1.0), make_member(nested_path, 1.5)],
+        variants=[make_member(root_path, 1.0).as_variant(), make_member(nested_path, 1.5).as_variant()],
         initial_pose=Pose(position_xyz=(0.0, 0.0, 2.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)),
     )
-    destination = RigidObjectSet(
+    destination = Object(
         name="destination",
-        objects=[make_member(nested_path, scale) for scale in (0.5, 1.0, 2.0)],
+        variants=[make_member(nested_path, scale).as_variant() for scale in (0.5, 1.0, 2.0)],
         random_choice=True,
         initial_pose=Pose(position_xyz=(1.0, 0.0, 2.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)),
     )

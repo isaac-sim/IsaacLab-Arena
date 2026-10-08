@@ -16,19 +16,18 @@ objects:
 - id: bowl
   registry_name: bowl_ycb_robolab
   params: {}
-object_sets:
 - id: fruit
-  members:
-  - apple_01_objaverse_robolab
-  - apple_02_objaverse_robolab
-  - avocado01_fruits_veggies_robolab
-  - lemon_01_fruits_veggies_robolab
-  - lemon_02_fruits_veggies_robolab
-  - lime01_fruits_veggies_robolab
-  - orange_01_fruits_veggies_robolab
-  - orange_02_fruits_veggies_robolab
-  - pomegranate01_fruits_veggies_robolab
-  - lychee01_fruits_veggies_robolab
+  variants:
+  - registry_name: apple_01_objaverse_robolab
+  - registry_name: apple_02_objaverse_robolab
+  - registry_name: avocado01_fruits_veggies_robolab
+  - registry_name: lemon_01_fruits_veggies_robolab
+  - registry_name: lemon_02_fruits_veggies_robolab
+  - registry_name: lime01_fruits_veggies_robolab
+  - registry_name: orange_01_fruits_veggies_robolab
+  - registry_name: orange_02_fruits_veggies_robolab
+  - registry_name: pomegranate01_fruits_veggies_robolab
+  - registry_name: lychee01_fruits_veggies_robolab
   random_choice: true
   params: {}
 relations:

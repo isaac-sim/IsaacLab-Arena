@@ -19,7 +19,7 @@ from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_wi
 if TYPE_CHECKING:
     from isaaclab.scene import InteractiveSceneCfg
 
-    from isaaclab_arena.assets.object_set import RigidObjectSet
+    from isaaclab_arena.assets.object import Object
 
 
 def _with_simulation_app(test_function):
@@ -36,27 +36,19 @@ def _with_simulation_app(test_function):
     return run_test
 
 
-def _make_object(name: str, variant_count: int, random_choice: bool = False) -> RigidObjectSet:
+def _make_object(name: str, variant_count: int, random_choice: bool = False) -> Object:
     from isaaclab.sim import CuboidCfg
 
     from isaaclab_arena.assets.object import Object
-    from isaaclab_arena.assets.object_set import RigidObjectSet
-    from isaaclab_arena.assets.object_type import ObjectType
 
-    members = []
+    variants = []
     for variant_index in range(variant_count):
         width = 0.1 * (variant_index + 1)
-        members.append(
-            Object(
-                name=f"{name}_{variant_index}",
-                object_type=ObjectType.RIGID,
-                spawner_cfg=CuboidCfg(size=(width, width, width)),
-            )
-        )
-    return RigidObjectSet(name=name, objects=members, random_choice=random_choice)
+        variants.append(CuboidCfg(size=(width, width, width)))
+    return Object(name=name, variants=variants, random_choice=random_choice)
 
 
-def _make_scene(objects: list[RigidObjectSet], num_envs: int) -> InteractiveSceneCfg:
+def _make_scene(objects: list[Object], num_envs: int) -> InteractiveSceneCfg:
     from isaaclab.assets import RigidObjectCfg
     from isaaclab.scene import InteractiveSceneCfg
     from isaaclab.sensors import CameraCfg
@@ -71,7 +63,7 @@ def _make_scene(objects: list[RigidObjectSet], num_envs: int) -> InteractiveScen
     return scene_cfg
 
 
-def _make_native_plan(scene_cfg: InteractiveSceneCfg, objects: list[RigidObjectSet]):
+def _make_native_plan(scene_cfg: InteractiveSceneCfg, objects: list[Object]):
     from isaaclab import cloner
 
     asset_cfgs = [getattr(scene_cfg, obj.get_scene_key()) for obj in objects]
@@ -88,7 +80,7 @@ def _make_native_plan(scene_cfg: InteractiveSceneCfg, objects: list[RigidObjectS
     )
 
 
-def _assert_plan_assignments(plan, scene_cfg: InteractiveSceneCfg, objects: list[RigidObjectSet]) -> None:
+def _assert_plan_assignments(plan, scene_cfg: InteractiveSceneCfg, objects: list[Object]) -> None:
     for obj in objects:
         scene_asset_cfg = getattr(scene_cfg, obj.get_scene_key())
         variant_rows = plan.cfg_rows[id(scene_asset_cfg)]
@@ -222,7 +214,6 @@ def test_source_edit_before_assignment_rejects_incompatible_rigid_body_paths(tmp
     from pxr import Usd, UsdGeom, UsdPhysics
 
     from isaaclab_arena.assets.object import Object
-    from isaaclab_arena.assets.object_set import RigidObjectSet
     from isaaclab_arena.assets.object_type import ObjectType
     from isaaclab_arena.scene.object_variant_assignment import assign_object_variants
 
@@ -235,7 +226,7 @@ def test_source_edit_before_assignment_rejects_incompatible_rigid_body_paths(tmp
         UsdPhysics.RigidBodyAPI.Apply(body)
         stage.GetRootLayer().Save()
     member = Object(name="member", object_type=ObjectType.RIGID, spawner_cfg=UsdFileCfg(usd_path=str(root_path)))
-    obj = RigidObjectSet(name="pickup", objects=[member, member])
+    obj = Object(name="pickup", variants=[member.as_variant(), member.as_variant()])
     obj.spawn_cfg.assets_cfg[1].usd_path = str(nested_path)
     with pytest.raises(AssertionError, match="incompatible rigid-body paths"):
         assign_object_variants([obj], num_envs=3)

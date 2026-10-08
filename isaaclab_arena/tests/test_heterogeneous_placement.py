@@ -862,18 +862,12 @@ def test_object_variants_through_pooled_placer():
     from isaaclab.sim import CuboidCfg
 
     from isaaclab_arena.assets.object import Object
-    from isaaclab_arena.assets.object_set import RigidObjectSet
-    from isaaclab_arena.assets.object_type import ObjectType
     from isaaclab_arena.relations.bounding_box_helpers import has_heterogeneous_objects
     from isaaclab_arena.scene.object_variant_assignment import assign_object_variants
 
     desk = _make_desk()
     sizes = ((0.1, 0.1, 0.15), (0.15, 0.15, 0.2))
-    members = [
-        Object(name=f"box_{index}", spawner_cfg=CuboidCfg(size=size), object_type=ObjectType.RIGID)
-        for index, size in enumerate(sizes)
-    ]
-    pickup = RigidObjectSet(name="pickup", objects=members)
+    pickup = Object(name="pickup", variants=[CuboidCfg(size=size) for size in sizes])
     pickup.add_relation(On(desk, clearance_m=0.01))
     num_envs = 4
     assign_object_variants([pickup], num_envs, seed=42)

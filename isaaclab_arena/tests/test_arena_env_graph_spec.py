@@ -22,7 +22,7 @@ from isaaclab_arena.tests.utils.constants import TestConstants
 
 TEST_DATA_DIR = Path(__file__).parent / "test_data"
 _GRAPH = TEST_DATA_DIR / "pick_and_place_maple_table_env_graph.yaml"
-_OBJECT_SET_GRAPH = TEST_DATA_DIR / "object_set_maple_table_env_graph.yaml"
+_OBJECT_VARIANTS_GRAPH = TEST_DATA_DIR / "object_variants_maple_table_env_graph.yaml"
 _DEBUG_VIEW_GRAPH = TEST_DATA_DIR / "placement_debug_view_env_graph.yaml"
 
 
@@ -245,60 +245,138 @@ def test_graph_spec_accepts_legacy_position_limits_box_name():
     assert isinstance(relation, PositionLimitsBox)
 
 
-def test_graph_spec_loads_object_set_yaml():
-    spec = ArenaEnvGraphSpec.from_yaml(_OBJECT_SET_GRAPH)
+def test_graph_spec_loads_object_variants_yaml():
+    spec = ArenaEnvGraphSpec.from_yaml(_OBJECT_VARIANTS_GRAPH)
 
-    assert len(spec.object_sets) == 1
-    object_set = spec.object_sets[0]
-    assert object_set.id == "pick_up_object_set"
-    assert object_set.members == ["sweet_potato", "jug"]
-    assert object_set.random_choice
-    assert object_set.params == {}
+    assert len(spec.objects) == 2
+    varied_object = next(obj for obj in spec.objects if obj.variants is not None)
+    assert varied_object.id == "pick_up_object"
+    assert varied_object.registry_name is None
+    assert [variant.registry_name for variant in varied_object.variants] == [
+        "sweet_potato",
+        "jug",
+    ]
+    assert varied_object.random_choice
+    assert varied_object.params == {}
 
-    # An object set is one scene node: relations and task params address it by id like an object.
-    on_relation = next(relation for relation in spec.relations if relation.subject == "pick_up_object_set")
+    on_relation = next(relation for relation in spec.relations if relation.subject == varied_object.id)
     assert on_relation.kind == "on"
     assert on_relation.reference == "maple_table_robolab"
-    assert spec.task.subtasks[0].params["pick_up_object"] == "pick_up_object_set"
+    assert spec.task.subtasks[0].params["pick_up_object"] == varied_object.id
+    assert ArenaEnvGraphSpec.from_dict(spec.to_dict()) == spec
 
 
-def test_graph_spec_rejects_object_set_id_colliding_with_object():
+def test_graph_spec_rejects_duplicate_object_role_id():
     data = _minimal_env_graph_data()
-    data["object_sets"] = [{"id": "cube", "members": ["sweet_potato", "jug"]}]
+    data["objects"].append({"id": "cube", "variants": [{"registry_name": "sweet_potato"}]})
     with pytest.raises(ValidationError, match="Duplicate graph asset ids"):
         ArenaEnvGraphSpec.from_dict(data)
 
 
-def test_graph_spec_rejects_object_set_without_valid_members():
+@pytest.mark.parametrize(
+    ("object_spec", "message"),
+    [
+        ({"id": "fruit"}, "exactly one of registry_name or variants"),
+        (
+            {
+                "id": "fruit",
+                "registry_name": "sweet_potato",
+                "variants": [{"registry_name": "jug"}],
+            },
+            "exactly one of registry_name or variants",
+        ),
+        ({"id": "fruit", "variants": []}, "at least 1 item"),
+        (
+            {"id": "fruit", "variants": [{"registry_name": "not_a_real_asset"}]},
+            "Unknown asset registry_name",
+        ),
+        (
+            {"id": "fruit", "variants": [{"registry_name": "ground_plane"}]},
+            "must be a rigid object",
+        ),
+        (
+            {
+                "id": "fruit",
+                "variants": [{"registry_name": "sweet_potato", "variants": []}],
+            },
+            "Extra inputs are not permitted",
+        ),
+        (
+            {
+                "id": "fruit",
+                "variants": [{"registry_name": "sweet_potato", "params": {"variants": []}}],
+            },
+            "cannot contain nested variants",
+        ),
+        (
+            {
+                "id": "fruit",
+                "variants": [{"registry_name": "sweet_potato"}],
+                "params": {"variants": []},
+            },
+            "params must not set",
+        ),
+        (
+            {"id": "fruit", "registry_name": "sweet_potato", "random_choice": True},
+            "requires object variants",
+        ),
+    ],
+)
+def test_graph_spec_rejects_invalid_object_sources(object_spec, message):
     data = _minimal_env_graph_data()
-    data["object_sets"] = [{"id": "variants", "members": []}]
-    with pytest.raises(ValidationError, match="at least 1 item"):
+    data["objects"].append(object_spec)
+    with pytest.raises(ValidationError, match=message):
         ArenaEnvGraphSpec.from_dict(data)
 
-    data["object_sets"] = [{"id": "variants", "members": ["not_a_real_asset"]}]
-    with pytest.raises(ValidationError, match="Unknown asset registry_name"):
+
+def test_graph_spec_preserves_individual_variant_params():
+    data = _minimal_env_graph_data()
+    data["objects"].append({
+        "id": "fruit",
+        "variants": [
+            {"registry_name": "sweet_potato", "params": {"scale": [0.5, 0.5, 0.5]}},
+            {"registry_name": "sweet_potato", "params": {"scale": [2.0, 2.0, 2.0]}},
+        ],
+        "params": {
+            "initial_pose": {
+                "position_xyz": [0, 0, 1],
+                "rotation_xyzw": [0, 0, 0, 1],
+            }
+        },
+    })
+    spec = ArenaEnvGraphSpec.from_dict(data)
+    varied_object = spec.objects[-1]
+    assert varied_object.variants[0].params["scale"] == [0.5, 0.5, 0.5]
+    assert varied_object.variants[1].params["scale"] == [2.0, 2.0, 2.0]
+    assert ArenaEnvGraphSpec.from_dict(spec.to_dict()) == spec
+
+
+@pytest.mark.parametrize("legacy_value", [[], [{"id": "fruit", "members": ["sweet_potato"]}]])
+def test_graph_spec_rejects_removed_object_sets(legacy_value):
+    data = _minimal_env_graph_data()
+    data["object_sets"] = legacy_value
+    with pytest.raises(ValidationError, match="object_sets was removed; declare variants"):
         ArenaEnvGraphSpec.from_dict(data)
 
 
-def test_graph_spec_rejects_non_rigid_object_set_member():
+def test_graph_spec_rejects_cli_registry_override_for_object_with_variants():
     data = _minimal_env_graph_data()
-    data["object_sets"] = [{"id": "variants", "members": ["sweet_potato", "ground_plane"]}]
-    with pytest.raises(ValidationError, match="must be a rigid object"):
+    data["objects"].append({"id": "fruit", "variants": [{"registry_name": "sweet_potato"}]})
+    data["cli_override_specs"] = [{"arg": "fruit", "target_node_id": "fruit"}]
+    with pytest.raises(ValidationError, match="non-swappable asset"):
         ArenaEnvGraphSpec.from_dict(data)
 
 
-def test_graph_spec_rejects_object_set_params_shadowing_spec_fields():
+def test_graph_spec_rejects_prim_reference_inside_object_with_variants():
     data = _minimal_env_graph_data()
-    data["object_sets"] = [{"id": "variants", "members": ["sweet_potato"], "params": {"objects": []}}]
-    with pytest.raises(ValidationError, match="params must not set"):
-        ArenaEnvGraphSpec.from_dict(data)
-
-
-def test_graph_spec_rejects_relation_referencing_unknown_object_set():
-    data = _minimal_env_graph_data()
-    data["object_sets"] = [{"id": "variants", "members": ["sweet_potato", "jug"]}]
-    data["relations"].append({"kind": "on", "subject": "other_variants", "reference": "table"})
-    with pytest.raises(ValidationError, match="unknown subject"):
+    data["objects"].append({"id": "fruit", "variants": [{"registry_name": "sweet_potato"}]})
+    data["object_references"].append({
+        "id": "fruit_body",
+        "parent_id": "fruit",
+        "prim_path": "body",
+        "object_type": "rigid",
+    })
+    with pytest.raises(ValidationError, match="invalid parent"):
         ArenaEnvGraphSpec.from_dict(data)
 
 
@@ -521,7 +599,6 @@ def test_graph_spec_accepts_missing_optional_fields():
     data["task"]["subtasks"][0]["params"]["destination_location"] = "background"
     spec = ArenaEnvGraphSpec.from_dict(data)
     assert spec.object_references is None
-    assert spec.object_sets is None
     assert spec.cli_override_specs is None
 
 
@@ -530,7 +607,6 @@ def test_graph_spec_omits_empty_optional_fields_from_dict():
     del data["object_references"]
     data["relations"] = [{"kind": "is_anchor", "subject": "background"}]
     data["task"]["subtasks"][0]["params"]["destination_location"] = "background"
-    data["object_sets"] = []
     spec = ArenaEnvGraphSpec.from_dict(data)
     dumped = spec.to_dict()
     assert "object_references" not in dumped
@@ -575,13 +651,18 @@ def test_a_searched_simready_object_loads_in_a_fresh_process(tmp_path):
     assert f"USD_PATH={usd_path}" in result.stdout
 
 
-def test_the_generic_simready_asset_is_rejected_as_an_object_set_member():
+def test_simready_variant_preserves_its_usd_path():
     data = _minimal_env_graph_data()
-    data["object_sets"] = [{"id": "kettles", "members": ["simready_usd_object"]}]
-
-    # It is rigid, so it passes the member type check; what it cannot do is arrive with a usd_path.
-    with pytest.raises(ValidationError, match="cannot be an object set member"):
-        ArenaEnvGraphSpec.from_dict(data)
+    data["objects"].append({
+        "id": "kettles",
+        "variants": [{
+            "registry_name": "simready_usd_object",
+            "params": {"usd_path": "s3://bucket/kettle.usd"},
+        }],
+    })
+    spec = ArenaEnvGraphSpec.from_dict(data)
+    assert spec.objects[-1].variants[0].params == {"usd_path": "s3://bucket/kettle.usd"}
+    assert ArenaEnvGraphSpec.from_dict(spec.to_dict()) == spec
 
 
 def test_a_spec_naming_a_searched_simready_asset_by_its_search_name_is_rejected(tmp_path):

@@ -283,8 +283,8 @@ can restore.
    * - Rigid and articulation roots
      - Require writable roots, enabled pose resets, fixed root-reset poses and
        zero initial velocity. Replay restores root poses and zeros root velocities.
-   * - Object sets and ``RandomAroundSolution``
-     - Unsupported for recording. Resolve sets to concrete assets and remove
+   * - Objects with multiple variants and ``RandomAroundSolution``
+     - Unsupported for recording. Select concrete variants and remove
        ``RandomAroundSolution`` before recording.
    * - Randomized or per-environment root-reset poses
      - Unsupported. Disable other pose-changing variations and callbacks when
