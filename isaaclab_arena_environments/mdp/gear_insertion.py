@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Newton configuration for the gear-assembly environment."""
+"""Newton physics configuration for the gear insertion environment."""
 
 from __future__ import annotations
 
@@ -13,13 +13,13 @@ if TYPE_CHECKING:
     from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import IsaacLabArenaManagerBasedRLEnvCfg
 
 
-def gear_assembly_newton_env_cfg_callback(
+def gear_insertion_newton_env_cfg_callback(
     env_cfg: IsaacLabArenaManagerBasedRLEnvCfg,
 ) -> IsaacLabArenaManagerBasedRLEnvCfg:
     """Configure Newton for a stable 30 Hz contact-rich manipulation loop."""
     from isaaclab_newton.physics import HydroelasticSDFCfg, NewtonCfg, NewtonCollisionPipelineCfg
 
-    assert isinstance(env_cfg.sim.physics, NewtonCfg), "gear_assembly requires the Newton physics backend"
+    assert isinstance(env_cfg.sim.physics, NewtonCfg), "gear_insertion requires the Newton physics backend"
 
     env_cfg.sim.dt = 1.0 / 240.0
     env_cfg.decimation = 8

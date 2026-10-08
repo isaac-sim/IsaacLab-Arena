@@ -15,7 +15,7 @@ ARENA_NUCLEUS_DIR: str = ISAACLAB_NUCLEUS_DIR.replace("omniverse-content-product
 # TODO(2026.08.12, Fill request to sync Replicator kitchens to the production bucket once Sim 6.1 is released)
 ISAAC_STAGING_NUCLEUS_DIR: str = ISAAC_NUCLEUS_DIR.replace("omniverse-content-production", "omniverse-content-staging")
 
-GEAR_ASSEMBLY_ASSET_DIR: str = (
+GEAR_INSERTION_ASSET_DIR: str = (
     "omniverse://isaac-dev.ov.nvidia.com/Projects/nvblox/isaac_arena/newton_envs/gear_assembly"
 )
-"""Gear-assembly asset root pending publication to Arena's public asset location."""
+"""Gear insertion asset root pending publication to Arena's public asset location."""

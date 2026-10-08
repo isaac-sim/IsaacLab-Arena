@@ -35,8 +35,8 @@ DROID_GEAR_APPROACH_JOINT_POSITIONS = {
 
 
 @dataclass
-class GearAssemblyEnvironmentCfg(ArenaEnvironmentCfg):
-    """Configure the Newton DROID gear-assembly environment."""
+class GearInsertionEnvironmentCfg(ArenaEnvironmentCfg):
+    """Configure the Newton DROID gear insertion environment."""
 
     hdr: str | None = "empty_warehouse_robolab"
     """Registered HDR background, or None for uniform dome lighting."""
@@ -52,13 +52,13 @@ class GearAssemblyEnvironmentCfg(ArenaEnvironmentCfg):
 
 
 @register_environment
-class GearAssemblyEnvironment(ArenaEnvironmentFactory[GearAssemblyEnvironmentCfg]):
+class GearInsertionEnvironment(ArenaEnvironmentFactory[GearInsertionEnvironmentCfg]):
     """Build the DROID task for inserting a medium gear onto its matching peg."""
 
-    name = "gear_assembly"
-    _legacy_argparse_cfg_type = GearAssemblyEnvironmentCfg
+    name = "gear_insertion"
+    _legacy_argparse_cfg_type = GearInsertionEnvironmentCfg
 
-    def build(self, cfg: GearAssemblyEnvironmentCfg) -> IsaacLabArenaEnvironment:
+    def build(self, cfg: GearInsertionEnvironmentCfg) -> IsaacLabArenaEnvironment:
         """Build the environment from registered Arena components."""
         from isaaclab_arena.assets.object_reference import ObjectReference
         from isaaclab_arena.assets.object_type import ObjectType
@@ -67,10 +67,10 @@ class GearAssemblyEnvironment(ArenaEnvironmentFactory[GearAssemblyEnvironmentCfg
         from isaaclab_arena.relations.relations import AtPosition, IsAnchor, On
         from isaaclab_arena.relations.validation.types import PlacementCheck
         from isaaclab_arena.scene.scene import Scene
-        from isaaclab_arena.tasks.gear_assembly_task import GearAssemblyTask
+        from isaaclab_arena.tasks.gear_insertion_task import GearInsertionTask
         from isaaclab_arena.utils.physics_backend import PhysicsBackend
         from isaaclab_arena.utils.pose import Pose
-        from isaaclab_arena_environments.mdp.gear_assembly import gear_assembly_newton_env_cfg_callback
+        from isaaclab_arena_environments.mdp.gear_insertion import gear_insertion_newton_env_cfg_callback
 
         background = self.asset_registry.get_asset_by_name("maple_table_robolab")()
         background.set_initial_pose(Pose(position_xyz=(0.0, 0.0, MAPLE_TABLE_ALIGNMENT_Z)))
@@ -82,11 +82,11 @@ class GearAssemblyEnvironment(ArenaEnvironmentFactory[GearAssemblyEnvironmentCfg
         )
         table_reference.add_relation(IsAnchor())
 
-        gear_base = self.asset_registry.get_asset_by_name("gear_assembly_base")()
+        gear_base = self.asset_registry.get_asset_by_name("gear_insertion_base")()
         gear_base.add_relation(On(table_reference, clearance_m=0.0))
         gear_base.add_relation(AtPosition(x=GEAR_BASE_XY[0], y=GEAR_BASE_XY[1]))
 
-        medium_gear = self.asset_registry.get_asset_by_name("gear_assembly_medium_gear")()
+        medium_gear = self.asset_registry.get_asset_by_name("gear_insertion_medium_gear")()
         medium_gear.add_relation(On(table_reference, clearance_m=0.001))
         medium_gear.add_relation(AtPosition(x=GEAR_INITIAL_XY[0], y=GEAR_INITIAL_XY[1]))
         insertion_target = ObjectReference(
@@ -119,7 +119,7 @@ class GearAssemblyEnvironment(ArenaEnvironmentFactory[GearAssemblyEnvironmentCfg
                 directional_light,
             ]
         )
-        task = GearAssemblyTask(
+        task = GearInsertionTask(
             fixed_asset=gear_base,
             held_asset=medium_gear,
             insertion_target=insertion_target,
@@ -132,7 +132,7 @@ class GearAssemblyEnvironment(ArenaEnvironmentFactory[GearAssemblyEnvironmentCfg
             scene=scene,
             task=task,
             teleop_device=teleop_device,
-            env_cfg_callback=gear_assembly_newton_env_cfg_callback,
+            env_cfg_callback=gear_insertion_newton_env_cfg_callback,
             default_physics_backend=PhysicsBackend.NEWTON,
             placer_params=ObjectPlacerParams(
                 enabled_checks={

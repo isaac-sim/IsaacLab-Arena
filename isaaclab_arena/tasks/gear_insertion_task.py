@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Task definition for picking up and inserting a gear."""
+"""Task definition for gear insertion."""
 
 from __future__ import annotations
 
@@ -77,7 +77,7 @@ class GearInsertionCriteria:
 
 
 @register_task
-class GearAssemblyTask(TaskBase):
+class GearInsertionTask(TaskBase):
     """Pick up a gear and insert it onto a designated peg.
 
     Args:
@@ -107,7 +107,7 @@ class GearAssemblyTask(TaskBase):
         self.background_scene = background_scene
         self.success_criteria = success_criteria or GearInsertionCriteria()
 
-        self.events_cfg = GearAssemblyEventsCfg()
+        self.events_cfg = GearInsertionEventsCfg()
         self.task_description = task_description or (
             f"Pick up the {held_asset.name} and insert it onto the matching peg in the {fixed_asset.name}."
         )
@@ -205,8 +205,8 @@ class GearAssemblyTask(TaskBase):
 
 
 @configclass
-class GearAssemblyEventsCfg:
-    """Reset terms for gear assembly."""
+class GearInsertionEventsCfg:
+    """Reset terms for gear insertion."""
 
     reset_scene: EventTermCfg = EventTermCfg(
         func=mdp.reset_scene_to_default,
