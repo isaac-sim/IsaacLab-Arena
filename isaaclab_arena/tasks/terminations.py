@@ -32,6 +32,21 @@ class SuccessMode(str, Enum):
     """Success needs at least k predicates to be True."""
 
 
+def task_success_from_progress(env: IsaacLabArenaManagerBasedRLEnv) -> torch.Tensor:
+    """Update task progress at most once per control step and return task success.
+
+    Args:
+        env: An Arena environment with task progress configured.
+
+    Returns:
+        Boolean success for each environment after the latest control step.
+    """
+    env.update_task_progress()
+    tracker = env.progress_tracker
+    assert tracker is not None, "Task progress is not configured."
+    return tracker.is_complete()
+
+
 def check_success(
     env: ManagerBasedRLEnv,
     predicates: list[TerminationTermCfg],

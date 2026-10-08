@@ -490,21 +490,23 @@ def _test_requirement_validation(simulation_app):
     return True
 
 
-def _test_manager_updates_and_resets_requirement_counters(simulation_app):
+def _test_environment_updates_and_resets_requirement_counters(simulation_app):
     from functools import partial
 
     from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
     from isaaclab_arena.tasks.predicates.temporal import TrueForConsecutiveStepsCfg
     from isaaclab_arena.tests.test_task_success_from_progress import (
+        _advance_step,
         _controlled_predicate,
         _make_environment_and_manager,
+        _reset_environment,
     )
 
     requirement = TrueForConsecutiveStepsCfg(partial(_controlled_predicate, predicate_name="resting"), required_steps=3)
     criteria = CompletionCriteria(name="rest", predicate_sequence=[requirement])
     env, manager, recorder = _make_environment_and_manager(["resting"], success_criteria=[criteria])
     for step_index in (1, 2):
-        env.episode_length_buf += 1
+        _advance_step(env)
         manager.compute()
         assert manager.get_term("success").tolist() == [False, False]
         assert env.predicate_calls["resting"] == step_index
@@ -512,20 +514,19 @@ def _test_manager_updates_and_resets_requirement_counters(simulation_app):
         assert env.progress_tracker.is_complete().tolist() == [False, False]
         assert env.predicate_calls["resting"] == step_index
 
-    manager.reset(env_ids=[0])
-    env.episode_length_buf[0] = 0
-    env.episode_length_buf += 1
+    _reset_environment(env, [0])
+    _advance_step(env)
     manager.compute()
     assert manager.get_term("success").tolist() == [False, True]
-    env.episode_length_buf += 1
+    _advance_step(env)
     manager.compute()
     assert manager.get_term("success").tolist() == [False, True]
-    env.episode_length_buf += 1
+    _advance_step(env)
     manager.compute()
     assert manager.get_term("success").tolist() == [True, True]
 
     calls_after_completion = env.predicate_calls["resting"]
-    env.episode_length_buf += 1
+    _advance_step(env)
     manager.compute()
     recorder.record_post_step()
     assert manager.get_term("success").tolist() == [True, True]
@@ -619,9 +620,9 @@ def test_requirement_validation():
     assert run_function_with_persistent_simulation_app(_test_requirement_validation, headless=True)
 
 
-def test_manager_updates_and_resets_requirement_counters():
+def test_environment_updates_and_resets_requirement_counters():
     assert run_function_with_persistent_simulation_app(
-        _test_manager_updates_and_resets_requirement_counters, headless=True
+        _test_environment_updates_and_resets_requirement_counters, headless=True
     )
 
 
