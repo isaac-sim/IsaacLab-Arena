@@ -23,6 +23,7 @@ from isaaclab_tasks.utils import parse_env_cfg
 from isaaclab_teleop import IsaacTeleopCfg
 
 import isaaclab_arena_curobo  # noqa: F401
+from isaaclab_arena.assets.object import Object
 from isaaclab_arena.assets.registries import DeviceRegistry
 from isaaclab_arena.embodiments.no_embodiment import NoEmbodiment
 from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
@@ -49,6 +50,7 @@ from isaaclab_arena.relations.placement_events import (
 )
 from isaaclab_arena.relations.placement_layouts import PlacementLayouts
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
+from isaaclab_arena.scene.object_variant_assignment import assign_object_variants, build_object_variant_assignments
 from isaaclab_arena.tasks.no_task import NoTask
 from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
 from isaaclab_arena.tasks.terminations import task_success_from_progress
@@ -298,6 +300,13 @@ class ArenaEnvBuilder:
             An (env_cfg, env_kwargs) tuple.
         """
         # Apply placement before building scene config so initial poses are captured correctly.
+        scene_objects = [asset for asset in self.arena_env.scene.assets.values() if isinstance(asset, Object)]
+        variant_seed = self.cfg.placement_seed
+        if variant_seed is None and self.arena_env.placer_params is not None:
+            variant_seed = self.arena_env.placer_params.placement_seed
+        if variant_seed is None:
+            variant_seed = self.cfg.seed
+        assign_object_variants(scene_objects, self.cfg.num_envs, variant_seed)
         self._placement_layouts = self._load_placement_layouts()
         if self._placement_layouts is not None:
             self._apply_cached_layouts(self._placement_layouts)
@@ -532,6 +541,7 @@ class ArenaEnvBuilder:
                     env_cfg.sim.physics, NewtonCfg
                 ), "env_cfg_callback changed the physics backend away from Newton."
 
+        env_cfg.object_variant_assignments = build_object_variant_assignments(env_cfg.scene, scene_objects)
         env_kwargs: dict[str, Any] = {"variation_recorder": variation_recorder}
         return env_cfg, env_kwargs
 

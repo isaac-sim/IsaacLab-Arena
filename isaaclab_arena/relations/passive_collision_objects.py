@@ -11,6 +11,8 @@ from collections import defaultdict
 from collections.abc import Iterable
 from typing import TYPE_CHECKING
 
+from isaaclab.sim import GroundPlaneCfg, LightCfg
+
 from isaaclab_arena.assets.background import Background
 from isaaclab_arena.assets.object import Object
 from isaaclab_arena.assets.object_reference import ObjectReference
@@ -21,13 +23,12 @@ from isaaclab_arena.utils.pose import Pose
 
 if TYPE_CHECKING:
     from isaaclab_arena.assets.asset import Asset
-    from isaaclab_arena.assets.object_set import RigidObjectSet
     from isaaclab_arena.relations.placement_asset import PlaceableAsset
 
 
 def get_placement_collision_objects(
     placement_assets: list[PlaceableAsset],
-    scene_assets: Iterable[Asset | RigidObjectSet],
+    scene_assets: Iterable[Asset],
     default_collision_mode: CollisionMode,
 ) -> list[CollisionObject]:
     """Discover obstacles using the scene's collision modes and anchored support exclusions.
@@ -67,7 +68,7 @@ def get_placement_collision_objects(
 
 
 def discover_passive_assets(
-    assets: Iterable[Asset | RigidObjectSet],
+    assets: Iterable[Asset],
     include_background: bool = False,
 ) -> list[Object | ObjectReference]:
     """Return original relation-free scene assets with fixed placement geometry.
@@ -84,13 +85,17 @@ def discover_passive_assets(
     for asset in assets:
         if not isinstance(asset, (Object, ObjectReference)):
             continue
+        # Lights have no collision geometry; ground planes are infinite half-spaces.
+        if isinstance(asset, Object) and isinstance(asset.object_cfg.spawn, (LightCfg, GroundPlaneCfg)):
+            continue
         if isinstance(asset, Background) and not include_background:
             continue
         if asset.get_relations():
             continue
-        # Without a USD path no bounding box can be computed for collision.
-        if isinstance(asset, Object) and asset.usd_path is None:
-            print(f"Skipping '{asset.name}' as a collision obstacle: missing USD path.")
+        if asset.has_variants:
+            assert not isinstance(
+                asset.get_initial_pose(), Pose
+            ), f"Object '{asset.name}' needs an IsAnchor relation to participate in per-environment collision placement"
             continue
         if isinstance(asset, ObjectReference) and asset.parent_asset.usd_path is None:
             print(

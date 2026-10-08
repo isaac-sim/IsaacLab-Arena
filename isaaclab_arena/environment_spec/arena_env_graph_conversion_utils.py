@@ -9,13 +9,13 @@ from functools import partial
 from typing import TYPE_CHECKING, Any
 
 from isaaclab_arena.assets.asset import Asset
+from isaaclab_arena.assets.object import Object
 from isaaclab_arena.assets.object_reference import (
     ObjectReference,
     OpenableObjectReference,
     PressableObjectReference,
     TurnableObjectReference,
 )
-from isaaclab_arena.assets.object_set import RigidObjectSet
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.assets.registries import AssetRegistry, ObjectRelationLibraryRegistry
 from isaaclab_arena.environment_spec.arena_env_graph_task_conversion_utils import build_task_from_spec
@@ -184,16 +184,20 @@ def instantiate_assets_from_spec(
 
     for obj in graph_spec.objects:
         params = parse_asset_params(obj.params)
-        params.setdefault("instance_name", obj.id)
-        assets_by_node_id[obj.id] = asset_registry.get_asset_by_name(obj.registry_name)(**params)
-
-    for object_set in graph_spec.object_sets or []:
-        assets_by_node_id[object_set.id] = RigidObjectSet(
-            name=object_set.id,
-            objects=[asset_registry.get_asset_by_name(registry_name)() for registry_name in object_set.members],
-            random_choice=object_set.random_choice,
-            **parse_asset_params(object_set.params),
-        )
+        if obj.variants is None:
+            params.setdefault("instance_name", obj.id)
+            assets_by_node_id[obj.id] = asset_registry.get_asset_by_name(obj.registry_name)(**params)
+        else:
+            variants = []
+            for variant in obj.variants:
+                member = asset_registry.get_asset_by_name(variant.registry_name)(**parse_asset_params(variant.params))
+                variants.append(member.as_variant())
+            assets_by_node_id[obj.id] = Object(
+                name=obj.id,
+                variants=variants,
+                random_choice=obj.random_choice,
+                **params,
+            )
 
     for ref in graph_spec.object_references or []:
         assets_by_node_id[ref.id] = _instantiate_object_reference(

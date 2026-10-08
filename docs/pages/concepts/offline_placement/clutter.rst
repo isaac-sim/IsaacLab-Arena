@@ -246,7 +246,8 @@ The supplied scenes meet these requirements. When adapting another scene:
 * Use dynamic rigid objects with gravity enabled for clutter. Each has one
   ``ClutterOn`` spatial relation to its support.
 * Resolve non-clutter placement relations to fixed anchors before collection.
-  Object sets and reachability requirements on clutter objects are unsupported.
+  Objects with multiple variants and reachability requirements on clutter objects
+  are unsupported.
 * Keep recorded roots compatible with pose resets. Joint states and other
   randomized properties are not saved.
 

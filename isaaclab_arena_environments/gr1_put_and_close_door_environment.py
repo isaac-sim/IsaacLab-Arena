@@ -30,7 +30,7 @@ class GR1PutAndCloseDoorEnvironmentCfg(ArenaEnvironmentCfg):
     """Configure the GR1 put-and-close-door environment."""
 
     object: str = "ranch_dressing_hope_robolab"
-    object_set: list[str] | None = None
+    object_variants: list[str] | None = None
     kitchen_background: str = "lightwheel_kitchen_one_wall_farmhouse1"
     teleop_device: str | None = None
     embodiment: str = "gr1_pink"
@@ -55,8 +55,8 @@ class GR1PutAndCloseDoorEnvironment(ArenaEnvironmentFactory[GR1PutAndCloseDoorEn
         from isaaclab.sensors import CameraCfg
         from isaaclab.utils.configclass import configclass
 
+        from isaaclab_arena.assets.object import Object
         from isaaclab_arena.assets.object_reference import ObjectReference, OpenableObjectReference
-        from isaaclab_arena.assets.object_set import RigidObjectSet
         from isaaclab_arena.embodiments.common.arm_mode import ArmMode
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
         from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import set_control_rate_50hz
@@ -173,9 +173,9 @@ class GR1PutAndCloseDoorEnvironment(ArenaEnvironmentFactory[GR1PutAndCloseDoorEn
             parent_asset=kitchen_background,
         )
 
-        if cfg.object_set is not None and len(cfg.object_set) > 0:
-            objects = [self.asset_registry.get_asset_by_name(obj)() for obj in cfg.object_set]
-            pickup_object = RigidObjectSet(name="object_set", objects=objects)
+        if cfg.object_variants is not None and len(cfg.object_variants) > 0:
+            objects = [self.asset_registry.get_asset_by_name(obj)() for obj in cfg.object_variants]
+            pickup_object = Object(name="pick_up_object", variants=[member.as_variant() for member in objects])
         else:
             pickup_object = self.asset_registry.get_asset_by_name(cfg.object)()
 

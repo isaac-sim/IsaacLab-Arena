@@ -42,7 +42,8 @@ class RelationSolverState:
             initial_positions: List of dicts (one per env). Length 1 = single-env,
                 length > 1 = batched.
             device: Torch device for all tensors. Defaults to CPU.
-            env_bboxes: Optional per-env bounding boxes keyed by object.
+            env_bboxes: Optional per-env bounding boxes keyed by object. Anchor bounds
+                include the anchor's fixed rotation, as supplied by ObjectPlacer.
             collision_objects: Optional fixed background obstacles that participate in
                 no-overlap collision only (never in relation constraints). They keep a
                 constant world bounding box and are not optimized. Must be disjoint from objects.
@@ -110,10 +111,15 @@ class RelationSolverState:
 
         # Anchors and background collision objects are fixed, so their world bounding boxes are
         # constant during the solve. Cache them once instead of recomputing every gradient step.
-        self._fixed_obstacle_world_bboxes: dict[PlaceableAsset | CollisionObject, AxisAlignedBoundingBox] = {
-            obj: obj.get_world_bounding_box().to(self._device)
-            for obj in (*self._anchor_objects, *self._collision_objects)
-        }
+        self._fixed_obstacle_world_bboxes: dict[PlaceableAsset | CollisionObject, AxisAlignedBoundingBox] = {}
+        for anchor in self._anchor_objects:
+            if self._env_bboxes is not None and anchor in self._env_bboxes:
+                bounds = self._env_bboxes[anchor].to(self._device)
+                self._fixed_obstacle_world_bboxes[anchor] = bounds.translated(self.get_position(anchor))
+            else:
+                self._fixed_obstacle_world_bboxes[anchor] = anchor.get_world_bounding_box().to(self._device)
+        for obstacle in self._collision_objects:
+            self._fixed_obstacle_world_bboxes[obstacle] = obstacle.get_world_bounding_box().to(self._device)
 
     @property
     def device(self) -> torch.device:

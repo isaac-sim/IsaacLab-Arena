@@ -1,6 +1,17 @@
 Release Notes
 =============
 
+Unreleased
+----------
+
+- Replaced ``RigidObjectSet`` with ``Object`` variants backed by Isaac Lab native
+  multi-asset spawning. Scene assignment is shared with placement, per-variant
+  scale stays native, and USD hierarchy preparation is isolated from scene objects.
+- Environment YAML now declares alternatives under ``objects[].variants``, with
+  constructor parameters for each variant, including SimReady USD paths. The
+  ``object_sets`` field has been removed. Python environment selection now uses
+  ``--object_variants`` instead of ``--object_set``.
+
 v0.3.1
 -------
 

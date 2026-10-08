@@ -8,8 +8,8 @@ the layouts are identical:
   environment. Its solved pose can still differ between environments and
   resets.
 - **Heterogeneous placement** uses a
-  :doc:`RigidObjectSet <../scene/concept_rigid_object_set>` for a role. Each
-  environment receives one member of the set, so object geometry can differ
+  :doc:`list of variants <../scene/concept_object_variants>` for an ``Object``. Each
+  environment receives one variant, so object geometry can differ
   across environments.
 
 Both modes use the same relations, solver, validators, and layout-pool
@@ -28,31 +28,30 @@ Implementation Differences
      - Heterogeneous objects
    * - Environment definition
      - Add a registered ``Object`` directly.
-     - Add a ``RigidObjectSet`` containing the registered objects that can fill
-       the role.
+     - Add an ``Object`` whose variants describe the assets that can fill the role.
    * - Per-environment assignment
      - The environment clones one ``Object`` definition, so the same USD fills
        the role in every environment.
-     - Arena selects one set member for each environment at build time, after
+     - Arena selects one variant for each environment at build time, after
        the environment count is known and before assets are spawned. Ordered
-       sets repeat their member order; sets with ``random_choice=True`` sample
+       objects repeat their variant order; objects with ``random_choice=True`` sample
        independently.
    * - Dimensions used by spatial relations
      - Arena broadcasts the object's bounding box to every environment.
-     - Arena uses the selected member's bounding box in each environment.
+     - Arena uses the selected variant's bounding box in each environment.
    * - Construction
      - Every environment spawns the same USD for that role.
      - Every environment spawns the USD selected for that environment.
    * - Reset
      - The object identity stays fixed while the layout may change.
-     - The selected member stays fixed while the layout may change.
+     - The selected variant stays fixed while the layout may change.
 
 These bounding boxes provide object dimensions for spatial relation solving.
 Collision checks separately use the configured ``BBOX`` or ``MESH``
 representation.
 
-Setting ``placement_seed`` makes random object-set assignments and layout
-generation reproducible. Arena fixes object-set assignments while building the
+Setting ``placement_seed`` makes random object variant assignments and layout
+generation reproducible. Arena fixes object variant assignments while building the
 environment and keeps them unchanged for its lifetime so that spawned USDs and
 the geometry used for placement remain aligned.
 
@@ -89,13 +88,13 @@ Run the same registered environment configuration shown in the animation:
 Heterogeneous Example
 ---------------------
 
-The same registered environment uses five object sets in heterogeneous mode.
-The sets select a fruit, bottle, can, tool, and box for each environment. The
-solver uses every selected member's dimensions.
+The same registered environment uses five objects with variants in heterogeneous
+mode: a fruit, bottle, can, tool, and box for each environment. The solver uses
+every selected variant's dimensions.
 
 .. figure:: ../../../images/heterogeneous_placement.gif
    :width: 100%
-   :alt: Different object-set members placed across four parallel environments
+   :alt: Different object variants placed across four parallel environments
    :align: center
 
 The environment creates each heterogeneous role from registered variants and
@@ -104,11 +103,11 @@ uses:
 
 .. code-block:: python
 
-   for set_name, variant_names in HETEROGENEOUS_VARIANT_SETS.items():
-       members = self._build_registered_objects(variant_names)
-       object_set = RigidObjectSet(name=set_name, objects=members)
-       object_set.add_relation(On(table_reference))
-       placeable_assets.append(object_set)
+   for role_name, variant_names in HETEROGENEOUS_VARIANT_SETS.items():
+       assets = self._build_registered_objects(variant_names)
+       obj = Object(name=role_name, variants=[asset.as_variant() for asset in assets])
+       obj.add_relation(On(table_reference))
+       placeable_assets.append(obj)
 
 Run the heterogeneous configuration shown in the animation:
 
@@ -127,9 +126,9 @@ Run the heterogeneous configuration shown in the animation:
      --episode_length_s 4.0 \
      --mode heterogeneous
 
-The builder must know ``num_envs`` before assigning object-set members. The
+The builder must know ``num_envs`` before assigning object variants. The
 runner passes this count through ``--num_envs``; use a value greater than one to
-observe different members across parallel environments.
+observe different variants across parallel environments.
 
 .. important::
 
@@ -140,6 +139,6 @@ observe different members across parallel environments.
 Related References
 ------------------
 
-Refer to :doc:`../scene/concept_rigid_object_set` for the ``RigidObjectSet``
-asset concept, :doc:`./pooled_placement` for reset behavior and object
+Refer to :doc:`../scene/concept_object_variants` for the ``ObjectVariant``
+asset definition, :doc:`./pooled_placement` for reset behavior and object
 assignment, or :doc:`./relations` for the available spatial relations.

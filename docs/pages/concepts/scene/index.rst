@@ -21,8 +21,8 @@ without touching the task or embodiment.
    )
 
 Assets are loaded from the asset registry by name. An asset can be a
-background, a rigid object, or a set of objects
-(:doc:`./concept_rigid_object_set`). Assets can also carry affordances
+background or an object, which can have
+:doc:`variants across environments <./concept_object_variants>`. Assets can also carry affordances
 (e.g. ``Openable``, ``Placeable``) that describe how they can be interacted
 with, which is what allows tasks to work with any compatible object.
 
@@ -33,5 +33,5 @@ More details
    :maxdepth: 1
 
    concept_assets_design
-   concept_rigid_object_set
+   concept_object_variants
    concept_affordances_design

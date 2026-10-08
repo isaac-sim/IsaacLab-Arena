@@ -29,7 +29,7 @@ kitchen_pick_and_place
 
 **Task Description:** Pick an object off the kitchen counter top and place it
 inside a kitchen cabinet. Supports a single object via ``--object`` or a
-heterogeneous ``--object_set`` spawning a different object per environment.
+heterogeneous ``--object_variants`` spawning a different object per environment.
 
 .. list-table::
    :widths: 30 70
@@ -46,13 +46,13 @@ heterogeneous ``--object_set`` spawning a different object per environment.
    * - **Scene**
      - ``kitchen`` background, counter top reference (anchor), cabinet destination
    * - **Objects**
-     - Configurable via ``--object`` / ``--object_set`` (e.g. ``tomato_soup_can``, ``cracker_box``)
+     - Configurable via ``--object`` / ``--object_variants`` (e.g. ``tomato_soup_can``, ``cracker_box``)
    * - **Task Class**
      - ``PickAndPlaceTask``
    * - **Object Placement**
      - Relations: ``On(table_top)``, ``AtPosition(x=0.4, y=0.0)``
    * - **CLI Args**
-     - ``--object``, ``--object_set``, ``--embodiment``, ``--teleop_device``
+     - ``--object``, ``--object_variants``, ``--embodiment``, ``--teleop_device``
 
 
 pick_and_place_maple_table
@@ -563,13 +563,13 @@ the refrigerator shelf, then closes the refrigerator door. Featured in the
    * - **Scene**
      - ``lightwheel_kitchen_one_wall_farmhouse1`` background, ``light``, kitchen counter anchor
    * - **Objects**
-     - Pick: ``ranch_dressing_hope_robolab`` (default), or ``--object_set`` for heterogeneous spawning; Destination: refrigerator shelf reference; Container: ``refrigerator`` (articulated)
+     - Pick: ``ranch_dressing_hope_robolab`` (default), or ``--object_variants`` for heterogeneous spawning; Destination: refrigerator shelf reference; Container: ``refrigerator`` (articulated)
    * - **Task Class**
      - ``PutAndCloseDoorTask`` (sequential: ``PickAndPlaceTask`` → ``CloseDoorTask``, episode_length_s = 10)
    * - **Interop**
      - Isaac Lab Mimic (``put_and_close_door_task_D0`` datagen)
    * - **CLI Args**
-     - ``--object``, ``--object_set``, ``--embodiment``, ``--teleop_device``
+     - ``--object``, ``--object_variants``, ``--embodiment``, ``--teleop_device``
 
 
 franka_put_and_close_door

@@ -61,17 +61,12 @@ def collect_agent_ready_validation_trace(
         traces.append(f"Embodiment registry_name {spec.embodiment.registry_name!r} is not in the EMBODIMENTS catalog")
     if spec.background.registry_name not in asset_names["BACKGROUNDS"]:
         traces.append(f"Background registry_name {spec.background.registry_name!r} is not in the BACKGROUNDS catalog")
-    # Each movable object must resolve to a known OBJECTS entry.
+    # Fixed objects and every alternative must appear in the OBJECTS catalogue.
     for obj in spec.objects:
-        if obj.registry_name not in asset_names["OBJECTS"]:
-            traces.append(f"Object {obj.id!r} registry_name {obj.registry_name!r} is not in the OBJECTS catalog")
-    # Object-set members are registry names too; validate each one the same way.
-    for object_set in spec.object_sets or []:
-        for member in object_set.members:
-            if member not in asset_names["OBJECTS"]:
-                traces.append(
-                    f"Object set {object_set.id!r} member registry_name {member!r} is not in the OBJECTS catalog"
-                )
+        sources = obj.variants if obj.variants is not None else [obj]
+        for source in sources:
+            if source.registry_name not in asset_names["OBJECTS"]:
+                traces.append(f"Object {obj.id!r} registry_name {source.registry_name!r} is not in the OBJECTS catalog")
 
     # Check each subtask kind and its params against the task catalogue.
     task_entries = {entry.name: entry for entry in task_catalog.tasks}

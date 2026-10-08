@@ -88,7 +88,7 @@ def test_register_searched_simready_object_makes_it_a_catalogue_entry():
     )
     assert asset_cls.name == "simready_green_trash_can"
     assert AssetRegistry().get_asset_by_name("simready_green_trash_can") is asset_cls
-    # Rigid, so the entry can also be an object_set member; the search only accepts one rigid body.
+    # Rigid, so the entry can also be an object variant; the search only accepts one rigid body.
     assert asset_cls.object_type is ObjectType.RIGID
     assert "green" in asset_cls.tags
 

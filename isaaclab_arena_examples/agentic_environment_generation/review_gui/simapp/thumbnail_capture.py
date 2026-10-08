@@ -42,7 +42,7 @@ from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.ki
     wait_for_stage_load,
 )
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.spec_visualization.asset_cards import (
-    object_set_member_key,
+    object_variant_key,
 )
 
 PANORAMA_CAMERA_PRIM_PATH = "/World/_ReviewPanoramaCamera"
@@ -75,12 +75,13 @@ def render_thumbnails_with_app(
     assets_by_node_id = instantiate_assets_from_spec(spec, AssetRegistry())
     # Exclude embodiment from thumbnail rendering.
     assets_by_node_id.pop(spec.embodiment.id)
-    asset_node_ids = [spec.background.id, *(obj.id for obj in spec.objects)]
+    asset_node_ids = [
+        spec.background.id,
+        *(obj.id for obj in spec.objects if obj.variants is None),
+    ]
     asset_paths = resolve_node_usd_paths(assets_by_node_id, asset_node_ids)
-    # Object sets hold one USD per member rather than a single usd_path, so resolve them separately
-    # and snapshot every member.
-    member_paths, member_dimensions = _resolve_object_set_members(spec, assets_by_node_id)
-    asset_paths.update(member_paths)
+    variant_paths, variant_dimensions = _resolve_object_variants(spec, assets_by_node_id)
+    asset_paths.update(variant_paths)
     background_viewer_cfg = assets_by_node_id[spec.background.id].get_viewer_cfg()
 
     cache_dir = thumbnail_cache_dir()
@@ -131,7 +132,10 @@ def render_thumbnails_with_app(
 
     jobs = list(jobs_by_usd.values())
     if not asset_paths and not jobs and not thumbnail_paths:
-        print("[thumbnail_capture] no asset USD paths resolved; skipping thumbnail rendering.", file=sys.stderr)
+        print(
+            "[thumbnail_capture] no asset USD paths resolved; skipping thumbnail rendering.",
+            file=sys.stderr,
+        )
         return {}, {}
 
     if jobs:
@@ -151,32 +155,34 @@ def render_thumbnails_with_app(
             if node_id in captured and cache_path.exists() and cache_path.stat().st_size > 0:
                 thumbnail_paths[node_id] = cache_path
     else:
-        print(f"[thumbnail_capture] all {len(thumbnail_paths)} thumbnail(s) served from cache.", file=sys.stderr)
+        print(
+            f"[thumbnail_capture] all {len(thumbnail_paths)} thumbnail(s) served from cache.",
+            file=sys.stderr,
+        )
 
     aabb_dimensions_m = resolve_aabb_dimensions_m(assets_by_node_id)
-    aabb_dimensions_m.update(member_dimensions)
+    aabb_dimensions_m.update(variant_dimensions)
     return thumbnail_paths, aabb_dimensions_m
 
 
-def _resolve_object_set_members(
+def _resolve_object_variants(
     spec: ArenaEnvGraphSpec, assets_by_node_id: dict[str, Any]
 ) -> tuple[dict[str, str], dict[str, AabbDimensionsM]]:
-    """Return the USD path and AABB of every object-set member, keyed so each gets its own card.
-
-    Member USD paths follow the order the members were declared in, and may point at the rescaled
-    copies RigidObjectSet writes to its cache.
-    """
+    """Return each object variant's USD path and AABB under its card lookup key."""
     usd_paths: dict[str, str] = {}
     dimensions: dict[str, AabbDimensionsM] = {}
-    for object_set in spec.object_sets or []:
-        live_object_set = assets_by_node_id[object_set.id]
-        members = zip(object_set.members, live_object_set.member_usd_paths, live_object_set.objects)
-        for registry_name, usd_path, member_asset in members:
-            member_key = object_set_member_key(object_set.id, registry_name)
-            usd_paths[member_key] = usd_path
-            member_dimensions = aabb_dimensions_from_asset(member_asset)
-            if member_dimensions is not None:
-                dimensions[member_key] = member_dimensions
+    for obj in spec.objects:
+        if obj.variants is None:
+            continue
+        live_object = assets_by_node_id[obj.id]
+        for variant_index, variant in enumerate(live_object.variants):
+            variant_key = object_variant_key(obj.id, variant_index)
+            usd_path = getattr(variant.spawn_cfg, "usd_path", None)
+            if usd_path is not None:
+                usd_paths[variant_key] = usd_path
+            variant_dimensions = aabb_dimensions_from_asset(variant)
+            if variant_dimensions is not None:
+                dimensions[variant_key] = variant_dimensions
     return usd_paths, dimensions
 
 

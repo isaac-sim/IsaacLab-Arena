@@ -358,13 +358,29 @@ in ``params`` → ``OpenableObjectReference`` (and ``object_type: articulation``
 otherwise → ``ObjectReference``. Python: you pick. Use the plain class for a door
 and you get a door with nothing to open.
 
-**Object set members.** YAML constructs set members with no constructor args, so
-they cannot carry a ``usd_path``. SimReady assets fail at load time and cannot be
-set members. Python ``RigidObjectSet`` takes live instances — SimReady is fine:
+**Object variants.** An entry under ``objects`` defines either ``registry_name``
+for one fixed asset or ``variants`` for alternatives across environments. Each
+variant accepts its own ``params``, including a SimReady ``usd_path`` or scale:
+
+.. code-block:: yaml
+
+   objects:
+   - id: bottle
+     variants:
+     - registry_name: simready_usd_object
+       params:
+         usd_path: /datasets/bottle.usd
+     - registry_name: ketchup_bottle_hope_robolab
+     random_choice: false
+
+The equivalent Python declaration uses each concrete object's native spawn configuration:
 
 .. code-block:: python
 
-   RigidObjectSet(name="bottles", objects=[simready_bottle, ycb_bottle])
+   Object(name="bottle", variants=[simready_bottle.as_variant(), ycb_bottle.as_variant()])
+
+Relations and tasks reference the object role's ``id`` regardless of which variant
+an environment receives. ``object_sets`` is no longer a graph field.
 
 How to spawn an environment
 ---------------------------

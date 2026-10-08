@@ -10,7 +10,7 @@ No task -- suitable for policy_runner with zero_action or any policy.
 Supports two placement modes via ``--mode``:
 
 * **homogeneous** (default): each object is a regular Object — same in all envs.
-* **heterogeneous**: objects are wrapped in ``RigidObjectSet`` for per-env variance.
+* **heterogeneous**: objects are wrapped in ``Object`` for per-env variance.
 
 Both modes use the office table by default. Use ``--objects`` to override object
 lists for controlled experiments.
@@ -22,7 +22,7 @@ Example (--viz kit enables the Kit visualizer, --episode_length_s triggers perio
     --num_envs 16 --env_spacing 4.0 --enable_cameras \\
     gr1_table_multi_object_no_collision --embodiment gr1_joint --episode_length_s 4.0
 
-  # Heterogeneous — robolab objects in RigidObjectSet
+  # Heterogeneous — robolab objects in Object
   /isaac-sim/python.sh isaaclab_arena/evaluation/policy_runner.py --viz kit --policy_type zero_action --num_steps 500 \\
     --num_envs 16 --env_spacing 4.0 --enable_cameras \\
     gr1_table_multi_object_no_collision --embodiment gr1_joint --episode_length_s 4.0 --mode heterogeneous
@@ -51,8 +51,8 @@ DEFAULT_TABLE_OBJECTS = [
 # objects. Better initialization strategies and constraining unchanged pose dimensions
 # are needed in the near future.
 
-# -- Heterogeneous mode default object sets ----------------------------------
-# Each entry is a multi-variant RigidObjectSet — each env gets a different
+# -- Heterogeneous mode default object variants ------------------------------
+# Each entry is a multi-variant Object — each env gets a different
 # variant.
 HETERO_VARIANT_SETS = {
     "bottles": [
@@ -111,7 +111,7 @@ class GR1TableMultiObjectNoCollisionEnvironment(ArenaEnvironmentFactory[GR1Table
     Layout is solved by ArenaEnvBuilder default relation solving; reset uses asset events.
 
     Supports ``--mode homogeneous`` (default) and ``--mode heterogeneous`` for
-    inter-environment object variance via ``RigidObjectSet``.
+    inter-environment object variance via ``Object``.
     """
 
     name: str = "gr1_table_multi_object_no_collision"
@@ -226,7 +226,7 @@ class GR1TableMultiObjectNoCollisionEnvironment(ArenaEnvironmentFactory[GR1Table
         Otherwise, uses HETERO_FIXED_OBJECTS (pinned fruits) + HETERO_VARIANT_SETS
         (multi-variant sets).
         """
-        from isaaclab_arena.assets.object_set import RigidObjectSet
+        from isaaclab_arena.assets.object import Object
         from isaaclab_arena.relations.relations import AtPosition, On
 
         # TODO(@zhx06): Address residual object bouncing with xy-only no-collision
@@ -247,7 +247,9 @@ class GR1TableMultiObjectNoCollisionEnvironment(ArenaEnvironmentFactory[GR1Table
 
             for set_name, variant_names in HETERO_VARIANT_SETS.items():
                 members = [self.asset_registry.get_asset_by_name(n)() for n in variant_names]
-                obj_set = RigidObjectSet(name=set_name, objects=members, random_choice=True)
+                obj_set = Object(
+                    name=set_name, variants=[member.as_variant() for member in members], random_choice=True
+                )
                 obj_set.add_relation(On(tabletop_reference, clearance_m=0.01))
                 placeable_assets.append(obj_set)
 

@@ -11,18 +11,15 @@ from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_wi
 
 # Turned this up to 200 to ensure all objects fall below the velocity threshold.
 NUM_STEPS = 200
-# This should stay >2 to test both objects in the object set.
-# Note(alexmillane, 2026-05-28): I realized that with 2 plus random
-# sampling sometime you don't get both objects. This caused us to not
-# reliably catch issues when we had a bug.
+# Ordered assignment exercises both variants across several parallel environments.
 NUM_ENVS = 10
 HEADLESS = True
 
 
-def _test_object_set_on_destination_termination(simulation_app) -> bool:
+def _test_object_variants_on_destination_termination(simulation_app) -> bool:
 
+    from isaaclab_arena.assets.object import Object
     from isaaclab_arena.assets.object_reference import ObjectReference
-    from isaaclab_arena.assets.object_set import RigidObjectSet
     from isaaclab_arena.assets.registries import AssetRegistry
     from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
     from isaaclab_arena.embodiments.franka.franka import FrankaIKEmbodiment
@@ -48,24 +45,24 @@ def _test_object_set_on_destination_termination(simulation_app) -> bool:
         parent_asset=background,
     )
 
-    object_set = RigidObjectSet(
-        name="object_set",
-        objects=[sweet_potato, jug],
+    object_variants = Object(
+        name="object_variants",
+        variants=[sweet_potato.as_variant(), jug.as_variant()],
     )
-    object_set.set_initial_pose(
+    object_variants.set_initial_pose(
         Pose(
             position_xyz=(0.0758066475391388, -0.5088448524475098, 0.5),
             rotation_xyzw=(0, 0, 0, 1),
         )
     )
 
-    scene = Scene(assets=[background, object_set, destination_location])
+    scene = Scene(assets=[background, object_variants, destination_location])
 
     isaaclab_arena_environment = IsaacLabArenaEnvironment(
-        name="object_set_termination_test",
+        name="object_variants_termination_test",
         embodiment=FrankaIKEmbodiment(),
         scene=scene,
-        task=PickAndPlaceTask(object_set, destination_location, background),
+        task=PickAndPlaceTask(object_variants, destination_location, background),
     )
 
     builder = ArenaEnvBuilder(isaaclab_arena_environment, arena_env_builder_cfg_from_argparse(args_cli))
@@ -78,7 +75,7 @@ def _test_object_set_on_destination_termination(simulation_app) -> bool:
         lifted_envs = torch.zeros(NUM_ENVS, dtype=torch.bool, device=env.unwrapped.device)
         for _ in tqdm.tqdm(range(NUM_STEPS)):
             with torch.inference_mode():
-                lift_settled_objects_once(env.unwrapped, object_set.name, lifted_envs)
+                lift_settled_objects_once(env.unwrapped, object_variants.name, lifted_envs)
                 actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
                 _, _, terminated, _, _ = env.step(actions)
 
@@ -117,13 +114,13 @@ def _test_object_set_on_destination_termination(simulation_app) -> bool:
     return True
 
 
-def test_object_set_on_destination_termination():
+def test_object_variants_on_destination_termination():
     result = run_function_with_persistent_simulation_app(
-        _test_object_set_on_destination_termination,
+        _test_object_variants_on_destination_termination,
         headless=HEADLESS,
     )
     assert result, "Test failed"
 
 
 if __name__ == "__main__":
-    test_object_set_on_destination_termination()
+    test_object_variants_on_destination_termination()

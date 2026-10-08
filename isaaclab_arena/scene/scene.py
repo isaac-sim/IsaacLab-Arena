@@ -4,24 +4,24 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import pathlib
+from copy import deepcopy
 from typing import Any, Union
 
 from isaaclab.assets import AssetBaseCfg, RigidObjectCfg
 from isaaclab.assets.articulation.articulation_cfg import ArticulationCfg
 from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
 from isaaclab.sim import SimulationCfg
-from pxr import Gf, Usd, UsdGeom
+from pxr import Gf, Usd, UsdGeom, UsdPhysics
 
 from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.assets.background import Background
 from isaaclab_arena.assets.cable import Cable
 from isaaclab_arena.assets.object import Object
 from isaaclab_arena.assets.object_reference import ObjectReference
-from isaaclab_arena.assets.object_set import RigidObjectSet
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.relations.placement_asset import PlaceableAsset
 from isaaclab_arena.utils.configclass import make_configclass
-from isaaclab_arena.utils.phyx_utils import add_contact_report
+from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.variations.variation_base import VariationBase
 
 AssetCfg = Union[AssetBaseCfg, RigidObjectCfg, ArticulationCfg, ContactSensorCfg]
@@ -29,8 +29,8 @@ AssetCfg = Union[AssetBaseCfg, RigidObjectCfg, ArticulationCfg, ContactSensorCfg
 
 class Scene:
 
-    def __init__(self, assets: list[Asset, RigidObjectSet] | None = None):
-        self.assets: dict[str, Asset | RigidObjectSet] = {}
+    def __init__(self, assets: list[Asset] | None = None):
+        self.assets: dict[str, Asset] = {}
         # We add these here so a user can override them if they want.
         self.observation_cfg = None
         self.events_cfg = None
@@ -43,14 +43,14 @@ class Scene:
         if assets is not None:
             self.add_assets(assets)
 
-    def add_asset(self, asset: Asset | RigidObjectSet):
+    def add_asset(self, asset: Asset):
         """Add an asset to the scene.
 
         Args:
             asset: An Asset instance or a dictionary of Assets. If a dictionary is provided,
                    the keys will be used as the names of the assets and the values will be the list of assets.
         """
-        if not isinstance(asset, Asset | RigidObjectSet):
+        if not isinstance(asset, Asset):
             raise ValueError(f"Invalid asset type: {type(asset)}")
 
         if asset.name is None:
@@ -59,7 +59,7 @@ class Scene:
         # if name already exists, overwrite
         self.assets[asset.name] = asset
 
-    def add_assets(self, assets: list[Asset | RigidObjectSet]):
+    def add_assets(self, assets: list[Asset]):
         all_assets = set(assets)
         for asset in assets:
             if isinstance(asset, ObjectReference):
@@ -207,11 +207,7 @@ def _create_prim_from_asset(stage: Usd.Stage, asset: Asset) -> None:
     """Add a prim to the stage for the given asset.
 
     This is used internally by the scene.export_to_usd method.
-    For the passed asset, this method will create a prim at the given stage,
-    and reference the asset USD file.
-    The pose of the prim will be set to the initial pose of the asset.
-    File-backed objects are referenced into the stage, while procedural
-    assets such as cables are authored directly.
+    Native spawners author the asset with its configured geometry and initial pose.
 
     Args:
         stage: The stage to add the prim to.
@@ -226,33 +222,63 @@ def _create_prim_from_asset(stage: Usd.Stage, asset: Asset) -> None:
         _create_cable_prim(stage, asset, asset_path)
         return
 
+    import isaaclab.sim as sim_utils
+
     assert isinstance(asset, Object)
-    # Create the prim and reference the asset USD file.
-    prim = stage.DefinePrim(asset_path, "Xform")
-    prim.GetReferences().AddReference(asset.usd_path)
-    # Apply a contact reporter API this is a rigid object
+    assert not asset.has_variants, f"Select a concrete variant of '{asset.name}' before exporting the scene."
+    initial_pose = asset.get_initial_pose()
+    assert initial_pose is None or isinstance(
+        initial_pose, Pose
+    ), f"Object '{asset.name}' requires a fixed initial pose for scene export."
+    spawn_cfg = deepcopy(asset.object_cfg.spawn)
+    assert spawn_cfg is not None, f"Object '{asset.name}' has no spawn configuration."
+    translation = initial_pose.position_xyz if initial_pose is not None else asset.object_cfg.init_state.pos
+    orientation = initial_pose.rotation_xyzw if initial_pose is not None else asset.object_cfg.init_state.rot
+    with sim_utils.use_stage(stage):
+        spawn_cfg.func(asset_path, spawn_cfg, translation=translation, orientation=orientation)
     if asset.object_type == ObjectType.RIGID:
-        add_contact_report(prim)
-    # Adding the pose
-    prim_xform = UsdGeom.Xform(prim)
-    # We're going to overwrite the pose, but we need to match the floating point precision
-    # of the existing prim pose. So we have to do some detection.
-    trans_double = _is_double_precision(prim_xform.GetTranslateOp())
-    orient_double = _is_double_precision(prim_xform.GetOrientOp())
-    scale_double = _is_double_precision(prim_xform.GetScaleOp())
-    # Add the transform
-    prim_xform.ClearXformOpOrder()
-    if asset.initial_pose is not None:
-        t = Gf.Vec3d(asset.initial_pose.position_xyz) if trans_double else Gf.Vec3f(asset.initial_pose.position_xyz)
-        rot = asset.initial_pose.rotation_xyzw
-        r = Gf.Quatd(rot[3], *rot[:3]) if orient_double else Gf.Quatf(rot[3], *rot[:3])
-        t_precision = UsdGeom.XformOp.PrecisionDouble if trans_double else UsdGeom.XformOp.PrecisionFloat
-        r_precision = UsdGeom.XformOp.PrecisionDouble if orient_double else UsdGeom.XformOp.PrecisionFloat
-        prim_xform.AddTranslateOp(precision=t_precision).Set(t)
-        prim_xform.AddOrientOp(precision=r_precision).Set(r)
-    s = Gf.Vec3d(asset.scale) if scale_double else Gf.Vec3f(asset.scale)
-    s_precision = UsdGeom.XformOp.PrecisionDouble if scale_double else UsdGeom.XformOp.PrecisionFloat
-    prim_xform.AddScaleOp(precision=s_precision).Set(s)
+        _set_exported_rigid_body_pose(
+            stage, asset_path, Pose(position_xyz=tuple(translation), rotation_xyzw=tuple(orientation))
+        )
+
+
+def _set_exported_rigid_body_pose(stage: Usd.Stage, asset_path: str, pose: Pose) -> None:
+    """Match native root-pose writes for bodies nested beneath the exported asset root."""
+    asset_root = stage.GetPrimAtPath(asset_path)
+    rigid_bodies = [
+        prim
+        for prim in Usd.PrimRange(asset_root, Usd.TraverseInstanceProxies())
+        if prim.HasAPI(UsdPhysics.RigidBodyAPI)
+    ]
+    assert len(rigid_bodies) == 1, f"Expected one rigid body under '{asset_path}' for scene export."
+    body = rigid_bodies[0]
+    if body == asset_root:
+        return
+    body_path = body.GetPath()
+    while body.IsInstanceProxy():
+        instance_root = body.GetParent()
+        while instance_root.IsInstanceProxy():
+            instance_root = instance_root.GetParent()
+        instance_root.SetInstanceable(False)
+        body = stage.GetPrimAtPath(body_path)
+
+    body_xform = UsdGeom.Xformable(body)
+    body_world_transform = body_xform.ComputeLocalToWorldTransform(Usd.TimeCode.Default())
+    old_transform = Gf.Transform(body_world_transform)
+    old_pose = Gf.Matrix4d(old_transform.GetRotation(), old_transform.GetTranslation())
+    rotation = pose.rotation_xyzw
+    new_pose = Gf.Matrix4d(Gf.Rotation(Gf.Quatd(rotation[3], *rotation[:3])), Gf.Vec3d(pose.position_xyz))
+    # USD uses row-vector transforms. Replace the body pose while retaining all
+    # physical scale, including nonuniform scale inherited from its ancestors.
+    new_body_transform = body_world_transform * old_pose.GetInverse() * new_pose
+    reset_xform_stack = body_xform.GetResetXformStack()
+    if not reset_xform_stack:
+        parent_world_transform = UsdGeom.Xformable(body.GetParent()).ComputeLocalToWorldTransform(
+            Usd.TimeCode.Default()
+        )
+        new_body_transform *= parent_world_transform.GetInverse()
+    body_xform.MakeMatrixXform().Set(new_body_transform)
+    body_xform.SetResetXformStack(reset_xform_stack)
 
 
 def _create_cable_prim(stage: Usd.Stage, cable: Cable, prim_path: str) -> None:
@@ -266,11 +292,3 @@ def _create_cable_prim(stage: Usd.Stage, cable: Cable, prim_path: str) -> None:
     assert spawn_cfg is not None, f"Cable '{cable.name}' has no spawn configuration."
     with sim_utils.use_stage(stage):
         spawn_cfg.func(prim_path, spawn_cfg, translation=translation, orientation=orientation)
-
-
-def _is_double_precision(op: UsdGeom.XformOp) -> bool | None:
-    # Detect if the op is None or doesn't contain precision.
-    # In this case we default to float precision.
-    if not op:
-        return False
-    return op.GetPrecision() == UsdGeom.XformOp.PrecisionDouble

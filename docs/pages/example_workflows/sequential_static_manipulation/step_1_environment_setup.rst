@@ -29,7 +29,6 @@ Environment Description
             from isaaclab.utils import configclass
 
             from isaaclab_arena.assets.object_reference import ObjectReference, OpenableObjectReference
-            from isaaclab_arena.assets.object_set import RigidObjectSet
             from isaaclab_arena.embodiments.common.arm_mode import ArmMode
             from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
             from isaaclab_arena.relations.relations import (
@@ -163,37 +162,25 @@ Environment Description
             # Consider changing to other values for different objects, below is for ranch dressing bottle
             z_position = 1.0082
             yaw_rad = math.radians(-111.55)
-            assert args_cli.object_set is None, "Object set is not supported yet"
-            #  All obs from object set are under the same randomization range
-            if args_cli.object_set is not None and len(args_cli.object_set) > 0:
-                objects = []
-                for obj in args_cli.object_set:
-                    obj_from_set = self.asset_registry.get_asset_by_name(obj)()
-                    objects.append(obj_from_set)
-                object_set = RigidObjectSet(name="object_set", objects=objects)
-                object_set.set_initial_pose(get_pose_range(z_position, yaw_rad))
-                # Create scene
-                scene = Scene(assets=[kitchen_background, object_set, light, refrigerator, refrigerator_shelf])
-            else:
-                pickup_object.add_relation(On(kitchen_counter_top))
-                # Place the object at a specific position GR1 to be able to reach it with its hand.
-                pickup_object.add_relation(AtPosition(x=4.05, y=-0.58))
-                pickup_object.add_relation(RotateAroundSolution(yaw_rad=yaw_rad))
-                pickup_object.add_relation(
-                    RandomAroundSolution(
-                        x_half_m=RANDOMIZATION_HALF_RANGE_X_M,
-                        y_half_m=RANDOMIZATION_HALF_RANGE_Y_M,
-                        z_half_m=RANDOMIZATION_HALF_RANGE_Z_M,
-                    )
+            pickup_object.add_relation(On(kitchen_counter_top))
+            # Place the object at a specific position GR1 to be able to reach it with its hand.
+            pickup_object.add_relation(AtPosition(x=4.05, y=-0.58))
+            pickup_object.add_relation(RotateAroundSolution(yaw_rad=yaw_rad))
+            pickup_object.add_relation(
+                RandomAroundSolution(
+                    x_half_m=RANDOMIZATION_HALF_RANGE_X_M,
+                    y_half_m=RANDOMIZATION_HALF_RANGE_Y_M,
+                    z_half_m=RANDOMIZATION_HALF_RANGE_Z_M,
                 )
-                # Create scene
-                scene = Scene(
-                    assets=[kitchen_background, kitchen_counter_top, pickup_object, light, refrigerator, refrigerator_shelf]
-                )
+            )
+            # Create scene
+            scene = Scene(
+                assets=[kitchen_background, kitchen_counter_top, pickup_object, light, refrigerator, refrigerator_shelf]
+            )
 
             # Create pick and place task
             pick_and_place_task = PickAndPlaceTask(
-                pick_up_object=pickup_object if args_cli.object_set is None else object_set,
+                pick_up_object=pickup_object,
                 destination_object=refrigerator,
                 destination_location=refrigerator_shelf,
                 background_scene=kitchen_background,
@@ -272,33 +259,21 @@ See :doc:`../../concepts/scene/concept_assets_design` for details on asset archi
     # Consider changing to other values for different objects, below is for ranch dressing bottle
     z_position = 1.0082
     yaw_rad = math.radians(-111.55)
-    assert args_cli.object_set is None, "Object set is not supported yet"
-    #  All obs from object set are under the same randomization range
-    if args_cli.object_set is not None and len(args_cli.object_set) > 0:
-        objects = []
-        for obj in args_cli.object_set:
-            obj_from_set = self.asset_registry.get_asset_by_name(obj)()
-            objects.append(obj_from_set)
-        object_set = RigidObjectSet(name="object_set", objects=objects)
-        object_set.set_initial_pose(get_pose_range(z_position, yaw_rad))
-        # Create scene
-        scene = Scene(assets=[kitchen_background, object_set, light, refrigerator, refrigerator_shelf])
-    else:
-        pickup_object.add_relation(On(kitchen_counter_top))
-        # Place the object at a specific position GR1 to be able to reach it with its hand.
-        pickup_object.add_relation(AtPosition(x=4.05, y=-0.58))
-        pickup_object.add_relation(RotateAroundSolution(yaw_rad=yaw_rad))
-        pickup_object.add_relation(
-            RandomAroundSolution(
-                x_half_m=RANDOMIZATION_HALF_RANGE_X_M,
-                y_half_m=RANDOMIZATION_HALF_RANGE_Y_M,
-                z_half_m=RANDOMIZATION_HALF_RANGE_Z_M,
-            )
+    pickup_object.add_relation(On(kitchen_counter_top))
+    # Place the object at a specific position GR1 to be able to reach it with its hand.
+    pickup_object.add_relation(AtPosition(x=4.05, y=-0.58))
+    pickup_object.add_relation(RotateAroundSolution(yaw_rad=yaw_rad))
+    pickup_object.add_relation(
+        RandomAroundSolution(
+            x_half_m=RANDOMIZATION_HALF_RANGE_X_M,
+            y_half_m=RANDOMIZATION_HALF_RANGE_Y_M,
+            z_half_m=RANDOMIZATION_HALF_RANGE_Z_M,
         )
-        # Create scene
-        scene = Scene(
-            assets=[kitchen_background, kitchen_counter_top, pickup_object, light, refrigerator, refrigerator_shelf]
-        )
+    )
+    # Create scene
+    scene = Scene(
+        assets=[kitchen_background, kitchen_counter_top, pickup_object, light, refrigerator, refrigerator_shelf]
+    )
 
 Before we create the scene, we need to place our embodiment and objects in the right locations.
 The embodiment is placed in a fixed spot while the object is placed on top of the kitchen counter using

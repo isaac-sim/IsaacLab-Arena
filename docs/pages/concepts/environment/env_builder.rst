@@ -69,7 +69,7 @@ Seeds during compilation
 ------------------------
 
 Environment compilation and rollout use more than one random stream, so locking
-a single global seed is not enough when you need layouts, object-set picks, or
+a single global seed is not enough when you need layouts, object variant choices, or
 run-time variation draws to be reproducible independently.
 
 What it is
@@ -95,7 +95,7 @@ not fix the other.
      - ``--placement_seed`` / ``ArenaEnvBuilderCfg.placement_seed``
      - ``None`` (unlocked)
      - Relation-solver layouts and random
-       :doc:`RigidObjectSet <../scene/concept_rigid_object_set>` member
+       :doc:`object variant <../scene/concept_object_variants>`
        assignment. With ``None``, placement stays non-reproducible across runs.
 
 There is no variation seed. Run-time variations follow ``--seed``; build-time
@@ -119,7 +119,7 @@ Pass the seed you want to lock on the runner CLI (or set the matching field on
      pick_and_place_maple_table
 
 - Set ``--seed`` to fix simulation and run-time variation draws.
-- Set ``--placement_seed`` to fix layouts and random object-set picks.
+- Set ``--placement_seed`` to fix layouts and random object variant choices.
 - Omit ``--placement_seed`` when placement should vary across runs.
 
 The compiled config is then registered with the gym registry under the

@@ -84,7 +84,7 @@ supported robot embodiments use the same pipeline.
 
 Anchors and passive obstacles remain fixed: anchors serve as relation
 references, while passive obstacles contribute collision geometry. The solver
-computes poses for placed objects, objects selected from object sets, and
+computes poses for placed objects, including their per-environment variants, and
 supported robot embodiments. Across parallel environments, object identity can
 be homogeneous or heterogeneous.
 

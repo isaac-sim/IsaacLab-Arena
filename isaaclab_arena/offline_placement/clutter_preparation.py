@@ -35,8 +35,8 @@ def prepare_clutter_settling(env: ManagerBasedEnv, assets: list[PlaceableAsset])
     from isaaclab_arena.relations.bounding_box_helpers import has_heterogeneous_objects
     from isaaclab_arena.relations.passive_collision_objects import discover_passive_assets
 
-    # Reusable root poses do not identify which object-set variant was spawned.
-    assert not has_heterogeneous_objects(assets), "Resolve object sets before collecting clutter layouts"
+    # Reusable root poses do not identify which object variant was spawned.
+    assert not has_heterogeneous_objects(assets), "Select concrete object variants before collecting clutter layouts"
     reachability_targets = [asset.get_scene_key() for asset in clutter_assets if asset.requires_reachability]
     assert not reachability_targets, f"Cannot validate reachability after clutter drops: {reachability_targets}"
 
