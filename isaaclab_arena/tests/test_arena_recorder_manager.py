@@ -136,6 +136,7 @@ def _test_empty_recorder_configuration(_simulation_app):
     env = SimpleNamespace(sim=SimpleNamespace(is_playing=lambda: True))
     for recorder_cfg in (None, {}, RecorderManagerBaseCfg()):
         recorder = ArenaRecorderManager(recorder_cfg, env)
+        recorder.record_post_step()
         recorder.record_pre_reset(None)
         recorder.record_post_reset(None)
         recorder.add_to_episodes("actions", torch.ones(1))

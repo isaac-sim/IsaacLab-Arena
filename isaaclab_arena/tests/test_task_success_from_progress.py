@@ -50,8 +50,8 @@ def _make_environment_and_manager(
     from isaaclab_arena.environments.isaaclab_arena_manager_based_env import IsaacLabArenaManagerBasedRLEnv
     from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
     from isaaclab_arena.progress_tracking.progress_tracker import ProgressTracker, ProgressTrackingRecorderCfg
-    from isaaclab_arena.progress_tracking.task_success import task_success
     from isaaclab_arena.tasks.predicates.object_settling import ObjectInitialRestPoseRecorder
+    from isaaclab_arena.tasks.terminations import task_success_from_progress
 
     env = IsaacLabArenaManagerBasedRLEnv.__new__(IsaacLabArenaManagerBasedRLEnv)
     env.sim = SimpleNamespace(is_playing=lambda: True, device="cpu")
@@ -87,7 +87,7 @@ def _make_environment_and_manager(
     )
     recorder_cfg = ProgressTrackingRecorderCfg()
     recorder = recorder_cfg.class_type(recorder_cfg, env)
-    manager = TerminationManager({"success": TerminationTermCfg(func=task_success)}, env)
+    manager = TerminationManager({"success": TerminationTermCfg(func=task_success_from_progress)}, env)
     env.termination_manager = manager
     return env, manager, recorder
 
@@ -170,6 +170,7 @@ def _test_flat_subtask_none_state_skips_history_and_current_condition(simulation
     )
     env.predicate_results["required"][:] = False
     env.predicate_results["ignored"][:] = False
+    _advance_step(env)
     manager.compute()
     assert not manager.get_term("success").any(), "False still requires a recorded completion first."
     env.predicate_results["required"][:] = True
@@ -387,12 +388,12 @@ def _test_temporal_requirement_resolves_scene_references_and_resets(simulation_a
 def _test_success_requires_task_progress(simulation_app):
     import pytest
 
-    from isaaclab_arena.progress_tracking.task_success import task_success
+    from isaaclab_arena.tasks.terminations import task_success_from_progress
 
     env, _, _ = _make_environment_and_manager(["place"])
     env._progress_tracker = None
     with pytest.raises(AssertionError, match="Task progress is not configured"):
-        task_success(env)
+        task_success_from_progress(env)
     return True
 
 
@@ -419,10 +420,10 @@ def _test_builder_installs_success_only_for_success_criteria(simulation_app):
     from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
-    from isaaclab_arena.progress_tracking.task_success import task_success
     from isaaclab_arena.scene.scene import Scene
     from isaaclab_arena.tasks.no_task import NoTask
     from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
+    from isaaclab_arena.tasks.terminations import task_success_from_progress
 
     progress_task_termination_cfg = TaskTerminationCfg(
         success=[
@@ -463,7 +464,7 @@ def _test_builder_installs_success_only_for_success_criteria(simulation_app):
                 expected_terms.add("time_out")
             assert set(env_cfg.terminations.to_dict()) == expected_terms
             assert isinstance(success_term, TerminationTermCfg)
-            assert success_term.func is task_success
+            assert success_term.func is task_success_from_progress
             assert success_term.params == {}
             assert len(env_cfg.task_progress.success_criteria) == 1
             assert env_cfg.task_progress.success_criteria[0].name == "done"
@@ -571,14 +572,13 @@ def _test_pick_and_place_uses_typed_success_failure_and_timeout(simulation_app):
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
-    from isaaclab_arena.progress_tracking.progress_tracker import ProgressTrackingRecorder
-    from isaaclab_arena.progress_tracking.task_success import task_success
     from isaaclab_arena.scene.scene import Scene
     from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
     from isaaclab_arena.tasks.predicates.object_settling import objects_settled
     from isaaclab_arena.tasks.predicates.spatial import object_is_above_height, object_on_destination
     from isaaclab_arena.tasks.predicates.temporal import TrueForConsecutiveStepsCfg
     from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
+    from isaaclab_arena.tasks.terminations import task_success_from_progress
 
     pick_up_object = SimpleNamespace(
         name="object",
@@ -614,7 +614,7 @@ def _test_pick_and_place_uses_typed_success_failure_and_timeout(simulation_app):
         patch.object(task, "get_metrics", return_value=[]),
     ):
         env_cfg, _ = builder.compose_manager_cfg()
-    assert env_cfg.terminations.success.func is task_success
+    assert env_cfg.terminations.success.func is task_success_from_progress
     criteria_sets = env_cfg.task_progress.success_criteria
     assert len(criteria_sets) == 1
     settled, lifted, placement_requirement = criteria_sets[0].predicate_sequence
@@ -627,7 +627,6 @@ def _test_pick_and_place_uses_typed_success_failure_and_timeout(simulation_app):
     assert env_cfg.terminations.time_out.func is time_out
     assert env_cfg.terminations.time_out.time_out
     assert env_cfg.episode_length_s == 12.0
-    assert env_cfg.recorders.progress_tracking.class_type is ProgressTrackingRecorder
     assert getattr(env_cfg.events, "reset_progress_objectives", None) is None
 
     held_placement_task = PickAndPlaceTask(

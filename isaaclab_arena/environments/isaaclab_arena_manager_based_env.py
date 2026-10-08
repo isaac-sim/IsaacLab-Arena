@@ -18,7 +18,7 @@ from isaaclab_arena.metrics.metrics_manager import MetricsManager
 from isaaclab_arena.progress_tracking.progress_tracker import ProgressTracker, ProgressTrackingRecorderCfg
 from isaaclab_arena.recording.arena_recorder_manager import ArenaRecorderManager
 from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderManager
-from isaaclab_arena.tasks.predicates.object_settling import ObjectInitialRestPoseRecorder, reset_rest_pose_recorder
+from isaaclab_arena.tasks.predicates.object_settling import ObjectInitialRestPoseRecorder
 from isaaclab_arena.variations.variation_recorder import VariationRecorder
 
 if TYPE_CHECKING:
@@ -126,12 +126,13 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
                 desired_subtask_success_state=progress_cfg.desired_subtask_success_state,
             )
             self._task_progress_step = self.common_step_counter
-            if not recorder_cfg:
+            if not recorder_cfg or isinstance(recorder_cfg, dict):
+                recorder_terms = recorder_cfg or {}
                 recorder_cfg = RecorderManagerBaseCfg(dataset_export_mode=DatasetExportMode.EXPORT_NONE)
-            if isinstance(recorder_cfg, dict):
-                recorder_cfg["progress_tracking"] = ProgressTrackingRecorderCfg()
-            else:
-                recorder_cfg.progress_tracking = ProgressTrackingRecorderCfg()
+                # Lab requires RecorderManagerBaseCfg whenever any recorder term is active.
+                for term_name, term_cfg in recorder_terms.items():
+                    setattr(recorder_cfg, term_name, term_cfg)
+            recorder_cfg.progress_tracking = ProgressTrackingRecorderCfg()
             self.cfg.recorders = recorder_cfg
         self.recorder_manager = ArenaRecorderManager(recorder_cfg, self)
         self.metrics_manager = MetricsManager(self.cfg.metrics, self)
@@ -209,7 +210,7 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
         # the surviving episodes a second time during the same control step.
         if self._progress_tracker is not None:
             self._progress_tracker.reset(episode_start_env_ids)
-        reset_rest_pose_recorder(self, episode_start_env_ids)
+        self._object_initial_rest_pose_recorder.reset(episode_start_env_ids)
 
     def compute_metrics(self) -> MetricsDataCollection:
         """Compute all registered metrics.

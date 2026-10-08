@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from typing import Literal, TypedDict
 
 from isaaclab.managers import SceneEntityCfg, TerminationTermCfg
-from isaaclab.managers.recorder_manager import RecorderManagerBaseCfg, RecorderTerm, RecorderTermCfg
+from isaaclab.managers.recorder_manager import RecorderTerm, RecorderTermCfg
 from isaaclab.utils.configclass import configclass
 
 from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria, CriteriaCompletionMode
@@ -607,10 +607,6 @@ class ProgressTracker:
         """Return task success from the latest step without evaluating predicates again."""
         return self._task_success.clone()
 
-    def has_processed_step(self, step_index: torch.Tensor) -> bool:
-        """Return whether every environment was already updated at ``step_index``."""
-        return torch.equal(self._last_processed_step, step_index.to(device=self.device))
-
     def get_subtask_completion(self) -> torch.Tensor:
         """Return recorded completion for each environment and subtask, in subtask order."""
         assert self._subtask_runners, "Subtask completion requires criteria sets with subtask indices."
@@ -770,8 +766,3 @@ class ProgressTrackingRecorder(RecorderTerm):
 @configclass
 class ProgressTrackingRecorderCfg(RecorderTermCfg):
     class_type: type[RecorderTerm] = ProgressTrackingRecorder
-
-
-@configclass
-class ProgressTrackingRecorderManagerCfg(RecorderManagerBaseCfg):
-    progress_tracking: ProgressTrackingRecorderCfg = ProgressTrackingRecorderCfg()

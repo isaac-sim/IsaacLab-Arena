@@ -37,9 +37,7 @@ from isaaclab_arena.environments.relation_solver_interface import solve_and_appl
 from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.metrics.metric_term_cfg import MetricTermCfg
 from isaaclab_arena.metrics.recorder_manager_utils import metrics_to_recorder_manager_cfg
-from isaaclab_arena.progress_tracking.progress_tracker import ProgressTrackingRecorderManagerCfg
 from isaaclab_arena.progress_tracking.task_progress_cfg import TaskProgressCfg
-from isaaclab_arena.progress_tracking.task_success import task_success
 from isaaclab_arena.recording.common_terms import CoreEpisodeRecorderTermCfg, VariationEpisodeRecorderTermCfg
 from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTermCfg
 from isaaclab_arena.recording.progress_terms import ProgressEpisodeRecorderTermCfg
@@ -53,6 +51,7 @@ from isaaclab_arena.relations.placement_layouts import PlacementLayouts
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.tasks.no_task import NoTask
 from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
+from isaaclab_arena.tasks.terminations import task_success_from_progress
 from isaaclab_arena.terms.events import ResetBackgroundPhysics
 from isaaclab_arena.terms.recorders import ArenaEnvRecorderManagerCfg
 from isaaclab_arena.utils.configclass import combine_configclass_instances, make_configclass
@@ -265,7 +264,7 @@ class ArenaEnvBuilder:
 
         # Install the shared success term when the task defines success criteria.
         if success_criteria:
-            success_term = TerminationTermCfg(func=task_success)
+            success_term = TerminationTermCfg(func=task_success_from_progress)
             termination_terms["success"] = success_term
         termination_fields = [(name, TerminationTermCfg, term) for name, term in termination_terms.items()]
         return make_configclass("TerminationsCfg", termination_fields)()
@@ -403,17 +402,12 @@ class ArenaEnvBuilder:
         metrics = task.get_metrics()
         metrics_cfg = self._compose_metrics_cfg(metrics)
         metrics_recorder_manager_cfg = metrics_to_recorder_manager_cfg(metrics)
-        progress_tracking_recorder_cfg: Any = (
-            ProgressTrackingRecorderManagerCfg() if task_termination_cfg.success else None
-        )
-
         # Base has to be specified explicitly to avoid type errors and not lose inheritance.
         recorder_manager_cfg = combine_configclass_instances(
             "RecorderManagerCfg",
             metrics_recorder_manager_cfg,
             task.get_recorder_term_cfg(),
             embodiment.get_recorder_term_cfg(record_trajectories=self.cfg.record_trajectories),
-            progress_tracking_recorder_cfg,
             bases=(RecorderManagerBaseCfg,),
         )
         recorder_manager_cfg = self._modify_recorder_cfg_dataset_filename(recorder_manager_cfg)

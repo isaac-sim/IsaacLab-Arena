@@ -23,6 +23,8 @@ class ArenaRecorderManager(RecorderManager):
 
     def record_post_step(self) -> None:
         """Update task progress before recorder terms observe the completed control step."""
+        if not self.active_terms:
+            return
         self._env.update_task_progress()
         super().record_post_step()
 

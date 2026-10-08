@@ -217,9 +217,10 @@ counts: true adds one; false clears the streak.
 The environment resets the tracker and its runners for each restarting episode, after terminal recording.
 
 The environment owns ``ProgressTracker`` and advances it through ``update_task_progress()`` at most once
-per control step. The shared ``task_success(env)`` function calls this method and returns ``is_complete()``;
-it can be used both as a termination term and as a direct success callback. ``ArenaRecorderManager`` also
-updates progress before recorder terms run, including when recording or replay disables success termination.
+per control step. The shared ``task_success_from_progress(env)`` function in ``isaaclab_arena.tasks.terminations``
+calls this method and returns ``is_complete()``; it can be used both as a termination term and as a direct
+success callback. ``ArenaRecorderManager`` also updates progress before recorder terms run, including when
+recording or replay disables success termination.
 The builder stores the criteria in ``env_cfg.task_progress`` independently of ``cfg.terminations``.
 Reporting consumers read ``is_complete()``, ``get_state()``, or ``get_events()`` without advancing progress.
 Direct callers of ``ProgressTracker.step()`` must also call it exactly once per control step.

@@ -623,7 +623,7 @@ def _test_recorder_publishes_to_extras_and_records_nothing(simulation_app) -> bo
     from isaaclab_arena.environments.isaaclab_arena_manager_based_env import IsaacLabArenaManagerBasedRLEnv
     from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
     from isaaclab_arena.progress_tracking.progress_tracker import ProgressTracker, ProgressTrackingRecorderCfg
-    from isaaclab_arena.progress_tracking.task_success import task_success
+    from isaaclab_arena.tasks.terminations import task_success_from_progress
 
     env = _MockEnv(num_envs=2)
     first_predicate = _MockPredicate(num_envs=2, name="first")
@@ -648,7 +648,7 @@ def _test_recorder_publishes_to_extras_and_records_nothing(simulation_app) -> bo
 
     _advance_step(env)
     env.common_step_counter += 1
-    assert task_success(env).tolist() == [False, False]
+    assert task_success_from_progress(env).tolist() == [False, False]
     for _ in range(2):
         assert recorder.record_post_step() == (None, None)
         progress = env.extras["progress_tracking"]
@@ -657,7 +657,7 @@ def _test_recorder_publishes_to_extras_and_records_nothing(simulation_app) -> bo
 
     _advance_step(env)
     env.common_step_counter += 1
-    assert task_success(env).tolist() == [True, False]
+    assert task_success_from_progress(env).tolist() == [True, False]
     assert recorder.record_post_step() == (None, None)
     progress = env.extras["progress_tracking"]
     assert [state.all_complete for state in progress["states"]] == [True, False]
@@ -676,10 +676,6 @@ def _test_task_termination_cfg_assigns_flat_criteria_to_subtasks(
 ) -> bool:
     """Composite tasks identify each flat criteria's subtask without adding parent criteria_sets."""
     from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
-    from isaaclab_arena.progress_tracking.progress_tracker import (
-        ProgressTrackingRecorder,
-        ProgressTrackingRecorderManagerCfg,
-    )
     from isaaclab_arena.tasks.no_task import NoTask
     from isaaclab_arena.tasks.task_base import TaskBase
     from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
@@ -720,8 +716,6 @@ def _test_task_termination_cfg_assigns_flat_criteria_to_subtasks(
         progress_task = _ProgressTask()
         criteria_sets = progress_task.get_termination_cfg().success
         assert len(criteria_sets) == 1
-        recorder_cfg = ProgressTrackingRecorderManagerCfg()
-        assert recorder_cfg.progress_tracking.class_type is ProgressTrackingRecorder
 
         from isaaclab_arena.tasks.composite_task_base import CompositeTaskBase
 
