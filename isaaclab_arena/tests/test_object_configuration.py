@@ -40,7 +40,7 @@ def test_object_configuration():
     assert result, "Test failed"
 
 
-def test_native_spawn_configuration_is_copied():
+def test_native_spawn_configuration_controls_geometry():
     from isaaclab.sim import CuboidCfg
 
     from isaaclab_arena.assets.object import Object
@@ -49,7 +49,9 @@ def test_native_spawn_configuration_is_copied():
     source_cfg = CuboidCfg(size=(1.0, 2.0, 3.0))
     obj = Object(name="box", object_type=ObjectType.RIGID, spawn_cfg=source_cfg)
     assert obj.spawn_cfg is obj.object_cfg.spawn
+    assert obj.get_bounding_box().size.tolist() == [[1.0, 2.0, 3.0]]
     obj.spawn_cfg.size = (4.0, 5.0, 6.0)
+    assert obj.get_bounding_box().size.tolist() == [[4.0, 5.0, 6.0]]
     assert source_cfg.size == (1.0, 2.0, 3.0)
 
 
@@ -187,6 +189,49 @@ def test_dome_hdr_preserves_current_light_settings():
     assert light.spawn_cfg.visible_in_primary_ray
     assert light.spawn_cfg.intensity == 250.0
     assert light.spawn_cfg.color == (0.2, 0.4, 0.6)
+
+
+def test_base_contact_filters_use_native_source_and_usd_variants(tmp_path):
+    from isaaclab.sim import CuboidCfg, UsdFileCfg
+    from pxr import Usd, UsdGeom, UsdPhysics
+
+    from isaaclab_arena.assets.object import Object
+    from isaaclab_arena.assets.object_type import ObjectType
+
+    original_path = tmp_path / "original.usda"
+    original_stage = Usd.Stage.CreateNew(str(original_path))
+    original_root = UsdGeom.Xform.Define(original_stage, "/Original").GetPrim()
+    original_stage.SetDefaultPrim(original_root)
+    UsdPhysics.RigidBodyAPI.Apply(UsdGeom.Xform.Define(original_stage, "/Original/OldBody").GetPrim())
+    original_stage.GetRootLayer().Save()
+
+    updated_path = tmp_path / "updated.usda"
+    updated_stage = Usd.Stage.CreateNew(str(updated_path))
+    updated_root = UsdGeom.Xform.Define(updated_stage, "/Updated").GetPrim()
+    updated_stage.SetDefaultPrim(updated_root)
+    variant_set = updated_root.GetVariantSets().AddVariantSet("layout")
+    for selection, body_name in (("first", "FirstBody"), ("second", "SecondBody")):
+        variant_set.AddVariant(selection)
+        variant_set.SetVariantSelection(selection)
+        with variant_set.GetVariantEditContext():
+            UsdPhysics.RigidBodyAPI.Apply(UsdGeom.Xform.Define(updated_stage, f"/Updated/{body_name}").GetPrim())
+    variant_set.SetVariantSelection("first")
+    updated_stage.GetRootLayer().Save()
+
+    pickup = Object(name="pickup", object_type=ObjectType.RIGID, spawn_cfg=CuboidCfg(size=(1.0, 1.0, 1.0)))
+    destination = Object(
+        name="destination", object_type=ObjectType.BASE, spawn_cfg=UsdFileCfg(usd_path=str(original_path))
+    )
+    assert pickup.get_contact_sensor_cfg(destination).filter_prim_paths_expr == [
+        destination.get_prim_path() + "/OldBody"
+    ]
+    destination.spawn_cfg.usd_path = str(updated_path)
+    for selection, body_name in (("first", "FirstBody"), ("second", "SecondBody")):
+        destination.spawn_cfg.variants = {"layout": selection}
+        assert pickup.get_contact_sensor_cfg(destination).filter_prim_paths_expr == [
+            destination.get_prim_path() + f"/{body_name}"
+        ]
+    assert variant_set.GetVariantSelection() == "first"
 
 
 if __name__ == "__main__":
