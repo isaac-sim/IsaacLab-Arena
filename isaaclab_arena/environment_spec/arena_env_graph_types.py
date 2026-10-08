@@ -9,13 +9,12 @@ from __future__ import annotations
 
 from enum import Enum
 from numbers import Real
-from typing import Any
+from typing import Any, Literal
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.assets.registries import AssetRegistry, ObjectRelationLibraryRegistry, TaskRegistry
-from isaaclab_arena.assets.simready_constants import SIMREADY_USD_OBJECT_REGISTRY_NAME
 
 
 def _extract_asset_usd_path(asset_cls: type, **params: Any) -> str | None:
@@ -96,54 +95,88 @@ class AssetSpec(BaseModel):
         return usd_path
 
 
-class ObjectSetSpec(BaseModel):
-    """A set of rigid objects distributed among parallel environments, one object per environment."""
+class ObjectSpec(AssetSpec):
+    """One registered Object instanced in every environment."""
 
-    id: str = Field(
-        min_length=1,
-        description=(
-            "Unique id for this object set (e.g. 'bottles'). Referenced by relations and task "
-            "params exactly like an object id."
-        ),
+    model_config = ConfigDict(extra="forbid")
+
+    @field_validator("params")
+    @classmethod
+    def _validate_params(cls, value: dict[str, Any]) -> dict[str, Any]:
+        reserved = {"objects", "variants", "assign_to_environments"}
+        duplicate_params = sorted(reserved & value.keys())
+        assert (
+            not duplicate_params
+        ), f"Object params must not set {duplicate_params}; use per_environment_objects for alternatives"
+        return value
+
+
+class ObjectMemberSpec(BaseModel):
+    """One registered rigid Object and its constructor parameters in a PerEnvironmentObject."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    registry_name: str = Field(min_length=1, description="Exact registered rigid object name from OBJECTS.")
+    params: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Constructor kwargs for this object, including scale or a SimReady usd_path.",
     )
-    members: list[str] = Field(
+
+    @field_validator("registry_name")
+    @classmethod
+    def _validate_registry_name(cls, value: str) -> str:
+        return _assert_registered_asset_name(value, ObjectType.RIGID)
+
+    @field_validator("params")
+    @classmethod
+    def _validate_params(cls, value: dict[str, Any]) -> dict[str, Any]:
+        nested_fields = {"objects", "variants"} & value.keys()
+        assert not nested_fields, "Object member params cannot contain nested objects or variants"
+        assert "assign_to_environments" not in value, "Object member params must not set assign_to_environments"
+        return AssetSpec._drop_catalogue_tags(value)
+
+
+class PerEnvironmentObjectSpec(BaseModel):
+    """Declare a PerEnvironmentObject with one rigid member assigned to each environment."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str = Field(min_length=1, description="Unique scene id referenced by relations and task params.")
+    objects: list[ObjectMemberSpec] = Field(
         min_length=1,
-        description=(
-            "Exact registered object names from OBJECTS marked type=rigid that this set draws "
-            "from; every environment spawns one of them."
-        ),
+        description="Registered rigid objects; every environment spawns one of them.",
     )
-    random_choice: bool = Field(
-        default=False,
+    assign_to_environments: Literal["sequential", "random"] = Field(
+        default="sequential",
         description=(
-            "Sample each environment's member independently at random. When false, members are "
-            "assigned by repeating their declared order across environments."
+            "Assign one object per environment during construction: sequential repeats their declared order; "
+            "random samples independently. The assignment stays fixed across resets."
         ),
     )
     params: dict[str, Any] = Field(
         default_factory=dict,
-        description="Optional constructor kwargs forwarded to PerEnvironmentObject; leave empty by default.",
+        description="Constructor kwargs for the scene object, such as initial_pose; configure scale on its members.",
     )
-
-    # TODO(xinjieyao, 2026-08-03): Support searched SimReady assets as object set members.
-    @field_validator("members")
-    @classmethod
-    def _validate_member_registry_names(cls, value: list[str]) -> list[str]:
-        for registry_name in value:
-            # ObjectSet members are built with no arguments, but Simready assets need usd_path. Only an object's params can carry.
-            assert registry_name != SIMREADY_USD_OBJECT_REGISTRY_NAME, (
-                f"'{registry_name}' cannot be an object set member, because a member has nowhere to"
-                " carry the usd_path it needs. Use it as an object instead."
-            )
-        return [_assert_registered_asset_name(registry_name, ObjectType.RIGID) for registry_name in value]
 
     @field_validator("params")
     @classmethod
-    def _reject_reserved_params(cls, value: dict[str, Any]) -> dict[str, Any]:
-        # These are forwarded from the fields above, so a duplicate here would be a TypeError at
-        # build time, and an 'objects' override would skip the rigid-member check on members.
-        reserved = sorted({"name", "objects", "random_choice", "assign_to_environments"} & set(value))
-        assert not reserved, f"params must not set {reserved}; use the id, members, random_choice fields instead"
+    def _validate_params(cls, value: dict[str, Any]) -> dict[str, Any]:
+        reserved = {
+            "name",
+            "instance_name",
+            "objects",
+            "variants",
+            "assign_to_environments",
+            "object_type",
+            "usd_path",
+            "spawn_cfg",
+            "scale",
+            "spawn_cfg_addon",
+        }
+        duplicate_params = sorted(reserved & value.keys())
+        assert (
+            not duplicate_params
+        ), f"Per-environment object params must not set {duplicate_params}; use the top-level fields or member params"
         return value
 
 

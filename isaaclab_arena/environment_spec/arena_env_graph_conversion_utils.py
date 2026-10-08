@@ -122,7 +122,7 @@ def _scene_already_has_light(graph_spec: ArenaEnvGraphSpec, assets_by_node_id: d
     """Return whether the scene is already lit, either explicitly or via a baked-in USD light."""
     if any("light" in (getattr(asset, "tags", None) or []) for asset in assets_by_node_id.values()):
         return True
-    for asset_spec in [graph_spec.background, *graph_spec.objects]:
+    for asset_spec in [graph_spec.background, *graph_spec.objects, *graph_spec.per_environment_objects]:
         asset = assets_by_node_id[asset_spec.id]
         usd_path = getattr(getattr(asset, "spawn_cfg", None), "usd_path", None)
         if isinstance(usd_path, str) and usd_path:
@@ -187,13 +187,18 @@ def instantiate_assets_from_spec(
         params.setdefault("instance_name", obj.id)
         assets_by_node_id[obj.id] = asset_registry.get_asset_by_name(obj.registry_name)(**params)
 
-    # TODO(migration): Replace object_sets with per_environment_objects when migrating the YAML schema.
-    for object_set in graph_spec.object_sets or []:
-        assets_by_node_id[object_set.id] = PerEnvironmentObject(
-            name=object_set.id,
-            objects=[asset_registry.get_asset_by_name(registry_name)() for registry_name in object_set.members],
-            assign_to_environments="random" if object_set.random_choice else "sequential",
-            **parse_asset_params(object_set.params),
+    for obj in graph_spec.per_environment_objects:
+        objects = []
+        for member_spec in obj.objects:
+            member = asset_registry.get_asset_by_name(member_spec.registry_name)(
+                **parse_asset_params(member_spec.params)
+            )
+            objects.append(member)
+        assets_by_node_id[obj.id] = PerEnvironmentObject(
+            name=obj.id,
+            objects=objects,
+            assign_to_environments=obj.assign_to_environments,
+            **parse_asset_params(obj.params),
         )
 
     for ref in graph_spec.object_references or []:

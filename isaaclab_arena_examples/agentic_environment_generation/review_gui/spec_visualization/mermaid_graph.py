@@ -19,8 +19,8 @@ def _mermaid_nodes(spec: ArenaEnvGraphSpec) -> list[tuple[str, str]]:
         (spec.background.id, "background"),
     ]
     nodes.extend((obj.id, "object") for obj in spec.objects)
-    nodes.extend((object_set.id, "object_set") for object_set in (spec.object_sets or []))
-    nodes.extend((ref.id, "object_reference") for ref in (spec.object_references or []))
+    nodes.extend((obj.id, "per_environment_object") for obj in spec.per_environment_objects)
+    nodes.extend((ref.id, "object_reference") for ref in spec.object_references or [])
     return nodes
 
 
@@ -67,7 +67,7 @@ def render_mermaid_graph(spec: ArenaEnvGraphSpec) -> str:
         "background": ("#3a4f7a", "#7aa0d8"),
         "embodiment": ("#7a3a3a", "#d87a7a"),
         "object": ("#7a6b3a", "#d8c47a"),
-        "object_set": ("#7a5a3a", "#d8a87a"),
+        "per_environment_object": ("#7a6b3a", "#d8c47a"),
         "object_reference": ("#6b3a7a", "#c47ad8"),
     }
     for node_id, role in nodes:

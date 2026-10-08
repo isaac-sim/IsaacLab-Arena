@@ -4,11 +4,15 @@ Release Notes
 Unreleased
 ----------
 
-- Replaced the Python ``RigidObjectSet`` API with ``PerEnvironmentObject``.
-  ``assign_to_environments="sequential"`` cycles through the declared objects;
-  ``"random"`` samples independently. Python environment selection now uses
-  ``--object_variants`` instead of ``--object_set``. YAML still accepts
-  ``object_sets`` and translates its ``random_choice`` setting.
+- Replaced ``RigidObjectSet`` with ``PerEnvironmentObject``, backed by Isaac Lab native
+  multi-asset spawning. ``Object`` continues to use one asset across environments.
+  Scene assignment is shared with placement, per-variant scale stays native, and
+  USD hierarchy preparation is isolated from scene objects.
+- Environment YAML now separates concrete ``objects`` from
+  ``per_environment_objects``. Each per-environment entry declares an ``objects``
+  list with constructor parameters for each member, including SimReady USD paths.
+  The ``object_sets`` field has been removed. Python environment selection now
+  uses ``--object_variants`` instead of ``--object_set``.
 
 v0.3.1
 -------

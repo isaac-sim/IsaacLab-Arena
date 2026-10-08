@@ -5,7 +5,7 @@ Review the spec before building the environment. The agent infers it from the pr
 LLM, so what comes back is non-deterministic: the same prompt can return a different spec on
 the next run, and a spec that validates can still be mistaken in its choices. See
 :doc:`../../../concepts/agentic_environment_generation/model_selection` for more details.
-For an object set, check that the members are the assets you expected as those are added based on semantic similarity by the agent.
+For a ``PerEnvironmentObject``, check that the alternatives match the assets you intended.
 
 Understanding the YAML
 ^^^^^^^^^^^^^^^^^^^^^^
@@ -23,24 +23,24 @@ The generated spec has one block per part of the environment graph:
      id: maple_table
      registry_name: maple_table_robolab
      params: {}
-   objects:                          # one entry per fixed asset in the scene
+   objects:                          # concrete assets used in every environment
    - id: bowl                        # the placement destination
      registry_name: bowl_ycb_robolab
      params: {}
-   object_sets:                      # the heterogeneous object
+   per_environment_objects:          # assets that can differ between environments
    - id: fruit
-     members:                        # every environment spawns one of these
-     - apple_01_objaverse_robolab
-     - apple_02_objaverse_robolab
-     - avocado01_fruits_veggies_robolab
-     - lemon_01_fruits_veggies_robolab
-     - lemon_02_fruits_veggies_robolab
-     - lime01_fruits_veggies_robolab
-     - orange_01_fruits_veggies_robolab
-     - orange_02_fruits_veggies_robolab
-     - pomegranate01_fruits_veggies_robolab
-     - lychee01_fruits_veggies_robolab
-     random_choice: true             # each env samples its member independently
+     objects:                        # every environment spawns one of these
+     - registry_name: apple_01_objaverse_robolab
+     - registry_name: apple_02_objaverse_robolab
+     - registry_name: avocado01_fruits_veggies_robolab
+     - registry_name: lemon_01_fruits_veggies_robolab
+     - registry_name: lemon_02_fruits_veggies_robolab
+     - registry_name: lime01_fruits_veggies_robolab
+     - registry_name: orange_01_fruits_veggies_robolab
+     - registry_name: orange_02_fruits_veggies_robolab
+     - registry_name: pomegranate01_fruits_veggies_robolab
+     - registry_name: lychee01_fruits_veggies_robolab
+     assign_to_environments: random  # each env samples independently
      params: {}
    relations:                        # spatial constraints solved at build time
    - kind: is_anchor
@@ -51,7 +51,7 @@ The generated spec has one block per part of the environment graph:
      reference: maple_table
      params: {}
    - kind: 'on'
-     subject: fruit                  # a set is referenced by id, like an object
+     subject: fruit                  # the object role is referenced by id
      reference: maple_table
      params: {}
    task:
@@ -61,11 +61,11 @@ The generated spec has one block per part of the environment graph:
      subtasks:
      - kind: PickAndPlaceTask
        params:
-         pick_up_object: fruit       # the set id, so the task follows whichever member spawned
+         pick_up_object: fruit       # the object id, whichever member spawned
          destination_location: bowl
          background_scene: maple_table
 
-An object set is referenced by its ``id`` exactly like an object — in the
+A ``PerEnvironmentObject`` is referenced by its ``id`` in the
 ``relations`` that place it and in the ``task`` params that name the target. The
 rest of the graph is written once and stays valid whichever member an
 environment spawns.
@@ -73,39 +73,41 @@ environment spawns.
 For more details on the Env Spec, see
 :doc:`Environment Definition <../../../concepts/environment/environment_definition>`.
 
-Editing the object set
-^^^^^^^^^^^^^^^^^^^^^^
+Editing per-environment objects
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Widening or narrowing the variation is a one-block edit — ``members`` and
-``random_choice`` — that leaves the relations and the task untouched. For the
-asset concept behind object sets, see
+Edit a ``per_environment_objects`` entry's ``objects`` list and
+``assign_to_environments`` to change which assets appear across environments.
+The relations and task continue to refer to the same ``id``.
+For the ``PerEnvironmentObject`` concept, see
 :doc:`../../../concepts/scene/concept_object_variants`.
 
-#. Add or remove a member to change which assets the environments draw from.
-   Members are registered rigid-object names from the Arena asset catalog:
+#. Add or remove an ``objects`` member to change which assets the environments draw from.
+   Members name registered rigid objects from the Arena asset catalog:
 
    .. code-block:: yaml
 
+      per_environment_objects:
       - id: fruit
-        members:
-        - apple_01_objaverse_robolab
-        - banana_ycb_robolab
-        random_choice: true
+        objects:
+        - registry_name: apple_01_objaverse_robolab
+        - registry_name: banana_ycb_robolab
+        assign_to_environments: random
         params: {}
 
-#. Set ``random_choice`` to choose how members map to environments. With ``true`` each environment samples its
-   member independently; with ``false``, it follows the declared member order across environments.
+#. Set ``assign_to_environments`` to choose how members map to environments.
+   ``random`` samples independently, with possible repeats; ``sequential`` cycles
+   through the declared order. Assignment stays fixed across resets.
 
    .. code-block:: yaml
 
-      random_choice: false
+      assign_to_environments: sequential
 
 
 .. note::
 
-   A SimReady searched asset cannot be an object-set member, because a member
-   has nowhere to carry the ``usd_path`` it needs. Use it as an entry under
-   ``objects`` instead, as in :doc:`../tabletop_pnp_composite_task/index`.
+   Each member accepts its own ``params``. A searched SimReady asset uses
+   ``registry_name: simready_usd_object`` with its ``usd_path`` under ``params``.
 
 Applying your edits
 ^^^^^^^^^^^^^^^^^^^
@@ -123,7 +125,7 @@ Applying your edits
       #. Click **Save to <env_name>.yaml** to write the spec to ``<env_name>.yaml`` in the output directory.
 
       Set the number of parallel environments in the sim preview controls to more than
-      one to see the members spread across environments.
+      one to see the assets distributed across environments.
 
       See :doc:`../../../concepts/agentic_environment_generation/gui_runner` for the full UI walkthrough.
 

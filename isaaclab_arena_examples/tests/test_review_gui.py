@@ -57,7 +57,7 @@ from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp_co
 )
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.spec_visualization.asset_cards import (
     build_asset_cards,
-    object_set_member_key,
+    object_variant_key,
 )
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.spec_visualization.mermaid_graph import (
     estimate_mermaid_height_px,
@@ -135,28 +135,52 @@ class TestBuildAssetCards:
         assert card_ids
         assert any(ref.id in card_ids for ref in spec.object_references)
 
-    def test_object_set_yields_one_card_per_member(self):
+    def test_object_variants_yield_one_card_per_variant(self):
         spec = ArenaEnvGraphSpec.from_yaml(
-            _REPO_ROOT / "isaaclab_arena/tests/test_data/object_set_maple_table_env_graph.yaml"
+            _REPO_ROOT / "isaaclab_arena/tests/test_data/object_variants_maple_table_env_graph.yaml"
         )
-        (object_set,) = spec.object_sets
-        sweet_potato_key = object_set_member_key(object_set.id, "sweet_potato")
+        varied_object = spec.per_environment_objects[0]
+        sweet_potato_key = object_variant_key(varied_object.id, 0)
         cards = build_asset_cards(
             spec,
             thumbnails={sweet_potato_key: b"fake"},
             aabb_dimensions_m={sweet_potato_key: (0.1, 0.1, 0.2)},
         )
 
-        member_cards = [card for card in cards if card.role == "object_set"]
-        assert [card.spec.registry_name for card in member_cards] == object_set.members
-        assert all(card.spec.id == object_set.id for card in member_cards)
+        variant_cards = [card for card in cards if card.spec.id == varied_object.id]
+        assert [card.spec.registry_name for card in variant_cards] == [
+            "sweet_potato",
+            "jug",
+        ]
+        assert all(card.role == "per_environment_object" for card in variant_cards)
+        assert variant_cards[0].thumbnail_bytes == b"fake"
+        assert variant_cards[0].aabb_dimensions_m == (0.1, 0.1, 0.2)
+        assert variant_cards[1].thumbnail_bytes is None
 
-        # Snapshots are keyed per member, so one member's thumbnail never leaks onto its siblings.
-        sweet_potato = next(card for card in member_cards if card.spec.registry_name == "sweet_potato")
-        assert sweet_potato.thumbnail_bytes == b"fake"
-        assert sweet_potato.aabb_dimensions_m == (0.1, 0.1, 0.2)
-        jug = next(card for card in member_cards if card.spec.registry_name == "jug")
-        assert jug.thumbnail_bytes is None
+    def test_variants_with_the_same_registry_name_keep_separate_cards(self):
+        spec = ArenaEnvGraphSpec.from_yaml(
+            _REPO_ROOT / "isaaclab_arena/tests/test_data/object_variants_maple_table_env_graph.yaml"
+        )
+        data = spec.to_dict()
+        data["per_environment_objects"][0]["objects"] = [
+            {"registry_name": "sweet_potato", "params": {"scale": [0.5, 0.5, 0.5]}},
+            {"registry_name": "sweet_potato", "params": {"scale": [2.0, 2.0, 2.0]}},
+        ]
+        data["per_environment_objects"][0]["params"] = {
+            "initial_pose": {
+                "position_xyz": [0.0, 0.0, 1.0],
+                "rotation_xyzw": [0.0, 0.0, 0.0, 1.0],
+            }
+        }
+        spec = ArenaEnvGraphSpec.from_dict(data)
+        varied_object = spec.per_environment_objects[0]
+        cards = build_asset_cards(spec, thumbnails={object_variant_key(varied_object.id, 1): b"large"})
+        variant_cards = [card for card in cards if card.spec.id == varied_object.id]
+        assert len(variant_cards) == 2
+        assert variant_cards[0].spec.params == {"scale": [0.5, 0.5, 0.5]}
+        assert variant_cards[0].thumbnail_bytes is None
+        assert variant_cards[1].spec.params == {"scale": [2.0, 2.0, 2.0]}
+        assert variant_cards[1].thumbnail_bytes == b"large"
 
 
 class TestMermaidHtml:

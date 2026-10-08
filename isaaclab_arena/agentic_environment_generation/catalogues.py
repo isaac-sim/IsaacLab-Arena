@@ -77,7 +77,7 @@ def build_asset_catalogue(registry: AssetRegistry | None = None) -> AssetCatalog
             catalogue.backgrounds.append({"name": name, "tags": [t for t in tags if t != "background"]})
         # Only assets existed in the catalogue are exposed.
         elif "object" in tags:
-            # Exposed so the agent can honour type constraints, e.g. object-set members must be rigid.
+            # Exposed so the agent can require rigid members for per-environment objects.
             object_type = getattr(cls, "object_type", None)
             catalogue.objects.append({
                 "name": name,

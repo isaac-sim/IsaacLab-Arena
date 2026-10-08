@@ -22,36 +22,36 @@ objects:
 - id: distractor_wood_block
   registry_name: wood_block_ycb_robolab
   params: {}
-object_sets:
+per_environment_objects:
 - id: bin
-  members:
-  - bin_b03_vomp_robolab
-  - blue_sorting_bin
-  - container_f24_vomp_robolab
-  random_choice: false
+  objects:
+  - registry_name: bin_b03_vomp_robolab
+  - registry_name: blue_sorting_bin
+  - registry_name: container_f24_vomp_robolab
+  assign_to_environments: sequential
   params: {}
 - id: fruit
-  members:
-  - avocado01_fruits_veggies_robolab
-  - lemon_01_fruits_veggies_robolab
-  - pomegranate01_fruits_veggies_robolab
-  - banana_ycb_robolab
-  random_choice: false
+  objects:
+  - registry_name: avocado01_fruits_veggies_robolab
+  - registry_name: lemon_01_fruits_veggies_robolab
+  - registry_name: pomegranate01_fruits_veggies_robolab
+  - registry_name: banana_ycb_robolab
+  assign_to_environments: sequential
   params: {}
 - id: bottle
-  members:
-  - ketchup_bottle_hope_robolab
-  - mayonnaise_bottle_hope_robolab
-  - bbq_sauce_bottle_hope_robolab
-  random_choice: false
+  objects:
+  - registry_name: ketchup_bottle_hope_robolab
+  - registry_name: mayonnaise_bottle_hope_robolab
+  - registry_name: bbq_sauce_bottle_hope_robolab
+  assign_to_environments: sequential
   params: {}
 - id: tool
-  members:
-  - spoon_handal_robolab
-  - ladle_handal_robolab
-  - salad_tongs_handal_robolab
-  - hammer_handal_robolab
-  random_choice: false
+  objects:
+  - registry_name: spoon_handal_robolab
+  - registry_name: ladle_handal_robolab
+  - registry_name: salad_tongs_handal_robolab
+  - registry_name: hammer_handal_robolab
+  assign_to_environments: sequential
   params: {}
 relations:
 - kind: is_anchor

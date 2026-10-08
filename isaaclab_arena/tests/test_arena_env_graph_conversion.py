@@ -20,6 +20,7 @@ from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSp
 from isaaclab_arena.environment_spec.arena_env_graph_types import (
     AssetSpec,
     CompositeTaskSpec,
+    ObjectSpec,
     TaskCompositionType,
     TaskSpec,
 )
@@ -128,40 +129,44 @@ def test_get_arena_builder_from_cli_builds_env_from_graph_yaml():
     assert result
 
 
-def _test_arena_env_graph_conversion_builds_object_set_node(simulation_app, random_choice):
+def _test_arena_env_graph_conversion_builds_per_environment_object(simulation_app):
+    from isaaclab_arena.assets.object import Object
     from isaaclab_arena.assets.per_environment_object import PerEnvironmentObject
+    from isaaclab_arena.relations.relations import On
     from isaaclab_arena.scene.object_variant_assignment import assign_object_variants
 
-    spec = ArenaEnvGraphSpec.from_yaml(TEST_DATA_DIR / "object_set_maple_table_env_graph.yaml")
-    spec.object_sets[0].random_choice = random_choice
+    spec = ArenaEnvGraphSpec.from_yaml(TEST_DATA_DIR / "object_variants_maple_table_env_graph.yaml")
     arena_env = spec.to_arena_env()
 
-    object_set = arena_env.scene.assets["pick_up_object_set"]
-    assert isinstance(object_set, PerEnvironmentObject)
-    assert object_set.has_multiple_assets
-    assert len(object_set.spawn_cfg.assets_cfg) == 2
-    assert object_set.assign_to_environments == ("random" if random_choice else "sequential")
+    varied_object = arena_env.scene.assets["pick_up_object"]
+    assert isinstance(varied_object, PerEnvironmentObject)
+    assert varied_object.has_multiple_assets
+    assert len(varied_object.spawn_cfg.assets_cfg) == 2
+    assert varied_object.assign_to_environments == "random"
+    assert arena_env.task.pick_up_object is varied_object
+    destination = arena_env.scene.assets["bowl_ycb_robolab"]
+    assert isinstance(destination, Object)
+    assert not isinstance(destination, PerEnvironmentObject)
+    assert arena_env.task.destination_location is destination
+    background = arena_env.scene.assets["maple_table_robolab"]
+    for scene_object in (varied_object, destination):
+        on_relation = next(relation for relation in scene_object.get_relations() if isinstance(relation, On))
+        assert on_relation.parent is background
 
-    # The set is a single node: the task manipulates it, and each env gets one of its members.
-    assert arena_env.task.pick_up_object is object_set
-    assign_object_variants([object_set], num_envs=4, seed=42)
-    assert len(object_set.asset_indices_by_env) == 4
-    assert len(object_set.spawn_cfg.assets_cfg) == 2
-
+    assign_object_variants([varied_object], num_envs=4, seed=42)
+    assert len(varied_object.asset_indices_by_env) == 4
+    assert len(varied_object.spawn_cfg.assets_cfg) == 2
     return True
 
 
-@pytest.mark.parametrize("random_choice", [False, True])
-def test_arena_env_graph_conversion_builds_object_set_node(random_choice):
+def test_arena_env_graph_conversion_builds_per_environment_object():
     from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
-    result = run_function_with_persistent_simulation_app(
-        _test_arena_env_graph_conversion_builds_object_set_node, random_choice=random_choice
-    )
+    result = run_function_with_persistent_simulation_app(_test_arena_env_graph_conversion_builds_per_environment_object)
     assert result
 
 
-def _minimal_scene_spec(*, objects: list[AssetSpec]) -> ArenaEnvGraphSpec:
+def _minimal_scene_spec(*, objects: list[ObjectSpec]) -> ArenaEnvGraphSpec:
     return ArenaEnvGraphSpec(
         env_name="lighting_test",
         embodiment=AssetSpec(id="robot", registry_name="droid_abs_joint_pos"),
@@ -193,7 +198,7 @@ def _test_default_light_is_injected_when_scene_has_none(simulation_app):
 
     # A single YCB object with no light asset and no light baked into its USD: the converter
     # must inject a default light so the env does not render black.
-    spec = _minimal_scene_spec(objects=[AssetSpec(id="mug", registry_name="mug_ycb_robolab")])
+    spec = _minimal_scene_spec(objects=[ObjectSpec(id="mug", registry_name="mug_ycb_robolab")])
     arena_env = spec.to_arena_env()
 
     assert len(_lights_of_type(arena_env, DomeLight)) == 1
@@ -207,8 +212,8 @@ def _test_default_light_is_injected_when_scene_has_none(simulation_app):
     # An explicit light suppresses injection — no double-lighting, and no directional light either.
     explicit = _minimal_scene_spec(
         objects=[
-            AssetSpec(id="mug", registry_name="mug_ycb_robolab"),
-            AssetSpec(id="my_light", registry_name="light"),
+            ObjectSpec(id="mug", registry_name="mug_ycb_robolab"),
+            ObjectSpec(id="my_light", registry_name="light"),
         ]
     )
     explicit_env = explicit.to_arena_env()
@@ -232,7 +237,7 @@ def test_default_light_is_injected_when_scene_has_none():
 def _test_direction_variation_lights_injected_directional_light(simulation_app):
     from isaaclab_arena.assets.object_library import DirectionalLight, DomeLight
 
-    spec = _minimal_scene_spec(objects=[AssetSpec(id="mug", registry_name="mug_ycb_robolab")])
+    spec = _minimal_scene_spec(objects=[ObjectSpec(id="mug", registry_name="mug_ycb_robolab")])
     arena_env = spec.to_arena_env()
     dome_light = _lights_of_type(arena_env, DomeLight)[0]
     directional_light = _lights_of_type(arena_env, DirectionalLight)[0]

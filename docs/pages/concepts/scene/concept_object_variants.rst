@@ -35,24 +35,26 @@ Declare the alternatives
 
    .. tab-item:: YAML
 
-      The YAML schema still uses ``object_sets`` and constructs a
-      ``PerEnvironmentObject`` for each entry:
+      Declare ordinary assets under ``objects`` and ``PerEnvironmentObject``
+      entries under ``per_environment_objects``:
 
       .. code-block:: yaml
 
          objects:
          - id: bowl
            registry_name: bowl_ycb_robolab
-         object_sets:
+         per_environment_objects:
          - id: fruit
-           members:
-           - banana_ycb_robolab
-           - orange_01_fruits_veggies_robolab
-           random_choice: false
+           objects:
+           - registry_name: banana_ycb_robolab
+           - registry_name: orange_01_fruits_veggies_robolab
+             params:
+               scale: [0.8, 0.8, 0.8]
+           assign_to_environments: sequential
 
-      Relations and tasks reference ``fruit``. ``random_choice: false`` selects
-      sequential assignment; ``true`` selects random assignment. Members use
-      their library defaults; per-member constructor parameters are not supported.
+      Relations and tasks reference ``fruit``. Entry-level ``params`` configure
+      its initial pose; member ``params`` configure individual assets, including
+      scale or a SimReady ``usd_path``. The former ``object_sets`` section is rejected.
 
 Assign assets to environments
 -----------------------------

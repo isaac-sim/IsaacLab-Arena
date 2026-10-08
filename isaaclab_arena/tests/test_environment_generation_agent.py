@@ -273,23 +273,31 @@ class TestGenerateSpec:
         assert all("tags" not in asset["params"] for asset in spec.to_dict()["objects"])
 
     @patch("isaaclab_arena.agentic_environment_generation.environment_generation_agent.search_simready_objects")
-    def test_a_searched_simready_object_in_an_object_set_is_rejected(self, mock_search, agent):
+    def test_a_searched_simready_object_member_preserves_its_usd_path(self, mock_search, agent):
         agent_obj, client = agent
         mock_search.return_value = SimReadyCandidateCatalogue(
-            candidates=[SimReadyObjectCandidate(search_phrase="green trash can", usd_path="s3://bucket/trash_can.usd")]
+            candidates=[
+                SimReadyObjectCandidate(
+                    search_phrase="green trash can",
+                    usd_path="s3://bucket/trash_can.usd",
+                )
+            ]
         )
         spec_dict = minimal_spec_dict()
-        spec_dict["object_sets"] = [{"id": "bins", "members": ["simready_green_trash_can"]}]
+        spec_dict["per_environment_objects"] = [
+            {"id": "bins", "objects": [{"registry_name": "simready_green_trash_can"}]}
+        ]
         client.chat.completions.create.side_effect = [
             self._missing_objects_response("green trash can"),
             chat_response(content=json.dumps(spec_dict)),
         ]
         spec, data = self._generate_with_simready(agent_obj)
-        # A member is a bare registered name with nowhere to carry a usd_path, so the set would
-        # name a search entry that exists in no other process.
-        assert spec is None
-        assert isinstance(data, dict)
-        assert any("nowhere to carry a usd_path" in trace for trace in agent_obj.traces)
+        assert isinstance(spec, ArenaEnvGraphSpec)
+        assert data is None
+        (member,) = spec.per_environment_objects[0].objects
+        assert member.registry_name == SIMREADY_USD_OBJECT_REGISTRY_NAME
+        assert member.params == {"usd_path": "s3://bucket/trash_can.usd"}
+        assert ArenaEnvGraphSpec.from_dict(spec.to_dict()) == spec
 
     @patch("isaaclab_arena.agentic_environment_generation.environment_generation_agent.search_simready_objects")
     def test_a_catalogue_object_keeps_its_own_registry_name(self, mock_search, agent):

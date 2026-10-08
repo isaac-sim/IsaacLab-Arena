@@ -122,7 +122,7 @@ def record_settled_placement_layouts(
     if arena_env is None:
         spec = ArenaEnvGraphSpec.from_yaml(cfg.env_spec)
         assert not any(
-            len(object_set.members) > 1 for object_set in (spec.object_sets or [])
+            len(obj.objects) > 1 for obj in spec.per_environment_objects
         ), "Select concrete object variants before recording reusable layouts"
         arena_env = spec.to_arena_env()
     assert arena_env.placement_layouts is None, "Remove cached placement layouts before recording"
