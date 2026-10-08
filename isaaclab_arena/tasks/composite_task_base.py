@@ -42,7 +42,7 @@ class SubtaskSuccessStateRecorder(RecorderTerm):
 
     def record_post_step(self):
         progress_tracker = self._env.progress_tracker
-        assert progress_tracker is not None, "Task success must initialize the progress tracker before recording."
+        assert progress_tracker is not None, "Task progress must be configured before recording."
         return self.name, progress_tracker.get_subtask_completion()
 
 

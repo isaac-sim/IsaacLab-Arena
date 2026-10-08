@@ -618,12 +618,12 @@ def _test_state_machine_reset_clears_state(simulation_app) -> bool:
 
 
 def _test_recorder_publishes_to_extras_and_records_nothing(simulation_app) -> bool:
-    """Only the success term advances progress; the recorder publishes its latest state."""
-    from isaaclab.managers import TerminationTermCfg
+    """The environment advances progress; the recorder publishes its latest state."""
 
+    from isaaclab_arena.environments.isaaclab_arena_manager_based_env import IsaacLabArenaManagerBasedRLEnv
     from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
-    from isaaclab_arena.progress_tracking.progress_tracker import ProgressTrackingRecorderCfg
-    from isaaclab_arena.progress_tracking.task_success import TaskSuccessTerm
+    from isaaclab_arena.progress_tracking.progress_tracker import ProgressTracker, ProgressTrackingRecorderCfg
+    from isaaclab_arena.tasks.terminations import task_success_from_progress
 
     env = _MockEnv(num_envs=2)
     first_predicate = _MockPredicate(num_envs=2, name="first")
@@ -634,8 +634,10 @@ def _test_recorder_publishes_to_extras_and_records_nothing(simulation_app) -> bo
     recorder_cfg = ProgressTrackingRecorderCfg()
     recorder = recorder_cfg.class_type(recorder_cfg, env)
     assert env.progress_tracker is None
-    success_cfg = TerminationTermCfg(func=TaskSuccessTerm, params={"success_criteria": criteria_sets})
-    success = TaskSuccessTerm(success_cfg, env)
+    env._progress_tracker = ProgressTracker(criteria_sets, num_envs=env.num_envs, device=env.device, env=env)
+    env.common_step_counter = 0
+    env._task_progress_step = 0
+    env.update_task_progress = lambda: IsaacLabArenaManagerBasedRLEnv.update_task_progress(env)
 
     assert recorder.record_post_step() == (None, None)
     assert len(env.extras["progress_tracking"]["states"]) == 2
@@ -645,7 +647,8 @@ def _test_recorder_publishes_to_extras_and_records_nothing(simulation_app) -> bo
         assert env.extras["progress_tracking"]["states"][0].overall_score == 0.0
 
     _advance_step(env)
-    assert success(env, **success_cfg.params).tolist() == [False, False]
+    env.common_step_counter += 1
+    assert task_success_from_progress(env).tolist() == [False, False]
     for _ in range(2):
         assert recorder.record_post_step() == (None, None)
         progress = env.extras["progress_tracking"]
@@ -653,13 +656,14 @@ def _test_recorder_publishes_to_extras_and_records_nothing(simulation_app) -> bo
         assert [len(events) for events in progress["events"]] == [1, 0]
 
     _advance_step(env)
-    assert success(env, **success_cfg.params).tolist() == [True, False]
+    env.common_step_counter += 1
+    assert task_success_from_progress(env).tolist() == [True, False]
     assert recorder.record_post_step() == (None, None)
     progress = env.extras["progress_tracking"]
     assert [state.all_complete for state in progress["states"]] == [True, False]
     assert [len(events) for events in progress["events"]] == [2, 0]
 
-    success.reset(env_ids=[0])
+    env.progress_tracker.reset([0])
     assert recorder.record_post_step() == (None, None)
     progress = env.extras["progress_tracking"]
     assert [state.overall_score for state in progress["states"]] == [0.0, 0.0]
@@ -672,10 +676,6 @@ def _test_task_termination_cfg_assigns_flat_criteria_to_subtasks(
 ) -> bool:
     """Composite tasks identify each flat criteria's subtask without adding parent criteria_sets."""
     from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
-    from isaaclab_arena.progress_tracking.progress_tracker import (
-        ProgressTrackingRecorder,
-        ProgressTrackingRecorderManagerCfg,
-    )
     from isaaclab_arena.tasks.no_task import NoTask
     from isaaclab_arena.tasks.task_base import TaskBase
     from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
@@ -716,8 +716,6 @@ def _test_task_termination_cfg_assigns_flat_criteria_to_subtasks(
         progress_task = _ProgressTask()
         criteria_sets = progress_task.get_termination_cfg().success
         assert len(criteria_sets) == 1
-        recorder_cfg = ProgressTrackingRecorderManagerCfg()
-        assert recorder_cfg.progress_tracking.class_type is ProgressTrackingRecorder
 
         from isaaclab_arena.tasks.composite_task_base import CompositeTaskBase
 

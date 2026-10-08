@@ -214,10 +214,15 @@ Use ``TrueForConsecutiveStepsCfg`` around a configured callable:
 ``TrueForConsecutiveStepsCfg`` occurrence. The runner evaluates the predicate and passes its results
 and active environments to that instance. ``_TrueForConsecutiveSteps`` stores the per-environment
 counts: true adds one; false clears the streak.
-The runner resets it through the existing ``TaskSuccessTerm`` / ``ProgressTracker`` episode-reset path.
+The environment resets the tracker and its runners for each restarting episode, after terminal recording.
 
-``TaskSuccessTerm`` advances ``ProgressTracker`` once per control step. Reporting and other consumers
-read ``is_complete()``, ``get_state()``, or ``get_events()`` without advancing progress.
+The environment owns ``ProgressTracker`` and advances it through ``update_task_progress()`` at most once
+per control step. The shared ``task_success_from_progress(env)`` function in ``isaaclab_arena.tasks.terminations``
+calls this method and returns ``is_complete()``; it can be used both as a termination term and as a direct
+success callback. ``ArenaRecorderManager`` also updates progress before recorder terms run, including when
+recording or replay disables success termination.
+The builder stores the criteria in ``env_cfg.task_progress`` independently of ``cfg.terminations``.
+Reporting consumers read ``is_complete()``, ``get_state()``, or ``get_events()`` without advancing progress.
 Direct callers of ``ProgressTracker.step()`` must also call it exactly once per control step.
 Temporal requirements need a ``step_index`` per environment, such as ``env.episode_length_buf``.
 After the first update, repeated, skipped, or backwards indices raise an assertion before any
