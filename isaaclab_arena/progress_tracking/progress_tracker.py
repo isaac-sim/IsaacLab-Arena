@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from typing import Literal, TypedDict
 
 from isaaclab.managers import SceneEntityCfg, TerminationTermCfg
-from isaaclab.managers.recorder_manager import RecorderManagerBaseCfg, RecorderTerm, RecorderTermCfg
+from isaaclab.managers.recorder_manager import RecorderTerm, RecorderTermCfg
 from isaaclab.utils.configclass import configclass
 
 from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria, CriteriaCompletionMode
@@ -46,9 +46,6 @@ def _create_predicate_from_config(predicate, env):
     """
 
     # Isaac Lab does not resolve configs inside CompletionCriteria dataclasses.
-    # NOTE(cvolk): TaskSuccessTerm creates the tracker while TerminationManager is
-    # still being constructed, before env.termination_manager is assigned.
-    # We therefore cannot delegate nested predicate initialization to that manager.
     if not isinstance(predicate, TerminationTermCfg):
         return predicate
 
@@ -539,7 +536,7 @@ class ProgressTracker:
     def step(self, env, step_index: torch.Tensor | None = None) -> None:
         """Advance predicate sequences and update task success for one control step.
 
-        TaskSuccessTerm calls this once per control step. Other consumers read
+        The environment calls this once per control step. Other consumers read
         is_complete(), get_state(), or get_events() without advancing progress.
         Temporal requirements need a per-environment step_index. When supplied,
         indices must advance by exactly one between updates for each environment,
@@ -609,10 +606,6 @@ class ProgressTracker:
     def is_complete(self) -> torch.Tensor:
         """Return task success from the latest step without evaluating predicates again."""
         return self._task_success.clone()
-
-    def has_processed_step(self, step_index: torch.Tensor) -> bool:
-        """Return whether every environment was already updated at ``step_index``."""
-        return torch.equal(self._last_processed_step, step_index.to(device=self.device))
 
     def get_subtask_completion(self) -> torch.Tensor:
         """Return recorded completion for each environment and subtask, in subtask order."""
@@ -761,7 +754,7 @@ class ProgressTrackingRecorder(RecorderTerm):
         """Publish the current progress snapshot without advancing the tracker."""
 
         progress_tracker = self._env.progress_tracker
-        assert progress_tracker is not None, "Task success must initialize the progress tracker before recording."
+        assert progress_tracker is not None, "Task progress must be configured before recording."
         self._env.extras["progress_tracking"] = {
             "states": progress_tracker.get_state(),
             "events": progress_tracker.get_events(),
@@ -773,8 +766,3 @@ class ProgressTrackingRecorder(RecorderTerm):
 @configclass
 class ProgressTrackingRecorderCfg(RecorderTermCfg):
     class_type: type[RecorderTerm] = ProgressTrackingRecorder
-
-
-@configclass
-class ProgressTrackingRecorderManagerCfg(RecorderManagerBaseCfg):
-    progress_tracking: ProgressTrackingRecorderCfg = ProgressTrackingRecorderCfg()
