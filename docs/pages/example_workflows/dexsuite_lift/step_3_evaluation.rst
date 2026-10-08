@@ -123,56 +123,6 @@ For statistically significant results, run across many environments in parallel:
    Metrics: {'num_episodes': 400, 'success_rate': 0.82}
 
 
-Batch Evaluation
-^^^^^^^^^^^^^^^^
-
-To evaluate multiple checkpoints in sequence, use ``experiment_runner.py`` with a
-JSON config.
-
-**1. Create an evaluation config**
-
-Create a file ``eval_config.json``:
-
-.. code-block:: json
-
-   {
-     "jobs": [
-       {
-         "name": "dexsuite_lift_7500",
-         "arena_env_args": {
-           "environment": "dexsuite_lift",
-           "num_envs": 64,
-           "env_spacing": 3
-         },
-         "num_steps": 5000,
-         "policy_type": "rsl_rl",
-         "policy_config_dict": {
-           "checkpoint_path": "models/isaaclab_arena/dexsuite_lift/model_7500.pt"
-         }
-       },
-       {
-         "name": "dexsuite_lift_14999",
-         "arena_env_args": {
-           "environment": "dexsuite_lift",
-           "num_envs": 64,
-           "env_spacing": 3
-         },
-         "num_steps": 5000,
-         "policy_type": "rsl_rl",
-         "policy_config_dict": {
-           "checkpoint_path": "models/isaaclab_arena/dexsuite_lift/model_14999.pt"
-         }
-       }
-     ]
-   }
-
-**2. Run**
-
-.. code-block:: bash
-
-   python isaaclab_arena/evaluation/experiment_runner.py --eval_jobs_config eval_config.json
-
-
 Understanding the Metrics
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 

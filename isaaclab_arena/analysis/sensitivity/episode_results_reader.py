@@ -11,12 +11,12 @@ pure in-memory container.
 
 from __future__ import annotations
 
-import json
 import torch
 from pathlib import Path
 from typing import Any
 
 from isaaclab_arena.analysis.sensitivity.dataset import FactorSpec, FactorType, SensitivityDataset
+from isaaclab_arena.recording.episode_results import read_episode_records
 
 _IMBALANCE_WARN_RATIO = 1.5
 """Warn when a categorical's most-sampled choice exceeds its least-sampled one by at least this factor."""
@@ -57,8 +57,7 @@ def dataset_from_episode_results(
 
 def _read_rows(jsonl_path: str | Path) -> list[dict]:
     """Parse the JSONL file into a non-empty list of episode records."""
-    jsonl_text = Path(jsonl_path).read_text(encoding="utf-8")
-    rows = [json.loads(line) for line in jsonl_text.splitlines() if line.strip()]
+    rows = read_episode_records(jsonl_path)
     assert len(rows) > 0, f"Empty episode_results.jsonl at {jsonl_path}"
     return rows
 

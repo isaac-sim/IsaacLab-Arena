@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from isaaclab.envs import ManagerBasedRLEnvCfg
 from isaaclab.envs.mimic_env_cfg import MimicEnvCfg
-from isaaclab.managers import RecorderManagerBaseCfg, TerminationTermCfg
+from isaaclab.managers import RecorderManagerBaseCfg
 from isaaclab.sim import SimulationCfg
 from isaaclab.utils.configclass import configclass
 
@@ -18,6 +18,8 @@ from isaaclab_physx.physics import PhysxCfg
 from isaaclab_physx.renderers import IsaacRtxRendererGlobalSettingsCfg
 from isaaclab_physx.renderers.isaac_rtx_renderer_utils import apply_isaac_rtx_global_settings
 from isaaclab_tasks.utils import PresetCfg
+
+from isaaclab_arena.progress_tracking.task_progress_cfg import TaskProgressCfg
 
 
 class NewtonArenaMJWarpManager(NewtonMJWarpManager):
@@ -92,8 +94,8 @@ class IsaacLabArenaManagerBasedRLEnvCfg(ManagerBasedRLEnvCfg):
     demo_recorder_config: RecorderManagerBaseCfg | None = None
     """Recorder configuration used by demonstration collection scripts."""
 
-    external_success_term: TerminationTermCfg | None = None
-    """Success evaluator retained by the Isaac Lab adapter when tools disable terminations."""
+    task_progress: TaskProgressCfg | None = None
+    """Task progress settings, independent of the termination and trajectory recorder configs."""
 
     # Task language description
     task_description: str | None = None
