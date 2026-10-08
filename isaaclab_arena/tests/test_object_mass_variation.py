@@ -64,9 +64,9 @@ def _test_object_mass_variation_registration(simulation_app):
     from pxr import Usd
 
     from isaaclab_arena.assets.object import Object
-    from isaaclab_arena.assets.object_choice import ObjectChoice
     from isaaclab_arena.assets.object_reference import ObjectReference
     from isaaclab_arena.assets.object_type import ObjectType
+    from isaaclab_arena.assets.per_environment_object import PerEnvironmentObject
     from isaaclab_arena.assets.registries import AssetRegistry
 
     registry = AssetRegistry()
@@ -79,7 +79,7 @@ def _test_object_mass_variation_registration(simulation_app):
     table = registry.get_asset_by_name("table")()
     assert "mass" not in table.variations
 
-    varied_object = ObjectChoice(
+    varied_object = PerEnvironmentObject(
         name="boxes",
         objects=[CuboidCfg(size=(0.1, 0.1, height)) for height in (0.2, 0.3)],
         assign_to_environments="random",

@@ -95,7 +95,7 @@ class AssetSpec(BaseModel):
 
 
 class ObjectVariantSpec(BaseModel):
-    """One registered rigid Object and its constructor parameters in an ObjectChoice."""
+    """One registered rigid Object and its constructor parameters in a PerEnvironmentObject."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -118,7 +118,7 @@ class ObjectVariantSpec(BaseModel):
 
 
 class ObjectSpec(AssetSpec):
-    """Declare a registered Object or an ObjectChoice using its rigid variants."""
+    """Declare a registered Object or a PerEnvironmentObject using its rigid variants."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -128,7 +128,7 @@ class ObjectSpec(AssetSpec):
     variants: list[ObjectVariantSpec] | None = Field(
         default=None,
         min_length=1,
-        description="Registered rigid Objects for an ObjectChoice; every environment spawns one of them.",
+        description="Registered rigid Objects for a PerEnvironmentObject; every environment spawns one of them.",
     )
     assign_to_environments: Literal["sequential", "random"] = Field(
         default="sequential",

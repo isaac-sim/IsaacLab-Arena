@@ -358,9 +358,10 @@ in ``params`` → ``OpenableObjectReference`` (and ``object_type: articulation``
 otherwise → ``ObjectReference``. Python: you pick. Use the plain class for a door
 and you get a door with nothing to open.
 
-**Object choices.** An entry under ``objects`` defines either ``registry_name``
-for one fixed asset or ``variants`` for an ``ObjectChoice`` across environments. Each
-variant accepts its own ``params``, including a SimReady ``usd_path`` or scale:
+**Per-environment objects.** An entry under ``objects`` defines either
+``registry_name`` for one fixed asset or ``variants`` for a
+``PerEnvironmentObject``. Each variant accepts its own ``params``, including a
+SimReady ``usd_path`` or scale:
 
 .. code-block:: yaml
 
@@ -377,9 +378,9 @@ The equivalent Python declaration takes library assets directly:
 
 .. code-block:: python
 
-   from isaaclab_arena.assets.object_choice import ObjectChoice
+   from isaaclab_arena.assets.per_environment_object import PerEnvironmentObject
 
-   ObjectChoice(
+   PerEnvironmentObject(
        name="bottle",
        objects=[simready_bottle, ycb_bottle],
        assign_to_environments="sequential",

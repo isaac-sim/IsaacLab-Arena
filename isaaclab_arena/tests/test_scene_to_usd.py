@@ -176,10 +176,10 @@ def test_scene_export_supports_native_procedural_objects(tmp_path: pathlib.Path)
 def test_scene_export_requires_single_asset_spawner(tmp_path: pathlib.Path):
     from isaaclab.sim import CuboidCfg
 
-    from isaaclab_arena.assets.object_choice import ObjectChoice
+    from isaaclab_arena.assets.per_environment_object import PerEnvironmentObject
     from isaaclab_arena.scene.scene import Scene
 
-    obj = ObjectChoice(
+    obj = PerEnvironmentObject(
         name="box",
         objects=[CuboidCfg(size=(0.2, 0.4, 0.6)), CuboidCfg(size=(0.4, 0.4, 0.6))],
     )

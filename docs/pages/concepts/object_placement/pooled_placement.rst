@@ -47,7 +47,7 @@ Layouts and Object Identity
 - A **layout** specifies the positions and orientations of placed entities.
   Layouts can differ across environments and resets.
 - **Object identity** is the registered object selected for a placeable asset.
-  An ``ObjectChoice`` allows this selection to differ between environments.
+  A ``PerEnvironmentObject`` allows this selection to differ between environments.
 
 Persistence and Geometry-Aware Solving
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -61,7 +61,7 @@ Examples
 
 - When every environment contains the same objects, their identities stay
   fixed while their positions and orientations can differ.
-- With an ``ObjectChoice``, each environment can receive a different
+- With a ``PerEnvironmentObject``, each environment can receive a different
   registered object. Arena solves and checks its layouts using the geometry of
   that selected object.
 
@@ -107,7 +107,7 @@ Standard Configuration
 
 Start with the defaults. Most users only need to:
 
-1. Use ``ObjectChoice(objects=[...])`` when a role should contain different objects
+1. Use ``PerEnvironmentObject(objects=[...])`` when a role should contain different objects
    across environments.
 2. Set ``placement_seed`` if results must be reproducible.
 3. Decide whether to reuse or change layouts on reset.

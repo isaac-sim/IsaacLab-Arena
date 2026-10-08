@@ -15,8 +15,8 @@ from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironme
 
 if TYPE_CHECKING:
     from isaaclab_arena.assets.object import Object
-    from isaaclab_arena.assets.object_choice import ObjectChoice
     from isaaclab_arena.assets.object_reference import ObjectReference
+    from isaaclab_arena.assets.per_environment_object import PerEnvironmentObject
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
 
 
@@ -155,15 +155,15 @@ class DroidTableMultiObjectPlacementEnvironment(ArenaEnvironmentFactory[DroidTab
             obj.add_relation(On(table_reference))
         return objects
 
-    def _build_heterogeneous_objects(self, table_reference: ObjectReference) -> list[ObjectChoice]:
-        """Build one choice of object for each scene role."""
-        from isaaclab_arena.assets.object_choice import ObjectChoice
+    def _build_heterogeneous_objects(self, table_reference: ObjectReference) -> list[PerEnvironmentObject]:
+        """Build a PerEnvironmentObject for each scene role."""
+        from isaaclab_arena.assets.per_environment_object import PerEnvironmentObject
         from isaaclab_arena.relations.relations import On
 
         placeable_assets = []
         for role_name, variant_names in HETEROGENEOUS_VARIANT_SETS.items():
             assets = self._build_registered_objects(variant_names)
-            obj = ObjectChoice(name=role_name, objects=assets)
+            obj = PerEnvironmentObject(name=role_name, objects=assets)
             obj.add_relation(On(table_reference))
             placeable_assets.append(obj)
         return placeable_assets

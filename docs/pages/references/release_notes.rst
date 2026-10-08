@@ -4,7 +4,7 @@ Release Notes
 Unreleased
 ----------
 
-- Replaced ``RigidObjectSet`` with ``ObjectChoice``, backed by Isaac Lab native
+- Replaced ``RigidObjectSet`` with ``PerEnvironmentObject``, backed by Isaac Lab native
   multi-asset spawning. ``Object`` continues to use one asset across environments.
   Scene assignment is shared with placement, per-variant scale stays native, and
   USD hierarchy preparation is isolated from scene objects.

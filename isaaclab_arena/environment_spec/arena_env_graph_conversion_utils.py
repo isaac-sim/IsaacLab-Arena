@@ -9,7 +9,6 @@ from functools import partial
 from typing import TYPE_CHECKING, Any
 
 from isaaclab_arena.assets.asset import Asset
-from isaaclab_arena.assets.object_choice import ObjectChoice
 from isaaclab_arena.assets.object_reference import (
     ObjectReference,
     OpenableObjectReference,
@@ -17,6 +16,7 @@ from isaaclab_arena.assets.object_reference import (
     TurnableObjectReference,
 )
 from isaaclab_arena.assets.object_type import ObjectType
+from isaaclab_arena.assets.per_environment_object import PerEnvironmentObject
 from isaaclab_arena.assets.registries import AssetRegistry, ObjectRelationLibraryRegistry
 from isaaclab_arena.environment_spec.arena_env_graph_task_conversion_utils import build_task_from_spec
 from isaaclab_arena.environment_spec.arena_env_graph_types import ObjectReferenceSpec, SpatialRelationSpec
@@ -192,7 +192,7 @@ def instantiate_assets_from_spec(
             for variant in obj.variants:
                 member = asset_registry.get_asset_by_name(variant.registry_name)(**parse_asset_params(variant.params))
                 objects.append(member)
-            assets_by_node_id[obj.id] = ObjectChoice(
+            assets_by_node_id[obj.id] = PerEnvironmentObject(
                 name=obj.id,
                 objects=objects,
                 assign_to_environments=obj.assign_to_environments,

@@ -52,7 +52,7 @@ DEFAULT_TABLE_OBJECTS = [
 # are needed in the near future.
 
 # -- Heterogeneous mode default object variants ------------------------------
-# Each entry creates an ObjectChoice that selects one object per environment.
+# Each entry creates a PerEnvironmentObject with alternatives assigned to environments.
 HETERO_VARIANT_SETS = {
     "bottles": [
         "mustard_bottle_hope_robolab",
@@ -223,9 +223,9 @@ class GR1TableMultiObjectNoCollisionEnvironment(ArenaEnvironmentFactory[GR1Table
 
         When --objects is provided, each object is placed directly (no per-env variance).
         Otherwise, uses HETERO_FIXED_OBJECTS (pinned fruits) + HETERO_VARIANT_SETS
-        (one choice of object for each scene role).
+        (one PerEnvironmentObject for each scene role).
         """
-        from isaaclab_arena.assets.object_choice import ObjectChoice
+        from isaaclab_arena.assets.per_environment_object import PerEnvironmentObject
         from isaaclab_arena.relations.relations import AtPosition, On
 
         # TODO(@zhx06): Address residual object bouncing with xy-only no-collision
@@ -246,8 +246,10 @@ class GR1TableMultiObjectNoCollisionEnvironment(ArenaEnvironmentFactory[GR1Table
 
             for role_name, variant_names in HETERO_VARIANT_SETS.items():
                 objects = [self.asset_registry.get_asset_by_name(name)() for name in variant_names]
-                object_choice = ObjectChoice(name=role_name, objects=objects, assign_to_environments="random")
-                object_choice.add_relation(On(tabletop_reference, clearance_m=0.01))
-                placeable_assets.append(object_choice)
+                per_environment_object = PerEnvironmentObject(
+                    name=role_name, objects=objects, assign_to_environments="random"
+                )
+                per_environment_object.add_relation(On(tabletop_reference, clearance_m=0.01))
+                placeable_assets.append(per_environment_object)
 
         return placeable_assets

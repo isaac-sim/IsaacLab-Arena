@@ -14,9 +14,9 @@ from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_wi
 def _make_variant_object(name, sizes, **kwargs):
     from isaaclab.sim import CuboidCfg
 
-    from isaaclab_arena.assets.object_choice import ObjectChoice
+    from isaaclab_arena.assets.per_environment_object import PerEnvironmentObject
 
-    return ObjectChoice(name=name, objects=[CuboidCfg(size=size) for size in sizes], **kwargs)
+    return PerEnvironmentObject(name=name, objects=[CuboidCfg(size=size) for size in sizes], **kwargs)
 
 
 def _make_rotated_anchor():

@@ -18,8 +18,8 @@ HEADLESS = True
 
 def _test_object_variants_on_destination_termination(simulation_app) -> bool:
 
-    from isaaclab_arena.assets.object_choice import ObjectChoice
     from isaaclab_arena.assets.object_reference import ObjectReference
+    from isaaclab_arena.assets.per_environment_object import PerEnvironmentObject
     from isaaclab_arena.assets.registries import AssetRegistry
     from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
     from isaaclab_arena.embodiments.franka.franka import FrankaIKEmbodiment
@@ -45,7 +45,7 @@ def _test_object_variants_on_destination_termination(simulation_app) -> bool:
         parent_asset=background,
     )
 
-    object_variants = ObjectChoice(
+    object_variants = PerEnvironmentObject(
         name="object_variants",
         objects=[sweet_potato, jug],
     )

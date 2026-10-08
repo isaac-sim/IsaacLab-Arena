@@ -41,13 +41,13 @@ def _make_object(
 ) -> Object:
     from isaaclab.sim import CuboidCfg
 
-    from isaaclab_arena.assets.object_choice import ObjectChoice
+    from isaaclab_arena.assets.per_environment_object import PerEnvironmentObject
 
     variants = []
     for variant_index in range(variant_count):
         width = 0.1 * (variant_index + 1)
         variants.append(CuboidCfg(size=(width, width, width)))
-    return ObjectChoice(name=name, objects=variants, assign_to_environments=assign_to_environments)
+    return PerEnvironmentObject(name=name, objects=variants, assign_to_environments=assign_to_environments)
 
 
 def _make_scene(objects: list[Object], num_envs: int) -> InteractiveSceneCfg:
@@ -227,8 +227,8 @@ def test_source_edit_before_assignment_rejects_incompatible_rigid_body_paths(tmp
     from pxr import Usd, UsdGeom, UsdPhysics
 
     from isaaclab_arena.assets.object import Object
-    from isaaclab_arena.assets.object_choice import ObjectChoice
     from isaaclab_arena.assets.object_type import ObjectType
+    from isaaclab_arena.assets.per_environment_object import PerEnvironmentObject
     from isaaclab_arena.scene.object_variant_assignment import assign_object_variants
 
     root_path = tmp_path / "root.usda"
@@ -240,7 +240,7 @@ def test_source_edit_before_assignment_rejects_incompatible_rigid_body_paths(tmp
         UsdPhysics.RigidBodyAPI.Apply(body)
         stage.GetRootLayer().Save()
     member = Object(name="member", object_type=ObjectType.RIGID, spawner_cfg=UsdFileCfg(usd_path=str(root_path)))
-    obj = ObjectChoice(name="pickup", objects=[member, member])
+    obj = PerEnvironmentObject(name="pickup", objects=[member, member])
     obj.spawn_cfg.assets_cfg[1].usd_path = str(nested_path)
     with pytest.raises(AssertionError, match="incompatible rigid-body paths"):
         assign_object_variants([obj], num_envs=3)

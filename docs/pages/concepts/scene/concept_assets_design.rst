@@ -215,9 +215,10 @@ you use an ``ObjectReference``.
 The ``parent_asset`` tells the environment which spawned USD the prim path belongs to.
 The prim path uses ``{ENV_REGEX_NS}`` so it resolves correctly across parallel environments.
 
-Object choices
---------------
+Per-environment objects
+-----------------------
 
 ``Object`` uses one asset across environments. To fill one scene role with
-different rigid objects, pass the alternatives to ``ObjectChoice(objects=[...])``. See
-:doc:`./concept_object_variants` for motivation, usage, and limitations.
+different rigid objects, pass the alternatives to
+``PerEnvironmentObject(objects=[...])``. See :doc:`./concept_object_variants`
+for motivation, usage, and limitations.

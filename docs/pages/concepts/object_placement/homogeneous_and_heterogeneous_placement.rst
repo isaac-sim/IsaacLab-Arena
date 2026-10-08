@@ -8,9 +8,8 @@ the layouts are identical:
   environment. Its solved pose can still differ between environments and
   resets.
 - **Heterogeneous placement** uses a
-  :doc:`choice of objects <../scene/concept_object_variants>` through ``ObjectChoice``. Each
-  environment receives one variant, so object geometry can differ
-  across environments.
+  :doc:`PerEnvironmentObject <../scene/concept_object_variants>` to assign one
+  object to each environment, so object geometry can differ across environments.
 
 Both modes use the same relations, solver, validators, and layout-pool
 workflow. They differ in how Arena chooses objects and supplies their geometry
@@ -28,7 +27,7 @@ Implementation Differences
      - Heterogeneous objects
    * - Environment definition
      - Add a registered ``Object`` directly.
-     - Add an ``ObjectChoice`` listing the objects that can fill the role.
+     - Add a ``PerEnvironmentObject`` listing the objects that can fill the role.
    * - Per-environment assignment
      - The environment clones one ``Object`` definition, so the same USD fills
        the role in every environment.
@@ -88,9 +87,9 @@ Run the same registered environment configuration shown in the animation:
 Heterogeneous Example
 ---------------------
 
-The same registered environment uses five ``ObjectChoice`` entries in heterogeneous
-mode: a fruit, bottle, can, tool, and box for each environment. The solver uses
-every selected variant's dimensions.
+The same registered environment uses five ``PerEnvironmentObject`` entries in
+heterogeneous mode: a fruit, bottle, can, tool, and box for each environment.
+The solver uses every selected variant's dimensions.
 
 .. figure:: ../../../images/heterogeneous_placement.gif
    :width: 100%
@@ -103,11 +102,11 @@ uses:
 
 .. code-block:: python
 
-   from isaaclab_arena.assets.object_choice import ObjectChoice
+   from isaaclab_arena.assets.per_environment_object import PerEnvironmentObject
 
    for role_name, variant_names in HETEROGENEOUS_VARIANT_SETS.items():
        assets = self._build_registered_objects(variant_names)
-       obj = ObjectChoice(name=role_name, objects=assets)
+       obj = PerEnvironmentObject(name=role_name, objects=assets)
        obj.add_relation(On(table_reference))
        placeable_assets.append(obj)
 

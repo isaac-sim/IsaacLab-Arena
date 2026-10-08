@@ -22,8 +22,8 @@ from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.usd.rigid_asset_preparation import prepare_rigid_object_variants
 
 
-class ObjectChoice(Object):
-    """A scene object that selects one rigid asset for each environment."""
+class PerEnvironmentObject(Object):
+    """A scene object whose rigid asset is assigned separately for each environment."""
 
     def __init__(
         self,
@@ -35,39 +35,42 @@ class ObjectChoice(Object):
         relations: list[RelationBase] | None = None,
         **kwargs,
     ):
-        """Copy asset settings and let the builder assign one choice before placement.
+        """Copy asset settings for ArenaEnvBuilder to assign per environment before placement.
 
         Args:
             name: Scene name shared across environments.
             objects: Concrete rigid objects or native spawn configurations. Member names,
-                poses, and relations are not copied; configure those on the choice.
-            assign_to_environments: Cycle through objects in order ("sequential") or
-                sample independently ("random"). Assignments remain fixed across resets.
+                poses, and relations are not copied; configure those on this scene object.
+            assign_to_environments: Arena assignment policy: cycle through objects in
+                order ("sequential") or sample independently ("random"). Assignments
+                remain fixed across resets.
             prim_path: Scene prim path; defaults to the environment namespace and name.
             initial_pose: Initial pose of the selected object in each environment.
-            relations: Placement relations shared by all choices.
+            relations: Placement relations shared across environments.
             **kwargs: Asset configuration and base-class options.
         """
-        assert objects, "ObjectChoice requires at least one object"
+        assert objects, "PerEnvironmentObject requires at least one object"
         assert assign_to_environments in (
             "sequential",
             "random",
         ), "assign_to_environments must be 'sequential' or 'random'"
         spawn_configs = []
         for obj in objects:
-            assert not isinstance(obj, ObjectChoice), "ObjectChoice cannot contain nested choices"
+            assert not isinstance(
+                obj, PerEnvironmentObject
+            ), "PerEnvironmentObject cannot contain nested per-environment objects"
             if isinstance(obj, Object):
-                assert obj.object_type == ObjectType.RIGID, "ObjectChoice supports rigid objects only"
-                assert obj.bounding_box is None, "ObjectChoice cannot copy a bounds override"
+                assert obj.object_type == ObjectType.RIGID, "PerEnvironmentObject supports rigid objects only"
+                assert obj.bounding_box is None, "PerEnvironmentObject cannot copy a bounds override"
                 spawn_cfg = obj.spawn_cfg
             else:
                 spawn_cfg = obj
             assert isinstance(
                 spawn_cfg, SpawnerCfg
-            ), "ObjectChoice requires rigid Object instances or native spawn configurations"
+            ), "PerEnvironmentObject requires rigid Object instances or native spawn configurations"
             assert not isinstance(
                 spawn_cfg, (MultiAssetSpawnerCfg, MultiUsdFileCfg)
-            ), "ObjectChoice requires concrete assets; nested multi-spawners are not supported"
+            ), "PerEnvironmentObject requires concrete assets; nested multi-spawners are not supported"
             spawn_configs.append(spawn_cfg)
         spawn_configs = prepare_rigid_object_variants(spawn_configs)
         spawn_cfg = spawn_configs[0]
@@ -103,21 +106,23 @@ class ObjectChoice(Object):
         variant_count = len(self._get_variant_spawn_configs())
         assert indices and all(
             type(index) is int and 0 <= index < variant_count for index in indices
-        ), f"ObjectChoice '{self.name}' has invalid variant indices."
+        ), f"PerEnvironmentObject '{self.name}' has invalid variant indices."
         assert self._variant_indices_by_env in (
             None,
             indices,
         ), (
-            f"ObjectChoice '{self.name}' already has a different variant assignment; construct a new choice for a new"
-            " scene."
+            f"PerEnvironmentObject '{self.name}' already has a different variant assignment; "
+            "construct a new PerEnvironmentObject for a new scene."
         )
         self._variant_indices_by_env = indices
 
     def _get_variant_spawn_configs(self) -> list[SpawnerCfg]:
         """Read alternatives from the native spawn configuration."""
-        assert not isinstance(self.spawn_cfg, MultiUsdFileCfg), "Use ObjectChoice with concrete asset configurations"
+        assert not isinstance(
+            self.spawn_cfg, MultiUsdFileCfg
+        ), "Use PerEnvironmentObject with concrete asset configurations"
         if isinstance(self.spawn_cfg, MultiAssetSpawnerCfg):
-            assert self.spawn_cfg.assets_cfg, f"ObjectChoice '{self.name}' requires at least one asset"
+            assert self.spawn_cfg.assets_cfg, f"PerEnvironmentObject '{self.name}' requires at least one asset"
             return self.spawn_cfg.assets_cfg
         return [self.spawn_cfg]
 
@@ -131,8 +136,8 @@ class ObjectChoice(Object):
         return geometry
 
     def get_bounding_box(self) -> AxisAlignedBoundingBox:
-        """Return local bounds when the choice contains only one asset."""
-        assert not self.has_variants, f"ObjectChoice '{self.name}' requires per-environment bounding boxes"
+        """Return local bounds when only one asset is available."""
+        assert not self.has_variants, f"PerEnvironmentObject '{self.name}' requires per-environment bounding boxes"
         return super().get_bounding_box()
 
     def get_bounding_box_for_env(self, env_id: int) -> AxisAlignedBoundingBox:
@@ -141,8 +146,10 @@ class ObjectChoice(Object):
         if not self.has_variants:
             return self.get_bounding_box()
         indices = self.variant_indices_by_env
-        assert indices is not None, f"ObjectChoice '{self.name}' needs a variant assignment before geometry queries"
-        assert env_id < len(indices), f"ObjectChoice '{self.name}' has no assignment for environment {env_id}"
+        assert (
+            indices is not None
+        ), f"PerEnvironmentObject '{self.name}' needs a variant assignment before geometry queries"
+        assert env_id < len(indices), f"PerEnvironmentObject '{self.name}' has no assignment for environment {env_id}"
         return self._get_geometry(indices[env_id]).get_bounding_box()
 
     def get_bounding_box_per_env(self, num_envs: int) -> AxisAlignedBoundingBox:
@@ -151,9 +158,10 @@ class ObjectChoice(Object):
         if not self.has_variants:
             return super().get_bounding_box_per_env(num_envs)
         indices = self.variant_indices_by_env
-        assert (
-            indices is not None and len(indices) == num_envs
-        ), f"ObjectChoice '{self.name}' needs a variant assignment for {num_envs} environments before geometry queries"
+        assert indices is not None and len(indices) == num_envs, (
+            f"PerEnvironmentObject '{self.name}' needs a variant assignment for {num_envs} environments before geometry"
+            " queries"
+        )
         bounds = [
             self._get_geometry(index).get_bounding_box() for index in range(len(self._get_variant_spawn_configs()))
         ]
@@ -163,9 +171,9 @@ class ObjectChoice(Object):
         )
 
     def get_collision_mesh(self, excluded_prim_paths: Collection[str] = ()) -> trimesh.Trimesh | None:
-        """Return a mesh for a single choice; heterogeneous choices use per-environment bounds."""
+        """Return a mesh for one asset; multiple alternatives use per-environment bounds."""
         if self.has_variants:
-            assert not excluded_prim_paths, "Prim exclusions require a concrete object choice"
+            assert not excluded_prim_paths, "Prim exclusions require a concrete asset"
             return None
         return super().get_collision_mesh(excluded_prim_paths)
 
@@ -174,5 +182,5 @@ class ObjectChoice(Object):
         body_paths = {
             self._get_geometry(index).get_contact_body_path() for index in range(len(self._get_variant_spawn_configs()))
         }
-        assert len(body_paths) == 1, f"ObjectChoice '{self.name}' has incompatible rigid-body paths"
+        assert len(body_paths) == 1, f"PerEnvironmentObject '{self.name}' has incompatible rigid-body paths"
         return self.prim_path + body_paths.pop()

@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Check ObjectChoice's native spawning and its per-environment geometry."""
+"""Check PerEnvironmentObject's native spawning and its per-environment geometry."""
 
 import torch
 
@@ -22,8 +22,8 @@ def _test_asset_and_native_variants_keep_independent_settings_and_bounds(simulat
     from isaaclab.sim import MassPropertiesCfg, MultiAssetSpawnerCfg, RigidBodyPropertiesCfg, SphereCfg
 
     from isaaclab_arena.assets.object import Object
-    from isaaclab_arena.assets.object_choice import ObjectChoice
     from isaaclab_arena.assets.object_type import ObjectType
+    from isaaclab_arena.assets.per_environment_object import PerEnvironmentObject
 
     box_cfg = _make_box_cfg()
     box_cfg.activate_contact_sensors = True
@@ -34,8 +34,8 @@ def _test_asset_and_native_variants_keep_independent_settings_and_bounds(simulat
         activate_contact_sensors=False,
     )
     sphere = Object(name="sphere", spawner_cfg=sphere_cfg, object_type=ObjectType.RIGID)
-    first = ObjectChoice(name="first", objects=[box_cfg, sphere])
-    second = ObjectChoice(name="second", objects=[box_cfg, sphere])
+    first = PerEnvironmentObject(name="first", objects=[box_cfg, sphere])
+    second = PerEnvironmentObject(name="second", objects=[box_cfg, sphere])
     assert isinstance(first.spawn_cfg, MultiAssetSpawnerCfg)
     assert first.spawn_cfg is first.object_cfg.spawn
     native_box, native_sphere = first.spawn_cfg.assets_cfg
@@ -73,7 +73,7 @@ def _test_usd_variants_use_independent_native_scales(simulation_app, tmp_path):
     from isaaclab.sim import UsdFileCfg
     from pxr import Usd, UsdGeom, UsdPhysics
 
-    from isaaclab_arena.assets.object_choice import ObjectChoice
+    from isaaclab_arena.assets.per_environment_object import PerEnvironmentObject
 
     source_path = tmp_path / "box.usda"
     stage = Usd.Stage.CreateNew(str(source_path))
@@ -87,7 +87,7 @@ def _test_usd_variants_use_independent_native_scales(simulation_app, tmp_path):
     source_content = source_path.read_bytes()
     small_cfg = UsdFileCfg(usd_path=str(source_path), scale=(1.0, 1.0, 1.0))
     large_cfg = UsdFileCfg(usd_path=str(source_path), scale=(2.0, 3.0, 4.0))
-    obj = ObjectChoice(name="boxes", objects=(small_cfg, large_cfg))
+    obj = PerEnvironmentObject(name="boxes", objects=(small_cfg, large_cfg))
     obj.bind_variant_assignment((1, 0))
     assert [cfg.usd_path for cfg in obj.spawn_cfg.assets_cfg] == [str(source_path)] * 2
     assert [cfg.scale for cfg in obj.spawn_cfg.assets_cfg] == [(1.0, 1.0, 1.0), (2.0, 3.0, 4.0)]
@@ -99,12 +99,12 @@ def _test_usd_variants_use_independent_native_scales(simulation_app, tmp_path):
     return True
 
 
-def _test_object_and_choice_have_distinct_sources(simulation_app):
+def _test_object_and_per_environment_object_have_distinct_sources(simulation_app):
     from isaaclab.sim import MultiAssetSpawnerCfg
 
     from isaaclab_arena.assets.object import Object
-    from isaaclab_arena.assets.object_choice import ObjectChoice
     from isaaclab_arena.assets.object_type import ObjectType
+    from isaaclab_arena.assets.per_environment_object import PerEnvironmentObject
 
     source_cfg = _make_box_cfg()
     with pytest.raises(AssertionError, match="exactly one"):
@@ -114,29 +114,29 @@ def _test_object_and_choice_have_distinct_sources(simulation_app):
     with pytest.raises(TypeError):
         Object(name="invalid", spawner_cfg=source_cfg, object_type=ObjectType.RIGID, assign_to_environments="random")
     with pytest.raises(AssertionError, match="at least one"):
-        ObjectChoice(name="empty", objects=[])
+        PerEnvironmentObject(name="empty", objects=[])
     with pytest.raises(TypeError):
-        ObjectChoice(name="scaled", objects=[source_cfg], scale=(2.0, 2.0, 2.0))
+        PerEnvironmentObject(name="scaled", objects=[source_cfg], scale=(2.0, 2.0, 2.0))
     with pytest.raises(AssertionError, match="native spawn configurations"):
-        ObjectChoice(name="mixed", objects=[source_cfg, object()])
+        PerEnvironmentObject(name="mixed", objects=[source_cfg, object()])
     multi_cfg = MultiAssetSpawnerCfg(assets_cfg=[source_cfg, _make_box_cfg()])
     with pytest.raises(AssertionError, match="nested multi-spawners"):
-        ObjectChoice(name="nested", objects=[multi_cfg])
-    with pytest.raises(AssertionError, match="Use ObjectChoice"):
+        PerEnvironmentObject(name="nested", objects=[multi_cfg])
+    with pytest.raises(AssertionError, match="Use PerEnvironmentObject"):
         Object(name="unassigned_multi", spawner_cfg=multi_cfg, object_type=ObjectType.RIGID)
     for object_type in (ObjectType.BASE, ObjectType.ARTICULATION):
         non_rigid = Object(name="non_rigid", spawner_cfg=source_cfg, object_type=object_type)
         with pytest.raises(AssertionError, match="rigid objects only"):
-            ObjectChoice(name="invalid_member", objects=[non_rigid])
+            PerEnvironmentObject(name="invalid_member", objects=[non_rigid])
     bounded = Object(name="bounded", spawner_cfg=source_cfg, object_type=ObjectType.RIGID)
     bounded.bounding_box = bounded.get_bounding_box()
     with pytest.raises(AssertionError, match="bounds override"):
-        ObjectChoice(name="invalid_bounds", objects=[bounded])
+        PerEnvironmentObject(name="invalid_bounds", objects=[bounded])
     with pytest.raises(AssertionError, match="must be 'sequential' or 'random'"):
-        ObjectChoice(name="invalid_assignment", objects=[source_cfg], assign_to_environments="cycle_in_order")
-    singleton = ObjectChoice(name="singleton", objects=[source_cfg])
-    with pytest.raises(AssertionError, match="nested choices"):
-        ObjectChoice(name="nested_singleton", objects=[singleton])
+        PerEnvironmentObject(name="invalid_assignment", objects=[source_cfg], assign_to_environments="cycle_in_order")
+    singleton = PerEnvironmentObject(name="singleton", objects=[source_cfg])
+    with pytest.raises(AssertionError, match="nested per-environment objects"):
+        PerEnvironmentObject(name="nested_singleton", objects=[singleton])
     return True
 
 
@@ -144,8 +144,8 @@ def _test_single_asset_variant_copies_spawn_settings_without_scene_state(simulat
     from isaaclab.sim import CuboidCfg
 
     from isaaclab_arena.assets.object import Object
-    from isaaclab_arena.assets.object_choice import ObjectChoice
     from isaaclab_arena.assets.object_type import ObjectType
+    from isaaclab_arena.assets.per_environment_object import PerEnvironmentObject
     from isaaclab_arena.relations.relations import IsAnchor
     from isaaclab_arena.utils.pose import Pose
 
@@ -157,7 +157,7 @@ def _test_single_asset_variant_copies_spawn_settings_without_scene_state(simulat
         initial_pose=Pose(position_xyz=(1.0, 2.0, 3.0)),
         relations=[IsAnchor()],
     )
-    obj = ObjectChoice(name="single", objects=[source])
+    obj = PerEnvironmentObject(name="single", objects=[source])
     assert obj.object_type == ObjectType.RIGID
     assert not obj.has_variants
     assert isinstance(obj.spawn_cfg, CuboidCfg)
@@ -178,16 +178,16 @@ def _test_single_asset_variant_copies_spawn_settings_without_scene_state(simulat
 
 
 def _test_heterogeneous_bounds_require_a_stable_assignment(simulation_app):
-    from isaaclab_arena.assets.object_choice import ObjectChoice
+    from isaaclab_arena.assets.per_environment_object import PerEnvironmentObject
 
-    obj = ObjectChoice(name="boxes", objects=[_make_box_cfg(), _make_box_cfg(size=(2.0, 3.0, 4.0))])
+    obj = PerEnvironmentObject(name="boxes", objects=[_make_box_cfg(), _make_box_cfg(size=(2.0, 3.0, 4.0))])
     assert obj.has_variants
     with pytest.raises(AssertionError, match="per-environment bounding boxes"):
         obj.get_bounding_box()
     with pytest.raises(AssertionError, match="variant assignment"):
         obj.get_bounding_box_for_env(0)
-    with pytest.raises(AssertionError, match="nested choices"):
-        ObjectChoice(name="nested", objects=[obj])
+    with pytest.raises(AssertionError, match="nested per-environment objects"):
+        PerEnvironmentObject(name="nested", objects=[obj])
     obj.bind_variant_assignment((1, 0, 1))
     obj.bind_variant_assignment((1, 0, 1))
     torch.testing.assert_close(
@@ -213,8 +213,8 @@ def test_usd_variants_use_independent_native_scales(tmp_path):
     )
 
 
-def test_object_and_choice_have_distinct_sources():
-    assert run_function_with_persistent_simulation_app(_test_object_and_choice_have_distinct_sources)
+def test_object_and_per_environment_object_have_distinct_sources():
+    assert run_function_with_persistent_simulation_app(_test_object_and_per_environment_object_have_distinct_sources)
 
 
 def test_single_asset_variant_copies_spawn_settings_without_scene_state():

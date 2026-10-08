@@ -5,7 +5,7 @@ Review the spec before building the environment. The agent infers it from the pr
 LLM, so what comes back is non-deterministic: the same prompt can return a different spec on
 the next run, and a spec that validates can still be mistaken in its choices. See
 :doc:`../../../concepts/agentic_environment_generation/model_selection` for more details.
-For an ``ObjectChoice``, check that the alternatives match the assets you intended.
+For a ``PerEnvironmentObject``, check that the alternatives match the assets you intended.
 
 Understanding the YAML
 ^^^^^^^^^^^^^^^^^^^^^^
@@ -64,7 +64,7 @@ The generated spec has one block per part of the environment graph:
          destination_location: bowl
          background_scene: maple_table
 
-An ``ObjectChoice`` is referenced by its ``id`` in the
+A ``PerEnvironmentObject`` is referenced by its ``id`` in the
 ``relations`` that place it and in the ``task`` params that name the target. The
 rest of the graph is written once and stays valid whichever variant an
 environment spawns.
@@ -77,7 +77,7 @@ Editing object variants
 
 Widening or narrowing the variation is a one-block edit — ``variants`` and
 ``assign_to_environments`` — that leaves the relations and the task
-untouched. For the ``ObjectChoice`` concept, see
+untouched. For the ``PerEnvironmentObject`` concept, see
 :doc:`../../../concepts/scene/concept_object_variants`.
 
 #. Add or remove a variant to change which assets the environments draw from.

@@ -1,11 +1,11 @@
-Object Choices
-==============
+Per-Environment Objects
+=======================
 
-An ``Object`` uses the same asset in every parallel environment. An
-``ObjectChoice`` selects one of several rigid objects for each environment.
+An ``Object`` uses the same asset in every parallel environment. A
+``PerEnvironmentObject`` assigns one of several rigid objects to each environment.
 Relations, tasks, and contact sensors address the named scene entry in either case.
 
-For example, a pick-and-place task can use an ``ObjectChoice`` named ``fruit``
+For example, a pick-and-place task can use a ``PerEnvironmentObject`` named ``fruit``
 that selects among a banana, orange, and lemon. Each environment manipulates
 one fruit, while the task and placement relations are defined once.
 
@@ -25,21 +25,21 @@ Declare the alternatives
              instance_name="fruit"
          )
 
-      For alternatives, pass library objects to ``ObjectChoice(objects=...)``.
+      For alternatives, pass library objects to ``PerEnvironmentObject(objects=...)``.
       It copies their native spawn settings, including scale and physics. Their
       scene names, initial poses, and relations are not copied; these belong to
       ``fruit``.
 
       .. code-block:: python
 
-         from isaaclab_arena.assets.object_choice import ObjectChoice
+         from isaaclab_arena.assets.per_environment_object import PerEnvironmentObject
          from isaaclab_arena.relations.relations import On
          from isaaclab_arena.scene.scene import Scene
          from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
 
          banana = asset_registry.get_asset_by_name("banana_ycb_robolab")()
          orange = asset_registry.get_asset_by_name("orange_01_fruits_veggies_robolab")()
-         fruit = ObjectChoice(
+         fruit = PerEnvironmentObject(
              name="fruit",
              objects=[banana, orange],
              assign_to_environments="sequential",
@@ -53,17 +53,17 @@ Declare the alternatives
              background_scene=background,
          )
 
-      A choice containing one object gives each environment its own instance of
-      that asset. Use the library object directly when no choice is needed.
+      Passing one object gives each environment its own instance of that asset.
+      Use the library object directly when the asset is the same in every environment.
       Advanced callers can also pass native Isaac Lab spawner configurations
       directly in ``objects``.
 
    .. tab-item:: YAML
 
       Both classes are declared under ``objects``. ``registry_name`` creates an
-      ordinary ``Object``; ``variants`` creates an ``ObjectChoice``. Each variant
-      accepts its own constructor parameters, including a SimReady ``usd_path``
-      or scale:
+      ordinary ``Object``; ``variants`` creates a ``PerEnvironmentObject``.
+      Each variant accepts its own constructor parameters, including a SimReady
+      ``usd_path`` or scale:
 
       .. code-block:: yaml
 
@@ -111,8 +111,11 @@ builder's ``placement_seed``, then ``arena_env.placer_params.placement_seed``
 when the builder value is unset, and finally the builder's ``seed``.
 The assignment remains fixed across resets, even when the layout changes.
 
-This setting applies to each ``ObjectChoice`` independently. Isaac Lab's scene-level
-``clone_strategy`` instead assigns combinations of variants across the scene.
+``assign_to_environments`` is an Arena policy applied to each
+``PerEnvironmentObject`` independently. Isaac Lab's scene-level ``clone_strategy``
+instead assigns combinations of variants across the scene. Lab accepts strategy
+callables such as ``cloner.sequential`` and ``cloner.random``; Arena's setting
+accepts the strings ``"sequential"`` and ``"random"``.
 
 Assignments are stored as data in the environment configuration, so Isaac Lab's
 Hydra configuration roundtrip preserves them. Arena installs the native clone
@@ -136,7 +139,7 @@ establish the assignment first:
 Native spawning and asset preparation
 ---------------------------------------
 
-``ObjectChoice`` copies the native spawn configurations passed in ``objects``.
+``PerEnvironmentObject`` copies the native spawn configurations passed in ``objects``.
 Multiple alternatives are stored in Isaac Lab's ``MultiAssetSpawnerCfg`` and are
 available through ``fruit.spawn_cfg.assets_cfg``.
 A single alternative uses its concrete native configuration directly as
@@ -158,10 +161,12 @@ Constraints
 ------------
 
 - Alternatives must be rigid objects with exactly one rigid body each.
-  Articulations, empty choices, and nested ``ObjectChoice`` entries are rejected.
+  Articulations, empty object lists, and nested ``PerEnvironmentObject`` entries
+  are rejected.
 - With multiple alternatives, selection is fixed for the scene's lifetime.
-  Construct a new ``ObjectChoice`` for a different assignment or environment count.
-- Use ``get_bounding_box_per_env()`` for an ``ObjectChoice`` with multiple
+  Construct a new ``PerEnvironmentObject`` for a different assignment or
+  environment count.
+- Use ``get_bounding_box_per_env()`` for a ``PerEnvironmentObject`` with multiple
   alternatives. ``get_bounding_box()`` requires a single concrete variant; it
   does not choose an arbitrary representative.
 - Placement uses per-environment axis-aligned bounding boxes for heterogeneous
