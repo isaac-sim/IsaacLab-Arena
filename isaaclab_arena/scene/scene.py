@@ -226,9 +226,6 @@ def _create_prim_from_asset(stage: Usd.Stage, asset: Asset) -> None:
     import isaaclab.sim as sim_utils
 
     assert isinstance(asset, Object)
-    assert not isinstance(
-        asset, RigidObjectSet
-    ), f"Select a concrete member of '{asset.name}' before exporting the scene."
     initial_pose = asset.get_initial_pose()
     assert initial_pose is None or isinstance(
         initial_pose, Pose

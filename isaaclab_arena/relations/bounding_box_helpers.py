@@ -23,45 +23,12 @@ if TYPE_CHECKING:
 
 def has_heterogeneous_objects(objects: list[PlaceableAsset]) -> bool:
     """Return whether placement must use env-specific object geometry."""
-    from isaaclab_arena.assets.object_set import RigidObjectSet
-
-    return any(isinstance(obj, RigidObjectSet) for obj in objects)
-
-
-def assign_variants_for_envs(objects: list[PlaceableAsset], num_envs: int, placement_seed: int | None = None) -> None:
-    """Assign per-env variants on every RigidObjectSet in the list.
-
-    Placers call this once they know the real environment count, before
-    requesting per-env bounding boxes. Non-RigidObjectSet objects are skipped.
-    Seeded assignments offset each set by its index so multiple sets do not
-    reuse the same random sequence.
-    """
-    from isaaclab_arena.assets.object_set import RigidObjectSet
-
-    variant_set_idx = 0
-    for obj in objects:
-        if isinstance(obj, RigidObjectSet):
-            variant_seed = None if placement_seed is None else placement_seed + variant_set_idx
-            obj.assign_variants(num_envs, variant_seed=variant_seed)
-            variant_set_idx += 1
+    return any(obj.has_multiple_assets for obj in objects)
 
 
 def get_bounding_box_per_env(obj: PlaceableAsset, num_envs: int) -> AxisAlignedBoundingBox:
-    """Return bounding boxes expanded to (num_envs, 3).
-
-    RigidObjectSet delegates to its own get_bounding_box_per_env.
-    All other objects broadcast their single bbox.
-    """
-    from isaaclab_arena.assets.object_set import RigidObjectSet
-
-    if isinstance(obj, RigidObjectSet):
-        return obj.get_bounding_box_per_env(num_envs)
-
-    bbox = obj.get_bounding_box()
-    return AxisAlignedBoundingBox(
-        min_point=bbox.min_point.expand(num_envs, 3),
-        max_point=bbox.max_point.expand(num_envs, 3),
-    )
+    """Return each asset's bounds in environment order."""
+    return obj.get_bounding_box_per_env(num_envs)
 
 
 @dataclass(frozen=True)

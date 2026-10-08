@@ -13,9 +13,11 @@ from pathlib import Path
 from typing import Any
 
 import omni.usd
+from isaaclab.sim import MultiAssetSpawnerCfg
 from omni.kit.viewport.utility import frame_viewport_prims, get_active_viewport
 from pxr import Gf, Sdf, UsdGeom, UsdLux
 
+from isaaclab_arena.assets.object_geometry import ObjectGeometry
 from isaaclab_arena.assets.registries import AssetRegistry
 from isaaclab_arena.environment_spec.arena_env_graph_conversion_utils import instantiate_assets_from_spec
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
@@ -23,6 +25,7 @@ from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.as
     AabbDimensionsM,
     aabb_dimensions_from_asset,
     absolute_prim_path,
+    cached_rigid_asset_preview,
     object_reference_cache_key,
     resolve_aabb_dimensions_m,
     resolve_node_usd_paths,
@@ -161,20 +164,18 @@ def render_thumbnails_with_app(
 def _resolve_object_set_members(
     spec: ArenaEnvGraphSpec, assets_by_node_id: dict[str, Any]
 ) -> tuple[dict[str, str], dict[str, AabbDimensionsM]]:
-    """Return the USD path and AABB of every object-set member, keyed so each gets its own card.
-
-    Member USD paths follow the order the members were declared in, and may point at the rescaled
-    copies RigidObjectSet writes to its cache.
-    """
+    """Return each object-set member's native USD path and AABB under its card lookup key."""
     usd_paths: dict[str, str] = {}
     dimensions: dict[str, AabbDimensionsM] = {}
     for object_set in spec.object_sets or []:
         live_object_set = assets_by_node_id[object_set.id]
-        members = zip(object_set.members, live_object_set.member_usd_paths, live_object_set.objects)
-        for registry_name, usd_path, member_asset in members:
+        spawn_cfg = live_object_set.spawn_cfg
+        member_configs = spawn_cfg.assets_cfg if isinstance(spawn_cfg, MultiAssetSpawnerCfg) else [spawn_cfg]
+        for registry_name, member_cfg in zip(object_set.members, member_configs, strict=True):
             member_key = object_set_member_key(object_set.id, registry_name)
-            usd_paths[member_key] = usd_path
-            member_dimensions = aabb_dimensions_from_asset(member_asset)
+            usd_paths[member_key] = cached_rigid_asset_preview(member_cfg, thumbnail_cache_dir())
+            geometry = ObjectGeometry(member_cfg, live_object_set.object_type)
+            member_dimensions = aabb_dimensions_from_asset(geometry)
             if member_dimensions is not None:
                 dimensions[member_key] = member_dimensions
     return usd_paths, dimensions

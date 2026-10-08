@@ -53,15 +53,12 @@ class PlacementLayouts:
 
     def validate_assets(self, assets: list[PlaceableAsset]) -> None:
         """Require concrete root ownership and complete coverage of every selected asset."""
-        from isaaclab_arena.assets.object_set import RigidObjectSet
         from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
         from isaaclab_arena.relations.placement_asset import get_scene_root_owners
         from isaaclab_arena.relations.relations import RandomAroundSolution, get_relation
 
         self.validate()
-        assert not any(
-            isinstance(asset, RigidObjectSet) for asset in assets
-        ), "Cached layouts require concrete assets, not object sets"
+        assert not any(asset.has_multiple_assets for asset in assets), "Cached layouts require single-variant assets"
         owners = get_scene_root_owners(assets)
         unknown = set(self.poses) - owners.keys()
         assert not unknown, f"Unknown cached scene objects: {unknown}"

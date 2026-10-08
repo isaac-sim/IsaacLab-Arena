@@ -167,6 +167,21 @@ class PlaceableAsset(Asset, ABC):
     def get_bounding_box(self) -> AxisAlignedBoundingBox:
         """Return root-relative axis-aligned bounds."""
 
+    @property
+    def has_multiple_assets(self) -> bool:
+        """Whether multiple asset alternatives are configured, regardless of assignment."""
+        return False
+
+    def get_bounding_box_per_env(self, num_envs: int) -> AxisAlignedBoundingBox:
+        """Return root-relative bounds in environment order."""
+        from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+
+        bounds = self.get_bounding_box()
+        return AxisAlignedBoundingBox(
+            min_point=bounds.min_point.expand(num_envs, 3),
+            max_point=bounds.max_point.expand(num_envs, 3),
+        )
+
     def get_bounding_box_rotation(self) -> tuple[float, float, float, float]:
         """Return the XYZW rotation from bounding-box axes to environment axes.
 

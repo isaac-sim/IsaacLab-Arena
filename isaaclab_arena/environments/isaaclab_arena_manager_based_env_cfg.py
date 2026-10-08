@@ -20,6 +20,7 @@ from isaaclab_physx.renderers.isaac_rtx_renderer_utils import apply_isaac_rtx_gl
 from isaaclab_tasks.utils import PresetCfg
 
 from isaaclab_arena.progress_tracking.task_progress_cfg import TaskProgressCfg
+from isaaclab_arena.scene.object_variant_assignment import ObjectVariantAssignmentCfg
 
 
 class NewtonArenaMJWarpManager(NewtonMJWarpManager):
@@ -96,6 +97,9 @@ class IsaacLabArenaManagerBasedRLEnvCfg(ManagerBasedRLEnvCfg):
 
     task_progress: TaskProgressCfg | None = None
     """Task progress settings, independent of the termination and trajectory recorder configs."""
+
+    object_variant_assignments: dict[str, ObjectVariantAssignmentCfg] = {}
+    """Per-environment object variants fixed before placement and restored when the scene starts."""
 
     # Task language description
     task_description: str | None = None

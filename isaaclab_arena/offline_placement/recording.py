@@ -94,7 +94,7 @@ def validate_recording_assets(env: ManagerBasedEnv, assets: list[PlaceableAsset]
     from isaaclab_arena.relations.relations import RandomAroundSolution, get_relation
 
     env = env.unwrapped
-    assert not has_heterogeneous_objects(assets), "Resolve object sets before recording reusable layouts"
+    assert not has_heterogeneous_objects(assets), "Select concrete object variants before recording reusable layouts"
     keys = set(env.scene.rigid_objects) | set(env.scene.articulations)
     owners = get_scene_root_owners(assets)
     assert keys <= owners.keys(), f"Pass scene_assets for unplaced scene roots: {keys - owners.keys()}"

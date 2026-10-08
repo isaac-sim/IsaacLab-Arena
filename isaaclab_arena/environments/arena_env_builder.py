@@ -49,6 +49,7 @@ from isaaclab_arena.relations.placement_events import (
 )
 from isaaclab_arena.relations.placement_layouts import PlacementLayouts
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
+from isaaclab_arena.scene.object_variant_assignment import assign_object_variants, validate_object_variant_assignments
 from isaaclab_arena.tasks.no_task import NoTask
 from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
 from isaaclab_arena.tasks.terminations import task_success_from_progress
@@ -297,13 +298,6 @@ class ArenaEnvBuilder:
         Returns:
             An (env_cfg, env_kwargs) tuple.
         """
-        # Apply placement before building scene config so initial poses are captured correctly.
-        self._placement_layouts = self._load_placement_layouts()
-        if self._placement_layouts is not None:
-            self._apply_cached_layouts(self._placement_layouts)
-        elif self.cfg.solve_relations:
-            self._solve_relations()
-
         # Apply Hydra variation overrides. Needs to happen before build-time variations are applied.
         if self.hydra_overrides:
             variations: dict[str, list[VariationBase]] = self.get_all_variations()
@@ -316,6 +310,23 @@ class ArenaEnvBuilder:
 
         # Apply build-time variations now, before scene_cfg is materialised.
         self._apply_build_time_variations()
+
+        # Capture native variants before placement so later config overrides cannot invalidate its bounds.
+        variant_seed = self.cfg.placement_seed
+        if variant_seed is None and self.arena_env.placer_params is not None:
+            variant_seed = self.arena_env.placer_params.placement_seed
+        if variant_seed is None:
+            variant_seed = self.cfg.seed
+        variant_assignments = assign_object_variants(
+            self.arena_env.scene.assets.values(), self.cfg.num_envs, variant_seed
+        )
+
+        # Apply placement before building scene config so initial poses are captured correctly.
+        self._placement_layouts = self._load_placement_layouts()
+        if self._placement_layouts is not None:
+            self._apply_cached_layouts(self._placement_layouts)
+        elif self.cfg.solve_relations:
+            self._solve_relations()
 
         resolved_physics_backend = self.resolved_physics_backend
 
@@ -532,6 +543,8 @@ class ArenaEnvBuilder:
                     env_cfg.sim.physics, NewtonCfg
                 ), "env_cfg_callback changed the physics backend away from Newton."
 
+        validate_object_variant_assignments(env_cfg.scene, variant_assignments)
+        env_cfg.object_variant_assignments = variant_assignments
         env_kwargs: dict[str, Any] = {"variation_recorder": variation_recorder}
         return env_cfg, env_kwargs
 
