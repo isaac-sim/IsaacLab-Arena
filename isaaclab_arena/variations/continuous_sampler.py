@@ -45,7 +45,7 @@ class ContinuousSampler(SamplerBase):
             A tensor of shape ``(num_samples, *shape_per_sample)``.
         """
         assert num_samples >= 0, f"num_samples must be non-negative; got {num_samples}."
-        replay_samples = self._get_replay_sampler(num_samples, env_ids)
+        replay_samples = self._get_replay_samples(num_samples, env_ids)
         if replay_samples is None:
             result = self._sample(num_samples)
         else:

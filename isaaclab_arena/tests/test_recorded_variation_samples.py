@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Tests for episode-condition extraction and replayable sampler primitives."""
+"""Tests for recorded variation sample extraction and replayable sampler primitives."""
 
 import json
 import torch
@@ -14,11 +14,11 @@ import pytest
 
 from isaaclab_arena.variations.bernoulli_sampler import BernoulliSampler
 from isaaclab_arena.variations.choice_sampler import ChoiceSampler
-from isaaclab_arena.variations.episode_conditions import (
-    EpisodeCondition,
-    RebuildConditions,
-    load_episode_conditions_overlay,
-    validate_overlay_variation_keys,
+from isaaclab_arena.variations.recorded_variation_samples import (
+    EpisodeVariationRecord,
+    RebuildVariationRecord,
+    load_rebuild_variation_record,
+    validate_recorded_variation_sample_keys,
 )
 from isaaclab_arena.variations.uniform_sampler import UniformSamplerCfg
 
@@ -32,18 +32,18 @@ def test_loader_splits_build_time_and_runtime(tmp_path: Path) -> None:
         ],
     )
 
-    overlay = load_episode_conditions_overlay(
+    samples = load_rebuild_variation_record(
         jsonl_path,
         build_time_variation_keys={"light.hdr_image"},
     )
 
-    assert overlay.build_time_variations == {"light.hdr_image": "home_office"}
-    assert [episode.runtime_variations for episode in overlay.episodes] == [
+    assert samples.build_time_samples == {"light.hdr_image": "home_office"}
+    assert [record.runtime_samples for record in samples.episode_records] == [
         {"pick_object.mass": [0.5]},
         {"pick_object.mass": [0.8]},
     ]
-    assert overlay.num_conditions == 2
-    validate_overlay_variation_keys(overlay, {"light.hdr_image", "pick_object.mass"})
+    assert samples.num_recorded_episodes == 2
+    validate_recorded_variation_sample_keys(samples, {"light.hdr_image", "pick_object.mass"})
 
 
 def test_constant_runtime_values_are_not_inferred_as_build_time(tmp_path: Path) -> None:
@@ -55,22 +55,23 @@ def test_constant_runtime_values_are_not_inferred_as_build_time(tmp_path: Path) 
         ],
     )
 
-    loaded = load_episode_conditions_overlay(jsonl_path)
+    loaded = load_rebuild_variation_record(jsonl_path, build_time_variation_keys=set())
 
-    assert loaded.build_time_variations == {}
-    assert [episode.runtime_variations for episode in loaded.episodes] == [
+    assert loaded.build_time_samples == {}
+    assert [record.runtime_samples for record in loaded.episode_records] == [
         {"obj.mass": [1.0]},
         {"obj.mass": [1.0]},
     ]
 
 
 def test_single_row_runtime_value_is_not_inferred_as_build_time(tmp_path: Path) -> None:
-    loaded = load_episode_conditions_overlay(
+    loaded = load_rebuild_variation_record(
         _write_jsonl(tmp_path, [{"variations": {"obj.mass": [1.0]}}]),
+        build_time_variation_keys=set(),
     )
 
-    assert loaded.build_time_variations == {}
-    assert loaded.episodes[0].runtime_variations == {"obj.mass": [1.0]}
+    assert loaded.build_time_samples == {}
+    assert loaded.episode_records[0].runtime_samples == {"obj.mass": [1.0]}
 
 
 @pytest.mark.parametrize(
@@ -98,7 +99,7 @@ def test_loader_rejects_inconsistent_build_time_values(
     message: str,
 ) -> None:
     with pytest.raises(AssertionError, match=message):
-        load_episode_conditions_overlay(
+        load_rebuild_variation_record(
             _write_jsonl(tmp_path, records),
             build_time_variation_keys={"light.hdr_image"},
         )
@@ -109,7 +110,7 @@ def test_duplicate_json_keys_are_rejected(tmp_path: Path) -> None:
     path.write_text('{"variations":{"obj.mass":[1.0],"obj.mass":[2.0]}}\n')
 
     with pytest.raises(AssertionError, match="Duplicate key"):
-        load_episode_conditions_overlay(path)
+        load_rebuild_variation_record(path, build_time_variation_keys=set())
 
 
 def test_loader_rejects_non_jsonl_input(tmp_path: Path) -> None:
@@ -117,7 +118,7 @@ def test_loader_rejects_non_jsonl_input(tmp_path: Path) -> None:
     path.write_text("episodes: []\n")
 
     with pytest.raises(AssertionError, match="must be loaded from JSONL"):
-        load_episode_conditions_overlay(path)
+        load_rebuild_variation_record(path, build_time_variation_keys=set())
 
 
 def test_null_jsonl_variations_are_rejected(tmp_path: Path) -> None:
@@ -125,29 +126,31 @@ def test_null_jsonl_variations_are_rejected(tmp_path: Path) -> None:
     path.write_text('{"variations": null}\n')
 
     with pytest.raises(AssertionError, match="variations must be a mapping"):
-        load_episode_conditions_overlay(path)
+        load_rebuild_variation_record(path, build_time_variation_keys=set())
 
 
 def test_unknown_variation_keys_are_rejected(tmp_path: Path) -> None:
-    overlay = load_episode_conditions_overlay(_write_jsonl(tmp_path, [{"variations": {"unknown.variation": [1.0]}}]))
+    samples = load_rebuild_variation_record(
+        _write_jsonl(tmp_path, [{"variations": {"unknown.variation": [1.0]}}]),
+        build_time_variation_keys=set(),
+    )
 
     with pytest.raises(AssertionError, match="no enabled variation"):
-        validate_overlay_variation_keys(overlay, set())
+        validate_recorded_variation_sample_keys(samples, set())
 
 
 def test_variation_cannot_be_both_build_time_and_runtime() -> None:
-    overlay = RebuildConditions(
-        build_time_variations={"light.hdr_image": "studio"},
-        episodes=[
-            EpisodeCondition(
-                condition_id="condition_000000",
-                runtime_variations={"light.hdr_image": "kitchen"},
+    samples = RebuildVariationRecord(
+        build_time_samples={"light.hdr_image": "studio"},
+        episode_records=[
+            EpisodeVariationRecord(
+                runtime_samples={"light.hdr_image": "kitchen"},
             )
         ],
     )
 
     with pytest.raises(AssertionError, match="both build-time and run-time"):
-        validate_overlay_variation_keys(overlay, {"light.hdr_image"})
+        validate_recorded_variation_sample_keys(samples, {"light.hdr_image"})
 
 
 def test_replay_samplers_preserve_output_types() -> None:

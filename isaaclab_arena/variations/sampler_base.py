@@ -49,7 +49,7 @@ class SamplerBase(ABC):
         """
         self._replay_sampler = replay_sampler
 
-    def _get_replay_sampler(self, num_samples: int, env_ids: torch.Tensor | None) -> list[Any] | None:
+    def _get_replay_samples(self, num_samples: int, env_ids: torch.Tensor | None) -> list[Any] | None:
         """Return recorded rows for this draw, or ``None`` for live sampling."""
         if self._replay_sampler is None:
             return None

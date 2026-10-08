@@ -15,6 +15,7 @@ from numbers import Real
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from isaaclab_arena.recording.episode_results import read_episode_records
 from isaaclab_arena.utils.pose import Pose
 
 if TYPE_CHECKING:
@@ -87,34 +88,30 @@ class PlacementLayouts:
     def from_episode_jsonl(cls, path: str | Path) -> PlacementLayouts:
         """Read complete layouts in line order, ignoring other episode metadata."""
         poses: dict[str, list[Pose]] = {}
-        with Path(path).open(encoding="utf-8") as stream:
-            for line_number, line in enumerate(stream, start=1):
-                if not line.strip():
-                    continue
-                try:
-                    record = json.loads(line, object_pairs_hook=_unique_json_mapping)
-                    values = record["variations"]["scene.relation_placement"]["poses"]
-                    assert isinstance(values, dict) and values, "Placement poses must be a nonempty mapping"
-                    if not poses:
-                        poses = {name: [] for name in values}
-                    assert values.keys() == poses.keys(), "Every record must contain the same objects"
-                    for name, value in values.items():
-                        assert isinstance(value, dict) and set(value) == {
-                            "position_xyz",
-                            "rotation_xyzw",
-                        }, f"Object '{name}' requires position_xyz and rotation_xyzw only"
-                        for field, size in (("position_xyz", 3), ("rotation_xyzw", 4)):
-                            assert (
-                                isinstance(value[field], list) and len(value[field]) == size
-                            ), f"Object '{name}' {field} must contain {size} numbers"
-                        assert all(
-                            isinstance(component, Real) and not isinstance(component, bool)
-                            for field in value.values()
-                            for component in field
-                        ), f"Object '{name}' pose components must be numbers"
-                        poses[name].append(Pose.from_dict(value))
-                except (AssertionError, KeyError, TypeError, ValueError) as error:
-                    raise AssertionError(f"{path}, line {line_number}: {error}") from error
+        for record_index, record in enumerate(read_episode_records(path), start=1):
+            try:
+                values = record["variations"]["scene.relation_placement"]["poses"]
+                assert isinstance(values, dict) and values, "Placement poses must be a nonempty mapping"
+                if not poses:
+                    poses = {name: [] for name in values}
+                assert values.keys() == poses.keys(), "Every record must contain the same objects"
+                for name, value in values.items():
+                    assert isinstance(value, dict) and set(value) == {
+                        "position_xyz",
+                        "rotation_xyzw",
+                    }, f"Object '{name}' requires position_xyz and rotation_xyzw only"
+                    for field, size in (("position_xyz", 3), ("rotation_xyzw", 4)):
+                        assert (
+                            isinstance(value[field], list) and len(value[field]) == size
+                        ), f"Object '{name}' {field} must contain {size} numbers"
+                    assert all(
+                        isinstance(component, Real) and not isinstance(component, bool)
+                        for field in value.values()
+                        for component in field
+                    ), f"Object '{name}' pose components must be numbers"
+                    poses[name].append(Pose.from_dict(value))
+            except (AssertionError, KeyError, TypeError, ValueError) as error:
+                raise AssertionError(f"{path}, record {record_index}: {error}") from error
         try:
             return cls(poses)
         except AssertionError as error:
@@ -161,10 +158,3 @@ def validate_root_reset_for_cached_layouts(assets: list[PlaceableAsset]) -> None
         assert not asset.has_pose_reset_event() or isinstance(
             asset.get_initial_pose(), Pose
         ), f"Cached asset '{name}' has a non-fixed pose-reset policy"
-
-
-def _unique_json_mapping(items: list[tuple[str, object]]) -> dict[str, object]:
-    """Reject duplicate JSON keys instead of silently replacing object poses."""
-    result = dict(items)
-    assert len(result) == len(items), "Duplicate key in placement record"
-    return result

@@ -42,7 +42,7 @@ class ChoiceSampler(SamplerBase, Generic[T]):
         """
         assert num_samples >= 0, f"num_samples must be non-negative; got {num_samples}."
         assert len(choices) >= 1, "ChoiceSampler requires a non-empty 'choices' sequence."
-        replay_samples = self._get_replay_sampler(num_samples, env_ids)
+        replay_samples = self._get_replay_samples(num_samples, env_ids)
         if replay_samples is not None:
             assert all(value in choices for value in replay_samples), "Choice replay samples must belong to 'choices'."
             result = replay_samples
