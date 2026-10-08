@@ -66,10 +66,10 @@ resolution.
      - 36.98 s
    * - ``internal``
      - NVIDIA internal
-     - ``openai/openai/gpt-5.6-terra``
+     - ``openai/openai/gpt-6-astra``
      - ``NV_API_KEY``
-     - 15/15 (100%)
-     - 12.57 s
+     - Not benchmarked
+     - Not benchmarked
    * - ``openai``
      - Public (charged)
      - ``gpt-5.6-terra``
@@ -78,6 +78,9 @@ resolution.
      - 10.15 s
 
 .. note::
+   The previous internal default, ``openai/openai/gpt-5.6-terra``, passed 15/15 attempts with a
+   mean runtime of 12.57 s. These measurements do not apply to ``openai/openai/gpt-6-astra``.
+
    The benchmark ran each of five documented prompts three times. Pass rate is the fraction of
    generated specs that matched the expected structure; runtime is the mean end-to-end
    ``generate_spec`` runtime. These results are snapshots rather than guarantees: model output is

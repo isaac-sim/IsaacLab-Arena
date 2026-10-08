@@ -40,7 +40,7 @@ class InferenceEndpoint:
 INTERNAL_ENDPOINT = InferenceEndpoint(
     name="internal",
     base_url="https://inference-api.nvidia.com",
-    model="openai/openai/gpt-5.6-terra",
+    model="openai/openai/gpt-6-astra",
     api_key_env_var="NV_API_KEY",
     max_tokens_parameter="max_completion_tokens",
     supports_temperature=False,
