@@ -768,9 +768,14 @@ before the task completes.</p>
 <code class="docutils literal notranslate"><span class="pre">TrueForConsecutiveStepsCfg</span></code> occurrence. The runner evaluates the predicate and passes its results
 and active environments to that instance. <code class="docutils literal notranslate"><span class="pre">_TrueForConsecutiveSteps</span></code> stores the per-environment
 counts: true adds one; false clears the streak.
-The runner resets it through the existing <code class="docutils literal notranslate"><span class="pre">TaskSuccessTerm</span></code> / <code class="docutils literal notranslate"><span class="pre">ProgressTracker</span></code> episode-reset path.</p>
-<p><code class="docutils literal notranslate"><span class="pre">TaskSuccessTerm</span></code> advances <code class="docutils literal notranslate"><span class="pre">ProgressTracker</span></code> once per control step. Reporting and other consumers
-read <code class="docutils literal notranslate"><span class="pre">is_complete()</span></code>, <code class="docutils literal notranslate"><span class="pre">get_state()</span></code>, or <code class="docutils literal notranslate"><span class="pre">get_events()</span></code> without advancing progress.
+The environment resets the tracker and its runners for each restarting episode, after terminal recording.</p>
+<p>The environment owns <code class="docutils literal notranslate"><span class="pre">ProgressTracker</span></code> and advances it through <code class="docutils literal notranslate"><span class="pre">update_task_progress()</span></code> at most once
+per control step. The shared <code class="docutils literal notranslate"><span class="pre">task_success_from_progress(env)</span></code> function in <code class="docutils literal notranslate"><span class="pre">isaaclab_arena.tasks.terminations</span></code>
+calls this method and returns <code class="docutils literal notranslate"><span class="pre">is_complete()</span></code>; it can be used both as a termination term and as a direct
+success callback. <code class="docutils literal notranslate"><span class="pre">ArenaRecorderManager</span></code> also updates progress before recorder terms run, including when
+recording or replay disables success termination.
+The builder stores the criteria in <code class="docutils literal notranslate"><span class="pre">env_cfg.task_progress</span></code> independently of <code class="docutils literal notranslate"><span class="pre">cfg.terminations</span></code>.
+Reporting consumers read <code class="docutils literal notranslate"><span class="pre">is_complete()</span></code>, <code class="docutils literal notranslate"><span class="pre">get_state()</span></code>, or <code class="docutils literal notranslate"><span class="pre">get_events()</span></code> without advancing progress.
 Direct callers of <code class="docutils literal notranslate"><span class="pre">ProgressTracker.step()</span></code> must also call it exactly once per control step.
 Temporal requirements need a <code class="docutils literal notranslate"><span class="pre">step_index</span></code> per environment, such as <code class="docutils literal notranslate"><span class="pre">env.episode_length_buf</span></code>.
 After the first update, repeated, skipped, or backwards indices raise an assertion before any
