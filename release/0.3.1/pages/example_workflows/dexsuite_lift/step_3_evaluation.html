@@ -27,8 +27,8 @@
   </noscript>
   
   <!-- Loaded before other Sphinx assets -->
-  <link href="../../../_static/styles/theme.css?digest=64cc4de3f052d77215f0" rel="stylesheet" />
-<link href="../../../_static/styles/pydata-sphinx-theme.css?digest=64cc4de3f052d77215f0" rel="stylesheet" />
+  <link href="../../../_static/styles/theme.css?digest=18bd87630a240e9c25be" rel="stylesheet" />
+<link href="../../../_static/styles/pydata-sphinx-theme.css?digest=18bd87630a240e9c25be" rel="stylesheet" />
 
     <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=8f2a1f02" />
     <link rel="stylesheet" type="text/css" href="../../../_static/styles/nvidia-sphinx-theme.css?v=df3ac72c" />
@@ -37,10 +37,10 @@
     <link rel="stylesheet" type="text/css" href="../../../_static/custom.css?v=f34a53a0" />
   
   <!-- So that users can add custom icons -->
-  <script defer src="../../../_static/scripts/fontawesome.js?digest=64cc4de3f052d77215f0"></script>
+  <script defer src="../../../_static/scripts/fontawesome.js?digest=18bd87630a240e9c25be"></script>
   <!-- Pre-loaded scripts that we'll load fully later -->
-  <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=64cc4de3f052d77215f0" />
-<link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=64cc4de3f052d77215f0" />
+  <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=18bd87630a240e9c25be" />
+<link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=18bd87630a240e9c25be" />
 
     <script src="../../../_static/documentation_options.js?v=5929fcd5"></script>
     <script src="../../../_static/doctools.js?v=9bcbadda"></script>
@@ -57,6 +57,7 @@
     <link rel="prev" title="Policy Training (Isaac Lab)" href="step_2_policy_training.html" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="color-scheme" content="light dark"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="" />
   
@@ -681,49 +682,6 @@ against Newton.</p>
 </pre></div>
 </div>
 </section>
-<section id="batch-evaluation">
-<h2>Batch Evaluation<a class="headerlink" href="#batch-evaluation" title="Link to this heading">#</a></h2>
-<p>To evaluate multiple checkpoints in sequence, use <code class="docutils literal notranslate"><span class="pre">experiment_runner.py</span></code> with a
-JSON config.</p>
-<p><strong>1. Create an evaluation config</strong></p>
-<p>Create a file <code class="docutils literal notranslate"><span class="pre">eval_config.json</span></code>:</p>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-<span class="w">  </span><span class="nt">"jobs"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
-<span class="w">    </span><span class="p">{</span>
-<span class="w">      </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"dexsuite_lift_7500"</span><span class="p">,</span>
-<span class="w">      </span><span class="nt">"arena_env_args"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">"environment"</span><span class="p">:</span><span class="w"> </span><span class="s2">"dexsuite_lift"</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">"num_envs"</span><span class="p">:</span><span class="w"> </span><span class="mi">64</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">"env_spacing"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span>
-<span class="w">      </span><span class="p">},</span>
-<span class="w">      </span><span class="nt">"num_steps"</span><span class="p">:</span><span class="w"> </span><span class="mi">5000</span><span class="p">,</span>
-<span class="w">      </span><span class="nt">"policy_type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"rsl_rl"</span><span class="p">,</span>
-<span class="w">      </span><span class="nt">"policy_config_dict"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">"checkpoint_path"</span><span class="p">:</span><span class="w"> </span><span class="s2">"models/isaaclab_arena/dexsuite_lift/model_7500.pt"</span>
-<span class="w">      </span><span class="p">}</span>
-<span class="w">    </span><span class="p">},</span>
-<span class="w">    </span><span class="p">{</span>
-<span class="w">      </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"dexsuite_lift_14999"</span><span class="p">,</span>
-<span class="w">      </span><span class="nt">"arena_env_args"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">"environment"</span><span class="p">:</span><span class="w"> </span><span class="s2">"dexsuite_lift"</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">"num_envs"</span><span class="p">:</span><span class="w"> </span><span class="mi">64</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">"env_spacing"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span>
-<span class="w">      </span><span class="p">},</span>
-<span class="w">      </span><span class="nt">"num_steps"</span><span class="p">:</span><span class="w"> </span><span class="mi">5000</span><span class="p">,</span>
-<span class="w">      </span><span class="nt">"policy_type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"rsl_rl"</span><span class="p">,</span>
-<span class="w">      </span><span class="nt">"policy_config_dict"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">"checkpoint_path"</span><span class="p">:</span><span class="w"> </span><span class="s2">"models/isaaclab_arena/dexsuite_lift/model_14999.pt"</span>
-<span class="w">      </span><span class="p">}</span>
-<span class="w">    </span><span class="p">}</span>
-<span class="w">  </span><span class="p">]</span>
-<span class="p">}</span>
-</pre></div>
-</div>
-<p><strong>2. Run</strong></p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>isaaclab_arena/evaluation/experiment_runner.py<span class="w"> </span>--eval_jobs_config<span class="w"> </span>eval_config.json
-</pre></div>
-</div>
-</section>
 <section id="understanding-the-metrics">
 <h2>Understanding the Metrics<a class="headerlink" href="#understanding-the-metrics" title="Link to this heading">#</a></h2>
 <p>The <code class="docutils literal notranslate"><span class="pre">dexsuite_lift</span></code> task reports:</p>
@@ -786,7 +744,6 @@ position within 5 cm tolerance.</p></li>
     <ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#single-environment-evaluation">Single Environment Evaluation</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#parallel-environment-evaluation">Parallel Environment Evaluation</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#batch-evaluation">Batch Evaluation</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#understanding-the-metrics">Understanding the Metrics</a></li>
 </ul>
   </nav></div>
@@ -805,8 +762,8 @@ position within 5 cm tolerance.</p></li>
   </div>
   
   <!-- Scripts loaded after <body> so the DOM is not blocked -->
-  <script defer src="../../../_static/scripts/bootstrap.js?digest=64cc4de3f052d77215f0"></script>
-<script defer src="../../../_static/scripts/pydata-sphinx-theme.js?digest=64cc4de3f052d77215f0"></script>
+  <script defer src="../../../_static/scripts/bootstrap.js?digest=18bd87630a240e9c25be"></script>
+<script defer src="../../../_static/scripts/pydata-sphinx-theme.js?digest=18bd87630a240e9c25be"></script>
 
   <footer class="bd-footer">
 <div class="bd-footer__inner bd-page-width">
