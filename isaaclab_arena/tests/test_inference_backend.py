@@ -21,7 +21,6 @@ from isaaclab_arena.agentic_environment_generation.inference_backend import (
     StructuredOutputRequest,
     resolve_inference_endpoint,
 )
-from isaaclab_arena.inference.backend import InferenceResponseError
 from isaaclab_arena.tests.utils.agentic_environment_generation import chat_response, inference_backend
 
 
@@ -194,9 +193,9 @@ class TestRunJson:
         resp = MagicMock()
         resp.choices = []
         client.chat.completions.create.return_value = resp
-        with pytest.raises(InferenceResponseError, match="No completion choices"):
+        with pytest.raises(RuntimeError, match="failed test after 4 attempts"):
             backend.run_json(_request())
-        assert client.chat.completions.create.call_count == 1
+        assert client.chat.completions.create.call_count == 4
 
     def test_retries_after_api_error_then_succeeds(self, stub_openai):
         _, client = stub_openai
@@ -213,6 +212,6 @@ class TestRunJson:
         _, client = stub_openai
         backend = inference_backend(stub_openai, max_retries=1)
         client.chat.completions.create.side_effect = ConnectionError("timeout")
-        with pytest.raises(ConnectionError, match="timeout"):
+        with pytest.raises(RuntimeError, match="failed test after 2 attempts"):
             backend.run_json(_request())
         assert client.chat.completions.create.call_count == 2

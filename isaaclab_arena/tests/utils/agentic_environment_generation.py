@@ -40,7 +40,6 @@ def stub_openai():
     """Patch ``OpenAI`` and yield ``(constructor_mock, client_mock)``."""
     with patch(_OPENAI_PATCH) as mock_cls:
         client = MagicMock()
-        client.with_options.return_value = client
         client.chat.completions.create.return_value = chat_response(content="OK")
         mock_cls.return_value = client
         yield mock_cls, client
@@ -126,10 +125,6 @@ def chat_response(
     resp.choices[0].finish_reason = finish_reason
     resp.choices[0].message.content = content
     resp.choices[0].message.reasoning_content = reasoning_content
-    resp.choices[0].message.refusal = None
-    resp.usage = None
-    resp.model = "test-model"
-    resp._request_id = "test-request"
     return resp
 
 

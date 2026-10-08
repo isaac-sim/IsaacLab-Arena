@@ -11,11 +11,10 @@ import copy
 import json
 import math
 import os
-import time
 from dataclasses import dataclass
 from typing import Any, Literal
 
-from openai import APIConnectionError, APIStatusError, OpenAI
+from openai import OpenAI
 from openai.types.chat import ChatCompletionMessage, ChatCompletionMessageParam
 from pydantic import BaseModel
 
@@ -98,67 +97,35 @@ MAX_RETRIES_LIMIT = 10
 
 @dataclass(frozen=True)
 class InferenceBackendCfg:
-    """Configure shared inference without embedding credentials in experiment files."""
+    """Select an inference endpoint without storing credentials in configuration files."""
 
     endpoint: str | None = None
     base_url: str | None = None
     model: str | None = None
     api_key_env_var: str | None = None
-    temperature: float = 0.2
-    max_tokens: int = 4096
-    max_retries: int = 3
     request_timeout_s: float = 60.0
-    retry_budget_s: float = 120.0
-    retry_backoff_s: float = 1.0
-    max_tokens_parameter: Literal["max_tokens", "max_completion_tokens"] | None = None
-    supports_temperature: bool | None = None
-    supports_images: bool = False
-    """Opt in only for a model that accepts image content."""
-
-    response_format: Literal["json_schema", "json_object"] = "json_schema"
-    """JSON-object mode includes the schema in the prompt; callers still validate commands."""
 
     def __post_init__(self):
-        assert 0 <= self.max_retries < MAX_RETRIES_LIMIT, "Invalid retry count"
-        assert self.max_tokens > 0, "max_tokens must be positive"
-        assert self.request_timeout_s > 0 and self.retry_budget_s > 0, "Timeouts must be positive"
-        assert self.retry_backoff_s >= 0, "Retry backoff must be nonnegative"
-        assert all(
-            math.isfinite(value)
-            for value in (
-                self.request_timeout_s,
-                self.retry_budget_s,
-                self.retry_backoff_s,
-                self.temperature,
-            )
-        ), "Timeouts, backoff, and temperature must be finite"
-        assert self.max_tokens_parameter in (None, "max_tokens", "max_completion_tokens"), "Invalid token parameter"
-        assert self.response_format in ("json_schema", "json_object"), "Unsupported response format"
+        assert (
+            math.isfinite(self.request_timeout_s) and self.request_timeout_s > 0
+        ), "Timeout must be finite and positive"
 
 
 @dataclass(frozen=True)
 class InferenceRequest:
-    """Send chat messages containing text and optional OpenAI-compatible image parts."""
+    """Request structured output from text and optional OpenAI-compatible image messages."""
 
     messages: list[ChatCompletionMessageParam]
     response_schema: dict[str, Any]
     schema_name: str = "agent_command"
+    retry_label: str = "inference"
 
 
 @dataclass(frozen=True)
 class InferenceResponse:
-    """Return parsed output and provider metadata for evaluation artifacts."""
+    """Wrap parsed model output for validation by the calling agent."""
 
     data: dict[str, Any]
-    model: str
-    latency_s: float
-    attempts: int
-    request_id: str | None
-    usage: dict[str, int] | None
-
-
-class InferenceResponseError(ValueError):
-    """Report a refusal, truncated completion, or invalid JSON for caller-owned repair."""
 
 
 @dataclass(frozen=True)
@@ -173,7 +140,7 @@ class StructuredOutputRequest:
 
 
 class InferenceBackend:
-    """Share OpenAI-compatible text and vision inference across Arena agents."""
+    """Shared LLM JSON-schema runner with retry and tolerant JSON parsing."""
 
     def __init__(
         self,
@@ -202,25 +169,17 @@ class InferenceBackend:
                 ``[0, MAX_RETRIES_LIMIT)``.
             endpoint: Inference endpoint name, ``internal``, ``public``, or ``openai``.
                 Falls back to the ``ARENA_INFERENCE_ENDPOINT`` environment variable.
-            config: Typed configuration for multimodal inference. Overrides legacy
-                options except api_key and skips the legacy constructor health check.
+            config: Optional endpoint and credential-source configuration. Overrides
+                endpoint, model, and base_url, sets the SDK request timeout, and
+                skips the legacy constructor health check.
         """
-        self.config = config or InferenceBackendCfg(
-            endpoint=endpoint,
-            base_url=base_url,
-            model=model,
-            temperature=temperature,
-            max_tokens=max_tokens,
-            max_retries=max_retries,
-        )
         if config is not None:
-            endpoint, base_url, model = config.endpoint, config.base_url, config.model
-            temperature, max_tokens, max_retries = config.temperature, config.max_tokens, config.max_retries
+            endpoint, model, base_url = config.endpoint, config.model, config.base_url
         assert (
             0 <= max_retries < MAX_RETRIES_LIMIT
         ), f"max_retries must be in [0, {MAX_RETRIES_LIMIT}), got {max_retries}"
         inference_endpoint = resolve_inference_endpoint(endpoint)
-        key_env_var = self.config.api_key_env_var or inference_endpoint.api_key_env_var
+        key_env_var = (config.api_key_env_var if config is not None else None) or inference_endpoint.api_key_env_var
         resolved_api_key = api_key or os.getenv(key_env_var)
         assert resolved_api_key, (
             f"API key required for the {inference_endpoint.name!r} inference endpoint: set "
@@ -233,13 +192,14 @@ class InferenceBackend:
             f"[inference] endpoint {inference_endpoint.name!r} model {resolved_model!r} at {resolved_base_url}",
             flush=True,
         )
-        client_options = {}
-        if config is not None:
-            client_options = {"max_retries": 0, "timeout": config.request_timeout_s}
+        client_options = {"timeout": config.request_timeout_s} if config is not None else {}
         client = OpenAI(api_key=resolved_api_key, base_url=resolved_base_url, **client_options)
         self._client: OpenAI = client
         self._endpoint = inference_endpoint
         self._model = resolved_model
+        self._temperature = temperature
+        self._max_tokens = max_tokens
+        self._max_retries = max_retries
         self._closed = False
         if config is None:
             try:
@@ -247,102 +207,6 @@ class InferenceBackend:
             except Exception:
                 self.close()
                 raise
-
-    def infer(self, request: InferenceRequest) -> InferenceResponse:
-        """Parse one structured prediction, retrying only transient transport failures.
-
-        Args:
-            request: Multimodal conversation and expected output schema.
-
-        Returns:
-            Parsed JSON object and metadata. Schema and command validation belong
-            to the caller. The retry budget prevents starting further attempts;
-            an in-flight call is governed by the SDK's request timeout.
-        """
-        return self._infer(request)
-
-    def _infer(self, request: InferenceRequest, *, legacy_json: bool = False) -> InferenceResponse:
-        """Share transport, retry accounting, and metadata across text and vision callers."""
-        assert not self._closed, "Inference backend is closed"
-        assert request.messages, "At least one message is required"
-        messages = copy.deepcopy(request.messages)
-        for message in messages:
-            content = message.get("content")
-            if isinstance(content, list):
-                for part in content:
-                    if part.get("type") == "image_url":
-                        assert self.config.supports_images, "Enable supports_images for a vision-capable model"
-        if self.config.response_format == "json_schema":
-            response_format = {
-                "type": "json_schema",
-                "json_schema": {"name": request.schema_name, "schema": request.response_schema},
-            }
-        else:
-            response_format = {"type": "json_object"}
-            messages.append(
-                {"role": "user", "content": "Return JSON matching this schema: " + json.dumps(request.response_schema)}
-            )
-        token_parameter = self.config.max_tokens_parameter or self._endpoint.max_tokens_parameter
-        options = {token_parameter: self.config.max_tokens}
-        supports_temperature = self.config.supports_temperature
-        if supports_temperature is None:
-            supports_temperature = self._endpoint.supports_temperature
-        if supports_temperature:
-            options["temperature"] = self.config.temperature
-
-        start = time.monotonic()
-        deadline = start + self.config.retry_budget_s
-        for attempt in range(1 + self.config.max_retries):
-            remaining = deadline - time.monotonic()
-            if remaining <= 0:
-                raise TimeoutError("Inference retry budget exhausted")
-            try:
-                # Disable SDK retries even for clients constructed through the legacy API.
-                client = self._client.with_options(max_retries=0, timeout=min(remaining, self.config.request_timeout_s))
-                response = client.chat.completions.create(
-                    model=self._model,
-                    messages=messages,
-                    response_format=response_format,
-                    **options,
-                )
-            except (APIConnectionError, APIStatusError, ConnectionError) as exc:
-                transient = (
-                    isinstance(exc, (APIConnectionError, ConnectionError))
-                    or exc.status_code in (408, 409, 429)
-                    or exc.status_code >= 500
-                )
-                if not transient or attempt == self.config.max_retries:
-                    raise
-                delay = self.config.retry_backoff_s * (2**attempt)
-                if time.monotonic() + delay >= deadline:
-                    raise TimeoutError("Inference retry budget exhausted") from exc
-                time.sleep(delay)
-                continue
-            data = _parse_inference_response(response, legacy_json=legacy_json)
-            if legacy_json:
-                data = _unwrap_provider_envelope(data, request.response_schema)
-            usage = None
-            if response.usage is not None:
-                usage = {
-                    "prompt_tokens": response.usage.prompt_tokens,
-                    "completion_tokens": response.usage.completion_tokens,
-                    "total_tokens": response.usage.total_tokens,
-                }
-            return InferenceResponse(
-                data=data,
-                model=response.model,
-                latency_s=time.monotonic() - start,
-                attempts=attempt + 1,
-                request_id=getattr(response, "_request_id", None),
-                usage=usage,
-            )
-        raise RuntimeError("unreachable")
-
-    def close(self) -> None:
-        """Release client connections; repeated calls are harmless."""
-        if not self._closed:
-            self._client.close()
-            self._closed = True
 
     @property
     def endpoint(self) -> InferenceEndpoint:
@@ -360,16 +224,15 @@ class InferenceBackend:
         return self._client
 
     def run_json(self, request: StructuredOutputRequest) -> dict[str, Any]:
-        """Use shared inference with legacy text parsing and provider-envelope handling.
+        """Call a JSON-schema structured-output endpoint and parse the response as JSON.
 
         Args:
-            request: System/user prompts and JSON schema metadata. retry_label is
-                retained for source compatibility; transport errors retain their types.
+            request: System/user prompts, JSON schema metadata, and retry log label.
 
         Returns:
             Parsed JSON object from the model response.
         """
-        return self._infer(
+        return self.infer(
             InferenceRequest(
                 messages=[
                     {"role": "system", "content": request.system},
@@ -377,33 +240,69 @@ class InferenceBackend:
                 ],
                 response_schema=request.schema,
                 schema_name=request.schema_name,
-            ),
-            legacy_json=True,
+                retry_label=request.retry_label,
+            )
         ).data
 
+    def infer(self, request: InferenceRequest) -> InferenceResponse:
+        """Run a multimodal request using the existing text inference retry and parsing behavior.
 
-def _parse_inference_response(response, *, legacy_json: bool = False) -> dict[str, Any]:
-    """Require a complete JSON object without interpreting reasoning as a command."""
-    if not response.choices:
-        raise InferenceResponseError("No completion choices returned")
-    choice = response.choices[0]
-    if choice.message.refusal or choice.finish_reason != "stop":
-        raise InferenceResponseError(f"Completion refused or unfinished: {choice.finish_reason}")
-    content = _extract_response_text(choice.message) if legacy_json else choice.message.content
-    if not content:
-        raise InferenceResponseError("Empty structured output")
-    try:
-        data = json.loads(content, strict=not legacy_json, parse_constant=_reject_json_constant)
-    except ValueError as exc:
-        raise InferenceResponseError("Invalid JSON output") from exc
-    if not isinstance(data, dict):
-        raise InferenceResponseError("Expected a JSON object")
-    return data
+        Args:
+            request: Conversation messages, JSON schema, and retry log label.
 
+        Returns:
+            Parsed output. The calling agent validates its schema and semantics.
+        """
+        assert not self._closed, "Inference backend is closed"
+        messages = copy.deepcopy(request.messages)
+        last_exc: Exception | None = None
+        for attempt in range(1 + self._max_retries):
+            if attempt > 0:
+                print(f"[{request.retry_label}] retry {attempt}/{self._max_retries} after: {last_exc}", flush=True)
+            try:
+                resp = self._client.chat.completions.create(
+                    model=self._model,
+                    messages=messages,
+                    response_format={
+                        "type": "json_schema",
+                        "json_schema": {
+                            "name": request.schema_name,
+                            "schema": request.response_schema,
+                        },
+                    },
+                    **_completion_options(self._endpoint, self._max_tokens, self._temperature),
+                )
+                choices = getattr(resp, "choices", None) or []
+                assert choices, (
+                    f"Model {self._model!r} returned HTTP 200 with no choices "
+                    "(content filter / guardrail / rate-limit response with empty body)."
+                )
+                text = _extract_response_text(choices[0].message)
+                assert text, (
+                    f"Model {self._model!r} returned an empty structured-outputs envelope. "
+                    "Verify the endpoint/model supports response_format=json_schema."
+                )
+                # ``strict=False`` lets json.loads accept unescaped control characters
+                # (e.g. literal tabs) inside JSON strings — DeepSeek-v4-flash is known
+                # to emit these.
+                # Model response is wrapped in a single-key dictionary, e.g. {"input": {<answer>}} to <answer>.
+                # Seen on the default azure/anthropic/claude-opus-4-8, but not DeepSeek.
+                # TODO(xinjieyao): check if other models also wrap the response in a single-key dictionary.
+                return InferenceResponse(
+                    data=_unwrap_provider_envelope(json.loads(text, strict=False), request.response_schema)
+                )
+            except Exception as exc:
+                last_exc = exc
+        raise RuntimeError(
+            f"Model {self._model!r} failed {request.retry_label} after "
+            f"{1 + self._max_retries} attempts. Last error: {last_exc}"
+        ) from last_exc
 
-def _reject_json_constant(value: str) -> None:
-    """Reject nonstandard JSON numbers such as NaN and Infinity."""
-    raise ValueError(f"Invalid JSON number: {value}")
+    def close(self) -> None:
+        """Release client connections; repeated calls are harmless."""
+        if not self._closed:
+            self._client.close()
+            self._closed = True
 
 
 def _unwrap_provider_envelope(data: Any, schema: dict[str, Any]) -> Any:
