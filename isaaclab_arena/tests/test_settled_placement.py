@@ -185,7 +185,7 @@ def test_record_placements_to_jsonl_leaves_no_file_when_target_unmet(tmp_path):
     with (
         patch(
             "isaaclab_arena.variations.relation_placement_variation.get_relation_placement_variation",
-            return_value=Mock(placement_pool=pool, sampler=Mock(replays_recorded_samples=False)),
+            return_value=Mock(placement_pool=pool, has_live_pool=True),
         ),
         patch(
             "isaaclab_arena.offline_placement.recording.collect_layouts_until_count",
@@ -217,7 +217,7 @@ def test_record_placements_to_jsonl_writes_partial_acceptance(tmp_path):
     with (
         patch(
             "isaaclab_arena.variations.relation_placement_variation.get_relation_placement_variation",
-            return_value=Mock(placement_pool=pool, sampler=Mock(replays_recorded_samples=False)),
+            return_value=Mock(placement_pool=pool, has_live_pool=True),
         ),
         patch(
             "isaaclab_arena.offline_placement.recording.collect_layouts_until_count",
@@ -604,7 +604,7 @@ def _test_recording_with_robot(simulation_app, tmp_path):
     finally:
         env.close()
     env = ArenaEnvBuilder(
-        spec.to_arena_env(), ArenaEnvBuilderCfg(num_envs=2, episode_conditions_path=str(output))
+        spec.to_arena_env(), ArenaEnvBuilderCfg(num_envs=2, recorded_variation_samples_path=str(output))
     ).make_registered()
     try:
         env.reset()
@@ -745,7 +745,7 @@ def test_settled_batch_evaluation_uses_captured_state():
             return_value=SimpleNamespace(
                 placement_pool=SimpleNamespace(num_envs=3),
                 last_results=source_layouts,
-                sampler=SimpleNamespace(replays_recorded_samples=False),
+                has_live_pool=True,
             ),
         ),
         patch("isaaclab_arena.utils.physics_settle.step_physics", side_effect=advance_physics),

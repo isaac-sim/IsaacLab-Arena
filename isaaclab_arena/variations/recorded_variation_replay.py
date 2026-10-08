@@ -70,12 +70,9 @@ def _validate_variation_replay(
                 variation_key not in variation_record.build_time_samples
             ), f"Run-time variation {variation_key!r} cannot appear in build-time samples."
             if appears_at_runtime:
-                variation.validate_replay_samples(
-                    [
-                        episode_record.runtime_samples[variation_key]
-                        for episode_record in variation_record.episode_records
-                    ]
-                )
+                variation.validate_replay_samples([
+                    episode_record.runtime_samples[variation_key] for episode_record in variation_record.episode_records
+                ])
 
 
 def _bind_variation_replay_samplers(

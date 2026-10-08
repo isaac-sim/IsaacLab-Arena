@@ -38,11 +38,11 @@ results to JSONL, then those poses can be reused across evaluations.
 
 **Replay** restores the saved root poses and zeros root velocities on reset. It
 uses the common episode-condition scheduler and bypasses the recorder's settling
-and acceptance pass; physics runs normally during policy evaluation. Environment
-construction still prepares its relation-placement pool, but replay does not
-consume that pool. Recordings contain root poses, so joint states and other
-randomized properties still follow the evaluation environment's reset
-configuration. Geometry and reachability checks are not rerun at reset.
+and acceptance pass; physics runs normally during policy evaluation. Replay
+seeds construction from the recording and does not invoke the relation solver.
+Recordings contain root poses, so joint states and other randomized properties
+still follow the evaluation environment's reset configuration. Geometry and
+reachability checks are not rerun at reset.
 
 See :doc:`../object_placement/validation` for the checks at each stage and
 :doc:`../object_placement/pooled_placement` for pool and reset settings.
@@ -209,7 +209,7 @@ See :doc:`../object_placement/relations` for pose names, units and replay constr
 Replay Placement Layouts
 ------------------------
 
-Set ``environment_builder.episode_conditions_path`` in an
+Set ``environment_builder.recorded_variation_samples_path`` in an
 :doc:`Experiment Definition <../concept_arena_experiments>` to load the recording:
 
 .. literalinclude:: ../../../../isaaclab_arena_environments/experiment_configs/settled_placement_replay_experiment.yaml

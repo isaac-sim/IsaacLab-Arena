@@ -135,9 +135,7 @@ def collect_settled_placements(
     assert num_batches > 0, "num_batches must be positive"
     placement_variation = get_relation_placement_variation(env)
     assert placement_variation is not None, "Collection requires relation placement"
-    assert (
-        not placement_variation.sampler.replays_recorded_samples
-    ), "Collection requires live placement samples, not episode-condition replay"
+    assert placement_variation.has_live_pool, "Collection requires live placement, not episode-condition replay"
     placement_pool = placement_variation.placement_pool
     assert placement_pool.num_envs == env.num_envs, "Placement pool and scene must have the same environment count"
     assets = list(placement_pool.objects)

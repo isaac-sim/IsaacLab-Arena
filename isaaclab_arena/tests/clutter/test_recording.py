@@ -97,7 +97,7 @@ def _test_recording_writes_complete_layouts(simulation_app, tmp_path):
     assert layouts.num_layouts == 3
     replay_env = _make_primitive_clutter_scene(tmp_path)
     env = ArenaEnvBuilder(
-        replay_env, ArenaEnvBuilderCfg(num_envs=2, episode_conditions_path=str(output))
+        replay_env, ArenaEnvBuilderCfg(num_envs=2, recorded_variation_samples_path=str(output))
     ).make_registered()
     try:
         env.reset()

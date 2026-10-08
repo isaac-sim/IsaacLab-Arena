@@ -63,6 +63,7 @@ def record_placements_to_jsonl(
     assert not output.exists(), f"Output already exists: {output}"
     placement_variation = get_relation_placement_variation(env)
     assert placement_variation is not None, "Recording requires relation placement"
+    assert placement_variation.has_live_pool, "Recording requires live placement, not episode-condition replay"
     pool = placement_variation.placement_pool
     assets = list(pool.objects)
     for asset in scene_assets or []:

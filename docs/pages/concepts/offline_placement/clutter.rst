@@ -125,22 +125,15 @@ normally. Compare the reported count with ``min_layouts`` to distinguish a
 completed target from partial output. See :ref:`clutter-recording-troubleshooting`
 if too few layouts are accepted.
 
-Replay in the Viewer
-~~~~~~~~~~~~~~~~~~~~~
+Replay the Recording
+~~~~~~~~~~~~~~~~~~~~
 
-Load the same scene and the file just recorded:
-
-.. code-block:: bash
-
-   python isaaclab_arena/scripts/environment_runner.py \
-       --env_spec isaaclab_arena_environments/clutter/franka_three_hammers_and_clamp_no_task.yaml \
-       --episode_conditions outputs/clutter/tools_on_table.jsonl \
-       --num_envs 1 --device cpu --viz kit
-
-The viewer starts with the recorded arrangement. These examples use ``NoTask``:
-they load the first layout and do not trigger episode resets. Close the viewer
-or press Ctrl-C to exit. Physics continues after reset. Keep the same backend,
-asset geometry and joint-reset configuration when replaying the recording.
+Configure an Experiment Definition for the same scene and set
+``environment_builder.recorded_variation_samples_path`` to
+``outputs/clutter/tools_on_table.jsonl``. Run it through the Experiment Runner;
+recorded variation replay is not exposed by the Policy Runner CLI. Keep the
+same backend, asset geometry and joint-reset configuration when replaying the
+recording.
 
 For policy evaluation, configure the same scene in an Experiment and pass this
 file as its placement layouts. Follow the :ref:`evaluation replay instructions
@@ -218,14 +211,8 @@ penetration. Inspect the contacts as well as the saved validation reports.
 
 Success produces one row in ``outputs/clutter/three_cubes_in_bowl.jsonl``.
 Inspect it with the earlier Python snippet, changing ``path`` to this bowl
-recording, then open the viewer:
-
-.. code-block:: bash
-
-   python isaaclab_arena/scripts/environment_runner.py \
-       --env_spec isaaclab_arena_environments/clutter/franka_three_cubes_in_bowl_no_task.yaml \
-       --episode_conditions outputs/clutter/three_cubes_in_bowl.jsonl \
-       --num_envs 1 --device cpu --viz kit
+recording. To replay it, use an Experiment Definition for the bowl scene with
+``environment_builder.recorded_variation_samples_path`` set to that file.
 
 .. _clutter-adapt-environment:
 

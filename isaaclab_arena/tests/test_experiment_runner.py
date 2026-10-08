@@ -226,6 +226,7 @@ def test_experiment_runner_replays_recorded_variation_samples(tmp_path):
         "light.hdr_image",
         "rubiks_cube_hot3d_robolab.disappear",
         "droid_rel_joint_pos.camera_extrinsics_wrist_camera",
+        "scene.relation_placement",
     }
     assert all(set(record["variations"]) == expected_variation_keys for record in recorded)
 

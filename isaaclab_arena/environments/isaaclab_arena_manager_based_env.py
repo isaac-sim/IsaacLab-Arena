@@ -28,8 +28,8 @@ if TYPE_CHECKING:
         IsaacArenaManagerBasedMimicEnvCfg,
         IsaacLabArenaManagerBasedRLEnvCfg,
     )
-    from isaaclab_arena.variations.variation_replay_scheduler import VariationReplayScheduler
     from isaaclab_arena.variations.variation_base import VariationBase
+    from isaaclab_arena.variations.variation_replay_scheduler import VariationReplayScheduler
 
 
 class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):

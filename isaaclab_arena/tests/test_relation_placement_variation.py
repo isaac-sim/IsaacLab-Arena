@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Unit coverage for scene-level relation placement conditions."""
+"""Unit coverage for scene-level relation placement variation samples."""
 
 import json
 import torch
@@ -11,8 +11,8 @@ from unittest.mock import Mock
 
 import pytest
 
-from isaaclab_arena.variations.condition_replay import configure_condition_replay
 from isaaclab_arena.variations.object_mass_variation import ObjectMassVariation, ObjectMassVariationCfg
+from isaaclab_arena.variations.recorded_variation_replay import configure_recorded_variation_replay
 from isaaclab_arena.variations.relation_placement_variation import (
     PlacementPoolSampler,
     RelationPlacementVariation,
@@ -55,7 +55,7 @@ def _placement_sample(*, asset: str = "cube_asset") -> dict:
 def _make_variation(identity: str = "cube_asset") -> RelationPlacementVariation:
     sampler = PlacementPoolSampler(
         assets=[],
-        placement_pool=Mock(),
+        placement_pool=None,
         replay_assets=[_ReplayAsset("cube")],
         asset_identities={"cube": identity},
     )
@@ -64,6 +64,7 @@ def _make_variation(identity: str = "cube_asset") -> RelationPlacementVariation:
 
 def test_replay_sampler_notifies_serializable_rows():
     variation = _make_variation()
+    assert not variation.has_live_pool
     sample = _placement_sample()
     observed = []
     variation.add_sample_listener(lambda rows, env_ids: observed.append((rows, env_ids.clone())))
@@ -119,7 +120,7 @@ def test_relation_placement_cannot_be_disabled():
 def test_placement_replays_with_another_runtime_condition(tmp_path):
     placement = _make_variation()
     mass = ObjectMassVariation("cube", ObjectMassVariationCfg(enabled=True))
-    path = tmp_path / "conditions.jsonl"
+    path = tmp_path / "variation_samples.jsonl"
     path.write_text(
         json.dumps(
             {
@@ -132,7 +133,7 @@ def test_placement_replays_with_another_runtime_condition(tmp_path):
         + "\n"
     )
 
-    scheduler = configure_condition_replay(path, {"scene": [placement], "cube": [mass]})
+    scheduler = configure_recorded_variation_replay(path, {"scene": [placement], "cube": [mass]})
     scheduler.assign_new_episodes([3])
     env_ids = torch.tensor([3])
 

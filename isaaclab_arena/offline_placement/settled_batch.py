@@ -97,9 +97,7 @@ def sample_and_settle_batch(
     assert root_keys, "Sampling requires at least one rigid-object or articulation root"
     placement_variation = get_relation_placement_variation(env)
     assert placement_variation is not None, "Sampling requires relation placement"
-    assert (
-        not placement_variation.sampler.replays_recorded_samples
-    ), "Sampling requires live placement samples, not episode-condition replay"
+    assert placement_variation.has_live_pool, "Sampling requires live placement, not episode-condition replay"
     placement_pool = placement_variation.placement_pool
     assert placement_pool.num_envs == env.num_envs, "Placement pool and scene must have the same environment count"
     env.reset()

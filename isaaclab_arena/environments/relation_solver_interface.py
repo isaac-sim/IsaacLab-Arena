@@ -7,14 +7,14 @@ from __future__ import annotations
 
 import copy
 from collections.abc import Iterable
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_asset import get_scene_root_owners
 from isaaclab_arena.relations.placement_events import PlacementPoolHandle, get_pose_from_layout, solve_and_place_objects
 from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
 from isaaclab_arena.relations.relations import get_anchor_objects
-from isaaclab_arena.utils.pose import PosePerEnv
+from isaaclab_arena.utils.pose import Pose, PosePerEnv
 
 if TYPE_CHECKING:
     from isaaclab.managers import EventTermCfg
@@ -83,6 +83,28 @@ def create_relation_placement_variation(
         replay_assets=replay_assets,
     )
     return RelationPlacementVariation(sampler, write_live_samples=resolved_params.resolve_on_reset)
+
+
+def create_relation_placement_replay_variation(
+    assets: list[PlaceableAsset],
+    replay_assets: list[PlaceableAsset],
+    samples: list[dict[str, Any]],
+    num_envs: int,
+    asset_identities: dict[str, str] | None = None,
+):
+    """Build solver-free relation placement backed by episode-condition samples."""
+    from isaaclab_arena.variations.relation_placement_variation import PlacementPoolSampler, RelationPlacementVariation
+
+    sampler = PlacementPoolSampler(
+        assets=assets,
+        placement_pool=None,
+        asset_identities=asset_identities,
+        replay_assets=replay_assets,
+    )
+    variation = RelationPlacementVariation(sampler, write_live_samples=False)
+    variation.validate_replay_samples(samples)
+    _seed_spawn_config_from_replay(samples, replay_assets, num_envs)
+    return variation
 
 
 def solve_and_apply_relation_placement(
@@ -241,6 +263,25 @@ def _seed_spawn_config_from_layout(
             continue
         pose = get_pose_from_layout(asset, layout)
         asset.set_initial_pose(pose, create_reset_event=False)
+
+
+def _seed_spawn_config_from_replay(
+    samples: list[dict[str, Any]],
+    replay_assets: list[PlaceableAsset],
+    num_envs: int,
+) -> None:
+    """Seed construction roots from replay rows without replacing reset events."""
+    owners = get_scene_root_owners(replay_assets)
+    poses_by_asset: dict[PlaceableAsset, dict[str, PosePerEnv]] = {}
+    for scene_key in samples[0]["poses"]:
+        per_env_poses = []
+        for env_id in range(num_envs):
+            pose = Pose.from_dict(samples[env_id % len(samples)]["poses"][scene_key])
+            assert pose is not None
+            per_env_poses.append(pose)
+        poses_by_asset.setdefault(owners[scene_key], {})[scene_key] = PosePerEnv(per_env_poses)
+    for asset, poses in poses_by_asset.items():
+        asset.set_initial_scene_root_poses(poses)
 
 
 def _apply_static_initial_poses(

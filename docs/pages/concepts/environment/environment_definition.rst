@@ -22,16 +22,13 @@ Both produce the same object: an ``IsaacLabArenaEnvironment``.
 Companion placement files
 -------------------------
 
-Pass ``--episode_conditions layouts.jsonl`` to replay a companion file. This builder
-option works with both ``--env_spec`` and registered Python environments. Place it
-before the environment subcommand when using a registered environment.
+Set ``environment_builder.recorded_variation_samples_path`` in an Experiment
+Definition to replay a companion file. This works with environments defined in
+Python or YAML; paths are relative to the working directory. Recorded variation
+replay is configured through the Experiment Runner, not the Policy Runner CLI.
 
-Python callers set ``ArenaEnvBuilderCfg(episode_conditions_path="layouts.jsonl")``.
-Paths are relative to the working directory. The builder reads the file when it
-composes the scene; the environment definition does not contain the replay path.
-
-Replay uses the environment's relation-placement variation and the common episode
-condition scheduler.
+Replay uses the environment's relation-placement variation and the common
+variation replay scheduler.
 See :doc:`../object_placement/relations` for the record format, queue behavior,
 asset coverage and reset requirements.
 
