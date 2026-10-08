@@ -5,16 +5,17 @@
 
 """Lab demo tools retain Arena's temporal success and partial-reset lifecycle."""
 
+import torch
+from functools import partial
+from types import SimpleNamespace
+from unittest.mock import patch
+
 import pytest
 
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
 
 def _test_external_success(simulation_app, mode):
-    import torch
-    from types import SimpleNamespace
-    from unittest.mock import patch
-
     from isaaclab.envs import ManagerBasedRLEnv
     from isaaclab.managers import TerminationManager, TerminationTermCfg
     from isaaclab.managers.recorder_manager import (
@@ -150,6 +151,4 @@ def _test_external_success(simulation_app, mode):
 
 @pytest.mark.parametrize("mode", ["native", "record", "replay", "replay_disabled_recorder"])
 def test_external_success(mode):
-    from functools import partial
-
     assert run_function_with_persistent_simulation_app(partial(_test_external_success, mode=mode))

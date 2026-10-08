@@ -7,8 +7,13 @@
 
 from __future__ import annotations
 
+import gymnasium as gym
+import h5py
 import json
+import numpy as np
+import torch
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
@@ -23,10 +28,6 @@ DOOR_METADATA_PREFIX = "RECORD_DEMOS_TEST_DOOR "
 
 def environment_registration_callback() -> list[str]:
     """Register the production environment with scripted door movement and zero robot input."""
-    import gymnasium as gym
-    import torch
-    from unittest.mock import patch
-
     from isaaclab.devices import DeviceBase, DeviceCfg, DevicesCfg
     from isaaclab.managers import EventTermCfg
 
@@ -84,9 +85,6 @@ def environment_registration_callback() -> list[str]:
 @pytest.mark.with_subprocess
 def test_record_demos_gr1_open_microwave(tmp_path):
     """Lab must recognize native task success and automatically export two reset-separated demos."""
-    import h5py
-    import numpy as np
-
     import isaaclab
 
     # Resolve Lab independently of the Arena branch so this same file can run in a main worktree.
