@@ -102,6 +102,23 @@ def load_episode_conditions_overlay(
     )
 
 
+def load_runtime_variation_samples(path: str | Path, variation_key: str) -> list[Any] | None:
+    """Return one runtime sample per condition when every row contains ``variation_key``.
+
+    Returns ``None`` when no row contains the variation. Partial presence is
+    rejected because a runtime variation must be replayed for every condition
+    or remain live-sampled for every condition.
+    """
+    conditions = load_episode_conditions_overlay(path)
+    presence = [variation_key in episode.runtime_variations for episode in conditions.episodes]
+    assert not any(presence) or all(
+        presence
+    ), f"Runtime variation {variation_key!r} must be present in every source condition or none."
+    if not any(presence):
+        return None
+    return [episode.runtime_variations[variation_key] for episode in conditions.episodes]
+
+
 def validate_overlay_variation_keys(
     overlay: RebuildConditions,
     enabled_record_keys: set[str],

@@ -24,6 +24,7 @@ from isaaclab_arena.variations.episode_conditions import (
     EpisodeCondition,
     RebuildConditions,
     load_episode_conditions_overlay,
+    load_runtime_variation_samples,
     validate_overlay_variation_keys,
 )
 from isaaclab_arena.variations.uniform_sampler import UniformSamplerCfg
@@ -64,6 +65,33 @@ def test_runtime_values_are_not_inferred_as_build_time(tmp_path: Path, num_recor
 
     assert loaded.build_time_variations == {}
     assert [episode.runtime_variations for episode in loaded.episodes] == [{"obj.mass": [1.0]}] * num_records
+
+
+def test_load_runtime_variation_samples_distinguishes_replay_from_live(tmp_path: Path) -> None:
+    recorded = _write_jsonl(
+        tmp_path,
+        [
+            {"variations": {"scene.relation_placement": {"layout_id": "0"}}},
+            {"variations": {"scene.relation_placement": {"layout_id": "1"}}},
+        ],
+    )
+    assert load_runtime_variation_samples(recorded, "scene.relation_placement") == [
+        {"layout_id": "0"},
+        {"layout_id": "1"},
+    ]
+
+    live = _write_jsonl(tmp_path, [{"variations": {"obj.mass": [1.0]}}])
+    assert load_runtime_variation_samples(live, "scene.relation_placement") is None
+
+    partial = _write_jsonl(
+        tmp_path,
+        [
+            {"variations": {"scene.relation_placement": {"layout_id": "0"}}},
+            {"variations": {}},
+        ],
+    )
+    with pytest.raises(AssertionError, match="every source condition or none"):
+        load_runtime_variation_samples(partial, "scene.relation_placement")
 
 
 @pytest.mark.parametrize(

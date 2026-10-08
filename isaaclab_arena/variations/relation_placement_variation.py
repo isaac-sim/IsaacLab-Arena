@@ -57,7 +57,7 @@ class PlacementPoolSampler(SamplerBase):
     def __init__(
         self,
         assets: list[PlaceableAsset],
-        placement_pool: PooledObjectPlacer,
+        placement_pool: PooledObjectPlacer | None,
         fixed_results: dict[int, PlacementResult] | None = None,
         asset_identities: dict[str, str] | None = None,
         replay_assets: list[PlaceableAsset] | None = None,
@@ -91,6 +91,7 @@ class PlacementPoolSampler(SamplerBase):
             rows = replay_rows
             self.last_results = {}
         else:
+            assert self.placement_pool is not None, "Live relation placement requires a placement pool"
             if self.fixed_results is None:
                 results = self.placement_pool.sample_for_envs(env_id_list)
                 rows = [self._serialize_result(results[env_id]) for env_id in env_id_list]
@@ -169,7 +170,13 @@ class RelationPlacementVariation(RunTimeVariationBase):
     @property
     def placement_pool(self) -> PooledObjectPlacer:
         """Return the live pool used for relation solving."""
+        assert self._sampler.placement_pool is not None, "Placement replay has no live placement pool"
         return self._sampler.placement_pool
+
+    @property
+    def has_live_pool(self) -> bool:
+        """Whether this variation owns a live relation-solving pool."""
+        return self._sampler.placement_pool is not None
 
     @property
     def last_results(self) -> dict[int, PlacementResult]:
@@ -238,10 +245,16 @@ def apply_relation_placement_sample(
     """Draw, record, and when required apply one complete placement per reset environment."""
     if env_ids is None or len(env_ids) == 0:
         return
-    assert placement.sampler.placement_pool.num_envs == env.scene.env_origins.shape[0], (
-        f"Placement pool has {placement.sampler.placement_pool.num_envs} envs, "
-        f"but scene has {env.scene.env_origins.shape[0]} env origins."
-    )
+    placement_pool = placement.sampler.placement_pool
+    if placement_pool is not None:
+        assert placement_pool.num_envs == env.scene.env_origins.shape[0], (
+            f"Placement pool has {placement_pool.num_envs} envs, "
+            f"but scene has {env.scene.env_origins.shape[0]} env origins."
+        )
+    else:
+        assert (
+            placement.sampler.replays_recorded_samples
+        ), "Relation placement has neither replay samples nor a live pool"
     rows = placement.sampler.sample(len(env_ids), env_ids)
     if not placement.write_live_samples and not placement.sampler.replays_recorded_samples:
         return

@@ -332,19 +332,19 @@ Before replaying a recording:
 - Enable pose resets and use fixed initial poses for assets with pose-reset
   events. Remove ``RandomAroundSolution`` from recorded assets and keep their
   initial root velocities zero.
-- Keep relation solving enabled so the scene-level placement variation is
-  registered. Both ``resolve_on_reset`` modes support replay.
+- ``resolve_on_reset`` controls live placement only; replay always applies its
+  scheduled recorded layout.
 
 Placement validator settings apply only when solving; they do not revalidate a
 recorded layout or open the solver's debug viewer.
 
-Environment construction still prepares the normal relation-placement pool.
-Reset-time replay does not consume that pool or rerun geometry, reachability or
-settling checks. Preserve the scene geometry, robot initialization and physics
-settings used to record the layouts. The file contains root poses, not joint
-states or other randomized properties; their normal reset initialization still
-applies. Disable pose-changing variations and callbacks when exact root replay is
-required.
+Replay seeds construction from the recording and does not build or consume a
+relation-placement pool. It does not rerun geometry, reachability or settling
+checks, and is compatible with ``--no_solve_relations``. Preserve the scene
+geometry, robot initialization and physics settings used to record the layouts.
+The file contains root poses, not joint states or other randomized properties;
+their normal reset initialization still applies. Disable pose-changing
+variations and callbacks when exact root replay is required.
 
 Next Steps
 ----------

@@ -55,7 +55,7 @@ def _placement_sample(*, asset: str = "cube_asset") -> dict:
 def _make_variation(identity: str = "cube_asset") -> RelationPlacementVariation:
     sampler = PlacementPoolSampler(
         assets=[],
-        placement_pool=Mock(),
+        placement_pool=None,
         replay_assets=[_ReplayAsset("cube")],
         asset_identities={"cube": identity},
     )
@@ -64,6 +64,7 @@ def _make_variation(identity: str = "cube_asset") -> RelationPlacementVariation:
 
 def test_replay_sampler_notifies_serializable_rows():
     variation = _make_variation()
+    assert not variation.has_live_pool
     sample = _placement_sample()
     observed = []
     variation.add_sample_listener(lambda rows, env_ids: observed.append((rows, env_ids.clone())))

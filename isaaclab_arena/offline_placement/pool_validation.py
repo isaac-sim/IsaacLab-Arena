@@ -136,7 +136,7 @@ def validate_pool_layouts(
     """
     if placement_pool is None:
         placement_variation = get_relation_placement_variation(env)
-        if placement_variation is None:
+        if placement_variation is None or not placement_variation.has_live_pool:
             return None
         placement_pool = placement_variation.placement_pool
     if settle_params is None:

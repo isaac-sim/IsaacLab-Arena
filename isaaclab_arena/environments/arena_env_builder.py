@@ -33,7 +33,10 @@ from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import (
     IsaacLabArenaManagerBasedRLEnvCfg,
     apply_arena_global_settings,
 )
-from isaaclab_arena.environments.relation_solver_interface import create_relation_placement_variation
+from isaaclab_arena.environments.relation_solver_interface import (
+    create_relation_placement_replay_variation,
+    create_relation_placement_variation,
+)
 from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.metrics.metric_term_cfg import MetricTermCfg
 from isaaclab_arena.metrics.recorder_manager_utils import metrics_to_recorder_manager_cfg
@@ -54,7 +57,11 @@ from isaaclab_arena.utils.multiprocess import get_local_rank
 from isaaclab_arena.utils.physics_backend import PhysicsBackend
 from isaaclab_arena.variations import variations_hydra, variations_printing
 from isaaclab_arena.variations.condition_replay import configure_condition_replay
-from isaaclab_arena.variations.relation_placement_variation import SCENE_VARIATION_HOST
+from isaaclab_arena.variations.episode_conditions import load_runtime_variation_samples
+from isaaclab_arena.variations.relation_placement_variation import (
+    RELATION_PLACEMENT_VARIATION_NAME,
+    SCENE_VARIATION_HOST,
+)
 from isaaclab_arena.variations.variation_base import RunTimeVariationBase, VariationBase
 from isaaclab_arena.variations.variation_recorder import VariationRecorder
 
@@ -102,6 +109,14 @@ class ArenaEnvBuilder:
         """Return the physics backend selected for this build (CLI preset or environment default)."""
         return self.cfg.presets if self.cfg.presets is not None else self.arena_env.default_physics_backend
 
+    def _get_relation_placement_assets(self) -> list:
+        """Return scene and embodiment assets participating in relation placement."""
+        placement_assets = self.arena_env.scene.get_objects_with_relations()
+        embodiment = self.arena_env.embodiment
+        if embodiment is not None and embodiment.get_relations():
+            placement_assets.append(embodiment)
+        return placement_assets
+
     def _solve_relations(self) -> None:
         """Solve spatial relations for scene objects and the embodiment.
 
@@ -124,10 +139,7 @@ class ArenaEnvBuilder:
         # Reachability constraints are defined in the task, so apply them before placement.
         if self.arena_env.task is not None:
             self.arena_env.task.apply_reachability_constraints()
-        placement_assets = self.arena_env.scene.get_objects_with_relations()
-        embodiment = self.arena_env.embodiment
-        if embodiment is not None and embodiment.get_relations():
-            placement_assets.append(embodiment)
+        placement_assets = self._get_relation_placement_assets()
 
         placer_params = self.arena_env.placer_params
         if placer_params is None:
@@ -152,6 +164,24 @@ class ArenaEnvBuilder:
         )
         if placement_variation is not None:
             self._scene_variations.append(placement_variation)
+
+    def _configure_relation_placement_replay(self, samples: list[dict[str, Any]]) -> None:
+        """Register solver-free relation placement for recorded condition rows."""
+        from isaaclab_arena.assets.object_set import RigidObjectSet
+
+        replay_assets = self.arena_env.get_placement_assets()
+        assert not any(isinstance(asset, RigidObjectSet) for asset in replay_assets), (
+            "Episode-condition placement replay does not support RigidObjectSet; "
+            "use homogeneous assets or omit scene.relation_placement from the conditions."
+        )
+        placement_variation = create_relation_placement_replay_variation(
+            assets=self._get_relation_placement_assets(),
+            replay_assets=replay_assets,
+            samples=samples,
+            num_envs=self.cfg.num_envs,
+            asset_identities=self.arena_env.placement_asset_identities,
+        )
+        self._scene_variations.append(placement_variation)
 
     def get_all_variations(self) -> dict[str, list[VariationBase]]:
         """Return ``{asset_name: [variation, ...]}`` for every variation host in the env.
@@ -291,16 +321,19 @@ class ArenaEnvBuilder:
         Returns:
             An (env_cfg, env_kwargs) tuple.
         """
-        if self.cfg.episode_conditions_path is not None:
-            from isaaclab_arena.assets.object_set import RigidObjectSet
-
-            assert not any(isinstance(asset, RigidObjectSet) for asset in self.arena_env.scene.assets.values()), (
-                "Episode-condition placement replay does not support RigidObjectSet; "
-                "use homogeneous assets or disable condition replay."
+        placement_replay_samples = (
+            load_runtime_variation_samples(
+                self.cfg.episode_conditions_path,
+                f"{SCENE_VARIATION_HOST}.{RELATION_PLACEMENT_VARIATION_NAME}",
             )
+            if self.cfg.episode_conditions_path is not None
+            else None
+        )
 
         # Apply placement before building scene config so initial poses are captured correctly.
-        if self.cfg.solve_relations:
+        if placement_replay_samples is not None:
+            self._configure_relation_placement_replay(placement_replay_samples)
+        elif self.cfg.solve_relations:
             self._solve_relations()
 
         # Apply Hydra variation overrides. Needs to happen before build-time variations are applied.
