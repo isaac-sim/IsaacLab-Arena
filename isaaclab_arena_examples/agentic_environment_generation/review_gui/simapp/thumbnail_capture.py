@@ -25,6 +25,7 @@ from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.as
     AabbDimensionsM,
     aabb_dimensions_from_asset,
     absolute_prim_path,
+    cached_rigid_asset_preview,
     object_reference_cache_key,
     resolve_aabb_dimensions_m,
     resolve_node_usd_paths,
@@ -172,9 +173,7 @@ def _resolve_object_set_members(
         member_configs = spawn_cfg.assets_cfg if isinstance(spawn_cfg, MultiAssetSpawnerCfg) else [spawn_cfg]
         for registry_name, member_cfg in zip(object_set.members, member_configs, strict=True):
             member_key = object_set_member_key(object_set.id, registry_name)
-            usd_path = getattr(member_cfg, "usd_path", None)
-            if usd_path is not None:
-                usd_paths[member_key] = usd_path
+            usd_paths[member_key] = cached_rigid_asset_preview(member_cfg, thumbnail_cache_dir())
             geometry = ObjectGeometry(member_cfg, live_object_set.object_type)
             member_dimensions = aabb_dimensions_from_asset(geometry)
             if member_dimensions is not None:
