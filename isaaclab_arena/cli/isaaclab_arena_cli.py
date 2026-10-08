@@ -98,13 +98,6 @@ def add_isaaclab_arena_cli_args(parser: argparse.ArgumentParser) -> None:
         help="Replay a companion placement JSONL instead of solving; path is relative to the working directory.",
     )
     arena_group.add_argument(
-        "--episode_conditions",
-        dest="episode_conditions_path",
-        type=str,
-        default=None,
-        help="Replay variation conditions from episode-result JSONL.",
-    )
-    arena_group.add_argument(
         "--placement_seed",
         type=int,
         default=None,

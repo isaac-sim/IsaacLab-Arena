@@ -3,14 +3,18 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import copy
 import json
 import os
 import subprocess
+from pathlib import Path
 
 import pytest
+import yaml
 
 from isaaclab_arena.evaluation.arena_experiment_result import ARENA_EXPERIMENT_RESULT_FILENAME
 from isaaclab_arena.evaluation.experiment_runner_cli import parse_experiment_runner_args
+from isaaclab_arena.recording.episode_results import read_episode_records
 from isaaclab_arena.tests.utils.constants import TestConstants
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 from isaaclab_arena.tests.utils.subprocess import run_subprocess
@@ -191,6 +195,50 @@ runs:
     assert run_result["policy_variant"] == "zero_action"
     assert run_result["status"] == "completed"
     assert set(run_result) == {"environment", "policy_variant", "status", "rebuilds"}
+
+
+@pytest.mark.with_subprocess
+def test_experiment_runner_replays_recorded_variation_samples(tmp_path):
+    """Record and replay variation samples through the typed Experiment Runner CLI."""
+    source_config_path = (
+        Path(TestConstants.arena_environments_dir) / "experiment_configs" / "variation_replay_e2e.yaml"
+    )
+    source_config = yaml.safe_load(source_config_path.read_text(encoding="utf-8"))
+    source_run = source_config["runs"]["variation_e2e"]
+    output_dir = tmp_path / "output"
+    record_results_path = output_dir / "variation_record" / "episode_results_rebuild0.jsonl"
+    replay_run = copy.deepcopy(source_run)
+    replay_run["environment_builder"]["recorded_variation_samples_path"] = str(record_results_path)
+    replay_run["environment_builder"]["seed"] = 123
+    experiment_config_path = tmp_path / "variation_replay_e2e.yaml"
+    experiment_config_path.write_text(
+        yaml.safe_dump({"runs": {"variation_record": source_run, "variation_replay": replay_run}}),
+        encoding="utf-8",
+    )
+
+    run_experiment_runner(
+        str(experiment_config_path),
+        config_option="--experiment_config",
+        extra_args=["--experiment_output_directory", str(output_dir)],
+    )
+
+    recorded = read_episode_records(record_results_path)
+    assert len(recorded) == 6
+    expected_variation_keys = {
+        "light.hdr_image",
+        "rubiks_cube_hot3d_robolab.disappear",
+        "droid_rel_joint_pos.camera_extrinsics_wrist_camera",
+    }
+    assert all(set(record["variations"]) == expected_variation_keys for record in recorded)
+
+    replay_results_path = output_dir / "variation_replay" / "episode_results_rebuild0.jsonl"
+    replayed = read_episode_records(replay_results_path)
+
+    assert len(replayed) == len(recorded)
+    assert sorted(record["replay_source_record_index"] for record in replayed) == list(range(len(recorded)))
+    for replay_record in replayed:
+        source_record = recorded[replay_record["replay_source_record_index"]]
+        assert replay_record["variations"] == source_record["variations"]
 
 
 @pytest.mark.with_subprocess

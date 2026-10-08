@@ -19,7 +19,6 @@ from isaaclab_arena.evaluation.policy_runner_cli import (
     build_policy_from_cli,
 )
 from isaaclab_arena.metrics.metrics_logger import metrics_to_plain_python_types
-from isaaclab_arena.recording.episode_results import read_episode_records
 from isaaclab_arena.utils.hydra_overrides import assert_hydra_overrides
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
 from isaaclab_arena.utils.multiprocess import get_local_rank, get_world_size
@@ -29,21 +28,8 @@ from isaaclab_arena.visualization.report import build_report, serve_until_ctrl_c
 from isaaclab_arena_environments.cli import get_arena_builder_from_cli, get_isaaclab_arena_environments_cli_parser
 
 if TYPE_CHECKING:
-    from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
     from isaaclab_arena.metrics.metric_data import MetricsDataCollection
     from isaaclab_arena.policy.policy_base import PolicyBase
-
-
-def resolve_replay_episode_budget(
-    builder_cfg: ArenaEnvBuilderCfg,
-    explicit_num_episodes: int | None,
-) -> int | None:
-    """Use an explicit episode budget or default to one exact pass."""
-    if builder_cfg.episode_conditions_path is None or explicit_num_episodes is not None:
-        return explicit_num_episodes
-    records = read_episode_records(builder_cfg.episode_conditions_path)
-    assert records, "Episode conditions must list at least one episode"
-    return len(records)
 
 
 def get_policy_cls(policy_type: str) -> type[PolicyBase]:
@@ -235,27 +221,20 @@ def main():
         policy = build_policy_from_cli(policy_cls, args_cli)
 
         # Simulation length.
-        num_steps = None
-        num_episodes = None
-        if arena_builder.cfg.episode_conditions_path is not None:
-            assert args_cli.num_steps is None, "episode_conditions_path replay does not support --num_steps"
-            num_episodes = resolve_replay_episode_budget(
-                arena_builder.cfg,
-                args_cli.num_episodes,
-            )
-            print(f"[Rank {local_rank}/{world_size}] Simulation length: {num_episodes} replay episodes")
-        elif policy.has_length():
+        if policy.has_length():
             num_steps = policy.length()
+            num_episodes = None
         else:
             if args_cli.num_steps is not None:
                 num_steps = args_cli.num_steps
+                num_episodes = None
                 print(f"[Rank {local_rank}/{world_size}] Simulation length: {num_steps} steps")
             elif args_cli.num_episodes is not None:
+                num_steps = None
                 num_episodes = args_cli.num_episodes
                 print(f"[Rank {local_rank}/{world_size}] Simulation length: {num_episodes} episodes")
-
-        if num_steps is None and num_episodes is None:
-            raise ValueError(f"[Rank {local_rank}/{world_size}] Either num_steps or num_episodes must be provided")
+            else:
+                raise ValueError(f"[Rank {local_rank}/{world_size}] Either num_steps or num_episodes must be provided")
 
         # Optionally wrap with the viewport/camera video recorders (both independent).
         env = wrap_env_for_video(env, video_cfg, num_steps, num_episodes)

@@ -35,6 +35,11 @@ class _Policy:
         return False
 
 
+class _FinitePolicy(_Policy):
+    def has_length(self):
+        return True
+
+
 class _EpisodeRecorder:
     def set_job_name(self, name):
         self.name = name
@@ -127,16 +132,16 @@ def test_build_and_run_splits_episode_budget_without_mutating_config(monkeypatch
 
 
 @pytest.mark.parametrize(("configured_episodes", "expected_episodes"), [(None, 3), (8, 8)])
-def test_build_and_run_resolves_condition_replay_budget(
+def test_build_and_run_resolves_variation_replay_budget(
     monkeypatch,
     tmp_path,
     configured_episodes,
     expected_episodes,
 ):
-    conditions_path = tmp_path / "conditions.jsonl"
-    conditions_path.write_text("\n".join(['{"variations": {}}'] * 3) + "\n")
+    variation_samples_path = tmp_path / "variation_samples.jsonl"
+    variation_samples_path.write_text("\n".join(['{"variations": {}}'] * 3) + "\n")
     run = _run(
-        environment_builder=ArenaEnvBuilderCfg(episode_conditions_path=str(conditions_path)),
+        environment_builder=ArenaEnvBuilderCfg(recorded_variation_samples_path=str(variation_samples_path)),
         rollout_limit=RolloutLimitCfg(num_episodes=configured_episodes),
         num_rebuilds=1,
     )
@@ -163,22 +168,33 @@ def test_build_and_run_resolves_condition_replay_budget(
         (RolloutLimitCfg(num_steps=2), 1, "num_steps is not supported"),
     ],
 )
-def test_build_and_run_rejects_invalid_condition_replay_limits(
+def test_build_and_run_rejects_invalid_variation_replay_limits(
     tmp_path,
     rollout_limit,
     num_rebuilds,
     message,
 ):
-    conditions_path = tmp_path / "conditions.jsonl"
-    conditions_path.write_text('{"variations": {}}\n')
+    variation_samples_path = tmp_path / "variation_samples.jsonl"
+    variation_samples_path.write_text('{"variations": {}}\n')
     run = _run(
-        environment_builder=ArenaEnvBuilderCfg(episode_conditions_path=str(conditions_path)),
+        environment_builder=ArenaEnvBuilderCfg(recorded_variation_samples_path=str(variation_samples_path)),
         rollout_limit=rollout_limit,
         num_rebuilds=num_rebuilds,
     )
 
     with pytest.raises(AssertionError, match=message):
         run_execution.build_and_run(run, output_dir=tmp_path)
+
+
+def test_recorded_variation_replay_rejects_finite_action_policy():
+    run = _run(
+        environment_builder=ArenaEnvBuilderCfg(recorded_variation_samples_path="unused.jsonl"),
+        rollout_limit=RolloutLimitCfg(num_episodes=1),
+        num_rebuilds=1,
+    )
+
+    with pytest.raises(AssertionError, match="finite-action policy"):
+        run_execution._resolve_rollout_limit(run, _FinitePolicy(), num_episodes=1)
 
 
 def test_seed_cfg_for_rebuild_offsets_seed_per_rebuild():

@@ -38,8 +38,8 @@ class ArenaEnvBuilderCfg:
     placement_layouts_path: str | None = None
     """Companion JSONL to replay instead of solving; relative to the working directory."""
 
-    episode_conditions_path: str | None = None
-    """Episode-result JSONL replay source; relative to the working directory."""
+    recorded_variation_samples_path: str | None = None
+    """Episode-result JSONL containing variation samples to replay; relative to the working directory."""
 
     def __post_init__(self) -> None:
         assert self.num_envs > 0, "num_envs must be greater than zero"

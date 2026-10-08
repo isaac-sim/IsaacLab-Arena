@@ -3,19 +3,19 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Bind recorded episode conditions to enabled variation samplers."""
+"""Bind recorded variation samples to enabled variation samplers."""
 
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from isaaclab_arena.variations.condition_scheduler import ConditionScheduler
 from isaaclab_arena.variations.recorded_variation_samples import (
     RebuildVariationRecord,
     load_rebuild_variation_record,
     validate_recorded_variation_sample_keys,
 )
 from isaaclab_arena.variations.variation_base import BuildTimeVariationBase, RunTimeVariationBase
+from isaaclab_arena.variations.variation_replay_scheduler import VariationReplayScheduler
 
 if TYPE_CHECKING:
     import torch
@@ -23,10 +23,10 @@ if TYPE_CHECKING:
     from isaaclab_arena.variations.variation_base import VariationBase
 
 
-def configure_condition_replay(
+def configure_recorded_variation_replay(
     path: str,
     variations: dict[str, list[VariationBase]],
-) -> ConditionScheduler:
+) -> VariationReplayScheduler:
     """Load recorded variation samples, bind replay samplers, and return their scheduler.
 
     Args:
@@ -43,13 +43,13 @@ def configure_condition_replay(
             key for key, variation in enabled.items() if isinstance(variation, BuildTimeVariationBase)
         },
     )
-    _validate_condition_replay_variations(enabled, variation_record)
-    scheduler = ConditionScheduler(variation_record)
-    _bind_condition_replay_samplers(enabled, variation_record, scheduler)
+    _validate_variation_replay(enabled, variation_record)
+    scheduler = VariationReplayScheduler(variation_record)
+    _bind_variation_replay_samplers(enabled, variation_record, scheduler)
     return scheduler
 
 
-def _validate_condition_replay_variations(
+def _validate_variation_replay(
     enabled: dict[str, VariationBase],
     variation_record: RebuildVariationRecord,
 ) -> None:
@@ -73,10 +73,10 @@ def _validate_condition_replay_variations(
             ), f"Run-time variation {variation_key!r} cannot appear in build-time samples."
 
 
-def _bind_condition_replay_samplers(
+def _bind_variation_replay_samplers(
     enabled: dict[str, VariationBase],
     variation_record: RebuildVariationRecord,
-    scheduler: ConditionScheduler,
+    scheduler: VariationReplayScheduler,
 ) -> None:
     """Replay recorded values while leaving absent enabled variations live-sampled."""
     for variation_key, variation in enabled.items():

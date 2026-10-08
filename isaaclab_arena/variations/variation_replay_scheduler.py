@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Global round-robin scheduler for replaying episode conditions across parallel env slots."""
+"""Global round-robin scheduler for replaying variation records across parallel env slots."""
 
 from __future__ import annotations
 
@@ -13,8 +13,13 @@ from typing import Any
 from isaaclab_arena.variations.recorded_variation_samples import EpisodeVariationRecord, RebuildVariationRecord
 
 
-class ConditionScheduler:
-    """Assign source sample records globally in file order, cycling when needed."""
+class VariationReplayScheduler:
+    """Assign recorded episode variation records to parallel environment ids during rollouts.
+
+    The scheduler tracks the next variation-record index and advances it whenever a newly started episode
+    receives an assignment. Each environment ID retains its assigned index until that episode completes;
+    assignment follows recorded JSONL order globally across environment ids and loops after the final record.
+    """
 
     def __init__(self, variation_record: RebuildVariationRecord) -> None:
         assert variation_record.num_recorded_episodes > 0, "Rebuild variation record must list at least one episode"
@@ -36,8 +41,9 @@ class ConditionScheduler:
         """Assign source records to envs that do not already have an active assignment."""
         for raw_env_id in env_ids:
             env_id = int(raw_env_id)
-            if env_id in self._source_record_index_by_env:
-                continue
+            assert env_id not in self._source_record_index_by_env, (
+                f"Environment {env_id} already has an active variation-record assignment."
+            )
             self._source_record_index_by_env[env_id] = (
                 self._next_occurrence_index % self._variation_record.num_recorded_episodes
             )

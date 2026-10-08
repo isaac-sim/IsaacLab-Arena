@@ -29,7 +29,7 @@ def record_core_episode_results(env, env_id: int) -> dict[str, Any]:
         "language_instruction": env.get_language_instruction(),
         "timestamp": datetime.datetime.now().isoformat(),
     }
-    scheduler = env.condition_scheduler
+    scheduler = env.variation_replay_scheduler
     if scheduler is not None:
         payload["replay_source_record_index"] = scheduler.source_record_index_for_env(env_id)
     return payload

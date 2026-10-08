@@ -14,12 +14,11 @@ import pytest
 
 from isaaclab_arena.variations.bernoulli_sampler import BernoulliSampler
 from isaaclab_arena.variations.choice_sampler import ChoiceSampler
-from isaaclab_arena.variations.condition_replay import (
-    _bind_condition_replay_samplers,
+from isaaclab_arena.variations.recorded_variation_replay import (
+    _bind_variation_replay_samplers,
     _enabled_variations_by_key,
-    _validate_condition_replay_variations,
+    _validate_variation_replay,
 )
-from isaaclab_arena.variations.condition_scheduler import ConditionScheduler
 from isaaclab_arena.variations.recorded_variation_samples import (
     EpisodeVariationRecord,
     RebuildVariationRecord,
@@ -28,6 +27,7 @@ from isaaclab_arena.variations.recorded_variation_samples import (
 )
 from isaaclab_arena.variations.uniform_sampler import UniformSamplerCfg
 from isaaclab_arena.variations.variation_base import BuildTimeVariationBase, RunTimeVariationBase, VariationBaseCfg
+from isaaclab_arena.variations.variation_replay_scheduler import VariationReplayScheduler
 
 
 def test_loader_splits_build_time_and_runtime(tmp_path: Path) -> None:
@@ -104,7 +104,7 @@ def test_duplicate_json_keys_are_rejected(tmp_path: Path) -> None:
 
 
 def test_loader_rejects_non_jsonl_input(tmp_path: Path) -> None:
-    path = tmp_path / "conditions.yaml"
+    path = tmp_path / "variation_samples.yaml"
     path.write_text("episodes: []\n")
 
     with pytest.raises(AssertionError, match="must be loaded from JSONL"):
@@ -171,11 +171,10 @@ def test_replay_samplers_preserve_public_preconditions() -> None:
         choice.sample(1, choices=["live"])
 
 
-def test_condition_scheduler_cycles_globally_across_partial_resets() -> None:
-    scheduler = ConditionScheduler(_runtime_record([0, 1, 2]))
+def test_variation_replay_scheduler_cycles_globally_across_partial_resets() -> None:
+    scheduler = VariationReplayScheduler(_runtime_record([0, 1, 2]))
     observed_values: list[int] = []
 
-    scheduler.assign_new_episodes([0, 1])
     scheduler.assign_new_episodes([0, 1])
     assert scheduler.num_assignments_started == 2
     observed_values.extend([
@@ -191,7 +190,7 @@ def test_condition_scheduler_cycles_globally_across_partial_resets() -> None:
     assert scheduler.num_assignments_started == 8
 
 
-def test_condition_replay_replays_present_variation_and_samples_absent_live() -> None:
+def test_variation_replay_replays_present_variation_and_samples_absent_live() -> None:
     replayed = _RunTimeTestVariation("replayed", live_value=9.0)
     live = _RunTimeTestVariation("live", live_value=7.0)
     variation_record = RebuildVariationRecord(
@@ -201,10 +200,10 @@ def test_condition_replay_replays_present_variation_and_samples_absent_live() ->
             EpisodeVariationRecord(runtime_samples={"asset.replayed": [0.2]}),
         ],
     )
-    scheduler = ConditionScheduler(variation_record)
+    scheduler = VariationReplayScheduler(variation_record)
     scheduler.assign_new_episodes([0, 1])
 
-    _bind_condition_replay_samplers(
+    _bind_variation_replay_samplers(
         _enabled_variations_by_key({"asset": [replayed, live]}),
         variation_record,
         scheduler,
@@ -220,7 +219,7 @@ def test_condition_replay_replays_present_variation_and_samples_absent_live() ->
     )
 
 
-def test_condition_replay_rejects_mixed_runtime_presence() -> None:
+def test_variation_replay_rejects_mixed_runtime_presence() -> None:
     variation = _RunTimeTestVariation("offset", live_value=0.0)
     variation_record = RebuildVariationRecord(
         build_time_samples={},
@@ -231,14 +230,14 @@ def test_condition_replay_rejects_mixed_runtime_presence() -> None:
     )
 
     with pytest.raises(AssertionError, match="present in every source record or none"):
-        _validate_condition_replay_variations(
+        _validate_variation_replay(
             _enabled_variations_by_key({"asset": [variation]}),
             variation_record,
         )
 
 
 @pytest.mark.parametrize("recorded_at_runtime", [False, True])
-def test_condition_replay_rejects_wrong_variation_lifecycle(recorded_at_runtime: bool) -> None:
+def test_variation_replay_rejects_wrong_variation_lifecycle(recorded_at_runtime: bool) -> None:
     variation: BuildTimeVariationBase | RunTimeVariationBase
     if recorded_at_runtime:
         variation = _BuildTimeTestVariation("value", live_value=0.0)
@@ -254,7 +253,7 @@ def test_condition_replay_rejects_wrong_variation_lifecycle(recorded_at_runtime:
         )
 
     with pytest.raises(AssertionError, match="cannot appear"):
-        _validate_condition_replay_variations(
+        _validate_variation_replay(
             _enabled_variations_by_key({"asset": [variation]}),
             variation_record,
         )

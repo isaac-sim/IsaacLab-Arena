@@ -59,7 +59,7 @@ from isaaclab_arena.utils.isaaclab_utils.warp_patch import install_empty_cpu_war
 from isaaclab_arena.utils.multiprocess import get_local_rank
 from isaaclab_arena.utils.physics_backend import PhysicsBackend
 from isaaclab_arena.variations import variations_hydra, variations_printing
-from isaaclab_arena.variations.condition_replay import configure_condition_replay
+from isaaclab_arena.variations.recorded_variation_replay import configure_recorded_variation_replay
 from isaaclab_arena.variations.variation_base import RunTimeVariationBase, VariationBase
 from isaaclab_arena.variations.variation_recorder import VariationRecorder
 
@@ -310,9 +310,9 @@ class ArenaEnvBuilder:
         if self.hydra_overrides:
             variations_hydra.apply_overrides(variations, self.hydra_overrides)
 
-        condition_scheduler = (
-            configure_condition_replay(self.cfg.episode_conditions_path, variations)
-            if self.cfg.episode_conditions_path is not None
+        variation_replay_scheduler = (
+            configure_recorded_variation_replay(self.cfg.recorded_variation_samples_path, variations)
+            if self.cfg.recorded_variation_samples_path is not None
             else None
         )
 
@@ -541,7 +541,7 @@ class ArenaEnvBuilder:
 
         env_kwargs: dict[str, Any] = {
             "variation_recorder": variation_recorder,
-            "condition_scheduler": condition_scheduler,
+            "variation_replay_scheduler": variation_replay_scheduler,
         }
         return env_cfg, env_kwargs
 
