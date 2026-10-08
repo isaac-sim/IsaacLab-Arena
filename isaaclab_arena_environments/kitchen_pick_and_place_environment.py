@@ -33,7 +33,7 @@ class KitchenPickAndPlaceEnvironment(ArenaEnvironmentFactory[KitchenPickAndPlace
 
     def build(self, cfg: KitchenPickAndPlaceEnvironmentCfg) -> IsaacLabArenaEnvironment:
         """Build the environment from its typed configuration."""
-        from isaaclab_arena.assets.object import Object
+        from isaaclab_arena.assets.object_choice import ObjectChoice
         from isaaclab_arena.assets.object_reference import ObjectReference
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
         from isaaclab_arena.relations.relations import AtPosition, IsAnchor, On
@@ -53,11 +53,11 @@ class KitchenPickAndPlaceEnvironment(ArenaEnvironmentFactory[KitchenPickAndPlace
         # Validate mutually exclusive object arguments
         has_object_variants = cfg.object_variants is not None and len(cfg.object_variants) > 0
 
-        # Create the pick-up object: Either a single object or a set of objects
+        # Use one fixed object or choose an object for each environment.
         if has_object_variants:
             assert cfg.object_variants is not None
             objects = [self.asset_registry.get_asset_by_name(obj)() for obj in cfg.object_variants]
-            pick_up_object = Object(name="pick_up_object", variants=objects)
+            pick_up_object = ObjectChoice(name="pick_up_object", objects=objects)
         else:
             pick_up_object = self.asset_registry.get_asset_by_name(cfg.object)()
         pick_up_object.add_relation(On(table_top_reference, clearance_m=0.02))

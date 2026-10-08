@@ -55,7 +55,7 @@ class GR1PutAndCloseDoorEnvironment(ArenaEnvironmentFactory[GR1PutAndCloseDoorEn
         from isaaclab.sensors import CameraCfg
         from isaaclab.utils.configclass import configclass
 
-        from isaaclab_arena.assets.object import Object
+        from isaaclab_arena.assets.object_choice import ObjectChoice
         from isaaclab_arena.assets.object_reference import ObjectReference, OpenableObjectReference
         from isaaclab_arena.embodiments.common.arm_mode import ArmMode
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
@@ -175,7 +175,7 @@ class GR1PutAndCloseDoorEnvironment(ArenaEnvironmentFactory[GR1PutAndCloseDoorEn
 
         if cfg.object_variants is not None and len(cfg.object_variants) > 0:
             objects = [self.asset_registry.get_asset_by_name(obj)() for obj in cfg.object_variants]
-            pickup_object = Object(name="pick_up_object", variants=objects)
+            pickup_object = ObjectChoice(name="pick_up_object", objects=objects)
         else:
             pickup_object = self.asset_registry.get_asset_by_name(cfg.object)()
 

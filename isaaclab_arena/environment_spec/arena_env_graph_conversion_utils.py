@@ -9,7 +9,7 @@ from functools import partial
 from typing import TYPE_CHECKING, Any
 
 from isaaclab_arena.assets.asset import Asset
-from isaaclab_arena.assets.object import Object
+from isaaclab_arena.assets.object_choice import ObjectChoice
 from isaaclab_arena.assets.object_reference import (
     ObjectReference,
     OpenableObjectReference,
@@ -188,14 +188,14 @@ def instantiate_assets_from_spec(
             params.setdefault("instance_name", obj.id)
             assets_by_node_id[obj.id] = asset_registry.get_asset_by_name(obj.registry_name)(**params)
         else:
-            variants = []
+            objects = []
             for variant in obj.variants:
                 member = asset_registry.get_asset_by_name(variant.registry_name)(**parse_asset_params(variant.params))
-                variants.append(member)
-            assets_by_node_id[obj.id] = Object(
+                objects.append(member)
+            assets_by_node_id[obj.id] = ObjectChoice(
                 name=obj.id,
-                variants=variants,
-                assign_variants_to_environments=obj.assign_variants_to_environments,
+                objects=objects,
+                assign_to_environments=obj.assign_to_environments,
                 **params,
             )
 

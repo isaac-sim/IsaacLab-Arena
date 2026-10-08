@@ -1,13 +1,13 @@
-Object Variants
-===============
+Object Choices
+==============
 
-An ``Object`` names one role in a scene. It can use one fixed asset or a list of
-rigid variants, with one variant spawned in each parallel environment. Relations,
-tasks, and contact sensors address the same object role in either case.
+An ``Object`` uses the same asset in every parallel environment. An
+``ObjectChoice`` selects one of several rigid objects for each environment.
+Relations, tasks, and contact sensors address the named scene entry in either case.
 
-For example, a pick-and-place task can use a ``fruit`` object whose variants are a
-banana, orange, and lemon. Each environment manipulates one fruit, while the task
-and placement relations are defined once.
+For example, a pick-and-place task can use an ``ObjectChoice`` named ``fruit``
+that selects among a banana, orange, and lemon. Each environment manipulates
+one fruit, while the task and placement relations are defined once.
 
 Declare the alternatives
 -------------------------
@@ -25,23 +25,24 @@ Declare the alternatives
              instance_name="fruit"
          )
 
-      For alternatives, pass library assets to ``variants``. ``Object`` copies
-      their native spawn settings, including scale and physics. Their scene names,
-      initial poses, and relations are not copied; these belong to ``fruit``.
+      For alternatives, pass library objects to ``ObjectChoice(objects=...)``.
+      It copies their native spawn settings, including scale and physics. Their
+      scene names, initial poses, and relations are not copied; these belong to
+      ``fruit``.
 
       .. code-block:: python
 
-         from isaaclab_arena.assets.object import Object
+         from isaaclab_arena.assets.object_choice import ObjectChoice
          from isaaclab_arena.relations.relations import On
          from isaaclab_arena.scene.scene import Scene
          from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
 
          banana = asset_registry.get_asset_by_name("banana_ycb_robolab")()
          orange = asset_registry.get_asset_by_name("orange_01_fruits_veggies_robolab")()
-         fruit = Object(
+         fruit = ObjectChoice(
              name="fruit",
-             variants=[banana, orange],
-             assign_variants_to_environments="sequential",
+             objects=[banana, orange],
+             assign_to_environments="sequential",
          )
          fruit.add_relation(On(table_reference))
 
@@ -52,15 +53,17 @@ Declare the alternatives
              background_scene=background,
          )
 
-      A single variant behaves like an ordinary object: each environment gets
-      its own instance of the same asset. Advanced callers can also pass native
-      Isaac Lab spawner configurations directly in ``variants``.
+      A choice containing one object gives each environment its own instance of
+      that asset. Use the library object directly when no choice is needed.
+      Advanced callers can also pass native Isaac Lab spawner configurations
+      directly in ``objects``.
 
    .. tab-item:: YAML
 
-      Every object appears under ``objects``. Use either ``registry_name`` for a
-      fixed asset or ``variants`` for alternatives. Each variant accepts its own
-      constructor parameters, including a SimReady ``usd_path`` or scale:
+      Both classes are declared under ``objects``. ``registry_name`` creates an
+      ordinary ``Object``; ``variants`` creates an ``ObjectChoice``. Each variant
+      accepts its own constructor parameters, including a SimReady ``usd_path``
+      or scale:
 
       .. code-block:: yaml
 
@@ -76,7 +79,7 @@ Declare the alternatives
            - registry_name: simready_usd_object
              params:
                usd_path: /datasets/lemon.usd
-           assign_variants_to_environments: sequential
+           assign_to_environments: sequential
          relations:
          - kind: 'on'
            subject: fruit
@@ -100,15 +103,15 @@ Assign variants to environments
 
 ``ArenaEnvBuilder`` assigns variants once during environment construction, before
 placement, and passes that same assignment to Isaac Lab's native scene clone planning.
-``assign_variants_to_environments="sequential"`` is the default: it cycles through
+``assign_to_environments="sequential"`` is the default: it cycles through
 the declared order, such as banana, orange, banana, orange.
-``assign_variants_to_environments="random"`` samples each environment independently,
+``assign_to_environments="random"`` samples each environment independently,
 so repeats are possible. To reproduce random choices, assignment uses the
 builder's ``placement_seed``, then ``arena_env.placer_params.placement_seed``
 when the builder value is unset, and finally the builder's ``seed``.
 The assignment remains fixed across resets, even when the layout changes.
 
-This setting applies to each ``Object`` independently. Isaac Lab's scene-level
+This setting applies to each ``ObjectChoice`` independently. Isaac Lab's scene-level
 ``clone_strategy`` instead assigns combinations of variants across the scene.
 
 Assignments are stored as data in the environment configuration, so Isaac Lab's
@@ -133,12 +136,12 @@ establish the assignment first:
 Native spawning and asset preparation
 ---------------------------------------
 
-``Object`` converts library assets passed in ``variants`` to copies of their native
-spawn configurations. Multiple alternatives are stored in Isaac Lab's
-``MultiAssetSpawnerCfg`` and are available through ``object.spawn_cfg.assets_cfg``.
+``ObjectChoice`` copies the native spawn configurations passed in ``objects``.
+Multiple alternatives are stored in Isaac Lab's ``MultiAssetSpawnerCfg`` and are
+available through ``fruit.spawn_cfg.assets_cfg``.
 A single alternative uses its concrete native configuration directly as
-``object.spawn_cfg``.
-After assignment, ``object.variant_indices_by_env`` identifies the selected
+``fruit.spawn_cfg``.
+After assignment, ``fruit.variant_indices_by_env`` identifies the selected
 configuration for each environment.
 
 Each variant's scale stays in its native spawn configuration; scale differences
@@ -155,12 +158,12 @@ Constraints
 ------------
 
 - Alternatives must be rigid objects with exactly one rigid body each.
-  Articulations, empty variant lists, and nested alternatives are rejected.
-- Variant selection is fixed for the scene's lifetime. Construct a new object
-  for a different assignment or environment count.
-- Use ``get_bounding_box_per_env()`` for an object with multiple variants.
-  ``get_bounding_box()`` requires a single concrete variant; it does not choose
-  an arbitrary representative.
+  Articulations, empty choices, and nested ``ObjectChoice`` entries are rejected.
+- With multiple alternatives, selection is fixed for the scene's lifetime.
+  Construct a new ``ObjectChoice`` for a different assignment or environment count.
+- Use ``get_bounding_box_per_env()`` for an ``ObjectChoice`` with multiple
+  alternatives. ``get_bounding_box()`` requires a single concrete variant; it
+  does not choose an arbitrary representative.
 - Placement uses per-environment axis-aligned bounding boxes for heterogeneous
   objects, including when mesh collision mode is selected. Per-variant mesh
   placement is not supported; simulation still uses each variant's configured

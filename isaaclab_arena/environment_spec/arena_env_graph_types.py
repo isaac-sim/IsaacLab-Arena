@@ -95,7 +95,7 @@ class AssetSpec(BaseModel):
 
 
 class ObjectVariantSpec(BaseModel):
-    """One registered rigid asset and its constructor parameters for an object role."""
+    """One registered rigid Object and its constructor parameters in an ObjectChoice."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -118,17 +118,19 @@ class ObjectVariantSpec(BaseModel):
 
 
 class ObjectSpec(AssetSpec):
-    """One scene object with either a registered asset or rigid alternatives across environments."""
+    """Declare a registered Object or an ObjectChoice using its rigid variants."""
 
     model_config = ConfigDict(extra="forbid")
 
-    registry_name: str | None = Field(default=None, min_length=1, description="Registered asset for a fixed object.")
+    registry_name: str | None = Field(
+        default=None, min_length=1, description="Registered asset instanced in every environment."
+    )
     variants: list[ObjectVariantSpec] | None = Field(
         default=None,
         min_length=1,
-        description="Rigid alternatives for this object role; every environment spawns one of them.",
+        description="Registered rigid Objects for an ObjectChoice; every environment spawns one of them.",
     )
-    assign_variants_to_environments: Literal["sequential", "random"] = Field(
+    assign_to_environments: Literal["sequential", "random"] = Field(
         default="sequential",
         description=(
             "Assign one variant per environment during construction: sequential repeats their declared order; "
@@ -147,11 +149,11 @@ class ObjectSpec(AssetSpec):
             self.variants is None
         ), "Object must define exactly one of registry_name or variants"
         assert (
-            self.variants is not None or self.assign_variants_to_environments == "sequential"
+            self.variants is not None or self.assign_to_environments == "sequential"
         ), "Random assignment requires object variants"
-        reserved = {"variants", "assign_variants_to_environments"}
+        reserved = {"variants", "assign_to_environments"}
         if self.variants is not None:
-            reserved.update({"name", "instance_name", "object_type", "usd_path", "spawner_cfg"})
+            reserved.update({"name", "instance_name", "objects", "object_type", "usd_path", "spawner_cfg"})
         duplicate_params = sorted(reserved & self.params.keys())
         assert (
             not duplicate_params

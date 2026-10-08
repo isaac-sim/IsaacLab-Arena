@@ -18,7 +18,7 @@ HEADLESS = True
 
 def _test_object_variants_on_destination_termination(simulation_app) -> bool:
 
-    from isaaclab_arena.assets.object import Object
+    from isaaclab_arena.assets.object_choice import ObjectChoice
     from isaaclab_arena.assets.object_reference import ObjectReference
     from isaaclab_arena.assets.registries import AssetRegistry
     from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
@@ -45,9 +45,9 @@ def _test_object_variants_on_destination_termination(simulation_app) -> bool:
         parent_asset=background,
     )
 
-    object_variants = Object(
+    object_variants = ObjectChoice(
         name="object_variants",
-        variants=[sweet_potato, jug],
+        objects=[sweet_potato, jug],
     )
     object_variants.set_initial_pose(
         Pose(

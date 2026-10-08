@@ -358,8 +358,8 @@ in ``params`` → ``OpenableObjectReference`` (and ``object_type: articulation``
 otherwise → ``ObjectReference``. Python: you pick. Use the plain class for a door
 and you get a door with nothing to open.
 
-**Object variants.** An entry under ``objects`` defines either ``registry_name``
-for one fixed asset or ``variants`` for alternatives across environments. Each
+**Object choices.** An entry under ``objects`` defines either ``registry_name``
+for one fixed asset or ``variants`` for an ``ObjectChoice`` across environments. Each
 variant accepts its own ``params``, including a SimReady ``usd_path`` or scale:
 
 .. code-block:: yaml
@@ -371,16 +371,18 @@ variant accepts its own ``params``, including a SimReady ``usd_path`` or scale:
        params:
          usd_path: /datasets/bottle.usd
      - registry_name: ketchup_bottle_hope_robolab
-     assign_variants_to_environments: sequential
+     assign_to_environments: sequential
 
 The equivalent Python declaration takes library assets directly:
 
 .. code-block:: python
 
-   Object(
+   from isaaclab_arena.assets.object_choice import ObjectChoice
+
+   ObjectChoice(
        name="bottle",
-       variants=[simready_bottle, ycb_bottle],
-       assign_variants_to_environments="sequential",
+       objects=[simready_bottle, ycb_bottle],
+       assign_to_environments="sequential",
    )
 
 Relations and tasks reference the object role's ``id`` regardless of which variant

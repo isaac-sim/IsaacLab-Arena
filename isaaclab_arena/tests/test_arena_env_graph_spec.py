@@ -256,7 +256,7 @@ def test_graph_spec_loads_object_variants_yaml():
         "sweet_potato",
         "jug",
     ]
-    assert varied_object.assign_variants_to_environments == "random"
+    assert varied_object.assign_to_environments == "random"
     assert varied_object.params == {}
 
     on_relation = next(relation for relation in spec.relations if relation.subject == varied_object.id)
@@ -319,8 +319,16 @@ def test_graph_spec_rejects_duplicate_object_role_id():
         (
             {
                 "id": "fruit",
+                "variants": [{"registry_name": "sweet_potato"}],
+                "params": {"objects": []},
+            },
+            "params must not set",
+        ),
+        (
+            {
+                "id": "fruit",
                 "registry_name": "sweet_potato",
-                "assign_variants_to_environments": "random",
+                "assign_to_environments": "random",
             },
             "requires object variants",
         ),
@@ -328,7 +336,7 @@ def test_graph_spec_rejects_duplicate_object_role_id():
             {
                 "id": "fruit",
                 "variants": [{"registry_name": "sweet_potato"}],
-                "assign_variants_to_environments": "cycle_in_order",
+                "assign_to_environments": "cycle_in_order",
             },
             "Input should be 'sequential' or 'random'",
         ),
@@ -336,7 +344,7 @@ def test_graph_spec_rejects_duplicate_object_role_id():
             {
                 "id": "fruit",
                 "variants": [{"registry_name": "sweet_potato"}],
-                "params": {"assign_variants_to_environments": "random"},
+                "params": {"assign_to_environments": "random"},
             },
             "params must not set",
         ),
@@ -374,7 +382,7 @@ def test_graph_spec_preserves_individual_variant_params():
     })
     spec = ArenaEnvGraphSpec.from_dict(data)
     varied_object = spec.objects[-1]
-    assert varied_object.assign_variants_to_environments == "sequential"
+    assert varied_object.assign_to_environments == "sequential"
     assert varied_object.variants[0].params["scale"] == [0.5, 0.5, 0.5]
     assert varied_object.variants[1].params["scale"] == [2.0, 2.0, 2.0]
     assert ArenaEnvGraphSpec.from_dict(spec.to_dict()) == spec

@@ -858,16 +858,16 @@ def test_pooled_placer_per_env_pools_advance_in_complete_rounds():
 
 
 def test_object_variants_through_pooled_placer():
-    """Placement uses actual Object variant geometry without dispatch patches."""
+    """Placement uses actual ObjectChoice geometry without dispatch patches."""
     from isaaclab.sim import CuboidCfg
 
-    from isaaclab_arena.assets.object import Object
+    from isaaclab_arena.assets.object_choice import ObjectChoice
     from isaaclab_arena.relations.bounding_box_helpers import has_heterogeneous_objects
     from isaaclab_arena.scene.object_variant_assignment import assign_object_variants
 
     desk = _make_desk()
     sizes = ((0.1, 0.1, 0.15), (0.15, 0.15, 0.2))
-    pickup = Object(name="pickup", variants=[CuboidCfg(size=size) for size in sizes])
+    pickup = ObjectChoice(name="pickup", objects=[CuboidCfg(size=size) for size in sizes])
     pickup.add_relation(On(desk, clearance_m=0.01))
     num_envs = 4
     assign_object_variants([pickup], num_envs, seed=42)

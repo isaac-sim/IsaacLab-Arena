@@ -25,7 +25,7 @@ VARIANT_OBJECT_2_PRIM_PATH = "/World/envs/env_.*/ObjectVariants_2"
 def _test_single_variant_object(simulation_app):
     from isaaclab.sim.utils.stage import get_current_stage
 
-    from isaaclab_arena.assets.object import Object
+    from isaaclab_arena.assets.object_choice import ObjectChoice
     from isaaclab_arena.assets.object_reference import ObjectReference
     from isaaclab_arena.assets.registries import AssetRegistry
     from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
@@ -45,7 +45,9 @@ def _test_single_variant_object(simulation_app):
         prim_path="{ENV_REGEX_NS}/kitchen/Cabinet_B_02",
         parent_asset=background,
     )
-    varied_object = Object(name="single_object_variants", variants=[cracker_box], prim_path=VARIANT_OBJECT_1_PRIM_PATH)
+    varied_object = ObjectChoice(
+        name="single_object_variants", objects=[cracker_box], prim_path=VARIANT_OBJECT_1_PRIM_PATH
+    )
     varied_object.set_initial_pose(Pose(position_xyz=(0.1, 0.0, 0.1), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
     scene = Scene(assets=[background, varied_object, destination_location])
     task = PickAndPlaceTask(
@@ -90,7 +92,7 @@ def _test_single_variant_object(simulation_app):
 def _test_object_variants_across_environments(simulation_app):
     from isaaclab.sim.utils.stage import get_current_stage
 
-    from isaaclab_arena.assets.object import Object
+    from isaaclab_arena.assets.object_choice import ObjectChoice
     from isaaclab_arena.assets.object_reference import ObjectReference
     from isaaclab_arena.assets.registries import AssetRegistry
     from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
@@ -110,9 +112,9 @@ def _test_object_variants_across_environments(simulation_app):
         prim_path="{ENV_REGEX_NS}/kitchen/Cabinet_B_02",
         parent_asset=background,
     )
-    varied_object = Object(
+    varied_object = ObjectChoice(
         name="multiple_objects_with_variants",
-        variants=[cracker_box, sugar_box],
+        objects=[cracker_box, sugar_box],
         prim_path=VARIANT_OBJECT_2_PRIM_PATH,
     )
     scene = Scene(assets=[background, varied_object, destination_location])
@@ -166,7 +168,7 @@ def _test_object_variants_across_environments(simulation_app):
 def _test_multiple_objects_with_variants(simulation_app):
     from isaaclab.sim.utils.stage import get_current_stage
 
-    from isaaclab_arena.assets.object import Object
+    from isaaclab_arena.assets.object_choice import ObjectChoice
     from isaaclab_arena.assets.registries import AssetRegistry
     from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
@@ -181,14 +183,14 @@ def _test_multiple_objects_with_variants(simulation_app):
     sugar_box = asset_registry.get_asset_by_name("sugar_box")()
     mustard_bottle = asset_registry.get_asset_by_name("mustard_bottle")()
 
-    first_object = Object(
+    first_object = ObjectChoice(
         name="multiple_objects_with_variants_1",
-        variants=[cracker_box, sugar_box],
+        objects=[cracker_box, sugar_box],
         prim_path=VARIANT_OBJECT_1_PRIM_PATH,
     )
-    second_object = Object(
+    second_object = ObjectChoice(
         name="multiple_objects_with_variants_2",
-        variants=[sugar_box, mustard_bottle],
+        objects=[sugar_box, mustard_bottle],
         prim_path=VARIANT_OBJECT_2_PRIM_PATH,
     )
     scene = Scene(assets=[background, first_object, second_object])
@@ -250,7 +252,7 @@ def _test_object_variants_with_robot_mounted_cameras(simulation_app) -> bool:
     inside the robot's, and resolving them used to raise. Needs more than one env; a single
     env takes the homogeneous fast path and never builds the nested templates.
     """
-    from isaaclab_arena.assets.object import Object
+    from isaaclab_arena.assets.object_choice import ObjectChoice
     from isaaclab_arena.assets.registries import AssetRegistry
     from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
     from isaaclab_arena.embodiments.droid.droid import DroidAbsoluteJointPositionEmbodiment
@@ -268,7 +270,7 @@ def _test_object_variants_with_robot_mounted_cameras(simulation_app) -> bool:
     sweet_potato = asset_registry.get_asset_by_name("sweet_potato")()
     jug = asset_registry.get_asset_by_name("jug")()
 
-    object_variants = Object(name="object_variants", variants=[sweet_potato, jug])
+    object_variants = ObjectChoice(name="object_variants", objects=[sweet_potato, jug])
     object_variants.set_initial_pose(
         Pose(position_xyz=(0.0758066475391388, -0.5088448524475098, 0.5), rotation_xyzw=(0, 0, 0, 1))
     )

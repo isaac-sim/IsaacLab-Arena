@@ -21,8 +21,8 @@ without touching the task or embodiment.
    )
 
 Assets are loaded from the asset registry by name. An asset can be a
-background or an object, which can have
-:doc:`variants across environments <./concept_object_variants>`. Assets can also carry affordances
+background or an object. An :doc:`ObjectChoice <./concept_object_variants>`
+selects among different objects across environments. Assets can also carry affordances
 (e.g. ``Openable``, ``Placeable``) that describe how they can be interacted
 with, which is what allows tasks to work with any compatible object.
 

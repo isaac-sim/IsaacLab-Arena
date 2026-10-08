@@ -23,7 +23,7 @@ def _assert_scene_state_equal(actual, expected):
 def _test_settling_rejects_object_variants_before_reset(simulation_app, tmp_path):
     from unittest.mock import patch
 
-    from isaaclab_arena.assets.object import Object
+    from isaaclab_arena.assets.object_choice import ObjectChoice
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
     from isaaclab_arena.offline_placement.settled_placement import collect_settled_placements
@@ -32,7 +32,7 @@ def _test_settling_rejects_object_variants_before_reset(simulation_app, tmp_path
     arena_env = _make_primitive_clutter_scene(tmp_path)
     assets = arena_env.get_placement_assets()
     cube = next(asset for asset in assets if get_relation(asset, ClutterOn) is not None)
-    variants = Object("cube_variants", variants=[cube, cube])
+    variants = ObjectChoice("cube_variants", objects=[cube, cube])
     env = ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg(num_envs=1)).make_registered()
     try:
         with patch.object(env.unwrapped, "reset", side_effect=AssertionError("must reject before resetting")):

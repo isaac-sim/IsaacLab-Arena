@@ -8,7 +8,7 @@ the layouts are identical:
   environment. Its solved pose can still differ between environments and
   resets.
 - **Heterogeneous placement** uses a
-  :doc:`list of variants <../scene/concept_object_variants>` for an ``Object``. Each
+  :doc:`choice of objects <../scene/concept_object_variants>` through ``ObjectChoice``. Each
   environment receives one variant, so object geometry can differ
   across environments.
 
@@ -28,13 +28,13 @@ Implementation Differences
      - Heterogeneous objects
    * - Environment definition
      - Add a registered ``Object`` directly.
-     - Add an ``Object`` whose variants describe the assets that can fill the role.
+     - Add an ``ObjectChoice`` listing the objects that can fill the role.
    * - Per-environment assignment
      - The environment clones one ``Object`` definition, so the same USD fills
        the role in every environment.
      - Arena selects one variant for each environment at build time, after
        the environment count is known and before assets are spawned.
-       ``assign_variants_to_environments="sequential"`` repeats the declared order;
+       ``assign_to_environments="sequential"`` repeats the declared order;
        ``"random"`` samples independently.
    * - Dimensions used by spatial relations
      - Arena broadcasts the object's bounding box to every environment.
@@ -88,7 +88,7 @@ Run the same registered environment configuration shown in the animation:
 Heterogeneous Example
 ---------------------
 
-The same registered environment uses five objects with variants in heterogeneous
+The same registered environment uses five ``ObjectChoice`` entries in heterogeneous
 mode: a fruit, bottle, can, tool, and box for each environment. The solver uses
 every selected variant's dimensions.
 
@@ -103,9 +103,11 @@ uses:
 
 .. code-block:: python
 
+   from isaaclab_arena.assets.object_choice import ObjectChoice
+
    for role_name, variant_names in HETEROGENEOUS_VARIANT_SETS.items():
        assets = self._build_registered_objects(variant_names)
-       obj = Object(name=role_name, variants=assets)
+       obj = ObjectChoice(name=role_name, objects=assets)
        obj.add_relation(On(table_reference))
        placeable_assets.append(obj)
 

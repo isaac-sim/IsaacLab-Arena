@@ -5,7 +5,7 @@ Review the spec before building the environment. The agent infers it from the pr
 LLM, so what comes back is non-deterministic: the same prompt can return a different spec on
 the next run, and a spec that validates can still be mistaken in its choices. See
 :doc:`../../../concepts/agentic_environment_generation/model_selection` for more details.
-For an object with variants, check that the alternatives match the assets you intended.
+For an ``ObjectChoice``, check that the alternatives match the assets you intended.
 
 Understanding the YAML
 ^^^^^^^^^^^^^^^^^^^^^^
@@ -39,7 +39,7 @@ The generated spec has one block per part of the environment graph:
      - registry_name: orange_02_fruits_veggies_robolab
      - registry_name: pomegranate01_fruits_veggies_robolab
      - registry_name: lychee01_fruits_veggies_robolab
-     assign_variants_to_environments: random  # each env samples independently
+     assign_to_environments: random  # each env samples independently
      params: {}
    relations:                        # spatial constraints solved at build time
    - kind: is_anchor
@@ -64,7 +64,7 @@ The generated spec has one block per part of the environment graph:
          destination_location: bowl
          background_scene: maple_table
 
-An object with variants is referenced by its ``id`` in the
+An ``ObjectChoice`` is referenced by its ``id`` in the
 ``relations`` that place it and in the ``task`` params that name the target. The
 rest of the graph is written once and stays valid whichever variant an
 environment spawns.
@@ -76,8 +76,8 @@ Editing object variants
 ^^^^^^^^^^^^^^^^^^^^^^^
 
 Widening or narrowing the variation is a one-block edit — ``variants`` and
-``assign_variants_to_environments`` — that leaves the relations and the task
-untouched. For the asset concept behind object variants, see
+``assign_to_environments`` — that leaves the relations and the task
+untouched. For the ``ObjectChoice`` concept, see
 :doc:`../../../concepts/scene/concept_object_variants`.
 
 #. Add or remove a variant to change which assets the environments draw from.
@@ -89,16 +89,16 @@ untouched. For the asset concept behind object variants, see
         variants:
         - registry_name: apple_01_objaverse_robolab
         - registry_name: banana_ycb_robolab
-        assign_variants_to_environments: random
+        assign_to_environments: random
         params: {}
 
-#. Set ``assign_variants_to_environments`` to choose how variants map to environments.
+#. Set ``assign_to_environments`` to choose how variants map to environments.
    ``random`` samples independently, with possible repeats; ``sequential`` cycles
    through the declared order. Assignment stays fixed across resets.
 
    .. code-block:: yaml
 
-      assign_variants_to_environments: sequential
+      assign_to_environments: sequential
 
 
 .. note::

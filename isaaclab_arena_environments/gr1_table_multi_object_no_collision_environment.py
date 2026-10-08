@@ -52,8 +52,7 @@ DEFAULT_TABLE_OBJECTS = [
 # are needed in the near future.
 
 # -- Heterogeneous mode default object variants ------------------------------
-# Each entry is a multi-variant Object — each env gets a different
-# variant.
+# Each entry creates an ObjectChoice that selects one object per environment.
 HETERO_VARIANT_SETS = {
     "bottles": [
         "mustard_bottle_hope_robolab",
@@ -224,9 +223,9 @@ class GR1TableMultiObjectNoCollisionEnvironment(ArenaEnvironmentFactory[GR1Table
 
         When --objects is provided, each object is placed directly (no per-env variance).
         Otherwise, uses HETERO_FIXED_OBJECTS (pinned fruits) + HETERO_VARIANT_SETS
-        (multi-variant sets).
+        (one choice of object for each scene role).
         """
-        from isaaclab_arena.assets.object import Object
+        from isaaclab_arena.assets.object_choice import ObjectChoice
         from isaaclab_arena.relations.relations import AtPosition, On
 
         # TODO(@zhx06): Address residual object bouncing with xy-only no-collision
@@ -245,10 +244,10 @@ class GR1TableMultiObjectNoCollisionEnvironment(ArenaEnvironmentFactory[GR1Table
                 obj.add_relation(AtPosition(x=x, y=y))
                 placeable_assets.append(obj)
 
-            for set_name, variant_names in HETERO_VARIANT_SETS.items():
-                members = [self.asset_registry.get_asset_by_name(n)() for n in variant_names]
-                obj_set = Object(name=set_name, variants=members, assign_variants_to_environments="random")
-                obj_set.add_relation(On(tabletop_reference, clearance_m=0.01))
-                placeable_assets.append(obj_set)
+            for role_name, variant_names in HETERO_VARIANT_SETS.items():
+                objects = [self.asset_registry.get_asset_by_name(name)() for name in variant_names]
+                object_choice = ObjectChoice(name=role_name, objects=objects, assign_to_environments="random")
+                object_choice.add_relation(On(tabletop_reference, clearance_m=0.01))
+                placeable_assets.append(object_choice)
 
         return placeable_assets

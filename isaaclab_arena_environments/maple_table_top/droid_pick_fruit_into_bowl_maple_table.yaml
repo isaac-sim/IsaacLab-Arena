@@ -28,7 +28,7 @@ objects:
   - registry_name: orange_02_fruits_veggies_robolab
   - registry_name: pomegranate01_fruits_veggies_robolab
   - registry_name: lychee01_fruits_veggies_robolab
-  assign_variants_to_environments: random
+  assign_to_environments: random
   params: {}
 relations:
 - kind: is_anchor

@@ -43,6 +43,7 @@ def _test_native_variant_scene(simulation_app, tmp_path):
     from pxr import UsdPhysics
 
     from isaaclab_arena.assets.object import Object
+    from isaaclab_arena.assets.object_choice import ObjectChoice
     from isaaclab_arena.assets.object_type import ObjectType
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
@@ -63,15 +64,15 @@ def _test_native_variant_scene(simulation_app, tmp_path):
             object_type=ObjectType.RIGID,
         )
 
-    pickup = Object(
+    pickup = ObjectChoice(
         name="pickup",
-        variants=[make_member(root_path, 1.0), make_member(nested_path, 1.5)],
+        objects=[make_member(root_path, 1.0), make_member(nested_path, 1.5)],
         initial_pose=Pose(position_xyz=(0.0, 0.0, 2.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)),
     )
-    destination = Object(
+    destination = ObjectChoice(
         name="destination",
-        variants=[make_member(nested_path, scale) for scale in (0.5, 1.0, 2.0)],
-        assign_variants_to_environments="random",
+        objects=[make_member(nested_path, scale) for scale in (0.5, 1.0, 2.0)],
+        assign_to_environments="random",
         initial_pose=Pose(position_xyz=(1.0, 0.0, 2.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)),
     )
     assert pickup.get_contact_sensor_prim_path().endswith("/rigid_body")

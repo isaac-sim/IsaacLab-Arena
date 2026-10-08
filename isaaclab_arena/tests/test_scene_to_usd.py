@@ -176,14 +176,12 @@ def test_scene_export_supports_native_procedural_objects(tmp_path: pathlib.Path)
 def test_scene_export_requires_single_asset_spawner(tmp_path: pathlib.Path):
     from isaaclab.sim import CuboidCfg
 
-    from isaaclab_arena.assets.object import Object
-    from isaaclab_arena.assets.object_type import ObjectType
+    from isaaclab_arena.assets.object_choice import ObjectChoice
     from isaaclab_arena.scene.scene import Scene
 
-    obj = Object(
+    obj = ObjectChoice(
         name="box",
-        object_type=ObjectType.RIGID,
-        variants=[CuboidCfg(size=(0.2, 0.4, 0.6)), CuboidCfg(size=(0.4, 0.4, 0.6))],
+        objects=[CuboidCfg(size=(0.2, 0.4, 0.6)), CuboidCfg(size=(0.4, 0.4, 0.6))],
     )
     with pytest.raises(AssertionError, match="single-asset spawn configuration"):
         Scene([obj]).export_to_usd(tmp_path / "ambiguous.usda")

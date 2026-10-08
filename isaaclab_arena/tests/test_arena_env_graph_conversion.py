@@ -129,18 +129,18 @@ def test_get_arena_builder_from_cli_builds_env_from_graph_yaml():
     assert result
 
 
-def _test_arena_env_graph_conversion_builds_object_variants(simulation_app):
-    from isaaclab_arena.assets.object import Object
+def _test_arena_env_graph_conversion_builds_object_choice(simulation_app):
+    from isaaclab_arena.assets.object_choice import ObjectChoice
     from isaaclab_arena.scene.object_variant_assignment import assign_object_variants
 
     spec = ArenaEnvGraphSpec.from_yaml(TEST_DATA_DIR / "object_variants_maple_table_env_graph.yaml")
     arena_env = spec.to_arena_env()
 
     varied_object = arena_env.scene.assets["pick_up_object"]
-    assert isinstance(varied_object, Object)
+    assert isinstance(varied_object, ObjectChoice)
     assert varied_object.has_variants
     assert len(varied_object.spawn_cfg.assets_cfg) == 2
-    assert varied_object.assign_variants_to_environments == "random"
+    assert varied_object.assign_to_environments == "random"
     assert arena_env.task.pick_up_object is varied_object
 
     assign_object_variants([varied_object], num_envs=4, seed=42)
@@ -149,10 +149,10 @@ def _test_arena_env_graph_conversion_builds_object_variants(simulation_app):
     return True
 
 
-def test_arena_env_graph_conversion_builds_object_variants():
+def test_arena_env_graph_conversion_builds_object_choice():
     from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
-    result = run_function_with_persistent_simulation_app(_test_arena_env_graph_conversion_builds_object_variants)
+    result = run_function_with_persistent_simulation_app(_test_arena_env_graph_conversion_builds_object_choice)
     assert result
 
 

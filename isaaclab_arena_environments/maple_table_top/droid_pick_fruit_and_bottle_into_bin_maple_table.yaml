@@ -27,7 +27,7 @@ objects:
   - registry_name: bin_b03_vomp_robolab
   - registry_name: blue_sorting_bin
   - registry_name: container_f24_vomp_robolab
-  assign_variants_to_environments: sequential
+  assign_to_environments: sequential
   params: {}
 - id: fruit
   variants:
@@ -35,14 +35,14 @@ objects:
   - registry_name: lemon_01_fruits_veggies_robolab
   - registry_name: pomegranate01_fruits_veggies_robolab
   - registry_name: banana_ycb_robolab
-  assign_variants_to_environments: sequential
+  assign_to_environments: sequential
   params: {}
 - id: bottle
   variants:
   - registry_name: ketchup_bottle_hope_robolab
   - registry_name: mayonnaise_bottle_hope_robolab
   - registry_name: bbq_sauce_bottle_hope_robolab
-  assign_variants_to_environments: sequential
+  assign_to_environments: sequential
   params: {}
 - id: tool
   variants:
@@ -50,7 +50,7 @@ objects:
   - registry_name: ladle_handal_robolab
   - registry_name: salad_tongs_handal_robolab
   - registry_name: hammer_handal_robolab
-  assign_variants_to_environments: sequential
+  assign_to_environments: sequential
   params: {}
 relations:
 - kind: is_anchor
