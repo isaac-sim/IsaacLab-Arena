@@ -27,9 +27,8 @@ def _create_episode_limit_env(
     record_trajectories,
     recorded_variation_samples_path=None,
 ):
-    from dataclasses import field
-
     import torch
+    from dataclasses import field
 
     from isaaclab.envs.mdp.recorders.recorders_cfg import PreStepActionsRecorderCfg
     from isaaclab.managers import EventTermCfg, TerminationTermCfg
@@ -278,8 +277,7 @@ def _test_variation_replay_cycles_across_async_resets(simulation_app, output_dir
     variation_samples_path = output_dir / "variation_samples.jsonl"
     variation_samples_path.write_text(
         "\n".join(
-            json.dumps({"variations": {"no_embodiment.replay_test": replay_value}})
-            for replay_value in replay_values
+            json.dumps({"variations": {"no_embodiment.replay_test": replay_value}}) for replay_value in replay_values
         )
         + "\n"
     )

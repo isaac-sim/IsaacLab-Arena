@@ -41,9 +41,9 @@ class VariationReplayScheduler:
         """Assign source records to envs that do not already have an active assignment."""
         for raw_env_id in env_ids:
             env_id = int(raw_env_id)
-            assert env_id not in self._source_record_index_by_env, (
-                f"Environment {env_id} already has an active variation-record assignment."
-            )
+            assert (
+                env_id not in self._source_record_index_by_env
+            ), f"Environment {env_id} already has an active variation-record assignment."
             self._source_record_index_by_env[env_id] = (
                 self._next_occurrence_index % self._variation_record.num_recorded_episodes
             )

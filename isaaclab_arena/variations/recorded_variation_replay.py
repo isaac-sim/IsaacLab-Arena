@@ -64,9 +64,7 @@ def _validate_variation_replay(
             runtime_presence
         ), f"Run-time variation {variation_key!r} must be present in every source record or none."
         if isinstance(variation, BuildTimeVariationBase):
-            assert (
-                not appears_at_runtime
-            ), f"Build-time variation {variation_key!r} cannot appear in run-time samples."
+            assert not appears_at_runtime, f"Build-time variation {variation_key!r} cannot appear in run-time samples."
         elif isinstance(variation, RunTimeVariationBase):
             assert (
                 variation_key not in variation_record.build_time_samples

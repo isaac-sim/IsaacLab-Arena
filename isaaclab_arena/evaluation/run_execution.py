@@ -98,9 +98,7 @@ def build_and_run(
     output_dir = str(output_dir)
     video_cfg = video_cfg or VideoRecordingCfg(video_base_dir=output_dir)
     if cfg.environment_builder.recorded_variation_samples_path is not None:
-        assert (
-            cfg.num_rebuilds == 1
-        ), f"Run '{cfg.name}' sets recorded_variation_samples_path; num_rebuilds must be 1."
+        assert cfg.num_rebuilds == 1, f"Run '{cfg.name}' sets recorded_variation_samples_path; num_rebuilds must be 1."
         assert (
             cfg.rollout_limit.num_steps is None
         ), f"Run '{cfg.name}' replays recorded variation samples; num_steps is not supported."

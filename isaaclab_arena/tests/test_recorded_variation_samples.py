@@ -290,9 +290,7 @@ class _BuildTimeTestVariation(BuildTimeVariationBase):
 def _runtime_record(values: list[int]) -> RebuildVariationRecord:
     return RebuildVariationRecord(
         build_time_samples={},
-        episode_records=[
-            EpisodeVariationRecord(runtime_samples={"asset.value": value}) for value in values
-        ],
+        episode_records=[EpisodeVariationRecord(runtime_samples={"asset.value": value}) for value in values],
     )
 
 
