@@ -13,17 +13,17 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from isaaclab_arena.agentic_environment_generation.inference_backend import (
+from isaaclab_arena.agentic_environment_generation.simready_asset_search import SimReadySearchConfig
+from isaaclab_arena.agentic_environment_generation.spec_io import env_graph_spec_path, write_env_graph_spec
+from isaaclab_arena.assets.object_type import ObjectType
+from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
+from isaaclab_arena.inference.backend import (
     INFERENCE_ENDPOINT_ENV_VAR,
     INFERENCE_ENDPOINTS,
     INTERNAL_ENDPOINT,
     OPENAI_ENDPOINT,
     PUBLIC_ENDPOINT,
 )
-from isaaclab_arena.agentic_environment_generation.simready_asset_search import SimReadySearchConfig
-from isaaclab_arena.agentic_environment_generation.spec_io import env_graph_spec_path, write_env_graph_spec
-from isaaclab_arena.assets.object_type import ObjectType
-from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 from isaaclab_arena.utils.usd.prim_tree import UsdPrimRecord
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.editor_panel import (
     SpecParseResult,

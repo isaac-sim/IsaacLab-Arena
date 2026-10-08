@@ -9,13 +9,12 @@ from __future__ import annotations
 
 import copy
 import json
-import math
 import os
 from dataclasses import dataclass
 from typing import Any, Literal
 
 from openai import OpenAI
-from openai.types.chat import ChatCompletionMessage, ChatCompletionMessageParam
+from openai.types.chat import ChatCompletionMessage
 from pydantic import BaseModel
 
 # -----------------------------------------------------------------------------
@@ -41,7 +40,7 @@ class InferenceEndpoint:
 INTERNAL_ENDPOINT = InferenceEndpoint(
     name="internal",
     base_url="https://inference-api.nvidia.com",
-    model="openai/openai/gpt-6-astra",
+    model="openai/openai/gpt-5.6-terra",
     api_key_env_var="NV_API_KEY",
     max_tokens_parameter="max_completion_tokens",
     supports_temperature=False,
@@ -96,39 +95,6 @@ MAX_RETRIES_LIMIT = 10
 
 
 @dataclass(frozen=True)
-class InferenceBackendCfg:
-    """Select an inference endpoint without storing credentials in configuration files."""
-
-    endpoint: str | None = None
-    base_url: str | None = None
-    model: str | None = None
-    api_key_env_var: str | None = None
-    request_timeout_s: float = 60.0
-
-    def __post_init__(self):
-        assert (
-            math.isfinite(self.request_timeout_s) and self.request_timeout_s > 0
-        ), "Timeout must be finite and positive"
-
-
-@dataclass(frozen=True)
-class InferenceRequest:
-    """Request structured output from text and optional OpenAI-compatible image messages."""
-
-    messages: list[ChatCompletionMessageParam]
-    response_schema: dict[str, Any]
-    schema_name: str = "agent_command"
-    retry_label: str = "inference"
-
-
-@dataclass(frozen=True)
-class InferenceResponse:
-    """Wrap parsed model output for validation by the calling agent."""
-
-    data: dict[str, Any]
-
-
-@dataclass(frozen=True)
 class StructuredOutputRequest:
     """One JSON-schema structured-output chat completion."""
 
@@ -151,8 +117,6 @@ class InferenceBackend:
         max_tokens: int = 4096,
         max_retries: int = 3,
         endpoint: str | None = None,
-        *,
-        config: InferenceBackendCfg | None = None,
     ):
         """Configure an OpenAI-compatible structured-output client.
 
@@ -169,21 +133,15 @@ class InferenceBackend:
                 ``[0, MAX_RETRIES_LIMIT)``.
             endpoint: Inference endpoint name, ``internal``, ``public``, or ``openai``.
                 Falls back to the ``ARENA_INFERENCE_ENDPOINT`` environment variable.
-            config: Optional endpoint and credential-source configuration. Overrides
-                endpoint, model, and base_url, sets the SDK request timeout, and
-                skips the legacy constructor health check.
         """
-        if config is not None:
-            endpoint, model, base_url = config.endpoint, config.model, config.base_url
         assert (
             0 <= max_retries < MAX_RETRIES_LIMIT
         ), f"max_retries must be in [0, {MAX_RETRIES_LIMIT}), got {max_retries}"
         inference_endpoint = resolve_inference_endpoint(endpoint)
-        key_env_var = (config.api_key_env_var if config is not None else None) or inference_endpoint.api_key_env_var
-        resolved_api_key = api_key or os.getenv(key_env_var)
+        resolved_api_key = api_key or os.getenv(inference_endpoint.api_key_env_var)
         assert resolved_api_key, (
             f"API key required for the {inference_endpoint.name!r} inference endpoint: set "
-            f"{key_env_var} or pass api_key. Select another endpoint with "
+            f"{inference_endpoint.api_key_env_var} or pass api_key. Select another endpoint with "
             f"{INFERENCE_ENDPOINT_ENV_VAR}."
         )
         resolved_base_url = base_url or inference_endpoint.base_url
@@ -192,21 +150,18 @@ class InferenceBackend:
             f"[inference] endpoint {inference_endpoint.name!r} model {resolved_model!r} at {resolved_base_url}",
             flush=True,
         )
-        client_options = {"timeout": config.request_timeout_s} if config is not None else {}
-        client = OpenAI(api_key=resolved_api_key, base_url=resolved_base_url, **client_options)
+        client = OpenAI(api_key=resolved_api_key, base_url=resolved_base_url)
         self._client: OpenAI = client
         self._endpoint = inference_endpoint
         self._model = resolved_model
         self._temperature = temperature
         self._max_tokens = max_tokens
         self._max_retries = max_retries
-        self._closed = False
-        if config is None:
-            try:
-                _ping(client, inference_endpoint, resolved_model)
-            except Exception:
-                self.close()
-                raise
+        try:
+            _ping(client, inference_endpoint, resolved_model)
+        except Exception:
+            client.close()
+            raise
 
     @property
     def endpoint(self) -> InferenceEndpoint:
@@ -232,29 +187,10 @@ class InferenceBackend:
         Returns:
             Parsed JSON object from the model response.
         """
-        return self.infer(
-            InferenceRequest(
-                messages=[
-                    {"role": "system", "content": request.system},
-                    {"role": "user", "content": request.user},
-                ],
-                response_schema=request.schema,
-                schema_name=request.schema_name,
-                retry_label=request.retry_label,
-            )
-        ).data
-
-    def infer(self, request: InferenceRequest) -> InferenceResponse:
-        """Run a multimodal request using the existing text inference retry and parsing behavior.
-
-        Args:
-            request: Conversation messages, JSON schema, and retry log label.
-
-        Returns:
-            Parsed output. The calling agent validates its schema and semantics.
-        """
-        assert not self._closed, "Inference backend is closed"
-        messages = copy.deepcopy(request.messages)
+        messages = [
+            {"role": "system", "content": request.system},
+            {"role": "user", "content": request.user},
+        ]
         last_exc: Exception | None = None
         for attempt in range(1 + self._max_retries):
             if attempt > 0:
@@ -267,7 +203,7 @@ class InferenceBackend:
                         "type": "json_schema",
                         "json_schema": {
                             "name": request.schema_name,
-                            "schema": request.response_schema,
+                            "schema": request.schema,
                         },
                     },
                     **_completion_options(self._endpoint, self._max_tokens, self._temperature),
@@ -288,21 +224,13 @@ class InferenceBackend:
                 # Model response is wrapped in a single-key dictionary, e.g. {"input": {<answer>}} to <answer>.
                 # Seen on the default azure/anthropic/claude-opus-4-8, but not DeepSeek.
                 # TODO(xinjieyao): check if other models also wrap the response in a single-key dictionary.
-                return InferenceResponse(
-                    data=_unwrap_provider_envelope(json.loads(text, strict=False), request.response_schema)
-                )
+                return _unwrap_provider_envelope(json.loads(text, strict=False), request.schema)
             except Exception as exc:
                 last_exc = exc
         raise RuntimeError(
             f"Model {self._model!r} failed {request.retry_label} after "
             f"{1 + self._max_retries} attempts. Last error: {last_exc}"
         ) from last_exc
-
-    def close(self) -> None:
-        """Release client connections; repeated calls are harmless."""
-        if not self._closed:
-            self._client.close()
-            self._closed = True
 
 
 def _unwrap_provider_envelope(data: Any, schema: dict[str, Any]) -> Any:
