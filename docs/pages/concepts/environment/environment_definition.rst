@@ -358,16 +358,16 @@ in ``params`` → ``OpenableObjectReference`` (and ``object_type: articulation``
 otherwise → ``ObjectReference``. Python: you pick. Use the plain class for a door
 and you get a door with nothing to open.
 
-**Per-environment objects.** An entry under ``objects`` defines either
-``registry_name`` for one fixed asset or ``variants`` for a
-``PerEnvironmentObject``. Each variant accepts its own ``params``, including a
-SimReady ``usd_path`` or scale:
+**Per-environment objects.** Declare concrete assets under ``objects`` and
+``PerEnvironmentObject`` entries under ``per_environment_objects``. Each member
+of an entry's ``objects`` list accepts its own ``params``, including a SimReady
+``usd_path`` or scale:
 
 .. code-block:: yaml
 
-   objects:
+   per_environment_objects:
    - id: bottle
-     variants:
+     objects:
      - registry_name: simready_usd_object
        params:
          usd_path: /datasets/bottle.usd

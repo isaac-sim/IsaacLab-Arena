@@ -268,8 +268,10 @@ def _iter_printable_assets(spec: ArenaEnvGraphSpec):
     yield "background", spec.background.id, spec.background.registry_name, spec.background.params
     for obj in spec.objects:
         yield "object", obj.id, obj.registry_name, obj.params
-        for variant_index, variant in enumerate(obj.variants or []):
-            yield "object_variant", f"{obj.id}[{variant_index}]", variant.registry_name, variant.params
+    for obj in spec.per_environment_objects:
+        yield "per_environment_object", obj.id, None, obj.params
+        for member_index, member in enumerate(obj.objects):
+            yield "object_member", f"{obj.id}[{member_index}]", member.registry_name, member.params
 
 
 def print_env_graph(spec: ArenaEnvGraphSpec) -> None:
@@ -279,7 +281,7 @@ def print_env_graph(spec: ArenaEnvGraphSpec) -> None:
     print("\nassets:")
     for role, asset_id, registry_name, params in _iter_printable_assets(spec):
         params_str = f"  params={params}" if params else ""
-        source_str = f"registry_name={registry_name}" if registry_name is not None else "variants"
+        source_str = f"registry_name={registry_name}" if registry_name is not None else "objects"
         print(f"  {asset_id:24s} role={role:18s} {source_str}{params_str}")
 
     if spec.object_references:

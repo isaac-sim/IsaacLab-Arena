@@ -23,12 +23,13 @@ The generated spec has one block per part of the environment graph:
      id: maple_table
      registry_name: maple_table_robolab
      params: {}
-   objects:                          # one entry per object role in the scene
+   objects:                          # concrete assets used in every environment
    - id: bowl                        # the placement destination
      registry_name: bowl_ycb_robolab
      params: {}
+   per_environment_objects:          # assets that can differ between environments
    - id: fruit
-     variants:                       # every environment spawns one of these
+     objects:                        # every environment spawns one of these
      - registry_name: apple_01_objaverse_robolab
      - registry_name: apple_02_objaverse_robolab
      - registry_name: avocado01_fruits_veggies_robolab
@@ -75,9 +76,10 @@ For more details on the Env Spec, see
 Editing object variants
 ^^^^^^^^^^^^^^^^^^^^^^^
 
-Widening or narrowing the variation is a one-block edit — ``variants`` and
-``assign_to_environments`` — that leaves the relations and the task
-untouched. For the ``PerEnvironmentObject`` concept, see
+Edit a ``per_environment_objects`` entry's ``objects`` list and
+``assign_to_environments`` to change which assets appear across environments.
+The relations and task continue to refer to the same ``id``.
+For the ``PerEnvironmentObject`` concept, see
 :doc:`../../../concepts/scene/concept_object_variants`.
 
 #. Add or remove a variant to change which assets the environments draw from.
@@ -85,8 +87,9 @@ untouched. For the ``PerEnvironmentObject`` concept, see
 
    .. code-block:: yaml
 
+      per_environment_objects:
       - id: fruit
-        variants:
+        objects:
         - registry_name: apple_01_objaverse_robolab
         - registry_name: banana_ycb_robolab
         assign_to_environments: random

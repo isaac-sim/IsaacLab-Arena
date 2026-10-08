@@ -159,14 +159,15 @@ class EnvironmentGenerationAgent:
         return spec, None
 
     def _add_simready_usd_path_to_searched_objects(self, spec: ArenaEnvGraphSpec) -> None:
-        """Replace searched names with portable SimReady references for fixed objects and variants."""
-        for obj in spec.objects:
-            sources = obj.variants if obj.variants is not None else [obj]
-            for source in sources:
-                usd_path = self._simready_usd_paths.get(source.registry_name)
-                if usd_path is not None:
-                    source.registry_name = SIMREADY_USD_OBJECT_REGISTRY_NAME
-                    source.params = {**source.params, "usd_path": usd_path}
+        """Replace searched names with portable SimReady references in both object sections."""
+        object_sources = list(spec.objects)
+        for obj in spec.per_environment_objects:
+            object_sources.extend(obj.objects)
+        for source in object_sources:
+            usd_path = self._simready_usd_paths.get(source.registry_name)
+            if usd_path is not None:
+                source.registry_name = SIMREADY_USD_OBJECT_REGISTRY_NAME
+                source.params = {**source.params, "usd_path": usd_path}
 
     def _extend_catalogue_with_simready(self, prompt: str, asset_catalog: AssetCatalogue) -> AssetCatalogue:
         """Search SimReady for the objects the catalog misses, and add what it finds to the catalog.

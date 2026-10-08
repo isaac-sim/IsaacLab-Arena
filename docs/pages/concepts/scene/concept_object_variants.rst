@@ -60,18 +60,19 @@ Declare the alternatives
 
    .. tab-item:: YAML
 
-      Both classes are declared under ``objects``. ``registry_name`` creates an
-      ordinary ``Object``; ``variants`` creates a ``PerEnvironmentObject``.
-      Each variant accepts its own constructor parameters, including a SimReady
-      ``usd_path`` or scale:
+      Declare ordinary assets under ``objects`` and ``PerEnvironmentObject``
+      entries under ``per_environment_objects``. Each member of an entry's
+      ``objects`` list accepts its own constructor parameters, including a
+      SimReady ``usd_path`` or scale:
 
       .. code-block:: yaml
 
          objects:
          - id: bowl
            registry_name: bowl_ycb_robolab
+         per_environment_objects:
          - id: fruit
-           variants:
+           objects:
            - registry_name: banana_ycb_robolab
            - registry_name: orange_01_fruits_veggies_robolab
              params:
@@ -95,8 +96,9 @@ Declare the alternatives
                background_scene: maple_table
 
       Parameters on the object entry configure the role, such as its initial
-      pose. Parameters inside ``variants`` configure the individual assets.
-      The former ``object_sets`` section is rejected.
+      pose. Parameters on members of its ``objects`` list configure the individual
+      assets. The former ``object_sets`` section and ``objects[].variants``
+      field are rejected.
 
 Assign variants to environments
 --------------------------------

@@ -245,30 +245,54 @@ def test_graph_spec_accepts_legacy_position_limits_box_name():
     assert isinstance(relation, PositionLimitsBox)
 
 
-def test_graph_spec_loads_object_variants_yaml():
+def test_graph_spec_loads_per_environment_objects_yaml():
     spec = ArenaEnvGraphSpec.from_yaml(_OBJECT_VARIANTS_GRAPH)
 
-    assert len(spec.objects) == 2
-    varied_object = next(obj for obj in spec.objects if obj.variants is not None)
-    assert varied_object.id == "pick_up_object"
-    assert varied_object.registry_name is None
-    assert [variant.registry_name for variant in varied_object.variants] == [
+    assert len(spec.objects) == 1
+    assert spec.objects[0].id == "bowl_ycb_robolab"
+    (per_environment_object,) = spec.per_environment_objects
+    assert per_environment_object.id == "pick_up_object"
+    assert [member.registry_name for member in per_environment_object.objects] == [
         "sweet_potato",
         "jug",
     ]
-    assert varied_object.assign_to_environments == "random"
-    assert varied_object.params == {}
+    assert per_environment_object.assign_to_environments == "random"
+    assert per_environment_object.params == {}
 
-    on_relation = next(relation for relation in spec.relations if relation.subject == varied_object.id)
-    assert on_relation.kind == "on"
-    assert on_relation.reference == "maple_table_robolab"
-    assert spec.task.subtasks[0].params["pick_up_object"] == varied_object.id
+    on_relations = {relation.subject: relation for relation in spec.relations if relation.kind == "on"}
+    assert on_relations[per_environment_object.id].reference == "maple_table_robolab"
+    assert on_relations[spec.objects[0].id].reference == "maple_table_robolab"
+    task_params = spec.task.subtasks[0].params
+    assert task_params["pick_up_object"] == per_environment_object.id
+    assert task_params["destination_location"] == spec.objects[0].id
     assert ArenaEnvGraphSpec.from_dict(spec.to_dict()) == spec
 
 
-def test_graph_spec_rejects_duplicate_object_role_id():
+def test_graph_spec_accepts_relations_between_object_sections():
     data = _minimal_env_graph_data()
-    data["objects"].append({"id": "cube", "variants": [{"registry_name": "sweet_potato"}]})
+    data["per_environment_objects"] = [{"id": "fruit", "objects": [{"registry_name": "sweet_potato"}]}]
+    data["relations"].extend([
+        {"kind": "on", "subject": "fruit", "reference": "table"},
+        {
+            "kind": "next_to",
+            "subject": "cube",
+            "reference": "fruit",
+            "params": {"side": "positive_x"},
+        },
+    ])
+    data["task"]["subtasks"][0]["params"]["pick_up_object"] = "fruit"
+
+    spec = ArenaEnvGraphSpec.from_dict(data)
+
+    assert spec.relations[-1].subject == spec.objects[0].id
+    assert spec.relations[-1].reference == spec.per_environment_objects[0].id
+    assert spec.task.subtasks[0].params["pick_up_object"] == "fruit"
+    assert spec.task.subtasks[0].params["destination_location"] == "cube"
+
+
+def test_graph_spec_rejects_duplicate_ids_across_object_sections():
+    data = _minimal_env_graph_data()
+    data["per_environment_objects"] = [{"id": "cube", "objects": [{"registry_name": "sweet_potato"}]}]
     with pytest.raises(ValidationError, match="Duplicate graph asset ids"):
         ArenaEnvGraphSpec.from_dict(data)
 
@@ -276,53 +300,14 @@ def test_graph_spec_rejects_duplicate_object_role_id():
 @pytest.mark.parametrize(
     ("object_spec", "message"),
     [
-        ({"id": "fruit"}, "exactly one of registry_name or variants"),
+        ({"id": "fruit"}, "Field required"),
         (
             {
                 "id": "fruit",
                 "registry_name": "sweet_potato",
                 "variants": [{"registry_name": "jug"}],
             },
-            "exactly one of registry_name or variants",
-        ),
-        ({"id": "fruit", "variants": []}, "at least 1 item"),
-        (
-            {"id": "fruit", "variants": [{"registry_name": "not_a_real_asset"}]},
-            "Unknown asset registry_name",
-        ),
-        (
-            {"id": "fruit", "variants": [{"registry_name": "ground_plane"}]},
-            "must be a rigid object",
-        ),
-        (
-            {
-                "id": "fruit",
-                "variants": [{"registry_name": "sweet_potato", "variants": []}],
-            },
             "Extra inputs are not permitted",
-        ),
-        (
-            {
-                "id": "fruit",
-                "variants": [{"registry_name": "sweet_potato", "params": {"variants": []}}],
-            },
-            "cannot contain nested variants",
-        ),
-        (
-            {
-                "id": "fruit",
-                "variants": [{"registry_name": "sweet_potato"}],
-                "params": {"variants": []},
-            },
-            "params must not set",
-        ),
-        (
-            {
-                "id": "fruit",
-                "variants": [{"registry_name": "sweet_potato"}],
-                "params": {"objects": []},
-            },
-            "params must not set",
         ),
         (
             {
@@ -330,12 +315,96 @@ def test_graph_spec_rejects_duplicate_object_role_id():
                 "registry_name": "sweet_potato",
                 "assign_to_environments": "random",
             },
-            "requires object variants",
+            "Extra inputs are not permitted",
         ),
         (
             {
                 "id": "fruit",
-                "variants": [{"registry_name": "sweet_potato"}],
+                "registry_name": "sweet_potato",
+                "params": {"variants": []},
+            },
+            "Object params must not set",
+        ),
+    ],
+)
+def test_graph_spec_rejects_invalid_concrete_object_sources(object_spec, message):
+    data = _minimal_env_graph_data()
+    data["objects"].append(object_spec)
+    with pytest.raises(ValidationError, match=message):
+        ArenaEnvGraphSpec.from_dict(data)
+
+
+@pytest.mark.parametrize(
+    ("object_spec", "message"),
+    [
+        ({"id": "fruit"}, "Field required"),
+        ({"id": "fruit", "objects": []}, "at least 1 item"),
+        (
+            {"id": "fruit", "objects": [{"registry_name": "not_a_real_asset"}]},
+            "Unknown asset registry_name",
+        ),
+        (
+            {"id": "fruit", "objects": [{"registry_name": "ground_plane"}]},
+            "must be a rigid object",
+        ),
+        (
+            {
+                "id": "fruit",
+                "objects": [{"id": "member", "registry_name": "sweet_potato"}],
+            },
+            "Extra inputs are not permitted",
+        ),
+        (
+            {
+                "id": "fruit",
+                "objects": [{"registry_name": "sweet_potato", "objects": []}],
+            },
+            "Extra inputs are not permitted",
+        ),
+        (
+            {
+                "id": "fruit",
+                "objects": [{"registry_name": "sweet_potato", "params": {"objects": []}}],
+            },
+            "cannot contain nested objects or variants",
+        ),
+        (
+            {
+                "id": "fruit",
+                "objects": [{"registry_name": "sweet_potato", "params": {"variants": []}}],
+            },
+            "cannot contain nested objects or variants",
+        ),
+        (
+            {
+                "id": "fruit",
+                "objects": [{
+                    "registry_name": "sweet_potato",
+                    "params": {"assign_to_environments": "random"},
+                }],
+            },
+            "Object member params must not set assign_to_environments",
+        ),
+        (
+            {
+                "id": "fruit",
+                "objects": [{"registry_name": "sweet_potato"}],
+                "params": {"variants": []},
+            },
+            "params must not set",
+        ),
+        (
+            {
+                "id": "fruit",
+                "objects": [{"registry_name": "sweet_potato"}],
+                "params": {"objects": []},
+            },
+            "params must not set",
+        ),
+        (
+            {
+                "id": "fruit",
+                "objects": [{"registry_name": "sweet_potato"}],
                 "assign_to_environments": "cycle_in_order",
             },
             "Input should be 'sequential' or 'random'",
@@ -343,7 +412,7 @@ def test_graph_spec_rejects_duplicate_object_role_id():
         (
             {
                 "id": "fruit",
-                "variants": [{"registry_name": "sweet_potato"}],
+                "objects": [{"registry_name": "sweet_potato"}],
                 "params": {"assign_to_environments": "random"},
             },
             "params must not set",
@@ -351,62 +420,73 @@ def test_graph_spec_rejects_duplicate_object_role_id():
         (
             {
                 "id": "fruit",
-                "variants": [{"registry_name": "sweet_potato"}],
+                "objects": [{"registry_name": "sweet_potato"}],
+                "params": {"scale": [2.0, 2.0, 2.0]},
+            },
+            "params must not set",
+        ),
+        (
+            {
+                "id": "fruit",
+                "objects": [{"registry_name": "sweet_potato"}],
                 "random_choice": True,
             },
             "Extra inputs are not permitted",
         ),
     ],
 )
-def test_graph_spec_rejects_invalid_object_sources(object_spec, message):
+def test_graph_spec_rejects_invalid_per_environment_objects(object_spec, message):
     data = _minimal_env_graph_data()
-    data["objects"].append(object_spec)
+    data["per_environment_objects"] = [object_spec]
     with pytest.raises(ValidationError, match=message):
         ArenaEnvGraphSpec.from_dict(data)
 
 
-def test_graph_spec_preserves_individual_variant_params():
+def test_graph_spec_preserves_per_environment_object_and_member_params():
     data = _minimal_env_graph_data()
-    data["objects"].append({
+    initial_pose = {
+        "position_xyz": [0, 0, 1],
+        "rotation_xyzw": [0, 0, 0, 1],
+    }
+    data["per_environment_objects"] = [{
         "id": "fruit",
-        "variants": [
+        "objects": [
             {"registry_name": "sweet_potato", "params": {"scale": [0.5, 0.5, 0.5]}},
             {"registry_name": "sweet_potato", "params": {"scale": [2.0, 2.0, 2.0]}},
         ],
-        "params": {
-            "initial_pose": {
-                "position_xyz": [0, 0, 1],
-                "rotation_xyzw": [0, 0, 0, 1],
-            }
-        },
-    })
+        "params": {"initial_pose": initial_pose},
+    }]
     spec = ArenaEnvGraphSpec.from_dict(data)
-    varied_object = spec.objects[-1]
-    assert varied_object.assign_to_environments == "sequential"
-    assert varied_object.variants[0].params["scale"] == [0.5, 0.5, 0.5]
-    assert varied_object.variants[1].params["scale"] == [2.0, 2.0, 2.0]
-    assert ArenaEnvGraphSpec.from_dict(spec.to_dict()) == spec
+    (per_environment_object,) = spec.per_environment_objects
+    assert per_environment_object.assign_to_environments == "sequential"
+    assert per_environment_object.params == {"initial_pose": initial_pose}
+    assert per_environment_object.objects[0].params == {"scale": [0.5, 0.5, 0.5]}
+    assert per_environment_object.objects[1].params == {"scale": [2.0, 2.0, 2.0]}
+    dumped = spec.to_dict()
+    assert dumped["objects"] == [{"id": "cube", "registry_name": "rubiks_cube_hot3d_robolab", "params": {}}]
+    assert dumped["per_environment_objects"][0]["objects"] == data["per_environment_objects"][0]["objects"]
+    assert ArenaEnvGraphSpec.from_dict(dumped) == spec
 
 
 @pytest.mark.parametrize("legacy_value", [[], [{"id": "fruit", "members": ["sweet_potato"]}]])
 def test_graph_spec_rejects_removed_object_sets(legacy_value):
     data = _minimal_env_graph_data()
     data["object_sets"] = legacy_value
-    with pytest.raises(ValidationError, match="object_sets was removed; declare variants"):
+    with pytest.raises(ValidationError, match="object_sets was removed; use per_environment_objects"):
         ArenaEnvGraphSpec.from_dict(data)
 
 
-def test_graph_spec_rejects_cli_registry_override_for_object_with_variants():
+def test_graph_spec_rejects_cli_registry_override_for_per_environment_object():
     data = _minimal_env_graph_data()
-    data["objects"].append({"id": "fruit", "variants": [{"registry_name": "sweet_potato"}]})
+    data["per_environment_objects"] = [{"id": "fruit", "objects": [{"registry_name": "sweet_potato"}]}]
     data["cli_override_specs"] = [{"arg": "fruit", "target_node_id": "fruit"}]
     with pytest.raises(ValidationError, match="non-swappable asset"):
         ArenaEnvGraphSpec.from_dict(data)
 
 
-def test_graph_spec_rejects_prim_reference_inside_object_with_variants():
+def test_graph_spec_rejects_prim_reference_inside_per_environment_object():
     data = _minimal_env_graph_data()
-    data["objects"].append({"id": "fruit", "variants": [{"registry_name": "sweet_potato"}]})
+    data["per_environment_objects"] = [{"id": "fruit", "objects": [{"registry_name": "sweet_potato"}]}]
     data["object_references"].append({
         "id": "fruit_body",
         "parent_id": "fruit",
@@ -636,6 +716,7 @@ def test_graph_spec_accepts_missing_optional_fields():
     data["task"]["subtasks"][0]["params"]["destination_location"] = "background"
     spec = ArenaEnvGraphSpec.from_dict(data)
     assert spec.object_references is None
+    assert spec.per_environment_objects == []
     assert spec.cli_override_specs is None
 
 
@@ -688,17 +769,17 @@ def test_a_searched_simready_object_loads_in_a_fresh_process(tmp_path):
     assert f"USD_PATH={usd_path}" in result.stdout
 
 
-def test_simready_variant_preserves_its_usd_path():
+def test_simready_object_member_preserves_its_usd_path():
     data = _minimal_env_graph_data()
-    data["objects"].append({
+    data["per_environment_objects"] = [{
         "id": "kettles",
-        "variants": [{
+        "objects": [{
             "registry_name": "simready_usd_object",
             "params": {"usd_path": "s3://bucket/kettle.usd"},
         }],
-    })
+    }]
     spec = ArenaEnvGraphSpec.from_dict(data)
-    assert spec.objects[-1].variants[0].params == {"usd_path": "s3://bucket/kettle.usd"}
+    assert spec.per_environment_objects[0].objects[0].params == {"usd_path": "s3://bucket/kettle.usd"}
     assert ArenaEnvGraphSpec.from_dict(spec.to_dict()) == spec
 
 

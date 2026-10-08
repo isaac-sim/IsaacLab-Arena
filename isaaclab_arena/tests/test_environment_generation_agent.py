@@ -273,7 +273,7 @@ class TestGenerateSpec:
         assert all("tags" not in asset["params"] for asset in spec.to_dict()["objects"])
 
     @patch("isaaclab_arena.agentic_environment_generation.environment_generation_agent.search_simready_objects")
-    def test_a_searched_simready_variant_preserves_its_usd_path(self, mock_search, agent):
+    def test_a_searched_simready_object_member_preserves_its_usd_path(self, mock_search, agent):
         agent_obj, client = agent
         mock_search.return_value = SimReadyCandidateCatalogue(
             candidates=[
@@ -284,7 +284,9 @@ class TestGenerateSpec:
             ]
         )
         spec_dict = minimal_spec_dict()
-        spec_dict["objects"].append({"id": "bins", "variants": [{"registry_name": "simready_green_trash_can"}]})
+        spec_dict["per_environment_objects"] = [
+            {"id": "bins", "objects": [{"registry_name": "simready_green_trash_can"}]}
+        ]
         client.chat.completions.create.side_effect = [
             self._missing_objects_response("green trash can"),
             chat_response(content=json.dumps(spec_dict)),
@@ -292,9 +294,9 @@ class TestGenerateSpec:
         spec, data = self._generate_with_simready(agent_obj)
         assert isinstance(spec, ArenaEnvGraphSpec)
         assert data is None
-        (variant,) = spec.objects[-1].variants
-        assert variant.registry_name == SIMREADY_USD_OBJECT_REGISTRY_NAME
-        assert variant.params == {"usd_path": "s3://bucket/trash_can.usd"}
+        (member,) = spec.per_environment_objects[0].objects
+        assert member.registry_name == SIMREADY_USD_OBJECT_REGISTRY_NAME
+        assert member.params == {"usd_path": "s3://bucket/trash_can.usd"}
         assert ArenaEnvGraphSpec.from_dict(spec.to_dict()) == spec
 
     @patch("isaaclab_arena.agentic_environment_generation.environment_generation_agent.search_simready_objects")

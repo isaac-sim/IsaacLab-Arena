@@ -16,8 +16,9 @@ objects:
 - id: bowl
   registry_name: bowl_ycb_robolab
   params: {}
+per_environment_objects:
 - id: fruit
-  variants:
+  objects:
   - registry_name: apple_01_objaverse_robolab
   - registry_name: apple_02_objaverse_robolab
   - registry_name: avocado01_fruits_veggies_robolab

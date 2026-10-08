@@ -41,17 +41,15 @@ def build_asset_cards(
     entries: list[tuple[str, AssetSpec | ObjectReferenceSpec, str]] = []
     entries.append(("background", spec.background, spec.background.id))
     entries.extend(("object_reference", ref, ref.id) for ref in spec.object_references or [])
-    for obj in spec.objects:
-        if obj.variants is None:
-            entries.append(("object", obj, obj.id))
-        else:
-            for variant_index, variant in enumerate(obj.variants):
-                variant_asset = AssetSpec(
-                    id=obj.id,
-                    registry_name=variant.registry_name,
-                    params=variant.params,
-                )
-                entries.append(("object", variant_asset, object_variant_key(obj.id, variant_index)))
+    entries.extend(("object", obj, obj.id) for obj in spec.objects)
+    for obj in spec.per_environment_objects:
+        for member_index, member in enumerate(obj.objects):
+            member_asset = AssetSpec(
+                id=obj.id,
+                registry_name=member.registry_name,
+                params=member.params,
+            )
+            entries.append(("per_environment_object", member_asset, object_variant_key(obj.id, member_index)))
 
     return [
         AssetCard(

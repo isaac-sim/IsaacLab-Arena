@@ -8,10 +8,11 @@ Unreleased
   multi-asset spawning. ``Object`` continues to use one asset across environments.
   Scene assignment is shared with placement, per-variant scale stays native, and
   USD hierarchy preparation is isolated from scene objects.
-- Environment YAML now declares alternatives under ``objects[].variants``, with
-  constructor parameters for each variant, including SimReady USD paths. The
-  ``object_sets`` field has been removed. Python environment selection now uses
-  ``--object_variants`` instead of ``--object_set``.
+- Environment YAML now separates concrete ``objects`` from
+  ``per_environment_objects``. Each per-environment entry declares an ``objects``
+  list with constructor parameters for each member, including SimReady USD paths.
+  The ``object_sets`` field has been removed. Python environment selection now
+  uses ``--object_variants`` instead of ``--object_set``.
 
 v0.3.1
 -------

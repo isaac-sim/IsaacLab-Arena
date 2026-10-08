@@ -17,6 +17,7 @@ from isaaclab_arena.environment_spec.arena_env_graph_types import (
     CompositeTaskSpec,
     ObjectReferenceSpec,
     ObjectSpec,
+    PerEnvironmentObjectSpec,
     SpatialRelationSpec,
     TaskSpec,
 )
@@ -37,7 +38,11 @@ class ArenaEnvGraphSpec(BaseModel):
     background: AssetSpec = Field(description="The static scene the robot and objects sit in.")
     objects: list[ObjectSpec] = Field(
         default_factory=list,
-        description="Scene objects with a registered asset or rigid alternatives.",
+        description="Registered scene objects instanced in every environment.",
+    )
+    per_environment_objects: list[PerEnvironmentObjectSpec] = Field(
+        default_factory=list,
+        description="Scene objects with one rigid member assigned to each environment.",
     )
     object_references: list[ObjectReferenceSpec] | None = Field(
         default=None, description="Optional prims inside the background exposed as assets (e.g. a table surface)."
@@ -90,7 +95,7 @@ class ArenaEnvGraphSpec(BaseModel):
     def _reject_removed_fields(cls, value: Any) -> Any:
         """Reject removed graph fields before parsing so they cannot be silently ignored."""
         if isinstance(value, dict) and "object_sets" in value:
-            raise ValueError("object_sets was removed; declare variants on entries under objects")
+            raise ValueError("object_sets was removed; use per_environment_objects")
         if isinstance(value, dict) and "placement_validators" in value:
             raise ValueError("placement_validators was removed; put validator fields under placer_params")
         return value
@@ -102,7 +107,7 @@ class ArenaEnvGraphSpec(BaseModel):
         if self.object_references:
             valid_parent_ids = {
                 self.background.id,
-                *(obj.id for obj in self.objects if obj.variants is None),
+                *(obj.id for obj in self.objects),
             }
             self._assert_object_reference_parents(self.object_references, valid_parent_ids)
         self._assert_relation_references(self.relations, known_ids)
@@ -118,6 +123,7 @@ class ArenaEnvGraphSpec(BaseModel):
             self.embodiment.id,
             self.background.id,
             *(obj.id for obj in self.objects),
+            *(obj.id for obj in self.per_environment_objects),
             *(ref.id for ref in self.object_references or []),
         ):
             if asset_id in seen:
@@ -143,12 +149,12 @@ class ArenaEnvGraphSpec(BaseModel):
         for index, relation in enumerate(relations):
             assert relation.subject in known_ids, (
                 f"Relation[{index}] kind '{relation.kind}' references unknown subject"
-                f" '{relation.subject}'. Add it to 'objects' or 'object_references'."
+                f" '{relation.subject}'. Add it to 'objects', 'per_environment_objects', or 'object_references'."
             )
             if relation.reference is not None:
                 assert relation.reference in known_ids, (
                     f"Relation[{index}] kind '{relation.kind}' references unknown reference"
-                    f" '{relation.reference}'. Add it to 'objects' or 'object_references'."
+                    f" '{relation.reference}'. Add it to 'objects', 'per_environment_objects', or 'object_references'."
                 )
 
     @staticmethod
@@ -159,12 +165,14 @@ class ArenaEnvGraphSpec(BaseModel):
                 if isinstance(param_value, str):
                     assert param_value in known_ids, (
                         f"Task '{task.kind}' param '{param_name}' references unknown node"
-                        f" '{param_value}'. Add it to 'objects' or 'object_references'."
+                        f" '{param_value}'. Add it to 'objects', 'per_environment_objects', or 'object_references'."
                     )
 
     def summary(self) -> str:
         """Return a one-line summary of object, task, and relation counts."""
         parts = [f"{len(self.objects)} objects"]
+        if self.per_environment_objects:
+            parts.append(f"{len(self.per_environment_objects)} per-environment objects")
         parts.append(f"{len(self.task.subtasks)} atomic tasks ({self.task.composition})")
         parts.append(f"{len(self.relations)} relations")
         return " · ".join(parts)
@@ -175,7 +183,7 @@ class ArenaEnvGraphSpec(BaseModel):
         swappable_ids = {
             self.embodiment.id,
             self.background.id,
-            *(obj.id for obj in self.objects if obj.variants is None),
+            *(obj.id for obj in self.objects),
         }
         seen_args: set[str] = set()
         for override in cli_override_specs:

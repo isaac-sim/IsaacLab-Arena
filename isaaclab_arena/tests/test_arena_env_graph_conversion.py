@@ -130,7 +130,9 @@ def test_get_arena_builder_from_cli_builds_env_from_graph_yaml():
 
 
 def _test_arena_env_graph_conversion_builds_per_environment_object(simulation_app):
+    from isaaclab_arena.assets.object import Object
     from isaaclab_arena.assets.per_environment_object import PerEnvironmentObject
+    from isaaclab_arena.relations.relations import On
     from isaaclab_arena.scene.object_variant_assignment import assign_object_variants
 
     spec = ArenaEnvGraphSpec.from_yaml(TEST_DATA_DIR / "object_variants_maple_table_env_graph.yaml")
@@ -142,6 +144,14 @@ def _test_arena_env_graph_conversion_builds_per_environment_object(simulation_ap
     assert len(varied_object.spawn_cfg.assets_cfg) == 2
     assert varied_object.assign_to_environments == "random"
     assert arena_env.task.pick_up_object is varied_object
+    destination = arena_env.scene.assets["bowl_ycb_robolab"]
+    assert isinstance(destination, Object)
+    assert not isinstance(destination, PerEnvironmentObject)
+    assert arena_env.task.destination_location is destination
+    background = arena_env.scene.assets["maple_table_robolab"]
+    for scene_object in (varied_object, destination):
+        on_relation = next(relation for relation in scene_object.get_relations() if isinstance(relation, On))
+        assert on_relation.parent is background
 
     assign_object_variants([varied_object], num_envs=4, seed=42)
     assert len(varied_object.variant_indices_by_env) == 4

@@ -80,7 +80,7 @@ def render_thumbnails_with_app(
     assets_by_node_id.pop(spec.embodiment.id)
     asset_node_ids = [
         spec.background.id,
-        *(obj.id for obj in spec.objects if obj.variants is None),
+        *(obj.id for obj in spec.objects),
     ]
     asset_paths = resolve_node_usd_paths(assets_by_node_id, asset_node_ids)
     variant_paths, variant_dimensions = _resolve_object_variants(spec, assets_by_node_id)
@@ -171,12 +171,10 @@ def render_thumbnails_with_app(
 def _resolve_object_variants(
     spec: ArenaEnvGraphSpec, assets_by_node_id: dict[str, Any]
 ) -> tuple[dict[str, str], dict[str, AabbDimensionsM]]:
-    """Return each object variant's USD path and AABB under its card lookup key."""
+    """Return each per-environment member's preview and AABB under its card lookup key."""
     usd_paths: dict[str, str] = {}
     dimensions: dict[str, AabbDimensionsM] = {}
-    for obj in spec.objects:
-        if obj.variants is None:
-            continue
+    for obj in spec.per_environment_objects:
         live_object = assets_by_node_id[obj.id]
         spawn_cfg = live_object.spawn_cfg
         variant_configs = spawn_cfg.assets_cfg if isinstance(spawn_cfg, MultiAssetSpawnerCfg) else [spawn_cfg]

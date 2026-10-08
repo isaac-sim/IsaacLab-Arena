@@ -62,11 +62,12 @@ def collect_agent_ready_validation_trace(
     if spec.background.registry_name not in asset_names["BACKGROUNDS"]:
         traces.append(f"Background registry_name {spec.background.registry_name!r} is not in the BACKGROUNDS catalog")
     # Fixed objects and every alternative must appear in the OBJECTS catalogue.
-    for obj in spec.objects:
-        sources = obj.variants if obj.variants is not None else [obj]
-        for source in sources:
-            if source.registry_name not in asset_names["OBJECTS"]:
-                traces.append(f"Object {obj.id!r} registry_name {source.registry_name!r} is not in the OBJECTS catalog")
+    object_sources = [(obj.id, obj) for obj in spec.objects]
+    for obj in spec.per_environment_objects:
+        object_sources.extend((obj.id, member) for member in obj.objects)
+    for object_id, source in object_sources:
+        if source.registry_name not in asset_names["OBJECTS"]:
+            traces.append(f"Object {object_id!r} registry_name {source.registry_name!r} is not in the OBJECTS catalog")
 
     # Check each subtask kind and its params against the task catalogue.
     task_entries = {entry.name: entry for entry in task_catalog.tasks}

@@ -13,8 +13,9 @@ background:
 objects:
 - id: bowl_ycb_robolab
   registry_name: bowl_ycb_robolab
+per_environment_objects:
 - id: pick_up_object
-  variants:
+  objects:
   - registry_name: sweet_potato
   - registry_name: jug
   assign_to_environments: random

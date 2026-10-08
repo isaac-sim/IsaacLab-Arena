@@ -122,7 +122,7 @@ def _scene_already_has_light(graph_spec: ArenaEnvGraphSpec, assets_by_node_id: d
     """Return whether the scene is already lit, either explicitly or via a baked-in USD light."""
     if any("light" in (getattr(asset, "tags", None) or []) for asset in assets_by_node_id.values()):
         return True
-    for asset_spec in [graph_spec.background, *graph_spec.objects]:
+    for asset_spec in [graph_spec.background, *graph_spec.objects, *graph_spec.per_environment_objects]:
         asset = assets_by_node_id[asset_spec.id]
         usd_path = getattr(getattr(asset, "spawn_cfg", None), "usd_path", None)
         if isinstance(usd_path, str) and usd_path:
@@ -184,20 +184,22 @@ def instantiate_assets_from_spec(
 
     for obj in graph_spec.objects:
         params = parse_asset_params(obj.params)
-        if obj.variants is None:
-            params.setdefault("instance_name", obj.id)
-            assets_by_node_id[obj.id] = asset_registry.get_asset_by_name(obj.registry_name)(**params)
-        else:
-            objects = []
-            for variant in obj.variants:
-                member = asset_registry.get_asset_by_name(variant.registry_name)(**parse_asset_params(variant.params))
-                objects.append(member)
-            assets_by_node_id[obj.id] = PerEnvironmentObject(
-                name=obj.id,
-                objects=objects,
-                assign_to_environments=obj.assign_to_environments,
-                **params,
+        params.setdefault("instance_name", obj.id)
+        assets_by_node_id[obj.id] = asset_registry.get_asset_by_name(obj.registry_name)(**params)
+
+    for obj in graph_spec.per_environment_objects:
+        objects = []
+        for member_spec in obj.objects:
+            member = asset_registry.get_asset_by_name(member_spec.registry_name)(
+                **parse_asset_params(member_spec.params)
             )
+            objects.append(member)
+        assets_by_node_id[obj.id] = PerEnvironmentObject(
+            name=obj.id,
+            objects=objects,
+            assign_to_environments=obj.assign_to_environments,
+            **parse_asset_params(obj.params),
+        )
 
     for ref in graph_spec.object_references or []:
         assets_by_node_id[ref.id] = _instantiate_object_reference(

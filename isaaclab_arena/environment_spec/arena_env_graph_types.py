@@ -94,7 +94,23 @@ class AssetSpec(BaseModel):
         return usd_path
 
 
-class ObjectVariantSpec(BaseModel):
+class ObjectSpec(AssetSpec):
+    """One registered Object instanced in every environment."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    @field_validator("params")
+    @classmethod
+    def _validate_params(cls, value: dict[str, Any]) -> dict[str, Any]:
+        reserved = {"objects", "variants", "assign_to_environments"}
+        duplicate_params = sorted(reserved & value.keys())
+        assert (
+            not duplicate_params
+        ), f"Object params must not set {duplicate_params}; use per_environment_objects for alternatives"
+        return value
+
+
+class ObjectMemberSpec(BaseModel):
     """One registered rigid Object and its constructor parameters in a PerEnvironmentObject."""
 
     model_config = ConfigDict(extra="forbid")
@@ -102,7 +118,7 @@ class ObjectVariantSpec(BaseModel):
     registry_name: str = Field(min_length=1, description="Exact registered rigid object name from OBJECTS.")
     params: dict[str, Any] = Field(
         default_factory=dict,
-        description="Constructor kwargs for this variant, including scale or a SimReady usd_path.",
+        description="Constructor kwargs for this object, including scale or a SimReady usd_path.",
     )
 
     @field_validator("registry_name")
@@ -113,57 +129,54 @@ class ObjectVariantSpec(BaseModel):
     @field_validator("params")
     @classmethod
     def _validate_params(cls, value: dict[str, Any]) -> dict[str, Any]:
-        assert "variants" not in value, "Object variants cannot contain nested variants"
+        nested_fields = {"objects", "variants"} & value.keys()
+        assert not nested_fields, "Object member params cannot contain nested objects or variants"
+        assert "assign_to_environments" not in value, "Object member params must not set assign_to_environments"
         return AssetSpec._drop_catalogue_tags(value)
 
 
-class ObjectSpec(AssetSpec):
-    """Declare a registered Object or a PerEnvironmentObject using its rigid variants."""
+class PerEnvironmentObjectSpec(BaseModel):
+    """Declare a PerEnvironmentObject with one rigid member assigned to each environment."""
 
     model_config = ConfigDict(extra="forbid")
 
-    registry_name: str | None = Field(
-        default=None, min_length=1, description="Registered asset instanced in every environment."
-    )
-    variants: list[ObjectVariantSpec] | None = Field(
-        default=None,
+    id: str = Field(min_length=1, description="Unique scene id referenced by relations and task params.")
+    objects: list[ObjectMemberSpec] = Field(
         min_length=1,
-        description="Registered rigid Objects for a PerEnvironmentObject; every environment spawns one of them.",
+        description="Registered rigid objects; every environment spawns one of them.",
     )
     assign_to_environments: Literal["sequential", "random"] = Field(
         default="sequential",
         description=(
-            "Assign one variant per environment during construction: sequential repeats their declared order; "
+            "Assign one object per environment during construction: sequential repeats their declared order; "
             "random samples independently. The assignment stays fixed across resets."
         ),
     )
+    params: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Constructor kwargs for the scene object, such as initial_pose; configure scale on its members.",
+    )
 
-    @field_validator("registry_name")
+    @field_validator("params")
     @classmethod
-    def _validate_registry_name(cls, value: str | None) -> str | None:
-        return _assert_registered_asset_name(value) if value is not None else None
-
-    @model_validator(mode="after")
-    def _validate_source(self) -> ObjectSpec:
-        assert (self.registry_name is None) != (
-            self.variants is None
-        ), "Object must define exactly one of registry_name or variants"
-        assert (
-            self.variants is not None or self.assign_to_environments == "sequential"
-        ), "Random assignment requires object variants"
-        reserved = {"variants", "assign_to_environments"}
-        if self.variants is not None:
-            reserved.update({"name", "instance_name", "objects", "object_type", "usd_path", "spawner_cfg"})
-        duplicate_params = sorted(reserved & self.params.keys())
+    def _validate_params(cls, value: dict[str, Any]) -> dict[str, Any]:
+        reserved = {
+            "name",
+            "instance_name",
+            "objects",
+            "variants",
+            "assign_to_environments",
+            "object_type",
+            "usd_path",
+            "spawner_cfg",
+            "scale",
+            "spawn_cfg_addon",
+        }
+        duplicate_params = sorted(reserved & value.keys())
         assert (
             not duplicate_params
-        ), f"Object params must not set {duplicate_params}; use the object fields or variant params"
-        return self
-
-    def resolve_usd_path(self) -> str:
-        """Return the USD path for a fixed object; alternatives each have their own source."""
-        assert self.registry_name is not None, f"Object '{self.id}' has variants instead of one USD path"
-        return super().resolve_usd_path()
+        ), f"Per-environment object params must not set {duplicate_params}; use the top-level fields or member params"
+        return value
 
 
 class ObjectReferenceSpec(BaseModel):

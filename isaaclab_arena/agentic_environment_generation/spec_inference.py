@@ -149,7 +149,8 @@ GUIDANCE:
 - Follow the per-field ``description`` strings in the schema.
 - REQUIRED: leave ``placer_params`` and ``cli_override_specs`` null.
 - Use only exact names from the catalog for ``registry_name``:
-  EMBODIMENTS for ``embodiment``, BACKGROUNDS for ``background``, and OBJECTS for ``objects``.
+  EMBODIMENTS for ``embodiment``, BACKGROUNDS for ``background``, and OBJECTS for
+  ``objects`` and members of ``per_environment_objects``.
 - Do NOT hallucinate asset names — every ``registry_name`` must appear verbatim in the catalog.
   If the prompt includes the exact registry name, use it.
   If no reasonable match can be found, return empty string.
@@ -158,9 +159,12 @@ GUIDANCE:
   variance of that family in EMBODIMENTS, pick the one with the default tag.
 - For multiple instances of the same registry asset, use semantic (left/right) or numerical (1/2/3)
   suffixes in ``id``.
-- When an object varies across environments, give its ``objects`` entry a ``variants`` list instead of
-  ``registry_name``. Each variant has its own ``registry_name`` and optional ``params``; use only rigid objects.
-  Every member must be an OBJECTS entry marked ``type=rigid``.
+- Put objects using the same asset in every environment under ``objects``, each with a ``registry_name``.
+- When an object varies across environments, declare it under ``per_environment_objects`` with a shared
+  ``id`` and an ``objects`` list. Each member has its own ``registry_name`` and optional ``params``;
+  every member must be an OBJECTS entry marked ``type=rigid``.
+  ``assign_to_environments`` is "sequential" by default; use "random" for independent sampling.
+  Relations and task params reference the parent ``id``, not individual members.
 - An ``object_reference`` names a prim inside the background. Add one for every surface or appliance
   the prompt names that the background merely contains — the floor the robot stands on, a counter top,
   a sink, a fridge, a microwave. Name it after the appliance or surface itself, never after the moving

@@ -139,7 +139,7 @@ class TestBuildAssetCards:
         spec = ArenaEnvGraphSpec.from_yaml(
             _REPO_ROOT / "isaaclab_arena/tests/test_data/object_variants_maple_table_env_graph.yaml"
         )
-        varied_object = next(obj for obj in spec.objects if obj.variants is not None)
+        varied_object = spec.per_environment_objects[0]
         sweet_potato_key = object_variant_key(varied_object.id, 0)
         cards = build_asset_cards(
             spec,
@@ -152,7 +152,7 @@ class TestBuildAssetCards:
             "sweet_potato",
             "jug",
         ]
-        assert all(card.role == "object" for card in variant_cards)
+        assert all(card.role == "per_environment_object" for card in variant_cards)
         assert variant_cards[0].thumbnail_bytes == b"fake"
         assert variant_cards[0].aabb_dimensions_m == (0.1, 0.1, 0.2)
         assert variant_cards[1].thumbnail_bytes is None
@@ -162,18 +162,24 @@ class TestBuildAssetCards:
             _REPO_ROOT / "isaaclab_arena/tests/test_data/object_variants_maple_table_env_graph.yaml"
         )
         data = spec.to_dict()
-        data["objects"][-1]["variants"] = [
+        data["per_environment_objects"][0]["objects"] = [
             {"registry_name": "sweet_potato", "params": {"scale": [0.5, 0.5, 0.5]}},
             {"registry_name": "sweet_potato", "params": {"scale": [2.0, 2.0, 2.0]}},
         ]
+        data["per_environment_objects"][0]["params"] = {
+            "initial_pose": {
+                "position_xyz": [0.0, 0.0, 1.0],
+                "rotation_xyzw": [0.0, 0.0, 0.0, 1.0],
+            }
+        }
         spec = ArenaEnvGraphSpec.from_dict(data)
-        varied_object = spec.objects[-1]
+        varied_object = spec.per_environment_objects[0]
         cards = build_asset_cards(spec, thumbnails={object_variant_key(varied_object.id, 1): b"large"})
         variant_cards = [card for card in cards if card.spec.id == varied_object.id]
         assert len(variant_cards) == 2
-        assert variant_cards[0].spec.params["scale"] == [0.5, 0.5, 0.5]
+        assert variant_cards[0].spec.params == {"scale": [0.5, 0.5, 0.5]}
         assert variant_cards[0].thumbnail_bytes is None
-        assert variant_cards[1].spec.params["scale"] == [2.0, 2.0, 2.0]
+        assert variant_cards[1].spec.params == {"scale": [2.0, 2.0, 2.0]}
         assert variant_cards[1].thumbnail_bytes == b"large"
 
 
