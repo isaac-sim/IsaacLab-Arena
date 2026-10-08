@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Prepare DROID RGB inputs with calibration matching the resized images."""
+"""Prepare RGB inputs with calibration in a caller-selected reference frame."""
 
 from __future__ import annotations
 
@@ -12,12 +12,10 @@ import torch
 from dataclasses import dataclass
 from typing import Any
 
-DEFAULT_CAMERA_KEYS = ("external_camera_rgb", "wrist_camera_rgb")
-
 
 @dataclass(frozen=True)
-class DroidCameraInput:
-    """Store one camera image and optional calibration in the robot-root frame."""
+class CameraInput:
+    """Store one camera image and optional calibration in a reference frame."""
 
     rgb: np.ndarray
     """Copied HWC uint8 RGB image, resized without cropping, padding, or upscaling."""
@@ -25,15 +23,15 @@ class DroidCameraInput:
     intrinsics: np.ndarray | None = None
     """Pinhole matrix scaled to rgb's actual width and height, shaped (3, 3)."""
 
-    T_B_C: np.ndarray | None = None
-    """Optical camera C in robot root B, meters and XYZW; C uses +X right, +Y down, +Z forward."""
+    T_R_C: np.ndarray | None = None
+    """Optical camera C in reference R, meters and XYZW; C uses +X right, +Y down, +Z forward."""
 
 
-def enable_droid_camera_pose_updates(camera_cfg: Any, camera_keys: tuple[str, ...] = DEFAULT_CAMERA_KEYS) -> None:
+def enable_camera_pose_updates(camera_cfg: Any, camera_keys: tuple[str, ...]) -> None:
     """Enable per-step calibration before building the environment.
 
     Args:
-        camera_cfg: DROID embodiment's camera_config to update in place.
+        camera_cfg: Arena camera configuration to update in place.
         camera_keys: RGB observation keys identifying the cameras to configure.
     """
     for key in camera_keys:
@@ -43,21 +41,27 @@ def enable_droid_camera_pose_updates(camera_cfg: Any, camera_keys: tuple[str, ..
         cfg.update_period = 0.0
 
 
-def extract_droid_camera_inputs(
+def extract_camera_inputs(
     env: Any,
     observation: dict,
     env_id: int,
-    camera_keys: tuple[str, ...] = DEFAULT_CAMERA_KEYS,
+    camera_keys: tuple[str, ...],
+    *,
+    T_W_R: torch.Tensor | None = None,
     image_max_edge: int = 384,
     include_calibration: bool = True,
-) -> dict[str, DroidCameraInput]:
-    """Copy current DROID camera observations with optional robot-root calibration.
+) -> dict[str, CameraInput]:
+    """Copy current camera observations with optional reference-frame calibration.
 
     Args:
         env: Arena environment, optionally gym-wrapped; do not step between observation and extraction.
         observation: Current observations with unnormalized uint8 camera_obs terms.
         env_id: Environment whose images and calibration to extract.
-        camera_keys: RGB observation keys; external_camera_2_rgb can also be selected.
+        camera_keys: RGB observation keys of the form <scene camera name>_rgb.
+        T_W_R: Reference R in simulation world W for each environment, shaped (N, 7),
+            meters and unit XYZW quaternions. Required with calibration. Pass a robot
+            root pose for robot-relative calibration, or identity poses for world-relative
+            calibration. Must correspond to the same simulation step as observation.
         image_max_edge: Maximum resized width or height, preserving aspect ratio.
         include_calibration: Require per-step camera pose updates enabled before environment construction.
 
@@ -71,6 +75,14 @@ def extract_droid_camera_inputs(
     assert 0 <= env_id < arena_env.num_envs, "env_id is out of range"
     assert isinstance(image_max_edge, int) and image_max_edge > 0, "image_max_edge must be a positive integer"
     assert len(set(camera_keys)) == len(camera_keys), "Camera keys must be unique"
+    if include_calibration:
+        assert T_W_R is not None, "T_W_R is required for calibration"
+        assert T_W_R.shape == (arena_env.num_envs, 7), "Expected one reference pose per environment"
+        assert torch.isfinite(T_W_R).all(), "Reference poses must be finite"
+        quaternion_norm = torch.linalg.vector_norm(T_W_R[:, 3:], dim=-1)
+        assert torch.allclose(
+            quaternion_norm, torch.ones_like(quaternion_norm), atol=1e-4
+        ), "Expected unit XYZW reference quaternions"
     result = {}
     for key in camera_keys:
         assert key.endswith("_rgb"), "Camera keys must name RGB observations"
@@ -89,13 +101,12 @@ def extract_droid_camera_inputs(
             )
             rgb = pixels[0].permute(1, 2, 0).round().clamp(0, 255).to(torch.uint8)
         rgb_array = rgb.cpu().numpy().copy()
-        intrinsics, T_B_C_array = None, None
+        intrinsics, T_R_C_array = None, None
         if include_calibration:
             camera = arena_env.scene[key.removesuffix("_rgb")]
-            assert camera.cfg.update_latest_camera_pose and camera.cfg.update_period == 0, (
-                "Call enable_droid_camera_pose_updates(embodiment.camera_config, camera_keys) before building the"
-                " environment"
-            )
+            assert (
+                camera.cfg.update_latest_camera_pose and camera.cfg.update_period == 0
+            ), "Call enable_camera_pose_updates(camera_cfg, camera_keys) before building the environment"
             data = camera.data
             assert tuple(data.image_shape) == (
                 source_height,
@@ -104,10 +115,10 @@ def extract_droid_camera_inputs(
             intrinsics = data.intrinsic_matrices.torch[env_id].detach().cpu().numpy().copy()
             intrinsics[0, :] *= width / source_width
             intrinsics[1, :] *= height / source_height
-            T_W_B = arena_env.scene["robot"].data.root_pose_w.torch[env_id : env_id + 1]
             t_W_C = data.pos_w.torch[env_id : env_id + 1]
             q_W_C = data.quat_w_ros.torch[env_id : env_id + 1]
-            t_B_C, q_B_C = subtract_frame_transforms(T_W_B[:, :3], T_W_B[:, 3:], t_W_C, q_W_C)
-            T_B_C_array = torch.cat((t_B_C, q_B_C), dim=-1)[0].detach().cpu().numpy().copy()
-        result[key] = DroidCameraInput(rgb=rgb_array, intrinsics=intrinsics, T_B_C=T_B_C_array)
+            reference_pose = T_W_R[env_id : env_id + 1].to(device=t_W_C.device, dtype=t_W_C.dtype)
+            t_R_C, q_R_C = subtract_frame_transforms(reference_pose[:, :3], reference_pose[:, 3:], t_W_C, q_W_C)
+            T_R_C_array = torch.cat((t_R_C, q_R_C), dim=-1)[0].detach().cpu().numpy().copy()
+        result[key] = CameraInput(rgb=rgb_array, intrinsics=intrinsics, T_R_C=T_R_C_array)
     return result

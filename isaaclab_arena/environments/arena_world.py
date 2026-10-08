@@ -17,7 +17,7 @@ from __future__ import annotations
 import torch
 
 from isaaclab.scene import InteractiveScene
-from isaaclab.utils.math import quat_apply
+from isaaclab.utils.math import quat_apply, subtract_frame_transforms
 
 import isaaclab_arena.environments.arena_world_scene_access as scene_access
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
@@ -138,6 +138,25 @@ class ArenaWorld:
         ), f"Joint '{joint_name}' returned shape {tuple(joint_position.shape)}; expected ({self._scene.num_envs},)."
         return joint_position
 
+    def get_joint_positions(self, scene_key: str, joint_names: tuple[str, ...]) -> torch.Tensor:
+        """Copy measured joint positions in the caller's requested order.
+
+        Args:
+            scene_key: Articulation scene entity name.
+            joint_names: Exact joint names in the desired output order.
+
+        Returns:
+            Independent tensor of shape (num_envs, len(joint_names)), in radians
+            for revolute joints or meters for prismatic joints, without normalization.
+        """
+        assert scene_key in self._scene.articulations, f"'{scene_key}' must name an articulation."
+        data = self._scene.articulations[scene_key].data
+        indices = []
+        for name in joint_names:
+            assert name in data.joint_names, f"Articulation '{scene_key}' has no joint '{name}'."
+            indices.append(data.joint_names.index(name))
+        return data.joint_pos.torch[:, indices].detach()
+
     def get_joint_position_target(self, scene_key: str, joint_name: str) -> torch.Tensor:
         """Return a named joint's most recently applied position target.
 
@@ -177,6 +196,22 @@ class ArenaWorld:
             7,
         ), f"Body '{body_name}' returned pose shape {tuple(T_W_B.shape)}; expected ({self._scene.num_envs}, 7)."
         return T_W_B
+
+    def get_body_pose_in_root(self, scene_key: str, body_name: str) -> torch.Tensor:
+        """Copy a named articulation body's link pose relative to its root link.
+
+        Args:
+            scene_key: Articulation scene entity name.
+            body_name: Exact body name within the articulation.
+
+        Returns:
+            Independent T_R_B tensor of shape (num_envs, 7), meters and XYZW,
+            mapping body B into articulation root R. Excludes controller and grasp offsets.
+        """
+        T_W_B = self.get_body_pose_w(scene_key, body_name)
+        T_W_R = self.get_pose_w(scene_key)
+        t_R_B, q_R_B = subtract_frame_transforms(T_W_R[:, :3], T_W_R[:, 3:], T_W_B[:, :3], T_W_B[:, 3:])
+        return torch.cat((t_R_B, q_R_B), dim=-1).detach()
 
     def get_frame_position_w(self, scene_key: str, target_frame_name: str | None = None) -> torch.Tensor:
         """Return a frame transformer's target position in world coordinates.

@@ -34,7 +34,7 @@ def _test_arena_world(_simulation_app) -> bool:
     import torch
 
     from isaaclab.managers import SceneEntityCfg
-    from isaaclab.utils.math import quat_apply
+    from isaaclab.utils.math import combine_frame_transforms, quat_apply
 
     from isaaclab_arena.utils.joint_utils import get_unnormalized_joint_position
 
@@ -48,6 +48,11 @@ def _test_arena_world(_simulation_app) -> bool:
         joint_index = robot.data.joint_names.index(joint_name)
         measured = arena_world.get_joint_position("robot", joint_name)
         torch.testing.assert_close(measured, robot.data.joint_pos.torch[:, joint_index])
+        joint_names = ("panda_joint3", "panda_joint1")
+        joint_indices = [robot.data.joint_names.index(name) for name in joint_names]
+        torch.testing.assert_close(
+            arena_world.get_joint_positions("robot", joint_names), robot.data.joint_pos.torch[:, joint_indices]
+        )
         torch.testing.assert_close(
             arena_world.get_joint_position_target("robot", joint_name),
             robot.data.joint_pos_target.torch[:, joint_index],
@@ -58,6 +63,10 @@ def _test_arena_world(_simulation_app) -> bool:
         body_index = robot.data.body_names.index("panda_hand")
         T_W_B = arena_world.get_body_pose_w("robot", "panda_hand")
         torch.testing.assert_close(T_W_B, robot.data.body_link_pose_w.torch[:, body_index])
+        T_R_B = arena_world.get_body_pose_in_root("robot", "panda_hand")
+        T_W_R = arena_world.get_pose_w("robot")
+        t_W_B, q_W_B = combine_frame_transforms(T_W_R[:, :3], T_W_R[:, 3:], T_R_B[:, :3], T_R_B[:, 3:])
+        torch.testing.assert_close(torch.cat((t_W_B, q_W_B), dim=-1), T_W_B)
         # Isaac Lab 3.0 uses XYZW quaternions; verify the configured offset against a live frame transformer.
         offset_B = T_W_B.new_tensor(env.unwrapped.cfg.scene.ee_frame.target_frames[0].offset.pos)
         expected_ee_position_W = T_W_B[:, :3] + quat_apply(T_W_B[:, 3:], offset_B.expand(num_envs, -1))
@@ -145,6 +154,56 @@ def _test_arena_world_articulation_queries(_simulation_app) -> bool:
 
 def test_arena_world_articulation_queries() -> None:
     assert run_function_with_persistent_simulation_app(_test_arena_world_articulation_queries)
+
+
+def _test_policy_state_queries(_simulation_app) -> bool:
+    import torch
+    from types import SimpleNamespace
+
+    import pytest
+    from isaaclab.utils.math import combine_frame_transforms
+
+    from isaaclab_arena.environments.arena_world import ArenaWorld
+
+    T_W_R = torch.tensor([[0, 0, 1, 0, 0, 0, 1], [2, 3, 4, 0, 0, 2**-0.5, 2**-0.5]])
+    T_R_B = torch.tensor([[0.2, 0.1, 0.3, 0, 0, 0, 1], [0.4, 0.2, 0.1, 0, 0, 0, 1]])
+    position, rotation = combine_frame_transforms(T_W_R[:, :3], T_W_R[:, 3:], T_R_B[:, :3], T_R_B[:, 3:])
+    T_W_B = torch.cat((position, rotation), dim=-1)
+    joints = torch.tensor([[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]])
+    data = SimpleNamespace(
+        joint_names=["shoulder", "elbow", "finger"],
+        joint_pos=SimpleNamespace(torch=joints),
+        body_names=["root", "tool"],
+        root_pose_w=SimpleNamespace(torch=T_W_R),
+        body_link_pose_w=SimpleNamespace(torch=torch.stack((T_W_R, T_W_B), dim=1)),
+    )
+    scene = SimpleNamespace(num_envs=2, rigid_objects={}, articulations={"manipulator": SimpleNamespace(data=data)})
+    world = ArenaWorld(scene)
+    selected = world.get_joint_positions("manipulator", ("finger", "shoulder"))
+    pose = world.get_body_pose_in_root("manipulator", "tool")
+    torch.testing.assert_close(selected, joints[:, [2, 0]])
+    torch.testing.assert_close(pose, T_R_B)
+    assert world.get_joint_positions("manipulator", ()).shape == (2, 0)
+    # Snapshots survive in-place simulator updates; subsequent calls read the new state.
+    joints.add_(1)
+    data.body_link_pose_w.torch[:, 1, 2] += 0.5
+    torch.testing.assert_close(selected, joints[:, [2, 0]] - 1)
+    torch.testing.assert_close(pose, T_R_B)
+    torch.testing.assert_close(world.get_joint_positions("manipulator", ("finger", "shoulder")), selected + 1)
+    expected = T_R_B.clone()
+    expected[:, 2] += 0.5
+    torch.testing.assert_close(world.get_body_pose_in_root("manipulator", "tool"), expected)
+    with pytest.raises(AssertionError, match="must name an articulation"):
+        world.get_joint_positions("missing", ("finger",))
+    with pytest.raises(AssertionError, match="has no joint"):
+        world.get_joint_positions("manipulator", ("missing",))
+    with pytest.raises(AssertionError, match="has no body"):
+        world.get_body_pose_in_root("manipulator", "missing")
+    return True
+
+
+def test_policy_state_queries():
+    assert run_function_with_persistent_simulation_app(_test_policy_state_queries)
 
 
 def _test_deformable_aabb_w(_simulation_app) -> bool:
