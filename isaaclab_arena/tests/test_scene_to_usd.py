@@ -141,12 +141,14 @@ def test_scene_export_uses_native_usd_spawn_config(tmp_path: pathlib.Path):
     assert source_root.GetVariantSet("shape").GetVariantSelection() == "small"
 
 
-def test_scene_export_supports_native_procedural_objects(tmp_path: pathlib.Path):
+@pytest.mark.parametrize("use_per_environment_object", [False, True])
+def test_scene_export_supports_native_procedural_objects(tmp_path: pathlib.Path, use_per_environment_object: bool):
     from isaaclab.sim import CollisionBaseCfg, CuboidCfg, MassPropertiesCfg, RigidBodyBaseCfg
     from pxr import Usd, UsdGeom, UsdPhysics
 
     from isaaclab_arena.assets.object import Object
     from isaaclab_arena.assets.object_type import ObjectType
+    from isaaclab_arena.assets.per_environment_object import PerEnvironmentObject
     from isaaclab_arena.scene.scene import Scene
 
     obj = Object(
@@ -160,6 +162,8 @@ def test_scene_export_supports_native_procedural_objects(tmp_path: pathlib.Path)
             activate_contact_sensors=True,
         ),
     )
+    if use_per_environment_object:
+        obj = PerEnvironmentObject(name="box", objects=[obj])
     obj.object_cfg.init_state.pos = (1.0, 2.0, 3.0)
     output_path = tmp_path / "procedural.usda"
     Scene([obj]).export_to_usd(output_path)
