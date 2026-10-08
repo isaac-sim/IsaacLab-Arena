@@ -12,8 +12,8 @@ The agent runs in two modes:
   Use it for scripted or batch generation.
 
 Describe the object to pick up as a category rather than as a single asset, and
-say that it varies across environments. That is the cue for the agent to emit an
-``objects`` entry with ``variants`` instead of a fixed ``registry_name``.
+say that it varies across environments. That is the cue for the agent to emit a
+``per_environment_objects`` entry whose ``objects`` list names the alternatives.
 
 .. tab-set::
 
@@ -34,7 +34,7 @@ say that it varies across environments. That is the cue for the agent to emit an
          Each environment should get a different fruit.
 
       The returned YAML is loaded into the editor and assets are rendered on the right side of the editor.
-      An object is drawn as a single node, with a thumbnail per variant, so you can
+      A per-environment object is drawn as a single node, with a thumbnail per member, so you can
       check all alternatives at a glance.
 
       .. figure:: ../../../../images/agentic_environment_generation/tabletop_agentic_env_fruits_gui.png

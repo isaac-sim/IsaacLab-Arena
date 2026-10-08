@@ -249,7 +249,7 @@ def test_mesh_manager_uses_native_usd_spawn_config_and_current_scale(tmp_path):
     obj = Object(
         name="pickup",
         object_type=ObjectType.RIGID,
-        spawner_cfg=UsdFileCfg(usd_path=background.spawn_cfg.usd_path),
+        spawn_cfg=UsdFileCfg(usd_path=background.spawn_cfg.usd_path),
     )
     manager = WarpMeshAndSphereCache(device="cpu")
     original_mesh = manager.get_collision_mesh_or_raise(obj)
@@ -488,7 +488,7 @@ def _test_discover_passive_assets_filters(simulation_app) -> bool:
     def fake_object(name, relations, usd_path, pose, spec=Object):
         obj = MagicMock(spec=spec)
         obj.name = name
-        obj.has_variants = False
+        obj.has_multiple_assets = False
         obj.spawn_cfg = UsdFileCfg(usd_path=usd_path) if usd_path is not None else CuboidCfg(size=(0.2, 0.2, 0.2))
         obj.get_relations.return_value = relations
         obj.get_initial_pose.return_value = pose

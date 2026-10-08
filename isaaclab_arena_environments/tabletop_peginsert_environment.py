@@ -46,8 +46,8 @@ class PegInsertEnvironment(ArenaEnvironmentFactory[PegInsertEnvironmentCfg]):
         background = self.asset_registry.get_asset_by_name(cfg.background)()
         pick_up_object = self.asset_registry.get_asset_by_name(cfg.object)()
         destination_object = self.asset_registry.get_asset_by_name(cfg.destination_object)()
-        light_spawner_cfg = sim_utils.DomeLightCfg(color=(0.75, 0.75, 0.75), intensity=1500.0)
-        light = self.asset_registry.get_asset_by_name("light")(spawner_cfg=light_spawner_cfg)
+        light_spawn_cfg = sim_utils.DomeLightCfg(color=(0.75, 0.75, 0.75), intensity=1500.0)
+        light = self.asset_registry.get_asset_by_name("light")(spawn_cfg=light_spawn_cfg)
         embodiment = self.asset_registry.get_asset_by_name(cfg.embodiment)(enable_cameras=cfg.enable_cameras)
         embodiment.scene_config.robot = mdp.FRANKA_PANDA_ASSEMBLY_HIGH_PD_CFG.replace(prim_path="{ENV_REGEX_NS}/Robot")
 

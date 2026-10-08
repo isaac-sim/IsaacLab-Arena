@@ -10,7 +10,7 @@ No task -- suitable for policy_runner with zero_action or any policy.
 Supports two placement modes via ``--mode``:
 
 * **homogeneous** (default): each object is a regular Object — same in all envs.
-* **heterogeneous**: objects are wrapped in ``Object`` for per-env variance.
+* **heterogeneous**: ``PerEnvironmentObject`` assigns an asset to each environment.
 
 Both modes use the office table by default. Use ``--objects`` to override object
 lists for controlled experiments.
@@ -22,7 +22,7 @@ Example (--viz kit enables the Kit visualizer, --episode_length_s triggers perio
     --num_envs 16 --env_spacing 4.0 --enable_cameras \\
     gr1_table_multi_object_no_collision --embodiment gr1_joint --episode_length_s 4.0
 
-  # Heterogeneous — robolab objects in Object
+  # Heterogeneous — robolab objects in PerEnvironmentObject
   /isaac-sim/python.sh isaaclab_arena/evaluation/policy_runner.py --viz kit --policy_type zero_action --num_steps 500 \\
     --num_envs 16 --env_spacing 4.0 --enable_cameras \\
     gr1_table_multi_object_no_collision --embodiment gr1_joint --episode_length_s 4.0 --mode heterogeneous
@@ -110,7 +110,7 @@ class GR1TableMultiObjectNoCollisionEnvironment(ArenaEnvironmentFactory[GR1Table
     Layout is solved by ArenaEnvBuilder default relation solving; reset uses asset events.
 
     Supports ``--mode homogeneous`` (default) and ``--mode heterogeneous`` for
-    inter-environment object variance via ``Object``.
+    different assets across environments via ``PerEnvironmentObject``.
     """
 
     name: str = "gr1_table_multi_object_no_collision"

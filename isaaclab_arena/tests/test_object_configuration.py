@@ -47,7 +47,7 @@ def test_native_spawn_configuration_controls_geometry():
     from isaaclab_arena.assets.object_type import ObjectType
 
     source_cfg = CuboidCfg(size=(1.0, 2.0, 3.0))
-    obj = Object(name="box", object_type=ObjectType.RIGID, spawner_cfg=source_cfg)
+    obj = Object(name="box", object_type=ObjectType.RIGID, spawn_cfg=source_cfg)
     assert obj.spawn_cfg is obj.object_cfg.spawn
     assert obj.get_bounding_box().size.tolist() == [[1.0, 2.0, 3.0]]
     obj.spawn_cfg.size = (4.0, 5.0, 6.0)
@@ -72,6 +72,65 @@ def test_usd_constructor_options_populate_native_configuration():
     assert not obj.spawn_cfg.visible
     assert obj.spawn_cfg.activate_contact_sensors
     assert obj.object_cfg.debug_vis
+
+
+@pytest.mark.parametrize("library_object_name", ["CrackerBox", "DexCube"])
+def test_library_object_attributes_follow_native_configuration(library_object_name):
+    from isaaclab.sim import UsdFileCfg
+
+    from isaaclab_arena.assets import object_library
+
+    object_class = getattr(object_library, library_object_name)
+    default_scale = object_class.scale
+    default_usd_path = object_class.usd_path
+    library_object = object_class(scale=(2.0, 3.0, 4.0))
+    assert library_object.scale == (2.0, 3.0, 4.0)
+    assert library_object.usd_path == default_usd_path
+
+    library_object.spawn_cfg.scale = (5.0, 6.0, 7.0)
+    library_object.spawn_cfg.usd_path = "/datasets/updated.usd"
+    assert library_object.scale == (5.0, 6.0, 7.0)
+    assert library_object.usd_path == "/datasets/updated.usd"
+
+    library_object.spawn_cfg = UsdFileCfg(usd_path="/datasets/replacement.usd", scale=(8.0, 9.0, 10.0))
+    assert library_object.scale == (8.0, 9.0, 10.0)
+    assert library_object.usd_path == "/datasets/replacement.usd"
+    assert object_class.scale == default_scale
+    assert object_class.usd_path == default_usd_path
+    assert object_class().scale == default_scale
+
+    for attribute_name in ("scale", "usd_path"):
+        with pytest.raises(AttributeError, match=f"Configure {attribute_name} through spawn_cfg"):
+            setattr(library_object, attribute_name, getattr(library_object, attribute_name))
+
+
+def test_library_background_uses_explicit_usd_path(tmp_path):
+    from pxr import Usd, UsdGeom
+
+    from isaaclab_arena.assets.background_library import LibraryBackground
+    from isaaclab_arena.environment_spec.arena_env_graph_types import AssetSpec
+
+    override_path = str(tmp_path / "background.usda")
+    stage = Usd.Stage.CreateNew(override_path)
+    root = UsdGeom.Xform.Define(stage, "/Background").GetPrim()
+    stage.SetDefaultPrim(root)
+    stage.GetRootLayer().Save()
+
+    class TestBackground(LibraryBackground):
+        name = "test_background"
+        tags = ["background"]
+        usd_path = "/datasets/default.usd"
+        object_min_z = -0.05
+
+    background = TestBackground(usd_path=override_path, reset_nested_physics=False)
+    assert background.usd_path == override_path
+    assert background.spawn_cfg.usd_path == override_path
+    assert TestBackground.usd_path == "/datasets/default.usd"
+
+    background_spec = AssetSpec(
+        id="background", registry_name="kitchen", params={"usd_path": override_path, "reset_nested_physics": False}
+    )
+    assert background_spec.resolve_usd_path() == override_path
 
 
 @pytest.mark.parametrize("light_name", ["light", "directional_light"])
@@ -159,9 +218,9 @@ def test_base_contact_filters_use_native_source_and_usd_variants(tmp_path):
     variant_set.SetVariantSelection("first")
     updated_stage.GetRootLayer().Save()
 
-    pickup = Object(name="pickup", object_type=ObjectType.RIGID, spawner_cfg=CuboidCfg(size=(1.0, 1.0, 1.0)))
+    pickup = Object(name="pickup", object_type=ObjectType.RIGID, spawn_cfg=CuboidCfg(size=(1.0, 1.0, 1.0)))
     destination = Object(
-        name="destination", object_type=ObjectType.BASE, spawner_cfg=UsdFileCfg(usd_path=str(original_path))
+        name="destination", object_type=ObjectType.BASE, spawn_cfg=UsdFileCfg(usd_path=str(original_path))
     )
     assert pickup.get_contact_sensor_cfg(destination).filter_prim_paths_expr == [
         destination.get_prim_path() + "/OldBody"

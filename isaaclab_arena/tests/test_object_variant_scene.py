@@ -60,7 +60,7 @@ def _test_native_variant_scene(simulation_app, tmp_path):
     def make_member(path, scale):
         return Object(
             name=path.stem,
-            spawner_cfg=UsdFileCfg(usd_path=str(path), scale=(scale,) * 3, activate_contact_sensors=True),
+            spawn_cfg=UsdFileCfg(usd_path=str(path), scale=(scale,) * 3, activate_contact_sensors=True),
             object_type=ObjectType.RIGID,
         )
 
@@ -107,7 +107,7 @@ def _test_native_variant_scene(simulation_app, tmp_path):
         runtime_scene = env.unwrapped.scene
         stage = get_current_stage()
         bounds_by_object = build_per_env_bounding_boxes([pickup, destination], num_envs).object_bboxes
-        assignments = {obj.name: obj.variant_indices_by_env for obj in (pickup, destination)}
+        assignments = {obj.name: obj.asset_indices_by_env for obj in (pickup, destination)}
         expected_scales = {pickup: (1.0, 1.5), destination: (0.5, 1.0, 2.0)}
         expected_masses = {pickup: (0.2, 0.5), destination: (0.5, 0.5, 0.5)}
         for obj in (pickup, destination):
@@ -144,7 +144,7 @@ def _test_native_variant_scene(simulation_app, tmp_path):
         force_matrix = runtime_scene.sensors["pickup_contacts"].data.force_matrix_w
         assert force_matrix is not None and wp.to_torch(force_matrix).shape == (num_envs, 1, 1, 3)
         env.reset()
-        assert assignments == {obj.name: obj.variant_indices_by_env for obj in (pickup, destination)}
+        assert assignments == {obj.name: obj.asset_indices_by_env for obj in (pickup, destination)}
         for obj in (pickup, destination):
             root_positions = wp.to_torch(runtime_scene[obj.name].data.root_pos_w) - runtime_scene.env_origins
             expected_positions = torch.tensor(obj.initial_pose.position_xyz, device=root_positions.device)

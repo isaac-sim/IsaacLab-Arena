@@ -32,10 +32,10 @@ class ObjectVariantAssignmentCfg:
     """Variant index selected for each environment."""
 
     spawn_config_hashes: tuple[str, ...] = ()
-    """Native spawn configurations in variant order before placement."""
+    """Hashes of native spawn configurations in variant order before placement."""
 
     spawner_options_hash: str = ""
-    """Outer multi-spawner settings before placement, excluding generated spawn paths."""
+    """Hash of outer multi-spawner settings before placement, excluding generated spawn paths."""
 
 
 def _hash_spawner_options(spawn_cfg: MultiAssetSpawnerCfg) -> str:
@@ -49,12 +49,14 @@ def _hash_spawner_options(spawn_cfg: MultiAssetSpawnerCfg) -> str:
 def assign_object_variants(
     objects: Iterable[Asset], num_envs: int, seed: int | None = None
 ) -> dict[str, ObjectVariantAssignmentCfg]:
-    """Bind choices and snapshot their source configurations before solving placement.
+    """Retain or bind asset assignments and snapshot their configurations before placement.
+
+    Existing assignments remain fixed; the seed only affects unassigned objects.
 
     Args:
         objects: Scene assets, including those without placement relations.
         num_envs: Environment count shared by placement and simulation.
-        seed: Optional seed; object names keep sampling independent of declaration order.
+        seed: Optional seed for unassigned objects; names keep sampling independent of declaration order.
 
     Returns:
         Serializable assignments keyed by scene configuration name.
@@ -62,7 +64,7 @@ def assign_object_variants(
     assert num_envs > 0, "Variant assignment requires at least one environment."
     assignments = {}
     for obj in objects:
-        if not getattr(obj, "has_variants", False):
+        if not getattr(obj, "has_multiple_assets", False):
             continue
         spawn_cfg = obj.spawn_cfg
         assert isinstance(spawn_cfg, MultiAssetSpawnerCfg), f"Object '{obj.name}' needs native asset variants."
@@ -70,7 +72,7 @@ def assign_object_variants(
         # still requires the current alternatives to have one common body path.
         obj.get_contact_sensor_prim_path()
         variant_count = len(spawn_cfg.assets_cfg)
-        indices = obj.variant_indices_by_env
+        indices = obj.asset_indices_by_env
         if indices is not None:
             assert len(indices) == num_envs, (
                 f"Object '{obj.name}' already has variants assigned for {len(indices)} environments; "
@@ -82,7 +84,7 @@ def assign_object_variants(
                 indices = tuple(generator.randrange(variant_count) for _ in range(num_envs))
             else:
                 indices = tuple(env_id % variant_count for env_id in range(num_envs))
-            obj.bind_variant_assignment(indices)
+            obj.bind_asset_assignment(indices)
         assignments[obj.get_scene_key()] = ObjectVariantAssignmentCfg(
             variant_indices=tuple(indices),
             spawn_config_hashes=tuple(dict_to_md5_hash(cfg) for cfg in spawn_cfg.assets_cfg),

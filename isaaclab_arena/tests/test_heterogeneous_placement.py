@@ -49,7 +49,7 @@ class HeterogeneousDummyObject(DummyObject):
         self._per_env_bboxes = bboxes
 
     @property
-    def has_variants(self) -> bool:
+    def has_multiple_assets(self) -> bool:
         return True
 
     def get_bounding_box_per_env(self, num_envs: int) -> AxisAlignedBoundingBox:
@@ -129,7 +129,7 @@ def test_dummy_object_preserves_constructor_relations():
     )
 
     assert obj.get_relations() == [anchor_relation]
-    assert not obj.has_variants
+    assert not obj.has_multiple_assets
 
 
 def test_object_preserves_constructor_relations():
@@ -147,7 +147,7 @@ def test_object_preserves_constructor_relations():
     )
 
     assert obj.get_relations() == [anchor_relation]
-    assert not obj.has_variants
+    assert not obj.has_multiple_assets
 
 
 # ---------------------------------------------------------------------------
@@ -880,6 +880,6 @@ def test_object_variants_through_pooled_placer():
     assert len(draws) == num_envs
     for env_id, draw in enumerate(draws):
         assert pickup in draw.positions
-        variant_height = sizes[pickup.variant_indices_by_env[env_id]][2]
+        variant_height = sizes[pickup.asset_indices_by_env[env_id]][2]
         expected_height = 0.1 + 0.01 + variant_height / 2
         assert abs(draw.positions[pickup][2] - expected_height) < 0.05

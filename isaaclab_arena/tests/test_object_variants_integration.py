@@ -152,7 +152,7 @@ def _test_object_variants_across_environments(simulation_app):
         assert len(object_paths) == NUM_ENVS, "Spawned object count does not match NUM_ENVS"
         expected_paths = [
             varied_object.spawn_cfg.assets_cfg[variant_index].usd_path
-            for variant_index in varied_object.variant_indices_by_env
+            for variant_index in varied_object.asset_indices_by_env
         ]
         # Native asset retrieval can change the directory; prepared USD filenames remain stable.
         assert [os.path.basename(path) for path in object_paths] == [os.path.basename(path) for path in expected_paths]
@@ -229,7 +229,7 @@ def _test_multiple_objects_with_variants(simulation_app):
         for varied_object, spawned_paths in ((first_object, object_1_paths), (second_object, object_2_paths)):
             expected_paths = [
                 varied_object.spawn_cfg.assets_cfg[variant_index].usd_path
-                for variant_index in varied_object.variant_indices_by_env
+                for variant_index in varied_object.asset_indices_by_env
             ]
             assert [os.path.basename(path) for path in spawned_paths] == [
                 os.path.basename(path) for path in expected_paths

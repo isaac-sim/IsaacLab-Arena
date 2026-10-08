@@ -44,7 +44,7 @@ def resolve_aabb_dimensions_m(
     """Return axis-aligned bounding box sizes in meters for each snapshot asset (objects and references)."""
     dimensions: dict[str, AabbDimensionsM] = {}
     for node_id, asset in assets_by_node_id.items():
-        if not isinstance(asset, ObjectBase) or getattr(asset, "has_variants", False):
+        if not isinstance(asset, ObjectBase) or getattr(asset, "has_multiple_assets", False):
             continue
         dims = aabb_dimensions_from_asset(asset)
         if dims is not None:
@@ -80,7 +80,7 @@ def cached_rigid_asset_preview(spawn_cfg: SpawnerCfg, cache_dir: Path) -> str:
     preview_path = cache_dir / f"native_asset_{config_hash}.usd"
     if not preview_path.is_file() or preview_path.stat().st_size == 0:
         cache_dir.mkdir(parents=True, exist_ok=True)
-        asset = Object(name="asset", spawner_cfg=spawn_cfg, object_type=ObjectType.RIGID)
+        asset = Object(name="asset", spawn_cfg=spawn_cfg, object_type=ObjectType.RIGID)
         Scene([asset]).export_to_usd(preview_path)
     return str(preview_path)
 

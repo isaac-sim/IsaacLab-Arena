@@ -113,7 +113,7 @@ def test_scene_export_uses_native_usd_spawn_config(tmp_path: pathlib.Path):
     obj = Object(
         name="box",
         object_type=ObjectType.RIGID,
-        spawner_cfg=UsdFileCfg(
+        spawn_cfg=UsdFileCfg(
             usd_path=str(source_path),
             variants={"shape": "large"},
             scale=(2.0, 1.0, 1.0),
@@ -152,7 +152,7 @@ def test_scene_export_supports_native_procedural_objects(tmp_path: pathlib.Path)
     obj = Object(
         name="box",
         object_type=ObjectType.RIGID,
-        spawner_cfg=CuboidCfg(
+        spawn_cfg=CuboidCfg(
             size=(0.2, 0.4, 0.6),
             rigid_props=RigidBodyBaseCfg(),
             collision_props=CollisionBaseCfg(),
@@ -218,7 +218,7 @@ def test_scene_export_places_nested_rigid_body_in_its_pose_frame(tmp_path: pathl
     obj = Object(
         name="nested",
         object_type=ObjectType.RIGID,
-        spawner_cfg=UsdFileCfg(usd_path=str(source_path), scale=(2.0, 3.0, 1.0)),
+        spawn_cfg=UsdFileCfg(usd_path=str(source_path), scale=(2.0, 3.0, 1.0)),
         initial_pose=pose,
     )
     output_path = tmp_path / "nested_export.usda"

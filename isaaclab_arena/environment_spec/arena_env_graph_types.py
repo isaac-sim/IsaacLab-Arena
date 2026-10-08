@@ -19,14 +19,15 @@ from isaaclab_arena.assets.registries import AssetRegistry, ObjectRelationLibrar
 
 def _extract_asset_usd_path(asset_cls: type, **params: Any) -> str | None:
     """Return the asset's root USD path or URL, or ``None`` if not extractable."""
-    class_usd = getattr(asset_cls, "usd_path", None)
-    if isinstance(class_usd, str) and class_usd:
-        return class_usd
+    if "usd_path" not in params:
+        class_usd = getattr(asset_cls, "usd_path", None)
+        if isinstance(class_usd, str) and class_usd:
+            return class_usd
 
     # Defer conversion imports until runtime; conversion utilities also import these schema types.
     from isaaclab_arena.environment_spec.arena_env_graph_conversion_utils import parse_asset_params
 
-    # Instantiate when usd_path is set lazily (e.g. Lightwheel backgrounds).
+    # Instantiate for constructor overrides or lazy paths (e.g. Lightwheel backgrounds).
     # TODO(qianl): add support for embodiments, whose robot USD lives in scene_config.robot.spawn.
     try:
         instance = asset_cls(**parse_asset_params(params))
@@ -168,7 +169,7 @@ class PerEnvironmentObjectSpec(BaseModel):
             "assign_to_environments",
             "object_type",
             "usd_path",
-            "spawner_cfg",
+            "spawn_cfg",
             "scale",
             "spawn_cfg_addon",
         }

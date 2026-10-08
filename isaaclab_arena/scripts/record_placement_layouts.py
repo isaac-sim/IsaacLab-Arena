@@ -127,7 +127,9 @@ def record_settled_placement_layouts(
         arena_env = spec.to_arena_env()
     assert arena_env.placement_layouts is None, "Remove cached placement layouts before recording"
     scene_assets = arena_env.get_placement_assets()
-    assert not any(asset.has_variants for asset in scene_assets), "Select concrete object variants before recording"
+    assert not any(
+        asset.has_multiple_assets for asset in scene_assets
+    ), "Select concrete object variants before recording"
     placer_params = arena_env.placer_params
     if placer_params is None:
         placer_params = build_placer_params_from_override(None)

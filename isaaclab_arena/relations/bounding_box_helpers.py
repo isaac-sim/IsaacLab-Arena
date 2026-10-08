@@ -23,7 +23,7 @@ if TYPE_CHECKING:
 
 def has_heterogeneous_objects(objects: list[PlaceableAsset]) -> bool:
     """Return whether placement must use env-specific object geometry."""
-    return any(obj.has_variants for obj in objects)
+    return any(obj.has_multiple_assets for obj in objects)
 
 
 def get_bounding_box_per_env(obj: PlaceableAsset, num_envs: int) -> AxisAlignedBoundingBox:

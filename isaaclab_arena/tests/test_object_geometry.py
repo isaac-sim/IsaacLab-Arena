@@ -45,7 +45,7 @@ def test_rigid_geometry_uses_body_pose_frame(tmp_path):
     obj = Object(
         name="nested",
         object_type=ObjectType.RIGID,
-        spawner_cfg=UsdFileCfg(usd_path=str(source_path), scale=(2.0, 2.0, 2.0)),
+        spawn_cfg=UsdFileCfg(usd_path=str(source_path), scale=(2.0, 2.0, 2.0)),
     )
     bounds = obj.get_bounding_box()
     np.testing.assert_allclose(bounds.min_point, [[-2.0, -4.0, -6.0]], atol=1e-6)
@@ -85,7 +85,7 @@ def test_mesh_exclusions_preserve_source_instances(tmp_path):
     source_stage.GetRootLayer().Save()
     original_content = source_path.read_bytes()
 
-    obj = Object(name="background", object_type=ObjectType.BASE, spawner_cfg=UsdFileCfg(usd_path=str(source_path)))
+    obj = Object(name="background", object_type=ObjectType.BASE, spawn_cfg=UsdFileCfg(usd_path=str(source_path)))
     excluded_mesh = obj.get_collision_mesh(excluded_prim_paths=("/Asset/Instance/Exclude",))
     np.testing.assert_allclose(excluded_mesh.bounds, [[-1.0, -1.0, -1.0], [1.0, 1.0, 1.0]])
     np.testing.assert_allclose(obj.get_collision_mesh().bounds, [[-1.0, -1.0, -1.0], [11.0, 1.0, 1.0]])

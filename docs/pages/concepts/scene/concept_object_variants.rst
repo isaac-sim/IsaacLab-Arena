@@ -100,10 +100,10 @@ Declare the alternatives
       assets. The former ``object_sets`` section and ``objects[].variants``
       field are rejected.
 
-Assign variants to environments
---------------------------------
+Assign assets to environments
+-----------------------------
 
-``ArenaEnvBuilder`` assigns variants once during environment construction, before
+``ArenaEnvBuilder`` assigns assets once during environment construction, before
 placement, and passes that same assignment to Isaac Lab's native scene clone planning.
 ``assign_to_environments="sequential"`` is the default: it cycles through
 the declared order, such as banana, orange, banana, orange.
@@ -124,7 +124,7 @@ Hydra configuration roundtrip preserves them. Arena installs the native clone
 strategy when the environment starts and checks that configuration overrides
 have not changed the assigned assets or environment count.
 
-With two variants and ``--num_envs 2``, sequential assignment gives each environment
+With two alternatives and ``--num_envs 2``, sequential assignment gives each environment
 one different fruit. Use more than one environment to see alternatives side by
 side.
 
@@ -146,7 +146,7 @@ Multiple alternatives are stored in Isaac Lab's ``MultiAssetSpawnerCfg`` and are
 available through ``fruit.spawn_cfg.assets_cfg``.
 A single alternative uses its concrete native configuration directly as
 ``fruit.spawn_cfg``.
-After assignment, ``fruit.variant_indices_by_env`` identifies the selected
+After assignment, ``fruit.asset_indices_by_env`` identifies the selected
 configuration for each environment.
 
 Each variant's scale stays in its native spawn configuration; scale differences

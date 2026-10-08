@@ -140,7 +140,7 @@ class ArenaEnvGraphSpec(BaseModel):
         for ref in object_references:
             assert ref.parent_id in valid_parent_ids, (
                 f"Object reference '{ref.id}' references invalid parent '{ref.parent_id}'; "
-                "parent must be the background or a fixed object id"
+                "parent must be the background or an id declared under objects"
             )
 
     @staticmethod

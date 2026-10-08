@@ -62,9 +62,13 @@ through ``obj.spawn_cfg`` (the same configuration as ``obj.object_cfg.spawn``):
    obj.spawn_cfg.visible = False
 
 Make these changes before building the environment. Geometry queries, contact-body
-discovery, and scene export read the current native configuration. Class attributes
-such as ``LibraryObject.usd_path`` provide registry defaults; they are not the
-configuration of an existing instance.
+discovery, and scene export read the current native configuration. Library class
+attributes such as ``CrackerBox.usd_path`` provide registry defaults. Instance reads
+of ``obj.usd_path`` and ``obj.scale`` return the current native values; change those
+values through ``obj.spawn_cfg``.
+
+To construct an ``Object`` from a native spawner, pass ``spawn_cfg=...``. The
+constructor and the instance property use the same name.
 
 Physics spawn addons
 ~~~~~~~~~~~~~~~~~~~~

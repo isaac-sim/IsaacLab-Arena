@@ -140,7 +140,7 @@ def _test_arena_env_graph_conversion_builds_per_environment_object(simulation_ap
 
     varied_object = arena_env.scene.assets["pick_up_object"]
     assert isinstance(varied_object, PerEnvironmentObject)
-    assert varied_object.has_variants
+    assert varied_object.has_multiple_assets
     assert len(varied_object.spawn_cfg.assets_cfg) == 2
     assert varied_object.assign_to_environments == "random"
     assert arena_env.task.pick_up_object is varied_object
@@ -154,7 +154,7 @@ def _test_arena_env_graph_conversion_builds_per_environment_object(simulation_ap
         assert on_relation.parent is background
 
     assign_object_variants([varied_object], num_envs=4, seed=42)
-    assert len(varied_object.variant_indices_by_env) == 4
+    assert len(varied_object.asset_indices_by_env) == 4
     assert len(varied_object.spawn_cfg.assets_cfg) == 2
     return True
 
@@ -222,7 +222,7 @@ def _test_default_light_is_injected_when_scene_has_none(simulation_app):
 
     # The injected lights own their spawner cfgs: turning the directional light off above must not
     # have darkened the shared class default for later builds.
-    assert DirectionalLight.default_spawner_cfg.intensity == DirectionalLight.default_intensity
+    assert DirectionalLight.default_spawn_cfg.intensity == DirectionalLight.default_intensity
 
     return True
 

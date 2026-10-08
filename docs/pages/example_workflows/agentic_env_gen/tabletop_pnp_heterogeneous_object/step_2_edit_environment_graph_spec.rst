@@ -61,20 +61,20 @@ The generated spec has one block per part of the environment graph:
      subtasks:
      - kind: PickAndPlaceTask
        params:
-         pick_up_object: fruit       # the object id, whichever variant spawned
+         pick_up_object: fruit       # the object id, whichever member spawned
          destination_location: bowl
          background_scene: maple_table
 
 A ``PerEnvironmentObject`` is referenced by its ``id`` in the
 ``relations`` that place it and in the ``task`` params that name the target. The
-rest of the graph is written once and stays valid whichever variant an
+rest of the graph is written once and stays valid whichever member an
 environment spawns.
 
 For more details on the Env Spec, see
 :doc:`Environment Definition <../../../concepts/environment/environment_definition>`.
 
-Editing object variants
-^^^^^^^^^^^^^^^^^^^^^^^
+Editing per-environment objects
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Edit a ``per_environment_objects`` entry's ``objects`` list and
 ``assign_to_environments`` to change which assets appear across environments.
@@ -82,8 +82,8 @@ The relations and task continue to refer to the same ``id``.
 For the ``PerEnvironmentObject`` concept, see
 :doc:`../../../concepts/scene/concept_object_variants`.
 
-#. Add or remove a variant to change which assets the environments draw from.
-   Variants name registered rigid objects from the Arena asset catalog:
+#. Add or remove an ``objects`` member to change which assets the environments draw from.
+   Members name registered rigid objects from the Arena asset catalog:
 
    .. code-block:: yaml
 
@@ -95,7 +95,7 @@ For the ``PerEnvironmentObject`` concept, see
         assign_to_environments: random
         params: {}
 
-#. Set ``assign_to_environments`` to choose how variants map to environments.
+#. Set ``assign_to_environments`` to choose how members map to environments.
    ``random`` samples independently, with possible repeats; ``sequential`` cycles
    through the declared order. Assignment stays fixed across resets.
 
@@ -106,7 +106,7 @@ For the ``PerEnvironmentObject`` concept, see
 
 .. note::
 
-   Each variant accepts its own ``params``. A searched SimReady asset uses
+   Each member accepts its own ``params``. A searched SimReady asset uses
    ``registry_name: simready_usd_object`` with its ``usd_path`` under ``params``.
 
 Applying your edits
@@ -125,7 +125,7 @@ Applying your edits
       #. Click **Save to <env_name>.yaml** to write the spec to ``<env_name>.yaml`` in the output directory.
 
       Set the number of parallel environments in the sim preview controls to more than
-      one to see the variants spread across environments.
+      one to see the assets distributed across environments.
 
       See :doc:`../../../concepts/agentic_environment_generation/gui_runner` for the full UI walkthrough.
 

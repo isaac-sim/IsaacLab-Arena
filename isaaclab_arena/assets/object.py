@@ -31,6 +31,18 @@ from isaaclab_arena.utils.usd.rigid_bodies import read_asset_rigid_body_paths
 class Object(RootedObjectBase):
     """A scene object whose native spawn configuration owns its asset settings."""
 
+    def __getattribute__(self, name: str) -> Any:
+        # Library subclasses declare class defaults under these names, which would
+        # shadow properties on Object. Instance access must use the current config.
+        if name in ("scale", "usd_path"):
+            return getattr(super().__getattribute__("spawn_cfg"), name)
+        return super().__getattribute__(name)
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        if name in ("scale", "usd_path"):
+            raise AttributeError(f"Configure {name} through spawn_cfg.{name}")
+        super().__setattr__(name, value)
+
     def __init__(
         self,
         name: str,
@@ -40,19 +52,19 @@ class Object(RootedObjectBase):
         scale: tuple[float, float, float] = (1.0, 1.0, 1.0),
         initial_pose: Pose | None = None,
         relations: list[RelationBase] | None = None,
-        spawner_cfg: SpawnerCfg | None = None,
+        spawn_cfg: SpawnerCfg | None = None,
         **kwargs,
     ):
         """Create one concrete asset shared across environments through native spawning."""
         spawn_cfg_addon: dict[str, Any] = kwargs.pop("spawn_cfg_addon", {}) or {}
-        assert (usd_path is None) != (spawner_cfg is None), "Provide exactly one of usd_path or spawner_cfg"
-        if spawner_cfg is not None:
-            assert object_type is not None, "object_type must be provided if spawner_cfg is provided"
-            assert not spawn_cfg_addon, "Configure spawn options directly on spawner_cfg"
+        assert (usd_path is None) != (spawn_cfg is None), "Provide exactly one of usd_path or spawn_cfg"
+        if spawn_cfg is not None:
+            assert object_type is not None, "object_type must be provided if spawn_cfg is provided"
+            assert not spawn_cfg_addon, "Configure spawn options directly on spawn_cfg"
             assert not isinstance(
-                spawner_cfg, (MultiAssetSpawnerCfg, MultiUsdFileCfg)
+                spawn_cfg, (MultiAssetSpawnerCfg, MultiUsdFileCfg)
             ), "Use PerEnvironmentObject to select different objects across environments"
-            spawn_cfg = deepcopy(spawner_cfg)
+            spawn_cfg = deepcopy(spawn_cfg)
         else:
             if object_type is None:
                 object_type = detect_object_type(usd_path=usd_path, variants=spawn_cfg_addon.get("variants"))

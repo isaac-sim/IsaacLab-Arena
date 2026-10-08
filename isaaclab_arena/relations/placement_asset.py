@@ -168,8 +168,8 @@ class PlaceableAsset(Asset, ABC):
         """Return root-relative axis-aligned bounds."""
 
     @property
-    def has_variants(self) -> bool:
-        """Whether this asset's geometry depends on its environment."""
+    def has_multiple_assets(self) -> bool:
+        """Whether multiple asset alternatives are configured, regardless of assignment."""
         return False
 
     def get_bounding_box_per_env(self, num_envs: int) -> AxisAlignedBoundingBox:

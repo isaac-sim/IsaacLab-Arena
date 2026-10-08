@@ -88,7 +88,7 @@ def _assert_plan_assignments(plan, scene_cfg: InteractiveSceneCfg, objects: list
         variant_rows = plan.cfg_rows[id(scene_asset_cfg)]
         object_mask = plan.clone_mask[list(variant_rows)]
         assert torch.equal(object_mask.sum(dim=0), torch.ones(scene_cfg.num_envs, dtype=torch.long))
-        assert tuple(object_mask.long().argmax(dim=0).tolist()) == obj.variant_indices_by_env
+        assert tuple(object_mask.long().argmax(dim=0).tolist()) == obj.asset_indices_by_env
         assert len(variant_rows) == len(obj.spawn_cfg.assets_cfg)
 
 
@@ -102,8 +102,8 @@ def test_native_clone_plan_matches_bounds_for_two_unequal_variant_counts():
 
     objects = [_make_object("pickup", 2), _make_object("destination", 3)]
     assignments = assign_object_variants(objects, num_envs=7, seed=19)
-    assert objects[0].variant_indices_by_env == (0, 1, 0, 1, 0, 1, 0)
-    assert objects[1].variant_indices_by_env == (0, 1, 2, 0, 1, 2, 0)
+    assert objects[0].asset_indices_by_env == (0, 1, 0, 1, 0, 1, 0)
+    assert objects[1].asset_indices_by_env == (0, 1, 2, 0, 1, 2, 0)
     scene_cfg = _make_scene(objects, num_envs=7)
     validate_object_variant_assignments(scene_cfg, assignments)
     with object_variant_clone_strategy(scene_cfg, assignments):
@@ -115,7 +115,7 @@ def test_native_clone_plan_matches_bounds_for_two_unequal_variant_counts():
     assert plan.clone_mask.shape == (2 + 3 + 1 + 1, 7)
     for obj in objects:
         bounds = obj.get_bounding_box_per_env(7)
-        expected_widths = torch.tensor([0.1 * (index + 1) for index in obj.variant_indices_by_env])
+        expected_widths = torch.tensor([0.1 * (index + 1) for index in obj.asset_indices_by_env])
         assert torch.allclose(bounds.max_point[:, 0] - bounds.min_point[:, 0], expected_widths)
 
 
@@ -138,13 +138,13 @@ def test_assignment_is_seeded_by_object_name_and_preserved_after_binding():
     assignments = assign_object_variants(objects, num_envs=20, seed=19)
     assign_object_variants(reordered_objects, num_envs=20, seed=19)
     assign_object_variants(other_seed_objects, num_envs=20, seed=20)
-    original_indices = {obj.name: obj.variant_indices_by_env for obj in objects}
-    assert original_indices == {obj.name: obj.variant_indices_by_env for obj in reordered_objects}
-    assert original_indices != {obj.name: obj.variant_indices_by_env for obj in other_seed_objects}
-    assert objects[0].variant_indices_by_env != objects[1].variant_indices_by_env
+    original_indices = {obj.name: obj.asset_indices_by_env for obj in objects}
+    assert original_indices == {obj.name: obj.asset_indices_by_env for obj in reordered_objects}
+    assert original_indices != {obj.name: obj.asset_indices_by_env for obj in other_seed_objects}
+    assert objects[0].asset_indices_by_env != objects[1].asset_indices_by_env
 
     assign_object_variants(objects, num_envs=20, seed=100)
-    assert original_indices == {obj.name: obj.variant_indices_by_env for obj in objects}
+    assert original_indices == {obj.name: obj.asset_indices_by_env for obj in objects}
     with pytest.raises(AssertionError, match="already has variants assigned"):
         assign_object_variants(objects, num_envs=21, seed=19)
 
@@ -239,12 +239,12 @@ def test_source_edit_before_assignment_rejects_incompatible_rigid_body_paths(tmp
         body = UsdGeom.Xform.Define(stage, body_path).GetPrim()
         UsdPhysics.RigidBodyAPI.Apply(body)
         stage.GetRootLayer().Save()
-    member = Object(name="member", object_type=ObjectType.RIGID, spawner_cfg=UsdFileCfg(usd_path=str(root_path)))
+    member = Object(name="member", object_type=ObjectType.RIGID, spawn_cfg=UsdFileCfg(usd_path=str(root_path)))
     obj = PerEnvironmentObject(name="pickup", objects=[member, member])
     obj.spawn_cfg.assets_cfg[1].usd_path = str(nested_path)
     with pytest.raises(AssertionError, match="incompatible rigid-body paths"):
         assign_object_variants([obj], num_envs=3)
-    assert obj.variant_indices_by_env is None
+    assert obj.asset_indices_by_env is None
 
 
 @pytest.mark.parametrize("extra", ["unmanaged_spawner", "heterogeneous_collection", "optional_combinations"])
@@ -307,7 +307,7 @@ def test_clone_strategy_survives_hydra_config_roundtrip():
     original_strategy = restored.scene.clone_cfg.clone_strategy
     assert serialized["scene"]["clone_cfg"]["clone_strategy"].endswith(":sequential")
     for obj in objects:
-        assert restored.object_variant_assignments[obj.name].variant_indices == obj.variant_indices_by_env
+        assert restored.object_variant_assignments[obj.name].variant_indices == obj.asset_indices_by_env
     with object_variant_clone_strategy(restored.scene, restored.object_variant_assignments):
         plan = _make_native_plan(restored.scene, objects)
     _assert_plan_assignments(plan, restored.scene, objects)

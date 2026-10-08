@@ -92,7 +92,7 @@ def discover_passive_assets(
             continue
         if asset.get_relations():
             continue
-        if asset.has_variants:
+        if asset.has_multiple_assets:
             assert not isinstance(
                 asset.get_initial_pose(), Pose
             ), f"Object '{asset.name}' needs an IsAnchor relation to participate in per-environment collision placement"

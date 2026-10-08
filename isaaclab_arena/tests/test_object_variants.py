@@ -33,7 +33,7 @@ def _test_asset_and_native_variants_keep_independent_settings_and_bounds(simulat
         rigid_props=RigidBodyPropertiesCfg(kinematic_enabled=True),
         activate_contact_sensors=False,
     )
-    sphere = Object(name="sphere", spawner_cfg=sphere_cfg, object_type=ObjectType.RIGID)
+    sphere = Object(name="sphere", spawn_cfg=sphere_cfg, object_type=ObjectType.RIGID)
     first = PerEnvironmentObject(name="first", objects=[box_cfg, sphere])
     second = PerEnvironmentObject(name="second", objects=[box_cfg, sphere])
     assert isinstance(first.spawn_cfg, MultiAssetSpawnerCfg)
@@ -46,8 +46,8 @@ def _test_asset_and_native_variants_keep_independent_settings_and_bounds(simulat
     assert not native_sphere.activate_contact_sensors
     assert first.spawn_cfg.activate_contact_sensors is None
 
-    first.bind_variant_assignment((0, 1, 0))
-    second.bind_variant_assignment((0, 1, 0))
+    first.bind_asset_assignment((0, 1, 0))
+    second.bind_asset_assignment((0, 1, 0))
     torch.testing.assert_close(
         first.get_bounding_box_per_env(3).size,
         torch.tensor([[1.0, 2.0, 3.0], [4.0, 4.0, 4.0], [1.0, 2.0, 3.0]]),
@@ -65,7 +65,7 @@ def _test_asset_and_native_variants_keep_independent_settings_and_bounds(simulat
     assert box_cfg.mass_props.mass == pytest.approx(0.2)
     assert sphere_cfg.radius == 2.0
     assert sphere.spawn_cfg.radius == 2.0
-    assert first.variant_indices_by_env == (0, 1, 0)
+    assert first.asset_indices_by_env == (0, 1, 0)
     return True
 
 
@@ -88,7 +88,7 @@ def _test_usd_variants_use_independent_native_scales(simulation_app, tmp_path):
     small_cfg = UsdFileCfg(usd_path=str(source_path), scale=(1.0, 1.0, 1.0))
     large_cfg = UsdFileCfg(usd_path=str(source_path), scale=(2.0, 3.0, 4.0))
     obj = PerEnvironmentObject(name="boxes", objects=(small_cfg, large_cfg))
-    obj.bind_variant_assignment((1, 0))
+    obj.bind_asset_assignment((1, 0))
     assert [cfg.usd_path for cfg in obj.spawn_cfg.assets_cfg] == [str(source_path)] * 2
     assert [cfg.scale for cfg in obj.spawn_cfg.assets_cfg] == [(1.0, 1.0, 1.0), (2.0, 3.0, 4.0)]
     torch.testing.assert_close(obj.get_bounding_box_per_env(2).size, torch.tensor([[4.0, 6.0, 8.0], [2.0, 2.0, 2.0]]))
@@ -108,11 +108,11 @@ def _test_object_and_per_environment_object_have_distinct_sources(simulation_app
 
     source_cfg = _make_box_cfg()
     with pytest.raises(AssertionError, match="exactly one"):
-        Object(name="ambiguous", usd_path="/unused.usd", spawner_cfg=source_cfg)
+        Object(name="ambiguous", usd_path="/unused.usd", spawn_cfg=source_cfg)
     with pytest.raises(TypeError):
-        Object(name="invalid", spawner_cfg=source_cfg, object_type=ObjectType.RIGID, variants=[source_cfg])
+        Object(name="invalid", spawn_cfg=source_cfg, object_type=ObjectType.RIGID, variants=[source_cfg])
     with pytest.raises(TypeError):
-        Object(name="invalid", spawner_cfg=source_cfg, object_type=ObjectType.RIGID, assign_to_environments="random")
+        Object(name="invalid", spawn_cfg=source_cfg, object_type=ObjectType.RIGID, assign_to_environments="random")
     with pytest.raises(AssertionError, match="at least one"):
         PerEnvironmentObject(name="empty", objects=[])
     with pytest.raises(TypeError):
@@ -123,12 +123,12 @@ def _test_object_and_per_environment_object_have_distinct_sources(simulation_app
     with pytest.raises(AssertionError, match="nested multi-spawners"):
         PerEnvironmentObject(name="nested", objects=[multi_cfg])
     with pytest.raises(AssertionError, match="Use PerEnvironmentObject"):
-        Object(name="unassigned_multi", spawner_cfg=multi_cfg, object_type=ObjectType.RIGID)
+        Object(name="unassigned_multi", spawn_cfg=multi_cfg, object_type=ObjectType.RIGID)
     for object_type in (ObjectType.BASE, ObjectType.ARTICULATION):
-        non_rigid = Object(name="non_rigid", spawner_cfg=source_cfg, object_type=object_type)
+        non_rigid = Object(name="non_rigid", spawn_cfg=source_cfg, object_type=object_type)
         with pytest.raises(AssertionError, match="rigid objects only"):
             PerEnvironmentObject(name="invalid_member", objects=[non_rigid])
-    bounded = Object(name="bounded", spawner_cfg=source_cfg, object_type=ObjectType.RIGID)
+    bounded = Object(name="bounded", spawn_cfg=source_cfg, object_type=ObjectType.RIGID)
     bounded.bounding_box = bounded.get_bounding_box()
     with pytest.raises(AssertionError, match="bounds override"):
         PerEnvironmentObject(name="invalid_bounds", objects=[bounded])
@@ -152,14 +152,14 @@ def _test_single_asset_variant_copies_spawn_settings_without_scene_state(simulat
     source_cfg = _make_box_cfg()
     source = Object(
         name="source",
-        spawner_cfg=source_cfg,
+        spawn_cfg=source_cfg,
         object_type=ObjectType.RIGID,
         initial_pose=Pose(position_xyz=(1.0, 2.0, 3.0)),
         relations=[IsAnchor()],
     )
     obj = PerEnvironmentObject(name="single", objects=[source])
     assert obj.object_type == ObjectType.RIGID
-    assert not obj.has_variants
+    assert not obj.has_multiple_assets
     assert isinstance(obj.spawn_cfg, CuboidCfg)
     assert obj.name == "single"
     assert obj.prim_path == "{ENV_REGEX_NS}/single"
@@ -181,23 +181,23 @@ def _test_heterogeneous_bounds_require_a_stable_assignment(simulation_app):
     from isaaclab_arena.assets.per_environment_object import PerEnvironmentObject
 
     obj = PerEnvironmentObject(name="boxes", objects=[_make_box_cfg(), _make_box_cfg(size=(2.0, 3.0, 4.0))])
-    assert obj.has_variants
+    assert obj.has_multiple_assets
     with pytest.raises(AssertionError, match="per-environment bounding boxes"):
         obj.get_bounding_box()
-    with pytest.raises(AssertionError, match="variant assignment"):
+    with pytest.raises(AssertionError, match="asset assignment"):
         obj.get_bounding_box_for_env(0)
     with pytest.raises(AssertionError, match="nested per-environment objects"):
         PerEnvironmentObject(name="nested", objects=[obj])
-    obj.bind_variant_assignment((1, 0, 1))
-    obj.bind_variant_assignment((1, 0, 1))
+    obj.bind_asset_assignment((1, 0, 1))
+    obj.bind_asset_assignment((1, 0, 1))
     torch.testing.assert_close(
         obj.get_bounding_box_per_env(3).size,
         torch.tensor([[2.0, 3.0, 4.0], [1.0, 2.0, 3.0], [2.0, 3.0, 4.0]]),
     )
     torch.testing.assert_close(obj.get_bounding_box_for_env(1).size, torch.tensor([[1.0, 2.0, 3.0]]))
-    with pytest.raises(AssertionError, match="different variant assignment"):
-        obj.bind_variant_assignment((0, 1, 0))
-    assert obj.variant_indices_by_env == (1, 0, 1)
+    with pytest.raises(AssertionError, match="different asset assignment"):
+        obj.bind_asset_assignment((0, 1, 0))
+    assert obj.asset_indices_by_env == (1, 0, 1)
     return True
 
 
