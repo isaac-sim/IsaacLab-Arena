@@ -53,17 +53,22 @@ actuators). ``spawn_cfg_addon`` configures how the USD is loaded and which physi
 are authored during spawning: mass/density, collision settings, and contact materials.
 Use ``prim_physics`` within the spawn addons for selected bodies, colliders, or joints.
 
-Native object configuration
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Constructor options populate one native Isaac Lab spawn configuration. Access it
+through ``obj.spawn_cfg`` (the same configuration as ``obj.object_cfg.spawn``):
 
-Constructor settings populate ``obj.spawn_cfg``, the same native configuration as
-``obj.object_cfg.spawn``. Pass a native configuration with ``spawn_cfg=...``;
-Arena copies it so each object owns its settings. Make changes before building
-the environment.
+.. code-block:: python
 
-Library class attributes such as ``CrackerBox.usd_path`` remain defaults.
-Instance ``obj.usd_path`` and ``obj.scale`` read the current native values;
-change them through ``obj.spawn_cfg``. Light setters also update that configuration.
+   obj.spawn_cfg.scale = (0.8, 0.8, 0.8)
+   obj.spawn_cfg.visible = False
+
+Make these changes before building the environment. Geometry queries, contact-body
+discovery, and scene export read the current native configuration. Library class
+attributes such as ``CrackerBox.usd_path`` provide registry defaults. Instance reads
+of ``obj.usd_path`` and ``obj.scale`` return the current native values; change those
+values through ``obj.spawn_cfg``.
+
+To construct an ``Object`` from a native spawner, pass ``spawn_cfg=...``. The
+constructor and the instance property use the same name.
 
 Physics spawn addons
 ~~~~~~~~~~~~~~~~~~~~
@@ -214,9 +219,10 @@ you use an ``ObjectReference``.
 The ``parent_asset`` tells the environment which spawned USD the prim path belongs to.
 The prim path uses ``{ENV_REGEX_NS}`` so it resolves correctly across parallel environments.
 
-Rigid object sets
------------------
+Per-environment objects
+-----------------------
 
-To fill one scene role with different rigid objects across parallel
-environments, wrap the candidates in a ``RigidObjectSet``. See
-:doc:`./concept_rigid_object_set` for motivation, usage, and limitations.
+``Object`` uses one asset across environments. To fill one scene role with
+different rigid objects, pass the alternatives to
+``PerEnvironmentObject(objects=[...])``. See :doc:`./concept_object_variants`
+for motivation, usage, and limitations.

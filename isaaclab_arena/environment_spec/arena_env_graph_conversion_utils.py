@@ -15,8 +15,8 @@ from isaaclab_arena.assets.object_reference import (
     PressableObjectReference,
     TurnableObjectReference,
 )
-from isaaclab_arena.assets.object_set import RigidObjectSet
 from isaaclab_arena.assets.object_type import ObjectType
+from isaaclab_arena.assets.per_environment_object import PerEnvironmentObject
 from isaaclab_arena.assets.registries import AssetRegistry, ObjectRelationLibraryRegistry
 from isaaclab_arena.environment_spec.arena_env_graph_task_conversion_utils import build_task_from_spec
 from isaaclab_arena.environment_spec.arena_env_graph_types import ObjectReferenceSpec, SpatialRelationSpec
@@ -187,11 +187,12 @@ def instantiate_assets_from_spec(
         params.setdefault("instance_name", obj.id)
         assets_by_node_id[obj.id] = asset_registry.get_asset_by_name(obj.registry_name)(**params)
 
+    # TODO(migration): Replace object_sets with per_environment_objects when migrating the YAML schema.
     for object_set in graph_spec.object_sets or []:
-        assets_by_node_id[object_set.id] = RigidObjectSet(
+        assets_by_node_id[object_set.id] = PerEnvironmentObject(
             name=object_set.id,
             objects=[asset_registry.get_asset_by_name(registry_name)() for registry_name in object_set.members],
-            random_choice=object_set.random_choice,
+            assign_to_environments="random" if object_set.random_choice else "sequential",
             **parse_asset_params(object_set.params),
         )
 

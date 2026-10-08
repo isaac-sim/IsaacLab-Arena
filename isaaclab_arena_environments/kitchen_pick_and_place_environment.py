@@ -20,7 +20,7 @@ class KitchenPickAndPlaceEnvironmentCfg(ArenaEnvironmentCfg):
     """Configure the kitchen pick-and-place environment."""
 
     object: str = "cracker_box"
-    object_set: list[str] | None = None
+    object_variants: list[str] | None = None
     embodiment: str = "franka_ik"
     teleop_device: str | None = None
 
@@ -34,7 +34,7 @@ class KitchenPickAndPlaceEnvironment(ArenaEnvironmentFactory[KitchenPickAndPlace
     def build(self, cfg: KitchenPickAndPlaceEnvironmentCfg) -> IsaacLabArenaEnvironment:
         """Build the environment from its typed configuration."""
         from isaaclab_arena.assets.object_reference import ObjectReference
-        from isaaclab_arena.assets.object_set import RigidObjectSet
+        from isaaclab_arena.assets.per_environment_object import PerEnvironmentObject
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
         from isaaclab_arena.relations.relations import AtPosition, IsAnchor, On
         from isaaclab_arena.scene.scene import Scene
@@ -51,13 +51,13 @@ class KitchenPickAndPlaceEnvironment(ArenaEnvironmentFactory[KitchenPickAndPlace
         embodiment = self.asset_registry.get_asset_by_name(cfg.embodiment)(enable_cameras=cfg.enable_cameras)
 
         # Validate mutually exclusive object arguments
-        has_object_set = cfg.object_set is not None and len(cfg.object_set) > 0
+        has_object_variants = cfg.object_variants is not None and len(cfg.object_variants) > 0
 
-        # Create the pick-up object: Either a single object or a set of objects
-        if has_object_set:
-            assert cfg.object_set is not None
-            objects = [self.asset_registry.get_asset_by_name(obj)() for obj in cfg.object_set]
-            pick_up_object = RigidObjectSet(name="object_set", objects=objects)
+        # Use one fixed object or choose an object for each environment.
+        if has_object_variants:
+            assert cfg.object_variants is not None
+            objects = [self.asset_registry.get_asset_by_name(obj)() for obj in cfg.object_variants]
+            pick_up_object = PerEnvironmentObject(name="pick_up_object", objects=objects)
         else:
             pick_up_object = self.asset_registry.get_asset_by_name(cfg.object)()
         pick_up_object.add_relation(On(table_top_reference, clearance_m=0.02))

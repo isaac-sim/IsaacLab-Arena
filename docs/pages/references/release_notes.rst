@@ -1,6 +1,15 @@
 Release Notes
 =============
 
+Unreleased
+----------
+
+- Replaced the Python ``RigidObjectSet`` API with ``PerEnvironmentObject``.
+  ``assign_to_environments="sequential"`` cycles through the declared objects;
+  ``"random"`` samples independently. Python environment selection now uses
+  ``--object_variants`` instead of ``--object_set``. YAML still accepts
+  ``object_sets`` and translates its ``random_choice`` setting.
+
 v0.3.1
 -------
 

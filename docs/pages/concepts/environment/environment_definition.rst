@@ -360,11 +360,11 @@ and you get a door with nothing to open.
 
 **Object set members.** YAML constructs set members with no constructor args, so
 they cannot carry a ``usd_path``. SimReady assets fail at load time and cannot be
-set members. Python ``RigidObjectSet`` takes live instances — SimReady is fine:
+set members. Python ``PerEnvironmentObject`` takes live instances — SimReady is fine:
 
 .. code-block:: python
 
-   RigidObjectSet(name="bottles", objects=[simready_bottle, ycb_bottle])
+   PerEnvironmentObject(name="bottles", objects=[simready_bottle, ycb_bottle])
 
 How to spawn an environment
 ---------------------------

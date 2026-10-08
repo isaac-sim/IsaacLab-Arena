@@ -128,18 +128,19 @@ def test_get_arena_builder_from_cli_builds_env_from_graph_yaml():
     assert result
 
 
-def _test_arena_env_graph_conversion_builds_object_set_node(simulation_app):
-    from isaaclab_arena.assets.object_set import RigidObjectSet
+def _test_arena_env_graph_conversion_builds_object_set_node(simulation_app, random_choice):
+    from isaaclab_arena.assets.per_environment_object import PerEnvironmentObject
     from isaaclab_arena.scene.object_variant_assignment import assign_object_variants
 
     spec = ArenaEnvGraphSpec.from_yaml(TEST_DATA_DIR / "object_set_maple_table_env_graph.yaml")
+    spec.object_sets[0].random_choice = random_choice
     arena_env = spec.to_arena_env()
 
     object_set = arena_env.scene.assets["pick_up_object_set"]
-    assert isinstance(object_set, RigidObjectSet)
+    assert isinstance(object_set, PerEnvironmentObject)
     assert object_set.has_multiple_assets
     assert len(object_set.spawn_cfg.assets_cfg) == 2
-    assert object_set.random_choice
+    assert object_set.assign_to_environments == ("random" if random_choice else "sequential")
 
     # The set is a single node: the task manipulates it, and each env gets one of its members.
     assert arena_env.task.pick_up_object is object_set
@@ -150,10 +151,13 @@ def _test_arena_env_graph_conversion_builds_object_set_node(simulation_app):
     return True
 
 
-def test_arena_env_graph_conversion_builds_object_set_node():
+@pytest.mark.parametrize("random_choice", [False, True])
+def test_arena_env_graph_conversion_builds_object_set_node(random_choice):
     from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
-    result = run_function_with_persistent_simulation_app(_test_arena_env_graph_conversion_builds_object_set_node)
+    result = run_function_with_persistent_simulation_app(
+        _test_arena_env_graph_conversion_builds_object_set_node, random_choice=random_choice
+    )
     assert result
 
 

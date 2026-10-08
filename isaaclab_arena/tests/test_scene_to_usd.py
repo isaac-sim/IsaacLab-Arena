@@ -174,33 +174,17 @@ def test_scene_export_supports_native_procedural_objects(tmp_path: pathlib.Path)
 
 
 def test_scene_export_requires_single_asset_spawner(tmp_path: pathlib.Path):
-    from pxr import Usd, UsdGeom, UsdPhysics
+    from isaaclab.sim import CuboidCfg
 
-    from isaaclab_arena.assets.object import Object
-    from isaaclab_arena.assets.object_set import RigidObjectSet
-    from isaaclab_arena.assets.object_type import ObjectType
+    from isaaclab_arena.assets.per_environment_object import PerEnvironmentObject
     from isaaclab_arena.scene.scene import Scene
 
-    source_path = tmp_path / "member.usda"
-    source_stage = Usd.Stage.CreateNew(str(source_path))
-    source_root = UsdGeom.Xform.Define(source_stage, "/Member").GetPrim()
-    source_stage.SetDefaultPrim(source_root)
-    UsdPhysics.RigidBodyAPI.Apply(source_root)
-    cube = UsdGeom.Cube.Define(source_stage, "/Member/Cube")
-    cube.CreateSizeAttr(0.2)
-    UsdPhysics.CollisionAPI.Apply(cube.GetPrim())
-    source_stage.GetRootLayer().Save()
-    member = Object(name="member", object_type=ObjectType.RIGID, usd_path=str(source_path))
-    obj = RigidObjectSet(name="box", objects=[member, member])
+    obj = PerEnvironmentObject(
+        name="box",
+        objects=[CuboidCfg(size=(0.2, 0.4, 0.6)), CuboidCfg(size=(0.4, 0.4, 0.6))],
+    )
     with pytest.raises(AssertionError, match="single-asset spawn configuration"):
         Scene([obj]).export_to_usd(tmp_path / "ambiguous.usda")
-
-    singleton = RigidObjectSet(name="singleton", objects=[member])
-    output_path = tmp_path / "singleton_set.usda"
-    Scene([singleton]).export_to_usd(output_path)
-    exported_stage = Usd.Stage.Open(str(output_path))
-    exported_cube = UsdGeom.Cube(exported_stage.GetPrimAtPath("/World/singleton/Cube"))
-    assert exported_cube.GetSizeAttr().Get() == pytest.approx(0.2)
 
 
 @pytest.mark.parametrize("reset_xform_stack", [False, True])

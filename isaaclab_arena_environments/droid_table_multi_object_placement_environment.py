@@ -16,6 +16,7 @@ from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironme
 if TYPE_CHECKING:
     from isaaclab_arena.assets.object import Object
     from isaaclab_arena.assets.object_reference import ObjectReference
+    from isaaclab_arena.assets.per_environment_object import PerEnvironmentObject
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
 
 
@@ -154,17 +155,17 @@ class DroidTableMultiObjectPlacementEnvironment(ArenaEnvironmentFactory[DroidTab
             obj.add_relation(On(table_reference))
         return objects
 
-    def _build_heterogeneous_objects(self, table_reference: ObjectReference) -> list[Object]:
-        """Build per-environment object sets."""
-        from isaaclab_arena.assets.object_set import RigidObjectSet
+    def _build_heterogeneous_objects(self, table_reference: ObjectReference) -> list[PerEnvironmentObject]:
+        """Build a PerEnvironmentObject for each scene role."""
+        from isaaclab_arena.assets.per_environment_object import PerEnvironmentObject
         from isaaclab_arena.relations.relations import On
 
         placeable_assets = []
-        for set_name, variant_names in HETEROGENEOUS_VARIANT_SETS.items():
-            members = self._build_registered_objects(variant_names)
-            object_set = RigidObjectSet(name=set_name, objects=members)
-            object_set.add_relation(On(table_reference))
-            placeable_assets.append(object_set)
+        for role_name, variant_names in HETEROGENEOUS_VARIANT_SETS.items():
+            assets = self._build_registered_objects(variant_names)
+            obj = PerEnvironmentObject(name=role_name, objects=assets)
+            obj.add_relation(On(table_reference))
+            placeable_assets.append(obj)
         return placeable_assets
 
     def _build_registered_objects(self, names: list[str]) -> list[Object]:

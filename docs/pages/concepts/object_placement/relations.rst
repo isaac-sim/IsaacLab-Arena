@@ -333,7 +333,7 @@ as must a non-anchor embodiment carrying any placement relation or marker.
 
 Before replaying a recording:
 
-- Use concrete assets rather than object sets, and include every owned root of
+- Use one concrete variant per object, and include every owned root of
   each recorded asset.
 - Enable pose resets and use fixed initial poses for assets with pose-reset
   events. Remove ``RandomAroundSolution`` from recorded assets and keep their

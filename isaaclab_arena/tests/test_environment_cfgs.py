@@ -92,10 +92,10 @@ def test_generated_cli_arguments_and_cfg_validation():
     test_cases = [
         (
             GR1PutAndCloseDoorEnvironment,
-            ["--object_set", "cracker_box", "mustard_bottle"],
-            {"object_set": ["cracker_box", "mustard_bottle"]},
+            ["--object_variants", "cracker_box", "mustard_bottle"],
+            {"object_variants": ["cracker_box", "mustard_bottle"]},
         ),
-        (GR1PutAndCloseDoorEnvironment, ["--object_set"], {"object_set": []}),
+        (GR1PutAndCloseDoorEnvironment, ["--object_variants"], {"object_variants": []}),
         (LiftObjectEnvironment, ["--rl_training_mode"], {"rl_training_mode": True}),
         (GR1TableMultiObjectNoCollisionEnvironment, ["--mode", "heterogeneous"], {"mode": "heterogeneous"}),
         (

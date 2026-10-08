@@ -284,7 +284,7 @@ limits.
    * - Unresolved non-clutter placement
      - Resolve every non-clutter asset with placement relations to a fixed pose
        and anchor, including fixtures unrelated to the clutter support. Resolve
-       object sets to concrete assets before collection.
+       object variants to concrete assets before collection.
    * - Unsupported support orientation or tilted mesh release
      - Keep supports upright at multiples of 90 degrees in yaw. For clutter
        with roll or pitch, set the object's ``collision_mode="bbox"``; see

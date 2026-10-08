@@ -79,7 +79,7 @@ def assign_object_variants(
                 f"cannot reuse it for {num_envs}."
             )
         else:
-            if obj.random_choice:
+            if obj.assign_to_environments == "random":
                 generator = random.Random(None if seed is None else f"{seed}:{obj.name}")
                 indices = tuple(generator.randrange(variant_count) for _ in range(num_envs))
             else:

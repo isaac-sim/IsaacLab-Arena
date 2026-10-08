@@ -47,7 +47,7 @@ Layouts and Object Identity
 - A **layout** specifies the positions and orientations of placed entities.
   Layouts can differ across environments and resets.
 - **Object identity** is the registered object selected for a placeable asset.
-  A ``RigidObjectSet`` allows this selection to differ between environments.
+  A ``PerEnvironmentObject`` allows this selection to differ between environments.
 
 Persistence and Geometry-Aware Solving
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -61,7 +61,7 @@ Examples
 
 - When every environment contains the same objects, their identities stay
   fixed while their positions and orientations can differ.
-- When a ``RigidObjectSet`` is used, each environment can receive a different
+- With a ``PerEnvironmentObject``, each environment can receive a different
   registered object. Arena solves and checks its layouts using the geometry of
   that selected object.
 
@@ -83,7 +83,7 @@ Reproducibility
 
 Set ``placement_seed`` when placement must be reproducible. Given the same
 Arena environment definition, placement seed, and environment count, Arena
-reproduces layout generation and random object-set assignment.
+reproduces layout generation and random object variant assignment.
 
 For example:
 
@@ -107,8 +107,8 @@ Standard Configuration
 
 Start with the defaults. Most users only need to:
 
-1. Use ``RigidObjectSet`` when a role should contain different objects across
-   environments.
+1. Use ``PerEnvironmentObject(objects=[...])`` when a role should contain different objects
+   across environments.
 2. Set ``placement_seed`` if results must be reproducible.
 3. Decide whether to reuse or change layouts on reset.
 4. Choose a collision representation only when bounding boxes are too

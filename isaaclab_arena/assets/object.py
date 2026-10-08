@@ -65,7 +65,7 @@ class Object(RootedObjectBase):
             assert not spawn_cfg_addon, "Configure spawn options directly on spawn_cfg"
             assert not isinstance(
                 spawn_cfg, (MultiAssetSpawnerCfg, MultiUsdFileCfg)
-            ), "Use RigidObjectSet to select different objects across environments"
+            ), "Use PerEnvironmentObject to select different objects across environments"
             spawn_cfg = deepcopy(spawn_cfg)
         else:
             if object_type is None:
@@ -90,7 +90,7 @@ class Object(RootedObjectBase):
         relations: list[RelationBase] | None,
         **kwargs,
     ) -> None:
-        """Initialize native scene configuration and pose state for Object and RigidObjectSet."""
+        """Initialize native scene configuration and pose state for Object and PerEnvironmentObject."""
         asset_cfg_addon: dict[str, Any] = kwargs.pop("asset_cfg_addon", {}) or {}
         super().__init__(name=name, prim_path=prim_path, object_type=object_type, **kwargs)
         self.initial_pose = initial_pose
@@ -124,7 +124,7 @@ class Object(RootedObjectBase):
     def spawn_cfg(self, value: SpawnerCfg) -> None:
         assert not isinstance(
             value, (MultiAssetSpawnerCfg, MultiUsdFileCfg)
-        ), "Construct RigidObjectSet to configure native alternatives"
+        ), "Construct PerEnvironmentObject to configure native alternatives"
         self.object_cfg.spawn = value
         self._geometry = None
 
@@ -132,7 +132,7 @@ class Object(RootedObjectBase):
         """Refresh derived geometry after this object's native configuration changes."""
         assert not isinstance(
             self.spawn_cfg, (MultiAssetSpawnerCfg, MultiUsdFileCfg)
-        ), "Use RigidObjectSet for alternatives"
+        ), "Use PerEnvironmentObject for alternatives"
         if self._geometry is None or not self._geometry.matches(self.spawn_cfg):
             self._geometry = ObjectGeometry(self.spawn_cfg, self.object_type)
         return self._geometry

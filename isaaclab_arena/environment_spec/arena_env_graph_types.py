@@ -122,7 +122,7 @@ class ObjectSetSpec(BaseModel):
     )
     params: dict[str, Any] = Field(
         default_factory=dict,
-        description="Optional constructor kwargs forwarded to RigidObjectSet; leave empty by default.",
+        description="Optional constructor kwargs forwarded to PerEnvironmentObject; leave empty by default.",
     )
 
     # TODO(xinjieyao, 2026-08-03): Support searched SimReady assets as object set members.
@@ -142,7 +142,7 @@ class ObjectSetSpec(BaseModel):
     def _reject_reserved_params(cls, value: dict[str, Any]) -> dict[str, Any]:
         # These are forwarded from the fields above, so a duplicate here would be a TypeError at
         # build time, and an 'objects' override would skip the rigid-member check on members.
-        reserved = sorted({"name", "objects", "random_choice"} & set(value))
+        reserved = sorted({"name", "objects", "random_choice", "assign_to_environments"} & set(value))
         assert not reserved, f"params must not set {reserved}; use the id, members, random_choice fields instead"
         return value
 
