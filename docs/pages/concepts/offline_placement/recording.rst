@@ -92,10 +92,11 @@ not set the accepted-layout target. The batch budget must allow at least
 The defaults are API defaults, not a recommended settling duration for every
 scene. The examples below override them where needed:
 
-Select exactly one environment source. ``env_spec=path/to/environment.yaml``
-loads a graph environment, while ``environment_name=my_environment`` builds a
-registered Python environment. Recordings with external environments are covered in
-:ref:`placement-recording-external-environments`.
+Select exactly one environment source, same as ``policy_runner.py``: ``--env_spec path/to/environment.yaml`` or a
+registered environment subcommand (for example ``pick_and_place_maple_table``).
+External factories use ``--external_environment_class_path``; see
+:ref:`placement-recording-external-environments`. Hydra overrides configure only
+recording fields (``output``, ``min_layouts``, ``settle.*``, and so on).
 
 .. list-table:: Recording Options
    :header-rows: 1
@@ -104,9 +105,9 @@ registered Python environment. Recordings with external environments are covered
    * - Option
      - Default
      - Meaning
-   * - ``env_spec`` / ``environment_name`` / ``--external_environment_class_path``
+   * - ``--env_spec`` / subcommand / ``--external_environment_class_path``
      - None
-     - Graph-YAML path, registered Python environment name, or external factory class path.
+     - Graph YAML path, registered environment name, or external factory import path.
    * - ``num_envs``
      - ``1``
      - Parallel environments; one candidate per environment in a reset batch.
@@ -143,9 +144,9 @@ Run this command from the repository root to record layouts from
 .. code-block:: bash
 
    python isaaclab_arena/scripts/record_placement_layouts.py \
-       env_spec=isaaclab_arena_environments/robolab/tasks/clamp_in_right_bin.yaml \
+       --env_spec isaaclab_arena_environments/robolab/tasks/clamp_in_right_bin.yaml \
        output=outputs/placements/clamp.jsonl \
-       num_envs=4 env_spacing=2 min_layouts=16 max_batches=5 seed=42 \
+       --num_envs 4 --env_spacing 2 min_layouts=16 max_batches=5 --seed 42 \
        'viewer_eye=[4.0,4.0,6.3]' 'viewer_lookat=[0.6,0.6,0.3]' \
        settle.num_steps=120 \
        settle.validators.pose_shift.max_translation_m=0.015 \
@@ -251,9 +252,9 @@ move beyond the allowed limits during settling:
 .. code-block:: bash
 
    python isaaclab_arena/scripts/record_placement_layouts.py \
-       env_spec=isaaclab_arena_environments/robolab/tasks/smartphone_in_bin.yaml \
+       --env_spec isaaclab_arena_environments/robolab/tasks/smartphone_in_bin.yaml \
        output=outputs/placements/smartphone.jsonl \
-       num_envs=4 env_spacing=2 min_layouts=16 max_batches=5 seed=42 \
+       --num_envs 4 --env_spacing 2 min_layouts=16 max_batches=5 --seed 42 \
        'viewer_eye=[4.0,4.0,6.3]' 'viewer_lookat=[0.6,0.6,0.3]' \
        settle.num_steps=120 \
        settle.validators.pose_shift.max_translation_m=0.015 \
@@ -283,9 +284,9 @@ Record with External Python Environments
 
 Use ``--external_environment_class_path`` to import a factory from another
 package, then pass its CLI subcommand (the class ``name`` attribute) and any
-factory-specific flags. Do not combine this path with ``env_spec=`` or
-``environment_name=``; recording Hydra overrides follow the subcommand, same
-as for the policy runner. See :doc:`../../arena_in_your_repo/external_environments`
+factory-specific flags. Do not combine this path with ``--env_spec`` or another
+environment subcommand; Hydra recording overrides follow the subcommand, same as
+for the policy runner. See :doc:`../../arena_in_your_repo/external_environments`
 for factory authoring.
 
 .. code-block:: bash
@@ -355,27 +356,34 @@ record layouts, and close the environment:
 
 .. code-block:: python
 
-   from isaaclab_arena.offline_placement.recording_config import PlacementRecordingCfg
+   from argparse import Namespace
+
+   from isaaclab_arena.offline_placement.recording_config import PlacementRecordingRunCfg
    from isaaclab_arena.offline_placement.settled_placement_params import (
        SettledPlacementParams,
    )
    from isaaclab_arena.scripts.record_placement_layouts import (
        record_settled_placement_layouts,
    )
+   from isaaclab_arena_environments.cli import arena_env_from_graph_spec
 
    settle = SettledPlacementParams(num_steps=120)
    settle.validators["pose_shift"]["max_translation_m"] = 0.015
-   cfg = PlacementRecordingCfg(
-       env_spec="isaaclab_arena_environments/robolab/tasks/clamp_in_right_bin.yaml",
+   arena_env = arena_env_from_graph_spec(
+       "isaaclab_arena_environments/robolab/tasks/clamp_in_right_bin.yaml",
+       Namespace(enable_cameras=False),
+   )
+   run = PlacementRecordingRunCfg(
        output="outputs/placements/clamp_python.jsonl",
        num_envs=4, env_spacing=2.0, min_layouts=16, max_batches=5, settle=settle,
    )
-   summary = record_settled_placement_layouts(cfg, device="cpu")
+   summary = record_settled_placement_layouts(arena_env, run, device="cpu")
    print(summary.output, summary.accepted, summary.attempted)
 
 ``summary.rejections`` contains rejection reasons. ``summary.output`` is ``None``
 only when nothing was accepted; partial recordings still have an output path.
-Pass ``arena_env=`` to use an in-memory environment description instead of YAML.
+Resolve ``arena_env`` with :func:`isaaclab_arena_environments.cli.resolve_arena_environment_from_cli`
+(or build in memory). The CLI uses the same environment flags as ``policy_runner.py``.
 See :ref:`clutter-adapt-environment` for a complete application example and
 factory-configuration guidance.
 

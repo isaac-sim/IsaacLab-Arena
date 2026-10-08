@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import argparse
 from dataclasses import dataclass, field
 
 from omegaconf import MISSING
@@ -15,13 +16,9 @@ from isaaclab_arena.offline_placement.settled_placement_params import SettledPla
 
 
 @dataclass
-class PlacementRecordingCfg:
-    """Source scene, reset sampling and offline recording settings."""
+class PlacementRecordingRunCfg:
+    """Reset sampling and offline recording settings (no environment source)."""
 
-    env_spec: str | None = None
-    """Environment YAML path; mutually exclusive with environment_name."""
-    environment_name: str | None = None
-    """Registered Python environment name; mutually exclusive with env_spec."""
     output: str = MISSING
     """Placement JSONL output path; must not exist."""
     num_envs: int = 1
@@ -48,7 +45,23 @@ class PlacementRecordingCfg:
     """Physics duration and configured post-physics validators."""
 
 
-def load_recording_config(overrides: list[str]) -> PlacementRecordingCfg:
+def apply_recording_launcher_cli(
+    run: PlacementRecordingRunCfg,
+    args_cli: argparse.Namespace,
+) -> PlacementRecordingRunCfg:
+    """Apply shared Arena CLI builder fields to recording run settings."""
+    from dataclasses import replace
+
+    return replace(
+        run,
+        num_envs=args_cli.num_envs,
+        seed=args_cli.seed,
+        env_spacing=args_cli.env_spacing,
+        presets=args_cli.presets if args_cli.presets is not None else run.presets,
+    )
+
+
+def load_recording_config(overrides: list[str]) -> PlacementRecordingRunCfg:
     """Load recording settings from Hydra override tokens.
 
     Args:
@@ -61,6 +74,6 @@ def load_recording_config(overrides: list[str]) -> PlacementRecordingCfg:
     from hydra.core.config_store import ConfigStore
     from omegaconf import OmegaConf
 
-    ConfigStore.instance().store(name="placement_recording", node=PlacementRecordingCfg)
+    ConfigStore.instance().store(name="placement_recording", node=PlacementRecordingRunCfg)
     with initialize(version_base=None, config_path=None):
         return OmegaConf.to_object(compose(config_name="placement_recording", overrides=overrides))

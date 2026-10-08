@@ -81,7 +81,8 @@ def Xform "Body" (
                 "from isaaclab_arena.tests.test_settled_placement import run_cli_with_test_assets;"
                 " run_cli_with_test_assets()"
             ),
-            f"env_spec={source}",
+            "--env_spec",
+            str(source),
             f"output={output}",
             f"num_envs={num_envs}",
             f"min_layouts={min_layouts}",
@@ -123,7 +124,8 @@ def test_cli_generates_maintained_clutter(tmp_path):
         [
             TestConstants.python_path,
             str(SCRIPT),
-            f"env_spec={source}",
+            "--env_spec",
+            str(source),
             f"output={output}",
             "num_envs=1",
             "min_layouts=1",

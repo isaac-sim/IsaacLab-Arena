@@ -36,8 +36,8 @@ def run_cli_with_test_assets(summary_path: Path | None = None):
         register_no_embodiment()
         return app
 
-    def record_with_summary(cfg, *, device, arena_env=None):
-        summary = record(cfg, device=device, arena_env=arena_env)
+    def record_with_summary(arena_env, run, *, device):
+        summary = record(arena_env, run, device=device)
         if summary_path is not None:
             summary_path.write_text(
                 json.dumps({
@@ -135,7 +135,8 @@ def test_recording_cli_saves_final_poses(tmp_path, backend):
                 "from isaaclab_arena.tests.test_settled_placement import run_cli_with_test_assets;"
                 " run_cli_with_test_assets()"
             ),
-            f"env_spec={source}",
+            "--env_spec",
+            str(source),
             f"output={output}",
             f"presets={backend}",
             "num_envs=2",
@@ -244,7 +245,8 @@ def test_recording_cli_writes_partial_acceptance(tmp_path):
                 "from isaaclab_arena.tests.test_settled_placement import run_cli_with_test_assets;"
                 " run_cli_with_test_assets()"
             ),
-            f"env_spec={source}",
+            "--env_spec",
+            str(source),
             f"output={output}",
             "presets=physx",
             "num_envs=2",
@@ -297,7 +299,7 @@ def _test_recording_with_default_placer_params(simulation_app, tmp_path):
     from isaaclab_arena.embodiments.no_embodiment import NoEmbodiment
     from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
-    from isaaclab_arena.offline_placement.recording_config import PlacementRecordingCfg
+    from isaaclab_arena.offline_placement.recording_config import PlacementRecordingRunCfg
     from isaaclab_arena.offline_placement.settled_placement_params import SettledPlacementParams
     from isaaclab_arena.scripts.record_placement_layouts import record_settled_placement_layouts
 
@@ -313,14 +315,14 @@ def _test_recording_with_default_placer_params(simulation_app, tmp_path):
         task=scene_description.task,
     )
     assert arena_env.placer_params is None
-    cfg = PlacementRecordingCfg(
+    cfg = PlacementRecordingRunCfg(
         output=str(output),
         min_layouts=2,
         layouts_per_env=1,
         max_batches=3,
         settle=SettledPlacementParams(num_steps=120),
     )
-    summary = record_settled_placement_layouts(cfg, arena_env=arena_env)
+    summary = record_settled_placement_layouts(arena_env, cfg)
     assert summary.output == output
     assert summary.accepted == 2
     records = [json.loads(line)["variations"]["scene.relation_placement"] for line in output.read_text().splitlines()]
@@ -352,7 +354,7 @@ def test_recording_with_registered_environment(tmp_path):
                 " from isaaclab_arena.tests.test_settled_placement import run_cli_with_test_assets;"
                 f" run_cli_with_test_assets(Path({str(summary)!r}))"
             ),
-            "environment_name=droid_table_multi_object_placement",
+            "droid_table_multi_object_placement",
             f"output={output}",
             "layouts_per_env=1",
             "min_layouts=1",

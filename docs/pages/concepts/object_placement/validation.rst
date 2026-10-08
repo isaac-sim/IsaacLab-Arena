@@ -444,7 +444,7 @@ Run the recorder from the repository root, adding that directory to
 
    PYTHONPATH="$PWD${PYTHONPATH:+:$PYTHONPATH}" \
    python isaaclab_arena/scripts/record_placement_layouts.py \
-       env_spec=isaaclab_arena_environments/robolab/tasks/clamp_in_right_bin.yaml \
+       --env_spec isaaclab_arena_environments/robolab/tasks/clamp_in_right_bin.yaml \
        output=outputs/placements/clamp_custom.jsonl \
        num_envs=4 env_spacing=2 min_layouts=16 max_batches=5 seed=42 \
        settle.num_steps=120 \
