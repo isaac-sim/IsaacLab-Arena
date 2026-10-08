@@ -287,9 +287,10 @@ Open the first recorded layout in the viewer:
        --num_envs 1 --device cpu --viz kit
 
 As in the other ``NoTask`` examples, this viewer does not trigger further
-resets. For an automated check of all three criteria, the following test records
-four layouts from this same YAML, compares the bowl's solved, pre-physics and
-post-physics poses, then replays every recorded root across two resets:
+resets. The automated test below targets four layouts from this YAML and requires
+two to four accepted layouts with at least two distinct bowl positions. It
+compares the bowl's solved, pre-physics and post-physics poses, then verifies
+every recorded root pose immediately after replay reset:
 
 .. code-block:: bash
 
