@@ -54,6 +54,7 @@ class RelationSolver:
         self._last_loss_history: list[float] = []
         self._last_position_history: list = []
         self._last_loss_per_env: torch.Tensor | None = None
+        self._last_solved_state: RelationSolverState | None = None
         self._last_no_overlap_pair_count: int = 0
         self._mesh_orientations: list[dict[PlaceableAsset, float]] | None = None
         self._warned_no_mesh: set[str] = set()
@@ -108,7 +109,7 @@ class RelationSolver:
                         child_bbox=child_bbox,
                     )
                     if debug:
-                        _print_unary_relation_debug(obj, relation, child_pos[0], loss.mean())
+                        _print_unary_relation_debug(obj, relation, child_pos[0], child_bbox, loss.mean())
                 # Binary relation (On, NextTo, etc.)
                 elif isinstance(relation, Relation):
                     relation_strategy = cast(RelationLossStrategy, strategy)
@@ -127,7 +128,9 @@ class RelationSolver:
                     )
                     if debug:
                         parent_pos = state.get_position(parent)
-                        _print_relation_debug(obj, relation, child_pos[0], parent_pos[0], loss.mean())
+                        _print_relation_debug(
+                            obj, relation, child_pos[0], parent_pos[0], child_bbox, parent_world_bbox, loss.mean()
+                        )
                 else:
                     raise ValueError(f"Unknown relation type: {type(relation).__name__}")
 
@@ -238,6 +241,7 @@ class RelationSolver:
             List of dicts (one per env) mapping objects to their solved (x, y, z) positions.
         """
         assert not env_bboxes_include_yaw or env_bboxes is not None, "env_bboxes_include_yaw=True requires env_bboxes."
+        self._last_solved_state = None
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         state = RelationSolverState(
             objects, initial_positions, device=device, env_bboxes=env_bboxes, collision_objects=collision_objects
@@ -259,6 +263,7 @@ class RelationSolver:
             self._last_loss_history = [0.0]
             self._last_loss_per_env = torch.zeros(state.batch_size)
             self._last_position_history = [state.get_all_positions_snapshot()]
+            self._last_solved_state = state
             return state.get_final_positions()
 
         if self.params.profile and torch.cuda.is_available():
@@ -356,6 +361,7 @@ class RelationSolver:
 
         self._last_loss_history = loss_history
         self._last_position_history = position_history
+        self._last_solved_state = state
 
         return state.get_final_positions()
 
@@ -396,15 +402,15 @@ class RelationSolver:
         print("DEBUG: Final Loss Breakdown")
         print("=" * 60)
 
-        final_positions_list = self.last_position_history[-1] if self.last_position_history else None
-        if final_positions_list is None:
-            print("No position history available. Run solve() first.")
+        state = self._last_solved_state
+        if state is None:
+            print("No solved state available. Run solve() first.")
             return
-
-        final_positions = {obj: (pos[0], pos[1], pos[2]) for obj, pos in zip(objects, final_positions_list)}
-
-        state = RelationSolverState(objects, [final_positions])
-        self._compute_total_loss(state, debug=True)
+        assert (
+            set(objects) == set(state.optimizable_objects) | state.anchor_objects
+        ), "Debug losses require the objects from the most recent solve."
+        with torch.no_grad():
+            self._compute_total_loss(state, debug=True)
         print("\n" + "=" * 60)
 
 
@@ -413,12 +419,11 @@ def _print_relation_debug(
     relation: Relation,
     child_pos: torch.Tensor,
     parent_pos: torch.Tensor,
+    child_bbox: AxisAlignedBoundingBox,
+    parent_world_bbox: AxisAlignedBoundingBox,
     loss: torch.Tensor,
 ) -> None:
     """Print debug information for a single binary relation."""
-    child_bbox = obj.get_bounding_box()
-    parent_world_bbox = relation.parent.get_world_bounding_box()
-
     print(f"\n=== {obj.name} -> {type(relation).__name__}({relation.parent.name}) ===")
     print(f"  Child pos: ({child_pos[0].item():.4f}, {child_pos[1].item():.4f}, {child_pos[2].item():.4f})")
     print(
@@ -458,11 +463,10 @@ def _print_unary_relation_debug(
     obj: PlaceableAsset,
     relation: RelationBase,
     child_pos: torch.Tensor,
+    child_bbox: AxisAlignedBoundingBox,
     loss: torch.Tensor,
 ) -> None:
     """Print debug information for a unary relation (no parent)."""
-    child_bbox = obj.get_bounding_box()
-
     params = {k: v for k, v in relation.__dict__.items() if v is not None and k != "relation_loss_weight"}
     param_str = ", ".join(f"{k}={v:.4f}" if isinstance(v, float) else f"{k}={v}" for k, v in params.items())
     print(f"\n=== {obj.name} -> {type(relation).__name__}({param_str}) ===")

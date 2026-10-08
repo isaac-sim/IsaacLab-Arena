@@ -9,11 +9,7 @@ import math
 import torch
 from typing import TYPE_CHECKING
 
-from isaaclab_arena.relations.bounding_box_helpers import (
-    assign_variants_for_envs,
-    build_per_env_bounding_boxes,
-    update_candidate_bounds,
-)
+from isaaclab_arena.relations.bounding_box_helpers import build_per_env_bounding_boxes, update_candidate_bounds
 from isaaclab_arena.relations.collision_mode import object_uses_mesh_collision
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_candidate_batch import PlacementCandidateBatch
@@ -78,7 +74,7 @@ class ObjectPlacer:
 
         Every environment is solved against its own per-env bounding boxes and
         receives its own best-ranked layout. Homogeneous objects share the same
-        bbox across envs; heterogeneous object sets use their assigned variant
+        bbox across envs; heterogeneous objects use their assigned variant
         geometry per env.
 
         Args:
@@ -215,8 +211,7 @@ class ObjectPlacer:
         candidate is never compared against another env's geometry.
         """
         collision_objects = collision_objects or []
-        # Variant assignment fixes the env-to-USD mapping before bbox expansion.
-        assign_variants_for_envs(objects, num_envs, placement_seed=self.params.placement_seed)
+        # Scene construction binds variants before placement so spawning uses the same geometry.
         num_candidates = num_envs * candidates_per_env
         env_bboxes = build_per_env_bounding_boxes(objects, num_envs).get_bounding_boxes_for_all_envs()
         batch = self._candidate_generator.generate_candidates(

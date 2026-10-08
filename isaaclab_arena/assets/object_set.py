@@ -3,22 +3,25 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from __future__ import annotations
+
 import torch
+import trimesh
 from collections.abc import Collection
 
-import isaaclab.sim as sim_utils
+from isaaclab.sim import MultiAssetSpawnerCfg, MultiUsdFileCfg
+from isaaclab.sim.spawners.spawner_cfg import SpawnerCfg
 
 from isaaclab_arena.assets.object import Object
+from isaaclab_arena.assets.object_geometry import ObjectGeometry
 from isaaclab_arena.assets.object_type import ObjectType
-from isaaclab_arena.assets.object_utils import detect_object_type
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose
-from isaaclab_arena.utils.usd.object_set_utils import rescale_rename_rigid_body_and_save_to_cache
-from isaaclab_arena.utils.usd.rigid_bodies import find_shallowest_rigid_body
+from isaaclab_arena.utils.usd.rigid_asset_preparation import prepare_rigid_object_variants
 
 
 class RigidObjectSet(Object):
-    """A set of rigid objects with one member selected per environment."""
+    """One rigid object per environment, selected from native asset configurations."""
 
     def __init__(
         self,
@@ -29,204 +32,135 @@ class RigidObjectSet(Object):
         initial_pose: Pose | None = None,
         **kwargs,
     ):
-        """
+        """Copy member spawn settings into one native scene object.
+
         Args:
-            name: The name of the object set.
-            objects: The list of objects to be included in the object set.
-            prim_path: The prim path of the object set. Note that for all environments, the object set
-                prim path must be the same.
-            random_choice: Whether to randomly choose an object from the object set to spawn in
-                each environment. If False, variants are assigned by repeating
-                the member order across environments.
-            initial_pose: The initial pose of the object from this object set.
+            name: Scene object name shared by all alternatives.
+            objects: Rigid objects supplying independent native spawn configurations.
+                Member poses and relations belong to the members and are not copied.
+            prim_path: Environment-scoped path shared by all alternatives.
+            random_choice: Sample alternatives independently; otherwise repeat member order.
+            initial_pose: Initial pose shared by all alternatives.
         """
-        assert len(objects) >= 1, f"Object set {name} must contain at least 1 object."
-        assert self._are_all_objects_type_rigid(objects), f"Object set {name} must contain only rigid objects."
-
-        # Isaac Lab support for MultiUsdFileCfg is limited. It applies the same scale and pose to all objects.
-        # Furthermore it relies on the rigid body being at the root of the USD file, or at the same
-        # path in all files. To expand our support in Arena, we modify the USDs to be compatible with each other.
-        # In particular, we rescale the assets, rename the rigid bodies to have the same name, and
-        # move a root-level rigid body under a container so members that nest theirs at different
-        # depths still end up at the same path. We save the resulting modified USDs to a cache.
-        if self._is_asset_modification_needed(objects):
-            self.member_usd_paths: list[str] = self._modify_assets(objects)
-            print(f"Modified object USD paths: {self.member_usd_paths}")
-        else:
-            self.member_usd_paths = []
-            for obj in objects:
-                self.member_usd_paths.append(obj.spawn_cfg.usd_path)
-
-        self.objects: list[Object] = objects
+        assert objects, f"Object set '{name}' requires at least one member."
+        for obj in objects:
+            assert (
+                isinstance(obj, Object) and obj.object_type == ObjectType.RIGID
+            ), f"Object set '{name}' accepts rigid Object members only."
+            assert not isinstance(
+                obj.spawn_cfg, (MultiAssetSpawnerCfg, MultiUsdFileCfg)
+            ), f"Object set '{name}' requires one native spawn configuration per member."
+            assert (
+                obj.bounding_box is None
+            ), f"Object set '{name}' derives bounds from native geometry; member '{obj.name}' has a bounds override."
+        spawn_configs = prepare_rigid_object_variants([obj.spawn_cfg for obj in objects])
+        spawn_cfg = spawn_configs[0]
+        if len(spawn_configs) > 1:
+            spawn_cfg = MultiAssetSpawnerCfg(
+                assets_cfg=spawn_configs,
+                random_choice=False,
+                # None keeps each member's native setting; the wrapper's False default replaces it.
+                activate_contact_sensors=None,
+            )
         self.random_choice = random_choice
-        self.variant_indices_by_env: list[int] | None = None
-
-        if prim_path is None:
-            prim_path = f"{{ENV_REGEX_NS}}/{name}"
-
+        self._variant_indices_by_env: tuple[int, ...] | None = None
+        self._variant_geometry: dict[int, ObjectGeometry] = {}
         super().__init__(
             name=name,
             object_type=ObjectType.RIGID,
-            spawner_cfg=sim_utils.MultiUsdFileCfg(
-                usd_path=self.object_usd_paths,
-                # Arena owns assignment so spawned USDs and per-env bounds stay aligned.
-                random_choice=False,
-                activate_contact_sensors=True,
-            ),
+            spawner_cfg=spawn_cfg,
             prim_path=prim_path,
             initial_pose=initial_pose,
             **kwargs,
         )
 
     @property
-    def object_usd_paths(self) -> list[str]:
-        """USD paths passed to MultiUsdFileCfg.
+    def has_variants(self) -> bool:
+        """Whether this object can have different geometry across environments."""
+        return isinstance(self.spawn_cfg, MultiAssetSpawnerCfg) and len(self.spawn_cfg.assets_cfg) > 1
 
-        Before assignment this is the member USD list. After assignment this
-        returns one USD path per environment based on variant_indices_by_env.
-        """
-        if self.variant_indices_by_env is not None:
-            return [self.member_usd_paths[idx] for idx in self.variant_indices_by_env]
-        return self.member_usd_paths
+    @property
+    def variant_indices_by_env(self) -> tuple[int, ...] | None:
+        """The fixed environment-to-variant assignment established before placement."""
+        return self._variant_indices_by_env
+
+    def bind_variant_assignment(self, indices: tuple[int, ...]) -> None:
+        """Bind one valid variant index per environment without allowing reassignment."""
+        indices = tuple(indices)
+        variant_count = len(self._get_variant_spawn_configs())
+        assert indices and all(
+            type(index) is int and 0 <= index < variant_count for index in indices
+        ), f"Object set '{self.name}' has invalid variant indices."
+        assert self._variant_indices_by_env in (
+            None,
+            indices,
+        ), f"Object set '{self.name}' already has a different variant assignment; construct a new set for a new scene."
+        self._variant_indices_by_env = indices
+
+    def _get_variant_spawn_configs(self) -> list[SpawnerCfg]:
+        """Read the current alternatives from the authoritative native spawn configuration."""
+        if isinstance(self.spawn_cfg, MultiAssetSpawnerCfg):
+            assert self.spawn_cfg.assets_cfg, f"Object set '{self.name}' requires at least one native variant."
+            return self.spawn_cfg.assets_cfg
+        return [self.spawn_cfg]
+
+    def _get_variant_geometry(self, variant_index: int) -> ObjectGeometry:
+        """Refresh a member's derived geometry after its native configuration changes."""
+        spawn_cfg = self._get_variant_spawn_configs()[variant_index]
+        geometry = self._variant_geometry.get(variant_index)
+        if geometry is None or not geometry.matches(spawn_cfg):
+            geometry = ObjectGeometry(spawn_cfg, ObjectType.RIGID)
+            self._variant_geometry[variant_index] = geometry
+        return geometry
 
     def get_bounding_box(self) -> AxisAlignedBoundingBox:
-        """Return one local bbox for callers that cannot vary by env.
+        """Return singleton bounds; heterogeneous sets require an environment selection."""
+        assert not self.has_variants, f"Object set '{self.name}' requires per-environment bounding boxes."
+        return super().get_bounding_box()
 
-        The returned bbox has shape (1, 3) and uses the member with the
-        greatest z-extent. Heterogeneous placement uses
-        get_bounding_box_per_env() after assign_variants() so each env
-        uses its actual variant geometry.
-        """
-        return max(self.objects, key=lambda obj: obj.get_bounding_box().size[0, 2].item()).get_bounding_box()
-
-    def get_collision_mesh(self, excluded_prim_paths: Collection[str] = ()) -> None:
-        """Object sets do not expose a single collision mesh."""
-        assert not excluded_prim_paths, "Object sets do not support USD prim exclusions"
-
-    def assign_variants(self, num_envs: int, variant_seed: int | None = None) -> None:
-        """Fix one member-variant index per environment.
-
-        The assignment is fixed for the lifetime of the object set so spawned
-        USDs and per-env bboxes stay aligned across placement refills.
-        Subsequent calls with the same num_envs are no-ops. A call with a
-        different num_envs regenerates with a warning. When random_choice is True, each env
-        independently samples one variant; otherwise assignments repeat the
-        member order across environments.
-        Regeneration is safe before the scene is spawned; afterwards, per-env
-        bboxes can desync from the spawned USDs.
-
-        Callers invoke this once num_envs is known, before reading
-        variant_indices_by_env or get_bounding_box_per_env.
-
-        Args:
-            num_envs: Number of environments to assign variants for.
-            variant_seed: Optional seed used when random_choice=True.
-        """
-        if self.variant_indices_by_env is not None:
-            if len(self.variant_indices_by_env) == num_envs:
-                return
-            print(f"Warning: RigidObjectSet '{self.name}' regenerating variant assignments for {num_envs} envs.")
-        self._set_variant_indices_by_env(self._generate_variant_indices(num_envs, variant_seed=variant_seed))
+    def get_bounding_box_for_env(self, env_id: int) -> AxisAlignedBoundingBox:
+        """Return the assigned member's local bounds for one environment."""
+        assert env_id >= 0, "Environment index must be non-negative."
+        if not self.has_variants:
+            return self.get_bounding_box()
+        indices = self.variant_indices_by_env
+        assert indices is not None, f"Object set '{self.name}' needs a variant assignment before geometry queries."
+        assert env_id < len(indices), f"Object set '{self.name}' has no assignment for environment {env_id}."
+        return self._get_variant_geometry(indices[env_id]).get_bounding_box()
 
     def get_bounding_box_per_env(self, num_envs: int) -> AxisAlignedBoundingBox:
-        """Return each env's actual variant bbox.
-
-        Requires assign_variants(num_envs) to have been called first. The
-        returned bbox has shape (num_envs, 3).
-
-        Args:
-            num_envs: Number of environments. Must match the assignment.
-
-        Returns:
-            AxisAlignedBoundingBox with min_point / max_point of
-            shape (num_envs, 3).
-        """
-        assert self.variant_indices_by_env is not None, (
-            f"RigidObjectSet '{self.name}' has no variant assignment; "
-            "call assign_variants(num_envs) before get_bounding_box_per_env()."
+        """Return assigned local bounds with one row per environment."""
+        assert num_envs > 0, "Per-environment bounds require at least one environment."
+        if not self.has_variants:
+            bounds = self.get_bounding_box()
+            return AxisAlignedBoundingBox(bounds.min_point.expand(num_envs, 3), bounds.max_point.expand(num_envs, 3))
+        indices = self.variant_indices_by_env
+        assert (
+            indices is not None and len(indices) == num_envs
+        ), f"Object set '{self.name}' needs a variant assignment for {num_envs} environments before geometry queries."
+        bounds = [
+            self._get_variant_geometry(index).get_bounding_box()
+            for index in range(len(self._get_variant_spawn_configs()))
+        ]
+        return AxisAlignedBoundingBox(
+            min_point=torch.stack([bounds[index].min_point[0] for index in indices]),
+            max_point=torch.stack([bounds[index].max_point[0] for index in indices]),
         )
-        assert len(self.variant_indices_by_env) == num_envs, (
-            f"RigidObjectSet '{self.name}' got request for {num_envs} envs, "
-            f"but is assigned for {len(self.variant_indices_by_env)} envs."
-        )
-        bounding_boxes = [obj.get_bounding_box() for obj in self.objects]
 
-        min_pts = torch.stack([bounding_boxes[idx].min_point[0] for idx in self.variant_indices_by_env], dim=0)
-        max_pts = torch.stack([bounding_boxes[idx].max_point[0] for idx in self.variant_indices_by_env], dim=0)
-        return AxisAlignedBoundingBox(min_point=min_pts, max_point=max_pts)
+    def get_collision_mesh(self, excluded_prim_paths: Collection[str] = ()) -> trimesh.Trimesh | None:
+        """Return singleton geometry; heterogeneous sets have no shared collision mesh."""
+        if self.has_variants:
+            assert not excluded_prim_paths, "Object set exclusions require a concrete member."
+            return None
+        return super().get_collision_mesh(excluded_prim_paths)
 
     def get_contact_sensor_prim_path(self) -> str:
-        """Return the contact-sensor path shared by all normalized member USDs."""
-        member_prim_paths = []
-        for usd_path in self.member_usd_paths:
-            relative_path = find_shallowest_rigid_body(
-                usd_path, within_default_prim=True, relative_to_default_prim=True
-            )
-            assert relative_path is not None, f"No rigid body found in object set member {usd_path}"
-            member_prim_paths.append(self.prim_path + relative_path)
-        assert len(set(member_prim_paths)) == 1, (
-            f"RigidObjectSet '{self.name}' member USDs must have the same contact-sensor prim path; "
-            f"got {member_prim_paths}."
-        )
-        return member_prim_paths[0]
-
-    def _generate_variant_indices(self, num_envs: int, variant_seed: int | None = None) -> list[int]:
-        """Return one member index per env.
-
-        Ordered sets repeat member order. Random sets sample independently per
-        env, using a local generator when variant_seed is set.
-        """
-        n = len(self.objects)
-        if not self.random_choice:
-            return [env_idx % n for env_idx in range(num_envs)]
-        if variant_seed is None:
-            return torch.randint(low=0, high=n, size=(num_envs,)).tolist()
-        generator = torch.Generator()
-        generator.manual_seed(variant_seed)
-        return torch.randint(low=0, high=n, size=(num_envs,), generator=generator).tolist()
-
-    def _set_variant_indices_by_env(self, variant_indices_by_env: list[int]) -> None:
-        """Validate and store variant indices, then sync spawn config when it exists."""
-        n = len(self.objects)
-        assert all(
-            0 <= idx < n for idx in variant_indices_by_env
-        ), f"RigidObjectSet '{self.name}' variant indices must be in [0, {n}); got {variant_indices_by_env}."
-        self.variant_indices_by_env = variant_indices_by_env
-        # Assignment may happen before the native object config is constructed.
-        spawn_cfg = self.object_cfg.spawn if getattr(self, "object_cfg", None) is not None else None
-        if isinstance(spawn_cfg, sim_utils.MultiUsdFileCfg):
-            spawn_cfg.usd_path = self.object_usd_paths
-
-    def _are_all_objects_type_rigid(self, objects: list[Object]) -> bool:
-        for obj in objects:
-            assert isinstance(obj.spawn_cfg, sim_utils.UsdFileCfg), "Object set members require USD spawners"
-            if detect_object_type(usd_path=obj.spawn_cfg.usd_path) != ObjectType.RIGID:
-                return False
-        return True
-
-    def _is_asset_modification_needed(self, objects: list[Object]) -> bool:
-        # If any asset is scaled, we need to modify the assets
-        for asset in objects:
-            if asset.spawn_cfg.scale not in (None, (1.0, 1.0, 1.0)):
-                return True
-        # If all assets have rigid bodies at the root, we don't need to modify the assets
-        depths = self._get_all_rigid_body_depths(objects)
-        if all(depth == 0 for depth in depths):
-            return False
-        # Otherwise, we need to modify the assets
-        return True
-
-    def _get_all_rigid_body_depths(self, objects: list[Object]) -> list[int]:
-        depths = []
-        for asset in objects:
-            shallowest_rigid_body = find_shallowest_rigid_body(asset.spawn_cfg.usd_path, within_default_prim=True)
-            depth = shallowest_rigid_body.count("/") - 1 if shallowest_rigid_body else -1
-            depths.append(depth)
-        return depths
-
-    def _modify_assets(self, objects: list[Object]) -> list[str]:
-        new_usd_paths = []
-        for asset in objects:
-            new_usd_path = rescale_rename_rigid_body_and_save_to_cache(asset)
-            new_usd_paths.append(new_usd_path)
-        return new_usd_paths
+        """Return the rigid-body path shared by all native alternatives."""
+        if not self.has_variants:
+            return super().get_contact_sensor_prim_path()
+        body_paths = {
+            self._get_variant_geometry(index).get_contact_body_path()
+            for index in range(len(self._get_variant_spawn_configs()))
+        }
+        assert len(body_paths) == 1, f"Object set '{self.name}' has incompatible rigid-body paths."
+        return self.prim_path + body_paths.pop()

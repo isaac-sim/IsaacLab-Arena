@@ -11,7 +11,7 @@ from collections import defaultdict
 from collections.abc import Iterable
 from typing import TYPE_CHECKING
 
-from isaaclab.sim import GroundPlaneCfg, LightCfg, MultiAssetSpawnerCfg, MultiUsdFileCfg, UsdFileCfg
+from isaaclab.sim import GroundPlaneCfg, LightCfg, UsdFileCfg
 
 from isaaclab_arena.assets.background import Background
 from isaaclab_arena.assets.object import Object
@@ -87,14 +87,16 @@ def discover_passive_assets(
         if not isinstance(asset, (Object, ObjectReference)):
             continue
         # Lights have no collision geometry; ground planes are infinite half-spaces.
-        # Multi-spawners have no single geometry for a passive collision obstacle.
-        if isinstance(asset, Object) and isinstance(
-            asset.spawn_cfg, (LightCfg, GroundPlaneCfg, MultiAssetSpawnerCfg, MultiUsdFileCfg)
-        ):
+        if isinstance(asset, Object) and isinstance(asset.spawn_cfg, (LightCfg, GroundPlaneCfg)):
             continue
         if isinstance(asset, Background) and not include_background:
             continue
         if asset.get_relations():
+            continue
+        if asset.has_variants:
+            assert not isinstance(
+                asset.get_initial_pose(), Pose
+            ), f"Object '{asset.name}' needs an IsAnchor relation to participate in per-environment collision placement"
             continue
         if isinstance(asset, ObjectReference) and not isinstance(asset.parent_asset.spawn_cfg, UsdFileCfg):
             print(

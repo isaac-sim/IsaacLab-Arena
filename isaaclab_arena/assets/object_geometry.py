@@ -179,6 +179,9 @@ class ObjectGeometry:
         """Find the only rigid body in the referenced source's default-prim subtree."""
         rigid_bodies = []
         for prim in Usd.PrimRange(stage.GetDefaultPrim(), Usd.TraverseInstanceProxies()):
+            assert not prim.HasAPI(
+                UsdPhysics.ArticulationRootAPI
+            ), f"Rigid geometry cannot contain an articulation root: {prim.GetPath()}"
             if prim.HasAPI(UsdPhysics.RigidBodyAPI):
                 rigid_bodies.append(prim)
         assert len(rigid_bodies) == 1, (
