@@ -29,82 +29,82 @@ shared:
 
 runs:
 
-  kitchen_bench_lightwheel_pick_and_place_pi0:
+  kitchen_bench_lightwheel_pick_and_place:
     environment:
       type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_pick_and_place.yaml
 
-  kitchen_bench_lightwheel_pick_lemon_shelf_on_plate_u_shaped_with_island_farmhouse2_pi0:
+  kitchen_bench_lightwheel_pick_lemon_shelf_on_plate_u_shaped_with_island_farmhouse2:
     environment:
       type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_pick_lemon_shelf_on_plate_u_shaped_with_island_farmhouse2.yaml
 
-  kitchen_bench_lightwheel_place_bananas_in_wooden_bowl_u_shaped_with_island_farmhouse2_pi0:
+  kitchen_bench_lightwheel_place_bananas_in_wooden_bowl_u_shaped_with_island_farmhouse2:
     environment:
       type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_place_bananas_in_wooden_bowl_u_shaped_with_island_farmhouse2.yaml
 
-  kitchen_bench_lightwheel_place_ladle_in_plate_g_shaped_large_scandinavian_pi0:
+  kitchen_bench_lightwheel_place_ladle_in_plate_g_shaped_large_scandinavian:
     environment:
       type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_place_ladle_in_plate_g_shaped_large_scandinavian.yaml
 
-  kitchen_bench_lightwheel_place_lime_in_wooden_bowl_l_shaped_scandinavian_pi0:
+  kitchen_bench_lightwheel_place_lime_in_wooden_bowl_l_shaped_scandinavian:
     environment:
       type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_place_lime_in_wooden_bowl_l_shaped_scandinavian.yaml
 
-  kitchen_bench_lightwheel_place_pepsi_in_basket_u_shaped_with_island_farmhouse2_pi0:
+  kitchen_bench_lightwheel_place_pepsi_in_basket_u_shaped_with_island_farmhouse2:
     environment:
       type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_place_pepsi_in_basket_u_shaped_with_island_farmhouse2.yaml
 
-  kitchen_bench_replicator_g_shape_banana_bowl_pi0:
+  kitchen_bench_replicator_g_shape_banana_bowl:
     environment:
       type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_g_shape_banana_bowl.yaml
 
-  kitchen_bench_replicator_g_shape_bowl_sink_pi0:
+  kitchen_bench_replicator_g_shape_bowl_sink:
     environment:
       type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_g_shape_bowl_sink.yaml
 
-  kitchen_bench_replicator_g_shape_mustard_bowl_pi0:
+  kitchen_bench_replicator_g_shape_mustard_bowl:
     environment:
       type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_g_shape_mustard_bowl.yaml
 
-  kitchen_bench_replicator_l_island_banana_bowl_pi0:
+  kitchen_bench_replicator_l_island_banana_bowl:
     environment:
       type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_l_island_banana_bowl.yaml
 
-  kitchen_bench_replicator_l_island_bowl_sink_pi0:
+  kitchen_bench_replicator_l_island_bowl_sink:
     environment:
       type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_l_island_bowl_sink.yaml
 
-  kitchen_bench_replicator_l_island_mustard_bowl_pi0:
+  kitchen_bench_replicator_l_island_mustard_bowl:
     environment:
       type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_l_island_mustard_bowl.yaml
 
-  kitchen_bench_replicator_l_shape_banana_bowl_pi0:
+  kitchen_bench_replicator_l_shape_banana_bowl:
     environment:
       type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_l_shape_banana_bowl.yaml
 
-  kitchen_bench_replicator_l_shape_bowl_sink_pi0:
+  kitchen_bench_replicator_l_shape_bowl_sink:
     environment:
       type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_l_shape_bowl_sink.yaml
 
-  kitchen_bench_replicator_l_shape_mustard_bowl_pi0:
+  kitchen_bench_replicator_l_shape_mustard_bowl:
     environment:
       type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_l_shape_mustard_bowl.yaml
 
-  kitchen_bench_replicator_peninsula_bowl_sink_pi0:
+  kitchen_bench_replicator_peninsula_bowl_sink:
     environment:
       type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_peninsula_bowl_sink.yaml
 
-  kitchen_bench_replicator_peninsula_mustard_bowl_pi0:
+  kitchen_bench_replicator_peninsula_mustard_bowl:
     environment:
       type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_peninsula_mustard_bowl.yaml
 
-  kitchen_bench_replicator_u_shape_banana_bowl_pi0:
+  kitchen_bench_replicator_u_shape_banana_bowl:
     environment:
       type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_u_shape_banana_bowl.yaml
 
-  kitchen_bench_replicator_u_shape_bowl_sink_pi0:
+  kitchen_bench_replicator_u_shape_bowl_sink:
     environment:
       type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_u_shape_bowl_sink.yaml
 
-  kitchen_bench_replicator_u_shape_mustard_bowl_pi0:
+  kitchen_bench_replicator_u_shape_mustard_bowl:
     environment:
       type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_u_shape_mustard_bowl.yaml
