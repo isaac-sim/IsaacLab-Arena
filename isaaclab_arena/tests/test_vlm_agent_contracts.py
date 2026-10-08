@@ -10,8 +10,7 @@ from pydantic import TypeAdapter, ValidationError
 
 from isaaclab_arena.inference.backend import build_strict_schema
 from isaaclab_arena_vlm_agent_policy.commands import ActionChunkCommand, GoalCommand, MoveToCommand, WaitCommand
-from isaaclab_arena_vlm_agent_policy.context import AgentContext, AgentContextCfg
-from isaaclab_arena_vlm_agent_policy.interfaces import ExecutionFeedback
+from isaaclab_arena_vlm_agent_policy.context import AgentContext, AgentContextCfg, ExecutionFeedback
 
 
 def _goal():

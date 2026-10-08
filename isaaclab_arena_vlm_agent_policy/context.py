@@ -9,11 +9,20 @@ from __future__ import annotations
 
 from collections import deque
 from copy import deepcopy
-from dataclasses import asdict, dataclass
-from typing import Any
+from dataclasses import asdict, dataclass, field
+from typing import Any, Literal
 
 from isaaclab_arena_vlm_agent_policy.commands import AgentCommand
-from isaaclab_arena_vlm_agent_policy.interfaces import ExecutionFeedback
+
+
+@dataclass(frozen=True)
+class ExecutionFeedback:
+    """Describe measured execution status without assuming task success."""
+
+    status: Literal["running", "succeeded", "timed_out", "tracking_failed", "cancelled"]
+    elapsed_steps: int
+    reason: str | None = None
+    measurements: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
