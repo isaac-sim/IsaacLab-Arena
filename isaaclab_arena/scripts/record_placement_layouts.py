@@ -7,15 +7,25 @@
 
 from __future__ import annotations
 
-import argparse
 import logging
 from collections import Counter
 from dataclasses import replace
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
 from isaaclab_arena.offline_placement.recording import PlacementRecordingSummary
-from isaaclab_arena.offline_placement.recording_config import PlacementRecordingCfg, load_recording_config
+from isaaclab_arena.offline_placement.recording_config import (
+    PlacementRecordingRunCfg,
+    apply_recording_launcher_cli,
+    load_recording_config,
+)
+from isaaclab_arena.utils.hydra_overrides import assert_hydra_overrides
+from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
+from isaaclab_arena_environments.cli import (
+    get_isaaclab_arena_environments_cli_parser,
+    resolve_arena_environment_from_cli,
+)
 
 if TYPE_CHECKING:
     import gymnasium as gym
@@ -86,44 +96,22 @@ def record_placements_to_jsonl(
     return summary
 
 
-def _build_recording_environment(cfg: PlacementRecordingCfg) -> IsaacLabArenaEnvironment:
-    """Build the configured graph-YAML or registered Python environment."""
-    from isaaclab_arena.assets.registries import EnvironmentRegistry
-    from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
-    from isaaclab_arena_environments.cli import ensure_environments_registered
-
-    assert (cfg.env_spec is None) != (
-        cfg.environment_name is None
-    ), "Specify exactly one environment source: env_spec or environment_name"
-    if cfg.env_spec is not None:
-        spec = ArenaEnvGraphSpec.from_yaml(cfg.env_spec)
-        return spec.to_arena_env()
-
-    assert cfg.environment_name is not None, "Validated registered environment source is missing"
-    ensure_environments_registered()
-    registry = EnvironmentRegistry()
-    factory_type = registry.get_component_by_name(cfg.environment_name)
-    environment_cfg_type = registry.get_environment_cfg_type(factory_type)
-    return factory_type().build(environment_cfg_type())
-
-
 def record_settled_placement_layouts(
-    cfg: PlacementRecordingCfg,
+    arena_env: IsaacLabArenaEnvironment,
+    run: PlacementRecordingRunCfg,
     *,
     device: str = "cuda:0",
-    arena_env: IsaacLabArenaEnvironment | None = None,
 ) -> PlacementRecordingSummary:
-    """Build an environment, collect accepted poses, and close the simulation.
+    """Build a simulation from ``arena_env``, collect accepted poses, and close it.
 
-    Call after starting SimulationApp. Pass ``arena_env`` to record from an
-    in-memory description; otherwise configure exactly one of ``cfg.env_spec``
-    or ``cfg.environment_name``. A summary with output=None means no layouts
-    were accepted.
+    Call after starting SimulationApp. Resolve ``arena_env`` with
+    :func:`isaaclab_arena_environments.cli.resolve_arena_environment_from_cli`
+    before calling. A summary with ``output=None`` means no layouts were accepted.
 
     Args:
-        cfg: Sampling, validation and output settings.
-        device: Simulation device.
-        arena_env: Optional pre-built environment description.
+        arena_env: Environment description to build and record.
+        run: Sampling, validation and output settings.
+        device: Simulation device passed to the environment builder.
 
     Returns:
         Output path, acceptance counts and per-candidate rejection reasons.
@@ -133,16 +121,14 @@ def record_settled_placement_layouts(
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
 
-    assert not Path(cfg.output).exists(), f"Output already exists: {cfg.output}"
-    assert cfg.num_envs > 0 and cfg.layouts_per_env > 0, "Environment and layout counts must be positive"
-    assert cfg.min_layouts > 0 and cfg.max_batches > 0, "Layout target and batch budget must be positive"
+    assert not Path(run.output).exists(), f"Output already exists: {run.output}"
+    assert run.num_envs > 0 and run.layouts_per_env > 0, "Environment and layout counts must be positive"
+    assert run.min_layouts > 0 and run.max_batches > 0, "Layout target and batch budget must be positive"
     assert (
-        cfg.max_batches * cfg.num_envs >= cfg.min_layouts
+        run.max_batches * run.num_envs >= run.min_layouts
     ), "Batch budget cannot supply the requested accepted layout count"
-    assert (cfg.viewer_eye is None) == (cfg.viewer_lookat is None), "Set viewer_eye and viewer_lookat together"
+    assert (run.viewer_eye is None) == (run.viewer_lookat is None), "Set viewer_eye and viewer_lookat together"
 
-    if arena_env is None:
-        arena_env = _build_recording_environment(cfg)
     assert arena_env.placement_layouts is None, "Remove cached placement layouts before recording"
     scene_assets = arena_env.get_placement_assets()
     assert not any(isinstance(asset, RigidObjectSet) for asset in scene_assets), "Resolve object sets before recording"
@@ -151,28 +137,32 @@ def record_settled_placement_layouts(
         placer_params = build_placer_params_from_override(None)
     arena_env.placer_params = replace(
         placer_params,
-        placement_seed=cfg.seed,
-        min_unique_layouts_per_env=cfg.layouts_per_env,
+        placement_seed=run.seed,
+        min_unique_layouts_per_env=run.layouts_per_env,
         resolve_on_reset=True,
     )
 
-    print(f"[recording] Solving placements for {cfg.num_envs} environments...", flush=True)
+    print(f"[recording] Solving placements for {run.num_envs} environments...", flush=True)
     env = ArenaEnvBuilder(
         arena_env,
         ArenaEnvBuilderCfg(
-            num_envs=cfg.num_envs, env_spacing=cfg.env_spacing, seed=cfg.seed, device=device, presets=cfg.presets
+            num_envs=run.num_envs,
+            env_spacing=run.env_spacing,
+            seed=run.seed,
+            device=device,
+            presets=run.presets,
         ),
     ).make_registered()
     try:
-        if cfg.viewer_eye is not None:
-            env.unwrapped.sim.set_camera_view(cfg.viewer_eye, cfg.viewer_lookat)
+        if run.viewer_eye is not None:
+            env.unwrapped.sim.set_camera_view(run.viewer_eye, run.viewer_lookat)
         return record_placements_to_jsonl(
             env,
-            cfg.output,
-            min_layouts=cfg.min_layouts,
-            max_batches=cfg.max_batches,
-            params=cfg.settle,
-            render=cfg.render,
+            run.output,
+            min_layouts=run.min_layouts,
+            max_batches=run.max_batches,
+            params=run.settle,
+            render=run.render,
             scene_assets=scene_assets,
         )
     finally:
@@ -180,72 +170,30 @@ def record_settled_placement_layouts(
 
 
 def main() -> None:
-    """Run offline recording with Hydra settings and Isaac Lab launcher flags."""
-    from isaaclab.app import AppLauncher
-
-    from isaaclab_arena.utils.hydra_overrides import assert_hydra_overrides
-    from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
-
-    parser = argparse.ArgumentParser(description=__doc__)
-    AppLauncher.add_app_launcher_args(parser)
-    parser.add_argument(
-        "--external_environment_class_path",
-        type=str,
-        default=None,
-        help="Import an external registered environment factory as module.path:ClassName.",
-    )
-    launcher_args, overrides = parser.parse_known_args()
-    external_environment_path = launcher_args.external_environment_class_path
-    if external_environment_path is None:
-        assert_hydra_overrides(overrides, parser)
-        cfg = load_recording_config(overrides)
-        assert not Path(cfg.output).exists(), f"Output already exists: {cfg.output}"
-        assert (cfg.env_spec is None) != (
-            cfg.environment_name is None
-        ), "Specify exactly one environment source: env_spec or environment_name"
-    with SimulationAppContext(launcher_args):
-        arena_env = None
-        if external_environment_path is not None:
-            # Resolve the class after SimulationApp starts because external modules may import pxr/omni transitively.
-            from isaaclab_arena_environments.cli import (
-                add_environment_cli_args,
-                build_environment_from_cli,
-                parse_and_return_external_environment_from_string,
-            )
-
-            # Split ``overrides`` (everything after the main parser) into factory CLI tokens and
-            # recording Hydra overrides. The factory subcommand name comes from the imported class
-            # (``EnvironmentClass.name``), same as ``policy_runner.py`` — not ``environment_name=``.
-            environment_subcommand, environment_factory_type = parse_and_return_external_environment_from_string(
-                external_environment_path
-            )
-            environment_parser = argparse.ArgumentParser(add_help=False)
-            subparsers = environment_parser.add_subparsers(dest="example_environment", required=True)
-            environment_subparser = subparsers.add_parser(environment_subcommand)
-            add_environment_cli_args(environment_subparser, environment_factory_type)
-            environment_cli, recording_overrides = environment_parser.parse_known_args(overrides)
-            # Tokens consumed above (subcommand and ``--object``-style flags) must not reach Hydra.
-            assert_hydra_overrides(recording_overrides, environment_parser)
-            cfg = load_recording_config(recording_overrides)
-            assert (
-                cfg.env_spec is None and cfg.environment_name is None
-            ), "Do not combine --external_environment_class_path with env_spec or environment_name"
-            assert not Path(cfg.output).exists(), f"Output already exists: {cfg.output}"
-            arena_env = build_environment_from_cli(environment_factory_type, environment_cli)
-        summary = record_settled_placement_layouts(cfg, device=launcher_args.device, arena_env=arena_env)
+    """Run offline recording: Arena CLI for the environment, Hydra for recording settings."""
+    args_parser = get_isaaclab_arena_cli_parser()
+    args_cli, _ = args_parser.parse_known_args()
+    with SimulationAppContext(args_cli):
+        args_parser = get_isaaclab_arena_environments_cli_parser(args_parser)
+        args_cli, recording_overrides = args_parser.parse_known_args()
+        assert_hydra_overrides(recording_overrides, args_parser)
+        run = apply_recording_launcher_cli(load_recording_config(recording_overrides), args_cli)
+        assert not Path(run.output).exists(), f"Output already exists: {run.output}"
+        arena_env = resolve_arena_environment_from_cli(args_cli)
+        summary = record_settled_placement_layouts(arena_env, run, device=args_cli.device)
         for reason, count in Counter(summary.rejections.values()).items():
             print(f"  Rejected {count}: {reason}")
-        if summary.accepted < cfg.min_layouts:
+        if summary.accepted < run.min_layouts:
             if summary.output is None:
                 logging.error(
                     "No layouts were accepted; no recording was written (requested %d).",
-                    cfg.min_layouts,
+                    run.min_layouts,
                 )
             else:
                 logging.error(
                     "Only %d of %d requested layouts were recorded: %s",
                     summary.accepted,
-                    cfg.min_layouts,
+                    run.min_layouts,
                     summary.output,
                 )
             return

@@ -193,6 +193,26 @@ def get_isaaclab_arena_environments_cli_parser(
 # TODO(cvolk, 2026-07-03): [typed-config-migration] Delete this construction pipeline after experiment_runner,
 # policy_runner, imitation-learning scripts, and notebooks pass typed environment and
 # builder configs instead of an argparse Namespace.
+def resolve_arena_environment_from_cli(args_cli: argparse.Namespace) -> IsaacLabArenaEnvironment:
+    """Build an arena environment from parsed CLI args (``--env_spec`` or example subcommand)."""
+    env_spec = getattr(args_cli, "env_spec", None)
+    example_environment = getattr(args_cli, "example_environment", None)
+    assert (env_spec is None) != (example_environment is None), (
+        "Specify exactly one environment source: an example-environment name or --env_spec"
+        f" (got example_environment={example_environment!r}, env_spec={env_spec!r})"
+    )
+    if env_spec is not None:
+        return arena_env_from_graph_spec(env_spec, args_cli)
+    return _arena_env_from_example_name(example_environment, args_cli)
+
+
+def build_arena_env_from_env_spec_path(env_spec: str, *, enable_cameras: bool = False) -> IsaacLabArenaEnvironment:
+    """Build an arena environment from a graph YAML path without CLI node overrides."""
+    ensure_environments_registered()
+    spec = ArenaEnvGraphSpec.from_yaml(env_spec)
+    return spec.to_arena_env(enable_cameras=enable_cameras)
+
+
 def get_arena_builder_from_cli(
     args_cli: argparse.Namespace,
     hydra_overrides: list[str] | None = None,
@@ -206,21 +226,7 @@ def get_arena_builder_from_cli(
     """
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
 
-    # The env comes from exactly one source: a graph spec YAML (--env_spec) or a
-    # registered example-environment name (subcommand).
-    env_spec = getattr(args_cli, "env_spec", None)
-    example_environment = getattr(args_cli, "example_environment", None)
-    assert (env_spec is None) != (example_environment is None), (
-        "Specify exactly one environment source: an example-environment name or --env_spec"
-        f" (got example_environment={example_environment!r}, env_spec={env_spec!r})"
-    )
-
-    # Either env graph spec yaml OR example env name
-    arena_env = (
-        arena_env_from_graph_spec(env_spec, args_cli)
-        if env_spec is not None
-        else _arena_env_from_example_name(example_environment, args_cli)
-    )
+    arena_env = resolve_arena_environment_from_cli(args_cli)
     builder_cfg = arena_env_builder_cfg_from_argparse(args_cli)
     return ArenaEnvBuilder(arena_env, builder_cfg, hydra_overrides=hydra_overrides)
 

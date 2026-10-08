@@ -48,7 +48,7 @@ Record one accepted layout:
 .. code-block:: bash
 
    python isaaclab_arena/scripts/record_placement_layouts.py \
-       env_spec=isaaclab_arena_environments/clutter/franka_three_hammers_and_clamp_no_task.yaml \
+       --env_spec isaaclab_arena_environments/clutter/franka_three_hammers_and_clamp_no_task.yaml \
        output=outputs/clutter/tools_on_table.jsonl \
        num_envs=1 min_layouts=1 layouts_per_env=1 max_batches=15 seed=42 \
        settle.num_steps=480 \
@@ -157,7 +157,7 @@ This headless command writes a separate file:
 .. code-block:: bash
 
    python isaaclab_arena/scripts/record_placement_layouts.py \
-       env_spec=isaaclab_arena_environments/clutter/franka_three_hammers_and_clamp_no_task.yaml \
+       --env_spec isaaclab_arena_environments/clutter/franka_three_hammers_and_clamp_no_task.yaml \
        output=outputs/clutter/tools_on_table_batch.jsonl \
        num_envs=4 min_layouts=10 layouts_per_env=4 max_batches=15 seed=42 \
        settle.num_steps=480 \
@@ -180,7 +180,7 @@ The second maintained scene releases three cubes into a fixed YCB bowl:
 .. code-block:: bash
 
    python isaaclab_arena/scripts/record_placement_layouts.py \
-       env_spec=isaaclab_arena_environments/clutter/franka_three_cubes_in_bowl_no_task.yaml \
+       --env_spec isaaclab_arena_environments/clutter/franka_three_cubes_in_bowl_no_task.yaml \
        output=outputs/clutter/three_cubes_in_bowl.jsonl \
        num_envs=1 min_layouts=1 layouts_per_env=1 max_batches=15 seed=42 \
        settle.num_steps=480 \
@@ -279,13 +279,13 @@ the output JSONL path must be unused:
 
    with SimulationAppContext(args):
        from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
-       from isaaclab_arena.offline_placement.recording_config import PlacementRecordingCfg
+       from isaaclab_arena.offline_placement.recording_config import PlacementRecordingRunCfg
        from isaaclab_arena.scripts.record_placement_layouts import record_settled_placement_layouts
 
        source = "isaaclab_arena_environments/clutter/franka_three_hammers_and_clamp_no_task.yaml"
        arena_env = ArenaEnvGraphSpec.from_yaml(source).to_arena_env()
        # For your package, replace the preceding line with its configured factory call.
-       cfg = PlacementRecordingCfg(
+       cfg = PlacementRecordingRunCfg(
            output="outputs/clutter/tools_python.jsonl",
            num_envs=1, min_layouts=1, layouts_per_env=1, max_batches=15,
            presets="physx",
@@ -294,7 +294,7 @@ the output JSONL path must be unused:
        cfg.settle.validators["support_containment"] = {
            "minimum_resting_heights_m": {"office_table_background": 0.5306},
        }
-       summary = record_settled_placement_layouts(cfg, device=args.device, arena_env=arena_env)
+       summary = record_settled_placement_layouts(arena_env, cfg, device=args.device)
        print(summary.output, summary.accepted, summary.attempted, summary.rejections)
        assert summary.accepted == cfg.min_layouts, "Recording target not reached"
 
@@ -302,8 +302,8 @@ the output JSONL path must be unused:
 
    python outputs/clutter/record_python.py --device cpu --viz none
 
-The high-level API builds and closes the simulation environment. Supplying
-``arena_env`` retains that description's callbacks and settings; ``cfg.presets``
+The high-level API builds and closes the simulation environment. Pass a pre-built
+``arena_env`` so factory callbacks and settings are preserved; ``cfg.presets``
 is an explicit backend override. Omit it to keep your environment's preset.
 Recording overrides placement sampling settings, including its seed and pool
 refill size. Do not reuse those recording seed settings unchanged for replay.

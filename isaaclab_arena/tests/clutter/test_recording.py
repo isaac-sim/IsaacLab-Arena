@@ -13,7 +13,7 @@ from typing import ClassVar
 import pytest
 
 from isaaclab_arena.offline_placement.post_physics_validation import PostPhysicsPlacementValidator
-from isaaclab_arena.offline_placement.recording_config import PlacementRecordingCfg
+from isaaclab_arena.offline_placement.recording_config import PlacementRecordingRunCfg
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
 
@@ -33,8 +33,8 @@ class RejectPostPhysics(PostPhysicsPlacementValidator):
         ]
 
 
-def _recording_cfg(output, scene_path, **kwargs):
-    cfg = PlacementRecordingCfg(env_spec=str(scene_path), output=str(output), **kwargs)
+def _recording_cfg(output, **kwargs):
+    cfg = PlacementRecordingRunCfg(output=str(output), **kwargs)
     cfg.settle.num_steps = 480
     return cfg
 
@@ -57,7 +57,6 @@ def _test_recording_writes_complete_layouts(simulation_app, tmp_path):
     from isaaclab_arena.tests.clutter.test_clutter_collection import _make_primitive_clutter_scene
 
     arena_env = _make_primitive_clutter_scene(tmp_path)
-    scene_path = tmp_path / "scene.yaml"
     checks = {PlacementCheck.NO_OVERLAP, PlacementCheck.CLUTTER_ON_RELATION}
     arena_env.placer_params.enabled_checks = checks
     arena_env.placer_params.required_checks = checks
@@ -72,7 +71,7 @@ def _test_recording_writes_complete_layouts(simulation_app, tmp_path):
 
     arena_env.env_cfg_callback = configure_physics
     output = tmp_path / "episodes.jsonl"
-    cfg = _recording_cfg(output, scene_path, num_envs=2, min_layouts=3, max_batches=2, layouts_per_env=1)
+    cfg = _recording_cfg(output, num_envs=2, min_layouts=3, max_batches=2, layouts_per_env=1)
     # A solve can supply only one layout per environment. Later refills must still
     # satisfy an output request larger than the initial pool.
     arena_env.placer_params.max_placement_attempts = 1
@@ -83,7 +82,7 @@ def _test_recording_writes_complete_layouts(simulation_app, tmp_path):
         return [layouts[:1] for layouts in ranked], layouts_per_env
 
     with patch.object(PooledObjectPlacer, "_solve_env_ranked_layouts", one_layout_per_env):
-        record_settled_placement_layouts(cfg, arena_env=arena_env)
+        record_settled_placement_layouts(arena_env, cfg)
     records = _read_records(output)
     # Three requested records exercise a final batch with more accepted candidates than needed.
     assert len(records) == 3
@@ -113,12 +112,12 @@ def _test_recording_writes_complete_layouts(simulation_app, tmp_path):
     replay_env.placement_layouts = layouts
     cfg.output = str(tmp_path / "regenerated.jsonl")
     with pytest.raises(AssertionError, match="Remove cached placement layouts"):
-        record_settled_placement_layouts(cfg, arena_env=replay_env)
+        record_settled_placement_layouts(replay_env, cfg)
     assert not Path(cfg.output).exists()
     cfg.output = str(output)
     saved = output.read_bytes()
     with pytest.raises(AssertionError, match="Output already exists"):
-        record_settled_placement_layouts(cfg, arena_env=_make_primitive_clutter_scene(tmp_path))
+        record_settled_placement_layouts(_make_primitive_clutter_scene(tmp_path), cfg)
     assert output.read_bytes() == saved
     return True
 
@@ -132,22 +131,21 @@ def _test_post_physics_checks_gate_output(simulation_app, tmp_path):
     from isaaclab_arena.scripts.record_placement_layouts import record_settled_placement_layouts
     from isaaclab_arena.tests.clutter.test_clutter_collection import _make_primitive_clutter_scene
 
-    scene_path = tmp_path / "scene.yaml"
     output = tmp_path / "checked.jsonl"
-    cfg = _recording_cfg(output, scene_path, num_envs=2, min_layouts=1, max_batches=1, layouts_per_env=1)
+    cfg = _recording_cfg(output, num_envs=2, min_layouts=1, max_batches=1, layouts_per_env=1)
     cfg.settle.validators = dict(default_clutter_validators())
     cfg.settle.validators["reject_for_test"] = {
         "_target_": "isaaclab_arena.tests.clutter.test_recording.RejectPostPhysics",
         "threshold": 7.0,
     }
-    summary = record_settled_placement_layouts(cfg, arena_env=_make_primitive_clutter_scene(tmp_path))
+    summary = record_settled_placement_layouts(_make_primitive_clutter_scene(tmp_path), cfg)
     assert summary.output is None
     assert any("reject_for_test: deliberately rejected" in text for text in summary.rejections.values())
     assert not output.exists()
     cfg.settle.validators["reject_for_test"]["enabled"] = False
     cfg.settle.validators["physics_settled"]["enabled"] = False
     cfg.settle.validators["support_containment"]["minimum_resting_heights_m"] = {"table": 0.02}
-    assert record_settled_placement_layouts(cfg, arena_env=_make_primitive_clutter_scene(tmp_path)).output == output
+    assert record_settled_placement_layouts(_make_primitive_clutter_scene(tmp_path), cfg).output == output
     records = _read_records(output)
     assert len(records) == 1
     record = records[0]
