@@ -213,14 +213,18 @@ def main() -> None:
                 parse_and_return_external_environment_from_string,
             )
 
-            environment_name, environment_factory_type = parse_and_return_external_environment_from_string(
+            # Split ``overrides`` (everything after the main parser) into factory CLI tokens and
+            # recording Hydra overrides. The factory subcommand name comes from the imported class
+            # (``EnvironmentClass.name``), same as ``policy_runner.py`` — not ``environment_name=``.
+            environment_subcommand, environment_factory_type = parse_and_return_external_environment_from_string(
                 external_environment_path
             )
             environment_parser = argparse.ArgumentParser(add_help=False)
             subparsers = environment_parser.add_subparsers(dest="example_environment", required=True)
-            environment_subparser = subparsers.add_parser(environment_name)
+            environment_subparser = subparsers.add_parser(environment_subcommand)
             add_environment_cli_args(environment_subparser, environment_factory_type)
             environment_cli, recording_overrides = environment_parser.parse_known_args(overrides)
+            # Tokens consumed above (subcommand and ``--object``-style flags) must not reach Hydra.
             assert_hydra_overrides(recording_overrides, environment_parser)
             cfg = load_recording_config(recording_overrides)
             assert (

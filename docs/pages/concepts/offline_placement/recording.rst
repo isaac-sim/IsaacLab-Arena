@@ -94,17 +94,8 @@ scene. The examples below override them where needed:
 
 Select exactly one environment source. ``env_spec=path/to/environment.yaml``
 loads a graph environment, while ``environment_name=my_environment`` builds a
-registered Python environment with its typed default configuration. In either
-case, the environment must define relation placement that produces a placement
-pool. Environments defined in another package use the same external registration
-syntax as the policy runner:
-
-.. code-block:: bash
-
-   python isaaclab_arena/scripts/record_placement_layouts.py \
-       --external_environment_class_path package.module:EnvironmentClass \
-       environment_name [environment-specific options] \
-       output=outputs/placements/external.jsonl
+registered Python environment. Recordings with external environments are covered in
+:ref:`placement-recording-external-environments`.
 
 .. list-table:: Recording Options
    :header-rows: 1
@@ -284,6 +275,30 @@ For example, a pose-shift rejection has this format (the message is shortened):
 The full message includes measured rotation and the configured limits. A run
 with no accepted layouts writes no file and logs that outcome. If every layout
 passes, recording succeeded but rejection handling was not exercised.
+
+.. _placement-recording-external-environments:
+
+Record with External Python Environments
+----------------------------------------
+
+Use ``--external_environment_class_path`` to import a factory from another
+package, then pass its CLI subcommand (the class ``name`` attribute) and any
+factory-specific flags. Do not combine this path with ``env_spec=`` or
+``environment_name=``; recording Hydra overrides follow the subcommand, same
+as for the policy runner. See :doc:`../../arena_in_your_repo/external_environments`
+for factory authoring.
+
+.. code-block:: bash
+
+   python isaaclab_arena/scripts/record_placement_layouts.py \
+       --external_environment_class_path isaaclab_arena_examples.external_environments.basic:ExternalFrankaTableEnvironment \
+       franka_table --object cracker_box \
+       output=outputs/placements/franka_table.jsonl \
+       min_layouts=1 max_batches=1 settle.num_steps=120 \
+       settle.validators.pose_shift.max_translation_m=0.015 \
+       settle.validators.pose_shift.max_rotation_deg=5 \
+       render=false --viz kit --device cpu
+
 
 Supported Use Cases and Limits
 -------------------------------
