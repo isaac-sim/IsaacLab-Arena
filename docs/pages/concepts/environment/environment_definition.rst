@@ -361,33 +361,9 @@ and you get a door with nothing to open.
 **Per-environment objects.** Declare concrete assets under ``objects`` and
 ``PerEnvironmentObject`` entries under ``per_environment_objects``. Each member
 of an entry's ``objects`` list accepts its own ``params``, including a SimReady
-``usd_path`` or scale:
-
-.. code-block:: yaml
-
-   per_environment_objects:
-   - id: bottle
-     objects:
-     - registry_name: simready_usd_object
-       params:
-         usd_path: /datasets/bottle.usd
-     - registry_name: ketchup_bottle_hope_robolab
-     assign_to_environments: sequential
-
-The equivalent Python declaration takes library assets directly:
-
-.. code-block:: python
-
-   from isaaclab_arena.assets.per_environment_object import PerEnvironmentObject
-
-   PerEnvironmentObject(
-       name="bottle",
-       objects=[simready_bottle, ycb_bottle],
-       assign_to_environments="sequential",
-   )
-
-Relations and tasks reference the object role's ``id`` regardless of which variant
-an environment receives. ``object_sets`` is no longer a graph field.
+``usd_path`` or scale. Relations and tasks reference the entry's ``id`` regardless
+of which asset an environment receives. See :doc:`../scene/concept_object_variants`
+for Python and YAML examples. ``object_sets`` is no longer a graph field.
 
 How to spawn an environment
 ---------------------------
