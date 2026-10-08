@@ -59,8 +59,9 @@ class VariationBase(ABC):
 
     def __init__(self, cfg: VariationBaseCfg, name: str):
         self.name = name
-        self._sampler: SamplerBase | None = None
+        self._sampler: SamplerBase
         self._sample_listeners: list[Callable[[Any, Any], None]] = []
+        self._replay_sampler: Callable[[int, torch.Tensor | None], list[Any] | None] | None = None
         self.apply_cfg(cfg)
 
     @property
@@ -77,8 +78,8 @@ class VariationBase(ABC):
         self.cfg.enabled = False
 
     @property
-    def sampler(self) -> SamplerBase | None:
-        """The sampler driving this variation, or ``None`` if not yet set."""
+    def sampler(self) -> SamplerBase:
+        """The sampler driving this variation."""
         return self._sampler
 
     def add_sample_listener(self, listener: Callable[[Any, torch.Tensor | None], None]) -> None:
@@ -88,8 +89,15 @@ class VariationBase(ABC):
         rebuilt sampler and they survive cfg/sampler swaps.
         """
         self._sample_listeners.append(listener)
-        if self._sampler is not None:
-            self._sampler.add_listener(listener)
+        self._sampler.add_listener(listener)
+
+    def set_replay_sampler(
+        self,
+        replay_sampler: Callable[[int, torch.Tensor | None], list[Any] | None] | None,
+    ) -> None:
+        """Route future draws through an optional replay sampler."""
+        self._replay_sampler = replay_sampler
+        self._sampler.set_replay_sampler(replay_sampler)
 
     def _prepare_at_build_time(self) -> None:
         """Configure prerequisites required before environment construction. Default: no-op.
@@ -124,6 +132,7 @@ class VariationBase(ABC):
             cfg.sampler_cfg, SamplerBaseCfg
         ), f"cfg.sampler_cfg must be a SamplerBaseCfg; got {type(cfg.sampler_cfg).__name__}."
         self._sampler = cfg.sampler_cfg.build()
+        self._sampler.set_replay_sampler(self._replay_sampler)
         # Re-bind variation-owned listeners so a cfg/sampler swap doesn't drop subscriptions.
         for listener in self._sample_listeners:
             self._sampler.add_listener(listener)
@@ -152,8 +161,5 @@ class BuildTimeVariationBase(VariationBase):
 
     @abstractmethod
     def _realize_at_build_time(self) -> None:
-        """Sample and apply this variation to its target configuration.
-
-        Called once per env build, while the variation is enabled.
-        """
+        """Sample and apply this variation to the target configuration once per env build."""
         ...

@@ -51,7 +51,6 @@ class UniformSampler(ContinuousSampler):
         return self.low.shape
 
     def _sample(self, num_samples: int) -> torch.Tensor:
-        assert num_samples >= 0, f"num_samples must be non-negative; got {num_samples}."
         shape = (num_samples, *self.shape_per_sample)
         u = torch.rand(shape)
         return self.low + (self.high - self.low) * u

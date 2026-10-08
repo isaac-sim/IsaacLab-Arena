@@ -9,6 +9,7 @@ These tests stay in plain Python (no ``SimulationApp``) because they only
 exercise the cfg plumbing and sampler wiring, not any Isaac Sim runtime.
 """
 
+import torch
 from dataclasses import field
 
 import pytest
@@ -121,6 +122,20 @@ def test_apply_cfg_replaces_cfg_and_rebuilds_sampler():
     assert tuple(variation.sampler.shape_per_sample) == (3,)
     samples = variation.sampler.sample(num_samples=8)
     assert (samples >= 5.0).all() and (samples <= 10.0).all()
+
+
+def test_apply_cfg_preserves_replay_sampler():
+    variation = _CustomVariation(
+        _CustomVariationCfg(sampler_cfg=UniformSamplerCfg(low=[0.0], high=[1.0])),
+    )
+    variation.set_replay_sampler(lambda _count, _env_ids: [[0.25], [0.75]])
+
+    variation.apply_cfg(
+        _CustomVariationCfg(sampler_cfg=UniformSamplerCfg(low=[5.0], high=[10.0])),
+    )
+
+    assert variation.sampler is not None
+    torch.testing.assert_close(variation.sampler.sample(2), torch.tensor([[0.25], [0.75]]))
 
 
 def test_apply_cfg_with_only_sampler_change_rebuilds_sampler_in_place():
