@@ -1,6 +1,11 @@
 Policy
 ======
 
+.. toctree::
+   :maxdepth: 1
+
+   vlm_agent_foundation
+
 A policy in Arena is a standard interface between your model and the evaluation
 pipeline. You implement one method — ``get_action(env, obs)`` — and the policy
 plugs into both the single-job runner and the Experiment Runner without any

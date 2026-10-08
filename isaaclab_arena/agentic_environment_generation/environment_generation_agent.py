@@ -19,7 +19,6 @@ from isaaclab_arena.agentic_environment_generation.catalogues import (
     build_relation_catalogue,
     build_task_catalogue,
 )
-from isaaclab_arena.agentic_environment_generation.inference_backend import InferenceBackend
 from isaaclab_arena.agentic_environment_generation.missing_object_inference import MissingObjectInference
 from isaaclab_arena.agentic_environment_generation.prim_path_inference import PrimPathInference
 from isaaclab_arena.agentic_environment_generation.simready_asset_search import (
@@ -29,6 +28,7 @@ from isaaclab_arena.agentic_environment_generation.simready_asset_search import 
 from isaaclab_arena.agentic_environment_generation.spec_inference import SpecInference
 from isaaclab_arena.assets.simready_constants import SIMREADY_USD_OBJECT_REGISTRY_NAME
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
+from isaaclab_arena.inference.backend import InferenceBackend
 
 _logger = logging.getLogger(__name__)
 

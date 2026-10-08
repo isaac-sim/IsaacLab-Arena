@@ -12,15 +12,11 @@ from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel, Field, ValidationError
 
-from isaaclab_arena.agentic_environment_generation.inference_backend import (
-    InferenceBackend,
-    StructuredOutputRequest,
-    build_strict_schema,
-)
 from isaaclab_arena.agentic_environment_generation.spec_validation import format_validation_error
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 from isaaclab_arena.environment_spec.arena_env_graph_types import ObjectReferenceSpec
+from isaaclab_arena.inference.backend import InferenceBackend, StructuredOutputRequest, build_strict_schema
 
 if TYPE_CHECKING:
     from isaaclab_arena.utils.usd.prim_tree import UsdPrimRecord
