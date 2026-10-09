@@ -97,7 +97,8 @@ class Object(RootedObjectBase):
         self.relations = list(relations or [])
         self.reset_pose = True
         self.bounding_box: AxisAlignedBoundingBox | None = None
-        self._geometry: ObjectGeometry | None = None
+        self._asset_indices_by_env: tuple[int, ...] | None = None
+        self._asset_geometry: dict[int, ObjectGeometry] = {}
         cfg_options = deepcopy(asset_cfg_addon)
         if object_type == ObjectType.ARTICULATION:
             cfg_options.setdefault("actuators", {})
@@ -126,28 +127,83 @@ class Object(RootedObjectBase):
             value, (MultiAssetSpawnerCfg, MultiUsdFileCfg)
         ), "Construct RigidObjectSet to configure native alternatives"
         self.object_cfg.spawn = value
-        self._geometry = None
+        self._asset_geometry.clear()
 
-    def _get_geometry(self) -> ObjectGeometry:
-        """Refresh derived geometry after this object's native configuration changes."""
-        assert not isinstance(
-            self.spawn_cfg, (MultiAssetSpawnerCfg, MultiUsdFileCfg)
-        ), "Use RigidObjectSet for alternatives"
-        if self._geometry is None or not self._geometry.matches(self.spawn_cfg):
-            self._geometry = ObjectGeometry(self.spawn_cfg, self.object_type)
-        return self._geometry
+    @property
+    def has_multiple_assets(self) -> bool:
+        """Whether multiple asset alternatives are configured, regardless of assignment."""
+        return isinstance(self.spawn_cfg, MultiAssetSpawnerCfg) and len(self.spawn_cfg.assets_cfg) > 1
+
+    @property
+    def asset_indices_by_env(self) -> tuple[int, ...] | None:
+        """Configured asset indices in environment order, fixed before placement."""
+        return self._asset_indices_by_env
+
+    def bind_asset_assignment(self, indices: tuple[int, ...]) -> None:
+        """Bind one valid asset index per environment without allowing reassignment."""
+        indices = tuple(indices)
+        asset_count = len(self._get_asset_spawn_configs())
+        assert indices and all(
+            type(index) is int and 0 <= index < asset_count for index in indices
+        ), f"Object '{self.name}' has invalid variant indices."
+        assert self._asset_indices_by_env in (
+            None,
+            indices,
+        ), f"Object '{self.name}' already has a different variant assignment; construct a new object for a new scene."
+        self._asset_indices_by_env = indices
+
+    def _get_asset_spawn_configs(self) -> list[SpawnerCfg]:
+        """Read alternatives from the authoritative native spawn configuration."""
+        if isinstance(self.spawn_cfg, MultiAssetSpawnerCfg):
+            assert self.spawn_cfg.assets_cfg, f"Object '{self.name}' requires at least one native variant."
+            return self.spawn_cfg.assets_cfg
+        return [self.spawn_cfg]
+
+    def _get_geometry(self, asset_index: int = 0) -> ObjectGeometry:
+        """Refresh one asset's derived geometry after native configuration changes."""
+        spawn_cfg = self._get_asset_spawn_configs()[asset_index]
+        geometry = self._asset_geometry.get(asset_index)
+        if geometry is None or not geometry.matches(spawn_cfg):
+            geometry = ObjectGeometry(spawn_cfg, self.object_type)
+            self._asset_geometry[asset_index] = geometry
+        return geometry
 
     def get_bounding_box(self) -> AxisAlignedBoundingBox:
         """Return local bounds in the frame used to write this object's pose."""
+        assert not self.has_multiple_assets, f"Object '{self.name}' requires per-environment bounding boxes."
         return self.bounding_box if self.bounding_box is not None else self._get_geometry().get_bounding_box()
 
     def get_bounding_box_for_env(self, env_id: int) -> AxisAlignedBoundingBox:
-        """Return the same local bounds for every environment."""
+        """Return the assigned asset's local bounds for one environment."""
         assert env_id >= 0, "Environment index must be non-negative"
-        return self.get_bounding_box()
+        if not self.has_multiple_assets:
+            return self.get_bounding_box()
+        indices = self.asset_indices_by_env
+        assert indices is not None, f"Object '{self.name}' needs a variant assignment before geometry queries."
+        assert env_id < len(indices), f"Object '{self.name}' has no assignment for environment {env_id}."
+        return self._get_geometry(indices[env_id]).get_bounding_box()
+
+    def get_bounding_box_per_env(self, num_envs: int) -> AxisAlignedBoundingBox:
+        """Return assigned local bounds with one row per environment."""
+        assert num_envs > 0, "Per-environment bounds require at least one environment."
+        if not self.has_multiple_assets:
+            bounds = self.get_bounding_box()
+            return AxisAlignedBoundingBox(bounds.min_point.expand(num_envs, 3), bounds.max_point.expand(num_envs, 3))
+        indices = self.asset_indices_by_env
+        assert (
+            indices is not None and len(indices) == num_envs
+        ), f"Object '{self.name}' needs a variant assignment for {num_envs} environments before geometry queries."
+        bounds = [self._get_geometry(index).get_bounding_box() for index in range(len(self._get_asset_spawn_configs()))]
+        return AxisAlignedBoundingBox(
+            min_point=torch.stack([bounds[index].min_point[0] for index in indices]),
+            max_point=torch.stack([bounds[index].max_point[0] for index in indices]),
+        )
 
     def get_collision_mesh(self, excluded_prim_paths: Collection[str] = ()) -> trimesh.Trimesh | None:
         """Return collision geometry in the same frame as placement bounds."""
+        if self.has_multiple_assets:
+            assert not excluded_prim_paths, "Object exclusions require a concrete asset."
+            return None
         return self._get_geometry().get_collision_mesh(excluded_prim_paths)
 
     def get_corners(self, pos: torch.Tensor) -> torch.Tensor:
@@ -165,8 +221,14 @@ class Object(RootedObjectBase):
         self._pose_event_cfg = self._build_reset_event()
 
     def get_contact_sensor_prim_path(self) -> str:
-        """Return this object's rigid-body path."""
-        return self.prim_path + self._get_geometry().get_contact_body_path()
+        """Return the rigid-body path shared by this object's native assets."""
+        if not self.has_multiple_assets:
+            return self.prim_path + self._get_geometry().get_contact_body_path()
+        body_paths = {
+            self._get_geometry(index).get_contact_body_path() for index in range(len(self._get_asset_spawn_configs()))
+        }
+        assert len(body_paths) == 1, f"Object '{self.name}' has incompatible rigid-body paths."
+        return self.prim_path + body_paths.pop()
 
     def get_contact_sensor_cfg(self, contact_against_object: ObjectBase | None = None) -> ContactSensorCfg:
         """Configure contacts against the target's current rigid-body paths."""

@@ -43,31 +43,26 @@ class SortMultiObjectTask(TaskBase):
         assert force_threshold >= 0.0, f"force_threshold must be non-negative, got {force_threshold}"
         self.force_threshold = force_threshold
 
-        self.pick_up_object_contact_sensor_list = []
-        self.contact_sensor_name_list = []
-        for pick_up_object, destination in zip(pick_up_object_list, destination_location_list):
-            self.pick_up_object_contact_sensor_list.append(
-                pick_up_object.get_contact_sensor_cfg(contact_against_object=destination)
-            )
-            self.contact_sensor_name_list.append(f"contact_sensor_{pick_up_object.name}")
-
+        self.contact_sensor_name_list = [
+            f"contact_sensor_{pick_up_object.name}" for pick_up_object in pick_up_object_list
+        ]
         self.events_cfg = None
-        self.scene_config = self.make_scene_cfg()
 
     def make_scene_cfg(self):
 
         # Support variable number of contact sensors.
         fields: list[tuple[str, type, ContactSensorCfg]] = []
-        for contact_sensor_name, contact_sensor_cfg in zip(
-            self.contact_sensor_name_list, self.pick_up_object_contact_sensor_list
+        for contact_sensor_name, pick_up_object, destination in zip(
+            self.contact_sensor_name_list, self.pick_up_object_list, self.destination_location_list, strict=True
         ):
+            contact_sensor_cfg = pick_up_object.get_contact_sensor_cfg(contact_against_object=destination)
             fields.append((contact_sensor_name, type(contact_sensor_cfg), contact_sensor_cfg))
         SceneCfg = make_configclass("SceneCfg", fields)
         scene_cfg = SceneCfg()
         return scene_cfg
 
     def get_scene_cfg(self):
-        return self.scene_config
+        return self.make_scene_cfg()
 
     def get_termination_cfg(self) -> TaskTerminationCfg:
         object_cfg_list = [SceneEntityCfg(pick_up_object.name) for pick_up_object in self.pick_up_object_list]
