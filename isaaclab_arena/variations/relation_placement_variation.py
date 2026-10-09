@@ -171,7 +171,7 @@ class RelationPlacementVariation(RunTimeVariationBase):
         self._sample_listeners = []
         self._replay_sampler = None
         self.cfg = cfg if cfg is not None else RelationPlacementVariationCfg()
-        self._live_placement_enabled = live_placement_enabled
+        self._can_prepare_live = live_placement_enabled
         self._prepare_callback = prepare_at_build_time
         self._recorded_replay_samples: list[Any] | None = None
         self._prepared = False
@@ -189,6 +189,11 @@ class RelationPlacementVariation(RunTimeVariationBase):
         return self._sampler.placement_pool is not None
 
     @property
+    def can_supply_samples(self) -> bool:
+        """Whether live solving or recorded replay can supply placement samples."""
+        return self._can_prepare_live or self._sampler.replays_recorded_samples
+
+    @property
     def last_results(self) -> dict[int, PlacementResult]:
         """Return solver results applied by the latest live reset."""
         return dict(self._sampler.last_results)
@@ -197,16 +202,6 @@ class RelationPlacementVariation(RunTimeVariationBase):
         """Apply Hydra configuration without replacing builder-owned sampler state."""
         assert cfg.enabled, "scene.relation_placement.enabled=false is unsupported; disable relation solving instead"
         self.cfg = cfg
-
-    def set_replay_sampler(
-        self,
-        replay_sampler: Callable[[int, torch.Tensor | None], list[Any] | None] | None,
-    ) -> None:
-        """Bind replay sampling and disable a replay-only declaration when no placement rows exist."""
-        self._replay_sampler = replay_sampler
-        self._sampler.set_replay_sampler(replay_sampler)
-        if replay_sampler is None and not self._live_placement_enabled:
-            self.cfg.enabled = False
 
     def _prepare_at_build_time(self) -> None:
         """Prepare live or replayed construction poses before scene materialisation."""

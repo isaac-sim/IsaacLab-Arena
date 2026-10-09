@@ -687,6 +687,10 @@ def _test_task_termination_cfg_assigns_flat_criteria_to_subtasks(
         assert default_cfg.success == []
         assert default_cfg.timeout_s is None
 
+        timed_task = NoTask(episode_length_s=1.5)
+        assert timed_task.get_termination_cfg().timeout_s == 1.5
+        assert timed_task.get_episode_length_s() == 1.5
+
         class _Base(TaskBase):
             def get_scene_cfg(self):
                 return None

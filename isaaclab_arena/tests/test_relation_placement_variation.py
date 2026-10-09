@@ -171,7 +171,7 @@ def test_relation_placement_cannot_be_disabled():
         variation.apply_cfg(RelationPlacementVariationCfg(enabled=False))
 
 
-def test_replay_only_declaration_disables_itself_without_recorded_placement():
+def test_replay_only_declaration_reports_sample_source_availability_without_disabling_itself():
     sampler = PlacementPoolSampler(
         assets=[],
         placement_pool=None,
@@ -184,7 +184,13 @@ def test_replay_only_declaration_disables_itself_without_recorded_placement():
 
     variation.set_replay_sampler(None)
 
-    assert not variation.enabled
+    assert variation.enabled
+    assert not variation.can_supply_samples
+
+    variation.set_replay_sampler(lambda count, env_ids: [_placement_sample()] * count)
+
+    assert variation.enabled
+    assert variation.can_supply_samples
 
 
 def test_validated_replay_rows_are_available_during_preparation():

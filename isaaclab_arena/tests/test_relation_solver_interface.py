@@ -52,6 +52,27 @@ def test_relation_placement_variation_skips_anchor_only_graph():
     assert create_relation_placement_variation([_make_desk()], num_envs=2) is None
 
 
+def test_relation_placement_finalization_removes_only_unavailable_provisional_declaration():
+    from isaaclab_arena.environments.relation_solver_interface import (
+        create_relation_placement_variation,
+        finalize_relation_placement_variations,
+    )
+
+    variation = create_relation_placement_variation(
+        [],
+        num_envs=1,
+        live_placement_enabled=False,
+        replay_may_be_configured=True,
+    )
+    assert variation is not None
+    assert finalize_relation_placement_variations([variation]) == []
+
+    variation.set_replay_sampler(lambda count, env_ids: [{}] * count)
+
+    assert finalize_relation_placement_variations([variation]) == [variation]
+    assert variation.enabled
+
+
 def test_relation_placement_variation_requires_unique_asset_names():
     from isaaclab_arena.environments.relation_solver_interface import create_relation_placement_variation
 

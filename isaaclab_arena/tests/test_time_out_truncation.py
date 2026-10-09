@@ -24,13 +24,12 @@ def _test_builder_timeout_is_truncation(simulation_app, timeout_s):
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.scene.scene import Scene
     from isaaclab_arena.tasks.no_task import NoTask
-    from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
 
-    class TimeoutOnlyTask(NoTask):
-        def get_termination_cfg(self):
-            return TaskTerminationCfg(timeout_s=timeout_s)
-
-    description = IsaacLabArenaEnvironment(name="timeout_truncation", scene=Scene(), task=TimeoutOnlyTask())
+    description = IsaacLabArenaEnvironment(
+        name="timeout_truncation",
+        scene=Scene(),
+        task=NoTask(episode_length_s=timeout_s),
+    )
     builder = ArenaEnvBuilder(description, ArenaEnvBuilderCfg(num_envs=3, solve_relations=False, device="cpu"))
     env_cfg, _ = builder.compose_manager_cfg()
     if timeout_s is None:

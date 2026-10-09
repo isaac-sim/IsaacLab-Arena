@@ -17,11 +17,22 @@ class NoTask(TaskBase):
 
     name = "no_task"
 
+    def __init__(self, episode_length_s: float | None = None, task_description: str | None = None):
+        """Create a taskless environment with an optional episode timeout.
+
+        Args:
+            episode_length_s: Episode timeout in seconds. ``None`` preserves the unbounded
+                no-task behavior while retaining the standard fallback simulation horizon.
+            task_description: Optional natural-language task description.
+        """
+        super().__init__(episode_length_s=episode_length_s, task_description=task_description)
+        self._timeout_s = episode_length_s
+
     def get_scene_cfg(self):
         pass
 
     def get_termination_cfg(self) -> TaskTerminationCfg:
-        return TaskTerminationCfg(timeout_s=None)
+        return TaskTerminationCfg(timeout_s=self._timeout_s)
 
     def get_events_cfg(self):
         pass

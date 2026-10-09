@@ -22,6 +22,7 @@ if TYPE_CHECKING:
     from isaaclab_arena.relations.collision_object import CollisionObject
     from isaaclab_arena.relations.placement_asset import PlaceableAsset
     from isaaclab_arena.relations.placement_result import PlacementResult
+    from isaaclab_arena.variations.variation_base import VariationBase
 
 
 def create_relation_placement_variation(
@@ -86,6 +87,17 @@ def create_relation_placement_variation(
         live_placement_enabled=can_prepare_live,
         prepare_at_build_time=prepare,
     )
+
+
+def finalize_relation_placement_variations(variations: list[VariationBase]) -> list[VariationBase]:
+    """Remove a provisional placement declaration that has no live or replay sample source."""
+    from isaaclab_arena.variations.relation_placement_variation import RelationPlacementVariation
+
+    return [
+        variation
+        for variation in variations
+        if not isinstance(variation, RelationPlacementVariation) or variation.can_supply_samples
+    ]
 
 
 def _build_relation_placement_pool(

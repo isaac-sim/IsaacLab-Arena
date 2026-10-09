@@ -33,11 +33,14 @@ def _test_variation_replay_applies_complete_layouts(simulation_app, resolve_on_r
         ArenaEnvBuilderCfg(num_envs=3, recorded_variation_samples_path=str(LAYOUTS)),
         hydra_overrides=["cube_0.mass.enabled=true"],
     )
+    assert "scene.relation_placement" in builder.get_variations_catalogue_as_string()
     with patch(
         "isaaclab_arena.environments.relation_solver_interface._build_relation_placement_pool",
         side_effect=AssertionError("Placement replay must not run the relation solver"),
     ):
         env_cfg, env_kwargs = builder.compose_manager_cfg()
+    with pytest.raises(AssertionError, match="may only be called once"):
+        builder.compose_manager_cfg()
     event_names = list(vars(env_cfg.events))
     assert event_names.index("cube_0_mass_variation") < event_names.index("scene_relation_placement")
     assert event_names[-1] == "scene_relation_placement"
@@ -213,10 +216,15 @@ def _test_object_set_replay_is_rejected_before_environment_construction(simulati
         ArenaEnvGraphSpec.from_yaml(OBJECT_SET_SOURCE).to_arena_env(),
         make_programmatic_environment(),
     ):
-        ArenaEnvBuilder(
+        builder = ArenaEnvBuilder(
             arena_env,
-            ArenaEnvBuilderCfg(recorded_variation_samples_path=str(unrelated_samples)),
-        ).compose_manager_cfg()
+            ArenaEnvBuilderCfg(
+                recorded_variation_samples_path=str(unrelated_samples),
+                solve_relations=False,
+            ),
+        )
+        builder.compose_manager_cfg()
+        assert builder._scene_variations == []
 
     for arena_env in (
         ArenaEnvGraphSpec.from_yaml(OBJECT_SET_SOURCE).to_arena_env(),

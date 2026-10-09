@@ -34,7 +34,10 @@ from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import (
     IsaacLabArenaManagerBasedRLEnvCfg,
     apply_arena_global_settings,
 )
-from isaaclab_arena.environments.relation_solver_interface import create_relation_placement_variation
+from isaaclab_arena.environments.relation_solver_interface import (
+    create_relation_placement_variation,
+    finalize_relation_placement_variations,
+)
 from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.metrics.metric_term_cfg import MetricTermCfg
 from isaaclab_arena.metrics.recorder_manager_utils import metrics_to_recorder_manager_cfg
@@ -100,6 +103,7 @@ class ArenaEnvBuilder:
             num_envs=cfg.num_envs, env_spacing=cfg.env_spacing, replicate_physics=False
         )
         self._scene_variations: list[VariationBase] = []
+        self._manager_cfg_composed = False
 
     @property
     def resolved_physics_backend(self) -> PhysicsBackend:
@@ -173,19 +177,18 @@ class ArenaEnvBuilder:
 
     def get_variations_catalogue_as_string(self) -> str:
         """Return a human-readable catalog of Hydra-configurable variations for this env."""
+        self._declare_relation_placement()
         variations: dict[str, list[VariationBase]] = self.get_all_variations()
         return variations_printing.get_variations_catalogue_as_string(variations, hydra_overrides=self.hydra_overrides)
 
-    def _compose_variations_event_cfg(self) -> Any | None:
+    def _compose_variations_event_cfg(self, variations: dict[str, list[VariationBase]]) -> Any | None:
         """Build a configclass with one :class:`EventTermCfg` per enabled run-time variation.
 
         Returns ``None`` when no run-time variation is enabled.
         """
-        # Assemble all the variations together into a single configclass.
-        ordered_fields: list[tuple[int, int, tuple[str, type, EventTermCfg]]] = []
+        ordered_fields: list[tuple[int, tuple[str, type, EventTermCfg]]] = []
         added_event_names: set[str] = set()
-        insertion_order = 0
-        for variations_per_asset in self.get_all_variations().values():
+        for variations_per_asset in variations.values():
             for variation in variations_per_asset:
                 if not variation.enabled:
                     continue
@@ -197,26 +200,23 @@ class ArenaEnvBuilder:
                     "Each variation must produce a unique name; consider prefixing with the asset name."
                 )
                 added_event_names.add(event_name)
-                ordered_fields.append(
-                    (variation.reset_priority, insertion_order, (event_name, EventTermCfg, event_cfg))
-                )
-                insertion_order += 1
+                ordered_fields.append((variation.reset_priority, (event_name, EventTermCfg, event_cfg)))
         if not ordered_fields:
             return None
-        fields = [field for _, _, field in sorted(ordered_fields)]
+        fields = [field for _, field in sorted(ordered_fields, key=lambda item: item[0])]
         VariationsEventCfg = make_configclass("VariationsEventCfg", fields)
         return VariationsEventCfg()
 
-    def _prepare_variations_at_build_time(self) -> None:
+    def _prepare_variations_at_build_time(self, variations: dict[str, list[VariationBase]]) -> None:
         """Prepare prerequisites for every enabled variation before realization."""
-        for asset_variations in self.get_all_variations().values():
+        for asset_variations in variations.values():
             for variation in asset_variations:
                 if variation.enabled:
                     variation.prepare_at_build_time()
 
-    def _realize_build_time_variations(self) -> None:
+    def _realize_build_time_variations(self, variations: dict[str, list[VariationBase]]) -> None:
         """Realize every enabled build-time variation before materializing ``scene_cfg``."""
-        for asset_variations in self.get_all_variations().values():
+        for asset_variations in variations.values():
             for variation in asset_variations:
                 if variation.enabled and isinstance(variation, BuildTimeVariationBase):
                     variation.realize_at_build_time()
@@ -288,6 +288,12 @@ class ArenaEnvBuilder:
         Returns:
             An (env_cfg, env_kwargs) tuple.
         """
+        assert not self._manager_cfg_composed, (
+            "ArenaEnvBuilder.compose_manager_cfg() may only be called once; "
+            "create a new builder for another environment configuration"
+        )
+        self._manager_cfg_composed = True
+
         # Declare placement before Hydra and replay configuration without solving or mutating spawn poses.
         self._declare_relation_placement()
 
@@ -303,9 +309,8 @@ class ArenaEnvBuilder:
         )
         # A replay path requires placement to be declared before its keys are known. Remove the
         # declaration when no placement rows were bound and live relation solving is unavailable.
-        self._scene_variations[:] = [variation for variation in self._scene_variations if variation.enabled]
-        if SCENE_VARIATION_HOST in variations and not self._scene_variations:
-            del variations[SCENE_VARIATION_HOST]
+        self._scene_variations = finalize_relation_placement_variations(self._scene_variations)
+        variations = self.get_all_variations()
 
         # Attach the variation recorder before any sampling, so it observes both build-time samples
         # (drawn just below) and run-time samples (drawn during simulation).
@@ -313,8 +318,8 @@ class ArenaEnvBuilder:
         variation_recorder.attach(variations)
 
         # Prepare all prerequisites before any build-time variation is realized.
-        self._prepare_variations_at_build_time()
-        self._realize_build_time_variations()
+        self._prepare_variations_at_build_time(variations)
+        self._realize_build_time_variations(variations)
 
         resolved_physics_backend = self.resolved_physics_backend
 
@@ -336,7 +341,7 @@ class ArenaEnvBuilder:
             embodiment.get_observation_cfg(),
             task.get_observation_cfg(),
         )
-        variations_event_cfg = self._compose_variations_event_cfg()
+        variations_event_cfg = self._compose_variations_event_cfg(variations)
         task_termination_cfg = task.get_termination_cfg()
         assert isinstance(
             task_termination_cfg, TaskTerminationCfg
