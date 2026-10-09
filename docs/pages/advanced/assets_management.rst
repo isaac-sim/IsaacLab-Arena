@@ -13,18 +13,14 @@ Assets Management
 
 
 Isaac Lab Arena consumes assets from publicly available S3 buckets and LightWheel SDK registry.
-Isaac Lab Arena uses the following environment variables to access those S3 buckets:
+Isaac Lab Arena uses the following Python constants from ``isaaclab.utils.assets`` and
+``isaaclab_arena.assets.nucleus`` to access those S3 buckets:
 
-- ``ISAAC_NUCLEUS_DIR``: The directory of Isaac Sim's assets on the production S3 bucket, containing assets that are compliant with legal requirements.
-- ``ISAACLAB_NUCLEUS_DIR``: The directory of Isaac Lab & Isaac Lab Arena's assets on the production S3 bucket, containing assets that are compliant with legal requirements.
-- ``ISAACLAB_STAGING_NUCLEUS_DIR``: The directory of Isaac Lab Arena's development assets on the staging S3 bucket, auto-synced every 6 hours
+- ``ISAAC_NUCLEUS_DIR``: The directory of Isaac Sim's assets, using the production S3 bucket by default, containing assets that are compliant with legal requirements.
+- ``ISAACLAB_NUCLEUS_DIR``: The directory of Isaac Lab's assets, using the production S3 bucket by default, containing assets that are compliant with legal requirements.
+- ``ARENA_NUCLEUS_DIR``: The directory of Isaac Lab Arena's development assets on the public staging S3 bucket, auto-synced every 6 hours
   from the Nucleus Server (omniverse://isaac-dev.ov.nvidia.com/Isaac/IsaacLab/Arena/). Those assets have not yet reviewed by legal team -- use in production at your own risk.
   Prior to each major release, the staging assets will be uploaded to the production bucket after being cleared by the legal team.
-
-.. note::
-
-   In Isaac Lab 3.0-alpha, ``ISAACLAB_NUCLEUS_DIR`` currently points to the *staging* S3 bucket rather than the production bucket.
-   See the `Isaac Lab staging-bucket configuration <https://github.com/isaac-sim/IsaacLab/blob/55df2c34390ba94b22d41879514c5485c5115462/apps/isaaclab.python.kit#L309>`__.
 
 Adding assets
 -------------
@@ -47,7 +43,7 @@ To add your own assets to Isaac Lab Arena's *staging* S3 bucket, you can follow 
    Prefix assets with their source (e.g., ``scarif_tower_01.usd``), upload to ``/Isaac/IsaacLab/Arena/assets/object_library``,
    and include a valid license file in the target folder. If you lack Nucleus Server write access, contact the isaaclab-arena team to facilitate the asset and license upload.
 
-2. Update the USD path configurations to use the new assets as they are stored in ``ISAACLAB_STAGING_NUCLEUS_DIR/Arena/assets`` directory.
+2. Update the USD path configurations to use the new assets in ``ARENA_NUCLEUS_DIR/Arena/assets`` on the public staging mirror.
    For example, if you want to use a new object, you can register the object in ``isaaclab_arena/assets/object_library.py`` as a derived class of ``LibraryObject``, and add the USD path as its class attribute.
 
 3. Wait for at most 6 hours for the assets to be synced to the staging S3 bucket.

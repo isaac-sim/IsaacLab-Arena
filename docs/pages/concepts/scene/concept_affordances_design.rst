@@ -20,7 +20,8 @@ How an object gets an affordance
 
 Affordances are added to an object through multiple inheritance.
 The microwave inherits from both ``LibraryObject`` and ``Openable``,
-and declares the joint name that the affordance controls:
+and passes the joint name and threshold to the affordance constructor.
+This excerpt from ``object_library.py`` omits imports:
 
 .. code-block:: python
 
@@ -28,14 +29,27 @@ and declares the joint name that the affordance controls:
    class Microwave(LibraryObject, Openable):
        name = "microwave"
        tags = ["object", "openable"]
+       usd_path = LightwheelLazyPath(registry_type="fixtures", file_name="Microwave039", file_type="USD")
        object_type = ObjectType.ARTICULATION
 
        # Openable affordance parameters
        openable_joint_name = "microjoint"
-       openable_threshold = 0.5  # open if joint > threshold, closed otherwise
+       openable_threshold = 0.5  # open if normalized openness > threshold
+
+       def __init__(
+           self, instance_name: str | None = None, prim_path: str | None = None, initial_pose: Pose | None = None
+       ):
+           super().__init__(
+               instance_name=instance_name,
+               prim_path=prim_path,
+               initial_pose=initial_pose,
+               openable_joint_name=self.openable_joint_name,
+               openable_threshold=self.openable_threshold,
+           )
 
 The ``Openable`` mixin implements ``is_open()`` and ``close()`` using the joint
-name provided — no further setup needed.
+name forwarded through ``super().__init__()``. Declaring the class attributes
+alone does not initialize the affordance. The USD asset must contain the named joint.
 
 Why this matters
 ----------------

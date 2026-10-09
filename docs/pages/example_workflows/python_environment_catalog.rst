@@ -3,7 +3,7 @@ Python Environment Catalog
 
 Python registered environments are small compositions of the building blocks
 introduced in :doc:`../concepts/environment/index` — **Scene**,
-**Embodiment**, and **Task** — wrapped in an ``ExampleEnvironmentBase``
+**Embodiment**, and **Task** — wrapped in an ``ArenaEnvironmentFactory``
 subclass and registered with the global ``EnvironmentRegistry``. The
 registered ``Task ID`` is passed as the positional ``example_environment``
 argument to scripts such as ``isaaclab_arena/evaluation/policy_runner.py``.
@@ -78,13 +78,13 @@ as the introductory ``First Arena Environment`` walkthrough.
    * - **Embodiment**
      - ``droid_abs_joint_pos`` (default), configurable via ``--embodiment``
    * - **Scene**
-     - ``maple_table_robolab`` background, dome ``light`` (configurable HDR / intensity)
+     - ``maple_table_robolab`` background, dome ``light`` (configurable HDR / intensity), ``directional_light``
    * - **Objects**
      - Pick: ``rubiks_cube_hot3d_robolab`` (default); Destination: ``bowl_ycb_robolab`` (default); plus optional ``--additional_table_objects``
    * - **Task Class**
-     - ``PickAndPlaceTask`` (episode_length_s = 20)
+     - ``PickAndPlaceTask`` (episode_length_s = 70 by default)
    * - **Object Placement**
-     - Relations: ``On(table)``, ``PositionLimitsBox(x=0.55..0.70, y=-0.4..-0.1)``
+     - Relations: ``IsAnchor()`` for the table; ``On(table)`` for pick, destination, and additional objects
    * - **CLI Args**
      - ``--pick_up_object``, ``--destination_location``, ``--additional_table_objects``, ``--embodiment``, ``--teleop_device``, ``--hdr``, ``--light_intensity``
 
@@ -488,7 +488,7 @@ position. Featured in the
    * - **Objects**
      - ``procedural_cube`` (randomized initial pose with a wide ``PoseRange``)
    * - **Task Class**
-     - ``DexsuiteLiftTask`` (object_pose command, position-only, resampled every 2–3 s)
+     - ``DexsuiteLiftTask`` (object_pose command, position-only, resampled every 4–6 s)
    * - **Training Method**
      - Pre-trained in Isaac Lab via ``KukaAllegroPPORunnerCfg`` (RSL-RL PPO)
    * - **Physics Backend**

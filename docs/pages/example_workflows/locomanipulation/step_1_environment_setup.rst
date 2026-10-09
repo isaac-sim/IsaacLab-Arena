@@ -13,68 +13,15 @@ and validate that we can load it in Isaac Lab.
 Environment Description
 ^^^^^^^^^^^^^^^^^^^^^^^
 
+The environment factory implements ``build(cfg)``, using its typed
+``ArenaEnvironmentCfg`` subclass to configure the scene, embodiment, and task.
+
 .. dropdown:: The Galileo G1 Locomanip Pick and Place Environment
    :animate: fade-in
 
-   .. code-block:: python
-
-       class GalileoG1LocomanipPickAndPlaceEnvironment(ExampleEnvironmentBase):
-
-           name: str = "galileo_g1_locomanip_pick_and_place"
-
-           def get_env(self, args_cli: argparse.Namespace):
-               from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
-               from isaaclab_arena.scene.scene import Scene
-               from isaaclab_arena.tasks.pick_and_place_task import G1PickAndPlaceMimicEnvCfg, PickAndPlaceTask
-               from isaaclab_arena.utils.pose import Pose, PoseRange
-
-               background = self.asset_registry.get_asset_by_name("galileo_locomanip")()
-               pick_up_object = self.asset_registry.get_asset_by_name(args_cli.object)()
-               blue_sorting_bin = self.asset_registry.get_asset_by_name("blue_sorting_bin")()
-               embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(enable_cameras=args_cli.enable_cameras)
-
-               teleop_device = self.device_registry.get_device_by_name(args_cli.teleop_device)()
-
-               XY_RANGE_M = 0.025
-               pick_up_object.set_initial_pose(
-                   PoseRange(
-                       position_xyz_min=(0.5785 - XY_RANGE_M, 0.18 - XY_RANGE_M, 0.0707),
-                       position_xyz_max=(0.5785 + XY_RANGE_M, 0.18 + XY_RANGE_M, 0.0707),
-                       rpy_min=(0.0, 0.0, 0.0),
-                       rpy_max=(0.0, 0.0, 0.0),
-                   )
-               )
-               blue_sorting_bin.set_initial_pose(
-                   Pose(
-                       position_xyz=(-0.2450, -1.6272, -0.2641),
-                       rotation_xyzw=(0.0, 0.0, 1.0, 0.0),
-                   )
-               )
-               embodiment.set_initial_pose(Pose(position_xyz=(0.0, 0.18, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
-
-               def _build_g1_pick_and_place_mimic_cfg(arm_mode):
-                   return G1PickAndPlaceMimicEnvCfg(
-                       pick_up_object_name=pick_up_object.name,
-                       destination_location_name=blue_sorting_bin.name,
-                       arm_mode=arm_mode,
-                   )
-
-               scene = Scene(assets=[background, pick_up_object, blue_sorting_bin])
-               task = PickAndPlaceTask(
-                   pick_up_object,
-                   blue_sorting_bin,
-                   background,
-                   mimic_env_cfg_factory=_build_g1_pick_and_place_mimic_cfg,
-               )
-
-               isaaclab_arena_environment = IsaacLabArenaEnvironment(
-                   name=self.name,
-                   embodiment=embodiment,
-                   scene=scene,
-                   task=task,
-                   teleop_device=teleop_device,
-               )
-               return isaaclab_arena_environment
+   .. literalinclude:: ../../../../isaaclab_arena_environments/galileo_g1_locomanip_pick_and_place_environment.py
+      :language: python
+      :start-at: from __future__ import annotations
 
 
 Step-by-Step Breakdown
@@ -85,15 +32,18 @@ Step-by-Step Breakdown
 .. code-block:: python
 
     background = self.asset_registry.get_asset_by_name("galileo_locomanip")()
-    pick_up_object = self.asset_registry.get_asset_by_name(args_cli.object)()
+    pick_up_object = self.asset_registry.get_asset_by_name(cfg.object)()
     blue_sorting_bin = self.asset_registry.get_asset_by_name("blue_sorting_bin")()
-    embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(enable_cameras=args_cli.enable_cameras)
+    embodiment = self.asset_registry.get_asset_by_name(cfg.embodiment)(enable_cameras=cfg.enable_cameras)
 
-    teleop_device = self.device_registry.get_device_by_name(args_cli.teleop_device)()
+    if cfg.teleop_device is not None:
+        teleop_device = self.device_registry.get_device_by_name(cfg.teleop_device)()
+    else:
+        teleop_device = None
 
 Here, we're selecting the specific pieces we need for our locomanipulation task: the Galileo arena as our background environment,
 an object to pick up, a blue sorting bin as our goal location, and the G1 embodiment.
-The ``AssetRegistry`` and ``DeviceRegistry`` have been initialized in the ``ExampleEnvironmentBase`` class.
+The ``AssetRegistry`` and ``DeviceRegistry`` have been initialized in the ``ArenaEnvironmentFactory`` class.
 See :doc:`../../concepts/scene/concept_assets_design` for details on asset architecture.
 
 
@@ -101,13 +51,15 @@ See :doc:`../../concepts/scene/concept_assets_design` for details on asset archi
 
 .. code-block:: python
 
+   import math
+
    XY_RANGE_M = 0.025
    pick_up_object.set_initial_pose(
        PoseRange(
            position_xyz_min=(0.5785 - XY_RANGE_M, 0.18 - XY_RANGE_M, 0.0707),
            position_xyz_max=(0.5785 + XY_RANGE_M, 0.18 + XY_RANGE_M, 0.0707),
-           rpy_min=(0.0, 0.0, 0.0),
-           rpy_max=(0.0, 0.0, 0.0),
+           rpy_min=(math.pi, 0.0, math.pi),
+           rpy_max=(math.pi, 0.0, math.pi),
        )
    )
    blue_sorting_bin.set_initial_pose(
@@ -145,6 +97,9 @@ See :doc:`../../concepts/scene/index` for scene composition details.
         pick_up_object,
         blue_sorting_bin,
         background,
+        episode_length_s=30.0,
+        force_threshold=0.5,
+        velocity_threshold=0.1,
         mimic_env_cfg_factory=_build_g1_pick_and_place_mimic_cfg,
     )
 
@@ -161,12 +116,23 @@ See :doc:`../../concepts/task/index` for task creation details.
 
 .. code-block:: python
 
+    from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import set_control_rate_50hz
+
+    def env_cfg_callback(env_cfg):
+        env_cfg = _apply_legacy_datagen_name_override(
+            env_cfg,
+            pick_up_object_name=pick_up_object.name,
+            destination_name=blue_sorting_bin.name,
+        )
+        return set_control_rate_50hz(env_cfg)
+
     isaaclab_arena_environment = IsaacLabArenaEnvironment(
         name=self.name,
         embodiment=embodiment,
         scene=scene,
         task=task,
         teleop_device=teleop_device,
+        env_cfg_callback=env_cfg_callback,
     )
 
 Finally, we assemble all the pieces into a complete, runnable environment. The ``IsaacLabArenaEnvironment`` is the
