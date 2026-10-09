@@ -28,11 +28,11 @@ if TYPE_CHECKING:
         RelationCatalogue,
         TaskCatalogue,
     )
-    from isaaclab_arena.agentic_environment_generation.inference_backend import InferenceBackend
+    from isaaclab_arena.inference.backend import InferenceBackend
     from isaaclab_arena.utils.usd.prim_tree import UsdPrimRecord
 
 _TEST_DATA_DIR = Path(__file__).resolve().parent.parent / "test_data"
-_OPENAI_PATCH = "isaaclab_arena.agentic_environment_generation.inference_backend.OpenAI"
+_OPENAI_PATCH = "isaaclab_arena.inference.backend.OpenAI"
 
 
 @pytest.fixture
@@ -49,7 +49,7 @@ def skip_without_live_endpoint_key() -> pytest.MarkDecorator:
     """Return a skip marker for tests that call the selected inference endpoint for real."""
     import os
 
-    from isaaclab_arena.agentic_environment_generation.inference_backend import resolve_inference_endpoint
+    from isaaclab_arena.inference.backend import resolve_inference_endpoint
 
     endpoint = resolve_inference_endpoint()
     return pytest.mark.skipif(
@@ -60,7 +60,7 @@ def skip_without_live_endpoint_key() -> pytest.MarkDecorator:
 
 def inference_backend(stub_openai, *, model: str = "test-model", max_retries: int = 3) -> InferenceBackend:
     """Build an ``InferenceBackend`` against the patched OpenAI client from ``stub_openai``."""
-    from isaaclab_arena.agentic_environment_generation.inference_backend import InferenceBackend
+    from isaaclab_arena.inference.backend import InferenceBackend
 
     _, client = stub_openai
     backend = InferenceBackend(api_key="test-key", model=model, max_retries=max_retries)

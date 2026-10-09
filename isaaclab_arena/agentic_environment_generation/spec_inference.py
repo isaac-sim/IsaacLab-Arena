@@ -12,16 +12,12 @@ from typing import Any
 
 from pydantic import ValidationError
 
-from isaaclab_arena.agentic_environment_generation.inference_backend import (
-    InferenceBackend,
-    StructuredOutputRequest,
-    build_strict_schema,
-)
 from isaaclab_arena.agentic_environment_generation.spec_validation import (
     collect_agent_ready_validation_trace,
     format_validation_error,
 )
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
+from isaaclab_arena.inference.backend import InferenceBackend, StructuredOutputRequest, build_strict_schema
 
 MAX_SPEC_INFERENCE_CALLS = 3
 """Maximum generation calls, including critic retries after validation failures."""

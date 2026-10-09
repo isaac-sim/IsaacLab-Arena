@@ -38,13 +38,13 @@ import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from isaaclab_arena.agentic_environment_generation.inference_backend import DEFAULT_ENDPOINT_NAME, INFERENCE_ENDPOINTS
 from isaaclab_arena.agentic_environment_generation.spec_io import (
     DEFAULT_AGENTIC_OUTPUT_DIR,
     write_env_graph_spec,
     write_rejected_env_graph_spec,
 )
 from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_argparse, get_isaaclab_arena_cli_parser
+from isaaclab_arena.inference.backend import DEFAULT_ENDPOINT_NAME, INFERENCE_ENDPOINTS
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
 
 if TYPE_CHECKING:
