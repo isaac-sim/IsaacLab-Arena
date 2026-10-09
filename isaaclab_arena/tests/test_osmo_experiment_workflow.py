@@ -42,8 +42,8 @@ from osmo.tasks.experiment_runner_task import (
 )
 from osmo.tasks.gr00t_server_task import Gr00tServerTask, Gr00tServerTaskCfg
 from osmo.tasks.pi0_server_task import Pi0ServerTask, Pi0ServerTaskCfg
-from osmo.workflows.arena_experiment_workflow import ArenaExperimentWorkflow
-from osmo.workflows.workflow import WorkflowCfg
+from osmo.workflows.arena_experiment_workflow import EXPERIMENT_RUNNER_TIMEOUT_MARGIN_SECONDS, ArenaExperimentWorkflow
+from osmo.workflows.workflow import WorkflowCfg, osmo_duration_to_seconds
 from osmo.workflows.workflow_constants import DATASET_SWIFT_URL, OSMO_TASK_OUTPUT_DIR, POLICY_SERVER_PORT
 
 # Composing complete Arena Experiments loads Isaac runtime modules, so these tests
@@ -233,7 +233,11 @@ def test_fans_out_single_run_experiments_with_dedicated_pi0_servers_and_one_expe
     experiment_runner_command = _task_file(first_tasks[0], "/tmp/entry.sh")["contents"]
     assert "set -euo pipefail" not in experiment_runner_command
     assert experiment_runner_command.startswith("# Record the application result without failing the OSMO task")
-    assert "if /isaac-sim/python.sh" in experiment_runner_command
+    one_day_seconds = 24 * 60 * 60
+    assert (
+        f"if timeout --kill-after=60 {one_day_seconds - EXPERIMENT_RUNNER_TIMEOUT_MARGIN_SECONDS} /isaac-sim/python.sh"
+        in experiment_runner_command
+    )
     assert "experiment_runner.py" in experiment_runner_command
     assert f"--experiment_config {REMOTE_EXPERIMENT_PATH}" in experiment_runner_command
     assert f"--experiment_output_directory '{OSMO_TASK_OUTPUT_DIR}'" in experiment_runner_command
@@ -443,6 +447,63 @@ def test_result_wrapper_preserves_experiment_video_options():
     assert "--record_viewport_video" in experiment_runner_command
     assert experiment_runner_command.startswith("# Record the application result without failing the OSMO task")
     assert experiment_runner_command.endswith("exit 0\n")
+
+
+def test_experiment_runner_without_timeout_runs_unbounded():
+    """A task without a time budget runs the Experiment Runner directly."""
+    experiment_runner_task = ExperimentRunnerTask(
+        task_cfg=ExperimentRunnerTaskCfg(),
+        experiment_cfg=_zero_action_experiment_cfg(),
+        lead=True,
+        task_name="experiment-runner",
+    )
+
+    experiment_runner_command = _task_file(experiment_runner_task.create_task_dict(), "/tmp/entry.sh")["contents"]
+
+    assert "timeout" not in experiment_runner_command
+    assert "if /isaac-sim/python.sh" in experiment_runner_command
+
+
+def test_experiment_runner_timeout_ends_before_osmo_exec_timeout():
+    """Each Run's Experiment Runner budget leaves a margin inside the configured OSMO exec timeout."""
+    workflow = ArenaExperimentWorkflow(
+        workflow_cfg=WorkflowCfg(exec_timeout="3h"),
+        experiment_cfg=_zero_action_experiment_cfg(),
+    )
+
+    run_group = _workflow_groups(workflow.generate_workflow())[0]
+    experiment_runner_command = _task_file(run_group["tasks"][0], "/tmp/entry.sh")["contents"]
+
+    expected_timeout_seconds = 3 * 60 * 60 - EXPERIMENT_RUNNER_TIMEOUT_MARGIN_SECONDS
+    assert f"if timeout --kill-after=60 {expected_timeout_seconds} /isaac-sim/python.sh" in experiment_runner_command
+    assert experiment_runner_command.endswith("exit 0\n")
+
+
+def test_exec_timeout_must_exceed_experiment_runner_timeout_margin():
+    """Reject an OSMO exec timeout that leaves no time to run the Experiment Runner."""
+    workflow = ArenaExperimentWorkflow(
+        workflow_cfg=WorkflowCfg(exec_timeout="30m"),
+        experiment_cfg=_zero_action_experiment_cfg(),
+    )
+
+    with pytest.raises(AssertionError, match="must exceed"):
+        workflow.generate_workflow()
+
+
+@pytest.mark.parametrize(
+    ("duration", "expected_seconds"),
+    [("45s", 45), ("30m", 1800), ("2h", 7200), ("1d", 86400)],
+)
+def test_osmo_duration_to_seconds(duration, expected_seconds):
+    """Convert OSMO durations to seconds."""
+    assert osmo_duration_to_seconds(duration) == expected_seconds
+
+
+@pytest.mark.parametrize("duration", ["1", "1w", "10h5m", "h"])
+def test_osmo_duration_to_seconds_rejects_unsupported_formats(duration):
+    """Reject durations OSMO does not accept."""
+    with pytest.raises(AssertionError):
+        osmo_duration_to_seconds(duration)
 
 
 def test_all_local_experiment_runs_standalone_without_servers():

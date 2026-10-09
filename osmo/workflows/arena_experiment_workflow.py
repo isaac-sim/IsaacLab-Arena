@@ -18,8 +18,12 @@ from osmo.tasks.collect_experiment_outputs_task import CollectExperimentOutputsT
 from osmo.tasks.experiment_runner_task import ExperimentRunnerTask, ExperimentRunnerTaskCfg
 from osmo.tasks.policy_server_task import PolicyServerTask
 from osmo.workflows.server_task_registry import ServerTaskRegistry
-from osmo.workflows.workflow import Workflow, WorkflowCfg
+from osmo.workflows.workflow import Workflow, WorkflowCfg, osmo_duration_to_seconds
 from osmo.workflows.workflow_constants import POLICY_SERVER_PORT
+
+# Part of each Run group's OSMO exec timeout reserved for stopping the Experiment Runner and uploading its output.
+# A Run that would otherwise time out is recorded as failed instead, so the Experiment output is still collected.
+EXPERIMENT_RUNNER_TIMEOUT_MARGIN_SECONDS = 30 * 60
 
 
 class ArenaExperimentWorkflow(Workflow):
@@ -98,6 +102,7 @@ class ArenaExperimentWorkflow(Workflow):
             lead=True,
             task_name=experiment_runner_task_name,
             published_output_url=None,
+            timeout_seconds=self._experiment_runner_timeout_seconds(),
         )
         run_group_tasks = [experiment_runner_task, *policy_server_tasks]
 
@@ -106,6 +111,15 @@ class ArenaExperimentWorkflow(Workflow):
             "tasks": [run_group_task.create_task_dict() for run_group_task in run_group_tasks],
         }
         return run_group_dict, experiment_runner_task_name
+
+    def _experiment_runner_timeout_seconds(self) -> int:
+        """Return the Experiment Runner time budget that ends a Run before OSMO times out its group."""
+        exec_timeout_seconds = osmo_duration_to_seconds(self.workflow_cfg.exec_timeout)
+        assert exec_timeout_seconds > EXPERIMENT_RUNNER_TIMEOUT_MARGIN_SECONDS, (
+            f"OSMO exec_timeout '{self.workflow_cfg.exec_timeout}' must exceed the"
+            f" {EXPERIMENT_RUNNER_TIMEOUT_MARGIN_SECONDS}s reserved to stop the Experiment Runner and upload its output"
+        )
+        return exec_timeout_seconds - EXPERIMENT_RUNNER_TIMEOUT_MARGIN_SECONDS
 
     def _create_experiment_output_group_dict(
         self,

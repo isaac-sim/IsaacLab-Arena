@@ -29,6 +29,8 @@ DEFAULT_EXPERIMENT_RUNNER_IMAGE = "nvcr.io/nvstaging/isaac-amr/isaaclab_arena:la
 REMOTE_EXPERIMENT_PATH = "/tmp/arena_experiment.yaml"
 # Result interpreted by the downstream Experiment output collector.
 EXPERIMENT_RUNNER_RESULT_FILE_NAME = "experiment_runner_result.json"
+# Grace period between SIGTERM and SIGKILL when the Experiment Runner exceeds its time budget.
+EXPERIMENT_RUNNER_KILL_AFTER_SECONDS = 60
 
 
 @dataclass
@@ -56,11 +58,26 @@ class ExperimentRunnerTask(BaseTask):
         *,
         task_name: str,
         published_output_url: str | None = DATASET_SWIFT_URL,
+        timeout_seconds: int | None = None,
     ) -> None:
+        """Create the task.
+
+        Args:
+            task_cfg: Experiment Runner task configuration.
+            experiment_cfg: Experiment executed by this task.
+            lead: Whether this is the lead task of its OSMO group.
+            task_name: OSMO task name.
+            published_output_url: URL the task output is published to, or None to keep it workflow-local.
+            timeout_seconds: Time budget for ``experiment_runner.py``. When exceeded, the runner is killed and
+                recorded as failed while the task still succeeds, so downstream tasks keep running. None means no
+                budget.
+        """
         super().__init__(task_name=task_name, task_cfg=task_cfg, lead=lead)
         assert isinstance(experiment_cfg, ArenaExperimentCfg)
+        assert timeout_seconds is None or timeout_seconds > 0, "Experiment Runner timeout must be positive"
         self.experiment_cfg = deepcopy(experiment_cfg)
         self.published_output_url = published_output_url
+        self.timeout_seconds = timeout_seconds
 
     def _get_image(self) -> str:
         return self.task_cfg.image
@@ -82,7 +99,15 @@ class ExperimentRunnerTask(BaseTask):
 
     def _get_run_script(self) -> str:
         """Build the shell entry point for the Experiment Runner task."""
-        experiment_runner_command_arguments = [
+        experiment_runner_command_arguments = []
+        if self.timeout_seconds is not None:
+            # GNU timeout exits 124 after SIGTERM, or 137 when SIGKILL was needed; both count as failed.
+            experiment_runner_command_arguments += [
+                "timeout",
+                f"--kill-after={EXPERIMENT_RUNNER_KILL_AFTER_SECONDS}",
+                str(self.timeout_seconds),
+            ]
+        experiment_runner_command_arguments += [
             "/isaac-sim/python.sh",
             EXPERIMENT_RUNNER_SCRIPT,
             "--experiment_config",

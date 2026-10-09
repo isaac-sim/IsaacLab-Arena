@@ -28,6 +28,23 @@ from osmo.tasks.base_task import BaseTask, TaskCfg
 from osmo.workflows.utils.yaml_utils import block_literal_str  # noqa: F401  (registers representer)
 from osmo.workflows.workflow_constants import DATASET_SWIFT_URL
 
+# Seconds per unit of an OSMO duration string such as ``30m`` or ``1d``.
+_OSMO_DURATION_UNIT_SECONDS = {"s": 1, "m": 60, "h": 60 * 60, "d": 24 * 60 * 60}
+
+
+def osmo_duration_to_seconds(duration: str) -> int:
+    """Convert an OSMO ``<integer><unit>`` duration (unit ``s``, ``m``, ``h`` or ``d``) to seconds.
+
+    Args:
+        duration: OSMO duration string, for example ``1d``.
+
+    Returns:
+        The duration in seconds.
+    """
+    match = re.fullmatch(r"(\d+)([smhd])", duration)
+    assert match, f"OSMO duration must have the form <integer><s|m|h|d>; got '{duration}'"
+    return int(match.group(1)) * _OSMO_DURATION_UNIT_SECONDS[match.group(2)]
+
 
 class WorkflowPriority(str, Enum):
     """OSMO scheduling priority for a workflow."""
@@ -66,7 +83,7 @@ class WorkflowCfg:
     """Target hardware platform."""
 
     exec_timeout: str = "1d"
-    """Maximum execution time before the workflow is killed."""
+    """Maximum execution time of each workflow group before OSMO kills it."""
 
     queue_timeout: str = "2d"
     """Maximum time the workflow may wait in the queue."""
