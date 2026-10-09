@@ -22,7 +22,6 @@ class ArenaEnvBuilderCfg:
     seed: int = 42
     solve_relations: bool = True
     placement_seed: int | None = None
-    resolve_on_reset: bool | None = None
     disable_fabric: bool = False
     mimic: bool = False
     presets: PhysicsBackend | None = None

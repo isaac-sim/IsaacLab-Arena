@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import math
 import torch
-from collections.abc import Callable
 from dataclasses import field
 from numbers import Real
 from typing import TYPE_CHECKING, Any
@@ -19,7 +18,7 @@ from isaaclab.utils.configclass import configclass
 
 from isaaclab_arena.relations.placement_events import get_scene_root_poses_from_layout
 from isaaclab_arena.relations.relations import get_anchor_objects
-from isaaclab_arena.utils.pose import Pose
+from isaaclab_arena.utils.pose import Pose, PosePerEnv
 from isaaclab_arena.variations.sampler_base import SamplerBase, SamplerBaseCfg
 from isaaclab_arena.variations.variation_base import RunTimeVariationBase, VariationBaseCfg
 
@@ -50,6 +49,11 @@ class RelationPlacementVariationCfg(VariationBaseCfg):
 
     enabled: bool = True
     sampler_cfg: PlacementSamplerCfg = field(default_factory=PlacementSamplerCfg)
+    resample_on_reset: bool = True
+    """Whether live placement draws a fresh pooled layout on reset.
+
+    Recorded replay always follows the replay scheduler and ignores this setting.
+    """
 
 
 class PlacementPoolSampler(SamplerBase):
@@ -59,36 +63,28 @@ class PlacementPoolSampler(SamplerBase):
         self,
         assets: list[PlaceableAsset],
         placement_pool: PooledObjectPlacer | None,
-        fixed_results: dict[int, PlacementResult] | None = None,
         replay_assets: list[PlaceableAsset] | None = None,
     ) -> None:
         super().__init__()
         self.assets = assets
         self.placement_pool = placement_pool
-        self.fixed_results = fixed_results
         self.replay_assets = replay_assets or assets
         self.last_results: dict[int, PlacementResult] = {}
         self._next_layout_id = 0
-        self._fixed_rows = (
-            {env_id: self._serialize_result(result) for env_id, result in fixed_results.items()}
-            if fixed_results is not None
-            else None
-        )
+        self._fixed_results: dict[int, PlacementResult] | None = None
+        self._fixed_rows: dict[int, dict[str, Any]] | None = None
 
-    def configure_live(
-        self,
-        placement_pool: PooledObjectPlacer,
-        fixed_results: dict[int, PlacementResult] | None,
-    ) -> None:
-        """Bind the live pool and optional fixed per-environment layouts during preparation."""
-        assert self.placement_pool is None, "Relation placement sampler is already prepared"
-        self.placement_pool = placement_pool
-        self.fixed_results = fixed_results
-        self._fixed_rows = (
-            {env_id: self._serialize_result(result) for env_id, result in fixed_results.items()}
-            if fixed_results is not None
-            else None
-        )
+    def prepare_live(self, num_envs: int, resample_on_reset: bool) -> list[PlacementResult]:
+        """Draw construction layouts and retain them when resets should stay fixed."""
+        assert self.placement_pool is not None, "Live relation placement requires a placement pool"
+        if resample_on_reset:
+            [construction_layout] = self.placement_pool.sample_with_replacement(1)
+            return [construction_layout] * num_envs
+
+        layouts = self.placement_pool.sample_with_replacement(num_envs)
+        self._fixed_results = {env_id: layout for env_id, layout in enumerate(layouts)}
+        self._fixed_rows = {env_id: self._serialize_result(result) for env_id, result in self._fixed_results.items()}
+        return layouts
 
     @property
     def replays_recorded_samples(self) -> bool:
@@ -106,15 +102,15 @@ class PlacementPoolSampler(SamplerBase):
             self.last_results = {}
         else:
             assert self.placement_pool is not None, "Live relation placement requires a placement pool"
-            if self.fixed_results is None:
+            if self._fixed_results is None:
                 results = self.placement_pool.sample_for_envs(env_id_list)
                 rows = [self._serialize_result(results[env_id]) for env_id in env_id_list]
             else:
-                results = {env_id: self.fixed_results[env_id] for env_id in env_id_list}
+                results = {env_id: self._fixed_results[env_id] for env_id in env_id_list}
                 assert self._fixed_rows is not None
                 rows = [self._fixed_rows[env_id] for env_id in env_id_list]
             self.last_results = results
-            if self.fixed_results is None:
+            if self._fixed_results is None:
                 for env_id, result in results.items():
                     if not result.success:
                         print(
@@ -162,8 +158,7 @@ class RelationPlacementVariation(RunTimeVariationBase):
         self,
         sampler: PlacementPoolSampler,
         *,
-        live_placement_enabled: bool = True,
-        prepare_at_build_time: Callable[[RelationPlacementVariation], None] | None = None,
+        num_envs: int,
         cfg: RelationPlacementVariationCfg | None = None,
     ) -> None:
         self.name = RELATION_PLACEMENT_VARIATION_NAME
@@ -171,27 +166,27 @@ class RelationPlacementVariation(RunTimeVariationBase):
         self._sample_listeners = []
         self._replay_sampler = None
         self.cfg = cfg if cfg is not None else RelationPlacementVariationCfg()
-        self._can_prepare_live = live_placement_enabled
-        self._prepare_callback = prepare_at_build_time
+        self._num_envs = num_envs
         self._recorded_replay_samples: list[Any] | None = None
         self._prepared = False
         assert self.cfg.enabled, "Relation placement is automatically enabled when relations are configured"
 
     @property
     def placement_pool(self) -> PooledObjectPlacer:
-        """Return the live pool used for relation solving."""
-        assert self._sampler.placement_pool is not None, "Placement replay has no live placement pool"
+        """Return the active live pool used for relation solving."""
+        assert self.has_live_pool, "Recorded placement replay has no active live placement pool"
+        assert self._sampler.placement_pool is not None
         return self._sampler.placement_pool
 
     @property
     def has_live_pool(self) -> bool:
-        """Whether this variation owns a live relation-solving pool."""
-        return self._sampler.placement_pool is not None
+        """Whether draws currently come from a live relation-solving pool."""
+        return self._sampler.placement_pool is not None and self._recorded_replay_samples is None
 
     @property
     def can_supply_samples(self) -> bool:
         """Whether live solving or recorded replay can supply placement samples."""
-        return self._can_prepare_live or self._sampler.replays_recorded_samples
+        return self._sampler.placement_pool is not None or self._recorded_replay_samples is not None
 
     @property
     def last_results(self) -> dict[int, PlacementResult]:
@@ -207,26 +202,32 @@ class RelationPlacementVariation(RunTimeVariationBase):
         """Prepare live or replayed construction poses before scene materialisation."""
         if self._prepared:
             return
-        if self._prepare_callback is not None:
-            self._prepare_callback(self)
+        if self._recorded_replay_samples is not None:
+            _seed_spawn_config_from_replay(
+                self._recorded_replay_samples,
+                self._sampler.replay_assets,
+                self._num_envs,
+            )
+        else:
+            assert (
+                self._sampler.placement_pool is not None
+            ), "Relation placement has neither recorded samples nor a live pool"
+            anchor_assets = set(get_anchor_objects(self._sampler.assets))
+            _validate_no_conflicting_pose_reset_events(self._sampler.assets, anchor_assets)
+            layouts = self._sampler.prepare_live(self._num_envs, self.cfg.resample_on_reset)
+            _seed_spawn_config_from_layouts(self._sampler.assets, anchor_assets, layouts)
+            if self._sampler.placement_pool.had_fallbacks:
+                print(
+                    "Warning: Relation placement pool accepted best-loss fallback layouts "
+                    "that failed strict placement validation."
+                )
+        if self._sampler.placement_pool is not None:
+            self._sampler.placement_pool.release_build_time_dependencies()
         self._prepared = True
-
-    @property
-    def recorded_replay_samples(self) -> list[Any] | None:
-        """Return validated placement replay rows retained for construction-pose preparation."""
-        return self._recorded_replay_samples
 
     def on_replay_samples_bound(self, samples: list[Any] | None) -> None:
         """Retain validated placement rows needed to seed construction poses."""
         self._recorded_replay_samples = samples
-
-    def configure_prepared_live_state(
-        self,
-        placement_pool: PooledObjectPlacer,
-        fixed_results: dict[int, PlacementResult] | None,
-    ) -> None:
-        """Bind the pool and optional fixed per-environment layouts produced by preparation."""
-        self._sampler.configure_live(placement_pool, fixed_results)
 
     def validate_replay_samples(self, samples: list[Any]) -> None:
         """Validate complete poses against the current scene roots."""
@@ -345,6 +346,57 @@ def validate_placement_samples(samples: list[Any]) -> None:
                 isinstance(identities, dict) and identities.keys() == poses.keys()
             ), "Placement assets must map every pose key"
             assert all(isinstance(value, str) and value for value in identities.values())
+
+
+def _seed_spawn_config_from_layouts(
+    assets: list[PlaceableAsset],
+    anchor_assets: set[PlaceableAsset],
+    layouts: list[PlacementResult],
+) -> None:
+    """Seed every scene root from environment-indexed solved layouts without asset reset events."""
+    poses_by_asset: dict[PlaceableAsset, dict[str, list[Pose]]] = {}
+    for layout in layouts:
+        root_poses_by_asset = get_scene_root_poses_from_layout(assets, layout, anchor_assets)
+        for asset, root_poses in root_poses_by_asset.items():
+            poses_per_root = poses_by_asset.setdefault(asset, {key: [] for key in root_poses})
+            for key, pose in root_poses.items():
+                poses_per_root[key].append(pose)
+    for asset, poses_per_root in poses_by_asset.items():
+        asset.set_initial_scene_root_poses({key: PosePerEnv(poses=poses) for key, poses in poses_per_root.items()})
+
+
+def _seed_spawn_config_from_replay(
+    samples: list[dict[str, Any]],
+    replay_assets: list[PlaceableAsset],
+    num_envs: int,
+) -> None:
+    """Seed construction roots from replay rows without creating asset reset events."""
+    from isaaclab_arena.relations.placement_asset import get_scene_root_owners
+
+    owners = get_scene_root_owners(replay_assets)
+    poses_by_asset: dict[PlaceableAsset, dict[str, PosePerEnv]] = {}
+    for scene_key in samples[0]["poses"]:
+        per_env_poses = []
+        for env_id in range(num_envs):
+            pose = Pose.from_dict(samples[env_id % len(samples)]["poses"][scene_key])
+            assert pose is not None
+            per_env_poses.append(pose)
+        poses_by_asset.setdefault(owners[scene_key], {})[scene_key] = PosePerEnv(per_env_poses)
+    for asset, poses in poses_by_asset.items():
+        asset.set_initial_scene_root_poses(poses)
+
+
+def _validate_no_conflicting_pose_reset_events(
+    assets: list[PlaceableAsset],
+    anchor_assets: set[PlaceableAsset],
+) -> None:
+    """Reject conflicting explicit pose-reset events on relation-solved assets."""
+    for asset in assets:
+        assert not (asset not in anchor_assets and asset.has_pose_reset_event()), (
+            f"Non-anchor asset '{asset.name}' has an explicit pose-reset event. "
+            "Relational solving should not be combined with explicit setting of "
+            "poses on non-anchor assets."
+        )
 
 
 def _placement_pose_keys_from_assets(assets: list[PlaceableAsset]) -> set[str]:

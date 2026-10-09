@@ -79,12 +79,12 @@ Run the same registered environment configuration shown in the animation:
      --num_envs 4 \
      --env_spacing 3.0 \
      --placement_seed 42 \
-     --resolve_on_reset \
      --num_steps 500 \
      droid_table_multi_object_placement \
      --embodiment droid_abs_joint_pos \
      --episode_length_s 4.0 \
-     --mode homogeneous
+     --mode homogeneous \
+     scene.relation_placement.resample_on_reset=true
 
 Heterogeneous Example
 ---------------------
@@ -120,12 +120,12 @@ Run the heterogeneous configuration shown in the animation:
      --num_envs 4 \
      --env_spacing 3.0 \
      --placement_seed 42 \
-     --resolve_on_reset \
      --num_steps 500 \
      droid_table_multi_object_placement \
      --embodiment droid_abs_joint_pos \
      --episode_length_s 4.0 \
-     --mode heterogeneous
+     --mode heterogeneous \
+     scene.relation_placement.resample_on_reset=true
 
 The builder must know ``num_envs`` before assigning object-set members. The
 runner passes this count through ``--num_envs``; use a value greater than one to

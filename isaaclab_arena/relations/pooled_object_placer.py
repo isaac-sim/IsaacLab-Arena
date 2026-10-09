@@ -66,6 +66,7 @@ class PooledObjectPlacer:
         num_envs: Number of simulation environments.
         collision_objects: Fixed background obstacles avoided during placement but never
             optimized or relation-constrained.
+        defer_initial_fill: Delay solving until the first draw.
     """
 
     def __init__(
@@ -75,6 +76,7 @@ class PooledObjectPlacer:
         pool_size: int = 100,
         num_envs: int | None = None,
         collision_objects: list[CollisionObject] | None = None,
+        defer_initial_fill: bool = False,
     ) -> None:
         assert pool_size >= 1, f"pool_size must be >= 1, got {pool_size}"
         assert not (
@@ -85,9 +87,8 @@ class PooledObjectPlacer:
 
         self._objects = list(objects)
         self._collision_objects = list(collision_objects) if collision_objects else []
-        # Pool construction ranks several candidate layouts per env and applies
-        # poses only when a sampled layout is used.
-        self._placer = ObjectPlacer(params=replace(placer_params, apply_positions_to_objects=False))
+        self._placer_params = replace(placer_params, apply_positions_to_objects=False)
+        self._placer: ObjectPlacer | None = None
         self._pool_size = pool_size
         self._had_fallbacks = False
         self._allow_best_loss_fallbacks = placer_params.allow_best_loss_fallbacks
@@ -98,13 +99,8 @@ class PooledObjectPlacer:
         self._env_rngs = get_rngs(self._num_envs, placer_params.placement_seed)
         self._env_pools: list[EnvLayoutPool] = [EnvLayoutPool([]) for _ in range(self._num_envs)]
 
-        self._solve_and_store(pool_size)
-        for cur_env, pool in enumerate(self._env_pools):
-            if not pool.layouts:
-                raise RuntimeError(
-                    f"Placement pool failed to produce any valid layouts for env {cur_env} "
-                    f"from {pool_size} attempts. Check object relations and constraints."
-                )
+        if not defer_initial_fill:
+            self._fill()
 
     # ------------------------------------------------------------------
     # Pool storage internals
@@ -127,6 +123,7 @@ class PooledObjectPlacer:
         """Avoid replaying the same candidate sequence on seeded refills."""
         if self._base_placement_seed is None:
             return
+        assert self._placer is not None
         self._placer.params.placement_seed = self._base_placement_seed + self._next_seed_offset
         self._next_seed_offset += num_candidates
 
@@ -135,8 +132,11 @@ class PooledObjectPlacer:
 
         Bounded by max_placement_attempts; raises if the target cannot be met.
         """
+        if self._placer is None:
+            self._placer = ObjectPlacer(params=self._placer_params)
         self._discard_consumed_layouts()
         target_num_layouts_per_env = max(1, (num_layouts + self._num_envs - 1) // self._num_envs)
+        assert self._placer is not None
         max_solve_batches = max(1, self._placer.params.max_placement_attempts)
 
         for batch_idx in range(max_solve_batches):
@@ -169,6 +169,7 @@ class PooledObjectPlacer:
         multiple layouts for each env without treating candidate rows as
         environments.
         """
+        assert self._placer is not None
         layouts_per_env = max(1, (num_layouts + self._num_envs - 1) // self._num_envs)
         # ObjectPlacer seeds each candidate as placement_seed + candidate_idx.
         # Keep this count aligned with place_ranked_per_env's candidate layout.
@@ -220,6 +221,22 @@ class PooledObjectPlacer:
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
+
+    def _fill(self) -> None:
+        """Ensure every environment has at least one solved placement layout."""
+        if min(self._available_per_env()) >= 1:
+            return
+        self._solve_and_store(self._pool_size)
+        for cur_env, pool in enumerate(self._env_pools):
+            if not pool.layouts:
+                raise RuntimeError(
+                    f"Placement pool failed to produce any valid layouts for env {cur_env} "
+                    f"from {self._pool_size} attempts. Check object relations and constraints."
+                )
+
+    def release_build_time_dependencies(self) -> None:
+        """Drop placement dependencies that must not be retained by the runtime event."""
+        self._placer_params.reachability_config.embodiment = None
 
     def sample_without_replacement(self, count: int) -> list[PlacementResult]:
         """Return the next count layouts as complete env rounds.
@@ -285,6 +302,7 @@ class PooledObjectPlacer:
         Slot i picks from env i % num_envs's pool so each result matches its
         absolute env, using that env's RNG for a reproducible draw.
         """
+        self._fill()
         # Reads pool.layouts directly, ignoring the consumption cursor.
         results: list[PlacementResult] = []
         for i in range(count):

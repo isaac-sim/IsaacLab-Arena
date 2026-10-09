@@ -303,7 +303,7 @@ limits.
    * - Replay seed conflict, missing roots or incompatible resets
      - Remove explicit ``placement_seed`` settings, include every owned root,
        and follow :ref:`placement-replay-configuration` for fixed pose resets,
-       zero root velocities and ``resolve_on_reset=True``.
+       zero root velocities. Live reset-resampling configuration does not affect replay.
 
 .. _recording_rejection_summary:
 

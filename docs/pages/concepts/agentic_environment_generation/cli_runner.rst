@@ -158,9 +158,6 @@ relevant to ``build`` and ``full`` are:
    * - ``--placement_seed N``
      - Makes object-placement solving reproducible.
      - Placement solving
-   * - ``--resolve_on_reset`` / ``--no-resolve_on_reset``
-     - Enables or disables re-placement of pooled objects at reset.
-     - Placement solving
    * - ``--disable_fabric``
      - Uses USD I/O instead of Fabric.
      - Arena environment

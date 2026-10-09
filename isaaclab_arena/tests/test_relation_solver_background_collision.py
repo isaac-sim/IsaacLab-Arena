@@ -841,9 +841,10 @@ def test_relation_placement_forwards_anchor_background_mesh_exclusions(monkeypat
     class FakePooledObjectPlacer:
         had_fallbacks = False
 
-        def __init__(self, objects, placer_params, pool_size, num_envs, collision_objects):
+        def __init__(self, objects, placer_params, pool_size, num_envs, collision_objects, defer_initial_fill):
             calls["objects"] = objects
             calls["collision_objects"] = collision_objects
+            assert defer_initial_fill
 
     monkeypatch.setattr(
         "isaaclab_arena.relations.passive_collision_objects.discover_passive_assets",
@@ -890,9 +891,10 @@ def test_relation_placement_includes_background_mesh_for_background_override(mon
     class FakePooledObjectPlacer:
         had_fallbacks = False
 
-        def __init__(self, objects, placer_params, pool_size, num_envs, collision_objects):
+        def __init__(self, objects, placer_params, pool_size, num_envs, collision_objects, defer_initial_fill):
             calls["objects"] = objects
             calls["collision_objects"] = collision_objects
+            assert defer_initial_fill
 
     monkeypatch.setattr(
         "isaaclab_arena.relations.passive_collision_objects.discover_passive_assets",
@@ -937,9 +939,10 @@ def test_relation_placement_skips_background_mesh_for_default_bbox(monkeypatch):
     class FakePooledObjectPlacer:
         had_fallbacks = False
 
-        def __init__(self, objects, placer_params, pool_size, num_envs, collision_objects):
+        def __init__(self, objects, placer_params, pool_size, num_envs, collision_objects, defer_initial_fill):
             calls["objects"] = objects
             calls["collision_objects"] = collision_objects
+            assert defer_initial_fill
 
     monkeypatch.setattr(
         "isaaclab_arena.relations.passive_collision_objects.discover_passive_assets",

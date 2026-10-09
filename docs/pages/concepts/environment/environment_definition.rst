@@ -303,7 +303,6 @@ second schema:
    placer_params:
      placement_seed: 42
      random_yaw_init: true
-     resolve_on_reset: false
      min_unique_layouts_per_env: 20
      allow_best_loss_fallbacks: false
      solver_params:
@@ -312,8 +311,9 @@ second schema:
 The same block selects ``enabled_checks``, ``required_checks``, and placement
 debug output. Runtime/code-bearing values such as
 ``reachability_config.embodiment`` and ``solver_params.strategies`` are
-rejected. Explicit builder/CLI
-``placement_seed`` and ``resolve_on_reset`` values take precedence over YAML.
+rejected. An explicit builder/CLI ``placement_seed`` takes precedence over YAML.
+Configure whether live placement draws a fresh layout at reset through the
+variation override ``scene.relation_placement.resample_on_reset``.
 
 **Duplicate instances need unique names.** YAML sets ``instance_name`` to the node
 id. Asset classes default it to the registry name, so two Python instances of the

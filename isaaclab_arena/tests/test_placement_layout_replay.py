@@ -16,7 +16,7 @@ LAYOUTS = SOURCE.with_suffix(".jsonl")
 OBJECT_SET_SOURCE = Path(__file__).parent / "test_data/object_set_maple_table_env_graph.yaml"
 
 
-def _test_variation_replay_applies_complete_layouts(simulation_app, resolve_on_reset):
+def _test_variation_replay_applies_complete_layouts(simulation_app, resample_on_reset):
     import torch
     from unittest.mock import patch
 
@@ -27,15 +27,20 @@ def _test_variation_replay_applies_complete_layouts(simulation_app, resolve_on_r
 
     layouts = PlacementLayouts.from_episode_jsonl(LAYOUTS)
     arena_env = ArenaEnvGraphSpec.from_yaml(SOURCE).to_arena_env()
-    arena_env.placer_params.resolve_on_reset = resolve_on_reset
     builder = ArenaEnvBuilder(
         arena_env,
         ArenaEnvBuilderCfg(num_envs=3, recorded_variation_samples_path=str(LAYOUTS)),
-        hydra_overrides=["cube_0.mass.enabled=true"],
+        hydra_overrides=[
+            "cube_0.mass.enabled=true",
+            f"scene.relation_placement.resample_on_reset={str(resample_on_reset).lower()}",
+        ],
     )
     assert "scene.relation_placement" in builder.get_variations_catalogue_as_string()
-    with patch(
-        "isaaclab_arena.environments.relation_solver_interface._build_relation_placement_pool",
+    placement = builder._scene_variations[0]
+    live_pool = placement.placement_pool
+    with patch.object(
+        live_pool,
+        "_solve_and_store",
         side_effect=AssertionError("Placement replay must not run the relation solver"),
     ):
         env_cfg, env_kwargs = builder.compose_manager_cfg()
@@ -44,8 +49,8 @@ def _test_variation_replay_applies_complete_layouts(simulation_app, resolve_on_r
     event_names = list(vars(env_cfg.events))
     assert event_names.index("cube_0_mass_variation") < event_names.index("scene_relation_placement")
     assert event_names[-1] == "scene_relation_placement"
-    placement = builder._scene_variations[0]
     assert not placement.has_live_pool
+    assert live_pool.remaining == 0
     env = builder.make_registered(env_cfg, env_kwargs)
     try:
         base = env.unwrapped
@@ -92,11 +97,11 @@ def _test_variation_replay_applies_complete_layouts(simulation_app, resolve_on_r
     return True
 
 
-@pytest.mark.parametrize("resolve_on_reset", [True, False])
-def test_variation_replay_applies_complete_layouts(resolve_on_reset):
+@pytest.mark.parametrize("resample_on_reset", [True, False])
+def test_variation_replay_applies_complete_layouts(resample_on_reset):
     assert run_function_with_persistent_simulation_app(
         _test_variation_replay_applies_complete_layouts,
-        resolve_on_reset=resolve_on_reset,
+        resample_on_reset=resample_on_reset,
     )
 
 
@@ -109,8 +114,11 @@ def _test_static_relation_placement_records_fixed_samples(simulation_app):
     from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
 
     arena_env = ArenaEnvGraphSpec.from_yaml(SOURCE).to_arena_env()
-    arena_env.placer_params.resolve_on_reset = False
-    builder = ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg(num_envs=2))
+    builder = ArenaEnvBuilder(
+        arena_env,
+        ArenaEnvBuilderCfg(num_envs=2),
+        hydra_overrides=["scene.relation_placement.resample_on_reset=false"],
+    )
     env_cfg, env_kwargs = builder.compose_manager_cfg()
     placement = builder._scene_variations[0]
     with patch.object(

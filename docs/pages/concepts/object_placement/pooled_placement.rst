@@ -74,9 +74,15 @@ layouts to change without solving on every reset, although uniqueness is not
 guaranteed. If the pool is empty, Arena generates more layouts during the
 reset.
 
-Set ``ObjectPlacerParams.resolve_on_reset=False`` to reuse the layout assigned
-during environment creation. The equivalent command-line option is
-``--no-resolve_on_reset``. Keep the default to change layouts across episodes.
+Set the placement variation's ``resample_on_reset`` field to ``false`` to reuse
+the layout assigned during environment creation:
+
+.. code-block:: bash
+
+   scene.relation_placement.resample_on_reset=false
+
+Keep the default ``true`` value to change live layouts across episodes. Recorded
+replay ignores this setting and follows its scheduled source rows.
 
 Reproducibility
 ---------------

@@ -359,8 +359,8 @@ For an environment you already own:
   number of batches without enforcing replay restrictions or writing a file.
 
 Both APIs require the scene-level relation-placement variation and its placement
-pool. ``resolve_on_reset=True`` supplies fresh candidates; fixed placement
-repeats its build-time per-environment layouts.
+pool. ``scene.relation_placement.resample_on_reset=true`` supplies fresh
+candidates; fixed placement repeats its build-time per-environment layouts.
 
 Both caller-owned APIs accept ``params=SettledPlacementParams(...)`` and
 ``scene_assets=arena_env.get_placement_assets()``. Provide the complete asset list

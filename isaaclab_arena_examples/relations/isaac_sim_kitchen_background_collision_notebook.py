@@ -89,7 +89,6 @@ def run_kitchen_background_collision_demo(simulation_app, view_steps: int = 0, a
         max_placement_attempts=10,
         min_unique_layouts_per_env=1,
         allow_best_loss_fallbacks=False,
-        resolve_on_reset=False,
         random_yaw_init=True,
         solver_params=RelationSolverParams(
             collision_mode=CollisionMode.MESH,
@@ -102,6 +101,7 @@ def run_kitchen_background_collision_demo(simulation_app, view_steps: int = 0, a
     env = ArenaEnvBuilder(
         IsaacLabArenaEnvironment(name="kitchen_background_collision", scene=scene, placer_params=placer_params),
         builder_cfg,
+        hydra_overrides=["scene.relation_placement.resample_on_reset=false"],
     ).make_registered()
 
     # reset() applies the relation-solved layout (position + yaw) via the reset event terms.

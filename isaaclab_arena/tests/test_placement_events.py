@@ -591,9 +591,9 @@ def test_pooled_object_placer_sample_without_replacement_triggers_refill():
 def test_live_variation_seeds_construction_pose_without_asset_reset_event():
     """Live variation preparation seeds non-anchor construction poses without per-asset reset events."""
 
-    from isaaclab_arena.environments.relation_solver_interface import _seed_spawn_config_from_layouts
     from isaaclab_arena.relations.placement_result import PlacementResult
     from isaaclab_arena.utils.pose import PosePerEnv
+    from isaaclab_arena.variations.relation_placement_variation import _seed_spawn_config_from_layouts
 
     anchor, box, _ = _create_test_objects()
     layout = PlacementResult(
@@ -612,12 +612,12 @@ def test_live_variation_seeds_construction_pose_without_asset_reset_event():
 
 def test_env_indexed_static_poses_apply_per_env_positions():
     """Static initial poses should apply per-env positions from env-indexed layouts."""
-    from isaaclab_arena.environments.relation_solver_interface import _seed_spawn_config_from_layouts
     from isaaclab_arena.relations.placement_result import PlacementResult
     from isaaclab_arena.relations.relations import IsAnchor, On
     from isaaclab_arena.tests.dummy_object import DummyObject
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
     from isaaclab_arena.utils.pose import Pose, PosePerEnv
+    from isaaclab_arena.variations.relation_placement_variation import _seed_spawn_config_from_layouts
 
     desk = DummyObject(
         name="desk",

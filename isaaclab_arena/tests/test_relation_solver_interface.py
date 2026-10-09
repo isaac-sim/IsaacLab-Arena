@@ -61,13 +61,13 @@ def test_relation_placement_finalization_removes_only_unavailable_provisional_de
     variation = create_relation_placement_variation(
         [],
         num_envs=1,
-        live_placement_enabled=False,
         replay_may_be_configured=True,
     )
     assert variation is not None
     assert finalize_relation_placement_variations([variation]) == []
 
     variation.set_replay_sampler(lambda count, env_ids: [{}] * count)
+    variation.on_replay_samples_bound([{}])
 
     assert finalize_relation_placement_variations([variation]) == [variation]
     assert variation.enabled
@@ -76,10 +76,8 @@ def test_relation_placement_finalization_removes_only_unavailable_provisional_de
 def test_relation_placement_variation_requires_unique_asset_names():
     from isaaclab_arena.environments.relation_solver_interface import create_relation_placement_variation
 
-    variation = create_relation_placement_variation([_make_box(), _make_box()], num_envs=1)
-    assert variation is not None
     with pytest.raises(AssertionError, match="names must be unique"):
-        variation.configure_at_build_time()
+        create_relation_placement_variation([_make_box(), _make_box()], num_envs=1)
 
 
 def test_relation_placement_variation_rejects_scene_name_collision():
@@ -92,14 +90,14 @@ def test_relation_placement_variation_rejects_scene_name_collision():
         scene_name="robot",
         bounding_box=AxisAlignedBoundingBox(min_point=(-0.2, -0.2, 0.0), max_point=(0.2, 0.2, 1.0)),
     )
-    variation = create_relation_placement_variation([_make_box("robot"), embodiment], num_envs=1)
-    assert variation is not None
     with pytest.raises(AssertionError, match="duplicate scene keys"):
-        variation.configure_at_build_time()
+        create_relation_placement_variation([_make_box("robot"), embodiment], num_envs=1)
 
 
-def test_relation_placement_variation_declaration_defers_pool_build(monkeypatch):
+def test_relation_placement_variation_declaration_defers_pool_fill(monkeypatch):
     import isaaclab_arena.environments.relation_solver_interface as relation_solver_interface
+    import isaaclab_arena.relations.pooled_object_placer as pooled_object_placer
+    from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
     from isaaclab_arena.relations.relations import On
 
     desk = _make_desk()
@@ -107,14 +105,51 @@ def test_relation_placement_variation_declaration_defers_pool_build(monkeypatch)
     box.add_relation(On(desk, clearance_m=0.01))
 
     def fail_if_called(*args, **kwargs):
-        raise AssertionError("Relation placement declaration must not build the pool")
+        raise AssertionError("Relation placement declaration must not fill the pool")
 
-    monkeypatch.setattr(relation_solver_interface, "_build_relation_placement_pool", fail_if_called)
-
-    variation = relation_solver_interface.create_relation_placement_variation([desk, box], num_envs=2)
+    with monkeypatch.context() as context:
+        context.setattr(pooled_object_placer, "ObjectPlacer", fail_if_called)
+        context.setattr(PooledObjectPlacer, "_solve_and_store", fail_if_called)
+        variation = relation_solver_interface.create_relation_placement_variation([desk, box], num_envs=2)
 
     assert variation is not None
+    assert variation.has_live_pool
+    assert variation.placement_pool.remaining == 0
+
+
+def test_relation_placement_replay_leaves_live_pool_unsolved(monkeypatch):
+    from isaaclab_arena.environments.relation_solver_interface import create_relation_placement_variation
+    from isaaclab_arena.relations.relations import On
+
+    desk = _make_desk()
+    box = _make_box()
+    box.add_relation(On(desk, clearance_m=0.01))
+    variation = create_relation_placement_variation([desk, box], num_envs=2)
+    assert variation is not None
+    live_pool = variation.placement_pool
+    scene_key = box.get_scene_root_keys()[0]
+    sample = {
+        "layout_id": "recorded_000000",
+        "source": "recorded",
+        "poses": {
+            scene_key: {
+                "position_xyz": [0.1, 0.2, 0.3],
+                "rotation_xyzw": [0.0, 0.0, 0.0, 1.0],
+            }
+        },
+    }
+    variation.set_replay_sampler(lambda count, env_ids: [sample] * count)
+    variation.on_replay_samples_bound([sample])
+    monkeypatch.setattr(
+        live_pool,
+        "_solve_and_store",
+        lambda count: pytest.fail("Replay preparation must not solve the live pool"),
+    )
+
+    variation.configure_at_build_time()
+
     assert not variation.has_live_pool
+    assert live_pool.remaining == 0
 
 
 def test_static_relation_placement_variation_stores_per_env_poses():
@@ -127,13 +162,14 @@ def test_static_relation_placement_variation_stores_per_env_poses():
     box = _make_box()
     box.add_relation(On(desk, clearance_m=0.01))
 
-    params = ObjectPlacerParams(placement_seed=7, resolve_on_reset=False)
+    params = ObjectPlacerParams(placement_seed=7)
     variation = create_relation_placement_variation(
         [desk, box],
         num_envs=2,
         placer_params=params,
     )
     assert variation is not None
+    variation.cfg.resample_on_reset = False
     variation.configure_at_build_time()
 
     initial_pose = box.get_initial_pose()
@@ -143,7 +179,7 @@ def test_static_relation_placement_variation_stores_per_env_poses():
 
 
 def test_static_initial_poses_reject_layout_missing_non_anchor():
-    from isaaclab_arena.environments.relation_solver_interface import _seed_spawn_config_from_layouts
+    from isaaclab_arena.variations.relation_placement_variation import _seed_spawn_config_from_layouts
 
     desk = _make_desk()
     missing_box = _make_box("missing_box")

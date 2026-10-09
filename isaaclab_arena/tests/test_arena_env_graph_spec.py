@@ -122,7 +122,6 @@ def test_graph_spec_round_trips_and_builds_placer_params():
     data = _minimal_env_graph_data()
     data["placer_params"] = {
         "placement_seed": 42,
-        "resolve_on_reset": False,
         "random_yaw_init": True,
         "allow_best_loss_fallbacks": False,
         "max_placement_attempts": 30,
@@ -136,7 +135,6 @@ def test_graph_spec_round_trips_and_builds_placer_params():
 
     assert restored.placer_params == data["placer_params"]
     assert params.placement_seed == 42
-    assert not params.resolve_on_reset
     assert params.random_yaw_init
     assert not params.allow_best_loss_fallbacks
     assert params.max_placement_attempts == 30

@@ -27,7 +27,7 @@ from isaaclab_arena_examples.agentic_environment_generation.review_gui.simapp.ki
     sim_preview_cache_dir,
 )
 
-# Placement pool size when preview uses resolve_on_reset=False (see ObjectPlacerParams).
+# Placement pool size when preview disables live reset resampling.
 _PREVIEW_LAYOUTS_PER_ENV = 2
 
 
@@ -54,7 +54,6 @@ def _preview_cfg(*, num_envs: int, env_spacing: float) -> ArenaEnvBuilderCfg:
     return ArenaEnvBuilderCfg(
         num_envs=num_envs,
         env_spacing=env_spacing,
-        resolve_on_reset=False,
         disable_fabric=True,
         device="cpu",
     )
@@ -115,7 +114,11 @@ def run_sim_preview(
     _preview_log(started_at, f"validated spec → arena env ({preview_name})")
 
     builder_cfg = _preview_cfg(num_envs=num_envs, env_spacing=env_spacing)
-    builder = ArenaEnvBuilder(arena_env, builder_cfg)
+    builder = ArenaEnvBuilder(
+        arena_env,
+        builder_cfg,
+        hydra_overrides=["scene.relation_placement.resample_on_reset=false"],
+    )
     policy = ZeroActionPolicy(ZeroActionPolicyCfg())
 
     cache_dir = sim_preview_cache_dir()

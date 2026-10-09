@@ -141,8 +141,6 @@ class ArenaEnvBuilder:
             placer_params.reachability_config = copy.copy(placer_params.reachability_config)
         if self.cfg.placement_seed is not None:
             placer_params.placement_seed = self.cfg.placement_seed
-        if self.cfg.resolve_on_reset is not None:
-            placer_params.resolve_on_reset = self.cfg.resolve_on_reset
 
         # Delists itself unless the embodiment has a registered cuRobo config and the solver deps are importable.
         # TODO(xinjieyao, 2026-07-22): updated once robot-object co-placement is merged.

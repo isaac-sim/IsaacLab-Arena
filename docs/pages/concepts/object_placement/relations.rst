@@ -339,7 +339,8 @@ Before replaying a recording:
 - Enable pose resets and use fixed initial poses for assets with pose-reset
   events. Remove ``RandomAroundSolution`` from recorded assets and keep their
   initial root velocities zero.
-- ``resolve_on_reset`` controls live placement only; replay always applies its
+- ``scene.relation_placement.resample_on_reset`` controls live placement only;
+  replay always applies its
   scheduled recorded layout.
 
 Placement validator settings apply only when solving; they do not revalidate a

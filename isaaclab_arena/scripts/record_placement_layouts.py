@@ -135,7 +135,6 @@ def record_settled_placement_layouts(
         placer_params,
         placement_seed=cfg.seed,
         min_unique_layouts_per_env=cfg.layouts_per_env,
-        resolve_on_reset=True,
     )
 
     print(f"[recording] Solving placements for {cfg.num_envs} environments...", flush=True)
@@ -144,6 +143,7 @@ def record_settled_placement_layouts(
         ArenaEnvBuilderCfg(
             num_envs=cfg.num_envs, env_spacing=cfg.env_spacing, seed=cfg.seed, device=device, presets=cfg.presets
         ),
+        hydra_overrides=["scene.relation_placement.resample_on_reset=true"],
     ).make_registered()
     try:
         if cfg.viewer_eye is not None:

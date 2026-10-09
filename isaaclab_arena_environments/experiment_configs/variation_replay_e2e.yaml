@@ -12,13 +12,13 @@ runs:
       episode_length_s: 1.5
     environment_builder:
       num_envs: 1
-      resolve_on_reset: false
     policy:
       type: zero_action
     rollout_limit:
       num_episodes: 6
     num_rebuilds: 1
     variations:
+      scene.relation_placement.resample_on_reset: false
       light.hdr_image.enabled: true
       light.hdr_image.hdr_names: [home_office_robolab, billiard_hall_robolab]
       rubiks_cube_hot3d_robolab.disappear.enabled: true

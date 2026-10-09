@@ -27,6 +27,7 @@ class _ReplayAsset:
         self._keys = keys
         self.name = keys[0]
         self.scene_pose_writes = []
+        self.initial_scene_root_poses = None
 
     def get_scene_root_keys(self) -> tuple[str, ...]:
         return self._keys
@@ -45,6 +46,9 @@ class _ReplayAsset:
 
     def write_scene_root_poses_to_sim(self, env, env_ids, poses) -> None:
         self.scene_pose_writes.append((env_ids.clone(), poses))
+
+    def set_initial_scene_root_poses(self, poses) -> None:
+        self.initial_scene_root_poses = poses
 
 
 def _placement_sample() -> dict:
@@ -66,7 +70,7 @@ def _make_variation() -> RelationPlacementVariation:
         placement_pool=None,
         replay_assets=[_ReplayAsset("cube")],
     )
-    return RelationPlacementVariation(sampler)
+    return RelationPlacementVariation(sampler, num_envs=1)
 
 
 def test_replay_sampler_notifies_serializable_rows():
@@ -125,8 +129,9 @@ def test_fixed_live_placement_writes_through_variation_without_sampling_pool():
     sampler = PlacementPoolSampler(
         assets=[asset],
         placement_pool=placement_pool,
-        fixed_results=results,
     )
+    placement_pool.sample_with_replacement.return_value = list(results.values())
+    sampler.prepare_live(num_envs=2, resample_on_reset=False)
     env = Mock(device=torch.device("cpu"))
     env.scene.env_origins = torch.zeros((2, 3))
 
@@ -156,7 +161,7 @@ def test_replay_requires_every_root_of_a_selected_compound_asset():
         placement_pool=Mock(),
         replay_assets=[_ReplayAsset("left_robot", "right_robot")],
     )
-    variation = RelationPlacementVariation(sampler)
+    variation = RelationPlacementVariation(sampler, num_envs=1)
     sample = _placement_sample()
     sample["poses"] = {"left_robot": sample["poses"]["cube"]}
 
@@ -179,7 +184,7 @@ def test_replay_only_declaration_reports_sample_source_availability_without_disa
     )
     variation = RelationPlacementVariation(
         sampler,
-        live_placement_enabled=False,
+        num_envs=1,
     )
 
     variation.set_replay_sampler(None)
@@ -188,22 +193,22 @@ def test_replay_only_declaration_reports_sample_source_availability_without_disa
     assert not variation.can_supply_samples
 
     variation.set_replay_sampler(lambda count, env_ids: [_placement_sample()] * count)
+    variation.on_replay_samples_bound([_placement_sample()])
 
     assert variation.enabled
     assert variation.can_supply_samples
 
 
 def test_validated_replay_rows_are_available_during_preparation():
-    prepared_samples = []
+    asset = _ReplayAsset("cube")
     sampler = PlacementPoolSampler(
         assets=[],
         placement_pool=None,
-        replay_assets=[_ReplayAsset("cube")],
+        replay_assets=[asset],
     )
     variation = RelationPlacementVariation(
         sampler,
-        live_placement_enabled=False,
-        prepare_at_build_time=lambda placement: prepared_samples.append(placement.recorded_replay_samples),
+        num_envs=2,
     )
     sample = _placement_sample()
     variation.validate_replay_samples([sample])
@@ -212,7 +217,8 @@ def test_validated_replay_rows_are_available_during_preparation():
 
     variation.configure_at_build_time()
 
-    assert prepared_samples == [[sample]]
+    assert asset.initial_scene_root_poses is not None
+    assert [pose.position_xyz for pose in asset.initial_scene_root_poses["cube"].poses] == [(0.1, 0.2, 0.3)] * 2
 
 
 def test_placement_replays_with_another_runtime_condition(tmp_path):
