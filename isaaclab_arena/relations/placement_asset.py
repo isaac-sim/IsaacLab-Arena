@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING
 
 from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.relations.collision_mode import CollisionMode
-from isaaclab_arena.relations.placement_events import write_scene_poses_to_sim
+from isaaclab_arena.relations.placement_poses import write_scene_poses_to_sim
 from isaaclab_arena.relations.relations import IsAnchor, Relation, RelationBase, RequiresReachability, UnaryRelation
 from isaaclab_arena.utils.bounding_box import quaternion_to_90_deg_z_quarters
 from isaaclab_arena.utils.pose import Pose, PosePerEnv, PoseRange

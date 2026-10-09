@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.relations.physics_settle_params import PhysicsSettleParams
-from isaaclab_arena.relations.placement_events import get_scene_root_poses_from_layout
+from isaaclab_arena.relations.placement_poses import get_scene_root_poses_from_layout
 from isaaclab_arena.relations.relations import get_anchor_objects
 from isaaclab_arena.relations.validation.types import PlacementCheck
 from isaaclab_arena.utils import physics_settle

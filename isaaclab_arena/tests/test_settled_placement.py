@@ -183,8 +183,8 @@ def test_record_placements_to_jsonl_leaves_no_file_when_target_unmet(tmp_path):
     pool = Mock(objects=[])
     with (
         patch(
-            "isaaclab_arena.variations.relation_placement_variation.get_relation_placement_variation",
-            return_value=Mock(placement_pool=pool, has_live_pool=True),
+            "isaaclab_arena.variations.relation_placement_variation.get_relation_placement_pool",
+            return_value=pool,
         ),
         patch(
             "isaaclab_arena.offline_placement.recording.collect_layouts_until_count",
@@ -215,8 +215,8 @@ def test_record_placements_to_jsonl_writes_partial_acceptance(tmp_path):
 
     with (
         patch(
-            "isaaclab_arena.variations.relation_placement_variation.get_relation_placement_variation",
-            return_value=Mock(placement_pool=pool, has_live_pool=True),
+            "isaaclab_arena.variations.relation_placement_variation.get_relation_placement_pool",
+            return_value=pool,
         ),
         patch(
             "isaaclab_arena.offline_placement.recording.collect_layouts_until_count",

@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING, Any
 from isaaclab.managers import EventTermCfg
 from isaaclab.utils.configclass import configclass
 
-from isaaclab_arena.relations.placement_events import get_scene_root_poses_from_layout
+from isaaclab_arena.relations.placement_poses import get_scene_root_poses_from_layout
 from isaaclab_arena.relations.relations import get_anchor_objects
 from isaaclab_arena.utils.pose import Pose, PosePerEnv
 from isaaclab_arena.variations.sampler_base import SamplerBase, SamplerBaseCfg
@@ -28,11 +28,6 @@ if TYPE_CHECKING:
     from isaaclab_arena.relations.placement_asset import PlaceableAsset
     from isaaclab_arena.relations.placement_result import PlacementResult
     from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
-
-
-SCENE_VARIATION_HOST = "scene"
-RELATION_PLACEMENT_VARIATION_NAME = "relation_placement"
-RELATION_PLACEMENT_EVENT_NAME = "scene_relation_placement"
 
 
 @configclass
@@ -152,6 +147,9 @@ class RelationPlacementHandle:
 class RelationPlacementVariation(RunTimeVariationBase):
     """Coordinate complete relation-placement samples across scene roots."""
 
+    HOST_NAME = "scene"
+    NAME = "relation_placement"
+    EVENT_NAME = "scene_relation_placement"
     reset_priority = 100
 
     def __init__(
@@ -161,7 +159,7 @@ class RelationPlacementVariation(RunTimeVariationBase):
         num_envs: int,
         cfg: RelationPlacementVariationCfg | None = None,
     ) -> None:
-        self.name = RELATION_PLACEMENT_VARIATION_NAME
+        self.name = self.NAME
         self._sampler = sampler
         self._sample_listeners = []
         self._replay_sampler = None
@@ -267,7 +265,7 @@ class RelationPlacementVariation(RunTimeVariationBase):
     def build_event_cfg(self) -> tuple[str, EventTermCfg]:
         handle = RelationPlacementHandle(self._sampler)
         return (
-            RELATION_PLACEMENT_EVENT_NAME,
+            self.EVENT_NAME,
             EventTermCfg(func=apply_relation_placement_sample, mode="reset", params={"placement": handle}),
         )
 
@@ -407,8 +405,16 @@ def _placement_pose_keys_from_assets(assets: list[PlaceableAsset]) -> set[str]:
 def get_relation_placement_variation(env: Any) -> RelationPlacementVariation | None:
     """Return the environment's scene relation-placement variation, when configured."""
     base = env.unwrapped
-    variation = base.scene_variations.get(RELATION_PLACEMENT_VARIATION_NAME)
+    variation = base.scene_variations.get(RelationPlacementVariation.NAME)
     if variation is None:
         return None
     assert isinstance(variation, RelationPlacementVariation)
     return variation
+
+
+def get_relation_placement_pool(env: Any) -> PooledObjectPlacer:
+    """Return the environment's active live relation-placement pool."""
+    variation = get_relation_placement_variation(env)
+    assert variation is not None, "Environment has no relation-placement variation"
+    assert variation.has_live_pool, "Relation placement is using recorded replay, not live sampling"
+    return variation.placement_pool

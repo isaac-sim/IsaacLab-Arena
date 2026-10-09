@@ -58,10 +58,7 @@ from isaaclab_arena.utils.multiprocess import get_local_rank
 from isaaclab_arena.utils.physics_backend import PhysicsBackend
 from isaaclab_arena.variations import variations_hydra, variations_printing
 from isaaclab_arena.variations.recorded_variation_replay import configure_recorded_variation_replay
-from isaaclab_arena.variations.relation_placement_variation import (
-    RELATION_PLACEMENT_VARIATION_NAME,
-    SCENE_VARIATION_HOST,
-)
+from isaaclab_arena.variations.relation_placement_variation import RelationPlacementVariation
 from isaaclab_arena.variations.variation_base import BuildTimeVariationBase, RunTimeVariationBase, VariationBase
 from isaaclab_arena.variations.variation_recorder import VariationRecorder
 
@@ -118,9 +115,29 @@ class ArenaEnvBuilder:
             placement_assets.append(embodiment)
         return placement_assets
 
+    def _resolve_relation_placer_params(self) -> ObjectPlacerParams:
+        """Resolve builder overrides and build-time reachability state for relation placement."""
+        placer_params = self.arena_env.placer_params
+        if placer_params is None:
+            placer_params = ObjectPlacerParams(
+                solver_params=RelationSolverParams(verbose=False, save_position_history=False),
+            )
+        else:
+            placer_params = copy.copy(placer_params)
+            # Reachability carries a build-time embodiment reference, so do not
+            # mutate the environment-owned parameter object.
+            placer_params.reachability_config = copy.copy(placer_params.reachability_config)
+        if self.cfg.placement_seed is not None:
+            placer_params.placement_seed = self.cfg.placement_seed
+
+        # Delists itself unless the embodiment has a registered cuRobo config and the solver deps are importable.
+        # TODO(xinjieyao, 2026-07-22): updated once robot-object co-placement is merged.
+        placer_params.reachability_config.embodiment = self.arena_env.embodiment
+        return placer_params
+
     def _declare_relation_placement(self) -> None:
         """Declare deferred relation placement before variation configuration."""
-        if any(variation.name == RELATION_PLACEMENT_VARIATION_NAME for variation in self._scene_variations):
+        if any(variation.name == RelationPlacementVariation.NAME for variation in self._scene_variations):
             return
         replay_may_be_configured = self.cfg.recorded_variation_samples_path is not None
         if not self.cfg.solve_relations and not replay_may_be_configured:
@@ -130,25 +147,10 @@ class ArenaEnvBuilder:
         if self.arena_env.task is not None:
             self.arena_env.task.apply_reachability_constraints()
         placement_assets = self._get_relation_placement_assets()
-
-        placer_params = self.arena_env.placer_params
-        if placer_params is None:
-            placer_params = ObjectPlacerParams(
-                solver_params=RelationSolverParams(verbose=False, save_position_history=False),
-            )
-        else:
-            placer_params = copy.copy(placer_params)
-            placer_params.reachability_config = copy.copy(placer_params.reachability_config)
-        if self.cfg.placement_seed is not None:
-            placer_params.placement_seed = self.cfg.placement_seed
-
-        # Delists itself unless the embodiment has a registered cuRobo config and the solver deps are importable.
-        # TODO(xinjieyao, 2026-07-22): updated once robot-object co-placement is merged.
-        placer_params.reachability_config.embodiment = self.arena_env.embodiment
         placement_variation = create_relation_placement_variation(
             placement_assets,
             num_envs=self.cfg.num_envs,
-            placer_params=placer_params,
+            placer_params=self._resolve_relation_placer_params(),
             scene_assets=self.arena_env.scene.assets.values(),
             replay_assets=self.arena_env.get_placement_assets(),
             live_placement_enabled=self.cfg.solve_relations,
@@ -168,9 +170,9 @@ class ArenaEnvBuilder:
             scene_and_embodiment_variations[self.arena_env.embodiment.name] = embodiment_variations
         if self._scene_variations:
             assert (
-                SCENE_VARIATION_HOST not in scene_and_embodiment_variations
-            ), f"Asset name '{SCENE_VARIATION_HOST}' is reserved for builder-created scene variations"
-            scene_and_embodiment_variations[SCENE_VARIATION_HOST] = self._scene_variations
+                RelationPlacementVariation.HOST_NAME not in scene_and_embodiment_variations
+            ), f"Asset name '{RelationPlacementVariation.HOST_NAME}' is reserved for builder-created scene variations"
+            scene_and_embodiment_variations[RelationPlacementVariation.HOST_NAME] = self._scene_variations
         return scene_and_embodiment_variations
 
     def get_variations_catalogue_as_string(self) -> str:

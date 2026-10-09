@@ -235,7 +235,7 @@ class PooledObjectPlacer:
                 )
 
     def release_build_time_dependencies(self) -> None:
-        """Drop placement dependencies that must not be retained by the runtime event."""
+        """Drop the embodiment after reachability validators finish their build-time preparation."""
         self._placer_params.reachability_config.embodiment = None
 
     def sample_without_replacement(self, count: int) -> list[PlacementResult]:

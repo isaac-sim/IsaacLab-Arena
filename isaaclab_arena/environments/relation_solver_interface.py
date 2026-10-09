@@ -18,6 +18,7 @@ if TYPE_CHECKING:
     from isaaclab_arena.assets.object_set import RigidObjectSet
     from isaaclab_arena.relations.collision_object import CollisionObject
     from isaaclab_arena.relations.placement_asset import PlaceableAsset
+    from isaaclab_arena.variations.relation_placement_variation import RelationPlacementVariation
     from isaaclab_arena.variations.variation_base import VariationBase
 
 
@@ -31,8 +32,25 @@ def create_relation_placement_variation(
     *,
     live_placement_enabled: bool = True,
     replay_may_be_configured: bool = False,
-):
-    """Declare relation placement without solving, sampling, or mutating spawn poses."""
+) -> RelationPlacementVariation | None:
+    """Declare relation placement without solving, sampling, or mutating spawn poses.
+
+    Args:
+        assets: Assets participating in live relation solving.
+        num_envs: Number of parallel simulation environments.
+        placer_params: Optional live relation-solver parameters.
+        collision_objects: Optional fixed obstacles used by the live solver.
+        scene_assets: Complete scene assets used to derive fixed obstacles when
+            ``collision_objects`` is omitted.
+        replay_assets: Assets whose scene roots may receive recorded poses.
+        live_placement_enabled: Whether a live pool may supply placement samples.
+        replay_may_be_configured: Whether to declare provisionally so recorded
+            placement rows can be discovered during replay binding.
+
+    Returns:
+        The declared placement variation, or ``None`` when neither live nor
+        recorded placement can supply samples.
+    """
     from isaaclab_arena.variations.relation_placement_variation import PlacementPoolSampler, RelationPlacementVariation
 
     anchor_assets = set(get_anchor_objects(assets))
@@ -89,8 +107,12 @@ def _build_relation_placement_pool(
 
     placer_params = ObjectPlacerParams() if placer_params is None else copy.copy(placer_params)
     placer_params.apply_positions_to_objects = False
+    # The pool releases its build-time embodiment reference after preparation;
+    # isolate that mutation from the caller's reachability configuration.
     placer_params.reachability_config = copy.copy(placer_params.reachability_config)
     if collision_objects is None and scene_assets is not None:
+        # Keep USD-dependent collision discovery out of module import time,
+        # before Isaac Sim's application context is available.
         from isaaclab_arena.relations.passive_collision_objects import get_placement_collision_objects
 
         collision_objects = get_placement_collision_objects(

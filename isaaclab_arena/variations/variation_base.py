@@ -49,6 +49,13 @@ class VariationBase(ABC):
     This class only enforces that the variation has a name, a config, a sampler,
     a way to enable and disable it, and a way to apply a new config.
 
+    During environment construction, Arena declares all variations, applies
+    Hydra configuration, binds recorded replay samples, and attaches recording
+    listeners. It then calls ``prepare_at_build_time`` on every enabled
+    variation before calling ``realize_at_build_time`` on enabled build-time
+    variations. Finally, Arena materializes the scene and uses run-time
+    variation event terms during environment resets.
+
     """
 
     cfg: VariationBaseCfg

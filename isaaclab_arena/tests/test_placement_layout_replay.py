@@ -13,7 +13,6 @@ from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_wi
 
 SOURCE = Path(__file__).parent / "test_data/placement_replay.yaml"
 LAYOUTS = SOURCE.with_suffix(".jsonl")
-OBJECT_SET_SOURCE = Path(__file__).parent / "test_data/object_set_maple_table_env_graph.yaml"
 
 
 def _test_variation_replay_applies_complete_layouts(simulation_app, resample_on_reset):
@@ -194,61 +193,3 @@ def _test_live_relation_placement_respects_partial_resets(simulation_app):
 
 def test_live_relation_placement_respects_partial_resets():
     assert run_function_with_persistent_simulation_app(_test_live_relation_placement_respects_partial_resets)
-
-
-def _test_object_set_replay_is_rejected_before_environment_construction(simulation_app, tmp_path):
-    import json
-
-    from isaaclab_arena.assets.object_library import DexCube, DomeLight
-    from isaaclab_arena.assets.object_set import RigidObjectSet
-    from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
-    from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
-    from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
-    from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
-    from isaaclab_arena.scene.scene import Scene
-
-    def make_programmatic_environment():
-        return IsaacLabArenaEnvironment(
-            name="programmatic_object_set_replay",
-            scene=Scene(
-                assets=[
-                    RigidObjectSet(name="cubes", objects=[DexCube()]),
-                    DomeLight(),
-                ]
-            ),
-        )
-
-    unrelated_samples = tmp_path / "unrelated_samples.jsonl"
-    unrelated_samples.write_text(json.dumps({"variations": {}}) + "\n")
-    for arena_env in (
-        ArenaEnvGraphSpec.from_yaml(OBJECT_SET_SOURCE).to_arena_env(),
-        make_programmatic_environment(),
-    ):
-        builder = ArenaEnvBuilder(
-            arena_env,
-            ArenaEnvBuilderCfg(
-                recorded_variation_samples_path=str(unrelated_samples),
-                solve_relations=False,
-            ),
-        )
-        builder.compose_manager_cfg()
-        assert builder._scene_variations == []
-
-    for arena_env in (
-        ArenaEnvGraphSpec.from_yaml(OBJECT_SET_SOURCE).to_arena_env(),
-        make_programmatic_environment(),
-    ):
-        builder = ArenaEnvBuilder(
-            arena_env,
-            ArenaEnvBuilderCfg(recorded_variation_samples_path=str(LAYOUTS)),
-        )
-        with pytest.raises(AssertionError, match="does not support RigidObjectSet"):
-            builder.compose_manager_cfg()
-    return True
-
-
-def test_object_set_replay_is_rejected_before_environment_construction(tmp_path):
-    assert run_function_with_persistent_simulation_app(
-        _test_object_set_replay_is_rejected_before_environment_construction,
-        tmp_path=tmp_path,
-    )

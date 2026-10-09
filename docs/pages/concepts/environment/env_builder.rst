@@ -90,7 +90,7 @@ not fix the other.
      - ``--seed`` / ``ArenaEnvBuilderCfg.seed``
      - ``42``
      - Simulation RNG after the Isaac Lab env is created: reset noise and
-       :doc:`run-time variation <../variations/variations>` draws.
+       :doc:`run-time variation <../variations/index>` draws.
    * - Placement seed
      - ``--placement_seed`` / ``ArenaEnvBuilderCfg.placement_seed``
      - ``None`` (unlocked)
@@ -100,7 +100,7 @@ not fix the other.
 
 There is no variation seed. Run-time variations follow ``--seed``; build-time
 variations are drawn once at compile time and are not locked by either seed.
-See :doc:`../variations/variations` and
+See :doc:`../variations/index` and
 :doc:`../object_placement/pooled_placement`.
 
 How to set it

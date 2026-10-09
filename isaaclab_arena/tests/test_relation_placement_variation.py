@@ -169,6 +169,17 @@ def test_replay_requires_every_root_of_a_selected_compound_asset():
         variation.validate_replay_samples([sample])
 
 
+def test_replay_rejects_rigid_object_sets():
+    from isaaclab_arena.assets.object_set import RigidObjectSet
+
+    object_set = RigidObjectSet.__new__(RigidObjectSet)
+    sampler = PlacementPoolSampler(assets=[], placement_pool=None, replay_assets=[object_set])
+    variation = RelationPlacementVariation(sampler, num_envs=1)
+
+    with pytest.raises(AssertionError, match="does not support RigidObjectSet"):
+        variation.validate_replay_samples([_placement_sample()])
+
+
 def test_relation_placement_cannot_be_disabled():
     variation = _make_variation()
 

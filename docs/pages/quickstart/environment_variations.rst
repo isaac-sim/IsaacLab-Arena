@@ -95,7 +95,7 @@ environment:
      --experiment_config isaaclab_arena_environments/experiment_configs/droid_pnp_variations_experiment.yaml \
      --list_variations
 
-See :doc:`../concepts/variations/variations` for the available variations and their
+See :doc:`../concepts/variations/index` for the available variations and their
 configuration options.
 
 See :doc:`Arena Experiments <../concepts/concept_arena_experiments>` for configuration

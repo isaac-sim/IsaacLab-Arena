@@ -3,7 +3,8 @@ Relations and Strategies
 
 Relations describe where a placeable asset should be positioned or oriented.
 Attach them to an asset with ``add_relation()``. Arena considers all relations
-on that asset together.
+on that asset together. Arena applies solved and recorded layouts through the
+:doc:`relation placement variation <../variations/relation_placement>`.
 
 Positional relations use solver strategies that convert the requested
 arrangement into optimization objectives. Orientation relations and placement

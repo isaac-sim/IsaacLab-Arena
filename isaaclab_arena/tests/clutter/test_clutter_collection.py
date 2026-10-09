@@ -107,16 +107,14 @@ def _test_clutter_collection_uses_shared_batches(simulation_app, tmp_path, backe
     from isaaclab_arena.offline_placement.settled_placement_params import SettledPlacementParams
     from isaaclab_arena.relations.relations import ClutterOn, RequiresReachability, get_relation
     from isaaclab_arena.utils.physics_settle import step_physics
-    from isaaclab_arena.variations.relation_placement_variation import get_relation_placement_variation
+    from isaaclab_arena.variations.relation_placement_variation import get_relation_placement_pool
 
     arena_env = _make_primitive_clutter_scene(tmp_path)
     arena_env.placer_params.min_unique_layouts_per_env = 2
     env = ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg(num_envs=2, presets=backend)).make_registered()
     try:
         base = env.unwrapped
-        placement_variation = get_relation_placement_variation(base)
-        assert placement_variation is not None
-        pool = placement_variation.placement_pool
+        pool = get_relation_placement_pool(base)
         params = SettledPlacementParams(num_steps=480, validators=default_clutter_validators())
         before = base.arena_world.get_pose_e("cube_body").clone()
         assets = arena_env.get_placement_assets()

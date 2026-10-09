@@ -91,7 +91,7 @@ differs along four axes:
        evaluation samples those layouts across rollouts.
    * - **Variations**
      - None, or hand-edit the USD for each experimental condition.
-     - :doc:`Variations <../variations/variations>` can be applied so
+     - :doc:`Variations <../variations/index>` can be applied so
        evaluation experiments run under controlled conditions.
 
 .. figure:: ../../../images/agentic_environment_generation/tabletop_agentic_env_banana_bagel_plate.png

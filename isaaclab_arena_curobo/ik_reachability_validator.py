@@ -18,7 +18,7 @@ import torch
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.relations.placement_candidate_batch import PlacementCandidateBatch
-from isaaclab_arena.relations.placement_events import get_rotation_xyzw
+from isaaclab_arena.relations.placement_poses import get_rotation_xyzw
 from isaaclab_arena.relations.relations import RequiresReachability, get_anchor_objects
 from isaaclab_arena.relations.validation.pre_physics import PrePhysicsPlacementValidator
 from isaaclab_arena.relations.validation.registry import register_validator

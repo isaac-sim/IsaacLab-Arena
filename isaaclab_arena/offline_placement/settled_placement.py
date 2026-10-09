@@ -21,7 +21,7 @@ from isaaclab_arena.offline_placement.settled_batch import sample_and_settle_bat
 from isaaclab_arena.offline_placement.settled_placement_params import SettledPlacementParams
 from isaaclab_arena.relations.relations import ClutterOn, get_relation
 from isaaclab_arena.utils.pose import Pose
-from isaaclab_arena.variations.relation_placement_variation import get_relation_placement_variation
+from isaaclab_arena.variations.relation_placement_variation import get_relation_placement_pool
 
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedEnv
@@ -133,10 +133,7 @@ def collect_settled_placements(
     """
     env = env.unwrapped
     assert num_batches > 0, "num_batches must be positive"
-    placement_variation = get_relation_placement_variation(env)
-    assert placement_variation is not None, "Collection requires relation placement"
-    assert placement_variation.has_live_pool, "Collection requires live placement, not episode-condition replay"
-    placement_pool = placement_variation.placement_pool
+    placement_pool = get_relation_placement_pool(env)
     assert placement_pool.num_envs == env.num_envs, "Placement pool and scene must have the same environment count"
     assets = list(placement_pool.objects)
     seen_asset_ids = {id(asset) for asset in assets}

@@ -97,7 +97,7 @@ Differences from the variation system
 -------------------------------------
 
 Spawn-time physics configuration applies settings before cloning and physics import.
-The :doc:`variation system <../variations/variations>` controls sampling and when sampled
+The :doc:`variation system <../variations/index>` controls sampling and when sampled
 values are applied. Runtime variations such as object mass update simulation state per reset.
 Build-time variations can configure the spawn hook to apply a sampled physics value once
 USD prims exist.
