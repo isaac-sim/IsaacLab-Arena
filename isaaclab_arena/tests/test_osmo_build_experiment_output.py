@@ -13,7 +13,7 @@ import pytest
 from isaaclab_arena.evaluation.arena_experiment_result import (
     ARENA_AGGREGATED_TIMINGS_FILENAME,
     ARENA_EXPERIMENT_RESULT_FILENAME,
-    ARENA_RUN_TIMINGS_FILENAME,
+    ARENA_SINGLE_RUN_TIMINGS_FILENAME,
 )
 from isaaclab_arena.evaluation.arena_run import RunStatus
 from isaaclab_arena.evaluation.experiment_timings import aggregate_experiment_timings
@@ -75,7 +75,7 @@ def _write_run_timings(
     """Write the timings the Experiment Runner leaves: one file in the Run directory and the aggregate beside it."""
     run_output_directory = experiment_runner_output_directory / run_name
     run_output_directory.mkdir(parents=True, exist_ok=True)
-    (run_output_directory / ARENA_RUN_TIMINGS_FILENAME).write_text(
+    (run_output_directory / ARENA_SINGLE_RUN_TIMINGS_FILENAME).write_text(
         json.dumps(timing_records) + "\n",
         encoding="utf-8",
     )
@@ -210,7 +210,7 @@ def test_collects_run_outputs_without_building_report(tmp_path):
     }
     assert (experiment_output_directory / "first/episode_results_rebuild0.jsonl").is_file()
     assert (experiment_output_directory / "first" / EXPERIMENT_RUNNER_RESULT_FILE_NAME).is_file()
-    assert (experiment_output_directory / "first" / ARENA_RUN_TIMINGS_FILENAME).is_file()
+    assert (experiment_output_directory / "first" / ARENA_SINGLE_RUN_TIMINGS_FILENAME).is_file()
     assert not (experiment_output_directory / "index.html").exists()
 
 
@@ -278,8 +278,8 @@ def test_builds_experiment_output_from_separate_experiment_runner_outputs(tmp_pa
     }]
     assert set(first_run_result) == {"environment", "policy_variant", "status", "rebuilds"}
     assert experiment_result["runs"]["second"]["policy_variant"] == "cosmos"
-    assert (experiment_output_directory / "first" / ARENA_RUN_TIMINGS_FILENAME).is_file()
-    assert (experiment_output_directory / "second" / ARENA_RUN_TIMINGS_FILENAME).is_file()
+    assert (experiment_output_directory / "first" / ARENA_SINGLE_RUN_TIMINGS_FILENAME).is_file()
+    assert (experiment_output_directory / "second" / ARENA_SINGLE_RUN_TIMINGS_FILENAME).is_file()
     experiment_timings = json.loads(
         (experiment_output_directory / ARENA_AGGREGATED_TIMINGS_FILENAME).read_text(encoding="utf-8")
     )
@@ -332,8 +332,8 @@ def test_reports_failed_runner_without_its_partial_artifacts(tmp_path):
     assert (experiment_output_directory / "completed-run/episode_results_rebuild0.jsonl").is_file()
     assert not (experiment_output_directory / "failed-run/episode_results_rebuild0.jsonl").exists()
     # A failed Run's timings describe a partial execution, so they are excluded like its episode results.
-    assert (experiment_output_directory / "completed-run" / ARENA_RUN_TIMINGS_FILENAME).is_file()
-    assert not (experiment_output_directory / "failed-run" / ARENA_RUN_TIMINGS_FILENAME).exists()
+    assert (experiment_output_directory / "completed-run" / ARENA_SINGLE_RUN_TIMINGS_FILENAME).is_file()
+    assert not (experiment_output_directory / "failed-run" / ARENA_SINGLE_RUN_TIMINGS_FILENAME).exists()
     experiment_timings = json.loads(
         (experiment_output_directory / ARENA_AGGREGATED_TIMINGS_FILENAME).read_text(encoding="utf-8")
     )

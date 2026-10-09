@@ -12,7 +12,7 @@ import pytest
 
 from isaaclab_arena.evaluation.arena_experiment_result import (
     ARENA_AGGREGATED_TIMINGS_FILENAME,
-    ARENA_RUN_TIMINGS_FILENAME,
+    ARENA_SINGLE_RUN_TIMINGS_FILENAME,
 )
 from isaaclab_arena.evaluation.experiment_timings import aggregate_experiment_timings, write_run_timings
 from isaaclab_arena.utils.timer import Timer, reset_timer_stats
@@ -30,7 +30,7 @@ def _write_run_timings_file(run_output_directory: Path, timer_names: list[str]) 
 def test_writes_a_runs_timings_into_its_output_directory(tmp_path):
     written_path = _write_run_timings_file(tmp_path / "first", ["step"])
 
-    assert written_path == tmp_path / "first" / ARENA_RUN_TIMINGS_FILENAME
+    assert written_path == tmp_path / "first" / ARENA_SINGLE_RUN_TIMINGS_FILENAME
     assert written_path.is_file()
     records = json.loads(written_path.read_text(encoding="utf-8"))
     assert [record["name"] for record in records] == ["step"]

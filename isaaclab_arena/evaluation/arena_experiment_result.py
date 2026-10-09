@@ -23,10 +23,8 @@ if TYPE_CHECKING:
     from isaaclab_arena.evaluation.arena_run import ArenaRunCfg
 
 ARENA_EXPERIMENT_RESULT_FILENAME = "arena_experiment_result.json"
-ARENA_RUN_TIMINGS_FILENAME = "arena_run_timings.json"
-"""One Run's timer records, a list written into the Run's output directory."""
+ARENA_SINGLE_RUN_TIMINGS_FILENAME = "arena_run_timings.json"
 ARENA_AGGREGATED_TIMINGS_FILENAME = "arena_experiment_timings.json"
-"""All Runs' timings, a {totals, runs} object written into the Experiment output directory."""
 
 
 class ArenaEpisodeResultData(TypedDict):
