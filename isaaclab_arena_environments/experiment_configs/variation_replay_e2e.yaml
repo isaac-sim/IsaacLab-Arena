@@ -1,0 +1,28 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+runs:
+  variation_e2e:
+    environment:
+      type: pick_and_place_maple_table
+      enable_cameras: true
+      embodiment: droid_rel_joint_pos
+      episode_length_s: 1.5
+    environment_builder:
+      num_envs: 1
+      resolve_on_reset: false
+    policy:
+      type: zero_action
+    rollout_limit:
+      num_episodes: 6
+    num_rebuilds: 1
+    variations:
+      light.hdr_image.enabled: true
+      light.hdr_image.hdr_names: [home_office_robolab, billiard_hall_robolab]
+      rubiks_cube_hot3d_robolab.disappear.enabled: true
+      rubiks_cube_hot3d_robolab.disappear.sampler_cfg.probability: 0.5
+      droid_rel_joint_pos.camera_extrinsics_wrist_camera.enabled: true
+      droid_rel_joint_pos.camera_extrinsics_wrist_camera.sampler_cfg.low: [-0.03, -0.03, -0.03]
+      droid_rel_joint_pos.camera_extrinsics_wrist_camera.sampler_cfg.high: [0.03, 0.03, 0.03]

@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from typing import Any, Literal
 
 from openai import OpenAI
-from openai.types.chat import ChatCompletionMessage
+from openai.types.chat import ChatCompletionMessage, ChatCompletionMessageParam
 from pydantic import BaseModel
 
 # -----------------------------------------------------------------------------
@@ -40,7 +40,7 @@ class InferenceEndpoint:
 INTERNAL_ENDPOINT = InferenceEndpoint(
     name="internal",
     base_url="https://inference-api.nvidia.com",
-    model="openai/openai/gpt-5.6-terra",
+    model="openai/openai/gpt-6-astra",
     api_key_env_var="NV_API_KEY",
     max_tokens_parameter="max_completion_tokens",
     supports_temperature=False,
@@ -92,6 +92,16 @@ def resolve_inference_endpoint(name: str | None = None) -> InferenceEndpoint:
 # -----------------------------------------------------------------------------
 
 MAX_RETRIES_LIMIT = 10
+
+
+@dataclass(frozen=True)
+class InferenceRequest:
+    """Request structured output from text and optional OpenAI-compatible image messages."""
+
+    messages: list[ChatCompletionMessageParam]
+    response_schema: dict[str, Any]
+    schema_name: str = "agent_command"
+    retry_label: str = "inference"
 
 
 @dataclass(frozen=True)
@@ -157,7 +167,11 @@ class InferenceBackend:
         self._temperature = temperature
         self._max_tokens = max_tokens
         self._max_retries = max_retries
-        _ping(client, inference_endpoint, resolved_model)
+        try:
+            _ping(client, inference_endpoint, resolved_model)
+        except Exception:
+            client.close()
+            raise
 
     @property
     def endpoint(self) -> InferenceEndpoint:
@@ -183,10 +197,28 @@ class InferenceBackend:
         Returns:
             Parsed JSON object from the model response.
         """
-        messages = [
-            {"role": "system", "content": request.system},
-            {"role": "user", "content": request.user},
-        ]
+        return self.infer(
+            InferenceRequest(
+                messages=[
+                    {"role": "system", "content": request.system},
+                    {"role": "user", "content": request.user},
+                ],
+                response_schema=request.schema,
+                schema_name=request.schema_name,
+                retry_label=request.retry_label,
+            )
+        )
+
+    def infer(self, request: InferenceRequest) -> dict[str, Any]:
+        """Request structured output from a text or image conversation.
+
+        Args:
+            request: Conversation messages, JSON schema, and retry log label.
+
+        Returns:
+            Parsed JSON output for schema and semantic validation by the caller.
+        """
+        messages = copy.deepcopy(request.messages)
         last_exc: Exception | None = None
         for attempt in range(1 + self._max_retries):
             if attempt > 0:
@@ -199,7 +231,7 @@ class InferenceBackend:
                         "type": "json_schema",
                         "json_schema": {
                             "name": request.schema_name,
-                            "schema": request.schema,
+                            "schema": request.response_schema,
                         },
                     },
                     **_completion_options(self._endpoint, self._max_tokens, self._temperature),
@@ -220,7 +252,7 @@ class InferenceBackend:
                 # Model response is wrapped in a single-key dictionary, e.g. {"input": {<answer>}} to <answer>.
                 # Seen on the default azure/anthropic/claude-opus-4-8, but not DeepSeek.
                 # TODO(xinjieyao): check if other models also wrap the response in a single-key dictionary.
-                return _unwrap_provider_envelope(json.loads(text, strict=False), request.schema)
+                return _unwrap_provider_envelope(json.loads(text, strict=False), request.response_schema)
             except Exception as exc:
                 last_exc = exc
         raise RuntimeError(
