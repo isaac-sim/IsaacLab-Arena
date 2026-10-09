@@ -29,7 +29,7 @@ class Asset:
         self.variations: dict[str, VariationBase] = {}
 
     def add_variation(self, variation: VariationBase) -> None:
-        """Attach a variation under its class-level ``name``, replacing any existing one.
+        """Attach a variation under its instance ``name``, which must not already be attached.
 
         Subclasses call this from their ``__init__`` to declare the variations
         they support.
