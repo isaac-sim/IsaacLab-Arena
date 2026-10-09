@@ -11,14 +11,12 @@ from typing import TYPE_CHECKING, Any
 
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_asset import get_scene_root_owners
-from isaaclab_arena.relations.placement_events import PlacementPoolHandle, get_pose_from_layout, solve_and_place_objects
+from isaaclab_arena.relations.placement_events import get_pose_from_layout
 from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
 from isaaclab_arena.relations.relations import get_anchor_objects
 from isaaclab_arena.utils.pose import Pose, PosePerEnv
 
 if TYPE_CHECKING:
-    from isaaclab.managers import EventTermCfg
-
     from isaaclab_arena.assets.asset import Asset
     from isaaclab_arena.assets.object_set import RigidObjectSet
     from isaaclab_arena.relations.collision_object import CollisionObject
@@ -98,48 +96,6 @@ def create_relation_placement_variation(
     )
 
 
-def solve_and_apply_relation_placement(
-    assets: list[PlaceableAsset],
-    num_envs: int,
-    placer_params: ObjectPlacerParams | None = None,
-    collision_objects: list[CollisionObject] | None = None,
-    scene_assets: Iterable[Asset | RigidObjectSet] | None = None,
-) -> EventTermCfg | None:
-    """Solve relation placement and apply the result to asset reset/static state.
-
-    Args:
-        assets: Assets with spatial predicates that should be relation-solved.
-        num_envs: Number of environments to prepare placements for.
-        placer_params: Optional placement parameters. A shallow copy is used so
-            this function can force pooled placement without mutating the caller's instance.
-        collision_objects: Fixed obstacles avoided during placement but never optimized
-            or relation-constrained.
-        scene_assets: Optional scene assets to scan for passive collision objects
-            when collision_objects is not supplied.
-
-    Returns:
-        Reset event config to attach to the environment when placement should be
-        resolved on reset. Returns ``None`` when no reset event is needed.
-    """
-    prepared = _build_relation_placement_pool(
-        assets=assets,
-        num_envs=num_envs,
-        placer_params=placer_params,
-        collision_objects=collision_objects,
-        scene_assets=scene_assets,
-    )
-    if prepared is None:
-        return None
-    placer_params, placement_pool = prepared
-
-    return _apply_relation_placement_result(
-        assets=assets,
-        placer_params=placer_params,
-        placement_pool=placement_pool,
-        num_envs=num_envs,
-    )
-
-
 def _build_relation_placement_pool(
     assets: list[PlaceableAsset],
     num_envs: int,
@@ -181,38 +137,6 @@ def _build_relation_placement_pool(
     return placer_params, placement_pool
 
 
-def _apply_relation_placement_result(
-    assets: list[PlaceableAsset],
-    placer_params: ObjectPlacerParams,
-    placement_pool: PooledObjectPlacer,
-    num_envs: int,
-) -> EventTermCfg | None:
-    """Apply selected layouts to asset spawn state and build reset event config."""
-    anchor_assets = set(get_anchor_objects(assets))
-    _validate_no_conflicting_pose_reset_events(assets, anchor_assets)
-
-    if anchor_assets == set(assets):
-        return None
-
-    if placer_params.resolve_on_reset:
-        return _apply_dynamic_spawn_pose(
-            assets=assets,
-            placement_pool=placement_pool,
-            anchor_assets=anchor_assets,
-        )
-
-    # Every placement asset (objects and embodiments) stores its solved pose as a PosePerEnv and
-    # owns a per-asset reset event, so static layouts need no coordinated place-from-layouts event.
-    _apply_static_initial_poses(
-        assets=assets,
-        placement_pool=placement_pool,
-        anchor_assets=anchor_assets,
-        num_envs=num_envs,
-    )
-    _validate_static_placement_reset_events(assets, anchor_assets)
-    return None
-
-
 def _validate_static_placement_reset_events(
     assets: list[PlaceableAsset],
     anchor_assets: set[PlaceableAsset],
@@ -225,28 +149,6 @@ def _validate_static_placement_reset_events(
             f"Static relation placement stored a per-env pose for non-anchor asset '{asset.name}', but it "
             "owns no reset event, so its solved layout would be silently discarded on every reset."
         )
-
-
-def _apply_dynamic_spawn_pose(
-    assets: list[PlaceableAsset],
-    placement_pool: PooledObjectPlacer,
-    anchor_assets: set[PlaceableAsset],
-) -> EventTermCfg:
-    """Set initial spawn pose from one layout and return the reset placement event."""
-    from isaaclab.managers import EventTermCfg
-
-    # Scene assets need a valid construction pose before reset events can run.
-    # This non-consuming env-0 sample is bootstrap-only; reset draws independently per env.
-    [construction_layout] = placement_pool.sample_with_replacement(1)
-    _seed_spawn_config_from_layout(assets, anchor_assets, construction_layout)
-
-    return EventTermCfg(
-        func=solve_and_place_objects,
-        mode="reset",
-        params={
-            "placement_pool": PlacementPoolHandle(placement_pool),
-        },
-    )
 
 
 def _seed_spawn_config_from_layout(

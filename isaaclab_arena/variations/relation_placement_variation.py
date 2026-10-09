@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING, Any
 from isaaclab.managers import EventTermCfg
 from isaaclab.utils.configclass import configclass
 
-from isaaclab_arena.relations.placement_events import get_pose_from_layout, write_scene_poses_to_sim
+from isaaclab_arena.relations.placement_events import get_scene_root_poses_from_layout
 from isaaclab_arena.relations.relations import get_anchor_objects
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.variations.sampler_base import SamplerBase, SamplerBaseCfg
@@ -128,13 +128,8 @@ class PlacementPoolSampler(SamplerBase):
 
     def _serialize_result(self, result: PlacementResult) -> dict[str, Any]:
         poses: dict[str, dict[str, list[float]]] = {}
-        anchor_assets = set(get_anchor_objects(self.assets))
-        for asset in self.assets:
-            if asset in anchor_assets:
-                continue
-            layout_pose = get_pose_from_layout(asset, result)
-            for scene_key, pose in asset.layout_pose_to_scene_writes(layout_pose):
-                assert scene_key not in poses, f"Duplicate relation-placement scene root: {scene_key!r}"
+        for root_poses in get_scene_root_poses_from_layout(self.assets, result).values():
+            for scene_key, pose in root_poses.items():
                 poses[scene_key] = pose.to_dict()
         row: dict[str, Any] = {
             "layout_id": f"layout_{self._next_layout_id:06d}",
@@ -293,6 +288,8 @@ def apply_relation_placement_sample(
     placement: RelationPlacementHandle,
 ) -> None:
     """Draw, record, and when required apply one complete placement per reset environment."""
+    from isaaclab_arena.relations.placement_asset import get_scene_root_owners
+
     if env_ids is None or len(env_ids) == 0:
         return
     placement_pool = placement.sampler.placement_pool
@@ -315,7 +312,12 @@ def apply_relation_placement_sample(
         )
         for key in pose_keys
     }
-    write_scene_poses_to_sim(env, env_ids, poses)
+    asset_poses: dict[PlaceableAsset, dict[str, torch.Tensor]] = {}
+    root_owners = get_scene_root_owners(placement.sampler.replay_assets)
+    for key, pose in poses.items():
+        asset_poses.setdefault(root_owners[key], {})[key] = pose
+    for asset, owned_poses in asset_poses.items():
+        asset.write_scene_root_poses_to_sim(env, env_ids, owned_poses)
 
 
 def validate_placement_samples(samples: list[Any]) -> None:

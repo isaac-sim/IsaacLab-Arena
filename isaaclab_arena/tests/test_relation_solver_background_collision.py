@@ -813,7 +813,7 @@ def test_relation_placement_forwards_anchor_background_mesh_exclusions(monkeypat
     import isaaclab_arena.environments.relation_solver_interface as interface_module
     from isaaclab_arena.assets.background import Background
     from isaaclab_arena.assets.object_reference import ObjectReference
-    from isaaclab_arena.environments.relation_solver_interface import solve_and_apply_relation_placement
+    from isaaclab_arena.environments.relation_solver_interface import _build_relation_placement_pool
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
     from isaaclab_arena.relations.relation_solver_params import CollisionMode, RelationSolverParams
     from isaaclab_arena.relations.relations import IsAnchor
@@ -853,7 +853,7 @@ def test_relation_placement_forwards_anchor_background_mesh_exclusions(monkeypat
     monkeypatch.setattr(interface_module, "PooledObjectPlacer", FakePooledObjectPlacer)
     placer_params = ObjectPlacerParams(solver_params=RelationSolverParams(collision_mode=CollisionMode.BBOX))
 
-    solve_and_apply_relation_placement([reference], num_envs=1, placer_params=placer_params, scene_assets=[])
+    _build_relation_placement_pool([reference], 1, placer_params, None, [])
 
     assert calls["assets"] == []
     assert calls["include_background"] is True
@@ -866,7 +866,7 @@ def test_relation_placement_includes_background_mesh_for_background_override(mon
     """A passive Background can opt into mesh collision when the solver default is BBOX."""
     import isaaclab_arena.environments.relation_solver_interface as interface_module
     from isaaclab_arena.assets.background import Background
-    from isaaclab_arena.environments.relation_solver_interface import solve_and_apply_relation_placement
+    from isaaclab_arena.environments.relation_solver_interface import _build_relation_placement_pool
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
     from isaaclab_arena.relations.relation_solver_params import CollisionMode, RelationSolverParams
     from isaaclab_arena.relations.relations import IsAnchor
@@ -901,9 +901,7 @@ def test_relation_placement_includes_background_mesh_for_background_override(mon
     monkeypatch.setattr(interface_module, "PooledObjectPlacer", FakePooledObjectPlacer)
     placer_params = ObjectPlacerParams(solver_params=RelationSolverParams(collision_mode=CollisionMode.BBOX))
 
-    solve_and_apply_relation_placement(
-        [placed_object], num_envs=1, placer_params=placer_params, scene_assets=[background]
-    )
+    _build_relation_placement_pool([placed_object], 1, placer_params, None, [background])
 
     assert calls["assets"] == [background]
     assert calls["include_background"] is True
@@ -915,7 +913,7 @@ def test_relation_placement_skips_background_mesh_for_default_bbox(monkeypatch):
     """Default BBOX mode uses individual passive objects, not aggregate whole-scene meshes."""
     import isaaclab_arena.environments.relation_solver_interface as interface_module
     from isaaclab_arena.assets.background import Background
-    from isaaclab_arena.environments.relation_solver_interface import solve_and_apply_relation_placement
+    from isaaclab_arena.environments.relation_solver_interface import _build_relation_placement_pool
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
     from isaaclab_arena.relations.relation_solver_params import CollisionMode, RelationSolverParams
     from isaaclab_arena.relations.relations import IsAnchor
@@ -950,9 +948,7 @@ def test_relation_placement_skips_background_mesh_for_default_bbox(monkeypatch):
     monkeypatch.setattr(interface_module, "PooledObjectPlacer", FakePooledObjectPlacer)
     placer_params = ObjectPlacerParams(solver_params=RelationSolverParams(collision_mode=CollisionMode.BBOX))
 
-    solve_and_apply_relation_placement(
-        [placed_object], num_envs=1, placer_params=placer_params, scene_assets=[background]
-    )
+    _build_relation_placement_pool([placed_object], 1, placer_params, None, [background])
 
     assert calls["assets"] == [background]
     assert calls["include_background"] is False

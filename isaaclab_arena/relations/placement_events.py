@@ -17,36 +17,8 @@ if TYPE_CHECKING:
 
     from isaaclab_arena.relations.placement_asset import PlaceableAsset
     from isaaclab_arena.relations.placement_result import PlacementResult
-    from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
 
 IDENTITY_ROTATION_XYZW = (0.0, 0.0, 0.0, 1.0)
-
-
-class PlacementPoolHandle:
-    """Opaque holder for a runtime placement pool to bypass EventTermCfg param deepcopy/validation errors.
-
-    PooledObjectPlacer is used as an EventTermCfg param to set the initial spawn pose. Isaac Lab deep-copies
-    and validates the configclass param, leading to two crashes: deepcopy fails for the Warp GPU cache
-    wp.Mesh BVHs ("ctypes objects containing pointers cannot be pickled"); validation hits RecursionError
-    when recursively walking all dicts and reaches placement assets (including embodiments with cyclic
-    scene configs).
-
-    This handle wraps PooledObjectPlacer with overrides for deepcopy and validation, while
-    PooledObjectPlacer itself stays a normal class. EventTermCfg params use this handle.
-    """
-
-    __slots__ = ("pool", "last_results")
-    """Keep runtime state out of an instance dictionary so config validation does not traverse it."""
-
-    def __init__(self, pool: PooledObjectPlacer) -> None:
-        self.pool = pool
-        self.last_results: dict[int, PlacementResult] = {}
-        """Layouts applied by the most recent placement reset, keyed by environment ID."""
-
-    def __deepcopy__(self, memo: dict[int, object]) -> PlacementPoolHandle:
-        """Share the live pool across ``copy.deepcopy`` to avoid deep-copying the Warp cache BVHs."""
-        memo[id(self)] = self
-        return self
 
 
 def get_rotation_xyzw(asset: PlaceableAsset) -> tuple[float, float, float, float]:
@@ -114,14 +86,40 @@ def write_scene_poses_to_sim(env: ManagerBasedEnv, env_ids: torch.Tensor, poses:
         scene_asset.write_root_velocity_to_sim(zero_velocity, env_ids=env_ids)
 
 
-def write_layout_to_sim(
+def get_scene_root_poses_from_layout(
+    assets: list[PlaceableAsset],
+    result: PlacementResult,
+    anchor_assets: set[PlaceableAsset] | None = None,
+) -> dict[PlaceableAsset, dict[str, Pose]]:
+    """Expand one solved layout into environment-local scene-root poses grouped by asset."""
+    anchor_assets = set(get_anchor_objects(assets)) if anchor_assets is None else anchor_assets
+    poses_by_asset: dict[PlaceableAsset, dict[str, Pose]] = {}
+    scene_keys: set[str] = set()
+    for asset in assets:
+        if asset in anchor_assets:
+            continue
+        layout_pose = get_pose_from_layout(asset, result)
+        scene_writes = asset.layout_pose_to_scene_writes(layout_pose)
+        root_poses = dict(scene_writes)
+        assert len(root_poses) == len(scene_writes), f"Asset '{asset.name}' returned duplicate scene roots"
+        assert set(root_poses) == set(
+            asset.get_scene_root_keys()
+        ), f"Asset '{asset.name}' must provide every owned scene root"
+        duplicate_keys = scene_keys.intersection(root_poses)
+        assert not duplicate_keys, f"Duplicate relation-placement scene roots: {sorted(duplicate_keys)}"
+        scene_keys.update(root_poses)
+        poses_by_asset[asset] = root_poses
+    return poses_by_asset
+
+
+def write_placement_result_to_sim(
     env: ManagerBasedEnv,
     env_id: int,
     result: PlacementResult,
-    anchor_assets: set[PlaceableAsset],
-    base_rotations: dict[PlaceableAsset, tuple[float, float, float, float]],
+    assets: list[PlaceableAsset],
+    anchor_assets: set[PlaceableAsset] | None = None,
 ) -> None:
-    """Write one env's solved layout into the sim.
+    """Write one environment's solved layout through each placement asset.
 
     Even writing zero velocity, the sim will still apply gravity and other forces from collisions,
     so collided assets will still be subject to move.
@@ -130,59 +128,11 @@ def write_layout_to_sim(
         env: The Isaac Lab ManagerBasedEnv environment.
         env_id: The environment index.
         result: The placement result to write to the sim.
-        anchor_assets: The set of anchor assets.
-        base_rotations: The base rotations for all assets.
+        assets: Assets represented by the placement result.
+        anchor_assets: Optional precomputed set of fixed assets.
     """
-    missing_assets = [
-        asset.name for asset in base_rotations if asset not in anchor_assets and asset not in result.positions
-    ]
-    assert not missing_assets, f"Placement layout is missing non-anchor assets: {missing_assets}"
-    for asset in result.positions:
-        if asset in anchor_assets:
-            continue
-        layout_pose = get_pose_from_layout(asset, result)
-        asset.write_layout_pose_to_sim(env, env_id, layout_pose)
-
-
-def solve_and_place_objects(
-    env: ManagerBasedEnv,
-    env_ids: torch.Tensor | None,
-    placement_pool: PlacementPoolHandle,
-) -> None:
-    """Coordinated reset event that draws layouts from the pool and writes poses.
-
-    Registered as a single EventTermCfg(mode="reset"). Layouts are env-indexed:
-    one layout is consumed for each requested absolute env id, so partial resets
-    only advance the pools of the resetting envs.
-
-    Args:
-        env: The Isaac Lab environment.
-        env_ids: 1-D tensor of environment indices being reset.
-        placement_pool: Opaque handle to the runtime pool of solved placement layouts.
-            Layout assets come from ``placement_pool.pool.objects``.
-    """
-    pool = placement_pool.pool
-    if env_ids is None or len(env_ids) == 0:
-        return
-    assets = pool.objects
-    reset_env_ids = env_ids.tolist()
-    num_scene_envs = env.scene.env_origins.shape[0]
-    assert (
-        pool.num_envs == num_scene_envs
-    ), f"Placement pool has {pool.num_envs} envs, but scene has {num_scene_envs} env origins."
-    placement_pool.last_results = {}
-    results_by_env = pool.sample_for_envs(reset_env_ids)
-    anchor_assets = set(get_anchor_objects(assets))
-    base_rotations = get_base_rotation_per_asset(assets)
-
-    for cur_env in reset_env_ids:
-        result = results_by_env[cur_env]
-        if not result.success:
-            print(
-                "Warning: Writing best-loss fallback placement for "
-                f"env {cur_env}; failed checks: {result.validation_results.get_failed_validation_check_names}."
-            )
-        # Only write non-anchor assets to the sim.
-        write_layout_to_sim(env, cur_env, result, anchor_assets, base_rotations)
-
-    placement_pool.last_results = results_by_env
+    env_ids = torch.tensor([env_id], device=env.device)
+    poses_by_asset = get_scene_root_poses_from_layout(assets, result, anchor_assets)
+    for asset, root_poses in poses_by_asset.items():
+        pose_tensors = {name: pose.to_tensor(device=env.device).unsqueeze(0) for name, pose in root_poses.items()}
+        asset.write_scene_root_poses_to_sim(env, env_ids, pose_tensors)

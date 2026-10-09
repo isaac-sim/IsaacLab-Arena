@@ -15,8 +15,10 @@ from isaaclab_arena.variations.object_mass_variation import ObjectMassVariation,
 from isaaclab_arena.variations.recorded_variation_replay import configure_recorded_variation_replay
 from isaaclab_arena.variations.relation_placement_variation import (
     PlacementPoolSampler,
+    RelationPlacementHandle,
     RelationPlacementVariation,
     RelationPlacementVariationCfg,
+    apply_relation_placement_sample,
 )
 
 
@@ -24,6 +26,7 @@ class _ReplayAsset:
     def __init__(self, *keys: str) -> None:
         self._keys = keys
         self.name = keys[0]
+        self.scene_pose_writes = []
 
     def get_scene_root_keys(self) -> tuple[str, ...]:
         return self._keys
@@ -36,6 +39,9 @@ class _ReplayAsset:
 
     def has_pose_reset_event(self) -> bool:
         return False
+
+    def write_scene_root_poses_to_sim(self, env, env_ids, poses) -> None:
+        self.scene_pose_writes.append((env_ids.clone(), poses))
 
 
 def _placement_sample() -> dict:
@@ -75,6 +81,27 @@ def test_replay_sampler_notifies_serializable_rows():
     assert observed[0][0] == rows
     assert observed[0][1].tolist() == [2, 5]
     assert variation.last_results == {}
+
+
+def test_replay_writes_poses_through_placement_asset():
+    asset = _ReplayAsset("cube")
+    sampler = PlacementPoolSampler(assets=[], placement_pool=None, replay_assets=[asset])
+    sampler.set_replay_sampler(lambda count, env_ids: [_placement_sample()] * count)
+    placement = RelationPlacementHandle(sampler, write_live_samples=True)
+    env = Mock(device=torch.device("cpu"))
+    env_ids = torch.tensor([1, 3])
+
+    apply_relation_placement_sample(env, env_ids, placement)
+
+    written_env_ids, written_poses = asset.scene_pose_writes[0]
+    assert written_env_ids.tolist() == [1, 3]
+    torch.testing.assert_close(
+        written_poses["cube"],
+        torch.tensor([
+            [0.1, 0.2, 0.3, 0.0, 0.0, 0.0, 1.0],
+            [0.1, 0.2, 0.3, 0.0, 0.0, 0.0, 1.0],
+        ]),
+    )
 
 
 def test_replay_validates_scene_keys():

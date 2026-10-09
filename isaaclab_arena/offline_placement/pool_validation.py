@@ -10,11 +10,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.relations.physics_settle_params import PhysicsSettleParams
-from isaaclab_arena.relations.placement_events import (
-    get_base_rotation_per_asset,
-    get_movable_asset_names,
-    write_layout_to_sim,
-)
+from isaaclab_arena.relations.placement_events import get_movable_asset_names, write_placement_result_to_sim
 from isaaclab_arena.relations.relations import get_anchor_objects
 from isaaclab_arena.relations.validation.types import PlacementCheck
 from isaaclab_arena.utils import physics_settle
@@ -64,7 +60,6 @@ def iter_pool_validation(
     env = env.unwrapped
     assets = placement_pool.objects
     anchors = set(get_anchor_objects(assets))
-    rotations = get_base_rotation_per_asset(assets)
     queues = placement_pool.layouts_per_env()[: env.num_envs]
     num_batches = max((len(queue) for queue in queues), default=0)
     for index in range(num_batches):
@@ -74,7 +69,7 @@ def iter_pool_validation(
                 continue
             layout = queue[index]
             layouts[env_id] = layout
-            write_layout_to_sim(env, env_id, layout, anchors, rotations)
+            write_placement_result_to_sim(env, env_id, layout, assets, anchors)
         env.scene.write_data_to_sim()
         env.sim.forward()
         step_placement_physics(env, settle_params.num_steps, index, num_batches, render, log_progress)
