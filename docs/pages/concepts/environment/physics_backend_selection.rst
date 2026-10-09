@@ -93,7 +93,7 @@ Embodiment backend hooks
 
 Immediately after resolution, ``compose_manager_cfg`` calls ``embodiment.configure_physics_backend(resolved)`` **before** scene and action configs are combined. That entry point:
 
-- Runs at most once per embodiment instance (reconfiguration raises an assertion).
+- Configures each embodiment instance once; repeated calls with the same backend are no-ops, while switching to a different backend raises an assertion.
 - Delegates to ``EmbodimentBase._configure_physics_backend``, which subclasses override for backend-specific spawn, actuators, actions, and observations.
 
 Hooks key off the **resolved** backend (CLI or environment default), not on post-callback edits to ``sim.physics``.

@@ -14,50 +14,16 @@ and validate that we can load it in Isaac Lab.
 Environment Description
 ^^^^^^^^^^^^^^^^^^^^^^^
 
+The environment factory implements ``build(cfg)``, using its typed
+``ArenaEnvironmentCfg`` subclass to configure the scene, embodiment, and task.
+
 
 .. dropdown:: The GR1 Open Microwave Environment
    :animate: fade-in
 
-   .. code-block:: python
-
-      class Gr1OpenMicrowaveEnvironment(ExampleEnvironmentBase):
-
-          name: str = "gr1_open_microwave"
-
-          def get_env(self, args_cli: argparse.Namespace):  # -> IsaacLabArenaEnvironment:
-              from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
-              from isaaclab_arena.scene.scene import Scene
-              from isaaclab_arena.tasks.open_door_task import OpenDoorTask
-              from isaaclab_arena.utils.pose import Pose
-
-              background = self.asset_registry.get_asset_by_name("kitchen")()
-              microwave = self.asset_registry.get_asset_by_name("microwave")()
-              assets = [background, microwave]
-
-              embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(enable_cameras=args_cli.enable_cameras)
-              embodiment.set_initial_pose(Pose(position_xyz=(-0.4, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
-
-              teleop_device = self.device_registry.get_device_by_name(args_cli.teleop_device)()
-
-              # Put the microwave on the packing table.
-              microwave_pose = Pose(
-                  position_xyz=(0.4, -0.00586, 0.22773),
-                  rotation_xyzw=(0, 0, -0.7071068, 0.7071068),
-              )
-              microwave.set_initial_pose(microwave_pose)
-
-              scene = Scene(assets=assets)
-              task = OpenDoorTask(microwave, openness_threshold=0.8, reset_openness=0.2)
-
-              isaaclab_arena_environment = IsaacLabArenaEnvironment(
-                  name=self.name,
-                  embodiment=embodiment,
-                  scene=scene,
-                  task=task,
-                  teleop_device=teleop_device,
-              )
-
-              return isaaclab_arena_environment
+   .. literalinclude:: ../../../../isaaclab_arena_environments/gr1_open_microwave_environment.py
+      :language: python
+      :start-at: from __future__ import annotations
 
 
 Step-by-Step Breakdown
@@ -71,12 +37,15 @@ Step-by-Step Breakdown
    microwave = self.asset_registry.get_asset_by_name("microwave")()
    assets = [background, microwave]
 
-   embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(enable_cameras=args_cli.enable_cameras)
-   teleop_device = self.device_registry.get_device_by_name(args_cli.teleop_device)()
+   embodiment = self.asset_registry.get_asset_by_name(cfg.embodiment)(enable_cameras=cfg.enable_cameras)
+   if cfg.teleop_device is not None:
+       teleop_device = self.device_registry.get_device_by_name(cfg.teleop_device)()
+   else:
+       teleop_device = None
 
 Here, we're selecting the components needed for our static manipulation task: the kitchen environment as our background,
 a microwave with an openable door, and the GR1 embodiment (our robot).
-The ``AssetRegistry`` and ``DeviceRegistry`` have been initialized in the ``ExampleEnvironmentBase`` class.
+The ``AssetRegistry`` and ``DeviceRegistry`` have been initialized in the ``ArenaEnvironmentFactory`` class.
 See :doc:`../../concepts/scene/concept_assets_design` for details on asset architecture.
 
 **2. Position the Objects**
@@ -106,7 +75,7 @@ See :doc:`../../concepts/scene/index` for scene composition details.
 
 .. code-block:: python
 
-    task = OpenDoorTask(microwave, openness_threshold=0.8, reset_openness=0.2)
+    task = OpenDoorTask(microwave, openness_threshold=0.8, reset_openness=0.2, episode_length_s=5.0)
 
 The ``OpenDoorTask`` encapsulates the goal of this environment: open the microwave door.
 See :doc:`../../concepts/task/index` for task creation details.
@@ -115,12 +84,15 @@ See :doc:`../../concepts/task/index` for task creation details.
 
 .. code-block:: python
 
+   from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import set_control_rate_50hz
+
    isaaclab_arena_environment = IsaacLabArenaEnvironment(
        name=self.name,
        embodiment=embodiment,
        scene=scene,
        task=task,
        teleop_device=teleop_device,
+       env_cfg_callback=set_control_rate_50hz,
    )
 
 Finally, we assemble all the pieces into a complete, runnable environment. The ``IsaacLabArenaEnvironment`` is the

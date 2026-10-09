@@ -76,7 +76,7 @@ Step 1: Run Single Environment Evaluation
 
 We first run the policy in a single environment with visualization via the GUI.
 
-The Arena GR00T evaluation client is configured by a config file at ``isaaclab_arena_gr00t/g1_locomanip_gr00t_closedloop_config.yaml``.
+The Arena GR00T evaluation client is configured by a config file at ``isaaclab_arena_gr00t/policy/config/g1_locomanip_gr00t_closedloop_config.yaml``.
 
 .. dropdown:: Configuration file (``g1_locomanip_gr00t_closedloop_config.yaml``):
    :animate: fade-in
@@ -174,14 +174,12 @@ Parallel evaluation of the policy in multiple parallel environments is also supp
            --embodiment g1_wbc_joint
 
 
-And during the evaluation, you should see the following output on the console at the end of the evaluation
-indicating which environments are terminated (task-specific conditions like the brown box is placed into the blue bin,
-or the episode length is exceeded by 30 seconds),
-or truncated (if timeouts are enabled, like the maximum episode length is exceeded).
+During evaluation, messages like the following identify environments whose policy state is reset
+when they start a new episode. The list includes resets after either termination or truncation.
 
 .. code-block:: text
 
-   Resetting policy for terminated env_ids: tensor([3], device='cuda:0') and truncated env_ids: tensor([], device='cuda:0', dtype=torch.int64)
+   Resetting policy state for env_ids: tensor([3], device='cuda:0')
 
 At the end of the evaluation, you should see the following output on the console indicating the metrics.
 You can see that the success rate might not be 1.0 as more trials are being evaluated and randomizations are being introduced,
@@ -202,5 +200,5 @@ and the number of episodes is more than the single environment evaluation becaus
 
 .. note::
 
-   The policy was trained on datasets generated using CPU-based physics, therefore the evaluation uses ``--device cpu`` to ensure physics reproducibility.
-   If you have GPU-generated datasets, you can switch to using GPU-based physics for evaluation by providing the ``--device cuda`` flag.
+   The examples above use GPU-based physics. For single-process evaluation with
+   CPU-based physics, pass ``--device cpu``.

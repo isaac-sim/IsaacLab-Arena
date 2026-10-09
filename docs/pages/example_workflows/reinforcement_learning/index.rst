@@ -27,7 +27,7 @@ Task Overview
    * - **Skills**
      - Reach, Grasp, Lift
    * - **Embodiment**
-     - Franka Panda (9 DOF arm + 2 DOF gripper)
+     - Franka Panda (7 DOF arm + 2 DOF gripper)
    * - **Scene**
      - Table with ground plane and lighting
    * - **Objects**
@@ -37,7 +37,7 @@ Task Overview
    * - **Training Method**
      - Reinforcement Learning (on-policy PPO) — trained in **Isaac Lab**
    * - **Physics**
-     - PhysX (50Hz @ 2 decimation)
+     - PhysX (200 Hz physics, 50 Hz control; decimation = 4)
    * - **Closed-loop**
      - Yes (50Hz control)
    * - **Command Space**

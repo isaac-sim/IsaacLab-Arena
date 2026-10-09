@@ -62,11 +62,12 @@ Policy-specific arguments (``--policy_type``, ``--checkpoint_path``, etc.) must 
 environment name. Environment-specific arguments (``--object``, ``--embodiment``, etc.) must come
 **after** it.
 
-At the end of the run, metrics are printed to the console:
+At the end of the run, metrics are printed to the console. For example, 16 successes
+in the requested 20 episodes would produce:
 
 .. code-block:: text
 
-   Metrics: {'success_rate': 0.81, 'num_episodes': 12}
+   Metrics: {'success_rate': 0.8, 'num_episodes': 20}
 
 
 Method 2: Parallel Environment Evaluation

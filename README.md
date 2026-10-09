@@ -122,9 +122,6 @@ git submodule update --init --recursive
 #    Base container (recommended for development):
 ./docker/run_docker.sh
 
-#    Or with GR00T dependencies (for policy training/evaluation):
-./docker/run_docker.sh -g
-
 # 3. Verify the installation with a short zero-action rollout
 /isaac-sim/python.sh isaaclab_arena/evaluation/policy_runner.py \
   --policy_type zero_action --num_steps 20 cube_goal_pose
@@ -136,14 +133,14 @@ git submodule update --init --recursive
 
 > **Note:** The Docker script automatically mounts `$HOME/datasets`, `$HOME/models`, and `$HOME/eval` from your host into the container.
 
-For detailed setup instructions (including server-client mode for GR00T), see the [Installation Guide](https://isaac-sim.github.io/IsaacLab-Arena/release/0.3.1/pages/quickstart/installation.html).
+The base container includes GR00T evaluation clients. For GR00T training and policy servers, use the separate native Isaac-GR00T `uv` environment described in the [Imitation Learning Guide](https://isaac-sim.github.io/IsaacLab-Arena/release/0.3.1/pages/example_workflows/imitation_learning/index.html#gr00t-native-environment).
 
 ## Usage Example
 
 Compose a Franka arm in a kitchen scene with a couple of objects:
 
 ```python
-from isaaclab_arena.assets.asset_registry import AssetRegistry
+from isaaclab_arena.assets.registries import AssetRegistry
 from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder, ArenaEnvBuilderCfg
 from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
 from isaaclab_arena.scene.scene import Scene

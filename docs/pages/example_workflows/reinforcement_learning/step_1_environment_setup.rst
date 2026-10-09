@@ -12,61 +12,16 @@ and validate that we can load it in Isaac Lab.
 Environment Description
 ^^^^^^^^^^^^^^^^^^^^^^^
 
+The environment factory implements ``build(cfg)``, using its typed
+``ArenaEnvironmentCfg`` subclass to configure the scene, embodiment, and task.
+
 
 .. dropdown:: The Lift Object RL Environment
    :animate: fade-in
 
-   .. code-block:: python
-
-      class LiftObjectEnvironment(ExampleEnvironmentBase):
-
-          name: str = "lift_object"
-
-          def get_env(self, args_cli: argparse.Namespace):
-              from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
-              from isaaclab_arena.scene.scene import Scene
-              from isaaclab_arena.tasks.lift_object_task import LiftObjectTaskRL
-              from isaaclab_arena.utils.pose import Pose
-
-              background = self.asset_registry.get_asset_by_name("table")()
-              pick_up_object = self.asset_registry.get_asset_by_name(args_cli.object)()
-
-              # Add ground plane and light to the scene
-              ground_plane = self.asset_registry.get_asset_by_name("ground_plane")()
-              light = self.asset_registry.get_asset_by_name("light")()
-
-              assets = [background, pick_up_object, ground_plane, light]
-
-              embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(
-                  concatenate_observation_terms=True
-              )
-
-              # Set all positions
-              background.set_initial_pose(Pose(position_xyz=(0.5, 0, 0), rotation_xyzw=(0, 0, 0.707, 0.707)))
-              pick_up_object.set_initial_pose(Pose(position_xyz=(0.5, 0, 0.055), rotation_xyzw=(0, 0, 0, 1)))
-              ground_plane.set_initial_pose(Pose(position_xyz=(0.0, 0.0, -1.05)))
-
-              # Compose the scene
-              scene = Scene(assets=assets)
-
-              task = LiftObjectTaskRL(
-                  pick_up_object,
-                  background,
-                  embodiment,
-                  minimum_height_to_lift=0.04,
-                  episode_length_s=5.0,
-                  rl_training_mode=args_cli.rl_training_mode,
-              )
-
-              isaaclab_arena_environment = IsaacLabArenaEnvironment(
-                  name=self.name,
-                  embodiment=embodiment,
-                  scene=scene,
-                  task=task,
-                  teleop_device=None,
-              )
-
-              return isaaclab_arena_environment
+   .. literalinclude:: ../../../../isaaclab_arena_environments/lift_object_environment.py
+      :language: python
+      :start-at: from __future__ import annotations
 
 
 Step-by-Step Breakdown
@@ -77,13 +32,18 @@ Step-by-Step Breakdown
 .. code-block:: python
 
    background = self.asset_registry.get_asset_by_name("table")()
-   pick_up_object = self.asset_registry.get_asset_by_name(args_cli.object)()
+   pick_up_object = self.asset_registry.get_asset_by_name(cfg.object)()
    ground_plane = self.asset_registry.get_asset_by_name("ground_plane")()
    light = self.asset_registry.get_asset_by_name("light")()
+   assets = [background, pick_up_object, ground_plane, light]
 
-   embodiment = self.asset_registry.get_asset_by_name(args_cli.embodiment)(
-       concatenate_observation_terms=True
+   embodiment = self.asset_registry.get_asset_by_name(cfg.embodiment)(
+       enable_cameras=cfg.enable_cameras, concatenate_observation_terms=True
    )
+   if cfg.teleop_device is not None:
+       teleop_device = self.device_registry.get_device_by_name(cfg.teleop_device)()
+   else:
+       teleop_device = None
 
 Here, we're selecting the components needed for our RL task: a table as our support surface,
 an object to lift (configurable via CLI, default is ``dex_cube``), a ground plane for physics,
@@ -121,7 +81,7 @@ See :doc:`../../concepts/scene/index` for scene composition details.
         embodiment,
         minimum_height_to_lift=0.04,
         episode_length_s=5.0,
-        rl_training_mode=args_cli.rl_training_mode,
+        rl_training_mode=cfg.rl_training_mode,
     )
 
 The ``LiftObjectTaskRL`` encapsulates the RL training objective: lift the object to commanded target positions.
@@ -139,12 +99,18 @@ See :doc:`../../concepts/task/index` for task creation details.
 
 .. code-block:: python
 
+   import isaaclab_arena_examples.policy.base_rsl_rl_policy as base_rsl_rl_policy
+   from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import set_control_rate_50hz
+
    isaaclab_arena_environment = IsaacLabArenaEnvironment(
        name=self.name,
        embodiment=embodiment,
        scene=scene,
        task=task,
-       teleop_device=None,
+       teleop_device=teleop_device,
+       rl_framework_entry_point="rsl_rl_cfg_entry_point",
+       rl_policy_cfg=f"{base_rsl_rl_policy.__name__}:RLPolicyCfg",
+       env_cfg_callback=set_control_rate_50hz,
    )
 
 Finally, we assemble all the pieces into a complete, runnable RL environment. The ``IsaacLabArenaEnvironment``

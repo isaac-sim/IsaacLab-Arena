@@ -6,7 +6,7 @@ Isaac Lab Arena ships a catalog of ready-to-run environments under
 
 * **Python registered environments**: small compositions of the building blocks
   introduced in :doc:`../concepts/environment/index` — **Scene**,
-  **Embodiment**, and **Task** — wrapped in an ``ExampleEnvironmentBase``
+  **Embodiment**, and **Task** — wrapped in an ``ArenaEnvironmentFactory``
   subclass and registered with the global ``EnvironmentRegistry``. The
   registered ``Task ID`` is passed as the positional ``example_environment``
   argument to scripts such as ``isaaclab_arena/evaluation/policy_runner.py``.
@@ -41,7 +41,7 @@ policy executions.
 Python Environment Catalog
 --------------------------
 
-Python registered environments wrapped in an ``ExampleEnvironmentBase`` subclass
+Python registered environments wrapped in an ``ArenaEnvironmentFactory`` subclass
 and consumed via the positional ``example_environment`` name. They span
 pick-and-place, articulated-object manipulation, sorting, assembly,
 goal-pose / lift (RL), sandbox, and sequential / composite tasks.
