@@ -124,7 +124,6 @@ def record_settled_placement_layouts(
         spec = ArenaEnvGraphSpec.from_yaml(cfg.env_spec)
         assert not spec.object_sets, "Resolve object sets before recording reusable layouts"
         arena_env = spec.to_arena_env()
-    assert arena_env.placement_layouts is None, "Remove cached placement layouts before recording"
     scene_assets = arena_env.get_placement_assets()
     assert not any(isinstance(asset, RigidObjectSet) for asset in scene_assets), "Resolve object sets before recording"
     placer_params = arena_env.placer_params

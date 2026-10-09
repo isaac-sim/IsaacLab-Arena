@@ -95,11 +95,10 @@ def Xform "Body" (
         timeout_sec=180,
     )
     assert source.read_bytes() == original
-    records = [json.loads(line)["variations"]["scene.relation_placement"] for line in output.read_text().splitlines()]
+    records = [json.loads(line)["placement"] for line in output.read_text().splitlines()]
     assert len(records) == min_layouts
     assert len({record["layout_id"] for record in records}) == min_layouts
     for record in records:
-        assert record["source"] == "settled"
         assert set(record["poses"]) == {"cube_body", "table", "floor"}
         x, y, z = record["poses"]["cube_body"]["position_xyz"]
         assert -0.4 < x < 0.4 and -0.4 < y < 0.4
@@ -137,7 +136,7 @@ def test_cli_generates_maintained_clutter(tmp_path):
         ],
         timeout_sec=180,
     )
-    records = [json.loads(line)["variations"]["scene.relation_placement"] for line in output.read_text().splitlines()]
+    records = [json.loads(line)["placement"] for line in output.read_text().splitlines()]
     assert len(records) == 1
     record = records[0]
     assert {"robot", "wood_hammer", "red_hammer", "blue_hammer", "clamp"} <= (record["poses"].keys())

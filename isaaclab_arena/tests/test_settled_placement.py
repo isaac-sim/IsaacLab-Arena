@@ -153,10 +153,9 @@ def test_recording_cli_saves_final_poses(tmp_path, backend):
         timeout_sec=180,
         capture_output=True,
     )
-    records = [json.loads(line)["variations"]["scene.relation_placement"] for line in output.read_text().splitlines()]
+    records = [json.loads(line)["placement"] for line in output.read_text().splitlines()]
     assert len(records) == 4
     for record in records:
-        assert record["source"] == "settled"
         reports = {report["check"]: report for report in record["validation"]["post_physics"]}
         assert reports["physics_settled"]["passed"] is True
         assert reports["pose_shift"]["passed"] is True
@@ -323,7 +322,7 @@ def _test_recording_with_default_placer_params(simulation_app, tmp_path):
     summary = record_settled_placement_layouts(cfg, arena_env=arena_env)
     assert summary.output == output
     assert summary.accepted == 2
-    records = [json.loads(line)["variations"]["scene.relation_placement"] for line in output.read_text().splitlines()]
+    records = [json.loads(line)["placement"] for line in output.read_text().splitlines()]
     assert len(records) == 2
     for record in records:
         assert record["poses"]["cube_body"]["position_xyz"][2] == pytest.approx(0.57, abs=0.002)
@@ -350,13 +349,12 @@ def _test_recording_filters_layouts(simulation_app, tmp_path):
     from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
     from isaaclab_arena.offline_placement.settled_placement import collect_settled_placements
     from isaaclab_arena.offline_placement.settled_placement_params import SettledPlacementParams
-    from isaaclab_arena.relations.placement_events import get_placement_pool, make_cached_placement_event
-    from isaaclab_arena.relations.placement_layouts import PlacementLayouts
+    from isaaclab_arena.relations.placement_events import get_placement_pool
     from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
     from isaaclab_arena.relations.reachability_config import ReachabilityConfig
     from isaaclab_arena.relations.validation.types import PlacementCheck
     from isaaclab_arena.scripts.record_placement_layouts import record_placements_to_jsonl
-    from isaaclab_arena.utils.pose import Pose, PoseRange
+    from isaaclab_arena.utils.pose import PoseRange
     from isaaclab_arena.utils.velocity import Velocity
 
     register_no_embodiment()
@@ -384,7 +382,6 @@ def _test_recording_filters_layouts(simulation_app, tmp_path):
         floor.tags = None
         assert floor.has_pose_reset_event()
         state = base.scene.get_state()
-        layouts = PlacementLayouts({key: [Pose.identity()] for key in base.scene.rigid_objects})
         for attribute, value, reason in (
             ("reset_pose", False, "pose resets disabled"),
             ("initial_velocity", Velocity(linear_xyz=(1.0, 0.0, 0.0)), "nonzero initial velocity"),
@@ -401,8 +398,6 @@ def _test_recording_filters_layouts(simulation_app, tmp_path):
                         env, tmp_path / "incompatible.jsonl", min_layouts=1, max_batches=1, scene_assets=assets
                     )
                 reset.assert_not_called()
-                with pytest.raises(AssertionError, match=f"floor.*{reason}"):
-                    make_cached_placement_event(layouts, assets, base.num_envs)
             torch.testing.assert_close(base.scene.get_state(), state)
 
         queues = pool.layouts_per_env()
@@ -468,12 +463,9 @@ def _test_recording_filters_layouts(simulation_app, tmp_path):
         assert summary.output == output
         assert summary.accepted == 1 and summary.attempted == 2
         assert set(summary.rejections) == {(1, 0)}
-        records = [
-            json.loads(line)["variations"]["scene.relation_placement"] for line in output.read_text().splitlines()
-        ]
+        records = [json.loads(line)["placement"] for line in output.read_text().splitlines()]
         assert len(records) == 1
         record = records[0]
-        assert record["source"] == "settled"
         saved_position = record["poses"]["cube_body"]["position_xyz"]
         assert queues[0][1].positions[cube][2] - saved_position[2] > 0.002
         assert saved_position == pytest.approx(base.arena_world.get_pose_e("cube_body")[0, :3].tolist())
@@ -548,7 +540,7 @@ def _test_recording_with_robot(simulation_app, tmp_path):
     from isaaclab_arena.offline_placement.settled_batch import capture_articulation_link_poses_in_root_frame
     from isaaclab_arena.offline_placement.settled_placement import collect_settled_placements
     from isaaclab_arena.offline_placement.settled_placement_params import SettledPlacementParams
-    from isaaclab_arena.relations.placement_layouts import PlacementLayouts
+    from isaaclab_arena.relations.placement_sampler import placement_samples_from_pose_columns, write_placement_samples
     from isaaclab_arena.relations.relation_solver import RelationSolver
 
     source = tmp_path / "robot.yaml"
@@ -591,8 +583,10 @@ def _test_recording_with_robot(simulation_app, tmp_path):
         # Normal resets still randomize the robot joints.
         assert not torch.allclose(joint_positions[0], joint_positions[2])
         output = tmp_path / "robot.jsonl"
-        PlacementLayouts(result.poses).write_episode_jsonl(
-            output, source="settled", validation=[asdict(validation) for validation in result.validation]
+        write_placement_samples(
+            output,
+            placement_samples_from_pose_columns(result.poses),
+            validation=[asdict(validation) for validation in result.validation],
         )
         for validation in result.validation:
             reports = {report.check: report for report in validation.post_physics}
@@ -604,7 +598,7 @@ def _test_recording_with_robot(simulation_app, tmp_path):
         env.close()
     with patch.object(RelationSolver, "solve", side_effect=AssertionError("Replay must not solve")):
         env = ArenaEnvBuilder(
-            spec.to_arena_env(), ArenaEnvBuilderCfg(num_envs=2, placement_layouts_path=str(output))
+            spec.to_arena_env(), ArenaEnvBuilderCfg(num_envs=2, recorded_variation_samples_path=str(output))
         ).make_registered()
         try:
             env.reset()
@@ -635,7 +629,12 @@ def _test_configured_validator_reports_write_jsonl(simulation_app, tmp_path, min
 
     from isaaclab_arena.offline_placement.clutter_validators import default_clutter_validators
     from isaaclab_arena.offline_placement.post_physics_validation import build_post_physics_validators
-    from isaaclab_arena.relations.placement_layouts import PlacementLayouts
+    from isaaclab_arena.relations.placement_sampler import (
+        placement_samples_from_pose_columns,
+        placement_samples_to_pose_columns,
+        read_placement_samples,
+        write_placement_samples,
+    )
     from isaaclab_arena.utils.pose import Pose
 
     configurations = default_clutter_validators()
@@ -644,15 +643,17 @@ def _test_configured_validator_reports_write_jsonl(simulation_app, tmp_path, min
     validators = build_post_physics_validators(configurations, [])
     reports = [asdict(validator.report(True)) for validator in validators]
     output = tmp_path / "placements.jsonl"
-    PlacementLayouts({"cube": [Pose.identity()]}).write_episode_jsonl(
-        output, source="settled", validation=[{"post_physics": reports}]
+    write_placement_samples(
+        output,
+        placement_samples_from_pose_columns({"cube": [Pose.identity()]}),
+        validation=[{"post_physics": reports}],
     )
-    record = json.loads(output.read_text())["variations"]["scene.relation_placement"]
+    record = json.loads(output.read_text())["placement"]
     recorded_reports = {report["check"]: report for report in record["validation"]["post_physics"]}
     assert (
         recorded_reports["support_containment"]["configuration"]["minimum_resting_heights_m"] == minimum_resting_heights
     )
-    assert PlacementLayouts.from_episode_jsonl(output).poses == {"cube": [Pose.identity()]}
+    assert placement_samples_to_pose_columns(read_placement_samples(output)) == {"cube": [Pose.identity()]}
     return True
 
 
