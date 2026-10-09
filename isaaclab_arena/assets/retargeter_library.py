@@ -16,10 +16,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 from collections.abc import Callable
+from typing import TYPE_CHECKING
 
 from isaaclab_arena.assets.register import register_retargeter
+
+if TYPE_CHECKING:
+    from isaaclab.devices import DeviceCfg
+    from isaaclab_teleop import IsaacTeleopCfg
+
+    from isaaclab_arena.assets.device_library import TeleopDeviceBase
 
 
 class RetargetterBase(ABC):
@@ -36,6 +45,18 @@ class RetargetterBase(ABC):
     def get_pipeline_builder(self, embodiment: object) -> Callable | None:
         """Return an isaacteleop pipeline builder callable, or None if not applicable."""
         raise NotImplementedError
+
+    def get_device_cfg(self, device: TeleopDeviceBase, embodiment: object) -> DeviceCfg | IsaacTeleopCfg:
+        """Configure a device to emit this embodiment's actions.
+
+        Args:
+            device: Arena teleoperation device to configure.
+            embodiment: Embodiment receiving the device's actions.
+
+        Returns:
+            Configuration for the selected device and embodiment.
+        """
+        return device.get_device_cfg(pipeline_builder=self.get_pipeline_builder(embodiment), embodiment=embodiment)
 
 
 @register_retargeter
@@ -120,6 +141,29 @@ class DroidDifferentialIKKeyboardRetargeter(RetargetterBase):
 
     def get_pipeline_builder(self, embodiment: object) -> Callable | None:
         return None
+
+    def get_device_cfg(self, device: TeleopDeviceBase, embodiment: object) -> DeviceCfg:
+        from isaaclab_arena.embodiments.droid.teleop import DroidSe3Keyboard
+
+        cfg = super().get_device_cfg(device, embodiment)
+        cfg.class_type = DroidSe3Keyboard
+        return cfg
+
+
+@register_retargeter
+class DroidDifferentialIKSpaceMouseRetargeter(RetargetterBase):
+    device = "spacemouse"
+    embodiment = "droid_differential_ik"
+
+    def get_pipeline_builder(self, embodiment: object) -> Callable | None:
+        return None
+
+    def get_device_cfg(self, device: TeleopDeviceBase, embodiment: object) -> DeviceCfg:
+        from isaaclab_arena.embodiments.droid.teleop import DroidSe3SpaceMouse
+
+        cfg = super().get_device_cfg(device, embodiment)
+        cfg.class_type = DroidSe3SpaceMouse
+        return cfg
 
 
 @register_retargeter

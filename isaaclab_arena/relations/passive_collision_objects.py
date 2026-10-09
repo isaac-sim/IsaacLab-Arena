@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import torch
 from collections import defaultdict
 from collections.abc import Iterable
 from typing import TYPE_CHECKING
@@ -51,11 +52,22 @@ def get_placement_collision_objects(
     passive_assets = discover_passive_assets(scene_assets, include_background=include_background)
     passive_asset_set = set(passive_assets)
     # A parent's collision geometry already contains its passive references.
-    collision_objects = [
-        asset
-        for asset in passive_assets
-        if not isinstance(asset, ObjectReference) or asset.parent_asset not in passive_asset_set
-    ]
+    collision_objects = []
+    for asset in passive_assets:
+        if isinstance(asset, ObjectReference):
+            if asset.parent_asset in passive_asset_set:
+                continue
+            # A referenced target frame need not contain collision geometry.
+            bounds = asset.get_bounding_box()
+            has_geometry = bool(
+                torch.isfinite(bounds.min_point).all()
+                and torch.isfinite(bounds.max_point).all()
+                and torch.all(bounds.min_point <= bounds.max_point)
+            )
+            if not has_geometry:
+                print(f"Skipping object reference '{asset.name}' as a collision obstacle: no geometry bounds.")
+                continue
+        collision_objects.append(asset)
     if not include_background:
         return collision_objects
 

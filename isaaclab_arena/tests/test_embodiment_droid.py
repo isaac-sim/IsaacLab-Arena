@@ -154,6 +154,69 @@ def test_newton_droid_ik_lifts_on_teleop_command():
     assert run_function_with_persistent_simulation_app(_test_newton_droid_ik_lifts_on_teleop_command)
 
 
+def _test_newton_droid_actuation_survives_simulation_rebuild(simulation_app) -> bool:
+    """Recording-style simulation rebuilds must retain tuning and stable gripper control."""
+    import numpy as np
+    import torch
+
+    from isaaclab_newton.physics import NewtonManager
+
+    with _newton_droid_env("newton_droid_recording_reset_test") as (env, pos_sensitivity):
+        base_env = env.unwrapped
+        robot = base_env.scene["robot"]
+        property_names = ("joint_target_ke", "joint_target_kd", "joint_armature", "joint_effort_limit")
+        initial_model = NewtonManager.get_model()
+        initial_properties = {}
+        for name in property_names:
+            initial_properties[name] = getattr(initial_model, name).numpy().copy()
+
+        gripper_cfg = base_env.cfg.actions.gripper_action
+        gripper_ids, gripper_names = robot.find_joints(gripper_cfg.joint_names, preserve_order=True)
+        with torch.inference_mode():
+            for _ in range(2):
+                base_env.sim.reset()
+                env.reset()
+                rebuilt_model = NewtonManager.get_model()
+                for name in property_names:
+                    np.testing.assert_allclose(
+                        getattr(rebuilt_model, name).numpy(), initial_properties[name], rtol=1e-6, atol=1e-6
+                    )
+
+                for command, targets in (
+                    (0.0, gripper_cfg.open_command_expr),
+                    (1.0, gripper_cfg.close_command_expr),
+                ):
+                    action = torch.zeros(env.action_space.shape, device=base_env.device)
+                    action[:, -1] = command
+                    settled_positions = []
+                    for step in range(90):
+                        env.step(action)
+                        assert torch.isfinite(robot.data.joint_pos.torch).all()
+                        assert torch.isfinite(robot.data.joint_vel.torch).all()
+                        if step >= 60:
+                            settled_positions.append(robot.data.joint_pos.torch[:, gripper_ids].clone())
+                    positions = torch.stack(settled_positions)
+                    jitter = positions.amax(dim=0) - positions.amin(dim=0)
+                    assert jitter.max().item() < 1e-3, f"Gripper oscillated after rebuild: {jitter}"
+                    expected = torch.tensor([targets[name] for name in gripper_names], device=base_env.device)
+                    torch.testing.assert_close(positions[-1, 0], expected, rtol=0.0, atol=1e-3)
+
+                initial_ee_pos = _get_ee_pos_w(env).clone()
+                action[:, 2] = pos_sensitivity
+                lift_steps = max(1, int(round(LIFT_COMMAND_DURATION_S / base_env.step_dt)))
+                for _ in range(lift_steps):
+                    env.step(action)
+                    assert torch.isfinite(robot.data.joint_pos.torch).all()
+                assert (_get_ee_pos_w(env) - initial_ee_pos)[2].item() > MIN_LIFT_M
+
+    return True
+
+
+@pytest.mark.with_newton
+def test_newton_droid_actuation_survives_simulation_rebuild():
+    assert run_function_with_persistent_simulation_app(_test_newton_droid_actuation_survives_simulation_rebuild)
+
+
 def _test_newton_droid_embodiment_config_contract(simulation_app) -> bool:
     """Pin Newton DROID gripper action, close target, and IK body."""
     from isaaclab_arena.embodiments.droid.droid import (
