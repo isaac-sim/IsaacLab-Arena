@@ -35,10 +35,15 @@ from isaaclab_arena.variations.variation_base import RunTimeVariationBase, Varia
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedEnv
 
+    from isaaclab_arena.assets.asset import Asset
+
 
 @configclass
 class ObjectDisappearVariationCfg(VariationBaseCfg):
     """Configuration for :class:`ObjectDisappearVariation`."""
+
+    sample_per_environment: bool = True
+    """Draw one disappearance decision for each resetting environment."""
 
     away_position_xyz: tuple[float, float, float] = (1000.0, 0.0, 0.0)
     """Env-local position to park a disappeared object at, far enough out to clear every env's cameras.
@@ -75,9 +80,7 @@ class ObjectDisappearVariation(RunTimeVariationBase):
     """Remove an object from the scene with a per-env, per-reset probability.
 
     Args:
-        asset_name: Scene-entity name of the target object. Holding the name rather than the object
-            keeps the asset's variation list free of a back-reference, which ``cfg.validate()``
-            would otherwise follow in circles.
+        asset_name: Scene-entity name used to resolve the target object at runtime.
         cfg: Tunable parameters. Defaults to a 50% chance of disappearing.
         name: Identifier under which this variation is registered on the asset.
             Defaults to ``"disappear"``.
@@ -94,7 +97,13 @@ class ObjectDisappearVariation(RunTimeVariationBase):
         super().__init__(cfg=cfg if cfg is not None else ObjectDisappearVariationCfg(), name=name)
         self.asset_name = asset_name
 
+    def _validate_attachment(self, asset: Asset) -> None:
+        assert (
+            asset.name == self.asset_name
+        ), f"Variation '{self.name}' targets '{self.asset_name}', not asset '{asset.name}'."
+
     def build_event_cfg(self) -> tuple[str, EventTermCfg]:
+        self._validate_configuration()
         assert self._sampler is not None, f"ObjectDisappearVariation on '{self.asset_name}': sampler not set."
         return (
             f"{self.asset_name}_{self.name}",

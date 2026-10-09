@@ -33,6 +33,8 @@ from isaaclab_arena.variations.variation_base import RunTimeVariationBase, Varia
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedEnv
 
+    from isaaclab_arena.assets.asset import Asset
+
 
 @configclass
 class CameraExtrinsicsVariationCfg(VariationBaseCfg):
@@ -41,6 +43,9 @@ class CameraExtrinsicsVariationCfg(VariationBaseCfg):
     ``sampler_cfg`` draws 3D translation offsets in the camera ROS optical frame
     (+X right, +Y down, +Z forward).
     """
+
+    sample_per_environment: bool = True
+    """Draw one camera offset for each resetting environment."""
 
     sampler_cfg: UniformSamplerCfg = field(
         default_factory=lambda: UniformSamplerCfg(
@@ -82,7 +87,14 @@ class CameraExtrinsicsVariation(RunTimeVariationBase):
         super().__init__(cfg=cfg, name=name)
         self.camera_name = camera_name
 
+    def _validate_attachment(self, asset: Asset) -> None:
+        camera_rig = getattr(asset, "camera_config", None)
+        assert (
+            camera_rig is not None and self.camera_name in camera_rig.camera_names()
+        ), f"Variation '{self.name}' requires camera '{self.camera_name}' on asset '{asset.name}'."
+
     def build_event_cfg(self) -> tuple[str, EventTermCfg]:
+        self._validate_configuration()
         assert self._sampler is not None, (
             f"CameraExtrinsicsVariation on '{self.camera_name}' is enabled but no sampler is set; "
             "call apply_cfg with a cfg that sets sampler_cfg before building the env."

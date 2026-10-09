@@ -61,6 +61,8 @@ def draw_record_test_variation(env, env_ids, asset_cfg, sampler):  # noqa: ARG00
 class RecordTestVariationCfg(VariationBaseCfg):
     """Cfg for ``RecordTestVariation`` with a degenerate (constant) sampler for deterministic draws."""
 
+    sample_per_environment: bool = True
+
     sampler_cfg: UniformSamplerCfg = field(
         default_factory=lambda: UniformSamplerCfg(low=VARIATION_SAMPLE, high=VARIATION_SAMPLE),
     )

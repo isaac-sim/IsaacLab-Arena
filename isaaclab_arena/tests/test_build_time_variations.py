@@ -10,7 +10,7 @@ from isaaclab.utils.configclass import configclass
 
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 from isaaclab_arena.variations.uniform_sampler import UniformSamplerCfg
-from isaaclab_arena.variations.variation_base import BuildTimeVariationBase, VariationBaseCfg
+from isaaclab_arena.variations.variation_base import BuildTimeVariationBase, VariationBaseCfg, VariationBuildContext
 
 HEADLESS = True
 
@@ -39,7 +39,7 @@ class TestBuildTimeVariation(BuildTimeVariationBase):
         super().__init__(cfg=cfg if cfg is not None else TestBuildTimeVariationCfg(), name=name)
         self._asset = asset
 
-    def _realize_at_build_time(self) -> None:
+    def _realize_at_build_time(self, context: VariationBuildContext | None = None) -> None:
         assert self.sampler is not None
         self._asset.object_cfg.spawn.radius = float(self.sampler.sample(num_samples=1)[0, 0])
 

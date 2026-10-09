@@ -55,11 +55,32 @@ class Object(RootedObjectBase):
         initial_pose: Pose | None = None,
         relations: list[RelationBase] | None = None,
         spawn_cfg: SpawnerCfg | None = None,
+        asset: tuple[str, SpawnerCfg] | None = None,
         **kwargs,
     ):
-        """Create one concrete asset shared across environments through native spawning."""
+        """Declare a scene object with native asset settings or a build-time asset choice.
+
+        Args:
+            asset: A library name and native rigid spawn configuration, as returned by
+                AssetRegistry.get_asset_definition(). Cannot be combined with usd_path or spawn_cfg.
+
+        Without asset settings, the object declares a rigid body whose spawn configuration
+        must be supplied before placement and scene construction.
+        """
         spawn_cfg_addon: dict[str, Any] = kwargs.pop("spawn_cfg_addon", {}) or {}
-        assert (usd_path is None) != (spawn_cfg is None), "Provide exactly one of usd_path or spawn_cfg"
+        assert (
+            sum(value is not None for value in (asset, usd_path, spawn_cfg)) <= 1
+        ), "Provide at most one of asset, usd_path or spawn_cfg"
+        if asset is not None:
+            assert (
+                isinstance(asset, tuple) and len(asset) == 2
+            ), "asset must contain a library name and spawn configuration"
+            asset_name, spawn_cfg = asset
+            assert isinstance(asset_name, str) and asset_name.strip(), "Asset names must be nonempty."
+            assert isinstance(spawn_cfg, SpawnerCfg), "asset must contain a native spawn configuration"
+            assert object_type in (None, ObjectType.RIGID), "Library asset definitions support rigid objects only"
+            assert scale == (1.0, 1.0, 1.0), "Configure asset scale in its native spawn configuration"
+            object_type = ObjectType.RIGID
         if spawn_cfg is not None:
             assert object_type is not None, "object_type must be provided if spawn_cfg is provided"
             assert not spawn_cfg_addon, "Configure spawn options directly on spawn_cfg"
@@ -67,7 +88,7 @@ class Object(RootedObjectBase):
                 spawn_cfg, (MultiAssetSpawnerCfg, MultiUsdFileCfg)
             ), "Use RigidObjectSet to select different objects across environments"
             spawn_cfg = deepcopy(spawn_cfg)
-        else:
+        elif usd_path is not None:
             if object_type is None:
                 object_type = detect_object_type(usd_path=usd_path, variants=spawn_cfg_addon.get("variants"))
             spawn_cfg = make_usd_spawn_cfg_with_addons(
@@ -78,6 +99,10 @@ class Object(RootedObjectBase):
                 ),
                 spawn_cfg_addon,
             )
+        else:
+            assert object_type in (None, ObjectType.RIGID), "Objects without asset settings must be rigid"
+            assert not spawn_cfg_addon and scale == (1.0, 1.0, 1.0), "Supply spawn settings through an asset definition"
+            object_type = ObjectType.RIGID
         self._initialize_object(name, prim_path, object_type, spawn_cfg, initial_pose, relations, **kwargs)
 
     def _initialize_object(
@@ -85,7 +110,7 @@ class Object(RootedObjectBase):
         name: str,
         prim_path: str | None,
         object_type: ObjectType,
-        spawn_cfg: SpawnerCfg,
+        spawn_cfg: SpawnerCfg | None,
         initial_pose: Pose | None,
         relations: list[RelationBase] | None,
         **kwargs,
@@ -119,6 +144,7 @@ class Object(RootedObjectBase):
     @property
     def spawn_cfg(self) -> SpawnerCfg:
         """The native configuration used for both spawning and geometry queries."""
+        self._assert_assets_resolved()
         return self.object_cfg.spawn
 
     @spawn_cfg.setter
@@ -129,10 +155,36 @@ class Object(RootedObjectBase):
         self.object_cfg.spawn = value
         self._asset_geometry.clear()
 
+    def _assert_assets_resolved(self) -> None:
+        """Require native asset settings before geometry or scene configuration is requested."""
+        assert self.object_cfg.spawn is not None, (
+            f"Object '{self.name}' has no asset; supply asset settings or enable an asset-selection variation "
+            "before building the environment."
+        )
+
+    def _resolve_assets(self, spawn_configs: list[SpawnerCfg], indices: tuple[int, ...]) -> None:
+        """Install prepared native configurations with a fixed assignment for each environment."""
+        assert (
+            self._asset_indices_by_env is None
+        ), f"Object '{self.name}' is already resolved; create a fresh environment."
+        assert spawn_configs, "Asset resolution requires at least one candidate."
+        self.object_cfg.spawn = (
+            MultiAssetSpawnerCfg(assets_cfg=spawn_configs, random_choice=False, activate_contact_sensors=None)
+            if len(spawn_configs) > 1
+            else spawn_configs[0]
+        )
+        self._asset_geometry.clear()
+        self.bind_asset_assignment(indices)
+
+    def get_object_cfg(self) -> tuple[str, AssetBaseCfg]:
+        self._assert_assets_resolved()
+        return super().get_object_cfg()
+
     @property
     def has_multiple_assets(self) -> bool:
         """Whether multiple asset alternatives are configured, regardless of assignment."""
-        return isinstance(self.spawn_cfg, MultiAssetSpawnerCfg) and len(self.spawn_cfg.assets_cfg) > 1
+        spawn_cfg = self.object_cfg.spawn
+        return isinstance(spawn_cfg, MultiAssetSpawnerCfg) and len(spawn_cfg.assets_cfg) > 1
 
     @property
     def asset_indices_by_env(self) -> tuple[int, ...] | None:
@@ -170,11 +222,13 @@ class Object(RootedObjectBase):
 
     def get_bounding_box(self) -> AxisAlignedBoundingBox:
         """Return local bounds in the frame used to write this object's pose."""
+        self._assert_assets_resolved()
         assert not self.has_multiple_assets, f"Object '{self.name}' requires per-environment bounding boxes."
         return self.bounding_box if self.bounding_box is not None else self._get_geometry().get_bounding_box()
 
     def get_bounding_box_for_env(self, env_id: int) -> AxisAlignedBoundingBox:
         """Return the assigned asset's local bounds for one environment."""
+        self._assert_assets_resolved()
         assert env_id >= 0, "Environment index must be non-negative"
         if not self.has_multiple_assets:
             return self.get_bounding_box()
@@ -185,6 +239,7 @@ class Object(RootedObjectBase):
 
     def get_bounding_box_per_env(self, num_envs: int) -> AxisAlignedBoundingBox:
         """Return assigned local bounds with one row per environment."""
+        self._assert_assets_resolved()
         assert num_envs > 0, "Per-environment bounds require at least one environment."
         if not self.has_multiple_assets:
             bounds = self.get_bounding_box()
@@ -201,6 +256,7 @@ class Object(RootedObjectBase):
 
     def get_collision_mesh(self, excluded_prim_paths: Collection[str] = ()) -> trimesh.Trimesh | None:
         """Return collision geometry in the same frame as placement bounds."""
+        self._assert_assets_resolved()
         if self.has_multiple_assets:
             assert not excluded_prim_paths, "Object exclusions require a concrete asset."
             return None
@@ -222,6 +278,7 @@ class Object(RootedObjectBase):
 
     def get_contact_sensor_prim_path(self) -> str:
         """Return the rigid-body path shared by this object's native assets."""
+        self._assert_assets_resolved()
         if not self.has_multiple_assets:
             return self.prim_path + self._get_geometry().get_contact_body_path()
         body_paths = {

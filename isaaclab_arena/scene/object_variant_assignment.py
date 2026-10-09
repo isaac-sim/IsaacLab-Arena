@@ -64,14 +64,14 @@ def assign_object_variants(
     assert num_envs > 0, "Variant assignment requires at least one environment."
     assignments = {}
     for obj in objects:
-        if not getattr(obj, "has_multiple_assets", False):
+        if not getattr(obj, "has_multiple_assets", False) and getattr(obj, "asset_indices_by_env", None) is None:
             continue
         spawn_cfg = obj.spawn_cfg
-        assert isinstance(spawn_cfg, MultiAssetSpawnerCfg), f"Object '{obj.name}' needs native asset variants."
+        spawn_configs = spawn_cfg.assets_cfg if isinstance(spawn_cfg, MultiAssetSpawnerCfg) else [spawn_cfg]
         # Native settings may change after construction; the shared rigid-body view
         # still requires the current alternatives to have one common body path.
         obj.get_contact_sensor_prim_path()
-        variant_count = len(spawn_cfg.assets_cfg)
+        variant_count = len(spawn_configs)
         indices = obj.asset_indices_by_env
         if indices is not None:
             assert len(indices) == num_envs, (
@@ -87,8 +87,10 @@ def assign_object_variants(
             obj.bind_asset_assignment(indices)
         assignments[obj.get_scene_key()] = ObjectVariantAssignmentCfg(
             variant_indices=tuple(indices),
-            spawn_config_hashes=tuple(dict_to_md5_hash(cfg) for cfg in spawn_cfg.assets_cfg),
-            spawner_options_hash=_hash_spawner_options(spawn_cfg),
+            spawn_config_hashes=tuple(dict_to_md5_hash(cfg) for cfg in spawn_configs),
+            spawner_options_hash=(
+                _hash_spawner_options(spawn_cfg) if isinstance(spawn_cfg, MultiAssetSpawnerCfg) else ""
+            ),
         )
     return assignments
 
@@ -116,7 +118,7 @@ def validate_object_variant_assignments(
                 cloner.num_spawn_variants(member.spawn) == 1 for member in asset_cfg.rigid_objects.values()
             ), "Heterogeneous rigid-object collections cannot be combined with assigned variants."
         spawn_cfg = getattr(asset_cfg, "spawn", None)
-        if spawn_cfg is None or cloner.num_spawn_variants(spawn_cfg) <= 1:
+        if spawn_cfg is None or (asset_name not in assignments and cloner.num_spawn_variants(spawn_cfg) <= 1):
             continue
         assert asset_name in assignments, f"Multi-spawner '{asset_name}' has no placement assignment."
         assert isinstance(asset_cfg, AssetBaseCfg), f"Object '{asset_name}' must use an asset configuration."
@@ -124,20 +126,21 @@ def validate_object_variant_assignments(
         assert (
             cloner.path.match(prim_path, scene_cfg.clone_cfg.clone_template) is not None
         ), f"Object '{asset_name}' variants require an environment-scoped prim path."
-        assert isinstance(
-            spawn_cfg, MultiAssetSpawnerCfg
-        ), f"Object '{asset_name}' must retain its native MultiAssetSpawnerCfg."
         assignment = assignments[asset_name]
         variant_count = len(assignment.spawn_config_hashes)
-        assert (
-            len(spawn_cfg.assets_cfg) == variant_count
-        ), f"Object '{asset_name}' variant count changed after placement."
-        actual_hashes = tuple(dict_to_md5_hash(cfg) for cfg in spawn_cfg.assets_cfg)
+        if assignment.spawner_options_hash:
+            assert isinstance(
+                spawn_cfg, MultiAssetSpawnerCfg
+            ), f"Object '{asset_name}' must retain its native MultiAssetSpawnerCfg."
+        spawn_configs = spawn_cfg.assets_cfg if isinstance(spawn_cfg, MultiAssetSpawnerCfg) else [spawn_cfg]
+        assert len(spawn_configs) == variant_count, f"Object '{asset_name}' variant count changed after placement."
+        actual_hashes = tuple(dict_to_md5_hash(cfg) for cfg in spawn_configs)
         assert (
             actual_hashes == assignment.spawn_config_hashes
         ), f"Object '{asset_name}' spawn variants changed after placement."
+        spawner_options_hash = _hash_spawner_options(spawn_cfg) if isinstance(spawn_cfg, MultiAssetSpawnerCfg) else ""
         assert (
-            _hash_spawner_options(spawn_cfg) == assignment.spawner_options_hash
+            spawner_options_hash == assignment.spawner_options_hash
         ), f"Object '{asset_name}' shared spawn settings changed after placement."
         indices = assignment.variant_indices
         assert len(indices) == scene_cfg.num_envs, (
@@ -147,7 +150,8 @@ def validate_object_variant_assignments(
         assert all(
             type(index) is int and 0 <= index < variant_count for index in indices
         ), f"Object '{asset_name}' has invalid variant indices."
-        ordered_assignments.append((asset_name, variant_count, tuple(indices)))
+        if variant_count > 1:
+            ordered_assignments.append((asset_name, variant_count, tuple(indices)))
         configured_objects.add(asset_name)
     missing_objects = assignments.keys() - configured_objects
     assert not missing_objects, f"Object variants missing from the final scene: {sorted(missing_objects)}."

@@ -10,7 +10,7 @@ exercise the cfg plumbing and sampler wiring, not any Isaac Sim runtime.
 """
 
 import torch
-from dataclasses import field
+from dataclasses import FrozenInstanceError, field
 
 import pytest
 from isaaclab.managers import EventTermCfg, SceneEntityCfg
@@ -18,7 +18,12 @@ from isaaclab.utils.configclass import configclass
 
 from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.variations.uniform_sampler import UniformSampler, UniformSamplerCfg
-from isaaclab_arena.variations.variation_base import RunTimeVariationBase, VariationBaseCfg
+from isaaclab_arena.variations.variation_base import (
+    BuildTimeVariationBase,
+    RunTimeVariationBase,
+    VariationBaseCfg,
+    VariationBuildContext,
+)
 
 
 def _noop_event(env, env_ids, asset_cfg):  # noqa: ARG001
@@ -28,6 +33,8 @@ def _noop_event(env, env_ids, asset_cfg):  # noqa: ARG001
 @configclass
 class _CustomVariationCfg(VariationBaseCfg):
     """Test-only cfg that adds tunables on top of :class:`VariationBaseCfg`."""
+
+    sample_per_environment: bool = True
 
     sampler_cfg: UniformSamplerCfg = field(
         default_factory=lambda: UniformSamplerCfg(low=[0.0, 0.0], high=[1.0, 1.0]),
@@ -52,6 +59,7 @@ class _CustomVariation(RunTimeVariationBase):
         super().__init__(cfg=cfg if cfg is not None else _CustomVariationCfg(), name=name)
 
     def build_event_cfg(self) -> tuple[str, EventTermCfg]:
+        self._validate_configuration()
         return (
             f"{self.cfg.asset_name}_{self.name}",
             EventTermCfg(
@@ -70,6 +78,7 @@ def test_default_cfg_populates_variation_state():
     assert isinstance(variation.cfg, _CustomVariationCfg)
     assert variation.cfg.asset_name == "test_asset"
     assert variation.cfg.scale == 1.0
+    assert variation.cfg.sample_per_environment is True
     assert variation.enabled is False
     assert isinstance(variation.sampler, UniformSampler)
     assert tuple(variation.sampler.shape_per_sample) == (2,)
@@ -201,3 +210,124 @@ def test_two_variations_of_same_kind_coexist_when_given_distinct_names():
     assert asset.get_variation(variation_a.name) is variation_a
     assert asset.get_variation(variation_b.name) is variation_b
     assert set(asset.variations) == {variation_a.name, variation_b.name}
+
+
+class _BuildTimeVariation(BuildTimeVariationBase):
+    """Record build hooks without depending on a simulation asset."""
+
+    def __init__(self):
+        self.build_steps = []
+        super().__init__(VariationBaseCfg(sampler_cfg=UniformSamplerCfg(low=[0.0], high=[1.0])), name="build_time")
+
+    def _prepare_at_build_time(self, context: VariationBuildContext | None = None) -> None:
+        self.build_steps.append(("prepare", context))
+
+    def _realize_at_build_time(self, context: VariationBuildContext | None = None) -> None:
+        self.build_steps.append(("realize", context))
+
+
+def test_build_context_reaches_both_hooks_and_remains_optional():
+    variation = _BuildTimeVariation()
+    variation.configure_at_build_time()
+    context = VariationBuildContext(num_envs=3, seed=17, variation_key="object.build_time")
+    variation.configure_at_build_time(context)
+    assert variation.build_steps == [("prepare", None), ("realize", None), ("prepare", context), ("realize", context)]
+    with pytest.raises(FrozenInstanceError):
+        context.num_envs = 4
+
+
+@pytest.mark.parametrize("variation_type,unsupported_scope", [(_BuildTimeVariation, True), (_CustomVariation, False)])
+def test_unsupported_sampling_scope_is_rejected_before_applying_or_building(variation_type, unsupported_scope):
+    variation = variation_type()
+    original_cfg = variation.cfg
+    replacement_cfg = variation.cfg.copy()
+    replacement_cfg.sample_per_environment = unsupported_scope
+    with pytest.raises(AssertionError, match="does not support sample_per_environment"):
+        variation.apply_cfg(replacement_cfg)
+    assert variation.cfg is original_cfg
+
+    variation.cfg.sample_per_environment = unsupported_scope
+    with pytest.raises(AssertionError, match="does not support sample_per_environment"):
+        variation.configure_at_build_time(VariationBuildContext(num_envs=2))
+
+
+def test_runtime_event_build_rejects_direct_sampling_scope_edit():
+    from isaaclab_arena.variations.object_mass_variation import ObjectMassVariation
+
+    variation = ObjectMassVariation("object")
+    variation.cfg.sample_per_environment = False
+    with pytest.raises(AssertionError, match="does not support sample_per_environment"):
+        variation.build_event_cfg()
+
+
+def test_variation_can_only_attach_to_one_host():
+    asset = Asset("first")
+    other_asset = Asset("second")
+    variation = _CustomVariation()
+    assert variation.attached_asset is None
+    asset.add_variation(variation)
+    assert variation.attached_asset is asset
+    with pytest.raises(AssertionError, match="already attached to another asset"):
+        other_asset.add_variation(variation)
+    assert other_asset.get_variations() == []
+    assert variation.attached_asset is asset
+
+
+def test_attachment_preserves_named_and_explicit_targets():
+    from isaaclab_arena.variations.light_intensity_variation import LightIntensityVariation
+    from isaaclab_arena.variations.object_mass_variation import ObjectMassVariation
+
+    target = Asset("target")
+    other_asset = Asset("other")
+    mass_variation = ObjectMassVariation(target.name)
+    light_variation = LightIntensityVariation(target)
+    for variation in (mass_variation, light_variation):
+        with pytest.raises(AssertionError):
+            other_asset.add_variation(variation)
+        assert variation.attached_asset is None
+        target.add_variation(variation)
+        assert variation.attached_asset is target
+    event_name, event_cfg = mass_variation.build_event_cfg()
+    assert event_name == "target_mass_variation"
+    assert event_cfg.params["asset_cfg"].name == target.name
+
+
+def test_camera_attachment_checks_camera_name_and_explicit_rig():
+    from isaaclab.sensors import CameraCfg
+
+    from isaaclab_arena.utils.cameras import ArenaCameraCfg
+    from isaaclab_arena.variations.camera_extrinsics_variation import CameraExtrinsicsVariation
+    from isaaclab_arena.variations.camera_intrinsics_variation import CameraIntrinsicsVariation
+
+    @configclass
+    class CameraRigCfg(ArenaCameraCfg):
+        camera: CameraCfg = CameraCfg(prim_path="/World/Camera", width=16, height=16, spawn=None)
+
+    asset = Asset("robot")
+    camera_rig = CameraRigCfg()
+    asset.camera_config = camera_rig
+    intrinsics = CameraIntrinsicsVariation("camera", camera_rig)
+    other_asset = Asset("other_robot")
+    other_asset.camera_config = CameraRigCfg()
+    with pytest.raises(AssertionError, match="owning its configured camera rig"):
+        other_asset.add_variation(intrinsics)
+    with pytest.raises(AssertionError, match="requires camera 'missing'"):
+        asset.add_variation(CameraExtrinsicsVariation("missing"))
+
+    asset.add_variation(intrinsics)
+    asset.add_variation(CameraExtrinsicsVariation("camera"))
+    asset.camera_config = CameraRigCfg()
+    with pytest.raises(AssertionError, match="owning its configured camera rig"):
+        intrinsics.configure_at_build_time(VariationBuildContext(num_envs=2))
+    assert camera_rig.use_tiled_camera
+
+
+def test_attached_runtime_variation_does_not_create_a_config_validation_cycle():
+    asset = Asset("test_asset")
+    asset.add_variation(_CustomVariation())
+
+    @configclass
+    class AssetCfg:
+        target: Asset = asset
+
+    AssetCfg().validate()

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from isaaclab_arena.variations.asset_selection_variation import AssetSelectionVariation
 from isaaclab_arena.variations.recorded_variation_samples import (
     RebuildVariationRecord,
     load_rebuild_variation_record,
@@ -37,6 +38,9 @@ def configure_recorded_variation_replay(
         Scheduler configured to assign and replay the loaded sample records.
     """
     enabled = _enabled_variations_by_key(variations)
+    assert not any(
+        isinstance(variation, AssetSelectionVariation) for variation in enabled.values()
+    ), "Asset selection replay requires a build manifest and is not supported yet."
     variation_record = load_rebuild_variation_record(
         path,
         build_time_variation_keys={

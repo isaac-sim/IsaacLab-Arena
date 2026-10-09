@@ -98,6 +98,9 @@ environment:
 See :doc:`../concepts/variations/variations` for the available variations and their
 configuration options.
 
+For Python-authored scenes, :ref:`asset-selection-variation` lets a named rigid object spawn
+different assets across parallel environments while keeping each choice fixed across resets.
+
 See :doc:`Arena Experiments <../concepts/concept_arena_experiments>` for configuration
 rules and local and OSMO execution.
 

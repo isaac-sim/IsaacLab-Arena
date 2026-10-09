@@ -20,11 +20,12 @@ from isaaclab.utils.configclass import configclass
 
 from isaaclab_arena.variations.continuous_sampler import ContinuousSampler
 from isaaclab_arena.variations.uniform_sampler import UniformSamplerCfg
-from isaaclab_arena.variations.variation_base import RunTimeVariationBase, VariationBaseCfg
+from isaaclab_arena.variations.variation_base import RunTimeVariationBase, VariationBaseCfg, VariationBuildContext
 
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedEnv
 
+    from isaaclab_arena.assets.asset import Asset
     from isaaclab_arena.utils.cameras import ArenaCameraCfg
 
 
@@ -35,6 +36,9 @@ class CameraIntrinsicsVariationCfg(VariationBaseCfg):
     ``sampler_cfg`` draws two signed fractional perturbations ``(d_fx, d_fy)`` that scale the
     focal lengths (``fx -> fx * (1 + d_fx)``).
     """
+
+    sample_per_environment: bool = True
+    """Draw one intrinsics perturbation for each resetting environment."""
 
     sampler_cfg: UniformSamplerCfg = field(
         default_factory=lambda: UniformSamplerCfg(
@@ -79,11 +83,21 @@ class CameraIntrinsicsVariation(RunTimeVariationBase):
         self.camera_name = camera_name
         self._camera_rig = camera_rig
 
-    def _prepare_at_build_time(self) -> None:
+    def _validate_attachment(self, asset: Asset) -> None:
+        camera_rig = getattr(asset, "camera_config", None)
+        assert (
+            camera_rig is self._camera_rig
+        ), f"Variation '{self.name}' must attach to the asset owning its configured camera rig."
+        assert (
+            self.camera_name in camera_rig.camera_names()
+        ), f"Variation '{self.name}' requires camera '{self.camera_name}' on asset '{asset.name}'."
+
+    def _prepare_at_build_time(self, context: VariationBuildContext | None = None) -> None:
         """Force the target camera's rig untiled so the per-env perturbation takes effect."""
         self._camera_rig.set_use_tiled_camera(False)
 
     def build_event_cfg(self) -> tuple[str, EventTermCfg]:
+        self._validate_configuration()
         assert self._sampler is not None, (
             f"CameraIntrinsicsVariation on '{self.camera_name}' is enabled but no sampler is set; "
             "call apply_cfg with a cfg that sets sampler_cfg before building the env."

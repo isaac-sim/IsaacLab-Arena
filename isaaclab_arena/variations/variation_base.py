@@ -20,8 +20,9 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Callable
-from dataclasses import field
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
+from weakref import ReferenceType, ref
 
 from isaaclab.managers import EventTermCfg
 from isaaclab.utils.configclass import configclass
@@ -31,6 +32,25 @@ from isaaclab_arena.variations.sampler_base import SamplerBase, SamplerBaseCfg
 if TYPE_CHECKING:
     import torch
 
+    from isaaclab_arena.assets.asset import Asset
+
+
+@dataclass(frozen=True)
+class VariationBuildContext:
+    """Resolved environment settings available when configuring a variation."""
+
+    num_envs: int
+    """Number of parallel environments in this build."""
+
+    seed: int | None = None
+    """Resolved environment seed, when configured."""
+
+    variation_key: str = ""
+    """Stable asset and variation name identifying this variation in the build."""
+
+    def __post_init__(self) -> None:
+        assert isinstance(self.num_envs, int) and not isinstance(self.num_envs, bool) and self.num_envs > 0
+
 
 @configclass
 class VariationBaseCfg:
@@ -38,6 +58,9 @@ class VariationBaseCfg:
 
     enabled: bool = False
     """Whether the variation is applied. Opt in via :meth:`VariationBase.enable` or a cfg override."""
+
+    sample_per_environment: bool = False
+    """Whether each environment receives its own sample instead of sharing one sample."""
 
     sampler_cfg: SamplerBaseCfg = field(default_factory=SamplerBaseCfg)
     """Declarative sampler driving this variation. Subclasses set a concrete default."""
@@ -57,12 +80,48 @@ class VariationBase(ABC):
     name: str
     """Identifier under which this variation is registered on its asset."""
 
+    supported_sample_per_environment: tuple[bool, ...] = (False, True)
+    """Sampling scopes implemented by this variation."""
+
     def __init__(self, cfg: VariationBaseCfg, name: str):
         self.name = name
+        self._attached_asset_ref: ReferenceType[Asset] | None = None
         self._sampler: SamplerBase
         self._sample_listeners: list[Callable[[Any, Any], None]] = []
         self._replay_sampler: Callable[[int, torch.Tensor | None], list[Any] | None] | None = None
         self.apply_cfg(cfg)
+
+    @property
+    def attached_asset(self) -> Asset | None:
+        """Asset that owns this variation, or None before attachment."""
+        return self._attached_asset_ref() if self._attached_asset_ref is not None else None
+
+    def attach(self, asset: Asset) -> None:
+        """Bind this variation to one asset without changing any explicit target."""
+        assert (
+            self._attached_asset_ref is None or self.attached_asset is asset
+        ), f"Variation '{self.name}' is already attached to another asset."
+        self._validate_sampling_scope(self.cfg)
+        self._validate_attachment(asset)
+        # Environment config validation follows object attributes without tracking cycles.
+        self._attached_asset_ref = ref(asset)
+
+    def _validate_attachment(self, asset: Asset) -> None:
+        """Check that the proposed host agrees with this variation's explicit target."""
+
+    def _validate_sampling_scope(self, cfg: VariationBaseCfg) -> None:
+        assert isinstance(cfg.sample_per_environment, bool), "sample_per_environment must be a boolean."
+        assert cfg.sample_per_environment in self.supported_sample_per_environment, (
+            f"{type(self).__name__} does not support sample_per_environment={cfg.sample_per_environment}; "
+            f"supported values are {self.supported_sample_per_environment}."
+        )
+
+    def _validate_configuration(self) -> None:
+        """Recheck mutable configuration and the attached target before building."""
+        self._validate_sampling_scope(self.cfg)
+        asset = self.attached_asset
+        if asset is not None:
+            self._validate_attachment(asset)
 
     @property
     def enabled(self) -> bool:
@@ -99,23 +158,25 @@ class VariationBase(ABC):
         self._replay_sampler = replay_sampler
         self._sampler.set_replay_sampler(replay_sampler)
 
-    def _prepare_at_build_time(self) -> None:
+    def _prepare_at_build_time(self, context: VariationBuildContext | None = None) -> None:
         """Configure prerequisites required before environment construction. Default: no-op.
 
         A run-time variation overrides this when its later event needs a build-time
         precondition (e.g. forcing its camera untiled so per-env edits take effect).
+        Run-time samplers draw only during simulation; preparation must not draw from them.
         """
 
-    def _realize_at_build_time(self) -> None:
+    def _realize_at_build_time(self, context: VariationBuildContext | None = None) -> None:
         """Sample and mutate the bound asset config(s) in place during construction. Default: no-op.
 
         A build-time variation realises its whole effect here; a run-time variation leaves it a no-op.
         """
 
-    def configure_at_build_time(self) -> None:
+    def configure_at_build_time(self, context: VariationBuildContext | None = None) -> None:
         """Run this variation's build-time preparation and realization, once per env build."""
-        self._prepare_at_build_time()
-        self._realize_at_build_time()
+        self._validate_configuration()
+        self._prepare_at_build_time(context)
+        self._realize_at_build_time(context)
 
     def apply_cfg(self, cfg: VariationBaseCfg) -> None:
         """Apply new ``cfg``.
@@ -127,10 +188,11 @@ class VariationBase(ABC):
         Args:
             cfg: A cfg of the ``VariationBaseCfg`` subclass this variation accepts.
         """
-        self.cfg = cfg
+        self._validate_sampling_scope(cfg)
         assert isinstance(
             cfg.sampler_cfg, SamplerBaseCfg
         ), f"cfg.sampler_cfg must be a SamplerBaseCfg; got {type(cfg.sampler_cfg).__name__}."
+        self.cfg = cfg
         self._sampler = cfg.sampler_cfg.build()
         self._sampler.set_replay_sampler(self._replay_sampler)
         # Re-bind variation-owned listeners so a cfg/sampler swap doesn't drop subscriptions.
@@ -144,6 +206,8 @@ class RunTimeVariationBase(VariationBase):
     Use when the underlying property can be flipped during simulation (e.g.
     visual color, initial pose, mass).
     """
+
+    supported_sample_per_environment = (True,)
 
     @abstractmethod
     def build_event_cfg(self) -> tuple[str, EventTermCfg]:
@@ -159,7 +223,9 @@ class BuildTimeVariationBase(VariationBase):
     asset(s) they mutate and realise the effect in ``_realize_at_build_time``.
     """
 
+    supported_sample_per_environment = (False,)
+
     @abstractmethod
-    def _realize_at_build_time(self) -> None:
+    def _realize_at_build_time(self, context: VariationBuildContext | None = None) -> None:
         """Sample and apply this variation to the target configuration once per env build."""
         ...

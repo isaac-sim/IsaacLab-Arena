@@ -19,9 +19,10 @@ from isaaclab.utils.configclass import configclass
 from isaaclab.utils.math import quat_from_angle_axis
 
 from isaaclab_arena.variations.uniform_sampler import UniformSamplerCfg
-from isaaclab_arena.variations.variation_base import BuildTimeVariationBase, VariationBaseCfg
+from isaaclab_arena.variations.variation_base import BuildTimeVariationBase, VariationBaseCfg, VariationBuildContext
 
 if TYPE_CHECKING:
+    from isaaclab_arena.assets.asset import Asset
     from isaaclab_arena.assets.object_library import DirectionalLight, DomeLight
 
 
@@ -91,11 +92,14 @@ class LightDirectionVariation(BuildTimeVariationBase):
         self._light = light
         self._dome_light: DomeLight | None = None
 
+    def _validate_attachment(self, asset: Asset) -> None:
+        assert asset is self._light, f"Variation '{self.name}' must attach to its configured light."
+
     def set_dome_light(self, dome_light: DomeLight) -> None:
         """Register a dome light to dim while this variation is active, so shadows are visible."""
         self._dome_light = dome_light
 
-    def _prepare_at_build_time(self) -> None:
+    def _prepare_at_build_time(self, context: VariationBuildContext | None = None) -> None:
         """Prepare the scene for this variation, if activated.
 
         Preparation:
@@ -111,7 +115,7 @@ class LightDirectionVariation(BuildTimeVariationBase):
             )
             self._dome_light.set_intensity(self.cfg.dome_intensity_when_active)
 
-    def _realize_at_build_time(self) -> None:
+    def _realize_at_build_time(self, context: VariationBuildContext | None = None) -> None:
         assert self.sampler is not None, "LightDirectionVariation: sampler not set."
         azimuth, elevation = self.sampler.sample(num_samples=1)[0].tolist()
         self._light.set_orientation(quat_xyzw_from_azimuth_elevation(azimuth, elevation))
