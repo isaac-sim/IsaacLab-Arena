@@ -25,7 +25,21 @@ from isaaclab_arena.utils.usd.rigid_bodies import find_shallowest_rigid_body, re
 
 
 class Object(RootedObjectBase):
-    """Pick-up object config for a pick-and-place environment."""
+    """A scene object whose native spawn configuration owns its asset settings."""
+
+    # TODO(cvolk, 2026.10.09): [object-config-migration] Rename library class defaults
+    # before replacing scale/usd_path forwarding with normal properties.
+    def __getattribute__(self, name: str) -> Any:
+        # Library subclasses declare class defaults under these names, which would
+        # shadow properties on Object. Instance access must use the current config.
+        if name in ("scale", "usd_path"):
+            return getattr(super().__getattribute__("spawn_cfg"), name)
+        return super().__getattribute__(name)
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        if name in ("scale", "usd_path"):
+            raise AttributeError(f"Configure {name} through spawn_cfg.{name}")
+        super().__setattr__(name, value)
 
     def __init__(
         self,
@@ -35,50 +49,71 @@ class Object(RootedObjectBase):
         usd_path: str | None = None,
         scale: tuple[float, float, float] = (1.0, 1.0, 1.0),
         initial_pose: Pose | None = None,
-        relations: list[RelationBase] = [],
-        spawner_cfg: SpawnerCfg | None = None,
+        relations: list[RelationBase] | None = None,
+        spawn_cfg: SpawnerCfg | None = None,
         **kwargs,
     ):
-        # Pull out addons (and remove them from kwargs before passing to super)
         spawn_cfg_addon: dict[str, Any] = kwargs.pop("spawn_cfg_addon", {}) or {}
         asset_cfg_addon: dict[str, Any] = kwargs.pop("asset_cfg_addon", {}) or {}
-        assert usd_path is not None or spawner_cfg is not None, "Either usd_path or spawner_cfg must be provided"
-        assert usd_path is None or spawner_cfg is None, "Either usd_path or spawner_cfg must be provided (not both)"
-        if spawner_cfg is not None:
-            assert object_type is not None, "object_type must be provided if spawner_cfg is provided"
-        # Detect object type if not provided
-        if object_type is None:
-            assert usd_path is not None, (
-                "object_type is None (indicating auto-detect) but usd_path is also None. usd_path is required to detect"
-                " object type"
+        assert (usd_path is None) != (spawn_cfg is None), "Provide exactly one of usd_path or spawn_cfg"
+        if spawn_cfg is not None:
+            assert object_type is not None, "object_type must be provided if spawn_cfg is provided"
+            assert not spawn_cfg_addon, "Configure spawn options directly on spawn_cfg"
+            spawn_cfg = deepcopy(spawn_cfg)
+        else:
+            if object_type is None:
+                object_type = detect_object_type(usd_path=usd_path, variants=spawn_cfg_addon.get("variants"))
+            spawn_cfg = make_usd_spawn_cfg_with_addons(
+                UsdFileCfg(
+                    usd_path=usd_path,
+                    scale=scale,
+                    activate_contact_sensors=object_type in (ObjectType.RIGID, ObjectType.ARTICULATION),
+                ),
+                spawn_cfg_addon,
             )
-            object_type = detect_object_type(usd_path=usd_path, variants=spawn_cfg_addon.get("variants"))
         super().__init__(name=name, prim_path=prim_path, object_type=object_type, **kwargs)
-        self.usd_path = usd_path
-        self.spawner_cfg = spawner_cfg
-        self.scale = scale
         self.initial_pose = initial_pose
-        self.relations = list(relations)
+        self.relations = list(relations or [])
         self.reset_pose = True
-        # Keep nested addon settings independent when multiple objects reuse the same input mapping.
-        self.spawn_cfg_addon = deepcopy(spawn_cfg_addon)
-        self.asset_cfg_addon = asset_cfg_addon
-        self.bounding_box = None
-        self.object_cfg = self._init_object_cfg()
+        self.bounding_box: AxisAlignedBoundingBox | None = None
+        cfg_options = deepcopy(asset_cfg_addon)
+        if object_type == ObjectType.ARTICULATION:
+            cfg_options.setdefault("actuators", {})
+            cfg_type = ArticulationCfg
+        elif object_type == ObjectType.RIGID:
+            cfg_type = RigidObjectCfg
+        else:
+            cfg_type = AssetBaseCfg
+            if isinstance(spawn_cfg, UsdFileCfg):
+                with open_stage(spawn_cfg.usd_path) as stage:
+                    if has_light(stage):
+                        print("WARNING: Base object has lights, which may cause issues with multiple environments.")
+        self.object_cfg = cfg_type(prim_path=self.prim_path, spawn=spawn_cfg, **cfg_options)
+        if initial_pose is not None:
+            self._set_initial_pose(initial_pose)
         self._pose_event_cfg = self._build_reset_event()
+
+    @property
+    def spawn_cfg(self) -> SpawnerCfg:
+        """The native configuration used to spawn this object."""
+        return self.object_cfg.spawn
+
+    @spawn_cfg.setter
+    def spawn_cfg(self, value: SpawnerCfg) -> None:
+        self.object_cfg.spawn = value
 
     def get_bounding_box(self) -> AxisAlignedBoundingBox:
         """Get local bounding box (relative to object origin)."""
-        assert self.usd_path is not None
+        spawn_cfg = self.spawn_cfg
         if self.bounding_box is None:
-            self.bounding_box = compute_local_bounding_box_from_usd(self.usd_path, self.scale)
+            assert isinstance(spawn_cfg, UsdFileCfg), "Automatic bounds require a USD spawn configuration"
+            self.bounding_box = compute_local_bounding_box_from_usd(
+                spawn_cfg.usd_path, spawn_cfg.scale or (1.0, 1.0, 1.0)
+            )
         return self.bounding_box
 
     def get_corners(self, pos: torch.Tensor) -> torch.Tensor:
-        assert self.usd_path is not None
-        if self.bounding_box is None:
-            self.bounding_box = compute_local_bounding_box_from_usd(self.usd_path, self.scale)
-        return self.bounding_box.get_corners_at(pos)
+        return self.get_bounding_box().get_corners_at(pos)
 
     def is_initial_pose_set(self) -> bool:
         return self.initial_pose is not None
@@ -91,120 +126,49 @@ class Object(RootedObjectBase):
         self.reset_pose = True
         self._pose_event_cfg = self._build_reset_event()
 
-    def get_contact_sensor_prim_path(self, usd_path: str | None = None) -> str:
-        """Return the scene prim path where this object's contact sensor is attached.
-
-        Args:
-            usd_path: Optional member USD path for object subclasses that spawn from multiple files.
-        """
+    def get_contact_sensor_prim_path(self) -> str:
+        """Return the scene path of the configured rigid body."""
         assert self.object_type == ObjectType.RIGID, "Contact sensor is only supported for rigid objects"
-        usd_path = usd_path or self.usd_path
-        assert usd_path is not None, f"No USD path available for {self.name}. Can't add contact sensor."
+        spawn_cfg = self.spawn_cfg
+        assert isinstance(spawn_cfg, UsdFileCfg), "Contact-body discovery requires a USD spawn configuration"
+        variants = spawn_cfg.variants
+        if variants is not None and not isinstance(variants, dict):
+            variants = variants.to_dict()
         rigid_body_relative_path = find_shallowest_rigid_body(
-            usd_path,
+            spawn_cfg.usd_path,
             within_default_prim=True,
             relative_to_default_prim=True,
-            variants=(self.spawn_cfg_addon or {}).get("variants"),
+            variants=variants,
         )
-        assert (
-            rigid_body_relative_path is not None
-        ), f"No rigid body found in {self.name} USD file: {usd_path}. Can't add contact sensor."
+        assert rigid_body_relative_path is not None, f"No rigid body found in {self.name} USD file"
         return self.prim_path + rigid_body_relative_path
 
     def get_contact_sensor_cfg(self, contact_against_object: ObjectBase | None = None) -> ContactSensorCfg:
-        # We override this function from the parent class because some assets do not have their rigid body
-        # at the root of the USD file. To be robust to this, we find the shallowest rigid body and add the
-        # contact sensor to it.
+        """Configure contacts against the target's current rigid-body paths."""
         if contact_against_object is not None:
             assert isinstance(
                 contact_against_object, RootedObjectBase
             ), "Contact sensors against deformable objects and other non-rooted objects are not supported"
         contact_sensor_prim_path = self.get_contact_sensor_prim_path()
         if isinstance(contact_against_object, Object) and contact_against_object.object_type == ObjectType.BASE:
-            # PhysX needs a separate filter expression for each nested target body.
-            body_paths = read_asset_rigid_body_paths(
-                contact_against_object.usd_path,
-                variants=(contact_against_object.spawn_cfg_addon or {}).get("variants"),
-            )
+            target_spawn_cfg = contact_against_object.spawn_cfg
+            assert isinstance(target_spawn_cfg, UsdFileCfg), "BASE contact targets require a USD spawn configuration"
+            target_variants = target_spawn_cfg.variants
+            if target_variants is not None and not isinstance(target_variants, dict):
+                target_variants = target_variants.to_dict()
+            body_paths = read_asset_rigid_body_paths(target_spawn_cfg.usd_path, variants=target_variants)
             assert body_paths, "Contact targets must contain rigid bodies."
             filter_prim_paths = []
             for path in body_paths:
-                relative_path = path.removeprefix("/Asset")
-                filter_prim_paths.append(contact_against_object.get_prim_path() + relative_path)
+                filter_prim_paths.append(contact_against_object.get_prim_path() + path.removeprefix("/Asset"))
         elif isinstance(contact_against_object, Object):
-            # This branch supports rigid targets only. For ObjectInTask in kitchen scenes,
-            # supply receptacles such as the microwave as Background objects so the branch
-            # above filters contacts against their nested rigid bodies.
             filter_prim_paths = [contact_against_object.get_contact_sensor_prim_path()]
         elif isinstance(contact_against_object, ObjectBase):
-            # Handles ObjectReference.
-            # NOTE(alexmillane, 2026.04.10): ObjectReference is assumed to have its rigid body at its scene prim path.
+            # References already name the body in their configured scene path.
             filter_prim_paths = [contact_against_object.get_prim_path()]
-        elif contact_against_object is None:
+        else:
             filter_prim_paths = []
-        return ContactSensorCfg(
-            prim_path=contact_sensor_prim_path,
-            filter_prim_paths_expr=filter_prim_paths,
-        )
-
-    def _get_spawn_cfg(self, activate_contact_sensors: bool = False) -> SpawnerCfg:
-        """Return the custom spawn config if set, otherwise a USD spawn config with addons."""
-        if self.spawner_cfg is not None:
-            assert not self.spawn_cfg_addon, (
-                "spawn_cfg_addon cannot be combined with spawner_cfg. "
-                "Configure spawn options and physics on the custom spawner instead."
-            )
-            return self.spawner_cfg
-        spawn_cfg = UsdFileCfg(
-            usd_path=self.usd_path,
-            scale=self.scale,
-            activate_contact_sensors=activate_contact_sensors,
-        )
-        return make_usd_spawn_cfg_with_addons(spawn_cfg, self.spawn_cfg_addon)
-
-    def _generate_rigid_cfg(self) -> RigidObjectCfg:
-        assert self.object_type == ObjectType.RIGID
-        object_cfg = RigidObjectCfg(
-            prim_path=self.prim_path,
-            spawn=self._get_spawn_cfg(activate_contact_sensors=True),
-            **self.asset_cfg_addon,
-        )
-        return self._add_initial_pose_to_cfg(object_cfg)
-
-    def _generate_articulation_cfg(self) -> ArticulationCfg:
-        assert self.object_type == ObjectType.ARTICULATION
-        object_cfg = ArticulationCfg(
-            prim_path=self.prim_path,
-            spawn=self._get_spawn_cfg(activate_contact_sensors=True),
-            **self.asset_cfg_addon,
-            actuators={},
-        )
-        return self._add_initial_pose_to_cfg(object_cfg)
-
-    def _generate_base_cfg(self) -> AssetBaseCfg:
-        assert self.object_type == ObjectType.BASE
-        if self.spawner_cfg is None:
-            with open_stage(self.usd_path) as stage:
-                if has_light(stage):
-                    print(
-                        "WARNING: Base object has lights, this may cause issues when using with multiple environments."
-                    )
-        object_cfg = AssetBaseCfg(
-            prim_path=self.prim_path,
-            spawn=self._get_spawn_cfg(),
-            **self.asset_cfg_addon,
-        )
-        return self._add_initial_pose_to_cfg(object_cfg)
-
-    def _add_initial_pose_to_cfg(
-        self, object_cfg: RigidObjectCfg | ArticulationCfg | AssetBaseCfg
-    ) -> RigidObjectCfg | ArticulationCfg | AssetBaseCfg:
-        # Optionally specify initial pose
-        initial_pose = self._get_initial_pose_as_pose()
-        if initial_pose is not None:
-            object_cfg.init_state.pos = initial_pose.position_xyz
-            object_cfg.init_state.rot = initial_pose.rotation_xyzw
-        return object_cfg
+        return ContactSensorCfg(prim_path=contact_sensor_prim_path, filter_prim_paths_expr=filter_prim_paths)
 
     def _requires_reset_pose_event(self) -> bool:
         return super()._requires_reset_pose_event() and self.reset_pose

@@ -61,31 +61,39 @@ def _test_object_set_samples_and_stores_variant_indices(simulation_app):
         obj_set.assign_variants(num_envs=4)
         assert obj_set.variant_indices_by_env == assigned_variant_indices
 
-    assert obj_set.object_usd_paths == [can_b.usd_path, can_a.usd_path, can_b.usd_path, can_b.usd_path]
+    assert obj_set.object_usd_paths == [
+        can_b.spawn_cfg.usd_path,
+        can_a.spawn_cfg.usd_path,
+        can_b.spawn_cfg.usd_path,
+        can_b.spawn_cfg.usd_path,
+    ]
     spawn_cfg = obj_set.object_cfg.spawn
     assert getattr(spawn_cfg, "usd_path") == obj_set.object_usd_paths
     assert getattr(spawn_cfg, "random_choice") is False
 
-    with patch("isaaclab_arena.assets.object.find_shallowest_rigid_body", return_value="/rigid") as find_rigid_body:
+    with patch("isaaclab_arena.assets.object_set.find_shallowest_rigid_body", return_value="/rigid") as find_rigid_body:
         contact_sensor_cfg = obj_set.get_contact_sensor_cfg()
-    assert [call.args[0] for call in find_rigid_body.call_args_list] == [can_a.usd_path, can_b.usd_path]
+    assert [call.args[0] for call in find_rigid_body.call_args_list] == [
+        can_a.spawn_cfg.usd_path,
+        can_b.spawn_cfg.usd_path,
+    ]
     assert all(
-        call.kwargs == {"within_default_prim": True, "relative_to_default_prim": True, "variants": None}
+        call.kwargs == {"within_default_prim": True, "relative_to_default_prim": True}
         for call in find_rigid_body.call_args_list
     )
     assert contact_sensor_cfg.prim_path == f"{obj_set.prim_path}/rigid"
 
-    with patch("isaaclab_arena.assets.object.find_shallowest_rigid_body", return_value="/rigid") as find_rigid_body:
+    with patch("isaaclab_arena.assets.object_set.find_shallowest_rigid_body", return_value="/rigid") as find_rigid_body:
         contact_sensor_cfg = obj_set.get_contact_sensor_cfg(contact_against_object=destination_set)
     assert [call.args[0] for call in find_rigid_body.call_args_list] == [
-        can_a.usd_path,
-        can_b.usd_path,
-        can_b.usd_path,
-        can_a.usd_path,
+        can_a.spawn_cfg.usd_path,
+        can_b.spawn_cfg.usd_path,
+        can_b.spawn_cfg.usd_path,
+        can_a.spawn_cfg.usd_path,
     ]
     assert contact_sensor_cfg.filter_prim_paths_expr == [f"{destination_set.prim_path}/rigid"]
 
-    with patch("isaaclab_arena.assets.object.find_shallowest_rigid_body", side_effect=["/rigid", "/other_rigid"]):
+    with patch("isaaclab_arena.assets.object_set.find_shallowest_rigid_body", side_effect=["/rigid", "/other_rigid"]):
         with pytest.raises(AssertionError, match="same contact-sensor prim path"):
             obj_set.get_contact_sensor_prim_path()
 
@@ -129,7 +137,7 @@ def _test_two_object_sets_resolve_normalized_usd_contact_paths(simulation_app, t
         destination = RigidObjectSet(name="destination", objects=destination_members)
 
     for obj_set, members in ((pickup, pickup_members), (destination, destination_members)):
-        source_paths = {obj.usd_path for obj in members}
+        source_paths = {obj.spawn_cfg.usd_path for obj in members}
         assert source_paths.isdisjoint(obj_set.member_usd_paths)
     task = PickAndPlaceTask(pick_up_object=pickup, destination_location=destination, background_scene=destination)
     sensor_cfg = getattr(task.get_scene_cfg(), task.contact_sensor_name)
@@ -167,7 +175,13 @@ def _test_object_set_default_variant_indices_follow_member_order(simulation_app)
         obj_set.assign_variants(num_envs=5)
         assert obj_set.variant_indices_by_env == [0, 1, 0, 1, 0]
 
-    assert obj_set.object_usd_paths == [can_a.usd_path, can_b.usd_path, can_a.usd_path, can_b.usd_path, can_a.usd_path]
+    assert obj_set.object_usd_paths == [
+        can_a.spawn_cfg.usd_path,
+        can_b.spawn_cfg.usd_path,
+        can_a.spawn_cfg.usd_path,
+        can_b.spawn_cfg.usd_path,
+        can_a.spawn_cfg.usd_path,
+    ]
     spawn_cfg = obj_set.object_cfg.spawn
     assert getattr(spawn_cfg, "usd_path") == obj_set.object_usd_paths
     assert getattr(spawn_cfg, "random_choice") is False
@@ -459,9 +473,11 @@ def _test_multi_objects_in_one_object_set(simulation_app):
         # We check the file names instead of the paths because objects may be cached
         object_file_names = [os.path.basename(path) for path in object_paths]
         assert (
-            os.path.basename(cracker_box.usd_path) in object_file_names
+            os.path.basename(cracker_box.spawn_cfg.usd_path) in object_file_names
         ), "Cracker box USD path is not in Object_paths"
-        assert os.path.basename(sugar_box.usd_path) in object_file_names, "Sugar box USD path is not in Object_paths"
+        assert (
+            os.path.basename(sugar_box.spawn_cfg.usd_path) in object_file_names
+        ), "Sugar box USD path is not in Object_paths"
     except Exception as e:
         print(f"Error: {e}")
         traceback.print_exc()
@@ -535,16 +551,16 @@ def _test_multi_object_sets(simulation_app):
         object_1_file_names = [os.path.basename(path) for path in object_1_paths]
         object_2_file_names = [os.path.basename(path) for path in object_2_paths]
         assert (
-            os.path.basename(cracker_box.usd_path) in object_1_file_names
+            os.path.basename(cracker_box.spawn_cfg.usd_path) in object_1_file_names
         ), "Cracker box USD path is not in Object_1_paths"
         assert (
-            os.path.basename(sugar_box.usd_path) in object_1_file_names
+            os.path.basename(sugar_box.spawn_cfg.usd_path) in object_1_file_names
         ), "Sugar box USD path is not in Object_1_paths"
         assert (
-            os.path.basename(sugar_box.usd_path) in object_2_file_names
+            os.path.basename(sugar_box.spawn_cfg.usd_path) in object_2_file_names
         ), "Sugar box USD path is not in Object_2_paths"
         assert (
-            os.path.basename(mustard_bottle.usd_path) in object_2_file_names
+            os.path.basename(mustard_bottle.spawn_cfg.usd_path) in object_2_file_names
         ), "Mustard bottle USD path is not in Object_2_paths"
     except Exception as e:
         print(f"Error: {e}")

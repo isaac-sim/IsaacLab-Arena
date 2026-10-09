@@ -140,7 +140,7 @@ def _test_object_moves_with_initial_velocity(simulation_app):
         ),
         mass_props=sim_utils.MassPropertiesCfg(mass=0.25),
     )
-    sphere = asset_registry.get_asset_by_name("sphere")(spawner_cfg=no_gravity_cfg)
+    sphere = asset_registry.get_asset_by_name("sphere")(spawn_cfg=no_gravity_cfg)
 
     initial_velocity = Velocity(linear_xyz=(-0.5, 0.0, 0.0))  # There is a wall in +x
     sphere.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.5), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))

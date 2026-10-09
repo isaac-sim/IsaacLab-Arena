@@ -61,7 +61,7 @@ def _build_two_sphere_env(poses, velocities, num_envs=1):
 
     spheres = []
     for instance_name, pose, velocity in zip(("sphere_a", "sphere_b"), poses, velocities):
-        sphere = Sphere(instance_name=instance_name, spawner_cfg=_floating_sphere_cfg())
+        sphere = Sphere(instance_name=instance_name, spawn_cfg=_floating_sphere_cfg())
         sphere.set_initial_pose(pose)
         sphere.set_initial_velocity(velocity)
         spheres.append(sphere)

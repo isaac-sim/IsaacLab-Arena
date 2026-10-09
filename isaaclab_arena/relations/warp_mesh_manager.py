@@ -150,9 +150,11 @@ class WarpMeshAndSphereCache:
         excluded_prim_paths: Collection[str] = (),
     ) -> trimesh.Trimesh | None:
         """Return the collision mesh, or ``None`` when USD extraction fails."""
+        from isaaclab.sim import UsdFileCfg
+
         from isaaclab_arena.assets.object import Object
 
-        if not isinstance(obj, Object) or obj.usd_path is None:
+        if not isinstance(obj, Object) or not isinstance(obj.spawn_cfg, UsdFileCfg):
             assert not excluded_prim_paths, "USD prim exclusions require an Object with a usd_path."
             return obj.get_collision_mesh()
 
@@ -167,21 +169,25 @@ class WarpMeshAndSphereCache:
         excluded_prim_paths: Collection[str] = (),
     ) -> trimesh.Trimesh | None:
         """Return the collision mesh while preserving USD extraction errors."""
+        from isaaclab.sim import UsdFileCfg
+
         from isaaclab_arena.assets.object import Object
 
-        if not isinstance(obj, Object) or obj.usd_path is None:
+        if not isinstance(obj, Object) or not isinstance(obj.spawn_cfg, UsdFileCfg):
             assert not excluded_prim_paths, "USD prim exclusions require an Object with a usd_path."
             return obj.get_collision_mesh()
 
         exclusions = tuple(sorted(excluded_prim_paths))
-        key = (obj.usd_path, tuple(obj.scale), exclusions)
+        spawn_cfg = obj.spawn_cfg
+        scale = tuple(spawn_cfg.scale or (1.0, 1.0, 1.0))
+        key = (spawn_cfg.usd_path, scale, exclusions)
         if key not in self._trimesh_cache:
             from isaaclab_arena.utils.usd.helpers import extract_trimesh_from_usd  # deferred: pxr import
 
             try:
                 self._trimesh_cache[key] = extract_trimesh_from_usd(
-                    obj.usd_path,
-                    obj.scale,
+                    spawn_cfg.usd_path,
+                    scale,
                     excluded_prim_paths=exclusions,
                 )
             except ValueError as e:
@@ -203,11 +209,15 @@ class WarpMeshAndSphereCache:
 
     def _cache_key(self, mesh: trimesh.Trimesh, obj: CollisionObject | None = None) -> tuple:
         """Compute cache key. Uses (usd_path, scale) for USD objects, content hash otherwise."""
+        from isaaclab.sim import UsdFileCfg
+
         from isaaclab_arena.assets.object import Object
 
         repair_non_watertight = obj.repair_collision_mesh_non_watertight if obj is not None else True
-        if isinstance(obj, Object) and obj.usd_path is not None:
-            return (obj.usd_path, tuple(obj.scale), repair_non_watertight, self._num_spheres, self._sphere_radius)
+        if isinstance(obj, Object) and isinstance(obj.spawn_cfg, UsdFileCfg):
+            spawn_cfg = obj.spawn_cfg
+            scale = tuple(spawn_cfg.scale or (1.0, 1.0, 1.0))
+            return (spawn_cfg.usd_path, scale, repair_non_watertight, self._num_spheres, self._sphere_radius)
         return (_mesh_content_hash(mesh), repair_non_watertight, self._num_spheres, self._sphere_radius)
 
     def get_warp_mesh(self, mesh: trimesh.Trimesh, obj: CollisionObject | None = None) -> wp.Mesh:

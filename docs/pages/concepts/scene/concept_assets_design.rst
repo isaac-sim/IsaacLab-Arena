@@ -53,6 +53,18 @@ actuators). ``spawn_cfg_addon`` configures how the USD is loaded and which physi
 are authored during spawning: mass/density, collision settings, and contact materials.
 Use ``prim_physics`` within the spawn addons for selected bodies, colliders, or joints.
 
+Native object configuration
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Constructor settings populate ``obj.spawn_cfg``, the same native configuration as
+``obj.object_cfg.spawn``. Pass a native configuration with ``spawn_cfg=...``;
+Arena copies it so each object owns its settings. Make changes before building
+the environment.
+
+Library class attributes such as ``CrackerBox.usd_path`` remain defaults.
+Instance ``obj.usd_path`` and ``obj.scale`` read the current native values;
+change them through ``obj.spawn_cfg``. Light setters also update that configuration.
+
 Physics spawn addons
 ~~~~~~~~~~~~~~~~~~~~
 

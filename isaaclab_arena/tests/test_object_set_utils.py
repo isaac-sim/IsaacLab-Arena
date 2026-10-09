@@ -31,7 +31,7 @@ def _test_cache_pipeline_preserves_nested_default_rigid_body(simulation_app, tmp
     auxiliary = UsdGeom.Xform.Define(stage, "/Auxiliary").GetPrim()
     UsdPhysics.RigidBodyAPI.Apply(auxiliary)
     stage.GetRootLayer().Save()
-    asset = SimpleNamespace(name="nested", usd_path=str(source_path), scale=(2.0, 2.0, 2.0))
+    asset = SimpleNamespace(name="nested", spawn_cfg=SimpleNamespace(usd_path=str(source_path), scale=(2.0, 2.0, 2.0)))
 
     with patch("isaaclab_arena.utils.usd.object_set_utils.get_arena_asset_cache_dir", return_value=tmp_path):
         cache_path = rescale_rename_rigid_body_and_save_to_cache(asset)
@@ -73,8 +73,7 @@ def _test_rescale_rename_rigid_body_and_save_to_cache_depth0(simulation_app):
 
     class _MinimalAsset:
         name = "test_depth0_asset"
-        usd_path = src_path
-        scale = (2.0, 2.0, 2.0)
+        spawn_cfg = SimpleNamespace(usd_path=src_path, scale=(2.0, 2.0, 2.0))
 
     try:
         cache_path_str = rescale_rename_rigid_body_and_save_to_cache(_MinimalAsset())
@@ -126,8 +125,7 @@ def _test_rescale_rename_rigid_body_and_save_to_cache_depth1(simulation_app):
 
     class _MinimalAsset:
         name = "test_depth1_asset"
-        usd_path = src_path
-        scale = (2.0, 2.0, 2.0)
+        spawn_cfg = SimpleNamespace(usd_path=src_path, scale=(2.0, 2.0, 2.0))
 
     try:
         cache_path_str = rescale_rename_rigid_body_and_save_to_cache(_MinimalAsset())
@@ -171,8 +169,7 @@ def _test_cache_pipeline_unifies_mixed_rigid_body_depths(simulation_app):
     class _MinimalAsset:
         def __init__(self, name: str, usd_path: str):
             self.name = name
-            self.usd_path = usd_path
-            self.scale = (1.0, 1.0, 1.0)
+            self.spawn_cfg = SimpleNamespace(usd_path=usd_path, scale=(1.0, 1.0, 1.0))
 
     def _export_asset(rigid_body_path: str) -> str:
         """Write a USD whose only rigid body sits at rigid_body_path, with a material bound to it."""
@@ -213,9 +210,9 @@ def _test_cache_pipeline_unifies_mixed_rigid_body_depths(simulation_app):
     finally:
         for asset in assets:
             with contextlib.suppress(OSError):
-                os.unlink(asset.usd_path)
+                os.unlink(asset.spawn_cfg.usd_path)
             with contextlib.suppress(OSError):
-                os.unlink(get_object_set_asset_cache_path(asset, asset.scale))
+                os.unlink(get_object_set_asset_cache_path(asset, asset.spawn_cfg.scale))
 
 
 def test_cache_pipeline_preserves_nested_default_rigid_body(tmp_path):

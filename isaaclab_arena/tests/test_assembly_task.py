@@ -43,8 +43,8 @@ def get_peg_insert_test_environment(num_envs: int, remove_events: bool = False):
     hole = asset_registry.get_asset_by_name("hole")()
     hole.set_initial_pose(Pose(position_xyz=(0.45, 0.1, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
 
-    light_spawner_cfg = sim_utils.DomeLightCfg(color=(0.75, 0.75, 0.75), intensity=1500.0)
-    light = asset_registry.get_asset_by_name("light")(spawner_cfg=light_spawner_cfg)
+    light_spawn_cfg = sim_utils.DomeLightCfg(color=(0.75, 0.75, 0.75), intensity=1500.0)
+    light = asset_registry.get_asset_by_name("light")(spawn_cfg=light_spawn_cfg)
 
     # Create embodiment
     embodiment = FrankaIKEmbodiment()
@@ -119,8 +119,8 @@ def get_gear_mesh_test_environment(num_envs: int, remove_events: bool = False):
     large_gear = asset_registry.get_asset_by_name("large_gear")()
     large_gear.set_initial_pose(Pose(position_xyz=(0.6, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
 
-    light_spawner_cfg = sim_utils.DomeLightCfg(color=(0.75, 0.75, 0.75), intensity=1500.0)
-    light = asset_registry.get_asset_by_name("light")(spawner_cfg=light_spawner_cfg)
+    light_spawn_cfg = sim_utils.DomeLightCfg(color=(0.75, 0.75, 0.75), intensity=1500.0)
+    light = asset_registry.get_asset_by_name("light")(spawn_cfg=light_spawn_cfg)
 
     # Create embodiment
     embodiment = FrankaIKEmbodiment()

@@ -78,14 +78,19 @@ def _mesh_box(name: str, extents: tuple[float, float, float], position: tuple[fl
 
 def _make_usd_background():
     """Background stub for USD mesh extraction tests."""
+    from isaaclab.assets import AssetBaseCfg
+    from isaaclab.sim import UsdFileCfg
+
     from isaaclab_arena.assets.background import Background
     from isaaclab_arena.assets.object_type import ObjectType
     from isaaclab_arena.utils.pose import Pose
 
     background = Background.__new__(Background)
     background.name = "kitchen"
-    background.usd_path = "/tmp/kitchen.usda"
-    background.scale = (1.0, 1.0, 1.0)
+    background.object_cfg = AssetBaseCfg(
+        prim_path="{ENV_REGEX_NS}/kitchen",
+        spawn=UsdFileCfg(usd_path="/tmp/kitchen.usda", scale=(1.0, 1.0, 1.0)),
+    )
     background.object_type = ObjectType.BASE
     background.collision_mode = None
     background.initial_pose = Pose.identity()
@@ -154,6 +159,8 @@ def test_background_collision_objects_reject_failed_whole_background(monkeypatch
 def test_warp_mesh_cache_caches_unsupported_usd_geometry(monkeypatch):
     """Unsupported USD geometry degrades to cached meshless collision."""
     import pytest
+    from isaaclab.assets import AssetBaseCfg
+    from isaaclab.sim import UsdFileCfg
 
     from isaaclab_arena.assets.object import Object
     from isaaclab_arena.assets.object_type import ObjectType
@@ -162,8 +169,10 @@ def test_warp_mesh_cache_caches_unsupported_usd_geometry(monkeypatch):
 
     obj = Object.__new__(Object)
     obj.name = "kitchen"
-    obj.usd_path = "/tmp/kitchen.usd"
-    obj.scale = [1.0, 1.0, 1.0]
+    obj.object_cfg = AssetBaseCfg(
+        prim_path="{ENV_REGEX_NS}/kitchen",
+        spawn=UsdFileCfg(usd_path="/tmp/kitchen.usd", scale=(1.0, 1.0, 1.0)),
+    )
     obj.object_type = ObjectType.BASE
     obj.repair_collision_mesh_non_watertight = True
     calls = {"count": 0}
@@ -184,14 +193,19 @@ def test_warp_mesh_cache_caches_unsupported_usd_geometry(monkeypatch):
 
 def test_warp_mesh_cache_keys_exclusions(monkeypatch):
     """Different anchor exclusions cannot reuse a stale whole-background mesh."""
+    from isaaclab.assets import AssetBaseCfg
+    from isaaclab.sim import UsdFileCfg
+
     from isaaclab_arena.assets.object import Object
     from isaaclab_arena.assets.object_type import ObjectType
     from isaaclab_arena.relations.warp_mesh_manager import WarpMeshAndSphereCache
 
     obj = Object.__new__(Object)
     obj.name = "kitchen"
-    obj.usd_path = "/tmp/kitchen.usda"
-    obj.scale = (1.0, 1.0, 1.0)
+    obj.object_cfg = AssetBaseCfg(
+        prim_path="{ENV_REGEX_NS}/kitchen",
+        spawn=UsdFileCfg(usd_path="/tmp/kitchen.usda", scale=(1.0, 1.0, 1.0)),
+    )
     obj.object_type = ObjectType.BASE
     obj.repair_collision_mesh_non_watertight = False
     calls = []
@@ -255,6 +269,9 @@ def test_passive_background_excludes_relation_anchor_subtrees(monkeypatch):
     """Background aggregation omits geometry represented separately by relation anchors."""
     from unittest.mock import MagicMock
 
+    from isaaclab.assets import AssetBaseCfg
+    from isaaclab.sim import UsdFileCfg
+
     import isaaclab_arena.relations.passive_collision_objects as passive_module
     from isaaclab_arena.assets.background import Background
     from isaaclab_arena.assets.object_reference import ObjectReference
@@ -264,7 +281,10 @@ def test_passive_background_excludes_relation_anchor_subtrees(monkeypatch):
 
     kitchen = Background.__new__(Background)
     kitchen.name = "kitchen"
-    kitchen.usd_path = "/tmp/kitchen.usda"
+    kitchen.object_cfg = AssetBaseCfg(
+        prim_path="{ENV_REGEX_NS}/kitchen",
+        spawn=UsdFileCfg(usd_path="/tmp/kitchen.usda", scale=(1.0, 1.0, 1.0)),
+    )
     kitchen.initial_pose = Pose.identity()
     kitchen.relations = []
 
@@ -483,6 +503,8 @@ def _test_discover_passive_assets_filters(simulation_app) -> bool:
     """Discovery retains source identities; collision construction aggregates covered geometry."""
     from unittest.mock import MagicMock, patch
 
+    from isaaclab.sim import CuboidCfg, UsdFileCfg
+
     import isaaclab_arena.relations.passive_collision_objects as passive_collision_module
     from isaaclab_arena.assets.background import Background
     from isaaclab_arena.assets.object import Object
@@ -495,7 +517,7 @@ def _test_discover_passive_assets_filters(simulation_app) -> bool:
         obj = MagicMock(spec=spec)
         obj.name = name
         obj.get_relations.return_value = relations
-        obj.usd_path = usd_path
+        obj.spawn_cfg = UsdFileCfg(usd_path=usd_path) if usd_path is not None else CuboidCfg(size=(0.2, 0.2, 0.2))
         obj.get_initial_pose.return_value = pose
         return obj
 
@@ -548,6 +570,7 @@ def test_background_with_pose_range_rejected_for_aggregate_collision():
     from unittest.mock import MagicMock
 
     import pytest
+    from isaaclab.sim import UsdFileCfg
 
     from isaaclab_arena.assets.background import Background
     from isaaclab_arena.relations.passive_collision_objects import discover_passive_assets
@@ -555,7 +578,7 @@ def test_background_with_pose_range_rejected_for_aggregate_collision():
 
     background = MagicMock(spec=Background)
     background.name = "varying_background"
-    background.usd_path = "background.usd"
+    background.spawn_cfg = UsdFileCfg(usd_path="background.usd")
     background.get_relations.return_value = []
     background.get_initial_pose.return_value = PoseRange(
         position_xyz_min=(0.0, 0.0, 0.0),

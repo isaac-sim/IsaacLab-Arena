@@ -196,7 +196,7 @@ def _test_default_light_is_injected_when_scene_has_none(simulation_app):
     # of its variations activates it.
     directional_lights = _lights_of_type(arena_env, DirectionalLight)
     assert len(directional_lights) == 1
-    assert directional_lights[0].spawner_cfg.intensity == 0.0
+    assert directional_lights[0].spawn_cfg.intensity == 0.0
 
     # An explicit light suppresses injection — no double-lighting, and no directional light either.
     explicit = _minimal_scene_spec(
@@ -211,7 +211,7 @@ def _test_default_light_is_injected_when_scene_has_none(simulation_app):
 
     # The injected lights own their spawner cfgs: turning the directional light off above must not
     # have darkened the shared class default for later builds.
-    assert DirectionalLight.default_spawner_cfg.intensity == DirectionalLight.default_intensity
+    assert DirectionalLight.default_spawn_cfg.intensity == DirectionalLight.default_intensity
 
     return True
 
@@ -236,8 +236,8 @@ def _test_direction_variation_lights_injected_directional_light(simulation_app):
     direction_variation.configure_at_build_time()
 
     # Enabling the variation lights the sun and dims the dome so the sun's shadows are visible.
-    assert directional_light.spawner_cfg.intensity == DirectionalLight.default_intensity
-    assert dome_light.spawner_cfg.intensity == direction_variation.cfg.dome_intensity_when_active
+    assert directional_light.spawn_cfg.intensity == DirectionalLight.default_intensity
+    assert dome_light.spawn_cfg.intensity == direction_variation.cfg.dome_intensity_when_active
 
     return True
 
@@ -267,7 +267,7 @@ def _test_graph_parses_asset_poses(simulation_app):
     for obj in spec.objects:
         asset = arena_env.scene.assets[obj.id]
         assert asset.get_initial_pose() == expected
-        assert obj.resolve_usd_path() == asset.usd_path
+        assert obj.resolve_usd_path() == asset.spawn_cfg.usd_path
         direct = AssetRegistry().get_asset_by_name(obj.registry_name)(initial_pose=expected)
         assert direct.get_initial_pose() == expected
     assert spec.to_dict() == serialized

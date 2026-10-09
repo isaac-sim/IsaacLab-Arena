@@ -22,8 +22,8 @@ def _test_get_prim_pose_in_default_prim_frame(simulation_app):
     asset_registry = AssetRegistry()
     kitchen = asset_registry.get_asset_by_name("kitchen")()
 
-    print(f"Opening USD at: {kitchen.usd_path}")
-    stage = Usd.Stage.Open(kitchen.usd_path)
+    print(f"Opening USD at: {kitchen.spawn_cfg.usd_path}")
+    stage = Usd.Stage.Open(kitchen.spawn_cfg.usd_path)
     prim = stage.GetPrimAtPath("/kitchen/food_packages")
 
     pose = get_prim_pose_in_default_prim_frame(prim, stage)

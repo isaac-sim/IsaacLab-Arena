@@ -11,6 +11,8 @@ from collections import defaultdict
 from collections.abc import Iterable
 from typing import TYPE_CHECKING
 
+from isaaclab.sim import UsdFileCfg
+
 from isaaclab_arena.assets.background import Background
 from isaaclab_arena.assets.object import Object
 from isaaclab_arena.assets.object_reference import ObjectReference
@@ -89,10 +91,10 @@ def discover_passive_assets(
         if asset.get_relations():
             continue
         # Without a USD path no bounding box can be computed for collision.
-        if isinstance(asset, Object) and asset.usd_path is None:
+        if isinstance(asset, Object) and not isinstance(asset.spawn_cfg, UsdFileCfg):
             print(f"Skipping '{asset.name}' as a collision obstacle: missing USD path.")
             continue
-        if isinstance(asset, ObjectReference) and asset.parent_asset.usd_path is None:
+        if isinstance(asset, ObjectReference) and not isinstance(asset.parent_asset.spawn_cfg, UsdFileCfg):
             print(
                 f"Skipping object reference '{asset.name}' as a collision obstacle: "
                 f"parent asset '{asset.parent_asset.name}' is missing a USD path."
