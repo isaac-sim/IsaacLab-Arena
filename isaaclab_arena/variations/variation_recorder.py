@@ -106,8 +106,12 @@ class VariationRecorder:
                 self.records[variation_key] = record
 
                 def on_sample(
-                    sample: Any, env_ids: torch.Tensor | None = None, record: VariationRecord = record
+                    sample: Any,
+                    env_ids: torch.Tensor | None = None,
+                    record: VariationRecord = record,
+                    variation: VariationBase = variation,
                 ) -> None:
+                    sample = variation.serialize_sample_for_recording(sample)
                     if isinstance(sample, torch.Tensor):
                         sample = sample.detach().cpu()
                     if env_ids is None:

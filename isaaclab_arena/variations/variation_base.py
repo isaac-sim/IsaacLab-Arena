@@ -109,6 +109,10 @@ class VariationBase(ABC):
     def validate_replay_samples(self, samples: list[Any]) -> None:
         """Validate recorded sample rows before environment construction. Default: no-op."""
 
+    def serialize_sample_for_recording(self, sample: Any) -> Any:
+        """Convert a native sample to its persistent representation. Default: identity."""
+        return sample
+
     def on_replay_samples_bound(self, samples: list[Any] | None) -> None:
         """Handle complete recorded rows after replay binding. Default: no-op."""
 

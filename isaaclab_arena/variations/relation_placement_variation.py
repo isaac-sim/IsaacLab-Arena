@@ -19,6 +19,7 @@ from isaaclab_arena.relations.relations import get_anchor_objects
 from isaaclab_arena.utils.pose import Pose, PosePerEnv
 from isaaclab_arena.variations.relation_placement_sampler import (
     PlacementPoolSampler,
+    PlacementSample,
     PlacementSamplerCfg,
     validate_placement_samples,
 )
@@ -176,6 +177,12 @@ class RelationPlacementVariation(RunTimeVariationBase):
                 get_relation(asset, RandomAroundSolution) is None
             ), f"Placement replay object '{asset.name}' cannot randomize on reset"
 
+    def serialize_sample_for_recording(self, sample: Any) -> Any:
+        """Convert native placement samples to JSON-compatible records."""
+        assert isinstance(sample, list)
+        assert all(isinstance(placement_sample, PlacementSample) for placement_sample in sample)
+        return [placement_sample.to_record() for placement_sample in sample]
+
     def build_event_cfg(self) -> tuple[str, EventTermCfg]:
         handle = RelationPlacementHandle(self._sampler)
         return (
@@ -190,8 +197,6 @@ def apply_relation_placement_sample(
     placement: RelationPlacementHandle,
 ) -> None:
     """Draw, record, and apply one complete placement per reset environment."""
-    from isaaclab_arena.relations.placement_asset import get_scene_root_owners
-
     if env_ids is None or len(env_ids) == 0:
         return
     placement_pool = placement.sampler.placement_pool
@@ -204,19 +209,14 @@ def apply_relation_placement_sample(
         assert (
             placement.sampler.replays_recorded_samples
         ), "Relation placement has neither replay samples nor a live pool"
-    rows = placement.sampler.sample(len(env_ids), env_ids)
-    pose_keys = rows[0]["poses"].keys()
-    poses = {
-        key: torch.stack(
-            [Pose.from_dict(row["poses"][key]).to_tensor(device=env.device) for row in rows],
-        )
-        for key in pose_keys
-    }
-    asset_poses: dict[PlaceableAsset, dict[str, torch.Tensor]] = {}
-    root_owners = get_scene_root_owners(placement.sampler.replay_assets)
-    for key, pose in poses.items():
-        asset_poses.setdefault(root_owners[key], {})[key] = pose
-    for asset, owned_poses in asset_poses.items():
+    samples = placement.sampler.sample(len(env_ids), env_ids)
+    for asset, root_poses in samples[0].scene_root_poses.items():
+        owned_poses = {
+            scene_key: torch.stack(
+                [sample.scene_root_poses[asset][scene_key].to_tensor(device=env.device) for sample in samples]
+            )
+            for scene_key in root_poses
+        }
         asset.write_scene_root_poses_to_sim(env, env_ids, owned_poses)
 
 
@@ -245,15 +245,16 @@ def _seed_spawn_config_from_replay(
     """Seed construction roots from replay rows without creating asset reset events."""
     from isaaclab_arena.relations.placement_asset import get_scene_root_owners
 
-    owners = get_scene_root_owners(replay_assets)
+    root_owners = get_scene_root_owners(replay_assets)
+    placement_samples = [PlacementSample.from_record(sample, root_owners) for sample in samples]
     poses_by_asset: dict[PlaceableAsset, dict[str, PosePerEnv]] = {}
-    for scene_key in samples[0]["poses"]:
-        per_env_poses = []
-        for env_id in range(num_envs):
-            pose = Pose.from_dict(samples[env_id % len(samples)]["poses"][scene_key])
-            assert pose is not None
-            per_env_poses.append(pose)
-        poses_by_asset.setdefault(owners[scene_key], {})[scene_key] = PosePerEnv(per_env_poses)
+    for asset, root_poses in placement_samples[0].scene_root_poses.items():
+        for scene_key in root_poses:
+            per_env_poses = [
+                placement_samples[env_id % len(placement_samples)].scene_root_poses[asset][scene_key]
+                for env_id in range(num_envs)
+            ]
+            poses_by_asset.setdefault(asset, {})[scene_key] = PosePerEnv(per_env_poses)
     for asset, poses in poses_by_asset.items():
         asset.set_initial_scene_root_poses(poses)
 

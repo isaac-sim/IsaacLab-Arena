@@ -945,5 +945,8 @@ def test_real_rigid_object_set_through_pooled_placer():
         pool,
         replay_assets=[desk, obj_set],
     )
-    rows = sampler.sample(2, torch.tensor([0, 1]))
-    assert all(set(row["poses"]) == {"cans"} for row in rows)
+    samples = sampler.sample(2, torch.tensor([0, 1]))
+    assert all(
+        {scene_key for root_poses in sample.scene_root_poses.values() for scene_key in root_poses} == {"cans"}
+        for sample in samples
+    )

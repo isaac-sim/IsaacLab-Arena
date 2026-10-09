@@ -7,19 +7,20 @@
 
 import json
 import torch
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 import pytest
 
 from isaaclab_arena.variations.object_mass_variation import ObjectMassVariation, ObjectMassVariationCfg
 from isaaclab_arena.variations.recorded_variation_replay import configure_recorded_variation_replay
-from isaaclab_arena.variations.relation_placement_sampler import PlacementPoolSampler
+from isaaclab_arena.variations.relation_placement_sampler import PlacementPoolSampler, PlacementSample
 from isaaclab_arena.variations.relation_placement_variation import (
     RelationPlacementHandle,
     RelationPlacementVariation,
     RelationPlacementVariationCfg,
     apply_relation_placement_sample,
 )
+from isaaclab_arena.variations.variation_recorder import VariationRecorder
 
 
 class _ReplayAsset:
@@ -73,21 +74,37 @@ def _make_variation() -> RelationPlacementVariation:
     return RelationPlacementVariation(sampler, num_envs=1)
 
 
-def test_replay_sampler_notifies_serializable_rows():
+def test_replay_sampler_notifies_native_samples():
     variation = _make_variation()
     assert not variation.has_live_pool
     sample = _placement_sample()
-    observed = []
-    variation.add_sample_listener(lambda rows, env_ids: observed.append((rows, env_ids.clone())))
+    observed: list[tuple[list[PlacementSample], torch.Tensor]] = []
+    variation.add_sample_listener(lambda samples, env_ids: observed.append((samples, env_ids.clone())))
     variation.set_replay_sampler(lambda count, env_ids: [sample] * count)
 
     env_ids = torch.tensor([2, 5])
-    rows = variation.sampler.sample(2, env_ids)
+    samples = variation.sampler.sample(2, env_ids)
 
-    assert rows == [sample, sample]
-    assert observed[0][0] == rows
+    assert [placement_sample.layout_id for placement_sample in samples] == ["layout_000000"] * 2
+    assert [placement_sample.source for placement_sample in samples] == ["test"] * 2
+    assert observed[0][0] is samples
     assert observed[0][1].tolist() == [2, 5]
     assert variation.last_results == {}
+
+
+def test_variation_recorder_serializes_native_placement_samples():
+    variation = _make_variation()
+    sample = _placement_sample()
+    variation.set_replay_sampler(lambda count, env_ids: [sample] * count)
+    recorder = VariationRecorder()
+    recorder.attach({"scene": [variation]})
+    env = Mock()
+    env.get_episode_index.return_value = 0
+    recorder.bind_env(env)
+
+    variation.sampler.sample(1, torch.tensor([3]))
+
+    assert recorder["scene.relation_placement"].sample_for_episode(3, 0) == sample
 
 
 def test_replay_writes_poses_through_placement_asset():
@@ -135,7 +152,11 @@ def test_fixed_live_placement_writes_through_variation_without_sampling_pool():
     env = Mock(device=torch.device("cpu"))
     env.scene.env_origins = torch.zeros((2, 3))
 
-    apply_relation_placement_sample(env, torch.tensor([1]), RelationPlacementHandle(sampler))
+    with patch(
+        "isaaclab_arena.variations.relation_placement_sampler.Pose.from_dict",
+        side_effect=AssertionError("live poses must not be decoded from serialized rows"),
+    ):
+        apply_relation_placement_sample(env, torch.tensor([1]), RelationPlacementHandle(sampler))
 
     placement_pool.sample_for_envs.assert_not_called()
     written_env_ids, written_poses = asset.scene_pose_writes[0]
@@ -252,5 +273,6 @@ def test_placement_replays_with_another_runtime_condition(tmp_path):
     scheduler.assign_new_episodes([3])
     env_ids = torch.tensor([3])
 
-    assert placement.sampler.sample(1, env_ids) == [_placement_sample()]
+    placement_samples = placement.sampler.sample(1, env_ids)
+    assert placement.serialize_sample_for_recording(placement_samples) == [_placement_sample()]
     torch.testing.assert_close(mass.sampler.sample(1, env_ids), torch.tensor([[0.75]]))
