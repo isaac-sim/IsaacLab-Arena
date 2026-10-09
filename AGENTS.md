@@ -18,6 +18,12 @@ Fresh-clone setup (run once):
 pre-commit install    # on the host — registers git pre-commit hooks
 ```
 
+## Environment authoring and feature discovery
+
+For creating or changing environments, scenes, tasks, success conditions, or randomization, read
+[author-environment](skills/developer/author-environment/SKILL.md) before implementing.
+Use `run-experiment` when executing an existing evaluation.
+
 ## Docker environment
 
 Commands that touch Isaac Sim or Arena's package code (tests, training, evaluation, runtime scripts) run inside the local repo clone's Docker container. The repo root is mounted at `/workspaces/isaaclab_arena`. Inside the container, `python` is aliased to `/isaac-sim/python.sh` — prefer the explicit path in `docker exec` invocations from outside the container, where the alias is not active.

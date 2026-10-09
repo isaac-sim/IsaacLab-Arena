@@ -12,11 +12,11 @@ import logging
 
 import pytest
 
-from isaaclab_arena.agentic_environment_generation.inference_backend import InferenceBackend
 from isaaclab_arena.agentic_environment_generation.missing_object_inference import (
     MAX_SEARCH_PHRASES,
     MissingObjectInference,
 )
+from isaaclab_arena.inference.backend import InferenceBackend
 from isaaclab_arena.tests.utils.agentic_environment_generation import catalog as make_catalog
 from isaaclab_arena.tests.utils.agentic_environment_generation import (
     chat_response,

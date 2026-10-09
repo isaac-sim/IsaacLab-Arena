@@ -6,6 +6,7 @@
 """Finite episode budgets through Isaac Lab's automatic reset and recording sequence."""
 
 import json
+from collections import Counter
 
 import pytest
 
@@ -20,24 +21,34 @@ def _episode_finished(env, episode_lengths, successful):
     return (env.episode_length_buf >= lengths) & (successful_envs == successful)
 
 
-def _create_episode_limit_env(output_dir, episode_lengths, record_trajectories):
+def _create_episode_limit_env(
+    output_dir,
+    episode_lengths,
+    record_trajectories,
+    recorded_variation_samples_path=None,
+):
     import torch
+    from dataclasses import field
 
     from isaaclab.envs.mdp.recorders.recorders_cfg import PreStepActionsRecorderCfg
     from isaaclab.managers import EventTermCfg, TerminationTermCfg
     from isaaclab.managers.recorder_manager import RecorderManagerBaseCfg, RecorderTerm, RecorderTermCfg
     from isaaclab.utils.configclass import configclass
 
+    from isaaclab_arena.embodiments.no_embodiment import NoEmbodiment
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
     from isaaclab_arena.metrics.success_rate import SuccessRecorderCfg
     from isaaclab_arena.scene.scene import Scene
     from isaaclab_arena.terms.recorders import EpisodeIdentityRecorderCfg
+    from isaaclab_arena.utils.configclass import combine_configclass_instances
+    from isaaclab_arena.variations.uniform_sampler import UniformSamplerCfg
+    from isaaclab_arena.variations.variation_base import RunTimeVariationBase, VariationBaseCfg
 
     started_episodes = []
 
-    def record_episode_start(env, env_ids):
+    def _record_episode_start(env, env_ids):
         for env_id in env_ids.tolist():
             started_episodes.append((env_id, env.get_episode_index(env_id)))
 
@@ -66,14 +77,50 @@ def _create_episode_limit_env(output_dir, episode_lengths, record_trajectories):
         record_identity = EpisodeIdentityRecorderCfg()
         record_success = SuccessRecorderCfg()
 
-    arena_environment = IsaacLabArenaEnvironment(name="episode_limit", scene=Scene())
+    @configclass
+    class EpisodeLimitEventsCfg:
+        record_episode_start = EventTermCfg(func=_record_episode_start, mode="reset")
+
+    def draw_replay_test_variation(env, env_ids, sampler):  # noqa: ARG001
+        sampler.sample(num_samples=len(env_ids), env_ids=env_ids)
+
+    @configclass
+    class ReplayTestVariationCfg(VariationBaseCfg):
+        sampler_cfg: UniformSamplerCfg = field(default_factory=lambda: UniformSamplerCfg(low=[0.0], high=[100.0]))
+
+    class ReplayTestVariation(RunTimeVariationBase):
+        def __init__(self):
+            super().__init__(cfg=ReplayTestVariationCfg(), name="replay_test")
+
+        def build_event_cfg(self):
+            return (
+                "replay_test_variation",
+                EventTermCfg(
+                    func=draw_replay_test_variation,
+                    mode="reset",
+                    params={"sampler": self._sampler},
+                ),
+            )
+
+    embodiment = NoEmbodiment()
+    if recorded_variation_samples_path is not None:
+        variation = ReplayTestVariation()
+        variation.enable()
+        embodiment.add_variation(variation)
+
+    arena_environment = IsaacLabArenaEnvironment(name="episode_limit", scene=Scene(), embodiment=embodiment)
     builder = ArenaEnvBuilder(
-        arena_environment, ArenaEnvBuilderCfg(num_envs=len(episode_lengths), solve_relations=False)
+        arena_environment,
+        ArenaEnvBuilderCfg(
+            num_envs=len(episode_lengths),
+            solve_relations=False,
+            recorded_variation_samples_path=recorded_variation_samples_path,
+        ),
     )
     env_cfg, env_kwargs = builder.compose_manager_cfg()
     env_cfg.decimation = 2
     env_cfg.sim.render_interval = 2
-    env_cfg.events = {"record_episode_start": EventTermCfg(func=record_episode_start, mode="reset")}
+    env_cfg.events = combine_configclass_instances("EpisodeLimitEventsCfg", env_cfg.events, EpisodeLimitEventsCfg())
     env_cfg.terminations = {
         "success": TerminationTermCfg(
             func=_episode_finished, params={"episode_lengths": episode_lengths, "successful": True}
@@ -220,6 +267,55 @@ def test_episode_limit(tmp_path, num_episodes, episode_lengths, expected_starts,
         episode_lengths=episode_lengths,
         expected_starts=expected_starts,
         record_trajectories=record_trajectories,
+    )
+
+
+def _test_variation_replay_cycles_across_async_resets(simulation_app, output_dir):
+    import torch
+
+    replay_values = ([10.0], [20.0], [30.0])
+    variation_samples_path = output_dir / "variation_samples.jsonl"
+    variation_samples_path.write_text(
+        "\n".join(
+            json.dumps({"variations": {"no_embodiment.replay_test": replay_value}}) for replay_value in replay_values
+        )
+        + "\n"
+    )
+    env, _, results_path = _create_episode_limit_env(
+        output_dir,
+        episode_lengths=(1, 5, 3),
+        record_trajectories=False,
+        recorded_variation_samples_path=str(variation_samples_path),
+    )
+    base_env = env.unwrapped
+    try:
+        base_env.configure_episode_limit(8)
+        env.reset()
+        action = torch.zeros(env.action_space.shape, device=base_env.device)
+        with torch.inference_mode():
+            while base_env.completed_episode_count < 8:
+                env.step(action)
+    finally:
+        env.close()
+
+    records = [json.loads(line) for line in results_path.read_text(encoding="utf-8").splitlines()]
+    assert Counter(record["replay_source_record_index"] for record in records) == {
+        0: 3,
+        1: 3,
+        2: 2,
+    }
+    for record in records:
+        source_record_index = record["replay_source_record_index"]
+        assert record["variations"]["no_embodiment.replay_test"] == replay_values[source_record_index]
+    assert base_env.variation_replay_scheduler.num_assignments_started == 8
+    assert base_env.variation_replay_scheduler.num_assignments_completed == 8
+    return True
+
+
+def test_variation_replay_cycles_across_async_resets(tmp_path):
+    assert run_function_with_persistent_simulation_app(
+        _test_variation_replay_cycles_across_async_resets,
+        output_dir=tmp_path,
     )
 
 

@@ -12,11 +12,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from isaaclab_arena.agentic_environment_generation.inference_backend import (
-    InferenceBackend,
-    StructuredOutputRequest,
-    build_strict_schema,
-)
+from isaaclab_arena.inference.backend import InferenceBackend, StructuredOutputRequest, build_strict_schema
 
 _logger = logging.getLogger(__name__)
 

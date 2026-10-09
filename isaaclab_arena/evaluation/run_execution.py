@@ -25,6 +25,7 @@ from isaaclab_arena.evaluation.legacy_graph_environment_cli import (
 from isaaclab_arena.evaluation.policy_runner import rollout_policy
 from isaaclab_arena.evaluation.resource_cleanup import close_run_resources
 from isaaclab_arena.metrics.aggregate_metrics import aggregate_metrics
+from isaaclab_arena.recording.episode_results import read_episode_records
 from isaaclab_arena.utils.timer import print_timer_stats, reset_timer_stats
 from isaaclab_arena.variations.variations_hydra import overrides_from_dict
 from isaaclab_arena.video.video_recording import VideoRecordingCfg, wrap_env_for_video
@@ -33,6 +34,7 @@ if TYPE_CHECKING:
     import gymnasium as gym
 
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
+    from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
     from isaaclab_arena.metrics.metric_data import MetricsDataCollection
     from isaaclab_arena.policy.policy_base import PolicyBase, PolicyCfg
 
@@ -95,8 +97,17 @@ def build_and_run(
     metrics_per_rebuild: list[MetricsDataCollection] = []
     output_dir = str(output_dir)
     video_cfg = video_cfg or VideoRecordingCfg(video_base_dir=output_dir)
-    episodes_per_rebuild = _split_episodes_across_rebuilds(
+    if cfg.environment_builder.recorded_variation_samples_path is not None:
+        assert cfg.num_rebuilds == 1, f"Run '{cfg.name}' sets recorded_variation_samples_path; num_rebuilds must be 1."
+        assert (
+            cfg.rollout_limit.num_steps is None
+        ), f"Run '{cfg.name}' replays recorded variation samples; num_steps is not supported."
+    total_num_episodes = _get_replay_episode_count(
+        cfg.environment_builder,
         cfg.rollout_limit.num_episodes,
+    )
+    episodes_per_rebuild = _split_episodes_across_rebuilds(
+        total_num_episodes,
         cfg.num_rebuilds,
         cfg.name,
     )
@@ -227,6 +238,11 @@ def _resolve_rollout_limit(
     num_episodes: int | None,
 ) -> tuple[int | None, int | None]:
     """Resolve a configured rollout limit or use the policy's intrinsic length."""
+    if cfg.environment_builder.recorded_variation_samples_path is not None:
+        assert not policy.has_length(), (
+            f"Run '{cfg.name}' cannot replay recorded variation samples with a finite-action policy; "
+            "finite policies do not restart their action sequence across episodes"
+        )
     num_steps = cfg.rollout_limit.num_steps
     if num_steps is None and num_episodes is None:
         assert (
@@ -235,6 +251,18 @@ def _resolve_rollout_limit(
         num_steps = policy.length()
         assert num_steps is not None and num_steps > 0, f"Policy for run '{cfg.name}' has no usable length"
     return num_steps, num_episodes
+
+
+def _get_replay_episode_count(
+    builder_cfg: ArenaEnvBuilderCfg,
+    explicit_num_episodes: int | None,
+) -> int | None:
+    """Use an explicit episode budget or default to one pass over recorded variation samples."""
+    if builder_cfg.recorded_variation_samples_path is None or explicit_num_episodes is not None:
+        return explicit_num_episodes
+    records = read_episode_records(builder_cfg.recorded_variation_samples_path)
+    assert records, "Recorded variation samples must list at least one episode"
+    return len(records)
 
 
 def _split_episodes_across_rebuilds(
