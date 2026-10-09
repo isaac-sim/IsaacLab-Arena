@@ -22,11 +22,6 @@ from isaaclab_arena.agentic_environment_generation.catalogues import (
     build_task_catalogue,
 )
 from isaaclab_arena.agentic_environment_generation.environment_generation_agent import EnvironmentGenerationAgent
-from isaaclab_arena.agentic_environment_generation.inference_backend import (
-    DEFAULT_ENDPOINT_NAME,
-    INFERENCE_ENDPOINT_ENV_VAR,
-    INFERENCE_ENDPOINTS,
-)
 from isaaclab_arena.agentic_environment_generation.simready_asset_search import (
     SimReadySearchConfig,
     SimReadySourceKind,
@@ -34,6 +29,7 @@ from isaaclab_arena.agentic_environment_generation.simready_asset_search import 
 )
 from isaaclab_arena.assets.simready_constants import DEFAULT_SIMREADY_SERVICE_URL
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
+from isaaclab_arena.inference.backend import DEFAULT_ENDPOINT_NAME, INFERENCE_ENDPOINT_ENV_VAR, INFERENCE_ENDPOINTS
 from isaaclab_arena_examples.agentic_environment_generation.review_gui.editor_panel import (
     SpecParseResult,
     try_save_env_graph_spec,

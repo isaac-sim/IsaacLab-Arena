@@ -244,7 +244,7 @@ jobs:
     needs: [build_and_push_image]
     env:
       ARENA_INFERENCE_ENDPOINT: public
-      NVIDIA_API_KEY: ${{ secrets.ARENA_NVIDIA_API_KEY }}
+      NVIDIA_API_KEY: ${{ secrets.ARENA_PUBLIC_NVIDIA_API_KEY }}
 
     container:
       image: ${{ needs.build_and_push_image.outputs.image }}

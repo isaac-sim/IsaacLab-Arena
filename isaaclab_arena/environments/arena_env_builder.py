@@ -60,6 +60,7 @@ from isaaclab_arena.utils.isaaclab_utils.warp_patch import install_empty_cpu_war
 from isaaclab_arena.utils.multiprocess import get_local_rank
 from isaaclab_arena.utils.physics_backend import PhysicsBackend
 from isaaclab_arena.variations import variations_hydra, variations_printing
+from isaaclab_arena.variations.recorded_variation_replay import configure_recorded_variation_replay
 from isaaclab_arena.variations.variation_base import RunTimeVariationBase, VariationBase
 from isaaclab_arena.variations.variation_recorder import VariationRecorder
 
@@ -299,14 +300,20 @@ class ArenaEnvBuilder:
             An (env_cfg, env_kwargs) tuple.
         """
         # Apply Hydra variation overrides. Needs to happen before build-time variations are applied.
+        variations = self.get_all_variations()
         if self.hydra_overrides:
-            variations: dict[str, list[VariationBase]] = self.get_all_variations()
             variations_hydra.apply_overrides(variations, self.hydra_overrides)
+
+        variation_replay_scheduler = (
+            configure_recorded_variation_replay(self.cfg.recorded_variation_samples_path, variations)
+            if self.cfg.recorded_variation_samples_path is not None
+            else None
+        )
 
         # Attach the variation recorder before any sampling, so it observes both build-time samples
         # (drawn just below) and run-time samples (drawn during simulation).
         variation_recorder = VariationRecorder()
-        variation_recorder.attach(self.get_all_variations())
+        variation_recorder.attach(variations)
 
         # Apply build-time variations now, before scene_cfg is materialised.
         self._apply_build_time_variations()
@@ -545,7 +552,10 @@ class ArenaEnvBuilder:
 
         validate_object_variant_assignments(env_cfg.scene, variant_assignments)
         env_cfg.object_variant_assignments = variant_assignments
-        env_kwargs: dict[str, Any] = {"variation_recorder": variation_recorder}
+        env_kwargs: dict[str, Any] = {
+            "variation_recorder": variation_recorder,
+            "variation_replay_scheduler": variation_replay_scheduler,
+        }
         return env_cfg, env_kwargs
 
     def get_entry_point(self) -> str | type[ManagerBasedRLMimicEnv]:

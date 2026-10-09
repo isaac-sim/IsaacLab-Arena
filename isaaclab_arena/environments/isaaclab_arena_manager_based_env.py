@@ -29,6 +29,7 @@ if TYPE_CHECKING:
         IsaacArenaManagerBasedMimicEnvCfg,
         IsaacLabArenaManagerBasedRLEnvCfg,
     )
+    from isaaclab_arena.variations.variation_replay_scheduler import VariationReplayScheduler
 
 
 class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
@@ -41,6 +42,7 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
         cfg: IsaacLabArenaManagerBasedRLEnvCfg,
         render_mode: str | None = None,
         variation_recorder: VariationRecorder | None = None,
+        variation_replay_scheduler: VariationReplayScheduler | None = None,
         **kwargs,
     ):
         from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import apply_arena_global_settings
@@ -53,6 +55,7 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
             num_envs=cfg.scene.num_envs, device=cfg.sim.device
         )
         self._variation_recorder = variation_recorder
+        self._variation_replay_scheduler = variation_replay_scheduler
         if variation_recorder is not None:
             # Bind so run-time variation draws can be attributed to the current episode index.
             variation_recorder.bind_env(self)
@@ -80,6 +83,11 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
     def variation_recorder(self) -> VariationRecorder | None:
         """The recorder of variation samples, or ``None`` if the env was not built with one."""
         return self._variation_recorder
+
+    @property
+    def variation_replay_scheduler(self) -> VariationReplayScheduler | None:
+        """The active variation replay scheduler, or ``None``."""
+        return self._variation_replay_scheduler
 
     @property
     def object_initial_rest_pose_recorder(self) -> ObjectInitialRestPoseRecorder:
@@ -189,6 +197,8 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
             # Record the JSONL result with the finishing episode's index
             # before starting any replacements.
             self.episode_recorder_manager.record_pre_reset(finishing_env_ids)
+            if self._variation_replay_scheduler is not None:
+                self._variation_replay_scheduler.complete_episodes(finishing_env_ids.tolist())
             self._completed_episode_count += len(finishing_env_ids)
             self._active_episode_mask[finishing_env_ids] = False
 
@@ -204,6 +214,8 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
         # Reset-mode variation draws must refer to the episode being started.
         for env_id in episode_start_env_ids.tolist():
             self._episode_indices[env_id] = self._episode_indices.get(env_id, -1) + 1
+        if self._variation_replay_scheduler is not None:
+            self._variation_replay_scheduler.assign_new_episodes(episode_start_env_ids.tolist())
         self._started_episode_count += len(episode_start_env_ids)
         self._active_episode_mask[episode_start_env_ids] = True
         self._reset_env_ids = torch.cat((self._reset_env_ids, episode_start_env_ids))
