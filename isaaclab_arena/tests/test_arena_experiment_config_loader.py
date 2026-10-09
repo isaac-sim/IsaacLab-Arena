@@ -120,6 +120,44 @@ runs:
     assert run.rollout_limit.num_episodes == 4
 
 
+def test_typed_experiment_ignores_unconfigured_external_environment(monkeypatch):
+    from isaaclab_arena.assets.registries import EnvironmentRegistry
+    from isaaclab_arena_environments.cli import ensure_environments_registered
+    from isaaclab_arena_examples.external_environments.basic import ExternalFrankaTableEnvironment
+
+    ensure_environments_registered()
+    registry = EnvironmentRegistry()
+    monkeypatch.setattr(registry, "_components", registry._components.copy())
+    registry.register(ExternalFrankaTableEnvironment, "external_without_config")
+
+    experiment = load_arena_experiment_from_config_file(GETTING_STARTED_YAML_PATH, device="cuda:0")
+    assert all(isinstance(run.environment, PickAndPlaceMapleTableEnvironmentCfg) for run in experiment.runs.values())
+
+    with pytest.raises(AssertionError, match="must register a config"):
+        registry.get_environment_cfg_type(ExternalFrankaTableEnvironment)
+    with pytest.raises(AssertionError, match="unknown environment type 'external_without_config'"):
+        load_arena_experiment_from_config_file(
+            GETTING_STARTED_YAML_PATH,
+            device="cuda:0",
+            overrides=["shared.environment.type=external_without_config"],
+        )
+
+    # Typed loading keeps registered aliases after the legacy lookup is removed.
+    factory = registry.get_component_by_name("pick_and_place_maple_table")
+    registry.register(factory, "maple_alias")
+    # Remove this deletion when the registry's cleanup TODO removes the legacy map.
+    monkeypatch.delattr(registry, "_cfg_types_by_factory_type")
+    configured = registry.get_environment_cfg_types()
+    assert configured["maple_alias"] is configured["pick_and_place_maple_table"]
+    assert "external_without_config" not in configured
+    experiment = load_arena_experiment_from_config_file(
+        GETTING_STARTED_YAML_PATH,
+        device="cuda:0",
+        overrides=["shared.environment.type=maple_alias"],
+    )
+    assert all(isinstance(run.environment, PickAndPlaceMapleTableEnvironmentCfg) for run in experiment.runs.values())
+
+
 def test_graph_spec_environment_serializes_to_reloadable_yaml(tmp_path, monkeypatch):
     monkeypatch.setattr(arena_experiment_config_loader, "_registered_environment_cfg_types", lambda: {})
     monkeypatch.setattr(
