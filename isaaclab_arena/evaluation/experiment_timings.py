@@ -11,7 +11,10 @@ import json
 from collections.abc import Iterable
 from pathlib import Path
 
-from isaaclab_arena.evaluation.arena_experiment_result import ARENA_EXPERIMENT_TIMINGS_FILENAME
+from isaaclab_arena.evaluation.arena_experiment_result import (
+    ARENA_AGGREGATED_TIMINGS_FILENAME,
+    ARENA_SINGLE_RUN_TIMINGS_FILENAME,
+)
 from isaaclab_arena.utils.timer import merge_timer_stats_json, write_timer_stats_json
 
 EXPERIMENT_RUNNER_APP_NAME = "experiment_runner"
@@ -22,7 +25,7 @@ def write_run_timings(run_output_directory: Path) -> Path:
     """Write the timers recorded so far into one Run's output directory, returning the path written."""
     run_output_directory.mkdir(parents=True, exist_ok=True)
     return write_timer_stats_json(
-        run_output_directory / ARENA_EXPERIMENT_TIMINGS_FILENAME,
+        run_output_directory / ARENA_SINGLE_RUN_TIMINGS_FILENAME,
         app_name=EXPERIMENT_RUNNER_APP_NAME,
     )
 
@@ -42,13 +45,13 @@ def aggregate_experiment_timings(experiment_output_directory: Path, run_names: I
     """
     run_records: list[dict[str, object]] = []
     for run_name in sorted(run_names):
-        run_timings_path = experiment_output_directory / run_name / ARENA_EXPERIMENT_TIMINGS_FILENAME
+        run_timings_path = experiment_output_directory / run_name / ARENA_SINGLE_RUN_TIMINGS_FILENAME
         assert run_timings_path.is_file(), f"Run '{run_name}' is missing its timings file: '{run_timings_path}'"
         run_records.extend(
             {"run_name": run_name, **record} for record in json.loads(run_timings_path.read_text(encoding="utf-8"))
         )
 
-    experiment_timings_path = experiment_output_directory / ARENA_EXPERIMENT_TIMINGS_FILENAME
+    experiment_timings_path = experiment_output_directory / ARENA_AGGREGATED_TIMINGS_FILENAME
     experiment_timings_path.write_text(
         json.dumps({"totals": merge_timer_stats_json(run_records), "runs": run_records}, allow_nan=False, indent=2)
         + "\n",
