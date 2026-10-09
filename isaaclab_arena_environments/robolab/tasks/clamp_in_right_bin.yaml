@@ -14,4 +14,4 @@ task:
       pick_up_object: spring_clamp
       destination_location: bin_b04
       background_scene: maple_table_robolab
-      episode_length_s: 70.0
+      episode_length_s: 1.0

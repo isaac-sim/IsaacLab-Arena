@@ -1,0 +1,23 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+runs:
+  recorded_variations:
+    environment:
+      type: isaaclab_arena_environments/robolab/tasks/clamp_in_right_bin.yaml
+      enable_cameras: true
+    environment_builder:
+      num_envs: 4
+      presets: PHYSX
+      recorded_variation_samples_path: outputs/recorded_variations_workflow/placements.jsonl
+    policy:
+      type: zero_action
+    rollout_limit:
+      num_episodes: 64
+    variations:
+      light.hdr_image.enabled: true
+      light.color.enabled: true
+      red_hammer.disappear.enabled: true
+      droid_abs_joint_pos.camera_extrinsics_wrist_camera.enabled: true
