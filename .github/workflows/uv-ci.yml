@@ -26,7 +26,7 @@ permissions:
 jobs:
   uv_changes:
     name: Detect uv-related changes
-    runs-on: [self-hosted, gpu-arena]
+    runs-on: [self-hosted, gpu]
     timeout-minutes: 5
     # Only meaningful on PRs; other events always run the uv tests.
     if: github.event_name == 'pull_request' && github.event.pull_request.draft == false
@@ -49,7 +49,7 @@ jobs:
 
   uv_test:
     name: Run tests (native uv, source)
-    runs-on: [self-hosted, gpu-arena]
+    runs-on: [self-hosted, gpu]
     timeout-minutes: 120
     needs: [uv_changes]
     # Runs nightly, on push to main, and on manual dispatch; on pull requests
