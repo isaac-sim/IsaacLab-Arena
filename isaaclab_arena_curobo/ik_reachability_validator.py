@@ -18,7 +18,7 @@ import torch
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.relations.placement_candidate_batch import PlacementCandidateBatch
-from isaaclab_arena.relations.placement_events import get_base_rotation_per_asset
+from isaaclab_arena.relations.placement_events import get_rotation_xyzw
 from isaaclab_arena.relations.relations import RequiresReachability, get_anchor_objects
 from isaaclab_arena.relations.validation.pre_physics import PrePhysicsPlacementValidator
 from isaaclab_arena.relations.validation.registry import register_validator
@@ -139,7 +139,7 @@ class ReachabilityValidator(PrePhysicsPlacementValidator):
         """
         objects = list(positions.keys())
         anchors = set(get_anchor_objects(objects))
-        base_rotations = get_base_rotation_per_asset(objects)
+        base_rotations = {obj: get_rotation_xyzw(obj) for obj in objects}
 
         world_poses = {
             obj: get_object_world_pose_from_layout(positions, orientations, obj, base_rotations) for obj in objects

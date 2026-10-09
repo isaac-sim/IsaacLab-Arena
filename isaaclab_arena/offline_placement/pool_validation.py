@@ -5,12 +5,13 @@
 
 from __future__ import annotations
 
+import torch
 from collections.abc import Iterator
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.relations.physics_settle_params import PhysicsSettleParams
-from isaaclab_arena.relations.placement_events import get_movable_asset_names, write_placement_result_to_sim
+from isaaclab_arena.relations.placement_events import get_scene_root_poses_from_layout
 from isaaclab_arena.relations.relations import get_anchor_objects
 from isaaclab_arena.relations.validation.types import PlacementCheck
 from isaaclab_arena.utils import physics_settle
@@ -19,6 +20,7 @@ from isaaclab_arena.variations.relation_placement_variation import get_relation_
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedEnv
 
+    from isaaclab_arena.relations.placement_asset import PlaceableAsset
     from isaaclab_arena.relations.placement_result import PlacementResult
     from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
     from isaaclab_arena.relations.validation.types import PlacementValidationResults
@@ -32,6 +34,28 @@ class PoolValidationBatch:
     """Queue index shared by the candidates in this batch."""
     layouts: dict[int, PlacementResult]
     """Source candidates by environment ID."""
+
+
+def _write_layout_batch_to_sim(
+    env: ManagerBasedEnv,
+    layouts: dict[int, PlacementResult],
+    assets: list[PlaceableAsset],
+    anchors: set[PlaceableAsset],
+) -> None:
+    """Write one candidate per selected environment, batching each asset's scene roots."""
+    env_ids = torch.tensor(list(layouts), device=env.device)
+    poses_by_asset: dict[PlaceableAsset, dict[str, list[torch.Tensor]]] = {}
+    for layout in layouts.values():
+        for asset, root_poses in get_scene_root_poses_from_layout(assets, layout, anchors).items():
+            poses_per_root = poses_by_asset.setdefault(asset, {key: [] for key in root_poses})
+            for key, pose in root_poses.items():
+                poses_per_root[key].append(pose.to_tensor(device=env.device))
+    for asset, poses_per_root in poses_by_asset.items():
+        asset.write_scene_root_poses_to_sim(
+            env,
+            env_ids,
+            {key: torch.stack(poses) for key, poses in poses_per_root.items()},
+        )
 
 
 def iter_pool_validation(
@@ -69,7 +93,7 @@ def iter_pool_validation(
                 continue
             layout = queue[index]
             layouts[env_id] = layout
-            write_placement_result_to_sim(env, env_id, layout, assets, anchors)
+        _write_layout_batch_to_sim(env, layouts, assets, anchors)
         env.scene.write_data_to_sim()
         env.sim.forward()
         step_placement_physics(env, settle_params.num_steps, index, num_batches, render, log_progress)
@@ -139,7 +163,7 @@ def validate_pool_layouts(
 
     assets = placement_pool.objects
     anchors = set(get_anchor_objects(assets))
-    object_names = get_movable_asset_names(assets, anchors)
+    object_names = [asset.get_scene_key() for asset in assets if asset not in anchors]
     batches = iter_pool_validation(
         env,
         placement_pool,

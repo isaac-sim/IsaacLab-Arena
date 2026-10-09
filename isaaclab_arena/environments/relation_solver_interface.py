@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Any
 
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_asset import get_scene_root_owners
-from isaaclab_arena.relations.placement_events import get_pose_from_layout
+from isaaclab_arena.relations.placement_events import get_scene_root_poses_from_layout
 from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
 from isaaclab_arena.relations.relations import get_anchor_objects
 from isaaclab_arena.utils.pose import Pose, PosePerEnv
@@ -70,27 +70,19 @@ def create_relation_placement_variation(
         fixed_results = None
         if resolved_params.resolve_on_reset:
             [construction_layout] = placement_pool.sample_with_replacement(1)
-            _seed_spawn_config_from_layout(assets, anchor_assets, construction_layout)
+            _seed_spawn_config_from_layouts(
+                assets,
+                anchor_assets,
+                [construction_layout] * num_envs,
+            )
         else:
             layouts = placement_pool.sample_with_replacement(num_envs)
             fixed_results = {env_id: layout for env_id, layout in enumerate(layouts)}
-            _apply_static_initial_poses(
-                assets=assets,
-                placement_pool=placement_pool,
-                anchor_assets=anchor_assets,
-                num_envs=num_envs,
-                layouts=layouts,
-            )
-            _validate_static_placement_reset_events(assets, anchor_assets)
-        variation.configure_prepared_live_state(
-            placement_pool,
-            fixed_results,
-            write_live_samples=resolved_params.resolve_on_reset,
-        )
+            _seed_spawn_config_from_layouts(assets, anchor_assets, layouts)
+        variation.configure_prepared_live_state(placement_pool, fixed_results)
 
     return RelationPlacementVariation(
         sampler,
-        write_live_samples=False,
         live_placement_enabled=can_prepare_live,
         prepare_at_build_time=prepare,
     )
@@ -137,31 +129,21 @@ def _build_relation_placement_pool(
     return placer_params, placement_pool
 
 
-def _validate_static_placement_reset_events(
+def _seed_spawn_config_from_layouts(
     assets: list[PlaceableAsset],
     anchor_assets: set[PlaceableAsset],
+    layouts: list[PlacementResult],
 ) -> None:
-    """Require reset events that preserve fixed per-environment placement poses."""
-    for asset in assets:
-        if asset in anchor_assets:
-            continue
-        assert asset.has_pose_reset_event(), (
-            f"Static relation placement stored a per-env pose for non-anchor asset '{asset.name}', but it "
-            "owns no reset event, so its solved layout would be silently discarded on every reset."
-        )
-
-
-def _seed_spawn_config_from_layout(
-    assets: list[PlaceableAsset],
-    anchor_assets: set[PlaceableAsset],
-    layout: PlacementResult,
-) -> None:
-    """Write one solved layout into the single-pose scene configuration."""
-    for asset in assets:
-        if asset in anchor_assets:
-            continue
-        pose = get_pose_from_layout(asset, layout)
-        asset.set_initial_pose(pose, create_reset_event=False)
+    """Seed every scene root from environment-indexed solved layouts without asset reset events."""
+    poses_by_asset: dict[PlaceableAsset, dict[str, list[Pose]]] = {}
+    for layout in layouts:
+        root_poses_by_asset = get_scene_root_poses_from_layout(assets, layout, anchor_assets)
+        for asset, root_poses in root_poses_by_asset.items():
+            poses_per_root = poses_by_asset.setdefault(asset, {key: [] for key in root_poses})
+            for key, pose in root_poses.items():
+                poses_per_root[key].append(pose)
+    for asset, poses_per_root in poses_by_asset.items():
+        asset.set_initial_scene_root_poses({key: PosePerEnv(poses=poses) for key, poses in poses_per_root.items()})
 
 
 def _seed_spawn_config_from_replay(
@@ -169,7 +151,7 @@ def _seed_spawn_config_from_replay(
     replay_assets: list[PlaceableAsset],
     num_envs: int,
 ) -> None:
-    """Seed construction roots from replay rows without replacing reset events."""
+    """Seed construction roots from replay rows without creating asset reset events."""
     owners = get_scene_root_owners(replay_assets)
     poses_by_asset: dict[PlaceableAsset, dict[str, PosePerEnv]] = {}
     for scene_key in samples[0]["poses"]:
@@ -181,22 +163,6 @@ def _seed_spawn_config_from_replay(
         poses_by_asset.setdefault(owners[scene_key], {})[scene_key] = PosePerEnv(per_env_poses)
     for asset, poses in poses_by_asset.items():
         asset.set_initial_scene_root_poses(poses)
-
-
-def _apply_static_initial_poses(
-    assets: list[PlaceableAsset],
-    placement_pool: PooledObjectPlacer,
-    anchor_assets: set[PlaceableAsset],
-    num_envs: int,
-    layouts: list[PlacementResult] | None = None,
-) -> None:
-    """Apply fixed per-environment poses for ``resolve_on_reset=False``."""
-    layouts = placement_pool.sample_with_replacement(num_envs) if layouts is None else layouts
-    for asset in assets:
-        if asset in anchor_assets:
-            continue
-        poses = [get_pose_from_layout(asset, layouts[env_idx]) for env_idx in range(num_envs)]
-        asset.set_initial_pose(PosePerEnv(poses=poses))
 
 
 def _validate_no_conflicting_pose_reset_events(

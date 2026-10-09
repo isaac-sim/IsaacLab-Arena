@@ -141,13 +141,12 @@ class PlacementPoolSampler(SamplerBase):
 
 
 class RelationPlacementHandle:
-    """Opaque event parameter retaining the live placement sampler."""
+    """Opaque event parameter retaining the placement sampler."""
 
-    __slots__ = ("sampler", "write_live_samples")
+    __slots__ = ("sampler",)
 
-    def __init__(self, sampler: PlacementPoolSampler, write_live_samples: bool) -> None:
+    def __init__(self, sampler: PlacementPoolSampler) -> None:
         self.sampler = sampler
-        self.write_live_samples = write_live_samples
 
     def __deepcopy__(self, memo: dict[int, object]) -> RelationPlacementHandle:
         memo[id(self)] = self
@@ -163,7 +162,6 @@ class RelationPlacementVariation(RunTimeVariationBase):
         self,
         sampler: PlacementPoolSampler,
         *,
-        write_live_samples: bool,
         live_placement_enabled: bool = True,
         prepare_at_build_time: Callable[[RelationPlacementVariation], None] | None = None,
         cfg: RelationPlacementVariationCfg | None = None,
@@ -173,7 +171,6 @@ class RelationPlacementVariation(RunTimeVariationBase):
         self._sample_listeners = []
         self._replay_sampler = None
         self.cfg = cfg if cfg is not None else RelationPlacementVariationCfg()
-        self._write_live_samples = write_live_samples
         self._live_placement_enabled = live_placement_enabled
         self._prepare_callback = prepare_at_build_time
         self._recorded_replay_samples: list[Any] | None = None
@@ -232,12 +229,9 @@ class RelationPlacementVariation(RunTimeVariationBase):
         self,
         placement_pool: PooledObjectPlacer,
         fixed_results: dict[int, PlacementResult] | None,
-        *,
-        write_live_samples: bool,
     ) -> None:
-        """Bind the pool and reset behavior produced by live placement preparation."""
+        """Bind the pool and optional fixed per-environment layouts produced by preparation."""
         self._sampler.configure_live(placement_pool, fixed_results)
-        self._write_live_samples = write_live_samples
 
     def validate_replay_samples(self, samples: list[Any]) -> None:
         """Validate complete poses against the current scene roots."""
@@ -275,7 +269,7 @@ class RelationPlacementVariation(RunTimeVariationBase):
             ), f"Placement replay object '{asset.name}' cannot randomize on reset"
 
     def build_event_cfg(self) -> tuple[str, EventTermCfg]:
-        handle = RelationPlacementHandle(self._sampler, self._write_live_samples)
+        handle = RelationPlacementHandle(self._sampler)
         return (
             RELATION_PLACEMENT_EVENT_NAME,
             EventTermCfg(func=apply_relation_placement_sample, mode="reset", params={"placement": handle}),
@@ -287,7 +281,7 @@ def apply_relation_placement_sample(
     env_ids: torch.Tensor | None,
     placement: RelationPlacementHandle,
 ) -> None:
-    """Draw, record, and when required apply one complete placement per reset environment."""
+    """Draw, record, and apply one complete placement per reset environment."""
     from isaaclab_arena.relations.placement_asset import get_scene_root_owners
 
     if env_ids is None or len(env_ids) == 0:
@@ -303,8 +297,6 @@ def apply_relation_placement_sample(
             placement.sampler.replays_recorded_samples
         ), "Relation placement has neither replay samples nor a live pool"
     rows = placement.sampler.sample(len(env_ids), env_ids)
-    if not placement.write_live_samples and not placement.sampler.replays_recorded_samples:
-        return
     pose_keys = rows[0]["poses"].keys()
     poses = {
         key: torch.stack(

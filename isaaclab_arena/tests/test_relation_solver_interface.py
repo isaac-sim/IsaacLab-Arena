@@ -33,19 +33,6 @@ def _make_box(name: str = "box"):
     )
 
 
-class _FakePlacementPool:
-    def __init__(self, layouts, objects=None) -> None:
-        self._layouts = layouts
-        self._objects = objects or []
-
-    @property
-    def objects(self):
-        return self._objects
-
-    def sample_with_replacement(self, count: int):
-        return self._layouts[:count]
-
-
 def _fallback_layout(positions):
     """A failed (best-loss fallback) PlacementResult: a failing required check makes success False."""
     from isaaclab_arena.relations.placement_result import PlacementResult
@@ -131,26 +118,22 @@ def test_static_relation_placement_variation_stores_per_env_poses():
     initial_pose = box.get_initial_pose()
     assert isinstance(initial_pose, PosePerEnv)
     assert len(initial_pose.poses) == 2
+    assert not box.has_pose_reset_event()
 
 
 def test_static_initial_poses_reject_layout_missing_non_anchor():
-    from isaaclab_arena.environments.relation_solver_interface import _apply_static_initial_poses
+    from isaaclab_arena.environments.relation_solver_interface import _seed_spawn_config_from_layouts
 
     desk = _make_desk()
     missing_box = _make_box("missing_box")
     placed_box = _make_box("placed_box")
-    placement_pool = _FakePlacementPool([
+    layouts = [
         _fallback_layout(positions={placed_box: (0.1, 0.0, 0.2)}),
         _fallback_layout(positions={placed_box: (0.2, 0.0, 0.2)}),
-    ])
+    ]
 
     with pytest.raises(AssertionError, match="missing non-anchor asset 'missing_box'"):
-        _apply_static_initial_poses(
-            assets=[desk, missing_box, placed_box],
-            placement_pool=placement_pool,
-            anchor_assets={desk},
-            num_envs=2,
-        )
+        _seed_spawn_config_from_layouts([desk, missing_box, placed_box], {desk}, layouts)
 
 
 def test_set_initial_pose_create_reset_event_flag_controls_reset_event():

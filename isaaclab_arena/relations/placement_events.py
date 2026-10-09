@@ -27,13 +27,6 @@ def get_rotation_xyzw(asset: PlaceableAsset) -> tuple[float, float, float, float
     return rotate_marker.get_rotation_xyzw() if rotate_marker else IDENTITY_ROTATION_XYZW
 
 
-def get_base_rotation_per_asset(
-    assets: list[PlaceableAsset],
-) -> dict[PlaceableAsset, tuple[float, float, float, float]]:
-    """Return the base rotation for each asset."""
-    return {asset: get_rotation_xyzw(asset) for asset in assets}
-
-
 def get_pose_from_layout(asset: PlaceableAsset, layout: PlacementResult) -> Pose:
     """Return an asset pose from a solved layout."""
     assert asset in layout.positions, f"Placement layout is missing non-anchor asset '{asset.name}'"
@@ -42,24 +35,6 @@ def get_pose_from_layout(asset: PlaceableAsset, layout: PlacementResult) -> Pose
     total_yaw = layout.orientations.get(asset, marker_yaw)
     rotation = rotate_quat_by_yaw(base_rotation, total_yaw - marker_yaw)
     return Pose(position_xyz=layout.positions[asset], rotation_xyzw=rotation)
-
-
-def get_movable_asset_names(
-    assets: list[PlaceableAsset],
-    anchor_assets: set[PlaceableAsset],
-) -> list[str]:
-    """Return scene names for non-anchor placement assets."""
-    return [asset.get_scene_key() for asset in assets if asset not in anchor_assets]
-
-
-def validate_scene_poses(poses: dict[str, torch.Tensor]) -> None:
-    """Require finite xyz/xyzw pose tensors of shape (N, 7) with unit quaternions."""
-    for name, pose in poses.items():
-        assert pose.ndim == 2 and pose.shape[1] == 7, f"Root poses for '{name}' must have shape (N, 7)"
-        assert torch.isfinite(pose).all(), f"Root poses for '{name}' must be finite"
-        assert torch.allclose(
-            pose[:, 3:].square().sum(dim=-1), torch.ones_like(pose[:, 0]), atol=1e-4, rtol=0
-        ), f"Root poses for '{name}' require unit quaternions"
 
 
 def write_scene_poses_to_sim(env: ManagerBasedEnv, env_ids: torch.Tensor, poses: dict[str, torch.Tensor]) -> None:
@@ -72,7 +47,6 @@ def write_scene_poses_to_sim(env: ManagerBasedEnv, env_ids: torch.Tensor, poses:
         env_ids: Absolute indices of the N resetting environments, shape (N,).
         poses: Scene entity names mapped to xyz/xyzw tensors, each shaped (N, 7).
             Compound asset poses must first be expanded with layout_pose_to_scene_writes().
-            Call validate_scene_poses() before writing unvalidated external poses.
     """
     for name, pose in poses.items():
         assert pose.shape == (len(env_ids), 7), f"Root poses for '{name}' must have shape (N, 7)"
@@ -110,29 +84,3 @@ def get_scene_root_poses_from_layout(
         scene_keys.update(root_poses)
         poses_by_asset[asset] = root_poses
     return poses_by_asset
-
-
-def write_placement_result_to_sim(
-    env: ManagerBasedEnv,
-    env_id: int,
-    result: PlacementResult,
-    assets: list[PlaceableAsset],
-    anchor_assets: set[PlaceableAsset] | None = None,
-) -> None:
-    """Write one environment's solved layout through each placement asset.
-
-    Even writing zero velocity, the sim will still apply gravity and other forces from collisions,
-    so collided assets will still be subject to move.
-
-    Args:
-        env: The Isaac Lab ManagerBasedEnv environment.
-        env_id: The environment index.
-        result: The placement result to write to the sim.
-        assets: Assets represented by the placement result.
-        anchor_assets: Optional precomputed set of fixed assets.
-    """
-    env_ids = torch.tensor([env_id], device=env.device)
-    poses_by_asset = get_scene_root_poses_from_layout(assets, result, anchor_assets)
-    for asset, root_poses in poses_by_asset.items():
-        pose_tensors = {name: pose.to_tensor(device=env.device).unsqueeze(0) for name, pose in root_poses.items()}
-        asset.write_scene_root_poses_to_sim(env, env_ids, pose_tensors)

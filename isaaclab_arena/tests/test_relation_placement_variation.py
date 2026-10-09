@@ -37,6 +37,9 @@ class _ReplayAsset:
     def get_relations(self) -> list:
         return []
 
+    def layout_pose_to_scene_writes(self, layout_pose):
+        return [(self.get_scene_key(), layout_pose)]
+
     def has_pose_reset_event(self) -> bool:
         return False
 
@@ -63,7 +66,7 @@ def _make_variation() -> RelationPlacementVariation:
         placement_pool=None,
         replay_assets=[_ReplayAsset("cube")],
     )
-    return RelationPlacementVariation(sampler, write_live_samples=True)
+    return RelationPlacementVariation(sampler)
 
 
 def test_replay_sampler_notifies_serializable_rows():
@@ -87,7 +90,7 @@ def test_replay_writes_poses_through_placement_asset():
     asset = _ReplayAsset("cube")
     sampler = PlacementPoolSampler(assets=[], placement_pool=None, replay_assets=[asset])
     sampler.set_replay_sampler(lambda count, env_ids: [_placement_sample()] * count)
-    placement = RelationPlacementHandle(sampler, write_live_samples=True)
+    placement = RelationPlacementHandle(sampler)
     env = Mock(device=torch.device("cpu"))
     env_ids = torch.tensor([1, 3])
 
@@ -101,6 +104,40 @@ def test_replay_writes_poses_through_placement_asset():
             [0.1, 0.2, 0.3, 0.0, 0.0, 0.0, 1.0],
             [0.1, 0.2, 0.3, 0.0, 0.0, 0.0, 1.0],
         ]),
+    )
+
+
+def test_fixed_live_placement_writes_through_variation_without_sampling_pool():
+    from isaaclab_arena.relations.placement_result import PlacementResult
+    from isaaclab_arena.relations.validation.types import PlacementValidationResults
+
+    asset = _ReplayAsset("cube")
+    results = {
+        env_id: PlacementResult(
+            validation_results=PlacementValidationResults(),
+            positions={asset: (float(env_id), 0.0, 0.2)},
+            final_loss=0.0,
+            attempts=1,
+        )
+        for env_id in range(2)
+    }
+    placement_pool = Mock(num_envs=2)
+    sampler = PlacementPoolSampler(
+        assets=[asset],
+        placement_pool=placement_pool,
+        fixed_results=results,
+    )
+    env = Mock(device=torch.device("cpu"))
+    env.scene.env_origins = torch.zeros((2, 3))
+
+    apply_relation_placement_sample(env, torch.tensor([1]), RelationPlacementHandle(sampler))
+
+    placement_pool.sample_for_envs.assert_not_called()
+    written_env_ids, written_poses = asset.scene_pose_writes[0]
+    assert written_env_ids.tolist() == [1]
+    torch.testing.assert_close(
+        written_poses["cube"],
+        torch.tensor([[1.0, 0.0, 0.2, 0.0, 0.0, 0.0, 1.0]]),
     )
 
 
@@ -119,7 +156,7 @@ def test_replay_requires_every_root_of_a_selected_compound_asset():
         placement_pool=Mock(),
         replay_assets=[_ReplayAsset("left_robot", "right_robot")],
     )
-    variation = RelationPlacementVariation(sampler, write_live_samples=True)
+    variation = RelationPlacementVariation(sampler)
     sample = _placement_sample()
     sample["poses"] = {"left_robot": sample["poses"]["cube"]}
 
@@ -142,7 +179,6 @@ def test_replay_only_declaration_disables_itself_without_recorded_placement():
     )
     variation = RelationPlacementVariation(
         sampler,
-        write_live_samples=False,
         live_placement_enabled=False,
     )
 
@@ -160,7 +196,6 @@ def test_validated_replay_rows_are_available_during_preparation():
     )
     variation = RelationPlacementVariation(
         sampler,
-        write_live_samples=False,
         live_placement_enabled=False,
         prepare_at_build_time=lambda placement: prepared_samples.append(placement.recorded_replay_samples),
     )
