@@ -1,0 +1,60 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+runs:
+  droid_pnp_agent_commanded_chunk:
+    environment:
+      type: pick_and_place_maple_table
+      enable_cameras: true
+      embodiment: droid_absolute_ik
+      pick_up_object: banana_ycb_robolab
+      destination_location: bowl_ycb_robolab
+      hdr: home_office_robolab
+      episode_length_s: 70.0
+    environment_builder:
+      num_envs: 1
+      seed: 42
+      placement_seed: 42
+      resolve_on_reset: false
+      language_instruction: Pick up the banana and place it in the bowl.
+    policy:
+      type: isaaclab_arena_vlm_agent_policy.policy.agent_commanded_chunk_policy.AgentCommandedChunkPolicy
+      observation_adapter: isaaclab_arena_vlm_agent_policy.embodiment_adapter.droid_eef_action_adapter.CalibratedDroidObservationAdapter
+      action_adapter: isaaclab_arena_vlm_agent_policy.embodiment_adapter.droid_eef_action_adapter.DroidCalibratedChunkActionAdapter
+      system_prompt: |
+        You control a simulated DROID Franka arm with a Robotiq gripper.
+        Use the task, timestamped camera frames, and current proprioception to predict exactly 15 actions.
+        Each action is [x, y, z, qx, qy, qz, qw, gripper]. Positions are ABSOLUTE meters in the robot
+        root frame; orientations are unit quaternions in xyzw order, also in the robot root frame.
+        The controlled EEF is the Robotiq base_link (the gripper base, NOT the fingertips).
+        Gripper is 0 to open and 1 to close. The open finger pad center is about 0.13 m along the
+        gripper's local +X axis from its base; account for this offset when approaching the target object.
+        Return a smooth sequence starting near the current EEF pose, with at most 0.05 m translation
+        and 0.35 rad rotation per step. Preserve the current orientation unless rotation is needed.
+        These are rejection limits, not desired speeds. Prefer no more than 0.005 m and 0.04 rad
+        per action at 15 Hz. Isaac Lab's differential IK tracks each absolute pose target.
+        If controller_feedback reports tracking failure, plan smaller motions from the measured
+        pose rather than continuing the previous trajectory. Reachability is not guaranteed.
+        For pick-and-place, approach above the object named in the task with the fingers open,
+        lower to surround it, close, lift, move above the named destination, and release.
+        Plan only the next 15 steps; new observations follow each chunk.
+        Camera frames are chronological and labeled by camera and step. At episode start only the
+        current frame is available. Use the provided control_dt_s for the duration of each action.
+        Return only the JSON object matching the action schema.
+
+        Each request contains only the CURRENT image from each camera. Previous textual observations and
+        accepted decisions may be supplied when history is enabled; previous images are never retained.
+        Camera calibration maps each supplied image key to its intrinsic matrix for the ENCODED image,
+        world position, and world ROS-optical XYZW quaternion (+X right, +Y down, +Z forward).
+        Robot world pose, finger-link poses, and action/EEF quaternions all use XYZW.
+        Use the calibrated views to estimate object locations and transform world estimates into robot root.
+        No object ground-truth poses are supplied. Physics pauses during inference.
+      model: openai/openai/gpt-6-astra
+      image_max_edge: 384
+      decision_history: 0
+      trace_actions: true
+      trace_directory: outputs/agent_commanded_chunk_traces
+    rollout_limit:
+      num_episodes: 1
