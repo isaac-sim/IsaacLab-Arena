@@ -4,6 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import torch
+from collections.abc import Collection
 
 import isaaclab.sim as sim_utils
 
@@ -63,7 +64,7 @@ class RigidObjectSet(Object):
         if prim_path is None:
             prim_path = f"{{ENV_REGEX_NS}}/{name}"
 
-        super().__init__(
+        self._initialize_object(
             name=name,
             object_type=ObjectType.RIGID,
             spawn_cfg=sim_utils.MultiUsdFileCfg(
@@ -74,6 +75,7 @@ class RigidObjectSet(Object):
             ),
             prim_path=prim_path,
             initial_pose=initial_pose,
+            relations=kwargs.pop("relations", None),
             **kwargs,
         )
 
@@ -97,6 +99,10 @@ class RigidObjectSet(Object):
         uses its actual variant geometry.
         """
         return max(self.objects, key=lambda obj: obj.get_bounding_box().size[0, 2].item()).get_bounding_box()
+
+    def get_collision_mesh(self, excluded_prim_paths: Collection[str] = ()) -> None:
+        """Object sets do not expose a single collision mesh."""
+        assert not excluded_prim_paths, "Object sets do not support USD prim exclusions"
 
     def assign_variants(self, num_envs: int, variant_seed: int | None = None) -> None:
         """Fix one member-variant index per environment.

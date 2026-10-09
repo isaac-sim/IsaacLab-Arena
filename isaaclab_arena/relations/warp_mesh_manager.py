@@ -124,7 +124,6 @@ class WarpMeshAndSphereCache:
         self._device = device
         self._warp_mesh_cache: dict[tuple, wp.Mesh] = {}
         self._sphere_cache: dict[tuple, torch.Tensor] = {}
-        self._trimesh_cache: dict[tuple, trimesh.Trimesh | ValueError | None] = {}
         self._sentinel_warned: bool = False
         self._raw_open_mesh_warned: set[tuple] = set()
 
@@ -150,14 +149,11 @@ class WarpMeshAndSphereCache:
         excluded_prim_paths: Collection[str] = (),
     ) -> trimesh.Trimesh | None:
         """Return the collision mesh, or ``None`` when USD extraction fails."""
-        from isaaclab.sim import UsdFileCfg
-
         from isaaclab_arena.assets.object import Object
 
-        if not isinstance(obj, Object) or not isinstance(obj.spawn_cfg, UsdFileCfg):
-            assert not excluded_prim_paths, "USD prim exclusions require an Object with a usd_path."
+        if not isinstance(obj, Object):
+            assert not excluded_prim_paths, "USD prim exclusions require an Object."
             return obj.get_collision_mesh()
-
         try:
             return self.get_collision_mesh_or_raise(obj, excluded_prim_paths)
         except (OSError, ValueError):
@@ -169,38 +165,12 @@ class WarpMeshAndSphereCache:
         excluded_prim_paths: Collection[str] = (),
     ) -> trimesh.Trimesh | None:
         """Return the collision mesh while preserving USD extraction errors."""
-        from isaaclab.sim import UsdFileCfg
-
         from isaaclab_arena.assets.object import Object
 
-        if not isinstance(obj, Object) or not isinstance(obj.spawn_cfg, UsdFileCfg):
-            assert not excluded_prim_paths, "USD prim exclusions require an Object with a usd_path."
-            return obj.get_collision_mesh()
-
-        exclusions = tuple(sorted(excluded_prim_paths))
-        spawn_cfg = obj.spawn_cfg
-        scale = tuple(spawn_cfg.scale or (1.0, 1.0, 1.0))
-        key = (spawn_cfg.usd_path, scale, exclusions)
-        if key not in self._trimesh_cache:
-            from isaaclab_arena.utils.usd.helpers import extract_trimesh_from_usd  # deferred: pxr import
-
-            try:
-                self._trimesh_cache[key] = extract_trimesh_from_usd(
-                    spawn_cfg.usd_path,
-                    scale,
-                    excluded_prim_paths=exclusions,
-                )
-            except ValueError as e:
-                print(f"  [WarpMeshAndSphereCache] Could not extract mesh for '{obj.name}': {e}")
-                self._trimesh_cache[key] = e
-            except OSError as e:
-                # Transient: file I/O failure, don't cache so next call retries.
-                print(f"  [WarpMeshAndSphereCache] Could not extract mesh for '{obj.name}': {e}")
-                raise
-        result = self._trimesh_cache[key]
-        if isinstance(result, ValueError):
-            raise result
-        return result
+        if isinstance(obj, Object):
+            return obj.get_collision_mesh(excluded_prim_paths=excluded_prim_paths)
+        assert not excluded_prim_paths, "USD prim exclusions require an Object."
+        return obj.get_collision_mesh()
 
     @property
     def device(self) -> str:
@@ -208,16 +178,8 @@ class WarpMeshAndSphereCache:
         return self._device
 
     def _cache_key(self, mesh: trimesh.Trimesh, obj: CollisionObject | None = None) -> tuple:
-        """Compute cache key. Uses (usd_path, scale) for USD objects, content hash otherwise."""
-        from isaaclab.sim import UsdFileCfg
-
-        from isaaclab_arena.assets.object import Object
-
+        """Reuse geometry caches only when the actual mesh and collision settings agree."""
         repair_non_watertight = obj.repair_collision_mesh_non_watertight if obj is not None else True
-        if isinstance(obj, Object) and isinstance(obj.spawn_cfg, UsdFileCfg):
-            spawn_cfg = obj.spawn_cfg
-            scale = tuple(spawn_cfg.scale or (1.0, 1.0, 1.0))
-            return (spawn_cfg.usd_path, scale, repair_non_watertight, self._num_spheres, self._sphere_radius)
         return (_mesh_content_hash(mesh), repair_non_watertight, self._num_spheres, self._sphere_radius)
 
     def get_warp_mesh(self, mesh: trimesh.Trimesh, obj: CollisionObject | None = None) -> wp.Mesh:

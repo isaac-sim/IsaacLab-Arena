@@ -5,23 +5,27 @@
 from __future__ import annotations
 
 import torch
+import trimesh
+from collections.abc import Collection
 from copy import deepcopy
 from typing import Any
 
 from isaaclab.assets import ArticulationCfg, AssetBaseCfg, RigidObjectCfg
 from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
+from isaaclab.sim import MultiAssetSpawnerCfg, MultiUsdFileCfg
 from isaaclab.sim.spawners.from_files.from_files_cfg import UsdFileCfg
 from isaaclab.sim.spawners.spawner_cfg import SpawnerCfg
 
 from isaaclab_arena.assets.object_base import ObjectBase, RootedObjectBase
+from isaaclab_arena.assets.object_geometry import ObjectGeometry
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.assets.object_utils import detect_object_type
 from isaaclab_arena.assets.physics_spawner import make_usd_spawn_cfg_with_addons
 from isaaclab_arena.relations.relations import RelationBase
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose
-from isaaclab_arena.utils.usd.helpers import compute_local_bounding_box_from_usd, has_light, open_stage
-from isaaclab_arena.utils.usd.rigid_bodies import find_shallowest_rigid_body, read_asset_rigid_body_paths
+from isaaclab_arena.utils.usd.helpers import has_light, open_stage
+from isaaclab_arena.utils.usd.rigid_bodies import read_asset_rigid_body_paths
 
 
 class Object(RootedObjectBase):
@@ -53,12 +57,15 @@ class Object(RootedObjectBase):
         spawn_cfg: SpawnerCfg | None = None,
         **kwargs,
     ):
+        """Create one concrete asset shared across environments through native spawning."""
         spawn_cfg_addon: dict[str, Any] = kwargs.pop("spawn_cfg_addon", {}) or {}
-        asset_cfg_addon: dict[str, Any] = kwargs.pop("asset_cfg_addon", {}) or {}
         assert (usd_path is None) != (spawn_cfg is None), "Provide exactly one of usd_path or spawn_cfg"
         if spawn_cfg is not None:
             assert object_type is not None, "object_type must be provided if spawn_cfg is provided"
             assert not spawn_cfg_addon, "Configure spawn options directly on spawn_cfg"
+            assert not isinstance(
+                spawn_cfg, (MultiAssetSpawnerCfg, MultiUsdFileCfg)
+            ), "Use RigidObjectSet to select different objects across environments"
             spawn_cfg = deepcopy(spawn_cfg)
         else:
             if object_type is None:
@@ -71,11 +78,26 @@ class Object(RootedObjectBase):
                 ),
                 spawn_cfg_addon,
             )
+        self._initialize_object(name, prim_path, object_type, spawn_cfg, initial_pose, relations, **kwargs)
+
+    def _initialize_object(
+        self,
+        name: str,
+        prim_path: str | None,
+        object_type: ObjectType,
+        spawn_cfg: SpawnerCfg,
+        initial_pose: Pose | None,
+        relations: list[RelationBase] | None,
+        **kwargs,
+    ) -> None:
+        """Initialize native scene configuration and pose state for Object and RigidObjectSet."""
+        asset_cfg_addon: dict[str, Any] = kwargs.pop("asset_cfg_addon", {}) or {}
         super().__init__(name=name, prim_path=prim_path, object_type=object_type, **kwargs)
         self.initial_pose = initial_pose
         self.relations = list(relations or [])
         self.reset_pose = True
         self.bounding_box: AxisAlignedBoundingBox | None = None
+        self._geometry: ObjectGeometry | None = None
         cfg_options = deepcopy(asset_cfg_addon)
         if object_type == ObjectType.ARTICULATION:
             cfg_options.setdefault("actuators", {})
@@ -95,22 +117,33 @@ class Object(RootedObjectBase):
 
     @property
     def spawn_cfg(self) -> SpawnerCfg:
-        """The native configuration used to spawn this object."""
+        """The native configuration used for both spawning and geometry queries."""
         return self.object_cfg.spawn
 
     @spawn_cfg.setter
     def spawn_cfg(self, value: SpawnerCfg) -> None:
+        assert not isinstance(
+            value, (MultiAssetSpawnerCfg, MultiUsdFileCfg)
+        ), "Construct RigidObjectSet to configure native alternatives"
         self.object_cfg.spawn = value
+        self._geometry = None
+
+    def _get_geometry(self) -> ObjectGeometry:
+        """Refresh derived geometry after this object's native configuration changes."""
+        assert not isinstance(
+            self.spawn_cfg, (MultiAssetSpawnerCfg, MultiUsdFileCfg)
+        ), "Use RigidObjectSet for alternatives"
+        if self._geometry is None or not self._geometry.matches(self.spawn_cfg):
+            self._geometry = ObjectGeometry(self.spawn_cfg, self.object_type)
+        return self._geometry
 
     def get_bounding_box(self) -> AxisAlignedBoundingBox:
-        """Get local bounding box (relative to object origin)."""
-        spawn_cfg = self.spawn_cfg
-        if self.bounding_box is None:
-            assert isinstance(spawn_cfg, UsdFileCfg), "Automatic bounds require a USD spawn configuration"
-            self.bounding_box = compute_local_bounding_box_from_usd(
-                spawn_cfg.usd_path, spawn_cfg.scale or (1.0, 1.0, 1.0)
-            )
-        return self.bounding_box
+        """Return local bounds in the frame used to write this object's pose."""
+        return self.bounding_box if self.bounding_box is not None else self._get_geometry().get_bounding_box()
+
+    def get_collision_mesh(self, excluded_prim_paths: Collection[str] = ()) -> trimesh.Trimesh | None:
+        """Return collision geometry in the same frame as placement bounds."""
+        return self._get_geometry().get_collision_mesh(excluded_prim_paths)
 
     def get_corners(self, pos: torch.Tensor) -> torch.Tensor:
         return self.get_bounding_box().get_corners_at(pos)
@@ -127,21 +160,8 @@ class Object(RootedObjectBase):
         self._pose_event_cfg = self._build_reset_event()
 
     def get_contact_sensor_prim_path(self) -> str:
-        """Return the scene path of the configured rigid body."""
-        assert self.object_type == ObjectType.RIGID, "Contact sensor is only supported for rigid objects"
-        spawn_cfg = self.spawn_cfg
-        assert isinstance(spawn_cfg, UsdFileCfg), "Contact-body discovery requires a USD spawn configuration"
-        variants = spawn_cfg.variants
-        if variants is not None and not isinstance(variants, dict):
-            variants = variants.to_dict()
-        rigid_body_relative_path = find_shallowest_rigid_body(
-            spawn_cfg.usd_path,
-            within_default_prim=True,
-            relative_to_default_prim=True,
-            variants=variants,
-        )
-        assert rigid_body_relative_path is not None, f"No rigid body found in {self.name} USD file"
-        return self.prim_path + rigid_body_relative_path
+        """Return this object's rigid-body path."""
+        return self.prim_path + self._get_geometry().get_contact_body_path()
 
     def get_contact_sensor_cfg(self, contact_against_object: ObjectBase | None = None) -> ContactSensorCfg:
         """Configure contacts against the target's current rigid-body paths."""
