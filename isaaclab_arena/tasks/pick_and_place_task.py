@@ -88,7 +88,6 @@ class PickAndPlaceTask(TaskBase):
             None if pick_up_object.object_type == ObjectType.DEFORMABLE else f"contact_sensor_{pick_up_object.name}"
         )
         self.contact_sensor_cfg = SceneEntityCfg(self.contact_sensor_name) if self.contact_sensor_name else None
-        self.scene_config = self.make_scene_cfg()
         self.force_threshold = force_threshold
         assert velocity_threshold >= 0.0, f"velocity_threshold must be non-negative, got {velocity_threshold}"
         self.velocity_threshold = velocity_threshold
@@ -127,7 +126,7 @@ class PickAndPlaceTask(TaskBase):
         return scene_cfg_type()
 
     def get_scene_cfg(self):
-        return self.scene_config
+        return self.make_scene_cfg()
 
     def get_events_cfg(self):
         return self.events_cfg

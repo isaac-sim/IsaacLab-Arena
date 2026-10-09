@@ -33,6 +33,7 @@ class TaskBase(ABC):
 
     @abstractmethod
     def get_scene_cfg(self) -> Any:
+        """Derive task scene configuration from the assets' current resolved settings."""
         raise NotImplementedError("Function not implemented yet.")
 
     @abstractmethod

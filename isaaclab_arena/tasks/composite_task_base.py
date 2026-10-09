@@ -174,8 +174,9 @@ class CompositeTaskBase(TaskBase):
 
     def get_scene_cfg(self) -> Any:
         "Make combined scene cfg from all subtasks."
+        subtask_scene_configs = [subtask.get_scene_cfg() for subtask in self.subtasks]
         # Check for duplicate fields across subtask scene configs and warn if found
-        duplicates = check_configclass_field_duplicates(*(subtask.get_scene_cfg() for subtask in self.subtasks))
+        duplicates = check_configclass_field_duplicates(*subtask_scene_configs)
         if duplicates:
             warnings.warn(
                 f"\n[WARNING] Duplicate scene config fields found across subtasks: {duplicates}. "
@@ -183,7 +184,7 @@ class CompositeTaskBase(TaskBase):
                 UserWarning,
             )
 
-        scene_cfg = combine_configclass_instances("SceneCfg", *(subtask.get_scene_cfg() for subtask in self.subtasks))
+        scene_cfg = combine_configclass_instances("SceneCfg", *subtask_scene_configs)
         return scene_cfg
 
     def get_events_cfg(self) -> Any:
