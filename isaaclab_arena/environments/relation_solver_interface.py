@@ -51,7 +51,8 @@ def create_relation_placement_variation(
         The declared placement variation, or ``None`` when neither live nor
         recorded placement can supply samples.
     """
-    from isaaclab_arena.variations.relation_placement_variation import PlacementPoolSampler, RelationPlacementVariation
+    from isaaclab_arena.variations.relation_placement_sampler import PlacementPoolSampler
+    from isaaclab_arena.variations.relation_placement_variation import RelationPlacementVariation
 
     anchor_assets = set(get_anchor_objects(assets))
     can_prepare_live = live_placement_enabled and bool(assets) and anchor_assets != set(assets)

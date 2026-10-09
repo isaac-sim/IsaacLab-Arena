@@ -151,8 +151,8 @@ def _make_mock_env(num_envs: int, device: str = "cpu") -> MagicMock:
 
 def _apply_live_placement_with_pool(env, env_ids, pool):
     """Apply one live relation-placement variation sample."""
+    from isaaclab_arena.variations.relation_placement_sampler import PlacementPoolSampler
     from isaaclab_arena.variations.relation_placement_variation import (
-        PlacementPoolSampler,
         RelationPlacementHandle,
         apply_relation_placement_sample,
     )

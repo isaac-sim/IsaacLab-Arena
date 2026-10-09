@@ -13,8 +13,8 @@ import pytest
 
 from isaaclab_arena.variations.object_mass_variation import ObjectMassVariation, ObjectMassVariationCfg
 from isaaclab_arena.variations.recorded_variation_replay import configure_recorded_variation_replay
+from isaaclab_arena.variations.relation_placement_sampler import PlacementPoolSampler
 from isaaclab_arena.variations.relation_placement_variation import (
-    PlacementPoolSampler,
     RelationPlacementHandle,
     RelationPlacementVariation,
     RelationPlacementVariationCfg,

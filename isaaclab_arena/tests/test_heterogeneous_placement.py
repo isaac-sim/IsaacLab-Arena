@@ -906,7 +906,7 @@ def test_real_rigid_object_set_through_pooled_placer():
     from isaaclab_arena.assets.object_set import RigidObjectSet
     from isaaclab_arena.assets.object_type import ObjectType
     from isaaclab_arena.relations.bounding_box_helpers import has_heterogeneous_objects
-    from isaaclab_arena.variations.relation_placement_variation import PlacementPoolSampler
+    from isaaclab_arena.variations.relation_placement_sampler import PlacementPoolSampler
 
     desk = _make_desk()
 
