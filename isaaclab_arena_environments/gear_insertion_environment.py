@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -47,8 +48,14 @@ class GearInsertionEnvironmentCfg(ArenaEnvironmentCfg):
     episode_length_s: float = 70.0
     """Maximum episode duration."""
 
+    position_randomization_m: float = 0.05
+    """Maximum initial X/Y offset for each gear asset; zero keeps the nominal positions."""
+
     def __post_init__(self) -> None:
         assert self.episode_length_s > 0.0, "episode_length_s must be positive"
+        assert (
+            math.isfinite(self.position_randomization_m) and self.position_randomization_m >= 0.0
+        ), "position_randomization_m must be finite and non-negative"
 
 
 @register_environment
@@ -64,7 +71,7 @@ class GearInsertionEnvironment(ArenaEnvironmentFactory[GearInsertionEnvironmentC
         from isaaclab_arena.assets.object_type import ObjectType
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
         from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-        from isaaclab_arena.relations.relations import AtPosition, IsAnchor, On
+        from isaaclab_arena.relations.relations import AtPosition, IsAnchor, On, PositionLimitsBox
         from isaaclab_arena.relations.validation.types import PlacementCheck
         from isaaclab_arena.scene.scene import Scene
         from isaaclab_arena.tasks.gear_insertion_task import GearInsertionTask
@@ -84,11 +91,17 @@ class GearInsertionEnvironment(ArenaEnvironmentFactory[GearInsertionEnvironmentC
 
         gear_base = self.asset_registry.get_asset_by_name("gear_insertion_base")()
         gear_base.add_relation(On(table_reference, clearance_m=0.0))
-        gear_base.add_relation(AtPosition(x=GEAR_BASE_XY[0], y=GEAR_BASE_XY[1]))
 
         medium_gear = self.asset_registry.get_asset_by_name("gear_insertion_medium_gear")()
         medium_gear.add_relation(On(table_reference, clearance_m=0.001))
-        medium_gear.add_relation(AtPosition(x=GEAR_INITIAL_XY[0], y=GEAR_INITIAL_XY[1]))
+        offset = cfg.position_randomization_m
+        for asset, (x, y) in ((gear_base, GEAR_BASE_XY), (medium_gear, GEAR_INITIAL_XY)):
+            if offset > 0.0:
+                asset.add_relation(
+                    PositionLimitsBox(x_min=x - offset, x_max=x + offset, y_min=y - offset, y_max=y + offset)
+                )
+            else:
+                asset.add_relation(AtPosition(x=x, y=y))
         insertion_target = ObjectReference(
             name="medium_gear_target",
             prim_path=f"{gear_base.get_prim_path()}/medium_gear_target",
