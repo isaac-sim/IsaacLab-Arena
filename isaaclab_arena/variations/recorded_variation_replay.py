@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.variations.recorded_variation_samples import (
@@ -24,27 +25,32 @@ if TYPE_CHECKING:
 
 
 def configure_recorded_variation_replay(
-    path: str,
+    source: str | Path | RebuildVariationRecord,
     variations: dict[str, list[VariationBase]],
+    scheduler: VariationReplayScheduler | None = None,
 ) -> VariationReplayScheduler:
-    """Load recorded variation samples, bind replay samplers, and return their scheduler.
+    """Bind recorded variation samples and return their shared episode scheduler.
 
     Args:
-        path: Episode-result JSONL to replay.
+        source: Episode-result JSONL or an already loaded rebuild record.
         variations: Variations available in the environment.
+        scheduler: Scheduler already created for a preloaded record.
 
     Returns:
         Scheduler configured to assign and replay the loaded sample records.
     """
     enabled = _enabled_variations_by_key(variations)
-    variation_record = load_rebuild_variation_record(
-        path,
-        build_time_variation_keys={
-            key for key, variation in enabled.items() if isinstance(variation, BuildTimeVariationBase)
-        },
-    )
+    if isinstance(source, RebuildVariationRecord):
+        variation_record = source
+    else:
+        variation_record = load_rebuild_variation_record(
+            source,
+            build_time_variation_keys={
+                key for key, variation in enabled.items() if isinstance(variation, BuildTimeVariationBase)
+            },
+        )
     _validate_variation_replay(enabled, variation_record)
-    scheduler = VariationReplayScheduler(variation_record)
+    scheduler = scheduler or VariationReplayScheduler(variation_record)
     _bind_variation_replay_samplers(enabled, variation_record, scheduler)
     return scheduler
 

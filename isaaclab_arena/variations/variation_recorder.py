@@ -6,11 +6,12 @@
 from __future__ import annotations
 
 import torch
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
+    from isaaclab_arena.variations.sampler_base import SamplerBase
     from isaaclab_arena.variations.variation_base import VariationBase, VariationBaseCfg
 
 
@@ -25,7 +26,7 @@ class EnvEpisodeKey:
 class VariationRecord:
     """Per-variation record of the values drawn for it."""
 
-    def __init__(self, name: str, cfg: VariationBaseCfg) -> None:
+    def __init__(self, name: str, cfg: VariationBaseCfg | None = None) -> None:
         self.name = name
         self.cfg = cfg
         # Run-time draw, one per (env id, episode index).
@@ -75,6 +76,7 @@ class VariationRecorder:
     def __init__(self) -> None:
         # Records are keyed by: "{asset_name}.{variation_name}"
         self.records: dict[str, VariationRecord] = {}
+        self.placement_record: VariationRecord | None = None
         # Bound after env construction; supplies the episode index for per-env run-time draws.
         self._env: Any = None
 
@@ -105,18 +107,36 @@ class VariationRecorder:
                 record = VariationRecord(name=variation_key, cfg=variation.cfg)
                 self.records[variation_key] = record
 
-                def on_sample(
-                    sample: Any, env_ids: torch.Tensor | None = None, record: VariationRecord = record
-                ) -> None:
-                    if isinstance(sample, torch.Tensor):
-                        sample = sample.detach().cpu()
-                    if env_ids is None:
-                        # Build-time / all-envs draw: applies to every episode of every env.
-                        record.record_buildtime_sample(sample)
-                    else:
-                        assert self._env is not None, "VariationRecorder needs bind_env() before per-env draws."
-                        env_id_list = env_ids.tolist()
-                        episode_indices = [self._env.get_episode_index(env_id) for env_id in env_id_list]
-                        record.record_runtime_sample(sample, env_id_list, episode_indices)
+                variation.add_sample_listener(self._make_listener(record))
 
-                variation.add_sample_listener(on_sample)
+    def attach_placement_sampler(
+        self,
+        sampler: SamplerBase,
+        serializer: Callable[[Any], Any],
+    ) -> None:
+        """Attach a placement sampler without representing it as a variation."""
+        assert self.placement_record is None, "VariationRecorder already has an attached placement sampler."
+        self.placement_record = VariationRecord(name="placement")
+        sampler.add_listener(self._make_listener(self.placement_record, serializer))
+
+    def _make_listener(
+        self,
+        record: VariationRecord,
+        serializer: Callable[[Any], Any] | None = None,
+    ) -> Callable[[Any, torch.Tensor | None], None]:
+        """Create a sampler listener using shared episode attribution."""
+
+        def on_sample(sample: Any, env_ids: torch.Tensor | None = None) -> None:
+            if serializer is not None:
+                sample = serializer(sample)
+            if isinstance(sample, torch.Tensor):
+                sample = sample.detach().cpu()
+            if env_ids is None:
+                record.record_buildtime_sample(sample)
+                return
+            assert self._env is not None, "VariationRecorder needs bind_env() before per-env draws."
+            env_id_list = env_ids.tolist()
+            episode_indices = [self._env.get_episode_index(env_id) for env_id in env_id_list]
+            record.record_runtime_sample(sample, env_id_list, episode_indices)
+
+        return on_sample

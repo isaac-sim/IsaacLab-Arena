@@ -50,6 +50,15 @@ def record_variation_samples(env, env_id: int) -> dict[str, Any]:
     return {"variations": samples} if samples else {}
 
 
+def record_placement_sample(env, env_id: int) -> dict[str, Any]:
+    """Record the relation placement drawn for ``env_id``'s finished episode."""
+    recorder = env.variation_recorder
+    if recorder is None or recorder.placement_record is None:
+        return {}
+    value = recorder.placement_record.sample_for_episode(env_id, env.get_episode_index(env_id))
+    return {"placement": value} if value is not None else {}
+
+
 @configclass
 class CoreEpisodeRecorderTermCfg(EpisodeRecorderTermCfg):
     """Term recording the core per-episode metadata (env id, indices, success, seed, timing)."""
@@ -62,3 +71,10 @@ class VariationEpisodeRecorderTermCfg(EpisodeRecorderTermCfg):
     """Term recording each variation's per-env sampled value for the episode."""
 
     func: Callable[..., dict[str, Any]] = record_variation_samples
+
+
+@configclass
+class PlacementEpisodeRecorderTermCfg(EpisodeRecorderTermCfg):
+    """Term recording the relation placement sampled for the episode."""
+
+    func: Callable[..., dict[str, Any]] = record_placement_sample

@@ -164,6 +164,27 @@ def test_record_variation_samples_emits_the_per_episode_draw():
     assert record_variation_samples(env, env_id=1) == {}
 
 
+def test_record_placement_sample_uses_sampler_listener_without_variation():
+    """Placement shares episode attribution but is emitted outside ``variations``."""
+    from isaaclab_arena.recording.common_terms import record_placement_sample
+
+    variation = _RecorderTestVariation()
+    recorder = VariationRecorder()
+    recorder.attach_placement_sampler(
+        variation.sampler,
+        serializer=lambda sample: [{"pose": row.tolist()} for row in sample],
+    )
+    env = _FakeEnv(recorder, episode_index=2)
+    recorder.bind_env(env)
+
+    variation.sampler.sample(num_samples=1, env_ids=torch.tensor([3]))
+
+    fields = record_placement_sample(env, env_id=3)
+    assert fields.keys() == {"placement"}
+    assert fields["placement"].keys() == {"pose"}
+    assert len(fields["placement"]["pose"]) == 1
+
+
 def test_recorder_skips_disabled_variations():
     variation = _RecorderTestVariation()  # disabled by default
     recorder = VariationRecorder()

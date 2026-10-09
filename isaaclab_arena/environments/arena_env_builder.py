@@ -38,16 +38,16 @@ from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.metrics.metric_term_cfg import MetricTermCfg
 from isaaclab_arena.metrics.recorder_manager_utils import metrics_to_recorder_manager_cfg
 from isaaclab_arena.progress_tracking.task_progress_cfg import TaskProgressCfg
-from isaaclab_arena.recording.common_terms import CoreEpisodeRecorderTermCfg, VariationEpisodeRecorderTermCfg
+from isaaclab_arena.recording.common_terms import (
+    CoreEpisodeRecorderTermCfg,
+    PlacementEpisodeRecorderTermCfg,
+    VariationEpisodeRecorderTermCfg,
+)
 from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTermCfg
 from isaaclab_arena.recording.progress_terms import ProgressEpisodeRecorderTermCfg
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-from isaaclab_arena.relations.placement_events import (
-    CACHED_PLACEMENT_RESET_EVENT_NAME,
-    PLACEMENT_RESET_EVENT_NAME,
-    make_cached_placement_event,
-)
-from isaaclab_arena.relations.placement_layouts import PlacementLayouts
+from isaaclab_arena.relations.placement_events import PLACEMENT_RESET_EVENT_NAME
+from isaaclab_arena.relations.placement_sampler import serialize_placement_samples
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.tasks.no_task import NoTask
 from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
@@ -60,8 +60,10 @@ from isaaclab_arena.utils.multiprocess import get_local_rank
 from isaaclab_arena.utils.physics_backend import PhysicsBackend
 from isaaclab_arena.variations import variations_hydra, variations_printing
 from isaaclab_arena.variations.recorded_variation_replay import configure_recorded_variation_replay
-from isaaclab_arena.variations.variation_base import RunTimeVariationBase, VariationBase
+from isaaclab_arena.variations.recorded_variation_samples import load_rebuild_variation_record
+from isaaclab_arena.variations.variation_base import BuildTimeVariationBase, RunTimeVariationBase, VariationBase
 from isaaclab_arena.variations.variation_recorder import VariationRecorder
+from isaaclab_arena.variations.variation_replay_scheduler import VariationReplayScheduler
 
 
 # TODO: peterd, 2026-09-16: Remove this once Arena migrates off ViewCfg and into KitVisualizerCfg.
@@ -101,15 +103,18 @@ class ArenaEnvBuilder:
             num_envs=cfg.num_envs, env_spacing=cfg.env_spacing, replicate_physics=False
         )
         self._placement_event_cfg: EventTermCfg | None = None
-        self._placement_layouts: PlacementLayouts | None = None
 
     @property
     def resolved_physics_backend(self) -> PhysicsBackend:
         """Return the physics backend selected for this build (CLI preset or environment default)."""
         return self.cfg.presets if self.cfg.presets is not None else self.arena_env.default_physics_backend
 
-    def _solve_relations(self) -> None:
-        """Solve spatial relations for scene objects and the embodiment.
+    def _prepare_relation_placement(
+        self,
+        recorded_samples: list[dict[str, Any]] | None,
+        scheduler: VariationReplayScheduler | None,
+    ) -> None:
+        """Prepare live or recorded relation placement.
 
         This method:
         1. Collects placement assets that have relations
@@ -123,10 +128,10 @@ class ArenaEnvBuilder:
 
         * **True** (default) — registers a reset event that draws a fresh layout
           from the pool for each resetting environment.
-        * **False** — assigns one fixed layout per environment. Every non-anchor
-          placement asset (objects and the embodiment alike) stores its solved
-          per-environment pose and owns its own reset event.
+        * **False** — assigns one fixed layout per environment and reuses it.
         """
+        if recorded_samples is None and not self.cfg.solve_relations:
+            return
         # Reachability constraints are defined in the task, so apply them before placement.
         if self.arena_env.task is not None:
             self.arena_env.task.apply_reachability_constraints()
@@ -148,33 +153,24 @@ class ArenaEnvBuilder:
         # Delists itself unless the embodiment has a registered cuRobo config and the solver deps are importable.
         # TODO(xinjieyao, 2026-07-22): updated once robot-object co-placement is merged.
         placer_params.reachability_config.embodiment = self.arena_env.embodiment
+        placement_replay_sampler = None
+        if recorded_samples is not None:
+            assert scheduler is not None
+
+            def get_recorded_placement_samples(_num_samples, env_ids):
+                assert env_ids is not None, "Recorded placement requires per-environment ids."
+                return scheduler.placement_sample_for(env_ids.tolist())
+
+            placement_replay_sampler = get_recorded_placement_samples
+
         self._placement_event_cfg = solve_and_apply_relation_placement(
             placement_assets,
             num_envs=self.cfg.num_envs,
             placer_params=placer_params,
             scene_assets=self.arena_env.scene.assets.values(),
-        )
-
-    def _load_placement_layouts(self) -> PlacementLayouts | None:
-        """Read the configured companion file or return in-memory layouts."""
-        layouts = self.arena_env.placement_layouts
-        if self.cfg.placement_layouts_path is not None:
-            assert layouts is None, "Specify a placement layout file or in-memory layouts, not both"
-            layouts = PlacementLayouts.from_episode_jsonl(self.cfg.placement_layouts_path)
-        return layouts
-
-    def _apply_cached_layouts(self, layouts: PlacementLayouts) -> None:
-        """Seed cached poses and register their reset event."""
-        assert self.cfg.placement_seed is None, "placement_seed applies to solving, not cached layouts"
-        placer_params = self.arena_env.placer_params
-        if placer_params is not None:
-            assert placer_params.placement_seed is None, "placement_seed applies to solving, not cached layouts"
-        resolve_on_reset = self.cfg.resolve_on_reset
-        if resolve_on_reset is None and placer_params is not None:
-            resolve_on_reset = placer_params.resolve_on_reset
-        assert resolve_on_reset is not False, "Cached replay requires resolve_on_reset=True"
-        self._placement_event_cfg = make_cached_placement_event(
-            layouts, self.arena_env.get_placement_assets(), self.cfg.num_envs
+            recorded_samples=recorded_samples,
+            replay_assets=self.arena_env.get_placement_assets(),
+            replay_sampler=placement_replay_sampler,
         )
 
     def get_all_variations(self) -> dict[str, list[VariationBase]]:
@@ -278,12 +274,14 @@ class ArenaEnvBuilder:
         """
         fields = [
             ("core", EpisodeRecorderTermCfg, CoreEpisodeRecorderTermCfg()),
+            ("placement", EpisodeRecorderTermCfg, PlacementEpisodeRecorderTermCfg()),
             ("variations", EpisodeRecorderTermCfg, VariationEpisodeRecorderTermCfg()),
             ("progress", EpisodeRecorderTermCfg, ProgressEpisodeRecorderTermCfg()),
         ]
         for name, term_cfg in (extra_terms or {}).items():
             assert name not in (
                 "core",
+                "placement",
                 "variations",
                 "progress",
             ), f"Episode recorder term name '{name}' collides with a built-in term."
@@ -298,28 +296,50 @@ class ArenaEnvBuilder:
         Returns:
             An (env_cfg, env_kwargs) tuple.
         """
-        # Apply placement before building scene config so initial poses are captured correctly.
-        self._placement_layouts = self._load_placement_layouts()
-        if self._placement_layouts is not None:
-            self._apply_cached_layouts(self._placement_layouts)
-        elif self.cfg.solve_relations:
-            self._solve_relations()
-
         # Apply Hydra variation overrides. Needs to happen before build-time variations are applied.
         variations = self.get_all_variations()
         if self.hydra_overrides:
             variations_hydra.apply_overrides(variations, self.hydra_overrides)
 
-        variation_replay_scheduler = (
-            configure_recorded_variation_replay(self.cfg.recorded_variation_samples_path, variations)
-            if self.cfg.recorded_variation_samples_path is not None
-            else None
-        )
+        variation_replay_scheduler = None
+        recorded_placement_samples = None
+        if self.cfg.recorded_variation_samples_path is not None:
+            build_time_variation_keys = {
+                f"{asset_name}.{variation.name}"
+                for asset_name, asset_variations in variations.items()
+                for variation in asset_variations
+                if variation.enabled and isinstance(variation, BuildTimeVariationBase)
+            }
+            replay_record = load_rebuild_variation_record(
+                self.cfg.recorded_variation_samples_path,
+                build_time_variation_keys=build_time_variation_keys,
+            )
+            variation_replay_scheduler = VariationReplayScheduler(replay_record)
+            configure_recorded_variation_replay(
+                replay_record,
+                variations,
+                scheduler=variation_replay_scheduler,
+            )
+            if replay_record.has_placement_samples and self.cfg.replay_recorded_placement:
+                recorded_placement_samples = [
+                    episode_record.placement_sample
+                    for episode_record in replay_record.episode_records
+                    if episode_record.placement_sample is not None
+                ]
+
+        # Placement needs its source selected before scene config captures construction poses.
+        self._prepare_relation_placement(recorded_placement_samples, variation_replay_scheduler)
 
         # Attach the variation recorder before any sampling, so it observes both build-time samples
         # (drawn just below) and run-time samples (drawn during simulation).
         variation_recorder = VariationRecorder()
         variation_recorder.attach(variations)
+        if self._placement_event_cfg is not None:
+            placement_handle = self._placement_event_cfg.params["placement_pool"]
+            variation_recorder.attach_placement_sampler(
+                placement_handle.sampler,
+                serialize_placement_samples,
+            )
 
         # Apply build-time variations now, before scene_cfg is materialised.
         self._apply_build_time_variations()
@@ -346,12 +366,9 @@ class ArenaEnvBuilder:
         )
         placement_event_cfg = None
         if self._placement_event_cfg is not None:
-            # The pooled event name is reserved for terms carrying a placement_pool handle.
-            event_name = (
-                CACHED_PLACEMENT_RESET_EVENT_NAME if self._placement_layouts is not None else PLACEMENT_RESET_EVENT_NAME
-            )
             PlacementEventCfg = make_configclass(
-                "PlacementEventCfg", [(event_name, EventTermCfg, self._placement_event_cfg)]
+                "PlacementEventCfg",
+                [(PLACEMENT_RESET_EVENT_NAME, EventTermCfg, self._placement_event_cfg)],
             )
             placement_event_cfg = PlacementEventCfg()
         variations_event_cfg = self._compose_variations_event_cfg()

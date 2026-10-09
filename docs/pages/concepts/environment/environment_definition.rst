@@ -22,19 +22,12 @@ Both produce the same object: an ``IsaacLabArenaEnvironment``.
 Companion placement files
 -------------------------
 
-Pass ``--placement_layouts layouts.jsonl`` to replay a companion file. This builder
-option works with both ``--env_spec`` and registered Python environments. Place it
-before the environment subcommand when using a registered environment.
-
-Python callers set ``ArenaEnvBuilderCfg(placement_layouts_path="layouts.jsonl")``.
-Paths are relative to the working directory. The builder reads the file when it
-composes the scene; the environment definition does not contain the replay path.
-Python callers can alternatively supply ``IsaacLabArenaEnvironment.placement_layouts``
-in memory. Supply a file path or in-memory layouts, not both.
-
-Replay bypasses relation solving and draws layouts from a shared queue on reset.
-See :doc:`../object_placement/relations` for the record format, queue behavior,
-asset coverage and reset requirements.
+Set ``environment_builder.recorded_variation_samples_path`` in an Experiment
+Definition to replay recorded placement and variation samples. Python callers use
+``ArenaEnvBuilderCfg(recorded_variation_samples_path="episodes.jsonl")``.
+Paths are relative to the working directory. Recorded placement bypasses relation
+solving and is applied by the normal coordinated placement reset event. See
+:doc:`../object_placement/relations` for the record format and replay requirements.
 
 Fixed poses in YAML
 -------------------

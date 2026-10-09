@@ -90,7 +90,7 @@ def validate_recording_assets(env: ManagerBasedEnv, assets: list[PlaceableAsset]
     """
     from isaaclab_arena.relations.bounding_box_helpers import has_heterogeneous_objects
     from isaaclab_arena.relations.placement_asset import get_scene_root_owners
-    from isaaclab_arena.relations.placement_layouts import validate_root_reset_for_cached_layouts
+    from isaaclab_arena.relations.placement_sampler import validate_root_reset_for_placement_replay
     from isaaclab_arena.relations.relations import RandomAroundSolution, get_relation
 
     env = env.unwrapped
@@ -109,10 +109,10 @@ def validate_recording_assets(env: ManagerBasedEnv, assets: list[PlaceableAsset]
         if selected:
             assert (
                 get_relation(asset, RandomAroundSolution) is None
-            ), f"'{asset.name}': remove RandomAroundSolution for cached replay"
+            ), f"'{asset.name}': remove RandomAroundSolution for placement replay"
             recorded_assets.append(asset)
     assert keys, "Recording requires rigid objects or articulations"
-    validate_root_reset_for_cached_layouts(recorded_assets)
+    validate_root_reset_for_placement_replay(recorded_assets)
 
 
 def write_settled_layouts(
@@ -128,10 +128,14 @@ def write_settled_layouts(
     The caller validates recording compatibility before sampling and owns env.
     This function does not reset, step or close it. Existing output is never overwritten.
     """
-    from isaaclab_arena.relations.placement_layouts import PlacementLayouts
+    from isaaclab_arena.relations.placement_sampler import (
+        placement_samples_from_pose_columns,
+        validate_placement_sample_assets,
+        write_placement_samples,
+    )
 
-    layouts = PlacementLayouts(poses)
-    layouts.validate_assets(assets)
+    samples = placement_samples_from_pose_columns(poses)
+    validate_placement_sample_assets(samples, assets)
     embodiment_keys = []
     for asset in assets:
         if asset.tags and "embodiment" in asset.tags:
@@ -149,4 +153,4 @@ def write_settled_layouts(
             "post_physics": [asdict(report) for report in outcome.post_physics],
             "sampling": sampling,
         })
-    layouts.write_episode_jsonl(output, source="settled", validation=validation)
+    write_placement_samples(output, samples, validation=validation)

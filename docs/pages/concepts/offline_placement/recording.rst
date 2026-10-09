@@ -192,9 +192,9 @@ If a file was written, check its layout count and inspect its first record:
 
 The line count must match the reported accepted count. Inspecting the first
 record shows the format; it does not validate the whole file.
-Under ``variations["scene.relation_placement"]``, check:
+Under the top-level ``placement`` field, check:
 
-* ``source`` is ``"settled"``, and ``poses`` contains the recorded physics roots.
+* ``layout_id`` identifies the sample, and ``poses`` contains the recorded physics roots.
 * ``validation.post_physics`` reports ``passed: true`` for applicable checks;
   skipped checks have ``passed: null`` and a reason.
 * ``validation.pre_physics`` stores solver verdicts, and ``validation.sampling``
@@ -207,7 +207,7 @@ See :doc:`../object_placement/relations` for pose names, units and replay constr
 Replay Placement Layouts
 ------------------------
 
-Set ``environment_builder.placement_layouts_path`` in an
+Set ``environment_builder.recorded_variation_samples_path`` in an
 :doc:`Experiment Definition <../concept_arena_experiments>` to load the recording:
 
 .. literalinclude:: ../../../../isaaclab_arena_environments/experiment_configs/settled_placement_replay_experiment.yaml

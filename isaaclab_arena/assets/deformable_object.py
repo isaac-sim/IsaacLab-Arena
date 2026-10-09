@@ -162,7 +162,20 @@ class DeformableObject(ObjectBase):
         ), f"Bounding-box inference is not supported for {type(self.spawner_cfg).__name__}"
         return self._bounding_box
 
-    def write_layout_pose_to_sim(self, env: ManagerBasedEnv, env_id: int, layout_pose: Pose) -> None:
-        """Apply a solved pose by transforming this deformable's nodal state."""
-        env_ids = torch.tensor([env_id], device=env.device)
-        set_deformable_object_pose(env, env_ids, SceneEntityCfg(self.name), layout_pose)
+    def write_scene_root_poses_to_sim(
+        self,
+        env: ManagerBasedEnv,
+        env_ids: torch.Tensor,
+        poses: dict[str, torch.Tensor],
+    ) -> None:
+        """Apply batched root poses by transforming this deformable's nodal state."""
+        assert set(poses) == {self.get_scene_key()}, "A deformable object owns exactly one scene root"
+        root_poses = poses[self.get_scene_key()]
+        assert root_poses.shape == (len(env_ids), 7), "Deformable root poses must have shape (N, 7)"
+        for env_id, root_pose in zip(env_ids.tolist(), root_poses):
+            layout_pose = Pose(
+                position_xyz=tuple(root_pose[:3].tolist()),
+                rotation_xyzw=tuple(root_pose[3:].tolist()),
+            )
+            current_env_ids = torch.tensor([env_id], device=env.device)
+            set_deformable_object_pose(env, current_env_ids, SceneEntityCfg(self.name), layout_pose)

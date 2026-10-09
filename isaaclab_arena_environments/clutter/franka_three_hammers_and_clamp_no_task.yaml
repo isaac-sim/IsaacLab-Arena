@@ -51,7 +51,8 @@ task:
   description: "No task."
   subtasks:
   - kind: NoTask
-    params: {}
+    params:
+      episode_length_s: 1.5
 env_cfg_override:
   viewer:
     eye: [1.2, 1.2, 1.35]
