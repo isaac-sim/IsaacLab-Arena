@@ -235,6 +235,7 @@ def check_configclass_field_duplicates(*input_configclass_instances: Any) -> dic
 def transform_configclass_instance(
     cfg_instance: Any,
     transform: Callable[[list[tuple[str, type, Any]]], list[tuple[str, type, Any]]],
+    bases: tuple[type, ...] = (),
 ) -> Any:
     """Transform a configclass instance by applying a transformation to its fields.
 
@@ -246,6 +247,7 @@ def transform_configclass_instance(
         cfg_instance: The configclass instance to transform.
         transform: A callable that takes a list of field tuples and returns
             a transformed list of field tuples.
+        bases: Base classes of the new configclass.
 
     Returns:
         A new configclass instance with the transformed fields, or None if the
@@ -270,5 +272,5 @@ def transform_configclass_instance(
 
     # Create a new configclass with transformed fields
     field_values = {name: value for name, _, value in transformed_fields}
-    new_cfg_class = make_configclass(type(cfg_instance).__name__, transformed_fields)
+    new_cfg_class = make_configclass(type(cfg_instance).__name__, transformed_fields, bases=bases)
     return new_cfg_class(**field_values)
