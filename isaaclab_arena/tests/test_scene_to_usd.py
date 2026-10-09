@@ -192,8 +192,15 @@ def test_scene_export_requires_single_asset_spawner(tmp_path: pathlib.Path):
     source_stage.GetRootLayer().Save()
     member = Object(name="member", object_type=ObjectType.RIGID, usd_path=str(source_path))
     obj = RigidObjectSet(name="box", objects=[member, member])
-    with pytest.raises(AssertionError, match="Select a concrete member"):
+    with pytest.raises(AssertionError, match="single-asset spawn configuration"):
         Scene([obj]).export_to_usd(tmp_path / "ambiguous.usda")
+
+    singleton = RigidObjectSet(name="singleton", objects=[member])
+    output_path = tmp_path / "singleton_set.usda"
+    Scene([singleton]).export_to_usd(output_path)
+    exported_stage = Usd.Stage.Open(str(output_path))
+    exported_cube = UsdGeom.Cube(exported_stage.GetPrimAtPath("/World/singleton/Cube"))
+    assert exported_cube.GetSizeAttr().Get() == pytest.approx(0.2)
 
 
 @pytest.mark.parametrize("reset_xform_stack", [False, True])

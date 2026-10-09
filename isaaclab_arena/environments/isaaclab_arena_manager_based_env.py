@@ -18,6 +18,7 @@ from isaaclab_arena.metrics.metrics_manager import MetricsManager
 from isaaclab_arena.progress_tracking.progress_tracker import ProgressTracker, ProgressTrackingRecorderCfg
 from isaaclab_arena.recording.arena_recorder_manager import ArenaRecorderManager
 from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderManager
+from isaaclab_arena.scene.object_variant_assignment import object_variant_clone_strategy
 from isaaclab_arena.tasks.predicates.object_settling import ObjectInitialRestPoseRecorder
 from isaaclab_arena.variations.variation_recorder import VariationRecorder
 
@@ -64,7 +65,8 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
         self._completed_episode_count = 0
         self._active_episode_mask = torch.zeros(cfg.scene.num_envs, dtype=torch.bool, device=cfg.sim.device)
         self._reset_env_ids = torch.empty(0, dtype=torch.long, device=cfg.sim.device)
-        super().__init__(cfg=cfg, render_mode=render_mode, **kwargs)
+        with object_variant_clone_strategy(cfg.scene, cfg.object_variant_assignments):
+            super().__init__(cfg=cfg, render_mode=render_mode, **kwargs)
 
     @property
     def arena_world(self) -> ArenaWorld:

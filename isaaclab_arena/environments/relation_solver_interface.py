@@ -19,7 +19,6 @@ if TYPE_CHECKING:
     from isaaclab.managers import EventTermCfg
 
     from isaaclab_arena.assets.asset import Asset
-    from isaaclab_arena.assets.object_set import RigidObjectSet
     from isaaclab_arena.relations.collision_object import CollisionObject
     from isaaclab_arena.relations.placement_asset import PlaceableAsset
     from isaaclab_arena.relations.placement_result import PlacementResult
@@ -30,7 +29,7 @@ def solve_and_apply_relation_placement(
     num_envs: int,
     placer_params: ObjectPlacerParams | None = None,
     collision_objects: list[CollisionObject] | None = None,
-    scene_assets: Iterable[Asset | RigidObjectSet] | None = None,
+    scene_assets: Iterable[Asset] | None = None,
 ) -> EventTermCfg | None:
     """Solve relation placement and apply the result to asset reset/static state.
 

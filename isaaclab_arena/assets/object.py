@@ -141,6 +141,11 @@ class Object(RootedObjectBase):
         """Return local bounds in the frame used to write this object's pose."""
         return self.bounding_box if self.bounding_box is not None else self._get_geometry().get_bounding_box()
 
+    def get_bounding_box_for_env(self, env_id: int) -> AxisAlignedBoundingBox:
+        """Return the same local bounds for every environment."""
+        assert env_id >= 0, "Environment index must be non-negative"
+        return self.get_bounding_box()
+
     def get_collision_mesh(self, excluded_prim_paths: Collection[str] = ()) -> trimesh.Trimesh | None:
         """Return collision geometry in the same frame as placement bounds."""
         return self._get_geometry().get_collision_mesh(excluded_prim_paths)

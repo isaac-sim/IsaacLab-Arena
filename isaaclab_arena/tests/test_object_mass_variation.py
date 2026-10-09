@@ -58,10 +58,9 @@ def get_test_environment(
 
 
 def _test_object_mass_variation_registration(simulation_app):
-    import torch
     from tempfile import TemporaryDirectory
-    from unittest.mock import patch
 
+    from isaaclab.sim import CuboidCfg
     from pxr import Usd
 
     from isaaclab_arena.assets.object import Object
@@ -69,7 +68,6 @@ def _test_object_mass_variation_registration(simulation_app):
     from isaaclab_arena.assets.object_set import RigidObjectSet
     from isaaclab_arena.assets.object_type import ObjectType
     from isaaclab_arena.assets.registries import AssetRegistry
-    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
     registry = AssetRegistry()
     sphere = registry.get_asset_by_name("sphere")()
@@ -81,17 +79,12 @@ def _test_object_mass_variation_registration(simulation_app):
     table = registry.get_asset_by_name("table")()
     assert "mass" not in table.variations
 
-    can_a = Object(name="can_a", object_type=ObjectType.RIGID, usd_path="/tmp/can_a.usd")
-    can_b = Object(name="can_b", object_type=ObjectType.RIGID, usd_path="/tmp/can_b.usd")
-    can_a.bounding_box = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.1, 0.1, 0.2))
-    can_b.bounding_box = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.2, 0.2, 0.3))
-    with (
-        patch("isaaclab_arena.assets.object_set.detect_object_type", return_value=ObjectType.RIGID),
-        patch("isaaclab_arena.assets.object_set.find_shallowest_rigid_body", return_value="/rigid"),
-        patch("isaaclab_arena.assets.object_set.torch.randint", return_value=torch.tensor([0, 1])),
-    ):
-        obj_set = RigidObjectSet(name="cans", objects=[can_a, can_b], random_choice=True)
-    assert "mass" in obj_set.variations
+    members = [
+        Object(name=f"box_{index}", spawn_cfg=CuboidCfg(size=(0.1, 0.1, height)), object_type=ObjectType.RIGID)
+        for index, height in enumerate((0.2, 0.3))
+    ]
+    varied_object = RigidObjectSet(name="boxes", objects=members, random_choice=True)
+    assert "mass" in varied_object.variations
 
     with TemporaryDirectory() as temp_dir:
         parent_usd_path = f"{temp_dir}/parent.usda"

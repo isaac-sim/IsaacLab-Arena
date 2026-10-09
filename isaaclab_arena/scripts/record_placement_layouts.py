@@ -106,7 +106,6 @@ def record_settled_placement_layouts(
     Returns:
         Output path, acceptance counts and per-candidate rejection reasons.
     """
-    from isaaclab_arena.assets.object_set import RigidObjectSet
     from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
     from isaaclab_arena.environment_spec.placer_params_cfg_override import build_placer_params_from_override
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
@@ -122,11 +121,15 @@ def record_settled_placement_layouts(
 
     if arena_env is None:
         spec = ArenaEnvGraphSpec.from_yaml(cfg.env_spec)
-        assert not spec.object_sets, "Resolve object sets before recording reusable layouts"
+        assert not any(
+            len(object_set.members) > 1 for object_set in (spec.object_sets or [])
+        ), "Select concrete object variants before recording reusable layouts"
         arena_env = spec.to_arena_env()
     assert arena_env.placement_layouts is None, "Remove cached placement layouts before recording"
     scene_assets = arena_env.get_placement_assets()
-    assert not any(isinstance(asset, RigidObjectSet) for asset in scene_assets), "Resolve object sets before recording"
+    assert not any(
+        asset.has_multiple_assets for asset in scene_assets
+    ), "Select concrete object variants before recording"
     placer_params = arena_env.placer_params
     if placer_params is None:
         placer_params = build_placer_params_from_override(None)

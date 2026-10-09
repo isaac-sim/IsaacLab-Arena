@@ -488,6 +488,7 @@ def _test_discover_passive_assets_filters(simulation_app) -> bool:
     def fake_object(name, relations, usd_path, pose, spec=Object):
         obj = MagicMock(spec=spec)
         obj.name = name
+        obj.has_multiple_assets = False
         obj.spawn_cfg = UsdFileCfg(usd_path=usd_path) if usd_path is not None else CuboidCfg(size=(0.2, 0.2, 0.2))
         obj.get_relations.return_value = relations
         obj.get_initial_pose.return_value = pose

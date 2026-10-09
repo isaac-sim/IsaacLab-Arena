@@ -20,7 +20,7 @@ def _assert_scene_state_equal(actual, expected):
                 torch.testing.assert_close(actual[kind][name][field], value, atol=1e-6, rtol=0)
 
 
-def _test_settling_rejects_object_sets_before_reset(simulation_app, tmp_path):
+def _test_settling_rejects_object_variants_before_reset(simulation_app, tmp_path):
     from unittest.mock import patch
 
     from isaaclab_arena.assets.object_set import RigidObjectSet
@@ -32,20 +32,20 @@ def _test_settling_rejects_object_sets_before_reset(simulation_app, tmp_path):
     arena_env = _make_primitive_clutter_scene(tmp_path)
     assets = arena_env.get_placement_assets()
     cube = next(asset for asset in assets if get_relation(asset, ClutterOn) is not None)
-    variants = RigidObjectSet("cube_variants", [cube])
+    variants = RigidObjectSet("cube_variants", objects=[cube, cube])
     env = ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg(num_envs=1)).make_registered()
     try:
         with patch.object(env.unwrapped, "reset", side_effect=AssertionError("must reject before resetting")):
-            with pytest.raises(AssertionError, match="Resolve object sets"):
+            with pytest.raises(AssertionError, match="Select concrete object variants"):
                 collect_settled_placements(env, 1, scene_assets=[*assets, variants])
     finally:
         env.close()
     return True
 
 
-def test_settling_rejects_object_sets_before_reset(tmp_path):
+def test_settling_rejects_object_variants_before_reset(tmp_path):
     assert run_function_with_persistent_simulation_app(
-        _test_settling_rejects_object_sets_before_reset, tmp_path=tmp_path
+        _test_settling_rejects_object_variants_before_reset, tmp_path=tmp_path
     )
 
 
