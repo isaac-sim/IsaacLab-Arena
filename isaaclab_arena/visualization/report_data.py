@@ -15,6 +15,7 @@ import functools
 import pathlib
 import re
 from collections import defaultdict
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -177,7 +178,7 @@ class CompletionCriteriaProgress:
     name: str
     family: str
     score: float
-    max_score: float
+    """Recorded progress in [0, 1], normalized within the criteria."""
     is_complete: bool
     signals: list[PredicateSignal]
     blocked_predicates: list[str] = field(default_factory=list)
@@ -206,7 +207,8 @@ class JobSummary:
     issues: list[DataIssue] = field(default_factory=list)
 
     _criteria_family_by_name: dict[str, str] = field(init=False, repr=False)
-    _family_sequences: dict[str, dict[int, str]] = field(init=False, repr=False)
+    _family_sequences: dict[str, dict[str, dict[int, str]]] = field(init=False, repr=False)
+    """Predicate names by index, per sequence name, per criteria family."""
 
     def __post_init__(self) -> None:
         self._criteria_family_by_name, family_issues = _build_criteria_family_map(self.name, self.episodes)
@@ -246,81 +248,101 @@ class JobSummary:
     def num_videos(self) -> int:
         return sum(len(episode.video_by_camera) for episode in self.episodes)
 
+    @property
+    def has_incomplete_sequence_data(self) -> bool:
+        """Return whether any criterion attempt lacks names for its recorded sequence count."""
+        for episode in self.episodes:
+            names_by_criteria = _sequence_names_by_criteria(episode.record)
+            for name, detail in _progress_criteria(episode.record).items():
+                names = names_by_criteria[name]
+                total = _as_int(detail.get("total_sequences"))
+                if not names or (total is not None and len(names) < total):
+                    return True
+        return False
+
     @functools.cached_property
     def funnels(self) -> list[CompletionCriteriaFunnel]:
-        instances_by_family: dict[str, set[tuple[int, int, str]]] = defaultdict(set)
-        reached_by_family_index: dict[tuple[str, int], set[tuple[int, int, str]]] = defaultdict(set)
+        instances_by_sequence: dict[tuple[str, str], set[tuple[int, int, str]]] = defaultdict(set)
+        reached_by_sequence_index: dict[tuple[str, str, int], set[tuple[int, int, str]]] = defaultdict(set)
         for episode in self.episodes:
-            for criteria_name in _episode_criteria_names(episode):
-                family = self._criteria_family_by_name.get(criteria_name, criteria_name)
-                instances_by_family[family].add((episode.env_index, episode.episode_index, criteria_name))
-            for event in _progress_events(episode.record):
-                criteria_name = _event_criteria_name(event)
-                index = _as_int(event.get("predicate_index"))
-                if criteria_name is None or index is None:
-                    continue
+            for criteria_name, sequence_names in _sequence_names_by_criteria(episode.record).items():
                 family = self._criteria_family_by_name.get(criteria_name, criteria_name)
                 instance = (episode.env_index, episode.episode_index, criteria_name)
-                instances_by_family[family].add(instance)
-                reached_by_family_index[(family, index)].add(instance)
+                for sequence_name in sequence_names:
+                    instances_by_sequence[(family, sequence_name)].add(instance)
+            for criteria_name, sequence_name, index, _ in _indexed_events(episode.record):
+                family = self._criteria_family_by_name.get(criteria_name, criteria_name)
+                instance = (episode.env_index, episode.episode_index, criteria_name)
+                reached_by_sequence_index[(family, sequence_name, index)].add(instance)
 
         funnels = []
         for family in sorted(self._family_sequences):
-            sequence = self._family_sequences[family]
-            stages = [
-                FunnelStage(
-                    index=index, name=sequence[index], num_reached=len(reached_by_family_index[(family, index)])
+            sequences = self._family_sequences[family]
+            for sequence_name in sorted(sequences):
+                predicate_names = sequences[sequence_name]
+                stages = [
+                    FunnelStage(
+                        index=index,
+                        name=predicate_names[index],
+                        num_reached=len(reached_by_sequence_index[(family, sequence_name, index)]),
+                    )
+                    for index in sorted(predicate_names)
+                ]
+                funnels.append(
+                    CompletionCriteriaFunnel(
+                        name=family if len(sequences) == 1 else f"{family}/{sequence_name}",
+                        num_instances=len(instances_by_sequence[(family, sequence_name)]),
+                        stages=stages,
+                    )
                 )
-                for index in sorted(sequence)
-            ]
-            funnels.append(
-                CompletionCriteriaFunnel(
-                    name=family, num_instances=len(instances_by_family.get(family, ())), stages=stages
-                )
-            )
         return funnels
 
     def criteria_for(self, episode: EpisodeSummary) -> list[CompletionCriteriaProgress]:
         criteria_by_name = _progress_criteria(episode.record)
-        names = list(criteria_by_name) if criteria_by_name else sorted(_event_criteria_names(episode.record))
+        sequence_names_by_criteria = _sequence_names_by_criteria(episode.record)
+        names = list(criteria_by_name) if criteria_by_name else sorted(sequence_names_by_criteria)
         results = []
-        fired = _events_by_criteria_and_index(episode.record)
+        fired = {
+            (criteria_name, sequence_name, index): event
+            for criteria_name, sequence_name, index, event in _indexed_events(episode.record)
+        }
         for name in names:
             detail = criteria_by_name.get(name, {}) if criteria_by_name else {}
             family = self._criteria_family_by_name.get(name, name)
-            sequence = self._family_sequences.get(family, {})
-            active_names = [
-                _base_predicate_name(predicate)
-                for predicate in (detail.get("active_predicates") or {}).values()
-                if predicate
-            ]
+            sequences = self._family_sequences.get(family, {})
+            active_predicates = detail.get("active_predicates") or {}
             signals = []
-            matched_blocked: set[str] = set()
-            for index in sorted(sequence):
-                event = fired.get(name, {}).get(index)
-                blocked = event is None and sequence[index] in active_names
-                if blocked:
-                    matched_blocked.add(sequence[index])
-                signals.append(
-                    PredicateSignal(
-                        index=index,
-                        name=sequence[index],
-                        triggered=event is not None,
-                        step=_as_int(event.get("step")) if event is not None else None,
-                        detail=str(event.get("predicate_name", "")) if event is not None else "",
-                        blocked=blocked,
+            blocked_predicates = []
+            for sequence_name in sorted(sequence_names_by_criteria[name]):
+                predicate_names = sequences[sequence_name]
+                active_predicate = active_predicates.get(sequence_name)
+                active_name = _base_predicate_name(active_predicate) if active_predicate else None
+                label_prefix = f"{sequence_name}/" if len(sequences) > 1 else ""
+                matched_blocked = False
+                for index in sorted(predicate_names):
+                    event = fired.get((name, sequence_name, index))
+                    blocked = event is None and predicate_names[index] == active_name
+                    matched_blocked = matched_blocked or blocked
+                    signals.append(
+                        PredicateSignal(
+                            index=index,
+                            name=label_prefix + predicate_names[index],
+                            triggered=event is not None,
+                            step=_as_int(event.get("step")) if event is not None else None,
+                            detail=str(event.get("predicate_name", "")) if event is not None else "",
+                            blocked=blocked,
+                        )
                     )
-                )
-            total_sequences = _as_float(detail.get("total_sequences")) if isinstance(detail, dict) else None
+                if active_name is not None and not matched_blocked:
+                    blocked_predicates.append(label_prefix + active_name)
             results.append(
                 CompletionCriteriaProgress(
                     name=name,
                     family=family,
                     score=_as_float(detail.get("score")) or 0.0 if isinstance(detail, dict) else 0.0,
-                    max_score=total_sequences if total_sequences and total_sequences > 0 else 1.0,
                     is_complete=bool(detail.get("is_complete", False)) if isinstance(detail, dict) else False,
                     signals=signals,
-                    blocked_predicates=[name for name in active_names if name not in matched_blocked],
+                    blocked_predicates=blocked_predicates,
                 )
             )
         return results
@@ -465,42 +487,44 @@ def _build_family_sequences(
     job_name: str,
     episodes: list[EpisodeSummary],
     family_by_name: dict[str, str],
-) -> tuple[dict[str, dict[int, str]], list[DataIssue]]:
-    names_by_family_index: dict[tuple[str, int], set[str]] = defaultdict(set)
+) -> tuple[dict[str, dict[str, dict[int, str]]], list[DataIssue]]:
+    sequences: dict[str, dict[str, dict[int, str]]] = defaultdict(dict)
+    names_by_sequence_index: dict[tuple[str, str, int], set[str]] = defaultdict(set)
     for episode in episodes:
-        for event in _progress_events(episode.record):
-            criteria_name = _event_criteria_name(event)
-            index = _as_int(event.get("predicate_index"))
-            if criteria_name is None or index is None:
-                continue
+        for criteria_name, sequence_names in _sequence_names_by_criteria(episode.record).items():
             family = family_by_name.get(criteria_name, criteria_name)
-            names_by_family_index[(family, index)].add(_base_predicate_name(event.get("predicate_name", "")))
+            for sequence_name in sequence_names:
+                sequences[family].setdefault(sequence_name, {})
+        for criteria_name, sequence_name, index, event in _indexed_events(episode.record):
+            family = family_by_name.get(criteria_name, criteria_name)
+            names_by_sequence_index[(family, sequence_name, index)].add(
+                _base_predicate_name(event.get("predicate_name", ""))
+            )
 
     issues = []
-    sequences: dict[str, dict[int, str]] = defaultdict(dict)
-    for (family, index), names in names_by_family_index.items():
+    for (family, sequence_name, index), names in names_by_sequence_index.items():
         if len(names) > 1:
             issues.append(
                 DataIssue(
                     job_name or ".",
-                    f"completion criteria family '{family}' has multiple predicate names at index {index}:"
-                    f" {sorted(names)}",
+                    f"completion criteria family '{family}' sequence '{sequence_name}' has multiple predicate names"
+                    f" at index {index}: {sorted(names)}",
                 )
             )
-        sequences[family][index] = sorted(names)[0]
+        sequences[family][sequence_name][index] = sorted(names)[0]
     return dict(sequences), issues
 
 
 def _criteria_names_are_compatible(episodes: list[EpisodeSummary], criteria_names: list[str]) -> bool:
-    names_by_index: dict[int, set[str]] = defaultdict(set)
+    names_by_sequence_index: dict[tuple[str, int], set[str]] = defaultdict(set)
     criteria_name_set = set(criteria_names)
     for episode in episodes:
-        for event in _progress_events(episode.record):
-            criteria_name = _event_criteria_name(event)
-            index = _as_int(event.get("predicate_index"))
-            if criteria_name in criteria_name_set and index is not None:
-                names_by_index[index].add(_base_predicate_name(event.get("predicate_name", "")))
-    return all(len(names) <= 1 for names in names_by_index.values())
+        for criteria_name, sequence_name, index, event in _indexed_events(episode.record):
+            if criteria_name in criteria_name_set:
+                names_by_sequence_index[(sequence_name, index)].add(
+                    _base_predicate_name(event.get("predicate_name", ""))
+                )
+    return all(len(names) <= 1 for names in names_by_sequence_index.values())
 
 
 def _progress(record: dict[str, Any]) -> dict[str, Any]:
@@ -518,38 +542,31 @@ def _progress_events(record: dict[str, Any]) -> list[dict[str, Any]]:
     return [event for event in events if isinstance(event, dict)] if isinstance(events, list) else []
 
 
-def _event_criteria_name(event: dict[str, Any]) -> str | None:
-    criteria_name = event.get("criteria_name")
-    return str(criteria_name) if criteria_name is not None else None
-
-
-def _event_criteria_names(record: dict[str, Any]) -> set[str]:
-    return {
-        criteria_name
-        for event in _progress_events(record)
-        if (criteria_name := _event_criteria_name(event)) is not None
-    }
-
-
-def _episode_criteria_names(episode: EpisodeSummary) -> set[str]:
-    return set(_progress_criteria(episode.record)) | _event_criteria_names(episode.record)
-
-
 def _criteria_names(episodes: list[EpisodeSummary]) -> set[str]:
     names = set()
     for episode in episodes:
-        names.update(_episode_criteria_names(episode))
+        names.update(_sequence_names_by_criteria(episode.record))
     return names
 
 
-def _events_by_criteria_and_index(record: dict[str, Any]) -> dict[str, dict[int, dict[str, Any]]]:
-    result: dict[str, dict[int, dict[str, Any]]] = {}
+def _indexed_events(record: dict[str, Any]) -> Iterator[tuple[str, str, int, dict[str, Any]]]:
+    """Yield (criteria name, sequence name, predicate index, event) for events that record all three keys."""
     for event in _progress_events(record):
-        criteria_name = _event_criteria_name(event)
+        criteria_name = event.get("criteria_name")
+        sequence_name = event.get("sequence_name")
         index = _as_int(event.get("predicate_index"))
-        if criteria_name is not None and index is not None:
-            result.setdefault(criteria_name, {})[index] = event
-    return result
+        if criteria_name is not None and sequence_name is not None and index is not None:
+            yield str(criteria_name), str(sequence_name), index, event
+
+
+def _sequence_names_by_criteria(record: dict[str, Any]) -> dict[str, set[str]]:
+    """Map each criteria name to its sequence names, including sequences that emitted no event."""
+    sequence_names = {
+        name: set(detail.get("active_predicates") or {}) for name, detail in _progress_criteria(record).items()
+    }
+    for criteria_name, sequence_name, _, _ in _indexed_events(record):
+        sequence_names.setdefault(criteria_name, set()).add(sequence_name)
+    return sequence_names
 
 
 def _mean(values: list[float]) -> float | None:

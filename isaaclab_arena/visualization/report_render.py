@@ -257,9 +257,7 @@ def _experiment_summary_line(summary: ExperimentSummary) -> str:
 
 
 def _render_funnel(funnel: CompletionCriteriaFunnel) -> str:
-    if not funnel.stages:
-        return ""
-    rows = []
+    rows = [] if funnel.stages else ['<p class="note">No predicate events recorded.</p>']
     for stage in funnel.stages:
         fraction = 0.0 if funnel.num_instances == 0 else stage.num_reached / funnel.num_instances
         step = min(stage.index, _MAX_FUNNEL_STAGE_STEP)
@@ -279,12 +277,18 @@ def _render_funnel(funnel: CompletionCriteriaFunnel) -> str:
 
 def _render_job_funnels(job: JobSummary) -> str:
     funnels = "".join(_render_funnel(funnel) for funnel in job.funnels)
-    if not funnels:
+    notice = ""
+    if job.has_incomplete_sequence_data:
+        notice = (
+            '<p class="note">Some attempts lack sequence names.'
+            " Chart percentages cover only attempts with identified sequences.</p>"
+        )
+    if not funnels and not notice:
         return ""
     return (
         f'<div class="funnel"><h3>{html.escape(job.policy or job.name)}</h3>'
         f'<p class="note">success {_percent(job.success_rate)} &middot; mean progress {_percent(job.mean_progress)}</p>'
-        "</div>"
+        f"{notice}</div>"
         + funnels
     )
 
@@ -392,12 +396,11 @@ def _render_criteria(criteria) -> str:
     if criteria.blocked_predicates:
         blocked = ", ".join(criteria.blocked_predicates)
         track += f'<span class="signal blocked"><span class="glyph">&#9654;</span>{html.escape(blocked)}</span>'
-    score = f"{round(criteria.score, 2):g} / {round(criteria.max_score, 2):g}"
     family = "" if criteria.family == criteria.name else f'<span class="score">{html.escape(criteria.family)}</span>'
     return (
         '<div class="criteria"><div class="criteria-head">'
         f'<span class="name">{html.escape(criteria.name)}</span>{family}'
-        f'<span class="score">{html.escape(score)}</span></div>'
+        f'<span class="score">{_percent(criteria.score)}</span></div>'
         f'<div class="track">{track}</div></div>'
     )
 

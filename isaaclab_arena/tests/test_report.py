@@ -10,6 +10,8 @@ import re
 import subprocess
 import sys
 
+import pytest
+
 from isaaclab_arena.visualization.episode_results_files import (
     format_episode_video_filename,
     parse_episode_video_filename,
@@ -278,9 +280,12 @@ def test_run_page_names_its_policy_throughout(tmp_path):
 def test_run_page_shows_which_success_signals_fired_and_which_did_not(tmp_path):
     def record(index: int, reached: int) -> dict:
         names = ["objects_settled", "object_is_above_height(object_name='banana')", "object_on_destination()"]
-        criteria = {"score": reached / 3, "is_complete": reached == 3, "total_sequences": 1}
-        if reached < 3:
-            criteria["active_predicates"] = {"default_sequence": names[reached]}
+        criteria = {
+            "score": reached / 3,
+            "is_complete": reached == 3,
+            "total_sequences": 1,
+            "active_predicates": {"default_sequence": names[reached] if reached < 3 else None},
+        }
         return {
             "env_id": 0,
             "episode_in_env": index,
@@ -291,6 +296,7 @@ def test_run_page_shows_which_success_signals_fired_and_which_did_not(tmp_path):
                 "events": [
                     {
                         "criteria_name": "pick_and_place",
+                        "sequence_name": "default_sequence",
                         "predicate_index": i,
                         "predicate_name": names[i],
                         "step": 10 * i,
@@ -358,12 +364,32 @@ def test_run_page_reports_conflicting_criteria_family_sequences(tmp_path):
             "success": False,
             "progress": {
                 "criteria_by_name": {
-                    "subtask_0/pick": {"score": 0.0, "is_complete": False, "total_sequences": 1},
-                    "subtask_1/pick": {"score": 0.0, "is_complete": False, "total_sequences": 1},
+                    "subtask_0/pick": {
+                        "score": 0.0,
+                        "is_complete": False,
+                        "total_sequences": 1,
+                        "active_predicates": {"default_sequence": "second_predicate"},
+                    },
+                    "subtask_1/pick": {
+                        "score": 0.0,
+                        "is_complete": False,
+                        "total_sequences": 1,
+                        "active_predicates": {"default_sequence": "second_predicate"},
+                    },
                 },
                 "events": [
-                    {"criteria_name": "subtask_0/pick", "predicate_index": 0, "predicate_name": "first_predicate"},
-                    {"criteria_name": "subtask_1/pick", "predicate_index": 0, "predicate_name": "other_predicate"},
+                    {
+                        "criteria_name": "subtask_0/pick",
+                        "sequence_name": "default_sequence",
+                        "predicate_index": 0,
+                        "predicate_name": "first_predicate",
+                    },
+                    {
+                        "criteria_name": "subtask_1/pick",
+                        "sequence_name": "default_sequence",
+                        "predicate_index": 0,
+                        "predicate_name": "other_predicate",
+                    },
                 ],
             },
         })
@@ -377,6 +403,142 @@ def test_run_page_reports_conflicting_criteria_family_sequences(tmp_path):
     run_page = (tmp_path / "report" / "job_banana_in_bowl_pi0.html").read_text(encoding="utf-8")
     assert "Data issues" in run_page
     assert "conflicting predicate sequences" in run_page
+
+
+def test_run_page_shows_the_normalized_criteria_score_as_a_percentage(tmp_path):
+    run_dir = tmp_path / "banana_in_bowl_pi0"
+    run_dir.mkdir()
+    (run_dir / "episode_results_rebuild0.jsonl").write_text(
+        json.dumps({
+            "env_id": 0,
+            "episode_in_env": 0,
+            "success": False,
+            "progress": {
+                "criteria_by_name": {
+                    "reach": {
+                        "score": 0.5,
+                        "is_complete": False,
+                        "total_sequences": 2,
+                        "active_predicates": {"left": None, "right": "arrive"},
+                    }
+                },
+                "events": [],
+            },
+        })
+        + "\n",
+        encoding="utf-8",
+    )
+    _write_run(tmp_path, "banana_in_bowl_cosmos")
+
+    build_report(tmp_path)
+
+    run_page = (tmp_path / "report" / "job_banana_in_bowl_pi0.html").read_text(encoding="utf-8")
+    assert '<span class="score">50%</span>' in run_page
+
+
+def test_task_page_shows_a_sequence_that_emitted_no_event(tmp_path):
+    run_dir = tmp_path / "banana_in_bowl_pi0"
+    run_dir.mkdir()
+    (run_dir / "episode_results_rebuild0.jsonl").write_text(
+        json.dumps({
+            "env_id": 0,
+            "episode_in_env": 0,
+            "success": False,
+            "progress": {
+                "criteria_by_name": {
+                    "reach": {
+                        "score": 0.5,
+                        "is_complete": False,
+                        "total_sequences": 2,
+                        "active_predicates": {"left": None, "right": "arrive"},
+                    }
+                },
+                "events": [{
+                    "criteria_name": "reach",
+                    "sequence_name": "left",
+                    "predicate_index": 0,
+                    "predicate_name": "arrive",
+                }],
+            },
+        })
+        + "\n",
+        encoding="utf-8",
+    )
+    _write_run(tmp_path, "banana_in_bowl_cosmos")
+
+    build_report(tmp_path)
+
+    task_page = (tmp_path / "report" / "task_banana_in_bowl.html").read_text(encoding="utf-8")
+    assert "<h3>reach/left</h3>" in task_page
+    assert '<h3>reach/right</h3><p class="note">No predicate events recorded.</p>' in task_page
+
+
+def test_task_page_shows_two_attempts_with_no_events(tmp_path):
+    run_dir = tmp_path / "banana_in_bowl_pi0"
+    run_dir.mkdir()
+    records = [
+        {
+            "env_id": 0,
+            "episode_in_env": index,
+            "success": False,
+            "progress": {
+                "criteria_by_name": {"reach": {"total_sequences": 1, "active_predicates": {"default": "arrive"}}},
+                "events": [],
+            },
+        }
+        for index in range(2)
+    ]
+    (run_dir / "episode_results_rebuild0.jsonl").write_text(
+        "\n".join(json.dumps(record) for record in records) + "\n", encoding="utf-8"
+    )
+    _write_run(tmp_path, "banana_in_bowl_cosmos")
+
+    build_report(tmp_path)
+
+    task_page = (tmp_path / "report" / "task_banana_in_bowl.html").read_text(encoding="utf-8")
+    assert '<h3>reach</h3><p class="note">No predicate events recorded.</p>' in task_page
+    assert "2 completion criteria instance(s)" in task_page
+    assert "Some attempts lack sequence names." not in task_page
+
+
+@pytest.mark.parametrize("with_identified_attempt", [False, True])
+def test_task_page_warns_about_missing_sequence_data(tmp_path, with_identified_attempt):
+    run_dir = tmp_path / "banana_in_bowl_pi0"
+    run_dir.mkdir()
+    records = [{
+        "env_id": 0,
+        "episode_in_env": 0,
+        "success": False,
+        "progress": {"criteria_by_name": {"reach": {"total_sequences": 1}}, "events": []},
+    }]
+    if with_identified_attempt:
+        records.append({
+            "env_id": 0,
+            "episode_in_env": 1,
+            "success": True,
+            "progress": {
+                "criteria_by_name": {"reach": {"total_sequences": 1}},
+                "events": [{
+                    "criteria_name": "reach",
+                    "sequence_name": "default",
+                    "predicate_index": 0,
+                    "predicate_name": "arrive",
+                }],
+            },
+        })
+    (run_dir / "episode_results_rebuild0.jsonl").write_text(
+        "\n".join(json.dumps(record) for record in records) + "\n", encoding="utf-8"
+    )
+    _write_run(tmp_path, "banana_in_bowl_cosmos")
+
+    build_report(tmp_path)
+
+    task_page = (tmp_path / "report" / "task_banana_in_bowl.html").read_text(encoding="utf-8")
+    assert "Some attempts lack sequence names." in task_page
+    assert "Chart percentages cover only attempts with identified sequences." in task_page
+    if with_identified_attempt:
+        assert "1 completion criteria instance(s)" in task_page
+        assert task_page.index("Some attempts lack sequence names.") < task_page.index("<h3>reach</h3>")
 
 
 def test_every_page_below_the_overview_can_climb_back_up(tmp_path):
