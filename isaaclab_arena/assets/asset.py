@@ -37,6 +37,7 @@ class Asset:
         assert (
             variation.name not in self.variations
         ), f"Asset '{self.name}' ({type(self).__name__}) already has variation '{variation.name}' attached."
+        variation.attach(self)
         self.variations[variation.name] = variation
 
     def get_variation(self, name: str) -> VariationBase:

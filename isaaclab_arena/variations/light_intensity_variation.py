@@ -11,9 +11,10 @@ from typing import TYPE_CHECKING
 from isaaclab.utils.configclass import configclass
 
 from isaaclab_arena.variations.uniform_sampler import UniformSamplerCfg
-from isaaclab_arena.variations.variation_base import BuildTimeVariationBase, VariationBaseCfg
+from isaaclab_arena.variations.variation_base import BuildTimeVariationBase, VariationBaseCfg, VariationBuildContext
 
 if TYPE_CHECKING:
+    from isaaclab_arena.assets.asset import Asset
     from isaaclab_arena.assets.object_library import LightBase
 
 
@@ -45,7 +46,10 @@ class LightIntensityVariation(BuildTimeVariationBase):
         super().__init__(cfg=cfg if cfg is not None else LightIntensityVariationCfg(), name=name)
         self._light = light
 
-    def _realize_at_build_time(self) -> None:
+    def _validate_attachment(self, asset: Asset) -> None:
+        assert asset is self._light, f"Variation '{self.name}' must attach to its configured light."
+
+    def _realize_at_build_time(self, context: VariationBuildContext | None = None) -> None:
         assert self.sampler is not None, "LightIntensityVariation: sampler not set."
         intensity = float(self.sampler.sample(num_samples=1)[0, 0])
         self._light.set_intensity(intensity)

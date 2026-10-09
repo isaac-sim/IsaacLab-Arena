@@ -11,7 +11,7 @@ from isaaclab.utils.configclass import configclass
 
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 from isaaclab_arena.variations.uniform_sampler import UniformSamplerCfg
-from isaaclab_arena.variations.variation_base import RunTimeVariationBase, VariationBaseCfg
+from isaaclab_arena.variations.variation_base import RunTimeVariationBase, VariationBaseCfg, VariationBuildContext
 
 HEADLESS = True
 
@@ -27,6 +27,8 @@ def noop_test_variation_event(env, env_ids, asset_cfg):  # noqa: ARG001
 @configclass
 class TestRunTimeVariationCfg(VariationBaseCfg):
     __test__ = False
+
+    sample_per_environment: bool = True
 
     sampler_cfg: UniformSamplerCfg = field(
         default_factory=lambda: UniformSamplerCfg(low=[0.0], high=[1.0]),
@@ -55,12 +57,10 @@ class TestRunTimeVariation(RunTimeVariationBase):
 class TestBuildTimePreconditionVariationCfg(VariationBaseCfg):
     __test__ = False
 
-    sampler_cfg: UniformSamplerCfg = field(
-        default_factory=lambda: UniformSamplerCfg(
-            low=[TEST_APPLIED_RADIUS],
-            high=[TEST_APPLIED_RADIUS],
-        ),
-    )
+    sample_per_environment: bool = True
+
+    sampler_cfg: UniformSamplerCfg = field(default_factory=UniformSamplerCfg)
+    precondition_radius: float = TEST_APPLIED_RADIUS
 
 
 class TestBuildTimePreconditionVariation(RunTimeVariationBase):
@@ -76,9 +76,8 @@ class TestBuildTimePreconditionVariation(RunTimeVariationBase):
         super().__init__(cfg=cfg if cfg is not None else TestBuildTimePreconditionVariationCfg(), name=name)
         self._asset = asset
 
-    def _prepare_at_build_time(self) -> None:
-        assert self.sampler is not None
-        self._asset.object_cfg.spawn.radius = float(self.sampler.sample(num_samples=1)[0, 0])
+    def _prepare_at_build_time(self, context: VariationBuildContext | None = None) -> None:
+        self._asset.object_cfg.spawn.radius = self.cfg.precondition_radius
 
     def build_event_cfg(self) -> tuple[str, EventTermCfg]:
         event_cfg = EventTermCfg(
@@ -159,9 +158,7 @@ def _test_runtime_variation_build_time_effects_applied(simulation_app):
     args_cli = get_isaaclab_arena_cli_parser().parse_args(["--num_envs", "1"])
     ArenaEnvBuilder(arena_env, arena_env_builder_cfg_from_argparse(args_cli)).compose_manager_cfg()
 
-    # A run-time variation that overrides _prepare_at_build_time must have that override
-    # invoked during the build (the mechanism MR3 depends on).
-    # The radius is stored on SphereCfg as a float32, so compare with a tolerance.
+    # Run-time variations can establish deterministic prerequisites before their events run.
     assert sphere.object_cfg.spawn.radius == pytest.approx(TEST_APPLIED_RADIUS, abs=1e-6), (
         "Run-time variation's _prepare_at_build_time must mutate "
         f"'{TEST_ASSET_NAME}.object_cfg.spawn.radius' to {TEST_APPLIED_RADIUS}; "

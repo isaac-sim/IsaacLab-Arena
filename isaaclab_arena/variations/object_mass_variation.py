@@ -26,6 +26,8 @@ from isaaclab_arena.variations.variation_base import RunTimeVariationBase, Varia
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedEnv
 
+    from isaaclab_arena.assets.asset import Asset
+
 # Smallest physically meaningful mass [kg]. Sampled masses below this would inject invalid
 # (near-zero / NaN-prone) values into the physics engine, so they are rejected rather than clamped.
 _MIN_PHYSICAL_MASS_KG = 1e-6
@@ -34,6 +36,9 @@ _MIN_PHYSICAL_MASS_KG = 1e-6
 @configclass
 class ObjectMassVariationCfg(VariationBaseCfg):
     """Configuration for ObjectMassVariation."""
+
+    sample_per_environment: bool = True
+    """Draw one mass for each resetting environment."""
 
     sampler_cfg: UniformSamplerCfg = field(default_factory=lambda: UniformSamplerCfg(low=[0.05], high=[2.0]))
     """Uniform distribution over absolute object mass [kg]."""
@@ -67,7 +72,13 @@ class ObjectMassVariation(RunTimeVariationBase):
         super().__init__(cfg=cfg if cfg is not None else ObjectMassVariationCfg(), name=name)
         self.asset_name = asset_name
 
+    def _validate_attachment(self, asset: Asset) -> None:
+        assert (
+            asset.name == self.asset_name
+        ), f"Variation '{self.name}' targets '{self.asset_name}', not asset '{asset.name}'."
+
     def build_event_cfg(self) -> tuple[str, EventTermCfg]:
+        self._validate_configuration()
         assert self._sampler is not None, (
             f"ObjectMassVariation on '{self.asset_name}' is enabled but no sampler is set; "
             "call apply_cfg with a cfg that sets sampler_cfg before building the env."

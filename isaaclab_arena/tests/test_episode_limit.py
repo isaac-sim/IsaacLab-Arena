@@ -86,6 +86,7 @@ def _create_episode_limit_env(
 
     @configclass
     class ReplayTestVariationCfg(VariationBaseCfg):
+        sample_per_environment: bool = True
         sampler_cfg: UniformSamplerCfg = field(default_factory=lambda: UniformSamplerCfg(low=[0.0], high=[100.0]))
 
     class ReplayTestVariation(RunTimeVariationBase):

@@ -19,7 +19,12 @@ from isaaclab.utils.configclass import configclass
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 from isaaclab_arena.variations.choice_sampler import ChoiceSampler
 from isaaclab_arena.variations.uniform_sampler import UniformSamplerCfg
-from isaaclab_arena.variations.variation_base import BuildTimeVariationBase, VariationBaseCfg
+from isaaclab_arena.variations.variation_base import (
+    BuildTimeVariationBase,
+    RunTimeVariationBase,
+    VariationBaseCfg,
+    VariationBuildContext,
+)
 from isaaclab_arena.variations.variation_recorder import VariationRecord, VariationRecorder
 
 HEADLESS = True
@@ -27,7 +32,7 @@ HEADLESS = True
 
 @configclass
 class _RecorderTestVariationCfg(VariationBaseCfg):
-    """Build-time variation cfg whose sampler draws a single scalar."""
+    """Variation configuration whose sampler draws a scalar per sample."""
 
     __test__ = False
 
@@ -40,15 +45,29 @@ class _RecorderTestVariation(BuildTimeVariationBase):
     """Minimal build-time variation that just draws a sample when applied."""
 
     __test__ = False
+    supported_sample_per_environment = (False, True)
 
     cfg: _RecorderTestVariationCfg
 
     def __init__(self, cfg: _RecorderTestVariationCfg | None = None, name: str = "recorder_test"):
         super().__init__(cfg=cfg if cfg is not None else _RecorderTestVariationCfg(), name=name)
 
-    def _realize_at_build_time(self) -> None:
-        assert self.sampler is not None
-        self.sampler.sample(num_samples=1)
+    def _realize_at_build_time(self, context=None) -> None:
+        if self.cfg.sample_per_environment:
+            assert context is not None
+            self.sampler.sample(num_samples=context.num_envs, env_ids=torch.arange(context.num_envs))
+        else:
+            self.sampler.sample(num_samples=1)
+
+
+class _RecorderTestRuntimeVariation(RunTimeVariationBase):
+    """Runtime variation whose sampler can be called without constructing a simulation."""
+
+    def __init__(self):
+        super().__init__(_RecorderTestVariationCfg(sample_per_environment=True), name="recorder_test")
+
+    def build_event_cfg(self):
+        raise NotImplementedError
 
 
 def test_uniform_sampler_notifies_listeners():
@@ -130,6 +149,89 @@ def test_variation_record_tracks_per_env_episode_values():
         record.record_runtime_sample(torch.tensor([[3.0]]), env_ids=[2], episode_indices=[0])
 
 
+@pytest.mark.parametrize("bind_before_sample", [False, True])
+def test_recorder_keeps_per_environment_build_samples_across_episodes(bind_before_sample):
+    from isaaclab_arena.recording.common_terms import record_variation_samples
+
+    variation = _RecorderTestVariation(_RecorderTestVariationCfg(enabled=True, sample_per_environment=True))
+    variation.set_replay_sampler(lambda _count, _env_ids: [[2.0], [5.0]])
+    recorder = VariationRecorder()
+    recorder.attach({"asset": [variation]})
+    env = _FakeEnv(recorder, episode_index=9)
+    if bind_before_sample:
+        recorder.bind_env(env)
+
+    variation.configure_at_build_time(VariationBuildContext(num_envs=2))
+    record = recorder["asset.recorder_test"]
+    for episode_index in (0, 9, 25):
+        assert record.sample_for_episode(0, episode_index).tolist() == [2.0]
+        assert record.sample_for_episode(1, episode_index).tolist() == [5.0]
+        assert record.sample_for_episode(2, episode_index) is None
+    recorder.bind_env(env)
+    assert record.sample_for_episode(0, 10).tolist() == [2.0]
+    assert record_variation_samples(env, env_id=1) == {"variations": {"asset.recorder_test": [5.0]}}
+
+
+@pytest.mark.parametrize("sample_per_environment", [False, True])
+def test_build_time_recorder_requires_ids_matching_sampling_scope(sample_per_environment):
+    variation = _RecorderTestVariation(
+        _RecorderTestVariationCfg(enabled=True, sample_per_environment=sample_per_environment)
+    )
+    recorder = VariationRecorder()
+    recorder.attach({"asset": [variation]})
+    incorrect_env_ids = None if sample_per_environment else torch.tensor([0])
+    with pytest.raises(AssertionError, match="must agree with sample_per_environment"):
+        variation.sampler.sample(num_samples=1, env_ids=incorrect_env_ids)
+    assert recorder["asset.recorder_test"].sample_for_episode(0, 0) is None
+
+
+@pytest.mark.parametrize("sample_per_environment", [False, True])
+def test_build_time_record_rejects_duplicate_and_mixed_draws(sample_per_environment):
+    cfg = _RecorderTestVariationCfg(sample_per_environment=sample_per_environment)
+    record = VariationRecord(name="asset.var", cfg=cfg)
+    env_ids = [2] if sample_per_environment else None
+    record.record_buildtime_sample(["first"], env_ids=env_ids)
+
+    with pytest.raises(AssertionError, match="already recorded"):
+        record.record_buildtime_sample(["replacement"], env_ids=env_ids)
+    cfg.sample_per_environment = not sample_per_environment
+    other_env_ids = None if sample_per_environment else [5]
+    with pytest.raises(AssertionError, match="already recorded"):
+        record.record_buildtime_sample(["replacement"], env_ids=other_env_ids)
+    assert record.sample_for_episode(2, 3) == "first"
+
+
+@pytest.mark.parametrize("env_ids", [[2, 2], [2], [], [2, -1]])
+def test_per_environment_build_record_rejects_invalid_rows_without_partial_recording(env_ids):
+    record = VariationRecord(name="asset.var", cfg=_RecorderTestVariationCfg(sample_per_environment=True))
+    with pytest.raises(AssertionError):
+        record.record_buildtime_sample(["first", "second"], env_ids=env_ids)
+    assert record.sample_for_episode(2, 0) is None
+
+
+def test_per_environment_build_record_rejects_repeated_environment_without_partial_recording():
+    record = VariationRecord(name="asset.var", cfg=_RecorderTestVariationCfg(sample_per_environment=True))
+    record.record_buildtime_sample(["first"], env_ids=[2])
+    with pytest.raises(AssertionError, match="already recorded"):
+        record.record_buildtime_sample(["new", "replacement"], env_ids=[5, 2])
+    assert record.sample_for_episode(2, 7) == "first"
+    assert record.sample_for_episode(5, 7) is None
+    record.record_buildtime_sample(["second"], env_ids=[5])
+    assert record.sample_for_episode(5, 7) == "second"
+
+
+def test_runtime_recorder_requires_environment_ids_and_binding():
+    variation = _RecorderTestRuntimeVariation()
+    variation.enable()
+    recorder = VariationRecorder()
+    recorder.attach({"asset": [variation]})
+    with pytest.raises(AssertionError, match="requires per-environment draws"):
+        variation.sampler.sample(num_samples=1)
+    with pytest.raises(AssertionError, match="needs bind_env"):
+        variation.sampler.sample(num_samples=1, env_ids=torch.tensor([0]))
+    assert recorder["asset.recorder_test"].sample_for_episode(0, 0) is None
+
+
 class _FakeEnv:
     """Minimal stand-in exposing the attributes ``record_variation_samples`` reads."""
 
@@ -145,7 +247,7 @@ def test_record_variation_samples_emits_the_per_episode_draw():
     """The episode term emits the draw made for the finishing episode, one value per variation."""
     from isaaclab_arena.recording.common_terms import record_variation_samples
 
-    variation = _RecorderTestVariation()
+    variation = _RecorderTestRuntimeVariation()
     variation.enable()
     recorder = VariationRecorder()
     recorder.attach({"asset": [variation]})

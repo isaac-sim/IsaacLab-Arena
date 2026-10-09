@@ -8,13 +8,14 @@ import torch
 import trimesh
 from collections.abc import Collection
 from copy import deepcopy
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from isaaclab.assets import ArticulationCfg, AssetBaseCfg, RigidObjectCfg
 from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
 from isaaclab.sim import MultiAssetSpawnerCfg, MultiUsdFileCfg
 from isaaclab.sim.spawners.from_files.from_files_cfg import UsdFileCfg
 from isaaclab.sim.spawners.spawner_cfg import SpawnerCfg
+from isaaclab.utils.dict import dict_to_md5_hash
 
 from isaaclab_arena.assets.object_base import ObjectBase, RootedObjectBase
 from isaaclab_arena.assets.object_geometry import ObjectGeometry
@@ -26,6 +27,9 @@ from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.usd.helpers import has_light, open_stage
 from isaaclab_arena.utils.usd.rigid_bodies import read_asset_rigid_body_paths
+
+if TYPE_CHECKING:
+    from isaaclab_arena.variations.asset_selection_variation import AssetSelectionVariation
 
 
 class Object(RootedObjectBase):
@@ -99,6 +103,9 @@ class Object(RootedObjectBase):
         self.bounding_box: AxisAlignedBoundingBox | None = None
         self._asset_indices_by_env: tuple[int, ...] | None = None
         self._asset_geometry: dict[int, ObjectGeometry] = {}
+        self._default_spawn_cfg: SpawnerCfg | None = None
+        self._resolved_selection_spawn_hash: str | None = None
+        self._resolved_selection_cfg_hash: str | None = None
         cfg_options = deepcopy(asset_cfg_addon)
         if object_type == ObjectType.ARTICULATION:
             cfg_options.setdefault("actuators", {})
@@ -123,11 +130,60 @@ class Object(RootedObjectBase):
 
     @spawn_cfg.setter
     def spawn_cfg(self, value: SpawnerCfg) -> None:
+        assert (
+            self._default_spawn_cfg is None
+        ), "Asset selection is resolved; create a fresh environment to change assets."
         assert not isinstance(
             value, (MultiAssetSpawnerCfg, MultiUsdFileCfg)
         ), "Construct RigidObjectSet to configure native alternatives"
         self.object_cfg.spawn = value
         self._asset_geometry.clear()
+
+    def _get_asset_selection_variation(self) -> AssetSelectionVariation | None:
+        from isaaclab_arena.variations.asset_selection_variation import AssetSelectionVariation
+
+        return next(
+            (variation for variation in self.get_variations() if isinstance(variation, AssetSelectionVariation)), None
+        )
+
+    def _assert_asset_selection_resolved(self) -> None:
+        """Reject unresolved choices and edits to a selection already used for placement."""
+        selection = self._get_asset_selection_variation()
+        if selection is None:
+            return
+        if self._default_spawn_cfg is None:
+            assert (
+                not selection.enabled
+            ), f"Object '{self.name}' asset selection must be resolved before geometry queries."
+            return
+        assert (
+            dict_to_md5_hash(selection.cfg) == self._resolved_selection_cfg_hash
+        ), f"Object '{self.name}' asset selection settings changed after resolution; create a fresh environment."
+        assert self.bounding_box is None, "Resolved asset selection cannot use custom bounding boxes."
+        assert (
+            dict_to_md5_hash(self.spawn_cfg) == self._resolved_selection_spawn_hash
+        ), f"Object '{self.name}' spawn settings changed after asset selection; create a fresh environment."
+
+    def _resolve_asset_selection(self, spawn_configs: list[SpawnerCfg], indices: tuple[int, ...]) -> None:
+        """Install the builder's prepared candidates and preserve the original asset definition."""
+        assert self._default_spawn_cfg is None, f"Object '{self.name}' is already resolved; create a fresh environment."
+        selection = self._get_asset_selection_variation()
+        assert selection is not None and selection.enabled, "Asset resolution requires enabled selection."
+        assert spawn_configs, "Asset resolution requires at least one candidate."
+        self._default_spawn_cfg = deepcopy(self.spawn_cfg)
+        self.object_cfg.spawn = (
+            MultiAssetSpawnerCfg(assets_cfg=spawn_configs, random_choice=False, activate_contact_sensors=None)
+            if len(spawn_configs) > 1
+            else spawn_configs[0]
+        )
+        self._asset_geometry.clear()
+        self.bind_asset_assignment(indices)
+        self._resolved_selection_spawn_hash = dict_to_md5_hash(self.spawn_cfg)
+        self._resolved_selection_cfg_hash = dict_to_md5_hash(selection.cfg)
+
+    def get_object_cfg(self) -> tuple[str, AssetBaseCfg]:
+        self._assert_asset_selection_resolved()
+        return super().get_object_cfg()
 
     @property
     def has_multiple_assets(self) -> bool:
@@ -170,11 +226,13 @@ class Object(RootedObjectBase):
 
     def get_bounding_box(self) -> AxisAlignedBoundingBox:
         """Return local bounds in the frame used to write this object's pose."""
+        self._assert_asset_selection_resolved()
         assert not self.has_multiple_assets, f"Object '{self.name}' requires per-environment bounding boxes."
         return self.bounding_box if self.bounding_box is not None else self._get_geometry().get_bounding_box()
 
     def get_bounding_box_for_env(self, env_id: int) -> AxisAlignedBoundingBox:
         """Return the assigned asset's local bounds for one environment."""
+        self._assert_asset_selection_resolved()
         assert env_id >= 0, "Environment index must be non-negative"
         if not self.has_multiple_assets:
             return self.get_bounding_box()
@@ -185,6 +243,7 @@ class Object(RootedObjectBase):
 
     def get_bounding_box_per_env(self, num_envs: int) -> AxisAlignedBoundingBox:
         """Return assigned local bounds with one row per environment."""
+        self._assert_asset_selection_resolved()
         assert num_envs > 0, "Per-environment bounds require at least one environment."
         if not self.has_multiple_assets:
             bounds = self.get_bounding_box()
@@ -201,6 +260,7 @@ class Object(RootedObjectBase):
 
     def get_collision_mesh(self, excluded_prim_paths: Collection[str] = ()) -> trimesh.Trimesh | None:
         """Return collision geometry in the same frame as placement bounds."""
+        self._assert_asset_selection_resolved()
         if self.has_multiple_assets:
             assert not excluded_prim_paths, "Object exclusions require a concrete asset."
             return None
@@ -222,6 +282,7 @@ class Object(RootedObjectBase):
 
     def get_contact_sensor_prim_path(self) -> str:
         """Return the rigid-body path shared by this object's native assets."""
+        self._assert_asset_selection_resolved()
         if not self.has_multiple_assets:
             return self.prim_path + self._get_geometry().get_contact_body_path()
         body_paths = {

@@ -230,7 +230,8 @@ def _create_prim_from_asset(stage: Usd.Stage, asset: Asset) -> None:
     assert initial_pose is None or isinstance(
         initial_pose, Pose
     ), f"Object '{asset.name}' requires a fixed initial pose for scene export."
-    spawn_cfg = deepcopy(asset.spawn_cfg)
+    _, object_cfg = asset.get_object_cfg()
+    spawn_cfg = deepcopy(object_cfg.spawn)
     assert spawn_cfg is not None, f"Object '{asset.name}' has no spawn configuration."
     assert not isinstance(
         spawn_cfg, (MultiAssetSpawnerCfg, MultiUsdFileCfg)

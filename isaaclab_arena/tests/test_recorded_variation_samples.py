@@ -264,6 +264,7 @@ class _RunTimeTestVariation(RunTimeVariationBase):
         super().__init__(
             VariationBaseCfg(
                 enabled=True,
+                sample_per_environment=True,
                 sampler_cfg=UniformSamplerCfg(low=[live_value], high=[live_value]),
             ),
             name,
@@ -283,7 +284,7 @@ class _BuildTimeTestVariation(BuildTimeVariationBase):
             name,
         )
 
-    def _realize_at_build_time(self) -> None:
+    def _realize_at_build_time(self, context=None) -> None:
         pass
 
 

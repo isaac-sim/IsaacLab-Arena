@@ -17,9 +17,10 @@ from typing import TYPE_CHECKING
 from isaaclab.utils.configclass import configclass
 
 from isaaclab_arena.variations.choice_sampler import ChoiceSamplerCfg
-from isaaclab_arena.variations.variation_base import BuildTimeVariationBase, VariationBaseCfg
+from isaaclab_arena.variations.variation_base import BuildTimeVariationBase, VariationBaseCfg, VariationBuildContext
 
 if TYPE_CHECKING:
+    from isaaclab_arena.assets.asset import Asset
     from isaaclab_arena.assets.object_library import DomeLight
 
 
@@ -57,7 +58,10 @@ class HDRImageVariation(BuildTimeVariationBase):
         super().__init__(cfg=cfg if cfg is not None else HDRImageVariationCfg(), name=name)
         self._light = light
 
-    def _realize_at_build_time(self) -> None:
+    def _validate_attachment(self, asset: Asset) -> None:
+        assert asset is self._light, f"Variation '{self.name}' must attach to its configured light."
+
+    def _realize_at_build_time(self, context: VariationBuildContext | None = None) -> None:
         from isaaclab_arena.assets.hdr_image import HDRImage  # noqa: PLC0415
         from isaaclab_arena.assets.registries import HDRImageRegistry  # noqa: PLC0415
 
