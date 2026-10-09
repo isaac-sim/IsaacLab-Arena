@@ -31,18 +31,16 @@ def _write_rigid_asset(path, nested, mass):
     stage.GetRootLayer().Save()
 
 
-def _make_usd_object(name, path, scale=1.0, **kwargs):
+def _make_usd_definition(name, path, scale=1.0):
     from isaaclab.sim import UsdFileCfg
 
-    from isaaclab_arena.assets.object import Object
-    from isaaclab_arena.assets.object_type import ObjectType
+    return name, UsdFileCfg(usd_path=str(path), scale=(scale,) * 3, activate_contact_sensors=True)
 
-    return Object(
-        name=name,
-        object_type=ObjectType.RIGID,
-        spawn_cfg=UsdFileCfg(usd_path=str(path), scale=(scale,) * 3, activate_contact_sensors=True),
-        **kwargs,
-    )
+
+def _make_usd_object(name, path, scale=1.0, **kwargs):
+    from isaaclab_arena.assets.object import Object
+
+    return Object(name=name, asset=_make_usd_definition(name, path, scale), **kwargs)
 
 
 def _test_selected_assets_match_native_physics_and_remain_fixed_across_resets(simulation_app, tmp_path):
@@ -50,6 +48,7 @@ def _test_selected_assets_match_native_physics_and_remain_fixed_across_resets(si
     from isaaclab.sim.utils.stage import get_current_stage
     from pxr import UsdPhysics
 
+    from isaaclab_arena.assets.object import Object
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
@@ -62,9 +61,12 @@ def _test_selected_assets_match_native_physics_and_remain_fixed_across_resets(si
     _write_rigid_asset(small_path, nested=False, mass=0.2)
     _write_rigid_asset(large_path, nested=True, mass=0.5)
     initial_pose = Pose(position_xyz=(0.0, 0.0, 2.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0))
-    pickup = _make_usd_object("pick_up_object", small_path, initial_pose=initial_pose)
+    pickup = Object(name="pick_up_object", initial_pose=initial_pose)
     variation = AssetSelectionVariation(
-        candidates=[_make_usd_object("small", small_path), _make_usd_object("large", large_path, scale=2.0)],
+        asset_candidates=[
+            _make_usd_definition("small", small_path),
+            _make_usd_definition("large", large_path, scale=2.0),
+        ],
         cfg=AssetSelectionVariationCfg(enabled=True),
     )
     pickup.add_variation(variation)
@@ -152,7 +154,7 @@ def _test_reference_to_selected_parent_is_rejected_after_hydra_enable(simulation
         object_type=ObjectType.RIGID,
         prim_path="{ENV_REGEX_NS}/parent/Body",
     )
-    variation = AssetSelectionVariation(candidates=[_make_usd_object("candidate", asset_path)])
+    variation = AssetSelectionVariation(asset_candidates=[_make_usd_definition("candidate", asset_path)])
     parent.add_variation(variation)
     arena_environment = IsaacLabArenaEnvironment(
         name="test_reference_asset_selection", scene=Scene(assets=[parent, reference])
@@ -199,22 +201,18 @@ def _test_selected_geometry_controls_relation_placement_and_supports_runtime_mas
         relations=[IsAnchor()],
     )
 
-    def make_pickup(name, height):
-        return Object(
-            name=name,
-            object_type=ObjectType.RIGID,
-            spawn_cfg=CuboidCfg(
-                size=(0.1, 0.1, height),
-                mass_props=MassPropertiesCfg(mass=0.2),
-                rigid_props=RigidBodyPropertiesCfg(disable_gravity=True),
-                collision_props=CollisionPropertiesCfg(),
-            ),
+    def make_pickup_definition(name, height):
+        return name, CuboidCfg(
+            size=(0.1, 0.1, height),
+            mass_props=MassPropertiesCfg(mass=0.2),
+            rigid_props=RigidBodyPropertiesCfg(disable_gravity=True),
+            collision_props=CollisionPropertiesCfg(),
         )
 
-    pickup = make_pickup("pick_up_object", 0.1)
+    pickup = Object(name="pick_up_object")
     pickup.add_relation(On(support, clearance_m=0.01))
     selection = AssetSelectionVariation(
-        candidates=[make_pickup("short", 0.1), make_pickup("tall", 0.4)],
+        asset_candidates=[make_pickup_definition("short", 0.1), make_pickup_definition("tall", 0.4)],
         cfg=AssetSelectionVariationCfg(enabled=True),
     )
     pickup.add_variation(selection)

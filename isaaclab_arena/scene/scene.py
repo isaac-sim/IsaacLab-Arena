@@ -21,6 +21,7 @@ from isaaclab_arena.assets.object_reference import ObjectReference
 from isaaclab_arena.assets.object_set import RigidObjectSet
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.relations.placement_asset import PlaceableAsset
+from isaaclab_arena.scene.asset_selection import validate_resolved_asset_selections
 from isaaclab_arena.utils.configclass import make_configclass
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.variations.variation_base import VariationBase
@@ -190,6 +191,7 @@ def export_scene_to_usd(scene: Scene, output_path: pathlib.Path, root_prim_path:
         output_path: The path to the USD file to export to.
         root_prim_path: The path to the root prim in the USD file.
     """
+    validate_resolved_asset_selections(scene.assets.values())
     # Create a new stage for composition
     stage_out = Usd.Stage.CreateInMemory()
     # Add the root/default prim

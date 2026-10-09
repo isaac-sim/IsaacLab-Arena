@@ -129,30 +129,65 @@ see :ref:`discovering-available-variations`.
 Selecting assets at build time
 ------------------------------
 
-Attach ``AssetSelectionVariation`` to an ordinary rigid ``Object`` to choose which asset it
-spawns in each environment. Keep using that target object in the scene, task, and placement
-relations. Its scene name stays the same even when the selected asset differs.
+Use the same generic ``Object`` for a fixed rigid asset or for selection across environments.
+``AssetRegistry.get_asset_definition()`` returns a reusable ``tuple[str, SpawnerCfg]``:
+the requested registry name and a copy of the native spawn settings. Supply it through
+``asset`` for a normal default:
 
 .. code-block:: python
 
-   from isaaclab_arena.assets.object_library import CrackerBox, SugarBox
+   from isaaclab_arena.assets.object import Object
+   from isaaclab_arena.assets.registries import AssetRegistry
+
+   asset_registry = AssetRegistry()
+   cracker_box_asset = asset_registry.get_asset_definition("cracker_box")
+   sugar_box_asset = asset_registry.get_asset_definition("sugar_box")
+   pick_up_object = Object(name="pick_up_object", asset=cracker_box_asset)
+
+For selection without a default, create the object without ``asset`` and let an enabled
+variation supply it:
+
+.. code-block:: python
+
    from isaaclab_arena.variations.asset_selection_variation import (
        AssetSelectionVariation,
        AssetSelectionVariationCfg,
    )
 
-   pick_up_object = CrackerBox()
+   pick_up_object = Object(name="pick_up_object")
    pick_up_object.add_variation(
        AssetSelectionVariation(
-           candidates=[CrackerBox(), SugarBox()],
+           asset_candidates=[cracker_box_asset, sugar_box_asset],
            cfg=AssetSelectionVariationCfg(enabled=True),
        )
    )
 
-Candidates are concrete rigid object instances with unique, nonempty names. The variation
-copies their names and native spawn settings when constructed. Later edits to a candidate do
-not change this snapshot. Candidate poses, relations, and attached variations are not copied
-onto the target. Candidate names serve as the recorded selection IDs.
+Both examples use the same scene object API. Tasks and placement relations keep their
+reference to ``pick_up_object``, whose scene name stays fixed. Selection can also be attached
+to an object with a default. When selection is disabled, that object uses its default.
+An object without a default needs an enabled variation to assign an asset; missing or disabled
+selection fails before placement. Arena does not silently use the first candidate as a default.
+
+Candidate definitions must describe concrete rigid assets with unique, nonempty names.
+The variation copies the names and native spawn settings when constructed, so later edits
+to a supplied configuration do not change the candidates. Names serve as recording IDs.
+
+The registry adapter calls the existing rigid library constructor with any supplied keyword
+overrides and snapshots its native spawn settings. The returned definition keeps the requested
+registry ID, even when an ``instance_name`` override changes the temporary object's name.
+For differently configured copies of the same registered asset, provide distinct tuple IDs:
+
+.. code-block:: python
+
+   _, small_sugar_box_spawn_cfg = asset_registry.get_asset_definition(
+       "sugar_box", scale=(0.8, 0.8, 0.8)
+   )
+   small_sugar_box_asset = ("small_sugar_box", small_sugar_box_spawn_cfg)
+
+The adapter does not transfer subclass behavior, poses, relations, or attached variations.
+Existing library constructors remain available; the adapter introduces no new asset class
+or library format. Settings on the enclosing Isaac
+Lab asset configuration remain arguments to ``Object``, through ``asset_cfg_addon`` as before.
 
 The default ``SequentialChoiceSamplerCfg`` cycles through candidates in declaration order.
 With the two candidates above, four environments receive cracker box, sugar box, cracker box,
@@ -171,9 +206,12 @@ Pass ``cfg=selection_cfg`` when constructing the variation. Set
 ``sample_per_environment=False`` to share one choice across all environments. With the
 sequential sampler, that shared choice is always the first candidate.
 
-Selection happens once, before placement and scene construction. Every episode in an
-environment keeps the same selected asset, and its episode records repeat that candidate's
-name under the target's variation key, such as ``cracker_box.asset_selection``. Resets do
+The builder applies experiment overrides and variations, then checks that every object has
+an assigned asset before placement and scene construction. ``Object`` provides generic
+asset assignment and geometry access without depending on the selection variation class.
+Selection happens once per build. Every episode in an environment keeps the same selected
+asset, and its episode records repeat that candidate's
+name under the target's variation key, such as ``pick_up_object.asset_selection``. Resets do
 not resample asset identities. Create fresh target objects and variations for another build;
 reusing an already resolved selection is rejected.
 

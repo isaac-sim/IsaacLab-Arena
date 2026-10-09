@@ -3,9 +3,9 @@
 Asset selection as a variation
 ==============================
 
-Status: design draft, 9 October 2026. The Python selection API below is
-implemented; the build manifest and replay additions remain proposed.
-These changes are not available on ``main`` yet.
+Status: design draft, 9 October 2026. The draft implementation supports
+the Python API below. Build manifests and replay remain future
+work. These changes are not available on ``main`` yet.
 
 The Object refactor is tracked in `#1424
 <https://github.com/isaac-sim/IsaacLab-Arena/pull/1424>`_, on top of #1419.
@@ -14,17 +14,19 @@ fixed per-environment episode recording. Build manifests, validated selection
 replay, YAML candidate authoring, and caller migration are still future work.
 Selection currently rejects variation and placement replay explicitly.
 
-The proposal is to attach an ``AssetSelectionVariation`` to an existing object
-from the object library. The object keeps its role in the scene, such as
-``pick_up_object``. The variation chooses which concrete asset each
-environment gets for that role.
+Use one generic ``Object`` for both a fixed asset and asset selection. The
+object keeps its role in the scene, such as ``pick_up_object``. It may receive
+an asset definition at construction, or an enabled ``AssetSelectionVariation``
+may assign its asset during the build.
 
-We have agreed on two boundaries for the first version: an asset assignment
-lasts until rebuild, and replay requires matching environment and candidate
-definitions, the original environment count, and the recorded assignments.
-The API below reflects our discussion: candidates are library instances in
-an ordered list, their names identify them in recordings, and sequential
-assignment is the default. Random assignment remains an optional sampler.
+Asset assignments last until rebuild. The replay proposal below assumes
+matching environment and candidate definitions, the original environment
+count, and the recorded assignments.
+Candidates are native definitions represented by ``tuple[str, SpawnerCfg]``.
+Their names identify them in recordings, and sequential assignment is the
+default. Random assignment remains an optional sampler. A small registry
+adapter obtains definitions from existing rigid library constructors; it
+does not introduce another class or redesign the library.
 The shared ``sample_per_environment`` setting is implemented alongside the
 Python API. The replay format below remains a proposal for review.
 
@@ -71,15 +73,16 @@ High-level goals
 * **Keep one scene identity.** Tasks, relations, reset behavior, and metrics
   refer to the same named object before and after asset selection.
 * **Make selection an ordinary variation.** It appears in variation
-  discovery, experiment overrides, recording, and replay.
+  discovery, experiment overrides, and recording.
 * **Support diversity within one build.** Different environments can use
   different candidates while retaining the same task structure.
 * **Keep placement and simulation consistent.** Both use the same selected
   native asset configurations, including scale and physical settings.
-* **Keep the default useful.** Disabling the variation gives every
-  environment the object's original asset settings.
-* **Make recorded choices explicit.** Replay restores asset identities
-  before placement and rejects incompatible definitions.
+* **Make assignment explicit.** A default asset remains usable when selection
+  is disabled. Without a default, an enabled variation must assign an asset
+  before placement; the first candidate is never an implicit fallback.
+* **Make recorded choices explicit.** Episode records identify the selected
+  asset. Restoring those choices is covered by the future replay proposal.
 
 The first version supports rigid candidates with one rigid body each.
 It does not switch assets on reset, mix rigid objects with articulations or
@@ -92,14 +95,20 @@ sampling is outside this first version.
 What an object represents
 -------------------------
 
-``pick_up_object`` is an ordinary library object already used by the scene
-and task. Its original asset settings are the default when selection is
-disabled. There is no additional wrapper or ``default_asset`` constructor.
+``pick_up_object`` is a generic ``Object`` used by the scene and task.
+``Object(name="pick_up_object", asset=banana_asset)`` supplies its normal default.
+``Object(name="pick_up_object")`` leaves asset assignment to a variation.
+Both use the same class and geometry interface.
 
-``banana`` and ``orange`` are library instances supplied as candidates.
-The variation copies their names and native asset settings when declared.
-It then works with those copied definitions, rather than adding the candidate
-instances to the scene. The task keeps its reference to ``pick_up_object``.
+``banana_asset`` and ``orange_asset`` are reusable native asset definitions.
+Each is a ``tuple[str, SpawnerCfg]`` containing an ID and native spawn settings.
+``AssetRegistry.get_asset_definition(name, **constructor_overrides)`` obtains
+one by calling the existing rigid library constructor and copying its native
+spawn settings. The tuple retains the requested registry ID regardless of
+the constructed instance's name. The variation copies these definitions
+when declared.
+Candidate definitions are not scene nodes. The task keeps its reference to
+``pick_up_object``.
 
 For example, a build with three parallel environments could resolve to:
 
@@ -125,16 +134,20 @@ The asset assignment does not change. A later rebuild may choose a different
 assignment.
 
 The scene object owns its name, scene path, pose, relations, reset behavior,
-and variations. Each candidate's name becomes its recording ID; it does not
-rename the scene object. Its pose, relations, variations, and subclass methods
-are not transferred. Settings on the enclosing Isaac Lab asset configuration
-remain the scene object's responsibility.
+and variations. Each definition's name becomes its recording ID; it does
+not rename the scene object. The registry adapter transfers no subclass
+behavior, poses, relations, or variations. Settings on the enclosing Isaac
+Lab asset configuration remain the scene object's responsibility; callers
+can supply ``asset_cfg_addon`` to ``Object`` as before. ``Object(name)`` is a
+rigid declaration in this first scope. Its mass and disappearance variations
+remain discoverable before build overrides, even while its asset is unassigned.
 
-The target's Python class also stays unchanged. If it has banana-specific
-grasp points or affordances, selection does not automatically adapt them to
-an orange. Authors must choose candidates that work with the same task-facing
-behavior. Generic rigid-object tasks are the first supported use case;
-asset-specific behavior needs explicit compatibility before it can be used.
+Keep existing library constructors and their behavior available for existing
+callers. This change adds only an adapter to obtain native definitions and
+the two generic ``Object`` construction forms. It does not rewrite library
+classes, move affordances into a new model, or transfer fruit-specific methods
+onto a selected object. Generic rigid-object tasks are the first supported
+use case; candidate-specific behavior remains separate future work.
 
 User API
 --------
@@ -142,13 +155,14 @@ User API
 Declare the object and its choices
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-``pick_up_object`` is the existing library
-object used by the task, with banana settings as its default. ``asset_registry``,
 ``background``, ``table``, and ``bowl`` have already been created by the
-environment definition.
+environment definition. Obtain native definitions, then declare the scene
+object without a default so the enabled variation supplies its asset:
 
 .. code-block:: python
 
+   from isaaclab_arena.assets.object import Object
+   from isaaclab_arena.assets.registries import AssetRegistry
    from isaaclab_arena.relations.relations import On
    from isaaclab_arena.scene.scene import Scene
    from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
@@ -156,13 +170,15 @@ environment definition.
        AssetSelectionVariation,
        AssetSelectionVariationCfg,
    )
-   banana = asset_registry.get_asset_by_name("banana_ycb_robolab")()
-   orange = asset_registry.get_asset_by_name("orange_01_fruits_veggies_robolab")()
+   asset_registry = AssetRegistry()
+   banana_asset = asset_registry.get_asset_definition("banana_ycb_robolab")
+   orange_asset = asset_registry.get_asset_definition("orange_01_fruits_veggies_robolab")
 
+   pick_up_object = Object(name="pick_up_object")
    pick_up_object.add_relation(On(table))
    pick_up_object.add_variation(
        AssetSelectionVariation(
-           candidates=[banana, orange],
+           asset_candidates=[banana_asset, orange_asset],
            cfg=AssetSelectionVariationCfg(enabled=True),
        )
    )
@@ -181,11 +197,19 @@ asset-selection variation.
 The example enables selection immediately. With four environments, it assigns
 banana, orange, banana, orange.
 
-The config argument is optional. Omitting it declares the variation with the
-existing opt-in defaults: disabled, one value per environment, and sequential
-assignment. The target then keeps its original asset settings until selection
-is enabled. This lets an environment offer variations that experiments can
-choose to enable. A Python caller can also enable a disabled variation later:
+To give the same object a normal default, construct it with an asset definition:
+
+.. code-block:: python
+
+   pick_up_object = Object(name="pick_up_object", asset=banana_asset)
+
+The config argument to ``AssetSelectionVariation`` is optional. Omitting it
+declares the variation as disabled, with one value per environment and
+sequential assignment. An object with a default then keeps that asset until
+selection is enabled. Without a default, a missing or disabled assignment
+variation is an error. The builder checks every object's assignment after
+overrides and variations, before placement. It never takes the first candidate
+as an implicit default. A Python caller can enable a disabled variation later:
 
 .. code-block:: python
 
@@ -194,29 +218,44 @@ choose to enable. A Python caller can also enable a disabled variation later:
 Candidate names supply the identifiers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-There is no second set of dictionary keys to declare. Each instance's
-``name`` is copied as its candidate ID, alongside its native spawn settings.
+There is no second set of dictionary keys to declare. Each definition's name
+is copied as its candidate ID, alongside its native spawn settings.
 In the example, those names are ``banana_ycb_robolab`` and
 ``orange_01_fruits_veggies_robolab``. Names must be nonempty and unique within
 the list; duplicate names are an error, even if the configurations match.
 
-Two differently scaled oranges need distinct candidate names, such as
-``small_orange`` and ``large_orange``. Give the instances those names before
-declaring the variation. Renaming a Python variable does not change an
-instance's name. Later edits to a source instance's name or settings do not
-change the copied candidate definition.
+Two differently scaled oranges need distinct candidate names:
 
-The list must be nonempty, and every element must be a concrete rigid
-``Object`` instance. Its order controls sequential assignment. Replay uses
-the captured names, so changing the list order cannot reinterpret a recorded
-choice as a different asset.
-The target's default settings do not have to appear among the candidates.
+.. code-block:: python
+
+   _, small_orange_spawn_cfg = asset_registry.get_asset_definition(
+       "orange_01_fruits_veggies_robolab",
+       scale=(0.8, 0.8, 0.8),
+   )
+   _, large_orange_spawn_cfg = asset_registry.get_asset_definition(
+       "orange_01_fruits_veggies_robolab",
+       scale=(1.2, 1.2, 1.2),
+   )
+   small_orange_asset = ("small_orange", small_orange_spawn_cfg)
+   large_orange_asset = ("large_orange", large_orange_spawn_cfg)
+
+The scale overrides go to the existing constructor. Both registry calls
+return ``orange_01_fruits_veggies_robolab`` as their ID; the explicit tuples
+give the two candidates distinct IDs. Neither renaming a Python variable
+nor passing ``instance_name`` to the constructor changes the returned registry
+ID. Later edits to a supplied spawn configuration do not change the variation's
+copied candidate definition.
+
+The list must be nonempty, and every element must be a named native definition
+for one concrete rigid asset. Its order controls sequential assignment;
+recorded values use the declared tuple IDs. A target's default, when provided,
+does not have to appear among its candidates.
 
 Use the common variation configuration
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-``AssetSelectionVariationCfg`` extends ``VariationBaseCfg``. Candidate
-instances stay on the variation constructor; the config contains the
+``AssetSelectionVariationCfg`` extends ``VariationBaseCfg``. Native candidate
+definitions stay on the variation constructor; the config contains the
 experiment settings that users can inspect and override.
 
 The common fields are:
@@ -301,7 +340,8 @@ sampling does not guarantee equal counts or that every candidate appears.
 Setting ``sample_per_environment=False`` requests one value and shares it
 across the build. The sequential sampler then chooses the first candidate;
 the random sampler chooses one candidate at random. Setting ``enabled=False``
-uses the target's original asset settings and makes no selection draw.
+makes no selection draw and leaves a configured default in use. Without a
+default or another asset assignment, the build fails before placement.
 
 To use one specific asset everywhere while recording that selection, declare
 a single candidate:
@@ -309,15 +349,15 @@ a single candidate:
 .. code-block:: python
 
    selection = AssetSelectionVariation(
-       candidates=[orange],
+       asset_candidates=[orange_asset],
        cfg=AssetSelectionVariationCfg(enabled=True),
    )
 
 This is an alternative declaration for the target, not a second selection
 variation to attach alongside the earlier one. No separate fixed-selection
 class or candidate-subset configuration is needed for the first version.
-Changing the candidate list creates a different definition; it is not a way
-to filter replay of a recording made with a larger candidate list.
+Changing the candidate list creates a different definition. Selection replay
+is not supported in this implementation.
 
 .. list-table::
    :header-rows: 1
@@ -326,9 +366,12 @@ to filter replay of a recording made with a larger candidate list.
    * - Configuration
      - What is selected
      - What happens on reset
-   * - Disabled
+   * - Disabled, with a default
      - Default asset in every environment
      - Keep the default asset
+   * - Disabled or absent, without a default
+     - Build fails before placement
+     - No simulation is created
    * - Enabled, ``sample_per_environment=False``
      - One candidate for the whole build
      - Keep that candidate
@@ -336,62 +379,27 @@ to filter replay of a recording made with a larger candidate list.
      - One candidate per environment
      - Keep each environment's candidate
 
-Author the same scene in YAML
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Future YAML authoring
+^^^^^^^^^^^^^^^^^^^^^
 
-The proposed graph schema keeps the object under ``objects`` and puts its
-choices under ``variations``. The following is an authoring fragment, with
-the background, table, bowl, and task omitted:
+YAML candidate authoring is not part of this change. A later graph schema
+can keep scene identity under ``objects`` and asset choices under the object's
+variations. It should resolve a registry name and constructor overrides into
+the same ``tuple[str, SpawnerCfg]`` definitions accepted by the Python API.
+Candidate entries would not create scene nodes or another asset-library model.
 
-.. code-block:: yaml
+That future schema must distinguish an optional default from the ordered
+``asset_candidates`` list. Omitting the default must retain the same build-time
+assignment requirement as ``Object(name)``. Relations and task arguments still
+refer to the scene object. No separate object-set category or automatic
+first-candidate default is needed. The exact YAML schema remains undecided.
 
-   objects:
-     - id: pick_up_object
-       registry_name: banana_ycb_robolab
-       params: {}
-       variations:
-         asset_selection:
-           candidates:
-             - registry_name: banana_ycb_robolab
-               params: {}
-             - name: small_orange
-               registry_name: orange_01_fruits_veggies_robolab
-               params: {}
-               spawn_overrides:
-                 scale: [0.8, 0.8, 0.8]
-             - name: large_orange
-               registry_name: orange_01_fruits_veggies_robolab
-               params: {}
-               spawn_overrides:
-                 scale: [1.2, 1.2, 1.2]
-           cfg:
-             enabled: true
-   relations:
-     - kind: 'on'
-       subject: pick_up_object
-       reference: table
-       params: {}
+Recording and future replay
+---------------------------
 
-The target retains ordinary object authoring through ``id``, ``registry_name``,
-and ``params``. Each candidate entry creates a library instance from its
-``registry_name`` and constructor ``params``. An optional ``name`` gives that
-candidate a distinct name before its settings are copied; otherwise it keeps
-the library instance's name. Candidate entries do not create scene nodes.
-
-``spawn_overrides`` applies validated native spawn settings after candidate
-construction. This avoids making scale or physics overrides depend on the
-constructor signature of each library class. The loader then supplies the
-same ordered instance list as the Python API, using the native configuration
-work in the stack rather than another asset-settings model.
-
-The two orange IDs deliberately refer to different configurations of the
-same registered asset. A registry name or a USD filename alone would not
-distinguish them. Relations and task arguments refer to ``pick_up_object``.
-No ``object_sets`` or ``per_environment_objects`` section is needed for new
-definitions.
-
-Recording and replay
---------------------
+Episode records already include fixed candidate IDs. The build manifest,
+``build_id``, definition fingerprints, and replay behavior below are proposed
+future work. Enabled selection currently rejects variation and placement replay.
 
 Record the build and the episodes
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -462,11 +470,11 @@ names; authors do not supply a second set of candidate IDs.
 
 ``object_definitions`` includes every object that declares asset selection,
 even when that variation is disabled. ``default_asset_fingerprint`` describes
-the target's original native spawn settings before selection is applied,
-independently of its candidate list. ``build_variations`` includes all enabled
-build-time variations, including existing shared variations. Their values can still
-appear in episode rows for convenient analysis; both representations must
-agree. Disabled selection has no sample entry.
+the configured default before selection is applied, or is null when there is
+no default. It is independent of the candidate list. ``build_variations``
+includes all enabled build-time variations, including existing shared
+variations. Their values can still appear in episode rows for convenient
+analysis; both representations must agree. Disabled selection has no sample entry.
 
 Use a separate JSON file because the current JSONL reader treats each object
 as an episode and the runner uses those rows to determine the replay budget.
@@ -530,7 +538,7 @@ field must be reported instead of omitted. This does not serialize the
 implementation of a Python function.
 
 Validate the full candidate name-to-fingerprint mapping and the target's
-original asset settings as part of the object definition. Candidate list
+optional default as part of the object definition. Candidate list
 order belongs to sampling policy, so normalize these definitions by captured
 name for replay validation, including when fingerprinting a graph. Otherwise
 an ordinary list hash would reject a harmless reorder.
@@ -543,7 +551,7 @@ fails before placement. Duplicate candidate names are rejected at declaration.
 Changing the seed or sampler is allowed because replay does not draw new
 choices. Every restored name must exist in the validated candidate list,
 and a recorded selection must remain enabled. Disabling it cannot silently
-substitute the target's original asset.
+substitute a configured default or leave the target unassigned.
 
 A configuration fingerprint cannot detect that a remote USD was replaced
 at the same URL. Asset contents are only covered when the source carries an
@@ -611,10 +619,18 @@ Implementation
 Keep responsibilities small
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-``AssetSelectionVariation`` owns the ordered copies of candidate names and
-native configurations, together with its sampling configuration. It returns
-selected names and emits samples for recording. It does not spawn assets or
-maintain geometry caches.
+``AssetRegistry.get_asset_definition()`` is a small adapter over existing rigid
+library constructors. It returns the requested registry ID and a copied native
+``SpawnerCfg`` in a tuple. A constructor's ``instance_name`` does not change
+that ID. Keep constructor behavior intact; no new definition class, registration
+system, or broad library migration is required.
+
+``AssetSelectionVariation`` owns the ordered copies of candidate definitions
+and its sampling configuration. It emits selected names for recording, and
+the builder installs the prepared native settings through generic object
+assignment. The variation snapshots those settings before placement and
+checks them at the final build and scene export boundaries. It does not
+spawn assets or maintain geometry caches.
 
 Extend ``Asset.add_variation()`` with a common attachment hook so selection
 can bind to its host without an explicit target constructor argument. Bind a
@@ -623,20 +639,24 @@ per object. Binding does not sample or resolve assets. Existing variations
 that receive explicit targets can retain that API during migration; adopting
 the hook must preserve or validate those target references.
 
-``Object`` remains the interface used by tasks and placement. For a resolved
-build it exposes the effective native configuration, the assignment, and
-geometry for each environment. A small internal resolved-state structure
-can hold those values together. It is not another public scene object type.
+``Object`` remains the interface used by tasks and placement. It owns generic
+asset assignment and geometry access. It accepts a default native definition
+or waits for assignment during the build. It has no dependency on the
+``AssetSelectionVariation`` class and does not inspect its candidates or enabled
+state. Once assigned, it exposes the effective native configuration, assignment,
+and geometry for each environment. No additional object class or state wrapper
+is needed for this change.
 
-``ArenaEnvBuilder`` owns construction order and the lifetime of that resolved
-state. It validates candidates, translates selected IDs to native indices,
-prepares compatible rigid-body paths, binds assignments, and composes the
-Isaac Lab configuration. Isaac Lab continues to own spawning and cloning.
+``ArenaEnvBuilder`` owns construction order and validates that every object has
+an assigned asset after overrides and variations. Selection resolution maps
+chosen names to native indices, prepares compatible rigid-body paths, and
+binds assignments before placement. The builder composes the Isaac Lab
+configuration; Isaac Lab continues to own spawning and cloning.
 
 ``VariationRecorder`` owns sampled values. The episode recorder obtains the
 fixed value for that episode's environment, alongside any values sampled on
-reset. The replay loader and scheduler own definition checks, restoration,
-and episode dispatch.
+reset. Future replay changes belong to the replay loader and scheduler, which
+will own definition checks, restoration, and episode dispatch.
 
 Resolve before anything consumes geometry
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -646,15 +666,20 @@ The construction order should be explicit:
 1. Create a fresh environment definition, keeping shared references between
    its scene, tasks, relations, and variations.
 2. Apply experiment overrides and create the build context: environment
-   count, seed, and replay inputs. Attach recording before any draws.
-3. Validate definitions and either sample or restore asset-selection IDs.
-4. Produce the effective native candidate configurations. Apply any supported
-   build-time property changes before preparing geometry.
-5. Prepare compatible rigid-body paths, bind the fixed assignments, derive
-   per-environment geometry, and freeze the resolved asset settings.
-6. Solve placement or bind recorded layouts using those exact assignments.
+   count, seed, and variation key. Attach recording before any draws.
+3. Validate supported combinations, then apply enabled variations. Selection
+   samples IDs and supplies the effective native settings and fixed assignment.
+4. Validate that every object has an assigned asset. An object without a
+   default and without an effective assignment fails here, before placement.
+5. Prepare compatible rigid-body paths and per-environment geometry, then
+   freeze the resolved asset settings.
+6. Solve placement using those exact assignments.
 7. Derive task sensors and compose scene, manager, and reset configurations.
-8. Construct the simulation, finalize the build manifest, and start episodes.
+8. Construct the simulation and start episodes.
+
+The replay proposal above describes assignment restoration and a build
+manifest. Neither is part of this construction path; selection with recorded
+variation or placement inputs is rejected.
 
 Keep fingerprints of the authored candidate definitions separate from
 construction-time consistency checks on the final effective configs. If a
@@ -679,61 +704,56 @@ configuration is the continuation of the same build, and remains supported.
 A failed construction that has already resolved the definition requires a
 fresh factory result.
 
-Preserve the target's original native configuration separately from the
-resolved selection, so disabled builds and recorded definition checks use
-its actual default. Copy candidate names and settings together at declaration;
-never reconstruct names later from source instances that may have changed.
+Preserve an explicitly supplied default separately from the resolved selection
+where needed for build validation and future definition checks. There may be
+no default. Copy candidate names and settings together at declaration; never
+reconstruct names later from a changed source configuration.
 
-An enabled but unresolved object must reject geometry queries rather than
-quietly returning the default asset's bounds. After resolution, placement
-uses the existing per-environment geometry interface. For enabled selection,
-initially retain the stack's conservative rule: a single-box query rejects a
-resolved multi-asset configuration, even if this build happened to select
-only one candidate. Disabled selection uses the original asset and supports
-its ordinary geometry queries. Previewing that asset can remain an explicit
-operation using its preserved concrete configuration.
+An unassigned ``Object(name)`` rejects geometry queries. An object with a
+default can describe that default before variations run; it does not need to
+know whether selection is enabled. The builder's ordering ensures placement
+and task sensors consume the final assignment. After resolution, placement
+uses the existing per-environment geometry interface. A single-box query
+continues to reject a multi-asset configuration, even when every slot happens
+to select the same candidate. Scene USD export separately rejects enabled,
+unresolved selection rather than exporting a default as though it were selected.
 
 Extend the variation lifecycle and recorder
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The current build-time callback takes no context, and the recorder assumes
-that a draw with environment IDs happens during a live episode. Both
-assumptions need to change.
+The draft stack passes ``VariationBuildContext`` to build-time configuration
+and adds ``sample_per_environment`` to the common variation config. Existing
+variations retain explicit defaults and supported settings: shared build-time
+lighting variations stay shared, and runtime variations remain per-environment.
+Selection supports both settings and defaults to ``True``.
 
-Pass an explicit build context to build-time configuration and add
-``sample_per_environment`` to the common variation config. Preserve each
-existing variation's sharing behavior with an explicit default and supported
-settings. In particular, current shared build-time variations stay shared
-and per-environment runtime variations remain per-environment. Selection
-supports both settings and defaults to ``True``.
-
-The recorder can then distinguish three cases: a shared build value, a fixed
-build value for each environment, and values sampled for individual episodes.
-It must not infer lifetime from whether an environment has been bound yet.
+The recorder distinguishes a shared build value, a fixed build value for each
+environment, and values sampled for individual episodes. It uses the variation's
+declared lifecycle rather than inferring lifetime from environment IDs or
+whether a live environment has been bound.
 
 For per-environment selection, request ``num_envs`` samples with environment
 IDs ``0`` through ``num_envs - 1``. For shared selection, request one sample.
 Give both choice samplers the same draw interface: a sample count, an ordered
-list of candidate names, and optional environment IDs. ``ChoiceSampler``
-already accepts choices per call. Add ``SequentialChoiceSampler`` with the
-same interface and use its config as the selection variation's default.
-Pass the copied names as choices; neither sampler stores library instances.
+list of candidate names, and optional environment IDs. ``ChoiceSampler`` and
+``SequentialChoiceSampler`` use that interface. Sequential sampling is the
+selection default. Pass copied names as choices; neither sampler owns asset
+definitions or scene objects.
 
 Sequential selection starts from the first candidate for each build and
-cycles in environment order. Restored samples bypass either algorithm.
+cycles in environment order.
 
 When random sampling is selected, give each selection variation a reproducible
 random stream derived from the build seed and its full key, such as
 ``pick_up_object.asset_selection``. Use a stable derivation rather than
-Python's process-dependent hash. This needs explicit
-sampler support: the current choice sampler draws from the global Torch
-generator. Adding an unrelated variation should not change the chosen fruit.
-Candidate order may affect a fresh draw, but replay resolves recorded IDs
-without drawing again.
+Python's process-dependent hash. The choice sampler accepts an explicit Torch
+generator. Adding an unrelated variation must not change the chosen fruit.
+Candidate order may affect a fresh draw. Restoring recorded choices is part
+of the separate replay proposal above.
 
-Update the loader to retain source environment and episode identity. The
-current loader requires every build-time value to be identical across all
-episode rows, which is correct for shared values but wrong for fixed
+Future replay work must update the loader to retain source environment and
+episode identity. The current loader requires every build-time value to be
+identical across all episode rows, which is correct for shared values but wrong for fixed
 per-environment values. Existing homogeneous recordings without a manifest
 must keep their existing replay path; they cannot be interpreted as complete
 heterogeneous recordings.
@@ -741,11 +761,11 @@ heterogeneous recordings.
 Defer sensors and define composition limits
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-``PickAndPlaceTask``, ``ObjectInTask``, and ``SortMultiObjectTask`` currently derive
-some sensor configuration eagerly. Their constructors should keep scene
-object references, and their configuration methods should resolve contact
-paths after asset preparation. Patching stale sensor paths afterward would
-leave the construction order unclear.
+The first refactor defers scene configuration in ``PickAndPlaceTask``,
+``ObjectInTask``, and ``SortMultiObjectTask``. Their constructors keep scene
+object references, and their configuration methods resolve contact paths
+after asset preparation. This also allows tasks to hold an ``Object(name)``
+whose asset has not yet been assigned.
 
 Initially reject ``ObjectReference`` paths into an object with enabled asset
 selection. A child prim that exists in a banana need not exist in an orange.
@@ -825,8 +845,8 @@ Use four new PRs after #1419. #1420 and #1421 remain separate from this
 implementation branch; useful tests and validation cases can be adapted
 without taking their public API changes.
 
-The first two steps are implemented in the current draft stack. Replay and
-graph authoring remain future work.
+The current draft stack covers the first two steps, including the native
+definition API revision. Replay, graph authoring, and migration remain future work.
 
 1. **Prepare Object and task configuration.** Move assignment state,
    per-candidate geometry caching, per-environment bounds, and common contact
@@ -836,11 +856,13 @@ graph authoring remain future work.
 2. **Add asset selection through variations.** Introduce the attachment hook,
    common ``sample_per_environment`` config, explicit build context, and
    fixed per-environment recording. Add ``AssetSelectionVariation`` with
-   copied candidate names/settings, unique-name validation, sequential
-   assignment by default, optional random sampling, and shared values.
-   Preserve the ordinary object's original configuration before resolving
-   its selection. Until the next PR adds replay support, reject heterogeneous
-   replay explicitly rather than using the existing shared-value path.
+   ``asset_candidates`` containing copied native definitions, unique-name
+   validation, sequential assignment by default, optional random sampling,
+   and shared values. Add the small registry adapter and let the same generic
+   ``Object`` accept a default or wait for assignment. Validate all assignments
+   after variations and before placement. Retain existing library constructors
+   and keep ``Object`` independent of the selection class. Reject selection
+   replay until the manifest and replay changes are available.
 3. **Restore heterogeneous recordings.** Add the manifest, definition
    validation, preserved-environment dispatch, reset admission, and
    coordinated layout replay. This completes the Python selection and
@@ -848,13 +870,13 @@ graph authoring remain future work.
 4. **Add graph authoring and migrate callers.** Add YAML and discovery, then
    migrate examples, authoring tools, and existing callers.
    A temporary ``RigidObjectSet`` adapter can translate ordered/random
-   settings to an enabled selection variation and use the first candidate
-   as its default. It should delegate to the same implementation, not retain
-   a separate assignment engine. Deprecation and removal happen after migration.
+   settings to an enabled selection variation. Its compatibility behavior
+   needs separate review; it must not introduce an implicit default for the
+   new generic ``Object`` API. Deprecation and removal happen after migration.
 
-These steps are independently reviewable, but selection plus correct
-recording and replay is the complete first feature. A public rename alone
-does not deliver that behavior.
+These steps are independently reviewable. The Python API and fixed episode
+recording can be used before replay and YAML support, with explicit guards
+on unsupported combinations.
 
 Scope of the first refactor
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -911,9 +933,14 @@ What must be demonstrated
 
 Use a small rigid-object scene to verify the whole path:
 
-* Disabled selection spawns the original asset everywhere. Sequential
-  assignment is the default; selecting the random sampler preserves the
-  existing optional behavior. Resets never change either assignment.
+* ``Object(name, asset=definition)`` uses its default when selection is absent
+  or disabled. ``Object(name)`` requires an enabled assignment variation and
+  otherwise fails before placement, without a first-candidate fallback.
+* The registry adapter snapshots native settings without transferring library
+  behavior, poses, relations, or variations. Both construction forms use the
+  same generic object class and geometry interface.
+* Sequential assignment is the default; selecting the random sampler preserves
+  the existing optional behavior. Resets never change either assignment.
 * ``sample_per_environment=True`` produces one value per environment and
   ``False`` produces one shared value. Existing variations retain their
   defaults and reject unsupported settings.
@@ -921,11 +948,15 @@ Use a small rigid-object scene to verify the whole path:
   contact sensors refer to the actual asset spawned in each environment.
 * Fresh builds resolve independently. An unrelated variation does not alter
   selection, and reusing stale resolved state fails clearly.
-* Candidate names distinguish differently configured copies of one registered
-  asset. Duplicate names fail at declaration. Later source-instance edits do
-  not change the copied names or settings. Missing names and changed
-  definitions fail before simulation starts; reordering candidates preserves
-  recorded identities while changing fresh sequential assignment.
+* Candidate names distinguish differently configured definitions from one
+  registered asset. Duplicate names fail at declaration. Later edits to a
+  supplied native configuration do not change the copied settings. Reordering
+  candidates changes fresh sequential assignment without changing their IDs.
+
+Future replay work must also demonstrate:
+
+* Missing names and changed definitions fail before simulation starts.
+  Reordering candidates preserves recorded identities.
 * A recording with unused slots still has complete assignments. Filtered
   replay preserves those assignments and runs only retained episodes.
 * Policies that finish episodes in different orders receive the same selected
@@ -937,11 +968,11 @@ Use a small rigid-object scene to verify the whole path:
 Questions for the design review
 -------------------------------
 
-The next review should settle the common attachment hook and
-``sample_per_environment`` behavior across existing variations, the supported
-configuration types for definition fingerprints, and the YAML representation
-of validated native overrides. It should also decide how long to keep the
-``RigidObjectSet`` compatibility adapter.
+Future review should settle the supported configuration types for definition
+fingerprints and the YAML representation of defaults and candidate definitions.
+It should also decide the migration path and how long to retain
+``RigidObjectSet``. Those decisions do not require a new library model or an
+affordance rewrite in this change.
 
 Runtime asset replacement and replay with a different environment count are
 future work. The latter would require dispatch by the complete combination

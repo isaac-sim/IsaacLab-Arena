@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING
 from isaaclab.sim import MultiAssetSpawnerCfg, MultiUsdFileCfg
 from isaaclab.sim.spawners.spawner_cfg import SpawnerCfg
 from isaaclab.utils.configclass import configclass
+from isaaclab.utils.dict import dict_to_md5_hash
 
 from isaaclab_arena.variations.choice_sampler import ChoiceSamplerCfg
 from isaaclab_arena.variations.sampler_base import SamplerBaseCfg
@@ -24,7 +25,6 @@ from isaaclab_arena.variations.variation_base import BuildTimeVariationBase, Var
 
 if TYPE_CHECKING:
     from isaaclab_arena.assets.asset import Asset
-    from isaaclab_arena.assets.object import Object
 
 
 @configclass
@@ -41,11 +41,11 @@ class AssetSelectionVariationCfg(VariationBaseCfg):
 class AssetSelectionVariation(BuildTimeVariationBase):
     """Copy candidate names and spawn settings, then sample names once per build.
 
-    Attach to an ordinary rigid Object with add_variation(). Candidate instances
-    provide definitions only; their poses, relations, and variations are not copied.
+    Attach to a rigid Object with add_variation(). Candidates are library names
+    paired with native spawn configurations, independent of scene objects.
 
     Args:
-        candidates: Ordered concrete rigid objects with unique, nonempty names.
+        asset_candidates: Ordered native rigid asset definitions with unique, nonempty names.
         cfg: Optional sampling configuration; selection starts disabled.
         name: Variation key on the target object.
     """
@@ -55,36 +55,33 @@ class AssetSelectionVariation(BuildTimeVariationBase):
 
     def __init__(
         self,
-        candidates: list[Object],
+        asset_candidates: list[tuple[str, SpawnerCfg]],
         cfg: AssetSelectionVariationCfg | None = None,
         name: str = "asset_selection",
     ) -> None:
-        from isaaclab_arena.assets.object import Object
-        from isaaclab_arena.assets.object_set import RigidObjectSet
-        from isaaclab_arena.assets.object_type import ObjectType
-
-        assert candidates, "Asset selection requires at least one candidate."
+        assert asset_candidates, "Asset selection requires at least one candidate."
         candidate_names = []
         candidate_spawn_configs = []
-        for candidate in candidates:
-            assert isinstance(candidate, Object) and not isinstance(
-                candidate, RigidObjectSet
-            ), "Asset selection candidates must be concrete rigid Object instances."
-            assert candidate.object_type == ObjectType.RIGID, "Asset selection supports rigid candidates only."
-            assert isinstance(candidate.name, str) and candidate.name.strip(), "Candidate names must be nonempty."
+        for candidate in asset_candidates:
             assert (
-                candidate.name not in candidate_names
-            ), f"Duplicate asset selection candidate name: {candidate.name!r}."
+                isinstance(candidate, tuple) and len(candidate) == 2
+            ), "Asset selection candidates must be (name, native spawn configuration) pairs."
+            candidate_name, candidate_spawn_cfg = candidate
+            assert isinstance(candidate_name, str) and candidate_name.strip(), "Candidate names must be nonempty."
+            assert (
+                candidate_name not in candidate_names
+            ), f"Duplicate asset selection candidate name: {candidate_name!r}."
+            assert isinstance(candidate_spawn_cfg, SpawnerCfg), "Candidates require native spawn configurations."
             assert not isinstance(
-                candidate.spawn_cfg, (MultiAssetSpawnerCfg, MultiUsdFileCfg)
+                candidate_spawn_cfg, (MultiAssetSpawnerCfg, MultiUsdFileCfg)
             ), "Asset selection candidates must have one concrete native spawn configuration."
-            assert candidate.bounding_box is None, "Asset selection candidates cannot have custom bounding boxes."
-            candidate._assert_asset_selection_resolved()
-            candidate_names.append(candidate.name)
-            candidate_spawn_configs.append(deepcopy(candidate.spawn_cfg))
+            candidate_names.append(candidate_name)
+            candidate_spawn_configs.append(deepcopy(candidate_spawn_cfg))
         self._candidate_names = tuple(candidate_names)
         self._candidate_spawn_configs = tuple(candidate_spawn_configs)
         self._selected_candidate_names: tuple[str, ...] | None = None
+        self._sampled_cfg_hash: str | None = None
+        self._resolved_spawn_cfg_hash: str | None = None
         super().__init__(cfg=cfg if cfg is not None else AssetSelectionVariationCfg(), name=name)
 
     @property
@@ -117,14 +114,35 @@ class AssetSelectionVariation(BuildTimeVariationBase):
             asset, RigidObjectSet
         ), "Attach asset selection to an ordinary rigid Object."
         assert asset.object_type == ObjectType.RIGID, "Asset selection supports rigid targets only."
-        assert not isinstance(
-            asset.spawn_cfg, (MultiAssetSpawnerCfg, MultiUsdFileCfg)
-        ), "Asset selection targets must start with one concrete native spawn configuration."
+        if self._selected_candidate_names is None:
+            assert not isinstance(
+                asset.object_cfg.spawn, (MultiAssetSpawnerCfg, MultiUsdFileCfg)
+            ), "Asset selection targets cannot start with multiple assets."
         assert asset.bounding_box is None, "Asset selection targets cannot have custom bounding boxes."
         assert all(
             variation is self or not isinstance(variation, AssetSelectionVariation)
             for variation in asset.get_variations()
         ), f"Object '{asset.name}' already has an asset selection variation."
+
+    def record_resolved_assets(self) -> None:
+        """Snapshot the native settings installed by the builder before placement."""
+        assert self._resolved_spawn_cfg_hash is None, "Asset selection is already resolved."
+        assert self.attached_asset is not None and self._selected_candidate_names is not None
+        self._resolved_spawn_cfg_hash = dict_to_md5_hash(self.attached_asset.object_cfg.spawn)
+
+    def validate_resolved_selection(self) -> None:
+        """Reject changes to selection settings or resolved assets after placement."""
+        assert self._selected_candidate_names is not None, "Asset selection must be resolved before scene export."
+        assert (
+            dict_to_md5_hash(self.cfg) == self._sampled_cfg_hash
+        ), "Asset selection settings changed after resolution; create a fresh environment."
+        self._validate_configuration()
+        assert (
+            self.attached_asset is not None and self._resolved_spawn_cfg_hash is not None
+        ), "Asset selection must be resolved before scene export."
+        assert (
+            dict_to_md5_hash(self.attached_asset.object_cfg.spawn) == self._resolved_spawn_cfg_hash
+        ), f"Object '{self.attached_asset.name}' resolved asset settings changed; create a fresh environment."
 
     def _realize_at_build_time(self, context: VariationBuildContext | None = None) -> None:
         assert context is not None, "Asset selection requires a VariationBuildContext."
@@ -142,3 +160,4 @@ class AssetSelectionVariation(BuildTimeVariationBase):
         self._selected_candidate_names = tuple(
             self.sampler.sample(num_samples, self._candidate_names, env_ids=env_ids, generator=generator)
         )
+        self._sampled_cfg_hash = dict_to_md5_hash(self.cfg)

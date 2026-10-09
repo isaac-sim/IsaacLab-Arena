@@ -4,12 +4,14 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import random
+from copy import deepcopy
 from typing import TYPE_CHECKING, Any
 
 from isaaclab_arena.utils.singleton import SingletonMeta
 
 if TYPE_CHECKING:
     from isaaclab.devices.device_base import DeviceCfg
+    from isaaclab.sim.spawners.spawner_cfg import SpawnerCfg
     from isaaclab_teleop import IsaacTeleopCfg
 
     from isaaclab_arena.assets.asset import Asset
@@ -101,6 +103,42 @@ class AssetRegistry(Registry):
         """
         ensure_assets_registered()
         return self.get_component_by_name(name)
+
+    def get_asset_definition(self, name: str, **kwargs: Any) -> tuple[str, "SpawnerCfg"]:
+        """Copy a registered rigid object's native spawn settings with its registry identity.
+
+        Args:
+            name: Registered asset name, preserved independently of the instance name.
+            **kwargs: Arguments passed to the registered constructor.
+
+        Returns:
+            The registry name and an independent native spawn configuration. Scene
+            placement, relations, variations, and subclass behavior are not included.
+        """
+        from isaaclab.sim import MultiAssetSpawnerCfg, MultiUsdFileCfg
+        from isaaclab.sim.spawners.spawner_cfg import SpawnerCfg
+
+        from isaaclab_arena.assets.object import Object
+        from isaaclab_arena.assets.object_set import RigidObjectSet
+        from isaaclab_arena.assets.object_type import ObjectType
+        from isaaclab_arena.variations.asset_selection_variation import AssetSelectionVariation
+
+        asset = self.get_asset_by_name(name)(**kwargs)
+        assert isinstance(asset, Object) and not isinstance(
+            asset, RigidObjectSet
+        ), f"Asset '{name}' must construct a concrete rigid Object."
+        assert asset.object_type == ObjectType.RIGID, f"Asset '{name}' must be rigid."
+        assert asset.bounding_box is None, f"Asset '{name}' cannot define custom bounding boxes."
+        assert not any(
+            isinstance(variation, AssetSelectionVariation) for variation in asset.get_variations()
+        ), f"Asset '{name}' cannot have an asset selection variation."
+        assert asset.asset_indices_by_env is None, f"Asset '{name}' cannot already have environment assignments."
+        assert asset.object_cfg is not None, f"Asset '{name}' must have a concrete native spawn configuration."
+        spawn_cfg = asset.object_cfg.spawn
+        assert isinstance(spawn_cfg, SpawnerCfg) and not isinstance(
+            spawn_cfg, (MultiAssetSpawnerCfg, MultiUsdFileCfg)
+        ), f"Asset '{name}' must have one concrete native spawn configuration."
+        return name, deepcopy(spawn_cfg)
 
     def get_assets_by_tag(self, tag: str) -> list[type["Asset"]]:
         """Gets a list of assets by tag.

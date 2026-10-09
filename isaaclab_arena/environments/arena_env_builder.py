@@ -49,7 +49,11 @@ from isaaclab_arena.relations.placement_events import (
 )
 from isaaclab_arena.relations.placement_layouts import PlacementLayouts
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
-from isaaclab_arena.scene.asset_selection import resolve_asset_selections, validate_asset_selections
+from isaaclab_arena.scene.asset_selection import (
+    resolve_object_assets,
+    validate_asset_selections,
+    validate_resolved_asset_selections,
+)
 from isaaclab_arena.scene.object_variant_assignment import assign_object_variants, validate_object_variant_assignments
 from isaaclab_arena.tasks.no_task import NoTask
 from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
@@ -328,7 +332,7 @@ class ArenaEnvBuilder:
 
         # Apply build-time variations now, before scene_cfg is materialised.
         self._apply_build_time_variations()
-        resolve_asset_selections(self.arena_env.scene.assets.values(), self.cfg.num_envs)
+        resolve_object_assets(self.arena_env.scene.assets.values(), self.cfg.num_envs)
 
         # Capture native variants before placement so later config overrides cannot invalidate its bounds.
         variant_seed = self.cfg.placement_seed
@@ -562,6 +566,7 @@ class ArenaEnvBuilder:
                     env_cfg.sim.physics, NewtonCfg
                 ), "env_cfg_callback changed the physics backend away from Newton."
 
+        validate_resolved_asset_selections(self.arena_env.scene.assets.values())
         validate_object_variant_assignments(env_cfg.scene, variant_assignments)
         env_cfg.object_variant_assignments = variant_assignments
         env_kwargs: dict[str, Any] = {
