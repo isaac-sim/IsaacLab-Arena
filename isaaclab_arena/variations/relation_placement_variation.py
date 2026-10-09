@@ -59,14 +59,12 @@ class PlacementPoolSampler(SamplerBase):
         assets: list[PlaceableAsset],
         placement_pool: PooledObjectPlacer | None,
         fixed_results: dict[int, PlacementResult] | None = None,
-        asset_identities: dict[str, str] | None = None,
         replay_assets: list[PlaceableAsset] | None = None,
     ) -> None:
         super().__init__()
         self.assets = assets
         self.placement_pool = placement_pool
         self.fixed_results = fixed_results
-        self.asset_identities = asset_identities or {}
         self.replay_assets = replay_assets or assets
         self.last_results: dict[int, PlacementResult] = {}
         self._next_layout_id = 0
@@ -128,8 +126,6 @@ class PlacementPoolSampler(SamplerBase):
             "poses": poses,
         }
         self._next_layout_id += 1
-        if self.asset_identities.keys() >= poses.keys():
-            row["assets"] = {key: self.asset_identities[key] for key in poses}
         return row
 
 
@@ -189,7 +185,7 @@ class RelationPlacementVariation(RunTimeVariationBase):
         self.cfg = cfg
 
     def validate_replay_samples(self, samples: list[Any]) -> None:
-        """Validate complete poses and concrete graph asset identities."""
+        """Validate complete poses against the current scene roots."""
         from isaaclab_arena.relations.placement_asset import get_scene_root_owners
         from isaaclab_arena.relations.placement_layouts import validate_root_reset_for_placement_replay
         from isaaclab_arena.relations.relations import RandomAroundSolution, get_relation
@@ -211,23 +207,12 @@ class RelationPlacementVariation(RunTimeVariationBase):
                         owned_keys <= pose_keys
                     ), f"Placement replay is missing roots owned by '{asset.name}': {sorted(owned_keys - pose_keys)}"
         selected_assets = {owners[key] for key in samples[0]["poses"]}
+        # TODO(qianl) [variation-replay-consistency]: Ensure replayed scene roots refer to the same concrete objects that produced the recording.
         validate_root_reset_for_placement_replay(list(selected_assets))
         for asset in selected_assets:
             assert (
                 get_relation(asset, RandomAroundSolution) is None
             ), f"Placement replay object '{asset.name}' cannot randomize on reset"
-        for sample in samples:
-            pose_keys = set(sample["poses"])
-            recorded_assets = sample.get("assets")
-            if recorded_assets is None or not self._sampler.asset_identities:
-                continue
-            current_assets = {key: self._sampler.asset_identities.get(key) for key in pose_keys}
-            mismatches = {
-                key: (recorded_assets.get(key), current_assets.get(key))
-                for key in pose_keys
-                if recorded_assets.get(key) != current_assets.get(key)
-            }
-            assert not mismatches, f"Placement replay concrete assets differ from the current graph: {mismatches}"
 
     def build_event_cfg(self) -> tuple[str, EventTermCfg]:
         handle = RelationPlacementHandle(self._sampler, self._write_live_samples)

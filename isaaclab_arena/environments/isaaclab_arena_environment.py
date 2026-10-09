@@ -39,7 +39,6 @@ class IsaacLabArenaEnvironment:
         episode_recorder_terms: dict[str, EpisodeRecorderTermCfg] | None = None,
         placer_params: ObjectPlacerParams | None = None,
         default_physics_backend: PhysicsBackend = PhysicsBackend.PHYSX,
-        placement_asset_identities: dict[str, str] | None = None,
     ):
         """
         Args:
@@ -63,8 +62,6 @@ class IsaacLabArenaEnvironment:
             placer_params: Object placement configuration. When None, default
                 ObjectPlacerParams are used.
             default_physics_backend: Default physics backend when ``--presets`` is omitted.
-            placement_asset_identities: Optional scene-root to registered-asset identities used to
-                reject condition replay with incompatible graph CLI object swaps.
         """
         self.name = name
         self.scene = scene
@@ -79,7 +76,6 @@ class IsaacLabArenaEnvironment:
         self.episode_recorder_terms = episode_recorder_terms or {}
         self.placer_params = placer_params
         self.default_physics_backend = PhysicsBackend(default_physics_backend)
-        self.placement_asset_identities = placement_asset_identities or {}
 
     def get_placement_assets(self) -> list[PlaceableAsset]:
         """Return placeable scene assets and the embodiment."""

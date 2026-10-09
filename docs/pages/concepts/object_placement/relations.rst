@@ -264,18 +264,25 @@ relation.
 Recorded Layouts
 ----------------
 
-Set the companion file in an Experiment Definition:
+Set the companion file in an Experiment Definition. This maintained example
+replays the settled clamp recording:
 
-.. code-block:: yaml
+.. literalinclude:: ../../../../isaaclab_arena_environments/experiment_configs/settled_placement_replay_experiment.yaml
+   :language: yaml
+   :start-at: runs:
 
-   runs:
-     placement_replay:
-       environment_builder:
-         recorded_variation_samples_path: layouts.jsonl
+Run it through the Experiment Runner:
 
-Run it with ``isaaclab_arena/evaluation/experiment_runner.py``. Recorded
-variation replay is not exposed by the Policy Runner CLI. Python callers can
-set ``ArenaEnvBuilderCfg(recorded_variation_samples_path="layouts.jsonl")``
+.. code-block:: bash
+
+   python isaaclab_arena/evaluation/experiment_runner.py \
+       --experiment_config isaaclab_arena_environments/experiment_configs/settled_placement_replay_experiment.yaml \
+       --device cpu --viz kit \
+       --output_base_dir outputs/placements/evaluation
+
+Recorded variation replay is not exposed by the Policy Runner CLI. Python
+callers can set
+``ArenaEnvBuilderCfg(recorded_variation_samples_path="layouts.jsonl")``
 directly. All file paths are relative to the working directory.
 
 A ten-layout example for ``isaaclab_arena/tests/test_data/placement_replay.yaml``
@@ -293,11 +300,9 @@ Additional episode fields are ignored; episodes without placement records cannot
 be loaded. Set the replay path before ``compose_manager_cfg()`` or
 ``make_registered()``.
 
-Recordings produced from graph-spec environments also include an ``assets`` mapping
-from scene root to concrete registry name. Replay rejects a different CLI-selected
-object in the same graph slot because its recorded pose may not be valid for the
-replacement geometry. Older files without this mapping retain scene-key-only
-compatibility checks.
+Replay validates scene-root names but does not currently verify that they refer
+to the same concrete objects that produced the recording. When an environment
+supports object selection, use the same objects for recording and replay.
 
 ``PlacementLayouts.write_episode_jsonl(path, source=...)`` writes the same format.
 The caller supplies the source label, such as ``"solver"`` or ``"settled"``;

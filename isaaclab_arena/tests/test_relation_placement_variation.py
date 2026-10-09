@@ -38,7 +38,7 @@ class _ReplayAsset:
         return False
 
 
-def _placement_sample(*, asset: str = "cube_asset") -> dict:
+def _placement_sample() -> dict:
     return {
         "layout_id": "layout_000000",
         "source": "test",
@@ -48,16 +48,14 @@ def _placement_sample(*, asset: str = "cube_asset") -> dict:
                 "rotation_xyzw": [0.0, 0.0, 0.0, 1.0],
             }
         },
-        "assets": {"cube": asset},
     }
 
 
-def _make_variation(identity: str = "cube_asset") -> RelationPlacementVariation:
+def _make_variation() -> RelationPlacementVariation:
     sampler = PlacementPoolSampler(
         assets=[],
         placement_pool=None,
         replay_assets=[_ReplayAsset("cube")],
-        asset_identities={"cube": identity},
     )
     return RelationPlacementVariation(sampler, write_live_samples=True)
 
@@ -79,18 +77,11 @@ def test_replay_sampler_notifies_serializable_rows():
     assert variation.last_results == {}
 
 
-def test_replay_validates_scene_keys_and_concrete_asset_identity():
+def test_replay_validates_scene_keys():
     variation = _make_variation()
     variation.validate_replay_samples([_placement_sample()])
-    legacy = _placement_sample()
-    del legacy["assets"]
-    variation.validate_replay_samples([legacy])
-
-    with pytest.raises(AssertionError, match="concrete assets differ"):
-        variation.validate_replay_samples([_placement_sample(asset="different_asset")])
     unknown = _placement_sample()
     unknown["poses"]["unknown"] = unknown["poses"].pop("cube")
-    unknown["assets"]["unknown"] = unknown["assets"].pop("cube")
     with pytest.raises(AssertionError, match="unknown=.*unknown"):
         variation.validate_replay_samples([unknown])
 
@@ -104,7 +95,6 @@ def test_replay_requires_every_root_of_a_selected_compound_asset():
     variation = RelationPlacementVariation(sampler, write_live_samples=True)
     sample = _placement_sample()
     sample["poses"] = {"left_robot": sample["poses"]["cube"]}
-    sample.pop("assets")
 
     with pytest.raises(AssertionError, match="right_robot"):
         variation.validate_replay_samples([sample])

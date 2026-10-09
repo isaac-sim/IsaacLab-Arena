@@ -128,10 +128,24 @@ if too few layouts are accepted.
 Replay the Recording
 ~~~~~~~~~~~~~~~~~~~~
 
-Configure an Experiment Definition for the same scene and set
-``environment_builder.recorded_variation_samples_path`` to
-``outputs/clutter/tools_on_table.jsonl``. Run it through the Experiment Runner;
-recorded variation replay is not exposed by the Policy Runner CLI. Keep the
+The maintained Experiment Definition uses the same scene and applies
+``outputs/clutter/tools_on_table.jsonl`` through
+``environment_builder.recorded_variation_samples_path``:
+
+.. literalinclude:: ../../../../isaaclab_arena_environments/experiment_configs/clutter_replay_tools_experiment.yaml
+   :language: yaml
+   :start-at: runs:
+
+Replay it through the Experiment Runner:
+
+.. code-block:: bash
+
+   python isaaclab_arena/evaluation/experiment_runner.py \
+       --experiment_config isaaclab_arena_environments/experiment_configs/clutter_replay_tools_experiment.yaml \
+       --device cpu --viz kit \
+       --output_base_dir outputs/clutter/evaluation
+
+Recorded variation replay is not exposed by the Policy Runner CLI. Keep the
 same backend, asset geometry and joint-reset configuration when replaying the
 recording.
 
@@ -211,8 +225,14 @@ penetration. Inspect the contacts as well as the saved validation reports.
 
 Success produces one row in ``outputs/clutter/three_cubes_in_bowl.jsonl``.
 Inspect it with the earlier Python snippet, changing ``path`` to this bowl
-recording. To replay it, use an Experiment Definition for the bowl scene with
-``environment_builder.recorded_variation_samples_path`` set to that file.
+recording. Replay it with the corresponding Experiment Definition:
+
+.. code-block:: bash
+
+   python isaaclab_arena/evaluation/experiment_runner.py \
+       --experiment_config isaaclab_arena_environments/experiment_configs/clutter_replay_bowls_experiment.yaml \
+       --device cpu --viz kit \
+       --output_base_dir outputs/clutter/bowl_evaluation
 
 .. _clutter-adapt-environment:
 

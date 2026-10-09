@@ -944,9 +944,6 @@ def test_real_rigid_object_set_through_pooled_placer():
         [desk, obj_set],
         pool,
         replay_assets=[desk, obj_set],
-        # Object-set member identity is intentionally unavailable until heterogeneous replay is supported.
-        asset_identities={desk.get_scene_key(): "desk"},
     )
     rows = sampler.sample(2, torch.tensor([0, 1]))
     assert all(set(row["poses"]) == {"cans"} for row in rows)
-    assert all("assets" not in row for row in rows)

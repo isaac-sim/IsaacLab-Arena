@@ -77,32 +77,7 @@ def build_arena_env_from_graph_spec(graph_spec: ArenaEnvGraphSpec, enable_camera
         placer_params=build_placer_params_from_override(graph_spec.placer_params),
         env_cfg_callback=env_cfg_callback,
         default_physics_backend=default_physics_backend,
-        placement_asset_identities=_placement_asset_identities(graph_spec, assets_by_node_id),
     )
-
-
-def _placement_asset_identities(
-    graph_spec: ArenaEnvGraphSpec,
-    assets_by_node_id: dict[str, PlaceableAsset],
-) -> dict[str, str]:
-    """Map runtime scene roots to concrete registered graph assets."""
-    identities: dict[str, str] = {}
-    for spec in (graph_spec.embodiment, graph_spec.background, *graph_spec.objects):
-        asset = assets_by_node_id[spec.id]
-        if not isinstance(asset, PlaceableAsset):
-            continue
-        for scene_key in asset.get_scene_root_keys():
-            assert scene_key not in identities, f"Scene root '{scene_key}' has multiple graph asset identities"
-            identities[scene_key] = spec.registry_name
-    registry_name_by_id = {
-        spec.id: spec.registry_name for spec in (graph_spec.embodiment, graph_spec.background, *graph_spec.objects)
-    }
-    for ref in graph_spec.object_references or []:
-        asset = assets_by_node_id[ref.id]
-        for scene_key in asset.get_scene_root_keys():
-            assert scene_key not in identities, f"Scene root '{scene_key}' has multiple graph asset identities"
-            identities[scene_key] = registry_name_by_id[ref.parent_id]
-    return identities
 
 
 def _ensure_scene_lighting(graph_spec: ArenaEnvGraphSpec, assets_by_node_id: dict[str, Any]) -> None:

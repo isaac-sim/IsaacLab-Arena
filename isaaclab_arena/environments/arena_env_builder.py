@@ -33,10 +33,7 @@ from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import (
     IsaacLabArenaManagerBasedRLEnvCfg,
     apply_arena_global_settings,
 )
-from isaaclab_arena.environments.relation_solver_interface import (
-    create_relation_placement_replay_variation,
-    create_relation_placement_variation,
-)
+from isaaclab_arena.environments.relation_solver_interface import create_relation_placement_variation
 from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.metrics.metric_term_cfg import MetricTermCfg
 from isaaclab_arena.metrics.recorder_manager_utils import metrics_to_recorder_manager_cfg
@@ -159,7 +156,6 @@ class ArenaEnvBuilder:
             num_envs=self.cfg.num_envs,
             placer_params=placer_params,
             scene_assets=self.arena_env.scene.assets.values(),
-            asset_identities=self.arena_env.placement_asset_identities,
             replay_assets=self.arena_env.get_placement_assets(),
         )
         if placement_variation is not None:
@@ -174,12 +170,11 @@ class ArenaEnvBuilder:
             "Recorded placement replay does not support RigidObjectSet; "
             "use homogeneous assets or omit scene.relation_placement from the variation samples."
         )
-        placement_variation = create_relation_placement_replay_variation(
+        placement_variation = create_relation_placement_variation(
             assets=self._get_relation_placement_assets(),
             replay_assets=replay_assets,
-            samples=samples,
+            replay_samples=samples,
             num_envs=self.cfg.num_envs,
-            asset_identities=self.arena_env.placement_asset_identities,
         )
         self._scene_variations.append(placement_variation)
 

@@ -13,7 +13,6 @@ from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_wi
 
 SOURCE = Path(__file__).parent / "test_data/placement_replay.yaml"
 LAYOUTS = SOURCE.with_suffix(".jsonl")
-CLI_SOURCE = Path(__file__).parent / "test_data/pick_and_place_maple_table_env_graph.yaml"
 OBJECT_SET_SOURCE = Path(__file__).parent / "test_data/object_set_maple_table_env_graph.yaml"
 
 
@@ -28,7 +27,6 @@ def _test_variation_replay_applies_complete_layouts(simulation_app, resolve_on_r
 
     layouts = PlacementLayouts.from_episode_jsonl(LAYOUTS)
     arena_env = ArenaEnvGraphSpec.from_yaml(SOURCE).to_arena_env()
-    assert arena_env.placement_asset_identities["cube_0"] == "dex_cube"
     arena_env.placer_params.resolve_on_reset = resolve_on_reset
     builder = ArenaEnvBuilder(
         arena_env,
@@ -186,22 +184,6 @@ def _test_live_relation_placement_respects_partial_resets(simulation_app):
 
 def test_live_relation_placement_respects_partial_resets():
     assert run_function_with_persistent_simulation_app(_test_live_relation_placement_respects_partial_resets)
-
-
-def test_graph_cli_swap_preserves_key_and_changes_concrete_identity():
-    from argparse import Namespace
-
-    from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
-
-    spec = ArenaEnvGraphSpec.from_yaml(CLI_SOURCE)
-    override = next(item for item in spec.cli_override_specs if item.arg == "object")
-    original_key = override.target_node_id
-    original_identity = spec._asset_by_id(original_key).registry_name
-    replacement = next(obj.registry_name for obj in spec.objects if obj.registry_name != original_identity)
-    spec.apply_cli_override_args(Namespace(**{override.dest: replacement}))
-
-    assert spec._asset_by_id(original_key).id == original_key
-    assert spec._asset_by_id(original_key).registry_name == replacement
 
 
 def _test_object_set_replay_is_rejected_before_environment_construction(simulation_app, tmp_path):

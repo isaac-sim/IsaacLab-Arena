@@ -122,13 +122,10 @@ class PlacementLayouts:
         path: str | Path,
         source: str,
         validation: list[dict] | None = None,
-        asset_identities: dict[str, str] | None = None,
     ) -> None:
         """Write layouts and optional validation reports in the episode variations envelope without overwriting."""
         self.validate()
         assert validation is None or len(validation) == self.num_layouts, "One validation report is required per layout"
-        if asset_identities is not None:
-            assert asset_identities.keys() == self.poses.keys(), "Asset identities must cover every placement pose"
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
         with path.open("x", encoding="utf-8") as stream:
@@ -140,8 +137,6 @@ class PlacementLayouts:
                 }
                 if validation is not None:
                     placement["validation"] = validation[index]
-                if asset_identities is not None:
-                    placement["assets"] = asset_identities
                 record = {"variations": {"scene.relation_placement": placement}}
                 stream.write(json.dumps(record, allow_nan=False) + "\n")
 

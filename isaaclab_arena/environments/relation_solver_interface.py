@@ -32,11 +32,23 @@ def create_relation_placement_variation(
     placer_params: ObjectPlacerParams | None = None,
     collision_objects: list[CollisionObject] | None = None,
     scene_assets: Iterable[Asset | RigidObjectSet] | None = None,
-    asset_identities: dict[str, str] | None = None,
     replay_assets: list[PlaceableAsset] | None = None,
+    replay_samples: list[dict[str, Any]] | None = None,
 ):
-    """Build relation placement as one coordinated scene-level variation."""
+    """Build live or replayed relation placement as one coordinated scene-level variation."""
     from isaaclab_arena.variations.relation_placement_variation import PlacementPoolSampler, RelationPlacementVariation
+
+    if replay_samples is not None:
+        assert replay_assets is not None, "Relation placement replay requires the complete scene placement assets"
+        sampler = PlacementPoolSampler(
+            assets=assets,
+            placement_pool=None,
+            replay_assets=replay_assets,
+        )
+        variation = RelationPlacementVariation(sampler, write_live_samples=False)
+        variation.validate_replay_samples(replay_samples)
+        _seed_spawn_config_from_replay(replay_samples, replay_assets, num_envs)
+        return variation
 
     prepared = _build_relation_placement_pool(
         assets=assets,
@@ -68,43 +80,14 @@ def create_relation_placement_variation(
             num_envs=num_envs,
             layouts=layouts,
         )
-        for asset in assets:
-            if asset in anchor_assets:
-                continue
-            assert asset.has_pose_reset_event(), (
-                f"Static relation placement stored a per-env pose for non-anchor asset '{asset.name}', but it "
-                "owns no reset event, so its solved layout would be silently discarded on every reset."
-            )
+        _validate_static_placement_reset_events(assets, anchor_assets)
     sampler = PlacementPoolSampler(
         assets=assets,
         placement_pool=placement_pool,
         fixed_results=fixed_results,
-        asset_identities=asset_identities,
         replay_assets=replay_assets,
     )
     return RelationPlacementVariation(sampler, write_live_samples=resolved_params.resolve_on_reset)
-
-
-def create_relation_placement_replay_variation(
-    assets: list[PlaceableAsset],
-    replay_assets: list[PlaceableAsset],
-    samples: list[dict[str, Any]],
-    num_envs: int,
-    asset_identities: dict[str, str] | None = None,
-):
-    """Build solver-free relation placement backed by episode-condition samples."""
-    from isaaclab_arena.variations.relation_placement_variation import PlacementPoolSampler, RelationPlacementVariation
-
-    sampler = PlacementPoolSampler(
-        assets=assets,
-        placement_pool=None,
-        asset_identities=asset_identities,
-        replay_assets=replay_assets,
-    )
-    variation = RelationPlacementVariation(sampler, write_live_samples=False)
-    variation.validate_replay_samples(samples)
-    _seed_spawn_config_from_replay(samples, replay_assets, num_envs)
-    return variation
 
 
 def solve_and_apply_relation_placement(
@@ -198,10 +181,8 @@ def _apply_relation_placement_result(
 ) -> EventTermCfg | None:
     """Apply selected layouts to asset spawn state and build reset event config."""
     anchor_assets = set(get_anchor_objects(assets))
-    # Prevent external pose-reset events from conflicting with relation-solved assets.
     _validate_no_conflicting_pose_reset_events(assets, anchor_assets)
 
-    # Anchor assets do not move, so no need to apply reset event.
     if anchor_assets == set(assets):
         return None
 
@@ -220,6 +201,15 @@ def _apply_relation_placement_result(
         anchor_assets=anchor_assets,
         num_envs=num_envs,
     )
+    _validate_static_placement_reset_events(assets, anchor_assets)
+    return None
+
+
+def _validate_static_placement_reset_events(
+    assets: list[PlaceableAsset],
+    anchor_assets: set[PlaceableAsset],
+) -> None:
+    """Require reset events that preserve fixed per-environment placement poses."""
     for asset in assets:
         if asset in anchor_assets:
             continue
@@ -227,7 +217,6 @@ def _apply_relation_placement_result(
             f"Static relation placement stored a per-env pose for non-anchor asset '{asset.name}', but it "
             "owns no reset event, so its solved layout would be silently discarded on every reset."
         )
-    return None
 
 
 def _apply_dynamic_spawn_pose(

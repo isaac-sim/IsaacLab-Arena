@@ -164,7 +164,6 @@ def test_recording_cli_saves_final_poses(tmp_path, backend):
         assert reports["articulation_link_shift"]["passed"] is None
         assert reports["articulation_link_shift"]["reason"]
         assert set(record["poses"]) == {"cube_body", "table", "floor"}
-        assert record["assets"].keys() == record["poses"].keys()
         # Table top is 0.52, cube half-height is 0.05.
         x, y, _ = record["poses"]["cube_body"]["position_xyz"]
         assert abs(x) < 0.4 and abs(y) < 0.4

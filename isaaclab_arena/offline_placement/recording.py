@@ -149,18 +149,8 @@ def write_settled_layouts(
             "post_physics": [asdict(report) for report in outcome.post_physics],
             "sampling": sampling,
         })
-    from isaaclab_arena.variations.relation_placement_variation import get_relation_placement_variation
-
-    placement_variation = get_relation_placement_variation(env)
-    asset_identities = None
-    if placement_variation is not None:
-        identities = placement_variation.sampler.asset_identities
-        if identities:
-            assert identities.keys() >= layouts.poses.keys(), "Graph identities must cover every recorded root"
-            asset_identities = {key: identities[key] for key in layouts.poses}
     layouts.write_episode_jsonl(
         output,
         source="settled",
         validation=validation,
-        asset_identities=asset_identities,
     )

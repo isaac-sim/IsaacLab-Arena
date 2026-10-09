@@ -684,7 +684,6 @@ def test_arena_env_builder_forwards_background_collisions_by_default(monkeypatch
         placer_params,
         collision_objects=None,
         scene_assets=None,
-        asset_identities=None,
         replay_assets=None,
     ):
         calls["objects"] = objects
@@ -701,7 +700,6 @@ def test_arena_env_builder_forwards_background_collisions_by_default(monkeypatch
         placer_params=placer_params,
         embodiment=None,
         task=None,
-        placement_asset_identities={},
         get_placement_assets=lambda: [],
     )
     builder = ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg(num_envs=2))
@@ -738,7 +736,6 @@ def test_arena_env_builder_forwards_empty_relation_graph(monkeypatch):
         placer_params,
         collision_objects=None,
         scene_assets=None,
-        asset_identities=None,
         replay_assets=None,
     ):
         calls["objects"] = objects
@@ -751,7 +748,6 @@ def test_arena_env_builder_forwards_empty_relation_graph(monkeypatch):
         placer_params=None,
         embodiment=None,
         task=None,
-        placement_asset_identities={},
         get_placement_assets=lambda: [],
     )
     builder = ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg())
@@ -795,7 +791,6 @@ def test_arena_env_builder_includes_embodiment_relations(monkeypatch):
         embodiment=embodiment,
         placer_params=None,
         task=None,
-        placement_asset_identities={},
         get_placement_assets=lambda: [embodiment],
     )
 

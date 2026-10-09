@@ -1,0 +1,17 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+runs:
+  clutter_replay:
+    environment:
+      type: isaaclab_arena_environments/clutter/franka_three_hammers_and_clamp_no_task.yaml
+    environment_builder:
+      num_envs: 1
+      presets: PHYSX
+      recorded_variation_samples_path: outputs/clutter/tools_on_table.jsonl
+    policy:
+      type: zero_action
+    rollout_limit:
+      num_episodes: 1
