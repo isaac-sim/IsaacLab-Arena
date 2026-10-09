@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Unit tests for :mod:`isaaclab_arena.agentic_environment_generation.inference_backend`."""
+"""Unit tests for the shared inference backend."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from isaaclab_arena.agentic_environment_generation.inference_backend import (
+from isaaclab_arena.inference.backend import (
     INFERENCE_ENDPOINT_ENV_VAR,
     INTERNAL_ENDPOINT,
     OPENAI_ENDPOINT,
@@ -72,6 +72,18 @@ class TestResolveInferenceEndpoint:
 
 
 class TestInit:
+    def test_failed_ping_closes_client_and_preserves_error(self, stub_openai):
+        _, client = stub_openai
+        error = RuntimeError("Endpoint unavailable")
+        client.chat.completions.create.side_effect = error
+
+        with pytest.raises(RuntimeError) as exc_info:
+            InferenceBackend(api_key="test-key")
+
+        assert exc_info.value is error
+        client.chat.completions.create.assert_called_once()
+        client.close.assert_called_once_with()
+
     def test_explicit_api_key_overrides_env(self, monkeypatch, stub_openai):
         mock_cls, _ = stub_openai
         monkeypatch.setenv(PUBLIC_ENDPOINT.api_key_env_var, "env-key")
