@@ -685,6 +685,9 @@ def test_arena_env_builder_forwards_background_collisions_by_default(monkeypatch
         collision_objects=None,
         scene_assets=None,
         replay_assets=None,
+        *,
+        live_placement_enabled=True,
+        replay_may_be_configured=False,
     ):
         calls["objects"] = objects
         calls["num_envs"] = num_envs
@@ -704,11 +707,12 @@ def test_arena_env_builder_forwards_background_collisions_by_default(monkeypatch
     )
     builder = ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg(num_envs=2))
 
-    builder._solve_relations()
+    builder._declare_relation_placement()
 
     assert calls["objects"] == objects_with_relations
     assert calls["num_envs"] == 2
-    assert calls["placer_params"] is placer_params
+    assert calls["placer_params"] is not placer_params
+    assert calls["placer_params"].solver_params is placer_params.solver_params
     assert calls["scene_assets"] == [background_collision]
     assert calls["collision_objects"] is None
     assert builder._scene_variations == ["placement_event"]
@@ -737,6 +741,9 @@ def test_arena_env_builder_forwards_empty_relation_graph(monkeypatch):
         collision_objects=None,
         scene_assets=None,
         replay_assets=None,
+        *,
+        live_placement_enabled=True,
+        replay_may_be_configured=False,
     ):
         calls["objects"] = objects
         calls["scene_assets"] = list(scene_assets)
@@ -752,7 +759,7 @@ def test_arena_env_builder_forwards_empty_relation_graph(monkeypatch):
     )
     builder = ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg())
 
-    builder._solve_relations()
+    builder._declare_relation_placement()
 
     assert calls["objects"] == []
     assert calls["scene_assets"] == []
@@ -794,7 +801,7 @@ def test_arena_env_builder_includes_embodiment_relations(monkeypatch):
         get_placement_assets=lambda: [embodiment],
     )
 
-    ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg())._solve_relations()
+    ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg())._declare_relation_placement()
 
     assert calls["objects"] == [embodiment]
 

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import math
 import torch
+from collections.abc import Callable
 from dataclasses import field
 from numbers import Real
 from typing import TYPE_CHECKING, Any
@@ -68,6 +69,21 @@ class PlacementPoolSampler(SamplerBase):
         self.replay_assets = replay_assets or assets
         self.last_results: dict[int, PlacementResult] = {}
         self._next_layout_id = 0
+        self._fixed_rows = (
+            {env_id: self._serialize_result(result) for env_id, result in fixed_results.items()}
+            if fixed_results is not None
+            else None
+        )
+
+    def configure_live(
+        self,
+        placement_pool: PooledObjectPlacer,
+        fixed_results: dict[int, PlacementResult] | None,
+    ) -> None:
+        """Bind the live pool and optional fixed per-environment layouts during preparation."""
+        assert self.placement_pool is None, "Relation placement sampler is already prepared"
+        self.placement_pool = placement_pool
+        self.fixed_results = fixed_results
         self._fixed_rows = (
             {env_id: self._serialize_result(result) for env_id, result in fixed_results.items()}
             if fixed_results is not None
@@ -153,6 +169,8 @@ class RelationPlacementVariation(RunTimeVariationBase):
         sampler: PlacementPoolSampler,
         *,
         write_live_samples: bool,
+        live_placement_enabled: bool = True,
+        prepare_at_build_time: Callable[[RelationPlacementVariation], None] | None = None,
         cfg: RelationPlacementVariationCfg | None = None,
     ) -> None:
         self.name = RELATION_PLACEMENT_VARIATION_NAME
@@ -161,6 +179,10 @@ class RelationPlacementVariation(RunTimeVariationBase):
         self._replay_sampler = None
         self.cfg = cfg if cfg is not None else RelationPlacementVariationCfg()
         self._write_live_samples = write_live_samples
+        self._live_placement_enabled = live_placement_enabled
+        self._prepare_callback = prepare_at_build_time
+        self._recorded_replay_samples: list[Any] | None = None
+        self._prepared = False
         assert self.cfg.enabled, "Relation placement is automatically enabled when relations are configured"
 
     @property
@@ -184,13 +206,56 @@ class RelationPlacementVariation(RunTimeVariationBase):
         assert cfg.enabled, "scene.relation_placement.enabled=false is unsupported; disable relation solving instead"
         self.cfg = cfg
 
+    def set_replay_sampler(
+        self,
+        replay_sampler: Callable[[int, torch.Tensor | None], list[Any] | None] | None,
+    ) -> None:
+        """Bind replay sampling and disable a replay-only declaration when no placement rows exist."""
+        self._replay_sampler = replay_sampler
+        self._sampler.set_replay_sampler(replay_sampler)
+        if replay_sampler is None and not self._live_placement_enabled:
+            self.cfg.enabled = False
+
+    def _prepare_at_build_time(self) -> None:
+        """Prepare live or replayed construction poses before scene materialisation."""
+        if self._prepared:
+            return
+        if self._prepare_callback is not None:
+            self._prepare_callback(self)
+        self._prepared = True
+
+    @property
+    def recorded_replay_samples(self) -> list[Any] | None:
+        """Return validated placement replay rows retained for construction-pose preparation."""
+        return self._recorded_replay_samples
+
+    def on_replay_samples_bound(self, samples: list[Any] | None) -> None:
+        """Retain validated placement rows needed to seed construction poses."""
+        self._recorded_replay_samples = samples
+
+    def configure_prepared_live_state(
+        self,
+        placement_pool: PooledObjectPlacer,
+        fixed_results: dict[int, PlacementResult] | None,
+        *,
+        write_live_samples: bool,
+    ) -> None:
+        """Bind the pool and reset behavior produced by live placement preparation."""
+        self._sampler.configure_live(placement_pool, fixed_results)
+        self._write_live_samples = write_live_samples
+
     def validate_replay_samples(self, samples: list[Any]) -> None:
         """Validate complete poses against the current scene roots."""
+        from isaaclab_arena.assets.object_set import RigidObjectSet
         from isaaclab_arena.relations.placement_asset import get_scene_root_owners
         from isaaclab_arena.relations.placement_layouts import validate_root_reset_for_placement_replay
         from isaaclab_arena.relations.relations import RandomAroundSolution, get_relation
 
         validate_placement_samples(samples)
+        assert not any(isinstance(asset, RigidObjectSet) for asset in self._sampler.replay_assets), (
+            "Recorded placement replay does not support RigidObjectSet; "
+            "use homogeneous assets or omit scene.relation_placement from the variation samples."
+        )
         required_keys = _placement_pose_keys_from_assets(self._sampler.assets)
         allowed_keys = {scene_key for asset in self._sampler.replay_assets for scene_key in asset.get_scene_root_keys()}
         owners = get_scene_root_owners(self._sampler.replay_assets)

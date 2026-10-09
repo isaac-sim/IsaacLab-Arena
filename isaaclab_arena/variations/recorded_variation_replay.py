@@ -85,7 +85,10 @@ def _bind_variation_replay_samplers(
         if isinstance(variation, BuildTimeVariationBase):
             if variation_key not in variation_record.build_time_samples:
                 variation.set_replay_sampler(None)
+                variation.on_replay_samples_bound(None)
                 continue
+
+            replay_samples = [variation_record.build_time_samples[variation_key]]
 
             def build_time_replay_sampler(
                 _num_samples: int,
@@ -97,6 +100,7 @@ def _bind_variation_replay_samplers(
                 return [variation_record.build_time_samples[variation_key]]
 
             variation.set_replay_sampler(build_time_replay_sampler)
+            variation.on_replay_samples_bound(replay_samples)
             continue
 
         is_recorded = all(
@@ -104,7 +108,11 @@ def _bind_variation_replay_samplers(
         )
         if not is_recorded:
             variation.set_replay_sampler(None)
+            variation.on_replay_samples_bound(None)
             continue
+        replay_samples = [
+            episode_record.runtime_samples[variation_key] for episode_record in variation_record.episode_records
+        ]
 
         def runtime_replay_sampler(
             _num_samples: int,
@@ -116,6 +124,7 @@ def _bind_variation_replay_samplers(
             return scheduler.runtime_sample_for(variation_key, env_ids.tolist())
 
         variation.set_replay_sampler(runtime_replay_sampler)
+        variation.on_replay_samples_bound(replay_samples)
 
 
 def _enabled_variations_by_key(

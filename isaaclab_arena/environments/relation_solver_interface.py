@@ -33,61 +33,69 @@ def create_relation_placement_variation(
     collision_objects: list[CollisionObject] | None = None,
     scene_assets: Iterable[Asset | RigidObjectSet] | None = None,
     replay_assets: list[PlaceableAsset] | None = None,
-    replay_samples: list[dict[str, Any]] | None = None,
+    *,
+    live_placement_enabled: bool = True,
+    replay_may_be_configured: bool = False,
 ):
-    """Build live or replayed relation placement as one coordinated scene-level variation."""
+    """Declare relation placement without solving, sampling, or mutating spawn poses."""
     from isaaclab_arena.variations.relation_placement_variation import PlacementPoolSampler, RelationPlacementVariation
 
-    if replay_samples is not None:
-        assert replay_assets is not None, "Relation placement replay requires the complete scene placement assets"
-        sampler = PlacementPoolSampler(
-            assets=assets,
-            placement_pool=None,
-            replay_assets=replay_assets,
-        )
-        variation = RelationPlacementVariation(sampler, write_live_samples=False)
-        variation.validate_replay_samples(replay_samples)
-        _seed_spawn_config_from_replay(replay_samples, replay_assets, num_envs)
-        return variation
-
-    prepared = _build_relation_placement_pool(
-        assets=assets,
-        num_envs=num_envs,
-        placer_params=placer_params,
-        collision_objects=collision_objects,
-        scene_assets=scene_assets,
-    )
-    if prepared is None:
-        return None
-    if replay_assets is not None:
-        get_scene_root_owners(replay_assets)
-    resolved_params, placement_pool = prepared
     anchor_assets = set(get_anchor_objects(assets))
-    _validate_no_conflicting_pose_reset_events(assets, anchor_assets)
-    if anchor_assets == set(assets):
+    can_prepare_live = live_placement_enabled and bool(assets) and anchor_assets != set(assets)
+    if not can_prepare_live and not replay_may_be_configured:
         return None
-    fixed_results = None
-    if resolved_params.resolve_on_reset:
-        [construction_layout] = placement_pool.sample_with_replacement(1)
-        _seed_spawn_config_from_layout(assets, anchor_assets, construction_layout)
-    else:
-        layouts = placement_pool.sample_with_replacement(num_envs)
-        fixed_results = {env_id: layout for env_id, layout in enumerate(layouts)}
-        _apply_static_initial_poses(
-            assets=assets,
-            placement_pool=placement_pool,
-            anchor_assets=anchor_assets,
-            num_envs=num_envs,
-            layouts=layouts,
-        )
-        _validate_static_placement_reset_events(assets, anchor_assets)
+
+    replay_assets = assets if replay_assets is None else replay_assets
     sampler = PlacementPoolSampler(
         assets=assets,
-        placement_pool=placement_pool,
-        fixed_results=fixed_results,
+        placement_pool=None,
         replay_assets=replay_assets,
     )
-    return RelationPlacementVariation(sampler, write_live_samples=resolved_params.resolve_on_reset)
+
+    def prepare(variation: RelationPlacementVariation) -> None:
+        replay_samples = variation.recorded_replay_samples
+        if replay_samples is not None:
+            _seed_spawn_config_from_replay(replay_samples, replay_assets, num_envs)
+            return
+
+        assert can_prepare_live, "Relation placement has neither recorded samples nor live solving enabled"
+        prepared = _build_relation_placement_pool(
+            assets=assets,
+            num_envs=num_envs,
+            placer_params=placer_params,
+            collision_objects=collision_objects,
+            scene_assets=scene_assets,
+        )
+        assert prepared is not None, "Live relation placement preparation produced no placement pool"
+        resolved_params, placement_pool = prepared
+        _validate_no_conflicting_pose_reset_events(assets, anchor_assets)
+        fixed_results = None
+        if resolved_params.resolve_on_reset:
+            [construction_layout] = placement_pool.sample_with_replacement(1)
+            _seed_spawn_config_from_layout(assets, anchor_assets, construction_layout)
+        else:
+            layouts = placement_pool.sample_with_replacement(num_envs)
+            fixed_results = {env_id: layout for env_id, layout in enumerate(layouts)}
+            _apply_static_initial_poses(
+                assets=assets,
+                placement_pool=placement_pool,
+                anchor_assets=anchor_assets,
+                num_envs=num_envs,
+                layouts=layouts,
+            )
+            _validate_static_placement_reset_events(assets, anchor_assets)
+        variation.configure_prepared_live_state(
+            placement_pool,
+            fixed_results,
+            write_live_samples=resolved_params.resolve_on_reset,
+        )
+
+    return RelationPlacementVariation(
+        sampler,
+        write_live_samples=False,
+        live_placement_enabled=can_prepare_live,
+        prepare_at_build_time=prepare,
+    )
 
 
 def solve_and_apply_relation_placement(

@@ -23,7 +23,6 @@ from isaaclab_arena.variations.recorded_variation_samples import (
     EpisodeVariationRecord,
     RebuildVariationRecord,
     load_rebuild_variation_record,
-    load_runtime_variation_samples,
     validate_recorded_variation_sample_keys,
 )
 from isaaclab_arena.variations.uniform_sampler import UniformSamplerCfg
@@ -63,33 +62,6 @@ def test_runtime_values_are_not_inferred_as_build_time(tmp_path: Path, num_recor
 
     assert loaded.build_time_samples == {}
     assert [record.runtime_samples for record in loaded.episode_records] == [{"obj.mass": [1.0]}] * num_records
-
-
-def test_load_runtime_variation_samples_distinguishes_replay_from_live(tmp_path: Path) -> None:
-    recorded = _write_jsonl(
-        tmp_path,
-        [
-            {"variations": {"scene.relation_placement": {"layout_id": "0"}}},
-            {"variations": {"scene.relation_placement": {"layout_id": "1"}}},
-        ],
-    )
-    assert load_runtime_variation_samples(recorded, "scene.relation_placement") == [
-        {"layout_id": "0"},
-        {"layout_id": "1"},
-    ]
-
-    live = _write_jsonl(tmp_path, [{"variations": {"obj.mass": [1.0]}}])
-    assert load_runtime_variation_samples(live, "scene.relation_placement") is None
-
-    partial = _write_jsonl(
-        tmp_path,
-        [
-            {"variations": {"scene.relation_placement": {"layout_id": "0"}}},
-            {"variations": {}},
-        ],
-    )
-    with pytest.raises(AssertionError, match="every source record or none"):
-        load_runtime_variation_samples(partial, "scene.relation_placement")
 
 
 @pytest.mark.parametrize(
@@ -245,6 +217,8 @@ def test_variation_replay_replays_present_variation_and_samples_absent_live() ->
         live.sampler.sample(2, env_ids=torch.tensor([1, 0])),
         torch.tensor([[7.0], [7.0]]),
     )
+    assert replayed.bound_replay_samples == [[0.1], [0.2]]
+    assert live.bound_replay_samples is None
 
 
 def test_variation_replay_rejects_mixed_runtime_presence() -> None:
@@ -296,9 +270,13 @@ class _RunTimeTestVariation(RunTimeVariationBase):
             ),
             name,
         )
+        self.bound_replay_samples: list[Any] | None = None
 
     def build_event_cfg(self):
         raise NotImplementedError
+
+    def on_replay_samples_bound(self, samples: list[Any] | None) -> None:
+        self.bound_replay_samples = samples
 
 
 class _BuildTimeTestVariation(BuildTimeVariationBase):

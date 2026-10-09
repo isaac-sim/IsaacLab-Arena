@@ -107,6 +107,46 @@ def test_relation_placement_cannot_be_disabled():
         variation.apply_cfg(RelationPlacementVariationCfg(enabled=False))
 
 
+def test_replay_only_declaration_disables_itself_without_recorded_placement():
+    sampler = PlacementPoolSampler(
+        assets=[],
+        placement_pool=None,
+        replay_assets=[_ReplayAsset("cube")],
+    )
+    variation = RelationPlacementVariation(
+        sampler,
+        write_live_samples=False,
+        live_placement_enabled=False,
+    )
+
+    variation.set_replay_sampler(None)
+
+    assert not variation.enabled
+
+
+def test_validated_replay_rows_are_available_during_preparation():
+    prepared_samples = []
+    sampler = PlacementPoolSampler(
+        assets=[],
+        placement_pool=None,
+        replay_assets=[_ReplayAsset("cube")],
+    )
+    variation = RelationPlacementVariation(
+        sampler,
+        write_live_samples=False,
+        live_placement_enabled=False,
+        prepare_at_build_time=lambda placement: prepared_samples.append(placement.recorded_replay_samples),
+    )
+    sample = _placement_sample()
+    variation.validate_replay_samples([sample])
+    variation.set_replay_sampler(lambda count, env_ids: [sample] * count)
+    variation.on_replay_samples_bound([sample])
+
+    variation.configure_at_build_time()
+
+    assert prepared_samples == [[sample]]
+
+
 def test_placement_replays_with_another_runtime_condition(tmp_path):
     placement = _make_variation()
     mass = ObjectMassVariation("cube", ObjectMassVariationCfg(enabled=True))

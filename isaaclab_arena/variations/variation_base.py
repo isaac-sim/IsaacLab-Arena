@@ -102,6 +102,9 @@ class VariationBase(ABC):
     def validate_replay_samples(self, samples: list[Any]) -> None:
         """Validate recorded sample rows before environment construction. Default: no-op."""
 
+    def on_replay_samples_bound(self, samples: list[Any] | None) -> None:
+        """Handle complete recorded rows after replay binding. Default: no-op."""
+
     def _prepare_at_build_time(self) -> None:
         """Configure prerequisites required before environment construction. Default: no-op.
 
@@ -115,10 +118,18 @@ class VariationBase(ABC):
         A build-time variation realises its whole effect here; a run-time variation leaves it a no-op.
         """
 
+    def prepare_at_build_time(self) -> None:
+        """Configure this variation's prerequisites before environment construction."""
+        self._prepare_at_build_time()
+
+    def realize_at_build_time(self) -> None:
+        """Sample and apply this variation's build-time value during construction."""
+        self._realize_at_build_time()
+
     def configure_at_build_time(self) -> None:
         """Run this variation's build-time preparation and realization, once per env build."""
-        self._prepare_at_build_time()
-        self._realize_at_build_time()
+        self.prepare_at_build_time()
+        self.realize_at_build_time()
 
     def apply_cfg(self, cfg: VariationBaseCfg) -> None:
         """Apply new ``cfg``.

@@ -33,9 +33,8 @@ def _test_variation_replay_applies_complete_layouts(simulation_app, resolve_on_r
         ArenaEnvBuilderCfg(num_envs=3, recorded_variation_samples_path=str(LAYOUTS)),
         hydra_overrides=["cube_0.mass.enabled=true"],
     )
-    with patch.object(
-        builder,
-        "_solve_relations",
+    with patch(
+        "isaaclab_arena.environments.relation_solver_interface._build_relation_placement_pool",
         side_effect=AssertionError("Placement replay must not run the relation solver"),
     ):
         env_cfg, env_kwargs = builder.compose_manager_cfg()

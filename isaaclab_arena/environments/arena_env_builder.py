@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import copy
 import datetime
 import gymnasium as gym
 from typing import Any
@@ -54,12 +55,11 @@ from isaaclab_arena.utils.multiprocess import get_local_rank
 from isaaclab_arena.utils.physics_backend import PhysicsBackend
 from isaaclab_arena.variations import variations_hydra, variations_printing
 from isaaclab_arena.variations.recorded_variation_replay import configure_recorded_variation_replay
-from isaaclab_arena.variations.recorded_variation_samples import load_runtime_variation_samples
 from isaaclab_arena.variations.relation_placement_variation import (
     RELATION_PLACEMENT_VARIATION_NAME,
     SCENE_VARIATION_HOST,
 )
-from isaaclab_arena.variations.variation_base import RunTimeVariationBase, VariationBase
+from isaaclab_arena.variations.variation_base import BuildTimeVariationBase, RunTimeVariationBase, VariationBase
 from isaaclab_arena.variations.variation_recorder import VariationRecorder
 
 
@@ -114,25 +114,14 @@ class ArenaEnvBuilder:
             placement_assets.append(embodiment)
         return placement_assets
 
-    def _solve_relations(self) -> None:
-        """Solve spatial relations for scene objects and the embodiment.
+    def _declare_relation_placement(self) -> None:
+        """Declare deferred relation placement before variation configuration."""
+        if any(variation.name == RELATION_PLACEMENT_VARIATION_NAME for variation in self._scene_variations):
+            return
+        replay_may_be_configured = self.cfg.recorded_variation_samples_path is not None
+        if not self.cfg.solve_relations and not replay_may_be_configured:
+            return
 
-        This method:
-        1. Collects placement assets that have relations
-        2. Builds a placement pool
-        3. Applies solved positions either by writing fixed initial poses
-           or by registering a coordinated run-time variation
-
-        Behaviour on reset depends on ``ObjectPlacerParams.resolve_on_reset``.
-        When the environment does not provide placer parameters, the builder creates
-        them from ``ArenaEnvBuilderCfg``.
-
-        * **True** (default) — registers a reset event that draws a fresh layout
-          from the pool for each resetting environment.
-        * **False** — assigns one fixed layout per environment. Every non-anchor
-          placement asset (objects and the embodiment alike) stores its solved
-          per-environment pose and owns its own reset event.
-        """
         # Reachability constraints are defined in the task, so apply them before placement.
         if self.arena_env.task is not None:
             self.arena_env.task.apply_reachability_constraints()
@@ -143,6 +132,9 @@ class ArenaEnvBuilder:
             placer_params = ObjectPlacerParams(
                 solver_params=RelationSolverParams(verbose=False, save_position_history=False),
             )
+        else:
+            placer_params = copy.copy(placer_params)
+            placer_params.reachability_config = copy.copy(placer_params.reachability_config)
         if self.cfg.placement_seed is not None:
             placer_params.placement_seed = self.cfg.placement_seed
         if self.cfg.resolve_on_reset is not None:
@@ -157,26 +149,11 @@ class ArenaEnvBuilder:
             placer_params=placer_params,
             scene_assets=self.arena_env.scene.assets.values(),
             replay_assets=self.arena_env.get_placement_assets(),
+            live_placement_enabled=self.cfg.solve_relations,
+            replay_may_be_configured=replay_may_be_configured,
         )
         if placement_variation is not None:
             self._scene_variations.append(placement_variation)
-
-    def _configure_relation_placement_replay(self, samples: list[dict[str, Any]]) -> None:
-        """Register solver-free relation placement for recorded variation samples."""
-        from isaaclab_arena.assets.object_set import RigidObjectSet
-
-        replay_assets = self.arena_env.get_placement_assets()
-        assert not any(isinstance(asset, RigidObjectSet) for asset in replay_assets), (
-            "Recorded placement replay does not support RigidObjectSet; "
-            "use homogeneous assets or omit scene.relation_placement from the variation samples."
-        )
-        placement_variation = create_relation_placement_variation(
-            assets=self._get_relation_placement_assets(),
-            replay_assets=replay_assets,
-            replay_samples=samples,
-            num_envs=self.cfg.num_envs,
-        )
-        self._scene_variations.append(placement_variation)
 
     def get_all_variations(self) -> dict[str, list[VariationBase]]:
         """Return ``{asset_name: [variation, ...]}`` for every variation host in the env.
@@ -230,17 +207,19 @@ class ArenaEnvBuilder:
         VariationsEventCfg = make_configclass("VariationsEventCfg", fields)
         return VariationsEventCfg()
 
-    def _apply_build_time_variations(self) -> None:
-        """Configure every enabled variation at build time before ``scene_cfg`` is materialised.
-
-        These mutate asset configs in place (e.g. a dome light's spawner
-        texture), so this must run before ``scene_cfg`` is materialised.
-        """
+    def _prepare_variations_at_build_time(self) -> None:
+        """Prepare prerequisites for every enabled variation before realization."""
         for asset_variations in self.get_all_variations().values():
             for variation in asset_variations:
-                if not variation.enabled:
-                    continue
-                variation.configure_at_build_time()
+                if variation.enabled:
+                    variation.prepare_at_build_time()
+
+    def _realize_build_time_variations(self) -> None:
+        """Realize every enabled build-time variation before materializing ``scene_cfg``."""
+        for asset_variations in self.get_all_variations().values():
+            for variation in asset_variations:
+                if variation.enabled and isinstance(variation, BuildTimeVariationBase):
+                    variation.realize_at_build_time()
 
     def _modify_recorder_cfg_dataset_filename(self, recorder_cfg: RecorderManagerBaseCfg) -> RecorderManagerBaseCfg:
         """Modify the recorder dataset filename to include the timestamp and rank."""
@@ -309,20 +288,8 @@ class ArenaEnvBuilder:
         Returns:
             An (env_cfg, env_kwargs) tuple.
         """
-        placement_replay_samples = (
-            load_runtime_variation_samples(
-                self.cfg.recorded_variation_samples_path,
-                f"{SCENE_VARIATION_HOST}.{RELATION_PLACEMENT_VARIATION_NAME}",
-            )
-            if self.cfg.recorded_variation_samples_path is not None
-            else None
-        )
-
-        # Apply placement before building scene config so initial poses are captured correctly.
-        if placement_replay_samples is not None:
-            self._configure_relation_placement_replay(placement_replay_samples)
-        elif self.cfg.solve_relations:
-            self._solve_relations()
+        # Declare placement before Hydra and replay configuration without solving or mutating spawn poses.
+        self._declare_relation_placement()
 
         # Apply Hydra variation overrides. Needs to happen before build-time variations are applied.
         variations = self.get_all_variations()
@@ -334,14 +301,20 @@ class ArenaEnvBuilder:
             if self.cfg.recorded_variation_samples_path is not None
             else None
         )
+        # A replay path requires placement to be declared before its keys are known. Remove the
+        # declaration when no placement rows were bound and live relation solving is unavailable.
+        self._scene_variations[:] = [variation for variation in self._scene_variations if variation.enabled]
+        if SCENE_VARIATION_HOST in variations and not self._scene_variations:
+            del variations[SCENE_VARIATION_HOST]
 
         # Attach the variation recorder before any sampling, so it observes both build-time samples
         # (drawn just below) and run-time samples (drawn during simulation).
         variation_recorder = VariationRecorder()
         variation_recorder.attach(variations)
 
-        # Apply build-time variations now, before scene_cfg is materialised.
-        self._apply_build_time_variations()
+        # Prepare all prerequisites before any build-time variation is realized.
+        self._prepare_variations_at_build_time()
+        self._realize_build_time_variations()
 
         resolved_physics_backend = self.resolved_physics_backend
 

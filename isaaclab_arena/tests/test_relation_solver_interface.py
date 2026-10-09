@@ -109,6 +109,25 @@ def test_relation_placement_variation_skips_anchor_only_graph():
     assert create_relation_placement_variation([_make_desk()], num_envs=2) is None
 
 
+def test_relation_placement_variation_declaration_defers_pool_build(monkeypatch):
+    import isaaclab_arena.environments.relation_solver_interface as relation_solver_interface
+    from isaaclab_arena.relations.relations import On
+
+    desk = _make_desk()
+    box = _make_box()
+    box.add_relation(On(desk, clearance_m=0.01))
+
+    def fail_if_called(*args, **kwargs):
+        raise AssertionError("Relation placement declaration must not build the pool")
+
+    monkeypatch.setattr(relation_solver_interface, "_build_relation_placement_pool", fail_if_called)
+
+    variation = relation_solver_interface.create_relation_placement_variation([desk, box], num_envs=2)
+
+    assert variation is not None
+    assert not variation.has_live_pool
+
+
 def test_static_solve_and_apply_relation_placement_reuses_object_only_placement():
     from isaaclab_arena.environments.relation_solver_interface import solve_and_apply_relation_placement
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams

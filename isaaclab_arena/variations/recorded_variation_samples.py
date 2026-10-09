@@ -92,23 +92,6 @@ def load_rebuild_variation_record(
     )
 
 
-def load_runtime_variation_samples(path: str | Path, variation_key: str) -> list[Any] | None:
-    """Return one runtime sample per record when every record contains ``variation_key``.
-
-    Returns ``None`` when no record contains the variation. Partial presence is
-    rejected because a run-time variation must be replayed for every record or
-    remain live-sampled for every record.
-    """
-    variation_record = load_rebuild_variation_record(path, build_time_variation_keys=set())
-    presence = [variation_key in episode_record.runtime_samples for episode_record in variation_record.episode_records]
-    assert not any(presence) or all(
-        presence
-    ), f"Run-time variation {variation_key!r} must be present in every source record or none."
-    if not any(presence):
-        return None
-    return [episode_record.runtime_samples[variation_key] for episode_record in variation_record.episode_records]
-
-
 def validate_recorded_variation_sample_keys(
     samples: RebuildVariationRecord,
     enabled_record_keys: set[str],
