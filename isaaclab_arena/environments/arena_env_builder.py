@@ -47,7 +47,12 @@ from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTer
 from isaaclab_arena.recording.progress_terms import ProgressEpisodeRecorderTermCfg
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_events import PLACEMENT_RESET_EVENT_NAME
-from isaaclab_arena.relations.placement_sampler import serialize_placement_samples, supports_recorded_placement
+from isaaclab_arena.relations.placement_sampler import (
+    PlacementSample,
+    deserialize_placement_samples,
+    serialize_placement_samples,
+    supports_recorded_placement,
+)
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.tasks.no_task import NoTask
 from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
@@ -111,7 +116,7 @@ class ArenaEnvBuilder:
 
     def _prepare_relation_placement(
         self,
-        recorded_samples: list[dict[str, Any]] | None,
+        recorded_samples: list[PlacementSample] | None,
         scheduler: VariationReplayScheduler | None,
     ) -> None:
         """Prepare live or recorded relation placement.
@@ -159,7 +164,9 @@ class ArenaEnvBuilder:
 
             def get_recorded_placement_samples(_num_samples, env_ids):
                 assert env_ids is not None, "Recorded placement requires per-environment ids."
-                return scheduler.placement_sample_for(env_ids.tolist())
+                return [
+                    recorded_samples[scheduler.source_record_index_for_env(int(env_id))] for env_id in env_ids.tolist()
+                ]
 
             placement_replay_sampler = get_recorded_placement_samples
 
@@ -321,11 +328,12 @@ class ArenaEnvBuilder:
                 scheduler=variation_replay_scheduler,
             )
             if replay_record.has_placement_samples:
-                recorded_placement_samples = [
+                raw_placement_samples = [
                     episode_record.placement_sample
                     for episode_record in replay_record.episode_records
                     if episode_record.placement_sample is not None
                 ]
+                recorded_placement_samples = deserialize_placement_samples(raw_placement_samples)
 
         # Placement needs its source selected before scene config captures construction poses.
         self._prepare_relation_placement(recorded_placement_samples, variation_replay_scheduler)

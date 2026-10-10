@@ -233,7 +233,7 @@ def test_replay_scheduler_aligns_placement_with_variations() -> None:
     scheduler.assign_new_episodes([4, 1])
 
     assert scheduler.runtime_sample_for("obj.mass", [1, 4]) == [[1], [0]]
-    assert scheduler.placement_sample_for([1, 4]) == [
+    assert [scheduler.record_for_env(env_id).placement_sample for env_id in [1, 4]] == [
         {"layout_id": "layout_1"},
         {"layout_id": "layout_0"},
     ]

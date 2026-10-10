@@ -13,9 +13,9 @@ import pytest
 from isaaclab_arena.relations.placement_sampler import (
     PlacementSample,
     PlacementSampler,
+    deserialize_placement_samples,
     serialize_placement_samples,
     supports_recorded_placement,
-    validate_placement_samples,
 )
 
 
@@ -41,8 +41,9 @@ def _record() -> dict:
 
 
 def test_replay_sampler_returns_native_samples_and_notifies_listener() -> None:
-    sampler = PlacementSampler(assets=[], placement_pool=None, replay_assets=[_ReplayAsset("cube")])
-    sampler.set_replay_sampler(lambda count, env_ids: [_record()] * count)
+    sampler = PlacementSampler(assets=[], placement_pool=None, write_assets=[_ReplayAsset("cube")])
+    recorded_sample = PlacementSample.from_record(_record())
+    sampler.set_replay_sampler(lambda count, env_ids: [recorded_sample] * count)
     observed = []
     sampler.add_listener(lambda samples, env_ids: observed.append((samples, env_ids.clone())))
 
@@ -84,12 +85,12 @@ def test_fixed_live_sampler_reuses_per_environment_samples() -> None:
     assert first == second
 
 
-def test_validate_placement_samples_rejects_inconsistent_roots() -> None:
+def test_deserialize_placement_samples_rejects_inconsistent_roots() -> None:
     second = _record()
     second["poses"] = {"other": second["poses"]["cube"]}
 
     with pytest.raises(AssertionError, match="same scene roots"):
-        validate_placement_samples([_record(), second])
+        deserialize_placement_samples([_record(), second])
 
 
 def test_recorded_placement_does_not_support_rigid_object_sets() -> None:

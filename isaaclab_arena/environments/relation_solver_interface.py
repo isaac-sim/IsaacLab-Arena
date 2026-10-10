@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import copy
 from collections.abc import Callable, Iterable
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_events import PlacementPoolHandle, solve_and_place_objects
@@ -15,7 +15,8 @@ from isaaclab_arena.relations.placement_poses import get_scene_root_poses_from_l
 from isaaclab_arena.relations.placement_sampler import (
     PlacementSample,
     PlacementSampler,
-    validate_placement_samples,
+    placement_samples_to_pose_columns,
+    validate_placement_sample_assets,
     validate_root_reset_for_placement_replay,
 )
 from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
@@ -40,9 +41,9 @@ def solve_and_apply_relation_placement(
     placer_params: ObjectPlacerParams | None = None,
     collision_objects: list[CollisionObject] | None = None,
     scene_assets: Iterable[Asset | RigidObjectSet] | None = None,
-    recorded_samples: list[dict[str, Any]] | None = None,
+    recorded_samples: list[PlacementSample] | None = None,
     replay_assets: list[PlaceableAsset] | None = None,
-    replay_sampler: Callable[[int, torch.Tensor | None], list[Any] | None] | None = None,
+    replay_sampler: Callable[[int, torch.Tensor | None], list[PlacementSample] | None] | None = None,
 ) -> EventTermCfg | None:
     """Prepare live or recorded relation placement and return its reset event.
 
@@ -67,8 +68,7 @@ def solve_and_apply_relation_placement(
         return None
     asset_names = {asset.name for asset in assets}
     assert len(asset_names) == len(assets), "Placement asset names must be unique"
-    scene_keys = [asset.get_scene_key() for asset in assets]
-    assert len(set(scene_keys)) == len(scene_keys), "Placement assets map to duplicate scene keys"
+    from isaaclab_arena.relations.placement_asset import get_scene_root_owners
 
     if placer_params is None:
         placer_params = ObjectPlacerParams()
@@ -79,13 +79,16 @@ def solve_and_apply_relation_placement(
         sampler = PlacementSampler(
             assets=assets,
             placement_pool=None,
-            replay_assets=replay_assets or assets,
+            write_assets=replay_assets or assets,
         )
-        validate_recorded_relation_placement(sampler, recorded_samples)
+        selected_assets = validate_placement_sample_assets(recorded_samples, sampler.write_assets)
+        validate_root_reset_for_placement_replay(selected_assets)
+        sampler.write_assets = selected_assets
         sampler.set_replay_sampler(replay_sampler)
-        _seed_spawn_config_from_replay(recorded_samples, sampler.replay_assets, num_envs)
+        _seed_spawn_config_from_replay(recorded_samples, selected_assets, num_envs)
         return _make_placement_event(sampler)
 
+    get_scene_root_owners(assets)
     placer_params.apply_positions_to_objects = False
     # Note(xinjieyao, 2026-07-23): The build-time IK-reachability check reads the embodiment only while its validator is built (during the
     # pool construction below). Copy the config so the live embodiment can be dropped afterwards without
@@ -138,7 +141,11 @@ def _apply_relation_placement_result(
     if anchor_assets == set(assets):
         return None
 
-    sampler = PlacementSampler(assets=assets, placement_pool=placement_pool)
+    sampler = PlacementSampler(
+        assets=assets,
+        placement_pool=placement_pool,
+        write_assets=[asset for asset in assets if asset not in anchor_assets],
+    )
     layouts = sampler.prepare_live(num_envs, placer_params.resolve_on_reset)
     _seed_spawn_config_from_layouts(assets, anchor_assets, layouts)
     return _make_placement_event(sampler)
@@ -173,66 +180,18 @@ def _seed_spawn_config_from_layouts(
 
 
 def _seed_spawn_config_from_replay(
-    samples: list[dict[str, Any]],
-    replay_assets: list[PlaceableAsset],
+    samples: list[PlacementSample],
+    write_assets: list[PlaceableAsset],
     num_envs: int,
 ) -> None:
     """Seed construction roots from recorded rows."""
-    from isaaclab_arena.relations.placement_asset import get_scene_root_owners
-
-    root_owners = get_scene_root_owners(replay_assets)
-    placement_samples = [PlacementSample.from_record(sample) for sample in samples]
-    poses_by_asset: dict[PlaceableAsset, dict[str, PosePerEnv]] = {}
-    selected_assets = {root_owners[scene_key] for scene_key in placement_samples[0].poses}
-    for asset in selected_assets:
-        for owned_scene_key in asset.get_scene_root_keys():
-            per_env_poses = [
-                placement_samples[env_id % len(placement_samples)].poses[owned_scene_key] for env_id in range(num_envs)
-            ]
-            poses_by_asset.setdefault(asset, {})[owned_scene_key] = PosePerEnv(per_env_poses)
-    for asset, poses in poses_by_asset.items():
+    pose_columns = placement_samples_to_pose_columns(samples)
+    for asset in write_assets:
+        poses = {}
+        for scene_key in asset.get_scene_root_keys():
+            source_poses = pose_columns[scene_key]
+            poses[scene_key] = PosePerEnv([source_poses[env_id % len(samples)] for env_id in range(num_envs)])
         asset.set_initial_scene_root_poses(poses)
-
-
-def validate_recorded_relation_placement(
-    sampler: PlacementSampler,
-    samples: list[dict[str, Any]],
-) -> None:
-    """Validate recorded scene roots against the current placement assets."""
-    from isaaclab_arena.assets.object_set import RigidObjectSet
-    from isaaclab_arena.relations.placement_asset import get_scene_root_owners
-    from isaaclab_arena.relations.relations import RandomAroundSolution, get_relation
-
-    validate_placement_samples(samples)
-    assert not any(
-        isinstance(asset, RigidObjectSet) for asset in sampler.replay_assets
-    ), "Recorded placement replay does not support RigidObjectSet; use homogeneous assets or omit placement replay."
-    required_keys = {
-        scene_key
-        for asset in sampler.assets
-        if asset not in set(get_anchor_objects(sampler.assets))
-        for scene_key in asset.get_scene_root_keys()
-    }
-    allowed_keys = {scene_key for asset in sampler.replay_assets for scene_key in asset.get_scene_root_keys()}
-    owners = get_scene_root_owners(sampler.replay_assets)
-    for sample in samples:
-        pose_keys = set(sample["poses"])
-        assert required_keys <= pose_keys and pose_keys <= allowed_keys, (
-            "Placement replay scene keys differ from the current environment; "
-            f"missing={sorted(required_keys - pose_keys)}, unknown={sorted(pose_keys - allowed_keys)}"
-        )
-        for asset in sampler.replay_assets:
-            owned_keys = set(asset.get_scene_root_keys())
-            if pose_keys.intersection(owned_keys):
-                assert (
-                    owned_keys <= pose_keys
-                ), f"Placement replay is missing roots owned by '{asset.name}': {sorted(owned_keys - pose_keys)}"
-    selected_assets = {owners[key] for key in samples[0]["poses"]}
-    validate_root_reset_for_placement_replay(list(selected_assets))
-    for asset in selected_assets:
-        assert (
-            get_relation(asset, RandomAroundSolution) is None
-        ), f"Placement replay object '{asset.name}' cannot randomize on reset"
 
 
 def _validate_no_conflicting_pose_reset_events(

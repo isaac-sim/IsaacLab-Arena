@@ -85,7 +85,7 @@ def test_solve_and_apply_relation_placement_rejects_scene_name_collision():
         bounding_box=AxisAlignedBoundingBox(min_point=(-0.2, -0.2, 0.0), max_point=(0.2, 0.2, 1.0)),
     )
 
-    with pytest.raises(AssertionError, match="duplicate scene keys"):
+    with pytest.raises(AssertionError, match="multiple asset owners"):
         solve_and_apply_relation_placement([_make_box("robot"), embodiment], num_envs=1)
 
 
