@@ -62,11 +62,28 @@ class ArenaRunCfg:
     num_rebuilds: int = 1
     """Number of fresh environment constructions over which metrics are aggregated."""
 
+    recorded_variation_samples_paths: list[str] | None = None
+    """Ordered replay JSONLs, one per environment rebuild."""
+
     variations: dict[str, Any] = field(default_factory=dict)
     """Variation values applied when the environment is compiled."""
 
     def __post_init__(self) -> None:
         assert self.name, "run name must not be empty"
+        if self.recorded_variation_samples_paths is not None:
+            assert self.recorded_variation_samples_paths, "recorded_variation_samples_paths must not be empty"
+            assert all(
+                isinstance(path, str) and path for path in self.recorded_variation_samples_paths
+            ), "recorded_variation_samples_paths must contain nonempty paths"
+            assert self.environment_builder.recorded_variation_samples_path is None, (
+                "recorded_variation_samples_paths cannot be combined with "
+                "environment_builder.recorded_variation_samples_path"
+            )
+            assert self.rollout_limit.num_steps is None and self.rollout_limit.num_episodes is None, (
+                "Replay from recorded_variation_samples_paths determines the episode count from each JSONL; "
+                "rollout limits are not supported"
+            )
+            self.num_rebuilds = len(self.recorded_variation_samples_paths)
         assert self.num_rebuilds > 0, "num_rebuilds must be greater than zero"
         if self.rollout_limit.num_episodes is not None:
             assert self.rollout_limit.num_episodes >= self.num_rebuilds, (

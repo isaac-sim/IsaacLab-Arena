@@ -4,13 +4,19 @@
 # SPDX-License-Identifier: Apache-2.0
 
 runs:
-  clamp_replay:
+  recorded_variations:
     environment:
       type: isaaclab_arena_environments/robolab/tasks/clamp_in_right_bin.yaml
+      enable_cameras: true
     environment_builder:
-      num_envs: 1
+      num_envs: 4
       presets: PHYSX
     recorded_variation_samples_paths:
-      - outputs/placements/clamp.jsonl
+      - outputs/recorded_variations_workflow/placements.jsonl
     policy:
       type: zero_action
+    variations:
+      light.hdr_image.enabled: true
+      light.color.enabled: true
+      red_hammer.disappear.enabled: true
+      droid_abs_joint_pos.camera_extrinsics_wrist_camera.enabled: true

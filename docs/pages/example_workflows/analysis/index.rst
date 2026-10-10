@@ -10,6 +10,8 @@ This walkthrough uses an OpenPI policy and varies its wrist-camera position. The
 :doc:`Run an Evaluation <variations>` workflow records the episode results and presents them in an
 HTML report. The :doc:`Sensitivity Analysis <../sensitivity_analysis/sensitivity_analysis>`
 workflow then uses the same results to show which camera offsets were associated with success.
+For deterministic comparisons across different parallel environment counts, follow
+:doc:`Run an Evaluation with Recorded Variations <recorded_variations>`.
 
 Start or enter the Base Docker container from the repository root:
 
@@ -40,5 +42,6 @@ workflow directory to be empty.
    :maxdepth: 1
 
    variations
+   Run an Evaluation with Recorded Variations <recorded_variations>
    Sensitivity Analysis <../sensitivity_analysis/sensitivity_analysis>
    Multi-Node Evaluation <../multi_node_evaluation/multi_node_evaluation>

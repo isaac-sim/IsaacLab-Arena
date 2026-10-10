@@ -10,8 +10,7 @@ runs:
     environment_builder:
       num_envs: 1
       presets: PHYSX
-      recorded_variation_samples_path: outputs/clutter/tools_on_table.jsonl
+    recorded_variation_samples_paths:
+      - outputs/clutter/tools_on_table.jsonl
     policy:
       type: zero_action
-    rollout_limit:
-      num_episodes: 1

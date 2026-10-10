@@ -161,6 +161,45 @@ def test_build_and_run_resolves_variation_replay_budget(
     assert rollout_limits == [(None, expected_episodes)]
 
 
+def test_build_and_run_assigns_one_replay_file_per_rebuild(monkeypatch, tmp_path):
+    replay_paths = [tmp_path / "rebuild0.jsonl", tmp_path / "rebuild1.jsonl"]
+    replay_paths[0].write_text('{"variations": {}}\n')
+    replay_paths[1].write_text("\n".join(['{"variations": {}}'] * 3) + "\n")
+    run = _run(
+        rollout_limit=RolloutLimitCfg(),
+        recorded_variation_samples_paths=[str(path) for path in replay_paths],
+    )
+    received_run_cfgs = []
+    rollout_limits = []
+
+    def make_environment(cfg, render_mode, **kwargs):
+        received_run_cfgs.append(cfg)
+        return _environment()
+
+    monkeypatch.setattr(run_execution, "_build_environment_from_cfg", make_environment)
+    monkeypatch.setattr(run_execution, "_build_policy_from_cfg", lambda cfg: _Policy())
+    monkeypatch.setattr(run_execution, "wrap_env_for_video", lambda env, video_cfg, steps, episodes: env)
+    monkeypatch.setattr(run_execution, "close_run_resources", lambda policy, env: None)
+    monkeypatch.setattr(
+        run_execution,
+        "rollout_policy",
+        lambda env, policy, num_steps, num_episodes: rollout_limits.append((num_steps, num_episodes)),
+    )
+
+    run_execution.build_and_run(run, output_dir=tmp_path)
+
+    assert rollout_limits == [(None, 1), (None, 3)]
+    assert [rebuild_cfg.environment_builder.recorded_variation_samples_path for rebuild_cfg in received_run_cfgs] == [
+        str(path) for path in replay_paths
+    ]
+    assert [rebuild_cfg.environment_builder.seed for rebuild_cfg in received_run_cfgs] == [
+        run.environment_builder.seed,
+        run.environment_builder.seed + 1,
+    ]
+    assert all(rebuild_cfg.recorded_variation_samples_paths is None for rebuild_cfg in received_run_cfgs)
+    assert run.environment_builder.recorded_variation_samples_path is None
+
+
 @pytest.mark.parametrize(
     ("rollout_limit", "num_rebuilds", "message"),
     [
@@ -197,13 +236,13 @@ def test_recorded_variation_replay_rejects_finite_action_policy():
         run_execution._resolve_rollout_limit(run, _FinitePolicy(), num_episodes=1)
 
 
-def test_seed_cfg_for_rebuild_offsets_seed_per_rebuild():
+def test_cfg_for_rebuild_offsets_seed_per_rebuild():
     run = _run(num_rebuilds=3)
     base_seed = run.environment_builder.seed
 
-    assert run_execution._seed_cfg_for_rebuild(run, 0).environment_builder.seed == base_seed
-    assert run_execution._seed_cfg_for_rebuild(run, 1).environment_builder.seed == base_seed + 1
-    assert run_execution._seed_cfg_for_rebuild(run, 2).environment_builder.seed == base_seed + 2
+    assert run_execution._cfg_for_rebuild(run, 0).environment_builder.seed == base_seed
+    assert run_execution._cfg_for_rebuild(run, 1).environment_builder.seed == base_seed + 1
+    assert run_execution._cfg_for_rebuild(run, 2).environment_builder.seed == base_seed + 2
     # The original config is never mutated.
     assert run.environment_builder.seed == base_seed
 

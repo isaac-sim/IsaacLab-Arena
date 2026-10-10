@@ -272,12 +272,13 @@ Pass the companion file through an Experiment Definition:
      replay:
        environment:
          type: scene.yaml
-       environment_builder:
-         recorded_variation_samples_path: layouts.jsonl
+       recorded_variation_samples_paths:
+         - layouts.jsonl
 
-Python callers use
-``ArenaEnvBuilderCfg(recorded_variation_samples_path="layouts.jsonl")``. All
-file paths are relative to the working directory.
+The Experiment Runner creates one rebuild per listed file and replays every
+JSONL row. Python callers that build one environment directly use
+``ArenaEnvBuilderCfg(recorded_variation_samples_path="layouts.jsonl")``.
+All file paths are relative to the working directory.
 
 A ten-layout example for ``isaaclab_arena/tests/test_data/placement_replay.yaml``
 is available in ``isaaclab_arena/tests/test_data/placement_replay.jsonl``.
