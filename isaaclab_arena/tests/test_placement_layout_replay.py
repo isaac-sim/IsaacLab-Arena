@@ -7,8 +7,6 @@
 
 from pathlib import Path
 
-import pytest
-
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
 SOURCE = Path(__file__).parent / "test_data/placement_replay.yaml"
@@ -33,6 +31,7 @@ def _test_recorded_placement_replay_applies_complete_layouts(simulation_app):
             ArenaEnvBuilderCfg(
                 num_envs=3,
                 solve_relations=False,
+                resolve_on_reset=False,
                 recorded_variation_samples_path=str(LAYOUTS),
             ),
         ).make_registered()
@@ -64,59 +63,3 @@ def _test_recorded_placement_replay_applies_complete_layouts(simulation_app):
 
 def test_recorded_placement_replay_applies_complete_layouts():
     assert run_function_with_persistent_simulation_app(_test_recorded_placement_replay_applies_complete_layouts)
-
-
-def _test_recorded_placement_rejects_fixed_reset_mode(simulation_app):
-    from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
-    from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
-    from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
-
-    arena_env = ArenaEnvGraphSpec.from_yaml(SOURCE).to_arena_env()
-    with pytest.raises(AssertionError, match="requires resolve_on_reset=True"):
-        ArenaEnvBuilder(
-            arena_env,
-            ArenaEnvBuilderCfg(
-                solve_relations=False,
-                resolve_on_reset=False,
-                recorded_variation_samples_path=str(LAYOUTS),
-            ),
-        ).compose_manager_cfg()
-    return True
-
-
-def test_recorded_placement_rejects_fixed_reset_mode():
-    assert run_function_with_persistent_simulation_app(_test_recorded_placement_rejects_fixed_reset_mode)
-
-
-def _test_placement_replay_can_be_disabled(simulation_app):
-    from unittest.mock import patch
-
-    from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
-    from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
-    from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
-    from isaaclab_arena.relations.relation_solver import RelationSolver
-
-    arena_env = ArenaEnvGraphSpec.from_yaml(SOURCE).to_arena_env()
-    original_solve = RelationSolver.solve
-    calls = 0
-
-    def counted_solve(self, *args, **kwargs):
-        nonlocal calls
-        calls += 1
-        return original_solve(self, *args, **kwargs)
-
-    with patch.object(RelationSolver, "solve", counted_solve):
-        ArenaEnvBuilder(
-            arena_env,
-            ArenaEnvBuilderCfg(
-                num_envs=1,
-                recorded_variation_samples_path=str(LAYOUTS),
-                replay_recorded_placement=False,
-            ),
-        ).compose_manager_cfg()
-    assert calls > 0
-    return True
-
-
-def test_placement_replay_can_be_disabled():
-    assert run_function_with_persistent_simulation_app(_test_placement_replay_can_be_disabled)

@@ -225,17 +225,21 @@ def write_placement_samples(
             stream.write(json.dumps({"placement": placement}, allow_nan=False) + "\n")
 
 
+def supports_recorded_placement(assets: list[PlaceableAsset]) -> bool:
+    """Whether placement recording and replay can preserve the selected assets."""
+    from isaaclab_arena.assets.object_set import RigidObjectSet
+
+    return not any(isinstance(asset, RigidObjectSet) for asset in assets)
+
+
 def validate_placement_sample_assets(samples: list[PlacementSample], assets: list[PlaceableAsset]) -> None:
     """Require concrete root ownership and complete coverage of every selected asset."""
-    from isaaclab_arena.assets.object_set import RigidObjectSet
     from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
     from isaaclab_arena.relations.placement_asset import get_scene_root_owners
     from isaaclab_arena.relations.relations import RandomAroundSolution, get_relation
 
     _validate_native_samples(samples)
-    assert not any(
-        isinstance(asset, RigidObjectSet) for asset in assets
-    ), "Recorded placement requires concrete assets, not object sets"
+    assert supports_recorded_placement(assets), "Recorded placement requires concrete assets, not object sets"
     pose_keys = set(samples[0].poses)
     owners = get_scene_root_owners(assets)
     unknown = pose_keys - owners.keys()
@@ -278,12 +282,9 @@ def _validate_native_samples(samples: list[PlacementSample]) -> None:
     """Require a nonempty sequence with consistent scene-root keys."""
     assert samples, "Placement samples must be nonempty"
     expected_keys = set(samples[0].poses)
-    layout_ids: set[str] = set()
     for sample in samples:
         assert isinstance(sample, PlacementSample)
         assert set(sample.poses) == expected_keys, "Every placement sample must contain the same scene roots"
-        assert sample.layout_id not in layout_ids, f"Duplicate placement layout_id: {sample.layout_id!r}"
-        layout_ids.add(sample.layout_id)
 
 
 def _validate_native_poses(poses: dict[str, Pose]) -> None:

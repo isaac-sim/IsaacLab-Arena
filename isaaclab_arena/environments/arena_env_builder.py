@@ -47,7 +47,7 @@ from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTer
 from isaaclab_arena.recording.progress_terms import ProgressEpisodeRecorderTermCfg
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_events import PLACEMENT_RESET_EVENT_NAME
-from isaaclab_arena.relations.placement_sampler import serialize_placement_samples
+from isaaclab_arena.relations.placement_sampler import serialize_placement_samples, supports_recorded_placement
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.tasks.no_task import NoTask
 from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
@@ -320,7 +320,7 @@ class ArenaEnvBuilder:
                 variations,
                 scheduler=variation_replay_scheduler,
             )
-            if replay_record.has_placement_samples and self.cfg.replay_recorded_placement:
+            if replay_record.has_placement_samples:
                 recorded_placement_samples = [
                     episode_record.placement_sample
                     for episode_record in replay_record.episode_records
@@ -334,7 +334,8 @@ class ArenaEnvBuilder:
         # (drawn just below) and run-time samples (drawn during simulation).
         variation_recorder = VariationRecorder()
         variation_recorder.attach(variations)
-        if self._placement_event_cfg is not None:
+        # A RigidObjectSet's selected member identity is absent from pose-only samples, so skip unreplayable records.
+        if self._placement_event_cfg is not None and supports_recorded_placement(self.arena_env.get_placement_assets()):
             placement_handle = self._placement_event_cfg.params["placement_pool"]
             variation_recorder.attach_placement_sampler(
                 placement_handle.sampler,

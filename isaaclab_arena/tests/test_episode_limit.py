@@ -307,6 +307,8 @@ def _test_variation_replay_cycles_across_async_resets(simulation_app, output_dir
     for record in records:
         source_record_index = record["replay_source_record_index"]
         assert record["variations"]["no_embodiment.replay_test"] == replay_values[source_record_index]
+        variation_record = base_env.variation_recorder["no_embodiment.replay_test"]
+        assert variation_record.sample_for_episode(record["env_id"], record["episode_in_env"]) is None
     assert base_env.variation_replay_scheduler.num_assignments_started == 8
     assert base_env.variation_replay_scheduler.num_assignments_completed == 8
     return True

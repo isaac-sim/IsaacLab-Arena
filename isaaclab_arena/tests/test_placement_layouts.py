@@ -10,6 +10,7 @@ import json
 import pytest
 
 from isaaclab_arena.relations.placement_sampler import (
+    PlacementSample,
     placement_samples_from_pose_columns,
     placement_samples_to_pose_columns,
     read_placement_samples,
@@ -28,6 +29,18 @@ def test_offline_and_episode_records_share_layout_order(tmp_path):
     records[1]["variations"] = {"light.brightness": 2}
     path.write_text("\n".join(json.dumps(record) for record in records))
     assert placement_samples_to_pose_columns(read_placement_samples(path)) == poses
+
+
+def test_episode_records_allow_repeated_layout_ids(tmp_path):
+    poses = [Pose((1, 2, 3)), Pose((4, 5, 6))]
+    samples = [PlacementSample(layout_id="fixed", poses={"cup": pose}) for pose in poses]
+    path = tmp_path / "layouts.jsonl"
+
+    write_placement_samples(path, samples)
+    loaded = read_placement_samples(path)
+
+    assert [sample.layout_id for sample in loaded] == ["fixed", "fixed"]
+    assert placement_samples_to_pose_columns(loaded) == {"cup": poses}
 
 
 @pytest.mark.parametrize("failure", ["missing_object", "invalid_rotation", "missing_rotation", "short_position"])

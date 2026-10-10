@@ -38,9 +38,6 @@ class ArenaEnvBuilderCfg:
     recorded_variation_samples_path: str | None = None
     """Episode-result JSONL containing variation samples to replay; relative to the working directory."""
 
-    replay_recorded_placement: bool = True
-    """Whether to replay top-level placement rows from recorded episode results."""
-
     def __post_init__(self) -> None:
         assert self.num_envs > 0, "num_envs must be greater than zero"
         if self.presets is not None:
