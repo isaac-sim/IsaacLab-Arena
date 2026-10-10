@@ -630,12 +630,13 @@ def _test_configured_validator_reports_write_jsonl(simulation_app, tmp_path, min
     from isaaclab_arena.offline_placement.clutter_validators import default_clutter_validators
     from isaaclab_arena.offline_placement.post_physics_validation import build_post_physics_validators
     from isaaclab_arena.relations.placement_sampler import (
+        deserialize_placement_samples,
         placement_samples_from_pose_columns,
         placement_samples_to_pose_columns,
-        read_placement_samples,
         write_placement_samples,
     )
     from isaaclab_arena.utils.pose import Pose
+    from isaaclab_arena.variations.recorded_variation_samples import load_rebuild_variation_record
 
     configurations = default_clutter_validators()
     if minimum_resting_heights:
@@ -653,7 +654,11 @@ def _test_configured_validator_reports_write_jsonl(simulation_app, tmp_path, min
     assert (
         recorded_reports["support_containment"]["configuration"]["minimum_resting_heights_m"] == minimum_resting_heights
     )
-    assert placement_samples_to_pose_columns(read_placement_samples(output)) == {"cube": [Pose.identity()]}
+    variation_record = load_rebuild_variation_record(output, build_time_variation_keys=set())
+    samples = deserialize_placement_samples([
+        episode.placement_sample for episode in variation_record.episode_records if episode.placement_sample is not None
+    ])
+    assert placement_samples_to_pose_columns(samples) == {"cube": [Pose.identity()]}
     return True
 
 

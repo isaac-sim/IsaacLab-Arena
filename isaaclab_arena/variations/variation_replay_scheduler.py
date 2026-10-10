@@ -28,6 +28,11 @@ class VariationReplayScheduler:
         self._source_record_index_by_env: dict[int, int] = {}
 
     @property
+    def variation_record(self) -> RebuildVariationRecord:
+        """Recorded samples managed by this scheduler."""
+        return self._variation_record
+
+    @property
     def num_assignments_started(self) -> int:
         """Number of assignment occurrences started so far."""
         return self._next_occurrence_index

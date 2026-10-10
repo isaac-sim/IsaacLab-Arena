@@ -48,12 +48,16 @@ def _test_recording_writes_complete_layouts(simulation_app, tmp_path):
 
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
-    from isaaclab_arena.relations.placement_sampler import placement_samples_to_pose_columns, read_placement_samples
+    from isaaclab_arena.relations.placement_sampler import (
+        deserialize_placement_samples,
+        placement_samples_to_pose_columns,
+    )
     from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
     from isaaclab_arena.relations.relation_solver import RelationSolver
     from isaaclab_arena.relations.validation.types import PlacementCheck
     from isaaclab_arena.scripts.record_placement_layouts import record_settled_placement_layouts
     from isaaclab_arena.tests.clutter.test_clutter_collection import _make_primitive_clutter_scene
+    from isaaclab_arena.variations.recorded_variation_samples import load_rebuild_variation_record
 
     arena_env = _make_primitive_clutter_scene(tmp_path)
     scene_path = tmp_path / "scene.yaml"
@@ -94,7 +98,10 @@ def _test_recording_writes_complete_layouts(simulation_app, tmp_path):
         reports = {report["check"]: report for report in record["validation"]["post_physics"]}
         assert all(reports[check]["passed"] for check in ("physics_settled", "pose_shift", "support_containment"))
 
-    samples = read_placement_samples(output)
+    variation_record = load_rebuild_variation_record(output, build_time_variation_keys=set())
+    samples = deserialize_placement_samples([
+        episode.placement_sample for episode in variation_record.episode_records if episode.placement_sample is not None
+    ])
     assert len(samples) == 3
     poses_by_root = placement_samples_to_pose_columns(samples)
     replay_env = _make_primitive_clutter_scene(tmp_path)

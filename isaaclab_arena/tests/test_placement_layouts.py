@@ -11,12 +11,20 @@ import pytest
 
 from isaaclab_arena.relations.placement_sampler import (
     PlacementSample,
+    deserialize_placement_samples,
     placement_samples_from_pose_columns,
     placement_samples_to_pose_columns,
-    read_placement_samples,
     write_placement_samples,
 )
 from isaaclab_arena.utils.pose import Pose
+from isaaclab_arena.variations.recorded_variation_samples import load_rebuild_variation_record
+
+
+def _load_placement_samples(path):
+    record = load_rebuild_variation_record(path, build_time_variation_keys=set())
+    return deserialize_placement_samples(
+        [episode.placement_sample for episode in record.episode_records if episode.placement_sample is not None]
+    )
 
 
 def test_offline_and_episode_records_share_layout_order(tmp_path):
@@ -28,7 +36,7 @@ def test_offline_and_episode_records_share_layout_order(tmp_path):
     records[1].update(env_id=7, success=True)
     records[1]["variations"] = {"light.brightness": 2}
     path.write_text("\n".join(json.dumps(record) for record in records))
-    assert placement_samples_to_pose_columns(read_placement_samples(path)) == poses
+    assert placement_samples_to_pose_columns(_load_placement_samples(path)) == poses
 
 
 def test_episode_records_allow_repeated_layout_ids(tmp_path):
@@ -37,7 +45,7 @@ def test_episode_records_allow_repeated_layout_ids(tmp_path):
     path = tmp_path / "layouts.jsonl"
 
     write_placement_samples(path, samples)
-    loaded = read_placement_samples(path)
+    loaded = _load_placement_samples(path)
 
     assert [sample.layout_id for sample in loaded] == ["fixed", "fixed"]
     assert placement_samples_to_pose_columns(loaded) == {"cup": poses}
@@ -59,8 +67,8 @@ def test_replay_rejects_incomplete_or_invalid_records(tmp_path, failure):
     else:
         poses["cup"]["position_xyz"] = [0, 0]
     path.write_text(first_line + "\n" + json.dumps(first))
-    with pytest.raises(AssertionError, match="layouts.jsonl"):
-        read_placement_samples(path)
+    with pytest.raises(AssertionError):
+        _load_placement_samples(path)
 
 
 def test_replay_rejects_duplicate_pose_fields(tmp_path):
@@ -69,4 +77,4 @@ def test_replay_rejects_duplicate_pose_fields(tmp_path):
         '{"placement":{"poses":{"cup":{"position_xyz":[1,0,0],"position_xyz":[2,0,0],"rotation_xyzw":[0,0,0,1]}}}'
     )
     with pytest.raises(AssertionError, match="Duplicate key"):
-        read_placement_samples(path)
+        _load_placement_samples(path)
