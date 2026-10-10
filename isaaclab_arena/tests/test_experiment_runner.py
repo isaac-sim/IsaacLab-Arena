@@ -203,11 +203,16 @@ def test_experiment_runner_replays_recorded_variation_samples(tmp_path):
     source_config_path = Path(TestConstants.arena_environments_dir) / "experiment_configs" / "variation_replay_e2e.yaml"
     source_config = yaml.safe_load(source_config_path.read_text(encoding="utf-8"))
     source_run = source_config["runs"]["variation_e2e"]
+    source_run["num_rebuilds"] = 2
     output_dir = tmp_path / "output"
-    record_results_path = output_dir / "variation_record" / "episode_results_rebuild0.jsonl"
+    record_results_paths = [
+        output_dir / "variation_record" / f"episode_results_rebuild{rebuild_index}.jsonl" for rebuild_index in range(2)
+    ]
     replay_run = copy.deepcopy(source_run)
-    replay_run["environment_builder"]["recorded_variation_samples_path"] = str(record_results_path)
     replay_run["environment_builder"]["seed"] = 123
+    replay_run["recorded_variation_samples_paths"] = [str(path) for path in record_results_paths]
+    replay_run.pop("num_rebuilds")
+    replay_run.pop("rollout_limit")
     experiment_config_path = tmp_path / "variation_replay_e2e.yaml"
     experiment_config_path.write_text(
         yaml.safe_dump({"runs": {"variation_record": source_run, "variation_replay": replay_run}}),
@@ -220,23 +225,24 @@ def test_experiment_runner_replays_recorded_variation_samples(tmp_path):
         extra_args=["--experiment_output_directory", str(output_dir)],
     )
 
-    recorded = read_episode_records(record_results_path)
-    assert len(recorded) == 6
     expected_variation_keys = {
         "light.hdr_image",
         "rubiks_cube_hot3d_robolab.disappear",
         "droid_rel_joint_pos.camera_extrinsics_wrist_camera",
     }
-    assert all(set(record["variations"]) == expected_variation_keys for record in recorded)
+    for rebuild_index, record_results_path in enumerate(record_results_paths):
+        recorded = read_episode_records(record_results_path)
+        assert len(recorded) == 3
+        assert all(set(record["variations"]) == expected_variation_keys for record in recorded)
 
-    replay_results_path = output_dir / "variation_replay" / "episode_results_rebuild0.jsonl"
-    replayed = read_episode_records(replay_results_path)
+        replay_results_path = output_dir / "variation_replay" / f"episode_results_rebuild{rebuild_index}.jsonl"
+        replayed = read_episode_records(replay_results_path)
 
-    assert len(replayed) == len(recorded)
-    assert sorted(record["replay_source_record_index"] for record in replayed) == list(range(len(recorded)))
-    for replay_record in replayed:
-        source_record = recorded[replay_record["replay_source_record_index"]]
-        assert replay_record["variations"] == source_record["variations"]
+        assert len(replayed) == len(recorded)
+        assert sorted(record["replay_source_record_index"] for record in replayed) == list(range(len(recorded)))
+        for replay_record in replayed:
+            source_record = recorded[replay_record["replay_source_record_index"]]
+            assert replay_record["variations"] == source_record["variations"]
 
 
 @pytest.mark.with_subprocess

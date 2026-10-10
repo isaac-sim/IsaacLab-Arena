@@ -99,7 +99,7 @@ the replay source, and the output directory:
      --experiment_output_directory \
        outputs/recorded_variations_workflow/replay \
      runs.recorded_variations.environment_builder.num_envs=5 \
-     "runs.recorded_variations.environment_builder.recorded_variation_samples_path=${RECORDED_VARIATIONS}"
+     "runs.recorded_variations.recorded_variation_samples_paths=[${RECORDED_VARIATIONS}]"
 
 Verify the episode count, source order, and variation payloads:
 

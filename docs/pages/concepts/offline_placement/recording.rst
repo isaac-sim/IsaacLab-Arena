@@ -207,8 +207,9 @@ See :doc:`../object_placement/relations` for pose names, units and replay constr
 Replay Placement Layouts
 ------------------------
 
-Set ``environment_builder.recorded_variation_samples_path`` in an
-:doc:`Experiment Definition <../concept_arena_experiments>` to load the recording:
+Add the recording to ``recorded_variation_samples_paths`` in an
+:doc:`Experiment Definition <../concept_arena_experiments>`. Each listed file
+drives one rebuild, which replays every JSONL row:
 
 .. literalinclude:: ../../../../isaaclab_arena_environments/experiment_configs/settled_placement_replay_experiment.yaml
    :language: yaml

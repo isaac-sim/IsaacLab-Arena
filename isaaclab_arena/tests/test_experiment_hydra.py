@@ -304,6 +304,34 @@ def test_effective_experiment_serializes_to_reloadable_yaml(tmp_path):
     assert _load_experiment(serialized_path) == experiment_cfg
 
 
+def test_replay_paths_round_trip_and_infer_rebuild_count(tmp_path):
+    config_path = _write_experiment(
+        tmp_path,
+        """
+runs:
+  replay:
+    environment:
+      type: pick_and_place_maple_table
+    policy:
+      type: zero_action
+    recorded_variation_samples_paths:
+      - recordings/rebuild0.jsonl
+      - recordings/rebuild1.jsonl
+""",
+    )
+
+    experiment_cfg = _load_experiment(config_path)
+    run = experiment_cfg.runs["replay"]
+    assert run.recorded_variation_samples_paths == [
+        "recordings/rebuild0.jsonl",
+        "recordings/rebuild1.jsonl",
+    ]
+    assert run.num_rebuilds == 2
+
+    serialized_path = _write_experiment(tmp_path, serialize_arena_experiment_to_yaml(experiment_cfg))
+    assert _load_experiment(serialized_path) == experiment_cfg
+
+
 GRAPH_SPEC_EXPERIMENT_CONTENTS = """
 runs:
   graph_run:

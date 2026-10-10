@@ -11,11 +11,10 @@ runs:
     environment_builder:
       num_envs: 4
       presets: PHYSX
-      recorded_variation_samples_path: outputs/recorded_variations_workflow/placements.jsonl
+    recorded_variation_samples_paths:
+      - outputs/recorded_variations_workflow/placements.jsonl
     policy:
       type: zero_action
-    rollout_limit:
-      num_episodes: 64
     variations:
       light.hdr_image.enabled: true
       light.color.enabled: true

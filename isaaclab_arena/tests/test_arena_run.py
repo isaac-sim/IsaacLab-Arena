@@ -7,6 +7,7 @@ from dataclasses import dataclass
 
 import pytest
 
+from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
 from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg
 from isaaclab_arena.evaluation.arena_run import ArenaRunCfg, ArenaRunResult, RolloutLimitCfg, RunStatus
 from isaaclab_arena.policy.policy_base import PolicyCfg
@@ -56,6 +57,41 @@ def test_rollout_limits_are_mutually_exclusive_and_positive():
 def test_episode_budget_gives_every_rebuild_an_episode():
     with pytest.raises(AssertionError, match="each rebuild runs at least one episode"):
         _run(rollout_limit=RolloutLimitCfg(num_episodes=2), num_rebuilds=3)
+
+
+def test_replay_paths_determine_rebuild_count():
+    run = _run(
+        rollout_limit=RolloutLimitCfg(),
+        num_rebuilds=99,
+        recorded_variation_samples_paths=["rebuild0.jsonl", "rebuild1.jsonl"],
+    )
+
+    assert run.num_rebuilds == 2
+
+
+@pytest.mark.parametrize(
+    ("overrides", "message"),
+    [
+        ({"recorded_variation_samples_paths": []}, "must not be empty"),
+        (
+            {
+                "recorded_variation_samples_paths": ["rebuild0.jsonl"],
+                "environment_builder": ArenaEnvBuilderCfg(recorded_variation_samples_path="legacy.jsonl"),
+            },
+            "cannot be combined",
+        ),
+        (
+            {
+                "recorded_variation_samples_paths": ["rebuild0.jsonl"],
+                "rollout_limit": RolloutLimitCfg(num_episodes=1),
+            },
+            "rollout limits are not supported",
+        ),
+    ],
+)
+def test_replay_paths_reject_conflicting_configuration(overrides, message):
+    with pytest.raises(AssertionError, match=message):
+        _run(**overrides)
 
 
 def test_run_result_records_outcome_separately():

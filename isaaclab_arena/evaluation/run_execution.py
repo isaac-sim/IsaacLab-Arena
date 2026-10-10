@@ -34,7 +34,6 @@ if TYPE_CHECKING:
     import gymnasium as gym
 
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
-    from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
     from isaaclab_arena.metrics.metric_data import MetricsDataCollection
     from isaaclab_arena.policy.policy_base import PolicyBase, PolicyCfg
 
@@ -102,15 +101,7 @@ def build_and_run(
         assert (
             cfg.rollout_limit.num_steps is None
         ), f"Run '{cfg.name}' replays recorded variation samples; num_steps is not supported."
-    total_num_episodes = _get_replay_episode_count(
-        cfg.environment_builder,
-        cfg.rollout_limit.num_episodes,
-    )
-    episodes_per_rebuild = _split_episodes_across_rebuilds(
-        total_num_episodes,
-        cfg.num_rebuilds,
-        cfg.name,
-    )
+    episodes_per_rebuild = _episodes_per_rebuild(cfg)
 
     for rebuild_index, num_episodes in enumerate(episodes_per_rebuild):
         env = None
@@ -121,7 +112,7 @@ def build_and_run(
                 video_base_dir=output_dir,
                 camera_name_prefix=f"robot-cam-rebuild{rebuild_index}",
             )
-            rebuild_cfg = _seed_cfg_for_rebuild(cfg, rebuild_index)
+            rebuild_cfg = _cfg_for_rebuild(cfg, rebuild_index)
             env = _build_environment_from_cfg(
                 rebuild_cfg,
                 rebuild_video_cfg.render_mode,
@@ -134,7 +125,7 @@ def build_and_run(
 
             policy = _build_policy_from_cfg(rebuild_cfg)
             num_steps, num_episodes = _resolve_rollout_limit(
-                cfg,
+                rebuild_cfg,
                 policy,
                 num_episodes,
             )
@@ -152,10 +143,13 @@ def build_and_run(
     )
 
 
-def _seed_cfg_for_rebuild(cfg: ArenaRunCfg, rebuild_index: int) -> ArenaRunCfg:
-    """Offset the environment-builder seed for a rebuild so each fresh construction differs."""
+def _cfg_for_rebuild(cfg: ArenaRunCfg, rebuild_index: int) -> ArenaRunCfg:
+    """Return an isolated config with this rebuild's seed and replay source."""
     cfg = deepcopy(cfg)
     cfg.environment_builder.seed += rebuild_index
+    if cfg.recorded_variation_samples_paths is not None:
+        cfg.environment_builder.recorded_variation_samples_path = cfg.recorded_variation_samples_paths[rebuild_index]
+        cfg.recorded_variation_samples_paths = None
     return cfg
 
 
@@ -253,15 +247,25 @@ def _resolve_rollout_limit(
     return num_steps, num_episodes
 
 
-def _get_replay_episode_count(
-    builder_cfg: ArenaEnvBuilderCfg,
-    explicit_num_episodes: int | None,
-) -> int | None:
-    """Use an explicit episode budget or default to one pass over recorded variation samples."""
-    if builder_cfg.recorded_variation_samples_path is None or explicit_num_episodes is not None:
-        return explicit_num_episodes
-    records = read_episode_records(builder_cfg.recorded_variation_samples_path)
-    assert records, "Recorded variation samples must list at least one episode"
+def _episodes_per_rebuild(cfg: ArenaRunCfg) -> list[int | None]:
+    """Resolve one rollout episode budget per environment rebuild."""
+    if cfg.recorded_variation_samples_paths is not None:
+        assert (
+            cfg.rollout_limit.num_steps is None and cfg.rollout_limit.num_episodes is None
+        ), f"Run '{cfg.name}' replays recorded variation samples; rollout limits are not supported."
+        return [_recorded_episode_count(path) for path in cfg.recorded_variation_samples_paths]
+
+    total_num_episodes = cfg.rollout_limit.num_episodes
+    replay_path = cfg.environment_builder.recorded_variation_samples_path
+    if replay_path is not None and total_num_episodes is None:
+        total_num_episodes = _recorded_episode_count(replay_path)
+    return _split_episodes_across_rebuilds(total_num_episodes, cfg.num_rebuilds, cfg.name)
+
+
+def _recorded_episode_count(path: str) -> int:
+    """Return the number of episode rows in one replay JSONL."""
+    records = read_episode_records(path)
+    assert records, f"Recorded variation samples must list at least one episode: {path}"
     return len(records)
 
 
