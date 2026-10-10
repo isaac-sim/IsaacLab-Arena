@@ -149,11 +149,20 @@ def _make_mock_env(num_envs: int, device: str = "cpu") -> MagicMock:
     return env
 
 
+def _placement_handle(pool):
+    """Wrap a live pool in the same sampler-backed handle used by production."""
+    from isaaclab_arena.relations.placement_events import PlacementPoolHandle
+    from isaaclab_arena.relations.placement_sampler import PlacementSampler
+
+    sampler = PlacementSampler(assets=list(pool.objects), placement_pool=pool)
+    return PlacementPoolHandle(sampler)
+
+
 def _solve_and_place_with_pool(env, env_ids, pool):
     """Call the reset event with the same runtime params EventTermCfg stores."""
-    from isaaclab_arena.relations.placement_events import PlacementPoolHandle, solve_and_place_objects
+    from isaaclab_arena.relations.placement_events import solve_and_place_objects
 
-    return solve_and_place_objects(env, env_ids, placement_pool=PlacementPoolHandle(pool))
+    return solve_and_place_objects(env, env_ids, placement_pool=_placement_handle(pool))
 
 
 def test_solve_and_place_objects_writes_poses_to_sim():
@@ -186,7 +195,7 @@ def test_solve_and_place_objects_writes_poses_to_sim():
 
 
 def test_solve_and_place_objects_uses_runtime_pool():
-    from isaaclab_arena.relations.placement_events import PlacementPoolHandle, solve_and_place_objects
+    from isaaclab_arena.relations.placement_events import solve_and_place_objects
     from isaaclab_arena.relations.placement_result import PlacementResult
     from isaaclab_arena.tests.dummy_embodiment import DummyEmbodiment
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
@@ -217,7 +226,7 @@ def test_solve_and_place_objects_uses_runtime_pool():
     solve_and_place_objects(
         env,
         torch.tensor([0]),
-        placement_pool=PlacementPoolHandle(Pool()),
+        placement_pool=_placement_handle(Pool()),
     )
 
     assert "desk" not in env._assets
@@ -291,14 +300,14 @@ def test_reset_placement_asset_pose_per_env_requires_full_env_coverage():
 
 
 def test_get_placement_pool_returns_runtime_pool():
-    from isaaclab_arena.relations.placement_events import PlacementPoolHandle, get_placement_pool
+    from isaaclab_arena.relations.placement_events import get_placement_pool
 
     class Pool:
         objects = []
 
     pool = Pool()
     env = MagicMock()
-    env.unwrapped.event_manager.get_term_cfg.return_value.params = {"placement_pool": PlacementPoolHandle(pool)}
+    env.unwrapped.event_manager.get_term_cfg.return_value.params = {"placement_pool": _placement_handle(pool)}
     assert get_placement_pool(env) is pool
 
 

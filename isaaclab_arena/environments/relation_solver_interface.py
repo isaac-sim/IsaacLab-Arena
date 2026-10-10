@@ -41,11 +41,8 @@ def solve_and_apply_relation_placement(
     placer_params: ObjectPlacerParams | None = None,
     collision_objects: list[CollisionObject] | None = None,
     scene_assets: Iterable[Asset | RigidObjectSet] | None = None,
-    recorded_samples: list[PlacementSample] | None = None,
-    replay_assets: list[PlaceableAsset] | None = None,
-    replay_sampler: Callable[[int, torch.Tensor | None], list[PlacementSample] | None] | None = None,
 ) -> EventTermCfg | None:
-    """Prepare live or recorded relation placement and return its reset event.
+    """Solve live relation placement and return its reset event.
 
     Args:
         assets: Assets with spatial predicates that should be relation-solved.
@@ -56,14 +53,11 @@ def solve_and_apply_relation_placement(
             or relation-constrained.
         scene_assets: Optional scene assets to scan for passive collision objects
             when collision_objects is not supplied.
-        recorded_samples: Complete recorded placement rows to validate and use.
-        replay_assets: Assets whose scene roots may receive recorded poses.
-        replay_sampler: Episode-scheduled callable that supplies recorded rows.
 
     Returns:
         Coordinated placement reset event, or ``None`` when there is no placement.
     """
-    if not assets and recorded_samples is None:
+    if not assets:
         print("No assets with relations found in scene. Skipping relation solving.")
         return None
     asset_names = {asset.name for asset in assets}
@@ -74,19 +68,6 @@ def solve_and_apply_relation_placement(
         placer_params = ObjectPlacerParams()
     else:
         placer_params = copy.copy(placer_params)
-    if recorded_samples is not None:
-        assert replay_sampler is not None, "Recorded placement replay requires an episode scheduler"
-        sampler = PlacementSampler(
-            assets=assets,
-            placement_pool=None,
-            write_assets=replay_assets or assets,
-        )
-        selected_assets = validate_placement_sample_assets(recorded_samples, sampler.write_assets)
-        validate_root_reset_for_placement_replay(selected_assets)
-        sampler.write_assets = selected_assets
-        sampler.set_replay_sampler(replay_sampler)
-        _seed_spawn_config_from_replay(recorded_samples, selected_assets, num_envs)
-        return _make_placement_event(sampler)
 
     get_scene_root_owners(assets)
     placer_params.apply_positions_to_objects = False
@@ -124,6 +105,25 @@ def solve_and_apply_relation_placement(
         placement_pool=placement_pool,
         num_envs=num_envs,
     )
+
+
+def prepare_recorded_relation_placement(
+    replay_assets: list[PlaceableAsset],
+    recorded_samples: list[PlacementSample],
+    replay_sampler: Callable[[int, torch.Tensor | None], list[PlacementSample] | None],
+    num_envs: int,
+) -> EventTermCfg:
+    """Validate and prepare recorded relation placement without constructing a solver pool."""
+    selected_assets = validate_placement_sample_assets(recorded_samples, replay_assets)
+    validate_root_reset_for_placement_replay(selected_assets)
+    sampler = PlacementSampler(
+        assets=[],
+        placement_pool=None,
+        write_assets=selected_assets,
+    )
+    sampler.set_replay_sampler(replay_sampler)
+    _seed_spawn_config_from_replay(recorded_samples, selected_assets, num_envs)
+    return _make_placement_event(sampler)
 
 
 def _apply_relation_placement_result(

@@ -26,11 +26,10 @@ PLACEMENT_RESET_EVENT_NAME = "placement_reset"
 class PlacementPoolHandle:
     """Opaque holder for a placement sampler to bypass event-param traversal.
 
-    PooledObjectPlacer is used as an EventTermCfg param to set the initial spawn pose. Isaac Lab deep-copies
-    and validates the configclass param, leading to two crashes: deepcopy fails for the Warp GPU cache
-    wp.Mesh BVHs ("ctypes objects containing pointers cannot be pickled"); validation hits RecursionError
-    when recursively walking all dicts and reaches placement assets (including embodiments with cyclic
-    scene configs).
+    PlacementSampler may own a PooledObjectPlacer used to set the initial spawn pose. Isaac Lab deep-copies and
+    validates EventTermCfg params, leading to two crashes: deepcopy fails for the Warp GPU cache wp.Mesh BVHs
+    ("ctypes objects containing pointers cannot be pickled"); validation hits RecursionError when recursively
+    walking all dicts and reaches placement assets (including embodiments with cyclic scene configs).
 
     The sampler may own a live pool or route draws through recorded replay.
     """
@@ -38,13 +37,8 @@ class PlacementPoolHandle:
     __slots__ = ("sampler",)
     """Keep runtime state out of an instance dictionary so config validation does not traverse it."""
 
-    def __init__(self, sampler: PlacementSampler | PooledObjectPlacer) -> None:
-        # Accepting a pool keeps the low-level event helper usable by callers that
-        # do not need recording or replay; the event still owns one sampler.
-        if isinstance(sampler, PlacementSampler):
-            self.sampler = sampler
-        else:
-            self.sampler = PlacementSampler(assets=list(sampler.objects), placement_pool=sampler)
+    def __init__(self, sampler: PlacementSampler) -> None:
+        self.sampler = sampler
 
     @property
     def pool(self) -> PooledObjectPlacer | None:

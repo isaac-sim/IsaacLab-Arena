@@ -33,7 +33,10 @@ from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import (
     IsaacLabArenaManagerBasedRLEnvCfg,
     apply_arena_global_settings,
 )
-from isaaclab_arena.environments.relation_solver_interface import solve_and_apply_relation_placement
+from isaaclab_arena.environments.relation_solver_interface import (
+    prepare_recorded_relation_placement,
+    solve_and_apply_relation_placement,
+)
 from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.metrics.metric_term_cfg import MetricTermCfg
 from isaaclab_arena.metrics.recorder_manager_utils import metrics_to_recorder_manager_cfg
@@ -121,13 +124,10 @@ class ArenaEnvBuilder:
     ) -> None:
         """Prepare live or recorded relation placement.
 
-        This method:
-        1. Collects placement assets that have relations
-        2. Builds a placement pool
-        3. Applies solved positions either by writing fixed initial poses
-           or by registering a pooled reset placement event
+        Recorded placement validates and binds native samples without constructing
+        a solver pool. Live placement collects constrained assets and solves a pool.
 
-        Behaviour on reset depends on ``ObjectPlacerParams.resolve_on_reset``.
+        Live reset behaviour depends on ``ObjectPlacerParams.resolve_on_reset``.
         When the environment does not provide placer parameters, the builder creates
         them from ``ArenaEnvBuilderCfg``.
 
@@ -135,7 +135,24 @@ class ArenaEnvBuilder:
           from the pool for each resetting environment.
         * **False** — assigns one fixed layout per environment and reuses it.
         """
-        if recorded_samples is None and not self.cfg.solve_relations:
+        if recorded_samples is not None:
+            assert scheduler is not None
+
+            def get_recorded_placement_samples(_num_samples, env_ids):
+                assert env_ids is not None, "Recorded placement requires per-environment ids."
+                return [
+                    recorded_samples[scheduler.source_record_index_for_env(int(env_id))] for env_id in env_ids.tolist()
+                ]
+
+            self._placement_event_cfg = prepare_recorded_relation_placement(
+                replay_assets=self.arena_env.get_placement_assets(),
+                recorded_samples=recorded_samples,
+                replay_sampler=get_recorded_placement_samples,
+                num_envs=self.cfg.num_envs,
+            )
+            return
+
+        if not self.cfg.solve_relations:
             return
         # Reachability constraints are defined in the task, so apply them before placement.
         if self.arena_env.task is not None:
@@ -158,26 +175,11 @@ class ArenaEnvBuilder:
         # Delists itself unless the embodiment has a registered cuRobo config and the solver deps are importable.
         # TODO(xinjieyao, 2026-07-22): updated once robot-object co-placement is merged.
         placer_params.reachability_config.embodiment = self.arena_env.embodiment
-        placement_replay_sampler = None
-        if recorded_samples is not None:
-            assert scheduler is not None
-
-            def get_recorded_placement_samples(_num_samples, env_ids):
-                assert env_ids is not None, "Recorded placement requires per-environment ids."
-                return [
-                    recorded_samples[scheduler.source_record_index_for_env(int(env_id))] for env_id in env_ids.tolist()
-                ]
-
-            placement_replay_sampler = get_recorded_placement_samples
-
         self._placement_event_cfg = solve_and_apply_relation_placement(
             placement_assets,
             num_envs=self.cfg.num_envs,
             placer_params=placer_params,
             scene_assets=self.arena_env.scene.assets.values(),
-            recorded_samples=recorded_samples,
-            replay_assets=self.arena_env.get_placement_assets(),
-            replay_sampler=placement_replay_sampler,
         )
 
     def get_all_variations(self) -> dict[str, list[VariationBase]]:
