@@ -83,6 +83,7 @@ def test_fixed_live_sampler_reuses_per_environment_samples() -> None:
 
     pool.sample_for_envs.assert_not_called()
     assert first == second
+    assert first[0].poses["cube"].position_xyz == (1.0, 0.0, 0.2)
 
 
 def test_deserialize_placement_samples_rejects_inconsistent_roots() -> None:

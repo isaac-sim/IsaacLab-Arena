@@ -145,6 +145,7 @@ def test_construction_pose_rejects_layout_missing_non_anchor():
 def test_placement_event_params_use_runtime_assets():
     from isaaclab_arena.environments.relation_solver_interface import _apply_relation_placement_result
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+    from isaaclab_arena.utils.pose import Pose, PosePerEnv
 
     desk = _make_desk()
     box = _make_box()
@@ -157,7 +158,7 @@ def test_placement_event_params_use_runtime_assets():
         assets=[desk, box],
         placer_params=ObjectPlacerParams(resolve_on_reset=True),
         placement_pool=placement_pool,
-        num_envs=1,
+        num_envs=3,
     )
 
     assert "placement_pool" in event_cfg.params
@@ -168,6 +169,12 @@ def test_placement_event_params_use_runtime_assets():
         "desk",
         "box",
     ]
+    assert desk.get_initial_pose() == Pose(position_xyz=(0.0, 0.0, 0.0))
+    initial_pose = box.get_initial_pose()
+    assert isinstance(initial_pose, PosePerEnv)
+    assert len(initial_pose.poses) == 3
+    assert all(pose.position_xyz == (0.1, 0.2, 0.3) for pose in initial_pose.poses)
+    assert not box.has_pose_reset_event()
 
 
 def test_dynamic_spawn_pose_event_cfg_deepcopy_after_mesh_solve():
