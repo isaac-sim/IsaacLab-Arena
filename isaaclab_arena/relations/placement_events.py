@@ -124,7 +124,7 @@ def write_layout_to_sim(
         poses={scene_key: pose for root_poses in poses_by_asset.values() for scene_key, pose in root_poses.items()},
     )
     env_ids = torch.tensor([env_id], device=env.device)
-    write_placement_samples_to_sim(env, env_ids, [sample], list(base_rotations))
+    write_placement_samples_to_sim(env, env_ids, [sample], list(poses_by_asset))
 
 
 def solve_and_place_objects(
@@ -156,7 +156,7 @@ def solve_and_place_objects(
     else:
         assert sampler.replays_recorded_samples, "Relation placement has neither recorded samples nor a live pool"
     samples = sampler.sample(len(env_ids), env_ids)
-    write_placement_samples_to_sim(env, env_ids, samples, sampler.replay_assets)
+    write_placement_samples_to_sim(env, env_ids, samples, sampler.write_assets)
 
 
 def write_placement_samples_to_sim(
@@ -165,26 +165,12 @@ def write_placement_samples_to_sim(
     samples: list[PlacementSample],
     assets: list[PlaceableAsset],
 ) -> None:
-    """Write complete scene-root placement samples for the selected environments."""
-    from isaaclab_arena.relations.placement_asset import get_scene_root_owners
-
+    """Write prevalidated placement samples for the selected environments."""
     assert len(samples) == len(env_ids), "Placement sample count must match env_ids"
-    sample_keys = set(samples[0].poses)
-    assert all(
-        set(sample.poses) == sample_keys for sample in samples
-    ), "Every placement sample must contain the same scene roots"
-    owners = get_scene_root_owners(assets)
-    unknown_keys = sample_keys - owners.keys()
-    assert not unknown_keys, f"Placement samples contain unknown scene roots: {sorted(unknown_keys)}"
-    selected_assets = {owners[scene_key] for scene_key in sample_keys}
     for asset in assets:
-        if asset not in selected_assets:
-            continue
-        root_keys = set(asset.get_scene_root_keys())
-        missing_keys = root_keys - sample_keys
-        assert not missing_keys, f"Placement sample is missing roots owned by '{asset.name}': {sorted(missing_keys)}"
+        root_keys = asset.get_scene_root_keys()
         owned_poses = {
             scene_key: torch.stack([sample.poses[scene_key].to_tensor(device=env.device) for sample in samples])
-            for scene_key in asset.get_scene_root_keys()
+            for scene_key in root_keys
         }
         asset.write_scene_root_poses_to_sim(env, env_ids, owned_poses)

@@ -59,12 +59,17 @@ class PlacementSampler(SamplerBase):
         self,
         assets: list[PlaceableAsset],
         placement_pool: PooledObjectPlacer | None,
-        replay_assets: list[PlaceableAsset] | None = None,
+        write_assets: list[PlaceableAsset] | None = None,
     ) -> None:
         super().__init__()
         self.assets = assets
         self.placement_pool = placement_pool
-        self.replay_assets = assets if replay_assets is None else replay_assets
+        if write_assets is None:
+            from isaaclab_arena.relations.relations import get_anchor_objects
+
+            anchor_assets = set(get_anchor_objects(assets))
+            write_assets = [asset for asset in assets if asset not in anchor_assets]
+        self.write_assets = write_assets
         self.last_results: dict[int, PlacementResult] = {}
         self._next_layout_id = 0
         self._fixed_placements: dict[int, tuple[PlacementResult, PlacementSample]] | None = None
@@ -92,9 +97,12 @@ class PlacementSampler(SamplerBase):
         assert env_ids is not None, "Relation placement requires explicit environment ids"
         env_id_list = [int(env_id) for env_id in env_ids.tolist()]
         assert num_samples == len(env_id_list), "Placement sample count must match env_ids"
-        replay_rows = self._get_replay_samples(num_samples, env_ids)
-        if replay_rows is not None:
-            samples = [PlacementSample.from_record(row) for row in replay_rows]
+        replay_samples = self._get_replay_samples(num_samples, env_ids)
+        if replay_samples is not None:
+            assert all(
+                isinstance(sample, PlacementSample) for sample in replay_samples
+            ), "Placement replay must provide native samples"
+            samples = replay_samples
             self.last_results = {}
         else:
             assert self.placement_pool is not None, "Live relation placement requires a placement pool"
@@ -136,14 +144,15 @@ def serialize_placement_samples(samples: list[PlacementSample]) -> list[dict[str
     return [sample.to_record() for sample in samples]
 
 
-def validate_placement_samples(samples: list[Any]) -> None:
-    """Require complete, finite, consistently keyed placement records."""
-    assert samples, "Placement replay requires at least one sample"
+def deserialize_placement_samples(records: list[Any]) -> list[PlacementSample]:
+    """Validate and decode complete, consistently keyed placement records."""
+    assert records, "Placement replay requires at least one sample"
     expected_keys: set[str] | None = None
-    for sample in samples:
-        assert isinstance(sample, dict), "Placement samples must be mappings"
-        assert isinstance(sample.get("layout_id"), str) and sample["layout_id"], "Placement layout_id must be nonempty"
-        poses = sample.get("poses")
+    samples: list[PlacementSample] = []
+    for record in records:
+        assert isinstance(record, dict), "Placement samples must be mappings"
+        assert isinstance(record.get("layout_id"), str) and record["layout_id"], "Placement layout_id must be nonempty"
+        poses = record.get("poses")
         assert isinstance(poses, dict) and poses, "Placement poses must be a nonempty mapping"
         if expected_keys is None:
             expected_keys = set(poses)
@@ -161,7 +170,8 @@ def validate_placement_samples(samples: list[Any]) -> None:
                     isinstance(component, Real) and not isinstance(component, bool) and math.isfinite(component)
                     for component in components
                 )
-        PlacementSample.from_record(sample)
+        samples.append(PlacementSample.from_record(record))
+    return samples
 
 
 def placement_samples_from_pose_columns(poses: dict[str, list[Pose]]) -> list[PlacementSample]:
@@ -196,8 +206,7 @@ def read_placement_samples(path: str | Path) -> list[PlacementSample]:
             placement = record.get("placement")
             if placement is None:
                 placement = record["variations"]["scene.relation_placement"]
-            validate_placement_samples([placement])
-            samples.append(PlacementSample.from_record(placement))
+            samples.extend(deserialize_placement_samples([placement]))
         except (AssertionError, KeyError, TypeError, ValueError) as error:
             raise AssertionError(f"{path}, record {record_index}: {error}") from error
     try:
@@ -232,8 +241,10 @@ def supports_recorded_placement(assets: list[PlaceableAsset]) -> bool:
     return not any(isinstance(asset, RigidObjectSet) for asset in assets)
 
 
-def validate_placement_sample_assets(samples: list[PlacementSample], assets: list[PlaceableAsset]) -> None:
-    """Require concrete root ownership and complete coverage of every selected asset."""
+def validate_placement_sample_assets(
+    samples: list[PlacementSample], assets: list[PlaceableAsset]
+) -> list[PlaceableAsset]:
+    """Validate asset coverage and return the assets selected by the samples."""
     from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
     from isaaclab_arena.relations.placement_asset import get_scene_root_owners
     from isaaclab_arena.relations.relations import RandomAroundSolution, get_relation
@@ -244,6 +255,7 @@ def validate_placement_sample_assets(samples: list[PlacementSample], assets: lis
     owners = get_scene_root_owners(assets)
     unknown = pose_keys - owners.keys()
     assert not unknown, f"Unknown recorded scene roots: {unknown}"
+    selected_assets: list[PlaceableAsset] = []
     for asset in assets:
         keys = set(asset.get_scene_root_keys())
         selected = keys.intersection(pose_keys)
@@ -254,9 +266,11 @@ def validate_placement_sample_assets(samples: list[PlacementSample], assets: lis
             missing = keys - pose_keys
             assert not missing, f"Recording is missing placed scene roots: {missing}"
         if selected:
+            selected_assets.append(asset)
             assert (
                 get_relation(asset, RandomAroundSolution) is None
             ), f"Recorded object '{asset.name}' cannot randomize on reset"
+    return selected_assets
 
 
 def validate_root_reset_for_placement_replay(assets: list[PlaceableAsset]) -> None:

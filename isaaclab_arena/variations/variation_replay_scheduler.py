@@ -73,15 +73,3 @@ class VariationReplayScheduler:
             ), f"Source record {self.source_record_index_for_env(env_id)} has no run-time sample {variation_key!r}"
             rows.append(record.runtime_samples[variation_key])
         return rows
-
-    def placement_sample_for(self, env_ids: Sequence[int]) -> list[dict[str, Any]]:
-        """Return one recorded placement row per env in ``env_ids``."""
-        rows: list[dict[str, Any]] = []
-        for raw_env_id in env_ids:
-            env_id = int(raw_env_id)
-            record = self.record_for_env(env_id)
-            assert (
-                record.placement_sample is not None
-            ), f"Source record {self.source_record_index_for_env(env_id)} has no placement sample"
-            rows.append(record.placement_sample)
-        return rows
