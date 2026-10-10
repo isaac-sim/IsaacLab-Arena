@@ -93,6 +93,7 @@ class SupportContainmentValidator(PostPhysicsPlacementValidator):
         import torch
 
         from isaaclab_arena.offline_placement.clutter_geometry import fixed_poses_match
+        from isaaclab_arena.relations.placement_events import get_pose_from_layout
         from isaaclab_arena.relations.relations import ClutterOn, get_relation
         from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, quaternion_to_90_deg_z_quarters
 
@@ -109,11 +110,15 @@ class SupportContainmentValidator(PostPhysicsPlacementValidator):
                     continue
                 child_key, support_key = asset.get_scene_key(), relation.parent.get_scene_key()
                 child, support = data.geometry[child_key], data.geometry[support_key]
-                expected = relation.parent.get_initial_pose().to_tensor(support.initial_poses.device)
+                if relation.parent.is_anchor:
+                    expected_pose = relation.parent.get_initial_pose()
+                else:
+                    expected_pose = get_pose_from_layout(relation.parent, layout)
+                expected = expected_pose.to_tensor(support.initial_poses.device)
                 if not all(
                     fixed_poses_match(expected, poses[env_id]) for poses in (support.initial_poses, support.final_poses)
                 ):
-                    reasons.append(f"support {support_key!r} differs from its configured pose")
+                    reasons.append(f"support {support_key!r} differs from its expected pose")
                     continue
                 support_pose = support.final_poses[env_id]
                 quarters = quaternion_to_90_deg_z_quarters(tuple(support_pose[3:].tolist()))

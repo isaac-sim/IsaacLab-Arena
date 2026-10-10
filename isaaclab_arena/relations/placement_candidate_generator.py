@@ -64,7 +64,12 @@ class PlacementCandidateGenerator:
         update_candidate_bounds(batch, env_bboxes)
         collision_bboxes = self.get_clutter_collision_bounds(objects, collision_objects)
         for candidate in batch.candidates:
-            self.initialize_clutter_positions(candidate.positions, candidate.bboxes, collision_bboxes)
+            if generator is not None:
+                # Reuse each candidate's seed without changing position or yaw sampling.
+                generator.manual_seed(
+                    self.params.placement_seed + candidate.env_id * candidates_per_env + candidate.candidate_id
+                )
+            self.initialize_clutter_positions(candidate.positions, candidate.bboxes, collision_bboxes, generator)
         return batch
 
     def generate_positions(
@@ -122,28 +127,29 @@ class PlacementCandidateGenerator:
         positions: dict[PlaceableAsset, tuple[float, float, float]],
         bboxes: dict[PlaceableAsset, AxisAlignedBoundingBox],
         collision_bboxes: list[AxisAlignedBoundingBox],
+        generator: torch.Generator | None = None,
     ) -> None:
-        """Seed each clutter object above supports and neighboring bounds without overlap.
+        """Seed clutter above supports and neighboring bounds in a shuffled order.
 
         Each object sees ordinary objects, fixed BBOX obstacles, and previously seeded clutter.
-        Processing them in asset order prevents two release seeds occupying the same space.
+        The optional generator makes the height order reproducible; otherwise use the global RNG.
         """
-        clutter_objects = {obj for obj in positions if get_relation(obj, ClutterOn) is not None}
-        for obj in positions:
+        clutter_objects = [obj for obj in positions if get_relation(obj, ClutterOn) is not None]
+        pending_clutter = set(clutter_objects)
+        for index in torch.randperm(len(clutter_objects), generator=generator).tolist():
+            obj = clutter_objects[index]
             relation = get_relation(obj, ClutterOn)
-            if relation is None:
-                continue
             support = relation.get_release_region_bbox(bboxes[relation.parent].translated(positions[relation.parent]))
             obstacles = [
                 bboxes[other].translated(position)
                 for other, position in positions.items()
-                if other not in clutter_objects and other is not relation.parent
+                if other not in pending_clutter and other is not relation.parent
             ]
             obstacles.extend(collision_bboxes)
             # A non-overlapping seed selects the release column above the support;
             # the optimizer can otherwise resolve initial collisions by moving objects downward.
             positions[obj] = self._clutter_release_position(relation, positions[obj], bboxes[obj], support, obstacles)
-            clutter_objects.remove(obj)
+            pending_clutter.remove(obj)
 
     def _clutter_release_position(
         self,

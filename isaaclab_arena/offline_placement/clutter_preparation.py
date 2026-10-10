@@ -41,9 +41,12 @@ def prepare_clutter_settling(env: ManagerBasedEnv, assets: list[PlaceableAsset])
     assert not reachability_targets, f"Cannot validate reachability after clutter drops: {reachability_targets}"
 
     placement_assets = [asset for asset in assets if asset.get_relations()]
-    assert all(
-        asset.is_anchor or asset in clutter_assets for asset in placement_assets
-    ), "Offline settling requires non-clutter placement to be resolved to fixed anchors first"
+    for asset in placement_assets:
+        if asset.is_anchor or asset in clutter_assets:
+            continue
+        key = asset.get_scene_key()
+        assert key in env.scene.rigid_objects, f"Solved fixture {key!r} must have a writable rigid root"
+        assert spawned_geometry_is_fixed(env.scene, key), f"Solved fixture {key!r} must be kinematic"
     # Inspect original assets, before solver collision discovery aggregates their geometry.
     passive_assets = discover_passive_assets(assets)
     uncovered = [

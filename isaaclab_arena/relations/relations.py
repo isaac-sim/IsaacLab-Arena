@@ -233,9 +233,10 @@ class On(Relation):
 
 @register_object_relation
 class ClutterOn(On):
-    """An object above a fixed support, with its footprint inside the release region.
+    """An object above its support, with its footprint inside the release region.
 
     The object's bottom must clear the support surface; contact is not required.
+    The support may be an anchor or positioned jointly through its own relations.
     """
 
     name = "clutter_on"
@@ -255,7 +256,7 @@ class ClutterOn(On):
         """Declare a clutter release.
 
         Args:
-            parent: Fixed support carrying IsAnchor.
+            parent: Support fixed with IsAnchor or positioned through its own relations.
             spread: Fraction of support width and depth available for release, centered on the support.
                 For example, 0.2 restricts each axis to its central 20%; settled objects may use the full support.
             clearance_m: Release clearance above the support in metres.
@@ -295,8 +296,9 @@ class ClutterOn(On):
         return bottom >= minimum_bottom
 
     def validate_placement_configuration(self, subject: PlaceableAsset, objects: set[PlaceableAsset]) -> None:
-        """Require a fixed support and preserve validated release poses."""
-        assert self.parent in objects and self.parent.is_anchor, "ClutterOn requires an IsAnchor support"
+        """Require a participating support and preserve validated release poses."""
+        assert self.parent in objects, "ClutterOn support must participate in placement"
+        assert get_relation(self.parent, ClutterOn) is None, "Nested ClutterOn supports are unsupported"
         assert not subject.is_anchor, "ClutterOn cannot be an anchor"
         assert subject.get_spatial_relations() == [self], "ClutterOn must be the object's only spatial relation"
         assert not any(

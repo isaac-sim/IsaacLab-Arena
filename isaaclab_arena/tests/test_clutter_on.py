@@ -133,6 +133,60 @@ def test_generated_clutter_bounds_and_release_height_include_rotation():
     assert NoOverlapValidator(params).validate_batch(batch, []) == [True, True]
 
 
+@pytest.mark.parametrize("placement_seed", [17, None])
+def test_clutter_release_height_order_varies_reproducibly_per_candidate(placement_seed):
+    table = DummyObject(
+        "table",
+        AxisAlignedBoundingBox((-0.5, -0.5, -0.1), (0.5, 0.5, 0)),
+        relations=[IsAnchor()],
+        initial_pose=Pose.identity(),
+    )
+    clutter = [
+        DummyObject(
+            f"cube_{index}",
+            AxisAlignedBoundingBox((-0.05, -0.05, -height), (0.05, 0.05, height)),
+            relations=[ClutterOn(table, spread=0.15, gap_m=0.05, random_yaw=False)],
+        )
+        for index, height in enumerate((0.02, 0.04, 0.06))
+    ]
+    objects = [table, *clutter]
+    bounds = {obj: obj.get_bounding_box() for obj in objects}
+    params = ObjectPlacerParams(placement_seed=placement_seed)
+
+    def generate():
+        generator = torch.Generator() if placement_seed is not None else None
+        return PlacementCandidateGenerator(params).generate_candidates(
+            objects, {table}, [bounds, bounds], 4, generator, []
+        )
+
+    with torch.random.fork_rng(devices=[]):
+        torch.manual_seed(53)
+        rng_state = torch.get_rng_state()
+        batch = generate()
+        if placement_seed is not None:
+            assert torch.equal(torch.get_rng_state(), rng_state)
+        # A placement seed is independent of unrelated global RNG draws.
+        torch.manual_seed(91 if placement_seed is not None else 53)
+        repeated = generate()
+    assert [candidate.positions for candidate in batch.candidates] == [
+        candidate.positions for candidate in repeated.candidates
+    ]
+    orders_per_env = [set(), set()]
+    for candidate in batch.candidates:
+        assert list(candidate.positions) == objects
+        assert candidate.positions[table] == (0, 0, 0)
+        order = sorted(clutter, key=lambda obj: candidate.positions[obj][2])
+        orders_per_env[candidate.env_id].add(tuple(obj.name for obj in order))
+        # The narrow release region forces XY overlap, so clearance requires vertical separation.
+        for lower, upper in zip(order, order[1:]):
+            lower_top = candidate.positions[lower][2] + float(bounds[lower].max_point[0, 2])
+            upper_bottom = candidate.positions[upper][2] + float(bounds[upper].min_point[0, 2])
+            assert upper_bottom - lower_top >= 0.05 - 1e-6
+    assert all(len(orders) > 1 for orders in orders_per_env)
+    assert ClutterOnRelationValidator(params).validate_batch(batch, []) == [True] * len(batch)
+    assert NoOverlapValidator(params).validate_batch(batch, []) == [True] * len(batch)
+
+
 def test_release_validation_rejects_support_penetration_and_clearance_shortfall():
     support = DummyObject("support", AxisAlignedBoundingBox((-1, -1, -0.1), (1, 1, 0)), relations=[IsAnchor()])
     child = DummyObject("child", AxisAlignedBoundingBox((-0.05, -0.05, 0), (0.05, 0.05, 0.1)))

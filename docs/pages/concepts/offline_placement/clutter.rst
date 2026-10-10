@@ -3,8 +3,8 @@
 Clutter Layouts
 ===============
 
-Use ``ClutterOn`` to release objects above a fixed support, let physics settle
-them, and save accepted layouts for later resets. The same
+Use ``ClutterOn`` to release objects above a support, let physics settle them,
+and save accepted layouts for later resets. The same
 :doc:`recorder <recording>` handles ordinary placement relations and clutter.
 
 How ClutterOn Recording Differs from Other Relations
@@ -15,9 +15,9 @@ recording checks require objects to settle close to those solved poses.
 ``ClutterOn`` instead describes a release region: its objects are expected to
 fall and rotate before reaching their resting poses.
 
-Clutter recording adds a scene preflight for fixed supports, dynamic clutter
-and gravity. Release layouts must pass ``no_overlap`` and
-``clutter_on_relation``. After physics, ``pose_shift`` excludes clutter roots,
+Clutter recording checks that supports stay fixed during physics and that
+clutter is dynamic with gravity enabled. Release layouts must pass
+``no_overlap`` and ``clutter_on_relation``. After physics, ``pose_shift`` excludes clutter roots,
 while ``support_containment`` checks their final footprint and minimum height.
 Root velocity checks still apply to clutter and other recorded roots.
 
@@ -192,7 +192,10 @@ The second maintained scene releases three cubes into a fixed YCB bowl:
    During bowl setup, PhysX may report ``kinematic bodies with CCD enabled are
    not supported! CCD will be ignored.`` The fixed bowl asset enables continuous
    collision detection (CCD), which PhysX ignores for that kinematic body. This
-   message does not disable CCD on the falling cubes.
+   message does not disable CCD on the falling cubes. Resets can also log
+   ``Body must be non-kinematic!``: the shared reset path writes zero root
+   velocities, which PhysX rejects for the kinematic bowl. Its pose reset still
+   applies; use the recorded checks to assess acceptance.
 
 Here ``bowl`` is the support's runtime scene key. ``-0.025`` is a minimum
 resting height in the scaled bowl-local frame, before adding its world position.
@@ -227,6 +230,73 @@ recording, then open the viewer:
        --placement_layouts outputs/clutter/three_cubes_in_bowl.jsonl \
        --num_envs 1 --device cpu --viz kit
 
+.. _movable-bowl-clutter:
+
+Record Clutter on a Movable Bowl
+--------------------------------
+
+The bowl uses ``On(table)`` and the cubes use :ref:`ClutterOn(bowl)
+<clutter-on-relation>`. Arena solves the bowl and cube positions together. The
+YAML bounds the bowl's X and Y positions to [-0.2, 0.2] metres. The bowl is
+kinematic: its position can vary between layouts, but physics must not move it
+during settling.
+
+Record four accepted layouts:
+
+.. code-block:: bash
+
+   python isaaclab_arena/scripts/record_placement_layouts.py \
+       env_spec=isaaclab_arena_environments/clutter/franka_movable_bowl_clutter_no_task.yaml \
+       output=outputs/clutter/movable_bowl.jsonl \
+       num_envs=2 min_layouts=4 layouts_per_env=2 max_batches=8 seed=42 \
+       settle.num_steps=480 \
+       +settle.validators.support_containment.minimum_resting_heights_m.bowl=-0.025 \
+       presets=physx render=false --device cpu --viz none
+
+The minimum resting height has the same bowl-local meaning as in the fixed-bowl
+example above. The command stops at four accepted layouts or eight batches;
+partial output and zero acceptance follow :ref:`recording-and-replay-notes`.
+
+.. list-table:: Expected behavior
+   :header-rows: 1
+   :widths: 20 80
+
+   * - Step
+     - What to check
+   * - Recording
+     - A completed target writes four JSONL rows and reports
+       ``Saved 4/<attempted> accepted layouts``. Bowl positions vary across
+       rows, each saved together with its three cubes. Exact poses
+       and the number of attempts can vary.
+   * - Settling
+     - ``pose_shift`` and ``support_containment`` pass for every saved row.
+       The latter also checks that the bowl matches its solved pose before and
+       after physics; clutter cubes are allowed to fall and rotate.
+   * - Replay
+     - Reset restores the bowl and cubes from the same row, without solving new
+       bowl positions. Compare poses immediately after reset; physics continues
+       afterward.
+
+Open the first recorded layout in the viewer:
+
+.. code-block:: bash
+
+   python isaaclab_arena/scripts/environment_runner.py \
+       --env_spec isaaclab_arena_environments/clutter/franka_movable_bowl_clutter_no_task.yaml \
+       --placement_layouts outputs/clutter/movable_bowl.jsonl \
+       --num_envs 1 --device cpu --viz kit
+
+As in the other ``NoTask`` examples, this viewer does not trigger further
+resets. The automated test below targets four layouts from this YAML and requires
+two to four accepted layouts with at least two distinct bowl positions. It
+compares the bowl's solved, pre-physics and post-physics poses, then verifies
+every recorded root pose immediately after replay reset:
+
+.. code-block:: bash
+
+   python -m pytest -q isaaclab_arena/tests/clutter/test_clutter_collection.py \
+       -k movable_bowl_recording_and_replay
+
 .. _clutter-adapt-environment:
 
 Adapt Your Own Environment
@@ -241,11 +311,12 @@ not a substitute for a factory that also applies these settings.
 
 The supplied scenes meet these requirements. When adapting another scene:
 
-* Use fixed ``IsAnchor`` supports with static or kinematic collision geometry.
-  Supports must be upright, with only quarter-turn rotations about world Z.
+* Use fixed ``IsAnchor`` supports, or position kinematic rigid supports through
+  their own relations. Supports must have static or kinematic collision geometry
+  and upright quarter-turn rotations about world Z.
 * Use dynamic rigid objects with gravity enabled for clutter. Each has one
   ``ClutterOn`` spatial relation to its support.
-* Resolve non-clutter placement relations to fixed anchors before collection.
+* Use fixed anchors or solved kinematic rigid bodies for non-clutter objects.
   Object sets and reachability requirements on clutter objects are unsupported.
 * Keep recorded roots compatible with pose resets. Joint states and other
   randomized properties are not saved.

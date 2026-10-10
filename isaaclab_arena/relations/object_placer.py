@@ -18,6 +18,7 @@ from isaaclab_arena.relations.collision_mode import object_uses_mesh_collision
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_candidate_batch import PlacementCandidateBatch
 from isaaclab_arena.relations.placement_candidate_generator import PlacementCandidateGenerator
+from isaaclab_arena.relations.placement_events import get_rotation_xyzw
 from isaaclab_arena.relations.placement_result import PlacementResult
 from isaaclab_arena.relations.placement_validation_runner import PlacementValidationRunner
 from isaaclab_arena.relations.placement_visualizer import get_or_create_placement_visualizer
@@ -31,6 +32,7 @@ from isaaclab_arena.relations.relations import (
     get_relation,
 )
 from isaaclab_arena.relations.validation.pre_physics import build_validators
+from isaaclab_arena.utils.bounding_box import quaternion_to_90_deg_z_quarters
 from isaaclab_arena.utils.pose import Pose, PosePerEnv
 from isaaclab_arena.utils.yaw import rotate_quat_by_yaw, yaw_from_quat_xyzw, yaw_toward_positions
 
@@ -169,8 +171,20 @@ class ObjectPlacer:
             )
             for relation in obj.get_relations():
                 relation.validate_placement_configuration(obj, object_set)
+            clutter = get_relation(obj, ClutterOn)
+            if clutter is not None and not clutter.parent.is_anchor:
+                support = clutter.parent
+                assert not self.params.random_yaw_init and get_relation(support, FaceTo) is None, (
+                    f"ClutterOn support '{support.name}' requires a fixed quarter-turn rotation; "
+                    "disable random_yaw_init and FaceTo"
+                )
+                assert (
+                    get_relation(support, RandomAroundSolution) is None
+                ), f"ClutterOn support '{support.name}' cannot randomize after placement validation"
+                # Validate that the release region stays axis-aligned; the quarter count is unused.
+                quaternion_to_90_deg_z_quarters(get_rotation_xyzw(support))
             marker = get_relation(obj, RotateAroundSolution)
-            if get_relation(obj, ClutterOn) is not None and marker is not None:
+            if clutter is not None and marker is not None:
                 # Mesh loss and validation use yaw only; tilted release bounds would disagree.
                 has_tilt = marker.roll_rad != 0.0 or marker.pitch_rad != 0.0
                 assert not (has_tilt and object_uses_mesh_collision(obj, self.params.solver_params.collision_mode)), (
