@@ -82,11 +82,9 @@ Most environments can be described with a small set of relations:
    bounding box. For L-shaped, hollow, or concave supports, anchor an
    ``ObjectReference`` that identifies the valid support surface.
 
-   During initial sampling, the default initializer follows the object's ``On``
-   chain and uses the nearest ``IsAnchor`` ancestor's bounds as a proxy. If the
-   chain has no anchor or loops, it falls back to the first anchor collected by
-   ``ObjectPlacer``. This affects only the starting pose; final solving and
-   validation use each relation's actual parent.
+   The default ``ON_TREE`` initializer samples parents before their children,
+   using each parent's sampled pose and bounds. This sets the starting poses;
+   the solver then optimizes the complete layout jointly.
 
 .. _clutter-on-relation:
 
@@ -100,6 +98,12 @@ Most environments can be described with a small set of relations:
    ``ObjectPlacer`` initializes clutter inside a central release region and
    above overlapping footprints. The release region follows the support as
    the solver moves it.
+
+   Clutter footprints may overlap in XY during initialization; overlapping
+   objects start at separated heights. The height-processing order is shuffled
+   per candidate, so asset order does not always put the same object underneath
+   the others. Setting ``placement_seed`` makes this order reproducible with the
+   same placement configuration.
 
    .. list-table::
       :header-rows: 1
@@ -129,6 +133,26 @@ Most environments can be described with a small set of relations:
         - Sample world-Z yaw in addition to ``RotateAroundSolution``. This setting
           controls clutter independently of ``ObjectPlacerParams.random_yaw_init``.
 
+   The relation cost penalizes footprint overflow and insufficient release
+   height. Let :math:`C` be the child's bounding box at its candidate pose and
+   :math:`R` the support's central ``spread`` region, inset in XY by
+   ``edge_margin_m``. Both use world-aligned bounds; :math:`R_{\max,z}` is the
+   support top. With :math:`[v]_+ = \max(v, 0)`:
+
+   .. math::
+
+      L_{xy} = \sum_{a \in \{x,y\}}
+          \left([R_{\min,a} - C_{\min,a}]_+
+          + [C_{\max,a} - R_{\max,a}]_+\right)
+
+      L_z = [R_{\max,z} + h - C_{\min,z}]_+
+
+      L_{\mathrm{ClutterOn}} = w\,s\,(L_{xy} + L_z)
+
+   Here :math:`h` is ``clearance_m``, :math:`w` is ``relation_loss_weight``,
+   and :math:`s` is the ``ClutterOnLossStrategy`` slope. Collision losses are
+   evaluated separately.
+
    ``ClutterOn`` must be the object's only spatial relation and cannot use
    ``RandomAroundSolution``. ``RotateAroundSolution`` sets its base rotation;
    random yaw preserves that rotation's tilt. Both ``bbox`` and ``mesh`` collision
@@ -149,6 +173,11 @@ Most environments can be described with a small set of relations:
    or ``RandomAroundSolution`` on the support. Other objects retain their ordinary
    relation constraints.
 
+   This yaw restriction comes from the world-aligned support bounds. At other
+   angles, an enclosing AABB includes space outside the rotated support.
+   Supporting arbitrary yaw requires consistent support-frame footprint checks
+   in initialization, optimization and validation.
+
    Each candidate contains the complete layout. The standard
    :doc:`validation <validation>` and :doc:`pooling <pooled_placement>` rules apply;
    a low solver loss alone does not guarantee a valid release.
@@ -158,6 +187,8 @@ Most environments can be described with a small set of relations:
    :ref:`post-physics checks <recording-post-physics-checks>` for the complete
    candidate. Settled objects may use the full support footprint, beyond the
    smaller release region. Release validation alone does not certify the final pile.
+   Collision checks at the release pose do not check the swept volume during
+   falling; clutter may hit other objects before reaching its support.
    For pooled placement, disable ``ObjectPlacerParams.allow_best_loss_fallbacks``
    to reject invalid layouts. Direct ``ObjectPlacer.place()`` callers must check
    each result's ``success`` before using it.

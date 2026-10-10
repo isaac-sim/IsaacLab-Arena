@@ -188,7 +188,7 @@ def test_clutter_collision_can_move_its_support(monkeypatch):
         initial_pose=Pose.identity(),
     )
 
-    def seed_collision(self, positions, bboxes, collision_bboxes):
+    def seed_collision(self, positions, bboxes, collision_bboxes, generator=None):
         # Exercise optimization from an overlapping release, without the usual upward seed escape.
         positions[tray] = (0, 0, 0)
         positions[clutter] = (0, 0, 0.2)
