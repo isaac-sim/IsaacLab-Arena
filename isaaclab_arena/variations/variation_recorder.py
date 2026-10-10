@@ -69,6 +69,10 @@ class VariationRecord:
             return self._samples_by_env_episode[key]
         return self._build_time_sample
 
+    def release_episode(self, env_id: int, episode_idx: int) -> None:
+        """Release the run-time sample retained for a finished episode."""
+        self._samples_by_env_episode.pop(EnvEpisodeKey(env_id, episode_idx), None)
+
 
 class VariationRecorder:
     """Records samples drawn by attached variations."""
@@ -91,6 +95,13 @@ class VariationRecorder:
     def __contains__(self, key: str) -> bool:
         """Whether a record is stored under "{asset_name}.{variation_name}"."""
         return key in self.records
+
+    def release_episode(self, env_id: int, episode_idx: int) -> None:
+        """Release all run-time variation and placement samples for a finished episode."""
+        for record in self.records.values():
+            record.release_episode(env_id, episode_idx)
+        if self.placement_record is not None:
+            self.placement_record.release_episode(env_id, episode_idx)
 
     def attach(self, variations: dict[str, list[VariationBase]]) -> None:
         """Attach every enabled variation in ``variations`` under "{asset_name}.{variation_name}"."""

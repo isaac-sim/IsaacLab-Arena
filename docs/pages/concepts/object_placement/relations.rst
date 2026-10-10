@@ -293,6 +293,9 @@ Every nonblank line must contain the placement block with the same object set.
 Additional episode fields may contain ordinary recorded variations. Placement
 and variation rows share one episode scheduler, preserving line-by-line
 alignment even when replay uses a different number of parallel environments.
+Episode recording omits the placement block when any placement asset is a
+``RigidObjectSet``, because the pose alone does not preserve the selected
+member identity. Ordinary variation samples are still recorded.
 
 ``write_placement_samples(path, samples)`` writes the same format. The writer
 does not solve or simulate the poses.

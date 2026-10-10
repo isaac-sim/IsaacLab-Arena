@@ -75,7 +75,6 @@ def solve_and_apply_relation_placement(
     else:
         placer_params = copy.copy(placer_params)
     if recorded_samples is not None:
-        assert placer_params.resolve_on_reset, "Recorded placement replay requires resolve_on_reset=True"
         assert replay_sampler is not None, "Recorded placement replay requires an episode scheduler"
         sampler = PlacementSampler(
             assets=assets,

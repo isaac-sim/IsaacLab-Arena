@@ -195,6 +195,9 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
             # Record the JSONL result with the finishing episode's index
             # before starting any replacements.
             self.episode_recorder_manager.record_pre_reset(finishing_env_ids)
+            if self._variation_recorder is not None:
+                for env_id in finishing_env_ids.tolist():
+                    self._variation_recorder.release_episode(env_id, self.get_episode_index(env_id))
             if self._variation_replay_scheduler is not None:
                 self._variation_replay_scheduler.complete_episodes(finishing_env_ids.tolist())
             self._completed_episode_count += len(finishing_env_ids)
