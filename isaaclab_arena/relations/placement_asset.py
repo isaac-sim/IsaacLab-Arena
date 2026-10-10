@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING
 
 from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.relations.collision_mode import CollisionMode
-from isaaclab_arena.relations.placement_events import write_scene_poses_to_sim
+from isaaclab_arena.relations.placement_poses import write_scene_poses_to_sim
 from isaaclab_arena.relations.relations import IsAnchor, Relation, RelationBase, RequiresReachability, UnaryRelation
 from isaaclab_arena.utils.bounding_box import quaternion_to_90_deg_z_quarters
 from isaaclab_arena.utils.pose import Pose, PosePerEnv, PoseRange
@@ -146,14 +146,15 @@ class PlaceableAsset(Asset, ABC):
         """
         return [(self.get_scene_key(), layout_pose)]
 
-    def write_layout_pose_to_sim(self, env: ManagerBasedEnv, env_id: int, layout_pose: Pose) -> None:
-        """Write a solved environment-local pose to this asset's runtime scene entries."""
-        env_ids = torch.tensor([env_id], device=env.device)
-        scene_poses = {
-            name: pose.to_tensor(device=env.device).unsqueeze(0)
-            for name, pose in self.layout_pose_to_scene_writes(layout_pose)
-        }
-        write_scene_poses_to_sim(env, env_ids, scene_poses)
+    def write_scene_root_poses_to_sim(
+        self,
+        env: ManagerBasedEnv,
+        env_ids: torch.Tensor,
+        poses: dict[str, torch.Tensor],
+    ) -> None:
+        """Write batched environment-local poses for this asset's scene roots."""
+        assert set(poses) == set(self.get_scene_root_keys()), "Every owned scene root requires a pose"
+        write_scene_poses_to_sim(env, env_ids, poses)
 
     def has_pose_reset_event(self) -> bool:
         """Return whether the asset owns a root-pose reset event."""

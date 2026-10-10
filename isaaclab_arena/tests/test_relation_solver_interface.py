@@ -85,7 +85,7 @@ def test_solve_and_apply_relation_placement_rejects_scene_name_collision():
         bounding_box=AxisAlignedBoundingBox(min_point=(-0.2, -0.2, 0.0), max_point=(0.2, 0.2, 1.0)),
     )
 
-    with pytest.raises(AssertionError, match="duplicate scene keys"):
+    with pytest.raises(AssertionError, match="multiple asset owners"):
         solve_and_apply_relation_placement([_make_box("robot"), embodiment], num_envs=1)
 
 
@@ -120,30 +120,32 @@ def test_static_solve_and_apply_relation_placement_reuses_object_only_placement(
         placer_params=params,
     )
 
-    assert placement_event_cfg is None
+    assert placement_event_cfg is not None
 
     initial_pose = box.get_initial_pose()
     assert isinstance(initial_pose, PosePerEnv)
     assert len(initial_pose.poses) == 2
+    assert not box.has_pose_reset_event()
 
 
-def test_dynamic_spawn_pose_rejects_layout_missing_non_anchor():
-    from isaaclab_arena.environments.relation_solver_interface import _apply_dynamic_spawn_pose
+def test_construction_pose_rejects_layout_missing_non_anchor():
+    from isaaclab_arena.environments.relation_solver_interface import _seed_spawn_config_from_layouts
 
     desk = _make_desk()
     box = _make_box()
-    placement_pool = _FakePlacementPool([_fallback_layout(positions={})])
 
     with pytest.raises(AssertionError, match="missing non-anchor asset 'box'"):
-        _apply_dynamic_spawn_pose(
+        _seed_spawn_config_from_layouts(
             assets=[desk, box],
-            placement_pool=placement_pool,
             anchor_assets={desk},
+            layouts=[_fallback_layout(positions={})],
         )
 
 
-def test_dynamic_spawn_pose_event_params_use_runtime_assets():
-    from isaaclab_arena.environments.relation_solver_interface import _apply_dynamic_spawn_pose
+def test_placement_event_params_use_runtime_assets():
+    from isaaclab_arena.environments.relation_solver_interface import _apply_relation_placement_result
+    from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+    from isaaclab_arena.utils.pose import Pose, PosePerEnv
 
     desk = _make_desk()
     box = _make_box()
@@ -152,10 +154,11 @@ def test_dynamic_spawn_pose_event_params_use_runtime_assets():
         objects=[desk, box],
     )
 
-    event_cfg = _apply_dynamic_spawn_pose(
+    event_cfg = _apply_relation_placement_result(
         assets=[desk, box],
+        placer_params=ObjectPlacerParams(resolve_on_reset=True),
         placement_pool=placement_pool,
-        anchor_assets={desk},
+        num_envs=3,
     )
 
     assert "placement_pool" in event_cfg.params
@@ -166,6 +169,12 @@ def test_dynamic_spawn_pose_event_params_use_runtime_assets():
         "desk",
         "box",
     ]
+    assert desk.get_initial_pose() == Pose(position_xyz=(0.0, 0.0, 0.0))
+    initial_pose = box.get_initial_pose()
+    assert isinstance(initial_pose, PosePerEnv)
+    assert len(initial_pose.poses) == 3
+    assert all(pose.position_xyz == (0.1, 0.2, 0.3) for pose in initial_pose.poses)
+    assert not box.has_pose_reset_event()
 
 
 def test_dynamic_spawn_pose_event_cfg_deepcopy_after_mesh_solve():
@@ -229,8 +238,7 @@ def test_static_embodiment_placement_stores_per_env_poses():
         num_envs=2,
     )
 
-    # Embodiments now store their solved pose per env like objects, so no coordinated reset event.
-    assert event_cfg is None
+    assert event_cfg is not None
     initial_pose = robot.get_initial_pose()
     assert isinstance(initial_pose, PosePerEnv)
     assert initial_pose.poses[0].position_xyz == (0.1, 0.2, 0.0)
@@ -238,22 +246,21 @@ def test_static_embodiment_placement_stores_per_env_poses():
 
 
 def test_static_initial_poses_reject_layout_missing_non_anchor():
-    from isaaclab_arena.environments.relation_solver_interface import _apply_static_initial_poses
+    from isaaclab_arena.environments.relation_solver_interface import _seed_spawn_config_from_layouts
 
     desk = _make_desk()
     missing_box = _make_box("missing_box")
     placed_box = _make_box("placed_box")
-    placement_pool = _FakePlacementPool([
+    layouts = [
         _fallback_layout(positions={placed_box: (0.1, 0.0, 0.2)}),
         _fallback_layout(positions={placed_box: (0.2, 0.0, 0.2)}),
-    ])
+    ]
 
     with pytest.raises(AssertionError, match="missing non-anchor asset 'missing_box'"):
-        _apply_static_initial_poses(
+        _seed_spawn_config_from_layouts(
             assets=[desk, missing_box, placed_box],
-            placement_pool=placement_pool,
             anchor_assets={desk},
-            num_envs=2,
+            layouts=layouts,
         )
 
 

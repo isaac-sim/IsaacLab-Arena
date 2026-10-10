@@ -53,6 +53,34 @@ def test_loader_splits_build_time_and_runtime(tmp_path: Path) -> None:
     validate_recorded_variation_sample_keys(samples, {"light.hdr_image", "pick_object.mass"})
 
 
+def test_loader_keeps_placement_outside_variations(tmp_path: Path) -> None:
+    placements = [{"layout_id": f"layout_{index}", "source": "test", "poses": {"cube": {}}} for index in range(2)]
+    loaded = load_rebuild_variation_record(
+        _write_jsonl(
+            tmp_path,
+            [
+                {"placement": placement, "variations": {"obj.mass": [index]}}
+                for index, placement in enumerate(placements)
+            ],
+        ),
+        build_time_variation_keys=set(),
+    )
+
+    assert loaded.has_placement_samples
+    assert [record.placement_sample for record in loaded.episode_records] == placements
+    assert [record.runtime_samples for record in loaded.episode_records] == [
+        {"obj.mass": [0]},
+        {"obj.mass": [1]},
+    ]
+
+
+def test_loader_rejects_placement_missing_from_some_rows(tmp_path: Path) -> None:
+    path = _write_jsonl(tmp_path, [{"placement": {}}, {"variations": {}}])
+
+    with pytest.raises(AssertionError, match="present in every"):
+        load_rebuild_variation_record(path, build_time_variation_keys=set())
+
+
 @pytest.mark.parametrize("num_records", [1, 2])
 def test_runtime_values_are_not_inferred_as_build_time(tmp_path: Path, num_records: int) -> None:
     loaded = load_rebuild_variation_record(
@@ -188,6 +216,27 @@ def test_variation_replay_scheduler_cycles_globally_across_partial_resets() -> N
 
     assert observed_values == [0, 1, 2, 0, 1, 2, 0, 1]
     assert scheduler.num_assignments_started == 8
+
+
+def test_replay_scheduler_aligns_placement_with_variations() -> None:
+    record = RebuildVariationRecord(
+        build_time_samples={},
+        episode_records=[
+            EpisodeVariationRecord(
+                runtime_samples={"obj.mass": [index]},
+                placement_sample={"layout_id": f"layout_{index}"},
+            )
+            for index in range(3)
+        ],
+    )
+    scheduler = VariationReplayScheduler(record)
+    scheduler.assign_new_episodes([4, 1])
+
+    assert scheduler.runtime_sample_for("obj.mass", [1, 4]) == [[1], [0]]
+    assert [scheduler.record_for_env(env_id).placement_sample for env_id in [1, 4]] == [
+        {"layout_id": "layout_1"},
+        {"layout_id": "layout_0"},
+    ]
 
 
 def test_variation_replay_replays_present_variation_and_samples_absent_live() -> None:

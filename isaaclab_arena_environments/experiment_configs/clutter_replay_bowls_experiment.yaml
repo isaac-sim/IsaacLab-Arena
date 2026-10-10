@@ -4,14 +4,14 @@
 # SPDX-License-Identifier: Apache-2.0
 
 runs:
-  clamp_replay:
+  bowl_clutter_replay:
     environment:
-      type: isaaclab_arena_environments/robolab/tasks/clamp_in_right_bin.yaml
+      type: isaaclab_arena_environments/clutter/franka_three_cubes_in_bowl_no_task.yaml
     environment_builder:
       num_envs: 1
       presets: PHYSX
-      recorded_variation_samples_path: outputs/placements/clamp.jsonl
+      recorded_variation_samples_path: outputs/clutter/three_cubes_in_bowl.jsonl
     policy:
       type: zero_action
     rollout_limit:
-      num_episodes: 3
+      num_episodes: 1

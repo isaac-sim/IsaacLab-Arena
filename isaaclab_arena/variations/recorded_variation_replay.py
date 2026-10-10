@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.variations.recorded_variation_samples import (
@@ -24,13 +25,13 @@ if TYPE_CHECKING:
 
 
 def configure_recorded_variation_replay(
-    path: str,
+    source: str | Path,
     variations: dict[str, list[VariationBase]],
 ) -> VariationReplayScheduler:
-    """Load recorded variation samples, bind replay samplers, and return their scheduler.
+    """Bind recorded variation samples and return their shared episode scheduler.
 
     Args:
-        path: Episode-result JSONL to replay.
+        source: Episode-result JSONL containing recorded samples.
         variations: Variations available in the environment.
 
     Returns:
@@ -38,7 +39,7 @@ def configure_recorded_variation_replay(
     """
     enabled = _enabled_variations_by_key(variations)
     variation_record = load_rebuild_variation_record(
-        path,
+        source,
         build_time_variation_keys={
             key for key, variation in enabled.items() if isinstance(variation, BuildTimeVariationBase)
         },

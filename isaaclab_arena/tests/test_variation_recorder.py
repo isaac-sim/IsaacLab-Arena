@@ -106,6 +106,8 @@ def test_recorder_records_build_time_sample_for_every_episode():
     assert value.device.type == "cpu"
     # A build-time draw applies to every env and episode, not just (0, 0).
     assert record.sample_for_episode(7, 3).tolist() == value.tolist()
+    recorder.release_episode(7, 3)
+    assert record.sample_for_episode(7, 3).tolist() == value.tolist()
 
 
 def test_variation_record_tracks_per_env_episode_values():
@@ -128,6 +130,9 @@ def test_variation_record_tracks_per_env_episode_values():
     # Each (env, episode) is expected to be drawn for at most once.
     with pytest.raises(AssertionError):
         record.record_runtime_sample(torch.tensor([[3.0]]), env_ids=[2], episode_indices=[0])
+    record.release_episode(2, 0)
+    assert record.sample_for_episode(2, 0) is None
+    assert record.sample_for_episode(5, 0).tolist() == [2.0]
 
 
 class _FakeEnv:
@@ -160,8 +165,35 @@ def test_record_variation_samples_emits_the_per_episode_draw():
     # The single (1,)-shaped draw is recorded as a flat list, not a list of draws.
     assert isinstance(sample, list) and len(sample) == 1
 
+    recorder.release_episode(env_id=0, episode_idx=0)
+    assert recorder["asset.recorder_test"].sample_for_episode(0, 0) is None
+
     # A different env in the same episode has nothing recorded, so no variations field is emitted.
     assert record_variation_samples(env, env_id=1) == {}
+
+
+def test_record_placement_sample_uses_sampler_listener_without_variation():
+    """Placement shares episode attribution but is emitted outside ``variations``."""
+    from isaaclab_arena.recording.common_terms import record_placement_sample
+
+    variation = _RecorderTestVariation()
+    recorder = VariationRecorder()
+    recorder.attach_placement_sampler(
+        variation.sampler,
+        serializer=lambda sample: [{"pose": row.tolist()} for row in sample],
+    )
+    env = _FakeEnv(recorder, episode_index=2)
+    recorder.bind_env(env)
+
+    variation.sampler.sample(num_samples=1, env_ids=torch.tensor([3]))
+
+    fields = record_placement_sample(env, env_id=3)
+    assert fields.keys() == {"placement"}
+    assert fields["placement"].keys() == {"pose"}
+    assert len(fields["placement"]["pose"]) == 1
+    recorder.release_episode(env_id=3, episode_idx=2)
+    assert recorder.placement_record is not None
+    assert recorder.placement_record.sample_for_episode(3, 2) is None
 
 
 def test_recorder_skips_disabled_variations():

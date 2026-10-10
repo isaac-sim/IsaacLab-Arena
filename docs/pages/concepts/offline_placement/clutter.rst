@@ -108,14 +108,14 @@ Inspect the recorded root names and validation reports:
    path = Path("outputs/clutter/tools_on_table.jsonl")
    records = [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
    assert len(records) == 1, f"Expected one layout, got {len(records)}"
-   placement = records[0]["variations"]["scene.relation_placement"]
-   print("Source:", placement["source"])
+   placement = records[0]["placement"]
+   print("Layout:", placement["layout_id"])
    print("Roots:", sorted(placement["poses"]))
    print(json.dumps(placement["validation"], indent=2))
    PYTHON
 
-``source``, ``poses``, and ``validation`` all belong to the
-``scene.relation_placement`` variation. An enabled, applicable post-physics check
+``layout_id``, ``poses``, and ``validation`` all belong to the top-level
+``placement`` record. An enabled, applicable post-physics check
 must have ``passed: true``. ``passed: null`` denotes a skipped check with a reason.
 
 For larger targets, exhausting the batch budget can produce a **partial file**.
@@ -132,15 +132,15 @@ Load the same scene and the file just recorded:
 
 .. code-block:: bash
 
-   python isaaclab_arena/scripts/environment_runner.py \
-       --env_spec isaaclab_arena_environments/clutter/franka_three_hammers_and_clamp_no_task.yaml \
-       --placement_layouts outputs/clutter/tools_on_table.jsonl \
-       --num_envs 1 --device cpu --viz kit
+   python isaaclab_arena/evaluation/experiment_runner.py \
+       --experiment_config isaaclab_arena_environments/experiment_configs/clutter_replay_tools_experiment.yaml \
+       --device cpu --viz kit \
+       --output_base_dir outputs/clutter/tools_replay
 
-The viewer starts with the recorded arrangement. These examples use ``NoTask``:
-they load the first layout and do not trigger episode resets. Close the viewer
-or press Ctrl-C to exit. Physics continues after reset. Keep the same backend,
-asset geometry and joint-reset configuration when replaying the recording.
+The viewer starts with the recorded arrangement. These examples use a short
+finite timeout so the experiment records one completed episode and exits.
+Keep the same backend, asset geometry and joint-reset configuration when
+replaying the recording.
 
 For policy evaluation, configure the same scene in an Experiment and pass this
 file as its placement layouts. Follow the :ref:`evaluation replay instructions
@@ -222,10 +222,10 @@ recording, then open the viewer:
 
 .. code-block:: bash
 
-   python isaaclab_arena/scripts/environment_runner.py \
-       --env_spec isaaclab_arena_environments/clutter/franka_three_cubes_in_bowl_no_task.yaml \
-       --placement_layouts outputs/clutter/three_cubes_in_bowl.jsonl \
-       --num_envs 1 --device cpu --viz kit
+   python isaaclab_arena/evaluation/experiment_runner.py \
+       --experiment_config isaaclab_arena_environments/experiment_configs/clutter_replay_bowls_experiment.yaml \
+       --device cpu --viz kit \
+       --output_base_dir outputs/clutter/bowls_replay
 
 .. _clutter-adapt-environment:
 

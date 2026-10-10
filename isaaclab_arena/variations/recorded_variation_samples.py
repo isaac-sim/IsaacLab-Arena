@@ -19,10 +19,13 @@ from isaaclab_arena.recording.episode_results import read_episode_records
 
 @dataclass(frozen=True)
 class EpisodeVariationRecord:
-    """Record containing samples for a set of variations in one episode."""
+    """Recorded samples assigned together to one episode."""
 
     runtime_samples: dict[str, Any]
     """Recorded run-time samples keyed by ``host.variation``."""
+
+    placement_sample: dict[str, Any] | None = None
+    """Recorded relation placement, kept separate from variations."""
 
 
 @dataclass
@@ -39,6 +42,11 @@ class RebuildVariationRecord:
     def num_recorded_episodes(self) -> int:
         """Return the number of episode variation records."""
         return len(self.episode_records)
+
+    @property
+    def has_placement_samples(self) -> bool:
+        """Whether every episode contains a recorded placement."""
+        return bool(self.episode_records) and self.episode_records[0].placement_sample is not None
 
 
 def load_rebuild_variation_record(
@@ -61,10 +69,21 @@ def load_rebuild_variation_record(
     build_time_samples: dict[str, Any] = {}
     build_time_counts = dict.fromkeys(build_time_variation_keys, 0)
     samples_per_record: list[dict[str, Any]] = []
+    placement_samples: list[dict[str, Any] | None] = []
     for record in read_episode_records(path):
         record_samples = record.get("variations", {})
         assert isinstance(record_samples, dict), "variations must be a mapping when present"
+        legacy_placement = record_samples.pop("scene.relation_placement", None)
         samples_per_record.append(record_samples)
+        placement_sample = record.get("placement")
+        assert (
+            placement_sample is None or legacy_placement is None
+        ), "Placement must not appear both at top level and under variations"
+        placement_sample = placement_sample if placement_sample is not None else legacy_placement
+        assert placement_sample is None or isinstance(
+            placement_sample, dict
+        ), "placement must be a mapping when present"
+        placement_samples.append(placement_sample)
         for key, value in record_samples.items():
             if key not in build_time_variation_keys:
                 continue
@@ -75,6 +94,10 @@ def load_rebuild_variation_record(
             build_time_counts[key] += 1
 
     assert samples_per_record, f"No episode records found in {path}"
+    placement_presence = [sample is not None for sample in placement_samples]
+    assert not any(placement_presence) or all(
+        placement_presence
+    ), "Recorded placement must be present in every episode record or none"
     for key in sorted(build_time_variation_keys):
         count = build_time_counts[key]
         assert count == 0 or count == len(
@@ -82,10 +105,15 @@ def load_rebuild_variation_record(
         ), f"Build-time variation {key!r} is missing from some episode records"
 
     episode_records: list[EpisodeVariationRecord] = []
-    for record_samples in samples_per_record:
+    for record_samples, placement_sample in zip(samples_per_record, placement_samples):
         for key in build_time_samples:
             del record_samples[key]
-        episode_records.append(EpisodeVariationRecord(runtime_samples=record_samples))
+        episode_records.append(
+            EpisodeVariationRecord(
+                runtime_samples=record_samples,
+                placement_sample=placement_sample,
+            )
+        )
     return RebuildVariationRecord(
         build_time_samples=build_time_samples,
         episode_records=episode_records,

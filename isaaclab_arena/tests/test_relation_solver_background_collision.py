@@ -684,6 +684,7 @@ def test_arena_env_builder_forwards_background_collisions_by_default(monkeypatch
         placer_params,
         collision_objects=None,
         scene_assets=None,
+        **kwargs,
     ):
         calls["objects"] = objects
         calls["num_envs"] = num_envs
@@ -694,10 +695,16 @@ def test_arena_env_builder_forwards_background_collisions_by_default(monkeypatch
 
     monkeypatch.setattr(builder_module, "solve_and_apply_relation_placement", fake_solve_and_apply_relation_placement)
     placer_params = ObjectPlacerParams(solver_params=RelationSolverParams(collision_mode=CollisionMode.MESH))
-    arena_env = SimpleNamespace(scene=Scene(), placer_params=placer_params, embodiment=None, task=None)
+    arena_env = SimpleNamespace(
+        scene=Scene(),
+        placer_params=placer_params,
+        embodiment=None,
+        task=None,
+        get_placement_assets=lambda: objects_with_relations,
+    )
     builder = ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg(num_envs=2))
 
-    builder._solve_relations()
+    builder._prepare_relation_placement(None, None)
 
     assert calls["objects"] == objects_with_relations
     assert calls["num_envs"] == 2
@@ -729,16 +736,23 @@ def test_arena_env_builder_forwards_empty_relation_graph(monkeypatch):
         placer_params,
         collision_objects=None,
         scene_assets=None,
+        **kwargs,
     ):
         calls["objects"] = objects
         calls["scene_assets"] = list(scene_assets)
         calls["collision_objects"] = collision_objects
 
     monkeypatch.setattr(builder_module, "solve_and_apply_relation_placement", fake_solve_and_apply_relation_placement)
-    arena_env = SimpleNamespace(scene=Scene(), placer_params=None, embodiment=None, task=None)
+    arena_env = SimpleNamespace(
+        scene=Scene(),
+        placer_params=None,
+        embodiment=None,
+        task=None,
+        get_placement_assets=lambda: [],
+    )
     builder = ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg())
 
-    builder._solve_relations()
+    builder._prepare_relation_placement(None, None)
 
     assert calls["objects"] == []
     assert calls["scene_assets"] == []
@@ -772,9 +786,15 @@ def test_arena_env_builder_includes_embodiment_relations(monkeypatch):
 
     monkeypatch.setattr(builder_module, "solve_and_apply_relation_placement", fake_solve_and_apply_relation_placement)
     embodiment = Embodiment()
-    arena_env = SimpleNamespace(scene=Scene(), embodiment=embodiment, placer_params=None, task=None)
+    arena_env = SimpleNamespace(
+        scene=Scene(),
+        embodiment=embodiment,
+        placer_params=None,
+        task=None,
+        get_placement_assets=lambda: [embodiment],
+    )
 
-    ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg())._solve_relations()
+    ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg())._prepare_relation_placement(None, None)
 
     assert calls["objects"] == [embodiment]
 

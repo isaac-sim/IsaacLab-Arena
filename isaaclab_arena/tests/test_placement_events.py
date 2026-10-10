@@ -149,11 +149,27 @@ def _make_mock_env(num_envs: int, device: str = "cpu") -> MagicMock:
     return env
 
 
+def _placement_handle(pool):
+    """Wrap a live pool in the same sampler-backed handle used by production."""
+    from isaaclab_arena.relations.placement_events import PlacementPoolHandle
+    from isaaclab_arena.relations.placement_sampler import PlacementSampler
+    from isaaclab_arena.relations.relations import get_anchor_objects
+
+    assets = list(pool.objects)
+    anchor_assets = set(get_anchor_objects(assets))
+    sampler = PlacementSampler(
+        assets=assets,
+        placement_pool=pool,
+        write_assets=[asset for asset in assets if asset not in anchor_assets],
+    )
+    return PlacementPoolHandle(sampler)
+
+
 def _solve_and_place_with_pool(env, env_ids, pool):
     """Call the reset event with the same runtime params EventTermCfg stores."""
-    from isaaclab_arena.relations.placement_events import PlacementPoolHandle, solve_and_place_objects
+    from isaaclab_arena.relations.placement_events import solve_and_place_objects
 
-    return solve_and_place_objects(env, env_ids, placement_pool=PlacementPoolHandle(pool))
+    return solve_and_place_objects(env, env_ids, placement_pool=_placement_handle(pool))
 
 
 def test_solve_and_place_objects_writes_poses_to_sim():
@@ -186,7 +202,7 @@ def test_solve_and_place_objects_writes_poses_to_sim():
 
 
 def test_solve_and_place_objects_uses_runtime_pool():
-    from isaaclab_arena.relations.placement_events import PlacementPoolHandle, solve_and_place_objects
+    from isaaclab_arena.relations.placement_events import solve_and_place_objects
     from isaaclab_arena.relations.placement_result import PlacementResult
     from isaaclab_arena.tests.dummy_embodiment import DummyEmbodiment
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
@@ -217,7 +233,7 @@ def test_solve_and_place_objects_uses_runtime_pool():
     solve_and_place_objects(
         env,
         torch.tensor([0]),
-        placement_pool=PlacementPoolHandle(Pool()),
+        placement_pool=_placement_handle(Pool()),
     )
 
     assert "desk" not in env._assets
@@ -291,14 +307,14 @@ def test_reset_placement_asset_pose_per_env_requires_full_env_coverage():
 
 
 def test_get_placement_pool_returns_runtime_pool():
-    from isaaclab_arena.relations.placement_events import PlacementPoolHandle, get_placement_pool
+    from isaaclab_arena.relations.placement_events import get_placement_pool
 
     class Pool:
-        pass
+        objects = []
 
     pool = Pool()
     env = MagicMock()
-    env.unwrapped.event_manager.get_term_cfg.return_value.params = {"placement_pool": PlacementPoolHandle(pool)}
+    env.unwrapped.event_manager.get_term_cfg.return_value.params = {"placement_pool": _placement_handle(pool)}
     assert get_placement_pool(env) is pool
 
 
@@ -395,10 +411,8 @@ def test_solve_and_place_objects_handles_multiple_env_ids():
 
     for name in ("box1", "box2"):
         asset = env._assets[name]
-        assert asset.write_root_pose_to_sim.call_count == 2, (
-            f"Expected 2 write_root_pose_to_sim calls for {name} (one per reset env), "
-            f"got {asset.write_root_pose_to_sim.call_count}"
-        )
+        assert asset.write_root_pose_to_sim.call_count == 1
+        assert asset.write_root_pose_to_sim.call_args.kwargs["env_ids"].tolist() == [0, 2]
 
 
 def test_solve_and_place_objects_partial_reset_homogeneous_pool_consumes_only_reset_envs():
@@ -575,11 +589,11 @@ def test_resolve_on_reset_false_applies_pose_per_env():
     """Simulates the resolve_on_reset=False path: sample layouts and build PosePerEnv per object."""
 
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-    from isaaclab_arena.relations.placement_events import get_rotation_xyzw
+    from isaaclab_arena.relations.placement_poses import get_pose_from_layout
     from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
     from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
     from isaaclab_arena.relations.relations import get_anchor_objects
-    from isaaclab_arena.utils.pose import Pose, PosePerEnv
+    from isaaclab_arena.utils.pose import PosePerEnv
 
     desk, box1, box2 = _create_test_objects()
     objects = [desk, box1, box2]
@@ -596,74 +610,16 @@ def test_resolve_on_reset_false_applies_pose_per_env():
     for obj in objects:
         if obj in anchor_objects:
             continue
-        rotation_xyzw = get_rotation_xyzw(obj)
-        poses = [
-            Pose(position_xyz=layouts[env_idx].positions[obj], rotation_xyzw=rotation_xyzw)
-            for env_idx in range(num_envs)
-        ]
+        poses = [get_pose_from_layout(obj, layouts[env_idx]) for env_idx in range(num_envs)]
         pose_per_env = PosePerEnv(poses=poses)
         assert len(pose_per_env.poses) == num_envs, f"Expected {num_envs} poses for {obj.name}"
         for p in pose_per_env.poses:
             assert p.position_xyz is not None, f"Position should not be None for {obj.name}"
 
 
-def test_env_indexed_pool_seeds_init_state_before_reset_without_event():
-    """Env-indexed resolve-on-reset path should seed non-anchor initial poses."""
-    from types import SimpleNamespace
-
-    from isaaclab_arena.environments.relation_solver_interface import _apply_dynamic_spawn_pose
-    from isaaclab_arena.relations.placement_result import PlacementResult
-
-    class MinimalObject:
-        def __init__(self, name: str):
-            self.name = name
-            self.event_cfg = None
-            self.object_cfg = SimpleNamespace(init_state=SimpleNamespace(pos=(0.0, 0.0, 0.0), rot=(0.0, 0.0, 0.0, 1.0)))
-
-        def get_relations(self):
-            return []
-
-        def set_initial_pose(self, pose, create_reset_event: bool = True):
-            assert not create_reset_event, "resolve_on_reset init seeding must not register per-object reset events"
-            self.object_cfg.init_state.pos = pose.position_xyz
-            self.object_cfg.init_state.rot = pose.rotation_xyzw
-
-    class EnvIndexedPool:
-        num_envs = 3
-        sample_count = None
-
-        def sample_with_replacement(self, count: int):
-            self.sample_count = count
-            assert count == 1
-            return [
-                PlacementResult(
-                    validation_results=_checklist(True),
-                    positions={box: (float(env_id), 0.0, 0.1)},
-                    final_loss=0.0,
-                    attempts=1,
-                )
-                for env_id in range(count)
-            ]
-
-    anchor = MinimalObject("desk")
-    box = MinimalObject("box")
-    pool = EnvIndexedPool()
-
-    _apply_dynamic_spawn_pose(
-        assets=[anchor, box],
-        placement_pool=pool,
-        anchor_assets={anchor},
-    )
-
-    assert pool.sample_count == 1
-    assert anchor.object_cfg.init_state.pos == (0.0, 0.0, 0.0)
-    assert box.object_cfg.init_state.pos == (0.0, 0.0, 0.1)
-    assert box.event_cfg is None
-
-
 def test_env_indexed_static_poses_apply_per_env_positions():
     """Static initial poses should apply per-env positions from env-indexed layouts."""
-    from isaaclab_arena.environments.relation_solver_interface import _apply_static_initial_poses
+    from isaaclab_arena.environments.relation_solver_interface import _seed_spawn_config_from_layouts
     from isaaclab_arena.relations.placement_result import PlacementResult
     from isaaclab_arena.relations.relations import IsAnchor, On
     from isaaclab_arena.tests.dummy_object import DummyObject
@@ -685,25 +641,20 @@ def test_env_indexed_static_poses_apply_per_env_positions():
 
     num_envs = 3
 
-    class PerEnvPool:
-        num_envs = 3
+    layouts = [
+        PlacementResult(
+            validation_results=_checklist(True),
+            positions={box: (0.1 * env_id, 0.2 * env_id, 0.11)},
+            final_loss=0.0,
+            attempts=1,
+        )
+        for env_id in range(num_envs)
+    ]
 
-        def sample_with_replacement(self, count: int):
-            return [
-                PlacementResult(
-                    validation_results=_checklist(True),
-                    positions={box: (0.1 * env_id, 0.2 * env_id, 0.11)},
-                    final_loss=0.0,
-                    attempts=1,
-                )
-                for env_id in range(count)
-            ]
-
-    _apply_static_initial_poses(
+    _seed_spawn_config_from_layouts(
         assets=[desk, box],
-        placement_pool=PerEnvPool(),
         anchor_assets={desk},
-        num_envs=num_envs,
+        layouts=layouts,
     )
 
     pose = box.get_initial_pose()
