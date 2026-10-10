@@ -75,7 +75,7 @@ def test_fixed_live_sampler_reuses_per_environment_samples() -> None:
     ]
     pool = Mock()
     pool.sample_with_replacement.return_value = layouts
-    sampler = PlacementSampler(assets=[asset], placement_pool=pool)
+    sampler = PlacementSampler(assets=[asset], placement_pool=pool, write_assets=[asset])
     sampler.prepare_live(num_envs=2, resolve_on_reset=False)
 
     first = sampler.sample(1, torch.tensor([1]))

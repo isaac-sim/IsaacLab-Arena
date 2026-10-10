@@ -20,10 +20,18 @@ def _test_recorded_placement_replay_applies_complete_layouts(simulation_app):
     from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
-    from isaaclab_arena.relations.placement_sampler import placement_samples_to_pose_columns, read_placement_samples
+    from isaaclab_arena.relations.placement_sampler import (
+        deserialize_placement_samples,
+        placement_samples_to_pose_columns,
+    )
     from isaaclab_arena.relations.relation_solver import RelationSolver
+    from isaaclab_arena.variations.recorded_variation_samples import load_rebuild_variation_record
 
-    poses_by_root = placement_samples_to_pose_columns(read_placement_samples(LAYOUTS))
+    record = load_rebuild_variation_record(LAYOUTS, build_time_variation_keys=set())
+    samples = deserialize_placement_samples(
+        [episode.placement_sample for episode in record.episode_records if episode.placement_sample is not None]
+    )
+    poses_by_root = placement_samples_to_pose_columns(samples)
     arena_env = ArenaEnvGraphSpec.from_yaml(SOURCE).to_arena_env()
     with patch.object(RelationSolver, "solve", side_effect=AssertionError("Recorded replay must not solve")):
         env = ArenaEnvBuilder(

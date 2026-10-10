@@ -59,16 +59,11 @@ class PlacementSampler(SamplerBase):
         self,
         assets: list[PlaceableAsset],
         placement_pool: PooledObjectPlacer | None,
-        write_assets: list[PlaceableAsset] | None = None,
+        write_assets: list[PlaceableAsset],
     ) -> None:
         super().__init__()
         self.assets = assets
         self.placement_pool = placement_pool
-        if write_assets is None:
-            from isaaclab_arena.relations.relations import get_anchor_objects
-
-            anchor_assets = set(get_anchor_objects(assets))
-            write_assets = [asset for asset in assets if asset not in anchor_assets]
         self.write_assets = write_assets
         self.last_results: dict[int, PlacementResult] = {}
         self._next_layout_id = 0
@@ -194,26 +189,6 @@ def placement_samples_to_pose_columns(samples: list[PlacementSample]) -> dict[st
     """Convert ordered placement samples into scene-root pose columns."""
     _validate_native_samples(samples)
     return {scene_key: [sample.poses[scene_key] for sample in samples] for scene_key in samples[0].poses}
-
-
-def read_placement_samples(path: str | Path) -> list[PlacementSample]:
-    """Read placement samples from offline or episode-result JSONL records."""
-    from isaaclab_arena.recording.episode_results import read_episode_records
-
-    samples: list[PlacementSample] = []
-    for record_index, record in enumerate(read_episode_records(path), start=1):
-        try:
-            placement = record.get("placement")
-            if placement is None:
-                placement = record["variations"]["scene.relation_placement"]
-            samples.extend(deserialize_placement_samples([placement]))
-        except (AssertionError, KeyError, TypeError, ValueError) as error:
-            raise AssertionError(f"{path}, record {record_index}: {error}") from error
-    try:
-        _validate_native_samples(samples)
-    except AssertionError as error:
-        raise AssertionError(f"{path}: {error}") from error
-    return samples
 
 
 def write_placement_samples(

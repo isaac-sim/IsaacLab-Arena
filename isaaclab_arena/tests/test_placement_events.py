@@ -153,8 +153,15 @@ def _placement_handle(pool):
     """Wrap a live pool in the same sampler-backed handle used by production."""
     from isaaclab_arena.relations.placement_events import PlacementPoolHandle
     from isaaclab_arena.relations.placement_sampler import PlacementSampler
+    from isaaclab_arena.relations.relations import get_anchor_objects
 
-    sampler = PlacementSampler(assets=list(pool.objects), placement_pool=pool)
+    assets = list(pool.objects)
+    anchor_assets = set(get_anchor_objects(assets))
+    sampler = PlacementSampler(
+        assets=assets,
+        placement_pool=pool,
+        write_assets=[asset for asset in assets if asset not in anchor_assets],
+    )
     return PlacementPoolHandle(sampler)
 
 

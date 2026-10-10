@@ -68,8 +68,7 @@ from isaaclab_arena.utils.multiprocess import get_local_rank
 from isaaclab_arena.utils.physics_backend import PhysicsBackend
 from isaaclab_arena.variations import variations_hydra, variations_printing
 from isaaclab_arena.variations.recorded_variation_replay import configure_recorded_variation_replay
-from isaaclab_arena.variations.recorded_variation_samples import load_rebuild_variation_record
-from isaaclab_arena.variations.variation_base import BuildTimeVariationBase, RunTimeVariationBase, VariationBase
+from isaaclab_arena.variations.variation_base import RunTimeVariationBase, VariationBase
 from isaaclab_arena.variations.variation_recorder import VariationRecorder
 from isaaclab_arena.variations.variation_replay_scheduler import VariationReplayScheduler
 
@@ -313,22 +312,11 @@ class ArenaEnvBuilder:
         variation_replay_scheduler = None
         recorded_placement_samples = None
         if self.cfg.recorded_variation_samples_path is not None:
-            build_time_variation_keys = {
-                f"{asset_name}.{variation.name}"
-                for asset_name, asset_variations in variations.items()
-                for variation in asset_variations
-                if variation.enabled and isinstance(variation, BuildTimeVariationBase)
-            }
-            replay_record = load_rebuild_variation_record(
+            variation_replay_scheduler = configure_recorded_variation_replay(
                 self.cfg.recorded_variation_samples_path,
-                build_time_variation_keys=build_time_variation_keys,
-            )
-            variation_replay_scheduler = VariationReplayScheduler(replay_record)
-            configure_recorded_variation_replay(
-                replay_record,
                 variations,
-                scheduler=variation_replay_scheduler,
             )
+            replay_record = variation_replay_scheduler.variation_record
             if replay_record.has_placement_samples:
                 raw_placement_samples = [
                     episode_record.placement_sample
