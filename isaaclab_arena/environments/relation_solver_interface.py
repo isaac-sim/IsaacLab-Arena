@@ -10,7 +10,7 @@ from collections.abc import Iterable
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
-from isaaclab_arena.relations.placement_events import PlacementPoolHandle, solve_and_place_objects
+from isaaclab_arena.relations.placement_events import PlacementSamplerHandle, solve_and_place_objects
 from isaaclab_arena.relations.placement_poses import get_scene_root_poses_from_layout
 from isaaclab_arena.relations.placement_sampler import (
     PlacementSample,
@@ -167,7 +167,7 @@ def _make_placement_event(sampler: PlacementSampler) -> EventTermCfg:
     return EventTermCfg(
         func=solve_and_place_objects,
         mode="reset",
-        params={"placement_pool": PlacementPoolHandle(sampler)},
+        params={"placement_sampler": PlacementSamplerHandle(sampler)},
     )
 
 

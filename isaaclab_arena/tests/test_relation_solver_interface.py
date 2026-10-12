@@ -167,11 +167,11 @@ def test_placement_event_params_use_runtime_assets(monkeypatch):
     )
 
     assert event_cfg is not None
-    assert "placement_pool" in event_cfg.params
-    from isaaclab_arena.relations.placement_events import PlacementPoolHandle
+    assert "placement_sampler" in event_cfg.params
+    from isaaclab_arena.relations.placement_events import PlacementSamplerHandle
 
-    assert isinstance(event_cfg.params["placement_pool"], PlacementPoolHandle)
-    assert [asset.name for asset in event_cfg.params["placement_pool"].pool.objects] == [
+    assert isinstance(event_cfg.params["placement_sampler"], PlacementSamplerHandle)
+    assert [asset.name for asset in event_cfg.params["placement_sampler"].pool.objects] == [
         "desk",
         "box",
     ]

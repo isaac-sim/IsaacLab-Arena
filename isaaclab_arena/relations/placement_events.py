@@ -18,11 +18,11 @@ if TYPE_CHECKING:
     from isaaclab_arena.relations.placement_result import PlacementResult
     from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
 
-# Name of the reset event term that owns the pooled object placer.
+# Name of the reset event term that owns the placement sampler.
 PLACEMENT_RESET_EVENT_NAME = "placement_reset"
 
 
-class PlacementPoolHandle:
+class PlacementSamplerHandle:
     """Opaque holder for a placement sampler to bypass event-param traversal.
 
     PlacementSampler may own a PooledObjectPlacer used to set the initial spawn pose. Isaac Lab deep-copies and
@@ -49,8 +49,8 @@ class PlacementPoolHandle:
         """Return layouts applied by the most recent live reset."""
         return self.sampler.last_results
 
-    def __deepcopy__(self, memo: dict[int, object]) -> PlacementPoolHandle:
-        """Share the live pool across ``copy.deepcopy`` to avoid deep-copying the Warp cache BVHs."""
+    def __deepcopy__(self, memo: dict[int, object]) -> PlacementSamplerHandle:
+        """Share the sampler across ``copy.deepcopy`` to avoid deep-copying optional Warp cache BVHs."""
         memo[id(self)] = self
         return self
 
@@ -68,8 +68,8 @@ def get_placement_pool(env) -> PooledObjectPlacer | None:
         term_cfg = env.unwrapped.event_manager.get_term_cfg(PLACEMENT_RESET_EVENT_NAME)
     except ValueError:
         return None
-    handle = term_cfg.params.get("placement_pool")
-    assert handle is not None, f"'{PLACEMENT_RESET_EVENT_NAME}' event is missing its placement_pool parameter."
+    handle = term_cfg.params.get("placement_sampler")
+    assert handle is not None, f"'{PLACEMENT_RESET_EVENT_NAME}' event is missing its placement_sampler parameter."
     assert handle.pool is not None, "Relation placement is using recorded replay, not a live placement pool."
     return handle.pool
 
@@ -77,7 +77,7 @@ def get_placement_pool(env) -> PooledObjectPlacer | None:
 def get_reset_placement_results(env: ManagerBasedEnv) -> dict[int, PlacementResult]:
     """Return the layouts applied by the most recent pooled placement reset."""
     term = env.unwrapped.event_manager.get_term_cfg(PLACEMENT_RESET_EVENT_NAME)
-    return dict(term.params["placement_pool"].last_results)
+    return dict(term.params["placement_sampler"].last_results)
 
 
 def get_movable_asset_names(
@@ -115,23 +115,23 @@ def write_layout_to_sim(
 def solve_and_place_objects(
     env: ManagerBasedEnv,
     env_ids: torch.Tensor | None,
-    placement_pool: PlacementPoolHandle,
+    placement_sampler: PlacementSamplerHandle,
 ) -> None:
-    """Coordinated reset event that draws layouts from the pool and writes poses.
+    """Coordinated reset event that draws placement samples and writes poses.
 
-    Registered as a single EventTermCfg(mode="reset"). Layouts are env-indexed:
-    one layout is consumed for each requested absolute env id, so partial resets
-    only advance the pools of the resetting envs.
+    Registered as a single EventTermCfg(mode="reset"). Samples are env-indexed:
+    one sample is drawn for each requested absolute env id, so partial resets
+    only advance the corresponding live pools or recorded replay assignments.
 
     Args:
         env: The Isaac Lab environment.
         env_ids: 1-D tensor of environment indices being reset.
-        placement_pool: Opaque handle to the runtime pool of solved placement layouts.
-            Layout assets come from ``placement_pool.pool.objects``.
+        placement_sampler: Opaque handle to the sampler supplying placement poses.
+            Poses are written to ``placement_sampler.sampler.write_assets``.
     """
     if env_ids is None or len(env_ids) == 0:
         return
-    sampler = placement_pool.sampler
+    sampler = placement_sampler.sampler
     pool = sampler.placement_pool
     if pool is not None:
         num_scene_envs = env.scene.env_origins.shape[0]

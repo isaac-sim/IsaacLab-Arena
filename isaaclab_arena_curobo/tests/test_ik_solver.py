@@ -29,11 +29,11 @@ def test_solver_is_shared_across_deepcopy():
     # A ctypes pointer stands in for the cuRobo IKSolver's un-copyable CUDA/ctypes handles.
     solver.ik_solver = ctypes.pointer(ctypes.c_int(1))
 
-    # Nested like the real EventTermCfg params (pool -> placer -> validator -> solver).
-    params = {"placement_pool": {"placer": {"solver": solver}}, "objects": [1, 2]}
+    # Nested like the real EventTermCfg params (sampler -> pool -> placer -> validator -> solver).
+    params = {"placement_sampler": {"pool": {"placer": {"solver": solver}}}, "objects": [1, 2]}
     copied = copy.deepcopy(params)
 
-    assert copied["placement_pool"]["placer"]["solver"] is solver
+    assert copied["placement_sampler"]["pool"]["placer"]["solver"] is solver
     assert copied["objects"] == [1, 2] and copied["objects"] is not params["objects"]
 
 

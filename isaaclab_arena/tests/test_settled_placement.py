@@ -494,7 +494,7 @@ def _test_recording_filters_layouts(simulation_app, tmp_path):
             assert PlacementCheck.IK_REACHABLE not in queue[0].validation_results.validation_results
         from isaaclab_arena.relations.placement_events import PLACEMENT_RESET_EVENT_NAME
 
-        handle = base.event_manager.get_term_cfg(PLACEMENT_RESET_EVENT_NAME).params["placement_pool"]
+        handle = base.event_manager.get_term_cfg(PLACEMENT_RESET_EVENT_NAME).params["placement_sampler"]
         rejected_output = tmp_path / "rejected.jsonl"
         with (
             patch.object(handle, "pool", unavailable_pool),

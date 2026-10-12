@@ -309,7 +309,7 @@ class ArenaEnvBuilder:
         variation_recorder.attach(variations)
         # A RigidObjectSet's selected member identity is absent from pose-only samples, so skip unreplayable records.
         if self._placement_event_cfg is not None and supports_recorded_placement(self.arena_env.get_placement_assets()):
-            placement_handle = self._placement_event_cfg.params["placement_pool"]
+            placement_handle = self._placement_event_cfg.params["placement_sampler"]
             variation_recorder.attach_placement_sampler(
                 placement_handle.sampler,
                 serialize_placement_samples,
