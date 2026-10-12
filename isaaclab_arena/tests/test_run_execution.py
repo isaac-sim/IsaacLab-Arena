@@ -131,22 +131,32 @@ def test_build_and_run_splits_episode_budget_without_mutating_config(monkeypatch
     assert run.environment_builder.seed == base_seed
 
 
-@pytest.mark.parametrize(("configured_episodes", "expected_episodes"), [(None, 3), (8, 8)])
+@pytest.mark.parametrize(
+    ("configured_episodes", "num_rebuilds", "expected_rollout_limits"),
+    [(None, 1, [(None, 3)]), (8, 1, [(None, 8)]), (8, 2, [(None, 4), (None, 4)])],
+)
 def test_build_and_run_resolves_variation_replay_budget(
     monkeypatch,
     tmp_path,
     configured_episodes,
-    expected_episodes,
+    num_rebuilds,
+    expected_rollout_limits,
 ):
     variation_samples_path = tmp_path / "variation_samples.jsonl"
     variation_samples_path.write_text("\n".join(['{"variations": {}}'] * 3) + "\n")
     run = _run(
         environment_builder=ArenaEnvBuilderCfg(recorded_variation_samples_path=str(variation_samples_path)),
         rollout_limit=RolloutLimitCfg(num_episodes=configured_episodes),
-        num_rebuilds=1,
+        num_rebuilds=num_rebuilds,
     )
+    received_run_cfgs = []
     rollout_limits = []
-    monkeypatch.setattr(run_execution, "_build_environment_from_cfg", lambda *args, **kwargs: _environment())
+
+    def make_environment(cfg, render_mode, **kwargs):
+        received_run_cfgs.append(cfg)
+        return _environment()
+
+    monkeypatch.setattr(run_execution, "_build_environment_from_cfg", make_environment)
     monkeypatch.setattr(run_execution, "_build_policy_from_cfg", lambda cfg: _Policy())
     monkeypatch.setattr(run_execution, "wrap_env_for_video", lambda env, video_cfg, steps, episodes: env)
     monkeypatch.setattr(run_execution, "close_run_resources", lambda policy, env: None)
@@ -158,31 +168,70 @@ def test_build_and_run_resolves_variation_replay_budget(
 
     run_execution.build_and_run(run, output_dir=tmp_path)
 
-    assert rollout_limits == [(None, expected_episodes)]
+    assert rollout_limits == expected_rollout_limits
+    assert all(
+        rebuild_cfg.environment_builder.recorded_variation_samples_path == str(variation_samples_path)
+        for rebuild_cfg in received_run_cfgs
+    )
 
 
 @pytest.mark.parametrize(
-    ("rollout_limit", "num_rebuilds", "message"),
-    [
-        (RolloutLimitCfg(num_episodes=2), 2, "num_rebuilds must be 1"),
-        (RolloutLimitCfg(num_steps=2), 1, "num_steps is not supported"),
-    ],
+    ("configured_episodes", "expected_rollout_limits"),
+    [(None, [(None, 1), (None, 3)]), (5, [(None, 3), (None, 2)])],
 )
-def test_build_and_run_rejects_invalid_variation_replay_limits(
+def test_build_and_run_assigns_one_replay_file_per_rebuild(
+    monkeypatch,
     tmp_path,
-    rollout_limit,
-    num_rebuilds,
-    message,
+    configured_episodes,
+    expected_rollout_limits,
 ):
+    replay_paths = [tmp_path / "rebuild0.jsonl", tmp_path / "rebuild1.jsonl"]
+    replay_paths[0].write_text('{"variations": {}}\n')
+    replay_paths[1].write_text("\n".join(['{"variations": {}}'] * 3) + "\n")
+    run = _run(
+        rollout_limit=RolloutLimitCfg(num_episodes=configured_episodes),
+        recorded_variation_samples_paths=[str(path) for path in replay_paths],
+    )
+    received_run_cfgs = []
+    rollout_limits = []
+
+    def make_environment(cfg, render_mode, **kwargs):
+        received_run_cfgs.append(cfg)
+        return _environment()
+
+    monkeypatch.setattr(run_execution, "_build_environment_from_cfg", make_environment)
+    monkeypatch.setattr(run_execution, "_build_policy_from_cfg", lambda cfg: _Policy())
+    monkeypatch.setattr(run_execution, "wrap_env_for_video", lambda env, video_cfg, steps, episodes: env)
+    monkeypatch.setattr(run_execution, "close_run_resources", lambda policy, env: None)
+    monkeypatch.setattr(
+        run_execution,
+        "rollout_policy",
+        lambda env, policy, num_steps, num_episodes: rollout_limits.append((num_steps, num_episodes)),
+    )
+
+    run_execution.build_and_run(run, output_dir=tmp_path)
+
+    assert rollout_limits == expected_rollout_limits
+    assert [rebuild_cfg.environment_builder.recorded_variation_samples_path for rebuild_cfg in received_run_cfgs] == [
+        str(path) for path in replay_paths
+    ]
+    assert [rebuild_cfg.environment_builder.seed for rebuild_cfg in received_run_cfgs] == [
+        run.environment_builder.seed,
+        run.environment_builder.seed + 1,
+    ]
+    assert all(rebuild_cfg.recorded_variation_samples_paths is None for rebuild_cfg in received_run_cfgs)
+    assert run.environment_builder.recorded_variation_samples_path is None
+
+
+def test_build_and_run_rejects_step_limit_for_variation_replay(tmp_path):
     variation_samples_path = tmp_path / "variation_samples.jsonl"
     variation_samples_path.write_text('{"variations": {}}\n')
     run = _run(
         environment_builder=ArenaEnvBuilderCfg(recorded_variation_samples_path=str(variation_samples_path)),
-        rollout_limit=rollout_limit,
-        num_rebuilds=num_rebuilds,
+        rollout_limit=RolloutLimitCfg(num_steps=2),
     )
 
-    with pytest.raises(AssertionError, match=message):
+    with pytest.raises(AssertionError, match="num_steps is not supported"):
         run_execution.build_and_run(run, output_dir=tmp_path)
 
 
@@ -197,13 +246,13 @@ def test_recorded_variation_replay_rejects_finite_action_policy():
         run_execution._resolve_rollout_limit(run, _FinitePolicy(), num_episodes=1)
 
 
-def test_seed_cfg_for_rebuild_offsets_seed_per_rebuild():
+def test_cfg_for_rebuild_offsets_seed_per_rebuild():
     run = _run(num_rebuilds=3)
     base_seed = run.environment_builder.seed
 
-    assert run_execution._seed_cfg_for_rebuild(run, 0).environment_builder.seed == base_seed
-    assert run_execution._seed_cfg_for_rebuild(run, 1).environment_builder.seed == base_seed + 1
-    assert run_execution._seed_cfg_for_rebuild(run, 2).environment_builder.seed == base_seed + 2
+    assert run_execution._cfg_for_rebuild(run, 0).environment_builder.seed == base_seed
+    assert run_execution._cfg_for_rebuild(run, 1).environment_builder.seed == base_seed + 1
+    assert run_execution._cfg_for_rebuild(run, 2).environment_builder.seed == base_seed + 2
     # The original config is never mutated.
     assert run.environment_builder.seed == base_seed
 

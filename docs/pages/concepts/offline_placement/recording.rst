@@ -207,8 +207,10 @@ See :doc:`../object_placement/relations` for pose names, units and replay constr
 Replay Placement Layouts
 ------------------------
 
-Set ``environment_builder.recorded_variation_samples_path`` in an
-:doc:`Experiment Definition <../concept_arena_experiments>` to load the recording:
+Add a single recording to
+``environment_builder.recorded_variation_samples_path`` in an
+:doc:`Experiment Definition <../concept_arena_experiments>`. Set
+``rollout_limit.num_episodes`` to the number of episodes to replay:
 
 .. literalinclude:: ../../../../isaaclab_arena_environments/experiment_configs/placement_record_replay/settled_placement_replay_experiment.yaml
    :language: yaml

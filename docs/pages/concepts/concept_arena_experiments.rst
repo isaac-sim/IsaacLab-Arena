@@ -74,6 +74,25 @@ field. Arena uses this name in command-line overrides, output directories, and r
 Use ``rollout_limit.num_episodes`` instead of ``rollout_limit.num_steps`` to start and finish
 exactly that many episodes per Run, across all rebuilds.
 
+To replay recorded variations or placement across rebuilds, set an ordered
+``recorded_variation_samples_paths`` list on the Run:
+
+.. code-block:: yaml
+
+   runs:
+     replay:
+       recorded_variation_samples_paths:
+         - outputs/recording/episode_results_rebuild0.jsonl
+         - outputs/recording/episode_results_rebuild1.jsonl
+
+Each path supplies one rebuild, so ``num_rebuilds`` is inferred from the list length.
+By default, each rebuild runs one episode for every JSONL row in its file. Set
+``rollout_limit.num_episodes`` to use one total episode budget split evenly across
+the rebuilds, as for a live run. A shorter budget consumes a prefix of each file;
+a longer budget wraps that file's replay scheduler. Do not combine the list with
+``num_rebuilds``, ``rollout_limit.num_steps``, or
+``environment_builder.recorded_variation_samples_path``.
+
 Runs keep their YAML order and execute locally in that order.
 
 
