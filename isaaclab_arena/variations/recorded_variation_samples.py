@@ -73,13 +73,12 @@ def load_rebuild_variation_record(
     for record in read_episode_records(path):
         record_samples = record.get("variations", {})
         assert isinstance(record_samples, dict), "variations must be a mapping when present"
-        legacy_placement = record_samples.pop("scene.relation_placement", None)
+        assert "scene.relation_placement" not in record_samples, (
+            "Legacy variations['scene.relation_placement'] is no longer supported; "
+            "move its value to the top-level 'placement' field"
+        )
         samples_per_record.append(record_samples)
         placement_sample = record.get("placement")
-        assert (
-            placement_sample is None or legacy_placement is None
-        ), "Placement must not appear both at top level and under variations"
-        placement_sample = placement_sample if placement_sample is not None else legacy_placement
         assert placement_sample is None or isinstance(
             placement_sample, dict
         ), "placement must be a mapping when present"

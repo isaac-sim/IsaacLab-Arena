@@ -8,9 +8,8 @@ from __future__ import annotations
 import torch
 from typing import TYPE_CHECKING
 
-from isaaclab_arena.relations.placement_poses import IDENTITY_ROTATION_XYZW, get_scene_root_poses_from_layout
+from isaaclab_arena.relations.placement_poses import get_base_rotation_xyzw, get_scene_root_poses_from_layout
 from isaaclab_arena.relations.placement_sampler import PlacementSample, PlacementSampler
-from isaaclab_arena.relations.relations import RotateAroundSolution
 
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedEnv
@@ -93,11 +92,7 @@ def get_base_rotation_per_asset(
     assets: list[PlaceableAsset],
 ) -> dict[PlaceableAsset, tuple[float, float, float, float]]:
     """Return each asset's RotateAroundSolution rotation, or identity."""
-    rotations = {}
-    for asset in assets:
-        rotate_marker = next((r for r in asset.get_relations() if isinstance(r, RotateAroundSolution)), None)
-        rotations[asset] = rotate_marker.get_rotation_xyzw() if rotate_marker else IDENTITY_ROTATION_XYZW
-    return rotations
+    return {asset: get_base_rotation_xyzw(asset) for asset in assets}
 
 
 def write_layout_to_sim(
@@ -105,14 +100,10 @@ def write_layout_to_sim(
     env_id: int,
     result: PlacementResult,
     anchor_assets: set[PlaceableAsset],
-    base_rotations: dict[PlaceableAsset, tuple[float, float, float, float]],
+    assets: list[PlaceableAsset],
 ) -> None:
     """Write one solved layout for offline pool validation."""
-    missing_assets = [
-        asset.name for asset in base_rotations if asset not in anchor_assets and asset not in result.positions
-    ]
-    assert not missing_assets, f"Placement layout is missing non-anchor assets: {missing_assets}"
-    poses_by_asset = get_scene_root_poses_from_layout(list(base_rotations), result, anchor_assets)
+    poses_by_asset = get_scene_root_poses_from_layout(assets, result, anchor_assets)
     sample = PlacementSample(
         layout_id="offline_validation",
         poses={scene_key: pose for root_poses in poses_by_asset.values() for scene_key, pose in root_poses.items()},
@@ -164,7 +155,10 @@ def write_placement_samples_to_sim(
     for asset in assets:
         root_keys = asset.get_scene_root_keys()
         owned_poses = {
-            scene_key: torch.stack([sample.poses[scene_key].to_tensor(device=env.device) for sample in samples])
+            scene_key: torch.tensor(
+                [(*sample.poses[scene_key].position_xyz, *sample.poses[scene_key].rotation_xyzw) for sample in samples],
+                device=env.device,
+            )
             for scene_key in root_keys
         }
         asset.write_scene_root_poses_to_sim(env, env_ids, owned_poses)

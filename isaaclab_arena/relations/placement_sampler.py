@@ -25,6 +25,11 @@ if TYPE_CHECKING:
     from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
 
 
+# -----------------------------------------------------------------------------
+# Placement samples and sampling
+# -----------------------------------------------------------------------------
+
+
 @dataclass(frozen=True)
 class PlacementSample:
     """One placement draw expressed as native scene-root poses."""
@@ -133,6 +138,11 @@ class PlacementSampler(SamplerBase):
         return sample
 
 
+# -----------------------------------------------------------------------------
+# Serialization, deserialization, and conversion
+# -----------------------------------------------------------------------------
+
+
 def serialize_placement_samples(samples: list[PlacementSample]) -> list[dict[str, Any]]:
     """Convert native placement samples to JSON-compatible records."""
     assert all(isinstance(sample, PlacementSample) for sample in samples)
@@ -142,16 +152,12 @@ def serialize_placement_samples(samples: list[PlacementSample]) -> list[dict[str
 def deserialize_placement_samples(records: list[Any]) -> list[PlacementSample]:
     """Validate and decode complete, consistently keyed placement records."""
     assert records, "Placement replay requires at least one sample"
-    expected_keys: set[str] | None = None
     samples: list[PlacementSample] = []
     for record in records:
         assert isinstance(record, dict), "Placement samples must be mappings"
         assert isinstance(record.get("layout_id"), str) and record["layout_id"], "Placement layout_id must be nonempty"
         poses = record.get("poses")
         assert isinstance(poses, dict) and poses, "Placement poses must be a nonempty mapping"
-        if expected_keys is None:
-            expected_keys = set(poses)
-        assert set(poses) == expected_keys, "Every placement sample must contain the same scene roots"
         for key, value in poses.items():
             assert isinstance(key, str) and key, "Placement scene keys must be nonempty strings"
             assert isinstance(value, dict) and set(value) == {
@@ -166,6 +172,7 @@ def deserialize_placement_samples(records: list[Any]) -> list[PlacementSample]:
                     for component in components
                 )
         samples.append(PlacementSample.from_record(record))
+    _validate_native_samples(samples)
     return samples
 
 
@@ -209,6 +216,11 @@ def write_placement_samples(
             stream.write(json.dumps({"placement": placement}, allow_nan=False) + "\n")
 
 
+# -----------------------------------------------------------------------------
+# Validation
+# -----------------------------------------------------------------------------
+
+
 def supports_recorded_placement(assets: list[PlaceableAsset]) -> bool:
     """Whether placement recording and replay can preserve the selected assets."""
     from isaaclab_arena.assets.object_set import RigidObjectSet
@@ -249,7 +261,11 @@ def validate_placement_sample_assets(
 
 
 def validate_root_reset_for_placement_replay(assets: list[PlaceableAsset]) -> None:
-    """Require root-reset policies compatible with replacing them by recorded poses."""
+    """Require root-reset policies compatible with replacing them by recorded poses.
+
+    Replay may replace deterministic fixed-pose resets for scene roots captured outside
+    the live solver, while randomized poses and nonzero velocities remain incompatible.
+    """
     from isaaclab_arena.assets.object import Object
     from isaaclab_arena.assets.object_base import ObjectBase
 
@@ -265,6 +281,19 @@ def validate_root_reset_for_placement_replay(assets: list[PlaceableAsset]) -> No
         assert not asset.has_pose_reset_event() or isinstance(
             asset.get_initial_pose(), Pose
         ), f"Recorded asset '{name}' has a non-fixed pose-reset policy"
+
+
+def validate_root_reset_for_live_placement(assets: list[PlaceableAsset]) -> None:
+    """Require live placement to be the only root-pose reset writer for movable assets.
+
+    Fixed anchors retain their configured resets because live placement never writes them.
+    """
+    for asset in assets:
+        assert not (not asset.is_anchor and asset.has_pose_reset_event()), (
+            f"Non-anchor asset '{asset.name}' has an explicit pose-reset event. "
+            "Relational solving should not be combined with explicit setting of "
+            "poses on non-anchor assets."
+        )
 
 
 def _validate_native_samples(samples: list[PlacementSample]) -> None:

@@ -34,8 +34,8 @@ from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import (
     apply_arena_global_settings,
 )
 from isaaclab_arena.environments.relation_solver_interface import (
+    prepare_live_relation_placement,
     prepare_recorded_relation_placement,
-    solve_and_apply_relation_placement,
 )
 from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.metrics.metric_term_cfg import MetricTermCfg
@@ -50,12 +50,7 @@ from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTer
 from isaaclab_arena.recording.progress_terms import ProgressEpisodeRecorderTermCfg
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_events import PLACEMENT_RESET_EVENT_NAME
-from isaaclab_arena.relations.placement_sampler import (
-    PlacementSample,
-    deserialize_placement_samples,
-    serialize_placement_samples,
-    supports_recorded_placement,
-)
+from isaaclab_arena.relations.placement_sampler import serialize_placement_samples, supports_recorded_placement
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.tasks.no_task import NoTask
 from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
@@ -118,7 +113,6 @@ class ArenaEnvBuilder:
 
     def _prepare_relation_placement(
         self,
-        recorded_samples: list[PlacementSample] | None,
         scheduler: VariationReplayScheduler | None,
     ) -> None:
         """Prepare live or recorded relation placement.
@@ -134,19 +128,10 @@ class ArenaEnvBuilder:
           from the pool for each resetting environment.
         * **False** — assigns one fixed layout per environment and reuses it.
         """
-        if recorded_samples is not None:
-            assert scheduler is not None
-
-            def get_recorded_placement_samples(_num_samples, env_ids):
-                assert env_ids is not None, "Recorded placement requires per-environment ids."
-                return [
-                    recorded_samples[scheduler.source_record_index_for_env(int(env_id))] for env_id in env_ids.tolist()
-                ]
-
+        if scheduler is not None and scheduler.variation_record.has_placement_samples:
             self._placement_event_cfg = prepare_recorded_relation_placement(
                 replay_assets=self.arena_env.get_placement_assets(),
-                recorded_samples=recorded_samples,
-                replay_sampler=get_recorded_placement_samples,
+                scheduler=scheduler,
                 num_envs=self.cfg.num_envs,
             )
             return
@@ -174,7 +159,7 @@ class ArenaEnvBuilder:
         # Delists itself unless the embodiment has a registered cuRobo config and the solver deps are importable.
         # TODO(xinjieyao, 2026-07-22): updated once robot-object co-placement is merged.
         placer_params.reachability_config.embodiment = self.arena_env.embodiment
-        self._placement_event_cfg = solve_and_apply_relation_placement(
+        self._placement_event_cfg = prepare_live_relation_placement(
             placement_assets,
             num_envs=self.cfg.num_envs,
             placer_params=placer_params,
@@ -310,23 +295,13 @@ class ArenaEnvBuilder:
             variations_hydra.apply_overrides(variations, self.hydra_overrides)
 
         variation_replay_scheduler = None
-        recorded_placement_samples = None
         if self.cfg.recorded_variation_samples_path is not None:
             variation_replay_scheduler = configure_recorded_variation_replay(
                 self.cfg.recorded_variation_samples_path,
                 variations,
             )
-            replay_record = variation_replay_scheduler.variation_record
-            if replay_record.has_placement_samples:
-                raw_placement_samples = [
-                    episode_record.placement_sample
-                    for episode_record in replay_record.episode_records
-                    if episode_record.placement_sample is not None
-                ]
-                recorded_placement_samples = deserialize_placement_samples(raw_placement_samples)
-
         # Placement needs its source selected before scene config captures construction poses.
-        self._prepare_relation_placement(recorded_placement_samples, variation_replay_scheduler)
+        self._prepare_relation_placement(variation_replay_scheduler)
 
         # Attach the variation recorder before any sampling, so it observes both build-time samples
         # (drawn just below) and run-time samples (drawn during simulation).

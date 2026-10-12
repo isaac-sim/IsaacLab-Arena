@@ -42,6 +42,10 @@ class _FakePlacementPool:
     def objects(self):
         return self._objects
 
+    @property
+    def had_fallbacks(self):
+        return False
+
     def sample_with_replacement(self, count: int):
         return self._layouts[:count]
 
@@ -59,23 +63,23 @@ def _fallback_layout(positions):
     )
 
 
-def test_solve_and_apply_relation_placement_with_no_objects_returns_empty_result():
-    from isaaclab_arena.environments.relation_solver_interface import solve_and_apply_relation_placement
+def test_prepare_live_relation_placement_with_no_objects_returns_empty_result():
+    from isaaclab_arena.environments.relation_solver_interface import prepare_live_relation_placement
 
-    placement_event_cfg = solve_and_apply_relation_placement([], num_envs=1, scene_assets=[])
+    placement_event_cfg = prepare_live_relation_placement([], num_envs=1, scene_assets=[])
 
     assert placement_event_cfg is None
 
 
-def test_solve_and_apply_relation_placement_requires_unique_asset_names():
-    from isaaclab_arena.environments.relation_solver_interface import solve_and_apply_relation_placement
+def test_prepare_live_relation_placement_requires_unique_asset_names():
+    from isaaclab_arena.environments.relation_solver_interface import prepare_live_relation_placement
 
     with pytest.raises(AssertionError, match="names must be unique"):
-        solve_and_apply_relation_placement([_make_box(), _make_box()], num_envs=1)
+        prepare_live_relation_placement([_make_box(), _make_box()], num_envs=1)
 
 
-def test_solve_and_apply_relation_placement_rejects_scene_name_collision():
-    from isaaclab_arena.environments.relation_solver_interface import solve_and_apply_relation_placement
+def test_prepare_live_relation_placement_rejects_scene_name_collision():
+    from isaaclab_arena.environments.relation_solver_interface import prepare_live_relation_placement
     from isaaclab_arena.tests.dummy_embodiment import DummyEmbodiment
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
@@ -85,16 +89,16 @@ def test_solve_and_apply_relation_placement_rejects_scene_name_collision():
         bounding_box=AxisAlignedBoundingBox(min_point=(-0.2, -0.2, 0.0), max_point=(0.2, 0.2, 1.0)),
     )
 
-    with pytest.raises(AssertionError, match="multiple asset owners"):
-        solve_and_apply_relation_placement([_make_box("robot"), embodiment], num_envs=1)
+    with pytest.raises(AssertionError, match="duplicate scene keys"):
+        prepare_live_relation_placement([_make_box("robot"), embodiment], num_envs=1)
 
 
-def test_solve_and_apply_relation_placement_with_only_anchors_returns_no_reset_event():
-    from isaaclab_arena.environments.relation_solver_interface import solve_and_apply_relation_placement
+def test_prepare_live_relation_placement_with_only_anchors_returns_no_reset_event():
+    from isaaclab_arena.environments.relation_solver_interface import prepare_live_relation_placement
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 
     params = ObjectPlacerParams(placement_seed=11, resolve_on_reset=False)
-    placement_event_cfg = solve_and_apply_relation_placement(
+    placement_event_cfg = prepare_live_relation_placement(
         [_make_desk()],
         num_envs=3,
         placer_params=params,
@@ -103,8 +107,8 @@ def test_solve_and_apply_relation_placement_with_only_anchors_returns_no_reset_e
     assert placement_event_cfg is None
 
 
-def test_static_solve_and_apply_relation_placement_reuses_object_only_placement():
-    from isaaclab_arena.environments.relation_solver_interface import solve_and_apply_relation_placement
+def test_static_prepare_live_relation_placement_reuses_object_only_placement():
+    from isaaclab_arena.environments.relation_solver_interface import prepare_live_relation_placement
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
     from isaaclab_arena.relations.relations import On
     from isaaclab_arena.utils.pose import PosePerEnv
@@ -114,7 +118,7 @@ def test_static_solve_and_apply_relation_placement_reuses_object_only_placement(
     box.add_relation(On(desk, clearance_m=0.01))
 
     params = ObjectPlacerParams(placement_seed=7, resolve_on_reset=False)
-    placement_event_cfg = solve_and_apply_relation_placement(
+    placement_event_cfg = prepare_live_relation_placement(
         [desk, box],
         num_envs=2,
         placer_params=params,
@@ -142,8 +146,9 @@ def test_construction_pose_rejects_layout_missing_non_anchor():
         )
 
 
-def test_placement_event_params_use_runtime_assets():
-    from isaaclab_arena.environments.relation_solver_interface import _apply_relation_placement_result
+def test_placement_event_params_use_runtime_assets(monkeypatch):
+    import isaaclab_arena.environments.relation_solver_interface as interface_module
+    from isaaclab_arena.environments.relation_solver_interface import prepare_live_relation_placement
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
     from isaaclab_arena.utils.pose import Pose, PosePerEnv
 
@@ -153,14 +158,15 @@ def test_placement_event_params_use_runtime_assets():
         [_fallback_layout(positions={box: (0.1, 0.2, 0.3)})],
         objects=[desk, box],
     )
+    monkeypatch.setattr(interface_module, "PooledObjectPlacer", lambda **_kwargs: placement_pool)
 
-    event_cfg = _apply_relation_placement_result(
-        assets=[desk, box],
+    event_cfg = prepare_live_relation_placement(
+        [desk, box],
         placer_params=ObjectPlacerParams(resolve_on_reset=True),
-        placement_pool=placement_pool,
         num_envs=3,
     )
 
+    assert event_cfg is not None
     assert "placement_pool" in event_cfg.params
     from isaaclab_arena.relations.placement_events import PlacementPoolHandle
 
@@ -184,7 +190,7 @@ def test_dynamic_spawn_pose_event_cfg_deepcopy_after_mesh_solve():
 
     from isaaclab.managers import EventTermCfg
 
-    from isaaclab_arena.environments.relation_solver_interface import solve_and_apply_relation_placement
+    from isaaclab_arena.environments.relation_solver_interface import prepare_live_relation_placement
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
     from isaaclab_arena.relations.relation_solver_params import CollisionMode, RelationSolverParams
     from isaaclab_arena.relations.relations import On
@@ -201,7 +207,7 @@ def test_dynamic_spawn_pose_event_cfg_deepcopy_after_mesh_solve():
         min_unique_layouts_per_env=1,
         solver_params=RelationSolverParams(collision_mode=CollisionMode.MESH, max_iters=50),
     )
-    event_cfg = solve_and_apply_relation_placement([desk, box], num_envs=1, placer_params=params)
+    event_cfg = prepare_live_relation_placement([desk, box], num_envs=1, placer_params=params)
 
     assert event_cfg is not None
     assert isinstance(event_cfg, EventTermCfg)
@@ -211,8 +217,9 @@ def test_dynamic_spawn_pose_event_cfg_deepcopy_after_mesh_solve():
     _validate(event_cfg, prefix="")
 
 
-def test_static_embodiment_placement_stores_per_env_poses():
-    from isaaclab_arena.environments.relation_solver_interface import _apply_relation_placement_result
+def test_static_embodiment_placement_stores_per_env_poses(monkeypatch):
+    import isaaclab_arena.environments.relation_solver_interface as interface_module
+    from isaaclab_arena.environments.relation_solver_interface import prepare_live_relation_placement
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
     from isaaclab_arena.tests.dummy_embodiment import DummyEmbodiment
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
@@ -230,11 +237,12 @@ def test_static_embodiment_placement_stores_per_env_poses():
         _fallback_layout(positions={robot: (0.1, 0.2, 0.0)}),
         _fallback_layout(positions={robot: (0.3, 0.4, 0.0)}),
     ]
+    placement_pool = _FakePlacementPool(layouts)
+    monkeypatch.setattr(interface_module, "PooledObjectPlacer", lambda **_kwargs: placement_pool)
 
-    event_cfg = _apply_relation_placement_result(
-        assets=[desk, robot],
+    event_cfg = prepare_live_relation_placement(
+        [desk, robot],
         placer_params=ObjectPlacerParams(resolve_on_reset=False),
-        placement_pool=_FakePlacementPool(layouts),
         num_envs=2,
     )
 

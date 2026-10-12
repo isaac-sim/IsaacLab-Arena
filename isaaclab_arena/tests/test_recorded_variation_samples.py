@@ -74,6 +74,16 @@ def test_loader_keeps_placement_outside_variations(tmp_path: Path) -> None:
     ]
 
 
+def test_loader_rejects_legacy_placement_field(tmp_path: Path) -> None:
+    path = _write_jsonl(
+        tmp_path,
+        [{"variations": {"scene.relation_placement": {"layout_id": "layout_0", "poses": {}}}}],
+    )
+
+    with pytest.raises(AssertionError, match="move its value to the top-level 'placement' field"):
+        load_rebuild_variation_record(path, build_time_variation_keys=set())
+
+
 def test_loader_rejects_placement_missing_from_some_rows(tmp_path: Path) -> None:
     path = _write_jsonl(tmp_path, [{"placement": {}}, {"variations": {}}])
 

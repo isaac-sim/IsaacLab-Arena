@@ -10,7 +10,7 @@ from __future__ import annotations
 import torch
 from typing import TYPE_CHECKING
 
-from isaaclab_arena.relations.relations import RotateAroundSolution, get_anchor_objects
+from isaaclab_arena.relations.relations import RotateAroundSolution, get_anchor_objects, get_relation
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.yaw import rotate_quat_by_yaw, yaw_from_quat_xyzw
 
@@ -24,11 +24,16 @@ if TYPE_CHECKING:
 IDENTITY_ROTATION_XYZW = (0.0, 0.0, 0.0, 1.0)
 
 
+def get_base_rotation_xyzw(asset: PlaceableAsset) -> tuple[float, float, float, float]:
+    """Return an asset's RotateAroundSolution rotation, or identity."""
+    rotate_marker = get_relation(asset, RotateAroundSolution)
+    return rotate_marker.get_rotation_xyzw() if rotate_marker else IDENTITY_ROTATION_XYZW
+
+
 def get_pose_from_layout(asset: PlaceableAsset, layout: PlacementResult) -> Pose:
     """Return an asset pose from a solved layout."""
     assert asset in layout.positions, f"Placement layout is missing non-anchor asset '{asset.name}'"
-    rotate_marker = next((r for r in asset.get_relations() if isinstance(r, RotateAroundSolution)), None)
-    base_rotation = rotate_marker.get_rotation_xyzw() if rotate_marker else IDENTITY_ROTATION_XYZW
+    base_rotation = get_base_rotation_xyzw(asset)
     marker_yaw = yaw_from_quat_xyzw(base_rotation)
     total_yaw = layout.orientations.get(asset, marker_yaw)
     rotation = rotate_quat_by_yaw(base_rotation, total_yaw - marker_yaw)

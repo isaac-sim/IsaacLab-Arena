@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 import copy
-from collections.abc import Callable, Iterable
+from collections.abc import Iterable
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
@@ -15,8 +15,10 @@ from isaaclab_arena.relations.placement_poses import get_scene_root_poses_from_l
 from isaaclab_arena.relations.placement_sampler import (
     PlacementSample,
     PlacementSampler,
+    deserialize_placement_samples,
     placement_samples_to_pose_columns,
     validate_placement_sample_assets,
+    validate_root_reset_for_live_placement,
     validate_root_reset_for_placement_replay,
 )
 from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
@@ -33,16 +35,17 @@ if TYPE_CHECKING:
     from isaaclab_arena.relations.collision_object import CollisionObject
     from isaaclab_arena.relations.placement_asset import PlaceableAsset
     from isaaclab_arena.relations.placement_result import PlacementResult
+    from isaaclab_arena.variations.variation_replay_scheduler import VariationReplayScheduler
 
 
-def solve_and_apply_relation_placement(
+def prepare_live_relation_placement(
     assets: list[PlaceableAsset],
     num_envs: int,
     placer_params: ObjectPlacerParams | None = None,
     collision_objects: list[CollisionObject] | None = None,
     scene_assets: Iterable[Asset | RigidObjectSet] | None = None,
 ) -> EventTermCfg | None:
-    """Solve live relation placement and return its reset event.
+    """Prepare live relation placement and return its reset event.
 
     Args:
         assets: Assets with spatial predicates that should be relation-solved.
@@ -62,14 +65,14 @@ def solve_and_apply_relation_placement(
         return None
     asset_names = {asset.name for asset in assets}
     assert len(asset_names) == len(assets), "Placement asset names must be unique"
-    from isaaclab_arena.relations.placement_asset import get_scene_root_owners
+    scene_keys = [asset.get_scene_key() for asset in assets]
+    assert len(set(scene_keys)) == len(scene_keys), "Placement assets map to duplicate scene keys"
 
     if placer_params is None:
         placer_params = ObjectPlacerParams()
     else:
         placer_params = copy.copy(placer_params)
 
-    get_scene_root_owners(assets)
     placer_params.apply_positions_to_objects = False
     # Note(xinjieyao, 2026-07-23): The build-time IK-reachability check reads the embodiment only while its validator is built (during the
     # pool construction below). Copy the config so the live embodiment can be dropped afterwards without
@@ -99,43 +102,9 @@ def solve_and_apply_relation_placement(
             "that failed strict placement validation."
         )
 
-    return _apply_relation_placement_result(
-        assets=assets,
-        placer_params=placer_params,
-        placement_pool=placement_pool,
-        num_envs=num_envs,
-    )
-
-
-def prepare_recorded_relation_placement(
-    replay_assets: list[PlaceableAsset],
-    recorded_samples: list[PlacementSample],
-    replay_sampler: Callable[[int, torch.Tensor | None], list[PlacementSample] | None],
-    num_envs: int,
-) -> EventTermCfg:
-    """Validate and prepare recorded relation placement without constructing a solver pool."""
-    selected_assets = validate_placement_sample_assets(recorded_samples, replay_assets)
-    validate_root_reset_for_placement_replay(selected_assets)
-    sampler = PlacementSampler(
-        assets=[],
-        placement_pool=None,
-        write_assets=selected_assets,
-    )
-    sampler.set_replay_sampler(replay_sampler)
-    _seed_spawn_config_from_replay(recorded_samples, selected_assets, num_envs)
-    return _make_placement_event(sampler)
-
-
-def _apply_relation_placement_result(
-    assets: list[PlaceableAsset],
-    placer_params: ObjectPlacerParams,
-    placement_pool: PooledObjectPlacer,
-    num_envs: int,
-) -> EventTermCfg | None:
-    """Apply selected layouts to asset spawn state and build reset event config."""
     anchor_assets = set(get_anchor_objects(assets))
     # Prevent external pose-reset events from conflicting with relation-solved assets.
-    _validate_no_conflicting_pose_reset_events(assets, anchor_assets)
+    validate_root_reset_for_live_placement(assets)
 
     # Anchor assets do not move, so no need to apply reset event.
     if anchor_assets == set(assets):
@@ -148,6 +117,46 @@ def _apply_relation_placement_result(
     )
     layouts = sampler.prepare_live(num_envs, placer_params.resolve_on_reset)
     _seed_spawn_config_from_layouts(assets, anchor_assets, layouts)
+    return _make_placement_event(sampler)
+
+
+def prepare_recorded_relation_placement(
+    replay_assets: list[PlaceableAsset],
+    scheduler: VariationReplayScheduler,
+    num_envs: int,
+) -> EventTermCfg:
+    """Validate and prepare recorded relation placement without constructing a solver pool.
+
+    Args:
+        replay_assets: Scene assets available to own recorded pose roots.
+        scheduler: Shared scheduler assigning recorded episodes to environments.
+        num_envs: Number of environments whose construction poses should be seeded.
+
+    Returns:
+        Coordinated placement reset event configured for recorded replay.
+    """
+    raw_samples = [
+        episode_record.placement_sample
+        for episode_record in scheduler.variation_record.episode_records
+        if episode_record.placement_sample is not None
+    ]
+    recorded_samples = deserialize_placement_samples(raw_samples)
+    selected_assets = validate_placement_sample_assets(recorded_samples, replay_assets)
+    validate_root_reset_for_placement_replay(selected_assets)
+    for asset in selected_assets:
+        asset.clear_pose_reset_event()
+    sampler = PlacementSampler(
+        assets=[],
+        placement_pool=None,
+        write_assets=selected_assets,
+    )
+
+    def get_recorded_placement_samples(_num_samples: int, env_ids: torch.Tensor | None) -> list[PlacementSample]:
+        assert env_ids is not None, "Recorded placement requires per-environment ids."
+        return [recorded_samples[scheduler.source_record_index_for_env(int(env_id))] for env_id in env_ids.tolist()]
+
+    sampler.set_replay_sampler(get_recorded_placement_samples)
+    _seed_spawn_config_from_replay(recorded_samples, selected_assets, num_envs)
     return _make_placement_event(sampler)
 
 
@@ -192,16 +201,3 @@ def _seed_spawn_config_from_replay(
             source_poses = pose_columns[scene_key]
             poses[scene_key] = PosePerEnv([source_poses[env_id % len(samples)] for env_id in range(num_envs)])
         asset.set_initial_scene_root_poses(poses)
-
-
-def _validate_no_conflicting_pose_reset_events(
-    assets: list[PlaceableAsset],
-    anchor_assets: set[PlaceableAsset],
-) -> None:
-    """Reject conflicting explicit pose-reset events on relation-solved assets."""
-    for asset in assets:
-        assert not (asset not in anchor_assets and asset.has_pose_reset_event()), (
-            f"Non-anchor asset '{asset.name}' has an explicit pose-reset event. "
-            "Relational solving should not be combined with explicit setting of "
-            "poses on non-anchor assets."
-        )

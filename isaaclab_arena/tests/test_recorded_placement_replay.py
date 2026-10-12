@@ -226,6 +226,7 @@ def _test_recorded_root_replay_preserves_articulation_joint_reset(simulation_app
         parent_asset=background,
         object_type=ObjectType.ARTICULATION,
     )
+    assert reference.has_pose_reset_event()
     initial_pose = reference.get_initial_pose()
     recorded_pose = Pose(
         (initial_pose.position_xyz[0] + 0.1, *initial_pose.position_xyz[1:]),
@@ -249,6 +250,7 @@ def _test_recorded_root_replay_preserves_articulation_joint_reset(simulation_app
             recorded_variation_samples_path=str(path),
         ),
     ).make_registered()
+    assert not reference.has_pose_reset_event()
     try:
         base = env.unwrapped
         env.reset()

@@ -896,7 +896,7 @@ def test_reachability_validator_reject_all_raises_without_fallback():
         )
 
 
-def test_solve_and_apply_relation_placement_drops_embodiment_from_event_params():
+def test_prepare_live_relation_placement_drops_embodiment_from_event_params():
     """The build-time-only reachability embodiment must not survive into the reset-event params.
 
     Isaac Lab deep-copies and validates those params, and a live embodiment's cyclic ``mimic_env``/scene
@@ -904,7 +904,7 @@ def test_solve_and_apply_relation_placement_drops_embodiment_from_event_params()
     """
     from types import SimpleNamespace
 
-    from isaaclab_arena.environments.relation_solver_interface import solve_and_apply_relation_placement
+    from isaaclab_arena.environments.relation_solver_interface import prepare_live_relation_placement
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
     from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 
@@ -923,7 +923,7 @@ def test_solve_and_apply_relation_placement_drops_embodiment_from_event_params()
     )
     params.reachability_config.embodiment = embodiment
 
-    event = solve_and_apply_relation_placement([desk, box1, box2], num_envs=1, placer_params=params)
+    event = prepare_live_relation_placement([desk, box1, box2], num_envs=1, placer_params=params)
 
     # The caller's own config is copied before severing, so its embodiment is left intact...
     assert params.reachability_config.embodiment is embodiment

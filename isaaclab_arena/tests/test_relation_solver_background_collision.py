@@ -678,7 +678,7 @@ def test_arena_env_builder_forwards_background_collisions_by_default(monkeypatch
         def get_objects_with_relations(self):
             return objects_with_relations
 
-    def fake_solve_and_apply_relation_placement(
+    def fake_prepare_live_relation_placement(
         objects,
         num_envs,
         placer_params,
@@ -693,7 +693,7 @@ def test_arena_env_builder_forwards_background_collisions_by_default(monkeypatch
         calls["collision_objects"] = collision_objects
         return "placement_event"
 
-    monkeypatch.setattr(builder_module, "solve_and_apply_relation_placement", fake_solve_and_apply_relation_placement)
+    monkeypatch.setattr(builder_module, "prepare_live_relation_placement", fake_prepare_live_relation_placement)
     placer_params = ObjectPlacerParams(solver_params=RelationSolverParams(collision_mode=CollisionMode.MESH))
     arena_env = SimpleNamespace(
         scene=Scene(),
@@ -704,7 +704,7 @@ def test_arena_env_builder_forwards_background_collisions_by_default(monkeypatch
     )
     builder = ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg(num_envs=2))
 
-    builder._prepare_relation_placement(None, None)
+    builder._prepare_relation_placement(None)
 
     assert calls["objects"] == objects_with_relations
     assert calls["num_envs"] == 2
@@ -730,7 +730,7 @@ def test_arena_env_builder_forwards_empty_relation_graph(monkeypatch):
         def get_objects_with_relations(self):
             return []
 
-    def fake_solve_and_apply_relation_placement(
+    def fake_prepare_live_relation_placement(
         objects,
         num_envs,
         placer_params,
@@ -742,7 +742,7 @@ def test_arena_env_builder_forwards_empty_relation_graph(monkeypatch):
         calls["scene_assets"] = list(scene_assets)
         calls["collision_objects"] = collision_objects
 
-    monkeypatch.setattr(builder_module, "solve_and_apply_relation_placement", fake_solve_and_apply_relation_placement)
+    monkeypatch.setattr(builder_module, "prepare_live_relation_placement", fake_prepare_live_relation_placement)
     arena_env = SimpleNamespace(
         scene=Scene(),
         placer_params=None,
@@ -752,7 +752,7 @@ def test_arena_env_builder_forwards_empty_relation_graph(monkeypatch):
     )
     builder = ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg())
 
-    builder._prepare_relation_placement(None, None)
+    builder._prepare_relation_placement(None)
 
     assert calls["objects"] == []
     assert calls["scene_assets"] == []
@@ -780,11 +780,11 @@ def test_arena_env_builder_includes_embodiment_relations(monkeypatch):
         def get_relations(self):
             return [object()]
 
-    def fake_solve_and_apply_relation_placement(*args, **kwargs):
+    def fake_prepare_live_relation_placement(*args, **kwargs):
         calls.update(kwargs)
         calls["objects"] = args[0]
 
-    monkeypatch.setattr(builder_module, "solve_and_apply_relation_placement", fake_solve_and_apply_relation_placement)
+    monkeypatch.setattr(builder_module, "prepare_live_relation_placement", fake_prepare_live_relation_placement)
     embodiment = Embodiment()
     arena_env = SimpleNamespace(
         scene=Scene(),
@@ -794,7 +794,7 @@ def test_arena_env_builder_includes_embodiment_relations(monkeypatch):
         get_placement_assets=lambda: [embodiment],
     )
 
-    ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg())._prepare_relation_placement(None, None)
+    ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg())._prepare_relation_placement(None)
 
     assert calls["objects"] == [embodiment]
 
@@ -806,7 +806,7 @@ def test_relation_placement_forwards_anchor_background_mesh_exclusions(monkeypat
     import isaaclab_arena.environments.relation_solver_interface as interface_module
     from isaaclab_arena.assets.background import Background
     from isaaclab_arena.assets.object_reference import ObjectReference
-    from isaaclab_arena.environments.relation_solver_interface import solve_and_apply_relation_placement
+    from isaaclab_arena.environments.relation_solver_interface import prepare_live_relation_placement
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
     from isaaclab_arena.relations.relation_solver_params import CollisionMode, RelationSolverParams
     from isaaclab_arena.relations.relations import IsAnchor
@@ -846,7 +846,7 @@ def test_relation_placement_forwards_anchor_background_mesh_exclusions(monkeypat
     monkeypatch.setattr(interface_module, "PooledObjectPlacer", FakePooledObjectPlacer)
     placer_params = ObjectPlacerParams(solver_params=RelationSolverParams(collision_mode=CollisionMode.BBOX))
 
-    solve_and_apply_relation_placement([reference], num_envs=1, placer_params=placer_params, scene_assets=[])
+    prepare_live_relation_placement([reference], num_envs=1, placer_params=placer_params, scene_assets=[])
 
     assert calls["assets"] == []
     assert calls["include_background"] is True
@@ -859,7 +859,7 @@ def test_relation_placement_includes_background_mesh_for_background_override(mon
     """A passive Background can opt into mesh collision when the solver default is BBOX."""
     import isaaclab_arena.environments.relation_solver_interface as interface_module
     from isaaclab_arena.assets.background import Background
-    from isaaclab_arena.environments.relation_solver_interface import solve_and_apply_relation_placement
+    from isaaclab_arena.environments.relation_solver_interface import prepare_live_relation_placement
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
     from isaaclab_arena.relations.relation_solver_params import CollisionMode, RelationSolverParams
     from isaaclab_arena.relations.relations import IsAnchor
@@ -894,9 +894,7 @@ def test_relation_placement_includes_background_mesh_for_background_override(mon
     monkeypatch.setattr(interface_module, "PooledObjectPlacer", FakePooledObjectPlacer)
     placer_params = ObjectPlacerParams(solver_params=RelationSolverParams(collision_mode=CollisionMode.BBOX))
 
-    solve_and_apply_relation_placement(
-        [placed_object], num_envs=1, placer_params=placer_params, scene_assets=[background]
-    )
+    prepare_live_relation_placement([placed_object], num_envs=1, placer_params=placer_params, scene_assets=[background])
 
     assert calls["assets"] == [background]
     assert calls["include_background"] is True
@@ -908,7 +906,7 @@ def test_relation_placement_skips_background_mesh_for_default_bbox(monkeypatch):
     """Default BBOX mode uses individual passive objects, not aggregate whole-scene meshes."""
     import isaaclab_arena.environments.relation_solver_interface as interface_module
     from isaaclab_arena.assets.background import Background
-    from isaaclab_arena.environments.relation_solver_interface import solve_and_apply_relation_placement
+    from isaaclab_arena.environments.relation_solver_interface import prepare_live_relation_placement
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
     from isaaclab_arena.relations.relation_solver_params import CollisionMode, RelationSolverParams
     from isaaclab_arena.relations.relations import IsAnchor
@@ -943,9 +941,7 @@ def test_relation_placement_skips_background_mesh_for_default_bbox(monkeypatch):
     monkeypatch.setattr(interface_module, "PooledObjectPlacer", FakePooledObjectPlacer)
     placer_params = ObjectPlacerParams(solver_params=RelationSolverParams(collision_mode=CollisionMode.BBOX))
 
-    solve_and_apply_relation_placement(
-        [placed_object], num_envs=1, placer_params=placer_params, scene_assets=[background]
-    )
+    prepare_live_relation_placement([placed_object], num_envs=1, placer_params=placer_params, scene_assets=[background])
 
     assert calls["assets"] == [background]
     assert calls["include_background"] is False
