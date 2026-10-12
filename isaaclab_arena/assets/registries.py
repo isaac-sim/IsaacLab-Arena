@@ -162,7 +162,7 @@ class DeviceRegistry(Registry):
         self, device: type["TeleopDeviceBase"], embodiment: object
     ) -> "DeviceCfg | IsaacTeleopCfg":
         retargeter_registry = RetargeterRegistry()
-        retargeter_key = (device.name, embodiment.name)
+        retargeter_key = (device.name, embodiment.embodiment_type)
         retargeter_key_str = retargeter_registry.convert_tuple_to_str(retargeter_key)
         retargeter = retargeter_registry.get_component_by_name(retargeter_key_str)()
         pipeline_builder = retargeter.get_pipeline_builder(embodiment)

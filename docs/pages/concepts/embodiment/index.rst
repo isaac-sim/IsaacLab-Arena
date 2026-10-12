@@ -110,7 +110,7 @@ For example, reuse the existing Franka and expose contact friction as a construc
 
        def __init__(self, contact_friction: float = 0.8, **kwargs):
            super().__init__(**kwargs)
-           self.spawn_cfg_addon["robot"] = {
+           self.spawn_cfg_addon[self.get_scene_key()] = {
                "physics_material": RigidBodyMaterialCfg(
                    static_friction=contact_friction,
                    dynamic_friction=contact_friction,
@@ -189,6 +189,68 @@ edits, then cloning. These spawners must use Isaac Lab's ``@clone`` decorator, w
 decorators or cloning inside the function body.
 
 See :doc:`../environment/physics_configuration` for the complete application order.
+
+Robot instance keys
+-------------------
+
+An instance key names one robot when several robots share an environment.
+Franka embodiments accept it in their constructor:
+
+.. code-block:: python
+
+   left = FrankaJointPosEmbodiment(instance_key="left")
+   right = FrankaJointPosEmbodiment(instance_key="right")
+
+The key must be a lowercase ASCII identifier that is neither a Python keyword nor ``robot``.
+The robot's asset name becomes the key, and ``embodiment_type`` keeps the registered type.
+Omitting the key leaves every name and configuration unchanged.
+
+The embodiment derives every name from the key once, in its constructor,
+and builds its configurations from those names. For the key ``left``:
+
+* The robot articulation is the scene entity ``left`` at the prim path ``{ENV_REGEX_NS}/left``.
+* Every other scene entity gains the ``left_`` prefix, for example ``left_ee_frame``.
+* The robot's action, event, and reward terms and its end-effector pose recorder terms gain the
+  prefix, for example ``left_arm_action`` and ``left_robot_reset_pose``.
+* The ``policy`` observation group becomes ``left_policy``, and the terms inside it keep their names.
+* Camera terms stay in the shared ``camera_obs`` group and gain the prefix, for example ``left_wrist_cam_rgb``.
+* End-effector target frames gain the prefix, for example ``left_end_effector``.
+  Recorded poses are stored under these names, so each robot's poses stay distinct.
+* The scene-wide trajectory recorder terms, such as ``record_initial_state``, keep their names.
+* Every term names its robot explicitly, for example ``SceneEntityCfg("left")`` or ``asset_name="left"``.
+  The last-action observation and the action-rate reward read only this robot's action terms.
+
+``EmbodimentBase`` provides the helpers that produce these names:
+
+* ``get_scene_key()`` returns the scene entity name of the robot articulation: the key, or ``robot`` when unkeyed.
+* ``get_instance_name(name)`` returns the name the robot gives a scene entity, frame, or term.
+* ``get_robot_prim_path()`` returns the robot's root prim path.
+* ``with_instance_names(cfg)`` returns a configuration whose field names follow ``get_instance_name``.
+
+An embodiment supports keys by accepting ``instance_key``, passing it to ``EmbodimentBase``,
+and building its configurations with these helpers:
+
+.. code-block:: python
+
+   class MyRobot(EmbodimentBase):
+       name = "my_robot"
+
+       def __init__(self, instance_key: str | None = None):
+           super().__init__(instance_key=instance_key)
+           asset_name = self.get_scene_key()
+           robot = MY_ROBOT_CFG.replace(prim_path=self.get_robot_prim_path())
+           self.scene_config = make_configclass("MyRobotSceneCfg", [(asset_name, ArticulationCfg, robot)])()
+           arm_action = JointPositionActionCfg(asset_name=asset_name, joint_names=[".*"])
+           self.action_config = make_configclass(
+               "MyRobotActionsCfg", [(self.get_instance_name("arm_action"), ActionTermCfg, arm_action)]
+           )()
+
+For a keyed robot, ``get_scene_key()`` names the articulation's scene entry, so spawn addons and
+edits made after construction use it rather than ``"robot"``.
+The shipped G1 controllers look up their action term by a fixed name and reject a key.
+
+Teleoperation, demonstration generation, and extended-reality control require one robot
+without an instance key.
 
 More details
 ------------

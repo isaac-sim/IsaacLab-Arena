@@ -6,8 +6,9 @@
 from __future__ import annotations
 
 import torch
-from collections.abc import Sequence
-from typing import TYPE_CHECKING
+from collections.abc import Callable, Sequence
+from dataclasses import MISSING, fields
+from typing import TYPE_CHECKING, Any
 
 import isaaclab.envs.mdp as mdp_isaac_lab
 import isaaclab.sim as sim_utils
@@ -41,6 +42,7 @@ from isaaclab_arena.embodiments.franka.observations import gripper_pos
 from isaaclab_arena.embodiments.gripper import PandaGripper
 from isaaclab_arena.embodiments.robot_on_stand_utils import RobotPrimSpec, StandPrimSpec, compose_on_stand_usd
 from isaaclab_arena.environments.isaaclab_arena_manager_based_env import IsaacLabArenaManagerBasedRLMimicEnv
+from isaaclab_arena.terms.actions import robot_action_rate_l2, robot_last_action
 from isaaclab_arena.utils.cameras import ArenaCameraCfg
 from isaaclab_arena.utils.pose import Pose
 
@@ -80,28 +82,56 @@ _FRANKA_JOINT_NAMES = (
 class FrankaEmbodimentBase(EmbodimentBase):
     """Shared Franka scene shell, observations, events, rewards, mimic env, and camera.
 
-    Subclasses set :attr:`action_config` and assign :attr:`scene_config.robot` (see
-    :class:`FrankaSceneCfg`).
+    The constructor derives every scene entity, frame, camera, and term name from ``instance_key``
+    and builds the configurations from those names. Subclasses pass the arm articulation and a
+    builder of their action terms for a given robot asset name.
     """
 
     default_arm_mode = ArmMode.SINGLE_ARM
 
     def __init__(
         self,
+        robot_cfg: ArticulationCfg,
+        make_action_cfg: Callable[[str], Any],
         enable_cameras: bool = False,
         initial_pose: Pose | None = None,
+        initial_joint_pose: list[float] | None = None,
         concatenate_observation_terms: bool = False,
         arm_mode: ArmMode | None = None,
+        instance_key: str | None = None,
     ):
-        super().__init__(enable_cameras, initial_pose, concatenate_observation_terms, arm_mode)
-        self.gripper = PandaGripper()
-        self.event_config = FrankaEventCfg()
-        self.reward_config = FrankaRewardsCfg()
+        super().__init__(
+            enable_cameras, initial_pose, concatenate_observation_terms, arm_mode, instance_key=instance_key
+        )
+        asset_name = self.get_scene_key()
+        robot_path = self.get_robot_prim_path()
+        ee_frame_name = self.get_instance_name("ee_frame")
+        self.gripper = PandaGripper(
+            asset_name=asset_name,
+            frame_transformer_name=ee_frame_name,
+            target_frame_name=self.get_instance_name("end_effector"),
+        )
+        self.scene_config = self.with_instance_names(
+            FrankaSceneCfg(
+                robot=_franka_robot_cfg_on_stand(robot_cfg.copy(), robot_path),
+                ee_frame=_franka_ee_frame_cfg(robot_path, self.get_instance_name),
+            )
+        )
+        self.camera_config = self.with_instance_names(
+            FrankaCameraCfg(wrist_cam=_franka_wrist_cam_cfg(robot_path)), bases=(ArenaCameraCfg,)
+        )
+        self.action_config = self.with_instance_names(make_action_cfg(asset_name))
+        # Isaac Lab's last-action and action-rate terms read every robot's actions, so a keyed robot
+        # names its own action terms. Unkeyed robots keep the whole-tensor terms.
+        action_names = None if instance_key is None else tuple(field.name for field in fields(self.action_config))
+        self.observation_config = self.with_instance_names(
+            _franka_observations_cfg(concatenate_observation_terms, asset_name, ee_frame_name, action_names)
+        )
+        self.event_config = self.with_instance_names(_franka_event_cfg(asset_name))
+        self.reward_config = self.with_instance_names(_franka_rewards_cfg(asset_name, action_names))
         self.mimic_env = FrankaMimicEnv
-        self.camera_config = FrankaCameraCfg()
-        self.scene_config = FrankaSceneCfg()
-        self.observation_config = FrankaObservationsCfg()
-        self.observation_config.policy.concatenate_terms = self.concatenate_observation_terms
+        if initial_joint_pose is not None:
+            self.set_initial_joint_pose(initial_joint_pose)
         self.add_camera_variations(self.camera_config)
 
     def get_collision_mesh(self) -> trimesh.Trimesh:
@@ -117,13 +147,11 @@ class FrankaEmbodimentBase(EmbodimentBase):
         assert (
             len(initial_joint_pose) == expected_joint_count
         ), f"expected {expected_joint_count} joint positions, got {len(initial_joint_pose)}"
-        assert self.scene_config is not None, "scene_config must be populated before setting the joint pose"
-        robot = self.scene_config.robot
-        assert robot is not None, "scene_config.robot must be populated before setting the joint pose"
+        robot = self.get_robot_cfg()
         robot.init_state = robot.init_state.replace(joint_pos=dict(zip(_FRANKA_JOINT_NAMES, initial_joint_pose)))
 
     def get_ee_frame_name(self, arm_mode: ArmMode) -> str:
-        return "ee_frame"
+        return self.get_instance_name("ee_frame")
 
 
 @register_asset
@@ -140,40 +168,44 @@ class FrankaIKEmbodiment(FrankaEmbodimentBase):
         initial_joint_pose: list[float] | None = None,
         concatenate_observation_terms: bool = False,
         arm_mode: ArmMode | None = None,
+        instance_key: str | None = None,
     ):
         super().__init__(
+            FRANKA_PANDA_HIGH_PD_CFG,
+            _franka_ik_action_cfg,
             enable_cameras=enable_cameras,
             initial_pose=initial_pose,
+            initial_joint_pose=initial_joint_pose,
             concatenate_observation_terms=concatenate_observation_terms,
             arm_mode=arm_mode,
+            instance_key=instance_key,
         )
-        self.scene_config.robot = _franka_robot_cfg_on_stand(FRANKA_PANDA_HIGH_PD_CFG.copy())
-        if initial_joint_pose is not None:
-            self.set_initial_joint_pose(initial_joint_pose)
-        self.action_config = FrankaIKActionCfg()
 
     def get_command_body_name(self) -> str:
-        return self.action_config.arm_action.body_name
+        return getattr(self.action_config, self.get_instance_name("arm_action")).body_name
 
 
 @configclass
 class FrankaIKActionCfg:
     """Action specifications for the MDP."""
 
-    arm_action: ActionTermCfg = DifferentialInverseKinematicsActionCfg(
-        asset_name="robot",
-        joint_names=["panda_joint.*"],
-        body_name="panda_hand",
-        controller=DifferentialIKControllerCfg(command_type="pose", use_relative_mode=True, ik_method="dls"),
-        scale=0.5,
-        body_offset=DifferentialInverseKinematicsActionCfg.OffsetCfg(pos=[0.0, 0.0, 0.107]),
-    )
+    arm_action: ActionTermCfg = MISSING
 
-    gripper_action: ActionTermCfg = BinaryJointPositionActionCfg(
-        asset_name="robot",
-        joint_names=["panda_finger.*"],
-        open_command_expr={"panda_finger_.*": 0.04},
-        close_command_expr={"panda_finger_.*": 0.0},
+    gripper_action: ActionTermCfg = MISSING
+
+
+def _franka_ik_action_cfg(asset_name: str) -> FrankaIKActionCfg:
+    """Return relative differential-IK arm and binary gripper actions for the named robot asset."""
+    return FrankaIKActionCfg(
+        arm_action=DifferentialInverseKinematicsActionCfg(
+            asset_name=asset_name,
+            joint_names=["panda_joint.*"],
+            body_name="panda_hand",
+            controller=DifferentialIKControllerCfg(command_type="pose", use_relative_mode=True, ik_method="dls"),
+            scale=0.5,
+            body_offset=DifferentialInverseKinematicsActionCfg.OffsetCfg(pos=[0.0, 0.0, 0.107]),
+        ),
+        gripper_action=_franka_gripper_action_cfg(asset_name),
     )
 
 
@@ -194,17 +226,18 @@ class FrankaJointPosEmbodiment(FrankaEmbodimentBase):
         initial_joint_pose: list[float] | None = None,
         concatenate_observation_terms: bool = False,
         arm_mode: ArmMode | None = None,
+        instance_key: str | None = None,
     ):
         super().__init__(
+            FRANKA_PANDA_CFG,
+            _franka_joint_pos_action_cfg,
             enable_cameras=enable_cameras,
             initial_pose=initial_pose,
+            initial_joint_pose=initial_joint_pose,
             concatenate_observation_terms=concatenate_observation_terms,
             arm_mode=arm_mode,
+            instance_key=instance_key,
         )
-        self.action_config = FrankaJointPosActionsCfg()
-        self.scene_config.robot = _franka_robot_cfg_on_stand(FRANKA_PANDA_CFG.copy())
-        if initial_joint_pose is not None:
-            self.set_initial_joint_pose(initial_joint_pose)
 
     def get_command_body_name(self) -> str:
         return "panda_hand"
@@ -214,23 +247,36 @@ class FrankaJointPosEmbodiment(FrankaEmbodimentBase):
 class FrankaJointPosActionsCfg:
     """Joint-position action specification matching IsaacLab's FrankaCubeLiftEnvCfg."""
 
-    arm_action: ActionTermCfg = JointPositionActionCfg(
-        asset_name="robot",
-        joint_names=["panda_joint.*"],
-        scale=0.5,
-        # Actions are displacements from Isaac Lab's default Franka pose, which is the zero point
-        # trained policies were fitted against. Stated rather than left to ``use_default_offset``,
-        # which reads the spawn state and so would move the zero point whenever that pose changes.
-        use_default_offset=False,
-        offset={
-            name: value
-            for name, value in FRANKA_PANDA_CFG.init_state.joint_pos.items()
-            if name.startswith("panda_joint")
-        },
+    arm_action: ActionTermCfg = MISSING
+
+    gripper_action: ActionTermCfg = MISSING
+
+
+def _franka_joint_pos_action_cfg(asset_name: str) -> FrankaJointPosActionsCfg:
+    """Return joint-position arm and binary gripper actions for the named robot asset."""
+    return FrankaJointPosActionsCfg(
+        arm_action=JointPositionActionCfg(
+            asset_name=asset_name,
+            joint_names=["panda_joint.*"],
+            scale=0.5,
+            # Actions are displacements from Isaac Lab's default Franka pose, which is the zero point
+            # trained policies were fitted against. Stated rather than left to ``use_default_offset``,
+            # which reads the spawn state and so would move the zero point whenever that pose changes.
+            use_default_offset=False,
+            offset={
+                name: value
+                for name, value in FRANKA_PANDA_CFG.init_state.joint_pos.items()
+                if name.startswith("panda_joint")
+            },
+        ),
+        gripper_action=_franka_gripper_action_cfg(asset_name),
     )
 
-    gripper_action: ActionTermCfg = BinaryJointPositionActionCfg(
-        asset_name="robot",
+
+def _franka_gripper_action_cfg(asset_name: str) -> BinaryJointPositionActionCfg:
+    """Return the binary finger action for the named robot asset."""
+    return BinaryJointPositionActionCfg(
+        asset_name=asset_name,
         joint_names=["panda_finger.*"],
         open_command_expr={"panda_finger_.*": 0.04},
         close_command_expr={"panda_finger_.*": 0.0},
@@ -243,28 +289,43 @@ class FrankaSceneCfg:
 
     robot: ArticulationCfg | None = None
 
-    # The end-effector frame marker
-    ee_frame: FrameTransformerCfg = FrameTransformerCfg(
-        prim_path="{ENV_REGEX_NS}/Robot/panda_link0",
+    ee_frame: FrameTransformerCfg = MISSING
+    """The end-effector frame marker."""
+
+
+def _franka_ee_frame_cfg(robot_path: str, frame_name: Callable[[str], str]) -> FrameTransformerCfg:
+    """Return the end-effector frame transformer of the robot at ``robot_path``.
+
+    Args:
+        robot_path: Root prim path of the robot articulation.
+        frame_name: Maps each unkeyed target-frame name to the robot instance's name.
+    """
+    # Add a marker to the end-effector frame
+    marker_cfg = FRAME_MARKER_CFG.copy()
+    marker_cfg.markers["frame"].scale = (0.1, 0.1, 0.1)
+    marker_cfg.prim_path = "/Visuals/FrameTransformer"
+    return FrameTransformerCfg(
+        prim_path=f"{robot_path}/panda_link0",
         debug_vis=False,
+        visualizer_cfg=marker_cfg,
         target_frames=[
             FrameTransformerCfg.FrameCfg(
-                prim_path="{ENV_REGEX_NS}/Robot/panda_hand",
-                name="end_effector",
+                prim_path=f"{robot_path}/panda_hand",
+                name=frame_name("end_effector"),
                 offset=OffsetCfg(
                     pos=[0.0, 0.0, 0.1034],
                 ),
             ),
             FrameTransformerCfg.FrameCfg(
-                prim_path="{ENV_REGEX_NS}/Robot/panda_rightfinger",
-                name="tool_rightfinger",
+                prim_path=f"{robot_path}/panda_rightfinger",
+                name=frame_name("tool_rightfinger"),
                 offset=OffsetCfg(
                     pos=(0.0, 0.0, 0.046),
                 ),
             ),
             FrameTransformerCfg.FrameCfg(
-                prim_path="{ENV_REGEX_NS}/Robot/panda_leftfinger",
-                name="tool_leftfinger",
+                prim_path=f"{robot_path}/panda_leftfinger",
+                name=frame_name("tool_leftfinger"),
                 offset=OffsetCfg(
                     pos=(0.0, 0.0, 0.046),
                 ),
@@ -272,20 +333,18 @@ class FrankaSceneCfg:
         ],
     )
 
-    def __post_init__(self):
-        # Add a marker to the end-effector frame
-        marker_cfg = FRAME_MARKER_CFG.copy()
-        marker_cfg.markers["frame"].scale = (0.1, 0.1, 0.1)
-        marker_cfg.prim_path = "/Visuals/FrameTransformer"
-        self.ee_frame.visualizer_cfg = marker_cfg
-
 
 @configclass
 class FrankaCameraCfg(ArenaCameraCfg):
     """Configuration for cameras."""
 
-    wrist_cam: CameraCfg = CameraCfg(
-        prim_path="{ENV_REGEX_NS}/Robot/panda_hand/wrist_cam",
+    wrist_cam: CameraCfg = MISSING
+
+
+def _franka_wrist_cam_cfg(robot_path: str) -> CameraCfg:
+    """Return the wrist camera mounted on the hand of the robot at ``robot_path``."""
+    return CameraCfg(
+        prim_path=f"{robot_path}/panda_hand/wrist_cam",
         update_period=0.0,
         height=84,
         width=84,
@@ -323,6 +382,33 @@ class FrankaObservationsCfg:
     policy: PolicyCfg = PolicyCfg()
 
 
+def _franka_observations_cfg(
+    concatenate_terms: bool, asset_name: str, ee_frame_name: str, action_names: tuple[str, ...] | None
+) -> FrankaObservationsCfg:
+    """Return the policy observations; given action names, every term names its robot explicitly.
+
+    Args:
+        concatenate_terms: Whether the policy group concatenates its terms.
+        asset_name: Scene key of the robot articulation.
+        ee_frame_name: Scene key of the end-effector frame transformer.
+        action_names: The robot's own action terms, or None to observe the whole action tensor and
+            leave the terms' default entity names unchanged.
+    """
+    observations = FrankaObservationsCfg()
+    policy = observations.policy
+    policy.concatenate_terms = concatenate_terms
+    if action_names is not None:
+        robot = SceneEntityCfg(asset_name)
+        ee_frame = SceneEntityCfg(ee_frame_name)
+        policy.actions = ObsTerm(func=robot_last_action, params={"action_names": action_names})
+        policy.joint_pos.params = {"asset_cfg": robot}
+        policy.joint_vel.params = {"asset_cfg": robot}
+        policy.eef_pos.params = {"ee_frame_cfg": ee_frame}
+        policy.eef_quat.params = {"ee_frame_cfg": ee_frame}
+        policy.gripper_pos.params = {"robot_cfg": robot}
+    return observations
+
+
 _FRANKA_READY_POSE = {
     "panda_joint1": 0.0,
     "panda_joint2": -0.785,
@@ -340,14 +426,21 @@ _FRANKA_READY_POSE = {
 class FrankaEventCfg:
     """Configuration for Franka."""
 
-    randomize_franka_joint_state = EventTerm(
-        func=franka_stack_events.randomize_joint_by_gaussian_offset,
-        mode="reset",
-        params={
-            "mean": 0.0,
-            "std": 0.02,
-            "asset_cfg": SceneEntityCfg("robot"),
-        },
+    randomize_franka_joint_state: EventTerm = MISSING
+
+
+def _franka_event_cfg(asset_name: str) -> FrankaEventCfg:
+    """Return the reset-time joint noise event for the named robot asset."""
+    return FrankaEventCfg(
+        randomize_franka_joint_state=EventTerm(
+            func=franka_stack_events.randomize_joint_by_gaussian_offset,
+            mode="reset",
+            params={
+                "mean": 0.0,
+                "std": 0.02,
+                "asset_cfg": SceneEntityCfg(asset_name),
+            },
+        )
     )
 
 
@@ -355,9 +448,27 @@ class FrankaEventCfg:
 class FrankaRewardsCfg:
     """Reward specifications for the MDP."""
 
-    action_rate = RewardTermCfg(func=mdp_isaac_lab.action_rate_l2, weight=-0.0001)
-    joint_vel = RewardTermCfg(
-        func=mdp_isaac_lab.joint_vel_l2, weight=-0.0001, params={"asset_cfg": SceneEntityCfg("robot")}
+    action_rate: RewardTermCfg = MISSING
+
+    joint_vel: RewardTermCfg = MISSING
+
+
+def _franka_rewards_cfg(asset_name: str, action_names: tuple[str, ...] | None) -> FrankaRewardsCfg:
+    """Return the regularization rewards of the named robot asset.
+
+    Args:
+        asset_name: Scene key of the robot articulation.
+        action_names: The robot's own action terms, or None to penalize the whole action tensor.
+    """
+    if action_names is None:
+        action_rate = RewardTermCfg(func=mdp_isaac_lab.action_rate_l2, weight=-0.0001)
+    else:
+        action_rate = RewardTermCfg(func=robot_action_rate_l2, weight=-0.0001, params={"action_names": action_names})
+    return FrankaRewardsCfg(
+        action_rate=action_rate,
+        joint_vel=RewardTermCfg(
+            func=mdp_isaac_lab.joint_vel_l2, weight=-0.0001, params={"asset_cfg": SceneEntityCfg(asset_name)}
+        ),
     )
 
 
@@ -502,9 +613,9 @@ class FrankaMimicEnv(IsaacLabArenaManagerBasedRLMimicEnv):
         return object_pose_matrix
 
 
-def _franka_robot_cfg_on_stand(robot_cfg: ArticulationCfg) -> ArticulationCfg:
-    """Copy ``robot_cfg`` onto ``{ENV_REGEX_NS}/Robot`` with the composed on-stand USD."""
-    cfg = robot_cfg.replace(prim_path="{ENV_REGEX_NS}/Robot")
+def _franka_robot_cfg_on_stand(robot_cfg: ArticulationCfg, prim_path: str) -> ArticulationCfg:
+    """Copy ``robot_cfg`` onto ``prim_path`` with the composed on-stand USD."""
+    cfg = robot_cfg.replace(prim_path=prim_path)
     # Arena reaches for objects on a table, so it spawns at its own ready pose rather than at the
     # pose Isaac Lab ships, which folds the elbow back.
     cfg.init_state = cfg.init_state.replace(joint_pos=_FRANKA_READY_POSE)

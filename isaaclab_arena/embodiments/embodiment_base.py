@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import keyword
 from collections.abc import Mapping
 from copy import deepcopy
 from dataclasses import dataclass
@@ -20,7 +21,7 @@ from isaaclab_arena.relations.collision_mode import CollisionMode
 from isaaclab_arena.relations.placement_asset import PlaceableAsset
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.cameras import ArenaCameraCfg, make_camera_observation_cfg
-from isaaclab_arena.utils.configclass import combine_configclass_instances
+from isaaclab_arena.utils.configclass import combine_configclass_instances, transform_configclass_instance
 from isaaclab_arena.utils.physics_backend import PhysicsBackend
 from isaaclab_arena.utils.pose import Pose, PosePerEnv, PoseRange
 
@@ -47,6 +48,10 @@ class EmbodimentBase(PlaceableAsset):
     name: str | None = None
     tags: list[str] = ["embodiment"]
     default_arm_mode: ArmMode | None = None
+    instance_key: str | None
+    """Key that names this robot instance's scene entities and terms, or None for the unkeyed names."""
+    embodiment_type: str
+    """Registered embodiment type; the asset name is the instance key when one is given."""
     gripper: Gripper | None
     """Gripper attached to the robot body, when the embodiment defines one."""
     spawn_cfg_addon: dict[str, dict[str, Any]] = {}
@@ -60,9 +65,22 @@ class EmbodimentBase(PlaceableAsset):
         arm_mode: ArmMode | None = None,
         collision_mode: CollisionMode | str | None = None,
         spawn_cfg_addon: dict[str, dict[str, Any]] | None = None,
+        instance_key: str | None = None,
     ):
         assert self.name is not None, "Embodiment name is required"
-        super().__init__(name=self.name, tags=self.tags, collision_mode=collision_mode)
+        assert instance_key is None or (
+            instance_key.isidentifier()
+            and instance_key.isascii()
+            and instance_key.islower()
+            and not keyword.iskeyword(instance_key)
+            and instance_key != "robot"
+        ), (
+            f"Instance key {instance_key!r} must be a lowercase ASCII identifier that is neither a Python keyword"
+            " nor 'robot'"
+        )
+        self.embodiment_type = self.name
+        self.instance_key = instance_key
+        super().__init__(name=instance_key or self.name, tags=self.tags, collision_mode=collision_mode)
         if "embodiment" not in self.tags:
             self.tags.append("embodiment")
         self.enable_cameras = enable_cameras
@@ -87,11 +105,9 @@ class EmbodimentBase(PlaceableAsset):
 
     def get_placement_geometry_source(self) -> ArticulationGeometrySpec:
         """Return the USD articulation state used to compute embodiment geometry."""
-        assert self.scene_config is not None, "scene_config must be populated before placement"
-        robot = self.scene_config.robot
-        assert robot is not None, "scene_config.robot must be populated before placement"
+        robot = self.get_robot_cfg()
         spawn = robot.spawn
-        assert spawn.usd_path is not None, "scene_config.robot must use a USD spawn for placement"
+        assert spawn.usd_path is not None, "The robot articulation must use a USD spawn for placement"
         scale_x, scale_y, scale_z = spawn.scale or (1.0, 1.0, 1.0)
         return ArticulationGeometrySpec(
             usd_path=spawn.usd_path,
@@ -158,10 +174,7 @@ class EmbodimentBase(PlaceableAsset):
 
     def set_joint_initial_pos(self, joint_pos: Mapping[str, float]) -> None:
         """Update the robot's initial joint positions by joint name."""
-        assert self.scene_config is not None, "scene_config must be populated before setting joint positions"
-        robot = self.scene_config.robot
-        assert robot is not None, "scene_config.robot must be populated before setting joint positions"
-        robot.init_state.joint_pos.update(joint_pos)
+        self.get_robot_cfg().init_state.joint_pos.update(joint_pos)
 
     def get_initial_pose(self) -> Pose | PosePerEnv:
         """Env-local robot base pose, resolved in order: the explicit ``initial_pose`` override if set,
@@ -169,8 +182,7 @@ class EmbodimentBase(PlaceableAsset):
         if self.initial_pose is not None:
             return self.initial_pose
 
-        assert hasattr(self.scene_config, "robot"), "scene_config must be populated with a `robot`."
-        init_state = self.scene_config.robot.init_state
+        init_state = self.get_robot_cfg().init_state
         return Pose(
             position_xyz=tuple(float(v) for v in init_state.pos),
             rotation_xyzw=tuple(float(v) for v in init_state.rot),
@@ -249,7 +261,7 @@ class EmbodimentBase(PlaceableAsset):
 
         pose_reset_cfg = make_configclass(
             "EmbodimentPoseResetCfg",
-            [("robot_reset_pose", EventTermCfg, self._pose_event_cfg)],
+            [(self.get_instance_name("robot_reset_pose"), EventTermCfg, self._pose_event_cfg)],
         )()
         # Merge the pose reset last so it runs after joint/root resets in ``event_config``.
         return combine_configclass_instances("EventsCfg", self.event_config, pose_reset_cfg)
@@ -282,9 +294,8 @@ class EmbodimentBase(PlaceableAsset):
             self.add_variation(CameraIntrinsicsVariation(camera_name=camera_name, camera_rig=camera_rig))
 
     def _update_scene_cfg_with_robot_initial_pose(self, scene_config: Any, pose: Pose) -> Any:
-        assert scene_config is not None, "scene_config must be populated before setting the root pose"
-        robot = scene_config.robot
-        assert robot is not None, "scene_config.robot must be populated before setting the root pose"
+        robot = getattr(scene_config, self.get_scene_key(), None)
+        assert robot is not None, f"scene_config.{self.get_scene_key()} must be populated before setting the root pose"
         robot.init_state.pos = pose.position_xyz
         robot.init_state.rot = pose.rotation_xyzw
         return scene_config
@@ -301,12 +312,60 @@ class EmbodimentBase(PlaceableAsset):
         from isaaclab_arena.terms.recorders import make_trajectory_recorder_terms_cfg
 
         return make_trajectory_recorder_terms_cfg(
-            frame_transformer_names=self.get_ee_frame_transformer_names(), asset_name=self.get_scene_key()
+            frame_transformer_names=self.get_ee_frame_transformer_names(),
+            asset_name=self.get_scene_key(),
+            term_name=self.get_instance_name,
         )
 
     def get_scene_key(self) -> str:
-        """Return the embodiment's Isaac Lab scene key."""
-        return "robot"
+        """Return the embodiment's Isaac Lab scene key: the instance key, or "robot" when unkeyed."""
+        return self.get_instance_name("robot")
+
+    def get_instance_name(self, name: str) -> str:
+        """Return the name this robot instance gives a scene entity, frame, or manager term.
+
+        Unkeyed robots keep every name. A keyed robot names its "robot" articulation by the key and
+        prefixes every other name with "<key>_", so several robots can share one environment.
+
+        Args:
+            name: The unkeyed name, for example "robot", "ee_frame", or "arm_action".
+        """
+        if self.instance_key is None:
+            return name
+        return self.instance_key if name == "robot" else f"{self.instance_key}_{name}"
+
+    def get_robot_prim_path(self) -> str:
+        """Return the robot's root prim path: "{ENV_REGEX_NS}/<key>", or "{ENV_REGEX_NS}/Robot" when unkeyed."""
+        return "{ENV_REGEX_NS}/" + (self.instance_key or "Robot")
+
+    def with_instance_names(self, cfg: Any, bases: tuple[type, ...] = ()) -> Any:
+        """Return a configclass with each top-level field of ``cfg`` named by ``get_instance_name``.
+
+        Field values and order are unchanged, and unkeyed robots get ``cfg`` itself. Call it once
+        while constructing the configurations, after their values carry this robot's names.
+
+        When keyed, the returned class keeps only the fields of ``cfg`` and ``bases``: methods,
+        ``__post_init__``, and non-field attributes of ``cfg``'s class are not carried over. Pass
+        non-configclass bases such as ``ArenaCameraCfg`` in ``bases``, and set non-field state such
+        as camera tiling after naming.
+
+        Args:
+            cfg: Configclass instance whose field names are the unkeyed names.
+            bases: Base classes of the returned configclass, for example the camera rig base class.
+        """
+        if self.instance_key is None:
+            return cfg
+
+        def name_fields(fields: list[tuple[str, type, Any]]) -> list[tuple[str, type, Any]]:
+            return [(self.get_instance_name(name), field_type, value) for name, field_type, value in fields]
+
+        return transform_configclass_instance(cfg, name_fields, bases=bases)
+
+    def get_robot_cfg(self) -> Any:
+        """Return the robot articulation configuration stored in ``scene_config`` under the scene key."""
+        robot = getattr(self.scene_config, self.get_scene_key(), None)
+        assert robot is not None, f"scene_config.{self.get_scene_key()} must be populated"
+        return robot
 
     def get_scene_root_keys(self) -> tuple[str, ...]:
         """Return every rigid-object and articulation root configured by this embodiment."""
@@ -336,7 +395,7 @@ class EmbodimentBase(PlaceableAsset):
         Override for embodiments with more than one tracked end-effector (e.g. bi-manual robots),
         or whose single frame transformer is not named "ee_frame".
         """
-        return ["ee_frame"]
+        return [self.get_instance_name("ee_frame")]
 
     def get_ee_frame_name(self, arm_mode: ArmMode) -> str:
         # In case of multiple ee frames one can use self.mimic_arm_mode to get the correct ee frame name
