@@ -140,6 +140,10 @@ def collect_run_outputs_into_experiment_output(
         assert (
             source_run_output_directory.is_dir()
         ), f"Completed Run '{run_name}' is missing its expected output directory: '{source_run_output_directory}'"
+        source_run_timings_path = source_run_output_directory / ARENA_EXPERIMENT_TIMINGS_FILENAME
+        assert (
+            source_run_timings_path.is_file()
+        ), f"Completed Run '{run_name}' is missing its timings file: '{source_run_timings_path}'"
         shutil.copytree(
             source_run_output_directory,
             destination_run_output_directory,
@@ -147,15 +151,6 @@ def collect_run_outputs_into_experiment_output(
         shutil.copy2(
             experiment_runner_result_path,
             destination_run_output_directory / EXPERIMENT_RUNNER_RESULT_FILE_NAME,
-        )
-        # The runner writes its timings beside the Run directory, so copy them in alongside the episode results.
-        source_run_timings_path = experiment_runner_output_directory / ARENA_EXPERIMENT_TIMINGS_FILENAME
-        assert (
-            source_run_timings_path.is_file()
-        ), f"Completed Run '{run_name}' is missing its timings file: '{source_run_timings_path}'"
-        shutil.copy2(
-            source_run_timings_path,
-            destination_run_output_directory / ARENA_EXPERIMENT_TIMINGS_FILENAME,
         )
     return (
         sorted(run_execution_reports, key=lambda run_execution_report: run_execution_report.run_name),
