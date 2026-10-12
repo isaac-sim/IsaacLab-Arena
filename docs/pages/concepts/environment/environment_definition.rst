@@ -19,16 +19,6 @@ Both produce the same object: an ``IsaacLabArenaEnvironment``.
   ``IsaacLabArenaEnvironment``.
 
 
-Companion placement files
--------------------------
-
-Set ``environment_builder.recorded_variation_samples_path`` in an Experiment
-Definition to replay recorded placement and variation samples. Python callers use
-``ArenaEnvBuilderCfg(recorded_variation_samples_path="episodes.jsonl")``.
-Paths are relative to the working directory. Recorded placement bypasses relation
-solving and is applied by the normal coordinated placement reset event. See
-:doc:`../object_placement/relations` for the record format and replay requirements.
-
 Fixed poses in YAML
 -------------------
 

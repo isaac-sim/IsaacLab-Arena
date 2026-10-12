@@ -200,7 +200,12 @@ runs:
 @pytest.mark.with_subprocess
 def test_experiment_runner_replays_recorded_variation_samples(tmp_path):
     """Record and replay variation samples through the typed Experiment Runner CLI."""
-    source_config_path = Path(TestConstants.arena_environments_dir) / "experiment_configs" / "variation_replay_e2e.yaml"
+    source_config_path = (
+        Path(TestConstants.arena_environments_dir)
+        / "experiment_configs"
+        / "placement_record_replay"
+        / "variation_replay_e2e.yaml"
+    )
     source_config = yaml.safe_load(source_config_path.read_text(encoding="utf-8"))
     source_run = source_config["runs"]["variation_e2e"]
     output_dir = tmp_path / "output"

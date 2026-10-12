@@ -133,7 +133,7 @@ Load the same scene and the file just recorded:
 .. code-block:: bash
 
    python isaaclab_arena/evaluation/experiment_runner.py \
-       --experiment_config isaaclab_arena_environments/experiment_configs/clutter_replay_tools_experiment.yaml \
+       --experiment_config isaaclab_arena_environments/experiment_configs/placement_record_replay/clutter_replay_tools_experiment.yaml \
        --device cpu --viz kit \
        --output_base_dir outputs/clutter/tools_replay
 
@@ -223,7 +223,7 @@ recording, then open the viewer:
 .. code-block:: bash
 
    python isaaclab_arena/evaluation/experiment_runner.py \
-       --experiment_config isaaclab_arena_environments/experiment_configs/clutter_replay_bowls_experiment.yaml \
+       --experiment_config isaaclab_arena_environments/experiment_configs/placement_record_replay/clutter_replay_bowls_experiment.yaml \
        --device cpu --viz kit \
        --output_base_dir outputs/clutter/bowls_replay
 

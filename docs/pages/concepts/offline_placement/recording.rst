@@ -210,7 +210,7 @@ Replay Placement Layouts
 Set ``environment_builder.recorded_variation_samples_path`` in an
 :doc:`Experiment Definition <../concept_arena_experiments>` to load the recording:
 
-.. literalinclude:: ../../../../isaaclab_arena_environments/experiment_configs/settled_placement_replay_experiment.yaml
+.. literalinclude:: ../../../../isaaclab_arena_environments/experiment_configs/placement_record_replay/settled_placement_replay_experiment.yaml
    :language: yaml
    :start-at: runs:
 
@@ -219,7 +219,7 @@ Run this command to replay the recording with the experiment definition above:
 .. code-block:: bash
 
    python isaaclab_arena/evaluation/experiment_runner.py \
-       --experiment_config isaaclab_arena_environments/experiment_configs/settled_placement_replay_experiment.yaml \
+       --experiment_config isaaclab_arena_environments/experiment_configs/placement_record_replay/settled_placement_replay_experiment.yaml \
        --device cpu --viz kit \
        --output_base_dir outputs/placements/evaluation
 

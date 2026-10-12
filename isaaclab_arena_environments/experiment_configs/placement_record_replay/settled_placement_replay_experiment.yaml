@@ -10,7 +10,7 @@ runs:
     environment_builder:
       num_envs: 1
       presets: PHYSX
-      recorded_variation_samples_path: outputs/placements/clamp.jsonl
+      recorded_variation_samples_path: isaaclab_arena_environments/experiment_configs/placement_record_replay/clamp_placement_replay.jsonl
     policy:
       type: zero_action
     rollout_limit:
