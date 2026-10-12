@@ -88,13 +88,13 @@ The converter is controlled by a config file at ``isaaclab_arena_gr00t/lerobot/c
       hdf5_name: "arena_g1_loco_manipulation_dataset_generated.hdf5"
 
       # Task description
-      language_instruction: "Pick up the brown box and place it in the blue bin"
+      language_instruction: "Pick up the brown box from the shelf, and place it into the blue bin on the table located at the right of the shelf."
       task_index: 2
 
       # Data field mappings
       state_name_sim: "robot_joint_pos"
       action_name_sim: "processed_actions"
-      pov_cam_name_sim: "robot_head_cam"
+      pov_cam_name_sim: "robot_head_cam_rgb"
 
       # Output configuration
       fps: 50

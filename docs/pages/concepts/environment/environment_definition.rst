@@ -11,8 +11,9 @@ Both produce the same object: an ``IsaacLabArenaEnvironment``.
 .. figure:: ../../../images/env_spec_py_yaml.png
    :alt: Python factory and Graph YAML both produce an IsaacLabArenaEnvironment, which ArenaEnvBuilder compiles into a ManagerBasedRLEnv.
 
-* **Python** — a registered ``ArenaEnvironmentCfg``. ``build()`` constructs
-  the scene, embodiment, and task in code.
+* **Python** — a registered ``ArenaEnvironmentFactory``. ``build()`` takes a
+  typed ``ArenaEnvironmentCfg`` and constructs the scene, embodiment, and task
+  in code.
 * **YAML** — an ``ArenaEnvGraphSpec``: a declarative environment graph. Nodes are
   assets; edges are spatial relations and task parameters.
   ``from_yaml()`` validates on load; ``to_arena_env()`` returns the same
@@ -122,12 +123,15 @@ read across to see the correspondence.
 
      - .. code-block:: python
 
+          class PickAndPlaceMapleTableCfg(ArenaEnvironmentCfg):
+              """Configure this pick-and-place environment."""
+
           @register_environment
-          class PickAndPlaceMapleTable(ArenaEnvironmentFactory):
+          class PickAndPlaceMapleTable(ArenaEnvironmentFactory[PickAndPlaceMapleTableCfg]):
               # Identity
               name = "pick_and_place_maple_table"
 
-              def build(self, cfg):
+              def build(self, cfg: PickAndPlaceMapleTableCfg):
                   get = self.asset_registry.get_asset_by_name
 
                   # Embodiment
@@ -185,7 +189,6 @@ Three buckets:
 Only in Python
 ~~~~~~~~~~~~~~
 
-``IsaacLabArenaEnvironment`` takes ten constructor arguments.
 ``build_arena_env_from_graph_spec()`` fills the graph-owned scene, task,
 placement, physics-backend, and compiled-config callback fields. The remaining
 runtime integrations have no YAML key.
@@ -209,15 +212,17 @@ define an RL-training environment in YAML:
        rl_policy_cfg="my_module:RLPolicyCfg",
    )
 
-**Patching the compiled config.** ``env_cfg_callback`` runs after Arena builds the
-``ManagerBasedRLEnvCfg``. Use it for viewport, decimation, physics, or anything
-else on that config:
+**Custom compiled-config callbacks.** Python can supply an ``env_cfg_callback``
+that runs after Arena builds the ``ManagerBasedRLEnvCfg``. YAML supports validated
+field overrides through :doc:`env_cfg_override`; a custom callback can also run
+Python logic. For example, a Python callback can set the viewport:
 
 .. code-block:: python
 
    def set_viewport(env_cfg):
        env_cfg.viewer.eye = (1.5, 1.5, 1.0)
        env_cfg.viewer.lookat = (0.0, 0.0, 0.5)
+       return env_cfg
 
    return IsaacLabArenaEnvironment(..., env_cfg_callback=set_viewport)
 
@@ -250,8 +255,8 @@ Only in YAML
 
 **Load-time validation.** The spec is Pydantic. Registry names, node ids,
 relation arity, task params, and check subsets fail when the file loads — before
-Isaac Sim starts. Python has no equivalent; the same mistakes show up later as an
-``AttributeError`` or a broken scene:
+environment construction. Python has no equivalent; the same mistakes show up
+later as an ``AttributeError`` or a broken scene:
 
 .. code-block:: text
 
@@ -287,7 +292,7 @@ with no code change. Below, ``--object`` replaces that node's ``registry_name``:
 **Machine authoring.** Graph YAML is the output of
 :doc:`../../example_workflows/agentic_env_gen/index`: natural language in,
 validated ``ArenaEnvGraphSpec`` out. Pydantic checks registry names, node ids,
-relation arity, and task params before the simulator sees anything.
+relation arity, and task params before environment construction.
 
 Graph specs may also declare ``default_physics_backend`` and ``env_cfg_override``;
 see :doc:`env_cfg_override` and :doc:`physics_backend_selection`.
@@ -340,10 +345,11 @@ the anchor with no pose until you set one:
    table.set_initial_pose(Pose.identity())
 
 **Relative prim paths.** An object-reference ``prim_path`` that does not start
-with ``{ENV_REGEX_NS}/`` expands to
-``{ENV_REGEX_NS}/<background registry_name>/<prim_path>``. Always the background
-registry name — even if ``parent_id`` points elsewhere. Python takes the path
-verbatim; it must be the full runtime path.
+with ``{ENV_REGEX_NS}/`` expands beneath the runtime prim path of the asset
+selected by ``parent_id``, with leading slashes removed from the relative path.
+The loader uses that parent's ``get_prim_path()``, including any instance-specific
+path. Paths starting with ``{ENV_REGEX_NS}/`` are used unchanged. Python takes the
+path verbatim; it must be the full runtime path.
 
 **Cameras.** YAML forwards ``enable_cameras`` into the embodiment ``params``. A
 Python factory that ignores ``cfg.enable_cameras`` builds a camera-less env even
@@ -401,9 +407,10 @@ Choosing between them
 ---------------------
 
 Many assets and relations? Start with YAML as it is validated, and machine-generatable so you
-can focus on the scene layout and task definition. Reach for Python when the YAML cannot
-express what you need: RL registration, teleop, ``ManagerBasedRLEnvCfg`` patches,
-placement parameters, and so on.
+can focus on the scene layout and task definition. YAML also supports compiled-config
+overrides through ``env_cfg_override`` and data-only placement parameters through
+``placer_params``. Reach for Python when you need RL registration, teleop, custom
+config callbacks, extra recorder terms or variations, or method calls on live assets.
 
 Next Steps
 ----------

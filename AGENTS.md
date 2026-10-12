@@ -4,7 +4,7 @@ This file provides guidance to AI coding agents (Claude Code, OpenAI Codex, etc.
 
 ## Project
 
-Isaac Lab-Arena is a composable environment-creation and policy-evaluation library for robotics simulation, built on Isaac Sim 6.0 and Isaac Lab 3.0 Beta. Status: alpha (`v0.2.x`); APIs are unstable. `main` is the active development branch.
+Isaac Lab-Arena is a composable environment-creation and policy-evaluation library for robotics simulation, built on Isaac Sim 6.1 and Isaac Lab 3.0 EA. Status: alpha (`v0.3.x`); APIs are unstable. `main` is the active development branch.
 
 ## Skill library
 

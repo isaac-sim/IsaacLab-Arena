@@ -276,7 +276,7 @@ common ones are:
      - ``15``
      - CPU cores requested per Run.
    * - ``osmo.memory``
-     - ``128Gi``
+     - ``120Gi``
      - Memory requested per Run.
    * - ``osmo.storage``
      - ``200Gi``
