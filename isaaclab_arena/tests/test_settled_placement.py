@@ -36,8 +36,8 @@ def run_cli_with_test_assets(summary_path: Path | None = None):
         register_no_embodiment()
         return app
 
-    def record_with_summary(cfg, *, device):
-        summary = record(cfg, device=device)
+    def record_with_summary(cfg, *, device, arena_env=None):
+        summary = record(cfg, device=device, arena_env=arena_env)
         if summary_path is not None:
             summary_path.write_text(
                 json.dumps({
@@ -335,6 +335,40 @@ def _test_recording_with_default_placer_params(simulation_app, tmp_path):
 
 def test_recording_with_default_placer_params(tmp_path):
     assert run_function_with_persistent_simulation_app(_test_recording_with_default_placer_params, tmp_path=tmp_path)
+
+
+@pytest.mark.with_subprocess
+def test_recording_with_registered_environment(tmp_path):
+    import json
+
+    output = tmp_path / "placements.jsonl"
+    summary = tmp_path / "summary.json"
+    run_subprocess(
+        [
+            TestConstants.python_path,
+            "-c",
+            (
+                "from pathlib import Path;"
+                " from isaaclab_arena.tests.test_settled_placement import run_cli_with_test_assets;"
+                f" run_cli_with_test_assets(Path({str(summary)!r}))"
+            ),
+            "environment_name=droid_table_multi_object_placement",
+            f"output={output}",
+            "layouts_per_env=1",
+            "min_layouts=1",
+            "max_batches=1",
+            "settle.num_steps=120",
+            "settle.validators.pose_shift.max_translation_m=0.1",
+            "settle.validators.pose_shift.max_rotation_deg=180",
+            "--viz",
+            "none",
+        ],
+        timeout_sec=300,
+        capture_output=True,
+    )
+    result = json.loads(summary.read_text())
+    assert result["output"] == str(output)
+    assert result["accepted"] == 1
 
 
 def _test_recording_filters_layouts(simulation_app, tmp_path):

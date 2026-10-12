@@ -18,8 +18,10 @@ from isaaclab_arena.offline_placement.settled_placement_params import SettledPla
 class PlacementRecordingCfg:
     """Source scene, reset sampling and offline recording settings."""
 
-    env_spec: str = MISSING
-    """Environment YAML path."""
+    env_spec: str | None = None
+    """Environment YAML path; mutually exclusive with environment_name."""
+    environment_name: str | None = None
+    """Registered Python environment name; mutually exclusive with env_spec."""
     output: str = MISSING
     """Placement JSONL output path; must not exist."""
     num_envs: int = 1
