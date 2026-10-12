@@ -300,16 +300,6 @@ names; a single-root embodiment commonly uses ``"robot"``; compound assets
 must include every name returned by ``asset.get_scene_root_keys()``. Positions
 are environment-local metres and rotations are xyzw quaternions.
 
-Every row in a placement replay must contain the same root set. Rows may also
-contain ordinary variation samples; placement and variations then share the
-same episode assignment during replay.
-
-Resetting environments receive consecutive episode rows from one shared
-scheduler, in reset request order, and the scheduler wraps after the final row.
-For four rows and three environments, successive full resets select
-``[0, 1, 2]`` and then ``[3, 0, 1]``. A partial reset consumes rows only for
-the resetting environments and leaves other environments unchanged.
-
 .. _placement-replay-configuration:
 
 Replay Configuration

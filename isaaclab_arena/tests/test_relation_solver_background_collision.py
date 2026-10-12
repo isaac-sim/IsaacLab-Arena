@@ -691,7 +691,7 @@ def test_arena_env_builder_forwards_background_collisions_by_default(monkeypatch
         calls["placer_params"] = placer_params
         calls["scene_assets"] = list(scene_assets)
         calls["collision_objects"] = collision_objects
-        return "placement_event"
+        return "placement_sampler"
 
     monkeypatch.setattr(builder_module, "prepare_live_relation_placement", fake_prepare_live_relation_placement)
     placer_params = ObjectPlacerParams(solver_params=RelationSolverParams(collision_mode=CollisionMode.MESH))
@@ -704,14 +704,14 @@ def test_arena_env_builder_forwards_background_collisions_by_default(monkeypatch
     )
     builder = ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg(num_envs=2))
 
-    builder._prepare_relation_placement(None)
+    sampler = builder._prepare_relation_placement(None)
 
     assert calls["objects"] == objects_with_relations
     assert calls["num_envs"] == 2
     assert calls["placer_params"] is placer_params
     assert calls["scene_assets"] == [background_collision]
     assert calls["collision_objects"] is None
-    assert builder._placement_event_cfg == "placement_event"
+    assert sampler == "placement_sampler"
 
 
 def test_arena_env_builder_forwards_empty_relation_graph(monkeypatch):

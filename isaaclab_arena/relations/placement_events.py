@@ -9,7 +9,7 @@ import torch
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.relations.placement_poses import get_base_rotation_xyzw, get_scene_root_poses_from_layout
-from isaaclab_arena.relations.placement_sampler import PlacementSample, PlacementSampler
+from isaaclab_arena.relations.placement_sampler import PlacementSample, PlacementSampler, RecordedPlacementSampler
 
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedEnv
@@ -23,34 +23,40 @@ PLACEMENT_RESET_EVENT_NAME = "placement_reset"
 
 
 class PlacementSamplerHandle:
-    """Opaque holder for a placement sampler to bypass event-param traversal.
+    """Opaque holder for a placement sampler to bypass EventTermCfg param deepcopy/validation errors.
 
-    PlacementSampler may own a PooledObjectPlacer used to set the initial spawn pose. Isaac Lab deep-copies and
-    validates EventTermCfg params, leading to two crashes: deepcopy fails for the Warp GPU cache wp.Mesh BVHs
-    ("ctypes objects containing pointers cannot be pickled"); validation hits RecursionError when recursively
-    walking all dicts and reaches placement assets (including embodiments with cyclic scene configs).
-
-    The sampler may own a live pool or route draws through recorded replay.
+    The sampler may supply live pool draws or recorded replay.
     """
 
     __slots__ = ("sampler",)
-    """Keep runtime state out of an instance dictionary so config validation does not traverse it."""
+    """Keep runtime state out of the instance dictionary inspected by config validation.
 
-    def __init__(self, sampler: PlacementSampler) -> None:
+    Recursively validating the sampler reaches placement assets, including embodiments with cyclic scene configs,
+    and raises ``RecursionError``.
+    """
+
+    def __init__(self, sampler: PlacementSampler | RecordedPlacementSampler) -> None:
         self.sampler = sampler
 
     @property
     def pool(self) -> PooledObjectPlacer | None:
         """Return the live placement pool, if this is not recorded replay."""
-        return self.sampler.placement_pool
+        if isinstance(self.sampler, PlacementSampler):
+            return self.sampler.placement_pool
+        return None
 
     @property
     def last_results(self) -> dict[int, PlacementResult]:
         """Return layouts applied by the most recent live reset."""
-        return self.sampler.last_results
+        if isinstance(self.sampler, PlacementSampler):
+            return self.sampler.last_results
+        return {}
 
     def __deepcopy__(self, memo: dict[int, object]) -> PlacementSamplerHandle:
-        """Share the sampler across ``copy.deepcopy`` to avoid deep-copying optional Warp cache BVHs."""
+        """Share the sampler across ``copy.deepcopy``.
+
+        A live placement pool may own Warp cache ``wp.Mesh`` BVHs, whose ctypes pointers cannot be pickled.
+        """
         memo[id(self)] = self
         return self
 
@@ -132,14 +138,12 @@ def solve_and_place_objects(
     if env_ids is None or len(env_ids) == 0:
         return
     sampler = placement_sampler.sampler
-    pool = sampler.placement_pool
-    if pool is not None:
+    if isinstance(sampler, PlacementSampler):
+        pool = sampler.placement_pool
         num_scene_envs = env.scene.env_origins.shape[0]
         assert (
             pool.num_envs == num_scene_envs
         ), f"Placement pool has {pool.num_envs} envs, but scene has {num_scene_envs} env origins."
-    else:
-        assert sampler.replays_recorded_samples, "Relation placement has neither recorded samples nor a live pool"
     samples = sampler.sample(len(env_ids), env_ids)
     write_placement_samples_to_sim(env, env_ids, samples, sampler.write_assets)
 

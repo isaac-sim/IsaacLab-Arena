@@ -34,6 +34,7 @@ from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import (
     apply_arena_global_settings,
 )
 from isaaclab_arena.environments.relation_solver_interface import (
+    make_placement_event,
     prepare_live_relation_placement,
     prepare_recorded_relation_placement,
 )
@@ -50,7 +51,12 @@ from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTer
 from isaaclab_arena.recording.progress_terms import ProgressEpisodeRecorderTermCfg
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_events import PLACEMENT_RESET_EVENT_NAME
-from isaaclab_arena.relations.placement_sampler import serialize_placement_samples, supports_recorded_placement
+from isaaclab_arena.relations.placement_sampler import (
+    PlacementSampler,
+    RecordedPlacementSampler,
+    serialize_placement_samples,
+    supports_recorded_placement,
+)
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.tasks.no_task import NoTask
 from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
@@ -104,7 +110,6 @@ class ArenaEnvBuilder:
         self.interactive_scene_cfg = InteractiveSceneCfg(
             num_envs=cfg.num_envs, env_spacing=cfg.env_spacing, replicate_physics=False
         )
-        self._placement_event_cfg: EventTermCfg | None = None
 
     @property
     def resolved_physics_backend(self) -> PhysicsBackend:
@@ -114,7 +119,7 @@ class ArenaEnvBuilder:
     def _prepare_relation_placement(
         self,
         scheduler: VariationReplayScheduler | None,
-    ) -> None:
+    ) -> PlacementSampler | RecordedPlacementSampler | None:
         """Prepare live or recorded relation placement.
 
         Recorded placement validates and binds native samples without constructing
@@ -127,17 +132,22 @@ class ArenaEnvBuilder:
         * **True** (default) — registers a reset event that draws a fresh layout
           from the pool for each resetting environment.
         * **False** — assigns one fixed layout per environment and reuses it.
+
+        Args:
+            scheduler: Shared recorded-variation scheduler, if replay is enabled.
+
+        Returns:
+            The prepared live or recorded placement sampler, or ``None`` when placement is disabled.
         """
         if scheduler is not None and scheduler.variation_record.has_placement_samples:
-            self._placement_event_cfg = prepare_recorded_relation_placement(
+            return prepare_recorded_relation_placement(
                 replay_assets=self.arena_env.get_placement_assets(),
                 scheduler=scheduler,
                 num_envs=self.cfg.num_envs,
             )
-            return
 
         if not self.cfg.solve_relations:
-            return
+            return None
         # Reachability constraints are defined in the task, so apply them before placement.
         if self.arena_env.task is not None:
             self.arena_env.task.apply_reachability_constraints()
@@ -159,7 +169,7 @@ class ArenaEnvBuilder:
         # Delists itself unless the embodiment has a registered cuRobo config and the solver deps are importable.
         # TODO(xinjieyao, 2026-07-22): updated once robot-object co-placement is merged.
         placer_params.reachability_config.embodiment = self.arena_env.embodiment
-        self._placement_event_cfg = prepare_live_relation_placement(
+        return prepare_live_relation_placement(
             placement_assets,
             num_envs=self.cfg.num_envs,
             placer_params=placer_params,
@@ -301,17 +311,16 @@ class ArenaEnvBuilder:
                 variations,
             )
         # Placement needs its source selected before scene config captures construction poses.
-        self._prepare_relation_placement(variation_replay_scheduler)
+        placement_sampler = self._prepare_relation_placement(variation_replay_scheduler)
 
         # Attach the variation recorder before any sampling, so it observes both build-time samples
         # (drawn just below) and run-time samples (drawn during simulation).
         variation_recorder = VariationRecorder()
         variation_recorder.attach(variations)
         # A RigidObjectSet's selected member identity is absent from pose-only samples, so skip unreplayable records.
-        if self._placement_event_cfg is not None and supports_recorded_placement(self.arena_env.get_placement_assets()):
-            placement_handle = self._placement_event_cfg.params["placement_sampler"]
+        if placement_sampler is not None and supports_recorded_placement(self.arena_env.get_placement_assets()):
             variation_recorder.attach_placement_sampler(
-                placement_handle.sampler,
+                placement_sampler,
                 serialize_placement_samples,
             )
 
@@ -339,10 +348,10 @@ class ArenaEnvBuilder:
             task.get_observation_cfg(),
         )
         placement_event_cfg = None
-        if self._placement_event_cfg is not None:
+        if placement_sampler is not None:
             PlacementEventCfg = make_configclass(
                 "PlacementEventCfg",
-                [(PLACEMENT_RESET_EVENT_NAME, EventTermCfg, self._placement_event_cfg)],
+                [(PLACEMENT_RESET_EVENT_NAME, EventTermCfg, make_placement_event(placement_sampler))],
             )
             placement_event_cfg = PlacementEventCfg()
         variations_event_cfg = self._compose_variations_event_cfg()
@@ -581,6 +590,9 @@ class ArenaEnvBuilder:
         # and never cleared, so pinning it there retains every registered env's GPU memory until
         # process exit — an unbounded leak across a persistent SimulationApp.
         # TODO(alexmillane, 2026-08-05): Fix this issue and remove this note.
+        # TODO(qianl, 2026-10-12): Restore Isaac Lab interoperability without retaining these runtime objects in
+        # the Gym registry. Relation placement and enabled run-time variations currently fail because their
+        # VariationRecorder is not forwarded to and bound by Isaac Lab's later gym.make() call.
         kwargs = {
             "env_cfg_entry_point": env_cfg,
         }

@@ -13,6 +13,7 @@ import pytest
 from isaaclab_arena.relations.placement_sampler import (
     PlacementSample,
     PlacementSampler,
+    RecordedPlacementSampler,
     deserialize_placement_samples,
     serialize_placement_samples,
     supports_recorded_placement,
@@ -41,17 +42,24 @@ def _record() -> dict:
 
 
 def test_replay_sampler_returns_native_samples_and_notifies_listener() -> None:
-    sampler = PlacementSampler(assets=[], placement_pool=None, write_assets=[_ReplayAsset("cube")])
-    recorded_sample = PlacementSample.from_record(_record())
-    sampler.set_replay_sampler(lambda count, env_ids: [recorded_sample] * count)
+    second_record = _record()
+    second_record["layout_id"] = "layout_000001"
+    recorded_samples = [PlacementSample.from_record(_record()), PlacementSample.from_record(second_record)]
+    scheduler = Mock()
+    scheduler.source_record_index_for_env.side_effect = {2: 1, 5: 0}.__getitem__
+    sampler = RecordedPlacementSampler(
+        recorded_samples=recorded_samples,
+        scheduler=scheduler,
+        write_assets=[_ReplayAsset("cube")],
+    )
     observed = []
     sampler.add_listener(lambda samples, env_ids: observed.append((samples, env_ids.clone())))
 
     samples = sampler.sample(2, torch.tensor([2, 5]))
 
     assert all(isinstance(sample, PlacementSample) for sample in samples)
-    assert [sample.layout_id for sample in samples] == ["layout_000000", "layout_000000"]
-    assert serialize_placement_samples(samples) == [_record(), _record()]
+    assert [sample.layout_id for sample in samples] == ["layout_000001", "layout_000000"]
+    assert serialize_placement_samples(samples) == [second_record, _record()]
     assert observed[0][0] is samples
     assert torch.equal(observed[0][1], torch.tensor([2, 5]))
 

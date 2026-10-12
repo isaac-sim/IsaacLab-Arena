@@ -15,6 +15,7 @@ from isaaclab_arena.relations.placement_poses import get_scene_root_poses_from_l
 from isaaclab_arena.relations.placement_sampler import (
     PlacementSample,
     PlacementSampler,
+    RecordedPlacementSampler,
     deserialize_placement_samples,
     placement_samples_to_pose_columns,
     validate_placement_sample_assets,
@@ -26,8 +27,6 @@ from isaaclab_arena.relations.relations import get_anchor_objects
 from isaaclab_arena.utils.pose import Pose, PosePerEnv
 
 if TYPE_CHECKING:
-    import torch
-
     from isaaclab.managers import EventTermCfg
 
     from isaaclab_arena.assets.asset import Asset
@@ -44,8 +43,8 @@ def prepare_live_relation_placement(
     placer_params: ObjectPlacerParams | None = None,
     collision_objects: list[CollisionObject] | None = None,
     scene_assets: Iterable[Asset | RigidObjectSet] | None = None,
-) -> EventTermCfg | None:
-    """Prepare live relation placement and return its reset event.
+) -> PlacementSampler | None:
+    """Prepare and return a live relation placement sampler.
 
     Args:
         assets: Assets with spatial predicates that should be relation-solved.
@@ -58,7 +57,7 @@ def prepare_live_relation_placement(
             when collision_objects is not supplied.
 
     Returns:
-        Coordinated placement reset event, or ``None`` when there is no placement.
+        Live placement sampler, or ``None`` when there is no placement.
     """
     if not assets:
         print("No assets with relations found in scene. Skipping relation solving.")
@@ -117,14 +116,14 @@ def prepare_live_relation_placement(
     )
     layouts = sampler.prepare_live(num_envs, placer_params.resolve_on_reset)
     _seed_spawn_config_from_layouts(assets, anchor_assets, layouts)
-    return _make_placement_event(sampler)
+    return sampler
 
 
 def prepare_recorded_relation_placement(
     replay_assets: list[PlaceableAsset],
     scheduler: VariationReplayScheduler,
     num_envs: int,
-) -> EventTermCfg:
+) -> RecordedPlacementSampler:
     """Validate and prepare recorded relation placement without constructing a solver pool.
 
     Args:
@@ -133,7 +132,7 @@ def prepare_recorded_relation_placement(
         num_envs: Number of environments whose construction poses should be seeded.
 
     Returns:
-        Coordinated placement reset event configured for recorded replay.
+        Recorded placement sampler configured for replay.
     """
     raw_samples = [
         episode_record.placement_sample
@@ -145,22 +144,16 @@ def prepare_recorded_relation_placement(
     validate_root_reset_for_placement_replay(selected_assets)
     for asset in selected_assets:
         asset.clear_pose_reset_event()
-    sampler = PlacementSampler(
-        assets=[],
-        placement_pool=None,
+    sampler = RecordedPlacementSampler(
+        recorded_samples=recorded_samples,
+        scheduler=scheduler,
         write_assets=selected_assets,
     )
-
-    def get_recorded_placement_samples(_num_samples: int, env_ids: torch.Tensor | None) -> list[PlacementSample]:
-        assert env_ids is not None, "Recorded placement requires per-environment ids."
-        return [recorded_samples[scheduler.source_record_index_for_env(int(env_id))] for env_id in env_ids.tolist()]
-
-    sampler.set_replay_sampler(get_recorded_placement_samples)
     _seed_spawn_config_from_replay(recorded_samples, selected_assets, num_envs)
-    return _make_placement_event(sampler)
+    return sampler
 
 
-def _make_placement_event(sampler: PlacementSampler) -> EventTermCfg:
+def make_placement_event(sampler: PlacementSampler | RecordedPlacementSampler) -> EventTermCfg:
     """Return the coordinated builder-owned placement reset event."""
     from isaaclab.managers import EventTermCfg
 

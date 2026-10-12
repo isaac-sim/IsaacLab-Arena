@@ -23,6 +23,7 @@ if TYPE_CHECKING:
     from isaaclab_arena.relations.placement_asset import PlaceableAsset
     from isaaclab_arena.relations.placement_result import PlacementResult
     from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
+    from isaaclab_arena.variations.variation_replay_scheduler import VariationReplayScheduler
 
 
 # -----------------------------------------------------------------------------
@@ -58,30 +59,26 @@ class PlacementSample:
 
 
 class PlacementSampler(SamplerBase):
-    """Draw complete native scene-root samples from live, fixed, or recorded layouts."""
+    """Draw complete native scene-root samples from live or fixed layouts."""
 
     def __init__(
         self,
         assets: list[PlaceableAsset],
-        placement_pool: PooledObjectPlacer | None,
+        placement_pool: PooledObjectPlacer,
         write_assets: list[PlaceableAsset],
     ) -> None:
         super().__init__()
+        # Complete solver asset set, including anchors, used to convert solved layouts into scene-root poses.
         self.assets = assets
         self.placement_pool = placement_pool
+        # Movable asset subset whose scene roots the reset event writes to simulation.
         self.write_assets = write_assets
         self.last_results: dict[int, PlacementResult] = {}
         self._next_layout_id = 0
         self._fixed_placements: dict[int, tuple[PlacementResult, PlacementSample]] | None = None
 
-    @property
-    def replays_recorded_samples(self) -> bool:
-        """Whether draws currently come from the episode replay scheduler."""
-        return self._replay_sampler is not None
-
     def prepare_live(self, num_envs: int, resolve_on_reset: bool) -> list[PlacementResult]:
         """Draw construction layouts and retain them when resets should stay fixed."""
-        assert self.placement_pool is not None, "Live relation placement requires a placement pool"
         if resolve_on_reset:
             [construction_layout] = self.placement_pool.sample_with_replacement(1)
             return [construction_layout] * num_envs
@@ -97,34 +94,25 @@ class PlacementSampler(SamplerBase):
         assert env_ids is not None, "Relation placement requires explicit environment ids"
         env_id_list = [int(env_id) for env_id in env_ids.tolist()]
         assert num_samples == len(env_id_list), "Placement sample count must match env_ids"
-        replay_samples = self._get_replay_samples(num_samples, env_ids)
-        if replay_samples is not None:
-            assert all(
-                isinstance(sample, PlacementSample) for sample in replay_samples
-            ), "Placement replay must provide native samples"
-            samples = replay_samples
-            self.last_results = {}
+        if self._fixed_placements is None:
+            results = self.placement_pool.sample_for_envs(env_id_list)
+            samples = [self._sample_from_result(results[env_id]) for env_id in env_id_list]
         else:
-            assert self.placement_pool is not None, "Live relation placement requires a placement pool"
-            if self._fixed_placements is None:
-                results = self.placement_pool.sample_for_envs(env_id_list)
-                samples = [self._sample_from_result(results[env_id]) for env_id in env_id_list]
-            else:
-                results = {}
-                samples = []
-                for env_id in env_id_list:
-                    result, sample = self._fixed_placements[env_id]
-                    results[env_id] = result
-                    samples.append(sample)
-            self.last_results = results
-            if self._fixed_placements is None:
-                for env_id, result in results.items():
-                    if not result.success:
-                        print(
-                            "Warning: Writing best-loss fallback placement for "
-                            f"env {env_id}; failed checks: "
-                            f"{result.validation_results.get_failed_validation_check_names}."
-                        )
+            results = {}
+            samples = []
+            for env_id in env_id_list:
+                result, sample = self._fixed_placements[env_id]
+                results[env_id] = result
+                samples.append(sample)
+        self.last_results = results
+        if self._fixed_placements is None:
+            for env_id, result in results.items():
+                if not result.success:
+                    print(
+                        "Warning: Writing best-loss fallback placement for "
+                        f"env {env_id}; failed checks: "
+                        f"{result.validation_results.get_failed_validation_check_names}."
+                    )
         self._notify(samples, env_ids)
         return samples
 
@@ -136,6 +124,30 @@ class PlacementSampler(SamplerBase):
         )
         self._next_layout_id += 1
         return sample
+
+
+class RecordedPlacementSampler(SamplerBase):
+    """Return the recorded placement assigned to each environment's episode."""
+
+    def __init__(
+        self,
+        recorded_samples: list[PlacementSample],
+        scheduler: VariationReplayScheduler,
+        write_assets: list[PlaceableAsset],
+    ) -> None:
+        super().__init__()
+        self.recorded_samples = recorded_samples
+        self.scheduler = scheduler
+        self.write_assets = write_assets
+
+    def sample(self, num_samples: int, env_ids: torch.Tensor) -> list[PlacementSample]:
+        """Return one assigned recorded placement per requested environment."""
+        assert env_ids is not None, "Recorded placement requires explicit environment ids"
+        env_id_list = [int(env_id) for env_id in env_ids.tolist()]
+        assert num_samples == len(env_id_list), "Placement sample count must match env_ids"
+        samples = [self.recorded_samples[self.scheduler.source_record_index_for_env(env_id)] for env_id in env_id_list]
+        self._notify(samples, env_ids)
+        return samples
 
 
 # -----------------------------------------------------------------------------
