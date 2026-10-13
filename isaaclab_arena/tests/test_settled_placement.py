@@ -497,7 +497,7 @@ def _test_recording_filters_layouts(simulation_app, tmp_path):
         handle = base.event_manager.get_term_cfg(PLACEMENT_RESET_EVENT_NAME).params["placement_sampler"]
         rejected_output = tmp_path / "rejected.jsonl"
         with (
-            patch.object(handle, "pool", unavailable_pool),
+            patch.object(handle.sampler, "placement_pool", unavailable_pool),
             patch("isaaclab_arena.offline_placement.pool_validation.physics_settle.step_physics") as step,
             patch.object(base, "close", wraps=base.close) as close,
         ):
