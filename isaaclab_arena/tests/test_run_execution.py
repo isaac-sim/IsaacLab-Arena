@@ -133,7 +133,12 @@ def test_build_and_run_splits_episode_budget_without_mutating_config(monkeypatch
 
 @pytest.mark.parametrize(
     ("configured_episodes", "num_rebuilds", "expected_rollout_limits"),
-    [(None, 1, [(None, 3)]), (8, 1, [(None, 8)]), (8, 2, [(None, 4), (None, 4)])],
+    [
+        (None, 1, [(None, 3)]),
+        (None, 2, [(None, 3), (None, 3)]),
+        (8, 1, [(None, 8)]),
+        (8, 2, [(None, 4), (None, 4)]),
+    ],
 )
 def test_build_and_run_resolves_variation_replay_budget(
     monkeypatch,
@@ -221,18 +226,6 @@ def test_build_and_run_assigns_one_replay_file_per_rebuild(
     ]
     assert all(rebuild_cfg.recorded_variation_samples_paths is None for rebuild_cfg in received_run_cfgs)
     assert run.environment_builder.recorded_variation_samples_path is None
-
-
-def test_build_and_run_rejects_step_limit_for_variation_replay(tmp_path):
-    variation_samples_path = tmp_path / "variation_samples.jsonl"
-    variation_samples_path.write_text('{"variations": {}}\n')
-    run = _run(
-        environment_builder=ArenaEnvBuilderCfg(recorded_variation_samples_path=str(variation_samples_path)),
-        rollout_limit=RolloutLimitCfg(num_steps=2),
-    )
-
-    with pytest.raises(AssertionError, match="num_steps is not supported"):
-        run_execution.build_and_run(run, output_dir=tmp_path)
 
 
 def test_recorded_variation_replay_rejects_finite_action_policy():

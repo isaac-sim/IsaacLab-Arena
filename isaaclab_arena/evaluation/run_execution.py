@@ -96,10 +96,6 @@ def build_and_run(
     metrics_per_rebuild: list[MetricsDataCollection] = []
     output_dir = str(output_dir)
     video_cfg = video_cfg or VideoRecordingCfg(video_base_dir=output_dir)
-    if cfg.environment_builder.recorded_variation_samples_path is not None:
-        assert (
-            cfg.rollout_limit.num_steps is None
-        ), f"Run '{cfg.name}' replays recorded variation samples; num_steps is not supported."
     episodes_per_rebuild = _episodes_per_rebuild(cfg)
 
     for rebuild_index, num_episodes in enumerate(episodes_per_rebuild):
@@ -255,7 +251,7 @@ def _episodes_per_rebuild(cfg: ArenaRunCfg) -> list[int | None]:
     total_num_episodes = cfg.rollout_limit.num_episodes
     replay_path = cfg.environment_builder.recorded_variation_samples_path
     if replay_path is not None and total_num_episodes is None:
-        total_num_episodes = _recorded_episode_count(replay_path)
+        return [_recorded_episode_count(replay_path)] * cfg.num_rebuilds
     return _split_episodes_across_rebuilds(total_num_episodes, cfg.num_rebuilds, cfg.name)
 
 

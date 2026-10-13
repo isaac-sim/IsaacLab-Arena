@@ -79,15 +79,19 @@ class ArenaRunCfg:
                 "recorded_variation_samples_paths cannot be combined with "
                 "environment_builder.recorded_variation_samples_path"
             )
-            assert (
-                self.rollout_limit.num_steps is None
-            ), "Replay from recorded_variation_samples_paths does not support a num_steps rollout limit"
             num_replay_paths = len(self.recorded_variation_samples_paths)
             assert self.num_rebuilds in (1, num_replay_paths), (
                 f"num_rebuilds ({self.num_rebuilds}) conflicts with the {num_replay_paths} "
                 "recorded_variation_samples_paths; omit num_rebuilds or set it to the number of paths"
             )
             self.num_rebuilds = num_replay_paths
+        if (
+            self.recorded_variation_samples_paths is not None
+            or self.environment_builder.recorded_variation_samples_path is not None
+        ):
+            assert (
+                self.rollout_limit.num_steps is None
+            ), "Replay from recorded variation samples does not support a num_steps rollout limit"
         assert self.num_rebuilds > 0, "num_rebuilds must be greater than zero"
         if self.rollout_limit.num_episodes is not None:
             assert self.rollout_limit.num_episodes >= self.num_rebuilds, (

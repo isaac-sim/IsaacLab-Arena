@@ -89,6 +89,13 @@ def test_replay_paths_determine_rebuild_count():
         ),
         (
             {
+                "environment_builder": ArenaEnvBuilderCfg(recorded_variation_samples_path="rebuild0.jsonl"),
+                "rollout_limit": RolloutLimitCfg(num_steps=1),
+            },
+            "does not support a num_steps",
+        ),
+        (
+            {
                 "recorded_variation_samples_paths": ["rebuild0.jsonl", "rebuild1.jsonl"],
                 "num_rebuilds": 99,
                 "rollout_limit": RolloutLimitCfg(num_episodes=5),

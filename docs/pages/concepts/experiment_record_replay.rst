@@ -152,7 +152,8 @@ rebuild runs at least one episode. The Run-level
    To reuse one JSONL across rebuilds, set
    ``environment_builder.recorded_variation_samples_path`` and the Run-level
    ``num_rebuilds``; leave ``recorded_variation_samples_paths`` unset. The
-   JSONL row count or explicit total episode limit is split across rebuilds.
+   default is one complete pass over the JSONL in every rebuild. An explicit
+   total episode limit is instead split across rebuilds.
 
 All recorded replay requires ``rollout_limit.num_steps`` to be unset and a
 policy without a fixed action-sequence length. When set,
