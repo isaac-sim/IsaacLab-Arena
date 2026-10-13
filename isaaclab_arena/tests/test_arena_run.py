@@ -62,7 +62,6 @@ def test_episode_budget_gives_every_rebuild_an_episode():
 def test_replay_paths_determine_rebuild_count():
     run = _run(
         rollout_limit=RolloutLimitCfg(num_episodes=5),
-        num_rebuilds=99,
         recorded_variation_samples_paths=["rebuild0.jsonl", "rebuild1.jsonl"],
     )
 
@@ -87,6 +86,14 @@ def test_replay_paths_determine_rebuild_count():
                 "rollout_limit": RolloutLimitCfg(num_steps=1),
             },
             "does not support a num_steps",
+        ),
+        (
+            {
+                "recorded_variation_samples_paths": ["rebuild0.jsonl", "rebuild1.jsonl"],
+                "num_rebuilds": 99,
+                "rollout_limit": RolloutLimitCfg(num_episodes=5),
+            },
+            "num_rebuilds \\(99\\) conflicts with the 2 recorded_variation_samples_paths",
         ),
     ],
 )

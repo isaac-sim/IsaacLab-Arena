@@ -249,9 +249,6 @@ def _resolve_rollout_limit(
 def _episodes_per_rebuild(cfg: ArenaRunCfg) -> list[int | None]:
     """Resolve one rollout episode budget per environment rebuild."""
     if cfg.recorded_variation_samples_paths is not None:
-        assert (
-            cfg.rollout_limit.num_steps is None
-        ), f"Run '{cfg.name}' replays recorded variation samples; num_steps is not supported."
         if cfg.rollout_limit.num_episodes is None:
             return [_recorded_episode_count(path) for path in cfg.recorded_variation_samples_paths]
 

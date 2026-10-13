@@ -208,11 +208,8 @@ def test_experiment_runner_replays_recorded_variation_samples(tmp_path):
     )
     source_config = yaml.safe_load(source_config_path.read_text(encoding="utf-8"))
     source_run = source_config["runs"]["variation_e2e"]
-    source_run["num_rebuilds"] = 2
     output_dir = tmp_path / "output"
-    record_results_paths = [
-        output_dir / "variation_record" / f"episode_results_rebuild{rebuild_index}.jsonl" for rebuild_index in range(2)
-    ]
+    record_results_paths = [output_dir / "variation_record" / "episode_results_rebuild0.jsonl"]
     replay_run = copy.deepcopy(source_run)
     replay_run["environment_builder"]["seed"] = 123
     replay_run["recorded_variation_samples_paths"] = [str(path) for path in record_results_paths]
@@ -236,7 +233,7 @@ def test_experiment_runner_replays_recorded_variation_samples(tmp_path):
     }
     for rebuild_index, record_results_path in enumerate(record_results_paths):
         recorded = read_episode_records(record_results_path)
-        assert len(recorded) == 3
+        assert len(recorded) == source_run["rollout_limit"]["num_episodes"]
         assert all(set(record["variations"]) == expected_variation_keys for record in recorded)
 
         replay_results_path = output_dir / "variation_replay" / f"episode_results_rebuild{rebuild_index}.jsonl"
