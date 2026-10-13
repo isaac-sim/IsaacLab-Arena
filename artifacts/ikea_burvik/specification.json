@@ -1,0 +1,103 @@
+{
+  "diameter_m": 0.38,
+  "overall_height_m": 0.78,
+  "rim_height_m": 0.06,
+  "tray_origin_height_m": 0.42,
+  "pin_diameter_m": 0.008,
+  "socket_diameter_m": 0.0092,
+  "radial_clearance_m": 0.0006,
+  "leg_insertion_m": 0.018,
+  "handle_insertion_m": 0.014,
+  "masses_kg": {
+    "tray": 1.25,
+    "handle": 0.32,
+    "leg_1": 0.24,
+    "leg_2": 0.24,
+    "leg_3": 0.24,
+    "leg_4": 0.24
+  },
+  "sockets": [
+    {
+      "seat": [
+        0.16200000047683716,
+        0.0,
+        0.004000000189989805
+      ],
+      "axis": [
+        -0.0892648696899414,
+        0.0,
+        0.9960079193115234
+      ],
+      "foot": [
+        0.20000000298023224,
+        0.0,
+        -0.41999998688697815
+      ]
+    },
+    {
+      "seat": [
+        9.919639241242064e-18,
+        0.16200000047683716,
+        0.004000000189989805
+      ],
+      "axis": [
+        -5.465897404777406e-18,
+        -0.0892648696899414,
+        0.9960079193115234
+      ],
+      "foot": [
+        1.2246468525851679e-17,
+        0.20000000298023224,
+        -0.41999998688697815
+      ]
+    },
+    {
+      "seat": [
+        -0.16200000047683716,
+        1.9839278482484127e-17,
+        0.004000000189989805
+      ],
+      "axis": [
+        0.0892648696899414,
+        -1.0931794809554812e-17,
+        0.9960079193115234
+      ],
+      "foot": [
+        -0.20000000298023224,
+        2.4492937051703357e-17,
+        -0.41999998688697815
+      ]
+    },
+    {
+      "seat": [
+        -2.975891772372619e-17,
+        -0.16200000047683716,
+        0.004000000189989805
+      ],
+      "axis": [
+        1.63976843561164e-17,
+        0.0892648696899414,
+        0.9960079193115234
+      ],
+      "foot": [
+        -3.6739402268832585e-17,
+        -0.20000000298023224,
+        -0.41999998688697815
+      ]
+    }
+  ],
+  "collider_counts": {
+    "tray": 237,
+    "leg_1": 4,
+    "leg_2": 4,
+    "leg_3": 4,
+    "leg_4": 4,
+    "handle": 41
+  },
+  "notes": [
+    "Exterior dimensions use supplied centimetre labels.",
+    "Leg length, splay, wall thickness, sockets, mass and inertia are estimated.",
+    "Threaded connectors replaced with chamfered smooth pins and seated latches.",
+    "Physics uses convex pieces around open bores; no convex hull closes a socket."
+  ]
+}
