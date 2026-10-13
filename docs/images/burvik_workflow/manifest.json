@@ -1,0 +1,158 @@
+{
+  "maximum_file_bytes": 2000000,
+  "videos": {
+    "standalone.gif": {
+      "source": "results/burvik_assembly.mp4",
+      "source_file": {
+        "bytes": 35573585,
+        "sha256": "82d0e2f65e7b5fb4704c14301c8808cb2aa587579d5e5b6f11b79ea359d1dacf"
+      },
+      "source_metadata": {
+        "programs": [],
+        "streams": [
+          {
+            "width": 1280,
+            "height": 720,
+            "avg_frame_rate": "24/1",
+            "nb_frames": "2519"
+          }
+        ],
+        "format": {
+          "duration": "104.958333"
+        }
+      },
+      "output_file": {
+        "bytes": 1177770,
+        "sha256": "e987820d0c08c5b01dfbdc59a9c969af791e0fcee30a7b59c6c043132e67841f"
+      },
+      "output_metadata": {
+        "speedup": 4,
+        "target_fps": 4,
+        "palette_colors": 32,
+        "programs": [],
+        "streams": [
+          {
+            "width": 400,
+            "height": 226,
+            "avg_frame_rate": "4/1",
+            "nb_frames": "105"
+          }
+        ],
+        "format": {
+          "duration": "26.250000"
+        }
+      }
+    },
+    "arena.gif": {
+      "source": "arena_camera_recording/burvik_arena_viewport.mp4",
+      "source_file": {
+        "bytes": 24373635,
+        "sha256": "12de60522d7831ede8e1b29eb28e333613aaf765a76a9a3f28211cbb8663a21e"
+      },
+      "source_metadata": {
+        "programs": [],
+        "streams": [
+          {
+            "width": 1280,
+            "height": 720,
+            "avg_frame_rate": "24/1",
+            "nb_frames": "1953"
+          }
+        ],
+        "format": {
+          "duration": "81.375000"
+        }
+      },
+      "output_file": {
+        "bytes": 1320394,
+        "sha256": "eb49c788df7bdf231f76b90008203de32d23b621da2f91e2e46ddd090be95506"
+      },
+      "output_metadata": {
+        "speedup": 4,
+        "target_fps": 4,
+        "palette_colors": 48,
+        "programs": [],
+        "streams": [
+          {
+            "width": 480,
+            "height": 270,
+            "avg_frame_rate": "4/1",
+            "nb_frames": "81"
+          }
+        ],
+        "format": {
+          "duration": "20.250000"
+        }
+      }
+    },
+    "robot_ik.gif": {
+      "source": "yam_ik_assembly_v10/yam_top.mp4",
+      "source_file": {
+        "bytes": 131303476,
+        "sha256": "98670213b587a2993c2456e5a071352e92bedff24833b685143777ce1865666e"
+      },
+      "source_metadata": {
+        "programs": [],
+        "streams": [
+          {
+            "width": 1280,
+            "height": 720,
+            "avg_frame_rate": "24/1",
+            "nb_frames": "6421"
+          }
+        ],
+        "format": {
+          "duration": "267.541667"
+        }
+      },
+      "output_file": {
+        "bytes": 1710512,
+        "sha256": "228b9c4f3e9f6df35e24d6f93451be149a6eff59fdc01060ad76a6e6eef385f8"
+      },
+      "output_metadata": {
+        "speedup": 8,
+        "target_fps": 3,
+        "palette_colors": 32,
+        "programs": [],
+        "streams": [
+          {
+            "width": 400,
+            "height": 226,
+            "avg_frame_rate": "100/33",
+            "nb_frames": "100"
+          }
+        ],
+        "format": {
+          "duration": "33.330000"
+        }
+      }
+    }
+  },
+  "stills": {
+    "standalone_loose.png": {
+      "source": "results/loose_parts.png",
+      "bytes": 359933,
+      "sha256": "8431395c63ab2835de66ccdd3862f30b6870dd2463aac6af02bf67ef43cc53a2"
+    },
+    "standalone_assembled.png": {
+      "source": "results/assembled.png",
+      "bytes": 321379,
+      "sha256": "2637b7cb1997390d882194e4f055d1807f4140b1034fee2dff8914897db6c2c2"
+    },
+    "arena_assembled.png": {
+      "source": "arena_camera_recording/assembled_viewport.png",
+      "bytes": 392206,
+      "sha256": "e0c5c3d1e3cd3ade8d6fa242d5818669a13f0963e71ccb4c64e81555bebb7b43"
+    },
+    "robot_assembled.png": {
+      "source": "yam_ik_assembly_v10/final_top.png",
+      "bytes": 437677,
+      "sha256": "78d9917f88055e12c6f7e306520141ec95ed18800d33cb82938cc2077b8e340c"
+    },
+    "robot_turn.png": {
+      "source_video_time_s": 135,
+      "bytes": 360532,
+      "sha256": "cfe7360bfb6c52c567ea8cf639ae283f51037cf17afcc276d80abf32527e40cf"
+    }
+  }
+}

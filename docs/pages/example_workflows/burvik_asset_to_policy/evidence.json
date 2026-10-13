@@ -1,0 +1,140 @@
+{
+  "recorded_dates": "2026-10-12/2026-10-13",
+  "code_packaging_commit": "b6a56ae34ceb3a552c0c111fe028d417cedbc6b9",
+  "usage_method": "Sum recorded task durations and final turn_token_usage for the selected requests; per-response usage sum independently matched. Excludes capability questions, gaps between requests, Git operations, and documentation work. Input includes cached context; output includes reasoning; total=input+output.",
+  "checkpoints": {
+    "standalone": {
+      "report": "artifacts/ikea_burvik/results/validation.json",
+      "report_sha256": "a1d7ce23db7829ba37b2a6ae957fbaf49a857913515d38a3d49911c5c2566d5a",
+      "request_intervals_utc": [
+        "2026-10-12T09:34:17.206Z/2026-10-12T10:45:37.534Z"
+      ],
+      "elapsed_request_ms": 4280328,
+      "tokens": {
+        "input": 13967791,
+        "cached_input": 13754240,
+        "uncached_input": 213551,
+        "output": 64076,
+        "reasoning_output_subset": 28401,
+        "total": 14031867
+      },
+      "passed": true,
+      "all_bodies_dynamic": true,
+      "world_fixed_joints": 0,
+      "stability": {
+        "loose_parts": {
+          "duration_s": 2,
+          "maximum_part_drift_m": 9.969107791067944e-06,
+          "passed": true
+        },
+        "assembled_free": {
+          "duration_s": 5,
+          "maximum_part_drift_m": 1.4301831457230418e-05,
+          "passed": true
+        },
+        "after_disturbance": {
+          "duration_s": 3,
+          "maximum_part_drift_m": 1.2766445386001296e-06,
+          "passed": true
+        }
+      }
+    },
+    "arena": {
+      "report": "artifacts/ikea_burvik/arena_camera_recording/validation.json",
+      "report_sha256": "e7855d57159b6e77483e384368eae096bbd17094d6ddc64a88b782182f03f5a5",
+      "request_intervals_utc": [
+        "2026-10-12T14:09:24.907Z/2026-10-12T15:06:34.914Z",
+        "2026-10-12T15:15:49.504Z/2026-10-12T15:32:28.701Z"
+      ],
+      "elapsed_request_ms": 4429203,
+      "tokens": {
+        "input": 20523310,
+        "cached_input": 20086400,
+        "uncached_input": 436910,
+        "output": 99081,
+        "reasoning_output_subset": 42954,
+        "total": 20622391
+      },
+      "passed": true,
+      "completion_time_s": 74.875,
+      "final_subtask_completion": [
+        [
+          true,
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "final_progress": {
+        "overall_score": 1.0,
+        "all_complete": true
+      },
+      "final_bench_support_force_N": 24.8148193359375,
+      "all_parts_dynamic": true,
+      "released_stability": {
+        "duration_s": 5.0,
+        "maximum_part_drift_m": 4.3440238073344517e-07,
+        "part_guidance_active": false,
+        "passed": true
+      }
+    },
+    "robot_ik": {
+      "report": "artifacts/ikea_burvik/yam_ik_assembly_v10/validation.json",
+      "report_sha256": "15ade70ae016280736f374d637970eeb4ae52f2f5da661c80429811db7c49ebd",
+      "request_intervals_utc": [
+        "2026-10-12T15:53:42.623Z/2026-10-13T07:35:51.323Z"
+      ],
+      "elapsed_request_ms": 56528700,
+      "tokens": {
+        "input": 127337985,
+        "cached_input": 125439872,
+        "uncached_input": 1898113,
+        "output": 619169,
+        "reasoning_output_subset": 378616,
+        "total": 127957154
+      },
+      "passed": true,
+      "completion": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "current_task_success": true,
+      "seating_errors": {
+        "leg_1": {
+          "distance_m": 0.00029503769474104047,
+          "angle_rad": 0.0011451210593804717
+        },
+        "leg_2": {
+          "distance_m": 0.00033351292950101197,
+          "angle_rad": 0.015644220635294914
+        },
+        "leg_3": {
+          "distance_m": 0.00029913050821051,
+          "angle_rad": 0.003469892079010606
+        },
+        "leg_4": {
+          "distance_m": 0.0002982549194712192,
+          "angle_rad": 0.002762136748060584
+        },
+        "handle": {
+          "distance_m": 0.0002939285186585039,
+          "angle_rad": 0.0
+        }
+      },
+      "bench_support_force_n": [
+        0.01363055408000946,
+        -0.0003456774284131825,
+        25.675453186035156
+      ],
+      "released_stability": {
+        "duration_s": 5.3375,
+        "maximum_part_drift_m": 0.00014686110080219805,
+        "passed": true
+      }
+    }
+  }
+}

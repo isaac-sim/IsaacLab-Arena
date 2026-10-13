@@ -48,3 +48,10 @@ renderer, control interface, and measured validation results are documented in
 Part dimensions follow the supplied visual references. Mass, inertia, friction,
 and connector clearances are estimates. Regenerating assets is separate from
 rerunning the assembly validation; changed geometry must be validated again.
+
+The worked example in
+``docs/pages/example_workflows/burvik_asset_to_policy/index.rst`` includes the
+original prompts, measured results, time/token accounting, and three visual
+checkpoints. On the host, ``python tools/burvik_assets/make_workflow_media.py``
+rebuilds its documentation PNGs and small GIFs from the original local recordings.
+Only these documentation excerpts are committed; full recordings remain local.
