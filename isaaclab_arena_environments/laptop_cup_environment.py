@@ -29,6 +29,8 @@ class LaptopCupEnvironmentCfg(ArenaEnvironmentCfg):
     """Cup destination in the laptop base frame: +X toward the hinge, +Y to the user's left."""
     placement_tolerance_m: float = 0.055
     minimum_lift_height_m: float = 0.06
+    gripper_retreat_distance_m: float = 0.20
+    """Required final distance between the Franka grasp frame and the cup root, in meters."""
     teleop_device: str | None = None
 
     def __post_init__(self) -> None:
@@ -69,12 +71,14 @@ class LaptopCupEnvironment(ArenaEnvironmentFactory[LaptopCupEnvironmentCfg]):
 
         asset_paths = generate_laptop_cup_assets(get_arena_asset_cache_dir() / "laptop_cup")
         table = WoodenTable(asset_paths["table"], initial_pose=Pose(position_xyz=(0.50, 0.0, 0.74)))
-        laptop = Laptop(asset_paths["laptop"], initial_pose=Pose(position_xyz=(0.50, 0.0, 0.741)))
+        laptop_pose = Pose(position_xyz=(0.50, 0.0, 0.741))
+        laptop = Laptop(asset_paths["laptop"], initial_pose=laptop_pose)
+        cup_source_offset_xyz = (-0.02, 0.28, 0.002)
         cup = Object(
             name="cup",
             usd_path=asset_paths["cup"],
             object_type=ObjectType.RIGID,
-            initial_pose=Pose(position_xyz=(0.48, 0.28, 0.743)),
+            initial_pose=laptop_pose.multiply(Pose(position_xyz=cup_source_offset_xyz)),
             spawn_cfg_addon={
                 "rigid_props": sim_utils.RigidBodyPropertiesCfg(
                     solver_position_iteration_count=16,
@@ -100,11 +104,14 @@ class LaptopCupEnvironment(ArenaEnvironmentFactory[LaptopCupEnvironmentCfg]):
             laptop=laptop,
             cup=cup,
             table=table,
+            gripper=embodiment.get_gripper(),
+            cup_source_offset_xyz=cup_source_offset_xyz,
             cup_destination_offset_xyz=cfg.cup_destination_offset_xyz,
             openness_threshold=cfg.laptop_open_angle_deg / 120.0,
             episode_length_s=cfg.episode_length_s,
             placement_tolerance_m=cfg.placement_tolerance_m,
             minimum_lift_height_m=cfg.minimum_lift_height_m,
+            gripper_retreat_distance_m=cfg.gripper_retreat_distance_m,
         )
         teleop_device = None
         if cfg.teleop_device is not None:

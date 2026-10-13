@@ -81,15 +81,29 @@ Success conditions
 requires:
 
 #. Move the lid from its closed reset state and open it past 90 degrees.
-#. After opening, lift the cup at least 6 cm above its recorded resting height.
+#. After opening, observe the cup resting on the table within 5.5 cm of its
+   left-side starting location, then lift it at least 6 cm above its recorded
+   resting height. Moving it right before opening and lifting it there does
+   not satisfy this sequence; it must return to the left before the transfer.
 #. Place the cup within 5.5 cm horizontally of its destination, supported by the
    table, within 10 degrees of upright, and below the linear and angular speed
-   limits for ten consecutive control steps.
+   limits. The Franka grasp frame must be more than 20 cm from the cup's root.
+   All of these final conditions must hold together for ten consecutive control
+   steps.
+
+The 20 cm withdrawal requirement keeps the hand clear of the 9.5 cm cup and its
+handle. It uses the measured gripper position, not an open-gripper command or an
+assumed grasp width. This is a final separation check; it does not prove that the
+robot grasped the cup earlier. The stationary robot in the reference replay
+already satisfies this check.
 
 The laptop must still be open when the cup placement completes. Dropping the cup
 below the table's configured failure height ends the episode unsuccessfully.
 Ordered milestones, contact sensing, settling, and per-environment reset state
 use Arena's existing task and progress components.
+The cup task declares its own ``CompletionCriteria`` using existing predicates;
+it inherits the parent task's contact sensor, timeout, and object-drop failure
+without depending on the parent's predicate list order.
 
 Coordinates and configuration
 ------------------------------
@@ -111,7 +125,9 @@ both overrides to the Experiment command to move the target farther right:
 Keep the destination clear of the laptop and on the table. The replay assumes
 the supplied level laptop, upright cup, and Franka IK action configuration.
 Changing the layout or task thresholds may require changing its path, opening
-angle, lift height, or timing.
+angle, lift height, or timing. ``gripper_retreat_distance_m`` configures the final
+grasp-frame separation; changes to the cup or gripper geometry require reviewing
+that clearance.
 
 The implementation is in ``isaaclab_arena_environments/laptop_cup_environment.py``,
 ``laptop_cup_task.py``, ``laptop_cup_replay_policy.py``, and
