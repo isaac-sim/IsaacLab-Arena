@@ -134,6 +134,7 @@ class DroidDeformablePickAndPlaceEnvironment(ArenaEnvironmentFactory[DroidDeform
             destination_location=destination,
             background_scene=table,
             episode_length_s=30.0,
+            velocity_threshold=0.01,
             task_description=f"Pick up the {cfg.pick_object.replace('_', ' ')} and place it on the plate.",
         )
         return IsaacLabArenaEnvironment(

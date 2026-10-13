@@ -88,6 +88,7 @@ class DeformableCubeNewton(LibraryDeformableObject):
     tags = ["object", "deformable", "newton"]
     spawner_cfg = sim_utils.MeshCuboidCfg(
         size=(0.15, 0.04, 0.04),
+        edge_refinement=8.0,
         deformable_props=NewtonDeformableBodyPropertiesCfg(),
         visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(1.0, 0.0, 0.0)),
         physics_material=NewtonDeformableBodyMaterialCfg(
@@ -135,7 +136,7 @@ class DeformableSurfaceNewton(LibraryDeformableObject):
     tags = ["object", "deformable", "newton"]
     spawner_cfg = sim_utils.MeshRectangleCfg(
         size=(0.2, 0.2),
-        resolution=(30, 30),
+        edge_refinement=30,
         deformable_props=NewtonDeformableBodyPropertiesCfg(),
         visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(0.95, 0.85, 0.1)),
         physics_material=NewtonSurfaceDeformableBodyMaterialCfg(

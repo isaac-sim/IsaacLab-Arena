@@ -447,18 +447,30 @@ def _test_deformable_placement_is_not_immediate_task_success(simulation_app) -> 
     return True
 
 
-def _test_newton_droid_deformable_environment(simulation_app) -> bool:
-    """Build and step the Newton deformable example with its coupled solver."""
+def _test_droid_deformable_environment(simulation_app, physics_backend: str) -> bool:
+    """Run zero actions and complete one four-environment episode batch."""
     import torch
 
     from isaaclab_contrib.coupling import CouplerProxyCfg
     from isaaclab_newton.physics import NewtonCfg
+    from isaaclab_physx.physics import PhysxCfg
 
     from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
+    from isaaclab_arena.tasks.predicates.object_settling import get_object_initial_rest_state
+    from isaaclab_arena.tasks.predicates.spatial import (
+        object_bounds_center_over_destination,
+        object_is_moving_slowly,
+        object_supported_by,
+    )
+    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
     from isaaclab_arena_environments.cli import get_arena_builder_from_cli, get_isaaclab_arena_environments_cli_parser
 
     parser = get_isaaclab_arena_environments_cli_parser(get_isaaclab_arena_cli_parser())
     args = parser.parse_args([
+        "--num_envs",
+        "4",
+        "--presets",
+        physics_backend,
         "droid_deformable_pick_and_place",
         "--pick_object",
         "deformable_cube",
@@ -467,19 +479,78 @@ def _test_newton_droid_deformable_environment(simulation_app) -> bool:
     ])
     builder = get_arena_builder_from_cli(args)
     env_cfg, env_kwargs = builder.compose_manager_cfg()
-    assert isinstance(env_cfg.sim.physics, NewtonCfg)
-    assert isinstance(env_cfg.sim.physics.solver_cfg, CouplerProxyCfg)
-    soft_solver_cfg = env_cfg.sim.physics.solver_cfg.entries[1].solver_cfg
-    assert soft_solver_cfg.rigid_body_contact_buffer_size == 256
-    assert soft_solver_cfg.rigid_body_particle_contact_buffer_size == 512
+    if physics_backend == "newton":
+        assert isinstance(env_cfg.sim.physics, NewtonCfg)
+        assert isinstance(env_cfg.sim.physics.solver_cfg, CouplerProxyCfg)
+        soft_solver_cfg = env_cfg.sim.physics.solver_cfg.entries[1].solver_cfg
+        assert soft_solver_cfg.rigid_body_contact_buffer_size == 256
+        assert soft_solver_cfg.rigid_body_particle_contact_buffer_size == 1024
+    else:
+        assert isinstance(env_cfg.sim.physics, PhysxCfg)
 
     env = builder.make_registered(env_cfg, env_kwargs)
     try:
+        env.unwrapped.configure_episode_limit(4)
         env.reset()
         actions = torch.zeros(env.action_space.shape, device=env.unwrapped.device)
-        for step in range(10):
+        for step in range(100):
             _, _, terminated, truncated, _ = env.step(actions)
-            assert not terminated.any() and not truncated.any(), f"Environment reset after step {step + 1}."
+            assert not terminated.any() and not truncated.any(), f"Environment reset after zero-action step {step + 1}."
+            _, settled = get_object_initial_rest_state(env.unwrapped, "pick_object")
+            if settled.all():
+                break
+        assert settled.all(), "Deformable objects did not settle under zero actions."
+
+        deformable = env.unwrapped.scene.deformable_objects["pick_object"]
+        lifted_state = deformable.data.nodal_state_w.torch.clone()
+        lifted_state[..., 2] += 0.1
+        lifted_state[..., 3:] = 0.0
+        deformable.write_nodal_state_to_sim_index(lifted_state)
+        _, _, terminated, truncated, _ = env.step(actions)
+        assert not terminated.any() and not truncated.any(), "Lifting should advance progress without ending the task."
+
+        destination_bounds = env.unwrapped.arena_world.get_aabb_w("plate")
+        placed_state = deformable.data.nodal_state_w.torch.clone()
+        node_positions = placed_state[..., :3]
+        destination_center = destination_bounds.center
+        translation = torch.zeros((env.unwrapped.num_envs, 3), device=env.unwrapped.device)
+        translation[:, :2] = destination_center[:, :2] - node_positions.mean(dim=1)[:, :2]
+        translation[:, 2] = destination_bounds.max_point[:, 2] - node_positions.amin(dim=1)[:, 2]
+        placed_state[..., :3] += translation[:, None, :]
+        placed_state[..., 3:] = 0.0
+        kinematic_targets = torch.zeros((*placed_state.shape[:-1], 4), device=env.unwrapped.device)
+        kinematic_targets[..., :3] = placed_state[..., :3]
+        kinematic_targets[..., 3] = 1.0
+        deformable.write_nodal_state_to_sim_index(placed_state)
+        deformable.write_nodal_kinematic_target_to_sim_index(kinematic_targets)
+
+        for _ in range(200):
+            _, _, terminated, truncated, extras = env.step(actions)
+            assert not truncated.any(), "The task timed out before the placement could register."
+            if terminated.any():
+                break
+        arena_world = env.unwrapped.arena_world
+        destination_vertices = arena_world.get_vertices_w("plate")
+        live_destination_bounds = AxisAlignedBoundingBox(
+            min_point=destination_vertices.amin(dim=1),
+            max_point=destination_vertices.amax(dim=1),
+        )
+        centered = object_bounds_center_over_destination(
+            arena_world.get_centroid_w("pick_object"),
+            arena_world.get_pose_w("plate"),
+            arena_world.get_aabb_in_local_frame("plate"),
+        )
+        supported = object_supported_by(arena_world.get_vertices_w("pick_object"), live_destination_bounds)
+        mean_velocity = arena_world.get_mean_linear_velocity_w("pick_object")
+        slow = object_is_moving_slowly(mean_velocity, 0.01)
+        assert terminated.any(), (
+            "No successful deformable pick-and-place episode was observed: "
+            f"centered={centered}, supported={supported}, velocity={mean_velocity}, slow={slow}, "
+            f"progress={extras['progress_tracking']['states']}"
+        )
+        successful_envs = [state.all_complete for state in extras["progress_tracking"]["states"]]
+        assert any(successful_envs)
+        assert 0 < env.unwrapped.completed_episode_count <= 4
     finally:
         env.close()
     return True
@@ -511,9 +582,18 @@ def test_deformable_placement_is_not_immediate_task_success():
     )
 
 
+def test_physx_droid_deformable_environment():
+    assert run_function_with_persistent_simulation_app(
+        _test_droid_deformable_environment,
+        headless=HEADLESS,
+        physics_backend="physx",
+    )
+
+
 @pytest.mark.with_newton
 def test_newton_droid_deformable_environment():
     assert run_function_with_persistent_simulation_app(
-        _test_newton_droid_deformable_environment,
+        _test_droid_deformable_environment,
         headless=HEADLESS,
+        physics_backend="newton",
     )
