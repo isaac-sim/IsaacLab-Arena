@@ -70,8 +70,11 @@ cameras and request camera recording:
 The runner enables rendering for camera recording automatically and writes
 videos for ``table_cam`` and ``wrist_cam``. It creates a timestamped directory
 beneath ``outputs/`` containing ``arena_experiment_result.json``, ``index.html``,
-and per-Run episode results. Task success in the reference Run describes the
-imposed object sequence, not robot-policy performance.
+and per-Run episode results. The reference Run declares
+``execution_kind: object_state_replay``. Its report shows **Scene checks passed**
+and **Robot execution not evaluated**, preserves videos and progress events, and
+excludes its episodes from robot-policy success and progress comparisons.
+The ``stationary_franka`` Run remains a robot-action evaluation.
 
 Success conditions
 ------------------

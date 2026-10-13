@@ -77,6 +77,43 @@ exactly that many episodes per Run, across all rebuilds.
 Runs keep their YAML order and execute locally in that order.
 
 
+Distinguish scene replay from robot execution
+---------------------------------------------
+
+Set a Run's ``execution_kind`` to describe how its motion is produced:
+
+* ``robot_actions`` (default): a policy, scripted controller, or action replay sends robot
+  commands. Reports include its episodes in robot-policy success and progress comparisons.
+* ``object_state_replay``: a replay imposes object poses or articulation joint states during the
+  episode. Reports show **scene checks**, with **Robot execution not evaluated**, and exclude
+  these episodes from robot-policy comparisons. Episode videos, completion criteria, and progress
+  events remain available.
+
+For an existing Run whose replay writes object states directly, add:
+
+.. code-block:: yaml
+
+   runs:
+     reference_scene_replay:
+       execution_kind: object_state_replay
+       # Keep this Run's environment, policy, and rollout settings here or in shared.
+
+The field also accepts ``shared.execution_kind`` and per-Run CLI overrides. It is saved in
+``arena_experiment_result.json`` and retained when OSMO collects Run outputs. The HTML report
+reads that file when rebuilt from an Experiment output directory; keep it beside the Run folders.
+
+This is an author declaration, not automatic detection or enforcement. Mark a Run as
+``object_state_replay`` if it imposes task-object motion during execution, even when it also sends
+robot commands. Normal initialization and environment resets do not make a robot-action Run a
+scene replay. A scene replay can validate completion checks, but cannot demonstrate that the
+robot can execute the task.
+
+Older Experiment definitions and result files without ``execution_kind`` retain the
+``robot_actions`` default. When rebuilding an older scene replay's report, first add
+``"execution_kind": "object_state_replay"`` to that Run in ``arena_experiment_result.json``;
+otherwise its old success records will still be interpreted as robot execution.
+
+
 .. _sequential-batch-experiment-runner:
 
 One definition, two execution paths

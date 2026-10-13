@@ -53,6 +53,7 @@ class ArenaExperimentRunData(TypedDict):
 
     environment: dict[str, str]
     policy_variant: str
+    execution_kind: Literal["robot_actions", "object_state_replay"]
     status: Literal["completed", "failed"]
     rebuilds: list[ArenaRebuildResultData]
 
@@ -128,6 +129,11 @@ class ArenaExperimentResult:
         self.assert_run_name_is_safe_path_component(run_name)
         environment = run_metadata["environment"]
         status = run_metadata["status"]
+        execution_kind = run_metadata.get("execution_kind", "robot_actions")
+        assert execution_kind in (
+            "robot_actions",
+            "object_state_replay",
+        ), f"execution_kind for Run {run_name!r} must be 'robot_actions' or 'object_state_replay'"
         assert status in ("completed", "failed"), f"status for Run {run_name!r} must be 'completed' or 'failed'"
 
         run_output_directory = self.experiment_output_directory / run_name
@@ -151,6 +157,7 @@ class ArenaExperimentResult:
                 "definition": environment["definition"],
             },
             "policy_variant": run_metadata["policy_variant"],
+            "execution_kind": execution_kind,
             "status": status,
             "rebuilds": rebuilds,
         }
@@ -212,4 +219,5 @@ def build_arena_run_result_metadata(run_cfg: ArenaRunCfg) -> dict[str, Any]:
             "definition": environment_definition,
         },
         "policy_variant": policy_variant,
+        "execution_kind": run_cfg.execution_kind,
     }

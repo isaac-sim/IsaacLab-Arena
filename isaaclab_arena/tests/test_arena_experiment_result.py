@@ -77,6 +77,7 @@ def test_collects_declared_runs_rebuilds_and_rank_files_without_changing_episode
                     "definition": "environments/completed_task.yaml",
                 },
                 "policy_variant": "pi05",
+                "execution_kind": "robot_actions",
                 "status": "completed",
                 "rebuilds": [
                     {"index": 0, "episodes": [{"rebuild": 0}]},
@@ -90,6 +91,7 @@ def test_collects_declared_runs_rebuilds_and_rank_files_without_changing_episode
                     "definition": "environments/failed_task.yaml",
                 },
                 "policy_variant": "pi05",
+                "execution_kind": "robot_actions",
                 "status": "failed",
                 "rebuilds": [{"index": 0, "episodes": [{"partial": True}]}],
             },
@@ -161,6 +163,7 @@ class _PolicyCfg:
 class _RunCfg:
     environment: object
     policy: object
+    execution_kind: str = "robot_actions"
 
 
 def test_builds_graph_environment_metadata_and_preserves_an_explicit_policy_variant(monkeypatch):
@@ -180,6 +183,7 @@ def test_builds_graph_environment_metadata_and_preserves_an_explicit_policy_vari
             "definition": "configs/../tasks/banana_in_bowl.yaml",
         },
         "policy_variant": "Pi0.5-Exact",
+        "execution_kind": "robot_actions",
     }
 
 
@@ -207,4 +211,12 @@ def test_builds_registered_environment_and_policy_metadata(monkeypatch):
             "definition": "registered_environment",
         },
         "policy_variant": "registered_policy",
+        "execution_kind": "robot_actions",
     }
+
+
+def test_rejects_invalid_execution_kind_in_collected_metadata(tmp_path):
+    metadata = _metadata("task", status="failed")
+    metadata["execution_kind"] = "animation"
+    with pytest.raises(AssertionError, match="execution_kind for Run"):
+        ArenaExperimentResult(tmp_path, {"run": metadata})

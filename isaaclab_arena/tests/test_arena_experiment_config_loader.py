@@ -5,6 +5,7 @@
 
 """Test loading Arena Experiments at the evaluation boundary."""
 
+import json
 import yaml
 from pathlib import Path
 
@@ -387,3 +388,52 @@ def test_unknown_experiment_config_file_type_is_rejected(tmp_path):
 
     with pytest.raises(AssertionError, match="must use .json, .yaml, or .yml"):
         validate_experiment_config_path(config_path)
+
+
+def test_scene_replay_kind_survives_yaml_result_collection_and_report_rebuild(tmp_path, monkeypatch):
+    from isaaclab_arena.evaluation.arena_experiment_result import ArenaExperimentResult, build_arena_run_result_metadata
+    from isaaclab_arena.visualization.report import build_report
+
+    monkeypatch.setattr(
+        arena_experiment_config_loader,
+        "_registered_environment_cfg_types",
+        lambda: {"pick_and_place_maple_table": PickAndPlaceMapleTableEnvironmentCfg},
+    )
+    monkeypatch.setattr(
+        arena_experiment_config_loader,
+        "_resolve_policy_cfg_type_from_name_or_class_path",
+        lambda name: {"zero_action": ZeroActionPolicyCfg}[name],
+    )
+    config_path = tmp_path / "experiment.yaml"
+    config_path.write_text(
+        """
+runs:
+  scene_replay:
+    execution_kind: object_state_replay
+    environment:
+      type: pick_and_place_maple_table
+    policy:
+      type: zero_action
+""",
+        encoding="utf-8",
+    )
+    experiment = load_arena_experiment_from_config_file(config_path, device="cpu")
+    run = experiment.runs["scene_replay"]
+    assert run.execution_kind == "object_state_replay"
+    serialized = yaml.safe_load(serialize_arena_experiment_to_yaml(experiment))
+    assert serialized["runs"]["scene_replay"]["execution_kind"] == "object_state_replay"
+
+    run_directory = tmp_path / run.name
+    run_directory.mkdir()
+    record = {"env_id": 0, "episode_in_env": 0, "success": True}
+    (run_directory / "episode_results_rebuild0.jsonl").write_text(json.dumps(record) + "\n", encoding="utf-8")
+    metadata = {**build_arena_run_result_metadata(run), "status": "completed"}
+    result_path = ArenaExperimentResult(tmp_path, {run.name: metadata}).write()
+    assert json.loads(result_path.read_text())["runs"][run.name]["execution_kind"] == "object_state_replay"
+
+    # Rebuilding from saved output must not require the original configuration or in-memory Run.
+    report_path = build_report(tmp_path)
+    assert "Robot execution not evaluated" in report_path.read_text()
+    run_page = (tmp_path / "report/job_scene_replay.html").read_text()
+    assert "Scene checks passed" in run_page
+    assert '<div class="label">Success rate</div>' not in run_page

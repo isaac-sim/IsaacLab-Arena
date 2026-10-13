@@ -589,3 +589,74 @@ def test_consecutive_step_summary_shows_streaks_and_satisfaction_steps(tmp_path)
     assert "sequence&lt;a&gt; / 2" in page
     assert "released&lt;script&gt;" in page
     assert "released<script>" not in page
+
+
+def test_scene_replay_pages_label_checks_and_keep_episode_progress(tmp_path):
+    _write_run(tmp_path, "scene_replay", num_episodes=1)
+    record = {
+        "env_id": 0,
+        "episode_in_env": 0,
+        "success": True,
+        "progress": {
+            "overall_score": 1.0,
+            "events": [{"criteria_name": "cup", "predicate_index": 0, "predicate_name": "cup_lifted", "step": 7}],
+        },
+    }
+    (tmp_path / "scene_replay/episode_results_rebuild0.jsonl").write_text(json.dumps(record) + "\n", encoding="utf-8")
+    (tmp_path / "arena_experiment_result.json").write_text(
+        json.dumps({"runs": {"scene_replay": {"execution_kind": "object_state_replay"}}}), encoding="utf-8"
+    )
+
+    build_report(tmp_path)
+
+    index = (tmp_path / "index.html").read_text(encoding="utf-8")
+    assert '<div class="label">Robot-policy success rate</div><div class="value">&mdash;</div>' in index
+    assert "<h2>Scene replays</h2>" in index
+    for filename in ("index.html", "report/task_scene_replay.html", "report/job_scene_replay.html"):
+        page = (tmp_path / filename).read_text(encoding="utf-8")
+        assert "Robot execution not evaluated" in page
+        assert "scene checks" in page.lower()
+    run_page = (tmp_path / "report/job_scene_replay.html").read_text(encoding="utf-8")
+    assert '<span class="badge success">scene checks passed</span>' in run_page
+    assert '<div class="label">Scene checks passed</div><div class="value">100%</div>' in run_page
+    assert '<div class="label">Success rate</div>' not in run_page
+    assert "cup_lifted" in run_page and "step 7" in run_page
+    assert 'data-video-src="../scene_replay/' in run_page
+
+
+def test_mixed_report_keeps_replay_out_of_policy_comparison(tmp_path):
+    _write_run(tmp_path, "task_controller", num_episodes=2)
+    _write_run(tmp_path, "task_replay", num_episodes=1)
+    (tmp_path / "arena_experiment_result.json").write_text(
+        json.dumps({"runs": {"task_replay": {"execution_kind": "object_state_replay"}}}), encoding="utf-8"
+    )
+
+    build_report(tmp_path, policy_suffixes=("controller", "replay"))
+
+    index = (tmp_path / "index.html").read_text(encoding="utf-8")
+    assert '<div class="label">Robot-policy success rate</div><div class="value">50%</div>' in index
+    comparison = index.split("<h2>Success rate by task and policy</h2>")[1].split("</section>")[0]
+    assert "controller" in comparison
+    assert "replay" not in comparison
+    assert "<th>scene checks passed</th>" in index
+    run_page = (tmp_path / "report/job_task_controller.html").read_text(encoding="utf-8")
+    assert '<div class="label">Success rate</div><div class="value">50%</div>' in run_page
+    assert "Robot execution not evaluated" not in run_page
+
+
+def test_unrelated_scene_replay_keeps_robot_policy_comparison_matrix(tmp_path):
+    for run_name in ("task_pi0", "task_gr00t", "replay"):
+        _write_run(tmp_path, run_name, num_episodes=1)
+    (tmp_path / "arena_experiment_result.json").write_text(
+        json.dumps({"runs": {"replay": {"execution_kind": "object_state_replay"}}}), encoding="utf-8"
+    )
+
+    report_path = build_report(tmp_path)
+
+    index = report_path.read_text(encoding="utf-8")
+    comparison = index.split("<h2>Success rate by task and policy</h2>")[1].split("</section>")[0]
+    assert "pi0" in comparison and "gr00t" in comparison
+    assert "replay" not in comparison
+    assert "<h2>Scene replays</h2>" in index
+    assert (tmp_path / "report/task_task.html").is_file()
+    assert (tmp_path / "report/job_replay.html").is_file()

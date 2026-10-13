@@ -12,6 +12,7 @@ evaluation, video, policy, environment, Isaac Sim, or Isaac Lab stacks.
 from __future__ import annotations
 
 import functools
+import json
 import pathlib
 import re
 from collections import defaultdict
@@ -204,6 +205,7 @@ class JobSummary:
     cameras: list[str]
     episodes: list[EpisodeSummary]
     issues: list[DataIssue] = field(default_factory=list)
+    execution_kind: str = "robot_actions"
 
     _criteria_family_by_name: dict[str, str] = field(init=False, repr=False)
     _family_sequences: dict[str, dict[int, str]] = field(init=False, repr=False)
@@ -215,6 +217,10 @@ class JobSummary:
         )
         self.issues.extend(family_issues)
         self.issues.extend(sequence_issues)
+
+    @property
+    def is_object_state_replay(self) -> bool:
+        return self.execution_kind == "object_state_replay"
 
     @property
     def num_episodes(self) -> int:
@@ -333,7 +339,7 @@ class TaskSummary:
 
     def job_for_policy(self, policy: str) -> JobSummary | None:
         for job in self.jobs:
-            if job.policy == policy:
+            if job.policy == policy and not job.is_object_state_replay:
                 return job
         return None
 
@@ -356,6 +362,18 @@ class ExperimentSummary:
         return [job for task in self.tasks for job in task.jobs]
 
     @property
+    def robot_action_jobs(self) -> list[JobSummary]:
+        return [job for job in self.jobs if not job.is_object_state_replay]
+
+    @property
+    def scene_replay_jobs(self) -> list[JobSummary]:
+        return [job for job in self.jobs if job.is_object_state_replay]
+
+    @property
+    def num_robot_action_episodes(self) -> int:
+        return sum(job.num_episodes for job in self.robot_action_jobs)
+
+    @property
     def num_episodes(self) -> int:
         return sum(job.num_episodes for job in self.jobs)
 
@@ -368,28 +386,30 @@ class ExperimentSummary:
         return self.grouping_source != "none" and bool(self.policies)
 
     def success_rate_for_policy(self, policy: str) -> float | None:
-        jobs = [job for job in self.jobs if job.policy == policy]
+        jobs = [job for job in self.robot_action_jobs if job.policy == policy]
         scored = sum(job.num_scored_episodes for job in jobs)
         return None if scored == 0 else sum(job.num_successes for job in jobs) / scored
 
     def mean_progress_for_policy(self, policy: str) -> float | None:
-        return _mean([fraction for job in self.jobs if job.policy == policy for fraction in job.progress_fractions])
+        return _mean(
+            [fraction for job in self.robot_action_jobs if job.policy == policy for fraction in job.progress_fractions]
+        )
 
     def num_episodes_for_policy(self, policy: str) -> int:
-        return sum(job.num_episodes for job in self.jobs if job.policy == policy)
+        return sum(job.num_episodes for job in self.robot_action_jobs if job.policy == policy)
 
     @property
     def overall_success_rate(self) -> float | None:
-        scored = sum(job.num_scored_episodes for job in self.jobs)
-        return None if scored == 0 else sum(job.num_successes for job in self.jobs) / scored
+        scored = sum(job.num_scored_episodes for job in self.robot_action_jobs)
+        return None if scored == 0 else sum(job.num_successes for job in self.robot_action_jobs) / scored
 
     @property
     def overall_mean_progress(self) -> float | None:
-        return _mean([fraction for job in self.jobs for fraction in job.progress_fractions])
+        return _mean([fraction for job in self.robot_action_jobs for fraction in job.progress_fractions])
 
     @property
     def num_progress_episodes(self) -> int:
-        return sum(len(job.progress_fractions) for job in self.jobs)
+        return sum(len(job.progress_fractions) for job in self.robot_action_jobs)
 
 
 @dataclass
@@ -763,6 +783,27 @@ def _resolve_job_labels(
     return labels, source
 
 
+def _read_execution_kinds(root: pathlib.Path) -> dict[str, str]:
+    """Read declared Run kinds without importing the evaluation runtime."""
+    result_path = root / "arena_experiment_result.json"
+    if not result_path.exists():
+        return {}
+    result = json.loads(result_path.read_text(encoding="utf-8"))
+    assert isinstance(result, dict) and isinstance(
+        result.get("runs"), dict
+    ), f"{result_path}: expected an Experiment result with a 'runs' object"
+    execution_kinds = {}
+    for run_name, metadata in result["runs"].items():
+        assert isinstance(metadata, dict), f"{result_path}: metadata for Run {run_name!r} must be an object"
+        execution_kind = metadata.get("execution_kind", "robot_actions")
+        assert execution_kind in (
+            "robot_actions",
+            "object_state_replay",
+        ), f"{result_path}: execution_kind for Run {run_name!r} must be 'robot_actions' or 'object_state_replay'"
+        execution_kinds[run_name] = execution_kind
+    return execution_kinds
+
+
 def build_experiment_summary(
     root: str | pathlib.Path,
     title: str,
@@ -772,13 +813,30 @@ def build_experiment_summary(
     """Scan ``root`` and aggregate recorded results into the report's data model."""
     root = pathlib.Path(root)
     scanned, issues = _scan_jobs(root)
+    execution_kinds = _read_execution_kinds(root)
     run_executions = list(run_executions or [])
     failed_run_names = {
         run_execution.run_name for run_execution in run_executions if is_failed_execution(run_execution)
     }
     scanned = [entry for entry in scanned if entry.name not in failed_run_names]
 
-    labels, grouping_source = _resolve_job_labels([entry.name for entry in scanned], policy_suffixes)
+    robot_job_names = []
+    replay_job_names = []
+    execution_kind_by_job = {}
+    for scanned_job in scanned:
+        # A Run can store recorder artifacts in nested directories.
+        run_name = pathlib.PurePath(scanned_job.name).parts[0] if scanned_job.name else ""
+        execution_kind = execution_kinds.get(run_name, "robot_actions")
+        execution_kind_by_job[scanned_job.name] = execution_kind
+        if execution_kind == "object_state_replay":
+            replay_job_names.append(scanned_job.name)
+        else:
+            robot_job_names.append(scanned_job.name)
+
+    # Diagnostic Run names must not change how robot policies are compared.
+    labels, grouping_source = _resolve_job_labels(robot_job_names, policy_suffixes)
+    replay_labels, _ = _resolve_job_labels(replay_job_names, policy_suffixes)
+    labels.update(replay_labels)
     jobs_by_task: dict[str, list[JobSummary]] = {}
     for scanned_job in scanned:
         task, policy = labels[scanned_job.name]
@@ -790,6 +848,7 @@ def build_experiment_summary(
                 cameras=scanned_job.cameras,
                 episodes=scanned_job.episodes,
                 issues=scanned_job.issues,
+                execution_kind=execution_kind_by_job[scanned_job.name],
             )
         )
 
@@ -797,7 +856,9 @@ def build_experiment_summary(
         TaskSummary(name=task, jobs=sorted(jobs_by_task[task], key=lambda job: (job.policy, job.name)))
         for task in sorted(jobs_by_task)
     ]
-    policies = sorted({job.policy for task in tasks for job in task.jobs if job.policy})
+    policies = sorted(
+        {job.policy for task in tasks for job in task.jobs if job.policy and not job.is_object_state_replay}
+    )
     return ExperimentSummary(
         title=title,
         tasks=tasks,

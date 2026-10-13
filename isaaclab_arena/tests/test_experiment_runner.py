@@ -194,7 +194,7 @@ runs:
     }
     assert run_result["policy_variant"] == "zero_action"
     assert run_result["status"] == "completed"
-    assert set(run_result) == {"environment", "policy_variant", "status", "rebuilds"}
+    assert set(run_result) == {"environment", "policy_variant", "execution_kind", "status", "rebuilds"}
 
 
 @pytest.mark.with_subprocess

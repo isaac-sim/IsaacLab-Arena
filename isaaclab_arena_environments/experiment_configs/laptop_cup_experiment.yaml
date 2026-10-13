@@ -31,6 +31,7 @@ runs:
   # Direct object-state replay demonstrates the reference sequence and task reporting.
   # It does not demonstrate a robot policy opening or grasping the objects.
   reference_scene_replay:
+    execution_kind: object_state_replay
     policy:
       type: laptop_cup_scripted_replay
       goal_offset_xyz: [-0.02, -0.28, 0.0]

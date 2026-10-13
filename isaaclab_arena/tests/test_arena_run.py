@@ -66,3 +66,10 @@ def test_run_result_records_outcome_separately():
 
     assert result.run_name == "test_run"
     assert result.metrics is None
+
+
+def test_execution_kind_defaults_to_robot_actions_and_rejects_unknown_values():
+    assert _run().execution_kind == "robot_actions"
+    assert _run(execution_kind="object_state_replay").execution_kind == "object_state_replay"
+    with pytest.raises(AssertionError, match="execution_kind must be"):
+        _run(execution_kind="animation")

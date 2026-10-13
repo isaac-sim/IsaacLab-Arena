@@ -109,6 +109,10 @@ def build_report(
     written (the directory is created if missing); when no results are present the report is simply
     empty. Writing is independent of serving — see ``serve_until_ctrl_c``.
 
+    Run execution kinds are read from ``arena_experiment_result.json`` when present. Declared
+    object-state replays retain their scene checks and videos but are excluded from robot-policy
+    comparisons. Results without this metadata keep the legacy robot-action interpretation.
+
     Args:
         video_dir: Directory of recorded results to scan (the report is written here).
         title: Title and heading for the generated page.

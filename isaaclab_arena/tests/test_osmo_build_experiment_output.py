@@ -226,7 +226,8 @@ def test_rejects_completed_experiment_runner_output_without_timings(tmp_path):
         )
 
 
-def test_builds_experiment_output_from_separate_experiment_runner_outputs(tmp_path):
+@pytest.mark.parametrize("first_execution_kind", ["robot_actions", "object_state_replay"])
+def test_builds_experiment_output_from_separate_experiment_runner_outputs(tmp_path, first_execution_kind):
     first_experiment_runner_output_directory = tmp_path / "experiment-runner-0-output"
     second_experiment_runner_output_directory = tmp_path / "experiment-runner-1-output"
     first_run_output_directory = first_experiment_runner_output_directory / "first"
@@ -245,7 +246,7 @@ def test_builds_experiment_output_from_separate_experiment_runner_outputs(tmp_pa
         first_experiment_runner_output_directory,
         RunStatus.COMPLETED,
         0,
-        {"first": _run_metadata("first-environment", "pi05")},
+        {"first": {**_run_metadata("first-environment", "pi05"), "execution_kind": first_execution_kind}},
     )
     _write_experiment_runner_result(
         second_experiment_runner_output_directory,
@@ -277,6 +278,8 @@ def test_builds_experiment_output_from_separate_experiment_runner_outputs(tmp_pa
     }
     assert first_run_result["policy_variant"] == "pi05"
     assert first_run_result["status"] == "completed"
+    assert first_run_result["execution_kind"] == first_execution_kind
+    assert experiment_result["runs"]["second"]["execution_kind"] == "robot_actions"
     assert first_run_result["rebuilds"] == [{
         "index": 0,
         "episodes": [{
@@ -286,7 +289,7 @@ def test_builds_experiment_output_from_separate_experiment_runner_outputs(tmp_pa
             "success": True,
         }],
     }]
-    assert set(first_run_result) == {"environment", "policy_variant", "status", "rebuilds"}
+    assert set(first_run_result) == {"environment", "policy_variant", "execution_kind", "status", "rebuilds"}
     assert experiment_result["runs"]["second"]["policy_variant"] == "cosmos"
     assert (experiment_output_directory / "first" / ARENA_EXPERIMENT_TIMINGS_FILENAME).is_file()
     assert (experiment_output_directory / "second" / ARENA_EXPERIMENT_TIMINGS_FILENAME).is_file()
@@ -303,6 +306,7 @@ def test_builds_experiment_output_from_separate_experiment_runner_outputs(tmp_pa
         ("second", "step"),
     ]
     report_contents = report_path.read_text(encoding="utf-8")
+    assert ("Robot execution not evaluated" in report_contents) == (first_execution_kind == "object_state_replay")
     assert "first" in report_contents
     assert "second" in report_contents
     assert "2 run(s) &middot; 2 completed &middot; 0 failed &middot; 2 episode(s)" in report_contents
@@ -362,7 +366,7 @@ def test_reports_failed_runner_without_its_partial_artifacts(tmp_path):
     failed_run_result = experiment_result["runs"]["failed-run"]
     assert failed_run_result["status"] == "failed"
     assert failed_run_result["rebuilds"] == []
-    assert set(failed_run_result) == {"environment", "policy_variant", "status", "rebuilds"}
+    assert set(failed_run_result) == {"environment", "policy_variant", "execution_kind", "status", "rebuilds"}
     report_contents = report_path.read_text(encoding="utf-8")
     assert "completed-run" in report_contents
     assert "failed-run" in report_contents

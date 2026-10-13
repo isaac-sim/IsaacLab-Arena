@@ -35,6 +35,20 @@ _UNSAFE_FILENAME_CHARACTERS = re.compile(r"[^A-Za-z0-9._-]+")
 
 _OUTCOME_GLYPHS = {"success": "&check;", "partial": "&#9680;", "fail": "&times;", "unknown": "&middot;"}
 _OUTCOME_LABELS = {"success": "success", "partial": "partial", "fail": "no progress", "unknown": "not scored"}
+_SCENE_OUTCOME_LABELS = {
+    "success": "scene checks passed",
+    "partial": "scene checks partly met",
+    "fail": "scene checks not met",
+    "unknown": "scene checks not scored",
+}
+
+
+def _render_scene_replay_note() -> str:
+    return (
+        '<p class="note"><strong>Robot execution not evaluated.</strong> '
+        "Scene replay writes object states directly. Its scene checks and progress are excluded from "
+        "robot-policy comparisons. Execution kind is declared by the Run author.</p>"
+    )
 
 
 def unique_slugs(names: list[str]) -> dict[str, str]:
@@ -126,6 +140,8 @@ def _render_matrix(summary: ExperimentSummary, task_hrefs: dict[str, str]) -> st
     )
     rows = []
     for task in summary.tasks:
+        if not any(not job.is_object_state_replay for job in task.jobs):
+            continue
         cells = [
             f'<th data-sort-col="task" data-value="{html.escape(task.name)}">'
             f'<a href="{_href(task_hrefs[task.name])}">{html.escape(task.name)}</a></th>'
@@ -170,7 +186,7 @@ def _render_ungrouped_job_list(summary: ExperimentSummary, task_hrefs: dict[str,
         f'<td class="num">{job.num_episodes}</td>'
         f'<td class="num">{_percent(job.success_rate)}</td>'
         f'<td class="num">{_percent(job.mean_progress)}</td></tr>'
-        for job in summary.jobs
+        for job in summary.robot_action_jobs
     )
     return (
         "<section><h2>Runs</h2>"
@@ -180,14 +196,34 @@ def _render_ungrouped_job_list(summary: ExperimentSummary, task_hrefs: dict[str,
     )
 
 
+def _render_scene_replays(summary: ExperimentSummary, task_hrefs: dict[str, str]) -> str:
+    if not summary.scene_replay_jobs:
+        return ""
+    rows = "".join(
+        f'<tr><th><a href="{_href(task_hrefs[job.task])}">{html.escape(job.name)}</a></th>'
+        f'<td class="num">{job.num_episodes}</td>'
+        f'<td class="num">{_percent(job.success_rate)}</td>'
+        f'<td class="num">{_percent(job.mean_progress)}</td></tr>'
+        for job in summary.scene_replay_jobs
+    )
+    return (
+        "<section><h2>Scene replays</h2>"
+        + _render_scene_replay_note()
+        + "<table><thead><tr><th>run</th><th>episodes</th><th>scene checks passed</th>"
+        + f"<th>mean progress</th></tr></thead><tbody>{rows}</tbody></table></section>"
+    )
+
+
 def render_index(summary: ExperimentSummary, task_hrefs: dict[str, str]) -> str:
     """Render the overview page, whose rows descend to a task page whether or not Runs are grouped."""
+    success_label = "Robot-policy success rate" if summary.scene_replay_jobs else "Success rate"
+    progress_label = "Robot-policy mean progress" if summary.scene_replay_jobs else "Mean progress"
     tiles = [
         _tile("Tasks", str(len(summary.tasks))),
         _tile("Runs", str(len(summary.jobs))),
         _tile("Episodes", f"{summary.num_episodes:,}"),
-        _tile("Success rate", _percent(summary.overall_success_rate)),
-        _tile("Mean progress", _percent(summary.overall_mean_progress)),
+        _tile(success_label, _percent(summary.overall_success_rate)),
+        _tile(progress_label, _percent(summary.overall_mean_progress)),
     ]
     if summary.is_grouped:
         tiles.insert(1, _tile("Policies", str(len(summary.policies))))
@@ -204,6 +240,9 @@ def render_index(summary: ExperimentSummary, task_hrefs: dict[str, str]) -> str:
     body = (
         _render_matrix(summary, task_hrefs) if summary.is_grouped else _render_ungrouped_job_list(summary, task_hrefs)
     )
+    if not summary.robot_action_jobs:
+        body = ""
+    body += _render_scene_replays(summary, task_hrefs)
     content = (
         f'<div class="tiles">{"".join(tiles)}</div>{_render_progress_coverage_note(summary)}'
         f"{_render_failed_runs_section(summary.run_executions)}"
@@ -225,12 +264,12 @@ def render_index(summary: ExperimentSummary, task_hrefs: dict[str, str]) -> str:
 def _render_progress_coverage_note(summary: ExperimentSummary) -> str:
     """Warn when progress is averaged over fewer episodes than the success rate, so the two differ in base."""
     scored = summary.num_progress_episodes
-    if scored == summary.num_episodes:
+    if scored == summary.num_robot_action_episodes:
         return ""
     if scored == 0:
         return '<p class="note">No episode recorded a task progress score, so mean progress is unavailable.</p>'
     return (
-        f'<p class="note">Mean progress covers the {scored:,} of {summary.num_episodes:,} episode(s) that'
+        f'<p class="note">Mean progress covers the {scored:,} of {summary.num_robot_action_episodes:,} episode(s) that'
         " recorded a progress score; the success rate covers them all.</p>"
     )
 
@@ -281,28 +320,31 @@ def _render_job_funnels(job: JobSummary) -> str:
     funnels = "".join(_render_funnel(funnel) for funnel in job.funnels)
     if not funnels:
         return ""
+    outcome_label = "scene checks passed" if job.is_object_state_replay else "success"
     return (
-        f'<div class="funnel"><h3>{html.escape(job.policy or job.name)}</h3>'
-        f'<p class="note">success {_percent(job.success_rate)} &middot; mean progress {_percent(job.mean_progress)}</p>'
-        "</div>"
+        f'<div class="funnel"><h3>{html.escape(job.policy or job.name)}</h3><p'
+        f' class="note">{outcome_label} {_percent(job.success_rate)} &middot; mean progress'
+        f" {_percent(job.mean_progress)}</p></div>"
         + funnels
     )
 
 
-def _render_chip(episode, href: str) -> str:
+def _render_chip(episode, href: str, is_object_state_replay: bool = False) -> str:
     outcome = _episode_outcome(episode)
+    labels = _SCENE_OUTCOME_LABELS if is_object_state_replay else _OUTCOME_LABELS
     progress = episode.progress_fraction
     progress_text = "" if progress is None else f", progress {progress * 100:.0f}%"
-    tooltip = f"env {episode.env_index} episode {episode.episode_index}: {_OUTCOME_LABELS[outcome]}{progress_text}"
+    tooltip = f"env {episode.env_index} episode {episode.episode_index}: {labels[outcome]}{progress_text}"
     return (
         f'<a class="chip {outcome}" href="{_href(href)}" title="{html.escape(tooltip)}">{_OUTCOME_GLYPHS[outcome]}</a>'
     )
 
 
-def _render_legend() -> str:
+def _render_legend(is_object_state_replay: bool = False) -> str:
+    labels = _SCENE_OUTCOME_LABELS if is_object_state_replay else _OUTCOME_LABELS
     items = "".join(
         f'<span class="item"><span class="chip {outcome}">{_OUTCOME_GLYPHS[outcome]}</span>'
-        f"{html.escape(_OUTCOME_LABELS[outcome])}</span>"
+        f"{html.escape(labels[outcome])}</span>"
         for outcome in ("success", "partial", "fail", "unknown")
     )
     return f'<div class="legend">{items}</div>'
@@ -318,7 +360,10 @@ def render_task_page(
     """Render one task's page: each policy's funnel and episode outcome chips."""
     tiles = [_tile("Episodes", f"{task.num_episodes:,}")]
     for job in task.jobs:
-        tiles.append(_tile(job.policy or job.name, _percent(job.success_rate), f"{job.num_successes:,} successes"))
+        outcome_label = "episodes passed scene checks" if job.is_object_state_replay else "successes"
+        tiles.append(
+            _tile(job.policy or job.name, _percent(job.success_rate), f"{job.num_successes:,} {outcome_label}")
+        )
 
     funnels = "".join(_render_job_funnels(job) for job in task.jobs)
     funnel_section = (
@@ -328,14 +373,17 @@ def render_task_page(
     chip_sections = []
     for job in task.jobs:
         chips = "".join(
-            _render_chip(episode, episode_hrefs[(job.name, episode.env_index, episode.episode_index)])
+            _render_chip(
+                episode, episode_hrefs[(job.name, episode.env_index, episode.episode_index)], job.is_object_state_replay
+            )
             for episode in job.episodes
         )
+        replay_note = _render_scene_replay_note() if job.is_object_state_replay else ""
         chip_sections.append(
             f"<section><h2>{html.escape(job.policy or job.name)} episodes</h2>"
             f'<p class="note"><a href="{_href(job_hrefs[job.name])}">Open '
             f"{html.escape(job.name)} to watch the videos</a></p>"
-            f'{_render_legend()}<div class="chips">{chips}</div></section>'
+            f'{replay_note}{_render_legend(job.is_object_state_replay)}<div class="chips">{chips}</div></section>'
         )
 
     breadcrumb = (
@@ -344,7 +392,7 @@ def render_task_page(
         + _render_up_button(index_href, "Back to the overview", extra_class="up")
     )
     context = [_render_pill("task", task.name)]
-    policies = [job.policy for job in task.jobs if job.policy]
+    policies = [job.policy for job in task.jobs if job.policy and not job.is_object_state_replay]
     if policies:
         context.append(_render_pill("comparing", ", ".join(policies), extra_class="policy"))
     footer = _render_footer_nav([_render_up_button(index_href, "Back to the overview")])
@@ -453,8 +501,16 @@ def _render_consecutive_step_summary(episode) -> str:
     )
 
 
-def _render_episode_card(episode, cameras: list[str], video_prefix: str, policy: str = "", criteria_sets=None) -> str:
+def _render_episode_card(
+    episode,
+    cameras: list[str],
+    video_prefix: str,
+    policy: str = "",
+    criteria_sets=None,
+    is_object_state_replay: bool = False,
+) -> str:
     outcome = _episode_outcome(episode)
+    labels = _SCENE_OUTCOME_LABELS if is_object_state_replay else _OUTCOME_LABELS
     progress = episode.progress_fraction
     progress_text = "" if progress is None else f'<span class="sub">progress {progress * 100:.0f}%</span>'
     policy_text = "" if not policy else f'<span class="who">policy <strong>{html.escape(policy)}</strong></span>'
@@ -483,7 +539,7 @@ def _render_episode_card(episode, cameras: list[str], video_prefix: str, policy:
         f'<article class="episode" id="{episode_anchor(episode)}" data-outcome="{outcome}">'
         f'<div class="episode-head"><span class="id">env {episode.env_index} &middot; '
         f"episode {episode.episode_index}</span>"
-        f'<span class="badge {outcome}">{html.escape(_OUTCOME_LABELS[outcome])}</span>'
+        f'<span class="badge {outcome}">{html.escape(labels[outcome])}</span>'
         f"{progress_text}{policy_text}</div>"
         f'<div class="videos">{"".join(slots)}</div>{signals_html}{metadata_html}</article>'
     )
@@ -501,22 +557,30 @@ def render_job_page(
     page_hrefs: list[str],
 ) -> str:
     """Render one Run page holding one page of episodes."""
+    outcome_label = "Scene checks passed" if job.is_object_state_replay else "Success rate"
+    outcome_count = "episodes passed scene checks" if job.is_object_state_replay else "successes"
+    filter_label = "scene checks passed" if job.is_object_state_replay else "successes"
     tiles = [
         _tile("Episodes", f"{job.num_episodes:,}"),
-        _tile("Success rate", _percent(job.success_rate), f"{job.num_successes:,} successes"),
+        _tile(outcome_label, _percent(job.success_rate), f"{job.num_successes:,} {outcome_count}"),
         _tile("Mean progress", _percent(job.mean_progress)),
     ]
     controls = (
         '<div class="controls"><span class="note">Show</span>'
         '<button data-filter="all" aria-pressed="true">all</button>'
-        '<button data-filter="success" aria-pressed="false">successes</button>'
+        f'<button data-filter="success" aria-pressed="false">{filter_label}</button>'
         '<button data-filter="partial" aria-pressed="false">partial</button>'
         '<button data-filter="fail" aria-pressed="false">no progress</button>'
         '<button data-filter="unknown" aria-pressed="false">not scored</button></div>'
     )
     cards = "".join(
         _render_episode_card(
-            episode, job.cameras, video_prefix, policy=job.policy, criteria_sets=job.criteria_for(episode)
+            episode,
+            job.cameras,
+            video_prefix,
+            policy=job.policy,
+            criteria_sets=job.criteria_for(episode),
+            is_object_state_replay=job.is_object_state_replay,
         )
         for episode in episodes
     )
@@ -541,7 +605,8 @@ def render_job_page(
         _render_up_button(index_href, "Back to the overview"),
     ])
     pager = _render_page_nav(page_index, page_hrefs)
-    content = f'<div class="tiles">{"".join(tiles)}</div>{issues}{pager}{controls}{cards}{footer}'
+    replay_note = _render_scene_replay_note() if job.is_object_state_replay else ""
+    content = f'{replay_note}<div class="tiles">{"".join(tiles)}</div>{issues}{pager}{controls}{cards}{footer}'
 
     return _render_page(
         title=f"{html.escape(job.name)} &mdash; {html.escape(summary.title)}",

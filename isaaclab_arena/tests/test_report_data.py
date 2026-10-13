@@ -557,3 +557,91 @@ def test_consecutive_step_summary_handles_nonfinite_numbers(field, value):
     assert len(summaries) == (2 if field == "first_satisfied_step" else 1)
     assert all(summary.first_satisfied_step is None for summary in summaries)
     assert all(summary.consecutive_steps == 6 for summary in summaries)
+
+
+def test_scene_replay_is_excluded_from_robot_policy_aggregates(tmp_path):
+    records = [
+        {"env_id": 0, "episode_in_env": 0, "success": True, "progress": {"overall_score": 1.0}},
+        {"env_id": 0, "episode_in_env": 1, "success": False, "progress": {"overall_score": 0.5}},
+    ]
+    _write_run(tmp_path, "task_controller", records)
+    _write_run(tmp_path, "task_replay", records[:1])
+    (tmp_path / "arena_experiment_result.json").write_text(
+        json.dumps({"runs": {"task_replay": {"execution_kind": "object_state_replay"}}}), encoding="utf-8"
+    )
+
+    summary = build_experiment_summary(tmp_path, "Test", policy_suffixes=("controller", "replay"))
+
+    assert summary.num_episodes == 3
+    assert summary.num_robot_action_episodes == 2
+    assert summary.num_videos == 3
+    assert summary.overall_success_rate == 0.5
+    assert summary.overall_mean_progress == 0.75
+    assert summary.num_progress_episodes == 2
+    assert summary.policies == ["controller"]
+    assert summary.success_rate_for_policy("replay") is None
+    assert summary.mean_progress_for_policy("replay") is None
+    assert summary.num_episodes_for_policy("replay") == 0
+    assert summary.tasks[0].job_for_policy("replay") is None
+    assert summary.scene_replay_jobs[0].success_rate == 1.0
+
+
+@pytest.mark.parametrize("metadata", [None, {"runs": {"run": {}}}])
+def test_legacy_artifacts_keep_robot_action_report_behavior(tmp_path, metadata):
+    _write_run(tmp_path, "run", [{"env_id": 0, "episode_in_env": 0, "success": True}])
+    if metadata is not None:
+        (tmp_path / "arena_experiment_result.json").write_text(json.dumps(metadata), encoding="utf-8")
+
+    summary = build_experiment_summary(tmp_path, "Test")
+
+    assert not summary.scene_replay_jobs
+    assert summary.jobs[0].execution_kind == "robot_actions"
+    assert summary.overall_success_rate == 1.0
+
+
+def test_nested_recorder_directory_inherits_run_execution_kind(tmp_path):
+    _write_run(tmp_path, "replay/nested", [{"env_id": 0, "episode_in_env": 0, "success": True}])
+    (tmp_path / "arena_experiment_result.json").write_text(
+        json.dumps({"runs": {"replay": {"execution_kind": "object_state_replay"}}}), encoding="utf-8"
+    )
+
+    summary = build_experiment_summary(tmp_path, "Test")
+
+    assert summary.overall_success_rate is None
+    assert summary.scene_replay_jobs[0].name == "replay/nested"
+
+
+def test_report_rejects_unknown_execution_kind_instead_of_counting_it_as_robot_execution(tmp_path):
+    _write_run(tmp_path, "run", [{"env_id": 0, "episode_in_env": 0, "success": True}])
+    (tmp_path / "arena_experiment_result.json").write_text(
+        json.dumps({"runs": {"run": {"execution_kind": "animation"}}}), encoding="utf-8"
+    )
+
+    with pytest.raises(AssertionError, match="execution_kind for Run"):
+        build_experiment_summary(tmp_path, "Test")
+
+
+@pytest.mark.parametrize("replay_name", ["replay", "scene_preview", "task_replay"])
+@pytest.mark.parametrize("policy_suffixes", [(), ("pi0", "gr00t", "replay")])
+def test_scene_replay_names_do_not_change_robot_policy_grouping(tmp_path, replay_name, policy_suffixes):
+    record = {"env_id": 0, "episode_in_env": 0, "success": True}
+    for run_name in ("task_pi0", "task_gr00t"):
+        _write_run(tmp_path, run_name, [record])
+    original = build_experiment_summary(tmp_path, "Test", policy_suffixes=policy_suffixes)
+    assert original.is_grouped
+
+    _write_run(tmp_path, replay_name, [record])
+    (tmp_path / "arena_experiment_result.json").write_text(
+        json.dumps({"runs": {replay_name: {"execution_kind": "object_state_replay"}}}), encoding="utf-8"
+    )
+    with_replay = build_experiment_summary(tmp_path, "Test", policy_suffixes=policy_suffixes)
+
+    assert with_replay.is_grouped
+    assert with_replay.grouping_source == original.grouping_source
+    assert with_replay.policies == original.policies == ["gr00t", "pi0"]
+    assert [(job.name, job.task, job.policy) for job in with_replay.robot_action_jobs] == [
+        (job.name, job.task, job.policy) for job in original.robot_action_jobs
+    ]
+    if replay_name == "task_replay" and policy_suffixes:
+        replay = with_replay.scene_replay_jobs[0]
+        assert (replay.task, replay.policy) == ("task", "replay")

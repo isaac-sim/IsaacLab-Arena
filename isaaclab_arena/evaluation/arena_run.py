@@ -65,7 +65,14 @@ class ArenaRunCfg:
     variations: dict[str, Any] = field(default_factory=dict)
     """Variation values applied when the environment is compiled."""
 
+    execution_kind: str = "robot_actions"
+    """Declare ``robot_actions`` or ``object_state_replay`` for result interpretation."""
+
     def __post_init__(self) -> None:
+        assert self.execution_kind in (
+            "robot_actions",
+            "object_state_replay",
+        ), "execution_kind must be 'robot_actions' or 'object_state_replay'"
         assert self.name, "run name must not be empty"
         assert self.num_rebuilds > 0, "num_rebuilds must be greater than zero"
         if self.rollout_limit.num_episodes is not None:
