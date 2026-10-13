@@ -267,7 +267,7 @@ Replay a Recorded Layout
 Placement poses can be replayed from an episode JSONL containing solved poses
 from earlier runs, bypassing relation solving and post-physics settling.
 
-The following Experiment Definition replays the checked-in example JSONL:
+Following is an example Experiment Definition with an episode JSONL for replay:
 
 .. literalinclude:: ../../../../isaaclab_arena_environments/experiment_configs/placement_record_replay/settled_placement_replay_experiment.yaml
    :language: yaml
@@ -280,13 +280,9 @@ Run it from the repository root:
        --experiment_config isaaclab_arena_environments/experiment_configs/placement_record_replay/settled_placement_replay_experiment.yaml \
        --device cpu --viz kit
 
-This single-rebuild example sets
-``environment_builder.recorded_variation_samples_path`` and replays three
-episodes. For multiple recorded rebuilds, use the Run-level
-``recorded_variation_samples_paths`` list described in
-:doc:`../concept_arena_experiments`. Python callers that build one environment directly use
-``ArenaEnvBuilderCfg(recorded_variation_samples_path="layouts.jsonl")``.
-All file paths are relative to the working directory.
+Python callers use
+``ArenaEnvBuilderCfg(recorded_variation_samples_path="layouts.jsonl")``. All
+file paths are relative to the working directory.
 Placement replay does not rerun geometry, reachability or settling checks.
 ``resolve_on_reset`` and ``placement_seed`` are ignored.
 

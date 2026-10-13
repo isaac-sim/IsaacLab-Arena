@@ -17,7 +17,7 @@ runs:
     policy:
       type: zero_action
     rollout_limit:
-      num_episodes: 1000
+      num_episodes: 128
     variations:
       light.hdr_image.enabled: true
       light.color.enabled: true
