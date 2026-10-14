@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import torch
 from abc import ABC, abstractmethod
+from collections.abc import Sequence
 
 from isaaclab.assets import ArticulationCfg, AssetBaseCfg, RigidObjectCfg
 from isaaclab.envs import ManagerBasedEnv
@@ -182,9 +183,11 @@ class RootedObjectBase(ObjectBase):
             torch.zeros(env.unwrapped.num_envs, 6, device=env.unwrapped.device), env_ids=env_ids
         )
 
-    def get_contact_sensor_cfg(self, contact_against_object: ObjectBase | None = None) -> ContactSensorCfg:
+    def get_contact_sensor_cfg(self, contact_against_objects: Sequence[ObjectBase] = ()) -> ContactSensorCfg:
         assert self.object_type == ObjectType.RIGID, "Contact sensor is only supported for rigid objects"
-        filter_prim_paths = [contact_against_object.get_prim_path()] if contact_against_object else []
+        filter_prim_paths = [
+            contact_against_object.get_prim_path() for contact_against_object in contact_against_objects
+        ]
         return ContactSensorCfg(
             prim_path=self.prim_path,
             filter_prim_paths_expr=filter_prim_paths,

@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import torch
+from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any
 
 from isaaclab.assets import DeformableObjectCfg
@@ -100,7 +101,7 @@ class DeformableObject(ObjectBase):
             max_point=half_size,
         )
 
-    def get_contact_sensor_cfg(self, contact_against_object: ObjectBase | None = None):
+    def get_contact_sensor_cfg(self, contact_against_objects: Sequence[ObjectBase] = ()):
         """Reject contact sensors, which Isaac Lab does not support for deformables."""
         raise NotImplementedError(f"{type(self).__name__} does not support contact sensors")
 

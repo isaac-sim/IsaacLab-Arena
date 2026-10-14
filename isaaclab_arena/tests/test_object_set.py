@@ -81,7 +81,7 @@ def _test_object_set_samples_and_stores_variant_indices(simulation_app):
     with patch.object(
         SpawnCfgGeometry, "get_contact_body_path", autospec=True, return_value="/rigid"
     ) as get_contact_body_path:
-        contact_sensor_cfg = obj_set.get_contact_sensor_cfg(contact_against_object=destination_set)
+        contact_sensor_cfg = obj_set.get_contact_sensor_cfg(contact_against_objects=[destination_set])
     assert [call.args[0].spawn_cfg.usd_path for call in get_contact_body_path.call_args_list] == [
         can_a.usd_path,
         can_b.usd_path,

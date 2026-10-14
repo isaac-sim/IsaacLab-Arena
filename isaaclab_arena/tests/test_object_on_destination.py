@@ -76,6 +76,28 @@ def _check_upward_support_force(spatial) -> None:
     torch.testing.assert_close(result, torch.tensor([False, True, True, False, False, True, False, True]))
 
 
+def _check_upward_support_from_several_contacts(spatial) -> None:
+    """Accept support from any single contact or from all contacts together."""
+    import torch
+
+    # One row per environment, one column per contact body: the destination, then another object.
+    contact_forces_w = torch.tensor([
+        [[0.0, 0.0, 2.0], [0.0, 0.0, 0.0]],  # resting on the destination only
+        [[0.0, 0.0, 0.0], [0.0, 0.0, 2.0]],  # resting on another object only
+        [[1.5, 0.0, 1.0], [-1.5, 0.0, 1.0]],  # wedged: each force pushes too far sideways, their sum points up
+        [[0.0, 0.0, 1.0], [1.5, 0.0, -0.8]],  # pushed sideways by an object on top while the destination supports it
+        [[1.5, 0.0, -0.8], [0.0, 0.0, 1.0]],  # pushed sideways by the destination while another object supports it
+        [[0.2, 0.0, 0.0], [0.0, 0.0, 0.0]],  # horizontal contact only
+        [[0.0, 0.0, 0.0], [0.0, 0.0, 0.0]],  # no contact
+    ])
+    result = spatial.contact_forces_provide_upward_support(
+        contact_forces_w=contact_forces_w,
+        force_threshold=0.1,
+        support_cone_half_angle_rad=math.pi / 4,
+    )
+    torch.testing.assert_close(result, torch.tensor([True, True, True, True, True, False, False]))
+
+
 def _check_deformable_support(spatial, axis_aligned_bounding_box_type) -> None:
     """Require low nodes to be near the top and inside the destination footprint."""
     import torch
@@ -162,8 +184,9 @@ def _check_object_on_destination(
             self.torch = tensor
 
     class ContactSensorDouble:
-        def __init__(self, contact_force_w: torch.Tensor):
-            self.data = SimpleNamespace(force_matrix_w=RuntimeBufferDouble(contact_force_w[:, None, None, :]))
+        def __init__(self, contact_forces_w: torch.Tensor):
+            """Wrap forces shaped (num_envs, num_filter_bodies, 3) for a sensor on one body."""
+            self.data = SimpleNamespace(force_matrix_w=RuntimeBufferDouble(contact_forces_w[:, None, :, :]))
 
     identity_quaternion = (0.0, 0.0, 0.0, 1.0)
     T_W_O = torch.tensor([
@@ -222,7 +245,7 @@ def _check_object_on_destination(
             ).get_corners_at(),
         },
     )
-    env = EnvironmentDouble(arena_world, ContactSensorDouble(contact_force_w))
+    env = EnvironmentDouble(arena_world, ContactSensorDouble(contact_force_w[:, None, :]))
     object_cfg = scene_entity_cfg_type("object")
     destination_cfg = scene_entity_cfg_type("destination")
     contact_sensor_cfg = scene_entity_cfg_type("contact_sensor")
@@ -254,12 +277,25 @@ def _check_object_on_destination(
         raise AssertionError("object_on_destination accepted a deformable destination.")
 
     env.scene.deformable_objects = {}
+
+    # A sensor filtered to the destination and to another object reports one force per filtered body.
+    support_forces_w = torch.tensor([
+        [[0.0, 0.0, 0.0], [0.0, 0.0, 0.2]],  # resting on another object over the destination
+        [[0.0, 0.0, 0.0], [0.0, 0.0, 0.2]],  # resting on another object outside the destination
+        [[1.5, 0.0, 1.0], [-1.5, 0.0, 1.0]],  # wedged between the destination and another object
+        [[0.0, 0.0, 0.0], [0.0, 0.0, 0.2]],  # resting on another object but moving
+    ])
+    env.scene["contact_sensor"] = ContactSensorDouble(support_forces_w)
+    several_contacts_result = spatial.object_on_destination(env, **predicate_parameters)
+    torch.testing.assert_close(several_contacts_result, torch.tensor([True, False, True, False]))
+
+    env.scene["contact_sensor"] = ContactSensorDouble(contact_force_w[:, None, :])
     T_W_O[0, 0] = 2.0
     assert not spatial.object_on_destination(env, **predicate_parameters)[0]
-    assert arena_world.pose_queries == ["destination"] * 3
-    assert arena_world.local_aabb_queries == ["destination"] * 3
-    assert arena_world.centroid_queries == ["object"] * 3
-    assert arena_world.mean_linear_velocity_queries == ["object", "object", "object"]
+    assert arena_world.pose_queries == ["destination"] * 4
+    assert arena_world.local_aabb_queries == ["destination"] * 4
+    assert arena_world.centroid_queries == ["object"] * 4
+    assert arena_world.mean_linear_velocity_queries == ["object"] * 4
 
 
 def _check_pick_and_place_deformable_skips_contact_sensor(pick_and_place_task_type, object_type) -> None:
@@ -272,9 +308,9 @@ def _check_pick_and_place_deformable_skips_contact_sensor(pick_and_place_task_ty
             self.object_type = asset_object_type
             self.object_min_z = -1.0
 
-        def get_contact_sensor_cfg(self, contact_against_object=None):
+        def get_contact_sensor_cfg(self, contact_against_objects=()):
             if self.object_type != object_type.RIGID:
-                raise AssertionError(f"Unexpected contact sensor request against {contact_against_object}")
+                raise AssertionError(f"Unexpected contact sensor request against {contact_against_objects}")
             return SimpleNamespace()
 
     rigid_object = AssetDouble("rigid", object_type.RIGID)
@@ -318,6 +354,7 @@ def _test_object_on_destination(_simulation_app) -> bool:
 
     _check_bounds_center_over_destination(spatial, AxisAlignedBoundingBox)
     _check_upward_support_force(spatial)
+    _check_upward_support_from_several_contacts(spatial)
     _check_deformable_support(spatial, AxisAlignedBoundingBox)
     _check_object_on_destination(
         spatial,

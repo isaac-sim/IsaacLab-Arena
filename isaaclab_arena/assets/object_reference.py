@@ -4,6 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import trimesh
+from collections.abc import Sequence
 
 from isaaclab.assets import ArticulationCfg, AssetBaseCfg, RigidObjectCfg
 from isaaclab.managers import EventTermCfg, SceneEntityCfg
@@ -146,7 +147,7 @@ class ObjectReference(RootedObjectBase):
                 raise ValueError(f"No prim found with path {prim_path_in_usd} in {self.parent_asset.usd_path}")
             return extract_trimesh_from_prim(parent_stage, prim_path_in_usd, self._parent_scale)
 
-    def get_contact_sensor_cfg(self, contact_against_object: ObjectBase | None = None) -> ContactSensorCfg:
+    def get_contact_sensor_cfg(self, contact_against_objects: Sequence[ObjectBase] = ()) -> ContactSensorCfg:
         # NOTE(alexmillane): Right now this requires that the object
         # has the contact sensor enabled prior to using this reference.
         # At the moment, for the tests, I enabled the relevant APIs in the GUI.
@@ -156,7 +157,7 @@ class ObjectReference(RootedObjectBase):
         # the contact reporter API to a prim in a USD, perhaps that can be repurposed
         # and used here.
         # Just call out to the parent class method.
-        return super().get_contact_sensor_cfg(contact_against_object)
+        return super().get_contact_sensor_cfg(contact_against_objects)
 
     def _generate_rigid_cfg(self) -> RigidObjectCfg:
         assert self.object_type == ObjectType.RIGID

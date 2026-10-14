@@ -159,9 +159,9 @@ def _test_backend_specific_deformable_config(simulation_app) -> bool:
         spawner_cfg=sim_utils.MeshCuboidCfg(size=(0.1, 0.1, 0.1)),
     )
     with pytest.raises(NotImplementedError, match="does not support contact sensors"):
-        soft_cube.get_contact_sensor_cfg(rigid)
+        soft_cube.get_contact_sensor_cfg([rigid])
     with pytest.raises(AssertionError, match="against deformable objects"):
-        rigid.get_contact_sensor_cfg(soft_cube)
+        rigid.get_contact_sensor_cfg([soft_cube])
     return True
 
 

@@ -131,6 +131,9 @@ class CompositeTaskBase(TaskBase):
         super().__init__(episode_length_s, task_description)
         self.subtasks = subtasks
         self.subtasks_are_sequential = subtasks_are_sequential
+        for subtask in subtasks:
+            other_subtasks = [other_subtask for other_subtask in subtasks if other_subtask is not subtask]
+            subtask.configure_for_other_subtasks(other_subtasks)
 
         if desired_subtask_success_state is not None:
             assert len(desired_subtask_success_state) == len(

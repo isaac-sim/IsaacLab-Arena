@@ -85,6 +85,14 @@ class TaskBase(ABC):
         """
         pass
 
+    def configure_for_other_subtasks(self, other_subtasks: list[TaskBase]) -> None:
+        """Configure this task with the other subtasks of the composite task that contains it.
+
+        Subtasks are constructed independently. A composite task calls this hook once it receives its subtasks,
+        so a subtask whose checks depend on its siblings, such as objects placed on the same destination, can adapt.
+        """
+        pass
+
     def apply_reachability_constraints(self) -> None:
         """Stamp RequiresReachability on the objects the robot must be able to reach for this task."""
         pass

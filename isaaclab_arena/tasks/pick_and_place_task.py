@@ -42,8 +42,9 @@ class PickAndPlaceTask(TaskBase):
 
     Success requires the object to settle, rise above its resting height, then reach its destination
     with support and low linear speed for the required consecutive steps. Rigid objects use contact
-    force to check support; deformable objects use their geometry. Failure occurs when the object
-    falls below the background.
+    force to check support. In a composite task, contact with rigid objects that other subtasks place on
+    the same destination also counts, so an object may rest on them. Deformable objects use their geometry.
+    Failure occurs when the object falls below the background.
 
     Args:
         pick_up_object: Object or rigid object set to pick up.
@@ -53,11 +54,11 @@ class PickAndPlaceTask(TaskBase):
         destination_object: Destination asset used by the default Mimic configuration.
         episode_length_s: Maximum episode duration in seconds.
         task_description: Natural-language task instruction. A description is generated when omitted.
-        force_threshold: Minimum filtered normal force exerted on the object by the destination, in newtons.
+        force_threshold: Minimum filtered normal force supporting the object, in newtons.
         velocity_threshold: Object linear-speed threshold in meters per second. Speed must be below it.
         mimic_env_cfg_factory: Optional factory for a custom Mimic environment configuration.
-        support_cone_half_angle_rad: Maximum angle in radians between the filtered contact force and
-            world +Z. Smaller values require the support force to be more vertical.
+        support_cone_half_angle_rad: Maximum angle in radians between a support force and world +Z.
+            Smaller values require the support force to be more vertical.
         placement_consecutive_steps: Number of consecutive control steps for which placement must hold.
 
     """
@@ -88,7 +89,8 @@ class PickAndPlaceTask(TaskBase):
             None if pick_up_object.object_type == ObjectType.DEFORMABLE else f"contact_sensor_{pick_up_object.name}"
         )
         self.contact_sensor_cfg = SceneEntityCfg(self.contact_sensor_name) if self.contact_sensor_name else None
-        self.scene_config = self.make_scene_cfg()
+        self.other_objects_on_destination: list[Asset] = []
+        """Rigid objects that other subtasks place on the same destination. Contact with them counts as support."""
         self.force_threshold = force_threshold
         assert velocity_threshold >= 0.0, f"velocity_threshold must be non-negative, got {velocity_threshold}"
         self.velocity_threshold = velocity_threshold
@@ -114,20 +116,34 @@ class PickAndPlaceTask(TaskBase):
         """The robot must reach the object it picks up and the location it places onto."""
         self._apply_reachability_constraints([self.pick_up_object, self.destination_location])
 
-    def make_scene_cfg(self):
+    def configure_for_other_subtasks(self, other_subtasks: list[TaskBase]) -> None:
+        """Count contact with rigid objects that other subtasks place on the same destination as support."""
+        self.other_objects_on_destination = []
+        for other_subtask in other_subtasks:
+            if not isinstance(other_subtask, PickAndPlaceTask):
+                continue
+            other_object = other_subtask.pick_up_object
+            # Contact sensors filter contacts only against rigid bodies, and an object cannot support itself.
+            places_rigid_object_on_same_destination = (
+                other_subtask.destination_location.name == self.destination_location.name
+                and other_object.name != self.pick_up_object.name
+                and other_object.object_type == ObjectType.RIGID
+            )
+            if places_rigid_object_on_same_destination:
+                self.other_objects_on_destination.append(other_object)
+
+    def get_scene_cfg(self):
+        """Return a scene config with the pick-up object's contact sensor, or None for a deformable object."""
         if self.contact_sensor_cfg is None:
             return None
         sensor_cfg = self.pick_up_object.get_contact_sensor_cfg(
-            contact_against_object=self.destination_location,
+            contact_against_objects=[self.destination_location, *self.other_objects_on_destination],
         )
         scene_cfg_type = make_configclass(
             "SceneCfg",
             [(self.contact_sensor_cfg.name, type(sensor_cfg), sensor_cfg)],
         )
         return scene_cfg_type()
-
-    def get_scene_cfg(self):
-        return self.scene_config
 
     def get_events_cfg(self):
         return self.events_cfg

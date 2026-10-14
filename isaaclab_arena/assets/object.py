@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import torch
+from collections.abc import Sequence
 from copy import deepcopy
 from typing import Any
 
@@ -104,15 +105,35 @@ class Object(RootedObjectBase):
         assert self.object_type == ObjectType.RIGID, "Contact sensor is only supported for rigid objects"
         return self.prim_path + self._get_spawn_cfg_geometry(self.object_cfg.spawn).get_contact_body_path()
 
-    def get_contact_sensor_cfg(self, contact_against_object: ObjectBase | None = None) -> ContactSensorCfg:
+    def get_contact_sensor_cfg(self, contact_against_objects: Sequence[ObjectBase] = ()) -> ContactSensorCfg:
+        """Return a contact sensor on this object, filtered to report contacts with the given objects.
+
+        Args:
+            contact_against_objects: Rooted objects to filter contacts against. The sensor reports one force
+                per filtered rigid body.
+
+        Returns:
+            Contact sensor configuration.
+        """
         # We override this function from the parent class because some assets do not have their rigid body
         # at the root of the USD file. To be robust to this, we find the shallowest rigid body and add the
         # contact sensor to it.
-        if contact_against_object is not None:
+        for contact_against_object in contact_against_objects:
             assert isinstance(
                 contact_against_object, RootedObjectBase
             ), "Contact sensors against deformable objects and other non-rooted objects are not supported"
         contact_sensor_prim_path = self.get_contact_sensor_prim_path()
+        filter_prim_paths = []
+        for contact_against_object in contact_against_objects:
+            filter_prim_paths.extend(self._get_contact_filter_prim_paths(contact_against_object))
+        return ContactSensorCfg(
+            prim_path=contact_sensor_prim_path,
+            filter_prim_paths_expr=filter_prim_paths,
+        )
+
+    @staticmethod
+    def _get_contact_filter_prim_paths(contact_against_object: RootedObjectBase) -> list[str]:
+        """Return the rigid-body prim paths a contact sensor filters to report contacts with an object."""
         if isinstance(contact_against_object, Object) and contact_against_object.object_type == ObjectType.BASE:
             # PhysX needs a separate filter expression for each nested target body.
             body_paths = read_asset_rigid_body_paths(
@@ -124,21 +145,15 @@ class Object(RootedObjectBase):
             for path in body_paths:
                 relative_path = path.removeprefix("/Asset")
                 filter_prim_paths.append(contact_against_object.get_prim_path() + relative_path)
-        elif isinstance(contact_against_object, Object):
+            return filter_prim_paths
+        if isinstance(contact_against_object, Object):
             # This branch supports rigid targets only. For ObjectInTask in kitchen scenes,
             # supply receptacles such as the microwave as Background objects so the branch
             # above filters contacts against their nested rigid bodies.
-            filter_prim_paths = [contact_against_object.get_contact_sensor_prim_path()]
-        elif isinstance(contact_against_object, ObjectBase):
-            # Handles ObjectReference.
-            # NOTE(alexmillane, 2026.04.10): ObjectReference is assumed to have its rigid body at its scene prim path.
-            filter_prim_paths = [contact_against_object.get_prim_path()]
-        elif contact_against_object is None:
-            filter_prim_paths = []
-        return ContactSensorCfg(
-            prim_path=contact_sensor_prim_path,
-            filter_prim_paths_expr=filter_prim_paths,
-        )
+            return [contact_against_object.get_contact_sensor_prim_path()]
+        # Handles ObjectReference.
+        # NOTE(alexmillane, 2026.04.10): ObjectReference is assumed to have its rigid body at its scene prim path.
+        return [contact_against_object.get_prim_path()]
 
     def _get_spawn_cfg_geometry(self, spawn_cfg: SpawnerCfg) -> SpawnCfgGeometry:
         """Return cached geometry for a spawn configuration, recomputed when its geometric settings change."""
