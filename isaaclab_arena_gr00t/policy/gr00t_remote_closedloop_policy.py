@@ -80,6 +80,7 @@ class Gr00tRemoteClosedloopPolicy(PolicyBase[Gr00tRemoteClosedloopPolicyCfg]):
     """
 
     name = "gr00t_remote_closedloop"
+    requires_camera_observations = True
 
     @classmethod
     def default_image_size(cls, config: Gr00tRemoteClosedloopPolicyCfg) -> tuple[int, int]:

@@ -39,6 +39,7 @@ class Pi0RemotePolicy(RemoteChunkReplayPolicy, PolicyBase[Pi0RemotePolicyCfg]):
     # configurable (today it is a row-by-row replay).
 
     name = "pi0_remote"
+    requires_camera_observations = True
     server_response_actions_key = "actions"
 
     def __init__(self, config: Pi0RemotePolicyCfg) -> None:

@@ -227,6 +227,7 @@ def test_registration_builds_typed_config_and_scheduler(policy_config_yaml, fake
         PolicyRegistry().get_policy_cfg_type(gr00t_policy.Gr00tRemoteClosedloopPolicy)
         is gr00t_policy.Gr00tRemoteClosedloopPolicyCfg
     )
+    assert gr00t_policy.Gr00tRemoteClosedloopPolicy.requires_camera_observations
     policy = gr00t_policy.Gr00tRemoteClosedloopPolicy(
         gr00t_policy.Gr00tRemoteClosedloopPolicyCfg(
             policy_config_yaml_path=policy_config_yaml,
