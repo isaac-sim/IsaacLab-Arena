@@ -11,19 +11,25 @@ Creates commits and PRs that follow Arena's contributor guidelines.
 
 ## Commit
 
-1. Run the `pre-commit-check` skill (or `pre-commit run --all-files` on the host — pre-commit is not installed in the container) until the working tree is clean. Do not commit through hook failures.
-2. Stage **specific files** rather than using `git add -A` — this avoids accidentally committing dotfiles, credentials, or large untracked artifacts.
-3. Sign off the commit (per `CONTRIBUTING.md` — Arena currently requires DCO sign-off; the policy is on the books but not yet CI-enforced):
+1. Check whether the change breaks a public Python API, CLI, YAML or serialized-data format, or documented workflow used by downstream Arena users. If it does:
+   - on `main`, update `docs/pages/references/migration_to_next_release.rst` with a concise
+     before/after example; on a release branch, update the versioned
+     guide instead.
+   - describe the break and required migration in the PR.
+   Do not put a new change into an unrelated older migration guide.
+2. Run the `pre-commit-check` skill (or `pre-commit run --all-files` on the host — pre-commit is not installed in the container) until the working tree is clean. Do not commit through hook failures.
+3. Stage **specific files** rather than using `git add -A` — this avoids accidentally committing dotfiles, credentials, or large untracked artifacts.
+4. Sign off the commit (per `CONTRIBUTING.md` — Arena currently requires DCO sign-off; the policy is on the books but not yet CI-enforced):
 
    ```bash
    git commit -s -m "<subject>"
    ```
 
-4. **Subject line:** imperative mood, ~50 characters, no trailing period.
+5. **Subject line:** imperative mood, ~50 characters, no trailing period.
    - Good: `Fix attribute access on wrapped env`
    - Bad: `Fixed the attribute access on the wrapped env.` (past tense, trailing period)
-5. **Body** (when needed): blank line after the subject, wrap at 72 chars, explain *what* and *why* — not *how* (the diff shows that).
-6. **No AI attribution lines.** Do not include `Co-Authored-By: Claude...`, `Generated with Claude Code`, or similar footers. The DCO sign-off is the only required trailer.
+6. **Body** (when needed): blank line after the subject, wrap at 72 chars, explain *what* and *why* — not *how* (the diff shows that).
+7. **No AI attribution lines.** Do not include `Co-Authored-By: Claude...`, `Generated with Claude Code`, or similar footers. The DCO sign-off is the only required trailer.
 
 Use a heredoc for multi-paragraph messages so quoting stays clean:
 

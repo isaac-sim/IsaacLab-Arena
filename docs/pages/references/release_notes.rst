@@ -1,8 +1,18 @@
 Release Notes
 =============
 
+.. toctree::
+   :maxdepth: 1
+   :hidden:
+
+   migration_v0_2_0_to_v0_3_0
+   migration_v0_3_0_to_v0_3_1
+
 v0.3.1
 -------
+
+Users upgrading from v0.3.0 should follow :doc:`Migrate from v0.3.0 to v0.3.1
+<migration_v0_3_0_to_v0_3_1>`.
 
 This release introduces:
 
@@ -75,20 +85,6 @@ Details below:
   non-RGB observations during video recording, and corrected interactive runner USD
   startup order (#1196, #1312, #1327).
 
-**API migration**
-
-- Replace ``ProgressObjective`` with ``CompletionCriteria`` and predicate groups with
-  predicate sequences. Return a ``TaskTerminationCfg`` from ``get_termination_cfg()``
-  and declare success through its ``success`` field (#1255, #1316).
-- Replace ``SequentialTaskBase`` with ``CompositeTaskBase`` using
-  ``subtasks_are_sequential=True`` for ordered subtasks. Pass a flat subtask list;
-  nested composite tasks are not supported (#1255).
-- Use ``TrueForConsecutiveStepsCfg`` around an instantaneous predicate to require a
-  continuous streak; the progress runner owns and resets the counters (#1305).
-- Update USD helper imports to concrete submodules such as
-  ``isaaclab_arena.utils.usd.helpers`` and ``isaaclab_arena.utils.usd.rigid_bodies``.
-  Import ``ObjectType`` from ``isaaclab_arena.assets.object_type`` (#1218, #1292).
-
 **What's Next**
 
 Future releases will focus on:
@@ -99,6 +95,9 @@ Future releases will focus on:
 
 v0.3.0
 ------
+
+Users upgrading from v0.2.0 should follow :doc:`Migrate from v0.2.0 to v0.3.0
+<migration_v0_2_0_to_v0_3_0>`.
 
 This release introduces:
 
