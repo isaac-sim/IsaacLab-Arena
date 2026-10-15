@@ -117,13 +117,11 @@ Test the policy in a single environment with visualization via the GUI run:
      --embodiment gr1_joint \
      --object ranch_dressing_hope_robolab
 
-The evaluation should produce the following output on the console at the end of the evaluation.
-At the end of the evaluation, you should see the following output on the console indicating the metrics.
-You can see that the success rate for this sequential task, object moved rate for the first subtask,
-and the revolute joint moved rate for the second subtask, and the subtask success rate for each subtask.
-You should see similar metrics. All of them shall be greater than 0.9, and the number of episodes should be in the range of 3-6.
+At the end of the evaluation, the console shows the number of finished episodes and the success rate for this sequential task.
+Each episode's subtask completion is recorded in the ``progress`` field of its episode results record.
+You should see similar results. The success rate shall be greater than 0.9, and the number of episodes should be in the range of 3-6.
 
-Note that all these metrics are computed over the entire evaluation process, and are affected by the quality of
+Note that the success rate is computed over the entire evaluation process, and is affected by the quality of
 post-trained policy, the quality of the dataset, and number of steps in the evaluation.
 
 .. tab-set::
@@ -132,7 +130,11 @@ post-trained policy, the quality of the dataset, and number of steps in the eval
 
       .. code-block:: text
 
-         Metrics: Metrics: {'success_rate': 1.0, 'object_moved_rate_subtask_0': 1.0, 'revolute_joint_moved_rate_subtask_1': 1.0, 'subtask_success_rate': [1.0, 1.0], 'num_episodes': 5}
+         +----------+----------+--------------+
+         | Run Name | Episodes | Success Rate |
+         +----------+----------+--------------+
+         |    .     |    5     |    1.0000    |
+         +----------+----------+--------------+
 
    .. tab-item:: Low Hardware Requirements
 
@@ -140,7 +142,11 @@ post-trained policy, the quality of the dataset, and number of steps in the eval
 
       .. code-block:: text
 
-         Metrics: Metrics: {'success_rate': 0.75, 'object_moved_rate_subtask_0': 1.0, 'revolute_joint_moved_rate_subtask_1': 1.0, 'subtask_success_rate': [0.75, 0.75], 'num_episodes': 4}
+         +----------+----------+--------------+
+         | Run Name | Episodes | Success Rate |
+         +----------+----------+--------------+
+         |    .     |    4     |    0.7500    |
+         +----------+----------+--------------+
 
 Step 2: Run Parallel environments Evaluation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -195,15 +201,17 @@ or truncated (if timeouts are enabled, like the maximum episode length is exceed
 
    Resetting policy for terminated env_ids: tensor([7], device='cuda:0') and truncated env_ids: tensor([], device='cuda:0', dtype=torch.int64)
 
-At the end of the evaluation, you should see the following output on the console indicating the metrics.
-You can see that the success rate for this sequential task, object moved rate for the first subtask,
-and the revolute joint moved rate for the second subtask, and the subtask success rate for each subtask.
-All of them might not be 1.0 as more trials are being evaluated, and the number of episodes is more
+At the end of the evaluation, you should see the following output on the console.
+The success rate might not be 1.0 as more trials are being evaluated, and the number of episodes is more
 than the single environment evaluation because of the parallel evaluation.
 
 .. code-block:: text
 
-   Metrics: {'success_rate': 0.98, 'object_moved_rate_subtask_0': 1.0, 'revolute_joint_moved_rate_subtask_1': 1.0, 'subtask_success_rate': [0.98, 1.0], 'num_episodes': 50}
+   +----------+----------+--------------+
+   | Run Name | Episodes | Success Rate |
+   +----------+----------+--------------+
+   |    .     |    50    |    0.9800    |
+   +----------+----------+--------------+
 
 .. note::
 
@@ -261,13 +269,15 @@ This step demonstrates evaluation of the policy in heterogeneous environments wi
            --object_set ketchup_bottle_hope_robolab ranch_dressing_hope_robolab bbq_sauce_bottle_hope_robolab mayonnaise_bottle_hope_robolab
 
 Each environment has a different object spawned from the object set. The same policy is used for all those environments.
-At then end of the evaluation, you should see the following output on the console indicating the metrics.
-You can see that the success rate for this sequential task, object moved rate for the first subtask,
-and the revolute joint moved rate for the second subtask, and the subtask success rate for each subtask.
+At the end of the evaluation, you should see the following output on the console.
 
 .. code-block:: text
 
-   Metrics: {'success_rate': 0.8666666666666667, 'object_moved_rate_subtask_0': 1.0, 'revolute_joint_moved_rate_subtask_1': 1.0, 'subtask_success_rate': [1.0, 1.0], 'num_episodes': 30}
+   +----------+----------+--------------+
+   | Run Name | Episodes | Success Rate |
+   +----------+----------+--------------+
+   |    .     |    30    |    0.8667    |
+   +----------+----------+--------------+
 
 The policy demonstrates robust intra-class generalization, achieving an average success rate of 86.67%
 when evaluated on structurally similar sauce bottles.
@@ -337,8 +347,8 @@ Run the batch evaluation:
      --viz kit \
      --eval_jobs_config isaaclab_arena_gr00t/policy/config/gr1_sequential_static_manip_eval_jobs_config.json
 
-This will automatically evaluate the policy with the given configuration and output the metrics.
-You should see the following output on the console indicating the jobs and metrics.
+This will automatically evaluate the policy with the given configuration.
+You should see the following output on the console with the jobs and their success rates.
 
 .. code-block:: text
 
@@ -349,25 +359,15 @@ You should see the following output on the console indicating the jobs and metri
    || gr1_put_ranch_dressing_bottle_in_fridge_and_close_door || completed || isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy || 10      || 500      || None        |
    +---------------------------------------------------------+------------+----------------------------------------------------------------------------+----------+-----------+--------------+
 
-   ======================================================================
-   METRICS SUMMARY
-   ======================================================================
+   ...
 
-   gr1_put_jug_in_fridge_and_close_door:
-   num_episodes                           10
-   object_moved_rate_subtask_0        1.0000
-   revolute_joint_moved_rate_subtask_1     1.0000
-   subtask_success_rate           [0.2, 0.2]
-   success_rate                       0.1000
-
-   gr1_put_ranch_dressing_bottle_in_fridge_and_close_door:
-   num_episodes                           10
-   object_moved_rate_subtask_0        1.0000
-   revolute_joint_moved_rate_subtask_1     1.0000
-   subtask_success_rate           [0.9, 0.9]
-   success_rate                       0.9000
-   ======================================================================
+   +--------------------------------------------------------+----------+--------------+
+   |                        Run Name                        | Episodes | Success Rate |
+   +--------------------------------------------------------+----------+--------------+
+   |          gr1_put_jug_in_fridge_and_close_door          |    10    |    0.1000    |
+   | gr1_put_ranch_dressing_bottle_in_fridge_and_close_door |    10    |    0.9000    |
+   +--------------------------------------------------------+----------+--------------+
 
 With the policy trained on using ranch dressing bottle as object of interest,
-the success rate for generalizing to putting the unseen object, jug, in the fridge is 0.0.
-This is expected as the policy is not trained on the jug, comparing to the success rate of 0.8 for the trained object, ranch dressing bottle.
+the success rate for generalizing to putting the unseen object, jug, in the fridge is 0.1.
+This is expected as the policy is not trained on the jug, comparing to the success rate of 0.9 for the trained object, ranch dressing bottle.

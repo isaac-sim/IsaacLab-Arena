@@ -47,7 +47,7 @@ Task Overview
    * - **Closed-loop**
      - Yes (50Hz control)
    * - **Metrics**
-     - Success rate, Door moved rate
+     - Success rate
 
 
 Workflow
