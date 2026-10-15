@@ -10,6 +10,7 @@ from typing import Any
 
 from isaaclab.assets import ArticulationCfg, AssetBaseCfg, RigidObjectCfg
 from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
+from isaaclab.sim import MultiAssetSpawnerCfg, MultiUsdFileCfg
 from isaaclab.sim.spawners.from_files.from_files_cfg import UsdFileCfg
 from isaaclab.sim.spawners.spawner_cfg import SpawnerCfg
 
@@ -26,7 +27,12 @@ from isaaclab_arena.utils.usd.rigid_bodies import read_asset_rigid_body_paths
 
 
 class Object(RootedObjectBase):
-    """Scene object spawned from a USD file or a spawn configuration, as a rigid, articulated or static (``BASE``) asset."""
+    """Scene object spawned from a USD file or a spawn configuration, as a rigid, articulated or static (``BASE``) asset.
+
+    A rigid object can also be declared with ``asset``, a (name, spawn configuration) pair such as
+    AssetRegistry.get_asset_definition() returns, or without an asset, in which case object_cfg.spawn is None
+    until a spawn configuration is set.
+    """
 
     def __init__(
         self,
@@ -38,13 +44,40 @@ class Object(RootedObjectBase):
         initial_pose: Pose | None = None,
         relations: list[RelationBase] = [],
         spawner_cfg: SpawnerCfg | None = None,
+        asset: tuple[str, SpawnerCfg] | None = None,
         **kwargs,
     ):
         # Pull out addons (and remove them from kwargs before passing to super)
         spawn_cfg_addon: dict[str, Any] = kwargs.pop("spawn_cfg_addon", {}) or {}
         asset_cfg_addon: dict[str, Any] = kwargs.pop("asset_cfg_addon", {}) or {}
-        assert usd_path is not None or spawner_cfg is not None, "Either usd_path or spawner_cfg must be provided"
-        assert usd_path is None or spawner_cfg is None, "Either usd_path or spawner_cfg must be provided (not both)"
+        assert usd_path is None or spawner_cfg is None, "usd_path and spawner_cfg cannot both be provided."
+        if asset is not None or (usd_path is None and spawner_cfg is None):
+            # The asset comes from asset= or, at build time, from an AssetSelectionVariation, so spawn options
+            # belong in that asset's spawn configuration.
+            assert (
+                usd_path is None and spawner_cfg is None
+            ), f"Object '{name}': asset= cannot be combined with usd_path or spawner_cfg."
+            assert object_type in (
+                None,
+                ObjectType.RIGID,
+            ), f"Object '{name}' is declared with asset= or without an asset, so it must be rigid; got {object_type}."
+            assert (
+                tuple(scale) == (1.0, 1.0, 1.0) and not spawn_cfg_addon
+            ), f"Object '{name}': set scale and spawn_cfg_addon in the asset's spawn configuration, not on the Object."
+            object_type = ObjectType.RIGID
+            if asset is not None:
+                assert (
+                    isinstance(asset, tuple)
+                    and len(asset) == 2
+                    and isinstance(asset[0], str)
+                    and asset[0]
+                    and isinstance(asset[1], SpawnerCfg)
+                    and not isinstance(asset[1], (MultiAssetSpawnerCfg, MultiUsdFileCfg))
+                ), (
+                    f"Object '{name}': asset= takes a (name, spawn configuration) pair with one spawn configuration,"
+                    " such as AssetRegistry.get_asset_definition() returns."
+                )
+                spawner_cfg = deepcopy(asset[1])
         if spawner_cfg is not None:
             assert object_type is not None, "object_type must be provided if spawner_cfg is provided"
         # Detect object type if not provided
@@ -140,21 +173,36 @@ class Object(RootedObjectBase):
             filter_prim_paths_expr=filter_prim_paths,
         )
 
-    def _get_spawn_cfg_geometry(self, spawn_cfg: SpawnerCfg) -> SpawnCfgGeometry:
+    def get_object_cfg(self) -> tuple[str, AssetBaseCfg]:
+        """Return the scene key and concrete asset config. The object must have an asset."""
+        self._assert_has_asset(self.object_cfg.spawn)
+        return super().get_object_cfg()
+
+    def _assert_has_asset(self, spawn_cfg: SpawnerCfg | None) -> None:
+        """Assert that ``spawn_cfg`` is set, naming this object and the ways to give it an asset."""
+        assert spawn_cfg is not None, (
+            f"Object '{self.name}' has no asset. Declare it with asset=, or enable the AssetSelectionVariation"
+            f" added to it (for example '{self.name}.asset_selection.enabled=true')."
+        )
+
+    def _get_spawn_cfg_geometry(self, spawn_cfg: SpawnerCfg | None) -> SpawnCfgGeometry:
         """Return cached geometry for a spawn configuration, recomputed when its geometric settings change."""
+        self._assert_has_asset(spawn_cfg)
         key = get_geometry_key(spawn_cfg)
         if key not in self._spawn_cfg_geometry_by_key:
             self._spawn_cfg_geometry_by_key[key] = SpawnCfgGeometry(spawn_cfg)
         return self._spawn_cfg_geometry_by_key[key]
 
-    def _get_spawn_cfg(self, activate_contact_sensors: bool = False) -> SpawnerCfg:
-        """Return the custom spawn config if set, otherwise a USD spawn config with addons."""
+    def _get_spawn_cfg(self, activate_contact_sensors: bool = False) -> SpawnerCfg | None:
+        """Return the custom spawn config, a USD spawn config with addons, or None for an object without an asset."""
         if self.spawner_cfg is not None:
             assert not self.spawn_cfg_addon, (
                 "spawn_cfg_addon cannot be combined with spawner_cfg. "
                 "Configure spawn options and physics on the custom spawner instead."
             )
             return self.spawner_cfg
+        if self.usd_path is None:
+            return None
         spawn_cfg = UsdFileCfg(
             usd_path=self.usd_path,
             scale=self.scale,

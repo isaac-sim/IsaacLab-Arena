@@ -4,12 +4,14 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import random
+from copy import deepcopy
 from typing import TYPE_CHECKING, Any
 
 from isaaclab_arena.utils.singleton import SingletonMeta
 
 if TYPE_CHECKING:
     from isaaclab.devices.device_base import DeviceCfg
+    from isaaclab.sim.spawners.spawner_cfg import SpawnerCfg
     from isaaclab_teleop import IsaacTeleopCfg
 
     from isaaclab_arena.assets.asset import Asset
@@ -101,6 +103,38 @@ class AssetRegistry(Registry):
         """
         ensure_assets_registered()
         return self.get_component_by_name(name)
+
+    def get_asset_definition(self, name: str, **kwargs: Any) -> tuple[str, "SpawnerCfg"]:
+        """Return the registry name and a copy of the spawn configuration of a registered rigid object.
+
+        Args:
+            name: Registered name of a rigid Object.
+            **kwargs: Constructor arguments of the registered object, for example ``scale``.
+
+        Returns:
+            ``(name, spawn_cfg)``, where ``spawn_cfg`` is a deep copy of the constructed object's
+            ``object_cfg.spawn``. Initial pose, relations, variations and methods of the library class are
+            not included.
+        """
+        from isaaclab.sim import MultiAssetSpawnerCfg, MultiUsdFileCfg
+
+        from isaaclab_arena.assets.object import Object
+        from isaaclab_arena.assets.object_set import RigidObjectSet
+        from isaaclab_arena.assets.object_type import ObjectType
+
+        asset = self.get_asset_by_name(name)(**kwargs)
+        assert isinstance(asset, Object) and not isinstance(
+            asset, RigidObjectSet
+        ), f"Asset '{name}' is a {type(asset).__name__}; get_asset_definition needs a rigid Object."
+        assert asset.object_type == ObjectType.RIGID, f"Asset '{name}' is {asset.object_type}, not rigid."
+        assert (
+            asset.bounding_box is None
+        ), f"Asset '{name}' sets a bounding_box override, which its spawn configuration does not carry."
+        spawn_cfg = asset.object_cfg.spawn
+        assert not isinstance(
+            spawn_cfg, (MultiAssetSpawnerCfg, MultiUsdFileCfg)
+        ), f"Asset '{name}' spawns several assets; get_asset_definition needs one spawn configuration."
+        return name, deepcopy(spawn_cfg)
 
     def get_assets_by_tag(self, tag: str) -> list[type["Asset"]]:
         """Gets a list of assets by tag.
