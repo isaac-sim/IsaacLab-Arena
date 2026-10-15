@@ -65,7 +65,6 @@ def _test_external_success(simulation_app, mode):
         sim=SimpleNamespace(device="cpu"),
         terminations=termination_cfg,
         recorders=recorder_cfg,
-        metrics=None,
         episode_recorders=None,
         task_progress=TaskProgressCfg(
             success_criteria=[
