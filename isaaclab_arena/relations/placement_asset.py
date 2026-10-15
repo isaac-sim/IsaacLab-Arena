@@ -15,7 +15,7 @@ from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.relations.collision_mode import CollisionMode
 from isaaclab_arena.relations.placement_poses import write_scene_poses_to_sim
 from isaaclab_arena.relations.relations import IsAnchor, Relation, RelationBase, RequiresReachability, UnaryRelation
-from isaaclab_arena.utils.bounding_box import quaternion_to_90_deg_z_quarters
+from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, quaternion_to_90_deg_z_quarters
 from isaaclab_arena.utils.pose import Pose, PosePerEnv, PoseRange
 
 if TYPE_CHECKING:
@@ -23,8 +23,6 @@ if TYPE_CHECKING:
 
     from isaaclab.envs import ManagerBasedEnv
     from isaaclab.managers import EventTermCfg
-
-    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 
 class PlaceableAsset(Asset, ABC):
@@ -167,6 +165,28 @@ class PlaceableAsset(Asset, ABC):
     @abstractmethod
     def get_bounding_box(self) -> AxisAlignedBoundingBox:
         """Return root-relative axis-aligned bounds."""
+
+    @property
+    def has_multiple_assets(self) -> bool:
+        """Whether this asset spawns one of several assets in each environment."""
+        return False
+
+    def get_bounding_box_per_env(self, num_envs: int) -> AxisAlignedBoundingBox:
+        """Return root-relative axis-aligned bounds with one row per environment.
+
+        The default repeats get_bounding_box() for every environment.
+
+        Args:
+            num_envs: Number of environments.
+
+        Returns:
+            Bounds whose min_point and max_point have shape (num_envs, 3), in environment order.
+        """
+        bounding_box = self.get_bounding_box()
+        return AxisAlignedBoundingBox(
+            min_point=bounding_box.min_point.expand(num_envs, 3),
+            max_point=bounding_box.max_point.expand(num_envs, 3),
+        )
 
     def get_bounding_box_rotation(self) -> tuple[float, float, float, float]:
         """Return the XYZW rotation from bounding-box axes to environment axes.

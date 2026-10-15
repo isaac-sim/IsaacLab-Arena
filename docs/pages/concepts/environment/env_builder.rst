@@ -96,7 +96,9 @@ not fix the other.
      - ``None`` (unlocked)
      - Relation-solver layouts and random
        :doc:`RigidObjectSet <../scene/concept_rigid_object_set>` member
-       assignment. With ``None``, placement stays non-reproducible across runs.
+       assignment, also with ``--no_solve_relations``. With ``None``, the
+       environment's ``placer_params.placement_seed`` is used; with neither set,
+       layouts and random members change across runs.
 
 There is no variation seed. Run-time variations follow ``--seed``; build-time
 variations are drawn once at compile time and are not locked by either seed.

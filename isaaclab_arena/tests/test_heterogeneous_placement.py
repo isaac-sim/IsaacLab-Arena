@@ -13,7 +13,7 @@ import torch
 
 import pytest
 
-from isaaclab_arena.relations.bounding_box_helpers import build_per_env_bounding_boxes, get_bounding_box_per_env
+from isaaclab_arena.relations.bounding_box_helpers import build_per_env_bounding_boxes
 from isaaclab_arena.relations.object_placer import ObjectPlacer
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
 from isaaclab_arena.relations.placement_result import PlacementResult
@@ -33,43 +33,6 @@ def _checklist(passed: bool) -> PlacementValidationResults:
 
 
 # ---------------------------------------------------------------------------
-# Fixture: let HeterogeneousDummyObject trigger the heterogeneous path
-# ---------------------------------------------------------------------------
-
-
-@pytest.fixture(autouse=True)
-def _patch_bounding_box_helpers_for_test_doubles(monkeypatch):
-    """Let HeterogeneousDummyObject flow through the heterogeneous placement path.
-
-    Production dispatch uses isinstance(RigidObjectSet), but these tests use
-    lightweight DummyObject subclasses with get_bounding_box_per_env(...).
-    Patch modules that bind the heterogeneous check by name at import time.
-    """
-    from isaaclab_arena.relations import bounding_box_helpers
-
-    original_has_het = bounding_box_helpers.has_heterogeneous_objects
-    original_bbox_per_env = bounding_box_helpers.get_bounding_box_per_env
-
-    def has_het_with_doubles(objects):
-        return original_has_het(objects) or any(hasattr(obj, "get_bounding_box_per_env") for obj in objects)
-
-    def bbox_per_env_with_doubles(obj, num_envs):
-        if hasattr(obj, "get_bounding_box_per_env"):
-            return obj.get_bounding_box_per_env(num_envs)
-        return original_bbox_per_env(obj, num_envs)
-
-    has_het_sites = [
-        "isaaclab_arena.relations.bounding_box_helpers.has_heterogeneous_objects",
-        "isaaclab_arena.relations.pooled_object_placer.has_heterogeneous_objects",
-    ]
-    for site in has_het_sites:
-        monkeypatch.setattr(site, has_het_with_doubles)
-    monkeypatch.setattr(
-        "isaaclab_arena.relations.bounding_box_helpers.get_bounding_box_per_env", bbox_per_env_with_doubles
-    )
-
-
-# ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
@@ -84,6 +47,11 @@ class HeterogeneousDummyObject(DummyObject):
     def __init__(self, name: str, bboxes: list[AxisAlignedBoundingBox], **kwargs):
         super().__init__(name=name, bounding_box=bboxes[0], **kwargs)
         self._per_env_bboxes = bboxes
+
+    @property
+    def has_multiple_assets(self) -> bool:
+        """Report several assets; get_bounding_box_per_env cycles through the given boxes."""
+        return True
 
     def get_bounding_box_per_env(self, num_envs: int) -> AxisAlignedBoundingBox:
         """Return env-specific bbox variants for this test double."""
@@ -117,7 +85,7 @@ def test_dummy_object_bbox_per_env_expands_single():
         bounding_box=AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.2, 0.2, 0.2)),
     )
 
-    per_env = get_bounding_box_per_env(obj, 4)
+    per_env = obj.get_bounding_box_per_env(4)
     assert per_env.min_point.shape == (4, 3)
     assert per_env.max_point.shape == (4, 3)
     assert torch.allclose(per_env.min_point[0], per_env.min_point[3])
@@ -154,8 +122,6 @@ def test_heterogeneous_dummy_returns_different_bboxes():
 
 def test_dummy_object_preserves_constructor_relations():
     """DummyObject should keep relations passed at construction time."""
-    from isaaclab_arena.assets.object_set import RigidObjectSet
-
     anchor_relation = IsAnchor()
     obj = DummyObject(
         name="anchor",
@@ -164,13 +130,12 @@ def test_dummy_object_preserves_constructor_relations():
     )
 
     assert obj.get_relations() == [anchor_relation]
-    assert not isinstance(obj, RigidObjectSet)
+    assert not obj.has_multiple_assets
 
 
 def test_object_preserves_constructor_relations():
     """Object should keep relations passed at construction time."""
     from isaaclab_arena.assets.object import Object
-    from isaaclab_arena.assets.object_set import RigidObjectSet
     from isaaclab_arena.assets.object_type import ObjectType
 
     anchor_relation = IsAnchor()
@@ -183,7 +148,7 @@ def test_object_preserves_constructor_relations():
     )
 
     assert obj.get_relations() == [anchor_relation]
-    assert not isinstance(obj, RigidObjectSet)
+    assert not obj.has_multiple_assets
 
 
 # ---------------------------------------------------------------------------
@@ -886,54 +851,3 @@ def test_pooled_placer_per_env_pools_advance_in_complete_rounds():
     assert len(draws) == 4
     for d in draws:
         assert hetero in d.positions
-
-
-# ---------------------------------------------------------------------------
-# End-to-end with real RigidObjectSet
-# ---------------------------------------------------------------------------
-
-
-def test_real_rigid_object_set_through_pooled_placer():
-    """Real RigidObjectSet should flow through PooledObjectPlacer without monkey-patching.
-
-    This is an integration test that verifies the actual isinstance(RigidObjectSet)
-    dispatch in bounding_box_helpers.py triggers correctly, unlike the other tests
-    in this file that monkey-patch has_heterogeneous_objects.
-    """
-    from unittest.mock import patch
-
-    from isaaclab_arena.assets.object import Object
-    from isaaclab_arena.assets.object_set import RigidObjectSet
-    from isaaclab_arena.assets.object_type import ObjectType
-    from isaaclab_arena.assets.spawn_cfg_geometry import SpawnCfgGeometry
-    from isaaclab_arena.relations.bounding_box_helpers import has_heterogeneous_objects
-
-    desk = _make_desk()
-
-    can_a = Object(name="can_a", object_type=ObjectType.RIGID, usd_path="/tmp/can_a.usd")
-    can_b = Object(name="can_b", object_type=ObjectType.RIGID, usd_path="/tmp/can_b.usd")
-    can_a.bounding_box = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.1, 0.1, 0.15))
-    can_b.bounding_box = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.15, 0.15, 0.2))
-
-    # The members' USD paths are placeholders, so contact-body discovery must not open them.
-    with patch.object(SpawnCfgGeometry, "get_contact_body_path", return_value="/rigid"):
-        obj_set = RigidObjectSet(name="cans", objects=[can_a, can_b])
-
-    obj_set.add_relation(On(desk, clearance_m=0.01))
-
-    assert has_heterogeneous_objects([desk, obj_set])
-
-    num_envs = 4
-    solver_params = RelationSolverParams(max_iters=200, convergence_threshold=1e-3, verbose=False)
-    placer_params = ObjectPlacerParams(solver_params=solver_params, placement_seed=42)
-
-    pool = PooledObjectPlacer(objects=[desk, obj_set], placer_params=placer_params, pool_size=20, num_envs=num_envs)
-
-    assert pool.remaining > 0
-
-    draws = pool.sample_without_replacement(num_envs)
-    assert len(draws) == num_envs
-    for draw in draws:
-        assert obj_set in draw.positions
-        z = draw.positions[obj_set][2]
-        assert abs(z - 0.11) < 0.05, f"z={z:.4f}, expected ~0.11"

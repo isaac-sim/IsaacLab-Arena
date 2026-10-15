@@ -142,8 +142,6 @@ def _test_arena_env_graph_conversion_builds_object_set_node(simulation_app):
 
     # The set is a single node: the task manipulates it, and each env gets one of its members.
     assert arena_env.task.pick_up_object is object_set
-    object_set.assign_variants(num_envs=4)
-    assert len(object_set.object_cfg.spawn.assets_cfg) == 4
 
     return True
 

@@ -234,10 +234,8 @@ def write_placement_samples(
 
 
 def supports_recorded_placement(assets: list[PlaceableAsset]) -> bool:
-    """Whether placement recording and replay can preserve the selected assets."""
-    from isaaclab_arena.assets.object_set import RigidObjectSet
-
-    return not any(isinstance(asset, RigidObjectSet) for asset in assets)
+    """Whether pose-only placement samples can record and replay these assets."""
+    return not any(asset.has_multiple_assets for asset in assets)
 
 
 def validate_placement_sample_assets(
@@ -249,7 +247,9 @@ def validate_placement_sample_assets(
     from isaaclab_arena.relations.relations import RandomAroundSolution, get_relation
 
     _validate_native_samples(samples)
-    assert supports_recorded_placement(assets), "Recorded placement requires concrete assets, not object sets"
+    assert supports_recorded_placement(
+        assets
+    ), "Recorded placement requires objects that spawn one asset in every environment"
     pose_keys = set(samples[0].poses)
     owners = get_scene_root_owners(assets)
     unknown = pose_keys - owners.keys()

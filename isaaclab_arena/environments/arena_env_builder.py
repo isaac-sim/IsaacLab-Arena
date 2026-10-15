@@ -58,6 +58,7 @@ from isaaclab_arena.relations.placement_sampler import (
     supports_recorded_placement,
 )
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
+from isaaclab_arena.scene.object_asset_assignment import assign_asset_indices
 from isaaclab_arena.tasks.no_task import NoTask
 from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
 from isaaclab_arena.tasks.terminations import task_success_from_progress
@@ -175,6 +176,19 @@ class ArenaEnvBuilder:
             placer_params=placer_params,
             scene_assets=self.arena_env.scene.assets.values(),
         )
+
+    def _get_asset_assignment_seed(self) -> int | None:
+        """Return this build's placement seed, which also seeds random spawn-entry assignment.
+
+        Returns:
+            ArenaEnvBuilderCfg.placement_seed when set, else the environment's placer_params.placement_seed,
+            or None when neither is set.
+        """
+        if self.cfg.placement_seed is not None:
+            return self.cfg.placement_seed
+        if self.arena_env.placer_params is not None:
+            return self.arena_env.placer_params.placement_seed
+        return None
 
     def get_all_variations(self) -> dict[str, list[VariationBase]]:
         """Return ``{asset_name: [variation, ...]}`` for every variation host in the env.
@@ -310,6 +324,12 @@ class ArenaEnvBuilder:
                 self.cfg.recorded_variation_samples_path,
                 variations,
             )
+        # Write each multi-asset object's spawn entry indices into its object_cfg.spawn. Placement reads
+        # per-environment bounds from them, and the scene configuration built below copies them.
+        assign_asset_indices(
+            self.arena_env.get_placement_assets(), self.cfg.num_envs, seed=self._get_asset_assignment_seed()
+        )
+
         # Placement needs its source selected before scene config captures construction poses.
         placement_sampler = self._prepare_relation_placement(variation_replay_scheduler)
 
@@ -317,7 +337,8 @@ class ArenaEnvBuilder:
         # (drawn just below) and run-time samples (drawn during simulation).
         variation_recorder = VariationRecorder()
         variation_recorder.attach(variations)
-        # A RigidObjectSet's selected member identity is absent from pose-only samples, so skip unreplayable records.
+        # Pose-only samples do not record which asset an object with several spawn entries spawned,
+        # so skip placement records that could not be replayed.
         if placement_sampler is not None and supports_recorded_placement(self.arena_env.get_placement_assets()):
             variation_recorder.attach_placement_sampler(
                 placement_sampler,

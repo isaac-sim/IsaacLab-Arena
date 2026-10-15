@@ -32,12 +32,13 @@ def _test_settling_rejects_object_sets_before_reset(simulation_app, tmp_path):
     arena_env = _make_primitive_clutter_scene(tmp_path)
     assets = arena_env.get_placement_assets()
     cube = next(asset for asset in assets if get_relation(asset, ClutterOn) is not None)
-    variants = RigidObjectSet("cube_variants", [cube])
+    # A one-member set has a single spawn entry, so the check needs two members.
+    cube_set = RigidObjectSet("cube_set", [cube, cube])
     env = ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg(num_envs=1)).make_registered()
     try:
         with patch.object(env.unwrapped, "reset", side_effect=AssertionError("must reject before resetting")):
             with pytest.raises(AssertionError, match="Resolve object sets"):
-                collect_settled_placements(env, 1, scene_assets=[*assets, variants])
+                collect_settled_placements(env, 1, scene_assets=[*assets, cube_set])
     finally:
         env.close()
     return True

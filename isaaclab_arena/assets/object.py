@@ -10,6 +10,7 @@ from typing import Any
 
 from isaaclab.assets import ArticulationCfg, AssetBaseCfg, RigidObjectCfg
 from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
+from isaaclab.sim import MultiAssetSpawnerCfg
 from isaaclab.sim.spawners.from_files.from_files_cfg import UsdFileCfg
 from isaaclab.sim.spawners.spawner_cfg import SpawnerCfg
 
@@ -17,6 +18,7 @@ from isaaclab_arena.assets.object_base import ObjectBase, RootedObjectBase
 from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.assets.object_utils import detect_object_type
 from isaaclab_arena.assets.physics_spawner import make_usd_spawn_cfg_with_addons
+from isaaclab_arena.assets.pinned_multi_asset_spawner_cfg import get_asset_indices_by_env
 from isaaclab_arena.assets.spawn_cfg_geometry import SpawnCfgGeometry, get_geometry_key
 from isaaclab_arena.relations.relations import RelationBase
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
@@ -80,10 +82,36 @@ class Object(RootedObjectBase):
         """Get local bounding box (relative to object origin).
 
         Returns bounding_box when it is set, otherwise bounds derived from object_cfg.spawn.
+        With several spawn entries, returns the bounds of the tallest entry.
         """
         if self.bounding_box is not None:
             return self.bounding_box
-        return self._get_spawn_cfg_geometry(self.object_cfg.spawn).get_bounding_box()
+        spawn_entries = self._get_spawn_entries()
+        if len(spawn_entries) == 1:
+            return self._get_spawn_cfg_geometry(spawn_entries[0]).get_bounding_box()
+        entry_bounds = [self._get_spawn_cfg_geometry(entry).get_bounding_box() for entry in spawn_entries]
+        return max(entry_bounds, key=lambda bounds: bounds.size[0, 2].item())
+
+    def get_bounding_box_per_env(self, num_envs: int) -> AxisAlignedBoundingBox:
+        """Return local bounds with one row per environment, from the spawn entry each environment spawns.
+
+        bounding_box, when set, applies to every environment. With several spawn entries, each environment's
+        entry comes from object_cfg.spawn.asset_indices_by_env.
+
+        Args:
+            num_envs: Number of environments.
+
+        Returns:
+            Bounds whose min_point and max_point have shape (num_envs, 3), in environment order.
+        """
+        if self.bounding_box is not None or not self.has_multiple_assets:
+            return super().get_bounding_box_per_env(num_envs)
+        asset_indices_by_env = get_asset_indices_by_env(self.object_cfg.spawn, num_envs, self.name)
+        entry_bounds = [self._get_spawn_cfg_geometry(entry).get_bounding_box() for entry in self._get_spawn_entries()]
+        return AxisAlignedBoundingBox(
+            min_point=torch.stack([entry_bounds[index].min_point[0] for index in asset_indices_by_env]),
+            max_point=torch.stack([entry_bounds[index].max_point[0] for index in asset_indices_by_env]),
+        )
 
     def get_corners(self, pos: torch.Tensor) -> torch.Tensor:
         return self.get_bounding_box().get_corners_at(pos)
@@ -100,9 +128,19 @@ class Object(RootedObjectBase):
         self._pose_event_cfg = self._build_reset_event()
 
     def get_contact_sensor_prim_path(self) -> str:
-        """Return the scene prim path where this object's contact sensor is attached."""
+        """Return the scene prim path where this object's contact sensor is attached.
+
+        All spawn entries of object_cfg.spawn must have their rigid body at the same path.
+        """
         assert self.object_type == ObjectType.RIGID, "Contact sensor is only supported for rigid objects"
-        return self.prim_path + self._get_spawn_cfg_geometry(self.object_cfg.spawn).get_contact_body_path()
+        # Isaac Lab finds the rigid body in one environment and uses its path in every environment.
+        spawn_entries = self._get_spawn_entries()
+        body_paths = {self._get_spawn_cfg_geometry(entry).get_contact_body_path() for entry in spawn_entries}
+        assert len(body_paths) == 1, (
+            f"Object '{self.name}' spawn entries must have the same contact-sensor prim path; "
+            f"got rigid-body paths {sorted(body_paths)}."
+        )
+        return self.prim_path + body_paths.pop()
 
     def get_contact_sensor_cfg(self, contact_against_object: ObjectBase | None = None) -> ContactSensorCfg:
         # We override this function from the parent class because some assets do not have their rigid body
@@ -139,6 +177,20 @@ class Object(RootedObjectBase):
             prim_path=contact_sensor_prim_path,
             filter_prim_paths_expr=filter_prim_paths,
         )
+
+    @property
+    def has_multiple_assets(self) -> bool:
+        """Whether object_cfg.spawn is a MultiAssetSpawnerCfg with more than one spawn entry."""
+        spawn_cfg = self.object_cfg.spawn
+        return isinstance(spawn_cfg, MultiAssetSpawnerCfg) and len(spawn_cfg.assets_cfg) > 1
+
+    def _get_spawn_entries(self) -> list[SpawnerCfg]:
+        """Return the assets_cfg entries of a MultiAssetSpawnerCfg object_cfg.spawn, or object_cfg.spawn alone."""
+        spawn_cfg = self.object_cfg.spawn
+        if isinstance(spawn_cfg, MultiAssetSpawnerCfg):
+            assert spawn_cfg.assets_cfg, f"Object '{self.name}' needs at least one spawn entry."
+            return spawn_cfg.assets_cfg
+        return [spawn_cfg]
 
     def _get_spawn_cfg_geometry(self, spawn_cfg: SpawnerCfg) -> SpawnCfgGeometry:
         """Return cached geometry for a spawn configuration, recomputed when its geometric settings change."""

@@ -310,7 +310,8 @@ reset ownership before constructing the scene. It rejects:
 
 - unknown roots or incomplete compound assets;
 - missing non-anchor assets constrained by relations;
-- ``RigidObjectSet`` and ``RandomAroundSolution`` assets, whose identity or
+- objects with several spawn entries (for example a ``RigidObjectSet`` with
+  more than one member) and ``RandomAroundSolution`` assets, whose identity or
   random reset cannot be recovered from poses alone;
 - disabled pose resets, nonzero initial root velocity, or non-fixed
   asset-owned pose-reset policies.

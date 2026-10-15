@@ -58,7 +58,6 @@ def get_test_environment(
 
 
 def _test_object_mass_variation_registration(simulation_app):
-    import torch
     from tempfile import TemporaryDirectory
     from unittest.mock import patch
 
@@ -70,7 +69,6 @@ def _test_object_mass_variation_registration(simulation_app):
     from isaaclab_arena.assets.object_type import ObjectType
     from isaaclab_arena.assets.registries import AssetRegistry
     from isaaclab_arena.assets.spawn_cfg_geometry import SpawnCfgGeometry
-    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
     registry = AssetRegistry()
     sphere = registry.get_asset_by_name("sphere")()
@@ -84,12 +82,7 @@ def _test_object_mass_variation_registration(simulation_app):
 
     can_a = Object(name="can_a", object_type=ObjectType.RIGID, usd_path="/tmp/can_a.usd")
     can_b = Object(name="can_b", object_type=ObjectType.RIGID, usd_path="/tmp/can_b.usd")
-    can_a.bounding_box = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.1, 0.1, 0.2))
-    can_b.bounding_box = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.2, 0.2, 0.3))
-    with (
-        patch.object(SpawnCfgGeometry, "get_contact_body_path", return_value="/rigid"),
-        patch("isaaclab_arena.assets.object_set.torch.randint", return_value=torch.tensor([0, 1])),
-    ):
+    with patch.object(SpawnCfgGeometry, "get_contact_body_path", return_value="/rigid"):
         obj_set = RigidObjectSet(name="cans", objects=[can_a, can_b], random_choice=True)
     assert "mass" in obj_set.variations
 

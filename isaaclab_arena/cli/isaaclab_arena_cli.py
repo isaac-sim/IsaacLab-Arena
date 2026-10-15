@@ -94,7 +94,10 @@ def add_isaaclab_arena_cli_args(parser: argparse.ArgumentParser) -> None:
         "--placement_seed",
         type=int,
         default=None,
-        help="Seed for live solved object placement. Ignored when recorded placement is replayed.",
+        help=(
+            "Seed for live solved object placement and for random member assignment of object sets, also without"
+            " relation solving. Placement ignores it when recorded placement is replayed."
+        ),
     )
     arena_group.add_argument(
         "--presets",

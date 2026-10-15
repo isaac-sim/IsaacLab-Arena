@@ -102,10 +102,7 @@ def test_deserialize_placement_samples_rejects_inconsistent_roots() -> None:
         deserialize_placement_samples([_record(), second])
 
 
-def test_recorded_placement_does_not_support_rigid_object_sets() -> None:
-    from isaaclab_arena.assets.object_set import RigidObjectSet
-
-    object_set = RigidObjectSet.__new__(RigidObjectSet)
-
-    assert supports_recorded_placement([Mock()])
-    assert not supports_recorded_placement([Mock(), object_set])
+def test_recorded_placement_rejects_assets_with_several_spawn_entries() -> None:
+    # Mock attributes are truthy by default, so every fake states has_multiple_assets.
+    assert supports_recorded_placement([Mock(has_multiple_assets=False)])
+    assert not supports_recorded_placement([Mock(has_multiple_assets=False), Mock(has_multiple_assets=True)])

@@ -26,18 +26,24 @@ OBJECT_SET_JUG_PRIM_PATH = "/World/envs/env_.*/ObjectSet_Jug"
 OBJECT_SET_BOTTLES_PRIM_PATH = "/World/envs/env_.*/ObjectSet_Bottles"
 
 
-def _make_object_set_variants():
+def _make_two_primitive_members():
+    """Return two rigid cuboid members of different sizes and their bounding boxes."""
+    import isaaclab.sim as sim_utils
+
     from isaaclab_arena.assets.object import Object
     from isaaclab_arena.assets.object_type import ObjectType
-    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
-    can_a = Object(name="can_a", object_type=ObjectType.RIGID, usd_path="/tmp/can_a.usd")
-    can_b = Object(name="can_b", object_type=ObjectType.RIGID, usd_path="/tmp/can_b.usd")
-    bbox_a = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.1, 0.1, 0.2))
-    bbox_b = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.2, 0.2, 0.3))
-    can_a.bounding_box = bbox_a
-    can_b.bounding_box = bbox_b
-    return can_a, can_b, bbox_a, bbox_b
+    can_a = Object(
+        name="can_a",
+        object_type=ObjectType.RIGID,
+        spawner_cfg=sim_utils.CuboidCfg(size=(0.1, 0.1, 0.2), rigid_props=sim_utils.RigidBodyPropertiesCfg()),
+    )
+    can_b = Object(
+        name="can_b",
+        object_type=ObjectType.RIGID,
+        spawner_cfg=sim_utils.CuboidCfg(size=(0.2, 0.2, 0.3), rigid_props=sim_utils.RigidBodyPropertiesCfg()),
+    )
+    return can_a, can_b, can_a.get_bounding_box(), can_b.get_bounding_box()
 
 
 def _patch_contact_body_path(contact_body_path="/rigid"):
@@ -71,34 +77,27 @@ def _write_rigid_cube_usd(usd_path, body_path="/Object", default_path=None):
     return str(usd_path)
 
 
-def _test_object_set_samples_and_stores_variant_indices(simulation_app):
-    """Variant assignment should be sampled once and reused for spawning and bboxes."""
+def _test_object_set_assignment_drives_bounds_and_contact_paths(simulation_app):
+    """A set's spawn entry indices drive its per-env bounds, and its contact paths come from its members."""
     import torch
 
     from isaaclab_arena.assets.object_set import RigidObjectSet
     from isaaclab_arena.assets.spawn_cfg_geometry import SpawnCfgGeometry
 
-    can_a, can_b, bbox_a, bbox_b = _make_object_set_variants()
-    assigned_variant_indices = [1, 0, 1, 1]
-
-    with (
-        _patch_contact_body_path(),
-        patch("isaaclab_arena.assets.object_set.torch.randint", return_value=torch.tensor(assigned_variant_indices)),
-    ):
-        obj_set = RigidObjectSet(name="cans", objects=[can_a, can_b], random_choice=True)
-        destination_set = RigidObjectSet(name="bins", objects=[can_b, can_a], random_choice=True)
-        assert obj_set.variant_indices_by_env is None
-        obj_set.assign_variants(num_envs=4)
-        assert obj_set.variant_indices_by_env == assigned_variant_indices
-
+    can_a, can_b, bbox_a, bbox_b = _make_two_primitive_members()
+    obj_set = RigidObjectSet(name="cans", objects=[can_a, can_b], random_choice=True)
+    destination_set = RigidObjectSet(name="bins", objects=[can_b, can_a])
     spawn_cfg = obj_set.object_cfg.spawn
-    assert [entry.usd_path for entry in spawn_cfg.assets_cfg] == [
-        can_b.usd_path,
-        can_a.usd_path,
-        can_b.usd_path,
-        can_b.usd_path,
-    ]
+    spawn_cfg.asset_indices_by_env = (1, 0, 1, 1)
+    # Isaac Lab's own random choice stays off.
     assert spawn_cfg.random_choice is False
+
+    per_env_bbox = obj_set.get_bounding_box_per_env(num_envs=4)
+    member_bounding_boxes = (bbox_a, bbox_b)
+    expected_min_points = torch.cat([member_bounding_boxes[index].min_point for index in (1, 0, 1, 1)])
+    expected_max_points = torch.cat([member_bounding_boxes[index].max_point for index in (1, 0, 1, 1)])
+    assert torch.allclose(per_env_bbox.min_point, expected_min_points)
+    assert torch.allclose(per_env_bbox.max_point, expected_max_points)
 
     with _patch_contact_body_path():
         contact_sensor_cfg = obj_set.get_contact_sensor_cfg(contact_against_object=destination_set)
@@ -106,17 +105,13 @@ def _test_object_set_samples_and_stores_variant_indices(simulation_app):
     assert contact_sensor_cfg.filter_prim_paths_expr == [f"{destination_set.prim_path}/rigid"]
 
     def contact_body_path_by_member(geometry):
-        return "/rigid" if geometry.spawn_cfg.usd_path == can_a.usd_path else "/other_rigid"
+        return "/rigid" if geometry.spawn_cfg.size == (0.1, 0.1, 0.2) else "/other_rigid"
 
     with patch.object(
         SpawnCfgGeometry, "get_contact_body_path", autospec=True, side_effect=contact_body_path_by_member
     ):
         with pytest.raises(AssertionError, match="same contact-sensor prim path"):
             obj_set.get_contact_sensor_prim_path()
-
-    per_env_bbox = obj_set.get_bounding_box_per_env(num_envs=4)
-    assert torch.allclose(per_env_bbox.max_point[0], bbox_b.max_point[0])
-    assert torch.allclose(per_env_bbox.max_point[1], bbox_a.max_point[0])
     return True
 
 
@@ -166,77 +161,6 @@ def _test_two_object_sets_resolve_normalized_usd_contact_paths(simulation_app, t
             body = stage.GetPrimAtPath(path_expr.replace("{ENV_REGEX_NS}", env_path))
             assert body.IsValid() and body.HasAPI(UsdPhysics.RigidBodyAPI), path_expr
             assert body.GetChild("Cube").HasAPI(UsdPhysics.CollisionAPI), path_expr
-    return True
-
-
-def _test_object_set_default_variant_indices_follow_member_order(simulation_app):
-    """Default object-set assignment should preserve the old deterministic member order."""
-    import torch
-
-    from isaaclab_arena.assets.object_set import RigidObjectSet
-
-    can_a, can_b, bbox_a, bbox_b = _make_object_set_variants()
-    with _patch_contact_body_path():
-        obj_set = RigidObjectSet(name="ordered_cans", objects=[can_a, can_b])
-        obj_set.assign_variants(num_envs=5)
-        assert obj_set.variant_indices_by_env == [0, 1, 0, 1, 0]
-
-    spawn_cfg = obj_set.object_cfg.spawn
-    assert [entry.usd_path for entry in spawn_cfg.assets_cfg] == [
-        can_a.usd_path,
-        can_b.usd_path,
-        can_a.usd_path,
-        can_b.usd_path,
-        can_a.usd_path,
-    ]
-    assert spawn_cfg.random_choice is False
-
-    per_env_bbox = obj_set.get_bounding_box_per_env(num_envs=5)
-    assert torch.allclose(per_env_bbox.max_point[0], bbox_a.max_point[0])
-    assert torch.allclose(per_env_bbox.max_point[1], bbox_b.max_point[0])
-    return True
-
-
-def _test_object_set_random_variant_indices_use_placement_seed(simulation_app):
-    """Random variant assignment should be repeatable with the same placement seed."""
-    from isaaclab_arena.assets.object_set import RigidObjectSet
-
-    def _assigned_indices():
-        can_a, can_b, _bbox_a, _bbox_b = _make_object_set_variants()
-        with _patch_contact_body_path():
-            obj_set = RigidObjectSet(name="seeded_cans", objects=[can_a, can_b], random_choice=True)
-            obj_set.assign_variants(num_envs=8, variant_seed=123)
-        return obj_set.variant_indices_by_env
-
-    return _assigned_indices() == _assigned_indices()
-
-
-def _test_object_set_regenerates_variants_with_different_num_envs(simulation_app):
-    """Calling assign_variants with a different num_envs should regenerate indices."""
-    import io
-    import torch
-    from contextlib import redirect_stdout
-
-    from isaaclab_arena.assets.object_set import RigidObjectSet
-
-    can_a, can_b, _bbox_a, _bbox_b = _make_object_set_variants()
-    # The first draw differs from the member order. Entries rebuilt from the first expansion ([b, b, b])
-    # would give [b, b, b, b]; entries rebuilt from the members give [a, b, a, b].
-    sampled_member_indices = [torch.tensor([1, 1, 1]), torch.tensor([0, 1, 0, 1])]
-    with _patch_contact_body_path():
-        obj_set = RigidObjectSet(name="assigned_cans", objects=[can_a, can_b], random_choice=True)
-    # Only the two assignments draw member indices, so each draw consumes one entry of the side effect.
-    with patch("isaaclab_arena.assets.object_set.torch.randint", side_effect=sampled_member_indices):
-        obj_set.assign_variants(num_envs=3)
-        assert obj_set.variant_indices_by_env == [1, 1, 1]
-
-        output = io.StringIO()
-        with redirect_stdout(output):
-            obj_set.assign_variants(num_envs=4)
-        assert obj_set.variant_indices_by_env == [0, 1, 0, 1]
-        assert "regenerating member assignments" in output.getvalue()
-    entry_paths = [entry.usd_path for entry in obj_set.object_cfg.spawn.assets_cfg]
-    assert entry_paths == [can_a.usd_path, can_b.usd_path, can_a.usd_path, can_b.usd_path]
     return True
 
 
@@ -298,8 +222,6 @@ def _test_object_set_spawns_members_from_their_own_spawn_cfgs(simulation_app, tm
 
 def _test_single_member_object_set_spawns_the_member_spawn_cfg(simulation_app, tmp_path):
     """A one-member set spawns a plain copy of the member's spawn configuration."""
-    import isaaclab.sim as sim_utils
-
     from isaaclab_arena.assets.object import Object
     from isaaclab_arena.assets.object_set import RigidObjectSet
     from isaaclab_arena.assets.object_type import ObjectType
@@ -316,10 +238,6 @@ def _test_single_member_object_set_spawns_the_member_spawn_cfg(simulation_app, t
     assert spawn_cfg is not member.object_cfg.spawn
     assert spawn_cfg.usd_path == member.usd_path
     assert spawn_cfg.scale == (1.5, 1.5, 1.5)
-    # One member needs no per-environment spawn entries.
-    object_set.assign_variants(num_envs=3)
-    assert not isinstance(object_set.object_cfg.spawn, sim_utils.MultiAssetSpawnerCfg)
-    assert object_set.object_cfg.spawn.usd_path == member.usd_path
     return True
 
 
@@ -350,7 +268,7 @@ def _test_object_set_addons_follow_object_rules(simulation_app):
     """A set-level asset_cfg_addon reaches the set's RigidObjectCfg; a set-level spawn_cfg_addon is rejected."""
     from isaaclab_arena.assets.object_set import RigidObjectSet
 
-    can_a, can_b, _bbox_a, _bbox_b = _make_object_set_variants()
+    can_a, can_b, _bbox_a, _bbox_b = _make_two_primitive_members()
     with _patch_contact_body_path():
         debug_set = RigidObjectSet(name="debug_cans", objects=[can_a, can_b], asset_cfg_addon={"debug_vis": True})
         assert debug_set.object_cfg.debug_vis is True
@@ -365,32 +283,23 @@ def _test_object_set_rejects_set_level_scale(simulation_app):
     """A set takes each member's scale from the member, so a set-level scale is rejected."""
     from isaaclab_arena.assets.object_set import RigidObjectSet
 
-    can_a, can_b, _bbox_a, _bbox_b = _make_object_set_variants()
+    can_a, can_b, _bbox_a, _bbox_b = _make_two_primitive_members()
     with _patch_contact_body_path():
         with pytest.raises(AssertionError, match="Set the scale on the member objects"):
             RigidObjectSet(name="scaled_cans", objects=[can_a, can_b], scale=(2.0, 2.0, 2.0))
     return True
 
 
-def _test_object_set_expansion_keeps_live_spawn_settings(simulation_app):
-    """Per-environment expansion keeps set-wide settings made on object_cfg.spawn and takes entries from the members."""
-    import isaaclab.sim as sim_utils
-
+def _test_object_set_rejects_member_bounding_box_override(simulation_app):
+    """A member with an explicit bounding_box is rejected, because set bounds come from the spawn configurations."""
     from isaaclab_arena.assets.object_set import RigidObjectSet
+    from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
-    can_a, can_b, _bbox_a, _bbox_b = _make_object_set_variants()
-    with _patch_contact_body_path():
-        obj_set = RigidObjectSet(name="weighted_cans", objects=[can_a, can_b])
-    # Isaac Lab applies a MultiAssetSpawnerCfg-level mass_props to every spawn entry.
-    obj_set.object_cfg.spawn.mass_props = sim_utils.MassPropertiesCfg(mass=0.7)
-    obj_set.assign_variants(num_envs=3)
-
-    spawn_cfg = obj_set.object_cfg.spawn
-    assert spawn_cfg.mass_props.mass == 0.7
-    assert [entry.usd_path for entry in spawn_cfg.assets_cfg] == [can_a.usd_path, can_b.usd_path, can_a.usd_path]
-    # The declared spawner_cfg stays as built.
-    assert obj_set.spawner_cfg.mass_props is None
-    assert len(obj_set.spawner_cfg.assets_cfg) == 2
+    can_a, can_b, _bbox_a, _bbox_b = _make_two_primitive_members()
+    can_b.bounding_box = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.2, 0.2, 0.3))
+    with pytest.raises(AssertionError, match="sets bounding_box") as error_info:
+        RigidObjectSet(name="overridden_cans", objects=[can_a, can_b])
+    assert "overridden_cans" in str(error_info.value) and "can_b" in str(error_info.value)
     return True
 
 
@@ -429,8 +338,6 @@ def _test_relation_free_object_set_is_a_passive_obstacle(simulation_app, tmp_pat
 
 def _test_live_object_set_keeps_member_mass_and_scale(simulation_app, tmp_path):
     """Each environment spawns one whole member: its own mass together with its own scale."""
-    import torch
-
     import isaaclab.sim as sim_utils
     import warp as wp
     from isaaclab.sim.utils.stage import get_current_stage
@@ -466,12 +373,10 @@ def _test_live_object_set_keeps_member_mass_and_scale(simulation_app, tmp_path):
             initial_pose=Pose(position_xyz=(0.0, 0.0, 1.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)),
         )
     assert object_set.get_contact_sensor_prim_path() == f"{object_set.prim_path}/rigid_body"
-    # The builder assigns members only for relation placement, so assign them here. The draw differs from the
-    # round robin a two-entry config would get, so the check below fails unless the expansion is spawned.
+    # The builder keeps indices already in the spawn configuration. They differ from Isaac Lab's default
+    # round robin (0, 1, 0, 1), so the check below fails unless the clone plan pins each environment's member.
     member_indices_by_env = [1, 0, 0, 1]
-    with patch("isaaclab_arena.assets.object_set.torch.randint", return_value=torch.tensor(member_indices_by_env)):
-        object_set.assign_variants(num_envs=4)
-    assert len(object_set.object_cfg.spawn.assets_cfg) == 4
+    object_set.object_cfg.spawn.asset_indices_by_env = tuple(member_indices_by_env)
     mass_and_scale_by_member = [(0.5, 1.0), (2.0, 2.0)]
     expected_mass_and_scale_by_env = [mass_and_scale_by_member[index] for index in member_indices_by_env]
 
@@ -596,7 +501,7 @@ def _test_articulation_object_set(simulation_app):
     from isaaclab_arena.assets.object_set import RigidObjectSet
     from isaaclab_arena.assets.object_type import ObjectType
 
-    can_a, _can_b, _bbox_a, _bbox_b = _make_object_set_variants()
+    can_a, _can_b, _bbox_a, _bbox_b = _make_two_primitive_members()
     door = Object(name="door", object_type=ObjectType.ARTICULATION, usd_path="/tmp/door.usd")
     try:
         RigidObjectSet(name="articulation_object_set", objects=[can_a, door])
@@ -802,8 +707,6 @@ def _test_multi_object_sets(simulation_app):
         assert len(object_1_paths) == NUM_ENVS, "Object_1_paths length is not equal to NUM_ENVS"
         assert len(object_2_paths) == NUM_ENVS, "Object_2_paths length is not equal to NUM_ENVS"
         # Check that each object in the set turns up in one of the environments
-        # NOTE(alexmillane): If we get really unlucky, this can fail because every environment
-        # gets the same object. The chance of this is 0.5^NUM_ENVS. So with 20 envs this is very small.
         # NOTE(alexmillane): We check the file names instead of the paths because objects may be cached
         object_1_file_names = [os.path.basename(path) for path in object_1_paths]
         object_2_file_names = [os.path.basename(path) for path in object_2_paths]
@@ -819,6 +722,11 @@ def _test_multi_object_sets(simulation_app):
         assert (
             os.path.basename(mustard_bottle.usd_path) in object_2_file_names
         ), "Mustard bottle USD path is not in Object_2_paths"
+        # Each set's indices are pinned in the clone plan, so environment i spawns member i % 2 of both sets.
+        set_1_member_file_names = [os.path.basename(member.usd_path) for member in (cracker_box, sugar_box)]
+        set_2_member_file_names = [os.path.basename(member.usd_path) for member in (sugar_box, mustard_bottle)]
+        assert object_1_file_names == [set_1_member_file_names[i % 2] for i in range(NUM_ENVS)], object_1_file_names
+        assert object_2_file_names == [set_2_member_file_names[i % 2] for i in range(NUM_ENVS)], object_2_file_names
     except Exception as e:
         print(f"Error: {e}")
         traceback.print_exc()
@@ -831,7 +739,7 @@ def _test_multi_object_sets(simulation_app):
 def _test_object_set_with_robot_mounted_cameras(simulation_app) -> bool:
     """An object set clones correctly in a scene whose cameras are mounted on the robot.
 
-    An object set spawns one USD variant per env, which puts the scene on Isaac Lab's
+    An object set spawns one spawn entry per member, which puts the scene on Isaac Lab's
     heterogeneous clone-plan path: every cfg gets its own destination template instead of a
     single env-root one. DROID's cameras live under the robot, so their templates nest
     inside the robot's, and resolving them used to raise. Needs more than one env; a single
@@ -910,12 +818,12 @@ def test_empty_object_set():
     assert result, f"Test {_test_empty_object_set.__name__} failed"
 
 
-def test_object_set_samples_and_stores_variant_indices():
+def test_object_set_assignment_drives_bounds_and_contact_paths():
     result = run_function_with_persistent_simulation_app(
-        _test_object_set_samples_and_stores_variant_indices,
+        _test_object_set_assignment_drives_bounds_and_contact_paths,
         headless=HEADLESS,
     )
-    assert result, f"Test {_test_object_set_samples_and_stores_variant_indices.__name__} failed"
+    assert result, f"Test {_test_object_set_assignment_drives_bounds_and_contact_paths.__name__} failed"
 
 
 def test_two_object_sets_resolve_normalized_usd_contact_paths(tmp_path):
@@ -925,30 +833,6 @@ def test_two_object_sets_resolve_normalized_usd_contact_paths(tmp_path):
         tmp_path=tmp_path,
     )
     assert result
-
-
-def test_object_set_default_variant_indices_follow_member_order():
-    result = run_function_with_persistent_simulation_app(
-        _test_object_set_default_variant_indices_follow_member_order,
-        headless=HEADLESS,
-    )
-    assert result, f"Test {_test_object_set_default_variant_indices_follow_member_order.__name__} failed"
-
-
-def test_object_set_random_variant_indices_use_placement_seed():
-    result = run_function_with_persistent_simulation_app(
-        _test_object_set_random_variant_indices_use_placement_seed,
-        headless=HEADLESS,
-    )
-    assert result, f"Test {_test_object_set_random_variant_indices_use_placement_seed.__name__} failed"
-
-
-def test_object_set_regenerates_variants_with_different_num_envs():
-    result = run_function_with_persistent_simulation_app(
-        _test_object_set_regenerates_variants_with_different_num_envs,
-        headless=HEADLESS,
-    )
-    assert result, f"Test {_test_object_set_regenerates_variants_with_different_num_envs.__name__} failed"
 
 
 def test_articulation_object_set():
@@ -1036,12 +920,12 @@ def test_object_set_rejects_set_level_scale():
     assert result, f"Test {_test_object_set_rejects_set_level_scale.__name__} failed"
 
 
-def test_object_set_expansion_keeps_live_spawn_settings():
+def test_object_set_rejects_member_bounding_box_override():
     result = run_function_with_persistent_simulation_app(
-        _test_object_set_expansion_keeps_live_spawn_settings,
+        _test_object_set_rejects_member_bounding_box_override,
         headless=HEADLESS,
     )
-    assert result, f"Test {_test_object_set_expansion_keeps_live_spawn_settings.__name__} failed"
+    assert result, f"Test {_test_object_set_rejects_member_bounding_box_override.__name__} failed"
 
 
 def test_relation_free_object_set_is_a_passive_obstacle(tmp_path):

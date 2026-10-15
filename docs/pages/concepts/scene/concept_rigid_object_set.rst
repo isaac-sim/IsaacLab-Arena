@@ -27,8 +27,10 @@ prim path, and (optionally) one set of relations. Only the spawned object
 differs across environments.
 
 When the environment is built and ``num_envs`` is known, Arena assigns one
-member to each environment. That choice is locked for the run, so the spawned
-USD and the geometry used by the placement solver stay aligned.
+member to each environment, for every set in the scene, whether relations place
+it or not. The choice is locked for the run and passed to Isaac Lab's cloner, so
+the member spawned in each environment and the geometry the placement solver
+uses stay aligned, also when the scene has several sets.
 
 How members are chosen:
 
@@ -41,13 +43,17 @@ How members are chosen:
    * - Ordered (default)
      - Environments cycle through the list: ``env_idx % len(objects)``.
    * - Random (``random_choice=True``)
-     - Each environment picks independently. Pass a placement seed to make the
-       choice reproducible.
+     - Each environment picks independently. The draw is seeded by
+       ``--placement_seed`` (``ArenaEnvBuilderCfg.placement_seed``), else by the
+       environment's ``placer_params.placement_seed``. With neither set, the
+       choice changes across runs.
 
 Members must be rigid objects. Articulations and empty lists are rejected when
 you construct the set. Each member spawns from a copy of its own spawn
 configuration, so its scale, physics settings and USD variant selections are
-kept. Configure members before building the set.
+kept. Configure members before building the set. Members must not set
+``bounding_box``; the set's bounds come from the members' spawn
+configurations.
 
 How to Use
 ----------
@@ -136,6 +142,21 @@ Limitations
 - **Rigid only.** Members must be ``ObjectType.RIGID`` — no articulations.
 - **Choice is fixed per run.** Layouts can change on reset; the assigned member
   cannot.
+- **Assignment is fixed per object.** Building the same set again with another
+  ``num_envs`` is rejected; create new objects instead.
+- **Change members before the environment is built.** The builder stores each
+  environment's member index in the set's spawn configuration and copies that
+  configuration into the environment configuration. When the environment builds
+  its scene, Arena checks only that every spawner with several entries is a
+  ``PinnedMultiAssetSpawnerCfg`` with one valid index per environment. An
+  ``env_cfg_callback`` or configuration override that reorders the entries,
+  changes an index to another valid one, adds or removes entries while every
+  index stays valid, or leaves a single entry is not detected, and the
+  environment then spawns members that placement did not measure.
+- **On Newton, members need the same collision shape types.** Newton's MuJoCo
+  solver requires the same shape types in every environment, so a set whose
+  members differ there, for example a cube and a sphere, fails when the
+  environment is built, with ``SolverMuJoCo requires homogeneous worlds``.
 - **One shared prim path.** Every environment uses ``{ENV_REGEX_NS}/<name>``.
   When members keep their rigid body at different paths, Arena spawns a copy of
   each member's USD with the body moved to one common path.
