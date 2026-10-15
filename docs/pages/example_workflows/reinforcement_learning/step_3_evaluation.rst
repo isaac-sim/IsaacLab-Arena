@@ -76,18 +76,15 @@ Run it with the Experiment Runner:
 Policy settings such as ``checkpoint_path`` go under ``policy`` in the Run. Environment settings
 such as ``object`` or ``embodiment`` go under ``environment``.
 
-When the Run finishes, the runner prints a metrics summary:
+When the Run finishes, the console shows the number of finished episodes and the success rate:
 
 .. code-block:: text
 
-   ======================================================================
-   METRICS SUMMARY
-   ======================================================================
-
-   lift_object_rsl_rl:
-     num_episodes                           20
-     success_rate                       1.0000
-   ======================================================================
+   +--------------------+----------+--------------+
+   |      Run Name      | Episodes | Success Rate |
+   +--------------------+----------+--------------+
+   | lift_object_rsl_rl |    20    |    1.0000    |
+   +--------------------+----------+--------------+
 
 
 Method 2: Parallel Environment Evaluation
@@ -108,14 +105,11 @@ episodes on the command line:
 
 .. code-block:: text
 
-   ======================================================================
-   METRICS SUMMARY
-   ======================================================================
-
-   lift_object_rsl_rl:
-     num_episodes                         1024
-     success_rate                       1.0000
-   ======================================================================
+   +--------------------+----------+--------------+
+   |      Run Name      | Episodes | Success Rate |
+   +--------------------+----------+--------------+
+   | lift_object_rsl_rl |   1024   |    1.0000    |
+   +--------------------+----------+--------------+
 
 .. image:: ../../../images/lift_object_rl_parallel.gif
    :align: center
@@ -157,27 +151,21 @@ The runner evaluates the Runs in YAML order and prints a summary for both:
 
 .. code-block:: text
 
-   ======================================================================
-   METRICS SUMMARY
-   ======================================================================
-
-   lift_object_model_1000:
-     num_episodes                         1024
-     success_rate                       0.9697
-
-   lift_object_model_1999:
-     num_episodes                         1024
-     success_rate                       1.0000
-   ======================================================================
+   +------------------------+----------+--------------+
+   |        Run Name        | Episodes | Success Rate |
+   +------------------------+----------+--------------+
+   | lift_object_model_1000 |   1024   |    0.9697    |
+   | lift_object_model_1999 |   1024   |    1.0000    |
+   +------------------------+----------+--------------+
 
 
-Understanding the Metrics
-^^^^^^^^^^^^^^^^^^^^^^^^^^
+Understanding the Results
+^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The Lift Object task reports two metrics:
+For the Lift Object task, the table reports:
 
-- ``success_rate``: fraction of episodes where the object reached the target position within tolerance
-- ``num_episodes``: total number of completed episodes during the evaluation run
+- ``Episodes``: total number of completed episodes during the evaluation run
+- ``Success Rate``: fraction of episodes where the object reached the target position within tolerance
 
 A well-trained policy should reach a success rate of at least 70%. Results will vary with the target range,
 random seed, and hardware.
@@ -185,5 +173,5 @@ random seed, and hardware.
 .. note::
 
    For evaluation, leave ``environment.rl_training_mode`` at its default, ``false``: success
-   termination stays enabled so metrics such as success rate are meaningful. For RSL-RL training,
-   pass ``--rl_training_mode`` to disable success termination.
+   termination stays enabled so the success rate is meaningful. For RSL-RL training, pass
+   ``--rl_training_mode`` to disable success termination.
