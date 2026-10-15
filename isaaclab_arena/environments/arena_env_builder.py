@@ -38,9 +38,6 @@ from isaaclab_arena.environments.relation_solver_interface import (
     prepare_live_relation_placement,
     prepare_recorded_relation_placement,
 )
-from isaaclab_arena.metrics.metric_base import MetricBase
-from isaaclab_arena.metrics.metric_term_cfg import MetricTermCfg
-from isaaclab_arena.metrics.recorder_manager_utils import metrics_to_recorder_manager_cfg
 from isaaclab_arena.progress_tracking.task_progress_cfg import TaskProgressCfg
 from isaaclab_arena.recording.common_terms import (
     CoreEpisodeRecorderTermCfg,
@@ -238,13 +235,6 @@ class ArenaEnvBuilder:
         )
         return recorder_cfg
 
-    def _compose_metrics_cfg(self, metrics: list[MetricBase] | None) -> object | None:
-        """Build a configclass container with one ``MetricTermCfg`` field per metric."""
-        if not metrics:
-            return None
-        fields = [(m.name, MetricTermCfg, m.get_metric_term_cfg()) for m in metrics]
-        return make_configclass("MetricsCfg", fields)()
-
     def _build_termination_manager_cfg(
         self,
         task_termination_cfg: TaskTerminationCfg,
@@ -408,13 +398,9 @@ class ArenaEnvBuilder:
                 isaac_teleop_cfg = device_cfg
             elif isinstance(device_cfg, DeviceCfg):
                 teleop_devices_cfg = DevicesCfg(devices={self.arena_env.teleop_device.name: device_cfg})
-        metrics = task.get_metrics()
-        metrics_cfg = self._compose_metrics_cfg(metrics)
-        metrics_recorder_manager_cfg = metrics_to_recorder_manager_cfg(metrics)
         # Base has to be specified explicitly to avoid type errors and not lose inheritance.
         recorder_manager_cfg = combine_configclass_instances(
             "RecorderManagerCfg",
-            metrics_recorder_manager_cfg,
             task.get_recorder_term_cfg(),
             embodiment.get_recorder_term_cfg(record_trajectories=self.cfg.record_trajectories),
             bases=(RecorderManagerBaseCfg,),
@@ -477,7 +463,6 @@ class ArenaEnvBuilder:
                 teleop_devices=teleop_devices_cfg,
                 recorders=recorder_manager_cfg,
                 demo_recorder_config=demo_recorder_config,
-                metrics=metrics_cfg,
                 episode_recorders=episode_recorders_cfg,
                 task_description=task_description,
                 viewer=viewer_cfg,
@@ -510,10 +495,9 @@ class ArenaEnvBuilder:
                 subtask_configs=task_mimic_env_cfg.subtask_configs,
                 task_constraint_configs=task_mimic_env_cfg.task_constraint_configs,
                 mimic_recorder_config=mimic_recorder_config,
-                # NOTE(alexmillane, 2025-09-25): Metric + recorders excluded from mimic env,
+                # NOTE(alexmillane, 2025-09-25): Recorders excluded from mimic env,
                 # I assume that they're not needed for the mimic env.
                 # recorders=recorder_manager_cfg,
-                # metrics=metrics_cfg,
                 task_description=task_description,
                 viewer=viewer_cfg,
             )

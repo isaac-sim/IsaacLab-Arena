@@ -9,7 +9,7 @@ import pytest
 
 from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
 from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg
-from isaaclab_arena.evaluation.arena_run import ArenaRunCfg, ArenaRunResult, RolloutLimitCfg, RunStatus
+from isaaclab_arena.evaluation.arena_run import ArenaRunCfg, RolloutLimitCfg
 from isaaclab_arena.policy.policy_base import PolicyCfg
 
 
@@ -107,13 +107,3 @@ def test_replay_paths_determine_rebuild_count():
 def test_replay_paths_reject_conflicting_configuration(overrides, message):
     with pytest.raises(AssertionError, match=message):
         _run(**overrides)
-
-
-def test_run_result_records_outcome_separately():
-    result = ArenaRunResult(
-        run_name="test_run",
-        status=RunStatus.COMPLETED,
-    )
-
-    assert result.run_name == "test_run"
-    assert result.metrics is None

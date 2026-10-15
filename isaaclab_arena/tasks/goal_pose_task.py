@@ -12,9 +12,6 @@ from isaaclab.scene import InteractiveSceneCfg
 
 from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.assets.register import register_task
-from isaaclab_arena.metrics.metric_base import MetricBase
-from isaaclab_arena.metrics.object_moved import ObjectMovedRateMetric
-from isaaclab_arena.metrics.success_rate import SuccessRateMetric
 from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
@@ -88,12 +85,6 @@ class GoalPoseTask(TaskBase):
 
     def get_mimic_env_cfg(self, embodiment_name: str):
         raise NotImplementedError("Function not implemented yet.")
-
-    def get_metrics(self) -> list[MetricBase]:
-        return [
-            SuccessRateMetric(),
-            ObjectMovedRateMetric(self.object),
-        ]
 
     def get_viewer_cfg(self) -> ViewerCfg:
         return get_viewer_cfg_look_at_object(lookat_object=self.object, offset=np.array([1.5, 1.5, 1.5]))

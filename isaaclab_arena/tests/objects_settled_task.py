@@ -9,7 +9,6 @@ from isaaclab.envs.common import ViewerCfg
 from isaaclab.managers import TerminationTermCfg
 
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
-from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
 from isaaclab_arena.tasks.predicates.object_settling import objects_below_velocity_thresholds
 from isaaclab_arena.tasks.predicates.temporal import TrueForConsecutiveStepsCfg
@@ -52,9 +51,6 @@ class ObjectsSettledTask(TaskBase):
 
     def get_mimic_env_cfg(self, arm_mode: ArmMode):
         raise NotImplementedError
-
-    def get_metrics(self) -> list[MetricBase]:
-        return []
 
     def get_viewer_cfg(self) -> ViewerCfg:
         return ViewerCfg(eye=(1.8, -1.8, 1.4), lookat=(0.25, 0.0, 0.3))

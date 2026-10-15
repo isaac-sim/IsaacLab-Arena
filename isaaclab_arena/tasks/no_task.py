@@ -29,8 +29,5 @@ class NoTask(TaskBase):
     def get_mimic_env_cfg(self, arm_mode: ArmMode):
         pass
 
-    def get_metrics(self):
-        pass
-
     def get_viewer_cfg(self) -> ViewerCfg:
         return ViewerCfg(eye=(-1.5, -1.5, 1.5), lookat=(0.0, 0.0, 0.5))

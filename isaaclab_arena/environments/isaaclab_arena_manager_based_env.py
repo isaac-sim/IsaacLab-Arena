@@ -13,8 +13,6 @@ from isaaclab.envs import ManagerBasedRLEnv, ManagerBasedRLMimicEnv
 from isaaclab.managers.recorder_manager import DatasetExportMode, RecorderManagerBaseCfg
 
 from isaaclab_arena.environments.arena_world import ArenaWorld
-from isaaclab_arena.metrics.metric_data import MetricsDataCollection
-from isaaclab_arena.metrics.metrics_manager import MetricsManager
 from isaaclab_arena.progress_tracking.progress_tracker import ProgressTracker, ProgressTrackingRecorderCfg
 from isaaclab_arena.recording.arena_recorder_manager import ArenaRecorderManager
 from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderManager
@@ -143,7 +141,6 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
             recorder_cfg.progress_tracking = ProgressTrackingRecorderCfg()
             self.cfg.recorders = recorder_cfg
         self.recorder_manager = ArenaRecorderManager(recorder_cfg, self)
-        self.metrics_manager = MetricsManager(self.cfg.metrics, self)
         self.episode_recorder_manager = EpisodeRecorderManager(self.cfg.episode_recorders, self)
 
     def update_task_progress(self) -> None:
@@ -227,14 +224,6 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
         if self._progress_tracker is not None:
             self._progress_tracker.reset(episode_start_env_ids)
         self._object_initial_rest_pose_recorder.reset(episode_start_env_ids)
-
-    def compute_metrics(self) -> MetricsDataCollection:
-        """Compute all registered metrics.
-
-        Returns:
-            A MetricsDataCollection instance.
-        """
-        return self.metrics_manager.compute()
 
 
 class IsaacLabArenaManagerBasedRLMimicEnv(IsaacLabArenaManagerBasedRLEnv, ManagerBasedRLMimicEnv):
