@@ -40,9 +40,6 @@ This task can be passed to the ``ArenaEnvBuilder`` to create an environment
        def has_reached_step_count(self, env):
            return env.episode_length_buf >= self.num_steps_for_success
 
-       def get_metrics(self) -> list[MetricBase]:
-           return [SuccessRateMetric()]
-
 Imports and the required ``get_scene_cfg()``, ``get_events_cfg()``, and ``get_mimic_env_cfg()``
 methods are omitted here. See the
 `complete example <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_examples/external_environments/advanced.py>`_
