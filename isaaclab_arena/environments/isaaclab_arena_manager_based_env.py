@@ -10,7 +10,7 @@ from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
 from isaaclab.envs import ManagerBasedRLEnv, ManagerBasedRLMimicEnv
-from isaaclab.managers.recorder_manager import DatasetExportMode, RecorderManagerBaseCfg
+from isaaclab.managers.recorder_manager import DatasetExportMode, RecorderManagerBaseCfg, RecorderTermCfg
 
 from isaaclab_arena.environments.arena_world import ArenaWorld
 from isaaclab_arena.progress_tracking.progress_tracker import ProgressTracker, ProgressTrackingRecorderCfg
@@ -27,6 +27,11 @@ if TYPE_CHECKING:
         IsaacLabArenaManagerBasedRLEnvCfg,
     )
     from isaaclab_arena.variations.variation_replay_scheduler import VariationReplayScheduler
+
+
+def _has_recorder_terms(recorder_cfg: RecorderManagerBaseCfg) -> bool:
+    """Return whether a recorder configuration declares any recorder terms."""
+    return any(isinstance(value, RecorderTermCfg) for value in vars(recorder_cfg).values())
 
 
 class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
@@ -141,6 +146,9 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
                 # Lab requires RecorderManagerBaseCfg whenever any recorder term is active.
                 for term_name, term_cfg in recorder_terms.items():
                     setattr(recorder_cfg, term_name, term_cfg)
+            elif not _has_recorder_terms(recorder_cfg):
+                # Progress tracking records nothing, so it alone must not create an empty dataset file.
+                recorder_cfg.dataset_export_mode = DatasetExportMode.EXPORT_NONE
             recorder_cfg.progress_tracking = ProgressTrackingRecorderCfg()
             self.cfg.recorders = recorder_cfg
         self.recorder_manager = ArenaRecorderManager(recorder_cfg, self)
