@@ -33,6 +33,11 @@ class TaskBase(ABC):
 
     @abstractmethod
     def get_scene_cfg(self) -> Any:
+        """Return the scene configuration this task adds, such as contact sensors, or None if it adds none.
+
+        Parts that depend on assets are built from the assets' current spawn configurations on every call, so
+        contact sensors follow spawn changes made before the environment is composed.
+        """
         raise NotImplementedError("Function not implemented yet.")
 
     @abstractmethod
