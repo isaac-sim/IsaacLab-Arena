@@ -298,7 +298,7 @@ runs:
                 exported_identities.add(identity)
                 record = records_by_identity[identity]
                 assert demo["actions"].shape[0] == record["episode_length"] > 0
-                assert bool(demo["success"][0]) is record["success"]
+                assert bool(demo.attrs["success"]) is record["success"]
             assert exported_identities == set(records_by_identity)
 
 
