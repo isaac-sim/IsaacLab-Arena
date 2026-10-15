@@ -19,7 +19,6 @@ from isaaclab_arena.evaluation.run_status import RunStatus
 from isaaclab_arena.policy.policy_base import PolicyCfg
 
 if TYPE_CHECKING:
-    from isaaclab_arena.metrics.metric_data import MetricsDataCollection
     from isaaclab_arena.relations.placement_diagnostics import AggregatedPlacementDiagnostics
 
 
@@ -77,7 +76,7 @@ class ArenaRunCfg:
     """Step or episode limit for the policy rollout."""
 
     num_rebuilds: int = 1
-    """Number of fresh environment constructions over which metrics are aggregated. When
+    """Number of fresh environment constructions that the Run's episodes are split across. When
     ``rollout_limit.num_episodes_per_rebuild`` is set, this must equal its length."""
 
     recorded_variation_samples_paths: list[str] | None = None
@@ -143,9 +142,6 @@ class ArenaRunResult:
 
     end_timestamp_ns: int
     """Unix epoch nanoseconds (UTC) at which the run finished or failed."""
-
-    metrics: MetricsDataCollection | None = None
-    """Metrics aggregated over all successful rebuilds, when provided by the task."""
 
     placement_diagnostics: AggregatedPlacementDiagnostics | None = None
     """Diagnostics of the placement pool fills that built the rebuilds' environments. Rebuilds that solve no
