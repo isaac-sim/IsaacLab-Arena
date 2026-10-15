@@ -136,7 +136,6 @@ def main():
         from isaaclab_arena.evaluation.run_execution import execute_experiment
         from isaaclab_arena.evaluation.run_status import RunStatus
         from isaaclab_arena.evaluation.variation_summary import build_categorical_variation_table
-        from isaaclab_arena.metrics.metrics_logger import MetricsLogger
         from isaaclab_arena.visualization.report import build_report, serve_until_ctrl_c
 
         experiment_cfg = load_arena_experiment_from_config_file(
@@ -147,7 +146,6 @@ def main():
         for run_name in experiment_cfg.runs:
             ArenaExperimentResult.assert_run_name_is_safe_path_component(run_name)
         _assert_camera_support_enabled(experiment_cfg, args_cli.enable_cameras)
-        metrics_logger = MetricsLogger()
 
         print(build_runs_info_table(experiment_cfg.runs.values(), []))
 
@@ -161,12 +159,8 @@ def main():
             record_camera_video=args_cli.record_camera_video,
             continue_on_error=args_cli.continue_on_error,
         )
-        for run_result in run_results:
-            if run_result.metrics is not None:
-                metrics_logger.append_job_metrics(run_result.run_name, run_result.metrics)
 
         print(build_runs_info_table(experiment_cfg.runs.values(), run_results))
-        metrics_logger.print_metrics()
 
         experiment_result = _write_arena_experiment_result(experiment_cfg, run_results, experiment_output_directory)
         variation_table = build_categorical_variation_table(experiment_result)

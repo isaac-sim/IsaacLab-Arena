@@ -22,8 +22,6 @@ from isaaclab.envs.common import ViewerCfg
 from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.embodiments.franka.franka import FrankaIKEmbodiment
-from isaaclab_arena.metrics.metric_base import MetricBase
-from isaaclab_arena.metrics.success_rate import SuccessRateMetric
 from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
@@ -67,9 +65,6 @@ class SuccessAfterNStepsTask(TaskBase):
 
     def get_mimic_env_cfg(self, arm_mode: ArmMode):
         raise NotImplementedError
-
-    def get_metrics(self) -> list[MetricBase]:
-        return [SuccessRateMetric()]
 
     def get_viewer_cfg(self) -> ViewerCfg:
         return ViewerCfg(eye=(-1.5, -1.5, 1.5), lookat=(0.0, 0.0, 0.5))

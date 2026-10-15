@@ -106,9 +106,6 @@ class _ControlledTask:
             success=[CompletionCriteria(name="condition", predicate_sequence=[self.predicate])],
         )
 
-    def get_metrics(self):
-        return []
-
 
 class _MultipleCriteriaTask(_ControlledTask):
     """A flat subtask requiring several independently tracked criteria_sets."""
@@ -230,22 +227,6 @@ def _test_nested_composition_is_rejected(simulation_app):
                     [nested_task, subtasks[0]],
                     subtasks_are_sequential=outer_subtasks_are_sequential,
                 )
-    return True
-
-
-def _test_subtask_recorder_reads_flat_completion_without_updating(simulation_app):
-    from isaaclab_arena.tasks.composite_task_base import CompositeTaskBase, SubtaskSuccessStateRecorderCfg
-
-    predicates = [_ControlledPredicate(index) for index in range(2)]
-    task = CompositeTaskBase([_ControlledTask(predicate) for predicate in predicates])
-    env, tracker = _make_tracker(task, [[True, False], [False, True]])
-    tracker.step(env)
-    recorder_cfg = SubtaskSuccessStateRecorderCfg()
-    recorder = recorder_cfg.class_type(recorder_cfg, env)
-    name, recorded_completion = recorder.record_post_step()
-    assert name == "subtask_success_rate"
-    assert recorded_completion.tolist() == [[True, False], [False, True]]
-    assert [predicate.calls for predicate in predicates] == [1, 1]
     return True
 
 
@@ -432,9 +413,3 @@ def test_final_conditions_are_evaluated_once_per_step():
 
 def test_nested_composition_is_rejected():
     assert run_function_with_persistent_simulation_app(_test_nested_composition_is_rejected, headless=HEADLESS)
-
-
-def test_subtask_recorder_reads_flat_completion_without_updating():
-    assert run_function_with_persistent_simulation_app(
-        _test_subtask_recorder_reads_flat_completion_without_updating, headless=HEADLESS
-    )

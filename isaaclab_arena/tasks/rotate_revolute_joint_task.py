@@ -13,9 +13,6 @@ from isaaclab.utils.configclass import configclass
 from isaaclab_arena.affordances.openable import Openable
 from isaaclab_arena.assets.register import register_task
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
-from isaaclab_arena.metrics.metric_base import MetricBase
-from isaaclab_arena.metrics.revolute_joint_moved_rate import RevoluteJointMovedRateMetric
-from isaaclab_arena.metrics.success_rate import SuccessRateMetric
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
 from isaaclab_arena.tasks.task_transition import TaskTransition
@@ -61,16 +58,6 @@ class RotateRevoluteJointTask(TaskBase):
 
     def get_termination_cfg(self) -> TaskTerminationCfg:
         raise NotImplementedError("Function {self.get_termination_cfg.__name__} not implemented yet.")
-
-    def get_metrics(self) -> list[MetricBase]:
-        return [
-            SuccessRateMetric(),
-            RevoluteJointMovedRateMetric(
-                self.openable_object,
-                reset_joint_percentage=self.reset_joint_percentage,
-                joint_percentage_delta_threshold=self.min_openness_change,
-            ),
-        ]
 
     def get_viewer_cfg(self) -> ViewerCfg:
         return get_viewer_cfg_look_at_object(lookat_object=self.openable_object, offset=np.array([-1.3, -1.3, 1.3]))
