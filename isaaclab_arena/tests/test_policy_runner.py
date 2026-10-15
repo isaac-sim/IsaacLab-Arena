@@ -98,3 +98,21 @@ def test_zero_action_policy_with_objects(object_name):
         object_name=object_name,
         num_steps=NUM_STEPS,
     )
+
+
+def test_distributed_evaluation_warns_about_deprecation(monkeypatch):
+    """Warn before startup that multi-GPU evaluation with --distributed is deprecated."""
+    from isaaclab_arena.evaluation import policy_runner
+
+    class StopBeforeSimulationStarts(Exception):
+        pass
+
+    def stop_before_simulation_starts(_args_cli):
+        raise StopBeforeSimulationStarts
+
+    monkeypatch.setattr(policy_runner, "SimulationAppContext", stop_before_simulation_starts)
+    monkeypatch.setattr("sys.argv", ["policy_runner.py", "--distributed"])
+
+    with pytest.warns(FutureWarning, match="--distributed and torchrun is deprecated"):
+        with pytest.raises(StopBeforeSimulationStarts):
+            policy_runner.main()
