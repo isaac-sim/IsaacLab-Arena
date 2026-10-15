@@ -39,7 +39,6 @@ def _create_episode_limit_env(
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
-    from isaaclab_arena.metrics.success_rate import SuccessRecorderCfg
     from isaaclab_arena.scene.scene import Scene
     from isaaclab_arena.terms.recorders import EpisodeIdentityRecorderCfg
     from isaaclab_arena.utils.configclass import combine_configclass_instances
@@ -75,7 +74,6 @@ def _create_episode_limit_env(
         record_steps = RecorderTermCfg(class_type=EpisodeStepRecorder)
         record_actions = PreStepActionsRecorderCfg()
         record_identity = EpisodeIdentityRecorderCfg()
-        record_success = SuccessRecorderCfg()
 
     @configclass
     class EpisodeLimitEventsCfg:
@@ -158,8 +156,7 @@ def _assert_recorded_episodes(output_dir, records, episode_lengths):
             record = records_by_identity[identity]
             episode_length = episode_lengths[env_id]
             assert demo["actions"].shape[0] == record["episode_length"] == episode_length
-            assert demo["success"].shape == (1,)
-            assert bool(demo["success"][0]) is record["success"]
+            assert bool(demo.attrs["success"]) is record["success"]
             np.testing.assert_array_equal(demo["initial_state/episode_length"][:], [0])
             np.testing.assert_array_equal(demo["initial_state/identity/env_id"][:], [env_id])
             np.testing.assert_array_equal(demo["states/episode_length"][:], np.arange(1, episode_length + 1))
