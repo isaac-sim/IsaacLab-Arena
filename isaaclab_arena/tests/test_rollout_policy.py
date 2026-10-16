@@ -7,7 +7,7 @@ import io
 import torch
 from types import SimpleNamespace
 
-from isaaclab_arena.evaluation import policy_runner
+from isaaclab_arena.evaluation import rollout
 
 
 class _RolloutEnvironment:
@@ -66,8 +66,8 @@ def _wrap_environment(environment):
 
 
 def _capture_progress(monkeypatch, total):
-    progress_bar = policy_runner.tqdm.tqdm(total=total, file=io.StringIO())
-    monkeypatch.setattr(policy_runner.tqdm, "tqdm", lambda **kwargs: progress_bar)
+    progress_bar = rollout.tqdm.tqdm(total=total, file=io.StringIO())
+    monkeypatch.setattr(rollout.tqdm, "tqdm", lambda **kwargs: progress_bar)
     return progress_bar
 
 
@@ -81,7 +81,7 @@ def test_episode_rollout_waits_for_every_completion_and_resets_only_replacements
     policy = _Policy()
     progress_bar = _capture_progress(monkeypatch, total=4)
 
-    metrics = policy_runner.rollout_policy(_wrap_environment(environment), policy, num_steps=None, num_episodes=4)
+    metrics = rollout.rollout_policy(_wrap_environment(environment), policy, num_steps=None, num_episodes=4)
 
     assert metrics is None
     assert environment.configured_episode_limits == [4]
@@ -100,7 +100,7 @@ def test_step_rollout_keeps_its_step_limit_and_resets_actual_reset_environments(
     policy = _Policy()
     progress_bar = _capture_progress(monkeypatch, total=2)
 
-    policy_runner.rollout_policy(_wrap_environment(environment), policy, num_steps=2, num_episodes=None)
+    rollout.rollout_policy(_wrap_environment(environment), policy, num_steps=2, num_episodes=None)
 
     assert environment.configured_episode_limits == []
     assert environment.steps_completed == 2

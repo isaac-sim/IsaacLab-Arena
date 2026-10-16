@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg
     from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
     from isaaclab_arena.evaluation.arena_run import ArenaRunCfg
-    from isaaclab_arena.policy.policy_base import PolicyCfg
+    from isaaclab_arena.policy.policy_base import PolicyBase, PolicyCfg
 
 
 def validate_experiment_config_path(experiment_config: str | Path) -> Path:
@@ -102,17 +102,30 @@ def _registered_environment_cfg_types() -> dict[str, type[ArenaEnvironmentCfg]]:
     return environment_cfg_types
 
 
-def _resolve_policy_cfg_type_from_name_or_class_path(policy_name_or_class_path: str) -> type[PolicyCfg]:
-    """Return the config type for a registered policy name or dotted class path."""
+def resolve_policy_type_from_name_or_class_path(policy_name_or_class_path: str) -> type[PolicyBase]:
+    """Return the policy class for a registered policy name or dotted class path.
+
+    Args:
+        policy_name_or_class_path: Registered policy name, or a ``module_path.ClassName`` path.
+
+    Returns:
+        The policy class.
+    """
     from isaaclab_arena.assets.registries import PolicyRegistry
 
     registry = PolicyRegistry()
     if registry.is_registered(policy_name_or_class_path):
-        policy_type = registry.get_policy(policy_name_or_class_path)
-    else:
-        assert (
-            "." in policy_name_or_class_path
-        ), f"Policy type must be a registered name or dotted Python class path, got {policy_name_or_class_path!r}"
-        module_path, class_name = policy_name_or_class_path.rsplit(".", 1)
-        policy_type = getattr(import_module(module_path), class_name)
-    return registry.get_policy_cfg_type(policy_type)
+        return registry.get_policy(policy_name_or_class_path)
+    assert (
+        "." in policy_name_or_class_path
+    ), f"Policy type must be a registered name or dotted Python class path, got {policy_name_or_class_path!r}"
+    module_path, class_name = policy_name_or_class_path.rsplit(".", 1)
+    return getattr(import_module(module_path), class_name)
+
+
+def _resolve_policy_cfg_type_from_name_or_class_path(policy_name_or_class_path: str) -> type[PolicyCfg]:
+    """Return the config type for a registered policy name or dotted class path."""
+    from isaaclab_arena.assets.registries import PolicyRegistry
+
+    policy_type = resolve_policy_type_from_name_or_class_path(policy_name_or_class_path)
+    return PolicyRegistry().get_policy_cfg_type(policy_type)
