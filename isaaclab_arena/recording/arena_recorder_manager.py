@@ -9,7 +9,8 @@ import torch
 from collections.abc import Sequence
 
 import warp as wp
-from isaaclab.managers.recorder_manager import RecorderManager
+from isaaclab.managers.recorder_manager import RecorderManager, RecorderTerm, RecorderTermCfg
+from isaaclab.utils.configclass import configclass
 
 
 class ArenaRecorderManager(RecorderManager):
@@ -22,10 +23,11 @@ class ArenaRecorderManager(RecorderManager):
     """
 
     def record_post_step(self) -> None:
-        """Update task progress before recorder terms observe the completed control step."""
+        """Update task progress and episode recorder terms before recorder terms observe the completed step."""
         if not self.active_terms:
             return
         self._env.update_task_progress()
+        self._env.episode_recorder_manager.post_step()
         super().record_post_step()
 
     def add_to_episodes(
@@ -98,3 +100,15 @@ class ArenaRecorderManager(RecorderManager):
         if env_ids is None:
             return torch.arange(self._env.num_envs, device=self._env.device)
         return torch.as_tensor(env_ids, dtype=torch.long, device=self._env.device)
+
+
+class PostStepHookRecorder(RecorderTerm):
+    """Records nothing. Keeps Isaac Lab calling record_post_step so Arena can update per-step state."""
+
+    def record_post_step(self):
+        return None, None
+
+
+@configclass
+class PostStepHookRecorderCfg(RecorderTermCfg):
+    class_type: type[RecorderTerm] = PostStepHookRecorder
