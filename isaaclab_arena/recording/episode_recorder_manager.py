@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import datetime
+import inspect
 import json
 import torch
 from collections.abc import Callable, Sequence
@@ -14,7 +15,7 @@ from pathlib import Path
 from prettytable import PrettyTable
 from typing import Any
 
-from isaaclab.managers import ManagerBase, ManagerTermBaseCfg
+from isaaclab.managers import ManagerBase, ManagerTermBase, ManagerTermBaseCfg
 from isaaclab.utils.configclass import configclass
 
 CORE_FIELD_NAMES = frozenset({
@@ -40,8 +41,25 @@ class EpisodeRecorderTermCfg(ManagerTermBaseCfg):
 
     Invoked as ``func(env, env_id, **params)`` for the env whose episode just finished. It returns a
     JSON object, which the manager stores in the episode's record under the term's name, or ``None``
-    to leave the term out of that record.
+    to leave the term out of that record. It may also be an ``EpisodeRecorderTerm`` subclass, which the
+    manager creates once and steps every control step.
     """
+
+
+class EpisodeRecorderTerm(ManagerTermBase):
+    """Episode recorder term that can follow its episode step by step.
+
+    Subclasses keep one entry of state per env, update it in ``post_step()``, clear it in ``reset()``,
+    and return the finished episode's output from ``__call__``. Update state in place: the env may be
+    stepped inside ``torch.inference_mode()`` and reset outside it.
+    """
+
+    def post_step(self, env) -> None:
+        """Update the per-env state after a control step. Does nothing by default."""
+
+    def __call__(self, env, env_id: int, **params) -> dict[str, Any] | None:
+        """Return the output for env_id's finished episode, or None to leave it out of the record."""
+        raise NotImplementedError
 
 
 class EpisodeRecorderManager(ManagerBase):
@@ -56,6 +74,7 @@ class EpisodeRecorderManager(ManagerBase):
         """
         self._term_names: list[str] = []
         self._term_cfgs: list[EpisodeRecorderTermCfg] = []
+        self._class_term_cfgs: list[EpisodeRecorderTermCfg] = []
         self._job_name: str = "default"
         self._output_path: Path | None = None
         super().__init__(cfg, env)
@@ -90,6 +109,22 @@ class EpisodeRecorderManager(ManagerBase):
         # Delete the contents of the file if it already exists by writing an empty string.
         path.write_text("", encoding="utf-8")
         self._output_path = path
+
+    @property
+    def has_post_step_terms(self) -> bool:
+        """Whether any term follows its episode step by step."""
+        return bool(self._class_term_cfgs)
+
+    def post_step(self) -> None:
+        """Let every class-based term update its state after a control step."""
+        for term_cfg in self._class_term_cfgs:
+            term_cfg.func.post_step(self._env)
+
+    def reset(self, env_ids: Sequence[int] | torch.Tensor | None = None) -> dict[str, float]:
+        """Clear the state of every class-based term for the envs that start a new episode."""
+        for term_cfg in self._class_term_cfgs:
+            term_cfg.func.reset(env_ids=env_ids)
+        return {}
 
     def record_pre_reset(self, env_ids: Sequence[int] | torch.Tensor | None) -> None:
         """Write one record for each finished episode in env_ids.
@@ -154,6 +189,12 @@ class EpisodeRecorderManager(ManagerBase):
             self._resolve_common_term_cfg(term_name, term_cfg, min_argc=2)
             self._term_names.append(term_name)
             self._term_cfgs.append(term_cfg)
+            if inspect.isclass(term_cfg.func) or isinstance(term_cfg.func, ManagerTermBase):
+                term_class = term_cfg.func if inspect.isclass(term_cfg.func) else type(term_cfg.func)
+                assert issubclass(
+                    term_class, EpisodeRecorderTerm
+                ), f"Episode recorder term '{term_name}' is a class; it must derive from EpisodeRecorderTerm."
+                self._class_term_cfgs.append(term_cfg)
 
     @staticmethod
     def _assert_json_object(term_name: str, output: Any) -> None:
