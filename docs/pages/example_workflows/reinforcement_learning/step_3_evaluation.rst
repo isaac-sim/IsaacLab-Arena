@@ -28,66 +28,95 @@ or you can download a pre-trained one as described below.
 
    ``$MODELS_DIR/lift_object_checkpoint/model_1999.pt``
 
-   Replace checkpoint paths in the examples below with this path.
+   The same folder also contains ``model_1000.pt``. The Experiment YAMLs below read
+   checkpoints from this folder.
 
 
 Evaluation Methods
 ^^^^^^^^^^^^^^^^^^
 
-There are three ways to evaluate a trained policy:
+There are three ways to evaluate a trained policy. Each one runs ``experiment_runner.py`` with an
+Experiment YAML:
 
-1. **Single environment** (``policy_runner.py``): detailed evaluation with metrics
-2. **Parallel environments** (``policy_runner.py``): larger-scale statistical evaluation
-3. **Batch evaluation** (``experiment_runner.py``): automated evaluation across multiple checkpoints
+1. **Single environment**: detailed evaluation with metrics
+2. **Parallel environments**: larger-scale statistical evaluation
+3. **Batch evaluation**: automated evaluation across multiple checkpoints
 
 
 Method 1: Single Environment Evaluation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+This Experiment YAML declares one Run. It evaluates the downloaded ``model_1999.pt`` checkpoint
+with the ``rsl_rl`` policy in the ``lift_object`` environment for 20 episodes:
+
+.. literalinclude:: ../../../../isaaclab_arena_environments/experiment_configs/reinforcement_learning/lift_object_rsl_rl_experiment.yaml
+   :language: yaml
+   :start-at: runs:
+
+Run it with the Experiment Runner:
+
 .. code-block:: bash
 
-   python isaaclab_arena/evaluation/policy_runner.py \
+   python isaaclab_arena/evaluation/experiment_runner.py \
      --viz kit \
-     --policy_type rsl_rl \
-     --num_episodes 20 \
-     --checkpoint_path $MODELS_DIR/lift_object_checkpoint/model_1999.pt \
-     lift_object
+     --experiment_config isaaclab_arena_environments/experiment_configs/reinforcement_learning/lift_object_rsl_rl_experiment.yaml
 
 .. note::
 
    If you train the model yourself, the checkpoint path is typically in the ``logs/rsl_rl/generic_experiment/`` directory.
-   Replace the checkpoint path with the path to your own checkpoint.
+   Override the checkpoint path to evaluate your own checkpoint. Replace ``<timestamp>`` with the
+   folder name of your training run:
 
-Policy-specific arguments (``--policy_type``, ``--checkpoint_path``, etc.) must come **before** the
-environment name. Environment-specific arguments (``--object``, ``--embodiment``, etc.) must come
-**after** it.
+   .. code-block:: bash
 
-At the end of the run, metrics are printed to the console:
+      python isaaclab_arena/evaluation/experiment_runner.py \
+        --viz kit \
+        --experiment_config isaaclab_arena_environments/experiment_configs/reinforcement_learning/lift_object_rsl_rl_experiment.yaml \
+        runs.lift_object_rsl_rl.policy.checkpoint_path=logs/rsl_rl/generic_experiment/<timestamp>/model_1999.pt
+
+Policy settings such as ``checkpoint_path`` go under ``policy`` in the Run. Environment settings
+such as ``object`` or ``embodiment`` go under ``environment``.
+
+When the Run finishes, the runner prints a metrics summary:
 
 .. code-block:: text
 
-   Metrics: {'success_rate': 0.81, 'num_episodes': 12}
+   ======================================================================
+   METRICS SUMMARY
+   ======================================================================
+
+   lift_object_rsl_rl:
+     num_episodes                           20
+     success_rate                       0.8100
+   ======================================================================
 
 
 Method 2: Parallel Environment Evaluation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-For more statistically significant results, run across many environments in parallel:
+For more statistically significant results, run across many environments in parallel. Use the
+same Experiment YAML and override the number of environments, their spacing, and the number of
+episodes on the command line:
 
 .. code-block:: bash
 
-   python isaaclab_arena/evaluation/policy_runner.py \
-     --policy_type rsl_rl \
-     --num_episodes 1024 \
-     --num_envs 64 \
-     --env_spacing 2.5 \
+   python isaaclab_arena/evaluation/experiment_runner.py \
      --viz kit \
-     --checkpoint_path $MODELS_DIR/lift_object_checkpoint/model_1999.pt \
-     lift_object
+     --experiment_config isaaclab_arena_environments/experiment_configs/reinforcement_learning/lift_object_rsl_rl_experiment.yaml \
+     runs.lift_object_rsl_rl.environment_builder.num_envs=64 \
+     runs.lift_object_rsl_rl.environment_builder.env_spacing=2.5 \
+     runs.lift_object_rsl_rl.rollout_limit.num_episodes=1024
 
 .. code-block:: text
 
-   Metrics: {'success_rate': 0.72, 'num_episodes': 1024}
+   ======================================================================
+   METRICS SUMMARY
+   ======================================================================
+
+   lift_object_rsl_rl:
+     num_episodes                         1024
+     success_rate                       0.7200
+   ======================================================================
 
 .. image:: ../../../images/lift_object_rl_parallel.gif
    :align: center
@@ -97,52 +126,35 @@ For more statistically significant results, run across many environments in para
 Method 3: Batch Evaluation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-To evaluate multiple checkpoints in sequence, use ``experiment_runner.py`` with a JSON config.
-Here we evaluate the models you trained yourself.
-The checkpoint path should be replaced with the timestamp of your training run in the ``logs/rsl_rl/generic_experiment/`` directory.
+To evaluate multiple checkpoints in sequence, declare one Run per checkpoint in an Experiment YAML.
+This YAML evaluates ``model_1000.pt`` and ``model_1999.pt`` from the downloaded folder. Values
+under ``shared`` apply to both Runs, so each Run only sets its checkpoint:
 
-**1. Create an evaluation config**
+.. literalinclude:: ../../../../isaaclab_arena_environments/experiment_configs/reinforcement_learning/lift_object_rsl_rl_checkpoints_experiment.yaml
+   :language: yaml
+   :start-at: shared:
 
-Create a file ``eval_config.json``:
-
-.. code-block:: json
-
-   {
-     "jobs": [
-       {
-         "name": "lift_object_model_1000",
-         "policy_type": "rsl_rl",
-         "num_episodes": 1024,
-         "arena_env_args": {
-           "environment": "lift_object",
-           "num_envs": 64
-         },
-         "policy_config_dict": {
-           "checkpoint_path": "logs/rsl_rl/generic_experiment/<timestamp>/model_1000.pt"
-         }
-       },
-       {
-         "name": "lift_object_model_1999",
-         "policy_type": "rsl_rl",
-         "num_episodes": 1024,
-         "arena_env_args": {
-           "environment": "lift_object",
-           "num_envs": 64
-         },
-         "policy_config_dict": {
-           "checkpoint_path": "logs/rsl_rl/generic_experiment/<timestamp>/model_1999.pt"
-         }
-       }
-     ]
-   }
-
-**2. Run**
+Run both checkpoints with one command:
 
 .. code-block:: bash
 
    python isaaclab_arena/evaluation/experiment_runner.py \
      --viz kit \
-     --eval_jobs_config eval_config.json
+     --experiment_config isaaclab_arena_environments/experiment_configs/reinforcement_learning/lift_object_rsl_rl_checkpoints_experiment.yaml
+
+To evaluate the models you trained yourself, override the checkpoint path of each Run. Replace
+``<timestamp>`` with the folder name of your training run in the ``logs/rsl_rl/generic_experiment/``
+directory:
+
+.. code-block:: bash
+
+   python isaaclab_arena/evaluation/experiment_runner.py \
+     --viz kit \
+     --experiment_config isaaclab_arena_environments/experiment_configs/reinforcement_learning/lift_object_rsl_rl_checkpoints_experiment.yaml \
+     runs.lift_object_model_1000.policy.checkpoint_path=logs/rsl_rl/generic_experiment/<timestamp>/model_1000.pt \
+     runs.lift_object_model_1999.policy.checkpoint_path=logs/rsl_rl/generic_experiment/<timestamp>/model_1999.pt
+
+The runner evaluates the Runs in YAML order and prints a summary for both:
 
 .. code-block:: text
 
@@ -151,12 +163,12 @@ Create a file ``eval_config.json``:
    ======================================================================
 
    lift_object_model_1000:
-   num_episodes                         1024
-   success_rate                       0.6526
+     num_episodes                         1024
+     success_rate                       0.6526
 
    lift_object_model_1999:
-   num_episodes                         1024
-   success_rate                       0.7408
+     num_episodes                         1024
+     success_rate                       0.7408
    ======================================================================
 
 
@@ -173,6 +185,6 @@ random seed, and hardware.
 
 .. note::
 
-   For evaluation, omit ``--rl_training_mode`` (default): success termination stays enabled so
-   metrics such as success rate are meaningful. For RSL-RL training, pass ``--rl_training_mode`` to
-   disable success termination.
+   For evaluation, leave ``environment.rl_training_mode`` at its default, ``false``: success
+   termination stays enabled so metrics such as success rate are meaningful. For RSL-RL training,
+   pass ``--rl_training_mode`` to disable success termination.
