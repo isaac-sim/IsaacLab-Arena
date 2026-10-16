@@ -127,11 +127,14 @@ class EpisodeRecorderManager(ManagerBase):
         return {}
 
     def record_pre_reset(self, env_ids: Sequence[int] | torch.Tensor | None) -> None:
-        """Write one record for each finished episode in env_ids.
+        """Write one record for each finished episode in env_ids, if an output path is set.
 
         Args:
             env_ids: The env ids being reset (tensor, sequence, or ``None`` for all envs).
         """
+        # Without an output path nothing is written, so skip building and validating the records.
+        if self._output_path is None:
+            return
         for env_id in self._env_ids_to_list(env_ids):
             record: dict[str, Any] = {"job_name": self._job_name, **self._core_fields(env_id)}
             for term_name, term_cfg in zip(self._term_names, self._term_cfgs):
