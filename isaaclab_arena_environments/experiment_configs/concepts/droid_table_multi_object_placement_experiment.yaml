@@ -1,0 +1,26 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Places five objects on a Maple table in four parallel environments.
+# With mode: homogeneous, every environment uses the same objects.
+# With mode: heterogeneous, each environment selects one member of every
+# object set.
+runs:
+  multi_object_placement:
+    environment:
+      type: droid_table_multi_object_placement
+      embodiment: droid_abs_joint_pos
+      episode_length_s: 4.0
+      mode: homogeneous
+    environment_builder:
+      num_envs: 4
+      env_spacing: 3.0
+      placement_seed: 42
+      # Draw the next layout from the pool on every reset.
+      resolve_on_reset: true
+    policy:
+      type: zero_action
+    rollout_limit:
+      num_steps: 500
