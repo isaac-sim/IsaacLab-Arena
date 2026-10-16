@@ -1,0 +1,4 @@
+# Track design metadata; keep asset payloads and simulation output local.
+*
+!.gitignore
+!specification.json
