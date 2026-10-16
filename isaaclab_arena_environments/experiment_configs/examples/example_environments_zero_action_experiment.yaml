@@ -1,0 +1,25 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Run two registered example environments with the zero-action policy.
+# environment.type selects an environment by its registered name.
+# The other keys below environment set fields of that environment's configuration.
+shared:
+  policy:
+    type: zero_action
+  rollout_limit:
+    num_steps: 100
+
+runs:
+  kitchen_pick_and_place:
+    environment:
+      type: kitchen_pick_and_place
+      object: cracker_box
+      embodiment: gr1_joint
+
+  gr1_open_microwave:
+    environment:
+      type: gr1_open_microwave
+      object: tomato_soup_can
