@@ -466,6 +466,10 @@ For example, one entry of the JSONL record may look like this (placement predica
 The object has settled and been lifted: two of three predicates are complete, giving a score of ``0.67``.
 Placement is still required. The two events record when settling and lifting completed.
 
+The report shows a sequence's attempt count even when no predicate event was recorded.
+If an attempt lacks sequence names, a notice appears beside the progress charts.
+Their percentages include only attempts with identified sequences. The report does not guess the missing names.
+
 The recording schema uses the same criteria and sequence names as the runtime API. Older
 recordings that use ``objectives``, ``objective``, or ``group`` fields require conversion or
 regeneration before they can be read by the current report tools.
