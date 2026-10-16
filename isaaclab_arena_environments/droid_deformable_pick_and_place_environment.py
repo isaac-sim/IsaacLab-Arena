@@ -33,7 +33,6 @@ class DroidDeformablePickAndPlaceEnvironment(ArenaEnvironmentFactory[DroidDeform
     """Build the fixed-pose PhysX deformable-object example."""
 
     name = "droid_deformable_pick_and_place"
-    _legacy_argparse_cfg_type = DroidDeformablePickAndPlaceEnvironmentCfg
 
     def build(self, cfg: DroidDeformablePickAndPlaceEnvironmentCfg) -> IsaacLabArenaEnvironment:
         """Build the environment from its typed configuration."""

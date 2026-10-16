@@ -6,28 +6,42 @@
 """Advanced example: externally-defined environment with a custom task and embodiment.
 
 Builds on the basic example by defining a custom task and a custom embodiment
-variant (with modified controller gains) in the same file::
+variant (with modified controller gains) in the same file. An Arena Experiment
+selects the environment by the dotted class path of its factory::
 
-    python isaaclab_arena/evaluation/policy_runner.py \\
-        --policy_type zero_action --num_steps 100 \\
-        --external_environment_class_path \\
-        isaaclab_arena_examples.external_environments.advanced:ExternalFrankaTableWithTaskEnvironment \\
-        franka_table_with_task
+    runs:
+      franka_table_with_task:
+        environment:
+          type: isaaclab_arena_examples.external_environments.advanced.ExternalFrankaTableWithTaskEnvironment
+          object: tomato_soup_can
+        policy:
+          type: zero_action
+        rollout_limit:
+          num_steps: 50
+
+``external_environments_experiment.yaml`` in this directory runs this environment with
+``isaaclab_arena/evaluation/experiment_runner.py``.
 """
 
-import argparse
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from isaaclab.envs.common import ViewerCfg
 
-from isaaclab_arena.assets.register import register_asset
+from isaaclab_arena.assets.register import register_asset, register_environment
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.embodiments.franka.franka import FrankaIKEmbodiment
+from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg, ArenaEnvironmentFactory
 from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.metrics.success_rate import SuccessRateMetric
 from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
-from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
+
+if TYPE_CHECKING:
+    from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
 
 # ---------------------------------------------------------------------------
 # Custom task
@@ -104,11 +118,21 @@ class SoftFrankaIKEmbodiment(FrankaIKEmbodiment):
 # ---------------------------------------------------------------------------
 
 
-class ExternalFrankaTableWithTaskEnvironment(ExampleEnvironmentBase):
+@dataclass
+class ExternalFrankaTableWithTaskEnvironmentCfg(ArenaEnvironmentCfg):
+    """Configure the external Franka table environment with a custom task."""
+
+    object: str = "cracker_box"
+    """Registered name of the object placed on the table."""
+
+
+@register_environment
+class ExternalFrankaTableWithTaskEnvironment(ArenaEnvironmentFactory[ExternalFrankaTableWithTaskEnvironmentCfg]):
 
     name: str = "franka_table_with_task"
 
-    def get_env(self, args_cli: argparse.Namespace):
+    def build(self, cfg: ExternalFrankaTableWithTaskEnvironmentCfg) -> IsaacLabArenaEnvironment:
+        """Build the environment from its typed configuration."""
         from isaaclab_arena.assets.object_reference import ObjectReference
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
         from isaaclab_arena.relations.relations import IsAnchor, On
@@ -116,7 +140,7 @@ class ExternalFrankaTableWithTaskEnvironment(ExampleEnvironmentBase):
 
         background = self.asset_registry.get_asset_by_name("maple_table_robolab")()
         light = self.asset_registry.get_asset_by_name("light")()
-        pick_up_object = self.asset_registry.get_asset_by_name(args_cli.object)()
+        pick_up_object = self.asset_registry.get_asset_by_name(cfg.object)()
         embodiment = self.asset_registry.get_asset_by_name("franka_ik_soft")()
 
         table_reference = ObjectReference(
@@ -140,7 +164,3 @@ class ExternalFrankaTableWithTaskEnvironment(ExampleEnvironmentBase):
             scene=scene,
             task=task,
         )
-
-    @staticmethod
-    def add_cli_args(parser: argparse.ArgumentParser) -> None:
-        parser.add_argument("--object", type=str, default="cracker_box")

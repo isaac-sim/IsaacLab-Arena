@@ -15,7 +15,6 @@ from isaaclab_arena.cli.isaaclab_arena_cli import arena_env_builder_cfg_from_arg
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 from isaaclab_arena.environment_spec.arena_env_graph_types import CliOverrideSpec
 from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg, ArenaEnvironmentFactory
-from isaaclab_arena_environments.example_environment_base import ExampleEnvironmentBase
 
 if TYPE_CHECKING:
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
@@ -32,38 +31,53 @@ def ensure_environments_registered():
     import isaaclab_arena_environments  # noqa: F401
 
 
+def import_registered_environment_factory(module_path: str, class_name: str) -> type[ArenaEnvironmentFactory]:
+    """Import an environment factory defined outside this package and check its registration.
+
+    Built-in environments are registered before the module is imported. A factory that
+    reuses a built-in name or config type is therefore rejected instead of replacing the
+    built-in environment.
+
+    Args:
+        module_path: Python module that defines the factory.
+        class_name: Name of the factory class in that module.
+
+    Returns:
+        The factory class registered under its ``name``.
+    """
+    ensure_environments_registered()
+    environment_factory_type = getattr(importlib.import_module(module_path), class_name)
+    factory_class_path = f"{module_path}.{class_name}"
+    environment_name = getattr(environment_factory_type, "name", None)
+    environment_registry = EnvironmentRegistry()
+    assert environment_name is not None and environment_registry.is_registered(
+        environment_name
+    ), f"Environment factory {factory_class_path} is not registered. Decorate it with @register_environment."
+    registered_factory_type = environment_registry.get_component_by_name(environment_name)
+    assert registered_factory_type is environment_factory_type, (
+        f"Environment factory {factory_class_path} uses the name '{environment_name}', which is already registered"
+        f" by {registered_factory_type.__module__}.{registered_factory_type.__qualname__}. Choose a unique name."
+    )
+    return environment_factory_type
+
+
 # Legacy argparse compatibility
 #
-# First-party factories now expose only build(cfg). Until the argparse frontend is
-# retired, this section generates their environment-subcommand flags and reconstructs
-# the same typed config from the resulting Namespace. External factories that still
-# inherit ExampleEnvironmentBase continue using their own add_cli_args() and get_env().
-# TODO(cvolk, 2026-07-03): [typed-config-migration] Delete this section and the factories'
-# _legacy_argparse_cfg_type declarations when runners receive typed configs directly.
+# Environment factories expose only build(cfg). Until the argparse frontend is
+# retired, this section generates their environment-subcommand flags from the config
+# registered with EnvironmentRegistry and reconstructs that config from the resulting
+# Namespace.
+# TODO(cvolk, 2026-07-03): [typed-config-migration] Delete this section when runners receive
+# typed configs directly.
 _FIELDS_PROVIDED_BY_SHARED_PARSERS = {"auto", "enable_cameras", "mimic", "num_envs"}
-
-
-def _get_legacy_argparse_cfg_type(
-    environment_factory_type: type[ArenaEnvironmentFactory],
-) -> type[ArenaEnvironmentCfg]:
-    """Return the config dataclass used by a first-party factory's legacy CLI adapter."""
-    environment_cfg_type = getattr(environment_factory_type, "_legacy_argparse_cfg_type", None)
-    assert (
-        environment_cfg_type is not None
-    ), f"{environment_factory_type.__name__} must define _legacy_argparse_cfg_type while argparse is supported"
-    return environment_cfg_type
 
 
 def add_environment_cli_args(
     parser: argparse.ArgumentParser,
     environment_factory_type: type[ArenaEnvironmentFactory],
 ) -> None:
-    """Add legacy CLI flags for a typed or external environment factory."""
-    if issubclass(environment_factory_type, ExampleEnvironmentBase):
-        environment_factory_type.add_cli_args(parser)
-        return
-
-    environment_cfg_type = _get_legacy_argparse_cfg_type(environment_factory_type)
+    """Add legacy CLI flags generated from an environment factory's registered config."""
+    environment_cfg_type = EnvironmentRegistry().get_environment_cfg_type(environment_factory_type)
     add_dataclass_cli_args(
         parser,
         environment_cfg_type,
@@ -80,7 +94,7 @@ def _environment_cfg_from_cli(
     args_cli: argparse.Namespace,
 ) -> ArenaEnvironmentCfg:
     """Create a typed environment config from matching legacy Namespace values."""
-    environment_cfg_type = _get_legacy_argparse_cfg_type(environment_factory_type)
+    environment_cfg_type = EnvironmentRegistry().get_environment_cfg_type(environment_factory_type)
     return dataclass_from_cli(environment_cfg_type, args_cli)
 
 
@@ -88,45 +102,36 @@ def build_environment_from_cli(
     environment_factory_type: type[ArenaEnvironmentFactory],
     args_cli: argparse.Namespace,
 ) -> IsaacLabArenaEnvironment:
-    """Build an environment through its typed or external legacy CLI path."""
+    """Build an environment from the typed config reconstructed from legacy CLI values."""
     environment_factory = environment_factory_type()
-    if isinstance(environment_factory, ExampleEnvironmentBase):
-        return environment_factory.get_env(args_cli)
     return environment_factory.build(_environment_cfg_from_cli(environment_factory_type, args_cli))
 
 
-def parse_and_return_external_environment_from_string(
-    environment_path: str,
-) -> tuple[str, type[ArenaEnvironmentFactory]]:
-    """Parse a string and import the environment class
+def import_external_environment(environment_class_path: str) -> type[ArenaEnvironmentFactory]:
+    """Import the environment factory selected by ``--external_environment_class_path``.
+
+    Importing the module registers the factory through its ``@register_environment``
+    decorator. Repeated imports return the same registered factory.
 
     Args:
-        environment_path: The path to the environment class
-
-    Raises:
-        ValueError: If the environment path is not in the format "module_path:class_name"
+        environment_class_path: Factory location in the form ``module_path:ClassName``.
 
     Returns:
-        A tuple containing the environment name and factory class.
+        The registered environment factory class.
     """
-    # Parse the environment path and import the environment class
-    # We assume the environment path is in the format "module_path:class_name"
-    # Add a check for the format
-    if ":" not in environment_path:
-        raise ValueError(f"Invalid environment path: {environment_path}. Expected format: 'module_path:class_name'")
-    module_path, class_name = environment_path.split(":", 1)
+    if ":" not in environment_class_path:
+        raise ValueError(
+            f"Invalid environment path: {environment_class_path}. Expected format: 'module_path:class_name'"
+        )
+    module_path, class_name = environment_class_path.split(":", 1)
     try:
-        module = importlib.import_module(module_path)
-        environment_class = getattr(module, class_name)
+        return import_registered_environment_factory(module_path, class_name)
     except (ModuleNotFoundError, AttributeError) as e:
         raise ValueError(
-            f"Could not resolve the environment path '{environment_path}' into an environment class."
+            f"Could not resolve the environment path '{environment_class_path}' into an environment class."
             " The format should be 'module_path:class_name'.\n"
             f"Received the error:\n {e}."
         ) from e
-    name = getattr(environment_class, "name", environment_class.__name__)
-    assert name is not None, "Environment class must have a 'name' attribute"
-    return name, environment_class
 
 
 def add_cli_override_args(parser: argparse.ArgumentParser, override_specs: list[CliOverrideSpec]) -> None:
@@ -153,8 +158,7 @@ def add_example_environments_cli_args(args_parser: argparse.ArgumentParser) -> a
     environment = getattr(args, "external_environment_class_path", None)
     if environment is not None:
         print(f"Adding external environment: {environment}")
-        name, cls = parse_and_return_external_environment_from_string(environment)
-        env_registry.register(cls, name)
+        import_external_environment(environment)
 
     # A graph spec YAML may declare its own swappable flags under `cli_override_specs`. Register them
     # here, before parsing, so they appear in --help and parse like any other flag.
@@ -176,9 +180,8 @@ def add_example_environments_cli_args(args_parser: argparse.ArgumentParser) -> a
     return args_parser
 
 
-# TODO(cvolk, 2026-07-03): [typed-config-migration] Delete this environment-subparser pipeline with the
-# per-environment add_cli_args() and get_env(args_cli) adapters after runner scripts
-# receive typed environment configs.
+# TODO(cvolk, 2026-07-03): [typed-config-migration] Delete this environment-subparser pipeline after
+# runner scripts receive typed environment configs.
 def get_isaaclab_arena_environments_cli_parser(
     args_parser: argparse.ArgumentParser | None = None,
 ) -> argparse.ArgumentParser:

@@ -286,14 +286,14 @@ class EnvironmentRegistry(Registry):
         self._cfg_types_by_factory_type[factory_type] = cfg_type
         self._factory_types_by_cfg_type[cfg_type] = factory_type
 
-    # TODO(cvolk, 2026-07-07): [typed-config-migration] Remove this factory-to-config
-    # lookup and _cfg_types_by_factory_type when the legacy JSON adapter no longer
-    # resolves an environment name into its config type.
+    # NOTE(cvolk, 2026-10-14): [typed-config-migration] Typed YAML Experiments resolve
+    # environment.type through this lookup, so it remains after the legacy JSON and
+    # argparse adapters are removed.
     def get_environment_cfg_type(
         self,
         factory_type: type["ArenaEnvironmentFactory"],
     ) -> type["ArenaEnvironmentCfg"]:
-        """Get the config type needed to translate a legacy named environment."""
+        """Get the config type consumed by a registered environment factory."""
         ensure_assets_registered()
         assert (
             factory_type in self._cfg_types_by_factory_type

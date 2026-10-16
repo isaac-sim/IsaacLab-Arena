@@ -39,7 +39,6 @@ class DexsuiteLiftEnvironment(ArenaEnvironmentFactory[ArenaEnvironmentCfg]):
     """
 
     name: str = "dexsuite_lift"
-    _legacy_argparse_cfg_type = ArenaEnvironmentCfg
 
     def build(self, cfg: ArenaEnvironmentCfg) -> IsaacLabArenaEnvironment:
         """Build the environment from its typed configuration."""
