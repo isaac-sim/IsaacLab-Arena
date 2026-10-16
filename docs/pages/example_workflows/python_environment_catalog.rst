@@ -31,7 +31,8 @@ Each Run selects an environment by its ``Task ID`` in ``environment.type``. The 
 tables below list command-line flags for scripts that take the ``Task ID`` as a positional
 argument, such as ``isaaclab_arena/scripts/environment_runner.py``. In an Experiment, set the
 matching field below ``environment`` instead. For example, ``--object cracker_box`` becomes
-``object: cracker_box``.
+``object: cracker_box``. One flag has no matching field: ``--teleop_device`` of
+``pick_and_place_maple_table``, so an Experiment cannot set it.
 
 Run the Experiment from the repository root:
 
