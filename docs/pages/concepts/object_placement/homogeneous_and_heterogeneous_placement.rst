@@ -69,22 +69,20 @@ environment and reset.
    :alt: The same objects placed in different layouts across four environments
    :align: center
 
-Run the same registered environment configuration shown in the animation:
+Run the same registered environment configuration shown in the animation. The
+Experiment selects homogeneous mode:
+
+.. literalinclude:: ../../../../isaaclab_arena_environments/experiment_configs/concepts/droid_table_multi_object_placement_experiment.yaml
+   :language: yaml
+   :start-after: SPDX-License-Identifier: Apache-2.0
+
+Run it from the repository root:
 
 .. code-block:: bash
 
-   python isaaclab_arena/evaluation/policy_runner.py \
+   python isaaclab_arena/evaluation/experiment_runner.py \
      --viz kit \
-     --policy_type zero_action \
-     --num_envs 4 \
-     --env_spacing 3.0 \
-     --placement_seed 42 \
-     --resolve_on_reset \
-     --num_steps 500 \
-     droid_table_multi_object_placement \
-     --embodiment droid_abs_joint_pos \
-     --episode_length_s 4.0 \
-     --mode homogeneous
+     --experiment_config isaaclab_arena_environments/experiment_configs/concepts/droid_table_multi_object_placement_experiment.yaml
 
 Heterogeneous Example
 ---------------------
@@ -110,26 +108,19 @@ uses:
        object_set.add_relation(On(table_reference))
        placeable_assets.append(object_set)
 
-Run the heterogeneous configuration shown in the animation:
+Run the heterogeneous configuration shown in the animation. The command uses
+the same Experiment and switches the Run to heterogeneous mode:
 
 .. code-block:: bash
 
-   python isaaclab_arena/evaluation/policy_runner.py \
+   python isaaclab_arena/evaluation/experiment_runner.py \
      --viz kit \
-     --policy_type zero_action \
-     --num_envs 4 \
-     --env_spacing 3.0 \
-     --placement_seed 42 \
-     --resolve_on_reset \
-     --num_steps 500 \
-     droid_table_multi_object_placement \
-     --embodiment droid_abs_joint_pos \
-     --episode_length_s 4.0 \
-     --mode heterogeneous
+     --experiment_config isaaclab_arena_environments/experiment_configs/concepts/droid_table_multi_object_placement_experiment.yaml \
+     runs.multi_object_placement.environment.mode=heterogeneous
 
-The builder must know ``num_envs`` before assigning object-set members. The
-runner passes this count through ``--num_envs``; use a value greater than one to
-observe different members across parallel environments.
+The builder must know ``num_envs`` before assigning object-set members. The Run
+sets this count in ``environment_builder.num_envs``; use a value greater than
+one to observe different members across parallel environments.
 
 .. important::
 
