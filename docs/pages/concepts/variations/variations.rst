@@ -260,3 +260,7 @@ With the default seed 42, the three rebuilds spawn ``cracker_box``, ``sugar_box`
 
 Add the selection to a plain ``Object``, not to a library object such as ``Mug``, whose
 methods were written for its declared asset.
+
+The task description does not name the selected asset: ``PickAndPlaceTask`` builds it from the
+object's name when the task is built. For a language-conditioned policy, pin one name per run
+with ``asset_names`` and set ``environment_builder.language_instruction``.
