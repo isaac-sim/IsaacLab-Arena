@@ -94,12 +94,7 @@ def _registered_environment_cfg_types() -> dict[str, type[ArenaEnvironmentCfg]]:
     from isaaclab_arena_environments.cli import ensure_environments_registered
 
     ensure_environments_registered()
-    registry = EnvironmentRegistry()
-    environment_cfg_types = {}
-    for name in registry.get_all_keys():
-        environment_factory_type = registry.get_component_by_name(name)
-        environment_cfg_types[name] = registry.get_environment_cfg_type(environment_factory_type)
-    return environment_cfg_types
+    return EnvironmentRegistry().get_environment_cfg_types()
 
 
 def _resolve_policy_cfg_type_from_name_or_class_path(policy_name_or_class_path: str) -> type[PolicyCfg]:
