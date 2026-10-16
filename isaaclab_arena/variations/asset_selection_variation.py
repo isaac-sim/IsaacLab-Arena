@@ -49,6 +49,10 @@ class AssetSelectionVariationCfg(VariationBaseCfg):
 class AssetSelectionVariation(BuildTimeVariationBase):
     """Give a rigid Object one of several candidate assets, the same in every environment of a build.
 
+    The selected spawn configuration stays on the Object, so a later build of the same Object starts from it.
+    Scene.export_to_usd and an ObjectReference into the Object read its declared usd_path, not the selected asset,
+    so both fail for an Object declared without one.
+
     Args:
         asset_candidates: ``(name, spawn_cfg)`` pairs, for example from AssetRegistry.get_asset_definition.
             The spawn configurations are copied.
