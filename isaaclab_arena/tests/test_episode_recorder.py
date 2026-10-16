@@ -24,7 +24,7 @@ HEADLESS = True
 JOB_NAME = "unit_test"
 LANGUAGE_INSTRUCTION = "put the box in the drawer"
 
-# Fields stamped by the manager (metadata) plus those from the default core term.
+# Top-level fields the manager writes for every record.
 CORE_KEYS = {
     "job_name",
     "episode_in_env",
@@ -49,7 +49,7 @@ VARIATION_SAMPLE = [0.25, 0.5]
 
 def record_step_bucket(env, env_id):
     """Custom recorder term: records the finished episode's length bucketed into tens."""
-    return {CUSTOM_KEY: int(env.episode_length_buf[env_id].item()) // 10}
+    return {"bucket": int(env.episode_length_buf[env_id].item()) // 10}
 
 
 def draw_record_test_variation(env, env_ids, asset_cfg, sampler):  # noqa: ARG001
@@ -257,7 +257,7 @@ def _test_custom_term(simulation_app, output_dir):  # noqa: ARG001
         for record in records:
             expected_keys = CORE_KEYS | {PROGRESS_KEY, CUSTOM_KEY}
             assert set(record.keys()) == expected_keys, f"Unexpected keys: {set(record.keys()) ^ expected_keys}"
-            assert record[CUSTOM_KEY] == record["episode_length"] // 10
+            assert record[CUSTOM_KEY] == {"bucket": record["episode_length"] // 10}
     finally:
         env.close()
     return True

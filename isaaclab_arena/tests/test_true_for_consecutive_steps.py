@@ -79,7 +79,7 @@ def _test_consecutive_step_summary(simulation_app):
     calls = held.calls
     env.extras = {"progress_tracking": {"states": tracker.get_state(), "events": tracker.get_events()}}
     recorded = json.loads(json.dumps(record_progress_results(env, 0)))
-    summary = recorded["progress"]["consecutive_step_summary"]
+    summary = recorded["consecutive_step_summary"]
     assert [
         (
             item["sequence_name"],
@@ -341,7 +341,7 @@ def _test_instantaneous_predicates_allow_unindexed_updates(simulation_app):
     assert tracker.get_consecutive_step_summary(0) == []
     env.progress_tracker = tracker
     env.extras = {"progress_tracking": {"states": tracker.get_state(), "events": tracker.get_events()}}
-    recorded = record_progress_results(env, 0)["progress"]
+    recorded = record_progress_results(env, 0)
     assert "consecutive_step_summary" not in recorded
     assert recorded["criteria_by_name"]["plain"]["is_complete"]
     assert len(recorded["events"]) == 2

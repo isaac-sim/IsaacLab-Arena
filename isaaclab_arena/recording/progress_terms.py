@@ -15,41 +15,39 @@ from isaaclab.utils.configclass import configclass
 from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTermCfg
 
 
-def record_progress_results(env, env_id: int) -> dict[str, Any]:
-    """Record the progress-tracking state for ``env_id``."""
+def record_progress_results(env, env_id: int) -> dict[str, Any] | None:
+    """Return the progress-tracking state of env_id's finished episode, or None without progress tracking."""
     progress = env.extras.get("progress_tracking")
     if not progress:
-        return {}
+        return None
 
     state = progress["states"][env_id]
     events = progress["events"][env_id]
     recorded = {
-        "progress": {
-            "overall_score": state.overall_score,
-            "all_complete": state.all_complete,
-            "criteria_by_name": {
-                name: {
-                    "score": criteria_state.score,
-                    "is_complete": criteria_state.is_complete,
-                    "completed_sequences": criteria_state.completed_sequences,
-                    "total_sequences": criteria_state.total_sequences,
-                    "active_predicates": criteria_state.active_predicates,
-                }
-                for name, criteria_state in state.criteria_by_name.items()
-            },
-            # Per-episode predicate transitions, in the order they fired (step = episode-local step).
-            "events": [
-                {
-                    "step": event.step,
-                    "criteria_name": event.criteria_name,
-                    "sequence_name": event.sequence_name,
-                    "predicate_index": event.predicate_index,
-                    "predicate_name": event.predicate_name,
-                    "score_delta": event.score_delta,
-                }
-                for event in events
-            ],
-        }
+        "overall_score": state.overall_score,
+        "all_complete": state.all_complete,
+        "criteria_by_name": {
+            name: {
+                "score": criteria_state.score,
+                "is_complete": criteria_state.is_complete,
+                "completed_sequences": criteria_state.completed_sequences,
+                "total_sequences": criteria_state.total_sequences,
+                "active_predicates": criteria_state.active_predicates,
+            }
+            for name, criteria_state in state.criteria_by_name.items()
+        },
+        # Per-episode predicate transitions, in the order they fired (step = episode-local step).
+        "events": [
+            {
+                "step": event.step,
+                "criteria_name": event.criteria_name,
+                "sequence_name": event.sequence_name,
+                "predicate_index": event.predicate_index,
+                "predicate_name": event.predicate_name,
+                "score_delta": event.score_delta,
+            }
+            for event in events
+        ],
     }
 
     # EpisodeRecorderManager invokes this before resetting the tracker's live counters.
@@ -57,7 +55,7 @@ def record_progress_results(env, env_id: int) -> dict[str, Any]:
     if tracker is not None:
         summary = tracker.get_consecutive_step_summary(env_id)
         if summary:
-            recorded["progress"]["consecutive_step_summary"] = summary
+            recorded["consecutive_step_summary"] = summary
     return recorded
 
 
@@ -65,4 +63,4 @@ def record_progress_results(env, env_id: int) -> dict[str, Any]:
 class ProgressEpisodeRecorderTermCfg(EpisodeRecorderTermCfg):
     """Term recording each episode's final progress-tracking state and predicate events."""
 
-    func: Callable[..., dict[str, Any]] = record_progress_results
+    func: Callable[..., dict[str, Any] | None] = record_progress_results
