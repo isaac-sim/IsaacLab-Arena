@@ -244,6 +244,32 @@ def _test_asset_selection_rejects_invalid_configuration(simulation_app, case_id)
     return True
 
 
+def _test_placement_replay_needs_recorded_asset_selection(simulation_app, tmp_path):
+    from isaaclab_arena.assets.object import Object
+    from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
+    from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
+    from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
+    from isaaclab_arena.scene.scene import Scene
+    from isaaclab_arena.variations.asset_selection_variation import AssetSelectionVariation, AssetSelectionVariationCfg
+
+    pickup = Object(name="pickup")
+    pickup.add_variation(
+        AssetSelectionVariation([make_cuboid_candidate("cube", 0.1)], cfg=AssetSelectionVariationCfg(enabled=True))
+    )
+    # One layout row as write_placement_samples writes it: a pose for pickup and no variation values.
+    pickup_pose = {"position_xyz": [0.0, 0.0, 0.05], "rotation_xyzw": [0.0, 0.0, 0.0, 1.0]}
+    layout_row = {"placement": {"layout_id": "layout_000000", "poses": {"pickup": pickup_pose}}}
+    layouts_path = tmp_path / "layouts.jsonl"
+    layouts_path.write_text(json.dumps(layout_row) + "\n")
+    arena_env = IsaacLabArenaEnvironment(name="placement_replay_without_selection", scene=Scene(assets=[pickup]))
+    builder_cfg = ArenaEnvBuilderCfg(num_envs=1, recorded_variation_samples_path=str(layouts_path))
+
+    with pytest.raises(AssertionError, match=r"no 'pickup\.asset_selection' value"):
+        ArenaEnvBuilder(arena_env, builder_cfg).compose_manager_cfg()
+    assert pickup.object_cfg.spawn is None, "The selection drew a candidate before the replay check."
+    return True
+
+
 def test_selected_asset_is_spawned_placed_and_recorded():
     assert run_function_with_persistent_simulation_app(
         _test_selected_asset_is_spawned_placed_and_recorded, headless=HEADLESS
@@ -283,4 +309,10 @@ def test_recorded_asset_name_is_replayed(tmp_path):
 def test_asset_selection_rejects_invalid_configuration(case_id):
     assert run_function_with_persistent_simulation_app(
         _test_asset_selection_rejects_invalid_configuration, headless=HEADLESS, case_id=case_id
+    )
+
+
+def test_placement_replay_needs_recorded_asset_selection(tmp_path):
+    assert run_function_with_persistent_simulation_app(
+        _test_placement_replay_needs_recorded_asset_selection, headless=HEADLESS, tmp_path=tmp_path
     )

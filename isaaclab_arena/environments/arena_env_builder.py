@@ -68,6 +68,7 @@ from isaaclab_arena.utils.isaaclab_utils.warp_patch import install_empty_cpu_war
 from isaaclab_arena.utils.multiprocess import get_local_rank
 from isaaclab_arena.utils.physics_backend import PhysicsBackend
 from isaaclab_arena.variations import variations_hydra, variations_printing
+from isaaclab_arena.variations.asset_selection_variation import assert_selected_assets_replayed_with_placement
 from isaaclab_arena.variations.recorded_variation_replay import configure_recorded_variation_replay
 from isaaclab_arena.variations.variation_base import RunTimeVariationBase, VariationBase, get_enabled_variations_by_key
 from isaaclab_arena.variations.variation_recorder import VariationRecorder
@@ -308,6 +309,7 @@ class ArenaEnvBuilder:
                 self.cfg.recorded_variation_samples_path,
                 variations,
             )
+            assert_selected_assets_replayed_with_placement(variations, variation_replay_scheduler.variation_record)
 
         # Attach the variation recorder before any sampling, so it observes both build-time samples
         # (drawn just below) and run-time samples (drawn during simulation).

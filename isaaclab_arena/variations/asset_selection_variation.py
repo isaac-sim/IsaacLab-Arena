@@ -16,13 +16,19 @@ from isaaclab.sim.spawners.spawner_cfg import SpawnerCfg
 from isaaclab.utils.configclass import configclass
 
 from isaaclab_arena.variations.choice_sampler import ChoiceSamplerCfg
-from isaaclab_arena.variations.variation_base import BuildTimeVariationBase, VariationBaseCfg
+from isaaclab_arena.variations.variation_base import (
+    BuildTimeVariationBase,
+    VariationBaseCfg,
+    get_enabled_variations_by_key,
+)
 
 if TYPE_CHECKING:
     import torch
 
     from isaaclab_arena.assets.asset import Asset
     from isaaclab_arena.assets.object import Object
+    from isaaclab_arena.variations.recorded_variation_samples import RebuildVariationRecord
+    from isaaclab_arena.variations.variation_base import VariationBase
 
 
 @configclass
@@ -139,3 +145,26 @@ class AssetSelectionVariation(BuildTimeVariationBase):
             start_index = self._build_seed % len(asset_names)
             selected_name = self.sampler.sample(1, asset_names, start_index=start_index)[0]
         self._object.object_cfg.spawn = deepcopy(self._spawn_cfgs_by_name[selected_name])
+
+
+def assert_selected_assets_replayed_with_placement(
+    variations: dict[str, list[VariationBase]], variation_record: RebuildVariationRecord
+) -> None:
+    """Assert that a record with placement samples also holds a value for every enabled asset selection.
+
+    Recorded poses were solved for the assets of the recording build, so a selection drawn live could
+    put another asset at those poses.
+
+    Args:
+        variations: Variations of the environment, keyed by asset name.
+        variation_record: Record loaded for recorded variation replay.
+    """
+    if not variation_record.has_placement_samples:
+        return
+    for variation_key, variation in get_enabled_variations_by_key(variations).items():
+        if not isinstance(variation, AssetSelectionVariation):
+            continue
+        assert variation_key in variation_record.build_time_samples, (
+            f"The replayed record has placement samples but no '{variation_key}' value. Replay a record"
+            f" that holds both, or, for an object declared with asset=, disable '{variation_key}'."
+        )
