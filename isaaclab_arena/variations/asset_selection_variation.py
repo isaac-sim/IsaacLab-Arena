@@ -46,6 +46,27 @@ class AssetSelectionVariationCfg(VariationBaseCfg):
     """Sampler that draws the candidate name."""
 
 
+def assert_asset_definition(asset_definition: tuple[str, SpawnerCfg], owner: str) -> None:
+    """Assert that ``asset_definition`` is a (name, spawn configuration) pair with one spawn configuration.
+
+    Args:
+        asset_definition: Pair to check, such as AssetRegistry.get_asset_definition() returns.
+        owner: What received the pair, for example ``"Object 'pickup' asset="``. Starts each assert message.
+    """
+    assert isinstance(asset_definition, tuple) and len(asset_definition) == 2, (
+        f"{owner}: pass a (name, spawn configuration) pair with one spawn configuration, such as"
+        " AssetRegistry.get_asset_definition() returns."
+    )
+    asset_name, spawn_cfg = asset_definition
+    assert (
+        isinstance(asset_name, str) and asset_name
+    ), f"{owner}: the asset name is {asset_name!r}; pass a non-empty string."
+    assert isinstance(spawn_cfg, SpawnerCfg) and not isinstance(spawn_cfg, (MultiAssetSpawnerCfg, MultiUsdFileCfg)), (
+        f"{owner}: '{asset_name}' is a {type(spawn_cfg).__name__}; pass one spawn configuration, not a"
+        " MultiAssetSpawnerCfg or MultiUsdFileCfg."
+    )
+
+
 class AssetSelectionVariation(BuildTimeVariationBase):
     """Give a rigid Object one of several candidate assets, the same in every environment of a build.
 
@@ -72,20 +93,9 @@ class AssetSelectionVariation(BuildTimeVariationBase):
         # Filled before super().__init__(), whose apply_cfg call checks asset_names against these names.
         self._spawn_cfgs_by_name: dict[str, SpawnerCfg] = {}
         for candidate_index, candidate in enumerate(asset_candidates):
-            assert (
-                isinstance(candidate, tuple) and len(candidate) == 2
-            ), f"Candidate {candidate_index} is not a (name, spawn_cfg) tuple."
+            assert_asset_definition(candidate, owner=f"AssetSelectionVariation '{name}' candidate {candidate_index}")
             candidate_name, spawn_cfg = candidate
-            assert (
-                isinstance(candidate_name, str) and candidate_name
-            ), f"Candidate {candidate_index} has name {candidate_name!r}; names must be non-empty strings."
             assert candidate_name not in self._spawn_cfgs_by_name, f"Duplicate candidate name '{candidate_name}'."
-            assert isinstance(spawn_cfg, SpawnerCfg) and not isinstance(
-                spawn_cfg, (MultiAssetSpawnerCfg, MultiUsdFileCfg)
-            ), (
-                f"Candidate '{candidate_name}' is a {type(spawn_cfg).__name__}; pass one spawn configuration per"
-                " candidate, not a MultiAssetSpawnerCfg or MultiUsdFileCfg."
-            )
             self._spawn_cfgs_by_name[candidate_name] = deepcopy(spawn_cfg)
         super().__init__(cfg=cfg if cfg is not None else AssetSelectionVariationCfg(), name=name)
         self._object: Object | None = None

@@ -116,25 +116,15 @@ class AssetRegistry(Registry):
             ``object_cfg.spawn``. Initial pose, relations, variations and methods of the library class are
             not included.
         """
-        from isaaclab.sim import MultiAssetSpawnerCfg, MultiUsdFileCfg
-
         from isaaclab_arena.assets.object import Object
-        from isaaclab_arena.assets.object_set import RigidObjectSet
         from isaaclab_arena.assets.object_type import ObjectType
 
         asset = self.get_asset_by_name(name)(**kwargs)
-        assert isinstance(asset, Object) and not isinstance(
-            asset, RigidObjectSet
+        assert isinstance(
+            asset, Object
         ), f"Asset '{name}' is a {type(asset).__name__}; get_asset_definition needs a rigid Object."
         assert asset.object_type == ObjectType.RIGID, f"Asset '{name}' is {asset.object_type}, not rigid."
-        assert (
-            asset.bounding_box is None
-        ), f"Asset '{name}' sets a bounding_box override, which its spawn configuration does not carry."
-        spawn_cfg = asset.object_cfg.spawn
-        assert not isinstance(
-            spawn_cfg, (MultiAssetSpawnerCfg, MultiUsdFileCfg)
-        ), f"Asset '{name}' spawns several assets; get_asset_definition needs one spawn configuration."
-        return name, deepcopy(spawn_cfg)
+        return name, deepcopy(asset.object_cfg.spawn)
 
     def get_assets_by_tag(self, tag: str) -> list[type["Asset"]]:
         """Gets a list of assets by tag.

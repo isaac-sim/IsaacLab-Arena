@@ -10,7 +10,6 @@ from typing import Any
 
 from isaaclab.assets import ArticulationCfg, AssetBaseCfg, RigidObjectCfg
 from isaaclab.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
-from isaaclab.sim import MultiAssetSpawnerCfg, MultiUsdFileCfg
 from isaaclab.sim.spawners.from_files.from_files_cfg import UsdFileCfg
 from isaaclab.sim.spawners.spawner_cfg import SpawnerCfg
 
@@ -24,6 +23,7 @@ from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.usd.helpers import has_light, open_stage
 from isaaclab_arena.utils.usd.rigid_bodies import read_asset_rigid_body_paths
+from isaaclab_arena.variations.asset_selection_variation import assert_asset_definition
 
 
 class Object(RootedObjectBase):
@@ -66,17 +66,7 @@ class Object(RootedObjectBase):
             ), f"Object '{name}': set scale and spawn_cfg_addon in the asset's spawn configuration, not on the Object."
             object_type = ObjectType.RIGID
             if asset is not None:
-                assert (
-                    isinstance(asset, tuple)
-                    and len(asset) == 2
-                    and isinstance(asset[0], str)
-                    and asset[0]
-                    and isinstance(asset[1], SpawnerCfg)
-                    and not isinstance(asset[1], (MultiAssetSpawnerCfg, MultiUsdFileCfg))
-                ), (
-                    f"Object '{name}': asset= takes a (name, spawn configuration) pair with one spawn configuration,"
-                    " such as AssetRegistry.get_asset_definition() returns."
-                )
+                assert_asset_definition(asset, owner=f"Object '{name}' asset=")
                 spawner_cfg = deepcopy(asset[1])
         if spawner_cfg is not None:
             assert object_type is not None, "object_type must be provided if spawner_cfg is provided"

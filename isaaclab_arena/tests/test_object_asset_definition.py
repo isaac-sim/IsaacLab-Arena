@@ -96,7 +96,7 @@ def _test_object_rejects_asset_with_other_spawn_inputs(simulation_app, case_id: 
         ),
         "asset_with_multi_asset_spawner": (
             {"asset": ("several", multi_asset_spawn_cfg)},
-            "Object 'pickup': asset= takes a (name, spawn configuration) pair with one spawn configuration",
+            "Object 'pickup' asset=: 'several' is a MultiAssetSpawnerCfg; pass one spawn configuration",
         ),
         "no_asset_articulation_type": (
             {"object_type": ObjectType.ARTICULATION},
