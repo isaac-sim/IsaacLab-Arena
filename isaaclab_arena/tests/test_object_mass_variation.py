@@ -8,7 +8,7 @@ import torch
 import pytest
 
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
-from isaaclab_arena.variations.object_mass_variation import ObjectMassVariationCfg
+from isaaclab_arena.variations.object_mass_variation import ObjectMassVariation, ObjectMassVariationCfg
 from isaaclab_arena.variations.uniform_sampler import UniformSamplerCfg
 
 HEADLESS = True
@@ -372,4 +372,30 @@ def test_object_mass_sample_below_floor_fails():
     assert run_function_with_persistent_simulation_app(
         _test_object_mass_sample_below_floor_fails,
         headless=HEADLESS,
+    )
+
+
+def draw_masses_for_two_resets(use_global_random_state_between_draws: bool) -> list[torch.Tensor]:
+    """Seed a mass variation as a build with seed 7 does, then draw masses for eight envs twice.
+
+    Args:
+        use_global_random_state_between_draws: Whether to draw from torch's global random state between the two
+            draws, as a policy or another event term can between resets.
+
+    Returns:
+        The two draws.
+    """
+    variation = ObjectMassVariation(asset_name=TEST_ASSET_NAME)
+    variation.configure_at_build_time(seed=7, variation_key=f"{TEST_ASSET_NAME}.{variation.name}")
+    masses = [variation.sampler.sample(num_samples=8)]
+    if use_global_random_state_between_draws:
+        torch.rand(8)
+    masses.append(variation.sampler.sample(num_samples=8))
+    return masses
+
+
+def test_object_mass_draws_repeat_for_same_seed_and_ignore_global_random_state():
+    torch.testing.assert_close(
+        draw_masses_for_two_resets(use_global_random_state_between_draws=False),
+        draw_masses_for_two_resets(use_global_random_state_between_draws=True),
     )

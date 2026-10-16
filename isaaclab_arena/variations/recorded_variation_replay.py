@@ -15,7 +15,11 @@ from isaaclab_arena.variations.recorded_variation_samples import (
     load_rebuild_variation_record,
     validate_recorded_variation_sample_keys,
 )
-from isaaclab_arena.variations.variation_base import BuildTimeVariationBase, RunTimeVariationBase
+from isaaclab_arena.variations.variation_base import (
+    BuildTimeVariationBase,
+    RunTimeVariationBase,
+    get_enabled_variations_by_key,
+)
 from isaaclab_arena.variations.variation_replay_scheduler import VariationReplayScheduler
 
 if TYPE_CHECKING:
@@ -37,7 +41,7 @@ def configure_recorded_variation_replay(
     Returns:
         Scheduler configured to assign and replay the loaded sample records.
     """
-    enabled = _enabled_variations_by_key(variations)
+    enabled = get_enabled_variations_by_key(variations)
     variation_record = load_rebuild_variation_record(
         source,
         build_time_variation_keys={
@@ -113,17 +117,3 @@ def _bind_variation_replay_samplers(
             return scheduler.runtime_sample_for(variation_key, env_ids.tolist())
 
         variation.set_replay_sampler(runtime_replay_sampler)
-
-
-def _enabled_variations_by_key(
-    variations: dict[str, list[VariationBase]],
-) -> dict[str, VariationBase]:
-    enabled: dict[str, VariationBase] = {}
-    for asset_name, asset_variations in variations.items():
-        for variation in asset_variations:
-            if not variation.enabled:
-                continue
-            key = f"{asset_name}.{variation.name}"
-            assert key not in enabled, f"Duplicate enabled variation record key: {key!r}"
-            enabled[key] = variation
-    return enabled

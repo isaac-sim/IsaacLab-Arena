@@ -69,7 +69,7 @@ from isaaclab_arena.utils.multiprocess import get_local_rank
 from isaaclab_arena.utils.physics_backend import PhysicsBackend
 from isaaclab_arena.variations import variations_hydra, variations_printing
 from isaaclab_arena.variations.recorded_variation_replay import configure_recorded_variation_replay
-from isaaclab_arena.variations.variation_base import RunTimeVariationBase, VariationBase
+from isaaclab_arena.variations.variation_base import RunTimeVariationBase, VariationBase, get_enabled_variations_by_key
 from isaaclab_arena.variations.variation_recorder import VariationRecorder
 from isaaclab_arena.variations.variation_replay_scheduler import VariationReplayScheduler
 
@@ -223,12 +223,10 @@ class ArenaEnvBuilder:
 
         These mutate asset configs in place (e.g. a dome light's spawner
         texture), so this must run before ``scene_cfg`` is materialised.
+        Each variation draws from a generator seeded by ``cfg.seed`` and its key "<asset_name>.<variation_name>".
         """
-        for asset_variations in self.get_all_variations().values():
-            for variation in asset_variations:
-                if not variation.enabled:
-                    continue
-                variation.configure_at_build_time()
+        for variation_key, variation in get_enabled_variations_by_key(self.get_all_variations()).items():
+            variation.configure_at_build_time(seed=self.cfg.seed, variation_key=variation_key)
 
     def _modify_recorder_cfg_dataset_filename(self, recorder_cfg: RecorderManagerBaseCfg) -> RecorderManagerBaseCfg:
         """Modify the recorder dataset filename to include the timestamp and rank."""

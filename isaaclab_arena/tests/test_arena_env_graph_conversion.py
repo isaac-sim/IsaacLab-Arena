@@ -233,7 +233,7 @@ def _test_direction_variation_lights_injected_directional_light(simulation_app):
 
     direction_variation = directional_light.get_variation("direction")
     direction_variation.enable()
-    direction_variation.configure_at_build_time()
+    direction_variation.configure_at_build_time(seed=0, variation_key=f"{directional_light.name}.direction")
 
     # Enabling the variation lights the sun and dims the dome so the sun's shadows are visible.
     assert directional_light.spawner_cfg.intensity == DirectionalLight.default_intensity

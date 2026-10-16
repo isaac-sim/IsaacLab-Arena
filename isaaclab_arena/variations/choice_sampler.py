@@ -47,7 +47,7 @@ class ChoiceSampler(SamplerBase, Generic[T]):
             assert all(value in choices for value in replay_samples), "Choice replay samples must belong to 'choices'."
             result = replay_samples
         else:
-            indices = torch.randint(low=0, high=len(choices), size=(num_samples,))
+            indices = torch.randint(low=0, high=len(choices), size=(num_samples,), generator=self._generator)
             result = [choices[int(index)] for index in indices]
         self._notify(result, env_ids)
         return result

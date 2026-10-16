@@ -16,7 +16,6 @@ from isaaclab_arena.variations.bernoulli_sampler import BernoulliSampler
 from isaaclab_arena.variations.choice_sampler import ChoiceSampler
 from isaaclab_arena.variations.recorded_variation_replay import (
     _bind_variation_replay_samplers,
-    _enabled_variations_by_key,
     _validate_variation_replay,
 )
 from isaaclab_arena.variations.recorded_variation_samples import (
@@ -26,7 +25,12 @@ from isaaclab_arena.variations.recorded_variation_samples import (
     validate_recorded_variation_sample_keys,
 )
 from isaaclab_arena.variations.uniform_sampler import UniformSamplerCfg
-from isaaclab_arena.variations.variation_base import BuildTimeVariationBase, RunTimeVariationBase, VariationBaseCfg
+from isaaclab_arena.variations.variation_base import (
+    BuildTimeVariationBase,
+    RunTimeVariationBase,
+    VariationBaseCfg,
+    get_enabled_variations_by_key,
+)
 from isaaclab_arena.variations.variation_replay_scheduler import VariationReplayScheduler
 
 
@@ -263,7 +267,7 @@ def test_variation_replay_replays_present_variation_and_samples_absent_live() ->
     scheduler.assign_new_episodes([0, 1])
 
     _bind_variation_replay_samplers(
-        _enabled_variations_by_key({"asset": [replayed, live]}),
+        get_enabled_variations_by_key({"asset": [replayed, live]}),
         variation_record,
         scheduler,
     )
@@ -290,7 +294,7 @@ def test_variation_replay_rejects_mixed_runtime_presence() -> None:
 
     with pytest.raises(AssertionError, match="present in every source record or none"):
         _validate_variation_replay(
-            _enabled_variations_by_key({"asset": [variation]}),
+            get_enabled_variations_by_key({"asset": [variation]}),
             variation_record,
         )
 
@@ -313,7 +317,7 @@ def test_variation_replay_rejects_wrong_variation_lifecycle(recorded_at_runtime:
 
     with pytest.raises(AssertionError, match="cannot appear"):
         _validate_variation_replay(
-            _enabled_variations_by_key({"asset": [variation]}),
+            get_enabled_variations_by_key({"asset": [variation]}),
             variation_record,
         )
 

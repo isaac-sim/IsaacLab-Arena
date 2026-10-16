@@ -11,6 +11,8 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
+from isaaclab_arena.variations.variation_base import get_enabled_variations_by_key
+
 if TYPE_CHECKING:
     from isaaclab_arena.variations.sampler_base import SamplerBase
     from isaaclab_arena.variations.variation_base import VariationBase, VariationBaseCfg
@@ -114,20 +116,16 @@ class VariationRecorder:
 
     def attach(self, variations: dict[str, list[VariationBase]]) -> None:
         """Attach every enabled variation in ``variations`` under "{asset_name}.{variation_name}"."""
-        for asset_name, asset_variations in variations.items():
-            for variation in asset_variations:
-                if not variation.enabled:
-                    continue
-                variation_key = f"{asset_name}.{variation.name}"
-                assert (
-                    variation_key not in self.records
-                ), f"VariationRecorder: asset_name '{variation_key}' is already attached."
+        for variation_key, variation in get_enabled_variations_by_key(variations).items():
+            assert (
+                variation_key not in self.records
+            ), f"VariationRecorder: asset_name '{variation_key}' is already attached."
 
-                # Create a record for the variation
-                record = VariationRecord(name=variation_key, cfg=variation.cfg)
-                self.records[variation_key] = record
+            # Create a record for the variation
+            record = VariationRecord(name=variation_key, cfg=variation.cfg)
+            self.records[variation_key] = record
 
-                variation.add_sample_listener(self._make_listener(record))
+            variation.add_sample_listener(self._make_listener(record))
 
     def attach_placement_sampler(
         self,

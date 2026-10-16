@@ -33,8 +33,10 @@ an environment resets during policy rollouts. Arena calls these *build-time* and
      - Camera extrinsics, camera intrinsics
 
 This distinction matters when planning an evaluation. To collect several values of a
-build-time variation, the environment must be rebuilt several times. A run-time variation can
-produce a new value on each reset without rebuilding the scene.
+build-time variation, the environment must be rebuilt with different seeds; the Experiment
+Runner gives each rebuild its own seed. A run-time variation can produce a new value on each
+reset without rebuilding the scene. Both kinds draw their values from the variation's own
+generator, seeded from ``--seed`` (see :doc:`../environment/env_builder`).
 
 .. _discovering-available-variations:
 

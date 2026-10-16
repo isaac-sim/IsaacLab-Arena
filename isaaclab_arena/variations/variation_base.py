@@ -18,18 +18,17 @@ variations subclass one of two flavors:
 
 from __future__ import annotations
 
+import hashlib
+import torch
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from dataclasses import field
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from isaaclab.managers import EventTermCfg
 from isaaclab.utils.configclass import configclass
 
 from isaaclab_arena.variations.sampler_base import SamplerBase, SamplerBaseCfg
-
-if TYPE_CHECKING:
-    import torch
 
 
 @configclass
@@ -62,6 +61,7 @@ class VariationBase(ABC):
         self._sampler: SamplerBase
         self._sample_listeners: list[Callable[[Any, Any], None]] = []
         self._replay_sampler: Callable[[int, torch.Tensor | None], list[Any] | None] | None = None
+        self._generator: torch.Generator | None = None
         self.apply_cfg(cfg)
 
     @property
@@ -112,17 +112,31 @@ class VariationBase(ABC):
         A build-time variation realises its whole effect here; a run-time variation leaves it a no-op.
         """
 
-    def configure_at_build_time(self) -> None:
-        """Run this variation's build-time preparation and realization, once per env build."""
+    def configure_at_build_time(self, seed: int, variation_key: str) -> None:
+        """Seed this variation's sampler, then run its build-time preparation and realization for one env build.
+
+        The sampler draws from a new generator seeded from ``seed`` and ``variation_key``, at build time and on every
+        reset after it, so the same seed gives the same sequence of values, whatever other variations draw.
+
+        Args:
+            seed: Seed of the build, ArenaEnvBuilderCfg.seed.
+            variation_key: Key of this variation in the build, "<asset_name>.<variation_name>".
+        """
+        # One seed per variation from the build seed and the variation key. Torch generator seeds are 64-bit, so keep
+        # the first 8 bytes of the digest.
+        digest = hashlib.sha256(f"{seed}:{variation_key}".encode()).digest()
+        variation_seed = int.from_bytes(digest[:8], "big")
+        self._generator = torch.Generator(device="cpu").manual_seed(variation_seed)
+        self._sampler.set_generator(self._generator)
         self._prepare_at_build_time()
         self._realize_at_build_time()
 
     def apply_cfg(self, cfg: VariationBaseCfg) -> None:
         """Apply new ``cfg``.
 
-        Replaces ``cfg`` and rebuilds ``sampler`` from ``cfg.sampler_cfg``, re-binding any
-        variation-owned sample listeners onto the new sampler. Subclasses with extra derived
-        state should override and call ``super().apply_cfg(cfg)`` first.
+        Replaces ``cfg`` and rebuilds ``sampler`` from ``cfg.sampler_cfg``, re-binding the
+        variation's generator, replay sampler and sample listeners onto the new sampler. Subclasses
+        with extra derived state should override and call ``super().apply_cfg(cfg)`` first.
 
         Args:
             cfg: A cfg of the ``VariationBaseCfg`` subclass this variation accepts.
@@ -133,9 +147,23 @@ class VariationBase(ABC):
         ), f"cfg.sampler_cfg must be a SamplerBaseCfg; got {type(cfg.sampler_cfg).__name__}."
         self._sampler = cfg.sampler_cfg.build()
         self._sampler.set_replay_sampler(self._replay_sampler)
+        self._sampler.set_generator(self._generator)
         # Re-bind variation-owned listeners so a cfg/sampler swap doesn't drop subscriptions.
         for listener in self._sample_listeners:
             self._sampler.add_listener(listener)
+
+
+def get_enabled_variations_by_key(variations: dict[str, list[VariationBase]]) -> dict[str, VariationBase]:
+    """Return the enabled variations in ``variations`` keyed by "<asset_name>.<variation_name>"."""
+    enabled_variations_by_key: dict[str, VariationBase] = {}
+    for asset_name, asset_variations in variations.items():
+        for variation in asset_variations:
+            if not variation.enabled:
+                continue
+            variation_key = f"{asset_name}.{variation.name}"
+            assert variation_key not in enabled_variations_by_key, f"Duplicate enabled variation key: {variation_key!r}"
+            enabled_variations_by_key[variation_key] = variation
+    return enabled_variations_by_key
 
 
 class RunTimeVariationBase(VariationBase):

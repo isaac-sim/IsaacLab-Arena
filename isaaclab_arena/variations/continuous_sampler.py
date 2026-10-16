@@ -55,7 +55,7 @@ class ContinuousSampler(SamplerBase):
 
     @abstractmethod
     def _sample(self, num_samples: int) -> torch.Tensor:
-        """Draw ``num_samples`` values as a tensor of shape ``(num_samples, *shape_per_sample)``."""
+        """Draw ``num_samples`` values from ``self._generator`` as a ``(num_samples, *shape_per_sample)`` tensor."""
         ...
 
     @property
