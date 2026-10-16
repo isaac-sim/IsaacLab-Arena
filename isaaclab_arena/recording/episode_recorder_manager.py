@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import datetime
 import json
 import torch
 from collections.abc import Callable, Sequence
@@ -16,17 +17,30 @@ from typing import Any
 from isaaclab.managers import ManagerBase, ManagerTermBaseCfg
 from isaaclab.utils.configclass import configclass
 
+CORE_FIELD_NAMES = frozenset({
+    "job_name",
+    "env_id",
+    "episode_in_env",
+    "seed",
+    "success",
+    "episode_length",
+    "language_instruction",
+    "timestamp",
+    "replay_source_record_index",
+})
+"""Top-level record fields written by the manager. Term names must not use them."""
+
 
 @configclass
 class EpisodeRecorderTermCfg(ManagerTermBaseCfg):
     """Configuration for an episode recorder term."""
 
-    func: Callable[..., dict[str, Any]] = MISSING
-    """The callable that records this term's fields for one finishing episode.
+    func: Callable[..., dict[str, Any] | None] = MISSING
+    """The callable that records this term's output for one finishing episode.
 
-    Invoked as ``func(env, env_id, **params)`` for the env whose episode just finished, and must
-    return a flat, JSON-serializable dict that is merged into the episode's record. It may be a plain
-    function or a callable class inheriting from ManagerTermBase (built once by the manager).
+    Invoked as ``func(env, env_id, **params)`` for the env whose episode just finished. It returns a
+    JSON object, which the manager stores in the episode's record under the term's name, or ``None``
+    to leave the term out of that record.
     """
 
 
@@ -78,36 +92,47 @@ class EpisodeRecorderManager(ManagerBase):
         self._output_path = path
 
     def record_pre_reset(self, env_ids: Sequence[int] | torch.Tensor | None) -> None:
-        """Record one record per finished episode.
-
-        This function fires each recording terms' function and merges the results into a single record.
+        """Write one record for each finished episode in env_ids.
 
         Args:
             env_ids: The env ids being reset (tensor, sequence, or ``None`` for all envs).
         """
         for env_id in self._env_ids_to_list(env_ids):
-            # The manager stamps the job name; terms add the per-episode fields.
-            record: dict[str, Any] = {
-                "job_name": self._job_name,
-            }
-            # Fire each recording term's function.
+            record: dict[str, Any] = {"job_name": self._job_name, **self._core_fields(env_id)}
             for term_name, term_cfg in zip(self._term_names, self._term_cfgs):
-                fields = term_cfg.func(self._env, env_id, **term_cfg.params)
-                collisions = record.keys() & fields.keys()
-                assert not collisions, (
-                    f"Episode recorder term '{term_name}' redefines fields {collisions} already set"
-                    " by the manager or an earlier term."
-                )
-                self._assert_json_serializable(term_name, fields)
-                record.update(fields)
+                output = term_cfg.func(self._env, env_id, **term_cfg.params)
+                if output is None:
+                    continue
+                self._assert_json_object(term_name, output)
+                record[term_name] = output
             self._append_record(record)
+
+    def _core_fields(self, env_id: int) -> dict[str, Any]:
+        """Return the core fields of env_id's finished episode."""
+        env = self._env
+        success = None
+        if "success" in env.termination_manager.active_terms:
+            success = bool(env.termination_manager.get_term("success")[env_id].item())
+        fields = {
+            "env_id": env_id,
+            "episode_in_env": env.get_episode_index(env_id),
+            "seed": env.cfg.seed,
+            "success": success,
+            "episode_length": int(env.episode_length_buf[env_id].item()),
+            "language_instruction": env.get_language_instruction(),
+            "timestamp": datetime.datetime.now().isoformat(),
+        }
+        scheduler = env.variation_replay_scheduler
+        if scheduler is not None:
+            fields["replay_source_record_index"] = scheduler.source_record_index_for_env(env_id)
+        return fields
 
     def _append_record(self, record: dict[str, Any]) -> None:
         """Append one record to the output JSONL (one object per line); no-op if no path was set."""
         if self._output_path is None:
             return
         with open(self._output_path, "a", encoding="utf-8") as f:
-            f.write(json.dumps(record) + "\n")
+            f.write(json.dumps(record, allow_nan=False) + "\n")
 
     def _env_ids_to_list(self, env_ids: Sequence[int] | torch.Tensor | None) -> list[int]:
         """Return environment IDs as a list of ints; ``None`` selects all environments."""
@@ -122,21 +147,29 @@ class EpisodeRecorderManager(ManagerBase):
         for term_name, term_cfg in self.cfg.__dict__.items():
             if term_cfg is None:
                 continue
+            assert (
+                term_name not in CORE_FIELD_NAMES
+            ), f"Episode recorder term name '{term_name}' is a core record field; choose another name."
             # Validate the term's func/params.
             self._resolve_common_term_cfg(term_name, term_cfg, min_argc=2)
             self._term_names.append(term_name)
             self._term_cfgs.append(term_cfg)
 
     @staticmethod
-    def _assert_json_serializable(term_name: str, fields: dict[str, Any]) -> None:
-        """Check ``term_name``'s recorded ``fields`` are JSON-serializable, failing fast if not.
+    def _assert_json_object(term_name: str, output: Any) -> None:
+        """Check that ``term_name`` returned a JSON object without NaN or infinity, naming the term if not.
 
-        This points at the offending term rather than surfacing a cryptic error later at write() time when
-        the whole record is serialized.
+        This points at the offending term rather than surfacing a cryptic error later, when the record
+        or the experiment result is written.
         """
+        assert isinstance(
+            output, dict
+        ), f"Episode recorder term '{term_name}' must return a dict or None, got {type(output).__name__}."
         try:
-            json.dumps(fields)
+            json.dumps(output, allow_nan=False)
         except TypeError as e:
             raise TypeError(
-                f"Episode recorder term '{term_name}' returned non-JSON-serializable fields ({fields!r}): {e}"
+                f"Episode recorder term '{term_name}' returned non-JSON-serializable output ({output!r}): {e}"
             ) from e
+        except ValueError as e:
+            raise ValueError(f"Episode recorder term '{term_name}' returned NaN or infinity ({output!r}): {e}") from e
