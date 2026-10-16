@@ -13,6 +13,8 @@ from isaaclab.scene import InteractiveSceneCfg
 from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.assets.register import register_task
 from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
+from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTermCfg
+from isaaclab_arena.recording.motion_terms import ObjectPeakSpeed
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
 from isaaclab_arena.tasks.terminations import goal_pose_task_termination
@@ -76,6 +78,9 @@ class GoalPoseTask(TaskBase):
                 )
             ],
         )
+
+    def get_episode_recorder_terms(self) -> dict[str, EpisodeRecorderTermCfg]:
+        return {"object_motion": EpisodeRecorderTermCfg(func=ObjectPeakSpeed, params={"object_name": self.object.name})}
 
     def get_events_cfg(self):
         return self.events_cfg
