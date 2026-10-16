@@ -5,7 +5,7 @@ Once you are satisfied with the environment, you can use it to evaluate a policy
 The base container runs the environment as it was generated. The cuRobo-installed container additionally
 gates object placement on whether the robot can reach the target objects.
 
-For example, you can use the policy runner to evaluate a PI policy on the
+For example, you can use the Experiment Runner to evaluate a PI policy on the
 environment. For other policy types, see
 :doc:`Running a Real Policy <../../../quickstart/running_a_real_policy/index>`.
 
@@ -15,9 +15,17 @@ Open one terminal and run the following command outside the Arena docker contain
 
    ./isaaclab_arena_openpi/docker/run_openpi_server.sh
 
-In the other terminal, run the following command to launch the policy runner. The commands below use the
-ready-made spec that ships with Arena; to evaluate a spec you generated yourself, point
-``--env_spec`` at ``isaaclab_arena_environments/agent_generated/<env_name>.yaml``.
+The Experiment Runner reads the evaluation from an Experiment Definition. Arena includes one with a
+single Run for this environment. It uses the ready-made spec that ships with Arena, enables the
+cameras, runs one environment, and stops after three episodes:
+
+.. literalinclude:: ../../../../../isaaclab_arena_environments/experiment_configs/agentic_env_gen/tabletop_cans_into_basket_openpi_experiment.yaml
+   :language: yaml
+
+In the other terminal, run the following command to launch the Experiment Runner. To evaluate a spec you
+generated yourself, add ``shared.environment.type=isaaclab_arena_environments/agent_generated/<env_name>.yaml``
+at the end of the command. The spec path is declared under ``shared`` in the YAML, so you can change it on
+the command line.
 
 .. tab-set::
 
@@ -28,13 +36,9 @@ ready-made spec that ships with Arena; to evaluate a spec you generated yourself
 
       .. code-block:: bash
 
-         python isaaclab_arena/evaluation/policy_runner.py \
+         python isaaclab_arena/evaluation/experiment_runner.py \
             --viz kit \
-            --policy_type isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy \
-            --enable_cameras \
-            --num_envs 1 \
-            --num_episodes 3 \
-            --env_spec isaaclab_arena_environments/maple_table_top/simready_droid_pick_place_cans_hammer_maple_table.yaml
+            --experiment_config isaaclab_arena_environments/experiment_configs/agentic_env_gen/tabletop_cans_into_basket_openpi_experiment.yaml
 
 
    .. tab-item:: Policy evaluation (with cuRobo-based reachability validation)
@@ -57,13 +61,9 @@ ready-made spec that ships with Arena; to evaluate a spec you generated yourself
 
       .. code-block:: bash
 
-         python isaaclab_arena/evaluation/policy_runner.py \
+         python isaaclab_arena/evaluation/experiment_runner.py \
             --viz kit \
-            --policy_type isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy \
-            --enable_cameras \
-            --num_envs 1 \
-            --num_episodes 3 \
-            --env_spec isaaclab_arena_environments/maple_table_top/simready_droid_pick_place_cans_hammer_maple_table.yaml
+            --experiment_config isaaclab_arena_environments/experiment_configs/agentic_env_gen/tabletop_cans_into_basket_openpi_experiment.yaml
 
       While the environment builds, every batch of candidate layouts reports how many of them passed each
       check. ``ik_reachable`` is the cuRobo verdict, so its ratio is the rejection rate to watch:
