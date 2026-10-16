@@ -41,7 +41,7 @@ Dockerfile
 ----------
 
 Your base image must already have **Isaac Sim** and **Isaac Lab** installed (e.g.
-``nvcr.io/nvidia/isaac-sim:6.0.0``).
+``nvcr.io/nvidia/isaac-sim:6.1.0``).
 
 Copy the submodule into the image and install Arena
 before your own package run ``pip install -e``.
@@ -49,7 +49,7 @@ before your own package run ``pip install -e``.
 .. code-block:: dockerfile
 
    # Base image must have Isaac Sim
-   # e.g. FROM nvcr.io/nvidia/isaac-sim:6.0.0
+   # e.g. FROM nvcr.io/nvidia/isaac-sim:6.1.0
 
    # Image must have Isaac Lab installed
    # e.g. RUN /isaaclab/isaaclab.sh -i
