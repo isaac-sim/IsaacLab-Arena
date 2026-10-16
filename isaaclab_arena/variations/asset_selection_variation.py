@@ -127,7 +127,8 @@ class AssetSelectionVariation(BuildTimeVariationBase):
         assert (
             self._object is None
         ), f"AssetSelectionVariation '{self.name}' was already added to '{self._object.name}'; create one per Object."
-        # Isaac Lab's configclass validation has no cycle check: a validated config holding this Object would recurse.
+        # Kept strongly, like a light variation keeps its light. Isaac Lab's configclass validation has no cycle check,
+        # so no validated config may hold a selected Object; today only door tasks put an asset (their openable) in one.
         self._object = asset
 
     def configure_at_build_time(self, seed: int, variation_key: str) -> None:
