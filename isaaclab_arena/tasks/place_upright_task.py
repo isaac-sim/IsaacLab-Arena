@@ -15,6 +15,8 @@ from isaaclab_arena.affordances.placeable import Placeable
 from isaaclab_arena.assets.register import register_task
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
 from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
+from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTermCfg
+from isaaclab_arena.recording.motion_terms import ObjectPeakSpeed
 from isaaclab_arena.tasks.common.mimic_default_params import MIMIC_DATAGEN_CONFIG_DEFAULTS
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
@@ -59,6 +61,13 @@ class PlaceUprightTask(TaskBase):
                 )
             ],
         )
+
+    def get_episode_recorder_terms(self) -> dict[str, EpisodeRecorderTermCfg]:
+        return {
+            "object_motion": EpisodeRecorderTermCfg(
+                func=ObjectPeakSpeed, params={"object_name": self.placeable_object.name}
+            )
+        }
 
     def get_events_cfg(self):
         return self.events_cfg
