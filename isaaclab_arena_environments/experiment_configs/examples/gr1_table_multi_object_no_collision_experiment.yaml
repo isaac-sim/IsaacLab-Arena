@@ -7,7 +7,8 @@
 # The scene has no task, so the zero-action policy is enough to inspect the placement.
 # episode_length_s adds a time-out, so every environment resets after 4 simulated seconds.
 # Add runs.multi_object_table.environment.mode=heterogeneous on the command line
-# to spawn a different object set member in each environment.
+# to place robolab objects instead, including object sets from which each
+# environment draws a random member.
 runs:
   multi_object_table:
     environment:
