@@ -25,28 +25,28 @@ def _make_box_spawn_cfg(size: tuple[float, float, float]):
     )
 
 
-def _test_get_asset_definition_copies_a_registered_rigid_object(simulation_app) -> bool:
+def _test_get_named_spawn_cfg_copies_a_registered_rigid_object(simulation_app) -> bool:
     from isaaclab.sim import UsdFileCfg
 
     from isaaclab_arena.assets.registries import AssetRegistry
 
     asset_registry = AssetRegistry()
-    asset_name, cracker_box_spawn_cfg = asset_registry.get_asset_definition("cracker_box")
+    asset_name, cracker_box_spawn_cfg = asset_registry.get_named_spawn_cfg("cracker_box")
     assert asset_name == "cracker_box"
     assert isinstance(cracker_box_spawn_cfg, UsdFileCfg)
     assert cracker_box_spawn_cfg.activate_contact_sensors is True
 
-    _, sugar_box_spawn_cfg = asset_registry.get_asset_definition("sugar_box", scale=(1.5, 1.5, 1.5))
+    _, sugar_box_spawn_cfg = asset_registry.get_named_spawn_cfg("sugar_box", scale=(1.5, 1.5, 1.5))
     assert sugar_box_spawn_cfg.scale == (1.5, 1.5, 1.5)
 
     with pytest.raises(AssertionError, match=re.escape("Asset 'ground_plane' is ObjectType.BASE, not rigid.")):
-        asset_registry.get_asset_definition("ground_plane")
+        asset_registry.get_named_spawn_cfg("ground_plane")
     return True
 
 
-def test_get_asset_definition_copies_a_registered_rigid_object():
+def test_get_named_spawn_cfg_copies_a_registered_rigid_object():
     result = run_function_with_persistent_simulation_app(
-        _test_get_asset_definition_copies_a_registered_rigid_object, headless=HEADLESS
+        _test_get_named_spawn_cfg_copies_a_registered_rigid_object, headless=HEADLESS
     )
     assert result, "Test failed"
 

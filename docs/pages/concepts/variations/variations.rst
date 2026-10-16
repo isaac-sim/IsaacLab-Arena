@@ -208,7 +208,7 @@ choose another candidate. For different objects in the environments of one build
 :doc:`RigidObjectSet <../scene/concept_rigid_object_set>`.
 
 The environment's Python code declares the candidates as ``(name, spawn configuration)`` pairs.
-``AssetRegistry.get_asset_definition()`` returns the pair for a registered rigid object:
+``AssetRegistry.get_named_spawn_cfg()`` returns the pair for a registered rigid object:
 
 .. code-block:: python
 
@@ -220,9 +220,9 @@ The environment's Python code declares the candidates as ``(name, spawn configur
    )
 
    asset_registry = AssetRegistry()
-   cracker_box_asset = asset_registry.get_asset_definition("cracker_box")
-   sugar_box_asset = asset_registry.get_asset_definition("sugar_box")
-   mustard_bottle_asset = asset_registry.get_asset_definition("mustard_bottle")
+   cracker_box_asset = asset_registry.get_named_spawn_cfg("cracker_box")
+   sugar_box_asset = asset_registry.get_named_spawn_cfg("sugar_box")
+   mustard_bottle_asset = asset_registry.get_named_spawn_cfg("mustard_bottle")
 
    pick_up_object = Object(name="pickup")
    pick_up_object.add_variation(

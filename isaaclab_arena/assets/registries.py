@@ -104,17 +104,12 @@ class AssetRegistry(Registry):
         ensure_assets_registered()
         return self.get_component_by_name(name)
 
-    def get_asset_definition(self, name: str, **kwargs: Any) -> tuple[str, "SpawnerCfg"]:
-        """Return the registry name and a copy of the spawn configuration of a registered rigid object.
+    def get_named_spawn_cfg(self, name: str, **kwargs: Any) -> tuple[str, "SpawnerCfg"]:
+        """Return the name and a copy of the spawn configuration of a registered rigid object.
 
         Args:
             name: Registered name of a rigid Object.
-            **kwargs: Constructor arguments of the registered object, for example ``scale``.
-
-        Returns:
-            ``(name, spawn_cfg)``, where ``spawn_cfg`` is a deep copy of the constructed object's
-            ``object_cfg.spawn``. Initial pose, relations, variations and methods of the library class are
-            not included.
+            **kwargs: Constructor arguments for the registered object, for example ``scale``.
         """
         from isaaclab_arena.assets.object import Object
         from isaaclab_arena.assets.object_type import ObjectType
@@ -122,7 +117,7 @@ class AssetRegistry(Registry):
         asset = self.get_asset_by_name(name)(**kwargs)
         assert isinstance(
             asset, Object
-        ), f"Asset '{name}' is a {type(asset).__name__}; get_asset_definition needs a rigid Object."
+        ), f"Asset '{name}' is a {type(asset).__name__}; get_named_spawn_cfg needs a rigid Object."
         assert asset.object_type == ObjectType.RIGID, f"Asset '{name}' is {asset.object_type}, not rigid."
         return name, deepcopy(asset.object_cfg.spawn)
 

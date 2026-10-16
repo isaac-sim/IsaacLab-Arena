@@ -46,18 +46,18 @@ class AssetSelectionVariationCfg(VariationBaseCfg):
     """Sampler that draws the candidate name."""
 
 
-def assert_asset_definition(asset_definition: tuple[str, SpawnerCfg], owner: str) -> None:
-    """Assert that ``asset_definition`` is a (name, spawn configuration) pair with one spawn configuration.
+def assert_named_spawn_cfg(named_spawn_cfg: tuple[str, SpawnerCfg], owner: str) -> None:
+    """Assert that ``named_spawn_cfg`` is a (name, spawn configuration) pair with one spawn configuration.
 
     Args:
-        asset_definition: Pair to check, such as AssetRegistry.get_asset_definition() returns.
+        named_spawn_cfg: Pair to check, such as AssetRegistry.get_named_spawn_cfg() returns.
         owner: What received the pair, for example ``"Object 'pickup' asset="``. Starts each assert message.
     """
-    assert isinstance(asset_definition, tuple) and len(asset_definition) == 2, (
+    assert isinstance(named_spawn_cfg, tuple) and len(named_spawn_cfg) == 2, (
         f"{owner}: pass a (name, spawn configuration) pair with one spawn configuration, such as"
-        " AssetRegistry.get_asset_definition() returns."
+        " AssetRegistry.get_named_spawn_cfg() returns."
     )
-    asset_name, spawn_cfg = asset_definition
+    asset_name, spawn_cfg = named_spawn_cfg
     assert (
         isinstance(asset_name, str) and asset_name
     ), f"{owner}: the asset name is {asset_name!r}; pass a non-empty string."
@@ -75,7 +75,7 @@ class AssetSelectionVariation(BuildTimeVariationBase):
     so both fail for an Object declared without one.
 
     Args:
-        asset_candidates: ``(name, spawn_cfg)`` pairs, for example from AssetRegistry.get_asset_definition.
+        asset_candidates: ``(name, spawn_cfg)`` pairs, for example from AssetRegistry.get_named_spawn_cfg.
             The spawn configurations are copied.
         cfg: Selection settings. Defaults to a disabled selection over every candidate, in order.
         name: Name of the variation on its Object, the second part of its key ``<object>.<name>``.
@@ -93,7 +93,7 @@ class AssetSelectionVariation(BuildTimeVariationBase):
         # Filled before super().__init__(), whose apply_cfg call checks asset_names against these names.
         self._spawn_cfgs_by_name: dict[str, SpawnerCfg] = {}
         for candidate_index, candidate in enumerate(asset_candidates):
-            assert_asset_definition(candidate, owner=f"AssetSelectionVariation '{name}' candidate {candidate_index}")
+            assert_named_spawn_cfg(candidate, owner=f"AssetSelectionVariation '{name}' candidate {candidate_index}")
             candidate_name, spawn_cfg = candidate
             assert candidate_name not in self._spawn_cfgs_by_name, f"Duplicate candidate name '{candidate_name}'."
             self._spawn_cfgs_by_name[candidate_name] = deepcopy(spawn_cfg)
@@ -127,7 +127,7 @@ class AssetSelectionVariation(BuildTimeVariationBase):
         Args:
             asset: Object to add the selection to.
         """
-        # Imported here because object.py imports this module for assert_asset_definition, and the asset modules
+        # Imported here because object.py imports this module for assert_named_spawn_cfg, and the asset modules
         # load pxr.
         from isaaclab_arena.assets.object import Object
         from isaaclab_arena.assets.object_set import RigidObjectSet

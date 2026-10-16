@@ -23,14 +23,14 @@ from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.usd.helpers import has_light, open_stage
 from isaaclab_arena.utils.usd.rigid_bodies import read_asset_rigid_body_paths
-from isaaclab_arena.variations.asset_selection_variation import assert_asset_definition
+from isaaclab_arena.variations.asset_selection_variation import assert_named_spawn_cfg
 
 
 class Object(RootedObjectBase):
     """Scene object spawned from a USD file or a spawn configuration, as a rigid, articulated or static (``BASE``) asset.
 
     A rigid object can also be declared with ``asset``, a (name, spawn configuration) pair such as
-    AssetRegistry.get_asset_definition() returns, or without an asset, in which case object_cfg.spawn is None
+    AssetRegistry.get_named_spawn_cfg() returns, or without an asset, in which case object_cfg.spawn is None
     until a spawn configuration is set.
     """
 
@@ -67,7 +67,7 @@ class Object(RootedObjectBase):
             ), f"Object '{name}': set scale and spawn_cfg_addon in the asset's spawn configuration, not on the Object."
             object_type = ObjectType.RIGID
             if asset is not None:
-                assert_asset_definition(asset, owner=f"Object '{name}' asset=")
+                assert_named_spawn_cfg(asset, owner=f"Object '{name}' asset=")
                 _, default_spawn_cfg = asset
                 spawner_cfg = deepcopy(default_spawn_cfg)
         if spawner_cfg is not None:
