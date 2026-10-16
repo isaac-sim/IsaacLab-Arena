@@ -36,8 +36,8 @@ class AssetSelectionVariationCfg(VariationBaseCfg):
     """Configuration for AssetSelectionVariation."""
 
     random_choice: bool = False
-    """True draws the candidate at random from the build seed; False takes the candidates in order, one step per
-    build seed."""
+    """False takes name number ``seed % n`` of the ``n`` names in use, so consecutive build seeds take them in
+    order. True draws one name at random, seeded by the build seed and the variation key."""
 
     asset_names: list[str] = field(default_factory=list)
     """Candidate names to choose from, in this order. Empty uses every candidate in declaration order."""
@@ -98,10 +98,10 @@ class AssetSelectionVariation(BuildTimeVariationBase):
         super().apply_cfg(cfg)
 
     def attach_to_asset(self, asset: Asset) -> None:
-        """Check that ``asset`` is a rigid Object that is not a RigidObjectSet, and keep it as the selection's Object.
+        """Keep ``asset`` as the Object whose ``object_cfg.spawn`` this selection replaces when enabled.
 
-        The Object must also have no bounding_box override and no other AssetSelectionVariation, and this
-        selection must not be on another Object.
+        ``asset`` must be a rigid Object, not a RigidObjectSet, without a bounding_box override or another
+        AssetSelectionVariation, and this selection must not be on another Object yet.
 
         Args:
             asset: Object to add the selection to.
@@ -127,24 +127,25 @@ class AssetSelectionVariation(BuildTimeVariationBase):
         assert (
             self._object is None
         ), f"AssetSelectionVariation '{self.name}' was already added to '{self._object.name}'; create one per Object."
-        # Kept strongly, like a light variation keeps its light. Isaac Lab's configclass validation has no cycle check,
-        # so no validated config may hold a selected Object; today only door tasks put an asset (their openable) in one.
+        # Object.variations holds this selection too, and Isaac Lab's configclass validation follows attributes
+        # without a cycle check, so a validated config must not hold this Object.
         self._object = asset
 
     def configure_at_build_time(self, seed: int, variation_key: str) -> None:
-        """Select this build's candidate; in-order selection takes name number ``seed % n``, so keep ``seed``."""
+        # In-order selection takes name number seed % n, and VariationBase does not keep the seed.
         self._build_seed = seed
         super().configure_at_build_time(seed, variation_key)
 
     def _realize_at_build_time(self, generator: torch.Generator) -> None:
         assert self._object is not None, f"AssetSelectionVariation '{self.name}' was not added to an Object."
-        asset_names = list(self.cfg.asset_names) or list(self._spawn_cfgs_by_name)
-        # Both modes draw through the sampler because recording and replay hang off that call.
+        names_in_use = list(self.cfg.asset_names) or list(self._spawn_cfgs_by_name)
+        # Both modes call self.sampler.sample(), which reports the name to the variation recorder and returns the
+        # recorded name during replay.
         if self.cfg.random_choice:
-            selected_name = self.sampler.sample(1, asset_names, generator=generator)[0]
+            selected_name = self.sampler.sample(1, names_in_use, generator=generator)[0]
         else:
-            start_index = self._build_seed % len(asset_names)
-            selected_name = self.sampler.sample(1, asset_names, start_index=start_index)[0]
+            start_index = self._build_seed % len(names_in_use)
+            selected_name = self.sampler.sample(1, names_in_use, start_index=start_index)[0]
         self._object.object_cfg.spawn = deepcopy(self._spawn_cfgs_by_name[selected_name])
 
 
