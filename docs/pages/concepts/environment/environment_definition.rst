@@ -213,6 +213,8 @@ else on that config:
        episode_recorder_terms={"cube_pose": EpisodeRecorderTermCfg(func=record_cube_pose)},
    )
 
+Tasks can add their own terms too; see :doc:`../task/concept_episode_recording_design`.
+
 **Extra variations.** Both formats get the defaults an asset attaches in its
 constructor (a light brings intensity, color, and HDR). Anything the asset class
 does not declare needs Python:
