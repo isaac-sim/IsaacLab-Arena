@@ -1,0 +1,21 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Adds three registered objects to the Maple-table pick-and-place environment.
+# Each one gets an On(table) relation, and the placement solver computes a
+# collision-aware pose for it. Change additional_table_objects to try other
+# registered objects.
+runs:
+  additional_objects:
+    environment:
+      type: pick_and_place_maple_table
+      additional_table_objects:
+        - cracker_box
+        - mug
+        - tomato_soup_can
+    policy:
+      type: zero_action
+    rollout_limit:
+      num_steps: 100

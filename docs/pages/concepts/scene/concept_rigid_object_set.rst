@@ -115,15 +115,16 @@ it to the task as the pick object:
                destination_location: bowl
                background_scene: maple_table
 
-With ``--num_envs 3`` and ordered assignment, one environment gets the banana,
-one the orange, and one the lemon. The task definition stays the same; only the
-spawned fruit differs.
+With ``num_envs`` set to 3 and ordered assignment, one environment gets the
+banana, one the orange, and one the lemon. The task definition stays the same;
+only the spawned fruit differs.
 
 A few things to know:
 
 - **Set ``num_envs`` first.** Arena needs the environment count before it can
-  assign members — in runners this is ``--num_envs``. Use more than one to see
-  different members side by side.
+  assign members. In an Experiment Run, set it with
+  ``environment_builder.num_envs``. Use more than one to see different members
+  side by side.
 - **Tasks take the set directly.** Anything that accepts an ``Object`` works;
   Arena resolves the active member through the shared prim path.
 

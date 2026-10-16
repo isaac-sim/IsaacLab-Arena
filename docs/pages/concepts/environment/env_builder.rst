@@ -62,8 +62,8 @@ into a single ``ManagerBasedRLEnvCfg``.
 By default, the builder also solves spatial relations for placed objects and
 supported robot embodiments. Set
 ``ArenaEnvBuilderCfg(solve_relations=False)`` in Python to disable this step.
-Arena command-line runners expose the equivalent ``--no_solve_relations``
-option.
+In an Experiment Run, set ``environment_builder.solve_relations: false``. The
+Environment Runner exposes the equivalent ``--no_solve_relations`` option.
 
 Seeds during compilation
 ------------------------
@@ -83,44 +83,51 @@ not fix the other.
    :widths: 18 28 12 42
 
    * - Control
-     - CLI / config
+     - Experiment YAML / config
      - Default
      - Locking it reproduces
    * - Environment seed
-     - ``--seed`` / ``ArenaEnvBuilderCfg.seed``
+     - ``environment_builder.seed`` / ``ArenaEnvBuilderCfg.seed``
      - ``42``
      - Simulation RNG after the Isaac Lab env is created: reset noise and
        :doc:`run-time variation <../variations/variations>` draws.
    * - Placement seed
-     - ``--placement_seed`` / ``ArenaEnvBuilderCfg.placement_seed``
+     - ``environment_builder.placement_seed`` /
+       ``ArenaEnvBuilderCfg.placement_seed``
      - ``None`` (unlocked)
      - Relation-solver layouts and random
        :doc:`RigidObjectSet <../scene/concept_rigid_object_set>` member
        assignment. With ``None``, placement stays non-reproducible across runs.
 
-There is no variation seed. Run-time variations follow ``--seed``; build-time
-variations are drawn once at compile time and are not locked by either seed.
-See :doc:`../variations/variations` and
+There is no variation seed. Run-time variations follow the environment seed;
+build-time variations are drawn once at compile time and are not locked by
+either seed. See :doc:`../variations/variations` and
 :doc:`../object_placement/pooled_placement`.
 
 How to set it
 ~~~~~~~~~~~~~
 
-Pass the seed you want to lock on the runner CLI (or set the matching field on
-``ArenaEnvBuilderCfg`` / ``placer_params``):
+Set the seeds you want to lock under ``environment_builder`` in an Experiment
+Run (or set the matching field on ``ArenaEnvBuilderCfg`` / ``placer_params`` in
+Python):
+
+.. literalinclude:: ../../../../isaaclab_arena_environments/experiment_configs/concepts/maple_table_seeds_experiment.yaml
+   :language: yaml
+   :start-after: SPDX-License-Identifier: Apache-2.0
+
+Run it from the repository root:
 
 .. code-block:: bash
 
-   python isaaclab_arena/evaluation/policy_runner.py \
-     --policy_type zero_action \
-     --seed 42 \
-     --placement_seed 7 \
-     --num_steps 100 \
-     pick_and_place_maple_table
+   python isaaclab_arena/evaluation/experiment_runner.py \
+     --experiment_config isaaclab_arena_environments/experiment_configs/concepts/maple_table_seeds_experiment.yaml
 
-- Set ``--seed`` to fix simulation and run-time variation draws.
-- Set ``--placement_seed`` to fix layouts and random object-set picks.
-- Omit ``--placement_seed`` when placement should vary across runs.
+- Set ``seed`` to fix simulation and run-time variation draws.
+- Set ``placement_seed`` to fix layouts and random object-set picks.
+- Leave ``placement_seed`` unset when placement should vary across runs. To
+  unlock it in this example without editing the YAML, append
+  ``runs.locked_seeds.environment_builder.placement_seed=null`` to the
+  command.
 
 The compiled config is then registered with the gym registry under the
 environment's name, and ``gym.make()`` returns the gym environment.

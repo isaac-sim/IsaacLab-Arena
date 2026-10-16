@@ -147,9 +147,13 @@ Try It Out
 
 Run a quick placement example from the repository root. The
 ``pick_and_place_maple_table`` environment already contains a Rubik's cube and
-a bowl. The command below adds three registered objects, each with an
+a bowl. The Experiment below adds three registered objects, each with an
 ``On(table_reference)`` relation. The solver computes a collision-aware pose
 for each one.
+
+.. literalinclude:: ../../../isaaclab_arena_environments/experiment_configs/concepts/maple_table_additional_objects_experiment.yaml
+   :language: yaml
+   :start-after: SPDX-License-Identifier: Apache-2.0
 
 .. note::
 
@@ -157,14 +161,13 @@ for each one.
    remote or container session, configure display forwarding and set
    ``DISPLAY`` to the active X display, for example ``export DISPLAY=:1``.
 
+Run the Experiment with:
+
 .. code-block:: bash
 
-   python isaaclab_arena/evaluation/policy_runner.py \
+   python isaaclab_arena/evaluation/experiment_runner.py \
      --viz kit \
-     --policy_type zero_action \
-     --num_steps 100 \
-     pick_and_place_maple_table \
-     --additional_table_objects cracker_box mug tomato_soup_can
+     --experiment_config isaaclab_arena_environments/experiment_configs/concepts/maple_table_additional_objects_experiment.yaml
 
 .. figure:: ../../images/adaptive_object_placement.gif
    :width: 100%
@@ -174,8 +177,16 @@ for each one.
    Each run adds registered objects with different dimensions. The solver
    recomputes a collision-aware layout without manual pose changes.
 
-Replace the names after ``--additional_table_objects`` with other registered
-objects to see placement adapt to different dimensions and footprints.
+Replace the names in ``additional_table_objects`` with other registered
+objects to see placement adapt to different dimensions and footprints. You can
+do this from the command line without editing the YAML:
+
+.. code-block:: bash
+
+   python isaaclab_arena/evaluation/experiment_runner.py \
+     --viz kit \
+     --experiment_config isaaclab_arena_environments/experiment_configs/concepts/maple_table_additional_objects_experiment.yaml \
+     "runs.additional_objects.environment.additional_table_objects=[sugar_box,mustard_bottle,power_drill]"
 
 .. toctree::
    :hidden:

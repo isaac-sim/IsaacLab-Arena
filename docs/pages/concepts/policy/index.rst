@@ -2,9 +2,9 @@ Policy
 ======
 
 A policy in Arena is a standard interface between your model and the evaluation
-pipeline. You implement one method — ``get_action(env, obs)`` — and the policy
-plugs into both the single-job runner and the Experiment Runner without any
-changes to either. In bare IsaacLab you would write an ad-hoc inference loop
+pipeline. You implement one method, ``get_action(env, obs)``, and the policy
+plugs into the Experiment Runner and the Policy Runner without any changes to
+either. In bare IsaacLab you would write an ad-hoc inference loop
 for each model; Arena's ``PolicyBase`` gives a consistent contract that all
 runners depend on.
 
@@ -72,16 +72,23 @@ Construct the policy by passing its typed configuration directly:
    policy_cfg = MyPolicyCfg(device="cuda:0")
    policy = MyPolicy(policy_cfg)
 
-The typed registration lets the single-job runner generate CLI flags from
-``MyPolicyCfg`` and lets the Experiment Runner convert the current
-``Job.policy_config_dict`` representation into that same type. See
-:doc:`Arena Experiments <../concept_arena_experiments>` for details.
+The typed registration lets the Experiment Runner compose a Run's ``policy``
+section into ``MyPolicyCfg``. ``policy.type`` takes a registered policy name or
+a dotted class path; the class path also imports the module that registers the
+policy. The remaining keys set config fields:
 
-Config fields named ``device`` or ``num_envs`` reuse the corresponding shared
-runner flags, so their defaults must match the runner defaults.
+.. code-block:: yaml
+
+   policy:
+     type: my_package.my_policy.MyPolicy
+     device: cuda:0
+
+See :doc:`Arena Experiments <../concept_arena_experiments>` for details.
 
 .. note::
 
-   ``policy_runner.py`` remains an argparse frontend, but policies do not
-   implement argparse methods. The runner generates their flags from the
-   registered config and reconstructs it before creating the policy.
+   ``policy_runner.py`` is an argparse frontend. Policies do not implement
+   argparse methods; the Policy Runner generates their flags from the
+   registered config and reconstructs it before creating the policy. Config
+   fields named ``device`` or ``num_envs`` reuse its shared flags, so their
+   defaults must match the runner defaults.

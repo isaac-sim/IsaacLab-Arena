@@ -134,16 +134,20 @@ footprint for placement; the robot arm is excluded from those bounds.
 Running the Example
 ~~~~~~~~~~~~~~~~~~~
 
-Run the example with:
+The following Experiment selects the graph-spec YAML by its path in
+``environment.type``:
+
+.. literalinclude:: ../../../../isaaclab_arena_environments/experiment_configs/concepts/kitchen_bench_robot_placement_experiment.yaml
+   :language: yaml
+   :start-after: SPDX-License-Identifier: Apache-2.0
+
+Run the example from the repository root with:
 
 .. code-block:: bash
 
-   python isaaclab_arena/evaluation/policy_runner.py \
+   python isaaclab_arena/evaluation/experiment_runner.py \
      --viz kit \
-     --policy_type zero_action \
-     --num_steps 100 \
-     --env_spec \
-       isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_pick_and_place.yaml
+     --experiment_config isaaclab_arena_environments/experiment_configs/concepts/kitchen_bench_robot_placement_experiment.yaml
 
 This example uses the Droid stand footprint for geometric placement.
 Reachability, when configured by a task, is checked separately during

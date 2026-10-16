@@ -75,7 +75,8 @@ guaranteed. If the pool is empty, Arena generates more layouts during the
 reset.
 
 Set ``ObjectPlacerParams.resolve_on_reset=False`` to reuse the layout assigned
-during environment creation. The equivalent command-line option is
+during environment creation. In an Experiment Run, the equivalent is
+``environment_builder.resolve_on_reset: false``. The Environment Runner accepts
 ``--no-resolve_on_reset``. Keep the default to change layouts across episodes.
 
 Reproducibility
@@ -85,19 +86,21 @@ Set ``placement_seed`` when placement must be reproducible. Given the same
 Arena environment definition, placement seed, and environment count, Arena
 reproduces layout generation and random object-set assignment.
 
-For example:
+For example, this Experiment locks both seeds:
+
+.. literalinclude:: ../../../../isaaclab_arena_environments/experiment_configs/concepts/maple_table_seeds_experiment.yaml
+   :language: yaml
+   :start-after: SPDX-License-Identifier: Apache-2.0
+
+Run it from the repository root:
 
 .. code-block:: bash
 
-   python isaaclab_arena/evaluation/policy_runner.py \
-     --policy_type zero_action \
-     --seed 42 \
-     --placement_seed 42 \
-     --num_steps 100 \
-     pick_and_place_maple_table
+   python isaaclab_arena/evaluation/experiment_runner.py \
+     --experiment_config isaaclab_arena_environments/experiment_configs/concepts/maple_table_seeds_experiment.yaml
 
-``--seed`` controls general simulation randomness, while ``--placement_seed``
-controls placement-specific randomness.
+``environment_builder.seed`` controls general simulation randomness, while
+``environment_builder.placement_seed`` controls placement-specific randomness.
 
 Recommended Workflow and Configuration
 --------------------------------------

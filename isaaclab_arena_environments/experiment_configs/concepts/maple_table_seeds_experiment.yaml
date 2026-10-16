@@ -1,0 +1,20 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Locks both random streams used when building and running an environment.
+runs:
+  locked_seeds:
+    environment:
+      type: pick_and_place_maple_table
+    environment_builder:
+      # Simulation randomness after the environment is created, including
+      # run-time variation draws.
+      seed: 42
+      # Relation-solver layouts and random object-set member assignment.
+      placement_seed: 7
+    policy:
+      type: zero_action
+    rollout_limit:
+      num_steps: 100

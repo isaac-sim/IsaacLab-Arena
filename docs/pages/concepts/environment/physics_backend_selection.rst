@@ -2,7 +2,8 @@ Physics backend selection
 =========================
 
 Arena environments can target **PhysX** or **Newton** for physics simulation.
-Each ``IsaacLabArenaEnvironment`` can specify a default physics backend, which can be overridden at runtime with the ``--presets`` command-line argument.
+Each ``IsaacLabArenaEnvironment`` can specify a default physics backend, which can be overridden at runtime.
+In an Experiment Run, set ``environment_builder.presets``. The Environment Runner takes the ``--presets`` command-line argument.
 
 Embodiments are intended to be compatible with both backends, with backend-specific configuration hooks invoked based on the runtime-resolved backend.
 Most USD-backed rigid and articulation assets are loadable with both backends, although the current registered object and background libraries are primarily verified for PhysX.
@@ -13,8 +14,8 @@ Backend selection precedence
 
 When ``ArenaEnvBuilder`` composes the Isaac Lab configuration in ``compose_manager_cfg``, the selected backend is determined as follows:
 
-1. **CLI** — ``--presets`` / ``ArenaEnvBuilderCfg.presets`` takes precedence when set.
-2. **Environment default** — ``IsaacLabArenaEnvironment.default_physics_backend`` (defaults to PhysX) is used when no CLI ``--presets`` is provided.
+1. **Builder override**: ``ArenaEnvBuilderCfg.presets`` takes precedence when set. In an Experiment Run, set ``environment_builder.presets`` to ``PHYSX`` or ``NEWTON``. The Environment Runner takes ``--presets physx`` or ``--presets newton``.
+2. **Environment default**: ``IsaacLabArenaEnvironment.default_physics_backend`` (defaults to PhysX) is used when ``presets`` is not set.
 
 Authoring and CLI inputs:
 
@@ -134,7 +135,7 @@ Backend-sensitive scene assets validate when the environment is registered.
 
 At validation time the asset compares that preset to the backend implied by ``sim.physics`` (treating ``sim.physics is None`` as PhysX, matching Isaac Lab).
 A mismatch fails with an assertion naming the object and the selected backend.
-Library deformables must therefore use the property type that matches the environment default (or the ``--presets`` override).
+Library deformables must therefore use the property type that matches the environment default (or the ``presets`` override).
 
 **Cables** — ``Cable`` assets require ``sim.physics`` to be a ``NewtonCfg``; PhysX or unset physics fails validation.
 
