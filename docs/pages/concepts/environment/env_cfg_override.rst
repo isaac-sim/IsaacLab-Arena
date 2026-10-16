@@ -69,7 +69,8 @@ Disallowed patterns
 The following are rejected at validation time:
 
 - Swapping ``sim.physics`` to another backend via ``_target_`` — set
-  ``default_physics_backend`` (or ``--presets``) instead.
+  ``default_physics_backend`` (or ``environment_builder.presets`` in an Experiment
+  Run, ``--presets`` in the Environment Runner) instead.
 - Overriding ``class_type`` (derived by Isaac Lab).
 - OmegaConf interpolation (``${...}``) in override values.
 - Hydra targets outside approved Isaac Lab packages (for example ``builtins.*``).
