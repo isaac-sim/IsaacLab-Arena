@@ -58,12 +58,13 @@ def _test_recording_follows_episode_assignments(_simulation_app):
         pre_reset_calls=[],
         post_reset_calls=[],
         post_step_calls=[],
+        episode_recorder_manager=SimpleNamespace(post_step=lambda: env.post_step_calls.append("episode")),
     )
     env.update_task_progress = lambda: env.post_step_calls.append("progress")
     recorder = ArenaRecorderManager(RecorderTestCfg(), env)
     try:
         recorder.record_post_step()
-        assert env.post_step_calls == ["progress", "recorder"]
+        assert env.post_step_calls == ["progress", "episode", "recorder"]
         recorder.record_pre_reset(None)
         recorder.record_post_reset(None)
         assert env.pre_reset_calls == []

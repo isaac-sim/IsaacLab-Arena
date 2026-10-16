@@ -71,7 +71,7 @@ def _make_environment_and_manager(
     env._completed_episode_count = 0
     env._variation_recorder = None
     env._variation_replay_scheduler = None
-    env.episode_recorder_manager = SimpleNamespace(record_pre_reset=lambda _ids: None)
+    env.episode_recorder_manager = SimpleNamespace(record_pre_reset=lambda _ids: None, reset=lambda env_ids: {})
     if success_criteria is None:
         success_criteria = [
             CompletionCriteria(
