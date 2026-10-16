@@ -1,0 +1,27 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Run the GR1 table scene, whose objects are placed on the table by the relation solver.
+# The scene has no task, so the zero-action policy is enough to inspect the placement.
+# episode_length_s adds a time-out, so every environment resets after 4 simulated seconds.
+# Add runs.multi_object_table.environment.mode=heterogeneous on the command line
+# to spawn a different object set member in each environment.
+runs:
+  multi_object_table:
+    environment:
+      type: gr1_table_multi_object_no_collision
+      enable_cameras: true
+      embodiment: gr1_joint
+      episode_length_s: 4.0
+      # This environment uses tiled cameras when num_envs is greater than 1.
+      # Keep it equal to environment_builder.num_envs.
+      num_envs: 16
+    environment_builder:
+      num_envs: 16
+      env_spacing: 4.0
+    policy:
+      type: zero_action
+    rollout_limit:
+      num_steps: 500
