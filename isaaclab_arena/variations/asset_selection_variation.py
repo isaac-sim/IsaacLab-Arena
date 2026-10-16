@@ -67,14 +67,21 @@ class AssetSelectionVariation(BuildTimeVariationBase):
         assert asset_candidates, "AssetSelectionVariation needs at least one (name, spawn_cfg) candidate."
         # Filled before super().__init__(), whose apply_cfg call checks asset_names against these names.
         self._spawn_cfgs_by_name: dict[str, SpawnerCfg] = {}
-        for candidate in asset_candidates:
-            assert isinstance(candidate, tuple) and len(candidate) == 2, f"Candidate {candidate!r} is not a pair."
+        for candidate_index, candidate in enumerate(asset_candidates):
+            assert (
+                isinstance(candidate, tuple) and len(candidate) == 2
+            ), f"Candidate {candidate_index} is not a (name, spawn_cfg) tuple."
             candidate_name, spawn_cfg = candidate
-            assert isinstance(candidate_name, str) and candidate_name, "Candidate names must be non-empty strings."
+            assert (
+                isinstance(candidate_name, str) and candidate_name
+            ), f"Candidate {candidate_index} has name {candidate_name!r}; names must be non-empty strings."
             assert candidate_name not in self._spawn_cfgs_by_name, f"Duplicate candidate name '{candidate_name}'."
             assert isinstance(spawn_cfg, SpawnerCfg) and not isinstance(
                 spawn_cfg, (MultiAssetSpawnerCfg, MultiUsdFileCfg)
-            ), f"Candidate '{candidate_name}' must have one spawn configuration."
+            ), (
+                f"Candidate '{candidate_name}' is a {type(spawn_cfg).__name__}; pass one spawn configuration per"
+                " candidate, not a MultiAssetSpawnerCfg or MultiUsdFileCfg."
+            )
             self._spawn_cfgs_by_name[candidate_name] = deepcopy(spawn_cfg)
         super().__init__(cfg=cfg if cfg is not None else AssetSelectionVariationCfg(), name=name)
         self._object: Object | None = None
@@ -118,12 +125,13 @@ class AssetSelectionVariation(BuildTimeVariationBase):
         assert (
             isinstance(asset, Object) and asset.object_type == ObjectType.RIGID
         ), f"AssetSelectionVariation needs a rigid Object, but '{asset.name}' ({type(asset).__name__}) is not one."
-        assert (
-            asset.bounding_box is None
-        ), f"'{asset.name}' sets a bounding_box override, which placement would use instead of the candidate."
+        assert asset.bounding_box is None, (
+            f"'{asset.name}' sets a bounding_box override, which placement would use for every candidate. Set"
+            " bounding_box to None to add an AssetSelectionVariation."
+        )
         assert not any(
             isinstance(variation, AssetSelectionVariation) for variation in asset.get_variations()
-        ), f"'{asset.name}' already has an AssetSelectionVariation."
+        ), f"'{asset.name}' already has an AssetSelectionVariation; put all candidates in that one."
         assert (
             self._object is None
         ), f"AssetSelectionVariation '{self.name}' was already added to '{self._object.name}'; create one per Object."
@@ -137,7 +145,9 @@ class AssetSelectionVariation(BuildTimeVariationBase):
         super().configure_at_build_time(seed, variation_key)
 
     def _realize_at_build_time(self, generator: torch.Generator) -> None:
-        assert self._object is not None, f"AssetSelectionVariation '{self.name}' was not added to an Object."
+        assert (
+            self._object is not None
+        ), f"AssetSelectionVariation '{self.name}' was not added to an Object; add it with Object.add_variation()."
         names_in_use = list(self.cfg.asset_names) or list(self._spawn_cfgs_by_name)
         # Both modes call self.sampler.sample(), which reports the name to the variation recorder and returns the
         # recorded name during replay.
@@ -168,5 +178,6 @@ def assert_selected_assets_replayed_with_placement(
             continue
         assert variation_key in variation_record.build_time_samples, (
             f"The replayed record has placement samples but no '{variation_key}' value. Replay a record"
-            f" that holds both, or, for an object declared with asset=, disable '{variation_key}'."
+            f" that holds both, or, if the poses were recorded with '{variation_key}' disabled, disable it here"
+            " too."
         )

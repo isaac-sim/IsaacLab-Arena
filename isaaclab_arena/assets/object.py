@@ -181,8 +181,8 @@ class Object(RootedObjectBase):
     def _assert_has_asset(self, spawn_cfg: SpawnerCfg | None) -> None:
         """Assert that ``spawn_cfg`` is set, naming this object and the ways to give it an asset."""
         assert spawn_cfg is not None, (
-            f"Object '{self.name}' has no asset. Declare it with asset=, or enable the AssetSelectionVariation"
-            f" added to it (for example '{self.name}.asset_selection.enabled=true')."
+            f"Object '{self.name}' has no asset. Declare it with asset=, or add an AssetSelectionVariation to it and"
+            f" enable it (for example '{self.name}.asset_selection.enabled=true')."
         )
 
     def _get_spawn_cfg_geometry(self, spawn_cfg: SpawnerCfg | None) -> SpawnCfgGeometry:
