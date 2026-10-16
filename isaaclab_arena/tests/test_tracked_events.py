@@ -511,13 +511,13 @@ def _test_recording_and_validation(_app):
     cfg.class_type(cfg, env).record_post_step()
     tracker.reset([0])
     result = json.loads(json.dumps(record_progress_results(env, 0)))
-    assert result["progress"]["tracked_event_names"] == ["observed"]
-    assert result["progress"]["tracked_events"] == [{"name": "observed", "step": 1}]
-    assert result["progress"]["control_step_dt"] == 0.02
-    assert result["progress"]["overall_score"] == 0.0
-    assert not result["progress"]["all_complete"]
-    assert list(result["progress"]["criteria_by_name"]) == ["success"]
-    assert result["progress"]["events"] == []
+    assert result["tracked_event_names"] == ["observed"]
+    assert result["tracked_events"] == [{"name": "observed", "step": 1}]
+    assert result["control_step_dt"] == 0.02
+    assert result["overall_score"] == 0.0
+    assert not result["all_complete"]
+    assert list(result["criteria_by_name"]) == ["success"]
+    assert result["events"] == []
     return True
 
 
