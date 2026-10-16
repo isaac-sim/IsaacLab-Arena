@@ -94,6 +94,49 @@ def test_joint_openness_range_tracks_min_and_max():
     assert run_function_with_persistent_simulation_app(_test_joint_openness_range_tracks_min_and_max)
 
 
+def _test_non_finite_motion_values_are_recorded_as_null(simulation_app):
+    import json
+    import torch
+    from types import SimpleNamespace
+
+    from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTermCfg
+    from isaaclab_arena.recording.motion_terms import JointOpennessRange, ObjectPeakSpeed
+
+    nan = float("nan")
+
+    # Env 0 sees a NaN velocity, env 1 stays finite.
+    velocities = [[[nan, 0.0, 0.0], [0.0, 2.0, 0.0]]]
+    speed_env = _velocity_env(velocities)
+    speed_term = ObjectPeakSpeed(EpisodeRecorderTermCfg(func=ObjectPeakSpeed, params={"object_name": "box"}), speed_env)
+    speed_term.post_step(speed_env)
+    nan_speed_output = speed_term(speed_env, 0, object_name="box")
+    assert nan_speed_output == {"object": "box", "peak_linear_speed": None}
+    assert speed_term(speed_env, 1, object_name="box") == {"object": "box", "peak_linear_speed": 2.0}
+    json.dumps(nan_speed_output, allow_nan=False)
+
+    # Env 0 sees a NaN openness, env 1 stays finite.
+    openness = [[nan, 0.5]]
+    door = SimpleNamespace(name="microwave", get_openness=lambda env: torch.tensor(openness[0]))
+    joint_env = SimpleNamespace(num_envs=2, device="cpu")
+    joint_term = JointOpennessRange(
+        EpisodeRecorderTermCfg(func=JointOpennessRange, params={"openable_object": door}), joint_env
+    )
+    joint_term.post_step(joint_env)
+    nan_openness_output = joint_term(joint_env, 0, openable_object=door)
+    assert nan_openness_output == {"object": "microwave", "min_openness": None, "max_openness": None}
+    assert joint_term(joint_env, 1, openable_object=door) == {
+        "object": "microwave",
+        "min_openness": 0.5,
+        "max_openness": 0.5,
+    }
+    json.dumps(nan_openness_output, allow_nan=False)
+    return True
+
+
+def test_non_finite_motion_values_are_recorded_as_null():
+    assert run_function_with_persistent_simulation_app(_test_non_finite_motion_values_are_recorded_as_null)
+
+
 def _test_pick_then_close_door_suffixes_motion_terms(simulation_app):
     from isaaclab_arena.assets.object_reference import ObjectReference
     from isaaclab_arena.assets.registries import AssetRegistry
