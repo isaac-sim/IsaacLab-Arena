@@ -44,6 +44,7 @@ class _MockEnv:
         self.extras = {}
         self._progress_tracker = None
         self.episode_length_buf = torch.zeros(num_envs, dtype=torch.long)
+        self.active_episode_mask = torch.ones(num_envs, dtype=torch.bool)
         self._object_initial_rest_pose_recorder = ObjectInitialRestPoseRecorder(num_envs, device)
 
     @property

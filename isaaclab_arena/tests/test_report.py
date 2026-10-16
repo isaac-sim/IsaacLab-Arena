@@ -62,6 +62,36 @@ def test_unique_slugs_deduplicates_names_with_the_same_safe_form():
     assert slugs == {"my run": "my_run", "my+run": "my_run_2"}
 
 
+def test_recurring_group_report_preserves_occurrences_and_escapes_names(tmp_path):
+    _write_run(tmp_path, "observations", num_episodes=1)
+    results = tmp_path / "observations" / "episode_results_rebuild0.jsonl"
+    record = json.loads(results.read_text().strip())
+    record.update(
+        episode_length=100,
+        progress={
+            "tracked_event_names": ["drop<script>", "never_seen"],
+            "tracked_events": [
+                {"name": "drop<script>", "step": 20},
+                {"name": "drop<script>", "step": 80},
+            ],
+            "control_step_dt": 0.02,
+        },
+    )
+    results.write_text(json.dumps(record) + "\n")
+    build_report(tmp_path)
+    pages = list((tmp_path / "report").glob("job_*.html"))
+    assert len(pages) == 1
+    text = pages[0].read_text()
+    assert "Tracked occurrences" in text
+    assert "drop&lt;script&gt; (2)" in text
+    assert "never_seen (0)" in text
+    assert "drop<script>" not in text
+    assert 'data-seek-time="0.4"' in text
+    assert 'data-seek-time="1.6"' in text
+    assert "step 20 (0.400 s)" in text
+    assert "step 80 (1.600 s)" in text
+
+
 def test_resolve_results_dir_uses_the_latest_timestamped_child(tmp_path):
     old = tmp_path / "2026-01-01_00-00-00"
     latest = tmp_path / "2026-01-02_00-00-00"

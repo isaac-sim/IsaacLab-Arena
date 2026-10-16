@@ -21,6 +21,7 @@ from isaaclab_arena.tasks.task_transition import TaskTransition
 
 if TYPE_CHECKING:
     from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
+    from isaaclab_arena.progress_tracking.tracked_event_cfg import TrackedEventCfg
 
 
 class TaskBase(ABC):
@@ -54,6 +55,10 @@ class TaskBase(ABC):
 
     def get_observation_cfg(self) -> Any:
         return None
+
+    def get_tracked_events(self) -> list[TrackedEventCfg]:
+        """Return recurring observations that do not affect task success or termination."""
+        return []
 
     def get_rewards_cfg(self) -> Any:
         return None

@@ -132,6 +132,7 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
                 env=self,
                 subtasks_are_sequential=progress_cfg.subtasks_are_sequential,
                 desired_subtask_success_state=progress_cfg.desired_subtask_success_state,
+                tracked_events=progress_cfg.tracked_events,
             )
             self._task_progress_step = self.common_step_counter
             if not recorder_cfg or isinstance(recorder_cfg, dict):
@@ -149,7 +150,9 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
     def update_task_progress(self) -> None:
         """Advance configured task progress at most once per control step."""
         if self._progress_tracker is not None and self._task_progress_step != self.common_step_counter:
-            self._progress_tracker.step(self, step_index=self.episode_length_buf)
+            self._progress_tracker.step(
+                self, step_index=self.episode_length_buf, event_active_envs=self.active_episode_mask
+            )
             self._task_progress_step = self.common_step_counter
 
     def get_language_instruction(self) -> str | None:

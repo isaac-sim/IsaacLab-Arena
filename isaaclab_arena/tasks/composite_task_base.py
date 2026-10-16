@@ -31,6 +31,7 @@ from isaaclab_arena.utils.configclass import (
 
 if TYPE_CHECKING:
     from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
+    from isaaclab_arena.progress_tracking.tracked_event_cfg import TrackedEventCfg
 
 
 class SubtaskSuccessStateRecorder(RecorderTerm):
@@ -235,6 +236,14 @@ class CompositeTaskBase(TaskBase):
             subtasks_are_sequential=self.subtasks_are_sequential,
             desired_subtask_success_state=self.desired_subtask_success_state,
         )
+
+    def get_tracked_events(self) -> list[TrackedEventCfg]:
+        """Collect observations from every subtask, independently of success ordering."""
+        tracked_events = []
+        for index, subtask in enumerate(self.subtasks):
+            for event_cfg in subtask.get_tracked_events():
+                tracked_events.append(dataclasses.replace(event_cfg, name=f"subtask_{index}/{event_cfg.name}"))
+        return tracked_events
 
     def _combine_subtask_metrics(self, subtask_idxs: list[int]) -> list[MetricBase]:
         """Combine metrics from subtasks with the given ids.

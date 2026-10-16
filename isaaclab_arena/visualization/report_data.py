@@ -12,6 +12,7 @@ evaluation, video, policy, environment, Isaac Sim, or Isaac Lab stacks.
 from __future__ import annotations
 
 import functools
+import math
 import pathlib
 import re
 from collections import defaultdict
@@ -93,6 +94,33 @@ class EpisodeSummary:
             for key, value in self.record.items()
             if key not in _METADATA_EXCLUDED_FIELDS and value is not None
         }
+
+    @property
+    def tracked_event_occurrences(self) -> dict[str, list[int]]:
+        """Read recurring observations, retaining configured groups with zero occurrences."""
+        progress = _progress(self.record)
+        groups = {}
+        names = progress.get("tracked_event_names", [])
+        if isinstance(names, list):
+            for name in names:
+                if isinstance(name, str):
+                    groups.setdefault(name, [])
+        events = progress.get("tracked_events", [])
+        if isinstance(events, list):
+            for event in events:
+                if not isinstance(event, dict):
+                    continue
+                name = event.get("name")
+                step = _as_int(event.get("step"))
+                if isinstance(name, str) and step is not None and step >= 0:
+                    groups.setdefault(name, []).append(step)
+        return groups
+
+    @property
+    def control_step_dt(self) -> float | None:
+        """Return recorded simulation seconds per control step, when available."""
+        value = _as_float(_progress(self.record).get("control_step_dt"))
+        return value if value is not None and math.isfinite(value) and value > 0 else None
 
     @property
     def consecutive_step_summaries(self) -> list[ConsecutiveStepSummary]:
