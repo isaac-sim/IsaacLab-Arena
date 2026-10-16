@@ -68,17 +68,14 @@ def assert_named_spawn_cfg(named_spawn_cfg: tuple[str, SpawnerCfg], owner: str) 
 
 
 class AssetSelectionVariation(BuildTimeVariationBase):
-    """Give a rigid Object one of several candidate assets, the same in every environment of a build.
+    """Choose one of several assets for a rigid Object; every environment of a build spawns the chosen asset.
 
-    The selected spawn configuration stays on the Object, so a later build of the same Object starts from it.
-    Scene.export_to_usd and an ObjectReference into the Object read its declared usd_path, not the selected asset,
-    so both fail for an Object declared without one.
+    Scene export and ObjectReference read the Object's own usd_path, so they fail for an Object declared without one.
 
     Args:
-        asset_candidates: ``(name, spawn_cfg)`` pairs, for example from AssetRegistry.get_named_spawn_cfg.
-            The spawn configurations are copied.
-        cfg: Selection settings. Defaults to a disabled selection over every candidate, in order.
-        name: Name of the variation on its Object, the second part of its key ``<object>.<name>``.
+        asset_candidates: (name, spawn_cfg) pairs to choose from, for example from AssetRegistry.get_named_spawn_cfg().
+        cfg: Selection settings. By default the selection is off and uses every candidate in order.
+        name: Name of the variation on its Object.
     """
 
     cfg: AssetSelectionVariationCfg
