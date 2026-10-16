@@ -13,6 +13,8 @@ from isaaclab.utils.configclass import configclass
 from isaaclab_arena.affordances.openable import Openable
 from isaaclab_arena.assets.register import register_task
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
+from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTermCfg
+from isaaclab_arena.recording.motion_terms import JointOpennessRange
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
 from isaaclab_arena.tasks.task_transition import TaskTransition
@@ -58,6 +60,13 @@ class RotateRevoluteJointTask(TaskBase):
 
     def get_termination_cfg(self) -> TaskTerminationCfg:
         raise NotImplementedError("Function {self.get_termination_cfg.__name__} not implemented yet.")
+
+    def get_episode_recorder_terms(self) -> dict[str, EpisodeRecorderTermCfg]:
+        return {
+            "joint_motion": EpisodeRecorderTermCfg(
+                func=JointOpennessRange, params={"openable_object": self.openable_object}
+            )
+        }
 
     def get_viewer_cfg(self) -> ViewerCfg:
         return get_viewer_cfg_look_at_object(lookat_object=self.openable_object, offset=np.array([-1.3, -1.3, 1.3]))

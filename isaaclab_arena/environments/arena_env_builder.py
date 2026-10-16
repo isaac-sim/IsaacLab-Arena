@@ -39,11 +39,7 @@ from isaaclab_arena.environments.relation_solver_interface import (
     prepare_recorded_relation_placement,
 )
 from isaaclab_arena.progress_tracking.task_progress_cfg import TaskProgressCfg
-from isaaclab_arena.recording.common_terms import (
-    CoreEpisodeRecorderTermCfg,
-    PlacementEpisodeRecorderTermCfg,
-    VariationEpisodeRecorderTermCfg,
-)
+from isaaclab_arena.recording.common_terms import PlacementEpisodeRecorderTermCfg, VariationEpisodeRecorderTermCfg
 from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTermCfg
 from isaaclab_arena.recording.progress_terms import ProgressEpisodeRecorderTermCfg
 from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
@@ -259,26 +255,26 @@ class ArenaEnvBuilder:
         termination_fields = [(name, TerminationTermCfg, term) for name, term in termination_terms.items()]
         return make_configclass("TerminationsCfg", termination_fields)()
 
-    def _compose_episode_recorders_cfg(self, extra_terms: dict[str, EpisodeRecorderTermCfg] | None = None) -> object:
+    def _compose_episode_recorders_cfg(
+        self,
+        task_terms: dict[str, EpisodeRecorderTermCfg],
+        environment_terms: dict[str, EpisodeRecorderTermCfg],
+    ) -> object:
         """Build a configclass container with one EpisodeRecorderTermCfg field per episode recorder term.
 
-        Note that this function automatically adds the core, variations, and progress terms. The
-        progress term records nothing for tasks that define no completion criteria.
+        The built-in placement, variations, and progress terms come first, then the task's terms, then the
+        environment's terms. The manager writes the core fields itself.
         """
-        fields = [
-            ("core", EpisodeRecorderTermCfg, CoreEpisodeRecorderTermCfg()),
-            ("placement", EpisodeRecorderTermCfg, PlacementEpisodeRecorderTermCfg()),
-            ("variations", EpisodeRecorderTermCfg, VariationEpisodeRecorderTermCfg()),
-            ("progress", EpisodeRecorderTermCfg, ProgressEpisodeRecorderTermCfg()),
-        ]
-        for name, term_cfg in (extra_terms or {}).items():
-            assert name not in (
-                "core",
-                "placement",
-                "variations",
-                "progress",
-            ), f"Episode recorder term name '{name}' collides with a built-in term."
-            fields.append((name, EpisodeRecorderTermCfg, term_cfg))
+        terms: dict[str, EpisodeRecorderTermCfg] = {
+            "placement": PlacementEpisodeRecorderTermCfg(),
+            "variations": VariationEpisodeRecorderTermCfg(),
+            "progress": ProgressEpisodeRecorderTermCfg(),
+        }
+        for added_terms in (task_terms, environment_terms):
+            for name, term_cfg in added_terms.items():
+                assert name not in terms, f"Episode recorder term name '{name}' is used more than once."
+                terms[name] = term_cfg
+        fields = [(name, EpisodeRecorderTermCfg, term_cfg) for name, term_cfg in terms.items()]
         return make_configclass("EpisodeRecorderManagerCfg", fields)()
 
     def compose_manager_cfg(self) -> tuple[IsaacLabArenaManagerBasedRLEnvCfg, dict[str, Any]]:
@@ -433,7 +429,9 @@ class ArenaEnvBuilder:
             task.get_commands_cfg(),
         )
 
-        episode_recorders_cfg = self._compose_episode_recorders_cfg(self.arena_env.episode_recorder_terms)
+        episode_recorders_cfg = self._compose_episode_recorders_cfg(
+            task.get_episode_recorder_terms(), self.arena_env.episode_recorder_terms
+        )
 
         viewer_cfg = task.get_viewer_cfg()
 
