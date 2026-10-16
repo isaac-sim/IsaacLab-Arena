@@ -169,6 +169,9 @@ variations are sampled once and applied to asset configs before the environment 
    * - Variation
      - Type
      - Description
+   * - ``AssetSelectionVariation``
+     - build-time
+     - Chooses which of several candidate assets a rigid object spawns.
    * - ``CameraExtrinsicsVariation``
      - run-time
      - Adds a small sampled offset to a camera's nominal local position on every reset.
@@ -193,3 +196,71 @@ variations are sampled once and applied to asset configs before the environment 
    * - ``LightIntensityVariation``
      - build-time
      - Samples a single intensity and applies it to a light.
+
+.. _asset-selection-variation:
+
+Asset selection
+---------------
+
+``AssetSelectionVariation`` chooses which asset a rigid ``Object`` spawns. It chooses one
+candidate per build, and every parallel environment of that build spawns it. Each rebuild can
+choose another candidate. For different objects in the environments of one build, use a
+:doc:`RigidObjectSet <../scene/concept_rigid_object_set>`.
+
+The environment's Python code declares the candidates as ``(name, spawn configuration)`` pairs.
+``AssetRegistry.get_named_spawn_cfg()`` returns the pair for a registered rigid object:
+
+.. code-block:: python
+
+   from isaaclab_arena.assets.object import Object
+   from isaaclab_arena.assets.registries import AssetRegistry
+   from isaaclab_arena.variations.asset_selection_variation import (
+       AssetSelectionVariation,
+       AssetSelectionVariationCfg,
+   )
+
+   asset_registry = AssetRegistry()
+   cracker_box_asset = asset_registry.get_named_spawn_cfg("cracker_box")
+   sugar_box_asset = asset_registry.get_named_spawn_cfg("sugar_box")
+   mustard_bottle_asset = asset_registry.get_named_spawn_cfg("mustard_bottle")
+
+   pick_up_object = Object(name="pickup")
+   pick_up_object.add_variation(
+       AssetSelectionVariation(
+           asset_candidates=[cracker_box_asset, sugar_box_asset, mustard_bottle_asset],
+           cfg=AssetSelectionVariationCfg(enabled=True),
+       )
+   )
+
+``Object(name="pickup")`` has no asset of its own, so the build fails unless its selection is
+enabled. ``Object(name="pickup", asset=cracker_box_asset)`` spawns the cracker box while the
+selection is disabled.
+
+``asset_names`` lists the candidate names to choose from, in order. Empty means all candidates in
+declaration order, and one name pins that candidate. By default, a build takes name number
+``seed mod n`` of the ``n`` names, counting from zero, where ``seed`` is ``--seed``. The
+Experiment Runner adds the rebuild index to the seed, so ``n`` rebuilds take each name once. With
+``random_choice: true``, each build draws a name at random, and a name can repeat across rebuilds.
+
+This run takes each candidate once:
+
+.. code-block:: yaml
+
+   runs:
+     one_object_per_build:
+       num_rebuilds: 3
+       variations:
+         pickup.asset_selection.enabled: true
+         pickup.asset_selection.asset_names: [cracker_box, sugar_box, mustard_bottle]
+
+With the default seed 42, the three rebuilds spawn ``cracker_box``, ``sugar_box`` and
+``mustard_bottle``. Every episode row records the name, for example
+``"pickup.asset_selection": "sugar_box"``, and
+:doc:`recorded variation replay <../experiment_record_replay>` spawns the recorded asset.
+
+Add the selection to a plain ``Object``, not to a library object such as ``Mug``, whose
+methods were written for its declared asset.
+
+The task description does not name the selected asset: ``PickAndPlaceTask`` builds it from the
+object's name when the task is built. For a language-conditioned policy, pin one name per run
+with ``asset_names`` and set ``environment_builder.language_instruction``.

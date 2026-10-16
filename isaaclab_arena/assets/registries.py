@@ -4,12 +4,14 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import random
+from copy import deepcopy
 from typing import TYPE_CHECKING, Any
 
 from isaaclab_arena.utils.singleton import SingletonMeta
 
 if TYPE_CHECKING:
     from isaaclab.devices.device_base import DeviceCfg
+    from isaaclab.sim.spawners.spawner_cfg import SpawnerCfg
     from isaaclab_teleop import IsaacTeleopCfg
 
     from isaaclab_arena.assets.asset import Asset
@@ -101,6 +103,23 @@ class AssetRegistry(Registry):
         """
         ensure_assets_registered()
         return self.get_component_by_name(name)
+
+    def get_named_spawn_cfg(self, name: str, **kwargs: Any) -> tuple[str, "SpawnerCfg"]:
+        """Return the name and a copy of the spawn configuration of a registered rigid object.
+
+        Args:
+            name: Registered name of a rigid Object.
+            **kwargs: Constructor arguments for the registered object, for example ``scale``.
+        """
+        from isaaclab_arena.assets.object import Object
+        from isaaclab_arena.assets.object_type import ObjectType
+
+        asset = self.get_asset_by_name(name)(**kwargs)
+        assert isinstance(
+            asset, Object
+        ), f"Asset '{name}' is a {type(asset).__name__}; get_named_spawn_cfg needs a rigid Object."
+        assert asset.object_type == ObjectType.RIGID, f"Asset '{name}' is {asset.object_type}, not rigid."
+        return name, deepcopy(asset.object_cfg.spawn)
 
     def get_assets_by_tag(self, tag: str) -> list[type["Asset"]]:
         """Gets a list of assets by tag.

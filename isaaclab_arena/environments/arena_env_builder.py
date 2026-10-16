@@ -68,7 +68,9 @@ from isaaclab_arena.utils.isaaclab_utils.warp_patch import install_empty_cpu_war
 from isaaclab_arena.utils.multiprocess import get_local_rank
 from isaaclab_arena.utils.physics_backend import PhysicsBackend
 from isaaclab_arena.variations import variations_hydra, variations_printing
+from isaaclab_arena.variations.asset_selection_variation import AssetSelectionVariation
 from isaaclab_arena.variations.recorded_variation_replay import configure_recorded_variation_replay
+from isaaclab_arena.variations.recorded_variation_samples import RebuildVariationRecord
 from isaaclab_arena.variations.variation_base import RunTimeVariationBase, VariationBase, get_enabled_variations_by_key
 from isaaclab_arena.variations.variation_recorder import VariationRecorder
 from isaaclab_arena.variations.variation_replay_scheduler import VariationReplayScheduler
@@ -218,6 +220,29 @@ class ArenaEnvBuilder:
         VariationsEventCfg = make_configclass("VariationsEventCfg", fields)
         return VariationsEventCfg()
 
+    def _assert_replay_holds_selected_assets(
+        self, variations: dict[str, list[VariationBase]], variation_record: RebuildVariationRecord
+    ) -> None:
+        """Assert that a record with placement samples also holds a value for every enabled asset selection.
+
+        Recorded poses were solved for the assets of the recording build, so a selection drawn live could
+        put another asset at those poses.
+
+        Args:
+            variations: Variations of the environment, keyed by asset name.
+            variation_record: Record loaded for recorded variation replay.
+        """
+        if not variation_record.has_placement_samples:
+            return
+        for variation_key, variation in get_enabled_variations_by_key(variations).items():
+            if not isinstance(variation, AssetSelectionVariation):
+                continue
+            assert variation_key in variation_record.build_time_samples, (
+                f"The replayed record has placement samples but no '{variation_key}' value. Replay a record"
+                f" that holds both, or, if the poses were recorded with '{variation_key}' disabled, disable it here"
+                " too."
+            )
+
     def _apply_build_time_variations(self) -> None:
         """Configure every enabled variation at build time before ``scene_cfg`` is materialised.
 
@@ -308,6 +333,7 @@ class ArenaEnvBuilder:
                 self.cfg.recorded_variation_samples_path,
                 variations,
             )
+            self._assert_replay_holds_selected_assets(variations, variation_replay_scheduler.variation_record)
 
         # Attach the variation recorder before any sampling, so it observes both build-time samples
         # (drawn just below) and run-time samples (drawn during simulation).

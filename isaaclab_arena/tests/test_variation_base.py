@@ -226,6 +226,24 @@ def test_add_variation_raises_error_if_variation_name_is_already_attached():
         asset.add_variation(variation)
 
 
+def test_on_add_to_asset_sees_the_asset_before_the_variation_is_stored():
+    class _FirstAssetOnlyVariation(_CustomVariation):
+        def on_add_to_asset(self, asset: Asset) -> None:
+            assert asset.name == "first", f"Variation cannot be added to '{asset.name}'."
+            self.asset_variations_seen_by_hook = asset.get_variations()
+
+    first_asset = Asset(name="first")
+    variation = _FirstAssetOnlyVariation()
+    first_asset.add_variation(variation)
+    assert variation.asset_variations_seen_by_hook == []
+    assert first_asset.get_variations() == [variation]
+
+    second_asset = Asset(name="second")
+    with pytest.raises(AssertionError, match="cannot be added to 'second'"):
+        second_asset.add_variation(_FirstAssetOnlyVariation())
+    assert second_asset.get_variations() == []
+
+
 def test_two_variations_of_same_kind_coexist_when_given_distinct_names():
     """Two instances of the same variation class can attach to one asset when each
     is constructed with a distinct ``name`` override."""
