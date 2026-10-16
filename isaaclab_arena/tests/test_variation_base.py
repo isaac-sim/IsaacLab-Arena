@@ -226,9 +226,9 @@ def test_add_variation_raises_error_if_variation_name_is_already_attached():
         asset.add_variation(variation)
 
 
-def test_attach_to_asset_sees_the_asset_before_the_variation_is_stored():
+def test_on_add_to_asset_sees_the_asset_before_the_variation_is_stored():
     class _FirstAssetOnlyVariation(_CustomVariation):
-        def attach_to_asset(self, asset: Asset) -> None:
+        def on_add_to_asset(self, asset: Asset) -> None:
             assert asset.name == "first", f"Variation cannot be added to '{asset.name}'."
             self.asset_variations_seen_by_hook = asset.get_variations()
 

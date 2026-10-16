@@ -118,7 +118,7 @@ class AssetSelectionVariation(BuildTimeVariationBase):
         ), f"AssetSelectionVariation '{self.name}' repeats a name in asset_names {cfg.asset_names}."
         super().apply_cfg(cfg)
 
-    def attach_to_asset(self, asset: Asset) -> None:
+    def on_add_to_asset(self, asset: Asset) -> None:
         """Keep ``asset`` as the Object whose ``object_cfg.spawn`` this selection replaces when enabled.
 
         ``asset`` must be a rigid Object, not a RigidObjectSet, without another AssetSelectionVariation, and this

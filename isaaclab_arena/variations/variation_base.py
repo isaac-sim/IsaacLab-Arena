@@ -101,11 +101,11 @@ class VariationBase(ABC):
         self._replay_sampler = replay_sampler
         self._sampler.set_replay_sampler(replay_sampler)
 
-    def attach_to_asset(self, asset: Asset) -> None:
-        """Accept ``asset`` as the asset this variation is added to. Default: accepts any asset and keeps nothing.
+    def on_add_to_asset(self, asset: Asset) -> None:
+        """Check or keep ``asset``, which is adding this variation. Default: no-op.
 
-        Override to check or keep ``asset``. ``asset.get_variations()`` does not list this variation yet, and an
-        asset that fails a check here does not get it.
+        ``asset.get_variations()`` does not list this variation yet, and an asset that fails a check here does not
+        get it.
 
         Args:
             asset: Asset the variation is added to.
