@@ -127,7 +127,8 @@ class AssetSelectionVariation(BuildTimeVariationBase):
         Args:
             asset: Object to add the selection to.
         """
-        # Imported here because the asset modules load pxr.
+        # Imported here because object.py imports this module for assert_asset_definition, and the asset modules
+        # load pxr.
         from isaaclab_arena.assets.object import Object
         from isaaclab_arena.assets.object_set import RigidObjectSet
         from isaaclab_arena.assets.object_type import ObjectType
