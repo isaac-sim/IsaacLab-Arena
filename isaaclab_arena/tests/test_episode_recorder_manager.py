@@ -148,3 +148,69 @@ def _test_non_json_output_is_rejected(simulation_app, output_dir):
 
 def test_non_json_output_is_rejected(tmp_path):
     assert run_function_with_persistent_simulation_app(partial(_test_non_json_output_is_rejected, output_dir=tmp_path))
+
+
+def _test_class_term_is_stepped_and_reset_per_env(simulation_app, output_dir):
+    import torch
+
+    from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTerm, EpisodeRecorderTermCfg
+
+    class StepCount(EpisodeRecorderTerm):
+        """Counts the control steps of each env's episode."""
+
+        def __init__(self, cfg, env):
+            super().__init__(cfg, env)
+            self._steps = torch.zeros(env.num_envs, dtype=torch.long)
+
+        def post_step(self, env):
+            self._steps += 1
+
+        def reset(self, env_ids=None):
+            self._steps[slice(None) if env_ids is None else env_ids] = 0
+
+        def __call__(self, env, env_id):
+            return {"steps": int(self._steps[env_id])}
+
+    output_path = output_dir / "records.jsonl"
+    manager = _make_manager({"step_count": EpisodeRecorderTermCfg(func=StepCount)}, output_path)
+    assert manager.has_post_step_terms
+
+    manager.reset(torch.tensor([0, 1]))
+    for _ in range(3):
+        manager.post_step()
+    manager.record_pre_reset([0])
+    # Only env 0 starts a new episode; env 1 keeps counting.
+    manager.reset(torch.tensor([0]))
+    manager.post_step()
+    manager.record_pre_reset([0, 1])
+
+    assert [record["step_count"] for record in _read_records(output_path)] == [
+        {"steps": 3},
+        {"steps": 1},
+        {"steps": 4},
+    ]
+    return True
+
+
+def test_class_term_is_stepped_and_reset_per_env(tmp_path):
+    assert run_function_with_persistent_simulation_app(
+        partial(_test_class_term_is_stepped_and_reset_per_env, output_dir=tmp_path)
+    )
+
+
+def _test_function_terms_need_no_post_step(simulation_app, output_dir):
+    from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTermCfg
+
+    manager = _make_manager(
+        {"bucket": EpisodeRecorderTermCfg(func=lambda env, env_id: {"value": 1})}, output_dir / "r.jsonl"
+    )
+    assert not manager.has_post_step_terms
+    manager.post_step()
+    assert manager.reset(None) == {}
+    return True
+
+
+def test_function_terms_need_no_post_step(tmp_path):
+    assert run_function_with_persistent_simulation_app(
+        partial(_test_function_terms_need_no_post_step, output_dir=tmp_path)
+    )
