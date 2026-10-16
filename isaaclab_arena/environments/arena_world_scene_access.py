@@ -17,6 +17,8 @@ from isaaclab.sim.views import FrameView
 from pxr import Usd, UsdGeom, UsdPhysics
 
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+from isaaclab_arena.utils.mesh_geometry import LocalMeshGeometry
+from isaaclab_arena.utils.usd.mesh import concatenate_mesh_arrays, read_mesh_arrays
 
 
 def get_representative_geometry_prim_groups(
@@ -160,6 +162,116 @@ def compute_spawned_geometry_bounds_in_local_frame(
         min_point=minimum_points_F_by_environment,
         max_point=maximum_points_F_by_environment,
     )
+
+
+def _read_mesh_geometry_in_prim_frame(local_frame_prim: Usd.Prim) -> LocalMeshGeometry:
+    """Read fixed descendant meshes in the prim's pose frame, retaining spawned scale."""
+    assert local_frame_prim.IsValid() and local_frame_prim.IsA(
+        UsdGeom.Xformable
+    ), f"Mesh geometry requires a valid Xformable root, got '{local_frame_prim.GetPath()}'."
+    time_code = Usd.TimeCode.Default()
+    transform_cache = UsdGeom.XformCache(time_code)
+    T_W_F = transform_cache.GetLocalToWorldTransform(local_frame_prim).RemoveScaleShear()
+    T_F_W = T_W_F.GetInverse()
+    meshes = []
+
+    for descendant_prim in Usd.PrimRange(local_frame_prim, Usd.TraverseInstanceProxies()):
+        prim_path = descendant_prim.GetPath()
+        assert not descendant_prim.HasAPI(
+            UsdPhysics.ArticulationRootAPI
+        ), f"Mesh geometry for '{local_frame_prim.GetPath()}' contains articulation '{prim_path}'."
+        if descendant_prim != local_frame_prim:
+            if descendant_prim.HasAPI(UsdPhysics.RigidBodyAPI):
+                rigid_body = UsdPhysics.RigidBodyAPI(descendant_prim)
+                assert (
+                    not rigid_body.GetRigidBodyEnabledAttr().Get()
+                ), f"Mesh geometry for '{local_frame_prim.GetPath()}' contains moving rigid body '{prim_path}'."
+            if descendant_prim.IsA(UsdGeom.Xformable):
+                descendant_xform = UsdGeom.Xformable(descendant_prim)
+                assert (
+                    not descendant_xform.TransformMightBeTimeVarying()
+                ), f"Mesh geometry requires fixed descendant transforms; '{prim_path}' is animated."
+                assert (
+                    not descendant_xform.GetResetXformStack()
+                ), f"Mesh geometry requires descendants to inherit the root pose; '{prim_path}' resets its transform."
+
+        if descendant_prim.IsA(UsdGeom.PointInstancer):
+            assert UsdGeom.Imageable(descendant_prim).ComputePurpose() != UsdGeom.Tokens.default_, (
+                f"Mesh geometry does not support default-purpose point instancers; '{prim_path}' requires "
+                "per-instance transforms."
+            )
+        if not descendant_prim.IsA(UsdGeom.Gprim):
+            continue
+        if UsdGeom.Imageable(descendant_prim).ComputePurpose() != UsdGeom.Tokens.default_:
+            continue
+        assert descendant_prim.IsA(UsdGeom.Mesh), (
+            f"Mesh geometry requires default-purpose UsdGeom.Mesh prims; '{prim_path}' has unsupported "
+            f"geometry type '{descendant_prim.GetTypeName()}'."
+        )
+        mesh = UsdGeom.Mesh(descendant_prim)
+        mesh_attributes = (mesh.GetPointsAttr(), mesh.GetFaceVertexCountsAttr(), mesh.GetFaceVertexIndicesAttr())
+        assert not any(
+            attribute.ValueMightBeTimeVarying() for attribute in mesh_attributes
+        ), f"Mesh geometry requires fixed vertices and topology; '{prim_path}' is animated."
+        # USD matrices multiply row vectors. Remove only the root pose, retaining all spawned scale.
+        T_F_G = np.asarray(transform_cache.GetLocalToWorldTransform(descendant_prim) * T_F_W, dtype=np.float64)
+        mesh_arrays = read_mesh_arrays(mesh, T_F_G)
+        assert (
+            mesh_arrays is not None
+        ), f"Mesh '{prim_path}' must define points, faceVertexCounts, and faceVertexIndices."
+        # Validate each mesh before index offsets could hide an invalid reference to another mesh's vertices.
+        LocalMeshGeometry(*mesh_arrays)
+        meshes.append(mesh_arrays)
+
+    assert meshes, f"Prim '{local_frame_prim.GetPath()}' has no default-purpose mesh geometry."
+    return LocalMeshGeometry(*concatenate_mesh_arrays(meshes))
+
+
+def read_spawned_meshes_in_local_frame(
+    scene: InteractiveScene,
+    scene_key: str,
+) -> tuple[tuple[LocalMeshGeometry, torch.Tensor], ...]:
+    """Read each spawned mesh variant in its pose frame with its environment indices.
+
+    Args:
+        scene: Scene containing fixed-mesh rigid objects or scene extras.
+        scene_key: Scene entry whose pose defines the local frame.
+
+    Returns:
+        Geometry and device-local long indices for each clone variant. Vertices retain
+        spawned scale and polygon topology. Descendants must remain fixed relative to
+        the local frame; articulation, deformable, and point-instanced geometry are unsupported.
+    """
+    assert (
+        scene_key not in scene.articulations and scene_key not in scene.deformable_objects
+    ), f"Mesh geometry does not support articulations or deformables; '{scene_key}' is registered as one."
+    assert (
+        scene_key in scene.rigid_objects or scene_key in scene.extras
+    ), f"Mesh geometry requires a rigid object or scene extra; '{scene_key}' is registered in neither."
+    representative_groups = get_representative_geometry_prim_groups(scene, scene_key)
+    coverage_count = [0] * scene.num_envs
+    for _representative_prim, environment_ids in representative_groups:
+        assert environment_ids, f"Mesh variant for '{scene_key}' must belong to at least one environment."
+        for environment_id in environment_ids:
+            assert (
+                0 <= environment_id < scene.num_envs
+            ), f"Mesh variant for '{scene_key}' has environment ID {environment_id} outside [0, {scene.num_envs})."
+            coverage_count[environment_id] += 1
+    assert all(
+        count == 1 for count in coverage_count
+    ), f"Mesh geometry for '{scene_key}' must cover every environment exactly once; got coverage {coverage_count}."
+
+    mesh_groups = []
+    for representative_prim, environment_ids in representative_groups:
+        local_frame_prim = (
+            _find_single_rigid_body_prim_in_subtree(representative_prim, scene_key)
+            if scene_key in scene.rigid_objects
+            else representative_prim
+        )
+        geometry = _read_mesh_geometry_in_prim_frame(local_frame_prim)
+        environment_indices = torch.tensor(environment_ids, dtype=torch.long, device=scene.device)
+        mesh_groups.append((geometry, environment_indices))
+    return tuple(mesh_groups)
 
 
 class SceneExtraPoseReader:

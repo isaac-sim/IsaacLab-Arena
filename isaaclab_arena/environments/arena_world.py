@@ -22,6 +22,7 @@ from isaaclab.utils.math import quat_apply
 import isaaclab_arena.environments.arena_world_scene_access as scene_access
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.joint_utils import get_joint_position_from_articulation
+from isaaclab_arena.utils.mesh_geometry import ConvexHullGeometry, LocalMeshGeometry, build_convex_hull
 
 
 class ArenaWorld:
@@ -31,6 +32,9 @@ class ArenaWorld:
         self._scene = scene
         self._aabbs_in_local_frame_cache: dict[str, AxisAlignedBoundingBox] = {}
         self._scene_extra_pose_reader_cache: dict[str, scene_access.SceneExtraPoseReader] = {}
+        self._meshes_in_local_frame_cache: dict[str, tuple[tuple[LocalMeshGeometry, torch.Tensor], ...]] = {}
+        self._convex_hulls_in_local_frame_cache: dict[str, tuple[tuple[ConvexHullGeometry, torch.Tensor], ...]] = {}
+        self._hull_vertex_centroids_in_local_frame_cache: dict[str, torch.Tensor] = {}
 
     # -------------------------------------------------------------------------
     # Rooted object APIs
@@ -307,7 +311,7 @@ class ArenaWorld:
         if scene_key in scene.deformable_objects:
             vertices_w = self.get_nodal_positions_w(scene_key)
         else:
-            # TODO(qianl, 2026-09-08): Return actual vertices once the rigid mesh cache is added.
+            # Keep AABB corners for existing callers; actual meshes use get_meshes_in_local_frame().
             vertices_pos_F = self.get_aabb_in_local_frame(scene_key).get_corners_at()
             if vertices_pos_F.shape[0] == 1 and scene.num_envs > 1:
                 vertices_pos_F = vertices_pos_F.expand(scene.num_envs, -1, -1)
@@ -340,6 +344,67 @@ class ArenaWorld:
             aabb_F = scene_access.compute_spawned_geometry_bounds_in_local_frame(scene, scene_key)
             self._aabbs_in_local_frame_cache[scene_key] = aabb_F
         return self._aabbs_in_local_frame_cache[scene_key]
+
+    def get_meshes_in_local_frame(self, scene_key: str) -> tuple[tuple[LocalMeshGeometry, torch.Tensor], ...]:
+        """Return cached mesh vertices and faces in local frame F.
+
+        ``get_pose_w`` maps F into world coordinates. Vertices include spawned
+        scale. Pose changes and resets reuse the cache. Geometry, scale, and
+        variant assignments must remain fixed for this ArenaWorld's lifetime.
+
+        Args:
+            scene_key: Rigid-object or fixed-geometry scene-extra name.
+
+        Returns:
+            One ``(local_mesh, environment_indices)`` pair per spawned variant,
+            identifying environments that share its geometry. Do not modify the
+            cached arrays or index tensors.
+        """
+        if scene_key not in self._meshes_in_local_frame_cache:
+            self._meshes_in_local_frame_cache[scene_key] = scene_access.read_spawned_meshes_in_local_frame(
+                self._scene, scene_key
+            )
+        return self._meshes_in_local_frame_cache[scene_key]
+
+    def get_convex_hulls_in_local_frame(self, scene_key: str) -> tuple[tuple[ConvexHullGeometry, torch.Tensor], ...]:
+        """Return cached convex hulls in local frame F.
+
+        Frame, scale, and cache requirements match ``get_meshes_in_local_frame``.
+
+        Args:
+            scene_key: Rigid-object or fixed-geometry scene-extra name.
+
+        Returns:
+            One ``(local_hull, environment_indices)`` pair per spawned variant,
+            with tensors on the scene device. Do not modify the cached tensors.
+        """
+        if scene_key not in self._convex_hulls_in_local_frame_cache:
+            hull_groups = []
+            vertex_centroids_F = torch.empty((self._scene.num_envs, 3), device=self._scene.device, dtype=torch.float32)
+            for local_mesh, environment_indices in self.get_meshes_in_local_frame(scene_key):
+                local_hull = build_convex_hull(local_mesh.vertices, device=self._scene.device)
+                hull_groups.append((local_hull, environment_indices))
+                vertex_centroids_F[environment_indices] = local_hull.vertex_centroid
+            self._convex_hulls_in_local_frame_cache[scene_key] = tuple(hull_groups)
+            self._hull_vertex_centroids_in_local_frame_cache[scene_key] = vertex_centroids_F
+        return self._convex_hulls_in_local_frame_cache[scene_key]
+
+    def get_hull_vertex_centroid_w(self, scene_key: str) -> torch.Tensor:
+        """Return the mean of each object's convex-hull vertices in world frame W.
+
+        This differs from the bounding-box center returned by ``get_centroid_w``
+        and from the center of mass.
+
+        Args:
+            scene_key: Rigid-object or fixed-geometry scene-extra name.
+
+        Returns:
+            Current world-frame hull-vertex centers with shape ``(num_envs, 3)``.
+        """
+        self.get_convex_hulls_in_local_frame(scene_key)
+        vertex_centroids_F = self._hull_vertex_centroids_in_local_frame_cache[scene_key]
+        T_W_F = self.get_pose_w(scene_key)
+        return quat_apply(T_W_F[:, 3:], vertex_centroids_F) + T_W_F[:, :3]
 
     def _get_scene_extra_pose_reader(
         self,
