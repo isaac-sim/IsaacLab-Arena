@@ -186,9 +186,13 @@ def _test_asset_selection_rejects_invalid_configuration(simulation_app, case_id)
     from isaaclab_arena.assets.object import Object
     from isaaclab_arena.assets.object_set import RigidObjectSet
     from isaaclab_arena.assets.object_type import ObjectType
+    from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
+    from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
+    from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
+    from isaaclab_arena.scene.scene import Scene
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
     from isaaclab_arena.variations import variations_hydra
-    from isaaclab_arena.variations.asset_selection_variation import AssetSelectionVariation
+    from isaaclab_arena.variations.asset_selection_variation import AssetSelectionVariation, AssetSelectionVariationCfg
 
     candidate = make_cuboid_candidate("short", 0.1)
 
@@ -203,10 +207,12 @@ def _test_asset_selection_rejects_invalid_configuration(simulation_app, case_id)
         table = Object(name="table", object_type=ObjectType.BASE, spawner_cfg=sim_utils.CuboidCfg(size=(1.0, 1.0, 0.1)))
         table.add_variation(AssetSelectionVariation([candidate]))
 
-    def add_to_object_with_bounding_box():
+    def build_with_bounding_box_set_after_add_variation():
         pickup = Object(name="pickup")
+        pickup.add_variation(AssetSelectionVariation([candidate], cfg=AssetSelectionVariationCfg(enabled=True)))
         pickup.bounding_box = AxisAlignedBoundingBox(min_point=(0.0, 0.0, 0.0), max_point=(0.1, 0.1, 0.1))
-        pickup.add_variation(AssetSelectionVariation([candidate]))
+        arena_env = IsaacLabArenaEnvironment(name="bounding_box_override", scene=Scene(assets=[pickup]))
+        ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg(num_envs=1)).compose_manager_cfg()
 
     def add_second_selection():
         pickup = Object(name="pickup")
@@ -227,7 +233,10 @@ def _test_asset_selection_rejects_invalid_configuration(simulation_app, case_id)
     invalid_configurations = {
         "rigid_object_set": (add_to_rigid_object_set, "already spawns one member per environment"),
         "base_object": (add_to_base_object, "needs a rigid Object"),
-        "bounding_box_override": (add_to_object_with_bounding_box, "bounding_box override"),
+        "bounding_box_override": (
+            build_with_bounding_box_set_after_add_variation,
+            "'pickup' sets a bounding_box override",
+        ),
         "second_selection": (add_second_selection, "already has an AssetSelectionVariation"),
         "selection_on_two_objects": (add_one_selection_to_two_objects, "was already added to 'pickup'"),
         "no_candidates": (lambda: AssetSelectionVariation([]), "at least one"),

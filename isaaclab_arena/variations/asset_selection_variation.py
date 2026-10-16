@@ -121,8 +121,8 @@ class AssetSelectionVariation(BuildTimeVariationBase):
     def attach_to_asset(self, asset: Asset) -> None:
         """Keep ``asset`` as the Object whose ``object_cfg.spawn`` this selection replaces when enabled.
 
-        ``asset`` must be a rigid Object, not a RigidObjectSet, without a bounding_box override or another
-        AssetSelectionVariation, and this selection must not be on another Object yet.
+        ``asset`` must be a rigid Object, not a RigidObjectSet, without another AssetSelectionVariation, and this
+        selection must not be on another Object yet.
 
         Args:
             asset: Object to add the selection to.
@@ -139,10 +139,6 @@ class AssetSelectionVariation(BuildTimeVariationBase):
         assert (
             isinstance(asset, Object) and asset.object_type == ObjectType.RIGID
         ), f"AssetSelectionVariation needs a rigid Object, but '{asset.name}' ({type(asset).__name__}) is not one."
-        assert asset.bounding_box is None, (
-            f"'{asset.name}' sets a bounding_box override, which placement would use for every candidate. Set"
-            " bounding_box to None to add an AssetSelectionVariation."
-        )
         assert not any(
             isinstance(variation, AssetSelectionVariation) for variation in asset.get_variations()
         ), f"'{asset.name}' already has an AssetSelectionVariation; put all candidates in that one."
@@ -162,6 +158,11 @@ class AssetSelectionVariation(BuildTimeVariationBase):
         assert (
             self._object is not None
         ), f"AssetSelectionVariation '{self.name}' was not added to an Object; add it with Object.add_variation()."
+        # Checked at build time because bounding_box can be set after add_variation.
+        assert self._object.bounding_box is None, (
+            f"'{self._object.name}' sets a bounding_box override, which placement would use for every candidate."
+            " Set bounding_box to None so placement reads the bounds of the selected asset."
+        )
         names_in_use = list(self.cfg.asset_names) or list(self._spawn_cfgs_by_name)
         # Both modes call self.sampler.sample(), which reports the name to the variation recorder and returns the
         # recorded name during replay.
