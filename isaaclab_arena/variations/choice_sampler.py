@@ -25,7 +25,7 @@ class ChoiceSamplerCfg(SamplerBaseCfg):
 
 
 class ChoiceSampler(SamplerBase, Generic[T]):
-    """Sampler returning items from a per-call ``choices`` sequence, drawn at random or in order from a start index."""
+    """Sampler returning items from a per-call ``choices`` sequence, drawn at random or taken at a given index."""
 
     def sample(
         self,
@@ -34,7 +34,7 @@ class ChoiceSampler(SamplerBase, Generic[T]):
         env_ids: torch.Tensor | None = None,
         *,
         generator: torch.Generator | None = None,
-        start_index: int | None = None,
+        index: int | None = None,
     ) -> list[T]:
         """Draw ``num_samples`` items from ``choices``.
 
@@ -46,23 +46,23 @@ class ChoiceSampler(SamplerBase, Generic[T]):
                 they can attribute values per env. ``None`` when the draw applies to all envs.
             generator: Generator to draw from; ``None`` draws from torch's global random state.
                 Unused when a replay sampler supplies the rows.
-            start_index: Index of the first item to take; the following items follow ``choices`` in order,
-                wrapping around. ``None`` draws at random. Unused when a replay sampler supplies the rows.
+            index: Return choices[index] for every sample instead of a random draw. Unused when a replay sampler
+                supplies the rows.
 
         Returns:
             A ``list`` of length ``num_samples`` of items drawn from ``choices``.
         """
         assert num_samples >= 0, f"num_samples must be non-negative; got {num_samples}."
         assert len(choices) >= 1, "ChoiceSampler requires a non-empty 'choices' sequence."
-        assert generator is None or start_index is None, "Pass either generator or start_index, not both."
+        assert generator is None or index is None, "Pass either generator or index, not both."
         replay_samples = self._get_replay_samples(num_samples, env_ids)
         if replay_samples is not None:
             assert all(value in choices for value in replay_samples), "Choice replay samples must belong to 'choices'."
             result = replay_samples
-        elif start_index is not None:
-            result = [choices[(start_index + offset) % len(choices)] for offset in range(num_samples)]
+        elif index is not None:
+            result = [choices[index]] * num_samples
         else:
             indices = torch.randint(low=0, high=len(choices), size=(num_samples,), generator=generator)
-            result = [choices[int(index)] for index in indices]
+            result = [choices[int(drawn_index)] for drawn_index in indices]
         self._notify(result, env_ids)
         return result

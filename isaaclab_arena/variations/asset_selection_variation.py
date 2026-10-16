@@ -161,6 +161,5 @@ class AssetSelectionVariation(BuildTimeVariationBase):
         if self.cfg.random_choice:
             selected_name = self.sampler.sample(1, names_in_use, generator=generator)[0]
         else:
-            start_index = self._build_seed % len(names_in_use)
-            selected_name = self.sampler.sample(1, names_in_use, start_index=start_index)[0]
+            selected_name = self.sampler.sample(1, names_in_use, index=self._build_seed % len(names_in_use))[0]
         self._object.object_cfg.spawn = deepcopy(self._spawn_cfgs_by_name[selected_name])
