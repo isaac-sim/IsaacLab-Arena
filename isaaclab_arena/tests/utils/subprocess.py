@@ -4,8 +4,10 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import os
+import signal
 import subprocess
 import sys
+from contextlib import suppress
 
 _AT_LEAST_ONE_TEST_FAILED = False
 
@@ -24,7 +26,8 @@ def run_subprocess(
     own process group.  The child-side ``SimulationAppContext`` uses this to
     SIGTERM its entire group before ``os._exit()``, preventing orphaned Kit
     children (shader compiler, GPU workers, …) from holding GPU resources and
-    blocking the next subprocess.
+    blocking the next subprocess. On timeout, the parent kills the process group
+    and prints captured output before reporting the failure.
 
     Args:
         cmd: Command to run (list of strings).
@@ -49,14 +52,26 @@ def run_subprocess(
     env["ISAACLAB_ARENA_FORCE_EXIT_ON_COMPLETE"] = "1"
 
     try:
-        result = subprocess.run(
+        with subprocess.Popen(
             cmd,
             env=env,
-            timeout=timeout_sec,
-            capture_output=capture_output,
+            stdout=subprocess.PIPE if capture_output else None,
+            stderr=subprocess.PIPE if capture_output else None,
             text=capture_output,
             start_new_session=True,
-        )
+        ) as process:
+            try:
+                stdout, stderr = process.communicate(timeout=timeout_sec)
+            except subprocess.TimeoutExpired:
+                # python.sh launches a child interpreter; killing only the shell leaves the simulation running.
+                with suppress(ProcessLookupError):
+                    os.killpg(process.pid, signal.SIGKILL)
+                stdout, stderr = process.communicate()
+                if capture_output:
+                    sys.stdout.write(stdout or "")
+                    sys.stderr.write(stderr or "")
+                raise
+            result = subprocess.CompletedProcess(cmd, process.returncode, stdout, stderr)
     except subprocess.TimeoutExpired:
         sys.stderr.write(f"\n[isaaclab-arena] Subprocess timed out after {timeout_sec}s\n")
         _AT_LEAST_ONE_TEST_FAILED = True

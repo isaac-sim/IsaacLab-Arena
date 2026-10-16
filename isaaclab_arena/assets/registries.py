@@ -165,8 +165,7 @@ class DeviceRegistry(Registry):
         retargeter_key = (device.name, embodiment.name)
         retargeter_key_str = retargeter_registry.convert_tuple_to_str(retargeter_key)
         retargeter = retargeter_registry.get_component_by_name(retargeter_key_str)()
-        pipeline_builder = retargeter.get_pipeline_builder(embodiment)
-        return device.get_device_cfg(pipeline_builder=pipeline_builder, embodiment=embodiment)
+        return retargeter.get_device_cfg(device, embodiment)
 
 
 class RetargeterRegistry(Registry):

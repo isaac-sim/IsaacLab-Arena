@@ -295,9 +295,14 @@ jobs:
       # - All subprocess-spawning tests (each spawns their own SimulationApp)
       #
       # To restore sanity here is a goal for Isaac Lab Arena v0.3.
-      - name: Run in-process Newton tests
+      - name: Run in-process Newton tests without cameras
         run: |
-          /isaac-sim/python.sh -m pytest -sv --durations=0 -m with_newton \
+          /isaac-sim/python.sh -m pytest -sv --durations=0 -m "with_newton and not with_cameras and not with_subprocess" \
+            isaaclab_arena/tests/
+
+      - name: Run in-process Newton tests with cameras
+        run: |
+          /isaac-sim/python.sh -m pytest -sv --durations=0 -m "with_newton and with_cameras and not with_subprocess" \
             isaaclab_arena/tests/
 
       - name: Run in-process PhysX tests without cameras
@@ -344,10 +349,16 @@ jobs:
       # NOTE(alexmillane): These tests are unreliable at the moment, and often stall,
       # causing the whole CI run to fail. I am moving these to a parallel job, and then
       # will make the job containing them optional in terms of passing.
+      - name: Run subprocess-spawning Newton tests
+        run: |
+          ISAACLAB_ARENA_SUBPROCESS_TIMEOUT=900 \
+          /isaac-sim/python.sh -m pytest -sv --durations=0 -m "with_newton and with_subprocess" \
+            isaaclab_arena/tests/
+
       - name: Run subprocess-spawning PhysX tests
         run: |
           ISAACLAB_ARENA_SUBPROCESS_TIMEOUT=900 \
-          /isaac-sim/python.sh -m pytest -sv --durations=0 -m with_subprocess \
+          /isaac-sim/python.sh -m pytest -sv --durations=0 -m "with_subprocess and not with_newton" \
             isaaclab_arena/tests/
 
 

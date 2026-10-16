@@ -144,11 +144,18 @@ jobs:
           git config --global --add safe.directory '*'
           uv sync --group gr00t-client --extra dev
 
-      - name: Run in-process Newton tests
+      - name: Run in-process Newton tests without cameras
         shell: bash
         run: |
           source .venv/bin/activate
-          pytest -sv --durations=0 -m with_newton \
+          pytest -sv --durations=0 -m "with_newton and not with_cameras and not with_subprocess" \
+            isaaclab_arena/tests/
+
+      - name: Run in-process Newton tests with cameras
+        shell: bash
+        run: |
+          source .venv/bin/activate
+          pytest -sv --durations=0 -m "with_newton and with_cameras and not with_subprocess" \
             isaaclab_arena/tests/
 
       - name: Run in-process PhysX tests without cameras
@@ -162,7 +169,15 @@ jobs:
         shell: bash
         run: |
           source .venv/bin/activate
-          pytest -sv --durations=0 -m "with_cameras and not with_subprocess" \
+          pytest -sv --durations=0 -m "with_cameras and not with_subprocess and not with_newton" \
+            isaaclab_arena/tests/
+
+      - name: Run subprocess-spawning Newton tests
+        shell: bash
+        run: |
+          source .venv/bin/activate
+          ISAACLAB_ARENA_SUBPROCESS_TIMEOUT=900 \
+          pytest -sv --durations=0 -m "with_newton and with_subprocess" \
             isaaclab_arena/tests/
 
       - name: Run subprocess-spawning PhysX tests
@@ -170,7 +185,7 @@ jobs:
         run: |
           source .venv/bin/activate
           ISAACLAB_ARENA_SUBPROCESS_TIMEOUT=900 \
-          pytest -sv --durations=0 -m with_subprocess \
+          pytest -sv --durations=0 -m "with_subprocess and not with_newton" \
             isaaclab_arena/tests/
 
       - name: Run GR00T remote policy client tests

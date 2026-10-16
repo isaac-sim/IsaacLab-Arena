@@ -192,9 +192,11 @@ def _test_droid_abs_joint_pos_newton_preset_applies_newton_spawn(simulation_app)
     env_cfg = _build_env_cfg(presets="newton", embodiment=DroidAbsoluteJointPositionEmbodiment())
     assert isinstance(env_cfg.sim.physics, NewtonCfg)
     assert env_cfg.scene.robot.spawn.func is spawn_newton_droid
-    gripper_joint_names = list(_DROID_NEWTON_GRIPPER_MIMIC_SIGNS)
-    assert env_cfg.scene.robot.actuators["gripper"].joint_names_expr == gripper_joint_names
-    assert env_cfg.actions.gripper_action.joint_names == gripper_joint_names
+    assert env_cfg.scene.robot.actuators["gripper"].joint_names_expr == ["finger_joint"]
+    assert env_cfg.actions.gripper_action.joint_names == ["finger_joint"]
+    followers = env_cfg.scene.robot.actuators["gripper_followers"]
+    assert set(followers.joint_names_expr) == set(_DROID_NEWTON_GRIPPER_MIMIC_SIGNS) - {"finger_joint"}
+    assert followers.stiffness == followers.damping == 0.0
     assert env_cfg.observations.policy.gripper_pos.func is newton_gripper_pos
     return True
 
@@ -206,9 +208,11 @@ def _test_droid_rel_joint_pos_newton_preset_applies_newton_gripper(simulation_ap
     )
 
     env_cfg = _build_env_cfg(presets="newton", embodiment=DroidRelativeJointPositionEmbodiment())
-    gripper_joint_names = list(_DROID_NEWTON_GRIPPER_MIMIC_SIGNS)
-    assert env_cfg.scene.robot.actuators["gripper"].joint_names_expr == gripper_joint_names
-    assert env_cfg.actions.gripper_action.joint_names == gripper_joint_names
+    assert env_cfg.scene.robot.actuators["gripper"].joint_names_expr == ["finger_joint"]
+    assert env_cfg.actions.gripper_action.joint_names == ["finger_joint"]
+    followers = env_cfg.scene.robot.actuators["gripper_followers"]
+    assert set(followers.joint_names_expr) == set(_DROID_NEWTON_GRIPPER_MIMIC_SIGNS) - {"finger_joint"}
+    assert followers.stiffness == followers.damping == 0.0
     return True
 
 
