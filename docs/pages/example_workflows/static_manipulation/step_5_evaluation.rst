@@ -111,11 +111,11 @@ Test the policy in a single environment with visualization via the GUI run:
      gr1_open_microwave \
      --embodiment gr1_joint
 
-The evaluation should produce the following output on the console at the end of the evaluation.
-You should see similar metrics. The success rate shall be more than 0.8, and the door moved rate
-should be greater than 0.9, and the number of episodes should be in the range of 10-20.
+At the end of the evaluation, the console shows the number of finished episodes and the success rate.
+You should see similar results. The success rate shall be more than 0.8, and the number of episodes
+should be in the range of 10-20.
 
-Note that all these metrics are computed over the entire evaluation process, and are affected by the quality of
+Note that the success rate is computed over the entire evaluation process, and is affected by the quality of
 post-trained policy, the quality of the dataset, and number of steps in the evaluation.
 
 .. tab-set::
@@ -124,13 +124,21 @@ post-trained policy, the quality of the dataset, and number of steps in the eval
 
       .. code-block:: text
 
-         Metrics: {'success_rate': 0.8823529411764706, 'revolute_joint_moved_rate': 1.0, 'num_episodes': 17}
+         +----------+----------+--------------+
+         | Run Name | Episodes | Success Rate |
+         +----------+----------+--------------+
+         |    .     |    17    |    0.8824    |
+         +----------+----------+--------------+
 
    .. tab-item:: Low Hardware Requirements
 
       .. code-block:: text
 
-         Metrics: {'success_rate': 1.0, 'revolute_joint_moved_rate': 1.0, 'num_episodes': 19}
+         +----------+----------+--------------+
+         | Run Name | Episodes | Success Rate |
+         +----------+----------+--------------+
+         |    .     |    19    |    1.0000    |
+         +----------+----------+--------------+
 
 
 Step 2: Run Parallel Environments Evaluation
@@ -185,13 +193,17 @@ or truncated (if timeouts are enabled, like the maximum episode length is exceed
 
    Resetting policy for terminated env_ids: tensor([7], device='cuda:0') and truncated env_ids: tensor([], device='cuda:0', dtype=torch.int64)
 
-At the end of the evaluation, you should see the following output on the console indicating the metrics.
-You can see that the success rate and door moved rate might not be 1.0 as more trials are being evaluated, and the number of episodes is more
+At the end of the evaluation, you should see the following output on the console.
+You can see that the success rate might not be 1.0 as more trials are being evaluated, and the number of episodes is more
 than the single environment evaluation because of the parallel evaluation.
 
 .. code-block:: text
 
-   Metrics: {'success_rate': 0.605, 'revolute_joint_moved_rate': 0.955, 'num_episodes': 200}
+   +----------+----------+--------------+
+   | Run Name | Episodes | Success Rate |
+   +----------+----------+--------------+
+   |    .     |   200    |    0.6050    |
+   +----------+----------+--------------+
 
 .. note::
 

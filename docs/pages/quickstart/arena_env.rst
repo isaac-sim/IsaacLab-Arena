@@ -175,8 +175,8 @@ Under the hood, Arena assembles this environment in seven steps:
    controls.
 5. **Compose the scene.** Arena collects the background, lighting, objects, and their spatial
    references into a scene. The robot remains separate from the scene.
-6. **Define the task.** The task describes the objective, success and failure conditions, and
-   evaluation metrics independently of the selected assets.
+6. **Define the task.** The task describes the objective and its success and failure conditions
+   independently of the selected assets.
 7. **Assemble the environment.** Arena combines the scene, embodiment, and task into an environment
    that Isaac Lab can run.
 

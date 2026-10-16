@@ -14,7 +14,6 @@ class _RolloutEnvironment:
     """Return scheduled completion events without simulating episode scheduling."""
 
     def __init__(self, step_results):
-        self.cfg = SimpleNamespace(metrics=None)
         self.step_results = iter(step_results)
         self.configured_episode_limits = []
         self.reset_called = False
@@ -81,9 +80,8 @@ def test_episode_rollout_waits_for_every_completion_and_resets_only_replacements
     policy = _Policy()
     progress_bar = _capture_progress(monkeypatch, total=4)
 
-    metrics = policy_runner.rollout_policy(_wrap_environment(environment), policy, num_steps=None, num_episodes=4)
+    policy_runner.rollout_policy(_wrap_environment(environment), policy, num_steps=None, num_episodes=4)
 
-    assert metrics is None
     assert environment.configured_episode_limits == [4]
     assert environment.steps_completed == 4
     assert policy.reset_calls == [None, [0]]

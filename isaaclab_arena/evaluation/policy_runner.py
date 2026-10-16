@@ -18,7 +18,6 @@ from isaaclab_arena.evaluation.policy_runner_cli import (
     add_policy_runner_arguments,
     build_policy_from_cli,
 )
-from isaaclab_arena.metrics.metrics_logger import metrics_to_plain_python_types
 from isaaclab_arena.utils.hydra_overrides import assert_hydra_overrides
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
 from isaaclab_arena.utils.multiprocess import get_local_rank, get_world_size
@@ -28,7 +27,6 @@ from isaaclab_arena.visualization.report import build_report, serve_until_ctrl_c
 from isaaclab_arena_environments.cli import get_arena_builder_from_cli, get_isaaclab_arena_environments_cli_parser
 
 if TYPE_CHECKING:
-    from isaaclab_arena.metrics.metric_data import MetricsDataCollection
     from isaaclab_arena.policy.policy_base import PolicyBase
 
 
@@ -68,7 +66,7 @@ def rollout_policy(
     policy: PolicyBase,
     num_steps: int | None,
     num_episodes: int | None,
-) -> MetricsDataCollection | None:
+) -> None:
     import torch
 
     assert num_steps is not None or num_episodes is not None, "Either num_steps or num_episodes must be provided"
@@ -95,20 +93,13 @@ def rollout_policy(
                 with Timer("policy_inference"):
                     actions = policy.get_action(env, obs)
                 with Timer("env_step"):
-                    obs, _, terminated, truncated, _ = env.step(actions)
+                    obs, _, _, _, _ = env.step(actions)
 
                 reset_env_ids = env.unwrapped.reset_env_ids
                 if reset_env_ids.numel() > 0:
                     print(f"Resetting policy state for env_ids: {reset_env_ids}")
                     policy.reset(env_ids=reset_env_ids)
 
-                if terminated.any() or truncated.any():
-                    if hasattr(env.unwrapped.cfg, "metrics") and env.unwrapped.cfg.metrics is not None:
-                        metrics = env.unwrapped.compute_metrics()
-                        tqdm.tqdm.write(
-                            f"[Rank {get_local_rank()}/{get_world_size()}] Metrics:"
-                            f" {metrics_to_plain_python_types(metrics)}"
-                        )
                 if num_episodes is not None:
                     completed_episode_count = env.unwrapped.completed_episode_count
                     pbar.update(completed_episode_count - pbar.n)
@@ -127,14 +118,6 @@ def rollout_policy(
         if pbar is not None:
             pbar.close()
         raise RuntimeError(f"Error rolling out policy: {e}")
-
-    else:
-
-        # Only compute metrics if env has non-None metrics.
-        # Use unwrapped to reach the base env through any gym wrappers (e.g. OrderEnforcing)
-        if hasattr(env.unwrapped.cfg, "metrics") and env.unwrapped.cfg.metrics is not None:
-            return env.unwrapped.compute_metrics()
-        return None
 
 
 def list_variations(args_parser: argparse.ArgumentParser) -> None:
@@ -241,10 +224,7 @@ def main():
 
         steps_str = f"{num_steps} steps" if num_steps is not None else f"{num_episodes} episodes"
         print(f"[Rank {local_rank}/{world_size}] Starting rollout ({steps_str})")
-        metrics = rollout_policy(env, policy, num_steps, num_episodes)
-
-        if metrics is not None:
-            print(f"[Rank {local_rank}/{world_size}] Metrics: {metrics_to_plain_python_types(metrics)}")
+        rollout_policy(env, policy, num_steps, num_episodes)
 
         # NOTE(huikang, 2025-12-30)Explicitly clean up the remote policy client / server.
         # Do NOT rely on a __del__ destructor in policy for this, since destructors are

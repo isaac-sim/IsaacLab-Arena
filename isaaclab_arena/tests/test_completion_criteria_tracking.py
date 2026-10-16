@@ -697,9 +697,6 @@ def _test_task_termination_cfg_assigns_flat_criteria_to_subtasks(
             def get_mimic_env_cfg(self, arm_mode):
                 return None
 
-            def get_metrics(self):
-                return []
-
         import pytest
 
         with pytest.raises(TypeError, match="get_termination_cfg"):

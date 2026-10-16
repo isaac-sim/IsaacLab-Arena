@@ -6,7 +6,7 @@ Composite and Sequential Tasks
 * By default, subtasks may finish in any order.
 * ``subtasks_are_sequential=True`` requires them to finish in the listed order.
 
-The class combines the subtasks' scene settings, reset events, and metrics.
+The class combines the subtasks' scene settings and reset events.
 Its ``get_termination_cfg()`` returns one ``TaskTerminationCfg`` with the subtasks' success
 criteria, failure conditions, and a time limit for the whole task.
 

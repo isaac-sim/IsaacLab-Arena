@@ -129,12 +129,13 @@ fresh environment for every Run.
    Nine closed-loop Runs of GR00T N1.6 on the DROID embodiment. Each cell changes the
    pick-up object, HDR background, and destination.
 
-When all Runs finish, Arena prints a summary table followed by a metrics report:
+When all Runs finish, Arena prints a summary table. After writing the evaluation report, it prints
+each Run's episode count and success rate:
 
-.. dropdown:: Example Run summary and metrics
+.. dropdown:: Example Run summary and success rates
    :animate: fade-in
 
-   Metric values can vary between evaluations. This is example output:
+   Success rates can vary between evaluations. This is example output:
 
    .. code-block:: text
 
@@ -152,32 +153,16 @@ When all Runs finish, Arena prints a summary table followed by a metrics report:
       |        droid_pnp_srl_gr00t_mug        | completed | gr00t_remote_closedloop |    1     |   None    |      3       |      1       |
       +---------------------------------------+-----------+-------------------------+----------+-----------+--------------+--------------+
 
-      ======================================================================
-      METRICS SUMMARY
-      ======================================================================
-
-      droid_pnp_srl_gr00t_alphabet_soup_can:
-        num_episodes                            3
-        object_moved_rate                  0.0000
-        success_rate                       0.0000
-
-      droid_pnp_srl_gr00t_billiard_hall:
-        num_episodes                            3
-        object_moved_rate                  0.3333
-        success_rate                       0.0000
-
-      droid_pnp_srl_gr00t_blue_block:
-        num_episodes                            3
-        object_moved_rate                  0.0000
-        success_rate                       0.0000
-
-      droid_pnp_srl_gr00t_lemon:
-        num_episodes                            3
-        object_moved_rate                  1.0000
-        success_rate                       0.6667
-
       ...
-      ======================================================================
+
+      +---------------------------------------+----------+--------------+
+      |                Run Name               | Episodes | Success Rate |
+      +---------------------------------------+----------+--------------+
+      | droid_pnp_srl_gr00t_alphabet_soup_can |    3     |    0.0000    |
+      |   droid_pnp_srl_gr00t_billiard_hall   |    3     |    0.0000    |
+      |     droid_pnp_srl_gr00t_blue_block    |    3     |    0.0000    |
+      |       droid_pnp_srl_gr00t_lemon       |    3     |    0.6667    |
+      ...
 
 These results show that zero-shot deployment of robotic foundation models remains
 challenging. Recent

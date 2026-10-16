@@ -20,9 +20,6 @@ from isaaclab_arena.assets.object_type import ObjectType
 from isaaclab_arena.assets.register import agent_ready, register_task
 from isaaclab_arena.assets.registries import ObjectRelationLibraryRegistry
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
-from isaaclab_arena.metrics.metric_base import MetricBase
-from isaaclab_arena.metrics.object_moved import ObjectMovedRateMetric
-from isaaclab_arena.metrics.success_rate import SuccessRateMetric
 from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
 from isaaclab_arena.tasks.common.mimic_default_params import MIMIC_DATAGEN_CONFIG_DEFAULTS
 from isaaclab_arena.tasks.predicates.object_settling import objects_settled
@@ -146,9 +143,6 @@ class PickAndPlaceTask(TaskBase):
             pick_up_object_name=self.pick_up_object.name,
             destination_location_name=self.destination_object.name,
         )
-
-    def get_metrics(self) -> list[MetricBase]:
-        return [SuccessRateMetric(), ObjectMovedRateMetric(self.pick_up_object)]
 
     def get_termination_cfg(self) -> TaskTerminationCfg:
         object_dropped = TerminationTermCfg(
