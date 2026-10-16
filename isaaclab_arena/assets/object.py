@@ -51,23 +51,25 @@ class Object(RootedObjectBase):
         spawn_cfg_addon: dict[str, Any] = kwargs.pop("spawn_cfg_addon", {}) or {}
         asset_cfg_addon: dict[str, Any] = kwargs.pop("asset_cfg_addon", {}) or {}
         assert usd_path is None or spawner_cfg is None, "usd_path and spawner_cfg cannot both be provided."
-        if asset is not None or (usd_path is None and spawner_cfg is None):
-            # The asset comes from asset= or, at build time, from an AssetSelectionVariation, so spawn options
-            # belong in that asset's spawn configuration.
+        if asset is not None:
             assert (
                 usd_path is None and spawner_cfg is None
             ), f"Object '{name}': asset= cannot be combined with usd_path or spawner_cfg."
+        if usd_path is None and spawner_cfg is None:
             assert object_type in (
                 None,
                 ObjectType.RIGID,
             ), f"Object '{name}' is declared with asset= or without an asset, so it must be rigid; got {object_type}."
+            # The asset comes from asset= or, at build time, from an AssetSelectionVariation, so spawn options
+            # belong in that asset's spawn configuration.
             assert (
                 tuple(scale) == (1.0, 1.0, 1.0) and not spawn_cfg_addon
             ), f"Object '{name}': set scale and spawn_cfg_addon in the asset's spawn configuration, not on the Object."
             object_type = ObjectType.RIGID
             if asset is not None:
                 assert_asset_definition(asset, owner=f"Object '{name}' asset=")
-                spawner_cfg = deepcopy(asset[1])
+                _, default_spawn_cfg = asset
+                spawner_cfg = deepcopy(default_spawn_cfg)
         if spawner_cfg is not None:
             assert object_type is not None, "object_type must be provided if spawner_cfg is provided"
         # Detect object type if not provided
