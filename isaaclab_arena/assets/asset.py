@@ -32,11 +32,12 @@ class Asset:
         """Attach a variation under its instance ``name``, which must not already be attached.
 
         Subclasses call this from their ``__init__`` to declare the variations
-        they support.
+        they support. The variation's ``attach_to_asset`` hook can reject this asset.
         """
         assert (
             variation.name not in self.variations
         ), f"Asset '{self.name}' ({type(self).__name__}) already has variation '{variation.name}' attached."
+        variation.attach_to_asset(self)
         self.variations[variation.name] = variation
 
     def get_variation(self, name: str) -> VariationBase:

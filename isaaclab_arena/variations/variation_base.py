@@ -23,12 +23,15 @@ import torch
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from dataclasses import field
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from isaaclab.managers import EventTermCfg
 from isaaclab.utils.configclass import configclass
 
 from isaaclab_arena.variations.sampler_base import SamplerBase, SamplerBaseCfg
+
+if TYPE_CHECKING:
+    from isaaclab_arena.assets.asset import Asset
 
 
 @configclass
@@ -97,6 +100,16 @@ class VariationBase(ABC):
         """Route future draws through an optional replay sampler."""
         self._replay_sampler = replay_sampler
         self._sampler.set_replay_sampler(replay_sampler)
+
+    def attach_to_asset(self, asset: Asset) -> None:
+        """Accept ``asset`` as the asset this variation is added to. Default: accepts any asset and keeps nothing.
+
+        Override to check or keep ``asset``. ``asset.get_variations()`` does not list this variation yet, and an
+        asset that fails a check here does not get it.
+
+        Args:
+            asset: Asset the variation is added to.
+        """
 
     def _prepare_at_build_time(self) -> None:
         """Configure prerequisites required before environment construction. Default: no-op.
