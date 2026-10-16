@@ -33,13 +33,14 @@ def _make_env(num_envs: int = 2):
 
 
 def _make_manager(terms: dict, output_path, env=None):
-    """Build an EpisodeRecorderManager for the given terms that writes to output_path."""
+    """Build an EpisodeRecorderManager for the given terms that writes to output_path (no file if None)."""
     from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderManager, EpisodeRecorderTermCfg
     from isaaclab_arena.utils.configclass import make_configclass
 
     fields = [(name, EpisodeRecorderTermCfg, term_cfg) for name, term_cfg in terms.items()]
     manager = EpisodeRecorderManager(make_configclass("TestEpisodeRecordersCfg", fields)(), env or _make_env())
-    manager.set_output_path(output_path)
+    if output_path is not None:
+        manager.set_output_path(output_path)
     return manager
 
 
@@ -148,6 +149,26 @@ def _test_non_json_output_is_rejected(simulation_app, output_dir):
 
 def test_non_json_output_is_rejected(tmp_path):
     assert run_function_with_persistent_simulation_app(partial(_test_non_json_output_is_rejected, output_dir=tmp_path))
+
+
+def _test_manager_without_output_path_does_not_call_terms(simulation_app):
+    from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTermCfg
+
+    term_calls = []
+
+    def record_nan(env, env_id):
+        term_calls.append(env_id)
+        return {"peak": float("nan")}
+
+    manager = _make_manager({"speed": EpisodeRecorderTermCfg(func=record_nan)}, output_path=None)
+    manager.record_pre_reset([0, 1])
+
+    assert term_calls == []
+    return True
+
+
+def test_manager_without_output_path_does_not_call_terms():
+    assert run_function_with_persistent_simulation_app(_test_manager_without_output_path_does_not_call_terms)
 
 
 def _test_class_term_is_stepped_and_reset_per_env(simulation_app, output_dir):
