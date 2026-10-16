@@ -52,12 +52,16 @@ class EpisodeRecorderTerm(ManagerTermBase):
     Subclasses keep one entry of state per env, update it in ``post_step()``, clear it in ``reset()``,
     and return the finished episode's output from ``__call__``. Update state in place: the env may be
     stepped inside ``torch.inference_mode()`` and reset outside it.
+
+    A subclass declares ``__call__(self, env, env_id, <name>, ...)`` with one named parameter for each
+    key in ``cfg.params``. Isaac Lab counts a ``**params`` parameter as a required one, so it must not
+    be declared.
     """
 
     def post_step(self, env) -> None:
         """Update the per-env state after a control step. Does nothing by default."""
 
-    def __call__(self, env, env_id: int, **params) -> dict[str, Any] | None:
+    def __call__(self, env, env_id: int) -> dict[str, Any] | None:
         """Return the output for env_id's finished episode, or None to leave it out of the record."""
         raise NotImplementedError
 
@@ -142,6 +146,10 @@ class EpisodeRecorderManager(ManagerBase):
                 if output is None:
                     continue
                 self._assert_json_object(term_name, output)
+                assert term_name not in record, (
+                    f"Episode recorder term '{term_name}' would overwrite a core record field; "
+                    "add the field to CORE_FIELD_NAMES."
+                )
                 record[term_name] = output
             self._append_record(record)
 
