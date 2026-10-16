@@ -2,8 +2,7 @@ Kitchen Benchmark Catalog
 =========================
 
 The kitchen benchmark contains 42 DROID tasks defined as environment graph
-YAML specs under ``isaaclab_arena_environments/kitchen_bench/``. Pass a spec
-to ``policy_runner.py`` with ``--env_spec`` to run that environment.
+YAML specs under ``isaaclab_arena_environments/kitchen_bench/``.
 π0.5 (``pi05_droid_jointpos``, DROID adapter) was evaluated on 100 episodes per
 environment on October 28, 2026.
 
@@ -50,6 +49,35 @@ environment on October 28, 2026.
    * - **Total**
      - **42**
      - **38.3%**
+
+To run one of these environments, set ``environment.type`` in an
+:doc:`Arena Experiment <../concepts/concept_arena_experiments>` Run to the path
+of its spec. This Experiment runs the open-fridge spec with the zero-action
+policy:
+
+.. literalinclude:: ../../../isaaclab_arena_environments/experiment_configs/examples/kitchen_bench_zero_action_experiment.yaml
+   :language: yaml
+   :start-at: shared:
+
+Run it from the repository root:
+
+.. code-block:: bash
+
+   python isaaclab_arena/evaluation/experiment_runner.py \
+     --viz kit \
+     --experiment_config isaaclab_arena_environments/experiment_configs/examples/kitchen_bench_zero_action_experiment.yaml
+
+To run another spec from the table below, override the shared path:
+
+.. code-block:: bash
+
+   python isaaclab_arena/evaluation/experiment_runner.py \
+     --viz kit \
+     --experiment_config isaaclab_arena_environments/experiment_configs/examples/kitchen_bench_zero_action_experiment.yaml \
+     shared.environment.type=isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_g_shape_banana_bowl.yaml
+
+The path is declared below ``shared`` so that this override can change it. An override of
+``runs.kitchen_bench.environment.type`` is rejected.
 
 Each row links to the source YAML and shows a Pi policy execution recorded from
 the maintained DROID external camera. Rows are grouped by task category.

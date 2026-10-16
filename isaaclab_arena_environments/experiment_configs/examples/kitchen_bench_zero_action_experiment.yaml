@@ -1,0 +1,19 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Run one kitchen benchmark environment graph YAML with the zero-action policy.
+# environment.type selects the graph YAML by its path from the repository root.
+# The type is declared under shared, so shared.environment.type=<path> on the
+# command line selects another kitchen benchmark YAML.
+shared:
+  environment:
+    type: isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_open_fridge.yaml
+  policy:
+    type: zero_action
+  rollout_limit:
+    num_steps: 100
+
+runs:
+  kitchen_bench: {}
