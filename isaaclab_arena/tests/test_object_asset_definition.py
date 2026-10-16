@@ -88,7 +88,7 @@ def _test_object_rejects_asset_with_other_spawn_inputs(simulation_app, case_id: 
     object_kwargs_and_message_by_case = {
         "asset_with_usd_path": (
             {"asset": box_asset, "usd_path": "box.usd"},
-            "Object 'pickup': asset= cannot be combined with usd_path or spawner_cfg.",
+            "Object 'pickup': pass at most one of usd_path, spawner_cfg and asset.",
         ),
         "asset_with_scale": (
             {"asset": box_asset, "scale": (2.0, 2.0, 2.0)},
