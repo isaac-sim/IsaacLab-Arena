@@ -1,0 +1,20 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Enables the HDR image and wrist-camera extrinsics variations with their
+# default control parameters. Each key under variations is a Hydra path
+# printed by --list_variations.
+runs:
+  maple_table:
+    environment:
+      type: pick_and_place_maple_table
+      enable_cameras: true
+    policy:
+      type: zero_action
+    rollout_limit:
+      num_steps: 50
+    variations:
+      light.hdr_image.enabled: true
+      droid_abs_joint_pos.camera_extrinsics_wrist_camera.enabled: true
