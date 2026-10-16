@@ -32,10 +32,16 @@ The built-in ``ObjectPeakSpeed`` term records the highest speed an object reache
 
 .. code-block:: python
 
+   import math
+   import torch
+
+   from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTerm, EpisodeRecorderTermCfg
+
+
    class ObjectPeakSpeed(EpisodeRecorderTerm):
        """Records the highest linear speed [m/s] an object reached during the episode."""
 
-       def __init__(self, cfg, env):
+       def __init__(self, cfg: EpisodeRecorderTermCfg, env):
            super().__init__(cfg, env)
            self._object_name = cfg.params["object_name"]
            self._peak_linear_speed = torch.zeros(env.num_envs, device=env.device)
@@ -49,11 +55,28 @@ The built-in ``ObjectPeakSpeed`` term records the highest speed an object reache
            self._peak_linear_speed[slice(None) if env_ids is None else env_ids] = 0.0
 
        def __call__(self, env, env_id, object_name):
-           return {"object": object_name, "peak_linear_speed": float(self._peak_linear_speed[env_id])}
+           peak_linear_speed = float(self._peak_linear_speed[env_id])
+           # NaN and infinity cannot be recorded, so a value that is not finite becomes null.
+           if not math.isfinite(peak_linear_speed):
+               peak_linear_speed = None
+           return {"object": object_name, "peak_linear_speed": peak_linear_speed}
 
 Update the state in place, as above. Arena may step the environment inside
 ``torch.inference_mode()`` and reset it outside, and a tensor created inside inference mode cannot
 be changed in place outside it.
+
+A subclass declares ``__call__(self, env, env_id, ...)`` with one named parameter for each key in the
+term's ``params``, as ``object_name`` above. It must not declare ``**params``.
+
+What a term may return
+----------------------
+
+A term returns a dictionary of JSON values, or ``None`` to leave itself out of the record. The
+values can be numbers, strings, booleans, ``None`` (written as ``null``), lists, and dictionaries.
+Convert tensors first, with ``float()`` or ``tolist()``.
+
+Arena does not accept NaN or infinity. A term that returns one stops the evaluation with an error
+that names the term.
 
 Adding terms to a task or an environment
 ----------------------------------------
@@ -62,6 +85,10 @@ A task returns its terms from ``get_episode_recorder_terms()``. The dictionary k
 output is recorded under:
 
 .. code-block:: python
+
+   from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTermCfg
+   from isaaclab_arena.recording.motion_terms import ObjectPeakSpeed
+
 
    class PickAndPlaceTask(TaskBase):
        def get_episode_recorder_terms(self):
@@ -72,12 +99,49 @@ output is recorded under:
            }
 
 An environment adds terms through ``IsaacLabArenaEnvironment(episode_recorder_terms=...)``, in the
-same form. A term name may be used only once, and it must not be the name of a core field.
+same form.
+
+A term name may be used only once. These names are reserved:
+
+* The core fields: ``job_name``, ``env_id``, ``episode_in_env``, ``seed``, ``success``,
+  ``episode_length``, ``language_instruction``, ``timestamp``, and ``replay_source_record_index``.
+* The terms Arena adds to every environment: ``placement``, ``variations``, and ``progress``.
+
+Built-in motion terms
+---------------------
+
+Arena adds these terms to its tasks:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 18 16 26 40
+
+   * - Term class
+     - Recorded as
+     - Added by
+     - Fields
+   * - ``ObjectPeakSpeed``
+     - ``object_motion``
+     - Pick and place, assembly, place upright, and goal pose
+     - ``object``: the object's name. ``peak_linear_speed``: the highest linear speed [m/s],
+       sampled once per control step.
+   * - ``JointOpennessRange``
+     - ``joint_motion``
+     - Open door and close door
+     - ``object``: the object's name. ``min_openness`` and ``max_openness``: the lowest and highest
+       normalized joint position from ``Openable.get_openness``, from 0 to 1.
+
+Composite tasks built from these tasks record the same terms, with the suffix described below.
+
+A value that is not finite is recorded as ``null``. ``joint_motion`` is left out of the record for an
+episode that ended before its first control step.
 
 How the value appears in the episode results
 --------------------------------------------
 
-Each line of ``episode_results_*.jsonl`` then carries the term's output (some fields left out):
+Arena writes one ``episode_results_rebuild<N>.jsonl`` file for each environment rebuild, in the
+Run's output directory. The policy runner writes ``episode_results_rank<N>.jsonl`` instead. Each line
+then carries the term's output (some fields left out):
 
 .. code-block:: json
 
@@ -140,7 +204,15 @@ Read the records and compare the raw values against a threshold:
 
    with open("episode_results_rebuild0.jsonl", encoding="utf-8") as f:
        records = [json.loads(line) for line in f]
-   moved_rate = sum(record["object_motion"]["peak_linear_speed"] > 0.5 for record in records) / len(records)
+   peak_speeds = [record["object_motion"]["peak_linear_speed"] for record in records]
+   # A speed that was not finite is recorded as null. Leave those episodes out of the rate.
+   known_peak_speeds = [speed for speed in peak_speeds if speed is not None]
+   moved_rate = sum(speed > 0.5 for speed in known_peak_speeds) / len(known_peak_speeds)
 
 The removed metrics used these thresholds: an object counted as moved above 0.5 m/s, and a door
 counted as moved when its openness left the reset position by more than 0.05.
+
+For a door, compare ``min_openness`` and ``max_openness`` with the reset openness. The record does not
+carry the reset openness. It is the task's ``reset_openness``, which is 0.0 by default for
+``OpenDoorTask`` and 1.0 by default for ``CloseDoorTask``. The door moved if ``max_openness`` is more
+than 0.05 above it or ``min_openness`` is more than 0.05 below it.
