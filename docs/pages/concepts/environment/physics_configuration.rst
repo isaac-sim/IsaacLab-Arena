@@ -30,7 +30,8 @@ Choose where to configure a setting based on what it affects:
      - Examples
    * - Physics backend
      - The simulation
-     - ``default_physics_backend`` or CLI ``--presets``;
+     - ``default_physics_backend``, overridden by ``environment_builder.presets`` in an
+       Experiment Run or ``--presets`` in the Environment Runner;
        see :doc:`physics_backend_selection`.
      - Select PhysX or Newton.
    * - Environment configuration
