@@ -43,7 +43,7 @@ class Gr1OpenMicrowaveEnvironment(ArenaEnvironmentFactory[Gr1OpenMicrowaveEnviro
         assets = [background, microwave]
         assert cfg.embodiment in ["gr1_pink", "gr1_joint"], f"Invalid GR1T2 embodiment {cfg.embodiment}"
         embodiment = self.asset_registry.get_asset_by_name(cfg.embodiment)(enable_cameras=cfg.enable_cameras)
-        embodiment.set_initial_pose(Pose(position_xyz=(-0.4, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
+        embodiment.set_initial_pose(Pose(position_xyz=(-0.15, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
 
         if cfg.teleop_device is not None:
             teleop_device = self.device_registry.get_device_by_name(cfg.teleop_device)()
