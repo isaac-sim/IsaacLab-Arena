@@ -41,6 +41,7 @@ if TYPE_CHECKING:
 
 def _assert_interactive_runner_args(args_cli: argparse.Namespace) -> None:
     """Check that command-line arguments describe one interactive Kit environment."""
+    assert args_cli.presets in (None, PhysicsBackend.PHYSX), "environment_runner requires PhysX: use --presets physx"
     assert (
         args_cli.visualizer is not None and "kit" in args_cli.visualizer
     ), "environment_runner requires the Kit GUI; use --viz kit"

@@ -66,10 +66,30 @@ class _FakeEnvironment:
         self.close_count += 1
 
 
-def test_assert_interactive_runner_args_accepts_one_physx_kit_environment():
+@pytest.mark.parametrize("presets", [None, PhysicsBackend.PHYSX])
+def test_assert_interactive_runner_args_accepts_one_physx_kit_environment(presets):
     from isaaclab_arena.scripts import environment_runner
 
-    environment_runner._assert_interactive_runner_args(_interactive_runner_args())
+    environment_runner._assert_interactive_runner_args(_interactive_runner_args(presets=presets))
+
+
+@pytest.mark.parametrize("device_args", [[], ["--device", "cuda:0"]])
+def test_main_rejects_newton_before_launching_kit(device_args, monkeypatch):
+    from isaaclab_arena.scripts import environment_runner
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["environment_runner.py", "pick_and_place_maple_table", "--presets", "newton", *device_args],
+    )
+
+    def reject_kit_launch(args):
+        pytest.fail("Kit must not launch when the requested physics backend is unsupported")
+
+    monkeypatch.setattr(environment_runner, "SimulationAppContext", reject_kit_launch)
+
+    with pytest.raises(AssertionError, match="requires PhysX.*--presets physx"):
+        environment_runner.main()
 
 
 @pytest.mark.parametrize(
