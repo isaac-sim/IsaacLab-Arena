@@ -136,7 +136,10 @@ html_css_files = ["custom.css"]
 # Versioning
 smv_remote_whitelist = r"^.*$"
 smv_branch_whitelist = r"^(main|release/.*)$"
-smv_tag_whitelist = r"^v.*$"
+# Each release's docs come from its release/* branch, so docs fixes merged there still get
+# published. Release tags are excluded so the version switcher doesn't list a release twice.
+# The pattern matches no tag name; None would fail the -W build because Sphinx expects a str.
+smv_tag_whitelist = r"^$"
 # Remove the version badge from the sidebar.
 html_sidebars = {"**": ["sidebar-nav-bs"]}
 # Todos
