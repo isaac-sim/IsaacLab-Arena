@@ -47,7 +47,12 @@ Read only the references relevant to the requested behavior:
 - **Task semantics:** read [task composition](../../../docs/pages/concepts/task/concept_composite_tasks_design.rst)
   and [predicates and progress](../../../docs/pages/concepts/task/concept_progress_tracking_design.rst)
   for ordered milestones, current final conditions, simultaneous truth, temporal holds, and reporting.
-  Reuse existing tasks and preserve their sensors and failure conditions.
+  A missing task constructor option does not imply a missing framework capability. To customize
+  success, follow the [existing-task example](../../../docs/pages/concepts/task/concept_progress_tracking_design.rst#customize-success-conditions-in-an-existing-task):
+  replace `TaskTerminationCfg.success` with explicit `CompletionCriteria` using existing predicates,
+  while retaining the inherited sensors, failures, and timeout. Avoid editing a parent's predicate
+  sequence by numerical position. Repeating predicate configuration does not duplicate the predicates
+  or Arena's progress tracking.
 - **Variations:** read the [variation concepts](../../../docs/pages/concepts/variations/variations.rst)
   and inspect asset constructors, including [object base classes](../../../isaaclab_arena/assets/object_base.py),
   for existing attachments before adding one. Verify names, units, and sampling timing against the
@@ -70,6 +75,9 @@ Check Python/YAML syntax, referenced constructors, registration, schema conversi
 feature reuse without importing Arena on the host. In a ready runtime, build and reset the
 environment, then use bounded direct steps for inspection. Use existing focused tests to check
 changed success logic, temporal interruptions, and reset isolation across parallel environments.
+Test shortcuts relevant to the requested behavior: when ordering or release matters, check that
+moving an object before its subtask starts or leaving it held at the destination cannot complete
+the task. Ordered milestones alone do not enforce either requirement.
 Parsing or passive stepping alone does not establish task solvability.
 
 For variation inspection, use the `--list_variations` path through
