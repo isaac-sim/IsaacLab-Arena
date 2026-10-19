@@ -27,6 +27,7 @@ class CosmosRemotePolicy(RemoteChunkReplayPolicy, PolicyBase[CosmosRemotePolicyC
     """Cosmos remote closed-loop policy, parameterized by an embodiment adapter."""
 
     name = "cosmos_remote"
+    requires_camera_observations = True
     server_response_actions_key = "action"
 
     def __init__(self, config: CosmosRemotePolicyCfg) -> None:

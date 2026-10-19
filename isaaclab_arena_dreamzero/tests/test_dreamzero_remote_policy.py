@@ -131,6 +131,7 @@ def make_policy(monkeypatch):
 
 def test_config_defaults():
     """Default config values match the DreamZero server spec."""
+    assert DreamZeroRemotePolicy.requires_camera_observations
     cfg = DreamZeroRemotePolicyConfig()
     assert cfg.remote_port == 5000
     assert cfg.open_loop_horizon == 24

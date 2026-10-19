@@ -156,6 +156,7 @@ class DreamZeroRemotePolicy(PolicyBase[DreamZeroRemotePolicyConfig]):
     """
 
     name = "dreamzero_remote"
+    requires_camera_observations = True
     config_class = DreamZeroRemotePolicyConfig
 
     def __init__(
