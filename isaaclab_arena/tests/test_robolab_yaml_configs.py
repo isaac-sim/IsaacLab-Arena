@@ -102,3 +102,26 @@ def test_robolab_task_episode_lengths_match_robolab():
         if expected != 70.0:
             for subtask in task["subtasks"]:
                 assert subtask["params"]["episode_length_s"] != 70.0, f"{task_path.name}: still has the old 70.0 s"
+
+
+def test_robolab_experiment_configs_set_lighting():
+    config_paths = sorted((ROBOLAB_DIR / "experiment_configs").glob("robolab_*_tasks_pi0*.yaml"))
+    assert len(config_paths) == 5
+    for config_path in config_paths:
+        config = _load(config_path)
+        variations = config["shared"]["variations"]
+        assert variations["light"]["hdr_image"]["hdr_names"] == ["home_office_robolab"], config_path.name
+        expected_samplers = {
+            ("light", "intensity"): [500.0],
+            ("light", "color"): [1.0, 1.0, 1.0],
+            ("sphere_light", "intensity"): [5000.0],
+        }
+        for (node_id, variation_name), value in expected_samplers.items():
+            variation = variations[node_id][variation_name]
+            assert variation["enabled"] is True, f"{config_path.name}: {node_id}.{variation_name} not enabled"
+            assert variation["sampler_cfg"]["low"] == value, f"{config_path.name}: {node_id}.{variation_name} low"
+            assert variation["sampler_cfg"]["high"] == value, f"{config_path.name}: {node_id}.{variation_name} high"
+
+        for run_name, run in config["runs"].items():
+            environment_path = ROBOLAB_DIR.parents[1] / run["environment"]["type"]
+            assert environment_path.exists(), f"{config_path.name}: {run_name} environment {environment_path} missing"

@@ -21,6 +21,22 @@ shared:
       hdr_image:
         enabled: true
         hdr_names: ["home_office_robolab"]
+      intensity:
+        enabled: true
+        sampler_cfg:
+          low: [500.0]
+          high: [500.0]
+      color:
+        enabled: true
+        sampler_cfg:
+          low: [1.0, 1.0, 1.0]
+          high: [1.0, 1.0, 1.0]
+    sphere_light:
+      intensity:
+        enabled: true
+        sampler_cfg:
+          low: [5000.0]
+          high: [5000.0]
     droid_abs_joint_pos:
       camera_extrinsics_wrist_camera:
         enabled: false
