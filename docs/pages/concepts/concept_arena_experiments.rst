@@ -80,6 +80,36 @@ partial and complete replay, and episode scheduling across one or more rebuilds.
 Runs keep their YAML order and execute locally in that order.
 
 
+Camera update cadence
+---------------------
+
+Arena updates cameras once per control step by default. Policies that replay an action chunk can
+declare how many control steps they run before requesting another image; when
+``environment_builder.camera_update_period_steps`` is omitted, the Experiment Runner uses that
+policy cadence and reuses the latest camera tensors between updates.
+
+Set the value explicitly to override the policy:
+
+.. code-block:: yaml
+
+   shared:
+     environment:
+       type: pick_and_place_maple_table
+       enable_cameras: true
+     environment_builder:
+       camera_update_period_steps: 4
+
+The period applies to every camera in the composed scene. Its unit is environment control steps,
+not physics steps or seconds, so it remains aligned when an environment changes its simulation
+time step or action decimation. Observation terms remain present between updates and return the
+most recently rendered frame.
+
+Camera-video recording requests fresh images every control step unless the Experiment explicitly
+sets ``camera_update_period_steps``. With an explicit period greater than one, the recorder sees
+cached frames between camera updates and reports that behavior when the Run starts. Use an
+explicit value only when lower rendering cost is more important than control-rate video.
+
+
 .. _sequential-batch-experiment-runner:
 
 One definition, two execution paths

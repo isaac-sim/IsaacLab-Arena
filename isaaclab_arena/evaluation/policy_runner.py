@@ -16,9 +16,10 @@ from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
 from isaaclab_arena.evaluation.policy_runner_cli import (
     add_policy_cli_args,
     add_policy_runner_arguments,
-    build_policy_from_cli,
+    policy_cfg_from_cli,
 )
 from isaaclab_arena.metrics.metrics_logger import metrics_to_plain_python_types
+from isaaclab_arena.policy.policy_base import resolve_camera_update_period_steps
 from isaaclab_arena.utils.hydra_overrides import assert_hydra_overrides
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
 from isaaclab_arena.utils.multiprocess import get_local_rank, get_world_size
@@ -210,6 +211,13 @@ def main():
             record_camera_video=args_cli.record_camera_video,
             video_base_dir=output_dir,
         )
+        policy_cfg = policy_cfg_from_cli(policy_cls, args_cli)
+        arena_builder.cfg.camera_update_period_steps = resolve_camera_update_period_steps(
+            policy_cls,
+            policy_cfg,
+            arena_builder.cfg.camera_update_period_steps,
+            video_cfg.record_camera_video,
+        )
         env = arena_builder.make_registered(render_mode=video_cfg.render_mode)
 
         # Write per-episode results to disk.
@@ -218,7 +226,7 @@ def main():
         env.unwrapped.episode_recorder.set_output_path(results_path)
 
         # Create the policy through the typed config compatibility adapter.
-        policy = build_policy_from_cli(policy_cls, args_cli)
+        policy = policy_cls(policy_cfg)
 
         # Simulation length.
         if policy.has_length():

@@ -31,6 +31,10 @@ class _PolicyCfg(PolicyCfg):
 
 
 class _Policy:
+    @classmethod
+    def camera_observation_interval_steps(cls, config):
+        return 1
+
     def has_length(self):
         return False
 
@@ -68,6 +72,11 @@ class _ArenaEnvBuilder:
     def make_registered(self, env_cfg=None, env_kwargs=None, render_mode=None):
         self.made_with = SimpleNamespace(env_cfg=env_cfg, env_kwargs=env_kwargs, render_mode=render_mode)
         return _environment()
+
+
+@pytest.fixture(autouse=True)
+def _resolve_stub_policy_type(monkeypatch):
+    monkeypatch.setattr(run_execution.PolicyRegistry, "get_policy_type_for_cfg", lambda self, cfg: _Policy)
 
 
 def _builder(monkeypatch, recorders):
@@ -389,6 +398,60 @@ def test_build_environment_names_the_dataset_per_rebuild(monkeypatch):
     assert captured["environment_builder"].record_trajectories is False
     assert captured["environment_builder"].recorder_dataset_export_dir_path is None
     assert builder.made_with.render_mode == "rgb_array"
+
+
+@pytest.mark.parametrize(
+    ("configured_period_steps", "record_camera_video", "expected_period_steps"),
+    [
+        (None, False, 5),
+        (None, True, 1),
+        (3, True, 3),
+    ],
+)
+def test_build_environment_resolves_camera_update_period(
+    monkeypatch,
+    configured_period_steps,
+    record_camera_video,
+    expected_period_steps,
+):
+    builder = _ArenaEnvBuilder(_RecorderManagerCfg())
+    captured = {}
+    monkeypatch.setattr(
+        _Policy,
+        "camera_observation_interval_steps",
+        classmethod(lambda cls, config: 5),
+    )
+
+    def capture_builder(cfg):
+        captured["environment_builder"] = cfg.environment_builder
+        return builder
+
+    monkeypatch.setattr(run_execution, "build_arena_builder_from_run_cfg", capture_builder)
+    run = _run(
+        environment_builder=ArenaEnvBuilderCfg(camera_update_period_steps=configured_period_steps),
+    )
+
+    run_execution._build_environment_from_cfg(
+        run,
+        render_mode=None,
+        record_camera_video=record_camera_video,
+    )
+
+    assert captured["environment_builder"].camera_update_period_steps == expected_period_steps
+    assert run.environment_builder.camera_update_period_steps == configured_period_steps
+
+
+def test_explicit_lower_camera_cadence_reports_cached_video_frames(monkeypatch, capsys):
+    _builder(monkeypatch, _RecorderManagerCfg())
+    run = _run(environment_builder=ArenaEnvBuilderCfg(camera_update_period_steps=3))
+
+    run_execution._build_environment_from_cfg(
+        run,
+        render_mode=None,
+        record_camera_video=True,
+    )
+
+    assert "Camera video uses one fresh frame every 3 control steps" in capsys.readouterr().out
 
 
 def test_build_environment_exports_configured_trajectories_to_the_run_directory(monkeypatch, tmp_path):

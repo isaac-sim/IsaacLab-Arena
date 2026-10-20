@@ -75,6 +75,12 @@ def test_builder_configuration_requires_positive_num_envs():
         ArenaEnvBuilderCfg(num_envs=0)
 
 
+@pytest.mark.parametrize("period_steps", [0, -1, 1.5, True])
+def test_builder_configuration_requires_positive_integer_camera_period(period_steps):
+    with pytest.raises(AssertionError, match="camera_update_period_steps must be a positive integer"):
+        ArenaEnvBuilderCfg(camera_update_period_steps=period_steps)
+
+
 def test_builder_configuration_rejects_unknown_physics_backend():
     """Reject arbitrary strings at the typed builder boundary."""
     with pytest.raises(ValueError, match="unknown_backend"):

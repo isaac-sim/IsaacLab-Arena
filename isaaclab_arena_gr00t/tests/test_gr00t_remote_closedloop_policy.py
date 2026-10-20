@@ -227,19 +227,21 @@ def test_registration_builds_typed_config_and_scheduler(policy_config_yaml, fake
         PolicyRegistry().get_policy_cfg_type(gr00t_policy.Gr00tRemoteClosedloopPolicy)
         is gr00t_policy.Gr00tRemoteClosedloopPolicyCfg
     )
-    policy = gr00t_policy.Gr00tRemoteClosedloopPolicy(
-        gr00t_policy.Gr00tRemoteClosedloopPolicyCfg(
-            policy_config_yaml_path=policy_config_yaml,
-            policy_device="cpu",
-            num_envs=NUM_ENVS,
-            remote_host="unused",
-            remote_port=0,
-            scheduler="synced_batch",
-        )
+    config = gr00t_policy.Gr00tRemoteClosedloopPolicyCfg(
+        policy_config_yaml_path=policy_config_yaml,
+        policy_device="cpu",
+        num_envs=NUM_ENVS,
+        remote_host="unused",
+        remote_port=0,
+        scheduler="synced_batch",
     )
+    policy = gr00t_policy.Gr00tRemoteClosedloopPolicy(config)
 
     assert isinstance(policy.config, gr00t_policy.Gr00tRemoteClosedloopPolicyCfg)
     assert isinstance(policy._chunking_state, action_scheduling.SyncedBatchActionScheduler)
+    assert (
+        gr00t_policy.Gr00tRemoteClosedloopPolicy.camera_observation_interval_steps(config) == policy.action_chunk_length
+    )
 
 
 # ---------------- scheduler-switch tests ---------------- #

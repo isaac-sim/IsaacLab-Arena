@@ -158,6 +158,11 @@ class DreamZeroRemotePolicy(PolicyBase[DreamZeroRemotePolicyConfig]):
     name = "dreamzero_remote"
     config_class = DreamZeroRemotePolicyConfig
 
+    @classmethod
+    def camera_observation_interval_steps(cls, config: DreamZeroRemotePolicyConfig) -> int:
+        """Return the configured action-replay horizon between image requests."""
+        return config.open_loop_horizon
+
     def __init__(
         self,
         config: DreamZeroRemotePolicyConfig,

@@ -100,6 +100,7 @@ runs:
     environment_builder:
       num_envs: 2
       language_instruction: Pick up the banana.
+      camera_update_period_steps: 4
     rollout_limit:
       num_episodes: 4
 """,
@@ -117,6 +118,7 @@ runs:
     assert run.environment_builder.num_envs == 2
     assert run.environment_builder.device == "cuda:1"
     assert run.environment_builder.language_instruction == "Pick up the banana."
+    assert run.environment_builder.camera_update_period_steps == 4
     assert run.rollout_limit.num_episodes == 4
 
 

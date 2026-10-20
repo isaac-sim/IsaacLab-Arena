@@ -67,13 +67,15 @@ def test_droid_adapter_composes_cosmos_concat_view():
 def test_policy_reads_singular_action_response_key(monkeypatch):
     """The Cosmos server returns its chunk under "action" (singular), unlike openpi's "actions"."""
     assert CosmosRemotePolicy.server_response_actions_key == "action"
+    config = CosmosRemotePolicyCfg(policy_device="cpu")
+    assert CosmosRemotePolicy.camera_observation_interval_steps(config) == config.open_loop_horizon
 
     chunk = np.tile(np.arange(8, dtype=np.float32), (32, 1))
     chunk[0, -1] = 0.123  # mark row 0 so we can assert it is what get_action returns
     monkeypatch.setattr(WebsocketClientPolicy, "_wait_for_server", lambda self: (None, {}))
     monkeypatch.setattr(WebsocketClientPolicy, "infer", lambda self, request: {"action": chunk})
 
-    policy = CosmosRemotePolicy(CosmosRemotePolicyCfg(policy_device="cpu"))
+    policy = CosmosRemotePolicy(config)
     policy.set_task_description("pick up the banana and place it in the bowl")
 
     action = policy.get_action(_fake_env(), _fake_observation())

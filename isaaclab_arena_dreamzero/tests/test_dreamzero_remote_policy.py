@@ -134,6 +134,7 @@ def test_config_defaults():
     cfg = DreamZeroRemotePolicyConfig()
     assert cfg.remote_port == 5000
     assert cfg.open_loop_horizon == 24
+    assert DreamZeroRemotePolicy.camera_observation_interval_steps(cfg) == 24
 
 
 def test_config_rejects_non_positive_horizon():

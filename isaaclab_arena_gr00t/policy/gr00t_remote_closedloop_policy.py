@@ -81,6 +81,12 @@ class Gr00tRemoteClosedloopPolicy(PolicyBase[Gr00tRemoteClosedloopPolicyCfg]):
 
     name = "gr00t_remote_closedloop"
 
+    @classmethod
+    def camera_observation_interval_steps(cls, config: Gr00tRemoteClosedloopPolicyCfg) -> int:
+        """Return the configured action chunk length between image requests."""
+        policy_config = create_config_from_yaml(config.policy_config_yaml_path, Gr00tClosedloopPolicyCfg)
+        return policy_config.action_chunk_length
+
     def __init__(self, config: Gr00tRemoteClosedloopPolicyCfg):
         super().__init__(config)
 

@@ -27,6 +27,11 @@ class PolicyBase(ABC, Generic[PolicyCfgT]):
     def __init__(self, config: PolicyCfgT):
         self.config = config
 
+    @classmethod
+    def camera_observation_interval_steps(cls, config: PolicyCfgT) -> int:
+        """Return how often the policy needs fresh camera observations, in control steps."""
+        return 1
+
     @abstractmethod
     def get_action(self, env: gym.Env, observation: GymSpacesDict) -> torch.Tensor:
         """
@@ -68,3 +73,21 @@ class PolicyBase(ABC, Generic[PolicyCfgT]):
     def is_remote(self) -> bool:
         """Check if policy is run remotely."""
         return False
+
+
+def resolve_camera_update_period_steps(
+    policy_type: type[PolicyBase],
+    policy_cfg: PolicyCfg,
+    configured_period_steps: int | None,
+    record_camera_video: bool,
+) -> int:
+    """Resolve an explicit, video, or policy-selected camera cadence."""
+    if configured_period_steps is not None:
+        return configured_period_steps
+    if record_camera_video:
+        return 1
+    period_steps = policy_type.camera_observation_interval_steps(policy_cfg)
+    assert (
+        isinstance(period_steps, int) and not isinstance(period_steps, bool) and period_steps > 0
+    ), f"{policy_type.__name__}.camera_observation_interval_steps() must return a positive integer"
+    return period_steps

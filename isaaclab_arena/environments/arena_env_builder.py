@@ -63,6 +63,7 @@ from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
 from isaaclab_arena.tasks.terminations import task_success_from_progress
 from isaaclab_arena.terms.events import ResetBackgroundPhysics
 from isaaclab_arena.terms.recorders import ArenaEnvRecorderManagerCfg
+from isaaclab_arena.utils.cameras import set_camera_update_period
 from isaaclab_arena.utils.configclass import combine_configclass_instances, make_configclass
 from isaaclab_arena.utils.isaaclab_utils.warp_patch import install_empty_cpu_warp_to_torch_patch
 from isaaclab_arena.utils.multiprocess import get_local_rank
@@ -537,6 +538,15 @@ class ArenaEnvBuilder:
                 assert isinstance(
                     env_cfg.sim.physics, NewtonCfg
                 ), "env_cfg_callback changed the physics backend away from Newton."
+
+        camera_update_period_steps = self.cfg.camera_update_period_steps or 1
+        camera_update_period_s = camera_update_period_steps * env_cfg.decimation * env_cfg.sim.dt
+        camera_names = set_camera_update_period(env_cfg.scene, camera_update_period_s)
+        if camera_names:
+            print(
+                f"Updating {len(camera_names)} camera(s) every {camera_update_period_steps} control step(s)"
+                f" ({camera_update_period_s:g} s): {', '.join(camera_names)}"
+            )
 
         env_kwargs: dict[str, Any] = {
             "variation_recorder": variation_recorder,

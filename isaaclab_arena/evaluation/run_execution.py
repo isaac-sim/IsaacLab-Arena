@@ -113,6 +113,7 @@ def build_and_run(
                 rebuild_video_cfg.render_mode,
                 output_dir=output_dir,
                 rebuild_index=rebuild_index,
+                record_camera_video=rebuild_video_cfg.record_camera_video,
             )
             results_path = os.path.join(output_dir, f"episode_results_rebuild{rebuild_index}.jsonl")
             env.unwrapped.episode_recorder.set_job_name(cfg.name)
@@ -153,6 +154,7 @@ def _build_environment_from_cfg(
     render_mode: str | None,
     output_dir: str | Path = "",
     rebuild_index: int = 0,
+    record_camera_video: bool = False,
 ) -> gym.Env:
     """Compile and instantiate a run's environment.
 
@@ -161,6 +163,7 @@ def _build_environment_from_cfg(
         render_mode: Render mode required by the enabled video recorders.
         output_dir: Directory the run's recorded dataset is exported to.
         rebuild_index: Index of the rebuild this environment serves.
+        record_camera_video: Whether camera video requires fresh images every control step.
     """
     # Stamp runtime-derived recorder output options onto a copy of the run's builder cfg so composition in
     # ArenaEnvBuilder.compose_manager_cfg sees them without mutating the caller's run config.
@@ -170,6 +173,21 @@ def _build_environment_from_cfg(
         str(output_dir) if trajectory_recording_enabled else None
     )
     run_cfg.environment_builder.recorder_dataset_filename = f"dataset_{cfg.name}_rebuild{rebuild_index}"
+    from isaaclab_arena.policy.policy_base import resolve_camera_update_period_steps
+
+    configured_period_steps = run_cfg.environment_builder.camera_update_period_steps
+    policy_type = PolicyRegistry().get_policy_type_for_cfg(run_cfg.policy)
+    run_cfg.environment_builder.camera_update_period_steps = resolve_camera_update_period_steps(
+        policy_type,
+        run_cfg.policy,
+        configured_period_steps,
+        record_camera_video,
+    )
+    if record_camera_video and configured_period_steps is not None and configured_period_steps > 1:
+        print(
+            f"Camera video uses one fresh frame every {configured_period_steps} control steps;"
+            " frames observed between camera updates are cached."
+        )
     arena_builder = build_arena_builder_from_run_cfg(run_cfg)
     return arena_builder.make_registered(render_mode=render_mode)
 

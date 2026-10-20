@@ -144,6 +144,26 @@ def make_camera_observation_cfg(
     return WrappedCameraObsCfg()
 
 
+def set_camera_update_period(scene_cfg: Any, update_period_s: float) -> list[str]:
+    """Set every camera sensor in a composed scene to the same update period.
+
+    Args:
+        scene_cfg: Composed Isaac Lab scene configuration.
+        update_period_s: Camera update period in simulation seconds.
+
+    Returns:
+        Names of the camera fields that were updated.
+    """
+    assert update_period_s > 0.0, "Camera update period must be greater than zero"
+    camera_names = []
+    for config_field in fields(scene_cfg):
+        camera_cfg = getattr(scene_cfg, config_field.name)
+        if isinstance(camera_cfg, CameraCfg):
+            camera_cfg.update_period = update_period_s
+            camera_names.append(config_field.name)
+    return camera_names
+
+
 def _resolve_lookat_pose(lookat_object: Asset) -> Pose | None:
     """Return a single world-frame pose for viewer targeting."""
     initial_pose = lookat_object.get_initial_pose()

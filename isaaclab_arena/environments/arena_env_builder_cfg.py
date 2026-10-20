@@ -28,6 +28,11 @@ class ArenaEnvBuilderCfg:
     presets: PhysicsBackend | None = None
     device: str = "cuda:0"
     language_instruction: str | None = None
+    camera_update_period_steps: int | None = None
+    """Camera update period in control steps.
+
+    Evaluation frontends resolve ``None`` from the policy; direct builders use one control step.
+    """
     record_trajectories: bool = False
     """Whether to extend the recorder manager with per-step trajectory terms."""
     recorder_dataset_export_dir_path: str | None = None
@@ -40,5 +45,10 @@ class ArenaEnvBuilderCfg:
 
     def __post_init__(self) -> None:
         assert self.num_envs > 0, "num_envs must be greater than zero"
+        assert self.camera_update_period_steps is None or (
+            isinstance(self.camera_update_period_steps, int)
+            and not isinstance(self.camera_update_period_steps, bool)
+            and self.camera_update_period_steps > 0
+        ), "camera_update_period_steps must be a positive integer"
         if self.presets is not None:
             self.presets = PhysicsBackend(self.presets)

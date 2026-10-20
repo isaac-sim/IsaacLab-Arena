@@ -41,6 +41,16 @@ class Pi0RemotePolicy(RemoteChunkReplayPolicy, PolicyBase[Pi0RemotePolicyCfg]):
     name = "pi0_remote"
     server_response_actions_key = "actions"
 
+    @classmethod
+    def camera_observation_interval_steps(cls, config: Pi0RemotePolicyCfg) -> int:
+        """Return the configured action-replay horizon between image requests."""
+        adapter = _resolve_openpi_embodiment_adapter(config.openpi_embodiment_adapter)
+        assert config.policy_variant in adapter.open_loop_horizon_by_variant, (
+            f"Unknown policy_variant {config.policy_variant!r} for adapter"
+            f" {type(adapter).__name__}; known: {sorted(adapter.open_loop_horizon_by_variant)}"
+        )
+        return adapter.open_loop_horizon_by_variant[config.policy_variant]
+
     def __init__(self, config: Pi0RemotePolicyCfg) -> None:
         adapter = _resolve_openpi_embodiment_adapter(config.openpi_embodiment_adapter)
         assert config.policy_variant in adapter.open_loop_horizon_by_variant, (

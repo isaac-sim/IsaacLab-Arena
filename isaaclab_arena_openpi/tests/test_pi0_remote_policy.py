@@ -101,15 +101,15 @@ def test_registration_builds_typed_config_and_resolves_adapter(monkeypatch):
     """The registered typed config retains embodiment-adapter selection."""
     _patch_websocket_client(monkeypatch)
     assert PolicyRegistry().get_policy_cfg_type(Pi0RemotePolicy) is Pi0RemotePolicyCfg
-    policy = Pi0RemotePolicy(
-        Pi0RemotePolicyCfg(
-            policy_variant="pi05",
-            policy_device="cpu",
-            remote_host="localhost",
-            remote_port=8000,
-            openpi_embodiment_adapter="droid",
-        )
+    config = Pi0RemotePolicyCfg(
+        policy_variant="pi05",
+        policy_device="cpu",
+        remote_host="localhost",
+        remote_port=8000,
+        openpi_embodiment_adapter="droid",
     )
+    assert Pi0RemotePolicy.camera_observation_interval_steps(config) == 15
+    policy = Pi0RemotePolicy(config)
     assert isinstance(policy._adapter, Pi0DroidAdapter)
     assert policy._open_loop_horizon == 15
 

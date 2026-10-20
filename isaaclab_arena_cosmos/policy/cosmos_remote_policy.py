@@ -29,6 +29,11 @@ class CosmosRemotePolicy(RemoteChunkReplayPolicy, PolicyBase[CosmosRemotePolicyC
     name = "cosmos_remote"
     server_response_actions_key = "action"
 
+    @classmethod
+    def camera_observation_interval_steps(cls, config: CosmosRemotePolicyCfg) -> int:
+        """Return the configured action-replay horizon between image requests."""
+        return config.open_loop_horizon
+
     def __init__(self, config: CosmosRemotePolicyCfg) -> None:
         adapter = _resolve_cosmos_embodiment_adapter(config.cosmos_embodiment_adapter)
         super().__init__(config, adapter, config.open_loop_horizon)
