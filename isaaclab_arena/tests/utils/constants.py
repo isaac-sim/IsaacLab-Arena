@@ -8,11 +8,16 @@ import sys
 
 
 def _get_python_path(repo_root: str) -> str:
-    """Return the Isaac Sim python interpreter.
+    """Return the active Isaac Lab Python interpreter.
 
-    Docker bundles Isaac Sim's ``python.sh`` under the IsaacLab submodule; the
-    native uv environment uses uv-managed python.
+    Docker installs Lab into a venv based on Isaac Sim's interpreter; native
+    uv environments use their currently running interpreter.
     """
+    virtual_env = os.environ.get("VIRTUAL_ENV")
+    if virtual_env:
+        virtual_env_python = os.path.join(virtual_env, "bin", "python")
+        if os.path.exists(virtual_env_python):
+            return virtual_env_python
     docker_python = f"{repo_root}/submodules/IsaacLab/_isaac_sim/python.sh"
     return docker_python if os.path.exists(docker_python) else sys.executable
 

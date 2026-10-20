@@ -33,24 +33,44 @@ RUN --mount=type=bind,source=docker/setup/install-system-deps.sh,target=/tmp/ins
 # STAGE: isaaclab
 ################################
 FROM sim-base AS isaaclab
-COPY ./submodules/IsaacLab ${WORKDIR}/submodules/IsaacLab
 ENV ISAACLAB_PATH=${WORKDIR}/submodules/IsaacLab
 ENV TERM=xterm
+ENV VIRTUAL_ENV=/opt/isaaclab-venv
+ENV UV_PROJECT_ENVIRONMENT=${VIRTUAL_ENV}
+ENV UV_PYTHON=/isaac-sim/kit/python/bin/python3
+ENV UV_PYTHON_PREFERENCE=only-system
+ENV UV_HTTP_RETRIES=12
+ENV PATH=${VIRTUAL_ENV}/bin:${PATH}
+# Keep third-party dependency installation cached when only Isaac Lab source changes.
+COPY submodules/IsaacLab/isaaclab.sh \
+    submodules/IsaacLab/environment.yml \
+    submodules/IsaacLab/pyproject.toml \
+    submodules/IsaacLab/uv.lock \
+    ${ISAACLAB_PATH}/
+COPY submodules/IsaacLab/tools ${ISAACLAB_PATH}/tools
+COPY --parents submodules/IsaacLab/source/*/pyproject.toml ${WORKDIR}/
 RUN --mount=type=bind,source=docker/setup/install-isaaclab.sh,target=/tmp/install-isaaclab.sh \
-    bash /tmp/install-isaaclab.sh
+    --mount=type=cache,target=/root/.cache/uv \
+    bash /tmp/install-isaaclab.sh dependencies
+COPY submodules/IsaacLab ${ISAACLAB_PATH}
+RUN --mount=type=bind,source=docker/setup/install-isaaclab.sh,target=/tmp/install-isaaclab.sh \
+    --mount=type=cache,target=/root/.cache/uv \
+    bash /tmp/install-isaaclab.sh workspace
+# Subsequent uv/pip operations target the venv rather than Kit's base interpreter.
+ENV UV_PYTHON=${VIRTUAL_ENV}/bin/python
 
 ################################
 # STAGE: arena-deps
 ################################
 FROM isaaclab AS arena-deps
 COPY ./submodules/Isaac-GR00T ${WORKDIR}/submodules/Isaac-GR00T
+RUN --mount=type=bind,source=pyproject.toml,target=/tmp/arena-project/pyproject.toml \
+    --mount=type=bind,source=uv.lock,target=/tmp/arena-project/uv.lock \
+    --mount=type=bind,source=docker/setup/install-arena-deps.sh,target=/tmp/install-arena-deps.sh \
+    bash /tmp/install-arena-deps.sh
 RUN --mount=type=bind,source=isaaclab_arena_openpi/docker/OPENPI_COMMIT,target=/tmp/openpi_commit \
     --mount=type=bind,source=docker/setup/install-policy-clients.sh,target=/tmp/install-policy-clients.sh \
     bash /tmp/install-policy-clients.sh
-RUN --mount=type=bind,source=pyproject.toml,target=/tmp/arena-pyproject.toml \
-    --mount=type=bind,source=docker/setup/export_requirements.py,target=/tmp/export_requirements.py \
-    --mount=type=bind,source=docker/setup/install-arena-deps.sh,target=/tmp/install-arena-deps.sh \
-    bash /tmp/install-arena-deps.sh
 COPY --from=nvcr.io/nvidia/osmo/client:6.3.1 /osmo/osmo_cli_onedir/osmo /usr/local/osmo
 RUN ln -sf /usr/local/osmo/osmo /usr/local/bin/osmo
 RUN --mount=type=bind,source=docker/setup/install-dev-tools.sh,target=/tmp/install-dev-tools.sh \
@@ -74,7 +94,7 @@ COPY --parents \
     isaaclab_arena_examples \
     docs \
     ${WORKDIR}/
-RUN /isaac-sim/python.sh -m pip install --no-deps --no-build-isolation -e "${WORKDIR}"
+RUN uv pip install --no-deps --no-build-isolation --editable "${WORKDIR}"
 ENV LW_API_ENDPOINT="https://api-dev.lightwheel.net"
 RUN --mount=type=bind,source=docker/setup/configure-shell.sh,target=/tmp/configure-shell.sh \
     bash /tmp/configure-shell.sh
@@ -102,7 +122,7 @@ FROM dev AS dev-curobo
 RUN --mount=type=bind,from=curobo-builder,source=/wheels,target=/wheels \
     --mount=type=bind,source=docker/setup/install-curobo-runtime-deps.sh,target=/tmp/install-curobo-runtime-deps.sh \
     bash /tmp/install-curobo-runtime-deps.sh && \
-    /isaac-sim/python.sh -m pip install --no-deps /wheels/*.whl && \
+    uv pip install --no-deps /wheels/*.whl && \
     mkdir -p /usr/local/share/arena && cp /wheels/build.json /usr/local/share/arena/curobo-build.json
 
 # Default to dev (without cuRobo).
