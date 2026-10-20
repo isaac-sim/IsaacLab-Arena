@@ -537,7 +537,7 @@ class DirectionalLight(LightBase):
 
 @register_asset
 class SphereLight(LightBase):
-    """A per-environment sphere light with ``intensity`` and ``color`` variations."""
+    """A sphere light with intensity and color variations."""
 
     name = "sphere_light"
     default_prim_path = "{ENV_REGEX_NS}/sphere_light"

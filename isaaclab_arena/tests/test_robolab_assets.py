@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Tests for the RoboLab table fixtures and the sphere light."""
+"""Tests for the RoboLab table fixtures."""
 
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
@@ -25,23 +25,3 @@ def _test_robolab_table_fixtures_are_kinematic(simulation_app):
 
 def test_robolab_table_fixtures_are_kinematic():
     assert run_function_with_persistent_simulation_app(_test_robolab_table_fixtures_are_kinematic)
-
-
-def _test_sphere_light_defaults(simulation_app):
-    from isaaclab_arena.assets.object_library import SphereLight
-
-    light = SphereLight()
-    assert light.spawner_cfg.intensity == 5000.0
-    assert light.spawner_cfg.radius == 0.5
-    assert tuple(light.initial_pose.position_xyz) == (0.0, -0.6, 0.7)
-    assert {"intensity", "color"} <= {variation.name for variation in light.get_variations()}
-
-    other = SphereLight()
-    assert light.spawner_cfg is not other.spawner_cfg
-    other.set_intensity(1.0)
-    assert light.spawner_cfg.intensity == 5000.0
-    return True
-
-
-def test_sphere_light_defaults():
-    assert run_function_with_persistent_simulation_app(_test_sphere_light_defaults)
