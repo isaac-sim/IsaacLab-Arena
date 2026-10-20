@@ -126,7 +126,7 @@ jobs:
         run: |
           apt-get update
           apt-get install -y --no-install-recommends curl ca-certificates
-          curl -LsSf https://astral.sh/uv/0.9.27/install.sh | sh
+          curl -LsSf https://astral.sh/uv/0.12.9/install.sh | sh
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
       - &validate_uv_lock_step
