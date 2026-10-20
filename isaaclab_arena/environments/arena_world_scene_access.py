@@ -32,18 +32,49 @@ def get_representative_geometry_prim_groups(
     geometry_prim_path = getattr(scene.cfg, scene_key).prim_path.format(ENV_REGEX_NS=scene.env_regex_ns)
     assert scene.clone_plan is not None, f"Cannot resolve geometry for scene key '{scene_key}' without a clone plan."
 
-    clone_matches = tuple(cloner.query.iter_sources(scene.clone_plan, geometry_prim_path))
-    assert (
-        clone_matches
-    ), f"Geometry path '{geometry_prim_path}' for scene key '{scene_key}' does not match the scene clone plan."
+    clone_plan = scene.clone_plan
+    asset_templates, prototype_starts, world_ids, world_id_starts = cloner.path.get_world_prototype_asset_templates(
+        clone_plan, include_world_indices=True
+    )
+    source_paths = cloner.path.get_asset_prototype_paths(clone_plan)
+    topology = clone_plan.topology
+    candidates_by_environment: dict[int, tuple[int, str]] = {}
+    for world_group, (prototype_start, prototype_end) in enumerate(
+        zip(prototype_starts[:-1], prototype_starts[1:], strict=True)
+    ):
+        environment_ids = world_ids[world_id_starts[world_group] : world_id_starts[world_group + 1]]
+        for occurrence_index in range(prototype_start, prototype_end):
+            asset_template = asset_templates[occurrence_index]
+            if asset_template.count("{}") != 1:
+                continue
+            template_match = cloner.path.match(geometry_prim_path, asset_template)
+            asset_prototype_id = topology.world_prototypes[occurrence_index]
+            source_root = source_paths[asset_prototype_id]
+            if template_match is None or source_root is None:
+                continue
+            representative_path = f"{source_root.rstrip('/')}{template_match.suffix}"
+            specificity = len(asset_template)
+            for environment_id in environment_ids:
+                environment_id = int(environment_id)
+                previous = candidates_by_environment.get(environment_id)
+                if previous is None or specificity > previous[0]:
+                    candidates_by_environment[environment_id] = (specificity, representative_path)
+
+    assert len(candidates_by_environment) == scene.num_envs, (
+        f"Geometry path '{geometry_prim_path}' for scene key '{scene_key}' must resolve one populated clone source "
+        f"per environment; resolved {len(candidates_by_environment)} of {scene.num_envs}."
+    )
+    environment_ids_by_path: dict[str, list[int]] = {}
+    for environment_id, (_specificity, representative_path) in candidates_by_environment.items():
+        environment_ids_by_path.setdefault(representative_path, []).append(environment_id)
 
     representative_prim_groups = []
-    for _source_root, _destination_template, representative_path, environment_ids in clone_matches:
+    for representative_path, environment_ids in environment_ids_by_path.items():
         representative_prim = scene.stage.GetPrimAtPath(representative_path)
         assert (
             representative_prim.IsValid()
         ), f"Clone source '{representative_path}' for scene key '{scene_key}' is not a valid USD prim."
-        representative_prim_groups.append((representative_prim, environment_ids))
+        representative_prim_groups.append((representative_prim, tuple(sorted(environment_ids))))
     return representative_prim_groups
 
 

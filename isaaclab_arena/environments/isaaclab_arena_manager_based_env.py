@@ -174,7 +174,11 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
         self._episode_limit = num_episodes
 
     def reset(
-        self, seed: int | None = None, env_ids: Sequence[int] | None = None, options: dict | None = None
+        self,
+        env_ids: torch.Tensor | slice | None = slice(None),
+        *,
+        seed: int | None = None,
+        options: dict | None = None,
     ) -> tuple[VecEnvObs, dict]:
         """Initialize episodes, allowing subsequent explicit resets only without an episode limit."""
         assert (
@@ -191,8 +195,12 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
         # Report an episode's completion even if its environment became inactive during this step.
         return observations, rewards, terminated & active_before_step, truncated & active_before_step, extras
 
-    def _reset_idx(self, env_ids: Sequence[int]) -> None:
-        requested_env_ids = torch.as_tensor(env_ids, dtype=torch.long, device=self.device).sort().values
+    def _reset_idx(self, env_ids: Sequence[int] | torch.Tensor | slice) -> None:
+        if isinstance(env_ids, slice):
+            requested_env_ids = torch.arange(self.num_envs, device=self.device)[env_ids]
+        else:
+            requested_env_ids = torch.as_tensor(env_ids, dtype=torch.long, device=self.device)
+        requested_env_ids = requested_env_ids.sort().values
         finishing_env_ids = requested_env_ids[self._active_episode_mask[requested_env_ids]]
         if len(finishing_env_ids) > 0:
             # Record the JSONL result with the finishing episode's index

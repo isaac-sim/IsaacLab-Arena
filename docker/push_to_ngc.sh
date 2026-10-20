@@ -18,7 +18,7 @@ Build an Arena developer image, optionally tagging and pushing it to NGC.
 
 Options:
   -c       Select dev-curobo instead of dev.
-  -t tag   Output tag (default: latest, or curobo with -c).
+  -t tag   Output tag (default: lab-ga, or curobo with -c).
   -R       Build without cache.
   -p       Push the built image to NGC.
   -v       Verbose output.

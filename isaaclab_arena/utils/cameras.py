@@ -15,6 +15,7 @@ from isaaclab.managers import ObservationGroupCfg as ObsGroup
 from isaaclab.managers import ObservationTermCfg as ObsTerm
 from isaaclab.managers import SceneEntityCfg
 from isaaclab.sensors import CameraCfg, TiledCameraCfg  # noqa: F401
+from isaaclab.utils.images import is_depth_like, is_normals_like, is_rgb_like
 
 from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.utils.configclass import make_configclass
@@ -105,9 +106,23 @@ def make_camera_observation_cfg(
         # one ObsTerm per modality
         for dt in dtypes:
             field_name = f"{name}_{dt}"
+            params = {"sensor_cfg": SceneEntityCfg(name), "normalize": normalize}
+            if is_rgb_like(dt):
+                image_func = mdp.image_rgb
+                params["data_type"] = dt
+            elif is_depth_like(dt):
+                image_func = mdp.image_depth
+                params["data_type"] = dt
+            elif is_normals_like(dt):
+                image_func = mdp.image_normals
+            elif "segmentation" in dt:
+                image_func = mdp.image_segmentation
+                params["data_type"] = dt
+            else:
+                raise ValueError(f"Unsupported camera data type: {dt!r}")
             term = ObsTerm(
-                func=mdp.image,
-                params={"sensor_cfg": SceneEntityCfg(name), "data_type": dt, "normalize": normalize},
+                func=image_func,
+                params=params,
             )
             # Field name on ObservationsCfg: use the camera name (or add suffix if you like)
             obs_fields.append((field_name, ObsTerm, term))

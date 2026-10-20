@@ -48,9 +48,10 @@ class CameraIntrinsicsVariationCfg(VariationBaseCfg):
 class CameraIntrinsicsVariation(RunTimeVariationBase):
     """Perturb a pinhole camera's focal lengths on every reset.
 
-    Each reset samples a ``(d_fx, d_fy)`` fraction per env and writes the perturbed USD
-    aperture parameters on the live camera prim. Nominal apertures are snapshotted on the
-    first event call so perturbations do not compound.
+    Each reset samples a ``(d_fx, d_fy)`` fraction per env and updates the camera's runtime
+    intrinsic matrices. Nominal matrices are snapshotted on the first event call so
+    perturbations do not compound. Isaac Lab pinhole cameras retain square pixels, so Lab
+    averages independently perturbed ``fx`` and ``fy`` values.
 
     Tiled cameras share one USD sensor across envs, so a per-env intrinsic edit would leak
     across all tiles. This variation forces ``camera_rig`` untiled at build time (via
@@ -126,8 +127,7 @@ class apply_camera_intrinsics_from_sampler(ManagerTermBase):
 
         self._camera = camera
         # Snapshotted on first ``__call__``.
-        self._nominal_horizontal_aperture: float | None = None
-        self._nominal_vertical_aperture: float | None = None
+        self._nominal_intrinsic_matrices: torch.Tensor | None = None
 
     def __call__(
         self,
@@ -136,25 +136,18 @@ class apply_camera_intrinsics_from_sampler(ManagerTermBase):
         asset_cfg: SceneEntityCfg,  # noqa: ARG002
         sampler: ContinuousSampler,
     ):
-        if self._nominal_horizontal_aperture is None or self._nominal_vertical_aperture is None:
-            sensor_prim = self._camera._sensor_prims[0]
-            self._nominal_horizontal_aperture = sensor_prim.GetHorizontalApertureAttr().Get()
-            self._nominal_vertical_aperture = sensor_prim.GetVerticalApertureAttr().Get()
-
-        assert self._nominal_horizontal_aperture is not None
-        assert self._nominal_vertical_aperture is not None
+        if self._nominal_intrinsic_matrices is None:
+            self._nominal_intrinsic_matrices = self._camera.data.intrinsic_matrices.torch.clone()
 
         sample = sampler.sample(num_samples=len(env_ids), env_ids=env_ids)
-        # Apertures scale by 1 / (1 + d); deltas <= -1 would divide by zero or flip sign.
+        # Focal lengths scale by (1 + d); deltas <= -1 would make them non-positive.
         assert bool((sample > -1.0).all()), (
-            "apply_camera_intrinsics_from_sampler expects focal-length deltas > -1.0 so apertures stay "
+            "apply_camera_intrinsics_from_sampler expects focal-length deltas > -1.0 so focal lengths stay "
             "positive; got a value <= -1.0. Check your sampler_cfg bounds."
         )
         env_id_list = env_ids.tolist()
-        for env_id, (d_fx, d_fy) in zip(env_id_list, sample.tolist()):
-            # ``focal_length`` is held fixed, so focal-length scaling is realised through aperture size.
-            sensor_prim = self._camera._sensor_prims[env_id]
-            sensor_prim.GetHorizontalApertureAttr().Set(self._nominal_horizontal_aperture / (1.0 + d_fx))
-            sensor_prim.GetVerticalApertureAttr().Set(self._nominal_vertical_aperture / (1.0 + d_fy))
-
-        self._camera._update_intrinsic_matrices(env_id_list)
+        intrinsic_matrices = self._nominal_intrinsic_matrices[env_id_list].clone()
+        sample = sample.to(device=intrinsic_matrices.device)
+        intrinsic_matrices[:, 0, 0] *= 1.0 + sample[:, 0]
+        intrinsic_matrices[:, 1, 1] *= 1.0 + sample[:, 1]
+        self._camera.set_intrinsic_matrices(intrinsic_matrices, env_ids=env_id_list)
