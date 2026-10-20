@@ -277,3 +277,35 @@ def test_graph_parses_asset_poses():
     from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
     assert run_function_with_persistent_simulation_app(_test_graph_parses_asset_poses)
+
+
+def _test_explicit_light_nodes_expose_variations(simulation_app):
+    from isaaclab_arena.assets.object_library import DirectionalLight, DomeLight, SphereLight
+
+    spec = _minimal_scene_spec(
+        objects=[
+            AssetSpec(id="mug", registry_name="mug_ycb_robolab"),
+            AssetSpec(id="light", registry_name="light"),
+            AssetSpec(id="sphere_light", registry_name="sphere_light"),
+        ]
+    )
+    arena_env = spec.to_arena_env()
+
+    # Explicit lights suppress default injection: exactly one dome, one sphere, no directional light.
+    assert len(_lights_of_type(arena_env, DomeLight)) == 1
+    assert len(_lights_of_type(arena_env, SphereLight)) == 1
+    assert len(_lights_of_type(arena_env, DirectionalLight)) == 0
+
+    # Variation keys are the node ids.
+    variations = arena_env.scene.get_asset_variations()
+    light_variation_names = {variation.name for variation in variations["light"]}
+    assert {"hdr_image", "intensity", "color"} <= light_variation_names
+    sphere_variation_names = {variation.name for variation in variations["sphere_light"]}
+    assert {"intensity", "color"} <= sphere_variation_names
+    return True
+
+
+def test_explicit_light_nodes_expose_variations():
+    from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
+
+    assert run_function_with_persistent_simulation_app(_test_explicit_light_nodes_expose_variations)

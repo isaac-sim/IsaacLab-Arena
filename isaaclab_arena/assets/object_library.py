@@ -536,6 +536,38 @@ class DirectionalLight(LightBase):
 
 
 @register_asset
+class SphereLight(LightBase):
+    """A per-environment sphere light with ``intensity`` and ``color`` variations."""
+
+    name = "sphere_light"
+    default_prim_path = "{ENV_REGEX_NS}/sphere_light"
+    default_intensity = 5000.0
+    default_spawner_cfg = sim_utils.SphereLightCfg(intensity=default_intensity, radius=0.5)
+    default_initial_pose = Pose(position_xyz=(0.0, -0.6, 0.7), rotation_xyzw=(0.0, 0.0, 0.0, 1.0))
+
+    spawner_cfg: sim_utils.SphereLightCfg
+
+    def __init__(
+        self,
+        instance_name: str | None = None,
+        prim_path: str | None = default_prim_path,
+        initial_pose: Pose | None = None,
+        spawner_cfg: sim_utils.SphereLightCfg = default_spawner_cfg,
+    ):
+        from isaaclab_arena.variations.light_color_variation import LightColorVariation
+        from isaaclab_arena.variations.light_intensity_variation import LightIntensityVariation
+
+        super().__init__(
+            instance_name=instance_name,
+            prim_path=prim_path,
+            initial_pose=initial_pose if initial_pose is not None else self.default_initial_pose,
+            spawner_cfg=spawner_cfg,
+        )
+        self.add_variation(LightIntensityVariation(self))
+        self.add_variation(LightColorVariation(self))
+
+
+@register_asset
 class DexCube(LibraryObject):
     """
     A cube.
@@ -1036,7 +1068,6 @@ class ButterHopeRobolab(LibraryObject):
     registry_name = "butter_hope_robolab"
     tags = ["object", "graspable", "food", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hope/butter.usd"
-    scale = (2.2, 2.0, 1.8)
 
 
 @register_asset
