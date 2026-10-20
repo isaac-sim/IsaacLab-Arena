@@ -4,7 +4,7 @@ set -euo pipefail
 
 # Install the compiler toolkit in this builder stage and make its tools and libraries available.
 bash /tmp/install_cuda.sh
-export CUDA_HOME=/usr/local/cuda-12.8
+export CUDA_HOME=/usr/local/cuda-13.0
 export PATH="${CUDA_HOME}/bin:${PATH}"
 export LD_LIBRARY_PATH="${CUDA_HOME}/lib64:${LD_LIBRARY_PATH:-}"
 

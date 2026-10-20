@@ -1,8 +1,8 @@
 #!/bin/bash
 set -euo pipefail
 
-# Script to install CUDA 12.8 for cuRobo dependencies
-echo "Installing CUDA 12.8 for cuRobo dependencies"
+# Script to install CUDA 13.0 for cuRobo dependencies
+echo "Installing CUDA 13.0 for cuRobo dependencies"
 
 # Read the distribution name and version from the base image.
 . /etc/os-release
@@ -37,8 +37,8 @@ mv cuda-${cuda_repo}.pin /etc/apt/preferences.d/cuda-repository-pin-600
 # Update package lists with new CUDA repository
 apt-get update
 
-# Install the CUDA 12.8 compiler and development libraries needed to build cuRobo.
-apt-get install -y --no-install-recommends cuda-toolkit-12-8
+# Install the CUDA 13.0 compiler and development libraries matching PyTorch's cu130 build.
+apt-get install -y --no-install-recommends cuda-toolkit-13-0
 
 # Remove unneeded packages, downloaded package archives, and apt lists to reduce the image layer.
 apt-get -y autoremove
@@ -46,9 +46,9 @@ apt-get clean
 rm -rf /var/lib/apt/lists/*
 
 # Record CUDA paths and the default GPU architecture in the image's environment file.
-echo "export CUDA_HOME=/usr/local/cuda-12.8" >> /etc/environment
-echo "export PATH=/usr/local/cuda-12.8/bin:${PATH}" >> /etc/environment
-echo "export LD_LIBRARY_PATH=/usr/local/cuda-12.8/lib64:${LD_LIBRARY_PATH:-}" >> /etc/environment
+echo "export CUDA_HOME=/usr/local/cuda-13.0" >> /etc/environment
+echo "export PATH=/usr/local/cuda-13.0/bin:${PATH}" >> /etc/environment
+echo "export LD_LIBRARY_PATH=/usr/local/cuda-13.0/lib64:${LD_LIBRARY_PATH:-}" >> /etc/environment
 echo "export TORCH_CUDA_ARCH_LIST=8.0+PTX" >> /etc/environment
 
-echo "CUDA 12.8 installation completed successfully"
+echo "CUDA 13.0 installation completed successfully"
