@@ -29,7 +29,7 @@ The fastest of the three. Useful on its own when iterating on changes that don't
 ```bash
 docker exec "$ARENA_CONTAINER" su $(id -un) -c \
   "cd /workspaces/isaaclab_arena && \
-   /isaac-sim/python.sh -m pytest -sv \
+   isaaclab.sh -p -m pytest -sv \
    -m 'not with_cameras and not with_subprocess' isaaclab_arena/tests"
 ```
 
@@ -38,7 +38,7 @@ docker exec "$ARENA_CONTAINER" su $(id -un) -c \
 ```bash
 docker exec "$ARENA_CONTAINER" su $(id -un) -c \
   "cd /workspaces/isaaclab_arena && \
-   /isaac-sim/python.sh -m pytest -sv \
+   isaaclab.sh -p -m pytest -sv \
    -m 'with_cameras and not with_subprocess' isaaclab_arena/tests"
 ```
 
@@ -47,7 +47,7 @@ docker exec "$ARENA_CONTAINER" su $(id -un) -c \
 ```bash
 docker exec "$ARENA_CONTAINER" su $(id -un) -c \
   "cd /workspaces/isaaclab_arena && \
-   /isaac-sim/python.sh -m pytest -sv \
+   isaaclab.sh -p -m pytest -sv \
    -m 'with_subprocess' isaaclab_arena/tests"
 ```
 
@@ -57,12 +57,12 @@ docker exec "$ARENA_CONTAINER" su $(id -un) -c \
 # single file
 docker exec "$ARENA_CONTAINER" su $(id -un) -c \
   "cd /workspaces/isaaclab_arena && \
-   /isaac-sim/python.sh -m pytest isaaclab_arena/tests/test_asset_registry.py"
+   isaaclab.sh -p -m pytest isaaclab_arena/tests/test_asset_registry.py"
 
 # single function
 docker exec "$ARENA_CONTAINER" su $(id -un) -c \
   "cd /workspaces/isaaclab_arena && \
-   /isaac-sim/python.sh -m pytest isaaclab_arena/tests/test_asset_registry.py::test_default_assets_registered"
+   isaaclab.sh -p -m pytest isaaclab_arena/tests/test_asset_registry.py::test_default_assets_registered"
 ```
 
 ## On failure

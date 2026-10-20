@@ -126,11 +126,11 @@ git submodule update --init --recursive
 ./docker/run_docker.sh -g
 
 # 3. Verify the installation with a short zero-action rollout
-/isaac-sim/python.sh isaaclab_arena/evaluation/policy_runner.py \
+python isaaclab_arena/evaluation/policy_runner.py \
   --policy_type zero_action --num_steps 20 cube_goal_pose
 
 # 3b. (Optional) Watch the rollout in the GUI visualizer
-/isaac-sim/python.sh isaaclab_arena/evaluation/policy_runner.py \
+python isaaclab_arena/evaluation/policy_runner.py \
   --viz kit --policy_type zero_action --num_steps 200 cube_goal_pose
 ```
 

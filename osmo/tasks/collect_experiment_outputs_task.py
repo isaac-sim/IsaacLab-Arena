@@ -89,7 +89,7 @@ class CollectExperimentOutputsTask(BaseTask):
 
     def _get_run_script(self) -> str:
         build_experiment_output_command = shlex.join([
-            "/isaac-sim/python.sh",
+            "python",
             _REMOTE_BUILD_EXPERIMENT_OUTPUT_SCRIPT_PATH,
             "--experiment-runner-output-directories-file",
             _REMOTE_EXPERIMENT_RUNNER_OUTPUT_DIRECTORIES_FILE_PATH,

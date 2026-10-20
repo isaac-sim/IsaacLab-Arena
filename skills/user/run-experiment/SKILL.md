@@ -94,7 +94,7 @@ values below rather than hardcoding a container name:
 ```bash
 docker exec <container> su <host-user> -c \
   "cd /workspaces/isaaclab_arena && \
-   /isaac-sim/python.sh isaaclab_arena/evaluation/experiment_runner.py \
+   isaaclab.sh -p isaaclab_arena/evaluation/experiment_runner.py \
    --experiment_config <experiment.yaml> \
    --viz none \
    <override>..."

@@ -69,7 +69,7 @@ docker exec "$ARENA_CONTAINER" su $(id -un) -c \
   "cd /workspaces/isaaclab_arena && <command>"
 ```
 
-Use `/isaac-sim/python.sh` explicitly for non-interactive Python commands; do not rely on the
+Use `isaaclab.sh -p` for non-interactive Python commands; do not rely on the
 interactive `python` alias.
 
 ## Hand off

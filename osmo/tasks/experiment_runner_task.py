@@ -108,7 +108,8 @@ class ExperimentRunnerTask(BaseTask):
                 str(self.timeout_seconds),
             ]
         experiment_runner_command_arguments += [
-            "/isaac-sim/python.sh",
+            "isaaclab.sh",
+            "-p",
             EXPERIMENT_RUNNER_SCRIPT,
             "--experiment_config",
             REMOTE_EXPERIMENT_PATH,

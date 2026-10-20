@@ -56,11 +56,11 @@ before your own package run ``pip install -e``.
 
    # Copy the submodule into the image and install Arena
    COPY submodules/IsaacLab-Arena /opt/arena
-   RUN /isaac-sim/python.sh -m pip install -e /opt/arena
+   RUN uv pip install --python python --editable /opt/arena
 
    # Install your package after Arena is in place
    COPY my_package /workspace/my_package
-   RUN /isaac-sim/python.sh -m pip install -e /workspace/my_package
+   RUN uv pip install --python python --editable /workspace/my_package
 
 See Arena's own `Dockerfile
 <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/docker/Dockerfile.isaaclab_arena>`_

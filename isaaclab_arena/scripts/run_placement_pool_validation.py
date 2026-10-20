@@ -10,12 +10,12 @@ its placement pool holds and logs the validation results.
 
 Run inside the container (example with a registered example environment):
 
-    /isaac-sim/python.sh isaaclab_arena/scripts/run_placement_pool_validation.py \\
+    python isaaclab_arena/scripts/run_placement_pool_validation.py \\
         --num_envs 4 <example_environment_name>
 
 Or against a graph spec:
 
-    /isaac-sim/python.sh isaaclab_arena/scripts/run_placement_pool_validation.py \\
+    python isaaclab_arena/scripts/run_placement_pool_validation.py \\
         --num_envs 4 --env_spec path/to/spec.yaml
 """
 

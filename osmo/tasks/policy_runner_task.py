@@ -15,7 +15,7 @@ from typing import Any
 from osmo.tasks.base_task import BaseTask, TaskCfg
 from osmo.workflows.workflow_constants import DATASET_SWIFT_URL, OSMO_TASK_OUTPUT_DIR
 
-POLICY_RUNNER_COMMAND = "/isaac-sim/python.sh isaaclab_arena/evaluation/policy_runner.py"
+POLICY_RUNNER_COMMAND = "isaaclab.sh -p isaaclab_arena/evaluation/policy_runner.py"
 
 
 @dataclass

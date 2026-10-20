@@ -297,22 +297,22 @@ jobs:
       # To restore sanity here is a goal for Isaac Lab Arena v0.3.
       - name: Run in-process Newton tests without cameras
         run: |
-          ${ISAACLAB_PATH}/isaaclab.sh -p -m pytest -sv --durations=0 -m "with_newton and not with_cameras and not with_subprocess" \
+          isaaclab.sh -p -m pytest -sv --durations=0 -m "with_newton and not with_cameras and not with_subprocess" \
             isaaclab_arena/tests/
 
       - name: Run in-process Newton tests with cameras
         run: |
-          ${ISAACLAB_PATH}/isaaclab.sh -p -m pytest -sv --durations=0 -m "with_newton and with_cameras and not with_subprocess" \
+          isaaclab.sh -p -m pytest -sv --durations=0 -m "with_newton and with_cameras and not with_subprocess" \
             isaaclab_arena/tests/
 
       - name: Run in-process PhysX tests without cameras
         run: |
-          ${ISAACLAB_PATH}/isaaclab.sh -p -m pytest -sv --durations=0 -m "not with_cameras and not with_subprocess and not with_newton" \
+          isaaclab.sh -p -m pytest -sv --durations=0 -m "not with_cameras and not with_subprocess and not with_newton" \
             isaaclab_arena/tests/
 
       - name: Run in-process PhysX tests with cameras
         run: |
-          ${ISAACLAB_PATH}/isaaclab.sh -p -m pytest -sv --durations=0 -m "with_cameras and not with_subprocess and not with_newton" \
+          isaaclab.sh -p -m pytest -sv --durations=0 -m "with_cameras and not with_subprocess and not with_newton" \
             isaaclab_arena/tests/
 
       - name: Run VLM agent policy tests
@@ -322,7 +322,7 @@ jobs:
 
       - name: Run GR00T policy client & data tests (lightweight gr00t deps only)
         run: |
-          ${ISAACLAB_PATH}/isaaclab.sh -p -m pytest -sv --durations=0 -m gr00t_policy \
+          isaaclab.sh -p -m pytest -sv --durations=0 -m gr00t_policy \
             isaaclab_arena_gr00t/tests/
 
 
@@ -357,13 +357,13 @@ jobs:
       - name: Run subprocess-spawning Newton tests
         run: |
           ISAACLAB_ARENA_SUBPROCESS_TIMEOUT=900 \
-          ${ISAACLAB_PATH}/isaaclab.sh -p -m pytest -sv --durations=0 -m "with_newton and with_subprocess" \
+          isaaclab.sh -p -m pytest -sv --durations=0 -m "with_newton and with_subprocess" \
             isaaclab_arena/tests/
 
       - name: Run subprocess-spawning PhysX tests
         run: |
           ISAACLAB_ARENA_SUBPROCESS_TIMEOUT=900 \
-          ${ISAACLAB_PATH}/isaaclab.sh -p -m pytest -sv --durations=0 -m "with_subprocess and not with_newton" \
+          isaaclab.sh -p -m pytest -sv --durations=0 -m "with_subprocess and not with_newton" \
             isaaclab_arena/tests/
 
 
@@ -457,7 +457,7 @@ jobs:
         env:
           PYTHONUNBUFFERED: "1"
         run: |
-          ${ISAACLAB_PATH}/isaaclab.sh -p -u -m isaaclab_arena_gr00t.utils.wait_for_gr00t_server \
+          isaaclab.sh -p -u -m isaaclab_arena_gr00t.utils.wait_for_gr00t_server \
             --host "${GR00T_REMOTE_HOST}" \
             --port "${GR00T_REMOTE_PORT}" \
             --timeout-sec 1200 \
@@ -467,7 +467,7 @@ jobs:
       - name: Run GR00T remote closed-loop policy runner test
         if: steps.gr00t_cuda.outputs.enabled == 'true'
         run: |
-          ${ISAACLAB_PATH}/isaaclab.sh -p -m pytest -sv --durations=0 -m gr00t_remote_e2e \
+          isaaclab.sh -p -m pytest -sv --durations=0 -m gr00t_remote_e2e \
             isaaclab_arena_gr00t/tests/test_gr00t_remote_closedloop_policy_runner.py
 
 
@@ -495,7 +495,7 @@ jobs:
 
       - name: Run cuRobo dependency check
         run: |
-          MPLCONFIGDIR=/tmp/mpl ${ISAACLAB_PATH}/isaaclab.sh -p -m pytest -sv --durations=0 -m curobo_deps \
+          MPLCONFIGDIR=/tmp/mpl isaaclab.sh -p -m pytest -sv --durations=0 -m curobo_deps \
             isaaclab_arena_curobo/tests/
 
 
