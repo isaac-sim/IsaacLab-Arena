@@ -48,7 +48,7 @@ def get_build_time_values(seed: int, directional_light_first: bool = False) -> d
     lights = [directional_light, dome_light] if directional_light_first else [dome_light, directional_light]
     arena_env = IsaacLabArenaEnvironment(name="test_build_time_variation_seeding", scene=Scene(assets=lights))
     args_cli = get_isaaclab_arena_cli_parser().parse_args(["--num_envs", "1", "--seed", str(seed)])
-    _, env_kwargs = ArenaEnvBuilder(arena_env, arena_env_builder_cfg_from_argparse(args_cli)).compose_manager_cfg()
+    _, env_kwargs = ArenaEnvBuilder(arena_env, arena_env_builder_cfg_from_argparse(args_cli)).build_env_cfg()
 
     variation_recorder = env_kwargs["variation_recorder"]
     values: dict[str, Any] = {}
