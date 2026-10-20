@@ -8,8 +8,8 @@ embodiment:
   registry_name: droid_abs_joint_pos
   params: {}
 background:
-  id: maple_table_robolab
-  registry_name: maple_table_robolab
+  id: table_oak_robolab
+  registry_name: table_oak_robolab
   params: {}
 objects:
 - id: bowl
@@ -19,36 +19,42 @@ objects:
   registry_name: grey_bin_robolab
   params: {}
 - id: mustard
-  registry_name: mustard_bottle_hope_robolab
+  registry_name: mustard_ycb_robolab
   params: {}
 - id: dry_erase_marker
   registry_name: dry_erase_marker_ycb_robolab
   params: {}
 - id: mug
-  registry_name: mug
+  registry_name: mug_ycb_robolab
+  params: {}
+- id: light
+  registry_name: light
+  params: {}
+- id: sphere_light
+  registry_name: sphere_light
   params: {}
 relations:
 - kind: is_anchor
-  subject: maple_table_robolab
+  subject: table_oak_robolab
   reference: null
   params: {}
 - kind: 'on'
   subject: bowl
-  reference: maple_table_robolab
+  reference: table_oak_robolab
   params: {}
 - kind: 'on'
   subject: grey_bin
-  reference: maple_table_robolab
+  reference: table_oak_robolab
   params: {}
 - kind: 'on'
   subject: mustard
-  reference: maple_table_robolab
+  reference: table_oak_robolab
   params: {}
 - kind: 'on'
   subject: dry_erase_marker
-  reference: maple_table_robolab
+  reference: table_oak_robolab
   params: {}
 - kind: 'on'
   subject: mug
-  reference: maple_table_robolab
+  reference: table_oak_robolab
   params: {}

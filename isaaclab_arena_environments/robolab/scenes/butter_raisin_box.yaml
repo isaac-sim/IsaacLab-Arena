@@ -8,8 +8,8 @@ embodiment:
   registry_name: droid_abs_joint_pos
   params: {}
 background:
-  id: maple_table_robolab
-  registry_name: maple_table_robolab
+  id: table_oak_robolab
+  registry_name: table_oak_robolab
   params: {}
 objects:
 - id: butter_hope_robolab
@@ -18,21 +18,27 @@ objects:
 - id: raisin_box_hope_robolab
   registry_name: raisin_box_hope_robolab
   params: {}
+- id: light
+  registry_name: light
+  params: {}
+- id: sphere_light
+  registry_name: sphere_light
+  params: {}
 placer_params:
   enabled_checks: [no_overlap, on_relation, ik_reachable]
   required_checks: [no_overlap, on_relation]
 relations:
 - kind: is_anchor
-  subject: maple_table_robolab
+  subject: table_oak_robolab
   reference: null
   params: {}
 - kind: 'on'
   subject: butter_hope_robolab
-  reference: maple_table_robolab
+  reference: table_oak_robolab
   params: {}
 - kind: 'on'
   subject: raisin_box_hope_robolab
-  reference: maple_table_robolab
+  reference: table_oak_robolab
   params: {}
 - kind: rotate_around_solution
   subject: raisin_box_hope_robolab

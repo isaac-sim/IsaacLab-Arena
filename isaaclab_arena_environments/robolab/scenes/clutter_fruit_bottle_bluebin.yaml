@@ -8,8 +8,8 @@ embodiment:
   registry_name: droid_abs_joint_pos
   params: {}
 background:
-  id: maple_table_robolab
-  registry_name: maple_table_robolab
+  id: table_oak_robolab
+  registry_name: table_oak_robolab
   params: {}
 objects:
 - id: pumpkin_large
@@ -21,7 +21,7 @@ objects:
   registry_name: lemon_01_fruits_veggies_robolab
   params: {}
 - id: lemon_2
-  registry_name: lemon_01_fruits_veggies_robolab
+  registry_name: lemon_02_fruits_veggies_robolab
   params: {}
 - id: lime_1
   registry_name: lime01_fruits_veggies_robolab
@@ -33,7 +33,7 @@ objects:
   registry_name: orange_01_fruits_veggies_robolab
   params: {}
 - id: orange_2
-  registry_name: orange_01_fruits_veggies_robolab
+  registry_name: orange_02_fruits_veggies_robolab
   params: {}
 - id: pomegranate
   registry_name: pomegranate01_fruits_veggies_robolab
@@ -65,77 +65,87 @@ objects:
   params: {}
 - id: container_f24
   registry_name: container_f24_vomp_robolab
+  params:
+    scale:
+    - 0.3
+    - 0.3
+    - 0.2
+- id: light
+  registry_name: light
+  params: {}
+- id: sphere_light
+  registry_name: sphere_light
   params: {}
 relations:
 - kind: is_anchor
-  subject: maple_table_robolab
+  subject: table_oak_robolab
   reference: null
   params: {}
 - kind: 'on'
   subject: pumpkin_large
-  reference: maple_table_robolab
+  reference: table_oak_robolab
   params: {}
 - kind: 'on'
   subject: pumpkin_small
-  reference: maple_table_robolab
+  reference: table_oak_robolab
   params: {}
 - kind: 'on'
   subject: lemon_1
-  reference: maple_table_robolab
+  reference: table_oak_robolab
   params: {}
 - kind: 'on'
   subject: lemon_2
-  reference: maple_table_robolab
+  reference: table_oak_robolab
   params: {}
 - kind: 'on'
   subject: lime_1
-  reference: maple_table_robolab
+  reference: table_oak_robolab
   params: {}
 - kind: 'on'
   subject: lime_2
-  reference: maple_table_robolab
+  reference: table_oak_robolab
   params: {}
 - kind: 'on'
   subject: orange_1
-  reference: maple_table_robolab
+  reference: table_oak_robolab
   params: {}
 - kind: 'on'
   subject: orange_2
-  reference: maple_table_robolab
+  reference: table_oak_robolab
   params: {}
 - kind: 'on'
   subject: pomegranate
-  reference: maple_table_robolab
+  reference: table_oak_robolab
   params: {}
 - kind: 'on'
   subject: white_packer_bottle
-  reference: maple_table_robolab
+  reference: table_oak_robolab
   params: {}
 - kind: 'on'
   subject: avocado
-  reference: maple_table_robolab
+  reference: table_oak_robolab
   params: {}
 - kind: 'on'
   subject: crabbypenholder
-  reference: maple_table_robolab
+  reference: table_oak_robolab
   params: {}
 - kind: 'on'
   subject: serving_bowl
-  reference: maple_table_robolab
+  reference: table_oak_robolab
   params: {}
 - kind: 'on'
   subject: milk_jug
-  reference: maple_table_robolab
+  reference: table_oak_robolab
   params: {}
 - kind: 'on'
   subject: utilityjug
-  reference: maple_table_robolab
+  reference: table_oak_robolab
   params: {}
 - kind: 'on'
   subject: red_onion
-  reference: maple_table_robolab
+  reference: table_oak_robolab
   params: {}
 - kind: 'on'
   subject: container_f24
-  reference: maple_table_robolab
+  reference: table_oak_robolab
   params: {}

@@ -8,12 +8,12 @@ embodiment:
   registry_name: droid_abs_joint_pos
   params: {}
 background:
-  id: maple_table_robolab
-  registry_name: maple_table_robolab
+  id: table_oak_robolab
+  registry_name: table_oak_robolab
   params: {}
 objects:
 - id: bbq_sauce_bottle
-  registry_name: bbq_sauce_bottle_hope_robolab
+  registry_name: bbq_sauce_bottle_hot3d_robolab
   params: {}
 - id: purple_crate
   registry_name: purple_crate
@@ -22,26 +22,36 @@ objects:
   registry_name: ceramic_mug_hot3d_robolab
   params: {}
 - id: salad_dressing_bottle
-  registry_name: salad_dressing_bottle_hot3d_robolab
+  registry_name: ranch_dressing_hope_robolab
+  params:
+    scale:
+    - 1.0
+    - 1.0
+    - 1.0
+- id: light
+  registry_name: light
+  params: {}
+- id: sphere_light
+  registry_name: sphere_light
   params: {}
 relations:
 - kind: is_anchor
-  subject: maple_table_robolab
+  subject: table_oak_robolab
   reference: null
   params: {}
 - kind: 'on'
   subject: bbq_sauce_bottle
-  reference: maple_table_robolab
+  reference: table_oak_robolab
   params: {}
 - kind: 'on'
   subject: purple_crate
-  reference: maple_table_robolab
+  reference: table_oak_robolab
   params: {}
 - kind: 'on'
   subject: ceramic_mug
-  reference: maple_table_robolab
+  reference: table_oak_robolab
   params: {}
 - kind: 'on'
   subject: salad_dressing_bottle
-  reference: maple_table_robolab
+  reference: table_oak_robolab
   params: {}

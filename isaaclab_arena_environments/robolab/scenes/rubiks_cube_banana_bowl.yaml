@@ -16,10 +16,16 @@ objects:
   registry_name: banana_ycb_robolab
   params: {}
 - id: cube
-  registry_name: dex_cube
+  registry_name: rubiks_cube_hot3d_robolab
   params: {}
 - id: bowl
   registry_name: bowl_ycb_robolab
+  params: {}
+- id: light
+  registry_name: light
+  params: {}
+- id: sphere_light
+  registry_name: sphere_light
   params: {}
 relations:
 - kind: is_anchor

@@ -8,56 +8,70 @@ embodiment:
   registry_name: droid_abs_joint_pos
   params: {}
 background:
-  id: maple_table_robolab
-  registry_name: maple_table_robolab
+  id: table_oak_robolab
+  registry_name: table_oak_robolab
   params: {}
 objects:
 - id: container_f24
   registry_name: container_f24_vomp_robolab
-  params: {}
+  params:
+    scale:
+    - 0.3
+    - 0.3
+    - 0.2
 - id: bin_b04
   registry_name: bin_b04_vomp_robolab
-  params: {}
+  params:
+    scale:
+    - 1.0
+    - 1.0
+    - 0.9
 - id: spring_clamp
   registry_name: spring_clamp_ycb_robolab
   params: {}
 - id: red_hammer
-  registry_name: red_hammer_robolab
+  registry_name: hammer_7_handal_robolab
   params: {}
 - id: black_hammer
-  registry_name: black_hammer_robolab
+  registry_name: hammer_8_handal_robolab
   params: {}
 - id: cordless_drill
   registry_name: cordless_drill_ycb_robolab
   params: {}
+- id: light
+  registry_name: light
+  params: {}
+- id: sphere_light
+  registry_name: sphere_light
+  params: {}
 relations:
 - kind: is_anchor
-  subject: maple_table_robolab
+  subject: table_oak_robolab
   reference: null
   params: {}
 - kind: 'on'
   subject: container_f24
-  reference: maple_table_robolab
+  reference: table_oak_robolab
   params: {}
 - kind: 'on'
   subject: bin_b04
-  reference: maple_table_robolab
+  reference: table_oak_robolab
   params: {}
 - kind: 'on'
   subject: spring_clamp
-  reference: maple_table_robolab
+  reference: table_oak_robolab
   params: {}
 - kind: 'on'
   subject: red_hammer
-  reference: maple_table_robolab
+  reference: table_oak_robolab
   params: {}
 - kind: 'on'
   subject: black_hammer
-  reference: maple_table_robolab
+  reference: table_oak_robolab
   params: {}
 - kind: 'on'
   subject: cordless_drill
-  reference: maple_table_robolab
+  reference: table_oak_robolab
   params: {}
 - kind: next_to
   subject: container_f24
