@@ -5,6 +5,11 @@
 
 env_name: throw_away_snacks
 external_yaml: ../scenes/workdesk_snacks.yaml
+env_cfg_override:
+  sim:
+    physics:
+      max_position_iteration_count: 32
+      max_velocity_iteration_count: 1
 task:
   composition: parallel
   description: Put away the snacks in the bin
@@ -13,11 +18,11 @@ task:
     params:
       pick_up_object: apple
       destination_location: plasticpail
-      background_scene: maple_table_robolab
-      episode_length_s: 70.0
+      background_scene: table_oak_robolab
+      episode_length_s: 60.0
   - kind: PickAndPlaceTask
     params:
       pick_up_object: yogurt_cup
       destination_location: plasticpail
-      background_scene: maple_table_robolab
-      episode_length_s: 70.0
+      background_scene: table_oak_robolab
+      episode_length_s: 60.0

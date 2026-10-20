@@ -5,6 +5,11 @@
 
 env_name: small_pumpkin_in_bin
 external_yaml: ../scenes/clutter_fruit_bottle_bluebin.yaml
+env_cfg_override:
+  sim:
+    physics:
+      max_position_iteration_count: 32
+      max_velocity_iteration_count: 1
 task:
   composition: atomic
   description: Put the small pumpkin in the bin
@@ -13,5 +18,5 @@ task:
     params:
       pick_up_object: pumpkin_small
       destination_location: container_f24
-      background_scene: maple_table_robolab
-      episode_length_s: 70.0
+      background_scene: table_oak_robolab
+      episode_length_s: 60.0

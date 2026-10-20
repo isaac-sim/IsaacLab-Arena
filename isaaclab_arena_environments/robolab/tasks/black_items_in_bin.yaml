@@ -5,6 +5,11 @@
 
 env_name: black_items_in_bin
 external_yaml: ../scenes/workdesk_bin.yaml
+env_cfg_override:
+  sim:
+    physics:
+      max_position_iteration_count: 32
+      max_velocity_iteration_count: 1
 task:
   composition: parallel
   description: Put the black items in the grey bin
@@ -13,29 +18,29 @@ task:
     params:
       pick_up_object: keyboard
       destination_location: grey_bin
-      background_scene: maple_table_robolab
-      episode_length_s: 70.0
+      background_scene: table_oak_robolab
+      episode_length_s: 24.0
   - kind: PickAndPlaceTask
     params:
       pick_up_object: remote_control
       destination_location: grey_bin
-      background_scene: maple_table_robolab
-      episode_length_s: 70.0
+      background_scene: table_oak_robolab
+      episode_length_s: 24.0
   - kind: PickAndPlaceTask
     params:
       pick_up_object: computer_mouse
       destination_location: grey_bin
-      background_scene: maple_table_robolab
-      episode_length_s: 70.0
+      background_scene: table_oak_robolab
+      episode_length_s: 24.0
   - kind: PickAndPlaceTask
     params:
       pick_up_object: smartphone
       destination_location: grey_bin
-      background_scene: maple_table_robolab
-      episode_length_s: 70.0
+      background_scene: table_oak_robolab
+      episode_length_s: 24.0
   - kind: PickAndPlaceTask
     params:
       pick_up_object: glasses
       destination_location: grey_bin
-      background_scene: maple_table_robolab
-      episode_length_s: 70.0
+      background_scene: table_oak_robolab
+      episode_length_s: 24.0

@@ -5,6 +5,11 @@
 
 env_name: banana_on_plate
 external_yaml: ../scenes/bagel_plate_banana_bowl.yaml
+env_cfg_override:
+  sim:
+    physics:
+      max_position_iteration_count: 32
+      max_velocity_iteration_count: 1
 task:
   composition: atomic
   description: Pick up the banana and place it on the plate.
@@ -13,5 +18,5 @@ task:
     params:
       pick_up_object: banana
       destination_location: plate
-      background_scene: maple_table_robolab
-      episode_length_s: 70.0
+      background_scene: table_oak_robolab
+      episode_length_s: 40.0

@@ -5,6 +5,11 @@
 
 env_name: rubiks_cube_and_banana
 external_yaml: ../scenes/rubiks_cube_banana_bowl.yaml
+env_cfg_override:
+  sim:
+    physics:
+      max_position_iteration_count: 32
+      max_velocity_iteration_count: 1
 task:
   composition: parallel
   description: Put the cube and the banana in the bowl
@@ -14,10 +19,10 @@ task:
       pick_up_object: cube
       destination_location: bowl
       background_scene: maple_table_robolab
-      episode_length_s: 70.0
+      episode_length_s: 30.0
   - kind: PickAndPlaceTask
     params:
       pick_up_object: banana
       destination_location: bowl
       background_scene: maple_table_robolab
-      episode_length_s: 70.0
+      episode_length_s: 30.0

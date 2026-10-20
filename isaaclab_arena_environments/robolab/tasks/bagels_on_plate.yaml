@@ -5,6 +5,11 @@
 
 env_name: bagels_on_plate
 external_yaml: ../scenes/bagel_plate_banana_bowl.yaml
+env_cfg_override:
+  sim:
+    physics:
+      max_position_iteration_count: 32
+      max_velocity_iteration_count: 1
 task:
   composition: parallel
   description: Put the bagels on the plate
@@ -13,11 +18,11 @@ task:
     params:
       pick_up_object: bagel_1
       destination_location: plate
-      background_scene: maple_table_robolab
-      episode_length_s: 70.0
+      background_scene: table_oak_robolab
+      episode_length_s: 30.0
   - kind: PickAndPlaceTask
     params:
       pick_up_object: bagel_2
       destination_location: plate
-      background_scene: maple_table_robolab
-      episode_length_s: 70.0
+      background_scene: table_oak_robolab
+      episode_length_s: 30.0

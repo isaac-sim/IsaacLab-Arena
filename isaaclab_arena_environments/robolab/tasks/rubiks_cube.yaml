@@ -5,13 +5,18 @@
 
 env_name: rubiks_cube
 external_yaml: ../scenes/rubiks_cube_bowl.yaml
+env_cfg_override:
+  sim:
+    physics:
+      max_position_iteration_count: 32
+      max_velocity_iteration_count: 1
 task:
   composition: atomic
-  description: put the rubiks cube in the bowl
+  description: Put the cube in the bowl
   subtasks:
   - kind: PickAndPlaceTask
     params:
       pick_up_object: rubiks_cube
       destination_location: bowl
       background_scene: maple_table_robolab
-      episode_length_s: 70.0
+      episode_length_s: 40.0

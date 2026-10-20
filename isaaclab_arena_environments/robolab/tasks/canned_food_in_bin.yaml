@@ -5,6 +5,11 @@
 
 env_name: canned_food_in_bin
 external_yaml: ../scenes/bin_condiments.yaml
+env_cfg_override:
+  sim:
+    physics:
+      max_position_iteration_count: 32
+      max_velocity_iteration_count: 1
 task:
   composition: atomic
   description: Put the canned food in the grey bin
@@ -13,5 +18,5 @@ task:
     params:
       pick_up_object: canned_tuna
       destination_location: grey_bin
-      background_scene: maple_table_robolab
-      episode_length_s: 70.0
+      background_scene: table_black_robolab
+      episode_length_s: 60.0

@@ -5,6 +5,11 @@
 
 env_name: food_packing_1_cans
 external_yaml: ../scenes/foodpacking_1bin_1box_1can.yaml
+env_cfg_override:
+  sim:
+    physics:
+      max_position_iteration_count: 32
+      max_velocity_iteration_count: 1
 task:
   composition: atomic
   description: Pack canned foods into the bin
@@ -13,5 +18,5 @@ task:
     params:
       pick_up_object: tomato_soup_can
       destination_location: bin_a06
-      background_scene: maple_table_robolab
-      episode_length_s: 70.0
+      background_scene: table_oak_robolab
+      episode_length_s: 60.0

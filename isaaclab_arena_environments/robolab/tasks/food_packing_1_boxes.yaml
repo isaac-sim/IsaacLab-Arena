@@ -5,6 +5,11 @@
 
 env_name: food_packing_1_boxes
 external_yaml: ../scenes/foodpacking_1bin_1box_1can.yaml
+env_cfg_override:
+  sim:
+    physics:
+      max_position_iteration_count: 32
+      max_velocity_iteration_count: 1
 task:
   composition: atomic
   description: pick up the cheez it box and place it into the bin
@@ -13,5 +18,5 @@ task:
     params:
       pick_up_object: cheez_it_box
       destination_location: bin_a06
-      background_scene: maple_table_robolab
-      episode_length_s: 70.0
+      background_scene: table_oak_robolab
+      episode_length_s: 60.0

@@ -5,13 +5,18 @@
 
 env_name: throw_away_apple
 external_yaml: ../scenes/workdesk_snacks.yaml
+env_cfg_override:
+  sim:
+    physics:
+      max_position_iteration_count: 32
+      max_velocity_iteration_count: 1
 task:
   composition: atomic
-  description: place the apple into the plasticpail on the table
+  description: Throw away the apple
   subtasks:
   - kind: PickAndPlaceTask
     params:
       pick_up_object: apple
       destination_location: plasticpail
-      background_scene: maple_table_robolab
-      episode_length_s: 70.0
+      background_scene: table_oak_robolab
+      episode_length_s: 60.0

@@ -5,6 +5,11 @@
 
 env_name: marker_in_mug
 external_yaml: ../scenes/workdesk.yaml
+env_cfg_override:
+  sim:
+    physics:
+      max_position_iteration_count: 32
+      max_velocity_iteration_count: 1
 task:
   composition: atomic
   description: Put the whiteboard marker in the mug
@@ -13,5 +18,5 @@ task:
     params:
       pick_up_object: marker
       destination_location: ceramic_mug
-      background_scene: maple_table_robolab
-      episode_length_s: 70.0
+      background_scene: table_oak_robolab
+      episode_length_s: 40.0

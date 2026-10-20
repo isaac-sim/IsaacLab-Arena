@@ -5,13 +5,18 @@
 
 env_name: mustard_above_raisin
 external_yaml: ../scenes/mustard_raisin_box.yaml
+env_cfg_override:
+  sim:
+    physics:
+      max_position_iteration_count: 32
+      max_velocity_iteration_count: 1
 task:
   composition: atomic
-  description: Pick up the mustard bottle and place it on the raisin box.
+  description: Place the mustard on the raisin box.
   subtasks:
   - kind: PickAndPlaceTask
     params:
       pick_up_object: mustard_bottle
       destination_location: raisin_box
-      background_scene: maple_table_robolab
-      episode_length_s: 70.0
+      background_scene: table_oak_robolab
+      episode_length_s: 40.0

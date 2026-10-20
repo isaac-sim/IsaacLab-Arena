@@ -5,6 +5,11 @@
 
 env_name: apple_and_yogurt_in_bowl
 external_yaml: ../scenes/workdesk_snacks.yaml
+env_cfg_override:
+  sim:
+    physics:
+      max_position_iteration_count: 32
+      max_velocity_iteration_count: 1
 task:
   composition: parallel
   description: Put the apple and yogurt in the bowl
@@ -13,11 +18,11 @@ task:
     params:
       pick_up_object: apple
       destination_location: wooden_bowl
-      background_scene: maple_table_robolab
-      episode_length_s: 70.0
+      background_scene: table_oak_robolab
+      episode_length_s: 60.0
   - kind: PickAndPlaceTask
     params:
       pick_up_object: yogurt_cup
       destination_location: wooden_bowl
-      background_scene: maple_table_robolab
-      episode_length_s: 70.0
+      background_scene: table_oak_robolab
+      episode_length_s: 60.0

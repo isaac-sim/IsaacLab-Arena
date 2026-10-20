@@ -5,6 +5,11 @@
 
 env_name: banana_in_bowl
 external_yaml: ../scenes/banana_bowl.yaml
+env_cfg_override:
+  sim:
+    physics:
+      max_position_iteration_count: 32
+      max_velocity_iteration_count: 1
 task:
   composition: atomic
   description: pick up the banana and place it in the bowl
@@ -13,5 +18,5 @@ task:
     params:
       pick_up_object: banana
       destination_location: bowl
-      background_scene: maple_table_robolab
-      episode_length_s: 70.0
+      background_scene: table_oak_robolab
+      episode_length_s: 50.0

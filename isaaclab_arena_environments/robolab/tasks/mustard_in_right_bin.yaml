@@ -5,6 +5,11 @@
 
 env_name: mustard_in_right_bin
 external_yaml: ../scenes/two_bin.yaml
+env_cfg_override:
+  sim:
+    physics:
+      max_position_iteration_count: 32
+      max_velocity_iteration_count: 1
 task:
   composition: atomic
   description: Put the mustard in the right bin
@@ -13,5 +18,5 @@ task:
     params:
       pick_up_object: mustard
       destination_location: grey_bin_right
-      background_scene: maple_table_robolab
-      episode_length_s: 70.0
+      background_scene: table_oak_robolab
+      episode_length_s: 30.0

@@ -5,6 +5,11 @@
 
 env_name: mouse_on_keyboard
 external_yaml: ../scenes/workdesk.yaml
+env_cfg_override:
+  sim:
+    physics:
+      max_position_iteration_count: 32
+      max_velocity_iteration_count: 1
 task:
   composition: atomic
   description: place the computer mouse on the keyboard
@@ -13,5 +18,5 @@ task:
     params:
       pick_up_object: computer_mouse
       destination_location: keyboard
-      background_scene: maple_table_robolab
-      episode_length_s: 70.0
+      background_scene: table_oak_robolab
+      episode_length_s: 60.0

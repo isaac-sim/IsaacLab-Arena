@@ -5,6 +5,11 @@
 
 env_name: toy_in_bin
 external_yaml: ../scenes/workdesk_bin.yaml
+env_cfg_override:
+  sim:
+    physics:
+      max_position_iteration_count: 32
+      max_velocity_iteration_count: 1
 task:
   composition: atomic
   description: place the lizard figurine into the grey bin on the table
@@ -13,5 +18,5 @@ task:
     params:
       pick_up_object: lizard_figurine
       destination_location: grey_bin
-      background_scene: maple_table_robolab
-      episode_length_s: 70.0
+      background_scene: table_oak_robolab
+      episode_length_s: 60.0

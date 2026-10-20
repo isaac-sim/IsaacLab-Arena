@@ -5,6 +5,11 @@
 
 env_name: butter_above_raisin
 external_yaml: ../scenes/butter_raisin_box.yaml
+env_cfg_override:
+  sim:
+    physics:
+      max_position_iteration_count: 32
+      max_velocity_iteration_count: 1
 task:
   composition: atomic
   description: pick up the butter box and place it on top of the raisin box
@@ -13,5 +18,5 @@ task:
     params:
       pick_up_object: butter_hope_robolab
       destination_location: raisin_box_hope_robolab
-      background_scene: maple_table_robolab
-      episode_length_s: 70.0
+      background_scene: table_oak_robolab
+      episode_length_s: 40.0

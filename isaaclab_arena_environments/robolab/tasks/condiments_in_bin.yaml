@@ -5,6 +5,11 @@
 
 env_name: condiments_in_bin
 external_yaml: ../scenes/bin_condiments.yaml
+env_cfg_override:
+  sim:
+    physics:
+      max_position_iteration_count: 32
+      max_velocity_iteration_count: 1
 task:
   composition: parallel
   description: Sort the sauce condiments into the grey bin
@@ -13,23 +18,23 @@ task:
     params:
       pick_up_object: mustard
       destination_location: grey_bin
-      background_scene: maple_table_robolab
-      episode_length_s: 70.0
+      background_scene: table_black_robolab
+      episode_length_s: 45.0
   - kind: PickAndPlaceTask
     params:
       pick_up_object: ranch_dressing
       destination_location: grey_bin
-      background_scene: maple_table_robolab
-      episode_length_s: 70.0
+      background_scene: table_black_robolab
+      episode_length_s: 45.0
   - kind: PickAndPlaceTask
     params:
       pick_up_object: bbq_sauce_bottle_1
       destination_location: grey_bin
-      background_scene: maple_table_robolab
-      episode_length_s: 70.0
+      background_scene: table_black_robolab
+      episode_length_s: 45.0
   - kind: PickAndPlaceTask
     params:
       pick_up_object: bbq_sauce_bottle_2
       destination_location: grey_bin
-      background_scene: maple_table_robolab
-      episode_length_s: 70.0
+      background_scene: table_black_robolab
+      episode_length_s: 45.0
