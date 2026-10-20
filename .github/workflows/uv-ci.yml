@@ -97,8 +97,9 @@ jobs:
           rm -rf submodules/* || true
 
       - &mark_repo_safe_step
-        name: Mark repo as safe for git
-        run: git config --global --add safe.directory "$PWD"
+        name: Mark repositories as safe for git
+        # uv may populate its Git cache with a different owner on the self-hosted runner.
+        run: git config --global --add safe.directory '*'
 
       - &checkout_step
         name: Checkout Code
@@ -148,10 +149,7 @@ jobs:
 
       # In-source full environment: sync the locked deps and run the sim suite.
       - name: Sync the locked environment
-        run: |
-          # Fix dubious ownership issues in cache
-          git config --global --add safe.directory '*'
-          uv sync --group gr00t-client --extra dev
+        run: uv sync --group gr00t-client --extra dev
 
       - name: Run in-process Newton tests without cameras
         shell: bash
