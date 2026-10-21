@@ -9,12 +9,6 @@
 # uv-managed virtualenvs (the native install creates .venv); never ship them
 # into the Docker build context.
 /.venv*
-/.cache
-/.pretrained_checkpoints
-/Replicator
-/artifacts
-/nv_shadercache
-/shadercache
 
 # Emacs lock files, autosaves, and backups.
 **/.#*
