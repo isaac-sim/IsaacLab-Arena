@@ -38,6 +38,20 @@ class UsdPrimSpawnPhysicsCfg:
 
 
 @configclass
+class ZeroVelocityCfg(UsdPrimSpawnPhysicsCfg):
+    """Set a body's initial linear and angular velocity to zero."""
+
+    def apply(self, prim: Usd.Prim, root: Usd.Prim) -> None:
+        """Set ``physics:velocity`` and ``physics:angularVelocity`` on the prim to zero where they exist."""
+        from pxr import Gf
+
+        for name in ("physics:velocity", "physics:angularVelocity"):
+            attribute = prim.GetAttribute(name)
+            if attribute.IsValid():
+                attribute.Set(Gf.Vec3f(0.0, 0.0, 0.0))
+
+
+@configclass
 class UsdFileCfgPrimPhysicsWrapper(UsdFileCfg):
     """Internal UsdFileCfg wrapper retaining per-prim settings and the original USD spawner.
 
