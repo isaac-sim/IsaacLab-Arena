@@ -264,3 +264,41 @@ Sensitivity analysis
    :loading: lazy
 
    Analyze which environment factors are associated with policy success or failure.
+
+Clutter placement
+-----------------
+
+.. container:: arena-media-grid
+
+   .. video:: ../../images/teaser_page/clutter_placement/ten_tools_layout_1_web.mp4
+      :loop:
+      :muted:
+      :playsinline:
+      :nocontrols:
+      :preload: none
+
+   .. video:: ../../images/teaser_page/clutter_placement/ten_tools_layout_2_web.mp4
+      :loop:
+      :muted:
+      :playsinline:
+      :nocontrols:
+      :preload: none
+
+   .. video:: ../../images/teaser_page/clutter_placement/ten_tools_layout_3_web.mp4
+      :loop:
+      :muted:
+      :playsinline:
+      :nocontrols:
+      :preload: none
+
+   .. video:: ../../images/teaser_page/clutter_placement/ten_tools_layout_4_web.mp4
+      :loop:
+      :muted:
+      :playsinline:
+      :nocontrols:
+      :preload: none
+
+.. container:: arena-media-caption
+
+   Drop objects onto a support and let physics settle them into natural, cluttered layouts. Arena
+   validates and records the settled poses for replay. See :ref:`record-and-replay-clutter-layouts`.
