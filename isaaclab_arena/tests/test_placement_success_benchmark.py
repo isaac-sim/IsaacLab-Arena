@@ -21,6 +21,34 @@ from isaaclab_arena.tests.utils.constants import TestConstants
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
 
+# Defined first so the SimulationApp starts before placement code in later tests imports pxr through Isaac Lab.
+def _test_real_specs_are_scored_or_skipped(simulation_app) -> bool:
+    from isaaclab_arena.scripts.placement_success_benchmark import (
+        discover_specs,
+        get_benchmark_parser,
+        measure_environment,
+    )
+    from isaaclab_arena_environments.cli import ensure_environments_registered
+
+    ensure_environments_registered()
+    args_cli = get_benchmark_parser().parse_args(["--num_layouts", "2", "--placement_seeds", "0"])
+    [(_, scored_spec)] = discover_specs("robolab", ["banana_on_plate"])
+    [(_, robot_only_spec)] = discover_specs("kitchen_bench", ["kitchen_bench_lightwheel_open_fridge"])
+
+    scored = measure_environment("robolab", scored_spec, args_cli)
+    skipped = measure_environment("kitchen_bench", robot_only_spec, args_cli)
+
+    assert scored.status == EnvironmentStatus.SCORED, scored.reason
+    assert scored.num_layouts == 2 and scored.checks
+    assert skipped.status == EnvironmentStatus.SKIPPED, skipped.reason
+    return True
+
+
+def test_real_specs_are_scored_or_skipped():
+    """A RoboLab spec is placed and scored, and a KitchenBench spec that places only the robot is skipped."""
+    assert run_function_with_persistent_simulation_app(_test_real_specs_are_scored_or_skipped)
+
+
 def test_kpi_file_round_trips_and_reports_suite_and_environment_rates(tmp_path):
     """Suites report counts for every status, and equal-weight mean rates only when no environment failed."""
     run = _run([
@@ -169,33 +197,6 @@ def test_benchmark_placement_matches_object_placer_with_disjoint_seeds():
                 box_positions.add(tuple(result.positions[box]))
         box_positions_per_seed.append(box_positions)
     assert not box_positions_per_seed[0] & box_positions_per_seed[1]
-
-
-def _test_real_specs_are_scored_or_skipped(simulation_app) -> bool:
-    from isaaclab_arena.scripts.placement_success_benchmark import (
-        discover_specs,
-        get_benchmark_parser,
-        measure_environment,
-    )
-    from isaaclab_arena_environments.cli import ensure_environments_registered
-
-    ensure_environments_registered()
-    args_cli = get_benchmark_parser().parse_args(["--num_layouts", "2", "--placement_seeds", "0"])
-    [(_, scored_spec)] = discover_specs("robolab", ["banana_on_plate"])
-    [(_, robot_only_spec)] = discover_specs("kitchen_bench", ["kitchen_bench_lightwheel_open_fridge"])
-
-    scored = measure_environment("robolab", scored_spec, args_cli)
-    skipped = measure_environment("kitchen_bench", robot_only_spec, args_cli)
-
-    assert scored.status == EnvironmentStatus.SCORED, scored.reason
-    assert scored.num_layouts == 2 and scored.checks
-    assert skipped.status == EnvironmentStatus.SKIPPED, skipped.reason
-    return True
-
-
-def test_real_specs_are_scored_or_skipped():
-    """A RoboLab spec is placed and scored, and a KitchenBench spec that places only the robot is skipped."""
-    assert run_function_with_persistent_simulation_app(_test_real_specs_are_scored_or_skipped)
 
 
 def test_spec_discovery_covers_both_suites_and_filters_by_stem():
