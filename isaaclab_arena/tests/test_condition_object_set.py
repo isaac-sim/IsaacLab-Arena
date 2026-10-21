@@ -259,3 +259,45 @@ def test_invalid_condition_binding_rejected_before_environment_spawn(tmp_path, i
     assert run_function_with_persistent_simulation_app(
         _test_invalid_condition_binding, output_dir=tmp_path, invalid=invalid
     )
+
+
+def _test_invalid_condition_recording(simulation_app, output_dir, invalid):
+    from isaaclab.managers.recorder_manager import DatasetExportMode, RecorderManagerBaseCfg
+
+    from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
+    from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg
+    from isaaclab_arena.environments.isaaclab_arena_manager_based_env import IsaacLabArenaManagerBasedRLEnv
+    from isaaclab_arena.evaluation.arena_run import ArenaRunCfg
+    from isaaclab_arena.evaluation.condition_episode_budget import ObjectSetEpisodeBudgetCfg
+    from isaaclab_arena.policy.zero_action_policy import ZeroActionPolicyCfg
+
+    run = ArenaRunCfg(
+        name="fixture",
+        environment=ArenaEnvironmentCfg(),
+        policy=ZeroActionPolicyCfg(),
+        environment_builder=ArenaEnvBuilderCfg(num_envs=3, solve_relations=False),
+    )
+    builder = _builder_for_members(run, output_dir, ["A", "B"])
+    env_cfg, env_kwargs = builder.build_env_cfg()
+    env_cfg.recorders = RecorderManagerBaseCfg()
+    if invalid == "partial_close":
+        env_cfg.recorders.export_in_close = True
+    elif invalid == "no_terminal_export":
+        env_cfg.recorders.export_in_record_pre_reset = False
+    else:
+        env_cfg.recorders.dataset_export_mode = DatasetExportMode.EXPORT_SUCCEEDED_ONLY
+    with pytest.raises(AssertionError, match="Condition budgets require"):
+        IsaacLabArenaManagerBasedRLEnv(
+            cfg=env_cfg,
+            condition_episode_budget_cfg=ObjectSetEpisodeBudgetCfg("fixture", {"A": 2, "B": 3}),
+            condition_members_by_env=["A", "B", "A"],
+            **env_kwargs,
+        )
+    return True
+
+
+@pytest.mark.parametrize("invalid", ["partial_close", "no_terminal_export", "success_only"])
+def test_condition_budget_rejects_incompatible_recording(tmp_path, invalid):
+    assert run_function_with_persistent_simulation_app(
+        _test_invalid_condition_recording, output_dir=tmp_path, invalid=invalid
+    )

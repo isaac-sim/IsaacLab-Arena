@@ -373,10 +373,10 @@ def test_unbounded_partial_initial_reset(tmp_path):
     assert run_function_with_persistent_simulation_app(_test_unbounded_partial_initial_reset, output_dir=tmp_path)
 
 
-def _test_condition_episode_limit(simulation_app, output_dir, lengths, failure_is_timeout):
+def _test_condition_episode_limit(simulation_app, output_dir, lengths, failure_is_timeout, quotas):
     import torch
 
-    quotas = {"A": 2, "B": 3}
+    total = sum(quotas.values())
     members = ["A", "A", "B"]
     env, starts, results_path = _create_episode_limit_env(
         output_dir,
@@ -388,10 +388,10 @@ def _test_condition_episode_limit(simulation_app, output_dir, lengths, failure_i
     )
     base = env.unwrapped
     try:
-        base.configure_episode_limit(5)
+        base.configure_episode_limit(total)
         env.reset()
         action = torch.zeros(env.action_space.shape, device=base.device)
-        for _ in range(5 * max(lengths)):
+        for _ in range(total * max(lengths)):
             env.step(action)
             budget = base.condition_episode_budget
             for member, requested in quotas.items():
@@ -400,7 +400,7 @@ def _test_condition_episode_limit(simulation_app, output_dir, lengths, failure_i
             if budget.is_complete:
                 break
         assert budget.is_complete
-        assert base.completed_episode_count == 5
+        assert base.completed_episode_count == total
         assert Counter(members[i] for i, _ in starts) == quotas
         assert not base.active_episode_mask.any()
         before = results_path.read_bytes()
@@ -412,9 +412,9 @@ def _test_condition_episode_limit(simulation_app, output_dir, lengths, failure_i
     finally:
         env.close()
     records = [json.loads(line) for line in results_path.read_text().splitlines()]
-    assert len(records) == 5
+    assert len(records) == total
     assert Counter(row["condition_member"] for row in records) == quotas
-    assert len({(row["condition_member"], row["episode_in_condition"]) for row in records}) == 5
+    assert len({(row["condition_member"], row["episode_in_condition"]) for row in records}) == total
     for row in records:
         assert row["condition_member"] == members[row["env_id"]]
         assert row["success"] is (row["env_id"] % 2 == 0)
@@ -426,12 +426,14 @@ def _test_condition_episode_limit(simulation_app, output_dir, lengths, failure_i
 
 @pytest.mark.parametrize("lengths", [(1, 3, 5), (5, 3, 1), (2, 2, 2)])
 @pytest.mark.parametrize("failure_is_timeout", [False, True])
-def test_condition_quotas_preserve_native_recording(tmp_path, lengths, failure_is_timeout):
+@pytest.mark.parametrize("quotas", [{"A": 2, "B": 3}, {"A": 1, "B": 1}])
+def test_condition_quotas_preserve_native_recording(tmp_path, lengths, failure_is_timeout, quotas):
     assert run_function_with_persistent_simulation_app(
         _test_condition_episode_limit,
         output_dir=tmp_path,
         lengths=lengths,
         failure_is_timeout=failure_is_timeout,
+        quotas=quotas,
     )
 
 
