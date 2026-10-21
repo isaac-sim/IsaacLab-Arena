@@ -80,6 +80,8 @@ def _builder_for_members(run_cfg, output_dir, member_names, random_choice=False,
 def _run_members(output_dir, member_names, quotas=None, num_episodes=None, max_steps=None, interrupt=False):
     import torch
 
+    import warp as wp
+
     from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
     from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg
     from isaaclab_arena.evaluation import run_execution
@@ -103,7 +105,7 @@ def _run_members(output_dir, member_names, quotas=None, num_episodes=None, max_s
             if interrupt and self.steps == 2:
                 raise KeyboardInterrupt()
             if self.steps == 0:
-                masses = env.unwrapped.scene["fixture"].root_physx_view.get_masses().flatten().cpu()
+                masses = wp.to_torch(env.unwrapped.scene["fixture"].data.body_mass).flatten().cpu()
                 expected = [1.25 if member_names[i % len(member_names)] == "A" else 2.5 for i in range(3)]
                 torch.testing.assert_close(masses, torch.tensor(expected))
             self.steps += 1
