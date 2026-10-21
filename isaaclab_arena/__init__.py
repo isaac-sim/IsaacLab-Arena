@@ -2,3 +2,13 @@
 # All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
+
+import warnings
+
+if not __debug__:
+    warnings.warn(
+        "Python is running with optimizations enabled (-O, -OO or PYTHONOPTIMIZE), which strips assert statements. "
+        "Isaac Lab Arena relies on asserts to check invariants and user input; run without optimizations.",
+        RuntimeWarning,
+        stacklevel=2,
+    )
