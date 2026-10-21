@@ -33,27 +33,40 @@ def get_representative_geometry_prim_groups(
     assert scene.clone_plan is not None, f"Cannot resolve geometry for scene key '{scene_key}' without a clone plan."
 
     clone_plan = scene.clone_plan
-    asset_prototype_ids = cloner.path.get_asset_prototypes(clone_plan, geometry_prim_path)
-    source_paths = cloner.path.get_asset_prototype_paths(clone_plan)
-    environment_ids_by_path: dict[str, list[int]] = {}
-    for asset_prototype_id in asset_prototype_ids:
-        environment_ids, _ = cloner.query.get_asset_prototype_unique_world_index(
-            clone_plan.topology, int(asset_prototype_id)
-        )
-        source_path = source_paths[asset_prototype_id]
-        if source_path is None or not len(environment_ids):
-            continue
-        environment_ids_by_path.setdefault(source_path, []).extend(
-            int(environment_id) for environment_id in environment_ids
-        )
-
-    resolved_environment_ids = [
-        environment_id for environment_ids in environment_ids_by_path.values() for environment_id in environment_ids
-    ]
-    assert sorted(resolved_environment_ids) == list(range(scene.num_envs)), (
-        f"Geometry path '{geometry_prim_path}' for scene key '{scene_key}' must resolve one populated clone source "
-        f"per environment; resolved environment IDs {sorted(resolved_environment_ids)}."
+    asset_templates, prototype_starts, world_ids, world_id_starts = cloner.path.get_world_prototype_asset_templates(
+        clone_plan, include_world_indices=True
     )
+    source_paths = cloner.path.get_asset_prototype_paths(clone_plan)
+    topology = clone_plan.topology
+    candidates_by_environment: dict[int, tuple[int, str]] = {}
+    for world_group, (prototype_start, prototype_end) in enumerate(
+        zip(prototype_starts[:-1], prototype_starts[1:], strict=True)
+    ):
+        environment_ids = world_ids[world_id_starts[world_group] : world_id_starts[world_group + 1]]
+        for occurrence_index in range(prototype_start, prototype_end):
+            asset_template = asset_templates[occurrence_index]
+            if asset_template.count("{}") != 1:
+                continue
+            template_match = cloner.path.match(geometry_prim_path, asset_template)
+            asset_prototype_id = topology.world_prototypes[occurrence_index]
+            source_root = source_paths[asset_prototype_id]
+            if template_match is None or source_root is None:
+                continue
+            representative_path = f"{source_root.rstrip('/')}{template_match.suffix}"
+            specificity = len(asset_template)
+            for environment_id in environment_ids:
+                environment_id = int(environment_id)
+                previous = candidates_by_environment.get(environment_id)
+                if previous is None or specificity > previous[0]:
+                    candidates_by_environment[environment_id] = (specificity, representative_path)
+
+    assert len(candidates_by_environment) == scene.num_envs, (
+        f"Geometry path '{geometry_prim_path}' for scene key '{scene_key}' must resolve one populated clone source "
+        f"per environment; resolved {len(candidates_by_environment)} of {scene.num_envs}."
+    )
+    environment_ids_by_path: dict[str, list[int]] = {}
+    for environment_id, (_specificity, representative_path) in candidates_by_environment.items():
+        environment_ids_by_path.setdefault(representative_path, []).append(environment_id)
 
     representative_prim_groups = []
     for representative_path, environment_ids in environment_ids_by_path.items():
