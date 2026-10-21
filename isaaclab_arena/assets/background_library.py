@@ -225,8 +225,7 @@ class RobolabMapleTable(LibraryBackground):
     }
 
     def __init__(self, **kwargs):
-        # NOTE: The nested-physics spawner replaces the per-prim physics spawner used by prim_physics, and the
-        # kinematic table needs no reset.
+        # Disable reset to prevent the nested-physics spawner from replacing out custom spawner.
         super().__init__(reset_nested_physics=False, **kwargs)
 
 
