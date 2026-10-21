@@ -13,6 +13,7 @@ from isaaclab_arena.assets.background import Background
 from isaaclab_arena.assets.lightwheel_kitchen_factory import register_lightwheel_kitchens
 from isaaclab_arena.assets.lightwheel_utils import acquire_lightwheel_asset
 from isaaclab_arena.assets.nucleus import ARENA_NUCLEUS_DIR, ISAAC_STAGING_NUCLEUS_DIR
+from isaaclab_arena.assets.physics_config import ZeroVelocityCfg
 from isaaclab_arena.assets.register import register_asset
 from isaaclab_arena.utils.pose import Pose
 
@@ -199,18 +200,6 @@ class LightwheelKitchenBackground(LibraryBackground):
 register_lightwheel_kitchens(LightwheelKitchenBackground, globals())
 
 
-@register_asset
-class RobolabMapleTable(LibraryBackground):
-    """
-    A maple table background from the Robolab assets.
-    """
-
-    name = "maple_table_robolab"
-    tags = ["background", "robolab"]
-    usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/scenes/maple_table.usda"
-    object_min_z = -0.05
-
-
 # The table fixture USDs have their origin at floor level, so the table must be lifted into place
 # relative to the env origin. This puts the tabletop at z=0.003.
 ROBOLAB_TABLE_FIXTURE_POSE = Pose(
@@ -223,6 +212,26 @@ ROBOLAB_TABLE_FIXTURE_POSE = Pose(
 ROBOLAB_TABLE_FIXTURE_SPAWN_CFG_ADDON = {
     "rigid_props": sim_utils.RigidBodyPropertiesCfg(kinematic_enabled=True),
 }
+
+
+@register_asset
+class RobolabMapleTable(LibraryBackground):
+    """The maple table scene from the RoboLab assets."""
+
+    name = "maple_table_robolab"
+    tags = ["background", "robolab"]
+    usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/scenes/maple_table.usda"
+    object_min_z = -0.05
+    # The scene authors a non-zero velocity on its table body. With the table kinematic, objects fall
+    # through it unless that velocity is zeroed at spawn.
+    spawn_cfg_addon = {
+        **ROBOLAB_TABLE_FIXTURE_SPAWN_CFG_ADDON,
+        "prim_physics": {"table": ZeroVelocityCfg()},
+    }
+
+    def __init__(self, **kwargs):
+        # Disable reset to prevent the nested-physics spawner from replacing out custom spawner.
+        super().__init__(reset_nested_physics=False, **kwargs)
 
 
 @register_asset
