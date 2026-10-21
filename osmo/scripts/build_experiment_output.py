@@ -22,6 +22,7 @@ from pathlib import Path
 
 from isaaclab_arena.evaluation.arena_experiment_result import ARENA_SINGLE_RUN_TIMINGS_FILENAME, ArenaExperimentResult
 from isaaclab_arena.evaluation.arena_run import RunStatus
+from isaaclab_arena.evaluation.condition_episode_budget import CONDITION_EPISODE_BUDGET_FILENAME
 from isaaclab_arena.evaluation.experiment_timings import aggregate_experiment_timings
 from isaaclab_arena.visualization.report import RunExecutionReport, build_report
 
@@ -48,6 +49,11 @@ def load_experiment_runner_result(
     assert (execution_status is RunStatus.COMPLETED) == (
         process_exit_code == 0
     ), f"Experiment Runner result for Run '{run_name}' is inconsistent: '{experiment_runner_result_path}'"
+    budget_path = experiment_runner_output_directory / run_name / CONDITION_EPISODE_BUDGET_FILENAME
+    if execution_status is RunStatus.COMPLETED and budget_path.is_file():
+        budget = json.loads(budget_path.read_text(encoding="utf-8"))
+        if budget["status"] != "completed" or not budget["sampling_complete"]:
+            execution_status = RunStatus.INCOMPLETE
     run_metadata_by_name = experiment_runner_result["runs"]
     assert isinstance(run_metadata_by_name, dict) and set(run_metadata_by_name) == {
         run_name
@@ -124,7 +130,9 @@ def collect_run_outputs_into_experiment_output(
         }
         destination_run_output_directory = experiment_output_directory / run_name
         experiment_runner_result_path = experiment_runner_output_directory / EXPERIMENT_RUNNER_RESULT_FILE_NAME
-        if run_execution_report.status is RunStatus.FAILED:
+        source_run_output_directory = experiment_runner_output_directory / run_name
+        retain_condition_prefix = (source_run_output_directory / CONDITION_EPISODE_BUDGET_FILENAME).is_file()
+        if run_execution_report.status is RunStatus.FAILED and not retain_condition_prefix:
             print(
                 f"[WARNING] Excluding failed Run '{run_name}' with process exit code "
                 f"{run_execution_report.process_exit_code}"
@@ -136,14 +144,14 @@ def collect_run_outputs_into_experiment_output(
             )
             continue
 
-        source_run_output_directory = experiment_runner_output_directory / run_name
         assert (
             source_run_output_directory.is_dir()
-        ), f"Completed Run '{run_name}' is missing its expected output directory: '{source_run_output_directory}'"
+        ), f"Run '{run_name}' is missing its expected output directory: '{source_run_output_directory}'"
         source_run_timings_path = source_run_output_directory / ARENA_SINGLE_RUN_TIMINGS_FILENAME
-        assert (
-            source_run_timings_path.is_file()
-        ), f"Completed Run '{run_name}' is missing its timings file: '{source_run_timings_path}'"
+        if run_execution_report.status is RunStatus.COMPLETED:
+            assert (
+                source_run_timings_path.is_file()
+            ), f"Completed Run '{run_name}' is missing its timings file: '{source_run_timings_path}'"
         shutil.copytree(
             source_run_output_directory,
             destination_run_output_directory,

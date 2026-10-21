@@ -208,3 +208,46 @@ def test_builds_registered_environment_and_policy_metadata(monkeypatch):
         },
         "policy_variant": "registered_policy",
     }
+
+
+def test_collects_incomplete_condition_run_without_dropping_its_prefix(tmp_path):
+    from isaaclab_arena.evaluation.condition_episode_budget import (
+        CONDITION_EPISODE_BUDGET_FILENAME,
+        ConditionEpisodeBudget,
+        ObjectSetEpisodeBudgetCfg,
+    )
+
+    budget = ConditionEpisodeBudget(ObjectSetEpisodeBudgetCfg("fruit", {"A": 1, "B": 2}), ["A", "B"])
+    budget.set_output_path(tmp_path / "run" / CONDITION_EPISODE_BUDGET_FILENAME)
+    budget.assign([0, 1])
+    budget.complete([0])
+    state = budget.write("incomplete", "step_limit")
+    rows = [{"env_id": 0, "episode_in_env": 0, "condition_member": "A", "success": False}]
+    _write_jsonl(tmp_path / "run" / "episode_results_rebuild0.jsonl", rows)
+    data = ArenaExperimentResult(tmp_path, {"run": _metadata("task", status="incomplete")}).to_dict()
+    assert data["runs"]["run"]["condition_episode_budget"] == state
+    assert data["runs"]["run"]["rebuilds"][0]["episodes"] == rows
+    with pytest.raises(AssertionError, match="unfinished condition budget"):
+        ArenaExperimentResult(tmp_path, {"run": _metadata("task", status="completed")})
+
+
+@pytest.mark.parametrize("ordinals", [[], [0, 0], [0, 2]])
+def test_completed_condition_run_requires_exact_recorded_assignments(tmp_path, ordinals):
+    from isaaclab_arena.evaluation.condition_episode_budget import (
+        CONDITION_EPISODE_BUDGET_FILENAME,
+        ConditionEpisodeBudget,
+        ObjectSetEpisodeBudgetCfg,
+    )
+
+    budget = ConditionEpisodeBudget(ObjectSetEpisodeBudgetCfg("fruit", {"A": 2}), ["A", "A"])
+    budget.set_output_path(tmp_path / "run" / CONDITION_EPISODE_BUDGET_FILENAME)
+    budget.assign([0, 1])
+    budget.complete([0, 1])
+    budget.write("completed")
+    rows = [
+        {"env_id": i, "episode_in_env": 0, "condition_member": "A", "episode_in_condition": ordinal}
+        for i, ordinal in enumerate(ordinals)
+    ]
+    _write_jsonl(tmp_path / "run" / "episode_results_rebuild0.jsonl", rows)
+    with pytest.raises(AssertionError, match="records do not match"):
+        ArenaExperimentResult(tmp_path, {"run": _metadata("task", status="completed")})

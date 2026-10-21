@@ -79,6 +79,41 @@ def test_load_typed_yaml_experiment_applies_overrides_and_device(monkeypatch):
     assert all(run.environment_builder.device == "cuda:1" for run in runs.values())
 
 
+def test_load_typed_yaml_condition_episode_budget(tmp_path, monkeypatch):
+    from isaaclab_arena.evaluation.condition_episode_budget import ObjectSetEpisodeBudgetCfg
+
+    monkeypatch.setattr(
+        arena_experiment_config_loader,
+        "_registered_environment_cfg_types",
+        lambda: {"pick_and_place_maple_table": PickAndPlaceMapleTableEnvironmentCfg},
+    )
+    monkeypatch.setattr(
+        arena_experiment_config_loader,
+        "_resolve_policy_cfg_type_from_name_or_class_path",
+        lambda name: ZeroActionPolicyCfg,
+    )
+    config_path = tmp_path / "condition_budget.yaml"
+    config_path.write_text("""
+runs:
+  condition_budget:
+    environment:
+      type: pick_and_place_maple_table
+    policy:
+      type: zero_action
+    rollout_limit:
+      object_set_episodes:
+        object_set: fruit
+        episodes_per_member:
+          apple: 2
+          pear: 3
+        max_steps: 100
+""")
+    experiment = load_arena_experiment_from_config_file(config_path, device="cuda:0")
+    limit = experiment.runs["condition_budget"].rollout_limit
+    assert limit.object_set_episodes == ObjectSetEpisodeBudgetCfg("fruit", {"apple": 2, "pear": 3}, 100)
+    assert limit.num_steps is None and limit.num_episodes is None
+
+
 def test_load_typed_yaml_experiment_with_graph_spec_environment(tmp_path, monkeypatch):
     monkeypatch.setattr(arena_experiment_config_loader, "_registered_environment_cfg_types", lambda: {})
     monkeypatch.setattr(

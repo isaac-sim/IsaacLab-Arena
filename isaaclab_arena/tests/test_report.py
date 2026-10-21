@@ -622,3 +622,54 @@ def test_consecutive_step_summary_shows_streaks_and_satisfaction_steps(tmp_path)
     assert "sequence&lt;a&gt; / 2" in page
     assert "released&lt;script&gt;" in page
     assert "released<script>" not in page
+
+
+def test_report_preserves_unfinished_condition_and_failed_prefix(tmp_path):
+    from isaaclab_arena.evaluation.condition_episode_budget import (
+        CONDITION_EPISODE_BUDGET_FILENAME,
+        ConditionEpisodeBudget,
+        ObjectSetEpisodeBudgetCfg,
+    )
+    from isaaclab_arena.visualization.report_data import RunExecutionReport, build_experiment_summary
+    from isaaclab_arena.visualization.report_render import render_index
+
+    budget = ConditionEpisodeBudget(ObjectSetEpisodeBudgetCfg("fruit", {"A": 1, "<B>": 2}), ["A", "<B>"])
+    budget.set_output_path(tmp_path / "run" / CONDITION_EPISODE_BUDGET_FILENAME)
+    budget.assign([0, 1])
+    budget.complete([0])
+    budget.write("incomplete", "KeyboardInterrupt")
+    (tmp_path / "run" / "episode_results_rebuild0.jsonl").write_text(
+        json.dumps(
+            {"env_id": 0, "episode_in_env": 0, "condition_member": "A", "episode_in_condition": 0, "success": False}
+        )
+        + "\n"
+    )
+    summary = build_experiment_summary(tmp_path, "conditions", [RunExecutionReport("run", "failed", 1)])
+    assert summary.num_episodes == 1
+    assert summary.condition_episode_budgets["run"]["conditions"]["<B>"]["completed"] == 0
+    rendered = render_index(summary, {task.name: "task.html" for task in summary.tasks})
+    assert "Incomplete" in rendered and "KeyboardInterrupt" in rendered
+    assert "&lt;B&gt;" in rendered and "<B>" not in rendered
+    assert "not scored as failures" in rendered
+    assert "Recorded prefixes" in rendered
+    assert "<td>0/1</td><td>1</td><td>0</td><td>0</td>" in rendered
+    assert "<td>&mdash;</td><td>0</td><td>0</td><td>0</td>" in rendered
+
+
+def test_report_does_not_claim_completion_when_condition_records_are_missing(tmp_path):
+    from isaaclab_arena.evaluation.condition_episode_budget import (
+        CONDITION_EPISODE_BUDGET_FILENAME,
+        ConditionEpisodeBudget,
+        ObjectSetEpisodeBudgetCfg,
+    )
+    from isaaclab_arena.visualization.report_data import build_experiment_summary
+    from isaaclab_arena.visualization.report_render import render_index
+
+    budget = ConditionEpisodeBudget(ObjectSetEpisodeBudgetCfg("fruit", {"A": 1}), ["A"])
+    budget.set_output_path(tmp_path / "run" / CONDITION_EPISODE_BUDGET_FILENAME)
+    budget.assign([0])
+    budget.complete([0])
+    budget.write("completed")
+    rendered = render_index(build_experiment_summary(tmp_path, "missing record"), {})
+    assert "Completion unverified" in rendered
+    assert "Recorded episode counts disagree" in rendered

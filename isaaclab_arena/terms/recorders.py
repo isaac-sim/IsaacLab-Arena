@@ -82,10 +82,16 @@ class EpisodeIdentityRecorder(RecorderTerm):
         env_ids = list(range(self._env.num_envs)) if env_ids is None else [int(env_id) for env_id in env_ids]
         # Runs before the env advances its counters, so this is still the finishing episode's index.
         episode_indices = [self._env.get_episode_index(env_id) for env_id in env_ids]
-        return "episode_id", {
+        identity = {
             "env_id": torch.tensor(env_ids, dtype=torch.int64, device=self._env.device),
             "episode_in_env": torch.tensor(episode_indices, dtype=torch.int64, device=self._env.device),
         }
+        budget = getattr(self._env, "condition_episode_budget", None)
+        if budget is not None:
+            identity["episode_in_condition"] = torch.tensor(
+                [budget.active[env_id] for env_id in env_ids], dtype=torch.int64, device=self._env.device
+            )
+        return "episode_id", identity
 
 
 @configclass

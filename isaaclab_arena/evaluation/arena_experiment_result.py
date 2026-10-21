@@ -13,6 +13,7 @@ from collections.abc import Mapping
 from pathlib import Path, PureWindowsPath
 from typing import TYPE_CHECKING, Any, Literal, NotRequired, TypedDict
 
+from isaaclab_arena.evaluation.condition_episode_budget import CONDITION_EPISODE_BUDGET_FILENAME
 from isaaclab_arena.visualization.episode_results_files import (
     find_episode_results_files,
     parse_episode_results_filename,
@@ -40,6 +41,11 @@ class ArenaEpisodeResultData(TypedDict):
     timestamp: str
     variations: NotRequired[dict[str, Any]]
     progress: NotRequired[dict[str, Any]]
+    condition_object_set: NotRequired[str]
+    condition_member: NotRequired[str]
+    episode_in_condition: NotRequired[int]
+    terminated: NotRequired[bool]
+    truncated: NotRequired[bool]
 
 
 class ArenaRebuildResultData(TypedDict):
@@ -54,8 +60,9 @@ class ArenaExperimentRunData(TypedDict):
 
     environment: dict[str, str]
     policy_variant: str
-    status: Literal["completed", "failed"]
+    status: Literal["completed", "failed", "incomplete"]
     rebuilds: list[ArenaRebuildResultData]
+    condition_episode_budget: NotRequired[dict[str, Any]]
 
 
 ArenaExperimentResultData = dict[Literal["runs"], dict[str, ArenaExperimentRunData]]
@@ -129,7 +136,11 @@ class ArenaExperimentResult:
         self.assert_run_name_is_safe_path_component(run_name)
         environment = run_metadata["environment"]
         status = run_metadata["status"]
-        assert status in ("completed", "failed"), f"status for Run {run_name!r} must be 'completed' or 'failed'"
+        assert status in (
+            "completed",
+            "failed",
+            "incomplete",
+        ), f"status for Run {run_name!r} must be 'completed', 'failed' or 'incomplete'"
 
         run_output_directory = self.experiment_output_directory / run_name
         if status == "completed":
@@ -146,7 +157,7 @@ class ArenaExperimentResult:
             if run_output_directory.is_dir()
             else []
         )
-        return {
+        result = {
             "environment": {
                 "name": environment["name"],
                 "definition": environment["definition"],
@@ -155,6 +166,25 @@ class ArenaExperimentResult:
             "status": status,
             "rebuilds": rebuilds,
         }
+        budget_path = run_output_directory / CONDITION_EPISODE_BUDGET_FILENAME
+        if budget_path.is_file():
+            budget = json.loads(budget_path.read_text(encoding="utf-8"))
+            if status == "completed":
+                assert (
+                    budget["status"] == "completed" and budget["sampling_complete"]
+                ), f"Run {run_name!r} has an unfinished condition budget"
+                records = [episode for rebuild in rebuilds for episode in rebuild["episodes"]]
+                expected = {
+                    (member, index)
+                    for member, counts in budget["conditions"].items()
+                    for index in range(counts["requested"])
+                }
+                actual = [(row.get("condition_member"), row.get("episode_in_condition")) for row in records]
+                assert (
+                    len(actual) == len(expected) and set(actual) == expected
+                ), f"Run {run_name!r} condition records do not match its completed allocation"
+            result["condition_episode_budget"] = budget
+        return result
 
     def to_dict(self) -> ArenaExperimentResultData:
         """Return the collected JSON-compatible Experiment result."""

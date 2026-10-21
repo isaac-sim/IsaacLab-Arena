@@ -32,6 +32,7 @@ Guidelines for modifications:
 
 ## Contributors
 
+* Daniel Wahnich <cogitoergosum143@gmail.com>
 * Ashley Chow <ashchow@nvidia.com> (NVIDIA)
 * Hui Kang <hkang@nvidia.com> (NVIDIA)
 * Lance Li <Nyquist0, lancel@nvidia.com> (NVIDIA)

@@ -107,3 +107,13 @@ def test_step_rollout_keeps_its_step_limit_and_resets_actual_reset_environments(
     assert policy.reset_calls == [None, [1]]
     assert policy.observed_steps == [0, 1]
     assert progress_bar.n == 2
+
+
+def test_episode_rollout_step_cap_keeps_the_unfinished_count(monkeypatch):
+    environment = _RolloutEnvironment([(1, [], [0], []), (1, [], [], [])])
+    policy = _Policy()
+    progress_bar = _capture_progress(monkeypatch, total=5)
+    policy_runner.rollout_policy(_wrap_environment(environment), policy, num_steps=None, num_episodes=5, max_steps=2)
+    assert environment.steps_completed == 2
+    assert environment.completed_episode_count == progress_bar.n == 1
+    assert policy.reset_calls == [None]

@@ -26,6 +26,9 @@ def _create_episode_limit_env(
     episode_lengths,
     record_trajectories,
     recorded_variation_samples_path=None,
+    condition_quotas=None,
+    condition_members=None,
+    failure_is_timeout=True,
 ):
     import torch
     from dataclasses import field
@@ -129,11 +132,23 @@ def _create_episode_limit_env(
             func=_episode_finished, params={"episode_lengths": episode_lengths, "successful": False}, time_out=True
         ),
     }
+    if not failure_is_timeout:
+        env_cfg.terminations["failure"] = env_cfg.terminations.pop("time_out")
+        env_cfg.terminations["failure"].time_out = False
     env_cfg.recorders = (
-        EpisodeRecordersCfg(dataset_export_dir_path=str(output_dir), dataset_filename="episodes", export_in_close=True)
+        EpisodeRecordersCfg(
+            dataset_export_dir_path=str(output_dir),
+            dataset_filename="episodes",
+            export_in_close=condition_quotas is None,
+        )
         if record_trajectories
         else None
     )
+    if condition_quotas is not None:
+        from isaaclab_arena.evaluation.condition_episode_budget import ObjectSetEpisodeBudgetCfg
+
+        env_kwargs["condition_episode_budget_cfg"] = ObjectSetEpisodeBudgetCfg("fixture", condition_quotas)
+        env_kwargs["condition_members_by_env"] = condition_members
     env = builder.make_registered(env_cfg, env_kwargs)
     results_path = output_dir / "episode_results.jsonl"
     env.unwrapped.episode_recorder.set_output_path(results_path)
@@ -156,6 +171,9 @@ def _assert_recorded_episodes(output_dir, records, episode_lengths):
             assert identity not in exported_identities
             exported_identities.add(identity)
             record = records_by_identity[identity]
+            if "episode_in_condition" in record:
+                assert demo["episode_id/episode_in_condition"].shape == (1,)
+                assert int(demo["episode_id/episode_in_condition"][0]) == record["episode_in_condition"]
             episode_length = episode_lengths[env_id]
             assert demo["actions"].shape[0] == record["episode_length"] == episode_length
             assert demo["success"].shape == (1,)
@@ -353,3 +371,96 @@ def _test_unbounded_partial_initial_reset(simulation_app, output_dir):
 
 def test_unbounded_partial_initial_reset(tmp_path):
     assert run_function_with_persistent_simulation_app(_test_unbounded_partial_initial_reset, output_dir=tmp_path)
+
+
+def _test_condition_episode_limit(simulation_app, output_dir, lengths, failure_is_timeout):
+    import torch
+
+    quotas = {"A": 2, "B": 3}
+    members = ["A", "A", "B"]
+    env, starts, results_path = _create_episode_limit_env(
+        output_dir,
+        lengths,
+        True,
+        condition_quotas=quotas,
+        condition_members=members,
+        failure_is_timeout=failure_is_timeout,
+    )
+    base = env.unwrapped
+    try:
+        base.configure_episode_limit(5)
+        env.reset()
+        action = torch.zeros(env.action_space.shape, device=base.device)
+        for _ in range(5 * max(lengths)):
+            env.step(action)
+            budget = base.condition_episode_budget
+            for member, requested in quotas.items():
+                active = sum(members[i] == member for i in base.active_episode_mask.nonzero().flatten().tolist())
+                assert budget.completed[member] + active == budget.started[member] <= requested
+            if budget.is_complete:
+                break
+        assert budget.is_complete
+        assert base.completed_episode_count == 5
+        assert Counter(members[i] for i, _ in starts) == quotas
+        assert not base.active_episode_mask.any()
+        before = results_path.read_bytes()
+        for _ in range(max(lengths) + 1):
+            _, _, terminated, truncated, _ = env.step(action)
+            assert not terminated.any() and not truncated.any()
+            assert base.reset_env_ids.numel() == 0
+        assert results_path.read_bytes() == before
+    finally:
+        env.close()
+    records = [json.loads(line) for line in results_path.read_text().splitlines()]
+    assert len(records) == 5
+    assert Counter(row["condition_member"] for row in records) == quotas
+    assert len({(row["condition_member"], row["episode_in_condition"]) for row in records}) == 5
+    for row in records:
+        assert row["condition_member"] == members[row["env_id"]]
+        assert row["success"] is (row["env_id"] % 2 == 0)
+        assert row["truncated"] is (row["env_id"] % 2 != 0 and failure_is_timeout)
+        assert row["terminated"] is not row["truncated"]
+    _assert_recorded_episodes(output_dir, records, lengths)
+    return True
+
+
+@pytest.mark.parametrize("lengths", [(1, 3, 5), (5, 3, 1), (2, 2, 2)])
+@pytest.mark.parametrize("failure_is_timeout", [False, True])
+def test_condition_quotas_preserve_native_recording(tmp_path, lengths, failure_is_timeout):
+    assert run_function_with_persistent_simulation_app(
+        _test_condition_episode_limit,
+        output_dir=tmp_path,
+        lengths=lengths,
+        failure_is_timeout=failure_is_timeout,
+    )
+
+
+def _test_interrupted_condition_recording(simulation_app, output_dir):
+    import torch
+
+    env, starts, results_path = _create_episode_limit_env(
+        output_dir,
+        (1, 3, 5),
+        record_trajectories=True,
+        condition_quotas={"A": 2, "B": 3},
+        condition_members=["A", "A", "B"],
+    )
+    budget = env.unwrapped.condition_episode_budget
+    budget.set_output_path(output_dir / "condition_episode_budget.json")
+    try:
+        env.reset()
+        env.step(torch.zeros(env.action_space.shape, device=env.unwrapped.device))
+        assert env.unwrapped.completed_episode_count == 1
+        assert len(starts) == 3
+    finally:
+        env.close()
+        budget.write("incomplete", "test_interruption")
+    records = [json.loads(line) for line in results_path.read_text().splitlines()]
+    assert len(records) == 1
+    _assert_recorded_episodes(output_dir, records, (1, 3, 5))
+    assert {row["env_id"] for row in budget.snapshot()["unfinished_assignments"]} == {1, 2}
+    return True
+
+
+def test_interrupted_condition_run_does_not_export_unfinished_trajectories_as_failures(tmp_path):
+    assert run_function_with_persistent_simulation_app(_test_interrupted_condition_recording, output_dir=tmp_path)

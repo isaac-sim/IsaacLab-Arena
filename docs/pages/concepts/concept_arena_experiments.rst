@@ -204,3 +204,72 @@ Related concepts
    :maxdepth: 1
 
    experiment_record_replay
+
+
+Independent episode counts for fixed object members
+--------------------------------------------------
+
+A global ``rollout_limit.num_episodes`` remains the default. To allocate different
+counts to object conditions in one parallel Run, use ``object_set_episodes``:
+
+.. code-block:: yaml
+
+   rollout_limit:
+     object_set_episodes:
+       object_set: fruit
+       episodes_per_member:
+         sweet_potato: 100
+         jug: 200
+       max_steps: 100000  # Optional early-stop cap, not an episode timeout.
+
+``fruit`` must be the scene's only ``RigidObjectSet``, using ordered assignment.
+The member names must be unique and every member must have a positive quota and
+at least one environment slot. All slots assigned the same member share its
+quota. Episode starts are reserved before reset, so simultaneous completions
+cannot oversubscribe a condition. Successes, task failures and episode timeouts
+all consume their condition's episode count. Completed slots become inactive
+while other conditions finish. Physics and policy inference may still process
+inactive slots; parallel execution is not necessarily faster than separate Runs.
+
+This mode supports one rebuild and excludes recorded variation replay, finite
+action-sequence policies and Mimic. It also requires the object set to be the
+scene's only multi-asset spawner. The existing global-budget mode keeps its
+current rebuild and replay behavior. Build-time variations and configuration
+callbacks must preserve the assigned
+member spawn configurations. If trajectory recording is enabled, use
+``export_in_record_pre_reset=True``, ``export_in_close=False`` and
+``dataset_export_mode=EXPORT_ALL``. Partial close-time exports and filtering
+unsuccessful trajectories are rejected for this mode. Completed trajectories
+retain their native identities; unfinished trajectory buffers are not exported
+as task outcomes, and their assignments remain in the allocation record.
+
+Condition labels describe object members;
+other live variations can still change between episodes. They are not complete
+saved initial conditions or a guarantee of matched trial populations.
+
+The Run writes ``condition_episode_budget.json`` before its first reset and
+atomically replaces it at episode-allocation transitions. It includes the
+resolved environment/member mapping, effective member spawn configurations,
+requested counts, completed counts and unfinished assignments. Asset file contents
+are not copied. Episode JSONL records include ``condition_object_set``,
+``condition_member``, ``episode_in_condition``, ``terminated`` and ``truncated``.
+Trajectory identities also retain ``episode_in_condition`` for a direct join.
+
+An early step cap returns an incomplete Run. Exceptions and keyboard interruption
+preserve the allocation record and re-raise after resource cleanup. A hard process
+kill may leave a running record; it is not evidence of completion. Allocation,
+JSONL and HDF5 are separate files, so recovery after an abrupt kill requires
+reconciling their prefixes. This mode does not implement resume or retry.
+The HTML report shows requested conditions even when they have no completed
+episodes, with unobserved scores left undefined. It shows successes over scored
+episodes, unsuccessful outcomes, timeouts and unscored records separately;
+timeouts may overlap the outcome counts. A failed condition Run's recorded
+prefix remains visible, including when OSMO collects it. A clean process exit
+does not promote an unfinished condition allocation to completed.
+
+Quotas specify sample counts, not deployment-population weights. Existing pooled
+success metrics describe observed episodes. Inspect results by condition and
+choose target-population weights separately when needed; unfinished episodes
+remain unscored. For a native baseline, run one condition per Run with its own
+``num_episodes`` and match source, policy, conditions and outcome rules. Include
+startup, inactive-slot work, failures and result review in any cost comparison.

@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING, Any
 from isaaclab_arena.assets.registries import PolicyRegistry
 from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
 from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg
+from isaaclab_arena.evaluation.condition_episode_budget import ObjectSetEpisodeBudgetCfg
 from isaaclab_arena.policy.policy_base import PolicyCfg
 
 if TYPE_CHECKING:
@@ -32,7 +33,15 @@ class RolloutLimitCfg:
     num_episodes: int | None = None
     """Total number of episodes to start and finish, or ``None`` for a step-driven rollout."""
 
+    object_set_episodes: ObjectSetEpisodeBudgetCfg | None = None
+    """Shared episode quotas for fixed object members, instead of a global rollout limit."""
+
     def __post_init__(self) -> None:
+        if self.object_set_episodes is not None:
+            assert (
+                self.num_steps is None and self.num_episodes is None
+            ), "object_set_episodes cannot be combined with num_steps or num_episodes"
+            self.object_set_episodes.__post_init__()
         assert not (
             self.num_steps is not None and self.num_episodes is not None
         ), "num_steps and num_episodes are mutually exclusive"
@@ -70,6 +79,12 @@ class ArenaRunCfg:
 
     def __post_init__(self) -> None:
         assert self.name, "run name must not be empty"
+        if self.rollout_limit.object_set_episodes is not None:
+            assert self.num_rebuilds == 1, "object_set_episodes currently supports one rebuild"
+            assert not self.environment_builder.mimic, "object_set_episodes is for evaluation, not Mimic"
+            assert self.recorded_variation_samples_paths is None and (
+                self.environment_builder.recorded_variation_samples_path is None
+            ), "object_set_episodes cannot be combined with recorded variation replay"
         if self.recorded_variation_samples_paths is not None:
             assert self.recorded_variation_samples_paths, "recorded_variation_samples_paths must not be empty"
             assert all(
@@ -101,10 +116,11 @@ class ArenaRunCfg:
 
 
 class RunStatus(Enum):
-    """Describe whether a run completed or failed."""
+    """Describe whether a run completed, failed or stopped with unfinished episodes."""
 
     COMPLETED = "completed"
     FAILED = "failed"
+    INCOMPLETE = "incomplete"
 
 
 @dataclass
@@ -119,6 +135,9 @@ class ArenaRunResult:
 
     metrics: MetricsDataCollection | None = None
     """Metrics aggregated over all successful rebuilds, when provided by the task."""
+
+    condition_episode_budget: dict | None = None
+    """Requested quotas, completed counts and unfinished assignments for a condition-limited Run."""
 
 
 def build_runs_info_table(run_cfgs: Iterable[ArenaRunCfg], results: Iterable[ArenaRunResult]) -> PrettyTable:
@@ -145,7 +164,11 @@ def build_runs_info_table(run_cfgs: Iterable[ArenaRunCfg], results: Iterable[Are
             policy_type.name,
             run_cfg.environment_builder.num_envs,
             run_cfg.rollout_limit.num_steps,
-            run_cfg.rollout_limit.num_episodes,
+            (
+                sum(run_cfg.rollout_limit.object_set_episodes.episodes_per_member.values())
+                if run_cfg.rollout_limit.object_set_episodes is not None
+                else run_cfg.rollout_limit.num_episodes
+            ),
             run_cfg.num_rebuilds,
         ])
     return table
