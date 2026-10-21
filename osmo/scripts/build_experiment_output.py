@@ -5,11 +5,11 @@
 
 """Build one Arena Experiment output from independently executed Experiment Runner tasks.
 
-The input JSON maps each Run name to its Experiment Runner task's output directory. Each runner result selects whether
-its ``<run-name>/...`` output is included. Completed Run directories are copied into the
-``<experiment-output>/<run-name>`` layout, while failed results are preserved without partial Run artifacts. The
-``arena_experiment_result.json`` and ``index.html`` report list every Run execution and include episode details only
-from completed Runs. ``arena_experiment_timings.json`` holds each completed Run's timings and their per-timer totals.
+The input JSON maps each Run name to its Experiment Runner task's output directory. Completed Run directories and
+condition-budget prefixes are copied into the ``<experiment-output>/<run-name>`` layout. Failed Runs without a
+condition budget retain only their execution result. ``arena_experiment_result.json`` preserves the condition
+prefixes, and ``index.html`` reports every Run's execution status. ``arena_experiment_timings.json`` holds only
+completed Runs' timings and their per-timer totals.
 """
 
 from __future__ import annotations
@@ -104,7 +104,7 @@ def collect_run_outputs_into_experiment_output(
     experiment_runner_output_directories_by_run_name: Mapping[str, Path],
     experiment_output_directory: Path,
 ) -> tuple[list[RunExecutionReport], dict[str, dict[str, object]]]:
-    """Collect completed Run outputs and preserve failed execution results.
+    """Collect completed outputs and condition prefixes with their execution results.
 
     Args:
         experiment_runner_output_directories_by_run_name: Run names mapped to Experiment Runner task output
@@ -144,9 +144,10 @@ def collect_run_outputs_into_experiment_output(
             )
             continue
 
-        assert (
-            source_run_output_directory.is_dir()
-        ), f"Run '{run_name}' is missing its expected output directory: '{source_run_output_directory}'"
+        assert source_run_output_directory.is_dir(), (
+            f"{run_execution_report.status.value.capitalize()} Run '{run_name}' is missing its expected output"
+            f" directory: '{source_run_output_directory}'"
+        )
         source_run_timings_path = source_run_output_directory / ARENA_SINGLE_RUN_TIMINGS_FILENAME
         if run_execution_report.status is RunStatus.COMPLETED:
             assert (
