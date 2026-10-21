@@ -52,7 +52,7 @@ Lint and format tooling (`pre-commit` and the hooks it runs — black, flake8, i
 
 - Keep comprehensions simple. When they contain nested loops, filtering, or multiple transformations that make them hard to read, use explicit loops and named intermediate variables instead.
 - Keep `__init__.py` files free of eager imports or re-exports
-- Prefer `assert condition, "message"` over `if not condition: raise ValueError("message")` for internal invariant checks. (Formatting, imports, and typing are enforced by `pre-commit` — see `.pre-commit-config.yaml`.)
+- Use `assert condition, "message"` for internal invariants and for validating user input (CLI arguments, files, config). An assert terminates the program and nothing more, so never put code that has to run inside one (`assert x.pop(...)`), and never catch `AssertionError` to recover (raise an explicit exception such as `ValueError` where callers need to handle the failure). Asserting on input is a deliberate simplification: it avoids `try`/`except` boilerplate everywhere but is not ideal long-term.
 - Read `.github/pull_request_template.md` before writing a PR description and follow its guidance.
 - Attribute docstrings should be included below the attribute, rather than in the class-level docstring.
 - Copyright headers: a newly created file uses the current year alone (e.g. `2026`); a file created earlier and edited this year uses a range (e.g. `2025-2026`). Don't copy a neighbouring file's year — the pre-commit hooks (`insert-license`, `fix-new-file-copyright-year`) set and enforce this, so you generally don't hand-edit it.

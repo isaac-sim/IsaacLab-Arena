@@ -373,7 +373,7 @@ def quaternion_to_90_deg_z_quarters(rotation_xyzw: tuple[float, float, float, fl
     """Convert a quaternion to 90° rotation quarters around Z axis.
 
     Only supports rotations that are multiples of 90° around the Z axis.
-    Raises AssertionError for any other rotation.
+    Raises ValueError for any other rotation.
 
     Args:
         rotation_xyzw: Quaternion as (x, y, z, w).
@@ -383,26 +383,28 @@ def quaternion_to_90_deg_z_quarters(rotation_xyzw: tuple[float, float, float, fl
         Number of 90° quarters (0, 1, 2, or 3).
 
     Raises:
-        AssertionError: If the quaternion is not a pure Z rotation or not a 90° multiple.
+        ValueError: If the quaternion is not a pure Z rotation or not a 90° multiple.
     """
     import math
 
     x, y, z, w = rotation_xyzw
 
     # Must be a pure Z rotation (x and y components must be ~0)
-    assert (
-        abs(x) < 1e-3 and abs(y) < 1e-3
-    ), f"Only rotations around Z axis are supported. Got quaternion (w={w:.4f}, x={x:.4f}, y={y:.4f}, z={z:.4f})."
+    if abs(x) >= 1e-3 or abs(y) >= 1e-3:
+        raise ValueError(
+            f"Only rotations around Z axis are supported. Got quaternion (w={w:.4f}, x={x:.4f}, y={y:.4f}, z={z:.4f})."
+        )
 
     # Compute rotation angle around Z and normalize to [0°, 360°)
     angle_deg = math.degrees(2 * math.atan2(z, w)) % 360
     quarters = round(angle_deg / 90) % 4
     remainder_deg = min(angle_deg % 90, 90 - angle_deg % 90)
 
-    assert remainder_deg < tol_deg, (
-        "Only 90° rotation multiples around Z are supported. "
-        f"Got {angle_deg:.1f}° (nearest 90° multiple: {quarters * 90}°)."
-    )
+    if remainder_deg >= tol_deg:
+        raise ValueError(
+            "Only 90° rotation multiples around Z are supported. "
+            f"Got {angle_deg:.1f}° (nearest 90° multiple: {quarters * 90}°)."
+        )
 
     return quarters
 

@@ -316,8 +316,8 @@ class ClutterOn(On):
                 # Release regions require axis-aligned support bounds.
                 try:
                     quaternion_to_90_deg_z_quarters(rotation.get_rotation_xyzw())
-                except AssertionError as error:
-                    raise AssertionError(f"ClutterOn support '{support.name}': {error}") from error
+                except ValueError as error:
+                    raise ValueError(f"ClutterOn support '{support.name}': {error}") from error
 
 
 @agent_ready

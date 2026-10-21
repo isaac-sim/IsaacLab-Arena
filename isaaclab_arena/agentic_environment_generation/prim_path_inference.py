@@ -71,7 +71,7 @@ class PrimPathInference:
         except ValidationError as exc:
             traces.extend(format_validation_error(exc))
             return None
-        except AssertionError as exc:
+        except ValueError as exc:
             traces.append(str(exc))
             return None
 
@@ -212,14 +212,14 @@ def _validate_against_prim_tree(
     """Validate paths and reject type upcasts from rigid or articulation references."""
     records_by_path = {record.relative_path: record for record in prim_tree}
     for ref in object_references:
-        assert ref.prim_path is not None, f"Object reference '{ref.id}' requires a prim_path"
+        if ref.prim_path is None:
+            raise ValueError(f"Object reference '{ref.id}' requires a prim_path")
         prim_path = ref.prim_path.lstrip("/")
         record = records_by_path.get(prim_path)
-        assert (
-            record is not None
-        ), f"Object reference '{ref.id}' prim_path {prim_path!r} is not in the background prim tree"
-        if ref.object_type != ObjectType.BASE:
-            assert ref.object_type == record.object_type, (
+        if record is None:
+            raise ValueError(f"Object reference '{ref.id}' prim_path {prim_path!r} is not in the background prim tree")
+        if ref.object_type != ObjectType.BASE and ref.object_type != record.object_type:
+            raise ValueError(
                 f"Object reference '{ref.id}' object_type {ref.object_type!r} does not match prim tree "
                 f"object_type {record.object_type!r} for {prim_path!r}"
             )
@@ -231,15 +231,19 @@ def _merge_resolved_object_references(
 ) -> ArenaEnvGraphSpec:
     """Merge resolved prim_path and params into an environment graph spec."""
     resolved_by_id = {ref.id: ref for ref in resolved}
-    assert len(resolved_by_id) == len(resolved), "resolve_usd_prim returned duplicate object_reference ids"
+    if len(resolved_by_id) != len(resolved):
+        raise ValueError("resolve_usd_prim returned duplicate object_reference ids")
     merged_refs: list[ObjectReferenceSpec] = []
     for ref in spec.object_references or []:
-        assert ref.id in resolved_by_id, f"resolve_usd_prim missing object_reference id {ref.id!r}"
+        if ref.id not in resolved_by_id:
+            raise ValueError(f"resolve_usd_prim missing object_reference id {ref.id!r}")
         patch = resolved_by_id[ref.id]
-        assert (
-            patch.object_type == ref.object_type
-        ), f"object_reference {ref.id!r} object_type mismatch: {ref.object_type!r} != {patch.object_type!r}"
-        assert patch.prim_path is not None, f"object_reference {ref.id!r} requires a prim_path"
+        if patch.object_type != ref.object_type:
+            raise ValueError(
+                f"object_reference {ref.id!r} object_type mismatch: {ref.object_type!r} != {patch.object_type!r}"
+            )
+        if patch.prim_path is None:
+            raise ValueError(f"object_reference {ref.id!r} requires a prim_path")
         prim_path = patch.prim_path.lstrip("/")
         merged_params = dict(ref.params)
         merged_params.update(patch.params)
