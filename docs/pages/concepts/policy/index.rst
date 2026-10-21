@@ -17,7 +17,7 @@ runners depend on.
 Built-in policies
 -----------------
 
-Arena ships with four policies:
+Arena includes the following core policies:
 
 **ZeroActionPolicy** (``"zero_action"``)
    Returns a zero-filled action tensor. Useful for validating an environment
@@ -73,8 +73,8 @@ Construct the policy by passing its typed configuration directly:
    policy = MyPolicy(policy_cfg)
 
 The typed registration lets the single-job runner generate CLI flags from
-``MyPolicyCfg`` and lets the Experiment Runner convert the current
-``Job.policy_config_dict`` representation into that same type. See
+``MyPolicyCfg`` and lets the Experiment Runner load each Run's ``policy``
+configuration as that same type in ``ArenaRunCfg.policy``. See
 :doc:`Arena Experiments <../concept_arena_experiments>` for details.
 
 Config fields named ``device`` or ``num_envs`` reuse the corresponding shared

@@ -20,9 +20,8 @@ Before acting, read:
 - `isaaclab_arena_gr00t/utils/wait_for_gr00t_server.py` for the protocol-level readiness probe.
 
 Treat the current checkout as the source of truth. The maintained documentation currently launches
-from `submodules/Isaac-GR00T`, but explicitly marks that location as transitional. If the docs name
-a separate GR00T checkout after the refactor, follow them rather than recreating the removed
-submodule. Report any mismatch between this skill, the docs, and the server script.
+from `submodules/Isaac-GR00T`. Follow the checkout location named by the current docs and report any
+mismatch between this skill, the docs, and the server script.
 
 ## Resolve the server contract
 

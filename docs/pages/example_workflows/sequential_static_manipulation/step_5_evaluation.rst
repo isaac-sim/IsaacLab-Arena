@@ -156,6 +156,7 @@ Parallel evaluation of the policy in multiple parallel environments is also supp
       .. code-block:: bash
 
          python isaaclab_arena/evaluation/policy_runner.py \
+           --viz kit \
            --policy_type isaaclab_arena_gr00t.policy.gr00t_remote_closedloop_policy.Gr00tRemoteClosedloopPolicy \
            --policy_config_yaml_path isaaclab_arena_gr00t/policy/config/gr1_manip_ranch_bottle_gr00t_closedloop_config.yaml \
            --remote_host 127.0.0.1 \
@@ -187,13 +188,12 @@ Parallel evaluation of the policy in multiple parallel environments is also supp
            --object ranch_dressing_hope_robolab
 
 
-And during the evaluation, you should see the following output on the console at the end of the evaluation
-indicating which environments are terminated (task-specific conditions like the microwave door is opened),
-or truncated (if timeouts are enabled, like the maximum episode length is exceeded).
+During evaluation, messages like the following identify environments whose policy state is reset
+when they start a new episode. The list includes resets after either termination or truncation.
 
 .. code-block:: text
 
-   Resetting policy for terminated env_ids: tensor([7], device='cuda:0') and truncated env_ids: tensor([], device='cuda:0', dtype=torch.int64)
+   Resetting policy state for env_ids: tensor([7], device='cuda:0')
 
 At the end of the evaluation, you should see the following output on the console indicating the metrics.
 You can see that the success rate for this sequential task, object moved rate for the first subtask,
@@ -368,6 +368,5 @@ You should see the following output on the console indicating the jobs and metri
    success_rate                       0.9000
    ======================================================================
 
-With the policy trained on using ranch dressing bottle as object of interest,
-the success rate for generalizing to putting the unseen object, jug, in the fridge is 0.0.
-This is expected as the policy is not trained on the jug, comparing to the success rate of 0.8 for the trained object, ranch dressing bottle.
+In the example above, the policy trained on the ranch dressing bottle achieves a
+success rate of 0.9 on that object and 0.1 on the unseen jug.

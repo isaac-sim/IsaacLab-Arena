@@ -46,7 +46,7 @@ and can be overridden with Hydra syntax appended to the training command:
    agent.algorithm.learning_rate=0.001
 
    # Save a checkpoint more frequently (default: every 200 iterations)
-   agent.save_interval=500
+   agent.save_interval=100
 
 For example, to train with relu activation and a higher learning rate:
 
@@ -66,10 +66,9 @@ For example, to train with relu activation and a higher learning rate:
 Resuming from a Checkpoint
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-To resume training from a previously saved checkpoint, use the ``--resume`` flag
-together with ``--load_run`` (run folder name) and ``--checkpoint`` (model filename).
-Both arguments are optional — when omitted, the most recent run and latest checkpoint
-are used automatically.
+To resume training from a previously saved checkpoint, pass its path with
+``--checkpoint``. Use ``--checkpoint latest`` to load the latest checkpoint from
+the newest compatible run created by the unified training entry point.
 
 .. code-block:: bash
 
@@ -80,13 +79,10 @@ are used automatically.
      --rl_training_mode \
      --num_envs 4096 \
      --max_iterations 4000 \
-     --resume \
-     --load_run <timestamp> \
-     --checkpoint model_1999.pt
+     --checkpoint "logs/rsl_rl/generic_experiment/<timestamp>/model_1999.pt"
 
 Replace ``<timestamp>`` with the run folder name under ``logs/rsl_rl/generic_experiment/``.
-If ``--load_run`` is omitted, the latest run is selected. If ``--checkpoint`` is omitted,
-the latest checkpoint in that run is loaded.
+Omitting ``--checkpoint`` starts a new training run without loading a checkpoint.
 
 
 Monitoring Training
@@ -136,11 +132,14 @@ Timings and metric values vary with hardware, configuration, and random seed.
 Multi-GPU Training
 ^^^^^^^^^^^^^^^^^^
 
-Add ``--distributed`` to spread environments across all available GPUs:
+Launch one training process per GPU and pass ``--distributed``. This example uses
+two GPUs with 4096 environments per GPU; set ``--nproc_per_node`` to the number of
+GPUs to use:
 
 .. code-block:: bash
 
-   python isaaclab_arena/scripts/train.py \
+   python -m torch.distributed.run --standalone --nproc_per_node=2 \
+     isaaclab_arena/scripts/train.py \
      --rl_library rsl_rl \
      --external_callback isaaclab_arena.environments.isaaclab_interop.environment_registration_callback \
      --task lift_object \

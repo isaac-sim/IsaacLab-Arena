@@ -141,7 +141,7 @@ externally-defined environment like this:
    python isaaclab_arena/evaluation/policy_runner.py \
      --policy_type zero_action \
      --num_episodes 1 \
-     --external_environment_class_path my_package.isaaclab_arena_environments.my_environment:ExternalFrankaTableWithTaskEnvironment \
+     --external_environment_class_path my_package.isaaclab_arena_environments.my_environment_with_task:ExternalFrankaTableWithTaskEnvironment \
      franka_table_with_task \
      --object tomato_soup_can
 

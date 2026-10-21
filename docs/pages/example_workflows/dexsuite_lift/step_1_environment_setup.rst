@@ -47,13 +47,17 @@ The environment is defined in
               scene = Scene(assets=[dexsuite_table, manip_object, ground_plane, light])
               task = DexsuiteLiftTask(lift_object=manip_object, background_scene=dexsuite_table)
 
+              dexsuite_rl_cfg_entry = (
+                  "isaaclab_tasks.core.lift.config.kuka_allegro.agents.rsl_rl_ppo_cfg:KukaAllegroPPORunnerCfg"
+              )
+
               return IsaacLabArenaEnvironment(
                   name=self.name,
                   embodiment=embodiment,
                   scene=scene,
                   task=task,
                   rl_framework_entry_point="rsl_rl_cfg_entry_point",
-                  rl_policy_cfg=DEXSUITE_RSL_RL_CFG,
+                  rl_policy_cfg=dexsuite_rl_cfg_entry,
                   default_physics_backend=PhysicsBackend.NEWTON,
                   env_cfg_callback=_match_isaac_lab_lift_cfg,
               )
@@ -114,7 +118,9 @@ When Newton is resolved, the environment callback:
 
 1. Applies Isaac Lab's ``PhysicsCfg.newton_mjwarp`` solver configuration.
 2. Uses a 1/120-second simulation step and decimation of 4 (30 Hz control).
-3. Enables ``scene.replicate_physics = True`` (required by Newton).
+
+``ArenaEnvBuilder`` sets ``scene.replicate_physics = True`` for Newton before
+calling the environment callback.
 
 
 Validation: Run Zero-Action Policy
@@ -143,7 +149,7 @@ You should see the Kuka Allegro hand with Arena's procedural cuboid.
 
 .. tip::
 
-   ``--viz newton_gl`` uses the MuJoCo viewer; ``--viz kit`` uses
+   ``--viz newton_gl`` uses the Newton OpenGL viewer; ``--viz kit`` uses
    the Kit viewer. The visualizer setting is independent of the physics backend.
    For example, ``--viz kit --presets newton`` runs Newton physics with
    the Kit viewer.

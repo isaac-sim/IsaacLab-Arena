@@ -66,7 +66,7 @@ yourself, point ``--env_spec`` at ``isaaclab_arena_environments/agent_generated/
             --env_spec isaaclab_arena_environments/maple_table_top/droid_pick_fruit_into_bowl_maple_table.yaml
 
       While the environment builds, every batch of candidate layouts reports how many of them passed each
-      check. ``ik_reachable`` is the cuRobo verdict, so its ratio is the rejection rate to watch:
+      check. ``ik_reachable`` is the cuRobo verdict, so its ratio is the pass rate to watch:
 
       .. code-block:: text
 

@@ -71,7 +71,7 @@ Step 1: Run Single Environment Evaluation
 
 We first run the policy in a single environment with visualization via the GUI.
 
-The Arena GR00T evaluation client is configured by a config file at ``isaaclab_arena_gr00t/gr1_manip_gr00t_closedloop_config.yaml``.
+The Arena GR00T evaluation client is configured by a config file at ``isaaclab_arena_gr00t/policy/config/gr1_manip_gr00t_closedloop_config.yaml``.
 
 .. dropdown:: Configuration file (``gr1_manip_gr00t_closedloop_config.yaml``):
    :animate: fade-in
@@ -177,13 +177,12 @@ Parallel evaluation of the policy in multiple parallel environments is also supp
            --embodiment gr1_joint
 
 
-And during the evaluation, you should see the following output on the console at the end of the evaluation
-indicating which environments are terminated (task-specific conditions like the microwave door is opened),
-or truncated (if timeouts are enabled, like the maximum episode length is exceeded).
+During evaluation, messages like the following identify environments whose policy state is reset
+when they start a new episode. The list includes resets after either termination or truncation.
 
 .. code-block:: text
 
-   Resetting policy for terminated env_ids: tensor([7], device='cuda:0') and truncated env_ids: tensor([], device='cuda:0', dtype=torch.int64)
+   Resetting policy state for env_ids: tensor([7], device='cuda:0')
 
 At the end of the evaluation, you should see the following output on the console indicating the metrics.
 You can see that the success rate and door moved rate might not be 1.0 as more trials are being evaluated, and the number of episodes is more

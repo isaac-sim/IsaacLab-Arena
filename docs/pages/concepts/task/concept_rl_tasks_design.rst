@@ -5,15 +5,12 @@ RL tasks extend their imitation learning counterparts with the components Isaac 
 reinforcement-learning training scripts require: a command manager that samples
 a new goal each episode, reward terms, and goal-conditioned observations.
 
-The pattern is straightforward — an RL task subclasses the corresponding IL task,
-and implements the RL-specific parts:
+The following schematic illustrates the pattern: an RL task subclasses the
+corresponding IL task and implements the RL-specific parts:
 
 .. code-block:: python
 
    class LiftObjectTaskRL(LiftObjectTask):
-
-       def __init__(self):
-          super().__init__()
 
        def get_rewards_cfg(self):
           pass
@@ -29,9 +26,16 @@ For example, adding privileged information to the observations.
 Usage
 -----
 
+Set the object's initial pose before constructing the task, which uses it to
+compute the target position ranges.
+
 .. code-block:: python
 
+   from isaaclab_arena.tasks.lift_object_task import LiftObjectTaskRL
+   from isaaclab_arena.utils.pose import Pose
+
    lift_object = asset_registry.get_asset_by_name("cracker_box")()
+   lift_object.set_initial_pose(Pose(position_xyz=(0.5, 0, 0.055), rotation_xyzw=(0, 0, 0, 1)))
 
    task = LiftObjectTaskRL(
        lift_object=lift_object,
