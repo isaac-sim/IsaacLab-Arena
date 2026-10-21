@@ -42,7 +42,7 @@ class ZeroVelocityCfg(UsdPrimSpawnPhysicsCfg):
     """Set a body's initial linear and angular velocity to zero."""
 
     def apply(self, prim: Usd.Prim, root: Usd.Prim) -> None:
-        """Set ``physics:velocity`` and ``physics:angularVelocity`` on the prim to zero where they exist."""
+        """Set `physics:velocity` and `physics:angularVelocity` on the prim to zero where they exist."""
         from pxr import Gf
 
         for name in ("physics:velocity", "physics:angularVelocity"):
