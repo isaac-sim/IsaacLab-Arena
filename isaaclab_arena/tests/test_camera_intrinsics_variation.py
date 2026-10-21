@@ -15,8 +15,7 @@ ENABLE_CAMERAS = True
 CAMERA_NAME = "wrist_camera"
 VARIATION_NAME = f"camera_intrinsics_{CAMERA_NAME}"
 EVENT_NAME = f"{CAMERA_NAME}_intrinsics_variation"
-# (d_fx, d_fy); distinct values exercise Isaac Lab's square-pixel projection.
-TEST_DELTAS = (0.1, 0.2)
+TEST_DELTA = 0.1
 
 
 def get_test_environment(*, camera_intrinsics_variation_enabled: bool):
@@ -30,7 +29,7 @@ def get_test_environment(*, camera_intrinsics_variation_enabled: bool):
     embodiment = DroidAbsoluteJointPositionEmbodiment(enable_cameras=ENABLE_CAMERAS)
     if camera_intrinsics_variation_enabled:
         embodiment.get_variation(VARIATION_NAME).apply_cfg(
-            CameraIntrinsicsVariationCfg(sampler_cfg=UniformSamplerCfg(low=list(TEST_DELTAS), high=list(TEST_DELTAS)))
+            CameraIntrinsicsVariationCfg(sampler_cfg=UniformSamplerCfg(low=[TEST_DELTA], high=[TEST_DELTA]))
         )
         embodiment.get_variation(VARIATION_NAME).enable()
 
@@ -119,11 +118,9 @@ def _test_camera_intrinsics_variation_realized_at_runtime(simulation_app):
     env.reset()
 
     camera = env.unwrapped.scene[CAMERA_NAME]
-    d_fx, d_fy = TEST_DELTAS
     camera_cfg = getattr(DroidCameraCfg(), CAMERA_NAME)
     nominal_focal_length = camera_cfg.width * camera_cfg.spawn.focal_length / camera_cfg.spawn.horizontal_aperture
-    # Isaac Lab pinhole cameras preserve square pixels by averaging requested fx and fy.
-    expected_focal_length = nominal_focal_length * ((1.0 + d_fx) + (1.0 + d_fy)) / 2.0
+    expected_focal_length = nominal_focal_length * (1.0 + TEST_DELTA)
     realized_intrinsics = camera.data.intrinsic_matrices.torch[0]
 
     assert realized_intrinsics[0, 0].item() == pytest.approx(expected_focal_length)

@@ -23,7 +23,7 @@ case "${1:-}" in
     dependencies)
         ln -sfn /isaac-sim/ "${ISAACLAB_PATH}/_isaac_sim"
         uv venv --seed "${VIRTUAL_ENV}"
-        sync_isaaclab --no-install-workspace
+        sync_isaaclab --no-install-local
         ;;
     workspace)
         find "${ISAACLAB_PATH}" -type f -name "*.sh" -exec sed -i 's/\r$//' {} +

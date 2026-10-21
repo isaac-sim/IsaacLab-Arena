@@ -232,6 +232,8 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
         self._started_episode_count += len(episode_start_env_ids)
         self._active_episode_mask[episode_start_env_ids] = True
         self._reset_env_ids = torch.cat((self._reset_env_ids, episode_start_env_ids))
+        # TODO(qianl, 2026-10-20): Adapt Arena reset terms to Lab's slice-preserving reset optimization.
+        # See https://github.com/isaac-sim/IsaacLab/pull/8030.
         super()._reset_idx(episode_start_env_ids)
         # Keep the global step marker: queries after a partial reset must not advance
         # the surviving episodes a second time during the same control step.

@@ -141,7 +141,7 @@ class ArenaPhysicsCfg(PresetCfg):
             cone="elliptic",
             update_data_interval=2,
             iterations=100,
-            ls_iterations=30,
+            ls_iterations=15,
             ls_parallel=False,
             use_mujoco_contacts=False,
             ccd_iterations=15000,
