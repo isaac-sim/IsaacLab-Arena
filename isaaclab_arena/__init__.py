@@ -8,7 +8,7 @@ import warnings
 if not __debug__:
     warnings.warn(
         "Python is running with optimizations enabled (-O, -OO or PYTHONOPTIMIZE), which strips assert statements. "
-        "Isaac Lab Arena relies on asserts to check invariants and user input; run without optimizations.",
+        "Isaac Lab Arena relies on asserts to check user input, consider running without optimizations.",
         RuntimeWarning,
         stacklevel=2,
     )
