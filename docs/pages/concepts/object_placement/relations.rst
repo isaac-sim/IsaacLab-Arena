@@ -135,15 +135,15 @@ Most environments can be described with a small set of relations:
 
    Restrictions:
 
-   * ``ClutterOn`` must be the object's only spatial relation and cannot use
-     ``RandomAroundSolution``. ``RotateAroundSolution`` sets its base rotation;
-     random yaw preserves that rotation's tilt.
+   * ``ClutterOn`` must be the object's only spatial relation.
+     ``RotateAroundSolution`` sets its base rotation; random yaw preserves that
+     rotation's tilt.
    * Both ``bbox`` and ``mesh`` collision modes support yaw-only clutter.
      Roll or pitch requires ``collision_mode="bbox"`` on the object.
    * The support must participate in placement and cannot itself use ``ClutterOn``.
      It must remain upright with a fixed yaw that is a multiple of 90 degrees.
      For a non-anchor support, disable ``random_yaw_init`` and do not use
-     ``FaceTo`` or ``RandomAroundSolution`` on the support.
+     ``FaceTo`` on the support.
    * For recording, non-clutter objects with placement relations must be fixed
      anchors or kinematic rigid bodies.
 
@@ -219,8 +219,6 @@ Most environments can be described with a small set of relations:
 - When random yaw initialization is enabled, it replaces the random heading.
 - The target must also participate in relation placement.
 - A movable subject can have only one ``FaceTo`` relation.
-- Neither the subject nor target can use ``RandomAroundSolution`` with nonzero
-  XY offsets.
 - The subject and target must have different XY positions.
 
 Combining Relations
@@ -241,17 +239,15 @@ can make the intended layout harder or impossible to satisfy.
 Placement Modifiers
 -------------------
 
-``RandomAroundSolution`` and ``RotateAroundSolution`` are pose modifiers applied
-after solving. They change how a solved pose is used rather than adding spatial
-constraints:
+``RotateAroundSolution`` is a pose modifier applied after solving. It changes
+how a solved pose is used rather than adding a spatial constraint: it adds a
+fixed roll, pitch, or yaw to the solved pose. The robot-placement example later
+in this sequence uses it to set the robot's final heading.
 
-- ``RandomAroundSolution`` creates a range of positions and orientations around
-  the solved pose. It is intended for direct, single-environment
-  ``ObjectPlacer`` use; the default builder does not apply it as a continuous
-  reset range.
-- ``RotateAroundSolution`` adds a fixed roll, pitch, or yaw to the solved pose.
-  The robot-placement example later in this sequence uses it to set the
-  robot's final heading.
+To randomize an object's position within a region, constrain it with
+``PositionLimitsBox`` instead of pinning it with ``AtPosition``. Each solved
+layout lands somewhere inside the box, so resets drawn from the layout pool
+spread the object across it.
 
 Relations in Environment Specifications
 ---------------------------------------
@@ -329,8 +325,8 @@ reset ownership before constructing the scene. It rejects:
 
 - unknown roots or incomplete compound assets;
 - missing non-anchor assets constrained by relations;
-- ``RigidObjectSet`` and ``RandomAroundSolution`` assets, whose identity or
-  random reset cannot be recovered from poses alone;
+- ``RigidObjectSet`` assets, whose identity cannot be recovered from poses
+  alone;
 - disabled pose resets, nonzero initial root velocity, or non-fixed
   asset-owned pose-reset policies.
 

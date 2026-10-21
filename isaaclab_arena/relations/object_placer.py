@@ -22,14 +22,7 @@ from isaaclab_arena.relations.placement_result import PlacementResult
 from isaaclab_arena.relations.placement_validation_runner import PlacementValidationRunner
 from isaaclab_arena.relations.placement_visualizer import get_or_create_placement_visualizer
 from isaaclab_arena.relations.relation_solver import RelationSolver
-from isaaclab_arena.relations.relations import (
-    ClutterOn,
-    FaceTo,
-    RandomAroundSolution,
-    RotateAroundSolution,
-    get_anchor_objects,
-    get_relation,
-)
+from isaaclab_arena.relations.relations import ClutterOn, FaceTo, RotateAroundSolution, get_anchor_objects, get_relation
 from isaaclab_arena.relations.validation.pre_physics import build_validators
 from isaaclab_arena.utils.pose import Pose, PosePerEnv
 from isaaclab_arena.utils.yaw import rotate_quat_by_yaw, yaw_from_quat_xyzw, yaw_toward_positions
@@ -343,11 +336,7 @@ class ObjectPlacer:
             if num_envs == 1:
                 pos = positions_per_env[0][obj]
                 rotation_xyzw = rotate_quat_by_yaw(marker_rotation, _yaw_delta(0))
-                random_marker = get_relation(obj, RandomAroundSolution)
-                if random_marker is not None:
-                    obj.set_initial_pose(random_marker.to_pose_range_centered_at(pos, rotation_xyzw=rotation_xyzw))
-                else:
-                    obj.set_initial_pose(Pose(position_xyz=pos, rotation_xyzw=rotation_xyzw))
+                obj.set_initial_pose(Pose(position_xyz=pos, rotation_xyzw=rotation_xyzw))
             else:
                 poses = [
                     Pose(

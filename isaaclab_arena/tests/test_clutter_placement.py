@@ -16,15 +16,7 @@ from isaaclab_arena.relations.placement_poses import get_pose_from_layout
 from isaaclab_arena.relations.pooled_object_placer import PooledObjectPlacer
 from isaaclab_arena.relations.relation_solver import RelationSolver
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
-from isaaclab_arena.relations.relations import (
-    ClutterOn,
-    FaceTo,
-    IsAnchor,
-    On,
-    PositionLimitsBox,
-    RandomAroundSolution,
-    RotateAroundSolution,
-)
+from isaaclab_arena.relations.relations import ClutterOn, FaceTo, IsAnchor, On, PositionLimitsBox, RotateAroundSolution
 from isaaclab_arena.relations.validation.pre_physics import PrePhysicsPlacementValidator
 from isaaclab_arena.tests.dummy_object import DummyObject
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
@@ -243,9 +235,7 @@ def test_clutter_validators_receive_complete_original_layouts_and_environment_id
     assert all(set(layout.positions) == set(objects) for layout in layouts)
 
 
-@pytest.mark.parametrize(
-    "configuration", ["missing_parent", "nested_clutter", "randomization", "face_to", "random_yaw", "rotation"]
-)
+@pytest.mark.parametrize("configuration", ["missing_parent", "nested_clutter", "face_to", "random_yaw", "rotation"])
 def test_clutter_rejects_unsupported_support_configuration(configuration):
     objects = _make_scene()
     table, tray, _ = objects
@@ -256,9 +246,6 @@ def test_clutter_rejects_unsupported_support_configuration(configuration):
     elif configuration == "nested_clutter":
         tray.relations = [ClutterOn(table, random_yaw=False)]
         diagnostic = "(?i)nested|clutter.*support|support.*clutter"
-    elif configuration == "randomization":
-        tray.add_relation(RandomAroundSolution(x_half_m=0.1))
-        diagnostic = "random"
     elif configuration == "face_to":
         tray.relations = [relation for relation in tray.relations if not isinstance(relation, RotateAroundSolution)]
         tray.add_relation(FaceTo(table))

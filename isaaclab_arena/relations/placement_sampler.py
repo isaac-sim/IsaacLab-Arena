@@ -246,7 +246,6 @@ def validate_placement_sample_assets(
     """Validate asset coverage and return the assets selected by the samples."""
     from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
     from isaaclab_arena.relations.placement_asset import get_scene_root_owners
-    from isaaclab_arena.relations.relations import RandomAroundSolution, get_relation
 
     _validate_native_samples(samples)
     assert supports_recorded_placement(assets), "Recorded placement requires concrete assets, not object sets"
@@ -266,9 +265,6 @@ def validate_placement_sample_assets(
             assert not missing, f"Recording is missing placed scene roots: {missing}"
         if selected:
             selected_assets.append(asset)
-            assert (
-                get_relation(asset, RandomAroundSolution) is None
-            ), f"Recorded object '{asset.name}' cannot randomize on reset"
     return selected_assets
 
 

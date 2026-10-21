@@ -17,9 +17,11 @@ if TYPE_CHECKING:
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
 
 
-RANDOMIZATION_HALF_RANGE_X_M = 0.03
-RANDOMIZATION_HALF_RANGE_Y_M = 0.01
-RANDOMIZATION_HALF_RANGE_Z_M = 0.0
+# Pickup-object position on the counter, and the half-extents of the box it is placed within.
+PICKUP_OBJECT_X_M = 4.05
+PICKUP_OBJECT_Y_M = -0.574
+RANDOMIZATION_HALF_RANGE_X_M = 0.0025
+RANDOMIZATION_HALF_RANGE_Y_M = 0.001
 
 # The GR1 embodiments that are compatible with this environment.
 GR1_EMBODIMENTS = ("gr1_joint", "gr1_pink")
@@ -60,13 +62,7 @@ class GR1PutAndCloseDoorEnvironment(ArenaEnvironmentFactory[GR1PutAndCloseDoorEn
         from isaaclab_arena.embodiments.common.arm_mode import ArmMode
         from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
         from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import set_control_rate_50hz
-        from isaaclab_arena.relations.relations import (
-            AtPosition,
-            IsAnchor,
-            On,
-            RandomAroundSolution,
-            RotateAroundSolution,
-        )
+        from isaaclab_arena.relations.relations import IsAnchor, On, PositionLimitsBox, RotateAroundSolution
         from isaaclab_arena.scene.scene import Scene
         from isaaclab_arena.tasks.close_door_task import CloseDoorTask
         from isaaclab_arena.tasks.composite_task_base import CompositeTaskBase
@@ -180,13 +176,17 @@ class GR1PutAndCloseDoorEnvironment(ArenaEnvironmentFactory[GR1PutAndCloseDoorEn
             pickup_object = self.asset_registry.get_asset_by_name(cfg.object)()
 
         pickup_object.add_relation(On(kitchen_counter_top))
-        pickup_object.add_relation(AtPosition(x=4.05, y=-0.58))
+        pickup_object.add_relation(
+            PositionLimitsBox(
+                x_min=PICKUP_OBJECT_X_M - RANDOMIZATION_HALF_RANGE_X_M,
+                x_max=PICKUP_OBJECT_X_M + RANDOMIZATION_HALF_RANGE_X_M,
+                y_min=PICKUP_OBJECT_Y_M - RANDOMIZATION_HALF_RANGE_Y_M,
+                y_max=PICKUP_OBJECT_Y_M + RANDOMIZATION_HALF_RANGE_Y_M,
+            )
+        )
         # Consider changing to other values for different objects, below is for ranch dressing bottle.
         yaw_rad = math.radians(-111.55)
         pickup_object.add_relation(RotateAroundSolution(yaw_rad=yaw_rad))
-        pickup_object.add_relation(
-            RandomAroundSolution(x_half_m=RANDOMIZATION_HALF_RANGE_X_M, y_half_m=RANDOMIZATION_HALF_RANGE_Y_M)
-        )
         scene = Scene(
             assets=[kitchen_background, kitchen_counter_top, pickup_object, light, refrigerator, refrigerator_shelf]
         )

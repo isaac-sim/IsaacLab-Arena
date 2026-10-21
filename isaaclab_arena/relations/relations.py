@@ -6,16 +6,12 @@
 from __future__ import annotations
 
 import math
-import torch
 from enum import Enum
 from typing import TYPE_CHECKING, TypeVar
-
-from isaaclab.utils.math import euler_xyz_from_quat
 
 from isaaclab_arena.assets.register import agent_ready, register_object_relation
 from isaaclab_arena.assets.registries import ObjectRelationLibraryRegistry
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, quaternion_to_90_deg_z_quarters
-from isaaclab_arena.utils.pose import PoseRange  # runtime: constructed in to_pose_range_centered_at()
 
 if TYPE_CHECKING:
     from isaaclab_arena.relations.placement_asset import PlaceableAsset
@@ -114,22 +110,6 @@ class FaceTo(RelationBase):
         assert not any(
             isinstance(relation, RotateAroundSolution) for relation in subject.get_relations()
         ), f"Object '{subject.name}' cannot combine FaceTo with RotateAroundSolution."
-
-        subject_randomization = next(
-            (relation for relation in subject.get_relations() if isinstance(relation, RandomAroundSolution)), None
-        )
-        if subject_randomization is not None:
-            assert (
-                subject_randomization.x_half_m == 0.0 and subject_randomization.y_half_m == 0.0
-            ), f"Object '{subject.name}' cannot randomize XY while using FaceTo."
-
-        parent_randomization = next(
-            (relation for relation in self.parent.get_relations() if isinstance(relation, RandomAroundSolution)), None
-        )
-        if parent_randomization is not None:
-            assert (
-                parent_randomization.x_half_m == 0.0 and parent_randomization.y_half_m == 0.0
-            ), f"FaceTo parent '{self.parent.name}' cannot randomize XY."
 
 
 @agent_ready
@@ -301,16 +281,10 @@ class ClutterOn(On):
         assert get_relation(self.parent, ClutterOn) is None, "Nested ClutterOn supports are unsupported"
         assert not subject.is_anchor, "ClutterOn cannot be an anchor"
         assert subject.get_spatial_relations() == [self], "ClutterOn must be the object's only spatial relation"
-        assert not any(
-            isinstance(r, RandomAroundSolution) for r in subject.get_relations()
-        ), "ClutterOn cannot randomize a release after collision validation"
 
         support = self.parent
         if not support.is_anchor:
             assert get_relation(support, FaceTo) is None, f"ClutterOn support '{support.name}' cannot use FaceTo"
-            assert (
-                get_relation(support, RandomAroundSolution) is None
-            ), f"ClutterOn support '{support.name}' cannot randomize after placement validation"
             rotation = get_relation(support, RotateAroundSolution)
             if rotation is not None:
                 # Release regions require axis-aligned support bounds.
@@ -400,103 +374,6 @@ class RequiresReachability(RelationBase):
     def is_unary() -> bool:
         """Return whether the relation constrains a single object."""
         return True
-
-
-@register_object_relation
-class RandomAroundSolution(RelationBase):
-    """Marker indicating the solver solution should be used as center of a PoseRange.
-
-    When ObjectPlacer applies positions, objects with this marker will get a PoseRange
-    (enabling randomization at environment reset) instead of a fixed Pose.
-
-    The half extents define a box centered on the solved position. At each environment
-    reset, a random position within this box will be sampled.
-
-    Note: This is NOT a spatial relation - the RelationSolver ignores it. It only
-    affects how ObjectPlacer applies the solved position to the object.
-
-    Usage:
-        box.add_relation(On(desk))
-        box.add_relation(RandomAroundSolution(x_half_m=0.1, y_half_m=0.1))
-        # -> ObjectPlacer sets a PoseRange spanning ±0.1m in X and Y around solved position
-    """
-
-    name = "random_around_solution"
-
-    @staticmethod
-    def is_unary() -> bool:
-        """Return whether the relation constrains a single object."""
-        return True
-
-    def __init__(
-        self,
-        x_half_m: float = 0.0,
-        y_half_m: float = 0.0,
-        z_half_m: float = 0.0,
-        roll_half_rad: float = 0.0,
-        pitch_half_rad: float = 0.0,
-        yaw_half_rad: float = 0.0,
-    ):
-        """
-        Args:
-            x_half_m: Half-extent in X direction (meters). Position will be randomized ±x_half_m.
-            y_half_m: Half-extent in Y direction (meters). Position will be randomized ±y_half_m.
-            z_half_m: Half-extent in Z direction (meters). Position will be randomized ±z_half_m.
-            roll_half_rad: Half-extent for roll (radians). Rotation will be randomized ±roll_half_rad.
-            pitch_half_rad: Half-extent for pitch (radians). Rotation will be randomized ±pitch_half_rad.
-            yaw_half_rad: Half-extent for yaw (radians). Rotation will be randomized ±yaw_half_rad.
-        """
-        self.x_half_m = x_half_m
-        self.y_half_m = y_half_m
-        self.z_half_m = z_half_m
-        self.roll_half_rad = roll_half_rad
-        self.pitch_half_rad = pitch_half_rad
-        self.yaw_half_rad = yaw_half_rad
-
-    def to_pose_range_centered_at(
-        self,
-        position: tuple[float, float, float],
-        rotation_xyzw: tuple[float, float, float, float] = (0.0, 0.0, 0.0, 1.0),
-    ) -> PoseRange:
-        """Create a PoseRange centered on the given position and rotation.
-
-        Args:
-            position: Center position (x, y, z) for the range.
-            rotation_xyzw: Center rotation as quaternion (x, y, z, w) for the range.
-                Defaults to identity quaternion.
-
-        Returns:
-            PoseRange spanning ± half-extents around the position and rotation.
-        """
-        # Convert quaternion to euler angles (roll, pitch, yaw)
-        quat_tensor = torch.tensor([rotation_xyzw])
-        roll, pitch, yaw = euler_xyz_from_quat(quat_tensor)
-        center_roll = float(roll[0])
-        center_pitch = float(pitch[0])
-        center_yaw = float(yaw[0])
-
-        return PoseRange(
-            position_xyz_min=(
-                position[0] - self.x_half_m,
-                position[1] - self.y_half_m,
-                position[2] - self.z_half_m,
-            ),
-            position_xyz_max=(
-                position[0] + self.x_half_m,
-                position[1] + self.y_half_m,
-                position[2] + self.z_half_m,
-            ),
-            rpy_min=(
-                center_roll - self.roll_half_rad,
-                center_pitch - self.pitch_half_rad,
-                center_yaw - self.yaw_half_rad,
-            ),
-            rpy_max=(
-                center_roll + self.roll_half_rad,
-                center_pitch + self.pitch_half_rad,
-                center_yaw + self.yaw_half_rad,
-            ),
-        )
 
 
 @agent_ready

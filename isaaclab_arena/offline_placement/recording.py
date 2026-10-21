@@ -91,7 +91,6 @@ def validate_recording_assets(env: ManagerBasedEnv, assets: list[PlaceableAsset]
     from isaaclab_arena.relations.bounding_box_helpers import has_heterogeneous_objects
     from isaaclab_arena.relations.placement_asset import get_scene_root_owners
     from isaaclab_arena.relations.placement_sampler import validate_root_reset_for_placement_replay
-    from isaaclab_arena.relations.relations import RandomAroundSolution, get_relation
 
     env = env.unwrapped
     assert not has_heterogeneous_objects(assets), "Resolve object sets before recording reusable layouts"
@@ -107,9 +106,6 @@ def validate_recording_assets(env: ManagerBasedEnv, assets: list[PlaceableAsset]
                 owned_keys and owned_keys <= keys
             ), f"'{asset.name}' needs writable physics roots: {owned_keys - keys}"
         if selected:
-            assert (
-                get_relation(asset, RandomAroundSolution) is None
-            ), f"'{asset.name}': remove RandomAroundSolution for placement replay"
             recorded_assets.append(asset)
     assert keys, "Recording requires rigid objects or articulations"
     validate_root_reset_for_placement_replay(recorded_assets)

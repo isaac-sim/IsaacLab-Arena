@@ -33,10 +33,9 @@ Environment Description
             from isaaclab_arena.embodiments.common.arm_mode import ArmMode
             from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
             from isaaclab_arena.relations.relations import (
-                AtPosition,
                 IsAnchor,
                 On,
-                RandomAroundSolution,
+                PositionLimitsBox,
                 RotateAroundSolution,
             )
             from isaaclab_arena.scene.scene import Scene
@@ -176,16 +175,16 @@ Environment Description
                 scene = Scene(assets=[kitchen_background, object_set, light, refrigerator, refrigerator_shelf])
             else:
                 pickup_object.add_relation(On(kitchen_counter_top))
-                # Place the object at a specific position GR1 to be able to reach it with its hand.
-                pickup_object.add_relation(AtPosition(x=4.05, y=-0.58))
-                pickup_object.add_relation(RotateAroundSolution(yaw_rad=yaw_rad))
+                # Place the object within a box GR1 can reach with its hand; each reset samples a new position.
                 pickup_object.add_relation(
-                    RandomAroundSolution(
-                        x_half_m=RANDOMIZATION_HALF_RANGE_X_M,
-                        y_half_m=RANDOMIZATION_HALF_RANGE_Y_M,
-                        z_half_m=RANDOMIZATION_HALF_RANGE_Z_M,
+                    PositionLimitsBox(
+                        x_min=4.05 - RANDOMIZATION_HALF_RANGE_X_M,
+                        x_max=4.05 + RANDOMIZATION_HALF_RANGE_X_M,
+                        y_min=-0.574 - RANDOMIZATION_HALF_RANGE_Y_M,
+                        y_max=-0.574 + RANDOMIZATION_HALF_RANGE_Y_M,
                     )
                 )
+                pickup_object.add_relation(RotateAroundSolution(yaw_rad=yaw_rad))
                 # Create scene
                 scene = Scene(
                     assets=[kitchen_background, kitchen_counter_top, pickup_object, light, refrigerator, refrigerator_shelf]
@@ -285,16 +284,16 @@ See :doc:`../../concepts/scene/concept_assets_design` for details on asset archi
         scene = Scene(assets=[kitchen_background, object_set, light, refrigerator, refrigerator_shelf])
     else:
         pickup_object.add_relation(On(kitchen_counter_top))
-        # Place the object at a specific position GR1 to be able to reach it with its hand.
-        pickup_object.add_relation(AtPosition(x=4.05, y=-0.58))
-        pickup_object.add_relation(RotateAroundSolution(yaw_rad=yaw_rad))
+        # Place the object within a box GR1 can reach with its hand; each reset samples a new position.
         pickup_object.add_relation(
-            RandomAroundSolution(
-                x_half_m=RANDOMIZATION_HALF_RANGE_X_M,
-                y_half_m=RANDOMIZATION_HALF_RANGE_Y_M,
-                z_half_m=RANDOMIZATION_HALF_RANGE_Z_M,
+            PositionLimitsBox(
+                x_min=4.05 - RANDOMIZATION_HALF_RANGE_X_M,
+                x_max=4.05 + RANDOMIZATION_HALF_RANGE_X_M,
+                y_min=-0.574 - RANDOMIZATION_HALF_RANGE_Y_M,
+                y_max=-0.574 + RANDOMIZATION_HALF_RANGE_Y_M,
             )
         )
+        pickup_object.add_relation(RotateAroundSolution(yaw_rad=yaw_rad))
         # Create scene
         scene = Scene(
             assets=[kitchen_background, kitchen_counter_top, pickup_object, light, refrigerator, refrigerator_shelf]
