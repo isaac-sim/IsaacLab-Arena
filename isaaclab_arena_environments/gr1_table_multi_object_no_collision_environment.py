@@ -5,7 +5,7 @@
 
 """
 Table + multi-object no-overlap environment with a robot (e.g. GR1).
-No task -- suitable for policy_runner with zero_action or any policy.
+No task -- suitable for an Experiment with zero_action or any policy.
 
 Supports two placement modes via ``--mode``:
 
@@ -15,17 +15,18 @@ Supports two placement modes via ``--mode``:
 Both modes use the office table by default. Use ``--objects`` to override object
 lists for controlled experiments.
 
-Example (--viz kit enables the Kit visualizer, --episode_length_s triggers periodic resets):
+Example Experiment, run with the Kit visualizer (--viz kit). Its episode_length_s triggers periodic resets.
+The config's num_envs selects tiled cameras. Keep it equal to environment_builder.num_envs and change
+both together:
 
   # Homogeneous (default) — YCB objects
-  /isaac-sim/python.sh isaaclab_arena/evaluation/policy_runner.py --viz kit --policy_type zero_action --num_steps 500 \\
-    --num_envs 16 --env_spacing 4.0 --enable_cameras \\
-    gr1_table_multi_object_no_collision --embodiment gr1_joint --episode_length_s 4.0
+  /isaac-sim/python.sh isaaclab_arena/evaluation/experiment_runner.py --viz kit \\
+    --experiment_config isaaclab_arena_environments/experiment_configs/examples/gr1_table_multi_object_no_collision_experiment.yaml
 
   # Heterogeneous — robolab objects in RigidObjectSet
-  /isaac-sim/python.sh isaaclab_arena/evaluation/policy_runner.py --viz kit --policy_type zero_action --num_steps 500 \\
-    --num_envs 16 --env_spacing 4.0 --enable_cameras \\
-    gr1_table_multi_object_no_collision --embodiment gr1_joint --episode_length_s 4.0 --mode heterogeneous
+  /isaac-sim/python.sh isaaclab_arena/evaluation/experiment_runner.py --viz kit \\
+    --experiment_config isaaclab_arena_environments/experiment_configs/examples/gr1_table_multi_object_no_collision_experiment.yaml \\
+    runs.multi_object_table.environment.mode=heterogeneous
 """
 
 from __future__ import annotations

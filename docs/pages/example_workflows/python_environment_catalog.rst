@@ -4,9 +4,9 @@ Python Environment Catalog
 Python registered environments are small compositions of the building blocks
 introduced in :doc:`../concepts/environment/index` — **Scene**,
 **Embodiment**, and **Task** — wrapped in an ``ExampleEnvironmentBase``
-subclass and registered with the global ``EnvironmentRegistry``. The
-registered ``Task ID`` is passed as the positional ``example_environment``
-argument to scripts such as ``isaaclab_arena/evaluation/policy_runner.py``.
+subclass and registered with the global ``EnvironmentRegistry``. A Run in an
+:doc:`Arena Experiment <../concepts/concept_arena_experiments>` selects one of
+these environments by setting ``environment.type`` to its ``Task ID``.
 
 The metadata below follows the same structure as the **Key Specifications**
 tables in the :doc:`imitation_learning/index` and
@@ -15,6 +15,36 @@ tables in the :doc:`imitation_learning/index` and
 .. contents::
    :local:
    :depth: 1
+
+
+Run an Environment in an Experiment
+-----------------------------------
+
+This Experiment runs two environments from the catalog with the zero-action policy:
+
+.. literalinclude:: ../../../isaaclab_arena_environments/experiment_configs/examples/example_environments_zero_action_experiment.yaml
+   :language: yaml
+   :start-at: shared:
+
+Each Run selects an environment by its ``Task ID`` in ``environment.type``. The other keys below
+``environment`` set fields of that environment's configuration. The **CLI Args** rows in the
+tables below list command-line flags for scripts that take the ``Task ID`` as a positional
+argument, such as ``isaaclab_arena/scripts/environment_runner.py``. In an Experiment, set the
+matching field below ``environment`` instead. For example, ``--object cracker_box`` becomes
+``object: cracker_box``. One flag has no matching field: ``--teleop_device`` of
+``pick_and_place_maple_table``, so an Experiment cannot set it.
+
+Run the Experiment from the repository root:
+
+.. code-block:: bash
+
+   python isaaclab_arena/evaluation/experiment_runner.py \
+     --viz kit \
+     --experiment_config isaaclab_arena_environments/experiment_configs/examples/example_environments_zero_action_experiment.yaml
+
+To change a field in one Run, add an override such as
+``runs.kitchen_pick_and_place.environment.object=tomato_soup_can`` to the command. To run another
+environment from this catalog, add a Run with its ``Task ID`` in ``environment.type``.
 
 
 Pick & Place
@@ -509,8 +539,12 @@ gr1_table_multi_object_no_collision
 
 **Task Description:** Sandbox scene for testing the relation solver: an office
 table with multiple objects placed via ``On(table)`` plus the built-in
-no-overlap solver. No success task — useful for ``policy_runner`` smoke tests
-with ``zero_action`` or any policy.
+no-overlap solver. It has no success task, so it is useful for Experiment smoke
+tests with ``zero_action`` or any policy, such as
+``isaaclab_arena_environments/experiment_configs/examples/gr1_table_multi_object_no_collision_experiment.yaml``.
+The environment configuration has its own ``num_envs`` field, which selects
+tiled cameras when it is greater than 1. In an Experiment, set
+``environment.num_envs`` to the same value as ``environment_builder.num_envs``.
 
 .. list-table::
    :widths: 30 70
