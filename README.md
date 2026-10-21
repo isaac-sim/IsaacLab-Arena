@@ -98,12 +98,11 @@ source .venv/bin/activate
 export OMNI_KIT_ACCEPT_EULA=YES ACCEPT_EULA=Y
 
 # 4. Verify the installation with a short zero-action rollout
-python isaaclab_arena/evaluation/policy_runner.py \
-  --policy_type zero_action --num_steps 20 cube_goal_pose
+python isaaclab_arena/evaluation/experiment_runner.py
 
 # 4b. (Optional) Watch the rollout in the GUI visualizer
-python isaaclab_arena/evaluation/policy_runner.py \
-  --viz kit --policy_type zero_action --num_steps 200 cube_goal_pose
+python isaaclab_arena/evaluation/experiment_runner.py \
+  --viz kit runs.smoke_test.rollout_limit.num_steps=200
 ```
 
 > **Note:** See our
@@ -126,12 +125,11 @@ git submodule update --init --recursive
 ./docker/run_docker.sh -g
 
 # 3. Verify the installation with a short zero-action rollout
-/isaac-sim/python.sh isaaclab_arena/evaluation/policy_runner.py \
-  --policy_type zero_action --num_steps 20 cube_goal_pose
+/isaac-sim/python.sh isaaclab_arena/evaluation/experiment_runner.py
 
 # 3b. (Optional) Watch the rollout in the GUI visualizer
-/isaac-sim/python.sh isaaclab_arena/evaluation/policy_runner.py \
-  --viz kit --policy_type zero_action --num_steps 200 cube_goal_pose
+/isaac-sim/python.sh isaaclab_arena/evaluation/experiment_runner.py \
+  --viz kit runs.smoke_test.rollout_limit.num_steps=200
 ```
 
 > **Note:** The Docker script automatically mounts `$HOME/datasets`, `$HOME/models`, and `$HOME/eval` from your host into the container.

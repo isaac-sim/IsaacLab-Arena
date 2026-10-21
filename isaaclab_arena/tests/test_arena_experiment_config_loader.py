@@ -18,6 +18,7 @@ from isaaclab_arena.evaluation.arena_experiment_config_loader import (
 )
 from isaaclab_arena.evaluation.arena_run import ArenaRunCfg
 from isaaclab_arena.evaluation.experiment_runner import _assert_camera_support_enabled
+from isaaclab_arena.evaluation.experiment_runner_cli import parse_experiment_runner_args
 from isaaclab_arena.evaluation.legacy_experiment_runner import legacy_json_experiment_requires_cameras
 from isaaclab_arena.evaluation.legacy_graph_environment_cli import LegacyGraphEnvironmentCfg
 from isaaclab_arena.hydra.typed_experiment_serializer import serialize_arena_experiment_to_yaml
@@ -184,6 +185,23 @@ def test_policy_config_type_resolves_from_dotted_class_path():
     )
 
     assert policy_cfg_type is ZeroActionPolicyCfg
+
+
+def test_default_experiment_is_a_short_zero_action_smoke_test(monkeypatch):
+    """Running experiment_runner.py without --experiment_config runs one short zero-action Run."""
+    from isaaclab_arena_environments.cube_goal_pose_environment import CubeGoalPoseEnvironmentCfg
+
+    # The default path is relative to the repository root, where the documented command runs.
+    monkeypatch.chdir(TestConstants.repo_root)
+    args_cli, _ = parse_experiment_runner_args([])
+
+    experiment_cfg = load_arena_experiment_from_config_file(args_cli.experiment_config, device="cuda:0")
+
+    assert list(experiment_cfg.runs) == ["smoke_test"]
+    smoke_test_run = experiment_cfg.runs["smoke_test"]
+    assert isinstance(smoke_test_run.environment, CubeGoalPoseEnvironmentCfg)
+    assert smoke_test_run.policy == ZeroActionPolicyCfg()
+    assert smoke_test_run.rollout_limit.num_steps == 20
 
 
 def test_load_legacy_json_experiment_returns_canonical_cfg(tmp_path, monkeypatch):
