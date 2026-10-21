@@ -122,7 +122,7 @@ Arena adds these terms to its tasks:
      - Fields
    * - ``ObjectPeakSpeed``
      - ``object_motion``
-     - Pick and place, assembly, place upright, and goal pose
+     - Pick and place, assembly, gear insertion, place upright, and goal pose
      - ``object``: the object's name. ``peak_linear_speed``: the highest linear speed [m/s],
        sampled once per control step.
    * - ``JointOpennessRange``
