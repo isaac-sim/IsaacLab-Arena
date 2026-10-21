@@ -84,18 +84,19 @@ class SuccessAfterNStepsTask(TaskBase):
 class SoftFrankaIKEmbodiment(FrankaIKEmbodiment):
     """Franka IK embodiment with halved joint PD gains for more compliant behaviour.
 
-    The standard ``franka_ik`` uses stiffness 400 / damping 80 on its arm
-    actuator group. This variant halves both, which is useful for contact-rich
-    or force-sensitive tasks.
+    The standard ``franka_ik`` uses stiffness 400 / damping 80 on its shoulder
+    and forearm actuator groups. This variant halves both, which is useful for
+    contact-rich or force-sensitive tasks.
     """
 
     name = "franka_ik_soft"
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        actuator = self.scene_config.robot.actuators["panda_arm"]
-        actuator.stiffness = 200.0
-        actuator.damping = 40.0
+        for actuator_name in ("panda_shoulder", "panda_forearm"):
+            actuator = self.scene_config.robot.actuators[actuator_name]
+            actuator.stiffness = 200.0
+            actuator.damping = 40.0
 
 
 # ---------------------------------------------------------------------------

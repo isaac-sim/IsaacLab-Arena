@@ -15,6 +15,8 @@ readonly IMAGE_EXTRAS=(
 
 sync_isaaclab() {
     cd "${ISAACLAB_PATH}"
+    # Match Lab's image setup and defer imageio-ffmpeg to Arena's sync, where it
+    # is an explicit dependency for HDF5-to-LeRobot video conversion.
     uv sync --frozen --inexact "${IMAGE_EXTRAS[@]}" \
         --no-install-package imageio-ffmpeg "$@"
 }

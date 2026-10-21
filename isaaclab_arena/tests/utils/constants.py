@@ -7,21 +7,6 @@ import os
 import sys
 
 
-def _get_python_path(repo_root: str) -> str:
-    """Return the active Isaac Lab Python interpreter.
-
-    Docker installs Lab into a venv based on Isaac Sim's interpreter; native
-    uv environments use their currently running interpreter.
-    """
-    virtual_env = os.environ.get("VIRTUAL_ENV")
-    if virtual_env:
-        virtual_env_python = os.path.join(virtual_env, "bin", "python")
-        if os.path.exists(virtual_env_python):
-            return virtual_env_python
-    docker_python = f"{repo_root}/submodules/IsaacLab/_isaac_sim/python.sh"
-    return docker_python if os.path.exists(docker_python) else sys.executable
-
-
 class _TestConstants:
     """Class for storing test data paths"""
 
@@ -41,7 +26,7 @@ class _TestConstants:
 
         self.scripts_dir = f"{self.repo_root}/isaaclab_arena/scripts"
 
-        self.python_path = _get_python_path(self.repo_root)
+        self.python_path = sys.executable
 
         self.test_data_dir = f"{self.test_dir}/test_data"
 

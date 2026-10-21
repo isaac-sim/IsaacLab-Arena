@@ -5,10 +5,7 @@ set -euo pipefail
 # default dependency groups are disabled because Isaac Lab was already installed
 # from its own lock; --inexact retains that editable workspace and its dependencies.
 uv sync --project /tmp/arena-project --frozen --inexact \
-    --no-default-groups --extra dev --no-install-project
-# A legacy transitive dependency installs the Python 2 backport over Python
-# 3.12's standard-library argparse and breaks pytest during parser creation.
-uv pip uninstall argparse
+    --no-default-groups --group openpi --extra dev --no-install-project
 
 # HuggingFace CLI for downloading datasets and models.
 # Use pipx so the hf binary gets an isolated venv with all its deps (e.g. requests),

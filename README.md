@@ -6,7 +6,7 @@
 
 [![Alpha](https://img.shields.io/badge/status-alpha-e8912d.svg)](#%EF%B8%8F-project-status)
 [![Version](https://img.shields.io/badge/version-0.3-blue.svg)](https://github.com/isaac-sim/IsaacLab-Arena/tree/main)
-[![IsaacSim](https://img.shields.io/badge/IsaacSim-6.1.0-silver.svg)](https://docs.isaacsim.omniverse.nvidia.com/latest/index.html)
+[![IsaacSim](https://img.shields.io/badge/IsaacSim-6.2.0-silver.svg)](https://docs.isaacsim.omniverse.nvidia.com/latest/index.html)
 [![IsaacLab](https://img.shields.io/badge/IsaacLab-3.0.0-silver.svg)](https://github.com/isaac-sim/IsaacLab)
 [![Python](https://img.shields.io/badge/python-≥3.12-blue.svg)](https://docs.python.org/3/whatsnew/3.12.html)
 [![Linux](https://img.shields.io/badge/platform-linux--64-orange.svg)](https://releases.ubuntu.com/22.04/)
@@ -77,7 +77,7 @@ See the [documentation overview](https://isaac-sim.github.io/IsaacLab-Arena/rele
 ### Prerequisites
 
 - Linux (Ubuntu 22.04+)
-- NVIDIA GPU (see [Isaac Sim hardware requirements](https://docs.isaacsim.omniverse.nvidia.com/6.1.0/installation/requirements.html))
+- NVIDIA GPU (see [Isaac Sim hardware requirements](https://docs.isaacsim.omniverse.nvidia.com/6.2.0/installation/requirements.html))
 - [uv](https://docs.astral.sh/uv/) (for the native install), or Docker and the NVIDIA Container Toolkit (for the container install)
 - Git
 
@@ -222,7 +222,7 @@ IsaacLab-Arena/
 
 | Isaac Lab-Arena                 | Isaac Lab   | Isaac Sim | Python |
 | ------------------------------- | ----------- | --------- | ------ |
-| `main`                          | 3.0.0 EA    | 6.1.0     | ≥ 3.12 |
+| `main`                          | 3.0.0       | 6.2.0     | ≥ 3.12 |
 | `release/0.3.1`                 | 3.0.0 EA    | 6.1.0     | ≥ 3.12 |
 | `release/0.3.0`                 | 3.0.0 beta2 | 6.0.1     | ≥ 3.12 |
 | `release/0.2.1`                 | 3.0.0 beta  | 6.0.0     | ≥ 3.12 |

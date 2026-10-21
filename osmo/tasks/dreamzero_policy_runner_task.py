@@ -21,10 +21,6 @@ INITIAL_CONNECT_WAIT_SECONDS = 3600
 class DreamZeroPolicyRunnerTaskCfg(PolicyRunnerTaskCfg):
     """Config for the DreamZero policy-runner task."""
 
-    image: str = "nvcr.io/nvstaging/isaac-amr/isaaclab_arena:dreamzero-runner-20260709"
-    """Arena image built with the isaaclab_arena_dreamzero package and the OSMO CLI
-    (docker/push_to_ngc.sh -p -t <tag>); the shared :latest image has neither."""
-
     osmo_token_credential: str = "osmo-token"
     """GENERIC OSMO credential whose 'login_yaml_b64' field holds a base64 OSMO login.yaml."""
 

@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 DOCKER_IMAGE_NAME='isaaclab_arena'
-DOCKER_VERSION_TAG='lab-ga'
+DOCKER_VERSION_TAG='latest'
 
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 source "$SCRIPT_DIR/setup/target_tag.sh"
@@ -99,7 +99,7 @@ shift $((OPTIND-1))
 
 # Derive the container suffix from the repo directory name when not set via -s,
 # so each clone gets its own container (e.g. IsaacLab-Arena_foo -> "-foo").
-# The canonical "IsaacLab-Arena" clone keeps the bare "isaaclab_arena-lab-ga" name.
+# The canonical "IsaacLab-Arena" clone keeps the bare "isaaclab_arena-latest" name.
 if [ "$CONTAINER_SUFFIX_EXPLICIT" = false ]; then
     repo_dir=$(basename "$(cd "$SCRIPT_DIR/.." && pwd)")
     derived=${repo_dir#IsaacLab-Arena}

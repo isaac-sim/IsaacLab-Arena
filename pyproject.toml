@@ -55,9 +55,9 @@ dev = [
     "simready-search>=2026.4.2",
 ]
 
-# PEP 735 dependency groups for the native uv install. pip (used by the Docker
-# build) ignores these groups, so Docker continues to get Isaac Lab from its
-# copied submodule and Isaac Sim from its base image.
+# PEP 735 dependency groups for the native uv install. Docker selects only its
+# required groups explicitly because it installs Isaac Lab from the copied
+# submodule and inherits Isaac Sim from the base image.
 [dependency-groups]
 # Isaac Lab's root isaaclab-dev project is installed editable from the submodule
 # checkout. Its extras provide Isaac Sim, OV backends, Mimic, Teleop, RSL-RL,
@@ -99,12 +99,15 @@ gr00t-client = [
 [tool.uv]
 # Arena supports Linux x86_64 only; resolve and lock for exactly that platform.
 environments = ["sys_platform == 'linux' and platform_machine == 'x86_64'"]
+# vuer's params-proto dependency declares the obsolete Python 2 argparse backport.
+# Lab prepends venv site-packages to PYTHONPATH, where it shadows the standard library.
+exclude-dependencies = ["argparse"]
 # Install the source-based sim stack (Isaac Lab editable from the submodule)
 # and the remote OpenPI client on a bare `uv sync`.
 default-groups = ["isaaclab-from-source", "openpi"]
-# Teleoperation requires a specific release candidate. Its exact requirement
-# above opts that package into prerelease selection without allowing unrelated
-# packages to float to prereleases.
+# The exact tinyobjloader and OpenCV release-candidate constraints opt those
+# packages into prerelease selection without allowing unrelated packages to
+# float to prereleases.
 prerelease = "if-necessary-or-explicit"
 # Prefer the first index containing a compatible package. The explicit PyPI
 # route below handles the one known NVIDIA/PyPI name collision without merging
