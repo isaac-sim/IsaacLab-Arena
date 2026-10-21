@@ -645,7 +645,8 @@ def test_report_preserves_unfinished_condition_and_failed_prefix(tmp_path):
         + "\n"
     )
     summary = build_experiment_summary(tmp_path, "conditions", [RunExecutionReport("run", "failed", 1)])
-    assert summary.num_episodes == 1
+    assert summary.num_episodes == 0
+    assert len(summary.condition_episodes["run"]) == 1
     assert summary.condition_episode_budgets["run"]["conditions"]["<B>"]["completed"] == 0
     rendered = render_index(summary, {task.name: "task.html" for task in summary.tasks})
     assert "Incomplete" in rendered and "KeyboardInterrupt" in rendered

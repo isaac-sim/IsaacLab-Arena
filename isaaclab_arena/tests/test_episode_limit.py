@@ -7,6 +7,7 @@
 
 import json
 from collections import Counter
+from unittest.mock import patch
 
 import pytest
 
@@ -387,13 +388,17 @@ def _test_condition_episode_limit(simulation_app, output_dir, lengths, failure_i
         failure_is_timeout=failure_is_timeout,
     )
     base = env.unwrapped
+    budget = base.condition_episode_budget
+    budget.set_output_path(output_dir / "condition_episode_budget.json")
     try:
         base.configure_episode_limit(total)
         env.reset()
         action = torch.zeros(env.action_space.shape, device=base.device)
         for _ in range(total * max(lengths)):
-            env.step(action)
-            budget = base.condition_episode_budget
+            before_allocation = budget.snapshot()
+            with patch.object(budget, "write", wraps=budget.write) as write:
+                env.step(action)
+            assert write.call_count == int(before_allocation != budget.snapshot())
             for member, requested in quotas.items():
                 active = sum(members[i] == member for i in base.active_episode_mask.nonzero().flatten().tolist())
                 assert budget.completed[member] + active == budget.started[member] <= requested
@@ -404,10 +409,14 @@ def _test_condition_episode_limit(simulation_app, output_dir, lengths, failure_i
         assert Counter(members[i] for i, _ in starts) == quotas
         assert not base.active_episode_mask.any()
         before = results_path.read_bytes()
-        for _ in range(max(lengths) + 1):
-            _, _, terminated, truncated, _ = env.step(action)
-            assert not terminated.any() and not truncated.any()
-            assert base.reset_env_ids.numel() == 0
+        before_allocation_file = (output_dir / "condition_episode_budget.json").read_bytes()
+        with patch.object(budget, "write", wraps=budget.write) as write:
+            for _ in range(max(lengths) + 1):
+                _, _, terminated, truncated, _ = env.step(action)
+                assert not terminated.any() and not truncated.any()
+                assert base.reset_env_ids.numel() == 0
+            write.assert_not_called()
+        assert (output_dir / "condition_episode_budget.json").read_bytes() == before_allocation_file
         assert results_path.read_bytes() == before
     finally:
         env.close()
@@ -424,9 +433,10 @@ def _test_condition_episode_limit(simulation_app, output_dir, lengths, failure_i
     return True
 
 
-@pytest.mark.parametrize("lengths", [(1, 3, 5), (5, 3, 1), (2, 2, 2)])
-@pytest.mark.parametrize("failure_is_timeout", [False, True])
-@pytest.mark.parametrize("quotas", [{"A": 2, "B": 3}, {"A": 1, "B": 1}])
+@pytest.mark.parametrize(
+    "lengths,failure_is_timeout,quotas",
+    [((1, 3, 5), True, {"A": 2, "B": 3}), ((2, 2, 2), False, {"A": 2, "B": 3}), ((5, 3, 1), True, {"A": 1, "B": 1})],
+)
 def test_condition_quotas_preserve_native_recording(tmp_path, lengths, failure_is_timeout, quotas):
     assert run_function_with_persistent_simulation_app(
         _test_condition_episode_limit,

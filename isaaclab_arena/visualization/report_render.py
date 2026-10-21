@@ -113,7 +113,7 @@ def _render_condition_episode_budgets(summary: ExperimentSummary) -> str:
     sections = []
     for run_name, budget in summary.condition_episode_budgets.items():
         rows = []
-        records = [episode.record for job in summary.jobs if job.name == run_name for episode in job.episodes]
+        records = [episode.record for episode in summary.condition_episodes.get(run_name, [])]
         records_match = True
         for member, counts in budget["conditions"].items():
             cells = "".join(f"<td>{counts[key]}</td>" for key in ("requested", "completed", "in_flight", "unstarted"))
@@ -151,7 +151,9 @@ def _render_condition_episode_budgets(summary: ExperimentSummary) -> str:
         return ""
     return (
         "".join(sections)
-        + '<p class="note">Success rates below describe recorded episodes. Condition quotas set sampling counts; '
+        + '<p class="note">Failed and unfinished condition Runs remain visible here but are excluded from pooled '
+        "results. Their observed prefixes do not estimate the unfinished quota's success rate. "
+        "Condition quotas set sampling counts; "
         "the pooled success rate is not weighted to a separately specified deployment population. "
         "Unfinished assignments are not scored as failures.</p>"
     )

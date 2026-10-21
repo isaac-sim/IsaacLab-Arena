@@ -191,23 +191,8 @@ Choosing a runner
    ``--external_environment_class_path``.
 
 
-Related concepts
-----------------
-
-* :doc:`Environment Design <environment/index>`
-* :doc:`Policy Design <policy/index>`
-* :doc:`Metrics Design <task/concept_metrics_design>`
-* :doc:`Environment Variations <variations/index>`
-
-.. toctree::
-   :hidden:
-   :maxdepth: 1
-
-   experiment_record_replay
-
-
 Independent episode counts for fixed object members
---------------------------------------------------
+---------------------------------------------------
 
 A global ``rollout_limit.num_episodes`` remains the default. To allocate different
 counts to object conditions in one parallel Run, use ``object_set_episodes``:
@@ -264,7 +249,9 @@ The HTML report shows requested conditions even when they have no completed
 episodes, with unobserved scores left undefined. It shows successes over scored
 episodes, unsuccessful outcomes, timeouts and unscored records separately;
 timeouts may overlap the outcome counts. A failed condition Run's recorded
-prefix remains visible, including when OSMO collects it. A clean process exit
+prefix remains visible in the condition section, including when OSMO collects it.
+Failed, incomplete and still-running condition Runs are excluded from pooled
+success rates and headline metrics. A clean process exit
 does not promote an unfinished condition allocation to completed.
 
 Quotas specify sample counts, not deployment-population weights. Existing pooled
@@ -273,3 +260,17 @@ choose target-population weights separately when needed; unfinished episodes
 remain unscored. For a native baseline, run one condition per Run with its own
 ``num_episodes`` and match source, policy, conditions and outcome rules. Include
 startup, inactive-slot work, failures and result review in any cost comparison.
+
+Related concepts
+----------------
+
+* :doc:`Environment Design <environment/index>`
+* :doc:`Policy Design <policy/index>`
+* :doc:`Metrics Design <task/concept_metrics_design>`
+* :doc:`Environment Variations <variations/index>`
+
+.. toctree::
+   :hidden:
+   :maxdepth: 1
+
+   experiment_record_replay

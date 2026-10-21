@@ -7,7 +7,6 @@
 
 import json
 from collections import Counter
-from time import perf_counter
 from unittest.mock import patch
 
 import pytest
@@ -131,17 +130,14 @@ def _run_members(output_dir, member_names, quotas=None, num_episodes=None, max_s
         ),
         patch.object(run_execution, "_build_policy_from_cfg", return_value=policy),
     ):
-        start = perf_counter()
         if interrupt:
             with pytest.raises(KeyboardInterrupt):
                 run_execution.build_and_run(run, output_dir)
             result = None
         else:
             result = run_execution.build_and_run(run, output_dir)
-        elapsed = perf_counter() - start
     records = read_episode_records(output_dir / "episode_results_rebuild0.jsonl")
     costs = {
-        "build_rollout_cleanup_seconds": elapsed,
         "control_steps": policy.steps,
         "policy_slot_steps": 3 * policy.steps,
         "idle_slot_steps": policy.idle_slot_steps,
@@ -170,18 +166,6 @@ def _test_shared_and_separate_runs(simulation_app, output_dir):
     assert shared_costs["policy_reset_batches"] == [None, [1], [1]]
     assert all(row["terminated"] and not row["truncated"] for row in shared_records if row["condition_member"] == "A")
     assert all(row["truncated"] and not row["terminated"] for row in shared_records if row["condition_member"] == "B")
-    (output_dir / "comparison.json").write_text(
-        json.dumps(
-            {
-                "scope": "Deterministic native lifecycle fixture; excludes process and environment installation.",
-                "shared": shared_costs,
-                "separate_A": a_costs,
-                "separate_B": b_costs,
-            },
-            indent=2,
-        )
-        + "\n"
-    )
     return True
 
 

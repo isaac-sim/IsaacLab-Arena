@@ -242,7 +242,7 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
             remaining_episode_starts = self._episode_limit - self._started_episode_count
             episode_start_env_ids = episode_start_env_ids[:remaining_episode_starts]
         if len(episode_start_env_ids) == 0:
-            if self.condition_episode_budget is not None:
+            if self.condition_episode_budget is not None and len(finishing_env_ids) > 0:
                 self.condition_episode_budget.write()
             return
 

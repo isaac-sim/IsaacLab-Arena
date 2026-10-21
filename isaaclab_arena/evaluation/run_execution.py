@@ -8,7 +8,6 @@
 from __future__ import annotations
 
 import os
-import sys
 import traceback
 from copy import deepcopy
 from dataclasses import fields, replace
@@ -105,6 +104,7 @@ def build_and_run(
         env = None
         policy = None
         condition_budget = None
+        rollout_error = None
         try:
             rebuild_video_cfg = replace(
                 video_cfg,
@@ -138,16 +138,21 @@ def build_and_run(
             metrics = rollout_policy(env, policy, num_steps=num_steps, num_episodes=num_episodes, **rollout_options)
             if metrics is not None:
                 metrics_per_rebuild.append(metrics)
+        except BaseException as error:
+            rollout_error = error
+            raise
         finally:
             try:
                 close_run_resources(policy, env)
+            except BaseException as error:
+                rollout_error = error
+                raise
             finally:
                 if condition_budget is not None:
-                    error = sys.exception()
-                    completed = error is None and condition_budget.is_complete
+                    completed = rollout_error is None and condition_budget.is_complete
                     reason = (
-                        type(error).__name__
-                        if error is not None
+                        type(rollout_error).__name__
+                        if rollout_error is not None
                         else ("episode_budget_met" if completed else "step_limit")
                     )
                     condition_snapshot = condition_budget.write(

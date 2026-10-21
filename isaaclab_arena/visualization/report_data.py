@@ -380,6 +380,7 @@ class ExperimentSummary:
     grouping_source: str = "none"
     issues: list[DataIssue] = field(default_factory=list)
     condition_episode_budgets: dict[str, dict] = field(default_factory=dict)
+    condition_episodes: dict[str, list[EpisodeSummary]] = field(default_factory=dict)
 
     @property
     def jobs(self) -> list[JobSummary]:
@@ -822,12 +823,18 @@ def build_experiment_summary(
         except (OSError, ValueError, KeyError, TypeError, AssertionError) as error:
             issues.append(DataIssue(str(budget_path.relative_to(root)), f"Invalid condition budget: {error}"))
     run_executions = list(run_executions or [])
-    failed_run_names = {
-        run_execution.run_name for run_execution in run_executions if is_failed_execution(run_execution)
+    condition_episodes = {entry.name: entry.episodes for entry in scanned if entry.name in condition_episode_budgets}
+    excluded_run_names = {
+        execution.run_name
+        for execution in run_executions
+        if is_failed_execution(execution) or run_status_to_lowercase_string(execution.status) == "incomplete"
     }
-    scanned = [
-        entry for entry in scanned if entry.name not in failed_run_names or entry.name in condition_episode_budgets
-    ]
+    excluded_run_names.update(
+        name for name, budget in condition_episode_budgets.items() if budget["status"] != COMPLETED_STATUS
+    )
+    # Preserve prefixes for the allocation view. Early completion can select easier
+    # episodes, so unfinished Runs must not contribute to pooled outcomes.
+    scanned = [entry for entry in scanned if entry.name not in excluded_run_names]
 
     labels, grouping_source = _resolve_job_labels([entry.name for entry in scanned], policy_suffixes)
     jobs_by_task: dict[str, list[JobSummary]] = {}
@@ -857,4 +864,5 @@ def build_experiment_summary(
         grouping_source=grouping_source,
         issues=issues,
         condition_episode_budgets=condition_episode_budgets,
+        condition_episodes=condition_episodes,
     )

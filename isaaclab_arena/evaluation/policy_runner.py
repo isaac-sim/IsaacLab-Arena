@@ -127,13 +127,7 @@ def rollout_policy(
                     if num_steps_completed >= num_steps:
                         break
 
-        pbar.close()
-
-    except BaseException as e:
-        if pbar is not None:
-            pbar.close()
-        if not isinstance(e, Exception):
-            raise
+    except Exception as e:
         raise RuntimeError(f"Error rolling out policy: {e}")
 
     else:
@@ -143,6 +137,9 @@ def rollout_policy(
         if hasattr(env.unwrapped.cfg, "metrics") and env.unwrapped.cfg.metrics is not None:
             return env.unwrapped.compute_metrics()
         return None
+    finally:
+        if pbar is not None:
+            pbar.close()
 
 
 def list_variations(args_parser: argparse.ArgumentParser) -> None:

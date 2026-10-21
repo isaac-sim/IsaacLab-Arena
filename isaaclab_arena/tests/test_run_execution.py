@@ -451,7 +451,7 @@ def test_execute_experiment_writes_no_timings_for_a_failed_run(monkeypatch, tmp_
     assert (tmp_path / "passing" / ARENA_SINGLE_RUN_TIMINGS_FILENAME).is_file()
 
 
-@pytest.mark.parametrize("stop", ["complete", "step_limit", "interrupt", "error", "close_error"])
+@pytest.mark.parametrize("stop", ["complete", "caller_complete", "step_limit", "interrupt", "error", "close_error"])
 def test_condition_run_persists_allocation_after_stop(monkeypatch, tmp_path, stop):
     from isaaclab_arena.evaluation.condition_episode_budget import (
         CONDITION_EPISODE_BUDGET_FILENAME,
@@ -481,7 +481,7 @@ def test_condition_run_persists_allocation_after_stop(monkeypatch, tmp_path, sto
             raise KeyboardInterrupt()
         if stop == "error":
             raise RuntimeError("inference failed")
-        if stop in ("complete", "close_error"):
+        if stop in ("complete", "caller_complete", "close_error"):
             while budget.active:
                 finishing = list(budget.active)
                 budget.complete(finishing)
@@ -495,13 +495,21 @@ def test_condition_run_persists_allocation_after_stop(monkeypatch, tmp_path, sto
         with pytest.raises(error):
             run_execution.build_and_run(run, tmp_path)
     else:
-        result = run_execution.build_and_run(run, tmp_path)
-        assert result.status is (RunStatus.COMPLETED if stop == "complete" else RunStatus.INCOMPLETE)
+        if stop == "caller_complete":
+            try:
+                raise ValueError("Unrelated exception handled by the caller")
+            except ValueError:
+                result = run_execution.build_and_run(run, tmp_path)
+        else:
+            result = run_execution.build_and_run(run, tmp_path)
+        assert result.status is (
+            RunStatus.COMPLETED if stop in ("complete", "caller_complete") else RunStatus.INCOMPLETE
+        )
     assert closed == [environment]
     state = json.loads((tmp_path / CONDITION_EPISODE_BUDGET_FILENAME).read_text())
-    assert state["status"] == ("completed" if stop == "complete" else "incomplete")
-    assert state["sampling_complete"] is (stop in ("complete", "close_error"))
+    assert state["status"] == ("completed" if stop in ("complete", "caller_complete") else "incomplete")
+    assert state["sampling_complete"] is (stop in ("complete", "caller_complete", "close_error"))
     assert state["conditions"]["B"]["requested"] == 3
-    if stop not in ("complete", "close_error"):
+    if stop not in ("complete", "caller_complete", "close_error"):
         assert state["conditions"]["B"]["unstarted"] == 2
         assert len(state["unfinished_assignments"]) == 2
