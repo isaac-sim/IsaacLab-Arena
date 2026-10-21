@@ -10,7 +10,7 @@ placement seed. A layout succeeds when the best of its max_placement_attempts ca
 pre-physics check, as in ObjectPlacer.place(). The share of valid candidates is also reported, because it changes
 before the best-of-candidates rate does.
 
-Run inside the container and write a KPI file:
+Run inside the container and write a results file:
 
     /isaac-sim/python.sh isaaclab_arena/scripts/placement_success_benchmark.py --suite all --output placement_main.json
 
@@ -56,6 +56,9 @@ _SUITE_SPECS = {
     "robolab": "isaaclab_arena_environments/robolab/tasks/*.yaml",
     "kitchen_bench": "isaaclab_arena_environments/kitchen_bench/*.yaml",
 }
+_SEED_STREAM_LENGTH = 2**20
+"""Candidate seeds reserved for each environment, so environments never share candidates, even when they share a
+scene."""
 
 
 def get_benchmark_parser() -> argparse.ArgumentParser:
@@ -76,7 +79,7 @@ def get_benchmark_parser() -> argparse.ArgumentParser:
         type=int,
         nargs="+",
         default=[0, 1, 2],
-        help="Nonnegative placement seeds; each seed solves its own disjoint set of candidates.",
+        help="Distinct nonnegative placement seeds; each seed solves its own disjoint set of candidates.",
     )
     group.add_argument(
         "--random_yaw_init",
@@ -90,7 +93,7 @@ def get_benchmark_parser() -> argparse.ArgumentParser:
         help="Default collision mode for placement, overriding the spec's placer parameters.",
     )
     group.add_argument(
-        "--output", type=Path, default=None, help="KPI file to write; it is rewritten after each environment."
+        "--output", type=Path, default=None, help="Results file to write; it is rewritten after each environment."
     )
     group.add_argument(
         "--compare",
@@ -98,13 +101,13 @@ def get_benchmark_parser() -> argparse.ArgumentParser:
         type=Path,
         metavar=("BASELINE", "CANDIDATE"),
         default=None,
-        help="Compare two KPI files and exit without starting the simulator.",
+        help="Compare two results files and exit without starting the simulator.",
     )
     return parser
 
 
 def main() -> None:
-    """Run the benchmark, or compare two KPI files with --compare."""
+    """Run the benchmark, or compare two results files with --compare."""
     args_cli = get_benchmark_parser().parse_args()
 
     if args_cli.compare is not None:
@@ -115,6 +118,8 @@ def main() -> None:
 
     assert args_cli.num_layouts > 0, "--num_layouts must be positive"
     assert all(seed >= 0 for seed in args_cli.placement_seeds), "--placement_seeds must be nonnegative"
+    # A repeated seed would count the same candidates twice.
+    assert len(set(args_cli.placement_seeds)) == len(args_cli.placement_seeds), "--placement_seeds must be distinct"
     assert args_cli.output is None or args_cli.output.parent.is_dir(), f"No directory for --output {args_cli.output}"
     specs = discover_specs(args_cli.suite, args_cli.env)
     assert specs, f"No environment specs match suite '{args_cli.suite}' and filters {args_cli.env}"
@@ -141,7 +146,7 @@ def main() -> None:
         for index, (suite, spec_path) in enumerate(specs, start=1):
             print(f"[placement benchmark] {index}/{len(specs)} {suite}/{spec_path.stem}")
             run.environments.append(measure_environment(suite, spec_path, args_cli))
-            # SimulationAppContext exits the process on any exception, so keep the KPI file current.
+            # SimulationAppContext exits the process on any exception, so keep the results file current.
             if args_cli.output is not None:
                 run.save(args_cli.output)
         print(format_run(run))
@@ -182,6 +187,21 @@ def get_git_provenance(output: Path | None = None) -> tuple[str | None, str | No
     return commit, branch, None if status is None else bool(status)
 
 
+def get_seed_stream(suite: str, spec_path: Path) -> int:
+    """Return the index of a spec's block of candidate seeds, numbered over every spec of every suite.
+
+    Numbering over every spec gives a filtered run the same candidates as a full run.
+
+    Args:
+        suite: Suite the spec belongs to.
+        spec_path: Environment graph-spec YAML, as returned by discover_specs().
+    """
+    all_specs = discover_specs("all", None)
+    # CPU torch generators use only the low 32 bits of a seed, so every block must end below 2**32.
+    assert len(all_specs) * _SEED_STREAM_LENGTH <= 2**32, "Too many specs for separate seed streams"
+    return all_specs.index((suite, spec_path))
+
+
 def measure_environment(suite: str, spec_path: Path, args_cli: argparse.Namespace) -> EnvironmentRecord:
     """Return one environment spec's record after placing every seed, recording failures instead of raising.
 
@@ -208,7 +228,12 @@ def measure_environment(suite: str, spec_path: Path, args_cli: argparse.Namespac
         else:
             collision_mode = None if args_cli.collision_mode is None else CollisionMode(args_cli.collision_mode)
             placement = BenchmarkPlacement(
-                inputs.assets, inputs.placer_params, args_cli.num_layouts, args_cli.random_yaw_init, collision_mode
+                inputs.assets,
+                inputs.placer_params,
+                args_cli.num_layouts,
+                get_seed_stream(suite, spec_path),
+                args_cli.random_yaw_init,
+                collision_mode,
             )
             collision_objects = get_placement_collision_objects(
                 inputs.assets, inputs.scene_assets, placement.collision_mode
@@ -231,6 +256,7 @@ class BenchmarkPlacement:
         assets: list[PlaceableAsset],
         placer_params: ObjectPlacerParams,
         num_layouts: int,
+        seed_stream: int,
         random_yaw_init: bool = False,
         collision_mode: CollisionMode | None = None,
     ):
@@ -240,6 +266,7 @@ class BenchmarkPlacement:
             assets: Placement assets, including at least one anchor.
             placer_params: The environment's placer parameters; they are copied, not modified.
             num_layouts: Layouts to place per seed.
+            seed_stream: Index of the environment's own block of candidate seeds.
             random_yaw_init: Whether to force a random initial yaw for every placed object.
             collision_mode: Default collision mode to use instead of the environment's, if given.
         """
@@ -261,6 +288,7 @@ class BenchmarkPlacement:
         self._placer = ObjectPlacer(params)
         self._assets = assets
         self._num_layouts = num_layouts
+        self._seed_stream_start = seed_stream * _SEED_STREAM_LENGTH
 
     @property
     def collision_mode(self) -> CollisionMode:
@@ -270,8 +298,9 @@ class BenchmarkPlacement:
     def place(self, seed: int, collision_objects: list[CollisionObject]) -> list[list[PlacementResult]]:
         """Place num_layouts layouts for one seed and return every candidate, ranked per layout.
 
-        The layouts match ObjectPlacer.place() with placement seed seed × num_layouts × max_placement_attempts.
-        Candidates are seeded consecutively from the placement seed, so different seeds solve disjoint candidates.
+        The layouts match ObjectPlacer.place() with placement seed
+        seed_stream * 2**20 + seed * num_layouts * max_placement_attempts. Candidates are seeded consecutively from the
+        placement seed, so different seeds and different seed streams solve disjoint candidates.
 
         Args:
             seed: Nonnegative benchmark seed.
@@ -280,7 +309,12 @@ class BenchmarkPlacement:
         Returns:
             For each layout, its max_placement_attempts candidates, valid and lower-loss ones first.
         """
-        self._placer.params.placement_seed = seed * self._num_layouts * self._attempts
+        candidates_per_seed = self._num_layouts * self._attempts
+        assert (seed + 1) * candidates_per_seed <= _SEED_STREAM_LENGTH, (
+            f"Seed {seed} needs {(seed + 1) * candidates_per_seed} candidate seeds, more than the {_SEED_STREAM_LENGTH}"
+            " reserved per environment; use smaller seeds or fewer layouts"
+        )
+        self._placer.params.placement_seed = self._seed_stream_start + seed * candidates_per_seed
         return self._placer.place_ranked_per_env(
             self._assets,
             num_envs=self._num_layouts,
@@ -301,14 +335,20 @@ def add_seed_results(record: EnvironmentRecord, ranked_per_layout: list[list[Pla
         record.num_layouts += 1
         record.num_candidates += len(ranked)
         record.candidate_successes += sum(result.success for result in ranked)
+        validation = best.validation_results
         if best.success:
             record.layout_successes += 1
         else:
-            for check in best.validation_results.get_failed_validation_check_names:
+            for check in validation.get_failed_validation_check_names:
                 record.failed_checks[check] = record.failed_checks.get(check, 0) + 1
-        for check in best.validation_results.validation_results:
-            if check not in record.checks:
-                record.checks.append(str(check))
+        layout_checks = {}
+        for check in validation.validation_results:
+            # As in PlacementValidationResults, no declared required checks means every check is required.
+            layout_checks[str(check)] = validation.required_checks is None or check in validation.required_checks
+        assert (
+            not record.checks or record.checks == layout_checks
+        ), f"Checks differ between layouts of {record.environment}"
+        record.checks = layout_checks
 
 
 def _run_git(*args: str) -> str | None:

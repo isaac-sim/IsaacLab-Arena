@@ -12,8 +12,8 @@ What It Measures
 For each environment spec, the benchmark builds the environment's placement
 inputs the same way ``ArenaEnvBuilder`` does, including build-time variations
 and task reachability constraints. It then places ``--num_layouts`` layouts for
-every seed in ``--placement_seeds``, without stepping physics. Each seed solves
-its own candidates. It reports two rates:
+every seed in ``--placement_seeds``, without stepping physics. It reports two
+rates:
 
 * **Layout success:** the share of layouts whose best candidate passes every
   required :doc:`pre-physics check <./validation>`. Each layout keeps the best of
@@ -32,20 +32,36 @@ listed with their error instead of being dropped.
 When a spec places the robot by relations, as the KitchenBench specs do, the
 robot is part of every layout and its relations are checked too.
 
-An environment is one task spec. Several RoboLab tasks share a scene, so they
-place identically, and a suite's mean counts such a scene once per task.
+An environment is one task spec. Each environment and seed solves its own
+candidates, so tasks that share a scene, as several RoboLab tasks do, sample it
+independently, and a suite's mean counts such a scene once per task. Rerunning
+the same specs solves the same candidates. Adding or removing a spec changes the
+candidates of the specs after it.
 
 Run the Benchmark
 -----------------
 
-Run inside the Arena container. With ``--output``, the run writes a KPI file
-and rewrites it after every environment, so a stopped run keeps its results:
+Run from the repository root inside the Arena container; see
+:doc:`../../quickstart/installation`. With ``--output``, the run writes a results
+file and rewrites it after every environment, so a stopped run keeps its
+results:
 
 .. code-block:: bash
 
    /isaac-sim/python.sh isaaclab_arena/scripts/placement_success_benchmark.py \
      --suite all \
      --output placement_main.json
+
+For a quick check, place one spec with fewer layouts. The table it prints
+should show one scored RoboLab environment and no errors:
+
+.. code-block:: bash
+
+   /isaac-sim/python.sh isaaclab_arena/scripts/placement_success_benchmark.py \
+     --env banana_on_plate \
+     --num_layouts 5 \
+     --placement_seeds 0 \
+     --output placement_quick_check.json
 
 Useful options:
 
@@ -54,7 +70,11 @@ Useful options:
 * ``--env 'kitchen_bench_replicator_*'`` keeps specs whose file stem matches the
   glob. Repeat it to select several patterns.
 * ``--num_layouts`` and ``--placement_seeds`` set the sample size. The defaults
-  are 50 layouts and seeds 0, 1 and 2.
+  are 50 layouts and seeds 0, 1 and 2. Seeds must be distinct, and
+  ``(seed + 1) * num_layouts * max_placement_attempts`` must not exceed
+  ``2**20``, the candidate seeds reserved for each environment. The solver
+  stops a seed's layouts together, so compare only runs with the same
+  ``--num_layouts``.
 * ``--random_yaw_init`` samples a random initial yaw for placed objects,
   including a robot placed by relations. Objects with ``FaceTo`` or a tilted
   ``RotateAroundSolution``, and ``ClutterOn`` objects, keep their own
@@ -66,7 +86,8 @@ Compare Two Runs
 ----------------
 
 Run the benchmark on the baseline and on the change, for example from two
-checkouts, then compare the KPI files. Comparing does not start the simulator:
+checkouts, then compare the results files. Comparing does not start the
+simulator:
 
 .. code-block:: bash
 
@@ -74,23 +95,33 @@ checkouts, then compare the KPI files. Comparing does not start the simulator:
      --compare placement_main.json placement_change.json
 
 The comparison reports each suite's rates in both runs over the environments
-scored in both, with a 95% interval for the change. The intervals use the
-Agresti-Caffo adjustment, so they need not be centered on the observed change.
+scored in both, with a 95% interval for the change in percentage points. The
+interval covers the sampling noise of these specs. A negative change is a
+regression, and an interval that contains zero is inconclusive. The intervals
+use the Agresti-Caffo adjustment, so they need not be centered on the observed
+change.
+
 It then lists the environments whose change stays significant after a Holm
 adjustment over every environment and rate, and the environments that were not
-scored in both runs. It warns when the two runs used different settings.
+scored in both runs. It warns when the two runs used different settings. It
+also names each environment whose checks, or whose required checks, differ
+between the runs. Its success criteria changed, so it is left out of the suite
+rates and significance tests.
 
-The KPI File
-------------
+``--compare`` only reports; its exit status does not signal a regression.
 
-The output follows the Arena KPI-tracking layout: a format version, the start
-time, the commit and branch, and a flat list of KPI records. Each record has a
-name, a value and tags for the suite and, where relevant, the environment.
-Per-environment counts, failed check names and timings are stored alongside for
-comparisons.
+The Results File
+----------------
 
-A suite has no rate records when any of its environments failed, and the
+The results file holds the start time, the commit and branch, the settings, a
+flat list of metrics and one record per environment. Each metric has a name, a
+value and tags for the suite and, where relevant, the environment.
+Per-environment counts, failed check names, timings and the checks that ran,
+with whether each is required, are stored alongside for comparisons.
+
+A suite has no rate metrics when any of its environments failed, and the
 script exits with an error after writing the file.
 
 The file also records whether the checkout had uncommitted changes. Only the
-run's own output file is ignored, so keep other KPI files outside the checkout.
+run's own output file is ignored, so keep other results files outside the
+checkout.

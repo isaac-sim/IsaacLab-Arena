@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Tests for placement-success KPI files, run comparisons and the benchmark script."""
+"""Tests for placement-success results files, run comparisons and the benchmark script."""
 
 import copy
 import subprocess
@@ -15,6 +15,7 @@ from isaaclab_arena.offline_placement.placement_success import (
     EnvironmentStatus,
     PlacementBenchmarkRun,
     compare_runs,
+    format_comparison,
     format_run,
 )
 from isaaclab_arena.tests.utils.constants import TestConstants
@@ -49,7 +50,7 @@ def test_real_specs_are_scored_or_skipped():
     assert run_function_with_persistent_simulation_app(_test_real_specs_are_scored_or_skipped)
 
 
-def test_kpi_file_round_trips_and_reports_suite_and_environment_rates(tmp_path):
+def test_results_file_round_trips_and_reports_suite_and_environment_rates(tmp_path):
     """Suites report counts for every status, and equal-weight mean rates only when no environment failed."""
     run = _run([
         _scored("robolab", "pick_apple", layouts=(45, 50), candidates=(300, 500)),
@@ -62,15 +63,17 @@ def test_kpi_file_round_trips_and_reports_suite_and_environment_rates(tmp_path):
     run.save(path)
 
     assert PlacementBenchmarkRun.load(path) == run
-    kpis = {(kpi["name"], tuple(sorted(kpi["tags"].items()))): kpi["value"] for kpi in run.get_kpis()}
-    assert kpis[("layout_success_rate", (("suite", "robolab"),))] == pytest.approx(0.95)
-    assert kpis[("valid_candidate_rate", (("suite", "robolab"),))] == pytest.approx(0.8)
-    assert kpis[("layout_success_rate", (("environment", "pick_apple"), ("suite", "robolab")))] == pytest.approx(0.9)
-    assert kpis[("environments_skipped", (("suite", "kitchen_bench"),))] == 1
-    assert kpis[("environments_failed", (("suite", "kitchen_bench"),))] == 1
+    metrics = {
+        (metric["name"], tuple(sorted(metric["tags"].items()))): metric["value"] for metric in run.get_metric_records()
+    }
+    assert metrics[("layout_success_rate", (("suite", "robolab"),))] == pytest.approx(0.95)
+    assert metrics[("valid_candidate_rate", (("suite", "robolab"),))] == pytest.approx(0.8)
+    assert metrics[("layout_success_rate", (("environment", "pick_apple"), ("suite", "robolab")))] == pytest.approx(0.9)
+    assert metrics[("environments_skipped", (("suite", "kitchen_bench"),))] == 1
+    assert metrics[("environments_failed", (("suite", "kitchen_bench"),))] == 1
     # A failed environment could have lowered the suite's rates, so they are left out.
-    assert ("layout_success_rate", (("suite", "kitchen_bench"),)) not in kpis
-    assert kpis[("layout_success_rate", (("environment", "pick_cup"), ("suite", "kitchen_bench")))] == 1.0
+    assert ("layout_success_rate", (("suite", "kitchen_bench"),)) not in metrics
+    assert metrics[("layout_success_rate", (("environment", "pick_cup"), ("suite", "kitchen_bench")))] == 1.0
     assert "| kitchen_bench | 1 | 1 | 1 | n/a | n/a |" in format_run(run)
 
 
@@ -83,7 +86,6 @@ def test_comparison_flags_only_changes_that_survive_holm():
     candidate.append(EnvironmentRecord("robolab", "task_35", EnvironmentStatus.SKIPPED))
     candidate.append(_scored("robolab", "task_36", layouts=(47, 50), candidates=(400, 500)))
     candidate.append(_scored("robolab", "task_37", layouts=(12, 25), candidates=(100, 250)))
-    candidate[-1].checks = ["ik_reachable"]
     candidate.append(EnvironmentRecord("robolab", "open_fridge", EnvironmentStatus.SKIPPED))
     candidate_run = _run(candidate)
     candidate_run.settings = {"num_layouts": 50, "random_yaw_init": True}
@@ -104,7 +106,7 @@ def test_comparison_flags_only_changes_that_survive_holm():
         ("robolab", "new_task", "error", "missing"),
         ("robolab", "task_35", "scored", "skipped"),
     ]
-    assert comparison.settings_differences == [("random_yaw_init", None, True), ("checks", [], ["ik_reachable"])]
+    assert comparison.settings_differences == [("random_yaw_init", None, True)]
 
     # p = 0.035 and 0.047: both are below 5%, but the smaller misses Holm's first threshold of 2.5%, so neither is flagged.
     moderate = compare_runs(
@@ -116,8 +118,33 @@ def test_comparison_flags_only_changes_that_survive_holm():
     assert not environment.significant
 
 
+def test_comparison_leaves_out_environments_whose_checks_changed():
+    """An environment whose checks or required checks changed is named and left out of the suite rates."""
+    baseline = [_scored("robolab", f"task_{index}", layouts=(47, 50), candidates=(400, 500)) for index in range(3)]
+    candidate = [_scored("robolab", f"task_{index}", layouts=(25, 50), candidates=(200, 500)) for index in range(3)]
+    for record in baseline + candidate:
+        record.checks = {"no_overlap": True, "ik_reachable": True}
+    # Both runs run the same checks overall, but task_0 loses ik_reachable and task_1 makes it optional.
+    candidate[0].checks = {"no_overlap": True}
+    candidate[1].checks = {"no_overlap": True, "ik_reachable": False}
+
+    comparison = compare_runs(_run(baseline), _run(candidate))
+
+    assert [environment.environment for environment in comparison.environments] == ["task_2"]
+    [suite] = comparison.suites
+    assert suite.environments == 1
+    assert comparison.check_differences == [
+        ("robolab", "task_0", {"no_overlap": True, "ik_reachable": True}, {"no_overlap": True}),
+        ("robolab", "task_1", {"no_overlap": True, "ik_reachable": True}, {"no_overlap": True, "ik_reachable": False}),
+    ]
+    assert (
+        "- robolab/task_1: baseline ik_reachable, no_overlap; candidate ik_reachable (optional), no_overlap"
+        in format_comparison(comparison)
+    )
+
+
 def test_git_provenance_ignores_only_the_output_file(tmp_path, monkeypatch):
-    """The run's own KPI file leaves the checkout clean, while a source change marks it dirty."""
+    """The run's own results file leaves the checkout clean, while a source change marks it dirty."""
     from isaaclab_arena.scripts import placement_success_benchmark
 
     monkeypatch.setattr(placement_success_benchmark, "_REPO_ROOT", tmp_path.resolve())
@@ -158,16 +185,25 @@ def test_seed_results_count_each_layout_by_its_best_candidate():
     assert (record.layout_successes, record.num_layouts) == (1, 3)
     assert (record.candidate_successes, record.num_candidates) == (2, 7)
     assert record.failed_checks == {"no_overlap": 1, "on_relation": 1}
-    assert record.checks == ["no_overlap", "on_relation", "ik_reachable"]
+    assert record.checks == {"no_overlap": True, "on_relation": True, "ik_reachable": False}
+
+    # Without declared required checks, every check is required.
+    default_record = EnvironmentRecord("robolab", "pick_apple", EnvironmentStatus.SCORED)
+    validation = PlacementValidationResults({"no_overlap": True, "on_relation": False})
+    add_seed_results(default_record, [[PlacementResult(validation, positions={}, final_loss=0.0, attempts=1)]])
+    assert default_record.checks == {"no_overlap": True, "on_relation": True}
 
 
 def test_benchmark_placement_matches_object_placer_with_disjoint_seeds():
-    """Each layout's best candidate is ObjectPlacer.place()'s, and consecutive seeds solve different candidates."""
+    """Each layout's best candidate is ObjectPlacer.place()'s, and seeds and environments solve different candidates.
+
+    Two environments with the same scene must not share candidates, or their results would not be independent.
+    """
     from isaaclab_arena.relations.object_placer import ObjectPlacer
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
     from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
     from isaaclab_arena.relations.relations import IsAnchor, On
-    from isaaclab_arena.scripts.placement_success_benchmark import BenchmarkPlacement
+    from isaaclab_arena.scripts.placement_success_benchmark import _SEED_STREAM_LENGTH, BenchmarkPlacement
     from isaaclab_arena.tests.dummy_object import DummyObject
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
     from isaaclab_arena.utils.pose import Pose
@@ -181,12 +217,14 @@ def test_benchmark_placement_matches_object_placer_with_disjoint_seeds():
         solver_params=RelationSolverParams(max_iters=10, verbose=False), apply_positions_to_objects=False
     )
     num_layouts = 5
-    placement = BenchmarkPlacement([desk, box], params, num_layouts=num_layouts)
 
-    box_positions_per_seed = []
-    for seed in (0, 1):
+    box_positions_per_sample = []
+    for seed_stream, seed in ((0, 0), (0, 1), (1, 0)):
+        placement = BenchmarkPlacement([desk, box], params, num_layouts, seed_stream)
         reference_params = copy.copy(params)
-        reference_params.placement_seed = seed * num_layouts * params.max_placement_attempts
+        reference_params.placement_seed = (
+            seed_stream * _SEED_STREAM_LENGTH + seed * num_layouts * params.max_placement_attempts
+        )
         expected_per_layout = ObjectPlacer(reference_params).place([desk, box], num_envs=num_layouts)
         ranked_per_layout = placement.place(seed, collision_objects=[])
         box_positions = set()
@@ -195,23 +233,30 @@ def test_benchmark_placement_matches_object_placer_with_disjoint_seeds():
             assert ranked[0].positions == expected.positions
             for result in ranked:
                 box_positions.add(tuple(result.positions[box]))
-        box_positions_per_seed.append(box_positions)
-    assert not box_positions_per_seed[0] & box_positions_per_seed[1]
+        box_positions_per_sample.append(box_positions)
+    first_seed, second_seed, other_environment = box_positions_per_sample
+    assert not first_seed & second_seed
+    assert not first_seed & other_environment
+    # A seed whose candidates would run into the next environment's block is refused.
+    with pytest.raises(AssertionError):
+        placement.place(_SEED_STREAM_LENGTH // (num_layouts * params.max_placement_attempts), collision_objects=[])
 
 
-def test_spec_discovery_covers_both_suites_and_filters_by_stem():
-    """Every suite contributes specs, and a stem glob keeps only matching specs."""
-    from isaaclab_arena.scripts.placement_success_benchmark import discover_specs
+def test_spec_discovery_filters_by_stem_and_gives_each_spec_its_own_seed_stream():
+    """Every suite contributes specs, a stem glob keeps only matching specs, and every spec has its own stream."""
+    from isaaclab_arena.scripts.placement_success_benchmark import discover_specs, get_seed_stream
 
     specs = discover_specs("all", None)
     assert {suite for suite, _ in specs} == {"robolab", "kitchen_bench"}
     assert all(path.is_file() for _, path in specs)
     stem = specs[0][1].stem
     assert [path.stem for _, path in discover_specs("all", [stem])] == [stem]
+    streams = [get_seed_stream(suite, path) for suite, path in specs]
+    assert sorted(streams) == list(range(len(specs)))
 
 
 def test_compare_cli_prints_suite_table_without_simulator(tmp_path):
-    """--compare reads two KPI files and prints the suite comparison."""
+    """--compare reads two results files and prints the suite comparison."""
     baseline_path, candidate_path = tmp_path / "baseline.json", tmp_path / "candidate.json"
     _run([_scored("robolab", "pick_apple", layouts=(45, 50), candidates=(300, 500))]).save(baseline_path)
     _run([_scored("robolab", "pick_apple", layouts=(50, 50), candidates=(450, 500))]).save(candidate_path)
@@ -231,6 +276,25 @@ def test_compare_cli_prints_suite_table_without_simulator(tmp_path):
 
     assert completed.returncode == 0, completed.stdout + completed.stderr
     assert "| robolab | 1 | 90.0% → 100.0% |" in completed.stdout
+
+
+def test_cli_rejects_repeated_seeds_without_simulator():
+    """A repeated seed would count the same candidates twice, so the CLI rejects it before starting the simulator."""
+    completed = subprocess.run(
+        [
+            TestConstants.python_path,
+            f"{TestConstants.scripts_dir}/placement_success_benchmark.py",
+            "--placement_seeds",
+            "0",
+            "0",
+        ],
+        capture_output=True,
+        text=True,
+        timeout=300,
+    )
+
+    assert completed.returncode != 0
+    assert "--placement_seeds must be distinct" in completed.stderr
 
 
 def _scored(suite: str, environment: str, layouts: tuple[int, int], candidates: tuple[int, int]) -> EnvironmentRecord:
