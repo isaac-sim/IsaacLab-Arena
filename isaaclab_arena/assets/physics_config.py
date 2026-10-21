@@ -12,7 +12,7 @@ from collections.abc import Callable
 from isaaclab.sim import UsdFileCfg
 from isaaclab.sim.spawners.from_files import spawn_from_usd
 from isaaclab.utils.configclass import configclass
-from pxr import Usd
+from pxr import Gf, Usd
 
 
 @configclass
@@ -43,7 +43,6 @@ class ZeroVelocityCfg(UsdPrimSpawnPhysicsCfg):
 
     def apply(self, prim: Usd.Prim, root: Usd.Prim) -> None:
         """Set `physics:velocity` and `physics:angularVelocity` on the prim to zero where they exist."""
-        from pxr import Gf
 
         for name in ("physics:velocity", "physics:angularVelocity"):
             attribute = prim.GetAttribute(name)
