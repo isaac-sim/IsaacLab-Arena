@@ -318,7 +318,7 @@ def render_generation_panel() -> None:
         st.session_state["enable_simready_search"] = st.checkbox(
             "Enable SimReady search",
             value=bool(st.session_state.get("enable_simready_search", False)),
-            help="Search Isaac Sim GA SimReady props for objects the Arena asset catalog does not cover.",
+            help="Search SimReady for objects the Arena asset catalog does not cover.",
         )
         source_options = [kind.value for kind in SimReadySourceKind]
         st.session_state["simready_source"] = st.selectbox(
@@ -340,6 +340,10 @@ def render_generation_panel() -> None:
                 "S3 URL",
                 value=st.session_state.get("simready_s3_url", ""),
                 placeholder="Leave empty for the Isaac Sim 6.0 GA SimReady bucket",
+            )
+        elif source == SimReadySourceKind.CENTRAL.value:
+            st.caption(
+                "Searches Hugging Face SimReady Central; accepts only single rigid bodies without articulations."
             )
         elif source == SimReadySourceKind.SERVICE.value:
             st.session_state["simready_service_url"] = st.text_input(

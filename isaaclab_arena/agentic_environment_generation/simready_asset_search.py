@@ -37,6 +37,7 @@ class SimReadySourceKind(str, Enum):
     ISAAC_SIM_GA = "isaac-sim-ga"
     S3 = "s3"
     SERVICE = "service"
+    CENTRAL = "simready-central"
 
 
 @dataclass
@@ -88,15 +89,20 @@ def search_simready_objects(object_phrases: list[str], config: SimReadySearchCon
     if not phrases:
         return SimReadyCandidateCatalogue()
 
-    library = _configure_asset_library(config)
-    if library is None:
+    library = None if config.source == SimReadySourceKind.CENTRAL else _configure_asset_library(config)
+    if library is None and config.source != SimReadySourceKind.CENTRAL:
         return SimReadyCandidateCatalogue()
 
     candidates: list[SimReadyObjectCandidate] = []
     unmatched_phrases: list[str] = []
     for phrase in phrases:
         try:
-            hits = _search_phrase(library, phrase, max_results=config.max_results_per_object)
+            if config.source == SimReadySourceKind.CENTRAL:
+                from isaaclab_arena.agentic_environment_generation.simready_central import search_central_objects
+
+                hits = search_central_objects(phrase, max_results=config.max_results_per_object)
+            else:
+                hits = _search_phrase(library, phrase, max_results=config.max_results_per_object)
         except Exception as exc:
             _logger.warning("simready search failed for %r: %s", phrase, exc)
             hits = []

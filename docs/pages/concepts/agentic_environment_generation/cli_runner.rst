@@ -110,6 +110,7 @@ These options are defined by the environment generation runner:
      - Agent
    * - ``--simready_source SOURCE``
      - Chooses the SimReady search backend. Default: ``isaac-sim-ga``.
+       Use ``simready-central`` for single-rigid-body assets on Hugging Face.
      - Agent
    * - ``--simready_s3_url URL``
      - Overrides the S3 root for S3-based SimReady sources.
@@ -123,6 +124,15 @@ These options are defined by the environment generation runner:
    * - ``--num_steps N``
      - Sets the number of zero-action simulation steps. Default: ``20``.
      - Evaluation smoke test
+
+With ``--enable_simready_search --simready_source simready-central``, search
+requires indexed rigid-body count equal to one. Selected asset folders are cached
+from their pinned Hugging Face dataset revision, preserving relative dependencies.
+Before registration, the composed USD must have exactly one enabled rigid body,
+no articulation root, and no unresolved composition errors. A local wrapper selects
+PhysX variants; the generated spec references that wrapper and needs the same cache
+when run elsewhere. Assets with missing count metadata or unsupported packaging are
+skipped. Articulated assets and multi-body assemblies are not imported.
 
 Build and simulation options
 ----------------------------
