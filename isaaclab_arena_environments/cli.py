@@ -196,6 +196,7 @@ def get_isaaclab_arena_environments_cli_parser(
 def get_arena_builder_from_cli(
     args_cli: argparse.Namespace,
     hydra_overrides: list[str] | None = None,
+    policy_image_size: tuple[int, int] | None = None,
 ) -> ArenaEnvBuilder:
     """Build an :class:`ArenaEnvBuilder` from parsed CLI args.
 
@@ -203,6 +204,7 @@ def get_arena_builder_from_cli(
         args_cli: Parsed argparse namespace.
         hydra_overrides: Optional Hydra variation override strings (e.g.
             ``"light.hdr_image.enabled=true"``).
+        policy_image_size: (height, width) the policy consumes, used by ``--camera_resolution auto``.
     """
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
 
@@ -222,7 +224,7 @@ def get_arena_builder_from_cli(
         else _arena_env_from_example_name(example_environment, args_cli)
     )
     builder_cfg = arena_env_builder_cfg_from_argparse(args_cli)
-    return ArenaEnvBuilder(arena_env, builder_cfg, hydra_overrides=hydra_overrides)
+    return ArenaEnvBuilder(arena_env, builder_cfg, hydra_overrides=hydra_overrides, policy_image_size=policy_image_size)
 
 
 def arena_env_from_graph_spec(env_spec: str, args_cli: argparse.Namespace) -> IsaacLabArenaEnvironment:

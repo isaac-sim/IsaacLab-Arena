@@ -25,7 +25,7 @@ from isaaclab_teleop import IsaacTeleopCfg
 import isaaclab_arena_curobo  # noqa: F401
 from isaaclab_arena.assets.registries import DeviceRegistry
 from isaaclab_arena.embodiments.no_embodiment import NoEmbodiment
-from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
+from isaaclab_arena.environments.arena_env_builder_cfg import CAMERA_RESOLUTION_HD, ArenaEnvBuilderCfg
 from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
 from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import (
     ArenaPhysicsCfg,
@@ -104,22 +104,43 @@ class ArenaEnvBuilder:
         cfg: ArenaEnvBuilderCfg,
         hydra_overrides: list[str] | None = None,
         rebuild_index: int = 0,
+        policy_image_size: tuple[int, int] | None = None,
     ):
-        """Create a builder for an Arena environment.
+        """Create a builder for one Arena environment.
 
         Args:
-            arena_env: Environment to build.
-            cfg: Build settings.
-            hydra_overrides: Variation overrides applied before the build.
+            arena_env: The composed Arena environment to build.
+            cfg: Builder options such as the environment count and camera resolution.
+            hydra_overrides: Variation overrides applied when the environment config is composed.
             rebuild_index: Index of this build among the rebuilds of an Experiment Run; 0 for a single build.
+            policy_image_size: (height, width) the policy consumes, required by ``cfg.camera_resolution``
+                ``"auto"`` to fit the embodiment cameras.
         """
         self.arena_env = arena_env
         self.cfg = cfg
         self.hydra_overrides = hydra_overrides
         self.rebuild_index = rebuild_index
+        self._apply_camera_resolution(policy_image_size)
         self.interactive_scene_cfg = InteractiveSceneCfg(
             num_envs=cfg.num_envs, env_spacing=cfg.env_spacing, replicate_physics=False
         )
+
+    def _apply_camera_resolution(self, policy_image_size: tuple[int, int] | None) -> None:
+        """Resize the embodiment camera rig as selected by ``cfg.camera_resolution``."""
+        if self.cfg.camera_resolution == CAMERA_RESOLUTION_HD:
+            return
+        embodiment = self.arena_env.embodiment
+        assert embodiment is not None, "camera_resolution requires an environment embodiment"
+        assert embodiment.enable_cameras, "camera_resolution requires embodiment cameras to be enabled"
+        assert embodiment.camera_config is not None, "camera_resolution requires an embodiment camera rig"
+        if self.cfg.camera_resolution_is_auto:
+            assert policy_image_size is not None, (
+                "camera_resolution 'auto' requires a policy that declares the image size it consumes"
+                " (PolicyBase.required_image_size); select 'hd' or an explicit '<height>x<width>' instead"
+            )
+            embodiment.camera_config.fit_resolution(*policy_image_size)
+        else:
+            embodiment.camera_config.set_resolution(*self.cfg.explicit_camera_resolution_hw())
 
     @property
     def resolved_physics_backend(self) -> PhysicsBackend:

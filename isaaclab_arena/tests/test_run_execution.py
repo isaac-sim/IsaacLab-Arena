@@ -451,3 +451,47 @@ def test_execute_experiment_writes_no_timings_for_a_failed_run(monkeypatch, tmp_
 
     assert not (tmp_path / "failing" / ARENA_SINGLE_RUN_TIMINGS_FILENAME).exists()
     assert (tmp_path / "passing" / ARENA_SINGLE_RUN_TIMINGS_FILENAME).is_file()
+
+
+class _ImagePolicy(_Policy):
+    @classmethod
+    def required_image_size(cls, config):
+        return (224, 224)
+
+
+class _PolicyRegistry:
+    def __init__(self, policy_type):
+        self._policy_type = policy_type
+
+    def get_policy_type_for_cfg(self, policy_cfg):
+        return self._policy_type
+
+
+@pytest.mark.parametrize(
+    ("camera_resolution", "policy_type", "expected"),
+    [
+        ("hd", _ImagePolicy, None),
+        ("126x224", _ImagePolicy, None),
+        ("auto", _ImagePolicy, (224, 224)),
+    ],
+)
+def test_policy_image_size_is_looked_up_only_for_auto_camera_resolution(
+    monkeypatch, camera_resolution, policy_type, expected
+):
+    monkeypatch.setattr(run_execution, "PolicyRegistry", lambda: _PolicyRegistry(policy_type))
+    run = _run(environment_builder=ArenaEnvBuilderCfg(camera_resolution=camera_resolution))
+
+    assert run_execution.policy_image_size_from_run_cfg(run) == expected
+
+
+def test_policy_image_size_is_none_for_a_policy_without_a_fixed_image_size(monkeypatch):
+    from isaaclab_arena.policy.policy_base import PolicyBase
+
+    class _StatePolicy(PolicyBase):
+        def get_action(self, env, observation):
+            raise NotImplementedError
+
+    monkeypatch.setattr(run_execution, "PolicyRegistry", lambda: _PolicyRegistry(_StatePolicy))
+    run = _run(environment_builder=ArenaEnvBuilderCfg(camera_resolution="auto"))
+
+    assert run_execution.policy_image_size_from_run_cfg(run) is None

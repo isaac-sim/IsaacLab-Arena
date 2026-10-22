@@ -50,6 +50,27 @@ class ArenaCameraCfg:
         """Return the field name of every camera in this rig."""
         return [f.name for f in fields(self) if isinstance(getattr(self, f.name), CameraCfg)]
 
+    def set_resolution(self, height: int, width: int) -> None:
+        """Set the image dimensions for every camera in this rig."""
+        assert height > 0, "camera height must be greater than zero"
+        assert width > 0, "camera width must be greater than zero"
+        for camera_name in self.camera_names():
+            camera_cfg = getattr(self, camera_name)
+            camera_cfg.height = height
+            camera_cfg.width = width
+
+    def fit_resolution(self, max_height: int, max_width: int) -> None:
+        """Shrink every camera in this rig to fit inside a bounding box, preserving each aspect ratio.
+
+        A 1280x720 camera fitted into a 224x224 box renders at 224x126: the content area a policy-side
+        letterbox to 224x224 would produce, so that letterbox only pads.
+        """
+        for camera_name in self.camera_names():
+            camera_cfg = getattr(self, camera_name)
+            camera_cfg.height, camera_cfg.width = fit_image_size(
+                camera_cfg.height, camera_cfg.width, max_height, max_width
+            )
+
     def get_cfg(self) -> Any:
         """Return a copy of this rig, tiled or untiled depending on use_tiled_camera.
 
@@ -74,6 +95,18 @@ class ArenaCameraCfg:
             f.name: getattr(camera_cfg, f.name) for f in fields(camera_cfg) if f.init and f.name != "class_type"
         }
         return TiledCameraCfg(**init_fields)
+
+
+def fit_image_size(height: int, width: int, max_height: int, max_width: int) -> tuple[int, int]:
+    """Return the largest (height, width) with the same aspect ratio that fits inside the bounding box.
+
+    Mirrors the letterbox resize used by image policies (tf.image.resize_with_pad): both dimensions are
+    divided by the larger axis ratio and truncated to whole pixels, so the result equals that content area.
+    """
+    assert height > 0 and width > 0, "camera dimensions must be greater than zero"
+    assert max_height > 0 and max_width > 0, "bounding box dimensions must be greater than zero"
+    ratio = max(height / max_height, width / max_width)
+    return max(1, int(height / ratio)), max(1, int(width / ratio))
 
 
 def make_camera_observation_cfg(

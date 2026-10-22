@@ -8,7 +8,7 @@ import argparse
 from isaaclab.app import AppLauncher
 
 from isaaclab_arena.cli.dataclass_cli import dataclass_from_cli
-from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
+from isaaclab_arena.environments.arena_env_builder_cfg import CAMERA_RESOLUTION_HD, ArenaEnvBuilderCfg
 from isaaclab_arena.utils.physics_backend import PhysicsBackend
 
 
@@ -110,6 +110,15 @@ def add_isaaclab_arena_cli_args(parser: argparse.ArgumentParser) -> None:
         help=(
             "Re-place objects from the pool on each reset (default: True). Use --no-resolve_on_reset to keep the same"
             " layout."
+        ),
+    )
+    arena_group.add_argument(
+        "--camera_resolution",
+        type=str,
+        default=CAMERA_RESOLUTION_HD,
+        help=(
+            "Embodiment camera image size: 'hd' keeps the rig's declared dimensions, 'auto' fits the cameras"
+            " into the image size the policy consumes, or '<height>x<width>' such as '126x224'."
         ),
     )
     arena_group.add_argument(

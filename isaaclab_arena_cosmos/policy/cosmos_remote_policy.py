@@ -33,6 +33,12 @@ class CosmosRemotePolicy(RemoteChunkReplayPolicy, PolicyBase[CosmosRemotePolicyC
         adapter = _resolve_cosmos_embodiment_adapter(config.cosmos_embodiment_adapter)
         super().__init__(config, adapter, config.open_loop_horizon)
 
+    @classmethod
+    def required_image_size(cls, config: CosmosRemotePolicyCfg) -> tuple[int, int]:
+        """Return the (height, width) the selected Cosmos adapter letterboxes camera images to."""
+        adapter = _resolve_cosmos_embodiment_adapter(config.cosmos_embodiment_adapter)
+        return adapter.IMAGE_H, adapter.IMAGE_W
+
 
 def _resolve_cosmos_embodiment_adapter(key: str) -> CosmosDroidAdapter:
     """Instantiate the adapter registered under ``key``.
