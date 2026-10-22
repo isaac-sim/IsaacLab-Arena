@@ -90,11 +90,8 @@ def test_robolab_tasks_declare_lights():
         # Loaded through the spec so lights missing from the shared defaults include are caught.
         spec = ArenaEnvGraphSpec.from_yaml(task_path)
         registry_names_by_id = {obj.id: obj.registry_name for obj in spec.objects}
-        expected_registry_names = {"light": "robolab_dome_light", "sphere_light": "robolab_sphere_light"}
-        for light_id, registry_name in expected_registry_names.items():
-            assert (
-                registry_names_by_id.get(light_id) == registry_name
-            ), f"{task_path.name}: missing or wrong '{light_id}'"
+        for light_id in ["light", "sphere_light"]:
+            assert registry_names_by_id.get(light_id) == light_id, f"{task_path.name}: missing or wrong '{light_id}'"
         node_ids = {spec.background.id} | set(registry_names_by_id)
         assert len(node_ids) == len(spec.objects) + 1, f"{task_path.name}: duplicate node ids"
 
