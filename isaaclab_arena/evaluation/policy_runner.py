@@ -68,6 +68,9 @@ def rollout_policy(
     policy: PolicyBase,
     num_steps: int | None,
     num_episodes: int | None,
+    reset_distribution=None,
+    rebuild_index: int = 0,
+    seed: int = 0,
 ) -> MetricsDataCollection | None:
     import torch
 
@@ -79,6 +82,7 @@ def rollout_policy(
         if num_episodes is not None:
             env.unwrapped.configure_episode_limit(num_episodes)
         obs, _ = env.reset()
+        pending_reset_ids = torch.arange(env.unwrapped.num_envs) if reset_distribution is not None else None
         policy.reset()
         policy.set_task_description(env.unwrapped.get_language_instruction())
 
@@ -91,11 +95,15 @@ def rollout_policy(
         num_steps_completed = 0
 
         while True:
+            if reset_distribution is not None:
+                reset_distribution.capture(env.unwrapped, pending_reset_ids, rebuild_index=rebuild_index, seed=seed)
             with torch.inference_mode(), Timer("step"):
                 with Timer("policy_inference"):
                     actions = policy.get_action(env, obs)
                 with Timer("env_step"):
                     obs, _, terminated, truncated, _ = env.step(actions)
+                if reset_distribution is not None:
+                    pending_reset_ids = env.unwrapped.reset_env_ids.clone()
 
                 reset_env_ids = env.unwrapped.reset_env_ids
                 if reset_env_ids.numel() > 0:

@@ -449,3 +449,50 @@ def test_execute_experiment_writes_no_timings_for_a_failed_run(monkeypatch, tmp_
 
     assert not (tmp_path / "failing" / ARENA_SINGLE_RUN_TIMINGS_FILENAME).exists()
     assert (tmp_path / "passing" / ARENA_SINGLE_RUN_TIMINGS_FILENAME).is_file()
+
+
+@pytest.mark.parametrize("fail", [False, True])
+def test_reset_distribution_spans_rebuilds_and_closes_on_failure(monkeypatch, tmp_path, fail):
+    run = _run()
+    recorders = []
+    metadata = []
+    monkeypatch.setattr(
+        run_execution,
+        "_build_environment_from_cfg",
+        lambda *args, **kwargs: _environment(),
+    )
+    monkeypatch.setattr(run_execution, "_build_policy_from_cfg", lambda cfg: _Policy())
+    monkeypatch.setattr(run_execution, "wrap_env_for_video", lambda env, *args: env)
+    monkeypatch.setattr(run_execution, "close_run_resources", lambda *args: None)
+
+    def rollout(env, policy, num_steps, num_episodes, reset_distribution, rebuild_index, seed):
+        recorders.append(reset_distribution)
+        metadata.append((rebuild_index, seed))
+        if fail:
+            raise RuntimeError("rollout failed")
+
+    monkeypatch.setattr(run_execution, "rollout_policy", rollout)
+    if fail:
+        with pytest.raises(RuntimeError, match="rollout failed"):
+            run_execution.build_and_run(run, tmp_path, measure_reset_distribution=True)
+    else:
+        run_execution.build_and_run(run, tmp_path, measure_reset_distribution=True)
+        assert recorders[0] is recorders[1]
+        assert metadata == [
+            (0, run.environment_builder.seed),
+            (1, run.environment_builder.seed + 1),
+        ]
+    assert recorders[0].stream.closed
+    assert json.loads((tmp_path / "reset_distribution.json").read_text())["sample_count"] == 0
+
+
+def test_execute_experiment_forwards_reset_measurement(monkeypatch, tmp_path):
+    options = []
+
+    def build(cfg, **kwargs):
+        options.append(kwargs["measure_reset_distribution"])
+        return ArenaRunResult(cfg.name, RunStatus.COMPLETED)
+
+    monkeypatch.setattr(run_execution, "build_and_run", build)
+    run_execution.execute_experiment(_experiment(_run()), tmp_path, measure_reset_distribution=True)
+    assert options == [True]

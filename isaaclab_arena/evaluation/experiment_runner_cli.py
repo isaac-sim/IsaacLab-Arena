@@ -42,6 +42,11 @@ def add_experiment_runner_arguments(parser: argparse.ArgumentParser) -> None:
         default=False,
         help="Record one mp4 per (env, RGB camera, episode) from obs['camera_obs'] for each Run.",
     )
+    parser.add_argument(
+        "--measure_reset_distribution",
+        action="store_true",
+        help="Record pre-action reset scene states and distribution statistics for each Run.",
+    )
     # Keep existing Experiment Runner commands backward compatible:
     # --output_base_dir <base> writes to <base>/<timestamp>.
     # OSMO workflow tasks use --experiment_output_directory <path> because each task
