@@ -19,6 +19,8 @@ import isaaclab_arena_environments.mdp as mdp
 from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.assets.register import register_task
 from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
+from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTermCfg
+from isaaclab_arena.recording.motion_terms import ObjectPeakSpeed
 from isaaclab_arena.tasks.events import randomize_poses_and_align_auxiliary_assets
 from isaaclab_arena.tasks.predicates.spatial import objects_in_proximity
 from isaaclab_arena.tasks.task_base import TaskBase
@@ -107,6 +109,11 @@ class AssemblyTask(TaskBase):
             ],
             failures={"object_dropped": object_dropped},
         )
+
+    def get_episode_recorder_terms(self) -> dict[str, EpisodeRecorderTermCfg]:
+        return {
+            "object_motion": EpisodeRecorderTermCfg(func=ObjectPeakSpeed, params={"object_name": self.held_asset.name})
+        }
 
     def get_events_cfg(self):
         """Get events configuration for assembly task."""

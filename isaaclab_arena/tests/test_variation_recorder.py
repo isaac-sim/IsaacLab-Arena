@@ -160,8 +160,8 @@ def test_record_variation_samples_emits_the_per_episode_draw():
     # One run-time draw for env 0 during episode 0.
     variation.sampler.sample(num_samples=1, env_ids=torch.tensor([0]))
 
-    fields = record_variation_samples(env, env_id=0)
-    sample = fields["variations"]["asset.recorder_test"]
+    samples = record_variation_samples(env, env_id=0)
+    sample = samples["asset.recorder_test"]
     # The single (1,)-shaped draw is recorded as a flat list, not a list of draws.
     assert isinstance(sample, list) and len(sample) == 1
 
@@ -169,7 +169,7 @@ def test_record_variation_samples_emits_the_per_episode_draw():
     assert recorder["asset.recorder_test"].sample_for_episode(0, 0) is None
 
     # A different env in the same episode has nothing recorded, so no variations field is emitted.
-    assert record_variation_samples(env, env_id=1) == {}
+    assert record_variation_samples(env, env_id=1) is None
 
 
 def test_record_placement_sample_uses_sampler_listener_without_variation():
@@ -187,10 +187,9 @@ def test_record_placement_sample_uses_sampler_listener_without_variation():
 
     variation.sampler.sample(num_samples=1, env_ids=torch.tensor([3]))
 
-    fields = record_placement_sample(env, env_id=3)
-    assert fields.keys() == {"placement"}
-    assert fields["placement"].keys() == {"pose"}
-    assert len(fields["placement"]["pose"]) == 1
+    placement = record_placement_sample(env, env_id=3)
+    assert placement.keys() == {"pose"}
+    assert len(placement["pose"]) == 1
     recorder.release_episode(env_id=3, episode_idx=2)
     assert recorder.placement_record is not None
     assert recorder.placement_record.sample_for_episode(3, 2) is None

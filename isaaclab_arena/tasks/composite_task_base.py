@@ -14,6 +14,7 @@ from isaaclab.envs.common import ViewerCfg
 from isaaclab.envs.mimic_env_cfg import MimicEnvCfg, SubTaskConfig
 
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
+from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderTermCfg
 from isaaclab_arena.tasks.common.mimic_default_params import MIMIC_DATAGEN_CONFIG_DEFAULTS
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
@@ -133,6 +134,14 @@ class CompositeTaskBase(TaskBase):
         events_cfg = combine_configclass_instances("EventsCfg", *renamed_events_cfgs)
 
         return events_cfg
+
+    def get_episode_recorder_terms(self) -> dict[str, EpisodeRecorderTermCfg]:
+        """Collect every subtask's episode recorder terms, suffixed with ``_subtask_<i>``."""
+        terms: dict[str, EpisodeRecorderTermCfg] = {}
+        for subtask_index, subtask in enumerate(self.subtasks):
+            for name, term_cfg in subtask.get_episode_recorder_terms().items():
+                terms[f"{name}_subtask_{subtask_index}"] = term_cfg
+        return terms
 
     def get_termination_cfg(self) -> TaskTerminationCfg:
         """Collect flat subtask criteria sets, ordering, final conditions, failures, and one timeout."""

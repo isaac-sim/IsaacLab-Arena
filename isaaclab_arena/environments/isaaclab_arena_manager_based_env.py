@@ -14,7 +14,7 @@ from isaaclab.managers.recorder_manager import DatasetExportMode, RecorderManage
 
 from isaaclab_arena.environments.arena_world import ArenaWorld
 from isaaclab_arena.progress_tracking.progress_tracker import ProgressTracker, ProgressTrackingRecorderCfg
-from isaaclab_arena.recording.arena_recorder_manager import ArenaRecorderManager
+from isaaclab_arena.recording.arena_recorder_manager import ArenaRecorderManager, PostStepHookRecorderCfg
 from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderManager
 from isaaclab_arena.tasks.predicates.object_settling import ObjectInitialRestPoseRecorder
 from isaaclab_arena.variations.variation_recorder import VariationRecorder
@@ -140,6 +140,10 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
                 tracked_events=progress_cfg.tracked_events,
             )
             self._task_progress_step = self.common_step_counter
+        self.episode_recorder_manager = EpisodeRecorderManager(self.cfg.episode_recorders, self)
+        # Isaac Lab calls record_post_step only while a recorder term is active, so add a term that
+        # records nothing whenever task progress or an episode recorder term needs per-step updates.
+        if self.cfg.task_progress is not None or self.episode_recorder_manager.has_post_step_terms:
             if not recorder_cfg or isinstance(recorder_cfg, dict):
                 recorder_terms = recorder_cfg or {}
                 recorder_cfg = RecorderManagerBaseCfg(dataset_export_mode=DatasetExportMode.EXPORT_NONE)
@@ -147,12 +151,14 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
                 for term_name, term_cfg in recorder_terms.items():
                     setattr(recorder_cfg, term_name, term_cfg)
             elif not _has_recorder_terms(recorder_cfg):
-                # Progress tracking records nothing, so it alone must not create an empty dataset file.
+                # The per-step hook records nothing, so it alone must not create an empty dataset file.
                 recorder_cfg.dataset_export_mode = DatasetExportMode.EXPORT_NONE
-            recorder_cfg.progress_tracking = ProgressTrackingRecorderCfg()
+            if self.cfg.task_progress is not None:
+                recorder_cfg.progress_tracking = ProgressTrackingRecorderCfg()
+            else:
+                recorder_cfg.post_step_hook = PostStepHookRecorderCfg()
             self.cfg.recorders = recorder_cfg
         self.recorder_manager = ArenaRecorderManager(recorder_cfg, self)
-        self.episode_recorder_manager = EpisodeRecorderManager(self.cfg.episode_recorders, self)
 
     def update_task_progress(self) -> None:
         """Advance configured task progress at most once per control step."""
@@ -234,6 +240,7 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
         # the surviving episodes a second time during the same control step.
         if self._progress_tracker is not None:
             self._progress_tracker.reset(episode_start_env_ids)
+        self.episode_recorder_manager.reset(episode_start_env_ids)
         self._object_initial_rest_pose_recorder.reset(episode_start_env_ids)
 
 

@@ -71,7 +71,7 @@ def _make_environment_and_manager(
     env._completed_episode_count = 0
     env._variation_recorder = None
     env._variation_replay_scheduler = None
-    env.episode_recorder_manager = SimpleNamespace(record_pre_reset=lambda _ids: None)
+    env.episode_recorder_manager = SimpleNamespace(record_pre_reset=lambda _ids: None, reset=lambda env_ids: {})
     if success_criteria is None:
         success_criteria = [
             CompletionCriteria(
@@ -208,7 +208,7 @@ def _test_success_advances_once_and_reporting_is_passive(simulation_app):
         assert sum(env.predicate_calls.values()) == step_number
 
     # The episode recorder sees the final predicate on the same step as success.
-    recorded_progress = record_progress_results(env, env_id=0)["progress"]
+    recorded_progress = record_progress_results(env, env_id=0)
     assert set(recorded_progress) == {"overall_score", "all_complete", "criteria_by_name", "events"}
     assert recorded_progress["all_complete"]
     assert recorded_progress["overall_score"] == 1.0
