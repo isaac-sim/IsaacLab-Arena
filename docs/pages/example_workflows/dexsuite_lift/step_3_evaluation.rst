@@ -71,11 +71,15 @@ Single Environment Evaluation
      --checkpoint_path $MODELS_DIR/Isaac-Lift-KukaAllegro.pt \
      dexsuite_lift
 
-At the end of the run, metrics are printed to the console:
+At the end of the run, the console shows the number of finished episodes and the success rate:
 
 .. code-block:: text
 
-   Metrics: {'num_episodes': 20, 'success_rate': 0.75}
+   +----------+----------+--------------+
+   | Run Name | Episodes | Success Rate |
+   +----------+----------+--------------+
+   |    .     |    20    |    0.7500    |
+   +----------+----------+--------------+
 
 
 .. image:: ../../../images/dexsuite_lift_task.gif
@@ -120,14 +124,18 @@ For statistically significant results, run across many environments in parallel:
 
 .. code-block:: text
 
-   Metrics: {'num_episodes': 400, 'success_rate': 0.82}
+   +----------+----------+--------------+
+   | Run Name | Episodes | Success Rate |
+   +----------+----------+--------------+
+   |    .     |   400    |    0.8200    |
+   +----------+----------+--------------+
 
 
-Understanding the Metrics
-^^^^^^^^^^^^^^^^^^^^^^^^^^
+Understanding the Results
+^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The ``dexsuite_lift`` task reports:
+For the ``dexsuite_lift`` task, the table reports:
 
-- ``success_rate``: fraction of episodes where the object reached the target
+- ``Episodes``: total number of completed episodes.
+- ``Success Rate``: fraction of episodes where the object reached the target
   position within 5 cm tolerance.
-- ``num_episodes``: total number of completed episodes.

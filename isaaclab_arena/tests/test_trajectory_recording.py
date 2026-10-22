@@ -198,10 +198,6 @@ def _test_trajectory_terms_reach_the_dataset(simulation_app, output_dir):  # noq
                 assert kinematics[gripper_name]["is_commanded_open"].dtype == bool
                 assert "is_commanded_open" not in demo[f"initial_state/kinematics/{gripper_name}"]
 
-            # The task's metric terms must survive alongside the trajectory terms, because metrics
-            # are computed by reading them back out of this same dataset.
-            assert "success" in demo
-
             # Poses are env-relative, so the end effector stays near its own robot base however far
             # the env is offset in the world.
             distance_from_base = np.abs(

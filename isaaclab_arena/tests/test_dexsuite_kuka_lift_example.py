@@ -5,8 +5,7 @@
 
 """End-to-end test for the Dexsuite Kuka Allegro lift Arena example."""
 
-import ast
-import re
+import json
 import shutil
 from pathlib import Path
 
@@ -34,6 +33,7 @@ def test_dexsuite_lift_published_checkpoint(tmp_path: Path) -> None:
         params_dir / "agent.yaml",
     )
 
+    output_base_dir = tmp_path / "output"
     result = run_subprocess(
         [
             TestConstants.python_path,
@@ -46,13 +46,14 @@ def test_dexsuite_lift_published_checkpoint(tmp_path: Path) -> None:
             "1",
             "--checkpoint_path",
             str(checkpoint_path),
+            "--output_base_dir",
+            str(output_base_dir),
             "dexsuite_lift",
         ],
         capture_output=True,
     )
     assert result is not None
-    output = result.stdout + result.stderr
-    metrics_matches = re.findall(r"Metrics: (\{[^\n]+\})", output)
-    assert metrics_matches, f"Evaluation did not report metrics:\n{output}"
-    metrics = ast.literal_eval(metrics_matches[-1])
-    assert metrics["num_episodes"] == 1
+    episode_results_paths = list(output_base_dir.glob("*/episode_results_rank0.jsonl"))
+    assert len(episode_results_paths) == 1, f"Expected one episode results file:\n{result.stdout + result.stderr}"
+    episode_records = [json.loads(line) for line in episode_results_paths[0].read_text(encoding="utf-8").splitlines()]
+    assert len(episode_records) == 1

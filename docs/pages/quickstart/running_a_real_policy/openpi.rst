@@ -132,7 +132,8 @@ If the OpenPI server uses a non-default port, override each OpenPI run's
    Nine closed-loop evaluation Runs of pi05 on the DROID embodiment. Each cell varies the
    pick-up object, background HDR, and destination.
 
-When all Runs finish, you will see a summary table followed by a metrics report:
+When all Runs finish, you will see a summary table. After the evaluation report is written, the runner
+prints each Run's episode count and success rate:
 
 .. code-block:: text
 
@@ -150,36 +151,26 @@ When all Runs finish, you will see a summary table followed by a metrics report:
    |           droid_pnp_srl_openpi_mug           | completed | isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy |    1     |    None   |      3       |      1       |
    +----------------------------------------------+-----------+----------------------------------------------------------------+----------+-----------+--------------+--------------+
 
-   ======================================================================
-   METRICS SUMMARY
-   ======================================================================
-
-   droid_pnp_srl_openpi_alphabet_soup_can:
-     num_episodes                            3
-     object_moved_rate                  0.6667
-     success_rate                       1.0000
-
-   droid_pnp_srl_openpi_billiard_hall:
-     num_episodes                            3
-     object_moved_rate                  1.0000
-     success_rate                       1.0000
-
-   droid_pnp_srl_openpi_rubiks_cube_home_office:
-     num_episodes                            3
-     object_moved_rate                  1.0000
-     success_rate                       1.0000
-
-   droid_pnp_srl_openpi_sugar_box:
-     num_episodes                            3
-     object_moved_rate                  1.0000
-     success_rate                       0.0000
-
    ...
+
+   +----------------------------------------------+----------+--------------+
+   |                   Run Name                   | Episodes | Success Rate |
+   +----------------------------------------------+----------+--------------+
+   |    droid_pnp_srl_openpi_alphabet_soup_can    |    3     |    1.0000    |
+   |      droid_pnp_srl_openpi_billiard_hall      |    3     |    1.0000    |
+   |          droid_pnp_srl_openpi_lemon          |    3     |    1.0000    |
+   |           droid_pnp_srl_openpi_mug           |    3     |    1.0000    |
+   |     droid_pnp_srl_openpi_mustard_bottle      |    3     |    1.0000    |
+   |         droid_pnp_srl_openpi_orange          |    3     |    1.0000    |
+   | droid_pnp_srl_openpi_rubiks_cube_home_office |    3     |    1.0000    |
+   |        droid_pnp_srl_openpi_sugar_box        |    3     |    0.0000    |
+   |    droid_pnp_srl_openpi_tomato_sauce_can     |    3     |    1.0000    |
+   +----------------------------------------------+----------+--------------+
 
 
 pi05 succeeds on most of these variations zero-shot — eight of the nine Runs hit a 1.0
-success rate over three episodes, with ``sugar_box`` as the lone outright failure
-despite the object being moved in every episode. Performance is strong but not
+success rate over three episodes, with ``sugar_box`` as the lone outright failure.
+Performance is strong but not
 uniform, consistent with the broader picture that VLA models are improving but
 not yet fully robust under zero-shot distribution shift. See
 `[robolab] <https://gitlab-master.nvidia.com/xuningy/robolab/-/blob/main/docs/analysis.md>`_

@@ -170,8 +170,6 @@ class IsaacLabArenaManagerBasedRLEnvCfg(ManagerBasedRLEnvCfg):
     rewards = None
     curriculum = None
 
-    metrics: object | None = None
-
     episode_recorders: object | None = None
 
     demo_recorder_config: RecorderManagerBaseCfg | None = None

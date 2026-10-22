@@ -20,9 +20,6 @@ from isaaclab_arena.assets.object import Object
 from isaaclab_arena.assets.object_base import ObjectBase
 from isaaclab_arena.assets.register import register_task
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
-from isaaclab_arena.metrics.metric_base import MetricBase
-from isaaclab_arena.metrics.object_moved import ObjectMovedRateMetric
-from isaaclab_arena.metrics.success_rate import SuccessRateMetric
 from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
 from isaaclab_arena.tasks.predicates.spatial import (
     depth_in_range,
@@ -123,9 +120,6 @@ class GearInsertionTask(TaskBase):
 
     def get_mimic_env_cfg(self, arm_mode: ArmMode):
         return None
-
-    def get_metrics(self) -> list[MetricBase]:
-        return [SuccessRateMetric(), ObjectMovedRateMetric(self.held_asset)]
 
     def get_viewer_cfg(self) -> ViewerCfg:
         return ViewerCfg(eye=(1.45, 1.10, 0.90), lookat=(0.48, 0.02, 0.08))
