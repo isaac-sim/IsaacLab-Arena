@@ -1,0 +1,22 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Settings shared by every RoboLab task. Task files include this next to their scene file.
+
+# RoboLab's PhysX solver iteration limits.
+env_cfg_override:
+  sim:
+    physics:
+      max_position_iteration_count: 32
+      max_velocity_iteration_count: 1
+
+# RoboLab's light rig: a dome light and a sphere light. The ids are the keys of the experiment-config variations.
+objects:
+- id: light
+  registry_name: light
+  params: {}
+- id: sphere_light
+  registry_name: sphere_light
+  params: {}

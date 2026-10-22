@@ -21,12 +21,6 @@ objects:
 - id: bowl
   registry_name: bowl_ycb_robolab
   params: {}
-- id: light
-  registry_name: light
-  params: {}
-- id: sphere_light
-  registry_name: sphere_light
-  params: {}
 relations:
 - kind: is_anchor
   subject: maple_table_robolab

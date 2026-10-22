@@ -18,12 +18,6 @@ objects:
 - id: raisin_box
   registry_name: raisin_box_hope_robolab
   params: {}
-- id: light
-  registry_name: light
-  params: {}
-- id: sphere_light
-  registry_name: sphere_light
-  params: {}
 relations:
 - kind: is_anchor
   subject: table_oak_robolab

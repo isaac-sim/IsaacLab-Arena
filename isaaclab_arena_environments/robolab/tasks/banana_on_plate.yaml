@@ -4,12 +4,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 env_name: banana_on_plate
-external_yaml: ../scenes/bagel_plate_banana_bowl.yaml
-env_cfg_override:
-  sim:
-    physics:
-      max_position_iteration_count: 32
-      max_velocity_iteration_count: 1
+external_yaml:
+- ../scenes/bagel_plate_banana_bowl.yaml
+- ../robolab_defaults.yaml
 task:
   composition: atomic
   description: Pick up the banana and place it on the plate.

@@ -70,12 +70,6 @@ objects:
     - 0.3
     - 0.3
     - 0.2
-- id: light
-  registry_name: light
-  params: {}
-- id: sphere_light
-  registry_name: sphere_light
-  params: {}
 relations:
 - kind: is_anchor
   subject: table_oak_robolab

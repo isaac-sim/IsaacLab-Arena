@@ -60,12 +60,6 @@ objects:
 - id: wood_block
   registry_name: wood_block_ycb_robolab
   params: {}
-- id: light
-  registry_name: light
-  params: {}
-- id: sphere_light
-  registry_name: sphere_light
-  params: {}
 relations:
 - kind: is_anchor
   subject: table_black_robolab

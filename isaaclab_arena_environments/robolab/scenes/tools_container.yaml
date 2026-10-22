@@ -38,12 +38,6 @@ objects:
 - id: cordless_drill
   registry_name: cordless_drill_ycb_robolab
   params: {}
-- id: light
-  registry_name: light
-  params: {}
-- id: sphere_light
-  registry_name: sphere_light
-  params: {}
 relations:
 - kind: is_anchor
   subject: table_oak_robolab

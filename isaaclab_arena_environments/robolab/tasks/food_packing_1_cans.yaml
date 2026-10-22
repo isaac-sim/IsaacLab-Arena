@@ -4,12 +4,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 env_name: food_packing_1_cans
-external_yaml: ../scenes/foodpacking_1bin_1box_1can.yaml
-env_cfg_override:
-  sim:
-    physics:
-      max_position_iteration_count: 32
-      max_velocity_iteration_count: 1
+external_yaml:
+- ../scenes/foodpacking_1bin_1box_1can.yaml
+- ../robolab_defaults.yaml
 task:
   composition: atomic
   description: Pack canned foods into the bin

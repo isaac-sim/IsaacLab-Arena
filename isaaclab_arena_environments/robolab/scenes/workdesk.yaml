@@ -58,12 +58,6 @@ objects:
 - id: spoon_big
   registry_name: spoon_big_vomp_robolab
   params: {}
-- id: light
-  registry_name: light
-  params: {}
-- id: sphere_light
-  registry_name: sphere_light
-  params: {}
 relations:
 - kind: is_anchor
   subject: table_oak_robolab

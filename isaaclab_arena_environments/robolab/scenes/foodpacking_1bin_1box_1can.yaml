@@ -24,12 +24,6 @@ objects:
 - id: tomato_soup_can
   registry_name: tomato_soup_can_ycb_robolab
   params: {}
-- id: light
-  registry_name: light
-  params: {}
-- id: sphere_light
-  registry_name: sphere_light
-  params: {}
 relations:
 - kind: is_anchor
   subject: table_oak_robolab

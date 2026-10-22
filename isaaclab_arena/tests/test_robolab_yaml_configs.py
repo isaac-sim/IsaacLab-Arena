@@ -73,16 +73,11 @@ def _load(path: Path) -> dict:
         return yaml.safe_load(f)
 
 
-def test_every_robolab_scene_declares_lights():
+def test_every_robolab_scene_references_declared_nodes():
     assert SCENE_YAMLS, "no RoboLab scene YAMLs found"
     for scene_path in SCENE_YAMLS:
         scene = _load(scene_path)
         objects = scene["objects"]
-        for light_id in ["light", "sphere_light"]:
-            matches = [obj for obj in objects if obj["id"] == light_id]
-            assert len(matches) == 1, f"{scene_path.name}: expected exactly one object with id '{light_id}'"
-            assert matches[0]["registry_name"] == light_id, f"{scene_path.name}: '{light_id}' has wrong registry_name"
-
         # Every relation must refer to a declared node (catches id typos and stale table references).
         node_ids = {scene["background"]["id"]} | {obj["id"] for obj in objects}
         for relation in scene.get("relations", []):
@@ -94,12 +89,25 @@ def test_every_robolab_scene_declares_lights():
 TASK_YAMLS = sorted((ROBOLAB_DIR / "tasks").glob("*.yaml"))
 
 
+def test_robolab_tasks_declare_lights():
+    from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
+
+    for task_path in TASK_YAMLS:
+        # Loaded through the spec so lights missing from the shared defaults include are caught.
+        spec = ArenaEnvGraphSpec.from_yaml(task_path)
+        registry_names_by_id = {obj.id: obj.registry_name for obj in spec.objects}
+        for light_id in ["light", "sphere_light"]:
+            assert registry_names_by_id.get(light_id) == light_id, f"{task_path.name}: missing or wrong '{light_id}'"
+        node_ids = {spec.background.id} | set(registry_names_by_id)
+        assert len(node_ids) == len(spec.objects) + 1, f"{task_path.name}: duplicate node ids"
+
+
 def test_robolab_tasks_have_solver_clamp():
     from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 
     assert len(TASK_YAMLS) == 38
     for task_path in TASK_YAMLS:
-        # Loaded through the spec so a clamp dropped by the external_yaml scene merge is caught.
+        # Loaded through the spec so a clamp missing from the shared defaults include is caught.
         spec = ArenaEnvGraphSpec.from_yaml(task_path)
         expected = {"sim": {"physics": ROBOLAB_TASK_CONSTANTS[task_path.stem]["physics"]}}
         assert spec.env_cfg_override == expected, f"{task_path.name}: missing or wrong env_cfg_override"

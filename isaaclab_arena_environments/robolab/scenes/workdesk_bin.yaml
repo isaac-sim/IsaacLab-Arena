@@ -55,12 +55,6 @@ objects:
 - id: granola_bar
   registry_name: granola_bars_hope_robolab
   params: {}
-- id: light
-  registry_name: light
-  params: {}
-- id: sphere_light
-  registry_name: sphere_light
-  params: {}
 relations:
 - kind: is_anchor
   subject: table_oak_robolab

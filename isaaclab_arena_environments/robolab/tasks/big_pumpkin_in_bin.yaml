@@ -4,12 +4,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 env_name: big_pumpkin_in_bin
-external_yaml: ../scenes/clutter_fruit_bottle_bluebin.yaml
-env_cfg_override:
-  sim:
-    physics:
-      max_position_iteration_count: 32
-      max_velocity_iteration_count: 1
+external_yaml:
+- ../scenes/clutter_fruit_bottle_bluebin.yaml
+- ../robolab_defaults.yaml
 task:
   composition: atomic
   description: Put the bigger pumpkin in the bin

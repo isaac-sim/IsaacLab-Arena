@@ -4,12 +4,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 env_name: banana_in_bowl
-external_yaml: ../scenes/banana_bowl.yaml
-env_cfg_override:
-  sim:
-    physics:
-      max_position_iteration_count: 32
-      max_velocity_iteration_count: 1
+external_yaml:
+- ../scenes/banana_bowl.yaml
+- ../robolab_defaults.yaml
 task:
   composition: atomic
   description: pick up the banana and place it in the bowl

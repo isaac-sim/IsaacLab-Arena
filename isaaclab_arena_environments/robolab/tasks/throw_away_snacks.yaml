@@ -4,12 +4,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 env_name: throw_away_snacks
-external_yaml: ../scenes/workdesk_snacks.yaml
-env_cfg_override:
-  sim:
-    physics:
-      max_position_iteration_count: 32
-      max_velocity_iteration_count: 1
+external_yaml:
+- ../scenes/workdesk_snacks.yaml
+- ../robolab_defaults.yaml
 task:
   composition: parallel
   description: Put away the snacks in the bin
