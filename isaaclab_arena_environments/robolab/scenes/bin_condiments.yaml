@@ -30,24 +30,15 @@ objects:
 - id: ranch_dressing
   registry_name: ranch_dressing_hope_robolab
   params:
-    scale:
-    - 1.0
-    - 1.0
-    - 1.0
+    scale: [1.0, 1.0, 1.0]
 - id: bbq_sauce_bottle_1
   registry_name: bbq_sauce_bottle_hope_robolab
   params:
-    scale:
-    - 1.0
-    - 1.0
-    - 1.0
+    scale: [1.0, 1.0, 1.0]
 - id: bbq_sauce_bottle_2
   registry_name: bbq_sauce_bottle_hot3d_robolab
   params:
-    scale:
-    - 1.0
-    - 1.0
-    - 1.0
+    scale: [1.0, 1.0, 1.0]
 - id: oatmeal_raisin_cookies
   registry_name: oatmeal_raisin_cookies_hope_robolab
   params: {}

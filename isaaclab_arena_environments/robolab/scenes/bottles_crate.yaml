@@ -24,10 +24,7 @@ objects:
 - id: salad_dressing_bottle
   registry_name: ranch_dressing_hope_robolab
   params:
-    scale:
-    - 1.0
-    - 1.0
-    - 1.0
+    scale: [1.0, 1.0, 1.0]
 relations:
 - kind: is_anchor
   subject: table_oak_robolab

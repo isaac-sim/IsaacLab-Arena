@@ -56,20 +56,14 @@ objects:
 - id: utilityjug
   registry_name: utilityjug_a03_vomp_robolab
   params:
-    scale:
-    - 0.4
-    - 0.4
-    - 0.4
+    scale: [0.4, 0.4, 0.4]
 - id: red_onion
   registry_name: red_onion_fruits_veggies_robolab
   params: {}
 - id: container_f24
   registry_name: container_f24_vomp_robolab
   params:
-    scale:
-    - 0.3
-    - 0.3
-    - 0.2
+    scale: [0.3, 0.3, 0.2]
 relations:
 - kind: is_anchor
   subject: table_oak_robolab

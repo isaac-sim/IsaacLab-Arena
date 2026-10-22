@@ -15,17 +15,11 @@ objects:
 - id: container_f24
   registry_name: container_f24_vomp_robolab
   params:
-    scale:
-    - 0.3
-    - 0.3
-    - 0.2
+    scale: [0.3, 0.3, 0.2]
 - id: bin_b04
   registry_name: bin_b04_vomp_robolab
   params:
-    scale:
-    - 1.0
-    - 1.0
-    - 0.9
+    scale: [1.0, 1.0, 0.9]
 - id: spring_clamp
   registry_name: spring_clamp_ycb_robolab
   params: {}

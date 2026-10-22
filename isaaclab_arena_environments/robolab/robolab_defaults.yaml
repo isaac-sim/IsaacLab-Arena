@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-# Settings shared by every RoboLab task. Task files include this next to their scene file.
+# Settings shared by every RoboLab task: PhysX solver limits and the light rig.
 
 # RoboLab's PhysX solver iteration limits.
 env_cfg_override:
