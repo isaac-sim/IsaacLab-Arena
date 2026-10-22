@@ -14,7 +14,7 @@ from isaaclab.envs.common import ViewerCfg
 from isaaclab.managers import ObservationGroupCfg as ObsGroup
 from isaaclab.managers import ObservationTermCfg as ObsTerm
 from isaaclab.managers import SceneEntityCfg
-from isaaclab.sensors import CameraCfg, TiledCameraCfg  # noqa: F401
+from isaaclab.sensors import CameraCfg, TiledCameraCfg
 
 from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.utils.configclass import make_configclass
@@ -25,7 +25,9 @@ class ArenaCameraCfg:
     """Parent class for camera configs in Arena.
 
     CameraCfg configclasses subclass this and declare camera fields (as per usual). The get_cfg
-    then returns the rig un-tiled, or a tiled copy dependent on the value of ``use_tiled_camera``.
+    then returns a copy using independent RTX render products, or tiled cameras, according
+    to ``use_tiled_camera``. Untiled rendering currently supports RGB/RGBA without ISP
+    or custom background colors and applies to every camera in the rig.
     """
 
     # Backing flag; tiled by default. Kept as a ClassVar so it is not treated as a camera field; instances shadow it.
@@ -33,7 +35,7 @@ class ArenaCameraCfg:
 
     @property
     def use_tiled_camera(self) -> bool:
-        """Whether :meth:`get_cfg` returns tiled cameras."""
+        """Whether get_cfg returns tiled cameras instead of independent render products."""
         return self._use_tiled_camera
 
     @use_tiled_camera.setter
@@ -52,26 +54,38 @@ class ArenaCameraCfg:
         """Return a copy of this rig, tiled or untiled depending on use_tiled_camera.
 
         A copy is returned so callers may freely combine or mutate it without affecting this instance.
+        Select tiling on the source rig before calling this method.
         """
-        if self._use_tiled_camera:
-            return self._tiled_rig()
-        return self.copy()
+        from isaaclab_arena.utils.isaaclab_utils.separate_camera_renderer import (
+            SeparateCameraRenderer,
+            assert_camera_cfg_compatible_with_independent_rendering,
+        )
 
-    def _tiled_rig(self) -> Any:
-        """Return a copy of this rig with every untiled CameraCfg field converted to tiled."""
-        tiled = self.copy()
-        for f in fields(tiled):
-            value = getattr(tiled, f.name)
-            if isinstance(value, CameraCfg) and not isinstance(value, TiledCameraCfg):
-                setattr(tiled, f.name, self._as_tiled_camera_cfg(value))
-        return tiled
-
-    def _as_tiled_camera_cfg(self, camera_cfg: CameraCfg) -> TiledCameraCfg:
-        """Return a TiledCameraCfg mirroring the settings of an untiled CameraCfg."""
-        init_fields = {
-            f.name: getattr(camera_cfg, f.name) for f in fields(camera_cfg) if f.init and f.name != "class_type"
-        }
-        return TiledCameraCfg(**init_fields)
+        # Select the renderer for every camera in a copy, leaving the source rig reusable.
+        # CameraCfg alone still uses tiled RTX products, so untiled mode also changes the renderer.
+        rig = self.copy()
+        for name in rig.camera_names():
+            camera_cfg = getattr(rig, name)
+            assert camera_cfg.renderer_cfg.class_type is not SeparateCameraRenderer, (
+                "get_cfg() expects a source camera rig; change use_tiled_camera on the source rig, "
+                "not on the returned configuration"
+            )
+            if self._use_tiled_camera:
+                if isinstance(camera_cfg, TiledCameraCfg):
+                    continue
+                cfg_type = TiledCameraCfg
+            else:
+                assert_camera_cfg_compatible_with_independent_rendering(camera_cfg)
+                camera_cfg.renderer_cfg.class_type = SeparateCameraRenderer
+                if not isinstance(camera_cfg, TiledCameraCfg):
+                    continue
+                cfg_type = CameraCfg
+            # Rebuild the camera config with its settings intact; the target type supplies class_type.
+            init_fields = {
+                f.name: getattr(camera_cfg, f.name) for f in fields(camera_cfg) if f.init and f.name != "class_type"
+            }
+            setattr(rig, name, cfg_type(**init_fields))
+        return rig
 
 
 def make_camera_observation_cfg(
