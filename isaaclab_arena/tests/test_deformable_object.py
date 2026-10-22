@@ -478,13 +478,13 @@ def _test_droid_deformable_environment(simulation_app, physics_backend: str) -> 
         "droid_differential_ik",
     ])
     builder = get_arena_builder_from_cli(args)
-    env_cfg, env_kwargs = builder.compose_manager_cfg()
+    env_cfg, env_kwargs = builder.build_env_cfg()
     if physics_backend == "newton":
         assert isinstance(env_cfg.sim.physics, NewtonCfg)
         assert isinstance(env_cfg.sim.physics.solver_cfg, CouplerProxyCfg)
         soft_solver_cfg = env_cfg.sim.physics.solver_cfg.entries[1].solver_cfg
-        assert soft_solver_cfg.rigid_body_contact_buffer_size == 256
-        assert soft_solver_cfg.rigid_body_particle_contact_buffer_size == 1024
+        assert soft_solver_cfg.rigid_body_contact_buffer_size == 1024
+        assert soft_solver_cfg.rigid_body_particle_contact_buffer_size == 8192
     else:
         assert isinstance(env_cfg.sim.physics, PhysxCfg)
 

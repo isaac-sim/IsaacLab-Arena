@@ -35,9 +35,9 @@ def _configure_newton_deformable_physics(
         r"/World/envs/env_[^/]+/maple_table_robolab/table(?:/.*)?",
         r"/World/envs/env_[^/]+/plate(?:/.*)?",
     ]
-    soft_solver_cfg = VBDSolverCfg(iterations=10, rigid_body_particle_contact_buffer_size=1024)
+    soft_solver_cfg = VBDSolverCfg(iterations=10, rigid_body_particle_contact_buffer_size=8192)
     # TODO: Pass this in the constructor once Isaac Lab exposes Newton's corresponding VBD option.
-    soft_solver_cfg.rigid_body_contact_buffer_size = 256
+    soft_solver_cfg.rigid_body_contact_buffer_size = 1024
     env_cfg.sim.physics = NewtonCfg(
         solver_cfg=CouplerProxyCfg(
             entries=[
