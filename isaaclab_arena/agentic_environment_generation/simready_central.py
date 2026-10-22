@@ -105,6 +105,7 @@ def _prepare_central_asset(url: str) -> str:
     root = stage.DefinePrim("/Asset")
     root.GetReferences().AddReference(asset_path)
     stage.SetDefaultPrim(root)
+    # TODO(xinjieyao, 20261022): Support Newton.
     apply_usd_variant_selections(stage, {"Physics": "physics", "PhysX": "Enabled"})
     assert not stage.GetCompositionErrors(), "USD has unresolved composition errors"
     bodies = []
