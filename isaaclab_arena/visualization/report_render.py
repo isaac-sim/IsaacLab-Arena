@@ -22,6 +22,7 @@ from isaaclab_arena.visualization.report_data import (
     TaskSummary,
     is_completed_execution,
     is_failed_execution,
+    run_status_to_lowercase_string,
 )
 
 _TEMPLATE_PATH = pathlib.Path(__file__).parent / "report_template.html"
@@ -82,7 +83,9 @@ def _tile(label: str, value: str, sub: str = "") -> str:
     )
 
 
-def _render_failed_runs_section(run_executions: list[RunExecutionReport]) -> str:
+def _render_failed_runs_section(
+    run_executions: list[RunExecutionReport], retained_condition_runs: set[str] | None = None
+) -> str:
     failed = [execution for execution in run_executions if is_failed_execution(execution)]
     if not failed:
         return ""
@@ -91,11 +94,68 @@ def _render_failed_runs_section(run_executions: list[RunExecutionReport]) -> str
         f"<td><code>{html.escape(str(execution.process_exit_code))}</code></td></tr>"
         for execution in failed
     )
+    note = "These runs did not complete and are excluded from episode results."
+    if retained_condition_runs and any(execution.run_name in retained_condition_runs for execution in failed):
+        note = (
+            "These runs did not complete. Recorded prefixes of condition-budget runs remain visible "
+            "alongside their unfinished allocations."
+        )
     return (
         f"<section><h2>Failed runs ({len(failed)})</h2>"
-        '<p class="note">These runs did not complete and are excluded from episode results.</p>'
+        f'<p class="note">{note}</p>'
         "<table><thead><tr><th>run</th><th>process exit code</th></tr></thead>"
         f"<tbody>\n{rows}\n</tbody></table></section>"
+    )
+
+
+def _render_condition_episode_budgets(summary: ExperimentSummary) -> str:
+    """Show every requested condition, including conditions without completed episodes."""
+    sections = []
+    for run_name, budget in summary.condition_episode_budgets.items():
+        rows = []
+        records = [episode.record for episode in summary.condition_episodes.get(run_name, [])]
+        records_match = True
+        for member, counts in budget["conditions"].items():
+            cells = "".join(f"<td>{counts[key]}</td>" for key in ("requested", "completed", "in_flight", "unstarted"))
+            member_records = [record for record in records if record.get("condition_member") == member]
+            records_match &= len(member_records) == counts["completed"]
+            identities = [record.get("episode_in_condition") for record in member_records]
+            records_match &= all(type(index) is int and 0 <= index < counts["started"] for index in identities) and len(
+                set(identities)
+            ) == len(identities)
+            successes = sum(record.get("success") is True for record in member_records)
+            unsuccessful = sum(record.get("success") is False for record in member_records)
+            timeouts = sum(record.get("truncated") is True for record in member_records)
+            scored = successes + unsuccessful
+            rate = f"{successes}/{scored}" if scored else "&mdash;"
+            cells += f"<td>{rate}</td><td>{unsuccessful}</td><td>{timeouts}</td><td>{len(member_records) - scored}</td>"
+            rows.append(f"<tr><th>{html.escape(member)}</th>{cells}</tr>")
+        status = "Completed" if budget["status"] == "completed" else "Incomplete"
+        records_match &= all(
+            isinstance(record.get("condition_member"), str) and record["condition_member"] in budget["conditions"]
+            for record in records
+        )
+        reason = str(budget.get("reason") or "No final completion record")
+        if not records_match:
+            status = "Completion unverified"
+            reason = "Recorded episode counts disagree with the allocation record"
+        sections.append(
+            f"<section><h2>{html.escape(run_name)}: condition episodes</h2>"
+            f"<p>{status}. {html.escape(reason)}.</p>"
+            "<table><thead><tr><th>member</th><th>requested</th><th>completed</th>"
+            "<th>in flight</th><th>not started</th><th>success / scored</th>"
+            "<th>unsuccessful</th><th>timeouts</th><th>unscored</th></tr></thead>"
+            f"<tbody>{''.join(rows)}</tbody></table></section>"
+        )
+    if not sections:
+        return ""
+    return (
+        "".join(sections)
+        + '<p class="note">Failed and unfinished condition Runs remain visible here but are excluded from pooled '
+        "results. Their observed prefixes do not estimate the unfinished quota's success rate. "
+        "Condition quotas set sampling counts; "
+        "the pooled success rate is not weighted to a separately specified deployment population. "
+        "Unfinished assignments are not scored as failures.</p>"
     )
 
 
@@ -205,8 +265,9 @@ def render_index(summary: ExperimentSummary, task_hrefs: dict[str, str]) -> str:
         _render_matrix(summary, task_hrefs) if summary.is_grouped else _render_ungrouped_job_list(summary, task_hrefs)
     )
     content = (
-        f'<div class="tiles">{"".join(tiles)}</div>{_render_progress_coverage_note(summary)}'
-        f"{_render_failed_runs_section(summary.run_executions)}"
+        f"{_render_condition_episode_budgets(summary)}"
+        f"<div class=\"tiles\">{''.join(tiles)}</div>{_render_progress_coverage_note(summary)}"
+        f"{_render_failed_runs_section(summary.run_executions, set(summary.condition_episode_budgets))}"
         f"{_render_issues(summary.issues)}{body}"
     )
     if not summary.tasks and not summary.run_executions:
@@ -247,9 +308,13 @@ def _experiment_summary_line(summary: ExperimentSummary) -> str:
     if summary.run_executions:
         completed = sum(is_completed_execution(execution) for execution in summary.run_executions)
         failed = sum(is_failed_execution(execution) for execution in summary.run_executions)
+        incomplete = sum(
+            run_status_to_lowercase_string(execution.status) == "incomplete" for execution in summary.run_executions
+        )
+        incomplete_text = f"{incomplete} incomplete &middot; " if incomplete else ""
         return (
             f"{len(summary.run_executions)} run(s) &middot; {completed} completed &middot; "
-            f"{failed} failed &middot; {summary.num_episodes} episode(s)"
+            f"{failed} failed &middot; {incomplete_text}{summary.num_episodes} episode(s)"
         )
     return (
         f"{len(summary.jobs)} run(s) &middot; {summary.num_episodes} episode(s) &middot; {summary.num_videos} video(s)"

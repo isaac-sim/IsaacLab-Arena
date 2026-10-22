@@ -449,3 +449,67 @@ def test_execute_experiment_writes_no_timings_for_a_failed_run(monkeypatch, tmp_
 
     assert not (tmp_path / "failing" / ARENA_SINGLE_RUN_TIMINGS_FILENAME).exists()
     assert (tmp_path / "passing" / ARENA_SINGLE_RUN_TIMINGS_FILENAME).is_file()
+
+
+@pytest.mark.parametrize("stop", ["complete", "caller_complete", "step_limit", "interrupt", "error", "close_error"])
+def test_condition_run_persists_allocation_after_stop(monkeypatch, tmp_path, stop):
+    from isaaclab_arena.evaluation.condition_episode_budget import (
+        CONDITION_EPISODE_BUDGET_FILENAME,
+        ConditionEpisodeBudget,
+        ObjectSetEpisodeBudgetCfg,
+    )
+
+    condition_cfg = ObjectSetEpisodeBudgetCfg("fruit", {"A": 2, "B": 3}, max_steps=2)
+    budget = ConditionEpisodeBudget(condition_cfg, ["A", "A", "B"])
+    environment = _environment()
+    environment.unwrapped.condition_episode_budget = budget
+    closed = []
+    monkeypatch.setattr(run_execution, "_build_environment_from_cfg", lambda *args, **kwargs: environment)
+    monkeypatch.setattr(run_execution, "_build_policy_from_cfg", lambda cfg: _Policy())
+    monkeypatch.setattr(run_execution, "wrap_env_for_video", lambda env, *args: env)
+
+    def close(policy, env):
+        closed.append(env)
+        if stop == "close_error":
+            raise RuntimeError("close failed")
+
+    def rollout(env, policy, num_steps, num_episodes, max_steps):
+        assert (num_steps, num_episodes, max_steps) == (None, 5, 2)
+        budget.assign([0, 1, 2])
+        budget.complete([0])
+        if stop == "interrupt":
+            raise KeyboardInterrupt()
+        if stop == "error":
+            raise RuntimeError("inference failed")
+        if stop in ("complete", "caller_complete", "close_error"):
+            while budget.active:
+                finishing = list(budget.active)
+                budget.complete(finishing)
+                budget.assign(finishing)
+
+    monkeypatch.setattr(run_execution, "close_run_resources", close)
+    monkeypatch.setattr(run_execution, "rollout_policy", rollout)
+    run = _run(rollout_limit=RolloutLimitCfg(object_set_episodes=condition_cfg), num_rebuilds=1)
+    if stop in ("interrupt", "error", "close_error"):
+        error = KeyboardInterrupt if stop == "interrupt" else RuntimeError
+        with pytest.raises(error):
+            run_execution.build_and_run(run, tmp_path)
+    else:
+        if stop == "caller_complete":
+            try:
+                raise ValueError("Unrelated exception handled by the caller")
+            except ValueError:
+                result = run_execution.build_and_run(run, tmp_path)
+        else:
+            result = run_execution.build_and_run(run, tmp_path)
+        assert result.status is (
+            RunStatus.COMPLETED if stop in ("complete", "caller_complete") else RunStatus.INCOMPLETE
+        )
+    assert closed == [environment]
+    state = json.loads((tmp_path / CONDITION_EPISODE_BUDGET_FILENAME).read_text())
+    assert state["status"] == ("completed" if stop in ("complete", "caller_complete") else "incomplete")
+    assert state["sampling_complete"] is (stop in ("complete", "caller_complete", "close_error"))
+    assert state["conditions"]["B"]["requested"] == 3
+    if stop not in ("complete", "caller_complete", "close_error"):
+        assert state["conditions"]["B"]["unstarted"] == 2
+        assert len(state["unfinished_assignments"]) == 2

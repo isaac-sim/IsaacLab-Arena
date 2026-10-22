@@ -13,6 +13,7 @@ from isaaclab.envs import ManagerBasedRLEnv, ManagerBasedRLMimicEnv
 from isaaclab.managers.recorder_manager import DatasetExportMode, RecorderManagerBaseCfg
 
 from isaaclab_arena.environments.arena_world import ArenaWorld
+from isaaclab_arena.evaluation.condition_episode_budget import ConditionEpisodeBudget, ObjectSetEpisodeBudgetCfg
 from isaaclab_arena.metrics.metric_data import MetricsDataCollection
 from isaaclab_arena.metrics.metrics_manager import MetricsManager
 from isaaclab_arena.progress_tracking.progress_tracker import ProgressTracker, ProgressTrackingRecorderCfg
@@ -42,6 +43,9 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
         render_mode: str | None = None,
         variation_recorder: VariationRecorder | None = None,
         variation_replay_scheduler: VariationReplayScheduler | None = None,
+        condition_episode_budget_cfg: ObjectSetEpisodeBudgetCfg | None = None,
+        condition_members_by_env: list[str] | None = None,
+        condition_member_definitions: dict | None = None,
         **kwargs,
     ):
         from isaaclab_arena.environments.isaaclab_arena_manager_based_env_cfg import apply_arena_global_settings
@@ -61,7 +65,23 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
             # Bind so run-time variation draws can be attributed to the current episode index.
             variation_recorder.bind_env(self)
         self._episode_indices: dict[int, int] = {}
-        self._episode_limit: int | None = None
+        self.condition_episode_budget = None
+        if condition_episode_budget_cfg is not None:
+            if cfg.recorders is not None:
+                assert (
+                    cfg.recorders.export_in_record_pre_reset and not cfg.recorders.export_in_close
+                ), "Condition budgets require trajectory export on termination, not partial export on close"
+                assert (
+                    cfg.recorders.dataset_export_mode == DatasetExportMode.EXPORT_ALL
+                ), "Condition budgets require retaining successful and unsuccessful trajectories"
+            assert condition_members_by_env is not None and len(condition_members_by_env) == cfg.scene.num_envs
+            assert variation_replay_scheduler is None, "Condition budgets cannot be combined with variation replay"
+            self.condition_episode_budget = ConditionEpisodeBudget(
+                condition_episode_budget_cfg, condition_members_by_env, condition_member_definitions
+            )
+        self._episode_limit: int | None = (
+            self.condition_episode_budget.total if self.condition_episode_budget is not None else None
+        )
         self._started_episode_count = 0
         self._completed_episode_count = 0
         self._active_episode_mask = torch.zeros(cfg.scene.num_envs, dtype=torch.bool, device=cfg.sim.device)
@@ -171,6 +191,8 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
         """
         assert self._started_episode_count == 0, "Configure the episode limit before the initial reset."
         assert num_episodes > 0, "The episode limit must be positive."
+        if self.condition_episode_budget is not None:
+            assert num_episodes == self.condition_episode_budget.total, "Global total must equal the condition quotas"
         self._episode_limit = num_episodes
 
     def reset(
@@ -206,14 +228,22 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
                 self._variation_replay_scheduler.complete_episodes(finishing_env_ids.tolist())
             self._completed_episode_count += len(finishing_env_ids)
             self._active_episode_mask[finishing_env_ids] = False
+            if self.condition_episode_budget is not None:
+                self.condition_episode_budget.complete(finishing_env_ids.tolist())
 
         episode_start_env_ids = requested_env_ids
-        if self._episode_limit is not None:
+        if self.condition_episode_budget is not None:
+            candidates = requested_env_ids if self._started_episode_count == 0 else finishing_env_ids
+            selected = self.condition_episode_budget.assign(candidates.tolist())
+            episode_start_env_ids = torch.tensor(selected, dtype=torch.long, device=self.device)
+        elif self._episode_limit is not None:
             if self._started_episode_count > 0:
                 episode_start_env_ids = finishing_env_ids
             remaining_episode_starts = self._episode_limit - self._started_episode_count
             episode_start_env_ids = episode_start_env_ids[:remaining_episode_starts]
         if len(episode_start_env_ids) == 0:
+            if self.condition_episode_budget is not None and len(finishing_env_ids) > 0:
+                self.condition_episode_budget.write()
             return
 
         # Reset-mode variation draws must refer to the episode being started.
@@ -224,6 +254,8 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
         self._started_episode_count += len(episode_start_env_ids)
         self._active_episode_mask[episode_start_env_ids] = True
         self._reset_env_ids = torch.cat((self._reset_env_ids, episode_start_env_ids))
+        if self.condition_episode_budget is not None:
+            self.condition_episode_budget.write()
         super()._reset_idx(episode_start_env_ids)
         # Keep the global step marker: queries after a partial reset must not advance
         # the surviving episodes a second time during the same control step.

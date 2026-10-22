@@ -117,3 +117,28 @@ def test_run_result_records_outcome_separately():
 
     assert result.run_name == "test_run"
     assert result.metrics is None
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"num_rebuilds": 2},
+        {"recorded_variation_samples_paths": ["a.jsonl"]},
+        {"environment_builder": ArenaEnvBuilderCfg(recorded_variation_samples_path="a.jsonl")},
+        {"environment_builder": ArenaEnvBuilderCfg(mimic=True)},
+    ],
+)
+def test_condition_budgets_reject_unsupported_combinations(overrides):
+    from isaaclab_arena.evaluation.condition_episode_budget import ObjectSetEpisodeBudgetCfg
+
+    limits = RolloutLimitCfg(object_set_episodes=ObjectSetEpisodeBudgetCfg("fruit", {"A": 1, "B": 2}))
+    with pytest.raises(AssertionError):
+        _run(rollout_limit=limits, **overrides)
+
+
+@pytest.mark.parametrize("other", [{"num_steps": 3}, {"num_episodes": 3}])
+def test_condition_budget_is_an_alternative_to_global_limits(other):
+    from isaaclab_arena.evaluation.condition_episode_budget import ObjectSetEpisodeBudgetCfg
+
+    with pytest.raises(AssertionError, match="cannot be combined"):
+        RolloutLimitCfg(object_set_episodes=ObjectSetEpisodeBudgetCfg("fruit", {"A": 1}), **other)

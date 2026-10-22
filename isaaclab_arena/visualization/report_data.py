@@ -12,6 +12,7 @@ evaluation, video, policy, environment, Isaac Sim, or Isaac Lab stacks.
 from __future__ import annotations
 
 import functools
+import json
 import math
 import pathlib
 import re
@@ -378,6 +379,8 @@ class ExperimentSummary:
     run_executions: list[RunExecutionReport] = field(default_factory=list)
     grouping_source: str = "none"
     issues: list[DataIssue] = field(default_factory=list)
+    condition_episode_budgets: dict[str, dict] = field(default_factory=dict)
+    condition_episodes: dict[str, list[EpisodeSummary]] = field(default_factory=dict)
 
     @property
     def jobs(self) -> list[JobSummary]:
@@ -800,11 +803,38 @@ def build_experiment_summary(
     """Scan ``root`` and aggregate recorded results into the report's data model."""
     root = pathlib.Path(root)
     scanned, issues = _scan_jobs(root)
+    condition_episode_budgets = {}
+    for budget_path in sorted(root.glob("*/condition_episode_budget.json")):
+        try:
+            budget = json.loads(budget_path.read_text(encoding="utf-8"))
+            assert budget["status"] in ("running", "completed", "incomplete")
+            assert isinstance(budget["conditions"], dict) and budget["conditions"]
+            for counts in budget["conditions"].values():
+                assert all(
+                    type(counts[key]) is int and counts[key] >= 0
+                    for key in ("requested", "started", "completed", "in_flight", "unstarted")
+                )
+                assert counts["completed"] + counts["in_flight"] == counts["started"]
+                assert counts["started"] + counts["unstarted"] == counts["requested"]
+            assert budget["status"] != "completed" or all(
+                counts["completed"] == counts["requested"] for counts in budget["conditions"].values()
+            )
+            condition_episode_budgets[budget_path.parent.name] = budget
+        except (OSError, ValueError, KeyError, TypeError, AssertionError) as error:
+            issues.append(DataIssue(str(budget_path.relative_to(root)), f"Invalid condition budget: {error}"))
     run_executions = list(run_executions or [])
-    failed_run_names = {
-        run_execution.run_name for run_execution in run_executions if is_failed_execution(run_execution)
+    condition_episodes = {entry.name: entry.episodes for entry in scanned if entry.name in condition_episode_budgets}
+    excluded_run_names = {
+        execution.run_name
+        for execution in run_executions
+        if is_failed_execution(execution) or run_status_to_lowercase_string(execution.status) == "incomplete"
     }
-    scanned = [entry for entry in scanned if entry.name not in failed_run_names]
+    excluded_run_names.update(
+        name for name, budget in condition_episode_budgets.items() if budget["status"] != COMPLETED_STATUS
+    )
+    # Preserve prefixes for the allocation view. Early completion can select easier
+    # episodes, so unfinished Runs must not contribute to pooled outcomes.
+    scanned = [entry for entry in scanned if entry.name not in excluded_run_names]
 
     labels, grouping_source = _resolve_job_labels([entry.name for entry in scanned], policy_suffixes)
     jobs_by_task: dict[str, list[JobSummary]] = {}
@@ -833,4 +863,6 @@ def build_experiment_summary(
         run_executions=run_executions,
         grouping_source=grouping_source,
         issues=issues,
+        condition_episode_budgets=condition_episode_budgets,
+        condition_episodes=condition_episodes,
     )

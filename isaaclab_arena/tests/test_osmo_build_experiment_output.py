@@ -98,6 +98,38 @@ def _write_experiment_runner_result(
     )
 
 
+@pytest.mark.parametrize("exit_code", [0, 1])
+def test_condition_output_preserves_incomplete_or_failed_prefix(tmp_path, exit_code):
+    from isaaclab_arena.evaluation.condition_episode_budget import (
+        CONDITION_EPISODE_BUDGET_FILENAME,
+        ConditionEpisodeBudget,
+        ObjectSetEpisodeBudgetCfg,
+    )
+
+    source = tmp_path / "source"
+    _write_run_output(source / "run", "run", success=False)
+    budget = ConditionEpisodeBudget(ObjectSetEpisodeBudgetCfg("fruit", {"A": 1, "B": 2}), ["A", "B"])
+    budget.set_output_path(source / "run" / CONDITION_EPISODE_BUDGET_FILENAME)
+    budget.assign([0, 1])
+    budget.complete([0])
+    state = budget.write("incomplete", "step_limit" if exit_code == 0 else "RuntimeError")
+    _write_experiment_runner_result(
+        source,
+        RunStatus.COMPLETED if exit_code == 0 else RunStatus.FAILED,
+        exit_code,
+        {"run": _run_metadata("task", "zero_action")},
+    )
+    destination = tmp_path / "collected"
+    reports, metadata = collect_run_outputs_into_experiment_output({"run": source}, destination)
+    expected_status = RunStatus.INCOMPLETE if exit_code == 0 else RunStatus.FAILED
+    assert reports == [RunExecutionReport("run", expected_status, exit_code)]
+    assert metadata["run"]["status"] == expected_status.value
+    assert json.loads((destination / "run" / CONDITION_EPISODE_BUDGET_FILENAME).read_text()) == state
+    assert (destination / "run" / "episode_results_rebuild0.jsonl").read_bytes() == (
+        source / "run" / "episode_results_rebuild0.jsonl"
+    ).read_bytes()
+
+
 def test_loads_experiment_runner_output_directories_as_paths(tmp_path):
     experiment_runner_output_directories_file_path = tmp_path / "experiment-runner-output-directories.json"
     experiment_runner_output_directory = tmp_path / "experiment-runner-0-output"

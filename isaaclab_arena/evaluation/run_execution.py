@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING
 from isaaclab_arena.assets.registries import EnvironmentRegistry, PolicyRegistry
 from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
 from isaaclab_arena.evaluation.arena_run import ArenaRunCfg, ArenaRunResult, RunStatus
+from isaaclab_arena.evaluation.condition_episode_budget import CONDITION_EPISODE_BUDGET_FILENAME
 from isaaclab_arena.evaluation.experiment_timings import write_run_timings
 from isaaclab_arena.evaluation.legacy_graph_environment_cli import (
     LegacyGraphEnvironmentCfg,
@@ -97,10 +98,13 @@ def build_and_run(
     output_dir = str(output_dir)
     video_cfg = video_cfg or VideoRecordingCfg(video_base_dir=output_dir)
     episodes_per_rebuild = _episodes_per_rebuild(cfg)
+    condition_snapshot = None
 
     for rebuild_index, num_episodes in enumerate(episodes_per_rebuild):
         env = None
         policy = None
+        condition_budget = None
+        rollout_error = None
         try:
             rebuild_video_cfg = replace(
                 video_cfg,
@@ -117,6 +121,9 @@ def build_and_run(
             results_path = os.path.join(output_dir, f"episode_results_rebuild{rebuild_index}.jsonl")
             env.unwrapped.episode_recorder.set_job_name(cfg.name)
             env.unwrapped.episode_recorder.set_output_path(results_path)
+            if cfg.rollout_limit.object_set_episodes is not None:
+                condition_budget = env.unwrapped.condition_episode_budget
+                condition_budget.set_output_path(Path(output_dir) / CONDITION_EPISODE_BUDGET_FILENAME)
 
             policy = _build_policy_from_cfg(rebuild_cfg)
             num_steps, num_episodes = _resolve_rollout_limit(
@@ -125,16 +132,42 @@ def build_and_run(
                 num_episodes,
             )
             env = wrap_env_for_video(env, rebuild_video_cfg, num_steps, num_episodes)
-            metrics = rollout_policy(env, policy, num_steps=num_steps, num_episodes=num_episodes)
+            rollout_options = {}
+            if cfg.rollout_limit.object_set_episodes is not None:
+                rollout_options["max_steps"] = cfg.rollout_limit.object_set_episodes.max_steps
+            metrics = rollout_policy(env, policy, num_steps=num_steps, num_episodes=num_episodes, **rollout_options)
             if metrics is not None:
                 metrics_per_rebuild.append(metrics)
+        except BaseException as error:
+            rollout_error = error
+            raise
         finally:
-            close_run_resources(policy, env)
+            try:
+                close_run_resources(policy, env)
+            except BaseException as error:
+                rollout_error = error
+                raise
+            finally:
+                if condition_budget is not None:
+                    completed = rollout_error is None and condition_budget.is_complete
+                    reason = (
+                        type(rollout_error).__name__
+                        if rollout_error is not None
+                        else ("episode_budget_met" if completed else "step_limit")
+                    )
+                    condition_snapshot = condition_budget.write(
+                        status="completed" if completed else "incomplete", reason=reason
+                    )
 
     return ArenaRunResult(
         run_name=cfg.name,
-        status=RunStatus.COMPLETED,
+        status=(
+            RunStatus.INCOMPLETE
+            if condition_snapshot is not None and not condition_snapshot["sampling_complete"]
+            else RunStatus.COMPLETED
+        ),
         metrics=aggregate_metrics(metrics_per_rebuild) if metrics_per_rebuild else None,
+        condition_episode_budget=condition_snapshot,
     )
 
 
@@ -168,6 +201,74 @@ def _build_environment_from_cfg(
     run_cfg.environment_builder.recorder_dataset_export_dir_path = str(output_dir)
     run_cfg.environment_builder.recorder_dataset_filename = f"dataset_{cfg.name}_rebuild{rebuild_index}"
     arena_builder = build_arena_builder_from_run_cfg(run_cfg)
+    condition_cfg = cfg.rollout_limit.object_set_episodes
+    if condition_cfg is not None:
+        from isaaclab.sim import MultiAssetSpawnerCfg
+
+        from isaaclab_arena.assets.object_set import RigidObjectSet
+
+        object_sets = [
+            asset for asset in arena_builder.arena_env.scene.assets.values() if isinstance(asset, RigidObjectSet)
+        ]
+        assert (
+            len(object_sets) == 1 and object_sets[0].name == condition_cfg.object_set
+        ), "Condition budgets require the scene's single RigidObjectSet to match object_set"
+        object_set = object_sets[0]
+        for asset in arena_builder.arena_env.scene.assets.values():
+            spawn = getattr(getattr(asset, "object_cfg", None), "spawn", None)
+            assert asset is object_set or not isinstance(
+                spawn, MultiAssetSpawnerCfg
+            ), "Condition budgets require the object set to be the scene's only multi-asset spawner"
+        assert not object_set.random_choice, "Condition budgets require an ordered RigidObjectSet"
+        names = [member.name for member in object_set.objects]
+        assert len(set(names)) == len(names), "Object-set member names must be unique"
+        assert set(names) == set(condition_cfg.episodes_per_member), "Specify a quota for every object-set member"
+        assert cfg.environment_builder.num_envs >= len(names), "Every condition needs at least one environment"
+        object_set.assign_variants(cfg.environment_builder.num_envs)
+        members_by_env = [names[index] for index in object_set.variant_indices_by_env]
+        assigned_spawn = deepcopy(object_set.object_cfg.spawn.to_dict())
+        env_cfg, env_kwargs = arena_builder.build_env_cfg()
+        assert names == [
+            member.name for member in object_set.objects
+        ], "Environment construction changed the object-set members"
+        assert members_by_env == [
+            names[index] for index in object_set.variant_indices_by_env
+        ], "Environment construction changed the condition assignment"
+        scene_name, _ = object_set.get_object_cfg()
+        resolved_spawn = getattr(env_cfg.scene, scene_name).spawn
+        assert (
+            resolved_spawn.to_dict() == assigned_spawn
+        ), "The final scene configuration must preserve the object-set spawn assignment"
+        for name, asset_cfg in vars(env_cfg.scene).items():
+            assert name == scene_name or not isinstance(
+                getattr(asset_cfg, "spawn", None), MultiAssetSpawnerCfg
+            ), "Condition budgets require the object set to be the final scene's only multi-asset spawner"
+        resolved_entries = (
+            resolved_spawn.assets_cfg if isinstance(resolved_spawn, MultiAssetSpawnerCfg) else [resolved_spawn]
+        )
+        member_definitions = {}
+        for index, member in enumerate(object_set.objects):
+            slot_configs = (
+                [
+                    resolved_entries[env_id].to_dict()
+                    for env_id, name in enumerate(members_by_env)
+                    if name == member.name
+                ]
+                if len(names) > 1
+                else [resolved_entries[0].to_dict()]
+            )
+            assert all(
+                spawn == slot_configs[0] for spawn in slot_configs
+            ), "Slots sharing a member must use the same resolved spawn configuration"
+            member_definitions[member.name] = {
+                "index": index,
+                "declared_spawn": member.object_cfg.spawn.to_dict(),
+                "resolved_spawn": slot_configs[0],
+            }
+        env_kwargs["condition_episode_budget_cfg"] = condition_cfg
+        env_kwargs["condition_members_by_env"] = members_by_env
+        env_kwargs["condition_member_definitions"] = member_definitions
+        return arena_builder.make_registered(env_cfg, env_kwargs, render_mode=render_mode)
     return arena_builder.make_registered(render_mode=render_mode)
 
 
@@ -224,9 +325,12 @@ def _resolve_rollout_limit(
     num_episodes: int | None,
 ) -> tuple[int | None, int | None]:
     """Resolve a configured rollout limit or use the policy's intrinsic length."""
-    if cfg.environment_builder.recorded_variation_samples_path is not None:
+    if (
+        cfg.environment_builder.recorded_variation_samples_path is not None
+        or cfg.rollout_limit.object_set_episodes is not None
+    ):
         assert not policy.has_length(), (
-            f"Run '{cfg.name}' cannot replay recorded variation samples with a finite-action policy; "
+            f"Run '{cfg.name}' cannot use recorded replay or condition budgets with a finite-action policy; "
             "finite policies do not restart their action sequence across episodes"
         )
     num_steps = cfg.rollout_limit.num_steps
@@ -241,6 +345,8 @@ def _resolve_rollout_limit(
 
 def _episodes_per_rebuild(cfg: ArenaRunCfg) -> list[int | None]:
     """Resolve one rollout episode budget per environment rebuild."""
+    if cfg.rollout_limit.object_set_episodes is not None:
+        return [sum(cfg.rollout_limit.object_set_episodes.episodes_per_member.values())]
     if cfg.recorded_variation_samples_paths is not None:
         if cfg.rollout_limit.num_episodes is None:
             return [_recorded_episode_count(path) for path in cfg.recorded_variation_samples_paths]

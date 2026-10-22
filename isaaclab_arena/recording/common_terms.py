@@ -30,6 +30,11 @@ def record_core_episode_results(env, env_id: int) -> dict[str, Any]:
         "timestamp": datetime.datetime.now().isoformat(),
     }
     scheduler = env.variation_replay_scheduler
+    budget = getattr(env, "condition_episode_budget", None)
+    if budget is not None:
+        payload.update(budget.episode_identity(env_id))
+        payload["terminated"] = bool(env.termination_manager.terminated[env_id].item())
+        payload["truncated"] = bool(env.termination_manager.time_outs[env_id].item())
     if scheduler is not None:
         payload["replay_source_record_index"] = scheduler.source_record_index_for_env(env_id)
     return payload

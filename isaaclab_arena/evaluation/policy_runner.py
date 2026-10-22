@@ -68,11 +68,15 @@ def rollout_policy(
     policy: PolicyBase,
     num_steps: int | None,
     num_episodes: int | None,
+    max_steps: int | None = None,
 ) -> MetricsDataCollection | None:
     import torch
 
     assert num_steps is not None or num_episodes is not None, "Either num_steps or num_episodes must be provided"
     assert num_steps is None or num_episodes is None, "Only one of num_steps or num_episodes must be provided"
+    assert max_steps is None or (
+        num_episodes is not None and type(max_steps) is int and max_steps > 0
+    ), "max_steps requires an episode limit and a positive integer"
 
     pbar = None
     try:
@@ -116,16 +120,14 @@ def rollout_policy(
                         break
                 # Break if number of steps is reached
                 num_steps_completed += 1
+                if max_steps is not None and num_steps_completed >= max_steps:
+                    break
                 if num_steps is not None:
                     pbar.update(1)
                     if num_steps_completed >= num_steps:
                         break
 
-        pbar.close()
-
     except Exception as e:
-        if pbar is not None:
-            pbar.close()
         raise RuntimeError(f"Error rolling out policy: {e}")
 
     else:
@@ -135,6 +137,9 @@ def rollout_policy(
         if hasattr(env.unwrapped.cfg, "metrics") and env.unwrapped.cfg.metrics is not None:
             return env.unwrapped.compute_metrics()
         return None
+    finally:
+        if pbar is not None:
+            pbar.close()
 
 
 def list_variations(args_parser: argparse.ArgumentParser) -> None:
