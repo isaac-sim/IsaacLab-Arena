@@ -101,6 +101,7 @@ def test_registration_builds_typed_config_and_resolves_adapter(monkeypatch):
     """The registered typed config retains embodiment-adapter selection."""
     _patch_websocket_client(monkeypatch)
     assert PolicyRegistry().get_policy_cfg_type(Pi0RemotePolicy) is Pi0RemotePolicyCfg
+    assert Pi0RemotePolicy.requires_camera_observations
     policy = Pi0RemotePolicy(
         Pi0RemotePolicyCfg(
             policy_variant="pi05",

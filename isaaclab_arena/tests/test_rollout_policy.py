@@ -7,15 +7,18 @@ import io
 import torch
 from types import SimpleNamespace
 
+import pytest
+
 from isaaclab_arena.evaluation import policy_runner
 
 
 class _RolloutEnvironment:
     """Return scheduled completion events without simulating episode scheduling."""
 
-    def __init__(self, step_results):
+    def __init__(self, step_results, reset_observation=None):
         self.cfg = SimpleNamespace(metrics=None)
         self.step_results = iter(step_results)
+        self.reset_observation = reset_observation or {"step": 0}
         self.configured_episode_limits = []
         self.reset_called = False
         self.steps_completed = 0
@@ -28,7 +31,7 @@ class _RolloutEnvironment:
 
     def reset(self):
         self.reset_called = True
-        return {"step": 0}, {}
+        return self.reset_observation, {}
 
     def get_language_instruction(self):
         return "Complete the task."
@@ -46,6 +49,8 @@ class _RolloutEnvironment:
 
 
 class _Policy:
+    requires_camera_observations = False
+
     def __init__(self):
         self.reset_calls = []
         self.observed_steps = []
@@ -69,6 +74,37 @@ def _capture_progress(monkeypatch, total):
     progress_bar = policy_runner.tqdm.tqdm(total=total, file=io.StringIO())
     monkeypatch.setattr(policy_runner.tqdm, "tqdm", lambda **kwargs: progress_bar)
     return progress_bar
+
+
+def test_camera_policy_rejects_observations_without_cameras():
+    environment = _RolloutEnvironment([])
+    policy = _Policy()
+    policy.requires_camera_observations = True
+
+    with pytest.raises(RuntimeError, match=r"Policy _Policy requires camera observations.*camera_obs.*Enable cameras"):
+        policy_runner.rollout_policy(_wrap_environment(environment), policy, num_steps=1, num_episodes=None)
+
+    assert environment.reset_called
+    assert environment.steps_completed == 0
+    assert policy.reset_calls == []
+
+
+def test_camera_policy_accepts_non_empty_camera_observations(monkeypatch):
+    environment = _RolloutEnvironment(
+        [(0, [], [], [])],
+        reset_observation={
+            "step": 0,
+            "camera_obs": {"front_rgb": torch.zeros(1, 4, 4, 3, dtype=torch.uint8)},
+        },
+    )
+    policy = _Policy()
+    policy.requires_camera_observations = True
+    _capture_progress(monkeypatch, total=1)
+
+    policy_runner.rollout_policy(_wrap_environment(environment), policy, num_steps=1, num_episodes=None)
+
+    assert environment.steps_completed == 1
+    assert policy.observed_steps == [0]
 
 
 def test_episode_rollout_waits_for_every_completion_and_resets_only_replacements(monkeypatch):

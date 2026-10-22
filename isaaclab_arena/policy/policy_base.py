@@ -24,6 +24,9 @@ PolicyCfgT = TypeVar("PolicyCfgT", bound=PolicyCfg)
 class PolicyBase(ABC, Generic[PolicyCfgT]):
     """Define runtime behavior shared by Arena policies."""
 
+    requires_camera_observations: bool = False
+    """Whether rollout observations must contain a non-empty ``camera_obs`` group."""
+
     def __init__(self, config: PolicyCfgT):
         self.config = config
 

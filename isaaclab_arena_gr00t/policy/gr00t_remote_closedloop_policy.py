@@ -80,6 +80,7 @@ class Gr00tRemoteClosedloopPolicy(PolicyBase[Gr00tRemoteClosedloopPolicyCfg]):
     """
 
     name = "gr00t_remote_closedloop"
+    requires_camera_observations = True
 
     def __init__(self, config: Gr00tRemoteClosedloopPolicyCfg):
         super().__init__(config)
