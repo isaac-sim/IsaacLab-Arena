@@ -11,19 +11,30 @@ Creates commits and PRs that follow Arena's contributor guidelines.
 
 ## Commit
 
-1. Run the `pre-commit-check` skill (or `pre-commit run --all-files` on the host — pre-commit is not installed in the container) until the working tree is clean. Do not commit through hook failures.
-2. Stage **specific files** rather than using `git add -A` — this avoids accidentally committing dotfiles, credentials, or large untracked artifacts.
-3. Sign off the commit (per `CONTRIBUTING.md` — Arena currently requires DCO sign-off; the policy is on the books but not yet CI-enforced):
+1. Check whether the change breaks a public Python API, CLI, YAML or serialized-data format, or documented workflow used by downstream Arena users. If it does:
+   - on `main`, update `docs/pages/references/migration_to_next_release.rst` with a concise
+     before/after example. If the file does not exist, create it with a title and an empty
+     **Quick access** table, and add it first in the hidden toctree in
+     `docs/pages/references/release_notes.rst`.
+   - on a release branch, update the versioned guide instead.
+   - if an existing migration entry covers the same area or topic, append to or revise that entry
+     instead of creating a duplicate section.
+   - add or update the corresponding entry in the migration guide's **Quick access** table.
+   - describe the break and required migration in the PR.
+   Do not put a new change into an unrelated older migration guide.
+2. Run the `pre-commit-check` skill (or `pre-commit run --all-files` on the host — pre-commit is not installed in the container) until the working tree is clean. Do not commit through hook failures.
+3. Stage **specific files** rather than using `git add -A` — this avoids accidentally committing dotfiles, credentials, or large untracked artifacts.
+4. Sign off the commit (per `CONTRIBUTING.md` — Arena currently requires DCO sign-off; the policy is on the books but not yet CI-enforced):
 
    ```bash
    git commit -s -m "<subject>"
    ```
 
-4. **Subject line:** imperative mood, ~50 characters, no trailing period.
+5. **Subject line:** imperative mood, ~50 characters, no trailing period.
    - Good: `Fix attribute access on wrapped env`
    - Bad: `Fixed the attribute access on the wrapped env.` (past tense, trailing period)
-5. **Body** (when needed): blank line after the subject, wrap at 72 chars, explain *what* and *why* — not *how* (the diff shows that).
-6. **No AI attribution lines.** Do not include `Co-Authored-By: Claude...`, `Generated with Claude Code`, or similar footers. The DCO sign-off is the only required trailer.
+6. **Body** (when needed): blank line after the subject, wrap at 72 chars, explain *what* and *why* — not *how* (the diff shows that).
+7. **No AI attribution lines.** Do not include `Co-Authored-By: Claude...`, `Generated with Claude Code`, or similar footers. The DCO sign-off is the only required trailer.
 
 Use a heredoc for multi-paragraph messages so quoting stays clean:
 
@@ -54,10 +65,11 @@ Do not use top-level type prefixes that omit the username (e.g. `feature/foo`, `
    git push -u origin <branch-name>
    ```
 
-2. Open the PR against `main` (the active branch):
+2. Open the PR against `main` (the active development branch). When a maintainer workflow
+   explicitly prepares a release branch, use that workflow's `release/<version>` target instead:
 
    ```bash
-   gh pr create --base main \
+   gh pr create --base <main-or-release-branch> \
      --title "<short imperative subject>" \
      --body "<see body format below>"
    ```
@@ -91,5 +103,6 @@ gh pr view --json title,baseRefName
 ```
 
 Confirm:
-- `baseRefName` is `main`.
+- `baseRefName` is `main`, unless an explicit maintainer workflow requires the matching
+  `release/<version>` branch.
 - Title has no trailing period and is in imperative mood.

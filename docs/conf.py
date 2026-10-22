@@ -136,7 +136,7 @@ html_css_files = ["custom.css"]
 # Versioning
 smv_remote_whitelist = r"^.*$"
 smv_branch_whitelist = r"^(main|release/.*)$"
-smv_tag_whitelist = r"^v.*$"
+smv_tag_whitelist = r"^$"
 # Remove the version badge from the sidebar.
 html_sidebars = {"**": ["sidebar-nav-bs"]}
 # Todos
