@@ -568,6 +568,57 @@ class SphereLight(LightBase):
 
 
 @register_asset
+class RobolabDomeLight(DomeLight):
+    """A white dome light at intensity 500, textured with the home_office_robolab HDR image."""
+
+    name = "robolab_dome_light"
+    default_prim_path = "/World/Light"
+    default_intensity = 500.0
+    default_spawner_cfg = sim_utils.DomeLightCfg(color=(1.0, 1.0, 1.0), intensity=default_intensity)
+    default_hdr_name = "home_office_robolab"
+
+    def __init__(
+        self,
+        instance_name: str | None = None,
+        prim_path: str | None = default_prim_path,
+        initial_pose: Pose | None = None,
+        spawner_cfg: sim_utils.DomeLightCfg = default_spawner_cfg,
+    ):
+        from isaaclab_arena.assets.registries import HDRImageRegistry
+
+        hdr = HDRImageRegistry().get_hdr_by_name(self.default_hdr_name)()
+        super().__init__(
+            instance_name=instance_name,
+            prim_path=prim_path,
+            initial_pose=initial_pose,
+            spawner_cfg=spawner_cfg,
+            hdr=hdr,
+        )
+
+
+@register_asset
+class RobolabSphereLight(SphereLight):
+    """A sphere light of radius 0.5 and intensity 5000 at (0, -0.6, 0.7) in the environment frame."""
+
+    name = "robolab_sphere_light"
+    default_prim_path = "{ENV_REGEX_NS}/sphere_light"
+    default_intensity = 5000.0
+    default_spawner_cfg = sim_utils.SphereLightCfg(intensity=default_intensity, radius=0.5)
+    default_initial_pose = Pose(position_xyz=(0.0, -0.6, 0.7), rotation_xyzw=(0.0, 0.0, 0.0, 1.0))
+
+    def __init__(
+        self,
+        instance_name: str | None = None,
+        prim_path: str | None = default_prim_path,
+        initial_pose: Pose | None = None,
+        spawner_cfg: sim_utils.SphereLightCfg = default_spawner_cfg,
+    ):
+        super().__init__(
+            instance_name=instance_name, prim_path=prim_path, initial_pose=initial_pose, spawner_cfg=spawner_cfg
+        )
+
+
+@register_asset
 class DexCube(LibraryObject):
     """
     A cube.

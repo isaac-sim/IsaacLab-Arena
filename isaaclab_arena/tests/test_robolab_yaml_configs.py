@@ -8,19 +8,13 @@
 import yaml
 from pathlib import Path
 
-# RoboLab's per-task settings (episode length from the RoboLab task definitions, PhysX solver limits, light rig),
-# keyed by task YAML stem. Every task currently shares the same physics and light settings.
+# RoboLab's per-task settings (episode length from the RoboLab task definitions, PhysX solver limits),
+# keyed by task YAML stem. Every task currently shares the same physics settings.
 ROBOLAB_PHYSICS = {"max_position_iteration_count": 32, "max_velocity_iteration_count": 1}
-ROBOLAB_LIGHT = {
-    "hdr_names": ["home_office_robolab"],
-    "dome_intensity": [500.0],
-    "dome_color": [1.0, 1.0, 1.0],
-    "sphere_intensity": [5000.0],
-}
 
 
 def _constants(episode_length_s: float) -> dict:
-    return {"episode_length_s": episode_length_s, "physics": ROBOLAB_PHYSICS, "light": ROBOLAB_LIGHT}
+    return {"episode_length_s": episode_length_s, "physics": ROBOLAB_PHYSICS}
 
 
 ROBOLAB_TASK_CONSTANTS = {
@@ -96,8 +90,11 @@ def test_robolab_tasks_declare_lights():
         # Loaded through the spec so lights missing from the shared defaults include are caught.
         spec = ArenaEnvGraphSpec.from_yaml(task_path)
         registry_names_by_id = {obj.id: obj.registry_name for obj in spec.objects}
-        for light_id in ["light", "sphere_light"]:
-            assert registry_names_by_id.get(light_id) == light_id, f"{task_path.name}: missing or wrong '{light_id}'"
+        expected_registry_names = {"light": "robolab_dome_light", "sphere_light": "robolab_sphere_light"}
+        for light_id, registry_name in expected_registry_names.items():
+            assert (
+                registry_names_by_id.get(light_id) == registry_name
+            ), f"{task_path.name}: missing or wrong '{light_id}'"
         node_ids = {spec.background.id} | set(registry_names_by_id)
         assert len(node_ids) == len(spec.objects) + 1, f"{task_path.name}: duplicate node ids"
 
@@ -125,25 +122,10 @@ def test_robolab_task_episode_lengths_match_robolab():
                 assert subtask["params"]["episode_length_s"] != 70.0, f"{task_path.name}: still has the old 70.0 s"
 
 
-def test_robolab_experiment_configs_set_lighting():
+def test_robolab_experiment_configs_leave_lighting_to_the_scene():
     config_paths = sorted((ROBOLAB_DIR / "experiment_configs").glob("robolab_*_tasks_pi0*.yaml"))
     assert len(config_paths) == 5
     for config_path in config_paths:
-        config = _load(config_path)
-        variations = config["shared"]["variations"]
-        for run_name, run in config["runs"].items():
-            environment_path = ROBOLAB_DIR.parents[1] / run["environment"]["type"]
-            assert environment_path.exists(), f"{config_path.name}: {run_name} environment {environment_path} missing"
-
-            light = ROBOLAB_TASK_CONSTANTS[environment_path.stem]["light"]
-            assert variations["light"]["hdr_image"]["hdr_names"] == light["hdr_names"], config_path.name
-            expected_samplers = {
-                ("light", "intensity"): light["dome_intensity"],
-                ("light", "color"): light["dome_color"],
-                ("sphere_light", "intensity"): light["sphere_intensity"],
-            }
-            for (node_id, variation_name), value in expected_samplers.items():
-                variation = variations[node_id][variation_name]
-                assert variation["enabled"] is True, f"{config_path.name}: {node_id}.{variation_name} not enabled"
-                assert variation["sampler_cfg"]["low"] == value, f"{config_path.name}: {node_id}.{variation_name} low"
-                assert variation["sampler_cfg"]["high"] == value, f"{config_path.name}: {node_id}.{variation_name} high"
+        variations = _load(config_path)["shared"].get("variations", {})
+        for node_id in ["light", "sphere_light"]:
+            assert node_id not in variations, f"{config_path.name}: sets variations on '{node_id}'"

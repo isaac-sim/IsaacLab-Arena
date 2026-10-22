@@ -15,8 +15,8 @@ env_cfg_override:
 # RoboLab's light rig: a dome light and a sphere light. The ids are the keys of the experiment-config variations.
 objects:
 - id: light
-  registry_name: light
+  registry_name: robolab_dome_light
   params: {}
 - id: sphere_light
-  registry_name: sphere_light
+  registry_name: robolab_sphere_light
   params: {}
