@@ -113,6 +113,7 @@ def build_and_run(
                 rebuild_video_cfg.render_mode,
                 output_dir=output_dir,
                 rebuild_index=rebuild_index,
+                num_episodes=num_episodes,
             )
             results_path = os.path.join(output_dir, f"episode_results_rebuild{rebuild_index}.jsonl")
             env.unwrapped.episode_recorder.set_job_name(cfg.name)
@@ -153,6 +154,7 @@ def _build_environment_from_cfg(
     render_mode: str | None,
     output_dir: str | Path,
     rebuild_index: int = 0,
+    num_episodes: int | None = None,
 ) -> gym.Env:
     """Compile and instantiate a run's environment.
 
@@ -161,14 +163,29 @@ def _build_environment_from_cfg(
         render_mode: Render mode required by the enabled video recorders.
         output_dir: Directory the run's recorded dataset is exported to.
         rebuild_index: Index of the rebuild this environment serves.
+        num_episodes: Episode budget for this rebuild, used when preparing placements.
     """
     # Copy runtime-derived recorder output options into the builder cfg so
     # ArenaEnvBuilder.build_env_cfg sees them without mutating the caller's run config.
     run_cfg = deepcopy(cfg)
     run_cfg.environment_builder.recorder_dataset_export_dir_path = str(output_dir)
     run_cfg.environment_builder.recorder_dataset_filename = f"dataset_{cfg.name}_rebuild{rebuild_index}"
-    arena_builder = build_arena_builder_from_run_cfg(run_cfg)
-    return arena_builder.make_registered(render_mode=render_mode)
+    if cfg.settled_placement is not None:
+        from isaaclab_arena.evaluation.prepare_settled_placement import (
+            configure_preparation_resets,
+            prepare_settled_placement,
+        )
+
+        run_cfg.environment_builder.resolve_on_reset = True
+        layouts_path = Path(output_dir) / f"settled_placements_rebuild{rebuild_index}.jsonl"
+        sampling_builder = build_arena_builder_from_run_cfg(run_cfg)
+        prepare_settled_placement(sampling_builder, cfg.settled_placement, num_episodes, layouts_path)
+        run_cfg.environment_builder.recorded_variation_samples_path = str(layouts_path.resolve())
+        arena_builder = build_arena_builder_from_run_cfg(run_cfg)
+        env_cfg, env_kwargs = arena_builder.build_env_cfg()
+        configure_preparation_resets(arena_builder, env_cfg)
+        return arena_builder.make_registered(env_cfg=env_cfg, env_kwargs=env_kwargs, render_mode=render_mode)
+    return build_arena_builder_from_run_cfg(run_cfg).make_registered(render_mode=render_mode)
 
 
 def build_arena_builder_from_run_cfg(cfg: ArenaRunCfg) -> ArenaEnvBuilder:
@@ -224,7 +241,7 @@ def _resolve_rollout_limit(
     num_episodes: int | None,
 ) -> tuple[int | None, int | None]:
     """Resolve a configured rollout limit or use the policy's intrinsic length."""
-    if cfg.environment_builder.recorded_variation_samples_path is not None:
+    if cfg.environment_builder.recorded_variation_samples_path is not None or cfg.settled_placement is not None:
         assert not policy.has_length(), (
             f"Run '{cfg.name}' cannot replay recorded variation samples with a finite-action policy; "
             "finite policies do not restart their action sequence across episodes"

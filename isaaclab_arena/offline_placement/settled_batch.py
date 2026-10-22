@@ -54,6 +54,8 @@ class SettledBatch:
     """Final T_R_L link poses (N, B, 7), xyz metres and xyzw rotation, by articulation key."""
     final_root_velocities: dict[str, torch.Tensor]
     """Final world-frame root velocities (N, 6), linear xyz m/s then angular xyz rad/s, by scene key."""
+    root_velocity_history: dict[str, torch.Tensor] = field(default_factory=dict)
+    """Final control-step velocity samples (S, N, 6), used to check sustained rest."""
     geometry: dict[str, SettledGeometry] = field(default_factory=dict)
     """Additional geometry requested by validators, keyed by scene name."""
 
@@ -64,6 +66,7 @@ def sample_and_settle_batch(
     root_keys: Sequence[str],
     link_keys: Sequence[str],
     num_env_steps: int,
+    required_settled_steps: int = 1,
     geometry_keys: Sequence[str] = (),
     render: bool = False,
     log_progress: bool = False,
@@ -79,6 +82,7 @@ def sample_and_settle_batch(
         root_keys: Rigid-object and articulation scene keys whose roots are measured.
         link_keys: Articulation scene keys whose root-relative links are measured.
         num_env_steps: Positive number of environment steps, each containing decimation substeps.
+        required_settled_steps: Number of final control-step velocity samples to capture.
         geometry_keys: Assets whose local bounds and poses are needed by geometry checks.
         render: Render each physics substep.
         log_progress: Print physics-step progress.
@@ -93,7 +97,7 @@ def sample_and_settle_batch(
     from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
     env = env.unwrapped
-    assert num_env_steps > 0, "num_env_steps must be positive"
+    assert 1 <= required_settled_steps <= num_env_steps, "Invalid settling window"
     assert root_keys, "Sampling requires at least one rigid-object or articulation root"
     placement_pool = get_placement_pool(env)
     assert placement_pool is not None, "Sampling requires a pooled placement reset event"
@@ -121,8 +125,21 @@ def sample_and_settle_batch(
     for key in geometry_keys:
         bounds = env.arena_world.get_aabb_in_local_frame(key)
         geometry_bounds[key] = AxisAlignedBoundingBox(bounds.min_point.clone(), bounds.max_point.clone())
+    velocity_samples = {key: [] for key in root_keys}
     if env_ids:
-        step_placement_physics(env, num_env_steps, render=render, log_progress=log_progress)
+        for sample_index in range(required_settled_steps):
+            steps = num_env_steps - required_settled_steps + 1 if sample_index == 0 else 1
+            step_placement_physics(env, steps, render=render, log_progress=log_progress)
+            for key in root_keys:
+                velocity_samples[key].append(
+                    torch.cat(
+                        (
+                            env.arena_world.get_root_linear_velocity_w(key),
+                            env.arena_world.get_root_angular_velocity_w(key),
+                        ),
+                        dim=-1,
+                    ).clone()
+                )
     final_root_poses = {key: env.arena_world.get_pose_e(key) for key in root_keys}
     final_link_poses = capture_articulation_link_poses_in_root_frame(env, link_keys)
     final_root_velocities = {}
@@ -138,6 +155,7 @@ def sample_and_settle_batch(
         initial_link_poses=initial_link_poses,
         final_link_poses=final_link_poses,
         final_root_velocities=final_root_velocities,
+        root_velocity_history={key: torch.stack(samples) for key, samples in velocity_samples.items() if samples},
         geometry={
             key: SettledGeometry(initial_geometry_poses[key], env.arena_world.get_pose_e(key), geometry_bounds[key])
             for key in geometry_keys

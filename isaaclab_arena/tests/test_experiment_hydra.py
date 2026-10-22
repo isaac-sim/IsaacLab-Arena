@@ -567,3 +567,17 @@ def test_hydra_override_cannot_add_run():
             GETTING_STARTED_EXPERIMENT_PATH,
             overrides=["+runs.new_run={environment:{type:pick_and_place_maple_table},policy:{type:zero_action}}"],
         )
+
+
+def test_settled_placement_configuration_round_trips(tmp_path):
+    values = yaml.safe_load(GETTING_STARTED_EXPERIMENT_PATH.read_text())
+    values["shared"]["settled_placement"] = {
+        "max_batches": 12,
+        "settle": {"num_steps": 60, "required_settled_steps": 8},
+    }
+    path = _write_experiment(tmp_path, yaml.safe_dump(values))
+    experiment = _load_experiment(path)
+    assert experiment.runs["baseline"].settled_placement.max_batches == 12
+    assert experiment.runs["baseline"].settled_placement.settle.required_settled_steps == 8
+    serialized = _write_experiment(tmp_path, serialize_arena_experiment_to_yaml(experiment))
+    assert _load_experiment(serialized) == experiment
