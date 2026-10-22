@@ -159,6 +159,11 @@ class Gr00tRemoteClosedloopPolicy(PolicyBase[Gr00tRemoteClosedloopPolicyCfg]):
             hold_action=self._extract_hold_action(observation),
         )
 
+    def needs_new_observation(self) -> bool:
+        """Return whether any environment fetches a new action chunk on the next ``get_action`` call."""
+        assert self._chunking_state is not None, "GR00T remote policy has been closed"
+        return bool(self._chunking_state.env_requires_new_chunk.any())
+
     def _extract_hold_action(self, observation: dict[str, Any]) -> torch.Tensor:
         """Build the action vector that waiting envs should hold: their current sim joint positions
         copied into the action slots that share a joint name with the state config."""

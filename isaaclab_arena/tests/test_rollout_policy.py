@@ -21,6 +21,10 @@ class _RolloutEnvironment:
         self.steps_completed = 0
         self.completed_episode_count = 0
         self.reset_env_ids = torch.empty(0, dtype=torch.long)
+        self.camera_frame_requests = []
+
+    def request_camera_frames(self, requested):
+        self.camera_frame_requests.append(requested)
 
     def configure_episode_limit(self, num_episodes):
         assert not self.reset_called
@@ -46,9 +50,10 @@ class _RolloutEnvironment:
 
 
 class _Policy:
-    def __init__(self):
+    def __init__(self, observation_needs=None):
         self.reset_calls = []
         self.observed_steps = []
+        self.observation_needs = iter(observation_needs or [])
 
     def reset(self, env_ids=None):
         self.reset_calls.append(None if env_ids is None else env_ids.tolist())
@@ -59,6 +64,9 @@ class _Policy:
     def get_action(self, env, observation):
         self.observed_steps.append(observation["step"])
         return torch.zeros(3, 1)
+
+    def needs_new_observation(self):
+        return next(self.observation_needs, True)
 
 
 def _wrap_environment(environment):
@@ -107,3 +115,26 @@ def test_step_rollout_keeps_its_step_limit_and_resets_actual_reset_environments(
     assert policy.reset_calls == [None, [1]]
     assert policy.observed_steps == [0, 1]
     assert progress_bar.n == 2
+
+
+def test_rollout_requests_camera_frames_only_when_the_policy_reads_them(monkeypatch):
+    environment = _RolloutEnvironment([(0, [], [], [])] * 4)
+    policy = _Policy(observation_needs=[False, True, False])
+    _capture_progress(monkeypatch, total=4)
+
+    policy_runner.rollout_policy(_wrap_environment(environment), policy, num_steps=4, num_episodes=None)
+
+    # One request per step, placed after get_action so it reflects the next step's chunk state.
+    assert environment.camera_frame_requests == [False, True, False, True]
+
+
+def test_rollout_never_skips_camera_frames_when_recorders_need_every_frame(monkeypatch):
+    environment = _RolloutEnvironment([(0, [], [], [])] * 2)
+    policy = _Policy(observation_needs=[False, False])
+    _capture_progress(monkeypatch, total=2)
+
+    policy_runner.rollout_policy(
+        _wrap_environment(environment), policy, num_steps=2, num_episodes=None, render_cameras_every_step=True
+    )
+
+    assert environment.camera_frame_requests == []

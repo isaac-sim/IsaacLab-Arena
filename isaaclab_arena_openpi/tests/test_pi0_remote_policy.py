@@ -221,3 +221,61 @@ def test_call_server_with_retry_gives_up_after_max_attempts(monkeypatch):
 
     with pytest.raises(websockets.exceptions.ConnectionClosedError):
         policy._call_server_with_retry({"prompt": "x"})
+
+
+def test_unsynced_policy_needs_an_observation_whenever_any_chunk_is_exhausted(monkeypatch):
+    """Without synchronized fetches, report the need before the first fetch, at exhaustion, and after a reset."""
+    _patch_websocket_client(monkeypatch)
+    policy = Pi0RemotePolicy(Pi0RemotePolicyCfg(policy_device="cpu", sync_chunk_fetches=False))
+    policy.set_task_description("pick up the block")
+    env = _fake_env(num_envs=2)
+    observation = _fake_observation(num_envs=2)
+
+    assert policy.needs_new_observation()
+    for _ in range(policy._open_loop_horizon - 1):
+        policy.get_action(env, observation)
+        assert not policy.needs_new_observation()
+    policy.get_action(env, observation)
+    assert policy.needs_new_observation()
+
+    policy.get_action(env, observation)  # refetch for both envs
+    assert not policy.needs_new_observation()
+    policy.reset(env_ids=torch.tensor([1]))
+    assert policy.needs_new_observation()
+
+
+def test_synced_policy_holds_reset_envs_until_the_shared_fetch(monkeypatch):
+    """A reset env repeats its observed pose and every env refetches together on the horizon boundary."""
+    call_count = {"n": 0}
+
+    def counting_infer(self, request):
+        call_count["n"] += 1
+        return {"actions": _synthetic_chunk()}
+
+    _patch_websocket_client(monkeypatch, infer_impl=counting_infer)
+    policy = Pi0RemotePolicy(Pi0RemotePolicyCfg(policy_device="cpu"))
+    policy.set_task_description("pick up the block")
+    env = _fake_env(num_envs=2)
+    observation = _fake_observation(num_envs=2)
+    observation["policy"]["joint_pos"][1] = torch.arange(1, 8, dtype=torch.float32)
+    observation["policy"]["gripper_pos"][1] = 1.0
+    horizon = policy._open_loop_horizon
+
+    policy.get_action(env, observation)  # shared fetch at step 0
+    assert call_count["n"] == 2
+    policy.reset(env_ids=torch.tensor([1]))
+
+    for step in range(1, horizon):
+        assert not policy.needs_new_observation()
+        actions = policy.get_action(env, observation)
+        assert call_count["n"] == 2, "a reset env must not fetch before the shared boundary"
+        assert actions[1].tolist() == pytest.approx([1, 2, 3, 4, 5, 6, 7, 1.0]), "held env repeats its pose"
+        assert actions[0, -1].item() == pytest.approx(_synthetic_chunk()[step, -1])
+
+    assert policy.needs_new_observation()
+    policy.get_action(env, observation)  # shared fetch at step `horizon`
+    assert call_count["n"] == 4
+    assert policy._next_chunk_steps == [1, 1]
+
+    policy.reset()
+    assert policy.needs_new_observation()

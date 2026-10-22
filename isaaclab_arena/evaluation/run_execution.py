@@ -125,7 +125,16 @@ def build_and_run(
                 num_episodes,
             )
             env = wrap_env_for_video(env, rebuild_video_cfg, num_steps, num_episodes)
-            metrics = rollout_policy(env, policy, num_steps=num_steps, num_episodes=num_episodes)
+            metrics = rollout_policy(
+                env,
+                policy,
+                num_steps=num_steps,
+                num_episodes=num_episodes,
+                # Camera video and trajectory recorders consume every camera frame.
+                render_cameras_every_step=(
+                    rebuild_video_cfg.record_camera_video or rebuild_cfg.environment_builder.record_trajectories
+                ),
+            )
             if metrics is not None:
                 metrics_per_rebuild.append(metrics)
         finally:

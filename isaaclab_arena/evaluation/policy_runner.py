@@ -68,7 +68,19 @@ def rollout_policy(
     policy: PolicyBase,
     num_steps: int | None,
     num_episodes: int | None,
+    render_cameras_every_step: bool = False,
 ) -> MetricsDataCollection | None:
+    """Run the policy in the environment until the step or episode limit and return its metrics.
+
+    Args:
+        env: The gym-wrapped Arena environment.
+        policy: The policy producing one action per environment each step.
+        num_steps: Number of environment steps to run, exclusive with ``num_episodes``.
+        num_episodes: Number of episodes to finish, exclusive with ``num_steps``.
+        render_cameras_every_step: Render camera observations on every step even when the policy does not
+            read them, as recorders that consume every frame require. By default the environment is asked
+            for new camera frames only on steps where ``policy.needs_new_observation()`` is True.
+    """
     import torch
 
     assert num_steps is not None or num_episodes is not None, "Either num_steps or num_episodes must be provided"
@@ -94,6 +106,8 @@ def rollout_policy(
             with torch.inference_mode(), Timer("step"):
                 with Timer("policy_inference"):
                     actions = policy.get_action(env, obs)
+                if not render_cameras_every_step:
+                    env.unwrapped.request_camera_frames(policy.needs_new_observation())
                 with Timer("env_step"):
                     obs, _, terminated, truncated, _ = env.step(actions)
 
@@ -241,7 +255,13 @@ def main():
 
         steps_str = f"{num_steps} steps" if num_steps is not None else f"{num_episodes} episodes"
         print(f"[Rank {local_rank}/{world_size}] Starting rollout ({steps_str})")
-        metrics = rollout_policy(env, policy, num_steps, num_episodes)
+        metrics = rollout_policy(
+            env,
+            policy,
+            num_steps,
+            num_episodes,
+            render_cameras_every_step=args_cli.record_camera_video or getattr(args_cli, "record_trajectories", False),
+        )
 
         if metrics is not None:
             print(f"[Rank {local_rank}/{world_size}] Metrics: {metrics_to_plain_python_types(metrics)}")

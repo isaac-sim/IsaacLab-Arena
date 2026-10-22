@@ -106,7 +106,7 @@ def test_build_and_run_splits_episode_budget_without_mutating_config(monkeypatch
     monkeypatch.setattr(run_execution, "wrap_env_for_video", lambda env, video_cfg, steps, episodes: env)
     monkeypatch.setattr(run_execution, "close_run_resources", lambda policy, env: None)
 
-    def record_rollout(env, policy, num_steps, num_episodes):
+    def record_rollout(env, policy, num_steps, num_episodes, **kwargs):
         rollout_limits.append((num_steps, num_episodes))
 
     monkeypatch.setattr(run_execution, "rollout_policy", record_rollout)
@@ -168,7 +168,7 @@ def test_build_and_run_resolves_variation_replay_budget(
     monkeypatch.setattr(
         run_execution,
         "rollout_policy",
-        lambda env, policy, num_steps, num_episodes: rollout_limits.append((num_steps, num_episodes)),
+        lambda env, policy, num_steps, num_episodes, **kwargs: rollout_limits.append((num_steps, num_episodes)),
     )
 
     run_execution.build_and_run(run, output_dir=tmp_path)
@@ -211,7 +211,7 @@ def test_build_and_run_assigns_one_replay_file_per_rebuild(
     monkeypatch.setattr(
         run_execution,
         "rollout_policy",
-        lambda env, policy, num_steps, num_episodes: rollout_limits.append((num_steps, num_episodes)),
+        lambda env, policy, num_steps, num_episodes, **kwargs: rollout_limits.append((num_steps, num_episodes)),
     )
 
     run_execution.build_and_run(run, output_dir=tmp_path)

@@ -247,6 +247,15 @@ class DreamZeroRemotePolicy(PolicyBase[DreamZeroRemotePolicyConfig]):
         batch = np.stack(actions)  # (num_envs, action_dim)
         return torch.from_numpy(batch).to(dtype=torch.float32, device=self.device)
 
+    def needs_new_observation(self) -> bool:
+        """Return whether any environment fetches a new action chunk on the next ``get_action`` call."""
+        if self._cached_action_chunks is None:
+            return True
+        return any(
+            chunk is None or next_step >= self.config.open_loop_horizon
+            for chunk, next_step in zip(self._cached_action_chunks, self._next_chunk_steps)
+        )
+
     def reset(self, env_ids: torch.Tensor | None = None) -> None:
         if self._cached_action_chunks is None:
             return

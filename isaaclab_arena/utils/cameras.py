@@ -9,7 +9,6 @@ from contextlib import suppress
 from dataclasses import fields, is_dataclass
 from typing import Any, ClassVar
 
-from isaaclab.envs import mdp
 from isaaclab.envs.common import ViewerCfg
 from isaaclab.managers import ObservationGroupCfg as ObsGroup
 from isaaclab.managers import ObservationTermCfg as ObsTerm
@@ -17,6 +16,7 @@ from isaaclab.managers import SceneEntityCfg
 from isaaclab.sensors import CameraCfg, TiledCameraCfg  # noqa: F401
 
 from isaaclab_arena.assets.asset import Asset
+from isaaclab_arena.terms.observations import camera_image
 from isaaclab_arena.utils.configclass import make_configclass
 from isaaclab_arena.utils.pose import Pose, PosePerEnv, PoseRange
 
@@ -105,8 +105,9 @@ def make_camera_observation_cfg(
         # one ObsTerm per modality
         for dt in dtypes:
             field_name = f"{name}_{dt}"
+            # camera_image renders only on steps where the environment requests a frame.
             term = ObsTerm(
-                func=mdp.image,
+                func=camera_image,
                 params={"sensor_cfg": SceneEntityCfg(name), "data_type": dt, "normalize": normalize},
             )
             # Field name on ObservationsCfg: use the camera name (or add suffix if you like)

@@ -37,6 +37,15 @@ class EmbodimentAdapter(ABC):
     def pack_request(self, extracted: Any, language_instruction: str) -> dict[str, Any]:
         """Build the wire-format request payload the server expects."""
 
+    def hold_action(self, extracted: Any) -> np.ndarray:
+        """Return the ``(action_dim,)`` action that keeps the robot where ``extracted`` observed it.
+
+        Used for environments that wait for the next synchronized chunk fetch. Adapters whose action
+        space cannot express "stay in place" leave this unimplemented and must run with
+        ``sync_chunk_fetches`` disabled.
+        """
+        raise NotImplementedError(f"{type(self).__name__} does not provide a hold action")
+
 
 class RemoteChunkReplayPolicy:
     """Mixin implementing openpi-protocol closed-loop control, parameterized by an embodiment adapter.
@@ -44,6 +53,12 @@ class RemoteChunkReplayPolicy:
     Action handling is chunk replay: fetch one ``(chunk, action_dim)`` prediction
     per env, keep the first ``open_loop_horizon`` actions, and yield them in order before
     refetching.
+
+    With ``sync_chunk_fetches`` (the config default) every environment fetches on the same step: an
+    environment whose chunk was cleared by a mid-cycle reset holds its current pose (the adapter's
+    ``hold_action``) until the next shared fetch, at most ``open_loop_horizon - 1`` steps. Keeping the
+    fetches aligned means camera frames are needed on only one step per horizon however many
+    environments run. Without it each environment refetches as soon as its own chunk runs out.
 
     Concrete policies inherit (RemoteChunkReplayPolicy, PolicyBase[ConcreteCfg]).
     The PolicyBase[ConcreteCfg] is the concrete config class for the policy, parameterized
@@ -64,6 +79,7 @@ class RemoteChunkReplayPolicy:
         )
         self._adapter = adapter
         self._open_loop_horizon = open_loop_horizon
+        self._sync_chunk_fetches: bool = getattr(config, "sync_chunk_fetches", True)
         self.device = config.policy_device
 
         self._remote_host = config.remote_host
@@ -88,6 +104,8 @@ class RemoteChunkReplayPolicy:
         # counter per env and loop over them.
         self._cached_action_chunks: list[np.ndarray | None] | None = None
         self._next_chunk_steps: list[int] | None = None
+        # Steps since the last synchronized fetch; starts exhausted so the first call fetches.
+        self._steps_since_sync_fetch: int = open_loop_horizon
         self.task_description: str | None = None
 
     def get_action(self, env: gym.Env, observation: dict[str, Any]) -> torch.Tensor:
@@ -99,21 +117,60 @@ class RemoteChunkReplayPolicy:
         num_envs = env.unwrapped.num_envs
         self._maybe_init_per_env_state(num_envs)
 
-        actions = []
-        for env_id in range(num_envs):
-            chunk_exhausted = (
-                self._cached_action_chunks[env_id] is None or self._next_chunk_steps[env_id] >= self._open_loop_horizon
-            )
-            if chunk_exhausted:
-                self._cached_action_chunks[env_id] = self._fetch_action_chunk(observation, env_id)
-                self._next_chunk_steps[env_id] = 0
-            actions.append(self._cached_action_chunks[env_id][self._next_chunk_steps[env_id]])
-            self._next_chunk_steps[env_id] += 1
+        if self._sync_chunk_fetches:
+            actions = self._synchronized_actions(observation, num_envs)
+        else:
+            actions = self._per_env_actions(observation, num_envs)
 
         batch = np.stack(actions)  # (num_envs, action_dim)
         return torch.from_numpy(batch).to(dtype=torch.float32, device=self.device)
 
+    def _per_env_actions(self, observation: dict[str, Any], num_envs: int) -> list[np.ndarray]:
+        """Replay each environment's chunk, refetching for an environment as soon as its chunk runs out."""
+        actions = []
+        for env_id in range(num_envs):
+            if self._chunk_exhausted(env_id):
+                self._cached_action_chunks[env_id] = self._fetch_action_chunk(observation, env_id)
+                self._next_chunk_steps[env_id] = 0
+            actions.append(self._cached_action_chunks[env_id][self._next_chunk_steps[env_id]])
+            self._next_chunk_steps[env_id] += 1
+        return actions
+
+    def _synchronized_actions(self, observation: dict[str, Any], num_envs: int) -> list[np.ndarray]:
+        """Fetch for every environment on the same step and hold environments reset in between."""
+        if self._steps_since_sync_fetch >= self._open_loop_horizon:
+            for env_id in range(num_envs):
+                self._cached_action_chunks[env_id] = self._fetch_action_chunk(observation, env_id)
+                self._next_chunk_steps[env_id] = 0
+            self._steps_since_sync_fetch = 0
+        actions = []
+        for env_id in range(num_envs):
+            chunk = self._cached_action_chunks[env_id]
+            if chunk is None:
+                # Reset since the last shared fetch: hold the current pose until the next one.
+                hold = self._adapter.hold_action(self._adapter.extract(observation, env_id))
+                actions.append(np.asarray(hold, dtype=np.float32))
+                continue
+            actions.append(chunk[self._next_chunk_steps[env_id]])
+            self._next_chunk_steps[env_id] += 1
+        self._steps_since_sync_fetch += 1
+        return actions
+
+    def _chunk_exhausted(self, env_id: int) -> bool:
+        return self._cached_action_chunks[env_id] is None or self._next_chunk_steps[env_id] >= self._open_loop_horizon
+
+    def needs_new_observation(self) -> bool:
+        """Return whether any environment fetches a new action chunk on the next ``get_action`` call."""
+        if self._cached_action_chunks is None:
+            return True
+        if self._sync_chunk_fetches:
+            return self._steps_since_sync_fetch >= self._open_loop_horizon
+        return any(self._chunk_exhausted(env_id) for env_id in range(len(self._cached_action_chunks)))
+
     def reset(self, env_ids: torch.Tensor | None = None) -> None:
+        if env_ids is None:
+            # A full reset starts a new rollout: the next call fetches for every environment.
+            self._steps_since_sync_fetch = self._open_loop_horizon
         if self._cached_action_chunks is None:
             return  # not yet initialized; nothing to clear
         ids = range(len(self._cached_action_chunks)) if env_ids is None else env_ids.reshape(-1).tolist()

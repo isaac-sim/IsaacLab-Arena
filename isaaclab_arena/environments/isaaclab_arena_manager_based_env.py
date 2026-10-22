@@ -66,6 +66,12 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
         self._completed_episode_count = 0
         self._active_episode_mask = torch.zeros(cfg.scene.num_envs, dtype=torch.bool, device=cfg.sim.device)
         self._reset_env_ids = torch.empty(0, dtype=torch.long, device=cfg.sim.device)
+        self.camera_frames_requested: bool = True
+        """Whether camera observation terms render a new frame during the next step.
+
+        Reset to True after every step and forced to True on any step that starts an episode, so only a
+        caller that opts out right before ``step()`` skips rendering.
+        """
         super().__init__(cfg=cfg, render_mode=render_mode, **kwargs)
 
     @property
@@ -183,11 +189,22 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
         self._reset_env_ids = self._reset_env_ids[:0]
         return super().reset(seed=seed, env_ids=env_ids, options=options)
 
+    def request_camera_frames(self, requested: bool) -> None:
+        """Select whether camera observations rendered by the next ``step()`` are fresh or the previous frames.
+
+        Policies that replay an action chunk do not look at camera images on most steps; passing False for
+        those steps skips the render. Episode starts always render regardless of this request.
+        """
+        self.camera_frames_requested = requested
+
     def step(self, action: torch.Tensor) -> VecEnvStepReturn:
         """Step all environments and report completions only for assigned episodes."""
         active_before_step = self._active_episode_mask.clone()
         self._reset_env_ids = self._reset_env_ids[:0]
-        observations, rewards, terminated, truncated, extras = super().step(action)
+        try:
+            observations, rewards, terminated, truncated, extras = super().step(action)
+        finally:
+            self.camera_frames_requested = True
         # Report an episode's completion even if its environment became inactive during this step.
         return observations, rewards, terminated & active_before_step, truncated & active_before_step, extras
 
@@ -224,6 +241,8 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
         self._started_episode_count += len(episode_start_env_ids)
         self._active_episode_mask[episode_start_env_ids] = True
         self._reset_env_ids = torch.cat((self._reset_env_ids, episode_start_env_ids))
+        # A starting episode must observe its own initial state, not a frame from the previous episode.
+        self.camera_frames_requested = True
         super()._reset_idx(episode_start_env_ids)
         # Keep the global step marker: queries after a partial reset must not advance
         # the surviving episodes a second time during the same control step.

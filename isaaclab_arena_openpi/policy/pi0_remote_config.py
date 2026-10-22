@@ -26,6 +26,13 @@ class Pi0RemotePolicyCfg(PolicyCfg):
     remote_host: str = "localhost"
     remote_port: int = 8000
 
+    sync_chunk_fetches: bool = True
+    """Fetch action chunks for every environment on the same step, holding environments reset in between.
+
+    Keeps camera rendering to one step per open-loop horizon regardless of environment count. A reset
+    environment holds its pose for at most open_loop_horizon - 1 steps before its first new action.
+    """
+
     ping_interval: float | None = 20.0
     """Seconds between websocket keepalive pings, or None to disable pings."""
 

@@ -36,6 +36,13 @@ class CosmosRemotePolicyCfg(PolicyCfg):
     Note(alexmillane, 2026-07-31): that COSMOS accepts both 32 and 16 step chunks.
     I empirically observed better behavior with 16 steps, so I've set it at that."""
 
+    sync_chunk_fetches: bool = True
+    """Fetch action chunks for every environment on the same step, holding environments reset in between.
+
+    Keeps camera rendering to one step per open-loop horizon regardless of environment count. A reset
+    environment holds its pose for at most open_loop_horizon - 1 steps before its first new action.
+    """
+
     ping_interval: float | None = 20.0
     """Seconds between websocket keepalive pings, or None to disable pings."""
 

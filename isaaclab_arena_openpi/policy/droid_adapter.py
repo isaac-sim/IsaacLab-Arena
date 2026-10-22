@@ -60,6 +60,11 @@ class Pi0DroidAdapter(Pi0EmbodimentAdapter):
             gripper_position=proprio["gripper_pos"][env_id].detach().cpu().numpy(),
         )
 
+    def hold_action(self, extracted: DroidObservation) -> np.ndarray:
+        """Return the absolute joint-position action that keeps the arm and gripper where they are."""
+        # The gripper observation is 0 (open) to 1 (closed), the same scale as the gripper command.
+        return np.concatenate([extracted.joint_position, extracted.gripper_position]).astype(np.float32)
+
     def pack_request(self, extracted: DroidObservation, language_instruction: str) -> dict[str, Any]:
         target_height, target_width = self.target_image_size
         return {

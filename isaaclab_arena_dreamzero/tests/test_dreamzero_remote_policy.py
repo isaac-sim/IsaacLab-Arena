@@ -443,6 +443,26 @@ def test_get_action_advances_chunk_index(make_policy):
     assert second[0, -1].item() == pytest.approx(0.22)
 
 
+def test_needs_new_observation_only_when_a_chunk_is_exhausted(make_policy):
+    """Report an observation need before the first fetch, once the horizon is used up, and after a reset."""
+    policy = make_policy(open_loop_horizon=3)
+    env = _fake_env(num_envs=1)
+    obs = _fake_observation(num_envs=1)
+
+    assert policy.needs_new_observation()
+    policy.get_action(env, obs)
+    assert not policy.needs_new_observation()
+    policy.get_action(env, obs)
+    assert not policy.needs_new_observation()
+    policy.get_action(env, obs)
+    assert policy.needs_new_observation()
+
+    policy.get_action(env, obs)
+    assert not policy.needs_new_observation()
+    policy.reset()
+    assert policy.needs_new_observation()
+
+
 def test_get_action_refetches_when_chunk_exhausted(monkeypatch):
     """Server is queried exactly twice when the chunk is exhausted after open_loop_horizon steps."""
     call_count = {"n": 0}

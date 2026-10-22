@@ -80,6 +80,23 @@ The typed registration lets the single-job runner generate CLI flags from
 Config fields named ``device`` or ``num_envs`` reuse the corresponding shared
 runner flags, so their defaults must match the runner defaults.
 
+Camera-aware policies
+---------------------
+
+The optional ``PolicyBase`` hook ``needs_new_observation()`` lets Arena skip
+rendering work that an image policy never uses. It returns whether the next
+``get_action`` call reads its observation. Policies that replay a cached action
+chunk return ``False`` while every environment still has actions left, and the
+rollout then asks the environment to skip camera rendering for that step. The
+default returns ``True``. Episode starts always render regardless of the hook.
+
+The skip only pays off while every environment fetches its chunk on the same
+step. The openpi and Cosmos remote policies keep fetches aligned by default
+(``sync_chunk_fetches``): an environment reset in the middle of a chunk holds
+its current pose for at most ``open_loop_horizon - 1`` steps and joins the next
+shared fetch. GR00T offers the same behavior through its ``synced_batch``
+action scheduler.
+
 .. note::
 
    ``policy_runner.py`` remains an argparse frontend, but policies do not

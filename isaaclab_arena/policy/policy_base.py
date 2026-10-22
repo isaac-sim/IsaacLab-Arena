@@ -47,6 +47,14 @@ class PolicyBase(ABC, Generic[PolicyCfgT]):
         """
         pass
 
+    def needs_new_observation(self) -> bool:
+        """Return whether the next ``get_action`` call reads its observation, so the environment must refresh it.
+
+        Policies that replay a cached action chunk return False on steps where every environment still has
+        actions left, letting the environment skip camera rendering for that step. The default is True.
+        """
+        return True
+
     def close(self) -> None:
         """Release resources held by the policy."""
         pass
