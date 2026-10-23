@@ -11,7 +11,6 @@ Launch via gui_runner (see that module for CLI usage).
 from __future__ import annotations
 
 import argparse
-import json
 from pathlib import Path
 
 import streamlit as st
@@ -70,16 +69,6 @@ def initialize_state(yaml_path: Path | None, out_dir: Path) -> None:
     st.session_state.pop("_validation_text", None)
     st.session_state.pop("_validation_result", None)
     st.session_state.pop("simready_asset_report", None)
-    if yaml_path is not None:
-        report_path = yaml_path.with_suffix(".assets.json")
-        if report_path.is_file():
-            try:
-                report = json.loads(report_path.read_text(encoding="utf-8"))
-                if isinstance(report, list) and all(isinstance(row, dict) for row in report):
-                    st.session_state["simready_asset_report"] = report
-            except (OSError, ValueError) as exc:
-                st.warning(f"Could not load asset report: {exc}")
-
     if yaml_path is None:
         st.session_state["original_text"] = ""
         st.session_state["edited_text"] = ""

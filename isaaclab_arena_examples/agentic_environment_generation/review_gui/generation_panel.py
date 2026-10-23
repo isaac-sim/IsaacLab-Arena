@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-import json
 import os
 import traceback
 import yaml
@@ -375,9 +374,3 @@ def render_generation_panel() -> None:
     if asset_report:
         with st.expander("Returned SimReady assets", expanded=True):
             st.dataframe(asset_report, hide_index=True, width="stretch")
-            st.download_button(
-                "Download asset report",
-                data=json.dumps(asset_report, indent=2),
-                file_name="simready_assets.json",
-                mime="application/json",
-            )

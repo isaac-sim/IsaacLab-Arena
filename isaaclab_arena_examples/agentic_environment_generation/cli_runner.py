@@ -221,10 +221,6 @@ def resolve_env_spec(args_cli: argparse.Namespace) -> Path | None:
     )
     path = write_env_graph_spec(env_graph_spec, args_cli.out_dir)
     print(f"[runner] wrote environment graph spec → {path}", flush=True)
-    if args_cli.enable_simready_search:
-        asset_report_path = path.with_suffix(".assets.json")
-        asset_report_path.write_text(json.dumps(asset_report, indent=2) + "\n", encoding="utf-8")
-        print(f"[runner] wrote SimReady asset report → {asset_report_path}", flush=True)
     return path
 
 
