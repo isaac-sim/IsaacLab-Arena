@@ -23,6 +23,7 @@ from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.usd.helpers import has_light, open_stage
 from isaaclab_arena.utils.usd.rigid_bodies import read_asset_rigid_body_paths
+from isaaclab_arena.variations.object_friction_variation import ObjectFrictionVariation
 
 
 class Object(RootedObjectBase):
@@ -74,6 +75,8 @@ class Object(RootedObjectBase):
         object_cfg.spawn, or replacing it, gives a new key and new geometry. Physics or appearance edits
         keep the cached entry."""
         self.object_cfg = self._init_object_cfg()
+        if object_type in (ObjectType.RIGID, ObjectType.BASE) and hasattr(self.object_cfg.spawn, "physics_material"):
+            self.add_variation(ObjectFrictionVariation(self))
         self._pose_event_cfg = self._build_reset_event()
 
     def get_bounding_box(self) -> AxisAlignedBoundingBox:
