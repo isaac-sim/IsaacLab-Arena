@@ -7,134 +7,28 @@ from __future__ import annotations
 
 import argparse
 import os
-import tqdm
-from importlib import import_module
-from typing import TYPE_CHECKING
 
-from isaaclab_arena.assets.registries import PolicyRegistry
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
+from isaaclab_arena.evaluation.arena_experiment_config_loader import resolve_policy_type_from_name_or_class_path
 from isaaclab_arena.evaluation.policy_runner_cli import (
     add_policy_cli_args,
     add_policy_runner_arguments,
     build_policy_from_cli,
 )
+from isaaclab_arena.evaluation.rollout import rollout_policy
 from isaaclab_arena.metrics.metrics_logger import metrics_to_plain_python_types
 from isaaclab_arena.utils.hydra_overrides import assert_hydra_overrides
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
 from isaaclab_arena.utils.multiprocess import get_local_rank, get_world_size
-from isaaclab_arena.utils.timer import Timer
 from isaaclab_arena.video.video_recording import VideoRecordingCfg, timestamped_run_dir, wrap_env_for_video
 from isaaclab_arena.visualization.report import build_report, serve_until_ctrl_c
 from isaaclab_arena_environments.cli import get_arena_builder_from_cli, get_isaaclab_arena_environments_cli_parser
-
-if TYPE_CHECKING:
-    from isaaclab_arena.metrics.metric_data import MetricsDataCollection
-    from isaaclab_arena.policy.policy_base import PolicyBase
-
-
-def get_policy_cls(policy_type: str) -> type[PolicyBase]:
-    """Get the policy class for the given policy type name.
-
-    Note that this function:
-    - first: checks for a registered policy type in the PolicyRegistry
-    - if not found, it tries to dynamically import the policy class, treating
-      the policy_type argument as a string representing the module path and class name.
-
-    """
-    policy_registry = PolicyRegistry()
-    if policy_registry.is_registered(policy_type):
-        return policy_registry.get_policy(policy_type)
-    else:
-        print(f"Policy {policy_type} is not registered. Dynamically importing from path: {policy_type}")
-        assert "." in policy_type, (
-            "policy_type must be a dotted Python import path of the form 'module.submodule.ClassName', got:"
-            f" {policy_type}"
-        )
-        # Dynamically import the class from the string path
-        module_path, class_name = policy_type.rsplit(".", 1)
-        module = import_module(module_path)
-        policy_cls = getattr(module, class_name)
-        return policy_cls
 
 
 def is_distributed(args_cli: argparse.Namespace) -> bool:
     return (
         "cuda" in args_cli.device and hasattr(args_cli, "distributed") and args_cli.distributed and get_world_size() > 1
     )
-
-
-def rollout_policy(
-    env,
-    policy: PolicyBase,
-    num_steps: int | None,
-    num_episodes: int | None,
-) -> MetricsDataCollection | None:
-    import torch
-
-    assert num_steps is not None or num_episodes is not None, "Either num_steps or num_episodes must be provided"
-    assert num_steps is None or num_episodes is None, "Only one of num_steps or num_episodes must be provided"
-
-    pbar = None
-    try:
-        if num_episodes is not None:
-            env.unwrapped.configure_episode_limit(num_episodes)
-        obs, _ = env.reset()
-        policy.reset()
-        policy.set_task_description(env.unwrapped.get_language_instruction())
-
-        # Setup progress bar based on num_steps or num_episodes
-        if num_steps is not None:
-            pbar = tqdm.tqdm(total=num_steps, desc="Steps", unit="step")
-        else:
-            pbar = tqdm.tqdm(total=num_episodes, desc="Episodes", unit="episode")
-
-        num_steps_completed = 0
-
-        while True:
-            with torch.inference_mode(), Timer("step"):
-                with Timer("policy_inference"):
-                    actions = policy.get_action(env, obs)
-                with Timer("env_step"):
-                    obs, _, terminated, truncated, _ = env.step(actions)
-
-                reset_env_ids = env.unwrapped.reset_env_ids
-                if reset_env_ids.numel() > 0:
-                    print(f"Resetting policy state for env_ids: {reset_env_ids}")
-                    policy.reset(env_ids=reset_env_ids)
-
-                if terminated.any() or truncated.any():
-                    if hasattr(env.unwrapped.cfg, "metrics") and env.unwrapped.cfg.metrics is not None:
-                        metrics = env.unwrapped.compute_metrics()
-                        tqdm.tqdm.write(
-                            f"[Rank {get_local_rank()}/{get_world_size()}] Metrics:"
-                            f" {metrics_to_plain_python_types(metrics)}"
-                        )
-                if num_episodes is not None:
-                    completed_episode_count = env.unwrapped.completed_episode_count
-                    pbar.update(completed_episode_count - pbar.n)
-                    if completed_episode_count == num_episodes:
-                        break
-                # Break if number of steps is reached
-                num_steps_completed += 1
-                if num_steps is not None:
-                    pbar.update(1)
-                    if num_steps_completed >= num_steps:
-                        break
-
-        pbar.close()
-
-    except Exception as e:
-        if pbar is not None:
-            pbar.close()
-        raise RuntimeError(f"Error rolling out policy: {e}")
-
-    else:
-
-        # Only compute metrics if env has non-None metrics.
-        # Use unwrapped to reach the base env through any gym wrappers (e.g. OrderEnforcing)
-        if hasattr(env.unwrapped.cfg, "metrics") and env.unwrapped.cfg.metrics is not None:
-            return env.unwrapped.compute_metrics()
-        return None
 
 
 def list_variations(args_parser: argparse.ArgumentParser) -> None:
@@ -178,7 +72,7 @@ def main():
 
         # Get the policy class from the policy type
         assert args_cli.policy_type is not None, "--policy_type is required."
-        policy_cls = get_policy_cls(args_cli.policy_type)
+        policy_cls = resolve_policy_type_from_name_or_class_path(args_cli.policy_type)
         print(
             f"[Rank {local_rank}/{world_size}] Requested policy type: {args_cli.policy_type} -> Policy class:"
             f" {policy_cls}"
