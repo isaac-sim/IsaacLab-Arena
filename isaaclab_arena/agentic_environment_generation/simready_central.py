@@ -51,7 +51,7 @@ def search_central_objects(phrase: str, *, max_results: int) -> list[SimReadyObj
             ]
             if not counts or any(float(count) != 1 for count in counts):
                 continue
-            usd_path = _prepare_central_asset(source["path"])
+            usd_path = _download_and_wrap_central_asset(source["path"])
             candidates.append(
                 SimReadyObjectCandidate(
                     search_phrase=phrase,
@@ -69,7 +69,7 @@ def search_central_objects(phrase: str, *, max_results: int) -> list[SimReadyObj
     return candidates
 
 
-def _central_asset_location(url: str) -> tuple[str, str, str, str]:
+def _parse_central_asset_url(url: str) -> tuple[str, str, str, str]:
     """Parse a revision-pinned Central dataset URL and its asset package folder."""
     match = re.fullmatch(
         r"(?:hf|https)://huggingface\.co/datasets/([^/]+/[^/]+)/(?:resolve|blob)/([0-9a-f]{40})/(.+)", url
@@ -88,24 +88,24 @@ def _central_asset_location(url: str) -> tuple[str, str, str, str]:
     return repo_id, revision, filename, str(folder)
 
 
-def _download_central_asset_to_cache(url: str) -> str:
+def _download_central_asset_package_to_cache(url: str) -> str:
     """Download the pinned asset package and return its cached USD entrypoint."""
     from huggingface_hub import snapshot_download
 
-    repo_id, revision, filename, folder = _central_asset_location(url)
+    repo_id, revision, filename, folder = _parse_central_asset_url(url)
     snapshot = snapshot_download(
         repo_id=repo_id, repo_type="dataset", revision=revision, allow_patterns=[f"{folder}/*"]
     )
     return str(Path(snapshot) / filename)
 
 
-def _prepare_central_asset(url: str) -> str:
-    """Write a validated PhysX reference wrapper for a cached Central asset."""
+def _download_and_wrap_central_asset(url: str) -> str:
+    """Download a Central package, validate its rigid body, and write a cached PhysX USD wrapper."""
     from pxr import Usd, UsdGeom, UsdPhysics
 
     from isaaclab_arena.utils.usd.rigid_bodies import apply_usd_variant_selections
 
-    asset_path = _download_central_asset_to_cache(url)
+    asset_path = _download_central_asset_package_to_cache(url)
     asset_stage = Usd.Stage.Open(asset_path)
     assert asset_stage and asset_stage.GetDefaultPrim(), "asset requires a default prim"
     stage = Usd.Stage.CreateInMemory()

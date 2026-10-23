@@ -47,9 +47,9 @@ class SimReadyUsdObject(Object):
     ):
         assert usd_path, "simready_usd_object requires params.usd_path"
         if usd_path.startswith(("https://huggingface.co/datasets/", "hf://huggingface.co/datasets/")):
-            from isaaclab_arena.agentic_environment_generation.simready_central import _prepare_central_asset
+            from isaaclab_arena.agentic_environment_generation.simready_central import _download_and_wrap_central_asset
 
-            usd_path = _prepare_central_asset(usd_path)
+            usd_path = _download_and_wrap_central_asset(usd_path)
         spawn_cfg_addon = dict(kwargs.pop("spawn_cfg_addon", None) or {})
         spawn_cfg_addon.setdefault("variants", dict(SIMREADY_PHYSICS_VARIANTS))
         super().__init__(

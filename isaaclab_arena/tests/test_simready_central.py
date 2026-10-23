@@ -15,7 +15,7 @@ from isaaclab_arena.agentic_environment_generation.simready_asset_search import 
     search_simready_objects,
 )
 from isaaclab_arena.agentic_environment_generation.simready_central import (
-    _central_asset_location,
+    _parse_central_asset_url,
     search_central_objects,
 )
 
@@ -35,7 +35,7 @@ def test_central_requires_single_body_metadata_and_skips_invalid_usd():
     with (
         patch(f"{MODULE}.requests.post", return_value=response) as post,
         patch(
-            f"{MODULE}._prepare_central_asset", side_effect=[ValueError("articulation"), "/cache/pallet.usda"]
+            f"{MODULE}._download_and_wrap_central_asset", side_effect=[ValueError("articulation"), "/cache/pallet.usda"]
         ) as prepare,
     ):
         candidates = search_central_objects("pallet", max_results=1)
@@ -53,7 +53,7 @@ def test_central_failure_leaves_phrase_unmatched():
 
 
 def test_central_package_location_preserves_revision_and_folder():
-    assert _central_asset_location(URL) == (
+    assert _parse_central_asset_url(URL) == (
         "nvidia/simready-assets",
         REVISION,
         "pallet/simready_usd/pallet.usd",
@@ -71,7 +71,7 @@ def test_central_package_location_preserves_revision_and_folder():
 )
 def test_central_rejects_unpinned_or_unbounded_packages(url):
     with pytest.raises(AssertionError):
-        _central_asset_location(url)
+        _parse_central_asset_url(url)
 
 
 def _test_central_usd_validation(simulation_app):
@@ -80,7 +80,7 @@ def _test_central_usd_validation(simulation_app):
 
     from pxr import Usd, UsdGeom, UsdPhysics
 
-    from isaaclab_arena.agentic_environment_generation.simready_central import _prepare_central_asset
+    from isaaclab_arena.agentic_environment_generation.simready_central import _download_and_wrap_central_asset
 
     with tempfile.TemporaryDirectory() as directory:
         folder = Path(directory)
@@ -96,22 +96,22 @@ def _test_central_usd_validation(simulation_app):
             patch("huggingface_hub.snapshot_download", return_value=directory),
             patch(f"{MODULE}.Path.home", return_value=folder),
         ):
-            wrapper = _prepare_central_asset(URL)
+            wrapper = _download_and_wrap_central_asset(URL)
             assert Usd.Stage.Open(wrapper).GetDefaultPrim().HasAPI(UsdPhysics.RigidBodyAPI)
             body.GetRigidBodyEnabledAttr().Set(False)
             stage.GetRootLayer().Save()
             with pytest.raises(AssertionError, match="disabled"):
-                _prepare_central_asset(URL)
+                _download_and_wrap_central_asset(URL)
             body.GetRigidBodyEnabledAttr().Set(True)
             UsdPhysics.ArticulationRootAPI.Apply(root)
             stage.GetRootLayer().Save()
             with pytest.raises(AssertionError, match="articulation root"):
-                _prepare_central_asset(URL)
+                _download_and_wrap_central_asset(URL)
             root.RemoveAPI(UsdPhysics.ArticulationRootAPI)
             UsdPhysics.RigidBodyAPI.Apply(UsdGeom.Xform.Define(stage, "/Pallet/Other").GetPrim())
             stage.GetRootLayer().Save()
             with pytest.raises(AssertionError, match="found 2"):
-                _prepare_central_asset(URL)
+                _download_and_wrap_central_asset(URL)
     return True
 
 

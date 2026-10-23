@@ -117,7 +117,7 @@ def _search_simready_source(
     library = (
         None
         if source == SimReadySourceKind.CENTRAL
-        else _configure_asset_library(source, s3_url=config.s3_url, service_url=config.service_url)
+        else _create_asset_library_for_source(source, s3_url=config.s3_url, service_url=config.service_url)
     )
     if library is None and source != SimReadySourceKind.CENTRAL:
         return SimReadyCandidateCatalogue()
@@ -132,7 +132,7 @@ def _search_simready_source(
                 hits = search_central_objects(phrase, max_results=config.max_results_per_object)
             else:
                 # Query the configured asset library through the simready-search API.
-                hits = _search_phrase(library, phrase, max_results=config.max_results_per_object)
+                hits = _search_library_rigid_body_candidates(library, phrase, max_results=config.max_results_per_object)
         except Exception as exc:
             _logger.warning("simready search failed for %r: %s", phrase, exc)
             hits = []
@@ -164,7 +164,7 @@ _CAMEL_CASE_BOUNDARY = re.compile(r"(?<=[a-z0-9])(?=[A-Z])")
 _NON_ALPHANUMERIC = re.compile(r"[^a-z0-9]+")
 
 
-def _configure_asset_library(source: SimReadySourceKind, *, s3_url: str, service_url: str) -> Any | None:
+def _create_asset_library_for_source(source: SimReadySourceKind, *, s3_url: str, service_url: str) -> Any | None:
     """Build the SimReady asset library for the configured source, or None if the source is unknown."""
     if source not in tuple(SimReadySourceKind):
         _logger.error("unknown simready source: %s", source)
@@ -182,8 +182,11 @@ def _configure_asset_library(source: SimReadySourceKind, *, s3_url: str, service
     return library
 
 
-def _search_phrase(library: AssetLibrary, phrase: str, *, max_results: int) -> list[SimReadyObjectCandidate]:
-    matches = _keep_whole_word_matches(library.search(include_any=_phrase_path_filters(phrase)), phrase)
+def _search_library_rigid_body_candidates(
+    library: AssetLibrary, phrase: str, *, max_results: int
+) -> list[SimReadyObjectCandidate]:
+    """Search the library by phrase and retain ranked assets with exactly one rigid body."""
+    matches = _filter_and_rank_path_matches(library.search(include_any=_build_path_filters_from_phrase(phrase)), phrase)
 
     # Inspect a few more hits than are wanted back, so a rejected one can be replaced rather than
     # costing the phrase a result. Past that, give up and let the agent fall back to the Arena
@@ -195,7 +198,7 @@ def _search_phrase(library: AssetLibrary, phrase: str, *, max_results: int) -> l
     candidates: list[SimReadyObjectCandidate] = []
     for match in ranked:
         usd_path = str(match.asset_path)
-        is_valid, rejection_reason = _is_valid_isaaclab_rigidbody(usd_path)
+        is_valid, rejection_reason = _has_single_rigid_body(usd_path)
         if is_valid:
             candidates.append(_build_simready_object_candidate_from_match(match, phrase))
             if len(candidates) >= max_results:
@@ -205,38 +208,42 @@ def _search_phrase(library: AssetLibrary, phrase: str, *, max_results: int) -> l
     return candidates
 
 
-def _phrase_path_filters(phrase: str) -> list[Any]:
+def _build_path_filters_from_phrase(phrase: str) -> list[Any]:
     """Build one path filter per word of the phrase, so a hit only has to match one word."""
     from simready.search import SearchFilterPathContains
 
-    return [SearchFilterPathContains(word) for word in _phrase_words(phrase)]
+    return [SearchFilterPathContains(word) for word in _split_phrase_into_words(phrase)]
 
 
-def _keep_whole_word_matches(matches: list[Any], phrase: str) -> list[Any]:
+def _filter_and_rank_path_matches(matches: list[Any], phrase: str) -> list[Any]:
     """Keep only the hits named after the object being asked for, best match first."""
-    words = _phrase_words(phrase)
+    words = _split_phrase_into_words(phrase)
     assert words, "a search phrase needs at least one word"
     object_word = words[-1]
-    kept = [match for match in matches if _is_word_in_path(object_word, _split_path_into_words(str(match.asset_path)))]
+    kept = [
+        match
+        for match in matches
+        if _path_words_match_singular_or_plural(object_word, _split_path_into_words(str(match.asset_path)))
+    ]
     # The sort is stable, so hits that tie on both counts keep the order the search gave them.
     kept.sort(
         key=lambda match: (
             getattr(match, "relevance_score", None) or 0.0,
-            _count_matching_words(phrase, str(match.asset_path)),
+            _count_phrase_words_in_path(phrase, str(match.asset_path)),
         ),
         reverse=True,
     )
     return kept
 
 
-def _is_valid_isaaclab_rigidbody(usd_path: str) -> tuple[bool, str]:
-    """Say whether a SimReady asset can be spawned as an Isaac Lab rigid object.
+def _has_single_rigid_body(usd_path: str) -> tuple[bool, str]:
+    """Check that a readable USD contains exactly one rigid body with the SimReady variants selected.
 
     Args:
         usd_path: The asset to look at, local or remote.
 
     Returns:
-        Whether the asset is usable, and a phrase naming the problem when it is not, such as
+        Whether exactly one rigid body was found, and a reason when the check fails, such as
         "it has no rigid body". The phrase is empty when the asset is usable.
     """
     try:
@@ -255,12 +262,12 @@ def _build_simready_object_candidate_from_match(match: Any, phrase: str) -> SimR
     return SimReadyObjectCandidate(
         search_phrase=phrase,
         usd_path=str(match.asset_path),
-        tags=tuple(dict.fromkeys(("sim-ready", *_phrase_words(phrase)))),
+        tags=tuple(dict.fromkeys(("sim-ready", *_split_phrase_into_words(phrase)))),
         relevance_score=getattr(match, "relevance_score", None),
     )
 
 
-def _phrase_words(phrase: str) -> list[str]:
+def _split_phrase_into_words(phrase: str) -> list[str]:
     """Split a search phrase into its lowercase words, in order."""
     return [word for word in _NON_ALPHANUMERIC.split(phrase.lower()) if word]
 
@@ -272,14 +279,14 @@ def _split_path_into_words(asset_path: str) -> frozenset[str]:
     return frozenset(word for word in _NON_ALPHANUMERIC.split(spaced.lower()) if word)
 
 
-def _is_word_in_path(word: str, path_words: frozenset[str]) -> bool:
+def _path_words_match_singular_or_plural(word: str, path_words: frozenset[str]) -> bool:
     """True if the word is one of the path words. A trailing "s" on either side is ignored."""
     if word in path_words or f"{word}s" in path_words:
         return True
     return word.endswith("s") and word[:-1] in path_words
 
 
-def _count_matching_words(phrase: str, asset_path: str) -> int:
+def _count_phrase_words_in_path(phrase: str, asset_path: str) -> int:
     """Count how many words of the phrase appear as whole words in the asset path."""
     path_words = _split_path_into_words(asset_path)
-    return sum(1 for word in _phrase_words(phrase) if _is_word_in_path(word, path_words))
+    return sum(1 for word in _split_phrase_into_words(phrase) if _path_words_match_singular_or_plural(word, path_words))
