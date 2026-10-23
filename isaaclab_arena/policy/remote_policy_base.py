@@ -14,6 +14,7 @@ from typing import Any
 import websockets.exceptions
 from openpi_client import websocket_client_policy
 
+from isaaclab_arena.policy.camera_requirement import CameraRequirement
 from isaaclab_arena.policy.policy_base import PolicyCfg
 from isaaclab_arena.policy.websocket_client import WebsocketClientPolicy
 
@@ -28,6 +29,9 @@ class EmbodimentAdapter(ABC):
     """
 
     action_dim: int
+
+    camera_requirements: dict[str, CameraRequirement] | None = None
+    """Image size the server consumes per Arena camera name, or None for no preference."""
 
     @abstractmethod
     def extract(self, observation: dict[str, Any], env_id: int) -> Any:
@@ -89,6 +93,10 @@ class RemoteChunkReplayPolicy:
         self._cached_action_chunks: list[np.ndarray | None] | None = None
         self._next_chunk_steps: list[int] | None = None
         self.task_description: str | None = None
+
+    def get_camera_requirements(self) -> dict[str, CameraRequirement] | None:
+        """Return the embodiment adapter's per-camera image sizes."""
+        return self._adapter.camera_requirements
 
     def get_action(self, env: gym.Env, observation: dict[str, Any]) -> torch.Tensor:
         assert self.task_description, (

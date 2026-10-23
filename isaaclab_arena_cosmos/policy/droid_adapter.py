@@ -13,6 +13,7 @@ from typing import Any
 
 from openpi_client import image_tools
 
+from isaaclab_arena.policy.camera_requirement import CameraRequirement
 from isaaclab_arena.policy.remote_policy_base import EmbodimentAdapter
 
 
@@ -38,6 +39,14 @@ class CosmosDroidAdapter(EmbodimentAdapter):
     # Reference to robolab client: https://github.com/NVlabs/RoboLab/blob/main/policies/cosmos3/client.py
     IMAGE_H = 360
     IMAGE_W = 640
+
+    # Every view is first resized to the tile size, so render all three at the tile size. The exterior
+    # views are halved afterwards, but rendering them smaller would add an upsample-then-downsample pass.
+    camera_requirements = {
+        "wrist_camera": CameraRequirement(IMAGE_H, IMAGE_W),
+        "external_camera": CameraRequirement(IMAGE_H, IMAGE_W),
+        "external_camera_2": CameraRequirement(IMAGE_H, IMAGE_W),
+    }
 
     # Arena DROID camera keys (see isaaclab_arena/embodiments/droid/droid.py). external_camera is
     # the over-shoulder-left view and external_camera_2 the over-shoulder-right view.

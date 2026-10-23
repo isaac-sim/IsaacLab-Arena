@@ -72,7 +72,7 @@ class _ArenaEnvBuilder:
 
 def _builder(monkeypatch, recorders):
     builder = _ArenaEnvBuilder(recorders)
-    monkeypatch.setattr(run_execution, "build_arena_builder_from_run_cfg", lambda cfg: builder)
+    monkeypatch.setattr(run_execution, "build_arena_builder_from_run_cfg", lambda cfg, policy=None: builder)
     return builder
 
 
@@ -377,7 +377,7 @@ def test_build_environment_exports_recorder_dataset_to_the_run_directory(monkeyp
     captured = {}
     run = _run(name="pick", environment_builder=ArenaEnvBuilderCfg(record_trajectories=record_trajectories))
 
-    def capture_builder(cfg):
+    def capture_builder(cfg, policy=None):
         captured["environment_builder"] = cfg.environment_builder
         return builder
 

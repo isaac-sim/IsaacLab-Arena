@@ -27,6 +27,7 @@ import torch
 from dataclasses import dataclass
 from typing import Any
 
+from isaaclab_arena.policy.camera_requirement import CameraRequirement
 from isaaclab_arena.policy.policy_base import PolicyCfg
 from isaaclab_arena_g1.g1_whole_body_controller.wbc_policy.policy.policy_constants import (
     NUM_BASE_HEIGHT_CMD,
@@ -196,6 +197,32 @@ def extract_obs_numpy_from_torch(
 # --------------------------------------------------------------------------- #
 # Core SSOT: policy inputs (numpy-only, modality-config driven)
 # --------------------------------------------------------------------------- #
+
+
+def camera_requirements_for_policy(policy_config: Gr00tClosedloopPolicyCfg) -> dict[str, CameraRequirement] | None:
+    """Return the render box per camera field name for the cameras a GR00T policy config reads.
+
+    The box is twice the policy target size because ``resize_rgb_for_policy`` skips its pad-and-resize
+    step for frames that already match the target size, so rendering at the target size would change
+    the image the policy sees. Cameras already at or below the box keep their native size.
+
+    Args:
+        policy_config: Closed-loop config (pov_cam_name_sim, target_image_size).
+
+    Returns:
+        Requirements keyed by camera field name, or None if the config sets no target image size.
+    """
+    if policy_config.target_image_size is None:
+        return None
+    camera_obs_names = policy_config.pov_cam_name_sim
+    if isinstance(camera_obs_names, str):
+        camera_obs_names = [camera_obs_names]
+    target_height, target_width = policy_config.target_image_size[:2]
+    requirements: dict[str, CameraRequirement] = {}
+    for camera_obs_name in camera_obs_names:
+        assert camera_obs_name.endswith("_rgb"), f"Expected an RGB camera observation name, got '{camera_obs_name}'"
+        requirements[camera_obs_name.removesuffix("_rgb")] = CameraRequirement(2 * target_height, 2 * target_width)
+    return requirements
 
 
 def resize_rgb_for_policy(

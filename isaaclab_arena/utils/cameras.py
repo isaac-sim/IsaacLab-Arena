@@ -19,6 +19,7 @@ from isaaclab.sensors import CameraCfg, TiledCameraCfg  # noqa: F401
 from isaaclab.utils.images import is_depth_like, is_normals_like, is_rgb_like
 
 from isaaclab_arena.assets.asset import Asset
+from isaaclab_arena.policy.camera_requirement import CameraRequirement
 from isaaclab_arena.utils.configclass import make_configclass
 from isaaclab_arena.utils.pose import Pose, PosePerEnv, PoseRange
 
@@ -49,6 +50,34 @@ class ArenaCameraCfg:
     def camera_names(self) -> list[str]:
         """Return the field name of every camera in this rig."""
         return [f.name for f in fields(self) if isinstance(getattr(self, f.name), CameraCfg)]
+
+    def apply_camera_requirements(
+        self, requirements: dict[str, CameraRequirement], drop_unused_cameras: bool = True
+    ) -> None:
+        """Resize the required cameras in place, keeping each camera's lens and aspect ratio.
+
+        Args:
+            requirements: Image size per camera field name, as returned by a policy.
+            drop_unused_cameras: Whether to remove the cameras not listed in ``requirements``.
+                If False, they keep their native resolution.
+        """
+        camera_names = self.camera_names()
+        unknown_names = sorted(set(requirements) - set(camera_names))
+        assert not unknown_names, f"Required cameras {unknown_names} are not in this rig; available: {camera_names}"
+        for camera_name in camera_names:
+            if camera_name not in requirements:
+                if drop_unused_cameras:
+                    setattr(self, camera_name, None)
+                continue
+            camera_cfg = getattr(self, camera_name)
+            native_height, native_width = camera_cfg.height, camera_cfg.width
+            height, width = requirements[camera_name].render_size(native_height, native_width)
+            # The lens model is left untouched, so pixels stay square only if the aspect ratio is kept.
+            assert abs(height - width * native_height / native_width) <= 1, (
+                f"Camera '{camera_name}' would change aspect ratio from {native_height}x{native_width} to"
+                f" {height}x{width}"
+            )
+            camera_cfg.height, camera_cfg.width = height, width
 
     def get_cfg(self) -> Any:
         """Return a copy of this rig, tiled or untiled depending on use_tiled_camera.

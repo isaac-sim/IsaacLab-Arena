@@ -11,6 +11,7 @@ from typing import Any
 
 from openpi_client import image_tools
 
+from isaaclab_arena.policy.camera_requirement import CameraRequirement
 from isaaclab_arena_openpi.policy.pi0_remote_policy import Pi0EmbodimentAdapter
 
 
@@ -39,6 +40,12 @@ class Pi0DroidAdapter(Pi0EmbodimentAdapter):
     target_image_size = (224, 224)
     arena_external_camera_key = "external_camera_rgb"
     arena_wrist_camera_key = "wrist_camera_rgb"
+
+    # Render only the two cameras the checkpoint reads, letterboxed into the target size.
+    camera_requirements = {
+        "external_camera": CameraRequirement(*target_image_size),
+        "wrist_camera": CameraRequirement(*target_image_size),
+    }
 
     # Top-level keys on the arena gym observation dict that this adapter
     # consumes. Both are conventions:

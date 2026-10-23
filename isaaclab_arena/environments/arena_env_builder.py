@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import datetime
 import gymnasium as gym
+import warnings
 from typing import Any
 
 from isaaclab.devices.device_base import DeviceCfg, DevicesCfg
@@ -41,6 +42,7 @@ from isaaclab_arena.environments.relation_solver_interface import (
 from isaaclab_arena.metrics.metric_base import MetricBase
 from isaaclab_arena.metrics.metric_term_cfg import MetricTermCfg
 from isaaclab_arena.metrics.recorder_manager_utils import metrics_to_recorder_manager_cfg
+from isaaclab_arena.policy.policy_base import PolicyBase
 from isaaclab_arena.progress_tracking.task_progress_cfg import TaskProgressCfg
 from isaaclab_arena.recording.common_terms import (
     CoreEpisodeRecorderTermCfg,
@@ -103,10 +105,12 @@ class ArenaEnvBuilder:
         arena_env: IsaacLabArenaEnvironment,
         cfg: ArenaEnvBuilderCfg,
         hydra_overrides: list[str] | None = None,
+        policy: PolicyBase | None = None,
     ):
         self.arena_env = arena_env
         self.cfg = cfg
         self.hydra_overrides = hydra_overrides
+        self.policy = policy
         self.interactive_scene_cfg = InteractiveSceneCfg(
             num_envs=cfg.num_envs, env_spacing=cfg.env_spacing, replicate_physics=False
         )
@@ -227,6 +231,28 @@ class ArenaEnvBuilder:
         for variation_key, variation in get_enabled_variations_by_key(self.get_all_variations()).items():
             variation.configure_at_build_time(seed=self.cfg.seed, variation_key=variation_key)
 
+    def _apply_policy_camera_requirements(self, variations: dict[str, list[VariationBase]]) -> None:
+        """Size the embodiment's cameras to the policy's requirements, optionally dropping cameras it does not consume."""
+        if self.policy is None or not self.cfg.use_policy_camera_requirements:
+            return
+        requirements = self.policy.get_camera_requirements()
+        if requirements is None:
+            return
+        embodiment = self.arena_env.embodiment
+        if embodiment is None or embodiment.camera_config is None:
+            warnings.warn(
+                f"Policy {type(self.policy).__name__} declares camera requirements, but the embodiment has no camera"
+                " config; cameras are left at their native resolution."
+            )
+            return
+        embodiment.camera_config.apply_camera_requirements(requirements, self.cfg.drop_unused_cameras)
+        kept_camera_names = set(embodiment.camera_config.camera_names())
+        for variation in get_enabled_variations_by_key(variations).values():
+            camera_name = getattr(variation, "camera_name", None)
+            assert (
+                camera_name is None or camera_name in kept_camera_names
+            ), f"Variation '{variation.name}' targets camera '{camera_name}', which the policy does not consume."
+
     def _modify_recorder_cfg_dataset_filename(self, recorder_cfg: RecorderManagerBaseCfg) -> RecorderManagerBaseCfg:
         """Modify the recorder dataset filename to include the timestamp and rank."""
         base = getattr(recorder_cfg, "dataset_filename", "dataset")
@@ -326,6 +352,8 @@ class ArenaEnvBuilder:
                 placement_sampler,
                 serialize_placement_samples,
             )
+
+        self._apply_policy_camera_requirements(variations)
 
         resolved_physics_backend = self.resolved_physics_backend
 

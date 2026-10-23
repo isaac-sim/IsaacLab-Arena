@@ -19,12 +19,14 @@ from typing import Any
 
 from isaaclab_arena.assets.register import register_policy
 from isaaclab_arena.policy.action_scheduling import ActionChunkScheduler, ActionScheduler, SyncedBatchActionScheduler
+from isaaclab_arena.policy.camera_requirement import CameraRequirement
 from isaaclab_arena.policy.policy_base import PolicyBase
 from isaaclab_arena_gr00t.policy.config.gr00t_closedloop_policy_config import Gr00tClosedloopPolicyCfg, TaskMode
 from isaaclab_arena_gr00t.policy.gr00t_core import (
     Gr00tBasePolicyCfg,
     build_gr00t_action_tensor,
     build_gr00t_policy_observations,
+    camera_requirements_for_policy,
     compute_action_dim,
     extract_obs_numpy_from_torch,
     load_gr00t_joint_configs,
@@ -147,6 +149,10 @@ class Gr00tRemoteClosedloopPolicy(PolicyBase[Gr00tRemoteClosedloopPolicyCfg]):
             )
         self.task_description = task_description
         return self.task_description
+
+    def get_camera_requirements(self) -> dict[str, CameraRequirement] | None:
+        """Return the render box for each camera the policy config reads."""
+        return camera_requirements_for_policy(self.policy_config)
 
     def get_action(self, env: gym.Env, observation: dict[str, Any]) -> torch.Tensor:
         assert self._chunking_state is not None, "GR00T remote policy has been closed"

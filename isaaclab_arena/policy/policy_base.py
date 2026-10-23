@@ -12,6 +12,8 @@ from dataclasses import dataclass
 from gymnasium.spaces.dict import Dict as GymSpacesDict
 from typing import Generic, TypeVar
 
+from isaaclab_arena.policy.camera_requirement import CameraRequirement
+
 
 @dataclass
 class PolicyCfg:
@@ -49,6 +51,13 @@ class PolicyBase(ABC, Generic[PolicyCfgT]):
 
     def close(self) -> None:
         """Release resources held by the policy."""
+        pass
+
+    def get_camera_requirements(self) -> dict[str, CameraRequirement] | None:
+        """Return the image size this policy consumes per camera name, or None for no preference.
+
+        Cameras absent from a returned dict are not consumed by the policy.
+        """
         pass
 
     def set_task_description(self, task_description: str | None) -> str:
