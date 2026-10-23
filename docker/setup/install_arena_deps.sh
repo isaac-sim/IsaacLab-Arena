@@ -1,5 +1,7 @@
 #!/bin/bash
 set -euo pipefail
+# Preserve group write access inherited from the shared Isaac Lab venv.
+umask 0002
 
 # Install the Arena package and developer dependencies from its frozen lock. The
 # default dependency groups are disabled because Isaac Lab was already installed

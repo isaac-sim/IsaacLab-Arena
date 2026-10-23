@@ -2,6 +2,8 @@
 # Install the lightweight GR00T policy client and its dependencies.
 
 set -euo pipefail
+# Preserve group write access inherited from the shared Isaac Lab venv.
+umask 0002
 
 # Install GR00T's video and transport dependencies without its full training stack.
 uv pip install --no-deps \

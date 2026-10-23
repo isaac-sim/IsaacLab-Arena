@@ -89,8 +89,7 @@ COPY --parents \
     isaaclab_arena_environments \
     isaaclab_arena_examples \
     ${WORKDIR}/
-RUN uv pip install --no-deps --no-build-isolation --editable "${WORKDIR}" && \
-    chmod -R a+rwX "${VIRTUAL_ENV}"
+RUN umask 0002 && uv pip install --no-deps --no-build-isolation --editable "${WORKDIR}"
 ENV LW_API_ENDPOINT="https://api-dev.lightwheel.net"
 RUN --mount=type=bind,source=docker/setup/configure_shell.sh,target=/tmp/configure_shell.sh \
     bash /tmp/configure_shell.sh
