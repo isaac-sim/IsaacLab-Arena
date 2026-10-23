@@ -1,0 +1,28 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Evaluates two Franka lift_object RSL-RL checkpoints in sequence, one Run per checkpoint.
+# Values under shared are used by both Runs; each Run only sets its checkpoint.
+# To evaluate your own training run, override each Run's checkpoint, for example
+# runs.lift_object_model_1000.policy.checkpoint_path=<path>.
+shared:
+  environment:
+    type: lift_object
+  environment_builder:
+    num_envs: 64
+  policy:
+    type: rsl_rl
+  rollout_limit:
+    num_episodes: 1024
+
+runs:
+  # Checkpoints from the pre-trained download in the reinforcement learning evaluation tutorial.
+  lift_object_model_1000:
+    policy:
+      checkpoint_path: /models/isaaclab_arena/reinforcement_learning/lift_object_checkpoint/model_1000.pt
+
+  lift_object_model_1999:
+    policy:
+      checkpoint_path: /models/isaaclab_arena/reinforcement_learning/lift_object_checkpoint/model_1999.pt
