@@ -74,6 +74,11 @@ def add_agentic_env_gen_runner_cli_args(parser: argparse.ArgumentParser) -> None
         ),
     )
     group.add_argument(
+        "--example",
+        choices=("central-egg-tray",),
+        help="Load a prompt and pinned asset selection for a maintained example.",
+    )
+    group.add_argument(
         "--prompt",
         type=str,
         default=DEFAULT_PROMPT,
@@ -119,11 +124,19 @@ def add_agentic_env_gen_runner_cli_args(parser: argparse.ArgumentParser) -> None
         help="Search SimReady for objects the Arena asset catalog does not cover.",
     )
     group.add_argument(
+        "--simready_sources",
         "--simready_source",
+        nargs="+",
         type=str,
         choices=tuple(kind.value for kind in SimReadySourceKind),
-        default="isaac-sim-ga",
-        help="SimReady search backend (default: isaac-sim-ga Isaac Sim 6.0 GA props).",
+        default=["isaac-sim-ga"],
+        help="SimReady backends to search. Result limits apply per backend.",
+    )
+    group.add_argument(
+        "--simready_asset_url",
+        action="append",
+        default=[],
+        help="Pinned Central asset URL; repeat to use an exact asset list instead of natural-language search.",
     )
     group.add_argument(
         "--simready_s3_url",
@@ -165,11 +178,16 @@ def resolve_env_spec(args_cli: argparse.Namespace) -> Path | None:
     task_catalog = build_task_catalogue()
 
     simready_config = simready_search_config_from_cli(
-        source=args_cli.simready_source,
+        sources=args_cli.simready_sources,
         s3_url=args_cli.simready_s3_url,
         service_url=args_cli.simready_service_url,
         max_results_per_object=args_cli.simready_max_results_per_object,
     )
+    if args_cli.simready_asset_url:
+        assert args_cli.enable_simready_search and args_cli.simready_sources == [
+            "simready-central"
+        ], "--simready_asset_url requires --enable_simready_search --simready_source simready-central"
+        simready_config.central_asset_urls = tuple(args_cli.simready_asset_url)
     agent_kwargs: dict = {
         "temperature": args_cli.temperature,
         "enable_simready_search": args_cli.enable_simready_search,
@@ -186,6 +204,9 @@ def resolve_env_spec(args_cli: argparse.Namespace) -> Path | None:
         relation_catalog=relation_catalog,
         task_catalog=task_catalog,
     )
+    asset_report = agent.simready_asset_report(env_graph_spec)
+    if asset_report:
+        print(f"\n[runner] SimReady assets:\n{json.dumps(asset_report, indent=2)}", flush=True)
     # agent.traces holds one line per failure, e.g.
     #   "embodiment.registry_name: Unknown asset registry_name 'not_a_real_asset'"
     #   "Task 'PickAndPlaceTask' is missing required param 'pick_up_object'"
@@ -216,6 +237,10 @@ def resolve_env_spec(args_cli: argparse.Namespace) -> Path | None:
     )
     path = write_env_graph_spec(env_graph_spec, args_cli.out_dir)
     print(f"[runner] wrote environment graph spec → {path}", flush=True)
+    if args_cli.enable_simready_search:
+        asset_report_path = path.with_suffix(".assets.json")
+        asset_report_path.write_text(json.dumps(asset_report, indent=2) + "\n", encoding="utf-8")
+        print(f"[runner] wrote SimReady asset report → {asset_report_path}", flush=True)
     return path
 
 
@@ -355,6 +380,18 @@ def main() -> int:
     parser = get_isaaclab_arena_cli_parser()
     add_agentic_env_gen_runner_cli_args(parser)
     args_cli = parser.parse_args()
+    if args_cli.example == "central-egg-tray":
+        from isaaclab_arena_examples.agentic_environment_generation.central_egg_tray_example import (
+            CENTRAL_EGG_TRAY_ASSET_URLS,
+            CENTRAL_EGG_TRAY_PROMPT,
+        )
+
+        if args_cli.prompt == DEFAULT_PROMPT:
+            args_cli.prompt = CENTRAL_EGG_TRAY_PROMPT
+        args_cli.enable_simready_search = True
+        args_cli.simready_sources = ["simready-central"]
+        if not args_cli.simready_asset_url:
+            args_cli.simready_asset_url = list(CENTRAL_EGG_TRAY_ASSET_URLS)
 
     if args_cli.mode == "schema":
         print_schema()

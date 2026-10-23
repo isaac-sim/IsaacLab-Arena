@@ -44,10 +44,11 @@ class SimReadySourceKind(str, Enum):
 class SimReadySearchConfig:
     """Where to search for SimReady objects and how many hits to keep."""
 
-    source: SimReadySourceKind = SimReadySourceKind.ISAAC_SIM_GA
+    sources: list[SimReadySourceKind] = field(default_factory=lambda: [SimReadySourceKind.ISAAC_SIM_GA])
     s3_url: str = ISAAC_SIMREADY_GA_S3_URL
     service_url: str = DEFAULT_SIMREADY_SERVICE_URL
     max_results_per_object: int = 1
+    central_asset_urls: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -58,6 +59,7 @@ class SimReadyObjectCandidate:
     usd_path: str
     tags: tuple[str, ...] = ("sim-ready",)
     relevance_score: float | None = None
+    source_url: str | None = None
 
     @property
     def registry_name(self) -> str:
@@ -89,15 +91,39 @@ def search_simready_objects(object_phrases: list[str], config: SimReadySearchCon
     if not phrases:
         return SimReadyCandidateCatalogue()
 
-    library = None if config.source == SimReadySourceKind.CENTRAL else _configure_asset_library(config)
-    if library is None and config.source != SimReadySourceKind.CENTRAL:
+    candidates = []
+    seen = set()
+    for source in dict.fromkeys(config.sources):
+        try:
+            result = _search_simready_source(phrases, config, source)
+        except Exception as exc:
+            _logger.warning("simready backend %s failed: %s", source, exc)
+            continue
+        for candidate in result.candidates:
+            key = (candidate.search_phrase, candidate.usd_path)
+            if key not in seen:
+                seen.add(key)
+                candidates.append(candidate)
+    matched = {candidate.search_phrase for candidate in candidates}
+    return SimReadyCandidateCatalogue(
+        candidates=candidates,
+        unmatched_phrases=[phrase for phrase in phrases if phrase not in matched],
+    )
+
+
+def _search_simready_source(
+    phrases: list[str], config: SimReadySearchConfig, source: SimReadySourceKind
+) -> SimReadyCandidateCatalogue:
+    """Search one source, retaining the configured number of hits per phrase."""
+    library = None if source == SimReadySourceKind.CENTRAL else _configure_asset_library(config, source)
+    if library is None and source != SimReadySourceKind.CENTRAL:
         return SimReadyCandidateCatalogue()
 
     candidates: list[SimReadyObjectCandidate] = []
     unmatched_phrases: list[str] = []
     for phrase in phrases:
         try:
-            if config.source == SimReadySourceKind.CENTRAL:
+            if source == SimReadySourceKind.CENTRAL:
                 from isaaclab_arena.agentic_environment_generation.simready_central import search_central_objects
 
                 hits = search_central_objects(phrase, max_results=config.max_results_per_object)
@@ -116,14 +142,14 @@ def search_simready_objects(object_phrases: list[str], config: SimReadySearchCon
 
 
 def simready_search_config_from_cli(
-    source: str,
+    sources: list[str],
     s3_url: str | None,
     service_url: str | None,
     max_results_per_object: int,
 ) -> SimReadySearchConfig:
     """Build a search configuration from CLI or GUI arguments, filling in the default URLs."""
     return SimReadySearchConfig(
-        source=SimReadySourceKind(source),
+        sources=[SimReadySourceKind(source) for source in dict.fromkeys(sources)],
         s3_url=s3_url or ISAAC_SIMREADY_GA_S3_URL,
         service_url=service_url or DEFAULT_SIMREADY_SERVICE_URL,
         max_results_per_object=max_results_per_object,
@@ -134,10 +160,10 @@ _CAMEL_CASE_BOUNDARY = re.compile(r"(?<=[a-z0-9])(?=[A-Z])")
 _NON_ALPHANUMERIC = re.compile(r"[^a-z0-9]+")
 
 
-def _configure_asset_library(config: SimReadySearchConfig) -> Any | None:
+def _configure_asset_library(config: SimReadySearchConfig, source: SimReadySourceKind) -> Any | None:
     """Build the SimReady asset library for the configured source, or None if the source is unknown."""
-    if config.source not in tuple(SimReadySourceKind):
-        _logger.error("unknown simready source: %s", config.source)
+    if source not in tuple(SimReadySourceKind):
+        _logger.error("unknown simready source: %s", source)
         return None
 
     # Imported here rather than at module scope only to keep the AWS stack out of the import path
@@ -145,7 +171,7 @@ def _configure_asset_library(config: SimReadySearchConfig) -> Any | None:
     from simready.search import AssetLibrary
 
     library = AssetLibrary()
-    if config.source in (SimReadySourceKind.ISAAC_SIM_GA, SimReadySourceKind.S3):
+    if source in (SimReadySourceKind.ISAAC_SIM_GA, SimReadySourceKind.S3):
         asyncio.run(library.add_s3_source(config.s3_url or ISAAC_SIMREADY_GA_S3_URL))
     else:
         library.add_service_source(config.service_url or DEFAULT_SIMREADY_SERVICE_URL)

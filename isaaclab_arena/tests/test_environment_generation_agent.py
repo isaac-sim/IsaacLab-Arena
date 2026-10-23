@@ -269,6 +269,20 @@ class TestGenerateSpec:
         # the generic SimReady asset every process has, carrying the path the search found.
         assert searched.registry_name == SIMREADY_USD_OBJECT_REGISTRY_NAME
         assert searched.params == {"usd_path": "s3://bucket/trash_can.usd"}
+        report = agent_obj.simready_asset_report(spec)
+        assert len(report) == 1
+        assert report[0]["used_in_spec"] is True
+        assert report[0]["usd_path"] == "s3://bucket/trash_can.usd"
+        assert agent_obj.simready_asset_report(None)[0]["used_in_spec"] is False
+        agent_obj.enable_simready_search = False
+        client.chat.completions.create.side_effect = [chat_response(content=json.dumps(minimal_spec_dict()))]
+        next_spec, _ = agent_obj.generate_spec(
+            "p",
+            asset_catalog=catalog("catalog"),
+            relation_catalog=relation_catalog("RELATIONS"),
+            task_catalog=make_task_catalog("TASKS"),
+        )
+        assert agent_obj.simready_asset_report(next_spec) == []
         # Tags in params would be a duplicate keyword argument at build time.
         assert all("tags" not in asset["params"] for asset in spec.to_dict()["objects"])
 
@@ -306,6 +320,7 @@ class TestGenerateSpec:
         assert all(asset.registry_name != SIMREADY_USD_OBJECT_REGISTRY_NAME for asset in spec.objects)
         assert all("usd_path" not in asset.params for asset in spec.objects)
         assert "simready_assets" not in spec.to_dict()
+        assert agent_obj.simready_asset_report(spec)[0]["used_in_spec"] is False
 
     @patch("isaaclab_arena.agentic_environment_generation.environment_generation_agent.search_simready_objects")
     def test_generate_spec_builds_the_spec_without_an_object_no_asset_was_found_for(self, mock_search, agent):

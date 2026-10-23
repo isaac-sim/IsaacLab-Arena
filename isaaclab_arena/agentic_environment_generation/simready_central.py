@@ -16,11 +16,50 @@ import requests
 
 from isaaclab_arena.agentic_environment_generation.simready_asset_search import (
     MIN_INSPECTED_MATCHES_PER_PHRASE,
+    SimReadyCandidateCatalogue,
     SimReadyObjectCandidate,
 )
 
 CENTRAL_SEARCH_URL = "https://nvidia-simready-central.hf.space/search_hybrid"
 _logger = logging.getLogger(__name__)
+
+
+def load_pinned_central_objects(urls: tuple[str, ...]) -> SimReadyCandidateCatalogue:
+    """Look up exact pinned Central assets and validate each before offering them to the agent."""
+    catalogue = SimReadyCandidateCatalogue()
+    for url in dict.fromkeys(urls):
+        repo_id, revision, filename, _ = _central_asset_location(url)
+        source_url = f"https://huggingface.co/datasets/{repo_id}/resolve/{revision}/{filename}"
+        response = requests.post(
+            CENTRAL_SEARCH_URL,
+            headers={"x-usdsearch-storage-backend": "usdsearch-dev"},
+            json={
+                "filter_url_regexp": re.escape(source_url.replace("https://", "hf://", 1)),
+                "filter_by_properties_numeric": "simready_metadata_rigid_body_count=1",
+                "return_usd_properties": True,
+                "limit": 1,
+            },
+            timeout=30,
+        )
+        response.raise_for_status()
+        hits = response.json()["hits"]
+        assert hits, f"Pinned asset is not indexed as a single rigid body in Central: {source_url}"
+        source = hits[0]["source"]
+        assert source["path"].replace("hf://", "https://", 1) == source_url, "Central returned a different asset"
+        properties = {prop["name"]: prop for prop in source.get("usd_properties", [])}
+        count = properties.get("simready_metadata_rigid_body_count", {})
+        assert float(count.get("value_numeric", count.get("value", 0))) == 1, "expected one indexed rigid body"
+        name = properties.get("simready_metadata_asset_name", {}).get("value")
+        assert name, f"Central asset has no descriptive name: {source_url}"
+        catalogue.candidates.append(
+            SimReadyObjectCandidate(
+                search_phrase=name,
+                usd_path=_prepare_central_asset(source_url),
+                source_url=source_url,
+                tags=("sim-ready", "single-rigid-body", name.lower()),
+            )
+        )
+    return catalogue
 
 
 def search_central_objects(phrase: str, *, max_results: int) -> list[SimReadyObjectCandidate]:
@@ -58,6 +97,7 @@ def search_central_objects(phrase: str, *, max_results: int) -> list[SimReadyObj
                     usd_path=usd_path,
                     tags=("sim-ready", "single-rigid-body"),
                     relevance_score=hit.get("rrf_score"),
+                    source_url=source["path"].replace("hf://", "https://", 1),
                 )
             )
         except Exception as exc:
@@ -70,7 +110,9 @@ def search_central_objects(phrase: str, *, max_results: int) -> list[SimReadyObj
 
 def _central_asset_location(url: str) -> tuple[str, str, str, str]:
     """Parse a revision-pinned Central dataset URL and its asset package folder."""
-    match = re.fullmatch(r"(?:hf|https)://huggingface\.co/datasets/([^/]+/[^/]+)/resolve/([0-9a-f]{40})/(.+)", url)
+    match = re.fullmatch(
+        r"(?:hf|https)://huggingface\.co/datasets/([^/]+/[^/]+)/(?:resolve|blob)/([0-9a-f]{40})/(.+)", url
+    )
     assert match, "expected a pinned Hugging Face dataset URL"
     repo_id, revision, filename = match.groups()
     path = PurePosixPath(filename)
@@ -85,18 +127,24 @@ def _central_asset_location(url: str) -> tuple[str, str, str, str]:
     return repo_id, revision, filename, str(folder)
 
 
-def _prepare_central_asset(url: str) -> str:
-    """Cache a pinned asset package and write a validated PhysX reference wrapper."""
+def _download_central_asset_to_cache(url: str) -> str:
+    """Download the pinned asset package and return its cached USD entrypoint."""
     from huggingface_hub import snapshot_download
-    from pxr import Usd, UsdGeom, UsdPhysics
-
-    from isaaclab_arena.utils.usd.rigid_bodies import apply_usd_variant_selections
 
     repo_id, revision, filename, folder = _central_asset_location(url)
     snapshot = snapshot_download(
         repo_id=repo_id, repo_type="dataset", revision=revision, allow_patterns=[f"{folder}/*"]
     )
-    asset_path = str(Path(snapshot) / filename)
+    return str(Path(snapshot) / filename)
+
+
+def _prepare_central_asset(url: str) -> str:
+    """Write a validated PhysX reference wrapper for a cached Central asset."""
+    from pxr import Usd, UsdGeom, UsdPhysics
+
+    from isaaclab_arena.utils.usd.rigid_bodies import apply_usd_variant_selections
+
+    asset_path = _download_central_asset_to_cache(url)
     asset_stage = Usd.Stage.Open(asset_path)
     assert asset_stage and asset_stage.GetDefaultPrim(), "asset requires a default prim"
     stage = Usd.Stage.CreateInMemory()

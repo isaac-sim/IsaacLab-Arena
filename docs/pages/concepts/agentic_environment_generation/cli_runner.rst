@@ -108,9 +108,15 @@ These options are defined by the environment generation runner:
    * - ``--enable_simready_search``
      - Searches SimReady for prompt objects missing from Arena's asset catalog.
      - Agent
-   * - ``--simready_source SOURCE``
-     - Chooses the SimReady search backend. Default: ``isaac-sim-ga``.
+   * - ``--simready_sources SOURCE [SOURCE ...]``
+     - Chooses one or more SimReady search backends. Default: ``isaac-sim-ga``.
        Use ``simready-central`` for single-rigid-body assets on Hugging Face.
+     - Agent
+   * - ``--simready_asset_url URL``
+     - Selects an exact pinned Central asset; repeat for multiple assets.
+     - Agent
+   * - ``--example central-egg-tray``
+     - Loads the egg/tray prompt and four pinned Palatial Central assets.
      - Agent
    * - ``--simready_s3_url URL``
      - Overrides the S3 root for S3-based SimReady sources.
@@ -183,3 +189,14 @@ relevant to ``build`` and ``full`` are:
 
 Run the script with ``--help`` for the complete launcher-specific option list,
 including device and livestream settings supplied by Isaac Lab.
+
+Combined SimReady search
+------------------------
+
+Use ``--enable_simready_search --simready_sources isaac-sim-ga simready-central`` to search both the
+Isaac Sim GA asset library and SimReady Central by object name. The result
+limit applies per object per backend, so the default returns up to two
+candidates per object. Identical USD paths are deduplicated per phrase.
+If one backend fails, results from the other remain available. In the GUI,
+select the desired backends under **SimReady sources**. Pinned Central URLs remain an
+exact-selection mode under ``simready-central``.

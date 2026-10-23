@@ -16,6 +16,7 @@ from isaaclab_arena.agentic_environment_generation.simready_asset_search import 
 )
 from isaaclab_arena.agentic_environment_generation.simready_central import (
     _central_asset_location,
+    load_pinned_central_objects,
     search_central_objects,
 )
 
@@ -47,7 +48,7 @@ def test_central_requires_single_body_metadata_and_skips_invalid_usd():
 
 def test_central_failure_leaves_phrase_unmatched():
     with patch(f"{MODULE}.requests.post", side_effect=TimeoutError("offline")):
-        catalogue = search_simready_objects(["pallet"], SimReadySearchConfig(source=SimReadySourceKind.CENTRAL))
+        catalogue = search_simready_objects(["pallet"], SimReadySearchConfig(sources=[SimReadySourceKind.CENTRAL]))
     assert catalogue.candidates == []
     assert catalogue.unmatched_phrases == ["pallet"]
 
@@ -59,6 +60,35 @@ def test_central_package_location_preserves_revision_and_folder():
         "pallet/simready_usd/pallet.usd",
         "pallet",
     )
+
+
+def test_pinned_central_assets_accept_blob_urls_and_preserve_identity():
+    hit = _hit(1)
+    hit["source"]["usd_properties"].append({"name": "simready_metadata_asset_name", "value": "Egg Tray"})
+    response = Mock()
+    response.json.return_value = {"hits": [hit]}
+    blob_url = URL.replace("hf://", "https://").replace("/resolve/", "/blob/")
+    with (
+        patch(f"{MODULE}.requests.post", return_value=response),
+        patch(f"{MODULE}._prepare_central_asset", return_value="/cache/tray.usda") as prepare,
+    ):
+        catalogue = load_pinned_central_objects((blob_url,))
+    assert catalogue.candidates[0].search_phrase == "Egg Tray"
+    assert catalogue.candidates[0].source_url == URL.replace("hf://", "https://")
+    prepare.assert_called_once_with(URL.replace("hf://", "https://"))
+
+
+@pytest.mark.parametrize("hits", [[], [_hit(2)], [_hit(1, path=URL.replace("pallet.usd", "other.usd"))]])
+def test_pinned_central_assets_never_substitute_or_accept_multiple_bodies(hits):
+    response = Mock()
+    response.json.return_value = {"hits": hits}
+    with (
+        patch(f"{MODULE}.requests.post", return_value=response),
+        patch(f"{MODULE}._prepare_central_asset") as prepare,
+        pytest.raises(AssertionError),
+    ):
+        load_pinned_central_objects((URL,))
+    prepare.assert_not_called()
 
 
 @pytest.mark.parametrize(

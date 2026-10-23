@@ -8,7 +8,7 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import replace
+from dataclasses import asdict, replace
 from typing import Any
 
 from isaaclab_arena.agentic_environment_generation.catalogues import (
@@ -22,6 +22,7 @@ from isaaclab_arena.agentic_environment_generation.catalogues import (
 from isaaclab_arena.agentic_environment_generation.missing_object_inference import MissingObjectInference
 from isaaclab_arena.agentic_environment_generation.prim_path_inference import PrimPathInference
 from isaaclab_arena.agentic_environment_generation.simready_asset_search import (
+    SimReadyObjectCandidate,
     SimReadySearchConfig,
     search_simready_objects,
 )
@@ -88,6 +89,7 @@ class EnvironmentGenerationAgent:
         self._traces: list[str] = []
         self._unavailable_objects: list[str] = []
         self._simready_usd_paths: dict[str, str] = {}
+        self._simready_candidates: list[SimReadyObjectCandidate] = []
 
     @property
     def traces(self) -> tuple[str, ...]:
@@ -108,6 +110,14 @@ class EnvironmentGenerationAgent:
         them.
         """
         return tuple(self._unavailable_objects)
+
+    def simready_asset_report(self, spec: ArenaEnvGraphSpec | None) -> list[dict[str, Any]]:
+        """Return discovered assets, their source URLs, and whether the spec uses them."""
+        used_paths = {obj.params.get("usd_path") for obj in spec.objects} if spec is not None else set()
+        return [
+            {**asdict(candidate), "used_in_spec": candidate.usd_path in used_paths}
+            for candidate in self._simready_candidates
+        ]
 
     def generate_spec(
         self,
@@ -136,6 +146,7 @@ class EnvironmentGenerationAgent:
         self._traces = []
         self._unavailable_objects = []
         self._simready_usd_paths = {}
+        self._simready_candidates = []
         asset_catalog = asset_catalog or build_asset_catalogue()
         relation_catalog = relation_catalog or build_relation_catalogue()
         task_catalog = task_catalog or build_task_catalogue()
@@ -202,11 +213,17 @@ class EnvironmentGenerationAgent:
         # import pxr, and a pxr import before SimulationApp starts breaks the unit tests.
         from isaaclab_arena.assets.simready_object_library import register_searched_simready_object
 
-        phrases = self.missing_object_inference.infer(prompt, asset_catalog)
-        if not phrases:
-            return asset_catalog
-        search_result = search_simready_objects(phrases, self.simready_config)
+        if self.simready_config.central_asset_urls:
+            from isaaclab_arena.agentic_environment_generation.simready_central import load_pinned_central_objects
+
+            search_result = load_pinned_central_objects(self.simready_config.central_asset_urls)
+        else:
+            phrases = self.missing_object_inference.infer(prompt, asset_catalog)
+            if not phrases:
+                return asset_catalog
+            search_result = search_simready_objects(phrases, self.simready_config)
         self._unavailable_objects = list(search_result.unmatched_phrases)
+        self._simready_candidates = list(search_result.candidates)
         if not search_result.candidates:
             return asset_catalog
         extended = replace(asset_catalog, objects=list(asset_catalog.objects))

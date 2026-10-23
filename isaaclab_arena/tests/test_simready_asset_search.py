@@ -154,12 +154,12 @@ def test_search_reports_a_phrase_with_only_rejected_hits_as_unmatched(mock_confi
 
 def test_simready_search_config_from_cli_defaults():
     config = simready_search_config_from_cli(
-        source=SimReadySourceKind.ISAAC_SIM_GA.value,
+        sources=[SimReadySourceKind.ISAAC_SIM_GA.value],
         s3_url=None,
         service_url=None,
         max_results_per_object=2,
     )
-    assert config.source == SimReadySourceKind.ISAAC_SIM_GA
+    assert config.sources == [SimReadySourceKind.ISAAC_SIM_GA]
     assert config.max_results_per_object == 2
 
 
@@ -177,7 +177,7 @@ def test_search_simready_objects_returns_candidates(mock_configure, mock_search_
             usd_path="s3://bucket/bowl.usd",
         )
     ]
-    catalog = search_simready_objects(["ceramic bowl"], SimReadySearchConfig(source=SimReadySourceKind.ISAAC_SIM_GA))
+    catalog = search_simready_objects(["ceramic bowl"], SimReadySearchConfig(sources=[SimReadySourceKind.ISAAC_SIM_GA]))
     assert len(catalog.candidates) == 1
     assert catalog.candidates[0].usd_path == "s3://bucket/bowl.usd"
     assert catalog.candidates[0].registry_name == SIMREADY_USD_OBJECT_REGISTRY_NAME
@@ -187,9 +187,8 @@ def test_configure_asset_library_records_an_unknown_source(caplog):
     from isaaclab_arena.agentic_environment_generation.simready_asset_search import _configure_asset_library
 
     config = SimReadySearchConfig()
-    config.source = "not-a-source"
     with caplog.at_level(logging.ERROR, logger=SEARCH_LOGGER):
-        assert _configure_asset_library(config) is None
+        assert _configure_asset_library(config, "not-a-source") is None
     assert "unknown simready source" in caplog.text
 
 
@@ -216,3 +215,78 @@ def test_search_simready_objects_records_no_matches(mock_configure, mock_search_
     assert catalog.candidates == []
     assert catalog.unmatched_phrases == ["missing object"]
     assert "no usable asset" in caplog.text
+
+
+def test_multiple_sources_merge_and_deduplicate_candidates():
+    shared = SimReadyObjectCandidate(search_phrase="egg", usd_path="shared.usd")
+    central = SimReadyObjectCandidate(search_phrase="egg", usd_path="central.usd")
+    with (
+        patch(f"{SEARCH_LOGGER}._configure_asset_library", return_value=object()),
+        patch(f"{SEARCH_LOGGER}._search_phrase", side_effect=[[shared], []]),
+        patch(
+            "isaaclab_arena.agentic_environment_generation.simready_central.search_central_objects",
+            side_effect=[[shared, central], []],
+        ),
+    ):
+        result = search_simready_objects(
+            ["egg", "missing"],
+            SimReadySearchConfig(sources=[SimReadySourceKind.ISAAC_SIM_GA, SimReadySourceKind.CENTRAL]),
+        )
+    assert result.candidates == [shared, central]
+    assert result.unmatched_phrases == ["missing"]
+
+
+def test_multiple_sources_keep_central_when_library_initialization_fails():
+    central = SimReadyObjectCandidate(search_phrase="egg", usd_path="central.usd")
+    with (
+        patch(f"{SEARCH_LOGGER}._configure_asset_library", side_effect=RuntimeError("unavailable")),
+        patch(
+            "isaaclab_arena.agentic_environment_generation.simready_central.search_central_objects",
+            return_value=[central],
+        ),
+    ):
+        result = search_simready_objects(
+            ["egg"], SimReadySearchConfig(sources=[SimReadySourceKind.ISAAC_SIM_GA, SimReadySourceKind.CENTRAL])
+        )
+    assert result.candidates == [central]
+    assert not result.unmatched_phrases
+
+
+def test_multiple_sources_keep_library_when_central_fails():
+    candidate = SimReadyObjectCandidate(search_phrase="egg", usd_path="library.usd")
+    with (
+        patch(f"{SEARCH_LOGGER}._configure_asset_library", return_value=object()),
+        patch(f"{SEARCH_LOGGER}._search_phrase", return_value=[candidate]),
+        patch(
+            "isaaclab_arena.agentic_environment_generation.simready_central.search_central_objects",
+            side_effect=RuntimeError("unavailable"),
+        ),
+    ):
+        result = search_simready_objects(
+            ["egg"], SimReadySearchConfig(sources=[SimReadySourceKind.ISAAC_SIM_GA, SimReadySourceKind.CENTRAL])
+        )
+    assert result.candidates == [candidate]
+    assert not result.unmatched_phrases
+
+
+def test_source_list_searches_selected_backends_once():
+    config = simready_search_config_from_cli(
+        sources=["service", "simready-central", "service"],
+        s3_url=None,
+        service_url="http://asset-service",
+        max_results_per_object=2,
+    )
+    assert config.sources == [SimReadySourceKind.SERVICE, SimReadySourceKind.CENTRAL]
+    with (
+        patch(f"{SEARCH_LOGGER}._configure_asset_library", return_value=object()) as configure,
+        patch(f"{SEARCH_LOGGER}._search_phrase", return_value=[]) as library_search,
+        patch(
+            "isaaclab_arena.agentic_environment_generation.simready_central.search_central_objects",
+            return_value=[],
+        ) as central_search,
+    ):
+        result = search_simready_objects(["egg"], config)
+    configure.assert_called_once_with(config, SimReadySourceKind.SERVICE)
+    library_search.assert_called_once()
+    central_search.assert_called_once_with("egg", max_results=2)
+    assert result.unmatched_phrases == ["egg"]
