@@ -39,6 +39,8 @@ class G1BodyIKSolverSettings:
             "shoulder_yaw": 2.0,
         }
 
+        self.posture_rest_pose: dict[str, float | dict[str, float]] | None = None
+
 
 class WeightedPostureTask(PostureTask):
     """
@@ -96,6 +98,7 @@ class G1BodyIKSolver:
         self.posture_weight = ik_solver_settings.posture_weight
         self.posture_cost = ik_solver_settings.posture_cost
         self.posture_lm_damping = ik_solver_settings.posture_lm_damping
+        self.posture_rest_pose = ik_solver_settings.posture_rest_pose
         self.robot = None
 
     def register_robot(self, robot):
@@ -171,6 +174,27 @@ class G1BodyIKSolver:
         for task in self.tasks.values():
             task.set_target_from_configuration(self.configuration)
 
+        if self.posture_rest_pose:
+            self.tasks["posture"].set_target(self._posture_rest_configuration())
+
+    def _posture_rest_configuration(self) -> np.ndarray:
+        """Return the posture task's target configuration: ``q_default`` with the rest pose applied."""
+        q_rest = self.robot.q_default.copy()
+        for joint_type, value in self.posture_rest_pose.items():
+            if joint_type not in self.robot.supplemental_info.joint_name_mapping:
+                print(f"Warning: Unknown joint type {joint_type} in posture_rest_pose")
+                continue
+            joint_mapping = self.robot.supplemental_info.joint_name_mapping[joint_type]
+            # Single joint (e.g. waist) maps to a scalar, left/right pairs to a per-side dict.
+            if isinstance(joint_mapping, str):
+                per_joint = {joint_mapping: value}
+            else:
+                per_joint = {joint_mapping[side]: value[side] for side in ("left", "right")}
+            for joint_name, joint_value in per_joint.items():
+                if joint_name in self.robot.joint_to_dof_index:
+                    q_rest[self.robot.joint_to_dof_index[joint_name]] = joint_value
+        return self.robot.clip_configuration(q_rest)
+
     def __call__(self, target_pose: dict):
         for link_name, pose in target_pose.items():
             if link_name not in self.tasks:
@@ -211,6 +235,7 @@ class G1WBCUpperbodyController:
         robot_model: RobotModel,
         body_active_joint_groups: list[str] | None = None,
         extra_active_joints: list[str] | None = None,
+        posture_rest_pose: dict[str, float | dict[str, float]] | None = None,
     ):
         """Initialize the upperbody controller.
 
@@ -222,6 +247,8 @@ class G1WBCUpperbodyController:
             extra_active_joints: Additional individual joint names to keep active on top of
                 ``body_active_joint_groups``. Useful when you want a partial group, e.g.
                 only ``waist_roll_joint`` and ``waist_pitch_joint`` from the ``waist`` group.
+            posture_rest_pose: Optional joint-type targets in radians for the posture task.
+                None preserves the model default configuration.
         """
         # Initialize the body
         active_groups = body_active_joint_groups
@@ -244,6 +271,7 @@ class G1WBCUpperbodyController:
             self.full_robot = self.body
             self.using_reduced_robot_model = False
         body_ik_solver_settings = G1BodyIKSolverSettings()
+        body_ik_solver_settings.posture_rest_pose = posture_rest_pose
         self.body_ik_solver = G1BodyIKSolver(body_ik_solver_settings)
 
         # Register the specific robot model to the robot-agnostic body IK solver class

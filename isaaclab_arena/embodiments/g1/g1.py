@@ -13,7 +13,7 @@ import isaaclab.sim as sim_utils  # noqa: F401
 import isaaclab.utils.math as PoseUtils
 import isaaclab_tasks.contrib.pick_place.mdp as mdp
 import warp as wp
-from isaaclab.actuators import IdealPDActuatorCfg
+from isaaclab.actuators import IdealPDActuatorCfg, ImplicitActuatorCfg
 from isaaclab.assets.articulation.articulation_cfg import ArticulationCfg
 from isaaclab.managers import EventTermCfg as EventTerm
 from isaaclab.managers import ObservationGroupCfg as ObsGroup
@@ -211,6 +211,61 @@ class G1WBCAgileJointEmbodiment(G1EmbodimentBase):
         self.observation_config.policy.concatenate_terms = self.concatenate_observation_terms
         self.observation_config.wbc.concatenate_terms = self.concatenate_observation_terms
         self.event_config = G1WBCJointEventCfg()
+
+
+def _weld_pelvis_and_lock_lower_body(robot: ArticulationCfg) -> None:
+    """Fix the pelvis to the world and hold the leg, foot and waist joints at their reset positions."""
+    robot.spawn.articulation_props.fix_root_link = True
+    robot.spawn.rigid_props.disable_gravity = True
+    for group in ("legs", "feet", "waist"):
+        robot.actuators[group] = ImplicitActuatorCfg(
+            joint_names_expr=robot.actuators[group].joint_names_expr,
+            effort_limit=torch.inf,
+            velocity_limit=0.0,
+            stiffness=1e9,
+            damping=1e9,
+        )
+
+
+@register_asset
+class G1FixedBaseUpperBodyEmbodiment(G1WBCAgilePinkEmbodiment):
+    """Fixed-base G1 using 23-D WBC-Pink actions for pose-based teleoperation.
+
+    The lower body is locked while Pink IK controls the arms and hands.
+    """
+
+    name = "g1_fixed_base_upper_body"
+
+    def __init__(
+        self,
+        enable_cameras: bool = False,
+        initial_pose: Pose | None = None,
+        lock_waist: bool = True,
+    ):
+        super().__init__(enable_cameras=enable_cameras, initial_pose=initial_pose, lock_waist=lock_waist)
+        _weld_pelvis_and_lock_lower_body(self.scene_config.robot)
+        self.action_config.g1_action.posture_rest_pose = {
+            "shoulder_roll": {"left": 0.30, "right": -0.30},
+        }
+
+
+@register_asset
+class G1FixedBaseUpperBodyJointEmbodiment(G1WBCAgileJointEmbodiment):
+    """Fixed-base G1 using joint targets for closed-loop policy evaluation.
+
+    Uses the same base constraint as the Pink variant and accepts targets for 43 joints.
+    """
+
+    name = "g1_fixed_base_upper_body_joint"
+
+    def __init__(
+        self,
+        enable_cameras: bool = False,
+        initial_pose: Pose | None = None,
+        lock_waist: bool = True,
+    ):
+        super().__init__(enable_cameras=enable_cameras, initial_pose=initial_pose, lock_waist=lock_waist)
+        _weld_pelvis_and_lock_lower_body(self.scene_config.robot)
 
 
 # Default Arena G1 articulation config used by all non-AGILE G1 embodiments. Kept at
@@ -504,6 +559,72 @@ class G1CameraCfg(ArenaCameraCfg):
             pos=_DEFAULT_G1_CAMERA_OFFSET.position_xyz,
             rot=_DEFAULT_G1_CAMERA_OFFSET.rotation_xyzw,
             convention="ros",
+        ),
+    )
+
+
+_G1_CALIBRATED_CAM_RESOLUTION = (480, 270)
+"""Shared resolution; torso-camera intrinsics are scaled from 640x360 by 0.75."""
+_G1_CALIBRATED_CAM_CLIPPING_RANGE = (0.01, 20.0)
+"""Clipping range in meters, including the reconstructed room."""
+
+
+def _calibrated_camera_cfg(prim_path: str, intrinsic_matrix: list[float], offset: Pose) -> CameraCfg:
+    """Build an RGB camera from calibrated intrinsics and an optical-frame pose in its parent link.
+
+    The ROS optical convention is +X right, +Y down and +Z forward.
+    """
+    width, height = _G1_CALIBRATED_CAM_RESOLUTION
+    return CameraCfg(
+        prim_path=prim_path,
+        update_period=0.0,
+        width=width,
+        height=height,
+        data_types=["rgb"],
+        spawn=sim_utils.PinholeCameraCfg.from_intrinsic_matrix(
+            intrinsic_matrix=intrinsic_matrix,
+            width=width,
+            height=height,
+            clipping_range=_G1_CALIBRATED_CAM_CLIPPING_RANGE,
+        ),
+        offset=CameraCfg.OffsetCfg(pos=offset.position_xyz, rot=offset.rotation_xyzw, convention="ros"),
+    )
+
+
+@configclass
+class G1RealCalibratedCameraCfg(ArenaCameraCfg):
+    """Torso and wrist cameras using the real G1's calibration.
+
+    Rendering uses centered principal points and square pixels; lens distortion is not simulated.
+    """
+
+    robot_head_cam: CameraCfg = _calibrated_camera_cfg(
+        # Torso D435i: 640x360 intrinsics scaled to the shared resolution.
+        prim_path="{ENV_REGEX_NS}/Robot/torso_link/RobotHeadCam",
+        intrinsic_matrix=[342.3001, 0.0, 240.6344, 0.0, 342.2942, 134.6214, 0.0, 0.0, 1.0],
+        offset=Pose(
+            position_xyz=(0.05646, 0.03279, 0.43604),
+            rotation_xyzw=(-0.666651, 0.666695, -0.239832, 0.231464),
+        ),
+    )
+
+    left_wrist_cam: CameraCfg = _calibrated_camera_cfg(
+        # Left D405: pose calibrated relative to the wrist-yaw link.
+        prim_path="{ENV_REGEX_NS}/Robot/left_wrist_yaw_link/LeftWristCam",
+        intrinsic_matrix=[246.0934, 0.0, 239.2222, 0.0, 245.7498, 131.1402, 0.0, 0.0, 1.0],
+        offset=Pose(
+            position_xyz=(0.02157, -0.00976, 0.07955),
+            rotation_xyzw=(0.863399, -0.152566, 0.472925, 0.087229),
+        ),
+    )
+
+    right_wrist_cam: CameraCfg = _calibrated_camera_cfg(
+        # Right D405: independent intrinsics and wrist-yaw-relative pose.
+        prim_path="{ENV_REGEX_NS}/Robot/right_wrist_yaw_link/RightWristCam",
+        intrinsic_matrix=[245.5635, 0.0, 241.8015, 0.0, 245.2955, 129.0285, 0.0, 0.0, 1.0],
+        offset=Pose(
+            position_xyz=(0.02910, 0.00134, 0.08233),
+            rotation_xyzw=(0.847929, 0.115507, 0.500154, -0.132366),
         ),
     )
 
