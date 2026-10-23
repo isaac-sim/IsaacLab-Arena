@@ -14,7 +14,9 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 import isaaclab.utils.math as math_utils
-from curobo.geom.types import Cuboid, WorldConfig
+from curobo.inverse_kinematics import InverseKinematics
+from curobo.scene import Cuboid, Scene
+from curobo.types import GoalToolPose, JointState
 
 from isaaclab_arena.assets.object_base import ObjectBase
 from isaaclab_arena.utils.device import resolve_cuda_device
@@ -22,8 +24,6 @@ from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena_curobo.utils.frame_utils import world_pose_to_robot_frame
 
 if TYPE_CHECKING:
-    from curobo.wrap.reacher.ik_solver import IKSolver
-
     from isaaclab_arena_curobo.ik_solver import CuroboIKSolver
 
 
@@ -69,7 +69,7 @@ def world_config_from_cuboids(
     robot_base_quat_w_xyzw: tuple[float, float, float, float],
     device: str | torch.device | None = None,
 ):
-    """Build a cuRobo ``WorldConfig`` of cuboids expressed in the robot base frame.
+    """Build a cuRobo ``Scene`` of cuboids expressed in the robot base frame.
 
     Each obstacle's world pose is transformed into the robot base frame. Include anchor objects (e.g. a table) here as static cuboids.
     """
@@ -87,7 +87,7 @@ def world_config_from_cuboids(
         # cuRobo Cuboid pose is [x, y, z, qw, qx, qy, qz].
         pose = t_R_O.tolist() + q_R_O_wxyz.tolist()
         curobo_cuboids.append(Cuboid(name=c.name, pose=pose, dims=list(c.dims_xyz)))
-    return WorldConfig(cuboid=curobo_cuboids)
+    return Scene(cuboid=curobo_cuboids)
 
 
 @dataclass
@@ -115,7 +115,7 @@ def solve_ik_feasibility(
     rotation_threshold: float = 0.1,
     require_collision_free: bool = False,
 ) -> IKFeasibility:
-    """Batched IK feasibility of all ``target_poses`` against a cuRobo IK solver, as a single ``solve_batch`` for one layout.
+    """Batched IK feasibility of all ``target_poses`` against a cuRobo IK solver.
 
     Args:
         solver: The ``CuroboIKSolver`` providing tensor device conversion and cuRobo pose construction.
@@ -146,7 +146,8 @@ def solve_ik_feasibility(
     # The gripper is meant to touch what it grasps, so its own links are disabled to detect collisions with the grasped object.
     muted_links = list(solver.hand_link_names) if require_collision_free else []
     with _disabled_link_spheres(ik_solver, muted_links):
-        ik_result = ik_solver.solve_batch(goal_pose, seed_config=ik_seed)
+        goal_tool_poses = GoalToolPose.from_poses({ik_solver.tool_frames[0]: goal_pose})
+        ik_result = ik_solver.solve_pose(goal_tool_poses, seed_config=ik_seed)
 
     num_poses = positions.shape[0]
     pos_err = ik_result.position_error.view(num_poses, -1)
@@ -179,7 +180,7 @@ def hand_sphere_mask(solver: CuroboIKSolver) -> torch.Tensor:
     Returns:
         ``(num_spheres,)`` bool tensor aligned with the spheres ``robot_collision_spheres`` returns.
     """
-    kinematics_config = solver.ik_solver.kinematics.kinematics_config
+    kinematics_config = solver.ik_solver.kinematics.config.kinematics_config
     sphere_link_indices = kinematics_config.link_sphere_idx_map
     mask = torch.zeros(sphere_link_indices.shape[0], dtype=torch.bool, device=sphere_link_indices.device)
     for name in solver.hand_link_names:
@@ -199,18 +200,19 @@ def robot_collision_spheres(solver: CuroboIKSolver, joint_positions: torch.Tenso
         spheres in with a negative radius.
     """
     joint_positions = solver._to_curobo_device(joint_positions)
-    return solver.ik_solver.kinematics.get_state(joint_positions).link_spheres_tensor
+    joint_state = JointState.from_position(joint_positions, joint_names=solver.ik_solver.joint_names)
+    return solver.ik_solver.compute_kinematics(joint_state).robot_spheres[:, 0]
 
 
 @contextmanager
-def _disabled_link_spheres(ik_solver: IKSolver, link_names: Sequence[str]) -> Iterator[None]:
+def _disabled_link_spheres(ik_solver: InverseKinematics, link_names: Sequence[str]) -> Iterator[None]:
     """Mute the collision spheres of given links for the duration of the block, then restore them.
 
     Args:
         ik_solver: The cuRobo IK solver whose kinematics carry the spheres.
         link_names: Links to mute; an empty sequence makes the block a no-op.
     """
-    kinematics_config = ik_solver.kinematics.kinematics_config
+    kinematics_config = ik_solver.kinematics.config.kinematics_config
     for name in link_names:
         assert name in kinematics_config.link_name_to_idx_map, (
             f"Link '{name}' has no collision spheres in this robot config. "

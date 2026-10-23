@@ -41,8 +41,8 @@ yourself, point ``--env_spec`` at ``isaaclab_arena_environments/agent_generated/
    .. tab-item:: Policy evaluation (with cuRobo-based reachability validation)
 
       .. note::
-         Reachability validation runs only in the cuRobo-installed Docker container
-         (``./docker/run_docker.sh -c``). It is not available with a native ``uv``
+         Reachability validation runs in the default Docker container
+         (``./docker/run_docker.sh``). It is not available with a native ``uv``
          install — see :doc:`../../../quickstart/installation` and
          :ref:`ik-reachable-check`.
 
