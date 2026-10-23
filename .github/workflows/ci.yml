@@ -222,21 +222,6 @@ jobs:
           echo "ref=${ARENA_IMAGE}@${IMAGE_DIGEST}" >> "$GITHUB_OUTPUT"
           echo "Built ${ARENA_TARGET}: ${ARENA_IMAGE}@${IMAGE_DIGEST}" >> "$GITHUB_STEP_SUMMARY"
 
-
-  build_curobo_image:
-    name: Build Arena cuRobo image
-    runs-on: [self-hosted, gpu-arena]
-    timeout-minutes: 120
-    needs: [pre_commit]
-    container:
-      image: ubuntu:24.04
-    env:
-      ARENA_TARGET: dev-curobo
-    outputs:
-      image: ${{ steps.image.outputs.ref }}
-    steps: *build_and_push_image_steps
-
-
   test:
     name: Run tests
     runs-on: [self-hosted, gpu-arena]
@@ -475,10 +460,10 @@ jobs:
     name: cuRobo deps check
     runs-on: [self-hosted, gpu-arena]
     timeout-minutes: 30
-    needs: [build_curobo_image]
+    needs: [build_and_push_image]
 
     container:
-      image: ${{ needs.build_curobo_image.outputs.image }}
+      image: ${{ needs.build_and_push_image.outputs.image }}
       credentials:
         username: $oauthtoken
         password: ${{ env.NGC_API_KEY }}
@@ -528,7 +513,7 @@ jobs:
     name: Publish tested NGC image (post-merge)
     runs-on: [self-hosted, gpu-arena]
     timeout-minutes: 15
-    needs: [build_and_push_image, test]
+    needs: [build_and_push_image, test, test_curobo_deps]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     container:
       image: ubuntu:24.04
@@ -542,24 +527,3 @@ jobs:
         run: |
           docker buildx imagetools create --prefer-index=false \
             --tag "${ARENA_IMAGE}:latest" "$CANDIDATE_IMAGE"
-
-
-  build_and_push_curobo_image_post_merge:
-    name: Publish tested cuRobo NGC image (post-merge)
-    runs-on: [self-hosted, gpu-arena]
-    timeout-minutes: 15
-    # A cuRobo failure must not block the base image's publication.
-    needs: [build_curobo_image, test, test_curobo_deps]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    container:
-      image: ubuntu:24.04
-    env:
-      CANDIDATE_IMAGE: ${{ needs.build_curobo_image.outputs.image }}
-
-    steps:
-      - *install_docker_step
-      - *docker_login_ngc_step
-      - name: Publish the tested cuRobo image without rebuilding
-        run: |
-          docker buildx imagetools create --prefer-index=false \
-            --tag "${ARENA_IMAGE}:curobo" "$CANDIDATE_IMAGE"
