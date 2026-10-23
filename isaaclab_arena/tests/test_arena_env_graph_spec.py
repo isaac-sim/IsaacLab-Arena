@@ -379,12 +379,12 @@ def test_validate_rejects_duplicate_cli_override_args():
 
 
 def test_from_yaml_rejects_missing_path_with_clear_message():
-    with pytest.raises(AssertionError, match="Env graph spec YAML not found"):
+    with pytest.raises(FileNotFoundError, match="Env graph spec YAML not found"):
         ArenaEnvGraphSpec.from_yaml(TEST_DATA_DIR / "does_not_exist.yaml")
 
 
 def test_read_cli_override_specs_rejects_missing_path_with_clear_message():
-    with pytest.raises(AssertionError, match="Env graph spec YAML not found"):
+    with pytest.raises(FileNotFoundError, match="Env graph spec YAML not found"):
         ArenaEnvGraphSpec.read_cli_override_specs(TEST_DATA_DIR / "does_not_exist.yaml")
 
 
