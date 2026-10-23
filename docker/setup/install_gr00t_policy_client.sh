@@ -1,13 +1,12 @@
 #!/bin/bash
-# Install the lightweight GR00T/OpenPI clients and their dependencies.
+# Install the lightweight GR00T policy client and its dependencies.
 
 set -euo pipefail
 
 # Install GR00T's video and transport dependencies without its full training stack.
-# OpenPI and its dependencies are installed from Arena's locked openpi group.
 uv pip install --no-deps \
     av==18.0.0 msgpack==1.1.0 msgpack-numpy==0.4.8 pyzmq==27.0.1
 # Make the GR00T checkout importable without installing its full training/inference dependencies.
-# Its metadata requires Python 3.10; the client here uses Isaac Sim's Python instead.
+# Its metadata requires Python 3.10; Arena's client runs on the Lab venv's Python 3.12.
 "${VIRTUAL_ENV}/bin/python" -m pip install \
     --no-deps --ignore-requires-python --editable "${WORKDIR}/submodules/Isaac-GR00T/"
