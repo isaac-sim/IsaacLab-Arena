@@ -220,7 +220,8 @@ To evaluate a Run on several objects, enable the object's ``asset_selection`` an
 rigid objects in its ``registry_names``. The first rebuild of the Run spawns the first name in every
 parallel environment, the second rebuild the second name, and so on. Set ``num_rebuilds`` to the
 length of ``registry_names`` to spawn each entry once. With fewer rebuilds, a name listed only after
-the entry of the last rebuild never spawns.
+the entry of the last rebuild never spawns, and the Experiment Runner prints a warning that lists
+those names.
 
 The example config ``isaaclab_arena_environments/experiment_configs/asset_selection_experiment.yaml``
 spawns three pick-up objects in ``pick_and_place_maple_table``, one per rebuild, each in four parallel

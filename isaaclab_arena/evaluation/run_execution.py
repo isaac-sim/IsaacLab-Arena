@@ -27,6 +27,8 @@ from isaaclab_arena.evaluation.resource_cleanup import close_run_resources
 from isaaclab_arena.metrics.aggregate_metrics import aggregate_metrics
 from isaaclab_arena.recording.episode_results import read_episode_records
 from isaaclab_arena.utils.timer import print_timer_stats, reset_timer_stats
+from isaaclab_arena.variations.asset_selection_variation import AssetSelectionVariation
+from isaaclab_arena.variations.variation_base import get_enabled_variations_by_key
 from isaaclab_arena.variations.variations_hydra import overrides_from_dict
 from isaaclab_arena.video.video_recording import VideoRecordingCfg, wrap_env_for_video
 
@@ -168,7 +170,40 @@ def _build_environment_from_cfg(
     run_cfg.environment_builder.recorder_dataset_export_dir_path = str(output_dir)
     run_cfg.environment_builder.recorder_dataset_filename = f"dataset_{cfg.name}_rebuild{rebuild_index}"
     arena_builder = build_arena_builder_from_run_cfg(run_cfg, rebuild_index=rebuild_index)
-    return arena_builder.make_registered(render_mode=render_mode)
+    env = arena_builder.make_registered(render_mode=render_mode)
+    # Every rebuild of a Run applies the same variation overrides, so the first rebuild warns for all of them.
+    if rebuild_index == 0:
+        _warn_if_in_order_asset_selection_skips_names(cfg, arena_builder)
+    return env
+
+
+def _warn_if_in_order_asset_selection_skips_names(cfg: ArenaRunCfg, arena_builder: ArenaEnvBuilder) -> None:
+    """Warn when an in-order asset selection lists registry names that no rebuild of the Run spawns.
+
+    In-order selection spawns one list entry per rebuild, so a name that first appears after the entry of the last
+    rebuild never spawns.
+    """
+    if cfg.environment_builder.recorded_variation_samples_path is not None:
+        # A replayed Run spawns the recorded names, not the names in list order.
+        return
+    # Read after make_registered(), which applies the Run's variation overrides.
+    enabled_variations_by_key = get_enabled_variations_by_key(arena_builder.get_all_variations())
+    for variation_key, variation in enabled_variations_by_key.items():
+        if not isinstance(variation, AssetSelectionVariation) or variation.cfg.random_choice:
+            continue
+        registry_names = variation.cfg.registry_names
+        names_spawned = set(registry_names[: cfg.num_rebuilds])
+        # dict.fromkeys lists each repeated name once, in list order.
+        names_never_spawned = [name for name in dict.fromkeys(registry_names) if name not in names_spawned]
+        if not names_never_spawned:
+            continue
+        print(
+            f"[WARNING] Run '{cfg.name}' has num_rebuilds: {cfg.num_rebuilds}, but '{variation_key}' spawns one of its"
+            f" {len(registry_names)} registry_names entries per rebuild, in list order, so {names_never_spawned} never"
+            f" spawn. Set num_rebuilds to at least {len(registry_names)}, or set '{variation_key}.random_choice' to"
+            " true to draw a name at random in each build.",
+            flush=True,
+        )
 
 
 def build_arena_builder_from_run_cfg(cfg: ArenaRunCfg, rebuild_index: int = 0) -> ArenaEnvBuilder:
