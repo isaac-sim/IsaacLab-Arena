@@ -312,18 +312,6 @@ def render_generation_panel() -> None:
         endpoint = INFERENCE_ENDPOINTS[endpoint_name]
         st.caption(f"Model: `{endpoint.model}` at `{endpoint.base_url}`")
 
-    if st.button("Load Central egg-tray example"):
-        from isaaclab_arena_examples.agentic_environment_generation.central_egg_tray_example import (
-            CENTRAL_EGG_TRAY_ASSET_URLS,
-            CENTRAL_EGG_TRAY_PROMPT,
-        )
-
-        st.session_state["generation_prompt"] = CENTRAL_EGG_TRAY_PROMPT
-        st.session_state["enable_simready_search"] = True
-        st.session_state["simready_sources"] = [SimReadySourceKind.CENTRAL.value]
-        st.session_state["simready_asset_urls"] = "\n".join(CENTRAL_EGG_TRAY_ASSET_URLS)
-        st.session_state.pop("simready_asset_report", None)
-
     prompt = st.text_area(
         "Prompt",
         value=st.session_state.get("generation_prompt", DEFAULT_GENERATION_PROMPT),

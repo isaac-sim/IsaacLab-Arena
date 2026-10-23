@@ -115,9 +115,6 @@ These options are defined by the environment generation runner:
    * - ``--simready_asset_url URL``
      - Selects an exact pinned Central asset; repeat for multiple assets.
      - Agent
-   * - ``--example central-egg-tray``
-     - Loads the egg/tray prompt and four pinned Palatial Central assets.
-     - Agent
    * - ``--simready_s3_url URL``
      - Overrides the S3 root for S3-based SimReady sources.
      - Agent

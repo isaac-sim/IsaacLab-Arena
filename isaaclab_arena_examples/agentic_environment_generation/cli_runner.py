@@ -74,11 +74,6 @@ def add_agentic_env_gen_runner_cli_args(parser: argparse.ArgumentParser) -> None
         ),
     )
     group.add_argument(
-        "--example",
-        choices=("central-egg-tray",),
-        help="Load a prompt and pinned asset selection for a maintained example.",
-    )
-    group.add_argument(
         "--prompt",
         type=str,
         default=DEFAULT_PROMPT,
@@ -380,19 +375,6 @@ def main() -> int:
     parser = get_isaaclab_arena_cli_parser()
     add_agentic_env_gen_runner_cli_args(parser)
     args_cli = parser.parse_args()
-    if args_cli.example == "central-egg-tray":
-        from isaaclab_arena_examples.agentic_environment_generation.central_egg_tray_example import (
-            CENTRAL_EGG_TRAY_ASSET_URLS,
-            CENTRAL_EGG_TRAY_PROMPT,
-        )
-
-        if args_cli.prompt == DEFAULT_PROMPT:
-            args_cli.prompt = CENTRAL_EGG_TRAY_PROMPT
-        args_cli.enable_simready_search = True
-        args_cli.simready_sources = ["simready-central"]
-        if not args_cli.simready_asset_url:
-            args_cli.simready_asset_url = list(CENTRAL_EGG_TRAY_ASSET_URLS)
-
     if args_cli.mode == "schema":
         print_schema()
         return 0
