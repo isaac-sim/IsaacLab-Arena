@@ -112,9 +112,6 @@ These options are defined by the environment generation runner:
      - Chooses one or more SimReady search backends. Default: ``isaac-sim-ga``.
        Use ``simready-central`` for single-rigid-body assets on Hugging Face.
      - Agent
-   * - ``--simready_asset_url URL``
-     - Selects an exact pinned Central asset; repeat for multiple assets.
-     - Agent
    * - ``--simready_s3_url URL``
      - Overrides the S3 root for S3-based SimReady sources.
      - Agent
@@ -195,5 +192,4 @@ Isaac Sim GA asset library and SimReady Central by object name. The result
 limit applies per object per backend, so the default returns up to two
 candidates per object. Identical USD paths are deduplicated per phrase.
 If one backend fails, results from the other remain available. In the GUI,
-select the desired backends under **SimReady sources**. Pinned Central URLs remain an
-exact-selection mode under ``simready-central``.
+select the desired backends under **SimReady sources**.

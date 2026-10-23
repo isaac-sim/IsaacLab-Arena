@@ -213,15 +213,10 @@ class EnvironmentGenerationAgent:
         # import pxr, and a pxr import before SimulationApp starts breaks the unit tests.
         from isaaclab_arena.assets.simready_object_library import register_searched_simready_object
 
-        if self.simready_config.central_asset_urls:
-            from isaaclab_arena.agentic_environment_generation.simready_central import load_pinned_central_objects
-
-            search_result = load_pinned_central_objects(self.simready_config.central_asset_urls)
-        else:
-            phrases = self.missing_object_inference.infer(prompt, asset_catalog)
-            if not phrases:
-                return asset_catalog
-            search_result = search_simready_objects(phrases, self.simready_config)
+        phrases = self.missing_object_inference.infer(prompt, asset_catalog)
+        if not phrases:
+            return asset_catalog
+        search_result = search_simready_objects(phrases, self.simready_config)
         self._unavailable_objects = list(search_result.unmatched_phrases)
         self._simready_candidates = list(search_result.candidates)
         if not search_result.candidates:

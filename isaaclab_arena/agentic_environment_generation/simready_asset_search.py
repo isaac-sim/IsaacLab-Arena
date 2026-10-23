@@ -48,7 +48,6 @@ class SimReadySearchConfig:
     s3_url: str = ISAAC_SIMREADY_GA_S3_URL
     service_url: str = DEFAULT_SIMREADY_SERVICE_URL
     max_results_per_object: int = 1
-    central_asset_urls: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -115,7 +114,11 @@ def _search_simready_source(
     phrases: list[str], config: SimReadySearchConfig, source: SimReadySourceKind
 ) -> SimReadyCandidateCatalogue:
     """Search one source, retaining the configured number of hits per phrase."""
-    library = None if source == SimReadySourceKind.CENTRAL else _configure_asset_library(config, source)
+    library = (
+        None
+        if source == SimReadySourceKind.CENTRAL
+        else _configure_asset_library(source, s3_url=config.s3_url, service_url=config.service_url)
+    )
     if library is None and source != SimReadySourceKind.CENTRAL:
         return SimReadyCandidateCatalogue()
 
@@ -128,6 +131,7 @@ def _search_simready_source(
 
                 hits = search_central_objects(phrase, max_results=config.max_results_per_object)
             else:
+                # Query the configured asset library through the simready-search API.
                 hits = _search_phrase(library, phrase, max_results=config.max_results_per_object)
         except Exception as exc:
             _logger.warning("simready search failed for %r: %s", phrase, exc)
@@ -160,7 +164,7 @@ _CAMEL_CASE_BOUNDARY = re.compile(r"(?<=[a-z0-9])(?=[A-Z])")
 _NON_ALPHANUMERIC = re.compile(r"[^a-z0-9]+")
 
 
-def _configure_asset_library(config: SimReadySearchConfig, source: SimReadySourceKind) -> Any | None:
+def _configure_asset_library(source: SimReadySourceKind, *, s3_url: str, service_url: str) -> Any | None:
     """Build the SimReady asset library for the configured source, or None if the source is unknown."""
     if source not in tuple(SimReadySourceKind):
         _logger.error("unknown simready source: %s", source)
@@ -172,9 +176,9 @@ def _configure_asset_library(config: SimReadySearchConfig, source: SimReadySourc
 
     library = AssetLibrary()
     if source in (SimReadySourceKind.ISAAC_SIM_GA, SimReadySourceKind.S3):
-        asyncio.run(library.add_s3_source(config.s3_url or ISAAC_SIMREADY_GA_S3_URL))
+        asyncio.run(library.add_s3_source(s3_url or ISAAC_SIMREADY_GA_S3_URL))
     else:
-        library.add_service_source(config.service_url or DEFAULT_SIMREADY_SERVICE_URL)
+        library.add_service_source(service_url or DEFAULT_SIMREADY_SERVICE_URL)
     return library
 
 

@@ -16,50 +16,11 @@ import requests
 
 from isaaclab_arena.agentic_environment_generation.simready_asset_search import (
     MIN_INSPECTED_MATCHES_PER_PHRASE,
-    SimReadyCandidateCatalogue,
     SimReadyObjectCandidate,
 )
 
 CENTRAL_SEARCH_URL = "https://nvidia-simready-central.hf.space/search_hybrid"
 _logger = logging.getLogger(__name__)
-
-
-def load_pinned_central_objects(urls: tuple[str, ...]) -> SimReadyCandidateCatalogue:
-    """Look up exact pinned Central assets and validate each before offering them to the agent."""
-    catalogue = SimReadyCandidateCatalogue()
-    for url in dict.fromkeys(urls):
-        repo_id, revision, filename, _ = _central_asset_location(url)
-        source_url = f"https://huggingface.co/datasets/{repo_id}/resolve/{revision}/{filename}"
-        response = requests.post(
-            CENTRAL_SEARCH_URL,
-            headers={"x-usdsearch-storage-backend": "usdsearch-dev"},
-            json={
-                "filter_url_regexp": re.escape(source_url.replace("https://", "hf://", 1)),
-                "filter_by_properties_numeric": "simready_metadata_rigid_body_count=1",
-                "return_usd_properties": True,
-                "limit": 1,
-            },
-            timeout=30,
-        )
-        response.raise_for_status()
-        hits = response.json()["hits"]
-        assert hits, f"Pinned asset is not indexed as a single rigid body in Central: {source_url}"
-        source = hits[0]["source"]
-        assert source["path"].replace("hf://", "https://", 1) == source_url, "Central returned a different asset"
-        properties = {prop["name"]: prop for prop in source.get("usd_properties", [])}
-        count = properties.get("simready_metadata_rigid_body_count", {})
-        assert float(count.get("value_numeric", count.get("value", 0))) == 1, "expected one indexed rigid body"
-        name = properties.get("simready_metadata_asset_name", {}).get("value")
-        assert name, f"Central asset has no descriptive name: {source_url}"
-        catalogue.candidates.append(
-            SimReadyObjectCandidate(
-                search_phrase=name,
-                usd_path=_prepare_central_asset(source_url),
-                source_url=source_url,
-                tags=("sim-ready", "single-rigid-body", name.lower()),
-            )
-        )
-    return catalogue
 
 
 def search_central_objects(phrase: str, *, max_results: int) -> list[SimReadyObjectCandidate]:

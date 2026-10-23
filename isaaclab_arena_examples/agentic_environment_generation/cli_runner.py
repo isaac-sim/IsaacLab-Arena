@@ -128,12 +128,6 @@ def add_agentic_env_gen_runner_cli_args(parser: argparse.ArgumentParser) -> None
         help="SimReady backends to search. Result limits apply per backend.",
     )
     group.add_argument(
-        "--simready_asset_url",
-        action="append",
-        default=[],
-        help="Pinned Central asset URL; repeat to use an exact asset list instead of natural-language search.",
-    )
-    group.add_argument(
         "--simready_s3_url",
         type=str,
         default=None,
@@ -178,11 +172,6 @@ def resolve_env_spec(args_cli: argparse.Namespace) -> Path | None:
         service_url=args_cli.simready_service_url,
         max_results_per_object=args_cli.simready_max_results_per_object,
     )
-    if args_cli.simready_asset_url:
-        assert args_cli.enable_simready_search and args_cli.simready_sources == [
-            "simready-central"
-        ], "--simready_asset_url requires --enable_simready_search --simready_source simready-central"
-        simready_config.central_asset_urls = tuple(args_cli.simready_asset_url)
     agent_kwargs: dict = {
         "temperature": args_cli.temperature,
         "enable_simready_search": args_cli.enable_simready_search,

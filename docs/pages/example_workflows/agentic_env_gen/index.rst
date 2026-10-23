@@ -17,7 +17,6 @@ In this section, we will walk through the following example environment generati
   - :doc:`tabletop_pnp_homogenous_object/index`
   - :doc:`tabletop_pnp_heterogeneous_object/index`
   - :doc:`tabletop_pnp_composite_task/index`
-  - :doc:`tabletop_pick_place_egg_tray`
 
 - Kitchen Pick and Place task
 
@@ -157,6 +156,5 @@ and can be used directly for policy evaluation:
    tabletop_pnp_homogenous_object/index
    tabletop_pnp_heterogeneous_object/index
    tabletop_pnp_composite_task/index
-   tabletop_pick_place_egg_tray
    kitchen_pick_and_place/index
    kitchen_open_door/index

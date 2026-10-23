@@ -188,7 +188,7 @@ def test_configure_asset_library_records_an_unknown_source(caplog):
 
     config = SimReadySearchConfig()
     with caplog.at_level(logging.ERROR, logger=SEARCH_LOGGER):
-        assert _configure_asset_library(config, "not-a-source") is None
+        assert _configure_asset_library("not-a-source", s3_url=config.s3_url, service_url=config.service_url) is None
     assert "unknown simready source" in caplog.text
 
 
@@ -286,7 +286,7 @@ def test_source_list_searches_selected_backends_once():
         ) as central_search,
     ):
         result = search_simready_objects(["egg"], config)
-    configure.assert_called_once_with(config, SimReadySourceKind.SERVICE)
+    configure.assert_called_once_with(SimReadySourceKind.SERVICE, s3_url=config.s3_url, service_url=config.service_url)
     library_search.assert_called_once()
     central_search.assert_called_once_with("egg", max_results=2)
     assert result.unmatched_phrases == ["egg"]

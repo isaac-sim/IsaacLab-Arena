@@ -70,10 +70,6 @@ def _simready_config_from_session() -> SimReadySearchConfig:
         service_url=st.session_state.get("simready_service_url") or None,
         max_results_per_object=int(st.session_state.get("simready_max_results_per_object", 1)),
     )
-    if config.sources == [SimReadySourceKind.CENTRAL]:
-        config.central_asset_urls = tuple(
-            line.strip() for line in st.session_state.get("simready_asset_urls", "").splitlines() if line.strip()
-        )
     return config
 
 
@@ -121,7 +117,6 @@ def _generation_agent_cache_key(
         simready_config.s3_url,
         simready_config.service_url,
         simready_config.max_results_per_object,
-        simready_config.central_asset_urls,
     )
 
 
@@ -350,14 +345,7 @@ def render_generation_panel() -> None:
                 value=st.session_state.get("simready_s3_url", ""),
                 placeholder="Leave empty for the Isaac Sim 6.0 GA SimReady bucket",
             )
-        if sources == [SimReadySourceKind.CENTRAL.value]:
-            st.text_area(
-                "Pinned Central asset URLs (optional, one per line)",
-                key="simready_asset_urls",
-                help=(
-                    "Use these exact assets instead of natural-language search. Only single rigid bodies are accepted."
-                ),
-            )
+        if SimReadySourceKind.CENTRAL.value in sources:
             st.caption(
                 "Searches Hugging Face SimReady Central; accepts only single rigid bodies without articulations."
             )
