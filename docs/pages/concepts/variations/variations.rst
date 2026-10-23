@@ -33,10 +33,13 @@ an environment resets during policy rollouts. Arena calls these *build-time* and
      - Camera extrinsics, camera intrinsics
 
 This distinction matters when planning an evaluation. To collect several values of a
-build-time variation, the environment must be rebuilt with different seeds; the Experiment
-Runner gives each rebuild its own seed. A run-time variation can produce a new value on each
+build-time variation, the environment must be rebuilt; the Experiment
+Runner gives each rebuild its own seed. Set ``num_rebuilds`` in the Run; with the default of 1,
+each enabled build-time variation draws one value for the whole Run. A run-time variation can
+produce a new value on each
 reset without rebuilding the scene. Both kinds draw their values from the variation's own
-generator, seeded from ``--seed`` (see :doc:`../environment/env_builder`).
+generator, seeded from ``--seed`` (see :doc:`../environment/env_builder`). The exception is
+in-order :ref:`asset selection <asset-selection-variation>`, which follows the rebuild index.
 
 .. _discovering-available-variations:
 
@@ -62,21 +65,24 @@ defaults:
    Variations (Hydra-configurable)
    ================================
 
-   Asset: droid_abs_joint_pos
-     camera_extrinsics_wrist_camera (CameraExtrinsicsVariation, run-time)
-       Enable: droid_abs_joint_pos.camera_extrinsics_wrist_camera.enabled=true  (default: False)
-       Fields:
-         droid_abs_joint_pos.camera_extrinsics_wrist_camera.sampler_cfg.high = [0.005,0.005,0.005]
-         droid_abs_joint_pos.camera_extrinsics_wrist_camera.sampler_cfg.low = [-0.005,-0.005,-0.005]
+   ...
 
-   Asset: light
-     hdr_image (HDRImageVariation, build-time)
-       Enable: light.hdr_image.enabled=true  (default: False)
+   Asset: pick_up_object
+     mass (ObjectMassVariation, run-time)
+       Enable: pick_up_object.mass.enabled=true  (default: False)
        Fields:
-         light.hdr_image.hdr_names = []
+         pick_up_object.mass.recompute_inertia = True
+         pick_up_object.mass.sampler_cfg.high = [2.0]
+         pick_up_object.mass.sampler_cfg.low = [0.05]
 
-   Asset: bowl_ycb_robolab
-     (no variations)
+     ...
+
+     asset_selection (AssetSelectionVariation, build-time)
+       Enable: pick_up_object.asset_selection.enabled=true  (default: False)
+       Fields:
+         pick_up_object.asset_selection.random_choice = False
+         pick_up_object.asset_selection.registry_names = []
+         pick_up_object.asset_selection.sampler_cfg = {}
 
    ...
 
@@ -124,7 +130,7 @@ see :ref:`discovering-available-variations`.
 
 With Isaac Lab's ``record_demos.py`` and Arena's ``environment_registration_callback``,
 append the same variation overrides to the recording command, for example
-``rubiks_cube_hot3d_robolab.mass.enabled=true`` for ``pick_and_place_maple_table``.
+``pick_up_object.mass.enabled=true`` for ``pick_and_place_maple_table``.
 Arena consumes its variation overrides and returns the remaining arguments to the Isaac Lab script.
 See :doc:`Teleoperation Data Collection <../../example_workflows/static_manipulation/step_2_teleoperation>`
 for recording setup and the full command using the callback.
@@ -177,6 +183,9 @@ variations are sampled once and applied to asset configs before the environment 
    * - Variation
      - Type
      - Description
+   * - ``AssetSelectionVariation``
+     - build-time
+     - Picks the registered asset a rigid object spawns, from a list of names, when the environment is built.
    * - ``CameraExtrinsicsVariation``
      - run-time
      - Adds a small sampled offset to a camera's nominal local position on every reset.
@@ -201,3 +210,42 @@ variations are sampled once and applied to asset configs before the environment 
    * - ``LightIntensityVariation``
      - build-time
      - Samples a single intensity and applies it to a light.
+
+.. _asset-selection-variation:
+
+Asset selection
+---------------
+
+To evaluate a Run on several objects, enable the object's ``asset_selection`` and list registered
+rigid objects in its ``registry_names``. The first rebuild of the Run spawns the first name in every
+parallel environment, the second rebuild the second name, and so on. Set ``num_rebuilds`` to the
+length of ``registry_names`` to spawn each entry once. With fewer rebuilds, a name listed only after
+the entry of the last rebuild never spawns.
+
+The example config ``isaaclab_arena_environments/experiment_configs/asset_selection_experiment.yaml``
+spawns three pick-up objects in ``pick_and_place_maple_table``, one per rebuild, each in four parallel
+environments:
+
+.. literalinclude:: ../../../../isaaclab_arena_environments/experiment_configs/asset_selection_experiment.yaml
+   :language: yaml
+
+Every rigid ``Object`` has a disabled ``asset_selection`` variation, for example the
+``pick_up_object`` of ``pick_and_place_maple_table``. While it is off, the object spawns its own
+asset. When it is on, each build chooses one name from ``registry_names``, and every parallel
+environment of that build spawns that asset. For different objects in the
+environments of one build, use a :doc:`RigidObjectSet <../scene/concept_rigid_object_set>`.
+
+With more rebuilds than entries, the order starts over after the last entry. The seed does not change
+this order. With ``random_choice: true``, each build instead draws a name at random, seeded from
+``environment_builder.seed`` and the variation key, and names can repeat. To select a name more
+often, list it more than once: in order, it spawns in more rebuilds, and with ``random_choice: true``
+it is drawn more often.
+
+The object keeps its ``name``, so its variation keys stay the same. Its ``registry_name`` becomes the
+selected name. The default descriptions of ``PickAndPlaceTask`` and ``AssemblyTask`` name the
+selected asset. Other tasks, such as ``GearInsertionTask`` and ``PlaceUprightTask``, still use the
+object's ``name``.
+
+Every episode row records the chosen name, for example
+``"pick_up_object.asset_selection": "mustard_bottle_hot3d_robolab"``, and
+:doc:`recorded variation replay <../experiment_record_replay>` spawns the recorded asset.

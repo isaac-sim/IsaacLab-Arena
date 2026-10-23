@@ -23,6 +23,7 @@ from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.usd.helpers import has_light, open_stage
 from isaaclab_arena.utils.usd.rigid_bodies import read_asset_rigid_body_paths
+from isaaclab_arena.variations.asset_selection_variation import AssetSelectionVariation
 
 
 class Object(RootedObjectBase):
@@ -75,6 +76,21 @@ class Object(RootedObjectBase):
         keep the cached entry."""
         self.object_cfg = self._init_object_cfg()
         self._pose_event_cfg = self._build_reset_event()
+        if self.object_type == ObjectType.RIGID:
+            self.add_variation(AssetSelectionVariation(self))
+
+    def set_spawned_asset_class(self, registry_name: str, spawn_cfg: SpawnerCfg) -> None:
+        """Spawn the asset class registered under ``registry_name`` from ``spawn_cfg`` instead of the declared one.
+
+        Only the spawn configuration and ``registry_name`` change. The object keeps its name, so its scene key,
+        root prim path and variation keys stay the same.
+
+        Args:
+            registry_name: Key of the asset's class in the asset registry.
+            spawn_cfg: Spawn configuration of the asset.
+        """
+        self.registry_name = registry_name
+        self.object_cfg.spawn = spawn_cfg
 
     def get_bounding_box(self) -> AxisAlignedBoundingBox:
         """Get local bounding box (relative to object origin).

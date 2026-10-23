@@ -37,6 +37,9 @@ Replay follows these rules:
   value.
 * Placement must appear in every row or no rows. When absent, the environment
   uses its configured live or fixed placement behavior.
+* When rows have ``placement`` samples, they must also record every enabled
+  :ref:`asset selection <asset-selection-variation>`, because the recorded
+  poses were solved for the recorded assets.
 
 These rules prevent a component from switching between recorded and live values
 within one rebuild.

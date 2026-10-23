@@ -44,6 +44,7 @@ def build_arena_builder_from_legacy_graph(
     cfg: LegacyGraphEnvironmentCfg,
     environment_builder: ArenaEnvBuilderCfg,
     hydra_overrides: list[str],
+    rebuild_index: int = 0,
 ) -> ArenaEnvBuilder:
     """Build a graph-YAML environment through the existing argparse adapter."""
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
@@ -53,4 +54,4 @@ def build_arena_builder_from_legacy_graph(
     parser = get_isaaclab_arena_environments_cli_parser()
     args_cli = parser.parse_args(arena_env_args)
     arena_env = arena_env_from_graph_spec(args_cli.env_spec, args_cli)
-    return ArenaEnvBuilder(arena_env, environment_builder, hydra_overrides=hydra_overrides)
+    return ArenaEnvBuilder(arena_env, environment_builder, hydra_overrides=hydra_overrides, rebuild_index=rebuild_index)

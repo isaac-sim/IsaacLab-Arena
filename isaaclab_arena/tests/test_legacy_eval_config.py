@@ -127,10 +127,11 @@ def test_legacy_graph_builder_keeps_namespace_inside_graph_compatibility(monkeyp
 
     monkeypatch.setattr(legacy_graph_environment_cli, "arena_env_from_graph_spec", get_arena_env)
 
-    def get_builder(arena_env, builder_cfg, hydra_overrides):
+    def get_builder(arena_env, builder_cfg, hydra_overrides, rebuild_index):
         captured["arena_env"] = arena_env
         captured["builder_cfg"] = builder_cfg
         captured["hydra_overrides"] = hydra_overrides
+        captured["rebuild_index"] = rebuild_index
         return expected_builder
 
     # Patched by name so ArenaEnvBuilder is imported when the test runs rather than at
@@ -141,6 +142,7 @@ def test_legacy_graph_builder_keeps_namespace_inside_graph_compatibility(monkeyp
         run.environment,
         environment_builder=run.environment_builder,
         hydra_overrides=overrides_from_dict(run.variations),
+        rebuild_index=1,
     )
 
     assert builder is expected_builder
@@ -155,6 +157,7 @@ def test_legacy_graph_builder_keeps_namespace_inside_graph_compatibility(monkeyp
     assert captured["builder_cfg"].device == "cuda:1"
     assert captured["arena_env"] is expected_arena_env
     assert captured["hydra_overrides"] == ["light.intensity.enabled=true"]
+    assert captured["rebuild_index"] == 1
 
 
 def test_registered_environment_rejects_arguments_missing_from_its_typed_config():

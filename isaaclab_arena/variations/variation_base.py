@@ -112,12 +112,14 @@ class VariationBase(ABC):
         A build-time variation realises its whole effect here; a run-time variation leaves it a no-op.
         """
 
-    def configure_at_build_time(self, seed: int, variation_key: str) -> None:
+    def configure_at_build_time(self, seed: int, variation_key: str, rebuild_index: int = 0) -> None:
         """Seed this variation's draws and apply its build-time effect for one environment build.
 
         Args:
             seed: Environment seed.
             variation_key: This variation's ``<asset_name>.<variation_name>`` key.
+            rebuild_index: Index of this build among the rebuilds of an Experiment Run, the ``rebuild_index``
+                argument of ``ArenaEnvBuilder``.
         """
         # The key gives each variation its own random stream: with the seed alone, equal sampler cfgs draw equal values,
         # and with one shared generator, a variation's values change when others are enabled, disabled or reordered.
