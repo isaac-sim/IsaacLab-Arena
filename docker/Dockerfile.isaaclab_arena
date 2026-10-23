@@ -119,7 +119,6 @@ RUN --mount=type=bind,from=curobo-builder,source=/wheels,target=/wheels \
     --mount=type=bind,source=docker/setup/install_curobo_runtime_deps.sh,target=/tmp/install_curobo_runtime_deps.sh \
     bash /tmp/install_curobo_runtime_deps.sh && \
     uv pip install --no-deps /wheels/*.whl && \
-    chmod -R a+rwX "${VIRTUAL_ENV}" && \
     mkdir -p /usr/local/share/arena && cp /wheels/build.json /usr/local/share/arena/curobo-build.json
 
 # Default to dev (without cuRobo).
