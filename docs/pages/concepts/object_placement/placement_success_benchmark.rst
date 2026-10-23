@@ -35,8 +35,10 @@ robot is part of every layout and its relations are checked too.
 An environment is one task spec. Each environment and seed solves its own
 candidates, so tasks that share a scene, as several RoboLab tasks do, sample it
 independently, and a suite's mean counts such a scene once per task. Rerunning
-the same specs solves the same candidates. Adding or removing a spec changes the
-candidates of the specs after it.
+the same specs starts from the same candidates, but an asset that loads a
+random variant in each process, such as the Lightwheel broccoli, can still
+change results between runs. Adding or removing a spec changes the candidates
+of the specs after it.
 
 Run the Benchmark
 -----------------
@@ -44,16 +46,17 @@ Run the Benchmark
 Run from the repository root inside the Arena container; see
 :doc:`../../quickstart/installation`. With ``--output``, the run writes a results
 file and rewrites it after every environment, so a stopped run keeps its
-results:
+results. Write results outside the checkout, since the file records whether the
+checkout had uncommitted changes:
 
 .. code-block:: bash
 
    /isaac-sim/python.sh isaaclab_arena/scripts/placement_success_benchmark.py \
      --suite all \
-     --output placement_main.json
+     --output /tmp/placement_main.json
 
 For a quick check, place one spec with fewer layouts. The table it prints
-should show one scored RoboLab environment and no errors:
+should show one scored RoboLab environment and none failed:
 
 .. code-block:: bash
 
@@ -61,7 +64,7 @@ should show one scored RoboLab environment and no errors:
      --env banana_on_plate \
      --num_layouts 5 \
      --placement_seeds 0 \
-     --output placement_quick_check.json
+     --output /tmp/placement_quick_check.json
 
 Useful options:
 
@@ -73,12 +76,14 @@ Useful options:
   are 50 layouts and seeds 0, 1 and 2. Seeds must be distinct, and
   ``(seed + 1) * num_layouts * max_placement_attempts`` must not exceed
   ``2**20``, the candidate seeds reserved for each environment. The solver
-  stops a seed's layouts together, so compare only runs with the same
-  ``--num_layouts``.
+  optimizes a seed's layouts as one batch, so ``--num_layouts`` changes
+  individual candidates; compare only runs with the same value.
 * ``--random_yaw_init`` samples a random initial yaw for placed objects,
   including a robot placed by relations. Objects with ``FaceTo`` or a tilted
   ``RotateAroundSolution``, and ``ClutterOn`` objects, keep their own
   orientation rules. Without it, spec objects keep their fixed orientations.
+  KitchenBench places the robot next to a fixture, so turning the robot
+  dominates its failures under this option.
 * ``--collision_mode bbox`` or ``--collision_mode mesh`` overrides the default
   collision mode.
 
@@ -92,9 +97,10 @@ simulator:
 .. code-block:: bash
 
    /isaac-sim/python.sh isaaclab_arena/scripts/placement_success_benchmark.py \
-     --compare placement_main.json placement_change.json
+     --compare /tmp/placement_main.json /tmp/placement_change.json
 
-The comparison reports each suite's rates in both runs over the environments
+The comparison first names each run's commit, then reports each suite's rates
+in both runs over the environments
 scored in both, with a 95% interval for the change in percentage points. The
 interval covers the sampling noise of these specs. A negative change is a
 regression, and an interval that contains zero is inconclusive. The intervals
@@ -104,9 +110,11 @@ change.
 It then lists the environments whose change stays significant after a Holm
 adjustment over every environment and rate, and the environments that were not
 scored in both runs. It warns when the two runs used different settings. It
-also names each environment whose checks, or whose required checks, differ
-between the runs. Its success criteria changed, so it is left out of the suite
-rates and significance tests.
+also names the environments where a check that rejected candidates in either
+run is missing from the other run or differs in being required. Their success
+criteria changed, so they are left out of the suite rates and significance
+tests. A check that never rejected a candidate does not change success, so
+adding one does not exclude an environment.
 
 ``--compare`` only reports; its exit status does not signal a regression.
 
@@ -116,12 +124,13 @@ The Results File
 The results file holds the start time, the commit and branch, the settings, a
 flat list of metrics and one record per environment. Each metric has a name, a
 value and tags for the suite and, where relevant, the environment.
-Per-environment counts, failed check names, timings and the checks that ran,
-with whether each is required, are stored alongside for comparisons.
+Per-environment counts, failed check names, timings, the checks that ran, with
+whether each is required, and how many candidates each check rejected are
+stored alongside for comparisons.
 
 A suite has no rate metrics when any of its environments failed, and the
 script exits with an error after writing the file.
 
-The file also records whether the checkout had uncommitted changes. Only the
-run's own output file is ignored, so keep other results files outside the
-checkout.
+The file also records whether the checkout had uncommitted changes, ignoring
+only the run's own output file. When git cannot read the checkout, for example
+in an image without ``.git``, the run prints a warning and records no commit.

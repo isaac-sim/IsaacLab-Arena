@@ -34,12 +34,14 @@ from typing import TYPE_CHECKING
 
 from isaaclab.app import AppLauncher
 
+import isaaclab_arena
 from isaaclab_arena.offline_placement.placement_success import (
     EnvironmentRecord,
     EnvironmentStatus,
     PlacementBenchmarkRun,
     compare_runs,
     format_comparison,
+    format_provenance,
     format_run,
 )
 from isaaclab_arena.utils.isaaclab_utils.simulation_app import SimulationAppContext
@@ -112,8 +114,11 @@ def main() -> None:
 
     if args_cli.compare is not None:
         baseline_path, candidate_path = args_cli.compare
-        comparison = compare_runs(PlacementBenchmarkRun.load(baseline_path), PlacementBenchmarkRun.load(candidate_path))
-        print(format_comparison(comparison))
+        baseline, candidate = PlacementBenchmarkRun.load(baseline_path), PlacementBenchmarkRun.load(candidate_path)
+        print(f"Baseline: {format_provenance(baseline)}")
+        print(f"Candidate: {format_provenance(candidate)}")
+        print()
+        print(format_comparison(compare_runs(baseline, candidate)))
         return
 
     assert args_cli.num_layouts > 0, "--num_layouts must be positive"
@@ -123,7 +128,14 @@ def main() -> None:
     assert args_cli.output is None or args_cli.output.parent.is_dir(), f"No directory for --output {args_cli.output}"
     specs = discover_specs(args_cli.suite, args_cli.env)
     assert specs, f"No environment specs match suite '{args_cli.suite}' and filters {args_cli.env}"
+    # The specs and the recorded commit come from this script's checkout, so the measured code must too.
+    package_root = Path(isaaclab_arena.__file__).resolve().parents[1]
+    assert (
+        package_root == _REPO_ROOT
+    ), f"isaaclab_arena is imported from {package_root}, not {_REPO_ROOT}; set PYTHONPATH"
     commit, branch, dirty = get_git_provenance(args_cli.output)
+    if commit is None:
+        print(f"[placement benchmark] Warning: git cannot read {_REPO_ROOT}, so the results record no commit.")
     settings = {
         "suite": args_cli.suite,
         "env_filters": args_cli.env,
@@ -141,17 +153,17 @@ def main() -> None:
         from isaaclab_arena_environments.cli import ensure_environments_registered
 
         # The relation solver places on CUDA whenever it is available.
-        settings["solver_device"] = torch.cuda.get_device_name() if torch.cuda.is_available() else "cpu"
+        run.settings["solver_device"] = torch.cuda.get_device_name() if torch.cuda.is_available() else "cpu"
         ensure_environments_registered()
         for index, (suite, spec_path) in enumerate(specs, start=1):
             print(f"[placement benchmark] {index}/{len(specs)} {suite}/{spec_path.stem}")
             run.environments.append(measure_environment(suite, spec_path, args_cli))
-            # SimulationAppContext exits the process on any exception, so keep the results file current.
+            # Rewrite the results file after each environment so that a stopped run keeps its results.
             if args_cli.output is not None:
                 run.save(args_cli.output)
         print(format_run(run))
         # Raising inside SimulationAppContext exits non-zero, so a run with failed environments reports failure.
-        failed = [record.environment for record in run.environments if record.status == EnvironmentStatus.ERROR]
+        failed = [record.environment for record in run.environments if record.status == EnvironmentStatus.FAILED]
         if failed:
             raise SystemExit(f"{len(failed)} environment(s) failed: {', '.join(failed)}")
 
@@ -182,7 +194,7 @@ def get_git_provenance(output: Path | None = None) -> tuple[str | None, str | No
     branch = _run_git("rev-parse", "--abbrev-ref", "HEAD")
     status_args = ["status", "--porcelain"]
     if output is not None and output.resolve().is_relative_to(_REPO_ROOT):
-        status_args += ["--", ".", f":(exclude){output.resolve().relative_to(_REPO_ROOT)}"]
+        status_args += ["--", ".", f":(exclude,literal){output.resolve().relative_to(_REPO_ROOT)}"]
     status = _run_git(*status_args)
     return commit, branch, None if status is None else bool(status)
 
@@ -242,7 +254,7 @@ def measure_environment(suite: str, spec_path: Path, args_cli: argparse.Namespac
                 add_seed_results(record, placement.place(seed, collision_objects))
     except Exception as exc:
         traceback.print_exc()
-        record.status = EnvironmentStatus.ERROR
+        record.status = EnvironmentStatus.FAILED
         record.reason = f"{type(exc).__name__}: {exc}"
     record.wall_time_s = time.perf_counter() - start
     return record
@@ -275,7 +287,6 @@ class BenchmarkPlacement:
         params = copy.copy(placer_params)
         params.solver_params = copy.copy(params.solver_params)
         params.reachability_config = copy.copy(params.reachability_config)
-        params.apply_positions_to_objects = False
         if random_yaw_init:
             params.random_yaw_init = True
         if collision_mode is not None:
@@ -335,6 +346,9 @@ def add_seed_results(record: EnvironmentRecord, ranked_per_layout: list[list[Pla
         record.num_layouts += 1
         record.num_candidates += len(ranked)
         record.candidate_successes += sum(result.success for result in ranked)
+        for result in ranked:
+            for check in result.validation_results.get_failed_validation_check_names:
+                record.candidate_failures_per_check[check] = record.candidate_failures_per_check.get(check, 0) + 1
         validation = best.validation_results
         if best.success:
             record.layout_successes += 1
@@ -353,8 +367,10 @@ def add_seed_results(record: EnvironmentRecord, ranked_per_layout: list[list[Pla
 
 def _run_git(*args: str) -> str | None:
     """Return git's stripped output in the repository, or None when git is unavailable or fails."""
+    # Trust the checkout even when it belongs to another user, as it does for root inside the container.
+    command = ["git", "-c", f"safe.directory={_REPO_ROOT}", *args]
     try:
-        completed = subprocess.run(["git", *args], cwd=_REPO_ROOT, capture_output=True, text=True, timeout=10)
+        completed = subprocess.run(command, cwd=_REPO_ROOT, capture_output=True, text=True, timeout=10)
     except (OSError, subprocess.TimeoutExpired):
         return None
     return completed.stdout.strip() if completed.returncode == 0 else None
