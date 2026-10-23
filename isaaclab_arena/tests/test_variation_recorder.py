@@ -18,6 +18,7 @@ from isaaclab.utils.configclass import configclass
 
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 from isaaclab_arena.variations.choice_sampler import ChoiceSampler
+from isaaclab_arena.variations.sequential_sampler import SequentialSampler
 from isaaclab_arena.variations.uniform_sampler import UniformSamplerCfg
 from isaaclab_arena.variations.variation_base import BuildTimeVariationBase, VariationBaseCfg
 from isaaclab_arena.variations.variation_recorder import VariationRecord, VariationRecorder
@@ -73,6 +74,17 @@ def test_choice_sampler_notifies_listeners():
     sample, env_ids = seen[0]
     assert isinstance(sample, list) and len(sample) == 3
     assert env_ids == [4, 5, 6]
+
+
+def test_sequential_sampler_notifies_listeners_with_live_and_replayed_items():
+    sampler = SequentialSampler()
+    notified_samples: list = []
+    sampler.add_listener(lambda sample, env_ids: notified_samples.append((sample, env_ids)))
+    sampler.sample(num_samples=2, choices=["x", "y", "z"], env_ids=[4, 5])
+    # A live draw would return "z" next.
+    sampler.set_replay_sampler(lambda _count, _env_ids: ["x"])
+    sampler.sample(num_samples=1, choices=["x", "y", "z"])
+    assert notified_samples == [(["x", "y"], [4, 5]), (["x"], None)]
 
 
 def test_variation_listener_survives_sampler_swap():
