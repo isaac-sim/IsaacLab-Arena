@@ -5,6 +5,7 @@
 
 import inspect
 import numpy as np
+import torch
 from contextlib import suppress
 from dataclasses import fields, is_dataclass
 from typing import Any, ClassVar
@@ -118,6 +119,8 @@ def make_camera_observation_cfg(
             elif "segmentation" in dt:
                 image_func = mdp.image_segmentation
                 params["data_type"] = dt
+            elif dt == "motion_vectors":
+                image_func = camera_motion_vectors
             else:
                 raise ValueError(f"Unsupported camera data type: {dt!r}")
             term = ObsTerm(
@@ -157,6 +160,19 @@ def make_camera_observation_cfg(
         AutoCameraObsCfg.__qualname__ = f"{WrappedCameraObsCfg.__name__}.AutoCameraObsCfg"
 
     return WrappedCameraObsCfg()
+
+
+def camera_motion_vectors(
+    env: Any,
+    sensor_cfg: SceneEntityCfg = SceneEntityCfg("tiled_camera"),
+    normalize: bool = True,  # noqa: ARG001
+) -> torch.Tensor:
+    """Return the camera's raw motion-vector output.
+
+    Motion vectors have no normalization defined by Isaac Lab. Clone the sensor
+    buffer to preserve the behavior of the removed generic ``mdp.image`` term.
+    """
+    return env.scene.sensors[sensor_cfg.name].data.output["motion_vectors"].clone()
 
 
 def _resolve_lookat_pose(lookat_object: Asset) -> Pose | None:
