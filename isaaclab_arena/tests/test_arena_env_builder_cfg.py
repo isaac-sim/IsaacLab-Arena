@@ -94,7 +94,7 @@ def test_builder_configuration_normalizes_physics_backend_strings():
 
 @pytest.mark.parametrize("camera_resolution_mode", ["embodiment_default", "policy_default"])
 def test_builder_configuration_accepts_camera_resolution_mode_strings(camera_resolution_mode):
-    """Convert YAML and CLI strings into the CameraResolutionMode enum, as done for the physics backend."""
+    """Convert plain value strings into the CameraResolutionMode enum, as done for the physics backend."""
     cfg = ArenaEnvBuilderCfg(camera_resolution_mode=camera_resolution_mode)
 
     assert cfg.camera_resolution_mode is CameraResolutionMode(camera_resolution_mode)

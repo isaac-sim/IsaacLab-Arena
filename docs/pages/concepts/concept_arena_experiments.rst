@@ -75,8 +75,8 @@ Use ``rollout_limit.num_episodes`` instead of ``rollout_limit.num_steps`` to sta
 exactly that many episodes per Run, across all rebuilds.
 
 ``environment_builder.camera_resolution_mode`` selects which component decides the image size the
-embodiment cameras render: ``embodiment_default`` (default) keeps the dimensions the embodiment's
-camera rig declares, and ``policy_default`` shrinks every camera, keeping its aspect ratio, to fit
+embodiment cameras render: ``EMBODIMENT_DEFAULT`` (default) keeps the dimensions the embodiment's
+camera rig declares, and ``POLICY_DEFAULT`` shrinks every camera, keeping its aspect ratio, to fit
 inside the image size the Run's policy declares. Rendering at the policy's input size cuts camera GPU
 memory and step time at high environment counts.
 

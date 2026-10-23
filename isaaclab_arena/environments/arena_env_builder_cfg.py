@@ -55,9 +55,10 @@ class ArenaEnvBuilderCfg:
     camera_resolution_mode: CameraResolutionMode = CameraResolutionMode.EMBODIMENT_DEFAULT
     """Which component decides the image size the embodiment cameras render.
 
-    ``embodiment_default`` keeps the dimensions the camera rig declares; ``policy_default`` shrinks each
+    ``EMBODIMENT_DEFAULT`` keeps the dimensions the camera rig declares; ``POLICY_DEFAULT`` shrinks each
     camera, keeping its aspect ratio, to fit inside the image size the policy declares through
-    ``PolicyBase.default_image_size``.
+    ``PolicyBase.default_image_size``. Experiment YAML names the member (``POLICY_DEFAULT``); Python
+    callers may also pass the value (``"policy_default"``).
     """
 
     def __post_init__(self) -> None:
