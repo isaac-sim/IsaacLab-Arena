@@ -36,6 +36,11 @@ CAMERA_SENSITIVITY_YAML_PATH = (
     / "experiment_configs"
     / "droid_pnp_camera_sensitivity_openpi_experiment.yaml"
 )
+EXTERNAL_ENVIRONMENT_CLASS_PATH = "isaaclab_arena_examples.external_environments.basic.ExternalFrankaTableEnvironment"
+
+
+def _reject_environment_type_resolution(environment_type: str):
+    raise AssertionError(f"Graph-spec Runs must not resolve environment type {environment_type!r}")
 
 
 def _experiment_cfg(enable_cameras: bool = False) -> ArenaExperimentCfg:
@@ -50,8 +55,8 @@ def _experiment_cfg(enable_cameras: bool = False) -> ArenaExperimentCfg:
 def test_load_typed_yaml_experiment_applies_overrides_and_device(monkeypatch):
     monkeypatch.setattr(
         arena_experiment_config_loader,
-        "_registered_environment_cfg_types",
-        lambda: {"pick_and_place_maple_table": PickAndPlaceMapleTableEnvironmentCfg},
+        "_resolve_environment_cfg_type_from_name_or_class_path",
+        lambda environment_name: {"pick_and_place_maple_table": PickAndPlaceMapleTableEnvironmentCfg}[environment_name],
     )
     monkeypatch.setattr(
         arena_experiment_config_loader,
@@ -80,7 +85,11 @@ def test_load_typed_yaml_experiment_applies_overrides_and_device(monkeypatch):
 
 
 def test_load_typed_yaml_experiment_with_graph_spec_environment(tmp_path, monkeypatch):
-    monkeypatch.setattr(arena_experiment_config_loader, "_registered_environment_cfg_types", lambda: {})
+    monkeypatch.setattr(
+        arena_experiment_config_loader,
+        "_resolve_environment_cfg_type_from_name_or_class_path",
+        _reject_environment_type_resolution,
+    )
     monkeypatch.setattr(
         arena_experiment_config_loader,
         "_resolve_policy_cfg_type_from_name_or_class_path",
@@ -121,7 +130,11 @@ runs:
 
 
 def test_graph_spec_environment_serializes_to_reloadable_yaml(tmp_path, monkeypatch):
-    monkeypatch.setattr(arena_experiment_config_loader, "_registered_environment_cfg_types", lambda: {})
+    monkeypatch.setattr(
+        arena_experiment_config_loader,
+        "_resolve_environment_cfg_type_from_name_or_class_path",
+        _reject_environment_type_resolution,
+    )
     monkeypatch.setattr(
         arena_experiment_config_loader,
         "_resolve_policy_cfg_type_from_name_or_class_path",
@@ -184,6 +197,91 @@ def test_policy_config_type_resolves_from_dotted_class_path():
     )
 
     assert policy_cfg_type is ZeroActionPolicyCfg
+
+
+def test_typed_experiment_selects_external_environment_by_class_path(tmp_path):
+    from isaaclab_arena_examples.external_environments.basic import ExternalFrankaTableEnvironmentCfg
+
+    config_path = tmp_path / "experiment.yaml"
+    config_path.write_text(
+        f"""
+runs:
+  external_run:
+    environment:
+      type: {EXTERNAL_ENVIRONMENT_CLASS_PATH}
+      object: mug
+    policy:
+      type: zero_action
+""",
+        encoding="utf-8",
+    )
+
+    experiment_cfg = load_arena_experiment_from_config_file(config_path, device="cuda:0")
+
+    assert experiment_cfg.runs["external_run"].environment == ExternalFrankaTableEnvironmentCfg(object="mug")
+
+    # A fresh process registers only built-in environments by name, so the class path is serialized.
+    serialized_experiment = serialize_arena_experiment_to_yaml(experiment_cfg)
+    serialized_environment = yaml.safe_load(serialized_experiment)["runs"]["external_run"]["environment"]
+    assert serialized_environment["type"] == EXTERNAL_ENVIRONMENT_CLASS_PATH
+
+    serialized_path = tmp_path / "serialized_experiment.yaml"
+    serialized_path.write_text(serialized_experiment, encoding="utf-8")
+    assert load_arena_experiment_from_config_file(serialized_path, device="cuda:0") == experiment_cfg
+
+
+@pytest.mark.parametrize(
+    ("environment_type", "error"),
+    [
+        ("missing_environment", "Use a registered name \\(.*pick_and_place_maple_table"),
+        ("missing_package.environments.MissingEnvironment", "No module named 'missing_package'"),
+        (
+            "isaaclab_arena_examples.external_environments.basic:ExternalFrankaTableEnvironment",
+            "uses the command-line form 'module_path:ClassName'",
+        ),
+    ],
+)
+def test_unknown_environment_type_names_the_run(tmp_path, environment_type, error):
+    config_path = tmp_path / "experiment.yaml"
+    config_path.write_text(
+        f"""
+runs:
+  valid:
+    environment:
+      type: pick_and_place_maple_table
+    policy:
+      type: zero_action
+  invalid:
+    environment:
+      type: {environment_type}
+    policy:
+      type: zero_action
+""",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match=f"Run 'invalid' selects unknown environment type .*{error}"):
+        load_arena_experiment_from_config_file(config_path, device="cuda:0")
+
+
+def test_typed_experiment_resolves_only_selected_environment_types(monkeypatch):
+    """A registered environment without a config does not affect Runs that select other environments."""
+    from isaaclab_arena.assets.registries import EnvironmentRegistry
+    from isaaclab_arena_environments.cli import ensure_environments_registered
+
+    class EnvironmentWithoutConfig:
+        name = "environment_without_config"
+
+    ensure_environments_registered()
+    environment_registry = EnvironmentRegistry()
+    monkeypatch.setattr(environment_registry, "_components", environment_registry._components.copy())
+    environment_registry.register(EnvironmentWithoutConfig, EnvironmentWithoutConfig.name)
+
+    experiment_cfg = load_arena_experiment_from_config_file(GETTING_STARTED_YAML_PATH, device="cuda:0")
+
+    assert all(
+        isinstance(run.environment, PickAndPlaceMapleTableEnvironmentCfg) for run in experiment_cfg.runs.values()
+    )
 
 
 def test_load_legacy_json_experiment_returns_canonical_cfg(tmp_path, monkeypatch):

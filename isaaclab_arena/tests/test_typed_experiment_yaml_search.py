@@ -38,10 +38,14 @@ runs:
 """
 
 
+def _environment_cfg_type_for_name(environment_name: str) -> type[PickAndPlaceMapleTableEnvironmentCfg]:
+    return {"pick_and_place_maple_table": PickAndPlaceMapleTableEnvironmentCfg}[environment_name]
+
+
 def _load_experiment(config_path: str | Path, overrides: list[str] | None = None):
     return load_arena_experiment_from_yaml(
         config_path,
-        environment_cfg_types={"pick_and_place_maple_table": PickAndPlaceMapleTableEnvironmentCfg},
+        environment_cfg_type_resolver=_environment_cfg_type_for_name,
         policy_cfg_type_resolver=lambda name: {"zero_action": ZeroActionPolicyCfg}[name],
         overrides=overrides,
     )

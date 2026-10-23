@@ -37,10 +37,14 @@ def _policy_cfg_type_for_name_or_class_path(policy_name_or_class_path: str) -> t
     return {"zero_action": ZeroActionPolicyCfg}[policy_name_or_class_path]
 
 
+def _environment_cfg_type_for_name(environment_name: str) -> type[PickAndPlaceMapleTableEnvironmentCfg]:
+    return {"pick_and_place_maple_table": PickAndPlaceMapleTableEnvironmentCfg}[environment_name]
+
+
 def _load_experiment(config_path: str | Path, overrides: list[str] | None = None):
     return load_arena_experiment_from_yaml(
         config_path,
-        environment_cfg_types={"pick_and_place_maple_table": PickAndPlaceMapleTableEnvironmentCfg},
+        environment_cfg_type_resolver=_environment_cfg_type_for_name,
         policy_cfg_type_resolver=_policy_cfg_type_for_name_or_class_path,
         overrides=overrides,
     )
@@ -388,16 +392,6 @@ runs:
 @pytest.mark.parametrize(
     ("run_contents", "exception_type", "error"),
     [
-        (
-            """
-    environment:
-      type: missing_environment
-    policy:
-      type: zero_action
-""",
-            AssertionError,
-            "unknown environment type 'missing_environment'",
-        ),
         (
             """
     environment:

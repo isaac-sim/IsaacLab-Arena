@@ -69,7 +69,7 @@ def load_arena_experiment_from_config_file(
 
     experiment_cfg = load_arena_experiment_from_yaml(
         path,
-        environment_cfg_types=_registered_environment_cfg_types(),
+        environment_cfg_type_resolver=_resolve_environment_cfg_type_from_name_or_class_path,
         policy_cfg_type_resolver=_resolve_policy_cfg_type_from_name_or_class_path,
         overrides=overrides,
     )
@@ -88,18 +88,31 @@ def load_arena_experiment_from_config_file(
     return ArenaExperimentCfg(runs=runs_with_process_device)
 
 
-def _registered_environment_cfg_types() -> dict[str, type[ArenaEnvironmentCfg]]:
-    """Return registered environment selector names and their config types."""
+def _resolve_environment_cfg_type_from_name_or_class_path(
+    environment_name_or_class_path: str,
+) -> type[ArenaEnvironmentCfg]:
+    """Return the config type for a registered environment name or dotted factory class path."""
     from isaaclab_arena.assets.registries import EnvironmentRegistry
-    from isaaclab_arena_environments.cli import ensure_environments_registered
+    from isaaclab_arena_environments.cli import ensure_environments_registered, import_registered_environment_factory
 
     ensure_environments_registered()
     registry = EnvironmentRegistry()
-    environment_cfg_types = {}
-    for name in registry.get_all_keys():
-        environment_factory_type = registry.get_component_by_name(name)
-        environment_cfg_types[name] = registry.get_environment_cfg_type(environment_factory_type)
-    return environment_cfg_types
+    if registry.is_registered(environment_name_or_class_path):
+        environment_factory_type = registry.get_component_by_name(environment_name_or_class_path)
+    else:
+        assert ":" not in environment_name_or_class_path, (
+            f"Environment type {environment_name_or_class_path!r} uses the command-line form"
+            " 'module_path:ClassName'. Experiments use the dotted form 'module_path.ClassName'."
+        )
+        registered_names = ", ".join(sorted(registry.get_all_keys()))
+        assert "." in environment_name_or_class_path, (
+            f"Unknown environment type {environment_name_or_class_path!r}. Use a registered name"
+            f" ({registered_names}) or the dotted Python class path of an environment factory"
+            " decorated with @register_environment."
+        )
+        module_path, class_name = environment_name_or_class_path.rsplit(".", 1)
+        environment_factory_type = import_registered_environment_factory(module_path, class_name)
+    return registry.get_environment_cfg_type(environment_factory_type)
 
 
 def _resolve_policy_cfg_type_from_name_or_class_path(policy_name_or_class_path: str) -> type[PolicyCfg]:
