@@ -150,8 +150,9 @@ preserved partial artifacts or failures.
 - Use `setup-arena` for installation, container creation, mounts, or readiness repair.
 - Use `run-tests` for pytest and regression checks.
 - Use the Environment Runner for interactive inspection without a policy.
-- Use the Policy Runner for `torchrun`, external environments, or an explicitly requested direct
-  rollout outside an Experiment Definition.
+- Use the Policy Runner for external environments or an explicitly requested direct rollout
+  outside an Experiment Definition. Multi-GPU `torchrun` evaluation is deprecated; do not
+  suggest it.
 - Use a separate OSMO submission skill for previews, cluster resources, submission, monitoring, or
   remote result download. An unqualified request to "run" an Experiment means local execution.
 - Use `serve-openpi-policy` automatically when a local OpenPI Experiment needs a compatible server.
