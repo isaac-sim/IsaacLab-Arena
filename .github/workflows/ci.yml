@@ -317,7 +317,7 @@ jobs:
 
       - name: Run VLM agent policy tests
         run: |
-          /isaac-sim/python.sh -m pytest -sv --durations=0 \
+          isaaclab.sh -p -m pytest -sv --durations=0 \
             isaaclab_arena_vlm_agent/tests/
 
       - name: Run GR00T policy client & data tests (lightweight gr00t deps only)
