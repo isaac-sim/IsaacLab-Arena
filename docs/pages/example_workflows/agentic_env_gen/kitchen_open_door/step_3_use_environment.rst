@@ -3,7 +3,7 @@ Use the Generated Environment
 
 Once you are satisfied with the environment, you can use it to evaluate a policy on the environment.
 
-For example, you can use the policy runner to evaluate a PI policy on the
+For example, you can use the Experiment Runner to evaluate a PI policy on the
 environment. For other policy types, see
 :doc:`Running a Real Policy <../../../quickstart/running_a_real_policy/index>`.
 
@@ -13,22 +13,32 @@ Open one terminal and run the following command outside the Arena docker contain
 
    ./isaaclab_arena_openpi/docker/run_openpi_server.sh
 
-In the other terminal, run the following command to launch the policy runner. The commands below use the
-ready-made spec that ships with Arena; to evaluate a spec you generated yourself, point
-``--env_spec`` at ``isaaclab_arena_environments/agent_generated/<env_name>.yaml``.
+The Experiment Runner reads the evaluation from an Experiment Definition. Arena includes one with a
+single Run for this environment. It uses the ready-made spec that ships with Arena, enables the
+cameras, runs one environment, and stops after two episodes:
 
+.. literalinclude:: ../../../../../isaaclab_arena_environments/experiment_configs/agentic_env_gen/kitchen_open_fridge_openpi_experiment.yaml
+   :language: yaml
 
+In the other terminal, run the following command to launch the Experiment Runner.
 Complete the shared :ref:`agentic-env-gen-prerequisites` before running this command.
 
 .. code-block:: bash
 
-   python isaaclab_arena/evaluation/policy_runner.py \
+   python isaaclab_arena/evaluation/experiment_runner.py \
       --viz kit \
-      --policy_type isaaclab_arena_openpi.policy.pi0_remote_policy.Pi0RemotePolicy \
-      --enable_cameras \
-      --num_envs 1 \
-      --num_episodes 2 \
-      --env_spec isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_open_fridge.yaml
+      --experiment_config isaaclab_arena_environments/experiment_configs/agentic_env_gen/kitchen_open_fridge_openpi_experiment.yaml
+
+To evaluate a spec you generated yourself, point ``shared.environment.type`` at
+``isaaclab_arena_environments/agent_generated/<env_name>.yaml``. The spec path is declared under
+``shared`` in the YAML, so you can change it on the command line:
+
+.. code-block:: bash
+
+   python isaaclab_arena/evaluation/experiment_runner.py \
+      --viz kit \
+      --experiment_config isaaclab_arena_environments/experiment_configs/agentic_env_gen/kitchen_open_fridge_openpi_experiment.yaml \
+      shared.environment.type=isaaclab_arena_environments/agent_generated/<env_name>.yaml
 
 .. figure:: ../../../../images/agentic_environment_generation/droid_kitchen_open_door_pi.gif
    :width: 100%
