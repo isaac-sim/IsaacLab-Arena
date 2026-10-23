@@ -24,7 +24,7 @@ sync_isaaclab() {
 case "${1:-}" in
     dependencies)
         ln -sfn /isaac-sim/ "${ISAACLAB_PATH}/_isaac_sim"
-        uv venv --seed "${VIRTUAL_ENV}"
+        uv venv --seed --python /isaac-sim/kit/python/bin/python3 "${VIRTUAL_ENV}"
         sync_isaaclab --no-install-local
         ;;
     workspace)
@@ -36,6 +36,9 @@ case "${1:-}" in
         apt-get clean
         rm -rf /var/lib/apt/lists/*
         sync_isaaclab
+        # Prevent Sim 6.2's prebundled CUDA 12.8 Torch from shadowing Lab 3.0's
+        # locked Torch 2.11/CUDA 13.0 packages on launch paths.
+        # See submodules/IsaacLab/docker/Dockerfile.base:170-175
         "${ISAACLAB_PATH}/isaaclab.sh" -p -c \
             "from isaaclab.cli.commands.install import _repoint_prebundle_packages; _repoint_prebundle_packages()"
         ;;

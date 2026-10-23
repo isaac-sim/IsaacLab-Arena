@@ -15,13 +15,11 @@
 # Select a variant with --target.
 
 ARG BASE_IMAGE=nvcr.io/nvidia/isaac-sim:6.2.0
-FROM ghcr.io/astral-sh/uv:0.12.9@sha256:8b940d3a9d65bed080436972241af2e21c84b5e8c9193f7014ed71479ee795ff AS uv
 
 ################################
 # STAGE: sim-base
 ################################
 FROM ${BASE_IMAGE} AS sim-base
-COPY --from=uv /uv /uvx /usr/local/bin/
 USER root
 ARG WORKDIR="/workspaces/isaaclab_arena"
 ENV WORKDIR=${WORKDIR}
@@ -29,15 +27,18 @@ WORKDIR "${WORKDIR}"
 RUN --mount=type=bind,source=docker/setup/install-system-deps.sh,target=/tmp/install-system-deps.sh \
     bash /tmp/install-system-deps.sh
 
+# Pinned uv tooling used to construct the Isaac Lab environment. Follows Lab's pinned digest.
+FROM ghcr.io/astral-sh/uv:0.12.9@sha256:8b940d3a9d65bed080436972241af2e21c84b5e8c9193f7014ed71479ee795ff AS uv
+
 ################################
 # STAGE: isaaclab
 ################################
 FROM sim-base AS isaaclab
+COPY --from=uv /uv /uvx /usr/local/bin/
 ENV ISAACLAB_PATH=${WORKDIR}/submodules/IsaacLab
 ENV TERM=xterm
 ENV VIRTUAL_ENV=/opt/isaaclab-venv
 ENV UV_PROJECT_ENVIRONMENT=${VIRTUAL_ENV}
-ENV UV_PYTHON=/isaac-sim/kit/python/bin/python3
 ENV UV_PYTHON_PREFERENCE=only-system
 ENV UV_HTTP_RETRIES=12
 ENV PATH=${ISAACLAB_PATH}:${VIRTUAL_ENV}/bin:${PATH}
@@ -53,8 +54,6 @@ COPY submodules/IsaacLab ${ISAACLAB_PATH}
 RUN --mount=type=bind,source=docker/setup/install-isaaclab.sh,target=/tmp/install-isaaclab.sh \
     --mount=type=cache,target=/root/.cache/uv \
     bash /tmp/install-isaaclab.sh workspace
-# Subsequent uv/pip operations target the venv rather than Kit's base interpreter.
-ENV UV_PYTHON=${VIRTUAL_ENV}/bin/python
 
 ################################
 # STAGE: arena-deps
