@@ -11,11 +11,32 @@ export LD_LIBRARY_PATH="${CUDA_HOME}/lib64:${LD_LIBRARY_PATH:-}"
 # These packages provide version detection, wheel packaging, and the build runner.
 uv pip install setuptools_scm wheel ninja
 
-# Build the pinned cuRobo revision into /wheels for the runtime stage.
-# Skip dependency wheels and build in this environment instead of an isolated Python environment.
+# Fetch the pinned cuRobo revision so its Warp compatibility can be patched before wheel creation.
+export CUROBO_SOURCE_DIR=/tmp/curobo
+git init "${CUROBO_SOURCE_DIR}"
+git -C "${CUROBO_SOURCE_DIR}" remote add origin https://github.com/NVlabs/curobo.git
+git -C "${CUROBO_SOURCE_DIR}" fetch --depth=1 origin "${CUROBO_COMMIT}"
+git -C "${CUROBO_SOURCE_DIR}" checkout --detach FETCH_HEAD
+
+# cuRobo 0.7.x uses the removed Warp 1.17 wp.torch namespace. The interop
+# functions remain available at Warp's package root, so update the one stale call.
+"${VIRTUAL_ENV}/bin/python" - <<'PYTHON'
+import os
+from pathlib import Path
+
+path = Path(os.environ["CUROBO_SOURCE_DIR"]) / "src/curobo/geom/sdf/world_mesh.py"
+old = "wp.torch.device_from_torch(self.tensor_args.device)"
+new = "wp.device_from_torch(self.tensor_args.device)"
+contents = path.read_text()
+assert contents.count(old) == 1, f"Expected one cuRobo Warp interop call in {path}"
+path.write_text(contents.replace(old, new))
+PYTHON
+
+# Build the patched revision into /wheels for the runtime stage. Skip dependency
+# wheels and build in this environment instead of an isolated Python environment.
 mkdir -p /wheels
 "${VIRTUAL_ENV}/bin/python" -m pip wheel --no-deps --no-build-isolation --wheel-dir /wheels \
-    "nvidia-curobo @ git+https://github.com/NVlabs/curobo.git@${CUROBO_COMMIT}"
+    "${CUROBO_SOURCE_DIR}"
 
 # The Python block below reads the finished wheel's declared dependencies and writes
 # a requirements file. The runtime stage installs those separately with version constraints

@@ -44,3 +44,20 @@ def test_curobo_reports_version():
     import curobo
 
     assert getattr(curobo, "__version__", None), "curobo is importable but reports no __version__"
+
+
+def test_mesh_collision_checker_supports_installed_warp():
+    """cuRobo constructs its mesh checker with the Warp version pinned by Isaac Lab."""
+    from curobo.geom.sdf.world import WorldCollisionConfig
+    from curobo.geom.sdf.world_mesh import WorldMeshCollision
+    from curobo.geom.types import WorldConfig
+    from curobo.types.base import TensorDeviceType
+
+    config = WorldCollisionConfig(
+        tensor_args=TensorDeviceType(device="cpu"),
+        world_model=WorldConfig(cuboid=[]),
+        cache={"mesh": 0, "obb": 0},
+    )
+    checker = WorldMeshCollision(config)
+
+    assert str(checker._wp_device) == "cpu"
