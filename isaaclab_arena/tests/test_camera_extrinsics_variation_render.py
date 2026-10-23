@@ -95,6 +95,7 @@ def _apply_camera_offset(camera, nominal_translation, offset, device, env_ids) -
         orientations=None,
         indices=wp.from_torch(env_ids.to(torch.int32)),
     )
+    # reset required to propagate pose change across various pose-storage sources in the framework
     camera.reset(env_ids)
 
 
