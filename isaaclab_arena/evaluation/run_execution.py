@@ -15,7 +15,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.assets.registries import EnvironmentRegistry, PolicyRegistry
-from isaaclab_arena.environments.arena_env_builder_cfg import CameraResolutionMode
 from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
 from isaaclab_arena.evaluation.arena_run import ArenaRunCfg, ArenaRunResult, RunStatus
 from isaaclab_arena.evaluation.experiment_timings import write_run_timings
@@ -180,7 +179,6 @@ def build_arena_builder_from_run_cfg(cfg: ArenaRunCfg, rebuild_index: int = 0) -
         rebuild_index: Index of the rebuild the builder serves.
     """
     hydra_overrides = overrides_from_dict(cfg.variations)
-    policy_image_size = policy_image_size_from_run_cfg(cfg)
     # TODO(cvolk, 2026-07-07): [typed-config-migration] Remove the legacy branch when graph environments
     # have typed configs and no longer require the argparse construction path.
     return (
@@ -189,27 +187,14 @@ def build_arena_builder_from_run_cfg(cfg: ArenaRunCfg, rebuild_index: int = 0) -
             environment_builder=cfg.environment_builder,
             hydra_overrides=hydra_overrides,
             rebuild_index=rebuild_index,
-            policy_image_size=policy_image_size,
+            policy_cfg=cfg.policy,
         )
         if isinstance(cfg.environment, LegacyGraphEnvironmentCfg)
-        else _build_arena_builder_from_cfg(cfg, hydra_overrides, rebuild_index, policy_image_size)
+        else _build_arena_builder_from_cfg(cfg, hydra_overrides, rebuild_index)
     )
 
 
-def policy_image_size_from_run_cfg(cfg: ArenaRunCfg) -> tuple[int, int] | None:
-    """Return the (height, width) the run's policy declares when its cameras are fitted to the policy."""
-    if cfg.environment_builder.camera_resolution_mode != CameraResolutionMode.POLICY_DEFAULT:
-        return None
-    policy_type = PolicyRegistry().get_policy_type_for_cfg(cfg.policy)
-    return policy_type.default_image_size(cfg.policy)
-
-
-def _build_arena_builder_from_cfg(
-    cfg: ArenaRunCfg,
-    hydra_overrides: list[str],
-    rebuild_index: int,
-    policy_image_size: tuple[int, int] | None,
-) -> ArenaEnvBuilder:
+def _build_arena_builder_from_cfg(cfg: ArenaRunCfg, hydra_overrides: list[str], rebuild_index: int) -> ArenaEnvBuilder:
     """Build an Arena environment builder from a registered typed config."""
     # ArenaEnvBuilder imports pxr modules that must not load before SimulationApp.
     # Keep this runtime import deferred even though the type-only import is at the top.
@@ -222,7 +207,7 @@ def _build_arena_builder_from_cfg(
         cfg.environment_builder,
         hydra_overrides=hydra_overrides,
         rebuild_index=rebuild_index,
-        policy_image_size=policy_image_size,
+        policy_cfg=cfg.policy,
     )
 
 

@@ -17,6 +17,7 @@ from isaaclab_arena_environments.cli import arena_env_from_graph_spec, get_isaac
 if TYPE_CHECKING:
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
+    from isaaclab_arena.policy.policy_base import PolicyCfg
 
 # TODO(cvolk, 2026-07-07): [typed-config-migration] Delete this module when graph-YAML environments have a
 # typed configuration and factory. Until then, only graph construction crosses the
@@ -45,7 +46,7 @@ def build_arena_builder_from_legacy_graph(
     environment_builder: ArenaEnvBuilderCfg,
     hydra_overrides: list[str],
     rebuild_index: int = 0,
-    policy_image_size: tuple[int, int] | None = None,
+    policy_cfg: PolicyCfg | None = None,
 ) -> ArenaEnvBuilder:
     """Build a graph-YAML environment through the existing argparse adapter.
 
@@ -53,7 +54,8 @@ def build_arena_builder_from_legacy_graph(
         cfg: Graph-spec environment selection and per-run overrides.
         environment_builder: Builder options for the environment.
         hydra_overrides: Variation overrides applied when the environment config is composed.
-        policy_image_size: (height, width) the policy declares, used by ``camera_resolution_mode: policy_default``.
+        policy_cfg: Config of the policy that will drive the environment, used by
+            ``camera_resolution_mode: policy_default`` to fit the embodiment cameras to the policy.
     """
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
 
@@ -67,5 +69,5 @@ def build_arena_builder_from_legacy_graph(
         environment_builder,
         hydra_overrides=hydra_overrides,
         rebuild_index=rebuild_index,
-        policy_image_size=policy_image_size,
+        policy_cfg=policy_cfg,
     )

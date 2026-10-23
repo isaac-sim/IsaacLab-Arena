@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import datetime
 import gymnasium as gym
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from isaaclab.devices.device_base import DeviceCfg, DevicesCfg
 from isaaclab.envs import ManagerBasedRLMimicEnv, ViewerCfg
@@ -23,7 +23,7 @@ from isaaclab_tasks.utils import parse_env_cfg
 from isaaclab_teleop import IsaacTeleopCfg
 
 import isaaclab_arena_curobo  # noqa: F401
-from isaaclab_arena.assets.registries import DeviceRegistry
+from isaaclab_arena.assets.registries import DeviceRegistry, PolicyRegistry
 from isaaclab_arena.embodiments.no_embodiment import NoEmbodiment
 from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg, CameraResolutionMode
 from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
@@ -73,6 +73,9 @@ from isaaclab_arena.variations.variation_base import RunTimeVariationBase, Varia
 from isaaclab_arena.variations.variation_recorder import VariationRecorder
 from isaaclab_arena.variations.variation_replay_scheduler import VariationReplayScheduler
 
+if TYPE_CHECKING:
+    from isaaclab_arena.policy.policy_base import PolicyCfg
+
 
 # TODO: peterd, 2026-09-16: Remove this once Arena migrates off ViewCfg and into KitVisualizerCfg.
 def _configure_arena_visualizer_defaults(env_cfg: IsaacLabArenaManagerBasedRLEnvCfg) -> None:
@@ -104,7 +107,7 @@ class ArenaEnvBuilder:
         cfg: ArenaEnvBuilderCfg,
         hydra_overrides: list[str] | None = None,
         rebuild_index: int = 0,
-        policy_image_size: tuple[int, int] | None = None,
+        policy_cfg: PolicyCfg | None = None,
     ):
         """Create a builder for one Arena environment.
 
@@ -113,19 +116,19 @@ class ArenaEnvBuilder:
             cfg: Builder options such as the environment count and camera resolution mode.
             hydra_overrides: Variation overrides applied when the environment config is composed.
             rebuild_index: Index of this build among the rebuilds of an Experiment Run; 0 for a single build.
-            policy_image_size: (height, width) the policy declares, required by
-                ``cfg.camera_resolution_mode`` ``policy_default`` to fit the embodiment cameras.
+            policy_cfg: Config of the registered policy that will drive the environment. Required by
+                ``cfg.camera_resolution_mode`` ``policy_default`` to fit the embodiment cameras to the policy.
         """
         self.arena_env = arena_env
         self.cfg = cfg
         self.hydra_overrides = hydra_overrides
         self.rebuild_index = rebuild_index
-        self._apply_camera_resolution_mode(policy_image_size)
+        self._apply_camera_resolution_mode(policy_cfg)
         self.interactive_scene_cfg = InteractiveSceneCfg(
             num_envs=cfg.num_envs, env_spacing=cfg.env_spacing, replicate_physics=False
         )
 
-    def _apply_camera_resolution_mode(self, policy_image_size: tuple[int, int] | None) -> None:
+    def _apply_camera_resolution_mode(self, policy_cfg: PolicyCfg | None) -> None:
         """Resize the embodiment camera rig as selected by ``cfg.camera_resolution_mode``."""
         if self.cfg.camera_resolution_mode == CameraResolutionMode.EMBODIMENT_DEFAULT:
             return
@@ -138,9 +141,13 @@ class ArenaEnvBuilder:
         assert (
             embodiment.camera_config is not None
         ), "camera_resolution_mode 'policy_default' requires an embodiment camera rig"
+        assert policy_cfg is not None, "camera_resolution_mode 'policy_default' requires the policy config"
+        policy_type = PolicyRegistry().get_policy_type_for_cfg(policy_cfg)
+        policy_image_size = policy_type.default_image_size(policy_cfg)
         assert policy_image_size is not None, (
             "camera_resolution_mode 'policy_default' requires a policy that declares a default image size"
-            " (PolicyBase.required_image_size); select 'embodiment_default' instead"
+            f" (PolicyBase.default_image_size), but {policy_type.__name__} declares none; select"
+            " 'embodiment_default' instead"
         )
         embodiment.camera_config.fit_resolution(*policy_image_size)
 
