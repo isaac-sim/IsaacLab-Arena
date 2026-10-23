@@ -16,7 +16,7 @@ from isaaclab_arena.environments.arena_world import ArenaWorld
 from isaaclab_arena.metrics.metric_data import MetricsDataCollection
 from isaaclab_arena.metrics.metrics_manager import MetricsManager
 from isaaclab_arena.progress_tracking.progress_tracker import ProgressTracker, ProgressTrackingRecorderCfg
-from isaaclab_arena.recording.arena_recorder_manager import ArenaRecorderManager
+from isaaclab_arena.recording.arena_recorder_manager import ArenaRecorderManager, env_ids_to_tensor
 from isaaclab_arena.recording.episode_recorder_manager import EpisodeRecorderManager
 from isaaclab_arena.tasks.predicates.object_settling import ObjectInitialRestPoseRecorder
 from isaaclab_arena.variations.variation_recorder import VariationRecorder
@@ -196,10 +196,7 @@ class IsaacLabArenaManagerBasedRLEnv(ManagerBasedRLEnv):
         return observations, rewards, terminated & active_before_step, truncated & active_before_step, extras
 
     def _reset_idx(self, env_ids: Sequence[int] | torch.Tensor | slice) -> None:
-        if isinstance(env_ids, slice):
-            requested_env_ids = torch.arange(self.num_envs, device=self.device)[env_ids]
-        else:
-            requested_env_ids = torch.as_tensor(env_ids, dtype=torch.long, device=self.device)
+        requested_env_ids = env_ids_to_tensor(env_ids, self.num_envs, self.device)
         requested_env_ids = requested_env_ids.sort().values
         finishing_env_ids = requested_env_ids[self._active_episode_mask[requested_env_ids]]
         if len(finishing_env_ids) > 0:
