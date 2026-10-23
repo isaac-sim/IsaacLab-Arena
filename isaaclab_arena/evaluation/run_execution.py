@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.assets.registries import EnvironmentRegistry, PolicyRegistry
+from isaaclab_arena.environments.arena_env_builder_cfg import CameraResolutionMode
 from isaaclab_arena.evaluation.arena_experiment import ArenaExperimentCfg
 from isaaclab_arena.evaluation.arena_run import ArenaRunCfg, ArenaRunResult, RunStatus
 from isaaclab_arena.evaluation.experiment_timings import write_run_timings
@@ -196,8 +197,8 @@ def build_arena_builder_from_run_cfg(cfg: ArenaRunCfg, rebuild_index: int = 0) -
 
 
 def policy_image_size_from_run_cfg(cfg: ArenaRunCfg) -> tuple[int, int] | None:
-    """Return the (height, width) the run's policy consumes when its cameras are fitted to the policy."""
-    if not cfg.environment_builder.camera_resolution_is_auto:
+    """Return the (height, width) the run's policy declares when its cameras are fitted to the policy."""
+    if cfg.environment_builder.camera_resolution_mode != CameraResolutionMode.POLICY_DEFAULT:
         return None
     policy_type = PolicyRegistry().get_policy_type_for_cfg(cfg.policy)
     return policy_type.required_image_size(cfg.policy)

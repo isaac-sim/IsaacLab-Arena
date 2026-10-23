@@ -87,9 +87,9 @@ An optional ``PolicyBase`` hook lets Arena avoid rendering work that an image
 policy never uses:
 
 - ``required_image_size(config)`` is a classmethod returning the ``(height, width)``
-  the policy letterboxes camera images to, or ``None``. With
-  ``environment_builder.camera_resolution: auto`` Arena fits every embodiment
-  camera into that box, so the policy-side resize only pads.
+  of the camera images the policy is designed for, or ``None``. With
+  ``environment_builder.camera_resolution_mode: policy_default`` Arena shrinks every
+  embodiment camera, keeping its aspect ratio, to fit inside that box.
 
 .. note::
 

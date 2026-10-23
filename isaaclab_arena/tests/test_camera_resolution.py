@@ -20,12 +20,12 @@ def test_droid_camera_rig_keeps_production_dimensions_by_default():
         assert (camera_cfg.height, camera_cfg.width) == (720, 1280)
 
 
-def test_camera_rig_resolution_applies_to_base_and_tiled_cameras():
-    """Apply an explicit image size to every camera before the rig is tiled."""
+def test_camera_rig_fit_resolution_applies_to_base_and_tiled_cameras():
+    """Fit every camera before the rig is tiled, so tiled and untiled rigs render the same size."""
     from isaaclab_arena.embodiments.droid.droid import DroidCameraCfg
 
     camera_rig = DroidCameraCfg()
-    camera_rig.set_resolution(height=360, width=640)
+    camera_rig.fit_resolution(360, 640)
 
     for configured_rig in (camera_rig, camera_rig.get_cfg()):
         for camera_name in configured_rig.camera_names():
@@ -44,7 +44,7 @@ def test_camera_rig_resolution_applies_to_base_and_tiled_cameras():
         (720, 1280, 2000, 2000, (1125, 2000)),
     ],
 )
-def test_fit_image_size_matches_letterbox_content_area(height, width, max_height, max_width, expected):
+def test_fit_image_size_matches_resize_with_pad_content_area(height, width, max_height, max_width, expected):
     """Match the content area tf.image.resize_with_pad produces inside the bounding box."""
     from isaaclab_arena.utils.cameras import fit_image_size
 
@@ -56,8 +56,9 @@ def test_camera_rig_fit_resolution_preserves_aspect_ratio_per_camera():
     from isaaclab_arena.embodiments.droid.droid import DroidCameraCfg
 
     camera_rig = DroidCameraCfg()
-    camera_rig.set_resolution(height=480, width=640)
-    camera_rig.wrist_camera.height, camera_rig.wrist_camera.width = 720, 1280
+    for camera_name in ("external_camera", "external_camera_2"):
+        camera_cfg = getattr(camera_rig, camera_name)
+        camera_cfg.height, camera_cfg.width = 480, 640
     camera_rig.fit_resolution(224, 224)
 
     assert (camera_rig.external_camera.height, camera_rig.external_camera.width) == (168, 224)

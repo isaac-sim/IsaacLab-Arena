@@ -53,7 +53,7 @@ def build_arena_builder_from_legacy_graph(
         cfg: Graph-spec environment selection and per-run overrides.
         environment_builder: Builder options for the environment.
         hydra_overrides: Variation overrides applied when the environment config is composed.
-        policy_image_size: (height, width) the policy consumes, used by ``camera_resolution: auto``.
+        policy_image_size: (height, width) the policy declares, used by ``camera_resolution_mode: policy_default``.
     """
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
 

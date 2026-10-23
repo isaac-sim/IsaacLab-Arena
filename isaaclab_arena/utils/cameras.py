@@ -50,20 +50,10 @@ class ArenaCameraCfg:
         """Return the field name of every camera in this rig."""
         return [f.name for f in fields(self) if isinstance(getattr(self, f.name), CameraCfg)]
 
-    def set_resolution(self, height: int, width: int) -> None:
-        """Set the image dimensions for every camera in this rig."""
-        assert height > 0, "camera height must be greater than zero"
-        assert width > 0, "camera width must be greater than zero"
-        for camera_name in self.camera_names():
-            camera_cfg = getattr(self, camera_name)
-            camera_cfg.height = height
-            camera_cfg.width = width
-
     def fit_resolution(self, max_height: int, max_width: int) -> None:
         """Shrink every camera in this rig to fit inside a bounding box, preserving each aspect ratio.
 
-        A 1280x720 camera fitted into a 224x224 box renders at 224x126: the content area a policy-side
-        letterbox to 224x224 would produce, so that letterbox only pads.
+        A 1280x720 camera fitted into a 224x224 box renders at 224x126, the largest 16:9 image that box holds.
         """
         for camera_name in self.camera_names():
             camera_cfg = getattr(self, camera_name)
@@ -100,8 +90,8 @@ class ArenaCameraCfg:
 def fit_image_size(height: int, width: int, max_height: int, max_width: int) -> tuple[int, int]:
     """Return the largest (height, width) with the same aspect ratio that fits inside the bounding box.
 
-    Mirrors the letterbox resize used by image policies (tf.image.resize_with_pad): both dimensions are
-    divided by the larger axis ratio and truncated to whole pixels, so the result equals that content area.
+    Both dimensions are divided by the larger axis ratio and truncated to whole pixels, which matches the
+    content area of an aspect-preserving resize-with-pad (such as tf.image.resize_with_pad) into that box.
     """
     assert height > 0 and width > 0, "camera dimensions must be greater than zero"
     assert max_height > 0 and max_width > 0, "bounding box dimensions must be greater than zero"

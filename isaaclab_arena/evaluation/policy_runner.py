@@ -13,12 +13,10 @@ from typing import TYPE_CHECKING
 
 from isaaclab_arena.assets.registries import PolicyRegistry
 from isaaclab_arena.cli.isaaclab_arena_cli import get_isaaclab_arena_cli_parser
-from isaaclab_arena.environments.arena_env_builder_cfg import CAMERA_RESOLUTION_AUTO
 from isaaclab_arena.evaluation.policy_runner_cli import (
     add_policy_cli_args,
     add_policy_runner_arguments,
     build_policy_from_cli,
-    policy_cfg_from_cli,
 )
 from isaaclab_arena.metrics.metrics_logger import metrics_to_plain_python_types
 from isaaclab_arena.utils.hydra_overrides import assert_hydra_overrides
@@ -204,12 +202,7 @@ def main():
             args_cli.enable_cameras = True
 
         # Build scene. Use rgb_array render mode when recording so RecordVideo can grab frames.
-        policy_image_size = None
-        if args_cli.camera_resolution == CAMERA_RESOLUTION_AUTO:
-            policy_image_size = policy_cls.required_image_size(policy_cfg_from_cli(policy_cls, args_cli))
-        arena_builder = get_arena_builder_from_cli(
-            args_cli, hydra_overrides=hydra_overrides, policy_image_size=policy_image_size
-        )
+        arena_builder = get_arena_builder_from_cli(args_cli, hydra_overrides=hydra_overrides)
 
         output_dir = timestamped_run_dir(args_cli.output_base_dir)
         video_cfg = VideoRecordingCfg(

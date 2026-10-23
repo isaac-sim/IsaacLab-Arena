@@ -468,18 +468,17 @@ class _PolicyRegistry:
 
 
 @pytest.mark.parametrize(
-    ("camera_resolution", "policy_type", "expected"),
+    ("camera_resolution_mode", "policy_type", "expected"),
     [
-        ("hd", _ImagePolicy, None),
-        ("126x224", _ImagePolicy, None),
-        ("auto", _ImagePolicy, (224, 224)),
+        ("embodiment_default", _ImagePolicy, None),
+        ("policy_default", _ImagePolicy, (224, 224)),
     ],
 )
-def test_policy_image_size_is_looked_up_only_for_auto_camera_resolution(
-    monkeypatch, camera_resolution, policy_type, expected
+def test_policy_image_size_is_looked_up_only_for_policy_default_camera_resolution(
+    monkeypatch, camera_resolution_mode, policy_type, expected
 ):
     monkeypatch.setattr(run_execution, "PolicyRegistry", lambda: _PolicyRegistry(policy_type))
-    run = _run(environment_builder=ArenaEnvBuilderCfg(camera_resolution=camera_resolution))
+    run = _run(environment_builder=ArenaEnvBuilderCfg(camera_resolution_mode=camera_resolution_mode))
 
     assert run_execution.policy_image_size_from_run_cfg(run) == expected
 
@@ -492,6 +491,6 @@ def test_policy_image_size_is_none_for_a_policy_without_a_fixed_image_size(monke
             raise NotImplementedError
 
     monkeypatch.setattr(run_execution, "PolicyRegistry", lambda: _PolicyRegistry(_StatePolicy))
-    run = _run(environment_builder=ArenaEnvBuilderCfg(camera_resolution="auto"))
+    run = _run(environment_builder=ArenaEnvBuilderCfg(camera_resolution_mode="policy_default"))
 
     assert run_execution.policy_image_size_from_run_cfg(run) is None

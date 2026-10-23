@@ -31,8 +31,8 @@ class PolicyBase(ABC, Generic[PolicyCfgT]):
     def required_image_size(cls, config: PolicyCfgT) -> tuple[int, int] | None:
         """Return the (height, width) of the camera images this policy consumes, or None if it has no fixed size.
 
-        Environments built with ``camera_resolution: auto`` fit their cameras into this box so the policy-side
-        letterbox only pads instead of downsampling.
+        Environments built with ``camera_resolution_mode: policy_default`` shrink their cameras to fit inside this
+        box instead of rendering at the embodiment's native resolution.
         """
         return None  # noqa: R501 - subclasses with image inputs return a size
 
