@@ -83,10 +83,16 @@ class Gr00tRemoteClosedloopPolicy(PolicyBase[Gr00tRemoteClosedloopPolicyCfg]):
 
     @classmethod
     def default_image_size(cls, config: Gr00tRemoteClosedloopPolicyCfg) -> tuple[int, int]:
-        """Return the (height, width) the GR00T policy config pads and resizes camera images to."""
+        """Return twice the (height, width) the GR00T policy config pads and resizes camera images to.
+
+        GR00T's preprocessing pads each frame to a square and resizes it to ``target_image_size``, but skips
+        both when the frame already has that size. Fitting cameras into twice the target keeps that step
+        running, so the policy sees the same padded view as with full-resolution cameras at a quarter of
+        the pixels.
+        """
         policy_config = create_config_from_yaml(config.policy_config_yaml_path, Gr00tClosedloopPolicyCfg)
         height, width = policy_config.target_image_size[:2]
-        return int(height), int(width)
+        return 2 * int(height), 2 * int(width)
 
     def __init__(self, config: Gr00tRemoteClosedloopPolicyCfg):
         super().__init__(config)

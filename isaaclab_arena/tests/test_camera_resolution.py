@@ -64,3 +64,14 @@ def test_camera_rig_fit_resolution_preserves_aspect_ratio_per_camera():
     assert (camera_rig.external_camera.height, camera_rig.external_camera.width) == (168, 224)
     assert (camera_rig.external_camera_2.height, camera_rig.external_camera_2.width) == (168, 224)
     assert (camera_rig.wrist_camera.height, camera_rig.wrist_camera.width) == (126, 224)
+
+
+def test_camera_rig_fit_resolution_rejects_a_fit_that_changes_the_aspect_ratio(monkeypatch):
+    """Guard the camera intrinsics: a fit that strays from the native aspect ratio is an error."""
+    from isaaclab_arena.embodiments.droid.droid import DroidCameraCfg
+    from isaaclab_arena.utils import cameras
+
+    monkeypatch.setattr(cameras, "fit_image_size", lambda height, width, max_height, max_width: (224, 224))
+
+    with pytest.raises(AssertionError, match="changes the aspect ratio"):
+        DroidCameraCfg().fit_resolution(224, 224)

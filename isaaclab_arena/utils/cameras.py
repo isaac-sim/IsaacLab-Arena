@@ -57,8 +57,13 @@ class ArenaCameraCfg:
         """
         for camera_name in self.camera_names():
             camera_cfg = getattr(self, camera_name)
-            camera_cfg.height, camera_cfg.width = fit_image_size(
-                camera_cfg.height, camera_cfg.width, max_height, max_width
+            native_height, native_width = camera_cfg.height, camera_cfg.width
+            camera_cfg.height, camera_cfg.width = fit_image_size(native_height, native_width, max_height, max_width)
+            # The lens (focal length and apertures) stays as declared, so a changed aspect ratio would give
+            # non-square pixels and therefore different intrinsics.
+            assert abs(camera_cfg.height - camera_cfg.width * native_height / native_width) <= 1, (
+                f"Fitting {camera_name} to {camera_cfg.height}x{camera_cfg.width} changes the aspect ratio of"
+                f" {native_height}x{native_width}"
             )
 
     def get_cfg(self) -> Any:
