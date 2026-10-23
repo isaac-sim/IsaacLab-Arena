@@ -74,6 +74,12 @@ field. Arena uses this name in command-line overrides, output directories, and r
 Use ``rollout_limit.num_episodes`` instead of ``rollout_limit.num_steps`` to start and finish
 exactly that many episodes per Run, across all rebuilds.
 
+``environment_builder.camera_resolution_mode`` selects which component decides the image size the
+embodiment cameras render: ``EMBODIMENT_DEFAULT`` (default) keeps the dimensions the embodiment's
+camera rig declares, and ``POLICY_DEFAULT`` shrinks every camera, keeping its aspect ratio, to fit
+inside the image size the Run's policy declares. Rendering at the policy's input size cuts camera GPU
+memory and step time at high environment counts.
+
 See :doc:`Record and Replay Experiments <experiment_record_replay>` for variation recording,
 partial and complete replay, and episode scheduling across one or more rebuilds.
 
