@@ -139,6 +139,10 @@ Use this table as a reading map:
      - How the same or different registered objects are represented and placed
        across parallel environments
      - :doc:`object_placement/homogeneous_and_heterogeneous_placement`
+   * - Placement success benchmark
+     - How to measure placement success across the RoboLab and KitchenBench
+       environments and compare two runs
+     - :doc:`object_placement/placement_success_benchmark`
 
 Try It Out
 ----------
@@ -188,3 +192,4 @@ objects to see placement adapt to different dimensions and footprints.
    object_placement/validation
    object_placement/pooled_placement
    object_placement/homogeneous_and_heterogeneous_placement
+   object_placement/placement_success_benchmark

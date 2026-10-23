@@ -7,7 +7,8 @@ from __future__ import annotations
 
 import datetime
 import gymnasium as gym
-from typing import Any
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any
 
 from isaaclab.devices.device_base import DeviceCfg, DevicesCfg
 from isaaclab.envs import ManagerBasedRLMimicEnv, ViewerCfg
@@ -73,6 +74,11 @@ from isaaclab_arena.variations.variation_base import RunTimeVariationBase, Varia
 from isaaclab_arena.variations.variation_recorder import VariationRecorder
 from isaaclab_arena.variations.variation_replay_scheduler import VariationReplayScheduler
 
+if TYPE_CHECKING:
+    from isaaclab_arena.assets.asset import Asset
+    from isaaclab_arena.assets.object_set import RigidObjectSet
+    from isaaclab_arena.relations.placement_asset import PlaceableAsset
+
 
 # TODO: peterd, 2026-09-16: Remove this once Arena migrates off ViewCfg and into KitVisualizerCfg.
 def _configure_arena_visualizer_defaults(env_cfg: IsaacLabArenaManagerBasedRLEnvCfg) -> None:
@@ -93,6 +99,21 @@ def _configure_arena_visualizer_defaults(env_cfg: IsaacLabArenaManagerBasedRLEnv
     env_cfg.sim.default_visualizer_cfg = visualizer_cfg
     # Avoid a second deprecated conversion when ManagerBasedRLEnv initializes.
     env_cfg.viewer = ViewerCfg()
+
+
+@dataclass
+class LivePlacementInputs:
+    """Inputs to live relation placement for one environment build."""
+
+    assets: list[PlaceableAsset]
+    """Scene objects with relations, followed by the embodiment when it has relations."""
+
+    placer_params: ObjectPlacerParams
+    """The environment's placer parameters, or defaults when it has none, updated in place with the builder's seed
+    and reset overrides and the reachability embodiment."""
+
+    scene_assets: list[Asset | RigidObjectSet]
+    """All scene assets, scanned for passive collision objects."""
 
 
 class ArenaEnvBuilder:
@@ -148,6 +169,26 @@ class ArenaEnvBuilder:
 
         if not self.cfg.solve_relations:
             return None
+        inputs = self._get_live_placement_inputs()
+        return prepare_live_relation_placement(
+            inputs.assets,
+            num_envs=self.cfg.num_envs,
+            placer_params=inputs.placer_params,
+            scene_assets=inputs.scene_assets,
+        )
+
+    def prepare_live_placement_inputs(self) -> LivePlacementInputs:
+        """Apply build-time variations and reachability constraints, then return the live placement inputs.
+
+        This modifies the Arena environment in place, as build_env_cfg() does before placement. Unlike
+        build_env_cfg(), it ignores Hydra overrides, recorded replay and solve_relations, and records no variations.
+        Calling build_env_cfg() afterwards applies the build-time variations again.
+        """
+        self._apply_build_time_variations()
+        return self._get_live_placement_inputs()
+
+    def _get_live_placement_inputs(self) -> LivePlacementInputs:
+        """Apply the task's reachability constraints and collect the live placement inputs."""
         # Reachability constraints are defined in the task, so apply them before placement.
         if self.arena_env.task is not None:
             self.arena_env.task.apply_reachability_constraints()
@@ -169,12 +210,7 @@ class ArenaEnvBuilder:
         # Delists itself unless the embodiment has a registered cuRobo config and the solver deps are importable.
         # TODO(xinjieyao, 2026-07-22): updated once robot-object co-placement is merged.
         placer_params.reachability_config.embodiment = self.arena_env.embodiment
-        return prepare_live_relation_placement(
-            placement_assets,
-            num_envs=self.cfg.num_envs,
-            placer_params=placer_params,
-            scene_assets=self.arena_env.scene.assets.values(),
-        )
+        return LivePlacementInputs(placement_assets, placer_params, list(self.arena_env.scene.assets.values()))
 
     def get_all_variations(self) -> dict[str, list[VariationBase]]:
         """Return ``{asset_name: [variation, ...]}`` for every variation host in the env.
