@@ -451,8 +451,22 @@ class DomeLight(LightBase):
         prim_path: str | None = default_prim_path,
         initial_pose: Pose | None = None,
         spawner_cfg: sim_utils.DomeLightCfg = default_spawner_cfg,
-        hdr: "HDRImage | None" = None,  # noqa: F821
+        hdr: "HDRImage | str | None" = None,  # noqa: F821
+        intensity: float | None = None,
+        color: tuple[float, float, float] | None = None,
     ):
+        """Create a dome light.
+
+        Args:
+            instance_name: Name of this light instance.
+            prim_path: USD prim path of the light.
+            initial_pose: Pose of the light.
+            spawner_cfg: Isaac Lab light config the light starts from.
+            hdr: An HDRImage instance, or the registered name of one, to use as the environment map.
+            intensity: Overrides the intensity of ``spawner_cfg`` if given.
+            color: Overrides the RGB color of ``spawner_cfg`` if given.
+        """
+        from isaaclab_arena.assets.registries import HDRImageRegistry
         from isaaclab_arena.variations.hdr_image_variation import HDRImageVariation
         from isaaclab_arena.variations.light_color_temperature_variation import LightColorTemperatureVariation
         from isaaclab_arena.variations.light_color_variation import LightColorVariation
@@ -461,8 +475,14 @@ class DomeLight(LightBase):
         super().__init__(
             instance_name=instance_name, prim_path=prim_path, initial_pose=initial_pose, spawner_cfg=spawner_cfg
         )
+        if isinstance(hdr, str):
+            hdr = HDRImageRegistry().get_hdr_by_name(hdr)()
         if hdr is not None:
             self.add_hdr(hdr)
+        if intensity is not None:
+            self.set_intensity(intensity)
+        if color is not None:
+            self.set_color(tuple(color))
         self.add_variation(HDRImageVariation(self))
         self.add_variation(LightIntensityVariation(self))
         self.add_variation(LightColorVariation(self))
@@ -531,6 +551,64 @@ class DirectionalLight(LightBase):
     def set_dome_light(self, dome_light: LightBase) -> None:
         """Register a dome light for the direction variation to dim when it activates."""
         self.get_variation("direction").set_dome_light(dome_light)
+
+
+@register_asset
+class SphereLight(LightBase):
+    """A sphere light with intensity and color variations."""
+
+    name = "sphere_light"
+    default_prim_path = "{ENV_REGEX_NS}/sphere_light"
+    default_intensity = 5000.0
+    default_spawner_cfg = sim_utils.SphereLightCfg(intensity=default_intensity, radius=0.5)
+    default_initial_pose = Pose(position_xyz=(0.0, -0.6, 0.7), rotation_xyzw=(0.0, 0.0, 0.0, 1.0))
+
+    spawner_cfg: sim_utils.SphereLightCfg
+
+    def __init__(
+        self,
+        instance_name: str | None = None,
+        prim_path: str | None = default_prim_path,
+        initial_pose: Pose | None = None,
+        spawner_cfg: sim_utils.SphereLightCfg = default_spawner_cfg,
+        intensity: float | None = None,
+        radius: float | None = None,
+        color: tuple[float, float, float] | None = None,
+    ):
+        """Create a sphere light.
+
+        Args:
+            instance_name: Name of this light instance.
+            prim_path: USD prim path of the light.
+            initial_pose: Pose of the light. Defaults to ``default_initial_pose``.
+            spawner_cfg: Isaac Lab light config the light starts from.
+            intensity: Overrides the intensity of ``spawner_cfg`` if given.
+            radius: Overrides the sphere radius of ``spawner_cfg`` if given.
+            color: Overrides the RGB color of ``spawner_cfg`` if given.
+        """
+        from isaaclab_arena.variations.light_color_variation import LightColorVariation
+        from isaaclab_arena.variations.light_intensity_variation import LightIntensityVariation
+
+        super().__init__(
+            instance_name=instance_name,
+            prim_path=prim_path,
+            initial_pose=initial_pose if initial_pose is not None else self.default_initial_pose,
+            spawner_cfg=spawner_cfg,
+        )
+        if intensity is not None:
+            self.set_intensity(intensity)
+        if radius is not None:
+            self.set_radius(radius)
+        if color is not None:
+            self.set_color(tuple(color))
+        self.add_variation(LightIntensityVariation(self))
+        self.add_variation(LightColorVariation(self))
+
+    def set_radius(self, radius: float) -> None:
+        """Set the radius of the light sphere."""
+        assert radius > 0.0, f"Sphere light radius must be positive, got {radius}."
+        self.spawner_cfg.radius = radius
+        self.object_cfg = self._init_object_cfg()
 
 
 @register_asset
@@ -1034,7 +1112,6 @@ class ButterHopeRobolab(LibraryObject):
     name = "butter_hope_robolab"
     tags = ["object", "graspable", "food", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/objects/hope/butter.usd"
-    scale = (2.2, 2.0, 1.8)
 
 
 @register_asset

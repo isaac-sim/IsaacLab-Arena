@@ -4,7 +4,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 env_name: throw_away_snacks
-external_yaml: ../scenes/workdesk_snacks.yaml
+external_yaml:
+- ../scenes/workdesk_snacks.yaml
+- ../robolab_defaults.yaml
 task:
   composition: parallel
   description: Put away the snacks in the bin
@@ -13,11 +15,11 @@ task:
     params:
       pick_up_object: apple
       destination_location: plasticpail
-      background_scene: maple_table_robolab
-      episode_length_s: 70.0
+      background_scene: table_oak_robolab
+      episode_length_s: 60.0
   - kind: PickAndPlaceTask
     params:
       pick_up_object: yogurt_cup
       destination_location: plasticpail
-      background_scene: maple_table_robolab
-      episode_length_s: 70.0
+      background_scene: table_oak_robolab
+      episode_length_s: 60.0

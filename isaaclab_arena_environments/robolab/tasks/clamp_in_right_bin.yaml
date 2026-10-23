@@ -4,7 +4,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 env_name: clamp_in_right_bin
-external_yaml: ../scenes/tools_container.yaml
+external_yaml:
+- ../scenes/tools_container.yaml
+- ../robolab_defaults.yaml
 task:
   composition: atomic
   description: pick up the spring clamp and place it in the right bin
@@ -13,5 +15,5 @@ task:
     params:
       pick_up_object: spring_clamp
       destination_location: bin_b04
-      background_scene: maple_table_robolab
-      episode_length_s: 70.0
+      background_scene: table_oak_robolab
+      episode_length_s: 60.0

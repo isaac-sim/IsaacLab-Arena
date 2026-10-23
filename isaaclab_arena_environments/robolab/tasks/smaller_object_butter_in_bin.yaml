@@ -4,7 +4,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 env_name: smaller_object_butter_in_bin
-external_yaml: ../scenes/butter_raisin_box_grey_bin.yaml
+external_yaml:
+- ../scenes/butter_raisin_box_grey_bin.yaml
+- ../robolab_defaults.yaml
 task:
   composition: atomic
   description: Place the smaller object in the grey bin.
@@ -13,5 +15,5 @@ task:
     params:
       pick_up_object: butter
       destination_location: grey_bin
-      background_scene: maple_table_robolab
-      episode_length_s: 70.0
+      background_scene: table_oak_robolab
+      episode_length_s: 30.0

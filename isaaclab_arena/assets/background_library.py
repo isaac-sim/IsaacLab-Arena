@@ -200,7 +200,7 @@ register_lightwheel_kitchens(LightwheelKitchenBackground, globals())
 
 
 @register_asset
-class MapleTableRobolab(LibraryBackground):
+class RobolabMapleTable(LibraryBackground):
     """
     A maple table background from the Robolab assets.
     """
@@ -211,12 +211,54 @@ class MapleTableRobolab(LibraryBackground):
     object_min_z = -0.05
 
 
+# The table fixture USDs have their origin at floor level, so the table must be lifted into place
+# relative to the env origin. This puts the tabletop at z=0.003.
+ROBOLAB_TABLE_FIXTURE_POSE = Pose(
+    position_xyz=(0.5471954941749573, -5.750182754127309e-05, -0.3470015823841095),
+    rotation_xyzw=(0.0, 0.0, 0.0, 1.0),
+)
+
+# The table fixture USDs have a dynamic root body and no ground plane under the default prim,
+# so a dynamic table falls under gravity. Kinematic keeps it at its pose.
+ROBOLAB_TABLE_FIXTURE_SPAWN_CFG_ADDON = {
+    "rigid_props": sim_utils.RigidBodyPropertiesCfg(kinematic_enabled=True),
+}
+
+
 @register_asset
-class TableOakRobolab(LibraryBackground):
+class RobolabOakTable(LibraryBackground):
+    """The oak table fixture from the RoboLab assets."""
+
     name = "table_oak_robolab"
     tags = ["background", "robolab"]
     usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/fixtures/table_oak.usd"
+    initial_pose = ROBOLAB_TABLE_FIXTURE_POSE
     object_min_z = -0.05
+    spawn_cfg_addon = ROBOLAB_TABLE_FIXTURE_SPAWN_CFG_ADDON
+
+
+@register_asset
+class RobolabBlackTable(LibraryBackground):
+    """The black table fixture from the RoboLab assets."""
+
+    name = "table_black_robolab"
+    tags = ["background", "robolab"]
+    usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/fixtures/table_black.usd"
+    initial_pose = ROBOLAB_TABLE_FIXTURE_POSE
+    object_min_z = -0.05
+    spawn_cfg_addon = ROBOLAB_TABLE_FIXTURE_SPAWN_CFG_ADDON
+
+
+@register_asset
+class RobolabBambooTable(LibraryBackground):
+    """The bamboo table fixture from the RoboLab assets."""
+
+    name = "table_bamboo_robolab"
+    tags = ["background", "robolab"]
+    usd_path = f"{ARENA_NUCLEUS_DIR}/Arena/assets/object_library/srl_robolab_assets/fixtures/table_bamboo.usd"
+    initial_pose = ROBOLAB_TABLE_FIXTURE_POSE
+    object_min_z = -0.05
+    spawn_cfg_addon = ROBOLAB_TABLE_FIXTURE_SPAWN_CFG_ADDON
 
 
 # -----------------------------------------------------------------------------

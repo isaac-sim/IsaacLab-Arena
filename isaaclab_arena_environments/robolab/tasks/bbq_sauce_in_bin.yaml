@@ -4,7 +4,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 env_name: bbq_sauce_in_bin
-external_yaml: ../scenes/bin_condiments.yaml
+external_yaml:
+- ../scenes/bin_condiments.yaml
+- ../robolab_defaults.yaml
 task:
   composition: parallel
   description: Put the red BBQ sauce bottles in the grey bin
@@ -13,11 +15,11 @@ task:
     params:
       pick_up_object: bbq_sauce_bottle_1
       destination_location: grey_bin
-      background_scene: maple_table_robolab
-      episode_length_s: 70.0
+      background_scene: table_black_robolab
+      episode_length_s: 45.0
   - kind: PickAndPlaceTask
     params:
       pick_up_object: bbq_sauce_bottle_2
       destination_location: grey_bin
-      background_scene: maple_table_robolab
-      episode_length_s: 70.0
+      background_scene: table_black_robolab
+      episode_length_s: 45.0
