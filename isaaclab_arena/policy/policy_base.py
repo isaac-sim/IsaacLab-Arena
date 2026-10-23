@@ -28,8 +28,10 @@ class PolicyBase(ABC, Generic[PolicyCfgT]):
         self.config = config
 
     @classmethod
-    def required_image_size(cls, config: PolicyCfgT) -> tuple[int, int] | None:
-        """Return the (height, width) of the camera images this policy consumes, or None if it has no fixed size.
+    def default_image_size(cls, config: PolicyCfgT) -> tuple[int, int] | None:
+        """Return the (height, width) of the camera images this policy is designed for, or None if it has none.
+
+        Policies accept images of any size; this is the size that their image preprocessing targets.
 
         Environments built with ``camera_resolution_mode: policy_default`` shrink their cameras to fit inside this
         box instead of rendering at the embodiment's native resolution.

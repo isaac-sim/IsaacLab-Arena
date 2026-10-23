@@ -455,7 +455,7 @@ def test_execute_experiment_writes_no_timings_for_a_failed_run(monkeypatch, tmp_
 
 class _ImagePolicy(_Policy):
     @classmethod
-    def required_image_size(cls, config):
+    def default_image_size(cls, config):
         return (224, 224)
 
 

@@ -182,8 +182,8 @@ class DreamZeroRemotePolicy(PolicyBase[DreamZeroRemotePolicyConfig]):
         print("[DreamZeroRemotePolicy] Connected.")
 
     @classmethod
-    def required_image_size(cls, config: DreamZeroRemotePolicyConfig) -> tuple[int, int]:
-        """Return the (height, width) the selected DreamZero adapter letterboxes camera images to."""
+    def default_image_size(cls, config: DreamZeroRemotePolicyConfig) -> tuple[int, int]:
+        """Return the (height, width) the selected DreamZero adapter resizes camera images to."""
         return tuple(_resolve_adapter_class(config.dreamzero_embodiment_adapter).target_image_size)
 
     @classmethod

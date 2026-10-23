@@ -82,7 +82,7 @@ class Gr00tRemoteClosedloopPolicy(PolicyBase[Gr00tRemoteClosedloopPolicyCfg]):
     name = "gr00t_remote_closedloop"
 
     @classmethod
-    def required_image_size(cls, config: Gr00tRemoteClosedloopPolicyCfg) -> tuple[int, int]:
+    def default_image_size(cls, config: Gr00tRemoteClosedloopPolicyCfg) -> tuple[int, int]:
         """Return the (height, width) the GR00T policy config pads and resizes camera images to."""
         policy_config = create_config_from_yaml(config.policy_config_yaml_path, Gr00tClosedloopPolicyCfg)
         height, width = policy_config.target_image_size[:2]

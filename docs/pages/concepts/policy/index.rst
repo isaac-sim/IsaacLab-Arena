@@ -86,7 +86,7 @@ Camera-aware policies
 An optional ``PolicyBase`` hook lets Arena avoid rendering work that an image
 policy never uses:
 
-- ``required_image_size(config)`` is a classmethod returning the ``(height, width)``
+- ``default_image_size(config)`` is a classmethod returning the ``(height, width)``
   of the camera images the policy is designed for, or ``None``. With
   ``environment_builder.camera_resolution_mode: policy_default`` Arena shrinks every
   embodiment camera, keeping its aspect ratio, to fit inside that box.

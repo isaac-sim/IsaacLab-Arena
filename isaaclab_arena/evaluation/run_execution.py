@@ -201,7 +201,7 @@ def policy_image_size_from_run_cfg(cfg: ArenaRunCfg) -> tuple[int, int] | None:
     if cfg.environment_builder.camera_resolution_mode != CameraResolutionMode.POLICY_DEFAULT:
         return None
     policy_type = PolicyRegistry().get_policy_type_for_cfg(cfg.policy)
-    return policy_type.required_image_size(cfg.policy)
+    return policy_type.default_image_size(cfg.policy)
 
 
 def _build_arena_builder_from_cfg(

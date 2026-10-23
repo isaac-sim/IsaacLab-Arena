@@ -223,7 +223,7 @@ def test_call_server_with_retry_gives_up_after_max_attempts(monkeypatch):
         policy._call_server_with_retry({"prompt": "x"})
 
 
-def test_pi0_remote_policy_declares_the_adapter_letterbox_size():
+def test_pi0_remote_policy_declares_the_adapter_image_size():
     """Report the 224x224 box the DROID adapter resizes camera frames into, for camera_resolution_mode policy_default."""
-    assert Pi0RemotePolicy.required_image_size(Pi0RemotePolicyCfg(openpi_embodiment_adapter="droid")) == (224, 224)
+    assert Pi0RemotePolicy.default_image_size(Pi0RemotePolicyCfg(openpi_embodiment_adapter="droid")) == (224, 224)
     assert Pi0DroidAdapter.target_image_size == (224, 224)
