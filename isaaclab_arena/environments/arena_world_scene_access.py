@@ -19,20 +19,8 @@ from pxr import Usd, UsdGeom, UsdPhysics
 from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
 
 
-def get_representative_geometry_prim_groups(
-    scene: InteractiveScene,
-    scene_key: str,
-) -> list[tuple[Usd.Prim, tuple[int, ...]]]:
-    """Return one geometry root and its environment IDs per spawned asset variant.
-
-    Args:
-        scene: Scene containing the cloned assets.
-        scene_key: Asset key in the scene configuration.
-    """
-    geometry_prim_path = getattr(scene.cfg, scene_key).prim_path.format(ENV_REGEX_NS=scene.env_regex_ns)
-    assert scene.clone_plan is not None, f"Cannot resolve geometry for scene key '{scene_key}' without a clone plan."
-
-    clone_plan = scene.clone_plan
+def _get_clone_source_environment_ids(clone_plan: cloner.ClonePlan, prim_path: str) -> dict[str, tuple[int, ...]]:
+    """Return representative clone source paths mapped to their environment IDs."""
     asset_templates, prototype_starts, world_ids, world_id_starts = cloner.path.get_world_prototype_asset_templates(
         clone_plan, include_world_indices=True
     )
@@ -47,34 +35,57 @@ def get_representative_geometry_prim_groups(
             asset_template = asset_templates[occurrence_index]
             if asset_template.count("{}") != 1:
                 continue
-            template_match = cloner.path.match(geometry_prim_path, asset_template)
+            template_match = cloner.path.match(prim_path, asset_template)
             asset_prototype_id = topology.world_prototypes[occurrence_index]
             source_root = source_paths[asset_prototype_id]
             if template_match is None or source_root is None:
                 continue
-            representative_path = f"{source_root.rstrip('/')}{template_match.suffix}"
+            source_path = f"{source_root.rstrip('/')}{template_match.suffix}"
             specificity = len(asset_template)
             for environment_id in environment_ids:
                 environment_id = int(environment_id)
                 previous = candidates_by_environment.get(environment_id)
                 if previous is None or specificity > previous[0]:
-                    candidates_by_environment[environment_id] = (specificity, representative_path)
+                    candidates_by_environment[environment_id] = (specificity, source_path)
 
-    assert len(candidates_by_environment) == scene.num_envs, (
-        f"Geometry path '{geometry_prim_path}' for scene key '{scene_key}' must resolve one populated clone source "
-        f"per environment; resolved {len(candidates_by_environment)} of {scene.num_envs}."
+    environment_ids_by_source_path: dict[str, list[int]] = {}
+    for environment_id, (_specificity, source_path) in candidates_by_environment.items():
+        environment_ids_by_source_path.setdefault(source_path, []).append(environment_id)
+    return {
+        source_path: tuple(sorted(environment_ids))
+        for source_path, environment_ids in environment_ids_by_source_path.items()
+    }
+
+
+def get_representative_geometry_prim_groups(
+    scene: InteractiveScene,
+    scene_key: str,
+) -> list[tuple[Usd.Prim, tuple[int, ...]]]:
+    """Return one geometry root and its environment IDs per spawned asset variant.
+
+    Args:
+        scene: Scene containing the cloned assets.
+        scene_key: Asset key in the scene configuration.
+    """
+    geometry_prim_path = getattr(scene.cfg, scene_key).prim_path.format(ENV_REGEX_NS=scene.env_regex_ns)
+    assert scene.clone_plan is not None, f"Cannot resolve geometry for scene key '{scene_key}' without a clone plan."
+
+    environment_ids_by_source_path = _get_clone_source_environment_ids(scene.clone_plan, geometry_prim_path)
+    resolved_environment_count = sum(
+        len(environment_ids) for environment_ids in environment_ids_by_source_path.values()
     )
-    environment_ids_by_path: dict[str, list[int]] = {}
-    for environment_id, (_specificity, representative_path) in candidates_by_environment.items():
-        environment_ids_by_path.setdefault(representative_path, []).append(environment_id)
+    assert resolved_environment_count == scene.num_envs, (
+        f"Geometry path '{geometry_prim_path}' for scene key '{scene_key}' must resolve one populated clone source "
+        f"per environment; resolved {resolved_environment_count} of {scene.num_envs}."
+    )
 
     representative_prim_groups = []
-    for representative_path, environment_ids in environment_ids_by_path.items():
+    for representative_path, environment_ids in environment_ids_by_source_path.items():
         representative_prim = scene.stage.GetPrimAtPath(representative_path)
         assert (
             representative_prim.IsValid()
         ), f"Clone source '{representative_path}' for scene key '{scene_key}' is not a valid USD prim."
-        representative_prim_groups.append((representative_prim, tuple(sorted(environment_ids))))
+        representative_prim_groups.append((representative_prim, environment_ids))
     return representative_prim_groups
 
 
