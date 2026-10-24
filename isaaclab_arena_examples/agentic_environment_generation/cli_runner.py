@@ -56,7 +56,7 @@ DEFAULT_PROMPT = "Franka picks up a cube from the maple table and places it into
 
 
 def add_agentic_env_gen_runner_cli_args(parser: argparse.ArgumentParser) -> None:
-    from isaaclab_arena.agentic_environment_generation.simready_asset_search import SimReadySourceKind
+    from isaaclab_arena.agentic_environment_generation.simready_search_interface import SimReadySourceKind
 
     group = parser.add_argument_group("Agentic Environment Generation Runner")
     group.add_argument(
@@ -155,7 +155,7 @@ def resolve_env_spec(args_cli: argparse.Namespace) -> Path | None:
         build_task_catalogue,
     )
     from isaaclab_arena.agentic_environment_generation.environment_generation_agent import EnvironmentGenerationAgent
-    from isaaclab_arena.agentic_environment_generation.simready_asset_search import simready_search_config_from_cli
+    from isaaclab_arena.agentic_environment_generation.simready_search_interface import simready_search_config_from_cli
 
     # The generation passes log what they searched for and found; this is a console tool, so show
     # it. A no-op once something else owns the root logger, such as Kit in the modes that start it.

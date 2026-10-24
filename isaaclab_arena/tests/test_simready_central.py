@@ -9,17 +9,16 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from isaaclab_arena.agentic_environment_generation.simready_asset_search import (
+from isaaclab_arena.agentic_environment_generation.simready_asset_search import search_simready_objects
+from isaaclab_arena.agentic_environment_generation.simready_central_assets import search_central_objects
+from isaaclab_arena.agentic_environment_generation.simready_search_interface import (
     SimReadySearchConfig,
     SimReadySourceKind,
-    search_simready_objects,
 )
-from isaaclab_arena.agentic_environment_generation.simready_central import (
-    _parse_central_asset_url,
-    search_central_objects,
-)
+from isaaclab_arena.assets.simready_central_asset_loader import _parse_central_asset_url
 
-MODULE = "isaaclab_arena.agentic_environment_generation.simready_central"
+MODULE = "isaaclab_arena.agentic_environment_generation.simready_central_assets"
+LOADER = "isaaclab_arena.assets.simready_central_asset_loader"
 REVISION = "a" * 40
 URL = f"hf://huggingface.co/datasets/nvidia/simready-assets/resolve/{REVISION}/pallet/simready_usd/pallet.usd"
 
@@ -35,7 +34,7 @@ def test_central_requires_single_body_metadata_and_skips_invalid_usd():
     with (
         patch(f"{MODULE}.requests.post", return_value=response) as post,
         patch(
-            f"{MODULE}._download_and_wrap_central_asset", side_effect=[ValueError("articulation"), "/cache/pallet.usda"]
+            f"{MODULE}.download_and_wrap_central_asset", side_effect=[ValueError("articulation"), "/cache/pallet.usda"]
         ) as prepare,
     ):
         candidates = search_central_objects("pallet", max_results=1)
@@ -80,7 +79,7 @@ def _test_central_usd_validation(simulation_app):
 
     from pxr import Usd, UsdGeom, UsdPhysics
 
-    from isaaclab_arena.agentic_environment_generation.simready_central import _download_and_wrap_central_asset
+    from isaaclab_arena.assets.simready_central_asset_loader import download_and_wrap_central_asset
 
     with tempfile.TemporaryDirectory() as directory:
         folder = Path(directory)
@@ -93,25 +92,25 @@ def _test_central_usd_validation(simulation_app):
         body.CreateRigidBodyEnabledAttr(True)
         stage.GetRootLayer().Save()
         with (
-            patch("huggingface_hub.snapshot_download", return_value=directory),
-            patch(f"{MODULE}.Path.home", return_value=folder),
+            patch(f"{LOADER}._download_central_asset_package_to_cache", return_value=str(asset)),
+            patch(f"{LOADER}.Path.home", return_value=folder),
         ):
-            wrapper = _download_and_wrap_central_asset(URL)
+            wrapper = download_and_wrap_central_asset(URL)
             assert Usd.Stage.Open(wrapper).GetDefaultPrim().HasAPI(UsdPhysics.RigidBodyAPI)
             body.GetRigidBodyEnabledAttr().Set(False)
             stage.GetRootLayer().Save()
             with pytest.raises(AssertionError, match="disabled"):
-                _download_and_wrap_central_asset(URL)
+                download_and_wrap_central_asset(URL)
             body.GetRigidBodyEnabledAttr().Set(True)
             UsdPhysics.ArticulationRootAPI.Apply(root)
             stage.GetRootLayer().Save()
             with pytest.raises(AssertionError, match="articulation root"):
-                _download_and_wrap_central_asset(URL)
+                download_and_wrap_central_asset(URL)
             root.RemoveAPI(UsdPhysics.ArticulationRootAPI)
             UsdPhysics.RigidBodyAPI.Apply(UsdGeom.Xform.Define(stage, "/Pallet/Other").GetPrim())
             stage.GetRootLayer().Save()
             with pytest.raises(AssertionError, match="found 2"):
-                _download_and_wrap_central_asset(URL)
+                download_and_wrap_central_asset(URL)
     return True
 
 
@@ -119,3 +118,26 @@ def test_central_usd_validation():
     from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
     assert run_function_with_persistent_simulation_app(_test_central_usd_validation)
+
+
+def test_central_download_lists_only_the_selected_package():
+    from huggingface_hub.hf_api import RepoFile
+
+    from isaaclab_arena.assets.simready_central_asset_loader import _download_central_asset_package_to_cache
+
+    filenames = ["pallet/simready_usd/pallet.usd", "pallet/textures/color.png"]
+    entries = [RepoFile(path=path, size=1, oid="a" * 40) for path in filenames]
+    with (
+        patch("huggingface_hub.HfApi.list_repo_tree", return_value=iter(entries)) as list_tree,
+        patch("huggingface_hub.hf_hub_download", side_effect=lambda **kw: "/cache/" + kw["filename"]) as download,
+    ):
+        assert _download_central_asset_package_to_cache(URL) == "/cache/" + filenames[0]
+    list_tree.assert_called_once_with(
+        repo_id="nvidia/simready-assets",
+        repo_type="dataset",
+        revision=REVISION,
+        path_in_repo="pallet",
+        recursive=True,
+    )
+    assert {call.kwargs["filename"] for call in download.call_args_list} == set(filenames)
+    assert all(call.kwargs["revision"] == REVISION for call in download.call_args_list)

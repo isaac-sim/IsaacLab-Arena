@@ -21,10 +21,10 @@ from isaaclab_arena.agentic_environment_generation.catalogues import (
 )
 from isaaclab_arena.agentic_environment_generation.missing_object_inference import MissingObjectInference
 from isaaclab_arena.agentic_environment_generation.prim_path_inference import PrimPathInference
-from isaaclab_arena.agentic_environment_generation.simready_asset_search import (
+from isaaclab_arena.agentic_environment_generation.simready_asset_search import search_simready_objects
+from isaaclab_arena.agentic_environment_generation.simready_search_interface import (
     SimReadyObjectCandidate,
     SimReadySearchConfig,
-    search_simready_objects,
 )
 from isaaclab_arena.agentic_environment_generation.spec_inference import SpecInference
 from isaaclab_arena.assets.simready_constants import SIMREADY_USD_OBJECT_REGISTRY_NAME

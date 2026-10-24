@@ -3,70 +3,12 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Discover and prepare single-body props from Hugging Face SimReady Central."""
-
+"""Download Central asset packages and create validated PhysX USD wrappers."""
 from __future__ import annotations
 
 import hashlib
-import logging
 import re
 from pathlib import Path, PurePosixPath
-
-import requests
-
-from isaaclab_arena.agentic_environment_generation.simready_asset_search import (
-    MIN_INSPECTED_MATCHES_PER_PHRASE,
-    SimReadyObjectCandidate,
-)
-
-CENTRAL_SEARCH_URL = "https://nvidia-simready-central.hf.space/search_hybrid"
-_logger = logging.getLogger(__name__)
-
-
-def search_central_objects(phrase: str, *, max_results: int) -> list[SimReadyObjectCandidate]:
-    """Search Central and retain only locally validated single-body props."""
-    assert max_results > 0, "max_results must be positive"
-    response = requests.post(
-        CENTRAL_SEARCH_URL,
-        headers={"x-usdsearch-storage-backend": "usdsearch-dev"},
-        json={
-            "hybrid_text_query": phrase,
-            "file_extension_include": "usd*",
-            "filter_by_properties_numeric": "simready_metadata_rigid_body_count=1",
-            "return_usd_properties": True,
-            "limit": max(MIN_INSPECTED_MATCHES_PER_PHRASE, max_results),
-        },
-        timeout=30,
-    )
-    response.raise_for_status()
-    candidates = []
-    for hit in response.json()["hits"]:
-        try:
-            source = hit["source"]
-            # Fail closed even if a backend ignores the numeric filter.
-            counts = [
-                prop.get("value_numeric", prop.get("value"))
-                for prop in source.get("usd_properties", [])
-                if prop.get("name") == "simready_metadata_rigid_body_count"
-            ]
-            if not counts or any(float(count) != 1 for count in counts):
-                continue
-            usd_path = _download_and_wrap_central_asset(source["path"])
-            candidates.append(
-                SimReadyObjectCandidate(
-                    search_phrase=phrase,
-                    usd_path=usd_path,
-                    tags=("sim-ready", "single-rigid-body"),
-                    relevance_score=hit.get("rrf_score"),
-                    source_url=source["path"].replace("hf://", "https://", 1),
-                )
-            )
-        except Exception as exc:
-            _logger.info("Skipping Central asset %s: %s", hit.get("id"), exc)
-            continue
-        if len(candidates) >= max_results:
-            break
-    return candidates
 
 
 def _parse_central_asset_url(url: str) -> tuple[str, str, str, str]:
@@ -90,16 +32,31 @@ def _parse_central_asset_url(url: str) -> tuple[str, str, str, str]:
 
 def _download_central_asset_package_to_cache(url: str) -> str:
     """Download the pinned asset package and return its cached USD entrypoint."""
-    from huggingface_hub import snapshot_download
+    from concurrent.futures import ThreadPoolExecutor
+
+    from huggingface_hub import HfApi, hf_hub_download
+    from huggingface_hub.hf_api import RepoFile
 
     repo_id, revision, filename, folder = _parse_central_asset_url(url)
-    snapshot = snapshot_download(
-        repo_id=repo_id, repo_type="dataset", revision=revision, allow_patterns=[f"{folder}/*"]
-    )
-    return str(Path(snapshot) / filename)
+    # List only this package: a dataset-wide snapshot scan is expensive for large libraries.
+    files = [
+        entry.path
+        for entry in HfApi().list_repo_tree(
+            repo_id=repo_id, repo_type="dataset", revision=revision, path_in_repo=folder, recursive=True
+        )
+        if isinstance(entry, RepoFile)
+    ]
+    assert filename in files, "asset package is missing its USD entrypoint"
+
+    def download_file(path: str) -> str:
+        return hf_hub_download(repo_id=repo_id, repo_type="dataset", revision=revision, filename=path)
+
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        cached_paths = dict(zip(files, executor.map(download_file, files), strict=True))
+    return cached_paths[filename]
 
 
-def _download_and_wrap_central_asset(url: str) -> str:
+def download_and_wrap_central_asset(url: str) -> str:
     """Download a Central package, validate its rigid body, and write a cached PhysX USD wrapper."""
     from pxr import Usd, UsdGeom, UsdPhysics
 

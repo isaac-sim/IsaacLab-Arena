@@ -10,20 +10,24 @@ from __future__ import annotations
 import logging
 from unittest.mock import patch
 
-from isaaclab_arena.agentic_environment_generation.simready_asset_search import (
-    SimReadyObjectCandidate,
-    SimReadySearchConfig,
-    SimReadySourceKind,
+import pytest
+
+from isaaclab_arena.agentic_environment_generation.simready_asset_search import search_simready_objects
+from isaaclab_arena.agentic_environment_generation.simready_ga_assets import (
     _count_phrase_words_in_path,
     _filter_and_rank_path_matches,
     _has_single_rigid_body,
     _split_path_into_words,
-    search_simready_objects,
+)
+from isaaclab_arena.agentic_environment_generation.simready_search_interface import (
+    SimReadyObjectCandidate,
+    SimReadySearchConfig,
+    SimReadySourceKind,
     simready_search_config_from_cli,
 )
 from isaaclab_arena.assets.simready_constants import SIMREADY_USD_OBJECT_REGISTRY_NAME
 
-SEARCH_LOGGER = "isaaclab_arena.agentic_environment_generation.simready_asset_search"
+SEARCH_LOGGER = "isaaclab_arena.agentic_environment_generation.simready_ga_assets"
 """Where the search reports its progress, now that the agent's traces carry only errors."""
 
 CABINET_PATH = "SimReady/Residential/Kitchen/Cabinets/Cabinet_D01/sm_fixture_cabinet_d01_01.usd"
@@ -31,15 +35,11 @@ GREY_CABINET_PATH = "SimReady/Residential/Kitchen/Cabinets/Cabinet_D01/sm_fixtur
 TRASH_CAN_PATH = "SimReady/Residential/Garage/sm_trashCan_wheeled_green_a01_01.usd"
 PLAIN_TRASH_CAN_PATH = "SimReady/Residential/Kitchen/sm_trashCan_a01_01.usd"
 
-RIGID_BODY_CHECK_TARGET = "isaaclab_arena.agentic_environment_generation.simready_asset_search._has_single_rigid_body"
-# Patched where it is looked up, not where it is defined: simready_asset_search binds the name at
+RIGID_BODY_CHECK_TARGET = "isaaclab_arena.agentic_environment_generation.simready_ga_assets._has_single_rigid_body"
+# Patched where it is looked up, not where it is defined: simready_ga_assets binds the name at
 # import time, so patching the defining module would leave that binding untouched.
-RIGID_BODY_PATHS_TARGET = (
-    "isaaclab_arena.agentic_environment_generation.simready_asset_search.read_asset_rigid_body_paths"
-)
-PATH_FILTERS_TARGET = (
-    "isaaclab_arena.agentic_environment_generation.simready_asset_search._build_path_filters_from_phrase"
-)
+RIGID_BODY_PATHS_TARGET = "isaaclab_arena.agentic_environment_generation.simready_ga_assets.read_asset_rigid_body_paths"
+PATH_FILTERS_TARGET = "isaaclab_arena.agentic_environment_generation.simready_ga_assets._build_path_filters_from_phrase"
 # Stubbed wherever the fake library stands in for a real one: building a path filter needs the
 # simready package, which only ships with Isaac Sim, and the fake library ignores the filters.
 
@@ -124,7 +124,7 @@ def test_has_single_rigid_body_turns_down_an_unreadable_asset():
 
 @patch(PATH_FILTERS_TARGET, return_value=[])
 @patch(
-    "isaaclab_arena.agentic_environment_generation.simready_asset_search._create_asset_library_for_source",
+    "isaaclab_arena.agentic_environment_generation.simready_ga_assets._create_asset_library_for_source",
 )
 def test_search_falls_back_to_the_next_hit_when_one_is_rejected(mock_configure, mock_path_filters, caplog):
     mock_configure.return_value = _FakeLibrary([_FakeMatch(TRASH_CAN_PATH), _FakeMatch(PLAIN_TRASH_CAN_PATH)])
@@ -140,7 +140,7 @@ def test_search_falls_back_to_the_next_hit_when_one_is_rejected(mock_configure, 
 
 @patch(PATH_FILTERS_TARGET, return_value=[])
 @patch(
-    "isaaclab_arena.agentic_environment_generation.simready_asset_search._create_asset_library_for_source",
+    "isaaclab_arena.agentic_environment_generation.simready_ga_assets._create_asset_library_for_source",
 )
 def test_search_reports_a_phrase_with_only_rejected_hits_as_unmatched(mock_configure, mock_path_filters, caplog):
     mock_configure.return_value = _FakeLibrary([_FakeMatch(CABINET_PATH)])
@@ -164,10 +164,10 @@ def test_simready_search_config_from_cli_defaults():
 
 
 @patch(
-    "isaaclab_arena.agentic_environment_generation.simready_asset_search._search_library_rigid_body_candidates",
+    "isaaclab_arena.agentic_environment_generation.simready_ga_assets._search_library_rigid_body_candidates",
 )
 @patch(
-    "isaaclab_arena.agentic_environment_generation.simready_asset_search._create_asset_library_for_source",
+    "isaaclab_arena.agentic_environment_generation.simready_ga_assets._create_asset_library_for_source",
 )
 def test_search_simready_objects_returns_candidates(mock_configure, mock_search_library_rigid_body_candidates):
     mock_configure.return_value = _FakeLibrary()
@@ -184,7 +184,7 @@ def test_search_simready_objects_returns_candidates(mock_configure, mock_search_
 
 
 def test_create_asset_library_for_source_records_an_unknown_source(caplog):
-    from isaaclab_arena.agentic_environment_generation.simready_asset_search import _create_asset_library_for_source
+    from isaaclab_arena.agentic_environment_generation.simready_ga_assets import _create_asset_library_for_source
 
     config = SimReadySearchConfig()
     with caplog.at_level(logging.ERROR, logger=SEARCH_LOGGER):
@@ -196,7 +196,7 @@ def test_create_asset_library_for_source_records_an_unknown_source(caplog):
 
 
 @patch(
-    "isaaclab_arena.agentic_environment_generation.simready_asset_search._create_asset_library_for_source",
+    "isaaclab_arena.agentic_environment_generation.simready_ga_assets._create_asset_library_for_source",
 )
 def test_search_simready_objects_returns_empty_when_library_unavailable(mock_configure):
     mock_configure.return_value = None
@@ -205,10 +205,10 @@ def test_search_simready_objects_returns_empty_when_library_unavailable(mock_con
 
 
 @patch(
-    "isaaclab_arena.agentic_environment_generation.simready_asset_search._search_library_rigid_body_candidates",
+    "isaaclab_arena.agentic_environment_generation.simready_ga_assets._search_library_rigid_body_candidates",
 )
 @patch(
-    "isaaclab_arena.agentic_environment_generation.simready_asset_search._create_asset_library_for_source",
+    "isaaclab_arena.agentic_environment_generation.simready_ga_assets._create_asset_library_for_source",
 )
 def test_search_simready_objects_records_no_matches(mock_configure, mock_search_library_rigid_body_candidates, caplog):
     mock_configure.return_value = _FakeLibrary()
@@ -227,7 +227,7 @@ def test_multiple_sources_merge_and_deduplicate_candidates():
         patch(f"{SEARCH_LOGGER}._create_asset_library_for_source", return_value=object()),
         patch(f"{SEARCH_LOGGER}._search_library_rigid_body_candidates", side_effect=[[shared], []]),
         patch(
-            "isaaclab_arena.agentic_environment_generation.simready_central.search_central_objects",
+            "isaaclab_arena.agentic_environment_generation.simready_central_assets.search_central_objects",
             side_effect=[[shared, central], []],
         ),
     ):
@@ -244,7 +244,7 @@ def test_multiple_sources_keep_central_when_library_initialization_fails():
     with (
         patch(f"{SEARCH_LOGGER}._create_asset_library_for_source", side_effect=RuntimeError("unavailable")),
         patch(
-            "isaaclab_arena.agentic_environment_generation.simready_central.search_central_objects",
+            "isaaclab_arena.agentic_environment_generation.simready_central_assets.search_central_objects",
             return_value=[central],
         ),
     ):
@@ -261,7 +261,7 @@ def test_multiple_sources_keep_library_when_central_fails():
         patch(f"{SEARCH_LOGGER}._create_asset_library_for_source", return_value=object()),
         patch(f"{SEARCH_LOGGER}._search_library_rigid_body_candidates", return_value=[candidate]),
         patch(
-            "isaaclab_arena.agentic_environment_generation.simready_central.search_central_objects",
+            "isaaclab_arena.agentic_environment_generation.simready_central_assets.search_central_objects",
             side_effect=RuntimeError("unavailable"),
         ),
     ):
@@ -284,7 +284,7 @@ def test_source_list_searches_selected_backends_once():
         patch(f"{SEARCH_LOGGER}._create_asset_library_for_source", return_value=object()) as configure,
         patch(f"{SEARCH_LOGGER}._search_library_rigid_body_candidates", return_value=[]) as library_search,
         patch(
-            "isaaclab_arena.agentic_environment_generation.simready_central.search_central_objects",
+            "isaaclab_arena.agentic_environment_generation.simready_central_assets.search_central_objects",
             return_value=[],
         ) as central_search,
     ):
@@ -293,3 +293,21 @@ def test_source_list_searches_selected_backends_once():
     library_search.assert_called_once()
     central_search.assert_called_once_with("egg", max_results=2)
     assert result.unmatched_phrases == ["egg"]
+
+
+@pytest.mark.parametrize("source", [SimReadySourceKind.ISAAC_SIM_GA, SimReadySourceKind.CENTRAL])
+def test_backend_keeps_other_phrase_results_when_one_phrase_fails(source):
+    candidate = SimReadyObjectCandidate(search_phrase="wrench", usd_path="wrench.usd")
+    target = (
+        f"{SEARCH_LOGGER}._search_library_rigid_body_candidates"
+        if source == SimReadySourceKind.ISAAC_SIM_GA
+        else "isaaclab_arena.agentic_environment_generation.simready_central_assets.search_central_objects"
+    )
+    with (
+        patch(f"{SEARCH_LOGGER}._create_asset_library_for_source", return_value=object()),
+        patch(target, side_effect=[RuntimeError("unavailable"), [candidate]]) as search,
+    ):
+        result = search_simready_objects(["missing", "wrench"], SimReadySearchConfig(sources=[source]))
+    assert search.call_count == 2
+    assert result.candidates == [candidate]
+    assert result.unmatched_phrases == ["missing"]
