@@ -14,7 +14,7 @@ def _test_droid_absolute_pose_adapters(simulation_app):
 
     from isaaclab.utils.math import combine_frame_transforms
 
-    from isaaclab_arena.embodiments.droid.droid import DroidDifferentialIKEmbodiment
+    from isaaclab_arena.embodiments.droid.droid import DroidAbsoluteDifferentialIKEmbodiment
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
     from isaaclab_arena.environments.isaaclab_arena_environment import IsaacLabArenaEnvironment
@@ -26,23 +26,17 @@ def _test_droid_absolute_pose_adapters(simulation_app):
     from isaaclab_arena_vlm_agent.pose_target_motion_generator import PoseTargetMotionGenerator
 
     # Use a translated, rotated root and separate environment origins to expose world/root confusion.
-    embodiment = DroidDifferentialIKEmbodiment(
+    embodiment = DroidAbsoluteDifferentialIKEmbodiment(
         initial_pose=Pose(
             position_xyz=(0.7, -0.4, 1.35),
             rotation_xyzw=(0.0, 0.0, math.sin(0.3), math.cos(0.3)),
         )
     )
 
-    def absolute_pose_actions(cfg):
-        cfg.actions.arm_action.controller.use_relative_mode = False
-        cfg.actions.arm_action.scale = 1.0
-        return cfg
-
     arena_env = IsaacLabArenaEnvironment(
         name="droid_vlm_adapter_test",
         scene=Scene(),
         embodiment=embodiment,
-        env_cfg_callback=absolute_pose_actions,
     )
     env = ArenaEnvBuilder(arena_env, ArenaEnvBuilderCfg(num_envs=2, solve_relations=False)).make_registered()
     try:

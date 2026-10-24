@@ -38,13 +38,13 @@ def inputs(monkeypatch):
     env = SimpleNamespace(
         unwrapped=SimpleNamespace(
             num_envs=2,
-            action_dim=8,
             device="cpu",
             arena_world=world,
             observation_manager=SimpleNamespace(
                 active_terms={"policy": ["gripper_pos"]}, group_obs_concatenate={"policy": False}
             ),
             action_manager=SimpleNamespace(
+                total_action_dim=8,
                 action=torch.zeros(2, 8),
                 active_terms=["arm"],
                 get_term=lambda name: SimpleNamespace(cfg=embodiment.get_action_cfg().arm),

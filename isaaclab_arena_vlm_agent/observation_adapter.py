@@ -92,21 +92,29 @@ class StateObservationAdapter(VLMObservationAdapter):
 
 
 class ImageObservationAdapter(VLMObservationAdapter):
-    """Include the configured current RGB camera views for one environment."""
+    """Include RGB views configured by an embodiment or the live environment."""
 
-    def __init__(self, embodiment: EmbodimentBase):
-        observation_cfg = embodiment.get_observation_cfg()
+    def __init__(self, embodiment: EmbodimentBase | None = None):
+        self.camera_keys = None
+        if embodiment is not None:
+            self._set_camera_keys(embodiment.get_observation_cfg())
+
+    def _set_camera_keys(self, observation_cfg):
+        """Select RGB camera terms from the supplied observation configuration."""
         camera_cfg = getattr(observation_cfg, CAMERA_OBSERVATION_GROUP, None)
         assert camera_cfg is not None, "RGB modality requires camera observations; enable the embodiment's cameras"
-        self.camera_keys = tuple(
+        camera_keys = tuple(
             name
             for name, term in vars(camera_cfg).items()
             if hasattr(term, "func") and term.params.get("data_type") == "rgb"
         )
-        assert self.camera_keys, "RGB modality requires at least one configured RGB observation"
+        assert camera_keys, "RGB modality requires at least one configured RGB observation"
+        self.camera_keys = camera_keys
 
     def extract_vlm_input_from_observation(self, env, observation, env_id: int):
         """Return configured RGB views for the selected environment."""
+        if self.camera_keys is None:
+            self._set_camera_keys(env.unwrapped.cfg.observations)
         images = extract_rgb_images_from_camera_observations(
             observation[CAMERA_OBSERVATION_GROUP], self.camera_keys, env_id
         )
@@ -116,7 +124,7 @@ class ImageObservationAdapter(VLMObservationAdapter):
 class ImageStateObservationAdapter(VLMObservationAdapter):
     """Include robot state followed by current RGB camera views."""
 
-    def __init__(self, embodiment: EmbodimentBase):
+    def __init__(self, embodiment: EmbodimentBase | None = None):
         self.state_adapter = StateObservationAdapter()
         self.image_adapter = ImageObservationAdapter(embodiment)
 

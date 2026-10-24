@@ -292,6 +292,20 @@ class DroidDifferentialIKEmbodiment(DroidEmbodimentBase):
 
 
 @register_asset
+class DroidAbsoluteDifferentialIKEmbodiment(DroidDifferentialIKEmbodiment):
+    """DROID differential IK accepting unscaled root-relative XYZ/XYZW pose targets."""
+
+    registry_name = "droid_abs_ik"
+
+    def get_action_cfg(self):
+        """Return absolute pose actions after applying the selected physics backend's IK settings."""
+        cfg = super().get_action_cfg().copy()
+        cfg.arm_action.controller.use_relative_mode = False
+        cfg.arm_action.scale = 1.0
+        return cfg
+
+
+@register_asset
 class DroidRelativeJointPositionEmbodiment(DroidEmbodimentBase):
     """Embodiment for the DROID setup with relative joint position action controller."""
 

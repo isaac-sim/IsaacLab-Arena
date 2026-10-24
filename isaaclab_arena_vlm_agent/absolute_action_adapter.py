@@ -7,11 +7,29 @@
 
 import numpy as np
 
-from isaaclab_arena_vlm_agent.action_adapter import ChunkActionAdapter, GoalActionAdapter
+from isaaclab_arena_vlm_agent.action_adapter import AgentActionAdapter, ChunkActionAdapter, GoalActionAdapter
 from isaaclab_arena_vlm_agent.command_indices import AbsoluteCommandIndices, read_absolute_command_indices
 from isaaclab_arena_vlm_agent.commands import Command, CommandChunk
 from isaaclab_arena_vlm_agent.motion_generator import MotionGenerator
 from isaaclab_arena_vlm_agent.response_errors import InvalidAgentResponseError
+
+
+class AbsoluteStepActionAdapter(AgentActionAdapter):
+    """Decode a single absolute command in native controller order."""
+
+    response_model = Command
+
+    def __init__(self):
+        self._command_indices = None
+
+    def is_robot_action_space_supported(self, env) -> bool:
+        """Read absolute command indices before policy inference."""
+        self._command_indices = read_absolute_command_indices(env)
+        return self._command_indices is not None
+
+    def decode_command(self, response: Command, arena_world, env_id: int) -> np.ndarray:
+        """Decode and validate one absolute target."""
+        return _decode_absolute_command(response, self._command_indices)
 
 
 class AbsoluteChunkActionAdapter(ChunkActionAdapter):

@@ -68,7 +68,7 @@ class ActionAdapter(AgentActionAdapter):
         self.joint_names = tuple(f"joint_{i}" for i in range(action_dim))
 
     def is_robot_action_space_supported(self, env):
-        return env.unwrapped.action_dim > 0
+        return env.unwrapped.action_manager.total_action_dim > 0
 
     def decode_command(self, response, arena_world, env_id):
         positions = arena_world.get_joint_positions("robot", self.joint_names)[env_id].cpu().numpy()
@@ -116,7 +116,9 @@ def make_policy(backend, **kwargs):
 
 
 def inputs(action_dim=2):
-    env = SimpleNamespace(unwrapped=SimpleNamespace(num_envs=2, device="cpu", action_dim=action_dim))
+    env = SimpleNamespace(
+        unwrapped=SimpleNamespace(num_envs=2, device="cpu", action_manager=SimpleNamespace(total_action_dim=action_dim))
+    )
     positions = torch.arange(2 * action_dim, dtype=torch.float32).reshape(2, action_dim)
 
     def get_joint_positions(scene_key, joint_names):
@@ -234,7 +236,7 @@ def test_environment_validation_precedes_inference(backend):
     client = backend.client
     policy = make_policy(backend)
     env, observation = inputs()
-    env.unwrapped.action_dim = 0
+    env.unwrapped.action_manager.total_action_dim = 0
     try:
         with pytest.raises(AssertionError, match="Robot action space"):
             policy.get_action(env, observation)
@@ -265,7 +267,7 @@ def test_goal_config_rejects_invalid_step_budget(max_steps):
 class JointChunkAdapter(ChunkActionAdapter):
 
     def is_robot_action_space_supported(self, env):
-        return env.unwrapped.action_dim > 0
+        return env.unwrapped.action_manager.total_action_dim > 0
 
     def __init__(self, chunk_size: int, action_dim=2):
         super().__init__(chunk_size)
@@ -293,7 +295,7 @@ class JointGoalAdapter(GoalActionAdapter):
         self.joint_names = tuple(f"joint_{i}" for i in range(action_dim))
 
     def is_robot_action_space_supported(self, env):
-        return env.unwrapped.action_dim > 0
+        return env.unwrapped.action_manager.total_action_dim > 0
 
     def decode_command(self, response, arena_world, env_id):
         positions = arena_world.get_joint_positions("robot", self.joint_names)[env_id].cpu().numpy()
