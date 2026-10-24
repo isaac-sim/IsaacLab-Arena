@@ -57,6 +57,10 @@ class SimReadyUsdObject(Object):
         """
         assert "instance_name" not in kwargs, "instance_name was renamed to name; pass name= instead."
         assert usd_path, "simready_usd_object requires params.usd_path"
+        if usd_path.startswith(("https://huggingface.co/datasets/", "hf://huggingface.co/datasets/")):
+            from isaaclab_arena.assets.simready_central_asset_loader import download_and_wrap_central_asset
+
+            usd_path = download_and_wrap_central_asset(usd_path)
         spawn_cfg_addon = dict(kwargs.pop("spawn_cfg_addon", None) or {})
         spawn_cfg_addon.setdefault("variants", dict(SIMREADY_PHYSICS_VARIANTS))
         super().__init__(

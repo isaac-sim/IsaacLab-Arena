@@ -56,7 +56,7 @@ DEFAULT_PROMPT = "Franka picks up a cube from the maple table and places it into
 
 
 def add_agentic_env_gen_runner_cli_args(parser: argparse.ArgumentParser) -> None:
-    from isaaclab_arena.agentic_environment_generation.simready_asset_search import SimReadySourceKind
+    from isaaclab_arena.agentic_environment_generation.simready_search_interface import SimReadySourceKind
 
     group = parser.add_argument_group("Agentic Environment Generation Runner")
     group.add_argument(
@@ -119,11 +119,13 @@ def add_agentic_env_gen_runner_cli_args(parser: argparse.ArgumentParser) -> None
         help="Search SimReady for objects the Arena asset catalog does not cover.",
     )
     group.add_argument(
+        "--simready_sources",
         "--simready_source",
+        nargs="+",
         type=str,
         choices=tuple(kind.value for kind in SimReadySourceKind),
-        default="isaac-sim-ga",
-        help="SimReady search backend (default: isaac-sim-ga Isaac Sim 6.0 GA props).",
+        default=["isaac-sim-ga"],
+        help="SimReady backends to search. Result limits apply per backend.",
     )
     group.add_argument(
         "--simready_s3_url",
@@ -153,7 +155,7 @@ def resolve_env_spec(args_cli: argparse.Namespace) -> Path | None:
         build_task_catalogue,
     )
     from isaaclab_arena.agentic_environment_generation.environment_generation_agent import EnvironmentGenerationAgent
-    from isaaclab_arena.agentic_environment_generation.simready_asset_search import simready_search_config_from_cli
+    from isaaclab_arena.agentic_environment_generation.simready_search_interface import simready_search_config_from_cli
 
     # The generation passes log what they searched for and found; this is a console tool, so show
     # it. A no-op once something else owns the root logger, such as Kit in the modes that start it.
@@ -165,7 +167,7 @@ def resolve_env_spec(args_cli: argparse.Namespace) -> Path | None:
     task_catalog = build_task_catalogue()
 
     simready_config = simready_search_config_from_cli(
-        source=args_cli.simready_source,
+        sources=args_cli.simready_sources,
         s3_url=args_cli.simready_s3_url,
         service_url=args_cli.simready_service_url,
         max_results_per_object=args_cli.simready_max_results_per_object,
@@ -186,6 +188,9 @@ def resolve_env_spec(args_cli: argparse.Namespace) -> Path | None:
         relation_catalog=relation_catalog,
         task_catalog=task_catalog,
     )
+    asset_report = agent.simready_asset_report(env_graph_spec)
+    if asset_report:
+        print(f"\n[runner] SimReady assets:\n{json.dumps(asset_report, indent=2)}", flush=True)
     # agent.traces holds one line per failure, e.g.
     #   "embodiment.registry_name: Unknown asset registry_name 'not_a_real_asset'"
     #   "Task 'PickAndPlaceTask' is missing required param 'pick_up_object'"
@@ -355,7 +360,6 @@ def main() -> int:
     parser = get_isaaclab_arena_cli_parser()
     add_agentic_env_gen_runner_cli_args(parser)
     args_cli = parser.parse_args()
-
     if args_cli.mode == "schema":
         print_schema()
         return 0

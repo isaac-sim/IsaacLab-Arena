@@ -68,7 +68,7 @@ def initialize_state(yaml_path: Path | None, out_dir: Path) -> None:
     st.session_state["out_dir"] = str(out_dir.resolve())
     st.session_state.pop("_validation_text", None)
     st.session_state.pop("_validation_result", None)
-
+    st.session_state.pop("simready_asset_report", None)
     if yaml_path is None:
         st.session_state["original_text"] = ""
         st.session_state["edited_text"] = ""

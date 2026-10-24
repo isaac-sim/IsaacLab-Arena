@@ -1,0 +1,55 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Assets: ForgeCAD/simready-assets and nvidia/simready-assets, CC-BY-4.0.
+# Credit ForgeCAD (screwdriver) and NVIDIA (bearing and wrench).
+env_name: tabletop_pick_place_screwdriver_bearing_wrench
+embodiment:
+  id: franka
+  registry_name: franka_ik
+  params: {}
+background:
+  id: maple_table
+  registry_name: maple_table_robolab
+  params: {}
+objects:
+- id: screwdriver
+  registry_name: simready_usd_object
+  params:
+    usd_path: https://huggingface.co/datasets/ForgeCAD/simready-assets/resolve/828771cf28d7fc2c46a7a29eadfcf7bfcc6958f8/screwdriver/simready_usd/screwdriver.usda
+- id: ball_bearing
+  registry_name: simready_usd_object
+  params:
+    usd_path: https://huggingface.co/datasets/nvidia/simready-assets/resolve/653d91e182011f357cf1644013cc94ddf194d349/consumable_bearing_ball_a01/simready_usd/sm_consumable_bearing_ball_a01_01.usd
+- id: combination_wrench
+  registry_name: simready_usd_object
+  params:
+    usd_path: https://huggingface.co/datasets/nvidia/simready-assets/resolve/653d91e182011f357cf1644013cc94ddf194d349/handTool_wrench_combination_a01/simready_usd/sm_handTool_wrench_combination_a01_01.usd
+relations:
+- kind: is_anchor
+  subject: maple_table
+  params: {}
+- kind: 'on'
+  subject: screwdriver
+  reference: maple_table
+  params: {}
+- kind: 'on'
+  subject: ball_bearing
+  reference: maple_table
+  params: {}
+- kind: 'on'
+  subject: combination_wrench
+  reference: maple_table
+  params: {}
+task:
+  composition: atomic
+  description: Franka picks up the screwdriver and places it back on the maple
+    table, leaving the ball bearing and combination wrench as distractors.
+  subtasks:
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: screwdriver
+      destination_location: maple_table
+      background_scene: maple_table
