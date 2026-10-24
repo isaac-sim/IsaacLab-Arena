@@ -29,7 +29,7 @@ and stop when it is ready."
 Expected behavior:
 
 - Selects Docker because native `uv` does not include cuRobo, initializes source submodules, and
-  launches with `./docker/run_docker.sh -c`.
+  launches with `./docker/run_docker.sh`.
 - Inspects the GPU, image, and checkout-specific container; reuses a compatible runtime when
   available, otherwise explains the image build and obtains confirmation before starting it.
 - Verifies the checkout import and zero-action rollout, reports the container, import path, and exit
@@ -37,7 +37,7 @@ Expected behavior:
 
 Known failure modes:
 
-- Uses a native installation or omits `-c`.
+- Uses a native installation.
 - Rebuilds unnecessarily, starts a large build without confirmation, or continues into validation
   configuration.
 

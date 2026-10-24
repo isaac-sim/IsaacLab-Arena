@@ -10,11 +10,10 @@ from __future__ import annotations
 import logging
 import torch
 
-from curobo.geom.types import WorldConfig
-from curobo.types.base import TensorDeviceType
-from curobo.types.math import Pose as CuroboPose
-from curobo.util.logger import setup_curobo_logger
-from curobo.wrap.reacher.ik_solver import IKSolver, IKSolverConfig
+from curobo.inverse_kinematics import InverseKinematics, InverseKinematicsCfg
+from curobo.logging import setup_logger
+from curobo.types import DeviceCfg
+from curobo.types import Pose as CuroboPose
 
 from isaaclab_arena.utils.device import resolve_cuda_device
 from isaaclab_arena_curobo.curobo_embodiment_cfg import CuroboEmbodimentCfg
@@ -34,17 +33,17 @@ class CuroboIKSolver:
 
     # Note(xinjieyao, 2026-07-23): When validating params like EventTermCfg.params, Isaac Lab's configclass recursively
     # scans through every object's instance dict (__dict__) with no cycle guard.
-    # Curobo's IKSolver has a deep reference trees with circular deps and raw CUDA/C++ handles, so
+    # cuRobo's InverseKinematics has deep reference trees with circular deps and raw CUDA handles, so
     # it results in an infinite loop traversing Curobo's cyclic objects.
     # By defining __slots__, python suppresses the creation of __dict__ and stops before traversing into Curobo's objects.
     # Args:
     #     logger: The logger for the solver.
     #     device: The cuda device for the solver.
-    #     tensor_args: The tensor arguments for the solver.
+    #     device_cfg: The tensor device configuration for the solver.
     #     robot_cfg: The curobo robot configuration for the solver.
     #     ik_solver: The IK solver for the solver.
     #     hand_link_names: The robot's hand links, muted during a collision-free solve.
-    __slots__ = ("logger", "device", "tensor_args", "robot_cfg", "ik_solver", "hand_link_names")
+    __slots__ = ("logger", "device", "device_cfg", "robot_cfg", "ik_solver", "hand_link_names")
 
     def __init__(
         self,
@@ -57,7 +56,7 @@ class CuroboIKSolver:
         collision_cache_size: dict[str, int] | None = None,
         debug: bool = False,
     ) -> None:
-        """Build and warm up the solver from a cuRobo embodiment config, sim-free.
+        """Build the solver from a cuRobo embodiment config, sim-free.
 
         Args:
             curobo_cfg: The embodiment's registered ``CuroboEmbodimentCfg`` (robot yaml + URDF paths).
@@ -66,43 +65,41 @@ class CuroboIKSolver:
             num_seeds: IK seeds optimized in parallel per pose.
             position_threshold: cuRobo internal IK position convergence threshold (m).
             rotation_threshold: cuRobo internal IK rotation convergence threshold.
-            collision_cache_size: Collision cache sizes; defaults to ``{"obb": 150, "mesh": 150}``.
+            collision_cache_size: Collision cache sizes; defaults to ``{"cuboid": 150, "mesh": 150}``.
             debug: Enable cuRobo/planner debug logging.
         """
         self.logger = logging.getLogger("CuroboIKSolver")
         if not self.logger.handlers:
             self.logger.addHandler(logging.StreamHandler())
         self.logger.setLevel(logging.DEBUG if debug else logging.INFO)
-        setup_curobo_logger("info" if debug else "warn")
+        setup_logger("info" if debug else "warning")
 
         self.device = resolve_cuda_device(device)
-        self.tensor_args = TensorDeviceType(device=self.device, dtype=torch.float32)
-        collision_cache = collision_cache_size or {"obb": 150, "mesh": 150}
+        self.device_cfg = DeviceCfg(device=self.device, dtype=torch.float32)
+        collision_cache = collision_cache_size or {"cuboid": 150, "mesh": 150}
 
         self.robot_cfg = load_patched_robot_yaml(curobo_cfg)["robot_cfg"]
         self.hand_link_names = list(curobo_cfg.hand_link_names)
-        # Start with an empty collision world; update_world() fills it per layout.
-        world_cfg = WorldConfig(cuboid=[])
 
-        ik_config = IKSolverConfig.load_from_robot_config(
+        ik_config = InverseKinematicsCfg.create(
             self.robot_cfg,
-            world_cfg,
-            tensor_args=self.tensor_args,
+            device_cfg=self.device_cfg,
+            scene_model={"cuboid": {}},
             num_seeds=num_seeds,
-            position_threshold=position_threshold,
-            rotation_threshold=rotation_threshold,
+            position_tolerance=position_threshold,
+            orientation_tolerance=rotation_threshold,
             collision_cache=collision_cache,
-            collision_activation_distance=collision_activation_distance,
+            optimizer_collision_activation_distance=collision_activation_distance,
             use_cuda_graph=False,
         )
-        self.ik_solver = IKSolver(ik_config)
+        self.ik_solver = InverseKinematics(ik_config)
 
     def __deepcopy__(self, memory_map: dict[int, object]) -> CuroboIKSolver:
         """Return the live solver for ``copy.deepcopy`` instead of duplicating it.
 
         Isaac Lab's configclass deep-copies the ``EventTermCfg.params`` this solver rides in, but cuRobo's
-        ``IKSolver`` holds un-copyable CUDA/ctypes handles and is a shared, effectively-immutable oracle,
-        so the copy can only be the same instance.
+        ``InverseKinematics`` holds un-copyable CUDA/ctypes handles and is a shared,
+        effectively-immutable oracle, so the copy can only be the same instance.
 
         Args:
             memory_map: ``copy.deepcopy``'s ``id(original) -> copy`` cache; registering ``self`` in it makes every
@@ -122,7 +119,7 @@ class CuroboIKSolver:
 
     def _to_curobo_device(self, tensor: torch.Tensor) -> torch.Tensor:
         """Move a tensor onto the cuRobo CUDA device / dtype (device isolation)."""
-        return tensor.to(device=self.tensor_args.device, dtype=self.tensor_args.dtype)
+        return tensor.to(device=self.device_cfg.device, dtype=self.device_cfg.dtype)
 
     def _make_pose(
         self,

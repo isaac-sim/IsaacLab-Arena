@@ -82,17 +82,10 @@ class _MultiSeedIKResult:
 
 
 class _FakeKinematics:
-    """Stand-in for cuRobo's ``CudaRobotModel``: the sphere config plus forward kinematics onto it."""
+    """Stand-in for cuRobo's ``Kinematics`` configuration."""
 
     def __init__(self, kinematics_config: _FakeKinematicsConfig) -> None:
-        self.kinematics_config = kinematics_config
-
-    def get_state(self, joint_positions: torch.Tensor):
-        """Return one set of link spheres per given joint configuration."""
-        spheres = torch.stack(
-            [self.kinematics_config.get_link_spheres(name)[0] for name in self.kinematics_config.link_name_to_idx_map]
-        )
-        return type("_State", (), {"link_spheres_tensor": spheres.expand(joint_positions.shape[0], -1, -1)})()
+        self.config = type("_Config", (), {"kinematics_config": kinematics_config})()
 
 
 class _FakeIKSolver:
@@ -100,16 +93,25 @@ class _FakeIKSolver:
 
     def __init__(self, kinematics_config: _FakeKinematicsConfig, success: bool, raises: bool = False) -> None:
         self.kinematics = _FakeKinematics(kinematics_config)
+        self.tool_frames = ["ee_link"]
+        self.joint_names = [f"joint_{index}" for index in range(DOF)]
         self._success = success
         self._raises = raises
         self.radii_during_solve: dict[str, float] = {}
 
-    def solve_batch(self, goal_pose, seed_config=None) -> _FakeIKResult:
-        config = self.kinematics.kinematics_config
+    def solve_pose(self, goal_tool_poses, seed_config=None) -> _FakeIKResult:
+        config = self.kinematics.config.kinematics_config
         self.radii_during_solve = {name: config.radius(name) for name in config.link_name_to_idx_map}
         if self._raises:
             raise RuntimeError("solve blew up")
-        return _FakeIKResult(goal_pose.position.shape[0], self._success)
+        return _FakeIKResult(goal_tool_poses.batch_size, self._success)
+
+    def compute_kinematics(self, joint_state):
+        """Return one set of link spheres per given joint configuration."""
+        config = self.kinematics.config.kinematics_config
+        spheres = torch.stack([config.get_link_spheres(name)[0] for name in config.link_name_to_idx_map])
+        batch_spheres = spheres.expand(joint_state.position.shape[0], 1, -1, -1)
+        return type("_State", (), {"robot_spheres": batch_spheres})()
 
 
 class _FakeHost:
@@ -140,7 +142,9 @@ def _make_multi_seed_host(position_error: list, rotation_error: list, success: l
     """Build a fake host whose one solve reports these per-seed errors and collision flags."""
     kinematics_config = _FakeKinematicsConfig([*HAND_LINKS, ARM_LINK])
     solver = _FakeIKSolver(kinematics_config, success=True)
-    solver.solve_batch = lambda goal_pose, seed_config=None: _MultiSeedIKResult(position_error, rotation_error, success)
+    solver.solve_pose = lambda goal_tool_poses, seed_config=None: _MultiSeedIKResult(
+        position_error, rotation_error, success
+    )
     return _FakeHost(solver, HAND_LINKS)
 
 
