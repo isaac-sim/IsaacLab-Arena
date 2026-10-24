@@ -11,7 +11,7 @@ import torch
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, BoundingBox, OrientedBoundingBox
 
 if TYPE_CHECKING:
     from isaaclab_arena.relations.placement_asset import PlaceableAsset
@@ -44,13 +44,30 @@ class PlacementCandidateBatch:
 
     candidates: list[PlacementCandidate]
     """Layouts in batch order, each with its own identity, geometry and results."""
+    collision_bboxes: dict[PlaceableAsset, BoundingBox] | None = None
+    """Rotation-preserving bounds with N rows per object, in candidate order.
+
+    Enclosing candidate.bboxes cannot recover this geometry. None uses those enclosing bounds.
+    """
 
     def __len__(self) -> int:
         return len(self.candidates)
 
     def select(self, indices: list[int]) -> PlacementCandidateBatch:
-        """Select or reorder layouts by batch index, retaining references to the same candidates."""
-        return PlacementCandidateBatch([self.candidates[i] for i in indices])
+        """Select or reorder layouts by batch index, sharing the candidates and copying their collision rows."""
+        selected = PlacementCandidateBatch([self.candidates[i] for i in indices])
+        if self.collision_bboxes is not None and indices:
+            selected.collision_bboxes = {}
+            for obj, bounds in self.collision_bboxes.items():
+                if isinstance(bounds, AxisAlignedBoundingBox):
+                    selected.collision_bboxes[obj] = AxisAlignedBoundingBox(
+                        bounds.min_point[indices], bounds.max_point[indices]
+                    )
+                else:
+                    selected.collision_bboxes[obj] = OrientedBoundingBox(
+                        bounds.center_W[indices], bounds.half_extents[indices], bounds.rotation_W_B_xyzw[indices]
+                    )
+        return selected
 
     def stacked_bboxes(self) -> dict[PlaceableAsset, AxisAlignedBoundingBox]:
         """Stack bounds into (N, 3) tensors in candidate order."""
@@ -62,3 +79,10 @@ class PlacementCandidateBatch:
             )
             for obj in self.candidates[0].bboxes
         }
+
+    def stacked_collision_bboxes(self) -> dict[PlaceableAsset, BoundingBox]:
+        """Return collision bounds in candidate order, using enclosing input bounds when omitted."""
+        assert self.candidates, "Cannot stack bounds for an empty candidate batch"
+        if self.collision_bboxes is not None:
+            return self.collision_bboxes
+        return self.stacked_bboxes()

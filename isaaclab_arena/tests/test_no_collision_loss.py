@@ -8,14 +8,21 @@
 import math
 import torch
 
+import pytest
+
+from isaaclab_arena.relations.bounding_box_helpers import build_per_env_bounding_boxes, update_candidate_bounds
 from isaaclab_arena.relations.loss_primitives import interval_overlap_axis_loss
+from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
+from isaaclab_arena.relations.placement_candidate_batch import PlacementCandidate, PlacementCandidateBatch
+from isaaclab_arena.relations.placement_candidate_generator import PlacementCandidateGenerator
 from isaaclab_arena.relations.relation_loss_strategies import NoCollisionLossStrategy
 from isaaclab_arena.relations.relation_solver import RelationSolver
 from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
 from isaaclab_arena.relations.relation_solver_state import RelationSolverState
-from isaaclab_arena.relations.relations import IsAnchor, On
+from isaaclab_arena.relations.relations import IsAnchor, On, RotateAroundSolution
+from isaaclab_arena.relations.validation.pre_physics import NoOverlapValidator
 from isaaclab_arena.tests.dummy_object import DummyObject
-from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, CachedOverlapVolumeUpperBound, OrientedBoundingBox
 from isaaclab_arena.utils.pose import Pose
 
 
@@ -333,7 +340,8 @@ def test_validation_accepts_on_parent_overlap():
     env_bboxes = {obj: obj.get_bounding_box() for obj in positions}
 
     validator = NoOverlapValidator(ObjectPlacerParams())
-    assert validator._validate_no_overlap(positions, env_bboxes)
+    batch = PlacementCandidateBatch([PlacementCandidate(0, 0, positions, {}, env_bboxes)])
+    assert validator.validate_batch(batch, []) == [True]
 
 
 def test_validation_rejects_non_anchor_overlap():
@@ -354,7 +362,8 @@ def test_validation_rejects_non_anchor_overlap():
     env_bboxes = {obj: obj.get_bounding_box() for obj in positions}
 
     validator = NoOverlapValidator(ObjectPlacerParams())
-    assert not validator._validate_no_overlap(positions, env_bboxes)
+    batch = PlacementCandidateBatch([PlacementCandidate(0, 0, positions, {}, env_bboxes)])
+    assert validator.validate_batch(batch, []) == [False]
 
 
 def test_relation_solver_no_collision_same_inputs_reproducible():
@@ -392,6 +401,22 @@ def test_no_collision_loss_multi_env_shape_and_values():
     assert loss.shape == (2,)
     assert torch.isclose(loss[0], torch.tensor(0.0), atol=1e-5)
     assert loss[1] > 0.0
+
+
+def _harmonic_face_axis_volume(
+    subject: OrientedBoundingBox, obstacle: OrientedBoundingBox, margin: float
+) -> torch.Tensor:
+    """Harmonic mean of the interval-overlap volumes along the subject's and the obstacle's face axes."""
+    from isaaclab.utils.math import matrix_from_quat
+
+    bound = CachedOverlapVolumeUpperBound(
+        subject.half_extents,
+        matrix_from_quat(subject.rotation_W_B_xyzw),
+        obstacle.half_extents,
+        matrix_from_quat(obstacle.rotation_W_B_xyzw),
+    )
+    volume_A, volume_B = bound.compute_face_axis_volumes(subject.center_W, obstacle.center_W, margin)
+    return 2 * volume_A * volume_B / (volume_A + volume_B)
 
 
 def _reference_pairwise_no_overlap_loss(solver: RelationSolver, state: RelationSolverState) -> torch.Tensor:
@@ -649,3 +674,427 @@ def test_relation_solver_multi_env_returns_list_of_dicts():
         assert isinstance(d, dict)
         assert box_a in d
         assert box_b in d
+
+
+def test_solve_candidates_preserves_assigned_oriented_bounds_and_candidate_order():
+    """Narrow rods clear each other and a passive obstacle; wide variants and obstacle intersections fail."""
+    table = _create_table()
+    table.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0)))
+    table.add_relation(IsAnchor())
+    narrow = AxisAlignedBoundingBox((-0.3, -0.02, -0.05), (0.3, 0.02, 0.05))
+    wide = AxisAlignedBoundingBox((-0.3, -0.08, -0.05), (0.3, 0.08, 0.05))
+    first, second = DummyObject("first", narrow), DummyObject("second", narrow)
+    obstacle = DummyObject(
+        "passive_obstacle",
+        AxisAlignedBoundingBox((-0.02, -0.02, -0.02), (0.02, 0.02, 0.02)),
+        initial_pose=Pose(position_xyz=(0.15, -0.15, 1.0)),
+    )
+    objects = [table, first, second]
+    env_bounds = [
+        {table: table.get_bounding_box(), first: narrow, second: narrow},
+        {table: table.get_bounding_box(), first: wide, second: wide},
+    ]
+    positions = {table: (0.0, 0.0, 0.0), first: (0.0, 0.0, 1.0), second: (-0.08, 0.08, 1.0)}
+    orientations = {first: math.pi / 4, second: math.pi / 4}
+    batch = PlacementCandidateBatch([
+        PlacementCandidate(1, 4, dict(positions), orientations, env_bounds[1]),
+        PlacementCandidate(0, 2, dict(positions), orientations, env_bounds[0]),
+        PlacementCandidate(0, 5, {**positions, first: (0.15, -0.15, 1.0)}, orientations, env_bounds[0]),
+    ])
+    update_candidate_bounds(batch, env_bounds)
+    clear = batch.candidates[1]
+    assert (
+        clear.bboxes[first]
+        .translated(positions[first])
+        .overlaps(clear.bboxes[second].translated(positions[second]))
+        .item()
+    )
+    assert clear.bboxes[first].translated(positions[first]).overlaps(obstacle.get_world_bounding_box()).item()
+
+    solver = RelationSolver(RelationSolverParams(max_iters=0, verbose=False))
+    solver.solve_candidates(objects, batch, [obstacle])
+
+    assert [(candidate.env_id, candidate.candidate_id) for candidate in batch.candidates] == [(1, 4), (0, 2), (0, 5)]
+    assert batch.candidates[0].loss > 0
+    assert batch.candidates[1].loss == 0
+    assert batch.candidates[2].loss > 0
+    validator = NoOverlapValidator(ObjectPlacerParams(solver_params=solver.params))
+    assert validator.validate_batch(batch, [obstacle]) == [False, True, False]
+    assert all(obstacle not in candidate.positions for candidate in batch.candidates)
+    assert obstacle.get_initial_pose().position_xyz == (0.15, -0.15, 1.0)
+
+
+def test_solve_candidates_separates_yawed_boxes_while_preserving_on_support():
+    """Optimization escapes a real rotated overlap without escaping above or outside the supporting table."""
+    table = _create_table()
+    table.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0)))
+    table.add_relation(IsAnchor())
+    bounds = AxisAlignedBoundingBox((-0.25, -0.04, 0.0), (0.25, 0.04, 0.1))
+    first, second = DummyObject("first", bounds), DummyObject("second", bounds)
+    first.add_relation(On(table, clearance_m=0.01))
+    second.add_relation(On(table, clearance_m=0.01))
+    objects = [table, first, second]
+    positions = {table: (0.0, 0.0, 0.0), first: (0.45, 0.45, 0.11), second: (0.43, 0.47, 0.11)}
+    orientations = {first: math.pi / 4, second: math.pi / 4}
+    env_bounds = [{obj: obj.get_bounding_box() for obj in objects}]
+    batch = PlacementCandidateBatch([PlacementCandidate(0, 0, positions, orientations, env_bounds[0])])
+    update_candidate_bounds(batch, env_bounds)
+    quaternion = (0.0, 0.0, math.sin(math.pi / 8), math.cos(math.pi / 8))
+    assert (
+        bounds.transformed(positions[first], quaternion)
+        .overlaps(bounds.transformed(positions[second], quaternion))
+        .item()
+    )
+
+    solver = RelationSolver(RelationSolverParams(max_iters=200, convergence_threshold=1e-4, verbose=False))
+    solver.solve_candidates(objects, batch, [])
+
+    candidate = batch.candidates[0]
+    first_world = bounds.transformed(candidate.positions[first], quaternion)
+    second_world = bounds.transformed(candidate.positions[second], quaternion)
+    assert not first_world.overlaps(second_world, margin=solver.params.clearance_m).item()
+    table_world = table.get_world_bounding_box()
+    for box in (first_world, second_world):
+        lower, upper = box.get_axis_aligned_bounds()
+        torch.testing.assert_close(lower[:, 2], table_world.max_point[:, 2] + 0.01, atol=1e-5, rtol=0)
+        assert (lower[:, :2] >= table_world.min_point[:, :2]).all()
+        assert (upper[:, :2] <= table_world.max_point[:, :2]).all()
+    assert candidate.loss < solver.params.convergence_threshold
+
+
+def test_direct_solver_orients_raw_bounds_and_preserves_explicit_enclosing_bounds():
+    """Raw per-env geometry follows yaw; already-enclosing custom bounds keep their conservative interval loss."""
+    table = _create_table()
+    table.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0)))
+    table.add_relation(IsAnchor())
+    default_bounds = AxisAlignedBoundingBox((-0.3, -0.12, -0.05), (0.3, 0.12, 0.05))
+    first, second = DummyObject("first", default_bounds), DummyObject("second", default_bounds)
+    raw_bounds = AxisAlignedBoundingBox((-0.3, -0.02, -0.05), (0.3, 0.02, 0.05))
+    objects = [table, first, second]
+    positions = {table: (0.0, 0.0, 0.0), first: (0.0, 0.0, 1.0), second: (-0.08, 0.08, 1.0)}
+    orientations = [
+        {first: math.pi / 4, second: math.pi / 4},
+        {first: -math.pi / 4, second: -math.pi / 4},
+    ]
+    solver = RelationSolver(RelationSolverParams(max_iters=0, verbose=False))
+    solver.solve(
+        objects, [positions, positions], env_bboxes={first: raw_bounds, second: raw_bounds}, orientations=orientations
+    )
+    assert solver.last_loss_per_env[0] == 0
+    assert solver.last_loss_per_env[1] > 0
+
+    enclosing = raw_bounds.rotated_around_z(math.pi / 4)
+    solver.solve(
+        objects,
+        [positions, positions],
+        env_bboxes={first: enclosing, second: enclosing},
+        env_bboxes_include_yaw=True,
+        orientations=orientations,
+    )
+    expected = _single_pair_no_overlap_loss(
+        solver._no_collision_strategy.slope,
+        solver.params.clearance_m,
+        torch.tensor(positions[first]),
+        enclosing,
+        enclosing.translated(positions[second]),
+    )
+    expected += _single_pair_no_overlap_loss(
+        solver._no_collision_strategy.slope,
+        solver.params.clearance_m,
+        torch.tensor(positions[second]),
+        enclosing,
+        enclosing.translated(positions[first]),
+    )
+    torch.testing.assert_close(solver.last_loss_per_env.cpu(), expected.expand(2))
+    assert (solver.last_loss_per_env > 0).all()
+
+
+def test_direct_solver_orients_objects_omitted_from_partial_collision_bounds():
+    """Partial supplied collision bounds keep precedence while omitted objects still receive their yaw."""
+    table = _create_table()
+    table.set_initial_pose(Pose.identity())
+    table.add_relation(IsAnchor())
+    rod = DummyObject("rod", AxisAlignedBoundingBox((-0.4, -0.02, -0.05), (0.4, 0.02, 0.05)))
+    cube = DummyObject("cube", AxisAlignedBoundingBox((-0.005, -0.005, -0.05), (0.005, 0.005, 0.05)))
+    supplied_bounds = AxisAlignedBoundingBox((-0.14, -0.02, -0.05), (0.14, 0.02, 0.05))
+    positions = {table: (0.0, 0.0, 0.0), rod: (0.0, 0.0, 1.0), cube: (0.2, 0.3, 1.0)}
+    collision_bboxes = {cube: supplied_bounds.to_obb()}
+    solver = RelationSolver(RelationSolverParams(max_iters=0, clearance_m=0.0, verbose=False))
+
+    solver.solve(
+        [table, rod, cube],
+        [positions, positions],
+        orientations=[{rod: math.pi / 4}, {rod: -math.pi / 4}],
+        env_bboxes={cube: cube.get_bounding_box()},
+        collision_bboxes=collision_bboxes,
+    )
+
+    # The supplied wide cube reaches the diagonal rod; its tiny default bounds do not.
+    assert solver.last_loss_per_env[0] > 0
+    assert solver.last_loss_per_env[1] == 0
+    # The caller's bounds are not extended with the defaults.
+    assert set(collision_bboxes) == {cube}
+
+
+@pytest.mark.parametrize(
+    "marker_angles, candidate_yaws",
+    [
+        pytest.param((0.0, 0.0, 0.0), (0.0, math.pi / 2, -math.pi / 2, -math.pi), id="candidate-yaws"),
+        pytest.param((math.pi / 2, 0.0, 0.0), (None,), id="authored-roll"),
+    ],
+)
+def test_exact_quarter_turns_preserve_aabb_collision_loss_and_gradients(marker_angles, candidate_yaws):
+    """Exact quarter turns, with authored headings from the candidate generator, match AABB losses and gradients."""
+    table, first, second = _create_no_collision_scene()
+    bounds = AxisAlignedBoundingBox((-0.2, -0.08, -0.04), (0.4, 0.12, 0.1))
+    for obj in (first, second):
+        obj.bounding_box = bounds
+        obj.add_relation(RotateAroundSolution(*marker_angles))
+    objects = [table, first, second]
+    base_bounds = {obj: obj.get_bounding_box() for obj in objects}
+    positions = {table: (0.0, 0.0, 0.0), first: (0.0, 0.0, 1.0), second: (0.03, 0.04, 1.02)}
+    generated_orientations = PlacementCandidateGenerator(ObjectPlacerParams()).generate_orientations(objects, {table})
+    candidates = []
+    for index, yaw in enumerate(candidate_yaws):
+        orientations = generated_orientations if yaw is None else {first: yaw, second: yaw}
+        candidates.append(PlacementCandidate(0, index, positions, orientations, base_bounds))
+    batch = PlacementCandidateBatch(candidates)
+    update_candidate_bounds(batch, [base_bounds])
+    collision_boxes = batch.stacked_collision_bboxes()
+    assert all(isinstance(bounds, AxisAlignedBoundingBox) for bounds in collision_boxes.values())
+    initial_positions = [candidate.positions for candidate in candidates]
+    state = RelationSolverState(
+        objects,
+        initial_positions,
+        device=torch.device("cpu"),
+        env_bboxes=batch.stacked_bboxes(),
+        collision_bboxes=collision_boxes,
+    )
+    reference = RelationSolverState(
+        objects, initial_positions, device=torch.device("cpu"), env_bboxes=batch.stacked_bboxes()
+    )
+    assert state.collision_boxes_axis_aligned
+    solver = RelationSolver(RelationSolverParams(verbose=False))
+
+    loss = solver._compute_no_overlap_loss(state)
+    reference_loss = _reference_pairwise_no_overlap_loss(solver, reference)
+    loss.sum().backward()
+    reference_loss.sum().backward()
+
+    assert (loss > 0).all()
+    assert state.optimizable_positions.grad.abs().sum() > 0
+    torch.testing.assert_close(loss, reference_loss)
+    torch.testing.assert_close(state.optimizable_positions.grad, reference.optimizable_positions.grad)
+
+
+def test_near_quarter_turn_remains_oriented_collision_geometry():
+    """A nearby angle must not be snapped to the quarter-turn AABB collision path."""
+    table, first, second = _create_no_collision_scene()
+    objects = [table, first, second]
+    bounds = {obj: obj.get_bounding_box() for obj in objects}
+    positions = {table: (0.0, 0.0, 0.0), first: (0.0, 0.0, 1.0), second: (0.03, 0.04, 1.02)}
+    batch = PlacementCandidateBatch([PlacementCandidate(0, 0, positions, {first: math.pi / 2 + 1e-6}, bounds)])
+    update_candidate_bounds(batch, [bounds])
+
+    assert not isinstance(batch.collision_bboxes[first], AxisAlignedBoundingBox)
+    state = RelationSolverState(
+        objects, [positions], device=torch.device("cpu"), collision_bboxes=batch.stacked_collision_bboxes()
+    )
+    assert not state.collision_boxes_axis_aligned
+
+
+def test_mixed_collision_geometry_rejects_unbounded_aabbs_without_changing_interval_behavior():
+    """Unbounded intervals keep AABB semantics but cannot enter finite oriented-box geometry."""
+    table, first, second = _create_no_collision_scene()
+    first.bounding_box = AxisAlignedBoundingBox((-math.inf, -0.1, -0.1), (math.inf, 0.1, 0.1))
+    objects = [table, first, second]
+    positions = [{table: (0.0, 0.0, 0.0), first: (0.0, 0.0, 1.0), second: (0.03, 0.04, 1.02)}]
+    state = RelationSolverState(objects, positions, device=torch.device("cpu"))
+    assert state.collision_boxes_axis_aligned
+    solver = RelationSolver(RelationSolverParams(verbose=False))
+
+    loss = solver._compute_no_overlap_loss(state)
+    torch.testing.assert_close(loss, _reference_pairwise_no_overlap_loss(solver, state))
+    assert torch.isfinite(loss).all() and (loss > 0).all()
+
+    quaternion = (0.0, 0.0, math.sin(math.pi / 8), math.cos(math.pi / 8))
+    oriented = second.get_bounding_box().transformed((0.0, 0.0, 0.0), quaternion)
+    with pytest.raises(AssertionError, match="finite"):
+        RelationSolverState(objects, positions, device=torch.device("cpu"), collision_bboxes={second: oriented})
+
+
+@pytest.mark.parametrize("clearance_m, expected_valid", [(0.0, True), (0.01, False)])
+def test_oriented_collision_loss_and_validator_apply_clearance(clearance_m, expected_valid):
+    """Parallel diagonal rods with a 5 mm surface gap violate a 10 mm clearance requirement."""
+    table = _create_table()
+    table.set_initial_pose(Pose.identity())
+    table.add_relation(IsAnchor())
+    bounds = AxisAlignedBoundingBox((-0.25, -0.02, -0.03), (0.25, 0.02, 0.03))
+    first, second = DummyObject("first", bounds), DummyObject("second", bounds)
+    offset = (0.04 + 0.005) / math.sqrt(2)
+    positions = {table: (0.0, 0.0, 0.0), first: (0.0, 0.0, 1.0), second: (-offset, offset, 1.0)}
+    objects = [table, first, second]
+    boxes = {obj: obj.get_bounding_box() for obj in objects}
+    batch = PlacementCandidateBatch(
+        [PlacementCandidate(0, 0, positions, {first: math.pi / 4, second: math.pi / 4}, boxes)]
+    )
+    update_candidate_bounds(batch, [boxes])
+    params = RelationSolverParams(max_iters=0, clearance_m=clearance_m, verbose=False)
+    solver = RelationSolver(params)
+
+    solver.solve_candidates(objects, batch, [])
+
+    if expected_valid:
+        assert batch.candidates[0].loss == 0.0
+    else:
+        assert batch.candidates[0].loss > 0.0
+    validator = NoOverlapValidator(ObjectPlacerParams(solver_params=params, verbose=False))
+    assert validator.validate_batch(batch, []) == [expected_valid]
+
+    # A fixed cube 5 mm from the first rod's long face is held to the same clearance.
+    cube_distance = 0.02 + 0.02 * math.sqrt(2) + 0.005
+    obstacle = DummyObject(
+        "obstacle",
+        AxisAlignedBoundingBox((-0.02, -0.02, -0.02), (0.02, 0.02, 0.02)),
+        initial_pose=Pose(position_xyz=(-cube_distance / math.sqrt(2), cube_distance / math.sqrt(2), 1.0)),
+    )
+    first_boxes = {table: boxes[table], first: boxes[first]}
+    alone = PlacementCandidateBatch([
+        PlacementCandidate(0, 0, {table: positions[table], first: positions[first]}, {first: math.pi / 4}, first_boxes)
+    ])
+    update_candidate_bounds(alone, [first_boxes])
+    assert validator.validate_batch(alone, [obstacle]) == [expected_valid]
+
+
+def test_oriented_loss_pushes_out_a_bar_whose_smaller_face_axis_volume_is_flat():
+    """A yawed bar whose own-axis volume is constant still gets a gradient from the obstacle's frame."""
+    cube = DummyObject(
+        "cube",
+        AxisAlignedBoundingBox((-0.1, -0.1, -0.1), (0.1, 0.1, 0.1)),
+        initial_pose=Pose(position_xyz=(0.0, 0.0, 1.0)),
+        relations=[IsAnchor()],
+    )
+    bar = DummyObject("bar", AxisAlignedBoundingBox((-0.2, -0.005, -0.05), (0.2, 0.005, 0.05)))
+    quaternion = (0.0, 0.0, math.sin(math.pi / 8), math.cos(math.pi / 8))
+    bar_collision_box = bar.get_bounding_box().transformed((0.0, 0.0, 0.0), quaternion)
+    state = RelationSolverState(
+        [cube, bar],
+        [{cube: (0.0, 0.0, 1.0), bar: (0.05, 0.0, 1.0)}],
+        device=torch.device("cpu"),
+        collision_bboxes={bar: bar_collision_box},
+    )
+    solver = RelationSolver(RelationSolverParams(clearance_m=0.0, verbose=False))
+
+    loss = solver._compute_no_overlap_loss(state)  # pyright: ignore[reportPrivateUsage]
+    loss.sum().backward()
+
+    # The smaller face-axis volume, along the bar's own axes, does not change when the bar moves.
+    position = torch.tensor([[0.05, 0.0, 1.0]], requires_grad=True)
+    smaller_volume = bar_collision_box.translated(position).overlap_volume_upper_bound(cube.get_world_bounding_box())
+    smaller_volume.sum().backward()
+    assert loss.item() > 0 and position.grad.abs().sum() == 0
+    # Descending the loss moves the bar away from the cube along +x.
+    assert state.optimizable_positions.grad[0, 0, 0] < 0
+
+
+def test_oriented_loss_pushes_zero_thickness_panel_out_of_fixed_block():
+    """A yawed panel with zero thickness partly inside a fixed block has a loss to reduce, and the solver moves it out."""
+    table = _create_table()
+    table.set_initial_pose(Pose.identity())
+    table.add_relation(IsAnchor())
+    panel_bounds = AxisAlignedBoundingBox((-0.2, 0.0, -0.1), (0.2, 0.0, 0.1))
+    panel = DummyObject("panel", panel_bounds)
+    block = DummyObject(
+        "block",
+        AxisAlignedBoundingBox((-0.1, -0.1, -0.1), (0.1, 0.1, 0.1)),
+        initial_pose=Pose(position_xyz=(0.0, 0.0, 1.0)),
+    )
+    objects = [table, panel]
+    boxes = {table: table.get_bounding_box(), panel: panel_bounds}
+    yaw = math.pi / 6
+    # The panel's center is 0.1 m from the block's along the panel's long axis, so one end sticks out.
+    positions = {table: (0.0, 0.0, 0.0), panel: (0.1 * math.cos(yaw), 0.1 * math.sin(yaw), 1.0)}
+    params = RelationSolverParams(max_iters=0, verbose=False)
+    validator = NoOverlapValidator(ObjectPlacerParams(solver_params=params, verbose=False))
+    results = []
+    for max_iters in (0, 300):
+        batch = PlacementCandidateBatch([PlacementCandidate(0, 0, dict(positions), {panel: yaw}, boxes)])
+        update_candidate_bounds(batch, [boxes])
+        params.max_iters = max_iters
+        RelationSolver(params).solve_candidates(objects, batch, [block])
+        results.append((batch.candidates[0].loss, validator.validate_batch(batch, [block])))
+
+    (start_loss, start_valid), (final_loss, final_valid) = results
+    assert start_loss > 0.0 and start_valid == [False]
+    assert final_loss < start_loss and final_valid == [True]
+
+
+def test_oriented_collision_uses_off_origin_quarter_turned_anchor_world_bounds():
+    """A non-parent anchor contributes its rotated world bounds exactly once."""
+    quarter = math.sqrt(0.5)
+    anchor_position = (0.4, -0.2, 0.1)
+    anchor = DummyObject(
+        "anchor",
+        AxisAlignedBoundingBox((-0.2, -0.025, -0.05), (0.2, 0.025, 0.05)),
+        initial_pose=Pose(position_xyz=anchor_position, rotation_xyzw=(0.0, 0.0, quarter, quarter)),
+        relations=[IsAnchor()],
+    )
+    rod = DummyObject("rod", AxisAlignedBoundingBox((-0.08, -0.01, -0.02), (0.08, 0.01, 0.02)))
+    objects = [anchor, rod]
+    per_env = build_per_env_bounding_boxes(objects, 1).get_bounding_boxes_for_all_envs()
+    batch = PlacementCandidateBatch([
+        PlacementCandidate(0, index, {anchor: anchor_position, rod: position}, {rod: math.pi / 4}, per_env[0])
+        for index, position in enumerate(((0.4, -0.08, 0.1), (0.8, -0.4, 0.2)))
+    ])
+    update_candidate_bounds(batch, per_env)
+    params = RelationSolverParams(max_iters=0, clearance_m=0.0, verbose=False)
+    solver = RelationSolver(params)
+
+    solver.solve_candidates(objects, batch, [])
+
+    assert batch.candidates[0].loss > 0.0
+    assert batch.candidates[1].loss == 0.0
+    validator = NoOverlapValidator(ObjectPlacerParams(solver_params=params, verbose=False))
+    assert validator.validate_batch(batch, []) == [False, True]
+
+
+def test_oriented_collision_cache_uses_current_positions_on_repeated_backward():
+    """Moving heterogeneous boxes between gradient steps agrees with fresh directed pair calculations."""
+    table, first, second = _create_no_collision_scene()
+    objects = [table, first, second]
+    positions = [
+        {table: (0.0, 0.0, 0.0), first: (0.0, 0.0, 1.0), second: (0.1, 0.02, 1.01)},
+        {table: (0.0, 0.0, 0.0), first: (0.04, 0.0, 1.0), second: (0.08, 0.05, 1.02)},
+    ]
+    base_bounds = AxisAlignedBoundingBox(
+        torch.tensor([[-0.2, -0.06, -0.04], [-0.3, -0.04, -0.03]]),
+        torch.tensor([[0.2, 0.06, 0.04], [0.3, 0.04, 0.03]]),
+    )
+    quaternion = (0.0, 0.0, math.sin(math.pi / 8), math.cos(math.pi / 8))
+    collision_boxes = {
+        first: base_bounds.transformed((0.0, 0.0, 0.0), quaternion),
+        second: base_bounds.transformed((0.0, 0.0, 0.0), (0.0, 0.0, -quaternion[2], quaternion[3])),
+    }
+    state = RelationSolverState(objects, positions, device=torch.device("cpu"), collision_bboxes=collision_boxes)
+    solver = RelationSolver(RelationSolverParams(clearance_m=0.01, verbose=False))
+    for step in range(2):
+        if step:
+            with torch.no_grad():
+                state.optimizable_positions[:, 1, 0] += 0.035
+            state.optimizable_positions.grad = None
+        reference_positions = state.optimizable_positions.detach().clone().requires_grad_(True)
+        reference_loss = 0.0
+        for subject_index, subject, obstacle_index, obstacle in ((0, first, 1, second), (1, second, 0, first)):
+            subject_world = collision_boxes[subject].translated(reference_positions[:, subject_index])
+            obstacle_world = collision_boxes[obstacle].translated(reference_positions[:, obstacle_index].detach())
+            reference_loss += solver._no_collision_strategy.slope * _harmonic_face_axis_volume(
+                subject_world, obstacle_world, margin=solver.params.clearance_m
+            )
+        loss = solver._compute_no_overlap_loss(state)
+        loss.sum().backward()
+        reference_loss.sum().backward()
+
+        assert (loss > 0).all()
+        assert reference_positions.grad.abs().sum() > 0
+        torch.testing.assert_close(loss, reference_loss)
+        torch.testing.assert_close(state.optimizable_positions.grad, reference_positions.grad)
