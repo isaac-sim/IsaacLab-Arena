@@ -21,6 +21,10 @@ sync_isaaclab() {
     # is an explicit dependency for HDF5-to-LeRobot video conversion.
     uv sync --frozen --inexact "${IMAGE_EXTRAS[@]}" \
         --no-install-package imageio-ffmpeg "$@"
+    # uv preserves permissions from cached wheels, so repair cached files after installation.
+    find "${VIRTUAL_ENV}" \( -type f -o -type d \) \
+        \( ! -group isaac-sim -o ! -perm -g+w \) \
+        -exec chgrp isaac-sim {} + -exec chmod g+rwX {} +
 }
 
 case "${1:-}" in

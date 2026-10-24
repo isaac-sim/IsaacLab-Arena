@@ -12,3 +12,7 @@ uv pip install --no-deps \
 # Its metadata requires Python 3.10; Arena's client runs on the Lab venv's Python 3.12.
 "${VIRTUAL_ENV}/bin/python" -m pip install \
     --no-deps --ignore-requires-python --editable "${WORKDIR}/submodules/Isaac-GR00T/"
+# Package caches can preserve read-only modes despite the umask, so repair them after installation.
+find "${VIRTUAL_ENV}" \( -type f -o -type d \) \
+    \( ! -group isaac-sim -o ! -perm -g+w \) \
+    -exec chgrp isaac-sim {} + -exec chmod g+rwX {} +
