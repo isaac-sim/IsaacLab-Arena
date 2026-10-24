@@ -132,11 +132,13 @@ class ExperimentRunnerTask(BaseTask):
             })
         )
         write_experiment_runner_result_command = (
-            'printf \'{"execution_status":"%s","process_exit_code":%d,"runs":%s}\\n\' '
+            'printf \'{"execution_status":"%s","process_exit_code":%d,"start_timestamp_ns":%d,"runs":%s}\\n\' '
             '"$experiment_runner_execution_status" "$experiment_runner_process_exit_code" '
+            '"$experiment_runner_start_timestamp_ns" '
             f"{run_metadata_json} > {experiment_runner_result_path}"
         )
         return "\n".join([
+            "experiment_runner_start_timestamp_ns=$(date +%s%N)",
             "# Record the application result without failing the OSMO task.",
             f"if {experiment_runner_command}; then",
             "  experiment_runner_process_exit_code=0",

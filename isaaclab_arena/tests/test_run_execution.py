@@ -351,6 +351,9 @@ def test_execute_experiment_records_failure_and_continues(monkeypatch, tmp_path)
         ("failing", RunStatus.FAILED),
         ("passing", RunStatus.COMPLETED),
     ]
+    for result in results:
+        assert isinstance(result.start_timestamp_ns, int)
+        assert result.start_timestamp_ns > 0
 
 
 def test_execute_experiment_stops_on_failure_by_default(monkeypatch, tmp_path):

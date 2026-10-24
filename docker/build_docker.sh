@@ -4,6 +4,7 @@ set -euo pipefail
 
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 source "$SCRIPT_DIR/setup/target_tag.sh"
+source "$SCRIPT_DIR/setup/git_stamp.sh"
 TARGET=dev
 IMAGE=""
 BUILD_ARGS=()
@@ -37,6 +38,8 @@ status=0
 docker build --pull --progress=plain \
     --target "$TARGET" \
     --build-arg WORKDIR=/workspaces/isaaclab_arena \
+    --build-arg "GIT_SHA=$(git_stamp_sha "$SCRIPT_DIR")" \
+    --build-arg "GIT_BRANCH=$(git_stamp_branch "$SCRIPT_DIR")" \
     "${BUILD_ARGS[@]}" \
     --tag "$IMAGE" --file "$SCRIPT_DIR/Dockerfile.isaaclab_arena" "$SCRIPT_DIR/.." || status=$?
 echo "Arena build target=$TARGET image=$IMAGE exit=$status elapsed=$((SECONDS - started))s"

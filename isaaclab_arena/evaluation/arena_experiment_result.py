@@ -13,6 +13,7 @@ from collections.abc import Mapping
 from pathlib import Path, PureWindowsPath
 from typing import TYPE_CHECKING, Any, Literal, NotRequired, TypedDict
 
+from isaaclab_arena.evaluation.provenance import read_provenance
 from isaaclab_arena.visualization.episode_results_files import (
     find_episode_results_files,
     parse_episode_results_filename,
@@ -55,10 +56,16 @@ class ArenaExperimentRunData(TypedDict):
     environment: dict[str, str]
     policy_variant: str
     status: Literal["completed", "failed"]
+    start_timestamp_ns: int
+    """Unix epoch nanoseconds (UTC) at which the Run started executing."""
     rebuilds: list[ArenaRebuildResultData]
 
 
-ArenaExperimentResultData = dict[Literal["runs"], dict[str, ArenaExperimentRunData]]
+class ArenaExperimentResultData(TypedDict):
+    """Contents of an Arena Experiment result file."""
+
+    provenance: dict[str, str]
+    runs: dict[str, ArenaExperimentRunData]
 
 
 def _require_nonempty_string(value: object, field_name: str) -> str:
@@ -93,8 +100,9 @@ def _collect_rebuilds(
 class ArenaExperimentResult:
     """Combine every Run's metadata and episode JSONLs into one Experiment result file.
 
-    The result contains each configured Run's environment, policy variant, execution status,
-    and raw episode records grouped by rebuild. It does not compute aggregate metrics or collect videos.
+    The result contains the Arena commit provenance and each configured Run's environment, policy variant,
+    execution status, start time, and raw episode records grouped by rebuild. It does not compute aggregate
+    metrics or collect videos.
     """
 
     @staticmethod
@@ -110,15 +118,21 @@ class ArenaExperimentResult:
         self,
         experiment_output_directory: str | Path,
         run_metadata_by_name: Mapping[str, Mapping[str, Any]],
+        provenance: Mapping[str, str] | None = None,
     ) -> None:
         """Collect declared Run outputs from an Experiment output directory.
 
         Args:
             experiment_output_directory: Experiment output root containing one directory per Run.
-            run_metadata_by_name: Environment, policy variant, and final status for each declared Run.
+            run_metadata_by_name: Environment, policy variant, final status, and start time for each declared Run.
+            provenance: Arena ``git_sha`` and ``git_branch``; read from the environment when omitted.
         """
         assert run_metadata_by_name, "run_metadata_by_name must not be empty"
         self.experiment_output_directory = Path(experiment_output_directory)
+        self._provenance = dict(provenance) if provenance is not None else read_provenance()
+        assert set(self._provenance) == {"git_sha", "git_branch"} and all(
+            isinstance(value, str) for value in self._provenance.values()
+        ), f"provenance must have exactly string git_sha and git_branch, got {self._provenance!r}"
         self._runs: dict[str, ArenaExperimentRunData] = {
             run_name: self._collect_run(run_name, run_metadata)
             for run_name, run_metadata in run_metadata_by_name.items()
@@ -130,6 +144,11 @@ class ArenaExperimentResult:
         environment = run_metadata["environment"]
         status = run_metadata["status"]
         assert status in ("completed", "failed"), f"status for Run {run_name!r} must be 'completed' or 'failed'"
+
+        start_timestamp_ns = run_metadata["start_timestamp_ns"]
+        assert isinstance(start_timestamp_ns, int) and not isinstance(
+            start_timestamp_ns, bool
+        ), f"start_timestamp_ns for Run {run_name!r} must be an int"
 
         run_output_directory = self.experiment_output_directory / run_name
         if status == "completed":
@@ -153,12 +172,13 @@ class ArenaExperimentResult:
             },
             "policy_variant": run_metadata["policy_variant"],
             "status": status,
+            "start_timestamp_ns": start_timestamp_ns,
             "rebuilds": rebuilds,
         }
 
     def to_dict(self) -> ArenaExperimentResultData:
         """Return the collected JSON-compatible Experiment result."""
-        return {"runs": self._runs}
+        return {"provenance": self._provenance, "runs": self._runs}
 
     def write(self) -> Path:
         """Write all collected Runs to ``arena_experiment_result.json`` in the Experiment output directory."""

@@ -167,7 +167,10 @@ jobs:
           file: docker/Dockerfile.isaaclab_arena
           target: ${{ env.ARENA_TARGET }}
           platforms: linux/amd64
-          build-args: WORKDIR=/workspaces/isaaclab_arena
+          build-args: |
+            WORKDIR=/workspaces/isaaclab_arena
+            GIT_SHA=${{ github.sha }}
+            GIT_BRANCH=${{ github.head_ref || github.ref_name }}
           pull: true
           push: true
           # Keep candidate images as single-platform manifests for NGC.

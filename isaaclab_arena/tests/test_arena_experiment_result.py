@@ -21,6 +21,8 @@ from isaaclab_arena.evaluation.arena_experiment_result import (
     build_arena_run_result_metadata,
 )
 
+START_TIMESTAMP_NS = 1792800000000000000
+
 
 def _metadata(
     environment_name: str,
@@ -35,6 +37,7 @@ def _metadata(
         },
         "policy_variant": policy_variant,
         "status": status,
+        "start_timestamp_ns": START_TIMESTAMP_NS,
     }
 
 
@@ -43,7 +46,7 @@ def _write_jsonl(path: Path, records: list[object]) -> None:
     path.write_text("".join(f"{json.dumps(record)}\n" for record in records), encoding="utf-8")
 
 
-def test_collects_declared_runs_rebuilds_and_rank_files_without_changing_episode_objects(tmp_path):
+def test_collects_declared_runs_rebuilds_and_rank_files_without_changing_episode_objects(tmp_path, monkeypatch):
     rank_zero_records = [
         {
             "env_id": 7,
@@ -61,6 +64,8 @@ def test_collects_declared_runs_rebuilds_and_rank_files_without_changing_episode
     _write_jsonl(tmp_path / "failed/episode_results.jsonl", [{"partial": True}])
     _write_jsonl(tmp_path / "undeclared/episode_results.jsonl", [{"ignored": True}])
 
+    monkeypatch.delenv("ARENA_GIT_SHA", raising=False)
+    monkeypatch.delenv("ARENA_GIT_BRANCH", raising=False)
     result = ArenaExperimentResult(
         tmp_path,
         {
@@ -70,6 +75,7 @@ def test_collects_declared_runs_rebuilds_and_rank_files_without_changing_episode
     )
 
     assert result.to_dict() == {
+        "provenance": {"git_sha": "unknown", "git_branch": "unknown"},
         "runs": {
             "completed": {
                 "environment": {
@@ -78,6 +84,7 @@ def test_collects_declared_runs_rebuilds_and_rank_files_without_changing_episode
                 },
                 "policy_variant": "pi05",
                 "status": "completed",
+                "start_timestamp_ns": START_TIMESTAMP_NS,
                 "rebuilds": [
                     {"index": 0, "episodes": [{"rebuild": 0}]},
                     {"index": 1, "episodes": [*rank_zero_records, *rank_one_records]},
@@ -91,6 +98,7 @@ def test_collects_declared_runs_rebuilds_and_rank_files_without_changing_episode
                 },
                 "policy_variant": "pi05",
                 "status": "failed",
+                "start_timestamp_ns": START_TIMESTAMP_NS,
                 "rebuilds": [{"index": 0, "episodes": [{"partial": True}]}],
             },
         },
@@ -99,6 +107,45 @@ def test_collects_declared_runs_rebuilds_and_rank_files_without_changing_episode
     result_path = result.write()
     assert result_path == tmp_path / ARENA_EXPERIMENT_RESULT_FILENAME
     assert json.loads(result_path.read_text(encoding="utf-8")) == result.to_dict()
+
+
+def test_result_records_provenance_from_environment(tmp_path, monkeypatch):
+    monkeypatch.setenv("ARENA_GIT_SHA", "abc123")
+    monkeypatch.setenv("ARENA_GIT_BRANCH", "main")
+
+    result = ArenaExperimentResult(tmp_path, {"run": _metadata("task", status="failed")})
+
+    assert result.to_dict()["provenance"] == {"git_sha": "abc123", "git_branch": "main"}
+
+
+@pytest.mark.parametrize("value", [None, ""])
+def test_provenance_is_unknown_when_unset_or_empty(tmp_path, monkeypatch, value):
+    for variable in ("ARENA_GIT_SHA", "ARENA_GIT_BRANCH"):
+        if value is None:
+            monkeypatch.delenv(variable, raising=False)
+        else:
+            monkeypatch.setenv(variable, value)
+
+    result = ArenaExperimentResult(tmp_path, {"run": _metadata("task", status="failed")})
+
+    assert result.to_dict()["provenance"] == {"git_sha": "unknown", "git_branch": "unknown"}
+
+
+@pytest.mark.parametrize("status", ["completed", "failed"])
+def test_run_metadata_start_timestamp_is_written(tmp_path, status):
+    (tmp_path / "run").mkdir()
+
+    result = ArenaExperimentResult(tmp_path, {"run": _metadata("task", status=status)})
+
+    assert result.to_dict()["runs"]["run"]["start_timestamp_ns"] == 1792800000000000000
+
+
+def test_run_metadata_requires_integer_start_timestamp(tmp_path):
+    metadata = _metadata("task", status="failed")
+    metadata["start_timestamp_ns"] = "1792800000000000000"
+
+    with pytest.raises(AssertionError, match="start_timestamp_ns for Run 'run' must be an int"):
+        ArenaExperimentResult(tmp_path, {"run": metadata})
 
 
 def test_failed_runs_may_have_empty_or_missing_output_directories(tmp_path):

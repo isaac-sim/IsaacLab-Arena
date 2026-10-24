@@ -1,0 +1,14 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Benchmarks tracked by the Arena benchmark dashboard. Each entry is run as one OSMO
+# experiment. `name` is a stable identifier used in workflow names and folder paths
+# (lowercase letters, digits and dashes); `experiment_cfg` is a repo-root relative path to an
+# existing Experiment YAML; `overrides` (optional) are Hydra overrides applied on top.
+benchmarks:
+  - name: droid-pnp-openpi
+    experiment_cfg: isaaclab_arena_environments/experiment_configs/droid_pnp_openpi_experiment.yaml
+  - name: kitchen-bench-17-tasks
+    experiment_cfg: isaaclab_arena_environments/kitchen_bench/experiment_configs/kitchen_bench_17_tasks_pi0_and_cosmos.yaml

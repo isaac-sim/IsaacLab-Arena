@@ -232,7 +232,10 @@ def test_fans_out_single_run_experiments_with_dedicated_pi0_servers_and_one_expe
 
     experiment_runner_command = _task_file(first_tasks[0], "/tmp/entry.sh")["contents"]
     assert "set -euo pipefail" not in experiment_runner_command
-    assert experiment_runner_command.startswith("# Record the application result without failing the OSMO task")
+    assert experiment_runner_command.startswith(
+        "experiment_runner_start_timestamp_ns=$(date +%s%N)\n# Record the application result without failing the OSMO"
+        " task"
+    )
     one_day_seconds = 24 * 60 * 60
     assert (
         f"if timeout --kill-after=60 {one_day_seconds - EXPERIMENT_RUNNER_TIMEOUT_MARGIN_SECONDS} isaaclab.sh -p"
@@ -250,6 +253,9 @@ def test_fans_out_single_run_experiments_with_dedicated_pi0_servers_and_one_expe
     assert "experiment_runner_execution_status=completed" in experiment_runner_command
     assert "experiment_runner_execution_status=failed" in experiment_runner_command
     assert '"runs":%s' in experiment_runner_command
+    assert '"start_timestamp_ns":%d' in experiment_runner_command
+    assert experiment_runner_command.splitlines()[0] == "experiment_runner_start_timestamp_ns=$(date +%s%N)"
+    assert '"$experiment_runner_start_timestamp_ns"' in experiment_runner_command
     assert '"policy_variant": "pi05"' in experiment_runner_command
     assert '"name": "pick_and_place_maple_table"' in experiment_runner_command
     assert f"'{OSMO_TASK_OUTPUT_DIR}/{EXPERIMENT_RUNNER_RESULT_FILE_NAME}'" in experiment_runner_command
@@ -445,7 +451,10 @@ def test_result_wrapper_preserves_experiment_video_options():
 
     assert "--record_camera_video" not in experiment_runner_command
     assert "--record_viewport_video" in experiment_runner_command
-    assert experiment_runner_command.startswith("# Record the application result without failing the OSMO task")
+    assert experiment_runner_command.startswith(
+        "experiment_runner_start_timestamp_ns=$(date +%s%N)\n# Record the application result without failing the OSMO"
+        " task"
+    )
     assert experiment_runner_command.endswith("exit 0\n")
 
 

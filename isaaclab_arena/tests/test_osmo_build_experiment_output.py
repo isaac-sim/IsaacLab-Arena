@@ -11,6 +11,7 @@ from unittest.mock import patch
 
 import pytest
 
+from isaaclab_arena.evaluation.arena_experiment_kpis import ARENA_EXPERIMENT_KPIS_FILENAME, validate_experiment_kpis
 from isaaclab_arena.evaluation.arena_experiment_result import (
     ARENA_AGGREGATED_TIMINGS_FILENAME,
     ARENA_EXPERIMENT_RESULT_FILENAME,
@@ -26,6 +27,8 @@ from osmo.scripts.build_experiment_output import (
     load_experiment_runner_output_directories_by_run_name,
     load_experiment_runner_result,
 )
+
+START_TIMESTAMP_NS = 1792800000000000000
 
 
 def _run_metadata(environment_name: str, policy_variant: str) -> dict[str, object]:
@@ -85,12 +88,14 @@ def _write_experiment_runner_result(
     execution_status: RunStatus,
     process_exit_code: int,
     run_metadata_by_name: dict[str, dict[str, object]],
+    start_timestamp_ns: int = START_TIMESTAMP_NS,
 ) -> None:
     experiment_runner_output_directory.mkdir(parents=True, exist_ok=True)
     (experiment_runner_output_directory / EXPERIMENT_RUNNER_RESULT_FILE_NAME).write_text(
         json.dumps({
             "execution_status": execution_status.value,
             "process_exit_code": process_exit_code,
+            "start_timestamp_ns": start_timestamp_ns,
             "runs": run_metadata_by_name,
         })
         + "\n",
@@ -133,7 +138,7 @@ def test_loads_experiment_runner_result(tmp_path):
         status=RunStatus.COMPLETED,
         process_exit_code=0,
     )
-    assert run_metadata == expected_run_metadata
+    assert run_metadata == {**expected_run_metadata, "start_timestamp_ns": START_TIMESTAMP_NS}
 
 
 def test_rejects_inconsistent_experiment_runner_result(tmp_path):
@@ -203,6 +208,7 @@ def test_collects_run_outputs_without_building_report(tmp_path):
     assert run_metadata_by_name == {
         "first": {
             **first_run_metadata,
+            "start_timestamp_ns": START_TIMESTAMP_NS,
             "status": RunStatus.COMPLETED.value,
         }
     }
@@ -302,7 +308,8 @@ def test_builds_experiment_output_from_separate_experiment_runner_outputs(tmp_pa
             "success": True,
         }],
     }]
-    assert set(first_run_result) == {"environment", "policy_variant", "status", "rebuilds"}
+    assert first_run_result["start_timestamp_ns"] == START_TIMESTAMP_NS
+    assert set(first_run_result) == {"environment", "policy_variant", "status", "start_timestamp_ns", "rebuilds"}
     assert experiment_result["runs"]["second"]["policy_variant"] == "cosmos"
     for run_output_directory in (first_run_output_directory, second_run_output_directory):
         collected_run_timings = json.loads(
@@ -331,6 +338,26 @@ def test_builds_experiment_output_from_separate_experiment_runner_outputs(tmp_pa
     assert "second" in report_contents
     assert "2 run(s) &middot; 2 completed &middot; 0 failed &middot; 2 episode(s)" in report_contents
     assert "Failed runs" not in report_contents
+    experiment_kpis = json.loads(
+        (experiment_output_directory / ARENA_EXPERIMENT_KPIS_FILENAME).read_text(encoding="utf-8")
+    )
+    validate_experiment_kpis(experiment_kpis)
+    assert experiment_kpis["timestamp_ns"] == START_TIMESTAMP_NS
+    assert experiment_kpis["records"][0] == {
+        "type": "per_experiment",
+        "success_rate": 0.5,
+        "num_episodes": 2,
+        "num_runs": 2,
+        "num_runs_completed": 2,
+        "num_runs_failed": 0,
+    }
+    assert [record["run_name"] for record in experiment_kpis["records"] if record["type"] == "timing"] == [
+        "all",
+        "all",
+        "first",
+        "first",
+        "second",
+    ]
 
 
 def test_reports_failed_runner_without_its_partial_artifacts(tmp_path):
@@ -377,6 +404,7 @@ def test_reports_failed_runner_without_its_partial_artifacts(tmp_path):
     assert json.loads(failed_result_path.read_text(encoding="utf-8")) == {
         "execution_status": RunStatus.FAILED.value,
         "process_exit_code": 17,
+        "start_timestamp_ns": START_TIMESTAMP_NS,
         "runs": {"failed-run": failed_run_metadata},
     }
     experiment_result = json.loads(
@@ -386,7 +414,8 @@ def test_reports_failed_runner_without_its_partial_artifacts(tmp_path):
     failed_run_result = experiment_result["runs"]["failed-run"]
     assert failed_run_result["status"] == "failed"
     assert failed_run_result["rebuilds"] == []
-    assert set(failed_run_result) == {"environment", "policy_variant", "status", "rebuilds"}
+    assert failed_run_result["start_timestamp_ns"] == START_TIMESTAMP_NS
+    assert set(failed_run_result) == {"environment", "policy_variant", "status", "start_timestamp_ns", "rebuilds"}
     report_contents = report_path.read_text(encoding="utf-8")
     assert "completed-run" in report_contents
     assert "failed-run" in report_contents
@@ -394,6 +423,17 @@ def test_reports_failed_runner_without_its_partial_artifacts(tmp_path):
     assert "Failed runs (1)" in report_contents
     assert "<code>17</code>" in report_contents
     assert "These runs did not complete and are excluded from episode results." in report_contents
+    experiment_kpis = json.loads(
+        (experiment_output_directory / ARENA_EXPERIMENT_KPIS_FILENAME).read_text(encoding="utf-8")
+    )
+    validate_experiment_kpis(experiment_kpis)
+    per_run_records = {
+        record["run_name"]: record for record in experiment_kpis["records"] if record["type"] == "per_run"
+    }
+    assert per_run_records["completed-run"]["completed"] == 1
+    assert per_run_records["failed-run"]["completed"] == 0
+    assert "success_rate" not in per_run_records["failed-run"]
+    assert experiment_kpis["records"][0]["num_runs_failed"] == 1
 
 
 def test_builds_failure_report_when_every_runner_failed(tmp_path):
@@ -441,3 +481,30 @@ def test_builds_failure_report_when_every_runner_failed(tmp_path):
     assert "<code>1</code>" in report_contents
     assert "<code>2</code>" in report_contents
     assert "No results recorded yet." not in report_contents
+    experiment_kpis = json.loads(
+        (experiment_output_directory / ARENA_EXPERIMENT_KPIS_FILENAME).read_text(encoding="utf-8")
+    )
+    validate_experiment_kpis(experiment_kpis)
+    assert experiment_kpis["timestamp_ns"] == START_TIMESTAMP_NS
+    assert "success_rate" not in experiment_kpis["records"][0]
+    assert experiment_kpis["records"][0]["num_runs_failed"] == 2
+
+
+def test_failing_kpi_build_fails_after_the_report_is_written(tmp_path):
+    # A Run named "all" clashes with the timing totals, so building the KPI file fails.
+    experiment_runner_output_directory = tmp_path / "experiment-runner-output"
+    _write_run_output(experiment_runner_output_directory / "all", "all", True)
+    _write_run_timings(experiment_runner_output_directory, "all", [_timing_record("step", 1, 10.0)])
+    _write_experiment_runner_result(
+        experiment_runner_output_directory,
+        RunStatus.COMPLETED,
+        0,
+        {"all": _run_metadata("all-environment", "pi05")},
+    )
+    experiment_output_directory = tmp_path / "experiment-output"
+
+    with pytest.raises(AssertionError, match="reserved for timing totals"):
+        build_experiment_output({"all": experiment_runner_output_directory}, experiment_output_directory)
+
+    assert (experiment_output_directory / "index.html").is_file()
+    assert not (experiment_output_directory / ARENA_EXPERIMENT_KPIS_FILENAME).exists()
