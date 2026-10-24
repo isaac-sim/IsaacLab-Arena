@@ -1,0 +1,116 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+env_name: kitchen_bench_round2_coastal_stack_soup_on_cracker_box
+embodiment:
+  id: droid
+  registry_name: droid_abs_joint_pos
+  params:
+    stand_height_m: 0.8
+    placement_bbox_stand_only: true
+    collision_mode: mesh
+background:
+  id: kitchen
+  registry_name: lightwheel_kitchen_one_wall_coastal
+  params:
+    collision_mode: mesh
+    repair_collision_mesh_non_watertight: false
+objects:
+- id: soup
+  registry_name: alphabet_soup_can_hope_robolab
+  params: {}
+- id: cracker_box
+  registry_name: cracker_box
+  params:
+    collision_mode: bbox
+object_references:
+- id: floor
+  parent_id: kitchen
+  prim_path: floor_room/geometry
+  object_type: base
+  params: {}
+- id: counter_top
+  parent_id: kitchen
+  prim_path: counter_main_main_group/top_geometry_right
+  object_type: base
+  params: {}
+relations:
+- kind: is_anchor
+  subject: floor
+  params: {}
+- kind: is_anchor
+  subject: counter_top
+  params: {}
+- kind: 'on'
+  subject: droid
+  reference: floor
+  params: {}
+- kind: next_to
+  subject: droid
+  reference: counter_top
+  params:
+    side: negative_y
+    distance_m: 0.12
+    tolerance_m: 0.08
+- kind: rotate_around_solution
+  subject: droid
+  params:
+    yaw_rad: 1.57
+- kind: 'on'
+  subject: soup
+  params: {}
+  reference: counter_top
+- kind: 'on'
+  subject: cracker_box
+  params: {}
+  reference: counter_top
+- kind: position_limits_box
+  subject: cracker_box
+  params:
+    x_min: 2.15
+    x_max: 2.25
+    y_min: -0.5
+    y_max: -0.48
+- kind: next_to
+  subject: soup
+  params:
+    side: positive_x
+    distance_m: 0.08
+    tolerance_m: 0.03
+  reference: cracker_box
+- kind: rotate_around_solution
+  subject: soup
+  params:
+    yaw_rad: 0.1
+- kind: rotate_around_solution
+  subject: cracker_box
+  params:
+    yaw_rad: 0.0
+- kind: position_limits_box
+  subject: droid
+  params:
+    x_min: 2.15
+    x_max: 2.25
+- kind: position_limits_box
+  subject: soup
+  params:
+    y_min: -0.53
+    y_max: -0.5
+task:
+  composition: atomic
+  description: Place the soup can on top of the cracker box.
+  subtasks:
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: soup
+      destination_location: cracker_box
+      destination_object: cracker_box
+      background_scene: kitchen
+      episode_length_s: 80
+env_cfg_override:
+  sim:
+    render_interval: 8
+placer_params:
+  allow_best_loss_fallbacks: false

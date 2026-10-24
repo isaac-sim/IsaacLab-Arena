@@ -1,0 +1,148 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+env_name: kitchen_bench_round2_scandinavian_three_fruits_in_bowl
+embodiment:
+  id: droid
+  registry_name: droid_abs_joint_pos
+  params:
+    stand_height_m: 0.8
+    placement_bbox_stand_only: true
+    collision_mode: mesh
+background:
+  id: kitchen
+  registry_name: lightwheel_kitchen_l_shaped_scandinavian
+  params:
+    collision_mode: mesh
+    repair_collision_mesh_non_watertight: false
+objects:
+- id: lime
+  registry_name: lime01_fruits_veggies_robolab
+  params: {}
+- id: lemon
+  registry_name: lemon_02_fruits_veggies_robolab
+  params: {}
+- id: apple
+  registry_name: apple_02_objaverse_robolab
+  params: {}
+- id: wooden_bowl
+  registry_name: wooden_bowl_hot3d_robolab
+  params:
+    scale:
+    - 1.15
+    - 1.15
+    - 0.6
+object_references:
+- id: floor
+  parent_id: kitchen
+  prim_path: floor_room/geometry
+  object_type: base
+  params: {}
+- id: counter_top
+  parent_id: kitchen
+  prim_path: counter_main_main_group/top_geometry_right
+  object_type: base
+  params: {}
+relations:
+- kind: is_anchor
+  subject: floor
+  params: {}
+- kind: is_anchor
+  subject: counter_top
+  params: {}
+- kind: 'on'
+  subject: droid
+  params: {}
+  reference: floor
+- kind: next_to
+  subject: droid
+  params:
+    side: negative_y
+    distance_m: 0.13
+    tolerance_m: 0.08
+  reference: counter_top
+- kind: rotate_around_solution
+  subject: droid
+  params:
+    yaw_rad: 1.57
+- kind: 'on'
+  subject: lime
+  params: {}
+  reference: counter_top
+- kind: 'on'
+  subject: lemon
+  params: {}
+  reference: counter_top
+- kind: 'on'
+  subject: apple
+  params: {}
+  reference: counter_top
+- kind: 'on'
+  subject: wooden_bowl
+  params: {}
+  reference: counter_top
+- kind: position_limits_box
+  subject: wooden_bowl
+  params:
+    x_min: 3.65
+    x_max: 3.8
+    y_min: -0.36
+    y_max: -0.28
+- kind: next_to
+  subject: lime
+  params:
+    side: negative_y
+    distance_m: 0.04
+    tolerance_m: 0.04
+  reference: wooden_bowl
+- kind: next_to
+  subject: lemon
+  params:
+    side: negative_x
+    distance_m: 0.05
+    tolerance_m: 0.04
+  reference: lime
+- kind: next_to
+  subject: apple
+  params:
+    side: positive_x
+    distance_m: 0.05
+    tolerance_m: 0.04
+  reference: lime
+- kind: position_limits_box
+  subject: droid
+  params:
+    x_min: 3.7
+    x_max: 3.8
+task:
+  composition: parallel
+  description: Put all three fruits, the lime, lemon and apple, into the wooden bowl.
+  subtasks:
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: lime
+      destination_location: wooden_bowl
+      destination_object: wooden_bowl
+      background_scene: kitchen
+      episode_length_s: 40.0
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: lemon
+      destination_location: wooden_bowl
+      destination_object: wooden_bowl
+      background_scene: kitchen
+      episode_length_s: 40.0
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: apple
+      destination_location: wooden_bowl
+      destination_object: wooden_bowl
+      background_scene: kitchen
+      episode_length_s: 40.0
+env_cfg_override:
+  sim:
+    render_interval: 8
+placer_params:
+  allow_best_loss_fallbacks: false

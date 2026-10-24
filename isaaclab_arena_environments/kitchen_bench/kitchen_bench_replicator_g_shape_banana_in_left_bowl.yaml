@@ -1,0 +1,102 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+env_name: kitchen_bench_replicator_g_shape_banana_in_left_bowl
+embodiment:
+  id: droid
+  registry_name: droid_abs_joint_pos
+  params:
+    stand_height_m: 0.8
+    placement_bbox_stand_only: true
+background:
+  id: kitchen
+  registry_name: replicator_kitchen_g_shape
+  params:
+    collision_mode: mesh
+objects:
+- id: banana
+  registry_name: banana_ycb_robolab
+  params: {}
+- id: left_bowl
+  registry_name: bowl_ycb_robolab
+  params: {}
+- id: right_bowl
+  registry_name: bowl_ycb_robolab
+  params: {}
+object_references:
+- id: floor
+  parent_id: kitchen
+  prim_path: KitchenRoom/Floor
+  object_type: base
+  params: {}
+- id: corner_counter
+  parent_id: kitchen
+  prim_path: CornerCounter_00_0
+  object_type: base
+  params: {}
+relations:
+- kind: is_anchor
+  subject: floor
+  params: {}
+- kind: is_anchor
+  subject: corner_counter
+  params: {}
+- kind: 'on'
+  subject: droid
+  reference: floor
+  params: {}
+- kind: next_to
+  subject: droid
+  reference: corner_counter
+  params:
+    side: negative_y
+    distance_m: 0.15
+    tolerance_m: 0.15
+    cross_position_ratio: -0.35
+- kind: rotate_around_solution
+  subject: droid
+  params:
+    yaw_rad: 1.57
+- kind: 'on'
+  subject: banana
+  reference: corner_counter
+  params: {}
+- kind: 'on'
+  subject: left_bowl
+  reference: corner_counter
+  params: {}
+- kind: 'on'
+  subject: right_bowl
+  reference: corner_counter
+  params: {}
+- kind: next_to
+  subject: left_bowl
+  reference: right_bowl
+  params:
+    side: negative_x
+    distance_m: 0.12
+# Keep the pick-up object in front of the target while retaining both bowl choices.
+- kind: next_to
+  subject: banana
+  reference: left_bowl
+  params:
+    side: negative_y
+    distance_m: 0.07
+task:
+  composition: atomic
+  description: Pick up the banana and place it in the left red bowl.
+  subtasks:
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: banana
+      destination_location: left_bowl
+      destination_object: left_bowl
+      background_scene: kitchen
+      episode_length_s: 70.0
+
+# Render once per DROID control step (8 physics steps).
+env_cfg_override:
+  sim:
+    render_interval: 8

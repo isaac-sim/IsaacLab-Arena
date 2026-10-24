@@ -1,0 +1,115 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+env_name: kitchen_bench_round2_farmhouse_apple_down_to_bowl
+embodiment:
+  id: droid
+  registry_name: droid_abs_joint_pos
+  params:
+    stand_height_m: 1.1
+    placement_bbox_stand_only: true
+    collision_mode: mesh
+background:
+  id: kitchen
+  registry_name: lightwheel_kitchen_u_shaped_with_island_farmhouse2
+  params:
+    collision_mode: mesh
+    repair_collision_mesh_non_watertight: false
+objects:
+- id: apple
+  registry_name: apple_02_objaverse_robolab
+  params:
+    scale:
+    - 0.8
+    - 0.8
+    - 0.8
+- id: bowl
+  registry_name: bowl_ycb_robolab
+  params: {}
+object_references:
+- id: floor
+  parent_id: kitchen
+  prim_path: floor_room/geometry
+  object_type: base
+  params: {}
+- id: counter_top
+  parent_id: kitchen
+  prim_path: counter_main_main_group/top_geometry_right
+  object_type: base
+  params: {}
+- id: shelf
+  parent_id: kitchen
+  prim_path: shelves_main_group/corpus/board_0
+  object_type: base
+  params: {}
+relations:
+- kind: is_anchor
+  subject: floor
+  params: {}
+- kind: is_anchor
+  subject: counter_top
+  params: {}
+- kind: is_anchor
+  subject: shelf
+  params: {}
+- kind: 'on'
+  subject: droid
+  reference: floor
+  params: {}
+- kind: next_to
+  subject: droid
+  reference: counter_top
+  params:
+    side: negative_y
+    distance_m: 0.15
+    cross_position_ratio: -0.4
+    tolerance_m: 0.04
+- kind: rotate_around_solution
+  subject: droid
+  params:
+    yaw_rad: 1.45
+- kind: 'on'
+  subject: apple
+  reference: shelf
+  params: {}
+- kind: 'on'
+  subject: bowl
+  reference: counter_top
+  params: {}
+- kind: rotate_around_solution
+  subject: apple
+  params:
+    yaw_rad: 0.65
+- kind: position_limits_box
+  subject: bowl
+  params:
+    x_min: 4.8
+    x_max: 4.9
+    y_min: -0.5
+    y_max: -0.46
+- kind: position_limits_box
+  subject: apple
+  params:
+    x_min: 4.8
+    x_max: 4.9
+    y_min: -0.29
+    y_max: -0.25
+task:
+  composition: atomic
+  description: Pick up the apple from the shelf and put it in the red bowl on the
+    counter.
+  subtasks:
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: apple
+      destination_location: bowl
+      destination_object: bowl
+      background_scene: kitchen
+      episode_length_s: 80.0
+placer_params:
+  allow_best_loss_fallbacks: false
+env_cfg_override:
+  sim:
+    render_interval: 8

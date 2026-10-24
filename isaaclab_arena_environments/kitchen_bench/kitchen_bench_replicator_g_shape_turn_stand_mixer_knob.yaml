@@ -1,0 +1,85 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+env_name: kitchen_bench_replicator_g_shape_turn_stand_mixer_knob
+embodiment:
+  id: droid
+  registry_name: droid_abs_joint_pos
+  params:
+    stand_height_m: 0.8
+    placement_bbox_stand_only: true
+background:
+  id: kitchen
+  registry_name: replicator_kitchen_g_shape
+  params:
+    collision_mode: mesh
+objects:
+- id: stand_mixer
+  registry_name: stand_mixer
+  params: {}
+object_references:
+- id: floor
+  parent_id: kitchen
+  prim_path: KitchenRoom/Floor
+  object_type: base
+  params: {}
+- id: corner_counter
+  parent_id: kitchen
+  prim_path: CornerCounter_00_0
+  object_type: base
+  params: {}
+relations:
+- kind: is_anchor
+  subject: floor
+  params: {}
+- kind: is_anchor
+  subject: corner_counter
+  params: {}
+- kind: 'on'
+  subject: droid
+  reference: floor
+  params: {}
+- kind: next_to
+  subject: droid
+  reference: corner_counter
+  params:
+    side: negative_y
+    distance_m: 0.15
+    tolerance_m: 0.15
+    cross_position_ratio: -0.35
+- kind: rotate_around_solution
+  subject: droid
+  params:
+    yaw_rad: 1.57
+- kind: 'on'
+  subject: stand_mixer
+  reference: corner_counter
+  params: {}
+- kind: rotate_around_solution
+  subject: stand_mixer
+  params:
+    yaw_rad: -1.5707963267948966
+- kind: position_limits_box
+  subject: stand_mixer
+  params:
+    x_min: -2.06
+    x_max: -2.04
+    y_min: 2.12
+    y_max: 2.14
+task:
+  composition: atomic
+  description: Turn the speed knob on the stand mixer clockwise to the lowest speed setting.
+  subtasks:
+  - kind: TurnKnobTask
+    params:
+      turnable_object: stand_mixer
+      target_level: 0
+      reset_level: -1
+      episode_length_s: 70.0
+
+# Render once per DROID control step (8 physics steps).
+env_cfg_override:
+  sim:
+    render_interval: 8

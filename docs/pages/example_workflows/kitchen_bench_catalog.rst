@@ -1,7 +1,7 @@
 Kitchen Benchmark Catalog
 =========================
 
-The kitchen benchmark contains 31 DROID tasks defined as environment graph
+The kitchen benchmark contains 42 DROID tasks defined as environment graph
 YAML specs under ``isaaclab_arena_environments/kitchen_bench/``. Pass a spec
 to ``policy_runner.py`` with ``--env_spec`` to run that environment.
 Each row links to the source YAML and shows a Pi policy execution recorded from
@@ -54,6 +54,12 @@ the maintained DROID external camera.
      - .. image:: ../../images/kitchen_bench/kitchen_bench_lightwheel_pick_lemon_shelf_on_plate_lightwheel_kitchen_u_shaped_with_island_farmhouse2.gif
           :alt: Pi policy picking a lemon from a shelf onto a plate in the U-shaped farmhouse kitchen
           :width: 100%
+   * - `kitchen_bench_lightwheel_pick_orange_shelf_on_plate_u_shaped_with_island_farmhouse2.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_pick_orange_shelf_on_plate_u_shaped_with_island_farmhouse2.yaml>`_
+     - .. image:: ../../images/kitchen_bench/kitchen_bench_lightwheel_pick_orange_shelf_on_plate_u_shaped_with_island_farmhouse2_pi05.gif
+          :alt: Pi0.5 policy moving an orange from the shelf to a plate in the U-shaped farmhouse kitchen
+          :width: 100%
+
+       Pi0.5, 2x speed.
    * - `kitchen_bench_lightwheel_place_bananas_in_wooden_bowl_u_shaped_with_island_farmhouse2.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_lightwheel_place_bananas_in_wooden_bowl_u_shaped_with_island_farmhouse2.yaml>`_
      - .. image:: ../../images/kitchen_bench/kitchen_bench_lightwheel_place_bananas_in_wooden_bowl_u_shaped_with_island_farmhouse2_pi.gif
           :alt: Pi policy placing bananas in a wooden bowl in the U-shaped farmhouse kitchen
@@ -82,10 +88,22 @@ the maintained DROID external camera.
      - .. image:: ../../images/kitchen_bench/kitchen_bench_lightwheel_turn_oven_temperature_knob_g_shaped_large_scandinavian.gif
           :alt: Pi policy turning the oven temperature knob in the G-shaped Scandinavian kitchen
           :width: 100%
+   * - `kitchen_bench_replicator_g_shape_banana_and_orange_in_bowl.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_g_shape_banana_and_orange_in_bowl.yaml>`_
+     - .. image:: ../../images/kitchen_bench/kitchen_bench_replicator_g_shape_banana_and_orange_in_bowl_pi05.gif
+          :alt: Pi0.5 policy placing a banana and an orange into a wooden bowl in the G-shaped kitchen
+          :width: 100%
+
+       Pi0.5, 2x speed.
    * - `kitchen_bench_replicator_g_shape_banana_bowl.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_g_shape_banana_bowl.yaml>`_
      - .. image:: ../../images/kitchen_bench/kitchen_bench_replicator_g_shape_banana_bowl_pi.gif
           :alt: Pi policy placing a banana in a bowl in the G-shaped kitchen
           :width: 100%
+   * - `kitchen_bench_replicator_g_shape_banana_in_left_bowl.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_g_shape_banana_in_left_bowl.yaml>`_
+     - .. image:: ../../images/kitchen_bench/kitchen_bench_replicator_g_shape_banana_in_left_bowl_pi05.gif
+          :alt: Pi0.5 policy placing a banana into the left red bowl in the G-shaped kitchen
+          :width: 100%
+
+       Pi0.5, 2x speed.
    * - `kitchen_bench_replicator_g_shape_bowl_sink.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_g_shape_bowl_sink.yaml>`_
      - .. image:: ../../images/kitchen_bench/kitchen_bench_replicator_g_shape_bowl_sink_pi.gif
           :alt: Pi policy placing a bowl in the sink in the G-shaped kitchen
@@ -94,6 +112,18 @@ the maintained DROID external camera.
      - .. image:: ../../images/kitchen_bench/kitchen_bench_replicator_g_shape_mustard_bowl_pi.gif
           :alt: Pi policy placing mustard in a bowl in the G-shaped kitchen
           :width: 100%
+   * - `kitchen_bench_replicator_g_shape_mustard_on_wooden_block.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_g_shape_mustard_on_wooden_block.yaml>`_
+     - .. image:: ../../images/kitchen_bench/kitchen_bench_replicator_g_shape_mustard_on_wooden_block_pi05.gif
+          :alt: Pi0.5 policy placing a mustard bottle onto a wooden block in the G-shaped kitchen
+          :width: 100%
+
+       Pi0.5, 2x speed.
+   * - `kitchen_bench_replicator_g_shape_turn_stand_mixer_knob.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_g_shape_turn_stand_mixer_knob.yaml>`_
+     - .. image:: ../../images/kitchen_bench/kitchen_bench_replicator_g_shape_turn_stand_mixer_knob_pi05.gif
+          :alt: Pi0.5 policy turning the stand mixer speed knob in the G-shaped kitchen
+          :width: 100%
+
+       Pi0.5, 2x speed.
    * - `kitchen_bench_replicator_l_island_banana_bowl.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_replicator_l_island_banana_bowl.yaml>`_
      - .. image:: ../../images/kitchen_bench/kitchen_bench_replicator_l_island_banana_bowl_pi.gif
           :alt: Pi policy placing a banana in a bowl in the L-shaped island kitchen
@@ -138,3 +168,39 @@ the maintained DROID external camera.
      - .. image:: ../../images/kitchen_bench/kitchen_bench_replicator_u_shape_mustard_bowl_pi.gif
           :alt: Pi policy placing mustard in a bowl in the U-shaped kitchen
           :width: 100%
+   * - `kitchen_bench_round2_coastal_stack_soup_on_cracker_box.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_round2_coastal_stack_soup_on_cracker_box.yaml>`_
+     - .. image:: ../../images/kitchen_bench/kitchen_bench_round2_coastal_stack_soup_on_cracker_box_pi05.gif
+          :alt: Pi0.5 policy placing a soup can onto a cracker box in the coastal kitchen
+          :width: 100%
+
+       Pi0.5, 2x speed.
+   * - `kitchen_bench_round2_farmhouse_apple_down_to_bowl.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_round2_farmhouse_apple_down_to_bowl.yaml>`_
+     - .. image:: ../../images/kitchen_bench/kitchen_bench_round2_farmhouse_apple_down_to_bowl_pi05.gif
+          :alt: Pi0.5 policy moving an apple from the shelf to a red bowl in the farmhouse kitchen
+          :width: 100%
+
+       Pi0.5, 2x speed.
+   * - `kitchen_bench_round2_peninsula_soup_in_far_bowl.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_round2_peninsula_soup_in_far_bowl.yaml>`_
+     - .. image:: ../../images/kitchen_bench/kitchen_bench_round2_peninsula_soup_in_far_bowl_pi05.gif
+          :alt: Pi0.5 policy placing a soup can into the farther red bowl in the peninsula kitchen
+          :width: 100%
+
+       Pi0.5, 2x speed.
+   * - `kitchen_bench_round2_scandinavian_open_right_microwave.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_round2_scandinavian_open_right_microwave.yaml>`_
+     - .. image:: ../../images/kitchen_bench/kitchen_bench_round2_scandinavian_open_right_microwave_pi05.gif
+          :alt: Pi0.5 policy opening the right-wall microwave in the Scandinavian kitchen
+          :width: 100%
+
+       Pi0.5, 2x speed.
+   * - `kitchen_bench_round2_scandinavian_three_fruits_in_bowl.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_round2_scandinavian_three_fruits_in_bowl.yaml>`_
+     - .. image:: ../../images/kitchen_bench/kitchen_bench_round2_scandinavian_three_fruits_in_bowl_pi05.gif
+          :alt: Pi0.5 policy placing a lime, lemon, and apple into a wooden bowl in the Scandinavian kitchen
+          :width: 100%
+
+       Pi0.5, 2x speed.
+   * - `kitchen_bench_round2_scandinavian_toaster_timer.yaml <https://github.com/isaac-sim/IsaacLab-Arena/blob/main/isaaclab_arena_environments/kitchen_bench/kitchen_bench_round2_scandinavian_toaster_timer.yaml>`_
+     - .. image:: ../../images/kitchen_bench/kitchen_bench_round2_scandinavian_toaster_timer_pi05.gif
+          :alt: Pi0.5 policy turning the toaster oven timer in the Scandinavian kitchen
+          :width: 100%
+
+       Pi0.5, 2x speed.

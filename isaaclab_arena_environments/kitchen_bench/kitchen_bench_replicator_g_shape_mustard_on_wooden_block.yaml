@@ -1,0 +1,96 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+env_name: kitchen_bench_replicator_g_shape_mustard_on_wooden_block
+embodiment:
+  id: droid
+  registry_name: droid_abs_joint_pos
+  params:
+    stand_height_m: 0.8
+    placement_bbox_stand_only: true
+background:
+  id: kitchen
+  registry_name: replicator_kitchen_g_shape
+  params:
+    collision_mode: mesh
+objects:
+- id: mustard
+  registry_name: mustard_bottle_hope_robolab
+  params: {}
+- id: wooden_block
+  registry_name: wood_block_ycb_robolab
+  params:
+    scale: [1.5, 1.5, 0.35]
+object_references:
+- id: floor
+  parent_id: kitchen
+  prim_path: KitchenRoom/Floor
+  object_type: base
+  params: {}
+- id: corner_counter
+  parent_id: kitchen
+  prim_path: CornerCounter_00_0
+  object_type: base
+  params: {}
+relations:
+- kind: is_anchor
+  subject: floor
+  params: {}
+- kind: is_anchor
+  subject: corner_counter
+  params: {}
+- kind: 'on'
+  subject: droid
+  reference: floor
+  params: {}
+- kind: next_to
+  subject: droid
+  reference: corner_counter
+  params:
+    side: negative_y
+    distance_m: 0.15
+    tolerance_m: 0.15
+    cross_position_ratio: -0.35
+- kind: rotate_around_solution
+  subject: droid
+  params:
+    yaw_rad: 1.57
+- kind: 'on'
+  subject: mustard
+  reference: corner_counter
+  params: {}
+- kind: 'on'
+  subject: wooden_block
+  reference: corner_counter
+  params: {}
+- kind: next_to
+  subject: mustard
+  reference: wooden_block
+  params:
+    side: negative_y
+    distance_m: 0.07
+- kind: position_limits_box
+  subject: wooden_block
+  params:
+    x_min: -2.15
+    x_max: -2.05
+    y_min: 2.15
+    y_max: 2.25
+task:
+  composition: atomic
+  description: Pick up the mustard bottle and place it on top of the wooden block.
+  subtasks:
+  - kind: PickAndPlaceTask
+    params:
+      pick_up_object: mustard
+      destination_location: wooden_block
+      destination_object: wooden_block
+      background_scene: kitchen
+      episode_length_s: 70.0
+
+# Render once per DROID control step (8 physics steps).
+env_cfg_override:
+  sim:
+    render_interval: 8
