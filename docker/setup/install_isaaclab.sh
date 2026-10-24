@@ -2,6 +2,8 @@
 # Install the pinned Isaac Lab checkout from its frozen uv lock.
 
 set -euo pipefail
+# Keep packages installed into the shared venv writable by the isaac-sim group.
+umask 0002
 
 readonly IMAGE_EXTRAS=(
     --extra rsl-rl
@@ -19,12 +21,19 @@ sync_isaaclab() {
     # is an explicit dependency for HDF5-to-LeRobot video conversion.
     uv sync --frozen --inexact "${IMAGE_EXTRAS[@]}" \
         --no-install-package imageio-ffmpeg "$@"
+    # uv preserves permissions from cached wheels, so repair cached files after installation.
+    find "${VIRTUAL_ENV}" \( -type f -o -type d \) \
+        \( ! -group isaac-sim -o ! -perm -g+w \) \
+        -exec chgrp isaac-sim {} + -exec chmod g+rwX {} +
 }
 
 case "${1:-}" in
     dependencies)
         ln -sfn /isaac-sim/ "${ISAACLAB_PATH}/_isaac_sim"
         uv venv --seed --python /isaac-sim/kit/python/bin/python3 "${VIRTUAL_ENV}"
+        chgrp -R isaac-sim "${VIRTUAL_ENV}"
+        chmod -R g+rwX "${VIRTUAL_ENV}"
+        find "${VIRTUAL_ENV}" -type d -exec chmod g+s {} +
         sync_isaaclab --no-install-local
         ;;
     workspace)
