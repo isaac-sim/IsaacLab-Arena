@@ -86,13 +86,20 @@ class VelocityValidator(PostPhysicsPlacementValidator):
         import torch
 
         settled_per_root = []
-        for velocity in data.final_root_velocities.values():
-            linear_speed = torch.linalg.vector_norm(velocity[:, :3], dim=-1)
-            angular_speed = torch.linalg.vector_norm(velocity[:, 3:], dim=-1)
-            settled_per_root.append((linear_speed < self.lin_vel_thresh) & (angular_speed < self.ang_vel_thresh))
+        for key, final_velocity in data.final_root_velocities.items():
+            velocity = data.root_velocity_history.get(key, final_velocity.unsqueeze(0))
+            linear_speed = torch.linalg.vector_norm(velocity[..., :3], dim=-1)
+            angular_speed = torch.linalg.vector_norm(velocity[..., 3:], dim=-1)
+            # Every sample in the final window must be below both thresholds.
+            settled_per_root.append(
+                ((linear_speed < self.lin_vel_thresh) & (angular_speed < self.ang_vel_thresh)).all(dim=0)
+            )
         assert settled_per_root, "Velocity validation requires captured root velocities"
         settled = torch.stack(settled_per_root).all(dim=0)[data.env_ids].tolist()
-        return [self.report(passed, "" if passed else "objects exceed final velocity limits") for passed in settled]
+        return [
+            self.report(passed, "" if passed else "objects exceed velocity limits during the final settling window")
+            for passed in settled
+        ]
 
 
 @dataclass

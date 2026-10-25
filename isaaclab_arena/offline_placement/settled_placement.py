@@ -153,7 +153,9 @@ def collect_settled_placements(
     for asset in assets:
         if asset.tags and "embodiment" in asset.tags:
             embodiment_keys.update(asset.get_scene_root_keys())
-    articulation_keys = [key for key in env.scene.articulations if key not in embodiment_keys]
+    articulation_keys = [
+        key for key in env.scene.articulations if params.include_embodiment_links or key not in embodiment_keys
+    ]
     validators = build_post_physics_validators(params.validators, articulation_keys)
     enabled_validators = [validator for validator in validators if validator.skip_reason(articulation_keys) is None]
     geometry_keys: set[str] = set()
@@ -172,6 +174,7 @@ def collect_settled_placements(
             root_keys=keys,
             link_keys=articulation_keys,
             num_env_steps=params.num_steps,
+            required_settled_steps=params.required_settled_steps,
             geometry_keys=sorted_geometry_keys,
             render=render,
             log_progress=log_progress,

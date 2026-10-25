@@ -81,7 +81,15 @@ def record_placements_to_jsonl(
     summary = PlacementRecordingSummary(output=None, accepted=accepted, attempted=attempted, rejections=rejections)
     if accepted == 0:
         return summary
-    write_settled_layouts(env, output, assets, poses, validation, settle.num_steps)
+    write_settled_layouts(
+        env,
+        output,
+        assets,
+        poses,
+        validation,
+        settle.num_steps,
+        required_settled_steps=settle.required_settled_steps,
+    )
     summary.output = output
     return summary
 

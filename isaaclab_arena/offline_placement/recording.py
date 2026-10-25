@@ -118,6 +118,8 @@ def write_settled_layouts(
     poses: dict[str, list[Pose]],
     outcomes: list[PlacementOutcome],
     num_steps: int,
+    *,
+    required_settled_steps: int = 1,
 ) -> None:
     """Write accepted root poses and their validation reports as episode JSONL.
 
@@ -138,6 +140,7 @@ def write_settled_layouts(
             embodiment_keys.extend(asset.get_scene_root_keys())
     sampling = {
         "num_steps": num_steps,
+        "required_settled_steps": required_settled_steps,
         "decimation": env.unwrapped.cfg.decimation,
         "physics_dt_s": env.unwrapped.sim.get_physics_dt(),
         "embodiment_keys": embodiment_keys,

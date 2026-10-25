@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING, Any
 from isaaclab_arena.assets.registries import PolicyRegistry
 from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
 from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg
+from isaaclab_arena.offline_placement.settled_placement_params import SettledPlacementParams
 from isaaclab_arena.policy.policy_base import PolicyCfg
 
 if TYPE_CHECKING:
@@ -38,6 +39,25 @@ class RolloutLimitCfg:
         ), "num_steps and num_episodes are mutually exclusive"
         assert self.num_steps is None or self.num_steps > 0, "num_steps must be greater than zero"
         assert self.num_episodes is None or self.num_episodes > 0, "num_episodes must be greater than zero"
+
+
+@dataclass
+class SettledPlacementPreparationCfg:
+    """Collect one validated settled layout per evaluation episode before rollout.
+
+    Standard robot joint reset noise is disabled in preparation and replay. Custom events,
+    enabled variations and floating-base robots are unsupported.
+    """
+
+    max_batches: int = 100
+    """Maximum candidate batches per rebuild; insufficient accepted layouts fail the run."""
+    settle: SettledPlacementParams = field(
+        default_factory=lambda: SettledPlacementParams(num_steps=120, required_settled_steps=10)
+    )
+    """Physics duration, sustained-rest window and post-physics acceptance checks."""
+
+    def __post_init__(self):
+        assert self.max_batches > 0, "max_batches must be positive"
 
 
 @dataclass
@@ -68,7 +88,20 @@ class ArenaRunCfg:
     variations: dict[str, Any] = field(default_factory=dict)
     """Variation values applied when the environment is compiled."""
 
+    settled_placement: SettledPlacementPreparationCfg | None = None
+    """Prepare and replay validated settled layouts before each rebuild's policy rollout."""
+
     def __post_init__(self) -> None:
+        if self.settled_placement is not None:
+            assert self.rollout_limit.num_episodes is not None, "Settled placement requires an episode rollout limit"
+            assert self.recorded_variation_samples_paths is None, "Settled placement cannot replace recorded replay"
+            assert (
+                self.environment_builder.recorded_variation_samples_path is None
+            ), "Settled placement cannot replace recorded replay"
+            assert self.environment_builder.solve_relations, "Settled placement requires relation solving"
+            assert (
+                self.environment_builder.resolve_on_reset is not False
+            ), "Settled placement requires fresh candidate layouts on reset"
         assert self.name, "run name must not be empty"
         if self.recorded_variation_samples_paths is not None:
             assert self.recorded_variation_samples_paths, "recorded_variation_samples_paths must not be empty"
