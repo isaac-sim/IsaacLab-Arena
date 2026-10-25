@@ -51,7 +51,7 @@ to each manager are tabulated below:
 +-------------+-----------------------+-------------------------+----------------------+
 | Rewards     |                       |                         | dense rewards (RL)   |
 +-------------+-----------------------+-------------------------+----------------------+
-| Recorder    |                       |                         | metrics-required data|
+| Recorder    |                       | trajectories (opt-in)   |                      |
 +-------------+-----------------------+-------------------------+----------------------+
 
 
@@ -135,8 +135,7 @@ Mimic mode
 Passing ``--mimic`` at the command line compiles a
 ``ManagerBasedRLMimicEnv`` instead of a standard ``ManagerBasedRLEnv``.
 The mimic environment is used for demonstration generation and includes
-subtask configurations from the task. Metrics and recorders are excluded
-in mimic mode.
+subtask configurations from the task. Recorders are excluded in mimic mode.
 
 .. code-block:: bash
 

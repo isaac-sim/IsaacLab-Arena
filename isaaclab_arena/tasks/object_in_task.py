@@ -13,7 +13,6 @@ from isaaclab.managers import SceneEntityCfg
 
 from isaaclab_arena.assets.asset import Asset
 from isaaclab_arena.assets.register import register_task
-from isaaclab_arena.metrics.success_rate import SuccessRateMetric
 from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
 from isaaclab_arena.tasks.predicates.spatial import object_in_target_aabb, object_settled_in_target_aabb
 from isaaclab_arena.tasks.predicates.temporal import TrueForConsecutiveStepsCfg
@@ -109,6 +108,3 @@ class ObjectInTask(TaskBase):
 
     def get_mimic_env_cfg(self, arm_mode):
         return None
-
-    def get_metrics(self):
-        return [SuccessRateMetric()]

@@ -24,7 +24,6 @@ from isaaclab_arena.evaluation.legacy_graph_environment_cli import (
 )
 from isaaclab_arena.evaluation.policy_runner import rollout_policy
 from isaaclab_arena.evaluation.resource_cleanup import close_run_resources
-from isaaclab_arena.metrics.aggregate_metrics import aggregate_metrics
 from isaaclab_arena.recording.episode_results import read_episode_records
 from isaaclab_arena.utils.timer import print_timer_stats, reset_timer_stats
 from isaaclab_arena.variations.variations_hydra import overrides_from_dict
@@ -34,7 +33,6 @@ if TYPE_CHECKING:
     import gymnasium as gym
 
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
-    from isaaclab_arena.metrics.metric_data import MetricsDataCollection
     from isaaclab_arena.policy.policy_base import PolicyBase, PolicyCfg
 
 
@@ -93,7 +91,6 @@ def build_and_run(
     video_cfg: VideoRecordingCfg | None = None,
 ) -> ArenaRunResult:
     """Build and execute one typed Arena run, then return its result."""
-    metrics_per_rebuild: list[MetricsDataCollection] = []
     output_dir = str(output_dir)
     video_cfg = video_cfg or VideoRecordingCfg(video_base_dir=output_dir)
     episodes_per_rebuild = _episodes_per_rebuild(cfg)
@@ -125,17 +122,11 @@ def build_and_run(
                 num_episodes,
             )
             env = wrap_env_for_video(env, rebuild_video_cfg, num_steps, num_episodes)
-            metrics = rollout_policy(env, policy, num_steps=num_steps, num_episodes=num_episodes)
-            if metrics is not None:
-                metrics_per_rebuild.append(metrics)
+            rollout_policy(env, policy, num_steps=num_steps, num_episodes=num_episodes)
         finally:
             close_run_resources(policy, env)
 
-    return ArenaRunResult(
-        run_name=cfg.name,
-        status=RunStatus.COMPLETED,
-        metrics=aggregate_metrics(metrics_per_rebuild) if metrics_per_rebuild else None,
-    )
+    return ArenaRunResult(run_name=cfg.name, status=RunStatus.COMPLETED)
 
 
 def _cfg_for_rebuild(cfg: ArenaRunCfg, rebuild_index: int) -> ArenaRunCfg:

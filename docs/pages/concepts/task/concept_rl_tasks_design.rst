@@ -22,7 +22,7 @@ and implements the RL-specific parts:
           pass
 
 This means the RL task inherits everything from the IL task (scene config,
-termination conditions, metrics) and adds the RL-specific parts on top.
+termination conditions) and adds the RL-specific parts on top.
 Note the the RL task is also likely to *modify* the IL task's configuration.
 For example, adding privileged information to the observations.
 

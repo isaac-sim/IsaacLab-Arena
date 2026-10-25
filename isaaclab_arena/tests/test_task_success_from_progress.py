@@ -611,10 +611,7 @@ def _test_pick_and_place_uses_typed_success_failure_and_timeout(simulation_app):
 
     description = IsaacLabArenaEnvironment(name="pick_and_place_success_builder", scene=Scene(), task=task)
     builder = ArenaEnvBuilder(description, ArenaEnvBuilderCfg(num_envs=2, solve_relations=False, device="cpu"))
-    with (
-        patch.object(task, "get_viewer_cfg", return_value=ViewerCfg()),
-        patch.object(task, "get_metrics", return_value=[]),
-    ):
+    with patch.object(task, "get_viewer_cfg", return_value=ViewerCfg()):
         env_cfg, _ = builder.build_env_cfg()
     assert env_cfg.terminations.success.func is task_success_from_progress
     criteria_sets = env_cfg.task_progress.success_criteria

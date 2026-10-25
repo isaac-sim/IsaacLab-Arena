@@ -19,6 +19,7 @@ import http.server
 import pathlib
 import re
 import socketserver
+from prettytable import PrettyTable
 
 from isaaclab_arena.visualization.report_data import (
     DEFAULT_POLICY_SUFFIXES,
@@ -143,6 +144,8 @@ def build_report(
         f"Wrote evaluation report with {len(summary.tasks)} task(s), {len(summary.jobs)} run(s) and "
         f"{summary.num_episodes} episode(s) to: {output} (+{num_pages} linked page(s))"
     )
+    if summary.jobs:
+        print(_build_run_results_table(summary))
     if not summary.tasks and not summary.run_executions:
         print("[WARNING] No episode results or rollout videos were found; the report is empty.")
     elif summary.num_episodes == 0 and summary.run_executions:
@@ -150,6 +153,16 @@ def build_report(
     elif summary.num_videos == 0:
         print("[INFO] No rollout videos were recorded; the report contains episode results only.")
     return output
+
+
+def _build_run_results_table(summary: ExperimentSummary) -> PrettyTable:
+    """Build a table with each Run's recorded episode count and success rate."""
+    table = PrettyTable(field_names=["Run Name", "Episodes", "Success Rate"])
+    for job in sorted(summary.jobs, key=lambda job: job.name):
+        success_rate = "n/a" if job.success_rate is None else f"{job.success_rate:.4f}"
+        # Results written directly into the report directory have no Run directory name; the report labels them ".".
+        table.add_row([job.name or ".", job.num_episodes, success_rate])
+    return table
 
 
 def _job_page_hrefs(summary: ExperimentSummary, episodes_per_page: int) -> dict[str, list[str]]:

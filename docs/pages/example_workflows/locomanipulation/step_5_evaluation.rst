@@ -114,15 +114,19 @@ Test the policy in a single environment with visualization via the GUI run:
      --object brown_box \
      --embodiment g1_wbc_joint
 
-The evaluation should produce the following output on the console at the end of the evaluation.
-You should see similar metrics.
+At the end of the evaluation, the console shows the number of finished episodes and the success rate.
+You should see similar results.
 
-Note that all these metrics are computed over the entire evaluation process, and are affected
+Note that the success rate is computed over the entire evaluation process, and is affected
 by the quality of post-trained policy, the quality of the dataset, and number of steps in the evaluation.
 
 .. code-block:: text
 
-   Metrics: {success_rate: 1.0, num_episodes: 1}
+   +----------+----------+--------------+
+   | Run Name | Episodes | Success Rate |
+   +----------+----------+--------------+
+   |    .     |    1     |    1.0000    |
+   +----------+----------+--------------+
 
 Step 2: Run Parallel Environments Evaluation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -183,13 +187,17 @@ or truncated (if timeouts are enabled, like the maximum episode length is exceed
 
    Resetting policy for terminated env_ids: tensor([3], device='cuda:0') and truncated env_ids: tensor([], device='cuda:0', dtype=torch.int64)
 
-At the end of the evaluation, you should see the following output on the console indicating the metrics.
+At the end of the evaluation, you should see the following output on the console.
 You can see that the success rate might not be 1.0 as more trials are being evaluated and randomizations are being introduced,
 and the number of episodes is more than the single environment evaluation because of the parallelization.
 
 .. code-block:: text
 
-   Metrics: {'success_rate': 1.0, 'num_episodes': 4}
+   +----------+----------+--------------+
+   | Run Name | Episodes | Success Rate |
+   +----------+----------+--------------+
+   |    .     |    4     |    1.0000    |
+   +----------+----------+--------------+
 
 .. note::
 

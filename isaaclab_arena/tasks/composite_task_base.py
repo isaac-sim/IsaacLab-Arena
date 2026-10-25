@@ -5,21 +5,15 @@
 
 from __future__ import annotations
 
-import copy
 import dataclasses
-import numpy as np
 import warnings
 from functools import partial
 from typing import TYPE_CHECKING, Any
 
 from isaaclab.envs.common import ViewerCfg
 from isaaclab.envs.mimic_env_cfg import MimicEnvCfg, SubTaskConfig
-from isaaclab.managers.recorder_manager import RecorderTerm, RecorderTermCfg
-from isaaclab.utils.configclass import configclass
 
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
-from isaaclab_arena.metrics.metric_base import MetricBase
-from isaaclab_arena.metrics.metric_term_cfg import MetricTermCfg
 from isaaclab_arena.tasks.common.mimic_default_params import MIMIC_DATAGEN_CONFIG_DEFAULTS
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
@@ -32,71 +26,6 @@ from isaaclab_arena.utils.configclass import (
 if TYPE_CHECKING:
     from isaaclab_arena.embodiments.embodiment_base import EmbodimentBase
     from isaaclab_arena.progress_tracking.tracked_event_cfg import TrackedEventCfg
-
-
-class SubtaskSuccessStateRecorder(RecorderTerm):
-    """Records the subtask success state just before the environment is reset."""
-
-    def __init__(self, cfg, env):
-        super().__init__(cfg, env)
-        self.name = cfg.name
-
-    def record_post_step(self):
-        progress_tracker = self._env.progress_tracker
-        assert progress_tracker is not None, "Task progress must be configured before recording."
-        return self.name, progress_tracker.get_subtask_completion()
-
-
-@configclass
-class SubtaskSuccessStateRecorderCfg(RecorderTermCfg):
-    class_type: type[RecorderTerm] = SubtaskSuccessStateRecorder
-    name: str = "subtask_success_rate"
-
-
-def compute_subtask_success_rate(recorded_metric_data: list[np.ndarray]) -> list:
-    """Computes per-subtask success rates.
-
-    Args:
-        recorded_metric_data: List of arrays, each shape (num_subtasks,) with bool values.
-
-    Returns:
-        List of success rates for each subtask.
-    """
-    num_demos = len(recorded_metric_data)
-    if num_demos == 0:
-        return [0.0]
-
-    num_subtasks = recorded_metric_data[0].shape[1]
-    subtask_successes = np.zeros(num_subtasks, dtype=float)
-
-    for ep in range(num_demos):
-        ep_subtask_success_result = np.any(recorded_metric_data[ep], axis=0).astype(float)
-        subtask_successes += ep_subtask_success_result
-    subtask_success_rates = subtask_successes / num_demos
-
-    return subtask_success_rates.tolist()
-
-
-class SubtaskSuccessRateMetric(MetricBase):
-    """Computes the per-subtask success rates.
-
-    Returns a dict with success rate for each subtask.
-    """
-
-    name = "subtask_success_rate"
-    recorder_term_name = "subtask_success_rate"
-
-    def get_recorder_term_cfg(self) -> RecorderTermCfg:
-        """Return the recorder term configuration for the subtask success state metric."""
-        return SubtaskSuccessStateRecorderCfg(name=self.recorder_term_name)
-
-    def get_metric_term_cfg(self) -> MetricTermCfg:
-        """Return the metric term configuration for the subtask success rate metric."""
-        return MetricTermCfg(
-            compute_metric_func=compute_subtask_success_rate,
-            params={},
-            recorder_term_name=self.recorder_term_name,
-        )
 
 
 class CompositeTaskBase(TaskBase):
@@ -244,37 +173,6 @@ class CompositeTaskBase(TaskBase):
             for event_cfg in subtask.get_tracked_events():
                 tracked_events.append(dataclasses.replace(event_cfg, name=f"subtask_{index}/{event_cfg.name}"))
         return tracked_events
-
-    def _combine_subtask_metrics(self, subtask_idxs: list[int]) -> list[MetricBase]:
-        """Combine metrics from subtasks with the given ids.
-
-        Per-subtask "success_rate" metrics are intentionally collapsed into a single shared entry as
-        the composite task should only have one success rate metric.
-        Individual per-subtask success is reported separately via SubtaskSuccessRateMetric (added in get_metrics).
-        """
-        combined_metrics = []
-
-        for subtask_idx in subtask_idxs:
-            subtask_metrics = self.subtasks[subtask_idx].get_metrics()
-            for metric in subtask_metrics:
-                metric = copy.copy(metric)
-                if metric.name != "success_rate":
-                    metric.name = f"{metric.name}_subtask_{subtask_idx}"
-                    metric.recorder_term_name = f"{metric.recorder_term_name}_subtask_{subtask_idx}"
-                    combined_metrics.append(metric)
-                else:
-                    if not any(m.name == "success_rate" for m in combined_metrics):
-                        combined_metrics.append(metric)
-
-        return combined_metrics
-
-    def get_metrics(self) -> list[MetricBase]:
-        "Get metrics for the composite task."
-        subtask_metrics = self._combine_subtask_metrics([i for i in range(len(self.subtasks))])
-        # Add the composite task's own metric for per-subtask success rates
-        subtask_metrics.append(SubtaskSuccessRateMetric())
-
-        return subtask_metrics
 
     def _validate_consistent_mimic_eef_names(self, arm_mode: ArmMode) -> set[str]:
         "Check that all subtasks have the same Mimic eef_names."

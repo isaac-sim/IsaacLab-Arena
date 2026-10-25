@@ -11,15 +11,12 @@ from collections.abc import Iterable
 from dataclasses import dataclass, field
 from enum import Enum
 from prettytable import PrettyTable
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from isaaclab_arena.assets.registries import PolicyRegistry
 from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
 from isaaclab_arena.environments.arena_environment_factory import ArenaEnvironmentCfg
 from isaaclab_arena.policy.policy_base import PolicyCfg
-
-if TYPE_CHECKING:
-    from isaaclab_arena.metrics.metric_data import MetricsDataCollection
 
 
 @dataclass
@@ -60,7 +57,7 @@ class ArenaRunCfg:
     """Step or episode limit for the policy rollout."""
 
     num_rebuilds: int = 1
-    """Number of fresh environment constructions over which metrics are aggregated."""
+    """Number of fresh environment constructions that the Run's episodes are split across."""
 
     recorded_variation_samples_paths: list[str] | None = None
     """Ordered replay JSONLs, one per environment rebuild."""
@@ -116,9 +113,6 @@ class ArenaRunResult:
 
     status: RunStatus
     """Final execution status."""
-
-    metrics: MetricsDataCollection | None = None
-    """Metrics aggregated over all successful rebuilds, when provided by the task."""
 
 
 def build_runs_info_table(run_cfgs: Iterable[ArenaRunCfg], results: Iterable[ArenaRunResult]) -> PrettyTable:

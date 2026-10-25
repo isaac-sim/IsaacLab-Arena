@@ -131,6 +131,25 @@ raise SystemExit(1 if blocked else 0)
     assert result.returncode == 0, result.stdout + result.stderr
 
 
+def test_build_report_prints_each_runs_success_rate(tmp_path, capsys):
+    _write_run(tmp_path, "pick_pi0", num_episodes=4)
+
+    build_report(tmp_path)
+
+    output = capsys.readouterr().out
+    assert re.search(r"pick_pi0\s*\|\s*4\s*\|\s*0\.2500", output), output
+
+
+def test_build_report_labels_results_in_the_report_directory_as_dot(tmp_path, capsys):
+    record = {"env_id": 0, "episode_in_env": 0, "success": True}
+    (tmp_path / "episode_results_rank0.jsonl").write_text(json.dumps(record) + "\n", encoding="utf-8")
+
+    build_report(tmp_path)
+
+    output = capsys.readouterr().out
+    assert re.search(r"\|\s*\.\s*\|\s*1\s*\|\s*1\.0000\s*\|", output), output
+
+
 def test_build_report_writes_a_page_per_task_and_run(tmp_path):
     for task in ("banana_in_bowl", "bowl_in_bin"):
         for policy in ("pi0", "cosmos"):

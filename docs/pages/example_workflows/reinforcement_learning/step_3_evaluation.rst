@@ -36,7 +36,7 @@ Evaluation Methods
 
 There are three ways to evaluate a trained policy:
 
-1. **Single environment** (``policy_runner.py``): detailed evaluation with metrics
+1. **Single environment** (``policy_runner.py``): detailed evaluation of one environment
 2. **Parallel environments** (``policy_runner.py``): larger-scale statistical evaluation
 3. **Batch evaluation** (``experiment_runner.py``): automated evaluation across multiple checkpoints
 
@@ -62,11 +62,15 @@ Policy-specific arguments (``--policy_type``, ``--checkpoint_path``, etc.) must 
 environment name. Environment-specific arguments (``--object``, ``--embodiment``, etc.) must come
 **after** it.
 
-At the end of the run, metrics are printed to the console:
+At the end of the run, the console shows the number of finished episodes and the success rate:
 
 .. code-block:: text
 
-   Metrics: {'success_rate': 0.81, 'num_episodes': 12}
+   +----------+----------+--------------+
+   | Run Name | Episodes | Success Rate |
+   +----------+----------+--------------+
+   |    .     |    20    |    0.8000    |
+   +----------+----------+--------------+
 
 
 Method 2: Parallel Environment Evaluation
@@ -87,7 +91,11 @@ For more statistically significant results, run across many environments in para
 
 .. code-block:: text
 
-   Metrics: {'success_rate': 0.72, 'num_episodes': 1024}
+   +----------+----------+--------------+
+   | Run Name | Episodes | Success Rate |
+   +----------+----------+--------------+
+   |    .     |   1024   |    0.7197    |
+   +----------+----------+--------------+
 
 .. image:: ../../../images/lift_object_rl_parallel.gif
    :align: center
@@ -146,27 +154,21 @@ Create a file ``eval_config.json``:
 
 .. code-block:: text
 
-   ======================================================================
-   METRICS SUMMARY
-   ======================================================================
-
-   lift_object_model_1000:
-   num_episodes                         1024
-   success_rate                       0.6526
-
-   lift_object_model_1999:
-   num_episodes                         1024
-   success_rate                       0.7408
-   ======================================================================
+   +------------------------+----------+--------------+
+   |        Run Name        | Episodes | Success Rate |
+   +------------------------+----------+--------------+
+   | lift_object_model_1000 |   1024   |    0.6523    |
+   | lift_object_model_1999 |   1024   |    0.7412    |
+   +------------------------+----------+--------------+
 
 
-Understanding the Metrics
-^^^^^^^^^^^^^^^^^^^^^^^^^^
+Understanding the Results
+^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The Lift Object task reports two metrics:
+For the Lift Object task, the table reports:
 
-- ``success_rate``: fraction of episodes where the object reached the target position within tolerance
-- ``num_episodes``: total number of completed episodes during the evaluation run
+- ``Episodes``: total number of completed episodes during the evaluation run
+- ``Success Rate``: fraction of episodes where the object reached the target position within tolerance
 
 A well-trained policy should reach 70–90% success rate. Results will vary with the target range,
 random seed, and hardware.
@@ -174,5 +176,5 @@ random seed, and hardware.
 .. note::
 
    For evaluation, omit ``--rl_training_mode`` (default): success termination stays enabled so
-   metrics such as success rate are meaningful. For RSL-RL training, pass ``--rl_training_mode`` to
+   the success rate is meaningful. For RSL-RL training, pass ``--rl_training_mode`` to
    disable success termination.

@@ -14,8 +14,6 @@ from isaaclab.utils.configclass import configclass
 from isaaclab_arena.affordances.turnable import Turnable
 from isaaclab_arena.assets.register import register_task
 from isaaclab_arena.embodiments.common.arm_mode import ArmMode
-from isaaclab_arena.metrics.metric_base import MetricBase
-from isaaclab_arena.metrics.success_rate import SuccessRateMetric
 from isaaclab_arena.progress_tracking.completion_criteria import CompletionCriteria
 from isaaclab_arena.tasks.task_base import TaskBase
 from isaaclab_arena.tasks.task_termination_cfg import TaskTerminationCfg
@@ -71,12 +69,6 @@ class TurnKnobTask(TaskBase):
             lookat_object=self.turnable_object,
             offset=np.array([-1.5, -1.5, 1.5]),
         )
-
-    def get_metrics(self) -> list[MetricBase]:
-        # TODO(xinjieyao, 2026.01.05): Add turning level tracking metrics for the task.
-        return [
-            SuccessRateMetric(),
-        ]
 
     def get_mimic_env_cfg(self, arm_mode: ArmMode):
         raise NotImplementedError("Function not implemented yet.")
