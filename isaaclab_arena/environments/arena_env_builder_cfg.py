@@ -38,6 +38,16 @@ class ArenaEnvBuilderCfg:
     recorded_variation_samples_path: str | None = None
     """Episode-result JSONL containing variation samples to replay; relative to the working directory."""
 
+    use_policy_camera_requirements: bool = True
+    """Whether to render the cameras the policy reads at the policy's requested sizes.
+
+    Sizes only shrink, keeping each camera's aspect ratio and lens, so video recorded from these cameras is
+    low resolution too.
+    """
+
+    drop_unused_cameras: bool = True
+    """Whether to remove the cameras the policy does not read; only applies with use_policy_camera_requirements."""
+
     def __post_init__(self) -> None:
         assert self.num_envs > 0, "num_envs must be greater than zero"
         if self.presets is not None:

@@ -108,17 +108,19 @@ def build_and_run(
                 camera_name_prefix=f"robot-cam-rebuild{rebuild_index}",
             )
             rebuild_cfg = _cfg_for_rebuild(cfg, rebuild_index)
+            # The policy is built first so the environment builder can size cameras to its requirements.
+            policy = _build_policy_from_cfg(rebuild_cfg)
             env = _build_environment_from_cfg(
                 rebuild_cfg,
                 rebuild_video_cfg.render_mode,
                 output_dir=output_dir,
                 rebuild_index=rebuild_index,
+                policy=policy,
             )
             results_path = os.path.join(output_dir, f"episode_results_rebuild{rebuild_index}.jsonl")
             env.unwrapped.episode_recorder.set_job_name(cfg.name)
             env.unwrapped.episode_recorder.set_output_path(results_path)
 
-            policy = _build_policy_from_cfg(rebuild_cfg)
             num_steps, num_episodes = _resolve_rollout_limit(
                 rebuild_cfg,
                 policy,
@@ -153,6 +155,7 @@ def _build_environment_from_cfg(
     render_mode: str | None,
     output_dir: str | Path,
     rebuild_index: int = 0,
+    policy: PolicyBase | None = None,
 ) -> gym.Env:
     """Compile and instantiate a run's environment.
 
@@ -161,18 +164,19 @@ def _build_environment_from_cfg(
         render_mode: Render mode required by the enabled video recorders.
         output_dir: Directory the run's recorded dataset is exported to.
         rebuild_index: Index of the rebuild this environment serves.
+        policy: Policy whose camera requirements size the environment's cameras.
     """
     # Copy runtime-derived recorder output options into the builder cfg so
     # ArenaEnvBuilder.build_env_cfg sees them without mutating the caller's run config.
     run_cfg = deepcopy(cfg)
     run_cfg.environment_builder.recorder_dataset_export_dir_path = str(output_dir)
     run_cfg.environment_builder.recorder_dataset_filename = f"dataset_{cfg.name}_rebuild{rebuild_index}"
-    arena_builder = build_arena_builder_from_run_cfg(run_cfg)
+    arena_builder = build_arena_builder_from_run_cfg(run_cfg, policy=policy)
     return arena_builder.make_registered(render_mode=render_mode)
 
 
-def build_arena_builder_from_run_cfg(cfg: ArenaRunCfg) -> ArenaEnvBuilder:
-    """Build an Arena environment builder from one typed run config."""
+def build_arena_builder_from_run_cfg(cfg: ArenaRunCfg, policy: PolicyBase | None = None) -> ArenaEnvBuilder:
+    """Build an Arena environment builder from one typed run config, optionally aware of the run's policy."""
     hydra_overrides = overrides_from_dict(cfg.variations)
     # TODO(cvolk, 2026-07-07): [typed-config-migration] Remove the legacy branch when graph environments
     # have typed configs and no longer require the argparse construction path.
@@ -181,13 +185,16 @@ def build_arena_builder_from_run_cfg(cfg: ArenaRunCfg) -> ArenaEnvBuilder:
             cfg.environment,
             environment_builder=cfg.environment_builder,
             hydra_overrides=hydra_overrides,
+            policy=policy,
         )
         if isinstance(cfg.environment, LegacyGraphEnvironmentCfg)
-        else _build_arena_builder_from_cfg(cfg, hydra_overrides)
+        else _build_arena_builder_from_cfg(cfg, hydra_overrides, policy)
     )
 
 
-def _build_arena_builder_from_cfg(cfg: ArenaRunCfg, hydra_overrides: list[str]) -> ArenaEnvBuilder:
+def _build_arena_builder_from_cfg(
+    cfg: ArenaRunCfg, hydra_overrides: list[str], policy: PolicyBase | None
+) -> ArenaEnvBuilder:
     """Build an Arena environment builder from a registered typed config."""
     # ArenaEnvBuilder imports pxr modules that must not load before SimulationApp.
     # Keep this runtime import deferred even though the type-only import is at the top.
@@ -199,6 +206,7 @@ def _build_arena_builder_from_cfg(cfg: ArenaRunCfg, hydra_overrides: list[str]) 
         arena_environment,
         cfg.environment_builder,
         hydra_overrides=hydra_overrides,
+        policy=policy,
     )
 
 
