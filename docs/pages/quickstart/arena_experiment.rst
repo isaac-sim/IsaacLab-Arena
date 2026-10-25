@@ -137,6 +137,57 @@ See :doc:`Arena Experiments <../concepts/concept_arena_experiments>` for the ful
 precedence order and configuration rules.
 
 
+Measure the reset distribution
+------------------------------
+
+Add ``--measure_reset_distribution`` to an Experiment Runner command to measure
+realized initial states during policy evaluation. Python callers can pass
+``measure_reset_distribution=True`` to ``execute_experiment`` or ``build_and_run``.
+The option is disabled by default and does not perform additional resets or consume
+random draws.
+
+Each Run writes two files, aggregating all of its environment rebuilds:
+
+* ``reset_samples.jsonl``: one full scene-state sample before the first policy
+  action of each episode, with Run name, rebuild index, environment seed,
+  environment ID, and episode index. These identifiers join to the corresponding
+  ``episode_results_rebuild<N>.jsonl``. The seed identifies the rebuild's random
+  stream; it is not a separately applied seed for each episode.
+* ``reset_distribution.json``: sample counts and componentwise mean, population
+  standard deviation, minimum, and maximum for positions, joints, and velocities.
+  Coordinates are relative to environment origins, so vector-environment spacing
+  does not inflate the measured spread. Units follow Isaac Lab scene state (SI).
+  Raw orientations use xyzw quaternions; orientation statistics are omitted rather
+  than treating quaternion components as Euclidean measurements.
+
+Only episodes that receive a policy action are sampled. Inactive cells and unused
+resets after the final rollout step are excluded. Automatic resets are included
+on the next control iteration. Samples reflect the state returned by reset,
+including any reset-time settling, not merely the configured randomization ranges.
+Scene state includes articulations, rigid objects, cables, and deformables exposed
+by ``scene.get_state``; it does not capture textures, lights, or camera parameters.
+The summary describes observed samples, not an estimate of the configured support.
+
+Existing measurement files are never overwritten. If a rollout fails, samples
+already captured remain on disk and their partial summary is written during cleanup;
+consult the Run status before treating that summary as complete. Deformable and
+cable scenes can produce large sample files because all nodes or segments are retained.
+
+
+Plot recorded reset samples with the standalone plotting module:
+
+.. code-block:: bash
+
+   python -m isaaclab_arena.evaluation.reset_distribution_plot \
+     outputs/my_experiment/my_run/reset_samples.jsonl \
+     --output outputs/my_experiment/reset_plots
+
+The output directory must be new. The plots show XY-bin counts and joint offsets
+from the first recorded reset, with empirical ranges. They do not render scene
+assets or estimate failure probabilities. Outcome-conditioned overlays and
+training/evaluation comparisons remain separate analysis work.
+
+
 Next steps
 ----------
 

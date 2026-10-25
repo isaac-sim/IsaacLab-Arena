@@ -173,6 +173,7 @@ def main():
             record_viewport_video=args_cli.record_viewport_video,
             record_camera_video=args_cli.record_camera_video,
             continue_on_error=args_cli.continue_on_error,
+            measure_reset_distribution=args_cli.measure_reset_distribution,
         )
         for run_result in run_results:
             if run_result.metrics is not None:

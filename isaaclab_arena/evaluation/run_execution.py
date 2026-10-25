@@ -23,6 +23,7 @@ from isaaclab_arena.evaluation.legacy_graph_environment_cli import (
     build_arena_builder_from_legacy_graph,
 )
 from isaaclab_arena.evaluation.policy_runner import rollout_policy
+from isaaclab_arena.evaluation.reset_distribution import ResetDistributionRecorder
 from isaaclab_arena.evaluation.resource_cleanup import close_run_resources
 from isaaclab_arena.metrics.aggregate_metrics import aggregate_metrics
 from isaaclab_arena.recording.episode_results import read_episode_records
@@ -44,6 +45,7 @@ def execute_experiment(
     record_viewport_video: bool = False,
     record_camera_video: bool = False,
     continue_on_error: bool = False,
+    measure_reset_distribution: bool = False,
 ) -> list[ArenaRunResult]:
     """Execute an experiment's runs in order and return their results.
 
@@ -53,6 +55,7 @@ def execute_experiment(
         record_viewport_video: Whether to record the viewport for each run.
         record_camera_video: Whether to record observation cameras for each run.
         continue_on_error: Whether to continue with later runs after one fails.
+        measure_reset_distribution: Record initial scene states and per-run distribution statistics.
 
     Returns:
         One result per attempted run, in execution order.
@@ -67,6 +70,7 @@ def execute_experiment(
             result = build_and_run(
                 run_cfg,
                 output_dir=run_output_dir,
+                **({"measure_reset_distribution": True} if measure_reset_distribution else {}),
                 video_cfg=VideoRecordingCfg(
                     record_viewport_video=record_viewport_video,
                     record_camera_video=record_camera_video,
@@ -91,6 +95,7 @@ def build_and_run(
     cfg: ArenaRunCfg,
     output_dir: str | Path,
     video_cfg: VideoRecordingCfg | None = None,
+    measure_reset_distribution: bool = False,
 ) -> ArenaRunResult:
     """Build and execute one typed Arena run, then return its result."""
     metrics_per_rebuild: list[MetricsDataCollection] = []
@@ -98,38 +103,56 @@ def build_and_run(
     video_cfg = video_cfg or VideoRecordingCfg(video_base_dir=output_dir)
     episodes_per_rebuild = _episodes_per_rebuild(cfg)
 
-    for rebuild_index, num_episodes in enumerate(episodes_per_rebuild):
-        env = None
-        policy = None
-        try:
-            rebuild_video_cfg = replace(
-                video_cfg,
-                video_base_dir=output_dir,
-                camera_name_prefix=f"robot-cam-rebuild{rebuild_index}",
-            )
-            rebuild_cfg = _cfg_for_rebuild(cfg, rebuild_index)
-            env = _build_environment_from_cfg(
-                rebuild_cfg,
-                rebuild_video_cfg.render_mode,
-                output_dir=output_dir,
-                rebuild_index=rebuild_index,
-            )
-            results_path = os.path.join(output_dir, f"episode_results_rebuild{rebuild_index}.jsonl")
-            env.unwrapped.episode_recorder.set_job_name(cfg.name)
-            env.unwrapped.episode_recorder.set_output_path(results_path)
+    reset_distribution = ResetDistributionRecorder(Path(output_dir), cfg.name) if measure_reset_distribution else None
+    try:
+        for rebuild_index, num_episodes in enumerate(episodes_per_rebuild):
+            env = None
+            policy = None
+            try:
+                rebuild_video_cfg = replace(
+                    video_cfg,
+                    video_base_dir=output_dir,
+                    camera_name_prefix=f"robot-cam-rebuild{rebuild_index}",
+                )
+                rebuild_cfg = _cfg_for_rebuild(cfg, rebuild_index)
+                env = _build_environment_from_cfg(
+                    rebuild_cfg,
+                    rebuild_video_cfg.render_mode,
+                    output_dir=output_dir,
+                    rebuild_index=rebuild_index,
+                )
+                results_path = os.path.join(output_dir, f"episode_results_rebuild{rebuild_index}.jsonl")
+                env.unwrapped.episode_recorder.set_job_name(cfg.name)
+                env.unwrapped.episode_recorder.set_output_path(results_path)
 
-            policy = _build_policy_from_cfg(rebuild_cfg)
-            num_steps, num_episodes = _resolve_rollout_limit(
-                rebuild_cfg,
-                policy,
-                num_episodes,
-            )
-            env = wrap_env_for_video(env, rebuild_video_cfg, num_steps, num_episodes)
-            metrics = rollout_policy(env, policy, num_steps=num_steps, num_episodes=num_episodes)
-            if metrics is not None:
-                metrics_per_rebuild.append(metrics)
-        finally:
-            close_run_resources(policy, env)
+                policy = _build_policy_from_cfg(rebuild_cfg)
+                num_steps, num_episodes = _resolve_rollout_limit(
+                    rebuild_cfg,
+                    policy,
+                    num_episodes,
+                )
+                env = wrap_env_for_video(env, rebuild_video_cfg, num_steps, num_episodes)
+                reset_options = {}
+                if reset_distribution is not None:
+                    reset_options = dict(
+                        reset_distribution=reset_distribution,
+                        rebuild_index=rebuild_index,
+                        seed=rebuild_cfg.environment_builder.seed,
+                    )
+                metrics = rollout_policy(
+                    env,
+                    policy,
+                    num_steps=num_steps,
+                    num_episodes=num_episodes,
+                    **reset_options,
+                )
+                if metrics is not None:
+                    metrics_per_rebuild.append(metrics)
+            finally:
+                close_run_resources(policy, env)
+    finally:
+        if reset_distribution is not None:
+            reset_distribution.close()
 
     return ArenaRunResult(
         run_name=cfg.name,

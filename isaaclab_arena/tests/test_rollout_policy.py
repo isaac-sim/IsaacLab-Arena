@@ -107,3 +107,34 @@ def test_step_rollout_keeps_its_step_limit_and_resets_actual_reset_environments(
     assert policy.reset_calls == [None, [1]]
     assert policy.observed_steps == [0, 1]
     assert progress_bar.n == 2
+
+
+def test_reset_measurement_precedes_actions_and_excludes_unused_final_reset(
+    monkeypatch,
+):
+    environment = _RolloutEnvironment([
+        (1, [1], [0, 1], []),
+        (2, [0], [0], []),
+    ])
+    environment.num_envs = 3
+    policy = _Policy()
+    _capture_progress(monkeypatch, total=2)
+    samples = []
+
+    def capture(env, env_ids, **metadata):
+        assert len(policy.observed_steps) == env.steps_completed
+        samples.append((env.steps_completed, env_ids.tolist(), metadata))
+
+    policy_runner.rollout_policy(
+        _wrap_environment(environment),
+        policy,
+        num_steps=2,
+        num_episodes=None,
+        reset_distribution=SimpleNamespace(capture=capture),
+        rebuild_index=3,
+        seed=10,
+    )
+    assert samples == [
+        (0, [0, 1, 2], {"rebuild_index": 3, "seed": 10}),
+        (1, [1], {"rebuild_index": 3, "seed": 10}),
+    ]
