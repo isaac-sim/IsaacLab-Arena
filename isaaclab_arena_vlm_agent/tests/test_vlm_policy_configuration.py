@@ -129,14 +129,14 @@ def test_configured_execution_and_partial_reset(monkeypatch, policy_type, cfg_ty
 
 
 @pytest.mark.parametrize("policy_type,cfg_type", POLICIES)
-def test_injected_backend_remains_caller_owned(monkeypatch, policy_type, cfg_type):
+def test_policy_closes_injected_backend(monkeypatch, policy_type, cfg_type):
     constructor = Mock()
     monkeypatch.setattr(vlm_agent_policy, "InferenceBackend", constructor)
     backend = Mock()
     policy = policy_type(_config(cfg_type), inference_backend=backend)
     policy.close()
     constructor.assert_not_called()
-    backend.close.assert_not_called()
+    backend.close.assert_called_once()
 
 
 @pytest.mark.parametrize("policy_type,cfg_type", POLICIES)

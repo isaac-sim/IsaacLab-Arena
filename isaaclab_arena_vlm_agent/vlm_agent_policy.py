@@ -181,7 +181,7 @@ class VLMPolicy(PolicyBase[VLMPolicyCfg]):
 
         Args:
             config: Prompt, image encoding, and action-validation settings.
-            inference_backend: Caller-owned backend, or None to create a client owned by this policy.
+            inference_backend: Backend whose ownership transfers to this policy, or None to create one.
             observation_adapter: Adapter selecting images and state, or None to construct it from config.
             action_adapter: Adapter validating responses and converting commands to native actions.
         """
@@ -200,7 +200,6 @@ class VLMPolicy(PolicyBase[VLMPolicyCfg]):
                 action_adapter
             )
         self.task_description = None
-        self._owns_inference_backend = inference_backend is None
         # Construct the client last so invalid adapters or schemas cannot leak a connection.
         self._inference_backend = (
             inference_backend
@@ -216,9 +215,8 @@ class VLMPolicy(PolicyBase[VLMPolicyCfg]):
         )
 
     def close(self) -> None:
-        """Close the inference backend when this policy created it."""
-        if self._owns_inference_backend:
-            self._inference_backend.close()
+        """Close the inference backend owned by this policy."""
+        self._inference_backend.close()
 
     def get_action(self, env: gym.Env, observation: dict[str, Any]) -> torch.Tensor:
         """Return a batch of native actions using the policy execution strategy.

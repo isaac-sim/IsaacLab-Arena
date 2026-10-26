@@ -85,8 +85,7 @@ class DroidVLMAdapter:
             "All quaternions in input and output use XYZW. policy.eef_pos is in world meters and "
             "policy.eef_quat is the gripper's world orientation in XYZW. Read the current "
             "commanded-body pose from command_body_poses.arm_action when state is provided. This body is not "
-            "the finger midpoint. Predict nearby waypoints using small pose changes. Approach with the gripper "
-            "open, close around the object, lift it, move above the destination, and open to release. "
+            "the finger midpoint. Predict nearby waypoints using small pose changes. "
             "Follow the response schema exactly, with no explanatory text."
         )
 
