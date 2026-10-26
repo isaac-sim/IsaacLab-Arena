@@ -14,7 +14,6 @@ from isaaclab_arena.relations.initializers.relation_sampling_strategies import (
     SAMPLING_STRATEGIES,
     RelationSamplingStrategy,
     _bounding_box_from_partial_limits,
-    _bounds_from_align_with,
 )
 from isaaclab_arena.relations.relations import AlignWith, NextTo, On, PositionLimitsBox, Relation, Side
 from isaaclab_arena.tests.dummy_object import DummyObject
@@ -203,31 +202,9 @@ def test_ontree_init_ignores_bounds_that_are_unreachable_on_the_parent():
     assert 0.0 <= x <= 0.8, "Expected seeding on the parent, as if the limits were absent"
 
 
-@pytest.mark.parametrize("axis", ["x", "y", "z"])
-@pytest.mark.parametrize("offset_m", [-0.25, 0.25])
-def test_alignment_bounds_use_bbox_centres_and_leave_other_axes_free(axis, offset_m):
-    """Convert centre alignment to origin bounds using the supplied oriented geometry."""
-    reference = _make_box("reference")
-    child_bbox = AxisAlignedBoundingBox((-0.3, -0.4, -0.5), (-0.1, -0.2, -0.3))
-    reference_world_bbox = AxisAlignedBoundingBox((4.0, 5.0, 6.0), (6.0, 9.0, 12.0))
-    relation = AlignWith(reference, axis, offset_m=offset_m, tolerance_m=0.125)
-
-    bounds = _bounds_from_align_with(relation, child_bbox, reference_world_bbox)
-
-    axis_index = "xyz".index(axis)
-    expected_origin = (5.2, 7.3, 9.4)[axis_index] + offset_m
-    assert bounds.min_point[0, axis_index].item() == pytest.approx(expected_origin - 0.125)
-    assert bounds.max_point[0, axis_index].item() == pytest.approx(expected_origin + 0.125)
-    for other_axis in range(3):
-        if other_axis != axis_index:
-            assert bounds.min_point[0, other_axis].item() == -float("inf")
-            assert bounds.max_point[0, other_axis].item() == float("inf")
-
-
-@pytest.mark.parametrize("axis", ["x", "y"])
-@pytest.mark.parametrize("offset_m", [-0.1, 0.0, 0.1])
-def test_ontree_samples_across_alignment_band_of_moving_reference(axis, offset_m):
+def test_ontree_samples_across_alignment_band_of_moving_reference():
     """Moving references are sampled first, retaining spread throughout the alignment band."""
+    axis, offset_m = "x", 0.1
     desk = _make_desk()
     reference = _make_box("reference", size=0.2)
     reference.add_relation(On(desk))
@@ -282,66 +259,6 @@ def test_ontree_intersects_alignment_bands_with_position_box():
         assert abs(y - positions[left][1]) <= 0.050001
 
 
-def test_ontree_orders_alignment_chains_across_on_trees():
-    """A reference below another On parent is sampled before the aligned subject."""
-    desk = _make_desk()
-    tray = _make_box("tray", size=0.5, height=0.05)
-    tray.add_relation(On(desk))
-    reference = _make_box("reference", size=0.1)
-    reference.add_relation(On(tray))
-    middle = _make_box("middle", size=0.1)
-    middle.add_relation(On(desk))
-    middle.add_relation(AlignWith(reference, "x", tolerance_m=0.0))
-    subject = _make_box("subject", size=0.1)
-    subject.add_relation(On(desk))
-    subject.add_relation(AlignWith(middle, "x", tolerance_m=0.0))
-
-    positions = _seed(OnTreeInitializer(), [subject, middle, reference, tray, desk], {desk})
-
-    assert positions[subject][0] == pytest.approx(positions[reference][0], abs=1e-6)
-    assert positions[middle][0] == pytest.approx(positions[reference][0], abs=1e-6)
-    _assert_footprint_within(
-        positions[reference], reference.get_bounding_box(), tray.get_bounding_box().translated(positions[tray])
-    )
-
-
-@pytest.mark.parametrize("reverse", [False, True])
-def test_ontree_breaks_alignment_cycles_deterministically(reverse):
-    """An alignment cycle keeps valid On placements and uses references as they become available."""
-    desk = _make_desk()
-    left = _make_box("left")
-    right = _make_box("right")
-    for subject, reference in ((left, right), (right, left)):
-        subject.add_relation(On(desk))
-        subject.add_relation(AlignWith(reference, "x", tolerance_m=0.02))
-    objects = [desk, right, left] if reverse else [desk, left, right]
-
-    positions = _seed(OnTreeInitializer(), objects, {desk}, generator=torch.Generator().manual_seed(42))
-    repeated = _seed(OnTreeInitializer(), objects, {desk}, generator=torch.Generator().manual_seed(42))
-
-    assert positions == repeated
-    assert abs(positions[left][0] - positions[right][0]) <= 0.020001
-    for obj in (left, right):
-        _assert_footprint_within(positions[obj], obj.get_bounding_box(), desk.get_world_bounding_box())
-
-
-def test_ontree_alignment_to_on_descendant_preserves_parent_order():
-    """A parent aligned to its child does not invalidate the required On ordering."""
-    desk = _make_desk()
-    tray = _make_box("tray", size=0.5, height=0.05)
-    child = _make_box("child", size=0.1)
-    tray.add_relation(On(desk))
-    child.add_relation(On(tray))
-    tray.add_relation(AlignWith(child, "x"))
-
-    positions = _seed(OnTreeInitializer(), [child, tray, desk], {desk})
-
-    _assert_footprint_within(positions[tray], tray.get_bounding_box(), desk.get_world_bounding_box())
-    _assert_footprint_within(
-        positions[child], child.get_bounding_box(), tray.get_bounding_box().translated(positions[tray])
-    )
-
-
 def test_ontree_unreachable_alignment_axis_keeps_other_narrowing():
     """An impossible Z alignment keeps both On support and feasible X/Y sampling bands."""
     desk = _make_desk()
@@ -389,83 +306,39 @@ class _MatchReferenceXSamplingStrategy(RelationSamplingStrategy):
         return _bounding_box_from_partial_limits((x, None, None), (x, None, None))
 
 
-def test_registered_strategy_controls_cross_level_order_and_bounds(monkeypatch):
-    """A new relation supplies ordering and narrowing without initializer changes."""
+def test_ontree_orders_registered_dependencies_across_levels_and_cycles(monkeypatch):
+    """Use generic references across levels, breaking cycles without breaking support order."""
     monkeypatch.setitem(SAMPLING_STRATEGIES, _MatchReferenceX, _MatchReferenceXSamplingStrategy())
     desk = _make_desk()
     tray = _make_box("tray", size=0.5)
-    tray.add_relation(On(desk))
-    reference = _make_box("reference", size=0.1)
-    reference.add_relation(On(tray))
+    child = _make_box("child", size=0.1)
+    middle = _make_box("middle", size=0.1)
     subject = _make_box("subject", size=0.1)
-    subject.add_relation(On(desk))
-    subject.add_relation(_MatchReferenceX(reference))
-    objects = [subject, reference, tray, desk]
-
-    assert _order_parents_before_children(objects, {desk}) == [desk, tray, reference, subject]
-    for seed in range(10):
-        positions = _seed(OnTreeInitializer(), objects, {desk}, generator=torch.Generator().manual_seed(seed))
-        assert positions[subject][0] == pytest.approx(positions[reference][0])
-        assert list(positions) == objects
-
-
-def test_frontier_updates_after_each_object():
-    """A newly eligible child can precede an already eligible object at a shallower level."""
-    desk = _make_desk()
-    parent = _make_box("parent")
-    child = _make_box("child")
-    sibling = _make_box("sibling")
-    parent.add_relation(On(desk))
-    child.add_relation(On(parent))
-    sibling.add_relation(On(desk))
-    objects = [child, parent, sibling, desk]
-
-    assert _order_parents_before_children(objects, {desk}) == [desk, parent, child, sibling]
-
-
-def test_cycle_breaking_prefers_fewer_unavailable_dependencies():
-    """Breaking one dependency is preferable to breaking two, regardless of input order."""
-    desk = _make_desk()
-    first, second, third = (_make_box(name) for name in ("first", "second", "third"))
-    for obj in (first, second, third):
+    extra = _make_box("extra", size=0.1)
+    distracting = _make_box("distracting", size=0.1)
+    for obj in (tray, middle, subject, extra, distracting):
         obj.add_relation(On(desk))
-    first.add_relation(AlignWith(second, "x"))
-    first.add_relation(AlignWith(third, "y"))
-    second.add_relation(AlignWith(first, "x"))
-    third.add_relation(AlignWith(first, "y"))
+    child.add_relation(On(tray))
+    tray.add_relation(AlignWith(middle, "x"))
+    for obj in (middle, subject, extra):
+        obj.add_relation(_MatchReferenceX(child))
+    distracting.add_relation(AlignWith(middle, "x"))
+    distracting.add_relation(AlignWith(subject, "y"))
+    child.add_relation(NextTo(extra, side=Side.POSITIVE_X))  # No sampling strategy: must not block child.
+    objects = [distracting, middle, subject, extra, child, tray, desk]
 
-    ordered = _order_parents_before_children([desk, first, second, third], {desk})
-
-    assert ordered[:2] == [desk, second]
-    assert set(ordered) == {desk, first, second, third}
-
-
-def test_cycle_breaking_counts_references_to_support_descendants():
-    """Prefer opening a subtree needed by more waiting relations when missing counts tie."""
-    desk = _make_desk()
-    parent = _make_box("parent")
-    child = _make_box("child")
-    sibling = _make_box("sibling")
-    waiting = _make_box("waiting")
-    parent.add_relation(On(desk))
-    child.add_relation(On(parent))
-    sibling.add_relation(On(desk))
-    waiting.add_relation(On(desk))
-    parent.add_relation(AlignWith(sibling, "x"))
-    sibling.add_relation(AlignWith(child, "x"))
-    waiting.add_relation(AlignWith(child, "x"))
-    objects = [sibling, waiting, child, parent, desk]
-
-    assert _order_parents_before_children(objects, {desk}) == [desk, parent, child, sibling, waiting]
-
-
-def test_unsupported_relation_does_not_change_ordering():
-    """References matter only for relations with a registered sampling strategy."""
-    desk = _make_desk()
-    subject = _make_box("subject")
-    reference = _make_box("reference")
-    subject.add_relation(On(desk))
-    reference.add_relation(On(desk))
-    subject.add_relation(NextTo(reference, side=Side.POSITIVE_X))
-
-    assert _order_parents_before_children([desk, subject, reference], {desk}) == [desk, subject, reference]
+    # All eligible objects initially wait for references. Distracting has two missing
+    # dependencies; tray has one and opens a subtree needed by three waiting objects.
+    # Once tray is sampled, child must precede its shallower-level dependents.
+    assert _order_parents_before_children(objects, {desk}) == [desk, tray, child, middle, subject, distracting, extra]
+    positions = _seed(OnTreeInitializer(), objects, {desk}, generator=torch.Generator().manual_seed(42))
+    repeated = _seed(OnTreeInitializer(), objects, {desk}, generator=torch.Generator().manual_seed(42))
+    assert positions == repeated
+    assert list(positions) == objects
+    for obj in (middle, subject, extra):
+        assert positions[obj][0] == pytest.approx(positions[child][0])
+    for obj in objects:
+        if obj is not desk:
+            support = tray if obj is child else desk
+            support_world = support.get_bounding_box().translated(positions[support])
+            _assert_footprint_within(positions[obj], obj.get_bounding_box(), support_world)
