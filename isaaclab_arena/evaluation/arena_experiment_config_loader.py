@@ -110,10 +110,9 @@ def _resolve_policy_cfg_type_from_name_or_class_path(policy_name_or_class_path: 
     if registry.is_registered(policy_name_or_class_path):
         policy_type = registry.get_policy(policy_name_or_class_path)
     else:
-        assert "." in policy_name_or_class_path, (
-            f"Policy {policy_name_or_class_path!r} is not registered. "
-            "Use a dotted Python class path to import the policy."
-        )
+        assert (
+            "." in policy_name_or_class_path
+        ), f"Policy type must be a registered name or dotted Python class path, got {policy_name_or_class_path!r}"
         module_path, class_name = policy_name_or_class_path.rsplit(".", 1)
         policy_type = getattr(import_module(module_path), class_name)
     return registry.get_policy_cfg_type(policy_type)

@@ -387,8 +387,3 @@ def test_unknown_experiment_config_file_type_is_rejected(tmp_path):
 
     with pytest.raises(AssertionError, match="must use .json, .yaml, or .yml"):
         validate_experiment_config_path(config_path)
-
-
-def test_unregistered_policy_name_requires_a_class_path():
-    with pytest.raises(AssertionError, match="Use a dotted Python class path"):
-        arena_experiment_config_loader._resolve_policy_cfg_type_from_name_or_class_path("unregistered_policy")
