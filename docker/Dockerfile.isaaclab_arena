@@ -78,9 +78,8 @@ RUN --mount=type=bind,source=docker/setup/configure-shell.sh,target=/tmp/configu
     bash /tmp/configure-shell.sh
 COPY docker/setup/entrypoint.sh /entrypoint.sh
 ENTRYPOINT ["/entrypoint.sh"]
-# Record the git commit and branch the image is built from, readable at runtime as ARENA_GIT_SHA and
-# ARENA_GIT_BRANCH. Set last, because they change with every commit and invalidate all layers after them.
-# dev-curobo inherits them.
+# Record the git commit and branch the image is built from. The LABEL uses the OCI standard
+# annotation for the source revision, org.opencontainers.image.revision.
 ARG GIT_SHA=unknown
 ARG GIT_BRANCH=unknown
 ENV ARENA_GIT_SHA=${GIT_SHA} ARENA_GIT_BRANCH=${GIT_BRANCH}
