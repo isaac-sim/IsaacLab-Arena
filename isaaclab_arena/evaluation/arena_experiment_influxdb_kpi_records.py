@@ -5,21 +5,13 @@
 
 """Build and write the InfluxDB KPI records file of a finished Arena Experiment.
 
-This module ONLY formats data. It writes a JSON file next to the Experiment result and does not connect to,
-upload to, or query InfluxDB. Ingesting the file into a database is done by separate tooling that is not
-part of this module.
-
-Why this file exists
---------------------
-Tracking Arena's success rates and timings over time needs them in a time-series database such as InfluxDB.
-The Experiment result and the HTML report are nested and hold every episode, so turning them into database
-points would repeat the KPI computation in every ingestion tool. Instead, Arena writes the KPIs once, as
-records that are close to ready for ingestion: each record maps to one InfluxDB point without further
-computation. Success counts come from the same report data model as the HTML report, so both always agree.
+This module allow us to track Arena's success rates and timings over time in a time-series database
+such as InfluxDB. Note that module ONLY formats data for InfluxDB. Ingesting the file into a
+database is not part of this repository.
 
 File format
 -----------
-``arena_experiment_influxdb_kpi_records.json`` holds one JSON object::
+The generated ``arena_experiment_influxdb_kpi_records.json`` holds one JSON object:
 
     {
       "schema_version": 1,
