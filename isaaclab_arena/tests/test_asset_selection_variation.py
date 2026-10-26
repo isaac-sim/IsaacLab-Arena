@@ -240,15 +240,25 @@ class _RecordingRigidObject:
 
 @pytest.fixture
 def placeholder_rigid_objects(monkeypatch):
-    """Resolve registry names to placeholders instead of building the registered assets.
+    """Accept every registry name and build placeholders instead of the registered assets.
 
-    Building the registered assets needs a SimulationApp, so the tests that use this fixture run in plain Python.
+    Checking and building the registered assets needs a SimulationApp, so the tests that use this fixture run in
+    plain Python.
+
+    Returns:
+        The registry names built, in build order.
     """
     from isaaclab_arena.variations import asset_selection_variation
 
-    monkeypatch.setattr(
-        asset_selection_variation, "_build_rigid_object", lambda registry_name: f"rigid object {registry_name}"
-    )
+    built_registry_names: list[str] = []
+
+    def build_placeholder(registry_name):
+        built_registry_names.append(registry_name)
+        return f"rigid object {registry_name}"
+
+    monkeypatch.setattr(asset_selection_variation, "_assert_registered_rigid_object", lambda registry_name: None)
+    monkeypatch.setattr(asset_selection_variation, "_build_rigid_object", build_placeholder)
+    return built_registry_names
 
 
 def test_random_choice_override_draws_seeded_names_and_swaps_the_sampler(placeholder_rigid_objects):
@@ -307,6 +317,9 @@ def test_in_order_selection_takes_repeated_names_in_list_order(placeholder_rigid
 
     # Rebuild k takes entry k % 4, so mustard_bottle spawns in rebuilds 0, 2 and 4.
     assert rigid_object.selected_registry_names == registry_names + registry_names[:2]
+    # Each build constructs only the asset it selects.
+    built_registry_names = placeholder_rigid_objects
+    assert built_registry_names == rigid_object.selected_registry_names
 
 
 def test_asset_selection_rejects_empty_registry_names_and_bounding_box_override(placeholder_rigid_objects):

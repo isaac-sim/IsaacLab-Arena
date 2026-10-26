@@ -95,41 +95,45 @@ class AssetSelectionVariation(BuildTimeVariationBase):
             f"'{self._rigid_object.name}' sets a bounding_box override, which placement would use for every"
             " selected asset. Set bounding_box to None so placement reads the bounds of the selected asset."
         )
-        # Build every name, not only the selected one, so that a wrong name fails in the first build. A repeated
-        # name is built once.
-        rigid_objects_by_registry_name = {
-            registry_name: _build_rigid_object(registry_name) for registry_name in dict.fromkeys(registry_names)
-        }
+        # Check every name, not only the selected one, so that an unknown name or a name declared as another object
+        # type fails in the first build. The check does not build the asset, which for a wrong name can open or
+        # download its USD. Only the selected name is built.
+        for registry_name in dict.fromkeys(registry_names):
+            _assert_registered_rigid_object(registry_name)
         # The sampler reports the name to the variation recorder and returns the recorded name during replay.
         if isinstance(self.sampler, SequentialSampler):
             # Rebuild k starts at the k-th name, so the rebuilds of a Run take the names in list order.
             selected_registry_name = self.sampler.sample(1, registry_names, start_index=self._rebuild_index)[0]
         else:
             selected_registry_name = self.sampler.sample(1, registry_names)[0]
-        self._rigid_object.set_spawned_asset(
-            selected_registry_name, rigid_objects_by_registry_name[selected_registry_name]
-        )
+        self._rigid_object.set_spawned_asset(selected_registry_name, _build_rigid_object(selected_registry_name))
 
 
-def _build_rigid_object(registry_name: str) -> Object:
-    """Build the registered rigid object ``registry_name``."""
+def _assert_registered_rigid_object(registry_name: str) -> None:
+    """Check, without building it, that ``registry_name`` is registered and not declared as another object type.
+
+    Args:
+        registry_name: Registry name of the asset.
+    """
     asset_registry = AssetRegistry()
     assert asset_registry.is_registered(
         registry_name
     ), f"'{registry_name}' is not a registered asset. Use the registry name of a rigid object."
     asset_class_or_factory = asset_registry.get_asset_by_name(registry_name)
-    # Check a declared type before building the asset, which for a wrong name can open or download its USD. Library
-    # object classes and register_asset_factory functions declare one.
+    # LibraryObject subclasses and register_asset_factory functions declare an object type. _build_rigid_object
+    # checks the type of any other asset once a build selects it.
     declared_object_type = getattr(asset_class_or_factory, "object_type", None)
     if declared_object_type is not None:
         _assert_rigid_object_type(registry_name, asset_class_or_factory.__name__, declared_object_type)
-    candidate_asset = asset_class_or_factory()
+
+
+def _build_rigid_object(registry_name: str) -> Object:
+    """Build the registered rigid object ``registry_name``."""
+    asset = AssetRegistry().get_asset_by_name(registry_name)()
     # Classes such as ProceduralCube set their object type only in __init__. Assets that are not objects, such as
     # embodiments, have none, so they are built before this check rejects them.
-    _assert_rigid_object_type(
-        registry_name, type(candidate_asset).__name__, getattr(candidate_asset, "object_type", None)
-    )
-    return candidate_asset
+    _assert_rigid_object_type(registry_name, type(asset).__name__, getattr(asset, "object_type", None))
+    return asset
 
 
 def _assert_rigid_object_type(registry_name: str, asset_class_name: str, object_type: ObjectType | None) -> None:
