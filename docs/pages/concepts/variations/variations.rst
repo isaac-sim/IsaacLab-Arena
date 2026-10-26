@@ -229,11 +229,12 @@ environments:
 .. literalinclude:: ../../../../isaaclab_arena_environments/experiment_configs/asset_selection_experiment.yaml
    :language: yaml
 
-Every rigid ``Object`` has a disabled ``asset_selection`` variation, for example the
-``pick_up_object`` of ``pick_and_place_maple_table``. While it is off, the object spawns its own
-asset. When it is on, each build chooses one name from ``registry_names``, and every parallel
+Every rigid ``Object`` except a ``RigidObjectSet`` has a disabled ``asset_selection`` variation, for
+example the ``pick_up_object`` of ``pick_and_place_maple_table``. While it is off, the object spawns
+its own asset. When it is on, each build chooses one name from ``registry_names``, and every parallel
 environment of that build spawns that asset. For different objects in the
-environments of one build, use a :doc:`RigidObjectSet <../scene/concept_rigid_object_set>`.
+environments of one build, use a :doc:`RigidObjectSet <../scene/concept_rigid_object_set>`. A set
+spawns its own members, so it has no ``asset_selection``.
 
 With more rebuilds than entries, the order starts over after the last entry. The seed does not change
 this order. With ``random_choice: true``, each build instead draws a name at random, seeded from

@@ -146,15 +146,23 @@ def _test_rigid_objects_have_disabled_asset_selection(simulation_app):
     import isaaclab.sim as sim_utils
 
     from isaaclab_arena.assets.object import Object
+    from isaaclab_arena.assets.object_set import RigidObjectSet
     from isaaclab_arena.assets.object_type import ObjectType
     from isaaclab_arena.assets.registries import AssetRegistry
 
     # A rigid Object, even one outside the object library, has a disabled selection.
-    cube = Object(name="cube", object_type=ObjectType.RIGID, spawner_cfg=sim_utils.CuboidCfg(size=(0.1, 0.1, 0.1)))
+    cube = Object(
+        name="cube",
+        object_type=ObjectType.RIGID,
+        spawner_cfg=sim_utils.CuboidCfg(size=(0.1, 0.1, 0.1), rigid_props=sim_utils.RigidBodyPropertiesCfg()),
+    )
     assert not cube.get_variation("asset_selection").enabled
     # A registered library object that is not rigid has none.
     ground_plane = AssetRegistry().get_asset_by_name("ground_plane")()
     assert "asset_selection" not in ground_plane.variations
+    # A RigidObjectSet spawns its own members, so it has none.
+    cube_set = RigidObjectSet(name="cube_set", objects=[cube])
+    assert "asset_selection" not in cube_set.variations
     return True
 
 
