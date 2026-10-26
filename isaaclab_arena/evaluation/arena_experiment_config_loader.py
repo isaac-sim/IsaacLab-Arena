@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 from dataclasses import replace
 from importlib import import_module
+from importlib.metadata import entry_points
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -103,19 +104,21 @@ def _registered_environment_cfg_types() -> dict[str, type[ArenaEnvironmentCfg]]:
 
 
 def _resolve_policy_cfg_type_from_name_or_class_path(policy_name_or_class_path: str) -> type[PolicyCfg]:
-    """Return the config type for a registered policy name or dotted class path."""
+    """Return the config type for a registered name, policy entry point, or dotted class path."""
     from isaaclab_arena.assets.registries import PolicyRegistry
 
     registry = PolicyRegistry()
-    # Optional policy packages are imported only when their short names are selected.
-    if policy_name_or_class_path in {"vlm_step", "vlm_chunk", "vlm_goal"}:
-        import_module("isaaclab_arena_vlm_agent.vlm_agent_policy")
     if registry.is_registered(policy_name_or_class_path):
         policy_type = registry.get_policy(policy_name_or_class_path)
-    else:
-        assert (
-            "." in policy_name_or_class_path
-        ), f"Policy type must be a registered name or dotted Python class path, got {policy_name_or_class_path!r}"
+    elif "." in policy_name_or_class_path:
         module_path, class_name = policy_name_or_class_path.rsplit(".", 1)
         policy_type = getattr(import_module(module_path), class_name)
+    else:
+        matches = entry_points(group="isaaclab_arena.policies", name=policy_name_or_class_path)
+        assert len(matches) == 1, (
+            f"Expected one policy entry point for {policy_name_or_class_path!r}, found {len(matches)}. "
+            "Install the policy package or use a dotted Python class path."
+        )
+        (entry_point,) = matches
+        policy_type = entry_point.load()
     return registry.get_policy_cfg_type(policy_type)
