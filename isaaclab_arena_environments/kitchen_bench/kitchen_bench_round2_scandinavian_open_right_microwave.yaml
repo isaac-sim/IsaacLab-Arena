@@ -16,6 +16,7 @@ background:
   registry_name: lightwheel_kitchen_l_shaped_scandinavian
   params:
     collision_mode: mesh
+    # Preserve room concavities; convex-hull repair would fill free workspace.
     repair_collision_mesh_non_watertight: false
 objects: []
 object_references:
@@ -69,9 +70,6 @@ task:
       openable_object: microwave
       openness_threshold: 0.25
       reset_openness: 0.0
-      episode_length_s: 70.0
-env_cfg_override:
-  sim:
-    render_interval: 8
 placer_params:
+  # Fail placement if no layout passes validation instead of using a rejected layout.
   allow_best_loss_fallbacks: false

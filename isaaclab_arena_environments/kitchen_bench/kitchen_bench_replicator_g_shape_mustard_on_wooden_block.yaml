@@ -103,11 +103,7 @@ task:
       destination_location: wooden_block
       destination_object: wooden_block
       background_scene: kitchen
-      episode_length_s: 70.0
 
-# Render once per DROID control step (8 physics steps).
-env_cfg_override:
-  sim:
-    render_interval: 8
 placer_params:
+  # Fail placement if no layout passes validation instead of using a rejected layout.
   allow_best_loss_fallbacks: false

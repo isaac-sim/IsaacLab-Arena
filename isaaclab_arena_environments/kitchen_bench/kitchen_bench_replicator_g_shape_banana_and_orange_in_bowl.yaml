@@ -124,19 +124,14 @@ task:
       destination_location: wooden_bowl
       destination_object: wooden_bowl
       background_scene: kitchen
-      episode_length_s: 70.0
   - kind: PickAndPlaceTask
     params:
       pick_up_object: orange
       destination_location: wooden_bowl
       destination_object: wooden_bowl
       background_scene: kitchen
-      episode_length_s: 70.0
 
-# Render once per DROID control step (8 physics steps).
-env_cfg_override:
-  sim:
-    render_interval: 8
 
 placer_params:
+  # Fail placement if no layout passes validation instead of using a rejected layout.
   allow_best_loss_fallbacks: false
