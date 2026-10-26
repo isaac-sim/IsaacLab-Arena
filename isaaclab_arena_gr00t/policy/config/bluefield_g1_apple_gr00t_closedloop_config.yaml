@@ -1,0 +1,37 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Closed-loop GR00T policy config for the bluefield G1 apple-to-plate task.
+#
+# Mirrors g1_static_apple_gr00t_closedloop_config.yaml; the differences are the two-camera rig and
+# the matching modality config. The model is finetuned from nvidia/GR00T-N1.7-3B on the dataset
+# generated for the Bluefield task.
+language_instruction: "move the apple to the plate"
+
+# Must match the diffusion head's action_horizon baked into the finetuned checkpoint, i.e. the
+# action modality's `delta_indices=list(range(N))` in
+# isaaclab_arena_gr00t/embodiments/g1/bluefield_g1_sim_wbc_2cam_data_config.py.
+# Change one and you must change the other.
+action_horizon: 40
+
+embodiment_tag: NEW_EMBODIMENT
+
+video_backend: decord
+modality_config_path: isaaclab_arena_gr00t/embodiments/g1/bluefield_g1_sim_wbc_2cam_data_config.py
+
+policy_joints_config_path: isaaclab_arena_gr00t/embodiments/g1/gr00t_43dof_joint_space.yaml
+action_joints_config_path: isaaclab_arena_gr00t/embodiments/g1/43dof_joint_space.yaml
+state_joints_config_path: isaaclab_arena_gr00t/embodiments/g1/43dof_joint_space.yaml
+
+# Number of actions the server emits per chunk; <= action_horizon.
+action_chunk_length: 40
+
+# Order must match the video modality_keys in the modality config above
+# (ego_view, left_wrist_view). The right wrist camera is recorded but not trained on.
+pov_cam_name_sim:
+  - "robot_head_cam_rgb"
+  - "left_wrist_cam_rgb"
+
+task_mode_name: g1_locomanipulation

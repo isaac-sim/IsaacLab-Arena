@@ -1,0 +1,70 @@
+# Copyright (c) 2026, The Isaac Lab Arena Project Developers (https://github.com/isaac-sim/IsaacLab-Arena/blob/main/CONTRIBUTORS.md).
+# All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Gr00tDatasetConfig for the bluefield G1 apple-to-plate task, converting the dataset written by
+# isaaclab_arena_examples/bluefield/generate_scripted_demos.py with cameras enabled.
+#
+# Same embodiment as g1_static_apple_config.yaml, so the joint-space and info templates are reused;
+# only the paths and the cameras differ. Exports the ego and left wrist views -- the replay records a
+# right wrist camera too, but the right arm never participates in this task so that view carries no
+# signal. Pair with embodiments/g1/bluefield_g1_sim_wbc_2cam_data_config.py.
+
+data_root: "datasets/bluefield_g1_gr00t"
+language_instruction: "move the apple to the plate"
+task_index: 3
+
+hdf5_name: "bluefield_g1_apple_replayed_with_camera.hdf5"
+
+# HDF5 datafield names (schema written by ArenaEnvRecorderManagerCfg)
+state_name_sim: "robot_joint_pos"
+left_eef_pos_name_sim: "left_eef_pos"
+left_eef_quat_name_sim: "left_eef_quat"
+right_eef_pos_name_sim: "right_eef_pos"
+right_eef_quat_name_sim: "right_eef_quat"
+teleop_base_height_command_name_sim: "base_height_cmd"
+teleop_navigate_command_name_sim: "navigate_cmd"
+teleop_torso_orientation_rpy_command_name_sim: "torso_orientation_rpy_cmd"
+action_name_sim: "processed_actions"
+
+# HDF5 camera_obs key -> LeRobot video key.
+cameras:
+  robot_head_cam_rgb: "observation.images.ego_view"
+  left_wrist_cam_rgb: "observation.images.left_wrist_view"
+
+# Gr00t-LeRobot datafield names
+state_name_lerobot: "observation.state"
+action_name_lerobot: "action"
+action_eef_name_sim: "action.eef"
+task_description_lerobot: "annotation.human.task_description"
+
+# Parquet configuration
+chunks_size: 1000
+
+# Video configuration. 50 Hz matches the sim: dt 0.005 * decimation 4.
+fps: 50
+
+# File path templates
+data_path: "data/chunk-{episode_chunk:03d}/episode_{episode_index:06d}.parquet"
+video_path: "videos/chunk-{episode_chunk:03d}/{video_key}/episode_{episode_index:06d}.mp4"
+
+# Configuration file paths
+modality_template_path: "isaaclab_arena_gr00t/embodiments/g1/bluefield_g1_modality_2cam.json"
+modality_fname: "modality.json"
+episodes_fname: "episodes.jsonl"
+tasks_fname: "tasks.jsonl"
+info_template_path: "isaaclab_arena_gr00t/embodiments/g1/info.json"
+info_fname: "info.json"
+
+# policy specific parameters (gr00t demonstration data stored in lerobot format)
+policy_joints_config_path: "isaaclab_arena_gr00t/embodiments/g1/gr00t_43dof_joint_space.yaml"
+robot_type: "unitree_g1"
+
+# Robot simulation specific parameters
+action_joints_config_path: "isaaclab_arena_gr00t/embodiments/g1/43dof_joint_space.yaml"
+state_joints_config_path: "isaaclab_arena_gr00t/embodiments/g1/43dof_joint_space.yaml"
+
+# Image configuration (height, width, channels)
+original_image_size: [270, 480, 3]
+target_image_size: [270, 480, 3]

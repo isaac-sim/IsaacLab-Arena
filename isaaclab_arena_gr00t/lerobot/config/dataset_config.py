@@ -52,6 +52,16 @@ class Gr00tDatasetConfig:
     pov_cam_name_sim: str = field(
         default="robot_head_cam", metadata={"description": "Name of the POV camera in the HDF5 file."}
     )
+    cameras: dict[str, str] | None = field(
+        default=None,
+        metadata={
+            "description": (
+                "Optional multi-camera map, HDF5 camera_obs key -> LeRobot video key, e.g."
+                " {robot_head_cam_rgb: observation.images.ego_view}. When unset, the single"
+                " pov_cam_name_sim -> video_name_lerobot pair is used."
+            )
+        },
+    )
     # Gr00t-LeRobot datafield
     state_name_lerobot: str = field(
         default="observation.state", metadata={"description": "Name of the state in the LeRobot file."}
@@ -178,11 +188,15 @@ class Gr00tDatasetConfig:
         if self.action_eef_name_sim:
             self.hdf5_keys["action_eef_pose"] = self.action_eef_name_sim
 
+        # HDF5 camera_obs key -> LeRobot video key. A single-camera config keeps working unchanged;
+        # ``cameras`` overrides it when a dataset carries more than one view.
+        self.camera_map = dict(self.cameras) if self.cameras else {self.pov_cam_name_sim: self.video_name_lerobot}
+
         # Prepare data keys for LeRobot file
         self.lerobot_keys = {
             "state": self.state_name_lerobot,
             "action": self.action_name_lerobot,
-            "video": self.video_name_lerobot,
+            "video": next(iter(self.camera_map.values())),
             "annotation": (self.task_description_lerobot,),
         }
         if "left_eef_pos" in self.hdf5_keys:

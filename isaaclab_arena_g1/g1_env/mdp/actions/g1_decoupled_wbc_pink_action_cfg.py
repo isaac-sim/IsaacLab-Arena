@@ -44,3 +44,6 @@ class G1DecoupledWBCPinkActionCfg(G1DecoupledWBCJointActionCfg):
     # leaving them under PINK IK control gives the arms more reach).
     upperbody_active_joint_groups: list[str] = ["arms"]
     upperbody_extra_active_joints: list[str] = []
+
+    posture_rest_pose: dict[str, float | dict[str, float]] | None = None
+    """Optional posture-task joint targets in radians; None retains the model default pose."""

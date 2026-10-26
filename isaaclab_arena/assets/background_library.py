@@ -3,6 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from pathlib import Path
 from typing import Any
 
 import isaaclab.sim as sim_utils
@@ -117,6 +118,24 @@ class GalileoLocomanipBackground(LibraryBackground):
     def __init__(self, **kwargs):
         # NOTE: The dolly in the scene is authored as an articulation root but is not materialized as a PhysX articulation.
         super().__init__(reset_nested_physics=False, **kwargs)
+
+
+@register_asset
+class BluefieldReconBackground(LibraryBackground):
+    """Bluefield NuRec reconstruction with a table collider and separately spawned foreground objects."""
+
+    name = "bluefield_recon"
+    tags = ["background", "reconstruction"]
+    # Absolute path derived from the repo root so it resolves regardless of the process CWD.
+    usd_path = str(
+        Path(__file__).resolve().parents[2]
+        / "datasets"
+        / "assets"
+        / "bluefield_recon"
+        / "Bluefield_recon_background.usdz"
+    )
+    initial_pose = Pose.identity()
+    object_min_z = -0.2
 
 
 @register_asset
