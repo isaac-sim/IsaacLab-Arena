@@ -389,32 +389,6 @@ def test_unknown_experiment_config_file_type_is_rejected(tmp_path):
         validate_experiment_config_path(config_path)
 
 
-def test_policy_config_type_resolves_from_package_entry_point(monkeypatch):
-    from importlib.metadata import EntryPoint, EntryPoints
-    from unittest.mock import Mock
-
-    discovered = Mock(
-        return_value=EntryPoints([
-            EntryPoint(
-                name="external_policy",
-                value="isaaclab_arena.policy.zero_action_policy:ZeroActionPolicy",
-                group="isaaclab_arena.policies",
-            )
-        ])
-    )
-    monkeypatch.setattr(arena_experiment_config_loader, "entry_points", discovered)
-    cfg_type = arena_experiment_config_loader._resolve_policy_cfg_type_from_name_or_class_path("external_policy")
-    assert cfg_type is ZeroActionPolicyCfg
-    discovered.assert_called_once_with(group="isaaclab_arena.policies", name="external_policy")
-
-
-@pytest.mark.parametrize("count", [0, 2])
-def test_policy_entry_point_must_be_unambiguous(monkeypatch, count):
-    from unittest.mock import Mock
-
-    entries = [Mock() for _ in range(count)]
-    monkeypatch.setattr(arena_experiment_config_loader, "entry_points", Mock(return_value=entries))
-    with pytest.raises(AssertionError, match=f"found {count}"):
-        arena_experiment_config_loader._resolve_policy_cfg_type_from_name_or_class_path("external_policy")
-    for entry in entries:
-        entry.load.assert_not_called()
+def test_unregistered_policy_name_requires_a_class_path():
+    with pytest.raises(AssertionError, match="Use a dotted Python class path"):
+        arena_experiment_config_loader._resolve_policy_cfg_type_from_name_or_class_path("unregistered_policy")

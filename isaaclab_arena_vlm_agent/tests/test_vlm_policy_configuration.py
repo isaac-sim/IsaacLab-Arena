@@ -223,8 +223,8 @@ def test_invalid_flat_settings(options):
         VLMChunkPolicyCfg(**{"chunk_size": 2, **options})
 
 
-@pytest.mark.parametrize("name", ["vlm_step", "vlm_chunk", "vlm_goal"])
-def test_short_policy_name_is_discovered_in_fresh_process(name):
+@pytest.mark.parametrize("class_name", ["VLMStepPolicy", "VLMChunkPolicy", "VLMGoalPolicy"])
+def test_policy_class_path_loads_in_fresh_process(class_name):
     import subprocess
     import sys
 
@@ -237,7 +237,7 @@ def test_short_policy_name_is_discovered_in_fresh_process(name):
                 "from isaaclab_arena.evaluation.arena_experiment_config_loader "
                 "import _resolve_policy_cfg_type_from_name_or_class_path as resolve; "
                 "assert 'isaaclab_arena_vlm_agent.vlm_agent_policy' not in sys.modules; "
-                f"cfg = resolve({name!r}); "
+                f"cfg = resolve('isaaclab_arena_vlm_agent.vlm_agent_policy.{class_name}'); "
                 "assert cfg.__module__ == 'isaaclab_arena_vlm_agent.vlm_agent_policy'"
             ),
         ],

@@ -40,12 +40,6 @@ dependencies = [
     "pandas==2.2.3",
 ]
 
-# Optional policies are imported only when their entry-point name is selected.
-[project.entry-points."isaaclab_arena.policies"]
-vlm_step = "isaaclab_arena_vlm_agent.vlm_agent_policy:VLMStepPolicy"
-vlm_chunk = "isaaclab_arena_vlm_agent.vlm_agent_policy:VLMChunkPolicy"
-vlm_goal = "isaaclab_arena_vlm_agent.vlm_agent_policy:VLMGoalPolicy"
-
 [project.optional-dependencies]
 dev = [
     "jupyter",
