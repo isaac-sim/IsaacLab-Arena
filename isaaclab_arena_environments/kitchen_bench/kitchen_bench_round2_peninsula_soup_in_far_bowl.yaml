@@ -18,44 +18,32 @@ background:
 objects:
 - id: soup
   registry_name: alphabet_soup_can_hope_robolab
-  params: {}
 - id: near_bowl
   registry_name: bowl_ycb_robolab
   params:
-    scale:
-    - 1.25
-    - 1.25
-    - 1.0
+    scale: [1.25, 1.25, 1.0]
 - id: far_bowl
   registry_name: bowl_ycb_robolab
   params:
-    scale:
-    - 1.25
-    - 1.25
-    - 1.0
+    scale: [1.25, 1.25, 1.0]
 object_references:
 - id: floor
   parent_id: kitchen
   prim_path: KitchenRoom/Floor
   object_type: base
-  params: {}
 - id: island_top
   parent_id: kitchen
   prim_path: CapSurface_02
   object_type: base
-  params: {}
 # Sample within alignment bands instead of pulling each layout to a single offset.
 relations:
 - kind: is_anchor
   subject: floor
-  params: {}
 - kind: is_anchor
   subject: island_top
-  params: {}
 - kind: 'on'
   subject: droid
   reference: floor
-  params: {}
 - kind: align_with
   subject: droid
   reference: island_top
@@ -69,15 +57,12 @@ relations:
     yaw_rad: -1.57
 - kind: 'on'
   subject: soup
-  params: {}
   reference: island_top
 - kind: 'on'
   subject: near_bowl
-  params: {}
   reference: island_top
 - kind: 'on'
   subject: far_bowl
-  params: {}
   reference: island_top
 - kind: position_limits_box
   subject: near_bowl

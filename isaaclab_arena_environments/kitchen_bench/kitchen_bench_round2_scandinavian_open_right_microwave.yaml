@@ -16,15 +16,12 @@ background:
   registry_name: lightwheel_kitchen_l_shaped_scandinavian
   params:
     collision_mode: mesh
-    # Preserve room concavities; convex-hull repair would fill free workspace.
-    repair_collision_mesh_non_watertight: false
 objects: []
 object_references:
 - id: floor
   parent_id: kitchen
   prim_path: floor_room/geometry
   object_type: base
-  params: {}
 - id: microwave
   parent_id: kitchen
   prim_path: microwave_right_group
@@ -35,14 +32,11 @@ object_references:
 relations:
 - kind: is_anchor
   subject: floor
-  params: {}
 - kind: is_anchor
   subject: microwave
-  params: {}
 - kind: 'on'
   subject: droid
   reference: floor
-  params: {}
 - kind: align_with
   subject: droid
   reference: microwave

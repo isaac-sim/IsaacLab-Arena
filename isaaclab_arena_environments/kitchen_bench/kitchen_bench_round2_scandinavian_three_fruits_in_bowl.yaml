@@ -16,47 +16,34 @@ background:
   registry_name: lightwheel_kitchen_l_shaped_scandinavian
   params:
     collision_mode: mesh
-    # Preserve room concavities; convex-hull repair would fill free workspace.
-    repair_collision_mesh_non_watertight: false
 objects:
 - id: lime
   registry_name: lime01_fruits_veggies_robolab
-  params: {}
 - id: lemon
   registry_name: lemon_02_fruits_veggies_robolab
-  params: {}
 - id: apple
   registry_name: apple_02_objaverse_robolab
-  params: {}
 - id: wooden_bowl
   registry_name: wooden_bowl_hot3d_robolab
   params:
-    scale:
-    - 1.15
-    - 1.15
-    - 0.6
+    scale: [1.15, 1.15, 0.6]
 object_references:
 - id: floor
   parent_id: kitchen
   prim_path: floor_room/geometry
   object_type: base
-  params: {}
 - id: counter_top
   parent_id: kitchen
   prim_path: counter_main_main_group/top_geometry_right
   object_type: base
-  params: {}
 # Sample within alignment bands instead of pulling each layout to a single offset.
 relations:
 - kind: is_anchor
   subject: floor
-  params: {}
 - kind: is_anchor
   subject: counter_top
-  params: {}
 - kind: 'on'
   subject: droid
-  params: {}
   reference: floor
 - kind: align_with
   subject: droid
@@ -71,19 +58,15 @@ relations:
     yaw_rad: 1.57
 - kind: 'on'
   subject: lime
-  params: {}
   reference: counter_top
 - kind: 'on'
   subject: lemon
-  params: {}
   reference: counter_top
 - kind: 'on'
   subject: apple
-  params: {}
   reference: counter_top
 - kind: 'on'
   subject: wooden_bowl
-  params: {}
   reference: counter_top
 - kind: position_limits_box
   subject: wooden_bowl

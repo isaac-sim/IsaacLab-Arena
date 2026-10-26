@@ -17,14 +17,12 @@ background:
   registry_name: lightwheel_kitchen_u_shaped_with_island_farmhouse2
   params:
     collision_mode: mesh
-    repair_collision_mesh_non_watertight: false
 objects: []
 object_references:
 - id: floor
   parent_id: kitchen
   prim_path: floor_room/geometry
   object_type: base
-  params: {}
 - id: cabinet
   parent_id: kitchen
   prim_path: cab_main_main_group
@@ -35,29 +33,22 @@ object_references:
   parent_id: kitchen
   prim_path: shelves_main_group/corpus/board_0
   object_type: base
-  params: {}
 - id: counter_top
   parent_id: kitchen
   prim_path: counter_main_main_group/top_geometry_right
   object_type: base
-  params: {}
 relations:
 - kind: is_anchor
   subject: floor
-  params: {}
 - kind: is_anchor
   subject: cabinet
-  params: {}
 - kind: is_anchor
   subject: shelf
-  params: {}
 - kind: is_anchor
   subject: counter_top
-  params: {}
 - kind: 'on'
   subject: droid
   reference: floor
-  params: {}
 - kind: next_to
   subject: droid
   reference: counter_top
