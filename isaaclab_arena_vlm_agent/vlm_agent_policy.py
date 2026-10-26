@@ -24,7 +24,7 @@ from isaaclab_arena.assets.register import register_policy
 from isaaclab_arena.inference.backend import MAX_RETRIES_LIMIT, InferenceBackend, InferenceRequest, build_strict_schema
 from isaaclab_arena.policy.policy_base import PolicyBase, PolicyCfg
 from isaaclab_arena_vlm_agent.action_adapter import AgentActionAdapter, ChunkActionAdapter, GoalActionAdapter
-from isaaclab_arena_vlm_agent.image_utils import image_to_jpeg_data_url
+from isaaclab_arena_vlm_agent.image_utils import image_to_jpeg_data_url, resize_camera_geometry
 from isaaclab_arena_vlm_agent.observation_adapter import (
     ImageObservationAdapter,
     ImageStateObservationAdapter,
@@ -256,12 +256,9 @@ class VLMPolicy(PolicyBase[VLMPolicyCfg]):
             url, size = image_to_jpeg_data_url(image, self.config.image_max_width_or_height)
             encoded_images[camera_name] = url
             if camera_name in prompt_values.get("camera_geometry", {}):
-                geometry = prompt_values["camera_geometry"][camera_name]
-                intrinsics = np.array(geometry["intrinsic_matrix"], dtype=float)
-                intrinsics[0] *= size[0] / image.shape[1]
-                intrinsics[1] *= size[1] / image.shape[0]
-                geometry["intrinsic_matrix"] = intrinsics.tolist()
-                geometry["image_size_px"] = list(size)
+                resize_camera_geometry(
+                    prompt_values["camera_geometry"][camera_name], (image.shape[1], image.shape[0]), size
+                )
         content = [{"type": "text", "text": json.dumps({"task": self.task_description})}]
         if prompt_values:
             content.append({"type": "text", "text": json.dumps(prompt_values, allow_nan=False)})
