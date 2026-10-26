@@ -17,6 +17,8 @@ VARIATION_NAME = f"camera_intrinsics_{CAMERA_NAME}"
 EVENT_NAME = f"{CAMERA_NAME}_intrinsics_variation"
 # (d_fx, d_fy); distinct signs catch axis/sign swaps.
 TEST_DELTAS = (0.1, -0.1)
+# Empirical settling allowance for robot motion and temporal rendering after reset, not a renderer requirement.
+STEPS_BEFORE_IMAGE_COMPARISON = 12
 
 
 def get_test_environment(*, camera_intrinsics_variation_enabled: bool):
@@ -81,10 +83,10 @@ def _test_disabled_camera_intrinsics_variation_keeps_tiled_camera(simulation_app
     args_cli = get_isaaclab_arena_cli_parser().parse_args(["--num_envs", "1", "--enable_cameras"])
     env_cfg, _ = ArenaEnvBuilder(arena_env, arena_env_builder_cfg_from_argparse(args_cli)).build_env_cfg()
 
-    from isaaclab_arena.utils.isaaclab_utils.separate_camera_renderer import SeparateCameraRenderer
+    from isaaclab_arena.utils.isaaclab_utils.untiled_isaac_rtx_renderer import UnTiledIsaacRtxRenderer
 
     for name in arena_env.embodiment.camera_config.camera_names():
-        assert getattr(env_cfg.scene, name).renderer_cfg.class_type is not SeparateCameraRenderer
+        assert getattr(env_cfg.scene, name).renderer_cfg.class_type is not UnTiledIsaacRtxRenderer
     camera_cfg = getattr(env_cfg.scene, CAMERA_NAME)
     assert isinstance(camera_cfg, TiledCameraCfg), (
         "With the intrinsics variation disabled, the camera should keep the embodiment's "
@@ -102,16 +104,16 @@ def _test_enabled_camera_intrinsics_variation_forces_untiled_camera(simulation_a
     arena_env = get_test_environment(camera_intrinsics_variation_enabled=True)
     rig = arena_env.embodiment.camera_config
     original_renderer = rig.wrist_camera.renderer_cfg.class_type
+    # Use a nondefault value to verify renderer settings survive camera-config conversion.
     rig.wrist_camera.renderer_cfg.global_settings.samples_per_pixel = 4
     args_cli = get_isaaclab_arena_cli_parser().parse_args(["--num_envs", "1", "--enable_cameras"])
     env_cfg, _ = ArenaEnvBuilder(arena_env, arena_env_builder_cfg_from_argparse(args_cli)).build_env_cfg()
 
-    from isaaclab_arena.utils.isaaclab_utils.separate_camera_renderer import SeparateCameraRenderer
+    from isaaclab_arena.utils.isaaclab_utils.untiled_isaac_rtx_renderer import UnTiledIsaacRtxRenderer
 
     for name in arena_env.embodiment.camera_config.camera_names():
         camera_cfg = getattr(env_cfg.scene, name)
-        assert camera_cfg.renderer_cfg.class_type is SeparateCameraRenderer
-        assert not isinstance(camera_cfg, TiledCameraCfg)
+        assert camera_cfg.renderer_cfg.class_type is UnTiledIsaacRtxRenderer
     camera_cfg = getattr(env_cfg.scene, CAMERA_NAME)
     assert isinstance(camera_cfg, CameraCfg) and not isinstance(camera_cfg, TiledCameraCfg), (
         "Enabling the intrinsics variation must force the camera untiled so per-env "
@@ -119,6 +121,7 @@ def _test_enabled_camera_intrinsics_variation_forces_untiled_camera(simulation_a
     )
     assert rig.wrist_camera.renderer_cfg.class_type == original_renderer
     assert camera_cfg.renderer_cfg.global_settings.samples_per_pixel == 4
+    # Mutating the generated config must not change the source rig: it is a deep copy.
     camera_cfg.renderer_cfg.global_settings.samples_per_pixel = 8
     assert rig.wrist_camera.renderer_cfg.global_settings.samples_per_pixel == 4
     with pytest.raises(AssertionError, match="source camera rig"):
@@ -126,9 +129,9 @@ def _test_enabled_camera_intrinsics_variation_forces_untiled_camera(simulation_a
     rig.set_use_tiled_camera(True)
     tiled = rig.get_cfg()
     assert isinstance(tiled.wrist_camera, TiledCameraCfg)
-    assert tiled.wrist_camera.renderer_cfg.class_type is not SeparateCameraRenderer
+    assert tiled.wrist_camera.renderer_cfg.class_type is not UnTiledIsaacRtxRenderer
     rig.set_use_tiled_camera(False)
-    assert rig.get_cfg().wrist_camera.renderer_cfg.class_type is SeparateCameraRenderer
+    assert rig.get_cfg().wrist_camera.renderer_cfg.class_type is UnTiledIsaacRtxRenderer
     return True
 
 
@@ -155,7 +158,7 @@ def _test_camera_intrinsics_variation_realized_at_runtime(simulation_app):
     return True
 
 
-def _test_camera_intrinsics_variation_changes_only_selected_images(simulation_app):
+def _test_camera_intrinsics_variation_renders_independently_per_env(simulation_app):
     import torch
 
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
@@ -185,7 +188,7 @@ def _test_camera_intrinsics_variation_changes_only_selected_images(simulation_ap
         actions[:, :7] = base.scene["robot"].data.default_joint_pos[:, :7]
 
         def step_and_capture():
-            for _ in range(12):
+            for _ in range(STEPS_BEFORE_IMAGE_COMPARISON):
                 observations, _, terminated, truncated, _ = env.step(actions)
                 assert not (terminated | truncated).any(), "The capture must not trigger an automatic reset"
             return observations["camera_obs"][f"{CAMERA_NAME}_rgb"].float().clone()
@@ -264,14 +267,14 @@ def test_camera_intrinsics_variation_realized_at_runtime():
 
 @pytest.mark.with_cameras
 @pytest.mark.with_subprocess
-def test_camera_intrinsics_variation_changes_only_selected_images():
+def test_camera_intrinsics_variation_renders_independently_per_env():
     run_subprocess([
         TestConstants.python_path,
         "-c",
         (
             "from isaaclab_arena.tests.test_camera_intrinsics_variation import "
-            "_run_camera_intrinsics_test, _test_camera_intrinsics_variation_changes_only_selected_images; "
-            "_run_camera_intrinsics_test(_test_camera_intrinsics_variation_changes_only_selected_images)"
+            "_run_camera_intrinsics_test, _test_camera_intrinsics_variation_renders_independently_per_env; "
+            "_run_camera_intrinsics_test(_test_camera_intrinsics_variation_renders_independently_per_env)"
         ),
     ])
 

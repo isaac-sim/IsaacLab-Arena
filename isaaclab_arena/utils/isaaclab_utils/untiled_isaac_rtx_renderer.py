@@ -22,7 +22,7 @@ if TYPE_CHECKING:
     from isaaclab.sensors.camera.camera_data import CameraData
 
 
-class SeparateCameraRenderer(IsaacRtxRenderer):
+class UnTiledIsaacRtxRenderer(IsaacRtxRenderer):
     """Render RGB cameras independently and write into the usual batched buffers."""
 
     def supported_output_types(self):
@@ -92,7 +92,7 @@ def assert_camera_cfg_compatible_with_independent_rendering(camera_cfg: CameraCf
     assert camera_cfg.renderer_cfg.class_type in (
         IsaacRtxRendererCfg().class_type,
         IsaacRtxRenderer,
-        SeparateCameraRenderer,
+        UnTiledIsaacRtxRenderer,
     ), "Untiled Arena cameras cannot replace a custom renderer"
     assert camera_cfg.data_types and set(camera_cfg.data_types) <= {
         "rgb",

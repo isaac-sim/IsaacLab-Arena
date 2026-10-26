@@ -26,8 +26,7 @@ class ArenaCameraCfg:
 
     CameraCfg configclasses subclass this and declare camera fields (as per usual). The get_cfg
     then returns a copy using tiled cameras by default. Setting ``use_tiled_camera=False``
-    selects independent RTX render products. Untiled rendering supports RGB/RGBA without ISP
-    or custom background colors and applies to every camera in the rig.
+    selects the untiled renderer.
     """
 
     # Backing flag; tiled by default. Kept as a ClassVar so it is not treated as a camera field; instances shadow it.
@@ -56,8 +55,8 @@ class ArenaCameraCfg:
         A copy is returned so callers may freely combine or mutate it without affecting this instance.
         Select tiling on the source rig before calling this method.
         """
-        from isaaclab_arena.utils.isaaclab_utils.separate_camera_renderer import (
-            SeparateCameraRenderer,
+        from isaaclab_arena.utils.isaaclab_utils.untiled_isaac_rtx_renderer import (
+            UnTiledIsaacRtxRenderer,
             assert_camera_cfg_compatible_with_independent_rendering,
         )
 
@@ -66,7 +65,7 @@ class ArenaCameraCfg:
         rig = self.copy()
         for name in rig.camera_names():
             camera_cfg = getattr(rig, name)
-            assert camera_cfg.renderer_cfg.class_type is not SeparateCameraRenderer, (
+            assert camera_cfg.renderer_cfg.class_type is not UnTiledIsaacRtxRenderer, (
                 "get_cfg() expects a source camera rig; change use_tiled_camera on the source rig, "
                 "not on the returned configuration"
             )
@@ -76,14 +75,15 @@ class ArenaCameraCfg:
                 cfg_type = TiledCameraCfg
             else:
                 assert_camera_cfg_compatible_with_independent_rendering(camera_cfg)
-                camera_cfg.renderer_cfg.class_type = SeparateCameraRenderer
+                camera_cfg.renderer_cfg.class_type = UnTiledIsaacRtxRenderer
                 if not isinstance(camera_cfg, TiledCameraCfg):
                     continue
                 cfg_type = CameraCfg
             # Rebuild the camera config with its settings intact; the target type supplies class_type.
-            init_fields = {
-                f.name: getattr(camera_cfg, f.name) for f in fields(camera_cfg) if f.init and f.name != "class_type"
-            }
+            init_fields = {}
+            for field in fields(camera_cfg):
+                if field.init and field.name != "class_type":
+                    init_fields[field.name] = getattr(camera_cfg, field.name)
             setattr(rig, name, cfg_type(**init_fields))
         return rig
 

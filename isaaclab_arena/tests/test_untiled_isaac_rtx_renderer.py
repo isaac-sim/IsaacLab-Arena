@@ -9,12 +9,12 @@ from isaaclab_arena.tests.utils.constants import TestConstants
 from isaaclab_arena.tests.utils.subprocess import run_subprocess
 
 
-def _test_separate_camera_renderer_produces_images_and_cleans_up(simulation_app):
+def _test_untiled_isaac_rtx_renderer_produces_images_and_cleans_up(simulation_app):
     import torch
 
     from isaaclab_arena.environments.arena_env_builder import ArenaEnvBuilder
     from isaaclab_arena.environments.arena_env_builder_cfg import ArenaEnvBuilderCfg
-    from isaaclab_arena.utils.isaaclab_utils.separate_camera_renderer import SeparateCameraRenderer
+    from isaaclab_arena.utils.isaaclab_utils.untiled_isaac_rtx_renderer import UnTiledIsaacRtxRenderer
     from isaaclab_arena_environments.pick_and_place_maple_table_environment import (
         PickAndPlaceMapleTableEnvironment,
         PickAndPlaceMapleTableEnvironmentCfg,
@@ -40,7 +40,7 @@ def _test_separate_camera_renderer_produces_images_and_cleans_up(simulation_app)
 
         cameras = [env.unwrapped.scene[name] for name in rig.camera_names()]
         renderer = cameras[0]._renderer
-        assert isinstance(renderer, SeparateCameraRenderer)
+        assert isinstance(renderer, UnTiledIsaacRtxRenderer)
         assert all(camera._renderer is renderer for camera in cameras)
         render_data = [camera._render_data for camera in cameras]
         products = [child.render_product.path for data in render_data for child in data]
@@ -62,7 +62,7 @@ def _test_separate_camera_renderer_produces_images_and_cleans_up(simulation_app)
 
 @pytest.mark.with_cameras
 @pytest.mark.with_subprocess
-def test_separate_camera_renderer_produces_images_and_cleans_up():
+def test_untiled_isaac_rtx_renderer_produces_images_and_cleans_up():
     run_subprocess([TestConstants.python_path, __file__])
 
 
@@ -73,4 +73,4 @@ if __name__ == "__main__":
     args_cli = get_isaaclab_arena_cli_parser().parse_args([])
     args_cli.enable_cameras = True
     with SimulationAppContext(args_cli) as simulation_app_context:
-        assert _test_separate_camera_renderer_produces_images_and_cleans_up(simulation_app_context.app_launcher.app)
+        assert _test_untiled_isaac_rtx_renderer_produces_images_and_cleans_up(simulation_app_context.app_launcher.app)
