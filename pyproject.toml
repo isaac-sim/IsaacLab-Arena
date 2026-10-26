@@ -45,6 +45,8 @@ dev = [
     "jupyter",
     "debugpy",
     "tenacity",
+    # cuRoboV2 uses cuda.core to compile its kernels at runtime against CUDA 13.
+    "nvidia-curobo[cu13]",
     # Placement debug visualization and its tests import the Rerun SDK directly.
     "rerun-sdk>=0.29.0",
     "streamlit>=1.56",
@@ -186,6 +188,7 @@ mujoco-usd-converter = { index = "pypi" }
 isaacteleop = { index = "pypi" }
 torch = { index = "pytorch-cu130" }
 torchvision = { index = "pytorch-cu130" }
+nvidia-curobo = { git = "https://github.com/NVlabs/curobo.git", rev = "78fd485fa82d9b9a063fb4985e371814587e666a" }
 gr00t = { path = "submodules/Isaac-GR00T", editable = true, group = "gr00t-client" }
 # The upstream development project and its Isaac Lab packages come editable
 # from the submodule checkout whenever the source group is active.

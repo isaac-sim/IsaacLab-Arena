@@ -56,12 +56,6 @@ RUN --mount=type=bind,source=docker/setup/install_isaaclab.sh,target=/tmp/instal
 # STAGE: arena-deps
 ################################
 FROM isaaclab AS arena-deps
-ARG CUROBO_COMMIT=78fd485fa82d9b9a063fb4985e371814587e666a
-RUN --mount=type=cache,target=/root/.cache/uv \
-    --mount=type=bind,source=docker/setup/repair_venv_permissions.sh,target=/tmp/repair_venv_permissions.sh \
-    uv pip install \
-    "nvidia-curobo[cu13] @ git+https://github.com/NVlabs/curobo.git@${CUROBO_COMMIT}" && \
-    bash /tmp/repair_venv_permissions.sh
 COPY ./submodules/Isaac-GR00T ${WORKDIR}/submodules/Isaac-GR00T
 RUN --mount=type=bind,source=pyproject.toml,target=/tmp/arena-project/pyproject.toml \
     --mount=type=bind,source=uv.lock,target=/tmp/arena-project/uv.lock \

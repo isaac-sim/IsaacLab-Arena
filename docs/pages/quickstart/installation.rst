@@ -24,7 +24,7 @@ or from source inside a Docker container.
      - ✓
      - ✓
      - ✓
-     - ✗
+     - ✓
 
 Supported Systems
 -----------------
@@ -59,12 +59,19 @@ Sync the environment and activate it:
 wheels at the versions pinned by the committed lockfile. The ``dev`` extra
 installs the Streamlit and SimReady search dependencies used by the
 :doc:`agentic environment generation workflow
-</pages/concepts/agentic_environment_generation/index>`.
+</pages/concepts/agentic_environment_generation/index>`, together with cuRoboV2
+and its CUDA 13 runtime dependencies.
 
 .. note::
-   Native ``uv`` installs do not include cuRobo, so :doc:`cuRobo-based reachability validation
-   </pages/concepts/object_placement/validation>` (the ``ik_reachable`` check)
-   is not available. The default Docker workflow includes cuRobo.
+   Native cuRobo requires an NVIDIA GPU and driver compatible with the CUDA 13
+   runtime. The first cuRobo operation compiles its kernels and can take longer
+   than subsequent operations.
+
+Confirm that the development environment contains cuRoboV2:
+
+.. code-block:: bash
+
+    python -c "import curobo; print(curobo.__version__)"
 
 Accept the Isaac Sim EULA so the first launch is non-interactive:
 
@@ -119,7 +126,7 @@ installation options.
 
 The container will build (if needed) and drop you into an interactive shell.
 The default image includes :doc:`cuRobo-based reachability validation
-</pages/concepts/object_placement/validation>`; native ``uv`` installs do not support this check.
+</pages/concepts/object_placement/validation>`.
 
 .. note::
    The run docker script mounts the following directories from the host machine if they exist:

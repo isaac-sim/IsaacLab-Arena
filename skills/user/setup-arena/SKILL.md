@@ -21,11 +21,10 @@ supported route:
 
 | Route | Use it when |
 |---|---|
-| Native uv | Default when `uv` is available; supports evaluation, imitation learning, reinforcement learning, and agentic environment generation. |
-| Docker | Use when requested, when the existing workflow is container-based, or when cuRobo reachability validation is required. |
+| Native uv | Default when `uv` is available; supports evaluation, imitation learning, reinforcement learning, agentic environment generation, and cuRobo reachability validation. |
+| Docker | Use when requested or when the existing workflow is container-based. |
 
-Do not silently switch routes. Native uv does not provide the optional cuRobo package; use the
-default Docker image for `ik_reachable` validation.
+Do not silently switch routes. Both routes provide cuRobo through Arena's `dev` extra.
 
 ## Preflight and confirmation
 
@@ -54,6 +53,9 @@ uv sync --extra dev
 ```
 
 Use `.venv/bin/python` for non-interactive commands.
+For cuRobo readiness, require an NVIDIA GPU and driver compatible with CUDA 13, then verify
+`import curobo` from `.venv/bin/python`. The first cuRobo operation compiles its kernels and may
+take longer than subsequent operations.
 
 Accept the Isaac Sim EULA for launch commands:
 

@@ -90,8 +90,8 @@ See the [documentation overview](https://isaac-sim.github.io/IsaacLab-Arena/rele
 git clone --recurse-submodules git@github.com:isaac-sim/IsaacLab-Arena.git
 cd IsaacLab-Arena
 
-# 2. Create the locked environment (Isaac Lab from source, plus the Isaac Sim, PyTorch, and Newton wheels)
-uv sync
+# 2. Create the locked developer environment (including Isaac Lab, Isaac Sim, and cuRoboV2)
+uv sync --extra dev
 
 # 3. Activate the environment and accept the Isaac Sim EULA
 source .venv/bin/activate

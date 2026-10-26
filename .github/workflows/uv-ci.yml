@@ -42,6 +42,7 @@ jobs:
               - '.github/workflows/uv-ci.yml'
               - 'pyproject.toml'
               - 'uv.lock'
+              - 'isaaclab_arena_curobo/**'
               - 'submodules/IsaacLab'
               - 'submodules/IsaacLab/**'
               - 'submodules/Isaac-GR00T'
@@ -150,6 +151,13 @@ jobs:
       # In-source full environment: sync the locked deps and run the sim suite.
       - name: Sync the locked environment
         run: uv sync --group gr00t-client --extra dev
+
+      - name: Run cuRobo unit tests
+        shell: bash
+        run: |
+          source .venv/bin/activate
+          MPLCONFIGDIR=/tmp/mpl pytest -sv --durations=0 -m curobo_deps \
+            isaaclab_arena_curobo/tests/
 
       - name: Run in-process Newton tests without cameras
         shell: bash
