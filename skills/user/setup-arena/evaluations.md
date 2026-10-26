@@ -52,8 +52,8 @@ Expected behavior:
   or creating one; verifies that path after the user provides it.
 - Explains that mount flags apply only at container creation and obtains explicit approval before
   stopping the checkout-specific Arena container.
-- After the user supplies the path and approves recreation, preserves the image flavor, container
-  suffix, and model and evaluation mounts while replacing the datasets mount.
+- After the user supplies the path and approves recreation, preserves the container suffix and model
+  and evaluation mounts while replacing the datasets mount.
 - Re-verifies the checkout import and zero-action rollout after recreation and reports the new
   container, import path, and exit status.
 
@@ -61,4 +61,4 @@ Known failure modes:
 
 - Claims the mount can be changed on the running container or merely reruns the launcher.
 - Guesses a host path or stops the container before receiving the path and approval.
-- Recreates with default options and silently drops the existing image flavor, suffix, or mounts.
+- Recreates with default options and silently drops the existing suffix or mounts.

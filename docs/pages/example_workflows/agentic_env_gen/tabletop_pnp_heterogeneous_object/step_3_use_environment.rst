@@ -2,8 +2,8 @@ Use the Generated Environment
 -----------------------------
 
 Once you are satisfied with the environment, you can use it to evaluate a policy on the environment.
-The base container runs the environment as it was generated. The cuRobo-installed container additionally
-gates object placement on whether the robot can reach the target objects.
+Native ``uv`` runs the environment without cuRobo reachability validation. The default Docker
+container includes cuRobo and gates object placement on whether the robot can reach the target objects.
 
 For example, you can use the policy runner to evaluate a PI policy on the
 environment. For other policy types, see
@@ -22,7 +22,7 @@ yourself, point ``--env_spec`` at ``isaaclab_arena_environments/agent_generated/
 
 .. tab-set::
 
-   .. tab-item:: Policy evaluation (without reachability validation)
+   .. tab-item:: Native uv (without reachability validation)
       :selected:
 
       Complete the shared :ref:`agentic-env-gen-prerequisites` before running this command.
@@ -38,20 +38,17 @@ yourself, point ``--env_spec`` at ``isaaclab_arena_environments/agent_generated/
             --env_spec isaaclab_arena_environments/maple_table_top/droid_pick_fruit_into_bowl_maple_table.yaml
 
 
-   .. tab-item:: Policy evaluation (with cuRobo-based reachability validation)
+   .. tab-item:: Docker (with cuRobo-based reachability validation)
 
       .. note::
-         Reachability validation runs in the default Docker container
-         (``./docker/run_docker.sh``). It is not available with a native ``uv``
-         install — see :doc:`../../../quickstart/installation` and
-         :ref:`ik-reachable-check`.
+         Reachability validation is not available with a native ``uv`` install. See
+         :doc:`../../../quickstart/installation` and :ref:`ik-reachable-check`.
 
-      If you want to ensure the robot can reach the target objects (i.e. fruit and bowl), you can use this
-      environment in the cuRobo-installed docker container to activate the reachability validation.
+      To ensure the robot can reach the fruit and bowl, launch the default Docker container:
 
-      **Docker Container**: Curobo-installed Base (see :doc:`../../../quickstart/installation` for more details)
+      **Docker container** (see :doc:`../../../quickstart/installation` for more details):
 
-      :docker_run_curobo:
+      :docker_run_default:
 
       Now only the layouts the robot can reach are used:
 

@@ -24,8 +24,8 @@ supported route:
 | Native uv | Default when `uv` is available; supports evaluation, imitation learning, reinforcement learning, and agentic environment generation. |
 | Docker | Use when requested, when the existing workflow is container-based, or when cuRobo reachability validation is required. |
 
-Do not silently switch routes. Native uv does not provide the optional cuRobo package; use Docker
-with `-c` for `ik_reachable` validation.
+Do not silently switch routes. Native uv does not provide the optional cuRobo package; use the
+default Docker image for `ik_reachable` validation.
 
 ## Preflight and confirmation
 
@@ -110,9 +110,8 @@ List the containers for this checkout without hardcoding a name:
 docker ps --filter "volume=$(git rev-parse --show-toplevel)" --format '{{.Names}}\t{{.Image}}'
 ```
 
-Select the exact name matching the chosen image flavor and suffix and assign it to
-`ARENA_CONTAINER`. Do not take an arbitrary first match because regular and cuRobo containers can
-coexist for one checkout.
+Select the exact name matching the chosen suffix and assign it to `ARENA_CONTAINER`. Do not take an
+arbitrary first match because containers with different suffixes can coexist for one checkout.
 
 Verify the editable source mount as the host user:
 
