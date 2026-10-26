@@ -20,7 +20,10 @@ runs:
       hdr: home_office_robolab
     environment_builder: &builder
       num_envs: 1
-      language_instruction: Pick up the Rubik's cube and place it in the bowl.
+      language_instruction: >-
+        Pick up the Rubik's cube and place it in the bowl.
+        Approach with the gripper open, close around the object, lift it,
+        move above the destination, and open to release.
     policy:
       type: isaaclab_arena_vlm_agent.vlm_agent_policy.VLMStepPolicy
       endpoint: internal
