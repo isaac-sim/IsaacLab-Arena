@@ -67,8 +67,8 @@ class Object(RootedObjectBase):
         self.asset_cfg_addon = asset_cfg_addon
         self.bounding_box: AxisAlignedBoundingBox | None = None
         """Explicit local bounds. None derives bounds from object_cfg.spawn."""
-        self._spawned_asset: Object = self
-        """Asset whose spawn configuration and simulation check this object uses. An asset selection replaces it."""
+        self._selected_asset: Object | None = None
+        """Asset that an asset selection spawns instead of the declared asset. None spawns the declared asset."""
         # TODO(cvolk, 2026.10.13): Replace this per-object cache with one cache in spawn_cfg_geometry.py
         # shared across objects, keyed by get_geometry_key(), so objects and asset-selection candidates that
         # use the same asset compute its geometry once.
@@ -94,11 +94,11 @@ class Object(RootedObjectBase):
         """
         self.registry_name = registry_name
         self.object_cfg.spawn = deepcopy(selected_asset.object_cfg.spawn)
-        self._spawned_asset = selected_asset
+        self._selected_asset = selected_asset
 
     def get_spawned_asset(self) -> Object:
         """Return the asset whose spawn configuration and simulation check this object uses."""
-        return self._spawned_asset
+        return self._selected_asset if self._selected_asset is not None else self
 
     def get_bounding_box(self) -> AxisAlignedBoundingBox:
         """Get local bounding box (relative to object origin).
