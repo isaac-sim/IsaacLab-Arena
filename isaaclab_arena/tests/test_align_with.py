@@ -133,7 +133,7 @@ def test_alignment_overrides_next_to_soft_cross_axis_preference():
     robot = DummyObject("robot", AxisAlignedBoundingBox((-0.2, -0.2, 0.0), (0.2, 0.2, 0.8)))
     target.add_relation(On(counter))
     target.add_relation(PositionLimitsBox(x_min=2.0, x_max=2.2))
-    robot.add_relation(NextTo(counter, side="negative_y", distance_m=0.2))
+    robot.add_relation(NextTo(counter, side="negative_y", distance_m=0.2, cross_position_ratio=0.0))
     robot.add_relation(AlignWith(target, axis="x", tolerance_m=0.04))
     initial = {counter: (0.0, 0.0, 0.0), target: (2.1, 0.0, 0.01), robot: (0.0, -0.9, 0.0)}
     solver = RelationSolver(RelationSolverParams(verbose=False, save_position_history=False))
