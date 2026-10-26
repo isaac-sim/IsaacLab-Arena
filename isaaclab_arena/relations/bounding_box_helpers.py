@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.relations.relations import RotateAroundSolution, get_relation
-from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, quaternion_to_90_deg_z_quarters
+from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, BoundingBox, quaternion_to_90_deg_z_quarters
 from isaaclab_arena.utils.pose import Pose
 from isaaclab_arena.utils.yaw import rotate_quat_by_yaw, yaw_from_quat_xyzw
 
@@ -125,7 +125,7 @@ def update_candidate_bounds(
     batch: PlacementCandidateBatch,
     env_bboxes: list[dict[PlaceableAsset, AxisAlignedBoundingBox]],
 ) -> None:
-    """Replace each candidate's bboxes in place using base geometry and its current orientations."""
+    """Replace enclosing and collision bounds in place using base geometry and current candidate orientations."""
     objects = list(env_bboxes[0])
     base_bounds = {
         obj: AxisAlignedBoundingBox(
@@ -134,9 +134,42 @@ def update_candidate_bounds(
         )
         for obj in objects
     }
-    rotated = rotate_candidate_bboxes(objects, base_bounds, [candidate.orientations for candidate in batch.candidates])
+    batch.collision_bboxes = get_candidate_collision_bboxes(
+        objects, base_bounds, [candidate.orientations for candidate in batch.candidates]
+    )
+    enclosing = {obj: bounds.to_aabb() for obj, bounds in batch.collision_bboxes.items()}
     for index, candidate in enumerate(batch.candidates):
-        candidate.bboxes = {obj: bounds[index] for obj, bounds in rotated.items()}
+        candidate.bboxes = {obj: bounds[index] for obj, bounds in enclosing.items()}
+
+
+def get_candidate_collision_bboxes(
+    objects: list[PlaceableAsset],
+    candidate_bboxes: dict[PlaceableAsset, AxisAlignedBoundingBox],
+    orientations_per_candidate: list[dict[PlaceableAsset, float]],
+) -> dict[PlaceableAsset, BoundingBox]:
+    """Return collision bounds relative to object origins that keep each candidate's rotation.
+
+    Args:
+        objects: Objects whose bounds are rotated.
+        candidate_bboxes: Base bounds with one row per candidate; anchor bounds include their fixed rotation.
+        orientations_per_candidate: Absolute world-Z headings in candidate order; omitted objects use marker rotation.
+
+    Returns:
+        Collision bounds with one row per candidate, using AABBs for axis-aligned rotations.
+    """
+    result = {}
+    for obj in objects:
+        bounds = candidate_bboxes[obj]
+        rotations = _candidate_rotations(obj, orientations_per_candidate)
+        if all(rotation == (0.0, 0.0, 0.0, 1.0) for rotation in rotations):
+            result[obj] = bounds
+        else:
+            quaternion = torch.tensor(rotations, dtype=torch.float32, device=bounds.min_point.device)
+            if _rotations_are_axis_aligned(rotations):
+                result[obj] = bounds.rotated_by_quat(quaternion)
+            else:
+                result[obj] = bounds.transformed((0.0, 0.0, 0.0), quaternion)
+    return result
 
 
 def rotate_candidate_bboxes(
@@ -149,21 +182,27 @@ def rotate_candidate_bboxes(
     Supply base bounds: movable objects are unrotated; anchors include their fixed rotation.
     Returned bounds remain relative to object origins. Inputs are not modified.
     """
-    num_candidates = len(orientations_per_candidate)
-    rotated: dict[PlaceableAsset, AxisAlignedBoundingBox] = {}
-    for obj in objects:
-        bbox = candidate_bboxes[obj]
-        marker = get_relation(obj, RotateAroundSolution)
-        marker_rotation = marker.get_rotation_xyzw() if marker is not None else (0.0, 0.0, 0.0, 1.0)
-        has_roll_pitch = marker is not None and (marker.roll_rad != 0.0 or marker.pitch_rad != 0.0)
-        # orientations carries absolute world yaw; subtract the marker's own yaw to get the delta to compose.
-        marker_yaw = yaw_from_quat_xyzw(marker_rotation)
-        extra_yaws = [orientations_per_candidate[c].get(obj, marker_yaw) - marker_yaw for c in range(num_candidates)]
-        # Preserve the original bounds exactly when no rotation is applied.
-        if not has_roll_pitch and marker_yaw == 0.0 and all(yaw == 0.0 for yaw in extra_yaws):
-            rotated[obj] = bbox
-        else:
-            quats = [rotate_quat_by_yaw(marker_rotation, yaw) for yaw in extra_yaws]
-            quat_tensor = torch.tensor(quats, dtype=torch.float32, device=bbox.min_point.device)
-            rotated[obj] = bbox.rotated_by_quat(quat_tensor)
-    return rotated
+    collision_bboxes = get_candidate_collision_bboxes(objects, candidate_bboxes, orientations_per_candidate)
+    return {obj: bounds.to_aabb() for obj, bounds in collision_bboxes.items()}
+
+
+def _candidate_rotations(
+    obj: PlaceableAsset, orientations: list[dict[PlaceableAsset, float]]
+) -> list[tuple[float, float, float, float]]:
+    """Compose marker roll/pitch with each candidate's absolute world yaw."""
+    marker = get_relation(obj, RotateAroundSolution)
+    rotation = marker.get_rotation_xyzw() if marker is not None else (0.0, 0.0, 0.0, 1.0)
+    marker_yaw = yaw_from_quat_xyzw(rotation)
+    return [rotate_quat_by_yaw(rotation, row.get(obj, marker_yaw) - marker_yaw) for row in orientations]
+
+
+def _rotations_are_axis_aligned(rotations: list[tuple[float, float, float, float]]) -> bool:
+    """Return whether every xyzw rotation maps the axes onto signed axes.
+
+    Authored rotations pass through float32, so matrix entries within a few float32 epsilons of 0 or 1 count.
+    """
+    from isaaclab.utils.math import matrix_from_quat
+
+    tolerance = 4 * torch.finfo(torch.float32).eps
+    magnitudes = matrix_from_quat(torch.tensor(rotations, dtype=torch.float64)).abs()
+    return bool(((magnitudes < tolerance) | ((magnitudes - 1.0).abs() < tolerance)).all())

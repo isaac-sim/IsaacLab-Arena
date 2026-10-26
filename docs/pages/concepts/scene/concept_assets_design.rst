@@ -1,9 +1,28 @@
 Assets
 ======
 
-Assets are the objects and backgrounds that make up a scene.
-Arena ships with a set of assets ready to use by name,
-and new assets can be added by registering them in the asset library.
+An asset is anything Arena places in a scene, such as a cracker box, a kitchen background,
+a robot, or a light. Each asset has a ``name``, which identifies it in the environment:
+variation keys such as ``<name>.mass``, its prim path, its contact sensor, and recorded data
+use it. Most assets are objects (``Object``): spawned from a USD file or a spawn configuration
+as a rigid, articulated, or static body. A robot (an embodiment) is an asset but not an object.
+
+Arena ships with a library of asset classes, and new ones can be added by registering them.
+Each asset class is registered under a ``registry_name``, such as ``rubiks_cube_hot3d_robolab``.
+``asset_registry.get_asset_by_name()`` returns the class. Calling the class creates an asset.
+A library object such as ``CrackerBox`` is named after its registry name unless you pass ``name``,
+for example to name it after its role in the task:
+
+.. code-block:: python
+
+   CrackerBox = asset_registry.get_asset_by_name("cracker_box")  # the class, registry_name "cracker_box"
+   cracker_box = CrackerBox()  # an asset named "cracker_box"
+   pick_up_object = CrackerBox(name="pick_up_object")  # an asset named "pick_up_object"
+   pick_up_object.registry_name  # "cracker_box"
+
+Backgrounds and robots take no ``name`` argument. Their ``name`` is always their registry name.
+
+Most code does both steps in one line:
 
 .. code-block:: python
 
@@ -13,19 +32,19 @@ and new assets can be added by registering them in the asset library.
 Registering a new asset
 -----------------------
 
-To add a new object, subclass ``LibraryObject``, provide the USD path and object type,
-and decorate it with ``@register_asset``:
+To add a new object, subclass ``LibraryObject``, set its ``registry_name``, provide the USD path
+and object type, and decorate it with ``@register_asset``:
 
 .. code-block:: python
 
    @register_asset
    class MyObject(LibraryObject):
-       name = "my_object"
+       registry_name = "my_object"
        tags = ["object", "graspable"]
        usd_path = "path/to/my_object.usd"
        object_type = ObjectType.RIGID
 
-Once registered, the object is available in the registry like any other asset:
+Once registered, the class is available in the registry like any other asset class:
 
 .. code-block:: python
 

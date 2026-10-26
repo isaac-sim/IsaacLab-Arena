@@ -9,7 +9,7 @@ import torch
 from typing import TYPE_CHECKING
 
 from isaaclab_arena.relations.relations import get_anchor_objects
-from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox
+from isaaclab_arena.utils.bounding_box import AxisAlignedBoundingBox, BoundingBox
 
 if TYPE_CHECKING:
     from isaaclab_arena.relations.collision_object import CollisionObject
@@ -33,6 +33,7 @@ class RelationSolverState:
         device: torch.device | None = None,
         env_bboxes: dict[PlaceableAsset, AxisAlignedBoundingBox] | None = None,
         collision_objects: list[CollisionObject] | None = None,
+        collision_bboxes: dict[PlaceableAsset, BoundingBox] | None = None,
     ):
         """Initialize optimization state.
 
@@ -46,6 +47,8 @@ class RelationSolverState:
             collision_objects: Optional fixed background obstacles that participate in
                 no-overlap collision only (never in relation constraints). They keep a
                 constant world bounding box and are not optimized. Must be disjoint from objects.
+            collision_bboxes: Collision bounds, oriented or axis-aligned, relative to each movable object origin;
+                omitted entries use the supplied env_bboxes or object bounds, and anchor entries are ignored.
         """
         assert len(initial_positions) >= 1, "initial_positions must contain at least one dict."
         anchor_objects = get_anchor_objects(objects)
@@ -114,6 +117,61 @@ class RelationSolverState:
             obj: obj.get_world_bounding_box().to(self._device)
             for obj in (*self._anchor_objects, *self._collision_objects)
         }
+
+        self._build_collision_bboxes(collision_bboxes)
+
+    def _build_collision_bboxes(self, collision_bboxes: dict[PlaceableAsset, BoundingBox] | None) -> None:
+        """Store movable-object collision bounds, defaulting omitted entries to get_bbox, and precompute geometry."""
+        self._collision_bboxes: dict[PlaceableAsset, BoundingBox] = {}
+        """Collision bounds relative to each movable object's origin."""
+        for obj in self._optimizable_objects:
+            bounds = collision_bboxes.get(obj) if collision_bboxes is not None else None
+            self._collision_bboxes[obj] = (bounds if bounds is not None else self.get_bbox(obj)).to(self._device)
+        self._collision_boxes_axis_aligned = all(
+            isinstance(box, AxisAlignedBoundingBox) for box in self._collision_bboxes.values()
+        )
+        self._collision_geometry = {}
+        """Fixed center offsets (B, 3), half-lengths (B, 3), and axes (B, 3, 3), with B = batch size."""
+        if not self.collision_boxes_axis_aligned:
+            for obj in (*self._collision_bboxes, *self._fixed_obstacle_world_bboxes):
+                self.get_collision_geometry(obj)
+
+    @property
+    def collision_boxes_axis_aligned(self) -> bool:
+        """Whether every collision box uses environment-aligned min/max bounds."""
+        return self._collision_boxes_axis_aligned
+
+    def get_collision_bbox(self, obj: PlaceableAsset) -> BoundingBox:
+        """Return collision bounds relative to a movable object's origin."""
+        return self._collision_bboxes[obj]
+
+    def get_collision_center_W(self, obj: PlaceableAsset | CollisionObject) -> torch.Tensor:
+        """Return the collision box centers in W at the current positions, shape (B, 3)."""
+        center, _, _ = self.get_collision_geometry(obj)
+        # Movable geometry stores centers relative to the object origin; fixed geometry stores world centers.
+        if obj in self._collision_bboxes:
+            return center + self.get_position(obj)
+        return center
+
+    def get_collision_geometry(
+        self, obj: PlaceableAsset | CollisionObject
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """Return cached center offsets (B, 3), half-lengths (B, 3), and axes (B, 3, 3)."""
+        if obj not in self._collision_geometry:
+            from isaaclab.utils.math import matrix_from_quat
+
+            box = (
+                self._collision_bboxes[obj] if obj in self._collision_bboxes else self._fixed_obstacle_world_bboxes[obj]
+            )
+            if isinstance(box, AxisAlignedBoundingBox):
+                box = box.to_obb()
+            R_W_B = matrix_from_quat(box.rotation_W_B_xyzw)
+            self._collision_geometry[obj] = (
+                box.center_W.expand(self.batch_size, 3),
+                box.half_extents.expand(self.batch_size, 3),
+                R_W_B.expand(self.batch_size, 3, 3),
+            )
+        return self._collision_geometry[obj]
 
     @property
     def device(self) -> torch.device:

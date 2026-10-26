@@ -56,9 +56,9 @@ class DroidDeformablePickAndPlaceEnvironment(ArenaEnvironmentFactory[DroidDeform
             object_type=ObjectType.RIGID,
         )
         table_reference.add_relation(IsAnchor())
-        destination = self.asset_registry.get_asset_by_name("plate_large_vomp_robolab")(instance_name="plate")
+        destination = self.asset_registry.get_asset_by_name("plate_large_vomp_robolab")(name="plate")
 
-        pick_object = self.asset_registry.get_asset_by_name(cfg.pick_object)(instance_name="pick_object")
+        pick_object = self.asset_registry.get_asset_by_name(cfg.pick_object)(name="pick_object")
         assert isinstance(pick_object, DeformableObject), f"Pick object {cfg.pick_object!r} is not a deformable asset."
         destination.add_relation(On(table_reference))
         pick_object.add_relation(On(table_reference))

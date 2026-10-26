@@ -200,6 +200,38 @@ def test_turn_stand_mixer_knob_reset_condition():
     assert result, f"Test {_test_turn_stand_mixer_knob_reset_condition.__name__} failed"
 
 
+def _test_knob_reset_clears_velocity(simulation_app):
+    """Partial and full resets stop the knob without modifying other environments."""
+    env, stand_mixer = get_test_environment(remove_reset_knob_state_event=False, num_envs=3)
+    try:
+        mixer = env.scene[stand_mixer.name]
+        joint_index = mixer.data.joint_names.index(stand_mixer.turnable_joint_name)
+        initial_positions = mixer.data.joint_pos.torch.clone()
+        initial_velocities = torch.zeros_like(initial_positions)
+        initial_positions[:, joint_index] = torch.tensor([0.9, 1.1, 1.3], device=env.device)
+        initial_velocities[:, joint_index] = torch.tensor([3.0, -4.0, 2.0], device=env.device)
+
+        for selected_ids in (torch.tensor([2, 0], device=env.device), None):
+            mixer.write_joint_position_to_sim_index(position=initial_positions)
+            mixer.write_joint_velocity_to_sim_index(velocity=initial_velocities)
+            torch.testing.assert_close(mixer.data.joint_vel.torch, initial_velocities)
+            env.reset(env_ids=selected_ids)
+            expected_positions = initial_positions.clone()
+            expected_velocities = initial_velocities.clone()
+            rows = slice(None) if selected_ids is None else selected_ids
+            expected_positions[rows, joint_index] = 0.0
+            expected_velocities[rows, joint_index] = 0.0
+            torch.testing.assert_close(mixer.data.joint_pos.torch, expected_positions)
+            torch.testing.assert_close(mixer.data.joint_vel.torch, expected_velocities)
+    finally:
+        env.close()
+    return True
+
+
+def test_knob_reset_clears_velocity():
+    assert run_function_with_persistent_simulation_app(_test_knob_reset_clears_velocity)
+
+
 if __name__ == "__main__":
     test_turn_stand_mixer_knob_to_desired_levels_single_env()
     test_turn_stand_mixer_knob_multiple_envs()

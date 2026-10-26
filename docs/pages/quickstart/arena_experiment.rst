@@ -32,7 +32,8 @@ The four Runs collect the three setups you launched and the parallel setup you p
       .. image:: ../../images/swap_objects.gif
          :alt: DROID pick-and-place environment with a mustard bottle and wooden bowl
 
-      Replaces the Rubik's cube and bowl with a mustard bottle and wooden bowl.
+      Replaces the bowl with a wooden bowl and builds the scene once for each pick-up object in its
+      list: a mustard bottle, an orange and a Rubik's cube.
 
    .. grid-item-card:: ``change_background_hdr``
       :class-card: sd-shadow-sm

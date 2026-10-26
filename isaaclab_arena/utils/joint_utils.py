@@ -99,6 +99,12 @@ def set_unnormalized_joint_position(
         joint_ids=joint_ids,
         env_ids=env_ids,
     )
+    # Zero velocity such that prior motion doesn't continue at new position.
+    articulation.write_joint_velocity_to_sim_index(
+        velocity=torch.zeros_like(position),
+        joint_ids=joint_ids,
+        env_ids=env_ids,
+    )
 
 
 def set_normalized_joint_position(

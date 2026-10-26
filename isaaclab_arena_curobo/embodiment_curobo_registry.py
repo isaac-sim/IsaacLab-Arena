@@ -7,7 +7,7 @@
 
 
 The cuRobo config is a property of the robot hardware, so register under the robot-family base name
-(e.g. ``"droid"``, the class-level ``name`` on ``DroidEmbodimentBase``).
+(e.g. ``"droid"``, the class-level ``registry_name`` on ``DroidEmbodimentBase``).
 """
 
 from __future__ import annotations
@@ -46,12 +46,12 @@ def get_embodiment_curobo_cfg(embodiment: EmbodimentBase) -> CuroboEmbodimentCfg
     """Return the cuRobo config registered for an embodiment's robot family.
 
     Walks the embodiment's class hierarchy so a config registered under a robot-family base name (e.g.
-    ``"droid"``) also covers concrete variants that override ``name`` (e.g. ``"droid_abs_joint_pos"``).
+    ``"droid"``) also covers concrete variants that override ``registry_name`` (e.g. ``"droid_abs_joint_pos"``).
     The most-derived match wins, so a variant may register its own override.
     """
-    # Each class contributes the ``name`` defined on it directly (not inherited), most-derived first.
+    # Each class contributes the ``registry_name`` defined on it directly (not inherited), most-derived first.
     for cls in type(embodiment).__mro__:
-        cfg = _CUROBO_EMBODIMENT_CFGS.get(cls.__dict__.get("name"))
+        cfg = _CUROBO_EMBODIMENT_CFGS.get(cls.__dict__.get("registry_name"))
         if cfg is not None:
             return cfg
     raise AssertionError(

@@ -53,7 +53,7 @@ def register_lightwheel_kitchens(base_class: type[Any], namespace: dict[str, Any
                 {
                     "__module__": base_class.__module__,
                     "__doc__": f"Lightwheel RoboCasa {layout_name} kitchen, style {style_id}.",
-                    "name": f"lightwheel_kitchen_{layout_name}_{style_name}",
+                    "registry_name": f"lightwheel_kitchen_{layout_name}_{style_name}",
                     "layout_id": layout_id,
                     "style_id": style_id,
                 },

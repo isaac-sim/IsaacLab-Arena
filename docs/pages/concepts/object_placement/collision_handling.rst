@@ -35,7 +35,7 @@ Arena supports two collision modes:
      - Recommended use
    * - ``CollisionMode.BBOX``
      - Faster
-     - Axis-aligned bounding boxes
+     - Oriented bounding boxes
      - Default choice when boxes reasonably approximate the objects
    * - ``CollisionMode.MESH``
      - Slower
@@ -48,7 +48,7 @@ Arena supports two collision modes:
    :align: center
 
    For the same requested placement, ``BBOX`` rejects the layout because the
-   axis-aligned boxes overlap, while ``MESH`` accepts it using
+   boxes overlap, while ``MESH`` accepts it using
    sphere-versus-mesh collision checks.
 
 Start with ``BBOX``. Use ``MESH`` only when bounding boxes exclude space that
@@ -122,10 +122,13 @@ How Overlap Checking Works
 Overlap checking has two stages:
 
 1. During optimization, the solver adds a differentiable no-overlap loss.
-   ``BBOX`` expands the obstacle boxes by ``clearance_m`` and penalizes their
-   intersection volume. For mesh-covered pairs, ``MESH`` represents movable
-   geometry with up to ``num_spheres`` bounding spheres and queries their
-   distance from the target collision mesh. Increasing ``num_spheres`` may
+   ``BBOX`` multiplies the interval overlaps along each box's face axes,
+   including ``clearance_m``, and penalizes the harmonic mean of the two
+   volumes. It is zero exactly when a face axis separates the boxes by at least
+   ``clearance_m``, and for axis-aligned boxes it is the intersection volume
+   after expanding the obstacle by the clearance. For mesh-covered pairs, ``MESH`` represents
+   movable geometry with up to ``num_spheres`` bounding spheres and queries
+   their distance from the target collision mesh. Increasing ``num_spheres`` may
    improve sphere coverage, at the cost of slower solving and validation.
 2. After optimization, the ``no_overlap`` validator applies a discrete
    pass/fail check to each candidate. A low solver loss does not guarantee that
@@ -133,9 +136,32 @@ Overlap checking has two stages:
    candidates according to the configured checks and fallback policy. See
    :doc:`./validation` and :doc:`./pooled_placement`.
 
+Box collision geometry uses each candidate's sampled or authored rotation and
+assigned object variant. ``FaceTo`` headings are applied after solving;
+validation checks the updated boxes. The validator uses the separating-axis
+test (SAT), batched across candidates; axis-aligned bounding box (AABB) pairs
+use interval comparisons. The loss works along face axes, so tilted boxes
+separated only by an edge-cross-edge axis can still receive a positive penalty
+even when SAT accepts them. This penalty is not the exact intersection volume
+of rotated boxes. When any collision box in a solve is rotated, boxes thinner
+than 2 mm count as 2 mm thick in this loss, so a flat object that overlaps an
+obstacle still has an overlap volume to reduce.
+
+Support-fit checks and clutter release initialization use enclosing AABBs.
+For exact bounding-box containment with ``On``, keep the support axis aligned
+(yaw in multiples of 90 degrees). With other support yaws, or ``On(overlap=True)``,
+enclosing-footprint checks can accept disjoint footprints.
+Bounding-box clearance is measured along tested axes, rather than as Euclidean
+surface distance.
+
 ``MESH`` enables sphere-to-mesh checks where Arena can obtain the target
 collision mesh. Pairs not covered by a mesh check use bounding-box-based
-checks.
+checks. Each pair has a subject, the object the loss moves, and an obstacle held
+fixed. A pair whose obstacle has a mesh, or whose subject has a mesh and whose
+obstacle is not a background object, uses enclosing-AABB penalties, while the
+validator checks sphere proxies against the mesh. Near contact the two can
+disagree, so a layout with zero loss can still fail validation. A meshed object
+against a meshless background obstacle uses oriented boxes.
 
 The solver and validator check the following pairs:
 

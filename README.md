@@ -6,7 +6,7 @@
 
 [![Alpha](https://img.shields.io/badge/status-alpha-e8912d.svg)](#%EF%B8%8F-project-status)
 [![Version](https://img.shields.io/badge/version-0.3-blue.svg)](https://github.com/isaac-sim/IsaacLab-Arena/tree/main)
-[![IsaacSim](https://img.shields.io/badge/IsaacSim-6.1.0-silver.svg)](https://docs.isaacsim.omniverse.nvidia.com/latest/index.html)
+[![IsaacSim](https://img.shields.io/badge/IsaacSim-6.2.0-silver.svg)](https://docs.isaacsim.omniverse.nvidia.com/latest/index.html)
 [![IsaacLab](https://img.shields.io/badge/IsaacLab-3.0.0-silver.svg)](https://github.com/isaac-sim/IsaacLab)
 [![Python](https://img.shields.io/badge/python-≥3.12-blue.svg)](https://docs.python.org/3/whatsnew/3.12.html)
 [![Linux](https://img.shields.io/badge/platform-linux--64-orange.svg)](https://releases.ubuntu.com/22.04/)
@@ -77,7 +77,7 @@ See the [documentation overview](https://isaac-sim.github.io/IsaacLab-Arena/rele
 ### Prerequisites
 
 - Linux (Ubuntu 22.04+)
-- NVIDIA GPU (see [Isaac Sim hardware requirements](https://docs.isaacsim.omniverse.nvidia.com/6.1.0/installation/requirements.html))
+- NVIDIA GPU (see [Isaac Sim hardware requirements](https://docs.isaacsim.omniverse.nvidia.com/6.2.0/installation/requirements.html))
 - [uv](https://docs.astral.sh/uv/) (for the native install), or Docker and the NVIDIA Container Toolkit (for the container install)
 - Git
 
@@ -126,11 +126,11 @@ git submodule update --init --recursive
 ./docker/run_docker.sh -g
 
 # 3. Verify the installation with a short zero-action rollout
-/isaac-sim/python.sh isaaclab_arena/evaluation/policy_runner.py \
+python isaaclab_arena/evaluation/policy_runner.py \
   --policy_type zero_action --num_steps 20 cube_goal_pose
 
 # 3b. (Optional) Watch the rollout in the GUI visualizer
-/isaac-sim/python.sh isaaclab_arena/evaluation/policy_runner.py \
+python isaaclab_arena/evaluation/policy_runner.py \
   --viz kit --policy_type zero_action --num_steps 200 cube_goal_pose
 ```
 
@@ -222,7 +222,7 @@ IsaacLab-Arena/
 
 | Isaac Lab-Arena                 | Isaac Lab   | Isaac Sim | Python |
 | ------------------------------- | ----------- | --------- | ------ |
-| `main`                          | 3.0.0 EA    | 6.1.0     | ≥ 3.12 |
+| `main`                          | 3.0.0       | 6.2.0     | ≥ 3.12 |
 | `release/0.3.1`                 | 3.0.0 EA    | 6.1.0     | ≥ 3.12 |
 | `release/0.3.0`                 | 3.0.0 beta2 | 6.0.1     | ≥ 3.12 |
 | `release/0.2.1`                 | 3.0.0 beta  | 6.0.0     | ≥ 3.12 |
@@ -278,8 +278,9 @@ We encourage the community to build and publish benchmarks on Isaac Lab-Arena. T
 We welcome contributions — bug reports, feature suggestions, and code. This is an alpha project, so community input directly shapes the framework's direction.
 
 1. Read the [Contribution Guidelines](CONTRIBUTING.md)
-2. Sign off your commits (DCO required — see `CONTRIBUTING.md`)
-3. Open a [Pull Request](https://github.com/isaac-sim/IsaacLab-Arena/pulls)
+2. For new features, public API changes, or significant design changes, open a [Design Proposal](https://github.com/isaac-sim/IsaacLab-Arena/issues/new?template=design-proposal.yml) before submitting a full implementation
+3. Sign off your commits (DCO required — see `CONTRIBUTING.md`)
+4. Open a [Pull Request](https://github.com/isaac-sim/IsaacLab-Arena/pulls)
 
 Areas where contributions are especially valuable:
 - New task definitions and benchmark suites

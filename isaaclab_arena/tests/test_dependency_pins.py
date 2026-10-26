@@ -53,8 +53,11 @@ def test_isaaclab_uv_overrides_match_submodule():
         "newton",
         "newton-usd-schemas",
         "torch",
-        "torchaudio",
         "torchvision",
+        "usd-exchange",
+        "usd-optimize",
+        "fsspec",
+        "urllib3",
     }
     arena_overrides = tomllib.loads(_ARENA_PYPROJECT.read_text())["tool"]["uv"]["override-dependencies"]
     isaaclab_overrides = tomllib.loads(_ISAACLAB_PYPROJECT.read_text())["tool"]["uv"]["override-dependencies"]

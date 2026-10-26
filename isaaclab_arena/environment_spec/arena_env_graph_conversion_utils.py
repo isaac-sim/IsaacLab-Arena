@@ -184,7 +184,7 @@ def instantiate_assets_from_spec(
 
     for obj in graph_spec.objects:
         params = parse_asset_params(obj.params)
-        params.setdefault("instance_name", obj.id)
+        params.setdefault("name", obj.id)
         assets_by_node_id[obj.id] = asset_registry.get_asset_by_name(obj.registry_name)(**params)
 
     for object_set in graph_spec.object_sets or []:

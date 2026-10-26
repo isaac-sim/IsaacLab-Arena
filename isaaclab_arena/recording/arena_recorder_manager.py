@@ -12,6 +12,25 @@ import warp as wp
 from isaaclab.managers.recorder_manager import RecorderManager
 
 
+def env_ids_to_tensor(
+    env_ids: Sequence[int] | torch.Tensor | slice | None,
+    num_envs: int,
+    device: str | torch.device,
+) -> torch.Tensor:
+    """Return environment IDs as a long tensor on the requested device.
+
+    Args:
+        env_ids: Environment IDs, a slice into all IDs, or None to select all IDs.
+        num_envs: Total number of environments used to expand slices.
+        device: Device for the returned tensor.
+    """
+    if env_ids is None:
+        env_ids = slice(None)
+    if isinstance(env_ids, slice):
+        return torch.arange(num_envs, dtype=torch.long, device=device)[env_ids]
+    return torch.as_tensor(env_ids, dtype=torch.long, device=device)
+
+
 class ArenaRecorderManager(RecorderManager):
     """Keep recordings aligned with Arena's active episodes and actual resets.
 
@@ -48,7 +67,7 @@ class ArenaRecorderManager(RecorderManager):
             super().add_to_episodes(key, value, env_ids)
             return
 
-        requested_env_ids = self._env_ids_to_device_tensor(env_ids)
+        requested_env_ids = env_ids_to_tensor(env_ids, self._env.num_envs, self._env.device)
         active_row_indices = self._env.active_episode_mask[requested_env_ids].nonzero(as_tuple=False).flatten()
         if active_row_indices.numel() == 0:
             return
@@ -62,7 +81,7 @@ class ArenaRecorderManager(RecorderManager):
 
     def record_pre_reset(
         self,
-        env_ids: Sequence[int] | torch.Tensor | None,
+        env_ids: Sequence[int] | torch.Tensor | slice | None,
         force_export_or_skip: bool | None = None,
     ) -> None:
         """Record episode results before Arena resets or deactivates environments.
@@ -73,12 +92,12 @@ class ArenaRecorderManager(RecorderManager):
         """
         if not self.active_terms:
             return
-        requested_env_ids = self._env_ids_to_device_tensor(env_ids)
+        requested_env_ids = env_ids_to_tensor(env_ids, self._env.num_envs, self._env.device)
         finishing_env_ids = requested_env_ids[self._env.active_episode_mask[requested_env_ids]]
         if finishing_env_ids.numel() > 0:
             super().record_pre_reset(finishing_env_ids, force_export_or_skip)
 
-    def record_post_reset(self, env_ids: Sequence[int] | torch.Tensor | None) -> None:
+    def record_post_reset(self, env_ids: Sequence[int] | torch.Tensor | slice | None) -> None:
         """Record initial states only for environments Arena actually reset.
 
         Args:
@@ -86,15 +105,9 @@ class ArenaRecorderManager(RecorderManager):
         """
         if not self.active_terms:
             return
-        requested_env_ids = self._env_ids_to_device_tensor(env_ids)
+        requested_env_ids = env_ids_to_tensor(env_ids, self._env.num_envs, self._env.device)
         reset_mask = torch.isin(requested_env_ids, self._env.reset_env_ids)
         reset_mask &= self._env.active_episode_mask[requested_env_ids]
         reset_env_ids = requested_env_ids[reset_mask]
         if reset_env_ids.numel() > 0:
             super().record_post_reset(reset_env_ids)
-
-    def _env_ids_to_device_tensor(self, env_ids: Sequence[int] | torch.Tensor | None) -> torch.Tensor:
-        """Return environment IDs on the environment's device."""
-        if env_ids is None:
-            return torch.arange(self._env.num_envs, device=self._env.device)
-        return torch.as_tensor(env_ids, dtype=torch.long, device=self._env.device)

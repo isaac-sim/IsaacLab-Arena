@@ -45,7 +45,7 @@ _G1_WAIST_JOINT_NAMES = ("waist_yaw_joint", "waist_roll_joint", "waist_pitch_joi
 class G1EmbodimentBase(EmbodimentBase):
     """Embodiment for the G1 robot."""
 
-    name = "g1"
+    registry_name = "g1"
     default_arm_mode = ArmMode.DUAL_ARM
 
     def __init__(
@@ -115,7 +115,7 @@ class G1WBCJointEmbodiment(G1EmbodimentBase):
     By default uses tiled camera for efficient parallel evaluation.
     """
 
-    name = "g1_wbc_joint"
+    registry_name = "g1_wbc_joint"
 
     def __init__(
         self,
@@ -135,7 +135,7 @@ class G1WBCJointEmbodiment(G1EmbodimentBase):
 class G1WBCPinkEmbodiment(G1EmbodimentBase):
     """Embodiment for the G1 robot with WBC policy and PINK IK upperbody control."""
 
-    name = "g1_wbc_pink"
+    registry_name = "g1_wbc_pink"
     tags = ["embodiment", "default"]
 
     def __init__(
@@ -164,7 +164,7 @@ class G1WBCAgilePinkEmbodiment(G1EmbodimentBase):
     amplified by the Arena's stiffer default PD loop.
     """
 
-    name = "g1_wbc_agile_pink"
+    registry_name = "g1_wbc_agile_pink"
 
     def __init__(
         self,
@@ -196,7 +196,7 @@ class G1WBCAgileJointEmbodiment(G1EmbodimentBase):
     postural twitch even when the velocity command is zero.
     """
 
-    name = "g1_wbc_agile_joint"
+    registry_name = "g1_wbc_agile_joint"
 
     def __init__(
         self,

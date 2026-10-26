@@ -26,6 +26,7 @@ PACKAGE_ROOTS = (
     "isaaclab_arena_g1",
     "isaaclab_arena_gr00t",
     "isaaclab_arena_openpi",
+    "isaaclab_arena_vlm_agent",
 )
 
 DISCOVERABLE_MODULES = (

@@ -291,7 +291,7 @@ def _test_deformable_reset_and_initial_pose(simulation_app) -> bool:
         ]
     )
     physics_backend = PhysicsBackend.PHYSX
-    soft_cube = AssetRegistry().get_asset_by_name("deformable_cube")(instance_name="soft_cube")
+    soft_cube = AssetRegistry().get_asset_by_name("deformable_cube")(name="soft_cube")
     soft_cube.set_initial_pose(poses)
     arena_env = IsaacLabArenaEnvironment(
         name=f"{physics_backend}_deformable_reset_and_initial_pose",
@@ -355,10 +355,10 @@ def _test_deformable_placement_is_not_immediate_task_success(simulation_app) -> 
     from isaaclab_arena.tasks.pick_and_place_task import PickAndPlaceTask
     from isaaclab_arena.utils.pose import Pose
 
-    soft_cube = AssetRegistry().get_asset_by_name("deformable_cube")(instance_name="soft_cube")
+    soft_cube = AssetRegistry().get_asset_by_name("deformable_cube")(name="soft_cube")
     soft_cube.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.05)))
     table = AssetRegistry().get_asset_by_name("procedural_table")(
-        instance_name="destination",
+        name="destination",
         initial_pose=Pose(position_xyz=(0.0, 0.0, 0.0)),
     )
     task = PickAndPlaceTask(

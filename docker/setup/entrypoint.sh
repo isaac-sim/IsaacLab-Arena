@@ -55,10 +55,11 @@ fi
 if [ $# -ge 1 ]; then
     # -i makes bash to expand aliases
     # -c makes bash to run a command
-    exec sudo --preserve-env -u $DOCKER_RUN_USER_NAME \
-        -- env HOME=/home/$DOCKER_RUN_USER_NAME bash -ic "$@"
+    exec sudo --preserve-env -u "$DOCKER_RUN_USER_NAME" \
+        -- env HOME="/home/$DOCKER_RUN_USER_NAME" PATH="$PATH" bash -ic "$@"
 else
-    su $DOCKER_RUN_USER_NAME
+    exec sudo --preserve-env -u "$DOCKER_RUN_USER_NAME" \
+        -- env HOME="/home/$DOCKER_RUN_USER_NAME" PATH="$PATH" bash
 fi
 
 exit

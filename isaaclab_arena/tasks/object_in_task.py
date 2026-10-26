@@ -61,15 +61,11 @@ class ObjectInTask(TaskBase):
         self.consecutive_success_steps = consecutive_success_steps
         self.linear_velocity_threshold = linear_velocity_threshold
         self.angular_velocity_threshold = angular_velocity_threshold
-        self.scene_config = self.make_scene_cfg()
 
-    def make_scene_cfg(self):
+    def get_scene_cfg(self):
         sensor_cfg = self.object.get_contact_sensor_cfg(contact_against_object=self.target)
         scene_cfg_type = make_configclass("SceneCfg", [(self.contact_sensor_cfg.name, type(sensor_cfg), sensor_cfg)])
         return scene_cfg_type()
-
-    def get_scene_cfg(self):
-        return self.scene_config
 
     def get_termination_cfg(self) -> TaskTerminationCfg:
         return TaskTerminationCfg(

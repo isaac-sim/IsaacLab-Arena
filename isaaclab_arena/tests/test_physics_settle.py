@@ -60,8 +60,8 @@ def _build_two_sphere_env(poses, velocities, num_envs=1):
     from isaaclab_arena.scene.scene import Scene
 
     spheres = []
-    for instance_name, pose, velocity in zip(("sphere_a", "sphere_b"), poses, velocities):
-        sphere = Sphere(instance_name=instance_name, spawner_cfg=_floating_sphere_cfg())
+    for sphere_name, pose, velocity in zip(("sphere_a", "sphere_b"), poses, velocities):
+        sphere = Sphere(name=sphere_name, spawner_cfg=_floating_sphere_cfg())
         sphere.set_initial_pose(pose)
         sphere.set_initial_velocity(velocity)
         spheres.append(sphere)
@@ -164,11 +164,11 @@ def _build_parallel_layout_env(num_envs, expected_settled):
             poses.append(Pose(position_xyz=(x, 0.0, z), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
         return PosePerEnv(poses=poses)
 
-    floor = ProceduralTable(instance_name="floor")
+    floor = ProceduralTable(name="floor")
     floor.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
 
-    sphere_a = Sphere(instance_name="sphere_a")
-    sphere_b = Sphere(instance_name="sphere_b")
+    sphere_a = Sphere(name="sphere_a")
+    sphere_b = Sphere(name="sphere_b")
     sphere_a.set_initial_pose(sphere_poses(-0.2))
     sphere_b.set_initial_pose(sphere_poses(0.2))
 
@@ -244,14 +244,14 @@ def _test_validate_pool_layouts_grades_each_layout(simulation_app):
     num_envs = 2
     drop_height = 2.0
 
-    table = OfficeTable(instance_name="table")
+    table = OfficeTable(name="table")
     table.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.0), rotation_xyzw=(0.0, 0.0, 0.0, 1.0)))
     table.add_relation(IsAnchor())
     # OfficeTable is a free dynamic rigid body and the env has no ground plane, so without pinning it would
     # fall during stepping and drag the cracker with it (nothing would ever settle). Make the anchor surface
     # kinematic so it holds still, exactly like the kinematic procedural/background tables.
     table.object_cfg.spawn.rigid_props = sim_utils.RigidBodyPropertiesCfg(kinematic_enabled=True)
-    cracker = CrackerBox(instance_name="cracker")
+    cracker = CrackerBox(name="cracker")
     cracker.add_relation(On(table, clearance_m=0.01))
 
     scene = Scene(assets=[table, cracker])

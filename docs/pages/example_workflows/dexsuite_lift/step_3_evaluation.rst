@@ -22,7 +22,7 @@ procedural cube and pose-range reset.
 
    .. code-block:: bash
 
-      /isaac-sim/python.sh - <<'PY'
+      python - <<'PY'
       import os
       import shutil
 

@@ -88,8 +88,8 @@ def _test_detect_object_type_for_all_objects(simulation_app):
         has_usd_path = getattr(object_asset, "usd_path", None) is not None
         is_procedural = "procedural" in getattr(object_asset, "tags", [])
         skipped_names = ("hole", "peg", "small_gear", "medium_gear", "large_gear", "gear_base", "sphere")
-        if has_usd_path and not is_procedural and object_asset.name not in skipped_names:
-            print(f"Automatically classifying: {object_asset.name}")
+        if has_usd_path and not is_procedural and object_asset.registry_name not in skipped_names:
+            print(f"Automatically classifying: {object_asset.registry_name}")
             detected_object_type = detect_object_type(usd_path=object_asset.usd_path)
             print(f"database object type: {object_asset.object_type}")
             print(f"detected object type: {detected_object_type}")

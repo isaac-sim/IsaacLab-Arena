@@ -214,10 +214,12 @@ class EnvironmentGenerationAgent:
             asset_cls = register_searched_simready_object(candidate.search_phrase, candidate.usd_path, candidate.tags)
             tags = [tag for tag in asset_cls.tags if tag != "object"]
             extended.objects.append({
-                "name": asset_cls.name,
+                "name": asset_cls.registry_name,
                 "tags": tags,
                 "object_type": asset_cls.object_type.value,
             })
-            self._simready_usd_paths[asset_cls.name] = candidate.usd_path
-            _logger.info("catalogued %r for %r: %s", asset_cls.name, candidate.search_phrase, candidate.usd_path)
+            self._simready_usd_paths[asset_cls.registry_name] = candidate.usd_path
+            _logger.info(
+                "catalogued %r for %r: %s", asset_cls.registry_name, candidate.search_phrase, candidate.usd_path
+            )
         return extended

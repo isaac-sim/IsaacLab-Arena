@@ -1008,8 +1008,8 @@ Project resources
    :class-container: arena-resource-grid
 
    .. grid-item-card:: Contributing
-      :link: https://github.com/isaac-sim/IsaacLab-Arena#contributing
-      :link-type: url
+      :link: community-contributions
+      :link-type: doc
       :shadow: none
 
       :octicon:`repo-push;1.35em` Contribution workflow
@@ -1090,6 +1090,7 @@ Isaac Lab-Arena was built in collaboration with the authors of Robolab (`website
    pages/example_workflows/example_environments
    pages/example_workflows/analysis/index
    pages/example_workflows/agentic_env_gen/index
+   pages/example_workflows/newton/index
    pages/example_workflows/imitation_learning/index
    pages/example_workflows/reinforcement_learning_workflows/index
 
@@ -1133,6 +1134,13 @@ Isaac Lab-Arena was built in collaboration with the authors of Robolab (`website
    :caption: Gallery
 
    Gallery <pages/gallery/index>
+
+.. toctree::
+   :maxdepth: 1
+   :hidden:
+   :caption: Community
+
+   community-contributions
 
 .. toctree::
    :maxdepth: 1

@@ -87,7 +87,7 @@ def Xform "Body" (prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
             "registry_name": "simready_usd_object",
             "params": {
                 "usd_path": str(path.parent / "table.usda"),
-                "instance_name": "table",
+                "name": "table",
                 "initial_pose": {"position_xyz": [0, 0, 0.5]},
             },
         },
@@ -95,14 +95,14 @@ def Xform "Body" (prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
             {
                 "id": "cube",
                 "registry_name": "simready_usd_object",
-                "params": {"usd_path": str(path.parent / "cube.usda"), "instance_name": "cube_body"},
+                "params": {"usd_path": str(path.parent / "cube.usda"), "name": "cube_body"},
             },
             {
                 "id": "floor",
                 "registry_name": "simready_usd_object",
                 "params": {
                     "usd_path": str(path.parent / "floor.usda"),
-                    "instance_name": "floor",
+                    "name": "floor",
                     "initial_pose": {"position_xyz": [0, 0, -0.5]},
                 },
             },

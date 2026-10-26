@@ -235,7 +235,7 @@ def test_fans_out_single_run_experiments_with_dedicated_pi0_servers_and_one_expe
     assert experiment_runner_command.startswith("# Record the application result without failing the OSMO task")
     one_day_seconds = 24 * 60 * 60
     assert (
-        f"if timeout --kill-after=60 {one_day_seconds - EXPERIMENT_RUNNER_TIMEOUT_MARGIN_SECONDS} /isaac-sim/python.sh"
+        f"if timeout --kill-after=60 {one_day_seconds - EXPERIMENT_RUNNER_TIMEOUT_MARGIN_SECONDS} isaaclab.sh -p"
         in experiment_runner_command
     )
     assert "experiment_runner.py" in experiment_runner_command
@@ -461,7 +461,7 @@ def test_experiment_runner_without_timeout_runs_unbounded():
     experiment_runner_command = _task_file(experiment_runner_task.create_task_dict(), "/tmp/entry.sh")["contents"]
 
     assert "timeout" not in experiment_runner_command
-    assert "if /isaac-sim/python.sh" in experiment_runner_command
+    assert "if isaaclab.sh -p" in experiment_runner_command
 
 
 def test_experiment_runner_timeout_ends_before_osmo_exec_timeout():
@@ -475,7 +475,7 @@ def test_experiment_runner_timeout_ends_before_osmo_exec_timeout():
     experiment_runner_command = _task_file(run_group["tasks"][0], "/tmp/entry.sh")["contents"]
 
     expected_timeout_seconds = 3 * 60 * 60 - EXPERIMENT_RUNNER_TIMEOUT_MARGIN_SECONDS
-    assert f"if timeout --kill-after=60 {expected_timeout_seconds} /isaac-sim/python.sh" in experiment_runner_command
+    assert f"if timeout --kill-after=60 {expected_timeout_seconds} isaaclab.sh -p" in experiment_runner_command
     assert experiment_runner_command.endswith("exit 0\n")
 
 

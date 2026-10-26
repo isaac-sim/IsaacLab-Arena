@@ -29,7 +29,7 @@ _NON_IDENTIFIER_CHARACTERS = re.compile(r"[^a-z0-9]+")
 class SimReadyUsdObject(Object):
     """Spawn a SimReady asset from an explicit USD path supplied in graph params."""
 
-    name = SIMREADY_USD_OBJECT_REGISTRY_NAME
+    registry_name = SIMREADY_USD_OBJECT_REGISTRY_NAME
 
     tags = ["sim-ready"]
 
@@ -39,17 +39,28 @@ class SimReadyUsdObject(Object):
     def __init__(
         self,
         usd_path: str,
-        instance_name: str | None = None,
+        name: str | None = None,
         prim_path: str | None = None,
         initial_pose: Pose | None = None,
         scale: tuple[float, float, float] | None = None,
         **kwargs: Any,
     ):
+        """Create an object from a SimReady USD file.
+
+        Args:
+            usd_path: USD path or URL of the SimReady asset.
+            name: Name of the object in the scene. Defaults to the registry name.
+            prim_path: Prim path of the object. Defaults to ``{ENV_REGEX_NS}/<name>``.
+            initial_pose: Initial pose of the object.
+            scale: Scale of the object. Defaults to ``(1.0, 1.0, 1.0)``.
+            **kwargs: Extra arguments passed to ``Object``.
+        """
+        assert "instance_name" not in kwargs, "instance_name was renamed to name; pass name= instead."
         assert usd_path, "simready_usd_object requires params.usd_path"
         spawn_cfg_addon = dict(kwargs.pop("spawn_cfg_addon", None) or {})
         spawn_cfg_addon.setdefault("variants", dict(SIMREADY_PHYSICS_VARIANTS))
         super().__init__(
-            name=instance_name or self.name,
+            name=name or self.registry_name,
             prim_path=prim_path,
             tags=self.tags,
             usd_path=usd_path,
@@ -83,10 +94,10 @@ def register_searched_simready_object(
     Returns:
         The registered asset class.
     """
-    registry_name = simready_search_registry_name(search_phrase)
+    searched_registry_name = simready_search_registry_name(search_phrase)
     registry = AssetRegistry()
-    if registry.is_registered(registry_name, ensure_loaded=False):
-        return registry.get_asset_by_name(registry_name)
+    if registry.is_registered(searched_registry_name, ensure_loaded=False):
+        return registry.get_asset_by_name(searched_registry_name)
     found_usd_path = usd_path
     # Tagged 'object' unlike the generic asset, because this one carries its own usd_path.
     merged_tags = list(dict.fromkeys(["object", *SimReadyUsdObject.tags, *tags]))
@@ -94,12 +105,12 @@ def register_searched_simready_object(
     class SearchedSimReadyObject(SimReadyUsdObject):
         """A SimReady asset the search found for one object in a prompt."""
 
-        name = registry_name
+        registry_name = searched_registry_name
         tags = merged_tags
 
         def __init__(self, **kwargs: Any):
             kwargs.setdefault("usd_path", found_usd_path)
             super().__init__(**kwargs)
 
-    registry.register(SearchedSimReadyObject, registry_name)
+    registry.register(SearchedSimReadyObject, searched_registry_name)
     return SearchedSimReadyObject

@@ -41,9 +41,11 @@ def _test_camera_observation(simulation_app) -> bool:
 
     scene = Scene(assets=[background, cracker_box])
 
+    embodiment = GR1T2PinkEmbodiment(enable_cameras=True)
+    embodiment.camera_config.robot_pov_cam.data_types = ["rgb", "motion_vectors"]
     isaaclab_arena_environment = IsaacLabArenaEnvironment(
         name="camera_observation_test",
-        embodiment=GR1T2PinkEmbodiment(enable_cameras=True),
+        embodiment=embodiment,
         scene=scene,
     )
 
@@ -61,6 +63,8 @@ def _test_camera_observation(simulation_app) -> bool:
             assert camera_observation.shape[3] == 3, "Camera rgb observation does not have three channels"
             # Make sure the camera observation contains values other than 0
             assert camera_observation.any() != 0, "Camera observation contains only 0s"
+            motion_vectors = obs["camera_obs"]["robot_pov_cam_motion_vectors"]
+            assert motion_vectors.shape[:3] == camera_observation.shape[:3]
 
     env.close()
 

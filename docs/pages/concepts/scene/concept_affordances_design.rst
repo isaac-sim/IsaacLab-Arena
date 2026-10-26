@@ -26,7 +26,7 @@ and declares the joint name that the affordance controls:
 
    @register_asset
    class Microwave(LibraryObject, Openable):
-       name = "microwave"
+       registry_name = "microwave"
        tags = ["object", "openable"]
        object_type = ObjectType.ARTICULATION
 

@@ -21,7 +21,7 @@ def test_simready_usd_object_registered():
     ensure_assets_registered()
     cls = AssetRegistry().get_asset_by_name("simready_usd_object")
     assert cls is SimReadyUsdObject
-    assert cls.name == "simready_usd_object"
+    assert cls.registry_name == "simready_usd_object"
     assert "sim-ready" in cls.tags
 
 
@@ -64,7 +64,7 @@ def test_simready_usd_object_enables_physics_variant_by_default(tmp_path):
     usd_path = str(tmp_path / "kettle.usd")
     assert stage.Export(usd_path)
 
-    obj = SimReadyUsdObject(usd_path=usd_path, instance_name="kettle")
+    obj = SimReadyUsdObject(usd_path=usd_path, name="kettle")
     assert obj.spawn_cfg_addon["variants"] == {"Physics": "physics"}
     spawn = obj._get_spawn_cfg(activate_contact_sensors=True)
     assert spawn.variants == {"Physics": "physics"}
@@ -86,7 +86,7 @@ def test_register_searched_simready_object_makes_it_a_catalogue_entry():
     asset_cls = register_searched_simready_object(
         "green trash can", "s3://bucket/trash_can.usd", ("sim-ready", "green")
     )
-    assert asset_cls.name == "simready_green_trash_can"
+    assert asset_cls.registry_name == "simready_green_trash_can"
     assert AssetRegistry().get_asset_by_name("simready_green_trash_can") is asset_cls
     # Rigid, so the entry can also be an object_set member; the search only accepts one rigid body.
     assert asset_cls.object_type is ObjectType.RIGID

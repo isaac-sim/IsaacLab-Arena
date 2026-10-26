@@ -93,14 +93,14 @@ class AssetRegistry(Registry):
     def __init__(self):
         super().__init__()
 
-    def get_asset_by_name(self, name: str) -> type["Asset"]:
-        """Gets an asset by name.
+    def get_asset_by_name(self, registry_name: str) -> type["Asset"]:
+        """Return the asset class registered under ``registry_name``. Call the class to create an asset.
 
         Args:
-            name (str): The name of the asset.
+            registry_name: Key of the asset class in the asset registry.
         """
         ensure_assets_registered()
-        return self.get_component_by_name(name)
+        return self.get_component_by_name(registry_name)
 
     def get_assets_by_tag(self, tag: str) -> list[type["Asset"]]:
         """Gets a list of assets by tag.
@@ -115,18 +115,22 @@ class AssetRegistry(Registry):
         return [asset for asset in self._components.values() if tag in asset.tags]
 
     def get_assets_with_all_tags(self, tags: list[str]) -> list[str]:
-        """Return asset names whose ``tags`` include every tag in ``tags``.
+        """Return the registry names of the asset classes whose ``tags`` include every tag in ``tags``.
 
         Args:
-            tags: Tags that must all be present on a candidate asset.
-                When empty, every registered asset name is returned.
+            tags: Tags that must all be present on a candidate asset class.
+                When empty, every registry name is returned.
 
         Returns:
-            Sorted asset names matching every tag, or all asset names when
-            ``tags`` is empty.
+            Sorted registry names matching every tag, or all registry names
+            when ``tags`` is empty.
         """
         ensure_assets_registered()
-        return sorted(asset.name for asset in self._components.values() if all(tag in asset.tags for tag in tags))
+        return sorted(
+            registry_name
+            for registry_name, asset_class in self._components.items()
+            if all(tag in asset_class.tags for tag in tags)
+        )
 
     def get_random_asset_by_tag(self, tag: str) -> type["Asset"]:
         """Gets a random asset which has the given tag.
@@ -162,7 +166,7 @@ class DeviceRegistry(Registry):
         self, device: type["TeleopDeviceBase"], embodiment: object
     ) -> "DeviceCfg | IsaacTeleopCfg":
         retargeter_registry = RetargeterRegistry()
-        retargeter_key = (device.name, embodiment.name)
+        retargeter_key = (device.name, embodiment.registry_name)
         retargeter_key_str = retargeter_registry.convert_tuple_to_str(retargeter_key)
         retargeter = retargeter_registry.get_component_by_name(retargeter_key_str)()
         return retargeter.get_device_cfg(device, embodiment)
@@ -227,14 +231,14 @@ class HDRImageRegistry(Registry):
     def __init__(self):
         super().__init__()
 
-    def get_hdr_by_name(self, name: str) -> type["HDRImage"]:
-        """Gets an HDRImage class by name.
+    def get_hdr_by_name(self, registry_name: str) -> type["HDRImage"]:
+        """Return the HDR image class registered under ``registry_name``.
 
         Args:
-            name (str): The name of the HDRImage.
+            registry_name: Key of the HDR image class in the HDR image registry.
         """
         ensure_assets_registered()
-        return self.get_component_by_name(name)
+        return self.get_component_by_name(registry_name)
 
     def get_hdrs_by_tag(self, tag: str) -> list[type["HDRImage"]]:
         """Gets a list of HDRImage classes that have the given tag.

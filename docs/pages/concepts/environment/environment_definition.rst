@@ -246,17 +246,27 @@ Isaac Sim starts. Python has no equivalent; the same mistakes show up later as a
 background USD? The loader adds a dome light and a directional light (off until a
 lighting-direction variation turns it on). In Python, no light means no light.
 
-**Scene reuse across task files.** ``external_yaml`` merges one scene into many
-task files. Pattern used in ``isaaclab_arena_environments/robolab/``:
-``scenes/*.yaml`` for layout, ``tasks/*.yaml`` for the task block only:
+**Reuse across task files.** ``external_yaml`` reuses external definitions across
+tasks. It takes a single path or a list of paths, relative to the including file. For example:
 
 .. code-block:: yaml
 
-   external_yaml: ../scenes/bagel_plate_banana_bowl.yaml
+   external_yaml:
+   - ../scenes/bagel_plate_banana_bowl.yaml
+   - ../shared_defaults.yaml
    env_name: banana_on_plate
    task:
      composition: atomic
      ...
+
+All external YAML files are merged into one spec under the following rules:
+
+* A value can be defined in only one file. A file can never silently override another,
+  even if both files hold the same value.
+* Exception: lists of dicts with an ``id`` (such as ``objects:``) are concatenated in file
+  order. Each ``id`` may appear only once across all files.
+  Other lists, such as ``relations``, may be defined in only one file.
+* Nested includes are not allowed. An included file cannot declare ``external_yaml`` itself.
 
 **Declared CLI overrides.** ``cli_override_specs`` turns a node into a CLI flag
 with no code change. Below, ``--object`` replaces that node's ``registry_name``:
@@ -302,16 +312,16 @@ debug output. Runtime/code-bearing values such as
 rejected. Explicit builder/CLI
 ``placement_seed`` and ``resolve_on_reset`` values take precedence over YAML.
 
-**Duplicate instances need unique names.** YAML sets ``instance_name`` to the node
-id. Asset classes default it to the registry name, so two Python instances of the
-same asset share one name unless you set ``instance_name``. Prim paths, event
+**Duplicate instances need unique names.** YAML sets ``name`` to the node
+id. Library object classes default it to the registry name, so in Python two objects created
+from the same class share one name unless you set ``name``. Prim paths, event
 terms, and observation keys all key off that name:
 
 .. code-block:: python
 
-   # Two objects, one name. Pass instance_name yourself.
-   banana_a = get("banana_ycb_robolab")(instance_name="banana_a")
-   banana_b = get("banana_ycb_robolab")(instance_name="banana_b")
+   # Two objects of one class. Give each its own name.
+   banana_a = get("banana_ycb_robolab")(name="banana_a")
+   banana_b = get("banana_ycb_robolab")(name="banana_b")
 
 **An anchor without a pose.** YAML gives an ``is_anchor`` subject with no pose
 ``Pose.identity()`` — the layout origin for the relation solver. Python leaves

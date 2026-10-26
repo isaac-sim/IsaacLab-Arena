@@ -66,7 +66,7 @@ arm:
    class SoftFrankaIKEmbodiment(FrankaIKEmbodiment):
        """Franka IK embodiment with halved joint PD gains."""
 
-       name = "franka_ik_soft"
+       registry_name = "franka_ik_soft"
 
        def __init__(self, **kwargs):
            super().__init__(**kwargs)
@@ -76,7 +76,7 @@ arm:
                actuator.damping = 40.0
 
 The ``@register_asset`` decorator registers the class with the
-``AssetRegistry`` under the name ``"franka_ik_soft"``, so it can be fetched
+``AssetRegistry`` under its ``registry_name``, ``"franka_ik_soft"``, so it can be fetched
 the same way as any built-in embodiment (see :ref:`putting_it_all_together` below for an example).
 
 .. _putting_it_all_together:

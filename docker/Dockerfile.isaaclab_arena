@@ -14,7 +14,7 @@
 # The cuRobo builder's toolchain and wheel archives stay out of the final images.
 # Select a variant with --target.
 
-ARG BASE_IMAGE=nvcr.io/nvidia/isaac-sim:6.1.0
+ARG BASE_IMAGE=nvcr.io/nvidia/isaac-sim:6.2.0
 
 ################################
 # STAGE: sim-base
@@ -24,35 +24,52 @@ USER root
 ARG WORKDIR="/workspaces/isaaclab_arena"
 ENV WORKDIR=${WORKDIR}
 WORKDIR "${WORKDIR}"
-RUN --mount=type=bind,source=docker/setup/install-system-deps.sh,target=/tmp/install-system-deps.sh \
-    bash /tmp/install-system-deps.sh
+RUN --mount=type=bind,source=docker/setup/install_system_deps.sh,target=/tmp/install_system_deps.sh \
+    bash /tmp/install_system_deps.sh
+
+# Pinned uv tooling used to construct the Isaac Lab environment. Follows Lab's pinned digest.
+FROM ghcr.io/astral-sh/uv:0.12.9@sha256:8b940d3a9d65bed080436972241af2e21c84b5e8c9193f7014ed71479ee795ff AS uv
 
 ################################
 # STAGE: isaaclab
 ################################
 FROM sim-base AS isaaclab
-COPY ./submodules/IsaacLab ${WORKDIR}/submodules/IsaacLab
+COPY --from=uv /uv /uvx /usr/local/bin/
 ENV ISAACLAB_PATH=${WORKDIR}/submodules/IsaacLab
 ENV TERM=xterm
-RUN --mount=type=bind,source=docker/setup/install-isaaclab.sh,target=/tmp/install-isaaclab.sh \
-    bash /tmp/install-isaaclab.sh
+ENV VIRTUAL_ENV=/opt/isaaclab-venv
+ENV UV_PROJECT_ENVIRONMENT=${VIRTUAL_ENV}
+ENV UV_PYTHON_PREFERENCE=only-system
+ENV UV_HTTP_RETRIES=12
+ENV PATH=${ISAACLAB_PATH}:${VIRTUAL_ENV}/bin:${PATH}
+# Keep third-party dependency installation cached when only Isaac Lab source changes.
+COPY submodules/IsaacLab/pyproject.toml \
+    submodules/IsaacLab/uv.lock \
+    ${ISAACLAB_PATH}/
+COPY --parents submodules/IsaacLab/source/*/pyproject.toml ${WORKDIR}/
+RUN --mount=type=bind,source=docker/setup/install_isaaclab.sh,target=/tmp/install_isaaclab.sh \
+    --mount=type=cache,target=/root/.cache/uv \
+    bash /tmp/install_isaaclab.sh dependencies
+COPY submodules/IsaacLab ${ISAACLAB_PATH}
+RUN --mount=type=bind,source=docker/setup/install_isaaclab.sh,target=/tmp/install_isaaclab.sh \
+    --mount=type=cache,target=/root/.cache/uv \
+    bash /tmp/install_isaaclab.sh workspace
 
 ################################
 # STAGE: arena-deps
 ################################
 FROM isaaclab AS arena-deps
 COPY ./submodules/Isaac-GR00T ${WORKDIR}/submodules/Isaac-GR00T
-RUN --mount=type=bind,source=isaaclab_arena_openpi/docker/OPENPI_COMMIT,target=/tmp/openpi_commit \
-    --mount=type=bind,source=docker/setup/install-policy-clients.sh,target=/tmp/install-policy-clients.sh \
-    bash /tmp/install-policy-clients.sh
-RUN --mount=type=bind,source=pyproject.toml,target=/tmp/arena-pyproject.toml \
-    --mount=type=bind,source=docker/setup/export_requirements.py,target=/tmp/export_requirements.py \
-    --mount=type=bind,source=docker/setup/install-arena-deps.sh,target=/tmp/install-arena-deps.sh \
-    bash /tmp/install-arena-deps.sh
+RUN --mount=type=bind,source=pyproject.toml,target=/tmp/arena-project/pyproject.toml \
+    --mount=type=bind,source=uv.lock,target=/tmp/arena-project/uv.lock \
+    --mount=type=bind,source=docker/setup/install_arena_deps.sh,target=/tmp/install_arena_deps.sh \
+    bash /tmp/install_arena_deps.sh
+RUN --mount=type=bind,source=docker/setup/install_gr00t_policy_client.sh,target=/tmp/install_gr00t_policy_client.sh \
+    bash /tmp/install_gr00t_policy_client.sh
 COPY --from=nvcr.io/nvidia/osmo/client:6.3.1 /osmo/osmo_cli_onedir/osmo /usr/local/osmo
 RUN ln -sf /usr/local/osmo/osmo /usr/local/bin/osmo
-RUN --mount=type=bind,source=docker/setup/install-dev-tools.sh,target=/tmp/install-dev-tools.sh \
-    bash /tmp/install-dev-tools.sh
+RUN --mount=type=bind,source=docker/setup/install_dev_tools.sh,target=/tmp/install_dev_tools.sh \
+    bash /tmp/install_dev_tools.sh
 
 ################################
 # STAGE: dev
@@ -68,14 +85,16 @@ COPY --parents \
     isaaclab_arena_g1 \
     isaaclab_arena_gr00t \
     isaaclab_arena_openpi \
+    isaaclab_arena_vlm_agent \
     isaaclab_arena_environments \
     isaaclab_arena_examples \
-    docs \
     ${WORKDIR}/
-RUN /isaac-sim/python.sh -m pip install --no-deps --no-build-isolation -e "${WORKDIR}"
+RUN uv pip install --no-deps --no-build-isolation --editable "${WORKDIR}" && \
+    chmod -R a+rwX "${VIRTUAL_ENV}"
 ENV LW_API_ENDPOINT="https://api-dev.lightwheel.net"
-RUN --mount=type=bind,source=docker/setup/configure-shell.sh,target=/tmp/configure-shell.sh \
-    bash /tmp/configure-shell.sh
+RUN --mount=type=bind,source=docker/setup/configure_shell.sh,target=/tmp/configure_shell.sh \
+    bash /tmp/configure_shell.sh
+COPY docs ${WORKDIR}/docs
 COPY docker/setup/entrypoint.sh /entrypoint.sh
 ENTRYPOINT ["/entrypoint.sh"]
 
@@ -88,8 +107,8 @@ ARG CUROBO_COMMIT=ebb71702f3f70e767f40fd8e050674af0288abe8
 ARG TORCH_CUDA_ARCH_LIST="8.0+PTX;8.6+PTX;8.9+PTX;9.0+PTX"
 ARG MAX_JOBS=4
 RUN --mount=type=bind,source=docker/setup/install_cuda.sh,target=/tmp/install_cuda.sh \
-    --mount=type=bind,source=docker/setup/build-curobo-wheel.sh,target=/tmp/build-curobo-wheel.sh \
-    bash /tmp/build-curobo-wheel.sh
+    --mount=type=bind,source=docker/setup/build_curobo_wheel.sh,target=/tmp/build_curobo_wheel.sh \
+    bash /tmp/build_curobo_wheel.sh
 
 ################################
 # STAGE: dev-curobo
@@ -98,9 +117,9 @@ RUN --mount=type=bind,source=docker/setup/install_cuda.sh,target=/tmp/install_cu
 FROM dev AS dev-curobo
 # Retain build provenance for manual inspection in /usr/local/share/arena/curobo-build.json.
 RUN --mount=type=bind,from=curobo-builder,source=/wheels,target=/wheels \
-    --mount=type=bind,source=docker/setup/install-curobo-runtime-deps.sh,target=/tmp/install-curobo-runtime-deps.sh \
-    bash /tmp/install-curobo-runtime-deps.sh && \
-    /isaac-sim/python.sh -m pip install --no-deps /wheels/*.whl && \
+    --mount=type=bind,source=docker/setup/install_curobo_runtime_deps.sh,target=/tmp/install_curobo_runtime_deps.sh \
+    bash /tmp/install_curobo_runtime_deps.sh && \
+    uv pip install --no-deps /wheels/*.whl && \
     mkdir -p /usr/local/share/arena && cp /wheels/build.json /usr/local/share/arena/curobo-build.json
 
 # Default to dev (without cuRobo).

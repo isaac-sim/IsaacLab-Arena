@@ -28,20 +28,22 @@ _AssetFactoryT = TypeVar("_AssetFactoryT", bound=Callable[..., object])
 
 # Decorator to register an asset with the AssetRegistry.
 def register_asset(cls):
-    if AssetRegistry().is_registered(cls.name, ensure_loaded=False):
-        print(f"WARNING: Asset {cls.name} is already registered. Doing nothing.")
+    # A subclass without its own registry_name would register under its parent's key.
+    assert "registry_name" in vars(cls), f"{cls.__name__} must set registry_name in its class body"
+    if AssetRegistry().is_registered(cls.registry_name, ensure_loaded=False):
+        print(f"WARNING: Asset {cls.registry_name} is already registered. Doing nothing.")
     else:
-        AssetRegistry().register(cls, cls.name)
+        AssetRegistry().register(cls, cls.registry_name)
     return cls
 
 
 def register_asset_factory(
-    *, name: str, object_type: ObjectType, tags: tuple[str, ...] = ("object",)
+    *, registry_name: str, object_type: ObjectType, tags: tuple[str, ...] = ("object",)
 ) -> Callable[[_AssetFactoryT], _AssetFactoryT]:
     """Register an asset factory with its registry metadata."""
 
     def decorator(factory: _AssetFactoryT) -> _AssetFactoryT:
-        factory.name = name
+        factory.registry_name = registry_name
         factory.tags = tags
         factory.object_type = object_type
         return register_asset(factory)
@@ -81,10 +83,12 @@ def register_policy(cls: type["PolicyBase"]):
 
 # Decorator to register an HDRImage with the HDRImageRegistry.
 def register_hdr(cls):
-    if HDRImageRegistry().is_registered(cls.name, ensure_loaded=False):
-        print(f"WARNING: HDRImage {cls.name} is already registered. Doing nothing.")
+    # A subclass without its own registry_name would register under its parent's key.
+    assert "registry_name" in vars(cls), f"{cls.__name__} must set registry_name in its class body"
+    if HDRImageRegistry().is_registered(cls.registry_name, ensure_loaded=False):
+        print(f"WARNING: HDRImage {cls.registry_name} is already registered. Doing nothing.")
     else:
-        HDRImageRegistry().register(cls, cls.name)
+        HDRImageRegistry().register(cls, cls.registry_name)
     return cls
 
 

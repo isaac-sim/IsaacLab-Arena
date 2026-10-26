@@ -23,15 +23,15 @@ Then, attach your editor to the running container (VS Code / Cursor):
 
 A new editor window will open, connected to the container's filesystem.
 
-2. Launch the Jupyter Notebook Server Inside Isaac Sim
-------------------------------------------------------
+2. Launch Jupyter Through the Isaac Lab Environment
+----------------------------------------------------
 
 Inside the container, start the Jupyter server:
 
 .. code-block:: bash
 
-   cd /isaac-sim
-   ./jupyter_notebook.sh
+   cd /workspaces/isaaclab_arena
+   isaaclab.sh -p -m jupyter notebook --ip=0.0.0.0 --no-browser
 
 After startup, the terminal will print the server access information, for example:
 
@@ -49,11 +49,11 @@ We will use the URL in a following step.
 ----------------------------
 
 - Create a new notebook or run an existing notebook cell.
-- By default, the notebook will connect to the system Python interpreter (e.g., Python 3.x from the base environment).
-- This environment does not contain Isaac Sim or IsaacLab dependencies and will likely fail when importing ``omni``, ``isaaclab``, etc.
+- The server and its default Python kernel run through Arena's Isaac Lab virtual environment.
+- Imports from Isaac Sim, Isaac Lab, and Arena are therefore available in notebook cells.
 
-4. Switch the Notebook Kernel to Isaac Sim Python
---------------------------------------------------
+4. Connect to the Arena Jupyter Server
+---------------------------------------
 
 In the top-right corner of the notebook UI:
 
@@ -67,20 +67,9 @@ In the top-right corner of the notebook UI:
       http://localhost:8888/?token=...
 
 5. Optionally set the **Server Display Name** (e.g., ``localhost``).
-6. Under **Select a Kernel from localhost**, choose:
+6. Under **Select a Kernel from localhost**, choose its Python 3 kernel.
 
-   .. code-block:: text
-
-      Isaac Sim Python 3  (/isaac-sim/kit/python/bin/python3)  Jupyter Kernel
-
-
-After switching, the notebook should display:
-
-.. code-block:: text
-
-   Connected to Isaac Sim Python 3
-
-The notebook is now running inside the Isaac Sim Python runtime.
+The notebook now uses the same Isaac Lab virtual environment as Arena commands in the container.
 
 Reloading Modules and Recompiling Environments
 ----------------------------------------------

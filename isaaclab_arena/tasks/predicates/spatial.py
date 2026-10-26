@@ -55,9 +55,9 @@ def object_bounds_center_over_destination(
 ) -> torch.Tensor:
     """Check whether an object's bounds center is over a destination.
 
-    The check requires the object's bounds center to be inside the destination's
-    X/Y footprint and above its lower Z bound. The upper Z bound is intentionally
-    ignored so the same check works for open containers and supporting surfaces.
+    The check requires the object's bounds center to lie inside the destination's
+    bounds extruded upward along world Z. The top is intentionally left open so
+    the same check works for open containers and supporting surfaces.
     This is a center-point test, not full-object containment.
 
     Args:
@@ -74,16 +74,68 @@ def object_bounds_center_over_destination(
     """
     t_W_D, q_W_D = T_W_D[:, :3], T_W_D[:, 3:]
 
+    # Transform the world-downward ray into D, where the destination bounds are
+    # axis aligned. Enclosing the rotated box in a world-aligned AABB would enlarge
+    # its footprint and accept points above empty corners outside the actual box.
     object_centroid_D = quat_apply_inverse(
         q_W_D,
         object_centroid_W - t_W_D,
     )
-    center_inside_horizontal_bounds = (
-        (object_centroid_D[:, :2] >= destination_bounds_D.min_point[:, :2])
-        & (object_centroid_D[:, :2] <= destination_bounds_D.max_point[:, :2])
-    ).all(dim=-1)
-    center_above_destination_bottom = object_centroid_D[:, 2] >= destination_bounds_D.min_point[:, 2]
-    return center_inside_horizontal_bounds & center_above_destination_bottom
+    downward_W = torch.zeros_like(object_centroid_W)
+    downward_W[:, 2] = -1.0
+    downward_D = quat_apply_inverse(q_W_D, downward_W)
+
+    return _ray_intersects_axis_aligned_box(object_centroid_D, downward_D, destination_bounds_D)
+
+
+def _ray_intersects_axis_aligned_box(
+    ray_origin_B: torch.Tensor,
+    ray_direction_B: torch.Tensor,
+    bounds_B: AxisAlignedBoundingBox,
+) -> torch.Tensor:
+    """Check whether each forward ray intersects an axis-aligned box.
+
+    Rays and box bounds share frame B. An origin inside or on the box counts as
+    an intersection; a box entirely behind the ray does not. Direction components
+    with magnitude below 1e-6 are treated as parallel to the corresponding planes.
+
+    Args:
+        ray_origin_B: Ray origins in frame B, with shape (num_rays, 3).
+        ray_direction_B: Unit ray directions in frame B, with shape (num_rays, 3).
+        bounds_B: Bounds aligned with frame B, on the same device as the rays.
+            A single box broadcasts across rays; otherwise one box per ray.
+
+    Returns:
+        Boolean tensor of shape (num_rays,) indicating forward intersections.
+    """
+    # A slab is the space between two opposite box faces, extending infinitely in
+    # the other directions. The box is the overlap of three slabs. The ray hits the
+    # box if its intervals inside all three overlap at a forward distance.
+    # For each axis, find the distances along the ray where it enters and exits
+    # that slab. Sorting the two distances handles either sign of the direction component.
+    direction_parallel_to_slab = ray_direction_B.abs() < 1e-6
+    # Avoid division by zero for parallel axes; their distances are replaced below.
+    safe_direction_B = torch.where(direction_parallel_to_slab, torch.ones_like(ray_direction_B), ray_direction_B)
+    distance_to_min = (bounds_B.min_point - ray_origin_B) / safe_direction_B
+    distance_to_max = (bounds_B.max_point - ray_origin_B) / safe_direction_B
+    entry_distance = torch.minimum(distance_to_min, distance_to_max)
+    exit_distance = torch.maximum(distance_to_min, distance_to_max)
+    # A ray parallel to a slab's planes never crosses them. If its origin is inside
+    # that slab, it imposes no distance restriction (-inf, +inf); otherwise the ray
+    # misses the box entirely, which parallel_slabs_contain_origin rejects.
+    entry_distance = torch.where(direction_parallel_to_slab, -torch.inf, entry_distance)
+    exit_distance = torch.where(direction_parallel_to_slab, torch.inf, exit_distance)
+    origin_above_min = ray_origin_B >= bounds_B.min_point
+    origin_below_max = ray_origin_B <= bounds_B.max_point
+    origin_inside_slab = origin_above_min & origin_below_max
+    parallel_slabs_contain_origin = (~direction_parallel_to_slab | origin_inside_slab).all(dim=-1)
+
+    # All three slab intervals must overlap on the forward ray (distance >= 0).
+    # Clamping entry to zero also accepts an origin already inside the box.
+    box_entry_distance = entry_distance.amax(dim=-1).clamp_min(0.0)
+    box_exit_distance = exit_distance.amin(dim=-1)
+    intervals_overlap = box_exit_distance >= box_entry_distance
+    return parallel_slabs_contain_origin & intervals_overlap
 
 
 def contact_force_is_upward_support(

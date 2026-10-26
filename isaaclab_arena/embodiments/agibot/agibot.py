@@ -30,7 +30,7 @@ from isaaclab_arena.utils.pose import Pose
 class AgibotEmbodiment(EmbodimentBase):
     """Embodiment for the Agibot robot."""
 
-    name = "agibot"
+    registry_name = "agibot"
     default_arm_mode = ArmMode.LEFT
 
     def __init__(

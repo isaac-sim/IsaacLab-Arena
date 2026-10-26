@@ -32,7 +32,7 @@ def get_test_environment(num_envs: int, position_1: tuple[float, float, float], 
     light = asset_registry.get_asset_by_name("light")()
 
     # Create two copies of the same object (dex_cube)
-    dex_cube_1 = asset_registry.get_asset_by_name("dex_cube")(instance_name="dex_cube_1")
+    dex_cube_1 = asset_registry.get_asset_by_name("dex_cube")(name="dex_cube_1")
     print(f"dex_cube_1.name: {dex_cube_1.name}")
     dex_cube_1.set_initial_pose(
         Pose(
@@ -41,7 +41,7 @@ def get_test_environment(num_envs: int, position_1: tuple[float, float, float], 
         )
     )
 
-    dex_cube_2 = asset_registry.get_asset_by_name("dex_cube")(instance_name="dex_cube_2")
+    dex_cube_2 = asset_registry.get_asset_by_name("dex_cube")(name="dex_cube_2")
     print(f"dex_cube_2.name: {dex_cube_2.name}")
     dex_cube_2.set_initial_pose(
         Pose(

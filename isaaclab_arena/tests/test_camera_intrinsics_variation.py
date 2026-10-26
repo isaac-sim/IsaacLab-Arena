@@ -15,8 +15,7 @@ ENABLE_CAMERAS = True
 CAMERA_NAME = "wrist_camera"
 VARIATION_NAME = f"camera_intrinsics_{CAMERA_NAME}"
 EVENT_NAME = f"{CAMERA_NAME}_intrinsics_variation"
-# (d_fx, d_fy); distinct signs catch axis/sign swaps.
-TEST_DELTAS = (0.1, -0.1)
+TEST_DELTA = 0.1
 # Empirical settling allowance for robot motion and temporal rendering after reset, not a renderer requirement.
 STEPS_BEFORE_IMAGE_COMPARISON = 12
 
@@ -32,7 +31,7 @@ def get_test_environment(*, camera_intrinsics_variation_enabled: bool):
     embodiment = DroidAbsoluteJointPositionEmbodiment(enable_cameras=ENABLE_CAMERAS)
     if camera_intrinsics_variation_enabled:
         embodiment.get_variation(VARIATION_NAME).apply_cfg(
-            CameraIntrinsicsVariationCfg(sampler_cfg=UniformSamplerCfg(low=list(TEST_DELTAS), high=list(TEST_DELTAS)))
+            CameraIntrinsicsVariationCfg(sampler_cfg=UniformSamplerCfg(low=[TEST_DELTA], high=[TEST_DELTA]))
         )
         embodiment.get_variation(VARIATION_NAME).enable()
 
@@ -145,14 +144,13 @@ def _test_camera_intrinsics_variation_realized_at_runtime(simulation_app):
     ).make_registered()
     try:
         env.reset()
-        sensor_prim = env.unwrapped.scene[CAMERA_NAME]._sensor_prims[0]
-        nominal_spawn = getattr(DroidCameraCfg(), CAMERA_NAME).spawn
-        assert sensor_prim.GetHorizontalApertureAttr().Get() == pytest.approx(
-            nominal_spawn.horizontal_aperture / (1.0 + TEST_DELTAS[0])
-        )
-        assert sensor_prim.GetVerticalApertureAttr().Get() == pytest.approx(
-            nominal_spawn.vertical_aperture / (1.0 + TEST_DELTAS[1])
-        )
+        camera = env.unwrapped.scene[CAMERA_NAME]
+        camera_cfg = getattr(DroidCameraCfg(), CAMERA_NAME)
+        nominal_focal_length = camera_cfg.width * camera_cfg.spawn.focal_length / camera_cfg.spawn.horizontal_aperture
+        expected_focal_length = nominal_focal_length * (1.0 + TEST_DELTA)
+        realized_intrinsics = camera.data.intrinsic_matrices.torch[0]
+        assert realized_intrinsics[0, 0].item() == pytest.approx(expected_focal_length)
+        assert realized_intrinsics[1, 1].item() == pytest.approx(expected_focal_length)
     finally:
         env.close()
     return True
@@ -176,7 +174,7 @@ def _test_camera_intrinsics_variation_renders_independently_per_env(simulation_a
     # Keep robot poses and object placement repeatable so reset only changes the camera intrinsics.
     arena_env.embodiment.event_config.randomize_franka_joint_state.params["std"] = 0.0
     variation = arena_env.embodiment.get_variation(VARIATION_NAME)
-    variation.apply_cfg(CameraIntrinsicsVariationCfg(sampler_cfg=UniformSamplerCfg(low=[-0.4, -0.4], high=[0.6, 0.6])))
+    variation.apply_cfg(CameraIntrinsicsVariationCfg(sampler_cfg=UniformSamplerCfg(low=[-0.4], high=[0.6])))
     variation.enable()
     env = ArenaEnvBuilder(
         arena_env, ArenaEnvBuilderCfg(num_envs=2, placement_seed=42, resolve_on_reset=False)

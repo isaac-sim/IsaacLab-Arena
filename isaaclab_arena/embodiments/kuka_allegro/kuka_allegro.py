@@ -87,7 +87,7 @@ class KukaAllegroEventCfg:
 class KukaAllegroEmbodiment(EmbodimentBase):
     """Kuka Allegro: joint-space actions, contact-rich proprioception."""
 
-    name = "kuka_allegro"
+    registry_name = "kuka_allegro"
     default_arm_mode = ArmMode.SINGLE_ARM
 
     def __init__(

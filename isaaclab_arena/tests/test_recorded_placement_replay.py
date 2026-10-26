@@ -118,7 +118,7 @@ def _make_two_root_embodiment(tmp_path):
     stage.GetRootLayer().Save()
 
     class TwoRootEmbodiment(EmbodimentBase):
-        name = "two_root_test"
+        registry_name = "two_root_test"
 
     embodiment = TwoRootEmbodiment()
     embodiment.action_config = EmptyActionsCfg()

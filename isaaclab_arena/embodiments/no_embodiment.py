@@ -18,7 +18,7 @@ class EmptyActionsCfg:
 class NoEmbodiment(EmbodimentBase):
     """Null object for environments without an embodiment."""
 
-    name = "no_embodiment"
+    registry_name = "no_embodiment"
 
     def __init__(self):
         super().__init__()

@@ -90,7 +90,7 @@ def _test_all_assets_in_registry(simulation_app, physics_backend: PhysicsBackend
     # Add lights
     for asset_cls in asset_registry.get_assets_by_tag("light"):
         # Different dome-light assets share /World/Light by default.
-        asset = asset_cls(prim_path=f"/World/{asset_cls.name}")
+        asset = asset_cls(prim_path=f"/World/{asset_cls.registry_name}")
         objects_in_registry.append(asset)
         objects_in_registry_names.append(asset.name)
     # Add ground plane

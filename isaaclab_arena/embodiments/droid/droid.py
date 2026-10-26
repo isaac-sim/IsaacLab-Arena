@@ -112,7 +112,7 @@ class DroidEmbodimentBase(EmbodimentBase, ABC):
     instead of the full robot+stand USD bounds.
     """
 
-    name = "droid"
+    registry_name = "droid"
     default_arm_mode = ArmMode.SINGLE_ARM
 
     def __init__(
@@ -247,7 +247,7 @@ class DroidDifferentialIKEmbodiment(DroidEmbodimentBase):
     spawn, gripper, and IK overrides before the env is built.
     """
 
-    name = "droid_differential_ik"
+    registry_name = "droid_differential_ik"
 
     def __init__(
         self,
@@ -295,7 +295,7 @@ class DroidDifferentialIKEmbodiment(DroidEmbodimentBase):
 class DroidRelativeJointPositionEmbodiment(DroidEmbodimentBase):
     """Embodiment for the DROID setup with relative joint position action controller."""
 
-    name = "droid_rel_joint_pos"
+    registry_name = "droid_rel_joint_pos"
 
     def __init__(
         self,
@@ -327,7 +327,7 @@ class DroidRelativeJointPositionEmbodiment(DroidEmbodimentBase):
 class DroidAbsoluteJointPositionEmbodiment(DroidEmbodimentBase):
     """Embodiment for the DROID setup with absolute joint position actions."""
 
-    name = "droid_abs_joint_pos"
+    registry_name = "droid_abs_joint_pos"
     tags = ["embodiment", "default"]
 
     def __init__(

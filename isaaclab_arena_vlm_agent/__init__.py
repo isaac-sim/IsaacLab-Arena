@@ -2,5 +2,3 @@
 # All rights reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
-
-"""Small, self-contained workarounds for upstream Isaac Sim / Isaac Lab issues."""

@@ -11,6 +11,7 @@ from dataclasses import replace
 from typing import TYPE_CHECKING
 from uuid import uuid4
 
+import warp as wp
 from isaaclab.renderers import RenderBufferKind
 from isaaclab.renderers.camera_render_spec import CameraRenderSpec
 from isaaclab.sensors import CameraCfg
@@ -66,10 +67,24 @@ class UnTiledIsaacRtxRenderer(IsaacRtxRenderer):
             outputs = {name: ProxyArray(value.warp[i : i + 1]) for name, value in output_data.items()}
             super().set_outputs(child, outputs)
 
+    def update_camera_intrinsics(
+        self, render_data: list[IsaacRtxRenderData], intrinsics: wp.array, parameters: wp.array
+    ) -> None:
+        """Apply each environment's calibration to its independent render product."""
+        # Intrinsic matrices are batched on axis 0; calibration parameters store one environment per column.
+        for i, child in enumerate(render_data):
+            super().update_camera_intrinsics(child, intrinsics[i : i + 1], parameters[:, i : i + 1])
+
     def render(self, render_data: list[IsaacRtxRenderData]) -> None:
         """Write each environment's pixels into its camera output slice."""
-        for child in render_data:
-            super().render(child)
+        self.render_batch([render_data])
+
+    def render_batch(self, render_data: list[list[IsaacRtxRenderData]]) -> None:
+        """Render all camera products together using one shared RTX update."""
+        products = []
+        for camera_data in render_data:
+            products.extend(camera_data)
+        super().render_batch(products)
 
     def read_output(self, render_data: list[IsaacRtxRenderData], camera_data: CameraData) -> None:
         """Clear metadata for RGB/RGBA outputs, which carry no annotator metadata."""

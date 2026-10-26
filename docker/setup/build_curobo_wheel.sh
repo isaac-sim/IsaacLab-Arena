@@ -4,23 +4,23 @@ set -euo pipefail
 
 # Install the compiler toolkit in this builder stage and make its tools and libraries available.
 bash /tmp/install_cuda.sh
-export CUDA_HOME=/usr/local/cuda-12.8
+export CUDA_HOME=/usr/local/cuda-13.0
 export PATH="${CUDA_HOME}/bin:${PATH}"
 export LD_LIBRARY_PATH="${CUDA_HOME}/lib64:${LD_LIBRARY_PATH:-}"
 
 # These packages provide version detection, wheel packaging, and the build runner.
-/isaac-sim/python.sh -m pip install setuptools_scm wheel ninja
+uv pip install setuptools_scm wheel ninja
 
 # Build the pinned cuRobo revision into /wheels for the runtime stage.
 # Skip dependency wheels and build in this environment instead of an isolated Python environment.
 mkdir -p /wheels
-/isaac-sim/python.sh -m pip wheel --no-deps --no-build-isolation --wheel-dir /wheels \
+"${VIRTUAL_ENV}/bin/python" -m pip wheel --no-deps --no-build-isolation --wheel-dir /wheels \
     "nvidia-curobo @ git+https://github.com/NVlabs/curobo.git@${CUROBO_COMMIT}"
 
 # The Python block below reads the finished wheel's declared dependencies and writes
 # a requirements file. The runtime stage installs those separately with version constraints
 # that preserve Isaac Sim's existing packages.
-/isaac-sim/python.sh - <<'PYTHON'
+"${VIRTUAL_ENV}/bin/python" - <<'PYTHON'
 import email
 import hashlib
 import json

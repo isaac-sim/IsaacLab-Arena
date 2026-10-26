@@ -106,7 +106,7 @@ For example, reuse the existing Franka and expose contact friction as a construc
 
    @register_asset
    class ContactFranka(FrankaIKEmbodiment):
-       name = "contact_franka"
+       registry_name = "contact_franka"
 
        def __init__(self, contact_friction: float = 0.8, **kwargs):
            super().__init__(**kwargs)

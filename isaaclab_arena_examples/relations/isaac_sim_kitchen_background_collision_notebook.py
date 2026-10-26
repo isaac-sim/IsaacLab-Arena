@@ -11,7 +11,7 @@ world-frame aggregate background mesh and the relation solver keeps placed objec
 Run standalone from the repo root inside the container (pass --viz kit to open the Kit viewer;
 omitting it runs headless, so nothing shows):
 
-    /isaac-sim/python.sh \\
+    python \\
         isaaclab_arena_examples/relations/isaac_sim_kitchen_background_collision_notebook.py \\
         --viz kit --view_steps 0
 """

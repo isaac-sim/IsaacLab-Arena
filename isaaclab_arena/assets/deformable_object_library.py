@@ -24,19 +24,30 @@ from isaaclab_arena.utils.pose import Pose, PosePerEnv
 class LibraryDeformableObject(DeformableObject):
     """Base class for registered deformable objects."""
 
-    name: str
+    registry_name: str
+    """Key of this asset class in the asset registry."""
+
     tags = ["object", "deformable", "physx"]
     spawner_cfg: DeformableObjectSpawnerCfg
 
     def __init__(
         self,
-        instance_name: str | None = None,
+        name: str | None = None,
         prim_path: str | None = None,
         initial_pose: Pose | PosePerEnv | None = None,
         **kwargs: Any,
     ):
+        """Create a deformable object of this asset class.
+
+        Args:
+            name: Name of the object in the scene. Defaults to the registry name.
+            prim_path: Prim path of the object. Defaults to ``{ENV_REGEX_NS}/<name>``.
+            initial_pose: Initial pose of the object.
+            **kwargs: Extra arguments passed to ``DeformableObject``.
+        """
+        assert "instance_name" not in kwargs, "instance_name was renamed to name; pass name= instead."
         super().__init__(
-            name=instance_name or self.name,
+            name=name or self.registry_name,
             prim_path=prim_path,
             tags=self.tags,
             spawner_cfg=copy.deepcopy(self.spawner_cfg),
@@ -49,7 +60,7 @@ class LibraryDeformableObject(DeformableObject):
 class DeformableCube(LibraryDeformableObject):
     """PhysX deformable cube used by the DROID pick-and-place environment."""
 
-    name = "deformable_cube"
+    registry_name = "deformable_cube"
     spawner_cfg = sim_utils.MeshCuboidCfg(
         size=(0.15, 0.04, 0.04),
         deformable_props=PhysxDeformableBodyPropertiesCfg(linear_damping=0.0),
@@ -67,7 +78,7 @@ class DeformableCube(LibraryDeformableObject):
 class DeformableSurface(LibraryDeformableObject):
     """PhysX surface matching Isaac Lab's Franka cloth lift geometry."""
 
-    name = "deformable_surface"
+    registry_name = "deformable_surface"
     spawner_cfg = sim_utils.MeshRectangleCfg(
         size=(0.2, 0.2),
         edge_refinement=30,
@@ -81,7 +92,7 @@ class DeformableSurface(LibraryDeformableObject):
 class DeformableTeddyBear(LibraryDeformableObject):
     """PhysX teddy bear from Isaac Lab's Franka lift environment."""
 
-    name = "deformable_teddy_bear"
+    registry_name = "deformable_teddy_bear"
     spawner_cfg = sim_utils.UsdFileCfg(
         usd_path=f"{ISAACLAB_NUCLEUS_DIR}/Objects/Teddy_Bear/teddy_bear.usd",
         scale=(0.01, 0.01, 0.01),

@@ -108,15 +108,15 @@ def _test_off_table_sphere_does_not_settle_before_falling(_simulation_app) -> bo
     from isaaclab_arena.utils.pose import Pose
     from isaaclab_arena.utils.velocity import Velocity
 
-    table = ProceduralTable(instance_name="table")
+    table = ProceduralTable(name="table")
     table.set_initial_pose(Pose(position_xyz=(0.0, 0.0, 0.45)))
     table_top_z = 0.47
 
-    table_sphere = Sphere(instance_name="table_sphere")
+    table_sphere = Sphere(name="table_sphere")
     table_sphere.set_initial_pose(Pose(position_xyz=(0.0, 0.0, table_top_z + 0.1)))
     table_sphere.set_initial_velocity(Velocity.zero())
 
-    falling_sphere = Sphere(instance_name="falling_sphere")
+    falling_sphere = Sphere(name="falling_sphere")
     falling_sphere.set_initial_pose(Pose(position_xyz=(0.55, 0.0, table_top_z + 0.1)))
     falling_sphere.set_initial_velocity(Velocity.zero())
 

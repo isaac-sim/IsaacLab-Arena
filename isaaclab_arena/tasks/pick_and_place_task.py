@@ -52,7 +52,8 @@ class PickAndPlaceTask(TaskBase):
         background_scene: Background whose minimum object height defines the drop failure.
         destination_object: Destination asset used by the default Mimic configuration.
         episode_length_s: Maximum episode duration in seconds.
-        task_description: Natural-language task instruction. A description is generated when omitted.
+        task_description: Natural-language task instruction. When omitted, get_task_description() names the
+            pick-up object and the destination by their registry_name, or by their name when they have none.
         force_threshold: Minimum filtered normal force exerted on the object by the destination, in newtons.
         velocity_threshold: Object linear-speed threshold in meters per second. Speed must be below it.
         mimic_env_cfg_factory: Optional factory for a custom Mimic environment configuration.
@@ -76,7 +77,7 @@ class PickAndPlaceTask(TaskBase):
         support_cone_half_angle_rad: float = math.pi / 4,
         placement_consecutive_steps: int = 1,
     ):
-        super().__init__(episode_length_s=episode_length_s)
+        super().__init__(episode_length_s=episode_length_s, task_description=task_description)
         assert (
             destination_location.object_type != ObjectType.DEFORMABLE
         ), "PickAndPlaceTask does not support deformable destinations"
@@ -88,7 +89,6 @@ class PickAndPlaceTask(TaskBase):
             None if pick_up_object.object_type == ObjectType.DEFORMABLE else f"contact_sensor_{pick_up_object.name}"
         )
         self.contact_sensor_cfg = SceneEntityCfg(self.contact_sensor_name) if self.contact_sensor_name else None
-        self.scene_config = self.make_scene_cfg()
         self.force_threshold = force_threshold
         assert velocity_threshold >= 0.0, f"velocity_threshold must be non-negative, got {velocity_threshold}"
         self.velocity_threshold = velocity_threshold
@@ -104,17 +104,23 @@ class PickAndPlaceTask(TaskBase):
         self.placement_consecutive_steps = placement_consecutive_steps
         self.mimic_env_cfg_factory = mimic_env_cfg_factory
         self.events_cfg = None
-        self.task_description = (
-            f"Pick up the {pick_up_object.name}, and place it into the {destination_location.name}"
-            if task_description is None
-            else task_description
-        )
+
+    def get_task_description(self) -> str:
+        """Return the task description passed to the task, or one that names the pick-up object and the destination.
+
+        Each object is named by its registry_name, or by its name when it has none.
+        """
+        if self.task_description is not None:
+            return self.task_description
+        pick_up_object_label = self.pick_up_object.registry_name or self.pick_up_object.name
+        destination_label = self.destination_location.registry_name or self.destination_location.name
+        return f"Pick up the {pick_up_object_label}, and place it into the {destination_label}"
 
     def apply_reachability_constraints(self) -> None:
         """The robot must reach the object it picks up and the location it places onto."""
         self._apply_reachability_constraints([self.pick_up_object, self.destination_location])
 
-    def make_scene_cfg(self):
+    def get_scene_cfg(self):
         if self.contact_sensor_cfg is None:
             return None
         sensor_cfg = self.pick_up_object.get_contact_sensor_cfg(
@@ -125,9 +131,6 @@ class PickAndPlaceTask(TaskBase):
             [(self.contact_sensor_cfg.name, type(sensor_cfg), sensor_cfg)],
         )
         return scene_cfg_type()
-
-    def get_scene_cfg(self):
-        return self.scene_config
 
     def get_events_cfg(self):
         return self.events_cfg

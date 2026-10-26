@@ -107,7 +107,7 @@ def _make_primitive_clutter_scene(tmp_path, raised_support=False, movable_suppor
         data["objects"].append({
             "id": "tray",
             "registry_name": "simready_usd_object",
-            "params": {"usd_path": str(tray), "instance_name": "tray"},
+            "params": {"usd_path": str(tray), "name": "tray"},
         })
         data["relations"][1]["reference"] = "tray"
         # The central release region must fit the cube's 0.1 m depth.
@@ -548,7 +548,7 @@ def _test_bowl_collection_uses_local_resting_height(simulation_app, tmp_path):
 
     arena_env = _make_primitive_clutter_scene(tmp_path)
     floor = next(asset for asset in arena_env.get_placement_assets() if asset.name == "floor")
-    bowl = BowlYcbRobolab(instance_name="bowl", initial_pose=Pose((0.3, -0.2, 0.5), (0, 0, 2**-0.5, 2**-0.5)))
+    bowl = BowlYcbRobolab(name="bowl", initial_pose=Pose((0.3, -0.2, 0.5), (0, 0, 2**-0.5, 2**-0.5)))
     bowl.object_cfg.spawn.rigid_props = sim_utils.RigidBodyBaseCfg(kinematic_enabled=True)
     bowl.add_relation(IsAnchor())
     cube = Object(name="cube_body", usd_path=str(tmp_path / "cube.usda"), scale=(0.4, 0.2, 0.2))

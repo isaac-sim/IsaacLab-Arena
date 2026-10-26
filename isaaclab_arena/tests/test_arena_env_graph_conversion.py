@@ -102,11 +102,10 @@ def _test_get_arena_builder_from_cli_builds_env_from_graph_yaml(simulation_app):
     cube = next(obj for obj in spec.objects if obj.id == "rubiks_cube_hot3d_robolab")
     assert cube.registry_name == "dex_cube"
 
-    # A non-existent --env_spec fails with a clear "not found" assertion from the YAML
-    # loader, not an opaque FileNotFoundError. The parser hits it while building, when it reads the
-    # graph's declared override flags.
+    # A non-existent --env_spec fails with a "not found" FileNotFoundError from the YAML
+    # loader. The parser hits it while building, when it reads the graph's declared override flags.
     sys.argv = ["policy_runner.py", "--env_spec", "/no/such/env_graph.yaml"]
-    with pytest.raises(AssertionError, match="not found"):
+    with pytest.raises(FileNotFoundError, match="not found"):
         get_isaaclab_arena_environments_cli_parser()
 
     # Neither source, or both at once, is rejected by the exactly-one-source assert.
