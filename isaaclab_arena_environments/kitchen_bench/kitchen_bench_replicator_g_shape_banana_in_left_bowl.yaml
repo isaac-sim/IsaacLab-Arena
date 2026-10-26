@@ -94,4 +94,3 @@ task:
       destination_location: left_bowl
       destination_object: left_bowl
       background_scene: kitchen
-      episode_length_s: 70.0

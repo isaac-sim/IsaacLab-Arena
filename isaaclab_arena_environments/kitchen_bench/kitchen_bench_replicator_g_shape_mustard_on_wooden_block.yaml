@@ -88,4 +88,3 @@ task:
       destination_location: wooden_block
       destination_object: wooden_block
       background_scene: kitchen
-      episode_length_s: 70.0

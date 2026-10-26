@@ -77,4 +77,3 @@ task:
       turnable_object: stand_mixer
       target_level: 0
       reset_level: -1
-      episode_length_s: 70.0

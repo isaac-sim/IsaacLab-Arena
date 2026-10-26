@@ -16,6 +16,7 @@ background:
   registry_name: lightwheel_kitchen_u_shaped_with_island_farmhouse2
   params:
     collision_mode: mesh
+    # Preserve room concavities; convex-hull repair would fill free workspace.
     repair_collision_mesh_non_watertight: false
 objects:
 - id: apple
@@ -107,6 +108,6 @@ task:
       destination_location: bowl
       destination_object: bowl
       background_scene: kitchen
-      episode_length_s: 80.0
 placer_params:
+  # Fail placement if no layout passes validation instead of using a rejected layout.
   allow_best_loss_fallbacks: false
