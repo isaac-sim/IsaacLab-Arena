@@ -128,7 +128,8 @@ class PlacementBenchmarkResults:
     """Git branch of the measured code, or None when unknown."""
 
     dirty: bool | None
-    """Whether the checkout had uncommitted changes, or None when unknown."""
+    """Whether the checkout had changes to tracked files or new files in the benchmarked packages, or None when
+    unknown."""
 
     settings: PlacementBenchmarkSettings
     """Settings shared by every environment."""
@@ -205,10 +206,10 @@ class RateChange:
     """Rate in the run after the change."""
 
     low: float
-    """Lower end of the 95% interval for the difference."""
+    """Lower end of the 95% interval for the difference; it can fall below -1 when one rate is near 0% and the other near 100%."""
 
     high: float
-    """Upper end of the 95% interval for the difference."""
+    """Upper end of the 95% interval for the difference; it can exceed 1 when one rate is near 0% and the other near 100%."""
 
     p_value: float
     """Two-sided p-value for a zero difference."""
@@ -427,17 +428,22 @@ def format_comparison(comparison: ResultsComparison) -> str:
     if comparison.settings_differences:
         lines.append("Warning: the runs used different settings:")
         for key, (value_before, value_after) in comparison.settings_differences.items():
-            lines.append(f"- {key}: before {value_before}, after {value_after}")
+            lines.append(f"- {key}: before {_format_setting(value_before)}, after {_format_setting(value_after)}")
         lines.append("")
     if comparison.check_differences:
         lines.append(
             "Warning: a check required in only one run rejected candidates in these environments, so their success"
-            " criteria differ. They are left out of the suite rates and significance tests:"
+            " criteria differ. They are left out of the suite rates and significance tests, and their rates are shown"
+            " without intervals:"
         )
         for excluded in comparison.check_differences:
             lines.append(
                 f"- {excluded.suite}/{excluded.environment}: before {_format_checks(excluded.before.checks)};"
-                f" after {_format_checks(excluded.after.checks)}"
+                f" after {_format_checks(excluded.after.checks)}; layout success"
+                f" {_format_percent(excluded.before.layout_success_rate)} →"
+                f" {_format_percent(excluded.after.layout_success_rate)}, valid candidates"
+                f" {_format_percent(excluded.before.valid_candidate_rate)} →"
+                f" {_format_percent(excluded.after.valid_candidate_rate)}"
             )
         lines.append("")
     lines += [
@@ -578,6 +584,10 @@ def _format_checks(checks: dict[str, bool]) -> str:
     return ", ".join(names) or "none"
 
 
+def _format_setting(value: object) -> str:
+    return str(value.value if isinstance(value, Enum) else value)
+
+
 def _format_status(record: EnvironmentRecord | None) -> str:
     return "missing" if record is None else str(record.status)
 
@@ -591,4 +601,6 @@ def _format_rates(change: RateChange) -> str:
 
 
 def _format_change(change: RateChange) -> str:
-    return f"[{100 * change.low:+.1f}, {100 * change.high:+.1f}] pts"
+    # A difference of two rates lies between -100 and +100 points, so the printed interval stops there.
+    low, high = max(change.low, -1.0), min(change.high, 1.0)
+    return f"[{100 * low:+.1f}, {100 * high:+.1f}] pts"

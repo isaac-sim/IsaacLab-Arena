@@ -62,6 +62,9 @@ SUITE_SPEC_GLOBS = {
 Append new suites, so that the specs of earlier suites keep their seed blocks.
 """
 
+_BENCHMARKED_PACKAGES = ("isaaclab_arena", "isaaclab_arena_environments")
+"""Packages whose code and specs the benchmark measures, relative to the repository root."""
+
 _SEEDS_PER_ENVIRONMENT = 2**20
 """Size of each environment's block of candidate seeds, so environments never share candidates, even when they share
 a scene."""
@@ -194,11 +197,18 @@ def discover_specs(suite: str, env_filters: list[str] | None) -> list[tuple[str,
 
 
 def get_git_provenance() -> tuple[str | None, str | None, bool | None]:
-    """Return the checkout's commit, branch and whether it has uncommitted changes, or None where git cannot tell."""
+    """Return the checkout's commit, branch and whether it has uncommitted changes, or None where git cannot tell.
+
+    Changes count when they are to tracked files or are new files in the packages the benchmark reads, such as a new
+    spec. Other untracked files, such as local tool settings that only a user's own git config ignores, do not.
+    """
     commit = _run_git("rev-parse", "HEAD")
     branch = _run_git("rev-parse", "--abbrev-ref", "HEAD")
-    status = _run_git("status", "--porcelain")
-    return commit, branch, None if status is None else bool(status)
+    tracked_changes = _run_git("status", "--porcelain", "--untracked-files=no")
+    package_changes = _run_git("status", "--porcelain", "--", *_BENCHMARKED_PACKAGES)
+    if tracked_changes is None or package_changes is None:
+        return commit, branch, None
+    return commit, branch, bool(tracked_changes or package_changes)
 
 
 def get_seed_block_index(suite: str, spec_path: Path) -> int:
@@ -257,11 +267,14 @@ class CandidatePlacer:
     def __init__(self, inputs: LivePlacementInputs, settings: PlacementBenchmarkSettings, seed_block_index: int):
         """Copy the placer parameters, apply the benchmark settings, build the placer and find the fixed obstacles.
 
+        Object sets among the assets get their members for every layout here, from the start of the seed block.
+
         Args:
             inputs: The environment's placement inputs; its placer parameters are copied, not modified.
             settings: Benchmark settings.
             seed_block_index: Index of the environment's own block of candidate seeds.
         """
+        from isaaclab_arena.relations.bounding_box_helpers import assign_variants_for_envs
         from isaaclab_arena.relations.object_placer import ObjectPlacer
         from isaaclab_arena.relations.passive_collision_objects import get_placement_collision_objects
 
@@ -284,13 +297,17 @@ class CandidatePlacer:
         )
         self._num_layouts = settings.num_layouts
         self._first_seed = seed_block_index * _SEEDS_PER_ENVIRONMENT
+        # An object set keeps its first member assignment, so draw it once from this environment's seed block; otherwise
+        # every seed would keep the members of whichever seed ran first.
+        assign_variants_for_envs(self._assets, self._num_layouts, placement_seed=self._first_seed)
 
     def place(self, seed: int) -> list[list[PlacementResult]]:
         """Place num_layouts layouts for one seed and return every candidate, ranked per layout.
 
         The layouts match ObjectPlacer.place() with placement seed
-        seed_block_index * 2**20 + seed * num_layouts * max_placement_attempts. Candidates are seeded consecutively from
-        the placement seed, so different seeds and different seed blocks solve disjoint candidates.
+        seed_block_index * 2**20 + seed * num_layouts * max_placement_attempts, except that an object set keeps the
+        members drawn from the start of the seed block for every seed. Candidates are seeded consecutively from the
+        placement seed, so different seeds and different seed blocks solve disjoint candidates.
 
         Args:
             seed: Nonnegative benchmark seed.

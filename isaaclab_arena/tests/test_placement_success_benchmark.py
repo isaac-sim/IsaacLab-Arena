@@ -20,6 +20,7 @@ from isaaclab_arena.offline_placement.placement_success import (
     format_results,
     summarize_suites,
 )
+from isaaclab_arena.relations.collision_mode import CollisionMode
 from isaaclab_arena.tests.utils.persistent_simulation_app import run_function_with_persistent_simulation_app
 
 
@@ -59,8 +60,6 @@ def test_results_file_round_trips_and_reports_suite_rates(tmp_path):
         EnvironmentRecord("kitchen_bench", "static_scene", EnvironmentStatus.SKIPPED, reason="places only anchors"),
         EnvironmentRecord("kitchen_bench", "place_lime", EnvironmentStatus.FAILED, reason="KeyError: 'lime'"),
     ])
-    from isaaclab_arena.relations.collision_mode import CollisionMode
-
     results.settings = PlacementBenchmarkSettings(
         random_yaw_init=True, collision_mode=CollisionMode.MESH, solver_device="cpu"
     )
@@ -79,7 +78,7 @@ def test_results_file_round_trips_and_reports_suite_rates(tmp_path):
 
 
 def test_comparison_flags_only_changes_that_survive_holm():
-    """Only changes that survive Holm's step-down are flagged, and environments not scored in both runs are listed."""
+    """Only changes that survive Holm's step-down are flagged, and unpaired environments and settings are listed."""
     before = [_scored("robolab", f"task_{index}", layouts=(47, 50), candidates=(400, 500)) for index in range(38)]
     before.append(EnvironmentRecord("robolab", "new_task", EnvironmentStatus.FAILED, reason="missing asset"))
     before.append(EnvironmentRecord("robolab", "static_scene", EnvironmentStatus.SKIPPED))
@@ -89,7 +88,7 @@ def test_comparison_flags_only_changes_that_survive_holm():
     after.append(_scored("robolab", "task_37", layouts=(12, 25), candidates=(100, 250)))
     after.append(EnvironmentRecord("robolab", "static_scene", EnvironmentStatus.SKIPPED))
     after_results = _results(after)
-    after_results.settings = PlacementBenchmarkSettings(random_yaw_init=True)
+    after_results.settings = PlacementBenchmarkSettings(random_yaw_init=True, collision_mode=CollisionMode.MESH)
 
     comparison = compare_results(_results(before), after_results)
 
@@ -106,7 +105,11 @@ def test_comparison_flags_only_changes_that_survive_holm():
     [new_task, task_35] = comparison.unpaired
     assert (new_task.environment, new_task.before.status, new_task.after) == ("new_task", "failed", None)
     assert (task_35.environment, task_35.before.status, task_35.after.status) == ("task_35", "scored", "skipped")
-    assert comparison.settings_differences == {"random_yaw_init": (False, True)}
+    assert comparison.settings_differences == {
+        "random_yaw_init": (False, True),
+        "collision_mode": (None, CollisionMode.MESH),
+    }
+    assert "- collision_mode: before None, after mesh" in format_comparison(comparison)
 
     # p = 0.035 and 0.047: both are below 5%, but the smaller misses Holm's first threshold of 2.5%, so neither is flagged.
     moderate = compare_results(
@@ -129,7 +132,11 @@ def test_comparison_flags_only_changes_that_survive_holm():
 
 
 def test_suite_interval_is_centered_on_the_observed_change():
-    """Identical rates show no change even when the runs differ in size, and the p-value agrees with the interval."""
+    """Identical rates show no change even when the runs differ in size, and the p-value agrees with the interval.
+
+    A difference of two rates cannot pass 100 points, so the printed interval stops there, while the stored interval
+    keeps its full width for suite averages.
+    """
     before = [_scored("robolab", f"task_{index}", layouts=(150, 150), candidates=(1500, 1500)) for index in range(36)]
     after = [_scored("robolab", f"task_{index}", layouts=(50, 50), candidates=(500, 500)) for index in range(36)]
 
@@ -149,6 +156,13 @@ def test_suite_interval_is_centered_on_the_observed_change():
         [suite] = compare_results(_results(before), _results(after)).suites
         change = suite.layout_success
         assert (change.high < 0 or change.low > 0) == (change.p_value < 0.05)
+
+    collapse = compare_results(
+        _results([_scored("robolab", "task_0", layouts=(50, 50), candidates=(500, 500))]),
+        _results([_scored("robolab", "task_0", layouts=(0, 50), candidates=(0, 500))]),
+    )
+    assert collapse.environments[0].layout_success.low < -1
+    assert "| robolab | 1 | 100.0% → 0.0% | [-100.0, " in format_comparison(collapse)
 
 
 def test_comparison_leaves_out_environments_whose_success_criteria_changed():
@@ -176,7 +190,8 @@ def test_comparison_leaves_out_environments_whose_success_criteria_changed():
     assert [environment.environment for environment in comparison.environments] == ["task_2", "task_4"]
     assert [excluded.environment for excluded in comparison.check_differences] == ["task_0", "task_1", "task_3"]
     assert (
-        "- robolab/task_1: before ik_reachable, no_overlap; after ik_reachable (optional), no_overlap"
+        "- robolab/task_1: before ik_reachable, no_overlap; after ik_reachable (optional), no_overlap;"
+        " layout success 94.0% → 50.0%, valid candidates 80.0% → 40.0%"
         in format_comparison(comparison)
     )
 
@@ -222,7 +237,6 @@ def test_candidate_placer_matches_object_placer_with_disjoint_seeds():
     Two environments with the same scene must not share candidates, or their results would not be independent.
     """
     from isaaclab_arena.environments.arena_env_builder import LivePlacementInputs
-    from isaaclab_arena.relations.collision_mode import CollisionMode
     from isaaclab_arena.relations.object_placer import ObjectPlacer
     from isaaclab_arena.relations.object_placer_params import ObjectPlacerParams
     from isaaclab_arena.relations.relation_solver_params import RelationSolverParams
