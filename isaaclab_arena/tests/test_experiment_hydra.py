@@ -62,6 +62,7 @@ def test_getting_started_experiment_composes_typed_runs():
         "swap_objects",
         "change_background_hdr",
         "parallel_envs",
+        "multiple_pick_up_objects",
     ]
     assert runs["baseline"].environment == PickAndPlaceMapleTableEnvironmentCfg(
         embodiment="droid_rel_joint_pos",
@@ -77,12 +78,21 @@ def test_getting_started_experiment_composes_typed_runs():
     )
     assert runs["change_background_hdr"].environment.hdr == "billiard_hall_robolab"
     assert runs["parallel_envs"].environment.hdr == "home_office_robolab"
+    assert runs["multiple_pick_up_objects"].num_rebuilds == 3
+    assert runs["multiple_pick_up_objects"].variations == {
+        "pick_up_object.asset_selection.enabled": True,
+        "pick_up_object.asset_selection.registry_names": [
+            "rubiks_cube_hot3d_robolab",
+            "mustard_bottle_hot3d_robolab",
+            "orange_01_fruits_veggies_robolab",
+        ],
+    }
     assert all(run.environment.episode_length_s == 1.5 for run in runs.values())
     assert all(run.policy == ZeroActionPolicyCfg() for run in runs.values())
-    assert [run.environment_builder.num_envs for run in runs.values()] == [1, 1, 1, 64]
+    assert [run.environment_builder.num_envs for run in runs.values()] == [1, 1, 1, 64, 1]
     assert runs["parallel_envs"].environment_builder.env_spacing == 2.5
     assert all(run.rollout_limit.num_steps is None for run in runs.values())
-    assert all(run.rollout_limit.num_episodes == 1 for run in runs.values())
+    assert [run.rollout_limit.num_episodes for run in runs.values()] == [1, 1, 1, 1, 3]
 
 
 def test_experiment_composition_preserves_caller_owned_hydra_context():

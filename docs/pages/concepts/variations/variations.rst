@@ -221,12 +221,12 @@ parallel environment, the second rebuild the second name, and so on. Set ``num_r
 length of ``registry_names`` to spawn each entry once. With fewer rebuilds, a name listed only after
 the entry of the last rebuild never spawns.
 
-The example config ``isaaclab_arena_environments/experiment_configs/asset_selection_experiment.yaml``
-spawns three pick-up objects in ``pick_and_place_maple_table``, one per rebuild, each in four parallel
-environments:
+The ``multiple_pick_up_objects`` Run of the :ref:`first Arena Experiment <first-arena-experiment>`
+spawns three pick-up objects in ``pick_and_place_maple_table``, one per rebuild:
 
-.. literalinclude:: ../../../../isaaclab_arena_environments/experiment_configs/asset_selection_experiment.yaml
+.. literalinclude:: ../../../../isaaclab_arena_environments/experiment_configs/getting_started_experiment.yaml
    :language: yaml
+   :start-at: multiple_pick_up_objects:
 
 Every rigid ``Object`` except a ``RigidObjectSet`` has a disabled ``asset_selection`` variation, for
 example the ``pick_up_object`` of ``pick_and_place_maple_table``. While it is off, the object spawns

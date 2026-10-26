@@ -4,8 +4,9 @@ First Arena Experiment
 ======================
 
 The previous page launched three versions of the Maple-table scene and previewed 64 parallel
-copies. Here, those four setups become four named Runs in one YAML file. The zero-action policy
-keeps the example quick and needs no model weights.
+copies. Here, those four setups become named Runs in one YAML file, together with a fifth Run that
+spawns several pick-up objects. The zero-action policy keeps the example quick and needs no model
+weights.
 
 Together, those Runs form an Arena Experiment. The YAML file is its **Experiment Definition**.
 
@@ -13,7 +14,8 @@ Together, those Runs form an Arena Experiment. The YAML file is its **Experiment
 Define the Experiment
 ---------------------
 
-The four Runs collect the three setups you launched and the parallel setup you previewed:
+The first four Runs collect the three setups you launched and the parallel setup you previewed. The
+fifth spawns several pick-up objects, one after another:
 
 .. grid:: 1 1 2 2
    :gutter: 3
@@ -50,7 +52,13 @@ The four Runs collect the three setups you launched and the parallel setup you p
 
       Runs 64 copies of the baseline environment in parallel.
 
-The four setups above are defined together in one YAML file:
+   .. grid-item-card:: ``multiple_pick_up_objects``
+      :class-card: sd-shadow-sm
+
+      Builds the scene once for each pick-up object in its list: a Rubik's cube, a mustard bottle
+      and an orange.
+
+The five setups above are defined together in one YAML file:
 
 .. literalinclude:: ../../../isaaclab_arena_environments/experiment_configs/getting_started_experiment.yaml
    :language: yaml
@@ -97,7 +105,7 @@ environment for every Run, then closes that environment before starting the next
 
 .. note::
 
-   The four Runs execute one after another on your machine. The 64 environments in
+   The five Runs execute one after another on your machine. The 64 environments in
    ``parallel_envs`` are different: they are copies inside that one Run, and they step in parallel.
 
 By default, Arena saves the result as
