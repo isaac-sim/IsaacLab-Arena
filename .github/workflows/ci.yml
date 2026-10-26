@@ -12,7 +12,9 @@ on:
     branches: [ "main" ]
   schedule:
     # Nightly at 06:00 UTC — runs the full suite (including the native-uv job;
-    - cron: '0 6 * * *'
+    # Sunday's run also runs the weekly agentic env gen benchmark.
+    - cron: '0 6 * * 1-6'
+    - cron: '0 6 * * 0'
   workflow_dispatch:
 
 # Concurrency control to prevent parallel runs on the same PR
@@ -497,6 +499,100 @@ jobs:
         run: |
           MPLCONFIGDIR=/tmp/mpl isaaclab.sh -p -m pytest -sv --durations=0 -m curobo_deps \
             isaaclab_arena_curobo/tests/
+
+
+  weekly_agentic_env_gen_benchmark:
+    name: Agentic env gen benchmark (weekly)
+    # Must match the Sunday cron above.
+    if: github.event.schedule == '0 6 * * 0' || github.event_name == 'workflow_dispatch'
+    runs-on: [self-hosted, gpu-arena]
+    timeout-minutes: 180
+    needs: [build_and_push_image]
+    env:
+      ARENA_INFERENCE_ENDPOINT: public
+      NVIDIA_API_KEY: ${{ secrets.ARENA_PUBLIC_NVIDIA_API_KEY }}
+      BENCHMARK_OUTPUT_DIR: outputs/weekly_benchmark
+      # A reduced matrix that fits a CI job; the READMEs under
+      # isaaclab_arena_examples/agentic_environment_generation/ give the reporting configuration.
+      TIME_TO_FIRST_SPEC_NUM_RUNS: "3"
+      TIME_TO_RESOLVED_LAYOUT_NUM_RUNS: "3"
+
+    container:
+      image: ${{ needs.build_and_push_image.outputs.image }}
+      credentials:
+        username: $oauthtoken
+        password: ${{ env.NGC_API_KEY }}
+
+    steps:
+      - name: Require the public inference API key
+        run: |
+          if [ -z "${NVIDIA_API_KEY}" ]; then
+            echo "::error::ARENA_PUBLIC_NVIDIA_API_KEY must be configured for the benchmark."
+            exit 1
+          fi
+
+      - *nvidia_smi
+      - *lscpu
+      - *install_git_step
+      - *cleanup_step
+      - *mark_repo_safe_step
+      - *checkout_step
+      - *git_lfs_step
+      - *install_project_step
+      - *setup_isaac_sim_kit_cache_step
+
+      - name: Run benchmark unit tests
+        run: |
+          isaaclab.sh -p -m pytest -sv --durations=0 \
+            isaaclab_arena_examples/tests/test_benchmark_time_to_first_spec.py \
+            isaaclab_arena_examples/tests/test_benchmark_time_to_resolved_layout.py
+
+      - name: Benchmark time to first environment spec
+        timeout-minutes: 60
+        shell: bash
+        run: |
+          set -o pipefail
+          isaaclab.sh -p isaaclab_arena_examples/agentic_environment_generation/run_time_to_first_spec_benchmarks.py \
+            --num_runs "${TIME_TO_FIRST_SPEC_NUM_RUNS}" \
+            --output_dir "${BENCHMARK_OUTPUT_DIR}/time_to_first_spec" \
+            | tee time_to_first_spec.log
+
+      - name: Benchmark time to resolved layout
+        if: ${{ !cancelled() }}
+        timeout-minutes: 90
+        shell: bash
+        run: |
+          set -o pipefail
+          isaaclab.sh -p isaaclab_arena_examples/agentic_environment_generation/run_time_to_resolved_layout_benchmarks.py \
+            --num_runs "${TIME_TO_RESOLVED_LAYOUT_NUM_RUNS}" \
+            --num_envs 1 \
+            --num_envs 16 \
+            --output_dir "${BENCHMARK_OUTPUT_DIR}/time_to_resolved_layout" \
+            | tee time_to_resolved_layout.log
+
+      - name: Write benchmark summary
+        if: ${{ !cancelled() }}
+        shell: bash
+        run: |
+          for log in time_to_first_spec.log time_to_resolved_layout.log; do
+            [ -f "${log}" ] || continue
+            echo '```' >> "${GITHUB_STEP_SUMMARY}"
+            # Each batch runner ends with its summary table and the combined results path.
+            sed -n '/^Combined time-to-first-spec results$/,$p; /^Valid spec to resolved layout pool$/,$p' "${log}" \
+              >> "${GITHUB_STEP_SUMMARY}"
+            echo '```' >> "${GITHUB_STEP_SUMMARY}"
+          done
+
+      - name: Upload benchmark results
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: agentic-env-gen-benchmark-${{ github.run_attempt }}
+          path: |
+            ${{ env.BENCHMARK_OUTPUT_DIR }}
+            time_to_first_spec.log
+            time_to_resolved_layout.log
+          if-no-files-found: warn
 
 
   build_docs_pre_merge:
