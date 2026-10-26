@@ -7,7 +7,7 @@
 # sim-base:       Isaac Sim, common system packages, and runtime permissions.
 # isaaclab:       Isaac Lab checkout and its dependencies, on top of sim-base.
 # arena-deps:     Arena dependencies, policy clients, and developer tools, on isaaclab.
-# dev:            Arena source, editable install, shell setup, entrypoint, and the Arena git commit and branch.
+# dev:            Arena source (including osmo/ submit code and benchmarks), editable install, shell setup, entrypoint, and the Arena git commit and branch.
 # curobo-builder: Isolated CUDA toolkit and wheel compilation, branching from isaaclab.
 # dev-curobo:     Dev plus cuRobo installed from the builder's mounted wheel.
 #
@@ -71,6 +71,7 @@ COPY --parents \
     isaaclab_arena_environments \
     isaaclab_arena_examples \
     docs \
+    osmo \
     ${WORKDIR}/
 RUN /isaac-sim/python.sh -m pip install --no-deps --no-build-isolation -e "${WORKDIR}"
 ENV LW_API_ENDPOINT="https://api-dev.lightwheel.net"
