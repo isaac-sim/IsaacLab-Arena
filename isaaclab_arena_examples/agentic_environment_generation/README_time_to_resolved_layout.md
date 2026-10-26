@@ -19,16 +19,19 @@ Start the Arena development container, then run the following command from
   --num_envs 16 \
   --num_envs 64 \
   --num_envs 256 \
-  --output_dir output/time_to_resolved_layout
+  --output_dir outputs/time_to_resolved_layout
 ```
 
-This runs all eight benchmark cases. Each environment requests five layouts,
+This runs every case under `isaaclab_arena_environments/agentic_env_gen_benchmark`:
+each subdirectory holding one environment YAML is a case named after the
+subdirectory. Pass `--env_specs_dir` to benchmark a different directory with the
+same layout. Each environment requests five layouts,
 and `allow_best_loss_fallbacks` is disabled so every stored layout must pass
 strict validation.
 
-The complete matrix takes approximately 50 hours on one RTX 6000 Ada
-Generation GPU. Use repeated `--case` arguments to run selected cases only.
-Run `--help` to list the available case names.
+Eight cases took approximately 50 hours on one RTX 6000 Ada
+Generation GPU. Use repeated `--case <subdirectory>` arguments to run selected
+cases only.
 
 ## Resume
 

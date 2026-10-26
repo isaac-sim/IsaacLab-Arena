@@ -22,42 +22,22 @@ root inside the Arena container.
 
 ## Run all cases
 
-Each command runs every configured case 100 times and writes one combined JSON
-file. `--no_save_specs` prevents the first generated environment from each case
-from being saved as YAML.
-
-NVIDIA internal endpoint:
+This command runs every configured case 100 times against one inference
+endpoint and writes one combined JSON file. Pass `internal`, `public`, or
+`openai` to `--inference_endpoint`.
 
 ```bash
 /isaac-sim/python.sh \
   isaaclab_arena_examples/agentic_environment_generation/run_time_to_first_spec_benchmarks.py \
   --inference_endpoint internal \
   --num_runs 100 \
-  --no_save_specs \
-  --output_dir output/time_to_first_spec/internal
+  --output_dir outputs/time_to_first_spec/internal
 ```
 
-NVIDIA public endpoint:
-
-```bash
-/isaac-sim/python.sh \
-  isaaclab_arena_examples/agentic_environment_generation/run_time_to_first_spec_benchmarks.py \
-  --inference_endpoint public \
-  --num_runs 100 \
-  --no_save_specs \
-  --output_dir output/time_to_first_spec/public
-```
-
-OpenAI endpoint:
-
-```bash
-/isaac-sim/python.sh \
-  isaaclab_arena_examples/agentic_environment_generation/run_time_to_first_spec_benchmarks.py \
-  --inference_endpoint openai \
-  --num_runs 100 \
-  --no_save_specs \
-  --output_dir output/time_to_first_spec/openai
-```
+The first generated environment from each case is saved as YAML under
+`<output_dir>/specs/<case>/`. Pass `--no_save_specs` to skip saving, or
+`--spec_output_dir isaaclab_arena_environments/agentic_env_gen_benchmark` to
+regenerate the checked-in benchmark environments.
 
 To use the endpoint selected by `ARENA_INFERENCE_ENDPOINT`, omit
 `--inference_endpoint`. If neither the argument nor the environment variable is
@@ -75,8 +55,7 @@ and support OpenAI-compatible strict structured output. For example:
   --model nvidia/nemotron-3-super-120b-a12b \
   --temperature 0.1 \
   --num_runs 100 \
-  --no_save_specs \
-  --output_dir output/time_to_first_spec/public-nemotron
+  --output_dir outputs/time_to_first_spec/public-nemotron
 ```
 
 The internal and OpenAI endpoint presets currently ignore `--temperature`
@@ -94,7 +73,7 @@ Use the single-case runner while developing a workload. Omitting
   --inference_endpoint internal \
   --case kitchen_open_fridge_door \
   --num_runs 100 \
-  --output_path output/time_to_first_spec/kitchen_open_fridge_door.json
+  --output_path outputs/time_to_first_spec/kitchen_open_fridge_door.json
 ```
 
 Case names and prompts are defined in
@@ -112,14 +91,14 @@ The batch runner prints a summary table when it finishes and writes:
 Open the complete file in an editor or page through it in the terminal:
 
 ```bash
-less output/time_to_first_spec/internal/all_results.json
+less outputs/time_to_first_spec/internal/all_results.json
 ```
 
 Print only the per-case summaries with `jq`:
 
 ```bash
 jq '.results[] | {case, summary}' \
-  output/time_to_first_spec/internal/all_results.json
+  outputs/time_to_first_spec/internal/all_results.json
 ```
 
 Print a compact tab-separated table:
@@ -135,7 +114,7 @@ jq -r '
     .summary.p95_ms,
     .summary.p99_ms
   ]) | @tsv
-' output/time_to_first_spec/internal/all_results.json | column -t -s $'\t'
+' outputs/time_to_first_spec/internal/all_results.json | column -t -s $'\t'
 ```
 
 ## Understand the results
@@ -166,7 +145,7 @@ the success and failure counts. Inspect `.samples[]` to diagnose failures:
 jq '.results[] | {
   case,
   failures: [.samples[] | select(.time_to_first_spec_ms == null)]
-}' output/time_to_first_spec/internal/all_results.json
+}' outputs/time_to_first_spec/internal/all_results.json
 ```
 
 For a no-save run, every sample's `generated_spec_path` is `null`. A successful

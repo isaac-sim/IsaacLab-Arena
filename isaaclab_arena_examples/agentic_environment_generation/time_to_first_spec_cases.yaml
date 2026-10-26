@@ -32,7 +32,7 @@ cases:
       the mini plastic basket on the table.
     object_references_expected: false
     enable_simready_search: true
-    simready_source: service
+    simready_sources: [service]
     simready_max_results_per_object: 3
 
   tabletop_heterogeneous_fruit_plate:

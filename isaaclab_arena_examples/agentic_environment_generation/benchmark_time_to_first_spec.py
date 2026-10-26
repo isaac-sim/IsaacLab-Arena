@@ -25,7 +25,7 @@ import json
 import math
 import time
 import yaml
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field, fields
 from pathlib import Path
 from typing import Any
 
@@ -56,10 +56,28 @@ class BenchmarkCase:
     prompt: str
     object_references_expected: bool | None = None
     enable_simready_search: bool = False
-    simready_source: str = SimReadySourceKind.ISAAC_SIM_GA.value
+    simready_sources: list[str] = field(default_factory=lambda: [SimReadySourceKind.ISAAC_SIM_GA.value])
     simready_s3_url: str | None = None
     simready_service_url: str | None = None
     simready_max_results_per_object: int = 1
+
+    def __post_init__(self):
+        assert self.prompt.strip(), f"benchmark case {self.name!r} must define a non-empty prompt"
+        assert self.object_references_expected in (
+            None,
+            True,
+            False,
+        ), f"benchmark case {self.name!r} object_references_expected must be true, false, or omitted"
+        assert isinstance(
+            self.enable_simready_search, bool
+        ), f"benchmark case {self.name!r} enable_simready_search must be true or false"
+        valid_sources = [kind.value for kind in SimReadySourceKind]
+        assert self.simready_sources and all(
+            source in valid_sources for source in self.simready_sources
+        ), f"benchmark case {self.name!r} simready_sources must be a non-empty subset of {valid_sources}"
+        assert (
+            isinstance(self.simready_max_results_per_object, int) and self.simready_max_results_per_object > 0
+        ), f"benchmark case {self.name!r} simready_max_results_per_object must be a positive integer"
 
 
 def load_benchmark_cases(path: Path) -> tuple[dict[str, BenchmarkCase], str]:
@@ -79,57 +97,14 @@ def load_benchmark_cases(path: Path) -> tuple[dict[str, BenchmarkCase], str]:
         isinstance(raw_cases, dict) and raw_cases
     ), f"benchmark cases file must define a non-empty 'cases' mapping: {path}"
 
+    case_fields = {case_field.name for case_field in fields(BenchmarkCase)} - {"name"}
     cases: dict[str, BenchmarkCase] = {}
     for name, values in raw_cases.items():
         assert isinstance(name, str) and name, f"benchmark case names must be non-empty strings: {name!r}"
         assert isinstance(values, dict), f"benchmark case {name!r} must contain a mapping"
-        known_fields = {
-            "prompt",
-            "object_references_expected",
-            "enable_simready_search",
-            "simready_source",
-            "simready_s3_url",
-            "simready_service_url",
-            "simready_max_results_per_object",
-        }
-        unexpected = set(values) - known_fields
+        unexpected = set(values) - case_fields
         assert not unexpected, f"benchmark case {name!r} has unknown fields: {sorted(unexpected)}"
-        prompt = values.get("prompt")
-        assert isinstance(prompt, str) and prompt.strip(), f"benchmark case {name!r} must define a non-empty prompt"
-        object_references_expected = values.get("object_references_expected")
-        assert object_references_expected is None or isinstance(
-            object_references_expected, bool
-        ), f"benchmark case {name!r} object_references_expected must be true, false, or omitted"
-        enable_simready_search = values.get("enable_simready_search", False)
-        assert isinstance(
-            enable_simready_search, bool
-        ), f"benchmark case {name!r} enable_simready_search must be true or false"
-        simready_source = values.get("simready_source", SimReadySourceKind.ISAAC_SIM_GA.value)
-        assert simready_source in tuple(
-            kind.value for kind in SimReadySourceKind
-        ), f"benchmark case {name!r} simready_source must be one of {[kind.value for kind in SimReadySourceKind]}"
-        simready_s3_url = values.get("simready_s3_url")
-        assert simready_s3_url is None or isinstance(
-            simready_s3_url, str
-        ), f"benchmark case {name!r} simready_s3_url must be a string or omitted"
-        simready_service_url = values.get("simready_service_url")
-        assert simready_service_url is None or isinstance(
-            simready_service_url, str
-        ), f"benchmark case {name!r} simready_service_url must be a string or omitted"
-        simready_max_results = values.get("simready_max_results_per_object", 1)
-        assert (
-            isinstance(simready_max_results, int) and simready_max_results > 0
-        ), f"benchmark case {name!r} simready_max_results_per_object must be a positive integer"
-        cases[name] = BenchmarkCase(
-            name=name,
-            prompt=prompt.strip(),
-            object_references_expected=object_references_expected,
-            enable_simready_search=enable_simready_search,
-            simready_source=simready_source,
-            simready_s3_url=simready_s3_url,
-            simready_service_url=simready_service_url,
-            simready_max_results_per_object=simready_max_results,
-        )
+        cases[name] = BenchmarkCase(name=name, **{**values, "prompt": str(values.get("prompt", "")).strip()})
 
     default_case = data.get("default_case")
     assert (
@@ -284,7 +259,7 @@ def main() -> int:
     simready_config = None
     if benchmark_case is not None and benchmark_case.enable_simready_search:
         simready_config = simready_search_config_from_cli(
-            sources=[benchmark_case.simready_source],
+            sources=benchmark_case.simready_sources,
             s3_url=benchmark_case.simready_s3_url,
             service_url=benchmark_case.simready_service_url,
             max_results_per_object=benchmark_case.simready_max_results_per_object,
@@ -338,7 +313,7 @@ def main() -> int:
         "simready": (
             {
                 "enabled": benchmark_case.enable_simready_search,
-                "source": benchmark_case.simready_source,
+                "sources": benchmark_case.simready_sources,
                 "s3_url": benchmark_case.simready_s3_url,
                 "service_url": benchmark_case.simready_service_url,
                 "max_results_per_object": benchmark_case.simready_max_results_per_object,

@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib.util
 import json
 import subprocess
 import sys
@@ -22,35 +23,53 @@ from pathlib import Path
 from typing import Any
 
 _BENCHMARK_SCRIPT = Path(__file__).with_name("benchmark_time_to_resolved_layout.py")
-_BENCHMARK_ROOT = Path("isaaclab_arena_environments/agentic_env_gen_benchmark")
-_DEFAULT_OUTPUT_DIR = Path("output/time_to_resolved_layout")
+_DEFAULT_ENV_SPECS_DIR = (
+    Path(importlib.util.find_spec("isaaclab_arena_environments").submodule_search_locations[0])
+    / "agentic_env_gen_benchmark"
+)
+_DEFAULT_OUTPUT_DIR = Path("outputs/time_to_resolved_layout")
 _DEFAULT_NUM_ENVS = (1, 16, 64, 256)
 
-_CASES = {
-    "tabletop_distractors_0": "tabletop_banana_plate_distractors_0/banana_to_plate_on_maple_table.yaml",
-    "tabletop_distractors_6": "tabletop_banana_plate_distractors_6/banana_to_plate_with_fruit_distractors.yaml",
-    "tabletop_distractors_14": "tabletop_banana_plate_distractors_14/droid_place_banana_on_plate.yaml",
-    "kitchen_distractors_0": "kitchen_banana_plate_distractors_0/droid_banana_to_plate_on_counter.yaml",
-    "kitchen_distractors_6": "kitchen_banana_plate_distractors_6/banana_to_plate_on_kitchen_counter.yaml",
-    "kitchen_distractors_14": "kitchen_banana_plate_distractors_14/droid_place_banana_on_plate.yaml",
-    "kitchen_open_fridge_door": "kitchen_open_fridge_door/droid_open_fridge.yaml",
-    "tabletop_heterogeneous_fruit_plate": "tabletop_heterogeneous_fruit_plate/droid_place_varied_fruit_on_plate.yaml",
-}
+
+def find_benchmark_cases(env_specs_dir: Path) -> dict[str, Path]:
+    """Map each subdirectory of ``env_specs_dir`` that holds environment YAML to that YAML.
+
+    Args:
+        env_specs_dir: Directory with one subdirectory per case, each holding exactly one spec YAML.
+
+    Returns:
+        Spec paths keyed by case name, sorted by case name.
+    """
+    assert env_specs_dir.is_dir(), f"benchmark environment spec directory not found: {env_specs_dir}"
+    cases: dict[str, Path] = {}
+    for case_dir in sorted(path for path in env_specs_dir.iterdir() if path.is_dir()):
+        env_specs = sorted(case_dir.glob("*.yaml"))
+        if not env_specs:
+            continue
+        assert len(env_specs) == 1, f"benchmark case {case_dir.name!r} must hold one spec YAML, found {env_specs}"
+        cases[case_dir.name] = env_specs[0]
+    assert cases, f"no benchmark environment specs found under {env_specs_dir}"
+    return cases
 
 
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
+        "--env_specs_dir",
+        type=Path,
+        default=_DEFAULT_ENV_SPECS_DIR,
+        help=f"Directory with one subdirectory per case (default: {_DEFAULT_ENV_SPECS_DIR}).",
+    )
+    parser.add_argument(
         "--case",
         action="append",
-        choices=tuple(_CASES),
-        help="Case to run. Repeat to select multiple cases; defaults to all cases.",
+        help="Case subdirectory name under --env_specs_dir. Repeat to select multiple cases; defaults to all cases.",
     )
     parser.add_argument(
         "--num_envs",
         type=int,
         action="append",
-        help="Environment count. Repeat for multiple values; defaults to 1, 16, 64, 256.",
+        help=f"Environment count. Repeat for multiple values; defaults to {', '.join(map(str, _DEFAULT_NUM_ENVS))}.",
     )
     parser.add_argument("--num_runs", type=int, default=100)
     parser.add_argument("--warmup_runs", type=int, default=1)
@@ -88,9 +107,10 @@ def _command(
 
 
 def _print_summary(results: list[dict[str, Any]]) -> None:
+    case_width = max([len("case"), *(len(result["case"]) for result in results)])
     print("\nValid spec to resolved layout pool", flush=True)
     print(
-        f"{'case':<28} {'envs':>6} {'ok':>6} {'fail':>6} {'p50 ms':>12} {'p95 ms':>12} {'p99 ms':>12}",
+        f"{'case':<{case_width}} {'envs':>6} {'ok':>6} {'fail':>6} {'p50 ms':>12} {'p95 ms':>12} {'p99 ms':>12}",
         flush=True,
     )
     for result in results:
@@ -99,7 +119,7 @@ def _print_summary(results: list[dict[str, Any]]) -> None:
         values = [summary[name] for name in ("p50_ms", "p95_ms", "p99_ms")]
         formatted = ["n/a" if value is None else f"{value:.3f}" for value in values]
         print(
-            f"{result['case']:<28} {num_envs:>6} "
+            f"{result['case']:<{case_width}} {num_envs:>6} "
             f"{summary['successful_samples']:>6} {summary['failed_samples']:>6} "
             f"{formatted[0]:>12} {formatted[1]:>12} {formatted[2]:>12}",
             flush=True,
@@ -134,7 +154,10 @@ def _validate_checkpoint(
 def main() -> int:
     """Run selected cases and environment counts, then combine their JSON results."""
     args = _parse_args()
-    cases = args.case or list(_CASES)
+    available_cases = find_benchmark_cases(args.env_specs_dir)
+    cases = args.case or list(available_cases)
+    unknown_cases = sorted(set(cases) - set(available_cases))
+    assert not unknown_cases, f"unknown benchmark cases {unknown_cases}; available: {sorted(available_cases)}"
     num_envs_values = args.num_envs or list(_DEFAULT_NUM_ENVS)
     assert args.num_runs > 0, "--num_runs must be positive"
     assert args.warmup_runs >= 0, "--warmup_runs must be non-negative"
@@ -147,8 +170,7 @@ def main() -> int:
     configuration_index = 0
 
     for case_name in cases:
-        env_spec = _BENCHMARK_ROOT / _CASES[case_name]
-        assert env_spec.is_file(), f"benchmark environment spec not found: {env_spec}"
+        env_spec = available_cases[case_name]
         for num_envs in num_envs_values:
             configuration_index += 1
             configuration_name = f"{case_name}_envs_{num_envs}"
@@ -191,6 +213,7 @@ def main() -> int:
         "num_runs_per_configuration": args.num_runs,
         "warmup_runs": args.warmup_runs,
         "placement_seed": args.placement_seed,
+        "env_specs_dir": str(args.env_specs_dir),
         "cases": cases,
         "num_envs": num_envs_values,
         "failed_configurations": failed_configurations,

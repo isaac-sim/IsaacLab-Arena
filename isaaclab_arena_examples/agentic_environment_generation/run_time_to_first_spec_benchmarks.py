@@ -29,8 +29,7 @@ from isaaclab_arena_examples.agentic_environment_generation.benchmark_time_to_fi
 from isaaclab_arena_examples.agentic_environment_generation.cli_runner import add_agent_inference_cli_args
 
 _BENCHMARK_SCRIPT = Path(__file__).with_name("benchmark_time_to_first_spec.py")
-_DEFAULT_OUTPUT_DIR = Path("output/time_to_first_spec")
-_DEFAULT_SPEC_OUTPUT_DIR = Path("isaaclab_arena_environments/agentic_env_gen_benchmark")
+_DEFAULT_OUTPUT_DIR = Path("outputs/time_to_first_spec")
 
 
 def parse_args() -> argparse.Namespace:
@@ -59,17 +58,20 @@ def parse_args() -> argparse.Namespace:
     spec_output.add_argument(
         "--spec_output_dir",
         type=Path,
-        default=_DEFAULT_SPEC_OUTPUT_DIR,
-        help=f"Generated YAML root directory (default: {_DEFAULT_SPEC_OUTPUT_DIR}).",
+        default=None,
+        help="Generated YAML root directory, with one subdirectory per case (default: <output_dir>/specs).",
     )
     spec_output.add_argument(
         "--no_save_specs",
-        action="store_const",
-        dest="spec_output_dir",
-        const=None,
+        action="store_true",
         help="Do not save a generated environment YAML for each benchmark case.",
     )
-    return parser.parse_args()
+    args = parser.parse_args()
+    if args.no_save_specs:
+        args.spec_output_dir = None
+    elif args.spec_output_dir is None:
+        args.spec_output_dir = args.output_dir / "specs"
+    return args
 
 
 def _benchmark_command(args: argparse.Namespace, case_name: str, output_path: Path) -> list[str]:
@@ -100,13 +102,14 @@ def _benchmark_command(args: argparse.Namespace, case_name: str, output_path: Pa
 def _print_summary(results: list[dict[str, Any]]) -> None:
     """Print one compact percentile row per completed case."""
     print("\nCombined time-to-first-spec results", flush=True)
-    print(f"{'case':<45} {'ok':>7} {'fail':>7} {'p50 ms':>12} {'p95 ms':>12} {'p99 ms':>12}", flush=True)
+    case_width = max([len("case"), *(len(result["case"]) for result in results)])
+    print(f"{'case':<{case_width}} {'ok':>7} {'fail':>7} {'p50 ms':>12} {'p95 ms':>12} {'p99 ms':>12}", flush=True)
     for result in results:
         summary = result["summary"]
         percentiles = [summary[name] for name in ("p50_ms", "p95_ms", "p99_ms")]
         formatted = ["n/a" if value is None else f"{value:.3f}" for value in percentiles]
         print(
-            f"{result['case']:<45} {summary['successful_samples']:>7} {summary['failed_samples']:>7} "
+            f"{result['case']:<{case_width}} {summary['successful_samples']:>7} {summary['failed_samples']:>7} "
             f"{formatted[0]:>12} {formatted[1]:>12} {formatted[2]:>12}",
             flush=True,
         )

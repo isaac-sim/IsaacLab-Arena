@@ -14,6 +14,7 @@ import pytest
 
 import isaaclab_arena_examples.agentic_environment_generation.benchmark_time_to_first_spec as benchmark
 import isaaclab_arena_examples.agentic_environment_generation.run_time_to_first_spec_benchmarks as batch_benchmark
+import isaaclab_arena_examples.agentic_environment_generation.run_time_to_resolved_layout_benchmarks as resolved_layout_batch
 from isaaclab_arena.environment_spec.arena_env_graph_spec import ArenaEnvGraphSpec
 from isaaclab_arena.tests.utils.agentic_environment_generation import minimal_spec_dict
 from isaaclab_arena_examples.agentic_environment_generation.cli_runner import add_agent_inference_cli_args
@@ -70,6 +71,18 @@ def test_batch_no_save_specs_disables_generated_yaml_output(monkeypatch):
     args = batch_benchmark.parse_args()
 
     assert args.spec_output_dir is None
+
+
+def test_batch_saves_specs_under_output_dir_by_default(monkeypatch, tmp_path):
+    monkeypatch.setattr(
+        batch_benchmark.sys,
+        "argv",
+        ["run_time_to_first_spec_benchmarks.py", "--num_runs", "1", "--output_dir", str(tmp_path)],
+    )
+
+    args = batch_benchmark.parse_args()
+
+    assert args.spec_output_dir == tmp_path / "specs"
 
 
 def test_batch_writes_only_combined_json(monkeypatch, tmp_path):
@@ -169,46 +182,11 @@ def test_run_sample_writes_first_generated_spec_after_measurement(monkeypatch, t
     assert ArenaEnvGraphSpec.from_yaml(output_path) == spec
 
 
-def test_default_case_file_uses_tabletop_banana_without_distractors():
+def test_every_benchmark_case_has_one_environment_spec_fixture():
     cases, default_case_name = benchmark.load_benchmark_cases(benchmark.DEFAULT_CASES_PATH)
-    case = cases[default_case_name]
 
-    assert default_case_name == "tabletop_banana_plate_distractors_0"
-    assert case.object_references_expected is False
-    assert "banana" in case.prompt
-    assert "no fruit or vegetable distractors" in case.prompt
-
-
-def test_manual_case_file_contains_all_requested_workloads():
-    cases, _ = benchmark.load_benchmark_cases(benchmark.DEFAULT_CASES_PATH)
-
-    assert set(cases) == {
-        "tabletop_banana_plate_distractors_0",
-        "tabletop_banana_plate_distractors_6",
-        "tabletop_banana_plate_distractors_14",
-        "tabletop_beverage_can_basket_simready",
-        "tabletop_heterogeneous_fruit_plate",
-        "kitchen_banana_plate_distractors_0",
-        "kitchen_banana_plate_distractors_6",
-        "kitchen_banana_plate_distractors_14",
-        "kitchen_open_fridge_door",
-    }
-    assert all(
-        not cases[f"tabletop_banana_plate_distractors_{count}"].object_references_expected for count in (0, 6, 14)
-    )
-    assert all(cases[f"kitchen_banana_plate_distractors_{count}"].object_references_expected for count in (0, 6, 14))
-    for count in (0, 6, 14):
-        kitchen_prompt = cases[f"kitchen_banana_plate_distractors_{count}"].prompt
-        assert "center-right counter top and a floor" in kitchen_prompt
-        assert "lightwheel_kitchen_one_wall_coastal" in kitchen_prompt
-        assert "DROID is next to the counter along negative y axis" in kitchen_prompt
-        assert "0.3 m away from the counter top and on the floor" in kitchen_prompt
-    open_fridge_case = cases["kitchen_open_fridge_door"]
-    assert open_fridge_case.object_references_expected
-    assert "lightwheel_kitchen_one_wall_coastal" in open_fridge_case.prompt
-    assert "negative-y side with 0.1 meter distance" in open_fridge_case.prompt
-    assert "1.57 radians so the robot faces the fridge" in open_fridge_case.prompt
-    assert "0.2 openness threshold" in open_fridge_case.prompt
+    assert default_case_name in cases
+    assert set(cases) == set(resolved_layout_batch.find_benchmark_cases(resolved_layout_batch._DEFAULT_ENV_SPECS_DIR))
 
 
 def test_load_benchmark_cases_from_manually_defined_file(tmp_path):
@@ -223,7 +201,7 @@ cases:
     prompt: Kitchen prompt
     object_references_expected: true
     enable_simready_search: true
-    simready_source: service
+    simready_sources: [service]
     simready_max_results_per_object: 2
 """,
         encoding="utf-8",
@@ -239,19 +217,21 @@ cases:
             "Kitchen prompt",
             object_references_expected=True,
             enable_simready_search=True,
-            simready_source="service",
+            simready_sources=["service"],
             simready_max_results_per_object=2,
         ),
     }
 
 
-def test_manual_cases_include_a_simready_service_workload():
-    cases, _ = benchmark.load_benchmark_cases(benchmark.DEFAULT_CASES_PATH)
-    case = cases["tabletop_beverage_can_basket_simready"]
+def test_load_benchmark_cases_rejects_unknown_fields(tmp_path):
+    cases_path = tmp_path / "cases.yaml"
+    cases_path.write_text(
+        "default_case: first\ncases:\n  first:\n    prompt: First prompt\n    simready_source: service\n",
+        encoding="utf-8",
+    )
 
-    assert case.enable_simready_search
-    assert case.simready_source == "service"
-    assert "beverage can" in case.prompt
+    with pytest.raises(AssertionError, match="unknown fields"):
+        benchmark.load_benchmark_cases(cases_path)
 
 
 def test_load_benchmark_cases_rejects_unknown_default(tmp_path):
