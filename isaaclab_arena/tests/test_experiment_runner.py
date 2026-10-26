@@ -152,7 +152,7 @@ def run_experiment_runner(
     return run_subprocess(args, capture_output=capture_output, timeout_sec=timeout_sec)
 
 
-def test_written_experiment_result_has_integer_start_timestamp_for_every_run(monkeypatch, tmp_path):
+def test_written_experiment_result_has_integer_end_timestamp_for_every_run(monkeypatch, tmp_path):
     from isaaclab_arena.evaluation import arena_experiment_result
     from isaaclab_arena.evaluation.arena_run import ArenaRunResult, RunStatus
     from isaaclab_arena.evaluation.experiment_runner import _write_arena_experiment_result
@@ -167,16 +167,16 @@ def test_written_experiment_result_has_integer_start_timestamp_for_every_run(mon
     )
     experiment_cfg = SimpleNamespace(runs={"passing": SimpleNamespace(), "failing": SimpleNamespace()})
     run_results = [
-        ArenaRunResult(run_name="passing", status=RunStatus.COMPLETED, start_timestamp_ns=1792800000000000000),
-        ArenaRunResult(run_name="failing", status=RunStatus.FAILED, start_timestamp_ns=1760313700000000000),
+        ArenaRunResult(run_name="passing", status=RunStatus.COMPLETED, end_timestamp_ns=1792800000000000000),
+        ArenaRunResult(run_name="failing", status=RunStatus.FAILED, end_timestamp_ns=1760313700000000000),
     ]
     (tmp_path / "passing").mkdir()
 
     result_path = _write_arena_experiment_result(experiment_cfg, run_results, tmp_path)
 
     runs = json.loads(result_path.read_text(encoding="utf-8"))["runs"]
-    assert runs["passing"]["start_timestamp_ns"] == 1792800000000000000
-    assert runs["failing"]["start_timestamp_ns"] == 1760313700000000000
+    assert runs["passing"]["end_timestamp_ns"] == 1792800000000000000
+    assert runs["failing"]["end_timestamp_ns"] == 1760313700000000000
 
 
 @pytest.mark.with_subprocess
@@ -223,10 +223,10 @@ runs:
     }
     assert run_result["policy_variant"] == "zero_action"
     assert run_result["status"] == "completed"
-    assert isinstance(run_result["start_timestamp_ns"], int)
-    assert set(run_result) == {"environment", "policy_variant", "status", "start_timestamp_ns", "rebuilds"}
+    assert isinstance(run_result["end_timestamp_ns"], int)
+    assert set(run_result) == {"environment", "policy_variant", "status", "end_timestamp_ns", "rebuilds"}
     experiment_kpis = json.loads((tmp_path / "output" / ARENA_EXPERIMENT_KPIS_FILENAME).read_text(encoding="utf-8"))
-    assert experiment_kpis["timestamp_ns"] == run_result["start_timestamp_ns"]
+    assert experiment_kpis["timestamp_ns"] == run_result["end_timestamp_ns"]
 
 
 @pytest.mark.with_subprocess

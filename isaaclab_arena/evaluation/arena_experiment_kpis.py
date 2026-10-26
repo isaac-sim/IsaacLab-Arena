@@ -176,7 +176,7 @@ def build_experiment_kpis(experiment_output_directory: Path) -> dict:
     """Build the KPI file contents of a finished Experiment output directory.
 
     Reads ``arena_experiment_result.json``, the Runs' episode results and, when present,
-    ``arena_experiment_timings.json``. The timestamp is the earliest Run start.
+    ``arena_experiment_timings.json``. The timestamp is the latest Run end.
 
     Args:
         experiment_output_directory: Experiment output root holding the result file and one directory per Run.
@@ -195,10 +195,10 @@ def build_experiment_kpis(experiment_output_directory: Path) -> dict:
     ), f"Experiment result in '{experiment_output_directory}' has no provenance {missing_provenance_keys}"
 
     for run_name, run_result in runs.items():
-        start_timestamp_ns = run_result.get("start_timestamp_ns")
-        assert isinstance(start_timestamp_ns, int) and not isinstance(start_timestamp_ns, bool), (
-            f"Run {run_name!r} in '{experiment_output_directory}' has no integer start_timestamp_ns; results written"
-            " before Run start times were recorded cannot produce a KPI file"
+        end_timestamp_ns = run_result.get("end_timestamp_ns")
+        assert isinstance(end_timestamp_ns, int) and not isinstance(end_timestamp_ns, bool), (
+            f"Run {run_name!r} in '{experiment_output_directory}' has no integer end_timestamp_ns; results written"
+            " before Run end times were recorded cannot produce a KPI file"
         )
 
     run_names = set(runs)
@@ -223,7 +223,7 @@ def build_experiment_kpis(experiment_output_directory: Path) -> dict:
 
     return {
         "schema_version": KPI_SCHEMA_VERSION,
-        "timestamp_ns": min(run_result["start_timestamp_ns"] for run_result in runs.values()),
+        "timestamp_ns": max(run_result["end_timestamp_ns"] for run_result in runs.values()),
         "provenance": {key: result["provenance"][key] for key in PROVENANCE_KEYS},
         "records": [
             per_experiment_record,

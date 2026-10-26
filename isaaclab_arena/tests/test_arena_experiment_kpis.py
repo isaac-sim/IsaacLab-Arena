@@ -27,7 +27,7 @@ from isaaclab_arena.evaluation.arena_experiment_result import (
 )
 from isaaclab_arena.visualization.report_data import build_experiment_summary
 
-START_TIMESTAMP_NS = 1792800000000000000
+END_TIMESTAMP_NS = 1792800000000000000
 """2026-10-23 UTC, in Unix epoch nanoseconds."""
 
 PROVENANCE = {"git_sha": "1a2b3c4", "git_branch": "main"}
@@ -57,7 +57,7 @@ def _write_experiment(
 ) -> Path:
     """Write a result file, per-Run episode JSONL and optionally a timings file.
 
-    Each entry of ``runs`` may set ``status``, ``start_timestamp_ns``, ``environment``, ``policy_variant`` and
+    Each entry of ``runs`` may set ``status``, ``end_timestamp_ns``, ``environment``, ``policy_variant`` and
     ``episodes`` (records written to ``<run>/episode_results.jsonl``).
     """
     result_runs = {}
@@ -71,8 +71,8 @@ def _write_experiment(
             "status": run.get("status", "completed"),
             "rebuilds": [{"index": 0, "episodes": episodes}],
         }
-        if run.get("start_timestamp_ns", START_TIMESTAMP_NS) is not None:
-            result_run["start_timestamp_ns"] = run.get("start_timestamp_ns", START_TIMESTAMP_NS)
+        if run.get("end_timestamp_ns", END_TIMESTAMP_NS) is not None:
+            result_run["end_timestamp_ns"] = run.get("end_timestamp_ns", END_TIMESTAMP_NS)
         result_runs[run_name] = result_run
     experiment_output_directory.mkdir(parents=True, exist_ok=True)
     (experiment_output_directory / ARENA_EXPERIMENT_RESULT_FILENAME).write_text(
@@ -102,7 +102,7 @@ def _per_experiment(kpis: dict) -> dict:
 def _valid_kpis() -> dict:
     return {
         "schema_version": 1,
-        "timestamp_ns": START_TIMESTAMP_NS,
+        "timestamp_ns": END_TIMESTAMP_NS,
         "provenance": dict(PROVENANCE),
         "records": [
             {"type": "per_experiment", "success_rate": 0.5, "num_runs": 1},
@@ -176,18 +176,18 @@ def test_episodes_in_nested_run_directories_are_pooled_into_their_run(tmp_path):
     assert _per_run(kpis, "run_a")["num_successes"] == 2
 
 
-def test_timestamp_is_earliest_run_start(tmp_path):
-    t1 = START_TIMESTAMP_NS
-    t2 = START_TIMESTAMP_NS + 5_000_000_000
+def test_timestamp_is_latest_run_end(tmp_path):
+    t1 = END_TIMESTAMP_NS
+    t2 = END_TIMESTAMP_NS + 5_000_000_000
     experiment_output_directory = _write_experiment(
         tmp_path / "experiment",
         {
-            "late": {"episodes": _episode_records(1, 1), "start_timestamp_ns": t2},
-            "early": {"episodes": _episode_records(1, 0), "start_timestamp_ns": t1},
+            "late": {"episodes": _episode_records(1, 1), "end_timestamp_ns": t2},
+            "early": {"episodes": _episode_records(1, 0), "end_timestamp_ns": t1},
         },
     )
 
-    assert build_experiment_kpis(experiment_output_directory)["timestamp_ns"] == t1
+    assert build_experiment_kpis(experiment_output_directory)["timestamp_ns"] == t2
 
 
 def test_failed_run_has_no_success_rate(tmp_path):
@@ -218,7 +218,7 @@ def test_all_failed_experiment_still_has_timestamp(tmp_path):
     experiment_output_directory = _write_experiment(
         tmp_path / "experiment",
         {
-            "a": {"status": "failed", "start_timestamp_ns": START_TIMESTAMP_NS + 1},
+            "a": {"status": "failed", "end_timestamp_ns": END_TIMESTAMP_NS + 1},
             "b": {"status": "failed"},
         },
         timings={"totals": [], "runs": []},
@@ -227,7 +227,7 @@ def test_all_failed_experiment_still_has_timestamp(tmp_path):
     kpis = build_experiment_kpis(experiment_output_directory)
 
     validate_experiment_kpis(kpis)
-    assert kpis["timestamp_ns"] == START_TIMESTAMP_NS
+    assert kpis["timestamp_ns"] == END_TIMESTAMP_NS + 1
     per_experiment = _per_experiment(kpis)
     assert "success_rate" not in per_experiment
     assert per_experiment["num_runs_failed"] == 2
@@ -331,10 +331,10 @@ def test_missing_timings_file_omits_timing_records(tmp_path):
     assert _records_of_type(kpis, "timing") == []
 
 
-def test_missing_start_timestamp_names_the_run(tmp_path):
+def test_missing_end_timestamp_names_the_run(tmp_path):
     experiment_output_directory = _write_experiment(
         tmp_path / "experiment",
-        {"has_start": {"episodes": _episode_records(1, 1)}, "old_run": {"start_timestamp_ns": None}},
+        {"has_end": {"episodes": _episode_records(1, 1)}, "old_run": {"end_timestamp_ns": None}},
     )
 
     with pytest.raises(AssertionError, match="old_run"):

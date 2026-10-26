@@ -56,8 +56,7 @@ class ArenaExperimentRunData(TypedDict):
     environment: dict[str, str]
     policy_variant: str
     status: Literal["completed", "failed"]
-    start_timestamp_ns: int
-    """Unix epoch nanoseconds (UTC) at which the Run started executing."""
+    end_timestamp_ns: int
     rebuilds: list[ArenaRebuildResultData]
 
 
@@ -101,7 +100,7 @@ class ArenaExperimentResult:
     """Combine every Run's metadata and episode JSONLs into one Experiment result file.
 
     The result contains the Arena commit provenance and each configured Run's environment, policy variant,
-    execution status, start time, and raw episode records grouped by rebuild. It does not compute aggregate
+    execution status, end time, and raw episode records grouped by rebuild. It does not compute aggregate
     metrics or collect videos.
     """
 
@@ -124,7 +123,7 @@ class ArenaExperimentResult:
 
         Args:
             experiment_output_directory: Experiment output root containing one directory per Run.
-            run_metadata_by_name: Environment, policy variant, final status, and start time for each declared Run.
+            run_metadata_by_name: Environment, policy variant, final status, and end time for each declared Run.
             provenance: Arena git commit and branch; read from the environment when omitted.
         """
         assert run_metadata_by_name, "run_metadata_by_name must not be empty"
@@ -142,10 +141,10 @@ class ArenaExperimentResult:
         status = run_metadata["status"]
         assert status in ("completed", "failed"), f"status for Run {run_name!r} must be 'completed' or 'failed'"
 
-        start_timestamp_ns = run_metadata["start_timestamp_ns"]
-        assert isinstance(start_timestamp_ns, int) and not isinstance(
-            start_timestamp_ns, bool
-        ), f"start_timestamp_ns for Run {run_name!r} must be an int"
+        end_timestamp_ns = run_metadata["end_timestamp_ns"]
+        assert isinstance(end_timestamp_ns, int) and not isinstance(
+            end_timestamp_ns, bool
+        ), f"end_timestamp_ns for Run {run_name!r} must be an int"
 
         run_output_directory = self.experiment_output_directory / run_name
         if status == "completed":
@@ -169,7 +168,7 @@ class ArenaExperimentResult:
             },
             "policy_variant": run_metadata["policy_variant"],
             "status": status,
-            "start_timestamp_ns": start_timestamp_ns,
+            "end_timestamp_ns": end_timestamp_ns,
             "rebuilds": rebuilds,
         }
 

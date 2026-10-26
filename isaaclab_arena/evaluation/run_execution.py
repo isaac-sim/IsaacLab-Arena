@@ -64,7 +64,6 @@ def execute_experiment(
         run_output_dir = output_dir / run_cfg.name
         # Clear timers.
         reset_timer_stats()
-        start_timestamp_ns = time.time_ns()  # Taken once per Run, before the build.
         try:
             result = build_and_run(
                 run_cfg,
@@ -80,7 +79,7 @@ def execute_experiment(
                 ArenaRunResult(
                     run_name=run_cfg.name,
                     status=RunStatus.FAILED,
-                    start_timestamp_ns=start_timestamp_ns,
+                    end_timestamp_ns=time.time_ns(),
                 )
             )
             print(f"Run '{run_cfg.name}' failed with error: {error}", flush=True)
@@ -89,9 +88,10 @@ def execute_experiment(
                 raise
             continue
 
+        end_timestamp_ns = time.time_ns()
         print_timer_stats()
         write_run_timings(run_output_dir)
-        results.append(replace(result, start_timestamp_ns=start_timestamp_ns))
+        results.append(replace(result, end_timestamp_ns=end_timestamp_ns))
     return results
 
 

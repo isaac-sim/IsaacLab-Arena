@@ -56,17 +56,17 @@ def load_experiment_runner_result(
     }, f"Experiment Runner result for Run '{run_name}' must contain metadata for exactly that Run"
     run_metadata = run_metadata_by_name[run_name]
     assert isinstance(run_metadata, dict), f"Experiment Runner metadata for Run '{run_name}' must be a JSON object"
-    start_timestamp_ns = experiment_runner_result["start_timestamp_ns"]
-    assert isinstance(start_timestamp_ns, int) and not isinstance(
-        start_timestamp_ns, bool
-    ), f"Experiment Runner result for Run '{run_name}' must have an integer start_timestamp_ns"
+    end_timestamp_ns = experiment_runner_result["end_timestamp_ns"]
+    assert isinstance(end_timestamp_ns, int) and not isinstance(
+        end_timestamp_ns, bool
+    ), f"Experiment Runner result for Run '{run_name}' must have an integer end_timestamp_ns"
     return (
         RunExecutionReport(
             run_name=run_name,
             status=execution_status,
             process_exit_code=process_exit_code,
         ),
-        {**run_metadata, "start_timestamp_ns": start_timestamp_ns},
+        {**run_metadata, "end_timestamp_ns": end_timestamp_ns},
     )
 
 

@@ -22,7 +22,7 @@ from isaaclab_arena.evaluation.arena_experiment_result import (
 )
 from isaaclab_arena.evaluation.provenance import Provenance
 
-START_TIMESTAMP_NS = 1792800000000000000
+END_TIMESTAMP_NS = 1792800000000000000
 
 
 def _metadata(
@@ -38,7 +38,7 @@ def _metadata(
         },
         "policy_variant": policy_variant,
         "status": status,
-        "start_timestamp_ns": START_TIMESTAMP_NS,
+        "end_timestamp_ns": END_TIMESTAMP_NS,
     }
 
 
@@ -85,7 +85,7 @@ def test_collects_declared_runs_rebuilds_and_rank_files_without_changing_episode
                 },
                 "policy_variant": "pi05",
                 "status": "completed",
-                "start_timestamp_ns": START_TIMESTAMP_NS,
+                "end_timestamp_ns": END_TIMESTAMP_NS,
                 "rebuilds": [
                     {"index": 0, "episodes": [{"rebuild": 0}]},
                     {"index": 1, "episodes": [*rank_zero_records, *rank_one_records]},
@@ -99,7 +99,7 @@ def test_collects_declared_runs_rebuilds_and_rank_files_without_changing_episode
                 },
                 "policy_variant": "pi05",
                 "status": "failed",
-                "start_timestamp_ns": START_TIMESTAMP_NS,
+                "end_timestamp_ns": END_TIMESTAMP_NS,
                 "rebuilds": [{"index": 0, "episodes": [{"partial": True}]}],
             },
         },
@@ -157,19 +157,19 @@ def test_provenance_rejects_invalid_values(provenance):
 
 
 @pytest.mark.parametrize("status", ["completed", "failed"])
-def test_run_metadata_start_timestamp_is_written(tmp_path, status):
+def test_run_metadata_end_timestamp_is_written(tmp_path, status):
     (tmp_path / "run").mkdir()
 
     result = ArenaExperimentResult(tmp_path, {"run": _metadata("task", status=status)})
 
-    assert result.to_dict()["runs"]["run"]["start_timestamp_ns"] == 1792800000000000000
+    assert result.to_dict()["runs"]["run"]["end_timestamp_ns"] == 1792800000000000000
 
 
-def test_run_metadata_requires_integer_start_timestamp(tmp_path):
+def test_run_metadata_requires_integer_end_timestamp(tmp_path):
     metadata = _metadata("task", status="failed")
-    metadata["start_timestamp_ns"] = "1792800000000000000"
+    metadata["end_timestamp_ns"] = "1792800000000000000"
 
-    with pytest.raises(AssertionError, match="start_timestamp_ns for Run 'run' must be an int"):
+    with pytest.raises(AssertionError, match="end_timestamp_ns for Run 'run' must be an int"):
         ArenaExperimentResult(tmp_path, {"run": metadata})
 
 

@@ -120,11 +120,8 @@ class ArenaRunResult:
     metrics: MetricsDataCollection | None = None
     """Metrics aggregated over all successful rebuilds, when provided by the task."""
 
-    start_timestamp_ns: int | None = None
-    """Unix epoch nanoseconds (UTC) at which the run started.
-
-    Set by ``execute_experiment``; None for results returned by a direct ``build_and_run`` call.
-    """
+    end_timestamp_ns: int | None = None
+    """Unix epoch nanoseconds (UTC) at which the run finished or failed."""
 
 
 def build_runs_info_table(run_cfgs: Iterable[ArenaRunCfg], results: Iterable[ArenaRunResult]) -> PrettyTable:
