@@ -105,6 +105,10 @@ By default, Arena saves the result as
 ``outputs/YYYY-MM-DD_HH-MM-SS/arena_experiment_result.json`` and prints the exact path. The file
 records every Run, its status, and its episode results.
 
+When episodes record string or boolean variation values, such as an HDR name or a selected asset,
+Arena also prints one row for each Run, variation, and value, with its episode count and success
+rate across all rebuilds of the Run.
+
 
 Change values from the command line
 -----------------------------------
