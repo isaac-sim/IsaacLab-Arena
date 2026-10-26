@@ -628,7 +628,7 @@ as a passive obstacle only in <code class="docutils literal notranslate"><span c
 <tbody>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">CollisionMode.BBOX</span></code></p></td>
 <td><p>Faster</p></td>
-<td><p>Axis-aligned bounding boxes</p></td>
+<td><p>Oriented bounding boxes</p></td>
 <td><p>Default choice when boxes reasonably approximate the objects</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">CollisionMode.MESH</span></code></p></td>
@@ -644,7 +644,7 @@ as a passive obstacle only in <code class="docutils literal notranslate"><span c
 </a>
 <figcaption>
 <p><span class="caption-text">For the same requested placement, <code class="docutils literal notranslate"><span class="pre">BBOX</span></code> rejects the layout because the
-axis-aligned boxes overlap, while <code class="docutils literal notranslate"><span class="pre">MESH</span></code> accepts it using
+boxes overlap, while <code class="docutils literal notranslate"><span class="pre">MESH</span></code> accepts it using
 sphere-versus-mesh collision checks.</span><a class="headerlink" href="#id1" title="Link to this image">#</a></p>
 </figcaption>
 </figure>
@@ -714,10 +714,13 @@ for placement-level controls.</p>
 <p>Overlap checking has two stages:</p>
 <ol class="arabic simple">
 <li><p>During optimization, the solver adds a differentiable no-overlap loss.
-<code class="docutils literal notranslate"><span class="pre">BBOX</span></code> expands the obstacle boxes by <code class="docutils literal notranslate"><span class="pre">clearance_m</span></code> and penalizes their
-intersection volume. For mesh-covered pairs, <code class="docutils literal notranslate"><span class="pre">MESH</span></code> represents movable
-geometry with up to <code class="docutils literal notranslate"><span class="pre">num_spheres</span></code> bounding spheres and queries their
-distance from the target collision mesh. Increasing <code class="docutils literal notranslate"><span class="pre">num_spheres</span></code> may
+<code class="docutils literal notranslate"><span class="pre">BBOX</span></code> multiplies the interval overlaps along each box’s face axes,
+including <code class="docutils literal notranslate"><span class="pre">clearance_m</span></code>, and penalizes the harmonic mean of the two
+volumes. It is zero exactly when a face axis separates the boxes by at least
+<code class="docutils literal notranslate"><span class="pre">clearance_m</span></code>, and for axis-aligned boxes it is the intersection volume
+after expanding the obstacle by the clearance. For mesh-covered pairs, <code class="docutils literal notranslate"><span class="pre">MESH</span></code> represents
+movable geometry with up to <code class="docutils literal notranslate"><span class="pre">num_spheres</span></code> bounding spheres and queries
+their distance from the target collision mesh. Increasing <code class="docutils literal notranslate"><span class="pre">num_spheres</span></code> may
 improve sphere coverage, at the cost of slower solving and validation.</p></li>
 <li><p>After optimization, the <code class="docutils literal notranslate"><span class="pre">no_overlap</span></code> validator applies a discrete
 pass/fail check to each candidate. A low solver loss does not guarantee that
@@ -725,9 +728,30 @@ this check passes. Placement uses the validator results to rank and select
 candidates according to the configured checks and fallback policy. See
 <a class="reference internal" href="validation.html"><span class="doc">Placement Validation</span></a> and <a class="reference internal" href="pooled_placement.html"><span class="doc">Pooled Placement</span></a>.</p></li>
 </ol>
+<p>Box collision geometry uses each candidate’s sampled or authored rotation and
+assigned object variant. <code class="docutils literal notranslate"><span class="pre">FaceTo</span></code> headings are applied after solving;
+validation checks the updated boxes. The validator uses the separating-axis
+test (SAT), batched across candidates; axis-aligned bounding box (AABB) pairs
+use interval comparisons. The loss works along face axes, so tilted boxes
+separated only by an edge-cross-edge axis can still receive a positive penalty
+even when SAT accepts them. This penalty is not the exact intersection volume
+of rotated boxes. When any collision box in a solve is rotated, boxes thinner
+than 2 mm count as 2 mm thick in this loss, so a flat object that overlaps an
+obstacle still has an overlap volume to reduce.</p>
+<p>Support-fit checks and clutter release initialization use enclosing AABBs.
+For exact bounding-box containment with <code class="docutils literal notranslate"><span class="pre">On</span></code>, keep the support axis aligned
+(yaw in multiples of 90 degrees). With other support yaws, or <code class="docutils literal notranslate"><span class="pre">On(overlap=True)</span></code>,
+enclosing-footprint checks can accept disjoint footprints.
+Bounding-box clearance is measured along tested axes, rather than as Euclidean
+surface distance.</p>
 <p><code class="docutils literal notranslate"><span class="pre">MESH</span></code> enables sphere-to-mesh checks where Arena can obtain the target
 collision mesh. Pairs not covered by a mesh check use bounding-box-based
-checks.</p>
+checks. Each pair has a subject, the object the loss moves, and an obstacle held
+fixed. A pair whose obstacle has a mesh, or whose subject has a mesh and whose
+obstacle is not a background object, uses enclosing-AABB penalties, while the
+validator checks sphere proxies against the mesh. Near contact the two can
+disagree, so a layout with zero loss can still fail validation. A meshed object
+against a meshless background obstacle uses oriented boxes.</p>
 <p>The solver and validator check the following pairs:</p>
 <div class="pst-scrollable-table-container"><table class="table">
 <colgroup>

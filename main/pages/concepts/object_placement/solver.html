@@ -662,10 +662,10 @@ parameters before creating the builder:</p>
 <span class="n">env</span> <span class="o">=</span> <span class="n">builder</span><span class="o">.</span><span class="n">make_registered</span><span class="p">()</span>
 </pre></div>
 </div>
-<p>In <code class="docutils literal notranslate"><span class="pre">BBOX</span></code> mode, collision checking uses the conservative axis-aligned box
-enclosing each rotated object. <code class="docutils literal notranslate"><span class="pre">MESH</span></code> mode follows the collision geometry
-more closely. Objects with a <code class="docutils literal notranslate"><span class="pre">FaceTo</span></code> relation use their relation-derived
-heading instead of a random yaw.</p>
+<p>In <code class="docutils literal notranslate"><span class="pre">BBOX</span></code> mode, collision boxes use the sampled or authored rotation during
+solving. <code class="docutils literal notranslate"><span class="pre">FaceTo</span></code> headings are computed from the solved positions, then checked
+by the validators with updated collision boxes. Relation containment uses
+enclosing axis-aligned bounds. <code class="docutils literal notranslate"><span class="pre">MESH</span></code> follows the collision geometry more closely.</p>
 </section>
 </section>
 <section id="robot-embodiment-placement">

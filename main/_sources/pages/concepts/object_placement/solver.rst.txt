@@ -78,10 +78,10 @@ parameters before creating the builder:
    builder = ArenaEnvBuilder(arena_environment, ArenaEnvBuilderCfg())
    env = builder.make_registered()
 
-In ``BBOX`` mode, collision checking uses the conservative axis-aligned box
-enclosing each rotated object. ``MESH`` mode follows the collision geometry
-more closely. Objects with a ``FaceTo`` relation use their relation-derived
-heading instead of a random yaw.
+In ``BBOX`` mode, collision boxes use the sampled or authored rotation during
+solving. ``FaceTo`` headings are computed from the solved positions, then checked
+by the validators with updated collision boxes. Relation containment uses
+enclosing axis-aligned bounds. ``MESH`` follows the collision geometry more closely.
 
 Robot Embodiment Placement
 --------------------------
