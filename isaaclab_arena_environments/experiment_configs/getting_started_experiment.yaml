@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-# An Arena Experiment with shared values and five named Runs.
+# An Arena Experiment with shared values and four named Runs.
 # Values under shared are used by every Run below.
 # A Run only needs to list what is different; its values override the shared ones.
 # To change a shared value on the command line:
@@ -29,8 +29,13 @@ runs:
 
   swap_objects:
     environment:
-      pick_up_object: mustard_bottle_hot3d_robolab
       destination_location: wooden_bowl_hot3d_robolab
+    num_rebuilds: 3
+    rollout_limit:
+      num_episodes: 3
+    variations:
+      pick_up_object.asset_selection.enabled: true
+      pick_up_object.asset_selection.registry_names: [mustard_bottle_hot3d_robolab, orange_01_fruits_veggies_robolab, rubiks_cube_hot3d_robolab]
 
   change_background_hdr:
     environment:
@@ -40,11 +45,3 @@ runs:
     environment_builder:
       num_envs: 64
       env_spacing: 2.5
-
-  multiple_pick_up_objects:
-    num_rebuilds: 3
-    rollout_limit:
-      num_episodes: 3
-    variations:
-      pick_up_object.asset_selection.enabled: true
-      pick_up_object.asset_selection.registry_names: [rubiks_cube_hot3d_robolab, mustard_bottle_hot3d_robolab, orange_01_fruits_veggies_robolab]

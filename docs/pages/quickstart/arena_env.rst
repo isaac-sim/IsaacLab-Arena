@@ -155,7 +155,7 @@ what that setup looks like:
 .. note::
 
    The three commands above make explicit choices for each launch. On the next page, those choices
-   and the parallel setup become named Runs in one YAML file. Later, Arena *variations* will
+   and the parallel setup become four named Runs in one YAML file. Later, Arena *variations* will
    choose and record values automatically when an environment is built or reset.
 
 

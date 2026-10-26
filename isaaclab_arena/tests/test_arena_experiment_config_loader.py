@@ -72,7 +72,6 @@ def test_load_typed_yaml_experiment_applies_overrides_and_device(monkeypatch):
         "swap_objects",
         "change_background_hdr",
         "parallel_envs",
-        "multiple_pick_up_objects",
     ]
     assert isinstance(runs["baseline"].environment, PickAndPlaceMapleTableEnvironmentCfg)
     assert runs["baseline"].environment.light_intensity == 750.0
